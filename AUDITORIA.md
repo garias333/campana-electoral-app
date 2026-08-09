@@ -44,6 +44,37 @@ tiene su propia copia y no se generó parche (ver la regla de no empaquetar
 parches sin pedido). Sus bases ya tienen la columna, así que no están rotas;
 les falta solo el `LOWER()` y la verificación de arranque.
 
+### A25 — Las tres instancias han derivado en silencio, y dos van atrasadas en arreglos reales 🟠 Alta (hallazgo nuevo, al ejecutar A1)
+
+Medido archivo por archivo (61 `.js` de `app.js`, `routes/`, `config/`, `db/`,
+`lib/`, `middleware/`, `public/js/`) entre `electoral` y cada campaña. Las dos
+campañas difieren **exactamente en los mismos 5 archivos** + 1 que les falta —
+o sea que no son cambios propios de cada campaña, son **copias viejas**
+(municipal es del 30 de julio; departamental, del 2 de agosto):
+
+| Archivo | Qué les falta |
+|---|---|
+| `app.js`, `db/init-db.js`, `db/schema.sql`, `config/verificarEsquema.js` | El arreglo A1 de hoy (esperado) |
+| `routes/auth.routes.js` | A1/A7bis + (**solo municipal**) el cambio de `401`→`400` en cambiar-contraseña, sin el cual el frontend interpreta «sesión vencida», redirige a login y **se traga el mensaje de error** |
+| `routes/comunicaciones.routes.js` | 12 líneas del arreglo de Push: sin traer `usuario_id` aparte del id de estructura, un aviso por selección manual **no encuentra el dispositivo de nadie y la campaña entera sale como «sin contacto», sin un solo error** |
+| `public/js/common.js` | La entrada de menú «Aviso en la app» (push) |
+
+**Por qué importa más que la suma de sus partes:** los dos arreglos que les
+faltan fallan **en silencio** —un mensaje de error que desaparece, una campaña
+de avisos que no llega a nadie—, que es justo la clase de fallo que nadie
+reporta. Y nada en el sistema avisa de la deriva: hay que ir a compararla a
+mano, como se hizo aquí.
+
+**Recomendación:** una comprobación de deriva (un `diff` de los archivos
+versionados entre instancias) antes de dar por buena cualquier jornada de
+parches. Es barato y convierte un fallo silencioso en una lista.
+
+**No se corrigió:** esas copias no están bajo git, los archivos pertenecen a
+otro usuario del sistema, y la vía sancionada para llevarles código es el
+sistema de parches. Reemplazarlos a mano cambiaría el dueño de los archivos
+—el proyecto ya tuvo un 502 por eso— y dejaría el cambio sin forma de
+revertir.
+
 **Hallazgo empírico al aplicar A1, que conviene registrar:** se midieron las
 **tres** bases (`electoraldb`, `campanadepruebamunicipal`,
 `campanadepruebadepartamental`) y las tres ya tienen la columna **idéntica**:
@@ -107,7 +138,7 @@ escritura de votantes.
 | Severidad | Cantidad | IDs | Abiertos |
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
-| 🟠 Alta | 4 | A2, A3, A4, A5 | A2, A4, A5 |
+| 🟠 Alta | 5 | A2, A3, A4, A5, **A25** | A2, A4, A5, A25 |
 | 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial) |
 | ⚪ Baja | 9 | A16–A24 | A16–A24 |
 
