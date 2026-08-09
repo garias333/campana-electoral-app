@@ -147,7 +147,7 @@ escritura de votantes.
 | Severidad | Cantidad | IDs | Abiertos |
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
-| 🟠 Alta | 5 | A2, A3, A4, A5, **A25** | A2, A4, A5, A25 |
+| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A2, A4, A5, A25, A26 |
 | 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial) |
 | ⚪ Baja | 9 | A16–A24 | A16–A24 |
 
@@ -287,6 +287,50 @@ repositorio.
      una integridad referencial que la base real ya no tiene.
   3. **Columnas manuales** (`nombre_usuario`, ver A1) que sólo viven en la base
      real.
+
+#### Medición del 9 de agosto de 2026 (esta sección era inferencia; ahora son cifras)
+
+| Aspecto | `db/schema.sql` dice | Plantilla `electoraldb` | Campañas reales |
+|---|---|---|---|
+| `territorios` | TABLE con auto-FK | **TABLE, 0 filas** | **VIEW** (197 y 245 filas) |
+| FK a `territorios` desde las otras 5 tablas | **5 declaradas** | **0** | **0** |
+| auto-FK `territorios.padre_id` | sí | **sí, todavía presente** | n/a (es vista) |
+| `campana_ambito` | **no existe en el repo** | existe, 0 filas | existe, 1 fila |
+
+**Dos correcciones a lo que decía la versión anterior de este informe:**
+
+1. En `electoraldb` —**la plantilla**— `territorios` **no** es una vista: es
+   una tabla vacía con su auto-FK `padre_id` todavía puesta. La vista solo
+   existe en las dos campañas. La plantilla está en un **estado híbrido**: ya
+   tiene `campana_ambito` (artefacto de la era del catálogo) pero conserva
+   `territorios` como tabla local (estado pre-catálogo).
+2. Por eso el problema de aprovisionamiento es **peor** de lo descrito: una
+   campaña clonada de la plantilla **no nace conectada al catálogo**. Nace con
+   una tabla `territorios` vacía, y alguien tiene que acordarse de convertirla
+   en vista a mano, con un script que vive **en el otro proyecto**
+   (`vista_territorios_catalogo.sql`). Nada en este repositorio lo hace ni lo
+   menciona.
+
+**Y `schema.sql` no solo desinforma: estorba.** Las 5 FK que declara hacia
+`territorios` no existen en ninguna base real y **no pueden existir**. Si
+alguien instalara desde `schema.sql` tal cual, se crearían — y después la
+conversión a vista fallaría, porque MySQL no deja reemplazar por una vista una
+tabla con referencias vivas.
+
+### A26 — `campana_ambito` no la crea nada en el repositorio 🟠 Alta (hallazgo nuevo, al medir A2)
+
+- **Evidencia:** existe en las tres bases; `grep -rn campana_ambito` sobre
+  `db/`, `routes/`, `config/`, `middleware/` y `app.js` no devuelve **nada**.
+- **Qué se rompe:** acota el ámbito de la campaña, y de ella depende la vista
+  `territorios` que reemplaza a la tabla local. Sin ella la integración con el
+  catálogo no se puede levantar desde este repositorio.
+- **Matiz que la distingue de A1:** el código de la aplicación **nunca la
+  consulta** — quien la usa es la definición de la vista, que vive en el
+  proyecto territorios. No rompe el arranque como `nombre_usuario`; rompe la
+  **reproducibilidad del aprovisionamiento**.
+- **Decisión pendiente:** si su definición debe vivir aquí (con el esquema de
+  campaña) o allá (con la integración del catálogo). Lo que no puede seguir es
+  que no viva en **ninguna** parte versionada.
 - **Consecuencia:** la plantilla real es una **base opaca** que se clona; el
   repositorio no es su fuente de verdad. Todo defecto o dato residual de esa
   base se propaga sin que nadie lo vea en el código.
