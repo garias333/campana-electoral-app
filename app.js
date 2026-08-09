@@ -10,6 +10,7 @@ const path = require('path');
 const pool = require('./config/db');
 const { requireAuth } = require('./middleware/auth');
 const { csrfToken, csrfProtegido } = require('./middleware/csrf');
+const { verificarColumnasCriticas } = require('./config/verificarEsquema');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,12 @@ const PORT = process.env.PORT || 3000;
 if (!process.env.SESSION_SECRET) {
   throw new Error('Falta la variable de entorno SESSION_SECRET (revise el archivo .env).');
 }
+
+// Igual de temprano: si a esta base le falta una columna crítica (p. ej.
+// usuarios.nombre_usuario, sin la cual TODO inicio de sesión responde 500),
+// el proceso termina con un mensaje que dice qué correr, en vez de arrancar
+// "sano" y fallar en cada login. Ver config/verificarEsquema.js.
+verificarColumnasCriticas();
 
 // Necesario detrás de Nginx/CloudPanel: sin esto, Express no detecta que la
 // conexión real del navegador es HTTPS, lo que puede afectar cookies "secure".

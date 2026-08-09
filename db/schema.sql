@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(150) NOT NULL,
   numero_identificacion VARCHAR(20) NULL UNIQUE,
+  nombre_usuario VARCHAR(50) NULL UNIQUE COMMENT 'Identificador de inicio de sesión (normalmente el mismo número de identificación). El índice UNIQUE debe llamarse "nombre_usuario": config/erroresUsuarios.js reconoce el campo duplicado por el nombre del índice que MySQL reporta',
   departamento_votacion VARCHAR(100) NULL,
   municipio_votacion VARCHAR(100) NULL,
   puesto_votacion VARCHAR(150) NULL,

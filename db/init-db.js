@@ -916,6 +916,31 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'votantes', 'puesto_id INT NULL AFTER puesto_votacion', 'puesto_id');
   await crearTriggersPuestoId(connection);
 
+  // usuarios.nombre_usuario: el identificador con el que se inicia sesión
+  // (routes/auth.routes.js lo consulta junto con el email). Igual que las
+  // columnas ctc_* de arriba, existía solo porque se creó a mano en la
+  // base original: una instalación nueva no la obtenía y el login entero
+  // respondía 500 con "columna desconocida" (hallazgo A1 de AUDITORIA.md).
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'nombre_usuario VARCHAR(50) NULL AFTER numero_identificacion',
+    'nombre_usuario'
+  );
+  // Único, y el índice se llama exactamente `nombre_usuario`:
+  // config/erroresUsuarios.js identifica el campo duplicado por el NOMBRE
+  // del índice que MySQL reporta en el ER_DUP_ENTRY, y el login usa
+  // LIMIT 1 — con duplicados, la segunda cuenta con el mismo nombre de
+  // usuario nunca podría entrar y nada avisaría. NULL sí puede repetirse
+  // (quien no tiene nombre de usuario entra por email); la cadena vacía
+  // no llega nunca: todas las rutas normalizan '' a NULL antes de escribir.
+  try {
+    await connection.query(`ALTER TABLE usuarios ADD UNIQUE INDEX nombre_usuario (nombre_usuario)`);
+    console.log('Índice único nombre_usuario creado en usuarios.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+    console.log('El índice nombre_usuario ya existía en usuarios. Sin cambios.');
+  }
+
   // ------------------------------------------------------------------
   // CRM: baja de contacto, respuestas entrantes, programación y plantillas
   // ------------------------------------------------------------------
