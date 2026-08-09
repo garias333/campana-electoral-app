@@ -28,6 +28,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A6** — coste de `GET /estructura` | 🟨 **PARCIAL** | `62eb608` (agregaciones en vez de subconsultas por fila). Paginar se descartó: rompería la jerarquía del frontend |
 | **A5** — actualizador como superficie de ataque | 🟨 **PARCIAL** | `3aa0e82` (inyección de comandos cerrada + validación de zip). Falta: firmar los parches, necesita el Servidor de Licencias |
 | **A8** — atomicidad del reporte del Día D | ✅ **RESUELTO** | `e8ff086` |
+| **A25** — deriva entre instancias | ✅ **RESUELTO** | Parche #18 aplicado el 9-ago-2026 21:38 en las dos campañas: los 8 archivos coinciden byte a byte con electoral (antes diferían los 8). Falta la comprobación preventiva de deriva |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -107,9 +108,14 @@ mano, como se hizo aquí.
 versionados entre instancias) antes de dar por buena cualquier jornada de
 parches. Es barato y convierte un fallo silencioso en una lista.
 
-**No se corrigió:** esas copias no están bajo git, los archivos pertenecen a
-otro usuario del sistema, y la vía sancionada para llevarles código es el
-sistema de parches. Reemplazarlos a mano cambiaría el dueño de los archivos
+**RESUELTO el 9 de agosto de 2026 por la vía sancionada:** parche #18,
+dirigido solo a las dos campañas, aplicado a las 21:38. Las tres instancias
+quedaron con código idéntico. Lo que sigue pendiente es la *comprobación
+preventiva* de deriva, para que la próxima no haya que descubrirla a mano.
+
+**Por qué no se corrigió a mano en su momento:** esas copias no están bajo
+git, los archivos pertenecen a otro usuario del sistema, y la vía sancionada
+para llevarles código es el sistema de parches. Reemplazarlos a mano cambiaría el dueño de los archivos
 —el proyecto ya tuvo un 502 por eso— y dejaría el cambio sin forma de
 revertir.
 
@@ -176,7 +182,7 @@ escritura de votantes.
 | Severidad | Cantidad | IDs | Abiertos |
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
-| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A25 (A2 y A5 parciales) |
+| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
 | 🟡 Media | 10 | A6–A15 | A7, A10–A15 (A6 parcial; A7bis y A8 resueltos; A9 de-escalado) |
 | ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
 
