@@ -28,3 +28,4 @@ parches/*.zip
 respaldos_parches/
 *.bak-*
 *.previo-*
+!db/schema.sql
