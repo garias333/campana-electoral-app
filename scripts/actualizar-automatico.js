@@ -18,7 +18,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 const SERVIDOR_LICENCIAS = process.env.LICENCIA_SERVIDOR_URL;
 const API_SECRET = process.env.LICENCIA_API_SECRET;
@@ -88,7 +88,93 @@ function nombreDelProcesoPm2() {
   return null;
 }
 
+/**
+ * El número de parche llega del Servidor de Licencias (viene en su JSON) y
+ * termina formando el nombre de un archivo. Se comprueba que sea de verdad
+ * un entero antes de usarlo para nada.
+ *
+ * NO ES PARANOIA: antes se interpolaba tal cual en una orden de shell
+ * (`unzip -o campana-parche${n}.zip`), así que un valor como
+ * `1.zip; curl … | sh` se habría EJECUTADO. Hoy las órdenes van por
+ * execFileSync con argumentos separados —sin shell de por medio—, y además
+ * el valor se valida aquí. Las dos cosas, porque una sola se puede deshacer
+ * sin querer en un cambio futuro.
+ */
+function numeroDeParcheValido(valor) {
+  // Hoy llega como número: en el Servidor de Licencias la columna es
+  // `numero_parche INT`, y mysql2 lo entrega así. Se admite también la forma
+  // en texto ("18") porque es el mismo valor y evita rechazar un parche
+  // legítimo si algún día ese JSON cambia de forma — pero SOLO dígitos, que
+  // es lo que cierra la puerta a que el nombre del archivo lleve nada más.
+  if (typeof valor === 'number') return Number.isSafeInteger(valor) && valor > 0;
+  if (typeof valor === 'string') {
+    const limpio = valor.trim();
+    return /^\d+$/.test(limpio) && Number(limpio) > 0 && Number.isSafeInteger(Number(limpio));
+  }
+  return false;
+}
+
+/**
+ * Revisa lo que trae el .zip ANTES de descomprimirlo.
+ *
+ * Un parche se descomprime encima del árbol del proyecto, así que el
+ * contenido del archivo decide qué se escribe y dónde. Tres cosas no pueden
+ * pasar nunca:
+ *
+ *   - Rutas absolutas (`/etc/cron.d/x`): escribirían fuera del proyecto.
+ *   - Rutas con `..`: el clásico «zip slip», que sube por el árbol y
+ *     también escribe fuera.
+ *   - Enlaces simbólicos: un enlace que apunte afuera, y un archivo
+ *     posterior escrito «a través» de él, logra lo mismo esquivando las dos
+ *     comprobaciones anteriores.
+ *
+ * SE FALLA CERRADO. Si el listado no se puede leer, se aborta: antes esto
+ * iba en un try/catch que solo avisaba y seguía descomprimiendo — o sea que
+ * un zip ilegible para `unzip -Z1` se aplicaba igual, sin revisar.
+ */
+function validarEntradasDelZip(nombreZip, carpetaDestino) {
+  let nombres;
+  try {
+    nombres = execFileSync('unzip', ['-Z1', nombreZip], {
+      cwd: carpetaDestino, encoding: 'utf8', env: ENTORNO,
+    }).split('\n').map((l) => l.trim()).filter(Boolean);
+  } catch (err) {
+    // `unzip` también sale con error si el archivo está vacío o corrupto.
+    // Sea cual sea el motivo, no se puede revisar: no se aplica.
+    throw new Error(`No se pudo leer el contenido del parche (¿archivo vacío o dañado?), así que no se aplicó: ${err.message}`);
+  }
+
+  if (!nombres.length) throw new Error('El parche no contiene ningún archivo, así que no se aplicó.');
+
+  for (const entrada of nombres) {
+    if (entrada.startsWith('/') || /^[A-Za-z]:[\\/]/.test(entrada)) {
+      throw new Error(`El parche trae una ruta absoluta y no se aplicó: "${entrada}".`);
+    }
+    if (entrada.split(/[\\/]/).includes('..')) {
+      throw new Error(`El parche trae una ruta que sale del proyecto y no se aplicó: "${entrada}".`);
+    }
+    const destino = path.resolve(carpetaDestino, entrada);
+    if (destino !== carpetaDestino && !destino.startsWith(carpetaDestino + path.sep)) {
+      throw new Error(`El parche escribiría fuera del proyecto y no se aplicó: "${entrada}".`);
+    }
+  }
+
+  // El listado largo marca el tipo en la primera columna, como `ls`:
+  // "l" es enlace simbólico.
+  const largo = execFileSync('unzip', ['-Z', nombreZip], {
+    cwd: carpetaDestino, encoding: 'utf8', env: ENTORNO,
+  });
+  if (largo.split('\n').some((l) => l.startsWith('l'))) {
+    throw new Error('El parche trae enlaces simbólicos y no se aplicó.');
+  }
+
+  return nombres;
+}
+
 async function aplicarParche(numeroParche) {
+  if (!numeroDeParcheValido(numeroParche)) {
+    throw new Error(`El Servidor de Licencias mandó un número de parche que no es un entero: ${JSON.stringify(numeroParche)}.`);
+  }
   const nombreZip = `campana-parche${numeroParche}.zip`;
   const rutaZip = path.join(CARPETA_PROYECTO, nombreZip);
 
@@ -103,15 +189,13 @@ async function aplicarParche(numeroParche) {
   // ¿El parche trae package.json? Se mira ANTES de descomprimir, sobre el
   // listado del zip: después ya no se sabría si el del disco es el que
   // venía en el parche o el que ya estaba.
-  let traeDependencias = false;
-  try {
-    const listado = execSync(`unzip -Z1 ${nombreZip}`, { cwd: CARPETA_PROYECTO, encoding: 'utf8', env: ENTORNO });
-    traeDependencias = listado.split('\n').some(l => l.trim() === 'package.json');
-  } catch (err) {
-    console.error('No se pudo leer el contenido del zip para saber si trae dependencias:', err.message);
-  }
+  // El mismo listado sirve para las dos cosas: comprobar que ninguna ruta
+  // escape del proyecto (ver validarEntradasDelZip) y ver si trae
+  // dependencias. Si algo no cuadra, lanza y el parche NO se descomprime.
+  const entradas = validarEntradasDelZip(nombreZip, CARPETA_PROYECTO);
+  const traeDependencias = entradas.includes('package.json');
 
-  execSync(`unzip -o ${nombreZip} -d .`, { cwd: CARPETA_PROYECTO, stdio: 'inherit', env: ENTORNO });
+  execFileSync('unzip', ['-o', nombreZip, '-d', '.'], { cwd: CARPETA_PROYECTO, stdio: 'inherit', env: ENTORNO });
 
   // INSTALAR DEPENDENCIAS NUEVAS.
   //
@@ -208,7 +292,14 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('Error en la actualización automática:', err);
-  process.exit(1);
-});
+// Solo corre cuando se invoca como programa (`node scripts/actualizar-automatico.js`).
+// Así las comprobaciones de arriba se pueden cargar y probar desde otro
+// archivo sin disparar una actualización de verdad.
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Error en la actualización automática:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { validarEntradasDelZip, numeroDeParcheValido };
