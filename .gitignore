@@ -29,3 +29,4 @@ respaldos_parches/
 *.bak-*
 *.previo-*
 !db/schema.sql
+!db/schema.sql
