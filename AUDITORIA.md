@@ -27,6 +27,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A26** — `campana_ambito` sin crear | ✅ **RESUELTO** | `4bfbe6a` |
 | **A6** — coste de `GET /estructura` | 🟨 **PARCIAL** | `62eb608` (agregaciones en vez de subconsultas por fila). Paginar se descartó: rompería la jerarquía del frontend |
 | **A5** — actualizador como superficie de ataque | 🟨 **PARCIAL** | `3aa0e82` (inyección de comandos cerrada + validación de zip). Falta: firmar los parches, necesita el Servidor de Licencias |
+| **A8** — atomicidad del reporte del Día D | ✅ **RESUELTO** | `e8ff086` |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -176,7 +177,7 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A25 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial, A9 de-escalado) |
+| 🟡 Media | 10 | A6–A15 | A7, A10–A15 (A6 y A7bis parciales, A8 resuelto, A9 de-escalado) |
 | ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
 
 ---
@@ -543,7 +544,23 @@ tabla con referencias vivas.
 
 ## 4. Corrección
 
-### A8 — El reporte del Día D y sus votos no se guardan de forma atómica 🟡 Media
+### A8 — El reporte del Día D y sus votos no se guardan de forma atómica 🟡 Media — ✅ RESUELTO
+
+> **Hecho:** reporte y votos van en una transacción, con `release()` en
+> `finally`, siguiendo el patrón que ya usaba `territorial.routes.js`. Los
+> votos además en un solo `INSERT` de varias filas — menos viajes a la base
+> justo en el momento de más carga de la jornada.
+>
+> **Verificado sin tocar datos reales:** la inserción múltiple de mysql2 se
+> probó en una tabla `TEMPORARY` con la forma de `dia_d_reporte_votos` (3
+> filas en una sentencia, recorte y conversión numérica correctos), y la
+> reversión se probó sobre las tablas reales dentro de una transacción
+> revertida: las dos son InnoDB y el `ROLLBACK` las deja exactamente como
+> estaban.
+>
+> **Queda un cabo suelto menor:** la foto del E-14 se sube al disco antes de
+> esta transacción, así que un fallo deja el archivo huérfano en `uploads/`.
+> No corrompe ningún dato — sobra un archivo, no falta.
 
 - **Archivos:** `routes/diaD.routes.js:388-405`. Inserta en `dia_d_reportes` y
   luego, en un **bucle**, inserta cada fila de `dia_d_reporte_votos` — todo con
