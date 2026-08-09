@@ -923,7 +923,7 @@ async function main() {
   // respondía 500 con "columna desconocida" (hallazgo A1 de AUDITORIA.md).
   await agregarColumnaSiFalta(
     connection, 'usuarios',
-    'nombre_usuario VARCHAR(50) NULL AFTER numero_identificacion',
+    'nombre_usuario VARCHAR(60) NULL AFTER numero_identificacion',
     'nombre_usuario'
   );
   // Único, y el índice se llama exactamente `nombre_usuario`:
