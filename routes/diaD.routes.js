@@ -378,16 +378,29 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.
   }
 
   const fotoE14Url = `/uploads/${req.file.filename}`;
+  // EL REPORTE Y SUS VOTOS SE GUARDAN JUNTOS O NO SE GUARDAN.
+  //
+  // Antes eran un INSERT del reporte y luego un INSERT suelto por candidato,
+  // todos fuera de transacción. Si el proceso moría a mitad del bucle —o
+  // fallaba un solo INSERT—, quedaba un reporte con VOTOS INCOMPLETOS: le
+  // faltan candidatos, pero se ve igual de válido que cualquier otro. En el
+  // conteo del Día D eso no es un error visible, es un resultado equivocado.
+  //
+  // Los votos van además en un solo INSERT de varias filas: menos viajes a
+  // la base en el momento de más carga de la jornada.
+  const conexion = await pool.getConnection();
   try {
+    await conexion.beginTransaction();
+
     // votos_candidato se mantiene por compatibilidad con el resumen del
     // tablero: son los votos del candidato propio de la campaña dentro de
     // la lista que mandó el testigo (si no aparece ahí, queda en null).
-    const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
+    const [[campana]] = await conexion.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
     const nombrePropio = (campana && campana.nombre_candidato || '').trim().toLowerCase();
     const votoPropio = votosPorCandidato.find(v => String(v.nombre).trim().toLowerCase() === nombrePropio);
     const votosCandidato = votoPropio ? Number(votoPropio.votos) : null;
 
-    const [result] = await pool.query(
+    const [result] = await conexion.query(
       `INSERT INTO dia_d_reportes
        (testigo_id, departamento, municipio, puesto_votacion, puesto_id, puesto_fuera_de_lista, mesa_votacion, votos_candidato, total_votantes_mesa, novedad, foto_e14_url, cliente_uuid)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -399,21 +412,23 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.
        b.novedad || null, fotoE14Url, b.cliente_uuid || null]
     );
 
-    for (const item of votosPorCandidato) {
-      await pool.query(
-        `INSERT INTO dia_d_reporte_votos (reporte_id, candidato_nombre, votos) VALUES (?,?,?)`,
-        [result.insertId, String(item.nombre).trim(), Number(item.votos)]
-      );
-    }
+    await conexion.query(
+      `INSERT INTO dia_d_reporte_votos (reporte_id, candidato_nombre, votos) VALUES ?`,
+      [votosPorCandidato.map(item => [result.insertId, String(item.nombre).trim(), Number(item.votos)])]
+    );
 
+    await conexion.commit();
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
+    await conexion.rollback();
     if (err.code === 'ER_DUP_ENTRY' && b.cliente_uuid) {
       const [[existente]] = await pool.query(`SELECT id FROM dia_d_reportes WHERE cliente_uuid = ?`, [b.cliente_uuid]).catch(() => [[null]]);
       if (existente) return res.json({ ok: true, id: existente.id, yaExistia: true });
     }
     console.error(err);
     res.status(500).json({ error: 'Error guardando el reporte.' });
+  } finally {
+    conexion.release();
   }
 });
 
