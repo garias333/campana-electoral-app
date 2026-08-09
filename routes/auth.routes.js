@@ -8,6 +8,21 @@ const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 
 const router = express.Router();
 
+/**
+ * Hash de descarte para igualar el tiempo de respuesta del login.
+ *
+ * Cuando el identificador no existe no hay contraseña contra la que comparar,
+ * así que la respuesta salía MUCHO más rápido que cuando sí existe (bcrypt
+ * con coste 12 tarda cientos de milisegundos). Esa diferencia se mide desde
+ * fuera y permite averiguar qué cuentas existen sin acertar ni una
+ * contraseña. Comparando igual contra este hash, los dos caminos tardan lo
+ * mismo.
+ *
+ * Se genera al arrancar en vez de escribirlo fijo en el código: así nadie lo
+ * confunde con una credencial real ni lo copia a otro sitio.
+ */
+const HASH_DE_DESCARTE = bcrypt.hashSync('cuenta-inexistente', 12);
+
 const MAX_INTENTOS = 5;
 const BLOQUEO_MINUTOS = 15;
 const RESET_TOKEN_HORAS = 1;
@@ -130,6 +145,10 @@ router.post('/login', async (req, res) => {
     );
 
     if (rows.length === 0) {
+      // Se compara igual, contra un hash de descarte, para que responder
+      // "no existe" cueste lo mismo que responder "contraseña incorrecta".
+      // Ver HASH_DE_DESCARTE arriba.
+      await bcrypt.compare(password, HASH_DE_DESCARTE);
       return res.status(401).json({ error: 'Credenciales inválidas.' });
     }
 
@@ -148,16 +167,31 @@ router.post('/login', async (req, res) => {
     const passwordValido = await bcrypt.compare(password, usuario.password_hash);
 
     if (!passwordValido) {
-      const intentos = usuario.intentos_fallidos + 1;
-      let bloqueadoHasta = null;
+      // EL CONTADOR SE INCREMENTA EN LA PROPIA BASE, NO EN JAVASCRIPT.
+      //
+      // Antes se leía `intentos_fallidos`, se le sumaba uno y se escribía el
+      // resultado. Dos intentos a la vez leen el mismo número y escriben el
+      // mismo, así que cinco intentos simultáneos podían contar como uno: el
+      // bloqueo por fuerza bruta se debilitaba justo cuando hace falta.
+      //
+      // El orden de los SET importa: MySQL los aplica de izquierda a derecha,
+      // así que `bloqueado_hasta` se calcula con el valor ANTERIOR del
+      // contador y después se incrementa.
+      const bloqueadoHasta = new Date(Date.now() + BLOQUEO_MINUTOS * 60000);
+      await pool.query(
+        `UPDATE usuarios
+            SET bloqueado_hasta = CASE WHEN intentos_fallidos + 1 >= ? THEN ? ELSE bloqueado_hasta END,
+                intentos_fallidos = intentos_fallidos + 1
+          WHERE id = ?`,
+        [MAX_INTENTOS, bloqueadoHasta, usuario.id]
+      );
+      // Se relee para anotar en la bitácora el número real, que con varios
+      // intentos a la vez puede no ser el que este proceso calculó.
+      const [[tras]] = await pool.query(`SELECT intentos_fallidos FROM usuarios WHERE id = ?`, [usuario.id]);
+      const intentos = tras ? tras.intentos_fallidos : MAX_INTENTOS;
       if (intentos >= MAX_INTENTOS) {
-        bloqueadoHasta = new Date(Date.now() + BLOQUEO_MINUTOS * 60000);
         await registrarAuditoria(usuario.id, 'bloqueo_cuenta', `Cuenta bloqueada ${BLOQUEO_MINUTOS} min por intentos fallidos.`, req.ip);
       }
-      await pool.query(
-        `UPDATE usuarios SET intentos_fallidos = ?, bloqueado_hasta = ? WHERE id = ?`,
-        [intentos, bloqueadoHasta, usuario.id]
-      );
       await registrarAuditoria(usuario.id, 'login_fallido', `Contraseña incorrecta (intento ${intentos}/${MAX_INTENTOS}).`, req.ip);
       return res.status(401).json({ error: 'Credenciales inválidas.' });
     }
