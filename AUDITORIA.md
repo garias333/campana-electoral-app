@@ -16,6 +16,36 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 
 ---
 
+## Estado de ejecución (9 de agosto de 2026)
+
+| Hallazgo | Estado | Commits |
+|---|---|---|
+| **A1** — `usuarios.nombre_usuario` | ✅ **RESUELTO** | `4bedbf9`, `9bdee53` |
+| **A7bis** — índices de filtro/join | 🟨 **PARCIAL** | `4bedbf9` (índice de `nombre_usuario`), `3d8bf21` (login sin `LOWER()`). Pendientes: `*.puesto_id` |
+| **A3** — esquema fuera de git | ✅ **RESUELTO** (antes de esta sesión) | `db/schema.sql` ya versionado |
+| Resto | Sin empezar | — |
+
+**Hallazgo empírico al aplicar A1, que conviene registrar:** se midieron las
+**tres** bases (`electoraldb`, `campanadepruebamunicipal`,
+`campanadepruebadepartamental`) y las tres ya tienen la columna **idéntica**:
+`varchar(60) NULL`, índice UNIQUE llamado `nombre_usuario`, sin duplicados ni
+cadenas vacías. Dos consecuencias:
+
+1. **La migración es no-op en todas las instancias existentes** → aplicarla es
+   de riesgo cero; no hay ningún dato que reparar antes.
+2. **El arreglo es preventivo, no correctivo.** Ninguna campaña actual tiene el
+   login roto: las tres nacieron clonando la base plantilla, que llevaba la
+   columna agregada a mano. El fallo aparecía solo por el camino
+   `npm run init-db` sobre una base vacía — que es justamente **el camino que
+   usa el actualizador automático** cuando un parche "toca base de datos", y el
+   que usaría una campaña nueva creada desde el repositorio.
+
+La definición se ajustó a `VARCHAR(60)` (no los 50 propuestos inicialmente)
+**porque así está en las bases reales**; con 50, una instalación nueva habría
+rechazado nombres de usuario que las campañas actuales aceptan.
+
+---
+
 ## Resumen ejecutivo
 
 **La buena noticia primero, porque cambia cómo leer todo lo demás:** el
@@ -55,12 +85,12 @@ escritura de votantes.
 
 ### Conteo por severidad
 
-| Severidad | Cantidad | IDs |
-|---|---|---|
-| 🔴 Crítica | 1 | A1 |
-| 🟠 Alta | 4 | A2, A3, A4, A5 |
-| 🟡 Media | 10 | A6–A15 |
-| ⚪ Baja | 9 | A16–A24 |
+| Severidad | Cantidad | IDs | Abiertos |
+|---|---|---|---|
+| 🔴 Crítica | 1 | A1 | — (resuelto) |
+| 🟠 Alta | 4 | A2, A3, A4, A5 | A2, A4, A5 |
+| 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial) |
+| ⚪ Baja | 9 | A16–A24 | A16–A24 |
 
 ---
 
@@ -154,7 +184,7 @@ Aquí está el riesgo estructural. Cualquier defecto de la plantilla se replica
 en cada campaña real futura, y hoy la plantilla no es reproducible desde el
 repositorio.
 
-### A1 — `usuarios.nombre_usuario`: el login depende de una columna que el esquema no crea 🔴 CRÍTICA 🪟 VENTANA
+### A1 — `usuarios.nombre_usuario`: el login depende de una columna que el esquema no crea 🔴 CRÍTICA 🪟 VENTANA — ✅ RESUELTO (`4bedbf9`, `9bdee53`)
 
 - **Archivos:** se **usa** en `routes/auth.routes.js:125` (login),
   `routes/usuarios.routes.js:88,145,186,194,266`,
@@ -206,7 +236,7 @@ repositorio.
 - **Ventana:** **sí.** Es el momento de definir la plantilla como artefacto
   reproducible.
 
-### A3 — `.gitignore` excluye `db/schema.sql` (el esquema no está versionado) 🟠 Alta
+### A3 — `.gitignore` excluye `db/schema.sql` (el esquema no está versionado) 🟠 Alta — ✅ RESUELTO
 
 - **Archivo:** `.gitignore:12` (`*.sql`). Confirmado con
   `git check-ignore -v db/schema.sql`.
@@ -219,6 +249,11 @@ repositorio.
 - **Esfuerzo:** trivial. Negar la exclusión para el esquema
   (`!db/schema.sql`) o sacar los archivos de esquema del patrón `*.sql`.
 - **Ventana:** neutra.
+- **Estado:** resuelto antes de esta sesión — `db/schema.sql` ya está
+  versionado (`!db/schema.sql` en `.gitignore`). Queda un detalle cosmético:
+  esa línea está **repetida tres veces** (`.gitignore:31-33`); es inofensivo.
+  Los demás `.sql` del proyecto (`03_declarado.sql` y las migraciones) siguen
+  fuera de git.
 
 ### A9 — `init-db.js` es el esquema de facto; `schema.sql` engaña 🟡 Media 🪟 VENTANA
 
@@ -272,12 +307,16 @@ repositorio.
 - **Esfuerzo:** trivial (`ADD INDEX idx_envios_twilio_sid (twilio_sid)`).
 - **Ventana:** neutra.
 
-### A7bis — Columnas de filtro/join sin índice 🟡 Media
+### A7bis — Columnas de filtro/join sin índice 🟡 Media — 🟨 PARCIAL (`4bedbf9`, `3d8bf21`)
 
 - **Archivos:** `db/schema.sql` / `db/init-db.js`.
 - **Detalle:**
-  - `usuarios.nombre_usuario` (cuando se cree, A1): el login filtra
-    `LOWER(nombre_usuario)` — necesita índice o será *scan* en cada intento.
+  - ~~`usuarios.nombre_usuario`~~ ✅ **hecho**: índice UNIQUE creado con A1, y
+    se quitó el `LOWER()` del login (`auth.routes.js:129`) porque una función
+    sobre la columna la vuelve no indexable. La colación `ai_ci` ya compara sin
+    distinguir mayúsculas ni tildes, así que no cambia qué cuentas cruzan.
+    Comprobado con `EXPLAIN`: antes `possible_keys: email`; ahora
+    `possible_keys: email,nombre_usuario`.
   - `usuarios.puesto_id`, `estructura.puesto_id`, `votantes.puesto_id`: los
     cruces del Día D se hacen por estas columnas y no tienen índice. Importan a
     medida que crezcan los reportes.
@@ -519,7 +558,12 @@ del teléfono) hoy hay que hacerla en 5-6 sitios y es fácil que uno quede atrá
 Ordenados por prioridad. Cada lote se puede ejecutar, probar y desplegar solo.
 
 ### LOTE 1 — Integridad del aprovisionamiento 🪟 (empezar por aquí)
-**Incluye:** A1, A2, A3, A9, A10.
+**Incluye:** ~~A1~~ ✅, ~~A3~~ ✅, y **pendientes: A2, A9, A10**.
+**Hecho:** la columna, su índice y la verificación de arranque
+(`4bedbf9`, `9bdee53`); el esquema ya está versionado.
+**Falta de este lote:** reconciliar `schema.sql` con la base real
+(`territorios` como vista, FK eliminadas — A2/A9) y la plantilla limpia con
+`ADMIN_PASSWORD` por campaña (A10). Nada de eso se tocó a propósito.
 **Objetivo:** que una campaña se pueda crear desde el repositorio de forma
 reproducible y correcta.
 **Trabajo:** agregar `nombre_usuario` (columna + índice + migración) y una
@@ -540,9 +584,9 @@ parche y verificarlos antes de descomprimir; rechazar entradas de zip con
 se aplica; el secreto de una campaña no dispara la de otra.
 
 ### LOTE 3 — Índices y paginación 🚀
-**Incluye:** A7, A7bis, A6.
-**Trabajo:** índices en `comunicaciones_envios.twilio_sid`,
-`usuarios.nombre_usuario` (tras LOTE 1), `*.puesto_id`; paginar `GET /estructura`
+**Incluye:** A7, A7bis (resto), A6.
+**Trabajo:** índices en `comunicaciones_envios.twilio_sid` y `*.puesto_id`
+(el de `usuarios.nombre_usuario` ya se hizo con A1); paginar `GET /estructura`
 y reemplazar sus subconsultas por-fila por agregaciones.
 **Verificación:** `EXPLAIN` sin *full scan* en el callback de Twilio y en el
 listado de estructura; la pantalla de estructura responde en tiempo constante
