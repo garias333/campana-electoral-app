@@ -29,6 +29,29 @@ ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 
 -- ---------------------------------------------------------
 -- Territorios (jerarquía: departamento > municipio > comuna/corregimiento > barrio/vereda)
+--
+-- ATENCIÓN: EN UNA CAMPAÑA CONECTADA AL CATÁLOGO, ESTO NO ES UNA TABLA.
+--
+-- Se crea aquí como tabla local vacía para que una instalación desde cero
+-- nunca falle, aunque todavía no tenga permisos sobre el catálogo. El paso
+-- que la convierte en la VISTA de solo lectura sobre
+-- `territoriosdb.ctc_territorios`, acotada por `campana_ambito`, vive en el
+-- proyecto del catálogo (`vista_territorios_catalogo.sql`) — y ahí debe
+-- seguir: es la definición de la integración, y tener dos copias que puedan
+-- divergir es el error que este proyecto ya pagó caro con `ctc_normalizar()`.
+--
+-- Estado medido el 9 de agosto de 2026: en las dos campañas reales
+-- `territorios` es una VISTA; en la plantilla `electoraldb` sigue siendo esta
+-- tabla, vacía. O sea que una campaña clonada de la plantilla NO nace
+-- conectada: hay que correr ese script.
+--
+-- POR ESO NINGUNA OTRA TABLA TIENE FK HACIA AQUÍ.
+--   Una llave foránea no puede apuntar a una vista, ni cruzar bases de datos.
+--   Mientras exista una FK viva contra esta tabla, el cambio a vista falla.
+--   Las cinco que había (usuarios, estructura, votantes, eventos,
+--   finanzas_movimientos) se quitaron: no existían en NINGUNA de las tres
+--   bases reales, así que sólo servían para bloquear la conversión en una
+--   instalación nueva.
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS territorios (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,6 +62,26 @@ CREATE TABLE IF NOT EXISTS territorios (
   FOREIGN KEY (padre_id) REFERENCES territorios(id) ON DELETE SET NULL,
   INDEX idx_territorio_tipo (tipo),
   INDEX idx_territorio_padre (padre_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------
+-- Ámbito de la campaña dentro del Catálogo Territorial.
+--
+-- Una campaña conectada al catálogo NO copia territorios: DECLARA en una fila
+-- hasta dónde llega. La vista `territorios` (ver la nota de arriba) se acota
+-- con esta tabla, y sin ella no se puede crear.
+--
+-- Existía en las tres bases pero no la creaba nada en este repositorio, así
+-- que una instalación desde cero se quedaba sin ella y la integración con el
+-- catálogo no se podía levantar. La tabla se define aquí —es del esquema de
+-- la campaña—; la VISTA que la usa sigue viviendo en el proyecto del
+-- catálogo. Arranca vacía: la fila la escribe quien aprovisiona la campaña.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS campana_ambito (
+  campana_id        INT UNSIGNED NOT NULL,
+  ctc_territorio_id BIGINT UNSIGNED NOT NULL COMMENT 'id en territoriosdb.ctc_territorios — sin FK: no se puede cruzar bases',
+  nivel_operativo   ENUM('MUNICIPIO','BARRIO','PUESTO','MESA') NOT NULL,
+  PRIMARY KEY (campana_id, ctc_territorio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------
@@ -79,7 +122,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
   ultimo_login DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (rol_id) REFERENCES roles(id),
-  FOREIGN KEY (territorio_id) REFERENCES territorios(id) ON DELETE SET NULL
+  -- Sin FK hacia territorios: ver la nota de la tabla `territorios`. El índice
+  -- sí hace falta y va explícito: antes lo creaba la propia FK, y al quitarla
+  -- una instalación nueva se quedaba sin él (las bases actuales lo conservan,
+  -- porque MySQL no borra el índice al soltar la llave).
+  INDEX idx_usuarios_territorio (territorio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------
@@ -126,7 +173,7 @@ CREATE TABLE IF NOT EXISTS estructura (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el dispositivo al guardar el formulario sin conexión — evita duplicar el registro si el envío se reintenta más de una vez',
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-  FOREIGN KEY (territorio_id) REFERENCES territorios(id),
+  -- Sin FK hacia territorios: ver la nota de la tabla `territorios`.
   FOREIGN KEY (supervisor_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   INDEX idx_estructura_cargo (cargo),
   INDEX idx_estructura_territorio (territorio_id),
@@ -179,7 +226,7 @@ CREATE TABLE IF NOT EXISTS votantes (
   created_by INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (territorio_id) REFERENCES territorios(id) ON DELETE SET NULL,
+  -- Sin FK hacia territorios: ver la nota de la tabla `territorios`.
   FOREIGN KEY (lider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (sublider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
@@ -230,9 +277,11 @@ CREATE TABLE IF NOT EXISTS finanzas_movimientos (
   registrado_por INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (categoria_id) REFERENCES finanzas_categorias(id),
-  FOREIGN KEY (territorio_id) REFERENCES territorios(id) ON DELETE SET NULL,
+  -- Sin FK hacia territorios: ver la nota de la tabla `territorios`.
   FOREIGN KEY (registrado_por) REFERENCES usuarios(id),
-  INDEX idx_finanzas_tipo_fecha (tipo, fecha)
+  INDEX idx_finanzas_tipo_fecha (tipo, fecha),
+  -- Explícito por lo mismo que en `usuarios`: lo creaba la FK que se quitó.
+  INDEX idx_finanzas_territorio (territorio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------
@@ -258,12 +307,14 @@ CREATE TABLE IF NOT EXISTS eventos (
   estado ENUM('programado','realizado','cancelado') DEFAULT 'programado',
   created_by INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (territorio_id) REFERENCES territorios(id) ON DELETE SET NULL,
+  -- Sin FK hacia territorios: ver la nota de la tabla `territorios`.
   FOREIGN KEY (responsable_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (coordinador_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (lider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES usuarios(id),
-  INDEX idx_eventos_fecha (fecha_inicio)
+  INDEX idx_eventos_fecha (fecha_inicio),
+  -- Explícito por lo mismo que en `usuarios`: lo creaba la FK que se quitó.
+  INDEX idx_eventos_territorio (territorio_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS evento_asistentes (
