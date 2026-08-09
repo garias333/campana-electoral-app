@@ -760,6 +760,34 @@ async function main() {
   // a cuál fila de comunicaciones_envios corregirle el estado.
   await agregarColumnaSiFalta(connection, 'comunicaciones_envios', 'twilio_sid VARCHAR(50) NULL AFTER destinatario_contacto', 'twilio_sid');
 
+  // `campana_ambito` se creó a mano en las bases existentes (no la traía este
+  // repositorio, ver A26), así que heredó la colación POR DEFECTO DE LA BASE
+  // —utf8mb4_general_ci— mientras las 29 tablas del esquema usan
+  // utf8mb4_0900_ai_ci. Ahora que `schema.sql` la declara con COLLATE
+  // explícito, una instalación nueva nacería distinta de las que ya existen.
+  // Se alinea aquí. Es una tabla de una fila: la conversión es instantánea.
+  const [[colacionAmbito]] = await connection.query(`
+    SELECT TABLE_COLLATION AS colacion FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'campana_ambito'`);
+  if (colacionAmbito && colacionAmbito.colacion && colacionAmbito.colacion !== 'utf8mb4_0900_ai_ci') {
+    await connection.query(
+      `ALTER TABLE campana_ambito CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`);
+    console.log(`campana_ambito: colación alineada (${colacionAmbito.colacion} -> utf8mb4_0900_ai_ci).`);
+  }
+  // `sessions` NO se toca: la crea express-mysql-session y usa utf8mb4_bin a
+  // propósito — un identificador de sesión SÍ debe distinguir mayúsculas.
+
+  // Índice para el webhook de estado de Twilio, que busca la fila por SID en
+  // cada aviso. Sin él es un recorrido completo por aviso, y esta tabla tiene
+  // una fila por destinatario (ver A7 de AUDITORIA.md).
+  try {
+    await connection.query(`ALTER TABLE comunicaciones_envios ADD INDEX idx_envios_twilio_sid (twilio_sid)`);
+    console.log('Índice idx_envios_twilio_sid creado.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+    console.log('El índice idx_envios_twilio_sid ya existía. Sin cambios.');
+  }
+
   // Estado nuevo "sin_lugar_votacion": cuando el mensaje usa los marcadores
   // de Lugar de votación ({lugar_votacion}, {puesto}...) y el destinatario
   // no lo tiene registrado, NO se le envía — le llegaría un mensaje con el

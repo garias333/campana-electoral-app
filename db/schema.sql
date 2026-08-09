@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS roles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(30) NOT NULL UNIQUE,
   descripcion VARCHAR(150)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT INTO roles (nombre, descripcion) VALUES
   ('admin', 'Administrador general de la campaña'),
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS territorios (
   FOREIGN KEY (padre_id) REFERENCES territorios(id) ON DELETE SET NULL,
   INDEX idx_territorio_tipo (tipo),
   INDEX idx_territorio_padre (padre_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Ámbito de la campaña dentro del Catálogo Territorial.
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS campana_ambito (
   ctc_territorio_id BIGINT UNSIGNED NOT NULL COMMENT 'id en territoriosdb.ctc_territorios — sin FK: no se puede cruzar bases',
   nivel_operativo   ENUM('MUNICIPIO','BARRIO','PUESTO','MESA') NOT NULL,
   PRIMARY KEY (campana_id, ctc_territorio_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Usuarios del sistema
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   -- una instalación nueva se quedaba sin él (las bases actuales lo conservan,
   -- porque MySQL no borra el índice al soltar la llave).
   INDEX idx_usuarios_territorio (territorio_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Códigos de doble autenticación (2FA por correo, de un solo uso)
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS two_factor_codes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
   INDEX idx_2fa_usuario (usuario_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Estructura territorial (líderes, coordinadores, testigos)
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS estructura (
   INDEX idx_estructura_cargo (cargo),
   INDEX idx_estructura_territorio (territorio_id),
   UNIQUE INDEX uq_estructura_cliente_uuid (cliente_uuid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- territorio_id puede ser NULL desde que existe el área de influencia por
 -- Organización (una persona con Organización no tiene territorio geográfico).
@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS votantes (
   INDEX idx_votante_territorio (territorio_id),
   UNIQUE INDEX uq_votante_cliente_uuid (cliente_uuid),
   FULLTEXT INDEX ft_votante_nombre (nombre)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Finanzas: categorías y movimientos (ingresos/gastos)
@@ -245,7 +245,7 @@ CREATE TABLE IF NOT EXISTS finanzas_categorias (
   tipo ENUM('ingreso','gasto') NOT NULL,
   tope_legal DECIMAL(16,2) NULL COMMENT 'Tope CNE si aplica a la categoría',
   UNIQUE KEY uq_categoria (nombre, tipo)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT INTO finanzas_categorias (nombre, tipo) VALUES
   ('Aportes propios candidato', 'ingreso'),
@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS finanzas_movimientos (
   INDEX idx_finanzas_tipo_fecha (tipo, fecha),
   -- Explícito por lo mismo que en `usuarios`: lo creaba la FK que se quitó.
   INDEX idx_finanzas_territorio (territorio_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Eventos, agenda y movilización (GOTV)
@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS eventos (
   INDEX idx_eventos_fecha (fecha_inicio),
   -- Explícito por lo mismo que en `usuarios`: lo creaba la FK que se quitó.
   INDEX idx_eventos_territorio (territorio_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS evento_asistentes (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS evento_asistentes (
   FOREIGN KEY (evento_id) REFERENCES eventos(id) ON DELETE CASCADE,
   FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Redes sociales y monitoreo de opinión
@@ -346,7 +346,7 @@ CREATE TABLE IF NOT EXISTS redes_publicaciones (
   created_by INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES usuarios(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS monitoreo_menciones (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -357,7 +357,7 @@ CREATE TABLE IF NOT EXISTS monitoreo_menciones (
   fecha_deteccion DATETIME DEFAULT CURRENT_TIMESTAMP,
   registrado_por INT NULL,
   FOREIGN KEY (registrado_por) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Sección de información para compartir (recursos)
@@ -378,7 +378,7 @@ CREATE TABLE IF NOT EXISTS recursos (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (subido_por) REFERENCES usuarios(id),
   INDEX idx_recursos_tipo (tipo)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Auditoría básica (para trazabilidad de acciones sensibles)
@@ -393,7 +393,7 @@ CREATE TABLE IF NOT EXISTS auditoria (
   ip VARCHAR(45),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Recuperación de contraseña por correo (tokens de un solo uso)
@@ -408,7 +408,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
   INDEX idx_password_resets_token (token_hash),
   INDEX idx_password_resets_usuario (usuario_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Organigrama manual: árbol libre de Cargo + Nombre, con
@@ -433,7 +433,7 @@ CREATE TABLE IF NOT EXISTS organigrama_nodos (
   FOREIGN KEY (padre_id) REFERENCES organigrama_nodos(id) ON DELETE CASCADE,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
   INDEX idx_organigrama_padre (padre_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Configuración de la campaña: una sola fila (id = 1) con los datos
@@ -459,7 +459,7 @@ CREATE TABLE IF NOT EXISTS configuracion_campana (
   actualizado_por INT NULL,
   actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Permisos por rol: qué módulos del menú puede ver/usar cada tipo de
@@ -474,7 +474,7 @@ CREATE TABLE IF NOT EXISTS permisos_rol (
   editar TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Editar registros existentes de ese módulo',
   agregar TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Agregar registros nuevos en ese módulo',
   PRIMARY KEY (rol, modulo)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- CRM / Comunicaciones: campañas de Email, SMS y WhatsApp
@@ -497,7 +497,7 @@ CREATE TABLE IF NOT EXISTS comunicaciones_campanas (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   enviado_en DATETIME NULL,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS comunicaciones_envios (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -512,8 +512,13 @@ CREATE TABLE IF NOT EXISTS comunicaciones_envios (
   enviado_en DATETIME NULL,
   FOREIGN KEY (campana_id) REFERENCES comunicaciones_campanas(id) ON DELETE CASCADE,
   INDEX idx_envios_campana (campana_id),
-  INDEX idx_envios_estado (estado)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  INDEX idx_envios_estado (estado),
+  -- Twilio avisa por webhook el cambio de estado de CADA mensaje, y ese
+  -- aviso busca la fila por su SID. Sin índice es un recorrido completo de
+  -- la tabla por aviso — y la tabla tiene una fila por destinatario, así que
+  -- el coste se dispara justo cuando más avisos llegan (ver A7 de AUDITORIA.md).
+  INDEX idx_envios_twilio_sid (twilio_sid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Credenciales de Comunicaciones (SendGrid + Twilio), configurables
@@ -533,7 +538,7 @@ CREATE TABLE IF NOT EXISTS configuracion_comunicaciones (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
   CONSTRAINT chk_config_comunicaciones_id CHECK (id = 1)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Día D: reportes de conteo de votos por mesa, hechos por los testigos
@@ -559,7 +564,7 @@ CREATE TABLE IF NOT EXISTS dia_d_reportes (
   INDEX idx_diad_testigo (testigo_id),
   INDEX idx_diad_mesa (puesto_votacion, mesa_votacion),
   UNIQUE INDEX uq_diad_reporte_cliente_uuid (cliente_uuid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Configuración del Día D: datos de referencia que el equipo de campaña
@@ -576,7 +581,7 @@ CREATE TABLE IF NOT EXISTS dia_d_puestos_votacion (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE INDEX uq_dia_d_puestos_ctc (ctc_puesto_id),
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS dia_d_candidatos (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -584,7 +589,7 @@ CREATE TABLE IF NOT EXISTS dia_d_candidatos (
   created_by INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Votos por candidato de un reporte puntual (un testigo reporta, en una
 -- sola foto de E-14, los votos de TODOS los candidatos de esa mesa, no
@@ -598,7 +603,7 @@ CREATE TABLE IF NOT EXISTS dia_d_reporte_votos (
   votos INT NOT NULL DEFAULT 0,
   FOREIGN KEY (reporte_id) REFERENCES dia_d_reportes(id) ON DELETE CASCADE,
   INDEX idx_reporte_votos_reporte (reporte_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
 -- Contenido de páginas informativas simples (Biografía del candidato,
@@ -614,6 +619,6 @@ CREATE TABLE IF NOT EXISTS contenido_paginas (
   actualizado_por INT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
