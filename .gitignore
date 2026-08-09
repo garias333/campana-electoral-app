@@ -30,3 +30,4 @@ respaldos_parches/
 *.previo-*
 !db/schema.sql
 !db/schema.sql
+!db/schema.sql
