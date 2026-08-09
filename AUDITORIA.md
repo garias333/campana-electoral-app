@@ -25,6 +25,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A3** — esquema fuera de git | ✅ **RESUELTO** (antes de esta sesión) | `db/schema.sql` ya versionado |
 | **A2** — `schema.sql` desincronizado | 🟨 **PARCIAL** | `3053752` (medición), `4bfbe6a` (5 FK fuera + 3 índices explícitos). Falta: aplanar `schema.sql` con `init-db.js` (A9) |
 | **A26** — `campana_ambito` sin crear | ✅ **RESUELTO** | `4bfbe6a` |
+| **A6** — coste de `GET /estructura` | 🟨 **PARCIAL** | `62eb608` (agregaciones en vez de subconsultas por fila). Paginar se descartó: rompería la jerarquía del frontend |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -554,7 +555,31 @@ tabla con referencias vivas.
 
 ## 5. Rendimiento
 
-### A6 — `GET /estructura` sin paginación y con subconsultas correlacionadas por fila 🟡 Media (crece con los datos)
+### A6 — `GET /estructura` sin paginación y con subconsultas correlacionadas por fila 🟡 Media — 🟨 PARCIAL (`62eb608`)
+
+> **Corrección a la recomendación original: paginar aquí NO es seguro, y por
+> eso no se hizo.** Al ir a implementarlo se vio que `territorial.html`
+> necesita **el conjunto completo**: reordena las filas en jerarquía siguiendo
+> `supervisor_id` (un coordinador de la página 1 puede tener líderes en la 3),
+> aparta las filas de testigo para que el formulario de edición sepa si la
+> persona además lo es, y arma los desplegables de filtro con todas las filas.
+> Paginar del lado del servidor rompería las tres cosas — y de forma
+> silenciosa, que es lo peor. Una paginación real exigiría rediseñar la
+> pantalla (jerarquía calculada en el servidor, o endpoints separados); es un
+> cambio de alcance mayor, no una mejora de consulta.
+>
+> **Lo que sí se hizo, que era el costo de verdad:** las subconsultas
+> correlacionadas por fila (líder → sublíderes → votantes, anidadas) se
+> reemplazaron por cinco agregaciones que recorren `votantes` **una sola vez**.
+> Medido en la campaña municipal, con solo 62 filas:
+> `Handler_read_rnd_next` baja de **1629 a 322** — cinco veces menos lectura
+> de escaneo. La ganancia crece con el tamaño del equipo, que es donde estaba
+> el problema.
+>
+> **Equivalencia comprobada, no supuesta:** se extrajo la consulta que arma el
+> código —la vieja desde git, la nueva del archivo— y se corrieron ambas contra
+> las dos campañas reales. Salida **idéntica byte por byte**, todas las
+> columnas, 54 y 63 líneas.
 
 - **Archivos:** `routes/territorial.routes.js:659-720`. La consulta calcula,
   **por cada fila** de estructura, `meta_votos_equipo` y `registros` con
