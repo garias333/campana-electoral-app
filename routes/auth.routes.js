@@ -117,12 +117,15 @@ router.post('/login', async (req, res) => {
     // El mismo campo acepta el correo electrónico o el "Nombre de
     // usuario" (por ejemplo, el número de identificación asignado como
     // usuario) — se busca por cualquiera de los dos, sin distinguir
-    // mayúsculas/minúsculas.
+    // mayúsculas/minúsculas. La columna va SIN envolver en LOWER(): la
+    // colación de la base (utf8mb4_0900_ai_ci) ya ignora mayúsculas y
+    // tildes, y una función sobre la columna impediría usar su índice
+    // único — cada intento de login recorrería la tabla entera.
     const identificador = email.trim().toLowerCase();
     const [rows] = await pool.query(
       `SELECT u.*, r.nombre AS rol
        FROM usuarios u JOIN roles r ON r.id = u.rol_id
-       WHERE u.email = ? OR LOWER(u.nombre_usuario) = ? LIMIT 1`,
+       WHERE u.email = ? OR u.nombre_usuario = ? LIMIT 1`,
       [identificador, identificador]
     );
 
