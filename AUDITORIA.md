@@ -174,8 +174,8 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A5, A25 (A2 parcial) |
-| 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial) |
-| ⚪ Baja | 9 | A16–A24 | A16–A24 |
+| 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial, A9 de-escalado) |
+| ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
 
 ---
 
@@ -384,7 +384,25 @@ tabla con referencias vivas.
   Los demás `.sql` del proyecto (`03_declarado.sql` y las migraciones) siguen
   fuera de git.
 
-### A9 — `init-db.js` es el esquema de facto; `schema.sql` engaña 🟡 Media 🪟 VENTANA
+### A9 — `init-db.js` es el esquema de facto; `schema.sql` engaña 🟡 Media 🪟 VENTANA — ⬇️ DE-ESCALADO tras medirlo
+
+> **Medición columna por columna (9 de agosto de 2026).** Se compararon las
+> **344 columnas reales** de `electoraldb` contra lo que declara `schema.sql`
+> y lo que migra `init-db.js`:
+>
+> | Resultado | Cantidad |
+> |---|---|
+> | Declaradas en `schema.sql` | 300 |
+> | Añadidas por migraciones de `init-db.js` (con origen rastreable) | 42 |
+> | **Declaradas en `schema.sql` que NO existen en la base** (fantasma) | **0** |
+> | **Reales sin ningún origen en el repositorio** | **2** (ver A27) |
+>
+> **Conclusión: el repositorio sí describe la realidad.** `schema.sql` +
+> `init-db.js` cubren 342 de 344 columnas, y no declaran nada que no exista.
+> Aplanar los dos archivos en uno sigue siendo deseable **por claridad**, pero
+> ya no es un problema de corrección — que es como lo planteaba la versión
+> anterior de esta sección. Baja de prioridad: hágase cuando haya forma de
+> probar una instalación desde cero, no antes.
 
 - **Archivo:** `db/init-db.js` (1157 líneas; ~60 `ALTER`/`agregarColumnaSiFalta`
   aplicados en orden tras cargar `schema.sql`).
@@ -611,6 +629,29 @@ del teléfono) hoy hay que hacerla en 5-6 sitios y es fácil que uno quede atrá
   guard de rol y aceptar el riesgo formalmente.
 - **Esfuerzo:** medio (migración de API).
 - **Ventana:** neutra.
+
+### A27 — Dos columnas muertas con datos dentro ⚪ Baja (hallazgo nuevo, al medir A9)
+
+- **Columnas:** `usuarios.comuna_residencia_id` y
+  `usuarios.territorio_residencia_id`.
+- **Qué son:** existen en las tres bases, **no las crea nada del repositorio**
+  (ni `schema.sql` ni `init-db.js`) y **no las lee ni escribe ninguna línea de
+  código** — cero referencias en `routes/`, `config/`, `lib/`, `middleware/`,
+  `app.js` y `public/`. Son el residuo de un diseño anterior: la residencia por
+  id de territorio, antes de pasar a los campos de texto
+  `comuna_corregimiento_residencia` / `barrio_residencia` que se usan hoy.
+- **Pero tienen datos:** 50 de 53 filas en la campaña municipal y 50 de 52 en
+  la departamental (los pobló alguna de las migraciones de campaña, que viven
+  en el proyecto del catálogo). En la plantilla están vacías.
+- **Por qué no es urgente:** al no leerlas nadie, una instalación nueva sin
+  ellas no se rompe — a diferencia de A1. El riesgo es de otro tipo: son datos
+  personales de residencia, **desactualizados y sin dueño**, que alguien podría
+  tomar por buenos en el futuro.
+- **Recomendación:** eliminarlas mientras no haya clientes reales (la ventana),
+  o declararlas en `schema.sql` si resulta que sirven para algo. Lo que no
+  conviene es dejarlas como están: sin origen, sin uso y con contenido.
+- **No se tocaron:** borrar columnas con datos es destructivo y es decisión
+  suya.
 
 ### A16 — Función de cohortes de cédula latente/inconexa ⚪ Baja
 
