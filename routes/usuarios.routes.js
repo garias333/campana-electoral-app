@@ -5,36 +5,8 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
+const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 router.use(requireAuth);
-
-/**
- * Verifica que la contraseña dada corresponda a la de algún usuario con rol
- * 'admin' activo. Se usa como confirmación extra antes de acciones que
- * afectan a muchos usuarios a la vez (ej. sincronizar contraseñas en bloque).
- */
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
-
-/**
- * Exige que, si el teléfono viene con algo, tenga EXACTAMENTE 10 dígitos
- * (mismo criterio que routes/configuracion.routes.js y
- * routes/organigrama.routes.js) — se ignoran espacios/guiones, el
- * frontend ya lo formatea como "### ### ####". Campo vacío se considera
- * válido (el teléfono es opcional).
- */
-function validarTelefono10Digitos(valor) {
-  if (!valor) return true;
-  const digitos = String(valor).replace(/\D/g, '');
-  return digitos.length === 10;
-}
 
 /**
  * Búsqueda por cédula EXACTA entre las cuentas del sistema (líderes,

@@ -1,9 +1,9 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria } = require('../config/auditoria');
+const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -33,33 +33,6 @@ const APOYOS_POR_CARGO = {
 /** Los apoyos permitidos para un cargo, o lista vacía si ese cargo no ofrece apoyos. */
 function apoyosPermitidos(cargo) {
   return APOYOS_POR_CARGO[cargo] || [];
-}
-
-// Mismo patrón ya usado en routes/comunicaciones.routes.js para acciones
-// sensibles: valida la contraseña recibida contra la de CUALQUIER admin
-// activo (no hay "un solo" admin necesariamente).
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
-
-// Devuelve la configuración de la campaña (siempre el registro id = 1).
-// Si todavía no se ha guardado nada, responde con un objeto vacío (no
-// 404), para que el formulario simplemente arranque en blanco.
-// Exige que, si el teléfono viene con algo, tenga EXACTAMENTE 10 dígitos
-// (se ignoran espacios, guiones, paréntesis — el frontend ya los formatea
-// como "### ### ####", pero se valida también acá por si llega de otra
-// forma). Campo vacío se considera válido (opcional).
-function validarTelefono10Digitos(valor) {
-  if (!valor) return true;
-  const digitos = String(valor).replace(/\D/g, '');
-  return digitos.length === 10;
 }
 
 /**

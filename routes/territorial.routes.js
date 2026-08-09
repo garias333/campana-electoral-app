@@ -14,6 +14,7 @@ const {
   sincronizarVotanteDesdeEstructura, traerVotanteActualPorCedula
 } = require('../config/sincronizacionVotantesEstructura');
 const { TIPOS_GREMIALES, CARGOS_CON_META_DERIVADA, sqlMetaEfectiva } = require('../config/metasEstructura');
+const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -54,23 +55,6 @@ const CLAVES_TIPO_CARGO = Object.fromEntries(
     clave
   ])
 );
-
-/**
- * Verifica que la contraseña dada corresponda a la de algún usuario con rol
- * 'admin' activo. Se usa como confirmación extra antes de eliminaciones
- * masivas (borrar coordinadores/líderes, borrar todos los territorios, etc.).
- */
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
-
 
 /**
  * Sube por la cadena de padres de un territorio (ej. Barrio -> Comuna ->
@@ -754,21 +738,6 @@ router.get('/estructura', async (req, res) => {
     res.status(500).json({ error: 'Error obteniendo la estructura.' });
   }
 });
-
-/**
- * Exige que, si el teléfono viene con algo, tenga EXACTAMENTE 10 dígitos
- * (mismo criterio que routes/configuracion.routes.js,
- * routes/organigrama.routes.js y routes/usuarios.routes.js) — se ignoran
- * espacios/guiones, el frontend ya lo formatea como "### ### ####".
- * Campo vacío se considera válido (el teléfono es opcional). Solo se usa
- * en los formularios de una sola persona — la importación masiva por
- * Excel es más tolerante (ver normalizarTelefonoImportado).
- */
-function validarTelefono10Digitos(valor) {
-  if (!valor) return true;
-  const digitos = String(valor).replace(/\D/g, '');
-  return digitos.length === 10;
-}
 
 /**
  * Mantiene `meta_votos` igual al "piso" manual `meta_votos_base` de la

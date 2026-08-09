@@ -1,11 +1,11 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { geocodificarConTerritorio } = require('../config/geoTerritorio');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria } = require('../config/auditoria');
+const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -283,22 +283,6 @@ router.delete('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'l
     res.status(500).json({ error: 'Error quitando el asistente.' });
   }
 });
-
-/**
- * Verifica que la contraseña dada sea la de algún administrador activo.
- * Solo se pide para "Corregir ubicaciones existentes", que reescribe
- * coordenadas ya calculadas — mismo criterio que en Votantes y Estructura.
- */
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
 
 /**
  * Vuelve a intentar geocodificar los eventos que tienen Dirección guardada

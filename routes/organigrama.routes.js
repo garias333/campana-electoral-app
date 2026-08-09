@@ -3,6 +3,7 @@ const { Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, PageBreak,
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { generarDocumentoWord } = require('../config/wordExport');
+const { validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -70,15 +71,6 @@ function construirFichaCargoDocx(nodo, mapaPorId) {
   }
   bloque.push(new Paragraph({ text: '' }));
   return bloque;
-}
-
-// Exige que, si el teléfono viene con algo, tenga EXACTAMENTE 10 dígitos
-// (mismo criterio que routes/configuracion.routes.js) — se ignoran
-// espacios/guiones, el frontend ya lo formatea como "### ### ####".
-function validarTelefono10Digitos(valor) {
-  if (!valor) return true;
-  const digitos = String(valor).replace(/\D/g, '');
-  return digitos.length === 10;
 }
 
 /**

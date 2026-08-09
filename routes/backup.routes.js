@@ -19,10 +19,10 @@ const os = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const multer = require('multer');
-const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
+const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -37,17 +37,6 @@ const uploadZip = multer({
   dest: os.tmpdir(),
   limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2 GB — la carpeta uploads/ puede crecer con el tiempo
 });
-
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
 
 /** Corre un comando y espera a que termine; junta stderr para poder mostrar un mensaje de error útil si falla. */
 function ejecutar(cmd, args, opciones = {}) {

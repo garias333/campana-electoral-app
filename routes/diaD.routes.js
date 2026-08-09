@@ -1,9 +1,9 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, uploadExcel } = require('../middleware/upload');
+const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -59,20 +59,6 @@ async function ambitoDeLaCampana() {
     [depto.id, NIVEL_MUNICIPIO, nombreCiudad, nombreCiudad]
   );
   return { departamentoId: depto.id, municipioId: muni ? muni.id : null };
-}
-
-// Mismo patrón ya usado en votantes.routes.js/territorial.routes.js para
-// acciones destructivas: valida la contraseña recibida contra la de
-// CUALQUIER admin activo (no hay "un solo" admin necesariamente).
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
 }
 
 /**

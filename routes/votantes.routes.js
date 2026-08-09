@@ -12,6 +12,7 @@ const { validarCedula } = require('../lib/validarCedula');
 const { asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo } = require('../config/testigoElectoral');
 const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionVotantesEstructura');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
+const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
 
@@ -47,38 +48,6 @@ function revisarCedula(b) {
 }
 
 router.use(requireAuth, calcularAlcance);
-
-/**
- * Verifica que la contraseña dada corresponda a la de algún usuario con rol
- * 'admin' activo. Se usa como confirmación extra antes de eliminar todos
- * los votantes/contactos.
- */
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
-
-/**
- * Exige que, si el teléfono viene con algo, tenga EXACTAMENTE 10 dígitos
- * (mismo criterio que routes/configuracion.routes.js,
- * routes/organigrama.routes.js, routes/usuarios.routes.js y
- * routes/territorial.routes.js) — se ignoran espacios/guiones, el
- * frontend ya lo formatea como "### ### ####". Campo vacío se considera
- * válido (el teléfono es opcional). Solo se usa en el formulario de una
- * sola persona — la importación masiva por Excel es más tolerante (ver
- * normalizarTelefonoImportado).
- */
-function validarTelefono10Digitos(valor) {
-  if (!valor) return true;
-  const digitos = String(valor).replace(/\D/g, '');
-  return digitos.length === 10;
-}
 
 /**
  * Para la importación masiva por Excel: si el teléfono de la fila no

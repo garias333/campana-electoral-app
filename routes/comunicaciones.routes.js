@@ -1,7 +1,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
@@ -10,6 +9,7 @@ const sendgridSvc = require('../config/sendgrid');
 const pushSvc = require('../config/push');
 const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer');
 const { armarWhereSql } = require('../config/filtros');
+const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
 
@@ -42,18 +42,6 @@ router.get('/adjunto-publico/:archivo', async (req, res) => {
 
 router.use(requireAuth);
 router.use(requireRole('admin', 'coordinador', 'lider', 'asistente_administrativo'));
-
-async function verificarPasswordAdmin(password) {
-  if (!password) return false;
-  const [admins] = await pool.query(
-    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
-  );
-  for (const admin of admins) {
-    if (await bcrypt.compare(password, admin.password_hash)) return true;
-  }
-  return false;
-}
-
 
 const ETIQUETAS_INTENCION = {
   confirmado: 'Confirmado', probable: 'Probable', indeciso: 'Indeciso',
