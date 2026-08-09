@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Día D · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .novedad-fila { background: #FBEAEA; }
+
+  /* Mismo formato de tarjeta que el Panel general y el Dashboard de
+     votantes: borde izquierdo de color en vez de una tarjeta plana. */
+  .stat-card { border-left: 4px solid var(--color-marca); }
+  .stat-card:has(.valor.accent) { border-left-color: var(--color-accent); }
+  #tarjeta-cuenta-regresiva-diad { border-left-color: var(--color-probable); }
+  #tarjeta-cuenta-regresiva-diad .valor { font-size: 1.2rem; line-height: 1.3; }
+
+  /* Toggle Verticales/Horizontales más grande — es el único control de
+     esta pantalla, así que se destaca más que un botón secundario normal. */
+  #btn-grafico-vertical, #btn-grafico-horizontal { padding: 12px 22px; font-size: 1rem; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Jornada electoral</div><h1>Día D</h1></div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <div class="mono" id="ultima-actualizacion" style="color:var(--color-text-muted); font-size:0.8rem;"></div>
+        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none; color:#A93226; border-color:#A93226;">🗑 Eliminar todos los reportes</button>
+      </div>
+    </div>
+
+    <!-- Los testigos reportan desde su propia app móvil (/app/dia-d.html) — acá solo se consolida lo que ya reportaron. -->
+    <div class="grid grid-6" style="margin-bottom:18px;">
+      <div class="card stat-card" id="tarjeta-cuenta-regresiva-diad">
+        <div class="label">Cuenta regresiva</div>
+        <div class="valor accent" id="diad-cuenta-regresiva">—</div>
+      </div>
+      <div class="card stat-card"><div class="label">Total mesas</div><div class="valor" id="stat-total-mesas">—</div></div>
+      <div class="card stat-card"><div class="label">Mesas reportadas</div><div class="valor" id="stat-mesas">—</div></div>
+      <div class="card stat-card"><div class="label" id="label-stat-votos">Votos para el candidato</div><div class="valor accent" id="stat-votos">—</div></div>
+      <div class="card stat-card"><div class="label">Total votantes reportados</div><div class="valor" id="stat-votantes">—</div></div>
+      <div class="card stat-card"><div class="label">Mesas con novedad</div><div class="valor" id="stat-novedades" style="color:var(--color-no-apoya);">—</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="toolbar">
+        <h3 style="margin:0;">Votos por candidato</h3>
+        <div style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
+          <button type="button" class="btn-acento btn-sm" id="btn-grafico-vertical" style="border:none; border-radius:0;">▮ Verticales</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-grafico-horizontal" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">▬ Horizontales</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
+        <div id="grafico-candidatos-contenedor" style="flex:1; min-width:280px;"></div>
+        <div class="tabla-contenedor" style="flex:0 0 auto; min-width:240px;">
+          <table>
+            <thead><tr><th>Candidato</th><th>Votos</th></tr></thead>
+            <tbody id="tbody-candidatos-votos"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="vacio-candidatos-grafico" class="vacio" style="display:none;"><div class="icono-vacio">📊</div>Todavía no hay votos reportados.</div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <h3 style="margin-top:0;">Último reporte por mesa</h3>
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>E-14</th><th></th></tr></thead>
+          <tbody id="tbody-mesas"></tbody>
+        </table>
+      </div>
+      <div id="vacio-mesas" class="vacio" style="display:none;"><div class="icono-vacio">▣</div>Todavía no hay reportes de ninguna mesa.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Historial completo</h3>
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>E-14</th><th></th></tr></thead>
+          <tbody id="tbody-historial"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let intervaloActualizacion = null;
+let esAdmin = false;
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/** Celda con enlace a la foto del E-14, o un guion si no hay ninguna en ese reporte. */
+function celdaFotoE14(url) {
+  return url ? `<a href="${escaparHtml(url)}" target="_blank" rel="noopener">Ver foto</a>` : '—';
+}
+
+/** Botón "Eliminar" por fila — solo se pinta si es admin (mismo criterio que el botón de "eliminar todos"). */
+function celdaEliminarReporte(id) {
+  return esAdmin ? `<button class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarReporte(${id})">Eliminar</button>` : '';
+}
+
+/** Borra un solo reporte — pide la contraseña de un administrador, igual que cualquier borrado en esta app. */
+async function eliminarReporte(id) {
+  if (!confirm('¿Eliminar este reporte? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de reporte');
+  if (password === null) return;
+  try {
+    await api(`/dia-d/reportes/${id}`, { method: 'DELETE', body: { password } });
+    await cargarVistaCampana();
+  } catch (err) {
+    alert(err.message || 'No se pudo eliminar el reporte.');
+  }
+}
+
+/** Borra TODOS los reportes del Día D — pide la contraseña de un administrador. */
+async function eliminarTodosLosReportes() {
+  if (!confirm('¿Eliminar TODOS los reportes del Día D? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de todos los reportes');
+  if (password === null) return;
+  try {
+    await api('/dia-d/reportes/eliminar-todo', { method: 'POST', body: { password } });
+    await cargarVistaCampana();
+  } catch (err) {
+    alert(err.message || 'No se pudieron eliminar los reportes.');
+  }
+}
+document.getElementById('btn-eliminar-todos-reportes').addEventListener('click', eliminarTodosLosReportes);
+
+let orientacionGraficoCandidatos = 'vertical';
+
+/**
+ * Gráfico de barras (SVG, sin librerías) con los votos por candidato. El
+ * candidato propio de la campaña siempre llega de primero desde el
+ * backend (/dia-d/resumen-candidatos) y se pinta en un color distinto
+ * para distinguirlo; el resto ya viene ordenado de mayor a menor.
+ */
+function dibujarGraficoCandidatos(filas) {
+  const cont = document.getElementById('grafico-candidatos-contenedor');
+  if (!filas.length) { cont.innerHTML = ''; return; }
+  const max = Math.max(...filas.map(f => f.votos), 1);
+
+  if (orientacionGraficoCandidatos === 'vertical') {
+    const ancho = 640, alto = 240, pad = 34, padSup = 24;
+    const anchoBarra = (ancho - pad * 2) / filas.length;
+    const barras = filas.map((f, i) => {
+      const alturaBarra = ((alto - pad - padSup) * f.votos) / max;
+      const x = pad + i * anchoBarra;
+      const y = alto - pad - alturaBarra;
+      const color = f.esPropio ? 'var(--color-accent, #C98A2C)' : 'var(--color-navy-light, #1C3A63)';
+      const nombreCorto = f.nombre.length > 16 ? f.nombre.slice(0, 15) + '…' : f.nombre;
+      return `
+        <g>
+          <rect x="${x + 3}" y="${y}" width="${Math.max(anchoBarra - 6, 1)}" height="${Math.max(alturaBarra, 0)}" rx="3" fill="${color}">
+            <title>${escaparHtml(f.nombre)}: ${f.votos} voto(s)</title>
+          </rect>
+          <text x="${x + anchoBarra / 2}" y="${y - 5}" font-size="10" fill="var(--color-text, #161B26)" text-anchor="middle">${formatoMillares(f.votos)}</text>
+          <text x="${x + anchoBarra / 2}" y="${alto - pad + 14}" font-size="8.5" fill="var(--color-text-muted, #5B6472)" text-anchor="middle">${escaparHtml(nombreCorto)}</text>
+        </g>`;
+    }).join('');
+    cont.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:280px;">${barras}</svg>`;
+  } else {
+    const altoFila = 32, padVert = 8, anchoEtiqueta = 150, anchoMax = 320;
+    const ancho = anchoEtiqueta + anchoMax + 60;
+    const alto = altoFila * filas.length + padVert * 2;
+    const barras = filas.map((f, i) => {
+      const anchoBarra = (anchoMax * f.votos) / max;
+      const y = padVert + i * altoFila;
+      const color = f.esPropio ? 'var(--color-accent, #C98A2C)' : 'var(--color-navy-light, #1C3A63)';
+      const nombreCorto = f.nombre.length > 22 ? f.nombre.slice(0, 21) + '…' : f.nombre;
+      return `
+        <g>
+          <text x="${anchoEtiqueta - 8}" y="${y + altoFila / 2 + 4}" font-size="11" fill="var(--color-text, #161B26)" text-anchor="end">${escaparHtml(nombreCorto)}</text>
+          <rect x="${anchoEtiqueta}" y="${y + 6}" width="${Math.max(anchoBarra, 1)}" height="${altoFila - 12}" rx="3" fill="${color}">
+            <title>${escaparHtml(f.nombre)}: ${f.votos} voto(s)</title>
+          </rect>
+          <text x="${anchoEtiqueta + anchoBarra + 8}" y="${y + altoFila / 2 + 4}" font-size="11" fill="var(--color-text, #161B26)">${formatoMillares(f.votos)}</text>
+        </g>`;
+    }).join('');
+    cont.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:${alto}px;">${barras}</svg>`;
+  }
+}
+
+let filasCandidatosVotosCache = [];
+
+document.getElementById('btn-grafico-vertical').addEventListener('click', () => {
+  orientacionGraficoCandidatos = 'vertical';
+  document.getElementById('btn-grafico-vertical').classList.add('btn-acento');
+  document.getElementById('btn-grafico-vertical').classList.remove('btn-secundario');
+  document.getElementById('btn-grafico-horizontal').classList.add('btn-secundario');
+  document.getElementById('btn-grafico-horizontal').classList.remove('btn-acento');
+  dibujarGraficoCandidatos(filasCandidatosVotosCache);
+});
+document.getElementById('btn-grafico-horizontal').addEventListener('click', () => {
+  orientacionGraficoCandidatos = 'horizontal';
+  document.getElementById('btn-grafico-horizontal').classList.add('btn-acento');
+  document.getElementById('btn-grafico-horizontal').classList.remove('btn-secundario');
+  document.getElementById('btn-grafico-vertical').classList.add('btn-secundario');
+  document.getElementById('btn-grafico-vertical').classList.remove('btn-acento');
+  dibujarGraficoCandidatos(filasCandidatosVotosCache);
+});
+
+async function cargarResumenCandidatos() {
+  const filas = await api('/dia-d/resumen-candidatos');
+  filasCandidatosVotosCache = filas;
+  document.getElementById('vacio-candidatos-grafico').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('tbody-candidatos-votos').innerHTML = filas.map(f => `
+    <tr>
+      <td>${escaparHtml(f.nombre)}${f.esPropio ? ' ★' : ''}</td>
+      <td class="mono">${formatoMillares(f.votos)}</td>
+    </tr>
+  `).join('');
+  dibujarGraficoCandidatos(filas);
+}
+
+async function cargarVistaCampana() {
+  const [resumen, reportes] = await Promise.all([
+    api('/dia-d/resumen'),
+    api('/dia-d/reportes'),
+    cargarResumenCandidatos()
+  ]);
+
+  document.getElementById('stat-total-mesas').textContent = formatoMillares(resumen.totalMesas);
+  const porcentajeReportado = resumen.totalMesas > 0
+    ? Math.round((resumen.mesasReportando / resumen.totalMesas) * 100)
+    : 0;
+  document.getElementById('stat-mesas').textContent = `${formatoMillares(resumen.mesasReportando)} - ${porcentajeReportado}%`;
+  document.getElementById('stat-votos').textContent = formatoMillares(resumen.totalVotosCandidato);
+  document.getElementById('stat-votantes').textContent = formatoMillares(resumen.totalVotantes);
+  document.getElementById('stat-novedades').textContent = formatoMillares(resumen.mesasConNovedad);
+
+  const tbodyMesas = document.getElementById('tbody-mesas');
+  document.getElementById('vacio-mesas').style.display = reportes.mesas.length ? 'none' : 'block';
+  tbodyMesas.innerHTML = reportes.mesas.map(f => `
+    <tr class="${f.novedad ? 'novedad-fila' : ''}">
+      <td>${escaparHtml(f.puesto_votacion)}</td>
+      <td>${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono">${f.votos_candidato ?? '—'}</td>
+      <td class="mono">${f.total_votos_mesa ?? '—'}</td>
+      <td>${escaparHtml(f.testigo_nombre)}</td>
+      <td>${formatoFecha(f.created_at, true)}</td>
+      <td>${escaparHtml(f.novedad || '')}</td>
+      <td>${celdaFotoE14(f.foto_e14_url)}</td>
+      <td>${celdaEliminarReporte(f.id)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('tbody-historial').innerHTML = reportes.historial.map(f => `
+    <tr class="${f.novedad ? 'novedad-fila' : ''}">
+      <td>${formatoFecha(f.created_at, true)}</td>
+      <td>${escaparHtml(f.testigo_nombre)}</td>
+      <td>${escaparHtml(f.puesto_votacion)}</td>
+      <td>${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono">${f.votos_candidato ?? '—'}</td>
+      <td>${escaparHtml(f.novedad || '')}</td>
+      <td>${celdaFotoE14(f.foto_e14_url)}</td>
+      <td>${celdaEliminarReporte(f.id)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('ultima-actualizacion').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/dia-d.html');
+  if (!usuarioActual) return;
+
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    return;
+  }
+
+  // Eliminar (un reporte o todos) queda solo para admin — igual que
+  // "Eliminar todo" en Estructura territorial — un coordinador puede ver
+  // el tablero, pero no borrar datos de la jornada electoral.
+  esAdmin = usuarioActual.rol === 'admin';
+  document.getElementById('btn-eliminar-todos-reportes').style.display = esAdmin ? 'inline-flex' : 'none';
+
+  // El rótulo de la tarjeta de votos muestra el nombre real del candidato
+  // (Configuración → Datos de la campaña) en vez del texto genérico.
+  try {
+    const campana = await api('/configuracion/campana');
+    const nombreCandidato = (campana.nombre_candidato || '').replace(/^\s*candidato\s*:\s*/i, '').trim();
+    if (nombreCandidato) {
+      document.getElementById('label-stat-votos').textContent = `Votos para ${nombreCandidato}`;
+    }
+    document.getElementById('diad-cuenta-regresiva').textContent = textoCuentaRegresivaElecciones(campana.fecha_eleccion);
+  } catch (err) {
+    console.error('Error consultando el candidato de la campaña:', err);
+  }
+
+  await cargarVistaCampana();
+  // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
+  // en esta app, así que un refresco corto por sondeo es lo más simple y
+  // suficiente para seguir el conteo el día de la jornada.
+  intervaloActualizacion = setInterval(cargarVistaCampana, 20000);
+})();
+</script>
+</body>
+</html>

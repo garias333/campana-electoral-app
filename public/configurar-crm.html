@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configurar CRM · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">CRM y mensajería</div><h1>Configurar CRM</h1></div>
+    </div>
+
+    <div class="card" id="crm-config-bloqueado">
+      <div style="text-align:center; padding:26px 10px;">
+        <div style="font-size:2.4rem; margin-bottom:10px;">🔒</div>
+        <h3 style="margin:0 0 8px;">Esta pantalla está protegida</h3>
+        <p style="color:var(--color-text-muted); font-size:0.9rem; max-width:420px; margin:0 auto 18px;">
+          Las credenciales de SendGrid y Twilio son sensibles — para verlas o editarlas, confirma tu contraseña de administrador.
+        </p>
+        <button type="button" class="btn-primario" id="btn-desbloquear-crm">Ingresar contraseña de administrador</button>
+      </div>
+    </div>
+
+    <div class="card" id="crm-config-card" style="display:none;">
+      <h3 style="margin-top:0;">Credenciales de SendGrid y Twilio</h3>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
+        Estas credenciales alimentan CRM y Mensajes (Email vía SendGrid) y Enviar SMS (vía Twilio). Se guardan en esta base de datos, no en el servidor — así se pueden actualizar desde acá sin necesitar acceso por SSH.
+        <br><strong>Nota:</strong> los campos de clave/token se muestran enmascarados una vez guardados, por seguridad. Si los dejas tal cual (con los puntos), se conserva el valor que ya tenías — solo se reemplaza si escribes uno nuevo.
+      </p>
+      <div id="comunicaciones-error" class="mensaje-error"></div>
+      <div id="comunicaciones-ok" class="mensaje-ok"></div>
+      <form id="form-comunicaciones">
+        <h4 style="margin-bottom:6px;">SendGrid (Email)</h4>
+        <div class="fila">
+          <div class="campo">
+            <label>API Key</label>
+            <input id="comunicaciones-sendgrid-api-key" placeholder="SG.xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label>Correo remitente (verificado en SendGrid)</label>
+            <input id="comunicaciones-sendgrid-from" type="email" placeholder="campana@tudominio.com">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Nombre del remitente</label>
+          <input id="comunicaciones-sendgrid-from-name" placeholder="Estrategia - Campaña">
+        </div>
+
+        <h4 style="margin-bottom:6px; margin-top:20px;">Twilio (SMS)</h4>
+        <div class="fila">
+          <div class="campo">
+            <label>Account SID</label>
+            <input id="comunicaciones-twilio-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label>Auth Token</label>
+            <input id="comunicaciones-twilio-token" placeholder="Tu Auth Token de Twilio" autocomplete="off">
+          </div>
+        </div>
+        <!-- El campo "Número de WhatsApp" se quitó: Meta prohíbe las campañas
+             políticas en su API de negocios. La columna twilio_whatsapp_from
+             sigue en la base y el backend conserva su valor. -->
+        <div class="campo">
+          <label>Número para SMS</label>
+          <input id="comunicaciones-twilio-sms" placeholder="+15017122661">
+        </div>
+        <button type="submit" class="btn-primario">Guardar cambios</button>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+
+async function cargarConfigComunicaciones() {
+  const c = await api('/configuracion/comunicaciones');
+  document.getElementById('comunicaciones-sendgrid-api-key').value = c.sendgrid_api_key_mascara || '';
+  document.getElementById('comunicaciones-sendgrid-api-key').dataset.mascara = c.sendgrid_api_key_mascara || '';
+  document.getElementById('comunicaciones-sendgrid-from').value = c.sendgrid_from || '';
+  document.getElementById('comunicaciones-sendgrid-from-name').value = c.sendgrid_from_name || '';
+  document.getElementById('comunicaciones-twilio-sid').value = c.twilio_account_sid_mascara || '';
+  document.getElementById('comunicaciones-twilio-sid').dataset.mascara = c.twilio_account_sid_mascara || '';
+  document.getElementById('comunicaciones-twilio-token').value = c.twilio_auth_token_mascara || '';
+  document.getElementById('comunicaciones-twilio-token').dataset.mascara = c.twilio_auth_token_mascara || '';
+  document.getElementById('comunicaciones-twilio-sms').value = c.twilio_sms_from || '';
+}
+
+// Si el campo secreto se quedó tal cual estaba (mostrando la máscara),
+// se manda vacío al servidor — que ya sabe que un valor vacío significa
+// "no cambiar lo que había". Solo se manda algo si la persona lo editó.
+function valorSecretoOVacio(id) {
+  const campo = document.getElementById(id);
+  return campo.value === campo.dataset.mascara ? '' : campo.value;
+}
+
+document.getElementById('form-comunicaciones').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('comunicaciones-error');
+  const okBox = document.getElementById('comunicaciones-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  try {
+    await api('/configuracion/comunicaciones', {
+      method: 'PUT',
+      body: {
+        sendgrid_api_key: valorSecretoOVacio('comunicaciones-sendgrid-api-key'),
+        sendgrid_from: document.getElementById('comunicaciones-sendgrid-from').value.trim(),
+        sendgrid_from_name: document.getElementById('comunicaciones-sendgrid-from-name').value.trim(),
+        twilio_account_sid: valorSecretoOVacio('comunicaciones-twilio-sid'),
+        twilio_auth_token: valorSecretoOVacio('comunicaciones-twilio-token'),
+        twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim()
+        // twilio_whatsapp_from no se manda: al no venir en el body, el
+        // servidor conserva el valor que ya estuviera guardado.
+      }
+    });
+    okBox.textContent = 'Credenciales guardadas correctamente.';
+    okBox.classList.add('visible');
+    await cargarConfigComunicaciones();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+document.getElementById('btn-desbloquear-crm').addEventListener('click', async () => {
+  const password = await solicitarPasswordAdmin('Confirmar acceso a Configurar CRM');
+  if (!password) return;
+  try {
+    await api('/configuracion/comunicaciones/verificar-acceso', { method: 'POST', body: { password } });
+    document.getElementById('crm-config-bloqueado').style.display = 'none';
+    document.getElementById('crm-config-card').style.display = 'block';
+    await cargarConfigComunicaciones();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/configurar-crm.html');
+  if (!usuarioActual) return;
+})();
+</script>
+</body>
+</html>

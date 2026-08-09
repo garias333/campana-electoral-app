@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM y Mensajes · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .canal-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; border: 1.5px solid var(--color-border, #d8d8d8);
+    background: #fff; cursor: pointer; font-weight: 600; font-size: 0.88rem;
+  }
+  .canal-chip.activo { border-color: #0B5ED7; background: #f0f4f8; }
+  .canal-chip .punto-estado { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .canal-chip .punto-estado.ok { background: #16a34a; }
+  .canal-chip .punto-estado.falta { background: #dc2626; }
+  .destinatario-fila { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--color-border, #f0f0f0); font-size:0.85rem; }
+  .badge-campana { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
+  .badge-enviado { background:#dcfce7; color:#166534; }
+  .badge-enviando { background:#fef3c7; color:#92400e; }
+  .badge-fallido { background:#fee2e2; color:#991b1b; }
+  .badge-borrador { background:#f1f5f9; color:#475569; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Comunicaciones</div><h1>CRM y Mensajes</h1></div>
+    </div>
+
+    <!-- Respuestas entrantes. Va ARRIBA de todo a propósito: si alguien
+         pidió la baja o contestó algo, hay que verlo antes de armar el
+         siguiente envío, no después. -->
+    <div class="card" style="margin-bottom:16px; display:none;" id="tarjeta-respuestas">
+      <div class="topbar" style="margin-bottom:8px;">
+        <h3 style="margin:0;">Respuestas recibidas <span id="badge-respuestas" style="font-size:0.8rem; font-weight:600; color:#A93226;"></span></h3>
+        <button type="button" class="btn-secundario btn-sm" id="btn-ver-todas-respuestas">Ver todas</button>
+      </div>
+      <div id="lista-respuestas" style="font-size:0.88rem;"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0;">1. Elige el canal</h3>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;" id="selector-canal">
+        <button type="button" class="canal-chip activo" data-canal="email">
+          <span class="punto-estado" id="punto-email"></span> Email
+        </button>
+        <button type="button" class="canal-chip" data-canal="sms">
+          <span class="punto-estado" id="punto-sms"></span> SMS
+        </button>
+        <button type="button" class="canal-chip" data-canal="push">
+          <span class="punto-estado" id="punto-push"></span> Aviso en la app
+        </button>
+      </div>
+      <p id="nota-canal" style="color:var(--color-text-muted); font-size:0.82rem; margin-bottom:0; margin-top:10px;"></p>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="topbar" style="margin-bottom:6px;">
+        <h3 style="margin:0;">2. Elige a quién le va a llegar</h3>
+        <button type="button" class="btn-secundario btn-sm" id="btn-agregar-grupo">+ Agregar grupo</button>
+      </div>
+      <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:0;">
+        Cada grupo suma sus propios destinatarios al envío — usa "+ Agregar grupo" para combinar, por ejemplo, un Territorio con un Nivel del Organigrama, todo en la misma campaña.
+      </p>
+      <div id="grupos-destinatarios"></div>
+      <div class="campo">
+        <label>O agrega destinatarios manualmente (opcional)</label>
+        <textarea id="input-destinatarios-manuales" rows="3" placeholder="Escribe uno o varios números de teléfono o correos electrónicos, separados por coma, punto y coma, o cada uno en su propia línea.&#10;Ej: 3001234567, 3109876543&#10;o: correo1@ejemplo.com&#10;correo2@ejemplo.com"></textarea>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Estos se suman a los que traigan los grupos de arriba. Si escribes un teléfono para una campaña de correo (o viceversa), no va a llegar — usa el formato que corresponda al canal elegido arriba.</small>
+      </div>
+      <button type="button" class="btn-secundario btn-sm" id="btn-ver-destinatarios">Ver cuántos van a recibir el mensaje</button>
+      <div id="resultado-destinatarios" style="margin-top:14px; display:none;">
+        <p class="mono" id="conteo-destinatarios" style="font-size:0.95rem;"></p>
+        <div id="lista-muestra-destinatarios"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="margin-top:0;">3. Escribe el mensaje</h3>
+      <div class="campo"><label>Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
+      <div class="campo" id="campo-asunto"><label>Asunto (solo Email)</label><input id="input-asunto-campana"></div>
+      <div class="campo">
+        <label>Mensaje</label>
+                <!-- Plantillas: cargar una ya escrita o guardar la de ahora. -->
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+          <select id="select-plantilla" style="max-width:280px;"><option value="">Plantillas guardadas…</option></select>
+          <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
+        </div>
+<textarea id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para que se reemplace automáticamente por el primer nombre de cada destinatario."></textarea>
+        <div id="contador-sms-campana" style="font-size:0.78rem; margin-top:4px;"></div>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Tip: escribe <code>{nombre}</code> en cualquier parte del mensaje y se reemplaza por el primer nombre de cada persona.</small>
+        <div style="margin-top:8px; padding:10px 12px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; background:var(--color-surface, #fff);">
+          <div style="font-weight:700; color:#0B5ED7; font-size:0.82rem; margin-bottom:4px;">Día D — decirle a cada quien dónde vota</div>
+          <div style="font-size:0.78rem; color:var(--color-text-muted); line-height:1.5;">
+            Estos marcadores se reemplazan con el Lugar de votación <strong>de cada destinatario</strong>:
+            <code>{lugar_votacion}</code> (todo junto), <code>{puesto}</code>, <code>{mesa}</code>,
+            <code>{municipio}</code>, <code>{departamento}</code>.
+            A quien le falte el dato, el marcador le queda vacío.
+            <br><code>{slogan}</code> pone el eslogan de Configuración → Datos de la campaña.
+          </div>
+          <button type="button" class="btn-secundario btn-sm" id="btn-plantilla-dia-d-crm" style="margin-top:8px;">Insertar mensaje de Día D</button>
+        </div>
+      </div>
+      <div id="crm-form-error" class="mensaje-error"></div>
+      <div id="crm-form-ok" class="mensaje-ok"></div>
+      <!-- Programación. Vacío = sale ya, que es lo de siempre. -->
+      <div class="campo" style="max-width:280px;">
+        <label style="font-size:0.82rem;">Programar el envío (opcional)</label>
+        <input type="datetime-local" id="input-programado-para">
+        <small style="color:var(--color-text-muted); font-size:0.76rem;">Si lo dejas vacío, sale de inmediato. La hora es la de tu equipo.</small>
+      </div>
+      <button type="button" class="btn-acento" id="btn-enviar-campana">Enviar campaña</button>
+    </div>
+
+    <div class="card">
+      <div class="topbar" style="margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Historial de campañas</h3>
+        <div id="botones-eliminar-por-canal" style="display:none; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="btn-secundario btn-sm" data-canal="email" style="color:#A93226; border-color:#A93226;">Eliminar todas (Email)</button>
+          <button type="button" class="btn-secundario btn-sm" data-canal="email_personal" style="color:#A93226; border-color:#A93226;">Eliminar todas (Email personal)</button>
+          <button type="button" class="btn-secundario btn-sm" data-canal="sms" style="color:#A93226; border-color:#A93226;">Eliminar todas (SMS)</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todas-campanas" style="color:#A93226; border-color:#A93226; font-weight:700;">Eliminar TODAS las campañas</button>
+        </div>
+      </div>
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Nombre</th><th>Canal</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="tbody-campanas"></tbody>
+      </table>
+      </div>
+      <div id="vacio-campanas" class="vacio" style="display:none;"><div class="icono-vacio">✉</div>Todavía no has enviado ninguna campaña.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-detalle-campana">
+  <div class="modal">
+    <div class="modal-header"><h3 id="detalle-campana-titulo">Detalle de la campaña</h3><button class="modal-cerrar" id="cerrar-modal-detalle">×</button></div>
+    <div id="detalle-campana-resumen" style="margin-bottom:12px; font-size:0.88rem; color:var(--color-text-muted);"></div>
+    <div style="max-height:400px; overflow-y:auto;">
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Nombre</th><th>Contacto</th><th>Estado</th><th>Detalle</th></tr></thead>
+        <tbody id="tbody-detalle-envios"></tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/segmentos-sms.js"></script>
+<script>
+let usuarioActual;
+let territorios = [];
+let puestosVotacion = [];
+let canalElegido = 'email';
+let estadoCanales = { email: { configurado: false }, sms: { configurado: false }, push: { configurado: false } };
+
+const ETIQUETAS_ESTADO_CAMPANA = { borrador: 'Borrador', enviando: 'Enviando…', enviado: 'Enviado', fallido: 'Fallido' };
+const ETIQUETAS_CANAL = { email: 'Email', email_personal: 'Email personal', sms: 'SMS', push: 'Aviso en la app' };
+// Nota: la restricción de origen del canal Push (solo Estructura o
+// Testigos, los únicos que corresponden a personas con cuenta) la impone
+// el SERVIDOR, y el mensaje de error se muestra tal cual. No se duplica
+// aquí a propósito: una lista repetida en los dos lados se desincroniza,
+// y la que manda es la del servidor.
+const ETIQUETAS_ESTADO_ENVIO = { pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto', sin_lugar_votacion: 'Sin lugar de votación (no se envió)' };
+
+/**
+ * Escapa texto que va a entrar en un innerHTML.
+ *
+ * Esta pantalla la LLAMABA sin tenerla, desde el parche 14: la línea que
+ * arma las opciones lanzaba ReferenceError, `innerHTML` no se asignaba
+ * nunca y el desplegable se quedaba con su texto de ayuda — idéntico a no
+ * tener ninguna plantilla guardada. Lo mismo le pasaba a la bandeja de
+ * respuestas. El try/catch de cargarPlantillas solo envuelve la llamada al
+ * servidor, no el pintado, así que el fallo moría en la consola.
+ *
+ * Es copia literal de la de testigos.html, dia-d.html y
+ * asistentes-reuniones.html, que son idénticas entre sí. Cada pantalla
+ * lleva la suya porque no comparten archivo; si se toca una, tocar las
+ * otras.
+ */
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/** Arma el HTML de un grupo de filtros (Fuente + los que correspondan según ella), con ids únicos por índice. */
+function plantillaGrupo(idx) {
+  return `
+    <div class="grupo-destinatarios" data-grupo-index="${idx}" style="border:1px solid var(--color-border, #e2e2e2); border-radius:8px; padding:14px; margin-bottom:12px; position:relative;">
+      <button type="button" class="btn-secundario btn-sm" style="position:absolute; top:10px; right:10px; color:#A93226; border-color:#A93226;" onclick="quitarGrupo(${idx})" title="Quitar este grupo">Quitar grupo</button>
+      <div style="font-weight:700; margin-bottom:8px; font-size:0.8rem; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.03em;">Grupo ${idx + 1}</div>
+      <div class="fila">
+        <div class="campo">
+          <label>Fuente</label>
+          <select id="filtro-fuente-${idx}" onchange="actualizarVisibilidadFiltrosGrupo(${idx})">
+            <option value="ambos" selected>Votantes, Estructura y Organigrama</option>
+            <option value="votantes">Solo Votantes y sublíderes</option>
+            <option value="estructura">Solo Estructura (coordinadores/líderes/testigos)</option>
+            <option value="testigos">Testigos y Coordinadores de puesto</option>
+            <option value="organigrama">Solo Organigrama</option>
+          </select>
+        </div>
+        <div class="campo" id="campo-filtro-territorio-${idx}">
+          <label>Territorio (Comuna/Corregimiento)</label>
+          <select id="filtro-territorio-${idx}"><option value="">Todos los territorios</option></select>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo" id="campo-filtro-intencion-${idx}">
+          <label>Intención de voto (solo Votantes)</label>
+          <select id="filtro-intencion-${idx}">
+            <option value="">Todas</option>
+            <option value="confirmado">Confirmado</option>
+            <option value="probable">Probable</option>
+            <option value="indeciso">Indeciso</option>
+            <option value="no_apoya">No apoya</option>
+            <option value="desconocido">Desconocido</option>
+          </select>
+        </div>
+        <div class="campo" id="campo-filtro-categoria-${idx}">
+          <label>Categoría (solo Votantes)</label>
+          <select id="filtro-categoria-${idx}">
+            <option value="">Todas</option>
+            <option value="votante">Votante</option>
+            <option value="sublider">Sublíder</option>
+          </select>
+        </div>
+        <div class="campo" id="campo-filtro-cargo-${idx}">
+          <label>Cargo (solo Estructura)</label>
+          <select id="filtro-cargo-${idx}">
+            <option value="">Todos</option>
+            <option value="coordinador">Coordinador</option>
+            <option value="coordinador_organizaciones">Coordinador Organizaciones</option>
+            <option value="lider">Líder</option>
+            <option value="usuario">Sublíder</option>
+            <option value="testigo">Testigo</option>
+          </select>
+        </div>
+        <div class="campo" id="campo-filtro-puesto-votacion-${idx}" style="display:none;">
+          <label>Puesto de votación</label>
+          <select id="filtro-puesto-votacion-${idx}"><option value="">Todos los puestos</option></select>
+        </div>
+      </div>
+      <div class="fila" id="fila-filtros-organigrama-${idx}" style="display:none;">
+        <div class="campo">
+          <label>Cargo (Organigrama)</label>
+          <input id="filtro-organigrama-cargo-${idx}" placeholder="Ej. GERENTE DE CAMPAÑA">
+        </div>
+        <div class="campo">
+          <label>Nombre (Organigrama)</label>
+          <input id="filtro-organigrama-nombre-${idx}" placeholder="Busca por nombre o apellido">
+        </div>
+        <div class="campo">
+          <label>Nivel (Organigrama)</label>
+          <select id="filtro-organigrama-nivel-${idx}">
+            <option value="">Todos</option>
+            <option value="nivel_1">Nivel 1</option>
+            <option value="nivel_2">Nivel 2</option>
+            <option value="nivel_3">Nivel 3</option>
+            <option value="asesores">Asesores</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let contadorGrupos = 0;
+function agregarGrupo() {
+  const idx = contadorGrupos++;
+  document.getElementById('grupos-destinatarios').insertAdjacentHTML('beforeend', plantillaGrupo(idx));
+  poblarTerritorioGrupo(idx);
+  poblarPuestosVotacionGrupo(idx);
+  actualizarBotonQuitarGrupo();
+}
+function quitarGrupo(idx) {
+  const bloque = document.querySelector(`.grupo-destinatarios[data-grupo-index="${idx}"]`);
+  if (bloque) bloque.remove();
+  actualizarBotonQuitarGrupo();
+}
+/** Si solo queda un grupo, no tiene sentido poder quitarlo — se oculta ese botón. */
+function actualizarBotonQuitarGrupo() {
+  const bloques = document.querySelectorAll('.grupo-destinatarios');
+  bloques.forEach(b => {
+    const boton = b.querySelector('button');
+    if (boton) boton.style.display = bloques.length > 1 ? 'inline-block' : 'none';
+  });
+}
+document.getElementById('btn-agregar-grupo').addEventListener('click', agregarGrupo);
+
+function poblarTerritorioGrupo(idx) {
+  const zonas = territorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento').sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const select = document.getElementById(`filtro-territorio-${idx}`);
+  if (select) {
+    select.innerHTML = '<option value="">Todos los territorios</option>' +
+      zonas.map(z => `<option value="${z.id}">${z.nombre}</option>`).join('');
+  }
+}
+
+/** Puestos configurados en Configuración → Día D → Puestos de votación, para filtrar la Fuente "Testigos y Coordinadores de puesto". */
+function poblarPuestosVotacionGrupo(idx) {
+  const select = document.getElementById(`filtro-puesto-votacion-${idx}`);
+  if (select) {
+    select.innerHTML = '<option value="">Todos los puestos</option>' +
+      puestosVotacion.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+  }
+}
+
+function actualizarVisibilidadFiltrosGrupo(idx) {
+  const fuente = document.getElementById(`filtro-fuente-${idx}`).value;
+  const esSoloOrganigrama = fuente === 'organigrama';
+  const esTestigos = fuente === 'testigos';
+  document.getElementById(`campo-filtro-territorio-${idx}`).style.display = (esSoloOrganigrama || esTestigos) ? 'none' : 'block';
+  document.getElementById(`campo-filtro-intencion-${idx}`).style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
+  document.getElementById(`campo-filtro-categoria-${idx}`).style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
+  document.getElementById(`campo-filtro-cargo-${idx}`).style.display = (esSoloOrganigrama || fuente === 'votantes' || esTestigos) ? 'none' : 'block';
+  // El Puesto de votación ahora sirve también para Votantes: es el corte
+  // natural del Día D ("todos los que votan en tal puesto"). Sigue oculto
+  // para Organigrama, que no tiene ese dato.
+  document.getElementById(`campo-filtro-puesto-votacion-${idx}`).style.display = esSoloOrganigrama ? 'none' : 'block';
+  document.getElementById(`fila-filtros-organigrama-${idx}`).style.display = esSoloOrganigrama ? 'flex' : 'none';
+}
+
+async function cargarTerritorios() {
+  territorios = await api('/territorial/territorios');
+}
+
+async function cargarPuestosVotacion() {
+  try { puestosVotacion = await api('/dia-d/puestos-con-mesas'); } catch (err) { puestosVotacion = []; }
+}
+
+async function cargarEstadoCanales() {
+  estadoCanales = await api('/comunicaciones/estado-canales');
+  document.getElementById('punto-email').className = 'punto-estado ' + (estadoCanales.email.configurado ? 'ok' : 'falta');
+  document.getElementById('punto-sms').className = 'punto-estado ' + (estadoCanales.sms.configurado ? 'ok' : 'falta');
+  document.getElementById('punto-push').className = 'punto-estado ' + ((estadoCanales.push || {}).configurado ? 'ok' : 'falta');
+  actualizarNotaCanal();
+}
+
+function actualizarNotaCanal() {
+  const estado = estadoCanales[canalElegido];
+  const nota = document.getElementById('nota-canal');
+  // El asunto se pide en correo y también en push: ahí hace de TÍTULO del
+  // aviso, que es lo único que el teléfono muestra siempre (el cuerpo lo
+  // puede recortar el sistema).
+  document.getElementById('campo-asunto').style.display =
+    (canalElegido === 'email' || canalElegido === 'push') ? 'block' : 'none';
+  if (estado && estado.configurado) {
+    nota.textContent = canalElegido === 'email'
+      ? 'Este canal ya está configurado con SendGrid.'
+      : canalElegido === 'push'
+        ? 'Llega como notificación a la aplicación del celular. Solo la reciben quienes tienen cuenta y activaron los avisos: elija "Estructura" o "Testigos" como origen.'
+        : `Este canal ya está configurado con Twilio.`;
+    nota.style.color = 'var(--color-text-muted)';
+  } else {
+    nota.textContent = (estado && estado.motivo) || 'Este canal todavía no está configurado.';
+    nota.style.color = '#A93226';
+  }
+}
+
+document.querySelectorAll('#selector-canal .canal-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#selector-canal .canal-chip').forEach(c => c.classList.remove('activo'));
+    chip.classList.add('activo');
+    canalElegido = chip.dataset.canal;
+    actualizarNotaCanal();
+  });
+});
+
+/** Junta los filtros de TODOS los grupos activos en un arreglo — el backend calcula la unión de todos, sin duplicar contactos. */
+function leerTodosLosGrupos() {
+  const grupos = [];
+  document.querySelectorAll('.grupo-destinatarios').forEach(bloque => {
+    const idx = bloque.dataset.grupoIndex;
+    grupos.push({
+      fuente: document.getElementById(`filtro-fuente-${idx}`).value,
+      territorio_id: document.getElementById(`filtro-territorio-${idx}`).value || null,
+      intencion_voto: document.getElementById(`filtro-intencion-${idx}`).value || null,
+      categoria: document.getElementById(`filtro-categoria-${idx}`).value || null,
+      cargo: document.getElementById(`filtro-cargo-${idx}`).value || null,
+      puesto_votacion: document.getElementById(`filtro-puesto-votacion-${idx}`).value || null,
+      organigrama_cargo: document.getElementById(`filtro-organigrama-cargo-${idx}`).value || null,
+      organigrama_nombre: document.getElementById(`filtro-organigrama-nombre-${idx}`).value || null,
+      organigrama_nivel: document.getElementById(`filtro-organigrama-nivel-${idx}`).value || null
+    });
+  });
+  const manual = document.getElementById('input-destinatarios-manuales').value || null;
+  if (manual) grupos.push({ fuente: 'manual', manual });
+  return grupos;
+}
+
+document.getElementById('btn-ver-destinatarios').addEventListener('click', async () => {
+  const boton = document.getElementById('btn-ver-destinatarios');
+  boton.disabled = true;
+  boton.textContent = 'Calculando...';
+  try {
+    const r = await api('/comunicaciones/destinatarios/preview', {
+      method: 'POST', body: { filtros: leerTodosLosGrupos(), canal: canalElegido }
+    });
+    document.getElementById('resultado-destinatarios').style.display = 'block';
+    document.getElementById('conteo-destinatarios').textContent =
+      `${formatoMillares(r.total)} persona(s) coinciden con el filtro · ${formatoMillares(r.conContacto)} tienen ${canalElegido === 'email' ? 'correo' : 'teléfono'} registrado · ${formatoMillares(r.sinContacto)} no lo tienen y no recibirán el mensaje`;
+    document.getElementById('lista-muestra-destinatarios').innerHTML = r.muestra.map(d => `
+      <div class="destinatario-fila">
+        <span>${d.nombre} <span style="color:var(--color-text-muted);">— ${d.detalle}</span></span>
+        <span class="mono">${d.contacto || '—'}</span>
+      </div>
+    `).join('') + (r.total > r.muestra.length ? `<p style="color:var(--color-text-muted); font-size:0.8rem; margin-top:6px;">... y ${formatoMillares(r.total - r.muestra.length)} más.</p>` : '');
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Ver cuántos van a recibir el mensaje';
+  }
+});
+
+document.getElementById('btn-enviar-campana').addEventListener('click', async () => {
+  const errorBox = document.getElementById('crm-form-error');
+  const okBox = document.getElementById('crm-form-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  const nombre = document.getElementById('input-nombre-campana').value.trim();
+  const asunto = document.getElementById('input-asunto-campana').value.trim();
+  const mensaje = document.getElementById('input-mensaje-campana').value.trim();
+
+  if (!nombre || !mensaje || (canalElegido === 'email' && !asunto)) {
+    errorBox.textContent = canalElegido === 'email'
+      ? 'Completa el nombre de la campaña, el asunto y el mensaje.'
+      : 'Completa el nombre de la campaña y el mensaje.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (!estadoCanales[canalElegido].configurado) {
+    errorBox.textContent = estadoCanales[canalElegido].motivo || 'Este canal todavía no está configurado.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (!confirm(`Vas a enviar esta campaña por ${ETIQUETAS_CANAL[canalElegido]} a todas las personas que coincidan con el filtro elegido. ¿Confirmas?`)) return;
+  // CRM no tiene la lista en pantalla: los destinatarios salen del filtro.
+  // Se pide la vista previa solo para poder avisar de los que quedarían
+  // fuera por no tener Lugar de votación registrado.
+  if (mensajeUsaMarcadoresDeLugar()) {
+    try {
+      const previa = await api('/comunicaciones/destinatarios/preview', {
+        method: 'POST', body: { filtros: leerTodosLosGrupos(), canal: canalElegido, completo: true }
+      });
+      if (!confirmarFaltantesDeLugar(previa.destinatarios || [])) return;
+    } catch (e) { /* si la vista previa falla, se sigue: el servidor igual los salta y quedan en el reporte */ }
+  }
+
+  const boton = document.getElementById('btn-enviar-campana');
+  boton.disabled = true;
+  boton.textContent = 'Enviando...';
+  try {
+    const formData = new FormData();
+    formData.append('nombre', nombre);
+    formData.append('canal', canalElegido);
+    formData.append('asunto', asunto);
+    formData.append('mensaje', mensaje);
+    formData.append('filtros', JSON.stringify(leerTodosLosGrupos()));
+    // El servidor corre en UTC y quien programa está en Colombia. Si se
+    // mandara "2026-08-10T07:00" tal cual, el servidor lo leería como las
+    // 7:00 UTC y el mensaje saldría a las 2 de la mañana. Se convierte
+    // aquí, donde SÍ se sabe en qué huso está la persona.
+    const programado = document.getElementById('input-programado-para').value;
+    if (programado) formData.append('programado_para', new Date(programado).toISOString());
+    const r = await api('/comunicaciones/campanas', { method: 'POST', body: formData });
+    okBox.textContent = r.programada
+      ? `Campaña programada para el ${formatoFecha(r.programada, true)} — ${formatoMillares(r.total_destinatarios)} destinatarios. Hasta esa hora no sale nada; aparece en el historial como borrador.`
+      : `Campaña creada — se están enviando ${formatoMillares(r.total_destinatarios)} mensajes en segundo plano. Revisa el historial de abajo para ver el progreso.`;
+    okBox.classList.add('visible');
+    document.getElementById('input-nombre-campana').value = '';
+    document.getElementById('input-asunto-campana').value = '';
+    document.getElementById('input-mensaje-campana').value = '';
+    document.getElementById('input-programado-para').value = '';
+    document.getElementById('input-destinatarios-manuales').value = '';
+    document.getElementById('resultado-destinatarios').style.display = 'none';
+    await cargarCampanas();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Enviar campaña';
+  }
+});
+
+async function cargarCampanas() {
+  const campanas = await api('/comunicaciones/campanas');
+  document.getElementById('vacio-campanas').style.display = campanas.length ? 'none' : 'block';
+  document.getElementById('tbody-campanas').innerHTML = campanas.map(c => `
+    <tr>
+      <td><strong>${c.nombre}</strong></td>
+      <td>${ETIQUETAS_CANAL[c.canal] || c.canal}</td>
+      <td><span class="badge-campana badge-${c.estado}">${ETIQUETAS_ESTADO_CAMPANA[c.estado] || c.estado}</span></td>
+      <td class="mono">${formatoMillares(c.total_destinatarios)}</td>
+      <td class="mono">${formatoMillares(c.enviados)}</td>
+      <td class="mono">${formatoMillares(c.fallidos)}</td>
+      <td>${formatoFecha(c.created_at, true)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>
+        <button class="btn-secundario btn-sm" style="color:#A93226; border-color:#A93226;" onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarCampana(id, nombre) {
+  if (!confirm(`¿Eliminar la campaña "${nombre}"? No se puede deshacer.`)) return;
+  try {
+    await api(`/comunicaciones/campanas/${id}`, { method: 'DELETE' });
+    await cargarCampanas();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function verDetalleCampana(id) {
+  const { campana, envios, resumen } = await api(`/comunicaciones/campanas/${id}`);
+  document.getElementById('detalle-campana-titulo').textContent = campana.nombre;
+
+  // Resumen de entrega. Cada motivo se nombra por separado a propósito:
+  // "no llegó" y "no se intentó" son problemas distintos y se arreglan
+  // distinto. Los que valen cero no se muestran, para no llenar la línea
+  // de ceros que no significan nada.
+  const r = resumen || {};
+  const piezas = [
+    ['enviados', Number(r.enviados || 0)],
+    ['fallidos', Number(r.fallidos || 0)],
+    ['pendientes', Number(r.pendientes || 0)],
+    ['sin contacto', Number(r.sin_contacto || 0)],
+    ['sin lugar de votación', Number(r.sin_lugar_votacion || 0)],
+    ['pidieron no recibir mensajes', Number(r.dados_de_baja || 0)],
+  ].filter(([, n]) => n > 0).map(([etiqueta, n]) => `${formatoMillares(n)} ${etiqueta}`);
+
+  const fallidos = Number(r.fallidos || 0);
+  document.getElementById('detalle-campana-resumen').innerHTML =
+    `Canal: ${ETIQUETAS_CANAL[campana.canal]} · Estado: ${ETIQUETAS_ESTADO_CAMPANA[campana.estado]}<br>`
+    + `${piezas.join(' · ')} — de ${formatoMillares(Number(r.total || 0))} en total.`
+    + (fallidos > 0
+        ? ` <button type="button" class="btn-secundario btn-sm" style="margin-left:6px;" onclick="reintentarFallidos(${id})">Reintentar los ${formatoMillares(fallidos)} fallidos</button>`
+        : '');
+  document.getElementById('tbody-detalle-envios').innerHTML = envios.map(e => `
+    <tr>
+      <td>${e.destinatario_nombre || '—'}</td>
+      <td class="mono">${e.destinatario_contacto || '—'}</td>
+      <td>${ETIQUETAS_ESTADO_ENVIO[e.estado] || e.estado}</td>
+      <td style="color:var(--color-text-muted); font-size:0.8rem;">${e.error_mensaje || ''}</td>
+    </tr>
+  `).join('');
+  document.getElementById('overlay-detalle-campana').classList.add('abierto');
+}
+/**
+ * Reintenta SOLO los que fallaron. No es "volver a enviar la campaña": a
+ * quien ya recibió el mensaje no se le vuelve a escribir, y a quien pidió
+ * la baja tampoco.
+ */
+async function reintentarFallidos(id) {
+  if (!confirm('Se volverá a intentar el envío únicamente con los que fallaron. ¿Continuar?')) return;
+  const r = await api(`/comunicaciones/campanas/${id}/reintentar-fallidos`, { method: 'POST' });
+  alert(r.reintentados
+    ? `Se reintentaron ${r.reintentados} envío(s). El resultado aparece en unos segundos.`
+    : 'No quedaba ningún envío fallido por reintentar.');
+  verDetalleCampana(id);
+  cargarCampanas();
+}
+
+document.getElementById('cerrar-modal-detalle').addEventListener('click', () =>
+  document.getElementById('overlay-detalle-campana').classList.remove('abierto'));
+
+/** Eliminación masiva compartida — con o sin "canal" (canal vacío = borra todo). */
+async function eliminarCampanasPorCanal(canal, etiqueta) {
+  const mensajeConfirmacion = canal
+    ? `Esto elimina TODAS las campañas de ${etiqueta} — no se puede deshacer. ¿Continuar?`
+    : 'Esto elimina TODO el historial de campañas del CRM (todas, sin importar el canal o el estado) — no se puede deshacer. ¿Continuar?';
+  if (!confirm(mensajeConfirmacion)) return;
+  const password = await solicitarPasswordAdmin(`Confirmar eliminación de campañas${canal ? ' de ' + etiqueta : ''}`);
+  if (!password) return;
+  try {
+    const r = await api('/comunicaciones/campanas', { method: 'DELETE', body: { password, canal: canal || undefined } });
+    alert(`Se eliminaron ${r.eliminadas} campaña(s).`);
+    await cargarCampanas();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('btn-eliminar-todas-campanas').addEventListener('click', () => eliminarCampanasPorCanal(null, null));
+document.querySelectorAll('#botones-eliminar-por-canal [data-canal]').forEach(boton => {
+  boton.addEventListener('click', () => eliminarCampanasPorCanal(boton.dataset.canal, ETIQUETAS_CANAL[boton.dataset.canal] || boton.dataset.canal));
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/crm.html');
+  if (!usuarioActual) return;
+  if (usuarioActual.rol === 'admin') {
+    document.getElementById('botones-eliminar-por-canal').style.display = 'flex';
+  }
+  await cargarTerritorios();
+  await cargarPuestosVotacion();
+  await cargarEstadoCanales();
+  await cargarCampanas();
+})();
+/**
+ * Deja escrito un mensaje de Día D listo para enviar. No pisa lo que ya
+ * haya escrito: si el cuadro tiene texto, pregunta antes de reemplazarlo.
+ */
+document.getElementById('btn-plantilla-dia-d-crm').addEventListener('click', () => {
+  const cuadro = document.getElementById('input-mensaje-campana');
+  const plantilla = '{nombre}, este domingo te esperamos en las urnas. Tu lugar de votación es: {lugar_votacion}. ¡Gracias por tu apoyo! {slogan}';
+  if (cuadro.value.trim() && !confirm('Ya hay un mensaje escrito. ¿Reemplazarlo por el de Día D?')) return;
+  cuadro.value = plantilla;
+  cuadro.focus();
+});
+
+/**
+ * Los saltados por no tener Lugar de votación se cuentan aparte de los
+ * "fallidos": fallido es que se intentó y el proveedor lo rechazó; esto es
+ * que ni se intentó, porque el mensaje les habría llegado con el lugar en
+ * blanco. Mezclarlos haría creer que hay un problema de mensajería cuando
+ * lo que falta es completar una ficha.
+ */
+function textoSinLugar(envios) {
+  const n = (envios || []).filter(e => e.estado === 'sin_lugar_votacion').length;
+  return n ? `, ${n} sin lugar de votación` : '';
+}
+
+/**
+ * Aviso ANTES de enviar: si el mensaje usa los marcadores de Lugar de
+ * votación, dice cuántos de los seleccionados no lo tienen registrado. A
+ * esos el servidor los va a saltar (no les manda un mensaje con el lugar
+ * en blanco), así que conviene saberlo ahora y no al leer el reporte.
+ *
+ * Devuelve false si la persona decide no continuar.
+ */
+function confirmarFaltantesDeLugar(seleccionados) {
+  const mensaje = (document.getElementById('input-mensaje-campana').value || '').toLowerCase();
+  const marcadores = ['{lugar_votacion}', '{puesto}', '{mesa}', '{municipio}', '{departamento}'];
+  if (!marcadores.some(m => mensaje.includes(m))) return true;
+  const sinLugar = (seleccionados || []).filter(d => d.sin_lugar_votacion);
+  if (!sinLugar.length) return true;
+  const nombres = sinLugar.slice(0, 8).map(d => '· ' + d.nombre).join('\n');
+  return confirm(
+    `${sinLugar.length} de ${seleccionados.length} destinatario(s) no tienen Puesto de votación registrado.\n\n` +
+    `${nombres}${sinLugar.length > 8 ? '\n· …y ' + (sinLugar.length - 8) + ' más' : ''}\n\n` +
+    `A esas personas NO se les enviará (les llegaría el lugar en blanco); quedarán marcadas en el reporte.\n\n` +
+    `¿Continuar con el envío al resto?`
+  );
+}
+
+/** ¿El mensaje usa algún marcador de Lugar de votación? */
+function mensajeUsaMarcadoresDeLugar() {
+  const m = (document.getElementById('input-mensaje-campana').value || '').toLowerCase();
+  return ['{lugar_votacion}', '{puesto}', '{mesa}', '{municipio}', '{departamento}'].some(x => m.includes(x));
+}
+
+
+/* ---------------- Respuestas recibidas ---------------- */
+let respuestasTodas = false;
+
+/** Una respuesta que pidió la baja se marca en rojo: es la que tiene consecuencia. */
+function pintarRespuestas(datos) {
+  const caja = document.getElementById('lista-respuestas');
+  const tarjeta = document.getElementById('tarjeta-respuestas');
+  const badge = document.getElementById('badge-respuestas');
+  const total = Number(datos.conteo?.total || 0);
+  if (!total) { tarjeta.style.display = 'none'; return; }
+  tarjeta.style.display = '';
+  const sinLeer = Number(datos.conteo?.sin_leer || 0);
+  badge.textContent = sinLeer ? `· ${sinLeer} sin leer` : '';
+  if (!datos.respuestas.length) {
+    caja.innerHTML = '<p style="color:var(--color-text-muted); margin:0;">No hay respuestas sin leer.</p>';
+    return;
+  }
+  caja.innerHTML = datos.respuestas.map(r => `
+    <div style="border-bottom:1px solid var(--color-border); padding:8px 0; display:flex; gap:10px; align-items:flex-start;">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600;">${escaparHtml(r.nombre_resuelto || r.de_contacto)}
+          <span style="font-weight:400; color:var(--color-text-muted); font-size:0.8rem;">· ${r.canal.toUpperCase()} · ${formatoFecha(r.recibido_en, true)}</span>
+        </div>
+        <div style="color:${r.accion === 'baja' ? '#A93226' : 'var(--color-text)'};">
+          ${r.accion === 'baja' ? '<strong>Pidió no recibir más mensajes.</strong> ' : ''}${escaparHtml(r.mensaje || '')}
+        </div>
+      </div>
+      ${r.leida ? '' : `<button type="button" class="btn-secundario btn-sm" onclick="marcarRespuestaLeida(${r.id})">Visto</button>`}
+    </div>`).join('');
+}
+
+async function cargarRespuestas() {
+  try {
+    const datos = await api('/comunicaciones/respuestas' + (respuestasTodas ? '' : '?no_leidas=1'));
+    pintarRespuestas(datos);
+  } catch (e) { /* si falla, la tarjeta simplemente no aparece */ }
+}
+
+async function marcarRespuestaLeida(id) {
+  await api(`/comunicaciones/respuestas/${id}/leida`, { method: 'POST' });
+  cargarRespuestas();
+}
+
+document.getElementById('btn-ver-todas-respuestas').addEventListener('click', (e) => {
+  respuestasTodas = !respuestasTodas;
+  e.target.textContent = respuestasTodas ? 'Ver solo sin leer' : 'Ver todas';
+  cargarRespuestas();
+});
+cargarRespuestas();
+
+/* Contador de SMS en el envío por campaña. Solo tiene sentido en SMS:
+   en correo no hay segmentos que contar. */
+function actualizarContadorCampana() {
+  const caja = document.getElementById('contador-sms-campana');
+  const esTexto = typeof canalElegido !== 'undefined' && canalElegido === 'sms';
+  if (!esTexto) { caja.innerHTML = ''; return; }
+  const conteo = document.getElementById('resumen-destinatarios');
+  const n = conteo ? Number((conteo.textContent.match(/(\d[\d.,]*)\s+tienen/) || [])[1]?.replace(/[.,]/g, '') || 0) : 0;
+  pintarContadorSms(document.getElementById('input-mensaje-campana'), caja, n);
+}
+document.getElementById('input-mensaje-campana').addEventListener('input', actualizarContadorCampana);
+document.addEventListener('DOMContentLoaded', actualizarContadorCampana);
+setInterval(actualizarContadorCampana, 1500);
+
+/* ---------------- Plantillas ---------------- */
+let plantillasCargadas = [];
+
+async function cargarPlantillas() {
+  try {
+    plantillasCargadas = await api('/comunicaciones/plantillas');
+  } catch (e) { plantillasCargadas = []; }
+  const sel = document.getElementById('select-plantilla');
+  sel.innerHTML = '<option value="">Plantillas guardadas…</option>'
+    + plantillasCargadas.map(p => `<option value="${p.id}">${escaparHtml(p.nombre)}</option>`).join('');
+}
+
+document.getElementById('select-plantilla').addEventListener('change', (e) => {
+  const p = plantillasCargadas.find(x => String(x.id) === e.target.value);
+  document.getElementById('btn-borrar-plantilla').style.display = p ? '' : 'none';
+  if (!p) return;
+  // Se pregunta antes de pisar lo escrito: cargar una plantilla encima de
+  // un mensaje a medio redactar, sin avisar, es perder trabajo.
+  const actual = document.getElementById('input-mensaje-campana').value.trim();
+  if (actual && !confirm('Esto reemplaza el mensaje que tienes escrito. ¿Continuar?')) { e.target.value = ''; return; }
+  document.getElementById('input-mensaje-campana').value = p.cuerpo;
+  if (p.asunto) document.getElementById('input-asunto-campana').value = p.asunto;
+  if (typeof actualizarContadorCampana === 'function') actualizarContadorCampana();
+});
+
+document.getElementById('btn-guardar-plantilla').addEventListener('click', async () => {
+  const cuerpo = document.getElementById('input-mensaje-campana').value.trim();
+  if (!cuerpo) { alert('Escribe primero el mensaje que quieres guardar.'); return; }
+  const nombre = prompt('¿Con qué nombre guardas esta plantilla?');
+  if (!nombre) return;
+  try {
+    await api('/comunicaciones/plantillas', { method: 'POST', body: {
+      nombre, canal: typeof canalElegido !== 'undefined' ? canalElegido : 'cualquiera',
+      asunto: document.getElementById('input-asunto-campana').value || null, cuerpo } });
+    await cargarPlantillas();
+    alert('Plantilla guardada.');
+  } catch (e) { alert(e.message); }
+});
+
+document.getElementById('btn-borrar-plantilla').addEventListener('click', async () => {
+  const id = document.getElementById('select-plantilla').value;
+  if (!id || !confirm('¿Eliminar esta plantilla?')) return;
+  await api(`/comunicaciones/plantillas/${id}`, { method: 'DELETE' });
+  await cargarPlantillas();
+  document.getElementById('btn-borrar-plantilla').style.display = 'none';
+});
+
+cargarPlantillas();
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redes y opinión · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Comunicación</div><h1>Redes sociales y monitoreo de opinión</h1></div>
+      <button class="btn-acento" id="btn-nueva-pub">+ Nueva publicación</button>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <h3 style="margin-bottom:14px;">Calendario de publicaciones</h3>
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Título</th><th>Red</th><th>Programada</th><th>Estado</th><th>Alcance</th><th></th></tr></thead>
+        <tbody id="tbody-publicaciones"></tbody>
+      </table>
+      </div>
+      <div id="vacio-pub" class="vacio" style="display:none;"><div class="icono-vacio">~</div>No hay publicaciones registradas.</div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar"><h3 style="margin:0;">Monitoreo de menciones</h3><button class="btn-secundario btn-sm" id="btn-nueva-mencion">+ Registrar mención</button></div>
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Fuente</th><th>Texto</th><th>Sentimiento</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="tbody-menciones"></tbody>
+      </table>
+      </div>
+      <div id="vacio-menciones" class="vacio" style="display:none;"><div class="icono-vacio">~</div>No hay menciones registradas.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-pub">
+  <div class="modal">
+    <div class="modal-header"><h3>Nueva publicación</h3><button class="modal-cerrar" data-cerrar="overlay-pub">×</button></div>
+    <div id="pub-error" class="mensaje-error"></div>
+    <form id="form-pub">
+      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="fila">
+        <div class="campo"><label>Red social</label>
+          <select name="red_social" required>
+            <option value="facebook">Facebook</option><option value="instagram">Instagram</option>
+            <option value="x">X</option><option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option><option value="whatsapp">WhatsApp</option>
+          </select>
+        </div>
+        <div class="campo"><label>Estado</label>
+          <select name="estado"><option value="borrador">Borrador</option><option value="programado">Programado</option><option value="publicado">Publicado</option></select>
+        </div>
+      </div>
+      <div class="campo"><label>Fecha programada</label><input type="datetime-local" name="fecha_programada"></div>
+      <div class="campo"><label>Contenido / copy</label><textarea name="contenido" rows="3"></textarea></div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-mencion">
+  <div class="modal">
+    <div class="modal-header"><h3>Registrar mención</h3><button class="modal-cerrar" data-cerrar="overlay-mencion">×</button></div>
+    <div id="mencion-error" class="mensaje-error"></div>
+    <form id="form-mencion">
+      <div class="campo"><label>Fuente (medio, red, portal)</label><input name="fuente" required></div>
+      <div class="campo"><label>Texto / resumen de la mención</label><textarea name="texto" rows="3" required></textarea></div>
+      <div class="fila">
+        <div class="campo"><label>Sentimiento</label>
+          <select name="sentimiento"><option value="positivo">Positivo</option><option value="neutro" selected>Neutro</option><option value="negativo">Negativo</option></select>
+        </div>
+        <div class="campo"><label>Enlace (opcional)</label><input name="url"></div>
+      </div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+const etiquetasEstadoPub = { borrador: 'Borrador', programado: 'Programado', publicado: 'Publicado' };
+
+async function cargarPublicaciones() {
+  const filas = await api('/social/publicaciones');
+  document.getElementById('vacio-pub').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('tbody-publicaciones').innerHTML = filas.map(p => `
+    <tr>
+      <td><strong>${p.titulo}</strong></td>
+      <td><span class="tag-tipo">${p.red_social}</span></td>
+      <td>${p.fecha_programada ? formatoFecha(p.fecha_programada, true) : '—'}</td>
+      <td>${etiquetasEstadoPub[p.estado]}</td>
+      <td class="mono">${p.metricas_alcance || 0}</td>
+      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarPub(${p.id})">Eliminar</button>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarPub(id) { if (!confirm('¿Eliminar esta publicación?')) return; await api(`/social/publicaciones/${id}`, { method: 'DELETE' }); cargarPublicaciones(); }
+
+async function cargarMenciones() {
+  const filas = await api('/social/menciones');
+  document.getElementById('vacio-menciones').style.display = filas.length ? 'none' : 'block';
+  const estiloSentimiento = { positivo: 'confirmado', neutro: 'desconocido', negativo: 'no_apoya' };
+  document.getElementById('tbody-menciones').innerHTML = filas.map(m => `
+    <tr>
+      <td>${m.fuente}</td>
+      <td style="max-width:360px;">${m.texto}${m.url ? ` <a href="${m.url}" target="_blank">↗</a>` : ''}</td>
+      <td><span class="badge badge-${estiloSentimiento[m.sentimiento]}"><span class="punto"></span>${m.sentimiento}</span></td>
+      <td>${formatoFecha(m.fecha_deteccion, true)}</td>
+      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarMencion(${m.id})">Eliminar</button>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarMencion(id) { if (!confirm('¿Eliminar esta mención?')) return; await api(`/social/menciones/${id}`, { method: 'DELETE' }); cargarMenciones(); }
+
+document.querySelectorAll('[data-cerrar]').forEach(btn => btn.addEventListener('click', () => document.getElementById(btn.dataset.cerrar).classList.remove('abierto')));
+document.getElementById('btn-nueva-pub').addEventListener('click', () => document.getElementById('overlay-pub').classList.add('abierto'));
+document.getElementById('btn-nueva-mencion').addEventListener('click', () => document.getElementById('overlay-mencion').classList.add('abierto'));
+
+document.getElementById('form-pub').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api('/social/publicaciones', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) });
+    document.getElementById('overlay-pub').classList.remove('abierto');
+    e.target.reset(); cargarPublicaciones();
+  } catch (err) {
+    const el = document.getElementById('pub-error'); el.textContent = err.message; el.classList.add('visible');
+  }
+});
+
+document.getElementById('form-mencion').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api('/social/menciones', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) });
+    document.getElementById('overlay-mencion').classList.remove('abierto');
+    e.target.reset(); cargarMenciones();
+  } catch (err) {
+    const el = document.getElementById('mencion-error'); el.textContent = err.message; el.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/social.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-nueva-pub').style.display = 'none';
+    document.getElementById('btn-nueva-mencion').style.display = 'none';
+  }
+  await cargarPublicaciones();
+  await cargarMenciones();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel general · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<meta name="referrer" content="origin-when-cross-origin">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  #mapa-dashboard { width: 100%; height: 320px; border-radius: 10px; }
+  .tendencia-svg text { font-family: var(--font-body, 'Inter', sans-serif); }
+
+  /* Mismo formato de tarjeta que usa el Dashboard de votantes: borde
+     izquierdo de color (según si el número resaltado usa el tono navy o
+     el acento ocre) en vez de una tarjeta plana. */
+  .stat-card { border-left: 4px solid var(--color-marca); }
+  .stat-card:has(.valor.accent) { border-left-color: var(--color-accent); }
+  #tarjeta-cuenta-regresiva { border-left-color: var(--color-probable); }
+  #tarjeta-cuenta-regresiva .valor { font-size: 1.2rem; line-height: 1.3; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Panel general</div>
+        <h1>Resumen de la campaña</h1>
+      </div>
+      <div class="mono" id="fecha-hoy" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
+    </div>
+
+    <div class="grid grid-5" style="margin-bottom:16px;">
+      <div class="card stat-card" id="tarjeta-cuenta-regresiva">
+        <div class="label">Cuenta regresiva</div>
+        <div class="valor accent" id="stat-cuenta-regresiva">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Coordinadores</div>
+        <div class="valor" id="stat-coordinadores">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Líderes</div>
+        <div class="valor" id="stat-lideres">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Testigos</div>
+        <div class="valor" id="stat-testigos">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Votantes registrados</div>
+        <div class="valor accent" id="stat-votantes">—</div>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:22px;">
+      <div class="card stat-card">
+        <div class="label">Meta de votos (líderes)</div>
+        <div class="valor accent" id="stat-meta-votos-lideres">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Avance de registro de votantes</div>
+        <div class="valor accent" id="stat-avance-registros-lideres">—</div>
+        <div style="font-size:0.85rem; color:var(--color-text-muted); margin-top:2px;" id="stat-avance-registros-porcentaje"></div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Balance financiero</div>
+        <div class="valor" id="stat-balance">—</div>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Eventos próximos</div>
+        <div class="valor accent" id="stat-eventos">—</div>
+      </div>
+    </div>
+
+    <h3 style="margin-bottom:12px;">Apoya a</h3>
+    <div id="grid-apoya-a" style="margin-bottom:22px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:14px;"></div>
+
+    <div class="card">
+      <h3>Próximos eventos</h3>
+      <div id="lista-eventos" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card" style="margin-top:22px;">
+      <h3 style="margin-top:0;">Registro de votantes por semana</h3>
+      <div id="tendencia-contenedor" style="margin-top:8px;"></div>
+      <p id="tendencia-vacio" style="display:none; color:var(--color-text-muted); font-size:0.85rem;">Todavía no hay suficientes registros para mostrar una tendencia.</p>
+    </div>
+
+    <div id="bloque-tabla-posiciones" style="margin-top:22px; display:none;">
+      <div class="card">
+        <h3 style="margin-top:0;">Tabla de posiciones</h3>
+        <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:-4px;">Registros hechos por cada líder/sublíder — no muestra ningún dato de los votantes, solo cuántos registró cada quien.</p>
+        <div id="tabla-posiciones-lista" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div id="bloque-mapa-dashboard" style="margin-top:22px; display:none;">
+      <div class="card">
+        <h3 style="margin-top:0;">Mapa de intención de voto</h3>
+        <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:-4px;">Vista rápida de dónde están los contactos ya geocodificados, coloreados por intención de voto — para el detalle completo con filtros, usa Territorial → Mapa.</p>
+        <div id="mapa-dashboard"></div>
+      </div>
+    </div>
+
+    <div id="bloque-meta-personal" style="margin-top:22px; display:none;">
+      <div class="card">
+        <h3>Mi meta de votos</h3>
+        <div id="meta-personal" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div id="bloque-progreso-equipo" style="margin-top:22px; display:none;">
+      <div class="card">
+        <h3>Progreso del equipo</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; margin-bottom:14px;">
+          <button type="button" class="filtro-chip activo" data-filtro-progreso="todos">Todos</button>
+          <button type="button" class="filtro-chip" data-filtro-progreso="con-avance">Con avance</button>
+          <button type="button" class="filtro-chip" data-filtro-progreso="sin-avance">Sin avance</button>
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <button type="button" class="filtro-chip" data-filtro-progreso="por-encima">Por encima de</button>
+            <input type="number" id="input-progreso-encima" min="0" value="0" style="width:70px;"> registros
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <button type="button" class="filtro-chip" data-filtro-progreso="por-debajo">Por debajo de</button>
+            <input type="number" id="input-progreso-debajo" min="0" value="0" style="width:70px;"> registros
+          </span>
+        </div>
+        <div id="progreso-equipo"></div>
+        <p id="progreso-equipo-vacio" style="display:none; color:var(--color-text-muted); font-size:0.85rem;">Nadie del equipo coincide con este filtro.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/js/common.js"></script>
+<script>
+let progresoEquipoCache = [];
+let filtroProgresoActivo = 'todos';
+
+/** Gráfica de barras simple en SVG (sin librería) para el registro de votantes por semana. */
+function dibujarTendencia(semanas) {
+  const cont = document.getElementById('tendencia-contenedor');
+  document.getElementById('tendencia-vacio').style.display = semanas.length ? 'none' : 'block';
+  if (!semanas.length) { cont.innerHTML = ''; return; }
+
+  const ancho = 640, alto = 160, pad = 28;
+  const max = Math.max(...semanas.map(s => s.total), 1);
+  const anchoBarra = (ancho - pad * 2) / semanas.length;
+
+  const barras = semanas.map((s, i) => {
+    const alturaBarra = ((alto - pad * 2) * s.total) / max;
+    const x = pad + i * anchoBarra;
+    const y = alto - pad - alturaBarra;
+    const etiquetaFecha = new Date(s.semanaInicio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+    return `
+      <g>
+        <rect x="${x + 3}" y="${y}" width="${anchoBarra - 6}" height="${alturaBarra}" rx="3" fill="var(--color-accent, #c0621f)">
+          <title>Semana del ${etiquetaFecha}: ${s.total} registro(s)</title>
+        </rect>
+        <text x="${x + anchoBarra / 2}" y="${alto - pad + 14}" font-size="9" fill="var(--color-text-muted, #5B6472)" text-anchor="middle">${etiquetaFecha}</text>
+        <text x="${x + anchoBarra / 2}" y="${y - 4}" font-size="10" fill="var(--color-text, #161B26)" text-anchor="middle">${s.total}</text>
+      </g>`;
+  }).join('');
+
+  cont.innerHTML = `<svg class="tendencia-svg" viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:200px;">${barras}</svg>`;
+}
+
+function dibujarTablaPosiciones(filas, usuarioActualId) {
+  const cont = document.getElementById('tabla-posiciones-lista');
+  if (!filas.length) {
+    cont.innerHTML = '<p style="color:var(--color-text-muted); font-size:0.85rem;">Todavía no hay registros para mostrar.</p>';
+    return;
+  }
+  const medallas = ['🥇', '🥈', '🥉'];
+  cont.innerHTML = filas.map((f, i) => {
+    const esUsuarioActual = f.usuarioId === usuarioActualId;
+    return `
+      <div style="display:flex; align-items:center; gap:12px; padding:9px 10px; border-radius:8px; ${esUsuarioActual ? 'background:var(--color-bg, #F3F5F8); font-weight:600;' : ''}">
+        <span class="mono" style="width:26px; text-align:center;">${medallas[i] || (i + 1)}</span>
+        <span style="flex:1;">${f.nombre}${esUsuarioActual ? ' (tú)' : ''} <span style="font-size:0.72rem; color:var(--color-text-muted); font-weight:400;">· ${f.esLider ? 'Líder' : 'Sublíder'}</span></span>
+        <span class="mono accent">${f.registros}</span>
+      </div>`;
+  }).join('');
+}
+
+const COLOR_INTENCION_DASHBOARD = { confirmado: '#16a34a', probable: '#84cc16', indeciso: '#eab308', no_apoya: '#dc2626', desconocido: '#94a3b8' };
+let mapaDashboard = null;
+
+/** Mismo pin (bola + vara) que usa el Mapa completo (Territorial → Mapa), para que ambos mapas se vean consistentes. */
+function crearIconoPinDashboard(color) {
+  const svg = `
+    <svg width="18" height="24" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));">
+      <line x1="12" y1="21" x2="12" y2="31" stroke="#8a8a8a" stroke-width="2.4" stroke-linecap="round"/>
+      <line x1="11.5" y1="21" x2="11.5" y2="30" stroke="#e2e2e2" stroke-width="0.8" stroke-linecap="round"/>
+      <circle cx="12" cy="11" r="10.5" fill="${color}" stroke="#ffffff" stroke-width="1.2"/>
+      <ellipse cx="8.3" cy="7.2" rx="3.6" ry="2.4" fill="#ffffff" opacity="0.5" transform="rotate(-25 8.3 7.2)"/>
+    </svg>`;
+  return L.divIcon({ html: svg, className: '', iconSize: [18, 24], iconAnchor: [9, 23] });
+}
+
+async function cargarMapaDashboard() {
+  mapaDashboard = L.map('mapa-dashboard').setView([5.0689, -75.5174], 11);
+  try {
+    const { token } = await api('/territorial/mapbox-token');
+    if (token) {
+      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, {
+        attribution: '© Mapbox © OpenStreetMap', tileSize: 512, zoomOffset: -1, maxZoom: 19
+      }).addTo(mapaDashboard);
+    } else {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaDashboard);
+    }
+  } catch (err) {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaDashboard);
+  }
+
+  try {
+    const { votantes } = await api('/territorial/mapa-personas');
+    const puntos = (votantes || []).filter(v => v.latitud && v.longitud);
+    const grupo = L.featureGroup();
+    puntos.forEach(v => {
+      const color = COLOR_INTENCION_DASHBOARD[v.intencion_voto] || COLOR_INTENCION_DASHBOARD.desconocido;
+      L.marker([v.latitud, v.longitud], { icon: crearIconoPinDashboard(color) }).addTo(grupo);
+    });
+    grupo.addTo(mapaDashboard);
+    if (puntos.length) mapaDashboard.fitBounds(grupo.getBounds().pad(0.2));
+  } catch (err) {
+    console.error('Error cargando el mapa del panel:', err);
+  }
+}
+
+function barraProgreso(etiqueta, enviados, meta, porcentaje) {
+  return `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px;">
+        <span>${etiqueta}</span>
+        <span class="mono">${enviados} / ${meta} · ${porcentaje}%</span>
+      </div>
+      <div style="background:#EEF0F3; border-radius:6px; height:8px; overflow:hidden;">
+        <div style="width:${porcentaje}%; height:100%; background:var(--color-accent, #c0621f);"></div>
+      </div>
+    </div>`;
+}
+
+/**
+ * "Con avance" = más de un registro (enviados > 1). "Sin avance" = cero
+ * registros. "Por encima/debajo de #" comparan contra el número escrito
+ * en el campo correspondiente (igual o superior / igual o inferior).
+ */
+function renderizarProgresoEquipo() {
+  let datos = progresoEquipoCache;
+  if (filtroProgresoActivo === 'con-avance') {
+    datos = datos.filter(f => f.enviados > 1);
+  } else if (filtroProgresoActivo === 'sin-avance') {
+    datos = datos.filter(f => f.enviados === 0);
+  } else if (filtroProgresoActivo === 'por-encima') {
+    const n = Number(document.getElementById('input-progreso-encima').value) || 0;
+    datos = datos.filter(f => f.enviados >= n);
+  } else if (filtroProgresoActivo === 'por-debajo') {
+    const n = Number(document.getElementById('input-progreso-debajo').value) || 0;
+    datos = datos.filter(f => f.enviados >= 1 && f.enviados <= n);
+  }
+
+  document.getElementById('progreso-equipo-vacio').style.display = datos.length ? 'none' : 'block';
+  document.getElementById('progreso-equipo').innerHTML = datos.map(f => {
+    const etiqueta = `${f.nombre} · ${f.cargo}${f.territorio ? ' · ' + f.territorio : ''}`;
+    return barraProgreso(etiqueta, f.enviados, f.meta, f.porcentaje);
+  }).join('');
+}
+
+document.querySelectorAll('[data-filtro-progreso]').forEach(boton => {
+  boton.addEventListener('click', () => {
+    document.querySelectorAll('[data-filtro-progreso]').forEach(b => b.classList.remove('activo'));
+    boton.classList.add('activo');
+    filtroProgresoActivo = boton.dataset.filtroProgreso;
+    renderizarProgresoEquipo();
+  });
+});
+document.getElementById('input-progreso-encima').addEventListener('input', () => {
+  if (filtroProgresoActivo === 'por-encima') renderizarProgresoEquipo();
+});
+document.getElementById('input-progreso-debajo').addEventListener('input', () => {
+  if (filtroProgresoActivo === 'por-debajo') renderizarProgresoEquipo();
+});
+
+(async () => {
+  const usuario = await inicializarLayout('/dashboard.html');
+  if (!usuario) return;
+
+  document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  try {
+    const configCampana = await api('/configuracion/campana');
+    document.getElementById('stat-cuenta-regresiva').textContent = textoCuentaRegresivaElecciones(configCampana.fecha_eleccion);
+  } catch (e) { /* si falla, la tarjeta se deja con el guion por defecto */ }
+
+  try {
+    const r = await api('/dashboard/resumen');
+
+    document.getElementById('stat-coordinadores').textContent = formatoMillares(r.estructura.coordinadores);
+    document.getElementById('stat-lideres').textContent = formatoMillares(r.estructura.lideres);
+    document.getElementById('stat-testigos').textContent = formatoMillares(r.estructura.testigos);
+    document.getElementById('stat-votantes').textContent = formatoMillares(r.votantes.total);
+    document.getElementById('stat-eventos').textContent = formatoMillares(r.eventos.proximos);
+    document.getElementById('stat-meta-votos-lideres').textContent = formatoMillares(r.metaVotosLideres);
+
+    const ETIQUETAS_APOYA = { alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea' };
+    document.getElementById('grid-apoya-a').innerHTML = Object.entries(ETIQUETAS_APOYA).map(([clave, etiqueta]) => `
+      <div class="card stat-card">
+        <div class="label">${etiqueta}</div>
+        <div class="valor accent">${formatoMillares((r.apoyaA && r.apoyaA[clave]) || 0)}</div>
+      </div>
+    `).join('');
+    const porcentajeAvance = r.metaVotosLideres > 0
+      ? ((r.votantes.total / r.metaVotosLideres) * 100).toFixed(1)
+      : null;
+    document.getElementById('stat-avance-registros-lideres').textContent = porcentajeAvance !== null
+      ? `${porcentajeAvance}%`
+      : '—';
+    document.getElementById('stat-avance-registros-porcentaje').textContent = porcentajeAvance !== null
+      ? `${formatoMillares(r.votantes.total)} votantes registrados de ${formatoMillares(r.metaVotosLideres)} de meta`
+      : 'Sin meta de votos registrada';
+
+    const balanceEl = document.getElementById('stat-balance');
+    balanceEl.textContent = formatoMoneda(r.finanzas.balance);
+    if (r.finanzas.balance < 0) balanceEl.style.color = 'var(--color-no-apoya)';
+
+
+    const listaEventos = document.getElementById('lista-eventos');
+    if (r.proximosEventos.length === 0) {
+      listaEventos.innerHTML = `<div class="vacio"><div class="icono-vacio">■</div>No hay eventos programados próximamente.</div>`;
+    } else {
+      listaEventos.innerHTML = r.proximosEventos.map(ev => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--color-border);">
+          <div style="font-weight:600;">${ev.titulo}</div>
+          <div style="font-size:0.8rem; color:var(--color-text-muted);">
+            ${formatoFecha(ev.fecha_inicio, true)} ${ev.lugar ? '· ' + ev.lugar : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  // Progreso personal (líder, coordinador o testigo con meta asignada)
+  if (['lider', 'coordinador', 'testigo'].includes(usuario.rol)) {
+    try {
+      const mp = await api('/dashboard/mi-progreso');
+      if (mp.tieneMetaAsignada) {
+        document.getElementById('bloque-meta-personal').style.display = 'block';
+        document.getElementById('meta-personal').innerHTML =
+          barraProgreso('Formularios enviados', mp.enviados, mp.meta, mp.porcentaje);
+      }
+    } catch (err) {
+      console.error('Error cargando mi-progreso:', err);
+    }
+  }
+
+  // Progreso de equipo (admin / coordinador)
+  if (['admin', 'coordinador'].includes(usuario.rol)) {
+    try {
+      const pe = await api('/dashboard/progreso-equipo');
+      if (pe.data && pe.data.length > 0) {
+        document.getElementById('bloque-progreso-equipo').style.display = 'block';
+        progresoEquipoCache = pe.data;
+        renderizarProgresoEquipo();
+      }
+    } catch (err) {
+      console.error('Error cargando progreso-equipo:', err);
+    }
+  }
+
+  try {
+    const tendencia = await api('/dashboard/tendencia-registros');
+    dibujarTendencia(tendencia);
+  } catch (err) {
+    console.error('Error cargando la tendencia de registros:', err);
+  }
+
+  try {
+    const posiciones = await api('/dashboard/tabla-posiciones');
+    if (posiciones.length) {
+      document.getElementById('bloque-tabla-posiciones').style.display = 'block';
+      dibujarTablaPosiciones(posiciones, usuario.id);
+    }
+  } catch (err) {
+    console.error('Error cargando la tabla de posiciones:', err);
+  }
+
+  // El mapa expone ubicaciones exactas de contactos — mismo criterio de
+  // acceso que ya usa /territorial/mapa-personas en el backend.
+  if (['admin', 'coordinador'].includes(usuario.rol)) {
+    document.getElementById('bloque-mapa-dashboard').style.display = 'block';
+    cargarMapaDashboard().catch(err => console.error('Error cargando el mapa del panel:', err));
+  }
+})();
+</script>
+</body>
+</html>

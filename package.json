@@ -1,0 +1,36 @@
+{
+  "name": "campana-electoral-app",
+  "version": "1.0.0",
+  "description": "Aplicación profesional para la administración de campañas políticas en Colombia",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "init-db": "node db/init-db.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "bcryptjs": "^2.4.3",
+    "docx": "^9.7.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^8.6.1",
+    "express-session": "^1.18.0",
+    "helmet": "^8.3.0",
+    "morgan": "^1.11.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.10.1",
+    "nodemailer": "^9.0.5",
+    "sharp": "^0.35.3",
+    "twilio": "^6.0.2",
+    "web-push": "^3.6.7",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Información para compartir · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .filtros-app { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; overflow-x: auto; padding-bottom: 2px; }
+  .rec-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .rec-tarjeta img { width: 100%; border-radius: 10px; margin-bottom: 10px; display: block; }
+  .rec-tarjeta video { width: 100%; border-radius: 10px; margin-bottom: 10px; display: block; background: #000; }
+  .rec-tarjeta audio { width: 100%; margin-bottom: 10px; }
+  .rec-tarjeta h3 { margin: 0 0 4px; font-size: 1rem; color: var(--navy); }
+  .rec-tipo { display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); font-weight: 700; margin-bottom: 8px; }
+  .rec-tarjeta p { margin: 0 0 12px; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+  .rec-meta { font-size: 0.76rem; color: var(--muted); margin: -6px 0 12px; }
+  .rec-tarjeta a.btn-app { text-decoration: none; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="contenedor" style="display:none;">
+    <div class="filtros-app" id="filtros-app"></div>
+    <div id="lista-recursos"></div>
+    <div id="vacio" class="vacio-app" style="display:none;">
+      <div style="font-size:2.2rem; margin-bottom:10px;">📭</div>
+      Todavía no hay contenido publicado en esta categoría.
+    </div>
+  </div>
+  <div id="error-carga" class="aviso-app error" style="display:none;"></div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+// "Publicidad descargable" e "Información para compartir" muestran el
+// mismo listado de /recursos (según se definió) — cada tarjeta ya trae
+// su propia etiqueta de Tipo, y además se puede filtrar por tipo con
+// los chips de arriba, igual que en la versión de escritorio.
+const params = new URLSearchParams(window.location.search);
+const modo = params.get('modo') === 'publicidad' ? 'publicidad' : 'informacion';
+
+// Mismos tipos y mismo orden que ya usa recursos.html en escritorio —
+// deben coincidir exactamente con los valores reales que guarda
+// routes/recursos.routes.js, no son etiquetas libres.
+const TIPOS = [
+  { clave: '', etiqueta: 'Todos', icono: '▣' },
+  { clave: 'noticia', etiqueta: 'Noticias', icono: '📰' },
+  { clave: 'post_redes', etiqueta: 'Post para redes', icono: '📣' },
+  { clave: 'video', etiqueta: 'Videos', icono: '🎬' },
+  { clave: 'publicidad_digital', etiqueta: 'Publicidad digital', icono: '🖥️' },
+  { clave: 'publicidad_impresa', etiqueta: 'Publicidad impresa', icono: '🖨️' },
+  { clave: 'proxima_reunion', etiqueta: 'Próximas reuniones', icono: '📅' },
+  { clave: 'jingle', etiqueta: 'Jingles', icono: '🎵' },
+  { clave: 'foto_campana', etiqueta: 'Fotos de la campaña', icono: '📷' }
+];
+const ETIQUETAS_TIPO = Object.fromEntries(TIPOS.filter(t => t.clave).map(t => [t.clave, t.etiqueta]));
+const ICONOS_TIPO = Object.fromEntries(TIPOS.filter(t => t.clave).map(t => [t.clave, t.icono]));
+
+let itemsCache = [];
+let filtroActual = '';
+
+function formatoTamano(kb) {
+  if (!kb) return '';
+  return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+}
+
+function pintarFiltros() {
+  document.getElementById('filtros-app').innerHTML = TIPOS.map(t => `
+    <div class="chip-app ${filtroActual === t.clave ? 'activo' : ''}" style="flex:0 0 auto; white-space:nowrap;" onclick="elegirFiltro('${t.clave}')">
+      ${t.icono} ${t.etiqueta}
+    </div>
+  `).join('');
+}
+
+function elegirFiltro(clave) {
+  filtroActual = clave;
+  pintarFiltros();
+  pintarLista();
+}
+
+function pintarLista() {
+  const items = filtroActual ? itemsCache.filter(r => r.tipo === filtroActual) : itemsCache;
+  document.getElementById('vacio').style.display = items.length ? 'none' : 'block';
+
+  document.getElementById('lista-recursos').innerHTML = items.map((r) => {
+    const esImagen = r.archivo_mime && r.archivo_mime.startsWith('image/');
+    const esVideo = r.archivo_mime && r.archivo_mime.startsWith('video/');
+    const esAudio = r.archivo_mime && r.archivo_mime.startsWith('audio/');
+    const etiquetaTipo = ETIQUETAS_TIPO[r.tipo] || r.tipo || '';
+    const iconoTipo = ICONOS_TIPO[r.tipo] || '';
+    const detalles = [
+      r.archivo_tamano_kb ? formatoTamano(r.archivo_tamano_kb) : '',
+      r.fecha_evento ? new Date(r.fecha_evento).toLocaleDateString('es-CO') : ''
+    ].filter(Boolean).join(' · ');
+
+    let boton = '';
+    if (r.archivo_url) {
+      boton = `<a class="btn-app btn-app-primario" href="/recursos/${r.id}/descargar" target="_blank" rel="noopener">Descargar</a>`;
+    } else if (r.enlace_externo) {
+      boton = `<a class="btn-app btn-app-primario" href="${escaparAppHtml(r.enlace_externo)}" target="_blank" rel="noopener">Abrir enlace</a>`;
+    }
+
+    return `
+      <div class="rec-tarjeta">
+        ${esImagen ? `<img src="${escaparAppHtml(r.archivo_url)}" alt="">` : ''}
+        ${esVideo ? `<video src="${escaparAppHtml(r.archivo_url)}" controls preload="metadata"></video>` : ''}
+        ${esAudio ? `<audio src="${escaparAppHtml(r.archivo_url)}" controls preload="none"></audio>` : ''}
+        ${etiquetaTipo ? `<span class="rec-tipo">${iconoTipo} ${escaparAppHtml(etiquetaTipo)}</span>` : ''}
+        <h3>${escaparAppHtml(r.titulo)}</h3>
+        ${detalles ? `<p class="rec-meta">${escaparAppHtml(detalles)}</p>` : ''}
+        ${r.descripcion ? `<p>${escaparAppHtml(r.descripcion)}</p>` : ''}
+        ${boton}
+      </div>
+    `;
+  }).join('');
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp(
+    modo === 'publicidad' ? 'Publicidad descargable' : 'Información para compartir',
+    null, '/app/inicio.html'
+  );
+
+  try {
+    const items = await api('/recursos');
+    itemsCache = Array.isArray(items) ? items : [];
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenedor').style.display = 'block';
+    pintarFiltros();
+    pintarLista();
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    const box = document.getElementById('error-carga');
+    box.textContent = 'No se pudo cargar el contenido en este momento. Intenta de nuevo más tarde.';
+    box.classList.add('visible');
+  }
+})();
+</script>
+</body>
+</html>

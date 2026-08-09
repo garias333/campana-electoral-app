@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estructura territorial · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Estructura</div><h1>Coordinadores y líderes</h1></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn-secundario btn-sm btn-excel-app" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+        <label class="btn-secundario btn-sm btn-excel-app"
+               title="Para actualizar personas ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea una persona nueva.">
+          ⬆ Importar desde Excel
+          <input type="file" id="input-importar-estructura" accept=".xlsx,.xls" style="display:none;">
+        </label>
+        <button class="btn-secundario" id="btn-territorios">Gestionar territorios</button>
+        <button class="btn-secundario" id="btn-regeocodificar" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
+        <button class="btn-secundario" id="btn-regeocodificar-todos" style="color:#A93226; border-color:#A93226;" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
+        <button class="btn-secundario" id="btn-eliminar-masivo" style="color:#A93226; border-color:#A93226;">🗑 Eliminar registros</button>
+        <button class="btn-acento" id="btn-nuevo">+ Agregar persona</button>
+      </div>
+    </div>
+
+    <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:0.85rem;"></div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="toolbar">
+        <div class="toolbar-filtros">
+          <input type="text" id="filtro-estructura-busqueda" placeholder="Buscar por nombre, email o número de identificación...">
+          <select id="filtro-estructura-cargo">
+            <option value="">Todos los cargos</option>
+            <option value="coordinador">Coordinador</option>
+            <option value="coordinador_organizaciones">Coordinador Organizaciones</option>
+            <option value="lider">Líder</option>
+            <option value="usuario">Sublíder</option>
+          </select>
+          <select id="filtro-estructura-area">
+            <option value="">Todas las áreas</option>
+            <option value="urbano">Urbano</option>
+            <option value="rural">Rural</option>
+          </select>
+          <select id="filtro-estructura-zona">
+            <option value="">Toda comuna/corregimiento</option>
+          </select>
+          <select id="filtro-estructura-territorio">
+            <option value="">Todo barrio/vereda</option>
+          </select>
+          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-estructura">Quitar filtros</button>
+        </div>
+        <div class="mono" id="contador-estructura" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Nombre</th><th>Género</th><th>Teléfono</th><th>Cargo</th><th>Área</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th>Reporta a</th><th>Meta votos</th><th>Registros</th><th>Estado</th><th class="col-acciones"></th></tr></thead>
+        <tbody id="tbody-estructura"></tbody>
+      </table>
+      </div>
+      <div id="vacio-estructura" class="vacio" style="display:none;"><div class="icono-vacio">▲</div>Aún no hay personas registradas en la estructura.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form">
+  <div class="modal modal-amplio">
+    <div class="modal-header"><h3 id="modal-form-titulo">Agregar a la estructura</h3><button class="modal-cerrar" id="cerrar-modal">×</button></div>
+    <div id="form-error" class="mensaje-error"></div>
+    <div id="form-ok" class="mensaje-ok"></div>
+    <form id="form-estructura" class="form-amplio">
+      <div class="campo encabezado-form primero">Categoría</div>
+      <div class="campo">
+        <!-- Los cuatro cargos como botones. El <select> de siempre sigue
+             abajo, oculto: nueve sitios de esta pantalla leen
+             `select-cargo-persona.value` y es el que se envía al guardar.
+             Los botones solo lo manejan (ver sincronizarChipsCargo).
+
+             Aquí SÍ caben los cuatro en una línea porque la sección ocupa
+             el ancho completo del formulario. En el intento anterior
+             estaban dentro de media columna y se apilaban en cuatro
+             renglones; ese fue el motivo de quitarlos entonces. -->
+        <div class="chips-form chips-cargo" id="chips-cargo-persona" role="group" aria-label="Categoría">
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador"> Coordinador de territorio</label>
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador_organizaciones"> Coordinador de organizaciones</label>
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="lider" checked> Líder</label>
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="usuario"> Sublíder</label>
+        </div>
+        <select name="cargo" id="select-cargo-persona" required style="display:none;">
+          <option value="coordinador">Coordinador</option>
+          <option value="coordinador_organizaciones">Coordinador Organizaciones</option>
+          <option value="lider" selected>Líder</option>
+          <option value="usuario">Sublíder (colaborador de un líder)</option>
+        </select>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Para testigos electorales, usa la pantalla aparte "Testigos" del menú.</small>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Tipo (opcional)</label>
+          <select name="tipo_cargo" id="select-tipo-cargo-persona">
+            <option value="">Sin especificar</option>
+            <option value="concejal">Concejal</option>
+            <option value="edil">Edil</option>
+            <option value="aspirante_concejo">Aspirante al concejo</option>
+            <option value="aspirante_jal">Aspirante a JAL</option>
+            <option value="presidente_jal">Presidente de JAL</option>
+            <option value="presidente_jac">Presidente de JAC</option>
+            <option value="miembro_jal">Miembro de JAL</option>
+            <option value="miembro_jac">Miembro de JAC</option>
+            <option value="presidente_gremio">Presidente de gremio</option>
+            <option value="presidente_asociacion">Presidente de asociación</option>
+            <option value="organizaciones_sociales">Organizaciones sociales</option>
+            <option value="organizaciones_religiosas">Organizaciones religiosas</option>
+          </select>
+        </div>
+        <div class="campo">
+      <label>Meta de votos</label>
+      <input type="number" name="meta_votos" id="input-meta-votos-persona" value="0">
+      <small id="meta-votos-nota-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Se calcula automáticamente sumando las metas de sus líderes.</small>
+      <small id="meta-votos-nota-coordinador-org" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Se calcula automáticamente sumando las metas de sus gremiales (Presidente de gremio/asociación, Organizaciones sociales/religiosas).</small>
+        </div>
+      </div>
+
+      <div class="campo encabezado-form primero">Datos personales</div>
+      <div class="campo">
+        <label>Número de identificación</label>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input name="numero_identificacion" id="input-numero-persona" autocomplete="off" style="flex:1;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion" style="display:none; white-space:nowrap;">🗳️ Consultar lugar de votación</button>
+        </div>
+        <small id="numero-persona-estado" style="font-size:0.75rem;"></small>
+        <small id="nota-copiar-lugar-votacion-persona" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio, Puesto (con la dirección) y Mesa.</small>
+      </div>
+      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
+      <div class="fila">
+        <div class="campo">
+          <label>Género</label>
+          <select name="genero">
+            <option value="mujer">Mujer</option>
+            <option value="hombre">Hombre</option>
+            <option value="no_binario">No binario</option>
+            <option value="prefiero_no_responder" selected>Prefiero no responder</option>
+          </select>
+        </div>
+        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
+      </div>
+
+      <div class="campo encabezado-form">Lugar de Votación</div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento_votacion" id="input-departamento-votacion-persona" list="lista-departamentos-votacion-persona" autocomplete="off">
+          <datalist id="lista-departamentos-votacion-persona"></datalist>
+        </div>
+        <div class="campo">
+          <label>Municipio</label>
+          <input name="municipio_votacion" id="input-municipio-votacion-persona" list="lista-municipios-votacion-persona" autocomplete="off">
+          <datalist id="lista-municipios-votacion-persona"></datalist>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Puesto</label>
+          <select name="puesto_votacion" id="input-puesto-votacion-persona">
+            <option value="">Seleccione...</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Mesa</label>
+          <input name="mesa_votacion" id="input-mesa-votacion-persona" inputmode="numeric" autocomplete="off">
+          <small id="contador-mesas-persona" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+
+      <div class="campo" id="campo-asignar-testigo" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:700; color:#A93226;">
+          <input type="checkbox" id="chk-asignar-testigo-persona" style="width:auto;"> Es también testigo electoral
+        </label>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:2px;">
+          Además de su cargo actual, esta persona también podrá ingresar como testigo electoral y usar la app de Día D. El puesto donde vigila se elige aquí abajo y puede ser distinto de donde vota.
+        </small>
+        <div id="opciones-tipo-testigo-persona" style="display:none; margin-top:8px; padding-left:24px;">
+          <div style="display:flex; gap:22px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+              <input type="radio" name="tipo_testigo_persona" value="mesa" checked style="width:auto;"> Testigo electoral (una sola mesa)
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+              <input type="radio" name="tipo_testigo_persona" value="puesto" style="width:auto;"> Coordinador de puesto (varias mesas)
+            </label>
+          </div>
+          <div class="campo" style="margin-top:8px;">
+            <label>Puesto de votación</label>
+            <select id="input-puesto-testigo-persona">
+              <option value="">Seleccione...</option>
+            </select>
+          </div>
+          <div id="campo-mesa-testigo-persona" style="margin-top:8px;">
+            <label>Mesa</label>
+            <select id="input-mesa-testigo-persona">
+              <option value="">Seleccione un puesto primero...</option>
+            </select>
+          </div>
+          <div id="campo-mesas-multiples-testigo-persona" style="display:none; margin-top:8px;">
+            <label>Mesas que cubre</label>
+            <div id="casillas-mesas-testigo-persona" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Las opciones salen de Configuración → Datos de la campaña →
+           Activar apoyos. Si no se activó ninguno, este bloque no se
+           muestra (lo decide aplicarApoyosConfigurados). -->
+      <div id="bloque-apoya-a-persona" style="display:none;">
+        <div class="campo encabezado-form">Apoya a</div>
+        <div class="campo">
+          <div id="casillas-apoya-a-persona" style="display:flex; flex-wrap:wrap; gap:14px;"></div>
+        </div>
+      </div>
+
+      <div class="campo encabezado-form">Datos de contacto</div>
+      <div class="fila">
+        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" name="email"></div>
+      </div>
+      <div class="campo">
+        <label>Dirección de residencia</label>
+        <input name="direccion" id="input-direccion-persona" placeholder="Ej. Calle 10 #5-20">
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento_residencia" id="input-departamento-residencia-persona" list="lista-departamentos-residencia-persona" autocomplete="off">
+          <datalist id="lista-departamentos-residencia-persona"></datalist>
+        </div>
+        <div class="campo">
+          <label>Ciudad</label>
+          <input name="ciudad_residencia" id="input-ciudad-residencia-persona" list="lista-ciudades-residencia-persona" autocomplete="off">
+          <datalist id="lista-ciudades-residencia-persona"></datalist>
+        </div>
+      </div>
+      <div class="campo">
+        <label id="label-comuna-corregimiento-residencia">Comuna / Corregimiento</label>
+        <input name="comuna_corregimiento_residencia" id="input-comuna-corregimiento-residencia-persona" list="lista-comuna-corregimiento-residencia-persona" autocomplete="off" placeholder="Ej. Comuna 1 - Atardeceres">
+        <datalist id="lista-comuna-corregimiento-residencia-persona"></datalist>
+      </div>
+      <div class="campo">
+        <label id="label-barrio-vereda-residencia">Barrio / Vereda</label>
+        <input name="barrio_residencia" id="input-barrio-vereda-residencia-persona" list="lista-barrio-vereda-residencia-persona" autocomplete="off" placeholder="Ej. Arenillo">
+        <datalist id="lista-barrio-vereda-residencia-persona"></datalist>
+      </div>
+
+      <div class="campo encabezado-form">Territorio o área de influencia</div>
+      <div class="campo">
+        <div style="display:flex; gap:22px; margin-bottom:4px;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="checkbox" id="chk-area-influencia-territorio" style="width:auto;" checked> Territorio
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="checkbox" id="chk-area-influencia-organizacion" style="width:auto;"> Organización
+          </label>
+        </div>
+      </div>
+      <div class="campo" id="campo-organizacion-persona" style="display:none;">
+        <label>Nombre de la organización</label>
+        <input id="input-organizacion-persona" placeholder="Ej. Asociación de trabajadores informales del sur">
+      </div>
+      <div id="bloque-territorio-geografico-persona">
+        <div class="campo" id="campo-municipio-influencia-persona" style="display:none;">
+          <label>Municipio</label>
+          <input id="input-municipio-influencia-persona" list="lista-municipios-influencia-persona" autocomplete="off" placeholder="Municipio donde tiene influencia">
+          <datalist id="lista-municipios-influencia-persona"></datalist>
+          <small id="contador-municipios-influencia" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+        <div class="campo">
+          <label>Área</label>
+          <select name="areaPersona" id="select-area-persona">
+            <option value="">Seleccione...</option>
+            <option value="urbano">Urbano</option>
+            <option value="rural">Rural</option>
+          </select>
+        </div>
+        <div class="fila" id="fila-urbano-persona" data-fila="urbano" style="display:none;">
+          <div class="campo" id="campo-comuna-persona" data-campo="comuna">
+            <label>Comuna</label>
+            <input id="input-comuna-persona" list="lista-comunas-persona" autocomplete="off">
+            <datalist id="lista-comunas-persona"></datalist>
+          </div>
+          <div class="campo" id="campo-barrio-persona" data-campo="barrio">
+            <label>Barrio</label>
+            <input id="input-barrio-persona" list="lista-barrios-persona" autocomplete="off">
+            <datalist id="lista-barrios-persona"></datalist>
+            <small id="contador-barrios" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+          </div>
+        </div>
+        <div class="fila" id="fila-rural-persona" style="display:none;">
+          <div class="campo">
+            <label>Corregimiento</label>
+            <input id="input-corregimiento-persona" list="lista-corregimientos-persona" autocomplete="off">
+            <datalist id="lista-corregimientos-persona"></datalist>
+          </div>
+          <div class="campo" id="campo-vereda-persona">
+            <label>Vereda</label>
+            <input id="input-vereda-persona" list="lista-veredas-persona" autocomplete="off">
+            <datalist id="lista-veredas-persona"></datalist>
+            <small id="contador-veredas" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+          </div>
+        </div>
+      </div>
+      <div id="territorio-persona-error" class="mensaje-error"></div>
+      <div class="campo">
+        <label>Reporta a (opcional)</label>
+        <div id="busqueda-supervisor-persona" style="display:none;">
+          <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo ya trae a los líderes del Barrio/Vereda elegido arriba y a los de su mismo Coordinador — si necesitas a otro líder, búscalo por nombre aquí.</small>
+          <input type="text" id="input-buscar-supervisor-persona" placeholder="Buscar un líder por nombre..." autocomplete="off" style="margin-bottom:4px;">
+          <div id="resultados-buscar-supervisor-persona" style="margin-bottom:6px;"></div>
+        </div>
+        <select name="supervisor_id" id="select-supervisor"><option value="">Ninguno</option></select>
+      </div>
+      <div class="campo" id="campo-activo" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" name="activo" checked style="width:auto;"> Persona activa
+        </label>
+      </div>
+      <button type="submit" class="btn-primario" id="btn-guardar-estructura">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-territorios">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3>Territorios</h3><button class="modal-cerrar" id="cerrar-modal-territorios">×</button></div>
+    <div id="territorio-error" class="mensaje-error"></div>
+    <div id="territorio-ok" class="mensaje-ok"></div>
+
+    <form id="form-territorio" style="margin-bottom:18px;">
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento" id="input-departamento" list="lista-departamentos" autocomplete="off" required>
+          <datalist id="lista-departamentos"></datalist>
+        </div>
+        <div class="campo">
+          <label>Municipio / Ciudad</label>
+          <input name="municipio" id="input-municipio" list="lista-municipios" autocomplete="off" required>
+          <datalist id="lista-municipios"></datalist>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Área</label>
+          <select name="area" id="select-area" required>
+            <option value="">Seleccione...</option>
+            <option value="urbano">Urbano</option>
+            <option value="rural">Rural</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Tipo de zona</label>
+          <select name="tipoZona" id="select-tipo-zona" required disabled>
+            <option value="">Elija primero el área</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo" id="campo-comuna-padre" style="display:none;">
+        <label>Comuna a la que pertenece</label>
+        <select name="comunaPadre" id="select-comuna-padre"><option value="">Sin comuna específica</option></select>
+      </div>
+      <div class="campo" id="campo-corregimiento-padre" style="display:none;">
+        <label>Corregimiento al que pertenece</label>
+        <select name="corregimientoPadre" id="select-corregimiento-padre"><option value="">Sin corregimiento específico</option></select>
+      </div>
+      <div class="campo">
+        <label id="label-nombre-zona">Nombre de la zona</label>
+        <input name="nombreZona" id="input-nombre-zona" required>
+      </div>
+      <button type="submit" class="btn-primario">Agregar</button>
+    </form>
+
+    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+      <a class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-excel" href="/api/territorial/territorios/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+      <label class="btn-secundario btn-sm btn-excel-app" style="cursor:pointer; margin:0;">
+        ⬆ Importar desde Excel
+        <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
+      </label>
+      <button class="btn-secundario btn-sm" id="btn-eliminar-territorios" style="color:#A93226; border-color:#A93226;">🗑 Eliminar todos los territorios</button>
+    </div>
+    <div id="importar-resultado" class="mensaje-ok" style="display:none;"></div>
+
+    <div class="tabla-contenedor">
+    <table>
+      <thead><tr><th>Tipo</th><th>Nombre</th><th>Pertenece a</th><th></th></tr></thead>
+      <tbody id="tbody-territorios"></tbody>
+    </table>
+    </div>
+    <div id="vacio-territorios" class="vacio" style="display:none;"><div class="icono-vacio">▲</div>Aún no hay territorios registrados.</div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-editar-territorio">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3>Editar territorio</h3><button class="modal-cerrar" id="cerrar-modal-editar-territorio">×</button></div>
+    <p style="color:var(--color-text-muted); font-size:0.85rem;">Los cambios se reflejan automáticamente en Estructura, Votantes y Eventos que ya usan este territorio. Si cambias el nombre, también se actualizan las personas cuyo campo "Comuna/Corregimiento de residencia" o "Barrio/Vereda de residencia" coincidía con el nombre anterior.</p>
+    <div id="editar-territorio-error" class="mensaje-error"></div>
+    <div id="editar-territorio-ok" class="mensaje-ok"></div>
+    <form id="form-editar-territorio">
+      <input type="hidden" id="editar-territorio-id">
+      <div class="campo"><label>Tipo</label><input id="editar-territorio-tipo" disabled></div>
+      <div class="campo"><label>Nombre</label><input id="editar-territorio-nombre" required></div>
+      <div class="campo" id="campo-editar-territorio-padre" style="display:none;">
+        <label id="label-editar-territorio-padre">Pertenece a</label>
+        <select id="editar-territorio-padre"></select>
+      </div>
+      <button type="submit" class="btn-primario">Guardar cambios</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-eliminar-estructura">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3>Eliminar registros de la estructura</h3><button class="modal-cerrar" id="cerrar-modal-eliminar-estructura">×</button></div>
+    <p style="color:var(--color-text-muted); font-size:0.85rem;">Estas acciones eliminan a las personas (y sus cuentas de usuario) de forma permanente. Se pedirá la contraseña de un administrador antes de continuar.</p>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
+      <button class="btn-secundario" id="btn-eliminar-coordinadores" style="color:#A93226; border-color:#A93226;">Eliminar coordinadores</button>
+      <button class="btn-secundario" id="btn-eliminar-lideres" style="color:#A93226; border-color:#A93226;">Eliminar líderes</button>
+      <button class="btn-secundario" id="btn-eliminar-todo-estructura" style="color:#A93226; border-color:#A93226;">Eliminar todo (coordinadores, líderes, usuarios y testigos)</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/validarCedula.js"></script>
+<script src="/js/validacion-cedula-ui.js"></script>
+<script src="/js/mesas-testigo.js"></script>
+<script src="/js/columnas-territoriales.js"></script>
+<script>
+// Cachea el cascarón de esta pantalla (y de Votantes/Testigos) para que
+// abran sin conexión — ver /service-worker.js. Nunca cachea /api
+// ni /uploads: eso siempre necesita red.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+
+let usuarioActual;
+const ETIQUETAS_GENERO = { mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder' };
+let listaTerritorios = [];
+let listaCoordinadoresYLideres = [];
+
+async function cargarSelects() {
+  const [territorios, coordinadoresYLideres] = await Promise.all([
+    obtenerConCacheReferencia('territorios', () => api('/territorial/territorios')),
+    obtenerConCacheReferencia('coordinadores_lideres', () => api('/usuarios'))
+  ]);
+  listaTerritorios = territorios;
+  listaCoordinadoresYLideres = coordinadoresYLideres;
+  restaurarOpcionesReportaA();
+  poblarComunaCorregimientoResidencia();
+}
+
+/** Vuelve a llenar "Reporta a" con todos los coordinadores y líderes (lista sin filtrar por barrio). */
+function restaurarOpcionesReportaA() {
+  document.getElementById('select-supervisor').innerHTML = '<option value="">Ninguno</option>' + listaCoordinadoresYLideres
+    .filter(u => ['coordinador', 'lider'].includes(u.rol))
+    .map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('');
+}
+
+/**
+ * Busca en lo ya creado (Gestionar territorios) el municipio que
+ * coincide con el Departamento/Ciudad de residencia escritos en el
+ * formulario de Agregar/Editar persona — para poder mostrar solo las
+ * comunas/barrios/corregimientos/veredas que de verdad pertenecen a esa
+ * ciudad, no las de todas las ciudades que existan en el sistema.
+ */
+function buscarMunicipioResidenciaPersona() {
+  const nombreDepto = normalizarTexto(document.getElementById('input-departamento-residencia-persona').value);
+  const nombreMuni = normalizarTexto(document.getElementById('input-ciudad-residencia-persona').value);
+  if (!nombreMuni) return null;
+  const depto = listaTerritorios.find(t => t.tipo === 'departamento' && normalizarTexto(t.nombre) === nombreDepto);
+  return listaTerritorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombreMuni && (!depto || t.padre_id === depto.id)) || null;
+}
+
+/**
+ * Llena el datalist de "Comuna / Corregimiento" (Dirección de residencia)
+ * con las comunas y corregimientos ya creados en "Gestionar
+ * territorios" — SOLO los que pertenecen al Departamento/Ciudad de
+ * residencia elegidos arriba en el mismo formulario (si todavía no se ha
+ * elegido una ciudad reconocida, no se muestra ninguna opción, para no
+ * mezclar comunas de otras ciudades). Es informativo — no se vincula a
+ * un territorio_id, a diferencia del Territorio de influencia.
+ */
+function poblarComunaCorregimientoResidencia() {
+  const municipio = buscarMunicipioResidenciaPersona();
+  const zonas = municipio
+    ? listaTerritorios.filter(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && t.padre_id === municipio.id)
+    : [];
+  document.getElementById('lista-comuna-corregimiento-residencia-persona').innerHTML =
+    zonas.map(z => `<option value="${z.nombre}">`).join('');
+  actualizarBarrioVeredaResidencia();
+}
+
+/**
+ * Llena el datalist de "Barrio / Vereda" según lo escrito en "Comuna /
+ * Corregimiento": si coincide con una Comuna, muestra sus Barrios; si
+ * coincide con un Corregimiento, muestra sus Veredas. Si no coincide con
+ * nada todavía, muestra todos los Barrios/Veredas del municipio — así se
+ * puede escribir el Barrio/Vereda directamente sin saber antes a qué
+ * Comuna/Corregimiento pertenece (ver listener de abajo, que la completa sola).
+ */
+function actualizarBarrioVeredaResidencia() {
+  const nombreZona = normalizarTexto(document.getElementById('input-comuna-corregimiento-residencia-persona').value);
+  const zona = listaTerritorios.find(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && normalizarTexto(t.nombre) === nombreZona);
+  let hijos;
+  if (zona) {
+    hijos = listaTerritorios.filter(t => t.padre_id === zona.id && (t.tipo === 'barrio' || t.tipo === 'vereda'));
+  } else {
+    const municipio = buscarMunicipioResidenciaPersona();
+    const idsZonas = new Set(listaTerritorios.filter(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && (!municipio || t.padre_id === municipio.id)).map(z => z.id));
+    hijos = listaTerritorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && idsZonas.has(t.padre_id));
+  }
+  document.getElementById('lista-barrio-vereda-residencia-persona').innerHTML =
+    hijos.map(h => `<option value="${h.nombre}">`).join('');
+}
+
+document.getElementById('input-comuna-corregimiento-residencia-persona').addEventListener('input', actualizarBarrioVeredaResidencia);
+
+/** Si lo escrito en Barrio/Vereda coincide con uno ya creado, se autocompleta la Comuna/Corregimiento a la que pertenece (así no hace falta saberla de antemano). */
+document.getElementById('input-barrio-vereda-residencia-persona').addEventListener('input', () => {
+  const nombre = normalizarTexto(document.getElementById('input-barrio-vereda-residencia-persona').value);
+  const encontrado = listaTerritorios.find(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && normalizarTexto(t.nombre) === nombre);
+  if (encontrado) {
+    const zona = listaTerritorios.find(t => t.id === encontrado.padre_id);
+    if (zona && normalizarTexto(document.getElementById('input-comuna-corregimiento-residencia-persona').value) !== normalizarTexto(zona.nombre)) {
+      document.getElementById('input-comuna-corregimiento-residencia-persona').value = zona.nombre;
+      actualizarBarrioVeredaResidencia();
+    }
+  }
+});
+
+function renderTablaTerritorios() {
+  const tbody = document.getElementById('tbody-territorios');
+  document.getElementById('vacio-territorios').style.display = listaTerritorios.length ? 'none' : 'block';
+  const porId = Object.fromEntries(listaTerritorios.map(t => [t.id, t]));
+  tbody.innerHTML = listaTerritorios.map(t => `
+    <tr>
+      <td><span class="tag-tipo">${t.tipo}</span></td>
+      <td><strong>${t.nombre}</strong></td>
+      <td>${t.padre_id && porId[t.padre_id] ? porId[t.padre_id].nombre : '—'}</td>
+      <td style="white-space:nowrap;">
+        ${['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
+          ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
+        ${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarTerritorio(id) {
+  if (!confirm('¿Eliminar este territorio? Esto puede afectar registros que lo usen.')) return;
+  try {
+    await api(`/territorial/territorios/${id}`, { method: 'DELETE' });
+    await cargarSelects();
+    renderTablaTerritorios();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+/**
+ * Abre el modal para editar el Nombre de un territorio (y, si es Barrio o
+ * Vereda, permite reasignarlo a otra Comuna/Corregimiento).
+ */
+function abrirEdicionTerritorio(id) {
+  const t = listaTerritorios.find(x => x.id === id);
+  if (!t) return;
+
+  document.getElementById('editar-territorio-id').value = t.id;
+  document.getElementById('editar-territorio-tipo').value = t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1);
+  document.getElementById('editar-territorio-nombre').value = t.nombre;
+  document.getElementById('editar-territorio-error').classList.remove('visible');
+  document.getElementById('editar-territorio-ok').classList.remove('visible');
+
+  const campoPadre = document.getElementById('campo-editar-territorio-padre');
+  const selectPadre = document.getElementById('editar-territorio-padre');
+  if (t.tipo === 'barrio' || t.tipo === 'vereda') {
+    campoPadre.style.display = 'block';
+    const tipoPadre = t.tipo === 'barrio' ? 'comuna' : 'corregimiento';
+    document.getElementById('label-editar-territorio-padre').textContent =
+      t.tipo === 'barrio' ? 'Comuna a la que pertenece' : 'Corregimiento al que pertenece';
+    const opciones = listaTerritorios.filter(x => x.tipo === tipoPadre);
+    selectPadre.innerHTML = opciones
+      .map(o => `<option value="${o.id}" ${o.id === t.padre_id ? 'selected' : ''}>${o.nombre}</option>`)
+      .join('');
+  } else {
+    campoPadre.style.display = 'none';
+  }
+
+  document.getElementById('overlay-editar-territorio').classList.add('abierto');
+}
+
+document.getElementById('cerrar-modal-editar-territorio').addEventListener('click', () =>
+  document.getElementById('overlay-editar-territorio').classList.remove('abierto'));
+
+document.getElementById('form-editar-territorio').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('editar-territorio-error');
+  const okBox = document.getElementById('editar-territorio-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  const id = document.getElementById('editar-territorio-id').value;
+  const nombre = document.getElementById('editar-territorio-nombre').value.trim();
+  const campoPadre = document.getElementById('campo-editar-territorio-padre');
+  const datos = { nombre };
+  if (campoPadre.style.display !== 'none') {
+    datos.padre_id = document.getElementById('editar-territorio-padre').value;
+  }
+
+  try {
+    const r = await api(`/territorial/territorios/${id}`, { method: 'PUT', body: datos });
+    okBox.textContent = 'Territorio actualizado.' +
+      (r.actualizadosResidencia
+        ? ` Se actualizaron ${r.actualizadosResidencia} persona(s) cuyo campo de residencia hacía referencia al nombre anterior.`
+        : '');
+    okBox.classList.add('visible');
+    await cargarSelects();
+    renderTablaTerritorios();
+    await cargarEstructura();
+    setTimeout(() => document.getElementById('overlay-editar-territorio').classList.remove('abierto'), 1600);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+
+document.getElementById('btn-territorios').addEventListener('click', async () => {
+  document.getElementById('overlay-territorios').classList.add('abierto');
+  renderTablaTerritorios();
+  await cargarCatalogoColombia();
+  precargarUltimaUbicacion();
+});
+document.getElementById('cerrar-modal-territorios').addEventListener('click', () =>
+  document.getElementById('overlay-territorios').classList.remove('abierto'));
+
+// --- Eliminación masiva de Estructura (coordinadores/líderes/todo) ---
+document.getElementById('btn-regeocodificar').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a intentar ubicar en el mapa a todas las personas que tienen Dirección de residencia pero aún no tienen coordenadas. Se procesan de a pocas por vez y puede tardar varios minutos en total (no cierres esta pestaña mientras corre). ¿Continuar?')) return;
+
+  const boton = document.getElementById('btn-regeocodificar');
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+
+  let totalGeocodificados = 0;
+  let totalFallidos = 0;
+  let totalProcesados = 0;
+  let cursor = 0; // avanza siempre hacia adelante: nunca vuelve a visitar un id ya procesado en esta corrida
+
+  try {
+    let quedanPendientes = 1; // valor inicial cualquiera > 0 para entrar al bucle
+    let vueltas = 0;
+    const MAX_VUELTAS = 200; // límite de seguridad: nunca debería llegar aquí, pero evita un bucle infinito si algo falla
+    while (quedanPendientes > 0 && vueltas < MAX_VUELTAS) {
+      vueltas++;
+      boton.textContent = totalProcesados > 0
+        ? `Re-geocodificando... ${totalProcesados} procesada(s) hasta ahora`
+        : 'Re-geocodificando... esto puede tardar varios minutos';
+
+      const url = `/territorial/estructura/regeocodificar-pendientes?lote=5&despues_de=${cursor}`;
+      const r = await api(url, { method: 'POST' });
+      totalGeocodificados += r.geocodificados;
+      totalFallidos += r.fallidos;
+      totalProcesados += r.procesados;
+      quedanPendientes = r.quedanPendientes;
+      cursor = r.cursorSiguiente;
+
+      if (r.procesados === 0) break; // nada que procesar, evita bucle infinito
+    }
+
+    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} persona(s) quedaron ubicadas en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o Nominatim siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''));
+    await cargarEstructura();
+  } catch (err) {
+    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con las que faltan).`);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+});
+
+document.getElementById('btn-regeocodificar-todos').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a calcular la ubicación de TODOS los que tienen Dirección, incluso quienes ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Se procesa de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
+  const password = await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
+  if (!password) return;
+
+  const boton = document.getElementById('btn-regeocodificar-todos');
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+
+  let totalGeocodificados = 0;
+  let totalFallidos = 0;
+  let totalProcesados = 0;
+  let cursor = 0;
+
+  try {
+    let quedanPendientes = 1;
+    let vueltas = 0;
+    const MAX_VUELTAS = 400;
+    while (quedanPendientes > 0 && vueltas < MAX_VUELTAS) {
+      vueltas++;
+      boton.textContent = totalProcesados > 0
+        ? `Corrigiendo... ${totalProcesados} procesada(s) hasta ahora`
+        : 'Corrigiendo... esto puede tardar varios minutos';
+
+      const url = `/territorial/estructura/regeocodificar-pendientes?lote=5&todos=1&despues_de=${cursor}`;
+      const r = await api(url, { method: 'POST', body: { password } });
+      totalGeocodificados += r.geocodificados;
+      totalFallidos += r.fallidos;
+      totalProcesados += r.procesados;
+      quedanPendientes = r.quedanPendientes;
+      cursor = r.cursorSiguiente;
+
+      if (r.procesados === 0) break;
+    }
+
+    alert(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} persona(s).` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''));
+    await cargarEstructura();
+  } catch (err) {
+    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+});
+
+document.getElementById('btn-eliminar-masivo').addEventListener('click', () => {
+  document.getElementById('overlay-eliminar-estructura').classList.add('abierto');
+});
+document.getElementById('cerrar-modal-eliminar-estructura').addEventListener('click', () =>
+  document.getElementById('overlay-eliminar-estructura').classList.remove('abierto'));
+
+async function ejecutarEliminacionMasivaEstructura(tipo, etiqueta) {
+  if (!confirm(`¿Está seguro de eliminar ${etiqueta}? Esta acción no se puede deshacer.`)) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de estructura');
+  if (!password) return;
+  try {
+    const r = await api('/territorial/estructura/eliminar-masivo', { method: 'POST', body: { tipo, password } });
+    alert(`Se eliminaron ${r.eliminados} registro(s).`);
+    document.getElementById('overlay-eliminar-estructura').classList.remove('abierto');
+    await cargarSelects();
+    await cargarEstructura();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('btn-eliminar-coordinadores').addEventListener('click', () =>
+  ejecutarEliminacionMasivaEstructura('coordinador', 'todos los coordinadores'));
+document.getElementById('btn-eliminar-lideres').addEventListener('click', () =>
+  ejecutarEliminacionMasivaEstructura('lider', 'todos los líderes'));
+document.getElementById('btn-eliminar-todo-estructura').addEventListener('click', () =>
+  ejecutarEliminacionMasivaEstructura('todo', 'TODA la estructura (coordinadores, líderes, usuarios y testigos)'));
+
+// --- Eliminación total de Territorios ---
+document.getElementById('btn-eliminar-territorios').addEventListener('click', async () => {
+  if (!confirm('¿Está seguro de eliminar TODOS los territorios? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de territorios');
+  if (!password) return;
+  try {
+    await api('/territorial/territorios/eliminar-todo', { method: 'POST', body: { password } });
+    alert('Todos los territorios fueron eliminados.');
+    await cargarSelects();
+    renderTablaTerritorios();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// --- Catálogo de departamentos y municipios de Colombia (DANE) ---
+let catalogoColombia = null;
+
+async function cargarCatalogoColombia() {
+  if (catalogoColombia) return;
+  catalogoColombia = await obtenerConCacheReferencia('colombia', () => fetch('/data/colombia.json').then(r => r.json()));
+  document.getElementById('lista-departamentos').innerHTML =
+    catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
+  // Mismo catálogo, para el Departamento/Ciudad de residencia en Agregar/Editar persona.
+  document.getElementById('lista-departamentos-residencia-persona').innerHTML =
+    catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
+  // Mismo catálogo, para el Departamento de Lugar de Votación.
+  document.getElementById('lista-departamentos-votacion-persona').innerHTML =
+    catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
+}
+
+/** Cantidad de mesas del Puesto de votación elegido (Lugar de Votación) — limita lo que se puede escribir en Mesa, para no dejar registrar una mesa que no existe en ese puesto. */
+let cantidadMesasPuestoPersona = 0;
+async function actualizarLimiteMesaPersona() {
+  const puesto = document.getElementById('input-puesto-votacion-persona').value;
+  const contador = document.getElementById('contador-mesas-persona');
+  if (!puesto) {
+    cantidadMesasPuestoPersona = 0;
+    contador.textContent = '';
+    return;
+  }
+  cantidadMesasPuestoPersona = typeof mesasDelPuestoDeVotacion === 'function'
+    ? await mesasDelPuestoDeVotacion('persona', puesto)
+    : ((await consultarMesasDisponibles(puesto)).cantidadMesas || 0);
+  contador.textContent = cantidadMesasPuestoPersona ? `Este puesto tiene ${cantidadMesasPuestoPersona} mesa(s).` : 'Este puesto aún no tiene la cantidad de mesas configurada.';
+  const mesaInput = document.getElementById('input-mesa-votacion-persona');
+  if (cantidadMesasPuestoPersona && Number(mesaInput.value) > cantidadMesasPuestoPersona) {
+    mesaInput.value = String(cantidadMesasPuestoPersona);
+  }
+}
+document.getElementById('input-puesto-votacion-persona').addEventListener('change', actualizarLimiteMesaPersona);
+document.getElementById('input-mesa-votacion-persona').addEventListener('input', (e) => {
+  if (cantidadMesasPuestoPersona && Number(e.target.value) > cantidadMesasPuestoPersona) {
+    e.target.value = String(cantidadMesasPuestoPersona);
+  }
+});
+
+/** Puestos configurados en Configuración → Día D → Puestos de votación, para que la persona quede asignada a uno de la lista oficial (no texto libre). Se usa el endpoint sin restricción de rol (no el de administración) porque este formulario también lo usan líderes y sublíderes. */
+let puestosVotacionCache = null;
+async function cargarPuestosVotacionParaSelect() {
+  if (puestosVotacionCache) return;
+  puestosVotacionCache = await obtenerConCacheReferencia('diad_puestos', () => api('/dia-d/puestos-para-reporte'));
+  const opciones = '<option value="">Seleccione...</option>' +
+    puestosVotacionCache.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('input-puesto-votacion-persona').innerHTML = opciones;
+  document.getElementById('input-puesto-testigo-persona').innerHTML = opciones;
+}
+
+/** Llena el datalist de Municipio (Lugar de Votación) según el Departamento de votación escrito. */
+function actualizarMunicipiosVotacionPersona() {
+  const depto = document.getElementById('input-departamento-votacion-persona').value.trim();
+  const municipios = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-municipios-votacion-persona').innerHTML =
+    municipios.map(m => `<option value="${m}">`).join('');
+}
+document.getElementById('input-departamento-votacion-persona').addEventListener('input', actualizarMunicipiosVotacionPersona);
+
+function actualizarMunicipiosDelDepartamento() {
+  const depto = document.getElementById('input-departamento').value.trim();
+  const municipios = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-municipios').innerHTML =
+    municipios.map(m => `<option value="${m}">`).join('');
+}
+
+document.getElementById('input-departamento').addEventListener('input', actualizarMunicipiosDelDepartamento);
+
+/** Llena el datalist de Ciudad de residencia según el Departamento de residencia escrito. */
+function actualizarCiudadesResidenciaPersona() {
+  const depto = document.getElementById('input-departamento-residencia-persona').value.trim();
+  const ciudades = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-ciudades-residencia-persona').innerHTML =
+    ciudades.map(c => `<option value="${c}">`).join('');
+}
+document.getElementById('input-departamento-residencia-persona').addEventListener('input', actualizarCiudadesResidenciaPersona);
+document.getElementById('input-ciudad-residencia-persona').addEventListener('input', () => {
+  // Al cambiar la Ciudad de residencia, se refiltran tanto la Comuna/
+  // Corregimiento de esa misma sección como las opciones de Territorio o
+  // área de influencia — así ninguna de las dos mezcla comunas/barrios de
+  // otras ciudades que puedan existir en el sistema.
+  poblarComunaCorregimientoResidencia();
+  poblarListasUbicacionPersona();
+});
+
+document.getElementById('select-area').addEventListener('change', (e) => {
+  const selectTipo = document.getElementById('select-tipo-zona');
+  const labelNombre = document.getElementById('label-nombre-zona');
+  if (e.target.value === 'urbano') {
+    // Solo se ofrece crear los tipos de zona que la campaña sí usa
+    // (Configuración → Datos de la campaña).
+    const tipos = [];
+    if (ciudadTieneComunas) tipos.push('<option value="comuna">Comuna</option>');
+    if (usarNombreBarrios) tipos.push('<option value="barrio">Barrio</option>');
+    selectTipo.disabled = tipos.length === 0;
+    selectTipo.innerHTML = tipos.length
+      ? tipos.join('')
+      : '<option value="">La campaña no usa comunas ni barrios</option>';
+    labelNombre.textContent = ciudadTieneComunas && usarNombreBarrios
+      ? 'Nombre de la comuna o barrio'
+      : (ciudadTieneComunas ? 'Nombre de la comuna' : 'Nombre del barrio');
+  } else if (e.target.value === 'rural') {
+    selectTipo.disabled = false;
+    selectTipo.innerHTML = `<option value="corregimiento">Corregimiento</option><option value="vereda">Vereda</option>`;
+    labelNombre.textContent = 'Nombre del corregimiento o vereda';
+  } else {
+    selectTipo.disabled = true;
+    selectTipo.innerHTML = `<option value="">Elija primero el área</option>`;
+    labelNombre.textContent = 'Nombre de la zona';
+  }
+  actualizarCamposPadreZona();
+});
+
+// Busca en lo ya creado el municipio que coincide con Departamento + Municipio escritos.
+function buscarMunicipioActual() {
+  const nombreDepto = normalizarTexto(document.getElementById('input-departamento').value);
+  const nombreMuni = normalizarTexto(document.getElementById('input-municipio').value);
+  if (!nombreDepto || !nombreMuni) return null;
+  const depto = listaTerritorios.find(t => t.tipo === 'departamento' && normalizarTexto(t.nombre) === nombreDepto);
+  if (!depto) return null;
+  const muni = listaTerritorios.find(t => t.tipo === 'municipio' && t.padre_id === depto.id && normalizarTexto(t.nombre) === nombreMuni);
+  return muni || null;
+}
+
+// Muestra/oculta y llena el selector de Comuna (para Barrio) o Corregimiento (para Vereda).
+function actualizarCamposPadreZona() {
+  const tipoZona = document.getElementById('select-tipo-zona').value;
+  const campoComuna = document.getElementById('campo-comuna-padre');
+  const campoCorregimiento = document.getElementById('campo-corregimiento-padre');
+  campoComuna.style.display = 'none';
+  campoCorregimiento.style.display = 'none';
+
+  const municipio = buscarMunicipioActual();
+
+  if (tipoZona === 'barrio') {
+    campoComuna.style.display = 'block';
+    const comunas = municipio ? listaTerritorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
+    document.getElementById('select-comuna-padre').innerHTML =
+      '<option value="">Sin comuna específica</option>' +
+      comunas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  } else if (tipoZona === 'vereda') {
+    campoCorregimiento.style.display = 'block';
+    const corregimientos = municipio ? listaTerritorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
+    document.getElementById('select-corregimiento-padre').innerHTML =
+      '<option value="">Sin corregimiento específico</option>' +
+      corregimientos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  }
+}
+
+document.getElementById('select-tipo-zona').addEventListener('change', actualizarCamposPadreZona);
+document.getElementById('input-municipio').addEventListener('change', actualizarCamposPadreZona);
+
+// "La primera vez que se elija departamento y ciudad, estos datos se autocompletan
+// para la gestión de territorios siguientes" — se recuerdan en este navegador.
+function precargarUltimaUbicacion() {
+  const guardado = localStorage.getItem('ultimaUbicacionTerritorio');
+  if (!guardado) return;
+  try {
+    const { departamento, municipio } = JSON.parse(guardado);
+    document.getElementById('input-departamento').value = departamento || '';
+    actualizarMunicipiosDelDepartamento();
+    document.getElementById('input-municipio').value = municipio || '';
+  } catch (_) { /* ignorar */ }
+}
+
+document.getElementById('form-territorio').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('territorio-error');
+  const okBox = document.getElementById('territorio-ok');
+  errorBox.classList.remove('visible'); okBox.classList.remove('visible');
+  const form = e.target;
+  const datos = {
+    departamento: form.departamento.value.trim(),
+    municipio: form.municipio.value.trim(),
+    tipoZona: form.tipoZona.value,
+    nombreZona: form.nombreZona.value.trim()
+  };
+  if (form.tipoZona.value === 'barrio' && form.comunaPadre.value) {
+    datos.padreZonaId = form.comunaPadre.value;
+  } else if (form.tipoZona.value === 'vereda' && form.corregimientoPadre.value) {
+    datos.padreZonaId = form.corregimientoPadre.value;
+  }
+  try {
+    await api('/territorial/territorios/crear-zona', { method: 'POST', body: datos });
+    localStorage.setItem('ultimaUbicacionTerritorio', JSON.stringify({
+      departamento: datos.departamento, municipio: datos.municipio
+    }));
+    await cargarSelects();
+    renderTablaTerritorios();
+    okBox.textContent = 'Zona agregada correctamente.';
+    okBox.classList.add('visible');
+    form.nombreZona.value = '';
+    form.nombreZona.focus();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+// --- Importar desde Excel ---
+document.getElementById('input-importar-excel').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const resultadoBox = document.getElementById('importar-resultado');
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/territorial/territorios/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} fila(s) procesada(s)`;
+    if (r.reparentados) {
+      mensaje += `, ${r.reparentados} corregida(s) de jerarquía (barrio/vereda que estaban colgando directamente del municipio)`;
+    }
+    mensaje += '.';
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    resultadoBox.textContent = mensaje;
+    resultadoBox.style.display = 'block';
+    await cargarSelects();
+    renderTablaTerritorios();
+  } catch (err) {
+    resultadoBox.textContent = 'Error importando el archivo: ' + err.message;
+    resultadoBox.style.display = 'block';
+  } finally {
+    e.target.value = '';
+  }
+});
+
+let listaEstructura = [];
+/** Filas de Estructura con cargo='testigo' (la capacidad ADICIONAL que se le puede dar a un Coordinador/Líder/Sublíder) — se guardan aparte porque listaEstructura las excluye a propósito (ver cargarEstructura). Sirve para que abrirEdicion() sepa si la persona que se está editando también es testigo electoral. */
+let listaTestigosEstructura = [];
+
+const ETIQUETAS_APOYO_APP = {
+  alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL',
+  gobernacion: 'Gobernación', asamblea: 'Asamblea'
+};
+
+/**
+ * Arma las casillas de "Apoya a" con lo que el administrador activó en
+ * Configuración → Datos de la campaña. Si no activó ninguno, la sección
+ * entera no se muestra.
+ *
+ * Las opciones ya no están fijas en el código: una campaña a la
+ * Gobernación no debería estar ofreciendo apoyo a un concejo en
+ * particular, y una que no use apoyos no tiene por qué ver el bloque.
+ */
+function aplicarApoyosConfigurados(SUFIJO, activos) {
+  const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
+  const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
+  // Tres casos, y el primero importa: si NUNCA se configuraron apoyos
+  // (null), se ofrecen los cinco de siempre. Antes el apartado desaparecía
+  // del formulario, y una campaña que jamás entró a "Activar apoyos" se
+  // quedaba sin poder marcar a quién apoya cada persona — sin ningún aviso
+  // de por qué. Lista vacía ([]) sí lo oculta: ahí es una decisión tomada.
+  const nuncaConfigurado = activos === null || activos === undefined;
+  const lista = nuncaConfigurado
+    ? ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea']
+    : (Array.isArray(activos) ? activos : []);
+  if (!lista.length) {
+    bloque.style.display = 'none';
+    casillas.innerHTML = '';
+    return;
+  }
+  bloque.style.display = 'block';
+  casillas.innerHTML = lista.map(a => `
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      ${ETIQUETAS_APOYO_APP[a] || a}
+    </label>`).join('');
+}
+
+
+// Si la ciudad NO tiene comunas (Configuración → Datos de la campaña), el
+// campo Comuna se oculta para Líder/Usuario/Testigo y el Barrio se elige
+// directo entre TODOS los barrios del municipio (incluyendo los que no
+// cuelgan de ninguna comuna, sino directo del municipio).
+let ciudadTieneComunas = true;
+let usarNombreBarrios = true;
+// Cargos sin meta propia: el servidor la calcula sumando su equipo y la
+// manda en meta_votos_equipo. Debe coincidir con CARGOS_CON_META_DERIVADA
+// de config/metasEstructura.js — si se agrega un cargo allá, agregarlo
+// aquí, o la pantalla mostraría un campo editable que el servidor ignora.
+const CARGOS_META_DERIVADA = ['coordinador', 'coordinador_organizaciones'];
+// Campañas de Gobernación o Asamblea abarcan TODO el departamento, así que
+// el área de influencia de una persona no se puede deducir de la ciudad
+// sede (no hay una: `ciudad` viene vacía). Con el ámbito departamental se
+// muestra un campo Municipio propio dentro de "Territorio o área de
+// influencia", y de ahí cuelgan Comuna/Barrio y Corregimiento/Vereda.
+let ambitoDepartamental = false;
+
+// --- Cascada de ubicación para el formulario de personas (Área -> Comuna/Barrio o Corregimiento/Vereda) ---
+
+/**
+ * Municipio al que pertenece el área de influencia.
+ *
+ * En campaña departamental sale del campo Municipio propio del apartado; en
+ * las demás sigue saliendo de la Ciudad de residencia, como siempre — una
+ * campaña municipal tiene un solo municipio y pedirlo dos veces sobraría.
+ */
+function municipioDeInfluenciaPersona() {
+  if (!ambitoDepartamental) return buscarMunicipioResidenciaPersona();
+  const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-persona').value);
+  if (!nombre) return null;
+  return listaTerritorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre) || null;
+}
+
+/**
+ * Qué territorios existen realmente bajo ese municipio. Se usa para no
+ * exigir un Barrio donde no se ha creado ninguno: el catálogo trae los
+ * municipios y las veredas del departamento, pero comunas, corregimientos
+ * y barrios solo existen si la campaña los creó.
+ */
+function disponiblesEnMunicipioPersona() {
+  const municipio = municipioDeInfluenciaPersona();
+  if (!municipio) return { municipio: null, comunas: [], barrios: [], corregimientos: [], veredas: [] };
+  const comunas = listaTerritorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id);
+  const corregimientos = listaTerritorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id);
+  const idsComunas = new Set(comunas.map(c => c.id));
+  const idsCorregimientos = new Set(corregimientos.map(c => c.id));
+  return {
+    municipio, comunas, corregimientos,
+    // Barrios y veredas pueden colgar de su comuna/corregimiento o
+    // directamente del municipio — en el catálogo nacional las veredas
+    // cuelgan del municipio, sin capa de corregimiento en medio.
+    barrios: listaTerritorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || t.padre_id === municipio.id)),
+    veredas: listaTerritorios.filter(t => t.tipo === 'vereda' && (idsCorregimientos.has(t.padre_id) || t.padre_id === municipio.id))
+  };
+}
+
+/** Llena el desplegable de Municipio del área de influencia (solo campaña departamental). */
+function poblarMunicipiosInfluenciaPersona() {
+  if (!ambitoDepartamental) return;
+  const municipios = listaTerritorios.filter(t => t.tipo === 'municipio')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('lista-municipios-influencia-persona').innerHTML =
+    municipios.map(m => `<option value="${m.nombre}">`).join('');
+  document.getElementById('contador-municipios-influencia').textContent =
+    municipios.length ? `${municipios.length} municipio(s) del departamento.` : 'No hay municipios cargados todavía.';
+}
+
+function poblarListasUbicacionPersona() {
+  // Mismo criterio que en Datos de contacto: solo se muestran las
+  // comunas/corregimientos que pertenecen al municipio elegido como
+  // Ciudad de residencia — así, si el sistema llega a tener territorios
+  // creados para más de una ciudad (por ejemplo, si esta instalación se
+  // reutiliza para otra campaña en otro municipio), no se mezclan entre sí.
+  poblarMunicipiosInfluenciaPersona();
+  const municipio = municipioDeInfluenciaPersona();
+  const comunas = municipio ? listaTerritorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
+  const corregimientos = municipio ? listaTerritorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
+  document.getElementById('lista-comunas-persona').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('lista-corregimientos-persona').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  actualizarBarriosPersona();
+  actualizarVeredasPersona();
+}
+
+function actualizarBarriosPersona() {
+  // Si la ciudad no tiene comunas, el campo Comuna está oculto (salvo para
+  // Coordinador) — el Barrio se busca directo entre TODOS los del
+  // municipio, incluyendo los que cuelgan del municipio sin comuna
+  // intermedia (así se crean desde "Gestionar territorios" cuando no se
+  // elige una comuna como padre).
+  const nombreComuna = ciudadTieneComunas ? normalizarTexto(document.getElementById('input-comuna-persona').value) : '';
+  const comuna = nombreComuna ? listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+  let barrios;
+  if (comuna) {
+    barrios = listaTerritorios.filter(t => t.tipo === 'barrio' && t.padre_id === comuna.id);
+  } else {
+    // Sin una Comuna reconocida todavía (o si la ciudad no tiene comunas),
+    // se muestran TODOS los barrios del municipio — así se puede escribir
+    // el Barrio directamente sin saber antes a qué Comuna pertenece; al
+    // reconocerlo, la Comuna se completa sola.
+    const municipio = municipioDeInfluenciaPersona();
+    const idsComunas = new Set(listaTerritorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    barrios = listaTerritorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('lista-barrios-persona').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+  document.getElementById('contador-barrios').textContent =
+    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Gestionar territorios".';
+}
+
+function actualizarVeredasPersona() {
+  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+  const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+  let veredas;
+  if (corregimiento) {
+    veredas = listaTerritorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id);
+  } else {
+    // Mismo criterio que en Barrio: sin Corregimiento reconocido, se
+    // muestran todas las veredas del municipio.
+    const municipio = municipioDeInfluenciaPersona();
+    const idsCorregimientos = new Set(listaTerritorios.filter(t => t.tipo === 'corregimiento' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    veredas = listaTerritorios.filter(t => t.tipo === 'vereda' &&
+      (idsCorregimientos.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('lista-veredas-persona').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+  document.getElementById('contador-veredas').textContent =
+    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Gestionar territorios".';
+}
+
+document.getElementById('input-municipio-influencia-persona').addEventListener('input', () => {
+  poblarListasUbicacionPersona();
+  actualizarReportaAPorZona();
+});
+document.getElementById('input-comuna-persona').addEventListener('input', () => {
+  actualizarBarriosPersona();
+  actualizarReportaAPorZona();
+});
+document.getElementById('input-corregimiento-persona').addEventListener('input', () => {
+  actualizarVeredasPersona();
+  actualizarReportaAPorZona();
+});
+/** El buscador de "Reporta a" por nombre solo aplica cuando el Cargo es Sublíder (ahí "Reporta a" es un Líder); para los demás cargos "Reporta a" son Coordinadores y ya se listan todos en el desplegable. */
+function actualizarVisibilidadBusquedaSupervisor() {
+  const esSublider = document.getElementById('select-cargo-persona').value === 'usuario';
+  document.getElementById('busqueda-supervisor-persona').style.display = esSublider ? 'block' : 'none';
+  if (!esSublider) {
+    document.getElementById('input-buscar-supervisor-persona').value = '';
+    document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
+  }
+}
+
+document.getElementById('input-buscar-supervisor-persona').addEventListener('input', () => {
+  const texto = normalizarTexto(document.getElementById('input-buscar-supervisor-persona').value.trim());
+  const cont = document.getElementById('resultados-buscar-supervisor-persona');
+  if (!texto) { cont.innerHTML = ''; return; }
+  const coincidencias = listaCoordinadoresYLideres
+    .filter(u => u.rol === 'lider' && normalizarTexto(u.nombre).includes(texto))
+    .slice(0, 8);
+  cont.innerHTML = coincidencias.length
+    ? coincidencias.map(u => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
+          <span>${u.nombre}</span>
+          <button type="button" class="btn-secundario btn-sm" onclick="elegirSupervisorBuscado(${u.id})">Elegir</button>
+        </div>
+      `).join('')
+    : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
+});
+
+/** Selecciona en "Reporta a" a un líder encontrado por la búsqueda de nombre, aunque no aparezca en la lista filtrada por Barrio/Vereda. */
+function elegirSupervisorBuscado(id) {
+  const encontrado = listaCoordinadoresYLideres.find(u => u.id === id);
+  if (!encontrado) return;
+  const select = document.getElementById('select-supervisor');
+  if (!Array.from(select.options).some(o => o.value === String(id))) {
+    select.insertAdjacentHTML('beforeend', `<option value="${id}">${encontrado.nombre}</option>`);
+  }
+  select.value = id;
+  document.getElementById('input-buscar-supervisor-persona').value = '';
+  document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
+}
+
+/**
+ * Los botones de Categoría son la cara visible del <select> de siempre.
+ *
+ * De los botones AL select: se le pasa el valor y se le dispara `change`,
+ * para que corra tal cual la cascada que ya existía.
+ *
+ * Del select A los botones: hace falta porque `abrirEdicion` escribe
+ * `form.cargo.value` directamente y NO dispara `change` — sin esto, al
+ * editar a un Coordinador los botones seguirían marcando "Líder".
+ */
+function sincronizarChipsCargo() {
+  const valor = document.getElementById('select-cargo-persona').value;
+  document.querySelectorAll('#chips-cargo-persona input[name="cargo_visual"]')
+    .forEach(r => { r.checked = (r.value === valor); });
+}
+document.querySelectorAll('#chips-cargo-persona input[name="cargo_visual"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const sel = document.getElementById('select-cargo-persona');
+    sel.value = radio.value;
+    sel.dispatchEvent(new Event('change'));
+  });
+});
+
+document.getElementById('select-cargo-persona').addEventListener('change', () => {
+  actualizarReportaAPorZona();
+  actualizarVisibilidadBarrioVeredaSegunCargo();
+  actualizarVisibilidadBusquedaSupervisor();
+  document.getElementById('territorio-persona-error').classList.remove('visible');
+
+  // Un "Coordinador Organizaciones" coordina gremios/asociaciones, no una
+  // zona geográfica concreta — se activa el modo "Organización" solo, y
+  // ya no se exige llenar Área/Comuna/Barrio (mismo mecanismo que ya
+  // usan los Tipos de cargo gremiales, ver TIPOS_QUE_ACTIVAN_ORGANIZACION).
+  if (document.getElementById('select-cargo-persona').value === 'coordinador_organizaciones') {
+    document.getElementById('chk-area-influencia-organizacion').checked = true;
+    document.getElementById('chk-area-influencia-territorio').checked = false;
+    actualizarVisibilidadAreaInfluencia();
+  }
+});
+
+/**
+ * Cuando el Cargo elegido es Líder y ya se identificó la Comuna (o
+ * Corregimiento) en Territorio de influencia, filtra "Reporta a" a solo
+ * los Coordinadores de esa zona (autoselecciona si hay uno solo).
+ *
+ * Cuando el Cargo elegido es Sublíder ("usuario"), "Reporta a" se llena
+ * inicialmente con los Líderes adscritos al Barrio/Vereda elegido en
+ * Territorio o área de influencia, más los que reportan al Coordinador de
+ * esa Comuna/Corregimiento (equipo más amplio); el buscador por nombre de
+ * al lado permite elegir cualquier otro líder que no aparezca aquí.
+ */
+async function actualizarReportaAPorZona() {
+  const cargo = document.getElementById('select-cargo-persona').value;
+
+  if (cargo === 'usuario') {
+    const select = document.getElementById('select-supervisor');
+    const area = document.getElementById('select-area-persona').value;
+    let barrioId = null;
+    if (area === 'urbano') {
+      const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
+      const barrio = listaTerritorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+      if (barrio) barrioId = barrio.id;
+    } else if (area === 'rural') {
+      const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
+      const vereda = listaTerritorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+      if (vereda) barrioId = vereda.id;
+    }
+
+    if (!barrioId) {
+      select.innerHTML = '<option value="">Ninguno</option>';
+      return;
+    }
+    try {
+      const lideres = await api(`/territorial/lideres-para-sublider/${barrioId}`);
+      select.innerHTML = '<option value="">Ninguno</option>' + lideres.map(l => `<option value="${l.id}">${l.nombre}</option>`).join('');
+    } catch (err) {
+      select.innerHTML = '<option value="">Ninguno</option>';
+    }
+    return;
+  }
+
+  if (cargo !== 'lider') {
+    restaurarOpcionesReportaA();
+    return;
+  }
+
+  const area = document.getElementById('select-area-persona').value;
+  let zonaId = null;
+
+  if (area === 'urbano') {
+    const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
+    const comuna = listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna);
+    if (comuna) zonaId = comuna.id;
+  } else if (area === 'rural') {
+    const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+    const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+    if (corregimiento) zonaId = corregimiento.id;
+  }
+
+  if (!zonaId) {
+    restaurarOpcionesReportaA();
+    return;
+  }
+
+  const select = document.getElementById('select-supervisor');
+  try {
+    const coordinadores = await api(`/territorial/coordinadores-por-zona/${zonaId}`);
+    select.innerHTML = '<option value="">Ninguno</option>' + coordinadores.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if (coordinadores.length === 1) select.value = String(coordinadores[0].id);
+  } catch (err) {
+    restaurarOpcionesReportaA();
+  }
+}
+
+document.getElementById('select-area-persona').addEventListener('change', (e) => {
+  document.getElementById('fila-urbano-persona').style.display = e.target.value === 'urbano' ? 'flex' : 'none';
+  document.getElementById('fila-rural-persona').style.display = e.target.value === 'rural' ? 'flex' : 'none';
+  // Se repuebla aquí (no solo al abrir el modal) porque algunos navegadores
+  // no muestran bien las sugerencias de un <datalist> que se llenó mientras
+  // su campo estaba oculto (display:none).
+  if (e.target.value === 'urbano') actualizarBarriosPersona();
+  if (e.target.value === 'rural') actualizarVeredasPersona();
+  actualizarReportaAPorZona();
+});
+document.getElementById('input-barrio-persona').addEventListener('input', () => {
+  const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
+  const barrio = listaTerritorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+  if (barrio) {
+    const comuna = listaTerritorios.find(t => t.id === barrio.padre_id);
+    if (comuna && normalizarTexto(document.getElementById('input-comuna-persona').value) !== normalizarTexto(comuna.nombre)) {
+      document.getElementById('input-comuna-persona').value = comuna.nombre;
+      actualizarBarriosPersona();
+    }
+  }
+  actualizarReportaAPorZona();
+});
+document.getElementById('input-vereda-persona').addEventListener('input', () => {
+  const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
+  const vereda = listaTerritorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+  if (vereda) {
+    const corregimiento = listaTerritorios.find(t => t.id === vereda.padre_id);
+    if (corregimiento && normalizarTexto(document.getElementById('input-corregimiento-persona').value) !== normalizarTexto(corregimiento.nombre)) {
+      document.getElementById('input-corregimiento-persona').value = corregimiento.nombre;
+      actualizarVeredasPersona();
+    }
+  }
+  actualizarReportaAPorZona();
+});
+
+/**
+ * Resuelve el territorio_id final (el Barrio o la Vereda escogidos) buscando
+ * coincidencia exacta por nombre entre lo ya creado en "Gestionar territorios".
+ * Devuelve null si el área no está seleccionada o el nombre no coincide con nada existente.
+ */
+/**
+ * Muestra/oculta los campos Barrio y Vereda según el Cargo elegido: un
+ * Coordinador se asigna directamente a la Comuna o Corregimiento (sin
+ * Barrio/Vereda); Líder/Usuario/Testigo siguen necesitando el Barrio/Vereda
+ * exacto. También muestra/oculta la nota de "meta calculada automáticamente".
+ *
+ * El campo Comuna en sí se oculta aparte cuando Configuración → Datos de la
+ * campaña dice que la ciudad NO tiene comunas (ciudadTieneComunas = false).
+ * Se oculta para TODOS los cargos, Coordinador incluido: si la campaña no
+ * organiza por comunas, no hay comuna que elegir — el Barrio se elige
+ * directo, y si tampoco se usan barrios la persona se guarda sin territorio
+ * geográfico urbano.
+ *
+ * Y al revés: si "¿Utilizar nombre de barrios?" está en No
+ * (usarNombreBarrios = false), Barrio/Vereda se ocultan para TODOS los
+ * cargos (no solo Coordinador) — Líder/Usuario/Testigo también se asignan
+ * directo a la Comuna/Corregimiento, igual que ya hace Coordinador.
+ */
+function actualizarVisibilidadBarrioVeredaSegunCargo() {
+  const esCoordinador = document.getElementById('select-cargo-persona').value === 'coordinador';
+  const esCoordinadorOrg = document.getElementById('select-cargo-persona').value === 'coordinador_organizaciones';
+  // Los dos cargos de coordinación tienen la meta derivada de su equipo:
+  // el campo se oculta y se deshabilita, y cada uno explica de dónde sale.
+  const metaEsDerivada = esCoordinador || esCoordinadorOrg;
+  const ocultarBarrioVereda = esCoordinador || !usarNombreBarrios;
+  document.getElementById('campo-barrio-persona').style.display = ocultarBarrioVereda ? 'none' : 'block';
+  document.getElementById('campo-vereda-persona').style.display = ocultarBarrioVereda ? 'none' : 'block';
+  document.getElementById('campo-comuna-persona').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('input-meta-votos-persona').style.display = metaEsDerivada ? 'none' : 'block';
+  document.getElementById('input-meta-votos-persona').disabled = metaEsDerivada;
+  document.getElementById('meta-votos-nota-coordinador').style.display = esCoordinador ? 'block' : 'none';
+  document.getElementById('meta-votos-nota-coordinador-org').style.display = esCoordinadorOrg ? 'block' : 'none';
+}
+
+/**
+ * "Territorio" y "Organización" son mutuamente excluyentes: al marcar una
+ * se desmarca la otra. Organización muestra un campo de texto libre en vez
+ * de la cascada geográfica (Área/Comuna/Barrio).
+ */
+function actualizarVisibilidadAreaInfluencia() {
+  const esOrganizacion = document.getElementById('chk-area-influencia-organizacion').checked;
+  document.getElementById('bloque-territorio-geografico-persona').style.display = esOrganizacion ? 'none' : 'block';
+  document.getElementById('campo-organizacion-persona').style.display = esOrganizacion ? 'block' : 'none';
+}
+
+// Mesa (o mesas) que ya tenía asignada esta persona como testigo, si ya lo
+// era al abrir la edición — para que aparezca como opción aunque ya esté
+// "ocupada" por ella misma.
+let mesaActualTestigoPersona = null;
+let mesasActualesTestigoPersona = [];
+let estructuraIdTestigoPersona = null;
+// Puesto que la persona tiene asignado HOY. Sirve para distinguir "abrí la
+// ficha" de "cambié el puesto": la mesa que ya tenía solo se conserva en el
+// primer caso.
+let puestoActualTestigoPersona = null;
+
+/**
+ * Solo tiene sentido elegir Testigo electoral/Coordinador de puesto (y su
+ * Mesa) si se marcó "Es también testigo electoral". El Coordinador de
+ * puesto cubre varias mesas (casillas de verificación); el Testigo
+ * electoral cubre una sola (lista desplegable con las que quedan
+ * disponibles en el Puesto elegido arriba).
+ */
+async function actualizarVisibilidadTipoTestigoPersona() {
+  const marcado = document.getElementById('chk-asignar-testigo-persona').checked;
+  document.getElementById('opciones-tipo-testigo-persona').style.display = marcado ? 'block' : 'none';
+  if (!marcado) return;
+
+  const esPuesto = document.querySelector('#form-estructura input[name="tipo_testigo_persona"]:checked').value === 'puesto';
+  document.getElementById('campo-mesa-testigo-persona').style.display = esPuesto ? 'none' : 'block';
+  document.getElementById('campo-mesas-multiples-testigo-persona').style.display = esPuesto ? 'block' : 'none';
+
+  // El Puesto donde VIGILA es independiente del de "Lugar de Votación" de
+  // arriba: una persona puede votar en un puesto y ser testigo en otro. Se
+  // lee de este mismo panel, no del de arriba.
+  const puesto = document.getElementById('input-puesto-testigo-persona').value;
+  // Si se cambió de puesto, la mesa que tenía en el anterior NO se
+  // conserva: al arrastrarla se colaba en la lista del puesto nuevo aunque
+  // allí estuviera ocupada por otro testigo, y al guardar el servidor la
+  // rechazaba por choque. Se veía como "no me deja cambiarlo otra vez".
+  const mismoPuesto = puesto === puestoActualTestigoPersona;
+  const disponibilidad = await consultarMesasDisponibles(puesto, estructuraIdTestigoPersona || edicionId);
+  if (esPuesto) {
+    poblarCasillasMesasTestigo(document.getElementById('casillas-mesas-testigo-persona'), disponibilidad,
+      mismoPuesto ? mesasActualesTestigoPersona : []);
+  } else {
+    poblarSelectMesaTestigo(document.getElementById('input-mesa-testigo-persona'), disponibilidad,
+      mismoPuesto ? mesaActualTestigoPersona : null);
+  }
+}
+
+/**
+ * En campaña departamental, el desplegable de Puesto de la sección de
+ * testigo se acota al Municipio elegido en Lugar de Votación.
+ *
+ * Sin esto la lista trae los puestos de TODO el departamento —en Quindío
+ * son 130 de doce municipios— y elegir ahí no orienta a nadie. En campaña
+ * municipal no se toca nada: hay un solo municipio y la lista completa ya
+ * es la correcta.
+ *
+ * Si la consulta falla (por ejemplo sin señal) se deja la lista completa
+ * que ya estaba: es preferible una lista larga a un desplegable vacío.
+ */
+async function filtrarPuestosTestigoPorMunicipioPersona() {
+  const select = document.getElementById('input-puesto-testigo-persona');
+  if (!ambitoDepartamental) return;
+  const municipio = document.getElementById('input-municipio-votacion-persona').value.trim();
+  const elegido = select.value;
+  let nombres;
+  if (!municipio) {
+    // Sin municipio todavía, se ofrece la lista completa en vez de vaciarla.
+    nombres = puestosVotacionCache || [];
+  } else {
+    try {
+      nombres = await api(`/dia-d/puestos-para-reporte?municipio=${encodeURIComponent(municipio)}`);
+    } catch (e) {
+      return; // se queda con lo que ya había
+    }
+  }
+  select.innerHTML = '<option value="">Seleccione...</option>' +
+    nombres.map(p => `<option value="${p}">${p}</option>`).join('');
+  // El puesto que ya tenía se conserva aunque no esté en el municipio nuevo:
+  // borrarlo en silencio le cambiaría el puesto a un testigo ya asignado.
+  if (elegido) {
+    if (!nombres.includes(elegido)) {
+      select.insertAdjacentHTML('beforeend', `<option value="${elegido}">${elegido}</option>`);
+    }
+    select.value = elegido;
+  }
+}
+
+document.getElementById('input-municipio-votacion-persona').addEventListener('change', () => filtrarPuestosTestigoPorMunicipioPersona());
+document.getElementById('chk-asignar-testigo-persona').addEventListener('change', () => filtrarPuestosTestigoPorMunicipioPersona());
+
+document.getElementById('chk-asignar-testigo-persona').addEventListener('change', actualizarVisibilidadTipoTestigoPersona);
+document.querySelectorAll('#form-estructura input[name="tipo_testigo_persona"]').forEach(r => r.addEventListener('change', actualizarVisibilidadTipoTestigoPersona));
+
+/** Al cambiar el Puesto donde vigila, se vuelven a calcular las mesas libres de ESE puesto. No toca el Lugar de Votación de arriba. */
+document.getElementById('input-puesto-testigo-persona').addEventListener('change', actualizarVisibilidadTipoTestigoPersona);
+
+/** Al marcar "Es también testigo electoral" sin haber elegido todavía un Puesto, se activa ese desplegable — se le lleva el foco y se abre solo, para que la persona lo complete de una vez (lo necesita para poder elegir la Mesa). Aplica igual al crear como al editar. */
+document.getElementById('chk-asignar-testigo-persona').addEventListener('change', (e) => {
+  if (!e.target.checked) return;
+  const selectPuesto = document.getElementById('input-puesto-testigo-persona');
+  if (selectPuesto.value) return;
+  selectPuesto.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  selectPuesto.focus();
+  if (typeof selectPuesto.showPicker === 'function') {
+    try { selectPuesto.showPicker(); } catch (err) { /* No soportado en este navegador — se deja el foco nada más. */ }
+  }
+});
+document.getElementById('chk-area-influencia-territorio').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-area-influencia-organizacion').checked = false;
+  else if (!document.getElementById('chk-area-influencia-organizacion').checked) e.target.checked = true; // siempre una marcada
+  actualizarVisibilidadAreaInfluencia();
+});
+document.getElementById('chk-area-influencia-organizacion').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-area-influencia-territorio').checked = false;
+  else if (!document.getElementById('chk-area-influencia-territorio').checked) e.target.checked = true; // siempre una marcada
+  actualizarVisibilidadAreaInfluencia();
+});
+
+// Si el Tipo (opcional) elegido corresponde a un cargo de gremio/asociación
+// u organización, se marca automáticamente la casilla "Organización" y se
+// autocompleta "Reporta a" con el Coordinador de Organizaciones (si existe).
+const TIPOS_QUE_ACTIVAN_ORGANIZACION = ['presidente_gremio', 'presidente_asociacion', 'organizaciones_sociales', 'organizaciones_religiosas'];
+// Estos, en cambio, son cargos ligados a un territorio concreto (Concejo,
+// JAL, JAC) — al elegir cualquiera de ellos (incluido "Sin especificar"),
+// se marca automáticamente la casilla "Territorio".
+const TIPOS_QUE_ACTIVAN_TERRITORIO = ['', 'concejal', 'edil', 'aspirante_concejo', 'aspirante_jal', 'presidente_jal', 'presidente_jac', 'miembro_jal', 'miembro_jac'];
+document.getElementById('select-tipo-cargo-persona').addEventListener('change', async (e) => {
+  if (TIPOS_QUE_ACTIVAN_ORGANIZACION.includes(e.target.value)) {
+    document.getElementById('chk-area-influencia-organizacion').checked = true;
+    document.getElementById('chk-area-influencia-territorio').checked = false;
+    actualizarVisibilidadAreaInfluencia();
+
+    try {
+      const coordinadores = await api('/territorial/coordinador-organizaciones');
+      if (coordinadores.length) {
+        // "Reporta a" puede estar reducido en ese momento a los
+        // coordinadores de una zona puntual (cuando el Cargo es Líder) —
+        // el Coordinador de Organizaciones no tiene territorio asignado,
+        // así que no aparecería ahí. Se repuebla primero con la lista
+        // completa (Coordinadores + Líderes) para asegurarse de que la
+        // opción exista antes de seleccionarla.
+        restaurarOpcionesReportaA();
+        document.getElementById('select-supervisor').value = coordinadores[0].id;
+      }
+    } catch (err) { /* si falla, se deja el "Reporta a" como estaba */ }
+  } else if (TIPOS_QUE_ACTIVAN_TERRITORIO.includes(e.target.value)) {
+    document.getElementById('chk-area-influencia-territorio').checked = true;
+    document.getElementById('chk-area-influencia-organizacion').checked = false;
+    actualizarVisibilidadAreaInfluencia();
+  }
+});
+
+function resolverTerritorioPersona() {
+  const cargoActual = document.getElementById('select-cargo-persona').value;
+
+  // Un "Coordinador Organizaciones" no tiene un territorio geográfico ni
+  // una única organización obligatoria — coordina varias. Nunca se le
+  // exige Área/Comuna/Barrio ni el nombre de una organización.
+  if (cargoActual === 'coordinador_organizaciones') {
+    if (document.getElementById('chk-area-influencia-organizacion').checked) {
+      return { territorioId: null };
+    }
+    // Si a mano dejaron marcado "Territorio" y sí eligieron algo, se
+    // respeta (caso poco común); si no eligieron nada, tampoco es error.
+    if (!document.getElementById('select-area-persona').value) {
+      return { territorioId: null };
+    }
+  }
+
+  // Si el área de influencia es una Organización, no hay territorio
+  // geográfico que resolver — se valida el nombre de la organización aparte.
+  if (document.getElementById('chk-area-influencia-organizacion').checked) {
+    const nombreOrg = document.getElementById('input-organizacion-persona').value.trim();
+    if (!nombreOrg) return { error: 'Escriba el nombre de la organización.' };
+    return { territorioId: null };
+  }
+
+  const area = document.getElementById('select-area-persona').value;
+  const esCoordinador = document.getElementById('select-cargo-persona').value === 'coordinador';
+
+  // En campaña departamental el Municipio es el ancla de todo lo de abajo:
+  // sin él no hay a qué territorio asignar a la persona.
+  const disp = disponiblesEnMunicipioPersona();
+  if (ambitoDepartamental && area && !disp.municipio) {
+    return { error: 'Seleccione el municipio del área de influencia.' };
+  }
+
+  // Territorio con el que se guarda cuando el nivel de detalle pedido no
+  // existe en ese municipio: se sube al que sí exista, y en último caso al
+  // municipio. Exigir un Barrio donde no hay barrios creados dejaría el
+  // formulario imposible de guardar.
+  const territorioMasFino = () => (disp.municipio ? { territorioId: disp.municipio.id } : { territorioId: null });
+
+  if (area === 'urbano') {
+    // Coordinador siempre se asigna a la Comuna; si "¿Utilizar nombre de
+    // barrios?" está en No, Líder/Usuario/Testigo también se asignan a la
+    // Comuna directo (Barrio queda oculto). Si ADEMÁS la ciudad tampoco usa
+    // comunas, no hay nada que exigir: se guarda sin territorio geográfico.
+    if (esCoordinador || !usarNombreBarrios) {
+      const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
+      const comuna = nombreComuna ? listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      if (!comuna) {
+        // Si la campaña no usa comunas, o no hay ninguna creada en este
+        // municipio, el campo no da nada que elegir: no se exige.
+        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Seleccione una comuna de la lista.' };
+        return territorioMasFino();
+      }
+      return { territorioId: comuna.id };
+    }
+    const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
+    if (!nombreBarrio) {
+      if (disp.barrios.length) return { error: 'Seleccione un barrio de la lista.' };
+      // Sin barrios creados se baja al mayor detalle disponible: la comuna
+      // escrita, si la hay, y si no el municipio.
+      const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
+      const comuna = nombreComuna ? listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      return comuna ? { territorioId: comuna.id } : territorioMasFino();
+    }
+    const barrio = listaTerritorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Gestionar territorios".' };
+    return { territorioId: barrio.id };
+  }
+  if (area === 'rural') {
+    if (esCoordinador) {
+      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+      if (!nombreCorregimiento) {
+        if (disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista.' };
+        return territorioMasFino();
+      }
+      const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+      if (!corregimiento) return { error: 'Ese corregimiento no existe aún. Créelo primero en "Gestionar territorios".' };
+      return { territorioId: corregimiento.id };
+    }
+    const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
+    if (!nombreVereda) {
+      if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista.' };
+      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+      const corregimiento = nombreCorregimiento ? listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+      return corregimiento ? { territorioId: corregimiento.id } : territorioMasFino();
+    }
+    const vereda = listaTerritorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+    if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Gestionar territorios".' };
+    return { territorioId: vereda.id };
+  }
+  return { error: 'Seleccione el área (Urbano o Rural).' };
+}
+
+/** Precarga Área/Comuna/Barrio o Corregimiento/Vereda a partir de un territorio_id existente (modo edición). */
+/** Sube por padre_id hasta encontrar el municipio del que cuelga un territorio. */
+function municipioDeTerritorio(territorio) {
+  let actual = territorio;
+  let saltos = 0;
+  while (actual && actual.tipo !== 'municipio' && saltos < 6) {
+    actual = listaTerritorios.find(t => t.id === actual.padre_id);
+    saltos++;
+  }
+  return actual && actual.tipo === 'municipio' ? actual : null;
+}
+
+function precargarUbicacionPersona(territorioId) {
+  const territorio = listaTerritorios.find(t => t.id === territorioId);
+  if (!territorio) return;
+
+  // El Municipio va primero: las listas de abajo cuelgan de él, así que si
+  // se llenara después saldrían vacías y borrarían lo que ya se precargó.
+  if (ambitoDepartamental) {
+    const municipio = municipioDeTerritorio(territorio);
+    document.getElementById('input-municipio-influencia-persona').value = municipio ? municipio.nombre : '';
+    poblarListasUbicacionPersona();
+  }
+
+  // Un territorio guardado puede ser el municipio mismo: pasa cuando la
+  // campaña departamental no tiene barrios ni veredas creados en ese
+  // municipio y la persona se asignó al nivel que sí existía.
+  if (territorio.tipo === 'municipio') {
+    actualizarVisibilidadBarrioVeredaSegunCargo();
+    return;
+  }
+
+  if (territorio.tipo === 'barrio') {
+    document.getElementById('select-area-persona').value = 'urbano';
+    document.getElementById('fila-urbano-persona').style.display = 'flex';
+    document.getElementById('fila-rural-persona').style.display = 'none';
+    const comuna = listaTerritorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-comuna-persona').value = comuna ? comuna.nombre : '';
+    actualizarBarriosPersona();
+    document.getElementById('input-barrio-persona').value = territorio.nombre;
+  } else if (territorio.tipo === 'vereda') {
+    document.getElementById('select-area-persona').value = 'rural';
+    document.getElementById('fila-rural-persona').style.display = 'flex';
+    document.getElementById('fila-urbano-persona').style.display = 'none';
+    const corregimiento = listaTerritorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-corregimiento-persona').value = corregimiento ? corregimiento.nombre : '';
+    actualizarVeredasPersona();
+    document.getElementById('input-vereda-persona').value = territorio.nombre;
+  } else if (territorio.tipo === 'comuna') {
+    // Coordinador asignado directamente a la Comuna (sin Barrio).
+    document.getElementById('select-area-persona').value = 'urbano';
+    document.getElementById('fila-urbano-persona').style.display = 'flex';
+    document.getElementById('fila-rural-persona').style.display = 'none';
+    document.getElementById('input-comuna-persona').value = territorio.nombre;
+    actualizarBarriosPersona();
+    document.getElementById('input-barrio-persona').value = '';
+  } else if (territorio.tipo === 'corregimiento') {
+    // Coordinador asignado directamente al Corregimiento (sin Vereda).
+    document.getElementById('select-area-persona').value = 'rural';
+    document.getElementById('fila-rural-persona').style.display = 'flex';
+    document.getElementById('fila-urbano-persona').style.display = 'none';
+    document.getElementById('input-corregimiento-persona').value = territorio.nombre;
+    actualizarVeredasPersona();
+    document.getElementById('input-vereda-persona').value = '';
+  }
+  actualizarVisibilidadBarrioVeredaSegunCargo();
+}
+
+async function cargarEstructura() {
+  const filas = await api('/territorial/estructura');
+  // Los testigos electorales ya no viven acá — tienen su propia pantalla
+  // (Testigos, con su propia lista/exportación/importación), porque no
+  // manejan territorio/barrio ni meta de votos como el resto de cargos.
+  listaEstructura = filas.filter(f => f.cargo !== 'testigo');
+  // Se guardan aparte (no se descartan): abrirEdicion() las necesita para
+  // saber si la persona que se está editando ADEMÁS es testigo electoral.
+  listaTestigosEstructura = filas.filter(f => f.cargo === 'testigo');
+  poblarFiltrosEstructura();
+  renderizarEstructura();
+}
+
+/** Llena los filtros de Comuna/Corregimiento y Barrio/Vereda a partir de listaTerritorios. */
+function poblarFiltrosEstructura() {
+  const zonas = listaTerritorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
+  document.getElementById('filtro-estructura-zona').innerHTML = '<option value="">Toda comuna/corregimiento</option>' +
+    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${z.nombre}</option>`).join('');
+  actualizarFiltroEstructuraTerritorio();
+}
+
+function actualizarFiltroEstructuraTerritorio() {
+  const zonaId = document.getElementById('filtro-estructura-zona').value;
+  const hojas = zonaId
+    ? listaTerritorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && String(t.padre_id) === zonaId)
+    : listaTerritorios.filter(t => t.tipo === 'barrio' || t.tipo === 'vereda');
+  document.getElementById('filtro-estructura-territorio').innerHTML = '<option value="">Todo barrio/vereda</option>' +
+    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${h.nombre}</option>`).join('');
+}
+
+/**
+ * Reordena las filas ya filtradas en jerarquía: Coordinador → sus Líderes →
+ * los Sublíderes (cargo "usuario") de cada Líder — usando "Reporta a"
+ * (supervisor_id) como el vínculo. Cada fila queda con un campo _nivel
+ * (0, 1, 2...) para indentar visualmente a los subalternos.
+ */
+function construirOrdenJerarquico(filas) {
+  const idsEnLista = new Set(filas.map(f => f.usuario_id));
+  const hijosDe = new Map();
+  filas.forEach(f => {
+    if (f.supervisor_id) {
+      if (!hijosDe.has(f.supervisor_id)) hijosDe.set(f.supervisor_id, []);
+      hijosDe.get(f.supervisor_id).push(f);
+    }
+  });
+  hijosDe.forEach(lista => lista.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')));
+
+  const visitados = new Set();
+  const resultado = [];
+
+  function agregar(fila, nivel) {
+    if (visitados.has(fila.id)) return;
+    visitados.add(fila.id);
+    const hijos = hijosDe.get(fila.usuario_id) || [];
+    resultado.push(Object.assign({}, fila, { _nivel: nivel, _tieneHijos: hijos.length > 0 }));
+    // Si esta persona está colapsada (Coordinador o Líder), no se agregan
+    // sus subalternos a la lista — la fila queda, pero sin desplegar.
+    if (nodosColapsadosEstructura.has(fila.usuario_id)) return;
+    hijos.forEach(hijo => agregar(hijo, nivel + 1));
+  }
+
+  const pesoCargo = { coordinador: 0, coordinador_organizaciones: 1, lider: 2, usuario: 3 };
+  const raices = filas
+    .filter(f => !f.supervisor_id || !idsEnLista.has(f.supervisor_id))
+    .sort((a, b) => {
+      const pa = pesoCargo[a.cargo] ?? 5, pb = pesoCargo[b.cargo] ?? 5;
+      return pa !== pb ? pa - pb : (a.nombre || '').localeCompare(b.nombre || '');
+    });
+  raices.forEach(raiz => agregar(raiz, 0));
+
+  // Por si algo quedó sin visitar (ej. un ciclo, caso extremo).
+  filas.forEach(f => { if (!visitados.has(f.id)) resultado.push(Object.assign({}, f, { _nivel: 0 })); });
+
+  return resultado;
+}
+
+/** IDs (usuario_id) de Coordinadores/Líderes actualmente colapsados en Estructura territorial. */
+const nodosColapsadosEstructura = new Set();
+function alternarColapsoEstructura(usuarioId) {
+  if (nodosColapsadosEstructura.has(usuarioId)) nodosColapsadosEstructura.delete(usuarioId);
+  else nodosColapsadosEstructura.add(usuarioId);
+  renderizarEstructura();
+}
+
+function renderizarEstructura() {
+  const busqueda = normalizarTexto(document.getElementById('filtro-estructura-busqueda').value);
+  const cargo = document.getElementById('filtro-estructura-cargo').value;
+  const area = document.getElementById('filtro-estructura-area').value;
+  const zonaId = document.getElementById('filtro-estructura-zona').value;
+  const territorioId = document.getElementById('filtro-estructura-territorio').value;
+
+  function cumpleFiltrosBase(f) {
+    if (busqueda) {
+      const coincideTexto = normalizarTexto(f.nombre).includes(busqueda)
+        || normalizarTexto(f.email).includes(busqueda)
+        || normalizarTexto(f.numero_identificacion).includes(busqueda);
+      if (!coincideTexto) return false;
+    }
+    if (area) {
+      const esUrbano = f.territorio_tipo === 'barrio' || f.territorio_tipo === 'comuna';
+      const esRural = f.territorio_tipo === 'vereda' || f.territorio_tipo === 'corregimiento';
+      if (area === 'urbano' && !esUrbano) return false;
+      if (area === 'rural' && !esRural) return false;
+    }
+    if (zonaId) {
+      const t = listaTerritorios.find(tt => tt.id === f.territorio_id);
+      const coincideDirecto = t && String(t.id) === zonaId;
+      const coincidePadre = t && String(t.padre_id) === zonaId;
+      if (!coincideDirecto && !coincidePadre) return false;
+    }
+    if (territorioId && String(f.territorio_id) !== territorioId) return false;
+    return true;
+  }
+
+  let filas = listaEstructura.filter(cumpleFiltrosBase);
+
+  // El filtro de Cargo se aplica aparte: si se filtra específicamente por
+  // "Líder", se incluyen también sus Sublíderes (cargo "usuario") — así el
+  // líder aparece siempre junto con todo su equipo, no solo él solo.
+  if (cargo === 'lider') {
+    const idsLideresQueCoinciden = new Set(
+      listaEstructura.filter(f => f.cargo === 'lider' && cumpleFiltrosBase(f)).map(f => f.usuario_id)
+    );
+    filas = filas.filter(f => f.cargo === 'lider' || (f.cargo === 'usuario' && idsLideresQueCoinciden.has(f.supervisor_id)));
+  } else if (cargo) {
+    filas = filas.filter(f => f.cargo === cargo);
+  }
+
+  filas = construirOrdenJerarquico(filas);
+
+  document.getElementById('contador-estructura').textContent = `${formatoMillares(filas.length)} registro(s)`;
+  const tbody = document.getElementById('tbody-estructura');
+  document.getElementById('vacio-estructura').style.display = filas.length ? 'none' : 'block';
+  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  tbody.innerHTML = filas.map((f, i) => {
+    // Un Coordinador se asigna directamente a la Comuna/Corregimiento (sin
+    // Barrio/Vereda); Líder/Usuario/Testigo siguen en un Barrio/Vereda cuyo
+    // padre es la Comuna/Corregimiento. Si el área de influencia es una
+    // Organización, no hay nada geográfico que mostrar.
+    let areaTexto = '—', zonaTexto = '—', hojaTexto = f.territorio_nombre || '—';
+    if (f.tipo_area_influencia === 'organizacion') {
+      areaTexto = '—'; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
+    } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
+      const territorio = listaTerritorios.find(t => t.id === f.territorio_id);
+      const zona = territorio && territorio.padre_id ? listaTerritorios.find(t => t.id === territorio.padre_id) : null;
+      areaTexto = f.territorio_tipo === 'barrio' ? 'Urbano' : 'Rural';
+      zonaTexto = zona ? zona.nombre : '—';
+    } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
+      areaTexto = f.territorio_tipo === 'comuna' ? 'Urbano' : 'Rural';
+      zonaTexto = f.territorio_nombre;
+      hojaTexto = '—';
+    }
+    // Coordinador y Coordinador Organizaciones no tienen meta propia: la
+    // suya la calcula el servidor sumando su equipo (ver
+    // config/metasEstructura.js), y llega en meta_votos_equipo.
+    const metaMostrada = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
+    // El Coordinador de puesto (testigo con tipo_testigo="puesto") no usa
+    // una sola Mesa sino varias (mesas_asignadas) — para ese caso se exige
+    // al menos una mesa asignada, en vez del campo Mesa (que para él
+    // siempre queda vacío a propósito).
+    const tieneMesa = (f.cargo === 'testigo' && f.tipo_testigo === 'puesto')
+      ? Array.isArray(f.mesas_asignadas) && f.mesas_asignadas.length > 0
+      : !!(f.mesa_votacion && String(f.mesa_votacion).trim());
+    const tieneLugarVotacion = !!(
+      f.departamento_votacion && String(f.departamento_votacion).trim() &&
+      f.municipio_votacion && String(f.municipio_votacion).trim() &&
+      f.puesto_votacion && String(f.puesto_votacion).trim() &&
+      tieneMesa
+    );
+    const claseCargo = (f.cargo === 'coordinador' || f.cargo === 'coordinador_organizaciones') ? 'tag-cargo-coordinador'
+      : f.cargo === 'lider' ? 'tag-cargo-lider'
+      : f.cargo === 'usuario' ? 'tag-cargo-sublider'
+      : '';
+    return `
+    <tr>
+      <td class="mono">${i + 1}</td>
+      <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
+      <td style="padding-left:${16 + (f._nivel || 0) * 22}px;">${f._nivel ? '<span style="color:var(--color-text-muted);">↳</span> ' : ''}${f._tieneHijos ? `<button onclick="alternarColapsoEstructura(${f.usuario_id})" title="${nodosColapsadosEstructura.has(f.usuario_id) ? 'Expandir' : 'Contraer'}" style="border:1.5px solid #0B5ED7; border-radius:6px; background:#fff; cursor:pointer; color:#0B5ED7; font-size:1.5rem; font-weight:700; line-height:1; width:38px; height:38px; padding:0; margin-right:8px; vertical-align:middle;">${nodosColapsadosEstructura.has(f.usuario_id) ? '▸' : '▾'}</button>` : ''}<strong>${f.nombre}</strong><br><span style="color:var(--color-text-muted); font-size:0.78rem;">${f.email || '—'}</span></td>
+      <td>${ETIQUETAS_GENERO[f.genero] || '—'}</td>
+      <td class="mono">${f.telefono ? formatoTelefonoColombia(f.telefono) : '—'}</td>
+      <td><span class="tag-tipo ${claseCargo}">${f.cargo === 'coordinador_organizaciones' ? 'coordinador organizaciones' : (f.cargo === 'usuario' ? 'sublíder' : f.cargo)}</span></td>
+      <td>${areaTexto}</td>
+      <td class="col-comuna-correg">${zonaTexto}</td>
+      <td class="col-barrio-vereda">${hojaTexto}${f.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <td>${f.supervisor_nombre || '—'}</td>
+      <td class="mono">${formatoMillares(metaMostrada)}${f.cargo === 'coordinador' ? ' <span title="Suma de las metas de sus líderes" style="color:var(--color-text-muted);">Σ</span>' : ''}</td>
+      <td class="mono"${f.cargo === 'usuario' ? ' style="color:var(--color-text-muted);"' : ''}>${formatoMillares(f.registros ?? 0)}${(f.cargo === 'coordinador' || f.cargo === 'lider') ? ' <span title="Incluye los registros de su equipo" style="color:var(--color-text-muted);">Σ</span>' : ''}</td>
+      <td>${f.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
+      <td class="col-acciones">
+        ${puedeEditar ? `<button class="btn-secundario btn-sm" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
+        ${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
+      </td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+document.getElementById('filtro-estructura-busqueda').addEventListener('input', debounce(renderizarEstructura, 300));
+document.getElementById('filtro-estructura-cargo').addEventListener('change', renderizarEstructura);
+document.getElementById('filtro-estructura-area').addEventListener('change', renderizarEstructura);
+document.getElementById('filtro-estructura-zona').addEventListener('change', () => {
+  actualizarFiltroEstructuraTerritorio();
+  renderizarEstructura();
+});
+document.getElementById('filtro-estructura-territorio').addEventListener('change', renderizarEstructura);
+
+document.getElementById('btn-quitar-filtros-estructura').addEventListener('click', () => {
+  document.getElementById('filtro-estructura-busqueda').value = '';
+  document.getElementById('filtro-estructura-cargo').value = '';
+  document.getElementById('filtro-estructura-area').value = '';
+  document.getElementById('filtro-estructura-zona').value = '';
+  actualizarFiltroEstructuraTerritorio();
+  document.getElementById('filtro-estructura-territorio').value = '';
+  renderizarEstructura();
+});
+
+let edicionId = null;
+let identificacionPersonaDisponible = true;
+
+/**
+ * Verifica contra el servidor, con debounce, si el número de identificación
+ * ya está registrado por otra persona de la estructura. No bloquea mientras
+ * el usuario escribe; solo avisa y deja identificacionPersonaDisponible en
+ * false para que el envío del formulario lo bloquee si sigue así.
+ */
+/** Muestra u oculta juntos el botón de consulta y la nota de qué copiar. */
+function mostrarBotonLugarVotacion(mostrar) {
+  document.getElementById('btn-consultar-lugar-votacion').style.display = mostrar ? 'inline-flex' : 'none';
+  document.getElementById('nota-copiar-lugar-votacion-persona').style.display = mostrar ? 'block' : 'none';
+}
+// Abre la Registraduría en una ventana aparte, angosta y pegada al lado
+// derecho de la pantalla — así queda visible junto al formulario, sin
+// tener que alternar entre pestañas para copiar los datos.
+document.getElementById('btn-consultar-lugar-votacion').addEventListener('click', () => {
+  const ancho = 480;
+  const alto = Math.min(window.screen.availHeight, 800);
+  const izquierda = window.screen.availWidth - ancho;
+  window.open(
+    'https://wsp.registraduria.gov.co/censo/consultar/',
+    'consultaLugarVotacion',
+    `width=${ancho},height=${alto},left=${izquierda},top=0,noopener`
+  );
+});
+let _timeoutVerificarPersona;
+document.getElementById('input-numero-persona').addEventListener('input', () => {
+  clearTimeout(_timeoutVerificarPersona);
+  const numero = document.getElementById('input-numero-persona').value.trim();
+  const estadoEl = document.getElementById('numero-persona-estado');
+  mostrarBotonLugarVotacion(!!numero);
+  if (!numero) {
+    identificacionPersonaDisponible = true;
+    estadoEl.textContent = '';
+    return;
+  }
+  estadoEl.style.color = 'var(--color-text-muted)';
+  estadoEl.textContent = 'Verificando...';
+  _timeoutVerificarPersona = setTimeout(async () => {
+    try {
+      const params = new URLSearchParams({ numero });
+      if (edicionId) params.set('excluir_id', edicionId);
+      const r = await api(`/territorial/estructura/verificar-identificacion?${params.toString()}`);
+      identificacionPersonaDisponible = r.disponible;
+      estadoEl.style.color = r.disponible ? 'var(--color-confirmado, #1E7245)' : 'var(--color-no-apoya, #A93226)';
+      estadoEl.textContent = r.disponible ? '' : 'Ya registrado por otro líder.';
+    } catch (err) {
+      // Si falla la verificación no se bloquea el guardado; se valida igual en el servidor.
+      identificacionPersonaDisponible = true;
+      estadoEl.textContent = '';
+    }
+  }, 400);
+});
+
+async function abrirCreacion() {
+  edicionId = null;
+  document.getElementById('modal-form-titulo').textContent = 'Agregar a la estructura';
+  document.getElementById('btn-guardar-estructura').textContent = 'Guardar';
+  document.getElementById('campo-activo').style.display = 'none';
+  document.getElementById('campo-asignar-testigo').style.display = 'none';
+  mesaActualTestigoPersona = null;
+  mesasActualesTestigoPersona = [];
+  estructuraIdTestigoPersona = null;
+  puestoActualTestigoPersona = null;
+  document.getElementById('form-estructura').reset();
+  sincronizarChipsCargo();
+  cantidadMesasPuestoPersona = 0;
+  document.getElementById('contador-mesas-persona').textContent = '';
+  actualizarVisibilidadBusquedaSupervisor();
+  mostrarBotonLugarVotacion(false);
+  document.getElementById('form-ok').classList.remove('visible');
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-persona-error').classList.remove('visible');
+  document.getElementById('fila-urbano-persona').style.display = 'none';
+  document.getElementById('fila-rural-persona').style.display = 'none';
+  ['input-comuna-persona', 'input-barrio-persona', 'input-corregimiento-persona', 'input-vereda-persona'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('chk-area-influencia-territorio').checked = true;
+  document.getElementById('chk-area-influencia-organizacion').checked = false;
+  document.getElementById('input-organizacion-persona').value = '';
+  actualizarVisibilidadAreaInfluencia();
+  restaurarOpcionesReportaA();
+  identificacionPersonaDisponible = true;
+  document.getElementById('numero-persona-estado').textContent = '';
+  poblarListasUbicacionPersona();
+  actualizarVisibilidadBarrioVeredaSegunCargo();
+  document.getElementById('input-departamento-votacion-persona').value = '';
+  document.getElementById('input-municipio-votacion-persona').value = '';
+  document.getElementById('input-puesto-votacion-persona').value = '';
+  document.getElementById('input-mesa-votacion-persona').value = '';
+
+  // Auto-llena Departamento/Ciudad de residencia con lo definido en
+  // Configuración → Datos de la campaña, como punto de partida (se puede
+  // cambiar libremente; no se vuelve a sobreescribir al editar). Y, según
+  // el Cargo al que aspira, también el Lugar de Votación:
+  // Gobernación/Cámara/Asamblea solo traen Departamento; Alcaldía/
+  // Concejo/JAL traen Departamento y Municipio; Senado no trae nada.
+  try {
+    const config = await api('/configuracion/campana');
+    document.getElementById('input-departamento-residencia-persona').value = config.departamento || '';
+    document.getElementById('input-ciudad-residencia-persona').value = config.ciudad || '';
+    const cargoAspira = config.cargo_aspira;
+    if (['gobernacion', 'camara_representantes', 'asamblea'].includes(cargoAspira)) {
+      document.getElementById('input-departamento-votacion-persona').value = config.departamento || '';
+    } else if (['alcaldia', 'concejo', 'jal'].includes(cargoAspira)) {
+      document.getElementById('input-departamento-votacion-persona').value = config.departamento || '';
+      document.getElementById('input-municipio-votacion-persona').value = config.ciudad || '';
+    }
+    actualizarMunicipiosVotacionPersona();
+    // Las comunas/barrios de residencia y de "Territorio o área de
+    // influencia" dependen de la Ciudad de residencia, que se acaba de
+    // completar arriba — se repueblan a mano, porque el primer intento
+    // (más arriba, apenas se abrió el formulario) corrió con el campo
+    // todavía vacío y no encontró nada que mostrar.
+    poblarComunaCorregimientoResidencia();
+    poblarListasUbicacionPersona();
+  } catch (e) { /* si falla, se deja en blanco sin interrumpir el formulario */ }
+
+  document.getElementById('overlay-form').classList.add('abierto');
+}
+
+async function abrirEdicion(id) {
+  const fila = listaEstructura.find(f => f.id === id);
+  if (!fila) return;
+  edicionId = id;
+  document.getElementById('modal-form-titulo').textContent = 'Editar persona';
+  document.getElementById('btn-guardar-estructura').textContent = 'Guardar cambios';
+  document.getElementById('campo-activo').style.display = 'block';
+  document.getElementById('form-ok').classList.remove('visible');
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-persona-error').classList.remove('visible');
+
+  // "Es también testigo electoral": no aplica si esta MISMA fila ya es un
+  // testigo (cargo='testigo'), ni si ya existe otra fila de Estructura
+  // para este mismo usuario_id con cargo='testigo' (persona con doble
+  // capacidad) — en ese caso se muestra marcada y deshabilitada.
+  const filaTestigo = listaTestigosEstructura.find(f => f.usuario_id === fila.usuario_id);
+  const yaEsTestigo = !!filaTestigo;
+  const chkTestigo = document.getElementById('chk-asignar-testigo-persona');
+  document.getElementById('campo-asignar-testigo').style.display = fila.cargo === 'testigo' ? 'none' : 'block';
+  chkTestigo.checked = yaEsTestigo;
+  chkTestigo.disabled = yaEsTestigo;
+  document.querySelector(`#form-estructura input[name="tipo_testigo_persona"][value="${filaTestigo && filaTestigo.tipo_testigo === 'puesto' ? 'puesto' : 'mesa'}"]`).checked = true;
+  mesaActualTestigoPersona = filaTestigo ? filaTestigo.mesa_votacion : null;
+  mesasActualesTestigoPersona = filaTestigo ? (filaTestigo.mesas_asignadas || []) : [];
+  estructuraIdTestigoPersona = filaTestigo ? filaTestigo.id : null;
+  // El Puesto donde vigila es su propio dato (ya no se copia del Lugar de
+  // Votación), así que hay que precargarlo antes de calcular las mesas.
+  puestoActualTestigoPersona = filaTestigo ? (filaTestigo.puesto_votacion || '') : null;
+  document.getElementById('input-puesto-testigo-persona').value = filaTestigo ? (filaTestigo.puesto_votacion || '') : '';
+  // Acota la lista al municipio de Lugar de Votación en campaña
+  // departamental. Va después de poner el valor: asignar por código no
+  // dispara 'change', y así el puesto que ya tenía se conserva.
+  await filtrarPuestosTestigoPorMunicipioPersona();
+  await actualizarVisibilidadTipoTestigoPersona();
+
+  const form = document.getElementById('form-estructura');
+  form.nombre.value = fila.nombre;
+  form.numero_identificacion.value = fila.numero_identificacion || '';
+  mostrarBotonLugarVotacion(!!fila.numero_identificacion);
+  form.genero.value = fila.genero || 'prefiero_no_responder';
+  form.edad.value = fila.edad || '';
+  form.departamento_residencia.value = fila.departamento_residencia || '';
+  form.ciudad_residencia.value = fila.ciudad_residencia || '';
+  actualizarCiudadesResidenciaPersona();
+  form.departamento_votacion.value = fila.departamento_votacion || '';
+  actualizarMunicipiosVotacionPersona();
+  form.municipio_votacion.value = fila.municipio_votacion || '';
+  form.puesto_votacion.value = fila.puesto_votacion || '';
+  form.mesa_votacion.value = fila.mesa_votacion || '';
+  actualizarLimiteMesaPersona();
+  form.comuna_corregimiento_residencia.value = fila.comuna_corregimiento_residencia || '';
+  form.barrio_residencia.value = fila.barrio_residencia || '';
+  poblarComunaCorregimientoResidencia();
+  form.email.value = fila.email || '';
+  form.telefono.value = formatoTelefonoColombia(fila.telefono || '');
+  form.cargo.value = fila.cargo;
+  sincronizarChipsCargo();
+  actualizarVisibilidadBusquedaSupervisor();
+  form.tipo_cargo.value = fila.tipo_cargo || '';
+  const apoyaAGuardado = Array.isArray(fila.apoya_a) ? fila.apoya_a : [];
+  form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardado.includes(c.value); });
+  // Los dos cargos de coordinación muestran la meta calculada de su
+  // equipo, y no se puede editar. El Coordinador Organizaciones tenía
+  // además un "piso" manual propio; se quitó, porque ese piso y el total
+  // guardado eran dos fuentes de verdad para el mismo número y se
+  // desincronizaron (ver config/metasEstructura.js).
+  form.meta_votos.value = CARGOS_META_DERIVADA.includes(fila.cargo)
+    ? (fila.meta_votos_equipo ?? 0)
+    : (fila.meta_votos || 0);
+  form.direccion.value = fila.direccion || '';
+  form.supervisor_id.value = fila.supervisor_id || '';
+  form.activo.checked = !!fila.activo;
+
+  const esOrganizacion = fila.tipo_area_influencia === 'organizacion';
+  document.getElementById('chk-area-influencia-territorio').checked = !esOrganizacion;
+  document.getElementById('chk-area-influencia-organizacion').checked = esOrganizacion;
+  document.getElementById('input-organizacion-persona').value = fila.organizacion || '';
+  actualizarVisibilidadAreaInfluencia();
+
+  identificacionPersonaDisponible = true;
+  document.getElementById('numero-persona-estado').textContent = '';
+
+  poblarListasUbicacionPersona();
+  if (!esOrganizacion) precargarUbicacionPersona(fila.territorio_id);
+
+  // Aplica el filtro de "Reporta a" (por Barrio, si es Sublíder; por
+  // Coordinador de zona, si es Líder) y luego vuelve a dejar seleccionado
+  // el supervisor que ya tenía guardado.
+  await actualizarReportaAPorZona();
+  const selectSupervisor = document.getElementById('select-supervisor');
+  if (fila.supervisor_id) {
+    const yaEstaEnLaLista = Array.from(selectSupervisor.options).some(o => o.value === String(fila.supervisor_id));
+    if (!yaEstaEnLaLista) {
+      selectSupervisor.insertAdjacentHTML('beforeend',
+        `<option value="${fila.supervisor_id}">${fila.supervisor_nombre || 'Asignado actualmente'}</option>`);
+    }
+    selectSupervisor.value = fila.supervisor_id;
+  }
+
+  document.getElementById('overlay-form').classList.add('abierto');
+}
+
+async function eliminarEstructura(id) {
+  if (!confirm('¿Eliminar este registro de la estructura?')) return;
+  await api(`/territorial/estructura/${id}`, { method: 'DELETE' });
+  cargarEstructura();
+}
+
+document.getElementById('btn-nuevo').addEventListener('click', abrirCreacion);
+document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+
+/**
+ * Captura sin conexión: si al crear una persona no hay señal
+ * (esErrorDeRed, ver api-core.js), el registro se guarda en este
+ * computador (IndexedDB, ver /js/offline-utils.js) y se reintenta solo
+ * más tarde — al recuperar conexión, al volver a cargar la página, o con
+ * el botón "Subir ahora". Mismo store y mismo endpoint que usa el botón
+ * "+ Crear testigo" de Testigos electorales (los dos crean un registro de
+ * Estructura), así que si se acumulan pendientes de ambas pantallas se
+ * suben juntos.
+ */
+async function actualizarAvisoColaOfflineEstructura() {
+  let cola = [];
+  try { cola = await listarColaOffline('estructura_pendientes'); } catch (err) { return; }
+  const pendientes = cola.filter(r => r.estado !== 'fallido');
+  const fallidos = cola.filter(r => r.estado === 'fallido');
+  const aviso = document.getElementById('aviso-cola-offline');
+
+  if (!pendientes.length && !fallidos.length) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+  aviso.style.display = 'block';
+  aviso.innerHTML = `
+    ${pendientes.length ? `<div style="display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+      <span>📶 ${pendientes.length} registro(s) guardados en este computador, pendientes de subir.</span>
+      <button type="button" class="btn-secundario btn-sm" id="btn-subir-cola-ahora-estructura">Subir ahora</button>
+    </div>` : ''}
+    ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
+      ⚠ ${fallidos.length} registro(s) no se pudieron subir — revísalos: ${fallidos.map(f => `${f.payload.nombre} (${f.error || 'error desconocido'})`).join(', ')}
+    </div>` : ''}
+  `;
+  const btnSubir = document.getElementById('btn-subir-cola-ahora-estructura');
+  if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOfflineEstructura());
+}
+
+async function sincronizarColaOfflineEstructura() {
+  await sincronizarCola('estructura_pendientes', '/territorial/estructura', (registro) => registro.payload);
+  await actualizarAvisoColaOfflineEstructura();
+  await cargarEstructura();
+}
+
+document.getElementById('form-estructura').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-error');
+  const okBox = document.getElementById('form-ok');
+  const territorioErrorBox = document.getElementById('territorio-persona-error');
+  errorBox.classList.remove('visible'); okBox.classList.remove('visible'); territorioErrorBox.classList.remove('visible');
+  const form = e.target;
+
+  if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const resuelto = resolverTerritorioPersona();
+  if (resuelto.error) {
+    territorioErrorBox.textContent = resuelto.error;
+    territorioErrorBox.classList.add('visible');
+    return;
+  }
+
+  if (!identificacionPersonaDisponible) {
+    errorBox.textContent = 'Ya registrado por otro líder.';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const datos = {
+    nombre: form.nombre.value,
+    numero_identificacion: form.numero_identificacion.value,
+    genero: form.genero.value,
+    edad: form.edad.value,
+    departamento_votacion: form.departamento_votacion.value,
+    municipio_votacion: form.municipio_votacion.value,
+    puesto_votacion: form.puesto_votacion.value,
+    mesa_votacion: form.mesa_votacion.value,
+    departamento_residencia: form.departamento_residencia.value,
+    ciudad_residencia: form.ciudad_residencia.value,
+    comuna_corregimiento_residencia: form.comuna_corregimiento_residencia.value,
+    barrio_residencia: form.barrio_residencia.value,
+    email: form.email.value,
+    telefono: form.telefono.value.replace(/\D/g, ''),
+    cargo: form.cargo.value,
+    tipo_cargo: form.tipo_cargo.value,
+    apoya_a: Array.from(form.querySelectorAll('input[name="apoya_a"]:checked')).map(c => c.value),
+    tipo_area_influencia: document.getElementById('chk-area-influencia-organizacion').checked ? 'organizacion' : 'territorio',
+    organizacion: document.getElementById('input-organizacion-persona').value,
+    meta_votos: form.meta_votos.value,
+    direccion: form.direccion.value,
+    territorio_id: resuelto.territorioId,
+    supervisor_id: form.supervisor_id.value,
+    activo: form.activo.checked
+  };
+  // Solo se registra sin conexión al CREAR (no al editar): editar sin
+  // conexión un registro que alguien más pudo haber modificado mientras
+  // tanto es un riesgo real de sobrescribir cambios sin darse cuenta, así
+  // que esa acción sigue necesitando señal.
+  if (!edicionId) datos.cliente_uuid = generarUuid();
+
+  try {
+    if (edicionId) {
+      await api(`/territorial/estructura/${edicionId}`, { method: 'PUT', body: datos });
+      let mensajeTestigo = '';
+      const chkTestigo = document.getElementById('chk-asignar-testigo-persona');
+      // Se envía también cuando la casilla está deshabilitada (o sea,
+      // cuando YA es testigo): ahí es justamente cuando se le está
+      // cambiando el puesto o la mesa donde vigila. Antes se saltaba ese
+      // caso y el cambio se perdía sin decir nada.
+      if (chkTestigo.checked) {
+        try {
+          await api(`/territorial/estructura/${edicionId}/asignar-testigo`, {
+            method: 'POST',
+            body: {
+              // El puesto/mesa donde VIGILA — del panel de testigo, no del
+              // Lugar de Votación de arriba (son datos distintos).
+              // Departamento/Municipio los deduce el servidor del puesto.
+              puesto_votacion: document.getElementById('input-puesto-testigo-persona').value,
+              mesa_votacion: document.getElementById('input-mesa-testigo-persona').value,
+              tipo_testigo: document.querySelector('#form-estructura input[name="tipo_testigo_persona"]:checked').value,
+              mesas_asignadas: leerMesasMarcadas(document.getElementById('casillas-mesas-testigo-persona'))
+            }
+          });
+          mensajeTestigo = chkTestigo.disabled ? ' Se actualizó su asignación como testigo electoral.' : ' Se le asignó también la capacidad de testigo electoral.';
+        } catch (errTestigo) {
+          mensajeTestigo = ` (No se pudo asignar como testigo electoral: ${errTestigo.message})`;
+        }
+      }
+      okBox.textContent = 'Registro actualizado correctamente.' + mensajeTestigo;
+      okBox.classList.add('visible');
+      await cargarEstructura();
+      await cargarSelects();
+      setTimeout(() => document.getElementById('overlay-form').classList.remove('abierto'), 900);
+    } else {
+      const r = await api('/territorial/estructura', { method: 'POST', body: datos });
+      okBox.textContent = (r.password_temporal
+          ? `Registro creado. Contraseña temporal: ${r.password_temporal}`
+          : 'Registro creado. Su usuario y contraseña inicial son su Número de identificación (deberá cambiarla en su primer ingreso).') +
+        (datos.direccion ? (r.geocodificado ? ' · Dirección georreferenciada ✓' : ' · No se pudo georreferenciar la dirección (verifíquela).') : '');
+      okBox.classList.add('visible');
+      cargarEstructura();
+      form.reset();
+      document.getElementById('fila-urbano-persona').style.display = 'none';
+      document.getElementById('fila-rural-persona').style.display = 'none';
+    }
+  } catch (err) {
+    if (!edicionId && err && err.esErrorDeRed) {
+      // Captura sin conexión: se guarda en este computador y se sube solo
+      // más adelante — ver sincronizarColaOfflineEstructura().
+      await guardarEnColaOffline('estructura_pendientes', {
+        clienteUuid: datos.cliente_uuid, payload: datos, creadoEn: Date.now(), estado: 'pendiente'
+      });
+      await actualizarAvisoColaOfflineEstructura();
+      okBox.textContent = 'No hay señal en este momento. El registro quedó guardado en este computador y se subirá solo apenas vuelva la conexión.';
+      okBox.classList.add('visible');
+      form.reset();
+      document.getElementById('fila-urbano-persona').style.display = 'none';
+      document.getElementById('fila-rural-persona').style.display = 'none';
+      return;
+    }
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+document.getElementById('input-importar-estructura').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/territorial/estructura/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} persona(s) agregada(s), ${r.actualizados || 0} actualizada(s).`;
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    alert(mensaje);
+    await cargarSelects();
+    await cargarEstructura();
+  } catch (err) {
+    alert('Error importando el archivo: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/territorial.html');
+  if (!usuarioActual) return;
+
+  // El aviso de pendientes y el reintento al recuperar señal se activan
+  // ya mismo, sin depender de que el resto de la pantalla haya cargado.
+  actualizarAvisoColaOfflineEstructura();
+  sincronizarColaOfflineEstructura();
+  window.addEventListener('online', () => sincronizarColaOfflineEstructura());
+
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-nuevo').style.display = 'none';
+    document.getElementById('input-importar-estructura').closest('label').style.display = 'none';
+  }
+  aplicarFormatoNombrePropio('#form-estructura input[name="nombre"]');
+  aplicarFormatoTelefono('#form-estructura [name="telefono"]');
+  try {
+    const configCampana = await obtenerConCacheReferencia('configuracion_campana', () => api('/configuracion/campana'));
+    ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
+    usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
+    document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    // Igual que en Votantes: esta tabla lee el árbol de territorios.
+    aplicarColumnasTerritoriales(configCampana);
+    ambitoDepartamental = ['gobernacion', 'asamblea'].includes(configCampana.cargo_aspira);
+    document.getElementById('campo-municipio-influencia-persona').style.display = ambitoDepartamental ? 'block' : 'none';
+    document.getElementById('label-comuna-corregimiento-residencia').textContent =
+      ciudadTieneComunas ? 'Comuna / Corregimiento' : 'Corregimiento';
+    document.getElementById('label-barrio-vereda-residencia').textContent =
+      usarNombreBarrios ? 'Barrio / Vereda' : 'Vereda';
+    aplicarApoyosConfigurados('persona', configCampana.apoyos_activos);
+  } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
+  actualizarVisibilidadBarrioVeredaSegunCargo();
+  await cargarCatalogoColombia();
+  await cargarPuestosVotacionParaSelect();
+  await cargarSelects();
+  await cargarEstructura();
+
+  // El ítem "Organigrama territorial" del menú enlaza aquí con este hash,
+  // para abrir directamente el catálogo de Comuna/Corregimiento/Barrio/Vereda.
+  if (window.location.hash === '#gestionar-territorios') {
+    document.getElementById('btn-territorios').click();
+  }
+  // "Agregar coordinadores o líderes" del menú de administrador (app móvil)
+  // enlaza aquí con este hash, para abrir directo el formulario de crear
+  // persona en vez de solo mostrar el listado — solo si el botón "+
+  // Agregar persona" en sí está visible para este usuario.
+  if (window.location.hash === '#nuevo') {
+    const botonNuevo = document.getElementById('btn-nuevo');
+    if (botonNuevo && botonNuevo.style.display !== 'none') botonNuevo.click();
+  }
+})();
+</script>
+  <script src="/js/lugar-votacion-catalogo.js"></script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+require('dotenv').config();
+const express = require('express');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+const path = require('path');
+
+const pool = require('./config/db');
+const { requireAuth } = require('./middleware/auth');
+const { csrfToken, csrfProtegido } = require('./middleware/csrf');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Sin SESSION_SECRET no hay una clave segura para firmar las cookies de
+// sesión — mejor que la app no arranque a que arranque en silencio firmando
+// con un valor visible en el código fuente.
+if (!process.env.SESSION_SECRET) {
+  throw new Error('Falta la variable de entorno SESSION_SECRET (revise el archivo .env).');
+}
+
+// Necesario detrás de Nginx/CloudPanel: sin esto, Express no detecta que la
+// conexión real del navegador es HTTPS, lo que puede afectar cookies "secure".
+app.set('trust proxy', 1);
+
+// Registro de accesos (IP, método, ruta, estado, tiempo de respuesta) — para
+// poder reconstruir qué pasó después de un incidente, no solo mientras se
+// está mirando la consola en vivo.
+app.use(morgan('combined'));
+
+// Encabezados de seguridad estándar. Tres partes de Helmet se ajustan a
+// propósito, no por descuido:
+// - contentSecurityPolicy: casi todas las páginas de este proyecto usan
+//   <script> embebido directamente en el HTML (no archivos .js aparte)
+//   — armar un CSP que permita eso sin abrir la puerta a XSS es un
+//   trabajo aparte, más grande que "agregar higiene técnica".
+// - crossOriginEmbedderPolicy: la app carga recursos de otros dominios
+//   (Google Fonts, tiles de Mapbox, Leaflet vía unpkg) que no mandan los
+//   encabezados CORP/CORS que exige — con esto activado, el navegador los
+//   bloquea y la app se rompe en silencio.
+// - referrerPolicy: el valor por defecto de Helmet ("no-referrer") hacía
+//   que el navegador no mandara NINGÚN Referer al pedir los tiles de
+//   Mapbox — y el token de Mapbox (público, pero restringido por dominio
+//   desde el panel de Mapbox) rechaza justamente las solicitudes sin
+//   Referer, así que el Mapa territorial se veía en blanco/gris (los
+//   pines sí pintaban, porque esos no dependen de una solicitud aparte).
+//   "strict-origin-when-cross-origin" es el mismo valor que usan los
+//   navegadores cuando no hay ninguna política explícita: solo manda el
+//   origen (sin la ruta) a otros dominios, suficiente para que Mapbox
+//   reconozca el dominio permitido sin exponer en qué pantalla exacta
+//   estaba la persona.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+// Límite general de solicitudes por IP — una red de seguridad contra abuso
+// o scraping de la API, sin relación con el bloqueo por intentos fallidos
+// de /auth/login (ese es por cuenta, no por IP; los dos se complementan).
+// El número es generoso a propósito: la app de líderes en campo hace
+// bastantes solicitudes normales (verificar cédula, duplicados, CSRF,
+// GPS...) y esto no debe interponerse en el uso real.
+const limitadorApi = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes desde esta red. Intente de nuevo en unos minutos.' }
+});
+app.use('/api', limitadorApi);
+
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// --- Sesión respaldada en MySQL (evita problemas de sesión en memoria en Hostinger/Passenger) ---
+const sessionStore = new MySQLStore({}, pool);
+
+app.use(session({
+  key: 'campana_sid',
+  secret: process.env.SESSION_SECRET,
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 8 * 60 * 60 * 1000, // 8 horas
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production'
+  }
+}));
+
+// --- CSRF: asigna token a la sesión y lo expone al frontend ---
+app.use(csrfToken);
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.session.csrfToken });
+});
+app.use('/api', csrfProtegido);
+
+// --- Webhooks de proveedores externos (Twilio, etc.) — deliberadamente
+// fuera de /api (sin CSRF) y antes del candado de licencia, para que
+// los avisos de cambio de estado de mensajes se procesen siempre, sin
+// depender de que la sesión de nadie esté activa. ---
+app.use('/webhooks', require('./routes/webhooks.routes'));
+
+// --- Disparador de actualización remota — también fuera de /api (sin
+// CSRF: quien llama es el Servidor de Licencias, no un navegador con
+// sesión) y ANTES del candado de licencia a propósito: una instalación
+// con la licencia vencida o suspendida tiene que poder recibir parches
+// igual, porque a veces el parche es justamente lo que arregla el
+// problema. Va protegido con el secreto compartido, no con sesión. ---
+app.use('/actualizador', require('./routes/actualizador.routes'));
+
+// --- Candado de licencia: bloquea TODO lo de abajo (rutas de API y
+// frontend) si esta instalación no tiene una licencia vigente. Va antes
+// de montar cualquier ruta real, para que nada funcione sin pasar por
+// acá primero. Deja pasar sin bloquear la propia pantalla de
+// "suspendida.html" (para no crear un bucle de redirección). ---
+const middlewareLicencia = require('./middleware/licencia');
+const { iniciarValidacionPeriodica } = require('./config/licencia');
+app.use(middlewareLicencia);
+iniciarValidacionPeriodica();
+
+// --- Rutas de API ---
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/territorial', require('./routes/territorial.routes'));
+app.use('/api/votantes', require('./routes/votantes.routes'));
+app.use('/api/votantes-dashboard', require('./routes/votantesDashboard.routes'));
+app.use('/api/finanzas', require('./routes/finanzas.routes'));
+app.use('/api/eventos', require('./routes/eventos.routes'));
+app.use('/api/social', require('./routes/social.routes'));
+app.use('/api/recursos', require('./routes/recursos.routes'));
+app.use('/api/dashboard', require('./routes/dashboard.routes'));
+app.use('/api/usuarios', require('./routes/usuarios.routes'));
+app.use('/api/geo', require('./routes/geo.routes'));
+app.use('/api/organigrama', require('./routes/organigrama.routes'));
+app.use('/api/configuracion', require('./routes/configuracion.routes'));
+app.use('/api/permisos', require('./routes/permisos.routes'));
+const comunicacionesRouter = require('./routes/comunicaciones.routes');
+app.use('/api/comunicaciones', comunicacionesRouter);
+app.use('/api/contenido', require('./routes/contenido.routes'));
+app.use('/api/dia-d', require('./routes/diaD.routes'));
+app.use('/api/catalogo', require('./routes/catalogo.routes'));
+app.use('/api/backup', require('./routes/backup.routes'));
+// Push: va con requireAuth y sin restricción de rol — los avisos los
+// reciben sobre todo testigos y sublíderes (ver routes/push.routes.js).
+app.use('/api/push', require('./routes/push.routes'));
+
+// Retoma cualquier campaña de Email/SMS que haya quedado a medias
+// si el proceso se reinició en medio de un envío grande (ver
+// procesarEnvioCampana en comunicaciones.routes.js).
+comunicacionesRouter.reanudarCampanasPendientes();
+
+// Campañas programadas: se revisa al arrancar y luego cada minuto. El
+// minuto es de sobra — nadie programa un envío al segundo — y evita
+// depender de un cron del sistema, que en este servidor va por usuario.
+comunicacionesRouter.despacharCampanasProgramadas();
+setInterval(() => comunicacionesRouter.despacharCampanasProgramadas(), 60 * 1000).unref();
+
+// --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
+//     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
+app.use('/uploads', requireAuth, express.static(path.join(__dirname, 'uploads')));
+
+// --- Frontend estático ---
+// El propio archivo del Service Worker NUNCA debe quedar en caché HTTP: el
+// navegador decide si hay una versión nueva comparando este archivo byte a
+// byte, y si el caché general (10 min, ver abajo) le sirve una copia
+// vieja de ESTE archivo en particular, ni se entera de que hay una
+// versión nueva — así que cada corrección publicada podía tardar hasta
+// 10 minutos (o más, si el navegador no revalidaba) en notarse, aunque la
+// persona cerrara y volviera a abrir la app. Por eso esta ruta va ANTES
+// del express.static de abajo, con su propio encabezado sin caché.
+app.get('/service-worker.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname, 'public', 'service-worker.js'));
+});
+
+// maxAge corto (no "immutable"): no hay hashing de nombres de archivo en
+// este proyecto (los .css/.js se editan en el mismo nombre), así que un
+// caché largo dejaría a la gente viendo una versión vieja de la app hasta
+// que expire. 10 minutos evita la revalidación en cada navegación dentro
+// de una misma sesión de uso (lo más común), sin arriesgar que un cambio
+// publicado tarde horas o días en llegarle a alguien.
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '10m' }));
+
+// El validador de cédulas vive en lib/ —fuera de public/— porque lo usa
+// también el servidor. Se sirve desde aquí en vez de copiarlo a public/:
+// dos copias del mismo validador divergirían tarde o temprano, y el
+// formulario terminaría diciendo una cosa y la API otra.
+app.get('/js/validarCedula.js', (req, res) => {
+  res.type('application/javascript');
+  res.sendFile(path.join(__dirname, 'lib', 'validarCedula.js'));
+});
+
+app.get('/', (req, res) => {
+  if (req.session && req.session.usuario) {
+    // Testigo cae directo y siempre en Día D — es su única pantalla de
+    // trabajo, no tiene que buscar nada más en el menú.
+    if (req.session.usuario.rol === 'testigo') {
+      return res.redirect('/app/dia-d.html');
+    }
+    // Líder y Sublíder trabajan principalmente desde la app de captura
+    // (public/app/...); el resto de roles sigue yendo al panel de escritorio.
+    const rolesApp = ['lider', 'sublider'];
+    return res.redirect(rolesApp.includes(req.session.usuario.rol) ? '/app/inicio.html' : '/dashboard.html');
+  }
+  res.redirect('/login.html');
+});
+
+// --- Manejo de errores de subida de archivos (multer) y otros errores no capturados ---
+app.use((err, req, res, next) => {
+  console.error('Error no controlado:', err);
+  if (err.message && err.message.includes('no permitido')) {
+    return res.status(400).json({ error: err.message });
+  }
+  res.status(500).json({ error: 'Ocurrió un error interno en el servidor.' });
+});
+
+// --- Red de seguridad de último nivel: si algún error de una promesa queda
+// sin capturar (por ejemplo, una ruta nueva que olvide su try/catch), se
+// registra en el log en vez de dejar que tumbe el proceso completo para
+// todos los usuarios conectados. ---
+process.on('unhandledRejection', (err) => {
+  console.error('Promesa rechazada sin manejar:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Excepción no capturada:', err);
+});
+
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`Aplicación de Administración de Campañas escuchando en el puerto ${PORT}`);
+});
+
+module.exports = app;

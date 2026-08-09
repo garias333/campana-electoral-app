@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Estrategia · Captura de Campo</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/icons/icon-192.png">
+<link rel="stylesheet" href="/app/estilos-app.css">
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+
+  <div class="campana-card" id="campana-card" style="display:none;">
+    <div class="campana-avatar" id="campana-avatar">
+      <img id="campana-foto" style="display:none;" alt="">
+      <span id="campana-iniciales"></span>
+    </div>
+    <div class="campana-info">
+      <h1 id="campana-nombre"></h1>
+      <p class="campana-meta" id="campana-meta"></p>
+      <p class="campana-partido" id="campana-partido" style="display:none;"></p>
+      <p class="campana-slogan" id="campana-slogan" style="display:none;"></p>
+    </div>
+  </div>
+
+  <div id="saludo" class="saludo-app"></div>
+
+  <nav class="menu-app" id="menu-app"></nav>
+
+  <button class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/avisos-push.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const CARGOS = {
+  senado: 'Senado', camara_representantes: 'Cámara de Representantes',
+  gobernacion: 'Gobernación', asamblea: 'Asamblea', alcaldia: 'Alcaldía',
+  concejo: 'Concejo', jal: 'JAL'
+};
+
+function iniciales(nombre) {
+  const partes = (nombre || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return partes.map(p => p[0].toUpperCase()).join('') || '—';
+}
+
+/** Quita un prefijo tipo "Candidato: " si alguien lo escribió dentro del campo de nombre en Configuración — solo afecta cómo se muestra acá, no el dato guardado. */
+function limpiarNombreCandidato(nombre) {
+  return (nombre || '').replace(/^\s*candidato\s*:\s*/i, '').trim();
+}
+
+// Menú de líder/sublíder/coordinador — el mismo de siempre, sin cambios.
+const MENU_LIDER = [
+  { href: '/app/mis-registros.html', icono: '📝', titulo: 'Registro de votantes y sublíderes', subtitulo: 'Ver tu avance y agregar contactos' },
+  { href: '/app/biografia.html', icono: '👤', titulo: 'Biografía del candidato', subtitulo: 'Conoce su trayectoria' },
+  { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
+  { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
+  { href: '/app/politica-privacidad.html', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Cómo se protege tu información' },
+];
+
+// Menú de administrador — incluye accesos directos al panel de escritorio
+// (no hay pantallas móviles propias para Panel general/Estructura
+// territorial/Dashboard de votantes/Mapa territorial, así que abren esas
+// mismas pantallas de escritorio). No incluye Biografía del candidato ni
+// Política de privacidad. "Agregar coordinadores o líderes" manda a
+// Estructura territorial con #nuevo, que abre el formulario de crear de
+// una vez (igual que "Registro de Votantes" ya hace con el suyo).
+const MENU_ADMIN = [
+  { href: '/dashboard.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Resumen general de la campaña' },
+  { href: '/territorial.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
+  { href: '/votantes-dashboard.html', icono: '📈', titulo: 'Dashboard de votantes', subtitulo: 'Análisis y gráficas de la base de datos' },
+  { href: '/mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Ubicación geográfica de la estructura' },
+  { href: '/app/registro-votante.html', icono: '📝', titulo: 'Registro de Votantes', subtitulo: 'Agregar un nuevo contacto al equipo' },
+  { href: '/territorial.html#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
+  { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
+  { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puestos de votación', subtitulo: 'Página oficial de la Registraduría' },
+];
+
+function pintarMenu(rol) {
+  const items = rol === 'admin' ? MENU_ADMIN : MENU_LIDER;
+  document.getElementById('menu-app').innerHTML = items.map(it => `
+    <a class="menu-boton" href="${it.href}">
+      <div class="icono" aria-hidden="true">${it.icono}</div>
+      <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
+      <div class="flecha" aria-hidden="true">›</div>
+    </a>`).join('');
+}
+
+function pintarCampana(campana, bio) {
+  if (!campana || !campana.nombre_candidato) return; // sin datos configurados aún: se deja oculto
+
+  const nombre = limpiarNombreCandidato(campana.nombre_candidato);
+  document.getElementById('campana-nombre').textContent = nombre;
+
+  const metaPartes = [CARGOS[campana.cargo_aspira], campana.ciudad].filter(Boolean);
+  document.getElementById('campana-meta').textContent = metaPartes.join(' · ');
+
+  if (campana.partido_politico) {
+    const partidoEl = document.getElementById('campana-partido');
+    partidoEl.textContent = campana.partido_politico;
+    partidoEl.style.display = 'block';
+  }
+
+  if (campana.slogan_campana) {
+    const sloganEl = document.getElementById('campana-slogan');
+    sloganEl.textContent = `“${campana.slogan_campana}”`;
+    sloganEl.style.display = 'block';
+  }
+
+  // Misma fuente y mismo criterio de respaldo que biografia.html: foto si
+  // hay una guardada en Biografía del candidato, si no, iniciales.
+  if (bio && bio.foto_url) {
+    const img = document.getElementById('campana-foto');
+    img.src = bio.foto_url;
+    img.style.display = 'block';
+  } else {
+    document.getElementById('campana-iniciales').textContent = iniciales(nombre);
+  }
+
+  document.getElementById('campana-card').style.display = 'flex';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+
+  // Esta pantalla es el "start_url" fijo del manifest de la PWA — cuando
+  // alguien la instala en el celular, el ícono SIEMPRE abre acá, sin
+  // importar el rol de quien esté conectado en ese momento (el manifest
+  // no puede ser distinto por rol). Un testigo nunca debe ver el menú de
+  // líder/sublíder: se manda directo a su única pantalla de trabajo.
+  if (usuario.rol === 'testigo') {
+    window.location.replace('/app/dia-d.html');
+    return;
+  }
+
+  pintarBarraApp('Estrategia', null, null);
+  document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
+  pintarMenu(usuario.rol);
+
+  try {
+    const [campana, bio] = await Promise.all([
+      api('/configuracion/campana'),
+      api('/contenido/biografia_candidato').catch(() => ({}))
+    ]);
+    pintarCampana(campana, bio);
+  } catch (err) {
+    // Si falla la consulta, simplemente no se muestra la tarjeta — el resto de la pantalla sigue funcionando igual.
+  }
+})();
+
+document.getElementById('btn-cerrar-sesion').addEventListener('click', async () => {
+  // Avisar al servidor es "mejor esfuerzo": sin conexión esa llamada
+  // fallaría y antes se quedaba pegada el botón. Cerrar sesión en este
+  // celular no puede depender de tener señal en ese momento.
+  try { await api('/auth/logout', { method: 'POST' }); } catch (err) {}
+  // Deja de haber una cuenta ACTIVA, pero no se "olvida" — sigue
+  // apareciendo en el selector de /login.html para que otra persona (o la
+  // misma más tarde) pueda volver a entrar sin escribir la contraseña.
+  desactivarCuentaDispositivo();
+  window.location.href = '/login.html';
+});
+
+/* Interruptor de avisos. Se monta al final: si el navegador no los admite
+   —o la campaña no tiene push configurado— el recuadro queda vacío y no
+   se ve un control que no hace nada. */
+(function(){
+  const caja=document.createElement('div');
+  caja.id='caja-avisos-push';
+  caja.style.cssText='margin:14px 0; padding:12px; border:1px solid var(--linea,#e2ddd0); border-radius:10px; background:#fff;';
+  const main=document.querySelector('main')||document.body;
+  main.appendChild(caja);
+  if (typeof montarAvisosPush==='function') montarAvisosPush(caja);
+})();
+</script>
+</body>
+</html>

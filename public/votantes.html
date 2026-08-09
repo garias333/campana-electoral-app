@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Votantes y sublíderes · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Base de datos</div><h1>Votantes y sublíderes</h1></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-excel-votantes" href="/api/votantes/exportar-excel" target="_blank" style="display:none;">⬇ Exportar a Excel</a>
+        <label class="btn-secundario btn-sm btn-excel-app"
+               title="Para actualizar contactos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un contacto nuevo.">
+          ⬆ Importar desde Excel
+          <input type="file" id="input-importar-votantes" accept=".xlsx,.xls" style="display:none;">
+        </label>
+        <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
+        <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes-todos" style="color:#A93226; border-color:#A93226;" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
+        <button class="btn-secundario btn-sm" id="btn-eliminar-votantes" style="color:#A93226; border-color:#A93226;">🗑 Eliminar registros</button>
+        <button class="btn-acento" id="btn-nuevo">+ Nuevo votante o sublíder</button>
+      </div>
+    </div>
+
+    <div style="display:flex; margin-bottom:16px;">
+      <button type="button" class="btn-acento btn-sm" id="btn-tab-votantes" style="border:none; border-radius:0;">Votantes y sublíderes</button>
+      <button type="button" class="btn-secundario btn-sm" id="btn-tab-estimado-puestos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Votantes estimados por puesto de votación</button>
+    </div>
+
+    <div id="seccion-votantes">
+    <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:0.85rem;"></div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="toolbar">
+        <div class="toolbar-filtros">
+          <div class="mono tarjeta-contador" id="contador-resultados"></div>
+          <input type="text" id="filtro-busqueda" placeholder="Buscar por nombre, cédula o teléfono...">
+          <select id="filtro-categoria">
+            <option value="">Votantes y sublíderes</option>
+            <option value="votante">Solo votantes</option>
+            <option value="sublider">Solo sublíderes</option>
+          </select>
+          <select id="filtro-area">
+            <option value="">Todas las áreas</option>
+            <option value="urbano">Urbano</option>
+            <option value="rural">Rural</option>
+          </select>
+          <select id="filtro-zona">
+            <option value="">Toda comuna/corregimiento</option>
+          </select>
+          <select id="filtro-territorio">
+            <option value="">Todo barrio/vereda</option>
+          </select>
+          <select id="filtro-lider">
+            <option value="">Todos los líderes</option>
+          </select>
+          <select id="filtro-apoya-a">
+            <option value="">Apoya a (todos)</option>
+            <option value="alcaldia">Alcaldía</option>
+            <option value="concejo">Concejo</option>
+            <option value="jal">JAL</option>
+            <option value="gobernacion">Gobernación</option>
+            <option value="asamblea">Asamblea</option>
+          </select>
+          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-votantes">Quitar filtros</button>
+          <button type="button" class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-filtrados-votantes" style="display:none;">⬇ Exportar a Excel (filtrados)</button>
+        </div>
+      </div>
+      <div class="tabla-contenedor tabla-contenedor-votantes">
+      <table>
+        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th>Área</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th>Líder</th><th>Sublíder</th><th class="col-apoya-a" style="position:relative;">
+          <div class="mini-torta-apoya-a" id="grafico-apoya-a-mini" style="display:none;">
+            <div class="circulo" id="circulo-apoya-a-mini"></div>
+            <div class="mini-torta-apoya-a-info">
+              <span class="leyenda" id="leyenda-apoya-a-mini"></span>
+              <span class="conteo" id="conteo-apoya-a-mini"></span>
+            </div>
+          </div>
+          Apoya a
+        </th><th class="col-acciones"></th></tr></thead>
+        <tbody id="tbody-votantes"></tbody>
+      </table>
+      </div>
+      <div id="vacio-votantes" class="vacio" style="display:none;"><div class="icono-vacio">●</div>No se encontraron votantes con los filtros actuales.</div>
+      <div id="paginacion-votantes" style="display:none; align-items:center; justify-content:center; gap:12px; margin-top:14px;">
+        <button type="button" class="btn-secundario btn-sm" id="btn-pagina-anterior-votantes">← Anterior</button>
+        <span class="mono" id="texto-pagina-votantes" style="color:var(--color-text-muted); font-size:0.85rem;"></span>
+        <button type="button" class="btn-secundario btn-sm" id="btn-pagina-siguiente-votantes">Siguiente →</button>
+      </div>
+    </div>
+    </div>
+
+    <div id="seccion-estimado-puestos" style="display:none;">
+      <div class="card" style="margin-bottom:16px;">
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin-top:0;">
+          Estimado de cuántos Votantes y Sublíderes registrados dicen votar en cada Puesto de votación (según lo que cada uno escribió en "Lugar de votación") y cómo se reparten entre sus Mesas — no es un conteo oficial de la Registraduría, es un estimado con base en la información que ya tienes registrada.
+        </p>
+        <div class="mono" id="resumen-estimado-puestos" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:12px;"></div>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Puesto de votación</th><th>Mesas configuradas</th><th>Votantes estimados</th><th></th></tr></thead>
+            <tbody id="tbody-estimado-puestos"></tbody>
+          </table>
+        </div>
+        <div id="vacio-estimado-puestos" class="vacio" style="display:none;"><div class="icono-vacio">●</div>Aún no hay Puestos de votación configurados en Configuración → Día D.</div>
+      </div>
+      <div class="card" id="card-puestos-no-configurados" style="display:none;">
+        <h4 style="margin-top:0;">Puestos escritos que no coinciden con el catálogo</h4>
+        <p style="color:var(--color-text-muted); font-size:0.85rem;">Estos nombres de Puesto aparecen en "Lugar de votación" de algunos registros, pero no coinciden con ninguno de los configurados en Configuración → Día D → Puestos de votación (puede ser un texto libre de antes de existir el catálogo, o una diferencia de escritura).</p>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Puesto (como quedó escrito)</th><th>Votantes</th></tr></thead>
+            <tbody id="tbody-puestos-no-configurados"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form">
+  <div class="modal modal-amplio">
+    <div class="modal-header"><h3 id="titulo-modal">Nuevo votante o sublíder</h3><button class="modal-cerrar" id="cerrar-modal">×</button></div>
+    <div id="form-error" class="mensaje-error"></div>
+    <form id="form-votante" class="form-amplio">
+      <input type="hidden" name="id">
+      <div class="campo" id="campo-categoria-votante">
+        <label style="display:block; margin-bottom:6px;">Categoría <span style="color:var(--color-no-apoya, #A93226);">*</span></label>
+        <!-- Botones al estilo del formulario de la app móvil. Las casillas
+             siguen ahí dentro, invisibles: toda la lógica de esta pantalla
+             las lee por id (chk-categoria-votante / chk-categoria-sublider)
+             y el clic lo maneja el <label> sin JavaScript. -->
+        <div class="chips-form" role="group" aria-label="Categoría">
+          <label class="chip-form"><input type="checkbox" id="chk-categoria-votante"> Votante</label>
+          <label class="chip-form"><input type="checkbox" id="chk-categoria-sublider"> Sublíder</label>
+        </div>
+        <label id="campo-meta-votos-sublider" style="display:none; align-items:center; gap:6px; font-weight:400; margin-top:10px;">
+          Meta de votos
+          <input type="number" name="meta_votos_sublider" id="input-meta-votos-sublider" min="0" value="0" style="width:90px;">
+        </label>
+        <small id="categoria-votante-error" style="color:var(--color-no-apoya, #A93226); font-size:0.78rem; display:none;">Debe elegir una de las dos opciones.</small>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:4px;">Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) y queda registrado en Estructura territorial bajo el Líder que lo refirió — para eso, completa más abajo el Número de identificación (el Correo electrónico es opcional).</small>
+      </div>
+      <div class="campo encabezado-form primero">Datos personales</div>
+      <div class="campo">
+        <label>Número de identificación</label>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input name="cedula" id="input-numero-votante" autocomplete="off" style="flex:1;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-lugar-votacion-votante" style="display:none; white-space:nowrap;">🗳️ Consultar lugar de votación</button>
+        </div>
+        <small id="numero-votante-estado" style="font-size:0.75rem;"></small>
+        <small id="nota-copiar-lugar-votacion-votante" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio, Puesto (con la dirección) y Mesa.</small>
+      </div>
+      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
+      <small id="duplicado-votante-estado" style="display:block; font-size:0.75rem; color:var(--color-no-apoya, #A93226); margin:-6px 0 8px;"></small>
+      <div class="fila">
+        <div class="campo">
+          <label>Género</label>
+          <select name="genero">
+            <option value="mujer">Mujer</option>
+            <option value="hombre">Hombre</option>
+            <option value="no_binario">No binario</option>
+            <option value="prefiero_no_responder" selected>Prefiero no responder</option>
+          </select>
+        </div>
+        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
+      </div>
+
+      <div class="campo encabezado-form">Lugar de votación</div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento_votacion" id="input-departamento-votacion-votante" list="lista-departamentos-votacion-votante" autocomplete="off">
+          <datalist id="lista-departamentos-votacion-votante"></datalist>
+        </div>
+        <div class="campo">
+          <label>Municipio</label>
+          <input name="municipio_votacion" id="input-municipio-votacion-votante" list="lista-municipios-votacion-votante" autocomplete="off">
+          <datalist id="lista-municipios-votacion-votante"></datalist>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Puesto</label>
+          <select name="puesto_votacion" id="input-puesto-votacion-votante">
+            <option value="">Seleccione...</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Mesa</label>
+          <input name="mesa_votacion" id="input-mesa-votacion-votante" inputmode="numeric" autocomplete="off">
+          <small id="contador-mesas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+
+      <div class="campo" id="campo-asignar-testigo-votante" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="chk-asignar-testigo-votante" style="width:auto;"> Es también testigo electoral
+        </label>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:2px;">
+          Además de ser Votante o Sublíder, esta persona también podrá ingresar como testigo electoral y usar la app de Día D. El puesto donde vigila se elige aquí abajo y puede ser distinto de donde vota. Necesita tener Número de identificación.
+        </small>
+        <div id="opciones-tipo-testigo-votante" style="display:none; margin-top:8px; padding-left:24px;">
+          <div style="display:flex; gap:22px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+              <input type="radio" name="tipo_testigo_votante" value="mesa" checked style="width:auto;"> Testigo electoral (una sola mesa)
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+              <input type="radio" name="tipo_testigo_votante" value="puesto" style="width:auto;"> Coordinador de puesto (varias mesas)
+            </label>
+          </div>
+          <div class="campo" style="margin-top:8px;">
+            <label>Puesto de votación</label>
+            <select id="input-puesto-testigo-votante">
+              <option value="">Seleccione...</option>
+            </select>
+          </div>
+          <div id="campo-mesa-testigo-votante" style="margin-top:8px;">
+            <label>Mesa</label>
+            <select id="input-mesa-testigo-votante">
+              <option value="">Seleccione un puesto primero...</option>
+            </select>
+          </div>
+          <div id="campo-mesas-multiples-testigo-votante" style="display:none; margin-top:8px;">
+            <label>Mesas que cubre</label>
+            <div id="casillas-mesas-testigo-votante" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Las opciones salen de Configuración → Datos de la campaña →
+           Activar apoyos. Si no se activó ninguno, este bloque no se
+           muestra (lo decide aplicarApoyosConfigurados). -->
+      <div id="bloque-apoya-a-votante" style="display:none;">
+        <div class="campo encabezado-form">Apoya a</div>
+        <div class="campo">
+          <div id="casillas-apoya-a-votante" style="display:flex; flex-wrap:wrap; gap:14px;"></div>
+        </div>
+      </div>
+
+      <div class="campo encabezado-form">Datos de contacto</div>
+      <div class="fila">
+        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label>Correo electrónico</label><input type="email" name="email"></div>
+      </div>
+      <div class="campo">
+        <label>Dirección de Residencia</label>
+        <input name="direccion" id="input-direccion-votante" placeholder="Ej. Calle 10 #5-20">
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento_residencia" id="input-departamento-residencia-votante" list="lista-departamentos-residencia-votante" autocomplete="off">
+          <datalist id="lista-departamentos-residencia-votante"></datalist>
+        </div>
+        <div class="campo">
+          <label>Ciudad</label>
+          <input name="ciudad_residencia" id="input-ciudad-residencia-votante" list="lista-ciudades-residencia-votante" autocomplete="off">
+          <datalist id="lista-ciudades-residencia-votante"></datalist>
+        </div>
+      </div>
+      <div class="campo encabezado-form" id="titulo-territorio-influencia-votante" style="display:none;">Territorio o área de influencia</div>
+      <div class="campo" id="campo-area-influencia-votante" style="display:none;">
+        <div style="display:flex; gap:22px; margin-bottom:4px;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="checkbox" id="chk-area-influencia-votante-territorio" style="width:auto;" checked> Territorio
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="checkbox" id="chk-area-influencia-votante-organizacion" style="width:auto;"> Organización
+          </label>
+        </div>
+      </div>
+      <div class="campo" id="campo-organizacion-votante" style="display:none;">
+        <label>Nombre de la organización</label>
+        <input id="input-organizacion-votante" placeholder="Ej. Asociación de trabajadores informales del sur">
+      </div>
+      <div class="campo" id="campo-municipio-influencia-votante" style="display:none;">
+        <label>Municipio</label>
+        <input id="input-municipio-influencia-votante" list="lista-municipios-influencia-votante" autocomplete="off" placeholder="Municipio donde tiene influencia">
+        <datalist id="lista-municipios-influencia-votante"></datalist>
+        <small id="contador-municipios-influencia-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+      </div>
+      <div class="campo" id="campo-area-votante-normal">
+        <label id="etiqueta-area-votante">Área</label>
+        <select id="select-area-votante">
+          <option value="">Seleccione (opcional)...</option>
+          <option value="urbano">Urbano</option>
+          <option value="rural">Rural</option>
+        </select>
+      </div>
+      <div class="fila" id="fila-urbano-votante" data-fila="urbano" style="display:none;">
+        <div class="campo" id="campo-comuna-votante" data-campo="comuna">
+          <label>Comuna</label>
+          <input id="input-comuna-votante" list="lista-comunas-votante" autocomplete="off">
+          <datalist id="lista-comunas-votante"></datalist>
+        </div>
+        <div class="campo" id="campo-barrio-votante" data-campo="barrio">
+          <label>Barrio</label>
+          <input id="input-barrio-votante" list="lista-barrios-votante" autocomplete="off">
+          <datalist id="lista-barrios-votante"></datalist>
+          <small id="contador-barrios-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+      <div class="fila" id="fila-rural-votante" style="display:none;">
+        <div class="campo">
+          <label>Corregimiento</label>
+          <input id="input-corregimiento-votante" list="lista-corregimientos-votante" autocomplete="off">
+          <datalist id="lista-corregimientos-votante"></datalist>
+        </div>
+        <div class="campo">
+          <label>Vereda</label>
+          <input id="input-vereda-votante" list="lista-veredas-votante" autocomplete="off">
+          <datalist id="lista-veredas-votante"></datalist>
+          <small id="contador-veredas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+      <div id="territorio-votante-error" class="mensaje-error"></div>
+
+      <div class="campo encabezado-form">Referido por</div>
+      <div class="campo">
+        <label>Líder o coordinador que lo refirió</label>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo ya trae a quienes corresponden al Barrio/Vereda elegido arriba — si necesitas a otra persona, búscala por nombre aquí.</small>
+        <input type="text" id="input-buscar-lider" placeholder="Buscar otro líder o coordinador por nombre..." autocomplete="off" style="margin-bottom:4px;">
+        <div id="resultados-buscar-lider" style="margin-bottom:6px;"></div>
+        <select name="lider_id" id="select-lider"><option value="">Yo mismo / no aplica</option></select>
+      </div>
+      <div class="campo">
+        <label>Sublíder</label>
+        <select name="sublider_id" id="select-sublider-votante"><option value="">Ninguno</option></select>
+      </div>
+      <div class="campo"><label>Observaciones</label><textarea name="observaciones" rows="2"></textarea></div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/validarCedula.js"></script>
+<script src="/js/validacion-cedula-ui.js"></script>
+<script src="/js/mesas-testigo.js"></script>
+<script src="/js/columnas-territoriales.js"></script>
+<script>
+// Cachea el cascarón de esta pantalla (y de Estructura territorial/
+// Testigos) para que abran sin conexión — ver /service-worker.js.
+// Nunca cachea /api ni /uploads: eso siempre necesita red.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+let usuarioActual;
+const ETIQUETAS_GENERO = { mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder' };
+let territorios = [];
+
+// Si la ciudad NO tiene comunas (Configuración → Datos de la campaña), el
+// campo Comuna se oculta y el Barrio se elige directo entre TODOS los
+// barrios del municipio (incluyendo los que cuelgan del municipio sin
+// comuna intermedia).
+let ciudadTieneComunas = true;
+let usarNombreBarrios = true;
+// Campañas de Gobernación o Asamblea abarcan todo el departamento: la
+// ciudad sede viene vacía, así que el área de influencia de un sublíder se
+// ancla a un Municipio propio en vez de a la Ciudad de residencia.
+let ambitoDepartamental = false;
+function aplicarVisibilidadComunaVotante() {
+  document.getElementById('campo-comuna-votante').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('campo-barrio-votante').style.display = usarNombreBarrios ? 'block' : 'none';
+}
+
+// --- Catálogo de departamentos y municipios de Colombia (para "Lugar de votación") ---
+let catalogoColombiaVotante = null;
+
+async function cargarCatalogoColombiaVotante() {
+  if (catalogoColombiaVotante) return;
+  catalogoColombiaVotante = await obtenerConCacheReferencia('colombia', () => fetch('/data/colombia.json').then(r => r.json()));
+  document.getElementById('lista-departamentos-votacion-votante').innerHTML =
+    catalogoColombiaVotante.departamentos.map(d => `<option value="${d}">`).join('');
+  // Mismo catálogo, para el Departamento/Ciudad de residencia.
+  document.getElementById('lista-departamentos-residencia-votante').innerHTML =
+    catalogoColombiaVotante.departamentos.map(d => `<option value="${d}">`).join('');
+}
+
+/** Cantidad de mesas del Puesto de votación elegido (Lugar de Votación) — limita lo que se puede escribir en Mesa, para no dejar registrar una mesa que no existe en ese puesto. */
+let cantidadMesasPuestoVotante = 0;
+async function actualizarLimiteMesaVotante() {
+  const puesto = document.getElementById('input-puesto-votacion-votante').value;
+  const contador = document.getElementById('contador-mesas-votante');
+  if (!puesto) {
+    cantidadMesasPuestoVotante = 0;
+    contador.textContent = '';
+    return;
+  }
+  cantidadMesasPuestoVotante = typeof mesasDelPuestoDeVotacion === 'function'
+    ? await mesasDelPuestoDeVotacion('votante', puesto)
+    : ((await consultarMesasDisponibles(puesto)).cantidadMesas || 0);
+  contador.textContent = cantidadMesasPuestoVotante ? `Este puesto tiene ${cantidadMesasPuestoVotante} mesa(s).` : 'Este puesto aún no tiene la cantidad de mesas configurada.';
+  const mesaInput = document.getElementById('input-mesa-votacion-votante');
+  if (cantidadMesasPuestoVotante && Number(mesaInput.value) > cantidadMesasPuestoVotante) {
+    mesaInput.value = String(cantidadMesasPuestoVotante);
+  }
+}
+document.getElementById('input-puesto-votacion-votante').addEventListener('change', actualizarLimiteMesaVotante);
+document.getElementById('input-mesa-votacion-votante').addEventListener('input', (e) => {
+  if (cantidadMesasPuestoVotante && Number(e.target.value) > cantidadMesasPuestoVotante) {
+    e.target.value = String(cantidadMesasPuestoVotante);
+  }
+});
+
+/** Puestos configurados en Configuración → Día D → Puestos de votación, para que la persona quede asignada a uno de la lista oficial (no texto libre). Se usa el endpoint sin restricción de rol (no el de administración) porque este formulario también lo usan líderes y sublíderes. */
+let puestosVotacionCacheVotante = null;
+
+const ETIQUETAS_APOYO_APP = {
+  alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL',
+  gobernacion: 'Gobernación', asamblea: 'Asamblea'
+};
+
+/**
+ * Arma las casillas de "Apoya a" con lo que el administrador activó en
+ * Configuración → Datos de la campaña. Si no activó ninguno, la sección
+ * entera no se muestra.
+ *
+ * Las opciones ya no están fijas en el código: una campaña a la
+ * Gobernación no debería estar ofreciendo apoyo a un concejo en
+ * particular, y una que no use apoyos no tiene por qué ver el bloque.
+ */
+// Los apoyos que el administrador dejó activos en Configuración → Datos de
+// la campaña. Gobiernan tres cosas a la vez: las casillas del formulario, la
+// columna "Apoya a" de la tabla y el filtro de la barra de arriba. Antes las
+// tres tenían la lista de cinco cargos escrita a mano, así que una campaña a
+// la Gobernación mostraba columnas de Alcaldía, Concejo y JAL que nadie iba a
+// marcar nunca.
+// Arranca con los cinco de siempre a propósito: si la lectura de la
+// configuración falla (sin señal, por ejemplo), la columna sigue mostrando
+// lo de antes en vez de quedar en blanco. Es el mismo criterio que usan
+// ciudadTieneComunas y usarNombreBarrios más abajo.
+let apoyosActivosVotantes = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
+
+function aplicarApoyosConfigurados(SUFIJO, activos) {
+  const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
+  const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
+  // Tres casos, y el primero importa: si NUNCA se configuraron apoyos
+  // (null), se ofrecen los cinco de siempre. Antes el apartado desaparecía
+  // del formulario, y una campaña que jamás entró a "Activar apoyos" se
+  // quedaba sin poder marcar a quién apoya cada persona — sin ningún aviso
+  // de por qué. Lista vacía ([]) sí lo oculta: ahí es una decisión tomada.
+  const nuncaConfigurado = activos === null || activos === undefined;
+  const lista = nuncaConfigurado
+    ? ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea']
+    : (Array.isArray(activos) ? activos : []);
+  if (!lista.length) {
+    bloque.style.display = 'none';
+    casillas.innerHTML = '';
+    return;
+  }
+  bloque.style.display = 'block';
+  casillas.innerHTML = lista.map(a => `
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      ${ETIQUETAS_APOYO_APP[a] || a}
+    </label>`).join('');
+}
+
+// Los cinco de siempre, para las campañas que nunca configuraron apoyos.
+const APOYOS_CLASICOS = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
+
+/**
+ * Deja la columna "Apoya a" y su filtro con los mismos cargos que las
+ * casillas del formulario.
+ *
+ * Hay que distinguir tres casos, y el del medio importa:
+ *
+ *   null  -> nunca se configuró. Se muestran los cinco de siempre, tal como
+ *            venía. Medido antes de decidirlo: 83 de los 84 votantes de la
+ *            campaña municipal tienen apoyos guardados con `apoyos_activos`
+ *            en NULL, así que ocultar la columna aquí escondería datos
+ *            reales de casi todas las filas.
+ *   []    -> se configuró y se dejó sin ninguno. La columna se oculta
+ *            entera (regla en style.css): vacía en todas las filas, solo
+ *            ocuparía ancho.
+ *   lista -> esos y nada más.
+ */
+function aplicarApoyosATablaVotantes(activos) {
+  const nuncaConfigurado = activos === null || activos === undefined;
+  apoyosActivosVotantes = nuncaConfigurado
+    ? APOYOS_CLASICOS
+    : (Array.isArray(activos) ? activos : []);
+  document.body.classList.toggle('sin-apoyos', apoyosActivosVotantes.length === 0);
+  const filtro = document.getElementById('filtro-apoya-a');
+  const elegido = filtro.value;
+  filtro.innerHTML = '<option value="">Apoya a (todos)</option>' +
+    apoyosActivosVotantes.map(a => `<option value="${a}">${ETIQUETAS_APOYO_APP[a] || a}</option>`).join('');
+  // Si el cargo que estaba filtrado ya no está activo, el filtro se cae a
+  // "todos" — dejarlo puesto mostraría una lista recortada sin decir por qué.
+  filtro.value = apoyosActivosVotantes.includes(elegido) ? elegido : '';
+}
+
+async function cargarPuestosVotacionParaSelectVotante() {
+  if (puestosVotacionCacheVotante) return;
+  puestosVotacionCacheVotante = await obtenerConCacheReferencia('diad_puestos', () => api('/dia-d/puestos-para-reporte'));
+  const opciones = '<option value="">Seleccione...</option>' +
+    puestosVotacionCacheVotante.map(p => `<option value="${p}">${p}</option>`).join('');
+  document.getElementById('input-puesto-votacion-votante').innerHTML = opciones;
+  document.getElementById('input-puesto-testigo-votante').innerHTML = opciones;
+}
+
+function actualizarMunicipiosVotacionVotante() {
+  const depto = document.getElementById('input-departamento-votacion-votante').value.trim();
+  const municipios = (catalogoColombiaVotante && catalogoColombiaVotante.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-municipios-votacion-votante').innerHTML =
+    municipios.map(m => `<option value="${m}">`).join('');
+}
+
+/** Llena el datalist de Ciudad de residencia según el Departamento de residencia escrito. */
+function actualizarCiudadesResidenciaVotante() {
+  const depto = document.getElementById('input-departamento-residencia-votante').value.trim();
+  const ciudades = (catalogoColombiaVotante && catalogoColombiaVotante.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-ciudades-residencia-votante').innerHTML =
+    ciudades.map(c => `<option value="${c}">`).join('');
+}
+document.getElementById('input-departamento-residencia-votante').addEventListener('input', actualizarCiudadesResidenciaVotante);
+document.getElementById('input-ciudad-residencia-votante').addEventListener('input', () => {
+  // Al cambiar la Ciudad de residencia, se refiltran las opciones de
+  // Comuna/Barrio/Corregimiento/Vereda para que no mezclen otras ciudades.
+  if (typeof poblarListasUbicacionVotante === 'function') poblarListasUbicacionVotante();
+});
+
+document.getElementById('input-departamento-votacion-votante').addEventListener('input', actualizarMunicipiosVotacionVotante);
+
+async function cargarTerritorios() {
+  territorios = await obtenerConCacheReferencia('territorios', () => api('/territorial/territorios'));
+}
+
+// --- Búsqueda de "Líder o coordinador que lo refirió" por nombre (además de la lista filtrada por Barrio/Vereda) ---
+
+let listaLideresCoordinadoresTodos = [];
+
+/** Trae UNA vez a todos los líderes y coordinadores activos (sin filtrar por Barrio/Vereda), para poder buscar por nombre a alguien que no corresponda a la zona elegida. */
+async function cargarLideresCoordinadoresTodos() {
+  if (listaLideresCoordinadoresTodos.length) return;
+  const todos = await obtenerConCacheReferencia('coordinadores_lideres', () => api('/usuarios'));
+  listaLideresCoordinadoresTodos = todos.filter(u => ['coordinador', 'lider'].includes(u.rol));
+}
+
+document.getElementById('input-buscar-lider').addEventListener('input', () => {
+  const texto = normalizarTexto(document.getElementById('input-buscar-lider').value.trim());
+  const cont = document.getElementById('resultados-buscar-lider');
+  if (!texto) { cont.innerHTML = ''; return; }
+  const coincidencias = listaLideresCoordinadoresTodos
+    .filter(u => normalizarTexto(u.nombre).includes(texto))
+    .slice(0, 8);
+  cont.innerHTML = coincidencias.length
+    ? coincidencias.map(u => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
+          <span>${u.nombre} <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${u.rol}</span></span>
+          <button type="button" class="btn-secundario btn-sm" onclick="elegirLiderBuscado(${u.id})">Elegir</button>
+        </div>
+      `).join('')
+    : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
+});
+
+/** Selecciona en "Líder o coordinador que lo refirió" a alguien encontrado por la búsqueda de nombre, aunque no aparezca en la lista filtrada por Barrio/Vereda. */
+function elegirLiderBuscado(id) {
+  const encontrado = listaLideresCoordinadoresTodos.find(u => u.id === id);
+  if (!encontrado) return;
+  const select = document.getElementById('select-lider');
+  if (!Array.from(select.options).some(o => o.value === String(id))) {
+    select.insertAdjacentHTML('beforeend', `<option value="${id}">${encontrado.nombre}</option>`);
+  }
+  select.value = id;
+  document.getElementById('input-buscar-lider').value = '';
+  document.getElementById('resultados-buscar-lider').innerHTML = '';
+  actualizarSublideresPorLider();
+}
+
+/**
+ * Llena "Líder o coordinador que lo refirió" solo con personas del
+ * Territorio de influencia seleccionado en este formulario: líderes
+ * asignados exactamente al Barrio/Vereda, y coordinadores de la
+ * Comuna/Corregimiento a la que pertenece. Si aún no se ha elegido Área o
+ * Comuna/Barrio/Corregimiento/Vereda, el desplegable queda vacío (solo
+ * "Yo mismo / no aplica").
+ *
+ * preservarId/preservarNombre se usan al editar un contacto existente, para
+ * no perder de vista a quien ya estaba asignado aunque no coincida con el
+ * territorio actual (ej. si el contacto cambió de dirección después).
+ */
+async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNombre) {
+  const select = document.getElementById('select-lider');
+  const valorAnterior = select.value;
+
+  const esOrganizacion = document.getElementById('chk-categoria-sublider').checked &&
+    document.getElementById('chk-area-influencia-votante-organizacion').checked;
+  if (esOrganizacion) {
+    select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+      (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
+    select.value = preservarId || '';
+    return;
+  }
+
+  const area = document.getElementById('select-area-votante').value;
+
+  let barrioOVeredaId = null;
+  let zonaId = null;
+
+  if (area === 'urbano') {
+    const nombreComuna = normalizarTexto(document.getElementById('input-comuna-votante').value);
+    const comuna = territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna);
+    if (comuna) zonaId = comuna.id;
+    const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-votante').value);
+    const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (barrio) barrioOVeredaId = barrio.id;
+  } else if (area === 'rural') {
+    const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+    const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+    if (corregimiento) zonaId = corregimiento.id;
+    const nombreVereda = normalizarTexto(document.getElementById('input-vereda-votante').value);
+    const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+    if (vereda) barrioOVeredaId = vereda.id;
+  }
+
+  if (!barrioOVeredaId && !zonaId) {
+    select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+      (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
+    select.value = preservarId || '';
+    actualizarSublideresPorLider();
+    return;
+  }
+
+  try {
+    const [lideres, coordinadores] = await Promise.all([
+      barrioOVeredaId ? api(`/territorial/lideres-por-territorio/${barrioOVeredaId}`) : Promise.resolve([]),
+      zonaId ? api(`/territorial/coordinadores-por-zona/${zonaId}`) : Promise.resolve([])
+    ]);
+    const vistos = new Set();
+    const unicos = [...lideres, ...coordinadores].filter(u => (vistos.has(u.id) ? false : (vistos.add(u.id), true)));
+
+    let opcionesHtml = '<option value="">Yo mismo / no aplica</option>' +
+      unicos.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
+
+    if (preservarId && !unicos.some(u => String(u.id) === String(preservarId))) {
+      opcionesHtml += `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>`;
+    }
+
+    select.innerHTML = opcionesHtml;
+    const valorAConservar = preservarId || valorAnterior;
+    if (valorAConservar && Array.from(select.options).some(o => o.value === String(valorAConservar))) {
+      select.value = valorAConservar;
+    }
+    actualizarSublideresPorLider();
+  } catch (err) {
+    select.innerHTML = '<option value="">Yo mismo / no aplica</option>';
+    actualizarSublideresPorLider();
+  }
+}
+
+/**
+ * Llena "Sublíder" con los sublíderes/colaboradores registrados bajo el
+ * Líder elegido en "Líder o coordinador que lo refirió". Si no hay Líder
+ * elegido, o el elegido es un Coordinador (sin sublíderes propios), queda
+ * solo con "Ninguno".
+ */
+async function actualizarSublideresPorLider(preservarId, preservarNombre) {
+  const select = document.getElementById('select-sublider-votante');
+  const liderId = document.getElementById('select-lider').value;
+  if (!liderId) {
+    select.innerHTML = '<option value="">Ninguno</option>' +
+      (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
+    select.value = preservarId || '';
+    return;
+  }
+  try {
+    const subliders = await api(`/territorial/subliders-por-lider/${liderId}`);
+    let opcionesHtml = '<option value="">Ninguno</option>' +
+      subliders.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    if (preservarId && !subliders.some(s => String(s.id) === String(preservarId))) {
+      opcionesHtml += `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>`;
+    }
+    select.innerHTML = opcionesHtml;
+    if (preservarId) select.value = preservarId;
+  } catch (err) {
+    select.innerHTML = '<option value="">Ninguno</option>';
+  }
+}
+document.getElementById('select-lider').addEventListener('change', () => actualizarSublideresPorLider());
+
+/** Círculos "Apoya a" (A/C/J/G/As): relleno azul si esa casilla está marcada, borde azul con relleno blanco si no. */
+const LETRAS_APOYO = {
+  alcaldia: 'A', concejo: 'C', jal: 'J', gobernacion: 'G', asamblea: 'As',
+  senado: 'S', camara_representantes: 'CR'
+};
+
+function badgesApoyaA(apoyaA) {
+  const marcados = Array.isArray(apoyaA) ? apoyaA : [];
+  // Solo los cargos activos en Configuración. Un votante puede tener
+  // guardado un apoyo que después se desactivó; ese círculo deja de
+  // mostrarse, pero el dato NO se borra: si el cargo se reactiva, vuelve.
+  return `<div class="badges-apoya-a">${apoyosActivosVotantes.map(valor =>
+    `<span class="badge-apoya-a ${marcados.includes(valor) ? 'activo' : ''}" title="${ETIQUETAS_APOYO_APP[valor] || valor}">${LETRAS_APOYO[valor] || valor.slice(0, 2)}</span>`
+  ).join('')}</div>`;
+}
+
+/** Junta los filtros de la barra de arriba en un solo objeto — lo usan tanto la carga de la tabla como el botón de exportar filtrados. */
+function leerFiltrosVotantes() {
+  return {
+    q: document.getElementById('filtro-busqueda').value,
+    apoya_a: document.getElementById('filtro-apoya-a').value,
+    area: document.getElementById('filtro-area').value,
+    zona_id: document.getElementById('filtro-zona').value,
+    territorio_id: document.getElementById('filtro-territorio').value,
+    lider_id: document.getElementById('filtro-lider').value,
+    categoria: document.getElementById('filtro-categoria').value
+  };
+}
+
+function construirParametrosFiltroVotantes() {
+  const filtros = leerFiltrosVotantes();
+  const params = new URLSearchParams();
+  Object.entries(filtros).forEach(([clave, valor]) => { if (valor) params.set(clave, valor); });
+  return params;
+}
+
+const ETIQUETAS_APOYA_A_CARGO = {
+  alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea'
+};
+
+/**
+ * Al elegir un cargo en el filtro "Apoya a", muestra encima del
+ * encabezado de esa columna un mini gráfico de torta: de quienes ya
+ * coinciden con los DEMÁS filtros activos (búsqueda, área, zona, líder,
+ * categoría), cuántos apoyan ese cargo y cuántos no. Se calcula aparte del
+ * listado (que ya viene filtrado SOLO a los que apoyan) pidiendo también
+ * el total sin ese filtro, para poder sacar la diferencia.
+ */
+async function actualizarGraficoApoyaA() {
+  const cargo = document.getElementById('filtro-apoya-a').value;
+  const contenedor = document.getElementById('grafico-apoya-a-mini');
+  const envolvente = document.querySelector('.tabla-contenedor-votantes');
+  if (!cargo) {
+    contenedor.style.display = 'none';
+    envolvente.classList.remove('con-grafico-apoya-a');
+    return;
+  }
+  try {
+    const filtrosSinApoyaA = leerFiltrosVotantes();
+    filtrosSinApoyaA.apoya_a = '';
+    const paramsUniverso = new URLSearchParams();
+    Object.entries(filtrosSinApoyaA).forEach(([clave, valor]) => { if (valor) paramsUniverso.set(clave, valor); });
+    paramsUniverso.set('limit', '1');
+    const paramsApoyan = construirParametrosFiltroVotantes();
+    paramsApoyan.set('limit', '1');
+    const [rUniverso, rApoyan] = await Promise.all([
+      api(`/votantes?${paramsUniverso.toString()}`),
+      api(`/votantes?${paramsApoyan.toString()}`)
+    ]);
+    const universoTotal = rUniverso.total;
+    const apoyanTotal = rApoyan.total;
+    const noApoyanTotal = Math.max(0, universoTotal - apoyanTotal);
+    const pctApoyan = universoTotal ? Math.round((apoyanTotal / universoTotal) * 100) : 0;
+    document.getElementById('circulo-apoya-a-mini').style.background = universoTotal
+      ? `conic-gradient(#0B5ED7 0% ${pctApoyan}%, #E2E8F0 ${pctApoyan}% 100%)`
+      : '#E2E8F0';
+    document.getElementById('circulo-apoya-a-mini').title =
+      `${ETIQUETAS_APOYA_A_CARGO[cargo] || cargo}: apoyan ${formatoMillares(apoyanTotal)} (${pctApoyan}%) · no apoyan ${formatoMillares(noApoyanTotal)} (${100 - pctApoyan}%)`;
+    document.getElementById('leyenda-apoya-a-mini').textContent = `${pctApoyan}% apoyan`;
+    document.getElementById('conteo-apoya-a-mini').textContent = `${formatoMillares(apoyanTotal)} registro(s)`;
+    contenedor.style.display = 'flex';
+    envolvente.classList.add('con-grafico-apoya-a');
+  } catch (err) {
+    contenedor.style.display = 'none';
+    envolvente.classList.remove('con-grafico-apoya-a');
+  }
+}
+
+/**
+ * El backend pagina de a LIMITE_VOTANTES_POR_PAGINA (el listado completo
+ * puede tener cientos de personas) — sin esto, la tabla mostraba siempre
+ * los primeros 50 (los más recientes) y el contador de arriba decía el
+ * total real, dando la falsa impresión de que a alguien "le faltaba"
+ * aparecer en Votantes y sublíderes cuando en realidad sí estaba, solo
+ * que en una página que no se veía.
+ */
+const LIMITE_VOTANTES_POR_PAGINA = 50;
+let paginaActualVotantes = 1;
+
+async function cargarVotantes() {
+  const params = construirParametrosFiltroVotantes();
+  params.set('page', paginaActualVotantes);
+  params.set('limit', LIMITE_VOTANTES_POR_PAGINA);
+  let r = await api(`/votantes?${params.toString()}`);
+  const totalPaginas = Math.max(1, Math.ceil(r.total / LIMITE_VOTANTES_POR_PAGINA));
+  // Si la página en la que estábamos ya no existe (ej. se borró gente, o
+  // cambió el filtro sin pasar por un botón que reinicie la página), se
+  // cae a la última página válida en vez de mostrar la tabla vacía.
+  if (paginaActualVotantes > totalPaginas) {
+    paginaActualVotantes = totalPaginas;
+    params.set('page', paginaActualVotantes);
+    r = await api(`/votantes?${params.toString()}`);
+  }
+  actualizarGraficoApoyaA();
+  document.getElementById('contador-resultados').textContent = `${formatoMillares(r.total)} registro(s)`;
+  actualizarPaginacionVotantes(r.total);
+  const tbody = document.getElementById('tbody-votantes');
+  document.getElementById('vacio-votantes').style.display = r.data.length ? 'none' : 'block';
+  tbody.innerHTML = r.data.map((v, i) => {
+    const tieneLugarVotacion = !!(
+      v.departamento_votacion && String(v.departamento_votacion).trim() &&
+      v.municipio_votacion && String(v.municipio_votacion).trim() &&
+      v.puesto_votacion && String(v.puesto_votacion).trim() &&
+      v.mesa_votacion && String(v.mesa_votacion).trim()
+    );
+    const numeroFila = (paginaActualVotantes - 1) * LIMITE_VOTANTES_POR_PAGINA + i + 1;
+    return `
+    <tr>
+      <td class="mono">${numeroFila}</td>
+      <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
+      <td style="text-align:center;"><input type="checkbox" class="chk-datos-verificados" data-id="${v.id}" ${v.datos_verificados ? 'checked' : ''} ${puedeVerificarDatos() ? '' : 'disabled'} title="${v.datos_verificados ? 'Datos verificados' : 'Sin verificar'}"></td>
+      <td><strong>${v.nombre}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + v.cedula + '</span>' : ''}</td>
+      <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
+      <td>${v.categoria === 'sublider' ? '<span class="tag-tipo">Sublíder</span>' : '<span class="tag-tipo">Votante</span>'}</td>
+      <td>${v.telefono ? formatoTelefonoColombia(v.telefono) : '—'}</td>
+      <td>${v.tipo_area_influencia === 'organizacion' ? '—' : (v.area === 'urbano' ? 'Urbano' : (v.area === 'rural' ? 'Rural' : '—'))}</td>
+      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (v.zona_nombre || '—')}</td>
+      <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (v.territorio_nombre || '—')}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <td>${v.lider_nombre || '—'}</td>
+      <td>${v.sublider_nombre || '—'}</td>
+      <td class="col-apoya-a">${badgesApoyaA(v.apoya_a)}</td>
+      <td class="col-acciones">
+        ${puedeEditar(usuarioActual, 'votantes') ? `
+        <button class="btn-secundario btn-sm" onclick='editarVotante(${JSON.stringify(v).replace(/'/g, "&apos;")})'>Editar</button>
+        <button class="btn-secundario btn-sm" onclick="eliminarVotante(${v.id})">Eliminar</button>` : ''}
+      </td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function actualizarPaginacionVotantes(total) {
+  const totalPaginas = Math.max(1, Math.ceil(total / LIMITE_VOTANTES_POR_PAGINA));
+  document.getElementById('paginacion-votantes').style.display = total > LIMITE_VOTANTES_POR_PAGINA ? 'flex' : 'none';
+  document.getElementById('texto-pagina-votantes').textContent = `Página ${paginaActualVotantes} de ${totalPaginas}`;
+  document.getElementById('btn-pagina-anterior-votantes').disabled = paginaActualVotantes <= 1;
+  document.getElementById('btn-pagina-siguiente-votantes').disabled = paginaActualVotantes >= totalPaginas;
+}
+document.getElementById('btn-pagina-anterior-votantes').addEventListener('click', () => {
+  if (paginaActualVotantes <= 1) return;
+  paginaActualVotantes--;
+  cargarVotantes();
+});
+document.getElementById('btn-pagina-siguiente-votantes').addEventListener('click', () => {
+  paginaActualVotantes++;
+  cargarVotantes();
+});
+
+/** Llena el filtro de Comuna/Corregimiento con todas las zonas existentes. */
+function poblarFiltroZona() {
+  const zonas = territorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
+  document.getElementById('filtro-zona').innerHTML = '<option value="">Toda comuna/corregimiento</option>' +
+    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${z.nombre}</option>`).join('');
+}
+
+/** Llena el filtro de Barrio/Vereda: si hay una zona elegida, solo sus hijos; si no, todos. */
+function poblarFiltroTerritorio() {
+  const zonaId = document.getElementById('filtro-zona').value;
+  const hojas = zonaId
+    ? territorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && String(t.padre_id) === zonaId)
+    : territorios.filter(t => t.tipo === 'barrio' || t.tipo === 'vereda');
+  document.getElementById('filtro-territorio').innerHTML = '<option value="">Todo barrio/vereda</option>' +
+    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${h.nombre}</option>`).join('');
+}
+
+async function poblarFiltroLider() {
+  const usuarios = await api('/usuarios');
+  const lideres = usuarios.filter(u => ['coordinador', 'lider'].includes(u.rol));
+  document.getElementById('filtro-lider').innerHTML = '<option value="">Todos los líderes</option>' +
+    lideres.map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('');
+}
+
+/** Cualquier cambio de filtro vuelve a la página 1 — si no, se podía quedar en una página que ya no existe para el nuevo filtro (o mostrar una tabla vacía aunque sí haya resultados). */
+function refiltrarVotantes() {
+  paginaActualVotantes = 1;
+  cargarVotantes();
+}
+
+document.getElementById('filtro-zona').addEventListener('change', () => {
+  poblarFiltroTerritorio();
+  refiltrarVotantes();
+});
+document.getElementById('filtro-territorio').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-area').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-lider').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
+
+document.getElementById('btn-quitar-filtros-votantes').addEventListener('click', () => {
+  document.getElementById('filtro-busqueda').value = '';
+  document.getElementById('filtro-categoria').value = '';
+  document.getElementById('filtro-area').value = '';
+  document.getElementById('filtro-zona').value = '';
+  poblarFiltroTerritorio();
+  document.getElementById('filtro-territorio').value = '';
+  document.getElementById('filtro-lider').value = '';
+  document.getElementById('filtro-apoya-a').value = '';
+  refiltrarVotantes();
+});
+
+document.getElementById('btn-exportar-filtrados-votantes').addEventListener('click', () => {
+  const params = construirParametrosFiltroVotantes();
+  window.open(`/api/votantes/exportar-excel?${params.toString()}`, '_blank');
+});
+
+// --- Cascada de ubicación (Área -> Comuna/Barrio o Corregimiento/Vereda) para Nuevo contacto ---
+
+/**
+ * Busca en lo ya creado (Estructura territorial > Gestionar territorios)
+ * el municipio que coincide con el Departamento/Ciudad de residencia
+ * escritos en el formulario — para mostrar solo las comunas/barrios/
+ * corregimientos/veredas que de verdad pertenecen a esa ciudad, no las
+ * de todas las ciudades que existan en el sistema.
+ */
+function buscarMunicipioResidenciaVotante() {
+  const nombreDepto = normalizarTexto(document.getElementById('input-departamento-residencia-votante').value);
+  const nombreMuni = normalizarTexto(document.getElementById('input-ciudad-residencia-votante').value);
+  if (!nombreMuni) return null;
+  const depto = territorios.find(t => t.tipo === 'departamento' && normalizarTexto(t.nombre) === nombreDepto);
+  return territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombreMuni && (!depto || t.padre_id === depto.id)) || null;
+}
+
+/**
+ * Municipio al que pertenece el área de influencia. En campaña
+ * departamental sale del campo Municipio propio del apartado; en las demás
+ * sigue saliendo de la Ciudad de residencia, como siempre.
+ */
+function municipioDeInfluenciaVotante() {
+  if (!ambitoDepartamental) return buscarMunicipioResidenciaVotante();
+  const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-votante').value);
+  if (!nombre) return null;
+  return territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre) || null;
+}
+
+/**
+ * Qué territorios existen de verdad bajo ese municipio — para no exigir un
+ * Barrio donde no hay ninguno creado. El catálogo trae municipios y
+ * veredas; comunas, corregimientos y barrios solo existen si la campaña
+ * los creó.
+ */
+function disponiblesEnMunicipioVotante() {
+  const municipio = municipioDeInfluenciaVotante();
+  if (!municipio) return { municipio: null, comunas: [], barrios: [], corregimientos: [], veredas: [] };
+  const comunas = territorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id);
+  const corregimientos = territorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id);
+  const idsComunas = new Set(comunas.map(c => c.id));
+  const idsCorregimientos = new Set(corregimientos.map(c => c.id));
+  return {
+    municipio, comunas, corregimientos,
+    barrios: territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || t.padre_id === municipio.id)),
+    veredas: territorios.filter(t => t.tipo === 'vereda' && (idsCorregimientos.has(t.padre_id) || t.padre_id === municipio.id))
+  };
+}
+
+/** Llena el desplegable de Municipio del área de influencia (solo campaña departamental). */
+function poblarMunicipiosInfluenciaVotante() {
+  if (!ambitoDepartamental) return;
+  const municipios = territorios.filter(t => t.tipo === 'municipio')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('lista-municipios-influencia-votante').innerHTML =
+    municipios.map(m => `<option value="${m.nombre}">`).join('');
+  document.getElementById('contador-municipios-influencia-votante').textContent =
+    municipios.length ? `${municipios.length} municipio(s) del departamento.` : 'No hay municipios cargados todavía.';
+}
+
+function poblarListasUbicacionVotante() {
+  poblarMunicipiosInfluenciaVotante();
+  // Solo se muestran las comunas/corregimientos que pertenecen al
+  // municipio elegido como Ciudad de residencia — así, si el sistema
+  // llega a tener territorios de más de una ciudad, no se mezclan.
+  const municipio = municipioDeInfluenciaVotante();
+  const comunas = municipio ? territorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
+  const corregimientos = municipio ? territorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
+  document.getElementById('lista-comunas-votante').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('lista-corregimientos-votante').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  actualizarBarriosVotante();
+  actualizarVeredasVotante();
+}
+
+function actualizarBarriosVotante() {
+  // Si la ciudad no tiene comunas, el campo Comuna está oculto — el Barrio
+  // se busca directo entre TODOS los del municipio, incluyendo los que
+  // cuelgan del municipio sin comuna intermedia.
+  const nombreComuna = ciudadTieneComunas ? normalizarTexto(document.getElementById('input-comuna-votante').value) : '';
+  const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+  let barrios;
+  if (comuna) {
+    barrios = territorios.filter(t => t.tipo === 'barrio' && t.padre_id === comuna.id);
+  } else {
+    // Sin una Comuna reconocida todavía (o si la ciudad no tiene comunas),
+    // se muestran TODOS los barrios del municipio — así se puede escribir
+    // el Barrio directamente sin saber antes a qué Comuna pertenece; al
+    // reconocerlo, la Comuna se completa sola.
+    const municipio = municipioDeInfluenciaVotante();
+    const idsComunas = new Set(territorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    barrios = territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('lista-barrios-votante').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+  document.getElementById('contador-barrios-votante').textContent =
+    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
+}
+
+function actualizarVeredasVotante() {
+  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+  const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+  let veredas;
+  if (corregimiento) {
+    veredas = territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id);
+  } else {
+    // Mismo criterio que en Barrio: sin Corregimiento reconocido, se
+    // muestran todas las veredas del municipio.
+    const municipio = municipioDeInfluenciaVotante();
+    const idsCorregimientos = new Set(territorios.filter(t => t.tipo === 'corregimiento' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    veredas = territorios.filter(t => t.tipo === 'vereda' &&
+      (idsCorregimientos.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('lista-veredas-votante').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+  document.getElementById('contador-veredas-votante').textContent =
+    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
+}
+
+document.getElementById('input-municipio-influencia-votante').addEventListener('input', () => {
+  poblarListasUbicacionVotante();
+});
+document.getElementById('input-comuna-votante').addEventListener('input', () => {
+  actualizarBarriosVotante();
+  actualizarLiderPorTerritorioInfluencia();
+});
+document.getElementById('input-corregimiento-votante').addEventListener('input', () => {
+  actualizarVeredasVotante();
+  actualizarLiderPorTerritorioInfluencia();
+});
+/** Si lo que se escribió coincide con un Barrio ya creado, se autocompleta la Comuna a la que pertenece (así no hace falta saberla de antemano). */
+document.getElementById('input-barrio-votante').addEventListener('input', () => {
+  const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-votante').value);
+  const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+  if (barrio) {
+    const comuna = territorios.find(t => t.id === barrio.padre_id);
+    if (comuna && normalizarTexto(document.getElementById('input-comuna-votante').value) !== normalizarTexto(comuna.nombre)) {
+      document.getElementById('input-comuna-votante').value = comuna.nombre;
+      actualizarBarriosVotante();
+    }
+  }
+  actualizarLiderPorTerritorioInfluencia();
+});
+/** Mismo autocompletado, para Vereda -> Corregimiento. */
+document.getElementById('input-vereda-votante').addEventListener('input', () => {
+  const nombreVereda = normalizarTexto(document.getElementById('input-vereda-votante').value);
+  const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+  if (vereda) {
+    const corregimiento = territorios.find(t => t.id === vereda.padre_id);
+    if (corregimiento && normalizarTexto(document.getElementById('input-corregimiento-votante').value) !== normalizarTexto(corregimiento.nombre)) {
+      document.getElementById('input-corregimiento-votante').value = corregimiento.nombre;
+      actualizarVeredasVotante();
+    }
+  }
+  actualizarLiderPorTerritorioInfluencia();
+});
+
+document.getElementById('select-area-votante').addEventListener('change', (e) => {
+  document.getElementById('fila-urbano-votante').style.display = e.target.value === 'urbano' ? 'flex' : 'none';
+  document.getElementById('fila-rural-votante').style.display = e.target.value === 'rural' ? 'flex' : 'none';
+  if (e.target.value === 'urbano') actualizarBarriosVotante();
+  if (e.target.value === 'rural') actualizarVeredasVotante();
+  actualizarLiderPorTerritorioInfluencia();
+});
+
+/**
+ * Resuelve el territorio_id (Barrio o Vereda) a partir de lo escrito en la
+ * cascada. A diferencia de "Agregar a la estructura", aquí el área es
+ * opcional: si el usuario no la sabe, el contacto se guarda sin territorio
+ * (solo con la dirección, que igual queda georreferenciada si es válida).
+ */
+function resolverTerritorioVotante() {
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  const esOrganizacion = esSublider && document.getElementById('chk-area-influencia-votante-organizacion').checked;
+  if (esOrganizacion) {
+    const nombreOrg = document.getElementById('input-organizacion-votante').value.trim();
+    if (!nombreOrg) return { error: 'Escriba el nombre de la organización.' };
+    return { territorioId: null, area: null };
+  }
+
+  const area = document.getElementById('select-area-votante').value;
+  if (!area) return { territorioId: null, area: null };
+
+  // En campaña departamental el Municipio ancla todo lo de abajo.
+  const disp = disponiblesEnMunicipioVotante();
+  if (ambitoDepartamental && !disp.municipio) {
+    return { error: 'Seleccione el municipio del área de influencia, o deje el área sin especificar.' };
+  }
+  // Territorio con el que se guarda cuando el nivel pedido no existe en ese
+  // municipio: se sube al que sí exista y, en último caso, al municipio.
+  const territorioMasFino = () => ({ territorioId: disp.municipio ? disp.municipio.id : null, area });
+
+  if (area === 'urbano') {
+    // Si "¿Utilizar nombre de barrios?" está en No, se asigna directo a la
+    // Comuna (Barrio queda oculto). Si la ciudad tampoco usa comunas, se
+    // guarda sin territorio geográfico (nada que exigir).
+    if (!usarNombreBarrios) {
+      const nombreComuna = normalizarTexto(document.getElementById('input-comuna-votante').value);
+      const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      if (!comuna) {
+        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Seleccione una comuna de la lista, o deje el área sin especificar.' };
+        return territorioMasFino();
+      }
+      return { territorioId: comuna.id, area };
+    }
+    const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-votante').value);
+    if (!nombreBarrio) {
+      if (disp.barrios.length) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
+      // Sin barrios creados en ese municipio se baja al mayor detalle que
+      // sí exista: la comuna escrita, si la hay, y si no el municipio.
+      const nombreComuna = normalizarTexto(document.getElementById('input-comuna-votante').value);
+      const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      return comuna ? { territorioId: comuna.id, area } : territorioMasFino();
+    }
+    const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Estructura territorial > Gestionar territorios".' };
+    return { territorioId: barrio.id, area };
+  }
+  if (area === 'rural') {
+    const nombreVereda = normalizarTexto(document.getElementById('input-vereda-votante').value);
+    if (!nombreVereda) {
+      if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
+      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+      const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+      return corregimiento ? { territorioId: corregimiento.id, area } : territorioMasFino();
+    }
+    const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+    if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Estructura territorial > Gestionar territorios".' };
+    return { territorioId: vereda.id, area };
+  }
+  return { territorioId: null, area: null };
+}
+
+/**
+ * Muestra la sección "TERRITORIO O ÁREA DE INFLUENCIA" (con las casillas
+ * Territorio/Organización) solo cuando la categoría es Sublíder — para
+ * Votante se mantiene el campo "Área" simple de siempre. Organización
+ * oculta la cascada geográfica y muestra el nombre de la organización.
+ */
+function actualizarSeccionTerritorioVotante() {
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  document.getElementById('titulo-territorio-influencia-votante').style.display = esSublider ? 'block' : 'none';
+  document.getElementById('campo-area-influencia-votante').style.display = esSublider ? 'block' : 'none';
+  // El Municipio del área de influencia solo tiene sentido para un
+  // Sublíder (los votantes no tienen área propia) y solo en campaña
+  // departamental, donde hay más de un municipio en juego.
+  document.getElementById('campo-municipio-influencia-votante').style.display =
+    (esSublider && ambitoDepartamental) ? 'block' : 'none';
+  document.getElementById('etiqueta-area-votante').textContent = esSublider ? 'Área' : 'Área';
+
+  const esOrganizacion = esSublider && document.getElementById('chk-area-influencia-votante-organizacion').checked;
+  document.getElementById('campo-organizacion-votante').style.display = esOrganizacion ? 'block' : 'none';
+  document.getElementById('campo-area-votante-normal').style.display = esOrganizacion ? 'none' : 'block';
+  if (esOrganizacion) {
+    document.getElementById('fila-urbano-votante').style.display = 'none';
+    document.getElementById('fila-rural-votante').style.display = 'none';
+  }
+}
+document.getElementById('chk-area-influencia-votante-territorio').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-area-influencia-votante-organizacion').checked = false;
+  else if (!document.getElementById('chk-area-influencia-votante-organizacion').checked) e.target.checked = true;
+  actualizarSeccionTerritorioVotante();
+});
+document.getElementById('chk-area-influencia-votante-organizacion').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-area-influencia-votante-territorio').checked = false;
+  else if (!document.getElementById('chk-area-influencia-votante-territorio').checked) e.target.checked = true;
+  actualizarSeccionTerritorioVotante();
+});
+
+/** Precarga Área/Comuna/Barrio o Corregimiento/Vereda a partir de un territorio_id existente (modo edición). */
+/** Sube por padre_id hasta encontrar el municipio del que cuelga un territorio. */
+function municipioDeTerritorioVotante(territorio) {
+  let actual = territorio;
+  let saltos = 0;
+  while (actual && actual.tipo !== 'municipio' && saltos < 6) {
+    actual = territorios.find(t => t.id === actual.padre_id);
+    saltos++;
+  }
+  return actual && actual.tipo === 'municipio' ? actual : null;
+}
+
+function precargarUbicacionVotante(territorioId) {
+  document.getElementById('select-area-votante').value = '';
+  document.getElementById('fila-urbano-votante').style.display = 'none';
+  document.getElementById('fila-rural-votante').style.display = 'none';
+  document.getElementById('input-municipio-influencia-votante').value = '';
+  document.getElementById('input-comuna-votante').value = '';
+  document.getElementById('input-barrio-votante').value = '';
+  document.getElementById('input-corregimiento-votante').value = '';
+  document.getElementById('input-vereda-votante').value = '';
+
+  const territorio = territorios.find(t => t.id === territorioId);
+  if (!territorio) return;
+
+  // El Municipio va primero: las listas de abajo cuelgan de él, así que si
+  // se llenara después saldrían vacías y borrarían lo ya precargado.
+  if (ambitoDepartamental) {
+    const municipio = municipioDeTerritorioVotante(territorio);
+    document.getElementById('input-municipio-influencia-votante').value = municipio ? municipio.nombre : '';
+    poblarListasUbicacionVotante();
+  }
+
+  if (territorio.tipo === 'barrio') {
+    document.getElementById('select-area-votante').value = 'urbano';
+    document.getElementById('fila-urbano-votante').style.display = 'flex';
+    const comuna = territorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-comuna-votante').value = comuna ? comuna.nombre : '';
+    actualizarBarriosVotante();
+    document.getElementById('input-barrio-votante').value = territorio.nombre;
+  } else if (territorio.tipo === 'vereda') {
+    document.getElementById('select-area-votante').value = 'rural';
+    document.getElementById('fila-rural-votante').style.display = 'flex';
+    const corregimiento = territorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-corregimiento-votante').value = corregimiento ? corregimiento.nombre : '';
+    actualizarVeredasVotante();
+    document.getElementById('input-vereda-votante').value = territorio.nombre;
+  } else if (territorio.tipo === 'comuna') {
+    // Un sublíder puede quedar asignado a la Comuna cuando el municipio no
+    // tiene barrios creados — antes esto no se precargaba y al editarlo se
+    // perdía el territorio en silencio.
+    document.getElementById('select-area-votante').value = 'urbano';
+    document.getElementById('fila-urbano-votante').style.display = 'flex';
+    document.getElementById('input-comuna-votante').value = territorio.nombre;
+    actualizarBarriosVotante();
+  } else if (territorio.tipo === 'corregimiento') {
+    document.getElementById('select-area-votante').value = 'rural';
+    document.getElementById('fila-rural-votante').style.display = 'flex';
+    document.getElementById('input-corregimiento-votante').value = territorio.nombre;
+    actualizarVeredasVotante();
+  }
+  // Si el territorio guardado es el municipio mismo (campaña departamental
+  // sin barrios ni veredas creados ahí), con el Municipio ya puesto arriba
+  // basta: no hay Área que deducir.
+}
+
+async function editarVotante(v) {
+  const form = document.getElementById('form-votante');
+  document.getElementById('titulo-modal').textContent = 'Editar votante o sublíder';
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-votante-error').classList.remove('visible');
+  document.getElementById('input-buscar-lider').value = '';
+  document.getElementById('resultados-buscar-lider').innerHTML = '';
+  Object.entries(v).forEach(([k, val]) => { if (form[k]) form[k].value = val ?? ''; });
+  actualizarLimiteMesaVotante();
+  form.telefono.value = formatoTelefonoColombia(v.telefono || '');
+  const apoyaAGuardadoVotante = Array.isArray(v.apoya_a) ? v.apoya_a : [];
+  form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardadoVotante.includes(c.value); });
+  actualizarCiudadesResidenciaVotante();
+  document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
+  document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
+  document.getElementById('categoria-votante-error').style.display = 'none';
+  document.getElementById('input-meta-votos-sublider').value = 0;
+  actualizarVisibilidadMetaVotosSublider();
+
+  const esOrganizacion = v.tipo_area_influencia === 'organizacion';
+  document.getElementById('chk-area-influencia-votante-territorio').checked = !esOrganizacion;
+  document.getElementById('chk-area-influencia-votante-organizacion').checked = esOrganizacion;
+  document.getElementById('input-organizacion-votante').value = v.organizacion || '';
+  actualizarSeccionTerritorioVotante();
+
+  identificacionVotanteDisponible = true;
+  document.getElementById('numero-votante-estado').textContent = '';
+  mostrarBotonLugarVotacionVotante(!!v.cedula);
+  const puedeAsignarTestigoElectoral = puedeAsignarTestigoElectoralVotante();
+  document.getElementById('campo-asignar-testigo-votante').style.display = puedeAsignarTestigoElectoral ? 'block' : 'none';
+  // Si esta persona YA es testigo electoral (viene marcado desde el propio
+  // listado — ver el LEFT JOIN a estructura en GET /votantes), la casilla
+  // aparece marcada y deshabilitada (no se puede reasignar por error), con
+  // su Puesto/Mesa ya cargados.
+  const yaEsTestigoVotante = !!v.testigo_estructura_id;
+  const chkTestigoEdicion = document.getElementById('chk-asignar-testigo-votante');
+  chkTestigoEdicion.checked = yaEsTestigoVotante;
+  chkTestigoEdicion.disabled = yaEsTestigoVotante;
+  document.querySelector(`#form-votante input[name="tipo_testigo_votante"][value="${v.testigo_tipo_testigo === 'puesto' ? 'puesto' : 'mesa'}"]`).checked = true;
+  mesaActualTestigoVotante = yaEsTestigoVotante ? v.testigo_mesa_votacion : null;
+  mesasActualesTestigoVotante = yaEsTestigoVotante ? (v.testigo_mesas_asignadas || []) : [];
+  estructuraIdTestigoVotante = yaEsTestigoVotante ? v.testigo_estructura_id : null;
+  // El Puesto donde vigila es su propio dato (ya no se copia del Lugar de
+  // votación), así que hay que precargarlo antes de calcular las mesas.
+  puestoActualTestigoVotante = yaEsTestigoVotante ? (v.testigo_puesto_votacion || '') : null;
+  document.getElementById('input-puesto-testigo-votante').value = yaEsTestigoVotante ? (v.testigo_puesto_votacion || '') : '';
+  // Acota la lista al municipio de Lugar de Votación en campaña
+  // departamental. Va después de poner el valor: asignar por código no
+  // dispara 'change', y así el puesto que ya tenía se conserva.
+  await filtrarPuestosTestigoPorMunicipioVotante();
+  if (puedeAsignarTestigoElectoral) await actualizarVisibilidadTipoTestigoVotante();
+  poblarListasUbicacionVotante();
+  if (!esOrganizacion) precargarUbicacionVotante(v.territorio_id);
+  await actualizarLiderPorTerritorioInfluencia(v.lider_id, v.lider_nombre);
+  // Se llama de nuevo, aparte, para que el Sublíder que ya tenía asignado
+  // quede seleccionado (la llamada anterior ya refrescó la lista, pero sin
+  // saber todavía cuál Sublíder conservar).
+  await actualizarSublideresPorLider(v.sublider_id, v.sublider_nombre);
+  document.getElementById('overlay-form').classList.add('abierto');
+}
+
+async function eliminarVotante(id) {
+  if (!confirm('¿Eliminar este contacto?')) return;
+  await api(`/votantes/${id}`, { method: 'DELETE' });
+  cargarVotantes();
+}
+
+/**
+ * "Datos verificados" la marcan solo Administrador y Asistente
+ * administrativo. Los demás roles ven la casilla —para saber si esa ficha
+ * ya se revisó— pero no la pueden mover. El servidor lo vuelve a exigir en
+ * PUT /votantes/:id/verificar: deshabilitar la casilla es comodidad, no
+ * seguridad.
+ */
+function puedeVerificarDatos() {
+  return ['admin', 'asistente_administrativo'].includes(usuarioActual.rol);
+}
+
+/**
+ * Marcar pide confirmación; DESMARCAR pide además la contraseña de un
+ * administrador — quitar una verificación ya hecha es lo que de verdad
+ * cuesta rehacer, así que es el paso que se protege.
+ *
+ * Pase lo que pase, la casilla se deja como esté de verdad en la base: si
+ * la persona cancela o el servidor rechaza, se devuelve a su estado
+ * anterior. Una casilla que se ve marcada sin estarlo es peor que no
+ * tenerla.
+ */
+document.getElementById('tbody-votantes').addEventListener('change', async (e) => {
+  const casilla = e.target.closest('.chk-datos-verificados');
+  if (!casilla) return;
+  const id = casilla.dataset.id;
+  const marcar = casilla.checked;
+
+  if (marcar) {
+    if (!confirm('¿Datos verificados correctamente?')) { casilla.checked = false; return; }
+  }
+  let password = null;
+  if (!marcar) {
+    password = await solicitarPasswordAdmin('Quitar la verificación de datos');
+    if (!password) { casilla.checked = true; return; }
+  }
+
+  casilla.disabled = true;
+  try {
+    await api(`/votantes/${id}/verificar`, {
+      method: 'PUT',
+      body: { datos_verificados: marcar, password }
+    });
+    casilla.title = marcar ? 'Datos verificados' : 'Sin verificar';
+  } catch (err) {
+    casilla.checked = !marcar; // se devuelve a como estaba
+    alert(err.message);
+  } finally {
+    casilla.disabled = !puedeVerificarDatos();
+  }
+});
+
+/** "Es también testigo electoral" solo se ofrece en el panel de escritorio, y solo a Administrador o Asistente administrativo — no a Coordinador, Líder ni Sublíder, aunque tengan permiso de editar/agregar Votantes. */
+function puedeAsignarTestigoElectoralVotante() {
+  return ['admin', 'asistente_administrativo'].includes(usuarioActual.rol);
+}
+
+// Estado de la Mesa/Puesto que YA tiene asignados como testigo electoral la
+// persona que se está editando (si aplica) — se llenan en editarVotante() a
+// partir de lo que devuelve GET /votantes, y se usan acá abajo para que la
+// disponibilidad de mesas no cuente como "ocupada" su propia mesa actual, y
+// para dejarla pre-marcada en el desplegable/casillas.
+let mesaActualTestigoVotante = null;
+let mesasActualesTestigoVotante = [];
+let estructuraIdTestigoVotante = null;
+// Ver la nota del mismo campo en territorial.html.
+let puestoActualTestigoVotante = null;
+
+/**
+ * Solo tiene sentido elegir Testigo electoral/Coordinador de puesto (y su
+ * Mesa) si se marcó "Es también testigo electoral". El Coordinador de
+ * puesto cubre varias mesas (casillas de verificación); el Testigo
+ * electoral cubre una sola (lista desplegable con las que quedan
+ * disponibles en el Puesto elegido arriba).
+ */
+async function actualizarVisibilidadTipoTestigoVotante() {
+  const marcado = document.getElementById('chk-asignar-testigo-votante').checked;
+  document.getElementById('opciones-tipo-testigo-votante').style.display = marcado ? 'block' : 'none';
+  if (!marcado) return;
+
+  const esPuesto = document.querySelector('#form-votante input[name="tipo_testigo_votante"]:checked').value === 'puesto';
+  document.getElementById('campo-mesa-testigo-votante').style.display = esPuesto ? 'none' : 'block';
+  document.getElementById('campo-mesas-multiples-testigo-votante').style.display = esPuesto ? 'block' : 'none';
+
+  // El Puesto donde VIGILA es independiente del de "Lugar de votación" de
+  // arriba: una persona puede votar en un puesto y ser testigo en otro. Se
+  // lee de este mismo panel, no del de arriba.
+  const puesto = document.getElementById('input-puesto-testigo-votante').value;
+  // Si se cambió de puesto, la mesa del anterior no se arrastra: en el
+  // puesto nuevo podría estar ocupada y el servidor rechazaría el guardado.
+  const mismoPuesto = puesto === puestoActualTestigoVotante;
+  const disponibilidad = await consultarMesasDisponibles(puesto, estructuraIdTestigoVotante || 0);
+  if (esPuesto) {
+    poblarCasillasMesasTestigo(document.getElementById('casillas-mesas-testigo-votante'), disponibilidad,
+      mismoPuesto ? mesasActualesTestigoVotante : []);
+  } else {
+    poblarSelectMesaTestigo(document.getElementById('input-mesa-testigo-votante'), disponibilidad,
+      mismoPuesto ? mesaActualTestigoVotante : null);
+  }
+}
+
+/**
+ * En campaña departamental, el desplegable de Puesto de la sección de
+ * testigo se acota al Municipio elegido en Lugar de Votación.
+ *
+ * Sin esto la lista trae los puestos de TODO el departamento —en Quindío
+ * son 130 de doce municipios— y elegir ahí no orienta a nadie. En campaña
+ * municipal no se toca nada: hay un solo municipio y la lista completa ya
+ * es la correcta.
+ *
+ * Si la consulta falla (por ejemplo sin señal) se deja la lista completa
+ * que ya estaba: es preferible una lista larga a un desplegable vacío.
+ */
+async function filtrarPuestosTestigoPorMunicipioVotante() {
+  const select = document.getElementById('input-puesto-testigo-votante');
+  if (!ambitoDepartamental) return;
+  const municipio = document.getElementById('input-municipio-votacion-votante').value.trim();
+  const elegido = select.value;
+  let nombres;
+  if (!municipio) {
+    // Sin municipio todavía, se ofrece la lista completa en vez de vaciarla.
+    nombres = puestosVotacionCacheVotante || [];
+  } else {
+    try {
+      nombres = await api(`/dia-d/puestos-para-reporte?municipio=${encodeURIComponent(municipio)}`);
+    } catch (e) {
+      return; // se queda con lo que ya había
+    }
+  }
+  select.innerHTML = '<option value="">Seleccione...</option>' +
+    nombres.map(p => `<option value="${p}">${p}</option>`).join('');
+  // El puesto que ya tenía se conserva aunque no esté en el municipio nuevo:
+  // borrarlo en silencio le cambiaría el puesto a un testigo ya asignado.
+  if (elegido) {
+    if (!nombres.includes(elegido)) {
+      select.insertAdjacentHTML('beforeend', `<option value="${elegido}">${elegido}</option>`);
+    }
+    select.value = elegido;
+  }
+}
+
+document.getElementById('input-municipio-votacion-votante').addEventListener('change', () => filtrarPuestosTestigoPorMunicipioVotante());
+document.getElementById('chk-asignar-testigo-votante').addEventListener('change', () => filtrarPuestosTestigoPorMunicipioVotante());
+
+document.getElementById('chk-asignar-testigo-votante').addEventListener('change', actualizarVisibilidadTipoTestigoVotante);
+document.querySelectorAll('#form-votante input[name="tipo_testigo_votante"]').forEach(r => r.addEventListener('change', actualizarVisibilidadTipoTestigoVotante));
+
+/** Al cambiar el Puesto donde vigila, se vuelven a calcular las mesas libres de ESE puesto. No toca el Lugar de votación de arriba. */
+document.getElementById('input-puesto-testigo-votante').addEventListener('change', actualizarVisibilidadTipoTestigoVotante);
+
+/** Al marcar "Es también testigo electoral" sin haber elegido todavía un Puesto, se activa ese desplegable — se le lleva el foco y se abre solo, para que la persona lo complete de una vez (lo necesita para poder elegir la Mesa). */
+document.getElementById('chk-asignar-testigo-votante').addEventListener('change', (e) => {
+  if (!e.target.checked) return;
+  const selectPuesto = document.getElementById('input-puesto-testigo-votante');
+  if (selectPuesto.value) return;
+  selectPuesto.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  selectPuesto.focus();
+  if (typeof selectPuesto.showPicker === 'function') {
+    try { selectPuesto.showPicker(); } catch (err) { /* No soportado en este navegador — se deja el foco nada más. */ }
+  }
+});
+
+// "Votante" y "Sublíder" son mutuamente excluyentes (aunque son casillas de
+// verificación, solo una de las dos puede quedar marcada a la vez).
+function actualizarVisibilidadMetaVotosSublider() {
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  document.getElementById('campo-meta-votos-sublider').style.display = esSublider ? 'flex' : 'none';
+}
+document.getElementById('chk-categoria-votante').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-categoria-sublider').checked = false;
+  actualizarSeccionTerritorioVotante();
+  actualizarVisibilidadMetaVotosSublider();
+  // Vuelve a calcular "Líder o coordinador que lo refirió" según el
+  // Barrio/Vereda ya elegido, por si la lista había quedado desactualizada.
+  actualizarLiderPorTerritorioInfluencia();
+});
+document.getElementById('chk-categoria-sublider').addEventListener('change', (e) => {
+  if (e.target.checked) document.getElementById('chk-categoria-votante').checked = false;
+  actualizarSeccionTerritorioVotante();
+  actualizarVisibilidadMetaVotosSublider();
+  actualizarLiderPorTerritorioInfluencia();
+});
+
+document.getElementById('btn-nuevo').addEventListener('click', async () => {
+  document.getElementById('form-votante').reset();
+  document.getElementById('form-votante').id.value = '';
+  cantidadMesasPuestoVotante = 0;
+  document.getElementById('contador-mesas-votante').textContent = '';
+  document.getElementById('titulo-modal').textContent = 'Nuevo votante o sublíder';
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-votante-error').classList.remove('visible');
+  document.getElementById('resultados-buscar-lider').innerHTML = '';
+  // "Votante" viene marcado, igual que en el formulario de la app móvil
+  // (chip-votante nace con la clase `activo`): es la opción de lejos más
+  // frecuente, y así el selector se ve elegido en vez de dos recuadros en
+  // blanco. Quien registre un Sublíder solo tiene que pulsar el otro botón.
+  document.getElementById('chk-categoria-votante').checked = true;
+  document.getElementById('chk-categoria-sublider').checked = false;
+  document.getElementById('categoria-votante-error').style.display = 'none';
+  document.getElementById('input-meta-votos-sublider').value = 0;
+  actualizarVisibilidadMetaVotosSublider();
+  document.getElementById('chk-area-influencia-votante-territorio').checked = true;
+  document.getElementById('chk-area-influencia-votante-organizacion').checked = false;
+  document.getElementById('input-organizacion-votante').value = '';
+  actualizarSeccionTerritorioVotante();
+  document.getElementById('fila-urbano-votante').style.display = 'none';
+  document.getElementById('fila-rural-votante').style.display = 'none';
+  identificacionVotanteDisponible = true;
+  document.getElementById('numero-votante-estado').textContent = '';
+  mostrarBotonLugarVotacionVotante(false);
+  document.getElementById('campo-asignar-testigo-votante').style.display = puedeAsignarTestigoElectoralVotante() ? 'block' : 'none';
+  document.getElementById('chk-asignar-testigo-votante').checked = false;
+  document.getElementById('chk-asignar-testigo-votante').disabled = false;
+  document.querySelector('#form-votante input[name="tipo_testigo_votante"][value="mesa"]').checked = true;
+  mesaActualTestigoVotante = null;
+  mesasActualesTestigoVotante = [];
+  estructuraIdTestigoVotante = null;
+  puestoActualTestigoVotante = null;
+  document.getElementById('select-lider').innerHTML = '<option value="">Yo mismo / no aplica</option>';
+  document.getElementById('select-sublider-votante').innerHTML = '<option value="">Ninguno</option>';
+  poblarListasUbicacionVotante();
+
+  // Auto-llena Departamento/Ciudad de residencia Y Departamento/Municipio
+  // del Lugar de votación según el Cargo al que aspira y el
+  // Departamento/Ciudad configurados en Configuración → Datos de la
+  // campaña: Gobernación/Cámara/Asamblea solo traen Departamento;
+  // Alcaldía/Concejo/JAL traen Departamento y Ciudad/Municipio; Senado no
+  // trae nada (campaña nacional).
+  document.getElementById('input-departamento-residencia-votante').value = '';
+  document.getElementById('input-ciudad-residencia-votante').value = '';
+  document.getElementById('input-departamento-votacion-votante').value = '';
+  document.getElementById('input-municipio-votacion-votante').value = '';
+  try {
+    const config = await api('/configuracion/campana');
+    const cargo = config.cargo_aspira;
+    if (['gobernacion', 'camara_representantes', 'asamblea'].includes(cargo)) {
+      document.getElementById('input-departamento-residencia-votante').value = config.departamento || '';
+      document.getElementById('input-departamento-votacion-votante').value = config.departamento || '';
+    } else if (['alcaldia', 'concejo', 'jal'].includes(cargo)) {
+      document.getElementById('input-departamento-residencia-votante').value = config.departamento || '';
+      document.getElementById('input-ciudad-residencia-votante').value = config.ciudad || '';
+      document.getElementById('input-departamento-votacion-votante').value = config.departamento || '';
+      document.getElementById('input-municipio-votacion-votante').value = config.ciudad || '';
+    }
+    actualizarCiudadesResidenciaVotante();
+    // El campo de Municipio de votación depende del Departamento de
+    // votación elegido (mismo mecanismo de la cascada de residencia) — se
+    // repuebla a mano porque el valor de arriba se puso por código, sin
+    // disparar el evento "input" que normalmente lo actualizaría.
+    actualizarMunicipiosVotacionVotante();
+    // Mismo motivo: las opciones de Comuna/Barrio/Corregimiento/Vereda
+    // dependen de la Ciudad de residencia, que se acaba de poner por
+    // código arriba — se repueblan a mano.
+    poblarListasUbicacionVotante();
+  } catch (e) { /* si falla, se deja en blanco sin interrumpir el formulario */ }
+
+  document.getElementById('overlay-form').classList.add('abierto');
+});
+document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+document.getElementById('filtro-busqueda').addEventListener('input', debounce(refiltrarVotantes, 350));
+document.getElementById('filtro-apoya-a').addEventListener('change', refiltrarVotantes);
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+let identificacionVotanteDisponible = true;
+
+document.getElementById('input-numero-votante').addEventListener('input', () => {
+  const numero = document.getElementById('input-numero-votante').value.trim();
+  mostrarBotonLugarVotacionVotante(!!numero);
+});
+
+/** Muestra u oculta juntos el botón de consulta y la nota de qué copiar. */
+function mostrarBotonLugarVotacionVotante(mostrar) {
+  document.getElementById('btn-lugar-votacion-votante').style.display = mostrar ? 'inline-block' : 'none';
+  document.getElementById('nota-copiar-lugar-votacion-votante').style.display = mostrar ? 'block' : 'none';
+}
+document.getElementById('btn-lugar-votacion-votante').addEventListener('click', () => {
+  const ancho = 480;
+  const alto = Math.min(window.screen.availHeight, 800);
+  const izquierda = window.screen.availWidth - ancho;
+  window.open(
+    'https://wsp.registraduria.gov.co/censo/consultar/',
+    'consultaLugarVotacion',
+    `width=${ancho},height=${alto},left=${izquierda},top=0,noopener`
+  );
+});
+
+document.getElementById('input-numero-votante').addEventListener('input', debounce(async () => {
+  const numero = document.getElementById('input-numero-votante').value.trim();
+  const estadoEl = document.getElementById('numero-votante-estado');
+  if (!numero) {
+    identificacionVotanteDisponible = true;
+    estadoEl.textContent = '';
+    return;
+  }
+  estadoEl.style.color = 'var(--color-text-muted)';
+  estadoEl.textContent = 'Verificando...';
+  try {
+    const params = new URLSearchParams({ numero });
+    const idActual = document.getElementById('form-votante').id.value;
+    if (idActual) params.set('excluir_id', idActual);
+    const r = await api(`/votantes/verificar-identificacion?${params.toString()}`);
+    identificacionVotanteDisponible = r.disponible;
+    estadoEl.style.color = r.disponible ? 'var(--color-confirmado, #1E7245)' : 'var(--color-no-apoya, #A93226)';
+    estadoEl.textContent = r.disponible ? '' : 'Ya registrado por otro líder.';
+  } catch (err) {
+    identificacionVotanteDisponible = true;
+    estadoEl.textContent = '';
+  }
+}, 400));
+
+// Avisa (sin bloquear) si ya existe un contacto parecido por nombre o
+// teléfono — más útil justo cuando la fila no trae cédula (ahí la
+// restricción UNIQUE de la tabla no puede avisar de un duplicado por sí
+// sola). No impide guardar: dos personas distintas pueden compartir
+// nombre, la decisión la deja quien está registrando.
+document.querySelectorAll('#form-votante [name="nombre"], #form-votante [name="telefono"]').forEach(input => {
+  input.addEventListener('input', debounce(async () => {
+    const nombre = document.querySelector('#form-votante [name="nombre"]').value.trim();
+    const estadoEl = document.getElementById('duplicado-votante-estado');
+    if (!nombre) { estadoEl.textContent = ''; return; }
+    try {
+      const telefono = document.querySelector('#form-votante [name="telefono"]').value.replace(/\D/g, '');
+      const params = new URLSearchParams({ nombre, telefono });
+      const idActual = document.getElementById('form-votante').id.value;
+      if (idActual) params.set('excluir_id', idActual);
+      const r = await api(`/votantes/verificar-duplicado?${params.toString()}`);
+      if (r.coincidencias && r.coincidencias.length) {
+        const c = r.coincidencias[0];
+        estadoEl.textContent = c.porTelefono
+          ? `⚠ Ya existe un registro con ese mismo teléfono: ${c.nombreCompleto}.`
+          : `⚠ Ya existe un registro con un nombre parecido: ${c.nombreCompleto}.`;
+      } else {
+        estadoEl.textContent = '';
+      }
+    } catch (err) {
+      estadoEl.textContent = '';
+    }
+  }, 500));
+});
+
+/**
+ * Captura sin conexión: si al crear un votante/sublíder no hay señal
+ * (esErrorDeRed, ver api-core.js), el registro se guarda en este
+ * computador (IndexedDB, ver /js/offline-utils.js) y se reintenta solo
+ * más tarde — al recuperar conexión, al volver a cargar la página, o con
+ * el botón "Subir ahora". El cliente_uuid evita duplicar el registro si
+ * el reintento llega dos veces al servidor.
+ */
+async function actualizarAvisoColaOfflineVotantes() {
+  let cola = [];
+  try { cola = await listarColaOffline('votantes_pendientes'); } catch (err) { return; }
+  const pendientes = cola.filter(r => r.estado !== 'fallido');
+  const fallidos = cola.filter(r => r.estado === 'fallido');
+  const aviso = document.getElementById('aviso-cola-offline');
+
+  if (!pendientes.length && !fallidos.length) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+  aviso.style.display = 'block';
+  aviso.innerHTML = `
+    ${pendientes.length ? `<div style="display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+      <span>📶 ${pendientes.length} registro(s) guardados en este computador, pendientes de subir.</span>
+      <button type="button" class="btn-secundario btn-sm" id="btn-subir-cola-ahora-votantes">Subir ahora</button>
+    </div>` : ''}
+    ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
+      ⚠ ${fallidos.length} registro(s) no se pudieron subir — revísalos: ${fallidos.map(f => `${f.payload.nombre} (${f.error || 'error desconocido'})`).join(', ')}
+    </div>` : ''}
+  `;
+  const btnSubir = document.getElementById('btn-subir-cola-ahora-votantes');
+  if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOfflineVotantes());
+}
+
+async function sincronizarColaOfflineVotantes() {
+  await sincronizarCola('votantes_pendientes', '/votantes', (registro) => registro.payload);
+  await actualizarAvisoColaOfflineVotantes();
+  await cargarVotantes();
+}
+
+document.getElementById('form-votante').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-error');
+  const territorioErrorBox = document.getElementById('territorio-votante-error');
+  const categoriaErrorBox = document.getElementById('categoria-votante-error');
+  errorBox.classList.remove('visible');
+  territorioErrorBox.classList.remove('visible');
+  categoriaErrorBox.style.display = 'none';
+
+  if (!validarTelefonosFormulario('#form-votante [name="telefono"]')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const esVotante = document.getElementById('chk-categoria-votante').checked;
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  if (!esVotante && !esSublider) {
+    categoriaErrorBox.style.display = 'block';
+    document.getElementById('campo-categoria-votante').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  const resuelto = resolverTerritorioVotante();
+  if (resuelto.error) {
+    territorioErrorBox.textContent = resuelto.error;
+    territorioErrorBox.classList.add('visible');
+    return;
+  }
+
+  if (!identificacionVotanteDisponible) {
+    errorBox.textContent = 'Ya registrado por otro líder.';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const datos = Object.fromEntries(new FormData(e.target));
+  const id = datos.id;
+  delete datos.id;
+  datos.categoria = esVotante ? 'votante' : 'sublider';
+  datos.telefono = (datos.telefono || '').replace(/\D/g, '');
+  datos.territorio_id = resuelto.territorioId || '';
+  datos.area = resuelto.area || '';
+  datos.tipo_area_influencia = document.getElementById('chk-area-influencia-votante-organizacion').checked ? 'organizacion' : 'territorio';
+  datos.organizacion = document.getElementById('input-organizacion-votante').value;
+  // Object.fromEntries se queda solo con el último valor si hay varios
+  // campos con el mismo "name" (como pasa con estas casillas) — se
+  // recogen a mano para no perder las demás que estén marcadas.
+  datos.apoya_a = Array.from(e.target.querySelectorAll('input[name="apoya_a"]:checked')).map(c => c.value);
+
+  // Solo se registra sin conexión al CREAR (no al editar): editar sin
+  // conexión un registro que alguien más pudo haber modificado mientras
+  // tanto es un riesgo real de sobrescribir cambios sin darse cuenta, así
+  // que esa acción sigue necesitando señal.
+  if (!id) datos.cliente_uuid = generarUuid();
+
+  try {
+    let respuesta;
+    if (id) respuesta = await api(`/votantes/${id}`, { method: 'PUT', body: datos });
+    else respuesta = await api('/votantes', { method: 'POST', body: datos });
+    document.getElementById('overlay-form').classList.remove('abierto');
+    cargarVotantes();
+
+    if (datos.categoria === 'sublider' && respuesta.usuario_sublider) {
+      if (respuesta.usuario_sublider.creado) {
+        alert('Se creó la cuenta de acceso del sublíder: su Nombre de usuario y contraseña son su Número de identificación. Deberá cambiarla en su primer inicio de sesión.');
+      } else if (respuesta.usuario_sublider.motivo) {
+        alert(`Sublíder guardado, pero no se pudo crear su cuenta de acceso: ${respuesta.usuario_sublider.motivo}`);
+      }
+    }
+
+    const chkTestigo = document.getElementById('chk-asignar-testigo-votante');
+    const idParaTestigo = id || respuesta.id;
+    // Se envía también cuando la casilla está deshabilitada (o sea,
+    // cuando YA es testigo): ahí es justamente cuando se le está
+    // cambiando el puesto o la mesa donde vigila.
+    if (idParaTestigo && chkTestigo.checked) {
+      try {
+        const rTestigo = await api(`/votantes/${idParaTestigo}/asignar-testigo`, {
+          method: 'POST',
+          body: {
+            // El puesto/mesa donde VIGILA — del panel de testigo, no del
+            // Lugar de votación de arriba (son datos distintos).
+            // Departamento/Municipio los deduce el servidor del puesto.
+            puesto_votacion: document.getElementById('input-puesto-testigo-votante').value,
+            mesa_votacion: document.getElementById('input-mesa-testigo-votante').value,
+            tipo_testigo: document.querySelector('#form-votante input[name="tipo_testigo_votante"]:checked').value,
+            mesas_asignadas: leerMesasMarcadas(document.getElementById('casillas-mesas-testigo-votante'))
+          }
+        });
+        alert(rTestigo.cuenta_creada
+          ? 'Se le asignó la capacidad de testigo electoral. Se creó su cuenta de acceso: su Nombre de usuario y contraseña son su Número de identificación.'
+          : chkTestigo.disabled
+            ? 'Se actualizó su asignación como testigo electoral.'
+            : 'Se le asignó la capacidad de testigo electoral.');
+      } catch (errTestigo) {
+        alert(`No se pudo asignar como testigo electoral: ${errTestigo.message}`);
+      }
+    }
+  } catch (err) {
+    if (!id && err && err.esErrorDeRed) {
+      // Captura sin conexión: se guarda en este computador y se sube solo
+      // más adelante — ver sincronizarColaOfflineVotantes().
+      await guardarEnColaOffline('votantes_pendientes', {
+        clienteUuid: datos.cliente_uuid, payload: datos, creadoEn: Date.now(), estado: 'pendiente'
+      });
+      await actualizarAvisoColaOfflineVotantes();
+      document.getElementById('overlay-form').classList.remove('abierto');
+      alert('No hay señal en este momento. El registro quedó guardado en este computador y se subirá solo apenas vuelva la conexión.');
+      return;
+    }
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+document.getElementById('input-importar-votantes').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/votantes/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} contacto(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    alert(mensaje);
+    cargarVotantes();
+  } catch (err) {
+    alert('Error importando el archivo: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+document.getElementById('btn-regeocodificar-votantes').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a intentar ubicar en el mapa a todos los votantes/colaboradores que tienen Dirección de residencia pero aún no tienen coordenadas. Se procesan de a pocos por vez y puede tardar varios minutos en total (no cierres esta pestaña mientras corre). ¿Continuar?')) return;
+
+  const boton = document.getElementById('btn-regeocodificar-votantes');
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+
+  let totalGeocodificados = 0;
+  let totalFallidos = 0;
+  let totalProcesados = 0;
+  let cursor = 0; // avanza siempre hacia adelante: nunca vuelve a visitar un id ya procesado en esta corrida
+
+  try {
+    let quedanPendientes = 1;
+    let vueltas = 0;
+    const MAX_VUELTAS = 200; // límite de seguridad: nunca debería llegar aquí, pero evita un bucle infinito si algo falla
+    while (quedanPendientes > 0 && vueltas < MAX_VUELTAS) {
+      vueltas++;
+      boton.textContent = totalProcesados > 0
+        ? `Re-geocodificando... ${totalProcesados} procesado(s) hasta ahora`
+        : 'Re-geocodificando... esto puede tardar varios minutos';
+
+      const url = `/votantes/regeocodificar-pendientes?lote=5&despues_de=${cursor}`;
+      const r = await api(url, { method: 'POST' });
+      totalGeocodificados += r.geocodificados;
+      totalFallidos += r.fallidos;
+      totalProcesados += r.procesados;
+      quedanPendientes = r.quedanPendientes;
+      cursor = r.cursorSiguiente;
+
+      if (r.procesados === 0) break;
+    }
+
+    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} registro(s) quedaron ubicados en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''));
+    await cargarVotantes();
+  } catch (err) {
+    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+});
+
+document.getElementById('btn-regeocodificar-votantes-todos').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a calcular la ubicación de TODOS los votantes/colaboradores que tienen Dirección, incluso quienes ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Se procesa de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
+  const password = await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
+  if (!password) return;
+
+  const boton = document.getElementById('btn-regeocodificar-votantes-todos');
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+
+  let totalGeocodificados = 0;
+  let totalFallidos = 0;
+  let totalProcesados = 0;
+  let cursor = 0;
+
+  try {
+    let quedanPendientes = 1;
+    let vueltas = 0;
+    const MAX_VUELTAS = 400;
+    while (quedanPendientes > 0 && vueltas < MAX_VUELTAS) {
+      vueltas++;
+      boton.textContent = totalProcesados > 0
+        ? `Corrigiendo... ${totalProcesados} procesado(s) hasta ahora`
+        : 'Corrigiendo... esto puede tardar varios minutos';
+
+      const url = `/votantes/regeocodificar-pendientes?lote=5&todos=1&despues_de=${cursor}`;
+      const r = await api(url, { method: 'POST', body: { password } });
+      totalGeocodificados += r.geocodificados;
+      totalFallidos += r.fallidos;
+      totalProcesados += r.procesados;
+      quedanPendientes = r.quedanPendientes;
+      cursor = r.cursorSiguiente;
+
+      if (r.procesados === 0) break;
+    }
+
+    alert(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} registro(s).` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''));
+    await cargarVotantes();
+  } catch (err) {
+    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+});
+
+document.getElementById('btn-eliminar-votantes').addEventListener('click', async () => {
+  if (!confirm('¿Está seguro de eliminar TODOS los votantes y contactos? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de votantes');
+  if (!password) return;
+  try {
+    const r = await api('/votantes/eliminar-todo', { method: 'POST', body: { password } });
+    alert(`Se eliminaron ${r.eliminados} registro(s).`);
+    cargarVotantes();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// --- "Votantes estimados por puesto de votación": estimado agregado (sin
+// datos personales) de cuántos Votantes/Sublíderes registrados dicen votar
+// en cada Puesto configurado en Configuración → Día D, repartidos entre
+// sus Mesas — según lo que cada uno escribió en "Lugar de votación". ---
+
+function cambiarPestanaVotantes(pestana) {
+  document.getElementById('seccion-votantes').style.display = pestana === 'votantes' ? 'block' : 'none';
+  document.getElementById('seccion-estimado-puestos').style.display = pestana === 'estimado' ? 'block' : 'none';
+  document.getElementById('btn-tab-votantes').classList.toggle('btn-acento', pestana === 'votantes');
+  document.getElementById('btn-tab-votantes').classList.toggle('btn-secundario', pestana !== 'votantes');
+  document.getElementById('btn-tab-estimado-puestos').classList.toggle('btn-acento', pestana === 'estimado');
+  document.getElementById('btn-tab-estimado-puestos').classList.toggle('btn-secundario', pestana !== 'estimado');
+  if (pestana === 'estimado') cargarEstimadoPuestos();
+}
+document.getElementById('btn-tab-votantes').addEventListener('click', () => cambiarPestanaVotantes('votantes'));
+document.getElementById('btn-tab-estimado-puestos').addEventListener('click', () => cambiarPestanaVotantes('estimado'));
+
+async function cargarEstimadoPuestos() {
+  const tbody = document.getElementById('tbody-estimado-puestos');
+  tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted);">Cargando...</td></tr>';
+  let datos;
+  try {
+    datos = await api('/votantes/estimados-por-puesto');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--color-no-apoya, #A93226);">${err.message}</td></tr>`;
+    return;
+  }
+  const puestos = datos.puestos || [];
+  document.getElementById('vacio-estimado-puestos').style.display = puestos.length ? 'none' : 'block';
+
+  const totalGeneral = puestos.reduce((acc, p) => acc + p.total, 0);
+  document.getElementById('resumen-estimado-puestos').textContent =
+    `${totalGeneral} votante(s)/sublíder(es) con Puesto de votación registrado, repartidos en ${puestos.length} puesto(s) configurado(s).`;
+
+  tbody.innerHTML = puestos.map((p, i) => `
+    <tr>
+      <td>${p.puesto}</td>
+      <td>${p.cantidadMesas}</td>
+      <td class="mono">${p.total}</td>
+      <td><button type="button" class="btn-secundario btn-sm" onclick="alternarMesasEstimadoPuesto(${i})">Ver mesas</button></td>
+    </tr>
+    <tr id="fila-mesas-estimado-${i}" style="display:none;">
+      <td colspan="4">
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${p.mesas.map(m => `<span class="badge badge-mesa-estimado" style="${m.cantidad ? '' : 'opacity:0.55;'}">Mesa ${m.mesa}: <strong class="mono">${m.cantidad}</strong></span>`).join('')}
+          ${p.sinMesaValida ? `<span class="badge badge-indeciso">Sin mesa reconocida: <strong class="mono">${p.sinMesaValida}</strong></span>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  const noConfigurados = datos.puestosNoConfigurados || [];
+  document.getElementById('card-puestos-no-configurados').style.display = noConfigurados.length ? 'block' : 'none';
+  document.getElementById('tbody-puestos-no-configurados').innerHTML = noConfigurados.map(p => `
+    <tr><td>${p.puesto}</td><td class="mono">${p.total}</td></tr>
+  `).join('');
+}
+
+function alternarMesasEstimadoPuesto(i) {
+  const fila = document.getElementById(`fila-mesas-estimado-${i}`);
+  fila.style.display = fila.style.display === 'none' ? 'table-row' : 'none';
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/votantes.html');
+  if (!usuarioActual) return;
+
+  // El aviso de pendientes y el reintento al recuperar señal se activan
+  // ya mismo, sin depender de que el resto de la pantalla haya cargado —
+  // así, si se abre esta pantalla sin conexión teniendo registros
+  // guardados de antes, se siguen viendo y se siguen subiendo solos en
+  // cuanto vuelva la señal.
+  actualizarAvisoColaOfflineVotantes();
+  sincronizarColaOfflineVotantes();
+  window.addEventListener('online', () => sincronizarColaOfflineVotantes());
+
+  if (['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-exportar-excel-votantes').style.display = '';
+    document.getElementById('btn-exportar-filtrados-votantes').style.display = '';
+  }
+  if (!puedeAgregar(usuarioActual, 'votantes')) {
+    document.getElementById('btn-nuevo').style.display = 'none';
+    const inputImportar = document.getElementById('input-importar-votantes');
+    if (inputImportar) inputImportar.closest('label').style.display = 'none';
+  }
+  aplicarFormatoTelefono('#form-votante [name="telefono"]');
+  aplicarFormatoNombrePropio('#form-votante [name="nombre"]');
+  try {
+    const configCampana = await obtenerConCacheReferencia('configuracion_campana', () => api('/configuracion/campana'));
+    ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
+    usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
+    document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    // Encabezados y visibilidad de las columnas territoriales de la tabla.
+    // Esta tabla lee el ÁRBOL de territorios, así que el texto libre de
+    // residencia no cuenta (ver public/js/columnas-territoriales.js).
+    aplicarColumnasTerritoriales(configCampana);
+    ambitoDepartamental = ['gobernacion', 'asamblea'].includes(configCampana.cargo_aspira);
+    aplicarApoyosConfigurados('votante', configCampana.apoyos_activos);
+    aplicarApoyosATablaVotantes(configCampana.apoyos_activos);
+  } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
+  aplicarVisibilidadComunaVotante();
+  await cargarCatalogoColombiaVotante();
+  await cargarPuestosVotacionParaSelectVotante();
+  await cargarTerritorios();
+  await cargarLideresCoordinadoresTodos();
+  poblarFiltroZona();
+  poblarFiltroTerritorio();
+  await poblarFiltroLider();
+  await cargarVotantes();
+})();
+</script>
+  <script src="/js/lugar-votacion-catalogo.js"></script>
+</body>
+</html>

@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de votantes · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* Paleta categórica (para las vistas de dona) — 8 tonos validados para
+     distinguirse entre sí incluso con daltonismo; el orden importa, no se
+     deben reordenar ni repetir. Los gráficos de barras (comparar magnitud
+     entre muchas categorías) usan un solo tono — el azul de marca — en vez
+     de esta paleta, siguiendo la misma lógica de "un color = una medida". */
+  :root {
+    --serie-1: #2a78d6; --serie-2: #eb6834; --serie-3: #1baf7a; --serie-4: #eda100;
+    --serie-5: #e87ba4; --serie-6: #008300; --serie-7: #4a3aa7; --serie-8: #e34948;
+    --serie-otros: #9AA3AF;
+  }
+
+  .filtro-barra {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filtro-barra label { font-size: 0.82rem; color: var(--color-text-muted); font-weight: 600; }
+  .filtro-barra select { width: auto; min-width: 180px; }
+
+  .grafico-card { margin-bottom: 18px; }
+  .grafico-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+  }
+  .grafico-header h3 { margin: 0 0 2px; }
+  .grafico-subtitulo { margin: 0; color: var(--color-text-muted); font-size: 0.85rem; }
+  .grafico-toggle { display: flex; gap: 0; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; flex: none; }
+  .grafico-toggle button {
+    border: none; border-radius: 0; background: #fff; color: var(--color-text-muted);
+    padding: 7px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  }
+  .grafico-toggle button + button { border-left: 1px solid var(--color-border); }
+  .grafico-toggle button.activo { background: var(--color-marca); color: #fff; }
+
+  .grafico-header-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .grafico-exportar { display: flex; gap: 10px; flex: none; flex-wrap: wrap; }
+
+  /* Botones de exportación (encabezado + cada tarjeta): más grandes que un
+     botón secundario normal, con un color distintivo por tipo de archivo —
+     rojo para PDF, verde para Excel, la misma convención que usan Adobe y
+     las hojas de cálculo — para que se reconozcan de un vistazo. */
+  .btn-exportar {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 20px; font-size: 0.92rem; font-weight: 700;
+    border-radius: 10px; border: 1.5px solid transparent; cursor: pointer;
+    white-space: nowrap; transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .btn-exportar:active { transform: translateY(1px); }
+  .btn-exportar-pdf { background: #FCEDED; border-color: #EFC2C2; color: #A93226; }
+  .btn-exportar-pdf:hover { background: #A93226; border-color: #A93226; color: #fff; box-shadow: 0 3px 10px rgba(169, 50, 38, 0.28); }
+  .btn-exportar-xlsx { background: #E9F7EF; border-color: #B9E4C9; color: #1E7A46; }
+  .btn-exportar-xlsx:hover { background: #1E7A46; border-color: #1E7A46; color: #fff; box-shadow: 0 3px 10px rgba(30, 122, 70, 0.28); }
+  .btn-exportar-word { background: #E8EEFB; border-color: #C2D2F0; color: #1B4C9C; }
+  .btn-exportar-word:hover { background: #1B4C9C; border-color: #1B4C9C; color: #fff; box-shadow: 0 3px 10px rgba(27, 76, 156, 0.28); }
+
+  /* Botones "PDF"/"Excel" de cada tarjeta: solo la tarjeta con la clase
+     .imprimir-objetivo (puesta por exportarSeccionPDF justo antes de
+     window.print()) queda visible al imprimir esa sección puntual. */
+  @media print {
+    .oculto-en-esta-impresion { display: none !important; }
+  }
+
+  .grafico-cuerpo { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 900px) { .grafico-cuerpo { grid-template-columns: 1fr; } }
+  .grafico-viz { min-height: 60px; }
+  .grafico-nota-truncado { font-size: 0.76rem; color: var(--color-text-muted); margin-top: 8px; }
+
+  .tabla-mini-wrap { max-height: 320px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 8px; }
+  table.tabla-mini { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.tabla-mini thead th {
+    position: sticky; top: 0; background: #F7F8FA; text-align: left;
+    padding: 7px 10px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-muted); border-bottom: 1px solid var(--color-border);
+  }
+  table.tabla-mini td { padding: 6px 10px; border-bottom: 1px solid var(--color-border); }
+  table.tabla-mini td.num, table.tabla-mini th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  table.tabla-mini tbody tr:last-child td { border-bottom: none; }
+
+  .dona-leyenda { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 0.82rem; }
+  .dona-leyenda-item { display: flex; align-items: center; gap: 8px; }
+  .dona-leyenda-punto { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dona-leyenda-etiqueta { color: var(--color-text); flex: 1; }
+  .dona-leyenda-valor { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--color-text-muted); }
+
+  .barra-svg-wrap { width: 100%; overflow-x: auto; }
+
+  .campo-mesa-select { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .campo-mesa-select select { width: auto; min-width: 260px; }
+
+  .kpi-fila { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; margin-bottom: 18px; }
+  @media (max-width: 700px) { .kpi-fila { grid-template-columns: 1fr; } }
+
+  /* Mismo formato de tarjeta en las dos tarjetas de resumen (Cuenta
+     regresiva y Total registros): borde izquierdo de color en vez de una
+     tarjeta plana — igual criterio que se usa en el Panel general. */
+  .stat-card { border-left: 4px solid var(--color-marca); }
+  .stat-card:has(.valor.accent) { border-left-color: var(--color-accent); }
+  #tarjeta-cuenta-regresiva-dash { border-left-color: var(--color-probable); }
+  #tarjeta-cuenta-regresiva-dash .valor { font-size: 1.2rem; line-height: 1.3; }
+
+  .cobertura-grupo { margin-top: 20px; }
+  .cobertura-grupo:first-child { margin-top: 0; }
+  .cobertura-grupo-titulo { font-weight: 600; font-size: 1rem; color: var(--color-text); margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
+  .cobertura-grupo-total { font-size: 0.8rem; color: var(--color-text-muted); font-weight: 500; }
+
+  .cobertura-tarjetas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cobertura-tarjetas.dos-columnas { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 720px) {
+    .cobertura-tarjetas, .cobertura-tarjetas.dos-columnas { grid-template-columns: 1fr; }
+  }
+
+  .tarjeta-cobertura {
+    border: 1px solid var(--color-border); border-left: 5px solid var(--color-desconocido);
+    border-radius: var(--radius); padding: 14px 18px; background: #fff;
+  }
+  /* Botón "Informe" de cada tarjeta de Cobertura territorial: abre un
+     menú con las 3 formas de verlo (pantalla/PDF/Excel) — ver
+     mostrarMenuInforme() en el script. Va en su propia fila junto a la
+     etiqueta (no flotando encima), para que quepa un botón más grande sin
+     arriesgarse a que se encime con textos largos como "Cubrimiento parcial". */
+  .tarjeta-cobertura-header { display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tarjeta-cobertura-header .label { margin-bottom: 0; }
+  .btn-informe-cobertura {
+    flex: none; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.76rem; font-weight: 700; letter-spacing: 0.01em;
+    padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--color-marca);
+    background: #fff; color: var(--color-marca); cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .btn-informe-cobertura:hover { background: var(--color-marca); color: #fff; box-shadow: 0 3px 10px rgba(11, 94, 215, 0.28); }
+  .btn-informe-cobertura:active { transform: translateY(1px); }
+  .menu-informe-cobertura {
+    position: fixed; z-index: 500; background: #fff; border: 1px solid var(--color-border);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(16, 35, 63, 0.2); padding: 6px; min-width: 200px;
+  }
+  .menu-informe-cobertura button {
+    display: block; width: 100%; text-align: left; padding: 9px 12px; border-radius: 7px;
+    border: none; background: none; cursor: pointer; font-size: 0.88rem; font-weight: 500; color: var(--color-text);
+    transition: background 0.12s;
+  }
+  .menu-informe-cobertura button:hover { background: #F0F2F5; }
+  .informe-cobertura-cuerpo table.tabla-mini { margin-top: 0; }
+  .informe-cobertura-zona { margin-bottom: 16px; }
+  .informe-cobertura-zona:last-child { margin-bottom: 0; }
+  .informe-cobertura-zona-titulo { font-weight: 700; margin-bottom: 6px; color: var(--color-navy); }
+  .tarjeta-cobertura .label {
+    font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase;
+    letter-spacing: 0.03em; font-weight: 600; display: flex; align-items: center; gap: 7px;
+  }
+  .tarjeta-cobertura .punto-estado { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--color-desconocido); }
+  .tarjeta-cobertura .valor {
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size: 1.9rem; font-weight: 700; color: var(--color-navy); margin-top: 8px;
+  }
+  .tarjeta-cubierta { border-left-color: var(--color-confirmado); }
+  .tarjeta-cubierta .punto-estado { background: var(--color-confirmado); }
+  .tarjeta-parcial { border-left-color: var(--color-probable); }
+  .tarjeta-parcial .punto-estado { background: var(--color-probable); }
+  .tarjeta-sin { border-left-color: var(--color-no-apoya); }
+  .tarjeta-sin .punto-estado { background: var(--color-no-apoya); }
+  .tarjeta-neutral { border-left-color: var(--color-marca); }
+
+  /* Encabezado y pie de página de marca — las mismas imágenes que se usan
+     en los informes de la app de proyector (encabezado.png y
+     pie-de-pagina.png). Solo se ven al exportar a PDF (imprimir) — en
+     pantalla quedan ocultos para no estorbar el uso normal del dashboard.
+
+     Ya se probaron dos técnicas que en teoría debían repetir el
+     encabezado/pie en cada hoja y en la práctica NO lo hicieron en Chrome:
+     1) divs con display:table-header-group/table-footer-group (solo
+        salió una vez en toda la exportación, no por hoja).
+     2) position:fixed como hijo directo de <body> (apareció en una
+        posición equivocada, ni arriba ni abajo de la hoja).
+
+     Esta tercera versión usa <table>/<thead>/<tbody>/<tfoot> REALES (no
+     divs disfrazados de tabla) — es la técnica más antigua y probada para
+     encabezados/pies que se repiten al imprimir, y es distinta de las dos
+     anteriores en que no depende de position:fixed ni de que el navegador
+     interprete el display:table-header-group de un div igual que el de
+     un <thead> de verdad.
+
+     En pantalla, la tabla y sus <thead>/<tbody>/<tfoot>/<tr>/<td> propios
+     se "apagan" a display:block (ver regla fuera de @media print) para que
+     no se vea ni se comporte como una tabla — el contenido de adentro
+     sigue siendo las mismas tarjetas/grillas de siempre.
+
+     OJO — bug ya corregido: estas reglas SOLO deben tocar los <thead>/
+     <tbody>/<tfoot>/<tr> que son HIJOS DIRECTOS de .pdf-tabla (con el
+     combinador ">"), nunca ">td" genérico. Con selectores sin ">" (ej.
+     ".pdf-tabla tr"), como estaba antes, también se cuelan las tablas de
+     datos de cada tarjeta (Por Comuna/Barrio/Líder/Puesto, clase
+     .tabla-mini) por estar anidadas adentro — quedaban con sus filas/
+     celdas aplastadas a display:block, rompiendo las columnas en pantalla.
+     Por eso las celdas de esta tabla de impresión usan clases propias
+     (.pdf-thead-td/.pdf-tbody-td/.pdf-tfoot-td) en vez de un selector
+     "td" a secas, que sí alcanzaría cualquier <td> de más adentro.
+
+     El margen de 3cm/2.5cm que pide el informe ya no lo reserva @page
+     (queda en 0) sino el padding de la celda del cuerpo (.pdf-tbody-td) —
+     así el encabezado y el pie, que no tienen ese padding, sí llegan al
+     borde físico de la hoja en cada página. */
+  .pdf-tabla { display: block; width: 100%; }
+  .pdf-tabla > thead, .pdf-tabla > tbody, .pdf-tabla > tfoot { display: block; }
+  .pdf-tabla > thead > tr, .pdf-tabla > tbody > tr, .pdf-tabla > tfoot > tr { display: block; }
+  .pdf-thead-td, .pdf-tbody-td, .pdf-tfoot-td { display: block; width: 100%; margin: 0; padding: 0; border: none; }
+  @page {
+    size: letter;
+    margin: 0;
+  }
+  .pdf-marca { display: none; }
+  @media print {
+    .sidebar, .topbar-acciones, .filtro-barra, .grafico-toggle, .grafico-exportar,
+    #btn-exportar-excel-dash, #btn-exportar-pdf-dash,
+    .btn-informe-cobertura, .menu-informe-cobertura { display: none !important; }
+    .app-shell { display: block; }
+    .main { padding: 0; margin: 0; }
+    /* Sin break-inside:avoid a propósito: combinado con la tabla real
+       (.pdf-tabla) que reparte el contenido entre hojas, esa regla hacía
+       que Chrome perdiera por completo el contenido de la celda del
+       cuerpo (tarjetas más altas que una hoja no podían "no partirse" y
+       el navegador simplemente no las pintaba). Sin esta regla, una
+       tarjeta puede partirse justo en el salto de página — se ve menos
+       prolijo, pero el contenido sí aparece completo. */
+    .grafico-card, .card { box-shadow: none; border: 1px solid #ccc; }
+    .tabla-mini-wrap { max-height: none; overflow: visible; }
+    body { background: #fff; }
+
+    /* Un contenedor con display:flex/grid, en Chrome, NO se puede partir
+       entre hojas al imprimir — si no cabe completo en lo que queda de la
+       página actual, se manda entero a la siguiente, dejando la anterior
+       casi en blanco (esto era lo que dejaba la página 1 vacía: la
+       primera tarjeta con grid/flex adentro que no cabía se iba entera a
+       la página 2). Durante la impresión, estos contenedores pasan a
+       display:block — el contenido queda apilado en una sola columna en
+       vez de lado a lado, pero SÍ se puede partir donde haga falta. */
+    .kpi-fila, .cobertura-tarjetas, .grafico-cuerpo, .dona-leyenda { display: block; }
+    .fila-resumen-dash { display: block !important; }
+    .grafico-cuerpo > * { margin-bottom: 14px; }
+
+    .pdf-marca { display: block; }
+    .pdf-marca-img { display: block; width: 100%; height: auto; }
+
+    .pdf-tabla { display: table; width: 100%; border-collapse: collapse; border-spacing: 0; }
+    .pdf-tabla > thead { display: table-header-group; }
+    .pdf-tabla > tbody { display: table-row-group; }
+    .pdf-tabla > tfoot { display: table-footer-group; }
+    .pdf-tabla > thead > tr, .pdf-tabla > tbody > tr, .pdf-tabla > tfoot > tr { display: table-row; }
+    .pdf-thead-td, .pdf-tbody-td, .pdf-tfoot-td { display: table-cell; width: 100%; }
+    /* OJO: se intentó un min-height acá para forzar que el <tfoot> quedara
+       pegado al borde inferior en vez de justo después del contenido — eso
+       rompió peor las cosas (desaparecía TODO el contenido de la hoja).
+       Se revirtió: un min-height en ESTA celda (la misma que Chrome reparte
+       entre todas las hojas) parece confundir el reparto de contenido entre
+       páginas. La solución que sí quedó (ver prepararEspaciadorPie() en el
+       script) no toca esta celda: agrega un bloque más de contenido común y
+       corriente al final (un <div> con alto en cm, calculado con
+       JavaScript justo antes de imprimir) para que el total de contenido
+       rellene lo que falte de la última hoja y el <tfoot> quede pegado a su
+       borde inferior. Es un cálculo aproximado, no exacto. */
+    .pdf-tbody-td { padding: 3cm 2.5cm; }
+    .pdf-espaciador-pie { display: block; }
+  }
+  .pdf-espaciador-pie { display: none; }
+
+  /* Modo de MEDICIÓN (ver prepararEspaciadorPie() en el script): se activa
+     un instante, solo en JavaScript, agregando esta clase al <body> antes
+     de medir cuánto ocupa el contenido — nunca se ve en pantalla porque se
+     quita enseguida. Reproduce en pantalla los MISMOS cambios de layout que
+     @media print más arriba (grid/flex → block, ancho real del contenido
+     ya impreso) para que el alto medido sea el mismo que Chrome va a
+     repartir entre hojas al imprimir de verdad — medir con el layout de
+     pantalla (tarjetas lado a lado, más angosto) daba un alto menor al
+     real y el relleno calculado quedaba corto. */
+  body.pdf-medir .kpi-fila,
+  body.pdf-medir .cobertura-tarjetas,
+  body.pdf-medir .grafico-cuerpo,
+  body.pdf-medir .dona-leyenda { display: block; }
+  body.pdf-medir .fila-resumen-dash { display: block; }
+  body.pdf-medir .grafico-cuerpo > * { margin-bottom: 14px; }
+  body.pdf-medir .pdf-tbody-td { width: 16.59cm; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+   <table class="pdf-tabla">
+    <thead><tr><td class="pdf-thead-td">
+      <div class="pdf-marca pdf-marca-encabezado">
+        <img class="pdf-marca-img" src="/encabezado.png" alt="Estrategia · Marketing Político">
+      </div>
+    </td></tr></thead>
+    <tbody><tr><td class="pdf-tbody-td">
+    <div class="topbar">
+      <div><div class="eyebrow">Base de datos</div><h1>Dashboard de votantes</h1></div>
+      <div class="topbar-acciones" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span class="mono" id="dash-cargando" style="color:var(--color-text-muted); font-size:0.82rem;"></span>
+        <button type="button" class="btn-exportar btn-exportar-xlsx" id="btn-exportar-excel-dash">⬇ Excel</button>
+        <button type="button" class="btn-exportar btn-exportar-word" id="btn-exportar-word-dash">📝 Word</button>
+        <button type="button" class="btn-exportar btn-exportar-pdf" id="btn-exportar-pdf-dash">🖨 PDF</button>
+      </div>
+    </div>
+    <p style="color:var(--color-text-muted); font-size:0.88rem; margin-top:-8px; margin-bottom:18px;">
+      Análisis de posibles votantes por Comuna/Corregimiento, Barrio/Vereda, Líder y Puesto/Mesa de votación — para ver o editar personas puntuales, usa
+      <a href="/votantes.html">Votantes y sublíderes</a>.
+    </p>
+
+    <div class="fila-resumen-dash" style="display:flex; gap:18px; flex-wrap:wrap; margin-bottom:18px;">
+      <div class="card stat-card" id="tarjeta-cuenta-regresiva-dash" style="flex:1; min-width:220px; max-width:320px;">
+        <div class="label">Cuenta regresiva</div>
+        <div class="valor accent" id="dash-cuenta-regresiva">—</div>
+      </div>
+      <div class="card stat-card" style="flex:1; min-width:220px; max-width:320px;">
+        <div class="label">Total registros</div>
+        <div class="valor accent" id="kpi-total">—</div>
+      </div>
+    </div>
+
+    <div class="card" id="tarjeta-cobertura-seccion" style="margin-bottom:18px;">
+        <div class="grafico-header" style="margin-bottom:4px;">
+          <div>
+            <h3>Cobertura territorial</h3>
+            <p class="grafico-subtitulo">Comunas/Corregimientos con coordinador y todos sus barrios/veredas con líder</p>
+          </div>
+          <div class="grafico-exportar">
+            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('cobertura')">⬇ Excel</button>
+            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('cobertura')">📝 Word</button>
+            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-cobertura-seccion')">📄 PDF</button>
+          </div>
+        </div>
+
+        <div class="cobertura-grupo" id="cobertura-grupo-comunas">
+          <div class="cobertura-grupo-titulo">Comunas <span class="cobertura-grupo-total" id="cob-comunas-total"></span></div>
+          <div class="cobertura-tarjetas">
+            <div class="tarjeta-cobertura tarjeta-cubierta">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Cubiertas</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'comuna', 'cubierta', 'Comunas cubiertas')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-comunas-cubiertas">—</div>
+            </div>
+            <div class="tarjeta-cobertura tarjeta-parcial">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Cubrimiento parcial</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'comuna', 'parcial', 'Comunas con cubrimiento parcial')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-comunas-parcial">—</div>
+            </div>
+            <div class="tarjeta-cobertura tarjeta-sin">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Sin cubrimiento</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'comuna', 'sin', 'Comunas sin cubrimiento')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-comunas-sin">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cobertura-grupo" id="cobertura-grupo-corregimientos">
+          <div class="cobertura-grupo-titulo">Corregimientos <span class="cobertura-grupo-total" id="cob-corregimientos-total"></span></div>
+          <div class="cobertura-tarjetas">
+            <div class="tarjeta-cobertura tarjeta-cubierta">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Cubiertos</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'corregimiento', 'cubierta', 'Corregimientos cubiertos')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-corregimientos-cubiertas">—</div>
+            </div>
+            <div class="tarjeta-cobertura tarjeta-parcial">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Cubrimiento parcial</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'corregimiento', 'parcial', 'Corregimientos con cubrimiento parcial')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-corregimientos-parcial">—</div>
+            </div>
+            <div class="tarjeta-cobertura tarjeta-sin">
+              <div class="tarjeta-cobertura-header">
+                <div class="label"><span class="punto-estado"></span>Sin cubrimiento</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'corregimiento', 'sin', 'Corregimientos sin cubrimiento')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-corregimientos-sin">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cobertura-grupo">
+          <div class="cobertura-tarjetas dos-columnas">
+            <div class="tarjeta-cobertura tarjeta-neutral">
+              <div class="tarjeta-cobertura-header">
+                <div class="label">Barrios cubiertos</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'barrio', 'cubierto', 'Barrios cubiertos')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-barrios">—</div>
+            </div>
+            <div class="tarjeta-cobertura tarjeta-neutral">
+              <div class="tarjeta-cobertura-header">
+                <div class="label">Veredas cubiertas</div>
+                <button type="button" class="btn-informe-cobertura" onclick="mostrarMenuInforme(event, 'vereda', 'cubierto', 'Veredas cubiertas')">📄 Informe</button>
+              </div>
+              <div class="valor" id="cob-veredas">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- Informe de detalle de una tarjeta de Cobertura territorial (botón "Informe") -->
+    <div class="card grafico-card" id="tarjeta-informe-cobertura-detalle" style="display:none; margin-bottom:18px;">
+      <div class="grafico-header">
+        <div>
+          <h3 id="informe-cobertura-titulo">Informe</h3>
+          <p class="grafico-subtitulo" id="informe-cobertura-subtitulo"></p>
+        </div>
+        <button type="button" class="btn-secundario btn-sm oculto-en-esta-impresion" onclick="document.getElementById('tarjeta-informe-cobertura-detalle').style.display='none';">✕ Cerrar</button>
+      </div>
+      <div class="informe-cobertura-cuerpo" id="informe-cobertura-cuerpo"></div>
+    </div>
+
+    <!-- Por Comuna/Corregimiento -->
+    <div class="card grafico-card" id="tarjeta-comuna-seccion">
+      <div class="grafico-header">
+        <div>
+          <h3>Por <span data-columna="comuna-corregimiento">Comuna/Corregimiento</span></h3>
+          <p class="grafico-subtitulo">¿Dónde están concentrados los posibles votantes?</p>
+        </div>
+        <div class="grafico-header-acciones">
+          <div class="grafico-toggle" data-grafico="comuna">
+            <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
+            <button type="button" data-tipo="dona">🍩 Dona</button>
+          </div>
+          <div class="grafico-exportar">
+            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('comuna')">⬇ Excel</button>
+            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('comuna', { tipo_grafico: tipoGraficoActivo('comuna') })">📝 Word</button>
+            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-comuna-seccion')">📄 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="grafico-cuerpo">
+        <div>
+          <div class="grafico-viz barra-svg-wrap" id="viz-comuna"></div>
+          <div class="grafico-nota-truncado" id="nota-comuna" style="display:none;"></div>
+        </div>
+        <div class="tabla-mini-wrap">
+          <table class="tabla-mini">
+            <thead><tr><th data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+            <tbody id="tabla-comuna"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por Barrio/Vereda -->
+    <div class="card grafico-card" id="tarjeta-barrio-seccion">
+      <div class="grafico-header">
+        <div>
+          <h3>Por <span data-columna="barrio-vereda">Barrio/Vereda</span></h3>
+          <p class="grafico-subtitulo">Detalle dentro de una Comuna/Corregimiento, o de toda la base.</p>
+        </div>
+        <div class="grafico-header-acciones">
+          <div class="grafico-toggle" data-grafico="barrio">
+            <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
+            <button type="button" data-tipo="dona">🍩 Dona</button>
+          </div>
+          <div class="grafico-exportar">
+            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('barrio')">⬇ Excel</button>
+            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('barrio', { tipo_grafico: tipoGraficoActivo('barrio') })">📝 Word</button>
+            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-barrio-seccion')">📄 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="campo-mesa-select col-comuna-correg">
+        <label for="filtro-comuna-barrio" style="font-size:0.82rem; color:var(--color-text-muted); font-weight:600;">Filtrar por <span data-columna="comuna-corregimiento">Comuna/Corregimiento</span>:</label>
+        <select id="filtro-comuna-barrio"><option value="">Todas</option></select>
+      </div>
+      <div class="grafico-cuerpo">
+        <div>
+          <div class="grafico-viz barra-svg-wrap" id="viz-barrio"></div>
+          <div class="grafico-nota-truncado" id="nota-barrio" style="display:none;"></div>
+        </div>
+        <div class="tabla-mini-wrap">
+          <table class="tabla-mini">
+            <thead><tr><th data-columna="barrio-vereda">Barrio/Vereda</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="num">Total</th></tr></thead>
+            <tbody id="tabla-barrio"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por Líder -->
+    <div class="card grafico-card" id="tarjeta-lider-seccion">
+      <div class="grafico-header">
+        <div>
+          <h3>Por Líder</h3>
+          <p class="grafico-subtitulo">¿Quién ha referido más posibles votantes?</p>
+        </div>
+        <div class="grafico-header-acciones">
+          <div class="grafico-toggle" data-grafico="lider">
+            <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
+            <button type="button" data-tipo="dona">🍩 Dona</button>
+          </div>
+          <div class="grafico-exportar">
+            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('lider')">⬇ Excel</button>
+            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('lider', { tipo_grafico: tipoGraficoActivo('lider') })">📝 Word</button>
+            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-lider-seccion')">📄 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="grafico-cuerpo">
+        <div>
+          <div class="grafico-viz barra-svg-wrap" id="viz-lider"></div>
+          <div class="grafico-nota-truncado" id="nota-lider" style="display:none;"></div>
+        </div>
+        <div class="tabla-mini-wrap">
+          <table class="tabla-mini">
+            <thead><tr><th>Líder</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+            <tbody id="tabla-lider"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por Puesto de votación -->
+    <div class="card grafico-card" id="tarjeta-puesto-seccion">
+      <div class="grafico-header">
+        <div>
+          <h3>Por Puesto de votación</h3>
+          <p class="grafico-subtitulo">Estimado de cuántos votarían en cada puesto, según lo que cada persona escribió en "Lugar de votación".</p>
+        </div>
+        <div class="grafico-header-acciones">
+          <div class="grafico-toggle" data-grafico="puesto">
+            <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
+            <button type="button" data-tipo="dona">🍩 Dona</button>
+          </div>
+          <div class="grafico-exportar">
+            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('puesto')">⬇ Excel</button>
+            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('puesto', { tipo_grafico: tipoGraficoActivo('puesto') })">📝 Word</button>
+            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-puesto-seccion')">📄 PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="grafico-cuerpo">
+        <div>
+          <div class="grafico-viz barra-svg-wrap" id="viz-puesto"></div>
+          <div class="grafico-nota-truncado" id="nota-puesto" style="display:none;"></div>
+        </div>
+        <div class="tabla-mini-wrap">
+          <table class="tabla-mini">
+            <thead><tr><th>Puesto de votación</th><th class="num">Mesas</th><th class="num">Total</th></tr></thead>
+            <tbody id="tabla-puesto"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Por Mesa (drill-down dentro de un puesto) -->
+    <div class="card grafico-card" id="tarjeta-mesa-seccion">
+      <div class="grafico-header">
+        <div>
+          <h3>Por Mesa</h3>
+          <p class="grafico-subtitulo">Elige un Puesto de votación para ver cómo se reparten sus mesas.</p>
+        </div>
+        <div class="grafico-exportar">
+          <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionMesaExcel()">⬇ Excel</button>
+          <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionMesaWord()">📝 Word</button>
+          <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-mesa-seccion')">📄 PDF</button>
+        </div>
+      </div>
+      <div class="campo-mesa-select">
+        <label for="select-puesto-mesa" style="font-size:0.82rem; color:var(--color-text-muted); font-weight:600;">Puesto de votación:</label>
+        <select id="select-puesto-mesa"><option value="">Seleccione un puesto...</option></select>
+      </div>
+      <div class="grafico-cuerpo">
+        <div class="grafico-viz barra-svg-wrap" id="viz-mesa"></div>
+        <div class="tabla-mini-wrap">
+          <table class="tabla-mini">
+            <thead><tr><th>Mesa</th><th class="num">Total</th></tr></thead>
+            <tbody id="tabla-mesa"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="dash-error" class="mensaje-error" style="margin-top:4px;"></div>
+    </td></tr></tbody>
+    <tfoot><tr><td class="pdf-tfoot-td">
+      <div class="pdf-marca pdf-marca-pie">
+        <img class="pdf-marca-img" src="/pie-de-pagina.png" alt="Estrategia · Marketing Político — datos de contacto">
+      </div>
+    </td></tr></tfoot>
+   </table>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/columnas-territoriales.js"></script>
+<script>
+const COLORES_SERIE = ['var(--serie-1)', 'var(--serie-2)', 'var(--serie-3)', 'var(--serie-4)', 'var(--serie-5)', 'var(--serie-6)', 'var(--serie-7)', 'var(--serie-8)'];
+const MAX_FILAS_BARRA = 15;
+const MAX_SLICES_DONA = 6;
+
+let usuarioActual;
+let estimadoPuestosCache = null;
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/**
+ * Gráfico de barras horizontales (SVG, sin librerías) — mismo estilo que
+ * ya se usa en Día D. Un solo color (comparar UNA magnitud entre muchas
+ * categorías no necesita un color por categoría) con etiqueta y valor
+ * directos, y un <title> con el detalle completo al pasar el mouse.
+ */
+function construirBarraHorizontal(datos, color) {
+  const filas = datos.slice(0, MAX_FILAS_BARRA);
+  if (!filas.length) return '<p style="color:var(--color-text-muted); font-size:0.85rem;">Sin datos para este filtro.</p>';
+  const max = Math.max(...filas.map(f => f.total), 1);
+  const altoFila = 30, padVert = 6, anchoEtiqueta = 170, anchoMax = 300;
+  const ancho = anchoEtiqueta + anchoMax + 55;
+  const alto = altoFila * filas.length + padVert * 2;
+  const barras = filas.map((f, i) => {
+    const anchoBarra = (anchoMax * f.total) / max;
+    const y = padVert + i * altoFila;
+    const nombreCorto = f.etiqueta.length > 24 ? f.etiqueta.slice(0, 23) + '…' : f.etiqueta;
+    return `
+      <g>
+        <text x="${anchoEtiqueta - 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="var(--color-text, #161B26)" text-anchor="end">${escaparHtml(nombreCorto)}</text>
+        <rect x="${anchoEtiqueta}" y="${y + 5}" width="${Math.max(anchoBarra, 1)}" height="${altoFila - 10}" rx="3" fill="${color}">
+          <title>${escaparHtml(f.etiqueta)}: ${formatoMillares(f.total)}</title>
+        </rect>
+        <text x="${anchoEtiqueta + anchoBarra + 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="var(--color-text, #161B26)" font-family="var(--font-mono)">${formatoMillares(f.total)}</text>
+      </g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; min-width:420px; height:auto;">${barras}</svg>`;
+}
+
+function puntoEnCirculo(cx, cy, r, anguloGrados) {
+  const rad = (anguloGrados * Math.PI) / 180;
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+
+/**
+ * Dona (SVG, arcos con grosor) — pliega todo lo que pase de
+ * MAX_SLICES_DONA en una porción "Otros", para no terminar con una dona
+ * de 40 tajadas ilegible. Trae leyenda con color + etiqueta + % siempre
+ * visible (no solo al pasar el mouse), porque algunos tonos de la paleta
+ * no tienen suficiente contraste por sí solos.
+ */
+function construirDona(datosCompletos) {
+  if (!datosCompletos.length) return '<p style="color:var(--color-text-muted); font-size:0.85rem;">Sin datos para este filtro.</p>';
+  let datos = datosCompletos.slice(0, MAX_SLICES_DONA);
+  const resto = datosCompletos.slice(MAX_SLICES_DONA);
+  if (resto.length) {
+    datos = datos.concat([{ etiqueta: `Otros (${resto.length})`, total: resto.reduce((a, b) => a + b.total, 0), esOtros: true }]);
+  }
+  const total = datos.reduce((a, b) => a + b.total, 0) || 1;
+  const size = 200, grosor = 34, cx = size / 2, cy = size / 2, r = size / 2 - grosor / 2 - 2;
+  let anguloActual = -90;
+  const arcos = datos.map((d, i) => {
+    const angulo = (d.total / total) * 360;
+    const inicio = anguloActual;
+    const fin = anguloActual + Math.max(angulo - 1.5, 0.01); // separador de 1.5° entre tajadas
+    anguloActual += angulo;
+    const largeArc = (fin - inicio) > 180 ? 1 : 0;
+    const [x1, y1] = puntoEnCirculo(cx, cy, r, inicio);
+    const [x2, y2] = puntoEnCirculo(cx, cy, r, fin);
+    const color = d.esOtros ? 'var(--serie-otros)' : COLORES_SERIE[i % COLORES_SERIE.length];
+    const pct = Math.round((d.total / total) * 100);
+    return { path: `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${grosor}"><title>${escaparHtml(d.etiqueta)}: ${formatoMillares(d.total)} (${pct}%)</title></path>`, color, etiqueta: d.etiqueta, total: d.total, pct };
+  });
+  const svg = `<svg viewBox="0 0 ${size} ${size}" style="width:100%; max-width:220px; height:auto; display:block; margin:0 auto;">${arcos.map(a => a.path).join('')}</svg>`;
+  const leyenda = `<div class="dona-leyenda">${arcos.map(a => `
+    <div class="dona-leyenda-item">
+      <span class="dona-leyenda-punto" style="background:${a.color};"></span>
+      <span class="dona-leyenda-etiqueta">${escaparHtml(a.etiqueta)}</span>
+      <span class="dona-leyenda-valor">${formatoMillares(a.total)} (${a.pct}%)</span>
+    </div>`).join('')}</div>`;
+  return svg + leyenda;
+}
+
+/** Arma el cuerpo de una sección (barra u dona, según el tipo activo del toggle) y su tabla. */
+function renderizarSeccion(clave, datos, colorBarra, columnasTabla) {
+  const tipoActivo = document.querySelector(`.grafico-toggle[data-grafico="${clave}"] button.activo`);
+  const tipo = tipoActivo ? tipoActivo.dataset.tipo : 'barra';
+  const viz = document.getElementById(`viz-${clave}`);
+  const nota = document.getElementById(`nota-${clave}`);
+  viz.innerHTML = tipo === 'dona' ? construirDona(datos) : construirBarraHorizontal(datos, colorBarra);
+  if (nota) {
+    if (tipo === 'barra' && datos.length > MAX_FILAS_BARRA) {
+      nota.style.display = 'block';
+      nota.textContent = `Mostrando los ${MAX_FILAS_BARRA} más altos de ${datos.length} — el resto está en la tabla.`;
+    } else {
+      nota.style.display = 'none';
+    }
+  }
+  const total = datos.reduce((a, b) => a + b.total, 0) || 1;
+  document.getElementById(`tabla-${clave}`).innerHTML = datos.map(d => columnasTabla(d, total)).join('') ||
+    `<tr><td colspan="3" style="color:var(--color-text-muted); text-align:center;">Sin datos para este filtro.</td></tr>`;
+}
+
+// Se guarda el último resultado de cada sección para que el toggle
+// Barras/Dona solo vuelva a DIBUJAR (sin pedirle los datos al servidor
+// otra vez) — cambiar el tipo de gráfico es instantáneo.
+let cacheDatosComuna = [];
+let cacheDatosBarrio = [];
+let cacheDatosLider = [];
+let cacheDatosPuesto = [];
+
+document.querySelectorAll('.grafico-toggle').forEach(grupo => {
+  grupo.addEventListener('click', (e) => {
+    const boton = e.target.closest('button');
+    if (!boton) return;
+    grupo.querySelectorAll('button').forEach(b => b.classList.remove('activo'));
+    boton.classList.add('activo');
+    const clave = grupo.dataset.grafico;
+    if (clave === 'comuna') renderizarSeccion('comuna', cacheDatosComuna, 'var(--color-marca)', columnasComuna);
+    else if (clave === 'barrio') renderizarSeccion('barrio', cacheDatosBarrio, 'var(--color-marca)', columnasBarrio);
+    else if (clave === 'lider') renderizarSeccion('lider', cacheDatosLider, 'var(--color-marca)', columnasLider);
+    else if (clave === 'puesto') renderizarSeccion('puesto', cacheDatosPuesto, 'var(--color-marca)', columnasPuesto);
+  });
+});
+
+const columnasComuna = (d, total) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td class="num">${formatoMillares(d.total)}</td><td class="num">${Math.round((d.total / total) * 100)}%</td></tr>`;
+const columnasBarrio = (d) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td>${escaparHtml(d.zona || '—')}</td><td class="num">${formatoMillares(d.total)}</td></tr>`;
+const columnasLider = (d, total) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td class="num">${formatoMillares(d.total)}</td><td class="num">${Math.round((d.total / total) * 100)}%</td></tr>`;
+const columnasPuesto = (d) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td class="num">${d.cantidadMesas}</td><td class="num">${formatoMillares(d.total)}</td></tr>`;
+
+async function cargarResumen() {
+  const r = await api('/votantes-dashboard/resumen');
+  document.getElementById('kpi-total').textContent = formatoMillares(r.total);
+}
+
+/**
+ * Una sola lectura de la configuración de campaña para las dos cosas que la
+ * necesitan: la cuenta regresiva y qué secciones territoriales tienen sentido
+ * en esta campaña. Van juntas para no pedir el mismo endpoint dos veces.
+ */
+async function cargarConfiguracionCampana() {
+  try {
+    const configCampana = await api('/configuracion/campana');
+    document.getElementById('dash-cuenta-regresiva').textContent = textoCuentaRegresivaElecciones(configCampana.fecha_eleccion);
+
+    // El tablero agrupa leyendo el ÁRBOL de territorios (ver
+    // votantesDashboard.routes.js: `t.nombre AS barrio, padre.nombre AS
+    // zona`), así que NO cuenta el texto libre de residencia.
+    const cols = aplicarColumnasTerritoriales(configCampana);
+
+    // Aquí no son columnas sino tarjetas enteras: una sección «Por
+    // Comuna/Corregimiento» sin una sola comuna ni corregimiento es un
+    // gráfico vacío y una tabla vacía.
+    const ocultarSi = (id, mostrar) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = mostrar ? '' : 'none';
+    };
+    ocultarSi('tarjeta-comuna-seccion', cols.mostrarComuna);
+    ocultarSi('tarjeta-barrio-seccion', cols.mostrarBarrio);
+    // En la tarjeta de cobertura los niveles ya vienen separados, así que
+    // cada bloque se decide con su propia bandera y no con la combinada.
+    ocultarSi('cobertura-grupo-comunas', cols.niveles.comuna);
+    ocultarSi('cobertura-grupo-corregimientos', cols.niveles.corregimiento);
+  } catch (e) { /* si falla, la tarjeta se deja con el guion por defecto y no se oculta nada */ }
+}
+
+/** Rellena un bloque Comunas/Corregimientos (3 chips: cubierta/parcial/sin cobertura) con lo que devuelve /cobertura. */
+function pintarBloqueCobertura(prefijo, datos) {
+  document.getElementById(`${prefijo}-total`).textContent = `(${formatoMillares(datos.total)} en total)`;
+  document.getElementById(`${prefijo}-cubiertas`).textContent = `${formatoMillares(datos.cubiertas.total)} (${datos.cubiertas.pct}%)`;
+  document.getElementById(`${prefijo}-parcial`).textContent = `${formatoMillares(datos.parciales.total)} (${datos.parciales.pct}%)`;
+  document.getElementById(`${prefijo}-sin`).textContent = `${formatoMillares(datos.sinCobertura.total)} (${datos.sinCobertura.pct}%)`;
+}
+
+async function cargarCobertura() {
+  const r = await api('/votantes-dashboard/cobertura');
+  pintarBloqueCobertura('cob-comunas', r.comunas);
+  pintarBloqueCobertura('cob-corregimientos', r.corregimientos);
+  document.getElementById('cob-barrios').textContent = `${formatoMillares(r.barrios.cubiertos)} de ${formatoMillares(r.barrios.total)} (${r.barrios.pct}%)`;
+  document.getElementById('cob-veredas').textContent = `${formatoMillares(r.veredas.cubiertas)} de ${formatoMillares(r.veredas.total)} (${r.veredas.pct}%)`;
+}
+
+async function cargarPorComuna() {
+  const filas = await api('/votantes-dashboard/por-comuna');
+  cacheDatosComuna = filas.map(f => ({ etiqueta: f.zona_nombre, total: f.total, id: f.zona_id }));
+  renderizarSeccion('comuna', cacheDatosComuna, 'var(--color-marca)', columnasComuna);
+
+  // El filtro de Comuna/Corregimiento del panel de Barrio se llena con esta misma lista.
+  const selectComuna = document.getElementById('filtro-comuna-barrio');
+  const valorPrevio = selectComuna.value;
+  selectComuna.innerHTML = '<option value="">Todas</option>' + filas.map(f => `<option value="${f.zona_id}">${escaparHtml(f.zona_nombre)}</option>`).join('');
+  if (valorPrevio && filas.some(f => String(f.zona_id) === valorPrevio)) selectComuna.value = valorPrevio;
+}
+
+async function cargarPorBarrio() {
+  const params = new URLSearchParams();
+  const zonaId = document.getElementById('filtro-comuna-barrio').value;
+  if (zonaId) params.set('zona_id', zonaId);
+  const filas = await api(`/votantes-dashboard/por-barrio?${params.toString()}`);
+  cacheDatosBarrio = filas.map(f => ({ etiqueta: f.barrio_nombre, zona: f.zona_nombre, total: f.total }));
+  renderizarSeccion('barrio', cacheDatosBarrio, 'var(--color-marca)', columnasBarrio);
+}
+
+async function cargarPorLider() {
+  const r = await api('/votantes-dashboard/por-lider');
+  cacheDatosLider = r.lideres.map(f => ({ etiqueta: f.lider_nombre, total: f.total }));
+  renderizarSeccion('lider', cacheDatosLider, 'var(--color-marca)', columnasLider);
+  if (r.sinLider) {
+    document.getElementById('tabla-lider').insertAdjacentHTML('beforeend', `
+      <tr style="color:var(--color-text-muted);"><td>Sin líder asignado</td><td class="num">${formatoMillares(r.sinLider)}</td><td class="num">—</td></tr>
+    `);
+  }
+}
+
+async function cargarPorPuestoYMesa() {
+  if (!estimadoPuestosCache) {
+    estimadoPuestosCache = await api('/votantes/estimados-por-puesto');
+  }
+  const puestos = estimadoPuestosCache.puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total);
+  cacheDatosPuesto = puestos.map(p => ({ etiqueta: p.puesto, total: p.total, cantidadMesas: p.cantidadMesas }));
+  renderizarSeccion('puesto', cacheDatosPuesto, 'var(--color-marca)', columnasPuesto);
+  if (!puestos.length) {
+    document.getElementById('tabla-puesto').innerHTML = `<tr><td colspan="3" style="color:var(--color-text-muted); text-align:center;">Aún no hay puestos configurados en Configuración → Día D.</td></tr>`;
+  }
+
+  const select = document.getElementById('select-puesto-mesa');
+  const valorPrevio = select.value;
+  select.innerHTML = '<option value="">Seleccione un puesto...</option>' + puestos.map(p => `<option value="${escaparHtml(p.puesto)}">${escaparHtml(p.puesto)} (${formatoMillares(p.total)})</option>`).join('');
+  if (valorPrevio && puestos.some(p => p.puesto === valorPrevio)) select.value = valorPrevio;
+  renderizarMesas();
+}
+
+function renderizarMesas() {
+  const nombrePuesto = document.getElementById('select-puesto-mesa').value;
+  const viz = document.getElementById('viz-mesa');
+  const tabla = document.getElementById('tabla-mesa');
+  if (!nombrePuesto || !estimadoPuestosCache) {
+    viz.innerHTML = '<p style="color:var(--color-text-muted); font-size:0.85rem;">Elige un puesto de votación arriba para ver el detalle por mesa.</p>';
+    tabla.innerHTML = '';
+    return;
+  }
+  const puesto = estimadoPuestosCache.puestos.find(p => p.puesto === nombrePuesto);
+  if (!puesto) { viz.innerHTML = ''; tabla.innerHTML = ''; return; }
+  const datos = puesto.mesas.map(m => ({ etiqueta: `Mesa ${m.mesa}`, total: m.cantidad }));
+  viz.innerHTML = construirBarraHorizontal(datos, 'var(--color-marca)');
+  tabla.innerHTML = puesto.mesas.map(m => `
+    <tr><td>Mesa ${m.mesa}</td><td class="num">${formatoMillares(m.cantidad)}</td></tr>
+  `).join('') || `<tr><td colspan="2" style="color:var(--color-text-muted); text-align:center;">Este puesto no tiene mesas configuradas.</td></tr>`;
+}
+document.getElementById('select-puesto-mesa').addEventListener('change', renderizarMesas);
+
+async function cargarDatosDashboard() {
+  const errorBox = document.getElementById('dash-error');
+  errorBox.classList.remove('visible');
+  const indicador = document.getElementById('dash-cargando');
+  try {
+    indicador.textContent = 'Cargando...';
+    await Promise.all([
+      cargarResumen(),
+      cargarConfiguracionCampana(),
+      cargarCobertura(),
+      cargarPorComuna(),
+      cargarPorBarrio(),
+      cargarPorLider(),
+      cargarPorPuestoYMesa()
+    ]);
+    indicador.textContent = '';
+  } catch (err) {
+    errorBox.textContent = err.message || 'Error cargando el dashboard.';
+    errorBox.classList.add('visible');
+    indicador.textContent = '';
+  }
+}
+
+document.getElementById('filtro-comuna-barrio').addEventListener('change', () => cargarPorBarrio());
+
+/** Antes de imprimir, agrega un bloque invisible-en-pantalla al final del
+    contenido para que el pie de página quede lo más cerca posible del borde
+    inferior de la ÚLTIMA hoja, en vez de aparecer justo después del último
+    contenido (que es el comportamiento normal de un <tfoot> de tabla HTML
+    cuando no llena la hoja completa). Es un cálculo aproximado — no hay
+    forma de medir en pantalla exactamente cuánto ocupa cada hoja ya
+    impresa — pero a diferencia del intento anterior (un min-height en la
+    celda que reparte el contenido entre hojas, que hizo desaparecer TODO el
+    contenido del PDF), esto solo AGREGA un bloque más de contenido común y
+    corriente al final, así que no debería romper el reparto entre páginas.
+
+    Primer intento (ya corregido acá): media el alto del contenido tal como
+    se ve en PANTALLA, con las tarjetas lado a lado (grid/flex). Pero al
+    imprimir esas mismas tarjetas pasan a apilarse en una sola columna (ver
+    @media print más arriba) — el contenido impreso es más alto que el de
+    pantalla, así que ese primer cálculo salía corto y el pie quedaba a
+    veces bien, a veces con un salto en blanco antes de llegar al borde.
+    Ahora se agrega una clase temporal (.pdf-medir) que aplica ANTES de
+    medir los mismos cambios de layout que usa la impresión (ver reglas
+    "body.pdf-medir" más arriba) y fuerza el ancho real que tiene el
+    contenido ya impreso (hoja menos los 2.5cm de margen a cada lado), para
+    que el alto medido sea el mismo que el que después reparte Chrome entre
+    hojas. */
+function prepararEspaciadorPie() {
+  const anterior = document.getElementById('pdf-espaciador-pie');
+  if (anterior) anterior.remove();
+
+  const celda = document.querySelector('.pdf-tbody-td');
+  if (!celda) return;
+
+  try {
+    document.body.classList.add('pdf-medir');
+    const PX_POR_CM = 96 / 2.54;
+    const altoContenidoCm = celda.scrollHeight / PX_POR_CM;
+    document.body.classList.remove('pdf-medir');
+
+    const altoHojaCm = 27.94;        // hoja carta, alto completo
+    const altoEncabezadoCm = 2.8;    // encabezado.png a lo ancho de la hoja
+    const altoPieCm = 2.77;          // pie-de-pagina.png a lo ancho de la hoja
+    const paddingVerticalCm = 3;     // padding superior/inferior de .pdf-tbody-td
+
+    // Alto disponible por hoja SIN contar el padding (el padding-top solo
+    // se aplica en la primera hoja y el padding-bottom solo en la última —
+    // así reparte Chrome el padding de una celda de tabla que se divide
+    // entre varias páginas, no se repite completo en cada una).
+    const hojaCompleta = altoHojaCm - altoEncabezadoCm - altoPieCm;
+    const hojaConUnPadding = hojaCompleta - paddingVerticalCm;
+    const hojaConDosPaddings = hojaCompleta - (paddingVerticalCm * 2);
+
+    let restante;
+    if (altoContenidoCm <= hojaConDosPaddings) {
+      // Todo el contenido cabe en una sola hoja: esa hoja es la primera y
+      // la última al mismo tiempo, así que pierde AMBOS paddings.
+      restante = hojaConDosPaddings - altoContenidoCm;
+    } else {
+      // La primera hoja se llena con hojaConUnPadding (pierde solo el de
+      // arriba); las hojas intermedias, con la hoja completa; la última
+      // hoja vuelve a tener hojaConUnPadding de capacidad (pierde solo el
+      // de abajo) — es la que queremos rellenar hasta el borde.
+      let resto = altoContenidoCm - hojaConUnPadding;
+      while (resto > hojaConUnPadding) {
+        resto -= hojaCompleta;
+      }
+      restante = hojaConUnPadding - resto;
+    }
+
+    // Si el restante es casi una hoja completa o casi nada, no vale la pena rellenar.
+    if (restante > 0.5 && restante < hojaCompleta - 0.5) {
+      const espaciador = document.createElement('div');
+      espaciador.id = 'pdf-espaciador-pie';
+      espaciador.className = 'pdf-espaciador-pie';
+      espaciador.style.height = restante.toFixed(2) + 'cm';
+      celda.appendChild(espaciador);
+    }
+  } catch (err) {
+    document.body.classList.remove('pdf-medir');
+    // Si algo falla en el cálculo, simplemente no se agrega relleno — el PDF sigue saliendo igual que antes.
+  }
+}
+
+document.getElementById('btn-exportar-pdf-dash').addEventListener('click', () => {
+  prepararEspaciadorPie();
+  window.print();
+});
+document.getElementById('btn-exportar-excel-dash').addEventListener('click', () => {
+  window.open('/api/votantes-dashboard/exportar-excel', '_blank');
+});
+document.getElementById('btn-exportar-word-dash').addEventListener('click', () => {
+  const qs = new URLSearchParams({
+    tipo_grafico_comuna: tipoGraficoActivo('comuna'),
+    tipo_grafico_barrio: tipoGraficoActivo('barrio'),
+    tipo_grafico_lider: tipoGraficoActivo('lider'),
+    tipo_grafico_puesto: tipoGraficoActivo('puesto')
+  });
+  window.open(`/api/votantes-dashboard/exportar-word?${qs.toString()}`, '_blank');
+});
+
+/** Imprime SOLO la tarjeta indicada (oculta todas las demás mientras dura la impresión, y las vuelve a mostrar después). */
+function exportarSeccionPDF(idTarjeta) {
+  const objetivo = document.getElementById(idTarjeta);
+  if (!objetivo) return;
+  const ocultadas = [];
+  document.querySelectorAll('.card, .grafico-card').forEach(el => {
+    if (el !== objetivo) { el.classList.add('oculto-en-esta-impresion'); ocultadas.push(el); }
+  });
+  prepararEspaciadorPie();
+  window.print();
+  ocultadas.forEach(el => el.classList.remove('oculto-en-esta-impresion'));
+  const espaciador = document.getElementById('pdf-espaciador-pie');
+  if (espaciador) espaciador.remove();
+}
+
+/** Descarga un .xlsx de UNA sola sección del dashboard. */
+function exportarSeccionExcel(seccion, params) {
+  const qs = new URLSearchParams({ seccion, ...(params || {}) });
+  window.open(`/api/votantes-dashboard/exportar-excel?${qs.toString()}`, '_blank');
+}
+
+/** "Por Mesa" necesita saber para cuál Puesto exportar — el que esté elegido arriba en el drill-down. */
+function exportarSeccionMesaExcel() {
+  const puesto = document.getElementById('select-puesto-mesa').value;
+  if (!puesto) {
+    alert('Elija primero un Puesto de votación arriba para exportar su detalle por mesa.');
+    return;
+  }
+  exportarSeccionExcel('mesa', { puesto });
+}
+
+/** Cuál tipo de gráfico (barra/dona) tiene activo AHORA MISMO esa sección en pantalla — el botón Word arma su gráfico igual al que se está viendo. */
+function tipoGraficoActivo(clave) {
+  const activo = document.querySelector(`.grafico-toggle[data-grafico="${clave}"] button.activo`);
+  return activo ? activo.dataset.tipo : 'barra';
+}
+
+/** Descarga un .docx de UNA sola sección del dashboard (mismos datos que su Excel, con el gráfico como imagen). */
+function exportarSeccionWord(seccion, params) {
+  const qs = new URLSearchParams({ seccion, ...(params || {}) });
+  window.open(`/api/votantes-dashboard/exportar-word?${qs.toString()}`, '_blank');
+}
+
+/** "Por Mesa" necesita saber para cuál Puesto exportar — el que esté elegido arriba en el drill-down. */
+function exportarSeccionMesaWord() {
+  const puesto = document.getElementById('select-puesto-mesa').value;
+  if (!puesto) {
+    alert('Elija primero un Puesto de votación arriba para exportar su detalle por mesa.');
+    return;
+  }
+  exportarSeccionWord('mesa', { puesto });
+}
+
+/**
+ * Botón "Informe" de cada tarjeta de Cobertura territorial (Comunas/
+ * Corregimientos: Cubiertas/Cubrimiento parcial/Sin cubrimiento; Barrios/
+ * Veredas cubiertos): abre un menú flotante con las 3 formas de verlo —
+ * ver en pantalla, exportar a PDF, o exportar a Excel. Se cierra solo al
+ * hacer clic afuera o al elegir una opción.
+ */
+function mostrarMenuInforme(evt, tipo, estado, titulo) {
+  evt.stopPropagation();
+  cerrarMenuInforme();
+  const boton = evt.currentTarget;
+  const rect = boton.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.className = 'menu-informe-cobertura';
+  menu.id = 'menu-informe-cobertura-activo';
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.left = `${Math.max(8, rect.right - 190)}px`;
+  menu.innerHTML = `
+    <button type="button">📊 Ver en pantalla</button>
+    <button type="button">⬇ Excel</button>
+    <button type="button">📝 Word</button>
+    <button type="button">🖨 PDF</button>
+  `;
+  const [btnVer, btnExcel, btnWord, btnPdf] = menu.querySelectorAll('button');
+  btnVer.addEventListener('click', () => { cerrarMenuInforme(); mostrarInformeCoberturaEnPantalla(tipo, estado, titulo); });
+  btnExcel.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaExcel(tipo, estado); });
+  btnWord.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaWord(tipo, estado); });
+  btnPdf.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaPDF(tipo, estado, titulo); });
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', cerrarMenuInforme, { once: true }), 0);
+}
+
+function cerrarMenuInforme() {
+  const existente = document.getElementById('menu-informe-cobertura-activo');
+  if (existente) existente.remove();
+}
+
+/** Arma el HTML del cuerpo del informe a partir del detalle que devuelve el servidor. */
+function construirHtmlInformeCobertura(detalle, tipo) {
+  if (detalle.modo === 'zonas') {
+    const etiquetaZona = tipo === 'comuna' ? 'Comuna' : 'Corregimiento';
+    const etiquetaHijo = detalle.tipoHijo === 'barrio' ? 'Barrio' : 'Vereda';
+    if (!detalle.zonas.length) {
+      return `<p style="color:var(--color-text-muted);">No hay ${etiquetaZona.toLowerCase()}s en este estado.</p>`;
+    }
+    return detalle.zonas.map(z => `
+      <div class="informe-cobertura-zona">
+        <div class="informe-cobertura-zona-titulo">${etiquetaZona}: ${z.zona_nombre}</div>
+        <table class="tabla-mini">
+          <thead><tr><th>${etiquetaHijo}</th><th>Líder asignado</th></tr></thead>
+          <tbody>
+            ${z.hijos.length
+              ? z.hijos.map(h => `<tr><td>${escaparHtml(h.nombre)}</td><td>${h.tiene_lider ? '✅ ' + escaparHtml(h.lider_nombre) : '❌ Sin asignar'}</td></tr>`).join('')
+              : `<tr><td colspan="2" style="color:var(--color-text-muted);">Sin ${etiquetaHijo.toLowerCase()}s registrados</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `).join('');
+  }
+  // modo 'plano' (Barrios/Veredas cubiertos: un solo listado, sin agrupar por zona)
+  const etiquetaHijo = tipo === 'barrio' ? 'Barrio' : 'Vereda';
+  const etiquetaZona = tipo === 'barrio' ? 'Comuna' : 'Corregimiento';
+  if (!detalle.hijos.length) {
+    return `<p style="color:var(--color-text-muted);">No hay ${etiquetaHijo.toLowerCase()}s cubiertos todavía.</p>`;
+  }
+  return `
+    <table class="tabla-mini">
+      <thead><tr><th>${etiquetaHijo}</th><th>${etiquetaZona}</th><th>Líder asignado</th></tr></thead>
+      <tbody>${detalle.hijos.map(h => `<tr><td>${escaparHtml(h.nombre)}</td><td>${escaparHtml(h.zona_nombre || '—')}</td><td>${escaparHtml(h.lider_nombre)}</td></tr>`).join('')}</tbody>
+    </table>
+  `;
+}
+
+/** Consulta el detalle y llena la tarjeta de informe (compartida por "ver en pantalla" y "exportar a PDF"). */
+async function prepararInformeCobertura(tipo, estado, titulo) {
+  const contenedor = document.getElementById('tarjeta-informe-cobertura-detalle');
+  document.getElementById('informe-cobertura-titulo').textContent = titulo;
+  document.getElementById('informe-cobertura-subtitulo').textContent = 'Cargando…';
+  document.getElementById('informe-cobertura-cuerpo').innerHTML = '';
+  contenedor.style.display = 'block';
+  try {
+    const params = new URLSearchParams({ tipo, estado });
+    const detalle = await api(`/votantes-dashboard/cobertura-detalle?${params.toString()}`);
+    document.getElementById('informe-cobertura-cuerpo').innerHTML = construirHtmlInformeCobertura(detalle, tipo);
+    document.getElementById('informe-cobertura-subtitulo').textContent = `Generado el ${new Date().toLocaleString('es-CO')}`;
+  } catch (err) {
+    document.getElementById('informe-cobertura-subtitulo').textContent = '';
+    document.getElementById('informe-cobertura-cuerpo').innerHTML = `<p class="mensaje-error visible">${err.message || 'Error cargando el informe.'}</p>`;
+  }
+}
+
+async function mostrarInformeCoberturaEnPantalla(tipo, estado, titulo) {
+  await prepararInformeCobertura(tipo, estado, titulo);
+  document.getElementById('tarjeta-informe-cobertura-detalle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function exportarInformeCoberturaPDF(tipo, estado, titulo) {
+  await prepararInformeCobertura(tipo, estado, titulo);
+  exportarSeccionPDF('tarjeta-informe-cobertura-detalle');
+}
+
+function exportarInformeCoberturaExcel(tipo, estado) {
+  const params = new URLSearchParams({ tipo, estado });
+  window.open(`/api/votantes-dashboard/cobertura-detalle/exportar-excel?${params.toString()}`, '_blank');
+}
+
+function exportarInformeCoberturaWord(tipo, estado) {
+  const params = new URLSearchParams({ tipo, estado });
+  window.open(`/api/votantes-dashboard/cobertura-detalle/exportar-word?${params.toString()}`, '_blank');
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/votantes-dashboard.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.querySelector('.main').innerHTML = '<div class="card">No tiene permisos para ver este dashboard.</div>';
+    return;
+  }
+  await cargarDatosDashboard();
+})();
+</script>
+</body>
+</html>

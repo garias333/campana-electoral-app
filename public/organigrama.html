@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organigrama · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* Tamaño de fuente general del organigrama, más grande que el resto de la app. */
+  #card-org { font-size: 1.2rem; }
+
+  /* --- Vista de lista (árbol con sangría) --- */
+  .org-nodo { border-left: 2px solid var(--color-border, #e2e2e2); margin-left: 10px; }
+  .org-nodo-fila {
+    display: flex; align-items: center; gap: 8px; padding: 11px 0 11px 12px;
+    border-bottom: 1px solid var(--color-border, #f0f0f0);
+    transition: background 0.12s;
+  }
+  .org-nodo-fila:hover { background: #F7F9FC; }
+  .org-toggle {
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--color-text-muted); font-size: 1rem; flex-shrink: 0; user-select: none;
+  }
+  .org-toggle.vacio { visibility: hidden; }
+  .org-cargo { font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 1.12rem; letter-spacing: 0.01em; }
+  .org-nombre { color: var(--color-text-muted); font-size: 1.08rem; }
+  .org-etiqueta-asesor {
+    font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-accent-dark, #a15a1f); background: rgba(192,98,31,0.12);
+    border-radius: 4px; padding: 2px 8px;
+  }
+  .org-acciones { margin-left: auto; display: flex; gap: 6px; white-space: nowrap; }
+  .org-acciones button { font-size: 0.88rem; }
+  .org-hijos.contraido { display: none; }
+  .org-raiz-lista > .org-nodo { margin-left: 0; border-left: none; }
+
+  /* --- Vista de diagrama (cajas conectadas, estilo organigrama de PowerPoint) --- */
+  .org-diagrama-scroll { overflow-x: auto; padding: 24px 12px; }
+  /* El zoom (ajustar a pantalla) se aplica con transform:scale() sobre
+     #org-diagrama; el origen arriba-centro evita que el escalado empuje
+     el contenido fuera de vista al achicarse. La transición hace que el
+     cambio de zoom se sienta suave en vez de un salto brusco. */
+  #org-diagrama { transform-origin: top center; transition: transform 0.15s ease; }
+  .org-diagrama, .org-diagrama ul {
+    list-style: none; margin: 0; padding: 0; position: relative;
+    display: flex; justify-content: center;
+  }
+  .org-diagrama { text-align: center; }
+  .org-diagrama li {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 10px 0 10px; position: relative;
+  }
+  .org-diagrama li::before, .org-diagrama li::after {
+    content: ''; position: absolute; top: 0; right: 50%;
+    border-top: 2px solid var(--color-border-fuerte, #AEB9C9);
+    width: 50%; height: 28px;
+  }
+  .org-diagrama li::after { right: auto; left: 50%; border-left: 2px solid var(--color-border-fuerte, #AEB9C9); }
+  .org-diagrama li:only-child::after, .org-diagrama li:only-child::before { display: none; }
+  .org-diagrama li:only-child { padding-top: 0; }
+  .org-diagrama li:first-child::before, .org-diagrama li:last-child::after { border: 0 none; }
+  .org-diagrama li:last-child::before { border-right: 2px solid var(--color-border-fuerte, #AEB9C9); border-radius: 0 6px 0 0; }
+  .org-diagrama li:first-child::after { border-radius: 6px 0 0 0; }
+  .org-diagrama > li { padding-top: 0; }
+  .org-diagrama > li::before, .org-diagrama > li::after { display: none; }
+  .org-diagrama ul::before {
+    content: ''; position: absolute; top: -28px; left: 50%;
+    border-left: 2px solid var(--color-border-fuerte, #AEB9C9); width: 0; height: 28px;
+  }
+  .org-diagrama ul { padding-top: 28px; }
+
+  /* --- Selector de "forma de ver" el Diagrama (Clásico + 4 variantes nuevas) --- */
+  .org-subvista-selector {
+    display: flex; gap: 6px; flex-wrap: wrap; margin: -10px 0 18px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--color-border, #eee);
+  }
+  .org-subvista-chip {
+    font-size: 0.82rem; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--color-border, #dfe3e8); background: #fff; cursor: pointer;
+    color: var(--color-text-muted); transition: all 0.12s;
+  }
+  .org-subvista-chip.activo { background: #0B5ED7; border-color: #0B5ED7; color: #fff; }
+  .org-subvista-chip.activo:hover { background: #084298; border-color: #084298; }
+
+  /* --- Variante: Horizontal (izquierda → derecha) --- */
+  /* Reutiliza el mismo HTML recursivo que el Diagrama clásico
+     (renderizarNodoDiagrama) — solo cambia, con este modificador de
+     clase, la dirección de crecimiento y el lado de las líneas
+     conectoras (de arriba/abajo pasan a ser izquierda/derecha). */
+  .org-diagrama-horizontal, .org-diagrama-horizontal ul {
+    flex-direction: column; justify-content: center; align-items: flex-start;
+  }
+  .org-diagrama-horizontal { text-align: left; }
+  .org-diagrama-horizontal li {
+    flex-direction: row; align-items: center; padding: 10px 0 10px 30px;
+  }
+  .org-diagrama-horizontal li::before, .org-diagrama-horizontal li::after {
+    top: 50%; left: 0; right: auto;
+    border-top: none; border-left: 2px solid var(--color-border-fuerte, #AEB9C9);
+    width: 30px; height: 50%;
+  }
+  .org-diagrama-horizontal li::before { top: 0; border-bottom: 2px solid var(--color-border-fuerte, #AEB9C9); }
+  .org-diagrama-horizontal li::after { top: 50%; border-top: 2px solid var(--color-border-fuerte, #AEB9C9); }
+  .org-diagrama-horizontal li:last-child::before { border-right: none; border-radius: 0; border-bottom-left-radius: 6px; }
+  .org-diagrama-horizontal li:first-child::after { border-radius: 0; border-top-left-radius: 6px; }
+  .org-diagrama-horizontal ul::before {
+    top: 50%; left: -30px; border-left: 2px solid var(--color-border-fuerte, #AEB9C9);
+    border-top: none; width: 30px; height: 0;
+  }
+  .org-diagrama-horizontal ul { padding-top: 0; padding-left: 30px; }
+  .org-diagrama-horizontal .org-asesores-conector { width: 1px; height: 20px; border-top: none; border-left: 2px dashed var(--color-border-fuerte, #AEB9C9); margin: 6px 0 0; }
+  .org-diagrama-horizontal .org-caja-grupo { flex-direction: column; align-items: flex-start; }
+  .org-diagrama-horizontal .org-asesores-lista { flex-direction: row; margin-left: 0; margin-top: 8px; }
+
+  /* --- Variante: Compacto (cajas anidadas tipo árbol de carpetas) --- */
+  .org-compacto-raiz { display: flex; flex-direction: column; gap: 10px; }
+  .org-compacto-nodo { }
+  .org-compacto-caja {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-left: 3px solid var(--color-marca, #0B5ED7);
+    border-radius: 8px;
+    padding: 10px 16px; box-shadow: 0 1px 2px rgba(16,35,63,0.05);
+  }
+  .org-compacto-caja .org-cargo { font-size: 1.02rem; }
+  .org-compacto-caja .org-nombre { font-size: 0.96rem; }
+  .org-compacto-caja .org-caja-acciones { margin: 0 0 0 auto; }
+  .org-compacto-hijos {
+    margin: 8px 0 0 26px; padding-left: 16px; border-left: 2px dashed var(--color-border, #dfe3e8);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* --- Variante: Columnas por Nivel (tipo tablero) --- */
+  .org-columnas-tablero { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+  .org-columna-nivel { flex: 1 1 220px; min-width: 220px; background: #F7F9FC; border: 1px solid var(--color-border, #eee); border-radius: 10px; padding: 14px; }
+  .org-columna-nivel-titulo { font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 0.94rem; color: var(--color-navy, #10233F); margin: 0 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--color-marca, #0B5ED7); }
+  .org-columna-nivel-tarjetas { display: flex; flex-direction: column; gap: 9px; }
+  .org-columna-tarjeta { background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-radius: 8px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(16,35,63,0.05); }
+  .org-columna-tarjeta .org-cargo { font-size: 0.98rem; display: block; }
+  .org-columna-tarjeta .org-nombre { font-size: 0.92rem; display: block; }
+  .org-columna-vacia { color: var(--color-text-muted); font-size: 0.85rem; font-style: italic; }
+
+  /* --- Variante: Radial (el cargo raíz en el centro, sus subordinados alrededor) --- */
+  .org-radial-lienzo { position: relative; width: 100%; min-height: 460px; margin-bottom: 24px; }
+  .org-radial-lienzo:last-child { margin-bottom: 0; }
+  .org-radial-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  .org-radial-nodo {
+    position: absolute; transform: translate(-50%, -50%);
+    background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-radius: 9px;
+    padding: 9px 13px; min-width: 138px; max-width: 168px; text-align: center;
+    box-shadow: 0 2px 6px rgba(16,35,63,0.10);
+  }
+  .org-radial-nodo.org-radial-centro { border: 2px solid var(--color-marca, #0B5ED7); background: var(--color-navy, #10233F); font-weight: 600; z-index: 2; }
+  .org-radial-nodo.org-radial-centro .org-cargo, .org-radial-nodo.org-radial-centro .org-nombre { color: #fff; }
+  .org-radial-nodo .org-cargo { font-size: 0.92rem; display: block; }
+  .org-radial-nodo .org-nombre { font-size: 0.86rem; display: block; }
+  .org-radial-nodo .org-radial-mas { display: block; font-size: 0.76rem; color: var(--color-accent-dark, #a15a1f); margin-top: 2px; }
+
+  .org-caja-grupo { display: flex; align-items: flex-start; }
+  .org-caja {
+    display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-top: 3px solid var(--color-marca, #0B5ED7);
+    border-radius: 10px;
+    padding: 14px 20px 13px; min-width: 200px; box-shadow: var(--shadow-card, 0 1px 2px rgba(16,35,63,0.06), 0 4px 16px rgba(16,35,63,0.05));
+    position: relative; transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .org-caja:hover { box-shadow: 0 6px 20px rgba(16,35,63,0.12); transform: translateY(-1px); }
+  .org-caja .org-cargo { font-size: 1.08rem; color: var(--color-navy, #10233F); }
+  .org-caja .org-nombre { font-size: 1.02rem; }
+  .org-caja-toggle {
+    position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
+    width: 30px; height: 30px; border-radius: 50%; background: var(--color-accent, #c0621f);
+    color: #fff; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); user-select: none; z-index: 2;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .org-caja-toggle:hover { background: var(--color-accent-dark, #a15a1f); transform: translateX(-50%) translateY(-1px); }
+  /* Botones de acción de cada tarjeta del organigrama (+ Sub./+ Ases./
+     Editar/Eliminar): más grandes que un .btn-secundario normal, y
+     Editar/Eliminar con su propio color (igual criterio que el resto de
+     la app: azul para editar, rojo para eliminar) para diferenciarlos de
+     un vistazo. */
+  .org-caja-acciones { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; justify-content: center; }
+  .org-caja-acciones button {
+    font-size: 0.85rem; font-weight: 700; padding: 7px 13px; border-radius: 8px;
+    border: 1.5px solid var(--color-border, #dfe3e8);
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .org-caja-acciones button:hover { box-shadow: 0 3px 10px rgba(16,35,63,0.15); }
+  .org-caja-acciones button:active { transform: translateY(1px); }
+  .org-caja-acciones .btn-org-editar { background: #E8EEFB; border-color: #C2D2F0; color: #1B4C9C; }
+  .org-caja-acciones .btn-org-editar:hover { background: #1B4C9C; border-color: #1B4C9C; color: #fff; }
+  .org-caja-acciones .btn-org-eliminar { background: #FBEAEA; border-color: #F3D2D2; color: #A93226; }
+  .org-caja-acciones .btn-org-eliminar:hover { background: #A93226; border-color: #A93226; color: #fff; }
+
+  /* Botón de imprimir ficha (PDF/Word): invisible por defecto, aparece con
+     el mouse encima de la caja del cargo (o de la fila, en la vista
+     Lista) — disponible para cualquier persona que pueda ver el
+     organigrama, no solo quienes pueden editar. Mismo color por tipo de
+     archivo que se usa en el resto de la aplicación (rojo = PDF, azul =
+     Word), y más grande que antes para que sea fácil de encontrar y de
+     hacer clic. */
+  .org-caja-imprimir {
+    position: absolute; top: 8px; right: 8px; width: 32px; height: 32px;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    background: #FCEDED; border: 1.5px solid #EFC2C2; color: #A93226;
+    cursor: pointer; font-size: 1.15rem; opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .org-caja:hover .org-caja-imprimir, .org-caja-imprimir:focus { opacity: 1; }
+  .org-caja-imprimir:hover { background: #A93226; border-color: #A93226; color: #fff; box-shadow: 0 3px 10px rgba(169,50,38,0.3); }
+  .org-caja-imprimir:active { transform: translateY(1px); }
+  /* Variante siempre visible (vista Compacto, donde no hay hover de "caja" completa). */
+  .org-caja-imprimir.org-caja-imprimir-inline {
+    position: static; opacity: 1; width: auto; height: auto; padding: 6px 10px; font-size: 1rem;
+  }
+  .org-imprimir-lista {
+    opacity: 0; transition: opacity 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.1s;
+    cursor: pointer; font-size: 0.85rem; font-weight: 700;
+    border: 1.5px solid var(--color-border, #dfe3e8); border-radius: 8px;
+    padding: 6px 12px; background: #fff; line-height: 1.4; display: inline-block;
+  }
+  .org-nodo-fila:hover .org-imprimir-lista, .org-imprimir-lista:focus { opacity: 1; }
+  .org-imprimir-lista:hover { box-shadow: 0 3px 10px rgba(16,35,63,0.15); }
+  .org-imprimir-lista:active { transform: translateY(1px); }
+  .org-imprimir-lista.org-imprimir-pdf { background: #FCEDED; border-color: #EFC2C2; color: #A93226; }
+  .org-imprimir-lista.org-imprimir-pdf:hover { background: #A93226; border-color: #A93226; color: #fff; }
+  .org-imprimir-lista.org-imprimir-word { background: #E8EEFB; border-color: #C2D2F0; color: #1B4C9C; }
+  .org-imprimir-lista.org-imprimir-word:hover { background: #1B4C9C; border-color: #1B4C9C; color: #fff; }
+
+  /* Asesores: bloque horizontal a la derecha de la caja, conectado con línea punteada. */
+  .org-asesores-conector { width: 22px; height: 1px; border-top: 2px dashed var(--color-border-fuerte, #AEB9C9); margin-top: 30px; }
+  .org-asesores-lista { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+  .org-caja-asesor {
+    border-style: dashed !important; background: #fbf8f4;
+  }
+
+  /* --- Vista de tabla --- */
+  #org-tabla-contenedor table { font-size: 1.1rem; }
+  #org-tabla-contenedor th { font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-navy, #10233F); }
+
+  /* --- Vista Lista --- */
+  /* Con el filtro de Cargo activo, sangría notablemente mayor que la
+     normal (10px), para que la cadena de subordinados se note más. */
+  .org-nodo-filtrado { margin-left: 34px; padding-left: 6px; border-left-width: 3px; }
+  /* El Cargo se resalta con un color según su Nivel en la estructura —
+     todos los cargos del mismo nivel jerárquico comparten el mismo
+     color. El nombre de la persona siempre queda en negro. */
+  .org-cargo-nivel-nivel_1 { color: #1a3a5c; }
+  .org-cargo-nivel-nivel_2 { color: #2563eb; }
+  .org-cargo-nivel-nivel_3 { color: #16a34a; }
+  .org-cargo-nivel-nivel_4 { color: #7c3aed; }
+  .org-cargo-nivel-nivel_5 { color: #db2777; }
+  .org-cargo-nivel-nivel_6 { color: #b45309; }
+  .org-cargo-nivel-asesores { color: #c0621f; }
+  .org-cargo-nivel-sin-nivel { color: inherit; }
+  .org-nombre { color: #000; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Electoral</div><h1>Organigrama</h1></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-diagrama" style="border:none; border-radius:0;">🗂️ Diagrama</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-lista" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">☰ Lista</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-tabla" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">📋 Tabla</button>
+        </div>
+        <div id="org-zoom-controles" style="display:none; align-items:center; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-menos" title="Alejar" style="border:none; border-radius:0;">−</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-ajustar" title="Ajustar a pantalla" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8); border-right:1px solid var(--color-border, #dfe3e8); font-size:0.8rem;">Ajustar</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-mas" title="Acercar" style="border:none; border-radius:0;">+</button>
+        </div>
+        <button class="btn-acento" id="btn-nuevo-raiz">+ Agregar cargo raíz</button>
+        <button type="button" class="btn-secundario" id="btn-todo-word" title="Ficha de cada cargo en Word, una por hoja">📝 Todo a Word</button>
+        <button type="button" class="btn-secundario" id="btn-imprimir-todo" title="Ficha de cada cargo en PDF, una por hoja">🖨️ Todo a PDF</button>
+      </div>
+    </div>
+
+    <div class="card" id="card-org">
+      <div class="campo" id="campo-filtro-org-cargo" style="display:none; max-width:520px;">
+        <label>Filtrar por Cargo (muestra a quien lo encabeza y sus subordinados)</label>
+        <select id="filtro-org-cargo">
+          <option value="">Todos los cargos</option>
+        </select>
+        <div style="margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; font-size:0.8rem;">
+          <span class="org-cargo-nivel-nivel_1">● Nivel 1</span>
+          <span class="org-cargo-nivel-nivel_2">● Nivel 2</span>
+          <span class="org-cargo-nivel-nivel_3">● Nivel 3</span>
+          <span class="org-cargo-nivel-nivel_4">● Nivel 4</span>
+          <span class="org-cargo-nivel-nivel_5">● Nivel 5</span>
+          <span class="org-cargo-nivel-nivel_6">● Nivel 6</span>
+          <span class="org-cargo-nivel-asesores">● Asesores</span>
+        </div>
+      </div>
+      <div id="org-arbol" class="org-raiz-lista"></div>
+      <div id="org-diagrama-contenedor" class="org-diagrama-scroll" style="display:none;">
+        <div class="org-subvista-selector" id="org-subvista-selector">
+          <button type="button" class="org-subvista-chip activo" data-subvista="clasico">🗂️ Clásico</button>
+          <button type="button" class="org-subvista-chip" data-subvista="horizontal">➡️ Horizontal</button>
+          <button type="button" class="org-subvista-chip" data-subvista="compacto">📑 Compacto</button>
+          <button type="button" class="org-subvista-chip" data-subvista="columnas">📊 Columnas por Nivel</button>
+          <button type="button" class="org-subvista-chip" data-subvista="radial">🎯 Radial</button>
+        </div>
+        <ul id="org-diagrama" class="org-diagrama"></ul>
+        <div id="org-diagrama-compacto" class="org-compacto-raiz" style="display:none;"></div>
+        <div id="org-diagrama-columnas" class="org-columnas-tablero" style="display:none;"></div>
+        <div id="org-diagrama-radial" style="display:none;"></div>
+      </div>
+      <div id="org-tabla-contenedor" style="display:none;">
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin-top:0;">
+          Todos los cargos del organigrama, en formato de tabla (ordenados por Cargo) — estos mismos contactos se pueden elegir desde el CRM (CRM y Mensajes, Enviar E-mail, Enviar SMS) buscando por su nombre.
+        </p>
+        <div id="org-tabla-grupos"></div>
+      </div>
+      <div id="org-vacio" class="vacio" style="display:none;"><div class="icono-vacio">🗂️</div>Aún no hay cargos en el organigrama. Empieza agregando uno raíz.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-org-form">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header"><h3 id="org-form-titulo">Agregar cargo</h3><button class="modal-cerrar" id="cerrar-org-form">×</button></div>
+    <div id="org-form-error" class="mensaje-error"></div>
+    <form id="form-org">
+      <input type="hidden" id="org-form-id">
+      <div class="campo"><label>Cargo</label><input id="org-form-cargo" placeholder="Ej. GERENTE DE CAMPAÑA" required></div>
+      <div class="fila">
+        <div class="campo"><label>Nombres</label><input id="org-form-nombres" placeholder="Ej. Luis Eduardo"></div>
+        <div class="campo"><label>Apellidos</label><input id="org-form-apellidos" placeholder="Ej. Arias Vargas"></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label>Teléfono</label><input id="org-form-telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label>E-mail</label><input type="email" id="org-form-email" placeholder="correo@ejemplo.com"></div>
+      </div>
+      <div class="campo">
+        <label>Nivel</label>
+        <select id="org-form-nivel">
+          <option value="">Sin especificar</option>
+          <option value="nivel_1">Nivel 1</option>
+          <option value="nivel_2">Nivel 2</option>
+          <option value="nivel_3">Nivel 3</option>
+          <option value="nivel_4">Nivel 4</option>
+          <option value="nivel_5">Nivel 5</option>
+          <option value="nivel_6">Nivel 6</option>
+          <option value="asesores">Asesores</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Es subordinado de (opcional)</label>
+        <select id="org-form-padre"><option value="">Ninguno — cargo raíz</option></select>
+      </div>
+      <div class="campo" id="campo-org-tipo-relacion" style="display:none;">
+        <label>Tipo de relación</label>
+        <select id="org-form-tipo-relacion">
+          <option value="subordinado">Subordinado (línea jerárquica)</option>
+          <option value="asesor">Asesor / Staff (horizontal, junto al cargo)</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Funciones del cargo</label>
+        <textarea id="org-form-funciones" rows="4" placeholder="Describe las responsabilidades de este cargo..."></textarea>
+      </div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let nodos = [];
+let vista = 'diagrama'; // 'diagrama' | 'lista'
+let subVistaDiagrama = 'clasico'; // 'clasico' | 'horizontal' | 'compacto' | 'columnas' | 'radial'
+let filtroCargoLista = '';
+const contraidos = new Set();
+let zoomDiagrama = 1;
+
+function escaparOrgHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+async function cargarOrganigrama() {
+  nodos = await api('/organigrama');
+  poblarFiltroOrgCargo();
+  renderizarArbol();
+}
+
+function renderizarArbol() {
+  const raices = nodos.filter(n => !n.padre_id);
+
+  const listaBox = document.getElementById('org-arbol');
+  const diagBox = document.getElementById('org-diagrama-contenedor');
+  const tablaBox = document.getElementById('org-tabla-contenedor');
+
+  listaBox.style.display = 'none';
+  diagBox.style.display = 'none';
+  tablaBox.style.display = 'none';
+
+  if (vista === 'lista') {
+    // Si hay un Cargo elegido en el filtro, la "raíz" a mostrar pasa a ser
+    // quien tenga ese cargo (puede haber más de uno con el mismo nombre de
+    // cargo, poco común pero posible) — y como renderizarNodoLista ya
+    // dibuja recursivamente a los hijos de cada nodo, esto automáticamente
+    // muestra a esa persona y a toda su cadena de subordinados, sin
+    // importar en qué parte del organigrama real esté.
+    const raicesLista = filtroCargoLista ? nodos.filter(n => n.cargo === filtroCargoLista) : raices;
+    document.getElementById('org-vacio').style.display = raicesLista.length ? 'none' : 'block';
+    listaBox.style.display = raicesLista.length ? 'block' : 'none';
+    listaBox.innerHTML = raicesLista.map(n => renderizarNodoLista(n)).join('');
+  } else if (vista === 'tabla') {
+    document.getElementById('org-vacio').style.display = 'none';
+    tablaBox.style.display = 'block';
+    renderizarTablaPorCargo();
+  } else {
+    document.getElementById('org-vacio').style.display = raices.length ? 'none' : 'block';
+    diagBox.style.display = raices.length ? 'block' : 'none';
+    renderizarSubVistaDiagrama(raices);
+  }
+}
+
+/** Muestra/oculta el contenedor que corresponde a la sub-vista elegida dentro de Diagrama, y dibuja su contenido. */
+function renderizarSubVistaDiagrama(raices) {
+  const cajaClasica = document.getElementById('org-diagrama');
+  const cajaCompacto = document.getElementById('org-diagrama-compacto');
+  const cajaColumnas = document.getElementById('org-diagrama-columnas');
+  const cajaRadial = document.getElementById('org-diagrama-radial');
+  const controlesZoom = document.getElementById('org-zoom-controles');
+
+  cajaClasica.style.display = 'none';
+  cajaCompacto.style.display = 'none';
+  cajaColumnas.style.display = 'none';
+  cajaRadial.style.display = 'none';
+
+  document.querySelectorAll('#org-subvista-selector .org-subvista-chip').forEach(chip => {
+    chip.classList.toggle('activo', chip.dataset.subvista === subVistaDiagrama);
+  });
+
+  if (subVistaDiagrama === 'horizontal') {
+    cajaClasica.style.display = 'flex';
+    cajaClasica.classList.add('org-diagrama-horizontal');
+    cajaClasica.innerHTML = raices.map(n => renderizarNodoDiagrama(n)).join('');
+    controlesZoom.style.display = 'flex';
+    requestAnimationFrame(ajustarZoomAutomatico);
+  } else if (subVistaDiagrama === 'compacto') {
+    cajaCompacto.style.display = 'flex';
+    cajaCompacto.innerHTML = raices.map(n => renderizarNodoCompacto(n)).join('');
+    controlesZoom.style.display = 'none';
+  } else if (subVistaDiagrama === 'columnas') {
+    cajaColumnas.style.display = 'flex';
+    renderizarColumnasPorNivel();
+    controlesZoom.style.display = 'none';
+  } else if (subVistaDiagrama === 'radial') {
+    cajaRadial.style.display = 'block';
+    renderizarRadial(raices);
+    controlesZoom.style.display = 'none';
+  } else {
+    // Clásico
+    cajaClasica.style.display = 'flex';
+    cajaClasica.classList.remove('org-diagrama-horizontal');
+    cajaClasica.innerHTML = raices.map(n => renderizarNodoDiagrama(n)).join('');
+    controlesZoom.style.display = 'flex';
+    requestAnimationFrame(ajustarZoomAutomatico);
+  }
+}
+
+document.querySelectorAll('#org-subvista-selector .org-subvista-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    subVistaDiagrama = chip.dataset.subvista;
+    renderizarArbol();
+  });
+});
+
+/** Llena el filtro de Cargo (vista Lista) con los cargos únicos que ya existen. */
+function poblarFiltroOrgCargo() {
+  const select = document.getElementById('filtro-org-cargo');
+  const valorPrevio = select.value;
+
+  // Solo se ofrecen para filtrar los cargos de Nivel 1 a 6 (en ese orden)
+  // — los de "Asesores" o sin nivel especificado no tienen tanto sentido
+  // en una cadena de mando para filtrar "quién reporta a quién", así que
+  // se dejan fuera de esta lista.
+  const cargosPorNivel = new Map();
+  ['nivel_1', 'nivel_2', 'nivel_3', 'nivel_4', 'nivel_5', 'nivel_6'].forEach(niv => cargosPorNivel.set(niv, new Set()));
+  nodos.forEach(n => {
+    if (cargosPorNivel.has(n.nivel)) cargosPorNivel.get(n.nivel).add(n.cargo);
+  });
+
+  let opciones = '<option value="">Todos los cargos</option>';
+  cargosPorNivel.forEach((cargosSet, niv) => {
+    const cargosOrdenados = Array.from(cargosSet).sort((a, b) => a.localeCompare(b));
+    if (!cargosOrdenados.length) return;
+    opciones += `<optgroup label="${ETIQUETAS_NIVEL[niv]}">` +
+      cargosOrdenados.map(c => `<option value="${c.replace(/"/g, '&quot;')}">${c}</option>`).join('') +
+      `</optgroup>`;
+  });
+  select.innerHTML = opciones;
+
+  const cargosDisponibles = Array.from(cargosPorNivel.values()).flatMap(s => Array.from(s));
+  select.value = valorPrevio && cargosDisponibles.includes(valorPrevio) ? valorPrevio : '';
+}
+document.getElementById('filtro-org-cargo').addEventListener('change', (e) => {
+  filtroCargoLista = e.target.value;
+  renderizarArbol();
+});
+
+/**
+ * Vista de tabla: todos los cargos (sin importar su posición en la
+ * jerarquía), en columnas, con sus datos de contacto — la idea es que
+ * sirva como un directorio plano, fácil de escanear y de usar como
+ * referencia para contactar a alguien desde el CRM.
+ */
+const ETIQUETAS_NIVEL = { nivel_1: 'Nivel 1', nivel_2: 'Nivel 2', nivel_3: 'Nivel 3', nivel_4: 'Nivel 4', nivel_5: 'Nivel 5', nivel_6: 'Nivel 6', asesores: 'Asesores' };
+
+/** Texto para la columna "Subordinado de": Cargo (+ nombre abreviado si tiene) del padre, o "—" si es cargo raíz. */
+function textoSubordinadoDe(nodo) {
+  if (!nodo.padre_id) return '—';
+  const padre = nodos.find(n => n.id === nodo.padre_id);
+  if (!padre) return '—';
+  const nombrePadre = nombreAbreviado(padre);
+  return nombrePadre ? `${padre.cargo} — ${nombrePadre}` : padre.cargo;
+}
+
+function renderizarTablaPorCargo() {
+  const ORDEN_NIVEL = { nivel_1: 0, nivel_2: 1, nivel_3: 2, nivel_4: 3, nivel_5: 4, nivel_6: 5, asesores: 6 };
+  const filas = nodos.slice().sort((a, b) => {
+    const ordenA = a.nivel ? (ORDEN_NIVEL[a.nivel] ?? 7) : 7; // sin nivel especificado, al final de todo
+    const ordenB = b.nivel ? (ORDEN_NIVEL[b.nivel] ?? 7) : 7;
+    if (ordenA !== ordenB) return ordenA - ordenB;
+    return a.cargo.localeCompare(b.cargo);
+  });
+  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  document.getElementById('org-tabla-grupos').innerHTML = `
+    <div class="tabla-contenedor">
+    <table>
+      <thead>
+        <tr>
+          <th>Cargo</th><th>Nombres</th><th>Apellidos</th><th>Teléfono</th><th>E-mail</th><th>Nivel</th><th>Subordinado de</th><th>Funciones</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filas.map(n => `
+          <tr>
+            <td><strong>${n.cargo}</strong></td>
+            <td>${n.nombres || (n.nombre ? n.nombre : '—')}</td>
+            <td>${n.apellidos || '—'}</td>
+            <td class="mono">${n.telefono ? formatoTelefonoColombia(n.telefono) : '—'}</td>
+            <td class="mono">${n.email || '—'}</td>
+            <td>${ETIQUETAS_NIVEL[n.nivel] || '—'}</td>
+            <td>${textoSubordinadoDe(n)}</td>
+            <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${n.funciones ? n.funciones.replace(/"/g, '&quot;') : ''}">${n.funciones ? n.funciones : '—'}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn-secundario btn-sm" onclick="imprimirCargo(${n.id})" title="Imprimir ficha de este cargo">🖨️</button>
+              ${puedeEditar ? `
+                <button class="btn-secundario btn-sm" onclick="editarNodo(${n.id})">Editar</button>
+                <button class="btn-secundario btn-sm" onclick="eliminarNodo(${n.id})">Eliminar</button>
+              ` : ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+function cambiarVista(nueva) {
+  vista = nueva;
+  document.getElementById('btn-vista-diagrama').classList.toggle('btn-acento', vista === 'diagrama');
+  document.getElementById('btn-vista-diagrama').classList.toggle('btn-secundario', vista !== 'diagrama');
+  document.getElementById('btn-vista-lista').classList.toggle('btn-acento', vista === 'lista');
+  document.getElementById('btn-vista-lista').classList.toggle('btn-secundario', vista !== 'lista');
+  document.getElementById('btn-vista-tabla').classList.toggle('btn-acento', vista === 'tabla');
+  document.getElementById('btn-vista-tabla').classList.toggle('btn-secundario', vista !== 'tabla');
+  document.getElementById('campo-filtro-org-cargo').style.display = vista === 'lista' ? 'block' : 'none';
+  document.getElementById('org-zoom-controles').style.display = vista === 'diagrama' ? 'flex' : 'none';
+  renderizarArbol();
+}
+document.getElementById('btn-vista-diagrama').addEventListener('click', () => cambiarVista('diagrama'));
+document.getElementById('btn-vista-lista').addEventListener('click', () => cambiarVista('lista'));
+document.getElementById('btn-vista-tabla').addEventListener('click', () => cambiarVista('tabla'));
+
+// --- Zoom del diagrama ("ajustar a pantalla") ---
+function aplicarZoomDiagrama() {
+  document.getElementById('org-diagrama').style.transform = `scale(${zoomDiagrama})`;
+}
+/**
+ * Calcula automáticamente el zoom necesario para que el organigrama
+ * completo quepa en el ancho disponible de la pantalla, sin necesidad de
+ * hacer scroll horizontal — si el organigrama es muy grande, no lo achica
+ * más allá de 40% (a partir de ahí ya no se alcanza a leer, y es mejor
+ * dejar que la persona use scroll horizontal en esa parte).
+ */
+function ajustarZoomAutomatico() {
+  if (vista !== 'diagrama') return;
+  const contenedor = document.getElementById('org-diagrama-contenedor');
+  const diagrama = document.getElementById('org-diagrama');
+  if (!contenedor || !diagrama || !diagrama.children.length) return;
+  diagrama.style.transform = 'none'; // se mide sin escalar, para saber el ancho real
+  const anchoContenido = diagrama.scrollWidth;
+  const anchoDisponible = contenedor.clientWidth - 16;
+  zoomDiagrama = anchoContenido > anchoDisponible
+    ? Math.max(0.4, Math.round((anchoDisponible / anchoContenido) * 100) / 100)
+    : 1;
+  aplicarZoomDiagrama();
+}
+document.getElementById('btn-zoom-ajustar').addEventListener('click', ajustarZoomAutomatico);
+document.getElementById('btn-zoom-mas').addEventListener('click', () => {
+  zoomDiagrama = Math.min(1.5, Math.round((zoomDiagrama + 0.1) * 100) / 100);
+  aplicarZoomDiagrama();
+});
+document.getElementById('btn-zoom-menos').addEventListener('click', () => {
+  zoomDiagrama = Math.max(0.3, Math.round((zoomDiagrama - 0.1) * 100) / 100);
+  aplicarZoomDiagrama();
+});
+// Si la persona cambia el tamaño de la ventana (o gira el celular),
+// se vuelve a calcular el ajuste automáticamente.
+let temporizadorResizeOrg;
+window.addEventListener('resize', () => {
+  clearTimeout(temporizadorResizeOrg);
+  temporizadorResizeOrg = setTimeout(ajustarZoomAutomatico, 250);
+});
+
+// --- Vista de lista ---
+// Cada nodo puede tener subordinados en línea (jerarquía normal) y/o
+// asesores (relación horizontal) — en esta vista ambos se listan igual,
+// diferenciados con la etiqueta "Asesor", para no complicar la sangría.
+function renderizarNodoLista(nodo) {
+  const hijos = nodos.filter(n => n.padre_id === nodo.id);
+  const tieneHijos = hijos.length > 0;
+  const contraido = contraidos.has(nodo.id);
+  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  const cargoEscapado = nodo.cargo.replace(/'/g, "&apos;");
+  // Con el filtro de Cargo activo, la sangría se agranda para que la
+  // cadena de subordinados se note más. El Cargo siempre se resalta con
+  // un color según su Nivel (todos los cargos del mismo nivel comparten
+  // color) — el nombre de la persona se deja siempre en negro.
+  const claseNodo = filtroCargoLista ? 'org-nodo org-nodo-filtrado' : 'org-nodo';
+  const claseColorCargo = `org-cargo-nivel-${nodo.nivel || 'sin-nivel'}`;
+
+  return `
+    <div class="${claseNodo}">
+      <div class="org-nodo-fila">
+        <span class="org-toggle ${tieneHijos ? '' : 'vacio'}" onclick="alternarNodo(${nodo.id})">${contraido ? '▸' : '▾'}</span>
+        <span class="org-cargo ${claseColorCargo}">${nodo.cargo}</span>
+        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${nombreAbreviado(nodo)}</span>` : ''}
+        ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
+        <span class="org-imprimir-lista org-imprimir-word" style="${puedeEditar ? '' : 'margin-left:auto;'}" onclick="exportarCargoWord(${nodo.id})" title="Ficha de este cargo en Word">📝 Word</span>
+        <span class="org-imprimir-lista org-imprimir-pdf" onclick="imprimirCargo(${nodo.id})" title="Ficha de este cargo en PDF">🖨️ PDF</span>
+        ${puedeEditar ? `
+          <div class="org-acciones">
+            <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'subordinado')">+ Subordinado</button>
+            <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'asesor')">+ Asesor</button>
+            <button class="btn-secundario btn-sm" onclick="editarNodo(${nodo.id})">Editar</button>
+            <button class="btn-secundario btn-sm" onclick="eliminarNodo(${nodo.id})">Eliminar</button>
+          </div>` : ''}
+      </div>
+      <div class="org-hijos ${contraido ? 'contraido' : ''}" id="org-hijos-${nodo.id}">
+        ${hijos.map(h => renderizarNodoLista(h)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// --- Vista de diagrama (cajas conectadas por líneas, estilo organigrama de PowerPoint) ---
+// Los subordinados de línea bajan en el árbol normal; los asesores se
+// muestran como cajas punteadas horizontales junto a la caja del cargo.
+function renderizarNodoDiagrama(nodo) {
+  const hijos = nodos.filter(n => n.padre_id === nodo.id);
+  const subordinadosLinea = hijos.filter(h => h.tipo_relacion !== 'asesor');
+  const asesores = hijos.filter(h => h.tipo_relacion === 'asesor');
+  const tieneHijosLinea = subordinadosLinea.length > 0;
+  const contraido = contraidos.has(nodo.id);
+  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  const cargoEscapado = nodo.cargo.replace(/'/g, "&apos;");
+
+  const cajaHtml = `
+    <div class="org-caja">
+      <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
+      <span class="org-cargo">${nodo.cargo}</span>
+      ${nombreAbreviado(nodo) ? `<span class="org-nombre">${nombreAbreviado(nodo)}</span>` : ''}
+      ${puedeEditar ? `
+        <div class="org-caja-acciones">
+          <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'subordinado')" title="Agregar subordinado">+ Sub.</button>
+          <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'asesor')" title="Agregar asesor">+ Ases.</button>
+          <button class="btn-secundario btn-sm btn-org-editar" onclick="editarNodo(${nodo.id})" title="Editar">✎</button>
+          <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${nodo.id})" title="Eliminar">🗑</button>
+        </div>` : ''}
+      ${tieneHijosLinea ? `<span class="org-caja-toggle" onclick="alternarNodo(${nodo.id})">${contraido ? '+' : '−'}</span>` : ''}
+    </div>
+  `;
+
+  const asesoresHtml = asesores.length ? `
+    <div class="org-asesores-conector"></div>
+    <div class="org-asesores-lista">
+      ${asesores.map(a => `
+        <div class="org-caja org-caja-asesor">
+          <span class="org-caja-imprimir" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
+          <span class="org-cargo">${a.cargo}</span>
+          ${nombreAbreviado(a) ? `<span class="org-nombre">${nombreAbreviado(a)}</span>` : ''}
+          <span class="org-etiqueta-asesor">Asesor</span>
+          ${puedeEditar ? `
+            <div class="org-caja-acciones">
+              <button class="btn-secundario btn-sm btn-org-editar" onclick="editarNodo(${a.id})" title="Editar">✎</button>
+              <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${a.id})" title="Eliminar">🗑</button>
+            </div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  return `
+    <li>
+      <div class="org-caja-grupo">
+        ${cajaHtml}
+        ${asesoresHtml}
+      </div>
+      ${tieneHijosLinea && !contraido ? `<ul>${subordinadosLinea.map(h => renderizarNodoDiagrama(h)).join('')}</ul>` : ''}
+    </li>
+  `;
+}
+
+// --- Variante: Compacto (cajas anidadas, sin líneas — pensado para
+// organigramas grandes donde el Diagrama clásico ocupa mucho ancho) ---
+function renderizarNodoCompacto(nodo) {
+  const hijos = nodos.filter(n => n.padre_id === nodo.id);
+  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  return `
+    <div class="org-compacto-nodo">
+      <div class="org-compacto-caja">
+        <span class="org-caja-imprimir org-caja-imprimir-inline" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
+        <span class="org-cargo">${nodo.cargo}</span>
+        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${nombreAbreviado(nodo)}</span>` : ''}
+        ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
+        ${puedeEditar ? `
+          <div class="org-caja-acciones">
+            <button class="btn-secundario btn-sm btn-org-editar" onclick="editarNodo(${nodo.id})" title="Editar">✎</button>
+            <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${nodo.id})" title="Eliminar">🗑</button>
+          </div>` : ''}
+      </div>
+      ${hijos.length ? `<div class="org-compacto-hijos">${hijos.map(h => renderizarNodoCompacto(h)).join('')}</div>` : ''}
+    </div>
+  `;
+}
+
+// --- Variante: Columnas por Nivel (tablero tipo Kanban — agrupa por
+// Nivel del cargo, sin mostrar la jerarquía de "quién reporta a quién") ---
+function renderizarColumnasPorNivel() {
+  const ORDEN = ['nivel_1', 'nivel_2', 'nivel_3', 'nivel_4', 'nivel_5', 'nivel_6', 'asesores'];
+  const contenedor = document.getElementById('org-diagrama-columnas');
+  contenedor.innerHTML = ORDEN.map(niv => {
+    const delNivel = nodos.filter(n => n.nivel === niv).sort((a, b) => a.cargo.localeCompare(b.cargo));
+    return `
+      <div class="org-columna-nivel">
+        <p class="org-columna-nivel-titulo">${ETIQUETAS_NIVEL[niv]} <span style="color:var(--color-text-muted); font-weight:400;">(${delNivel.length})</span></p>
+        <div class="org-columna-nivel-tarjetas">
+          ${delNivel.length ? delNivel.map(n => `
+            <div class="org-columna-tarjeta">
+              <span class="org-cargo">${n.cargo}</span>
+              ${nombreAbreviado(n) ? `<span class="org-nombre">${nombreAbreviado(n)}</span>` : ''}
+            </div>
+          `).join('') : '<p class="org-columna-vacia">Sin cargos en este nivel.</p>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// --- Variante: Radial (cada cargo raíz al centro, con sus subordinados
+// y asesores directos alrededor, unidos por líneas — los subordinados de
+// esos subordinados no se dibujan, para no saturar el círculo; se avisa
+// con un "+N" cuántos tiene cada uno). ---
+function renderizarRadial(raices) {
+  const contenedor = document.getElementById('org-diagrama-radial');
+  contenedor.innerHTML = raices.map((r, i) => `<div class="org-radial-lienzo" id="org-radial-lienzo-${i}"></div>`).join('');
+  raices.forEach((raiz, i) => requestAnimationFrame(() => dibujarClusterRadial(raiz, `org-radial-lienzo-${i}`)));
+}
+
+function dibujarClusterRadial(raiz, idLienzo) {
+  const lienzo = document.getElementById(idLienzo);
+  if (!lienzo) return;
+  const hijos = nodos.filter(n => n.padre_id === raiz.id);
+  const ancho = Math.max(lienzo.clientWidth, 360);
+  const nEnAnillo = Math.max(hijos.length, 1);
+  const radio = Math.min(ancho / 2 - 100, 90 + nEnAnillo * 20);
+  const alto = hijos.length ? radio * 2 + 160 : 200;
+  lienzo.style.height = `${alto}px`;
+  const centroX = ancho / 2;
+  const centroY = alto / 2;
+
+  const svgLineas = hijos.map((h, i) => {
+    const angulo = (2 * Math.PI * i) / hijos.length - Math.PI / 2;
+    const x = centroX + radio * Math.cos(angulo);
+    const y = centroY + radio * Math.sin(angulo);
+    return `<line x1="${centroX}" y1="${centroY}" x2="${x}" y2="${y}" stroke="#AEB9C9" stroke-width="2" />`;
+  }).join('');
+
+  const nodosHijos = hijos.map((h, i) => {
+    const angulo = (2 * Math.PI * i) / hijos.length - Math.PI / 2;
+    const x = centroX + radio * Math.cos(angulo);
+    const y = centroY + radio * Math.sin(angulo);
+    const nietos = nodos.filter(n => n.padre_id === h.id).length;
+    return `
+      <div class="org-radial-nodo" style="left:${x}px; top:${y}px;">
+        <span class="org-cargo">${h.cargo}</span>
+        ${nombreAbreviado(h) ? `<span class="org-nombre">${nombreAbreviado(h)}</span>` : ''}
+        ${h.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
+        ${nietos ? `<span class="org-radial-mas">+${nietos} subordinado${nietos === 1 ? '' : 's'}</span>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  lienzo.innerHTML = `
+    <svg class="org-radial-svg">${svgLineas}</svg>
+    <div class="org-radial-nodo org-radial-centro" style="left:${centroX}px; top:${centroY}px;">
+      <span class="org-cargo">${raiz.cargo}</span>
+      ${nombreAbreviado(raiz) ? `<span class="org-nombre">${nombreAbreviado(raiz)}</span>` : ''}
+    </div>
+    ${nodosHijos}
+  `;
+}
+
+function alternarNodo(id) {
+  if (contraidos.has(id)) contraidos.delete(id);
+  else contraidos.add(id);
+  renderizarArbol();
+}
+
+/** Llena el selector "Es subordinado de" con todos los cargos existentes (Cargo — Nombre). */
+function poblarSelectorPadre(idAExcluir) {
+  const select = document.getElementById('org-form-padre');
+  const opciones = nodos
+    .filter(n => n.id !== idAExcluir)
+    .map(n => `<option value="${n.id}">${n.cargo}${nombreAbreviado(n) ? ' — ' + nombreAbreviado(n) : ''}</option>`)
+    .join('');
+  select.innerHTML = '<option value="">Ninguno — cargo raíz</option>' + opciones;
+}
+
+document.getElementById('org-form-padre').addEventListener('change', (e) => {
+  document.getElementById('campo-org-tipo-relacion').style.display = e.target.value ? 'block' : 'none';
+});
+
+function abrirFormOrg(id, padreIdSugerido, cargoPadre, tipoRelacionSugerido) {
+  document.getElementById('form-org').reset();
+  document.getElementById('org-form-error').classList.remove('visible');
+  document.getElementById('org-form-id').value = id || '';
+
+  poblarSelectorPadre(id || null);
+  document.getElementById('org-form-padre').value = padreIdSugerido || '';
+  document.getElementById('campo-org-tipo-relacion').style.display = padreIdSugerido ? 'block' : 'none';
+  document.getElementById('org-form-tipo-relacion').value = tipoRelacionSugerido || 'subordinado';
+
+  document.getElementById('org-form-titulo').textContent =
+    id ? 'Editar cargo' : (padreIdSugerido ? (tipoRelacionSugerido === 'asesor' ? 'Agregar asesor' : 'Agregar subordinado') : 'Agregar cargo raíz');
+  document.getElementById('overlay-org-form').classList.add('abierto');
+}
+
+function editarNodo(id) {
+  const nodo = nodos.find(n => n.id === id);
+  if (!nodo) return;
+  abrirFormOrg(id, nodo.padre_id, '', nodo.tipo_relacion);
+  document.getElementById('org-form-cargo').value = nodo.cargo;
+  document.getElementById('org-form-nombres').value = nodo.nombres || '';
+  document.getElementById('org-form-apellidos').value = nodo.apellidos || '';
+  document.getElementById('org-form-telefono').value = formatoTelefonoColombia(nodo.telefono || '');
+  document.getElementById('org-form-email').value = nodo.email || '';
+  document.getElementById('org-form-nivel').value = nodo.nivel || '';
+  document.getElementById('org-form-funciones').value = nodo.funciones || '';
+  document.getElementById('org-form-padre').value = nodo.padre_id || '';
+  document.getElementById('campo-org-tipo-relacion').style.display = nodo.padre_id ? 'block' : 'none';
+  document.getElementById('org-form-tipo-relacion').value = nodo.tipo_relacion || 'subordinado';
+}
+
+/** Descarga la ficha de un cargo en Word (mismo contenido que imprimirCargo(), armado en el servidor). */
+function exportarCargoWord(id) {
+  window.open(`/api/organigrama/${id}/exportar-word`, '_blank');
+}
+
+/** Abre una ventana nueva con la ficha completa de un cargo, lista para imprimir. */
+function imprimirCargo(id) {
+  const nodo = nodos.find(n => n.id === id);
+  if (!nodo) return;
+  const ventana = window.open('', '_blank', 'width=680,height=820');
+  if (!ventana) { alert('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.'); return; }
+  ventana.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>${escaparOrgHtml(nodo.cargo)} · Organigrama</title>
+    <style>
+      body { font-family: -apple-system, Segoe UI, Arial, sans-serif; padding: 40px; color: #1a1a1a; max-width: 640px; margin: 0 auto; }
+      h1 { font-size: 1.5rem; margin: 0 0 4px; }
+      .subt { color: #666; margin-bottom: 26px; font-size: 0.92rem; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+      td { padding: 10px 8px; border-bottom: 1px solid #e2e2e2; vertical-align: top; }
+      td:first-child { font-weight: 600; width: 190px; color: #333; }
+      h2 { font-size: 1.05rem; margin: 24px 0 8px; border-top: 1px solid #e2e2e2; padding-top: 18px; }
+      .funciones { white-space: pre-wrap; line-height: 1.55; font-size: 0.95rem; }
+      @media print { body { padding: 0; } }
+    </style>
+    </head>
+    <body>${fichaCargoHtml(nodo)}</body>
+    </html>
+  `);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(() => ventana.print(), 300);
+}
+
+/**
+ * Arma la ficha de UN cargo en HTML (misma tabla que usa imprimirCargo)
+ * — se reutiliza tanto para imprimir un solo cargo como para imprimir
+ * todos, para no repetir el armado de filas en dos lugares.
+ */
+function fichaCargoHtml(nodo) {
+  const filas = [
+    ['Cargo', nodo.cargo],
+    ['Nombres', nodo.nombres || nodo.nombre || '—'],
+    ['Apellidos', nodo.apellidos || '—'],
+    ['Teléfono', nodo.telefono ? formatoTelefonoColombia(nodo.telefono) : '—'],
+    ['E-mail', nodo.email || '—'],
+    ['Nivel', ETIQUETAS_NIVEL[nodo.nivel] || 'Sin especificar'],
+    ['Subordinado de', textoSubordinadoDe(nodo)],
+    ['Tipo de relación', nodo.tipo_relacion === 'asesor' ? 'Asesor / Staff (horizontal)' : 'Subordinado (línea jerárquica)']
+  ];
+  return `
+    <h1>${escaparOrgHtml(nodo.cargo)}</h1>
+    <div class="subt">Ficha del cargo — Organigrama de campaña</div>
+    <table>${filas.map(([et, val]) => `<tr><td>${escaparOrgHtml(et)}</td><td>${escaparOrgHtml(val)}</td></tr>`).join('')}</table>
+    ${nodo.funciones ? `<h2>Funciones del cargo</h2><div class="funciones">${escaparOrgHtml(nodo.funciones)}</div>` : ''}
+  `;
+}
+
+/**
+ * Imprime la ficha de TODOS los cargos del organigrama, una por hoja
+ * (salto de página entre cada una) — mismo orden que la vista Tabla:
+ * por Nivel (1 a 6, luego Asesores, luego sin nivel) y, dentro de cada
+ * nivel, alfabético por Cargo.
+ */
+function imprimirTodoOrganigrama() {
+  if (!nodos.length) { alert('Todavía no hay cargos en el organigrama para imprimir.'); return; }
+  const ORDEN_NIVEL = { nivel_1: 0, nivel_2: 1, nivel_3: 2, nivel_4: 3, nivel_5: 4, nivel_6: 5, asesores: 6 };
+  const ordenados = nodos.slice().sort((a, b) => {
+    const ordenA = a.nivel ? (ORDEN_NIVEL[a.nivel] ?? 7) : 7;
+    const ordenB = b.nivel ? (ORDEN_NIVEL[b.nivel] ?? 7) : 7;
+    if (ordenA !== ordenB) return ordenA - ordenB;
+    return a.cargo.localeCompare(b.cargo);
+  });
+
+  const ventana = window.open('', '_blank', 'width=680,height=820');
+  if (!ventana) { alert('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.'); return; }
+  ventana.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+    <meta charset="UTF-8">
+    <title>Organigrama completo · Fichas por cargo</title>
+    <style>
+      body { font-family: -apple-system, Segoe UI, Arial, sans-serif; color: #1a1a1a; margin: 0; }
+      .pagina-cargo { padding: 40px; max-width: 640px; margin: 0 auto; page-break-after: always; break-after: page; }
+      .pagina-cargo:last-child { page-break-after: auto; break-after: auto; }
+      h1 { font-size: 1.5rem; margin: 0 0 4px; }
+      .subt { color: #666; margin-bottom: 26px; font-size: 0.92rem; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+      td { padding: 10px 8px; border-bottom: 1px solid #e2e2e2; vertical-align: top; }
+      td:first-child { font-weight: 600; width: 190px; color: #333; }
+      h2 { font-size: 1.05rem; margin: 24px 0 8px; border-top: 1px solid #e2e2e2; padding-top: 18px; }
+      .funciones { white-space: pre-wrap; line-height: 1.55; font-size: 0.95rem; }
+      @media print { .pagina-cargo { padding: 0; margin: 0 auto; } }
+    </style>
+    </head>
+    <body>
+      ${ordenados.map(n => `<div class="pagina-cargo">${fichaCargoHtml(n)}</div>`).join('')}
+    </body>
+    </html>
+  `);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(() => ventana.print(), 300);
+}
+document.getElementById('btn-imprimir-todo').addEventListener('click', imprimirTodoOrganigrama);
+document.getElementById('btn-todo-word').addEventListener('click', () => {
+  if (!nodos.length) { alert('Todavía no hay cargos en el organigrama para exportar.'); return; }
+  window.open('/api/organigrama/exportar-word', '_blank');
+});
+
+async function eliminarNodo(id) {
+  const hijos = nodos.filter(n => n.padre_id === id);
+  const mensaje = hijos.length
+    ? '¿Eliminar este cargo y TODA su subestructura (subordinados y asesores)? Esta acción no se puede deshacer.'
+    : '¿Eliminar este cargo?';
+  if (!confirm(mensaje)) return;
+  try {
+    await api(`/organigrama/${id}`, { method: 'DELETE' });
+    await cargarOrganigrama();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// El Cargo se pasa a mayúsculas mientras se escribe (conserva la posición del cursor).
+document.getElementById('org-form-cargo').addEventListener('input', (e) => {
+  const inicio = e.target.selectionStart, fin = e.target.selectionEnd;
+  e.target.value = e.target.value.toUpperCase();
+  e.target.setSelectionRange(inicio, fin);
+});
+
+/** "juan pérez gómez" -> "Juan Pérez Gómez" */
+function formatoNombrePropio(s) {
+  return (s || '').toLowerCase().replace(/(^|[\s'-])([a-záéíóúñü])/g, (m, sep, letra) => sep + letra.toUpperCase());
+}
+// Nombres y Apellidos se formatean como nombre propio al salir del campo
+// (evita saltos de cursor molestos si se hiciera mientras se escribe).
+document.getElementById('org-form-nombres').addEventListener('blur', (e) => {
+  e.target.value = formatoNombrePropio(e.target.value);
+});
+document.getElementById('org-form-apellidos').addEventListener('blur', (e) => {
+  e.target.value = formatoNombrePropio(e.target.value);
+});
+
+/**
+ * Arma el nombre abreviado que se muestra en el diagrama/lista: primer
+ * nombre completo, primera letra del segundo nombre con punto, primer
+ * apellido completo, primera letra del segundo apellido con punto.
+ * Ej: "Luis Eduardo" + "Arias Vargas" -> "Luis E. Arias V."
+ * Si el cargo es de los antiguos (solo tenía el campo "Nombre" libre,
+ * sin Nombres/Apellidos separados), se usa ese como respaldo tal cual.
+ */
+function nombreAbreviado(nodo) {
+  const partesNombres = (nodo.nombres || '').trim().split(/\s+/).filter(Boolean);
+  const partesApellidos = (nodo.apellidos || '').trim().split(/\s+/).filter(Boolean);
+  if (partesNombres.length === 0 && partesApellidos.length === 0) {
+    return nodo.nombre || '';
+  }
+  const resultado = [];
+  if (partesNombres[0]) resultado.push(partesNombres[0]);
+  if (partesNombres[1]) resultado.push(partesNombres[1].charAt(0).toUpperCase() + '.');
+  if (partesApellidos[0]) resultado.push(partesApellidos[0]);
+  if (partesApellidos[1]) resultado.push(partesApellidos[1].charAt(0).toUpperCase() + '.');
+  return resultado.join(' ');
+}
+
+document.getElementById('btn-nuevo-raiz').addEventListener('click', () => abrirFormOrg(null, null, '', 'subordinado'));
+document.getElementById('cerrar-org-form').addEventListener('click', () =>
+  document.getElementById('overlay-org-form').classList.remove('abierto'));
+
+document.getElementById('form-org').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('org-form-error');
+  errorBox.classList.remove('visible');
+
+  if (!validarTelefonosFormulario('#org-form-telefono')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const id = document.getElementById('org-form-id').value;
+  const padreId = document.getElementById('org-form-padre').value;
+  const tipoRelacion = document.getElementById('org-form-tipo-relacion').value;
+  const cargo = document.getElementById('org-form-cargo').value.trim().toUpperCase();
+  const nombres = formatoNombrePropio(document.getElementById('org-form-nombres').value.trim());
+  const apellidos = formatoNombrePropio(document.getElementById('org-form-apellidos').value.trim());
+  const telefono = document.getElementById('org-form-telefono').value.replace(/\D/g, '');
+  const email = document.getElementById('org-form-email').value.trim();
+  const nivel = document.getElementById('org-form-nivel').value;
+  const funciones = document.getElementById('org-form-funciones').value.trim();
+
+  try {
+    if (id) {
+      await api(`/organigrama/${id}`, { method: 'PUT', body: { cargo, nombres, apellidos, telefono, email, nivel, funciones, padre_id: padreId || null, tipo_relacion: tipoRelacion } });
+    } else {
+      await api('/organigrama', { method: 'POST', body: { cargo, nombres, apellidos, telefono, email, nivel, funciones, padre_id: padreId || null, tipo_relacion: tipoRelacion } });
+    }
+    document.getElementById('overlay-org-form').classList.remove('abierto');
+    await cargarOrganigrama();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/organigrama.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-nuevo-raiz').style.display = 'none';
+  }
+  aplicarFormatoTelefono('#org-form-telefono');
+  aplicarFormatoNombrePropio('#org-form-nombres');
+  cambiarVista('diagrama');
+  await cargarOrganigrama();
+})();
+</script>
+</body>
+</html>

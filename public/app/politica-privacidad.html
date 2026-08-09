@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Política de privacidad · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .pp-fecha { color: var(--muted); font-size: 0.82rem; margin: -8px 0 20px; }
+  .pp-aviso { background: #fbf1e4; border: 1px solid var(--copper); border-left: 4px solid var(--copper); border-radius: 8px; padding: 12px 14px; font-size: 0.86rem; margin-bottom: 22px; }
+  .pp-toc { background: #fff; border: 1px solid var(--linea); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; }
+  .pp-toc p { margin: 0 0 6px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .pp-toc a { display: block; padding: 5px 0; color: var(--navy); font-size: 0.88rem; text-decoration: none; }
+  .pp-seccion { margin-bottom: 26px; scroll-margin-top: 70px; }
+  .pp-seccion h2 { font-size: 1.02rem; color: var(--navy); margin: 0 0 8px; }
+  .pp-seccion p, .pp-seccion li { font-size: 0.94rem; line-height: 1.65; margin: 0 0 10px; }
+  .pp-seccion ul { padding-left: 18px; margin: 0 0 10px; }
+  .pp-seccion strong { color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="contenido" style="display:none;">
+    <p class="pp-fecha" id="pp-fecha"></p>
+    <div class="pp-aviso" id="pp-aviso" style="display:none;"></div>
+    <nav class="pp-toc" id="pp-toc" style="display:none;">
+      <p>Contenido</p>
+      <div id="pp-toc-lista"></div>
+    </nav>
+    <div id="pp-secciones"></div>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+function parrafosApp(texto) {
+  return texto.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+    .map(p => `<p>${escaparAppHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
+}
+function negritaApp(texto) {
+  return escaparAppHtml(texto).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+function cuerpoSeccionApp(texto) {
+  return texto.split(/\n{2,}/).map(b => b.trim()).filter(Boolean).map(bloque => {
+    const lineas = bloque.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lineas.length && lineas.every(l => l.startsWith('- '))) {
+      return `<ul>${lineas.map(l => `<li>${negritaApp(l.slice(2))}</li>`).join('')}</ul>`;
+    }
+    return `<p>${negritaApp(bloque).replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+}
+function parsearSecciones(texto) {
+  const lineas = (texto || '').split('\n');
+  let aviso = [];
+  const secciones = [];
+  let actual = null;
+  for (const linea of lineas) {
+    const m = linea.match(/^##\s+(.+?)\s*$/);
+    if (m) { actual = { titulo: m[1], lineas: [] }; secciones.push(actual); }
+    else if (actual) actual.lineas.push(linea);
+    else aviso.push(linea);
+  }
+  return { aviso: aviso.join('\n').trim(), secciones: secciones.map(s => ({ titulo: s.titulo, cuerpo: s.lineas.join('\n').trim() })) };
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Política de privacidad', null, '/app/inicio.html');
+
+  const c = await api('/contenido/politica_privacidad');
+
+  document.getElementById('pp-fecha').textContent = c.updated_at
+    ? `Última actualización: ${new Date(c.updated_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}`
+    : '';
+
+  if (!c.contenido || !c.contenido.trim()) {
+    document.getElementById('pp-secciones').innerHTML = '<p>Todavía no se ha publicado la política de privacidad.</p>';
+  } else {
+    const { aviso, secciones } = parsearSecciones(c.contenido);
+    if (aviso) {
+      const avisoBox = document.getElementById('pp-aviso');
+      avisoBox.style.display = 'block';
+      avisoBox.innerHTML = `⚠️ ${negritaApp(aviso).replace(/\n/g, '<br>')}`;
+    }
+    if (secciones.length) {
+      document.getElementById('pp-toc').style.display = 'block';
+      document.getElementById('pp-toc-lista').innerHTML = secciones.map((s, i) =>
+        `<a href="#pp-seccion-${i}">${escaparAppHtml(s.titulo)}</a>`).join('');
+      document.getElementById('pp-secciones').innerHTML = secciones.map((s, i) => `
+        <div class="pp-seccion" id="pp-seccion-${i}">
+          <h2>${escaparAppHtml(s.titulo)}</h2>
+          ${cuerpoSeccionApp(s.cuerpo)}
+        </div>
+      `).join('');
+    } else {
+      document.getElementById('pp-secciones').innerHTML = parrafosApp(c.contenido);
+    }
+  }
+
+  document.getElementById('pantalla-carga').style.display = 'none';
+  document.getElementById('contenido').style.display = 'block';
+})();
+</script>
+</body>
+</html>

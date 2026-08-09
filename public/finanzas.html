@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanzas · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* Mismo formato de tarjeta que el Panel general, Jornada electoral y el
+     Dashboard de votantes: borde izquierdo de color en vez de una tarjeta plana. */
+  .stat-card { border-left: 4px solid var(--color-marca); }
+  .stat-card:has(.valor.accent) { border-left-color: var(--color-accent); }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Finanzas</div><h1>Control de ingresos y gastos</h1></div>
+      <div style="display:flex; gap:10px;">
+        <a class="btn-secundario btn-sm" href="/api/finanzas/exportar-cuentas-claras" target="_blank" title="Reporte de apoyo para diligenciar Cuentas Claras — no se sube directo al portal, hay que confirmar ahí los códigos vigentes.">⬇ Cuentas Claras</a>
+        <button class="btn-acento" id="btn-nuevo">+ Registrar movimiento</button>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-bottom:18px;">
+      <div class="card stat-card"><div class="label">Total ingresos</div><div class="valor" id="stat-ingresos">—</div></div>
+      <div class="card stat-card"><div class="label">Total gastos</div><div class="valor" id="stat-gastos">—</div></div>
+      <div class="card stat-card"><div class="label">Balance</div><div class="valor accent" id="stat-balance">—</div></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:14px;">Movimientos</h3>
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción / Tercero</th><th>Monto</th><th>Comprobante</th><th></th></tr></thead>
+        <tbody id="tbody-finanzas"></tbody>
+      </table>
+      </div>
+      <div id="vacio-finanzas" class="vacio" style="display:none;"><div class="icono-vacio">$</div>Aún no hay movimientos registrados.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form">
+  <div class="modal">
+    <div class="modal-header"><h3>Registrar movimiento</h3><button class="modal-cerrar" id="cerrar-modal">×</button></div>
+    <div id="form-error" class="mensaje-error"></div>
+    <form id="form-movimiento" enctype="multipart/form-data">
+      <div class="fila">
+        <div class="campo"><label>Tipo</label><select name="tipo" id="select-tipo" required><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select></div>
+        <div class="campo"><label>Fecha</label><input type="date" name="fecha" required></div>
+      </div>
+      <div class="campo">
+        <label>Categoría</label>
+        <select id="select-categoria" required></select>
+      </div>
+      <div class="campo" id="campo-categoria-nueva" style="display:none;">
+        <label>Nombre de la nueva categoría</label>
+        <input id="input-categoria-nueva" placeholder="Ej. Refrigerios para voluntarios">
+      </div>
+      <div class="campo"><label>Monto (COP)</label><input type="number" name="monto" min="0" step="1000" required></div>
+      <div class="campo"><label>Descripción</label><input name="descripcion"></div>
+      <div class="fila">
+        <div class="campo"><label>Tercero (donante / proveedor)</label><input name="tercero"></div>
+        <div class="campo"><label>Documento del tercero</label><input name="documento_tercero"></div>
+      </div>
+      <div class="campo"><label>Comprobante (opcional)</label><input type="file" name="comprobante"></div>
+      <button type="submit" class="btn-primario">Guardar movimiento</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let categorias = [];
+
+const OPCION_OTRO = '__otro__';
+
+function filtrarCategoriasPorTipo() {
+  const tipo = document.getElementById('select-tipo').value;
+  const select = document.getElementById('select-categoria');
+  select.innerHTML = categorias
+    .filter(c => c.tipo === tipo)
+    .map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')
+    + `<option value="${OPCION_OTRO}">Otro (escribir una nueva categoría)...</option>`;
+  document.getElementById('campo-categoria-nueva').style.display = 'none';
+  document.getElementById('input-categoria-nueva').value = '';
+}
+
+document.getElementById('select-categoria').addEventListener('change', (e) => {
+  const esOtro = e.target.value === OPCION_OTRO;
+  document.getElementById('campo-categoria-nueva').style.display = esOtro ? 'block' : 'none';
+  if (esOtro) document.getElementById('input-categoria-nueva').focus();
+});
+
+async function cargarResumen() {
+  const r = await api('/finanzas/resumen');
+  document.getElementById('stat-ingresos').textContent = formatoMoneda(r.totalIngresos);
+  document.getElementById('stat-gastos').textContent = formatoMoneda(r.totalGastos);
+  const balanceEl = document.getElementById('stat-balance');
+  balanceEl.textContent = formatoMoneda(r.balance);
+  balanceEl.style.color = r.balance < 0 ? 'var(--color-no-apoya)' : '';
+}
+
+async function cargarMovimientos() {
+  const filas = await api('/finanzas/movimientos');
+  const tbody = document.getElementById('tbody-finanzas');
+  document.getElementById('vacio-finanzas').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map(f => `
+    <tr>
+      <td>${formatoFecha(f.fecha)}</td>
+      <td><span class="tag-tipo" style="${f.tipo === 'gasto' ? 'color:#A93226;' : 'color:#1E7245;'}">${f.tipo}</span></td>
+      <td>${f.categoria_nombre}</td>
+      <td>${f.descripcion || ''} ${f.tercero ? '· ' + f.tercero : ''}</td>
+      <td class="mono">${formatoMoneda(f.monto)}</td>
+      <td>${f.comprobante_url ? `<a href="${f.comprobante_url}" target="_blank">Ver</a>` : '—'}</td>
+      <td>${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarMovimiento(${f.id})">Eliminar</button>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarMovimiento(id) {
+  if (!confirm('¿Eliminar este movimiento financiero?')) return;
+  await api(`/finanzas/movimientos/${id}`, { method: 'DELETE' });
+  cargarMovimientos(); cargarResumen();
+}
+
+document.getElementById('btn-nuevo').addEventListener('click', () => document.getElementById('overlay-form').classList.add('abierto'));
+document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+document.getElementById('select-tipo').addEventListener('change', filtrarCategoriasPorTipo);
+
+document.getElementById('form-movimiento').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-error');
+  errorBox.classList.remove('visible');
+
+  const selectCategoria = document.getElementById('select-categoria');
+  let categoriaId = selectCategoria.value;
+
+  try {
+    // Si eligió "Otro", primero se crea (o reutiliza) la categoría, y la
+    // lista desplegable queda actualizada para movimientos futuros.
+    if (categoriaId === OPCION_OTRO) {
+      const nombreNueva = document.getElementById('input-categoria-nueva').value.trim();
+      if (!nombreNueva) {
+        errorBox.textContent = 'Escriba el nombre de la nueva categoría.';
+        errorBox.classList.add('visible');
+        return;
+      }
+      const tipoActual = document.getElementById('select-tipo').value;
+      const r = await api('/finanzas/categorias', { method: 'POST', body: { nombre: nombreNueva, tipo: tipoActual } });
+      categoriaId = r.id;
+      categorias = await api('/finanzas/categorias');
+      filtrarCategoriasPorTipo();
+      selectCategoria.value = categoriaId;
+    }
+
+    const fd = new FormData(e.target);
+    fd.set('categoria_id', categoriaId);
+    await api('/finanzas/movimientos', { method: 'POST', body: fd });
+    document.getElementById('overlay-form').classList.remove('abierto');
+    e.target.reset();
+    filtrarCategoriasPorTipo();
+    cargarMovimientos(); cargarResumen();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/finanzas.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    return;
+  }
+  categorias = await api('/finanzas/categorias');
+  filtrarCategoriasPorTipo();
+  await cargarResumen();
+  await cargarMovimientos();
+})();
+</script>
+</body>
+</html>

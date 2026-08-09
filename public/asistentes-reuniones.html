@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistentes a reuniones · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Logística</div><h1>Asistentes a reuniones</h1></div>
+    </div>
+
+    <div style="display:flex; margin-bottom:16px;">
+      <button type="button" class="btn-acento btn-sm" id="btn-tab-reuniones" style="border:none; border-radius:0;">Reuniones</button>
+      <button type="button" class="btn-secundario btn-sm" id="btn-tab-consolidado" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Consolidado de asistentes</button>
+    </div>
+
+    <div id="seccion-reuniones">
+    <div class="card">
+      <div class="toolbar">
+        <div class="toolbar-filtros">
+          <input type="text" id="filtro-busqueda-evento" placeholder="Buscar por título del evento...">
+          <select id="filtro-tipo-evento">
+            <option value="">Todos los tipos</option>
+            <option value="reunion">Reunión</option>
+            <option value="evento_publico">Evento público</option>
+            <option value="gotv">Movilización (GOTV)</option>
+            <option value="capacitacion">Capacitación</option>
+            <option value="otro">Otro</option>
+          </select>
+          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-evento">Quitar filtros</button>
+        </div>
+        <div class="mono" id="contador-eventos-asistentes" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
+      </div>
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th>Asistencia</th><th></th></tr></thead>
+          <tbody id="tbody-eventos-asistentes"></tbody>
+        </table>
+      </div>
+      <div id="vacio-eventos-asistentes" class="vacio" style="display:none;">
+        <div class="icono-vacio">☺</div>No hay eventos registrados todavía — créalos primero en "Eventos y GOTV".
+      </div>
+    </div>
+    </div>
+
+    <div id="seccion-consolidado" style="display:none;">
+      <div class="card">
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin-top:0;">
+          Cada persona aparece una sola vez, con todas las reuniones a las que ha ido juntas — así se ve rápido quién repite y a cuáles reuniones.
+        </p>
+        <div class="toolbar">
+          <div class="toolbar-filtros">
+            <input type="text" id="filtro-busqueda-consolidado" placeholder="Buscar por nombre o identidad...">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:400; white-space:nowrap;">
+              <input type="checkbox" id="filtro-repetidos-consolidado" style="width:auto;"> Solo asistentes a más de una reunión
+            </label>
+          </div>
+          <a class="btn-secundario btn-sm btn-excel-app" href="/api/eventos/asistentes-consolidado/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+        </div>
+        <div class="mono" id="contador-consolidado" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:10px;"></div>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th>Reuniones</th><th></th></tr></thead>
+            <tbody id="tbody-consolidado"></tbody>
+          </table>
+        </div>
+        <div id="vacio-consolidado" class="vacio" style="display:none;">
+          <div class="icono-vacio">☺</div>No hay asistentes registrados todavía.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-asistentes">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><h3 id="titulo-modal-asistentes">Asistentes</h3><button class="modal-cerrar" id="cerrar-modal-asistentes">×</button></div>
+    <div id="asistentes-error" class="mensaje-error"></div>
+
+    <button type="button" class="btn-secundario btn-sm" id="btn-mostrar-agregar-asistente" style="display:none; margin-bottom:10px;">+ Agregar asistente</button>
+
+    <div id="seccion-agregar-asistente">
+    <div class="campo">
+      <label>Agregar asistente ya registrado</label>
+      <input type="text" id="input-buscar-votante" placeholder="Buscar por nombre, cédula o teléfono..." autocomplete="off">
+      <div id="resultados-buscar-votante" style="margin-top:4px;"></div>
+      <div id="aviso-cedula-no-registrada" style="display:none; margin-top:6px; padding:10px 12px; background:#FDF3E0; border-radius:8px; font-size:0.85rem;">
+        Esa cédula no está registrada todavía.
+        <button type="button" class="btn-secundario btn-sm" id="btn-registrar-nuevo-votante" style="margin-top:6px; display:block;">+ Registrar como nuevo votante</button>
+      </div>
+    </div>
+
+    <div class="card" id="panel-nuevo-votante-asistente" style="display:none; margin-top:10px; padding:14px; background:var(--color-bg-suave, #F7F8FA);">
+      <div style="font-weight:700; text-transform:uppercase; letter-spacing:0.03em; font-size:0.78rem; color:var(--color-text-muted); margin-bottom:8px;">Registrar nuevo votante</div>
+      <div id="nuevo-votante-error" class="mensaje-error"></div>
+      <div class="campo"><label>Número de identificación</label><input type="text" id="nv-cedula" autocomplete="off"></div>
+      <div class="campo"><label>Nombres y apellidos</label><input type="text" id="nv-nombre" required></div>
+      <div class="fila">
+        <div class="campo"><label>Teléfono</label><input type="text" id="nv-telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" id="nv-email"></div>
+      </div>
+      <div class="campo">
+        <label>Género</label>
+        <select id="nv-genero">
+          <option value="mujer">Mujer</option>
+          <option value="hombre">Hombre</option>
+          <option value="no_binario">No binario</option>
+          <option value="prefiero_no_responder" selected>Prefiero no responder</option>
+        </select>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input type="text" id="nv-departamento" list="nv-lista-departamentos" autocomplete="off">
+          <datalist id="nv-lista-departamentos"></datalist>
+        </div>
+        <div class="campo">
+          <label>Ciudad</label>
+          <input type="text" id="nv-ciudad" list="nv-lista-ciudades" autocomplete="off">
+          <datalist id="nv-lista-ciudades"></datalist>
+        </div>
+      </div>
+      <div class="campo">
+        <label>Área</label>
+        <select id="nv-area">
+          <option value="">Seleccione (opcional)...</option>
+          <option value="urbano">Urbano</option>
+          <option value="rural">Rural</option>
+        </select>
+      </div>
+      <div class="fila" id="nv-fila-urbano" data-fila="urbano" style="display:none;">
+        <div class="campo" id="nv-campo-comuna" data-campo="comuna">
+          <label>Comuna</label>
+          <input type="text" id="nv-comuna" list="nv-lista-comunas" autocomplete="off">
+          <datalist id="nv-lista-comunas"></datalist>
+        </div>
+        <div class="campo" id="nv-campo-barrio" data-campo="barrio">
+          <label>Barrio</label>
+          <input type="text" id="nv-barrio" list="nv-lista-barrios" autocomplete="off">
+          <datalist id="nv-lista-barrios"></datalist>
+        </div>
+      </div>
+      <div class="fila" id="nv-fila-rural" style="display:none;">
+        <div class="campo">
+          <label>Corregimiento</label>
+          <input type="text" id="nv-corregimiento" list="nv-lista-corregimientos" autocomplete="off">
+          <datalist id="nv-lista-corregimientos"></datalist>
+        </div>
+        <div class="campo">
+          <label>Vereda</label>
+          <input type="text" id="nv-vereda" list="nv-lista-veredas" autocomplete="off">
+          <datalist id="nv-lista-veredas"></datalist>
+        </div>
+      </div>
+      <div class="campo">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400;">
+          <input type="checkbox" id="nv-consentimiento" style="width:auto; margin-top:3px;">
+          <span>Le informé a la persona para qué se usan sus datos y me autorizó a registrarlos.</span>
+        </label>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-primario btn-sm" id="btn-guardar-nuevo-votante">Guardar y agregar como asistente</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-cancelar-nuevo-votante">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="fila">
+      <div class="campo" style="flex:1;">
+        <label>O agregar a alguien que no está registrado</label>
+        <input type="text" id="input-nombre-invitado" placeholder="Nombre completo">
+      </div>
+      <button type="button" class="btn-secundario btn-sm" id="btn-agregar-invitado" style="align-self:flex-end; margin-bottom:14px; white-space:nowrap;">+ Agregar</button>
+    </div>
+    </div>
+
+    <div class="tabla-contenedor" style="margin-top:10px;">
+      <table>
+        <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th></th></tr></thead>
+        <tbody id="tbody-asistentes"></tbody>
+      </table>
+    </div>
+    <div id="vacio-asistentes" class="vacio" style="display:none; padding:20px 0;">Todavía no hay asistentes registrados para este evento.</div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/columnas-territoriales.js"></script>
+<script>
+let usuarioActual;
+let listaEventosAsistentes = [];
+let eventoActualId = null;
+let _timeoutBuscarVotante;
+let territoriosAsistentes = [];
+
+// Si la ciudad NO tiene comunas (Configuración → Datos de la campaña), el
+// campo Comuna se oculta y el Barrio se elige directo entre TODOS los
+// barrios del municipio.
+let ciudadTieneComunas = true;
+let usarNombreBarrios = true;
+function aplicarVisibilidadComunaNv() {
+  document.getElementById('nv-campo-comuna').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('nv-campo-barrio').style.display = usarNombreBarrios ? 'block' : 'none';
+}
+let catalogoColombiaAsistentes = null;
+let configCampanaAsistentes = null;
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+const etiquetasTipoEventoAsistentes = {
+  reunion: 'Reunión', evento_publico: 'Evento público', gotv: 'GOTV',
+  capacitacion: 'Capacitación', otro: 'Otro'
+};
+
+async function cargarEventosAsistentes() {
+  listaEventosAsistentes = await api('/eventos');
+  renderizarEventosAsistentes();
+}
+
+function renderizarEventosAsistentes() {
+  const busqueda = document.getElementById('filtro-busqueda-evento').value.trim().toLowerCase();
+  const tipo = document.getElementById('filtro-tipo-evento').value;
+
+  let filas = listaEventosAsistentes;
+  if (busqueda) filas = filas.filter(ev => (ev.titulo || '').toLowerCase().includes(busqueda));
+  if (tipo) filas = filas.filter(ev => ev.tipo === tipo);
+
+  document.getElementById('contador-eventos-asistentes').textContent = `${filas.length} evento(s)`;
+  document.getElementById('vacio-eventos-asistentes').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('tbody-eventos-asistentes').innerHTML = filas.map(ev => `
+    <tr>
+      <td><strong>${escaparHtml(ev.titulo)}</strong></td>
+      <td><span class="tag-tipo">${etiquetasTipoEventoAsistentes[ev.tipo] || ev.tipo}</span></td>
+      <td>${formatoFecha(ev.fecha_inicio, true)}</td>
+      <td>${escaparHtml(ev.lugar || '—')}</td>
+      <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-secundario btn-sm" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "agregar")'>Registrar asistencia</button>
+        <button class="btn-secundario btn-sm" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "ver")'>Ver asistentes</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('filtro-busqueda-evento').addEventListener('input', renderizarEventosAsistentes);
+document.getElementById('filtro-tipo-evento').addEventListener('change', renderizarEventosAsistentes);
+document.getElementById('btn-quitar-filtros-evento').addEventListener('click', () => {
+  document.getElementById('filtro-busqueda-evento').value = '';
+  document.getElementById('filtro-tipo-evento').value = '';
+  renderizarEventosAsistentes();
+});
+
+// --- Pestaña "Consolidado de asistentes": agrupa por persona todas las reuniones a las que ha ido, para ver quién repite ---
+
+function cambiarPestanaAsistentes(pestana) {
+  document.getElementById('seccion-reuniones').style.display = pestana === 'reuniones' ? 'block' : 'none';
+  document.getElementById('seccion-consolidado').style.display = pestana === 'consolidado' ? 'block' : 'none';
+  document.getElementById('btn-tab-reuniones').classList.toggle('btn-acento', pestana === 'reuniones');
+  document.getElementById('btn-tab-reuniones').classList.toggle('btn-secundario', pestana !== 'reuniones');
+  document.getElementById('btn-tab-consolidado').classList.toggle('btn-acento', pestana === 'consolidado');
+  document.getElementById('btn-tab-consolidado').classList.toggle('btn-secundario', pestana !== 'consolidado');
+  if (pestana === 'consolidado') cargarConsolidadoAsistentes();
+}
+document.getElementById('btn-tab-reuniones').addEventListener('click', () => cambiarPestanaAsistentes('reuniones'));
+document.getElementById('btn-tab-consolidado').addEventListener('click', () => cambiarPestanaAsistentes('consolidado'));
+
+let listaConsolidadoAsistentes = [];
+async function cargarConsolidadoAsistentes() {
+  listaConsolidadoAsistentes = await api('/eventos/asistentes-consolidado');
+  renderizarConsolidadoAsistentes();
+}
+
+function renderizarConsolidadoAsistentes() {
+  const busqueda = normalizarTexto(document.getElementById('filtro-busqueda-consolidado').value.trim());
+  const soloRepetidos = document.getElementById('filtro-repetidos-consolidado').checked;
+
+  let filas = listaConsolidadoAsistentes;
+  if (busqueda) {
+    filas = filas.filter(p =>
+      normalizarTexto(p.nombre || '').includes(busqueda) || normalizarTexto(p.identidad || '').includes(busqueda)
+    );
+  }
+  if (soloRepetidos) filas = filas.filter(p => p.total_reuniones > 1);
+
+  document.getElementById('contador-consolidado').textContent = `${filas.length} persona(s)`;
+  document.getElementById('vacio-consolidado').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('tbody-consolidado').innerHTML = filas.map((p, i) => `
+    <tr>
+      <td>${escaparHtml(p.nombre || '—')}</td>
+      <td class="mono">${escaparHtml(p.identidad || '—')}</td>
+      <td>${escaparHtml(p.telefono || '—')}</td>
+      <td class="col-barrio-vereda">${escaparHtml(p.barrio || '—')}</td>
+      <td class="mono">${p.total_reuniones}</td>
+      <td><button type="button" class="btn-secundario btn-sm" onclick="alternarReunionesConsolidado(${i})">Ver reuniones</button></td>
+    </tr>
+    <tr id="fila-reuniones-consolidado-${i}" style="display:none;">
+      <td colspan="6">
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${p.reuniones.map(r => `<span class="badge badge-desconocido">${formatoFecha(r.fecha)} — ${escaparHtml(r.titulo)}</span>`).join('')}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function alternarReunionesConsolidado(i) {
+  const fila = document.getElementById(`fila-reuniones-consolidado-${i}`);
+  fila.style.display = fila.style.display === 'none' ? 'table-row' : 'none';
+}
+
+document.getElementById('filtro-busqueda-consolidado').addEventListener('input', renderizarConsolidadoAsistentes);
+document.getElementById('filtro-repetidos-consolidado').addEventListener('change', renderizarConsolidadoAsistentes);
+
+/**
+ * "Registrar asistencia" abre directo con el buscador para agregar gente;
+ * "Ver asistentes" abre solo con la lista, para consultar rápido quién va
+ * sin el buscador de por medio — con un botón "+ Agregar asistente" por
+ * si de una vez quiere agregar a alguien más.
+ */
+async function abrirAsistentes(ev, modo) {
+  eventoActualId = ev.id;
+  document.getElementById('titulo-modal-asistentes').textContent = `Asistentes — ${ev.titulo}`;
+  document.getElementById('asistentes-error').classList.remove('visible');
+  document.getElementById('input-buscar-votante').value = '';
+  document.getElementById('resultados-buscar-votante').innerHTML = '';
+  document.getElementById('aviso-cedula-no-registrada').style.display = 'none';
+  document.getElementById('panel-nuevo-votante-asistente').style.display = 'none';
+  document.getElementById('input-nombre-invitado').value = '';
+
+  const mostrarAgregar = modo !== 'ver';
+  document.getElementById('seccion-agregar-asistente').style.display = mostrarAgregar ? 'block' : 'none';
+  document.getElementById('btn-mostrar-agregar-asistente').style.display = mostrarAgregar ? 'none' : 'block';
+
+  await cargarAsistentesEvento();
+  document.getElementById('overlay-asistentes').classList.add('abierto');
+}
+document.getElementById('cerrar-modal-asistentes').addEventListener('click', () =>
+  document.getElementById('overlay-asistentes').classList.remove('abierto'));
+document.getElementById('btn-mostrar-agregar-asistente').addEventListener('click', () => {
+  document.getElementById('seccion-agregar-asistente').style.display = 'block';
+  document.getElementById('btn-mostrar-agregar-asistente').style.display = 'none';
+});
+
+async function cargarAsistentesEvento() {
+  const filas = await api(`/eventos/${eventoActualId}/asistentes`);
+  const tbody = document.getElementById('tbody-asistentes');
+  document.getElementById('vacio-asistentes').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map(a => `
+    <tr>
+      <td>${escaparHtml(a.nombre_resuelto || '—')}</td>
+      <td class="mono">${escaparHtml(a.identidad_resuelta || '—')}</td>
+      <td>${escaparHtml(a.telefono_resuelto || '—')}</td>
+      <td class="col-barrio-vereda">${escaparHtml(a.barrio_resuelto || '—')}</td>
+      <td><button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="quitarAsistente(${a.id})">Quitar</button></td>
+    </tr>
+  `).join('');
+}
+
+async function quitarAsistente(id) {
+  if (!confirm('¿Quitar a esta persona de la lista de asistentes?')) return;
+  try {
+    await api(`/eventos/asistentes/${id}`, { method: 'DELETE' });
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();
+  } catch (err) {
+    alert(err.message || 'No se pudo quitar el asistente.');
+  }
+}
+
+/** Un número de identificación se ve como puros dígitos de al menos 5 — para distinguir "no encontró nada de este nombre" de "esta cédula no existe todavía" (que sí ofrece registrarla de una vez). */
+function pareceNumeroIdentificacion(texto) {
+  return /^\d{5,}$/.test(texto);
+}
+
+/** Arma la fila de un resultado de búsqueda con su botón "Agregar" — sirve tanto para un votante como para un usuario del sistema (cambia solo qué función llama el botón). */
+function filaResultadoBusqueda(persona, tipo) {
+  const nombre = persona.nombre;
+  const funcion = tipo === 'usuario' ? 'agregarAsistenteUsuario' : 'agregarAsistenteVotante';
+  const etiqueta = tipo === 'usuario' ? ' <span style="color:var(--color-text-muted); font-size:0.8rem;">(usuario del sistema)</span>' : '';
+  return `
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
+      <span>${escaparHtml(nombre)}${persona.cedula ? ` <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${escaparHtml(persona.cedula)}</span>` : ''}${etiqueta}</span>
+      <button type="button" class="btn-secundario btn-sm" onclick="${funcion}(${persona.id})">Agregar</button>
+    </div>
+  `;
+}
+
+document.getElementById('input-buscar-votante').addEventListener('input', () => {
+  clearTimeout(_timeoutBuscarVotante);
+  const texto = document.getElementById('input-buscar-votante').value.trim();
+  const cont = document.getElementById('resultados-buscar-votante');
+  document.getElementById('aviso-cedula-no-registrada').style.display = 'none';
+  if (!texto) { cont.innerHTML = ''; return; }
+  _timeoutBuscarVotante = setTimeout(async () => {
+    try {
+      // Si parece un número de identificación, se busca por cédula EXACTA
+      // en toda la base (sin el filtro de "solo mis contactos" que sí
+      // aplica la búsqueda por nombre para líderes/sublíderes) — el
+      // asistente puede haber sido referido por otro líder, y aun así hay
+      // que encontrarlo para no ofrecer registrarlo de nuevo por error
+      // (fallaría por la cédula duplicada). También puede ser un usuario
+      // del sistema (líder, coordinador...) que nunca quedó como fila en
+      // Votantes, así que se revisan las dos tablas.
+      if (pareceNumeroIdentificacion(texto)) {
+        const [votante, usuario] = await Promise.all([
+          api(`/votantes/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`),
+          api(`/usuarios/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`)
+        ]);
+        if (votante) {
+          cont.innerHTML = filaResultadoBusqueda(votante, 'votante');
+        } else if (usuario) {
+          cont.innerHTML = filaResultadoBusqueda(usuario, 'usuario');
+        } else {
+          cont.innerHTML = '';
+          document.getElementById('aviso-cedula-no-registrada').style.display = 'block';
+        }
+        return;
+      }
+      const r = await api(`/votantes?q=${encodeURIComponent(texto)}&limit=8`);
+      const resultados = r.data || [];
+      cont.innerHTML = resultados.length
+        ? resultados.map(v => filaResultadoBusqueda(v, 'votante')).join('')
+        : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
+    } catch (err) {
+      cont.innerHTML = '';
+    }
+  }, 350);
+});
+
+/** Catálogo de departamentos/municipios de Colombia (DANE), para Departamento/Ciudad del votante nuevo. */
+async function cargarCatalogoColombiaAsistentes() {
+  if (catalogoColombiaAsistentes) return;
+  catalogoColombiaAsistentes = await fetch('/data/colombia.json').then(r => r.json());
+  document.getElementById('nv-lista-departamentos').innerHTML =
+    catalogoColombiaAsistentes.departamentos.map(d => `<option value="${d}">`).join('');
+}
+
+async function cargarTerritoriosAsistentes() {
+  if (territoriosAsistentes.length) return;
+  territoriosAsistentes = await api('/territorial/territorios');
+}
+
+function actualizarCiudadesNv() {
+  const depto = document.getElementById('nv-departamento').value.trim();
+  const ciudades = (catalogoColombiaAsistentes && catalogoColombiaAsistentes.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('nv-lista-ciudades').innerHTML = ciudades.map(c => `<option value="${c}">`).join('');
+}
+document.getElementById('nv-departamento').addEventListener('input', actualizarCiudadesNv);
+
+/** Busca, entre lo ya creado en Estructura territorial, el municipio que coincide con Departamento/Ciudad — así solo se ofrecen las comunas/barrios de esa ciudad. */
+function buscarMunicipioResidenciaNv() {
+  const nombreDepto = normalizarTexto(document.getElementById('nv-departamento').value);
+  const nombreMuni = normalizarTexto(document.getElementById('nv-ciudad').value);
+  if (!nombreMuni) return null;
+  const depto = territoriosAsistentes.find(t => t.tipo === 'departamento' && normalizarTexto(t.nombre) === nombreDepto);
+  return territoriosAsistentes.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombreMuni && (!depto || t.padre_id === depto.id)) || null;
+}
+
+function poblarListasUbicacionNv() {
+  const municipio = buscarMunicipioResidenciaNv();
+  const comunas = municipio ? territoriosAsistentes.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
+  const corregimientos = municipio ? territoriosAsistentes.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
+  document.getElementById('nv-lista-comunas').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('nv-lista-corregimientos').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  actualizarBarriosNv();
+  actualizarVeredasNv();
+}
+document.getElementById('nv-ciudad').addEventListener('input', poblarListasUbicacionNv);
+
+function actualizarBarriosNv() {
+  // Si la ciudad no tiene comunas, el campo Comuna está oculto — el Barrio
+  // se busca directo entre TODOS los del municipio.
+  const nombreComuna = ciudadTieneComunas ? normalizarTexto(document.getElementById('nv-comuna').value) : '';
+  const comuna = nombreComuna ? territoriosAsistentes.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+  let barrios;
+  if (comuna) {
+    barrios = territoriosAsistentes.filter(t => t.tipo === 'barrio' && t.padre_id === comuna.id);
+  } else {
+    const municipio = buscarMunicipioResidenciaNv();
+    const idsComunas = new Set(territoriosAsistentes.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    barrios = territoriosAsistentes.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('nv-lista-barrios').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+}
+document.getElementById('nv-comuna').addEventListener('input', actualizarBarriosNv);
+
+function actualizarVeredasNv() {
+  const nombreCorregimiento = normalizarTexto(document.getElementById('nv-corregimiento').value);
+  const corregimiento = territoriosAsistentes.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+  const veredas = corregimiento ? territoriosAsistentes.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id) : [];
+  document.getElementById('nv-lista-veredas').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+}
+document.getElementById('nv-corregimiento').addEventListener('input', actualizarVeredasNv);
+
+document.getElementById('nv-area').addEventListener('change', (e) => {
+  document.getElementById('nv-fila-urbano').style.display = e.target.value === 'urbano' ? 'flex' : 'none';
+  document.getElementById('nv-fila-rural').style.display = e.target.value === 'rural' ? 'flex' : 'none';
+  if (e.target.value === 'urbano') actualizarBarriosNv();
+  if (e.target.value === 'rural') actualizarVeredasNv();
+});
+
+/** El Área es opcional para un votante: si no se especifica, se guarda sin territorio_id. */
+function resolverTerritorioNv() {
+  const area = document.getElementById('nv-area').value;
+  if (!area) return { territorioId: null, area: null };
+  if (area === 'urbano') {
+    // Si "¿Utilizar nombre de barrios?" está en No, se asigna directo a la
+    // Comuna (Barrio queda oculto). Si la ciudad tampoco usa comunas, se
+    // guarda sin territorio geográfico.
+    if (!usarNombreBarrios) {
+      const nombreComuna = normalizarTexto(document.getElementById('nv-comuna').value);
+      const comuna = nombreComuna ? territoriosAsistentes.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      if (!comuna) {
+        if (ciudadTieneComunas) return { error: 'Seleccione una comuna de la lista, o deje el área sin especificar.' };
+        return { territorioId: null, area };
+      }
+      return { territorioId: comuna.id, area };
+    }
+    const nombreBarrio = normalizarTexto(document.getElementById('nv-barrio').value);
+    if (!nombreBarrio) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
+    const barrio = territoriosAsistentes.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Estructura territorial > Gestionar territorios".' };
+    return { territorioId: barrio.id, area };
+  }
+  const nombreVereda = normalizarTexto(document.getElementById('nv-vereda').value);
+  if (!nombreVereda) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
+  const vereda = territoriosAsistentes.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+  if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Estructura territorial > Gestionar territorios".' };
+  return { territorioId: vereda.id, area };
+}
+
+document.getElementById('btn-registrar-nuevo-votante').addEventListener('click', async () => {
+  const cedula = document.getElementById('input-buscar-votante').value.trim();
+  document.getElementById('nuevo-votante-error').classList.remove('visible');
+  document.getElementById('nv-cedula').value = cedula;
+  document.getElementById('nv-nombre').value = '';
+  document.getElementById('nv-telefono').value = '';
+  document.getElementById('nv-email').value = '';
+  document.getElementById('nv-genero').value = 'prefiero_no_responder';
+  document.getElementById('nv-area').value = '';
+  document.getElementById('nv-comuna').value = '';
+  document.getElementById('nv-barrio').value = '';
+  document.getElementById('nv-corregimiento').value = '';
+  document.getElementById('nv-vereda').value = '';
+  document.getElementById('nv-fila-urbano').style.display = 'none';
+  document.getElementById('nv-fila-rural').style.display = 'none';
+  document.getElementById('nv-consentimiento').checked = false;
+  document.getElementById('aviso-cedula-no-registrada').style.display = 'none';
+
+  await cargarCatalogoColombiaAsistentes();
+  await cargarTerritoriosAsistentes();
+  // Departamento/Ciudad se autocompletan con lo definido en Configuración
+  // → Datos de la campaña, como punto de partida (se puede cambiar).
+  try {
+    if (!configCampanaAsistentes) configCampanaAsistentes = await api('/configuracion/campana');
+    document.getElementById('nv-departamento').value = configCampanaAsistentes.departamento || '';
+    document.getElementById('nv-ciudad').value = configCampanaAsistentes.ciudad || '';
+  } catch (err) {
+    document.getElementById('nv-departamento').value = '';
+    document.getElementById('nv-ciudad').value = '';
+  }
+  actualizarCiudadesNv();
+  poblarListasUbicacionNv();
+
+  document.getElementById('panel-nuevo-votante-asistente').style.display = 'block';
+});
+
+document.getElementById('btn-cancelar-nuevo-votante').addEventListener('click', () => {
+  document.getElementById('panel-nuevo-votante-asistente').style.display = 'none';
+});
+
+document.getElementById('btn-guardar-nuevo-votante').addEventListener('click', async () => {
+  const errorBox = document.getElementById('nuevo-votante-error');
+  errorBox.classList.remove('visible');
+
+  const nombre = document.getElementById('nv-nombre').value.trim();
+  const telefono = document.getElementById('nv-telefono').value.replace(/\D/g, '');
+  if (!nombre) {
+    errorBox.textContent = 'Nombres y apellidos son obligatorios.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (telefono && telefono.length !== 10) {
+    errorBox.textContent = 'Error de digitación: el teléfono debe tener 10 dígitos.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (!document.getElementById('nv-consentimiento').checked) {
+    errorBox.textContent = 'Debes confirmar que la persona autorizó el uso de sus datos.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  const resuelto = resolverTerritorioNv();
+  if (resuelto.error) {
+    errorBox.textContent = resuelto.error;
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  try {
+    const nuevo = await api('/votantes', {
+      method: 'POST',
+      body: {
+        categoria: 'votante',
+        cedula: document.getElementById('nv-cedula').value.trim(),
+        nombre, telefono,
+        email: document.getElementById('nv-email').value.trim(),
+        genero: document.getElementById('nv-genero').value,
+        departamento_residencia: document.getElementById('nv-departamento').value.trim(),
+        ciudad_residencia: document.getElementById('nv-ciudad').value.trim(),
+        area: resuelto.area,
+        territorio_id: resuelto.territorioId || '',
+        consentimiento_autorizado: true,
+        consentimiento_metodo: 'verbal_formulario_campo'
+      }
+    });
+    await api(`/eventos/${eventoActualId}/asistentes`, { method: 'POST', body: { votante_id: nuevo.id } });
+    document.getElementById('panel-nuevo-votante-asistente').style.display = 'none';
+    document.getElementById('input-buscar-votante').value = '';
+    document.getElementById('resultados-buscar-votante').innerHTML = '';
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+async function agregarAsistenteVotante(votanteId) {
+  const errorBox = document.getElementById('asistentes-error');
+  errorBox.classList.remove('visible');
+  try {
+    await api(`/eventos/${eventoActualId}/asistentes`, { method: 'POST', body: { votante_id: votanteId } });
+    document.getElementById('input-buscar-votante').value = '';
+    document.getElementById('resultados-buscar-votante').innerHTML = '';
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+}
+
+/** Igual que agregarAsistenteVotante, pero para un usuario del sistema (líder, coordinador...) que no tiene fila propia en Votantes. */
+async function agregarAsistenteUsuario(usuarioId) {
+  const errorBox = document.getElementById('asistentes-error');
+  errorBox.classList.remove('visible');
+  try {
+    await api(`/eventos/${eventoActualId}/asistentes`, { method: 'POST', body: { usuario_id: usuarioId } });
+    document.getElementById('input-buscar-votante').value = '';
+    document.getElementById('resultados-buscar-votante').innerHTML = '';
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+}
+
+document.getElementById('btn-agregar-invitado').addEventListener('click', async () => {
+  const nombre = document.getElementById('input-nombre-invitado').value.trim();
+  if (!nombre) return;
+  const errorBox = document.getElementById('asistentes-error');
+  errorBox.classList.remove('visible');
+  try {
+    await api(`/eventos/${eventoActualId}/asistentes`, { method: 'POST', body: { nombre_invitado: nombre } });
+    document.getElementById('input-nombre-invitado').value = '';
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/asistentes-reuniones.html');
+  if (!usuarioActual) return;
+  aplicarFormatoNombrePropio('#nv-nombre');
+  try {
+    const configCampana = await api('/configuracion/campana');
+    ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
+    usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
+    document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    // Aquí SÍ cuenta el texto libre: la columna se llena con
+    // COALESCE(territorio, usuarios.barrio_residencia) — ver eventos.routes.js.
+    aplicarColumnasTerritoriales(configCampana, { incluirTextoResidencia: true });
+  } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
+  aplicarVisibilidadComunaNv();
+  await cargarEventosAsistentes();
+})();
+</script>
+</body>
+</html>

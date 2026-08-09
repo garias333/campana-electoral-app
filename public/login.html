@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ingreso · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 20% 20%, var(--color-navy-lighter), var(--color-navy) 60%);
+  }
+  .login-card {
+    width: 100%; max-width: 380px;
+    background: #fff; border-radius: 14px; padding: 36px 32px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+  }
+  .login-eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--color-accent-dark); margin-bottom: 6px; }
+  .login-card h1 { font-size: 1.4rem; margin-bottom: 22px; }
+  .login-card button { width: 100%; margin-top: 6px; }
+  .pie-login { text-align: center; margin-top: 18px; font-size: 0.76rem; color: var(--color-text-muted); }
+  .fila-cuenta-dispositivo { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  /* Prefijado con #selector-cuentas: la regla genérica ".login-card button"
+     de arriba tiene más especificidad que una sola clase y le ganaba a
+     "width:auto", dejando el nombre angosto y la "X" estirada a lo ancho. */
+  #selector-cuentas .btn-cuenta-dispositivo {
+    flex: 1 1 auto; min-width: 0; text-align: left; width: 100%; margin-top: 0;
+    background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 10px;
+    padding: 10px 12px; cursor: pointer;
+  }
+  #selector-cuentas .btn-cuenta-dispositivo:hover { border-color: var(--color-accent-dark); }
+  #selector-cuentas .btn-cuenta-dispositivo .nombre { font-weight: 600; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  #selector-cuentas .btn-cuenta-dispositivo .rol { display: block; font-size: 0.76rem; color: var(--color-text-muted); text-transform: capitalize; }
+  #selector-cuentas .btn-olvidar-cuenta {
+    flex: 0 0 auto; width: 32px; height: 32px; margin-top: 0; padding: 0;
+    background: none; border: none; border-radius: 50%;
+    color: var(--color-text-muted); cursor: pointer; font-size: 1rem; line-height: 1;
+  }
+  #selector-cuentas .btn-olvidar-cuenta:hover { background: #FBEAEA; color: #A93226; }
+  .separador-cuentas { text-align: center; margin: 14px 0; font-size: 0.78rem; color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-eyebrow">Estrategia · INGESES S.A.S.</div>
+    <h1>Administración de campaña</h1>
+
+    <div id="selector-cuentas" style="display:none;">
+      <div style="font-size:0.82rem; color:var(--color-text-muted); margin-bottom:10px;">Cuentas guardadas en este dispositivo</div>
+      <div id="lista-cuentas-dispositivo"></div>
+      <div class="separador-cuentas">— o ingresa con otra cuenta —</div>
+    </div>
+    <script>
+      // Este bloque queda ACÁ (no al final del documento, con el resto
+      // del código) y se repite de forma mínima y autónoma, leyendo
+      // localStorage directo, sin depender de que /js/common.js o
+      // /js/cuentas-dispositivo.js ya hayan terminado de cargar: así el
+      // selector aparece completo desde el primer dibujo de la pantalla,
+      // en vez de aparecer un instante después y correr el formulario de
+      // abajo — eso era lo que se veía como que "la pantalla sube y baja".
+      // Los botones quedan visibles pero sin funcionar todavía; el
+      // código de más abajo (renderizarSelectorCuentas) los deja
+      // funcionando apenas termina de cargar, sin volver a cambiar nada
+      // visualmente porque pinta exactamente lo mismo.
+      (function () {
+        var cuentas = {};
+        try { cuentas = JSON.parse(localStorage.getItem('app_cuentas_dispositivo') || '{}'); } catch (e) {}
+        var ids = Object.keys(cuentas);
+        if (!ids.length) return;
+        document.getElementById('selector-cuentas').style.display = 'block';
+        document.getElementById('lista-cuentas-dispositivo').innerHTML = ids.map(function (id) {
+          var nombre = (cuentas[id].usuario && cuentas[id].usuario.nombre) || '';
+          var rol = (cuentas[id].usuario && cuentas[id].usuario.rol) || '';
+          return '<div class="fila-cuenta-dispositivo">' +
+            '<button type="button" class="btn-cuenta-dispositivo" data-id="' + id + '" data-accion="entrar">' +
+            '<span class="nombre">' + nombre + '</span>' +
+            '<span class="rol">' + rol + '</span>' +
+            '</button>' +
+            '<button type="button" class="btn-olvidar-cuenta" data-id="' + id + '" data-accion="olvidar" title="Olvidar esta cuenta en este dispositivo">✕</button>' +
+            '</div>';
+        }).join('');
+      })();
+    </script>
+
+    <div id="login-error" class="mensaje-error"></div>
+    <form id="form-login">
+      <div class="campo">
+        <label>Correo electrónico o número de identificación</label>
+        <input type="text" name="email" required autocomplete="username" inputmode="email">
+        <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
+          Los administradores ingresan con su correo — todos los demás roles (Líder, Sublíder, Coordinador, Testigo...) ingresan con su número de identificación.
+        </small>
+      </div>
+      <div class="campo">
+        <label>Contraseña</label>
+        <input type="password" name="password" required>
+      </div>
+      <div class="campo" style="margin-bottom: 6px;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
+          <input type="checkbox" name="recordar" style="width:auto;"> Recordar sesión por 7 días
+        </label>
+      </div>
+      <button type="submit" class="btn-primario">Ingresar</button>
+    </form>
+
+    <form id="form-2fa" style="display:none;">
+      <p style="font-size:0.85rem; color: var(--color-text-muted); margin-bottom: 14px;">
+        Te enviamos un código de 6 dígitos por correo. Ingrésalo para completar el inicio de sesión.
+      </p>
+      <div class="campo">
+        <label>Código de verificación</label>
+        <input type="text" name="codigo" inputmode="numeric" maxlength="6" required autofocus>
+      </div>
+      <button type="submit" class="btn-primario">Verificar</button>
+    </form>
+
+    <div id="form-elegir-rol" style="display:none;">
+      <p style="font-size:0.85rem; color: var(--color-text-muted); margin-bottom: 14px;">
+        Tu cuenta también está registrada como testigo electoral. ¿Cómo quieres ingresar esta vez?
+      </p>
+      <button type="button" class="btn-primario" data-entrar-como="principal">Como Líder/Sublíder</button>
+      <button type="button" class="btn-primario" data-entrar-como="testigo" style="margin-top:10px;">Como Testigo electoral</button>
+    </div>
+
+    <div class="pie-login">
+      <a href="/forgot-password.html" style="color: var(--color-text-muted);">¿Olvidaste tu contraseña?</a>
+    </div>
+    <div class="pie-login">Marketing político con ciencia, estrategia y ética.</div>
+  </div>
+
+<script src="/js/common.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script>
+document.getElementById('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('login-error');
+  errorBox.classList.remove('visible');
+  const form = e.target;
+  const datos = {
+    email: form.email.value,
+    password: form.password.value,
+    recordar: form.recordar.checked
+  };
+  try {
+    const r = await api('/auth/login', { method: 'POST', body: datos });
+    if (r.requiereEleccionRol) {
+      form.style.display = 'none';
+      document.getElementById('form-elegir-rol').style.display = 'block';
+      return;
+    }
+    if (r.requiere2fa) {
+      form.style.display = 'none';
+      document.getElementById('form-2fa').style.display = 'block';
+      return;
+    }
+    // Si marcó "Recordar sesión", el servidor manda también un token de
+    // dispositivo (ver config/tokenDispositivo.js) — se guarda para poder
+    // volver a entrar con esta cuenta en este mismo celular más adelante,
+    // incluso sin conexión, y para poder cambiar entre varias cuentas si
+    // el dispositivo es compartido.
+    if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+    irDondeCorresponde(r.usuario);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+/**
+ * Puede pasar que un Líder o Sublíder también esté registrado como
+ * testigo electoral (ver "asignar como testigo" en Estructura territorial
+ * y en Votantes/sublíderes) — el servidor detectó esa doble condición
+ * (ver /auth/elegir-rol) y está esperando que la persona elija con cuál
+ * de las dos capacidades quiere entrar antes de completar el ingreso.
+ */
+document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]').forEach(boton => {
+  boton.addEventListener('click', async () => {
+    const errorBox = document.getElementById('login-error');
+    errorBox.classList.remove('visible');
+    try {
+      const r = await api('/auth/elegir-rol', { method: 'POST', body: { entrarComo: boton.dataset.entrarComo } });
+      if (r.requiere2fa) {
+        document.getElementById('form-elegir-rol').style.display = 'none';
+        document.getElementById('form-2fa').style.display = 'block';
+        return;
+      }
+      if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+      irDondeCorresponde(r.usuario);
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.classList.add('visible');
+    }
+  });
+});
+
+document.getElementById('form-2fa').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('login-error');
+  errorBox.classList.remove('visible');
+  const datos = Object.fromEntries(new FormData(e.target));
+  try {
+    const r = await api('/auth/verificar-2fa', { method: 'POST', body: datos });
+    if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+    irDondeCorresponde(r.usuario);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+/**
+ * Si la persona llegó a este login desde la app móvil de captura
+ * (public/app/...), la app_comun.js de esa app guardó en sessionStorage
+ * a qué pantalla quería entrar — se le devuelve ahí mismo. Si no: Testigo
+ * cae directo y siempre en Día D (su única pantalla de trabajo, no tiene
+ * sentido que busque nada más en el menú). Líder y Sublíder van directo a
+ * la app de captura (su pantalla de trabajo del día a día); el resto
+ * sigue yendo al panel de escritorio.
+ */
+function irDondeCorresponde(usuario) {
+  const destino = sessionStorage.getItem('app_destino_post_login');
+  sessionStorage.removeItem('app_destino_post_login');
+  if (destino) {
+    window.location.href = destino;
+    return;
+  }
+  if (usuario && usuario.rol === 'testigo') {
+    window.location.href = '/app/dia-d.html';
+    return;
+  }
+  const rolesApp = ['lider', 'sublider'];
+  window.location.href = (usuario && rolesApp.includes(usuario.rol)) ? '/app/inicio.html' : '/dashboard.html';
+}
+
+/**
+ * Cuentas guardadas en este dispositivo (ver /js/cuentas-dispositivo.js):
+ * deja elegir con cuál entrar sin escribir la contraseña de nuevo —
+ * funciona incluso sin conexión, y permite que varias personas compartan
+ * un mismo celular (ej. varios testigos) y cambien de cuenta entre ellas.
+ * Para entrar con una cuenta que NO está en esta lista sigue haciendo
+ * falta el formulario de abajo, con conexión, como cualquier inicio de
+ * sesión nuevo.
+ */
+function renderizarSelectorCuentas() {
+  const cuentas = listarCuentasDispositivo();
+  const ids = Object.keys(cuentas);
+  const cont = document.getElementById('selector-cuentas');
+  if (!ids.length) {
+    cont.style.display = 'none';
+    return;
+  }
+  cont.style.display = 'block';
+  document.getElementById('lista-cuentas-dispositivo').innerHTML = ids.map(id => `
+    <div class="fila-cuenta-dispositivo">
+      <button type="button" class="btn-cuenta-dispositivo" data-id="${id}" data-accion="entrar">
+        <span class="nombre">${cuentas[id].usuario.nombre}</span>
+        <span class="rol">${cuentas[id].usuario.rol}</span>
+      </button>
+      <button type="button" class="btn-olvidar-cuenta" data-id="${id}" data-accion="olvidar" title="Olvidar esta cuenta en este dispositivo">✕</button>
+    </div>
+  `).join('');
+  cont.querySelectorAll('[data-accion="entrar"]').forEach(boton => {
+    boton.addEventListener('click', () => {
+      const cuenta = cuentas[boton.dataset.id];
+      establecerCuentaActiva(cuenta.usuario.id);
+      irDondeCorresponde(cuenta.usuario);
+    });
+  });
+  cont.querySelectorAll('[data-accion="olvidar"]').forEach(boton => {
+    boton.addEventListener('click', () => {
+      olvidarCuentaDispositivo(boton.dataset.id);
+      renderizarSelectorCuentas();
+    });
+  });
+}
+
+/**
+ * Si quien llega acá ya tiene una sesión válida en vivo (ej. entró por un
+ * enlace directo a /login.html en vez de por el ícono de la app), no
+ * tiene sentido pedirle usuario y contraseña otra vez — se entra directo.
+ * Si no hay señal para confirmarlo, en vez de entrar solo con la última
+ * cuenta usada (lo que no dejaría cambiar de cuenta sin conexión), se
+ * muestra el selector de cuentas guardadas de arriba para que la persona
+ * elija con cuál quiere entrar.
+ */
+(async () => {
+  renderizarSelectorCuentas();
+  try {
+    const sesion = await api('/auth/me');
+    actualizarPerfilCuentaDispositivo(sesion.usuario);
+    irDondeCorresponde(sesion.usuario);
+  } catch (err) {
+    // Sin sesión válida en vivo (o sin conexión para confirmarla): se
+    // queda en esta pantalla, con el selector de cuentas y el formulario.
+  }
+})();
+</script>
+</body>
+</html>

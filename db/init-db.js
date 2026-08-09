@@ -1,0 +1,1157 @@
+/**
+ * Inicializa la base de datos: crea las tablas (schema.sql) y un usuario
+ * administrador inicial si no existe ninguno.
+ *
+ * Uso: node db/init-db.js
+ */
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
+/**
+ * Agrega una columna a una tabla solo si no existe ya. MySQL real (a
+ * diferencia de MariaDB/PostgreSQL) no soporta "ADD COLUMN IF NOT EXISTS",
+ * así que se maneja capturando el error de columna duplicada.
+ */
+async function agregarColumnaSiFalta(connection, tabla, definicionColumna, nombreColumna) {
+  try {
+    await connection.query(`ALTER TABLE ${tabla} ADD COLUMN ${definicionColumna}`);
+    console.log(`Columna ${nombreColumna} agregada a ${tabla}.`);
+    return true; // recién creada
+  } catch (err) {
+    if (err.code === 'ER_DUP_FIELDNAME') {
+      console.log(`La columna ${nombreColumna} ya existía en ${tabla}. Sin cambios.`);
+      return false; // ya existía
+    } else {
+      throw err;
+    }
+  }
+}
+
+/**
+ * Redefine una columna existente (por ejemplo, para agregar valores nuevos
+ * a un ENUM). A diferencia de agregarColumnaSiFalta, esto siempre se puede
+ * volver a correr sin problema: si ya tiene esa misma definición, MySQL
+ * simplemente no cambia nada.
+ */
+async function modificarColumna(connection, tabla, definicionColumna) {
+  try {
+    await connection.query(`ALTER TABLE ${tabla} MODIFY COLUMN ${definicionColumna}`);
+    console.log(`Columna actualizada en ${tabla}: ${definicionColumna.split(' ')[0]}.`);
+  } catch (err) {
+    console.error(`Error actualizando columna en ${tabla}:`, err.message);
+    throw err;
+  }
+}
+
+/**
+ * Mantiene usuarios.puesto_id al día a partir del texto de
+ * usuarios.puesto_votacion, que es un campo libre. Existe para que el
+ * cruce de testigos contra puestos del Día D se haga por id y no
+ * comparando dos textos que tendrían que coincidir carácter por carácter
+ * para siempre.
+ *
+ * Va con DROP + CREATE porque MySQL no admite "CREATE TRIGGER IF NOT
+ * EXISTS" (DROP ... IF EXISTS sí es universal), y todo el script tiene que
+ * poder correrse las veces que haga falta.
+ *
+ * Si el usuario de base de datos no tiene el privilegio TRIGGER (algunos
+ * hostings lo restringen), se avisa y se sigue: sin el disparador la app
+ * funciona igual salvo el cruce por id, y es preferible eso a dejar la
+ * instalación a medias por un permiso que hay que pedir aparte.
+ */
+/**
+ * Le da a cada testigo YA EXISTENTE su propio puesto/mesa en la fila de
+ * "estructura", copiándolo de "usuarios".
+ *
+ * POR QUÉ HACE FALTA
+ *   Hasta ahora el puesto donde alguien VIGILA se guardaba encima del
+ *   lugar donde VOTA — eran las mismas columnas. Al separarlos, los
+ *   testigos creados antes quedan con su fila de estructura vacía, así
+ *   que las consultas siguen cayendo a "usuarios" y los dos conceptos se
+ *   ven idénticos en pantalla, como si el arreglo no hubiera servido.
+ *
+ * POR QUÉ COPIAR DE "usuarios" ES CORRECTO
+ *   En los dos casos posibles, lo que hay en "usuarios" ES el dato del
+ *   testigo: si se creó desde la pantalla de Testigos, ahí se guardó
+ *   siempre; y si es alguien con otro cargo que además se marcó testigo,
+ *   ese valor había sobrescrito su lugar de votación. En ambos, el dato
+ *   pertenece a la capacidad de testigo.
+ *
+ * LO QUE NO SE PUEDE RECUPERAR
+ *   El lugar de votación REAL de quien tenía doble rol se perdió cuando
+ *   lo pisaron; no hay de dónde sacarlo. Después de esta migración, ese
+ *   campo se puede corregir a mano desde el formulario y ya no se vuelve
+ *   a perder. Antes de esto no servía de nada corregirlo, porque el
+ *   testigo se quedaba sin puesto.
+ *
+ * Solo toca filas cuyo puesto de testigo está vacío, así que correrla de
+ * nuevo no pisa nada de lo que ya se haya ajustado a mano.
+ */
+async function separarDatosDeTestigosExistentes(connection) {
+  const [resultado] = await connection.query(`
+    UPDATE estructura e
+      JOIN usuarios u ON u.id = e.usuario_id
+       SET e.puesto_votacion       = u.puesto_votacion,
+           e.mesa_votacion         = CASE WHEN e.tipo_testigo = 'puesto' THEN NULL
+                                          ELSE NULLIF(TRIM(u.mesa_votacion), '') END,
+           e.puesto_id             = u.puesto_id,
+           e.departamento_votacion = u.departamento_votacion,
+           e.municipio_votacion    = u.municipio_votacion
+     WHERE e.cargo = 'testigo'
+       AND e.puesto_votacion IS NULL
+       AND u.puesto_votacion IS NOT NULL
+       AND u.puesto_votacion <> ''
+  `);
+  if (resultado.affectedRows > 0) {
+    console.log(
+      `Testigos: a ${resultado.affectedRows} se les separó el puesto donde vigilan del lugar donde votan.\n` +
+      '  OJO: a quienes tienen doble rol (Líder/Sublíder/Votante que además es testigo) su\n' +
+      '  Lugar de Votación quedó con el dato del puesto que vigilan, porque el original se\n' +
+      '  había perdido antes. Revísalo en su ficha y corrígelo: ya no se vuelve a pisar.'
+    );
+  } else {
+    console.log('Testigos: no hay ninguno con el puesto sin separar. Sin cambios.');
+  }
+}
+
+async function crearTriggersPuestoId(connection) {
+  const cuerpo = `SET NEW.puesto_id = (
+      SELECT p.id FROM dia_d_puestos_votacion p
+       WHERE NEW.puesto_votacion IS NOT NULL
+         AND NEW.puesto_votacion <> ''
+         AND p.nombre = NEW.puesto_votacion
+       LIMIT 1)`;
+  try {
+    // Las dos tablas se tratan igual: el texto sigue siendo lo que la
+    // persona escribió, y el id se deduce de él. En `votantes` el id queda
+    // NULL a menudo y está bien — alguien registrado aquí puede votar en un
+    // municipio que la campaña no cubre, y ese puesto no está en la lista.
+    for (const tabla of ['usuarios', 'votantes']) {
+      for (const momento of ['ins', 'upd']) {
+        const evento = momento === 'ins' ? 'INSERT' : 'UPDATE';
+        await connection.query(`DROP TRIGGER IF EXISTS trg_${tabla}_puesto_id_${momento}`);
+        await connection.query(
+          `CREATE TRIGGER trg_${tabla}_puesto_id_${momento} BEFORE ${evento} ON ${tabla} FOR EACH ROW ${cuerpo}`
+        );
+      }
+    }
+    console.log('Disparadores de puesto_id (usuarios y votantes) creados/actualizados.');
+
+    // Un disparador solo actúa al escribir: las filas que YA existían se
+    // quedarían con el id vacío para siempre, y el cruce por id nacería
+    // muerto sin que nada avisara. Se rellenan aquí, y se vuelve a hacer en
+    // cada corrida porque la lista de puestos cambia (al resembrarla, un
+    // texto que antes no cruzaba puede empezar a cruzar).
+    //
+    // Solo toca filas con el id vacío: nunca repisa uno ya resuelto.
+    for (const tabla of ['usuarios', 'votantes']) {
+      const [r] = await connection.query(
+        `UPDATE ${tabla} t
+            JOIN dia_d_puestos_votacion p ON p.nombre = t.puesto_votacion
+             SET t.puesto_id = p.id
+           WHERE t.puesto_id IS NULL AND t.puesto_votacion IS NOT NULL AND t.puesto_votacion <> ''`
+      );
+      if (r.affectedRows > 0) console.log(`  ${tabla}: ${r.affectedRows} fila(s) con puesto_id resuelto desde el texto.`);
+    }
+  } catch (err) {
+    if (err.code === 'ER_SPECIFIC_ACCESS_DENIED_ERROR' || err.errno === 1142) {
+      console.warn(
+        'AVISO: el usuario de la base de datos no tiene permiso para crear disparadores (TRIGGER). ' +
+        'usuarios.puesto_id y votantes.puesto_id no se llenarán solos; hay que pedirle ese privilegio al hosting.'
+      );
+      return;
+    }
+    throw err;
+  }
+}
+/**
+ * Módulos del menú y qué roles los ven por defecto — refleja el mismo
+ * criterio que ya usaban los arreglos "roles" del menú antes de existir la
+ * pantalla de "Asignación de permisos". Sirve solo para sembrar valores
+ * iniciales la primera vez; una vez el admin guarda cambios desde esa
+ * pantalla, esos quedan intactos (INSERT IGNORE no los pisa).
+ */
+const ROLES_PERMISOS = ['admin', 'coordinador', 'lider', 'sublider', 'testigo', 'usuario', 'asistente_administrativo', 'invitado'];
+const PERMISOS_POR_DEFECTO = {
+  panel_general: ROLES_PERMISOS,
+  organigrama: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
+  territorial: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
+  votantes: ROLES_PERMISOS,
+  votantes_dashboard: ['admin', 'coordinador'],
+  testigos: ['admin', 'coordinador'],
+  mapa: ['admin', 'coordinador'],
+  agenda: ROLES_PERMISOS,
+  eventos: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
+  asistentes_reuniones: ['admin', 'coordinador', 'lider'],
+  dia_d: ['admin', 'coordinador'],
+  social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
+  crm: ['admin', 'coordinador', 'asistente_administrativo'],
+  enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
+  enviar_sms: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
+  // "Aviso en la app" (push). Sin esta línea la entrada del menú NO le
+  // aparece a nadie: common.js oculta todo ítem cuyo módulo no esté en los
+  // permisos del usuario, y el resultado es un menú sin la opción y nadie
+  // sabiendo por qué.
+  enviar_push: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
+  configurar_crm: ['admin'],
+  biografia_candidato: ROLES_PERMISOS,
+  politica_privacidad: ROLES_PERMISOS,
+  recursos: ROLES_PERMISOS,
+  finanzas: ['admin', 'coordinador', 'asistente_administrativo'],
+  configuracion: ['admin', 'asistente_administrativo'],
+  // El menú "Ayuda" en sí es visible para todos los roles (cada quien ve
+  // su propio manual) — el Manual de instalación, dentro de esa misma
+  // pantalla, ya está restringido aparte a solo admin en el frontend.
+  ayuda: ROLES_PERMISOS
+};
+
+// Para la mayoría de módulos, Editar y Agregar nuevo por defecto siguen a
+// "Ver" (quien puede ver, puede editar/agregar) — Invitado es la única
+// excepción fija (nunca edita ni agrega, aunque sí pueda ver). Para
+// "territorial" se preserva el comportamiento que ya existía antes de
+// esta granularidad: solo Admin y Coordinador pueden Editar/Agregar ahí.
+const RESTRICCION_EDITAR_AGREGAR = {
+  territorial: ['admin', 'coordinador']
+};
+
+async function sembrarPermisosPorDefecto(connection) {
+  for (const modulo of Object.keys(PERMISOS_POR_DEFECTO)) {
+    const rolesPermitidos = PERMISOS_POR_DEFECTO[modulo];
+    const restriccion = RESTRICCION_EDITAR_AGREGAR[modulo];
+    for (const rol of ROLES_PERMISOS) {
+      const ver = rolesPermitidos.includes(rol) ? 1 : 0;
+      const puedeEditarAgregar = ver && rol !== 'invitado' && (!restriccion || restriccion.includes(rol));
+      const editar = puedeEditarAgregar ? 1 : 0;
+      const agregar = puedeEditarAgregar ? 1 : 0;
+      await connection.query(
+        `INSERT IGNORE INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES (?, ?, ?, ?, ?)`,
+        [rol, modulo, ver, editar, agregar]
+      );
+    }
+  }
+  console.log('Permisos por defecto verificados/sembrados (no se pisan los que el admin ya haya editado).');
+}
+
+/**
+ * Texto por defecto de la Política de privacidad, redactado conforme a la
+ * legislación colombiana de habeas data vigente para el tratamiento de
+ * datos personales en campañas políticas (Ley 1581 de 2012, Decreto 1377
+ * de 2013, Decreto 886 de 2014, artículo 15 de la Constitución Política,
+ * y la Sentencia C-748 de 2011 de la Corte Constitucional). Redactado en
+ * lenguaje técnico-jurídico pero explicado de forma sencilla, pensado
+ * para que lo entienda alguien con estudios de básica primaria.
+ *
+ * Formato: el párrafo antes del primer "## " es el aviso/descargo inicial
+ * (el frontend lo muestra en un recuadro de advertencia aparte). Cada
+ * línea "## Título" marca el inicio de una sección numerada (el frontend
+ * las detecta, las numera y arma la tabla de contenido automáticamente).
+ * Los datos entre [corchetes] son marcadores que el usuario debe
+ * completar con la información real de su campaña antes de publicar.
+ */
+const TEXTO_POLITICA_PRIVACIDAD_DEFECTO = `Este es un documento BORRADOR generado como punto de partida. Antes de publicarlo, un abogado debe revisarlo, y usted debe completar todos los datos marcados entre [corchetes] con la información real de su campaña.
+
+## 1. ¿Quién es el responsable de sus datos?
+
+El responsable del tratamiento de sus datos personales es [NOMBRE DEL CANDIDATO / NOMBRE DE LA CAMPAÑA], con NIT o cédula [NÚMERO], con sede en [CIUDAD, DEPARTAMENTO], correo de contacto [CORREO] y teléfono [TELÉFONO]. Esta persona (o campaña) es quien decide qué datos se recogen y para qué se usan, y quien responde ante usted y ante las autoridades por el buen manejo de su información.
+
+## 2. ¿Qué información recogemos y para qué la usamos?
+
+Cuando usted hace parte de esta campaña —como votante, líder, coordinador, sublíder, testigo o asistente a un evento—, podemos recoger datos como: su nombre completo, número de cédula, teléfono, correo electrónico, dirección de residencia, edad, género, el barrio o vereda donde vive, y su lugar de votación (puesto y mesa). Usamos esta información para: organizar el trabajo de la campaña en el territorio, invitarlo a eventos y reuniones, comunicarnos con usted por teléfono, mensaje de texto, WhatsApp o correo, y para planear estrategias de campaña. No usamos su información para ningún fin distinto a estos, ni la vendemos a nadie.
+
+## 3. Su intención de voto es un dato especialmente protegido
+
+La ley colombiana (artículo 5 de la Ley 1581 de 2012) dice que los datos sobre las opiniones políticas de una persona son "datos sensibles" — es decir, datos que merecen un cuidado extra, porque si se usan mal pueden afectarlo o hacer que lo discriminen. Si esta campaña registra su intención de voto o su nivel de apoyo (por ejemplo: "confirmado", "probable", "indeciso"), lo hacemos únicamente con su autorización libre y expresa, y usted en cualquier momento puede pedirnos que dejemos de tener ese dato, sin que eso le traiga ninguna consecuencia negativa.
+
+## 4. ¿Cómo protegemos su información?
+
+Guardamos su información en sistemas con acceso restringido, protegidos con contraseña, y solo las personas de la campaña que necesitan esa información para hacer su trabajo (por ejemplo, su líder o coordinador de zona) pueden verla. Trabajamos para evitar que personas no autorizadas, fuera de la campaña, puedan ver, cambiar o robar esta información.
+
+## 5. ¿Con quién compartimos su información?
+
+Por regla general, su información solo la usa el equipo de esta campaña. No se la entregamos ni la vendemos a empresas, partidos distintos, ni terceros ajenos a la campaña. Solo en los casos en que la ley lo exija —por ejemplo, si una autoridad electoral o un juez lo ordena— podríamos tener que entregar información, y únicamente la que la ley exija.
+
+## 6. ¿Por cuánto tiempo guardamos su información?
+
+Guardamos su información mientras dure el propósito para el que la recogimos: mientras dure el proceso electoral y el tiempo razonable después, necesario para cumplir obligaciones legales (por ejemplo, rendición de cuentas ante el Consejo Nacional Electoral). Pasado ese tiempo, o si usted nos pide que la eliminemos y no hay una razón legal para conservarla, la borramos de nuestros sistemas.
+
+## 7. Sus derechos (derechos ARCO) y cómo ejercerlos
+
+Como titular de sus datos, usted tiene derecho a:
+
+- **Conocer**: saber qué información suya tenemos guardada.
+- **Actualizar**: pedirnos que corrijamos un dato que esté mal o desactualizado.
+- **Rectificar**: pedirnos que arreglemos información incompleta o inexacta.
+- **Suprimir**: pedirnos que borremos su información, cuando ya no sea necesaria o cuando usted retire su autorización.
+- **Revocar la autorización**: cambiar de opinión y pedirnos que dejemos de usar su información, en cualquier momento.
+
+Para ejercer cualquiera de estos derechos, puede escribirnos a [CORREO], llamarnos o escribirnos por WhatsApp al [TELÉFONO], o acercarse a nuestra sede en [DIRECCIÓN]. Responderemos su solicitud dentro de los plazos que establece la ley (10 días hábiles para consultas, 15 días hábiles para reclamos).
+
+## 8. Menores de edad
+
+Esta campaña no recoge intencionalmente información de menores de 18 años para fines de intención de voto o afiliación política, salvo la información básica necesaria para organizar actividades familiares o educativas de la campaña, y siempre con la autorización de sus padres o representantes legales.
+
+## 9. Cambios a esta política
+
+Esta política puede cambiar con el tiempo, por ejemplo si cambian las leyes o la forma en que trabajamos. Cuando eso pase, publicaremos la versión actualizada en esta misma página, con la fecha de la última actualización visible.
+
+## 10. ¿Dónde puede quejarse si algo no le parece bien?
+
+Si usted considera que no hemos cuidado bien su información, primero puede escribirnos directamente a los canales de contacto de esta política. Si no queda conforme con nuestra respuesta, tiene derecho a poner una queja ante la Superintendencia de Industria y Comercio (SIC), que es la entidad del Estado colombiano encargada de vigilar que se cumpla la ley de protección de datos personales.
+
+## 11. Fundamento jurídico
+
+Esta política se elabora conforme a: el artículo 15 de la Constitución Política de Colombia (derecho fundamental al habeas data); la Ley Estatutaria 1581 de 2012 (Régimen General de Protección de Datos Personales); el Decreto 1377 de 2013 (que reglamenta parcialmente la Ley 1581 de 2012); el Decreto 886 de 2014 (Registro Nacional de Bases de Datos); y la Sentencia C-748 de 2011 de la Corte Constitucional, que declaró exequible la Ley 1581 de 2012 y fijó los criterios de interpretación sobre datos sensibles, entre ellos las opiniones políticas.
+
+Última actualización: [FECHA]`;
+
+/**
+ * Siembra el texto por defecto de la Política de privacidad en
+ * `contenido_paginas` — SOLO la primera vez (INSERT IGNORE respeta la
+ * llave primaria `clave`), para no pisar el contenido si el admin ya lo
+ * editó desde la aplicación.
+ */
+async function sembrarPoliticaPrivacidadPorDefecto(connection) {
+  await connection.query(
+    `INSERT IGNORE INTO contenido_paginas (clave, titulo, contenido) VALUES (?, ?, ?)`,
+    ['politica_privacidad', 'Política de privacidad', TEXTO_POLITICA_PRIVACIDAD_DEFECTO]
+  );
+  console.log('Política de privacidad por defecto verificada/sembrada (no se pisa si el admin ya la editó).');
+}
+
+async function main() {
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    multipleStatements: true
+  });
+  console.log('Conectado a MySQL. Aplicando esquema...');
+  const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  await connection.query(schema);
+  console.log('Esquema aplicado correctamente.');
+  // Migraciones defensivas para instalaciones ya existentes (creadas antes de
+  // que estas columnas se agregaran al esquema).
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'territorio_departamento VARCHAR(100) NULL AFTER ciudad',
+    'territorio_departamento'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'territorio_ciudad VARCHAR(100) NULL AFTER territorio_departamento',
+    'territorio_ciudad'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'slogan_campana VARCHAR(255) NULL AFTER cargo_aspira',
+    'slogan_campana'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'two_factor_enabled TINYINT(1) DEFAULT 0 AFTER debe_cambiar_password',
+    'two_factor_enabled'
+  );
+  // Número de identificación del personal de Estructura (único, para poder
+  // avisar "ya registrado por otro líder" antes de guardar).
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'numero_identificacion VARCHAR(20) NULL UNIQUE AFTER nombre',
+    'numero_identificacion'
+  );
+  // Lugar de votación del personal de Estructura.
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'departamento_votacion VARCHAR(100) NULL AFTER numero_identificacion',
+    'departamento_votacion'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'municipio_votacion VARCHAR(100) NULL AFTER departamento_votacion',
+    'municipio_votacion'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'puesto_votacion VARCHAR(150) NULL AFTER municipio_votacion',
+    'puesto_votacion'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'mesa_votacion VARCHAR(20) NULL AFTER puesto_votacion',
+    'mesa_votacion'
+  );
+  // Comuna/Corregimiento y Barrio/Vereda de residencia (dos campos en
+  // cascada, distintos del territorio de influencia).
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'departamento_residencia VARCHAR(100) NULL AFTER mesa_votacion',
+    'departamento_residencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'ciudad_residencia VARCHAR(100) NULL AFTER departamento_residencia',
+    'ciudad_residencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'comuna_corregimiento_residencia VARCHAR(150) NULL AFTER ciudad_residencia',
+    'comuna_corregimiento_residencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'barrio_residencia VARCHAR(150) NULL AFTER comuna_corregimiento_residencia',
+    'barrio_residencia'
+  );
+  // Tipo de cargo político/comunitario (opcional, independiente del Cargo de Estructura).
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    `tipo_cargo ENUM(
+      'concejal','edil','aspirante_concejo','aspirante_jal','presidente_jal',
+      'presidente_jac','miembro_jal','miembro_jac','presidente_gremio','presidente_asociacion'
+    ) NULL AFTER barrio_residencia`,
+    'tipo_cargo'
+  );
+  // Género y Edad, en Agregar a la estructura (Datos personales).
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    `genero ENUM('mujer','hombre','no_binario','prefiero_no_responder') DEFAULT 'prefiero_no_responder' AFTER barrio_residencia`,
+    'genero'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'edad SMALLINT UNSIGNED NULL AFTER genero',
+    'edad'
+  );
+  // Amplía el ENUM de tipo_cargo con Organizaciones sociales/religiosas
+  // (para instalaciones que ya tenían la columna con la lista anterior).
+  await modificarColumna(
+    connection, 'usuarios',
+    `tipo_cargo ENUM(
+      'concejal','edil','aspirante_concejo','aspirante_jal','presidente_jal',
+      'presidente_jac','miembro_jal','miembro_jac','presidente_gremio','presidente_asociacion',
+      'organizaciones_sociales','organizaciones_religiosas'
+    ) NULL`
+  );
+  // El correo electrónico deja de ser obligatorio: los líderes/sublíderes
+  // se pueden crear solo con Número de identificación (que sirve como
+  // Nombre de usuario y contraseña inicial). El login ya acepta ambos.
+  await modificarColumna(connection, 'usuarios', 'email VARCHAR(150) NULL');
+
+  // Área de influencia: geográfica (Territorio) u Organización.
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    "tipo_area_influencia ENUM('territorio','organizacion') NOT NULL DEFAULT 'territorio' AFTER cargo",
+    'tipo_area_influencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'organizacion VARCHAR(150) NULL AFTER tipo_area_influencia',
+    'organizacion'
+  );
+  // territorio_id debe permitir NULL desde que existe el área de
+  // influencia por Organización (antes era siempre obligatorio).
+  await modificarColumna(connection, 'estructura', 'territorio_id INT NULL');
+  // Nuevo cargo "Coordinador Organizaciones" (coordina a las personas cuya
+  // área de influencia es una Organización, en vez de un territorio).
+  await modificarColumna(
+    connection, 'estructura',
+    "cargo ENUM('coordinador','coordinador_organizaciones','lider','usuario','testigo') NOT NULL"
+  );
+  // Distingue, dentro de cargo='testigo', si la persona cubre una sola
+  // mesa (Testigo electoral, el caso normal) o varias mesas del mismo
+  // puesto de votación (Coordinador de puesto).
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    `tipo_testigo ENUM('mesa','puesto') NOT NULL DEFAULT 'mesa' AFTER cargo`,
+    'tipo_testigo'
+  );
+  // Lista de mesas que cubre un Coordinador de puesto (tipo_testigo='puesto') —
+  // el Testigo electoral normal (tipo_testigo='mesa') sigue usando la
+  // columna mesa_votacion de usuarios, una sola mesa.
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    `mesas_asignadas JSON NULL AFTER tipo_testigo`,
+    'mesas_asignadas'
+  );
+  // Relación horizontal (asesor) vs. jerárquica normal (subordinado) en el Organigrama manual.
+  await agregarColumnaSiFalta(
+    connection, 'organigrama_nodos',
+    "tipo_relacion ENUM('subordinado','asesor') NOT NULL DEFAULT 'subordinado' AFTER padre_id",
+    'tipo_relacion'
+  );
+  // Categoría obligatoria del formulario "Nuevo votante o sublíder": Votante o Sublíder.
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    "categoria ENUM('votante','sublider') NOT NULL DEFAULT 'votante' AFTER id",
+    'categoria'
+  );
+  // Área de influencia del Sublíder: geográfica (Territorio) u Organización.
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    "tipo_area_influencia ENUM('territorio','organizacion') NOT NULL DEFAULT 'territorio' AFTER territorio_id",
+    'tipo_area_influencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'organizacion VARCHAR(150) NULL AFTER tipo_area_influencia',
+    'organizacion'
+  );
+  // Sublíder (colaborador bajo el líder) que refirió al contacto, opcional.
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'sublider_id INT NULL AFTER lider_id',
+    'sublider_id'
+  );
+  // Departamento/Ciudad de residencia (catálogo DANE), en Nuevo votante o sublíder.
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'departamento_residencia VARCHAR(100) NULL AFTER direccion',
+    'departamento_residencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'ciudad_residencia VARCHAR(100) NULL AFTER departamento_residencia',
+    'ciudad_residencia'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'direccion VARCHAR(255) NULL AFTER meta_lideres',
+    'direccion'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'latitud DECIMAL(10,7) NULL AFTER direccion',
+    'latitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'longitud DECIMAL(10,7) NULL AFTER latitud',
+    'longitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'geocodificado_en DATETIME NULL AFTER longitud',
+    'geocodificado_en'
+  );
+  // Georreferenciación de votantes/contactos (mapa territorial + botón GPS).
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    "area ENUM('urbano','rural') NULL AFTER direccion",
+    'area'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'latitud DECIMAL(10,7) NULL AFTER area',
+    'latitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'longitud DECIMAL(10,7) NULL AFTER latitud',
+    'longitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'geocodificado_en DATETIME NULL AFTER longitud',
+    'geocodificado_en'
+  );
+  // Lugar de votación de votantes/contactos (Departamento y Municipio; Puesto
+  // y Mesa ya existían en el esquema pero sin campo en el formulario).
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'departamento_votacion VARCHAR(100) NULL AFTER intencion_voto',
+    'departamento_votacion'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'municipio_votacion VARCHAR(100) NULL AFTER departamento_votacion',
+    'municipio_votacion'
+  );
+  // Área/georreferenciación y responsables informativos (coordinador/líder) de Eventos.
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    "area ENUM('urbano','rural') NULL AFTER territorio_id",
+    'area'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    'latitud DECIMAL(10,7) NULL AFTER area',
+    'latitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    'longitud DECIMAL(10,7) NULL AFTER latitud',
+    'longitud'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    'geocodificado_en DATETIME NULL AFTER longitud',
+    'geocodificado_en'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    'coordinador_id INT NULL AFTER responsable_id',
+    'coordinador_id'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'eventos',
+    'lider_id INT NULL AFTER coordinador_id',
+    'lider_id'
+  );
+  const [admins] = await connection.query(
+    `SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' LIMIT 1`
+  );
+  if (admins.length === 0) {
+    const email = process.env.ADMIN_EMAIL || 'admin@campana.local';
+    const passwordPlano = process.env.ADMIN_PASSWORD || 'CambiarInmediatamente123!';
+    const hash = await bcrypt.hash(passwordPlano, 12);
+    const [[rolAdmin]] = await connection.query(`SELECT id FROM roles WHERE nombre = 'admin'`);
+    await connection.query(
+      `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, debe_cambiar_password)
+       VALUES (?, ?, ?, ?, 1, 1)`,
+      ['Administrador de Campaña', email, hash, rolAdmin.id]
+    );
+    console.log('----------------------------------------------------');
+    console.log('Usuario administrador creado:');
+    console.log('  Email:    ', email);
+    console.log('  Password: ', passwordPlano);
+    console.log('  (Deberá cambiar la contraseña en el primer ingreso)');
+    console.log('----------------------------------------------------');
+  } else {
+    console.log('Ya existe al menos un usuario administrador. No se creó uno nuevo.');
+  }
+
+  // "Editar" y "Agregar nuevo" — niveles de permiso más finos, aparte de
+  // "Ver" (permitido), para instalaciones que ya tenían permisos_rol.
+  const editarRecienCreada = await agregarColumnaSiFalta(
+    connection, 'permisos_rol',
+    'editar TINYINT(1) NOT NULL DEFAULT 1 AFTER permitido',
+    'editar'
+  );
+  const agregarRecienCreada = await agregarColumnaSiFalta(
+    connection, 'permisos_rol',
+    'agregar TINYINT(1) NOT NULL DEFAULT 1 AFTER editar',
+    'agregar'
+  );
+
+  // Estas dos columnas se crean con DEFAULT 1 (para no dejar a nadie sin
+  // poder editar/agregar de la nada) — pero eso incluye a filas de
+  // "territorial" que antes de este parche NO tenían acceso a
+  // editar/agregar (esa restricción vivía en el código, no en esta
+  // tabla). Se corrige acá, UNA SOLA VEZ (justo cuando la columna se
+  // acaba de crear) — para no pisar después cualquier ajuste que el
+  // admin haga desde Asignación de permisos.
+  if (editarRecienCreada || agregarRecienCreada) {
+    await connection.query(
+      `UPDATE permisos_rol SET editar = 0, agregar = 0
+       WHERE modulo = 'territorial' AND rol NOT IN ('admin', 'coordinador')`
+    );
+    console.log('Editar/Agregar de "territorial" ajustado para preservar el comportamiento previo (solo Admin y Coordinador).');
+  }
+
+  // El campo Género de Votantes/sublíderes nunca se había expuesto en el
+  // formulario — ahora se agrega con las opciones Mujer/Hombre/No
+  // binario/Prefiero no responder (antes el ENUM tenía M/F/Otro/No
+  // informa). Se remapean los valores existentes ANTES de cambiar el
+  // ENUM, y SOLO si todavía tiene la definición vieja — así, si se vuelve
+  // a correr "npm run init-db" más adelante (por otro parche), esto no
+  // pisa los valores que la gente ya haya elegido con el formulario nuevo.
+  const [[columnaGenero]] = await connection.query(`
+    SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'votantes' AND COLUMN_NAME = 'genero'
+  `);
+  const generoTieneEnumViejo = columnaGenero && columnaGenero.COLUMN_TYPE && columnaGenero.COLUMN_TYPE.includes("'M'");
+  if (generoTieneEnumViejo) {
+    // Bug corregido: no se puede escribir 'hombre'/'mujer'/... directamente
+    // mientras la columna siga siendo el ENUM viejo (solo admite
+    // 'M'/'F'/'Otro'/'No informa') — MySQL lo rechaza con "Data truncated".
+    // Por eso primero se amplía a VARCHAR (conserva los valores actuales
+    // tal cual), se remapean, y AL FINAL se angosta al ENUM nuevo.
+    await connection.query(`ALTER TABLE votantes MODIFY genero VARCHAR(30) DEFAULT 'No informa'`);
+    await connection.query(`
+      UPDATE votantes SET genero = CASE genero
+        WHEN 'M' THEN 'hombre'
+        WHEN 'F' THEN 'mujer'
+        WHEN 'Otro' THEN 'no_binario'
+        ELSE 'prefiero_no_responder'
+      END
+    `);
+    console.log('Valores de género de Votantes remapeados a las nuevas opciones.');
+  }
+  await modificarColumna(
+    connection, 'votantes',
+    `genero ENUM('mujer','hombre','no_binario','prefiero_no_responder') DEFAULT 'prefiero_no_responder'`
+  );
+  await agregarColumnaSiFalta(
+    connection, 'votantes',
+    'edad SMALLINT UNSIGNED NULL AFTER genero',
+    'edad'
+  );
+
+  // Destinatarios manuales en el CRM (números/correos escritos a mano,
+  // sin un registro real en Votantes/Estructura). Ampliar el ENUM es
+  // seguro: solo se agrega una opción nueva, los valores existentes
+  // ('votante'/'estructura') siguen siendo válidos.
+  await modificarColumna(
+    connection, 'comunicaciones_envios',
+    `destinatario_tipo ENUM('votante','estructura','manual') NOT NULL`
+  );
+  await modificarColumna(
+    connection, 'comunicaciones_envios',
+    `destinatario_id INT NULL COMMENT 'id en votantes o en estructura, según destinatario_tipo; NULL si es un contacto manual'`
+  );
+
+  // "email_personal" — canal nuevo para "Enviar E-mail" (grupos pequeños,
+  // vía el correo de Hostinger que ya está configurado), separado del
+  // canal "email" que usa el CRM masivo con SendGrid. Ampliar el ENUM es
+  // seguro: los valores existentes siguen siendo válidos.
+  // 'push' se agrega para el canal de avisos (bloque 4). 'whatsapp' se
+  // CONSERVA aunque el canal esté desactivado: hay campañas viejas que
+  // podrían tenerlo guardado, y quitarlo del ENUM las dejaría con un valor
+  // que MySQL no reconoce.
+  await modificarColumna(
+    connection, 'comunicaciones_campanas',
+    `canal ENUM('email','sms','whatsapp','email_personal','push') NOT NULL`
+  );
+
+  // Organigrama: Nombres/Apellidos separados (reemplaza al campo "nombre"
+  // libre para los cargos nuevos), más Teléfono y E-mail, para poder
+  // contactarlos desde el CRM.
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', 'nombres VARCHAR(100) NULL AFTER nombre', 'nombres');
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', 'apellidos VARCHAR(100) NULL AFTER nombres', 'apellidos');
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', 'telefono VARCHAR(30) NULL AFTER apellidos', 'telefono');
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', 'email VARCHAR(150) NULL AFTER telefono', 'email');
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', `nivel ENUM('nivel_1','nivel_2','nivel_3','asesores') NULL AFTER email`, 'nivel');
+  // Se agregan Nivel 4, 5 y 6 — como solo se AMPLÍA el conjunto de valores
+  // del ENUM (no se quita ni se renombra ninguno existente), se puede
+  // ampliar directamente sin el paso intermedio de "abrir a texto libre"
+  // que sí hace falta cuando una migración angosta o remapea valores.
+  await modificarColumna(connection, 'organigrama_nodos', `nivel ENUM('nivel_1','nivel_2','nivel_3','nivel_4','nivel_5','nivel_6','asesores') NULL`);
+
+  // Se AMPLÍA el ENUM de tipo de recurso con "jingle" y "foto_campana" —
+  // como solo se agregan valores nuevos (no se quita ni se renombra
+  // ninguno existente), es seguro correr esto directo, sin necesidad del
+  // procedimiento de ensanchar a texto libre primero.
+  await modificarColumna(
+    connection, 'recursos',
+    `tipo ENUM('noticia','post_redes','video','publicidad_digital','publicidad_impresa','proxima_reunion','jingle','foto_campana') NOT NULL`
+  );
+
+  // Se AMPLÍA el ENUM de origen de votantes con "estructura" — para
+  // distinguir los votantes que se crearon/actualizaron automáticamente
+  // al agregar a esa misma persona en Estructura territorial.
+  await modificarColumna(
+    connection, 'votantes',
+    `origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual'`
+  );
+
+  // Adjunto opcional de una campaña. Hoy NINGÚN canal lo admite: era
+  // exclusivo de WhatsApp, que está desactivado (Meta prohíbe las
+  // campañas políticas en su API de negocios). Las columnas se conservan
+  // para las campañas viejas que tengan uno guardado.
+  await agregarColumnaSiFalta(connection, 'comunicaciones_campanas', 'adjunto_nombre VARCHAR(255) NULL AFTER filtros', 'adjunto_nombre');
+  await agregarColumnaSiFalta(connection, 'comunicaciones_campanas', 'adjunto_url VARCHAR(500) NULL AFTER adjunto_nombre', 'adjunto_url');
+
+  // Guarda el ID (SID) que Twilio le asigna a cada mensaje de SMS/WhatsApp
+  // enviado — así, cuando Twilio avisa después que un mensaje cambió de
+  // estado (por ejemplo, de "enviado" a "no entregado"), el sistema sabe
+  // a cuál fila de comunicaciones_envios corregirle el estado.
+  await agregarColumnaSiFalta(connection, 'comunicaciones_envios', 'twilio_sid VARCHAR(50) NULL AFTER destinatario_contacto', 'twilio_sid');
+
+  // Estado nuevo "sin_lugar_votacion": cuando el mensaje usa los marcadores
+  // de Lugar de votación ({lugar_votacion}, {puesto}...) y el destinatario
+  // no lo tiene registrado, NO se le envía — le llegaría un mensaje con el
+  // lugar en blanco, que es peor que no recibir nada.
+  //
+  // Se separa de "fallido" a propósito: fallido significa que el envío se
+  // intentó y el proveedor lo rechazó. Meterlos en la misma bolsa haría
+  // creer que hay un problema de mensajería cuando lo que falta es
+  // completar una ficha.
+  //
+  // Y "dado_de_baja": la persona pidió no recibir más mensajes. Va aparte
+  // por la misma razón — no es un fallo de entrega ni una ficha incompleta,
+  // es una decisión suya, y ante una queja hay que poder mostrar que se
+  // respetó y desde cuándo.
+  await modificarColumna(
+    connection, 'comunicaciones_envios',
+    "estado ENUM('pendiente','enviado','fallido','sin_contacto','sin_lugar_votacion','dado_de_baja') NOT NULL DEFAULT 'pendiente'"
+  );
+
+  // "Apoya a": a qué cargo(s) apoya esta persona — se guarda como una
+  // lista en JSON (ej. ["alcaldia","concejo"]) porque alguien puede
+  // apoyar a más de uno a la vez (son elecciones simultáneas).
+  await agregarColumnaSiFalta(connection, 'usuarios', 'apoya_a JSON NULL AFTER tipo_cargo', 'apoya_a');
+  await agregarColumnaSiFalta(connection, 'votantes', 'apoya_a JSON NULL AFTER intencion_voto', 'apoya_a');
+
+  // "Datos verificados": casilla en el listado de Votantes y sublíderes que
+  // solo Administrador y Asistente administrativo pueden marcar/desmarcar
+  // (columna visible para todos, pero de solo lectura para los demás roles).
+  await agregarColumnaSiFalta(connection, 'votantes', 'datos_verificados TINYINT(1) NOT NULL DEFAULT 0 AFTER consentimiento_metodo', 'datos_verificados');
+
+  // Funciones del cargo — texto libre con las responsabilidades, mostrado
+  // en la vista de detalle y en la impresión de cada cargo.
+  await agregarColumnaSiFalta(connection, 'organigrama_nodos', 'funciones TEXT NULL AFTER nivel', 'funciones');
+
+  await agregarColumnaSiFalta(connection, 'contenido_paginas', 'foto_url VARCHAR(255) NULL AFTER contenido', 'foto_url');
+  await agregarColumnaSiFalta(connection, 'contenido_paginas', 'video_url VARCHAR(255) NULL AFTER foto_url', 'video_url');
+
+  // meta_votos_base: "piso" manual, separado del total efectivo
+  // (meta_votos) que ya puede incluir la suma de los gremiales de un
+  // Coordinador Organizaciones. Solo la primera vez que se agrega la
+  // columna, se copia el meta_votos que ya tenía cada quien como su
+  // meta_votos_base inicial (para no perder lo que ya había, ni que a
+  // todos les quede en 0 de golpe).
+  const metaVotosBaseRecienCreada = await agregarColumnaSiFalta(
+    connection, 'estructura',
+    'meta_votos_base INT NOT NULL DEFAULT 0 AFTER meta_votos',
+    'meta_votos_base'
+  );
+  if (metaVotosBaseRecienCreada) {
+    await connection.query(`UPDATE estructura SET meta_votos_base = meta_votos`);
+    console.log('meta_votos_base inicializada con el meta_votos que ya tenía cada quien.');
+  }
+
+  // "¿Utilizar nombre de comunas?" / "¿Utilizar nombre de barrios?": si el
+  // admin responde "No" a cualquiera, el campo correspondiente (Comuna o
+  // Barrio) deja de mostrarse en los formularios de creación de persona/
+  // evento (Territorial, Votantes, app móvil, Eventos, Asistentes a
+  // reuniones). Por defecto ambas son 1 (Sí) para no cambiar el
+  // comportamiento de las instalaciones ya existentes.
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'ciudad_tiene_comunas TINYINT(1) NOT NULL DEFAULT 1 AFTER territorio_ciudad',
+    'ciudad_tiene_comunas'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'usar_nombre_barrios TINYINT(1) NOT NULL DEFAULT 1 AFTER ciudad_tiene_comunas',
+    'usar_nombre_barrios'
+  );
+
+  // "Apoyos": a qué otras campañas puede apoyar la gente que se registra.
+  // El admin los activa en Datos de la campaña y elige cuáles aplican; esa
+  // lista es la que aparece como "Apoya a" en los formularios de
+  // Coordinadores/Líderes y de Votantes/Sublíderes.
+  //
+  // NULL (sin activar) es distinto de [] (activado sin marcar ninguno), y
+  // por eso la columna admite nulos: en ambos casos la sección no se
+  // muestra, pero conviene poder distinguir "nunca lo configuró" de "lo
+  // configuró y lo dejó vacío" cuando alguien venga a revisar por qué no
+  // le aparece.
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'apoyos_activos JSON NULL AFTER usar_nombre_barrios',
+    'apoyos_activos'
+  );
+
+  // Departamento y ciudad del evento. Antes solo se guardaba "lugar"
+  // (texto libre) y el territorio, que se queda dentro del ámbito de la
+  // campaña — pero un evento puede ser fuera de la ciudad sede (un foro
+  // en otro municipio, un encuentro regional), y no había dónde anotarlo.
+  await agregarColumnaSiFalta(connection, 'eventos', 'departamento VARCHAR(100) NULL AFTER lugar', 'departamento');
+  await agregarColumnaSiFalta(connection, 'eventos', 'ciudad VARCHAR(100) NULL AFTER departamento', 'ciudad');
+
+  // Votantes y sublíderes: "Nombres" y "Apellidos" (dos columnas) se
+  // fusionan en un solo campo "nombre" — el formulario ahora pide un solo
+  // campo "Nombres y apellidos". Se detecta si la columna "nombres" (la
+  // vieja) todavía existe: si ya no está, esta migración ya se corrió antes
+  // y no hay nada que hacer.
+  const [[columnaNombresVotantes]] = await connection.query(
+    `SELECT COUNT(*) AS existe FROM information_schema.columns
+     WHERE table_schema = DATABASE() AND table_name = 'votantes' AND column_name = 'nombres'`
+  );
+  if (columnaNombresVotantes.existe > 0) {
+    await agregarColumnaSiFalta(connection, 'votantes', 'nombre VARCHAR(300) NULL AFTER categoria', 'nombre');
+    await connection.query(`UPDATE votantes SET nombre = TRIM(CONCAT(nombres, ' ', apellidos)) WHERE nombre IS NULL`);
+    await connection.query(`ALTER TABLE votantes MODIFY nombre VARCHAR(300) NOT NULL`);
+    try {
+      await connection.query(`ALTER TABLE votantes DROP INDEX ft_votante_nombre`);
+    } catch (err) {
+      if (err.code !== 'ER_CANT_DROP_FIELD_OR_KEY') throw err;
+    }
+    await connection.query(`ALTER TABLE votantes DROP COLUMN nombres, DROP COLUMN apellidos`);
+    await connection.query(`ALTER TABLE votantes ADD FULLTEXT INDEX ft_votante_nombre (nombre)`);
+    console.log('Votantes: columnas nombres/apellidos fusionadas en un solo campo "nombre".');
+  }
+
+  // --- Enlace con el Catálogo Territorial de Colombia (territoriosdb) ---
+  // Estas tres se habían creado a mano directamente en la base de la
+  // instalación original, así que no estaban en ningún archivo del repo.
+  // Sin ellas, routes/catalogo.routes.js falla con "columna desconocida"
+  // en cualquier instalación nueva. Quedan aquí para que una campaña nueva
+  // (o las ya existentes) las obtengan corriendo este mismo script.
+  await agregarColumnaSiFalta(
+    connection, 'dia_d_puestos_votacion',
+    'ctc_puesto_id INT NULL AFTER cantidad_mesas',
+    'ctc_puesto_id'
+  );
+  // Único: un puesto del catálogo no se puede sembrar dos veces en la misma
+  // campaña. Es lo que hace repetible la carga masiva por municipio
+  // (INSERT IGNORE) sin duplicar filas.
+  try {
+    await connection.query(
+      `ALTER TABLE dia_d_puestos_votacion ADD UNIQUE INDEX uq_dia_d_puestos_ctc (ctc_puesto_id)`
+    );
+    console.log('Índice único uq_dia_d_puestos_ctc creado.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+    console.log('El índice uq_dia_d_puestos_ctc ya existía. Sin cambios.');
+  }
+
+  // usuarios.puesto_id: el id del puesto de votación, derivado del texto
+  // libre de usuarios.puesto_votacion. Existe para que los cruces del Día D
+  // se hagan por id y no comparando dos textos carácter por carácter.
+  await agregarColumnaSiFalta(connection, 'usuarios', 'puesto_id INT NULL AFTER puesto_votacion', 'puesto_id');
+
+  // votantes.puesto_id: lo mismo para el lugar donde vota un votante.
+  //
+  // **Se admite NULL a propósito, y es lo normal.** Dónde vota una persona
+  // no tiene por qué ser un puesto que la campaña cubra: alguien registrado
+  // en Manizales puede votar en Neiva. Con el puesto dentro del ámbito, el
+  // id queda lleno y el estimado por puesto cruza por id; fuera del ámbito
+  // queda NULL y solo sobrevive el texto, que es todo lo que se sabe. Esos
+  // no cuentan para la cobertura por puesto de ninguna manera.
+  await agregarColumnaSiFalta(connection, 'votantes', 'puesto_id INT NULL AFTER puesto_votacion', 'puesto_id');
+  await crearTriggersPuestoId(connection);
+
+  // ------------------------------------------------------------------
+  // CRM: baja de contacto, respuestas entrantes, programación y plantillas
+  // ------------------------------------------------------------------
+  //
+  // LA BAJA NO ES UNA COMODIDAD, ES LA OTRA MITAD DEL CONSENTIMIENTO.
+  //   La app pide autorización al registrar a una persona (Ley 1581 de
+  //   2012). Ese consentimiento es revocable, y hasta ahora no había forma
+  //   de revocarlo: quien respondía «BAJA» a un SMS seguía recibiendo
+  //   mensajes. Pedir la autorización y no honrar su retiro es peor que no
+  //   haberla pedido nunca.
+  //
+  //   Se marca la persona, no el número: un teléfono puede estar en varias
+  //   fichas (en una familia se comparte), y la baja la pide una persona.
+  //   Por eso el webhook busca por teléfono pero marca cada ficha que
+  //   coincida, y lo deja anotado en `comunicaciones_respuestas`.
+  for (const tabla of ['votantes', 'usuarios']) {
+    await agregarColumnaSiFalta(connection, tabla,
+      'no_contactar TINYINT(1) NOT NULL DEFAULT 0', 'no_contactar');
+    await agregarColumnaSiFalta(connection, tabla,
+      'no_contactar_fecha DATETIME NULL AFTER no_contactar', 'no_contactar_fecha');
+    // De dónde salió la baja: `sms`, `whatsapp`, `correo` o `manual`. Sirve
+    // para demostrar ante una queja CÓMO se pidió, no solo que se pidió.
+    await agregarColumnaSiFalta(connection, tabla,
+      'no_contactar_origen VARCHAR(20) NULL AFTER no_contactar_fecha', 'no_contactar_origen');
+  }
+
+  // Respuestas entrantes. Hasta ahora Twilio solo avisaba el ESTADO de lo
+  // que salía; lo que la gente contestaba no llegaba a ninguna parte.
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS comunicaciones_respuestas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      canal ENUM('sms','whatsapp') NOT NULL,
+      de_contacto VARCHAR(40) NOT NULL,
+      mensaje TEXT,
+      -- A quién se le pudo atribuir. Puede quedar en NULL: un número
+      -- desconocido también escribe, y esa respuesta no se descarta.
+      votante_id INT NULL,
+      usuario_id INT NULL,
+      nombre_resuelto VARCHAR(150) NULL,
+      -- 'baja' si el texto pedía darse de baja; 'ninguna' si es un mensaje
+      -- normal que alguien tendrá que leer.
+      accion ENUM('ninguna','baja') NOT NULL DEFAULT 'ninguna',
+      leida TINYINT(1) NOT NULL DEFAULT 0,
+      twilio_sid VARCHAR(60) NULL,
+      recibido_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_resp_recibido (recibido_en),
+      INDEX idx_resp_leida (leida),
+      INDEX idx_resp_votante (votante_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  console.log('Tabla comunicaciones_respuestas lista.');
+
+  // Programación de envíos. La cola reanudable ya existía; solo faltaba
+  // decir "sale a tal hora" en vez de "sale ya".
+  await agregarColumnaSiFalta(connection, 'comunicaciones_campanas',
+    'programado_para DATETIME NULL', 'programado_para');
+  try {
+    await connection.query(`ALTER TABLE comunicaciones_campanas ADD INDEX idx_camp_programado (programado_para)`);
+    console.log('Índice idx_camp_programado creado.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+  }
+
+  // Plantillas reutilizables.
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS comunicaciones_plantillas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      nombre VARCHAR(120) NOT NULL,
+      canal ENUM('sms','whatsapp','email','push','cualquiera') NOT NULL DEFAULT 'cualquiera',
+      asunto VARCHAR(200) NULL,
+      cuerpo TEXT NOT NULL,
+      creado_por INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_plantilla_nombre (nombre)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  // El CREATE de arriba solo actúa la primera vez, así que en una base que
+  // ya existía el ENUM se queda como estaba: hay que ampliarlo aparte para
+  // que acepte 'push'. Sin esto, guardar una plantilla de ese canal falla
+  // con "Data truncated for column 'canal'".
+  await modificarColumna(
+    connection, 'comunicaciones_plantillas',
+    `canal ENUM('sms','whatsapp','email','push','cualquiera') NOT NULL DEFAULT 'cualquiera'`
+  );
+  console.log('Tabla comunicaciones_plantillas lista.');
+
+  // Plantillas de arranque.
+  //
+  // LAS DE SMS VAN SIN TILDES, Y NO ES DESCUIDO.
+  //   Una sola tilde saca el mensaje del alfabeto GSM-7 y el segmento baja
+  //   de 160 a 70 caracteres: el mismo texto pasa de 1 SMS a 3, y se
+  //   facturan tres. Escritas sin tildes caben en uno solo. Quien prefiera
+  //   escribirlas con tildes puede editarlas — el contador de la pantalla
+  //   le dirá al instante cuánto cuesta esa decisión.
+  //
+  //   Las de correo SÍ llevan tildes: ahí no hay segmentos que pagar.
+  //
+  // LAS DE PRIMER CONTACTO DICEN COMO DARSE DE BAJA.
+  //   Es lo que hace utilizable el canal de respuestas (Ley 1581 de 2012):
+  //   si no se le dice a la persona que puede responder BAJA, el derecho
+  //   existe pero nadie sabe ejercerlo.
+  //
+  // `INSERT IGNORE` sobre el nombre: si alguien las edita, una migración
+  // posterior NO le pisa el texto.
+  //
+  // LOS NOMBRES TIENEN QUE DISTINGUIRSE POR ALGO QUE NO SEA UNA TILDE.
+  //   La columna es utf8mb4_0900_ai_ci, que ignora los acentos: para MySQL
+  //   «Invitacion a evento» y «Invitación a evento» son la MISMA cadena, y
+  //   el INSERT IGNORE descarta la segunda sin decir nada. Pasó: de las 10
+  //   de abajo solo entraban 9, y el hueco solo se veía contando los id.
+  //   Por eso la de correo dice «(correo)». Al agregar una plantilla nueva,
+  //   comprobar que su nombre no sea igual a otro salvo por las tildes.
+  const plantillasBase = [
+    ['Bienvenida (primer contacto)', 'sms', null,
+     'Hola {nombre}, le saluda la campana de {slogan}. Gracias por acompanarnos. Responda BAJA si no desea recibir mas mensajes.'],
+    ['Dia D - donde vota', 'sms', null,
+     'Hola {nombre}, este domingo vota en {puesto}, mesa {mesa} ({municipio}). Lleve su cedula. Su voto cuenta.'],
+    ['Recordatorio vispera', 'sms', null,
+     'Hola {nombre}, manana son las elecciones. Su puesto: {puesto}, mesa {mesa}. Las urnas abren a las 8 am.'],
+    ['Invitacion a evento', 'sms', null,
+     'Hola {nombre}, lo invitamos a nuestro encuentro. Confirme su asistencia respondiendo SI. Responda BAJA para no recibir mas mensajes.'],
+    ['Convocatoria a testigos', 'sms', null,
+     'Hola {nombre}, usted es testigo en {puesto}, mesa {mesa}. Presentese a las 7 am con su cedula y credencial.'],
+    ['Agradecimiento post jornada', 'sms', null,
+     'Hola {nombre}, gracias por votar y por acompanarnos en esta jornada. Seguimos trabajando por {municipio}.'],
+
+    ['Bienvenida al equipo', 'email', 'Bienvenido a la campaña',
+     'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, respóndanos y lo retiramos de la lista.'],
+    ['Invitación a evento (correo)', 'email', 'Lo esperamos en nuestro próximo encuentro',
+     'Hola {nombre},\n\nQueremos invitarlo a nuestro próximo encuentro. Su presencia es importante para nosotros.\n\nFecha: (completar)\nHora: (completar)\nLugar: (completar)\n\nConfirme su asistencia respondiendo este correo.\n\n{slogan}'],
+    ['Su lugar de votación', 'email', 'Este es su lugar de votación',
+     'Hola {nombre},\n\nEste domingo usted vota en:\n\nPuesto: {puesto}\nMesa: {mesa}\nMunicipio: {municipio}, {departamento}\n\nRecuerde llevar su cédula original. Las urnas abren a las 8:00 a.m. y cierran a las 4:00 p.m.\n\n{slogan}'],
+    ['Agradecimiento', 'email', 'Gracias por acompañarnos',
+     'Hola {nombre},\n\nGracias por su apoyo y por el tiempo que le dedicó a esta causa. Nada de lo que logramos habría sido posible sin personas como usted.\n\n{slogan}'],
+  ];
+  for (const [nombre, canal, asunto, cuerpo] of plantillasBase) {
+    await connection.query(
+      `INSERT IGNORE INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo) VALUES (?, ?, ?, ?)`,
+      [nombre, canal, asunto, cuerpo]);
+  }
+  console.log(`Plantillas de arranque: ${plantillasBase.length} revisadas.`);
+
+  // ------------------------------------------------------------------
+  // Notificaciones push: dónde vive cada dispositivo suscrito
+  // ------------------------------------------------------------------
+  //
+  // Cuando un teléfono acepta recibir avisos, el navegador entrega tres
+  // datos: una URL (el "endpoint", que identifica a ese dispositivo ante
+  // el servicio de su fabricante) y dos claves con las que se cifra el
+  // contenido. Sin los tres no se puede enviar nada.
+  //
+  // LA LLAVE ES EL ENDPOINT, NO LA PERSONA.
+  //   Una misma persona puede tener el celular y el computador, y cada uno
+  //   es una suscripción distinta. Y un mismo teléfono puede cambiar de
+  //   dueño (en una campaña se prestan), por eso también se guarda a quién
+  //   pertenece: al cambiar de cuenta, la suscripción se reasigna en vez de
+  //   duplicarse.
+  //
+  // SE BORRAN SOLAS CUANDO CADUCAN.
+  //   Los servicios de push responden 404 o 410 cuando un dispositivo ya no
+  //   existe (la persona desinstaló, limpió los datos, cambió de teléfono).
+  //   Esa respuesta es la señal para eliminar la fila: si no, la tabla se
+  //   llena de direcciones muertas y cada envío gasta tiempo en ellas.
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS push_suscripciones (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      endpoint VARCHAR(500) NOT NULL,
+      p256dh VARCHAR(200) NOT NULL,
+      auth VARCHAR(100) NOT NULL,
+      dispositivo VARCHAR(150) NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ultimo_envio DATETIME NULL,
+      UNIQUE KEY uq_push_endpoint (endpoint(255)),
+      INDEX idx_push_usuario (usuario_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  console.log('Tabla push_suscripciones lista.');
+
+  // --- Día D: el reporte guarda el id Y el texto del puesto ---
+  //
+  // ATENCIÓN AL LEER ESTO DENTRO DE SEIS MESES: en `dia_d_reportes`,
+  // `puesto_votacion` es una INSTANTÁNEA HISTÓRICA, no una llave.
+  //
+  // Un reporte dice dónde estuvo un testigo a una hora determinada. Si
+  // después alguien renombra ese puesto en la lista de la campaña, el
+  // reporte NO puede cambiar de lugar retroactivamente: por eso se guarda
+  // el texto tal como estaba ese día. Para agrupar, contar o cruzar
+  // reportes, **siempre `puesto_id`**. Cruzar por el texto es exactamente
+  // el problema que esta migración vino a quitar, y volver a hacerlo lo
+  // reintroduce sin que nada avise.
+  await agregarColumnaSiFalta(connection, 'dia_d_reportes', 'puesto_id INT NULL AFTER puesto_votacion', 'puesto_id');
+  try {
+    await connection.query(`ALTER TABLE dia_d_reportes ADD INDEX idx_dia_d_reportes_puesto (puesto_id)`);
+    console.log('Índice idx_dia_d_reportes_puesto creado.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+    console.log('El índice idx_dia_d_reportes_puesto ya existía. Sin cambios.');
+  }
+
+  // Salida de emergencia del Día D: si el puesto donde de verdad está el
+  // testigo no aparece en la lista sembrada, puede escribirlo a mano y el
+  // reporte queda marcado para que alguien lo revise. Sin esto, un testigo
+  // en un puesto que la siembra omitió no podría reportar — y ese día no
+  // hay a quién llamar. La columna va aquí; el botón, en el parche del
+  // cliente.
+  await agregarColumnaSiFalta(
+    connection, 'dia_d_reportes',
+    'puesto_fuera_de_lista TINYINT(1) NOT NULL DEFAULT 0 AFTER puesto_id',
+    'puesto_fuera_de_lista'
+  );
+
+  // --- Testigo electoral: puesto/mesa propios, separados del lugar de
+  // votación de la persona ---
+  // Antes, a un Líder/Coordinador/Sublíder/Votante que además se marcaba
+  // como testigo se le escribía el puesto de VIGILANCIA encima de su lugar
+  // de votación real (las mismas columnas de "usuarios" servían para los
+  // dos conceptos). Una persona puede votar en un puesto y ser testigo en
+  // otro distinto, así que el dato del testigo pasa a vivir en su propia
+  // fila de "estructura".
+  //
+  // El testigo PURO (creado desde la pantalla Testigos) sigue guardando en
+  // "usuarios" como siempre: no tiene un lugar de votación aparte que
+  // proteger. Por eso las consultas leen COALESCE(estructura, usuarios) y
+  // no hace falta migrar ningún dato existente.
+  await agregarColumnaSiFalta(connection, 'estructura', 'puesto_votacion VARCHAR(200) NULL AFTER mesas_asignadas', 'puesto_votacion');
+  await agregarColumnaSiFalta(connection, 'estructura', 'mesa_votacion INT NULL AFTER puesto_votacion', 'mesa_votacion');
+  await agregarColumnaSiFalta(connection, 'estructura', 'puesto_id INT NULL AFTER mesa_votacion', 'puesto_id');
+  await agregarColumnaSiFalta(connection, 'estructura', 'departamento_votacion VARCHAR(150) NULL AFTER puesto_id', 'departamento_votacion');
+  await agregarColumnaSiFalta(connection, 'estructura', 'municipio_votacion VARCHAR(150) NULL AFTER departamento_votacion', 'municipio_votacion');
+  await separarDatosDeTestigosExistentes(connection);
+
+  await sembrarPermisosPorDefecto(connection);
+  await sembrarPoliticaPrivacidadPorDefecto(connection);
+
+  await connection.end();
+  console.log('Listo.');
+}
+main().catch((err) => {
+  console.error('Error inicializando la base de datos:', err);
+  process.exit(1);
+});

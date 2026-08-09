@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* Datos de la campaña: fuente más grande que el resto de Configuración
+     (Usuarios/Permisos/Día D siguen con el tamaño estándar de la app). */
+  #seccion-campana label { font-size: 0.98rem; }
+  #seccion-campana input, #seccion-campana select { font-size: 1.05rem; padding: 11px 13px; }
+  #seccion-campana small { font-size: 0.86rem; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow" id="encabezado-eyebrow">Administración</div><h1 id="encabezado-titulo">Configuración</h1></div>
+      <div id="barra-pestanas-config" style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
+        <button type="button" class="btn-acento btn-sm" id="btn-tab-campana" style="border:none; border-radius:0;">Datos de la campaña</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-diad" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Día D</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Usuarios</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Asignación de permisos</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8); color:#A93226;">🗑️ Eliminar información</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">💾 Backup</button>
+      </div>
+    </div>
+
+    <div id="vacio-sin-permiso" class="vacio" style="display:none;"><div class="icono-vacio">🔒</div>Solo un administrador puede ver y editar la Configuración.</div>
+
+    <!-- ===== DATOS DE LA CAMPAÑA ===== -->
+    <div class="card" id="seccion-campana">
+      <div id="campana-error" class="mensaje-error"></div>
+      <div id="campana-ok" class="mensaje-ok"></div>
+      <form id="form-campana">
+        <div class="fila" style="flex-wrap:wrap;">
+          <div class="campo" style="flex:1; min-width:200px;"><label>Nombre del candidato</label><input name="nombre_candidato"></div>
+          <div class="campo" style="flex:1; min-width:200px;">
+            <label>Cargo al que aspira</label>
+            <select name="cargo_aspira">
+              <option value="">Seleccione...</option>
+              <option value="senado">Senado</option>
+              <option value="camara_representantes">Cámara de Representantes</option>
+              <option value="gobernacion">Gobernación</option>
+              <option value="asamblea">Asamblea</option>
+              <option value="alcaldia">Alcaldía</option>
+              <option value="concejo">Concejo</option>
+              <option value="jal">JAL</option>
+            </select>
+          </div>
+          <div class="campo" style="flex:1; min-width:200px;">
+            <label>Fecha de elecciones</label>
+            <input type="date" name="fecha_eleccion">
+            <small style="color:var(--color-text-muted);">Informativa: los testigos siempre entran directo al formulario de Día D al iniciar sesión, sin importar esta fecha.</small>
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo"><label>Slogan de la campaña</label><input name="slogan_campana" placeholder="Ej. Juntos por Manizales"></div>
+          <div class="campo">
+            <label>Partido político</label>
+            <select id="select-partido-politico">
+              <option value="">Seleccione...</option>
+            </select>
+          </div>
+        </div>
+        <div class="campo" id="campo-partido-otro" style="display:none;">
+          <label>Nombre del partido/movimiento</label>
+          <input id="input-partido-otro" placeholder="Escriba el nombre completo">
+        </div>
+
+        <div class="fila" style="flex-wrap:wrap;">
+          <div class="campo" style="flex:1; min-width:160px;">
+            <label>Departamento</label>
+            <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
+            <datalist id="lista-departamentos-campana"></datalist>
+          </div>
+          <div class="campo" style="flex:1; min-width:160px;">
+            <label>Ciudad</label>
+            <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
+            <datalist id="lista-ciudades-campana"></datalist>
+          </div>
+          <div class="campo" style="flex:1; min-width:200px;">
+            <label>¿Utilizar nombre de comunas?</label>
+            <select name="ciudad_tiene_comunas">
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+          <div class="campo" style="flex:1; min-width:200px;">
+            <label>¿Utilizar nombre de barrios?</label>
+            <select name="usar_nombre_barrios">
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+        </div>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:-10px; margin-bottom:14px;">
+          Responda "No" en cualquiera de las dos si su ciudad no usa ese término (o no quiere organizar la campaña a ese nivel): el campo correspondiente (Comuna o Barrio) deja de aparecer en todos los formularios de la aplicación —Coordinadores y líderes, Votantes y sublíderes, Eventos, Asistentes a reuniones y la app del celular— y tampoco se ofrece crear zonas de ese tipo en "Gestionar territorios". Si "Barrios" queda en No, Líder/Sublíder/Testigo se asignan directo a la Comuna, igual que ya hace Coordinador; si las dos quedan en No, el área urbana se guarda sin subdivisión.
+        </small>
+
+        <div class="fila" style="flex-wrap:wrap;">
+          <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label>Correo electrónico</label><input type="email" name="email"></div>
+        </div>
+
+        <!-- Apoyos: define qué opciones aparecen como "Apoya a" en los
+             formularios de Coordinadores/Líderes y de Votantes/Sublíderes.
+             El botón y las opciones dependen del Cargo al que aspira, así
+             que se arman desde el servidor (ver /configuracion/campana). -->
+        <div id="bloque-apoyos" style="display:none; margin-bottom:18px;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-activar-apoyos">🤝 Activar apoyos</button>
+          <small style="display:block; margin-top:6px; color:var(--color-text-muted); font-size:0.8rem;">
+            Define a qué otras campañas puede apoyar la gente que registres. Lo que marques aquí
+            es lo que aparece como <strong>“Apoya a”</strong> al crear coordinadores, líderes, votantes y sublíderes.
+          </small>
+          <div id="panel-apoyos" style="display:none; margin-top:10px; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px;">
+            <div style="font-size:0.85rem; font-weight:600; color:#1B4C9C; margin-bottom:8px;">Apoyos disponibles</div>
+            <div id="casillas-apoyos" style="display:flex; gap:18px; flex-wrap:wrap;"></div>
+            <small style="display:block; margin-top:8px; color:var(--color-text-muted); font-size:0.78rem;">
+              Si no marcas ninguno, la sección “Apoya a” no aparece en los formularios.
+            </small>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primario">Guardar</button>
+      </form>
+    </div>
+
+    <!-- ===== DÍA D (configuración previa a la jornada) ===== -->
+    <div id="seccion-diad" style="display:none;">
+      <div style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden; width:fit-content; margin-bottom:18px;">
+        <button type="button" class="btn-acento btn-sm" id="btn-subtab-diad-puestos" style="border:none; border-radius:0;">Puestos de votación</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidatos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Candidatos</button>
+      </div>
+
+      <div id="panel-diad-puestos">
+      <div class="card">
+        <div class="toolbar">
+          <h3 style="margin:0;">Puestos de votación</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="btn-secundario btn-sm btn-excel-app" href="/api/dia-d/config/puestos-votacion/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+            <label class="btn-secundario btn-sm btn-excel-app"
+                   title="Para actualizar puestos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un puesto nuevo.">
+              ⬆ Importar desde Excel
+              <input type="file" id="input-importar-puestos" accept=".xlsx,.xls" style="display:none;">
+            </label>
+            <button type="button" class="btn-secundario btn-sm" id="btn-mostrar-traer"
+                    style="display:none;">📥 Traer del catálogo</button>
+            <button type="button" class="btn-acento btn-sm" id="btn-nuevo-puesto">+ Agregar puesto</button>
+          </div>
+        </div>
+        <p id="aviso-ambito-puestos" style="display:none; margin:0 0 10px; font-size:0.82rem; color:var(--color-text-muted);"></p>
+
+        <!-- Filtro de la tabla: solo cambia lo que se ve, no agrega nada.
+             Va pegado a la tabla y con su propio rótulo para que no se
+             confunda con el desplegable de "Traer del catálogo", que sí
+             modifica los datos. -->
+        <div id="filtro-municipio-puestos" style="display:none; margin-bottom:12px; align-items:center; gap:10px; flex-wrap:wrap;">
+          <label for="select-filtro-municipio" style="font-size:0.85rem; font-weight:600; white-space:nowrap;">🔎 Ver solo el municipio:</label>
+          <select id="select-filtro-municipio" style="max-width:300px;"><option value="">Todos los del departamento</option></select>
+          <span id="conteo-puestos-filtro" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
+        </div>
+
+        <div id="panel-traer-catalogo" style="display:none; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:0.85rem; font-weight:600; color:#1B4C9C;">Traer puestos del catálogo oficial</div>
+            <button type="button" class="btn-secundario btn-sm" id="btn-cerrar-traer">Cerrar</button>
+          </div>
+          <p style="font-size:0.8rem; color:var(--color-text-muted); margin:0 0 10px;">
+            Esto <strong>agrega</strong> puestos a la campaña. Para solo ver una parte de los que ya tienes, usa el filtro de arriba.
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="campo" style="flex:1; min-width:200px; margin:0;">
+              <label style="font-size:0.8rem;">Municipio</label>
+              <select id="select-municipio-traer"><option value="">Seleccione...</option></select>
+            </div>
+            <button type="button" class="btn-secundario btn-sm" id="btn-traer-municipio">📥 Traer los de este municipio</button>
+            <button type="button" class="btn-secundario btn-sm" id="btn-traer-departamento">📥 Traer todo el departamento</button>
+          </div>
+          <small id="nota-traer-catalogo" style="display:block; margin-top:8px; color:var(--color-text-muted); font-size:0.78rem;"></small>
+        </div>
+        <div class="tabla-contenedor" id="tabla-puestos-contenedor">
+          <table>
+            <thead><tr><th>Nombre del puesto</th><th>Cantidad de mesas</th><th>Mesas con testigos asignados</th><th>Mesas por asignar testigo</th><th></th></tr></thead>
+            <tbody id="tbody-puestos-votacion"></tbody>
+          </table>
+        </div>
+        <div id="vacio-puestos" class="vacio" style="display:none;"><div class="icono-vacio">🗳️</div>Todavía no hay puestos de votación registrados.</div>
+        <div id="sin-zona-puestos" class="vacio" style="display:none;"><div class="icono-vacio">📍</div>Elige primero la zona de la campaña.</div>
+      </div>
+      </div>
+
+      <div id="panel-diad-candidatos" style="display:none;">
+      <div class="card">
+        <div class="toolbar">
+          <h3 style="margin:0;">Candidatos</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="btn-secundario btn-sm btn-excel-app" href="/api/dia-d/config/candidatos/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+            <label class="btn-secundario btn-sm btn-excel-app"
+                   title="Para actualizar candidatos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un candidato nuevo.">
+              ⬆ Importar desde Excel
+              <input type="file" id="input-importar-candidatos" accept=".xlsx,.xls" style="display:none;">
+            </label>
+            <button type="button" class="btn-acento btn-sm" id="btn-nuevo-candidato">+ Agregar candidato</button>
+          </div>
+        </div>
+        <p style="color:var(--color-text-muted); font-size:0.82rem; margin:-4px 0 14px;">Se muestran en el orden en que se van agregando.</p>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>#</th><th>Nombre del candidato</th><th></th></tr></thead>
+            <tbody id="tbody-candidatos"></tbody>
+          </table>
+        </div>
+        <div id="vacio-candidatos" class="vacio" style="display:none;"><div class="icono-vacio">🏅</div>Todavía no hay candidatos registrados.</div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ===== USUARIOS ===== -->
+    <div class="card" id="seccion-usuarios" style="display:none;">
+      <div class="topbar" style="margin-bottom:14px;">
+        <h3 style="margin:0;">Usuarios del sistema</h3>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-secundario btn-sm" id="btn-sincronizar-identificacion" title="Copia el Número de identificación como Nombre de usuario y contraseña de todos los usuarios que ya lo tengan">Usar Número de identificación como usuario y contraseña</button>
+          <button class="btn-acento" id="btn-nuevo-usuario">+ Crear usuario</button>
+        </div>
+      </div>
+      <div class="toolbar-filtros" style="margin-bottom:14px;">
+        <input type="text" id="filtro-usuarios-busqueda" placeholder="Buscar por nombre, número de identificación, email o teléfono...">
+        <select id="filtro-usuarios-rol">
+          <option value="">Todos los roles</option>
+        </select>
+        <select id="filtro-usuarios-territorio">
+          <option value="">Todo territorio</option>
+        </select>
+        <select id="filtro-usuarios-activo">
+          <option value="">Activos e inactivos</option>
+          <option value="1">Solo activos</option>
+          <option value="0">Solo inactivos</option>
+        </select>
+        <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-usuarios">Quitar filtros</button>
+      </div>
+      <div class="mono" id="contador-usuarios" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:8px;"></div>
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Nombre</th><th>Número de identificación</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Territorio</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbody-usuarios"></tbody>
+      </table>
+      </div>
+      <div id="vacio-usuarios" class="vacio" style="display:none;"><div class="icono-vacio">👤</div>No hay usuarios que coincidan con los filtros.</div>
+    </div>
+
+    <!-- ===== ASIGNACIÓN DE PERMISOS ===== -->
+    <div class="card" id="seccion-permisos" style="display:none;">
+      <div class="topbar" style="margin-bottom:10px;">
+        <h3 style="margin:0;">Qué puede ver cada tipo de usuario</h3>
+        <button class="btn-primario" id="btn-guardar-permisos">Guardar cambios</button>
+      </div>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
+        Por cada módulo, marca qué puede hacer cada rol: <strong>V</strong> = Ver (aparece en el menú y se puede consultar), <strong>E</strong> = Editar (modificar registros existentes), <strong>A</strong> = Agregar nuevo (crear registros). Los cambios se aplican la próxima vez que esa persona cargue una página.
+        <br><strong>Nota:</strong> "V" controla qué aparece en el menú lateral; "E" y "A" controlan si se muestran los botones de editar/agregar en las pantallas donde ya están habilitados (Estructura territorial y Votantes y sublíderes, por ahora — el resto de módulos solo usa "V"). Esto no reemplaza los controles de seguridad del servidor que ya existían para cada pantalla.
+      </p>
+      <div id="permisos-error" class="mensaje-error"></div>
+      <div id="permisos-ok" class="mensaje-ok"></div>
+      <div style="overflow-x:auto;">
+        <table id="tabla-permisos">
+          <thead><tr id="permisos-encabezado"><th>Rol</th></tr></thead>
+          <tbody id="tbody-permisos"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== ELIMINAR INFORMACIÓN ===== -->
+    <div class="card" id="seccion-eliminar" style="display:none;">
+      <div id="eliminar-bloqueado">
+        <div style="text-align:center; padding:26px 10px;">
+          <div style="font-size:2.4rem; margin-bottom:10px;">🔒</div>
+          <h3 style="margin:0 0 8px;">Esta pantalla está protegida</h3>
+          <p style="color:var(--color-text-muted); font-size:0.9rem; max-width:460px; margin:0 auto 18px;">
+            Acá se puede borrar de forma permanente toda la información registrada en un módulo de la aplicación. Para entrar, confirma tu contraseña de administrador.
+          </p>
+          <button type="button" class="btn-primario" id="btn-desbloquear-eliminar">Ingresar contraseña de administrador</button>
+        </div>
+      </div>
+
+      <div id="eliminar-contenido" style="display:none;">
+        <h3 style="margin-top:0; color:#A93226;">⚠️ Eliminar información registrada</h3>
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:18px;">
+          Esto borra PERMANENTEMENTE todos los registros del área elegida — no se puede deshacer, y no hay una papelera de donde recuperarlos. No borra usuarios, roles, territorios ni la configuración general de la campaña, solo la información que se ha ido cargando en ese módulo. Cada botón te pedirá la contraseña de administrador otra vez, como confirmación final.
+        </p>
+        <div id="eliminar-error" class="mensaje-error"></div>
+        <div id="eliminar-ok" class="mensaje-ok"></div>
+        <div id="lista-areas-eliminables" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+    </div>
+
+    <div class="card" id="seccion-backup" style="display:none;">
+      <h3 style="margin-top:0;">Crear backup</h3>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
+        Descarga un archivo .zip con TODA la información de la aplicación en este momento: la base de datos completa (usuarios, votantes, estructura, eventos, configuración, todo) y todos los archivos subidos (fotos, documentos, comprobantes E-14). Sirve para instalar la aplicación desde cero en otro servidor y dejarla exactamente como está ahora — el .zip trae un LEEME.txt con los pasos. Por la información tan sensible que contiene, pide tu contraseña de administrador.
+      </p>
+      <div id="backup-crear-error" class="mensaje-error"></div>
+      <button type="button" class="btn-primario" id="btn-crear-backup">⬇ Descargar backup completo</button>
+
+      <hr style="margin:26px 0; border:none; border-top:1px solid var(--color-border, #e2e5ea);">
+
+      <h3 style="color:#A93226;">⚠️ Restaurar backup</h3>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
+        Sube un .zip de backup generado por esta misma aplicación para reemplazar TODA la información actual de este servidor por la de ese backup — usuarios, contraseñas, votantes, estructura, configuración y archivos. <strong>No se puede deshacer</strong> (aunque, por seguridad, antes de tocar nada se guarda un respaldo de lo que había en la carpeta backups/ del servidor). Todos los usuarios conectados, incluido tú, probablemente tengan que volver a iniciar sesión después de esto.
+      </p>
+      <div id="backup-restaurar-error" class="mensaje-error"></div>
+      <div id="backup-restaurar-ok" class="mensaje-ok"></div>
+      <div class="campo"><label>Archivo de backup (.zip)</label><input type="file" id="input-restaurar-backup" accept=".zip"></div>
+      <div class="campo">
+        <label>Escribe RESTAURAR para confirmar</label>
+        <input type="text" id="input-confirmar-restaurar" placeholder="RESTAURAR" autocomplete="off">
+      </div>
+      <button type="button" class="btn-peligro" id="btn-restaurar-backup">Restaurar backup (reemplaza todo)</button>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-usuario-form">
+  <div class="modal">
+    <div class="modal-header"><h3 id="usuario-form-titulo">Crear usuario</h3><button class="modal-cerrar" id="cerrar-usuario-form">×</button></div>
+    <div id="usuario-form-error" class="mensaje-error"></div>
+    <div id="usuario-form-ok" class="mensaje-ok"></div>
+    <form id="form-usuario">
+      <input type="hidden" id="usuario-form-id">
+      <div class="campo"><label>Nombre completo</label><input id="usuario-form-nombre" required></div>
+      <div class="fila">
+        <div class="campo"><label>Número de identificación</label><input id="usuario-form-identificacion"></div>
+        <div class="campo"><label>Teléfono</label><input id="usuario-form-telefono" placeholder="300 123 4567"></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label>Nombre de usuario</label><input id="usuario-form-nombre-usuario" placeholder="Se autocompleta con el Número de identificación" autocomplete="off"></div>
+        <div class="campo" id="campo-usuario-password">
+          <label>Contraseña (opcional)</label>
+          <input type="password" id="usuario-form-password" autocomplete="new-password" minlength="8" placeholder="Se autocompleta con el Número de identificación">
+        </div>
+      </div>
+      <small style="color:var(--color-text-muted); font-size:0.75rem; display:block; margin-top:-8px; margin-bottom:12px;" id="nota-password-usuario">Contraseña: mínimo 8 caracteres, se autocompleta con el Número de identificación (puedes cambiarla). En cualquier caso, la persona deberá cambiarla obligatoriamente en su primer inicio de sesión.</small>
+      <div class="campo"><label>Correo electrónico</label><input type="email" id="usuario-form-email" required></div>
+      <div class="campo">
+        <label>Rol / Perfil</label>
+        <select id="usuario-form-rol" required></select>
+      </div>
+      <div class="campo" id="campo-usuario-activo" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="usuario-form-activo" checked style="width:auto;"> Usuario activo
+        </label>
+      </div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-puesto-form">
+  <div class="modal">
+    <div class="modal-header"><h3 id="puesto-form-titulo">Agregar puesto de votación</h3><button class="modal-cerrar" id="cerrar-puesto-form">×</button></div>
+    <div id="puesto-form-error" class="mensaje-error"></div>
+    <form id="form-puesto">
+      <input type="hidden" id="puesto-form-id">
+      <input type="hidden" id="puesto-form-ctc-puesto-id">
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <select id="puesto-form-departamento"><option value="">Seleccione...</option></select>
+        </div>
+        <div class="campo">
+          <label>Municipio</label>
+          <select id="puesto-form-municipio"><option value="">Elija primero el departamento...</option></select>
+        </div>
+      </div>
+      <div class="campo">
+        <label>Puesto de votación</label>
+        <select id="puesto-form-puesto"><option value="">Elija primero el municipio...</option></select>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Del catálogo oficial de la Registraduría.</small>
+      </div>
+      <div class="campo">
+        <label>Nombre del puesto</label>
+        <input id="puesto-form-nombre" required>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Se llena solo al elegirlo arriba. Se puede corregir a mano.</small>
+      </div>
+      <div class="campo">
+        <label>Cantidad de mesas</label>
+        <input type="number" id="puesto-form-cantidad-mesas" min="1" step="1" required>
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Viene del catálogo. Cámbiala si en la práctica es otra.</small>
+      </div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-candidato-form">
+  <div class="modal">
+    <div class="modal-header"><h3 id="candidato-form-titulo">Agregar candidato</h3><button class="modal-cerrar" id="cerrar-candidato-form">×</button></div>
+    <div id="candidato-form-error" class="mensaje-error"></div>
+    <form id="form-candidato">
+      <input type="hidden" id="candidato-form-id">
+      <div class="campo"><label>Nombre del candidato</label><input id="candidato-form-nombre" required></div>
+      <button type="submit" class="btn-primario">Guardar</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let roles = [];
+
+// --- Pestañas ---
+function cambiarPestana(pestana) {
+  document.getElementById('seccion-campana').style.display = pestana === 'campana' ? 'block' : 'none';
+  document.getElementById('seccion-diad').style.display = pestana === 'diad' ? 'block' : 'none';
+  document.getElementById('seccion-usuarios').style.display = pestana === 'usuarios' ? 'block' : 'none';
+  document.getElementById('seccion-permisos').style.display = pestana === 'permisos' ? 'block' : 'none';
+  document.getElementById('seccion-eliminar').style.display = pestana === 'eliminar' ? 'block' : 'none';
+  document.getElementById('seccion-backup').style.display = pestana === 'backup' ? 'block' : 'none';
+  document.getElementById('btn-tab-campana').classList.toggle('btn-acento', pestana === 'campana');
+  document.getElementById('btn-tab-campana').classList.toggle('btn-secundario', pestana !== 'campana');
+  document.getElementById('btn-tab-diad').classList.toggle('btn-acento', pestana === 'diad');
+  document.getElementById('btn-tab-diad').classList.toggle('btn-secundario', pestana !== 'diad');
+  document.getElementById('btn-tab-usuarios').classList.toggle('btn-acento', pestana === 'usuarios');
+  document.getElementById('btn-tab-usuarios').classList.toggle('btn-secundario', pestana !== 'usuarios');
+  document.getElementById('btn-tab-permisos').classList.toggle('btn-acento', pestana === 'permisos');
+  document.getElementById('btn-tab-permisos').classList.toggle('btn-secundario', pestana !== 'permisos');
+  document.getElementById('btn-tab-eliminar').classList.toggle('btn-acento', pestana === 'eliminar');
+  document.getElementById('btn-tab-eliminar').classList.toggle('btn-secundario', pestana !== 'eliminar');
+  document.getElementById('btn-tab-backup').classList.toggle('btn-acento', pestana === 'backup');
+  document.getElementById('btn-tab-backup').classList.toggle('btn-secundario', pestana !== 'backup');
+  // "Puestos de votación y candidatos" llega desde el menú de Día D, no
+  // desde Configuración: se presenta como su propia pantalla, con su
+  // nombre y sin la barra de pestañas administrativas (Usuarios, Backup,
+  // Eliminar información...), que pertenecen a otro lugar del menú.
+  const esPantallaDiaD = pestana === 'diad';
+  document.getElementById('encabezado-eyebrow').textContent = esPantallaDiaD ? 'Día D' : 'Administración';
+  document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
+    ? 'Puestos de votación y candidatos'
+    : 'Configuración';
+  document.getElementById('barra-pestanas-config').style.display = esPantallaDiaD ? 'none' : 'flex';
+
+  history.replaceState(null, '', `#${pestana}`);
+  if (pestana === 'diad') { cargarPuestosVotacion(); cargarCandidatos(); }
+  if (pestana === 'usuarios') cargarUsuarios();
+  if (pestana === 'permisos') cargarMatrizPermisos();
+}
+document.getElementById('btn-tab-campana').addEventListener('click', () => cambiarPestana('campana'));
+document.getElementById('btn-tab-diad').addEventListener('click', () => cambiarPestana('diad'));
+document.getElementById('btn-tab-usuarios').addEventListener('click', () => cambiarPestana('usuarios'));
+document.getElementById('btn-tab-permisos').addEventListener('click', () => cambiarPestana('permisos'));
+document.getElementById('btn-tab-eliminar').addEventListener('click', () => cambiarPestana('eliminar'));
+document.getElementById('btn-tab-backup').addEventListener('click', () => cambiarPestana('backup'));
+
+// Sub-pestañas dentro de "Día D": Puestos de votación y Candidatos quedan
+// en paneles separados (solo uno visible a la vez), igual que las
+// pestañas principales de arriba.
+function cambiarSubPestanaDiaD(sub) {
+  document.getElementById('panel-diad-puestos').style.display = sub === 'puestos' ? 'block' : 'none';
+  document.getElementById('panel-diad-candidatos').style.display = sub === 'candidatos' ? 'block' : 'none';
+  document.getElementById('btn-subtab-diad-puestos').classList.toggle('btn-acento', sub === 'puestos');
+  document.getElementById('btn-subtab-diad-puestos').classList.toggle('btn-secundario', sub !== 'puestos');
+  document.getElementById('btn-subtab-diad-candidatos').classList.toggle('btn-acento', sub === 'candidatos');
+  document.getElementById('btn-subtab-diad-candidatos').classList.toggle('btn-secundario', sub !== 'candidatos');
+}
+document.getElementById('btn-subtab-diad-puestos').addEventListener('click', () => cambiarSubPestanaDiaD('puestos'));
+document.getElementById('btn-subtab-diad-candidatos').addEventListener('click', () => cambiarSubPestanaDiaD('candidatos'));
+
+// Los enlaces del submenú "Configuración" (Usuarios, Asignación de
+// permisos) apuntan a esta misma página con distinto "#". Si ya estabas en
+// Configuración, el navegador NO recarga la página al hacer clic en otro
+// de esos enlaces — solo cambia el hash — así que sin este listener el
+// clic no tenía ningún efecto visible. Con esto, cualquier cambio de hash
+// (por navegación del menú, atrás/adelante del navegador, etc.) abre la
+// pestaña correspondiente.
+window.addEventListener('hashchange', () => {
+  const pestana = window.location.hash.slice(1);
+  if (['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'].includes(pestana)) cambiarPestana(pestana);
+});
+
+// --- Datos de la campaña ---
+let catalogoColombiaCampana = null;
+let partidosCatalogo = [];
+
+async function cargarCatalogoColombiaCampana() {
+  if (catalogoColombiaCampana) return;
+  const resp = await fetch('/data/colombia.json');
+  catalogoColombiaCampana = await resp.json();
+  document.getElementById('lista-departamentos-campana').innerHTML =
+    catalogoColombiaCampana.departamentos.map(d => `<option value="${d}">`).join('');
+}
+function actualizarCiudadesCampana() {
+  const depto = document.getElementById('input-departamento-campana').value.trim();
+  const ciudades = (catalogoColombiaCampana && catalogoColombiaCampana.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-ciudades-campana').innerHTML =
+    ciudades.map(c => `<option value="${c}">`).join('');
+}
+document.getElementById('input-departamento-campana').addEventListener('input', actualizarCiudadesCampana);
+
+const ETIQUETAS_APOYO = {
+  alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL',
+  gobernacion: 'Gobernación', asamblea: 'Asamblea'
+};
+
+/**
+ * Arma el bloque de apoyos con las opciones que el servidor dice que
+ * aplican para el cargo al que aspira la campaña. Si el cargo no ofrece
+ * apoyos (Senado, Cámara, o ninguno elegido todavía), el botón no aparece.
+ */
+function pintarApoyos(posibles, activos) {
+  const bloque = document.getElementById('bloque-apoyos');
+  const panel = document.getElementById('panel-apoyos');
+  const casillas = document.getElementById('casillas-apoyos');
+
+  if (!posibles.length) {
+    bloque.style.display = 'none';
+    panel.style.display = 'none';
+    casillas.innerHTML = '';
+    return;
+  }
+  bloque.style.display = 'block';
+
+  const marcados = Array.isArray(activos) ? activos : [];
+  casillas.innerHTML = posibles.map(a => `
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+      <input type="checkbox" value="${a}" style="width:auto;" ${marcados.includes(a) ? 'checked' : ''}>
+      ${ETIQUETAS_APOYO[a] || a}
+    </label>`).join('');
+
+  // Si ya estaban configurados, el panel arranca abierto: esconderlos
+  // haría pensar que se perdieron.
+  const yaConfigurado = Array.isArray(activos);
+  panel.style.display = yaConfigurado ? 'block' : 'none';
+  document.getElementById('btn-activar-apoyos').textContent = yaConfigurado ? '🤝 Apoyos' : '🤝 Activar apoyos';
+}
+
+document.getElementById('btn-activar-apoyos').addEventListener('click', () => {
+  const panel = document.getElementById('panel-apoyos');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+});
+
+// Al cambiar el cargo, cambian los apoyos posibles: se vuelve a pedir la
+// lista al servidor en vez de duplicar aquí la regla.
+document.querySelector('#form-campana [name="cargo_aspira"]').addEventListener('change', async (e) => {
+  const marcados = Array.from(document.querySelectorAll('#casillas-apoyos input:checked')).map(c => c.value);
+  const panelAbierto = document.getElementById('panel-apoyos').style.display === 'block';
+  const posibles = await api(`/configuracion/apoyos-posibles?cargo=${encodeURIComponent(e.target.value)}`).catch(() => ({ apoyos: [] }));
+  // Se conserva lo que siguiera siendo válido con el cargo nuevo.
+  pintarApoyos(posibles.apoyos || [], panelAbierto ? marcados.filter(m => (posibles.apoyos || []).includes(m)) : null);
+});
+
+async function cargarPartidos() {
+  const resp = await fetch('/data/partidos-cne.json');
+  const datos = await resp.json();
+  partidosCatalogo = datos.partidos || [];
+  const select = document.getElementById('select-partido-politico');
+  select.innerHTML = '<option value="">Seleccione...</option>' +
+    partidosCatalogo.map(p => `<option value="${p}">${p}</option>`).join('');
+}
+document.getElementById('select-partido-politico').addEventListener('change', (e) => {
+  const esOtro = e.target.value === 'Otro';
+  document.getElementById('campo-partido-otro').style.display = esOtro ? 'block' : 'none';
+});
+
+// Cambiar "¿Utilizar nombre de comunas?" o "¿Utilizar nombre de
+// barrios?" afecta el campo Comuna/Barrio en 5 formularios distintos de
+// captura — se pide la contraseña de un administrador como confirmación
+// extra apenas se toca cada selector (no solo al guardar todo el
+// formulario). Si cancela, se revierte al valor que tenía antes.
+function protegerCambioConPasswordAdmin(select, titulo, guardarPassword, leerValorPrevio, guardarValorPrevio) {
+  select.addEventListener('change', async (e) => {
+    const nuevoValor = e.target.value;
+    const password = await solicitarPasswordAdmin(titulo);
+    if (!password) {
+      select.value = leerValorPrevio();
+      return;
+    }
+    guardarPassword(password);
+    guardarValorPrevio(nuevoValor);
+  });
+}
+
+let passwordAdminCiudadComunas = null;
+let valorPrevioCiudadTieneComunas = '1';
+protegerCambioConPasswordAdmin(
+  document.getElementById('form-campana').ciudad_tiene_comunas,
+  'Confirmar cambio de "¿Utilizar nombre de comunas?"',
+  (p) => { passwordAdminCiudadComunas = p; },
+  () => valorPrevioCiudadTieneComunas,
+  (v) => { valorPrevioCiudadTieneComunas = v; }
+);
+
+let passwordAdminUsarBarrios = null;
+let valorPrevioUsarNombreBarrios = '1';
+protegerCambioConPasswordAdmin(
+  document.getElementById('form-campana').usar_nombre_barrios,
+  'Confirmar cambio de "¿Utilizar nombre de barrios?"',
+  (p) => { passwordAdminUsarBarrios = p; },
+  () => valorPrevioUsarNombreBarrios,
+  (v) => { valorPrevioUsarNombreBarrios = v; }
+);
+
+async function cargarConfiguracionCampana() {
+  const config = await api('/configuracion/campana');
+  const form = document.getElementById('form-campana');
+  form.nombre_candidato.value = config.nombre_candidato || '';
+  form.cargo_aspira.value = config.cargo_aspira || '';
+  form.ciudad_tiene_comunas.value = config.ciudad_tiene_comunas === 0 ? '0' : '1';
+  valorPrevioCiudadTieneComunas = form.ciudad_tiene_comunas.value;
+  form.usar_nombre_barrios.value = config.usar_nombre_barrios === 0 ? '0' : '1';
+  valorPrevioUsarNombreBarrios = form.usar_nombre_barrios.value;
+  form.slogan_campana.value = config.slogan_campana || '';
+  form.fecha_eleccion.value = config.fecha_eleccion || '';
+  form.direccion_sede.value = config.direccion_sede || '';
+  form.telefono.value = formatoTelefonoColombia(config.telefono || '');
+  form.email.value = config.email || '';
+  document.getElementById('input-departamento-campana').value = config.departamento || '';
+  actualizarCiudadesCampana();
+  document.getElementById('input-ciudad-campana').value = config.ciudad || '';
+  pintarApoyos(config.apoyos_posibles || [], config.apoyos_activos);
+
+  const partido = config.partido_politico || '';
+  const select = document.getElementById('select-partido-politico');
+  if (partido && !partidosCatalogo.includes(partido)) {
+    // El partido guardado no está en el catálogo actual (ej. se escribió a mano con "Otro").
+    select.value = 'Otro';
+    document.getElementById('campo-partido-otro').style.display = 'block';
+    document.getElementById('input-partido-otro').value = partido;
+  } else {
+    select.value = partido;
+    document.getElementById('campo-partido-otro').style.display = partido === 'Otro' ? 'block' : 'none';
+  }
+}
+
+document.getElementById('form-campana').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('campana-error');
+  const okBox = document.getElementById('campana-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  if (!validarTelefonosFormulario('#form-campana [name="telefono"]')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const form = e.target;
+  const partidoSeleccionado = document.getElementById('select-partido-politico').value;
+  const partidoFinal = partidoSeleccionado === 'Otro'
+    ? document.getElementById('input-partido-otro').value.trim()
+    : partidoSeleccionado;
+
+  const datos = {
+    nombre_candidato: form.nombre_candidato.value,
+    cargo_aspira: form.cargo_aspira.value,
+    ciudad_tiene_comunas: Number(form.ciudad_tiene_comunas.value),
+    password_ciudad_comunas: passwordAdminCiudadComunas,
+    usar_nombre_barrios: Number(form.usar_nombre_barrios.value),
+    password_usar_barrios: passwordAdminUsarBarrios,
+    slogan_campana: form.slogan_campana.value,
+    fecha_eleccion: form.fecha_eleccion.value,
+    partido_politico: partidoFinal,
+    departamento: document.getElementById('input-departamento-campana').value,
+    ciudad: document.getElementById('input-ciudad-campana').value,
+    direccion_sede: form.direccion_sede.value,
+    // null = nunca se activó; [] = activado pero sin marcar nada. Los dos
+    // ocultan la sección, pero se guardan distinto para poder saber cuál
+    // de los dos casos es cuando alguien pregunte por qué no le sale.
+    apoyos_activos: document.getElementById('panel-apoyos').style.display === 'block'
+      ? Array.from(document.querySelectorAll('#casillas-apoyos input:checked')).map(c => c.value)
+      : null,
+    telefono: form.telefono.value.replace(/\D/g, ''),
+    email: form.email.value
+  };
+
+  try {
+    await api('/configuracion/campana', { method: 'PUT', body: datos });
+    passwordAdminCiudadComunas = null;
+    passwordAdminUsarBarrios = null;
+    okBox.textContent = 'Datos de la campaña guardados.';
+    okBox.classList.add('visible');
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+// --- Usuarios ---
+async function cargarRoles() {
+  roles = await api('/usuarios/roles');
+  document.getElementById('usuario-form-rol').innerHTML =
+    roles.map(r => `<option value="${r.nombre}">${r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1)}${r.descripcion ? ' — ' + r.descripcion : ''}</option>`).join('');
+  document.getElementById('filtro-usuarios-rol').innerHTML = '<option value="">Todos los roles</option>' +
+    roles.map(r => `<option value="${r.nombre}">${r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1)}</option>`).join('');
+}
+
+let listaUsuarios = [];
+
+async function cargarUsuarios() {
+  listaUsuarios = await api('/usuarios/admin');
+
+  // El filtro de Territorio se arma con los territorios que realmente
+  // tienen algún usuario, para no mostrar una lista larga de opciones vacías.
+  const territoriosPresentes = [...new Set(listaUsuarios.map(u => u.territorio_nombre).filter(Boolean))].sort();
+  const selectTerritorio = document.getElementById('filtro-usuarios-territorio');
+  const valorPrevio = selectTerritorio.value;
+  selectTerritorio.innerHTML = '<option value="">Todo territorio</option>' +
+    territoriosPresentes.map(t => `<option value="${t}">${t}</option>`).join('');
+  selectTerritorio.value = valorPrevio;
+
+  renderizarUsuarios();
+}
+
+function renderizarUsuarios() {
+  const busqueda = normalizarTexto(document.getElementById('filtro-usuarios-busqueda').value);
+  const rol = document.getElementById('filtro-usuarios-rol').value;
+  const territorio = document.getElementById('filtro-usuarios-territorio').value;
+  const activo = document.getElementById('filtro-usuarios-activo').value;
+
+  const filas = listaUsuarios.filter(u => {
+    if (busqueda) {
+      const coincide = normalizarTexto(u.nombre).includes(busqueda)
+        || normalizarTexto(u.numero_identificacion).includes(busqueda)
+        || normalizarTexto(u.email).includes(busqueda)
+        || normalizarTexto(u.telefono).includes(busqueda);
+      if (!coincide) return false;
+    }
+    if (rol && u.rol !== rol) return false;
+    if (territorio && u.territorio_nombre !== territorio) return false;
+    if (activo !== '' && String(Number(u.activo)) !== activo) return false;
+    return true;
+  });
+
+  document.getElementById('contador-usuarios').textContent = `${filas.length} de ${listaUsuarios.length} usuario(s)`;
+  const tbody = document.getElementById('tbody-usuarios');
+  document.getElementById('vacio-usuarios').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map(u => `
+    <tr>
+      <td><strong>${u.nombre}</strong></td>
+      <td class="mono">${u.numero_identificacion || '—'}</td>
+      <td>${u.email}</td>
+      <td class="mono">${u.telefono ? formatoTelefonoColombia(u.telefono) : '—'}</td>
+      <td><span class="tag-tipo">${u.rol}</span></td>
+      <td>${u.territorio_nombre || '—'}</td>
+      <td>${u.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
+        <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
+        <button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+document.getElementById('filtro-usuarios-busqueda').addEventListener('input', debounce(renderizarUsuarios, 250));
+document.getElementById('filtro-usuarios-rol').addEventListener('change', renderizarUsuarios);
+document.getElementById('filtro-usuarios-territorio').addEventListener('change', renderizarUsuarios);
+document.getElementById('filtro-usuarios-activo').addEventListener('change', renderizarUsuarios);
+document.getElementById('btn-quitar-filtros-usuarios').addEventListener('click', () => {
+  document.getElementById('filtro-usuarios-busqueda').value = '';
+  document.getElementById('filtro-usuarios-rol').value = '';
+  document.getElementById('filtro-usuarios-territorio').value = '';
+  document.getElementById('filtro-usuarios-activo').value = '';
+  renderizarUsuarios();
+});
+
+// Nombre de usuario y Contraseña se autocompletan con el Número de
+// identificación mientras el admin no los haya editado a mano — apenas
+// escribe algo distinto en cualquiera de los dos, deja de seguir
+// copiando el número automáticamente en ese campo.
+let nombreUsuarioTocadoManualmente = false;
+let passwordTocadaManualmente = false;
+
+document.getElementById('usuario-form-identificacion').addEventListener('input', (e) => {
+  // Solo aplica al crear (con el formulario de edición, este campo no dirige nada).
+  if (document.getElementById('usuario-form-id').value) return;
+  if (!nombreUsuarioTocadoManualmente) {
+    document.getElementById('usuario-form-nombre-usuario').value = e.target.value;
+  }
+  if (!passwordTocadaManualmente) {
+    document.getElementById('usuario-form-password').value = e.target.value;
+  }
+});
+document.getElementById('usuario-form-nombre-usuario').addEventListener('input', () => {
+  nombreUsuarioTocadoManualmente = true;
+});
+document.getElementById('usuario-form-password').addEventListener('input', () => {
+  passwordTocadaManualmente = true;
+});
+
+function abrirCreacionUsuario() {
+  document.getElementById('form-usuario').reset();
+  document.getElementById('usuario-form-id').value = '';
+  document.getElementById('usuario-form-titulo').textContent = 'Crear usuario';
+  document.getElementById('campo-usuario-activo').style.display = 'none';
+  document.getElementById('campo-usuario-password').style.display = 'block';
+  document.getElementById('nota-password-usuario').style.display = 'block';
+  document.getElementById('nota-password-usuario').textContent = 'Mínimo 8 caracteres. Se autocompleta con el Número de identificación (puedes cambiarla). En cualquier caso, la persona deberá cambiarla obligatoriamente en su primer inicio de sesión.';
+  document.getElementById('usuario-form-password').placeholder = 'Se autocompleta con el Número de identificación';
+  document.getElementById('usuario-form-error').classList.remove('visible');
+  document.getElementById('usuario-form-ok').classList.remove('visible');
+  nombreUsuarioTocadoManualmente = false;
+  passwordTocadaManualmente = false;
+  document.getElementById('overlay-usuario-form').classList.add('abierto');
+}
+
+function abrirEdicionUsuario(u) {
+  document.getElementById('form-usuario').reset();
+  document.getElementById('usuario-form-id').value = u.id;
+  document.getElementById('usuario-form-titulo').textContent = 'Editar usuario';
+  document.getElementById('usuario-form-nombre').value = u.nombre;
+  document.getElementById('usuario-form-identificacion').value = u.numero_identificacion || '';
+  document.getElementById('usuario-form-nombre-usuario').value = u.nombre_usuario || '';
+  document.getElementById('usuario-form-email').value = u.email;
+  document.getElementById('usuario-form-telefono').value = formatoTelefonoColombia(u.telefono || '');
+  document.getElementById('usuario-form-rol').value = u.rol;
+  document.getElementById('usuario-form-activo').checked = !!u.activo;
+  document.getElementById('campo-usuario-activo').style.display = 'block';
+  // La contraseña queda vacía por defecto: si el admin no escribe nada, no
+  // se toca la que ya tenía (se puede seguir usando "Restablecer clave"
+  // en la tabla para generar una temporal en su lugar).
+  document.getElementById('campo-usuario-password').style.display = 'block';
+  document.getElementById('nota-password-usuario').style.display = 'block';
+  document.getElementById('nota-password-usuario').textContent = 'Mínimo 8 caracteres. Déjala en blanco para no cambiar la contraseña actual. Si escribes una nueva, la persona deberá cambiarla en su próximo inicio de sesión.';
+  document.getElementById('usuario-form-password').placeholder = 'Dejar en blanco para no cambiarla';
+  document.getElementById('usuario-form-error').classList.remove('visible');
+  document.getElementById('usuario-form-ok').classList.remove('visible');
+  document.getElementById('overlay-usuario-form').classList.add('abierto');
+}
+
+async function restablecerPasswordUsuario(id) {
+  if (!confirm('¿Restablecer la contraseña de este usuario? Se generará una contraseña temporal nueva.')) return;
+  try {
+    const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST' });
+    alert(`Contraseña temporal nueva: ${r.password_temporal}\n\nEl usuario deberá cambiarla en su próximo inicio de sesión.`);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function eliminarUsuario(id) {
+  if (!confirm('¿Eliminar este usuario? Si tiene un registro en la Estructura (coordinador/líder/testigo/usuario), también se eliminará. Esta acción no se puede deshacer.')) return;
+  try {
+    await api(`/usuarios/${id}`, { method: 'DELETE' });
+    await cargarUsuarios();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('btn-nuevo-usuario').addEventListener('click', abrirCreacionUsuario);
+
+document.getElementById('btn-sincronizar-identificacion').addEventListener('click', async () => {
+  if (!confirm('Esto va a CAMBIAR LA CONTRASEÑA de todos los usuarios que ya tengan Número de identificación guardado, poniéndosela igual a su número de identificación (y su Nombre de usuario también). Cada uno deberá cambiarla en su próximo inicio de sesión. Esta acción no se puede deshacer. ¿Continuar?')) return;
+  const password = await solicitarPasswordAdmin('Confirmar sincronización de usuarios');
+  if (!password) return;
+
+  try {
+    const r = await api('/usuarios/sincronizar-con-identificacion', { method: 'POST', body: { password } });
+    alert(`Listo: ${r.actualizados} de ${r.total} usuario(s) con Número de identificación quedaron con ese número como Nombre de usuario y contraseña (deberán cambiarla en su próximo ingreso).` +
+      (r.fallidos ? ` ${r.fallidos} no se pudieron actualizar (posible conflicto con otro usuario que ya tenía ese mismo Nombre de usuario).` : ''));
+    await cargarUsuarios();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+document.getElementById('cerrar-usuario-form').addEventListener('click', () =>
+  document.getElementById('overlay-usuario-form').classList.remove('abierto'));
+
+document.getElementById('form-usuario').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('usuario-form-error');
+  const okBox = document.getElementById('usuario-form-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  if (!validarTelefonosFormulario('#usuario-form-telefono')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const id = document.getElementById('usuario-form-id').value;
+  const datos = {
+    nombre: document.getElementById('usuario-form-nombre').value,
+    numero_identificacion: document.getElementById('usuario-form-identificacion').value,
+    nombre_usuario: document.getElementById('usuario-form-nombre-usuario').value,
+    email: document.getElementById('usuario-form-email').value,
+    telefono: document.getElementById('usuario-form-telefono').value.replace(/\D/g, ''),
+    rol: document.getElementById('usuario-form-rol').value,
+    password: document.getElementById('usuario-form-password').value
+  };
+  if (id) {
+    datos.activo = document.getElementById('usuario-form-activo').checked;
+  }
+
+  try {
+    if (id) {
+      await api(`/usuarios/${id}`, { method: 'PUT', body: datos });
+      okBox.textContent = datos.password
+        ? 'Usuario actualizado. La contraseña nueva quedó activa (deberá cambiarla en su próximo ingreso).'
+        : 'Usuario actualizado.';
+      okBox.classList.add('visible');
+      await cargarUsuarios();
+      setTimeout(() => document.getElementById('overlay-usuario-form').classList.remove('abierto'), 1200);
+    } else {
+      const r = await api('/usuarios', { method: 'POST', body: datos });
+      okBox.textContent = r.password_temporal
+        ? `Usuario creado. Contraseña temporal: ${r.password_temporal}`
+        : 'Usuario creado con la contraseña que definiste.';
+      okBox.classList.add('visible');
+      await cargarUsuarios();
+    }
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+// --- Asignación de permisos ---
+const ETIQUETAS_ROL = {
+  admin: 'Administrador', coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder',
+  testigo: 'Testigo', usuario: 'Usuario', asistente_administrativo: 'Asistente administrativo', invitado: 'Invitado'
+};
+let matrizPermisosActual = null;
+
+async function cargarMatrizPermisos() {
+  const { modulos, roles: rolesPermisos, permisos } = await api('/permisos/matriz');
+  matrizPermisosActual = { modulos, roles: rolesPermisos, permisos };
+
+  document.getElementById('permisos-encabezado').innerHTML =
+    '<th>Rol</th>' + modulos.map(m => `<th style="text-align:center; font-size:0.72rem; min-width:130px;">${m.etiqueta}</th>`).join('');
+
+  document.getElementById('tbody-permisos').innerHTML = rolesPermisos.map(rol => `
+    <tr>
+      <td><strong>${ETIQUETAS_ROL[rol] || rol}</strong></td>
+      ${modulos.map(m => {
+        const celda = permisos[`${rol}:${m.clave}`] || { ver: false, editar: false, agregar: false };
+        return `
+        <td style="text-align:center; white-space:nowrap; font-size:0.75rem;">
+          <label style="display:inline-flex; align-items:center; gap:2px; margin-right:6px;" title="Ver">
+            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="ver" ${celda.ver ? 'checked' : ''}> V
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:2px; margin-right:6px;" title="Editar">
+            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="editar" ${celda.editar ? 'checked' : ''}> E
+          </label>
+          <label style="display:inline-flex; align-items:center; gap:2px;" title="Agregar nuevo">
+            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="agregar" ${celda.agregar ? 'checked' : ''}> A
+          </label>
+        </td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+
+  // Si se destilda "Ver" (V), no tiene sentido dejar marcados Editar/Agregar
+  // para esa misma celda — se destildan también, como ayuda visual (el
+  // admin igual puede volver a marcarlos si de verdad lo necesita).
+  document.querySelectorAll('#tbody-permisos input[data-nivel="ver"]').forEach(chkVer => {
+    chkVer.addEventListener('change', () => {
+      if (chkVer.checked) return;
+      document.querySelectorAll(
+        `#tbody-permisos input[data-rol="${chkVer.dataset.rol}"][data-modulo="${chkVer.dataset.modulo}"]`
+      ).forEach(chk => { if (chk.dataset.nivel !== 'ver') chk.checked = false; });
+    });
+  });
+}
+
+document.getElementById('btn-guardar-permisos').addEventListener('click', async () => {
+  const errorBox = document.getElementById('permisos-error');
+  const okBox = document.getElementById('permisos-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  const permisos = {};
+  document.querySelectorAll('#tbody-permisos input[type="checkbox"]').forEach(chk => {
+    const clave = `${chk.dataset.rol}:${chk.dataset.modulo}`;
+    if (!permisos[clave]) permisos[clave] = { ver: false, editar: false, agregar: false };
+    permisos[clave][chk.dataset.nivel] = chk.checked;
+  });
+
+  try {
+    await api('/permisos/matriz', { method: 'PUT', body: { permisos } });
+    okBox.textContent = 'Permisos guardados. Los cambios se verán la próxima vez que cada usuario cargue una página.';
+    okBox.classList.add('visible');
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+// --- Eliminar información ---
+let areasEliminablesCache = null;
+
+document.getElementById('btn-desbloquear-eliminar').addEventListener('click', async () => {
+  const password = await solicitarPasswordAdmin('Confirmar acceso a Eliminar información');
+  if (!password) return;
+  try {
+    await api('/configuracion/comunicaciones/verificar-acceso', { method: 'POST', body: { password } });
+    document.getElementById('eliminar-bloqueado').style.display = 'none';
+    document.getElementById('eliminar-contenido').style.display = 'block';
+    await cargarAreasEliminables();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+async function cargarAreasEliminables() {
+  if (!areasEliminablesCache) {
+    areasEliminablesCache = await api('/configuracion/areas-eliminables');
+  }
+  const contenedor = document.getElementById('lista-areas-eliminables');
+  contenedor.innerHTML = areasEliminablesCache.map(area => `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; padding:12px 16px;">
+      <span>${area.etiqueta}</span>
+      <button type="button" class="btn-secundario btn-sm" style="color:#A93226; border-color:#A93226;" onclick="eliminarInformacionArea('${area.clave}', '${area.etiqueta.replace(/'/g, "\\'")}')">Eliminar todo</button>
+    </div>
+  `).join('');
+}
+
+async function eliminarInformacionArea(clave, etiqueta) {
+  const errorBox = document.getElementById('eliminar-error');
+  const okBox = document.getElementById('eliminar-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  if (!confirm(`¿Eliminar TODA la información de "${etiqueta}"? Esta acción no se puede deshacer.`)) return;
+  const password = await solicitarPasswordAdmin(`Confirmar eliminación de "${etiqueta}"`);
+  if (!password) return;
+
+  try {
+    const r = await api(`/configuracion/eliminar-datos/${clave}`, { method: 'DELETE', body: { password } });
+    okBox.textContent = `Se eliminaron ${r.eliminadas} registro(s) de "${etiqueta}".`;
+    okBox.classList.add('visible');
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+}
+
+// --- Backup: crear (descarga un .zip con la base de datos completa + uploads/) y restaurar (reemplaza todo) ---
+
+document.getElementById('btn-crear-backup').addEventListener('click', async () => {
+  const errorBox = document.getElementById('backup-crear-error');
+  errorBox.classList.remove('visible');
+  const password = await solicitarPasswordAdmin('Confirmar creación de backup completo');
+  if (!password) return;
+
+  const boton = document.getElementById('btn-crear-backup');
+  boton.disabled = true;
+  boton.textContent = 'Generando backup… puede tardar un momento';
+  try {
+    // api() siempre intenta leer la respuesta como JSON — no sirve para
+    // descargar el .zip, así que acá se hace un fetch() directo.
+    const csrfToken = await obtenerCsrfToken();
+    const resp = await fetch('/api/backup/exportar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify({ password })
+    });
+    if (!resp.ok) {
+      const datos = await resp.json().catch(() => ({}));
+      throw new Error(datos.error || 'No se pudo crear el backup.');
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `backup-estrategia-${new Date().toISOString().slice(0, 10)}.zip`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = '⬇ Descargar backup completo';
+  }
+});
+
+document.getElementById('btn-restaurar-backup').addEventListener('click', async () => {
+  const errorBox = document.getElementById('backup-restaurar-error');
+  const okBox = document.getElementById('backup-restaurar-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  const archivo = document.getElementById('input-restaurar-backup').files[0];
+  if (!archivo) {
+    errorBox.textContent = 'Selecciona el archivo .zip del backup.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  const confirmacion = document.getElementById('input-confirmar-restaurar').value.trim();
+  if (confirmacion.toUpperCase() !== 'RESTAURAR') {
+    errorBox.textContent = 'Escribe RESTAURAR para confirmar.';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (!confirm('¿Restaurar este backup? Se reemplazará TODA la información actual del servidor y no se puede deshacer. ¿Continuar?')) return;
+
+  const password = await solicitarPasswordAdmin('Confirmar restauración de backup');
+  if (!password) return;
+
+  const boton = document.getElementById('btn-restaurar-backup');
+  boton.disabled = true;
+  boton.textContent = 'Restaurando… no cierres esta pestaña';
+  try {
+    const datosForm = new FormData();
+    datosForm.append('archivo', archivo);
+    datosForm.append('password', password);
+    datosForm.append('confirmacion', confirmacion);
+    const r = await api('/backup/restaurar', { method: 'POST', body: datosForm });
+    okBox.textContent = `Backup restaurado correctamente. Se guardó un respaldo de lo que había antes en backups/${r.respaldoPrevioGuardadoComo} del servidor. Es posible que tengas que volver a iniciar sesión.`;
+    okBox.classList.add('visible');
+    document.getElementById('input-restaurar-backup').value = '';
+    document.getElementById('input-confirmar-restaurar').value = '';
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Restaurar backup (reemplaza todo)';
+  }
+});
+
+// --- Día D: Puestos de votación y Candidatos ---
+function escaparHtmlDiaD(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+async function cargarPuestosVotacion() {
+  // El aviso va primero porque decide si hay zona definida; sin zona el
+  // servidor no devuelve ningún puesto y la tabla no tiene sentido.
+  const hayZona = await mostrarAvisoAmbitoPuestos();
+  document.getElementById('tabla-puestos-contenedor').style.display = hayZona ? '' : 'none';
+  document.getElementById('sin-zona-puestos').style.display = hayZona ? 'none' : 'block';
+  if (!hayZona) {
+    document.getElementById('vacio-puestos').style.display = 'none';
+    document.getElementById('tbody-puestos-votacion').innerHTML = '';
+    return;
+  }
+
+  const municipioFiltro = document.getElementById('select-filtro-municipio').value;
+  const puestos = await api('/dia-d/config/puestos-votacion' +
+    (municipioFiltro ? `?municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
+  const tbody = document.getElementById('tbody-puestos-votacion');
+  document.getElementById('vacio-puestos').style.display = puestos.length ? 'none' : 'block';
+  tbody.innerHTML = puestos.map(p => `
+    <tr>
+      <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
+      <td class="mono">${p.cantidad_mesas}</td>
+      <td class="mono">${p.mesas_con_testigo}</td>
+      <td class="mono" style="${p.mesas_por_asignar > 0 ? 'color:#A93226; font-weight:700;' : ''}">${p.mesas_por_asignar}</td>
+      <td style="text-align:right; white-space:nowrap;">
+        <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
+        <button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarPuesto(${p.id})">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+
+  const conteo = document.getElementById('conteo-puestos-filtro');
+  conteo.textContent = puestos.length === 1 ? '1 puesto' : `${puestos.length} puestos`;
+}
+
+/**
+ * Recuerda a qué zona está recortada la lista y deja listo el panel para
+ * traer los puestos del catálogo. Sin este aviso, un puesto que no
+ * aparece parece haberse perdido.
+ *
+ * Devuelve `true` si la campaña ya tiene zona definida y reconocida en el
+ * catálogo — de eso depende que se muestre la tabla.
+ */
+let ambitoCampanaCache = null;
+
+async function mostrarAvisoAmbitoPuestos() {
+  const aviso = document.getElementById('aviso-ambito-puestos');
+  const panel = document.getElementById('panel-traer-catalogo');
+  const cfg = await api('/configuracion/campana').catch(() => null);
+  const depto = cfg && (cfg.departamento || '').trim();
+  const ciudad = cfg && (cfg.ciudad || '').trim();
+
+  if (!depto) {
+    // Sin zona definida no se lista nada: los 12.885 puestos del país no
+    // le sirven a nadie y vuelven inmanejable la asignación de testigos.
+    aviso.innerHTML = 'Todavía no has elegido la zona de la campaña. Ve a ' +
+      '<a href="/configuracion.html#campana" style="font-weight:600;">Datos de la campaña</a> ' +
+      'y elige el Departamento (y la Ciudad, si la campaña es de un solo municipio). ' +
+      'Los puestos de votación aparecen según esa zona.';
+    aviso.style.display = 'block';
+    panel.style.display = 'none';
+    return false;
+  }
+  aviso.textContent = ciudad
+    ? `Mostrando solo los puestos de ${ciudad}, ${depto} (según Datos de la campaña).`
+    : `Mostrando solo los puestos de ${depto} (según Datos de la campaña).`;
+  aviso.style.display = 'block';
+
+  // Resolver el ámbito contra el catálogo para poder traer puestos.
+  try {
+    ambitoCampanaCache = await api(
+      `/catalogo/resolver?departamento=${encodeURIComponent(depto)}&municipio=${encodeURIComponent(ciudad)}`);
+  } catch (err) {
+    // El catálogo no responde (falta el permiso de lectura, o está caído).
+    // La zona sí está definida, así que la tabla se muestra igual con lo
+    // que la campaña ya tenga cargado; solo no se pueden traer más.
+    panel.style.display = 'none';
+    return true;
+  }
+  if (!ambitoCampanaCache || !ambitoCampanaCache.departamento) {
+    aviso.textContent += ` (No se encontró "${depto}" en el catálogo oficial; revisa cómo está escrito.)`;
+    panel.style.display = 'none';
+    return true;
+  }
+  // El panel de traer arranca cerrado; lo abre el botón de la barra.
+  const btnDepto = document.getElementById('btn-traer-departamento');
+  const selMuni = document.getElementById('select-municipio-traer');
+  const nota = document.getElementById('nota-traer-catalogo');
+
+  // Campaña de un solo municipio: no tiene sentido ofrecer el departamento
+  // entero ni elegir otro municipio.
+  if (ambitoCampanaCache.municipio) {
+    document.getElementById('filtro-municipio-puestos').style.display = 'none';
+    document.getElementById('btn-mostrar-traer').style.display = '';
+    btnDepto.style.display = 'none';
+    selMuni.innerHTML = `<option value="${ambitoCampanaCache.municipio.id}">${escaparHtmlDiaD(ambitoCampanaCache.municipio.nombre)}</option>`;
+    selMuni.disabled = true;
+    nota.textContent = 'Se puede repetir cuantas veces quieras: los que ya están no se duplican.';
+    return true;
+  }
+
+  document.getElementById('filtro-municipio-puestos').style.display = 'flex';
+  document.getElementById('btn-mostrar-traer').style.display = '';
+  btnDepto.style.display = '';
+  btnDepto.textContent = `📥 Traer todo ${ambitoCampanaCache.departamento.nombre}`;
+  selMuni.disabled = false;
+  nota.textContent = 'Como la campaña abarca varios municipios, al nombre de cada puesto se le agrega el municipio entre paréntesis — así no se confunden los que se llaman igual (p. ej. "PUESTO CABECERA MUNICIPAL" existe en decenas de municipios). Se puede repetir sin duplicar.';
+  try {
+    const municipios = await api(`/catalogo/municipios?departamento_id=${ambitoCampanaCache.departamento.id}`);
+    await llenarSelect(selMuni, municipios, 'Seleccione...');
+    // El filtro de la tabla usa la misma lista. Se conserva lo que ya
+    // estuviera elegido: esta función se vuelve a llamar en cada recarga
+    // y si no, el filtro se borraría solo al aplicarlo.
+    const selFiltro = document.getElementById('select-filtro-municipio');
+    const elegido = selFiltro.value;
+    selFiltro.innerHTML = '<option value="">Todos los del departamento</option>' +
+      municipios.map(m => `<option value="${m.id}">${escaparHtmlDiaD(m.nombre)}</option>`).join('');
+    selFiltro.value = elegido;
+  } catch (err) { /* Sin municipios queda el botón de departamento completo. */ }
+  return true;
+}
+
+document.getElementById('select-filtro-municipio').addEventListener('change', cargarPuestosVotacion);
+
+document.getElementById('btn-mostrar-traer').addEventListener('click', () => {
+  const p = document.getElementById('panel-traer-catalogo');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+});
+document.getElementById('btn-cerrar-traer').addEventListener('click', () => {
+  document.getElementById('panel-traer-catalogo').style.display = 'none';
+});
+
+/** Trae puestos del catálogo y refresca la tabla. `cuerpo` dice si es un municipio o el departamento entero. */
+async function traerPuestosDelCatalogo(boton, cuerpo, descripcion) {
+  if (!confirm(`Se van a agregar los puestos de votación oficiales de ${descripcion}. ¿Continuar?`)) return;
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = 'Trayendo...';
+  try {
+    const r = await api('/dia-d/config/puestos-votacion/importar-catalogo', { method: 'POST', body: cuerpo });
+    alert(r.agregados > 0
+      ? `Listo: ${r.agregados} puesto(s) agregado(s) de ${descripcion}. Ahora la campaña tiene ${r.total}.`
+      : `Ya estaban los ${r.enCatalogo} puestos de ${descripcion}: no había ninguno nuevo que agregar.`);
+    await cargarPuestosVotacion();
+  } catch (err) {
+    alert('No se pudieron traer los puestos: ' + err.message);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+}
+
+// --- Cascada del catálogo territorial dentro del modal de puesto ---
+let deptosCatalogoCache = null;
+
+async function llenarSelect(select, filas, textoVacio) {
+  select.innerHTML = `<option value="">${textoVacio}</option>` +
+    filas.map(f => `<option value="${f.id}">${escaparHtmlDiaD(f.nombre)}</option>`).join('');
+}
+
+async function cargarDeptosCatalogo() {
+  if (!deptosCatalogoCache) deptosCatalogoCache = await api('/catalogo/departamentos');
+  await llenarSelect(document.getElementById('puesto-form-departamento'), deptosCatalogoCache, 'Seleccione...');
+}
+
+document.getElementById('puesto-form-departamento').addEventListener('change', async (e) => {
+  const selMuni = document.getElementById('puesto-form-municipio');
+  const selPuesto = document.getElementById('puesto-form-puesto');
+  selPuesto.innerHTML = '<option value="">Elija primero el municipio...</option>';
+  if (!e.target.value) {
+    selMuni.innerHTML = '<option value="">Elija primero el departamento...</option>';
+    return;
+  }
+  const municipios = await api(`/catalogo/municipios?departamento_id=${e.target.value}`);
+  await llenarSelect(selMuni, municipios, 'Seleccione...');
+});
+
+document.getElementById('puesto-form-municipio').addEventListener('change', async (e) => {
+  const selPuesto = document.getElementById('puesto-form-puesto');
+  if (!e.target.value) {
+    selPuesto.innerHTML = '<option value="">Elija primero el municipio...</option>';
+    return;
+  }
+  const puestos = await api(`/catalogo/puestos?municipio_id=${e.target.value}`);
+  selPuesto.innerHTML = '<option value="">Seleccione...</option>' +
+    puestos.map(p => `<option value="${p.id}" data-mesas="${p.total_mesas}">${escaparHtmlDiaD(p.nombre)}</option>`).join('');
+});
+
+/** Al elegir el puesto se copian su nombre y su cantidad de mesas, y se guarda el enlace al catálogo. */
+document.getElementById('puesto-form-puesto').addEventListener('change', (e) => {
+  const opcion = e.target.selectedOptions[0];
+  document.getElementById('puesto-form-ctc-puesto-id').value = e.target.value || '';
+  if (!e.target.value) return;
+  document.getElementById('puesto-form-nombre').value = opcion.textContent;
+  const mesas = Number(opcion.dataset.mesas) || 0;
+  if (mesas > 0) document.getElementById('puesto-form-cantidad-mesas').value = mesas;
+});
+
+/** Deja la cascada apuntando al Departamento/Ciudad de la campaña, que es lo que se va a elegir el 99% de las veces. */
+async function preseleccionarAmbitoEnModal() {
+  const cfg = await api('/configuracion/campana').catch(() => null);
+  if (!cfg || !(cfg.departamento || '').trim()) return;
+  const eq = await api(
+    `/catalogo/resolver?departamento=${encodeURIComponent(cfg.departamento.trim())}` +
+    `&municipio=${encodeURIComponent((cfg.ciudad || '').trim())}`
+  ).catch(() => null);
+  if (!eq || !eq.departamento) return;
+  const selDepto = document.getElementById('puesto-form-departamento');
+  selDepto.value = String(eq.departamento.id);
+  selDepto.dispatchEvent(new Event('change'));
+  if (!eq.municipio) return;
+  // El 'change' de arriba trae los municipios; hay que esperarlo.
+  const municipios = await api(`/catalogo/municipios?departamento_id=${eq.departamento.id}`);
+  await llenarSelect(document.getElementById('puesto-form-municipio'), municipios, 'Seleccione...');
+  const selMuni = document.getElementById('puesto-form-municipio');
+  selMuni.value = String(eq.municipio.id);
+  selMuni.dispatchEvent(new Event('change'));
+}
+
+async function abrirCreacionPuesto() {
+  document.getElementById('puesto-form-titulo').textContent = 'Agregar puesto de votación';
+  document.getElementById('puesto-form-id').value = '';
+  document.getElementById('form-puesto').reset();
+  document.getElementById('puesto-form-ctc-puesto-id').value = '';
+  document.getElementById('puesto-form-error').classList.remove('visible');
+  document.getElementById('overlay-puesto-form').classList.add('abierto');
+  try {
+    await cargarDeptosCatalogo();
+    await preseleccionarAmbitoEnModal();
+  } catch (err) {
+    // Sin catálogo (falta el permiso de lectura, o está caído) el modal
+    // sigue sirviendo: se escribe el nombre a mano, como antes.
+    const errorBox = document.getElementById('puesto-form-error');
+    errorBox.textContent = 'No se pudo consultar el catálogo de puestos: ' + err.message + ' Puedes escribir el nombre a mano.';
+    errorBox.classList.add('visible');
+  }
+}
+
+async function abrirEdicionPuesto(p) {
+  document.getElementById('puesto-form-titulo').textContent = 'Editar puesto de votación';
+  document.getElementById('form-puesto').reset();
+  document.getElementById('puesto-form-id').value = p.id;
+  document.getElementById('puesto-form-ctc-puesto-id').value = p.ctc_puesto_id || '';
+  document.getElementById('puesto-form-nombre').value = p.nombre;
+  document.getElementById('puesto-form-cantidad-mesas').value = p.cantidad_mesas;
+  document.getElementById('puesto-form-error').classList.remove('visible');
+  document.getElementById('overlay-puesto-form').classList.add('abierto');
+  try {
+    await cargarDeptosCatalogo();
+    await preseleccionarAmbitoEnModal();
+  } catch (err) { /* Sin catálogo se edita el nombre a mano, como antes. */ }
+}
+
+document.getElementById('btn-nuevo-puesto').addEventListener('click', abrirCreacionPuesto);
+document.getElementById('cerrar-puesto-form').addEventListener('click', () =>
+  document.getElementById('overlay-puesto-form').classList.remove('abierto'));
+
+document.getElementById('btn-traer-municipio').addEventListener('click', (e) => {
+  const sel = document.getElementById('select-municipio-traer');
+  if (!sel.value) { alert('Elige primero un municipio.'); return; }
+  const nombre = sel.selectedOptions[0].textContent;
+  traerPuestosDelCatalogo(e.currentTarget, { municipio_id: Number(sel.value) }, nombre);
+});
+
+document.getElementById('btn-traer-departamento').addEventListener('click', (e) => {
+  if (!ambitoCampanaCache || !ambitoCampanaCache.departamento) return;
+  traerPuestosDelCatalogo(
+    e.currentTarget,
+    { departamento_id: ambitoCampanaCache.departamento.id },
+    `TODO el departamento de ${ambitoCampanaCache.departamento.nombre}`
+  );
+});
+
+document.getElementById('form-puesto').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('puesto-form-error');
+  errorBox.classList.remove('visible');
+  const id = document.getElementById('puesto-form-id').value;
+  const body = {
+    nombre: document.getElementById('puesto-form-nombre').value.trim(),
+    cantidad_mesas: document.getElementById('puesto-form-cantidad-mesas').value,
+    ctc_puesto_id: document.getElementById('puesto-form-ctc-puesto-id').value || null
+  };
+  try {
+    if (id) {
+      await api(`/dia-d/config/puestos-votacion/${id}`, { method: 'PUT', body });
+    } else {
+      await api('/dia-d/config/puestos-votacion', { method: 'POST', body });
+    }
+    document.getElementById('overlay-puesto-form').classList.remove('abierto');
+    await cargarPuestosVotacion();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+async function eliminarPuesto(id) {
+  if (!confirm('¿Eliminar este puesto de votación? Esta acción no se puede deshacer.')) return;
+  try {
+    await api(`/dia-d/config/puestos-votacion/${id}`, { method: 'DELETE' });
+    await cargarPuestosVotacion();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('input-importar-puestos').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/dia-d/config/puestos-votacion/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} puesto(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    alert(mensaje);
+    await cargarPuestosVotacion();
+  } catch (err) {
+    alert('Error importando el archivo: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+async function cargarCandidatos() {
+  const candidatos = await api('/dia-d/config/candidatos');
+  const tbody = document.getElementById('tbody-candidatos');
+  document.getElementById('vacio-candidatos').style.display = candidatos.length ? 'none' : 'block';
+  tbody.innerHTML = candidatos.map((c, i) => `
+    <tr>
+      <td class="mono">${i + 1}</td>
+      <td>${escaparHtmlDiaD(c.nombre)}</td>
+      <td style="text-align:right; white-space:nowrap;">
+        <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
+        <button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarCandidato(${c.id})">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function abrirCreacionCandidato() {
+  document.getElementById('candidato-form-titulo').textContent = 'Agregar candidato';
+  document.getElementById('candidato-form-id').value = '';
+  document.getElementById('form-candidato').reset();
+  document.getElementById('candidato-form-error').classList.remove('visible');
+  document.getElementById('overlay-candidato-form').classList.add('abierto');
+}
+
+function abrirEdicionCandidato(c) {
+  document.getElementById('candidato-form-titulo').textContent = 'Editar candidato';
+  document.getElementById('candidato-form-id').value = c.id;
+  document.getElementById('candidato-form-nombre').value = c.nombre;
+  document.getElementById('candidato-form-error').classList.remove('visible');
+  document.getElementById('overlay-candidato-form').classList.add('abierto');
+}
+
+document.getElementById('btn-nuevo-candidato').addEventListener('click', abrirCreacionCandidato);
+document.getElementById('cerrar-candidato-form').addEventListener('click', () =>
+  document.getElementById('overlay-candidato-form').classList.remove('abierto'));
+
+document.getElementById('form-candidato').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('candidato-form-error');
+  errorBox.classList.remove('visible');
+  const id = document.getElementById('candidato-form-id').value;
+  const body = { nombre: document.getElementById('candidato-form-nombre').value.trim() };
+  try {
+    if (id) {
+      await api(`/dia-d/config/candidatos/${id}`, { method: 'PUT', body });
+    } else {
+      await api('/dia-d/config/candidatos', { method: 'POST', body });
+    }
+    document.getElementById('overlay-candidato-form').classList.remove('abierto');
+    await cargarCandidatos();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+async function eliminarCandidato(id) {
+  if (!confirm('¿Eliminar este candidato? Esta acción no se puede deshacer.')) return;
+  try {
+    await api(`/dia-d/config/candidatos/${id}`, { method: 'DELETE' });
+    await cargarCandidatos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('input-importar-candidatos').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/dia-d/config/candidatos/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} candidato(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    alert(mensaje);
+    await cargarCandidatos();
+  } catch (err) {
+    alert('Error importando el archivo: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/configuracion.html');
+  if (!usuarioActual) return;
+  if (usuarioActual.rol !== 'admin') {
+    document.getElementById('vacio-sin-permiso').style.display = 'block';
+    document.getElementById('seccion-campana').style.display = 'none';
+    document.querySelector('.topbar').style.display = 'none';
+    return;
+  }
+  await cargarCatalogoColombiaCampana();
+  await cargarPartidos();
+  await cargarConfiguracionCampana();
+  await cargarRoles();
+  aplicarFormatoNombrePropio('#form-campana [name="nombre_candidato"], #usuario-form-nombre');
+  aplicarFormatoTelefono('#form-campana [name="telefono"], #usuario-form-telefono');
+  const pestanaInicial = ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'].includes(window.location.hash.slice(1))
+    ? window.location.hash.slice(1) : 'campana';
+  cambiarPestana(pestanaInicial);
+})();
+</script>
+</body>
+</html>

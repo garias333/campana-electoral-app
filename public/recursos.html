@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Información para compartir · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  /* --- Filtros como botones (chips), en vez de <select> --- */
+  .filtros-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .chip-filtro {
+    padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--color-border, #dfe3e8);
+    background: #fff; color: var(--color-text-muted, #6b6b6b); font-size: 0.95rem; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: all 0.12s;
+  }
+  .chip-filtro:hover { border-color: #0B5ED7; }
+  .chip-filtro.activo { background: #0B5ED7; border-color: #0B5ED7; color: #fff; }
+  .chip-filtro.activo:hover { background: #084298; border-color: #084298; }
+
+  /* --- Vista de diseño: tarjetas tipo galería, con la pieza visual primero --- */
+  .grid-recursos-diseno { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+  .tarjeta-recurso {
+    background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-radius: 14px; overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(20,42,63,0.05); transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .tarjeta-recurso:hover { box-shadow: 0 10px 24px rgba(20,42,63,0.1); transform: translateY(-2px); }
+
+  .tarjeta-visual { position: relative; width: 100%; aspect-ratio: 4 / 3; background: var(--color-navy, #142a3f); overflow: hidden; }
+  .tarjeta-visual img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tarjeta-visual video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+  .tarjeta-visual .marcador-generico {
+    width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; color: rgba(255,255,255,0.9);
+    background: linear-gradient(155deg, var(--color-navy, #142a3f) 0%, var(--color-accent-dark, #204264) 100%);
+  }
+  .tarjeta-visual .marcador-generico .icono-grande { font-size: 2.6rem; }
+  .tarjeta-visual .marcador-generico .extension { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
+  .marcador-audio audio { width: 85%; height: 34px; }
+  .tarjeta-visual .boton-play {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(20,42,63,0.15); pointer-events: none;
+  }
+  .tarjeta-visual .boton-play span {
+    width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: var(--color-navy, #142a3f);
+  }
+  .tarjeta-visual .tag-tipo { position: absolute; top: 10px; left: 10px; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+
+  .tarjeta-cuerpo { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .tarjeta-cuerpo h3 { margin: 0; font-size: 0.98rem; color: var(--color-navy, #142a3f); }
+  .tarjeta-cuerpo .descripcion { color: var(--color-text-muted, #6b6b6b); font-size: 0.85rem; line-height: 1.45; margin: 0; }
+  .tarjeta-cuerpo .meta { font-size: 0.74rem; color: var(--color-text-muted, #6b6b6b); margin: 0; }
+  .tarjeta-acciones { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Recursos</div><h1>Información para compartir</h1></div>
+      <button class="btn-acento" id="btn-subir" style="display:none;">+ Subir recurso</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="filtros-chips" id="filtros-chips">
+        <button type="button" class="chip-filtro activo" data-tipo="">Todos los tipos</button>
+        <button type="button" class="chip-filtro" data-tipo="noticia">Noticias</button>
+        <button type="button" class="chip-filtro" data-tipo="post_redes">Post para redes sociales</button>
+        <button type="button" class="chip-filtro" data-tipo="video">Videos</button>
+        <button type="button" class="chip-filtro" data-tipo="publicidad_digital">Publicidad digital</button>
+        <button type="button" class="chip-filtro" data-tipo="publicidad_impresa">Publicidad impresa</button>
+        <button type="button" class="chip-filtro" data-tipo="proxima_reunion">Próximas reuniones</button>
+        <button type="button" class="chip-filtro" data-tipo="jingle">Jingles</button>
+        <button type="button" class="chip-filtro" data-tipo="foto_campana">Fotos de la campaña</button>
+      </div>
+    </div>
+
+    <div class="grid-recursos-diseno" id="grid-recursos"></div>
+    <div id="vacio-recursos" class="vacio" style="display:none;"><div class="icono-vacio">▣</div>No hay recursos disponibles en esta categoría.</div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form">
+  <div class="modal">
+    <div class="modal-header"><h3 id="titulo-modal-recurso">Subir recurso</h3><button class="modal-cerrar" id="cerrar-modal">×</button></div>
+    <div id="form-error" class="mensaje-error"></div>
+    <form id="form-recurso" enctype="multipart/form-data">
+      <input type="hidden" name="id">
+      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="campo">
+        <label>Tipo de recurso</label>
+        <select name="tipo" required>
+          <option value="noticia">Noticia</option>
+          <option value="post_redes">Post para redes sociales</option>
+          <option value="video">Video</option>
+          <option value="publicidad_digital">Publicidad digital</option>
+          <option value="publicidad_impresa">Publicidad impresa</option>
+          <option value="proxima_reunion">Próxima reunión</option>
+          <option value="jingle">Jingle</option>
+          <option value="foto_campana">Foto de la campaña</option>
+        </select>
+      </div>
+      <div class="campo"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+      <div class="campo">
+        <label>Archivo (imagen, PDF, video, etc.)</label>
+        <input type="file" name="archivo">
+        <small id="nota-archivo-actual" style="display:none; color:var(--color-text-muted); font-size:0.78rem;"></small>
+      </div>
+      <div class="campo"><label>O enlace externo (p. ej. video de YouTube)</label><input name="enlace_externo" placeholder="https://..."></div>
+      <div class="campo" id="campo-fecha-evento" style="display:none;"><label>Fecha de la reunión</label><input type="datetime-local" name="fecha_evento"></div>
+      <button type="submit" class="btn-primario" id="btn-guardar-recurso">Publicar recurso</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let filtroTipoActual = '';
+let recursosCache = [];
+const etiquetasTipo = {
+  noticia: 'Noticia', post_redes: 'Post para redes', video: 'Video',
+  publicidad_digital: 'Publicidad digital', publicidad_impresa: 'Publicidad impresa',
+  proxima_reunion: 'Próxima reunión', jingle: 'Jingle', foto_campana: 'Foto de la campaña'
+};
+const ICONOS_TIPO = {
+  noticia: '📰', post_redes: '📣', video: '🎬',
+  publicidad_digital: '🖥️', publicidad_impresa: '🖨️', proxima_reunion: '📅',
+  jingle: '🎵', foto_campana: '📷'
+};
+
+/** Extrae el ID de un video de YouTube desde varios formatos posibles de URL, o null si no aplica. */
+function idYoutube(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function escaparRecursoHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/** Arma la parte visual (imagen/video/miniatura) de cada tarjeta — el corazón de la "vista de diseño". */
+function visualRecurso(r) {
+  const esImagen = r.archivo_mime && r.archivo_mime.startsWith('image/');
+  const esVideoArchivo = r.archivo_mime && r.archivo_mime.startsWith('video/');
+  const esAudio = r.archivo_mime && r.archivo_mime.startsWith('audio/');
+  const ytId = idYoutube(r.enlace_externo);
+  const extension = (r.archivo_nombre || '').split('.').pop().toUpperCase();
+
+  let interior;
+  if (esImagen) {
+    interior = `<img src="${r.archivo_url}" alt="${escaparRecursoHtml(r.titulo)}" loading="lazy">`;
+  } else if (esVideoArchivo) {
+    interior = `<video src="${r.archivo_url}" muted preload="metadata"></video><div class="boton-play"><span>▶</span></div>`;
+  } else if (esAudio) {
+    interior = `<div class="marcador-generico marcador-audio"><span class="icono-grande">🎵</span><audio src="${r.archivo_url}" controls preload="none" onclick="event.stopPropagation()"></audio></div>`;
+  } else if (ytId) {
+    interior = `<img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" alt="${escaparRecursoHtml(r.titulo)}" loading="lazy"><div class="boton-play"><span>▶</span></div>`;
+  } else if (r.enlace_externo) {
+    interior = `<div class="marcador-generico"><span class="icono-grande">🔗</span><span class="extension">Enlace externo</span></div>`;
+  } else if (r.archivo_mime === 'application/pdf') {
+    interior = `<div class="marcador-generico"><span class="icono-grande">📄</span><span class="extension">PDF</span></div>`;
+  } else if (r.archivo_url) {
+    interior = `<div class="marcador-generico"><span class="icono-grande">📎</span><span class="extension">${extension || 'Archivo'}</span></div>`;
+  } else {
+    interior = `<div class="marcador-generico"><span class="icono-grande">${ICONOS_TIPO[r.tipo] || '▣'}</span></div>`;
+  }
+
+  return `
+    <div class="tarjeta-visual">
+      <span class="tag-tipo">${ICONOS_TIPO[r.tipo] || ''} ${etiquetasTipo[r.tipo] || r.tipo}</span>
+      ${interior}
+    </div>
+  `;
+}
+
+async function cargarRecursos() {
+  const params = filtroTipoActual ? `?tipo=${filtroTipoActual}` : '';
+  const recursos = await api(`/recursos${params}`);
+  recursosCache = recursos;
+  const grid = document.getElementById('grid-recursos');
+  document.getElementById('vacio-recursos').style.display = recursos.length ? 'none' : 'block';
+  grid.innerHTML = recursos.map(r => `
+    <div class="tarjeta-recurso">
+      ${visualRecurso(r)}
+      <div class="tarjeta-cuerpo">
+        <h3>${escaparRecursoHtml(r.titulo)}</h3>
+        ${r.descripcion ? `<p class="descripcion">${escaparRecursoHtml(r.descripcion)}</p>` : ''}
+        ${r.fecha_evento ? `<p class="meta mono">${formatoFecha(r.fecha_evento, true)}</p>` : ''}
+        <p class="meta">Subido por ${escaparRecursoHtml(r.subido_por_nombre)} · ${formatoFecha(r.created_at)}</p>
+        <div class="tarjeta-acciones">
+          ${r.archivo_url ? `<button class="btn-secundario btn-sm" onclick="descargarRecurso(${r.id})">Descargar</button>` : ''}
+          ${r.enlace_externo ? `<a class="btn btn-secundario btn-sm" href="${r.enlace_externo}" target="_blank">Abrir enlace</a>` : ''}
+          ${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionRecurso(${r.id})">Editar</button>` : ''}
+          ${usuarioActual.rol === 'admin' ? `<button class="btn-peligro btn-sm" onclick="eliminarRecurso(${r.id})">Eliminar</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function abrirModalRecurso(modo, recurso) {
+  const form = document.getElementById('form-recurso');
+  form.reset();
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('nota-archivo-actual').style.display = 'none';
+  document.getElementById('campo-fecha-evento').style.display = 'none';
+
+  if (modo === 'editar') {
+    document.getElementById('titulo-modal-recurso').textContent = 'Editar recurso';
+    document.getElementById('btn-guardar-recurso').textContent = 'Guardar cambios';
+    form.id.value = recurso.id;
+    form.titulo.value = recurso.titulo;
+    form.tipo.value = recurso.tipo;
+    form.descripcion.value = recurso.descripcion || '';
+    form.enlace_externo.value = recurso.enlace_externo || '';
+    if (recurso.fecha_evento) {
+      document.getElementById('campo-fecha-evento').style.display = 'block';
+      // El input datetime-local necesita "YYYY-MM-DDTHH:MM", sin segundos ni zona horaria.
+      form.fecha_evento.value = recurso.fecha_evento.slice(0, 16).replace(' ', 'T');
+    }
+    if (recurso.archivo_nombre) {
+      const nota = document.getElementById('nota-archivo-actual');
+      nota.textContent = `Archivo actual: ${recurso.archivo_nombre} — deja este campo vacío para conservarlo, o elige uno nuevo para reemplazarlo.`;
+      nota.style.display = 'block';
+    }
+  } else {
+    document.getElementById('titulo-modal-recurso').textContent = 'Subir recurso';
+    document.getElementById('btn-guardar-recurso').textContent = 'Publicar recurso';
+    form.id.value = '';
+  }
+  document.getElementById('overlay-form').classList.add('abierto');
+}
+
+function abrirEdicionRecurso(id) {
+  const recurso = recursosCache.find(r => r.id === id);
+  if (!recurso) return;
+  abrirModalRecurso('editar', recurso);
+}
+
+async function descargarRecurso(id) {
+  window.location.href = `/api/recursos/${id}/descargar`;
+}
+
+async function eliminarRecurso(id) {
+  if (!confirm('¿Eliminar este recurso? Esta acción no se puede deshacer.')) return;
+  await api(`/recursos/${id}`, { method: 'DELETE' });
+  cargarRecursos();
+}
+
+document.querySelectorAll('#filtros-chips .chip-filtro').forEach(chip => {
+  chip.addEventListener('click', () => {
+    filtroTipoActual = chip.dataset.tipo;
+    document.querySelectorAll('#filtros-chips .chip-filtro').forEach(c => c.classList.toggle('activo', c === chip));
+    cargarRecursos();
+  });
+});
+
+document.getElementById('btn-subir').addEventListener('click', () => abrirModalRecurso('crear'));
+document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+
+document.querySelector('select[name="tipo"]').addEventListener('change', (e) => {
+  document.getElementById('campo-fecha-evento').style.display = e.target.value === 'proxima_reunion' ? 'block' : 'none';
+});
+
+document.getElementById('form-recurso').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-error');
+  errorBox.classList.remove('visible');
+  const idEdicion = e.target.id.value;
+  try {
+    if (idEdicion) {
+      await api(`/recursos/${idEdicion}`, { method: 'PUT', body: new FormData(e.target) });
+    } else {
+      await api('/recursos', { method: 'POST', body: new FormData(e.target) });
+    }
+    document.getElementById('overlay-form').classList.remove('abierto');
+    e.target.reset();
+    cargarRecursos();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/recursos.html');
+  if (!usuarioActual) return;
+  if (usuarioActual.rol === 'admin') {
+    document.getElementById('btn-subir').style.display = 'inline-block';
+  }
+  await cargarRecursos();
+})();
+</script>
+</body>
+</html>

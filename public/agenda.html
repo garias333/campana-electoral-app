@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .calendario-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-top: 1px solid var(--color-border, #e2e2e2);
+    border-left: 1px solid var(--color-border, #e2e2e2);
+  }
+  .calendario-dia-nombre {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+    padding: 8px 4px;
+    border-right: 1px solid var(--color-border, #e2e2e2);
+    border-bottom: 1px solid var(--color-border, #e2e2e2);
+  }
+  .calendario-celda {
+    min-height: 108px;
+    border-right: 1px solid var(--color-border, #e2e2e2);
+    border-bottom: 1px solid var(--color-border, #e2e2e2);
+    padding: 5px;
+    vertical-align: top;
+    position: relative;
+  }
+  .calendario-celda.fuera-de-mes { background: #fafafa; }
+  .calendario-celda.fuera-de-mes .calendario-numero { color: var(--color-text-muted); }
+  .calendario-numero {
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+    width: 22px; height: 22px;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 50%;
+  }
+  .calendario-celda.es-hoy .calendario-numero {
+    background: var(--color-accent-dark, #1a3a5c);
+    color: #fff;
+  }
+  .calendario-evento-chip {
+    display: block;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    padding: 2px 5px;
+    margin-top: 3px;
+    border-radius: 4px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .calendario-mas-eventos {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 2px 5px;
+    margin-top: 2px;
+  }
+  @media (max-width: 720px) {
+    .calendario-dia-nombre { font-size: 0.62rem; padding: 5px 2px; }
+    .calendario-celda { min-height: 70px; padding: 3px; }
+    .calendario-evento-chip { font-size: 0.62rem; padding: 1px 3px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Logística</div><h1>Agenda</h1></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <select id="filtro-agenda-tipo">
+          <option value="">Todos los tipos</option>
+          <option value="reunion">Reunión</option>
+          <option value="evento_publico">Evento público</option>
+          <option value="gotv">Movilización (GOTV)</option>
+          <option value="capacitacion">Capacitación</option>
+          <option value="otro">Otro</option>
+        </select>
+        <button type="button" class="btn-secundario btn-sm" id="btn-mes-anterior">‹</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-mes-hoy">Hoy</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-mes-siguiente">›</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="calendario-titulo" style="font-weight:700; font-size:1.15rem; text-align:center; margin-bottom:14px; text-transform:capitalize;"></div>
+      <div class="calendario-grid" id="calendario-grid"></div>
+    </div>
+
+    <p style="margin-top:14px; color:var(--color-text-muted); font-size:0.82rem;">
+      Haz clic en un evento para editar sus datos básicos. Para cambiar su Territorio, Coordinador o Líder asignado, ve a "Eventos y GOTV".
+    </p>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-editar-agenda">
+  <div class="modal">
+    <div class="modal-header"><h3>Editar evento</h3><button class="modal-cerrar" id="cerrar-modal-agenda">×</button></div>
+    <div id="agenda-form-error" class="mensaje-error"></div>
+    <form id="form-editar-agenda">
+      <input type="hidden" id="agenda-form-id">
+      <div class="campo"><label>Título</label><input id="agenda-form-titulo" required></div>
+      <div class="fila">
+        <div class="campo">
+          <label>Tipo</label>
+          <select id="agenda-form-tipo">
+            <option value="reunion">Reunión</option>
+            <option value="evento_publico">Evento público</option>
+            <option value="gotv">Movilización (GOTV)</option>
+            <option value="capacitacion">Capacitación</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Estado</label>
+          <select id="agenda-form-estado">
+            <option value="programado">Programado</option>
+            <option value="realizado">Realizado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label>Fecha y hora de inicio</label><input type="datetime-local" id="agenda-form-fecha-inicio" required></div>
+        <div class="campo"><label>Fecha y hora de fin</label><input type="datetime-local" id="agenda-form-fecha-fin"></div>
+      </div>
+      <div class="campo"><label>Lugar</label><input id="agenda-form-lugar"></div>
+      <div class="campo"><label>Meta de asistentes</label><input type="number" id="agenda-form-meta-asistentes" value="0"></div>
+      <div class="campo"><label>Descripción</label><textarea id="agenda-form-descripcion" rows="2"></textarea></div>
+      <button type="submit" class="btn-primario">Guardar cambios</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal "ver más" cuando un día tiene más eventos de los que caben en la celda. -->
+<div class="overlay" id="overlay-dia-agenda">
+  <div class="modal">
+    <div class="modal-header"><h3 id="dia-agenda-titulo">Eventos del día</h3><button class="modal-cerrar" id="cerrar-modal-dia-agenda">×</button></div>
+    <div id="dia-agenda-lista"></div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let eventosCache = [];
+let mesActual = new Date();
+mesActual.setDate(1);
+mesActual.setHours(0, 0, 0, 0);
+
+const etiquetasTipo = {
+  reunion: 'Reunión', evento_publico: 'Evento público', gotv: 'GOTV',
+  capacitacion: 'Capacitación', otro: 'Otro'
+};
+const etiquetasEstado = { programado: 'Programado', realizado: 'Realizado', cancelado: 'Cancelado' };
+const COLOR_TIPO = {
+  reunion: '#2563eb', evento_publico: '#a855f7', gotv: '#f59e0b',
+  capacitacion: '#16a34a', otro: '#64748b'
+};
+const NOMBRES_DIA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function formatoHora(fechaIso) {
+  return new Date(fechaIso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+function claveFecha(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Construye la grilla de 6 semanas (42 días) que rodea al mes visible, incluyendo días del mes anterior/siguiente para completar filas. */
+function diasDeLaGrilla() {
+  const primerDiaMes = new Date(mesActual.getFullYear(), mesActual.getMonth(), 1);
+  const inicioGrilla = new Date(primerDiaMes);
+  inicioGrilla.setDate(inicioGrilla.getDate() - primerDiaMes.getDay());
+  const dias = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(inicioGrilla);
+    d.setDate(inicioGrilla.getDate() + i);
+    dias.push(d);
+  }
+  return dias;
+}
+
+async function cargarCalendario() {
+  const tipo = document.getElementById('filtro-agenda-tipo').value;
+  const dias = diasDeLaGrilla();
+  const desde = claveFecha(dias[0]);
+  const hastaFecha = new Date(dias[41]);
+  hastaFecha.setDate(hastaFecha.getDate() + 1); // hasta incluye todo el último día
+  const hasta = claveFecha(hastaFecha);
+
+  const params = new URLSearchParams({ desde, hasta });
+  if (tipo) params.set('tipo', tipo);
+
+  const eventos = await api(`/eventos?${params.toString()}`);
+  eventosCache = eventos;
+
+  // Agrupa los eventos por día (clave YYYY-MM-DD) para pintarlos en su celda.
+  const porDia = new Map();
+  eventos.forEach(ev => {
+    const clave = claveFecha(new Date(ev.fecha_inicio));
+    if (!porDia.has(clave)) porDia.set(clave, []);
+    porDia.get(clave).push(ev);
+  });
+
+  document.getElementById('calendario-titulo').textContent =
+    mesActual.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
+  const hoy = new Date();
+  const claveHoy = claveFecha(hoy);
+  const MAX_CHIPS_POR_CELDA = 3;
+
+  const grid = document.getElementById('calendario-grid');
+  const encabezados = NOMBRES_DIA.map(n => `<div class="calendario-dia-nombre">${n}</div>`).join('');
+  const celdas = dias.map(d => {
+    const clave = claveFecha(d);
+    const eventosDia = (porDia.get(clave) || []).slice().sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
+    const fueraDeMes = d.getMonth() !== mesActual.getMonth();
+    const esHoy = clave === claveHoy;
+
+    const chips = eventosDia.slice(0, MAX_CHIPS_POR_CELDA).map(ev => {
+      const color = COLOR_TIPO[ev.tipo] || '#64748b';
+      return `<span class="calendario-evento-chip" style="background:${color};" title="${ev.titulo} — ${formatoHora(ev.fecha_inicio)}" onclick="abrirEdicionAgenda(${ev.id})">${formatoHora(ev.fecha_inicio)} ${ev.titulo}</span>`;
+    }).join('');
+    const restantes = eventosDia.length - MAX_CHIPS_POR_CELDA;
+    const masChip = restantes > 0
+      ? `<span class="calendario-mas-eventos" onclick="verTodosDelDia('${clave}')">+${restantes} más</span>`
+      : '';
+
+    return `
+      <div class="calendario-celda${fueraDeMes ? ' fuera-de-mes' : ''}${esHoy ? ' es-hoy' : ''}">
+        <span class="calendario-numero">${d.getDate()}</span>
+        ${chips}${masChip}
+      </div>`;
+  }).join('');
+
+  grid.innerHTML = encabezados + celdas;
+}
+
+function verTodosDelDia(clave) {
+  const eventosDia = eventosCache
+    .filter(ev => claveFecha(new Date(ev.fecha_inicio)) === clave)
+    .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
+  const fecha = new Date(clave + 'T00:00:00');
+  const texto = fecha.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('dia-agenda-titulo').textContent = texto.charAt(0).toUpperCase() + texto.slice(1);
+  document.getElementById('dia-agenda-lista').innerHTML = eventosDia.map(ev => `
+    <div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid var(--color-border, #f0f0f0); align-items:center; cursor:pointer;" onclick="cerrarModalDia(); abrirEdicionAgenda(${ev.id})">
+      <div class="mono" style="min-width:56px; color:var(--color-text-muted); font-size:0.85rem;">${formatoHora(ev.fecha_inicio)}</div>
+      <div style="flex:1;">
+        <div style="font-weight:600;">${ev.titulo} <span class="tag-tipo" style="margin-left:6px;">${etiquetasTipo[ev.tipo] || ev.tipo}</span></div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted);">${ev.lugar || ''}</div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('overlay-dia-agenda').classList.add('abierto');
+}
+function cerrarModalDia() {
+  document.getElementById('overlay-dia-agenda').classList.remove('abierto');
+}
+document.getElementById('cerrar-modal-dia-agenda').addEventListener('click', cerrarModalDia);
+
+document.getElementById('filtro-agenda-tipo').addEventListener('change', cargarCalendario);
+document.getElementById('btn-mes-anterior').addEventListener('click', () => {
+  mesActual.setMonth(mesActual.getMonth() - 1);
+  cargarCalendario();
+});
+document.getElementById('btn-mes-siguiente').addEventListener('click', () => {
+  mesActual.setMonth(mesActual.getMonth() + 1);
+  cargarCalendario();
+});
+document.getElementById('btn-mes-hoy').addEventListener('click', () => {
+  mesActual = new Date();
+  mesActual.setDate(1);
+  mesActual.setHours(0, 0, 0, 0);
+  cargarCalendario();
+});
+
+function abrirEdicionAgenda(id) {
+  const ev = eventosCache.find(e => e.id === id);
+  if (!ev) return;
+
+  document.getElementById('agenda-form-error').classList.remove('visible');
+  document.getElementById('agenda-form-id').value = ev.id;
+  document.getElementById('agenda-form-titulo').value = ev.titulo;
+  document.getElementById('agenda-form-tipo').value = ev.tipo;
+  document.getElementById('agenda-form-estado').value = ev.estado || 'programado';
+  document.getElementById('agenda-form-fecha-inicio').value = formatoInputDatetimeLocal(ev.fecha_inicio);
+  document.getElementById('agenda-form-fecha-fin').value = ev.fecha_fin ? formatoInputDatetimeLocal(ev.fecha_fin) : '';
+  document.getElementById('agenda-form-lugar').value = ev.lugar || '';
+  document.getElementById('agenda-form-meta-asistentes').value = ev.meta_asistentes || 0;
+  document.getElementById('agenda-form-descripcion').value = ev.descripcion || '';
+
+  document.getElementById('overlay-editar-agenda').classList.add('abierto');
+}
+
+/** Convierte una fecha ISO (como llega de la API) al formato que exige un input datetime-local. */
+function formatoInputDatetimeLocal(fechaIso) {
+  if (!fechaIso) return '';
+  const d = new Date(fechaIso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+document.getElementById('cerrar-modal-agenda').addEventListener('click', () =>
+  document.getElementById('overlay-editar-agenda').classList.remove('abierto'));
+
+document.getElementById('form-editar-agenda').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('agenda-form-error');
+  errorBox.classList.remove('visible');
+
+  const id = document.getElementById('agenda-form-id').value;
+  const original = eventosCache.find(ev => String(ev.id) === String(id));
+
+  // Esta vista solo edita los datos básicos — el Territorio, Coordinador y
+  // Líder asignados se conservan tal cual ya estaban (se cambian desde
+  // "Eventos y GOTV" si hace falta).
+  const datos = {
+    titulo: document.getElementById('agenda-form-titulo').value,
+    tipo: document.getElementById('agenda-form-tipo').value,
+    estado: document.getElementById('agenda-form-estado').value,
+    fecha_inicio: document.getElementById('agenda-form-fecha-inicio').value,
+    fecha_fin: document.getElementById('agenda-form-fecha-fin').value,
+    lugar: document.getElementById('agenda-form-lugar').value,
+    meta_asistentes: document.getElementById('agenda-form-meta-asistentes').value,
+    descripcion: document.getElementById('agenda-form-descripcion').value,
+    territorio_id: (original && original.territorio_id) || '',
+    area: (original && original.area) || '',
+    responsable_id: (original && original.responsable_id) || '',
+    coordinador_id: (original && original.coordinador_id) || '',
+    lider_id: (original && original.lider_id) || ''
+  };
+
+  try {
+    await api(`/eventos/${id}`, { method: 'PUT', body: datos });
+    document.getElementById('overlay-editar-agenda').classList.remove('abierto');
+    await cargarCalendario();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/agenda.html');
+  if (!usuarioActual) return;
+  await cargarCalendario();
+})();
+</script>
+</body>
+</html>

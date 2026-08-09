@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Necesario para que Mapbox pueda verificar la restricción de URL del
+     token — sin esto, el navegador no le manda a Mapbox de qué dominio
+     viene la petición, y Mapbox la rechaza con 403 aunque el token esté
+     bien configurado. "origin-when-cross-origin" manda solo el dominio
+     (no la ruta completa ni datos sensibles) a sitios externos. -->
+<meta name="referrer" content="origin-when-cross-origin">
+<title>Mapa de estructura y votantes · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .mapa-contenedor { position: relative; height: calc(100vh - 230px); min-height: 440px; padding: 0; overflow: hidden; }
+  #mapa { width: 100%; height: 100%; }
+  .mapa-filtros-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
+  .mapa-filtros-etiqueta { font-size: 0.78rem; color: var(--color-text-muted); min-width: 130px; flex-shrink: 0; }
+  .filtro-chips { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .filtro-chip {
+    border: 1px solid var(--color-border, #dfe3e8); background: #fff; color: var(--color-text, #2a2a2a);
+    border-radius: 999px; padding: 9px 18px; font-size: 0.92rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .filtro-chip:hover { border-color: #0B5ED7; }
+  .filtro-chip.activo { background: #0B5ED7; border-color: #0B5ED7; color: #fff; }
+  .filtro-chip.activo:hover { background: #084298; border-color: #084298; }
+  .mapa-leyenda {
+    position: absolute; top: 14px; right: 14px; z-index: 1000;
+    background: var(--color-surface, #fff); border-radius: 10px; padding: 12px 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18); font-size: 0.78rem; max-width: 190px;
+    max-height: calc(100% - 28px); overflow-y: auto;
+  }
+  .mapa-leyenda h4 {
+    margin: 10px 0 6px 0; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--color-text-muted);
+  }
+  .mapa-leyenda h4:first-child { margin-top: 0; }
+  .leyenda-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .leyenda-punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .mapa-vacio {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.9); z-index: 900;
+  }
+  #mapa-error { position: absolute; top: 14px; left: 14px; z-index: 1000; max-width: 320px; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Territorio</div><h1>Mapa de estructura y votantes</h1></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="mapa-filtros-fila">
+        <span class="mapa-filtros-etiqueta">Capa:</span>
+        <div class="filtro-chips" data-filtro="capa">
+          <button type="button" class="filtro-chip activo" data-valor="todos">Todas las capas</button>
+          <button type="button" class="filtro-chip" data-valor="ninguno">Ninguna capa</button>
+          <button type="button" class="filtro-chip" data-valor="estructura">Solo Estructura</button>
+          <button type="button" class="filtro-chip" data-valor="votantes">Solo Votantes</button>
+          <button type="button" class="filtro-chip" data-valor="eventos">Solo Eventos</button>
+        </div>
+      </div>
+      <div class="mapa-filtros-fila">
+        <span class="mapa-filtros-etiqueta">Cargo (Estructura):</span>
+        <div class="filtro-chips" data-filtro="cargo">
+          <button type="button" class="filtro-chip activo" data-valor="">Todos</button>
+          <button type="button" class="filtro-chip" data-valor="ninguno">Ninguno</button>
+          <button type="button" class="filtro-chip" data-valor="coordinador">Coordinador</button>
+          <button type="button" class="filtro-chip" data-valor="lider">Líder</button>
+          <button type="button" class="filtro-chip" data-valor="usuario">Sublíder</button>
+          <button type="button" class="filtro-chip" data-valor="testigo">Testigo</button>
+          <button type="button" class="filtro-chip" data-valor="votante">Votante</button>
+        </div>
+      </div>
+      <div class="mapa-filtros-fila" style="justify-content:space-between;">
+        <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-mapa">Quitar filtros</button>
+        <span class="mono" id="contador-mapa" style="color:var(--color-text-muted); font-size:0.85rem;"></span>
+      </div>
+    </div>
+
+    <div class="card mapa-contenedor">
+      <div id="mapa"></div>
+
+      <div class="mapa-leyenda">
+        <h4>Estructura · por cargo</h4>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#2563eb;"></span>Coordinador</div>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#7c3aed;"></span>Líder</div>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#f59e0b;"></span>Testigo</div>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#64748b;"></span>Sublíder</div>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#ec4899;"></span>Votante</div>
+
+        <h4>Eventos</h4>
+        <div class="leyenda-item"><span class="leyenda-punto" style="background:#FFF212; border:1px solid #000;"></span>👥&nbsp; Reunión / evento</div>
+      </div>
+
+      <div id="mapa-vacio" class="mapa-vacio">
+        <div class="vacio"><div class="icono-vacio">◈</div>No hay personas que coincidan con los filtros seleccionados.</div>
+      </div>
+      <div id="mapa-error" class="mensaje-error"></div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const COLOR_CARGO = { coordinador: '#2563eb', lider: '#7c3aed', testigo: '#f59e0b', usuario: '#64748b' };
+const COLOR_VOTANTES = '#ec4899';
+
+let mapa, capaEstructura, capaVotantes, capaEventos;
+let datosEstructura = [];
+let datosVotantes = [];
+let datosEventos = [];
+
+let mapboxToken = null;
+
+async function inicializarMapa() {
+  mapa = L.map('mapa').setView([5.0689, -75.5174], 12); // Manizales por defecto; se reencuadra al cargar datos
+
+  // Se usa Mapbox si hay un token configurado (mejor detalle en
+  // Colombia); si no, se cae de vuelta a OpenStreetMap gratuito, para
+  // que el mapa nunca se quede sin fondo por falta de configuración.
+  try {
+    const r = await api('/territorial/mapbox-token');
+    mapboxToken = r.token;
+  } catch (err) { mapboxToken = null; }
+
+  if (mapboxToken) {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
+      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 22
+    }).addTo(mapa);
+  } else {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; colaboradores de OpenStreetMap',
+      maxZoom: 19
+    }).addTo(mapa);
+  }
+
+  capaEstructura = L.layerGroup().addTo(mapa);
+  capaVotantes = L.layerGroup().addTo(mapa);
+  capaEventos = L.layerGroup().addTo(mapa);
+}
+
+/**
+ * Pin tipo "chinche/tachuela" (cabeza redonda con brillo + punta metálica),
+ * coloreado según la categoría (cargo de Estructura, o un color fijo para
+ * Votantes). La punta inferior queda exactamente sobre la coordenada real.
+ */
+function crearIconoPin(color, contenidoCentro, colorBorde) {
+  const svg = `
+    <svg width="24" height="32" viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));">
+      <line x1="12" y1="21" x2="12" y2="31" stroke="#8a8a8a" stroke-width="2.4" stroke-linecap="round"/>
+      <line x1="11.5" y1="21" x2="11.5" y2="30" stroke="#e2e2e2" stroke-width="0.8" stroke-linecap="round"/>
+      <circle cx="12" cy="11" r="10.5" fill="${color}" stroke="${colorBorde || '#ffffff'}" stroke-width="1.2"/>
+      <ellipse cx="8.3" cy="7.2" rx="3.6" ry="2.4" fill="#ffffff" opacity="0.5" transform="rotate(-25 8.3 7.2)"/>
+      ${contenidoCentro || ''}
+    </svg>`;
+  return L.divIcon({
+    html: svg, className: '', iconSize: [24, 32], iconAnchor: [12, 31], popupAnchor: [0, -28]
+  });
+}
+
+function crearMarcador(lat, lon, color, popupHtml) {
+  return L.marker([lat, lon], { icon: crearIconoPin(color) }).bindPopup(popupHtml);
+}
+
+/**
+ * Pin distintivo (icono de personas) para los eventos/reuniones
+ * georreferenciados: amarillo con borde negro, para que no se confunda con
+ * ninguno de los colores de cargo de la Estructura.
+ */
+function crearMarcadorEvento(lat, lon, popupHtml) {
+  const emoji = '<text x="12" y="14" font-size="9" text-anchor="middle" dominant-baseline="middle">👥</text>';
+  return L.marker([lat, lon], { icon: crearIconoPin('#FFF212', emoji, '#000000') }).bindPopup(popupHtml);
+}
+
+/** Devuelve el valor del botón "activo" dentro de un grupo de chips. */
+function valorChipActivo(nombreFiltro) {
+  const activo = document.querySelector(`.filtro-chips[data-filtro="${nombreFiltro}"] .filtro-chip.activo`);
+  return activo ? activo.dataset.valor : '';
+}
+
+/**
+ * Vuelve a dibujar los marcadores según los filtros de lista elegidos
+ * (Capa, Cargo), sin volver a consultar el servidor. Al aplicar un filtro
+ * solo se muestran los pines que le corresponden.
+ *
+ * "Cargo" ahora también incluye "Votante" como una opción más (junto a
+ * Coordinador/Líder/Sublíder/Testigo): al elegir un valor puntual de ese
+ * grupo se ve solo ese tipo de pin (de cualquiera de las dos capas),
+ * mientras que "Todos" sigue mostrando Estructura completa Y Votantes
+ * juntos (según lo que además permita "Capa").
+ */
+function renderizarCapas() {
+  capaEstructura.clearLayers();
+  capaVotantes.clearLayers();
+  capaEventos.clearLayers();
+
+  const capa = valorChipActivo('capa') || 'todos';
+  const cargo = valorChipActivo('cargo');
+
+  let totalVisible = 0;
+
+  if (capa !== 'ninguno' && (capa === 'todos' || capa === 'eventos')) {
+    datosEventos.forEach(ev => {
+      const fecha = ev.fecha_inicio ? new Date(ev.fecha_inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      crearMarcadorEvento(ev.latitud, ev.longitud,
+        `<strong>${ev.titulo}</strong><br>${fecha}<br>${ev.lugar || ''}${ev.territorio_nombre ? '<br>' + ev.territorio_nombre : ''}`)
+        .addTo(capaEventos);
+      totalVisible++;
+    });
+  }
+
+  if (capa !== 'ninguno' && cargo !== 'ninguno' && cargo !== 'votante' && (capa === 'todos' || capa === 'estructura')) {
+    datosEstructura
+      .filter(e => !cargo || e.cargo === cargo)
+      .forEach(e => {
+        const color = COLOR_CARGO[e.cargo] || '#64748b';
+        crearMarcador(e.latitud, e.longitud, color,
+          `<strong>${e.nombre}</strong><br>${e.cargo}<br>${e.territorio_nombre || ''}${e.direccion ? '<br>' + e.direccion : ''}`)
+          .addTo(capaEstructura);
+        totalVisible++;
+      });
+  }
+
+  if (capa !== 'ninguno' && cargo !== 'ninguno' && (!cargo || cargo === 'votante') && (capa === 'todos' || capa === 'votantes')) {
+    datosVotantes
+      .forEach(v => {
+        crearMarcador(v.latitud, v.longitud, COLOR_VOTANTES,
+          `<strong>${v.nombre}</strong><br>${v.territorio_nombre || 'Sin territorio'}${v.direccion ? '<br>' + v.direccion : ''}`)
+          .addTo(capaVotantes);
+        totalVisible++;
+      });
+  }
+
+  document.getElementById('contador-mapa').textContent = `${totalVisible} pin(es) mostrados`;
+  document.getElementById('mapa-vacio').style.display = totalVisible ? 'none' : 'flex';
+}
+
+async function cargarDatosMapa() {
+  const errorBox = document.getElementById('mapa-error');
+  errorBox.classList.remove('visible');
+  try {
+    const datos = await api('/territorial/mapa-personas');
+    datosEstructura = datos.estructura || [];
+    datosVotantes = datos.votantes || [];
+    datosEventos = datos.eventos || [];
+
+    renderizarCapas();
+
+    const puntos = [
+      ...datosEstructura.map(e => [e.latitud, e.longitud]),
+      ...datosVotantes.map(v => [v.latitud, v.longitud]),
+      ...datosEventos.map(ev => [ev.latitud, ev.longitud])
+    ];
+    if (puntos.length) {
+      mapa.fitBounds(puntos, { padding: [30, 30] });
+    }
+  } catch (err) {
+    errorBox.textContent = err.message || 'No se pudieron cargar los datos del mapa.';
+    errorBox.classList.add('visible');
+  }
+}
+
+// Cada grupo de chips (Capa/Cargo) permite un solo valor activo a la vez:
+// al hacer clic en un chip, se desactivan sus hermanos del mismo grupo.
+document.querySelectorAll('.filtro-chips').forEach(grupo => {
+  grupo.addEventListener('click', (e) => {
+    const boton = e.target.closest('.filtro-chip');
+    if (!boton) return;
+    grupo.querySelectorAll('.filtro-chip').forEach(b => b.classList.remove('activo'));
+    boton.classList.add('activo');
+    renderizarCapas();
+  });
+});
+
+document.getElementById('btn-quitar-filtros-mapa').addEventListener('click', () => {
+  document.querySelectorAll('.filtro-chips').forEach(grupo => {
+    // "Todos/Todas" es el primer botón de cada grupo; "Ninguno/Ninguna
+    // capa" quedó después. Quitar filtros vuelve al primero.
+    grupo.querySelectorAll('.filtro-chip').forEach((b, i) => b.classList.toggle('activo', i === 0));
+  });
+  renderizarCapas();
+});
+
+(async () => {
+  const usuarioActual = await inicializarLayout('/mapa.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.querySelector('.main').innerHTML = '<div class="card">No tiene permisos para ver el mapa territorial.</div>';
+    return;
+  }
+  await inicializarMapa();
+  await cargarDatosMapa();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,703 @@
+/* ============================================================
+   Sistema de diseño — Administración de Campañas Políticas
+   Paleta: navy institucional + acento ocre + semáforo de estados
+   Tipografía: Space Grotesk (display) / Inter (texto) / JetBrains Mono (datos)
+   ============================================================ */
+
+:root {
+  --color-bg: #F3F5F8;
+  --color-surface: #FFFFFF;
+  --color-navy: #10233F;
+  --color-navy-light: #1C3A63;
+  --color-navy-lighter: #29497A;
+  --color-accent: #C98A2C;
+  --color-accent-dark: #A66F1F;
+  --color-marca: #0B5ED7;
+  --color-text: #161B26;
+  --color-text-muted: #5B6472;
+  --color-border: #E2E5EA;
+
+  /* Semáforo de intención de voto / estado */
+  --color-confirmado: #2F9E63;
+  --color-probable: #E0A72E;
+  --color-indeciso: #E07A2E;
+  --color-no-apoya: #D64545;
+  --color-desconocido: #9AA3AF;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius: 10px;
+  --shadow-card: 0 1px 2px rgba(16, 35, 63, 0.06), 0 4px 16px rgba(16, 35, 63, 0.05);
+  --sidebar-width: 248px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-navy);
+  margin: 0 0 0.4em 0;
+  letter-spacing: -0.01em;
+}
+
+a { color: var(--color-navy-lighter); }
+
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------------- Layout general ---------------- */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, var(--color-navy) 0%, #0B1D33 100%);
+  color: #DCE4F0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebar .marca {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+  margin-bottom: 4px;
+  text-align: center;
+}
+.sidebar .submarca {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #FFF212;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  border-top: 1px solid rgba(255,255,255,0.09);
+  padding-top: 14px;
+  margin-top: 2px;
+}
+
+.sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #B9C4D9;
+  text-decoration: none;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, padding-left 0.15s;
+}
+.sidebar nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+.sidebar nav a.activo { background: var(--color-navy-lighter); color: #fff; font-weight: 600; border-left-color: var(--color-accent); }
+.sidebar nav a .icono { width: 20px; text-align: center; flex: none; font-size: 1.1em; transition: transform 0.15s; }
+.sidebar nav a:hover .icono { transform: scale(1.15); }
+
+/* Menú principal (grupos colapsables e ítems de primer nivel) — misma
+   tipografía para que ambos se vean como un solo nivel jerárquico. */
+.nav-grupo-titulo, .nav-link-principal {
+  padding: 11px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.nav-grupo-titulo {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,0.88);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, padding-left 0.15s;
+}
+.nav-grupo-titulo:hover { background: rgba(255,255,255,0.07); color: #fff; padding-left: 16px; }
+.nav-grupo-titulo .icono { width: 20px; text-align: center; flex: none; font-size: 1.1em; transition: transform 0.15s; }
+.nav-grupo-titulo:hover .icono { transform: scale(1.15); }
+.nav-grupo-texto { flex: 1; }
+.nav-chevron { display: inline-block; font-size: 0.7rem; color: rgba(255,255,255,0.6); transition: transform 0.2s ease; }
+.nav-grupo-titulo.grupo-abierto .nav-chevron { transform: rotate(90deg); }
+.nav-grupo-titulo.grupo-abierto { color: #fff; }
+
+/* Submenú: se expande/contrae con una animación de alto real (en vez del
+   display:none/block instantáneo de antes) — truco de grid-template-rows
+   0fr→1fr, se ve fluido sin tener que medir el alto del contenido en JS. */
+.nav-submenu {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+.nav-submenu.abierto { grid-template-rows: 1fr; }
+.nav-submenu-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-sub-link { padding: 9px 14px 9px 42px; font-size: 0.87rem; }
+.nav-sub-link:hover { padding-left: 46px; }
+
+.sidebar .usuario-box {
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 14px;
+  font-size: 0.82rem;
+}
+.sidebar .usuario-box .nombre { color: #fff; font-weight: 600; }
+.sidebar .usuario-box .rol { color: var(--color-accent); text-transform: capitalize; }
+.sidebar .usuario-box button {
+  margin-top: 10px; width: 100%;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 36px 60px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.topbar .eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+/* ---------------- Tarjetas / componentes ---------------- */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.grid { display: grid; gap: 18px; }
+.grid-6 { grid-template-columns: repeat(6, 1fr); }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1000px) {
+  .grid-6, .grid-5, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .grid-6, .grid-5, .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .app-shell { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: relative; }
+  .main { padding: 20px; }
+}
+
+.stat-card .label {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat-card .valor {
+  font-family: var(--font-mono);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin-top: 4px;
+}
+.stat-card .valor.accent { color: var(--color-accent-dark); }
+
+/* Botones — la misma regla base aplica a <button>, <a> y <label>, para que
+   un enlace o un label con pinta de botón (ej. "Exportar a Excel",
+   "Importar desde Excel") se vean y midan exactamente igual que un
+   <button> real, sin heredar el subrayado de enlace ni el margen/tamaño de
+   letra de <label> de formulario. */
+button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  padding: 11px 20px;
+  margin: 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: filter 0.15s, background 0.15s, border-color 0.15s;
+}
+.btn-primario { background: #0B5ED7; color: #fff; }
+.btn-primario:hover { background: #084298; }
+.btn-acento { background: #0B5ED7; color: #fff; font-weight: 700; font-size: 1.08rem; }
+.btn-acento:hover { background: #084298; }
+.btn-acento.btn-sm { font-size: 0.95rem; }
+.btn-secundario { background: #fff; border-color: var(--color-border); color: var(--color-text); }
+.btn-secundario:hover { background: #F0F2F5; }
+/* Cualquier botón/enlace relacionado con Excel (exportar o importar) en
+   toda la aplicación — fondo verde claro y borde delgado verde oscuro,
+   para reconocerlos de un vistazo. */
+.btn-secundario.btn-excel-app { background: #E9F7EF; border: 1.5px solid #1E7A46; color: #1E7A46; }
+.btn-secundario.btn-excel-app:hover { background: #1E7A46; border-color: #1E7A46; color: #fff; }
+.btn-peligro { background: #FBEAEA; color: var(--color-no-apoya); border-color: #F3D2D2; }
+.btn-peligro:hover { background: #F6D9D9; }
+.btn-sm { padding: 8px 14px; font-size: 0.88rem; }
+
+/* Formularios */
+label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+input, select, textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-text);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--color-navy-lighter);
+  outline-offset: 1px;
+  border-color: var(--color-navy-lighter);
+}
+
+/* Botones y campos más grandes para dedo, y letra de al menos 16px en
+   los campos de texto — por debajo de eso, iOS hace zoom automático al
+   tocar un campo, algo molesto para quien usa esto en el celular. Solo
+   aplica en pantallas angostas: en computador queda todo igual. */
+@media (max-width: 640px) {
+  button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro { padding: 12px 18px; min-height: 44px; }
+  .btn-sm { padding: 10px 14px; min-height: 40px; }
+  input, select, textarea { font-size: 16px; padding: 11px 12px; }
+}
+
+.campo { margin-bottom: 14px; }
+.fila { display: flex; gap: 12px; }
+.fila > * { flex: 1; }
+
+/* Tablas */
+.tabla-contenedor { overflow-x: auto; }
+
+/* Columna de acciones (Editar/Eliminar) fija al borde derecho.
+   Estas tablas tienen hasta 20 columnas y en pantallas normales —sobre
+   todo con el menú lateral abierto— los botones quedaban fuera de la
+   vista: había que desplazar la tabla a mano para llegar a ellos, y nada
+   indicaba que estuvieran ahí. Fijándolos, las acciones se alcanzan
+   siempre, sin importar cuánto se haya desplazado. */
+.tabla-contenedor th.col-acciones,
+.tabla-contenedor td.col-acciones {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  /* Sombra sutil a la izquierda: avisa que hay contenido debajo cuando la
+     tabla está desplazada, para que no parezca que la fila se corta. */
+  box-shadow: -6px 0 6px -4px rgba(20, 42, 63, 0.12);
+  white-space: nowrap;
+}
+.tabla-contenedor thead th.col-acciones { z-index: 2; }
+/* El fondo tiene que ser opaco o se vería el contenido pasando por debajo. */
+.tabla-contenedor tbody tr:hover td.col-acciones { background: var(--color-hover, #f6f8fb); }
+table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+thead th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  padding: 8px 10px;
+}
+tbody td { padding: 10px 10px; border-bottom: 1px solid var(--color-border); }
+tbody tr:hover { background: #FAFBFC; }
+
+/* Semáforo / badges de estado */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.badge .punto { width: 8px; height: 8px; border-radius: 50%; }
+
+.badge-confirmado { background: #E7F6EE; color: var(--color-confirmado); }
+.badge-confirmado .punto { background: var(--color-confirmado); }
+.badge-probable { background: #FDF3E0; color: var(--color-probable); }
+.badge-probable .punto { background: var(--color-probable); }
+.badge-indeciso { background: #FDEBE0; color: var(--color-indeciso); }
+.badge-indeciso .punto { background: var(--color-indeciso); }
+.badge-no_apoya { background: #FBEAEA; color: var(--color-no-apoya); }
+.badge-no_apoya .punto { background: var(--color-no-apoya); }
+.badge-desconocido { background: #EEF0F3; color: var(--color-desconocido); }
+.badge-desconocido .punto { background: var(--color-desconocido); }
+/* Mesas del "Ver mesas" en Votantes estimados por puesto de votación. */
+.badge-mesa-estimado { background: #E7F0FD; color: #0B5ED7; }
+
+/* Modal */
+.overlay {
+  position: fixed; inset: 0; background: rgba(16, 35, 63, 0.45);
+  display: none; align-items: center; justify-content: center; z-index: 50;
+  padding: 20px;
+}
+.overlay.abierto { display: flex; }
+.modal {
+  background: #fff; border-radius: var(--radius); padding: 24px;
+  width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(16,35,63,0.25);
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.modal-cerrar { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--color-text-muted); padding: 0; }
+
+.mensaje-error {
+  background: #FBEAEA; color: #A93226; border: 1px solid #F3D2D2;
+  padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; display: none;
+}
+.mensaje-error.visible { display: block; }
+.mensaje-ok {
+  background: #E7F6EE; color: #1E7245; border: 1px solid #C9EAD8;
+  padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; display: none;
+}
+.mensaje-ok.visible { display: block; }
+
+.vacio {
+  text-align: center; padding: 40px 20px; color: var(--color-text-muted);
+}
+.vacio .icono-vacio { font-size: 2rem; margin-bottom: 8px; }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toolbar-filtros input, .toolbar-filtros select { width: auto; min-width: 160px; }
+/* Contador de resultados en forma de tarjeta (ej. "84 registro(s)") — para
+   que resalte más que un texto suelto, en vez del gris apagado de antes. */
+.tarjeta-contador {
+  display: inline-flex; align-items: center; flex: none;
+  background: #E8EEFB; border: 1.5px solid #1B4C9C; color: #1B4C9C;
+  border-radius: 8px; padding: 9px 16px; font-weight: 700; font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+/* Encabezado de apartado dentro de un formulario (ej. "Datos personales",
+   "Lugar de Votación", "Datos de contacto") — usado en Estructura
+   territorial, Votantes y Testigos. */
+.encabezado-form {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 1rem;
+  color: var(--color-marca);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-top: 18px;
+  margin-bottom: 2px;
+}
+.encabezado-form.primero { margin-top: 0; }
+
+/* ------------------------------------------------------------------
+   Selectores en forma de botón (Categoría en Votantes, Cargo en
+   Estructura), igual que los del formulario de la app móvil.
+
+   EL CONTROL DE VERDAD SIGUE AHÍ, SOLO QUE INVISIBLE.
+     Cada botón es un <label> que envuelve la casilla o el radio de
+     siempre. Así `chk-categoria-votante.checked` y compañía siguen
+     funcionando exactamente igual —la lógica de estos formularios los
+     lee por id en decenas de sitios— y el clic lo maneja el navegador
+     sin una línea de JavaScript.
+
+   `:has(:checked)` es lo que pinta el botón activo. Es CSS moderno
+   (Chrome 105+, Firefox 121+, Safari 15.4+); si un navegador viejo no lo
+   entiende, el botón no se colorea pero sigue funcionando y se ve el
+   punto/marca del control. Nada queda inutilizable.                    */
+.chips-form { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chip-form {
+  /* El control oculto va posicionado dentro de SU botón; sin esto se
+     colocaría respecto al modal y podría estirarlo. */
+  position: relative;
+  flex: 1;
+  min-width: 130px;
+  text-align: center;
+  padding: 13px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0;
+}
+.chip-form:hover { border-color: var(--color-navy-lighter); }
+.chip-form:has(:checked) {
+  border-color: var(--color-navy);
+  background: var(--color-navy);
+  color: #fff;
+}
+/* El control real: sigue en el formulario y sigue recibiendo el foco del
+   teclado, pero no se dibuja. `opacity:0` en vez de `display:none`
+   porque un control oculto del todo no es enfocable ni anunciable. */
+.chip-form input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+}
+/* Se ve el recuadro de foco al llegar con el tabulador. */
+.chip-form:has(:focus-visible) {
+  outline: 2px solid var(--color-navy-lighter);
+  outline-offset: 2px;
+}
+
+/* Los cuatro botones de Categoría en Estructura, en UNA sola línea.
+
+   `flex: 1 1 0` con `min-width: 0` los reparte en cuatro partes iguales y
+   deja que el texto se envuelva DENTRO de cada botón — «Coordinador de
+   organizaciones» no cabe en 112 px de ancho en un renglón, y si no se le
+   permite envolver, empuja a los demás a otra fila. Eso fue exactamente lo
+   que pasó en el intento anterior, cuando estaban dentro de media columna.
+
+   Van en azul #084298 con letra blanca, como se pidió. Como los cuatro son
+   del mismo color, el elegido se distingue por tono más oscuro, un anillo y
+   un ✓ delante: si el color fuera lo único que los diferencia, no se sabría
+   cuál está seleccionado. */
+.chips-cargo .chip-form {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 6px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  background: #084298;
+  border-color: #084298;
+  color: #fff;
+}
+.chips-cargo .chip-form:hover { border-color: #052c66; background: #0a4fb5; }
+.chips-cargo .chip-form:has(:checked) {
+  background: #052c66;
+  border-color: #052c66;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.55);
+  font-weight: 700;
+}
+.chips-cargo .chip-form:has(:checked)::before { content: '✓ '; }
+
+/* Campos más altos y más redondeados en los formularios de personas, para
+   que coincidan con los de la app móvil. Acotado a esos dos formularios
+   con una clase: la regla general de `input` la comparten TODAS las
+   pantallas y cambiarla movería medio sistema. */
+form.form-amplio input,
+form.form-amplio select,
+form.form-amplio textarea {
+  border-radius: 10px;
+  padding: 11px 12px;
+}
+
+/* Fondo crema en los formularios de personas, el mismo del diseño de la
+   app móvil (#F8F3E9). Va en el modal, no en el <form>, para que la
+   franja del título y los avisos de error queden dentro del mismo color y
+   no se vea un recuadro blanco pegado arriba. Los campos siguen blancos
+   —la regla general de `input` ya los pinta así—, que es justo lo que los
+   hace resaltar sobre el crema. */
+.modal.modal-amplio { background: #F8F3E9; }
+form.form-amplio .chip-form input { padding: 0; }
+
+.tag-tipo {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;
+  background: #EEF1F6; color: var(--color-navy-lighter); padding: 2px 8px; border-radius: 6px;
+}
+
+/* Colores por Cargo en Estructura territorial (Coordinadores y Líderes):
+   un vistazo rápido a la columna Cargo sin tener que leer el texto. */
+.tag-tipo.tag-cargo-coordinador { background: #E1F5E6; color: #1E7245; }
+.tag-tipo.tag-cargo-lider { background: #DCEEFC; color: #1B5E8A; }
+.tag-tipo.tag-cargo-sublider { background: #FDEAD6; color: #A9631E; }
+
+/* Casilla redonda de solo lectura que indica si "Lugar de votación" ya
+   quedó diligenciado (verde) o falta por diligenciar (rojo) — se calcula
+   sola según los datos de la persona, no se puede marcar a mano. */
+.chk-lugar-votacion {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-no-apoya);
+  cursor: default;
+  vertical-align: middle;
+  margin: 0;
+  opacity: 1;
+}
+.chk-lugar-votacion:checked { background: var(--color-confirmado); }
+
+/* Círculos "Apoya a" (A/C/J/G/As) en la tabla de Votantes y sublíderes —
+   relleno azul si esa casilla quedó marcada en el formulario, borde azul
+   con relleno blanco si no. */
+.badges-apoya-a { display: flex; gap: 4px; flex-wrap: wrap; }
+.badge-apoya-a {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid #0B5ED7; background: #fff; color: #0B5ED7;
+  font-size: 0.66rem; font-weight: 700; line-height: 1;
+}
+.badge-apoya-a.activo { background: #0B5ED7; color: #fff; }
+
+/* Mini gráfico de torta flotando ENCIMA del encabezado "Apoya a" — solo
+   aparece cuando el filtro Apoya a tiene un cargo elegido: compara, entre
+   quienes ya coinciden con los demás filtros activos, cuántos apoyan ese
+   cargo contra cuántos no. Va con position:absolute (el <th> es su
+   posicionado de referencia) para que NO le agregue alto a la fila de
+   encabezados — así "Apoya a" queda en línea con los demás títulos de
+   columna en vez de quedar más abajo que ellos. El contenedor de la
+   tabla reserva espacio arriba (ver .tabla-contenedor-votantes) para que
+   este gráfico no quede cortado por el scroll horizontal de la tabla. */
+.mini-torta-apoya-a {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
+  margin-bottom: 8px; text-transform: none; letter-spacing: normal;
+}
+.mini-torta-apoya-a .circulo {
+  width: 56px; height: 56px; border-radius: 50%; flex: none;
+  border: 1px solid var(--color-border);
+}
+.mini-torta-apoya-a-info { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.mini-torta-apoya-a .leyenda {
+  font-size: 0.72rem; font-weight: 700; color: #0B5ED7;
+  white-space: nowrap;
+}
+.mini-torta-apoya-a .conteo {
+  font-size: 0.68rem; font-weight: 600; color: var(--color-text-muted);
+  white-space: nowrap;
+}
+/* El espacio reservado arriba de la tabla solo se agrega mientras el
+   gráfico esté visible (ver actualizarGraficoApoyaA en votantes.html) —
+   así, cuando no hay un cargo elegido en "Apoya a", la tabla no queda con
+   un hueco vacío arriba. */
+.tabla-contenedor-votantes.con-grafico-apoya-a { padding-top: 74px; }
+
+/* ------------------------------------------------------------------
+   Comunas y barrios apagados desde Configuración → Datos de la campaña.
+
+   Cuando "¿Utilizar nombre de comunas?" o "¿Utilizar nombre de barrios?"
+   están en No, el campo correspondiente no debe aparecer en NINGÚN
+   formulario. Se resuelve aquí y no en cada página porque varios
+   formularios muestran y ocultan esos mismos campos por su cuenta (por
+   área urbana/rural, o por cargo) con estilos en línea: el !important
+   gana siempre, así que la opción de Configuración no se puede pisar por
+   accidente. Las clases las pone cada página al leer la configuración.
+
+   Si no se usa ninguno de los dos, la fila urbana queda sin campos y se
+   oculta entera para no dejar un hueco vacío en el formulario.          */
+body.sin-comunas [data-campo="comuna"] { display: none !important; }
+body.sin-barrios [data-campo="barrio"] { display: none !important; }
+body.sin-comunas.sin-barrios [data-fila="urbano"] { display: none !important; }
+
+/* Sin ningún apoyo activo en Configuración → Datos de la campaña, la columna
+   "Apoya a" queda vacía en todas las filas: se oculta entera en vez de dejar
+   una columna en blanco ocupando ancho. La clase la pone votantes.html al
+   leer la configuración (ver aplicarApoyosATablaVotantes). */
+body.sin-apoyos .col-apoya-a { display: none; }
+
+/* Columnas «Comuna / Corregimiento» y «Barrio / Vereda» de las tablas de
+   listado. Se ocultan solo cuando NINGUNA de sus dos mitades tiene un dato
+   en toda la base — no basta con que la campaña haya apagado comunas o
+   barrios, porque la otra mitad de la columna (corregimiento, vereda) sí se
+   usa. Las clases las pone public/js/columnas-territoriales.js, que explica
+   el porqué con el caso que lo destapó. */
+body.sin-columna-comuna .col-comuna-correg { display: none; }
+body.sin-columna-barrio .col-barrio-vereda { display: none; }
+
+/* ------------------------------------------------------------------
+   Ojo para ver u ocultar la contraseña. La envoltura y el botón los
+   crea activarVerContrasena() en public/js/common.js; aquí solo va el
+   aspecto. Hay un gemelo en el estilos.css del servidor de licencias.  */
+/* El ojo va DENTRO del campo, pegado a su borde derecho. El campo conserva
+   su ancho completo; el botón se posiciona encima y no ocupa sitio en el
+   flujo, así que no puede encoger ni deformar el campo.
+   `line-height: 0` quita el hueco que un elemento en línea deja debajo por
+   la línea base — si no, el botón queda un par de píxeles bajo el centro. */
+.campo-clave { position: relative; display: block; line-height: 0; }
+
+/* El campo mantiene el width:100% de la regla general; solo se le reserva
+   sitio a la derecha para que el texto no pase por debajo del ojo. */
+.campo-clave input { padding-right: 46px; }
+
+/* Edge y algunos navegadores dibujan SU PROPIO ojo dentro del campo.
+   Sin apagarlo quedarían dos, uno al lado del otro. */
+.campo-clave input::-ms-reveal,
+.campo-clave input::-ms-clear { display: none; }
+
+/* VA CON DOS CLASES A PROPÓSITO, no con `.btn-ver-clave` a secas.
+   `login.html` tiene su propia regla `.login-card button { width: 100% }`,
+   que con una clase + un elemento (0,1,1) le GANA a una sola clase (0,1,0):
+   el ojo se estiraba a todo el ancho del campo y el icono quedaba en el
+   centro. Con `.campo-clave .btn-ver-clave` (0,2,0) manda esta.
+   El propio login.html ya documenta esa misma trampa para la «X» del
+   selector de cuentas — o sea que es la segunda vez que muerde.
+
+   Además se anulan una por una las propiedades de la regla general de
+   `button` (línea ~247: inline-flex, padding 11px 20px, borde, radio). */
+.campo-clave .btn-ver-clave {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  box-shadow: none;
+  line-height: 0;
+  color: var(--color-navy);
+  cursor: pointer;
+}
+/* El tamaño del icono manda sobre los atributos width/height del SVG, que
+   los escribe el JavaScript: así se ajusta desde aquí sin tocar código. */
+.campo-clave .btn-ver-clave svg { width: 22px; height: 22px; }
+.campo-clave .btn-ver-clave:hover { color: var(--color-marca); }
+.campo-clave .btn-ver-clave:focus-visible {
+  outline: 2px solid var(--color-navy-lighter);
+  outline-offset: 1px;
+}

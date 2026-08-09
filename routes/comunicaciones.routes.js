@@ -1,0 +1,1138 @@
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const pool = require('../config/db');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { upload, UPLOAD_DIR } = require('../middleware/upload');
+const twilioSvc = require('../config/twilio');
+const sendgridSvc = require('../config/sendgrid');
+const pushSvc = require('../config/push');
+const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer');
+const { armarWhereSql } = require('../config/filtros');
+
+const router = express.Router();
+
+/**
+ * Ruta PÚBLICA a propósito (va antes de requireAuth) — Twilio necesita
+ * descargar el archivo adjunto de una campaña desde sus propios
+ * servidores, sin ninguna sesión de este sitio.
+ *
+ * Hoy NINGUNA campaña nueva puede traer adjunto: el único canal que los
+ * admitía era WhatsApp, y está desactivado (ver POST /campanas). La ruta
+ * se conserva para las campañas viejas que sí tengan uno guardado. Para no
+ * convertir esto en un servidor de archivos abierto, solo entrega un
+ * archivo si su nombre coincide EXACTAMENTE con el que quedó guardado
+ * como adjunto de alguna campaña — cualquier otro nombre (aunque el
+ * archivo exista físicamente en /uploads) responde 404.
+ */
+router.get('/adjunto-publico/:archivo', async (req, res) => {
+  try {
+    const [[campana]] = await pool.query(
+      `SELECT adjunto_nombre FROM comunicaciones_campanas WHERE adjunto_nombre = ? LIMIT 1`,
+      [req.params.archivo]
+    );
+    if (!campana) return res.status(404).send('No encontrado.');
+    res.sendFile(path.join(UPLOAD_DIR, campana.adjunto_nombre));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error interno.');
+  }
+});
+
+router.use(requireAuth);
+router.use(requireRole('admin', 'coordinador', 'lider', 'asistente_administrativo'));
+
+async function verificarPasswordAdmin(password) {
+  if (!password) return false;
+  const [admins] = await pool.query(
+    `SELECT u.password_hash FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' AND u.activo = 1`
+  );
+  for (const admin of admins) {
+    if (await bcrypt.compare(password, admin.password_hash)) return true;
+  }
+  return false;
+}
+
+
+const ETIQUETAS_INTENCION = {
+  confirmado: 'Confirmado', probable: 'Probable', indeciso: 'Indeciso',
+  no_apoya: 'No apoya', desconocido: 'Desconocido'
+};
+const ETIQUETAS_CARGO = {
+  coordinador: 'Coordinador', coordinador_organizaciones: 'Coordinador Organizaciones',
+  lider: 'Líder', usuario: 'Sublíder', testigo: 'Testigo'
+};
+const ETIQUETAS_NIVEL = {
+  nivel_1: 'Nivel 1', nivel_2: 'Nivel 2', nivel_3: 'Nivel 3', asesores: 'Asesores'
+};
+
+/**
+ * Convierte lo que la persona escribió a mano (uno o varios números o
+ * correos, separados por coma, punto y coma, o salto de línea) en la
+ * misma forma de "destinatario" que usan los que sí vienen de Votantes/
+ * Estructura — para que se puedan mezclar sin problema.
+ */
+function parsearDestinatariosManuales(texto) {
+  if (!texto || !texto.trim()) return [];
+  return texto.split(/[\n,;]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(contacto => ({
+      tipo: 'manual', id: null, nombre: contacto, contacto,
+      detalle: 'Agregado manualmente'
+    }));
+}
+
+/**
+ * Un número o correo escrito a mano puede ser el de alguien que YA está
+ * registrado. Antes se enviaba igual, pero como "manual": sin nombre (se
+ * mostraba el propio número) y sin persona detrás, así que un mensaje con
+ * los marcadores de Lugar de votación no tenía de dónde sacar el dato y la
+ * persona quedaba saltada — aunque su lugar estuviera bien registrado en
+ * Votantes y sublíderes.
+ *
+ * Ahora se busca ese contacto en la base y, si aparece, el destinatario
+ * pasa a ser esa persona. Los que de verdad no están registrados siguen
+ * como manuales, que para eso existe la casilla.
+ *
+ * Si el mismo contacto está en dos fichas (pasa: la misma persona
+ * registrada dos veces con cédulas distintas), se toma UNA sola —la más
+ * reciente— en vez de mandar el mensaje repetido.
+ */
+async function resolverManualesContraLaBase(manuales, canal) {
+  if (!manuales.length) return [];
+  const columna = esCanalDeCorreo(canal) ? 'email' : 'telefono';
+  const contactos = manuales.map(m => m.contacto);
+
+  const [votantes] = await pool.query(
+    `SELECT id, nombre, ${columna} AS contacto, puesto_votacion, mesa_votacion, no_contactar
+       FROM votantes WHERE ${columna} IN (?) ORDER BY id DESC`, [contactos]);
+  const [gente] = await pool.query(
+    `SELECT e.id, u.nombre, u.${columna} AS contacto, e.cargo, u.no_contactar
+       FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+      WHERE u.${columna} IN (?) AND e.activo = 1 ORDER BY e.id DESC`, [contactos]);
+
+  const porContacto = new Map();
+  // La Estructura se indexa primero y los Votantes después, así que si
+  // alguien está en las dos, gana su ficha de Votante: es la que tiene el
+  // Lugar de votación de la persona (el de Estructura es donde vigila).
+  gente.forEach(g => porContacto.set(String(g.contacto).trim().toLowerCase(),
+    { tipo: 'estructura', id: g.id, nombre: g.nombre.trim(), contacto: g.contacto,
+      dado_de_baja: !!g.no_contactar, detalle: `Estructura · ${g.cargo}` }));
+  votantes.forEach(v => porContacto.set(String(v.contacto).trim().toLowerCase(),
+    { tipo: 'votante', id: v.id, nombre: v.nombre.trim(), contacto: v.contacto,
+      sin_lugar_votacion: !(v.puesto_votacion && String(v.puesto_votacion).trim()),
+      dado_de_baja: !!v.no_contactar,
+      detalle: v.puesto_votacion ? `Votante · Puesto: ${v.puesto_votacion}${v.mesa_votacion ? ' · Mesa ' + v.mesa_votacion : ''}` : 'Votante' }));
+
+  return manuales.map(m => porContacto.get(String(m.contacto).trim().toLowerCase()) || m);
+}
+
+/**
+ * Destinatarios elegidos uno por uno en pantalla (pantallas de Enviar SMS
+ * y Enviar E-mail, que arman la lista a mano antes de escribir el mensaje).
+ *
+ * Antes esa lista se mandaba aplanada a puros números de teléfono, así que
+ * TODOS llegaban como "manual" y se perdía de quién era cada contacto. Daba
+ * igual mientras el mensaje fuera el mismo para todos, pero con los
+ * marcadores de Lugar de votación ya no: sin saber a qué votante
+ * corresponde cada número, no hay lugar que poner y no se le podría enviar
+ * a nadie.
+ *
+ * El contacto se vuelve a leer de la base para votante/estructura, no se
+ * confía en el que manda el navegador: el mensaje puede llevar el Lugar de
+ * votación de esa persona, y así solo puede llegar a su propio teléfono o
+ * correo. Los escritos a mano siguen tal cual, que para eso están.
+ */
+async function destinatariosDeSeleccion(seleccion, canal) {
+  if (!Array.isArray(seleccion) || !seleccion.length) return [];
+  const esCorreo = esCanalDeCorreo(canal);
+  const salida = [];
+  const idsVotantes = seleccion.filter(d => d.tipo === 'votante' && d.id).map(d => Number(d.id));
+  const idsEstructura = seleccion.filter(d => d.tipo === 'estructura' && d.id).map(d => Number(d.id));
+
+  const contactosVotantes = new Map();
+  if (idsVotantes.length) {
+    const [filas] = await pool.query(
+      `SELECT id, nombre, email, telefono FROM votantes WHERE id IN (?)`, [idsVotantes]);
+    filas.forEach(f => contactosVotantes.set(f.id, f));
+  }
+  const contactosEstructura = new Map();
+  if (idsEstructura.length) {
+    // usuario_id va aparte del id de estructura: el canal Push manda a la
+    // CUENTA, y los dos rangos de id se solapan. Sin traerlo, un aviso por
+    // selección manual no encontraría el dispositivo de nadie y la campaña
+    // saldría entera como "sin contacto", sin un solo error.
+    const [filas] = await pool.query(
+      `SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono
+         FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id IN (?)`, [idsEstructura]);
+    filas.forEach(f => contactosEstructura.set(f.id, f));
+  }
+
+  for (const d of seleccion) {
+    if (d.tipo === 'votante' || d.tipo === 'estructura') {
+      const fila = (d.tipo === 'votante' ? contactosVotantes : contactosEstructura).get(Number(d.id));
+      if (!fila) continue; // se borró entre que se armó la lista y se envió
+      salida.push({
+        tipo: d.tipo, id: Number(d.id), usuario_id: fila.usuario_id || null,
+        nombre: fila.nombre.trim(),
+        contacto: esCorreo ? (fila.email || null) : (fila.telefono || null),
+        detalle: d.detalle || ''
+      });
+    } else if (d.contacto) {
+      salida.push({ tipo: 'manual', id: null, nombre: d.nombre || d.contacto, contacto: d.contacto, detalle: 'Agregado manualmente' });
+    }
+  }
+  return salida;
+}
+
+/** "email" (SendGrid, CRM masivo) y "email_personal" (Hostinger, grupos pequeños) usan el mismo dato de contacto: el correo. */
+function esCanalDeCorreo(canal) {
+  return canal === 'email' || canal === 'email_personal';
+}
+
+/**
+ * Arma y ejecuta las consultas de Votantes y/o Estructura según los
+ * filtros elegidos, y devuelve una lista unificada de destinatarios con
+ * el dato de contacto que corresponde al canal (email o teléfono).
+ */
+async function obtenerDestinatarios(filtros, canal) {
+  // "seleccion" y "manual" traen la lista ya hecha: no se consulta nada
+  // masivo, o se agregarían destinatarios que nadie pidió.
+  const fuente = filtros.fuente || 'ambos';
+  const resultados = [];
+
+  if (fuente === 'votantes' || fuente === 'ambos') {
+    const condiciones = [];
+    const params = [];
+    if (filtros.territorio_id) {
+      condiciones.push('(v.territorio_id = ? OR t.padre_id = ?)');
+      params.push(filtros.territorio_id, filtros.territorio_id);
+    }
+    if (filtros.intencion_voto) {
+      condiciones.push('v.intencion_voto = ?');
+      params.push(filtros.intencion_voto);
+    }
+    if (filtros.categoria) {
+      condiciones.push('v.categoria = ?');
+      params.push(filtros.categoria);
+    }
+    // Puesto de votación: es el corte natural para el Día D — "todos los
+    // que votan en tal puesto". A diferencia del mismo filtro en
+    // Estructura, aquí se compara el TEXTO que la persona tiene guardado
+    // en su Lugar de votación, porque un votante no tiene puesto_id: la
+    // tabla `votantes` guarda el nombre del puesto, no una referencia.
+    if (filtros.puesto_votacion) {
+      condiciones.push('v.puesto_votacion = ?');
+      params.push(filtros.puesto_votacion);
+    }
+    const whereSql = armarWhereSql(condiciones, 'AND');
+    const [filas] = await pool.query(`
+      SELECT v.id, v.nombre, v.email, v.telefono,
+             v.intencion_voto, v.categoria, t.nombre AS territorio_nombre,
+             v.puesto_votacion, v.mesa_votacion, v.no_contactar
+      FROM votantes v
+      LEFT JOIN territorios t ON t.id = v.territorio_id
+      WHERE 1=1 ${whereSql}
+    `, params);
+    filas.forEach(f => {
+      resultados.push({
+        tipo: 'votante', id: f.id, nombre: f.nombre.trim(),
+        contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+        // Se informa aparte para poder avisar ANTES de enviar cuántos
+        // quedarían fuera si el mensaje usa los marcadores de Lugar de
+        // votación — mejor saberlo al armar la lista que al ver el reporte.
+        sin_lugar_votacion: !(f.puesto_votacion && String(f.puesto_votacion).trim()),
+        // Pidió no recibir más mensajes. Se informa aparte en vez de
+        // desaparecerlo de la lista: el administrador tiene que ver que esa
+        // persona existe y por qué no le llega nada — si simplemente no
+        // apareciera, el conteo bajaría sin explicación y alguien la
+        // volvería a agregar a mano.
+        dado_de_baja: !!f.no_contactar,
+        detalle: [
+          f.categoria === 'sublider' ? 'Sublíder' : 'Votante',
+          f.intencion_voto ? ETIQUETAS_INTENCION[f.intencion_voto] : null,
+          f.territorio_nombre,
+          f.puesto_votacion ? `Puesto: ${f.puesto_votacion}${f.mesa_votacion ? ' · Mesa ' + f.mesa_votacion : ''}` : null
+        ].filter(Boolean).join(' · ')
+      });
+    });
+  }
+
+  // "testigos" es un subconjunto de Estructura (cargo='testigo'): se
+  // ofrece como Fuente aparte porque a un testigo/coordinador de puesto se
+  // le busca por Puesto de votación, no por Territorio (Comuna/Barrio),
+  // que es como se organiza el resto de la Estructura.
+  if (fuente === 'estructura' || fuente === 'testigos' || fuente === 'ambos') {
+    const condiciones = [];
+    const params = [];
+    if (filtros.territorio_id) {
+      condiciones.push('(e.territorio_id = ? OR t.padre_id = ?)');
+      params.push(filtros.territorio_id, filtros.territorio_id);
+    }
+    if (fuente === 'testigos') {
+      condiciones.push(`e.cargo = 'testigo'`);
+    } else if (filtros.cargo) {
+      condiciones.push('e.cargo = ?');
+      params.push(filtros.cargo);
+    }
+    if (filtros.puesto_votacion) {
+      // Se traduce el nombre a id para segmentar por la referencia dura.
+      // Si el nombre no existe se filtra a NADIE (= 0), no a todos: un
+      // envio vacio se nota y se corrige; uno al publico equivocado no.
+      const [[pf]] = await pool.query(
+        `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ?`,
+        [filtros.puesto_votacion]);
+      // COALESCE: el puesto donde vigila un testigo esta en "estructura" si
+      // la persona tiene ademas otro cargo, y en "usuarios" si es testigo
+      // puro. Mirar solo uno dejaria fuera del envio a media lista.
+      condiciones.push('COALESCE(e.puesto_id, u.puesto_id) = ?');
+      params.push(pf ? pf.id : 0);
+    }
+    condiciones.push('e.activo = 1');
+    const whereSql = armarWhereSql(condiciones, 'AND');
+    const [filas] = await pool.query(`
+      SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono, e.cargo, e.tipo_testigo,
+             COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto_votacion,
+             t.nombre AS territorio_nombre
+      FROM estructura e
+      JOIN usuarios u ON u.id = e.usuario_id
+      LEFT JOIN territorios t ON t.id = e.territorio_id
+      WHERE 1=1 ${whereSql}
+    `, params);
+    filas.forEach(f => {
+      const etiquetaCargo = f.cargo === 'testigo'
+        ? (f.tipo_testigo === 'puesto' ? 'Coordinador de puesto' : 'Testigo electoral')
+        : (ETIQUETAS_CARGO[f.cargo] || f.cargo);
+      resultados.push({
+        // OJO: `id` es el de la fila de ESTRUCTURA, no el de la persona.
+        // `usuario_id` va aparte porque el canal Push manda a la cuenta, y
+        // confundirlos entregaría el aviso a otra persona: los dos rangos
+        // de id se solapan, así que el error no fallaría, acertaría mal.
+        tipo: 'estructura', id: f.id, usuario_id: f.usuario_id, nombre: f.nombre,
+        contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+        detalle: [etiquetaCargo, f.puesto_votacion || f.territorio_nombre].filter(Boolean).join(' · ')
+      });
+    });
+  }
+
+  // Organigrama: los cargos (con nombre, teléfono y correo) también se
+  // pueden usar como destinatarios — sea filtrando explícitamente por
+  // "Solo Organigrama", o dentro de "Votantes y Estructura" (que en
+  // realidad busca entre las tres fuentes a la vez).
+  if (fuente === 'organigrama' || fuente === 'ambos') {
+    const condicionesOrg = [];
+    const paramsOrg = [];
+    if (filtros.organigrama_cargo) {
+      condicionesOrg.push('cargo LIKE ?');
+      paramsOrg.push(`%${filtros.organigrama_cargo}%`);
+    }
+    if (filtros.organigrama_nombre) {
+      condicionesOrg.push("(nombres LIKE ? OR apellidos LIKE ? OR nombre LIKE ? OR CONCAT(nombres, ' ', apellidos) LIKE ?)");
+      const patron = `%${filtros.organigrama_nombre}%`;
+      paramsOrg.push(patron, patron, patron, patron);
+    }
+    if (filtros.organigrama_nivel) {
+      condicionesOrg.push('nivel = ?');
+      paramsOrg.push(filtros.organigrama_nivel);
+    }
+    const whereOrg = armarWhereSql(condicionesOrg);
+    const [filasOrg] = await pool.query(`
+      SELECT id, cargo, nombre, nombres, apellidos, telefono, email, nivel FROM organigrama_nodos ${whereOrg}
+    `, paramsOrg);
+    filasOrg.forEach(f => {
+      const nombreCompleto = (f.nombres || f.apellidos)
+        ? [f.nombres, f.apellidos].filter(Boolean).join(' ')
+        : (f.nombre || f.cargo);
+      resultados.push({
+        tipo: 'organigrama', id: f.id, nombre: nombreCompleto,
+        contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+        detalle: [f.cargo, ETIQUETAS_NIVEL[f.nivel]].filter(Boolean).join(' · ')
+      });
+    });
+  }
+
+  resultados.push(...await destinatariosDeSeleccion(filtros.seleccion, canal));
+  resultados.push(...await resolverManualesContraLaBase(parsearDestinatariosManuales(filtros.manual), canal));
+
+  // PUSH: el "contacto" no es un correo ni un teléfono, es la cuenta.
+  // Solo tiene contacto quien haya registrado al menos un dispositivo, y
+  // eso se resuelve en UNA consulta para toda la lista — no una por
+  // persona, que en una campaña de cientos serían cientos de viajes.
+  // Un votante o un cargo del organigrama nunca lo tienen: no son cuentas.
+  if (canal === 'push') {
+    const conDispositivo = await pushSvc.usuariosConDispositivo(resultados.map(d => d.usuario_id));
+    resultados.forEach(d => {
+      d.contacto = (d.usuario_id && conDispositivo.has(d.usuario_id)) ? String(d.usuario_id) : null;
+    });
+  }
+
+  // Evita mandar el mensaje dos veces si el mismo número/correo ya venía
+  // incluido por el filtro Y además se escribió a mano.
+  const vistos = new Set();
+  const sinDuplicados = resultados.filter(d => {
+    const clave = (d.contacto || '').trim().toLowerCase();
+    if (!clave) return true; // sin contacto, se deja pasar (se marcará "sin_contacto" al enviar)
+    if (vistos.has(clave)) return false;
+    vistos.add(clave);
+    return true;
+  });
+
+  return sinDuplicados;
+}
+
+/**
+ * Igual que obtenerDestinatarios, pero recibe VARIOS grupos de filtros
+ * (cada uno como los que ya arma "Elige a quién le va a llegar") y junta
+ * a todos en una sola lista, sin duplicar a quien coincida con más de un
+ * grupo — esto es lo que permite, por ejemplo, mandarle a la vez a
+ * "Territorio X" y también a "Nivel 1 del Organigrama" en una misma
+ * campaña, agregando un grupo tras otro.
+ */
+async function obtenerDestinatariosDeGrupos(grupos, canal) {
+  if (!Array.isArray(grupos)) grupos = [grupos]; // compatibilidad: también acepta un solo grupo suelto
+  const resultados = [];
+  for (const grupo of grupos) {
+    resultados.push(...await obtenerDestinatarios(grupo || {}, canal));
+  }
+  const vistos = new Set();
+  return resultados.filter(d => {
+    const clave = (d.contacto || '').trim().toLowerCase();
+    if (!clave) return true;
+    if (vistos.has(clave)) return false;
+    vistos.add(clave);
+    return true;
+  });
+}
+
+// Estado de configuración de cada canal (para mostrar en la interfaz cuáles ya se pueden usar).
+// WhatsApp no aparece: está desactivado en toda la aplicación (ver POST /campanas).
+router.get('/estado-canales', async (req, res) => {
+  const canalesTwilio = await twilioSvc.estadoCanales();
+  res.json({
+    email: await sendgridSvc.estadoCanal(),
+    email_personal: { configurado: true, motivo: null }, // reutiliza el SMTP de Hostinger, ya configurado para toda la app
+    sms: canalesTwilio.sms,
+    push: pushSvc.estadoCanal()
+  });
+});
+
+/* ------------------------------------------------------------------
+   RESPUESTAS RECIBIDAS
+
+   Lo que la gente contesta por SMS o WhatsApp llega por
+   /webhooks/twilio/entrante y se guarda en comunicaciones_respuestas.
+   Aquí solo se lee. Sin esta pantalla, las respuestas quedarían guardadas
+   e invisibles, que es casi lo mismo que no tenerlas.
+   ------------------------------------------------------------------ */
+router.get('/respuestas', async (req, res) => {
+  try {
+    const soloNuevas = req.query.no_leidas === '1';
+    const [filas] = await pool.query(
+      `SELECT id, canal, de_contacto, mensaje, nombre_resuelto, votante_id, usuario_id,
+              accion, leida, recibido_en
+         FROM comunicaciones_respuestas
+        ${soloNuevas ? 'WHERE leida = 0' : ''}
+        ORDER BY recibido_en DESC
+        LIMIT 200`);
+    const [[conteo]] = await pool.query(
+      `SELECT COUNT(*) AS total, SUM(leida = 0) AS sin_leer, SUM(accion = 'baja') AS bajas
+         FROM comunicaciones_respuestas`);
+    res.json({ respuestas: filas, conteo });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error leyendo las respuestas recibidas.' });
+  }
+});
+
+router.post('/respuestas/:id/leida', async (req, res) => {
+  try {
+    await pool.query(`UPDATE comunicaciones_respuestas SET leida = 1 WHERE id = ?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo marcar como leída.' });
+  }
+});
+
+/**
+ * Reintentar los que fallaron.
+ *
+ * Solo toca los que están en 'fallido': un fallo suele ser del momento
+ * (el proveedor rechazó, se cayó la red) y reintentar el envío completo
+ * volvería a escribirle a quien YA recibió el mensaje. Los 'sin_contacto',
+ * 'sin_lugar_votacion' y 'dado_de_baja' no se tocan: esos no fallaron, y
+ * reintentarlos no cambiaría nada — o, en el caso de la baja, sería
+ * pasarle por encima a lo que la persona pidió.
+ */
+router.post('/campanas/:id/reintentar-fallidos', async (req, res) => {
+  try {
+    const [r] = await pool.query(
+      `UPDATE comunicaciones_envios
+          SET estado = 'pendiente', error_mensaje = NULL
+        WHERE campana_id = ? AND estado = 'fallido'`, [req.params.id]);
+    if (!r.affectedRows) return res.json({ ok: true, reintentados: 0 });
+    await pool.query(`UPDATE comunicaciones_campanas SET estado = 'enviando' WHERE id = ?`, [req.params.id]);
+    res.json({ ok: true, reintentados: r.affectedRows });
+    procesarEnvioCampana(Number(req.params.id));   // sigue después de responder
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudieron reintentar los envíos fallidos.' });
+  }
+});
+
+/* ------------------------------------------------------------------
+   PLANTILLAS
+
+   Guardar el texto que ya se escribió una vez. Nada sofisticado: las
+   campañas repiten los mismos cuatro o cinco mensajes (invitación,
+   recordatorio, lugar de votación, agradecimiento) y hoy hay que
+   teclearlos de nuevo cada vez, con el riesgo de que cada versión salga
+   distinta.
+   ------------------------------------------------------------------ */
+router.get('/plantillas', async (req, res) => {
+  try {
+    const [filas] = await pool.query(
+      `SELECT id, nombre, canal, asunto, cuerpo, created_at
+         FROM comunicaciones_plantillas ORDER BY nombre`);
+    res.json(filas);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error leyendo las plantillas.' });
+  }
+});
+
+router.post('/plantillas', async (req, res) => {
+  const { nombre, canal, asunto, cuerpo } = req.body;
+  if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'La plantilla necesita un nombre.' });
+  if (!cuerpo || !String(cuerpo).trim()) return res.status(400).json({ error: 'La plantilla está vacía.' });
+  try {
+    // Guardar con un nombre que ya existe REEMPLAZA el texto, en vez de
+    // fallar con "nombre duplicado": quien escribe el mismo nombre casi
+    // siempre está corrigiendo la plantilla, no creando otra.
+    await pool.query(
+      `INSERT INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo, creado_por)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE canal = VALUES(canal), asunto = VALUES(asunto), cuerpo = VALUES(cuerpo)`,
+      [String(nombre).trim(), ['sms','email','push'].includes(canal) ? canal : 'cualquiera',
+       asunto || null, cuerpo, req.session.usuario.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo guardar la plantilla.' });
+  }
+});
+
+router.delete('/plantillas/:id', async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM comunicaciones_plantillas WHERE id = ?`, [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo eliminar la plantilla.' });
+  }
+});
+
+// Vista previa: cuántos destinatarios y una muestra, según los filtros — antes de enviar nada.
+router.post('/destinatarios/preview', async (req, res) => {
+  try {
+    const { filtros, canal, completo } = req.body;
+    const destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email');
+    // Quien pidió la baja no cuenta como "con contacto": tiene teléfono o
+    // correo, pero no se le va a escribir. Sumarlo ahí haría prometer más
+    // envíos de los que van a ocurrir.
+    const conContacto = destinatarios.filter(d => d.contacto && !d.dado_de_baja);
+    const dadosDeBaja = destinatarios.filter(d => d.dado_de_baja).length;
+    res.json({
+      total: destinatarios.length,
+      conContacto: conContacto.length,
+      sinContacto: destinatarios.filter(d => !d.contacto).length,
+      dadosDeBaja,
+      muestra: destinatarios.slice(0, 8),
+      // "completo" trae la lista entera (con contacto) — la usan las
+      // pantallas de Enviar E-mail/SMS para agregar de un tirón
+      // a todo un grupo/subgrupo a los Seleccionados, no solo mostrar una
+      // muestra de 8.
+      destinatarios: completo ? conContacto : undefined
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error calculando los destinatarios.' });
+  }
+});
+
+// Búsqueda de contactos para el selector manual de "Enviar SMS" y
+// "Enviar E-mail" — trae de Votantes y Estructura a quienes su nombre
+// coincida con lo buscado y tengan el dato de contacto que ese canal
+// necesita (sin eso, no tendría sentido poder elegirlos).
+//
+// El canal por omisión es "sms" y antes era "whatsapp": lo único que
+// decide es si el dato de contacto es el teléfono o el correo (ver
+// esCanalDeCorreo), así que el comportamiento no cambia.
+router.get('/destinatarios/buscar', async (req, res) => {
+  try {
+    const canal = req.query.canal || 'sms';
+    const texto = String(req.query.q || '').trim().toLowerCase();
+    if (texto.length < 2) return res.json([]);
+
+    const todos = await obtenerDestinatarios({ fuente: 'ambos' }, canal);
+    // Se busca tanto en el nombre como en el "detalle" (que para Organigrama
+    // trae el Cargo y el Nivel, y para Estructura trae el Cargo y el
+    // Territorio) — así, escribir un cargo o un nivel también encuentra a
+    // la persona, no solo escribir su nombre.
+    const coincidencias = todos
+      .filter(d => d.contacto && `${d.nombre} ${d.detalle || ''}`.toLowerCase().includes(texto))
+      .slice(0, 25);
+    res.json(coincidencias);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error buscando contactos.' });
+  }
+});
+
+// Historial de campañas enviadas/en borrador.
+router.get('/campanas', async (req, res) => {
+  try {
+    const [filas] = await pool.query(`
+      SELECT c.*, u.nombre AS creado_por_nombre
+      FROM comunicaciones_campanas c
+      LEFT JOIN usuarios u ON u.id = c.created_by
+      ORDER BY c.created_at DESC
+      LIMIT 100
+    `);
+    res.json(filas);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo el historial de campañas.' });
+  }
+});
+
+// Elimina TODAS las campañas del CRM (y sus envíos, en cascada) — solo
+// admin, con confirmación de contraseña por lo irreversible de la
+// acción. Pensado para limpiar el historial de pruebas/campañas viejas.
+// Elimina campañas del CRM (y sus envíos, en cascada) — solo admin, con
+// confirmación de contraseña por lo irreversible de la acción. Si se
+// manda "canal" en el body, solo borra las de ese canal (ej. solo
+// SMS); si no se manda, borra TODAS sin importar el canal.
+router.delete('/campanas', requireRole('admin'), async (req, res) => {
+  const autorizado = await verificarPasswordAdmin(req.body && req.body.password);
+  if (!autorizado) {
+    return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
+  }
+  try {
+    const canal = req.body && req.body.canal;
+    const [resultado] = canal
+      ? await pool.query(`DELETE FROM comunicaciones_campanas WHERE canal = ?`, [canal])
+      : await pool.query(`DELETE FROM comunicaciones_campanas`);
+    res.json({ ok: true, eliminadas: resultado.affectedRows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error eliminando las campañas.' });
+  }
+});
+
+// Elimina UNA sola campaña puntual (y sus envíos, en cascada). Disponible
+// para los mismos roles que ya pueden usar este módulo — al ser un solo
+// registro (no un borrado masivo), no pide contraseña de administrador.
+router.delete('/campanas/:id', async (req, res) => {
+  try {
+    const [resultado] = await pool.query(`DELETE FROM comunicaciones_campanas WHERE id = ?`, [req.params.id]);
+    if (resultado.affectedRows === 0) {
+      return res.status(404).json({ error: 'Esa campaña ya no existe.' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error eliminando la campaña.' });
+  }
+});
+
+// Detalle de una campaña: quién recibió el mensaje y con qué resultado.
+router.get('/campanas/:id', async (req, res) => {
+  try {
+    const [[campana]] = await pool.query(`SELECT * FROM comunicaciones_campanas WHERE id = ?`, [req.params.id]);
+    if (!campana) return res.status(404).json({ error: 'Campaña no encontrada.' });
+    const [envios] = await pool.query(
+      `SELECT * FROM comunicaciones_envios WHERE campana_id = ? ORDER BY id`,
+      [req.params.id]
+    );
+    // Resumen de entrega. El dato ya llegaba —el webhook de estado de
+    // Twilio lo escribe fila por fila— pero solo se devolvían las filas
+    // crudas: con 332 destinatarios, saber cómo fue exigía contarlas a
+    // ojo. Cada estado se cuenta aparte a propósito: "no llegó" y "no se
+    // intentó" son problemas distintos y se arreglan distinto.
+    const [[resumen]] = await pool.query(
+      `SELECT COUNT(*) AS total,
+              SUM(estado = 'enviado')             AS enviados,
+              SUM(estado = 'fallido')             AS fallidos,
+              SUM(estado = 'pendiente')           AS pendientes,
+              SUM(estado = 'sin_contacto')        AS sin_contacto,
+              SUM(estado = 'sin_lugar_votacion')  AS sin_lugar_votacion,
+              SUM(estado = 'dado_de_baja')        AS dados_de_baja
+         FROM comunicaciones_envios WHERE campana_id = ?`, [req.params.id]);
+    res.json({ campana, envios, resumen });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo el detalle de la campaña.' });
+  }
+});
+
+/**
+ * Envía un solo mensaje por el canal indicado. Lanza error si falla — el
+ * llamador decide qué hacer con eso (marcar el envío como fallido).
+ * Devuelve el SID de Twilio cuando aplica (SMS) — null para los canales
+ * de correo, que no tienen ese concepto.
+ *
+ * WhatsApp ya no está: Meta prohíbe las campañas políticas en su API de
+ * negocios (ver POST /campanas). El parámetro adjuntoUrl se conserva
+ * porque era exclusivo de ese canal y hoy siempre llega en null.
+ */
+async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCallbackUrl) {
+  if (canal === 'email') {
+    await sendgridSvc.enviarCorreoMasivo(contacto, asunto, mensaje);
+    return null;
+  } else if (canal === 'email_personal') {
+    await enviarCorreoPersonal(contacto, asunto, mensaje);
+    return null;
+  } else if (canal === 'sms') {
+    const { sid } = await twilioSvc.enviarSMS(contacto, mensaje, statusCallbackUrl);
+    return sid;
+  } else if (canal === 'push') {
+    // Aquí `contacto` es el usuario_id (ver obtenerDestinatarios). El
+    // asunto hace de título del aviso: en push el título se ve siempre,
+    // el cuerpo puede quedar recortado por el sistema.
+    const { entregados } = await pushSvc.enviarAUsuario(Number(contacto), {
+      titulo: asunto || 'Aviso de la campaña',
+      cuerpo: mensaje
+    });
+    // No hay SID: se deja constancia de en cuántos dispositivos entró.
+    return `push:${entregados}`;
+  } else {
+    throw new Error('Canal no reconocido.');
+  }
+}
+
+/**
+ * Marcadores que se reemplazan en el texto del mensaje, uno por
+ * destinatario. `{nombre}` es el de siempre; los del Lugar de votación se
+ * agregaron para el Día D, donde el mensaje útil es justamente el que le
+ * dice a cada quien DÓNDE le toca votar.
+ */
+const MARCADORES_LUGAR = ['{puesto}', '{mesa}', '{municipio}', '{departamento}', '{lugar_votacion}'];
+
+/**
+ * Lugar de votación de un destinatario, según de dónde salió.
+ *
+ * Un votante lo tiene en su propia fila. Alguien de Estructura lo tiene
+ * repartido entre `estructura` y `usuarios` —según sea testigo puro o
+ * tenga además otro cargo—, así que se resuelve con COALESCE, igual que en
+ * el resto de la aplicación. Un destinatario agregado a mano no tiene
+ * ninguno: sus marcadores quedan vacíos.
+ */
+async function lugarDeVotacionDe(tipo, id) {
+  if (!id) return null;
+  if (tipo === 'votante') {
+    const [[v]] = await pool.query(
+      `SELECT departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion
+         FROM votantes WHERE id = ?`, [id]);
+    return v || null;
+  }
+  if (tipo === 'estructura') {
+    const [[e]] = await pool.query(
+      `SELECT COALESCE(e.departamento_votacion, u.departamento_votacion) AS departamento_votacion,
+              COALESCE(e.municipio_votacion,    u.municipio_votacion)    AS municipio_votacion,
+              COALESCE(e.puesto_votacion,       u.puesto_votacion)       AS puesto_votacion,
+              COALESCE(e.mesa_votacion,         u.mesa_votacion)         AS mesa_votacion
+         FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+        WHERE e.id = ?`, [id]);
+    return e || null;
+  }
+  return null;
+}
+
+/**
+ * Reemplaza los marcadores del mensaje con los datos de ESTE destinatario.
+ *
+ * La consulta del Lugar de votación solo se hace si el mensaje realmente
+ * usa alguno de esos marcadores: un envío masivo corriente no debe pagar
+ * una consulta extra por persona.
+ *
+ * Si a alguien le falta el dato, su marcador queda vacío en vez de escribir
+ * "null" o "undefined" en un mensaje que va a leer una persona real.
+ */
+/**
+ * Un marcador que se resuelve vacío (por ejemplo {slogan} sin eslogan
+ * configurado) deja espacios de más. En un SMS cada carácter cuenta, así
+ * que se quitan los espacios sobrantes al final de cada línea y del
+ * mensaje. No se tocan los saltos de línea ni la separación interna: el
+ * texto lo escribió una persona y puede tener un formato a propósito.
+ */
+function limpiarSobrantes(texto) {
+  return texto.replace(/[ \t]+$/gm, '').trim();
+}
+
+async function personalizarMensaje(mensaje, envio, slogan = '') {
+  // {slogan} se resuelve aparte de los del Lugar de votación: es el mismo
+  // para todos y no debe disparar la búsqueda por persona ni el salto de
+  // quien no tenga puesto registrado.
+  let texto = mensaje
+    .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
+    .replace(/\{slogan\}/gi, slogan || '');
+  const minus = mensaje.toLowerCase();
+  if (!MARCADORES_LUGAR.some(m => minus.includes(m))) return { texto: limpiarSobrantes(texto) };
+
+  const lugar = await lugarDeVotacionDe(envio.destinatario_tipo, envio.destinatario_id) || {};
+  const puesto = (lugar.puesto_votacion || '').trim();
+  const mesa = (lugar.mesa_votacion || '').toString().trim();
+  const municipio = (lugar.municipio_votacion || '').trim();
+  const departamento = (lugar.departamento_votacion || '').trim();
+  // Frase armada: solo con las partes que sí existen, para que no queden
+  // comas sueltas ni un "Mesa" sin número.
+  const completo = [
+    puesto ? `Puesto ${puesto}` : null,
+    mesa ? `Mesa ${mesa}` : null,
+    municipio || null,
+    departamento || null
+  ].filter(Boolean).join(', ');
+
+  return {
+    // Sin Puesto no hay mensaje que valga la pena mandar: el resto del
+    // Lugar de votación (municipio, departamento) no le dice a nadie a
+    // dónde ir. Quien llama decide qué hacer con esto.
+    faltaLugar: !puesto,
+    texto: limpiarSobrantes(texto
+      .replace(/\{lugar_votacion\}/gi, completo)
+      .replace(/\{puesto\}/gi, puesto)
+      .replace(/\{mesa\}/gi, mesa)
+      .replace(/\{municipio\}/gi, municipio)
+      .replace(/\{departamento\}/gi, departamento))
+  };
+}
+
+/**
+ * Procesa el envío de una campaña en segundo plano: recorre los
+ * destinatarios que sigan en estado "pendiente" en comunicaciones_envios,
+ * manda su mensaje (reemplazando {nombre} si aparece), y va actualizando
+ * esa misma fila con el resultado. Con una pausa corta entre cada uno para
+ * no saturar el proveedor. No bloquea la respuesta al navegador — la
+ * campaña queda en estado "enviando" y el front puede consultar el
+ * progreso con GET /campanas/:id.
+ *
+ * A propósito solo recibe el campanaId: todo lo demás (canal, mensaje,
+ * adjunto, a quién le falta enviar) se lee de la base de datos en vez de
+ * recibirse en memoria — así, si el proceso de Node se reinicia a la
+ * mitad de un envío grande (algo que sí pasa en este hosting), la MISMA
+ * función sirve para reanudar donde se quedó con solo volver a llamarla
+ * con el id de la campaña (ver reanudarCampanasPendientes, más abajo),
+ * en vez de dejarla colgada en "Enviando..." para siempre.
+ */
+async function procesarEnvioCampana(campanaId) {
+  const [[campana]] = await pool.query(`SELECT * FROM comunicaciones_campanas WHERE id = ?`, [campanaId]);
+  if (!campana) {
+    console.warn(`La campaña ${campanaId} ya no existe — no hay nada que procesar.`);
+    return;
+  }
+  const { canal, asunto, mensaje, adjunto_url: adjuntoUrl, status_callback_url: statusCallbackUrl } = campana;
+  // El eslogan es el mismo para toda la campaña: se lee una vez, no una vez
+  // por destinatario. Si está vacío, el marcador queda vacío en vez de
+  // escribir "null" en un mensaje que va a leer una persona.
+  const [[cfg]] = await pool.query(`SELECT slogan_campana FROM configuracion_campana WHERE id = 1`);
+  const slogan = (cfg && cfg.slogan_campana ? cfg.slogan_campana : '').trim();
+
+  const [pendientes] = await pool.query(
+    `SELECT id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto
+       FROM comunicaciones_envios WHERE campana_id = ? AND estado = 'pendiente' ORDER BY id`,
+    [campanaId]
+  );
+
+  for (const envio of pendientes) {
+    // Si en medio del envío alguien borró esta campaña (ej. con
+    // "Eliminar todas" mientras todavía se estaba enviando), se detiene
+    // aquí en vez de seguir intentando actualizar filas de una campaña
+    // que ya no existe — eso es justamente lo que la dejaba colgada en
+    // "Enviando..." para siempre.
+    const [[sigueExistiendo]] = await pool.query(`SELECT id FROM comunicaciones_campanas WHERE id = ?`, [campanaId]);
+    if (!sigueExistiendo) {
+      console.warn(`La campaña ${campanaId} ya no existe (se borró mientras se enviaba) — se detiene el envío.`);
+      return;
+    }
+
+    // Todo el procesamiento de ESTA fila queda protegido — un problema
+    // puntual con un destinatario (incluso al guardar el resultado en la
+    // base de datos) nunca debe tumbar el envío completo de la campaña.
+    try {
+      const { texto: mensajePersonalizado, faltaLugar } = await personalizarMensaje(mensaje, envio, slogan);
+      // Se salta, no se manda a medias. Queda registrado con su motivo para
+      // que el administrador sepa a quién le falta completar la ficha.
+      if (faltaLugar) {
+        await pool.query(
+          `UPDATE comunicaciones_envios
+              SET estado = 'sin_lugar_votacion',
+                  error_mensaje = 'No tiene Puesto de votación registrado — no se envió para no mandar el mensaje con el lugar en blanco.'
+            WHERE id = ?`, [envio.id]);
+        continue;
+      }
+      try {
+        const sid = await enviarUno(canal, envio.destinatario_contacto, asunto, mensajePersonalizado, adjuntoUrl, statusCallbackUrl);
+        await pool.query(
+          `UPDATE comunicaciones_envios SET estado = 'enviado', twilio_sid = ?, enviado_en = NOW() WHERE id = ?`,
+          [sid, envio.id]
+        );
+      } catch (err) {
+        await pool.query(
+          `UPDATE comunicaciones_envios SET estado = 'fallido', error_mensaje = ? WHERE id = ?`,
+          [String(err.message || err).slice(0, 250), envio.id]
+        );
+      }
+    } catch (errFila) {
+      console.error(`Error registrando el resultado para ${envio.destinatario_nombre} en la campaña ${campanaId} (se sigue con el resto):`, errFila);
+    }
+
+    // Pausa corta entre envíos — evita ráfagas que un proveedor pueda
+    // interpretar como abuso, sobre todo en SMS.
+    await new Promise(resolve => setTimeout(resolve, esCanalDeCorreo(canal) ? 300 : 600));
+  }
+
+  try {
+    const [[totales]] = await pool.query(
+      `SELECT
+         SUM(estado = 'enviado') AS enviados,
+         SUM(estado = 'fallido') AS fallidos,
+         SUM(estado = 'sin_lugar_votacion') AS sin_lugar,
+         SUM(estado = 'dado_de_baja') AS dados_de_baja,
+         SUM(estado = 'pendiente') AS pendientes
+       FROM comunicaciones_envios WHERE campana_id = ?`,
+      [campanaId]
+    );
+    // Si sigue habiendo pendientes (ej. el proceso se reinició justo en
+    // medio de este mismo ciclo), no se marca la campaña como terminada
+    // todavía — reanudarCampanasPendientes la retomará en el próximo arranque.
+    if (Number(totales.pendientes) > 0) return;
+
+    const fallidos = Number(totales.fallidos) || 0;
+    const enviados = Number(totales.enviados) || 0;
+    const estadoFinal = fallidos === campana.total_destinatarios && campana.total_destinatarios > 0 ? 'fallido' : 'enviado';
+    await pool.query(
+      `UPDATE comunicaciones_campanas SET estado = ?, enviados = ?, fallidos = ?, enviado_en = NOW() WHERE id = ?`,
+      [estadoFinal, enviados, fallidos, campanaId]
+    );
+  } catch (errFinal) {
+    // Si esto falla (por ejemplo, porque la campaña se borró justo en el
+    // último instante), ya no hay nada más que actualizar — se deja
+    // constancia en los logs, sin lanzar el error hacia arriba.
+    console.error(`No se pudo guardar el estado final de la campaña ${campanaId}:`, errFinal);
+  }
+}
+
+/**
+ * Se llama UNA vez al arrancar la aplicación (ver app.js): busca campañas
+ * que quedaron en "enviando" — la única forma de que eso pase es que el
+ * proceso de Node se haya reiniciado a la mitad de un envío — y retoma
+ * cada una donde se quedó, en vez de dejarlas colgadas hasta que alguien
+ * lo note.
+ */
+async function reanudarCampanasPendientes() {
+  try {
+    const [campanas] = await pool.query(`SELECT id FROM comunicaciones_campanas WHERE estado = 'enviando'`);
+    if (!campanas.length) return;
+    console.log(`Reanudando ${campanas.length} campaña(s) que quedaron a medias en un reinicio anterior...`);
+    for (const c of campanas) {
+      procesarEnvioCampana(c.id).catch(err => console.error(`Error reanudando la campaña ${c.id}:`, err));
+    }
+  } catch (err) {
+    console.error('Error buscando campañas pendientes de reanudar:', err);
+  }
+}
+
+// Crea una campaña y arranca el envío. Devuelve de inmediato con el id de
+// la campaña — el envío real sigue en segundo plano.
+//
+// WhatsApp está DESACTIVADO a propósito: Meta prohíbe las campañas
+// políticas en su API de negocios (WhatsApp Business), así que usarlo
+// arriesga la cuenta. Se apagó en la interfaz y se rechaza aquí, que es
+// lo que de verdad cierra la puerta — la pantalla se puede saltar
+// llamando a la API directo.
+//
+// NO se arrancaron los ENUM de la base ni la clasificación de respuestas
+// entrantes de webhooks.routes.js: eso es historia, y si Meta cambia de
+// política volver a encenderlo es agregar 'whatsapp' a la lista de abajo.
+//
+// El adjunto (campo "archivo") era exclusivo de WhatsApp, así que hoy no
+// lo admite ningún canal.
+router.post('/campanas', upload.single('archivo'), async (req, res) => {
+  const { nombre, canal, asunto, mensaje } = req.body;
+  // Los filtros llegan como texto JSON cuando la petición es multipart (ej.
+  // "CRM y Mensajes" enviado como multipart) — ahí no hay forma de
+  // mandar un objeto anidado directo. Pero cuando la petición va como JSON
+  // normal (ej. "Enviar SMS"/"Enviar E-mail", sin adjunto), Express ya
+  // entrega req.body.filtros como objeto, y hacerle JSON.parse() a un
+  // objeto fallaba en silencio y lo dejaba vacío — con eso vacío, el envío
+  // terminaba interpretando "sin filtro" como "mándale a todo el mundo".
+  let filtros = {};
+  try {
+    filtros = typeof req.body.filtros === 'string'
+      ? (req.body.filtros ? JSON.parse(req.body.filtros) : {})
+      : (req.body.filtros || {});
+  } catch (e) { filtros = {}; }
+
+  if (!nombre || !canal || !mensaje) {
+    return res.status(400).json({ error: 'Nombre, canal y mensaje son obligatorios.' });
+  }
+  if (canal === 'whatsapp') {
+    return res.status(400).json({ error: 'El canal WhatsApp no está disponible: Meta no permite campañas políticas en su API de negocios.' });
+  }
+  if (!['email', 'sms', 'email_personal', 'push'].includes(canal)) {
+    return res.status(400).json({ error: 'Canal no válido.' });
+  }
+  // PUSH SOLO LLEGA A QUIEN TIENE CUENTA EN LA APLICACIÓN.
+  // La suscripción cuelga de usuarios.id, así que un votante nunca puede
+  // recibirlo, y el organigrama tampoco: `organigrama_nodos` es una tabla
+  // aparte, sin cuenta asociada. Se rechaza antes de enviar en vez de
+  // dejar salir una campaña que reportaría a casi todos "sin contacto" —
+  // un envío vacío se nota tarde y parece un fallo del sistema.
+  if (canal === 'push') {
+    const grupos = Array.isArray(filtros) ? filtros : [filtros];
+    const origenes = grupos.map(g => (g && g.fuente) || 'ambos');
+    // 'seleccion' entra: es la pantalla "Aviso en la app", donde se eligen
+    // personas concretas una por una y la propia lista ya muestra quién
+    // puede recibirlo. Lo que se bloquea es disparar contra un PÚBLICO que
+    // en su mayoría no tiene cuenta, no elegir a alguien a dedo.
+    const validos = ['estructura', 'testigos', 'seleccion'];
+    if (!origenes.every(o => validos.includes(o))) {
+      return res.status(400).json({
+        error: 'Los avisos push solo llegan a quien tiene cuenta en la aplicación. Elija "Estructura" o "Testigos" como origen — los votantes y el organigrama no pueden recibirlos.'
+      });
+    }
+  }
+  if (esCanalDeCorreo(canal) && !asunto) {
+    return res.status(400).json({ error: 'El asunto es obligatorio para campañas de correo.' });
+  }
+  if (req.file) {
+    // multer ya lo escribió en disco antes de llegar aquí, así que hay que
+    // borrarlo: si no, cada intento rechazado deja basura en uploads/.
+    fs.unlink(path.join(UPLOAD_DIR, req.file.filename), () => {});
+    return res.status(400).json({ error: 'Las campañas ya no admiten archivos adjuntos.' });
+  }
+
+  // Antes de arrancar, confirma que el canal esté listo para usarse.
+  if (canal === 'sms') {
+    const estado = (await twilioSvc.estadoCanales())[canal];
+    if (!estado.configurado) {
+      return res.status(400).json({ error: estado.motivo || `El canal ${canal} todavía no está configurado.` });
+    }
+  }
+  if (canal === 'email') {
+    const estado = await sendgridSvc.estadoCanal();
+    if (!estado.configurado) {
+      return res.status(400).json({ error: estado.motivo });
+    }
+  }
+  if (canal === 'push') {
+    const estado = pushSvc.estadoCanal();
+    if (!estado.configurado) {
+      return res.status(400).json({ error: estado.motivo });
+    }
+  }
+
+  try {
+    const destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal);
+    if (destinatarios.length === 0) {
+      return res.status(400).json({ error: 'No hay destinatarios que coincidan con los filtros elegidos.' });
+    }
+
+    const adjuntoNombre = req.file ? req.file.filename : null;
+    const adjuntoUrl = req.file
+      ? `${req.protocol}://${req.get('host')}/api/comunicaciones/adjunto-publico/${req.file.filename}`
+      : null;
+    // Solo aplica a SMS — le pide a Twilio que avise a esta URL cada vez
+    // que el estado real de un mensaje cambie (por ejemplo, de "enviado"
+    // a "no entregado"), porque esa confirmación casi siempre llega más
+    // tarde de lo que se puede esperar en el momento del envío.
+    const statusCallbackUrl = canal === 'sms'
+      ? `${req.protocol}://${req.get('host')}/webhooks/twilio/estado-mensaje`
+      : null;
+
+    // Programación: si trae una fecha futura, la campaña nace en
+    // 'borrador' con esa fecha y NO se dispara ahora. La despacha
+    // despacharCampanasProgramadas() cuando llegue la hora.
+    //
+    // Una fecha ya pasada se ignora en vez de rechazarse: quien puso ayer
+    // por error quería enviar, no quería un error. Sale de una.
+    const programado = req.body.programado_para ? new Date(req.body.programado_para) : null;
+    const esProgramada = programado && !isNaN(programado) && programado.getTime() > Date.now();
+
+    const [result] = await pool.query(
+      `INSERT INTO comunicaciones_campanas (nombre, canal, asunto, mensaje, filtros, adjunto_nombre, adjunto_url, status_callback_url, estado, total_destinatarios, created_by, programado_para)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nombre, canal, esCanalDeCorreo(canal) ? asunto : null, mensaje, JSON.stringify(filtros || {}),
+       adjuntoNombre, adjuntoUrl, statusCallbackUrl,
+       esProgramada ? 'borrador' : 'enviando',
+       destinatarios.length, req.session.usuario.id,
+       esProgramada ? programado : null]
+    );
+    const campanaId = result.insertId;
+
+    // Se deja registrada de una vez la lista completa de a quién le falta
+    // enviar (en vez de solo tenerla en memoria) — así, si el proceso de
+    // Node se reinicia a la mitad, reanudarCampanasPendientes() (ver
+    // app.js) sabe exactamente qué falta sin depender de nada que solo
+    // vivía en esta petición HTTP.
+    const valoresEnvios = destinatarios.map(d => [
+      campanaId, d.tipo, d.id || null, d.nombre, d.contacto || null,
+      // La baja manda sobre todo lo demás: aunque tenga contacto, no se le
+      // intenta enviar. Queda como fila para que el reporte lo muestre.
+      d.dado_de_baja ? 'dado_de_baja' : (d.contacto ? 'pendiente' : 'sin_contacto')
+    ]);
+    await pool.query(
+      `INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto, estado) VALUES ?`,
+      [valoresEnvios]
+    );
+
+    res.json({
+      ok: true, campana_id: campanaId, total_destinatarios: destinatarios.length,
+      programada: esProgramada ? programado.toISOString() : null,
+    });
+
+    if (esProgramada) return;   // queda esperando su hora
+
+    // El envío sigue después de responder — así el navegador no se queda
+    // esperando varios minutos si hay muchos destinatarios.
+    procesarEnvioCampana(campanaId)
+      .catch(err => console.error(`Error procesando el envío de la campaña ${campanaId}:`, err));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error creando la campaña.' });
+  }
+});
+
+/**
+ * Despacha las campañas cuya hora ya llegó.
+ *
+ * Corre cada minuto y al arrancar. Es deliberadamente simple —una consulta
+ * y un UPDATE— pero el UPDATE hace de candado: solo despacha las que
+ * todavía están en 'borrador', y las pasa a 'enviando' ANTES de procesar.
+ * Si dos ciclos se solaparan (o hubiera dos procesos), el segundo no
+ * encontraría ninguna fila y no habría envíos dobles.
+ */
+async function despacharCampanasProgramadas() {
+  try {
+    const [pendientes] = await pool.query(
+      `SELECT id FROM comunicaciones_campanas
+        WHERE estado = 'borrador' AND programado_para IS NOT NULL AND programado_para <= NOW()`);
+    for (const c of pendientes) {
+      const [r] = await pool.query(
+        `UPDATE comunicaciones_campanas SET estado = 'enviando' WHERE id = ? AND estado = 'borrador'`, [c.id]);
+      if (!r.affectedRows) continue;   // otro ciclo se le adelantó
+      console.log(`Campaña programada ${c.id}: llegó su hora, se despacha.`);
+      procesarEnvioCampana(c.id)
+        .catch(err => console.error(`Error enviando la campaña programada ${c.id}:`, err));
+    }
+  } catch (err) {
+    console.error('Error revisando las campañas programadas:', err.message);
+  }
+}
+
+module.exports = router;
+module.exports.reanudarCampanasPendientes = reanudarCampanasPendientes;
+module.exports.despacharCampanasProgramadas = despacharCampanasProgramadas;

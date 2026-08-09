@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Mis registros · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* Progreso hacia la meta — lo primero que ve el líder al entrar. */
+  .progreso-card {
+    background: #fff; border: 1px solid var(--linea); border-radius: 14px;
+    padding: 16px; margin-bottom: 18px;
+  }
+  .progreso-card .cifras {
+    display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px;
+  }
+  .progreso-card .grande { font-size: 1.6rem; font-weight: 700; color: #0B5ED7; }
+  .progreso-card .meta { font-size: 0.86rem; color: var(--muted); }
+  .progreso-card .pct { font-size: 1rem; font-weight: 700; color: var(--navy); }
+  .barra-fondo { height: 12px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
+  .barra-relleno { height: 100%; background: #0B5ED7; border-radius: 999px; transition: width .3s ease; }
+
+  .buscador-app { position: relative; margin-bottom: 14px; }
+  .buscador-app input { width: 100%; }
+
+  /* Cada persona registrada. Botón, no <div>: se toca, y el teclado lo alcanza. */
+  .votante-item {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: #fff; border: 1px solid var(--linea); border-radius: 12px;
+    padding: 13px 14px; margin-bottom: 10px; font-family: inherit; cursor: pointer;
+  }
+  .votante-item:active { transform: scale(0.99); }
+  .votante-item .datos { flex: 1; min-width: 0; }
+  .votante-item .nombre {
+    display: block; font-size: 0.98rem; font-weight: 600; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .votante-item .tel { display: block; font-size: 0.84rem; color: var(--muted); margin-top: 2px; }
+  .votante-item .flecha { color: var(--copper); font-size: 1.2rem; }
+
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+
+  /* Ficha de contacto — se abre encima, sin cambiar de página. */
+  #ficha-overlay {
+    display: none; position: fixed; inset: 0; z-index: 900;
+    background: rgba(20,42,63,0.45); align-items: flex-end;
+  }
+  #ficha-overlay.abierto { display: flex; }
+  .ficha {
+    background: var(--cream); width: 100%; border-radius: 18px 18px 0 0;
+    padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+    max-height: 85vh; overflow-y: auto;
+  }
+  .ficha .nombre-ficha {
+    font-size: 1.25rem; font-weight: 700; color: #0B5ED7; margin: 0 0 6px;
+    overflow-wrap: anywhere;
+  }
+  .ficha .tel-ficha { font-size: 1rem; color: var(--ink); margin: 0 0 20px; }
+  .ficha .sin-tel { font-size: 0.9rem; color: var(--muted); font-style: italic; }
+  .ficha .acciones { display: flex; flex-direction: column; gap: 10px; }
+  .btn-whatsapp { background: #1e7a3d; color: #fff; text-decoration: none; }
+  .btn-llamar { background: var(--navy); color: #fff; text-decoration: none; }
+  .ficha .cerrar-ficha { margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<div class="app-contenido">
+  <div id="aviso" class="aviso-app"></div>
+
+  <div class="progreso-card" id="progreso-card" style="display:none;">
+    <div class="cifras">
+      <div>
+        <span class="grande" id="progreso-enviados">0</span>
+        <span class="meta" id="progreso-meta"></span>
+      </div>
+      <span class="pct" id="progreso-pct">0%</span>
+    </div>
+    <div class="barra-fondo"><div class="barra-relleno" id="progreso-barra" style="width:0%"></div></div>
+  </div>
+
+  <button type="button" class="btn-app btn-app-primario" id="btn-nuevo-registro" style="margin-bottom:18px;">
+    + Registrar una persona
+  </button>
+
+  <div class="buscador-app campo-app">
+    <input type="search" id="buscador" placeholder="Buscar por nombre, cédula o teléfono" autocomplete="off">
+  </div>
+
+  <div id="lista-votantes"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+
+  <button type="button" class="btn-app btn-app-secundario" id="btn-cargar-mas" style="display:none; margin-top:6px;">
+    Ver más
+  </button>
+</div>
+
+<div id="ficha-overlay">
+  <div class="ficha">
+    <p class="nombre-ficha" id="ficha-nombre"></p>
+    <p class="tel-ficha" id="ficha-telefono"></p>
+    <div class="acciones" id="ficha-acciones"></div>
+    <button type="button" class="btn-app btn-app-secundario cerrar-ficha" id="btn-cerrar-ficha">Cerrar</button>
+  </div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const POR_PAGINA = 25;
+let paginaActual = 1;
+let totalRegistros = 0;
+let terminoBusqueda = '';
+let cargando = false;
+
+function mostrarAviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto;
+  el.className = 'aviso-app visible ' + (tipo || 'error');
+}
+
+/** Progreso hacia la meta. Si a esta persona no le asignaron meta, la tarjeta simplemente no aparece. */
+async function cargarProgreso() {
+  try {
+    const p = await api('/dashboard/mi-progreso');
+    if (!p || !p.tieneMetaAsignada || !p.meta) return;
+    document.getElementById('progreso-enviados').textContent = p.enviados;
+    document.getElementById('progreso-meta').textContent = ` de ${p.meta} registros`;
+    document.getElementById('progreso-pct').textContent = `${p.porcentaje}%`;
+    document.getElementById('progreso-barra').style.width = `${p.porcentaje}%`;
+    document.getElementById('progreso-card').style.display = 'block';
+  } catch (err) {
+    // Sin progreso la pantalla sigue sirviendo: no vale la pena molestar.
+  }
+}
+
+/**
+ * Trae los registros de esta persona. No hay que pasar lider_id: el
+ * servidor ya acota el listado a quien consulta cuando no es
+ * admin/coordinador (ver calcularAlcance en middleware/auth.js).
+ */
+async function cargarVotantes(reiniciar) {
+  if (cargando) return;
+  cargando = true;
+  if (reiniciar) { paginaActual = 1; document.getElementById('lista-votantes').innerHTML = ''; }
+
+  try {
+    const params = new URLSearchParams({ page: paginaActual, limit: POR_PAGINA });
+    if (terminoBusqueda) params.set('q', terminoBusqueda);
+    const r = await api(`/votantes?${params.toString()}`);
+    totalRegistros = r.total;
+    pintarVotantes(r.data, reiniciar);
+  } catch (err) {
+    mostrarAviso(err.esErrorDeRed
+      ? 'Sin conexión. Vuelve a intentar cuando tengas señal.'
+      : 'No se pudo cargar la lista: ' + err.message, 'error');
+  } finally {
+    cargando = false;
+  }
+}
+
+function pintarVotantes(filas, reiniciar) {
+  const lista = document.getElementById('lista-votantes');
+  const vacio = document.getElementById('vacio');
+
+  if (reiniciar && !filas.length) {
+    vacio.textContent = terminoBusqueda
+      ? 'Ninguna persona coincide con esa búsqueda.'
+      : 'Todavía no has registrado a nadie. Usa el botón de arriba para empezar.';
+    vacio.style.display = 'block';
+    document.getElementById('btn-cargar-mas').style.display = 'none';
+    return;
+  }
+  vacio.style.display = 'none';
+
+  lista.insertAdjacentHTML('beforeend', filas.map(v => `
+    <button type="button" class="votante-item"
+            data-nombre="${escaparAppHtml(v.nombre)}"
+            data-telefono="${escaparAppHtml(v.telefono || '')}">
+      <div class="datos">
+        <span class="nombre">${escaparAppHtml(v.nombre)}</span>
+        <span class="tel">${v.telefono ? escaparAppHtml(formatoTelefonoColombia(v.telefono)) : 'Sin teléfono'}</span>
+      </div>
+      <span class="flecha" aria-hidden="true">›</span>
+    </button>
+  `).join(''));
+
+  // Quedan más si lo que ya está pintado no llega al total.
+  const pintados = lista.querySelectorAll('.votante-item').length;
+  document.getElementById('btn-cargar-mas').style.display = pintados < totalRegistros ? 'block' : 'none';
+}
+
+/** Solo dígitos: WhatsApp y el marcador del teléfono no entienden espacios ni guiones. */
+function soloDigitos(telefono) {
+  return String(telefono || '').replace(/\D/g, '');
+}
+
+function abrirFicha(nombre, telefono) {
+  document.getElementById('ficha-nombre').textContent = nombre;
+  const elTel = document.getElementById('ficha-telefono');
+  const acciones = document.getElementById('ficha-acciones');
+  const digitos = soloDigitos(telefono);
+
+  if (digitos) {
+    elTel.textContent = formatoTelefonoColombia(telefono);
+    elTel.classList.remove('sin-tel');
+    // El 57 es el indicativo de Colombia; se agrega solo si no viene ya.
+    const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+    acciones.innerHTML = `
+      <a class="btn-app btn-whatsapp" href="https://wa.me/${internacional}" target="_blank" rel="noopener">Escribir por WhatsApp</a>
+      <a class="btn-app btn-llamar" href="tel:+${internacional}">Llamar</a>
+    `;
+  } else {
+    elTel.textContent = 'Esta persona no tiene teléfono registrado.';
+    elTel.classList.add('sin-tel');
+    acciones.innerHTML = '';
+  }
+  document.getElementById('ficha-overlay').classList.add('abierto');
+}
+
+document.getElementById('lista-votantes').addEventListener('click', (e) => {
+  const item = e.target.closest('.votante-item');
+  if (!item) return;
+  abrirFicha(item.dataset.nombre, item.dataset.telefono);
+});
+
+document.getElementById('btn-cerrar-ficha').addEventListener('click', () =>
+  document.getElementById('ficha-overlay').classList.remove('abierto'));
+
+// Tocar por fuera de la ficha también la cierra — es lo que espera cualquiera en un celular.
+document.getElementById('ficha-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'ficha-overlay') e.currentTarget.classList.remove('abierto');
+});
+
+document.getElementById('btn-cargar-mas').addEventListener('click', () => {
+  paginaActual++;
+  cargarVotantes(false);
+});
+
+document.getElementById('btn-nuevo-registro').addEventListener('click', () => {
+  window.location.href = '/app/registro-votante.html';
+});
+
+// Se espera a que deje de escribir: si no, cada letra dispara una consulta.
+let temporizadorBusqueda = null;
+document.getElementById('buscador').addEventListener('input', (e) => {
+  clearTimeout(temporizadorBusqueda);
+  terminoBusqueda = e.target.value.trim();
+  temporizadorBusqueda = setTimeout(() => cargarVotantes(true), 350);
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Mis registros', 'Personas que has registrado', '/app/inicio.html');
+  await cargarProgreso();
+  await cargarVotantes(true);
+})();
+</script>
+</body>
+</html>

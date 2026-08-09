@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contenido · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  #contenido-vista {
+    white-space: pre-wrap; line-height: 1.6; font-size: 1rem;
+  }
+  #foto-vista { max-width: 320px; border-radius: 10px; margin-bottom: 16px; display: block; }
+  #video-vista { max-width: 100%; border-radius: 10px; margin-bottom: 16px; display: block; }
+
+  /* ================= Biografía del candidato — vista pública ================= */
+  :root {
+    --bio-navy: #142a3f;
+    --bio-navy-2: #204264;
+    --bio-cream: #f8f3e9;
+    --bio-copper: #bf5e1f;
+    --bio-ink: #241f19;
+    --bio-muted: #6c6255;
+    --bio-line: #ddd0b8;
+  }
+  #bio-vista { display: none; }
+  .bio-lienzo {
+    background: var(--bio-cream);
+    border: 1px solid var(--bio-line);
+    border-radius: 18px;
+    overflow: hidden;
+    color: var(--bio-ink);
+  }
+  .bio-hero {
+    position: relative;
+    background: #0E2841;
+    padding: 46px 40px 40px;
+    display: flex;
+    align-items: flex-end;
+    gap: 34px;
+    flex-wrap: wrap;
+    overflow: hidden;
+  }
+  .bio-hero::before {
+    /* la "banda" — un guiño a la banda presidencial/candidatura, sin ser literal */
+    content: '';
+    position: absolute; top: -20%; right: 8%;
+    width: 130px; height: 160%;
+    background: var(--bio-copper);
+    opacity: 0.16;
+    transform: rotate(18deg);
+  }
+  .bio-marco-foto {
+    position: relative;
+    width: 168px; height: 168px;
+    flex-shrink: 0;
+    border-radius: 16px;
+    background: var(--bio-cream);
+    padding: 6px;
+    box-shadow: 0 18px 38px rgba(0,0,0,0.28);
+    opacity: 0;
+    transform: translateY(14px);
+    animation: bioSubir 0.7s 0.05s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  .bio-marco-foto img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 11px; display: block;
+  }
+  .bio-marco-foto .bio-sin-foto {
+    width: 100%; height: 100%; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bio-navy-2); color: rgba(255,255,255,0.5);
+    font-family: 'Fraunces', serif; font-size: 2.4rem;
+  }
+  .bio-hero-texto { flex: 1; min-width: 240px; position: relative; z-index: 1; }
+  .bio-eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: rgba(248,243,233,0.92); margin: 0 0 8px;
+    opacity: 0; animation: bioAparecer 0.6s 0.1s forwards;
+  }
+  .bio-nombre {
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: clamp(2rem, 5vw, 3.1rem);
+    line-height: 1.05; color: #FFF212; margin: 0 0 14px;
+    opacity: 0; transform: translateY(10px); animation: bioSubir 0.7s 0.18s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  .bio-regla {
+    width: 64px; height: 3px; background: var(--bio-copper); border-radius: 2px;
+    opacity: 0; animation: bioAparecer 0.6s 0.4s forwards;
+  }
+  @keyframes bioSubir { to { opacity: 1; transform: translateY(0); } }
+  @keyframes bioAparecer { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .bio-marco-foto, .bio-nombre, .bio-eyebrow, .bio-regla { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+
+  .bio-cuerpo { padding: 40px 44px 8px; }
+  .bio-prosa p {
+    font-family: 'Inter', sans-serif; font-size: 1.05rem; line-height: 1.75;
+    color: var(--bio-ink); max-width: 66ch; margin: 0 0 20px;
+  }
+  .bio-prosa p:first-of-type {
+    font-family: 'Fraunces', serif; font-size: 1.28rem; font-weight: 500;
+    line-height: 1.5; color: var(--bio-navy);
+  }
+  .bio-prosa p:first-of-type::first-letter {
+    font-size: 3.1rem; font-weight: 600; color: var(--bio-copper);
+    float: left; line-height: 0.8; padding: 6px 8px 0 0;
+  }
+
+  .bio-video-seccion { padding: 4px 44px 44px; }
+  .bio-video-seccion .bio-eyebrow { color: var(--bio-muted); }
+  .bio-video-marco {
+    border: 1px solid var(--bio-line); border-radius: 12px; overflow: hidden;
+    background: #000; box-shadow: 0 10px 26px rgba(20,42,63,0.14);
+  }
+  .bio-video-marco video { width: 100%; display: block; max-height: 480px; }
+
+  .bio-vacio {
+    padding: 60px 44px; text-align: center; color: var(--bio-muted);
+    font-family: 'Fraunces', serif; font-size: 1.1rem;
+  }
+
+  @media (max-width: 640px) {
+    .bio-hero { padding: 32px 22px 28px; }
+    .bio-cuerpo { padding: 28px 22px 4px; }
+    .bio-video-seccion { padding: 4px 22px 32px; }
+    .bio-marco-foto { width: 128px; height: 128px; }
+  }
+
+  /* ================= Política de privacidad — vista pública ================= */
+  /* Mismo estilo de marca de Biografía (navy/copper/cream) pero con un
+     tratamiento de "documento institucional": encabezado más sobrio, tabla
+     de contenido con anclas, y secciones numeradas — porque acá sí
+     corresponde esa estructura de artículo legal, a diferencia de
+     Biografía (que es un texto editorial de campaña). */
+  #politica-vista { display: none; }
+  .politica-documento {
+    background: #fff; border: 1px solid var(--bio-line); border-radius: 14px;
+    overflow: hidden; color: var(--bio-ink);
+  }
+  .politica-encabezado {
+    background: #0E2841;
+    color: #fdfaf3; padding: 34px 40px; display: flex; gap: 20px; align-items: center;
+  }
+  .politica-sello {
+    width: 54px; height: 54px; border-radius: 50%; border: 2px solid var(--bio-copper);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    font-family: 'Fraunces', serif; font-size: 1.6rem; color: var(--bio-copper);
+  }
+  .politica-eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: rgba(248,243,233,0.92); margin: 0 0 4px;
+  }
+  .politica-titulo {
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+    margin: 0 0 4px; color: #FFF212;
+  }
+  .politica-fecha { font-size: 0.82rem; color: rgba(248,243,233,0.75); margin: 0; }
+  .politica-aviso {
+    margin: 22px 40px 0; padding: 14px 18px; background: #fbf1e4;
+    border: 1px solid var(--bio-copper); border-left: 4px solid var(--bio-copper);
+    border-radius: 8px; font-size: 0.88rem; line-height: 1.55; color: var(--bio-ink);
+  }
+  .politica-cuerpo-grid { display: grid; grid-template-columns: 230px 1fr; gap: 36px; padding: 32px 40px 44px; }
+  .politica-toc { position: sticky; top: 16px; align-self: start; border-right: 1px solid var(--bio-line); padding-right: 20px; }
+  .politica-toc-titulo {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--bio-muted); margin: 0 0 10px;
+  }
+  .politica-toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .politica-toc li a {
+    display: block; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem;
+    color: var(--bio-ink); text-decoration: none; line-height: 1.35;
+  }
+  .politica-toc li a:hover { background: var(--bio-cream); color: var(--bio-copper); }
+  .politica-seccion { padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px solid var(--bio-line); scroll-margin-top: 16px; }
+  .politica-seccion:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .politica-seccion h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.18rem; color: var(--bio-navy); margin: 0 0 12px; }
+  .politica-seccion p, .politica-seccion li { font-family: 'Inter', sans-serif; font-size: 0.98rem; line-height: 1.7; color: var(--bio-ink); margin: 0 0 12px; }
+  .politica-seccion ul { padding-left: 20px; margin: 0 0 12px; }
+  .politica-seccion strong { color: var(--bio-navy); }
+
+  @media (max-width: 760px) {
+    .politica-encabezado { padding: 26px 22px; flex-wrap: wrap; }
+    .politica-aviso { margin: 18px 22px 0; }
+    .politica-cuerpo-grid { grid-template-columns: 1fr; padding: 24px 22px 32px; }
+    .politica-toc { position: static; border-right: none; border-bottom: 1px solid var(--bio-line); padding-right: 0; padding-bottom: 14px; margin-bottom: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Comunicaciones</div><h1 id="titulo-pagina">Contenido</h1></div>
+      <button type="button" class="btn-secundario btn-sm" id="btn-editar-contenido" style="display:none;">✎ Editar</button>
+    </div>
+
+    <div class="card" id="card-vista">
+      <img id="foto-vista" style="display:none;" alt="Foto">
+      <video id="video-vista" style="display:none;" controls></video>
+      <div id="contenido-vista"></div>
+      <div id="contenido-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📄</div>Todavía no se ha escrito nada aquí.</div>
+    </div>
+
+    <div id="bio-vista">
+      <div class="bio-lienzo">
+        <div class="bio-hero">
+          <div class="bio-marco-foto">
+            <img id="bio-foto" style="display:none;" alt="">
+            <div id="bio-sin-foto" class="bio-sin-foto">?</div>
+          </div>
+          <div class="bio-hero-texto">
+            <p class="bio-eyebrow">Biografía del candidato</p>
+            <h1 id="bio-nombre" class="bio-nombre"></h1>
+            <div class="bio-regla"></div>
+          </div>
+        </div>
+        <div class="bio-cuerpo">
+          <div id="bio-prosa" class="bio-prosa"></div>
+          <div id="bio-vacio" class="bio-vacio" style="display:none;">Todavía no se ha escrito la biografía.</div>
+        </div>
+        <div id="bio-video-seccion" class="bio-video-seccion" style="display:none;">
+          <p class="bio-eyebrow">Mensaje en video</p>
+          <div class="bio-video-marco">
+            <video id="bio-video" controls></video>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="politica-vista">
+      <div class="politica-documento">
+        <div class="politica-encabezado">
+          <div class="politica-sello">§</div>
+          <div>
+            <p class="politica-eyebrow">Documento legal</p>
+            <h1 id="politica-titulo" class="politica-titulo"></h1>
+            <p class="politica-fecha" id="politica-fecha"></p>
+          </div>
+        </div>
+        <div id="politica-aviso" class="politica-aviso" style="display:none;"></div>
+        <div class="politica-cuerpo-grid">
+          <nav class="politica-toc" id="politica-toc" style="display:none;">
+            <p class="politica-toc-titulo">Contenido</p>
+            <ol id="politica-toc-lista"></ol>
+          </nav>
+          <div class="politica-secciones" id="politica-secciones"></div>
+        </div>
+      </div>
+      <div id="politica-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📄</div>Todavía no se ha escrito la política de privacidad.</div>
+    </div>
+
+    <div class="card" id="card-editar" style="display:none;">
+      <div class="campo"><label>Título</label><input id="input-titulo-contenido"></div>
+
+      <div class="fila" id="fila-foto-video" style="display:none;">
+        <div class="campo">
+          <label>Foto</label>
+          <img id="foto-preview-editar" style="display:none; max-width:160px; border-radius:8px; margin-bottom:8px;" alt="Foto actual">
+          <input type="file" id="input-archivo-foto" accept="image/*">
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="btn-secundario btn-sm" id="btn-subir-foto">Subir foto</button>
+            <button type="button" class="btn-secundario btn-sm" id="btn-quitar-foto" style="display:none; color:#A93226; border-color:#A93226;">Quitar foto</button>
+          </div>
+          <small style="color:var(--color-text-muted); font-size:0.75rem;">Máximo 8 MB.</small>
+        </div>
+        <div class="campo">
+          <label>Video</label>
+          <video id="video-preview-editar" style="display:none; max-width:100%; border-radius:8px; margin-bottom:8px;" controls></video>
+          <input type="file" id="input-archivo-video" accept="video/*">
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="btn-secundario btn-sm" id="btn-subir-video">Subir video</button>
+            <button type="button" class="btn-secundario btn-sm" id="btn-quitar-video" style="display:none; color:#A93226; border-color:#A93226;">Quitar video</button>
+          </div>
+          <small style="color:var(--color-text-muted); font-size:0.75rem;">Máximo 100 MB.</small>
+        </div>
+      </div>
+      <div id="foto-video-estado" style="font-size:0.82rem; color:var(--color-text-muted); margin-bottom:10px;"></div>
+
+      <div class="campo">
+        <label>Contenido</label>
+        <textarea id="input-texto-contenido" rows="18" placeholder="Escribe aquí el contenido..."></textarea>
+      </div>
+      <div id="contenido-error" class="mensaje-error"></div>
+      <div id="contenido-ok" class="mensaje-ok"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-primario" id="btn-guardar-contenido">Guardar</button>
+        <button type="button" class="btn-secundario" id="btn-cancelar-edicion">Cancelar</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+const clave = new URLSearchParams(window.location.search).get('clave') || '';
+const rutaConQuery = `/contenido.html?clave=${clave}`;
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
+
+const PERMITE_FOTO_VIDEO = ['biografia_candidato']; // solo estas páginas tienen espacio de foto/video
+const ES_BIOGRAFIA = clave === 'biografia_candidato';
+const ES_POLITICA = clave === 'politica_privacidad';
+
+/** Divide el texto en párrafos (separados por línea en blanco) y los envuelve en <p>, escapando cada uno. */
+function parrafosHtml(texto) {
+  return texto
+    .split(/\n{2,}/)
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => `<p>${escaparHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+/**
+ * Divide el texto de la Política de privacidad en el aviso inicial (todo
+ * lo que va ANTES de la primera línea "## ") y una lista de secciones
+ * (cada línea "## Título" abre una sección nueva, con su cuerpo hasta la
+ * siguiente "## " o el final del texto). Este mismo formato es el que
+ * siembra `db/init-db.js` por defecto, y el que se espera si el admin
+ * edita el texto a mano desde el formulario simple.
+ */
+function parsearSeccionesPolitica(texto) {
+  const lineas = (texto || '').split('\n');
+  let aviso = [];
+  const secciones = [];
+  let actual = null;
+  for (const linea of lineas) {
+    const m = linea.match(/^##\s+(.+?)\s*$/);
+    if (m) {
+      actual = { titulo: m[1], lineas: [] };
+      secciones.push(actual);
+    } else if (actual) {
+      actual.lineas.push(linea);
+    } else {
+      aviso.push(linea);
+    }
+  }
+  return {
+    aviso: aviso.join('\n').trim(),
+    secciones: secciones.map(s => ({ titulo: s.titulo, cuerpo: s.lineas.join('\n').trim() }))
+  };
+}
+
+/** Igual que escaparHtml, pero después convierte **negrita** en <strong> (el texto ya escapado, así que es seguro). */
+function textoConNegritaEscapado(texto) {
+  return escaparHtml(texto).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+/**
+ * Convierte el cuerpo de una sección (texto plano con posibles listas
+ * "- item" y párrafos separados por línea en blanco) en HTML — un
+ * intérprete deliberadamente simple, no un parser de Markdown completo,
+ * ya que el texto de origen siempre lo escribe un admin desde el
+ * formulario de edición de esta misma página.
+ */
+function cuerpoSeccionHtml(texto) {
+  const bloques = texto.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  return bloques.map(bloque => {
+    const lineasBloque = bloque.split('\n').map(l => l.trim()).filter(Boolean);
+    const esLista = lineasBloque.length > 0 && lineasBloque.every(l => l.startsWith('- '));
+    if (esLista) {
+      return `<ul>${lineasBloque.map(l => `<li>${textoConNegritaEscapado(l.slice(2))}</li>`).join('')}</ul>`;
+    }
+    return `<p>${textoConNegritaEscapado(bloque).replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+}
+
+function renderizarVistaPolitica(c) {
+  document.getElementById('politica-titulo').textContent = c.titulo || 'Política de privacidad';
+  const fechaBox = document.getElementById('politica-fecha');
+  fechaBox.textContent = c.updated_at
+    ? `Última actualización: ${new Date(c.updated_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}`
+    : '';
+
+  const documento = document.querySelector('.politica-documento');
+  const vacio = document.getElementById('politica-vacio');
+  if (!c.contenido || !c.contenido.trim()) {
+    documento.style.display = 'none';
+    vacio.style.display = 'block';
+    return;
+  }
+  documento.style.display = 'block';
+  vacio.style.display = 'none';
+
+  const { aviso, secciones } = parsearSeccionesPolitica(c.contenido);
+
+  const avisoBox = document.getElementById('politica-aviso');
+  if (aviso) {
+    avisoBox.style.display = 'block';
+    avisoBox.innerHTML = `⚠️ ${textoConNegritaEscapado(aviso).replace(/\n/g, '<br>')}`;
+  } else {
+    avisoBox.style.display = 'none';
+  }
+
+  const tocBox = document.getElementById('politica-toc');
+  const tocLista = document.getElementById('politica-toc-lista');
+  const seccionesBox = document.getElementById('politica-secciones');
+  if (secciones.length) {
+    tocBox.style.display = 'block';
+    tocLista.innerHTML = secciones.map((s, i) => `<li><a href="#politica-seccion-${i}">${escaparHtml(s.titulo)}</a></li>`).join('');
+    seccionesBox.innerHTML = secciones.map((s, i) => `
+      <div class="politica-seccion" id="politica-seccion-${i}">
+        <h2>${escaparHtml(s.titulo)}</h2>
+        ${cuerpoSeccionHtml(s.cuerpo)}
+      </div>
+    `).join('');
+  } else {
+    tocBox.style.display = 'none';
+    // Si el admin borró todos los "## " y dejó solo texto corrido, se
+    // muestra igual como párrafos simples, para no dejar la página vacía.
+    seccionesBox.innerHTML = parrafosHtml(c.contenido);
+  }
+}
+
+function renderizarVistaBio(c, nombreCandidato) {
+  // Si todavía no se ha llenado "Nombre del candidato" en Configuración,
+  // se usa el Título propio de esta página como respaldo, para no dejar
+  // el encabezado vacío.
+  const nombreMostrado = (nombreCandidato && nombreCandidato.trim()) || c.titulo || 'Biografía del candidato';
+  document.getElementById('bio-nombre').textContent = nombreMostrado;
+
+  const foto = document.getElementById('bio-foto');
+  const sinFoto = document.getElementById('bio-sin-foto');
+  if (c.foto_url) {
+    foto.src = c.foto_url;
+    foto.style.display = 'block';
+    sinFoto.style.display = 'none';
+  } else {
+    foto.style.display = 'none';
+    sinFoto.style.display = 'flex';
+    sinFoto.textContent = nombreMostrado.trim().charAt(0).toUpperCase();
+  }
+
+  const prosa = document.getElementById('bio-prosa');
+  const vacio = document.getElementById('bio-vacio');
+  if (c.contenido && c.contenido.trim()) {
+    prosa.style.display = 'block';
+    vacio.style.display = 'none';
+    prosa.innerHTML = parrafosHtml(c.contenido);
+  } else {
+    prosa.style.display = 'none';
+    vacio.style.display = 'block';
+  }
+
+  const seccionVideo = document.getElementById('bio-video-seccion');
+  if (c.video_url) {
+    document.getElementById('bio-video').src = c.video_url;
+    seccionVideo.style.display = 'block';
+  } else {
+    seccionVideo.style.display = 'none';
+  }
+}
+
+async function cargarContenido() {
+  const c = await api(`/contenido/${clave}`);
+  document.getElementById('titulo-pagina').textContent = c.titulo || 'Contenido';
+  document.title = `${c.titulo || 'Contenido'} · Administración de Campaña`;
+
+  if (ES_BIOGRAFIA) {
+    document.getElementById('card-vista').style.display = 'none';
+    document.getElementById('politica-vista').style.display = 'none';
+    document.getElementById('bio-vista').style.display = 'block';
+    // El nombre que se muestra en Biografía es el "Nombre del candidato"
+    // de Configuración → Datos de la campaña — no el "Título" propio de
+    // esta página de contenido, para que siempre queden sincronizados.
+    let nombreCandidato = '';
+    try {
+      const config = await api('/configuracion/campana');
+      nombreCandidato = (config.nombre_candidato || '').trim();
+    } catch (err) {
+      console.error('No se pudo traer el nombre del candidato desde Configuración:', err);
+    }
+    renderizarVistaBio(c, nombreCandidato);
+  } else if (ES_POLITICA) {
+    document.getElementById('card-vista').style.display = 'none';
+    document.getElementById('bio-vista').style.display = 'none';
+    document.getElementById('politica-vista').style.display = 'block';
+    renderizarVistaPolitica(c);
+  } else {
+    document.getElementById('bio-vista').style.display = 'none';
+    document.getElementById('politica-vista').style.display = 'none';
+    const vista = document.getElementById('contenido-vista');
+    const vacio = document.getElementById('contenido-vacio');
+    if (c.contenido && c.contenido.trim()) {
+      vista.style.display = 'block';
+      vacio.style.display = 'none';
+      vista.innerHTML = escaparHtml(c.contenido);
+    } else {
+      vista.style.display = 'none';
+      vacio.style.display = 'block';
+    }
+    // Foto y Video del modo genérico — hoy en día solo Biografía las usa,
+    // pero se deja funcionando por si alguna otra página las llega a necesitar.
+    const fotoVista = document.getElementById('foto-vista');
+    const videoVista = document.getElementById('video-vista');
+    if (c.foto_url) { fotoVista.src = c.foto_url; fotoVista.style.display = 'block'; } else { fotoVista.style.display = 'none'; }
+    if (c.video_url) { videoVista.src = c.video_url; videoVista.style.display = 'block'; } else { videoVista.style.display = 'none'; }
+  }
+
+  document.getElementById('input-titulo-contenido').value = c.titulo || '';
+  document.getElementById('input-texto-contenido').value = c.contenido || '';
+
+  // Foto y Video — sección de edición (solo en las páginas que lo permiten).
+  if (PERMITE_FOTO_VIDEO.includes(clave)) {
+    document.getElementById('fila-foto-video').style.display = 'flex';
+    const fotoPreview = document.getElementById('foto-preview-editar');
+    const videoPreview = document.getElementById('video-preview-editar');
+    if (c.foto_url) {
+      fotoPreview.src = c.foto_url;
+      fotoPreview.style.display = 'block';
+      document.getElementById('btn-quitar-foto').style.display = 'inline-block';
+    } else {
+      fotoPreview.style.display = 'none';
+      document.getElementById('btn-quitar-foto').style.display = 'none';
+    }
+    if (c.video_url) {
+      videoPreview.src = c.video_url;
+      videoPreview.style.display = 'block';
+      document.getElementById('btn-quitar-video').style.display = 'inline-block';
+    } else {
+      videoPreview.style.display = 'none';
+      document.getElementById('btn-quitar-video').style.display = 'none';
+    }
+  }
+}
+
+function mostrarEdicion(mostrar) {
+  document.getElementById('card-vista').style.display = (mostrar || ES_BIOGRAFIA || ES_POLITICA) ? 'none' : 'block';
+  document.getElementById('bio-vista').style.display = (mostrar || !ES_BIOGRAFIA) ? 'none' : 'block';
+  document.getElementById('politica-vista').style.display = (mostrar || !ES_POLITICA) ? 'none' : 'block';
+  document.getElementById('card-editar').style.display = mostrar ? 'block' : 'none';
+  document.getElementById('contenido-error').classList.remove('visible');
+  document.getElementById('contenido-ok').classList.remove('visible');
+}
+
+document.getElementById('btn-subir-foto').addEventListener('click', async () => {
+  const input = document.getElementById('input-archivo-foto');
+  const estado = document.getElementById('foto-video-estado');
+  if (!input.files[0]) {
+    estado.textContent = 'Elige primero un archivo de foto.';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('foto', input.files[0]);
+  estado.textContent = 'Subiendo foto...';
+  try {
+    await api(`/contenido/${clave}/foto`, { method: 'POST', body: formData });
+    estado.textContent = 'Foto guardada.';
+    input.value = '';
+    await cargarContenido();
+  } catch (err) {
+    estado.textContent = err.message;
+  }
+});
+
+document.getElementById('btn-quitar-foto').addEventListener('click', async () => {
+  if (!confirm('¿Quitar la foto actual?')) return;
+  try {
+    await api(`/contenido/${clave}/foto`, { method: 'DELETE' });
+    await cargarContenido();
+  } catch (err) {
+    document.getElementById('foto-video-estado').textContent = err.message;
+  }
+});
+
+document.getElementById('btn-subir-video').addEventListener('click', async () => {
+  const input = document.getElementById('input-archivo-video');
+  const estado = document.getElementById('foto-video-estado');
+  if (!input.files[0]) {
+    estado.textContent = 'Elige primero un archivo de video.';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('video', input.files[0]);
+  estado.textContent = 'Subiendo video... esto puede tardar según el tamaño del archivo, no cierres esta pestaña.';
+  try {
+    await api(`/contenido/${clave}/video`, { method: 'POST', body: formData });
+    estado.textContent = 'Video guardado.';
+    input.value = '';
+    await cargarContenido();
+  } catch (err) {
+    estado.textContent = err.message;
+  }
+});
+
+document.getElementById('btn-quitar-video').addEventListener('click', async () => {
+  if (!confirm('¿Quitar el video actual?')) return;
+  try {
+    await api(`/contenido/${clave}/video`, { method: 'DELETE' });
+    await cargarContenido();
+  } catch (err) {
+    document.getElementById('foto-video-estado').textContent = err.message;
+  }
+});
+
+document.getElementById('btn-editar-contenido').addEventListener('click', () => mostrarEdicion(true));
+document.getElementById('btn-cancelar-edicion').addEventListener('click', async () => {
+  mostrarEdicion(false);
+  await cargarContenido();
+});
+
+document.getElementById('btn-guardar-contenido').addEventListener('click', async () => {
+  const errorBox = document.getElementById('contenido-error');
+  const okBox = document.getElementById('contenido-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+  try {
+    await api(`/contenido/${clave}`, {
+      method: 'PUT',
+      body: {
+        titulo: document.getElementById('input-titulo-contenido').value,
+        contenido: document.getElementById('input-texto-contenido').value
+      }
+    });
+    okBox.textContent = 'Guardado correctamente.';
+    okBox.classList.add('visible');
+    await cargarContenido();
+    setTimeout(() => mostrarEdicion(false), 700);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  if (!clave) {
+    document.getElementById('titulo-pagina').textContent = 'Página no válida';
+    return;
+  }
+  usuarioActual = await inicializarLayout(rutaConQuery);
+  if (!usuarioActual) return;
+  if (['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-editar-contenido').style.display = 'inline-block';
+  }
+  await cargarContenido();
+})();
+</script>
+</body>
+</html>

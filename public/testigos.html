@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testigos electorales · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Jornada electoral</div><h1>Testigos electorales</h1></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn-secundario btn-sm btn-excel-app" href="/api/territorial/testigos/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+        <label class="btn-secundario btn-sm btn-excel-app"
+               title="Para actualizar testigos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un testigo nuevo.">
+          ⬆ Importar desde Excel
+          <input type="file" id="input-importar-testigos" accept=".xlsx,.xls" style="display:none;">
+        </label>
+        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-testigos" style="display:none; color:#A93226; border-color:#A93226;">🗑 Eliminar todos</button>
+      </div>
+    </div>
+
+    <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:0.85rem;"></div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="toolbar-filtros">
+          <input type="text" id="filtro-busqueda-testigo" placeholder="Buscar por nombre, cédula o teléfono...">
+          <select id="filtro-puesto-testigo">
+            <option value="">Todos los puestos</option>
+          </select>
+          <select id="filtro-tipo-testigo">
+            <option value="">Todos los tipos</option>
+            <option value="mesa">Testigo electoral</option>
+            <option value="puesto">Coordinador de puesto</option>
+          </select>
+          <select id="filtro-activo-testigo">
+            <option value="">Todos</option>
+            <option value="1">Activos</option>
+            <option value="0">Inactivos</option>
+          </select>
+          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-testigo">Quitar filtros</button>
+        </div>
+        <div class="mono" id="contador-testigos" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
+      </div>
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Número de identificación</th><th>Teléfono</th><th>Puesto de votación</th><th>Mesa</th><th>Activo</th><th></th></tr></thead>
+          <tbody id="tbody-testigos"></tbody>
+        </table>
+      </div>
+      <div id="vacio-testigos" class="vacio" style="display:none;"><div class="icono-vacio">●</div>No se encontraron testigos con los filtros actuales.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form-testigo">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modal-testigo-titulo">Registrar testigo electoral</h3><button class="modal-cerrar" id="cerrar-modal-testigo">×</button></div>
+    <div id="form-testigo-error" class="mensaje-error"></div>
+    <div id="form-testigo-ok" class="mensaje-ok"></div>
+    <form id="form-testigo">
+      <div class="campo">
+        <label>Número de identificación</label>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off" style="flex:1;">
+          <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion-testigo" style="display:none; white-space:nowrap;">🗳️ Consultar lugar de votación</button>
+        </div>
+        <small id="numero-testigo-estado" style="font-size:0.75rem;"></small>
+        <small id="nota-copiar-lugar-votacion-testigo" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio y Mesa. El Puesto lo seleccionas de la lista (compáralo con el nombre y la dirección que te muestre la ventana).</small>
+      </div>
+      <div class="campo"><label>Nombre completo</label><input name="nombre" required></div>
+      <div class="fila">
+        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" name="email"></div>
+      </div>
+
+      <div class="campo encabezado-form">Tipo</div>
+      <div class="campo">
+        <div style="display:flex; gap:22px; align-items:center; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="radio" name="tipo_testigo" value="mesa" checked style="width:auto;"> Testigo electoral
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="radio" name="tipo_testigo" value="puesto" style="width:auto;"> Coordinador de puesto
+          </label>
+        </div>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:2px;">El Testigo electoral vigila una sola mesa. El Coordinador de puesto puede reportar varias mesas del mismo puesto de votación.</small>
+      </div>
+
+      <div class="campo encabezado-form">Puesto de votación</div>
+      <p style="color:var(--color-text-muted); font-size:0.82rem; margin:-2px 0 10px;">El propio testigo también puede completar o corregir esto el día de elecciones, desde Día D.</p>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento_votacion" id="input-departamento-votacion-testigo" list="lista-departamentos-votacion-testigo" autocomplete="off">
+          <datalist id="lista-departamentos-votacion-testigo"></datalist>
+        </div>
+        <div class="campo">
+          <label>Municipio</label>
+          <input name="municipio_votacion" id="input-municipio-votacion-testigo" list="lista-municipios-votacion-testigo" autocomplete="off">
+          <datalist id="lista-municipios-votacion-testigo"></datalist>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Puesto</label>
+          <select name="puesto_votacion" id="input-puesto-votacion-testigo">
+            <option value="">Seleccione...</option>
+          </select>
+        </div>
+        <div class="campo" id="campo-mesa-testigo">
+          <label>Mesa</label>
+          <select name="mesa_votacion" id="input-mesa-votacion-testigo">
+            <option value="">Seleccione un puesto primero...</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo" id="campo-mesas-multiples-testigo" style="display:none;">
+        <label>Mesas que cubre</label>
+        <div id="casillas-mesas-testigo" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+      </div>
+
+      <div class="campo" id="campo-activo-testigo" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" name="activo" checked style="width:auto;"> Persona activa
+        </label>
+      </div>
+      <button type="submit" class="btn-primario" id="btn-guardar-testigo">Registrar testigo</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/validarCedula.js"></script>
+<script src="/js/validacion-cedula-ui.js"></script>
+<script src="/js/mesas-testigo.js"></script>
+<script>
+// Cachea el cascarón de esta pantalla (y de Votantes/Estructura territorial)
+// para que abran sin conexión — ver /service-worker.js. Nunca
+// cachea /api ni /uploads: eso siempre necesita red.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+
+let usuarioActual;
+let esAdmin = false;
+let listaTestigos = [];
+let catalogoColombia = null;
+let puestosVotacionCache = null;
+let edicionTestigoId = null;
+let identificacionTestigoDisponible = true;
+
+async function cargarCatalogoColombia() {
+  if (catalogoColombia) return;
+  catalogoColombia = await obtenerConCacheReferencia('colombia', () => fetch('/data/colombia.json').then(r => r.json()));
+  document.getElementById('lista-departamentos-votacion-testigo').innerHTML =
+    catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
+}
+
+/** Puestos configurados en Configuración → Día D → Puestos de votación, para que el testigo quede asignado a uno de la lista oficial (no texto libre). */
+async function cargarPuestosVotacionParaSelect() {
+  if (puestosVotacionCache) return;
+  puestosVotacionCache = await obtenerConCacheReferencia('diad_puestos_admin', () => api('/dia-d/config/puestos-votacion'));
+  const select = document.getElementById('input-puesto-votacion-testigo');
+  select.innerHTML = '<option value="">Seleccione...</option>' +
+    puestosVotacionCache.map(p => `<option value="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`).join('');
+}
+function actualizarMunicipiosVotacionTestigo() {
+  const depto = document.getElementById('input-departamento-votacion-testigo').value.trim();
+  const municipios = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-municipios-votacion-testigo').innerHTML =
+    municipios.map(m => `<option value="${m}">`).join('');
+}
+document.getElementById('input-departamento-votacion-testigo').addEventListener('input', actualizarMunicipiosVotacionTestigo);
+
+// Mesa que ya tenía asignada (Testigo electoral) o mesas que ya cubría
+// (Coordinador de puesto) al abrir la edición de un testigo — para que su
+// propia mesa aparezca como opción aunque ya esté "ocupada" por él mismo.
+let mesaActualTestigo = null;
+let mesasActualesTestigo = [];
+
+/**
+ * El Coordinador de puesto cubre varias mesas del mismo puesto (casillas
+ * de verificación); el Testigo electoral cubre una sola (lista desplegable
+ * con las que quedan disponibles en ese puesto). Se recalcula cada vez que
+ * cambia el Puesto o el Tipo.
+ */
+async function actualizarSelectorMesaTestigo() {
+  const esPuesto = document.querySelector('#form-testigo input[name="tipo_testigo"]:checked').value === 'puesto';
+  document.getElementById('campo-mesa-testigo').style.display = esPuesto ? 'none' : 'block';
+  document.getElementById('campo-mesas-multiples-testigo').style.display = esPuesto ? 'block' : 'none';
+
+  const puesto = document.getElementById('input-puesto-votacion-testigo').value;
+  const disponibilidad = await consultarMesasDisponibles(puesto, edicionTestigoId);
+  if (esPuesto) {
+    poblarCasillasMesasTestigo(document.getElementById('casillas-mesas-testigo'), disponibilidad, mesasActualesTestigo);
+  } else {
+    poblarSelectMesaTestigo(document.getElementById('input-mesa-votacion-testigo'), disponibilidad, mesaActualTestigo);
+  }
+}
+document.querySelectorAll('#form-testigo input[name="tipo_testigo"]').forEach(r => r.addEventListener('change', actualizarSelectorMesaTestigo));
+document.getElementById('input-puesto-votacion-testigo').addEventListener('change', actualizarSelectorMesaTestigo);
+
+function mostrarBotonLugarVotacionTestigo(mostrar) {
+  document.getElementById('btn-consultar-lugar-votacion-testigo').style.display = mostrar ? 'inline-flex' : 'none';
+  document.getElementById('nota-copiar-lugar-votacion-testigo').style.display = mostrar ? 'block' : 'none';
+}
+document.getElementById('btn-consultar-lugar-votacion-testigo').addEventListener('click', () => {
+  const ancho = 480;
+  const alto = Math.min(window.screen.availHeight, 800);
+  const izquierda = window.screen.availWidth - ancho;
+  window.open(
+    'https://wsp.registraduria.gov.co/censo/consultar/',
+    'consultaLugarVotacionTestigo',
+    `width=${ancho},height=${alto},left=${izquierda},top=0,noopener`
+  );
+});
+
+let _timeoutVerificarTestigo;
+document.getElementById('input-numero-testigo').addEventListener('input', () => {
+  clearTimeout(_timeoutVerificarTestigo);
+  const numero = document.getElementById('input-numero-testigo').value.trim();
+  const estadoEl = document.getElementById('numero-testigo-estado');
+  mostrarBotonLugarVotacionTestigo(!!numero);
+  if (!numero) {
+    identificacionTestigoDisponible = true;
+    estadoEl.textContent = '';
+    return;
+  }
+  estadoEl.style.color = 'var(--color-text-muted)';
+  estadoEl.textContent = 'Verificando...';
+  _timeoutVerificarTestigo = setTimeout(async () => {
+    try {
+      const params = new URLSearchParams({ numero });
+      if (edicionTestigoId) params.set('excluir_id', edicionTestigoId);
+      const r = await api(`/territorial/estructura/verificar-identificacion?${params.toString()}`);
+      identificacionTestigoDisponible = r.disponible;
+      estadoEl.style.color = r.disponible ? 'var(--color-confirmado, #1E7245)' : 'var(--color-no-apoya, #A93226)';
+      estadoEl.textContent = r.disponible ? '' : 'Ya registrado por otro líder.';
+    } catch (err) {
+      identificacionTestigoDisponible = true;
+      estadoEl.textContent = '';
+    }
+  }, 400);
+});
+
+async function cargarTestigos() {
+  listaTestigos = await api('/territorial/testigos');
+  renderizarTestigos();
+}
+
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/** Llena el filtro de Puesto de votación con los puestos configurados en Configuración → Día D → Puestos de votación (misma fuente que usa el formulario). */
+function poblarFiltroPuestoTestigo() {
+  const select = document.getElementById('filtro-puesto-testigo');
+  const actual = select.value;
+  select.innerHTML = '<option value="">Todos los puestos</option>' +
+    (puestosVotacionCache || []).map(p => `<option value="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`).join('');
+  select.value = actual;
+}
+
+function renderizarTestigos() {
+  const busqueda = document.getElementById('filtro-busqueda-testigo').value.trim().toLowerCase();
+  const puesto = document.getElementById('filtro-puesto-testigo').value;
+  const tipo = document.getElementById('filtro-tipo-testigo').value;
+  const activo = document.getElementById('filtro-activo-testigo').value;
+
+  let filas = listaTestigos;
+  if (busqueda) {
+    filas = filas.filter(f =>
+      (f.nombre || '').toLowerCase().includes(busqueda) ||
+      (f.numero_identificacion || '').toLowerCase().includes(busqueda) ||
+      (f.telefono || '').toLowerCase().includes(busqueda)
+    );
+  }
+  if (puesto) {
+    filas = filas.filter(f => f.puesto_votacion === puesto);
+  }
+  if (tipo) {
+    filas = filas.filter(f => (f.tipo_testigo === 'puesto' ? 'puesto' : 'mesa') === tipo);
+  }
+  if (activo !== '') {
+    filas = filas.filter(f => String(f.activo ? 1 : 0) === activo);
+  }
+
+  document.getElementById('contador-testigos').textContent = `${filas.length} testigo(s)`;
+  document.getElementById('vacio-testigos').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('tbody-testigos').innerHTML = filas.map((f, i) => `
+    <tr>
+      <td class="mono">${i + 1}</td>
+      <td>${escaparHtml(f.nombre)}</td>
+      <td>${f.tipo_testigo === 'puesto' ? 'Coordinador de puesto' : 'Testigo electoral'}</td>
+      <td>${escaparHtml(f.numero_identificacion || '—')}</td>
+      <td>${escaparHtml(f.telefono || '—')}</td>
+      <td>${escaparHtml(f.puesto_votacion || '—')}</td>
+      <td>${f.tipo_testigo === 'puesto' ? '<span style="color:var(--color-text-muted);">Varias</span>' : escaparHtml(f.mesa_votacion || '—')}</td>
+      <td>${f.activo ? 'Sí' : 'No'}</td>
+      <td>
+        <button class="btn-secundario btn-sm" onclick="abrirEdicionTestigo(${f.id})">Editar</button>
+        ${esAdmin ? `<button class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarTestigo(${f.id})">Eliminar</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('filtro-busqueda-testigo').addEventListener('input', renderizarTestigos);
+document.getElementById('filtro-puesto-testigo').addEventListener('change', renderizarTestigos);
+document.getElementById('filtro-tipo-testigo').addEventListener('change', renderizarTestigos);
+document.getElementById('filtro-activo-testigo').addEventListener('change', renderizarTestigos);
+document.getElementById('btn-quitar-filtros-testigo').addEventListener('click', () => {
+  document.getElementById('filtro-busqueda-testigo').value = '';
+  document.getElementById('filtro-puesto-testigo').value = '';
+  document.getElementById('filtro-tipo-testigo').value = '';
+  document.getElementById('filtro-activo-testigo').value = '';
+  renderizarTestigos();
+});
+
+/** Borra un solo testigo — pide la contraseña de un administrador, igual que cualquier borrado sensible en esta app. */
+async function eliminarTestigo(id) {
+  if (!confirm('¿Eliminar este testigo? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de testigo');
+  if (password === null) return;
+  try {
+    await api(`/territorial/testigos/${id}`, { method: 'DELETE', body: { password } });
+    await cargarTestigos();
+  } catch (err) {
+    alert(err.message || 'No se pudo eliminar el testigo.');
+  }
+}
+
+/** Borra TODOS los testigos — pide la contraseña de un administrador. */
+async function eliminarTodosLosTestigos() {
+  if (!confirm('¿Eliminar TODOS los testigos electorales? Esta acción no se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirmar eliminación de todos los testigos');
+  if (password === null) return;
+  try {
+    await api('/territorial/testigos/eliminar-todo', { method: 'POST', body: { password } });
+    await cargarTestigos();
+  } catch (err) {
+    alert(err.message || 'No se pudieron eliminar los testigos.');
+  }
+}
+document.getElementById('btn-eliminar-todos-testigos').addEventListener('click', eliminarTodosLosTestigos);
+
+async function abrirEdicionTestigo(id) {
+  const fila = listaTestigos.find(f => f.id === id);
+  if (!fila) return;
+  edicionTestigoId = id;
+  document.getElementById('modal-testigo-titulo').textContent = 'Editar testigo electoral';
+  document.getElementById('btn-guardar-testigo').textContent = 'Guardar cambios';
+  document.getElementById('campo-activo-testigo').style.display = 'block';
+  document.getElementById('form-testigo-error').classList.remove('visible');
+  document.getElementById('form-testigo-ok').classList.remove('visible');
+
+  await cargarCatalogoColombia();
+  await cargarPuestosVotacionParaSelect();
+
+  const form = document.getElementById('form-testigo');
+  form.nombre.value = fila.nombre;
+  form.numero_identificacion.value = fila.numero_identificacion || '';
+  mostrarBotonLugarVotacionTestigo(!!fila.numero_identificacion);
+  form.telefono.value = formatoTelefonoColombia(fila.telefono || '');
+  form.email.value = fila.email || '';
+  form.departamento_votacion.value = fila.departamento_votacion || '';
+  actualizarMunicipiosVotacionTestigo();
+  form.municipio_votacion.value = fila.municipio_votacion || '';
+  form.puesto_votacion.value = fila.puesto_votacion || '';
+  form.activo.checked = !!fila.activo;
+  form.querySelector(`input[name="tipo_testigo"][value="${fila.tipo_testigo === 'puesto' ? 'puesto' : 'mesa'}"]`).checked = true;
+  mesaActualTestigo = fila.mesa_votacion || null;
+  mesasActualesTestigo = fila.mesas_asignadas || [];
+  await actualizarSelectorMesaTestigo();
+
+  identificacionTestigoDisponible = true;
+  document.getElementById('numero-testigo-estado').textContent = '';
+
+  document.getElementById('overlay-form-testigo').classList.add('abierto');
+}
+
+document.getElementById('cerrar-modal-testigo').addEventListener('click', () => document.getElementById('overlay-form-testigo').classList.remove('abierto'));
+
+/**
+ * Captura sin conexión: mismo store y mismo endpoint que usa "Agregar
+ * persona" en Estructura territorial (los dos crean un registro de
+ * Estructura vía POST /territorial/estructura), así que los pendientes de
+ * ambas pantallas se acumulan juntos y se suben juntos.
+ */
+async function actualizarAvisoColaOfflineEstructura() {
+  let cola = [];
+  try { cola = await listarColaOffline('estructura_pendientes'); } catch (err) { return; }
+  const pendientes = cola.filter(r => r.estado !== 'fallido');
+  const fallidos = cola.filter(r => r.estado === 'fallido');
+  const aviso = document.getElementById('aviso-cola-offline');
+
+  if (!pendientes.length && !fallidos.length) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+  aviso.style.display = 'block';
+  aviso.innerHTML = `
+    ${pendientes.length ? `<div style="display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+      <span>📶 ${pendientes.length} registro(s) guardados en este computador, pendientes de subir.</span>
+      <button type="button" class="btn-secundario btn-sm" id="btn-subir-cola-ahora-estructura">Subir ahora</button>
+    </div>` : ''}
+    ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
+      ⚠ ${fallidos.length} registro(s) no se pudieron subir — revísalos: ${fallidos.map(f => escaparHtml(`${f.payload.nombre} (${f.error || 'error desconocido'})`)).join(', ')}
+    </div>` : ''}
+  `;
+  const btnSubir = document.getElementById('btn-subir-cola-ahora-estructura');
+  if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOfflineEstructura());
+}
+
+async function sincronizarColaOfflineEstructura() {
+  await sincronizarCola('estructura_pendientes', '/territorial/estructura', (registro) => registro.payload);
+  await actualizarAvisoColaOfflineEstructura();
+  await cargarTestigos();
+}
+
+document.getElementById('form-testigo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-testigo-error');
+  const okBox = document.getElementById('form-testigo-ok');
+  errorBox.classList.remove('visible'); okBox.classList.remove('visible');
+  const form = e.target;
+
+  if (!validarTelefonosFormulario('#form-testigo [name="telefono"]')) {
+    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
+    errorBox.classList.add('visible');
+    return;
+  }
+  if (!identificacionTestigoDisponible) {
+    errorBox.textContent = 'Ya registrado por otro líder.';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const datos = {
+    nombre: form.nombre.value,
+    numero_identificacion: form.numero_identificacion.value,
+    telefono: form.telefono.value.replace(/\D/g, ''),
+    email: form.email.value,
+    departamento_votacion: form.departamento_votacion.value,
+    municipio_votacion: form.municipio_votacion.value,
+    puesto_votacion: form.puesto_votacion.value,
+    mesa_votacion: form.mesa_votacion.value,
+    tipo_testigo: form.querySelector('input[name="tipo_testigo"]:checked').value,
+    mesas_asignadas: leerMesasMarcadas(document.getElementById('casillas-mesas-testigo')),
+    cargo: 'testigo',
+    tipo_area_influencia: 'territorio',
+    activo: form.activo.checked
+  };
+  try {
+    await api(`/territorial/estructura/${edicionTestigoId}`, { method: 'PUT', body: datos });
+    okBox.textContent = 'Testigo actualizado correctamente.';
+    okBox.classList.add('visible');
+    cargarTestigos();
+    setTimeout(() => document.getElementById('overlay-form-testigo').classList.remove('abierto'), 900);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+document.getElementById('input-importar-testigos').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const fd = new FormData();
+  fd.append('archivo', archivo);
+  try {
+    const r = await api('/territorial/testigos/importar-excel', { method: 'POST', body: fd });
+    let mensaje = `Importación completada: ${r.insertados} testigo(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
+    if (r.errores && r.errores.length) {
+      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    alert(mensaje);
+    await cargarTestigos();
+  } catch (err) {
+    alert('Error importando el archivo: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/testigos.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    return;
+  }
+
+  // El aviso de pendientes y el reintento al recuperar señal se activan
+  // ya mismo, sin depender de que el resto de la pantalla haya cargado.
+  actualizarAvisoColaOfflineEstructura();
+  sincronizarColaOfflineEstructura();
+  window.addEventListener('online', () => sincronizarColaOfflineEstructura());
+
+  esAdmin = usuarioActual.rol === 'admin';
+  document.getElementById('btn-eliminar-todos-testigos').style.display = esAdmin ? 'inline-flex' : 'none';
+  aplicarFormatoTelefono('#form-testigo [name="telefono"]');
+  aplicarFormatoNombrePropio('#form-testigo [name="nombre"]');
+  await cargarPuestosVotacionParaSelect();
+  poblarFiltroPuestoTestigo();
+  await cargarTestigos();
+})();
+</script>
+</body>
+</html>

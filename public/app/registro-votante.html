@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Registrar contacto · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+
+  <div id="pantalla-exito" class="pantalla-exito" style="display:none;">
+    <div class="marca" id="exito-icono">✔</div>
+    <h2 style="margin:0 0 6px;" id="exito-titulo">Registro guardado</h2>
+    <p style="color:var(--muted); margin:0 0 26px;" id="exito-detalle">El contacto quedó guardado correctamente.</p>
+    <button class="btn-app btn-app-primario" id="btn-registrar-otro">Registrar otro contacto</button>
+    <button class="btn-app btn-app-secundario" style="margin-top:10px;" onclick="window.location.href='/app/mis-registros.html'">Ver mis registros</button>
+  </div>
+
+  <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
+
+  <form id="form-registro" style="display:none;">
+    <div class="aviso-app error" id="aviso-error"></div>
+
+    <div class="referido-caja" id="caja-referido" style="display:none;"></div>
+
+    <div class="campo-app">
+      <label>Categoría</label>
+      <div class="chips-app" role="group" aria-label="Categoría">
+        <button type="button" class="chip-app activo" id="chip-votante" aria-pressed="true" onclick="elegirCategoria('votante')">Votante</button>
+        <button type="button" class="chip-app" id="chip-sublider" aria-pressed="false" onclick="elegirCategoria('sublider')">Sublíder</button>
+      </div>
+      <small>Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) — para eso, completa el Número de identificación.</small>
+    </div>
+    <div class="campo-app" id="campo-meta-votos" style="display:none;">
+      <label for="f-meta-votos">Meta de votos del sublíder</label>
+      <input id="f-meta-votos" type="number" min="0" value="0">
+    </div>
+
+    <div class="seccion-titulo">Datos personales</div>
+    <div class="campo-app con-boton">
+      <div style="flex:1;">
+        <label for="f-cedula">Número de identificación</label>
+        <input id="f-cedula" inputmode="numeric" autocomplete="off">
+        <small id="cedula-estado" style="font-size:0.75rem;"></small>
+      </div>
+      <a class="btn-mini" href="https://wsp.registraduria.gov.co/censo/consultar/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Lugar de votación</a>
+    </div>
+    <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off"></div>
+    <small id="duplicado-estado" style="display:block; margin:-10px 0 14px; color:#A93226;"></small>
+    <div class="fila-app">
+      <div class="campo-app">
+        <label for="f-genero">Género</label>
+        <select id="f-genero">
+          <option value="mujer">Mujer</option>
+          <option value="hombre">Hombre</option>
+          <option value="no_binario">No binario</option>
+          <option value="prefiero_no_responder" selected>Prefiero no responder</option>
+        </select>
+      </div>
+      <div class="campo-app"><label for="f-edad">Edad</label><input id="f-edad" type="number" min="0" max="120" inputmode="numeric"></div>
+    </div>
+
+    <div class="seccion-titulo">Lugar de votación</div>
+    <div class="fila-app">
+      <div class="campo-app">
+        <label for="f-depto-votacion">Departamento</label>
+        <input id="f-depto-votacion" list="lista-deptos-votacion" autocomplete="off">
+        <datalist id="lista-deptos-votacion"></datalist>
+      </div>
+      <div class="campo-app">
+        <label for="f-municipio-votacion">Municipio</label>
+        <input id="f-municipio-votacion" list="lista-municipios-votacion" autocomplete="off">
+        <datalist id="lista-municipios-votacion"></datalist>
+      </div>
+    </div>
+    <div class="fila-app">
+      <div class="campo-app">
+        <label for="f-puesto-votacion">Puesto</label>
+        <select id="f-puesto-votacion">
+          <option value="">Seleccione...</option>
+        </select>
+      </div>
+      <div class="campo-app">
+        <label for="f-mesa-votacion">Mesa</label>
+        <select id="f-mesa-votacion">
+          <option value="">Seleccione un puesto primero...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Las opciones salen de Configuración → Datos de la campaña →
+         Activar apoyos. Sin apoyos activos, esta sección no se muestra. -->
+    <div id="bloque-apoya-a-app" style="display:none;">
+      <div class="seccion-titulo">Apoya a</div>
+      <div class="campo-app">
+        <div id="casillas-apoya-a-app" style="display:flex; flex-wrap:wrap; gap:14px;"></div>
+      </div>
+    </div>
+
+    <div class="seccion-titulo">Datos de contacto</div>
+    <div class="fila-app">
+      <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" placeholder="300 123 4567" inputmode="numeric"></div>
+      <div class="campo-app"><label for="f-email">Correo (opcional)</label><input id="f-email" type="email" autocomplete="off"></div>
+    </div>
+    <div class="campo-app con-boton">
+      <div style="flex:1;">
+        <label for="f-direccion">Dirección de residencia</label>
+        <input id="f-direccion" placeholder="Ej. Calle 10 #5-20" autocomplete="off">
+      </div>
+      <button type="button" class="btn-mini" id="btn-gps"><span aria-hidden="true">📍</span> GPS</button>
+    </div>
+    <div class="fila-app">
+      <div class="campo-app">
+        <label for="f-depto-residencia">Departamento de residencia</label>
+        <input id="f-depto-residencia" list="lista-deptos-residencia" autocomplete="off">
+        <datalist id="lista-deptos-residencia"></datalist>
+      </div>
+      <div class="campo-app">
+        <label for="f-ciudad-residencia">Ciudad de residencia</label>
+        <input id="f-ciudad-residencia" list="lista-ciudades-residencia" autocomplete="off">
+        <datalist id="lista-ciudades-residencia"></datalist>
+      </div>
+    </div>
+
+    <div class="seccion-titulo" id="titulo-influencia" style="display:none;">Territorio o área de influencia</div>
+    <div class="campo-app" id="campo-influencia-tipo" style="display:none;">
+      <div class="chips-app" role="group" aria-label="Tipo de influencia">
+        <button type="button" class="chip-app activo" id="chip-influencia-territorio" aria-pressed="true" onclick="elegirTipoInfluencia('territorio')">Territorio</button>
+        <button type="button" class="chip-app" id="chip-influencia-organizacion" aria-pressed="false" onclick="elegirTipoInfluencia('organizacion')">Organización</button>
+      </div>
+    </div>
+    <div class="campo-app" id="campo-organizacion" style="display:none;">
+      <label for="f-organizacion">Nombre de la organización</label>
+      <input id="f-organizacion" placeholder="Ej. Asociación de trabajadores informales del sur">
+    </div>
+
+    <div class="campo-app" id="campo-area">
+      <label>Área <small style="font-weight:400;">(opcional)</small></label>
+      <div class="chips-app" role="group" aria-label="Área">
+        <button type="button" class="chip-app" id="chip-urbano" aria-pressed="false" onclick="elegirArea(areaActual === 'urbano' ? '' : 'urbano')">Urbano</button>
+        <button type="button" class="chip-app" id="chip-rural" aria-pressed="false" onclick="elegirArea(areaActual === 'rural' ? '' : 'rural')">Rural</button>
+      </div>
+    </div>
+
+    <div class="fila-app" id="fila-urbano" data-fila="urbano" style="display:none;">
+      <div class="campo-app" id="campo-comuna-app" data-campo="comuna">
+        <label for="f-comuna">Comuna</label>
+        <input id="f-comuna" list="lista-comunas" autocomplete="off">
+        <datalist id="lista-comunas"></datalist>
+      </div>
+      <div class="campo-app" id="campo-barrio-app" data-campo="barrio">
+        <label for="f-barrio">Barrio</label>
+        <input id="f-barrio" list="lista-barrios" autocomplete="off">
+        <datalist id="lista-barrios"></datalist>
+      </div>
+    </div>
+    <div class="fila-app" id="fila-rural" style="display:none;">
+      <div class="campo-app">
+        <label for="f-corregimiento">Corregimiento</label>
+        <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off">
+        <datalist id="lista-corregimientos"></datalist>
+      </div>
+      <div class="campo-app">
+        <label for="f-vereda">Vereda</label>
+        <input id="f-vereda" list="lista-veredas" autocomplete="off">
+        <datalist id="lista-veredas"></datalist>
+      </div>
+    </div>
+
+    <div class="seccion-titulo">Referido y observaciones</div>
+    <div class="campo-app">
+      <label for="f-observaciones">Observaciones (opcional)</label>
+      <textarea id="f-observaciones" rows="3"></textarea>
+    </div>
+
+    <div class="campo-app">
+      <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400;">
+        <input type="checkbox" id="f-consentimiento" required style="width:auto; margin-top:3px;">
+        <span>Le informé a la persona para qué se usan sus datos y me autorizó a registrarlos.</span>
+      </label>
+    </div>
+
+    <button type="submit" class="btn-app btn-app-primario" id="btn-guardar">Guardar registro</button>
+  </form>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/validarCedula.js"></script>
+<script src="/js/validacion-cedula-ui.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+let territorios = [];
+let catalogoColombia = null;
+let miReferido = null;
+let puestosVotacionApp = [];
+
+const ETIQUETAS_APOYO_APP = {
+  alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL',
+  gobernacion: 'Gobernación', asamblea: 'Asamblea'
+};
+
+/** Casillas de "Apoya a" según lo que el administrador activó en Configuración. Sin apoyos activos, la sección no aparece. */
+function aplicarApoyosConfiguradosApp(activos) {
+  const bloque = document.getElementById('bloque-apoya-a-app');
+  const casillas = document.getElementById('casillas-apoya-a-app');
+  const lista = Array.isArray(activos) ? activos : [];
+  if (!lista.length) { bloque.style.display = 'none'; casillas.innerHTML = ''; return; }
+  bloque.style.display = 'block';
+  casillas.innerHTML = lista.map(a => `
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      ${ETIQUETAS_APOYO_APP[a] || a}
+    </label>`).join('');
+}
+
+// Si la ciudad NO tiene comunas (Configuración → Datos de la campaña), el
+// campo Comuna se oculta y el Barrio se elige directo entre TODOS los
+// barrios del municipio (incluyendo los que cuelgan del municipio sin
+// comuna intermedia).
+let ciudadTieneComunas = true;
+let usarNombreBarrios = true;
+function aplicarVisibilidadComunaApp() {
+  document.getElementById('campo-comuna-app').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('campo-barrio-app').style.display = usarNombreBarrios ? 'block' : 'none';
+}
+let categoriaActual = 'votante';
+let tipoInfluenciaActual = 'territorio';
+let areaActual = '';
+
+/** Alterna la clase visual .activo y el estado aria-pressed de un chip (son botones de selección exclusiva). */
+function marcarChip(id, activo) {
+  const el = document.getElementById(id);
+  el.classList.toggle('activo', activo);
+  el.setAttribute('aria-pressed', activo ? 'true' : 'false');
+}
+
+function elegirCategoria(cat) {
+  categoriaActual = cat;
+  marcarChip('chip-votante', cat === 'votante');
+  marcarChip('chip-sublider', cat === 'sublider');
+  document.getElementById('campo-meta-votos').style.display = cat === 'sublider' ? 'block' : 'none';
+  document.getElementById('titulo-influencia').style.display = cat === 'sublider' ? 'block' : 'none';
+  document.getElementById('campo-influencia-tipo').style.display = cat === 'sublider' ? 'block' : 'none';
+  actualizarVisibilidadInfluencia();
+}
+
+function elegirTipoInfluencia(tipo) {
+  tipoInfluenciaActual = tipo;
+  marcarChip('chip-influencia-territorio', tipo === 'territorio');
+  marcarChip('chip-influencia-organizacion', tipo === 'organizacion');
+  actualizarVisibilidadInfluencia();
+}
+
+function actualizarVisibilidadInfluencia() {
+  const esOrganizacion = categoriaActual === 'sublider' && tipoInfluenciaActual === 'organizacion';
+  document.getElementById('campo-organizacion').style.display = esOrganizacion ? 'block' : 'none';
+  document.getElementById('campo-area').style.display = esOrganizacion ? 'none' : 'block';
+  if (esOrganizacion) {
+    document.getElementById('fila-urbano').style.display = 'none';
+    document.getElementById('fila-rural').style.display = 'none';
+  } else {
+    elegirArea(areaActual);
+  }
+}
+
+function elegirArea(area) {
+  areaActual = area;
+  marcarChip('chip-urbano', area === 'urbano');
+  marcarChip('chip-rural', area === 'rural');
+  document.getElementById('fila-urbano').style.display = area === 'urbano' ? 'flex' : 'none';
+  document.getElementById('fila-rural').style.display = area === 'rural' ? 'flex' : 'none';
+}
+
+/**
+ * Compara nombres de Departamento/Ciudad de residencia sin importar
+ * mayúsculas/tildes. A propósito NO es la misma normalizarTexto() de
+ * /js/common.js (usada más abajo, en resolverTerritorio()): esta versión
+ * también iguala "ñ"/"n", para resolver escrituras informales del nombre
+ * del municipio. NO fusionar con normalizarTexto(): esa función se usa
+ * en 5 pantallas del panel de escritorio con el criterio de que "ñ" y
+ * "n" NO son intercambiables, y cambiarla afectaría esas pantallas también.
+ */
+function normalizarTextoApp(t) {
+  return (t || '').toString().trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Busca en lo ya creado (Estructura territorial > Gestionar territorios)
+ * el municipio que coincide con el Departamento/Ciudad de residencia
+ * escritos en el formulario — para mostrar solo las comunas/barrios/
+ * corregimientos/veredas que de verdad pertenecen a esa ciudad.
+ */
+function buscarMunicipioResidenciaApp() {
+  const nombreDepto = normalizarTextoApp(document.getElementById('f-depto-residencia').value);
+  const nombreMuni = normalizarTextoApp(document.getElementById('f-ciudad-residencia').value);
+  if (!nombreMuni) return null;
+  const depto = territorios.find(t => t.tipo === 'departamento' && normalizarTextoApp(t.nombre) === nombreDepto);
+  return territorios.find(t => t.tipo === 'municipio' && normalizarTextoApp(t.nombre) === nombreMuni && (!depto || t.padre_id === depto.id)) || null;
+}
+
+function poblarListasTerritorio() {
+  // Solo se muestran las comunas/corregimientos que pertenecen al
+  // municipio elegido como Ciudad de residencia — así, si el sistema
+  // llega a tener territorios de más de una ciudad, no se mezclan.
+  const municipio = buscarMunicipioResidenciaApp();
+  const comunas = municipio ? territorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
+  const corregimientos = municipio ? territorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
+  document.getElementById('lista-comunas').innerHTML = comunas.map(c => `<option value="${escaparAppHtml(c.nombre)}">`).join('');
+  document.getElementById('lista-corregimientos').innerHTML = corregimientos.map(c => `<option value="${escaparAppHtml(c.nombre)}">`).join('');
+  actualizarBarriosApp();
+  actualizarVeredasApp();
+}
+
+/** Llena Barrio según la Comuna escrita — igual que la cascada del panel de escritorio. */
+function actualizarBarriosApp() {
+  // Si la ciudad no tiene comunas, el campo Comuna está oculto — el Barrio
+  // se busca directo entre TODOS los del municipio.
+  const nombreComuna = ciudadTieneComunas ? normalizarTextoApp(document.getElementById('f-comuna').value) : '';
+  const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTextoApp(t.nombre) === nombreComuna) : null;
+  let barrios;
+  if (comuna) {
+    barrios = territorios.filter(t => t.tipo === 'barrio' && t.padre_id === comuna.id);
+  } else {
+    // Sin una Comuna reconocida todavía (o si la ciudad no tiene comunas),
+    // se muestran TODOS los barrios del municipio, incluyendo los que
+    // cuelgan del municipio sin comuna intermedia.
+    const municipio = buscarMunicipioResidenciaApp();
+    const idsComunas = new Set(territorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+    barrios = territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+  }
+  document.getElementById('lista-barrios').innerHTML = barrios.map(b => `<option value="${escaparAppHtml(b.nombre)}">`).join('');
+}
+
+/** Llena Vereda según el Corregimiento escrito — igual que la cascada del panel de escritorio. */
+function actualizarVeredasApp() {
+  const nombreCorregimiento = normalizarTextoApp(document.getElementById('f-corregimiento').value);
+  const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTextoApp(t.nombre) === nombreCorregimiento);
+  const veredas = corregimiento ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id) : [];
+  document.getElementById('lista-veredas').innerHTML = veredas.map(v => `<option value="${escaparAppHtml(v.nombre)}">`).join('');
+}
+document.getElementById('f-comuna').addEventListener('input', actualizarBarriosApp);
+document.getElementById('f-corregimiento').addEventListener('input', actualizarVeredasApp);
+
+/** Busca en una lista de nombres (departamentos o municipios de colombia.json) el que mejor coincide con el texto dado, ignorando tildes/mayúsculas. */
+function emparejarEnLista(texto, lista) {
+  if (!texto || !lista || !lista.length) return null;
+  const norm = normalizarTextoApp(texto);
+  let coincidencia = lista.find(x => normalizarTextoApp(x) === norm);
+  if (!coincidencia) {
+    coincidencia = lista.find(x => normalizarTextoApp(x).includes(norm) || norm.includes(normalizarTextoApp(x)));
+  }
+  return coincidencia || null;
+}
+
+/**
+ * Callback del botón GPS: además de la dirección (que ya llena
+ * activarBotonGps por su cuenta), completa Departamento/Ciudad de
+ * residencia con lo que haya reconocido Google. El chip Urbano/Rural (y
+ * Comuna/Barrio/Corregimiento/Vereda) NUNCA se marca automáticamente —
+ * queda siempre para que el líder lo elija a mano, en cualquier
+ * dispositivo, para no dar por hecho una zona que Google adivinó mal.
+ */
+function aplicarUbicacionGps(direccion, lat, lon, detalle) {
+  if (!detalle || !catalogoColombia) return;
+
+  let deptoAplicado = null;
+  if (detalle.state) {
+    deptoAplicado = emparejarEnLista(detalle.state, catalogoColombia.departamentos) || detalle.state;
+    document.getElementById('f-depto-residencia').value = deptoAplicado;
+    document.getElementById('f-depto-residencia').dispatchEvent(new Event('input'));
+  }
+
+  if (detalle.city) {
+    const municipiosDelDepto = (deptoAplicado && catalogoColombia.municipiosPorDepartamento[deptoAplicado]) || [];
+    const ciudadAplicada = emparejarEnLista(detalle.city, municipiosDelDepto) || detalle.city;
+    document.getElementById('f-ciudad-residencia').value = ciudadAplicada;
+    document.getElementById('f-ciudad-residencia').dispatchEvent(new Event('input'));
+  }
+
+  // El chip Urbano/Rural ya NO se marca automáticamente desde el GPS —
+  // igual que Comuna/Barrio/Corregimiento/Vereda, se deja para que el
+  // líder lo elija a mano; el GPS solo llena Departamento/Ciudad.
+}
+
+function poblarDepartamentos() {
+  const opciones = catalogoColombia.departamentos.map(d => `<option value="${escaparAppHtml(d)}">`).join('');
+  document.getElementById('lista-deptos-votacion').innerHTML = opciones;
+  document.getElementById('lista-deptos-residencia').innerHTML = opciones;
+}
+document.getElementById('f-depto-votacion').addEventListener('input', (e) => {
+  const municipios = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[e.target.value.trim()]) || [];
+  document.getElementById('lista-municipios-votacion').innerHTML = municipios.map(m => `<option value="${escaparAppHtml(m)}">`).join('');
+});
+document.getElementById('f-depto-residencia').addEventListener('input', (e) => {
+  const ciudades = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[e.target.value.trim()]) || [];
+  document.getElementById('lista-ciudades-residencia').innerHTML = ciudades.map(c => `<option value="${escaparAppHtml(c)}">`).join('');
+});
+
+/**
+ * Al elegir el Puesto, se llena Mesa con la lista de mesas de ese puesto
+ * (1..cantidad configurada) — se calcula con la lista ya cacheada al
+ * abrir el formulario (puestosVotacionApp), sin depender de otra consulta
+ * por cada puesto elegido, para que siga funcionando sin conexión. El
+ * número de mesa de un Votante es solo el lugar donde vota (no hay que
+ * evitar choques con otros testigos, a diferencia del formulario de Testigo).
+ */
+document.getElementById('f-puesto-votacion').addEventListener('change', (e) => {
+  const puesto = e.target.value;
+  const selectMesa = document.getElementById('f-mesa-votacion');
+  const configPuesto = puestosVotacionApp.find(p => p.nombre === puesto);
+  if (!puesto || !configPuesto || !configPuesto.cantidad_mesas) {
+    selectMesa.innerHTML = '<option value="">Seleccione un puesto primero...</option>';
+    return;
+  }
+  const opciones = Array.from({ length: configPuesto.cantidad_mesas }, (_, i) => i + 1)
+    .map(m => `<option value="${m}">${m}</option>`).join('');
+  selectMesa.innerHTML = '<option value="">Seleccione...</option>' + opciones;
+});
+document.getElementById('f-ciudad-residencia').addEventListener('input', () => {
+  // Al elegir la Ciudad de residencia, se refiltran las opciones de
+  // Comuna/Barrio/Corregimiento/Vereda para que no mezclen otras ciudades.
+  if (typeof poblarListasTerritorio === 'function') poblarListasTerritorio();
+});
+
+/** Misma lógica de resolución que usa el panel de escritorio (public/votantes.html). */
+function resolverTerritorio() {
+  const esOrganizacion = categoriaActual === 'sublider' && tipoInfluenciaActual === 'organizacion';
+  if (esOrganizacion) {
+    if (!document.getElementById('f-organizacion').value.trim()) return { error: 'Escribe el nombre de la organización.' };
+    return { territorioId: null, area: null };
+  }
+  if (!areaActual) return { territorioId: null, area: null };
+  if (areaActual === 'urbano') {
+    // Si "¿Utilizar nombre de barrios?" está en No, se asigna directo a la
+    // Comuna (Barrio queda oculto). Si la ciudad tampoco usa comunas, se
+    // guarda sin territorio geográfico.
+    if (!usarNombreBarrios) {
+      const nombreComuna = normalizarTexto(document.getElementById('f-comuna').value);
+      const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      if (!comuna) {
+        if (ciudadTieneComunas) return { error: 'Selecciona una comuna de la lista, o deja el área sin especificar.' };
+        return { territorioId: null, area: areaActual };
+      }
+      return { territorioId: comuna.id, area: areaActual };
+    }
+    const nombreBarrio = normalizarTexto(document.getElementById('f-barrio').value);
+    if (!nombreBarrio) return { error: 'Selecciona un barrio de la lista, o deja el área sin especificar.' };
+    const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (!barrio) return { error: 'Ese barrio no existe todavía en el sistema.' };
+    return { territorioId: barrio.id, area: areaActual };
+  }
+  const nombreVereda = normalizarTexto(document.getElementById('f-vereda').value);
+  if (!nombreVereda) return { error: 'Selecciona una vereda de la lista, o deja el área sin especificar.' };
+  const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+  if (!vereda) return { error: 'Esa vereda no existe todavía en el sistema.' };
+  return { territorioId: vereda.id, area: areaActual };
+}
+
+function mostrarError(msg) {
+  const aviso = document.getElementById('aviso-error');
+  aviso.textContent = msg;
+  aviso.classList.add('visible');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/**
+ * Captura sin conexión: si al guardar no hay señal (esErrorDeRed, ver
+ * api-core.js), el formulario se guarda completo en el celular
+ * (IndexedDB, ver /js/offline-utils.js) en vez de perderse, y se reintenta
+ * solo más tarde — al recuperar conexión, al volver a abrir la app, o con
+ * el botón "Subir ahora" si el aviso queda visible. Cada registro lleva un
+ * identificador (cliente_uuid) para que, si el mismo envío llega dos veces
+ * al servidor (ej. la confirmación se perdió justo cuando volvía la señal),
+ * no se cree la misma persona por duplicado — el backend lo reconoce y no
+ * repite el registro (ver POST /votantes).
+ */
+const OFFLINE_STORE = 'votantes_pendientes';
+
+/** Refleja en el aviso de arriba del formulario cuántos registros hay pendientes por subir, y cuántos no se pudieron subir de verdad (para revisar, no se pierden en silencio). */
+async function actualizarAvisoColaOffline() {
+  let cola = [];
+  try { cola = await listarColaOffline(OFFLINE_STORE); } catch (err) { return; }
+  const pendientes = cola.filter(r => r.estado !== 'fallido');
+  const fallidos = cola.filter(r => r.estado === 'fallido');
+  const aviso = document.getElementById('aviso-cola-offline');
+
+  if (!pendientes.length && !fallidos.length) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+  aviso.style.display = 'block';
+  aviso.innerHTML = `
+    ${pendientes.length ? `<div style="display:flex; align-items:center; gap:8px; justify-content:space-between;">
+      <span>📶 ${pendientes.length} registro(s) guardados en este celular, pendientes de subir.</span>
+      <button type="button" class="btn-mini" id="btn-subir-cola-ahora">Subir ahora</button>
+    </div>` : ''}
+    ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
+      ⚠ ${fallidos.length} registro(s) no se pudieron subir — revísalos: ${fallidos.map(f => escaparAppHtml(`${f.payload.nombre} (${f.error || 'error desconocido'})`)).join(', ')}
+    </div>` : ''}
+  `;
+  const btnSubir = document.getElementById('btn-subir-cola-ahora');
+  if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOffline());
+}
+
+/** Reintenta subir lo que quedó guardado en el celular. Se detiene apenas vuelva a fallar por falta de señal (no tiene caso seguir intentando el resto en ese mismo momento). */
+async function sincronizarColaOffline() {
+  await sincronizarCola(OFFLINE_STORE, '/votantes', (registro) => registro.payload);
+  await actualizarAvisoColaOffline();
+}
+
+function limpiarFormulario() {
+  document.getElementById('form-registro').reset();
+  elegirCategoria('votante');
+  elegirTipoInfluencia('territorio');
+  elegirArea('');
+  document.getElementById('aviso-error').classList.remove('visible');
+  document.getElementById('duplicado-estado').textContent = '';
+  document.getElementById('cedula-estado').textContent = '';
+  document.getElementById('f-mesa-votacion').innerHTML = '<option value="">Seleccione un puesto primero...</option>';
+}
+
+document.getElementById('f-telefono').addEventListener('input', (e) => {
+  e.target.value = formatoTelefonoColombia(e.target.value);
+});
+aplicarFormatoNombrePropio('#f-nombre');
+activarBotonGps('btn-gps', 'f-direccion', aplicarUbicacionGps);
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// Verifica en vivo, mientras se escribe, si ese Número de identificación
+// ya está registrado por otro líder — así se sabe ANTES de llenar todo
+// el formulario, no solo al intentar guardar al final.
+let identificacionVotanteDisponible = true;
+document.getElementById('f-cedula').addEventListener('input', debounce(async () => {
+  const numero = document.getElementById('f-cedula').value.trim();
+  const estadoEl = document.getElementById('cedula-estado');
+  if (!numero) {
+    identificacionVotanteDisponible = true;
+    estadoEl.textContent = '';
+    return;
+  }
+  estadoEl.style.color = 'var(--muted)';
+  estadoEl.textContent = 'Verificando...';
+  try {
+    const r = await api(`/votantes/verificar-identificacion?numero=${encodeURIComponent(numero)}`);
+    identificacionVotanteDisponible = r.disponible;
+    estadoEl.style.color = r.disponible ? '#1E7245' : '#A93226';
+    estadoEl.textContent = r.disponible ? '' : 'Ya registrado por otro líder.';
+  } catch (err) {
+    identificacionVotanteDisponible = true;
+    estadoEl.textContent = '';
+  }
+}, 400));
+
+// Avisa (sin bloquear) si ya existe un contacto parecido por nombre o
+// teléfono — más útil justo cuando no hay cédula para atajarlo de raíz.
+// Es solo una alerta: dos personas distintas pueden compartir nombre, así
+// que no impide guardar, solo le muestra la coincidencia a quien registra.
+const verificarPosibleDuplicado = debounce(async () => {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  const estadoEl = document.getElementById('duplicado-estado');
+  if (!nombre) { estadoEl.textContent = ''; return; }
+  try {
+    const telefono = document.getElementById('f-telefono').value.replace(/\D/g, '');
+    const params = new URLSearchParams({ nombre, telefono });
+    const r = await api(`/votantes/verificar-duplicado?${params.toString()}`);
+    if (r.coincidencias && r.coincidencias.length) {
+      const c = r.coincidencias[0];
+      estadoEl.textContent = c.porTelefono
+        ? `⚠ Ya existe un registro con ese mismo teléfono: ${c.nombreCompleto}. ¿Es la misma persona?`
+        : `⚠ Ya existe un registro con un nombre parecido: ${c.nombreCompleto}. ¿Es la misma persona?`;
+    } else {
+      estadoEl.textContent = '';
+    }
+  } catch (err) {
+    estadoEl.textContent = '';
+  }
+}, 500);
+['f-nombre', 'f-telefono'].forEach(id => {
+  document.getElementById(id).addEventListener('input', verificarPosibleDuplicado);
+});
+
+document.getElementById('form-registro').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('aviso-error').classList.remove('visible');
+
+  if (!identificacionVotanteDisponible) {
+    mostrarError('Ya registrado por otro líder.');
+    return;
+  }
+  if (!document.getElementById('f-consentimiento').checked) {
+    mostrarError('Debes confirmar que la persona autorizó el uso de sus datos.');
+    return;
+  }
+  if (!validarTelefonoCampo(document.getElementById('f-telefono'))) {
+    mostrarError('Error de digitación: el teléfono debe tener 10 dígitos.');
+    return;
+  }
+  const resuelto = resolverTerritorio();
+  if (resuelto.error) {
+    mostrarError(resuelto.error);
+    return;
+  }
+
+  const btn = document.getElementById('btn-guardar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+
+  const datosRegistro = {
+    categoria: categoriaActual,
+    nombre: document.getElementById('f-nombre').value.trim(),
+    genero: document.getElementById('f-genero').value,
+    edad: document.getElementById('f-edad').value || '',
+    cedula: document.getElementById('f-cedula').value.trim(),
+    departamento_votacion: document.getElementById('f-depto-votacion').value.trim(),
+    municipio_votacion: document.getElementById('f-municipio-votacion').value.trim(),
+    puesto_votacion: document.getElementById('f-puesto-votacion').value.trim(),
+    mesa_votacion: document.getElementById('f-mesa-votacion').value.trim(),
+    telefono: document.getElementById('f-telefono').value.replace(/\D/g, ''),
+    email: document.getElementById('f-email').value.trim(),
+    direccion: document.getElementById('f-direccion').value.trim(),
+    departamento_residencia: document.getElementById('f-depto-residencia').value.trim(),
+    ciudad_residencia: document.getElementById('f-ciudad-residencia').value.trim(),
+    territorio_id: resuelto.territorioId || '',
+    area: resuelto.area || '',
+    tipo_area_influencia: (categoriaActual === 'sublider' && tipoInfluenciaActual === 'organizacion') ? 'organizacion' : 'territorio',
+    organizacion: document.getElementById('f-organizacion').value.trim(),
+    apoya_a: Array.from(document.querySelectorAll('#form-registro input[name="apoya_a"]:checked')).map(c => c.value),
+    observaciones: document.getElementById('f-observaciones').value.trim(),
+    consentimiento_autorizado: document.getElementById('f-consentimiento').checked,
+    consentimiento_metodo: 'verbal_formulario_campo',
+    meta_votos_sublider: document.getElementById('f-meta-votos').value || 0,
+    // lider_id / sublider_id NO se mandan — el servidor los calcula
+    // siempre desde la sesión (ver GET /votantes/mi-referido).
+    cliente_uuid: generarUuid()
+  };
+
+  try {
+    await api('/votantes', { method: 'POST', body: datosRegistro });
+    document.getElementById('exito-icono').textContent = '✔';
+    document.getElementById('exito-titulo').textContent = 'Registro guardado';
+    document.getElementById('exito-detalle').textContent = 'El contacto quedó guardado correctamente.';
+    document.getElementById('form-registro').style.display = 'none';
+    document.getElementById('pantalla-exito').style.display = 'block';
+  } catch (err) {
+    if (err && err.esErrorDeRed) {
+      try {
+        await guardarEnColaOffline(OFFLINE_STORE, { clienteUuid: datosRegistro.cliente_uuid, payload: datosRegistro, creadoEn: Date.now(), estado: 'pendiente' });
+        await actualizarAvisoColaOffline();
+        document.getElementById('exito-icono').textContent = '📶';
+        document.getElementById('exito-titulo').textContent = 'Guardado en tu celular';
+        document.getElementById('exito-detalle').textContent = 'No hay señal en este momento — se subirá solo apenas vuelva la conexión.';
+        document.getElementById('form-registro').style.display = 'none';
+        document.getElementById('pantalla-exito').style.display = 'block';
+      } catch (errOffline) {
+        mostrarError('No hay señal y no se pudo guardar en el celular. Intenta de nuevo.');
+      }
+    } else {
+      mostrarError(err.message || 'No se pudo guardar el registro. Intenta de nuevo.');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar registro';
+  }
+});
+
+document.getElementById('btn-registrar-otro').addEventListener('click', () => {
+  limpiarFormulario();
+  document.getElementById('pantalla-exito').style.display = 'none';
+  document.getElementById('form-registro').style.display = 'block';
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Nuevo registro', 'Votante o sublíder', '/app/mis-registros.html');
+
+  // El aviso de pendientes y el reintento al recuperar señal se activan
+  // de una vez, sin depender de que el resto de la pantalla haya cargado
+  // — así, si el líder abre la app sin conexión teniendo registros
+  // guardados de una vuelta anterior, los sigue viendo y se le siguen
+  // subiendo solos apenas vuelva la señal.
+  actualizarAvisoColaOffline();
+  sincronizarColaOffline();
+  window.addEventListener('online', () => sincronizarColaOffline());
+
+  try {
+    // Cada dato se cachea por su cuenta (no en un solo Promise.all con
+    // fallback conjunto): así, si YA se había abierto la app con conexión
+    // alguna vez, un arranque totalmente en frío sin señal igual carga el
+    // formulario completo con la última copia buena de cada cosa.
+    const [listaTerritorios, referido, colombia, configCampana, puestosConMesas] = await Promise.all([
+      obtenerConCacheReferencia('territorios', () => api('/territorial/territorios')),
+      obtenerConCacheReferencia('mi_referido', () => api('/votantes/mi-referido')),
+      obtenerConCacheReferencia('colombia', () => fetch('/data/colombia.json').then(r => r.json())),
+      obtenerConCacheReferencia('config_campana', () => api('/configuracion/campana')),
+      obtenerConCacheReferencia('diad_puestos_con_mesas', () => api('/dia-d/puestos-con-mesas'))
+    ]);
+    territorios = listaTerritorios;
+    miReferido = referido;
+    catalogoColombia = colombia;
+    puestosVotacionApp = puestosConMesas || [];
+    ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
+    usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
+    document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    aplicarApoyosConfiguradosApp(configCampana.apoyos_activos);
+    aplicarVisibilidadComunaApp();
+    poblarListasTerritorio();
+    poblarDepartamentos();
+    document.getElementById('f-puesto-votacion').innerHTML = '<option value="">Seleccione...</option>' +
+      puestosVotacionApp.map(p => `<option value="${escaparAppHtml(p.nombre)}">${escaparAppHtml(p.nombre)}</option>`).join('');
+
+    // Auto-llena Departamento/Ciudad de residencia y de Lugar de votación
+    // con lo definido en Configuración → Datos de la campaña, igual que en
+    // el panel de escritorio (Votantes y sublíderes): Gobernación/Cámara/
+    // Asamblea solo traen Departamento; Alcaldía/Concejo/JAL traen
+    // Departamento y Ciudad/Municipio; Senado no trae nada (campaña nacional).
+    const cargoAspiraApp = configCampana.cargo_aspira;
+    if (['gobernacion', 'camara_representantes', 'asamblea'].includes(cargoAspiraApp)) {
+      document.getElementById('f-depto-residencia').value = configCampana.departamento || '';
+      document.getElementById('f-depto-votacion').value = configCampana.departamento || '';
+    } else if (['alcaldia', 'concejo', 'jal'].includes(cargoAspiraApp)) {
+      document.getElementById('f-depto-residencia').value = configCampana.departamento || '';
+      document.getElementById('f-ciudad-residencia').value = configCampana.ciudad || '';
+      document.getElementById('f-depto-votacion').value = configCampana.departamento || '';
+      document.getElementById('f-municipio-votacion').value = configCampana.ciudad || '';
+    }
+    // Se disparan a mano los eventos "input" de Departamento (no se
+    // dispararon solos porque el valor se puso por código) para que se
+    // repueblen las listas de Municipio/Ciudad que dependen de ellos.
+    document.getElementById('f-depto-residencia').dispatchEvent(new Event('input'));
+    document.getElementById('f-depto-votacion').dispatchEvent(new Event('input'));
+    document.getElementById('f-ciudad-residencia').dispatchEvent(new Event('input'));
+
+    const cajaReferido = document.getElementById('caja-referido');
+    if (miReferido.lider_id) {
+      cajaReferido.style.display = 'block';
+      cajaReferido.innerHTML = miReferido.sublider_id
+        ? `Referido por: <strong>${escaparAppHtml(miReferido.lider_nombre)}</strong> (Líder) · Sublíder: <strong>${escaparAppHtml(miReferido.sublider_nombre)}</strong>`
+        : `Referido por: <strong>${escaparAppHtml(miReferido.lider_nombre)}</strong> (tú)`;
+    }
+
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('form-registro').style.display = 'block';
+  } catch (err) {
+    // Solo llega acá si nunca hubo conexión en este dispositivo (no hay
+    // ninguna copia en caché de territorios/catálogo/mi-referido) — ahí sí
+    // hace falta señal al menos una vez para poder cargar el formulario.
+    document.getElementById('pantalla-carga').innerHTML = `
+      <p style="margin-bottom:14px;">No se pudo cargar el formulario — parece que no hay conexión a internet en este momento.</p>
+      <button type="button" class="btn-app btn-app-primario" onclick="window.location.reload()">Reintentar</button>
+    `;
+  }
+})();
+</script>
+</body>
+</html>

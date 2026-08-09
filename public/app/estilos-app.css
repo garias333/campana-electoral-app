@@ -1,0 +1,222 @@
+/* Estilos compartidos de la app de captura de campo — pensada para uso
+   en la calle, con una mano, muchas veces con sol de frente: botones
+   grandes, alto contraste, texto legible sin necesidad de hacer zoom. */
+
+:root {
+  --navy: #142a3f;
+  --navy-2: #204264;
+  --cream: #f8f3e9;
+  --copper: #bf5e1f;
+  --ink: #1c1c1c;
+  --muted: #6b6b6b;
+  --linea: #e4ddd0;
+  --exito: #1e7a3d;
+  --error: #b3261e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-barra {
+  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%);
+  color: #fff;
+  padding: 18px 20px calc(18px + env(safe-area-inset-top, 0px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.app-barra .volver {
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: #fff;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.app-barra h1 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+}
+.app-barra .subt {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.65);
+  margin: 2px 0 0;
+}
+
+main.app-cuerpo {
+  padding: 20px 18px calc(40px + env(safe-area-inset-bottom, 0px));
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.saludo-app { margin-bottom: 18px; color: var(--muted); font-size: 0.9rem; }
+.btn-app-espaciado { margin-top: 28px; }
+
+/* --- Tarjeta de identidad de campaña (inicio.html) --- */
+.campana-card {
+  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%);
+  color: #fff;
+  border-radius: 18px;
+  padding: 22px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 18px rgba(20,42,63,0.22);
+}
+.campana-avatar {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: rgba(255,255,255,0.14);
+  border: 1.5px solid rgba(255,255,255,0.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; font-weight: 700; flex-shrink: 0;
+  color: #fff;
+  overflow: hidden;
+}
+.campana-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.campana-info { flex: 1; min-width: 0; }
+.campana-info h1 {
+  margin: 0; font-size: 1.15rem; font-weight: 700; line-height: 1.25;
+}
+.campana-meta {
+  margin: 5px 0 0; font-size: 0.74rem; color: rgba(255,255,255,0.72);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.campana-partido {
+  margin: 3px 0 0; font-size: 0.82rem; color: rgba(255,255,255,0.9); font-weight: 600;
+}
+.campana-slogan {
+  margin: 10px 0 0; font-size: 0.9rem; font-style: italic; color: var(--cream);
+  border-left: 2.5px solid var(--copper); padding-left: 10px;
+}
+
+/* --- Menú principal: botones grandes tipo tarjeta --- */
+.menu-app { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.menu-boton {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  padding: 18px 18px;
+  text-decoration: none;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(20,42,63,0.06);
+  min-height: 64px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.menu-boton:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(20,42,63,0.08); }
+.menu-boton .icono {
+  width: 46px; height: 46px; border-radius: 12px;
+  background: var(--cream); display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.menu-boton .texto { flex: 1; }
+.menu-boton .texto strong { display: block; font-size: 1rem; }
+.menu-boton .texto span { display: block; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.menu-boton .flecha { color: var(--copper); font-size: 1.2rem; }
+
+/* --- Formularios --- */
+.campo-app { margin-bottom: 16px; }
+.campo-app label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--navy); }
+.campo-app input, .campo-app select, .campo-app textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1.5px solid var(--linea);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+}
+.campo-app input:focus, .campo-app select:focus, .campo-app textarea:focus {
+  outline: none; border-color: var(--navy-2);
+}
+.campo-app input[readonly] { background: var(--cream); color: var(--muted); }
+.campo-app small { display: block; margin-top: 5px; font-size: 0.76rem; color: var(--muted); }
+.campo-app .error { color: var(--error); }
+.campo-app.con-boton { display: flex; gap: 8px; align-items: flex-end; }
+.campo-app.con-boton input { flex: 1; }
+
+.fila-app { display: flex; gap: 12px; }
+.fila-app .campo-app { flex: 1; }
+
+.seccion-titulo {
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.88rem;
+  color: #0B5ED7; border-bottom: 1px solid var(--linea); padding-bottom: 6px;
+  margin: 22px 0 14px;
+}
+.seccion-titulo:first-of-type { margin-top: 0; }
+.btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
+
+.chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-app {
+  flex: 1; min-width: 120px; text-align: center; padding: 13px 10px;
+  border: 1.5px solid var(--linea); border-radius: 10px; background: #fff;
+  font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--muted);
+  font-family: inherit;
+}
+.chip-app.activo { border-color: var(--navy); background: var(--navy); color: #fff; }
+
+.btn-app {
+  display: block; width: 100%; text-align: center;
+  padding: 15px 18px; border-radius: 12px; border: none;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+  font-family: inherit;
+}
+.btn-app-primario { background: var(--copper); color: #fff; }
+.btn-app-primario:disabled { background: #d8b79c; }
+.btn-app-secundario { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
+
+.aviso-app {
+  padding: 12px 14px; border-radius: 10px; font-size: 0.88rem; margin-bottom: 16px; display: none;
+}
+.aviso-app.visible { display: block; }
+.aviso-app.error { background: #fbe9e7; color: var(--error); border: 1px solid #f2b8b3; }
+.aviso-app.exito { background: #e7f4ea; color: var(--exito); border: 1px solid #b6ddc0; }
+
+.referido-caja {
+  background: var(--cream); border: 1px dashed var(--copper); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 18px; font-size: 0.88rem;
+}
+.referido-caja strong { color: var(--navy); }
+
+.pantalla-carga { text-align: center; padding: 60px 20px; color: var(--muted); }
+.pantalla-exito { text-align: center; padding: 30px 10px; }
+.pantalla-exito .marca { font-size: 3rem; color: var(--exito); margin-bottom: 12px; }
+
+/* ------------------------------------------------------------------
+   Comunas y barrios apagados desde Configuración → Datos de la campaña.
+
+   Cuando "¿Utilizar nombre de comunas?" o "¿Utilizar nombre de barrios?"
+   están en No, el campo correspondiente no debe aparecer en NINGÚN
+   formulario. Se resuelve aquí y no en cada página porque varios
+   formularios muestran y ocultan esos mismos campos por su cuenta (por
+   área urbana/rural, o por cargo) con estilos en línea: el !important
+   gana siempre, así que la opción de Configuración no se puede pisar por
+   accidente. Las clases las pone cada página al leer la configuración.
+
+   Si no se usa ninguno de los dos, la fila urbana queda sin campos y se
+   oculta entera para no dejar un hueco vacío en el formulario.          */
+body.sin-comunas [data-campo="comuna"] { display: none !important; }
+body.sin-barrios [data-campo="barrio"] { display: none !important; }
+body.sin-comunas.sin-barrios [data-fila="urbano"] { display: none !important; }

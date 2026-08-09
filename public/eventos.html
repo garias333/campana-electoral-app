@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eventos y GOTV · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="topbar">
+      <div><div class="eyebrow">Agenda</div><h1>Eventos y movilización</h1></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <button class="btn-secundario btn-sm" id="btn-regeocodificar-eventos" title="Vuelve a intentar ubicar en el mapa los eventos que tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
+        <button class="btn-secundario btn-sm" id="btn-regeocodificar-eventos-todos" style="color:#A93226; border-color:#A93226;" title="Vuelve a calcular las coordenadas de TODOS los eventos, incluso los que ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
+        <button class="btn-acento" id="btn-nuevo">+ Nuevo evento</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="tabla-contenedor">
+      <table>
+        <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th>Responsable</th><th>Coordinador</th><th>Líder</th><th>Asistencia</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbody-eventos"></tbody>
+      </table>
+      </div>
+      <div id="vacio-eventos" class="vacio" style="display:none;"><div class="icono-vacio">■</div>No hay eventos registrados.</div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay-form">
+  <div class="modal">
+    <div class="modal-header"><h3 id="titulo-modal-evento">Nuevo evento</h3><button class="modal-cerrar" id="cerrar-modal">×</button></div>
+    <div id="form-error" class="mensaje-error"></div>
+    <form id="form-evento">
+      <input type="hidden" name="id" id="input-id-evento">
+
+      <div class="campo encabezado-form primero">Datos del evento</div>
+      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="fila">
+        <div class="campo"><label>Tipo</label>
+          <select name="tipo">
+            <option value="reunion">Reunión</option>
+            <option value="evento_publico">Evento público</option>
+            <option value="gotv">Movilización (GOTV)</option>
+            <option value="capacitacion">Capacitación</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="campo"><label>Meta de asistentes</label><input type="number" name="meta_asistentes" value="0"></div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Estado</label>
+          <select name="estado" id="select-estado-evento">
+            <option value="programado">Programado</option>
+            <option value="realizado">Realizado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label>Fecha y hora de inicio</label><input type="datetime-local" name="fecha_inicio" required></div>
+        <div class="campo"><label>Fecha y hora de fin</label><input type="datetime-local" name="fecha_fin"></div>
+      </div>
+      <div class="campo"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+
+      <div class="campo encabezado-form">Lugar del evento</div>
+      <div class="campo">
+        <label>Dirección del evento</label>
+        <input name="lugar" id="input-lugar-evento" placeholder="Ej. Salón comunal, Calle 10 #5-20">
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Departamento</label>
+          <input name="departamento" id="input-departamento-evento" list="lista-departamentos-evento" autocomplete="off">
+          <datalist id="lista-departamentos-evento"></datalist>
+        </div>
+        <div class="campo">
+          <label>Ciudad</label>
+          <input name="ciudad" id="input-ciudad-evento" list="lista-ciudades-evento" autocomplete="off">
+          <datalist id="lista-ciudades-evento"></datalist>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label>Área</label>
+        <select id="select-area-evento">
+          <option value="">Seleccione (opcional)...</option>
+          <option value="urbano">Urbano</option>
+          <option value="rural">Rural</option>
+        </select>
+      </div>
+      <div class="fila" id="fila-urbano-evento" data-fila="urbano" style="display:none;">
+        <div class="campo" id="campo-comuna-evento" data-campo="comuna">
+          <label>Comuna</label>
+          <input id="input-comuna-evento" list="lista-comunas-evento" autocomplete="off">
+          <datalist id="lista-comunas-evento"></datalist>
+        </div>
+        <div class="campo" id="campo-barrio-evento" data-campo="barrio">
+          <label>Barrio</label>
+          <input id="input-barrio-evento" list="lista-barrios-evento" autocomplete="off">
+          <datalist id="lista-barrios-evento"></datalist>
+          <small id="contador-barrios-evento" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+      <div class="fila" id="fila-rural-evento" style="display:none;">
+        <div class="campo">
+          <label>Corregimiento</label>
+          <input id="input-corregimiento-evento" list="lista-corregimientos-evento" autocomplete="off">
+          <datalist id="lista-corregimientos-evento"></datalist>
+        </div>
+        <div class="campo">
+          <label>Vereda</label>
+          <input id="input-vereda-evento" list="lista-veredas-evento" autocomplete="off">
+          <datalist id="lista-veredas-evento"></datalist>
+          <small id="contador-veredas-evento" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
+        </div>
+      </div>
+      <div id="territorio-evento-error" class="mensaje-error"></div>
+
+      <div class="campo encabezado-form">Responsables del evento</div>
+      <div class="fila">
+        <div class="campo">
+          <label>Coordinador</label>
+          <select name="coordinador_id" id="select-coordinador-evento"><option value="">Sin especificar</option></select>
+        </div>
+        <div class="campo">
+          <label>Líder</label>
+          <select name="lider_id" id="select-lider-evento"><option value="">Sin especificar</option></select>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label>Responsable de la reunión</label>
+        <select name="responsable_id" id="select-responsable-evento"><option value="">Yo mismo</option></select>
+      </div>
+
+      <button type="submit" class="btn-primario">Guardar evento</button>
+    </form>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual;
+let territorios = [];
+
+// Si la ciudad NO tiene comunas (Configuración → Datos de la campaña), el
+// campo Comuna se oculta (el Barrio ya se elige entre todos los del
+// municipio cuando no hay una Comuna escrita, ver actualizarBarriosEvento).
+let ciudadTieneComunas = true;
+
+// Departamento/Ciudad del evento. Se ofrecen del catálogo del país, no de
+// la zona de la campaña: un evento puede ser fuera de la ciudad sede (un
+// foro en otro municipio, un encuentro regional).
+let catalogoColombiaEvento = null;
+let zonaCampana = { departamento: '', ciudad: '' };
+
+async function cargarCatalogoColombiaEvento() {
+  if (catalogoColombiaEvento) return;
+  try {
+    catalogoColombiaEvento = await (await fetch('/data/colombia.json')).json();
+    document.getElementById('lista-departamentos-evento').innerHTML =
+      catalogoColombiaEvento.departamentos.map(d => `<option value="${d}">`).join('');
+  } catch (e) { /* sin catálogo, los campos siguen siendo de texto libre */ }
+}
+
+function actualizarCiudadesEvento() {
+  const depto = document.getElementById('input-departamento-evento').value.trim();
+  const ciudades = (catalogoColombiaEvento && catalogoColombiaEvento.municipiosPorDepartamento[depto]) || [];
+  document.getElementById('lista-ciudades-evento').innerHTML =
+    ciudades.map(c => `<option value="${c}">`).join('');
+}
+
+/** Al abrir un evento nuevo se propone la zona de la campaña, que es donde ocurre la mayoría. */
+function proponerZonaCampanaEvento() {
+  document.getElementById('input-departamento-evento').value = zonaCampana.departamento;
+  actualizarCiudadesEvento();
+  document.getElementById('input-ciudad-evento').value = zonaCampana.ciudad;
+}
+let usarNombreBarrios = true;
+function aplicarVisibilidadComunaEvento() {
+  document.getElementById('campo-comuna-evento').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('campo-barrio-evento').style.display = usarNombreBarrios ? 'block' : 'none';
+}
+
+const etiquetasTipo = {
+  reunion: 'Reunión', evento_publico: 'Evento público', gotv: 'GOTV',
+  capacitacion: 'Capacitación', otro: 'Otro'
+};
+const etiquetasEstado = { programado: 'Programado', realizado: 'Realizado', cancelado: 'Cancelado' };
+
+async function cargarTerritorios() {
+  territorios = await api('/territorial/territorios');
+}
+
+async function cargarResponsables() {
+  const usuarios = await api('/usuarios');
+  document.getElementById('select-responsable-evento').innerHTML =
+    '<option value="">Yo mismo</option>' + usuarios.map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('');
+}
+
+async function cargarEventos() {
+  const filas = await api('/eventos');
+  const tbody = document.getElementById('tbody-eventos');
+  document.getElementById('vacio-eventos').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map(ev => `
+    <tr>
+      <td><strong>${ev.titulo}</strong></td>
+      <td><span class="tag-tipo">${etiquetasTipo[ev.tipo] || ev.tipo}</span></td>
+      <td>${formatoFecha(ev.fecha_inicio, true)}</td>
+      <td>${ev.lugar || '—'}${ev.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <td>${ev.responsable_nombre || '—'}</td>
+      <td>${ev.coordinador_nombre || '—'}</td>
+      <td>${ev.lider_nombre || '—'}</td>
+      <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td>${etiquetasEstado[ev.estado] || ev.estado}</td>
+      <td style="white-space:nowrap;">
+        ${['admin', 'coordinador', 'lider'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick='abrirEdicion(${JSON.stringify(ev).replace(/'/g, "&apos;")})'>Editar</button>` : ''}
+        ${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarEvento(${ev.id})">Eliminar</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarEvento(id) {
+  if (!confirm('¿Eliminar este evento?')) return;
+  await api(`/eventos/${id}`, { method: 'DELETE' });
+  cargarEventos();
+}
+
+// --- Cascada de ubicación (Área -> Comuna/Barrio o Corregimiento/Vereda) ---
+
+function poblarListasUbicacionEvento() {
+  const comunas = territorios.filter(t => t.tipo === 'comuna');
+  const corregimientos = territorios.filter(t => t.tipo === 'corregimiento');
+  document.getElementById('lista-comunas-evento').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('lista-corregimientos-evento').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  actualizarBarriosEvento();
+  actualizarVeredasEvento();
+}
+
+function actualizarBarriosEvento() {
+  const nombreComuna = normalizarTexto(document.getElementById('input-comuna-evento').value);
+  const comuna = territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna);
+  const barrios = comuna
+    ? territorios.filter(t => t.tipo === 'barrio' && t.padre_id === comuna.id)
+    : territorios.filter(t => t.tipo === 'barrio');
+  document.getElementById('lista-barrios-evento').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+  document.getElementById('contador-barrios-evento').textContent =
+    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
+}
+
+function actualizarVeredasEvento() {
+  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-evento').value);
+  const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
+  const veredas = corregimiento
+    ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id)
+    : territorios.filter(t => t.tipo === 'vereda');
+  document.getElementById('lista-veredas-evento').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+  document.getElementById('contador-veredas-evento').textContent =
+    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
+}
+
+// --- Autocompletado de Coordinador (por Comuna/Corregimiento) y Líder (por Barrio/Vereda) ---
+// Ninguno de los dos es obligatorio: si hay un solo resultado se preselecciona,
+// pero el usuario siempre puede cambiarlo o dejarlo en "Sin especificar".
+
+async function actualizarCoordinadorPorZona(zonaId) {
+  const select = document.getElementById('select-coordinador-evento');
+  if (!zonaId) { select.innerHTML = '<option value="">Sin especificar</option>'; return; }
+  try {
+    const coords = await api(`/territorial/coordinadores-por-zona/${zonaId}`);
+    select.innerHTML = '<option value="">Sin especificar</option>' + coords.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if (coords.length === 1) select.value = coords[0].id;
+  } catch (err) {
+    select.innerHTML = '<option value="">Sin especificar</option>';
+  }
+}
+
+async function actualizarLiderPorTerritorio(territorioId) {
+  const select = document.getElementById('select-lider-evento');
+  if (!territorioId) { select.innerHTML = '<option value="">Sin especificar</option>'; return; }
+  try {
+    const lideres = await api(`/territorial/lideres-por-territorio/${territorioId}`);
+    select.innerHTML = '<option value="">Sin especificar</option>' + lideres.map(l => `<option value="${l.id}">${l.nombre}</option>`).join('');
+    if (lideres.length === 1) select.value = lideres[0].id;
+  } catch (err) {
+    select.innerHTML = '<option value="">Sin especificar</option>';
+  }
+}
+
+document.getElementById('input-comuna-evento').addEventListener('input', () => {
+  actualizarBarriosEvento();
+  const nombre = normalizarTexto(document.getElementById('input-comuna-evento').value);
+  const comuna = territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombre);
+  actualizarCoordinadorPorZona(comuna ? comuna.id : null);
+});
+document.getElementById('input-corregimiento-evento').addEventListener('input', () => {
+  actualizarVeredasEvento();
+  const nombre = normalizarTexto(document.getElementById('input-corregimiento-evento').value);
+  const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombre);
+  actualizarCoordinadorPorZona(corregimiento ? corregimiento.id : null);
+});
+document.getElementById('input-barrio-evento').addEventListener('input', () => {
+  const nombre = normalizarTexto(document.getElementById('input-barrio-evento').value);
+  const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombre);
+  actualizarLiderPorTerritorio(barrio ? barrio.id : null);
+});
+document.getElementById('input-vereda-evento').addEventListener('input', () => {
+  const nombre = normalizarTexto(document.getElementById('input-vereda-evento').value);
+  const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombre);
+  actualizarLiderPorTerritorio(vereda ? vereda.id : null);
+});
+
+document.getElementById('select-area-evento').addEventListener('change', (e) => {
+  document.getElementById('fila-urbano-evento').style.display = e.target.value === 'urbano' ? 'flex' : 'none';
+  document.getElementById('fila-rural-evento').style.display = e.target.value === 'rural' ? 'flex' : 'none';
+  if (e.target.value === 'urbano') actualizarBarriosEvento();
+  if (e.target.value === 'rural') actualizarVeredasEvento();
+});
+
+/** Área es opcional: si no se especifica, el evento se guarda sin territorio_id. */
+function resolverTerritorioEvento() {
+  const area = document.getElementById('select-area-evento').value;
+  if (!area) return { territorioId: null, area: null };
+
+  if (area === 'urbano') {
+    // Si "¿Utilizar nombre de barrios?" está en No, se asigna directo a la
+    // Comuna (Barrio queda oculto). Si la ciudad tampoco usa comunas, se
+    // guarda sin territorio geográfico.
+    if (!usarNombreBarrios) {
+      const nombreComuna = normalizarTexto(document.getElementById('input-comuna-evento').value);
+      const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
+      if (!comuna) {
+        if (ciudadTieneComunas) return { error: 'Seleccione una comuna de la lista, o deje el área sin especificar.' };
+        return { territorioId: null, area };
+      }
+      return { territorioId: comuna.id, area };
+    }
+    const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-evento').value);
+    if (!nombreBarrio) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
+    const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Estructura territorial > Gestionar territorios".' };
+    return { territorioId: barrio.id, area };
+  }
+  if (area === 'rural') {
+    const nombreVereda = normalizarTexto(document.getElementById('input-vereda-evento').value);
+    if (!nombreVereda) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
+    const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+    if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Estructura territorial > Gestionar territorios".' };
+    return { territorioId: vereda.id, area };
+  }
+  return { territorioId: null, area: null };
+}
+
+/** Convierte una fecha ISO (como llega de la API) al formato que exige un input datetime-local. */
+function formatoInputDatetimeLocal(fechaIso) {
+  if (!fechaIso) return '';
+  const d = new Date(fechaIso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Reconstruye Área/Comuna/Barrio o Corregimiento/Vereda a partir de un territorio_id existente (modo edición). */
+function precargarUbicacionEvento(territorioId) {
+  if (!territorioId) return;
+  const territorio = territorios.find(t => t.id === territorioId);
+  if (!territorio) return;
+
+  if (territorio.tipo === 'barrio') {
+    document.getElementById('select-area-evento').value = 'urbano';
+    document.getElementById('fila-urbano-evento').style.display = 'flex';
+    document.getElementById('fila-rural-evento').style.display = 'none';
+    const comuna = territorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-comuna-evento').value = comuna ? comuna.nombre : '';
+    actualizarBarriosEvento();
+    document.getElementById('input-barrio-evento').value = territorio.nombre;
+    if (comuna) actualizarCoordinadorPorZona(comuna.id);
+  } else if (territorio.tipo === 'vereda') {
+    document.getElementById('select-area-evento').value = 'rural';
+    document.getElementById('fila-rural-evento').style.display = 'flex';
+    document.getElementById('fila-urbano-evento').style.display = 'none';
+    const corregimiento = territorios.find(t => t.id === territorio.padre_id);
+    document.getElementById('input-corregimiento-evento').value = corregimiento ? corregimiento.nombre : '';
+    actualizarVeredasEvento();
+    document.getElementById('input-vereda-evento').value = territorio.nombre;
+    if (corregimiento) actualizarCoordinadorPorZona(corregimiento.id);
+  }
+}
+
+function abrirEdicion(ev) {
+  document.getElementById('form-evento').reset();
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-evento-error').classList.remove('visible');
+  document.getElementById('fila-urbano-evento').style.display = 'none';
+  document.getElementById('fila-rural-evento').style.display = 'none';
+  document.getElementById('titulo-modal-evento').textContent = 'Editar evento';
+
+  const form = document.getElementById('form-evento');
+  document.getElementById('input-id-evento').value = ev.id;
+  form.titulo.value = ev.titulo;
+  form.tipo.value = ev.tipo;
+  form.meta_asistentes.value = ev.meta_asistentes || 0;
+  form.estado.value = ev.estado || 'programado';
+  form.fecha_inicio.value = formatoInputDatetimeLocal(ev.fecha_inicio);
+  form.fecha_fin.value = ev.fecha_fin ? formatoInputDatetimeLocal(ev.fecha_fin) : '';
+  document.getElementById('input-lugar-evento').value = ev.lugar || '';
+  document.getElementById('input-departamento-evento').value = ev.departamento || zonaCampana.departamento;
+  actualizarCiudadesEvento();
+  document.getElementById('input-ciudad-evento').value = ev.ciudad || zonaCampana.ciudad;
+  form.descripcion.value = ev.descripcion || '';
+
+  poblarListasUbicacionEvento();
+  precargarUbicacionEvento(ev.territorio_id);
+  // Se completan después de precargar el territorio, para no perder la
+  // selección si el evento no tiene coordinador/líder deducible de la zona.
+  document.getElementById('select-coordinador-evento').innerHTML =
+    '<option value="">Sin especificar</option>' + (ev.coordinador_id ? `<option value="${ev.coordinador_id}">${ev.coordinador_nombre || 'Asignado actualmente'}</option>` : '');
+  if (ev.coordinador_id) document.getElementById('select-coordinador-evento').value = ev.coordinador_id;
+  document.getElementById('select-lider-evento').innerHTML =
+    '<option value="">Sin especificar</option>' + (ev.lider_id ? `<option value="${ev.lider_id}">${ev.lider_nombre || 'Asignado actualmente'}</option>` : '');
+  if (ev.lider_id) document.getElementById('select-lider-evento').value = ev.lider_id;
+  if (ev.responsable_id) document.getElementById('select-responsable-evento').value = ev.responsable_id;
+
+  document.getElementById('overlay-form').classList.add('abierto');
+}
+
+document.getElementById('btn-nuevo').addEventListener('click', () => {
+  document.getElementById('form-evento').reset();
+  document.getElementById('input-id-evento').value = '';
+  document.getElementById('titulo-modal-evento').textContent = 'Nuevo evento';
+  document.getElementById('form-error').classList.remove('visible');
+  document.getElementById('territorio-evento-error').classList.remove('visible');
+  document.getElementById('fila-urbano-evento').style.display = 'none';
+  document.getElementById('fila-rural-evento').style.display = 'none';
+  document.getElementById('select-coordinador-evento').innerHTML = '<option value="">Sin especificar</option>';
+  document.getElementById('select-lider-evento').innerHTML = '<option value="">Sin especificar</option>';
+  poblarListasUbicacionEvento();
+  proponerZonaCampanaEvento();
+  document.getElementById('overlay-form').classList.add('abierto');
+});
+
+document.getElementById('input-departamento-evento').addEventListener('input', actualizarCiudadesEvento);
+document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+
+document.getElementById('form-evento').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('form-error');
+  const territorioErrorBox = document.getElementById('territorio-evento-error');
+  errorBox.classList.remove('visible');
+  territorioErrorBox.classList.remove('visible');
+
+  const resuelto = resolverTerritorioEvento();
+  if (resuelto.error) {
+    territorioErrorBox.textContent = resuelto.error;
+    territorioErrorBox.classList.add('visible');
+    return;
+  }
+
+  const datos = Object.fromEntries(new FormData(e.target));
+  const id = datos.id;
+  delete datos.id;
+  datos.territorio_id = resuelto.territorioId || '';
+  datos.area = resuelto.area || '';
+
+  try {
+    if (id) await api(`/eventos/${id}`, { method: 'PUT', body: datos });
+    else await api('/eventos', { method: 'POST', body: datos });
+    document.getElementById('overlay-form').classList.remove('abierto');
+    e.target.reset();
+    document.getElementById('fila-urbano-evento').style.display = 'none';
+    document.getElementById('fila-rural-evento').style.display = 'none';
+    cargarEventos();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+(async () => {
+  usuarioActual = await inicializarLayout('/eventos.html');
+  if (!usuarioActual) return;
+  if (!['admin', 'coordinador', 'lider'].includes(usuarioActual.rol)) {
+    document.getElementById('btn-nuevo').style.display = 'none';
+  }
+  // Re-geocodificar es solo de administrador (así lo exige la ruta). Se
+  // ocultan en vez de dejarlos y que respondan "no autorizado": un botón
+  // que se ofrece y luego se niega hace creer que algo se rompió.
+  if (usuarioActual.rol !== 'admin') {
+    document.getElementById('btn-regeocodificar-eventos').style.display = 'none';
+    document.getElementById('btn-regeocodificar-eventos-todos').style.display = 'none';
+  }
+  try {
+    const configCampana = await api('/configuracion/campana');
+    ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
+    usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
+    document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    zonaCampana = { departamento: configCampana.departamento || '', ciudad: configCampana.ciudad || '' };
+  } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
+  await cargarCatalogoColombiaEvento();
+  aplicarVisibilidadComunaEvento();
+  await cargarTerritorios();
+  await cargarResponsables();
+  await cargarEventos();
+})();
+
+/**
+ * Recorre en lotes la re-geocodificación de eventos. Un solo motor para los
+ * dos botones: `todos` decide si se pisan las coordenadas ya calculadas.
+ *
+ * El cursor solo avanza hacia adelante, así que ningún id se visita dos
+ * veces en la misma corrida, y si algo falla a mitad de camino se puede
+ * volver a hacer clic para seguir con los que faltan.
+ */
+async function recorrerRegeocodificacionEventos(boton, todos, password) {
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+  let totalGeocodificados = 0, totalFallidos = 0, totalProcesados = 0, cursor = 0;
+  try {
+    let quedanPendientes = 1;
+    let vueltas = 0;
+    const MAX_VUELTAS = 200; // tope de seguridad contra un bucle infinito
+    while (quedanPendientes > 0 && vueltas < MAX_VUELTAS) {
+      vueltas++;
+      boton.textContent = totalProcesados > 0
+        ? `Procesando... ${totalProcesados} evento(s) hasta ahora`
+        : 'Procesando... esto puede tardar varios minutos';
+      const url = `/eventos/regeocodificar-pendientes?lote=5${todos ? '&todos=1' : ''}&despues_de=${cursor}`;
+      const r = await api(url, todos ? { method: 'POST', body: { password } } : { method: 'POST' });
+      totalGeocodificados += r.geocodificados;
+      totalFallidos += r.fallidos;
+      totalProcesados += r.procesados;
+      quedanPendientes = r.quedanPendientes;
+      cursor = r.cursorSiguiente;
+      if (r.procesados === 0) break;
+    }
+    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} evento(s) quedaron ubicados en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes corregirlas a mano o volver a intentar más tarde.` : ''));
+    await cargarEventos();
+  } catch (err) {
+    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`);
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
+}
+
+document.getElementById('btn-regeocodificar-eventos').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a intentar ubicar en el mapa los eventos que tienen Dirección pero aún no tienen coordenadas. Se procesan de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña mientras corre). ¿Continuar?')) return;
+  await recorrerRegeocodificacionEventos(document.getElementById('btn-regeocodificar-eventos'), false, null);
+});
+
+document.getElementById('btn-regeocodificar-eventos-todos').addEventListener('click', async () => {
+  if (!confirm('Esto vuelve a calcular la ubicación de TODOS los eventos que tienen Dirección, incluso los que ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
+  const password = await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
+  if (!password) return;
+  await recorrerRegeocodificacionEventos(document.getElementById('btn-regeocodificar-eventos-todos'), true, password);
+});
+</script>
+</body>
+</html>

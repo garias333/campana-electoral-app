@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Día D · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .reporte-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+  .reporte-tarjeta.con-novedad { border-color: #e0b3b0; background: #FBF3F2; }
+  .reporte-tarjeta .fila-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .reporte-tarjeta .mesa { font-weight: 700; color: var(--navy); }
+  .reporte-tarjeta .hora { font-size: 0.76rem; color: var(--muted); }
+  .reporte-tarjeta .detalle { font-size: 0.86rem; color: var(--ink); }
+  .reporte-tarjeta .novedad { font-size: 0.82rem; color: #A93226; margin-top: 6px; }
+  .reporte-tarjeta a.foto-e14 { font-size: 0.8rem; display: inline-block; margin-top: 6px; }
+  .tabla-votos-candidatos { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
+  .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
+  .tabla-votos-candidatos td.nombre-candidato { font-size: 0.9rem; }
+  .tabla-votos-candidatos input { width: 100%; box-sizing: border-box; }
+
+  /* Cámara propia para la Foto del E-14 (ver más abajo por qué no se usa el input nativo) */
+  #camara-e14-overlay {
+    display: none; position: fixed; inset: 0; background: #000; z-index: 1000;
+    flex-direction: column;
+  }
+  #video-camara-e14, #canvas-preview-e14 {
+    flex: 1; width: 100%; min-height: 0; object-fit: contain; background: #000;
+  }
+  .camara-e14-controles {
+    display: flex; flex-direction: column; gap: 10px; padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: #000;
+  }
+  .camara-e14-formato { display: flex; gap: 18px; justify-content: center; color: #fff; font-size: 0.85rem; }
+  .camara-e14-botones { display: flex; gap: 10px; }
+  .camara-e14-botones .btn-app { flex: 1; }
+  .btn-app-fantasma { background: transparent; color: #fff; border: 1.5px solid #fff; }
+  #vista-previa-foto-e14 img { max-width: 100%; border-radius: 10px; border: 1px solid var(--linea); display: block; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+
+  <div id="pantalla-contenido" style="display:none;">
+    <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
+
+    <div class="aviso-app error" id="diad-error"></div>
+    <div class="aviso-app exito" id="diad-ok"></div>
+
+    <div class="seccion-titulo">Reportar conteo de mi mesa</div>
+    <form id="form-reporte" enctype="multipart/form-data">
+      <div class="fila-app">
+        <div class="campo-app"><label for="f-departamento">Departamento</label><input id="f-departamento" name="departamento" autocomplete="off"></div>
+        <div class="campo-app"><label for="f-municipio">Municipio</label><input id="f-municipio" name="municipio" autocomplete="off"></div>
+      </div>
+      <div class="fila-app">
+        <div class="campo-app">
+          <label for="f-puesto-select">Puesto de votación</label>
+          <!-- Desplegable de puestos de la campaña. La última opción abre el
+               campo de texto de abajo, para el testigo que esté en un puesto
+               que la siembra no incluyó: sin esa salida no podría reportar, y
+               el día de la elección no hay a quién llamar. -->
+          <select id="f-puesto-select" required></select>
+          <input id="f-puesto" name="puesto_votacion" autocomplete="off" list="lista-puestos-votacion-app"
+                 placeholder="Escribe el nombre del puesto" style="display:none; margin-top:6px;">
+          <datalist id="lista-puestos-votacion-app"></datalist>
+          <small id="aviso-puesto-fuera" style="display:none; color:#A93226; font-size:0.78rem;">
+            Este reporte quedará marcado para revisión.
+          </small>
+        </div>
+        <div class="campo-app" id="campo-mesa-app"><label for="f-mesa">Mesa</label><input id="f-mesa" name="mesa_votacion" required inputmode="numeric" autocomplete="off"></div>
+      </div>
+      <div class="campo-app" id="campo-mesas-coordinador" style="display:none;">
+        <label>Mesa que vas a reportar</label>
+        <div id="lista-mesas-coordinador" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:6px;"></div>
+      </div>
+      <div class="campo-app"><label for="f-total-votantes">Total votantes en la mesa</label><input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric"></div>
+      <div class="campo-app">
+        <label>Votos por candidato</label>
+        <table class="tabla-votos-candidatos">
+          <thead><tr><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>
+          <tbody id="tbody-votos-candidatos"></tbody>
+        </table>
+      </div>
+      <div class="campo-app">
+        <label>Total votos en la mesa</label>
+        <input id="f-total-votos-mesa" type="text" disabled value="0">
+      </div>
+      <div class="campo-app">
+        <label for="f-novedad">Novedad o irregularidad (opcional)</label>
+        <textarea id="f-novedad" name="novedad" rows="3" placeholder="Ej. testigo de otro partido impidió el conteo, mesa abrió tarde, etc."></textarea>
+      </div>
+      <div class="campo-app">
+        <label>📷 Foto del E-14</label>
+        <div id="vista-previa-foto-e14" style="display:none; margin-bottom:8px;">
+          <img id="img-previa-foto-e14" alt="Foto del E-14 ya procesada">
+        </div>
+        <button type="button" class="btn-app btn-app-secundario" id="btn-abrir-camara-e14">Tomar foto del E-14</button>
+        <small>Obligatoria — es el respaldo del conteo que reportas. Se toma en blanco y negro y se optimiza el contraste para que se lea bien.</small>
+      </div>
+      <button type="submit" class="btn-app btn-app-primario" id="btn-enviar-reporte">Enviar reporte</button>
+    </form>
+
+    <div class="seccion-titulo" style="margin-top:24px;">Mis reportes de hoy</div>
+    <div id="lista-mis-reportes"></div>
+    <p id="vacio-mis-reportes" style="display:none; color:var(--muted); font-size:0.85rem;">Todavía no has enviado ningún reporte.</p>
+
+    <button class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
+  </div>
+</main>
+
+<div id="camara-e14-overlay">
+  <video id="video-camara-e14" autoplay playsinline muted></video>
+  <canvas id="canvas-preview-e14" style="display:none;"></canvas>
+  <div class="camara-e14-controles" id="controles-camara-viva">
+    <div class="camara-e14-formato">
+      <button type="button" class="btn-app btn-app-fantasma" id="btn-flash-e14" style="display:none; flex:none; padding:8px 16px;">🔦 Encender flash</button>
+    </div>
+    <div class="camara-e14-botones">
+      <button type="button" class="btn-app btn-app-fantasma" id="btn-cancelar-camara-e14">Cancelar</button>
+      <button type="button" class="btn-app btn-app-primario" id="btn-capturar-e14" style="flex:2;">📸 Capturar</button>
+    </div>
+  </div>
+  <div class="camara-e14-controles" id="controles-camara-preview" style="display:none;">
+    <div class="camara-e14-botones">
+      <button type="button" class="btn-app btn-app-fantasma" id="btn-repetir-e14">Repetir foto</button>
+      <button type="button" class="btn-app btn-app-primario" id="btn-usar-foto-e14">Usar esta foto</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+function formatoHora(fechaIso) {
+  return new Date(fechaIso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * "Mis reportes de hoy" solo muestra lo que el servidor ya confirmó — a
+ * diferencia del envío del formulario, ver esta lista SÍ necesita
+ * conexión. Si falla por falta de señal, simplemente no se actualiza (no
+ * se rompe el resto de la pantalla): lo pendiente por subir se ve aparte,
+ * en el aviso de la cola offline de arriba.
+ */
+async function cargarMisReportes() {
+  let filas;
+  try {
+    filas = await api('/dia-d/mis-reportes');
+  } catch (err) {
+    return;
+  }
+  const cont = document.getElementById('lista-mis-reportes');
+  document.getElementById('vacio-mis-reportes').style.display = filas.length ? 'none' : 'block';
+  cont.innerHTML = filas.map(f => `
+    <div class="reporte-tarjeta ${f.novedad ? 'con-novedad' : ''}">
+      <div class="fila-top">
+        <span class="mesa">${escaparHtml(f.puesto_votacion)} · Mesa ${escaparHtml(f.mesa_votacion)}</span>
+        <span class="hora">${formatoHora(f.created_at)}</span>
+      </div>
+      <div class="detalle">${(f.votos_por_candidato || []).map(v => `${escaparHtml(v.nombre)}: ${v.votos}`).join(' · ') || '—'}</div>
+      <div class="detalle">${f.total_votantes_mesa ?? '—'} total votantes en la mesa</div>
+      ${f.novedad ? `<div class="novedad">⚠ ${escaparHtml(f.novedad)}</div>` : ''}
+      ${f.foto_e14_url ? `<a class="foto-e14" href="${escaparHtml(f.foto_e14_url)}" target="_blank" rel="noopener">Ver foto del E-14</a>` : ''}
+    </div>
+  `).join('');
+}
+
+/**
+ * Captura sin conexión: si al enviar no hay señal (esErrorDeRed, ver
+ * api-core.js), el reporte completo (incluida la foto del E-14) se guarda
+ * en el celular (IndexedDB, ver /js/offline-utils.js) y se reintenta solo
+ * más tarde — al recuperar conexión, al volver a abrir la app, o con el
+ * botón "Subir ahora". El cliente_uuid evita que un reintento duplique el
+ * mismo reporte si la confirmación se pierde justo cuando vuelve la señal.
+ */
+const OFFLINE_STORE_DIAD = 'reportes_diad_pendientes';
+
+async function actualizarAvisoColaOfflineDiaD() {
+  let cola = [];
+  try { cola = await listarColaOffline(OFFLINE_STORE_DIAD); } catch (err) { return; }
+  const pendientes = cola.filter(r => r.estado !== 'fallido');
+  const fallidos = cola.filter(r => r.estado === 'fallido');
+  const aviso = document.getElementById('aviso-cola-offline');
+
+  if (!pendientes.length && !fallidos.length) {
+    aviso.style.display = 'none';
+    aviso.innerHTML = '';
+    return;
+  }
+  aviso.style.display = 'block';
+  aviso.innerHTML = `
+    ${pendientes.length ? `<div style="display:flex; align-items:center; gap:8px; justify-content:space-between;">
+      <span>📶 ${pendientes.length} reporte(s) guardados en este celular, pendientes de subir.</span>
+      <button type="button" class="btn-mini" id="btn-subir-cola-ahora">Subir ahora</button>
+    </div>` : ''}
+    ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
+      ⚠ ${fallidos.length} reporte(s) no se pudieron subir — revísalos: ${fallidos.map(f => escaparHtml(`Mesa ${f.payload.campos.mesa_votacion} (${f.error || 'error desconocido'})`)).join(', ')}
+    </div>` : ''}
+  `;
+  const btnSubir = document.getElementById('btn-subir-cola-ahora');
+  if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOfflineDiaD());
+}
+
+/** Reconstruye el FormData (con la foto real, guardada como Blob) a partir de lo que quedó en la cola. */
+function construirFormDataReporte(registro) {
+  const fd = new FormData();
+  Object.entries(registro.payload.campos).forEach(([clave, valor]) => fd.append(clave, valor));
+  fd.append('votos_json', registro.payload.votosJson);
+  fd.append('cliente_uuid', registro.clienteUuid);
+  if (registro.payload.fotoE14) {
+    fd.append('foto_e14', registro.payload.fotoE14, registro.payload.fotoE14Nombre || 'foto_e14.jpg');
+  }
+  return fd;
+}
+
+async function sincronizarColaOfflineDiaD() {
+  await sincronizarCola(OFFLINE_STORE_DIAD, '/dia-d/reportes', construirFormDataReporte);
+  await actualizarAvisoColaOfflineDiaD();
+  await cargarMisReportes();
+}
+
+/**
+ * Arma la tabla de "Votos por candidato" con los candidatos configurados
+ * en Configuración → Día D → Candidatos (el candidato propio de la
+ * campaña siempre viene primero desde el backend). Se llama una sola vez
+ * al cargar la pantalla — la lista de candidatos no cambia mientras el
+ * testigo está reportando.
+ */
+async function cargarCandidatosParaReporte() {
+  const nombres = await obtenerConCacheReferencia('diad_candidatos', () => api('/dia-d/candidatos-para-reporte'));
+  const tbody = document.getElementById('tbody-votos-candidatos');
+  tbody.innerHTML = nombres.map(nombre => `
+    <tr>
+      <td class="nombre-candidato">${escaparHtml(nombre)}</td>
+      <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
+    </tr>
+  `).join('');
+  tbody.addEventListener('input', recalcularTotalVotosMesa);
+  recalcularTotalVotosMesa();
+}
+
+/** Suma en vivo, solo para que el testigo se autoverifique, los votos que va escribiendo por cada candidato. No se envía al servidor — el total real ya viaja implícito en la lista de votos por candidato. */
+function recalcularTotalVotosMesa() {
+  const total = [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')]
+    .reduce((suma, inp) => suma + (Number(inp.value) || 0), 0);
+  document.getElementById('f-total-votos-mesa').value = total;
+}
+
+// Valor de la opción "Mi puesto no aparece en la lista".
+const PUESTO_OTRO = '__otro__';
+
+/**
+ * Llena el desplegable de Puesto.
+ *
+ * SOBRE LA CACHÉ, QUE ES LO DELICADO
+ * La lista con ids se guarda bajo una clave NUEVA, `diad_puestos_con_id`.
+ * La vieja, `diad_puestos` (un arreglo de textos), se deja intacta y se
+ * sigue usando para el autollenado del campo de texto.
+ *
+ * Se hizo así, y no reutilizando la misma clave, porque un teléfono que
+ * quedó sin señal conserva lo que guardó la versión anterior. Si esa clave
+ * pasara a contener objetos, el código viejo leería `[object Object]` y el
+ * nuevo leería textos donde espera ids — en los dos sentidos, y sin error
+ * visible. Con dos claves, cada versión lee solo lo que ella escribió.
+ *
+ * Si la lista con ids no está disponible (sin señal y sin caché nueva),
+ * el desplegable se llena con los nombres de siempre y el reporte viaja
+ * por texto, que el servidor sigue aceptando. Es el mismo camino de la
+ * salida de emergencia: un modo degradado, no una pantalla rota.
+ */
+async function cargarPuestosParaReporte() {
+  const select = document.getElementById('f-puesto-select');
+  let conId = null;
+  try {
+    conId = await obtenerConCacheReferencia('diad_puestos_con_id',
+      () => api('/dia-d/puestos-para-reporte?con_id=1'));
+  } catch (err) {
+    conId = null; // sin señal y sin caché nueva: se sigue por nombre
+  }
+
+  // El autollenado del campo de texto usa la lista de nombres de siempre.
+  let nombres = [];
+  try {
+    nombres = await obtenerConCacheReferencia('diad_puestos', () => api('/dia-d/puestos-para-reporte'));
+  } catch (err) { nombres = []; }
+  // Un teléfono con la caché vieja trae textos; uno al día, objetos. Se
+  // acepta cualquiera de las dos formas sin suponer.
+  const soloNombres = (lista) => (lista || []).map(p => (typeof p === 'string' ? p : p.nombre));
+  const paraDatalist = nombres.length ? soloNombres(nombres) : soloNombres(conId);
+  document.getElementById('lista-puestos-votacion-app').innerHTML =
+    paraDatalist.map(nombre => `<option value="${escaparHtml(nombre)}">`).join('');
+
+  const opciones = (conId || [])
+    .filter(p => p && typeof p === 'object' && p.id)
+    .map(p => `<option value="${p.id}" data-nombre="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`);
+
+  select.innerHTML = '<option value="">Seleccione...</option>' + opciones.join('')
+    + `<option value="${PUESTO_OTRO}">Mi puesto no aparece en la lista</option>`;
+
+  // Sin lista con ids no hay nada que elegir: se abre el texto de una vez.
+  if (!opciones.length) {
+    select.value = PUESTO_OTRO;
+    aplicarPuestoFueraDeLista();
+  }
+}
+
+/** Muestra u oculta el campo de texto según si se eligió "no aparece en la lista". */
+function aplicarPuestoFueraDeLista() {
+  const fuera = document.getElementById('f-puesto-select').value === PUESTO_OTRO;
+  document.getElementById('f-puesto').style.display = fuera ? 'block' : 'none';
+  document.getElementById('f-puesto').required = fuera;
+  document.getElementById('aviso-puesto-fuera').style.display = fuera ? 'block' : 'none';
+}
+
+document.getElementById('f-puesto-select').addEventListener('change', aplicarPuestoFueraDeLista);
+
+/**
+ * Un Coordinador de puesto (varias mesas asignadas del mismo puesto) ve,
+ * en vez del campo de Mesa libre, una lista de casillas con SOLO las
+ * mesas que tiene asignadas — para elegir de cuál está reportando en vez
+ * de escribir el número a mano (evita equivocarse o reportar por error
+ * una mesa que no es suya). Solo se puede marcar una a la vez: al marcar
+ * una se desmarcan las demás, igual que una lista de opción única.
+ */
+function activarSelectorMesasCoordinador(mesasAsignadas) {
+  document.getElementById('campo-mesa-app').style.display = 'none';
+  const fMesa = document.getElementById('f-mesa');
+  fMesa.required = false;
+  fMesa.value = '';
+  document.getElementById('campo-mesas-coordinador').style.display = 'block';
+  const cont = document.getElementById('lista-mesas-coordinador');
+  cont.innerHTML = mesasAsignadas.map(m => `
+    <label style="display:inline-flex; align-items:center; gap:6px; font-weight:400;">
+      <input type="checkbox" class="chk-mesa-coordinador" value="${m}" style="width:auto;"> Mesa ${m}
+    </label>
+  `).join('');
+  cont.querySelectorAll('.chk-mesa-coordinador').forEach(chk => {
+    chk.addEventListener('change', () => {
+      if (chk.checked) {
+        cont.querySelectorAll('.chk-mesa-coordinador').forEach(otro => { if (otro !== chk) otro.checked = false; });
+        fMesa.value = chk.value;
+      } else {
+        fMesa.value = '';
+      }
+    });
+  });
+}
+
+/**
+ * Autocompleta el formulario para que el testigo escriba lo menos posible:
+ * - Departamento/Municipio: solo cuando la campaña es de alcance local
+ *   (Alcaldía, Concejo o JAL, en Configuración → Datos de la campaña) —
+ *   ahí todos los testigos vigilan mesas dentro del mismo municipio.
+ * - Puesto/Mesa: de la propia ficha del testigo, guardada al crearlo
+ *   desde "+ Testigo electoral" en Estructura territorial. Si es
+ *   Coordinador de puesto, la Mesa se elige de la lista de casillas en
+ *   vez de autocompletarse (ver activarSelectorMesasCoordinador).
+ * No pisa nada que el testigo ya haya escrito a mano.
+ */
+async function precargarLugarDeVotacion() {
+  const form = document.getElementById('form-reporte');
+  try {
+    const [config, miLugar] = await Promise.all([
+      obtenerConCacheReferencia('diad_campana', () => api('/configuracion/campana')),
+      obtenerConCacheReferencia('diad_mi_lugar_votacion', () => api('/dia-d/mi-lugar-votacion'))
+    ]);
+    if (['alcaldia', 'concejo', 'jal'].includes(config.cargo_aspira)) {
+      if (!form.departamento.value) form.departamento.value = config.departamento || '';
+      if (!form.municipio.value) form.municipio.value = config.ciudad || '';
+    }
+    // Se preselecciona por id cuando el servidor lo manda (versión nueva).
+    // Un teléfono con la respuesta vieja en caché no trae puesto_id: se cae
+    // a buscar por nombre entre las opciones, y si tampoco está, al texto.
+    const selPuesto = document.getElementById('f-puesto-select');
+    if (!selPuesto.value) {
+      const porId = miLugar.puesto_id ? selPuesto.querySelector(`option[value="${miLugar.puesto_id}"]`) : null;
+      const porNombre = !porId && miLugar.puesto_votacion
+        ? [...selPuesto.options].find(o => o.dataset.nombre === miLugar.puesto_votacion)
+        : null;
+      if (porId || porNombre) {
+        selPuesto.value = (porId || porNombre).value;
+      } else if (miLugar.puesto_votacion) {
+        selPuesto.value = PUESTO_OTRO;
+        document.getElementById('f-puesto').value = miLugar.puesto_votacion;
+      }
+      aplicarPuestoFueraDeLista();
+    }
+    if (miLugar.tipo_testigo === 'puesto' && Array.isArray(miLugar.mesas_asignadas) && miLugar.mesas_asignadas.length) {
+      activarSelectorMesasCoordinador(miLugar.mesas_asignadas);
+    } else if (!form.mesa_votacion.value) {
+      form.mesa_votacion.value = miLugar.mesa_votacion || '';
+    }
+  } catch (err) {
+    console.error('Error precargando el lugar de votación:', err);
+  }
+}
+
+/**
+ * Cámara propia para la Foto del E-14 (en vez del botón nativo que abría
+ * la cámara del celular de una) — se necesita una vista previa en vivo
+ * propia para poder procesar el cuadro (blanco y negro, contraste) ANTES
+ * de guardarlo, cosa que el input nativo no permite, y para poder ofrecer
+ * el flash del propio celular.
+ */
+let streamCamaraE14 = null;
+let trackVideoE14 = null;      // el track de video del stream — ahí se controla el flash
+let flashActivadoE14 = false;
+let canvasProcesadoE14 = null; // el canvas ya en blanco y negro y con contraste ajustado
+let archivoFotoE14 = null;     // Blob final (JPG) que se sube con el reporte
+let nombreFotoE14 = null;
+
+async function abrirCamaraE14() {
+  const overlay = document.getElementById('camara-e14-overlay');
+  const video = document.getElementById('video-camara-e14');
+  document.getElementById('canvas-preview-e14').style.display = 'none';
+  video.style.display = 'block';
+  document.getElementById('controles-camara-viva').style.display = 'flex';
+  document.getElementById('controles-camara-preview').style.display = 'none';
+  overlay.style.display = 'flex';
+  try {
+    streamCamaraE14 = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    video.srcObject = streamCamaraE14;
+    trackVideoE14 = streamCamaraE14.getVideoTracks()[0] || null;
+    flashActivadoE14 = false;
+    actualizarBotonFlashE14();
+  } catch (err) {
+    cerrarCamaraE14();
+    alert('No se pudo abrir la cámara: ' + (err.message || 'revisa los permisos de cámara del navegador.'));
+  }
+}
+
+function detenerStreamCamaraE14() {
+  if (streamCamaraE14) {
+    streamCamaraE14.getTracks().forEach(track => track.stop());
+    streamCamaraE14 = null;
+  }
+  trackVideoE14 = null;
+  flashActivadoE14 = false;
+}
+
+function cerrarCamaraE14() {
+  detenerStreamCamaraE14();
+  document.getElementById('camara-e14-overlay').style.display = 'none';
+}
+document.getElementById('btn-abrir-camara-e14').addEventListener('click', abrirCamaraE14);
+document.getElementById('btn-cancelar-camara-e14').addEventListener('click', cerrarCamaraE14);
+
+/**
+ * El flash (torch) solo se puede controlar en los celulares/navegadores
+ * que lo permiten desde la cámara web (sobre todo Android/Chrome) — en
+ * iPhone (Safari) el navegador todavía no deja controlarlo, así que el
+ * botón se oculta solo si el celular no lo soporta, en vez de mostrar un
+ * botón que no haría nada.
+ */
+function actualizarBotonFlashE14() {
+  const boton = document.getElementById('btn-flash-e14');
+  const capacidades = trackVideoE14 && trackVideoE14.getCapabilities ? trackVideoE14.getCapabilities() : {};
+  const soportaFlash = !!(capacidades && capacidades.torch);
+  boton.style.display = soportaFlash ? 'inline-flex' : 'none';
+  boton.textContent = flashActivadoE14 ? '🔦 Apagar flash' : '🔦 Encender flash';
+}
+
+async function alternarFlashE14() {
+  if (!trackVideoE14) return;
+  const nuevoEstado = !flashActivadoE14;
+  try {
+    await trackVideoE14.applyConstraints({ advanced: [{ torch: nuevoEstado }] });
+    flashActivadoE14 = nuevoEstado;
+  } catch (err) {
+    alert('No se pudo controlar el flash en este dispositivo.');
+  }
+  actualizarBotonFlashE14();
+}
+document.getElementById('btn-flash-e14').addEventListener('click', alternarFlashE14);
+
+/**
+ * Convierte a escala de grises y estira el contraste (auto-niveles: el
+ * gris más oscuro de la foto queda en 0 y el más claro en 255) para que
+ * el texto se vea más legible — sin recortar nada, se usa la foto
+ * completa tal como se capturó.
+ */
+function procesarFotoE14(video) {
+  const ancho = video.videoWidth;
+  const alto = video.videoHeight;
+  const canvasOriginal = document.createElement('canvas');
+  canvasOriginal.width = ancho;
+  canvasOriginal.height = alto;
+  const ctxOriginal = canvasOriginal.getContext('2d');
+  ctxOriginal.drawImage(video, 0, 0, ancho, alto);
+  const pixeles = ctxOriginal.getImageData(0, 0, ancho, alto).data;
+  const totalPixeles = ancho * alto;
+
+  const gris = new Uint8ClampedArray(totalPixeles);
+  let minGris = 255, maxGris = 0;
+  for (let i = 0; i < totalPixeles; i++) {
+    const base = i * 4;
+    const valor = 0.299 * pixeles[base] + 0.587 * pixeles[base + 1] + 0.114 * pixeles[base + 2];
+    gris[i] = valor;
+    if (valor < minGris) minGris = valor;
+    if (valor > maxGris) maxGris = valor;
+  }
+  const rango = Math.max(1, maxGris - minGris);
+
+  const canvasFinal = document.createElement('canvas');
+  canvasFinal.width = ancho;
+  canvasFinal.height = alto;
+  const ctxFinal = canvasFinal.getContext('2d');
+  const datosFinal = ctxFinal.createImageData(ancho, alto);
+  for (let i = 0; i < totalPixeles; i++) {
+    let valor = ((gris[i] - minGris) / rango) * 255;
+    if (valor < 0) valor = 0; else if (valor > 255) valor = 255;
+    const destino = i * 4;
+    datosFinal.data[destino] = valor;
+    datosFinal.data[destino + 1] = valor;
+    datosFinal.data[destino + 2] = valor;
+    datosFinal.data[destino + 3] = 255;
+  }
+  ctxFinal.putImageData(datosFinal, 0, 0);
+  return canvasFinal;
+}
+
+function capturarFotoE14() {
+  const video = document.getElementById('video-camara-e14');
+  canvasProcesadoE14 = procesarFotoE14(video);
+
+  const canvasVista = document.getElementById('canvas-preview-e14');
+  canvasVista.width = canvasProcesadoE14.width;
+  canvasVista.height = canvasProcesadoE14.height;
+  canvasVista.getContext('2d').drawImage(canvasProcesadoE14, 0, 0);
+
+  detenerStreamCamaraE14();
+  video.style.display = 'none';
+  canvasVista.style.display = 'block';
+  document.getElementById('controles-camara-viva').style.display = 'none';
+  document.getElementById('controles-camara-preview').style.display = 'flex';
+}
+document.getElementById('btn-capturar-e14').addEventListener('click', capturarFotoE14);
+
+document.getElementById('btn-repetir-e14').addEventListener('click', () => {
+  canvasProcesadoE14 = null;
+  abrirCamaraE14();
+});
+
+function generarJpgDesdeCanvas(canvas) {
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92));
+}
+
+document.getElementById('btn-usar-foto-e14').addEventListener('click', async () => {
+  if (!canvasProcesadoE14) return;
+  archivoFotoE14 = await generarJpgDesdeCanvas(canvasProcesadoE14);
+  nombreFotoE14 = 'foto_e14.jpg';
+  document.getElementById('img-previa-foto-e14').src = canvasProcesadoE14.toDataURL('image/jpeg', 0.92);
+  document.getElementById('vista-previa-foto-e14').style.display = 'block';
+  document.getElementById('btn-abrir-camara-e14').textContent = '📷 Repetir foto del E-14';
+  document.getElementById('camara-e14-overlay').style.display = 'none';
+});
+
+/** Limpia la foto ya capturada (después de enviar el reporte, o al empezar uno nuevo). */
+function limpiarFotoE14() {
+  canvasProcesadoE14 = null;
+  archivoFotoE14 = null;
+  nombreFotoE14 = null;
+  document.getElementById('vista-previa-foto-e14').style.display = 'none';
+  document.getElementById('img-previa-foto-e14').src = '';
+  document.getElementById('btn-abrir-camara-e14').textContent = 'Tomar foto del E-14';
+}
+
+document.getElementById('form-reporte').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('diad-error');
+  const okBox = document.getElementById('diad-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+  const btn = document.getElementById('btn-enviar-reporte');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  try {
+    if (document.getElementById('campo-mesas-coordinador').style.display !== 'none' && !document.getElementById('f-mesa').value) {
+      throw new Error('Selecciona de cuál mesa vas a reportar.');
+    }
+    if (!archivoFotoE14) {
+      throw new Error('Toma la foto del E-14 antes de enviar el reporte.');
+    }
+    // Los votos por candidato no viajan como inputs con "name" (para que
+    // FormData no los mezcle sueltos) — se arman acá como un solo campo
+    // JSON, uno por candidato mostrado en la tabla.
+    const votos = [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')].map(inp => ({
+      nombre: inp.dataset.candidato,
+      votos: inp.value === '' ? null : Number(inp.value)
+    }));
+    const faltante = votos.find(v => v.votos === null || Number.isNaN(v.votos));
+    if (faltante) {
+      throw new Error(`Falta el número de votos de "${faltante.nombre}".`);
+    }
+
+    // Si el total de votantes que llegaron a la mesa no coincide con la
+    // suma de votos por candidato, se avisa antes de enviar — puede ser un
+    // error de digitación, o algo real que vale la pena dejar anotado.
+    const totalVotantes = Number(document.getElementById('f-total-votantes').value) || 0;
+    const totalVotosMesa = Number(document.getElementById('f-total-votos-mesa').value) || 0;
+    if (totalVotantes !== totalVotosMesa) {
+      const continuar = confirm('Diferencia de votos en los totales.\n\n¿Está seguro de enviar el reporte?');
+      if (!continuar) return;
+      const novedadInput = document.getElementById('f-novedad');
+      const nota = 'Diferencia de votos en los totales';
+      novedadInput.value = novedadInput.value.trim() ? `${novedadInput.value.trim()}\n${nota}` : nota;
+    }
+
+    // Los campos de texto se guardan aparte (no solo dentro de un
+    // FormData) porque, si no hay señal, hacen falta para reconstruir el
+    // envío después — un FormData no se puede guardar tal cual en
+    // IndexedDB, pero un objeto plano y un File (la foto) sí.
+    const votosJson = JSON.stringify(votos);
+    const clienteUuid = generarUuid();
+    const archivoFoto = archivoFotoE14;
+    const nombreArchivoFoto = nombreFotoE14 || 'foto_e14.jpg';
+    // El puesto viaja SIEMPRE con su nombre —es la instantánea de ese día,
+    // y el servidor la guarda tal cual— y además con el id cuando se eligió
+    // de la lista. Sin id, el reporte queda marcado para revisión.
+    const sel = document.getElementById('f-puesto-select');
+    const fueraDeLista = sel.value === PUESTO_OTRO || !sel.value;
+    const opcionElegida = sel.selectedOptions[0];
+    const nombrePuesto = fueraDeLista
+      ? document.getElementById('f-puesto').value
+      : (opcionElegida ? opcionElegida.dataset.nombre : '');
+
+    const camposTexto = {
+      departamento: document.getElementById('f-departamento').value,
+      municipio: document.getElementById('f-municipio').value,
+      puesto_votacion: nombrePuesto,
+      puesto_id: fueraDeLista ? '' : sel.value,
+      puesto_fuera_de_lista: fueraDeLista ? '1' : '0',
+      mesa_votacion: document.getElementById('f-mesa').value,
+      total_votantes_mesa: document.getElementById('f-total-votantes').value,
+      novedad: document.getElementById('f-novedad').value
+    };
+
+    try {
+      const fd = new FormData();
+      Object.entries(camposTexto).forEach(([clave, valor]) => fd.append(clave, valor));
+      fd.append('votos_json', votosJson);
+      fd.append('cliente_uuid', clienteUuid);
+      if (archivoFoto) fd.append('foto_e14', archivoFoto, nombreArchivoFoto);
+      await api('/dia-d/reportes', { method: 'POST', body: fd });
+      e.target.reset();
+      limpiarFotoE14();
+      okBox.textContent = 'Reporte enviado correctamente.';
+      okBox.classList.add('visible');
+      await precargarLugarDeVotacion();
+      await cargarMisReportes();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (errEnvio) {
+      if (!(errEnvio && errEnvio.esErrorDeRed)) throw errEnvio;
+
+      // Captura sin conexión: se guarda completo en el celular (con la
+      // foto) y se sube solo más adelante — ver sincronizarColaOfflineDiaD().
+      await guardarEnColaOffline(OFFLINE_STORE_DIAD, {
+        clienteUuid,
+        payload: {
+          campos: camposTexto,
+          votosJson,
+          fotoE14: archivoFoto || null,
+          fotoE14Nombre: archivoFoto ? nombreArchivoFoto : null
+        },
+        creadoEn: Date.now(),
+        estado: 'pendiente'
+      });
+      await actualizarAvisoColaOfflineDiaD();
+      e.target.reset();
+      limpiarFotoE14();
+      okBox.textContent = 'Guardado en tu celular — no hay señal en este momento, se subirá solo apenas vuelva la conexión.';
+      okBox.classList.add('visible');
+      await precargarLugarDeVotacion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  } catch (err) {
+    errorBox.textContent = err.message || 'No se pudo enviar el reporte. Intenta de nuevo.';
+    errorBox.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar reporte';
+  }
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Día D', 'Reporte de mi mesa', null);
+
+  // El aviso de pendientes y el reintento al recuperar señal se activan de
+  // una vez, sin depender de que el resto de la pantalla haya cargado —
+  // así, si el testigo abre la app sin conexión teniendo reportes
+  // guardados de antes, los sigue viendo y se le siguen subiendo solos
+  // apenas vuelva la señal.
+  actualizarAvisoColaOfflineDiaD();
+  sincronizarColaOfflineDiaD();
+  window.addEventListener('online', () => sincronizarColaOfflineDiaD());
+
+  await cargarCandidatosParaReporte();
+  await cargarPuestosParaReporte();
+  await precargarLugarDeVotacion();
+  await cargarMisReportes();
+
+  document.getElementById('pantalla-carga').style.display = 'none';
+  document.getElementById('pantalla-contenido').style.display = 'block';
+})();
+
+document.getElementById('btn-cerrar-sesion').addEventListener('click', async () => {
+  // Avisar al servidor es "mejor esfuerzo": sin conexión esa llamada
+  // fallaría y antes se quedaba pegada el botón. Cerrar sesión en este
+  // celular no puede depender de tener señal en ese momento.
+  try { await api('/auth/logout', { method: 'POST' }); } catch (err) {}
+  // Deja de haber una cuenta ACTIVA, pero no se "olvida" — sigue
+  // apareciendo en el selector de /login.html para que otra persona (o la
+  // misma más tarde) pueda volver a entrar sin escribir la contraseña.
+  desactivarCuentaDispositivo();
+  window.location.href = '/login.html';
+});
+</script>
+</body>
+</html>

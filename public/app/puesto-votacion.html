@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Consultar puesto de votación · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div style="text-align:center; padding:20px 6px 8px;">
+    <div style="font-size:2.6rem; margin-bottom:10px;">🗳️</div>
+    <h2 style="margin:0 0 10px; color:var(--navy);">Consulta tu lugar de votación</h2>
+    <p style="color:var(--muted); font-size:0.92rem; line-height:1.55; margin:0 0 24px;">
+      Esta consulta se hace directamente en la página oficial de la
+      Registraduría Nacional del Estado Civil — necesitas tu número de
+      cédula a la mano. Se abre en el navegador de tu celular.
+    </p>
+  </div>
+
+  <a class="btn-app btn-app-primario" style="text-decoration:none;"
+     href="https://wsp.registraduria.gov.co/censo/consultar/" target="_blank" rel="noopener">
+    Consultar en registraduria.gov.co
+  </a>
+  <button class="btn-app btn-app-secundario" style="margin-top:12px;" onclick="window.location.href='/app/inicio.html'">
+    Volver al menú
+  </button>
+
+  <p style="text-align:center; color:var(--muted); font-size:0.78rem; margin-top:26px;">
+    Estrategia no administra ni tiene acceso a los datos del censo electoral — esta pantalla solo enlaza al sitio oficial.
+  </p>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Puesto de votación', null, '/app/inicio.html');
+})();
+</script>
+</body>
+</html>
