@@ -21,7 +21,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | Hallazgo | Estado | Commits |
 |---|---|---|
 | **A1** — `usuarios.nombre_usuario` | ✅ **RESUELTO** | `4bedbf9`, `9bdee53` |
-| **A7bis** — índices de filtro/join | 🟨 **PARCIAL** | `4bedbf9` (índice de `nombre_usuario`), `3d8bf21` (login sin `LOWER()`). Pendientes: `*.puesto_id` |
+| **A7bis** — índices de filtro/join | ✅ **CERRADO** | `4bedbf9` (índice de `nombre_usuario`), `3d8bf21` (login sin `LOWER()`). Los de `*.puesto_id` se descartaron con `EXPLAIN`: ninguna consulta podría usarlos |
 | **A3** — esquema fuera de git | ✅ **RESUELTO** (antes de esta sesión) | `db/schema.sql` ya versionado |
 | **A2** — `schema.sql` desincronizado | 🟨 **PARCIAL** | `3053752` (medición), `4bfbe6a` (5 FK fuera + 3 índices explícitos). Falta: aplanar `schema.sql` con `init-db.js` (A9) |
 | **A26** — `campana_ambito` sin crear | ✅ **RESUELTO** | `4bfbe6a` |
@@ -177,7 +177,7 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A25 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A7, A10–A15 (A6 y A7bis parciales, A8 resuelto, A9 de-escalado) |
+| 🟡 Media | 10 | A6–A15 | A7, A10–A15 (A6 parcial; A7bis y A8 resueltos; A9 de-escalado) |
 | ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
 
 ---
@@ -495,9 +495,28 @@ tabla con referencias vivas.
     distinguir mayúsculas ni tildes, así que no cambia qué cuentas cruzan.
     Comprobado con `EXPLAIN`: antes `possible_keys: email`; ahora
     `possible_keys: email,nombre_usuario`.
-  - `usuarios.puesto_id`, `estructura.puesto_id`, `votantes.puesto_id`: los
-    cruces del Día D se hacen por estas columnas y no tienen índice. Importan a
-    medida que crezcan los reportes.
+  - ~~`usuarios.puesto_id`, `estructura.puesto_id`, `votantes.puesto_id`~~ ❌
+    **NO se añadieron, y no deben añadirse.** Medido: es cierto que las tres
+    carecen de índice en las tres bases, pero **ninguna consulta podría
+    usarlo**, porque todas filtran con una función encima:
+    `COALESCE(e.puesto_id, u.puesto_id) = ?` (Día D y CRM) y
+    `COALESCE(CAST(puesto_id AS CHAR), puesto_votacion)` (resúmenes). Es el
+    mismo motivo por el que hubo que quitar el `LOWER()` del login, solo que
+    aquí la función no se puede quitar: el dato vive legítimamente en dos
+    tablas según el tipo de testigo.
+
+    `EXPLAIN` sobre la consulta real de `/mesas-ocupadas` muestra que el
+    planificador ya elige el camino correcto —`idx_estructura_cargo`, tipo
+    `range`, 4 filas, y de ahí a `usuarios` por clave primaria— y evalúa el
+    `COALESCE` sobre ese puñado de filas. Un índice más no cambiaría nada.
+
+    En `votantes` pasa algo parecido: el único uso agrupa por tres columnas
+    con un `TRIM()` en el `WHERE`, así que recorre la tabla igual.
+
+    **Si algún día esas consultas pesan**, el arreglo no es un índice sino
+    volver sargable el predicado (`e.puesto_id = ? OR (e.puesto_id IS NULL AND
+    u.puesto_id = ?)`). Añadir los índices ahora sería ocupar espacio y
+    ralentizar cada escritura a cambio de nada.
   - (Ya indexados y correctos: los FK `lider_id`, `sublider_id`,
     `supervisor_id`, `territorio_id`, `created_by`, y las UNIQUE de `cedula`,
     `email`, `numero_identificacion`, `cliente_uuid` — no hace falta tocarlos.)
