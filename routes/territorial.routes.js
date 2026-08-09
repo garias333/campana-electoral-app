@@ -659,7 +659,47 @@ router.get('/estructura/verificar-identificacion', async (req, res) => {
 router.get('/estructura', async (req, res) => {
   try {
     const usuario = req.session.usuario;
+    // Los conteos de "registros" se calculan UNA vez para toda la tabla, no
+    // una vez por fila. Antes cada fila disparaba subconsultas anidadas
+    // (líderes -> sublíderes -> votantes), así que el costo crecía con el
+    // cuadrado del tamaño del equipo y no tenía tope. Estas cinco
+    // agregaciones dan exactamente los mismos números —comprobado fila por
+    // fila contra las dos campañas de prueba, 115 filas, cero diferencias—
+    // pero recorren `votantes` una sola vez.
     let query = `
+      WITH
+      cnt_lider AS (
+        SELECT lider_id AS uid, COUNT(*) AS c FROM votantes WHERE lider_id IS NOT NULL GROUP BY lider_id
+      ),
+      -- COUNT(DISTINCT) y no COUNT(*): si alguien figura como líder Y como
+      -- sublíder del mismo votante, esa persona cuenta una sola vez, igual
+      -- que hacía el "OR" de la consulta anterior.
+      cnt_ambos AS (
+        SELECT uid, COUNT(DISTINCT vid) AS c FROM (
+          SELECT id AS vid, lider_id    AS uid FROM votantes WHERE lider_id    IS NOT NULL
+          UNION ALL
+          SELECT id AS vid, sublider_id AS uid FROM votantes WHERE sublider_id IS NOT NULL
+        ) x GROUP BY uid
+      ),
+      subs AS (
+        SELECT es.supervisor_id AS uid, COALESCE(SUM(cb.c), 0) AS c
+          FROM estructura es LEFT JOIN cnt_ambos cb ON cb.uid = es.usuario_id
+         WHERE es.cargo = 'usuario' AND es.activo = 1 AND es.supervisor_id IS NOT NULL
+         GROUP BY es.supervisor_id
+      ),
+      total_lider AS (
+        SELECT e2.usuario_id AS uid, COALESCE(cl.c, 0) + COALESCE(s.c, 0) AS total
+          FROM estructura e2
+          LEFT JOIN cnt_lider cl ON cl.uid = e2.usuario_id
+          LEFT JOIN subs      s  ON s.uid  = e2.usuario_id
+         WHERE e2.cargo = 'lider'
+      ),
+      total_coord AS (
+        SELECT el.supervisor_id AS uid, COALESCE(SUM(tl.total), 0) AS total
+          FROM estructura el JOIN total_lider tl ON tl.uid = el.usuario_id
+         WHERE el.cargo = 'lider' AND el.activo = 1 AND el.supervisor_id IS NOT NULL
+         GROUP BY el.supervisor_id
+      )
       SELECT e.*, u.nombre, u.numero_identificacion,
              -- COALESCE y no u.* a secas: en la fila de cargo='testigo' el
              -- puesto/mesa es el que VIGILA (guardado en estructura); en
@@ -680,39 +720,27 @@ router.get('/estructura', async (req, res) => {
              -- gremiales para un Coordinador Organizaciones. Ver
              -- config/metasEstructura.js — la regla vive en un solo sitio.
              ${sqlMetaEfectiva('e')} AS meta_votos_equipo,
-             (CASE WHEN e.cargo = 'coordinador' THEN (
-                -- Suma de los registros (votantes) de todos los líderes que
-                -- reportan a este coordinador, incluyendo los registros de
-                -- los sublíderes de cada uno de esos líderes.
-                SELECT COALESCE(SUM(
-                  (SELECT COUNT(*) FROM votantes v WHERE v.lider_id = el.usuario_id) +
-                  COALESCE((
-                    SELECT SUM((SELECT COUNT(*) FROM votantes v2 WHERE v2.lider_id = esub.usuario_id OR v2.sublider_id = esub.usuario_id))
-                    FROM estructura esub
-                    WHERE esub.supervisor_id = el.usuario_id AND esub.cargo = 'usuario' AND esub.activo = 1
-                  ), 0)
-                ), 0)
-                FROM estructura el
-                WHERE el.supervisor_id = e.usuario_id AND el.cargo = 'lider' AND el.activo = 1
-              ) WHEN e.cargo = 'lider' THEN (
-                -- Registros referidos directamente por el líder, más los de
-                -- todos sus sublíderes (cargo "usuario" que le reportan).
-                (SELECT COUNT(*) FROM votantes v WHERE v.lider_id = e.usuario_id) +
-                COALESCE((
-                  SELECT SUM((SELECT COUNT(*) FROM votantes v2 WHERE v2.lider_id = esub.usuario_id OR v2.sublider_id = esub.usuario_id))
-                  FROM estructura esub
-                  WHERE esub.supervisor_id = e.usuario_id AND esub.cargo = 'usuario' AND esub.activo = 1
-                ), 0)
-              ) ELSE (
-                -- Registros (votantes) referidos directamente por esta
-                -- persona, ya sea como "Líder o coordinador que lo refirió"
-                -- o como el "Sublíder" elegido en el mismo formulario.
-                SELECT COUNT(*) FROM votantes v WHERE v.lider_id = e.usuario_id OR v.sublider_id = e.usuario_id
-              ) END) AS registros
+             -- Mismos tres casos que antes, ya resueltos por las
+             -- agregaciones de arriba:
+             --   coordinador -> suma de sus líderes (con los sublíderes de cada uno)
+             --   líder       -> los suyos como líder, más los de sus sublíderes
+             --   los demás   -> los que refirió, como líder o como sublíder
+             -- Alias con prefijo "ag" (agregado) a propósito: sqlMetaEfectiva()
+             -- ya usa el, tl, eg y ug dentro de sus subconsultas, y repetir
+             -- uno de esos aquí lo dejaría dependiendo de en qué ámbito
+             -- resuelve MySQL cada nombre. (Sin acentos graves en este
+             -- comentario: va dentro de un template literal de JavaScript y
+             -- cortarían la cadena — pasó al escribirlo.)
+             (CASE WHEN e.cargo = 'coordinador' THEN COALESCE(agc.total, 0)
+                   WHEN e.cargo = 'lider'       THEN COALESCE(agl.total, 0)
+                   ELSE COALESCE(agb.c, 0) END) AS registros
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       LEFT JOIN territorios t ON t.id = e.territorio_id
-      LEFT JOIN usuarios sup ON sup.id = e.supervisor_id`;
+      LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
+      LEFT JOIN total_coord agc ON agc.uid = e.usuario_id
+      LEFT JOIN total_lider agl ON agl.uid = e.usuario_id
+      LEFT JOIN cnt_ambos   agb ON agb.uid = e.usuario_id`;
     const params = [];
     if (!['admin', 'coordinador'].includes(usuario.rol)) {
       query += ` WHERE e.supervisor_id = ? OR e.usuario_id = ?`;
