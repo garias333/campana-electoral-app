@@ -39,10 +39,19 @@ Verificado en caliente, contra la instalación real:
   y `email`, y la comparación ignora mayúsculas **y** tildes. El `LOWER()` no
   aportaba nada que la colación no hiciera ya.
 
-**Las dos campañas de prueba NO tienen este código todavía** — cada instancia
-tiene su propia copia y no se generó parche (ver la regla de no empaquetar
-parches sin pedido). Sus bases ya tienen la columna, así que no están rotas;
-les falta solo el `LOWER()` y la verificación de arranque.
+**Parche #18 generado y listo para subir** (`parches/campana-parche18.zip`,
+37,3 KB) con los 5 archivos de A1/A7bis: `db/schema.sql`, `db/init-db.js`,
+`config/verificarEsquema.js`, `app.js`, `routes/auth.routes.js`. Verificado:
+sin entradas `../` ni absolutas, sin `.env` ni credenciales, y el contenido
+extraído pasa `node --check`. **Toca base de datos** → hay que marcar esa
+casilla al subirlo. Ambas campañas van en el parche 17, así que el 18 es el
+siguiente sin reutilizar número.
+
+Aplicarlo es de bajo riesgo en las dos campañas: **sus bases ya tienen la
+columna**, así que la verificación de arranque pasa incluso si se olvidara
+marcar la casilla de base de datos. Efecto colateral deseable: como el parche
+lleva `routes/auth.routes.js` completo, la campaña **municipal** recibe además
+el arreglo `401`→`400` de cambiar-contraseña que le faltaba (ver A25).
 
 ### A25 — Las tres instancias han derivado en silencio, y dos van atrasadas en arreglos reales 🟠 Alta (hallazgo nuevo, al ejecutar A1)
 
