@@ -23,7 +23,33 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A1** — `usuarios.nombre_usuario` | ✅ **RESUELTO** | `4bedbf9`, `9bdee53` |
 | **A7bis** — índices de filtro/join | 🟨 **PARCIAL** | `4bedbf9` (índice de `nombre_usuario`), `3d8bf21` (login sin `LOWER()`). Pendientes: `*.puesto_id` |
 | **A3** — esquema fuera de git | ✅ **RESUELTO** (antes de esta sesión) | `db/schema.sql` ya versionado |
+| **A2** — `schema.sql` desincronizado | 🟨 **PARCIAL** | `3053752` (medición), `4bfbe6a` (5 FK fuera + 3 índices explícitos). Falta: aplanar `schema.sql` con `init-db.js` (A9) |
+| **A26** — `campana_ambito` sin crear | ✅ **RESUELTO** | `4bfbe6a` |
 | Resto | Sin empezar | — |
+
+**Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
+eligió que el repositorio sea capaz de aprovisionar una campaña conectada al
+catálogo, pero **sin copiar aquí la definición de la vista**: esa sigue en el
+proyecto del catálogo (`vista_territorios_catalogo.sql`). Tener dos
+definiciones que puedan divergir es exactamente el error que este proyecto ya
+pagó con `ctc_normalizar()`. Lo que sí vive ahora aquí es la **tabla**
+`campana_ambito` —que es del esquema de la campaña— y la ausencia de las FK
+que impedían la conversión. `territorios` se sigue creando como tabla local
+vacía para que `init-db` **nunca falle** por no tener todavía permisos sobre
+el catálogo; el paso que la convierte queda documentado en el propio
+`schema.sql`.
+
+**Una regresión evitada que conviene registrar:** al quitar las 5 FK se pierde
+el índice que MySQL creaba con cada una. Las bases actuales lo conservan
+—MySQL no borra el índice al soltar la llave—, así que el cambio habría dejado
+una instalación **nueva** sin índice en `usuarios.territorio_id`,
+`eventos.territorio_id` y `finanzas_movimientos.territorio_id`, degradando
+solo a las campañas futuras y sin que nada avisara. Van explícitos.
+
+**Verificación sin base de datos:** no hay privilegio de `CREATE DATABASE`
+para probar `schema.sql` de verdad, así que las 34 sentencias del archivo se
+validaron con `PREPARE`, que hace que MySQL las **parsee sin ejecutarlas**.
+Cero errores. No sustituye a una instalación desde cero, que sigue pendiente.
 
 **Desplegado en `electoral.appestrategia.net`** (9 de agosto de 2026, 20:25):
 `pm2 restart campana-app`, proceso 2424130 → 2433586, `unstable_restarts: 0`.
@@ -147,7 +173,7 @@ escritura de votantes.
 | Severidad | Cantidad | IDs | Abiertos |
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
-| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A2, A4, A5, A25, A26 |
+| 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4, A5, A25 (A2 parcial) |
 | 🟡 Media | 10 | A6–A15 | A6–A15 (A7bis parcial) |
 | ⚪ Baja | 9 | A16–A24 | A16–A24 |
 
