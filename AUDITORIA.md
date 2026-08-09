@@ -28,7 +28,11 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A6** — coste de `GET /estructura` | 🟨 **PARCIAL** | `62eb608` (agregaciones en vez de subconsultas por fila). Paginar se descartó: rompería la jerarquía del frontend |
 | **A5** — actualizador como superficie de ataque | 🟨 **PARCIAL** | `3aa0e82` (inyección de comandos cerrada + validación de zip). Falta: firmar los parches, necesita el Servidor de Licencias |
 | **A8** — atomicidad del reporte del Día D | ✅ **RESUELTO** | `e8ff086` |
-| **A25** — deriva entre instancias | ✅ **RESUELTO** | Parche #18 aplicado el 9-ago-2026 21:38 en las dos campañas: los 8 archivos coinciden byte a byte con electoral (antes diferían los 8). Falta la comprobación preventiva de deriva |
+| **A25** — deriva entre instancias | ✅ **RESUELTO** | Parche #18 aplicado el 9-ago-2026 21:38; y `scripts/comparar-instancias.js` la detecta de ahora en adelante |
+| **A7** — índice de `twilio_sid` | ✅ **RESUELTO** | `eb1360e` |
+| **A15** — colación no explícita | ✅ **RESUELTO** | `eb1360e` (27 tablas con `COLLATE`, más migración que alinea `campana_ambito`) |
+| **A18** — contador y tiempos del login | ✅ **RESUELTO** | Incremento atómico en la base y `bcrypt` de descarte; medido en vivo: 0,33 s exista o no la cuenta |
+| **A14** — helpers duplicados | ✅ **RESUELTO** | `4e525aa` (`config/verificaciones.js`; −187 líneas). Una de las 8 copias ya había divergido |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -183,8 +187,8 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A7, A10–A15 (A6 parcial; A7bis y A8 resueltos; A9 de-escalado) |
-| ⚪ Baja | 10 | A16–A24, **A27** | A16–A24, A27 |
+| 🟡 Media | 10 | A6–A15 | A10, A11, A12, A13 (A6 parcial; A7, A7bis, A8, A14, A15 resueltos; A9 de-escalado) |
+| ⚪ Baja | 10 | A16–A24, **A27** | A16, A17, A19–A24, A27 (A18 resuelto) |
 
 ---
 
