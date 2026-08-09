@@ -25,6 +25,25 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A3** — esquema fuera de git | ✅ **RESUELTO** (antes de esta sesión) | `db/schema.sql` ya versionado |
 | Resto | Sin empezar | — |
 
+**Desplegado en `electoral.appestrategia.net`** (9 de agosto de 2026, 20:25):
+`pm2 restart campana-app`, proceso 2424130 → 2433586, `unstable_restarts: 0`.
+Verificado en caliente, contra la instalación real:
+
+- `POST /api/auth/login` con un usuario inexistente responde **401
+  «Credenciales inválidas»** — no 500. Es la prueba de que la consulta con
+  `u.nombre_usuario = ?` corre bien; si la columna o la consulta estuvieran
+  rotas, sería error de servidor. Probado también con mayúsculas mezcladas:
+  mismo resultado, que es lo que confirma que quitar el `LOWER()` no cambió
+  el comportamiento.
+- Colación medida en las tres bases: `utf8mb4_0900_ai_ci` en `nombre_usuario`
+  y `email`, y la comparación ignora mayúsculas **y** tildes. El `LOWER()` no
+  aportaba nada que la colación no hiciera ya.
+
+**Las dos campañas de prueba NO tienen este código todavía** — cada instancia
+tiene su propia copia y no se generó parche (ver la regla de no empaquetar
+parches sin pedido). Sus bases ya tienen la columna, así que no están rotas;
+les falta solo el `LOWER()` y la verificación de arranque.
+
 **Hallazgo empírico al aplicar A1, que conviene registrar:** se midieron las
 **tres** bases (`electoraldb`, `campanadepruebamunicipal`,
 `campanadepruebadepartamental`) y las tres ya tienen la columna **idéntica**:
