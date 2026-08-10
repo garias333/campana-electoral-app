@@ -34,6 +34,8 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A18** — contador y tiempos del login | ✅ **RESUELTO** | Incremento atómico en la base y `bcrypt` de descarte; medido en vivo: 0,33 s exista o no la cuenta |
 | **A14** — helpers duplicados | ✅ **RESUELTO** | `4e525aa` (`config/verificaciones.js`; −187 líneas). Una de las 8 copias ya había divergido |
 | **A12** — `xlsx` con vulnerabilidad alta | ✅ **RESUELTO** | `d060277` (0.18.5 → **0.20.3** desde el CDN de SheetJS, misma API). Producción queda con **0 vulnerabilidades altas** |
+| **A13** — tipos de `mesa_votacion` | ✅ **RESUELTO** | `bb6d160` (todo INT, con migración guardada). Medido antes: los valores son numéricos en las tres bases |
+| **A24** — listados de usuarios | ✅ **RESUELTO** | `bb6d160` (se quita el correo de `GET /api/usuarios`; ningún consumidor lo usaba) |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -188,8 +190,8 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A10, A11, A13 (A6 parcial; A7, A7bis, A8, A12, A14, A15 resueltos; A9 de-escalado) |
-| ⚪ Baja | 10 | A16–A24, **A27** | A16, A17, A19–A24, A27 (A18 resuelto) |
+| 🟡 Media | 10 | A6–A15 | A10, A11 (A6 parcial; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
+| ⚪ Baja | 10 | A16–A24, **A27** | A16, A17, A19–A23, A27 (A18 y A24 resueltos) |
 
 ---
 
