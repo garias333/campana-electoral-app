@@ -3,7 +3,9 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
+const twilioSvc = require('../config/twilio');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 
 const router = express.Router();
@@ -29,6 +31,47 @@ const RESET_TOKEN_HORAS = 1;
 const CODIGO_2FA_MINUTOS = 10;
 const MAX_INTENTOS_2FA = 5;
 const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * INGRESO POR CÓDIGO DE UN SOLO USO ("Torre de acceso").
+ *
+ * Estos roles entran SIN contraseña: escriben su correo, reciben un código
+ * de seis dígitos y con eso pasan. Los demás —líder, sublíder, testigo,
+ * usuario, invitado— siguen con nombre de usuario y contraseña, y con
+ * ellos el token de dispositivo que permite prestarse el celular en
+ * campaña.
+ *
+ * POR QUÉ SON DOS PANTALLAS Y NO UNA QUE ADIVINE.
+ *   Preguntarle al servidor «¿esta cuenta entra con código o con
+ *   contraseña?» obliga a responder algo distinto según si la cuenta
+ *   existe, y eso convierte el ingreso en una forma de averiguar quién
+ *   trabaja en la campaña probando correos. Aquí el camino lo elige la
+ *   PERSONA (la torre, o el enlace a usuario y contraseña) y el servidor
+ *   nunca tiene que delatar nada.
+ *
+ * LA CONTRASEÑA SIGUE FUNCIONANDO PARA ESTOS ROLES, A PROPÓSITO.
+ *   Es la salida de emergencia: en este proyecto el SMTP ya se rompió dos
+ *   veces (ver LEAMELECTORAL.md), y dejar al administrador dependiendo
+ *   solo del correo significa que un fallo de correo lo saca de su propia
+ *   campaña sin forma de volver a entrar salvo por SSH. La torre es el
+ *   camino ofrecido; la contraseña, el que queda por si el correo falla.
+ */
+const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo'];
+
+/**
+ * Límite de solicitudes de código: 5 cada 15 minutos por IP.
+ *
+ * Sin esto, la pantalla es una forma gratuita de mandarle correos (o SMS,
+ * que se cobran) a cualquier dirección que alguien escriba, tantas veces
+ * como quiera.
+ */
+const limitadorCodigo = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes de código. Espere unos minutos antes de volver a intentar.' }
+});
 
 async function registrarAuditoria(usuarioId, accion, detalle, ip) {
   try {
@@ -250,6 +293,82 @@ router.post('/elegir-rol', async (req, res) => {
   } catch (err) {
     console.error('Error eligiendo rol de ingreso:', err);
     res.status(500).json({ error: 'Error interno al continuar el inicio de sesión.' });
+  }
+});
+
+/**
+ * Paso 1 de la torre: pide un código de un solo uso.
+ *
+ * SIEMPRE responde lo mismo, exista o no la cuenta, tenga o no el dato de
+ * contacto pedido, y sea cual sea su rol. Cualquier diferencia —un error
+ * distinto, incluso tardar más— convierte esta pantalla en un detector de
+ * correos válidos. Por eso el trabajo real va después de responder... no:
+ * va antes, pero su resultado no se refleja en la respuesta.
+ *
+ * OJO CON EL CANAL SMS: si la cuenta no tiene teléfono, no se manda nada y
+ * la respuesta es igual de optimista. Es deliberado (no delatar), y tiene
+ * un costo real: esa persona espera un mensaje que no va a llegar. Hoy el
+ * administrador de las dos campañas NO tiene teléfono registrado.
+ */
+router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
+  const { identificador, canal, recordar } = req.body || {};
+  const via = canal === 'sms' ? 'sms' : 'correo';
+  const respuestaUnica = {
+    ok: true,
+    mensaje: via === 'sms'
+      ? 'Si esa cuenta puede ingresar con código, le enviamos un mensaje de texto.'
+      : 'Si esa cuenta puede ingresar con código, le enviamos un correo.'
+  };
+
+  if (!identificador || !String(identificador).trim()) {
+    return res.status(400).json({ error: 'Escriba su correo o nombre de usuario.' });
+  }
+
+  try {
+    const buscado = String(identificador).trim().toLowerCase();
+    const [rows] = await pool.query(
+      `SELECT u.*, r.nombre AS rol
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id
+        WHERE u.email = ? OR u.nombre_usuario = ? LIMIT 1`,
+      [buscado, buscado]
+    );
+
+    const usuario = rows[0];
+    const puede = usuario && usuario.activo && ROLES_CON_CODIGO.includes(usuario.rol);
+    const destino = !puede ? null : (via === 'sms' ? usuario.telefono : usuario.email);
+    if (!destino) return res.json(respuestaUnica);   // misma respuesta, sin mandar nada
+
+    const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
+    const expiraEn = new Date(Date.now() + CODIGO_2FA_MINUTOS * 60 * 1000);
+    await pool.query(
+      `INSERT INTO two_factor_codes (usuario_id, codigo_hash, expira_en) VALUES (?, ?, ?)`,
+      [usuario.id, codigoHash, expiraEn]
+    );
+
+    // La sesión recuerda a quién pertenece el código. El navegador nunca
+    // recibe el usuario_id: si lo mandara él en el paso 2, bastaría con
+    // cambiarlo para pedir el código de una cuenta y validar el de otra.
+    req.session.pendiente2fa = { usuarioId: usuario.id, recordar: !!recordar, entrarComo: null };
+
+    try {
+      if (via === 'sms') {
+        await twilioSvc.enviarSMS(destino, `Su codigo de acceso es ${codigo}. Vence en ${CODIGO_2FA_MINUTOS} minutos.`);
+      } else {
+        await enviarCodigo2FA(destino, codigo);
+      }
+    } catch (errEnvio) {
+      // Un fallo de entrega SÍ se registra en el servidor, pero no cambia
+      // la respuesta: si dijéramos "no se pudo enviar", habríamos
+      // confirmado que la cuenta existe.
+      console.error(`Error enviando código de acceso por ${via}:`, errEnvio.message);
+    }
+
+    await registrarAuditoria(usuario.id, 'solicitar_codigo_acceso', `Código de acceso solicitado por ${via}.`, req.ip);
+    return res.json(respuestaUnica);
+  } catch (err) {
+    console.error('Error solicitando código de acceso:', err);
+    return res.json(respuestaUnica);
   }
 });
 

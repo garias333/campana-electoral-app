@@ -43,12 +43,98 @@
   }
   #selector-cuentas .btn-olvidar-cuenta:hover { background: #FBEAEA; color: #A93226; }
   .separador-cuentas { text-align: center; margin: 14px 0; font-size: 0.78rem; color: var(--color-text-muted); }
+
+  /* ------------------------------------------------------------------
+     TORRE DE ACCESO — aspecto de la pantalla de ingreso.
+
+     Todo va acotado a .login-card, en el <style> de ESTA página y no en
+     style.css: la hoja del sistema la comparten 24 pantallas, y aquí se
+     invierte el contraste (tarjeta oscura, texto claro). Suelto, esto
+     teñiría formularios de toda la aplicación.
+
+     Los colores NO son inventados: son los del sistema —navy #10233F,
+     dorado #C98A2C— y el crema #F8F3E9 que ya usan los formularios de
+     personas (ver style.css, .modal-amplio).
+     ------------------------------------------------------------------ */
+  .login-card {
+    max-width: 430px;
+    background: var(--color-navy);
+    border-top: 4px dashed var(--color-accent);
+    padding: 34px 30px 30px;
+    color: #fff;
+  }
+  .login-card .login-eyebrow,
+  .login-card h1 { text-align: center; }
+  .login-card .login-eyebrow { color: var(--color-accent); letter-spacing: .16em; font-size: .78rem; }
+  .login-card h1 { color: #fff; font-size: 1.55rem; margin-bottom: 18px; }
+
+  /* Texto secundario: el gris del sistema es ilegible sobre navy. */
+  .login-card small,
+  .login-card p,
+  .login-card .pie-login,
+  .login-card .separador-cuentas,
+  .login-card [style*="--color-text-muted"] { color: #B8C6DC !important; }
+  .login-card .pie-login a { color: #B8C6DC !important; text-decoration: underline; }
+  .login-card label { color: #fff; font-size: .95rem; }
+
+  /* Campos en crema, más altos y con letra más grande. */
+  .login-card input[type="text"],
+  .login-card input[type="password"],
+  .login-card input[type="email"] {
+    background: #F8F3E9;
+    border: 1px solid #E4D9C2;
+    color: var(--color-text);
+    font-size: 1.02rem;
+    padding: 13px 14px;
+    border-radius: 10px;
+  }
+  .login-card input::placeholder { color: #9A8F7C; }
+
+  /* Botón principal: dorado, grande, en versalitas como la maqueta. */
+  .login-card button.btn-primario {
+    background: var(--color-accent);
+    border: none;
+    color: #10233F;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 16px 18px;
+    border-radius: 10px;
+    margin-top: 12px;
+  }
+  .login-card button.btn-primario:hover { background: var(--color-accent-dark); color: #fff; }
+
+  /* Las dos opciones de canal: recuadros grandes, y el elegido en dorado.
+     :has() permite marcar el recuadro sin JavaScript; donde no exista, se
+     ve el borde neutro y el radio nativo sigue indicando cuál está
+     elegido — se degrada, no se rompe. */
+  .opcion-canal {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+    border: 1px solid #35507B; border-radius: 12px;
+    padding: 15px 16px; cursor: pointer;
+    font-size: 1rem; font-weight: 500; color: #fff;
+  }
+  .opcion-canal:hover { border-color: var(--color-accent); }
+  .opcion-canal:has(input:checked) { border-color: var(--color-accent); background: rgba(201,138,44,.12); }
+  .opcion-canal input { accent-color: var(--color-accent); }
+
+  .fila-recordar { display: flex; align-items: center; gap: 10px; font-size: .95rem; color: #fff; }
+  .fila-recordar input { width: 20px; height: 20px; accent-color: var(--color-accent); }
+
+  /* El selector de cuentas del dispositivo también vive en esta tarjeta. */
+  #selector-cuentas .btn-cuenta-dispositivo { background: #F8F3E9; border-color: #E4D9C2; }
+  #selector-cuentas .btn-olvidar-cuenta { color: #B8C6DC; }
 </style>
 </head>
 <body>
   <div class="login-card">
-    <div class="login-eyebrow">Estrategia · INGESES S.A.S.</div>
-    <h1>Administración de campaña</h1>
+    <!-- El encabezado lo comparten los tres pasos (torre, contraseña,
+         código), así que el texto lo fija mostrarPaso(): dejarlo en
+         "TORRE DE ACCESO" mientras se ve el formulario de contraseña
+         diría una cosa y mostraría otra. -->
+    <div class="login-eyebrow" id="login-eyebrow">Acceso privado</div>
+    <h1 id="login-titulo">Torre de acceso</h1>
 
     <div id="selector-cuentas" style="display:none;">
       <div style="font-size:0.82rem; color:var(--color-text-muted); margin-bottom:10px;">Cuentas guardadas en este dispositivo</div>
@@ -88,12 +174,60 @@
     </script>
 
     <div id="login-error" class="mensaje-error"></div>
-    <form id="form-login">
+
+    <!--
+      TORRE DE ACCESO — ingreso sin contraseña para Administrador,
+      Coordinador y Asistente administrativo.
+
+      Es la pantalla que se ve primero. El formulario de usuario y
+      contraseña sigue existiendo, detrás del enlace de abajo, para los
+      demás roles. Son DOS caminos que elige la persona, y no uno que el
+      servidor decida: preguntarle "¿esta cuenta entra con código o con
+      contraseña?" lo obligaría a responder distinto según si la cuenta
+      existe, y eso convierte el ingreso en una forma de averiguar qué
+      correos pertenecen a la campaña.
+    -->
+    <form id="form-torre">
+      <div style="text-align:center; margin-bottom:18px;">
+        <p style="font-size:.95rem; margin:0; line-height:1.5;">
+          Te enviamos un código de acceso de un solo uso.<br>No necesitas contraseña.
+        </p>
+      </div>
+      <div class="campo">
+        <label>Correo electrónico</label>
+        <input type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com">
+      </div>
+      <div class="campo">
+        <label>¿Por dónde quieres recibirlo?</label>
+        <div style="display:flex; gap:12px;">
+          <label class="opcion-canal">
+            <input type="radio" name="canal" value="correo" checked style="width:auto;"> Por correo
+          </label>
+          <label class="opcion-canal">
+            <input type="radio" name="canal" value="sms" style="width:auto;"> Por SMS
+          </label>
+        </div>
+        <small style="display:block; margin-top:8px; font-size:.8rem;">
+          Por SMS solo llega si tu cuenta tiene un teléfono registrado.
+        </small>
+      </div>
+      <div class="campo" style="margin-bottom:6px;">
+        <label class="fila-recordar">
+          <input type="checkbox" name="recordar"> Mantener sesión iniciada por 7 días
+        </label>
+      </div>
+      <button type="submit" class="btn-primario">Enviar código</button>
+      <div class="pie-login" style="margin-top:12px;">
+        <a href="#" id="ir-a-password" style="color: var(--color-text-muted);">Ingresar con usuario y contraseña</a>
+      </div>
+    </form>
+
+    <form id="form-login" style="display:none;">
       <div class="campo">
         <label>Correo electrónico o número de identificación</label>
         <input type="text" name="email" required autocomplete="username" inputmode="email">
         <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
-          Los administradores ingresan con su correo — todos los demás roles (Líder, Sublíder, Coordinador, Testigo...) ingresan con su número de identificación.
+          Líder, Sublíder, Testigo y demás roles ingresan con su número de identificación. Administración, Coordinación y Asistencia administrativa pueden entrar sin contraseña desde la Torre de acceso.
         </small>
       </div>
       <div class="campo">
@@ -106,10 +240,15 @@
         </label>
       </div>
       <button type="submit" class="btn-primario">Ingresar</button>
+      <div class="pie-login" style="margin-top:12px;">
+        <a href="#" id="ir-a-torre" style="color: var(--color-text-muted);">Volver al ingreso con código</a>
+      </div>
     </form>
 
     <form id="form-2fa" style="display:none;">
-      <p style="font-size:0.85rem; color: var(--color-text-muted); margin-bottom: 14px;">
+      <!-- El texto NO dice por dónde llegó el código: lo escribe el JS
+           según el canal elegido, y para el 2FA clásico dice "correo". -->
+      <p id="texto-2fa" style="font-size:0.85rem; color: var(--color-text-muted); margin-bottom: 14px;">
         Te enviamos un código de 6 dígitos por correo. Ingrésalo para completar el inicio de sesión.
       </p>
       <div class="campo">
@@ -136,6 +275,76 @@
 <script src="/js/common.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script>
+/* ------------------------------------------------------------------
+   TORRE DE ACCESO
+
+   Un detalle que no es cosmético: el mensaje de respuesta del servidor es
+   SIEMPRE el mismo, exista o no la cuenta. Se muestra tal cual y no se
+   "mejora" con nada que dependa del correo escrito — cualquier diferencia
+   convertiría esta pantalla en un detector de correos de la campaña.
+   ------------------------------------------------------------------ */
+const TITULOS_PASO = {
+  'form-torre': ['Acceso privado', 'Torre de acceso'],
+  'form-login': ['Estrategia · INGESES S.A.S.', 'Administración de campaña'],
+  'form-2fa':   ['Acceso privado', 'Escribe tu código']
+};
+
+function mostrarPaso(id) {
+  ['form-torre', 'form-login', 'form-2fa', 'form-elegir-rol'].forEach(f => {
+    document.getElementById(f).style.display = (f === id) ? 'block' : 'none';
+  });
+  const t = TITULOS_PASO[id];
+  if (t) {
+    document.getElementById('login-eyebrow').textContent = t[0];
+    document.getElementById('login-titulo').textContent = t[1];
+  }
+}
+
+document.getElementById('ir-a-password').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-error').classList.remove('visible');
+  mostrarPaso('form-login');
+});
+
+document.getElementById('ir-a-torre').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-error').classList.remove('visible');
+  mostrarPaso('form-torre');
+});
+
+document.getElementById('form-torre').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('login-error');
+  errorBox.classList.remove('visible');
+
+  const form = e.target;
+  const canal = form.querySelector('input[name="canal"]:checked').value;
+  const boton = form.querySelector('button[type="submit"]');
+  boton.disabled = true;
+  boton.textContent = 'Enviando…';
+  try {
+    const r = await api('/auth/solicitar-codigo', {
+      method: 'POST',
+      body: {
+        identificador: form.identificador.value.trim(),
+        canal,
+        recordar: form.recordar.checked
+      }
+    });
+    document.getElementById('texto-2fa').textContent =
+      (r.mensaje || 'Si esa cuenta puede ingresar con código, ya lo enviamos.') +
+      ' Escribe abajo los 6 dígitos.';
+    mostrarPaso('form-2fa');
+    document.querySelector('#form-2fa input[name="codigo"]').focus();
+  } catch (err) {
+    errorBox.textContent = err.message || 'No se pudo solicitar el código.';
+    errorBox.classList.add('visible');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = 'Enviar código';
+  }
+});
+
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorBox = document.getElementById('login-error');
@@ -154,8 +363,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
       return;
     }
     if (r.requiere2fa) {
-      form.style.display = 'none';
-      document.getElementById('form-2fa').style.display = 'block';
+      mostrarPaso('form-2fa');
       return;
     }
     // Si marcó "Recordar sesión", el servidor manda también un token de
@@ -185,8 +393,7 @@ document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]'
     try {
       const r = await api('/auth/elegir-rol', { method: 'POST', body: { entrarComo: boton.dataset.entrarComo } });
       if (r.requiere2fa) {
-        document.getElementById('form-elegir-rol').style.display = 'none';
-        document.getElementById('form-2fa').style.display = 'block';
+        mostrarPaso('form-2fa');
         return;
       }
       if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);

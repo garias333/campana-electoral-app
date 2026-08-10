@@ -1660,6 +1660,118 @@ primero por una función inexistente y después por un filtro que no
 casaba con ningún dato. Resultado: 6 · 4 · 6 opciones, y ninguna de correo
 colándose en SMS ni en los avisos.
 
+### jj) Torre de acceso: ingreso por código (9 de agosto) — backend hecho
+
+Pedido: que **admin, coordinador y asistente administrativo** entren sin
+contraseña, con un código de un solo uso pedido desde su correo; los demás
+roles siguen con usuario y contraseña.
+
+**Casi nada era nuevo.** La app ya tenía códigos de un solo uso desde el
+2FA: tabla `two_factor_codes` con hash SHA-256, 6 dígitos, 10 minutos, uso
+único, tope de 5 intentos y auditoría. Solo se disparaba con
+`two_factor_enabled`, que **nadie tenía activado**. El trabajo fue cambiar
+el disparador de «una casilla por usuario» a «el rol», no construir el
+mecanismo.
+
+**Medido antes de decidir:** en las dos campañas **nadie carece de correo**
+(y son únicos: 9 coordinadores, 9 correos), pero **el admin no tiene
+teléfono en ninguna de las dos**. Es decir, el canal SMS falla justo para la
+cuenta que más necesita entrar.
+
+**Decisiones del usuario:** no revelar nunca si una cuenta existe; los dos
+canales siempre visibles; y la sesión larga se queda en **7 días** (la
+maqueta decía 30), corrigiendo el texto en vez del comportamiento.
+
+**Las dos primeras se contradicen, y mandó la de no revelar.** Con SMS
+siempre visible, un error del tipo «esta cuenta no tiene teléfono»
+confirmaría que la cuenta existe. Por eso, sin teléfono no se manda nada y
+la respuesta es la misma de siempre. Tiene un costo real y queda dicho: un
+admin sin teléfono que elija SMS espera un mensaje que nunca llega.
+
+**Son DOS pantallas, y esa es la decisión de diseño que lo hace seguro.**
+Preguntarle al servidor «¿esta cuenta entra con código o con contraseña?»
+obliga a responder distinto según si existe, y eso convierte el ingreso en
+un detector de correos. Aquí el camino lo elige la **persona** —la torre, o
+un enlace al formulario de usuario y contraseña— y el servidor nunca tiene
+que delatar nada.
+
+**La contraseña sigue funcionando para esos tres roles, a propósito.** Es la
+salida de emergencia: el SMTP de este proyecto ya se rompió dos veces, y
+dejar al administrador dependiendo solo del correo significa que un fallo de
+correo lo saca de su propia campaña sin más vía que el SSH. La torre es el
+camino ofrecido; la contraseña, el que queda por si el correo falla. **Si se
+quiere cerrar esa puerta, es una decisión aparte y consciente.**
+
+`POST /auth/solicitar-codigo`, limitado a **5 intentos cada 15 minutos por
+IP** — sin eso la pantalla es una forma gratuita de mandar correos, y SMS
+que se cobran, a cualquier dirección. El `usuario_id` viaja en la **sesión**,
+nunca al navegador: si lo mandara el cliente en el paso 2, bastaría con
+cambiarlo para pedir el código de una cuenta y validar el de otra.
+
+**Probado con 8 casos, en electoral y contra una campaña** (los transportes
+de correo y SMS se sustituyen, no se manda nada real): cuenta que existe y
+cuenta que no dan **la misma respuesta byte a byte**, solo se envía a la
+real, el código es de 6 dígitos, SMS sin teléfono responde igual y no manda
+nada, y **a un líder no se le manda código** aunque la respuesta que ve sea
+idéntica. Ese último caso hubo que correrlo contra una campaña: electoral no
+tiene líderes.
+
+**La pantalla, hecha** (`public/login.html`). La torre es lo primero que se
+ve: correo arriba, los dos canales, la casilla de sesión (**dice 7 días**,
+que es lo que de verdad dura) y el botón «Enviar código». El formulario de
+usuario y contraseña sigue ahí, detrás del enlace *«Ingresar con usuario y
+contraseña»*, con su enlace de vuelta.
+
+Se **reutiliza el `form-2fa` que ya existía** para pedir los 6 dígitos: la
+verificación no se tocó. Su texto ya no dice «por correo» fijo — lo escribe
+el JS con el mensaje que devolvió el servidor, que es el mismo para todos.
+
+**El selector de cuentas del dispositivo no se tocó**: los roles que lo usan
+(líder, sublíder, testigo) siguen entrando igual.
+
+**Probado contra el servidor real, y ahí apareció una trampa:** por HTTP
+plano la prueba fallaba siempre con *«Token de seguridad inválido»*, y no
+era el CSRF. La cookie de sesión es `secure` porque `NODE_ENV=production`,
+así que **por HTTP no se guarda y no hay sesión donde comparar el token**.
+Hay que probar por HTTPS:
+
+```bash
+curl -k --resolve electoral.appestrategia.net:443:127.0.0.1 ...
+```
+
+Con eso: la ruta responde el mensaje único, y el limitador **corta exacto en
+el sexto intento**. Además se comprobó que **todos los `getElementById` de
+`login.html` tienen su elemento** — la comprobación que faltaba el día que
+`escaparHtml` no existía.
+
+**El aspecto, en una segunda vuelta.** Primero se dejó el estilo claro de
+siempre y el usuario pidió el de la maqueta: tarjeta oscura, botones y letra
+más grandes, fondo beige.
+
+**Los colores no se inventaron: ya estaban en el sistema.** La maqueta calza
+con `--color-navy` (#10233F), `--color-accent` (#C98A2C) y el crema #F8F3E9
+que usan los formularios de personas desde el parche 13. El «fondo beige» se
+interpretó como **los campos** —que es donde ese crema ya se usa en la
+aplicación—, no como el fondo de la página, que en la maqueta es oscuro.
+
+**Todo el estilo va acotado a `.login-card`, en el `<style>` de la propia
+página y NO en `style.css`.** Esa hoja la comparten 24 pantallas y aquí se
+invierte el contraste: suelto, teñiría formularios de toda la aplicación.
+
+**El encabezado cambia con el paso.** Es uno solo para los tres formularios,
+así que dejarlo fijo en «TORRE DE ACCESO» diría una cosa mientras se muestra
+el de contraseña. Lo fija `mostrarPaso()`, que además es ahora el único
+lugar que muestra u oculta pasos — antes había dos sitios que enseñaban el
+formulario de código por su cuenta y habrían dejado el título anterior.
+
+`:has()` marca en dorado el canal elegido sin JavaScript; donde no exista,
+queda el borde neutro y el radio nativo sigue indicando cuál está elegido —
+se degrada, no se rompe.
+
+**Sigue sin poder comprobarse cómo se ve**: no hay navegador en este
+servidor. Se verificó que el estilo llega al archivo servido y que el HTML y
+el JS son válidos, pero el juicio visual es del usuario.
+
 ### Pendiente: parche 18
 
 Siete archivos, **toca la base** (el módulo de permisos):
