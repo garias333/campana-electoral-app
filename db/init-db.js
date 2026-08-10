@@ -760,6 +760,52 @@ async function main() {
   // a cuál fila de comunicaciones_envios corregirle el estado.
   await agregarColumnaSiFalta(connection, 'comunicaciones_envios', 'twilio_sid VARCHAR(50) NULL AFTER destinatario_contacto', 'twilio_sid');
 
+  // --- El número de mesa, con el mismo tipo en todas partes ---
+  //
+  // `estructura.mesa_votacion` era INT y `usuarios`, `votantes` y
+  // `dia_d_reportes` lo tenían como VARCHAR(20). El mismo dato con dos tipos
+  // obliga a MySQL a convertir en cada `COALESCE(e.mesa_votacion,
+  // u.mesa_votacion)` —que es como lo leen el Día D y el CRM— y abre la
+  // puerta a comparaciones sorpresa ('03' contra 3).
+  //
+  // LA CONVERSIÓN VA CON GUARDA, Y LA RAZÓN SE COMPROBÓ, NO SE SUPUSO.
+  //   La primera versión de este comentario decía que un `MODIFY ... INT`
+  //   convertiría un valor no numérico en 0 en silencio. Es FALSO en este
+  //   servidor: MySQL está en modo estricto y lo rechaza con «Incorrect
+  //   integer value: 'A-7'». Probado.
+  //
+  //   La guarda sigue haciendo falta, por otro motivo: ese error abortaría
+  //   `npm run init-db` ENTERO, y como el actualizador lo corre al aplicar un
+  //   parche, una sola mesa mal escrita dejaría la campaña con el parche a
+  //   medias y reportado como fallido. Así, la tabla se deja como está, se
+  //   dice cuántos valores estorban y el resto de migraciones sigue su curso.
+  for (const tabla of ['usuarios', 'votantes', 'dia_d_reportes']) {
+    const [[col]] = await connection.query(`
+      SELECT DATA_TYPE AS tipo, IS_NULLABLE AS nulos FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'mesa_votacion'`,
+      [tabla]);
+    if (!col || col.tipo === 'int') continue;
+    const [[sucios]] = await connection.query(
+      `SELECT COUNT(*) AS n FROM ${tabla}
+        WHERE mesa_votacion IS NOT NULL AND TRIM(mesa_votacion) <> ''
+          AND mesa_votacion NOT REGEXP '^[0-9]+$'`);
+    if (sucios.n > 0) {
+      console.warn(
+        `AVISO: ${tabla}.mesa_votacion tiene ${sucios.n} valor(es) que no son un número entero, ` +
+        'así que NO se convirtió a INT (convertirlos los volvería 0 en silencio). ' +
+        'Revísalos y vuelve a correr esto.');
+      continue;
+    }
+    const nulos = col.nulos === 'YES' ? 'NULL' : 'NOT NULL';
+    // Las cadenas vacías no pasan a INT: se normalizan a NULL primero (solo
+    // aplica donde la columna admite nulos).
+    if (nulos === 'NULL') {
+      await connection.query(`UPDATE ${tabla} SET mesa_votacion = NULL WHERE TRIM(mesa_votacion) = ''`);
+    }
+    await connection.query(`ALTER TABLE ${tabla} MODIFY mesa_votacion INT ${nulos}`);
+    console.log(`${tabla}.mesa_votacion convertida a INT ${nulos}.`);
+  }
+
   // `campana_ambito` se creó a mano en las bases existentes (no la traía este
   // repositorio, ver A26), así que heredó la colación POR DEFECTO DE LA BASE
   // —utf8mb4_general_ci— mientras las 29 tablas del esquema usan

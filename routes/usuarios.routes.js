@@ -34,14 +34,25 @@ router.get('/buscar-por-cedula', async (req, res) => {
 });
 
 // Listado liviano para poblar selects (líder responsable, supervisor, etc.)
-// Sin cambios respecto al comportamiento original: solo usuarios activos.
+// Solo usuarios activos.
+//
+// NO DEVUELVE EL CORREO, a propósito. Esta ruta la puede llamar CUALQUIER
+// usuario con sesión —incluidos Invitado y Testigo—, porque las pantallas que
+// la usan (Votantes, Territorial, Eventos) están abiertas a esos roles y
+// necesitan la lista para armar sus desplegables. Devolver además el correo
+// de todo el equipo era exponer datos de contacto a quien solo necesita
+// nombres.
+//
+// Se comprobó que ninguno de los tres consumidores lo usaba: los tres leen
+// únicamente id, nombre y rol. Por eso se quita el campo en vez de restringir
+// la ruta por rol, que habría dejado sin desplegables a los Líderes.
 router.get('/', async (req, res) => {
   const { rol } = req.query;
   const whereSql = rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1';
   const params = rol ? [rol] : [];
   try {
     const [rows] = await pool.query(
-      `SELECT u.id, u.nombre, u.email, r.nombre AS rol, u.territorio_id
+      `SELECT u.id, u.nombre, r.nombre AS rol, u.territorio_id
        FROM usuarios u JOIN roles r ON r.id = u.rol_id
        ${whereSql} ORDER BY u.nombre`, params
     );
