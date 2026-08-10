@@ -33,6 +33,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A15** — colación no explícita | ✅ **RESUELTO** | `eb1360e` (27 tablas con `COLLATE`, más migración que alinea `campana_ambito`) |
 | **A18** — contador y tiempos del login | ✅ **RESUELTO** | Incremento atómico en la base y `bcrypt` de descarte; medido en vivo: 0,33 s exista o no la cuenta |
 | **A14** — helpers duplicados | ✅ **RESUELTO** | `4e525aa` (`config/verificaciones.js`; −187 líneas). Una de las 8 copias ya había divergido |
+| **A12** — `xlsx` con vulnerabilidad alta | ✅ **RESUELTO** | `d060277` (0.18.5 → **0.20.3** desde el CDN de SheetJS, misma API). Producción queda con **0 vulnerabilidades altas** |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -187,7 +188,7 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A10, A11, A12, A13 (A6 parcial; A7, A7bis, A8, A14, A15 resueltos; A9 de-escalado) |
+| 🟡 Media | 10 | A6–A15 | A10, A11, A13 (A6 parcial; A7, A7bis, A8, A12, A14, A15 resueltos; A9 de-escalado) |
 | ⚪ Baja | 10 | A16–A24, **A27** | A16, A17, A19–A24, A27 (A18 resuelto) |
 
 ---
@@ -725,8 +726,19 @@ del teléfono) hoy hay que hacerla en 5-6 sitios y es fácil que uno quede atrá
   incluida `votantes/importar-excel:470`), lo que **reduce** la exposición pero
   no la elimina: un coordinador es menos confiable que un admin y un archivo
   malicioso podría explotar el parser.
-- **Recomendación:** migrar a `exceljs` (mantenida). Mientras tanto, mantener el
-  guard de rol y aceptar el riesgo formalmente.
+- **RESUELTO sin migrar de librería** (`d060277`). La premisa «no hay versión
+  corregida» era cierta **solo en npm**: SheetJS dejó de publicar allí —por eso
+  el registro sigue congelado en 0.18.5— pero mantiene versiones corregidas en
+  su propio CDN, **con la misma API**. Se instaló 0.20.3 desde ahí.
+
+  Compatibilidad comprobada: la API usada es la clásica y estable (`read`,
+  `write`, `book_new`, `book_append_sheet`, `json_to_sheet`, `aoa_to_sheet`,
+  `sheet_to_json`), idéntica en 0.20.x. Probada una ida y vuelta completa con
+  tildes y eñes, y los 6 archivos que la usan cargan sin error.
+
+  **Producción queda con 0 vulnerabilidades altas.** Migrar a `exceljs` ya no
+  hace falta, y la restricción de rol del importador de votantes puede
+  revisarse (era el parche mientras esto no tuviera arreglo).
 - **Esfuerzo:** medio (migración de API).
 - **Ventana:** neutra.
 
