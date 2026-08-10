@@ -40,6 +40,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A20** — `adjunto-publico` | ✅ **DESCARTADO** | Medido: `adjunto_nombre` es siempre `req.file.filename`, generado por multer. No hay travesía posible |
 | **A17** — archivos muertos | ✅ **RESUELTO** | `archivo-paginas-eliminadas/` borrado (estaba en git: reversible) |
 | **A19** — `uncaughtException` | ✅ **RESUELTO** | Ahora sale y PM2 reinicia limpio. Comprobado antes: no se había disparado nunca |
+| **A10** — plantilla y admin inicial | 🟨 **PARCIAL** | Sin `ADMIN_PASSWORD` el admin nace con clave **al azar**, no con una escrita en el código. Falta: plantilla limpia (clonar la base sigue heredando el hash) |
 | **A28** — módulo Social inalcanzable | 🆕 **NUEVO, sin resolver** | Tiene permisos, página, router y tablas, pero `common.js` no lo enlaza |
 | Resto | Sin empezar | — |
 
@@ -80,6 +81,8 @@ Verificado en caliente, contra la instalación real:
 - Colación medida en las tres bases: `utf8mb4_0900_ai_ci` en `nombre_usuario`
   y `email`, y la comparación ignora mayúsculas **y** tildes. El `LOWER()` no
   aportaba nada que la colación no hiciera ya.
+
+**Parches #18, #19 y #20 aplicados** en las dos campañas (9-ago-2026, registrados como exitosos). Tras el #20 la herramienta de deriva dice: *todas las instancias corren el mismo código*, 70 archivos idénticos.
 
 **Parche #18 generado y listo para subir** (`parches/campana-parche18.zip`,
 37,3 KB) con los 5 archivos de A1/A7bis: `db/schema.sql`, `db/init-db.js`,
@@ -195,7 +198,7 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
-| 🟡 Media | 11 | A6–A15, A7bis | A10, A11 (A6 parcial; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
+| 🟡 Media | 11 | A6–A15, A7bis | A11 (A6 y A10 parciales; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
 | ⚪ Baja | 9 | A16–A21, A24, **A27**, **A28** | A16, A27, A28 (el resto resuelto o descartado) |
 
 ---
