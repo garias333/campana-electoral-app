@@ -23,6 +23,7 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
+const { validarEntradasDelZip } = require('../config/zipSeguro');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -195,6 +196,13 @@ router.post('/restaurar', uploadZip.single('archivo'), async (req, res) => {
   const carpetaExtraida = path.join(os.tmpdir(), `restaurar-estrategia-${marcaDeTiempo()}`);
   try {
     fs.mkdirSync(carpetaExtraida, { recursive: true });
+    // Se revisa el contenido ANTES de descomprimir: rutas absolutas, rutas
+    // con `..` y enlaces simbólicos escribirían fuera de esta carpeta
+    // temporal. Aquí el archivo lo sube un administrador que además puso su
+    // contraseña y escribió "RESTAURAR", así que el escenario es remoto —
+    // pero es la misma comprobación que ya protege a los parches, y
+    // compartirla cuesta una línea (ver config/zipSeguro.js).
+    validarEntradasDelZip(req.file.path, carpetaExtraida);
     await ejecutar('unzip', ['-q', req.file.path, '-d', carpetaExtraida]);
 
     const rutaSqlSubido = path.join(carpetaExtraida, 'database.sql');

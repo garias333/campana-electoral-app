@@ -190,8 +190,8 @@ escritura de votantes.
 |---|---|---|---|
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
-| 🟡 Media | 10 | A6–A15 | A10, A11 (A6 parcial; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
-| ⚪ Baja | 10 | A16–A24, **A27** | A16, A17, A19–A23, A27 (A18 y A24 resueltos) |
+| 🟡 Media | 11 | A6–A15, A7bis | A10, A11 (A6 parcial; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
+| ⚪ Baja | 8 | A16, A17, A18, A19, A20, A21, A24, **A27** | A16, A17, A19, A20, A21, A27 (A18 y A24 resueltos) |
 
 ---
 

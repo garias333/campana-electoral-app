@@ -19,6 +19,10 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
+// La revisión del zip vive en config/, compartida con el respaldo:
+// dos copias de una comprobación de seguridad divergen igual que
+// cualquier otra, y aquí divergir deja un camino sin proteger.
+const { validarEntradasDelZip } = require('../config/zipSeguro');
 
 const SERVIDOR_LICENCIAS = process.env.LICENCIA_SERVIDOR_URL;
 const API_SECRET = process.env.LICENCIA_API_SECRET;
@@ -114,62 +118,6 @@ function numeroDeParcheValido(valor) {
   return false;
 }
 
-/**
- * Revisa lo que trae el .zip ANTES de descomprimirlo.
- *
- * Un parche se descomprime encima del árbol del proyecto, así que el
- * contenido del archivo decide qué se escribe y dónde. Tres cosas no pueden
- * pasar nunca:
- *
- *   - Rutas absolutas (`/etc/cron.d/x`): escribirían fuera del proyecto.
- *   - Rutas con `..`: el clásico «zip slip», que sube por el árbol y
- *     también escribe fuera.
- *   - Enlaces simbólicos: un enlace que apunte afuera, y un archivo
- *     posterior escrito «a través» de él, logra lo mismo esquivando las dos
- *     comprobaciones anteriores.
- *
- * SE FALLA CERRADO. Si el listado no se puede leer, se aborta: antes esto
- * iba en un try/catch que solo avisaba y seguía descomprimiendo — o sea que
- * un zip ilegible para `unzip -Z1` se aplicaba igual, sin revisar.
- */
-function validarEntradasDelZip(nombreZip, carpetaDestino) {
-  let nombres;
-  try {
-    nombres = execFileSync('unzip', ['-Z1', nombreZip], {
-      cwd: carpetaDestino, encoding: 'utf8', env: ENTORNO,
-    }).split('\n').map((l) => l.trim()).filter(Boolean);
-  } catch (err) {
-    // `unzip` también sale con error si el archivo está vacío o corrupto.
-    // Sea cual sea el motivo, no se puede revisar: no se aplica.
-    throw new Error(`No se pudo leer el contenido del parche (¿archivo vacío o dañado?), así que no se aplicó: ${err.message}`);
-  }
-
-  if (!nombres.length) throw new Error('El parche no contiene ningún archivo, así que no se aplicó.');
-
-  for (const entrada of nombres) {
-    if (entrada.startsWith('/') || /^[A-Za-z]:[\\/]/.test(entrada)) {
-      throw new Error(`El parche trae una ruta absoluta y no se aplicó: "${entrada}".`);
-    }
-    if (entrada.split(/[\\/]/).includes('..')) {
-      throw new Error(`El parche trae una ruta que sale del proyecto y no se aplicó: "${entrada}".`);
-    }
-    const destino = path.resolve(carpetaDestino, entrada);
-    if (destino !== carpetaDestino && !destino.startsWith(carpetaDestino + path.sep)) {
-      throw new Error(`El parche escribiría fuera del proyecto y no se aplicó: "${entrada}".`);
-    }
-  }
-
-  // El listado largo marca el tipo en la primera columna, como `ls`:
-  // "l" es enlace simbólico.
-  const largo = execFileSync('unzip', ['-Z', nombreZip], {
-    cwd: carpetaDestino, encoding: 'utf8', env: ENTORNO,
-  });
-  if (largo.split('\n').some((l) => l.startsWith('l'))) {
-    throw new Error('El parche trae enlaces simbólicos y no se aplicó.');
-  }
-
-  return nombres;
-}
 
 async function aplicarParche(numeroParche) {
   if (!numeroDeParcheValido(numeroParche)) {
@@ -192,7 +140,7 @@ async function aplicarParche(numeroParche) {
   // El mismo listado sirve para las dos cosas: comprobar que ninguna ruta
   // escape del proyecto (ver validarEntradasDelZip) y ver si trae
   // dependencias. Si algo no cuadra, lanza y el parche NO se descomprime.
-  const entradas = validarEntradasDelZip(nombreZip, CARPETA_PROYECTO);
+  const entradas = validarEntradasDelZip(nombreZip, CARPETA_PROYECTO, { env: ENTORNO });
   const traeDependencias = entradas.includes('package.json');
 
   execFileSync('unzip', ['-o', nombreZip, '-d', '.'], { cwd: CARPETA_PROYECTO, stdio: 'inherit', env: ENTORNO });
@@ -302,4 +250,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { validarEntradasDelZip, numeroDeParcheValido };
+module.exports = { numeroDeParcheValido };
