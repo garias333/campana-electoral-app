@@ -64,10 +64,37 @@ una instalación **nueva** sin índice en `usuarios.territorio_id`,
 `eventos.territorio_id` y `finanzas_movimientos.territorio_id`, degradando
 solo a las campañas futuras y sin que nada avisara. Van explícitos.
 
-**Verificación sin base de datos:** no hay privilegio de `CREATE DATABASE`
-para probar `schema.sql` de verdad, así que las 34 sentencias del archivo se
-validaron con `PREPARE`, que hace que MySQL las **parsee sin ejecutarlas**.
-Cero errores. No sustituye a una instalación desde cero, que sigue pendiente.
+**INSTALACIÓN DESDE CERO: PROBADA Y CORRECTA** (9 de agosto de 2026). Era el
+mayor riesgo abierto del proyecto —se había tocado `schema.sql` siete veces y
+ese camino nunca se había ejecutado— y ya no lo es. Sobre una base **vacía**
+creada en CloudPanel (`pruebalimpia`), con
+`scripts/probar-instalacion-limpia.js`:
+
+- **30 tablas creadas** y **13 de 13 comprobaciones OK**: `nombre_usuario` con
+  su índice UNIQUE (A1), `campana_ambito` (A26), cero FK hacia `territorios`
+  (A2), `territorio_id` indexado en las 5 tablas, `mesa_votacion` INT en las 4
+  (A13), índice de `twilio_sid` (A7), cero tablas con colación distinta (A15),
+  y roles, permisos, admin y política sembrados.
+- **El administrador nació con contraseña aleatoria** (`j4vkp…`, ya
+  descartada), no con la que antes venía escrita en el código: A10 verificado
+  en vivo.
+- **Y la aplicación arranca contra esa base y se puede usar.** Probado el
+  camino completo: la verificación de arranque pasa, `/login.html` responde
+  200, un usuario inexistente y una contraseña mala dan 401, la contraseña
+  buena da **200 con `rol=admin` y `debe_cambiar_password=true`**, y una ruta
+  autenticada responde 200.
+
+O sea: una campaña nueva se puede crear desde este repositorio y funciona.
+Antes esto era una suposición.
+
+(Para el login de prueba se arrancó con `NODE_ENV=development`, solo porque
+con `production` la cookie es `secure` y no viaja por HTTP plano sin Nginx
+delante. No cambia nada más.)
+
+**Nota de método:** antes de existir esa prueba, las 34 sentencias de
+`schema.sql` se validaban con `PREPARE` —MySQL las parsea sin ejecutarlas—.
+Servía para no publicar un error de sintaxis, pero no demostraba que el
+esquema levantara una base. Ahora hay las dos cosas.
 
 **Desplegado en `electoral.appestrategia.net`** (9 de agosto de 2026, 20:25):
 `pm2 restart campana-app`, proceso 2424130 → 2433586, `unstable_restarts: 0`.
