@@ -40,6 +40,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A20** — `adjunto-publico` | ✅ **DESCARTADO** | Medido: `adjunto_nombre` es siempre `req.file.filename`, generado por multer. No hay travesía posible |
 | **A17** — archivos muertos | ✅ **RESUELTO** | `archivo-paginas-eliminadas/` borrado (estaba en git: reversible) |
 | **A19** — `uncaughtException` | ✅ **RESUELTO** | Ahora sale y PM2 reinicia limpio. Comprobado antes: no se había disparado nunca |
+| **A11** — sincronización votante↔estructura | ⚠️ **DIVERGENCIA CONFIRMADA** | Medido: 29 de 51 personas con distinto puesto de votación en la departamental. No son testigos: la explicación documentada no aplica |
 | **A4** — secreto compartido | ⚠️ **CONFIRMADO** (sin resolver) | Medido: el mismo `LICENCIA_API_SECRET` en las tres. El arreglo necesita columna nueva en el Servidor de Licencias + middleware + redistribución |
 | **A10** — plantilla y admin inicial | 🟨 **PARCIAL** | Sin `ADMIN_PASSWORD` el admin nace con clave **al azar**, no con una escrita en el código. Falta: plantilla limpia (clonar la base sigue heredando el hash) |
 | **A28** — módulo Social inalcanzable | 🆕 **NUEVO, sin resolver** | Tiene permisos, página, router y tablas, pero `common.js` no lo enlaza |
@@ -660,7 +661,40 @@ tabla con referencias vivas.
   hace en `territorial.routes.js`).
 - **Ventana:** neutra.
 
-### A11 — La sincronización votante↔estructura no es transaccional 🟡 Media
+### A11 — La sincronización votante↔estructura no es transaccional — ⚠️ DIVERGENCIA CONFIRMADA 🟡 Media
+
+> **Medido el 9 de agosto de 2026, y el resultado contradice lo que yo iba a
+> concluir.** Estuve a punto de de-escalarlo con el argumento de que la
+> sincronización es *best-effort* por diseño y seguramente funcionaba. No
+> funciona:
+>
+> | Instalación | Personas en ambas tablas | Con datos divergentes |
+> |---|---|---|
+> | electoral (plantilla) | 0 | 0 |
+> | municipal | 52 | **2** |
+> | departamental | 51 | **29** |
+>
+> **Qué diverge:** solo `puesto_votacion` (29) y `mesa_votacion` (26) —más un
+> caso de género y uno de edad—. El resto (nombre, teléfono, email,
+> departamento y municipio de votación) coincide en todos.
+>
+> **Y no son puestos parecidos: son otros.** «COCORA (PALESTINA) (SALENTO)»
+> contra «LA ALBANIA (CALARCÁ)»; «COL. SANTAMARIA GORETTI (MONTENEGRO)» contra
+> «UNIVERSIDAD DEL QUINDIO (ARMENIA)». Municipios distintos.
+>
+> **Se descartó la explicación cómoda.** La primera hipótesis era la
+> sobrescritura histórica que documenta CLAUDE.md —a quien es testigo se le
+> pisaba el lugar de votación con el puesto que vigila—. Es falsa aquí:
+> **cero de los 29 son testigos**.
+>
+> **Lo que queda sin determinar** es si la causa está en la lógica de
+> sincronización o en cómo se sembraron esos datos de prueba (el script vive
+> en el proyecto del catálogo). Para el efecto práctico da igual: hoy las dos
+> tablas responden cosas distintas a «¿dónde vota esta persona?», y el
+> estimado por puesto del Día D lee `votantes.puesto_id`.
+>
+> **Decisión pendiente:** cuál de las dos tablas manda. Sin eso, arreglar la
+> sincronización es elegir al azar cuál de los dos datos se pierde.
 
 - **Archivos:** `config/sincronizacionVotantesEstructura.js` (usa `pool`; se
   llama **después** del `commit` en `territorial.routes.js:997`).
