@@ -40,6 +40,7 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A20** — `adjunto-publico` | ✅ **DESCARTADO** | Medido: `adjunto_nombre` es siempre `req.file.filename`, generado por multer. No hay travesía posible |
 | **A17** — archivos muertos | ✅ **RESUELTO** | `archivo-paginas-eliminadas/` borrado (estaba en git: reversible) |
 | **A19** — `uncaughtException` | ✅ **RESUELTO** | Ahora sale y PM2 reinicia limpio. Comprobado antes: no se había disparado nunca |
+| **A4** — secreto compartido | ⚠️ **CONFIRMADO** (sin resolver) | Medido: el mismo `LICENCIA_API_SECRET` en las tres. El arreglo necesita columna nueva en el Servidor de Licencias + middleware + redistribución |
 | **A10** — plantilla y admin inicial | 🟨 **PARCIAL** | Sin `ADMIN_PASSWORD` el admin nace con clave **al azar**, no con una escrita en el código. Falta: plantilla limpia (clonar la base sigue heredando el hash) |
 | **A28** — módulo Social inalcanzable | 🆕 **NUEVO, sin resolver** | Tiene permisos, página, router y tablas, pero `common.js` no lo enlaza |
 | Resto | Sin empezar | — |
@@ -242,7 +243,27 @@ actualización, no de una consulta suelta).
   del cliente y fuerza el de la sesión (`:929`). `GET /estructura` recorta por
   `supervisor_id`/`usuario_id` para roles no admin (`territorial.routes.js:715`).
 
-### A4 — El secreto del actualizador es una sola llave compartida (y probablemente igual en toda la flota) 🟠 Alta
+### A4 — El secreto del actualizador es una sola llave compartida — ⚠️ CONFIRMADO al medirlo 🟠 Alta
+
+> **Ya no es una sospecha.** Medido el 9 de agosto de 2026 comparando la huella
+> SHA-256 de cada `.env` (sin imprimir ningún valor): `LICENCIA_API_SECRET` es
+> **idéntico en las tres instalaciones**. Los `SESSION_SECRET` sí son distintos,
+> que es lo correcto y demuestra que la separación se hizo a propósito donde se
+> pensó en ella.
+>
+> **Y el arreglo es más grande de lo que suponía.** El Servidor de Licencias
+> valida en `middleware/auth.js` con `secreto !== process.env.API_SECRET`: un
+> único secreto global, y con `!==` en vez de comparación en tiempo constante
+> —al revés que el lado campaña, que sí usa `timingSafeEqual`—. La tabla
+> `instalaciones` **no tiene columna de secreto**. Un secreto por campaña exige
+> las tres cosas a la vez: columna nueva allá, cambio del middleware, y
+> redistribución coordinada de los `.env` para que nadie quede fuera a mitad
+> del cambio.
+>
+> **Qué se puede hacer hoy con ese secreto**, teniéndolo cualquiera que lea el
+> `.env` de su propia campaña: disparar `/actualizador/ejecutar` en las otras
+> instalaciones, y llamar a `/parches/disponibles` y `/parches/descargar` del
+> Servidor de Licencias para bajarse cualquier parche.
 
 - **Archivos:** `routes/actualizador.routes.js:143-153`,
   `config/licencia.js:15`, `scripts/actualizar-automatico.js:24`.
