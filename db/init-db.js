@@ -9,6 +9,10 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+// El de Node, no el `crypto` global de la Web: ese existe en Node 22 pero no
+// tiene randomBytes, así que sin este require el fallo sería un TypeError
+// dentro de la creación del administrador, no un error al arrancar.
+const crypto = require('crypto');
 /**
  * Agrega una columna a una tabla solo si no existe ya. MySQL real (a
  * diferencia de MariaDB/PostgreSQL) no soporta "ADD COLUMN IF NOT EXISTS",
@@ -605,7 +609,21 @@ async function main() {
   );
   if (admins.length === 0) {
     const email = process.env.ADMIN_EMAIL || 'admin@campana.local';
-    const passwordPlano = process.env.ADMIN_PASSWORD || 'CambiarInmediatamente123!';
+    // SIN ADMIN_PASSWORD SE GENERA UNA AL AZAR, NUNCA UNA FIJA.
+    //
+    // Antes el valor por defecto era una contraseña escrita en este archivo,
+    // y por tanto conocida por cualquiera que vea el repositorio. Medido el
+    // 9 de agosto de 2026: NINGUNA de las tres instalaciones define
+    // ADMIN_PASSWORD, así que las tres nacieron con esa misma clave — y
+    // `.env.example` ni la mencionaba, de modo que nadie sabía que podía
+    // fijarla.
+    //
+    // `debe_cambiar_password = 1` obliga a cambiarla al entrar, pero eso no
+    // sirve de nada si quien entra primero no es el dueño de la campaña.
+    // Una al azar cierra esa ventana sin estorbar el aprovisionamiento: se
+    // imprime abajo, igual que antes.
+    const passwordPlano = process.env.ADMIN_PASSWORD
+      || crypto.randomBytes(12).toString('base64url');
     const hash = await bcrypt.hash(passwordPlano, 12);
     const [[rolAdmin]] = await connection.query(`SELECT id FROM roles WHERE nombre = 'admin'`);
     await connection.query(
