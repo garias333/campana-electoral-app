@@ -57,16 +57,16 @@
      personas (ver style.css, .modal-amplio).
      ------------------------------------------------------------------ */
   .login-card {
-    max-width: 430px;
+    max-width: 520px;
     background: var(--color-navy);
     border-top: 4px dashed var(--color-accent);
-    padding: 34px 30px 30px;
+    padding: 38px 36px 32px;
     color: #fff;
   }
   .login-card .login-eyebrow,
   .login-card h1 { text-align: center; }
-  .login-card .login-eyebrow { color: var(--color-accent); letter-spacing: .16em; font-size: .78rem; }
-  .login-card h1 { color: #fff; font-size: 1.55rem; margin-bottom: 18px; }
+  .login-card .login-eyebrow { color: var(--color-accent); letter-spacing: .16em; font-size: .86rem; }
+  .login-card h1 { color: #fff; font-size: 1.75rem; margin-bottom: 18px; }
 
   /* Texto secundario: el gris del sistema es ilegible sobre navy. */
   .login-card small,
@@ -75,7 +75,11 @@
   .login-card .separador-cuentas,
   .login-card [style*="--color-text-muted"] { color: #B8C6DC !important; }
   .login-card .pie-login a { color: #B8C6DC !important; text-decoration: underline; }
-  .login-card label { color: #fff; font-size: .95rem; }
+  .login-card .pie-login { font-size: .88rem; }
+  .login-card p { font-size: 1.05rem; line-height: 1.55; }
+  .login-card small { font-size: .88rem; }
+  .login-card label { color: #fff; font-size: 1.02rem; }
+  .login-card .separador-cuentas { font-size: .88rem; }
 
   /* Campos en crema, más altos y con letra más grande. */
   .login-card input[type="text"],
@@ -84,22 +88,39 @@
     background: #F8F3E9;
     border: 1px solid #E4D9C2;
     color: var(--color-text);
-    font-size: 1.02rem;
-    padding: 13px 14px;
+    font-size: 1.08rem;
+    padding: 15px 16px;
     border-radius: 10px;
   }
   .login-card input::placeholder { color: #9A8F7C; }
+
+  /* El campo del código: seis dígitos sueltos y centrados.
+     JetBrains Mono ya la carga esta página (ver el <link> de arriba) y es
+     la que dibuja el cero con barra, así que un 0 no se confunde con una
+     O al dictar el código por teléfono.
+     El text-indent compensa el letter-spacing: esa separación se aplica
+     TAMBIÉN después del último dígito, y sin corregirlo el texto queda
+     medio espacio corrido a la izquierda en vez de centrado. */
+  .login-card input.campo-codigo {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 1.9rem;
+    text-align: center;
+    letter-spacing: .55em;
+    text-indent: .55em;
+    padding: 16px 10px;
+  }
+  .login-card input.campo-codigo::placeholder { color: #C3B9A6; }
 
   /* Botón principal: dorado, grande, en versalitas como la maqueta. */
   .login-card button.btn-primario {
     background: var(--color-accent);
     border: none;
     color: #10233F;
-    font-size: 1.02rem;
+    font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: .12em;
     text-transform: uppercase;
-    padding: 16px 18px;
+    padding: 18px 18px;
     border-radius: 10px;
     margin-top: 12px;
   }
@@ -112,19 +133,35 @@
   .opcion-canal {
     flex: 1; display: flex; align-items: center; gap: 10px;
     border: 1px solid #35507B; border-radius: 12px;
-    padding: 15px 16px; cursor: pointer;
-    font-size: 1rem; font-weight: 500; color: #fff;
+    padding: 16px 16px; cursor: pointer;
+    font-size: 1.06rem; font-weight: 500; color: #fff;
   }
   .opcion-canal:hover { border-color: var(--color-accent); }
   .opcion-canal:has(input:checked) { border-color: var(--color-accent); background: rgba(201,138,44,.12); }
   .opcion-canal input { accent-color: var(--color-accent); }
 
-  .fila-recordar { display: flex; align-items: center; gap: 10px; font-size: .95rem; color: #fff; }
-  .fila-recordar input { width: 20px; height: 20px; accent-color: var(--color-accent); }
+  .fila-recordar { display: flex; align-items: center; gap: 10px; font-size: 1.03rem; color: #fff; }
+  .fila-recordar input { width: 22px; height: 22px; accent-color: var(--color-accent); }
 
-  /* El selector de cuentas del dispositivo también vive en esta tarjeta. */
-  #selector-cuentas .btn-cuenta-dispositivo { background: #F8F3E9; border-color: #E4D9C2; }
-  #selector-cuentas .btn-olvidar-cuenta { color: #B8C6DC; }
+  /* La cuenta guardada, del mismo porte que "Enviar código".
+     LA "✕" VA FUERA DEL FLUJO, y no al lado. Puesta como un hermano en
+     flex, es ella la que le roba el ancho al botón — que es justo el
+     problema que este archivo ya documenta más arriba. En absoluto, el
+     botón conserva su 100% intacto y solo se le reserva sitio con
+     padding-right, igual que se resolvió el ojo de la contraseña. */
+  #selector-cuentas .fila-cuenta-dispositivo { position: relative; margin-bottom: 10px; }
+  #selector-cuentas .btn-cuenta-dispositivo {
+    background: #F8F3E9; border-color: #E4D9C2;
+    padding: 18px 52px 18px 18px;
+    border-radius: 10px;
+  }
+  #selector-cuentas .btn-cuenta-dispositivo .nombre { font-size: 1.08rem; }
+  #selector-cuentas .btn-cuenta-dispositivo .rol { font-size: .88rem; }
+  #selector-cuentas .btn-olvidar-cuenta {
+    position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+    color: #8A7F6C; font-size: 1.2rem;
+  }
+  #selector-cuentas .btn-olvidar-cuenta:hover { background: #FBEAEA; color: #A93226; }
 </style>
 </head>
 <body>
@@ -253,7 +290,11 @@
       </p>
       <div class="campo">
         <label>Código de verificación</label>
-        <input type="text" name="codigo" inputmode="numeric" maxlength="6" required autofocus>
+        <!-- autocomplete="one-time-code": el teléfono ofrece el código del
+             SMS encima del teclado y se llena de un toque, sin copiar y
+             pegar. Es lo que el navegador espera de un campo así. -->
+        <input type="text" name="codigo" inputmode="numeric" maxlength="6" required autofocus
+               autocomplete="one-time-code" placeholder="000000" class="campo-codigo">
       </div>
       <button type="submit" class="btn-primario">Verificar</button>
     </form>
