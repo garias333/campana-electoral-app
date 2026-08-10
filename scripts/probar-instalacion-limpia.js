@@ -97,11 +97,25 @@ const COMPROBACIONES = [
 ];
 
 async function main() {
-  const [base, usuario, clave] = process.argv.slice(2);
+  const [base, usuario, claveArg] = process.argv.slice(2);
+  // La contraseña se prefiere por variable de entorno. Un argumento de línea
+  // de comandos lo ve cualquiera con acceso al servidor mientras el proceso
+  // corre (`ps aux`) y además queda en el historial del shell — es el mismo
+  // criterio que ya aplica routes/backup.routes.js con MYSQL_PWD. Se sigue
+  // aceptando como argumento por comodidad, pero avisando.
+  const clave = process.env.DB_PASSWORD_PRUEBA || claveArg;
   if (!base || !usuario || !clave) {
-    console.error('Uso: node scripts/probar-instalacion-limpia.js <base> <usuario> <clave>');
-    console.error('La base y el usuario se crean antes en CloudPanel.');
+    console.error('Uso:');
+    console.error('  DB_PASSWORD_PRUEBA=... node scripts/probar-instalacion-limpia.js <base> <usuario>');
+    console.error('  (o bien)  node scripts/probar-instalacion-limpia.js <base> <usuario> <clave>');
+    console.error('');
+    console.error('La base y el usuario se crean ANTES en CloudPanel (Databases -> Add Database).');
+    console.error('La clave es la que CloudPanel genera o la que escribas ahí: no existe de antes.');
     process.exit(1);
+  }
+  if (claveArg && !process.env.DB_PASSWORD_PRUEBA) {
+    console.warn('Aviso: la contraseña va en la línea de comandos, así que queda en el historial\n' +
+                 '       del shell y visible en `ps`. Para evitarlo: DB_PASSWORD_PRUEBA=... node ...\n');
   }
   if (BASES_PROHIBIDAS.includes(base.toLowerCase())) {
     console.error(`NO. "${base}" es una base real o del sistema. Esta prueba escribe y borra: usa una desechable.`);
