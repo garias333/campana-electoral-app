@@ -228,11 +228,32 @@ app.use((err, req, res, next) => {
 // sin capturar (por ejemplo, una ruta nueva que olvide su try/catch), se
 // registra en el log en vez de dejar que tumbe el proceso completo para
 // todos los usuarios conectados. ---
+// Una promesa rechazada sin capturar suele ser una consulta que falló en una
+// ruta concreta: registrarla y seguir es lo correcto, porque el resto de la
+// aplicación está sano y tumbarla dejaría sin servicio a todos por el error
+// de uno.
 process.on('unhandledRejection', (err) => {
   console.error('Promesa rechazada sin manejar:', err);
 });
+
+// UNA EXCEPCIÓN NO CAPTURADA ES OTRA COSA: SE SALE.
+//
+// Node no garantiza en qué estado queda el proceso después de una — puede
+// haber quedado un archivo a medio escribir, una conexión a medio liberar o
+// una transacción abierta. Seguir atendiendo peticiones con ese estado es
+// justamente cómo se corrompen datos sin que nadie lo note, que es la clase
+// de fallo que esta aplicación no se puede permitir el día de las
+// elecciones. Se sale con código 1 y PM2 levanta un proceso limpio.
+//
+// SE COMPROBÓ ANTES DE CAMBIARLO: en todo el historial de registros de PM2
+// este manejador no se ha disparado NI UNA VEZ, así que salir no puede
+// meter a la aplicación en un bucle de reinicios por algo que ya estuviera
+// ocurriendo. Y si algún día pasara, PM2 corta tras varios reinicios
+// seguidos y lo deja visible en `pm2 list` — que es mejor que una campaña
+// funcionando a medias en silencio.
 process.on('uncaughtException', (err) => {
-  console.error('Excepción no capturada:', err);
+  console.error('Excepción no capturada, el proceso se reinicia:', err);
+  process.exit(1);
 });
 
 app.listen(PORT, '127.0.0.1', () => {

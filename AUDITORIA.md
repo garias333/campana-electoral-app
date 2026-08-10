@@ -36,6 +36,11 @@ búsquedas dirigidas. No se ejecutó nada contra la base.
 | **A12** — `xlsx` con vulnerabilidad alta | ✅ **RESUELTO** | `d060277` (0.18.5 → **0.20.3** desde el CDN de SheetJS, misma API). Producción queda con **0 vulnerabilidades altas** |
 | **A13** — tipos de `mesa_votacion` | ✅ **RESUELTO** | `bb6d160` (todo INT, con migración guardada). Medido antes: los valores son numéricos en las tres bases |
 | **A24** — listados de usuarios | ✅ **RESUELTO** | `bb6d160` (se quita el correo de `GET /api/usuarios`; ningún consumidor lo usaba) |
+| **A21** — zip-slip en el respaldo | ✅ **RESUELTO** | `a80e252` (`config/zipSeguro.js`, compartido con el actualizador) |
+| **A20** — `adjunto-publico` | ✅ **DESCARTADO** | Medido: `adjunto_nombre` es siempre `req.file.filename`, generado por multer. No hay travesía posible |
+| **A17** — archivos muertos | ✅ **RESUELTO** | `archivo-paginas-eliminadas/` borrado (estaba en git: reversible) |
+| **A19** — `uncaughtException` | ✅ **RESUELTO** | Ahora sale y PM2 reinicia limpio. Comprobado antes: no se había disparado nunca |
+| **A28** — módulo Social inalcanzable | 🆕 **NUEVO, sin resolver** | Tiene permisos, página, router y tablas, pero `common.js` no lo enlaza |
 | Resto | Sin empezar | — |
 
 **Decisión tomada en A2 — opción «nacer conectada», con una costura.** Se
@@ -191,7 +196,7 @@ escritura de votantes.
 | 🔴 Crítica | 1 | A1 | — (resuelto) |
 | 🟠 Alta | 6 | A2, A3, A4, A5, **A25**, **A26** | A4 (A2 y A5 parciales) |
 | 🟡 Media | 11 | A6–A15, A7bis | A10, A11 (A6 parcial; A7, A7bis, A8, A12, A13, A14, A15 resueltos; A9 de-escalado) |
-| ⚪ Baja | 8 | A16, A17, A18, A19, A20, A21, A24, **A27** | A16, A17, A19, A20, A21, A27 (A18 y A24 resueltos) |
+| ⚪ Baja | 9 | A16–A21, A24, **A27**, **A28** | A16, A27, A28 (el resto resuelto o descartado) |
 
 ---
 
@@ -766,6 +771,23 @@ del teléfono) hoy hay que hacerla en 5-6 sitios y es fácil que uno quede atrá
   conviene es dejarlas como están: sin origen, sin uso y con contenido.
 - **No se tocaron:** borrar columnas con datos es destructivo y es decisión
   suya.
+
+### A28 — El módulo Social existe entero pero no se puede abrir ⚪ Baja (hallazgo nuevo, al cerrar A17)
+
+- **Qué hay:** `public/social.html`, `routes/social.routes.js` (127 líneas, 8
+  endpoints), las tablas `redes_publicaciones` y `monitoreo_menciones`, y el
+  módulo `social` en los permisos por defecto, visible para cinco roles.
+- **Qué falta:** una entrada en el menú. `public/js/common.js` no menciona
+  `social.html` ni una sola vez, así que **no hay forma de llegar a la
+  pantalla** salvo escribiendo la dirección a mano.
+- **Es el mismo patrón que `init-db.js` documenta para `enviar_push`**: allí
+  faltaba la línea de permisos y la entrada no le aparecía a nadie; aquí
+  sobra el permiso y falta la entrada. El resultado es idéntico — código
+  mantenido que nadie usa, y permisos que no gobiernan nada.
+- **No se corrigió a propósito:** añadir la entrada **enciende una función**
+  para cinco roles, y eso es una decisión de producto. Las dos salidas
+  razonables son ponerla en el menú o retirarla como se hizo con
+  `enviar-whatsapp.html`; lo que no conviene es dejarla a medias.
 
 ### A16 — Función de cohortes de cédula latente/inconexa ⚪ Baja
 
