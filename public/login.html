@@ -52,17 +52,30 @@
      invierte el contraste (tarjeta oscura, texto claro). Suelto, esto
      teñiría formularios de toda la aplicación.
 
-     Los colores NO son inventados: son los del sistema —navy #10233F,
-     dorado #C98A2C— y el crema #F8F3E9 que ya usan los formularios de
-     personas (ver style.css, .modal-amplio).
+     La base son los colores del sistema —navy #10233F y el crema
+     #F8F3E9 de los formularios de personas (ver style.css,
+     .modal-amplio)—. El acento es el OFICIAL de la aplicación,
+     #FFC300, que vive en style.css: esta tarjeta no define uno propio.
      ------------------------------------------------------------------ */
   .login-card {
+    /* SIN AMARILLO PROPIO: usa el acento OFICIAL del sistema (#FFC300,
+       en style.css). Hubo una versión con un #FFF212 redefinido aquí, y
+       dejaba dos amarillos conviviendo —el de esta tarjeta y el del resto
+       de la aplicación—. Si algún día hace falta un acento distinto solo
+       para el ingreso, se redefine --color-accent en esta regla y todo lo
+       de abajo lo sigue solo; pero por omisión, uno solo. */
+    --color-accent-dark: #D9A400;   /* el oficial, un punto más hondo, para el hover */
+
     max-width: 520px;
     background: var(--color-navy);
     border-top: 4px dashed var(--color-accent);
     padding: 38px 36px 32px;
     color: #fff;
   }
+
+  /* Logotipo: el mismo /img/logo.png que ya usa el menú lateral. Es blanco
+     sobre transparente, así que se apoya en el navy sin recorte ni fondo. */
+  .login-logo { display: block; margin: 0 auto 18px; width: 128px; height: auto; }
   .login-card .login-eyebrow,
   .login-card h1 { text-align: center; }
   .login-card .login-eyebrow { color: var(--color-accent); letter-spacing: .16em; font-size: .86rem; }
@@ -111,7 +124,7 @@
   }
   .login-card input.campo-codigo::placeholder { color: #C3B9A6; }
 
-  /* Botón principal: dorado, grande, en versalitas como la maqueta. */
+  /* Botón principal: amarillo, grande, en versalitas como la maqueta. */
   .login-card button.btn-primario {
     background: var(--color-accent);
     border: none;
@@ -124,9 +137,11 @@
     border-radius: 10px;
     margin-top: 12px;
   }
-  .login-card button.btn-primario:hover { background: var(--color-accent-dark); color: #fff; }
+  /* El texto del botón se queda NAVY también al pasar por encima: antes
+     era blanco, y blanco sobre el amarillo del acento no se lee. */
+  .login-card button.btn-primario:hover { background: var(--color-accent-dark); color: #10233F; }
 
-  /* Las dos opciones de canal: recuadros grandes, y el elegido en dorado.
+  /* Las dos opciones de canal: recuadros grandes, y el elegido en amarillo.
      :has() permite marcar el recuadro sin JavaScript; donde no exista, se
      ve el borde neutro y el radio nativo sigue indicando cuál está
      elegido — se degrada, no se rompe. */
@@ -137,7 +152,13 @@
     font-size: 1.06rem; font-weight: 500; color: #fff;
   }
   .opcion-canal:hover { border-color: var(--color-accent); }
-  .opcion-canal:has(input:checked) { border-color: var(--color-accent); background: rgba(201,138,44,.12); }
+  /* El relleno del canal elegido se deriva del propio amarillo con
+     color-mix, en vez de un rgba() con el viejo naranja escrito a mano:
+     así, si el acento vuelve a cambiar, esto lo sigue solo. */
+  .opcion-canal:has(input:checked) {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  }
   .opcion-canal input { accent-color: var(--color-accent); }
 
   .fila-recordar { display: flex; align-items: center; gap: 10px; font-size: 1.03rem; color: #fff; }
@@ -170,6 +191,7 @@
          código), así que el texto lo fija mostrarPaso(): dejarlo en
          "TORRE DE ACCESO" mientras se ve el formulario de contraseña
          diría una cosa y mostraría otra. -->
+    <img src="/img/logo.png" alt="Estrategia · Marketing Político" class="login-logo">
     <div class="login-eyebrow" id="login-eyebrow">Acceso privado</div>
     <h1 id="login-titulo">Torre de acceso</h1>
 
@@ -231,7 +253,9 @@
         </p>
       </div>
       <div class="campo">
-        <label>Correo electrónico</label>
+        <!-- La etiqueta y el ejemplo cambian con el canal: pedir "correo"
+             cuando el código va por SMS hacía escribir el dato equivocado. -->
+        <label id="etiqueta-identificador">Correo electrónico</label>
         <input type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com">
       </div>
       <div class="campo">
@@ -352,6 +376,33 @@ document.getElementById('ir-a-torre').addEventListener('click', (e) => {
   document.getElementById('login-error').classList.remove('visible');
   mostrarPaso('form-torre');
 });
+
+// El campo de arriba es el mismo, pero lo que hay que escribir en él
+// depende del canal. Se cambia la etiqueta, el ejemplo y el teclado que
+// abre el celular; el valor escrito NO se borra, para que quien ya puso
+// su correo y se equivocó de canal no tenga que teclearlo otra vez.
+const campoIdentificador = document.querySelector('#form-torre input[name="identificador"]');
+const etiquetaIdentificador = document.getElementById('etiqueta-identificador');
+
+function ajustarCampoSegunCanal() {
+  const canal = document.querySelector('#form-torre input[name="canal"]:checked').value;
+  if (canal === 'sms') {
+    etiquetaIdentificador.textContent = 'Teléfono móvil';
+    campoIdentificador.placeholder = '+573000000000';
+    campoIdentificador.inputMode = 'tel';
+    campoIdentificador.autocomplete = 'tel';
+  } else {
+    etiquetaIdentificador.textContent = 'Correo electrónico';
+    campoIdentificador.placeholder = 'tucorreo@dominio.com';
+    campoIdentificador.inputMode = 'email';
+    campoIdentificador.autocomplete = 'username';
+  }
+}
+
+document.querySelectorAll('#form-torre input[name="canal"]').forEach(radio => {
+  radio.addEventListener('change', ajustarCampoSegunCanal);
+});
+ajustarCampoSegunCanal();
 
 document.getElementById('form-torre').addEventListener('submit', async (e) => {
   e.preventDefault();

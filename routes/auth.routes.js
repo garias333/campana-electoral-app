@@ -305,6 +305,10 @@ router.post('/elegir-rol', async (req, res) => {
  * correos válidos. Por eso el trabajo real va después de responder... no:
  * va antes, pero su resultado no se refleja en la respuesta.
  *
+ * El `identificador` no siempre es un correo: con el canal SMS la pantalla
+ * pide el teléfono móvil, y acá se busca por él (ver abajo). Se acepta
+ * igual el correo, para no bloquear a quien cambió de canal a mitad.
+ *
  * OJO CON EL CANAL SMS: si la cuenta no tiene teléfono, no se manda nada y
  * la respuesta es igual de optimista. Es deliberado (no delatar), y tiene
  * un costo real: esa persona espera un mensaje que no va a llegar. Hoy el
@@ -321,19 +325,50 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
   };
 
   if (!identificador || !String(identificador).trim()) {
-    return res.status(400).json({ error: 'Escriba su correo o nombre de usuario.' });
+    return res.status(400).json({
+      error: via === 'sms'
+        ? 'Escriba su teléfono móvil.'
+        : 'Escriba su correo o nombre de usuario.'
+    });
   }
 
   try {
     const buscado = String(identificador).trim().toLowerCase();
-    const [rows] = await pool.query(
-      `SELECT u.*, r.nombre AS rol
-         FROM usuarios u JOIN roles r ON r.id = u.rol_id
-        WHERE u.email = ? OR u.nombre_usuario = ? LIMIT 1`,
-      [buscado, buscado]
-    );
 
-    const usuario = rows[0];
+    // Con el canal SMS la pantalla pide el teléfono, no el correo. Se busca
+    // por los últimos 10 dígitos porque `usuarios.telefono` es texto libre
+    // (varchar(30)) y el mismo número está escrito de mil formas: con +57,
+    // sin él, con espacios o guiones. Comparar la cadena tal cual no cruza.
+    //
+    // Si dos cuentas comparten teléfono NO se manda nada: el código da acceso,
+    // y elegir "la primera" sería dejar entrar a la cuenta equivocada.
+    let usuario = null;
+    const digitos = buscado.replace(/\D/g, '');
+    if (via === 'sms' && digitos.length >= 10) {
+      const [porTelefono] = await pool.query(
+        `SELECT u.*, r.nombre AS rol
+           FROM usuarios u JOIN roles r ON r.id = u.rol_id
+          WHERE u.telefono IS NOT NULL AND u.telefono <> ''
+            AND RIGHT(REGEXP_REPLACE(u.telefono, '[^0-9]', ''), 10) = ?
+          LIMIT 2`,
+        [digitos.slice(-10)]
+      );
+      if (porTelefono.length > 1) return res.json(respuestaUnica);
+      usuario = porTelefono[0] || null;
+    }
+
+    // Sigue valiendo escribir el correo aunque el canal sea SMS: quien ya lo
+    // tenía escrito y cambió de canal no queda bloqueado.
+    if (!usuario) {
+      const [rows] = await pool.query(
+        `SELECT u.*, r.nombre AS rol
+           FROM usuarios u JOIN roles r ON r.id = u.rol_id
+          WHERE u.email = ? OR u.nombre_usuario = ? LIMIT 1`,
+        [buscado, buscado]
+      );
+      usuario = rows[0];
+    }
+
     const puede = usuario && usuario.activo && ROLES_CON_CODIGO.includes(usuario.rol);
     const destino = !puede ? null : (via === 'sms' ? usuario.telefono : usuario.email);
     if (!destino) return res.json(respuestaUnica);   // misma respuesta, sin mandar nada

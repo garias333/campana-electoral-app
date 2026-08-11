@@ -133,8 +133,19 @@ campaña; el cron de las 3 a.m. es el respaldo.
 | 15 | WhatsApp fuera, meta derivada, plantillas y arreglo del actualizador | **sí** | aplicado en las 2 — **tumbó las apps, ver 4.gg** |
 | 16 | Repara el arranque tras el 15 y la plantilla de correo que faltaba | **sí** | aplicado en las 2 campañas |
 | 17 | Avisos push: envío real desde el CRM (**primero con dependencia nueva**) | **sí** | aplicado en las 2 campañas |
+| 18-21 | Publicados por la línea de trabajo de `AUDITORIA.md` | — | aplicados en las 2 campañas |
+| 22 | Plantillas visibles y la pantalla «Aviso en la app» | no | aplicado en las 2 campañas |
+| 23 | Torre de acceso: ingreso por código | no | aplicado en las 2 campañas |
 
-**El siguiente número libre es el 18.**
+**El siguiente número libre es el 24 — pero PREGÚNTESELO AL CATÁLOGO, no a
+esta tabla.** Sobre este repositorio trabaja más de una línea a la vez: el
+9 de agosto esta tabla iba por el 17 mientras las campañas ya estaban en el
+21, publicados por la auditoría de `AUDITORIA.md`. Generar «el siguiente»
+según este documento habría chocado con un número ya usado (ver 4.kk):
+
+```sql
+SELECT MAX(numero_parche) FROM parches_disponibles;
+```
 
 **`parches_disponibles.id` NO es `numero_parche`.** Van desfasados en uno: el
 parche 11 es la fila `id = 12`, porque la tabla arranca en `id = 2`. Un
@@ -1772,401 +1783,45 @@ se degrada, no se rompe.
 servidor. Se verificó que el estilo llega al archivo servido y que el HTML y
 el JS son válidos, pero el juicio visual es del usuario.
 
-### Pendiente: parche 18
+### kk) Parches 22 y 23 — y una numeración que estaba desfasada
+
+**Al ir a generar «el parche 18» resultó que las campañas iban en el 21.**
+Este documento venía llevando la cuenta desde el 17, pero sobre el mismo
+repositorio corrió otra línea de trabajo —la auditoría de `AUDITORIA.md`—
+que publicó los parches **18, 19, 20 y 21**. Generar el 18 habría chocado
+con un número ya usado.
+
+**No se dio por bueno ningún número: se midió.** El catálogo real de
+`licenciasdb` y el `.version-parche` de cada campaña dijeron 21, y después
+se comparó **archivo por archivo** electoral contra una campaña para saber
+qué faltaba de verdad. Eran seis, ni más ni menos.
+
+**Y esa comparación destapó dos fallos en vivo**, los dos por trabajo a
+medias entre las dos líneas:
+
+- **El menú ofrecía «Aviso en la app» y daba 404.** `common.js` viajó con un
+  parche de la auditoría —con la entrada del menú ya dentro— pero
+  `enviar-push.html` no existía allá. Es la misma clase de error que tumbó
+  el parche 15: **lo que falta no se ve comparando lo que llegó.**
+- **Las plantillas del CRM y la bandeja de respuestas seguían rotas**, sin
+  la función `escaparHtml`.
+
+Dos parches, **ninguno toca la base** (el módulo `enviar_push` y la tabla
+`two_factor_codes` ya estaban allá; se comprobó antes de generar):
+
+| Nº | Qué | Archivos |
+|---|---|---|
+| 22 | Plantillas visibles y la pantalla «Aviso en la app» | `crm.html`, `enviar-sms.html`, `enviar-email.html`, `enviar-push.html` |
+| 23 | Torre de acceso | `auth.routes.js`, `login.html` |
+
+`verificar-requires.js` contra las dos campañas **antes** de subir nada:
+TODO RESUELVE en los cuatro cruces. Aplicados en una sola corrida —el
+actualizador aplica los pendientes en orden— y verificado después: **6 de 6
+archivos idénticos** en cada campaña, `enviar-push.html` ya responde 200
+donde antes daba 404, y la torre responde su mensaje único en las dos.
+
+**Las dos campañas quedan en el parche 23. El siguiente número libre es el
+24.** Y la lección para la próxima: **antes de generar, preguntarle el
+número al catálogo, no a este documento** — hay más de una mano sobre el
+mismo repositorio.
 
-Siete archivos, **toca la base** (el módulo de permisos):
-
-```
-db/init-db.js                     public/enviar-sms.html
-routes/comunicaciones.routes.js   public/enviar-email.html
-public/crm.html                   public/enviar-push.html (nuevo)
-public/js/common.js
-```
-
-Lleva el arreglo de `escaparHtml` —**las plantillas y la bandeja de
-respuestas siguen rotas en las dos campañas** hasta que viaje—, la pantalla
-nueva y las plantillas en Enviar SMS.
-
-**El siguiente número libre es el 18.**
-
----
-
-## 5. Qué llevó cada parche
-
-**Parche 3** (toca la base — `db/init-db.js` agrega `eventos.departamento` y
-`eventos.ciudad`):
-
-```
-config/geoTerritorio.js        public/eventos.html
-db/init-db.js                  public/territorial.html
-routes/eventos.routes.js       public/votantes.html
-public/css/style.css           public/asistentes-reuniones.html
-public/service-worker.js       public/configuracion.html
-public/app/estilos-app.css     public/app/registro-votante.html
-```
-
-**Parche 4** (no toca la base):
-
-```
-routes/eventos.routes.js       public/territorial.html
-public/eventos.html            public/votantes.html
-public/mapa.html
-```
-
-**Parche 5** (no toca la base): `routes/diaD.routes.js`,
-`public/css/style.css`, `public/territorial.html`, `public/votantes.html`.
-
-**Parche 6** (toca la base — enum `sin_lugar_votacion`): `db/init-db.js`,
-`routes/comunicaciones.routes.js`, `public/crm.html`,
-`public/enviar-sms.html`, `public/territorial.html`, `public/votantes.html`.
-
-**Parche 7** (no toca la base): `routes/comunicaciones.routes.js`,
-`routes/votantes.routes.js`, `public/crm.html`, `public/enviar-sms.html`,
-`public/territorial.html`, `public/votantes.html`.
-
-**Parche 8** (no toca la base): `config/sincronizacionVotantesEstructura.js`.
-
-**Parche 9** (**toca la base** — `dia_d_reportes.puesto_id`,
-`dia_d_reportes.puesto_fuera_de_lista`, `votantes.puesto_id`, disparadores y
-el relleno retroactivo): `db/init-db.js`, `routes/diaD.routes.js`,
-`config/estimadoPuestos.js`, `config/comunicacionesConfig.js`.
-
-**Parche 10** (no toca la base): `routes/diaD.routes.js`,
-`public/app/dia-d.html`.
-
-**Parche 11** (no toca la base): `app.js`, `lib/validarCedula.js`,
-`routes/votantes.routes.js`, `public/js/validacion-cedula-ui.js`,
-`public/votantes.html`, `public/territorial.html`, `public/testigos.html`,
-`public/app/registro-votante.html`.
-
-**Parche 12** (no toca la base):
-
-```
-routes/actualizador.routes.js      public/votantes.html
-routes/configuracion.routes.js     public/territorial.html
-public/js/columnas-territoriales.js (nuevo)   public/asistentes-reuniones.html
-public/js/common.js                public/votantes-dashboard.html
-public/css/style.css               public/ayuda.html
-```
-
-Lleva el cierre de sesión (4.bb), el ojo de las contraseñas (4.z), las
-columnas territoriales (4.y), el candado del actualizador (4.w) y las
-variables de entorno del manual (4.aa). Generado, registrado como
-`id = 13`, habilitado en las dos campañas y aplicado: **10 de 10 archivos
-idénticos a electoral** en cada una, verificado con `cmp` y no con el
-«exitoso» que reportan.
-
-**Los archivos del servidor de licencias NO viajan en estos parches** —es otra
-aplicación—: su mitad del ojo (`comun.js` y `estilos.css`) ya quedó aplicada
-directamente allá.
-
-**Parche 13** (no toca la base): `public/css/style.css`,
-`public/votantes.html`, `public/territorial.html`.
-
-Lleva el ojo de la contraseña bien ubicado —la corrección de especificidad
-contra `.login-card button`— y el aspecto de los dos formularios de
-personas: fondo crema `#F8F3E9`, campos más altos y redondeados (clase
-`form-amplio`) y la Categoría Votante/Sublíder en dos botones, con
-«Votante» marcado por omisión como en la app móvil.
-
-**El Cargo de Estructura se probó como botones y se revirtió**: en la
-columna angosta del formulario, «Coordinador Organizaciones» no cabe al
-lado de los demás y los cuatro se apilan en cuatro renglones — ocupan el
-triple que el desplegable y no se leen mejor. Con dos opciones cortas
-(Categoría) sí funciona; con cuatro largas, no.
-
-Registrado como `id = 14`, habilitado en las dos campañas y aplicado: **3
-de 3 archivos idénticos a electoral** en cada una, verificado con `cmp`.
-
-**Parche 14** (**toca la base**): `db/init-db.js`, `app.js`,
-`routes/comunicaciones.routes.js`, `routes/webhooks.routes.js`,
-`public/crm.html`, `public/enviar-sms.html`,
-`public/js/segmentos-sms.js` (nuevo).
-
-Las seis mejoras del CRM (punto 4.cc). Registrado como `id = 15`, con
-respaldo previo de cada campaña
-(`..._antes_parche14_2026-08-09_0337.sql`, 28 tablas cada uno) y aplicado:
-**7 de 7 archivos idénticos**, la migración corrió en las dos —columnas,
-las dos tablas nuevas, el enum ampliado— y **nadie quedó dado de baja por
-accidente**: cero en las dos.
-
-**Sin empaquetar** (sería el parche 15, **toca la base**) — **15 archivos**:
-
-```
-db/init-db.js                     public/territorial.html
-scripts/actualizar-automatico.js  public/css/style.css
-app.js                            public/crm.html
-config/twilio.js                  public/configurar-crm.html
-config/metasEstructura.js (nuevo) public/ayuda.html
-routes/comunicaciones.routes.js   public/organigrama.html
-routes/configuracion.routes.js
-routes/territorial.routes.js
-routes/dashboard.routes.js
-```
-
-Lleva la sección CATEGORÍA de Estructura, las 10 plantillas de arranque, la
-tabla de push, el arreglo del actualizador, **el retiro de WhatsApp** (punto
-4.ee) y **la meta derivada del Coordinador Organizaciones** (punto 4.ff).
-**No agrega dependencias, a propósito.**
-
-Para saber qué falta empaquetar, la fecha de publicación del último parche
-—hoy el 14, del 9 de agosto a las 03:37:
-
-```bash
-find . -type f \( -name '*.js' -o -name '*.html' -o -name '*.css' \) \
-  -newermt '2026-08-09 03:37:00' \
-  -not -path './node_modules/*' -not -path './uploads/*' -not -path './backups/*' \
-  -not -path './parches/*'
-```
-
-**Actualizar esa fecha al publicar cada parche.** Se quedó en la del parche
-11 y para el 9 de agosto devolvía **25 archivos**, la mayoría ya enviados en
-el 12, el 13 y el 14 — un lote así incluiría archivos que ya viajaron y
-haría creer que falta mucho más de lo que falta.
-
-**Y el resultado no es la lista del parche: hay que restarle push.** Con la
-fecha buena salen **19**, de los cuales **4 se quedan fuera a propósito**
-—`public/app/inicio.html`, `public/js/avisos-push.js`,
-`public/service-worker.js` y `routes/push.routes.js`—: los avisos no
-funcionan hasta el bloque 4, que necesita `web-push`, y mandar el
-interruptor antes dejaría en pantalla un control que no responde. 19 − 4 =
-los 15 de arriba.
-
----
-
-## 6. Pendientes
-
-Decisiones que necesitan al usuario:
-
-0. **PEDIDO EL 9 DE AGOSTO — dos cosas, en este orden:**
-
-   a) **Quitar WhatsApp — HECHO en electoral** (punto 4.ee). Apagado en la
-      interfaz y rechazado por el servidor, sin arrancar los ENUM ni la
-      historia. Se conservaron a propósito el enlace `wa.me` de la app
-      móvil y la mención en la política de tratamiento de datos, que
-      siguen siendo ciertas. **Falta que viaje en el parche 15.**
-
-   b) **Coordinador de organizaciones: la meta se calcula sola — HECHO en
-      electoral** (punto 4.ff). Derivada al leer, como la del Coordinador.
-      Los `meta_votos_base` ya guardados **se ignoran**, por decisión del
-      usuario: la columna queda intacta pero no se lee para ese cargo.
-      **Falta que viaje en el parche 15.**
-
-
-1. **Carlos Julio Arias sigue con dos fichas** (ids 15 y 198, en las dos
-   campañas) y **se dejó así a propósito**: teléfonos distintos, direcciones
-   distintas y ninguna cuenta de usuario. Nada prueba que sean la misma
-   persona, y fusionar a dos personas distintas es peor que tener dos fichas.
-   Si usted sabe que sí es la misma, se une con el mismo procedimiento del
-   punto 4.x. Los otros dos duplicados ya se fusionaron.
-2. **Cinco líneas sueltas sin clave en el `.env` de electoral** (donde antes
-   estaban las 30-34): fragmentos de una clave de licencia pegados por error.
-   dotenv las ignora porque no tienen `=`, así que son inertes. Conviene
-   borrarlas; no lo hice porque lo aprobado era solo el bloque repetido.
-3. **Si se retoma el «Módulo de Captura Territorial»** de
-   `SPEC-escaner-cedulas.md` (ver punto 4.v). Del módulo completo solo se tomó
-   la validación de cédula; el usuario quedó de confirmar si el resto es
-   trabajo que quiere continuar.
-
-Trabajo técnico pendiente:
-
-4. **Etapa 2 del Día D, lo que falta.** El paso a id está hecho en el reporte,
-   en las agregaciones y en el formulario del testigo. Sigue por texto la
-   **asignación** del testigo a su puesto (`usuarios.puesto_votacion` es texto
-   libre) y el renombre de territorios ya no se propaga a
-   `usuarios.comuna_corregimiento_residencia` ni `barrio_residencia` — el
-   mismo acoplamiento por nombre, en otro sitio.
-5. **La contraseña por omisión del primer administrador.** `db/init-db.js`
-   crea `admin@campana.local` con una clave escrita en el código, igual en
-   todas las instalaciones, si no se pasan `ADMIN_EMAIL` y `ADMIN_PASSWORD`.
-   Queda marcada para cambiarse en el primer ingreso, pero hasta que alguien
-   entre, esa clave sirve. Ya quedó advertido en el manual (paso 4); lo que
-   falta es decidir si el script debe **exigir** las dos variables en vez de
-   inventar un valor.
-6. Electoral tiene una **fila de licencia duplicada**: licencia id 2,
-   instalación 1, `suspendida_manual`, mismo dominio que la id 1, que sí está
-   activa. Las campañas tienen una sola cada una. No estorba, pero conviene
-   limpiarla.
-7. En `votantes.routes.js` la importación por Excel ya lleva
-   `requireRole('admin','coordinador')`. Eso **le quitó una función a los
-   líderes** a propósito, para reducir quién le entrega archivos a la
-   librería `xlsx` (vulnerabilidad alta, sin arreglo disponible). El día que
-   se migre a una librería mantenida, la restricción se puede levantar.
-8. Necesitan `sudo` y no se pudieron hacer desde aquí: borrar
-   `respaldos_parches/` (572 KB, dueño `appestrategia-electoral`) y **dos
-   fotos huérfanas** en `uploads/` de electoral, que ninguna tabla menciona.
-
-**Resueltos desde la versión anterior de este documento**, para que nadie los
-persiga otra vez:
-
-- El parche 9 se generó y se aplicó, junto con el 10 y el 11.
-- **Las columnas Comuna/Barrio en tablas y tableros** ya se ocultan cuando
-  están vacías (punto 4.y). Escrito y probado en electoral; falta el parche.
-- **El candado del actualizador** ya no es una variable en memoria (punto
-  4.w). Corregido y probado en electoral; falta que viaje en un parche.
-- El número de Twilio de la campaña municipal ya no tiene espacios.
-- Los respaldos con datos personales de `electoral/backups/` se borraron; la
-  carpeta está vacía.
-- Las **4 fotos E14** ya no están rotas en ningún lado: son de la campaña
-  **municipal**, donde los cuatro archivos existen y resuelven. La
-  departamental no tiene ningún reporte de Día D.
-
----
-
-## 7. Trampas que costaron tiempo esta sesión
-
-Las que volverían a morder:
-
-- **El puerto.** Electoral es el **3002**. Probar en el 3000 da un 403 del
-  candado de licencia de otro sitio, que parece un fallo propio.
-- **El candado de licencia responde 403 a `127.0.0.1`.** Hay que mandar
-  `-H 'Host: electoral.appestrategia.net'`.
-- **`parches_disponibles.id` no es `numero_parche`** (van desfasados en uno), y
-  un `INSERT` de varias filas donde una ya existe muere entero y deja las
-  demás sin escribir. `INSERT IGNORE` al habilitar instalaciones.
-- **Buscar procesos por patrón se encuentra a sí mismo.** Un bucle de espera
-  con `pgrep -f "actualizar-automatico"` nunca terminó: el patrón coincidía con
-  la línea de comandos del propio `pgrep`. Siete minutos esperando a un proceso
-  que era el vigilante.
-
-  **Y es peor con `pkill`: mata el shell que lo invoca.** Pasó dos veces
-  seguidas el 8 de agosto, con `pkill -f` y con un `awk` sobre `ps`, los dos
-  dentro de un `bash -c`: el patrón aparece en la línea de comandos del propio
-  `bash`, así que el comando se mataba a sí mismo (salida 144) antes de
-  terminar. El truco de `[a]ctualizar` **no salva**, porque lo que coincide no
-  es el patrón sino el resto del comando.
-
-  Dos salidas: excluir el PID propio, o —más simple— **poner el patrón en un
-  archivo de guion y ejecutar el archivo**, para que no viaje en el argv. En
-  código, comparar argumentos exactos y saltar `process.pid`.
-- **`'0'` es verdadero en JavaScript.** Marcó para revisión todos los reportes
-  correctos del Día D. Se atrapó solo porque la prueba miró el **valor
-  guardado** y no el código 200 de la respuesta.
-- **PM2 mata el árbol de procesos** (`treekill`), así que el actualizador se
-  suicidaba al llegar a `pm2 restart`: aplicaba los archivos y moría antes de
-  guardar la versión y reportar. Las campañas quedaban actualizadas pero
-  reportando "fallido". Se resolvió con `setsid`.
-- **`pm2 restart` no relee el `.env`.** Ciclo completo:
-  `pm2 delete X && pm2 start ecosystem.config.js && pm2 save`.
-- **nvm instala node y pm2 por usuario**, así que el PATH mínimo del cron no
-  los encuentra. Se derivan de `process.execPath`. Comprobar con
-  `env -i PATH=/usr/bin:/bin ...`.
-- **`npm install` hay que correrlo como el dueño del sitio.** Correrlo como
-  otro usuario dejó 73 archivos ilegibles y tumbó licencias con un 502.
-- **El nombre del proceso PM2 es distinto en cada campaña.** Un
-  `pm2 restart campana-app` fijo en el código no falla: reinicia otra cosa, o
-  nada, en silencio. Se resuelve buscando por `pm_exec_path`.
-- **401 contra 400.** El cambio de contraseña devolvía 401 cuando la actual
-  estaba mal, y el helper `api()` del front trata *cualquier* 401 como sesión
-  vencida y redirige, tragándose el mensaje. Ahora devuelve 400.
-- **Verificar el despliegue antes de depurar.** Varias veces el código
-  corriendo no era el del disco.
-- **`node --check` NO comprueba que los módulos existan.** Se importó
-  `bcrypt` en `eventos.routes.js` cuando el proyecto usa `bcryptjs`: la
-  sintaxis pasó y la app habría muerto al arrancar. Para comprobarlo de
-  verdad hay que **cargar** el módulo:
-
-  ```bash
-  node -e "require('./routes/eventos.routes.js'); console.log('carga ok')"
-  ```
-- **Una edición puede fallar sin que se note.** Un cambio en `app.js` no entró
-  porque el texto de anclaje llevaba una sangría que solo existía en cómo se
-  había mostrado el archivo, no en el archivo. Los formularios habrían dado
-  404 en `/js/validarCedula.js` y el aviso no habría aparecido nunca. Después
-  de editar, comprobar con `grep` que la cadena nueva **está**.
-- **Un script que informa «✓ borrado» no prueba que se borrara.** El de
-  limpieza lo imprimía mientras `rm` fallaba con *Permission denied*. Los
-  informes tienen que salir del código de salida, no del guion.
-- **El service worker es RED PRIMERO** (`no-store` en cada solicitud, caché
-  solo como respaldo sin señal). Los archivos cambiados llegan frescos sin
-  tocar `CACHE_NAME`; subirlo obliga a cada cliente a rebajar todo el
-  cascarón sin ganar nada. Solo hace falta si cambia la lista de archivos
-  del cascarón.
-- **`/home` es `drwx-----x`: se puede entrar pero no listar.** Un
-  `glob('/home/*/...')` devuelve vacío aunque la ruta exacta exista. Para
-  recorrer directorios personales hay que pedirlos al sistema (`pwd.getpwall()`
-  en Python), no con comodín.
-- **Un archivo que uno crea es de uno, y el proceso del sitio es otro
-  usuario.** Sin `chmod o+r` no lo puede leer: así se cayó licencias con un
-  502, y es la misma razón por la que los archivos copiados a `uploads/`
-  necesitan ese permiso.
-- **`require('./db/init-db.js')` EJECUTA la migración**: ese archivo corre
-  al importarse. Sirve para aplicarla, no para comprobar que carga.
-- **Cerrar sesión no basta con destruir la sesión del servidor.** Mientras el
-  navegador siga mandando el token de dispositivo, `resolverUsuario()` la
-  reconstruye en la solicitud siguiente. Hay que dejar de tener cuenta activa
-  (ver punto 4.bb). El síntoma es desconcertante: el `POST /auth/logout`
-  responde 200 y aun así la persona sigue dentro.
-- **Una regla de página puede ganarle a una clase del sistema, y no avisa.**
-  `login.html` trae `.login-card button { width: 100% }`. Una clase más un
-  elemento (0,1,1) le gana a una sola clase (0,1,0), así que `.btn-ver-clave`
-  perdía: el ojo se estiraba a todo el ancho del campo —primero aplastándolo,
-  después con el icono en el centro— y dos intentos de arreglarlo cambiando
-  tamaños no podían funcionar. Se resolvió con `.campo-clave .btn-ver-clave`.
-  **El propio archivo ya documentaba esa misma trampa** para la «X» del
-  selector de cuentas: al agregar un control a una pantalla con estilos
-  propios, mirar primero su `<style>`, no solo la hoja del sistema.
-  `licencias` tiene la regla idéntica y el mismo arreglo.
-- **Twilio exige E.164 en el remitente** (`+14244975583`). Con espacios
-  responde *Invalid 'From' Number* y el canal se sigue viendo configurado.
-- **Una variable repetida en el `.env` no da error: gana la última.**
-  `LICENCIA_API_SECRET` está dos veces en el de electoral, con valores
-  distintos, y el de más arriba está muerto. Quien lo copie de ahí recibe un
-  401 y va a depurar el secreto equivocado. Al leer un `.env` a mano, contar
-  primero: `grep -c '^CLAVE=' .env`.
-- **Una bandera en memoria miente después de un reinicio**, y en esta app los
-  reinicios son parte del flujo normal: aplicar un parche reinicia PM2. Si algo
-  tiene que sobrevivir a eso, se le pregunta al sistema o se guarda en disco
-  (ver punto 4.w).
-- **Los archivos del proyecto pueden cambiar de dueño.** `LEAMELECTORAL.md`,
-  `lib/validarCedula.js`, `routes/votantes.routes.js` y `app.js` pasaron a ser
-  de `appestrategia-electoral` y dejaron de ser escribibles; la carpeta sí lo
-  es, así que se reemplaza el archivo entero (escribir a un temporal y `mv`)
-  en vez de editarlo en sitio.
-- **`rsync` se queja de no poder fijar la fecha de directorios ajenos** y
-  sale con código 23. Los archivos sí se transfirieron: hay que mirar el
-  recuento, no el código de salida.
-
-Y la de fondo, que se repite en todo `CLAUDE.md`: *la pista siempre fue un
-número que no cuadraba, y el error siempre estuvo en algo que se dio por bueno
-sin medirlo.*
-
----
-
-## 8. Herramientas de verificación
-
-```bash
-# Sintaxis de todos los JS tocados (NO comprueba que los módulos
-# existan — ver la trampa de bcrypt/bcryptjs en la sección 7)
-node --check archivo.js
-
-# Que el módulo cargue de verdad
-node -e "require('./routes/eventos.routes.js')"
-
-# Balance de etiquetas + JS embebido en los HTML (son de 1.200-2.150 líneas;
-# una etiqueta mal cerrada no se nota sin renderizar, y aquí no hay navegador)
-python3 scripts/verificar-html.py public/*.html public/app/*.html
-
-# Que las tres instalaciones respondan (cada una con su Host y su puerto)
-for p in 3002:electoral 3101:campanadepruebamunicipal 3102:campanadepruebadepartamental; do
-  curl -s -o /dev/null -w "${p#*:} %{http_code}\n" \
-    -H "Host: ${p#*:}.appestrategia.net" "http://127.0.0.1:${p%%:*}/votantes.html"
-done
-```
-
-`scripts/verificar-html.py` **se guardó dentro del proyecto en esta sesión**
-—antes vivía en el directorio temporal y se habría perdido al cambiar de
-equipo—. Encuentra `node` por su cuenta aunque el PATH esté vacío, así que
-sirve igual desde un cron. Devuelve código de salida 1 si algo falla.
-
-Nota: es una herramienta de desarrollo. **No incluirla en los parches**: las
-campañas no la necesitan.
-
-**Después de aplicar un parche, comparar archivo por archivo contra electoral**
-—no fiarse del "exitoso" que reporta el actualizador—:
-
-```bash
-for f in $(unzip -l parches/campana-parcheN.zip | awk 'NR>3 && NF>=4 {print $4}'); do
-  cmp -s "$f" "/home/<sitio>/htdocs/<dominio>/$f" && echo "= $f" || echo "DIFIERE $f"
-done
-```

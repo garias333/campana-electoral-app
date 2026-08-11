@@ -158,7 +158,7 @@ function dibujarGraficoCandidatos(filas) {
       const alturaBarra = ((alto - pad - padSup) * f.votos) / max;
       const x = pad + i * anchoBarra;
       const y = alto - pad - alturaBarra;
-      const color = f.esPropio ? 'var(--color-accent, #C98A2C)' : 'var(--color-navy-light, #1C3A63)';
+      const color = f.esPropio ? 'var(--color-accent, #FFC300)' : 'var(--color-navy-light, #1C3A63)';
       const nombreCorto = f.nombre.length > 16 ? f.nombre.slice(0, 15) + '…' : f.nombre;
       return `
         <g>
@@ -177,7 +177,7 @@ function dibujarGraficoCandidatos(filas) {
     const barras = filas.map((f, i) => {
       const anchoBarra = (anchoMax * f.votos) / max;
       const y = padVert + i * altoFila;
-      const color = f.esPropio ? 'var(--color-accent, #C98A2C)' : 'var(--color-navy-light, #1C3A63)';
+      const color = f.esPropio ? 'var(--color-accent, #FFC300)' : 'var(--color-navy-light, #1C3A63)';
       const nombreCorto = f.nombre.length > 22 ? f.nombre.slice(0, 21) + '…' : f.nombre;
       return `
         <g>

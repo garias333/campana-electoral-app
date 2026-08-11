@@ -10,7 +10,14 @@
   --color-navy: #10233F;
   --color-navy-light: #1C3A63;
   --color-navy-lighter: #29497A;
-  --color-accent: #C98A2C;
+  /* Acento de la marca. Era el dorado #C98A2C.
+     --color-accent va en FONDOS y BORDES (botones, chips, pestañas), así
+     que aclararlo no compromete la lectura.
+     --color-accent-dark se queda como estaba a propósito: es el que se usa
+     como TEXTO sobre blanco —los 📍 de Votantes y Eventos, los encabezados
+     de las tarjetas de ingreso, el organigrama—, y subirle el brillo lo
+     volvería difícil de leer justo donde es un dato, no un adorno. */
+  --color-accent: #FFC300;
   --color-accent-dark: #A66F1F;
   --color-marca: #0B5ED7;
   --color-text: #161B26;
@@ -90,7 +97,7 @@ a { color: var(--color-navy-lighter); }
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #FFF212;
+  color: #FFC300;
   margin-bottom: 20px;
   text-align: center;
 }
