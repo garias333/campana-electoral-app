@@ -5,7 +5,7 @@ const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
-const twilioSvc = require('../config/twilio');
+const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 
 const router = express.Router();
@@ -388,7 +388,17 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
 
     try {
       if (via === 'sms') {
-        await twilioSvc.enviarSMS(destino, `Su codigo de acceso es ${codigo}. Vence en ${CODIGO_2FA_MINUTOS} minutos.`);
+        // `operativo: true`: el código de acceso es un mensaje de la
+        // aplicación a su propio equipo, no mensajería de campaña, así que no
+        // lo detiene la lista de baja — quien pidió no recibir propaganda
+        // sigue necesitando entrar a su cuenta. Sí consume crédito: cuesta
+        // igual que cualquier otro SMS.
+        await smsSvc.enviarSMS(
+          destino,
+          `Su codigo de acceso es ${codigo}. Vence en ${CODIGO_2FA_MINUTOS} minutos.`,
+          null,
+          { origen: 'acceso', operativo: true, usuarioId: usuario.id }
+        );
       } else {
         await enviarCodigo2FA(destino, codigo);
       }

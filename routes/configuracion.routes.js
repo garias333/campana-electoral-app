@@ -4,6 +4,8 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria } = require('../config/auditoria');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
+const { estadoCanal: estadoCanalSms, enviarSMS } = require('../config/sms');
+const { estadoCanal: estadoCanalSendgrid, enviarCorreoMasivo } = require('../config/sendgrid');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -357,6 +359,74 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error guardando la configuración de comunicaciones.' });
+  }
+});
+
+// Estado de cada canal, para que la pantalla de configuración diga si
+// Email y SMS están listos SIN tener que esperar a que falle una campaña.
+//
+// No calcula nada por su cuenta: reutiliza las mismas funciones que ya
+// usa el CRM (estadoCanal de sendgrid.js y estadoCanales de twilio.js),
+// para que la pantalla y el envío real nunca puedan discrepar.
+router.get('/comunicaciones/estado', requireRole('admin'), async (req, res) => {
+  try {
+    const [email, sms] = await Promise.all([estadoCanalSendgrid(), estadoCanalSms()]);
+    res.json({ email, sms });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error consultando el estado de los canales.' });
+  }
+});
+
+// Envío de prueba. Existe por un incidente real: un número de Twilio
+// guardado con espacios hacía que el SMS nunca saliera, y la pantalla
+// mostraba el canal como configurado — el fallo solo se descubría cuando
+// una campaña entera no llegaba. Aquí el error de Twilio o SendGrid se
+// devuelve TAL CUAL, sin envolverlo en un mensaje genérico, porque es
+// justo el dato que hacía falta para diagnosticar.
+//
+// ESTO ENVÍA DE VERDAD: gasta saldo de la cuenta de Twilio y el mensaje
+// llega al destinatario. Por eso exige admin y va detrás del candado de
+// contraseña que ya protege esta pantalla.
+router.post('/comunicaciones/probar', requireRole('admin'), async (req, res) => {
+  const { canal, destino } = req.body || {};
+  if (canal !== 'email' && canal !== 'sms') {
+    return res.status(400).json({ error: 'Canal no válido. Debe ser "email" o "sms".' });
+  }
+  if (!destino || !String(destino).trim()) {
+    return res.status(400).json({ error: 'Falta a dónde enviar la prueba.' });
+  }
+
+  const cuando = new Date().toLocaleString('es-CO');
+  try {
+    if (canal === 'email') {
+      await enviarCorreoMasivo(
+        String(destino).trim(),
+        'Prueba de configuración — Mensajería',
+        `Este es un mensaje de prueba enviado desde Configurar mensajería el ${cuando}.\n\n`
+        + 'Si lo estás leyendo, las credenciales de SendGrid y el remitente quedaron bien configurados.'
+      );
+    } else {
+      // `operativo: true`: es una prueba que un administrador se manda a sí
+      // mismo desde la pantalla de configuración, no mensajería de campaña.
+      // Consume crédito, como cualquier SMS.
+      await enviarSMS(
+        String(destino).trim(),
+        `Prueba de configuracion de mensajeria (${cuando}). Si recibiste esto, el canal SMS quedo bien configurado.`,
+        null,
+        { origen: 'prueba', operativo: true, usuarioId: req.session.usuario.id }
+      );
+    }
+    // El envío quedó registrado en auditoría igual que cualquier otro
+    // cambio sensible: envía a un destinatario real y cuesta dinero.
+    await registrarAuditoria(
+      req.session.usuario.id, 'comunicaciones_prueba', 'configuracion', null,
+      `Envío de prueba por ${canal === 'email' ? 'correo' : 'SMS'} a ${String(destino).trim()}.`, req.ip
+    );
+    res.json({ ok: true, mensaje: `Mensaje de prueba enviado por ${canal === 'email' ? 'correo' : 'SMS'} a ${String(destino).trim()}.` });
+  } catch (err) {
+    console.error('Prueba de mensajería falló:', err);
+    res.status(400).json({ error: err.message || 'No se pudo enviar el mensaje de prueba.' });
   }
 });
 

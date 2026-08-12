@@ -28,6 +28,9 @@ parches/*.zip
 respaldos_parches/
 *.bak-*
 *.previo-*
+# Excepciones a la regla *.sql de arriba. El esquema y las migraciones SON
+# codigo: si no estan en git, la unica copia de lo que se le aplico a una base
+# vive en el disco de un servidor. (La linea de !db/schema.sql estaba escrita
+# tres veces identicas; queda una.)
 !db/schema.sql
-!db/schema.sql
-!db/schema.sql
+!sql/*.sql

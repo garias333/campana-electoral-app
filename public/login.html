@@ -78,7 +78,23 @@
   .login-logo { display: block; margin: 0 auto 18px; width: 128px; height: auto; }
   .login-card .login-eyebrow,
   .login-card h1 { text-align: center; }
-  .login-card .login-eyebrow { color: var(--color-accent); letter-spacing: .16em; font-size: .86rem; }
+  /* Tamaño y espaciado SIN TOCAR: "ADMINISTRACIÓN DE CAMPAÑA ELECTORAL"
+     cabe en un renglón dentro de los 520px de la tarjeta. Lo que se agrega
+     es para el celular, donde la tarjeta se encoge y el rótulo sí parte en
+     dos: sin line-height propio los renglones quedan pegados, porque el
+     interlineado por omisión no cuenta el espaciado entre letras. */
+  .login-card .login-eyebrow {
+    color: var(--color-accent); letter-spacing: .16em; font-size: .86rem;
+    line-height: 1.45; text-wrap: balance;
+  }
+
+  /* Reenviar es la acción secundaria principal de esta pantalla, así que
+     va en el dorado y no en el gris del resto del pie. Necesita
+     !important porque .login-card .pie-login a lo fija con !important. */
+  .login-card .pie-login a#reenviar-codigo { color: var(--color-accent) !important; }
+  .login-card .pie-login a#reenviar-codigo.esperando {
+    color: #8FA2BC !important; text-decoration: none; cursor: default;
+  }
   .login-card h1 { color: #fff; font-size: 1.75rem; margin-bottom: 18px; }
 
   /* Texto secundario: el gris del sistema es ilegible sobre navy. */
@@ -192,7 +208,10 @@
          "TORRE DE ACCESO" mientras se ve el formulario de contraseña
          diría una cosa y mostraría otra. -->
     <img src="/img/logo.png" alt="Estrategia · Marketing Político" class="login-logo">
-    <div class="login-eyebrow" id="login-eyebrow">Acceso privado</div>
+    <!-- Este valor tiene que coincidir con TITULOS_PASO['form-torre'][0]:
+         al cargar la página NADIE llama a mostrarPaso(), así que esto es
+         literalmente lo que se ve en la primera pantalla. -->
+    <div class="login-eyebrow" id="login-eyebrow">Administración de campaña electoral</div>
     <h1 id="login-titulo">Torre de acceso</h1>
 
     <div id="selector-cuentas" style="display:none;">
@@ -321,6 +340,16 @@
                autocomplete="one-time-code" placeholder="000000" class="campo-codigo">
       </div>
       <button type="submit" class="btn-primario">Verificar</button>
+      <div class="pie-login" style="margin-top:12px;">
+        <!-- Reenviar tiene espera de 60 s a propósito: la ruta del servidor
+             admite 5 solicitudes cada 15 minutos por IP, así que un botón
+             sin freno se gasta el cupo en cinco clics y deja a la persona
+             sin poder pedir el código que sí necesita. -->
+        <a href="#" id="reenviar-codigo">Solicitar otro código</a>
+      </div>
+      <div class="pie-login" style="margin-top:8px;">
+        <a href="#" id="volver-desde-2fa">Volver</a>
+      </div>
     </form>
 
     <div id="form-elegir-rol" style="display:none;">
@@ -349,10 +378,19 @@
    convertiría esta pantalla en un detector de correos de la campaña.
    ------------------------------------------------------------------ */
 const TITULOS_PASO = {
-  'form-torre': ['Acceso privado', 'Torre de acceso'],
+  'form-torre': ['Administración de campaña electoral', 'Torre de acceso'],
   'form-login': ['Estrategia · INGESES S.A.S.', 'Administración de campaña'],
-  'form-2fa':   ['Acceso privado', 'Escribe tu código']
+  'form-2fa':   ['Administración de campaña electoral', 'Escribe tu código']
 };
+
+/* De dónde se llegó al paso del código. Importa porque a esta pantalla se
+   entra por TRES caminos —la torre, el ingreso con contraseña y la
+   elección de rol— y solo en el primero el navegador tiene el dato
+   (correo o teléfono) con el que se pidió: los otros dos lo resolvieron
+   contra la sesión del servidor. Reenviar sin ese dato mandaría una
+   solicitud vacía, así que el botón solo aparece cuando de verdad se
+   puede reenviar, y "Volver" regresa al paso correcto de cada camino. */
+let origen2fa = 'torre';
 
 function mostrarPaso(id) {
   ['form-torre', 'form-login', 'form-2fa', 'form-elegir-rol'].forEach(f => {
@@ -362,6 +400,17 @@ function mostrarPaso(id) {
   if (t) {
     document.getElementById('login-eyebrow').textContent = t[0];
     document.getElementById('login-titulo').textContent = t[1];
+  }
+  if (id === 'form-2fa') {
+    // Reenviar solo tiene sentido viniendo de la torre: es el único camino
+    // en el que esta pantalla conoce el correo o el teléfono con el que se
+    // pidió. Ofrecerlo en los otros dos sería un botón que no puede
+    // funcionar, y un control que se niega después de ofrecerse hace creer
+    // que algo se rompió.
+    document.getElementById('reenviar-codigo').parentElement.style.display =
+      (origen2fa === 'torre') ? 'block' : 'none';
+    document.getElementById('volver-desde-2fa').textContent =
+      (origen2fa === 'torre') ? 'Volver a escribir el correo' : 'Volver al ingreso';
   }
 }
 
@@ -426,6 +475,7 @@ document.getElementById('form-torre').addEventListener('submit', async (e) => {
     document.getElementById('texto-2fa').textContent =
       (r.mensaje || 'Si esa cuenta puede ingresar con código, ya lo enviamos.') +
       ' Escribe abajo los 6 dígitos.';
+    origen2fa = 'torre';
     mostrarPaso('form-2fa');
     document.querySelector('#form-2fa input[name="codigo"]').focus();
   } catch (err) {
@@ -455,6 +505,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
       return;
     }
     if (r.requiere2fa) {
+      origen2fa = 'login';
       mostrarPaso('form-2fa');
       return;
     }
@@ -485,6 +536,7 @@ document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]'
     try {
       const r = await api('/auth/elegir-rol', { method: 'POST', body: { entrarComo: boton.dataset.entrarComo } });
       if (r.requiere2fa) {
+        origen2fa = 'login';
         mostrarPaso('form-2fa');
         return;
       }
@@ -495,6 +547,88 @@ document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]'
       errorBox.classList.add('visible');
     }
   });
+});
+
+/* ------------------------------------------------------------------
+   Reenviar el código y volver atrás.
+
+   El servidor SIEMPRE responde lo mismo, exista o no la cuenta, así que
+   reenviar no revela nada nuevo: repite exactamente la misma solicitud
+   del paso anterior, con los valores que siguen escritos en el
+   formulario de la torre (que está oculto, no vaciado).
+
+   Ojo con el código viejo: /auth/verificar-2fa toma el ÚLTIMO código sin
+   usar y vigente (ORDER BY id DESC), así que al pedir otro el anterior
+   deja de servir. Por eso el texto dice que use el último que le llegue —
+   sin eso, quien tenga los dos correos abiertos prueba el primero y ve
+   "Código incorrecto" sin entender por qué.
+   ------------------------------------------------------------------ */
+const ESPERA_REENVIO_SEG = 60;
+const enlaceReenviar = document.getElementById('reenviar-codigo');
+let temporizadorReenvio = null;
+
+function bloquearReenvio() {
+  let restan = ESPERA_REENVIO_SEG;
+  enlaceReenviar.classList.add('esperando');
+  const pintar = () => { enlaceReenviar.textContent = `Puedes pedir otro código en ${restan} s`; };
+  pintar();
+  clearInterval(temporizadorReenvio);
+  temporizadorReenvio = setInterval(() => {
+    restan -= 1;
+    if (restan <= 0) {
+      clearInterval(temporizadorReenvio);
+      enlaceReenviar.classList.remove('esperando');
+      enlaceReenviar.textContent = 'Solicitar otro código';
+      return;
+    }
+    pintar();
+  }, 1000);
+}
+
+enlaceReenviar.addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (enlaceReenviar.classList.contains('esperando')) return;
+
+  const errorBox = document.getElementById('login-error');
+  errorBox.classList.remove('visible');
+  const form = document.getElementById('form-torre');
+
+  enlaceReenviar.classList.add('esperando');
+  enlaceReenviar.textContent = 'Enviando…';
+  try {
+    const r = await api('/auth/solicitar-codigo', {
+      method: 'POST',
+      body: {
+        identificador: form.identificador.value.trim(),
+        canal: form.querySelector('input[name="canal"]:checked').value,
+        recordar: form.recordar.checked
+      }
+    });
+    document.getElementById('texto-2fa').textContent =
+      (r.mensaje || 'Si esa cuenta puede ingresar con código, ya lo enviamos.') +
+      ' Usa el último código que recibas: el anterior deja de servir.';
+    document.querySelector('#form-2fa input[name="codigo"]').value = '';
+    document.querySelector('#form-2fa input[name="codigo"]').focus();
+    bloquearReenvio();
+  } catch (err) {
+    // El caso típico acá es el limitador del servidor (5 cada 15 minutos
+    // por IP). Se muestra su mensaje tal cual y se libera el enlace, para
+    // que la persona pueda reintentar cuando el servidor la deje.
+    errorBox.textContent = err.message || 'No se pudo reenviar el código.';
+    errorBox.classList.add('visible');
+    enlaceReenviar.classList.remove('esperando');
+    enlaceReenviar.textContent = 'Solicitar otro código';
+  }
+});
+
+document.getElementById('volver-desde-2fa').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-error').classList.remove('visible');
+  clearInterval(temporizadorReenvio);
+  enlaceReenviar.classList.remove('esperando');
+  enlaceReenviar.textContent = 'Solicitar otro código';
+  document.querySelector('#form-2fa input[name="codigo"]').value = '';
+  mostrarPaso(origen2fa === 'torre' ? 'form-torre' : 'form-login');
 });
 
 document.getElementById('form-2fa').addEventListener('submit', async (e) => {

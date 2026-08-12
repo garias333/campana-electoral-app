@@ -215,9 +215,10 @@ GOOGLE_MAPS_API_KEY=...    # Google Cloud, con la "Geocoding API" activada
 SMTP_HOST=...
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=...
+SMTP_USER=...           # con esta cuenta se autentica
 SMTP_PASSWORD=...
-SMTP_FROM_NAME=Nombre de la campana
+SMTP_FROM_NAME=Nombre de la campana   # SOLO el nombre, sin el correo
+SMTP_FROM=...           # opcional: direccion que ve quien recibe (por omision, SMTP_USER)
 
 # --- Opcionales ---
 MAPBOX_ACCESS_TOKEN=...    # mapa con mas detalle; sin esto usa el mapa libre

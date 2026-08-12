@@ -1,6 +1,18 @@
 /**
  * Envío de SMS usando Twilio (https://www.twilio.com).
  *
+ * ESTE ARCHIVO YA NO ES EL CAMINO DE ENVÍO. Desde la migración a Onurix
+ * (12 de agosto de 2026) los SMS salen por config/sms.js, y NADIE requiere
+ * este archivo: se comprobó con un grep de `require.*config/twilio` en todo
+ * el proyecto y no quedó ni una llamada. Si viene a corregir algo del envío
+ * de SMS, el archivo es config/sms.js.
+ *
+ * Se conserva porque Twilio sigue siendo el RESPALDO del transporte
+ * (SMS_FALLBACK_PROVIDER=twilio en lib/sms.js) y porque
+ * routes/webhooks.routes.js todavía recibe sus callbacks de estado. Pero
+ * quien manda por ese respaldo es lib/sms.js con las credenciales que le
+ * pasa config/sms.js, no las funciones de aquí.
+ *
  * Las credenciales se configuran desde Configuración → Comunicaciones
  * en la interfaz (guardadas en la base de datos) — el .env sigue
  * funcionando como respaldo si todavía no se ha configurado nada ahí.

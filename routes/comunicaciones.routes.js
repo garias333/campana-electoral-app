@@ -4,7 +4,7 @@ const path = require('path');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
-const twilioSvc = require('../config/twilio');
+const smsSvc = require('../config/sms');
 const sendgridSvc = require('../config/sendgrid');
 const pushSvc = require('../config/push');
 const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer');
@@ -397,11 +397,10 @@ async function obtenerDestinatariosDeGrupos(grupos, canal) {
 // Estado de configuración de cada canal (para mostrar en la interfaz cuáles ya se pueden usar).
 // WhatsApp no aparece: está desactivado en toda la aplicación (ver POST /campanas).
 router.get('/estado-canales', async (req, res) => {
-  const canalesTwilio = await twilioSvc.estadoCanales();
   res.json({
     email: await sendgridSvc.estadoCanal(),
     email_personal: { configurado: true, motivo: null }, // reutiliza el SMTP de Hostinger, ya configurado para toda la app
-    sms: canalesTwilio.sms,
+    sms: await smsSvc.estadoCanal(),
     push: pushSvc.estadoCanal()
   });
 });
@@ -684,7 +683,10 @@ async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCal
     await enviarCorreoPersonal(contacto, asunto, mensaje);
     return null;
   } else if (canal === 'sms') {
-    const { sid } = await twilioSvc.enviarSMS(contacto, mensaje, statusCallbackUrl);
+    // statusCallbackUrl se sigue pasando pero HOY NO SE USA: Onurix no avisa
+    // el cambio de estado como hacía Twilio. Hasta que exista el webhook
+    // (punto 8), un SMS queda en 'aceptado' y no pasa a 'entregado'.
+    const { sid } = await smsSvc.enviarSMS(contacto, mensaje, statusCallbackUrl, { origen: 'crm' });
     return sid;
   } else if (canal === 'push') {
     // Aquí `contacto` es el usuario_id (ver obtenerDestinatarios). El
@@ -1005,7 +1007,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
 
   // Antes de arrancar, confirma que el canal esté listo para usarse.
   if (canal === 'sms') {
-    const estado = (await twilioSvc.estadoCanales())[canal];
+    const estado = await smsSvc.estadoCanal();
     if (!estado.configurado) {
       return res.status(400).json({ error: estado.motivo || `El canal ${canal} todavía no está configurado.` });
     }

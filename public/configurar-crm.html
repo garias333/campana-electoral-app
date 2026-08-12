@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configurar CRM · Administración de Campaña</title>
+<title>Configurar mensajería · Administración de Campaña</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
@@ -12,7 +12,11 @@
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="topbar">
-      <div><div class="eyebrow">CRM y mensajería</div><h1>Configurar CRM</h1></div>
+      <!-- El archivo sigue llamándose configurar-crm.html y el módulo de
+           permisos sigue siendo 'configurar_crm': solo cambia el texto que
+           se ve. Renombrar el archivo rompería los enlaces guardados y
+           renombrar el módulo dejaría a los admin sin acceso. -->
+      <div><div class="eyebrow">CRM y mensajería</div><h1>Configurar mensajería</h1></div>
     </div>
 
     <div class="card" id="crm-config-bloqueado">
@@ -67,10 +71,45 @@
              sigue en la base y el backend conserva su valor. -->
         <div class="campo">
           <label>Número para SMS</label>
-          <input id="comunicaciones-twilio-sms" placeholder="+15017122661">
+          <input id="comunicaciones-twilio-sms" placeholder="+573000000000">
+          <!-- Twilio exige E.164 y rechaza espacios o guiones. Antes eso
+               solo se notaba cuando una campaña entera no llegaba. -->
+          <small id="aviso-formato-sms" style="display:none; color:var(--color-no-apoya); font-size:0.8rem;"></small>
         </div>
         <button type="submit" class="btn-primario">Guardar cambios</button>
       </form>
+    </div>
+
+    <!-- Estado y prueba. Guardar credenciales no garantiza que sirvan: el
+         canal puede verse configurado y aun así no enviar nada (pasó con un
+         número que tenía espacios). Estas dos cosas cierran ese hueco. -->
+    <div class="card" id="crm-estado-card" style="display:none;">
+      <h3 style="margin-top:0;">Estado de los canales</h3>
+      <div id="estado-canales" style="display:flex; gap:22px; flex-wrap:wrap; margin-bottom:6px;">
+        <span style="color:var(--color-text-muted); font-size:0.9rem;">Consultando…</span>
+      </div>
+      <p id="estado-motivos" style="color:var(--color-text-muted); font-size:0.85rem; margin:8px 0 0;"></p>
+
+      <h3 style="margin:24px 0 6px;">Enviar un mensaje de prueba</h3>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
+        <strong>Ojo:</strong> el mensaje se envía de verdad. El SMS consume saldo de tu cuenta de Twilio
+        y llega al número que escribas. Si algo falla, acá vas a ver el error exacto que devuelve
+        Twilio o SendGrid, que es lo que hace falta para saber qué corregir.
+      </p>
+      <div id="prueba-error" class="mensaje-error"></div>
+      <div id="prueba-ok" class="mensaje-ok"></div>
+      <div class="fila">
+        <div class="campo">
+          <label>Correo de prueba</label>
+          <input id="prueba-email-destino" type="email" placeholder="tucorreo@dominio.com">
+          <button type="button" class="btn-secundario" id="btn-probar-email" style="margin-top:8px;">Probar envío de correo</button>
+        </div>
+        <div class="campo">
+          <label>Teléfono móvil de prueba</label>
+          <input id="prueba-sms-destino" type="tel" inputmode="tel" placeholder="+573000000000">
+          <button type="button" class="btn-secundario" id="btn-probar-sms" style="margin-top:8px;">Probar envío de SMS</button>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -124,20 +163,103 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
     okBox.textContent = 'Credenciales guardadas correctamente.';
     okBox.classList.add('visible');
     await cargarConfigComunicaciones();
+    // El estado se recalcula con lo recién guardado: si el canal pasó de
+    // "sin configurar" a "listo", se ve en el momento.
+    await cargarEstadoCanales();
   } catch (err) {
     errorBox.textContent = err.message;
     errorBox.classList.add('visible');
   }
 });
 
+// ---------- Estado de los canales ----------
+// Lo calcula el servidor con las MISMAS funciones que usa el CRM al
+// enviar, así que lo que se ve acá no puede contradecir a lo que pasa
+// en un envío real.
+async function cargarEstadoCanales() {
+  const contenedor = document.getElementById('estado-canales');
+  const motivos = document.getElementById('estado-motivos');
+  try {
+    const estado = await api('/configuracion/comunicaciones/estado');
+    const pinta = (nombre, info) => `
+      <span class="badge ${info.configurado ? 'badge-confirmado' : 'badge-no_apoya'}">
+        <span class="punto"></span>${nombre}: ${info.configurado ? 'listo' : 'sin configurar'}
+      </span>`;
+    contenedor.innerHTML = pinta('Correo', estado.email) + pinta('SMS', estado.sms);
+    const faltantes = [estado.email, estado.sms].filter(x => x && x.motivo).map(x => x.motivo);
+    motivos.textContent = faltantes.join(' ');
+  } catch (err) {
+    contenedor.innerHTML = '';
+    motivos.textContent = 'No se pudo consultar el estado de los canales: ' + err.message;
+  }
+}
+
+// ---------- Aviso de formato del número ----------
+// No corrige ni bloquea: solo avisa. La limpieza de verdad la hace
+// soloE164() en el servidor al leer, que además arregla los números que
+// ya estaban guardados con espacios.
+function revisarFormatoSms() {
+  const campo = document.getElementById('comunicaciones-twilio-sms');
+  const aviso = document.getElementById('aviso-formato-sms');
+  const valor = campo.value.trim();
+  // Si sigue mostrando la máscara o está vacío, no hay nada que revisar.
+  if (!valor || /^[•*]/.test(valor)) { aviso.style.display = 'none'; return; }
+  const correcto = /^\+\d{8,15}$/.test(valor);
+  aviso.style.display = correcto ? 'none' : 'block';
+  if (!correcto) {
+    aviso.textContent = 'Twilio exige el formato +573000000000: solo el signo + y dígitos, sin espacios, guiones ni paréntesis.';
+  }
+}
+
+// ---------- Envío de prueba ----------
+async function probarCanal(canal, idCampo, boton) {
+  const errorBox = document.getElementById('prueba-error');
+  const okBox = document.getElementById('prueba-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  const destino = document.getElementById(idCampo).value.trim();
+  if (!destino) {
+    errorBox.textContent = canal === 'email'
+      ? 'Escribe un correo al cual enviar la prueba.'
+      : 'Escribe un teléfono móvil al cual enviar la prueba.';
+    errorBox.classList.add('visible');
+    return;
+  }
+
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = 'Enviando…';
+  try {
+    const r = await api('/configuracion/comunicaciones/probar', { method: 'POST', body: { canal, destino } });
+    okBox.textContent = r.mensaje;
+    okBox.classList.add('visible');
+  } catch (err) {
+    // El mensaje viene tal cual lo devolvió Twilio o SendGrid: es el dato
+    // que sirve para corregir, no un "ocurrió un error" genérico.
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+    await cargarEstadoCanales();
+  }
+}
+
+document.getElementById('comunicaciones-twilio-sms').addEventListener('input', revisarFormatoSms);
+document.getElementById('btn-probar-email').addEventListener('click', (e) => probarCanal('email', 'prueba-email-destino', e.currentTarget));
+document.getElementById('btn-probar-sms').addEventListener('click', (e) => probarCanal('sms', 'prueba-sms-destino', e.currentTarget));
+
 document.getElementById('btn-desbloquear-crm').addEventListener('click', async () => {
-  const password = await solicitarPasswordAdmin('Confirmar acceso a Configurar CRM');
+  const password = await solicitarPasswordAdmin('Confirmar acceso a Configurar mensajería');
   if (!password) return;
   try {
     await api('/configuracion/comunicaciones/verificar-acceso', { method: 'POST', body: { password } });
     document.getElementById('crm-config-bloqueado').style.display = 'none';
     document.getElementById('crm-config-card').style.display = 'block';
+    document.getElementById('crm-estado-card').style.display = 'block';
     await cargarConfigComunicaciones();
+    await cargarEstadoCanales();
   } catch (err) {
     alert(err.message);
   }

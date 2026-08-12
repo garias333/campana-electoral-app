@@ -43,7 +43,10 @@ const NAV_ITEMS = [
       { href: '/enviar-email.html', texto: 'Enviar E-mail', modulo: 'enviar_email', roles: ['admin', 'coordinador', 'lider'] },
       { href: '/enviar-sms.html', texto: 'Enviar SMS', modulo: 'enviar_sms', roles: ['admin', 'coordinador', 'lider'] },
       { href: '/enviar-push.html', texto: 'Aviso en la app', modulo: 'enviar_push', roles: ['admin', 'coordinador', 'lider'] },
-      { href: '/configurar-crm.html', texto: 'Configurar CRM', modulo: 'configurar_crm', roles: ['admin'] },
+      // El módulo sigue siendo 'configurar_crm' (gobierna permisos) y el
+      // archivo conserva su nombre: solo cambia el texto visible, porque
+      // la pantalla configura mensajería, no el CRM.
+      { href: '/configurar-crm.html', texto: 'Configurar mensajería', modulo: 'configurar_crm', roles: ['admin'] },
     ]
   },
   { href: '/finanzas.html', icono: '💰', texto: 'Finanzas', modulo: 'finanzas', roles: ['admin', 'coordinador'] },
