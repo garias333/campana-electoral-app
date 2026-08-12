@@ -1262,6 +1262,13 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'estructura', 'municipio_votacion VARCHAR(150) NULL AFTER departamento_votacion', 'municipio_votacion');
   await separarDatosDeTestigosExistentes(connection);
 
+  // Credenciales propias de Onurix por campaña. Van vacías salvo que la
+  // campaña traiga su propia cuenta: lo normal es usar la maestra del .env.
+  await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
+    'onurix_client VARCHAR(50) NULL AFTER twilio_whatsapp_from', 'onurix_client');
+  await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
+    'onurix_key VARCHAR(255) NULL AFTER onurix_client', 'onurix_key');
+
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
 

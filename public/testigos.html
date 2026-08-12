@@ -304,7 +304,7 @@ function renderizarTestigos() {
       <td>${escaparHtml(f.nombre)}</td>
       <td>${f.tipo_testigo === 'puesto' ? 'Coordinador de puesto' : 'Testigo electoral'}</td>
       <td>${escaparHtml(f.numero_identificacion || '—')}</td>
-      <td>${escaparHtml(f.telefono || '—')}</td>
+      <td>${celdaTelefonoWhatsApp(f.telefono)}</td>
       <td>${escaparHtml(f.puesto_votacion || '—')}</td>
       <td>${f.tipo_testigo === 'puesto' ? '<span style="color:var(--color-text-muted);">Varias</span>' : escaparHtml(f.mesa_votacion || '—')}</td>
       <td>${f.activo ? 'Sí' : 'No'}</td>

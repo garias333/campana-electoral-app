@@ -55,7 +55,16 @@ async function obtenerCredenciales() {
     twilioAccountSid: (fila && fila.twilio_account_sid) || process.env.TWILIO_ACCOUNT_SID || null,
     twilioAuthToken: (fila && fila.twilio_auth_token) || process.env.TWILIO_AUTH_TOKEN || null,
     twilioSmsFrom: soloE164((fila && fila.twilio_sms_from) || process.env.TWILIO_SMS_FROM),
-    twilioWhatsappFrom: soloE164((fila && fila.twilio_whatsapp_from) || process.env.TWILIO_WHATSAPP_FROM)
+    twilioWhatsappFrom: soloE164((fila && fila.twilio_whatsapp_from) || process.env.TWILIO_WHATSAPP_FROM),
+    // Onurix: lo normal es que la campaña NO tenga cuenta propia y se use la
+    // maestra del .env. La prioridad es la misma que la de Twilio —la base
+    // primero— para que se pueda cambiar sin entrar por SSH.
+    onurixClient: (fila && fila.onurix_client) || process.env.ONURIX_CLIENT || null,
+    onurixKey: (fila && fila.onurix_key) || process.env.ONURIX_KEY || null,
+    // Para que la interfaz pueda decir CUAL de las dos se esta usando sin
+    // mostrar ninguna clave: una cosa es "no hay credenciales" y otra muy
+    // distinta "esta campaña trajo las suyas".
+    onurixPropio: Boolean(fila && fila.onurix_client && fila.onurix_key)
   };
   cacheEn = ahora;
   return cache;

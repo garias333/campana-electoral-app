@@ -708,3 +708,19 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
   outline: 2px solid var(--color-navy-lighter);
   outline-offset: 1px;
 }
+
+
+/* Enlace para escribir por WhatsApp desde una celda de telefono.
+   Es un enlace wa.me, NO la API de WhatsApp Business: abre WhatsApp Web en el
+   computador con el chat listo, y escribe la persona desde su propia cuenta.
+   El color es el de WhatsApp para que se reconozca sin leer nada. */
+.enlace-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 6px;
+  color: #25D366;
+  text-decoration: none;
+  opacity: 0.85;
+}
+.enlace-whatsapp:hover { opacity: 1; }

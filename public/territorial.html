@@ -1932,7 +1932,7 @@ function renderizarEstructura() {
       <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
       <td style="padding-left:${16 + (f._nivel || 0) * 22}px;">${f._nivel ? '<span style="color:var(--color-text-muted);">↳</span> ' : ''}${f._tieneHijos ? `<button onclick="alternarColapsoEstructura(${f.usuario_id})" title="${nodosColapsadosEstructura.has(f.usuario_id) ? 'Expandir' : 'Contraer'}" style="border:1.5px solid #0B5ED7; border-radius:6px; background:#fff; cursor:pointer; color:#0B5ED7; font-size:1.5rem; font-weight:700; line-height:1; width:38px; height:38px; padding:0; margin-right:8px; vertical-align:middle;">${nodosColapsadosEstructura.has(f.usuario_id) ? '▸' : '▾'}</button>` : ''}<strong>${f.nombre}</strong><br><span style="color:var(--color-text-muted); font-size:0.78rem;">${f.email || '—'}</span></td>
       <td>${ETIQUETAS_GENERO[f.genero] || '—'}</td>
-      <td class="mono">${f.telefono ? formatoTelefonoColombia(f.telefono) : '—'}</td>
+      <td class="mono">${celdaTelefonoWhatsApp(f.telefono)}</td>
       <td><span class="tag-tipo ${claseCargo}">${f.cargo === 'coordinador_organizaciones' ? 'coordinador organizaciones' : (f.cargo === 'usuario' ? 'sublíder' : f.cargo)}</span></td>
       <td>${areaTexto}</td>
       <td class="col-comuna-correg">${zonaTexto}</td>

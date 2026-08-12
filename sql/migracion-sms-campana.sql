@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS sms_envios (
   -- leyendolo: un mensaje que nunca se intento no tiene proveedor.
   proveedor         VARCHAR(20)   NULL,       -- onurix | twilio | NULL si no se intento
   proveedor_id      VARCHAR(128)  NULL,       -- id del mensaje en el proveedor
+  -- Onurix devuelve DOS identificadores: el del mensaje (data.id) y el del
+  -- despacho (id, que su consulta de estado llama dispatch_id). Se guardan
+  -- los dos porque su documentacion no dice cual acepta /messages-state, y
+  -- una consulta con el del mensaje devolvio [] — probado el 12 de agosto de
+  -- 2026. Guardar solo uno deja los mensajes ya enviados sin forma de
+  -- consultarlos nunca. Twilio deja esta columna en NULL: solo tiene un SID.
+  proveedor_lote_id VARCHAR(128)  NULL,       -- id del despacho en el proveedor
   fallback_desde    VARCHAR(20)   NULL,       -- si hubo respaldo, de cual vino
 
   -- Estado

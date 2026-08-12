@@ -294,7 +294,14 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       sendgrid_from_name: fila.sendgrid_from_name || '',
       twilio_account_sid_mascara: enmascarar(fila.twilio_account_sid),
       twilio_auth_token_mascara: enmascarar(fila.twilio_auth_token),
-      twilio_sms_from: fila.twilio_sms_from || ''
+      twilio_sms_from: fila.twilio_sms_from || '',
+      // Onurix. El `client` no es un secreto (es el numero de cliente) pero
+      // la llave si, y va enmascarada como las demas. Si la campaña no tiene
+      // cuenta propia, los dos van vacios y la interfaz muestra que se esta
+      // usando la maestra: NUNCA se manda al navegador la del .env.
+      onurix_client: fila.onurix_client || '',
+      onurix_key_mascara: enmascarar(fila.onurix_key),
+      onurix_propio: Boolean(fila.onurix_client && fila.onurix_key)
       // twilio_whatsapp_from no se devuelve: el canal está desactivado
       // (Meta prohíbe las campañas políticas en su API de negocios) y la
       // pantalla ya no tiene ese campo. La columna sigue en la base.
@@ -318,7 +325,8 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   // esta API directo. El valor que ya estuviera guardado se conserva.
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
-    twilio_account_sid, twilio_auth_token, twilio_sms_from
+    twilio_account_sid, twilio_auth_token, twilio_sms_from,
+    onurix_client, onurix_key
   } = req.body;
 
   try {
@@ -332,14 +340,21 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
       twilio_account_sid: (twilio_account_sid && twilio_account_sid.trim()) ? twilio_account_sid.trim() : (actual.twilio_account_sid || null),
       twilio_auth_token: (twilio_auth_token && twilio_auth_token.trim()) ? twilio_auth_token.trim() : (actual.twilio_auth_token || null),
       twilio_sms_from: twilio_sms_from !== undefined ? (twilio_sms_from.trim() || null) : (actual.twilio_sms_from || null),
-      twilio_whatsapp_from: actual.twilio_whatsapp_from || null
+      twilio_whatsapp_from: actual.twilio_whatsapp_from || null,
+      // El numero de cliente SI se puede vaciar (asi se vuelve a la cuenta
+      // maestra); la llave sigue la regla de los secretos: vacia = conservar
+      // la que habia. Vaciar el cliente sin tocar la llave deja la campaña
+      // usando la maestra, que es lo que se espera al "quitar" la cuenta.
+      onurix_client: onurix_client !== undefined ? (onurix_client.trim() || null) : (actual.onurix_client || null),
+      onurix_key: (onurix_key && onurix_key.trim()) ? onurix_key.trim() : (actual.onurix_key || null)
     };
 
     await pool.query(
       `INSERT INTO configuracion_comunicaciones
          (id, sendgrid_api_key, sendgrid_from, sendgrid_from_name,
-          twilio_account_sid, twilio_auth_token, twilio_sms_from, twilio_whatsapp_from, actualizado_por)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+          twilio_account_sid, twilio_auth_token, twilio_sms_from, twilio_whatsapp_from,
+          onurix_client, onurix_key, actualizado_por)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          sendgrid_api_key = VALUES(sendgrid_api_key),
          sendgrid_from = VALUES(sendgrid_from),
@@ -348,9 +363,12 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
          twilio_auth_token = VALUES(twilio_auth_token),
          twilio_sms_from = VALUES(twilio_sms_from),
          twilio_whatsapp_from = VALUES(twilio_whatsapp_from),
+         onurix_client = VALUES(onurix_client),
+         onurix_key = VALUES(onurix_key),
          actualizado_por = VALUES(actualizado_por)`,
       [valores.sendgrid_api_key, valores.sendgrid_from, valores.sendgrid_from_name,
        valores.twilio_account_sid, valores.twilio_auth_token, valores.twilio_sms_from, valores.twilio_whatsapp_from,
+       valores.onurix_client, valores.onurix_key,
        req.session.usuario.id]
     );
 

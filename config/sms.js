@@ -208,6 +208,13 @@ async function obtenerCanal() {
     config: {
       forzarGSM7: cfg.forzarGSM7,
       proveedorPreferido: cfg.proveedorPreferido,
+      // Onurix: si la campaña guardó su propia cuenta en Configurar
+      // mensajería, manda esa; si no, obtenerCredenciales() ya devuelve la
+      // maestra del .env. La cuota se descuenta igual en los dos casos —los
+      // créditos son la unidad de medida del servicio, no el saldo de una
+      // cuenta concreta.
+      onurixClient: cred.onurixClient,
+      onurixKey: cred.onurixKey,
       twilioSid: cred.twilioAccountSid,
       twilioToken: cred.twilioAuthToken,
       twilioFrom: cred.twilioSmsFrom,

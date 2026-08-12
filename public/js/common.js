@@ -295,6 +295,44 @@ function formatoTelefonoColombia(valor) {
   return partes.join(' ');
 }
 
+/**
+ * Celda de teléfono con el enlace para escribirle por WhatsApp.
+ *
+ * POR QUÉ UN ENLACE Y NO UN ENVÍO DESDE EL SERVIDOR
+ *   Escribir por la API de WhatsApp Business obliga a plantillas aprobadas
+ *   por Meta y mete a la campaña en su política de contenido. Un enlace
+ *   `wa.me` no es la API: abre WhatsApp Web en el computador —o la app en el
+ *   celular— con el chat de esa persona listo, y el mensaje lo escribe y lo
+ *   manda quien está sentado ahí, desde su propia cuenta. No cuesta créditos
+ *   ni pasa por ningún proveedor.
+ *
+ * Es el mismo patrón que la app móvil ya usa en «Mis registros».
+ *
+ * El 57 se agrega solo si no viene: los teléfonos se capturan a 10 dígitos,
+ * pero algunos vienen ya con indicativo. Sin esa comprobación, un número que
+ * ya lo traía terminaría en 5757…
+ *
+ * Devuelve el guion largo si no hay teléfono — la celda nunca queda vacía.
+ */
+function celdaTelefonoWhatsApp(telefono) {
+  const digitos = String(telefono || '').replace(/\D/g, '');
+  if (!digitos) return '—';
+
+  const visible = digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos;
+  const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+
+  // rel="noopener" no es adorno: sin él, la pestaña que se abre puede tocar
+  // la que la abrió a través de window.opener.
+  return `${visible}
+    <a href="https://wa.me/${internacional}" target="_blank" rel="noopener"
+       class="enlace-whatsapp" title="Escribir por WhatsApp a este número"
+       aria-label="Escribir por WhatsApp">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.04-.98.22-3.3-.69-2.79-1.1-4.55-3.96-4.69-4.14-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34.18 0 .36 0 .52.01.17.01.39-.06.61.47.24.55.8 1.9.87 2.04.07.14.12.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.61-.07.17-.19.7-.82.89-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/>
+      </svg>
+    </a>`;
+}
+
 /** Quita el mensaje de error (si lo había) y el resaltado rojo de un campo de teléfono. */
 function ocultarErrorTelefono(input) {
   input.style.borderColor = '';

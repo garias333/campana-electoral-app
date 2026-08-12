@@ -33,7 +33,8 @@
     <div class="card" id="crm-config-card" style="display:none;">
       <h3 style="margin-top:0;">Credenciales de SendGrid y Twilio</h3>
       <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
-        Estas credenciales alimentan CRM y Mensajes (Email vía SendGrid) y Enviar SMS (vía Twilio). Se guardan en esta base de datos, no en el servidor — así se pueden actualizar desde acá sin necesitar acceso por SSH.
+        Estas credenciales alimentan CRM y Mensajes (Email vía SendGrid) y el <strong>respaldo</strong> de SMS (Twilio). Se guardan en esta base de datos, no en el servidor — así se pueden actualizar desde acá sin necesitar acceso por SSH.
+        <br><strong>Los SMS salen por Onurix.</strong> Lo normal es dejar esos dos campos vacíos: se usa la cuenta del proveedor del servicio y cada campaña gasta de sus <strong>créditos</strong>, cuyo saldo aparece más abajo en Estado de los canales. Llénalos solo si la campaña trae su propia cuenta de Onurix.
         <br><strong>Nota:</strong> los campos de clave/token se muestran enmascarados una vez guardados, por seguridad. Si los dejas tal cual (con los puntos), se conserva el valor que ya tenías — solo se reemplaza si escribes uno nuevo.
       </p>
       <div id="comunicaciones-error" class="mensaje-error"></div>
@@ -55,7 +56,30 @@
           <input id="comunicaciones-sendgrid-from-name" placeholder="Estrategia - Campaña">
         </div>
 
-        <h4 style="margin-bottom:6px; margin-top:20px;">Twilio (SMS)</h4>
+        <h4 style="margin-bottom:6px; margin-top:20px;">Onurix (SMS)</h4>
+        <p style="color:var(--color-text-muted); font-size:0.8rem; margin:0 0 10px;">
+          <strong id="onurix-cual">Esta campaña usa la cuenta del proveedor del servicio.</strong>
+          Déjalos vacíos para seguir así — es lo normal, y lo que descuenta los créditos de la campaña.
+          Solo llénalos si la campaña tiene <em>su propia</em> cuenta de Onurix; en ese caso los envíos
+          salen por ella. Ojo: Onurix solo acepta peticiones desde una IP registrada en su portal.
+        </p>
+        <div class="fila">
+          <div class="campo">
+            <label>Número de cliente</label>
+            <input id="comunicaciones-onurix-client" placeholder="Vacío = cuenta del proveedor" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label>Llave (key)</label>
+            <input id="comunicaciones-onurix-key" placeholder="Tu llave de Onurix" autocomplete="off">
+          </div>
+        </div>
+
+        <h4 style="margin-bottom:6px; margin-top:20px;">Twilio (respaldo de SMS)</h4>
+        <p style="color:var(--color-text-muted); font-size:0.8rem; margin:0 0 10px;">
+          Solo se usa si el envío por Onurix falla, y únicamente cuando el respaldo está
+          habilitado en el servidor. Dejar esto vacío no impide enviar SMS: significa que no
+          hay segundo intento.
+        </p>
         <div class="fila">
           <div class="campo">
             <label>Account SID</label>
@@ -92,9 +116,9 @@
 
       <h3 style="margin:24px 0 6px;">Enviar un mensaje de prueba</h3>
       <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
-        <strong>Ojo:</strong> el mensaje se envía de verdad. El SMS consume saldo de tu cuenta de Twilio
-        y llega al número que escribas. Si algo falla, acá vas a ver el error exacto que devuelve
-        Twilio o SendGrid, que es lo que hace falta para saber qué corregir.
+        <strong>Ojo:</strong> el mensaje se envía de verdad. El SMS <strong>consume un crédito de la
+        campaña</strong> y llega al número que escribas. Si algo falla, acá vas a ver el error exacto
+        que devuelve el proveedor, que es lo que hace falta para saber qué corregir.
       </p>
       <div id="prueba-error" class="mensaje-error"></div>
       <div id="prueba-ok" class="mensaje-ok"></div>
@@ -129,6 +153,15 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-twilio-token').value = c.twilio_auth_token_mascara || '';
   document.getElementById('comunicaciones-twilio-token').dataset.mascara = c.twilio_auth_token_mascara || '';
   document.getElementById('comunicaciones-twilio-sms').value = c.twilio_sms_from || '';
+  document.getElementById('comunicaciones-onurix-client').value = c.onurix_client || '';
+  document.getElementById('comunicaciones-onurix-key').value = c.onurix_key_mascara || '';
+  document.getElementById('comunicaciones-onurix-key').dataset.mascara = c.onurix_key_mascara || '';
+  // Decir CUAL cuenta se esta usando. Sin esto, dos campos vacios se leen
+  // como "el SMS no esta configurado", cuando es justo lo contrario: esta
+  // usando la cuenta del proveedor, que es lo normal.
+  document.getElementById('onurix-cual').textContent = c.onurix_propio
+    ? 'Esta campaña tiene su propia cuenta de Onurix.'
+    : 'Esta campaña usa la cuenta del proveedor del servicio.';
 }
 
 // Si el campo secreto se quedó tal cual estaba (mostrando la máscara),
@@ -155,7 +188,9 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         sendgrid_from_name: document.getElementById('comunicaciones-sendgrid-from-name').value.trim(),
         twilio_account_sid: valorSecretoOVacio('comunicaciones-twilio-sid'),
         twilio_auth_token: valorSecretoOVacio('comunicaciones-twilio-token'),
-        twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim()
+        twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim(),
+        onurix_client: document.getElementById('comunicaciones-onurix-client').value.trim(),
+        onurix_key: valorSecretoOVacio('comunicaciones-onurix-key')
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }
@@ -185,9 +220,27 @@ async function cargarEstadoCanales() {
       <span class="badge ${info.configurado ? 'badge-confirmado' : 'badge-no_apoya'}">
         <span class="punto"></span>${nombre}: ${info.configurado ? 'listo' : 'sin configurar'}
       </span>`;
-    contenedor.innerHTML = pinta('Correo', estado.email) + pinta('SMS', estado.sms);
+    // El SMS lleva el nombre del proveedor pegado: si algún día el envío sale
+    // por el respaldo, esta pantalla tiene que decirlo y no quedarse en "listo".
+    const nombreSms = estado.sms && estado.sms.proveedor
+      ? `SMS (${estado.sms.proveedor})` : 'SMS';
+    contenedor.innerHTML = pinta('Correo', estado.email) + pinta(nombreSms, estado.sms);
+
+    // Los créditos son lo que de verdad limita a una campaña, y no se pueden
+    // recargar desde acá: el saldo vive en el servidor de licencias. Verlo
+    // aquí evita la llamada de "no me llegan los mensajes" cuando lo que pasa
+    // es que se acabaron.
+    const s = estado.sms && estado.sms.saldo;
+    const lineas = [];
+    if (s) {
+      lineas.push(`Créditos de SMS: ${s.disponibles} disponibles de ${s.asignados}.`
+        + (s.limiteDiario > 0 ? ` Límite diario: ${s.limiteDiario}, hoy van ${s.consumidoHoy}.` : '')
+        + (s.activo ? '' : ' El canal está desactivado para esta campaña.'));
+    } else if (estado.sms && estado.sms.configurado) {
+      lineas.push('Esta campaña todavía no tiene créditos de SMS asignados.');
+    }
     const faltantes = [estado.email, estado.sms].filter(x => x && x.motivo).map(x => x.motivo);
-    motivos.textContent = faltantes.join(' ');
+    motivos.textContent = lineas.concat(faltantes).join(' ');
   } catch (err) {
     contenedor.innerHTML = '';
     motivos.textContent = 'No se pudo consultar el estado de los canales: ' + err.message;

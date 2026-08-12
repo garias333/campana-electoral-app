@@ -534,6 +534,12 @@ CREATE TABLE IF NOT EXISTS configuracion_comunicaciones (
   twilio_auth_token VARCHAR(100) NULL,
   twilio_sms_from VARCHAR(30) NULL,
   twilio_whatsapp_from VARCHAR(40) NULL,
+  -- Onurix es el proveedor principal de SMS. Normalmente estas dos quedan
+  -- VACIAS y se usa la cuenta maestra del .env del servidor, que es el
+  -- modelo: una sola cuenta y creditos repartidos por campaña. Solo se
+  -- llenan si una campaña trae su PROPIA cuenta de Onurix.
+  onurix_client VARCHAR(50) NULL,
+  onurix_key VARCHAR(255) NULL,
   actualizado_por INT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
