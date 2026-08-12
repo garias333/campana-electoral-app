@@ -627,4 +627,78 @@ CREATE TABLE IF NOT EXISTS contenido_paginas (
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ---------------------------------------------------------
+-- Mensajería directa: bitácora, exclusiones y ajustes del canal SMS
+--
+-- POR QUÉ ESTÁN AQUÍ Y NO EN UN .sql APARTE
+--   Estaban en sql/migracion-sms-campana.sql, que se corría a mano. Eso
+--   funciona para las bases que ya existen, pero `generar-parche.js` rechaza
+--   los .sql fuera de db/, así que una campaña NUEVA nacía sin estas tablas y
+--   el canal fallaba en cada envío. El esquema de la campaña se crea aquí.
+--
+-- LOS CRÉDITOS NO ESTÁN AQUÍ, Y ES A PROPÓSITO.
+--   El saldo vive en la base central de licencias (sms_cuota,
+--   sms_consumo_diario, sms_movimientos), donde la campaña no lo puede
+--   editar. Esta base solo guarda QUÉ se envió. Ver
+--   sql/migracion-sms-licencias.sql y sql/usuario-sms-ledger.sql.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sms_envios (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  destino VARCHAR(20) NOT NULL COMMENT 'Normalizado: 573001234567',
+  contacto_id BIGINT UNSIGNED NULL,
+  mensaje TEXT NOT NULL,
+  segmentos SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  codificacion ENUM('gsm7','ucs2') NOT NULL DEFAULT 'gsm7',
+  proveedor VARCHAR(20) NULL COMMENT 'onurix | twilio | NULL si no se intentó — un mensaje rechazado por la lista de baja o por falta de créditos nunca llegó a tener proveedor, y con NOT NULL ese INSERT muere después de devolver el crédito',
+  proveedor_id VARCHAR(128) NULL COMMENT 'Id del mensaje en el proveedor',
+  proveedor_lote_id VARCHAR(128) NULL COMMENT 'Id del despacho. Onurix devuelve dos ids y su consulta de estado solo acepta ÉSTE: con el del mensaje responde [] (medido el 12-ago-2026). Twilio deja esta columna en NULL',
+  fallback_desde VARCHAR(20) NULL,
+  estado ENUM('pendiente','aceptado','entregado','fallido','rechazado') NOT NULL DEFAULT 'pendiente',
+  estado_proveedor VARCHAR(40) NULL COMMENT 'El estado tal como lo escribe el proveedor, sin traducir. Onurix usa palabras en español ("Enviado") y no documenta la lista; guardarlo crudo es como se aprende su vocabulario en vez de adivinarlo',
+  error_codigo VARCHAR(32) NULL,
+  error_mensaje VARCHAR(255) NULL,
+  origen VARCHAR(64) NULL,
+  lote_id VARCHAR(64) NULL,
+  usuario_id BIGINT UNSIGNED NULL,
+  consentimiento TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Ley 1581: se copia al momento del envío',
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sms_destino (destino),
+  INDEX idx_sms_estado (estado),
+  INDEX idx_sms_lote (lote_id),
+  INDEX idx_sms_fecha (creado_en),
+  INDEX idx_sms_proveedor_id (proveedor_id),
+  INDEX idx_sms_lote_proveedor (proveedor_lote_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Números que pidieron no recibir más mensajes POR FUERA de la aplicación:
+-- una queja al operador, una solicitud de alguien que no está registrado.
+-- La baja de una persona registrada NO va aquí: va en `no_contactar` de
+-- votantes y usuarios, que es la lista que consulta el envío. Tener dos
+-- listas que decidan lo mismo sería que una diga sí y la otra no.
+CREATE TABLE IF NOT EXISTS sms_exclusiones (
+  destino VARCHAR(20) PRIMARY KEY,
+  motivo VARCHAR(128) NULL,
+  origen VARCHAR(64) NULL,
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Ajustes del canal que la campaña SÍ puede tocar. Las credenciales no están
+-- aquí: van en configuracion_comunicaciones (las de la campaña) o en el .env
+-- del servidor (la cuenta maestra).
+CREATE TABLE IF NOT EXISTS sms_config (
+  id TINYINT UNSIGNED PRIMARY KEY DEFAULT 1,
+  firma VARCHAR(40) NULL COMMENT 'La firma que el proveedor agrega a cada mensaje por exigencia de la CRC. NO la escribe esta aplicación: se guarda para poder CONTAR lo que ocupa, porque le resta caracteres al segmento',
+  firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final',
+  url_baja_base VARCHAR(255) NULL,
+  forzar_gsm7 TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Quita tildes antes de enviar: una sola tilde baja el límite de 160 a 70 caracteres y puede triplicar el costo',
+  horario_inicio TINYINT UNSIGNED NOT NULL DEFAULT 8,
+  horario_fin TINYINT UNSIGNED NOT NULL DEFAULT 20,
+  proveedor_preferido VARCHAR(20) NOT NULL DEFAULT 'onurix',
+  actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT chk_sms_config_unica CHECK (id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT IGNORE INTO sms_config (id) VALUES (1);
+
 SET FOREIGN_KEY_CHECKS = 1;

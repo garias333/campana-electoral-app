@@ -104,10 +104,10 @@ const CFG_CACHE_MS = 60000;
  * recibido la migración— devuelve los valores por defecto en vez de tumbar el
  * envío: el canal tiene que poder arrancar antes que su tabla de ajustes.
  *
- * OJO, y conviene no olvidarlo: de esa tabla hoy solo se aplican `forzar_gsm7`
- * y `proveedor_preferido`. Las columnas `firma`, `url_baja_base`,
- * `horario_inicio` y `horario_fin` NO las lee nadie todavía — están creadas,
- * pero un mensaje se manda a las 3 de la mañana si alguien lo dispara.
+ * De esa tabla se aplican `forzar_gsm7`, `proveedor_preferido` y la franja
+ * horaria (`horario_inicio`/`horario_fin`). Las que siguen SIN leer son
+ * `firma` —se llenará cuando se mida cómo llega la firma del proveedor, para
+ * poder descontar lo que ocupa— y `url_baja_base`.
  */
 async function configCampana() {
   const ahora = Date.now();
@@ -135,9 +135,45 @@ async function configCampana() {
     proveedorPreferido: forzadoNone
       ? 'none'
       : ((fila && fila.proveedor_preferido) || process.env.SMS_PROVIDER || 'onurix'),
+    horarioInicio: fila && fila.horario_inicio !== null ? Number(fila.horario_inicio) : 8,
+    horarioFin: fila && fila.horario_fin !== null ? Number(fila.horario_fin) : 20,
   };
   cfgCacheEn = ahora;
   return cfgCache;
+}
+
+// ---------------------------------------------------------------------------
+// Franja horaria permitida
+// ---------------------------------------------------------------------------
+
+/**
+ * La hora en Colombia, que NO es la del servidor.
+ *
+ * Este servidor corre en UTC y Colombia está en UTC-5 todo el año (no hay
+ * horario de verano). Sin restar esas cinco horas, un envío a las 20:30 de
+ * Colombia se vería como la 01:30 del día siguiente y quedaría fuera de la
+ * franja por un error de zona horaria, no por la regla. Es el mismo cuidado
+ * que ya tiene la programación de envíos del CRM.
+ */
+function horaColombia(ahora = new Date()) {
+  return new Date(ahora.getTime() - 5 * 60 * 60 * 1000).getUTCHours();
+}
+
+/**
+ * ¿Se puede enviar mensajería de campaña en este momento?
+ *
+ * NO ES UNA REGLA NUESTRA: Onurix rechaza la mensajería promocional fuera de
+ * 08:00–20:00 con el error 1015, «Hora fuera del intervalo valido». Antes de
+ * esta guarda, un envío nocturno salía, lo rechazaba el proveedor y quien lo
+ * mandó veía un error del que no podía deducir nada. Ahora se dice antes, con
+ * las horas puestas.
+ *
+ * Las horas salen de sms_config, que hasta hoy nadie leía.
+ */
+function dentroDeFranja(cfg, ahora = new Date()) {
+  const h = horaColombia(ahora);
+  // El fin es la hora en que YA NO se envía: con 20, las 20:30 quedan fuera.
+  return h >= cfg.horarioInicio && h < cfg.horarioFin;
 }
 
 function invalidarCache() {
@@ -246,6 +282,22 @@ async function enviarSMS(telefono, mensaje, statusCallbackUrl, opciones = {}) {
   const destino = normalizarCelular(telefono);
   if (!destino) throw new Error('Número de teléfono no válido.');
 
+  // La franja NO se le aplica a los mensajes operativos, y es deliberado.
+  // El código de la Torre de acceso es el caso: alguien que entra a las 21:00
+  // necesita su código, y bloquearlo aquí lo dejaría fuera de su propia
+  // campaña. Si Onurix lo rechaza por su cuenta, el crédito se devuelve, el
+  // error queda legible y todavía le queda entrar con contraseña.
+  if (!opciones.operativo) {
+    const cfg = await configCampana();
+    if (!dentroDeFranja(cfg)) {
+      const err = new Error(
+        `Fuera del horario permitido para mensajería de campaña (${cfg.horarioInicio}:00 a ${cfg.horarioFin}:00, hora de Colombia). `
+        + 'El proveedor rechaza los envíos promocionales fuera de esa franja.');
+      err.codigo = 'FUERA_DE_FRANJA';
+      throw err;
+    }
+  }
+
   if (!opciones.operativo && await estaDadoDeBaja(destino)) {
     const err = new Error('Esta persona pidió no recibir más mensajes.');
     err.codigo = 'DADO_DE_BAJA';
@@ -303,9 +355,15 @@ async function estadoCanal() {
   try { saldo = await consultarSaldo(); }
   catch (e) { error = e.message; }   // el ledger es otra base: puede no responder
 
+  const enFranja = dentroDeFranja(cfg);
   return {
     configurado: true,
+    // `motivo` sigue siendo null: el canal SÍ está configurado. Estar fuera de
+    // la franja no es un defecto de configuración, es la hora que es — por eso
+    // va en su propio campo y no marca el canal como roto.
     motivo: null,
+    enFranja,
+    franja: { inicio: cfg.horarioInicio, fin: cfg.horarioFin },
     proveedor: cfg.proveedorPreferido,
     respaldo: process.env.SMS_FALLBACK_PROVIDER || null,
     campanaId: CAMPANA_ID,
@@ -314,4 +372,9 @@ async function estadoCanal() {
   };
 }
 
-module.exports = { enviarSMS, estadoCanal, consultarSaldo, estaDadoDeBaja, invalidarCache, CAMPANA_ID };
+module.exports = {
+  enviarSMS, estadoCanal, consultarSaldo, estaDadoDeBaja, invalidarCache, CAMPANA_ID,
+  // Se exportan para que el CRM pueda preguntar ANTES de arrancar una campaña
+  // entera, en vez de descubrirlo destinatario por destinatario.
+  dentroDeFranja, configCampana, horaColombia,
+};

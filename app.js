@@ -165,6 +165,12 @@ comunicacionesRouter.reanudarCampanasPendientes();
 comunicacionesRouter.despacharCampanasProgramadas();
 setInterval(() => comunicacionesRouter.despacharCampanasProgramadas(), 60 * 1000).unref();
 
+// Estados de los SMS: Onurix no avisa cuando un mensaje se entrega, hay que
+// preguntarle. Se revisa al arrancar y luego cada cinco minutos — cada vuelta
+// son hasta 40 peticiones a un tercero, así que no tiene sentido el ritmo de
+// un minuto que sí tienen las campañas programadas.
+require('./config/reconciliadorSms').iniciar();
+
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
 app.use('/uploads', requireAuth, express.static(path.join(__dirname, 'uploads')));

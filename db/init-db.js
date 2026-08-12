@@ -1269,6 +1269,20 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
     'onurix_key VARCHAR(255) NULL AFTER onurix_client', 'onurix_key');
 
+  // Las tablas del canal SMS las crea schema.sql, pero con CREATE TABLE IF NOT
+  // EXISTS: en una base que YA las tiene —las que recibieron la migración a
+  // mano— no cambia nada. Las columnas que se agregaron después van por aquí.
+  await agregarColumnaSiFalta(connection, 'sms_envios',
+    'proveedor_lote_id VARCHAR(128) NULL AFTER proveedor_id', 'proveedor_lote_id');
+  await agregarColumnaSiFalta(connection, 'sms_envios',
+    'estado_proveedor VARCHAR(40) NULL AFTER estado', 'estado_proveedor');
+  await agregarColumnaSiFalta(connection, 'sms_config',
+    "firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final' AFTER firma", 'firma_posicion');
+  // `proveedor` nació NOT NULL y tiene que admitir NULL: un mensaje rechazado
+  // por la lista de baja o por falta de créditos nunca llegó a tener uno, y
+  // con NOT NULL ese INSERT muere DESPUÉS de haber devuelto el crédito.
+  await modificarColumna(connection, 'sms_envios', 'proveedor VARCHAR(20) NULL');
+
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
 

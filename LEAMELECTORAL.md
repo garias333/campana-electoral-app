@@ -1,9 +1,9 @@
-# Estado de la sesión — 7 y 8 de agosto de 2026
+# Estado de la sesión — del 7 al 12 de agosto de 2026
 
 Documento de traspaso para continuar el trabajo desde otro equipo.
 **Todos los datos de aquí fueron verificados contra el servidor y la base**,
-no reconstruidos de memoria. Última actualización: 8 de agosto de 2026 (noche),
-después del parche 11.
+no reconstruidos de memoria. Última actualización: 12 de agosto de 2026,
+después de migrar los SMS de Twilio a Onurix (sección 4.ll).
 
 > **Para retomar:** abrir Claude Code en
 > `/home/appestrategia-electoral/htdocs/electoral.appestrategia.net` y pedirle
@@ -137,8 +137,10 @@ campaña; el cron de las 3 a.m. es el respaldo.
 | 22 | Plantillas visibles y la pantalla «Aviso en la app» | no | aplicado en las 2 campañas |
 | 23 | Torre de acceso: ingreso por código | no | aplicado en las 2 campañas |
 
-**El siguiente número libre es el 24 — pero PREGÚNTESELO AL CATÁLOGO, no a
-esta tabla.** Sobre este repositorio trabaja más de una línea a la vez: el
+**El siguiente número libre es el 28 — pero PREGÚNTESELO AL CATÁLOGO, no a
+esta tabla.** (Medido el 12 de agosto: las dos campañas van en el **27**. Los
+parches 24 a 27 los publicó otra línea de trabajo y no figuran en esta tabla.
+Es exactamente el desfase que este párrafo advierte, ocurrido otra vez.) Sobre este repositorio trabaja más de una línea a la vez: el
 9 de agosto esta tabla iba por el 17 mientras las campañas ya estaban en el
 21, publicados por la auditoría de `AUDITORIA.md`. Generar «el siguiente»
 según este documento habría chocado con un número ya usado (ver 4.kk):
@@ -1821,7 +1823,135 @@ archivos idénticos** en cada campaña, `enviar-push.html` ya responde 200
 donde antes daba 404, y la torre responde su mensaje único en las dos.
 
 **Las dos campañas quedan en el parche 23. El siguiente número libre es el
-24.** Y la lección para la próxima: **antes de generar, preguntarle el
+24.** *(Desactualizado: el 12 de agosto de 2026 estaban en el **27**.)* Y la lección para la próxima: **antes de generar, preguntarle el
 número al catálogo, no a este documento** — hay más de una mano sobre el
 mismo repositorio.
 
+
+### ll) Los SMS pasaron de Twilio a Onurix (12 de agosto)
+
+Migración completa del canal de SMS. **Todo esto está hecho y desplegado en
+electoral; las dos campañas siguen con Twilio** hasta que viaje un parche —y
+ese parche no conviene generarlo todavía: ver «Lo que falta» al final.
+
+**La forma, en tres capas que a propósito no se conocen:**
+
+| Archivo | Qué sabe |
+|---|---|
+| `lib/sms.js` | Transportar (Onurix, Twilio de respaldo). Nada de bases de datos |
+| `lib/sms-cuota.js` | Créditos y bitácora. Genérico: recibe los pools por parámetro |
+| `config/sms.js` | Lo único que sabe de campana-app: los pools, quién es la campaña y quién pidió no recibir mensajes |
+
+`config/sms.js` **conserva la firma de la función de Twilio** —
+`(telefono, mensaje, statusCallbackUrl)` devolviendo `{ sid }`— para que los
+tres sitios que enviaban cambiaran una línea y no su lógica: el CRM, el código
+de la Torre de acceso y el envío de prueba. Ya **nadie requiere
+`config/twilio.js`**, y su encabezado lo dice para que nadie corrija ahí.
+
+**El saldo vive en OTRA base, y esa es la decisión de fondo.** El modelo es una
+cuenta maestra de Onurix y créditos revendidos por campaña, así que el ledger
+(`sms_cuota`, `sms_consumo_diario`, `sms_movimientos`) está en `licenciasdb`,
+donde el cliente no lo puede editar. La campaña se conecta con una cuenta
+propia, `smsledger@'localhost'`, que:
+
+- alcanza **tres tablas**, no la base entera —`licenciasdb` también tiene
+  `admins` con los hash del panel y las claves de licencia—;
+- tiene el `UPDATE` recortado **por columna**: puede descontar
+  `creditos_consumidos`, **no** subirse `creditos_asignados`;
+- es `@'localhost'` y no `@'%'` como las demás cuentas, porque
+  `bind_address = *`: MySQL escucha en todas las interfaces.
+
+Comprobado con **16 casos, diez de ellos negativos** — los dos que dan
+`ER_COLUMNACCESS_DENIED_ERROR` son el corazón del asunto: con permiso de tabla
+en vez de columna, la campaña podría regalarse saldo y separar las bases no
+habría servido de nada.
+
+**Una sola lista de baja.** El canal consulta `no_contactar` de `votantes` y
+`usuarios` —la del parche 14— y **no** la tabla `sms_exclusiones` que traía el
+módulo de cuota. Dos listas para lo mismo significan que alguien dado de baja
+en una pantalla igual recibe el mensaje por el otro camino. Los mensajes
+**operativos** (el código de acceso, el envío de prueba) no la consultan, pero
+sí consumen crédito: cuestan igual.
+
+**Lo que se aprendió usando el canal de verdad, que es casi todo:**
+
+- **La cuenta estaba en modo demo** y Onurix anteponía `ONURIX.COM SMS DEMO: `
+  a cada mensaje. Además de cómo se ve, son 21 caracteres que empujan al
+  segundo segmento y **duplican el costo** sin avisar.
+- **Al salir del demo apareció el 1077**, «Firma SMS no configurada segun
+  normatividad CRC». El prefijo de demo estaba haciendo de firma. La firma se
+  registra en el portal de Onurix con un formulario, y **al 12 de agosto sigue
+  pendiente de que ellos la activen**: todo envío responde 1077.
+- **Una tilde en la firma habría triplicado el costo de la campaña entera.**
+  La firma propuesta era `Estrategia | Marketing Político`. La `í` saca el
+  mensaje del alfabeto GSM-7 y baja el límite de 160 a 70 caracteres: un
+  mensaje del Día D de 120 caracteres pasaba de **1 segmento a 3**. Con 300
+  destinatarios, 900 créditos contra 300. Se registró
+  `Estrategia - Marketing Politico` (sin tilde, y con guion: la barra `|` está
+  en la tabla de extensión y cuesta dos unidades). Es la misma regla que ya
+  estaba escrita: **la `ñ` no encarece; la que rompe es la `á`**.
+- **Onurix no avisa cuando un mensaje se entrega.** Sus webhooks son de
+  WhatsApp; para SMS solo hay una consulta. Y devuelve **dos identificadores**
+  —el del mensaje y el del despacho— de los que sólo se guardaba el primero.
+  Medido contra un mensaje real: la consulta con el id del mensaje responde
+  `[]`, la del despacho responde. De ahí la columna `proveedor_lote_id`.
+- **Onurix rechaza la mensajería promocional fuera de 08:00–20:00** (error
+  1015). Las columnas `horario_inicio`/`horario_fin` de `sms_config` existían
+  y no las leía nadie; ahora sí. La hora se calcula **en Colombia**, no en el
+  servidor, que está en UTC.
+
+**`SMS_PROVIDER=none` es un interruptor de seguridad y gana sobre la base.**
+Se aprendió mandando un SMS real a un número inventado: la prueba puso
+`none` en el entorno creyendo que bastaba, pero `config/sms.js` prefería el
+valor de `sms_config` y el mensaje salió de verdad. La preferencia normal
+sigue siendo la contraria —la base manda—; `none` es la excepción, porque
+**apagar tiene que ser más fácil que encender**.
+
+**El reconciliador de estados es conservador a propósito.**
+`config/reconciliadorSms.js` corre al arrancar y cada cinco minutos, pregunta
+por hasta 40 mensajes en «aceptado» y:
+
+- guarda **siempre** el estado crudo en `sms_envios.estado_proveedor`;
+- mueve `estado` sólo con una palabra reconocida;
+- ante una desconocida **no cambia nada** y la anota una vez en el registro.
+
+Onurix no documenta sus estados y el único observado es «Enviado» —que
+significa que salió, no que llegó—. Adivinar aquí sería marcar «entregado»
+algo que nunca llegó, y un reporte que miente se cree.
+
+**WhatsApp: por enlace, no por API.** Se llegó a construir el canal por la API
+de Onurix y **se desmontó** el mismo día, por decisión del usuario. Lo que
+quedó es un enlace `wa.me` en la celda de teléfono de Votantes, Estructura,
+Testigos y Asistentes: abre WhatsApp Web con el chat listo y escribe la
+persona desde su propia cuenta. No cuesta créditos, no pasa por ningún
+proveedor y no entra en la política de contenido de Meta. Es el patrón que la
+app móvil ya usaba en «Mis registros». (La API exigía plantillas aprobadas por
+Meta: no se puede escribir texto libre salvo que la persona escriba primero.)
+
+**Lo que falta, en orden:**
+
+1. **Que Onurix active la firma.** Hasta entonces todo envío responde 1077 —y
+   el crédito se devuelve solo, comprobado dos veces en fallos reales.
+2. **Medir cómo llega la firma** en un mensaje real: si va pegada al final con
+   un espacio o con salto de línea. Con ese dato hay que descontar lo que
+   ocupa en el contador de segmentos del CRM y en la reserva de créditos —hoy
+   los dos cuentan sólo lo que uno escribe, así que dirían «1 SMS» mientras
+   Onurix cobra 2, y el ledger quedaría corto contra el consumo real. La
+   columna `sms_config.firma` existe para eso: **no para escribir la firma**
+   (la pone el proveedor), sino para contarla.
+3. **El parche a las campañas.** Lleva unos 14 archivos, y además:
+   - Las **7 variables** nuevas del `.env` de cada campaña (`SMS_LEDGER_*`,
+     `SMS_CAMPANA_ID`, `ONURIX_CLIENT/KEY`, `SMS_PROVIDER`), que hay que
+     escribir a mano porque el `.env` nunca viaja, y después el **ciclo
+     completo de PM2**.
+   - Una **fila de cuota** por campaña en el ledger. Hoy sólo existe
+     `ramos2027`, la de prueba.
+   - Las tablas ya no son problema: desde hoy están en `db/schema.sql` y sus
+     columnas nuevas se migran en `db/init-db.js`, así que viajan solas.
+4. **Decidir `SMS_FALLBACK_PROVIDER`**, hoy vacío: sin respaldo. Ponerle
+   `twilio` hace que un fallo de Onurix gaste saldo de Twilio.
+
+**Archivos nuevos:** `lib/sms.js`, `lib/sms-cuota.js`, `config/sms.js`,
+`config/reconciliadorSms.js`, `sql/migracion-sms-licencias.sql`,
+`sql/usuario-sms-ledger.sql`. **Commits:** `db65b30` y `71247db`, en la rama
+`auditoria-fable`.

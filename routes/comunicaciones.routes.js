@@ -1011,6 +1011,16 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     if (!estado.configurado) {
       return res.status(400).json({ error: estado.motivo || `El canal ${canal} todavía no está configurado.` });
     }
+    // La franja se pregunta UNA vez, aquí, y no destinatario por destinatario:
+    // el proveedor rechaza la mensajería promocional fuera de 08:00-20:00, y
+    // enterarse en el envío número 1 de 300 deja la campaña a medias, con la
+    // mitad de la gente sin mensaje y el reporte lleno de fallidos.
+    if (!estado.enFranja && !req.body.programado_para) {
+      return res.status(400).json({
+        error: `Fuera del horario permitido para SMS (${estado.franja.inicio}:00 a ${estado.franja.fin}:00, hora de Colombia). `
+             + 'Puede programar el envío para mañana dentro de ese rango.'
+      });
+    }
   }
   if (canal === 'email') {
     const estado = await sendgridSvc.estadoCanal();
