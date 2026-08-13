@@ -275,16 +275,21 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 .btn-acento.btn-sm { font-size: 0.95rem; }
 /* Botón secundario: el de las barras de acciones de toda la aplicación
    (Exportar, Gestionar territorios, Re-geocodificar, Eliminar, …).
-   Amarillo de marca con letra y borde azul: 5,8:1 de contraste, por encima
-   del mínimo de 4,5. El azul es #084298, el mismo del hover del botón
-   primario, así que no entra un color nuevo al sistema. */
+   Azul de marca con letra blanca — 5,8:1 de contraste, sobre el mínimo de
+   4,5. Es --color-marca, que el sistema ya usaba en los títulos de
+   apartado, así que no entra ningún color nuevo.
+
+   OJO: queda IGUAL que .btn-primario. La jerarquía entre «la acción
+   principal de esta pantalla» y «las de la barra» ya no se ve por color;
+   si algún día se quiere recuperar, lo natural es dejar el secundario en
+   contorno (fondo blanco, borde y letra azules) y el primario relleno. */
 .btn-secundario {
-  background: var(--color-accent);
-  border-color: #084298;
-  color: #084298;
+  background: var(--color-marca);
+  border-color: var(--color-marca);
+  color: #fff;
   font-weight: 600;
 }
-.btn-secundario:hover { background: #E6AF00; border-color: #063573; color: #063573; }
+.btn-secundario:hover { background: #084298; border-color: #084298; color: #fff; }
 /* Cualquier botón/enlace relacionado con Excel (exportar o importar) en
    toda la aplicación — fondo verde claro y borde delgado verde oscuro,
    para reconocerlos de un vistazo. */

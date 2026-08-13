@@ -38,9 +38,9 @@ function pagina({ titulo, cuerpo, boton }) {
           box-shadow: 0 10px 34px rgba(16,35,63,.12); text-align: center; }
   h1 { font-size: 1.25rem; color: #10233F; margin: 0 0 12px; }
   p { font-size: 1rem; line-height: 1.55; color: #5B6472; margin: 0 0 18px; }
-  button { background: #FFC300; color: #10233F; border: 0; border-radius: 9px;
+  button { background: #0B5ED7; color: #fff; border: 0; border-radius: 9px;
            font-size: 1rem; font-weight: 700; padding: 13px 26px; cursor: pointer; width: 100%; }
-  button:hover { background: #E6AF00; }
+  button:hover { background: #084298; }
   .ok { color: #1E6B44; font-weight: 600; }
 </style></head><body><div class="caja">
 <h1>${titulo}</h1><p>${cuerpo}</p>${boton || ''}

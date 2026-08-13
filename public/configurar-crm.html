@@ -148,32 +148,12 @@
 #crm-config-bloqueado h3 { font-size: 1.25rem; }
 #crm-config-bloqueado p { font-size: 1rem; }
 
-/* --- Botones en el amarillo de la marca --------------------------------
-   #FFC300 es --color-accent, el único amarillo de la aplicación: se toma de
-   la variable y no se escribe a mano, para que siga habiendo uno solo.
-   El texto va en AZUL MARINO y no en blanco: sobre este amarillo el blanco
-   no se lee. style.css ya advierte lo simétrico —que el acento oscuro es el
-   que sirve como texto sobre blanco— y aquí el amarillo es el fondo.
-   La regla lleva el id de la tarjeta delante, así que gana por especificidad
-   sin necesitar !important y no toca los botones del resto de la app. */
-/* Solo los PRIMARIOS de esta pantalla: los secundarios ya son amarillos en
-   toda la aplicación desde style.css, y repetir la regla aquí sería tener dos
-   sitios que decir lo mismo. El par de colores es el mismo del resto. */
+/* Los botones no llevan regla propia en esta pantalla: el primario y el
+   secundario ya son azules en style.css, y repetirlo aquí sería un segundo
+   sitio donde decir lo mismo. Solo se conserva el tamaño, que sí es de esta
+   pantalla —aquí se leen credenciales de cerca—. */
 #crm-config-card .btn-primario,
-#crm-config-bloqueado .btn-primario {
-  background: var(--color-accent);
-  border-color: #084298;
-  color: #084298;
-  font-weight: 700;
-  font-size: 1rem;
-  padding: 11px 22px;
-}
-#crm-config-card .btn-primario:hover,
-#crm-config-bloqueado .btn-primario:hover {
-  background: #E6AF00;
-  border-color: #063573;
-  color: #063573;
-}
+#crm-config-bloqueado .btn-primario { font-size: 1rem; padding: 11px 22px; }
 </style>
 </head>
 <body>
