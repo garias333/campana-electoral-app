@@ -340,8 +340,21 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
     // (varchar(30)) y el mismo número está escrito de mil formas: con +57,
     // sin él, con espacios o guiones. Comparar la cadena tal cual no cruza.
     //
-    // Si dos cuentas comparten teléfono NO se manda nada: el código da acceso,
-    // y elegir "la primera" sería dejar entrar a la cuenta equivocada.
+    // Si dos cuentas comparten teléfono, primero se DESEMPATA por rol: solo
+    // admin, coordinador y asistente administrativo entran con código, y en la
+    // práctica el número de un administrador suele estar además en su ficha de
+    // líder o de votante. Medido el 13 de agosto de 2026 en la campaña
+    // municipal: el teléfono del administrador estaba en dos cuentas —la suya
+    // y una de líder—, así que la torre se detenía sin mandar nada y sin dejar
+    // rastro, y desde afuera se veía igual que un SMS que no llega.
+    //
+    // Desempatar así NO revela nada de más: la respuesta al navegador es la
+    // misma pase lo que pase. Si tras el filtro sigue habiendo más de una
+    // cuenta con acceso, ahí sí no se manda: elegir "la primera" sería dejar
+    // entrar a la cuenta equivocada, y eso es peor que no entrar.
+    //
+    // El LIMIT sube de 2 a 5 porque con dos filas no se puede desempatar: hay
+    // que ver todas las candidatas para saber cuántas tienen acceso.
     let usuario = null;
     const digitos = buscado.replace(/\D/g, '');
     if (via === 'sms' && digitos.length >= 10) {
@@ -350,11 +363,24 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
            FROM usuarios u JOIN roles r ON r.id = u.rol_id
           WHERE u.telefono IS NOT NULL AND u.telefono <> ''
             AND RIGHT(REGEXP_REPLACE(u.telefono, '[^0-9]', ''), 10) = ?
-          LIMIT 2`,
+          LIMIT 5`,
         [digitos.slice(-10)]
       );
-      if (porTelefono.length > 1) return res.json(respuestaUnica);
-      usuario = porTelefono[0] || null;
+      if (porTelefono.length > 1) {
+        const conAcceso = porTelefono.filter(u => u.activo && ROLES_CON_CODIGO.includes(u.rol));
+        if (conAcceso.length !== 1) {
+          // Se registra POR DENTRO, que es lo que faltaba: quien administra
+          // necesita poder saber por qué no salió el mensaje. La respuesta al
+          // navegador no cambia, así que no se filtra nada.
+          await registrarAuditoria(null, 'codigo_acceso_no_enviado',
+            `El teléfono terminado en ${digitos.slice(-4)} está en ${porTelefono.length} cuentas y `
+            + `${conAcceso.length} pueden entrar con código: no se envió nada.`, req.ip);
+          return res.json(respuestaUnica);
+        }
+        usuario = conAcceso[0];
+      } else {
+        usuario = porTelefono[0] || null;
+      }
     }
 
     // Sigue valiendo escribir el correo aunque el canal sea SMS: quien ya lo
@@ -371,7 +397,19 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
 
     const puede = usuario && usuario.activo && ROLES_CON_CODIGO.includes(usuario.rol);
     const destino = !puede ? null : (via === 'sms' ? usuario.telefono : usuario.email);
-    if (!destino) return res.json(respuestaUnica);   // misma respuesta, sin mandar nada
+    if (!destino) {
+      // Misma respuesta de siempre hacia afuera, pero adentro queda el motivo:
+      // sin esto, «no me llega el código» no se puede diagnosticar sin leer el
+      // registro del proceso, al que el administrador no tiene acceso.
+      const motivo = !usuario ? 'no hay ninguna cuenta con ese identificador'
+        : !usuario.activo ? 'la cuenta está inactiva'
+        : !ROLES_CON_CODIGO.includes(usuario.rol) ? `el rol ${usuario.rol} no entra con código`
+        : via === 'sms' ? 'la cuenta no tiene teléfono registrado'
+        : 'la cuenta no tiene correo registrado';
+      await registrarAuditoria(usuario ? usuario.id : null, 'codigo_acceso_no_enviado',
+        `Solicitud por ${via}: ${motivo}.`, req.ip);
+      return res.json(respuestaUnica);
+    }
 
     const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
