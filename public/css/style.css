@@ -817,3 +817,30 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
   overflow: hidden;          /* recorta las esquinas de los botones de adentro */
 }
 .grupo-pestanas > button { border-radius: 0; }
+
+
+/* Botones de acción DENTRO de una fila de tabla: Editar, Eliminar, Ver…
+   Van en el amarillo de la marca, no en el azul de la barra de arriba, y la
+   diferencia no es capricho: los de arriba actúan sobre la pantalla entera
+   —exportar, re-geocodificar— y estos sobre UNA fila. Que se distingan de un
+   vistazo evita el clic equivocado.
+
+   Letra y borde en #084298 y no en blanco: sobre este amarillo el blanco da
+   1,6:1 y es ilegible; el azul da 5,8:1.
+
+   El ancla es "dentro de una celda", no una clase: solo dos pantallas usan
+   .col-acciones, pero estos botones aparecen en Votantes, Estructura,
+   Configuración, Eventos, Recursos y varias más. Lo que tienen en común es
+   estar en una fila. */
+table td .btn-secundario,
+table td .btn-primario {
+  background: var(--color-accent);
+  border-color: #084298;
+  color: #084298;
+}
+table td .btn-secundario:hover,
+table td .btn-primario:hover {
+  background: #E6AF00;
+  border-color: #063573;
+  color: #063573;
+}
