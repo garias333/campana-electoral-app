@@ -31,7 +31,12 @@
 'use strict';
 
 (function () {
-  const MARCADORES = ['{nombre}', '{primer_nombre}'];
+  // Los dos primeros cambian POR PERSONA; los dos últimos son de la campaña
+  // y valen lo mismo para todos. Se separan porque los de campaña se leen una
+  // sola vez al abrir el asistente, y no una por destinatario.
+  const MARCADORES_PERSONA = ['{nombre}', '{primer_nombre}'];
+  const MARCADORES_CAMPANA = ['{candidato}', '{slogan}'];
+  const MARCADORES = [...MARCADORES_PERSONA, ...MARCADORES_CAMPANA];
 
   function soloDigitos(t) { return String(t || '').replace(/\D/g, ''); }
 
@@ -42,11 +47,18 @@
     return d.startsWith('57') ? d : '57' + d;
   }
 
-  function reemplazarMarcadores(texto, persona) {
+  function reemplazarMarcadores(texto, persona, campana = {}) {
     const nombre = String(persona.nombre || '').trim();
+    // Los de campaña se reemplazan por cadena vacía si no están configurados,
+    // no por el marcador crudo: mandar «Hola Ana, {slogan}» es peor que
+    // mandar la frase sin él. Quien configure el eslogan lo verá aparecer.
     return String(texto || '')
-      .replace(/\{nombre\}/g, nombre)
-      .replace(/\{primer_nombre\}/g, nombre.split(/\s+/)[0] || nombre);
+      .replace(/\{nombre\}/gi, nombre)
+      .replace(/\{primer_nombre\}/gi, nombre.split(/\s+/)[0] || nombre)
+      .replace(/\{candidato\}/gi, String(campana.candidato || '').trim())
+      .replace(/\{slogan\}/gi, String(campana.slogan || '').trim())
+      .replace(/[ \t]{2,}/g, ' ')       // sin marcador, no queda doble espacio
+      .trim();
   }
 
   function escapar(t) {
@@ -72,6 +84,16 @@
       return;
     }
 
+    // El nombre del candidato y el eslogan son los mismos para todos, así que
+    // se piden UNA vez. Si la consulta falla, el asistente sigue funcionando
+    // con los marcadores de persona: quedarse sin escribir por no poder leer
+    // el eslogan sería desproporcionado.
+    let campana = {};
+    try {
+      const cfg = await api('/configuracion/campana');
+      campana = { candidato: cfg.nombre_candidato || '', slogan: cfg.slogan_campana || '' };
+    } catch (_) { /* se sigue sin ellos */ }
+
     const conTelefono = [];
     let sinTelefono = 0, dadosDeBaja = 0;
     for (const p of personas || []) {
@@ -85,6 +107,13 @@
         + (dadosDeBaja ? `, y ${dadosDeBaja} pidieron no recibir mensajes.` : '.'));
       return;
     }
+
+    // Si un marcador de campaña está vacío se dice en pantalla: escribirlo en
+    // el mensaje y que salga en blanco es el fallo que nadie nota hasta que ya
+    // se mandó.
+    const sinConfigurar = [];
+    if (!campana.candidato) sinConfigurar.push('{candidato}');
+    if (!campana.slogan) sinConfigurar.push('{slogan}');
 
     const fondo = document.createElement('div');
     fondo.className = 'wa-lote-fondo';
@@ -107,6 +136,9 @@
             placeholder="Hola {nombre}, le recuerdo la reunión del jueves a las 6 p.m."></textarea>
           <p class="wa-lote-marcadores">
             Marcadores: ${MARCADORES.map(m => `<button type="button" class="wa-lote-marcador">${m}</button>`).join(' ')}
+            ${sinConfigurar.length
+              ? `<br><span class="wa-lote-falta">Sin configurar todavía: ${sinConfigurar.join(' y ')} — en Configuración → Datos de la campaña.</span>`
+              : ''}
           </p>
 
           <div class="wa-lote-resumen">
@@ -136,7 +168,7 @@
       lista.appendChild(li);
 
       li.querySelector('.wa-lote-abrir').addEventListener('click', () => {
-        const cuerpo = reemplazarMarcadores(texto.value, p);
+        const cuerpo = reemplazarMarcadores(texto.value, p, campana);
         // El texto va como parámetro `text`: WhatsApp lo deja escrito en el
         // chat y la persona presiona enviar. Sin encodeURIComponent, un signo
         // de interrogación o un & cortan el mensaje a la mitad.
