@@ -24,6 +24,8 @@
         <button class="btn-secundario" id="btn-regeocodificar" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
         <button class="btn-secundario" id="btn-regeocodificar-todos" style="color:#A93226; border-color:#A93226;" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
         <button class="btn-secundario" id="btn-eliminar-masivo" style="color:#A93226; border-color:#A93226;">🗑 Eliminar registros</button>
+        <button class="btn-secundario btn-sm" id="btn-whatsapp-lote"
+                title="Abre el chat de cada persona del filtro con el mensaje ya escrito">💬 Escribir por WhatsApp</button>
         <button class="btn-acento" id="btn-nuevo">+ Agregar persona</button>
       </div>
     </div>
@@ -435,6 +437,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/whatsapp-lote.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -1789,6 +1792,20 @@ function actualizarFiltroEstructuraTerritorio() {
  * (supervisor_id) como el vínculo. Cada fila queda con un campo _nivel
  * (0, 1, 2...) para indentar visualmente a los subalternos.
  */
+let filasVisiblesEstructura = [];
+
+document.getElementById('btn-whatsapp-lote').addEventListener('click', () => {
+  EnvioWhatsApp.abrir({
+    titulo: 'Estructura territorial',
+    // Esta pantalla trae TODA la estructura de una vez y filtra en el
+    // navegador, así que lo filtrado ya está en memoria: no hay que volver a
+    // preguntarle al servidor.
+    obtenerPersonas: async () => filasVisiblesEstructura.map(f => ({
+      nombre: f.nombre, telefono: f.telefono, no_contactar: f.no_contactar,
+    })),
+  });
+});
+
 function construirOrdenJerarquico(filas) {
   const idsEnLista = new Set(filas.map(f => f.usuario_id));
   const hijosDe = new Map();
@@ -1884,6 +1901,10 @@ function renderizarEstructura() {
   filas = construirOrdenJerarquico(filas);
 
   document.getElementById('contador-estructura').textContent = `${formatoMillares(filas.length)} registro(s)`;
+  // Las filas del filtro vigente, para el asistente de WhatsApp. Se guardan
+  // aquí —y no se recalculan aparte— porque estas son EXACTAMENTE las que la
+  // persona está viendo: cualquier otra copia se desincronizaría del filtro.
+  filasVisiblesEstructura = filas;
   const tbody = document.getElementById('tbody-estructura');
   document.getElementById('vacio-estructura').style.display = filas.length ? 'none' : 'block';
   const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);

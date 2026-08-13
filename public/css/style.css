@@ -724,3 +724,61 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
   opacity: 0.85;
 }
 .enlace-whatsapp:hover { opacity: 1; }
+
+
+/* --- Asistente para escribir por WhatsApp a los filtrados ---------------
+   Va en la hoja compartida y no en una pantalla, porque lo usan Votantes y
+   Estructura: es el mismo componente, no dos parecidos. */
+.wa-lote-fondo {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(16, 35, 63, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.wa-lote-caja {
+  background: #fff; border-radius: 14px; width: 100%; max-width: 560px;
+  max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 18px 50px rgba(16, 35, 63, 0.28);
+}
+.wa-lote-cabeza {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--color-border);
+}
+.wa-lote-cabeza h3 { margin: 0; font-size: 1.1rem; color: var(--color-navy); flex: 1; }
+.wa-lote-cerrar {
+  background: none; border: 0; font-size: 1.6rem; line-height: 1;
+  color: var(--color-text-muted); cursor: pointer; padding: 0 4px;
+}
+.wa-lote-cuerpo { padding: 16px 20px 20px; overflow-y: auto; }
+.wa-lote-aviso {
+  font-size: 0.9rem; color: #1E6B44; background: #EFF8F3;
+  border-left: 3px solid #25D366; border-radius: 0 8px 8px 0;
+  padding: 10px 12px; margin: 0 0 14px; line-height: 1.5;
+}
+.wa-lote-cuerpo textarea { width: 100%; font-size: 1rem; }
+.wa-lote-marcadores { font-size: 0.85rem; color: var(--color-text-muted); margin: 8px 0 14px; }
+.wa-lote-marcador {
+  background: var(--color-bg); border: 1px solid var(--color-border);
+  border-radius: 999px; padding: 3px 10px; font-size: 0.8rem;
+  font-family: var(--font-mono, monospace); cursor: pointer; color: var(--color-text);
+}
+.wa-lote-marcador:hover { background: var(--color-border); }
+.wa-lote-resumen {
+  font-size: 0.9rem; color: var(--color-text-muted);
+  padding: 10px 0; border-top: 1px solid var(--color-border);
+}
+.wa-lote-lista { list-style: none; margin: 0; padding: 0; }
+.wa-lote-lista li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px; border-bottom: 1px solid var(--color-border);
+  border-left: 3px solid transparent;
+}
+.wa-lote-persona { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wa-lote-nombre { font-weight: 600; color: var(--color-text); }
+.wa-lote-tel { font-size: 0.85rem; color: var(--color-text-muted); font-family: var(--font-mono, monospace); }
+/* La siguiente pendiente queda marcada: al volver de WhatsApp uno no se
+   acuerda por dónde iba, y esa es la mitad del trabajo que este asistente
+   viene a quitar. */
+.wa-lote-siguiente { border-left-color: var(--color-accent); background: #FFFBEF; }
+.wa-lote-hecho { opacity: 0.55; }
+.wa-lote-hecho .wa-lote-nombre::after { content: ' ✓'; color: #25D366; }

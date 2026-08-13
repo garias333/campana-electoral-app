@@ -23,6 +23,8 @@
         <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
         <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes-todos" style="color:#A93226; border-color:#A93226;" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
         <button class="btn-secundario btn-sm" id="btn-eliminar-votantes" style="color:#A93226; border-color:#A93226;">🗑 Eliminar registros</button>
+        <button class="btn-secundario btn-sm" id="btn-whatsapp-lote"
+                title="Abre el chat de cada persona del filtro con el mensaje ya escrito">💬 Escribir por WhatsApp</button>
         <button class="btn-acento" id="btn-nuevo">+ Nuevo votante o sublíder</button>
       </div>
     </div>
@@ -340,6 +342,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/whatsapp-lote.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -787,6 +790,32 @@ async function actualizarGraficoApoyaA() {
  */
 const LIMITE_VOTANTES_POR_PAGINA = 50;
 let paginaActualVotantes = 1;
+
+// Cuántos se piden al servidor para el asistente de WhatsApp. La tabla
+// muestra 50 por página, pero «los del filtro» son todos, no los que se ven:
+// pedir solo la página visible mandaría el mensaje a 50 de 300 sin avisar.
+// El tope existe para no traerse una campaña entera a la memoria del
+// navegador de un tirón; si el filtro da más, se avisa.
+const TOPE_WHATSAPP_LOTE = 500;
+
+document.getElementById('btn-whatsapp-lote').addEventListener('click', () => {
+  EnvioWhatsApp.abrir({
+    titulo: 'Votantes y sublíderes',
+    obtenerPersonas: async () => {
+      const params = construirParametrosFiltroVotantes();
+      params.set('page', 1);
+      params.set('limit', TOPE_WHATSAPP_LOTE);
+      const r = await api(`/votantes?${params.toString()}`);
+      if (r.total > TOPE_WHATSAPP_LOTE) {
+        alert(`El filtro tiene ${r.total} personas y el asistente trabaja con ${TOPE_WHATSAPP_LOTE} a la vez.\n\n`
+          + 'Afine el filtro (por líder, zona o intención de voto) y repita: así también sabe a quién le escribió.');
+      }
+      return (r.data || []).map(v => ({
+        nombre: v.nombre, telefono: v.telefono, no_contactar: v.no_contactar,
+      }));
+    },
+  });
+});
 
 async function cargarVotantes() {
   const params = construirParametrosFiltroVotantes();

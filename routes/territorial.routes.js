@@ -697,7 +697,7 @@ router.get('/estructura', async (req, res) => {
              COALESCE(e.mesa_votacion, u.mesa_votacion) AS mesa_votacion,
              u.departamento_residencia, u.ciudad_residencia,
              u.comuna_corregimiento_residencia, u.barrio_residencia, u.genero, u.edad,
-             u.tipo_cargo, u.email, u.telefono, u.activo, u.apoya_a,
+             u.tipo_cargo, u.email, u.telefono, u.activo, u.apoya_a, u.no_contactar,
              t.nombre AS territorio_nombre, t.tipo AS territorio_tipo,
              sup.nombre AS supervisor_nombre,
              -- Meta derivada del equipo: Líderes para un Coordinador,
