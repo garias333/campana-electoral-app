@@ -10,6 +10,7 @@ const pushSvc = require('../config/push');
 const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer');
 const { armarWhereSql } = require('../config/filtros');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
+const { codigoDe: codigoDeBaja, urlDeBaja } = require('../config/bajaContacto');
 
 const router = express.Router();
 
@@ -762,13 +763,18 @@ function limpiarSobrantes(texto) {
   return texto.replace(/[ \t]+$/gm, '').trim();
 }
 
-async function personalizarMensaje(mensaje, envio, slogan = '') {
+async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = null) {
   // {slogan} se resuelve aparte de los del Lugar de votación: es el mismo
   // para todos y no debe disparar la búsqueda por persona ni el salto de
   // quien no tenga puesto registrado.
+  // {baja} es por persona, como los del Lugar de votación: cada quien recibe
+  // SU enlace firmado. Un enlace común daría de baja a quien lo abriera, no a
+  // quien lo pidió.
+  const codigo = codigoDeBaja(envio.destinatario_tipo, envio.destinatario_id);
   let texto = mensaje
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
-    .replace(/\{slogan\}/gi, slogan || '');
+    .replace(/\{slogan\}/gi, slogan || '')
+    .replace(/\{baja\}/gi, codigo ? urlDeBaja(codigo, urlBajaBase) : '');
   const minus = mensaje.toLowerCase();
   if (!MARCADORES_LUGAR.some(m => minus.includes(m))) return { texto: limpiarSobrantes(texto) };
 
@@ -828,6 +834,13 @@ async function procesarEnvioCampana(campanaId) {
   // por destinatario. Si está vacío, el marcador queda vacío en vez de
   // escribir "null" en un mensaje que va a leer una persona.
   const [[cfg]] = await pool.query(`SELECT slogan_campana FROM configuracion_campana WHERE id = 1`);
+  // La base del enlace de baja se lee UNA vez por campaña, no por
+  // destinatario: es la misma para todos y son cientos de mensajes.
+  let urlBajaBase = null;
+  try {
+    const [[c]] = await pool.query(`SELECT url_baja_base FROM sms_config WHERE id = 1`);
+    urlBajaBase = c && c.url_baja_base ? c.url_baja_base : null;
+  } catch (_) { /* la tabla puede no existir todavía */ }
   const slogan = (cfg && cfg.slogan_campana ? cfg.slogan_campana : '').trim();
 
   const [pendientes] = await pool.query(
@@ -852,7 +865,7 @@ async function procesarEnvioCampana(campanaId) {
     // puntual con un destinatario (incluso al guardar el resultado en la
     // base de datos) nunca debe tumbar el envío completo de la campaña.
     try {
-      const { texto: mensajePersonalizado, faltaLugar } = await personalizarMensaje(mensaje, envio, slogan);
+      const { texto: mensajePersonalizado, faltaLugar } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase);
       // Se salta, no se manda a medias. Queda registrado con su motivo para
       // que el administrador sepa a quién le falta completar la ficha.
       if (faltaLugar) {

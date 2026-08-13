@@ -1145,13 +1145,13 @@ async function main() {
   //   comprobar que su nombre no sea igual a otro salvo por las tildes.
   const plantillasBase = [
     ['Bienvenida (primer contacto)', 'sms', null,
-     'Hola {nombre}, le saluda la campana de {slogan}. Gracias por acompanarnos. Responda BAJA si no desea recibir mas mensajes.'],
+     'Hola {nombre}, le saluda la campana de {slogan}. Gracias por acompanarnos. Para no recibir mas: {baja}'],
     ['Dia D - donde vota', 'sms', null,
      'Hola {nombre}, este domingo vota en {puesto}, mesa {mesa} ({municipio}). Lleve su cedula. Su voto cuenta.'],
     ['Recordatorio vispera', 'sms', null,
      'Hola {nombre}, manana son las elecciones. Su puesto: {puesto}, mesa {mesa}. Las urnas abren a las 8 am.'],
     ['Invitacion a evento', 'sms', null,
-     'Hola {nombre}, lo invitamos a nuestro encuentro. Confirme su asistencia respondiendo SI. Responda BAJA para no recibir mas mensajes.'],
+     'Hola {nombre}, lo invitamos a nuestro encuentro. Lo esperamos. Para no recibir mas: {baja}'],
     ['Convocatoria a testigos', 'sms', null,
      'Hola {nombre}, usted es testigo en {puesto}, mesa {mesa}. Presentese a las 7 am con su cedula y credencial.'],
     ['Agradecimiento post jornada', 'sms', null,
@@ -1301,6 +1301,30 @@ async function main() {
   // por la lista de baja o por falta de créditos nunca llegó a tener uno, y
   // con NOT NULL ese INSERT muere DESPUÉS de haber devuelto el crédito.
   await modificarColumna(connection, 'sms_envios', 'proveedor VARCHAR(20) NULL');
+
+  // Las plantillas prometian «Responda BAJA», y esa respuesta no llega:
+  // medido el 13 de agosto de 2026 en la campaña municipal, enviando con un
+  // numero de EE. UU. el operador colombiano entrega desde un codigo corto
+  // suyo y la respuesta no tiene ruta de vuelta —cero respuestas recibidas en
+  // toda la vida de la instalacion—. Se cambian por el enlace de baja, que no
+  // depende del proveedor.
+  //
+  // SOLO se corrige la plantilla que siga EXACTAMENTE como se sembro: si el
+  // administrador la reescribio, su texto manda y aqui no se toca.
+  const plantillasConBajaVieja = [
+    ['Bienvenida (primer contacto)',
+     'Hola {nombre}, le saluda la campana de {slogan}. Gracias por acompanarnos. Responda BAJA si no desea recibir mas mensajes.',
+     'Hola {nombre}, le saluda la campana de {slogan}. Gracias por acompanarnos. Para no recibir mas: {baja}'],
+    ['Invitacion a evento',
+     'Hola {nombre}, lo invitamos a nuestro encuentro. Confirme su asistencia respondiendo SI. Responda BAJA para no recibir mas mensajes.',
+     'Hola {nombre}, lo invitamos a nuestro encuentro. Lo esperamos. Para no recibir mas: {baja}'],
+  ];
+  for (const [nombre, textoViejo, textoNuevo] of plantillasConBajaVieja) {
+    const [r] = await connection.query(
+      `UPDATE comunicaciones_plantillas SET cuerpo = ? WHERE nombre = ? AND cuerpo = ?`,
+      [textoNuevo, nombre, textoViejo]);
+    if (r.affectedRows) console.log(`Plantilla "${nombre}": se reemplazo la baja por respuesta por el enlace.`);
+  }
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);

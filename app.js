@@ -119,6 +119,12 @@ app.use('/webhooks', require('./routes/webhooks.routes'));
 // problema. Va protegido con el secreto compartido, no con sesión. ---
 app.use('/actualizador', require('./routes/actualizador.routes'));
 
+// Baja de contacto por enlace. Sin sesión y ANTES del candado de licencia, por
+// la misma razón que el actualizador y una más: quien recibe un mensaje no
+// tiene cuenta aquí, y revocar la autorización de datos no puede depender de
+// que la campaña tenga la licencia al día. El mensaje ya salió.
+app.use('/b', express.urlencoded({ extended: false }), require('./routes/baja.routes'));
+
 // --- Candado de licencia: bloquea TODO lo de abajo (rutas de API y
 // frontend) si esta instalación no tiene una licencia vigente. Va antes
 // de montar cualquier ruta real, para que nada funcione sin pasar por
