@@ -782,6 +782,8 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
 }
 .wa-lote-marcador:hover { background: var(--color-border); }
 .wa-lote-falta { color: #8A5A12; font-size: 0.82rem; }
+.wa-lote-cuerpo select { width: 100%; font-size: 1rem; }
+.wa-lote-ayuda-plantilla { font-size: 0.82rem; color: var(--color-text-muted); margin: 6px 0 14px; }
 .wa-lote-resumen {
   font-size: 0.9rem; color: var(--color-text-muted);
   padding: 10px 0; border-top: 1px solid var(--color-border);

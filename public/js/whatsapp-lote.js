@@ -94,6 +94,19 @@
       campana = { candidato: cfg.nombre_candidato || '', slogan: cfg.slogan_campana || '' };
     } catch (_) { /* se sigue sin ellos */ }
 
+    // Las plantillas salen del MISMO gestor que usan el CRM y las pantallas de
+    // envío: no hay una lista aparte para WhatsApp. Se piden las de su canal y
+    // las de «cualquiera», igual que hacen las otras pantallas.
+    //
+    // Si la consulta falla —un sublíder no tiene permiso sobre ese endpoint—
+    // el desplegable simplemente no aparece: es una comodidad, no un
+    // requisito para escribir.
+    let plantillas = [];
+    try {
+      const todas = await api('/comunicaciones/plantillas');
+      plantillas = (todas || []).filter(p => p.canal === 'whatsapp' || p.canal === 'cualquiera');
+    } catch (_) { /* sin desplegable */ }
+
     const conTelefono = [];
     let sinTelefono = 0, dadosDeBaja = 0;
     for (const p of personas || []) {
@@ -130,6 +143,17 @@
             usted solo presiona enviar en WhatsApp. Sale de <strong>su</strong> cuenta, con su número.
             No cuesta créditos.
           </p>
+
+          ${plantillas.length ? `
+            <label for="wa-lote-plantilla">Utilizar plantilla</label>
+            <select id="wa-lote-plantilla">
+              <option value="">Escribir desde cero…</option>
+              ${plantillas.map((p, i) => `<option value="${i}">${escapar(p.nombre)}</option>`).join('')}
+            </select>
+            <p class="wa-lote-ayuda-plantilla">
+              Al elegir una, su texto reemplaza lo que haya escrito. Lo que va entre corchetes
+              —día, hora, lugar— lo completa usted.
+            </p>` : ''}
 
           <label for="wa-lote-texto">Mensaje</label>
           <textarea id="wa-lote-texto" rows="4"
@@ -194,6 +218,23 @@
 
     const primera = lista.querySelector('li');
     if (primera) primera.classList.add('wa-lote-siguiente');
+
+    const selectorPlantilla = fondo.querySelector('#wa-lote-plantilla');
+    if (selectorPlantilla) {
+      selectorPlantilla.addEventListener('change', () => {
+        const elegida = plantillas[Number(selectorPlantilla.value)];
+        if (!elegida) return;
+        // Se pregunta antes de pisar lo escrito: perder un mensaje a medio
+        // redactar por elegir una plantilla es de las cosas que no se
+        // perdonan.
+        if (texto.value.trim() && !confirm('¿Reemplazar el mensaje que ya escribió por esta plantilla?')) {
+          selectorPlantilla.value = '';
+          return;
+        }
+        texto.value = elegida.cuerpo || '';
+        texto.focus();
+      });
+    }
 
     fondo.querySelectorAll('.wa-lote-marcador').forEach(b => {
       b.addEventListener('click', () => {

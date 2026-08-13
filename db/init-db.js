@@ -1157,6 +1157,32 @@ async function main() {
     ['Agradecimiento post jornada', 'sms', null,
      'Hola {nombre}, gracias por votar y por acompanarnos en esta jornada. Seguimos trabajando por {municipio}.'],
 
+    // --- WhatsApp -------------------------------------------------------
+    //
+    // Se escriben con tildes y signos completos a proposito: por WhatsApp no
+    // hay GSM-7 que valga, no se cobra por segmento y una tilde no encarece
+    // nada — al reves que en SMS, donde una sola baja el limite de 160 a 70.
+    //
+    // Solo usan los cuatro marcadores que el asistente sabe reemplazar:
+    // {nombre}, {primer_nombre}, {candidato} y {slogan}. Meter {puesto} o
+    // {mesa} aqui dejaria el marcador crudo en el mensaje, porque el
+    // asistente de WhatsApp no consulta el lugar de votacion de nadie.
+    //
+    // Lo que va entre corchetes lo completa quien escribe: dia, hora y lugar
+    // cambian en cada convocatoria y no hay dato en la base que los llene.
+    ['WhatsApp · Invitación a reunión', 'whatsapp', null,
+     'Hola {primer_nombre}, le escribe el equipo de {candidato}. Lo invitamos a nuestra reunión el [día] a las [hora] en [lugar]. Nos importa que esté. {slogan}'],
+    ['WhatsApp · Recordatorio del mismo día', 'whatsapp', null,
+     '{primer_nombre}, le recordamos que hoy nos encontramos a las [hora] en [lugar]. Lo esperamos. — Equipo de {candidato}'],
+    ['WhatsApp · Primer contacto', 'whatsapp', null,
+     'Hola {nombre}, le habla el equipo de {candidato}. Nos gustaría contarle nuestras propuestas y, sobre todo, escuchar las suyas. ¿Tiene unos minutos esta semana?'],
+    ['WhatsApp · Convocatoria a testigos', 'whatsapp', null,
+     'Hola {primer_nombre}, la campaña de {candidato} lo necesita como testigo electoral. La capacitación es el [día] a las [hora] en [lugar]. ¿Contamos con usted?'],
+    ['WhatsApp · Víspera de la jornada', 'whatsapp', null,
+     '{primer_nombre}, mañana son las elecciones. Lleve su cédula y vote temprano. Gracias por acompañar a {candidato}. {slogan}'],
+    ['WhatsApp · Agradecimiento post jornada', 'whatsapp', null,
+     '{primer_nombre}, gracias por su apoyo en esta jornada. Cada voto fue trabajo de gente como usted. — {candidato}'],
+
     ['Bienvenida al equipo', 'email', 'Bienvenido a la campaña',
      'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, respóndanos y lo retiramos de la lista.'],
     ['Invitación a evento (correo)', 'email', 'Lo esperamos en nuestro próximo encuentro',
