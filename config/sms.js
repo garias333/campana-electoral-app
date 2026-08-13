@@ -19,8 +19,10 @@
  * DOS COSAS QUE HAY QUE SABER ANTES DE DESPLEGAR ESTO:
  *
  * 1. Necesita variables nuevas en el .env, y el .env NUNCA viaja en un
- *    parche. Sin ellas el canal responde con un mensaje que dice qué falta,
- *    en vez de fallar de forma rara:
+ *    parche. SIN ELLAS NO FALLA: sigue enviando por Twilio, como antes, y lo
+ *    avisa una vez en el registro (ver enviarSMS). Así este archivo puede
+ *    llegar por parche a una campaña que aún no tiene ledger ni cuenta de
+ *    Onurix sin quitarle el canal que ya funciona. Las variables son:
  *
  *      SMS_LEDGER_HOST / _PORT / _USER / _PASSWORD / _DB   (cuenta smsledger)
  *      SMS_CAMPANA_ID        quién es esta campaña en el ledger
@@ -70,6 +72,16 @@ function loQueFalta() {
     falta.push('ONURIX_CLIENT/ONURIX_KEY');
   }
   return falta;
+}
+
+// El aviso va una sola vez por proceso: si no, cada mensaje de una campaña de
+// 300 escribiría la misma línea 300 veces y taparía lo que sí importa.
+let yaAviso = false;
+function avisarUnaVez(falta) {
+  if (yaAviso) return;
+  yaAviso = true;
+  console.warn('[SMS] El canal por Onurix no está configurado (falta en el .env: '
+    + falta.join(', ') + '). Los mensajes salen por Twilio, como antes.');
 }
 
 function obtenerPoolLedger() {
@@ -228,6 +240,15 @@ async function estaDadoDeBaja(telefonoNormalizado) {
 // El canal
 // ---------------------------------------------------------------------------
 
+/**
+ * El canal con cuota, o null si este servidor todavía no lo tiene configurado.
+ * Se separa de obtenerCanal() para no intentar abrir una conexión al ledger
+ * en una instalación que no tiene ni credenciales.
+ */
+async function obtenerCanal_o_null() {
+  return loQueFalta().length ? null : obtenerCanal();
+}
+
 async function obtenerCanal() {
   const cfg = await configCampana();
   // Las credenciales de Twilio viven en la BASE (Configuración → Configurar
@@ -272,15 +293,38 @@ async function obtenerCanal() {
  *        SÍ consumen crédito, porque cuestan igual.
  */
 async function enviarSMS(telefono, mensaje, statusCallbackUrl, opciones = {}) {
-  const falta = loQueFalta();
-  if (falta.length) {
-    throw new Error(`El canal SMS no está configurado en el servidor. Falta en el .env: ${falta.join(', ')}.`);
-  }
-
-  const canal = await obtenerCanal();
+  const canal = await obtenerCanal_o_null();
   const { normalizarCelular } = require('../lib/sms');
   const destino = normalizarCelular(telefono);
   if (!destino) throw new Error('Número de teléfono no válido.');
+
+  // La lista de baja se respeta SIEMPRE, incluso cuando el envío va a salir
+  // por Twilio: quien pidió no recibir mensajes no los recibe, por el camino
+  // que sea. Es lo único de este archivo que aplica también al respaldo.
+  if (!opciones.operativo && await estaDadoDeBaja(destino)) {
+    const err = new Error('Esta persona pidió no recibir más mensajes.');
+    err.codigo = 'DADO_DE_BAJA';
+    throw err;
+  }
+
+  const falta = loQueFalta();
+  if (falta.length) {
+    // EL CANAL NUEVO NO ESTÁ CONFIGURADO: SE USA EL DE SIEMPRE.
+    //
+    // Antes esto lanzaba un error, y era lo correcto mientras este archivo
+    // viviera solo en la instalación base. Pero al viajar en un parche llega a
+    // campañas que todavía no tienen ledger ni credenciales de Onurix —el
+    // .env nunca se empaqueta—, y fallar ahí seria cambiarles un canal que
+    // funciona por uno que no. Twilio sigue siendo su camino hasta que
+    // alguien escriba las variables; ese día, sin tocar código, el envío pasa
+    // por Onurix.
+    //
+    // Esto NO tapa una mala configuración: estadoCanal() sigue devolviendo
+    // `configurado: false` con la lista de lo que falta, así que la pantalla
+    // de Configurar mensajería lo dice, y aquí queda avisado en el registro.
+    avisarUnaVez(falta);
+    return require('./twilio').enviarSMS(telefono, mensaje, statusCallbackUrl);
+  }
 
   // La franja NO se le aplica a los mensajes operativos, y es deliberado.
   // El código de la Torre de acceso es el caso: alguien que entra a las 21:00
@@ -296,12 +340,6 @@ async function enviarSMS(telefono, mensaje, statusCallbackUrl, opciones = {}) {
       err.codigo = 'FUERA_DE_FRANJA';
       throw err;
     }
-  }
-
-  if (!opciones.operativo && await estaDadoDeBaja(destino)) {
-    const err = new Error('Esta persona pidió no recibir más mensajes.');
-    err.codigo = 'DADO_DE_BAJA';
-    throw err;
   }
 
   const r = await canal.enviar({
