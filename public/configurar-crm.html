@@ -7,6 +7,173 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<style>
+/* Estilo propio de esta pantalla.
+   VA AQUÍ Y NO EN style.css a propósito: esa hoja la comparten 24 pantallas y
+   estos paneles, chips e indicadores solo existen acá. Suelto en la hoja
+   común, cualquier tarjeta de la aplicación heredaría estos bordes.
+   Todo cuelga de .msj- para que no choque con nada. */
+
+/* Banda de estado: se adapta sola. `auto-fit` con un mínimo evita el diseño
+   que se rompe en pantallas angostas — el riesgo real cuando no hay
+   navegador para mirarlo. */
+.msj-estado-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+.msj-tarjeta-estado {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.msj-tarjeta-estado .msj-rotulo {
+  font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-text-muted); font-weight: 600;
+}
+.msj-cifra { font-size: 2.6rem; font-weight: 700; color: var(--color-navy); line-height: 1; }
+.msj-cifra-sub { font-size: 0.95rem; color: var(--color-text-muted); }
+
+/* Barra de consumo de créditos. El ancho lo pone el JS. */
+.msj-barra { height: 6px; border-radius: 999px; background: var(--color-border); overflow: hidden; }
+.msj-barra > span { display: block; height: 100%; background: var(--color-confirmado); border-radius: 999px; }
+.msj-barra.msj-barra-alerta > span { background: var(--color-no-apoya); }
+
+/* Chip de estado: punto de color + texto. */
+/* Los chips van en la familia del amarillo de la marca, NO en verde/gris.
+   Pero un indicador que no distingue no indica: si «Listo» y «Sin configurar»
+   se vieran igual, daría lo mismo no ponerlo. Por eso hay tres pesos dentro
+   del mismo color, y el rojo se reserva para lo que de verdad está mal:
+
+     Listo ............ amarillo PLENO (fondo #FFC300, letra azul marino)
+     Sin respaldo ..... amarillo pálido y apagado — es un estado neutro
+     Fuera de horario . ámbar suave, un aviso que se resuelve esperando
+     Sin configurar ... rojo, porque es lo único que hay que ir a arreglar */
+.msj-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 999px;
+  font-size: 0.92rem; font-weight: 600;
+  border: 1px solid #F2E2B0; background: #FFFBEF;
+  color: #7A6420;
+}
+.msj-chip::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: #D9C179; flex: 0 0 auto;
+}
+/* Amarillo pleno: el mismo tono de los botones, para que «listo» se lea como
+   «encendido». La letra va en azul marino — blanco sobre este amarillo da
+   1,6:1 y no se lee. */
+.msj-chip-ok {
+  color: var(--color-navy);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+.msj-chip-ok::before { background: var(--color-navy); }
+.msj-chip-no { color: #8E2F2F; border-color: #F0C8C8; background: #FDF1F1; }
+.msj-chip-no::before { background: var(--color-no-apoya); }
+.msj-chip-aviso { color: #8A5A12; border-color: #F0DCB0; background: #FDF7EA; }
+.msj-chip-aviso::before { background: var(--color-probable); }
+
+/* Panel de cada canal. */
+.msj-panel {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 18px 18px 6px;
+  margin-bottom: 18px;
+  background: var(--color-surface);
+}
+.msj-panel-secundario { background: #FAFBFC; }
+.msj-panel-cabeza {
+  display: flex; align-items: flex-start; gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+/* El icono no se encoge ni se estira: `flex: 0 0 auto` y medidas fijas. Una
+   versión anterior de otra pantalla se deformó por dejar que el botón
+   creciera dentro de un flex. */
+.msj-icono {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.2rem;
+}
+.msj-icono-email { background: var(--color-marca); }
+.msj-icono-sms { background: var(--color-navy); }
+.msj-icono-respaldo { background: var(--color-desconocido); }
+.msj-panel-titulo { flex: 1 1 220px; min-width: 0; }
+.msj-panel-titulo h4 { margin: 0 0 3px; font-size: 1.18rem; color: var(--color-navy); }
+.msj-panel-titulo p { margin: 0; font-size: 0.98rem; color: var(--color-text-muted); line-height: 1.45; }
+.msj-panel-cabeza .msj-chip { margin-left: auto; }
+
+/* Aviso dentro de un panel: el texto que explica una regla, no un error. */
+.msj-nota {
+  border-left: 3px solid var(--color-accent);
+  background: #FFFBEF;
+  padding: 9px 12px; border-radius: 0 8px 8px 0;
+  font-size: 0.98rem; color: #6B5514; line-height: 1.55;
+  margin: 0 0 14px;
+}
+.msj-nota strong { color: #4A3A0D; }
+
+/* Bloque de prueba de envío. */
+.msj-prueba-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.msj-prueba {
+  border: 1px solid var(--color-border); border-radius: 12px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.msj-prueba h5 {
+  margin: 0; font-size: 1.08rem; color: var(--color-navy);
+  display: flex; align-items: center; gap: 8px;
+}
+.msj-prueba .campo { margin: 0; }
+.msj-prueba button { align-self: flex-start; }
+
+/* --- Tamaños de esta pantalla ------------------------------------------
+   Sube el cuerpo por encima del de la aplicación: aquí se leen credenciales
+   y saldos, datos que uno mira de cerca y comprueba carácter por carácter,
+   no listados que se recorren de un vistazo. Va acotado por el id de cada
+   tarjeta para que no se escape a las otras 23 pantallas. */
+#crm-config-card label,
+#crm-estado-card label { font-size: 0.95rem; margin-bottom: 6px; }
+#crm-config-card input,
+#crm-estado-card input { font-size: 1rem; padding: 11px 13px; }
+#crm-config-card h3,
+#crm-estado-card h3 { font-size: 1.3rem; }
+#crm-config-card > p { font-size: 0.98rem; line-height: 1.55; }
+#crm-config-bloqueado h3 { font-size: 1.25rem; }
+#crm-config-bloqueado p { font-size: 1rem; }
+
+/* --- Botones en el amarillo de la marca --------------------------------
+   #FFC300 es --color-accent, el único amarillo de la aplicación: se toma de
+   la variable y no se escribe a mano, para que siga habiendo uno solo.
+   El texto va en AZUL MARINO y no en blanco: sobre este amarillo el blanco
+   no se lee. style.css ya advierte lo simétrico —que el acento oscuro es el
+   que sirve como texto sobre blanco— y aquí el amarillo es el fondo.
+   La regla lleva el id de la tarjeta delante, así que gana por especificidad
+   sin necesitar !important y no toca los botones del resto de la app. */
+#crm-config-card .btn-primario,
+#crm-estado-card .btn-secundario,
+#crm-config-bloqueado .btn-primario {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-navy);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 11px 22px;
+}
+#crm-config-card .btn-primario:hover,
+#crm-estado-card .btn-secundario:hover,
+#crm-config-bloqueado .btn-primario:hover {
+  background: #E6AF00;
+  border-color: #E6AF00;
+  color: var(--color-navy);
+}
+</style>
 </head>
 <body>
 <div class="app-shell" id="app-shell">
@@ -24,82 +191,107 @@
         <div style="font-size:2.4rem; margin-bottom:10px;">🔒</div>
         <h3 style="margin:0 0 8px;">Esta pantalla está protegida</h3>
         <p style="color:var(--color-text-muted); font-size:0.9rem; max-width:420px; margin:0 auto 18px;">
-          Las credenciales de SendGrid y Twilio son sensibles — para verlas o editarlas, confirma tu contraseña de administrador.
+          Las credenciales de los canales de mensajería son sensibles — para verlas o editarlas, confirma tu contraseña de administrador.
         </p>
         <button type="button" class="btn-primario" id="btn-desbloquear-crm">Ingresar contraseña de administrador</button>
       </div>
     </div>
 
     <div class="card" id="crm-config-card" style="display:none;">
-      <h3 style="margin-top:0;">Credenciales de SendGrid y Twilio</h3>
-      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
-        Estas credenciales alimentan CRM y Mensajes (Email vía SendGrid) y el <strong>respaldo</strong> de SMS (Twilio). Se guardan en esta base de datos, no en el servidor — así se pueden actualizar desde acá sin necesitar acceso por SSH.
-        <br><strong>Los SMS salen por Onurix.</strong> Lo normal es dejar esos dos campos vacíos: se usa la cuenta del proveedor del servicio y cada campaña gasta de sus <strong>créditos</strong>, cuyo saldo aparece más abajo en Estado de los canales. Llénalos solo si la campaña trae su propia cuenta de Onurix.
-        <br><strong>Nota:</strong> los campos de clave/token se muestran enmascarados una vez guardados, por seguridad. Si los dejas tal cual (con los puntos), se conserva el valor que ya tenías — solo se reemplaza si escribes uno nuevo.
+      <h3 style="margin-top:0;">Credenciales de los canales</h3>
+      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:16px;">
+        Se guardan en esta base de datos, no en el servidor — así se actualizan desde acá sin
+        necesitar acceso por SSH. Los campos de clave se muestran enmascarados una vez guardados:
+        si los dejas con los puntos, se conserva el valor que ya tenías.
       </p>
       <div id="comunicaciones-error" class="mensaje-error"></div>
       <div id="comunicaciones-ok" class="mensaje-ok"></div>
       <form id="form-comunicaciones">
-        <h4 style="margin-bottom:6px;">SendGrid (Email)</h4>
-        <div class="fila">
-          <div class="campo">
-            <label>API Key</label>
-            <input id="comunicaciones-sendgrid-api-key" placeholder="SG.xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+        <div class="msj-panel">
+          <div class="msj-panel-cabeza">
+            <span class="msj-icono msj-icono-email">✉</span>
+            <div class="msj-panel-titulo">
+              <h4>Correo · SendGrid</h4>
+              <p>Alimenta CRM y Mensajes, y la pantalla de Enviar E-mail.</p>
+            </div>
+            <span class="msj-chip" id="chip-panel-email">Consultando…</span>
+          </div>
+          <div class="fila">
+            <div class="campo">
+              <label>API Key</label>
+              <input id="comunicaciones-sendgrid-api-key" placeholder="SG.xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <div class="campo">
+              <label>Correo remitente (verificado en SendGrid)</label>
+              <input id="comunicaciones-sendgrid-from" type="email" placeholder="campana@tudominio.com">
+            </div>
           </div>
           <div class="campo">
-            <label>Correo remitente (verificado en SendGrid)</label>
-            <input id="comunicaciones-sendgrid-from" type="email" placeholder="campana@tudominio.com">
-          </div>
-        </div>
-        <div class="campo">
-          <label>Nombre del remitente</label>
-          <input id="comunicaciones-sendgrid-from-name" placeholder="Estrategia - Campaña">
-        </div>
-
-        <h4 style="margin-bottom:6px; margin-top:20px;">Onurix (SMS)</h4>
-        <p style="color:var(--color-text-muted); font-size:0.8rem; margin:0 0 10px;">
-          <strong id="onurix-cual">Esta campaña usa la cuenta del proveedor del servicio.</strong>
-          Déjalos vacíos para seguir así — es lo normal, y lo que descuenta los créditos de la campaña.
-          Solo llénalos si la campaña tiene <em>su propia</em> cuenta de Onurix; en ese caso los envíos
-          salen por ella. Ojo: Onurix solo acepta peticiones desde una IP registrada en su portal.
-        </p>
-        <div class="fila">
-          <div class="campo">
-            <label>Número de cliente</label>
-            <input id="comunicaciones-onurix-client" placeholder="Vacío = cuenta del proveedor" autocomplete="off">
-          </div>
-          <div class="campo">
-            <label>Llave (key)</label>
-            <input id="comunicaciones-onurix-key" placeholder="Tu llave de Onurix" autocomplete="off">
+            <label>Nombre del remitente</label>
+            <input id="comunicaciones-sendgrid-from-name" placeholder="Estrategia - Campaña">
           </div>
         </div>
 
-        <h4 style="margin-bottom:6px; margin-top:20px;">Twilio (respaldo de SMS)</h4>
-        <p style="color:var(--color-text-muted); font-size:0.8rem; margin:0 0 10px;">
-          Solo se usa si el envío por Onurix falla, y únicamente cuando el respaldo está
-          habilitado en el servidor. Dejar esto vacío no impide enviar SMS: significa que no
-          hay segundo intento.
-        </p>
-        <div class="fila">
-          <div class="campo">
-            <label>Account SID</label>
-            <input id="comunicaciones-twilio-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+        <div class="msj-panel">
+          <div class="msj-panel-cabeza">
+            <span class="msj-icono msj-icono-sms">✆</span>
+            <div class="msj-panel-titulo">
+              <h4>SMS · Onurix</h4>
+              <p id="onurix-cual">Esta campaña usa la cuenta del proveedor del servicio.</p>
+            </div>
+            <span class="msj-chip" id="chip-panel-sms">Consultando…</span>
           </div>
-          <div class="campo">
-            <label>Auth Token</label>
-            <input id="comunicaciones-twilio-token" placeholder="Tu Auth Token de Twilio" autocomplete="off">
+          <p class="msj-nota">
+            <strong>Lo normal es dejar estos dos campos vacíos.</strong> Así los envíos salen por la
+            cuenta del proveedor del servicio y se descuentan de los créditos de la campaña.
+            Llénalos solo si la campaña trae <em>su propia</em> cuenta de Onurix — y ten en cuenta
+            que Onurix solo acepta peticiones desde una IP registrada en su portal.
+          </p>
+          <div class="fila">
+            <div class="campo">
+              <label>Número de cliente</label>
+              <input id="comunicaciones-onurix-client" placeholder="Vacío = cuenta del proveedor" autocomplete="off">
+            </div>
+            <div class="campo">
+              <label>Llave (key)</label>
+              <input id="comunicaciones-onurix-key" placeholder="Tu llave de Onurix" autocomplete="off">
+            </div>
           </div>
         </div>
-        <!-- El campo "Número de WhatsApp" se quitó: Meta prohíbe las campañas
-             políticas en su API de negocios. La columna twilio_whatsapp_from
-             sigue en la base y el backend conserva su valor. -->
-        <div class="campo">
-          <label>Número para SMS</label>
-          <input id="comunicaciones-twilio-sms" placeholder="+573000000000">
-          <!-- Twilio exige E.164 y rechaza espacios o guiones. Antes eso
-               solo se notaba cuando una campaña entera no llegaba. -->
-          <small id="aviso-formato-sms" style="display:none; color:var(--color-no-apoya); font-size:0.8rem;"></small>
+
+        <div class="msj-panel msj-panel-secundario">
+          <div class="msj-panel-cabeza">
+            <span class="msj-icono msj-icono-respaldo">↺</span>
+            <div class="msj-panel-titulo">
+              <h4>Respaldo de SMS · Twilio</h4>
+              <p>Solo entra si el envío por Onurix falla, y únicamente cuando el respaldo está
+                 habilitado en el servidor. Dejarlo vacío no impide enviar: significa que no hay
+                 segundo intento.</p>
+            </div>
+            <span class="msj-chip" id="chip-panel-respaldo">Consultando…</span>
+          </div>
+          <div class="fila">
+            <div class="campo">
+              <label>Account SID</label>
+              <input id="comunicaciones-twilio-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <div class="campo">
+              <label>Auth Token</label>
+              <input id="comunicaciones-twilio-token" placeholder="Tu Auth Token de Twilio" autocomplete="off">
+            </div>
+          </div>
+          <!-- El campo "Número de WhatsApp" se quitó: Meta prohíbe las campañas
+               políticas en su API de negocios. La columna twilio_whatsapp_from
+               sigue en la base y el backend conserva su valor. -->
+          <div class="campo">
+            <label>Número para SMS</label>
+            <input id="comunicaciones-twilio-sms" placeholder="+573000000000">
+            <!-- Twilio exige E.164 y rechaza espacios o guiones. Antes eso
+                 solo se notaba cuando una campaña entera no llegaba. -->
+            <small id="aviso-formato-sms" style="display:none; color:var(--color-no-apoya); font-size:0.8rem;"></small>
+          </div>
         </div>
+
         <button type="submit" class="btn-primario">Guardar cambios</button>
       </form>
     </div>
@@ -107,31 +299,55 @@
     <!-- Estado y prueba. Guardar credenciales no garantiza que sirvan: el
          canal puede verse configurado y aun así no enviar nada (pasó con un
          número que tenía espacios). Estas dos cosas cierran ese hueco. -->
+    <!-- Estado y prueba. Guardar credenciales no garantiza que sirvan: el
+         canal puede verse configurado y aun así no enviar nada (pasó con un
+         número que tenía espacios). Estas dos cosas cierran ese hueco. -->
     <div class="card" id="crm-estado-card" style="display:none;">
       <h3 style="margin-top:0;">Estado de los canales</h3>
-      <div id="estado-canales" style="display:flex; gap:22px; flex-wrap:wrap; margin-bottom:6px;">
-        <span style="color:var(--color-text-muted); font-size:0.9rem;">Consultando…</span>
+      <div class="msj-estado-grid" id="estado-canales">
+        <div class="msj-tarjeta-estado">
+          <span class="msj-rotulo">Correo</span>
+          <span class="msj-chip" id="chip-correo">Consultando…</span>
+          <span class="msj-cifra-sub" id="detalle-correo">&nbsp;</span>
+        </div>
+        <div class="msj-tarjeta-estado">
+          <span class="msj-rotulo">SMS</span>
+          <span class="msj-chip" id="chip-sms">Consultando…</span>
+          <span class="msj-cifra-sub" id="detalle-sms">&nbsp;</span>
+        </div>
+        <div class="msj-tarjeta-estado">
+          <span class="msj-rotulo">Créditos de SMS</span>
+          <span class="msj-cifra" id="saldo-numero">—</span>
+          <div class="msj-barra" id="saldo-barra"><span style="width:0%"></span></div>
+          <span class="msj-cifra-sub" id="saldo-detalle">Consultando…</span>
+        </div>
       </div>
-      <p id="estado-motivos" style="color:var(--color-text-muted); font-size:0.85rem; margin:8px 0 0;"></p>
+      <p id="estado-motivos" style="color:var(--color-text-muted); font-size:0.85rem; margin:14px 0 0;"></p>
 
-      <h3 style="margin:24px 0 6px;">Enviar un mensaje de prueba</h3>
-      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
-        <strong>Ojo:</strong> el mensaje se envía de verdad. El SMS <strong>consume un crédito de la
-        campaña</strong> y llega al número que escribas. Si algo falla, acá vas a ver el error exacto
-        que devuelve el proveedor, que es lo que hace falta para saber qué corregir.
+      <h3 style="margin:26px 0 6px;">Enviar un mensaje de prueba</h3>
+      <p class="msj-nota">
+        <strong>El mensaje se envía de verdad.</strong> El SMS consume un crédito de la campaña y
+        llega al número que escribas. Si algo falla, acá vas a ver el error exacto que devuelve el
+        proveedor — que es justo el dato que hace falta para saber qué corregir.
       </p>
       <div id="prueba-error" class="mensaje-error"></div>
       <div id="prueba-ok" class="mensaje-ok"></div>
-      <div class="fila">
-        <div class="campo">
-          <label>Correo de prueba</label>
-          <input id="prueba-email-destino" type="email" placeholder="tucorreo@dominio.com">
-          <button type="button" class="btn-secundario" id="btn-probar-email" style="margin-top:8px;">Probar envío de correo</button>
+      <div class="msj-prueba-grid">
+        <div class="msj-prueba">
+          <h5><span class="msj-icono msj-icono-email" style="width:26px;height:26px;font-size:0.8rem;">✉</span> Correo</h5>
+          <div class="campo">
+            <label>Correo de prueba</label>
+            <input id="prueba-email-destino" type="email" placeholder="tucorreo@dominio.com">
+          </div>
+          <button type="button" class="btn-secundario" id="btn-probar-email">Enviar correo de prueba</button>
         </div>
-        <div class="campo">
-          <label>Teléfono móvil de prueba</label>
-          <input id="prueba-sms-destino" type="tel" inputmode="tel" placeholder="+573000000000">
-          <button type="button" class="btn-secundario" id="btn-probar-sms" style="margin-top:8px;">Probar envío de SMS</button>
+        <div class="msj-prueba">
+          <h5><span class="msj-icono msj-icono-sms" style="width:26px;height:26px;font-size:0.8rem;">✆</span> SMS</h5>
+          <div class="campo">
+            <label>Teléfono móvil de prueba</label>
+            <input id="prueba-sms-destino" type="tel" inputmode="tel" placeholder="+573000000000">
+          </div>
+          <button type="button" class="btn-secundario" id="btn-probar-sms">Enviar SMS de prueba</button>
         </div>
       </div>
     </div>
@@ -212,40 +428,89 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
 // enviar, así que lo que se ve acá no puede contradecir a lo que pasa
 // en un envío real.
 async function cargarEstadoCanales() {
-  const contenedor = document.getElementById('estado-canales');
   const motivos = document.getElementById('estado-motivos');
+
+  // Pinta un chip: verde si está listo, rojo si no, ámbar para los avisos que
+  // NO son defectos (estar fuera de la franja horaria no es estar roto).
+  const chip = (id, texto, clase) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'msj-chip' + (clase ? ' ' + clase : '');
+    el.textContent = texto;
+  };
+  const texto = (id, valor) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
+  };
+
   try {
     const estado = await api('/configuracion/comunicaciones/estado');
-    const pinta = (nombre, info) => `
-      <span class="badge ${info.configurado ? 'badge-confirmado' : 'badge-no_apoya'}">
-        <span class="punto"></span>${nombre}: ${info.configurado ? 'listo' : 'sin configurar'}
-      </span>`;
+
+    chip('chip-correo', estado.email.configurado ? 'Listo' : 'Sin configurar',
+      estado.email.configurado ? 'msj-chip-ok' : 'msj-chip-no');
+    chip('chip-panel-email', estado.email.configurado ? 'Listo' : 'Sin configurar',
+      estado.email.configurado ? 'msj-chip-ok' : 'msj-chip-no');
+    texto('detalle-correo', estado.email.configurado ? 'SendGrid responde con las credenciales guardadas.' : ' ');
+
     // El SMS lleva el nombre del proveedor pegado: si algún día el envío sale
     // por el respaldo, esta pantalla tiene que decirlo y no quedarse en "listo".
-    const nombreSms = estado.sms && estado.sms.proveedor
-      ? `SMS (${estado.sms.proveedor})` : 'SMS';
-    contenedor.innerHTML = pinta('Correo', estado.email) + pinta(nombreSms, estado.sms);
+    const proveedor = estado.sms && estado.sms.proveedor ? estado.sms.proveedor : null;
+    const smsListo = estado.sms && estado.sms.configurado;
+    chip('chip-sms', smsListo ? `Listo · ${proveedor}` : 'Sin configurar',
+      smsListo ? 'msj-chip-ok' : 'msj-chip-no');
+    chip('chip-panel-sms', smsListo ? 'Listo' : 'Sin configurar',
+      smsListo ? 'msj-chip-ok' : 'msj-chip-no');
+
+    // La franja horaria no es un defecto de configuración: es la hora que es.
+    // Por eso va en ámbar y en su propia línea, no marcando el canal en rojo.
+    if (smsListo && estado.sms.franja) {
+      texto('detalle-sms', estado.sms.enFranja
+        ? `Dentro del horario permitido (${estado.sms.franja.inicio}:00 a ${estado.sms.franja.fin}:00).`
+        : `Fuera del horario permitido (${estado.sms.franja.inicio}:00 a ${estado.sms.franja.fin}:00). Las campañas se pueden programar.`);
+      if (!estado.sms.enFranja) chip('chip-sms', 'Fuera de horario', 'msj-chip-aviso');
+    } else {
+      texto('detalle-sms', ' ');
+    }
+
+    // El respaldo se lee del propio estado del canal: si el servidor no tiene
+    // uno configurado, decir "listo" porque hay credenciales de Twilio
+    // guardadas sería prometer un segundo intento que no existe.
+    const respaldo = estado.sms && estado.sms.respaldo;
+    chip('chip-panel-respaldo', respaldo ? `Activo · ${respaldo}` : 'Sin respaldo',
+      respaldo ? 'msj-chip-ok' : '');
 
     // Los créditos son lo que de verdad limita a una campaña, y no se pueden
     // recargar desde acá: el saldo vive en el servidor de licencias. Verlo
     // aquí evita la llamada de "no me llegan los mensajes" cuando lo que pasa
     // es que se acabaron.
     const s = estado.sms && estado.sms.saldo;
-    const lineas = [];
+    const barra = document.querySelector('#saldo-barra > span');
     if (s) {
-      lineas.push(`Créditos de SMS: ${s.disponibles} disponibles de ${s.asignados}.`
-        + (s.limiteDiario > 0 ? ` Límite diario: ${s.limiteDiario}, hoy van ${s.consumidoHoy}.` : '')
-        + (s.activo ? '' : ' El canal está desactivado para esta campaña.'));
-    } else if (estado.sms && estado.sms.configurado) {
-      lineas.push('Esta campaña todavía no tiene créditos de SMS asignados.');
+      texto('saldo-numero', s.disponibles);
+      const usado = s.asignados > 0 ? Math.round((s.consumidos / s.asignados) * 100) : 0;
+      if (barra) barra.style.width = Math.min(100, usado) + '%';
+      // Rojo cuando queda menos de la décima parte: es el momento de recargar,
+      // no cuando ya se acabaron a mitad de un envío.
+      document.getElementById('saldo-barra').className =
+        'msj-barra' + (s.disponibles <= s.asignados * 0.1 ? ' msj-barra-alerta' : '');
+      texto('saldo-detalle', `de ${s.asignados} asignados`
+        + (s.limiteDiario > 0 ? ` · límite diario ${s.limiteDiario}, hoy ${s.consumidoHoy}` : '')
+        + (s.activo ? '' : ' · canal desactivado'));
+    } else {
+      texto('saldo-numero', '—');
+      if (barra) barra.style.width = '0%';
+      texto('saldo-detalle', smsListo ? 'Esta campaña todavía no tiene créditos asignados.' : ' ');
     }
-    const faltantes = [estado.email, estado.sms].filter(x => x && x.motivo).map(x => x.motivo);
-    motivos.textContent = lineas.concat(faltantes).join(' ');
+
+    motivos.textContent = [estado.email, estado.sms]
+      .filter(x => x && x.motivo).map(x => x.motivo).join(' ');
   } catch (err) {
-    contenedor.innerHTML = '';
+    chip('chip-correo', 'No se pudo consultar', 'msj-chip-no');
+    chip('chip-sms', 'No se pudo consultar', 'msj-chip-no');
     motivos.textContent = 'No se pudo consultar el estado de los canales: ' + err.message;
   }
 }
+
 
 // ---------- Aviso de formato del número ----------
 // No corrige ni bloquea: solo avisa. La limpieza de verdad la hace

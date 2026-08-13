@@ -1278,6 +1278,25 @@ async function main() {
     'estado_proveedor VARCHAR(40) NULL AFTER estado', 'estado_proveedor');
   await agregarColumnaSiFalta(connection, 'sms_config',
     "firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final' AFTER firma", 'firma_posicion');
+
+  // Índice de la lista de baja. El canal SMS pregunta por cada mensaje si ese
+  // teléfono pidió no recibir, y el filtro que decide es `no_contactar = 1`:
+  // los dados de baja son pocos, así que con índice MySQL recorre solo esas
+  // filas. Un índice sobre `telefono` NO serviría — la columna va envuelta en
+  // REGEXP_REPLACE y ningún índice se usa sobre una expresión.
+  //
+  // Estaba creado a mano en electoral y no en el esquema, así que el parche 28
+  // llegó a las campañas sin él: lo que se aplica a una base a mano no existe
+  // para las demás.
+  for (const tabla of ['votantes', 'usuarios']) {
+    try {
+      await connection.query(`ALTER TABLE ${tabla} ADD INDEX idx_no_contactar (no_contactar)`);
+      console.log(`Índice idx_no_contactar creado en ${tabla}.`);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_KEYNAME') throw err;
+      console.log(`El índice idx_no_contactar de ${tabla} ya existía. Sin cambios.`);
+    }
+  }
   // `proveedor` nació NOT NULL y tiene que admitir NULL: un mensaje rechazado
   // por la lista de baja o por falta de créditos nunca llegó a tener uno, y
   // con NOT NULL ese INSERT muere DESPUÉS de haber devuelto el crédito.
