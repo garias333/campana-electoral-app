@@ -378,13 +378,29 @@ async function consultarSaldo() {
 async function estadoCanal() {
   const falta = loQueFalta();
   if (falta.length) {
-    // `motivo` no es decoración: es el campo que la interfaz ya muestra para
-    // los otros canales (estadoCanales() de twilio.js tenía esa misma forma),
-    // y el CRM lo devuelve tal cual cuando rechaza una campaña.
+    // EL CANAL NUEVO NO ESTÁ CONFIGURADO, PERO ESO NO ES «NO SE PUEDE ENVIAR».
+    //
+    // enviarSMS() cae a Twilio en ese caso, así que hay que preguntarle a
+    // Twilio: es lo único que dice la verdad sobre si un mensaje va a salir.
+    // Responder `configurado: false` aquí haría que el CRM rechazara con un
+    // 400 toda campaña de SMS —tiene esa guarda antes de arrancar— aunque los
+    // mensajes salieran perfectamente. Es decir: la pantalla diría que no hay
+    // canal y el canal funcionando.
+    //
+    // `enFranja: true` porque la franja de 08:00–20:00 es una regla de Onurix;
+    // Twilio no la tiene, y aplicarla al respaldo sería inventarle una
+    // restricción que su proveedor no impone.
+    const canalesTwilio = await require('./twilio').estadoCanales();
+    const sms = (canalesTwilio && canalesTwilio.sms) || { configurado: false, motivo: null };
     return {
-      configurado: false,
-      motivo: `El canal SMS no está configurado en el servidor. Falta en el .env: ${falta.join(', ')}.`,
-      proveedor: null, falta, saldo: null,
+      configurado: sms.configurado,
+      motivo: sms.configurado ? null : sms.motivo,
+      proveedor: sms.configurado ? 'twilio' : null,
+      respaldo: null,
+      enFranja: true,
+      franja: null,
+      saldo: null,
+      falta,
     };
   }
   const cfg = await configCampana();
