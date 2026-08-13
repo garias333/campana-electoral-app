@@ -800,3 +800,20 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
 .wa-lote-siguiente { border-left-color: var(--color-accent); background: #FFFBEF; }
 .wa-lote-hecho { opacity: 0.55; }
 .wa-lote-hecho .wa-lote-nombre::after { content: ' ✓'; color: #25D366; }
+
+
+/* Grupos de pestañas (Votantes/Estimados, las de Configuración, las vistas
+   del Organigrama…). Los botones van pegados entre sí, así que el redondeo
+   es del GRUPO y no de cada uno: el primero redondea a la izquierda y el
+   último a la derecha.
+
+   Antes cada botón llevaba `border-radius:0` escrito en el atributo style, y
+   por eso eran los únicos de la aplicación con esquinas cuadradas. La regla
+   vive aquí —y no repetida en cinco páginas— para que el día que cambie el
+   radio de los botones, cambie también el de las pestañas. */
+.grupo-pestanas {
+  display: flex;
+  border-radius: 9px;
+  overflow: hidden;          /* recorta las esquinas de los botones de adentro */
+}
+.grupo-pestanas > button { border-radius: 0; }

@@ -20,13 +20,13 @@
   <main class="main">
     <div class="topbar">
       <div><div class="eyebrow" id="encabezado-eyebrow">Administración</div><h1 id="encabezado-titulo">Configuración</h1></div>
-      <div id="barra-pestanas-config" style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
-        <button type="button" class="btn-acento btn-sm" id="btn-tab-campana" style="border:none; border-radius:0;">Datos de la campaña</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-diad" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Día D</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Usuarios</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Asignación de permisos</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">🗑️ Eliminar información</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">💾 Backup</button>
+      <div class="grupo-pestanas" id="barra-pestanas-config" style="display:flex; border:1px solid var(--color-border, #dfe3e8);">
+        <button type="button" class="btn-acento btn-sm" id="btn-tab-campana" style="border:none;">Datos de la campaña</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-diad" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">Día D</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">Usuarios</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">Asignación de permisos</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">🗑️ Eliminar información</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">💾 Backup</button>
       </div>
     </div>
 
@@ -134,9 +134,9 @@
 
     <!-- ===== DÍA D (configuración previa a la jornada) ===== -->
     <div id="seccion-diad" style="display:none;">
-      <div style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden; width:fit-content; margin-bottom:18px;">
-        <button type="button" class="btn-acento btn-sm" id="btn-subtab-diad-puestos" style="border:none; border-radius:0;">Puestos de votación</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidatos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Candidatos</button>
+      <div class="grupo-pestanas" style="display:flex; border:1px solid var(--color-border, #dfe3e8); width:fit-content; margin-bottom:18px;">
+        <button type="button" class="btn-acento btn-sm" id="btn-subtab-diad-puestos" style="border:none;">Puestos de votación</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidatos" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">Candidatos</button>
       </div>
 
       <div id="panel-diad-puestos">

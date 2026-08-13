@@ -264,15 +264,15 @@
     <div class="topbar">
       <div><div class="eyebrow">Electoral</div><h1>Organigrama</h1></div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <div style="display:flex; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
-          <button type="button" class="btn-secundario btn-sm" id="btn-vista-diagrama" style="border:none; border-radius:0;">🗂️ Diagrama</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-vista-lista" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">☰ Lista</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-vista-tabla" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">📋 Tabla</button>
+        <div class="grupo-pestanas" style="display:flex; border:1px solid var(--color-border, #dfe3e8);">
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-diagrama" style="border:none;">🗂️ Diagrama</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-lista" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">☰ Lista</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-vista-tabla" style="border:none; border-left:1px solid var(--color-border, #dfe3e8);">📋 Tabla</button>
         </div>
-        <div id="org-zoom-controles" style="display:none; align-items:center; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; overflow:hidden;">
-          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-menos" title="Alejar" style="border:none; border-radius:0;">−</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-ajustar" title="Ajustar a pantalla" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8); border-right:1px solid var(--color-border, #dfe3e8); font-size:0.8rem;">Ajustar</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-mas" title="Acercar" style="border:none; border-radius:0;">+</button>
+        <div class="grupo-pestanas" id="org-zoom-controles" style="display:none; align-items:center; border:1px solid var(--color-border, #dfe3e8);">
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-menos" title="Alejar" style="border:none;">−</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-ajustar" title="Ajustar a pantalla" style="border:none; border-left:1px solid var(--color-border, #dfe3e8); border-right:1px solid var(--color-border, #dfe3e8); font-size:0.8rem;">Ajustar</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-zoom-mas" title="Acercar" style="border:none;">+</button>
         </div>
         <button class="btn-acento" id="btn-nuevo-raiz">+ Agregar cargo raíz</button>
         <button type="button" class="btn-secundario" id="btn-todo-word" title="Ficha de cada cargo en Word, una por hoja">📝 Todo a Word</button>
