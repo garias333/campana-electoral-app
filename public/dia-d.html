@@ -29,7 +29,7 @@
       <div><div class="eyebrow">Jornada electoral</div><h1>Día D</h1></div>
       <div style="display:flex; align-items:center; gap:14px;">
         <div class="mono" id="ultima-actualizacion" style="color:var(--color-text-muted); font-size:0.8rem;"></div>
-        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none; color:#A93226; border-color:#A93226;">🗑 Eliminar todos los reportes</button>
+        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
       </div>
     </div>
 
@@ -108,7 +108,7 @@ function celdaFotoE14(url) {
 
 /** Botón "Eliminar" por fila — solo se pinta si es admin (mismo criterio que el botón de "eliminar todos"). */
 function celdaEliminarReporte(id) {
-  return esAdmin ? `<button class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarReporte(${id})">Eliminar</button>` : '';
+  return esAdmin ? `<button class="btn-secundario btn-sm"  onclick="eliminarReporte(${id})">Eliminar</button>` : '';
 }
 
 /** Borra un solo reporte — pide la contraseña de un administrador, igual que cualquier borrado en esta app. */

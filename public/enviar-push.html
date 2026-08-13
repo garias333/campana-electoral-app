@@ -174,7 +174,7 @@
     <div class="card">
       <div class="topbar" style="margin-bottom:6px;">
         <h3 style="margin:0;">Historial de envíos</h3>
-        <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todo-historial" style="display:none; color:#A93226; border-color:#A93226;">Eliminar todas</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todo-historial" style="display:none;">Eliminar todas</button>
       </div>
       <div class="tabla-contenedor">
       <table>
@@ -431,7 +431,7 @@ async function cargarHistorial() {
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalle(${c.id})">Ver detalle</button>
-        <button class="btn-secundario btn-sm" style="color:#A93226; border-color:#A93226;" onclick="eliminarEnvio(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+        <button class="btn-secundario btn-sm"  onclick="eliminarEnvio(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
       </td>
     </tr>
   `).join('');

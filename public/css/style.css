@@ -273,13 +273,26 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 .btn-acento { background: #0B5ED7; color: #fff; font-weight: 700; font-size: 1.08rem; }
 .btn-acento:hover { background: #084298; }
 .btn-acento.btn-sm { font-size: 0.95rem; }
-.btn-secundario { background: #fff; border-color: var(--color-border); color: var(--color-text); }
-.btn-secundario:hover { background: #F0F2F5; }
+/* Botón secundario: el de las barras de acciones de toda la aplicación
+   (Exportar, Gestionar territorios, Re-geocodificar, Eliminar, …).
+   Amarillo de marca con letra y borde azul: 5,8:1 de contraste, por encima
+   del mínimo de 4,5. El azul es #084298, el mismo del hover del botón
+   primario, así que no entra un color nuevo al sistema. */
+.btn-secundario {
+  background: var(--color-accent);
+  border-color: #084298;
+  color: #084298;
+  font-weight: 600;
+}
+.btn-secundario:hover { background: #E6AF00; border-color: #063573; color: #063573; }
 /* Cualquier botón/enlace relacionado con Excel (exportar o importar) en
    toda la aplicación — fondo verde claro y borde delgado verde oscuro,
    para reconocerlos de un vistazo. */
-.btn-secundario.btn-excel-app { background: #E9F7EF; border: 1.5px solid #1E7A46; color: #1E7A46; }
-.btn-secundario.btn-excel-app:hover { background: #1E7A46; border-color: #1E7A46; color: #fff; }
+/* Los de Excel llevaban verde propio para reconocerlos de un vistazo. Se
+   igualan al resto por pedido expreso: ahora todos los de la barra son
+   amarillos. Si algún día se quiere volver a distinguirlos, es devolver
+   estas dos reglas — el icono de la hoja de cálculo sigue en el texto. */
+.btn-secundario.btn-excel-app { border-width: 1.5px; }
 .btn-peligro { background: #FBEAEA; color: var(--color-no-apoya); border-color: #F3D2D2; }
 .btn-peligro:hover { background: #F6D9D9; }
 .btn-sm { padding: 8px 14px; font-size: 0.88rem; }

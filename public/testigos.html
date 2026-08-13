@@ -20,7 +20,7 @@
           ⬆ Importar desde Excel
           <input type="file" id="input-importar-testigos" accept=".xlsx,.xls" style="display:none;">
         </label>
-        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-testigos" style="display:none; color:#A93226; border-color:#A93226;">🗑 Eliminar todos</button>
+        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-testigos" style="display:none;">🗑 Eliminar todos</button>
       </div>
     </div>
 
@@ -310,7 +310,7 @@ function renderizarTestigos() {
       <td>${f.activo ? 'Sí' : 'No'}</td>
       <td>
         <button class="btn-secundario btn-sm" onclick="abrirEdicionTestigo(${f.id})">Editar</button>
-        ${esAdmin ? `<button class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarTestigo(${f.id})">Eliminar</button>` : ''}
+        ${esAdmin ? `<button class="btn-secundario btn-sm"  onclick="eliminarTestigo(${f.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');

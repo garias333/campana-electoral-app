@@ -360,7 +360,7 @@ async function cargarAsistentesEvento() {
       <td class="mono">${escaparHtml(a.identidad_resuelta || '—')}</td>
       <td>${celdaTelefonoWhatsApp(a.telefono_resuelto)}</td>
       <td class="col-barrio-vereda">${escaparHtml(a.barrio_resuelto || '—')}</td>
-      <td><button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="quitarAsistente(${a.id})">Quitar</button></td>
+      <td><button type="button" class="btn-secundario btn-sm"  onclick="quitarAsistente(${a.id})">Quitar</button></td>
     </tr>
   `).join('');
 }

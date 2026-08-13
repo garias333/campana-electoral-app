@@ -156,22 +156,23 @@
    que sirve como texto sobre blanco— y aquí el amarillo es el fondo.
    La regla lleva el id de la tarjeta delante, así que gana por especificidad
    sin necesitar !important y no toca los botones del resto de la app. */
+/* Solo los PRIMARIOS de esta pantalla: los secundarios ya son amarillos en
+   toda la aplicación desde style.css, y repetir la regla aquí sería tener dos
+   sitios que decir lo mismo. El par de colores es el mismo del resto. */
 #crm-config-card .btn-primario,
-#crm-estado-card .btn-secundario,
 #crm-config-bloqueado .btn-primario {
   background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-navy);
+  border-color: #084298;
+  color: #084298;
   font-weight: 700;
   font-size: 1rem;
   padding: 11px 22px;
 }
 #crm-config-card .btn-primario:hover,
-#crm-estado-card .btn-secundario:hover,
 #crm-config-bloqueado .btn-primario:hover {
   background: #E6AF00;
-  border-color: #E6AF00;
-  color: var(--color-navy);
+  border-color: #063573;
+  color: #063573;
 }
 </style>
 </head>

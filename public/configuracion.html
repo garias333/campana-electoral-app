@@ -25,7 +25,7 @@
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-diad" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Día D</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Usuarios</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">Asignación de permisos</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8); color:#A93226;">🗑️ Eliminar información</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">🗑️ Eliminar información</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup" style="border:none; border-radius:0; border-left:1px solid var(--color-border, #dfe3e8);">💾 Backup</button>
       </div>
     </div>
@@ -1020,7 +1020,7 @@ async function cargarAreasEliminables() {
   contenedor.innerHTML = areasEliminablesCache.map(area => `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; padding:12px 16px;">
       <span>${area.etiqueta}</span>
-      <button type="button" class="btn-secundario btn-sm" style="color:#A93226; border-color:#A93226;" onclick="eliminarInformacionArea('${area.clave}', '${area.etiqueta.replace(/'/g, "\\'")}')">Eliminar todo</button>
+      <button type="button" class="btn-secundario btn-sm"  onclick="eliminarInformacionArea('${area.clave}', '${area.etiqueta.replace(/'/g, "\\'")}')">Eliminar todo</button>
     </div>
   `).join('');
 }
@@ -1164,7 +1164,7 @@ async function cargarPuestosVotacion() {
       <td class="mono" style="${p.mesas_por_asignar > 0 ? 'color:#A93226; font-weight:700;' : ''}">${p.mesas_por_asignar}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
-        <button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarPuesto(${p.id})">Eliminar</button>
+        <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
       </td>
     </tr>
   `).join('');
@@ -1475,7 +1475,7 @@ async function cargarCandidatos() {
       <td>${escaparHtmlDiaD(c.nombre)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
-        <button type="button" class="btn-secundario btn-sm" style="color:#A93226;" onclick="eliminarCandidato(${c.id})">Eliminar</button>
+        <button type="button" class="btn-secundario btn-sm"  onclick="eliminarCandidato(${c.id})">Eliminar</button>
       </td>
     </tr>
   `).join('');

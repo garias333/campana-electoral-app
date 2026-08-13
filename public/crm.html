@@ -122,10 +122,10 @@
       <div class="topbar" style="margin-bottom:6px; flex-wrap:wrap; gap:8px;">
         <h3 style="margin:0;">Historial de campañas</h3>
         <div id="botones-eliminar-por-canal" style="display:none; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="btn-secundario btn-sm" data-canal="email" style="color:#A93226; border-color:#A93226;">Eliminar todas (Email)</button>
-          <button type="button" class="btn-secundario btn-sm" data-canal="email_personal" style="color:#A93226; border-color:#A93226;">Eliminar todas (Email personal)</button>
-          <button type="button" class="btn-secundario btn-sm" data-canal="sms" style="color:#A93226; border-color:#A93226;">Eliminar todas (SMS)</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todas-campanas" style="color:#A93226; border-color:#A93226; font-weight:700;">Eliminar TODAS las campañas</button>
+          <button type="button" class="btn-secundario btn-sm" data-canal="email">Eliminar todas (Email)</button>
+          <button type="button" class="btn-secundario btn-sm" data-canal="email_personal">Eliminar todas (Email personal)</button>
+          <button type="button" class="btn-secundario btn-sm" data-canal="sms">Eliminar todas (SMS)</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todas-campanas" style="font-weight:700;">Eliminar TODAS las campañas</button>
         </div>
       </div>
       <div class="tabla-contenedor">
@@ -197,7 +197,7 @@ function escaparHtml(texto) {
 function plantillaGrupo(idx) {
   return `
     <div class="grupo-destinatarios" data-grupo-index="${idx}" style="border:1px solid var(--color-border, #e2e2e2); border-radius:8px; padding:14px; margin-bottom:12px; position:relative;">
-      <button type="button" class="btn-secundario btn-sm" style="position:absolute; top:10px; right:10px; color:#A93226; border-color:#A93226;" onclick="quitarGrupo(${idx})" title="Quitar este grupo">Quitar grupo</button>
+      <button type="button" class="btn-secundario btn-sm" style="position:absolute; top:10px; right:10px;" onclick="quitarGrupo(${idx})" title="Quitar este grupo">Quitar grupo</button>
       <div style="font-weight:700; margin-bottom:8px; font-size:0.8rem; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.03em;">Grupo ${idx + 1}</div>
       <div class="fila">
         <div class="campo">
@@ -510,7 +510,7 @@ async function cargarCampanas() {
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>
-        <button class="btn-secundario btn-sm" style="color:#A93226; border-color:#A93226;" onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+        <button class="btn-secundario btn-sm"  onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
       </td>
     </tr>
   `).join('');
