@@ -358,15 +358,18 @@ input:focus, select:focus, textarea:focus {
 .tabla-contenedor tbody tr:hover td.col-acciones { background: var(--color-hover, #f6f8fb); }
 table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
 thead th {
-  text-align: left;
+  /* Centrados por pedido. El contenido de las celdas sigue a la izquierda:
+     centrar también los datos haría más difícil recorrer una columna de
+     nombres con la vista, que es como se lee una tabla larga. */
+  text-align: center;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
   border-bottom: 1px solid var(--color-border);
-  padding: 8px 10px;
+  padding: 8px 6px;
 }
-tbody td { padding: 10px 10px; border-bottom: 1px solid var(--color-border); }
+tbody td { padding: 10px 6px; border-bottom: 1px solid var(--color-border); }
 tbody tr:hover { background: #FAFBFC; }
 
 /* Semáforo / badges de estado */
@@ -849,14 +852,22 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
 table td .btn-secundario,
 table td .btn-primario {
   background: var(--color-accent);
-  border-color: #084298;
-  color: #084298;
+  /* Letra y borde negros: sobre el amarillo dan 13,6:1, el mayor contraste
+     de toda la aplicación, y en un botón pequeño eso es lo que decide si se
+     alcanza a leer. El borde va fino y explícito —el `border` base es de
+     1px pero en color transparente— para que el botón no engorde. */
+  border: 1px solid #000;
+  color: #000;
+  /* Más chicos que los de la barra de arriba: son acciones sobre UNA fila y
+     se repiten en cada una, así que ocupan menos y dejan respirar la tabla. */
+  padding: 5px 12px;
+  font-size: 0.8rem;
 }
 table td .btn-secundario:hover,
 table td .btn-primario:hover {
   background: #E6AF00;
-  border-color: #063573;
-  color: #063573;
+  border-color: #000;
+  color: #000;
 }
 
 
