@@ -283,6 +283,26 @@ function aplicarFormatoNombrePropio(selector) {
 }
 
 /**
+ * Escapa texto para meterlo en HTML sin que un dato con `<` o `&` rompa la
+ * página —o peor, inyecte etiquetas—.
+ *
+ * VIVE AQUÍ, en el archivo que cargan las 24 pantallas, y no copiada en cada
+ * una. Nueve pantallas tienen su propia copia idéntica y siguen funcionando
+ * (una declaración de función no choca con otra), pero la décima —Votantes—
+ * la llamó sin tenerla y el botón «Editar» dejó de abrir el formulario: un
+ * ReferenceError que solo aparece al hacer clic. Es el mismo fallo que ya
+ * había pasado en CRM y Mensajes con esta misma función.
+ *
+ * Definirla una vez donde todas la ven es lo que impide que vuelva a pasar.
+ * Las copias de las otras pantallas se pueden ir quitando sin apuro.
+ */
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto == null ? '' : String(texto);
+  return div.innerHTML;
+}
+
+/**
  * Formatea un teléfono colombiano de 10 dígitos: "3001234567" ->
  * "300 123 4567". Se usa en todos los campos de teléfono personal de la
  * app (candidato, usuarios, cargos del organigrama...) — NO aplica a los
