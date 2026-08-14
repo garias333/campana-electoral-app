@@ -527,6 +527,22 @@ router.get('/reportes', requireRole('admin', 'coordinador'), async (req, res) =>
       ORDER BY r.created_at DESC
       LIMIT 300
     `);
+    // Los otros documentos de TODOS los reportes de las dos tablas, en una
+    // sola consulta. Pedirlos por reporte convertiria este tablero —que se
+    // recarga solo durante la jornada— en decenas de viajes a la base.
+    const idsReportes = [...new Set([...ultimosPorMesa, ...historialCompleto].map(r => r.id))];
+    if (idsReportes.length) {
+      const [docs] = await pool.query(
+        `SELECT reporte_id, url, descripcion FROM dia_d_reporte_documentos
+          WHERE reporte_id IN (?) ORDER BY reporte_id, orden`, [idsReportes]);
+      const porReporte = new Map();
+      docs.forEach(d => {
+        if (!porReporte.has(d.reporte_id)) porReporte.set(d.reporte_id, []);
+        porReporte.get(d.reporte_id).push({ url: d.url, descripcion: d.descripcion });
+      });
+      [...ultimosPorMesa, ...historialCompleto].forEach(r => { r.documentos = porReporte.get(r.id) || []; });
+    }
+
     res.json({ mesas: ultimosPorMesa, historial: historialCompleto });
   } catch (err) {
     console.error(err);

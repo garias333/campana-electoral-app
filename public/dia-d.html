@@ -70,7 +70,7 @@
       <h3 style="margin-top:0;">Último reporte por mesa</h3>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>E-14</th><th></th></tr></thead>
+          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-mesas"></tbody>
         </table>
       </div>
@@ -81,7 +81,7 @@
       <h3 style="margin-top:0;">Historial completo</h3>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>E-14</th><th></th></tr></thead>
+          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-historial"></tbody>
         </table>
       </div>
@@ -99,6 +99,19 @@ function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto == null ? '' : String(texto);
   return div.innerHTML;
+}
+
+/**
+ * Celda con los OTROS documentos del reporte: acta de escrutinio,
+ * reclamaciones, constancias. Van uno por uno y con su descripción cuando el
+ * testigo la escribió — no como un solo enlace de "ver documentos", porque
+ * cada uno es una prueba distinta y se abre por separado.
+ */
+function celdaDocumentos(documentos) {
+  if (!documentos || !documentos.length) return '—';
+  return documentos
+    .map((d, i) => `<a href="${escaparHtml(d.url)}" target="_blank" rel="noopener">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`)
+    .join('<br>');
 }
 
 /** Celda con enlace a la foto del E-14, o un guion si no hay ninguna en ese reporte. */
@@ -252,6 +265,7 @@ async function cargarVistaCampana() {
       <td>${formatoFecha(f.created_at, true)}</td>
       <td>${escaparHtml(f.novedad || '')}</td>
       <td>${celdaFotoE14(f.foto_e14_url)}</td>
+      <td>${celdaDocumentos(f.documentos)}</td>
       <td>${celdaEliminarReporte(f.id)}</td>
     </tr>
   `).join('');
@@ -265,6 +279,7 @@ async function cargarVistaCampana() {
       <td class="mono">${f.votos_candidato ?? '—'}</td>
       <td>${escaparHtml(f.novedad || '')}</td>
       <td>${celdaFotoE14(f.foto_e14_url)}</td>
+      <td>${celdaDocumentos(f.documentos)}</td>
       <td>${celdaEliminarReporte(f.id)}</td>
     </tr>
   `).join('');
