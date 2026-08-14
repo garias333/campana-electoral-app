@@ -336,6 +336,16 @@
         <select name="sublider_id" id="select-sublider-votante"><option value="">Ninguno</option></select>
       </div>
       <div class="campo"><label>Observaciones</label><textarea name="observaciones" rows="2"></textarea></div>
+
+      <!-- La autorización es EVIDENCIA, no un campo editable: se muestra lo
+           que la persona autorizó, cuándo y sobre qué texto. Poder cambiarla
+           desde aquí la volvería inútil como prueba — para revocarla está la
+           baja de contacto, que deja su propio registro. -->
+      <div class="campo campo-ancho" id="bloque-consentimiento-votante" style="display:none;">
+        <label>Autorización de tratamiento de datos</label>
+        <div id="detalle-consentimiento" class="detalle-consentimiento"></div>
+      </div>
+
       <button type="submit" class="btn-primario">Guardar</button>
     </form>
   </div>
@@ -1274,6 +1284,51 @@ function precargarUbicacionVotante(territorioId) {
   // basta: no hay Área que deducir.
 }
 
+/**
+ * La autorización de la persona, como evidencia.
+ *
+ * Se muestra lo que hay, sin interpretar de más: una ficha registrada antes de
+ * que el formulario preguntara canal por canal NO dice "no autorizó" — dice
+ * "no consta", que es distinto y es lo que decide si se le puede escribir.
+ *
+ * La versión es la huella del texto de la política que se le mostró ese día.
+ * Es lo único que permite demostrar A QUÉ dijo que sí, porque el texto pudo
+ * cambiar después.
+ */
+function pintarConsentimiento(v) {
+  const bloque = document.getElementById('bloque-consentimiento-votante');
+  const caja = document.getElementById('detalle-consentimiento');
+  if (!v || !v.id) { bloque.style.display = 'none'; return; }
+  bloque.style.display = '';
+
+  const marca = (valor) => valor === null || valor === undefined
+    ? '<span class="consent-nc">no consta</span>'
+    : (Number(valor) === 1 ? '<span class="consent-si">autorizó</span>'
+                           : '<span class="consent-no">no autorizó</span>');
+
+  const fecha = v.consentimiento_fecha
+    ? new Date(v.consentimiento_fecha).toLocaleString('es-CO')
+    : null;
+
+  caja.innerHTML = `
+    <div class="consent-linea">
+      <strong>${v.consentimiento_autorizado ? 'Autorizó el tratamiento de sus datos' : 'Sin autorización registrada'}</strong>
+      ${fecha ? ` · ${escaparHtml(fecha)}` : ''}
+      ${v.consentimiento_metodo ? ` · ${escaparHtml(v.consentimiento_metodo.replace(/_/g, ' '))}` : ''}
+    </div>
+    <div class="consent-linea">
+      Correo: ${marca(v.consentimiento_email)} ·
+      SMS: ${marca(v.consentimiento_sms)} ·
+      WhatsApp: ${marca(v.consentimiento_whatsapp)}
+    </div>
+    <div class="consent-linea consent-version">
+      ${v.consentimiento_version
+        ? `Texto mostrado: versión <code>${escaparHtml(v.consentimiento_version)}</code>`
+        : 'Sin versión del texto: la ficha es anterior a que se registrara cuál política se mostraba.'}
+    </div>
+    ${v.no_contactar ? '<div class="consent-linea consent-baja">Pidió no recibir más mensajes.</div>' : ''}`;
+}
+
 async function editarVotante(v) {
   const form = document.getElementById('form-votante');
   document.getElementById('titulo-modal').textContent = 'Editar votante o sublíder';
@@ -1288,6 +1343,7 @@ async function editarVotante(v) {
   form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardadoVotante.includes(c.value); });
   actualizarCiudadesResidenciaVotante();
   document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
+  pintarConsentimiento(v);
   document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
   document.getElementById('categoria-votante-error').style.display = 'none';
   document.getElementById('input-meta-votos-sublider').value = 0;
