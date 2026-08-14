@@ -220,3 +220,21 @@ main.app-cuerpo {
 body.sin-comunas [data-campo="comuna"] { display: none !important; }
 body.sin-barrios [data-campo="barrio"] { display: none !important; }
 body.sin-comunas.sin-barrios [data-fila="urbano"] { display: none !important; }
+
+
+/* --- Autorización de la persona (registro de votantes) -------------------
+   El texto de la política se muestra DENTRO del formulario, no en otra
+   pantalla: quien registra tiene que poder enseñarle el celular a la persona
+   sin perder lo que ya escribió. */
+.bloque-consentimiento {
+  border: 1px solid var(--linea, #E2E5EA);
+  border-radius: 12px; padding: 14px; background: #FBFCFD;
+}
+.titulo-consentimiento { margin: 0 0 10px; font-size: 1rem; }
+.texto-politica {
+  max-height: 230px; overflow-y: auto; font-size: 0.85rem; line-height: 1.5;
+  border: 1px solid var(--linea, #E2E5EA); border-radius: 10px;
+  padding: 12px; margin-top: 10px; background: #fff; white-space: pre-wrap;
+}
+.ayuda-canales { margin: 14px 0 6px; font-weight: 600; font-size: 0.9rem; }
+.ayuda-canales-nota { margin: 8px 0 0; font-size: 0.8rem; color: #5B6472; line-height: 1.45; }

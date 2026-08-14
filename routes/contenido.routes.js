@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -119,7 +120,16 @@ router.get('/:clave', async (req, res) => {
   if (!validarClave(clave, res)) return;
   try {
     const [[fila]] = await pool.query(`SELECT * FROM contenido_paginas WHERE clave = ?`, [clave]);
-    res.json(fila || { clave, titulo: TITULOS_POR_DEFECTO[clave] || '', contenido: '' });
+    const salida = fila || { clave, titulo: TITULOS_POR_DEFECTO[clave] || '', contenido: '' };
+    // `version` es una huella corta del texto. La usa el formulario de captura
+    // para guardar, junto a la autorización de cada persona, QUÉ texto se le
+    // mostró: sin eso, dentro de un año no se puede demostrar a qué dijo que
+    // sí, porque la política pudo cambiar diez veces desde entonces.
+    // Se calcula aquí y no en el navegador para que sea la misma para todos y
+    // no dependa de la versión del teléfono.
+    salida.version = crypto.createHash('sha256')
+      .update(String(salida.contenido || ''), 'utf8').digest('hex').slice(0, 16);
+    res.json(salida);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error obteniendo el contenido.' });

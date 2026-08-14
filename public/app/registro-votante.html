@@ -179,11 +179,39 @@
       <textarea id="f-observaciones" rows="3"></textarea>
     </div>
 
-    <div class="campo-app">
-      <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400;">
+    <div class="campo-app bloque-consentimiento">
+      <h3 class="titulo-consentimiento">Autorización de la persona</h3>
+
+      <!-- MOSTRARLE EL TEXTO ES LO QUE HACE QUE EL CONSENTIMIENTO SEA
+           "INFORMADO". Antes solo había una casilla que marcaba quien
+           registraba; ahora la política se abre aquí mismo y se le puede
+           enseñar la pantalla a la persona, sin salir del formulario ni
+           perder lo escrito — que es lo que pasaría con un enlace a otra
+           página. -->
+      <button type="button" class="btn-app btn-app-fantasma" id="btn-ver-politica">
+        Leer la política de tratamiento de datos
+      </button>
+      <div id="texto-politica" class="texto-politica" style="display:none;"></div>
+
+      <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; margin-top:12px;">
         <input type="checkbox" id="f-consentimiento" required style="width:auto; margin-top:3px;">
-        <span>Le informé a la persona para qué se usan sus datos y me autorizó a registrarlos.</span>
+        <span>Le leí o le mostré esta información y <strong>autoriza el tratamiento de sus datos</strong>.</span>
       </label>
+
+      <p class="ayuda-canales">¿Por cuáles medios autoriza que le escribamos?</p>
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="checkbox" id="f-consentimiento-email" style="width:auto;"> Correo electrónico
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="checkbox" id="f-consentimiento-sms" style="width:auto;"> Mensajes de texto (SMS)
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="checkbox" id="f-consentimiento-whatsapp" style="width:auto;"> WhatsApp
+      </label>
+      <p class="ayuda-canales-nota">
+        Puede autorizar unos y otros no. Si no marca ninguno queda registrada igual,
+        pero no le llegarán mensajes de la campaña.
+      </p>
     </div>
 
     <button type="submit" class="btn-app btn-app-primario" id="btn-guardar">Guardar registro</button>
@@ -590,6 +618,45 @@ const verificarPosibleDuplicado = debounce(async () => {
   document.getElementById(id).addEventListener('input', verificarPosibleDuplicado);
 });
 
+// --- La política de tratamiento de datos ----------------------------------
+//
+// Se carga al abrir la pantalla y se guarda su VERSIÓN para mandarla junto a
+// la autorización: es lo que permite demostrar después a qué texto dijo que sí
+// la persona. El texto pudo cambiar diez veces desde entonces.
+//
+// Se pide una vez y se guarda en el dispositivo: esta pantalla se usa en la
+// calle, muchas veces sin señal, y quedarse sin poder mostrar la política
+// —o peor, sin poder registrar— por no tener red sería absurdo.
+let versionPolitica = localStorage.getItem('politica_version') || '';
+let textoPolitica = localStorage.getItem('politica_texto') || '';
+
+async function cargarPolitica() {
+  try {
+    const p = await api('/contenido/politica_privacidad');
+    textoPolitica = p.contenido || '';
+    versionPolitica = p.version || '';
+    localStorage.setItem('politica_texto', textoPolitica);
+    localStorage.setItem('politica_version', versionPolitica);
+  } catch (_) {
+    // Sin red se usa la copia guardada. Si tampoco la hay, el botón lo dice.
+  }
+}
+cargarPolitica();
+
+document.getElementById('btn-ver-politica').addEventListener('click', () => {
+  const caja = document.getElementById('texto-politica');
+  const visible = caja.style.display !== 'none';
+  if (visible) {
+    caja.style.display = 'none';
+    document.getElementById('btn-ver-politica').textContent = 'Leer la política de tratamiento de datos';
+    return;
+  }
+  caja.textContent = textoPolitica
+    || 'No se pudo cargar la política. Conéctese una vez a internet para descargarla y poder mostrársela a la persona.';
+  caja.style.display = 'block';
+  document.getElementById('btn-ver-politica').textContent = 'Ocultar la política';
+});
+
 document.getElementById('form-registro').addEventListener('submit', async (e) => {
   e.preventDefault();
   document.getElementById('aviso-error').classList.remove('visible');
@@ -639,6 +706,13 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
     observaciones: document.getElementById('f-observaciones').value.trim(),
     consentimiento_autorizado: document.getElementById('f-consentimiento').checked,
     consentimiento_metodo: 'verbal_formulario_campo',
+    consentimiento_email: document.getElementById('f-consentimiento-email').checked,
+    consentimiento_sms: document.getElementById('f-consentimiento-sms').checked,
+    consentimiento_whatsapp: document.getElementById('f-consentimiento-whatsapp').checked,
+    // La huella del texto que se le mostró. Va vacía si la política no se
+    // pudo cargar —sin señal, por ejemplo—: es preferible registrar la
+    // autorización sin la versión que perder el registro entero.
+    consentimiento_version: versionPolitica || '',
     meta_votos_sublider: document.getElementById('f-meta-votos').value || 0,
     // lider_id / sublider_id NO se mandan — el servidor los calcula
     // siempre desde la sesión (ver GET /votantes/mi-referido).

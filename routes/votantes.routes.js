@@ -915,8 +915,10 @@ router.post('/', async (req, res) => {
         direccion, departamento_residencia, ciudad_residencia, area, lider_id, sublider_id, intencion_voto, apoya_a,
         departamento_votacion, municipio_votacion,
         puesto_votacion, mesa_votacion, observaciones,
-        consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo, cliente_uuid, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
+        consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
+        cliente_uuid, created_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -928,6 +930,14 @@ router.post('/', async (req, res) => {
        b.consentimiento_autorizado ? 1 : 0,
        b.consentimiento_autorizado ? new Date() : null,
        b.consentimiento_autorizado ? (b.consentimiento_metodo || 'verbal_formulario_campo') : null,
+       // Cada canal se guarda como 1 o 0 EXPLÍCITO, nunca NULL: aquí sí se
+       // preguntó. El NULL queda reservado para los registros anteriores a
+       // que existiera la pregunta —"no consta"— y es lo que permite que
+       // sigan recibiendo mensajes como siempre.
+       b.consentimiento_autorizado ? (b.consentimiento_email ? 1 : 0) : 0,
+       b.consentimiento_autorizado ? (b.consentimiento_sms ? 1 : 0) : 0,
+       b.consentimiento_autorizado ? (b.consentimiento_whatsapp ? 1 : 0) : 0,
+       (b.consentimiento_version || '').slice(0, 64) || null,
        b.cliente_uuid || null,
        req.session.usuario.id]
     );

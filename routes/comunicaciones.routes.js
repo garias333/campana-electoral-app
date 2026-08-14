@@ -186,6 +186,30 @@ function esCanalDeCorreo(canal) {
  * filtros elegidos, y devuelve una lista unificada de destinatarios con
  * el dato de contacto que corresponde al canal (email o teléfono).
  */
+/**
+ * ¿Esta persona autorizó que le escriban por este canal?
+ *
+ * NULL NO ES «NO»: es «no consta». Son los registros anteriores a que el
+ * formulario preguntara canal por canal, y siguen recibiendo como siempre —
+ * decidido así a propósito: exigirles la autorización nueva habría dejado sin
+ * mensajes a toda la base ya registrada hasta volver a preguntarle a cada
+ * persona, una por una.
+ *
+ * Solo un 0 explícito bloquea, y ese 0 solo lo escribe alguien que preguntó y
+ * recibió un no.
+ *
+ * El correo personal (email_personal) y el masivo son el mismo dato de
+ * contacto, así que comparten autorización. Push no pregunta: se instala en el
+ * teléfono de quien tiene cuenta y se activa desde el propio aparato.
+ */
+function autorizaCanal(fila, canal) {
+  const columna = canal === 'sms' ? 'consentimiento_sms'
+    : esCanalDeCorreo(canal) ? 'consentimiento_email'
+    : null;
+  if (!columna) return true;
+  return fila[columna] === null || fila[columna] === undefined || Number(fila[columna]) === 1;
+}
+
 async function obtenerDestinatarios(filtros, canal) {
   // "seleccion" y "manual" traen la lista ya hecha: no se consulta nada
   // masivo, o se agregarían destinatarios que nadie pidió.
@@ -220,7 +244,8 @@ async function obtenerDestinatarios(filtros, canal) {
     const [filas] = await pool.query(`
       SELECT v.id, v.nombre, v.email, v.telefono,
              v.intencion_voto, v.categoria, t.nombre AS territorio_nombre,
-             v.puesto_votacion, v.mesa_votacion, v.no_contactar
+             v.puesto_votacion, v.mesa_votacion, v.no_contactar,
+             v.consentimiento_email, v.consentimiento_sms, v.consentimiento_whatsapp
       FROM votantes v
       LEFT JOIN territorios t ON t.id = v.territorio_id
       WHERE 1=1 ${whereSql}
@@ -233,6 +258,10 @@ async function obtenerDestinatarios(filtros, canal) {
         // quedarían fuera si el mensaje usa los marcadores de Lugar de
         // votación — mejor saberlo al armar la lista que al ver el reporte.
         sin_lugar_votacion: !(f.puesto_votacion && String(f.puesto_votacion).trim()),
+        // No autorizó ESTE canal. Se informa aparte —igual que la baja— para
+        // poder decir antes de enviar cuántos quedan fuera y por qué, en vez
+        // de que aparezcan como fallidos en el reporte.
+        sin_autorizacion: !autorizaCanal(f, canal),
         // Pidió no recibir más mensajes. Se informa aparte en vez de
         // desaparecerlo de la lista: el administrador tiene que ver que esa
         // persona existe y por qué no le llega nada — si simplemente no
@@ -529,14 +558,18 @@ router.post('/destinatarios/preview', async (req, res) => {
     const destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email');
     // Quien pidió la baja no cuenta como "con contacto": tiene teléfono o
     // correo, pero no se le va a escribir. Sumarlo ahí haría prometer más
-    // envíos de los que van a ocurrir.
-    const conContacto = destinatarios.filter(d => d.contacto && !d.dado_de_baja);
+    // envíos de los que van a ocurrir. Lo mismo con quien no autorizó ESTE
+    // canal, que se cuenta aparte para que la diferencia se vea: una cosa es
+    // «no tenemos su número» y otra «nos dijo que no por aquí».
+    const conContacto = destinatarios.filter(d => d.contacto && !d.dado_de_baja && !d.sin_autorizacion);
     const dadosDeBaja = destinatarios.filter(d => d.dado_de_baja).length;
+    const sinAutorizacion = destinatarios.filter(d => d.sin_autorizacion && !d.dado_de_baja).length;
     res.json({
       total: destinatarios.length,
       conContacto: conContacto.length,
       sinContacto: destinatarios.filter(d => !d.contacto).length,
       dadosDeBaja,
+      sinAutorizacion,
       muestra: destinatarios.slice(0, 8),
       // "completo" trae la lista entera (con contacto) — la usan las
       // pantallas de Enviar E-mail/SMS para agregar de un tirón
@@ -1095,7 +1128,14 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
       campanaId, d.tipo, d.id || null, d.nombre, d.contacto || null,
       // La baja manda sobre todo lo demás: aunque tenga contacto, no se le
       // intenta enviar. Queda como fila para que el reporte lo muestre.
-      d.dado_de_baja ? 'dado_de_baja' : (d.contacto ? 'pendiente' : 'sin_contacto')
+      //
+      // «Sin autorización» es un estado APARTE y no un tipo de baja: dado de
+      // baja es quien pidió que no le escribieran más; sin autorización es
+      // quien nunca dijo que sí por ese medio. Mezclarlos haría imposible
+      // saber a quién tiene sentido volver a preguntarle.
+      d.dado_de_baja ? 'dado_de_baja'
+        : d.sin_autorizacion ? 'sin_autorizacion'
+        : (d.contacto ? 'pendiente' : 'sin_contacto')
     ]);
     await pool.query(
       `INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto, estado) VALUES ?`,

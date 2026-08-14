@@ -39,6 +39,14 @@
   .camara-e14-botones .btn-app { flex: 1; }
   .btn-app-fantasma { background: transparent; color: #fff; border: 1.5px solid #fff; }
   #vista-previa-foto-e14 img { max-width: 100%; border-radius: 10px; border: 1px solid var(--linea); display: block; }
+  .ayuda-documentos { font-size: 0.8rem; color: #5B6472; margin: 0 0 8px; line-height: 1.45; }
+  .doc-fila {
+    display: flex; align-items: center; gap: 10px; padding: 8px;
+    border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 8px; background: #fff;
+  }
+  .doc-fila img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; flex: 0 0 auto; }
+  .doc-fila input { flex: 1; min-width: 0; font-size: 0.9rem; }
+  .doc-quitar { background: none; border: 0; color: #A93226; font-size: 1.4rem; cursor: pointer; padding: 0 6px; }
 </style>
 </head>
 <body>
@@ -102,6 +110,16 @@
           <img id="img-previa-foto-e14" alt="Foto del E-14 ya procesada">
         </div>
         <button type="button" class="btn-app btn-app-secundario" id="btn-abrir-camara-e14">Tomar foto del E-14</button>
+      </div>
+
+      <div class="campo-app">
+        <label>📎 Otros documentos (opcional)</label>
+        <p class="ayuda-documentos">
+          Acta de escrutinio, una reclamación, la constancia de una novedad… Puede tomar
+          varias fotos: cada una se guarda por separado.
+        </p>
+        <div id="lista-documentos"></div>
+        <button type="button" class="btn-app btn-app-secundario" id="btn-abrir-camara-documento">Tomar foto de otro documento</button>
         <small>Obligatoria — es el respaldo del conteo que reportas. Se toma en blanco y negro y se optimiza el contraste para que se lea bien.</small>
       </div>
       <button type="submit" class="btn-app btn-app-primario" id="btn-enviar-reporte">Enviar reporte</button>
@@ -177,6 +195,7 @@ async function cargarMisReportes() {
       <div class="detalle">${f.total_votantes_mesa ?? '—'} total votantes en la mesa</div>
       ${f.novedad ? `<div class="novedad">⚠ ${escaparHtml(f.novedad)}</div>` : ''}
       ${f.foto_e14_url ? `<a class="foto-e14" href="${escaparHtml(f.foto_e14_url)}" target="_blank" rel="noopener">Ver foto del E-14</a>` : ''}
+      ${(f.documentos || []).map((d, i) => `<a class="foto-e14" href="${escaparHtml(d.url)}" target="_blank" rel="noopener">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`).join('')}
     </div>
   `).join('');
 }
@@ -226,6 +245,14 @@ function construirFormDataReporte(registro) {
   if (registro.payload.fotoE14) {
     fd.append('foto_e14', registro.payload.fotoE14, registro.payload.fotoE14Nombre || 'foto_e14.jpg');
   }
+  // Los documentos se reconstruyen en el mismo orden en que se guardaron, y
+  // sus descripciones con ellos: si el orden se perdiera, cada descripción
+  // quedaría pegada a la foto equivocada.
+  const documentos = registro.payload.documentos || [];
+  documentos.forEach((doc, i) => {
+    if (doc && doc.blob) fd.append('documentos', doc.blob, `documento_${i + 1}.jpg`);
+  });
+  fd.append('documentos_descripciones', JSON.stringify(documentos.map(d => (d && d.descripcion) || '')));
   return fd;
 }
 
@@ -461,7 +488,20 @@ function cerrarCamaraE14() {
   detenerStreamCamaraE14();
   document.getElementById('camara-e14-overlay').style.display = 'none';
 }
-document.getElementById('btn-abrir-camara-e14').addEventListener('click', abrirCamaraE14);
+// La MISMA cámara sirve para el E-14 y para los otros documentos: es la misma
+// captura, el mismo procesado en blanco y negro y el mismo botón de repetir.
+// Lo único que cambia es dónde va a parar la foto, y eso lo dice este modo.
+// Duplicar la cámara habría significado dos sitios que arreglar cada vez.
+let modoCamara = 'e14';   // 'e14' | 'documento'
+
+document.getElementById('btn-abrir-camara-e14').addEventListener('click', () => {
+  modoCamara = 'e14';
+  abrirCamaraE14();
+});
+document.getElementById('btn-abrir-camara-documento').addEventListener('click', () => {
+  modoCamara = 'documento';
+  abrirCamaraE14();
+});
 document.getElementById('btn-cancelar-camara-e14').addEventListener('click', cerrarCamaraE14);
 
 /**
@@ -564,8 +604,61 @@ function generarJpgDesdeCanvas(canvas) {
   return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92));
 }
 
+/**
+ * Los otros documentos. Cada uno es un Blob con su descripción, y viven en un
+ * arreglo porque son varios y cada uno se sube por separado.
+ */
+let documentosAdjuntos = [];   // [{ blob, miniatura, descripcion }]
+
+function pintarDocumentos() {
+  const cont = document.getElementById('lista-documentos');
+  cont.innerHTML = '';
+  documentosAdjuntos.forEach((doc, i) => {
+    const fila = document.createElement('div');
+    fila.className = 'doc-fila';
+    const img = document.createElement('img');
+    img.src = doc.miniatura;
+    img.alt = 'Documento ' + (i + 1);
+    const campo = document.createElement('input');
+    campo.type = 'text';
+    campo.placeholder = '¿Qué documento es? (opcional)';
+    campo.value = doc.descripcion || '';
+    campo.addEventListener('input', () => { doc.descripcion = campo.value; });
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.className = 'doc-quitar';
+    quitar.textContent = '×';
+    quitar.title = 'Quitar este documento';
+    quitar.addEventListener('click', () => {
+      documentosAdjuntos.splice(i, 1);
+      pintarDocumentos();
+    });
+    fila.append(img, campo, quitar);
+    cont.appendChild(fila);
+  });
+  document.getElementById('btn-abrir-camara-documento').textContent =
+    documentosAdjuntos.length ? `Agregar otro documento (${documentosAdjuntos.length})` : 'Tomar foto de otro documento';
+}
+
 document.getElementById('btn-usar-foto-e14').addEventListener('click', async () => {
   if (!canvasProcesadoE14) return;
+
+  if (modoCamara === 'documento') {
+    if (documentosAdjuntos.length >= 8) {
+      alert('Máximo 8 documentos por reporte.');
+      document.getElementById('camara-e14-overlay').style.display = 'none';
+      return;
+    }
+    documentosAdjuntos.push({
+      blob: await generarJpgDesdeCanvas(canvasProcesadoE14),
+      miniatura: canvasProcesadoE14.toDataURL('image/jpeg', 0.5),
+      descripcion: '',
+    });
+    pintarDocumentos();
+    document.getElementById('camara-e14-overlay').style.display = 'none';
+    return;
+  }
+
   archivoFotoE14 = await generarJpgDesdeCanvas(canvasProcesadoE14);
   nombreFotoE14 = 'foto_e14.jpg';
   document.getElementById('img-previa-foto-e14').src = canvasProcesadoE14.toDataURL('image/jpeg', 0.92);
@@ -582,6 +675,8 @@ function limpiarFotoE14() {
   document.getElementById('vista-previa-foto-e14').style.display = 'none';
   document.getElementById('img-previa-foto-e14').src = '';
   document.getElementById('btn-abrir-camara-e14').textContent = 'Tomar foto del E-14';
+  documentosAdjuntos = [];
+  pintarDocumentos();
 }
 
 document.getElementById('form-reporte').addEventListener('submit', async (e) => {
@@ -633,6 +728,10 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
     const clienteUuid = generarUuid();
     const archivoFoto = archivoFotoE14;
     const nombreArchivoFoto = nombreFotoE14 || 'foto_e14.jpg';
+    // Copia de la lista TAL COMO ESTÁ AL ENVIAR: si el envío se va a la cola,
+    // lo que se guarda no puede cambiar porque después alguien toque la
+    // pantalla. Es el mismo cuidado que ya se tenía con la foto del E-14.
+    const documentos = documentosAdjuntos.map(d => ({ blob: d.blob, descripcion: d.descripcion || '' }));
     // El puesto viaja SIEMPRE con su nombre —es la instantánea de ese día,
     // y el servidor la guarda tal cual— y además con el id cuando se eligió
     // de la lista. Sin id, el reporte queda marcado para revisión.
@@ -660,6 +759,11 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
       fd.append('votos_json', votosJson);
       fd.append('cliente_uuid', clienteUuid);
       if (archivoFoto) fd.append('foto_e14', archivoFoto, nombreArchivoFoto);
+      // Cada documento va como un archivo aparte, y sus descripciones en un
+      // solo campo con el MISMO orden: así el servidor sabe cuál es cuál sin
+      // depender del nombre del archivo.
+      documentos.forEach((doc, i) => fd.append('documentos', doc.blob, `documento_${i + 1}.jpg`));
+      fd.append('documentos_descripciones', JSON.stringify(documentos.map(d => d.descripcion || '')));
       await api('/dia-d/reportes', { method: 'POST', body: fd });
       e.target.reset();
       limpiarFotoE14();
@@ -679,7 +783,12 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
           campos: camposTexto,
           votosJson,
           fotoE14: archivoFoto || null,
-          fotoE14Nombre: archivoFoto ? nombreArchivoFoto : null
+          fotoE14Nombre: archivoFoto ? nombreArchivoFoto : null,
+          // Los otros documentos se guardan igual que el E-14: un Blob sí cabe
+          // en IndexedDB. Si se guardara solo la miniatura —que es texto y
+          // pesa poco— el testigo perdería las fotos de verdad sin enterarse,
+          // que es el peor final posible para algo que se captura sin señal.
+          documentos: documentos.map(d => ({ blob: d.blob, descripcion: d.descripcion }))
         },
         creadoEn: Date.now(),
         estado: 'pendiente'

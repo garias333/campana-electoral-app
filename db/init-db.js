@@ -868,7 +868,7 @@ async function main() {
   // respetó y desde cuándo.
   await modificarColumna(
     connection, 'comunicaciones_envios',
-    "estado ENUM('pendiente','enviado','fallido','sin_contacto','sin_lugar_votacion','dado_de_baja') NOT NULL DEFAULT 'pendiente'"
+    "estado ENUM('pendiente','enviado','fallido','sin_contacto','sin_lugar_votacion','dado_de_baja','sin_autorizacion') NOT NULL DEFAULT 'pendiente'"
   );
 
   // "Apoya a": a qué cargo(s) apoya esta persona — se guarda como una
@@ -1302,6 +1302,16 @@ async function main() {
     'proveedor_lote_id VARCHAR(128) NULL AFTER proveedor_id', 'proveedor_lote_id');
   await agregarColumnaSiFalta(connection, 'sms_envios',
     'estado_proveedor VARCHAR(40) NULL AFTER estado', 'estado_proveedor');
+  // Autorización por canal, y la versión del texto que se mostró. Van NULL en
+  // lo ya registrado: "no consta" y no "no autorizó" — ver la nota del
+  // esquema. Es lo que permite activar esto sin dejar muda a la campaña.
+  for (const canal of ['email', 'sms', 'whatsapp']) {
+    await agregarColumnaSiFalta(connection, 'votantes',
+      `consentimiento_${canal} TINYINT(1) NULL AFTER consentimiento_metodo`, `consentimiento_${canal}`);
+  }
+  await agregarColumnaSiFalta(connection, 'votantes',
+    'consentimiento_version VARCHAR(64) NULL AFTER consentimiento_whatsapp', 'consentimiento_version');
+
   await agregarColumnaSiFalta(connection, 'sms_config',
     "firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final' AFTER firma", 'firma_posicion');
 

@@ -281,7 +281,14 @@ router.get('/mesas-ocupadas', async (req, res) => {
  * La foto del E-14 y el total de votantes de la mesa son obligatorios: son
  * el respaldo real del conteo, no un dato de relleno.
  */
-router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.single('foto_e14'), async (req, res) => {
+// `fields` y no `single`: además del E-14 —que es UNO y obligatorio— el
+// testigo puede fotografiar otros documentos (acta de escrutinio, una
+// reclamación, la constancia de una novedad). El tope de 8 existe para que un
+// dedo pegado al botón no llene el disco del servidor.
+const MAX_DOCUMENTOS_REPORTE = 8;
+router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
+  upload.fields([{ name: 'foto_e14', maxCount: 1 }, { name: 'documentos', maxCount: MAX_DOCUMENTOS_REPORTE }]),
+  async (req, res) => {
   const b = req.body;
 
   // Reintento idempotente: el celular guarda el reporte cuando no hay señal
@@ -335,7 +342,12 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.
   if (b.total_votantes_mesa === undefined || String(b.total_votantes_mesa).trim() === '') {
     return res.status(400).json({ error: 'El total de votantes en la mesa es obligatorio.' });
   }
-  if (!req.file) {
+  // Con `fields`, multer entrega req.files como un objeto por campo: el E-14
+  // ya no está en req.file. Dejarlo así habría hecho que TODO reporte se
+  // rechazara por "falta la foto" aunque viniera.
+  const archivoE14 = req.files && req.files.foto_e14 && req.files.foto_e14[0];
+  const archivosDocumentos = (req.files && req.files.documentos) || [];
+  if (!archivoE14) {
     return res.status(400).json({ error: 'La foto del E-14 es obligatoria.' });
   }
 
@@ -363,7 +375,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.
     }
   }
 
-  const fotoE14Url = `/uploads/${req.file.filename}`;
+  const fotoE14Url = `/uploads/${archivoE14.filename}`;
   // EL REPORTE Y SUS VOTOS SE GUARDAN JUNTOS O NO SE GUARDAN.
   //
   // Antes eran un INSERT del reporte y luego un INSERT suelto por candidato,
@@ -403,6 +415,27 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'), upload.
       [votosPorCandidato.map(item => [result.insertId, String(item.nombre).trim(), Number(item.votos)])]
     );
 
+    // Los otros documentos van en la MISMA transacción que el reporte, por lo
+    // mismo que los votos: un reporte guardado a medias —con acta pero sin sus
+    // anexos, o al revés— es peor que uno que no se guardó, porque nadie sabe
+    // que falta algo.
+    if (archivosDocumentos.length) {
+      // La descripción de cada uno viaja en un campo paralelo, en el mismo
+      // orden en que se subieron los archivos.
+      const descripciones = (() => {
+        try { return JSON.parse(b.documentos_descripciones || '[]'); } catch (_) { return []; }
+      })();
+      await conexion.query(
+        `INSERT INTO dia_d_reporte_documentos (reporte_id, url, descripcion, orden) VALUES ?`,
+        [archivosDocumentos.map((f, i) => [
+          result.insertId,
+          `/uploads/${f.filename}`,
+          (descripciones[i] || '').toString().trim().slice(0, 150) || null,
+          i + 1,
+        ])]
+      );
+    }
+
     await conexion.commit();
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -436,6 +469,20 @@ router.get('/mis-reportes', async (req, res) => {
         votosPorReporte.get(v.reporte_id).push({ nombre: v.candidato_nombre, votos: v.votos });
       });
       rows.forEach(r => { r.votos_por_candidato = votosPorReporte.get(r.id) || []; });
+
+      // Los otros documentos, en una sola consulta para todos los reportes:
+      // uno por reporte convertiria un listado de 50 en 51 viajes a la base.
+      const [docs] = await pool.query(
+        `SELECT reporte_id, url, descripcion FROM dia_d_reporte_documentos
+          WHERE reporte_id IN (?) ORDER BY reporte_id, orden`,
+        [rows.map(r => r.id)]
+      );
+      const docsPorReporte = new Map();
+      docs.forEach(d => {
+        if (!docsPorReporte.has(d.reporte_id)) docsPorReporte.set(d.reporte_id, []);
+        docsPorReporte.get(d.reporte_id).push({ url: d.url, descripcion: d.descripcion });
+      });
+      rows.forEach(r => { r.documentos = docsPorReporte.get(r.id) || []; });
     }
     res.json(rows);
   } catch (err) {

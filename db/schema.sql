@@ -219,7 +219,19 @@ CREATE TABLE IF NOT EXISTS votantes (
   observaciones TEXT,
   consentimiento_autorizado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'La persona autorizó expresamente el uso de sus datos (Circular SIC 002 de 2026 / Ley 1581 de 2012)',
   consentimiento_fecha DATETIME NULL COMMENT 'Momento en que se registró la autorización',
-  consentimiento_metodo VARCHAR(50) NULL COMMENT 'Cómo se obtuvo: verbal_formulario_campo, escrito, etc.',
+  consentimiento_metodo VARCHAR(50) NULL,
+  -- Autorización POR CANAL. NULL no es "no autorizó": es "no consta", y así
+  -- quedan los registros anteriores a que existiera esta pregunta — siguen
+  -- recibiendo como siempre. Solo un 0 explícito bloquea el envío. Sin esa
+  -- distinción, activar esto habría dejado sin mensajes a toda la base
+  -- registrada hasta volver a preguntarle a cada persona.
+  consentimiento_email TINYINT(1) NULL,
+  consentimiento_sms TINYINT(1) NULL,
+  consentimiento_whatsapp TINYINT(1) NULL,
+  -- Huella del texto de la política que se le MOSTRÓ a la persona. Es lo que
+  -- convierte la casilla en evidencia: sin ella, dentro de un año no se puede
+  -- demostrar a qué dijo que sí, porque el texto pudo cambiar diez veces.
+  consentimiento_version VARCHAR(64) NULL COMMENT 'Cómo se obtuvo: verbal_formulario_campo, escrito, etc.',
   datos_verificados TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Marcado por Administrador o Asistente administrativo cuando ya revisaron/confirmaron la calidad de estos datos',
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el celular al guardar el formulario (antes de enviarlo) — evita crear un duplicado si el mismo registro se reintenta más de una vez tras un corte de señal',
   origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual',
@@ -700,5 +712,27 @@ CREATE TABLE IF NOT EXISTS sms_config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 INSERT IGNORE INTO sms_config (id) VALUES (1);
+
+-- ---------------------------------------------------------
+-- Otros documentos fotografiados junto al reporte del Día D.
+--
+-- El E-14 sigue en `dia_d_reportes.foto_e14_url`: es UNO y es el acta que
+-- importa. Esto es para lo demás —el acta de escrutinio, una reclamación, la
+-- constancia de una novedad— y va en tabla aparte porque son VARIOS por
+-- reporte y porque cada uno se ve por separado.
+--
+-- Sin FK a dia_d_reportes a propósito: el reporte puede llegar desde la cola
+-- sin conexión horas después, y la fila de documento se inserta en la misma
+-- transacción que él. Se borra en cascada desde el código.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dia_d_reporte_documentos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  reporte_id INT NOT NULL,
+  url VARCHAR(255) NOT NULL,
+  descripcion VARCHAR(150) NULL COMMENT 'Lo que el testigo escribió: "acta de escrutinio", "reclamación"…',
+  orden TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_doc_reporte (reporte_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
