@@ -341,16 +341,22 @@ function celdaTelefonoWhatsApp(telefono) {
   const visible = digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos;
   const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
 
+  // El número y el ícono van dentro de un mismo contenedor que NO se parte:
+  // el número lleva espacios («300 123 1234») y en una columna angosta la
+  // tabla lo cortaba en dos renglones, dejando el ícono suelto abajo. El
+  // `nowrap` está en la hoja, no aquí, para poder ajustarlo sin tocar el JS.
+  //
   // rel="noopener" no es adorno: sin él, la pestaña que se abre puede tocar
   // la que la abrió a través de window.opener.
-  return `${visible}
+  return `<span class="tel-whatsapp">${visible}
     <a href="https://wa.me/${internacional}" target="_blank" rel="noopener"
        class="enlace-whatsapp" title="Escribir por WhatsApp a este número"
        aria-label="Escribir por WhatsApp">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
         <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.04-.98.22-3.3-.69-2.79-1.1-4.55-3.96-4.69-4.14-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34.18 0 .36 0 .52.01.17.01.39-.06.61.47.24.55.8 1.9.87 2.04.07.14.12.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.61-.07.17-.19.7-.82.89-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/>
       </svg>
-    </a>`;
+    </a>
+  </span>`;
 }
 
 /** Quita el mensaje de error (si lo había) y el resaltado rojo de un campo de teléfono. */

@@ -732,6 +732,17 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
    Es un enlace wa.me, NO la API de WhatsApp Business: abre WhatsApp Web en el
    computador con el chat listo, y escribe la persona desde su propia cuenta.
    El color es el de WhatsApp para que se reconozca sin leer nada. */
+/* El número de teléfono y su ícono de WhatsApp, en UNA sola línea.
+   El número se escribe con espacios («300 123 1234»), así que en una columna
+   angosta la tabla lo partía en dos renglones y dejaba el ícono colgando
+   abajo. `nowrap` lo impide; `inline-flex` mantiene el ícono alineado con el
+   texto sin depender de la altura de la línea. */
+.tel-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 .enlace-whatsapp {
   display: inline-flex;
   align-items: center;
