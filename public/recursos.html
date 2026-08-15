@@ -8,16 +8,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <style>
-  /* --- Filtros como botones (chips), en vez de <select> --- */
-  .filtros-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  /* Los filtros son botones, no un <select>. Eran pastillas blancas de
+     borde redondo —el único sitio de la aplicación con esa forma— y ahora
+     son una barra unida como las demás de arriba: mismo alto, misma letra y
+     mismo azul. La forma, el tamaño y los separadores los pone .barra-unida
+     en la hoja compartida; aquí solo queda el color, y el oscuro que marca
+     cuál está elegido, igual que la pestaña activa del resto. */
+  .filtros-chips { margin-bottom: 4px; }
   .chip-filtro {
-    padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--color-border, #dfe3e8);
-    background: #fff; color: var(--color-text-muted, #6b6b6b); font-size: 0.95rem; font-weight: 600;
-    cursor: pointer; font-family: inherit; transition: all 0.12s;
+    background: #0B5ED7; color: #fff; cursor: pointer; font-family: inherit;
+    transition: background 0.12s;
   }
-  .chip-filtro:hover { border-color: #0B5ED7; }
-  .chip-filtro.activo { background: #0B5ED7; border-color: #0B5ED7; color: #fff; }
-  .chip-filtro.activo:hover { background: #084298; border-color: #084298; }
+  .chip-filtro:hover { background: #084298; }
+  .chip-filtro.activo { background: #084298; }
+  .chip-filtro.activo:hover { background: #063172; }
 
   /* --- Vista de diseño: tarjetas tipo galería, con la pieza visual primero --- */
   .grid-recursos-diseno { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
@@ -64,7 +68,7 @@
     </div>
 
     <div class="toolbar">
-      <div class="filtros-chips" id="filtros-chips">
+      <div class="filtros-chips barra-unida" id="filtros-chips">
         <button type="button" class="chip-filtro activo" data-tipo="">Todos los tipos</button>
         <button type="button" class="chip-filtro" data-tipo="noticia">Noticias</button>
         <button type="button" class="chip-filtro" data-tipo="post_redes">Post para redes sociales</button>

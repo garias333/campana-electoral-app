@@ -971,9 +971,44 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
   border-radius: 0;
   border: none;
   border-left: 1px solid rgba(255, 255, 255, 0.38);
+
+  /* MISMA ALTURA Y MISMA LETRA, VENGA DE DONDE VENGA EL BOTÓN. Estas barras
+     mezclan clases con medidas distintas —`.btn-sm` pone 0,88rem y 8px de
+     alto, `.btn-acento` 1,08rem y negrita 700— y el resultado era una fila
+     de botones de tres tamaños. Aquí se igualan las cinco medidas que se
+     ven: tamaño de letra, grosor, relleno, interlínea y alto mínimo.
+
+     Estas reglas van DESPUÉS de .btn-sm y .btn-acento en la hoja, que es lo
+     que hace que ganen con la misma especificidad. Si algún día se mueven
+     más arriba, los botones vuelven a descuadrarse sin que nada falle. */
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 11px 18px;
+  line-height: 1.2;
+  min-height: 44px;
 }
 .barra-unida > :first-child,
 .grupo-pestanas > :first-child { border-left: none; }
+
+/* EL SELECCIONADO, EN AZUL OSCURO. Al igualar tamaño y grosor, la pestaña
+   activa dejaba de distinguirse: `.btn-acento` y `.btn-secundario` tienen
+   HOY el mismo fondo —#0B5ED7 desde que se unificaron los botones— y lo
+   único que la delataba era la letra más grande. Sin esto, la uniformidad
+   habría borrado la señal de en qué pestaña está uno. */
+.barra-unida > .btn-acento,
+.grupo-pestanas > .btn-acento { background: #084298; }
+.barra-unida > .btn-acento:hover,
+.grupo-pestanas > .btn-acento:hover { background: #063172; }
+
+/* Un grupo ya unido DENTRO de otra barra —el caso del Organigrama, que tiene
+   la vista y el zoom— no vuelve a recortar ni a redondear: de eso se encarga
+   la barra de afuera, y si lo hicieran los dos quedarían esquinas a mitad de
+   la fila. */
+.barra-unida .grupo-pestanas {
+  border-radius: 0;
+  overflow: visible;
+  width: auto;
+}
 
 
 /* Botones de acción DENTRO de una fila de tabla: Editar, Eliminar, Ver…
