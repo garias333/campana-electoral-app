@@ -18,8 +18,11 @@
  *   «Barrio / Vereda» porque no hay barrios habría borrado de la pantalla el
  *   único dato territorial que esa campaña tiene.
  *
- *   Es la misma razón por la que los campos de residencia de los formularios
- *   NO se ocultan y solo se les cambia la etiqueta.
+ *   Es la misma razón por la que a los campos de residencia de los
+ *   formularios solo se les acorta la etiqueta mientras quede UNO de sus dos
+ *   términos en uso. Con los dos apagados sí desaparecen — pero eso lo
+ *   decide la campaña en Configuración, no si hay datos, y la regla vive en
+ *   style.css.
  *
  * DE DÓNDE SALE «HAY DATOS»
  *   De `GET /api/configuracion/campana`, que lo pregunta contra toda la base

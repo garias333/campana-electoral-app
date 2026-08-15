@@ -709,6 +709,23 @@ body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !importa
   margin: 6px 0 8px;
 }
 
+/* Los dos campos de residencia en TEXTO LIBRE de "Agregar a la estructura"
+   ("Comuna / Corregimiento" y "Barrio / Vereda").
+
+   HACEN FALTA LAS DOS CLASES A LA VEZ, y esa es toda la regla: cada campo
+   es combinado —la misma casilla recoge lo urbano o lo rural según dónde
+   viva la persona—, así que mientras la campaña use uno de los dos términos
+   el campo sigue sirviendo y solo se le acorta la etiqueta. Esconderlo por
+   la mitad apagada dejaría sin dónde escribir a la mitad que sí se usa.
+
+   Con los dos apagados ya no queda nada que preguntar: el campo nombraría
+   dos divisiones que la campaña dice no manejar.
+
+   Ocultarlo NO borra lo que ya esté guardado: al editar una ficha el valor
+   se carga en el campo aunque no se vea, y se vuelve a guardar igual.     */
+body.sin-comunas.sin-corregimientos [data-campo="residencia-comuna"] { display: none !important; }
+body.sin-barrios.sin-veredas [data-campo="residencia-barrio"] { display: none !important; }
+
 /* Sin ningún apoyo activo en Configuración → Datos de la campaña, la columna
    "Apoya a" queda vacía en todas las filas: se oculta entera en vez de dejar
    una columna en blanco ocupando ancho. La clase la pone votantes.html al

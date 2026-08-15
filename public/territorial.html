@@ -245,12 +245,18 @@
           <datalist id="lista-ciudades-residencia-persona"></datalist>
         </div>
       </div>
-      <div class="campo">
+      <!-- Los dos campos de residencia en TEXTO LIBRE. Cada uno es
+           combinado —urbano o rural, según dónde viva la persona—, así que
+           solo desaparece cuando la campaña apagó SUS DOS términos: con uno
+           solo activo la etiqueta se acorta y el campo sigue sirviendo.
+           La regla está en style.css, junto a las de los demás campos
+           territoriales. -->
+      <div class="campo" data-campo="residencia-comuna">
         <label id="label-comuna-corregimiento-residencia">Comuna / Corregimiento</label>
         <input name="comuna_corregimiento_residencia" id="input-comuna-corregimiento-residencia-persona" list="lista-comuna-corregimiento-residencia-persona" autocomplete="off" placeholder="Ej. Comuna 1 - Atardeceres">
         <datalist id="lista-comuna-corregimiento-residencia-persona"></datalist>
       </div>
-      <div class="campo">
+      <div class="campo" data-campo="residencia-barrio">
         <label id="label-barrio-vereda-residencia">Barrio / Vereda</label>
         <input name="barrio_residencia" id="input-barrio-vereda-residencia-persona" list="lista-barrio-vereda-residencia-persona" autocomplete="off" placeholder="Ej. Arenillo">
         <datalist id="lista-barrio-vereda-residencia-persona"></datalist>
@@ -2473,10 +2479,12 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     const columnas = aplicarColumnasTerritoriales(configCampana);
     ambitoDepartamental = ['gobernacion', 'asamblea'].includes(configCampana.cargo_aspira);
     document.getElementById('campo-municipio-influencia-persona').style.display = ambitoDepartamental ? 'block' : 'none';
-    // Los campos de residencia son TEXTO LIBRE y combinados, así que no se
-    // ocultan nunca: solo cambia su etiqueta, y con el mismo cálculo que las
-    // columnas de la tabla. Tenerlo escrito dos veces fue lo que dejó esta
-    // copia sin la mitad rural cuando llegaron corregimientos y veredas.
+    // Los campos de residencia son TEXTO LIBRE y combinados: mientras la
+    // campaña use UNO de los dos términos, el campo sigue sirviendo y solo
+    // se le acorta la etiqueta. Desaparece cuando apaga los dos — la regla
+    // vive en style.css. La etiqueta sale del mismo cálculo que las columnas
+    // de la tabla: tenerlo escrito dos veces fue lo que dejó esta copia sin
+    // la mitad rural cuando llegaron corregimientos y veredas.
     document.getElementById('label-comuna-corregimiento-residencia').textContent = columnas.etiquetaComuna;
     document.getElementById('label-barrio-vereda-residencia').textContent = columnas.etiquetaBarrio;
     aplicarApoyosConfigurados('persona', configCampana.apoyos_activos);
