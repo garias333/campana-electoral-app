@@ -147,8 +147,21 @@ async function geocodificarYGuardarVotante(votanteId, direccion, territorioId, d
 }
 
 // Listado con filtros (búsqueda, territorio, intención de voto) y paginación
+  // Filtro por MUNICIPIO — solo lo usa la campaña departamental, donde
+  // Comuna/Corregimiento y Barrio/Vereda no existen y el municipio es el
+  // único eje territorial con el que vale la pena filtrar.
+  //
+  // Se aceptan los TRES sitios donde puede estar la persona, porque el nivel
+  // al que se asigna depende de lo que la campaña tenga creado:
+  //   - en el municipio mismo (lo normal sin comunas ni barrios),
+  //   - en una vereda o barrio que cuelga directo del municipio,
+  //   - en un barrio que cuelga de una comuna que cuelga del municipio.
+  // Los dos JOIN que hacen falta (t y padre) ya estaban en la consulta, así
+  // que no cuesta una subconsulta por fila.
+  const filtroMunicipio = (alias) => `(v.territorio_id = ? OR ${alias}.padre_id = ? OR padre.padre_id = ?)`;
+
 router.get('/', async (req, res) => {
-  const { q, territorio_id, apoya_a, lider_id, area, zona_id, categoria, page = 1, limit = 50 } = req.query;
+  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, categoria, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const condiciones = [];
   const params = [];
@@ -166,6 +179,7 @@ router.get('/', async (req, res) => {
   if (lider_id) { condiciones.push(`v.lider_id = ?`); params.push(lider_id); }
   if (area) { condiciones.push(`v.area = ?`); params.push(area); }
   if (zona_id) { condiciones.push(`t.padre_id = ?`); params.push(zona_id); }
+  if (municipio_id) { condiciones.push(filtroMunicipio('t')); params.push(municipio_id, municipio_id, municipio_id); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
   if (req.alcance) { condiciones.push(`v.lider_id = ?`); params.push(req.alcance.usuarioId); }
 
@@ -343,7 +357,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin'), async (req, res)
 // coincide con el filtro que la persona tenía aplicado en pantalla.
 router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
-    const { q, territorio_id, apoya_a, lider_id, area, zona_id, categoria } = req.query;
+    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, categoria } = req.query;
     const condiciones = [];
     const params = [];
     if (q) {
@@ -359,6 +373,10 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
     if (lider_id) { condiciones.push(`v.lider_id = ?`); params.push(lider_id); }
     if (area) { condiciones.push(`v.area = ?`); params.push(area); }
     if (zona_id) { condiciones.push(`t.padre_id = ?`); params.push(zona_id); }
+    // Tambien aqui: el boton dice "Exportar a Excel (filtrados)", asi que un
+    // filtro que la pantalla aplica y la exportacion ignora sacaria un
+    // archivo con mas gente de la que se ve, sin avisar.
+    if (municipio_id) { condiciones.push(filtroMunicipio('t')); params.push(municipio_id, municipio_id, municipio_id); }
     if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
     const whereSql = armarWhereSql(condiciones);
 

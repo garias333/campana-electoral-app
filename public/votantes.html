@@ -52,6 +52,13 @@
             <option value="urbano">Urbano</option>
             <option value="rural">Rural</option>
           </select>
+          <!-- Solo en campaña departamental. Es un <input> con datalist y no
+               un <select> porque un departamento puede tener 120 municipios
+               y ahí escribir las tres primeras letras es más rápido que
+               buscar en una lista; la flecha sigue mostrándola entera. -->
+          <input type="text" id="filtro-municipio" list="lista-filtro-municipios" autocomplete="off"
+                 placeholder="Todos los municipios" style="display:none;">
+          <datalist id="lista-filtro-municipios"></datalist>
           <select id="filtro-zona">
             <option value="">Toda comuna/corregimiento</option>
           </select>
@@ -731,6 +738,7 @@ function leerFiltrosVotantes() {
     apoya_a: document.getElementById('filtro-apoya-a').value,
     area: document.getElementById('filtro-area').value,
     zona_id: document.getElementById('filtro-zona').value,
+    municipio_id: idDelMunicipioFiltrado(),
     territorio_id: document.getElementById('filtro-territorio').value,
     lider_id: document.getElementById('filtro-lider').value,
     categoria: document.getElementById('filtro-categoria').value
@@ -902,6 +910,59 @@ document.getElementById('btn-pagina-siguiente-votantes').addEventListener('click
   cargarVotantes();
 });
 
+/**
+ * Llena el desplegable de Municipios del filtro.
+ *
+ * Solo aparece en campaña departamental (Gobernación o Asamblea): ahí el
+ * municipio es el único eje territorial con el que vale la pena filtrar,
+ * porque Comuna/Corregimiento y Barrio/Vereda no existen —medido en Quindío:
+ * 12 municipios, 232 veredas y CERO comunas, corregimientos y barrios—.
+ */
+function poblarFiltroMunicipio() {
+  const municipios = territorios.filter(t => t.tipo === 'municipio')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  document.getElementById('lista-filtro-municipios').innerHTML =
+    municipios.map(m => `<option value="${escaparHtml(m.nombre)}">`).join('');
+}
+
+/**
+ * El id del municipio escrito, o vacío si no hay nada escrito.
+ *
+ * Se compara sin tildes ni mayúsculas, como la base: quien escribe «calarca»
+ * espera encontrar Calarcá. Si lo escrito NO corresponde a ningún municipio,
+ * devuelve vacío —o sea, no filtra— en vez de devolver una lista en blanco:
+ * mientras se teclea «Arm» el texto todavía no cuadra con nada, y vaciar la
+ * tabla en cada letra haría parecer que no hay datos.
+ */
+function idDelMunicipioFiltrado() {
+  const escrito = normalizarTexto(document.getElementById('filtro-municipio').value || '');
+  if (!escrito) return '';
+  const m = territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === escrito);
+  return m ? String(m.id) : '';
+}
+
+/**
+ * Qué filtros tienen sentido según el cargo al que aspira la campaña.
+ *
+ * En una campaña departamental sobran tres: Comuna/Corregimiento y
+ * Barrio/Vereda porque esos niveles no existen, y Votantes/Sublíderes porque
+ * tampoco hay sublíderes (cero en la campaña de Quindío). Un desplegable
+ * cuyas opciones están todas vacías no es neutro: quien lo abre concluye que
+ * la campaña no tiene datos.
+ */
+function aplicarFiltrosSegunAmbito() {
+  const municipal = !ambitoDepartamental;
+  document.getElementById('filtro-municipio').style.display = municipal ? 'none' : '';
+  ['filtro-categoria', 'filtro-zona', 'filtro-territorio'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.style.display = municipal ? '' : 'none';
+    // Se limpia al esconderlo: un filtro invisible con valor puesto recorta
+    // la tabla y no hay forma de saber por qué.
+    if (!municipal) el.value = '';
+  });
+  if (municipal) document.getElementById('filtro-municipio').value = '';
+}
+
 /** Llena el filtro de Comuna/Corregimiento con todas las zonas existentes. */
 function poblarFiltroZona() {
   const zonas = territorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
@@ -937,6 +998,14 @@ document.getElementById('filtro-zona').addEventListener('change', () => {
   refiltrarVotantes();
 });
 document.getElementById('filtro-territorio').addEventListener('change', refiltrarVotantes);
+// 'input' y no 'change': al elegir del desplegable, Chrome dispara 'input'
+// pero no siempre 'change', y el filtro se quedaba sin aplicar hasta hacer
+// clic fuera. El retardo evita una consulta por cada letra tecleada.
+let _tiempoFiltroMunicipio;
+document.getElementById('filtro-municipio').addEventListener('input', () => {
+  clearTimeout(_tiempoFiltroMunicipio);
+  _tiempoFiltroMunicipio = setTimeout(refiltrarVotantes, 250);
+});
 document.getElementById('filtro-area').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-lider').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
@@ -948,6 +1017,7 @@ document.getElementById('btn-quitar-filtros-votantes').addEventListener('click',
   document.getElementById('filtro-zona').value = '';
   poblarFiltroTerritorio();
   document.getElementById('filtro-territorio').value = '';
+  document.getElementById('filtro-municipio').value = '';
   document.getElementById('filtro-lider').value = '';
   document.getElementById('filtro-apoya-a').value = '';
   refiltrarVotantes();
@@ -2188,6 +2258,10 @@ function alternarMesasEstimadoPuesto(i) {
   await cargarLideresCoordinadoresTodos();
   poblarFiltroZona();
   poblarFiltroTerritorio();
+  // Van DESPUÉS de cargarTerritorios(): la lista de municipios sale de ahí,
+  // y llamarlas antes dejaría el desplegable vacío sin dar ningún error.
+  poblarFiltroMunicipio();
+  aplicarFiltrosSegunAmbito();
   await poblarFiltroLider();
   await cargarVotantes();
 })();
