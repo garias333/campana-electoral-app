@@ -456,6 +456,21 @@ tbody tr:hover { background: #FAFBFC; }
 }
 .encabezado-form.primero { margin-top: 0; }
 
+/* Encabezado de sección destacado — hoy "Lugar de votación" en los dos
+   formularios de alta de persona, que es el único apartado que se llena
+   copiando de una ventana externa.
+
+   AVISO MEDIDO: #FFC300 sobre el blanco del modal da 1,61:1 de contraste.
+   El mínimo recomendado es 4,5:1 para texto normal y 3:1 para texto grande
+   o en negrita, así que este título se ve tenue. Es un color pedido a
+   propósito y va tal cual; queda anotado para que nadie lo tome por un
+   descuido y para que el reemplazo sea de una línea.
+
+   El amarillo legible sobre blanco que la paleta ya tiene es
+   --color-accent-dark (#A66F1F), con 4,27:1. Está reservado justo para
+   esto: amarillo que hace de TEXTO en vez de fondo.                     */
+.encabezado-form.acento { color: #FFC300; }
+
 /* ------------------------------------------------------------------
    Selectores en forma de botón (Categoría en Votantes, Cargo en
    Estructura), igual que los del formulario de la app móvil.

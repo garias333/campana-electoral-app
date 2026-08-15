@@ -156,22 +156,8 @@
         <button type="button" class="btn-secundario btn-sm" id="btn-lugar-votacion-votante" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-votante" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio, Puesto (con la dirección) y Mesa.</small>
       </div>
-      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
-      <small id="duplicado-votante-estado" style="display:block; font-size:0.75rem; color:var(--color-no-apoya, #A93226); margin:-6px 0 8px;"></small>
-      <div class="fila">
-        <div class="campo">
-          <label>Género</label>
-          <select name="genero">
-            <option value="mujer">Mujer</option>
-            <option value="hombre">Hombre</option>
-            <option value="no_binario">No binario</option>
-            <option value="prefiero_no_responder" selected>Prefiero no responder</option>
-          </select>
-        </div>
-        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
-      </div>
 
-      <div class="campo encabezado-form">Lugar de votación</div>
+      <div class="campo encabezado-form acento">Lugar de votación</div>
       <div class="fila">
         <div class="campo">
           <label>Departamento</label>
@@ -197,6 +183,21 @@
           <small id="contador-mesas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
+      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
+      <small id="duplicado-votante-estado" style="display:block; font-size:0.75rem; color:var(--color-no-apoya, #A93226); margin:-6px 0 8px;"></small>
+      <div class="fila">
+        <div class="campo">
+          <label>Género</label>
+          <select name="genero">
+            <option value="mujer">Mujer</option>
+            <option value="hombre">Hombre</option>
+            <option value="no_binario">No binario</option>
+            <option value="prefiero_no_responder" selected>Prefiero no responder</option>
+          </select>
+        </div>
+        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
+      </div>
+
 
       <div class="campo" id="campo-asignar-testigo-votante" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
