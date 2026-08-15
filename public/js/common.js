@@ -16,6 +16,23 @@
  */
 const URL_CONSULTA_CENSO = 'https://consultacenso.registraduria.gov.co/';
 
+/**
+ * La celda de Área de una tabla: Urbano y Rural como etiqueta de color, para
+ * poder recorrer la columna sin leer.
+ *
+ * Vive aquí porque la usan las DOS tablas que tienen esa columna —Estructura
+ * territorial y Votantes y sublíderes— y son la misma cosa: con una copia en
+ * cada una, la que se olvide queda con el estilo viejo y parece un error de
+ * datos, no de estilo.
+ *
+ * Cualquier otro valor devuelve una raya sin etiqueta: un guion no es un
+ * valor, y pintarlo de color diría que sí lo es.
+ */
+function etiquetaArea(area) {
+  if (area !== 'urbano' && area !== 'rural') return '—';
+  return `<span class="tag-tipo tag-area-${area}">${area === 'urbano' ? 'Urbano' : 'Rural'}</span>`;
+}
+
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {

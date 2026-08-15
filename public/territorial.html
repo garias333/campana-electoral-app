@@ -2020,20 +2020,24 @@ function renderizarEstructura() {
     // la casilla salía con una raya. En la campaña departamental eran 27 de
     // 75 personas. El respaldo se queda para las fichas anteriores a que la
     // columna existiera.
-    let areaTexto = f.area ? (f.area === 'urbano' ? 'Urbano' : 'Rural') : '—';
+    // Se calcula el VALOR ('urbano'/'rural'/null) y se pinta una sola vez al
+    // final. Antes cada rama armaba su propio texto, y añadir la etiqueta de
+    // color habría significado repetir el mismo `<span>` en tres sitios.
+    let areaValor = f.area || null;
     let zonaTexto = '—', hojaTexto = f.territorio_nombre || '—';
     if (f.tipo_area_influencia === 'organizacion') {
-      areaTexto = '—'; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
+      areaValor = null; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
     } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
       const territorio = listaTerritorios.find(t => t.id === f.territorio_id);
       const zona = territorio && territorio.padre_id ? listaTerritorios.find(t => t.id === territorio.padre_id) : null;
-      areaTexto = f.territorio_tipo === 'barrio' ? 'Urbano' : 'Rural';
+      areaValor = f.territorio_tipo === 'barrio' ? 'urbano' : 'rural';
       zonaTexto = zona ? zona.nombre : '—';
     } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
-      areaTexto = f.territorio_tipo === 'comuna' ? 'Urbano' : 'Rural';
+      areaValor = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
       zonaTexto = f.territorio_nombre;
       hojaTexto = '—';
     }
+    const areaTexto = etiquetaArea(areaValor);
     // Coordinador y Coordinador Organizaciones no tienen meta propia: la
     // suya la calcula el servidor sumando su equipo (ver
     // config/metasEstructura.js), y llega en meta_votos_equipo.

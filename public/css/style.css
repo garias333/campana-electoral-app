@@ -591,6 +591,20 @@ form.form-amplio .chip-form input { padding: 0; }
 .tag-tipo.tag-cargo-lider { background: #DCEEFC; color: #1B5E8A; }
 .tag-tipo.tag-cargo-sublider { background: #FDEAD6; color: #A9631E; }
 
+/* Área: Urbano y Rural. Van en la columna de al lado de Cargo, así que se
+   eligieron MIDIENDO, no a ojo:
+
+     texto sobre su fondo ........ 7,9:1 y 5,9:1  (mínimo recomendado 4,5:1)
+     separación entre los dos .... 52             (misma columna: es la que importa)
+     la más cercana a un Cargo ... 23             (columna distinta)
+
+   El primer intento fue un verde para Rural, que es lo intuitivo — y quedaba
+   a distancia 8 del verde de Coordinador, o sea el MISMO color a una columna
+   de distancia. Por eso Rural es oliva y no menta: dos pastel del mismo tono
+   se ven iguales aunque en el código sean números distintos. */
+.tag-tipo.tag-area-urbano { background: #DDD9F3; color: #3B2F86; }
+.tag-tipo.tag-area-rural  { background: #DFEFC4; color: #42600F; }
+
 /* Casilla redonda de solo lectura que indica si "Lugar de votación" ya
    quedó diligenciado (verde) o falta por diligenciar (rojo) — se calcula
    sola según los datos de la persona, no se puede marcar a mano. */

@@ -869,7 +869,7 @@ async function cargarVotantes() {
       <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
       <td>${v.categoria === 'sublider' ? '<span class="tag-tipo">Sublíder</span>' : '<span class="tag-tipo">Votante</span>'}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
-      <td>${v.tipo_area_influencia === 'organizacion' ? '—' : (v.area === 'urbano' ? 'Urbano' : (v.area === 'rural' ? 'Rural' : '—'))}</td>
+      <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
       <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (v.zona_nombre || '—')}</td>
       <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (v.territorio_nombre || '—')}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
       <td>${v.lider_nombre || '—'}</td>
