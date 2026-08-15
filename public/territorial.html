@@ -329,6 +329,7 @@
           <div id="resultados-buscar-supervisor-persona" style="margin-bottom:6px;"></div>
         </div>
         <select name="supervisor_id" id="select-supervisor"><option value="">Ninguno</option></select>
+        <small id="nota-reporta-a-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.78rem;">Un Coordinador es la cabeza de su territorio: no reporta a nadie. Los líderes reportan a él, y los sublíderes a los líderes.</small>
       </div>
       <div class="campo" id="campo-activo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px;">
@@ -474,11 +475,35 @@ async function cargarSelects() {
   poblarComunaCorregimientoResidencia();
 }
 
-/** Vuelve a llenar "Reporta a" con todos los coordinadores y líderes (lista sin filtrar por barrio). */
+/**
+ * Vuelve a llenar "Reporta a" con todos los coordinadores y líderes (lista
+ * sin acotar al territorio).
+ *
+ * SALVO PARA UN COORDINADOR, QUE NO REPORTA A NADIE. La cadena de mando es
+ * sublíder -> líder -> coordinador, así que arriba del coordinador no hay
+ * nadie y ofrecerle una lista de 46 nombres solo invita a inventar un
+ * escalón que la campaña no tiene.
+ *
+ * La guarda va AQUÍ y no en cada sitio que llama a esta función, que son
+ * cinco —incluido el autocompletado de los cargos gremiales, que repuebla
+ * la lista entera para poder seleccionar al Coordinador de Organizaciones—.
+ * Repartida, el sitio que se olvide vuelve a llenarla de nombres sin que
+ * nada avise.
+ *
+ * Medido antes de hacerlo: de los 8 coordinadores de cada campaña de prueba,
+ * CERO tienen un "Reporta a" guardado. Vaciar la lista no puede borrarle el
+ * jefe a nadie, porque ninguno lo tiene.
+ */
 function restaurarOpcionesReportaA() {
-  document.getElementById('select-supervisor').innerHTML = '<option value="">Ninguno</option>' + listaCoordinadoresYLideres
+  const select = document.getElementById('select-supervisor');
+  if (document.getElementById('select-cargo-persona').value === 'coordinador') {
+    select.innerHTML = '<option value="">Ninguno</option>';
+    select.value = '';
+    return;
+  }
+  select.innerHTML = '<option value="">Ninguno</option>' + listaCoordinadoresYLideres
     .filter(u => ['coordinador', 'lider'].includes(u.rol))
-    .map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('');
+    .map(u => `<option value="${u.id}">${escaparHtml(u.nombre)} — ${u.rol}</option>`).join('');
 }
 
 /**
@@ -1248,6 +1273,7 @@ function actualizarVisibilidadBusquedaSupervisor() {
   const cargo = document.getElementById('select-cargo-persona').value;
   const buscado = CARGO_QUE_SUPERVISA[cargo];
   document.getElementById('busqueda-supervisor-persona').style.display = buscado ? 'block' : 'none';
+  document.getElementById('nota-reporta-a-coordinador').style.display = cargo === 'coordinador' ? 'block' : 'none';
   if (!buscado) {
     document.getElementById('input-buscar-supervisor-persona').value = '';
     document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
