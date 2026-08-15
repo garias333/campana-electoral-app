@@ -30,6 +30,33 @@
       </div>
     </div>
 
+    <script>
+    /**
+     * Cómo se presenta la pantalla según la pestaña.
+     *
+     * "Puestos de votación y candidatos" se llega desde el menú de Día D y se
+     * presenta como pantalla propia: con su nombre y SIN la barra de pestañas
+     * administrativas (Usuarios, Backup, Eliminar información…), que
+     * pertenecen a otro sitio del menú.
+     *
+     * VA AQUÍ, PEGADA A LA BARRA, Y NO EN EL ARRANQUE. Antes esto lo hacía
+     * cambiarPestana(), que corre al final de un arranque con varias esperas
+     * —permisos, roles, configuración—: para entonces el navegador ya había
+     * pintado la barra, así que aparecía y se ocultaba un instante después.
+     * Un script en línea justo detrás del elemento se ejecuta mientras se
+     * analiza el HTML, antes del primer pintado, y el destello desaparece.
+     */
+    function aplicarPresentacionPestana(pestana) {
+      const esPantallaDiaD = pestana === 'diad';
+      document.getElementById('encabezado-eyebrow').textContent = esPantallaDiaD ? 'Día D' : 'Administración';
+      document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
+        ? 'Puestos de votación y candidatos'
+        : 'Configuración';
+      document.getElementById('barra-pestanas-config').style.display = esPantallaDiaD ? 'none' : 'flex';
+    }
+    aplicarPresentacionPestana(window.location.hash.slice(1));
+    </script>
+
     <div id="vacio-sin-permiso" class="vacio" style="display:none;"><div class="icono-vacio">🔒</div>Solo un administrador puede ver y editar la Configuración.</div>
 
     <!-- ===== DATOS DE LA CAMPAÑA ===== -->
@@ -494,12 +521,7 @@ function cambiarPestana(pestana) {
   // desde Configuración: se presenta como su propia pantalla, con su
   // nombre y sin la barra de pestañas administrativas (Usuarios, Backup,
   // Eliminar información...), que pertenecen a otro lugar del menú.
-  const esPantallaDiaD = pestana === 'diad';
-  document.getElementById('encabezado-eyebrow').textContent = esPantallaDiaD ? 'Día D' : 'Administración';
-  document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
-    ? 'Puestos de votación y candidatos'
-    : 'Configuración';
-  document.getElementById('barra-pestanas-config').style.display = esPantallaDiaD ? 'none' : 'flex';
+  aplicarPresentacionPestana(pestana);
 
   history.replaceState(null, '', `#${pestana}`);
   if (pestana === 'diad') { cargarPuestosVotacion(); cargarCandidatos(); }

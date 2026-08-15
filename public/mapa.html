@@ -19,15 +19,21 @@
   #mapa { width: 100%; height: 100%; }
   .mapa-filtros-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
   .mapa-filtros-etiqueta { font-size: 0.78rem; color: var(--color-text-muted); min-width: 130px; flex-shrink: 0; }
-  .filtro-chips { display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  /* Los filtros eran pastillas blancas sueltas. Pasan a barra unida, como
+     las de arriba en el resto de la aplicación: la forma, el alto y la letra
+     los pone `.barra-unida` en la hoja compartida, así que aquí solo queda el
+     color y el oscuro que marca el elegido. */
+  .filtro-chips { flex-shrink: 0; }
   .filtro-chip {
-    border: 1px solid var(--color-border, #dfe3e8); background: #fff; color: var(--color-text, #2a2a2a);
-    border-radius: 999px; padding: 9px 18px; font-size: 0.92rem; font-weight: 600; cursor: pointer; white-space: nowrap;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    background: #0B5ED7; color: #fff; cursor: pointer; white-space: nowrap;
+    font-family: inherit; transition: background 0.12s;
   }
-  .filtro-chip:hover { border-color: #0B5ED7; }
-  .filtro-chip.activo { background: #0B5ED7; border-color: #0B5ED7; color: #fff; }
-  .filtro-chip.activo:hover { background: #084298; border-color: #084298; }
+  .filtro-chip:hover { background: #084298; }
+  .filtro-chip.activo { background: #084298; }
+  .filtro-chip.activo:hover { background: #063172; }
+  /* El recuadro de filtros va en el beige de la casa, para separarlo del
+     mapa que tiene debajo sin meter otra línea. */
+  .mapa-filtros { background: #F8F3E9; }
   .mapa-leyenda {
     position: absolute; top: 14px; right: 14px; z-index: 1000;
     background: var(--color-surface, #fff); border-radius: 10px; padding: 12px 14px;
@@ -55,20 +61,24 @@
       <div><div class="eyebrow">Territorio</div><h1>Mapa de estructura y votantes</h1></div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
+    <div class="card mapa-filtros" style="margin-bottom:16px;">
       <div class="mapa-filtros-fila">
         <span class="mapa-filtros-etiqueta">Capa:</span>
-        <div class="filtro-chips" data-filtro="capa">
+        <div class="filtro-chips barra-unida" data-filtro="capa">
           <button type="button" class="filtro-chip activo" data-valor="todos">Todas las capas</button>
           <button type="button" class="filtro-chip" data-valor="ninguno">Ninguna capa</button>
           <button type="button" class="filtro-chip" data-valor="estructura">Solo Estructura</button>
           <button type="button" class="filtro-chip" data-valor="votantes">Solo Votantes</button>
           <button type="button" class="filtro-chip" data-valor="eventos">Solo Eventos</button>
         </div>
+        <!-- Quitar filtros va aquí, detrás de "Solo Eventos", y FUERA de la
+             barra: es una acción, no una capa más. Dentro se leería como un
+             sexto filtro. -->
+        <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-mapa">Quitar filtros</button>
       </div>
       <div class="mapa-filtros-fila">
         <span class="mapa-filtros-etiqueta">Cargo (Estructura):</span>
-        <div class="filtro-chips" data-filtro="cargo">
+        <div class="filtro-chips barra-unida" data-filtro="cargo">
           <button type="button" class="filtro-chip activo" data-valor="">Todos</button>
           <button type="button" class="filtro-chip" data-valor="ninguno">Ninguno</button>
           <button type="button" class="filtro-chip" data-valor="coordinador">Coordinador</button>
@@ -78,9 +88,7 @@
           <button type="button" class="filtro-chip" data-valor="votante">Votante</button>
         </div>
       </div>
-      <div class="mapa-filtros-fila" style="justify-content:space-between;">
-        <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-mapa">Quitar filtros</button>
-        <span class="mono" id="contador-mapa" style="color:var(--color-text-muted); font-size:0.85rem;"></span>
+        <span class="mono" id="contador-mapa" style="color:var(--color-text-muted); font-size:0.85rem; margin-left:auto;"></span>
       </div>
     </div>
 
