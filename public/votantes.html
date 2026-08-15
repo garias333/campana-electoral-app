@@ -1359,6 +1359,10 @@ async function editarVotante(v) {
   document.getElementById('input-buscar-lider').value = '';
   document.getElementById('resultados-buscar-lider').innerHTML = '';
   Object.entries(v).forEach(([k, val]) => { if (form[k]) form[k].value = val ?? ''; });
+  // Ese bucle asigna .value a todo por igual, y en un <select> eso falla en
+  // silencio cuando la opción no existe — que es lo que le pasa al Puesto de
+  // votación. Se vuelve a poner con el ayudante, que crea la opción primero.
+  fijarValorGuardadoEnSelect(form.puesto_votacion, v.puesto_votacion);
   actualizarLimiteMesaVotante();
   form.telefono.value = formatoTelefonoColombia(v.telefono || '');
   const apoyaAGuardadoVotante = Array.isArray(v.apoya_a) ? v.apoya_a : [];
@@ -1397,7 +1401,8 @@ async function editarVotante(v) {
   // El Puesto donde vigila es su propio dato (ya no se copia del Lugar de
   // votación), así que hay que precargarlo antes de calcular las mesas.
   puestoActualTestigoVotante = yaEsTestigoVotante ? (v.testigo_puesto_votacion || '') : null;
-  document.getElementById('input-puesto-testigo-votante').value = yaEsTestigoVotante ? (v.testigo_puesto_votacion || '') : '';
+  fijarValorGuardadoEnSelect(document.getElementById('input-puesto-testigo-votante'),
+    yaEsTestigoVotante ? v.testigo_puesto_votacion : '');
   // Acota la lista al municipio de Lugar de Votación en campaña
   // departamental. Va después de poner el valor: asignar por código no
   // dispara 'change', y así el puesto que ya tenía se conserva.

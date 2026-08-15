@@ -33,6 +33,45 @@ function etiquetaArea(area) {
   return `<span class="tag-tipo tag-area-${area}">${area === 'urbano' ? 'Urbano' : 'Rural'}</span>`;
 }
 
+/**
+ * Pone en un <select> un valor GUARDADO, agregando la opción si no está.
+ *
+ * `select.value = "algo"` cuando no existe una opción con ese texto NO da
+ * error: el navegador deja el campo en vacío. Y al guardar, ese vacío pisa
+ * el dato que ya estaba.
+ *
+ * Le pasaba al Puesto de votación al abrir Editar. Medido el 15 de agosto de
+ * 2026 en la campaña departamental: de 50 personas con puesto guardado, 31
+ * tenían uno que NO estaba en la lista con la que se llena el desplegable.
+ * Esa lista sale de `dia_d_puestos_votacion` —los puestos que la campaña
+ * cubre con testigos— mientras que el lugar donde alguien VOTA sale del
+ * catálogo nacional: dos listas distintas para el mismo campo. Abrir Editar
+ * y guardar le borraba el puesto a 3 de cada 5.
+ *
+ * La opción se agrega y punto, sin esperar a que ningún catálogo responda:
+ * lo que ya estaba guardado tiene que seguir en pantalla aunque la red falle.
+ * Después, quien repinte la lista (public/js/lugar-votacion-catalogo.js) la
+ * conserva, porque lee el valor que encuentra en el desplegable.
+ *
+ * LA OPCIÓN SE CREA CON `new Option`, NO CON HTML. Armar
+ * `<option value="...">` obliga a escapar, y el escaparHtml de esta casa
+ * —textContent a innerHTML— NO escapa las comillas dobles: un puesto que se
+ * llamara `ESCUELA "LA CEIBA"` habría cortado el atributo y perdido el valor,
+ * o sea el mismo fallo que esta función viene a arreglar. Con la API del DOM
+ * el valor se asigna como propiedad y no hay nada que escapar.
+ *
+ * (Hoy ningún nombre del catálogo trae comillas, ni < > ni &: medido, cero de
+ * 12.885. Pero el nombre lo escribe la Registraduría, no nosotros.)
+ */
+function fijarValorGuardadoEnSelect(select, valor) {
+  if (!select) return;
+  const v = valor == null ? '' : String(valor);
+  if (v && !Array.from(select.options).some(o => o.value === v)) {
+    select.add(new Option(v, v));
+  }
+  select.value = v;
+}
+
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {

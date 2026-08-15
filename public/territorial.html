@@ -2256,7 +2256,10 @@ async function abrirEdicion(id) {
   // El Puesto donde vigila es su propio dato (ya no se copia del Lugar de
   // Votación), así que hay que precargarlo antes de calcular las mesas.
   puestoActualTestigoPersona = filaTestigo ? (filaTestigo.puesto_votacion || '') : null;
-  document.getElementById('input-puesto-testigo-persona').value = filaTestigo ? (filaTestigo.puesto_votacion || '') : '';
+  // Mismo caso: el puesto donde VIGILA también es un <select>, y su lista
+  // cambia si alguien edita los puestos de la campaña.
+  fijarValorGuardadoEnSelect(document.getElementById('input-puesto-testigo-persona'),
+    filaTestigo ? filaTestigo.puesto_votacion : '');
   // Acota la lista al municipio de Lugar de Votación en campaña
   // departamental. Va después de poner el valor: asignar por código no
   // dispara 'change', y así el puesto que ya tenía se conserva.
@@ -2275,7 +2278,10 @@ async function abrirEdicion(id) {
   form.departamento_votacion.value = fila.departamento_votacion || '';
   actualizarMunicipiosVotacionPersona();
   form.municipio_votacion.value = fila.municipio_votacion || '';
-  form.puesto_votacion.value = fila.puesto_votacion || '';
+  // El Puesto es un <select> y su lista puede no traer el valor guardado:
+  // ver fijarValorGuardadoEnSelect en common.js, que explica por qué asignar
+  // .value a secas lo borraba.
+  fijarValorGuardadoEnSelect(form.puesto_votacion, fila.puesto_votacion);
   form.mesa_votacion.value = fila.mesa_votacion || '';
   actualizarLimiteMesaPersona();
   form.comuna_corregimiento_residencia.value = fila.comuna_corregimiento_residencia || '';
