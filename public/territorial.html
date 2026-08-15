@@ -2013,7 +2013,15 @@ function renderizarEstructura() {
     // Barrio/Vereda); Líder/Usuario/Testigo siguen en un Barrio/Vereda cuyo
     // padre es la Comuna/Corregimiento. Si el área de influencia es una
     // Organización, no hay nada geográfico que mostrar.
-    let areaTexto = '—', zonaTexto = '—', hojaTexto = f.territorio_nombre || '—';
+    // EL ÁREA SALE DE LO GUARDADO, y solo si no hay nada guardado se deduce
+    // del tipo de territorio. Deducirla era lo único que había, y funciona
+    // mientras la persona cuelgue de una comuna, corregimiento, barrio o
+    // vereda; en cuanto cuelga del MUNICIPIO no hay tipo del que deducirla y
+    // la casilla salía con una raya. En la campaña departamental eran 27 de
+    // 75 personas. El respaldo se queda para las fichas anteriores a que la
+    // columna existiera.
+    let areaTexto = f.area ? (f.area === 'urbano' ? 'Urbano' : 'Rural') : '—';
+    let zonaTexto = '—', hojaTexto = f.territorio_nombre || '—';
     if (f.tipo_area_influencia === 'organizacion') {
       areaTexto = '—'; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
     } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
@@ -2288,6 +2296,9 @@ async function abrirEdicion(id) {
   form.direccion.value = fila.direccion || '';
   form.supervisor_id.value = fila.supervisor_id || '';
   form.activo.checked = !!fila.activo;
+  // El Área guardada se aplica DESPUÉS de precargar la ubicación, más abajo:
+  // precargarUbicacionPersona la deduce del territorio y la pisaría.
+  const areaGuardadaPersona = fila.area || '';
 
   const esOrganizacion = fila.tipo_area_influencia === 'organizacion';
   document.getElementById('chk-area-influencia-territorio').checked = !esOrganizacion;
@@ -2300,6 +2311,23 @@ async function abrirEdicion(id) {
 
   poblarListasUbicacionPersona();
   if (!esOrganizacion) precargarUbicacionPersona(fila.territorio_id);
+
+  // El Área guardada manda sobre la que precargarUbicacionPersona deduce del
+  // territorio, y sobre todo LLENA EL CASO QUE ESA NO PUEDE: cuando la
+  // persona cuelga del municipio, aquella se devuelve sin tocar el campo.
+  //
+  // Solo se aplica si hay algo guardado: en una ficha anterior a que la
+  // columna existiera llega vacía, y pisar con eso borraría lo que la
+  // deducción sí acertó.
+  //
+  // Se mueven las filas a mano en vez de disparar el evento `change` del
+  // selector: ese evento lanza actualizarReportaAPorZona() por su cuenta y
+  // chocaría con el que se espera tres líneas más abajo.
+  if (!esOrganizacion && areaGuardadaPersona) {
+    document.getElementById('select-area-persona').value = areaGuardadaPersona;
+    document.getElementById('fila-urbano-persona').style.display = areaGuardadaPersona === 'urbano' ? 'flex' : 'none';
+    document.getElementById('fila-rural-persona').style.display = areaGuardadaPersona === 'rural' ? 'flex' : 'none';
+  }
 
   // Aplica el filtro de "Reporta a" (por Barrio, si es Sublíder; por
   // Coordinador de zona, si es Líder) y luego vuelve a dejar seleccionado
@@ -2419,6 +2447,14 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     meta_votos: form.meta_votos.value,
     direccion: form.direccion.value,
     territorio_id: resuelto.territorioId,
+    // El Área se manda tal cual la eligió el usuario. Antes no viajaba, y la
+    // tabla la deducía del tipo de territorio: con la persona colgando del
+    // municipio —campaña sin comunas ni barrios— no había de dónde deducirla
+    // y la columna salía vacía. Con "Organización" no aplica: no hay área
+    // geográfica que guardar.
+    area: document.getElementById('chk-area-influencia-organizacion').checked
+      ? null
+      : (document.getElementById('select-area-persona').value || null),
     supervisor_id: form.supervisor_id.value,
     activo: form.activo.checked
   };

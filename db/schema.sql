@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS estructura (
   puesto_id INT NULL COMMENT 'id de dia_d_puestos_votacion correspondiente a puesto_votacion — el cruce se hace por id, no comparando textos',
   departamento_votacion VARCHAR(150) NULL COMMENT 'Departamento del puesto que vigila, derivado del catálogo territorial. Se usa para geocodificar',
   municipio_votacion VARCHAR(150) NULL COMMENT 'Municipio del puesto que vigila, derivado del catálogo territorial',
+  area ENUM('urbano','rural') NULL COMMENT 'Urbano o Rural, tal como se eligió en el formulario. Se GUARDA en vez de deducirse del tipo de territorio: cuando la persona cuelga directo del municipio —campañas sin comunas ni barrios— no hay tipo del que deducirla y la columna salía vacía. Igual que votantes.area y eventos.area',
   tipo_area_influencia ENUM('territorio','organizacion') NOT NULL DEFAULT 'territorio' COMMENT 'Si el área de influencia de la persona es geográfica (Territorio) o una Organización',
   organizacion VARCHAR(150) NULL COMMENT 'Nombre de la organización, cuando tipo_area_influencia = organizacion',
   supervisor_id INT NULL COMMENT 'usuario_id del coordinador/líder al que reporta',

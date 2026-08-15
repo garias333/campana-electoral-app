@@ -922,6 +922,24 @@ async function main() {
     'usar_nombre_barrios'
   );
 
+  // El Área (Urbano/Rural) de una persona de la estructura.
+  //
+  // Hasta ahora no se guardaba: la tabla la DEDUCÍA del tipo de territorio
+  // —barrio/comuna = Urbano, vereda/corregimiento = Rural—. Eso funciona
+  // mientras la persona cuelgue de una de esas cuatro capas, pero en cuanto
+  // cuelga del MUNICIPIO no hay nada de dónde deducirla y la columna sale
+  // vacía. Medido el 15 de agosto de 2026 en la campaña departamental: 27 de
+  // 75 personas con «—» en Área, todas asignadas a un municipio, porque
+  // Quindío no tiene ni una comuna ni un corregimiento.
+  //
+  // `votantes` y `eventos` ya guardaban su propia columna `area`; esta le
+  // pone a `estructura` la misma, con el mismo tipo y los mismos valores.
+  await agregarColumnaSiFalta(
+    connection, 'estructura',
+    "area ENUM('urbano','rural') NULL AFTER territorio_id",
+    'area'
+  );
+
   // Los dos gemelos RURALES de las de arriba. La jerarquía tiene cuatro
   // niveles bajo el municipio y hasta hoy solo los dos urbanos se podían
   // apagar, así que una campaña de ciudad —sin un solo corregimiento— tenía

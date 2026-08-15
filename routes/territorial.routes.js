@@ -804,8 +804,13 @@ router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res)
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
-    territorio_id, supervisor_id, meta_votos, direccion, cliente_uuid, tipo_testigo, mesas_asignadas
+    territorio_id, area, supervisor_id, meta_votos, direccion, cliente_uuid, tipo_testigo, mesas_asignadas
   } = req.body;
+  // El Área se GUARDA, no se deduce. Deducirla del tipo de territorio deja
+  // la columna vacía en cuanto la persona cuelga del municipio, que es lo
+  // normal en una campaña sin comunas ni barrios. Se acota a los dos valores
+  // válidos: cualquier otra cosa entra como NULL en vez de reventar el ENUM.
+  const areaFinal = ['urbano', 'rural'].includes(area) ? area : null;
   // Un Coordinador de puesto (tipo_testigo="puesto") cubre varias mesas del
   // mismo puesto de votación — no una fija, a diferencia del Testigo
   // electoral normal (tipo_testigo="mesa", el valor por defecto).
@@ -937,9 +942,9 @@ router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res)
     usuarioId = resultUsuario.insertId;
 
     const [resultEstructura] = await conexion.query(
-      `INSERT INTO estructura (usuario_id, territorio_id, cargo, tipo_testigo, mesas_asignadas, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion, cliente_uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [resultUsuario.insertId, territorio_id || null, cargo, tipoTestigoFinal,
+      `INSERT INTO estructura (usuario_id, territorio_id, area, cargo, tipo_testigo, mesas_asignadas, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion, cliente_uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [resultUsuario.insertId, territorio_id || null, areaFinal, cargo, tipoTestigoFinal,
        (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
        esOrganizacion ? 'organizacion' : 'territorio',
        esOrganizacion ? organizacion.trim() : null, supervisor_id || null, meta_votos || 0, meta_votos || 0, direccion || null,
@@ -1005,8 +1010,9 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador'), async (req, r
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
-    territorio_id, supervisor_id, meta_votos, activo, direccion, tipo_testigo, mesas_asignadas
+    territorio_id, area, supervisor_id, meta_votos, activo, direccion, tipo_testigo, mesas_asignadas
   } = req.body;
+  const areaFinal = ['urbano', 'rural'].includes(area) ? area : null;
   const esOrganizacion = tipo_area_influencia === 'organizacion';
   const esCoordinadorOrganizaciones = cargo === 'coordinador_organizaciones';
   const esTestigo = cargo === 'testigo';
@@ -1069,11 +1075,11 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador'), async (req, r
     );
 
     await conexion.query(
-      `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, territorio_id = ?, tipo_area_influencia = ?, organizacion = ?,
+      `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, territorio_id = ?, area = ?, tipo_area_influencia = ?, organizacion = ?,
        supervisor_id = ?, meta_votos = ?, meta_votos_base = ?, activo = ?, direccion = ?
        WHERE id = ?`,
       [cargo, tipoTestigoFinal, (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
-       territorio_id || null, esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? organizacion.trim() : null,
+       territorio_id || null, areaFinal, esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? organizacion.trim() : null,
        supervisor_id || null, meta_votos || 0, meta_votos || 0, activo ? 1 : 0, direccion || null, req.params.id]
     );
 
@@ -1382,7 +1388,7 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), as
       SELECT e.id AS estructura_id, u.nombre, u.numero_identificacion, u.email, u.telefono, u.genero, u.edad,
              u.departamento_residencia, u.ciudad_residencia,
              u.comuna_corregimiento_residencia, u.barrio_residencia, u.tipo_cargo,
-             e.cargo, e.direccion, e.tipo_area_influencia, e.organizacion,
+             e.cargo, e.direccion, e.area, e.tipo_area_influencia, e.organizacion,
              t.tipo AS territorio_tipo, t.nombre AS territorio_nombre,
              padre.nombre AS pertenece,
              e.meta_votos, e.meta_votos_base, e.activo,
@@ -1414,7 +1420,10 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), as
       // o Corregimiento (sin Barrio/Vereda); Líder/Usuario/Testigo siguen
       // asignados a un Barrio o Vereda concreto. Si el área de influencia es
       // una Organización en vez de un Territorio, estos campos quedan vacíos.
-      let area = '', comuna = '', barrio = '', corregimiento = '', vereda = '';
+      // Lo GUARDADO manda; deducirlo del tipo de territorio es el respaldo
+      // para las filas anteriores a que existiera la columna.
+      let area = f.area ? (f.area === 'urbano' ? 'Urbano' : 'Rural') : '';
+      let comuna = '', barrio = '', corregimiento = '', vereda = '';
       if (f.territorio_tipo === 'barrio') {
         area = 'Urbano'; comuna = f.pertenece || ''; barrio = f.territorio_nombre;
       } else if (f.territorio_tipo === 'vereda') {
