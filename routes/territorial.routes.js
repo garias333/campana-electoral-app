@@ -1915,6 +1915,56 @@ router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
   }
 });
 
+/**
+ * Líderes y coordinadores de un MUNICIPIO, opcionalmente acotados al área.
+ *
+ * Es el respaldo de la lista de "Líder o coordinador que lo refirió" cuando
+ * no hay Barrio/Vereda ni Comuna/Corregimiento con qué acotar — que es
+ * SIEMPRE en una campaña departamental, donde esos niveles no existen. Sin
+ * esto el desplegable se quedaba con "Yo mismo / no aplica" y no había forma
+ * de asignarle un líder a nadie.
+ *
+ * SE ACEPTAN LOS TRES SITIOS donde puede estar puesta la persona: el
+ * municipio mismo, una vereda o barrio que cuelga de él, o un barrio que
+ * cuelga de una comuna que cuelga de él. Mismo criterio que el filtro por
+ * municipio de la lista de votantes.
+ *
+ * EL ÁREA SE DEDUCE CUANDO NO ESTÁ GUARDADA, y quien no la tenga ni se pueda
+ * deducir ENTRA IGUAL. La columna `area` es nueva: una ficha guardada antes
+ * llega vacía, y esconder a esos líderes dejaría la lista casi en blanco
+ * justo en las campañas que llevan más tiempo. Mostrar de más se corrige
+ * eligiendo; esconder a quien sí correspondía no se nota.
+ */
+router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
+  const area = ['urbano', 'rural'].includes(req.query.area) ? req.query.area : null;
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT u.id, u.nombre, e.cargo
+        FROM estructura e
+        JOIN usuarios u ON u.id = e.usuario_id
+        LEFT JOIN territorios t ON t.id = e.territorio_id
+        LEFT JOIN territorios padre ON padre.id = t.padre_id
+       WHERE e.activo = 1
+         AND e.cargo IN ('lider', 'coordinador')
+         AND (e.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
+         AND (? IS NULL OR COALESCE(
+               e.area,
+               CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
+                    WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END
+             ) IS NULL OR COALESCE(
+               e.area,
+               CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
+                    WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END
+             ) = ?)
+       ORDER BY FIELD(e.cargo, 'lider', 'coordinador'), u.nombre
+    `, [req.params.municipioId, req.params.municipioId, req.params.municipioId, area, area]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo líderes del municipio.' });
+  }
+});
+
 // Sublíderes (colaboradores, cargo "usuario" en la Estructura) que reportan
 // a un Líder específico — para el campo "Sublíder" en Nuevo votante o sublíder.
 router.get('/subliders-por-lider/:liderId', async (req, res) => {

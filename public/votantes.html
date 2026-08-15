@@ -332,7 +332,7 @@
       <div class="campo encabezado-form">Referido por</div>
       <div class="campo">
         <label>Líder o coordinador que lo refirió</label>
-        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo ya trae a quienes corresponden al Barrio/Vereda elegido arriba — si necesitas a otra persona, búscala por nombre aquí.</small>
+        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo ya trae a quienes corresponden al territorio elegido arriba: al Barrio/Vereda si lo hay, y si no al Municipio y Área — si necesitas a otra persona, búscala por nombre aquí.</small>
         <input type="text" id="input-buscar-lider" placeholder="Buscar otro líder o coordinador por nombre..." autocomplete="off" style="margin-bottom:4px;">
         <div id="resultados-buscar-lider" style="margin-bottom:6px;"></div>
         <select name="lider_id" id="select-lider"><option value="">Yo mismo / no aplica</option></select>
@@ -550,10 +550,17 @@ function actualizarCiudadesResidenciaVotante() {
     ciudades.map(c => `<option value="${c}">`).join('');
 }
 document.getElementById('input-departamento-residencia-votante').addEventListener('input', actualizarCiudadesResidenciaVotante);
+let _tiempoCiudadResidencia;
 document.getElementById('input-ciudad-residencia-votante').addEventListener('input', () => {
   // Al cambiar la Ciudad de residencia, se refiltran las opciones de
   // Comuna/Barrio/Corregimiento/Vereda para que no mezclen otras ciudades.
   if (typeof poblarListasUbicacionVotante === 'function') poblarListasUbicacionVotante();
+  // Y también la lista de "Referido por": sin Barrio ni Comuna —el caso de
+  // toda campaña departamental— esa lista sale del MUNICIPIO, y el municipio
+  // es justo esta Ciudad. Sin esto había que tocar otro campo para que se
+  // enterara. El retardo evita una consulta por cada letra tecleada.
+  clearTimeout(_tiempoCiudadResidencia);
+  _tiempoCiudadResidencia = setTimeout(() => actualizarLiderPorTerritorioInfluencia(), 250);
 });
 
 document.getElementById('input-departamento-votacion-votante').addEventListener('input', actualizarMunicipiosVotacionVotante);
@@ -650,7 +657,35 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
     if (vereda) barrioOVeredaId = vereda.id;
   }
 
+  // SIN BARRIO NI COMUNA, SE BAJA AL MUNICIPIO. Antes el desplegable se
+  // quedaba vacío, y en una campaña departamental eso es SIEMPRE: allí no
+  // hay comunas, corregimientos ni barrios, así que no había forma de
+  // asignarle un líder a nadie.
+  //
+  // El municipio sale del de influencia si está a la vista —solo lo está
+  // para un Sublíder— y si no, de la Ciudad de residencia, que es el único
+  // municipio que un Votante llega a escribir.
+  //
+  // Se acota además al Área elegida, que es lo que distingue a un líder
+  // urbano de uno rural cuando los dos están puestos en el mismo municipio.
   if (!barrioOVeredaId && !zonaId) {
+    const municipio = municipioDeInfluenciaVotante() || buscarMunicipioResidenciaVotante();
+    if (municipio) {
+      try {
+        const referentes = await api(
+          `/territorial/referentes-por-municipio/${municipio.id}` + (area ? `?area=${area}` : ''));
+        let html = '<option value="">Yo mismo / no aplica</option>' +
+          referentes.map(u => `<option value="${u.id}">${escaparHtml(u.nombre)}</option>`).join('');
+        if (preservarId && !referentes.some(u => String(u.id) === String(preservarId))) {
+          html += `<option value="${preservarId}">${escaparHtml(preservarNombre || 'Asignado actualmente')}</option>`;
+        }
+        select.innerHTML = html;
+        const conservar = preservarId || valorAnterior;
+        if (conservar && Array.from(select.options).some(o => o.value === String(conservar))) select.value = conservar;
+        actualizarSublideresPorLider();
+        return;
+      } catch (err) { /* si falla, cae al comportamiento de siempre */ }
+    }
     select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
       (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
     select.value = preservarId || '';
