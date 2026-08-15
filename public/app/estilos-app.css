@@ -160,8 +160,36 @@ main.app-cuerpo {
 .fila-app { display: flex; gap: 12px; }
 .fila-app .campo-app { flex: 1; }
 
+/* Título de apartado de la app.
+   Los seis del registro de votantes y los dos de Día D — la misma pieza en
+   los dos formularios, así que el grosor va aquí y no en cada pantalla.
+
+   POR QUÉ NO BASTA CON font-weight. La clase ya estaba en 700, que ES
+   negrilla, y subirla a 800 NO SE VE EN BUENA PARTE DE LOS ANDROID: la app
+   usa la tipografía del sistema, y la familia `Roboto` que Android le ofrece
+   al navegador suele traer solo Regular, Medium y Bold. Los pesos por encima
+   viven en familias aparte («Roboto Black») que el emparejado de CSS no
+   alcanza, así que pedir 800 devuelve Bold — el mismo 700 y ni un píxel de
+   diferencia. En iPhone sí funciona, porque San Francisco tiene Heavy: el
+   mismo CSS se veía distinto según el teléfono.
+
+   Por eso el trazo se engorda con -webkit-text-stroke, que no depende de qué
+   pesos tenga instalados el aparato: dibuja el borde de cada letra con su
+   mismo color. 0,4px es donde se nota sin que se cierren los huecos de las
+   letras. Anda en Safari de iPhone, Chrome de Android, Samsung Internet y
+   Firefox.
+
+   El 800 se queda igual: donde SÍ hay un peso más grueso —iPhone, Windows—
+   es mejor una letra diseñada para ser gruesa que una engordada a la fuerza,
+   y las dos cosas se suman sin estorbarse.
+
+   `currentColor` hace que cada título se engorde con SU color: el azul de
+   los apartados normales y el amarillo del destacado. Con un color fijo, uno
+   de los dos quedaría perfilado del color del otro.                       */
 .seccion-titulo {
-  font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.88rem;
+  font-weight: 800;
+  -webkit-text-stroke: 0.4px currentColor;
+  text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.88rem;
   color: #0B5ED7; border-bottom: 1px solid var(--linea); padding-bottom: 6px;
   margin: 22px 0 14px;
 }
@@ -172,36 +200,15 @@ main.app-cuerpo {
    escritorio (.encabezado-form.acento en style.css) para que las dos
    pantallas del mismo formulario se vean iguales.
 
-   Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste,
-   por debajo del 3:1 recomendado para texto grande o en negrita. Va así
-   porque es un color pedido; el amarillo legible sobre blanco de la paleta
-   es #A66F1F, con 4,27:1.
+   Ya solo cambia el COLOR: desde que los ocho títulos van igual de gruesos,
+   es el color lo que distingue a este, y repetir aquí el grosor haría creer
+   que es suyo y no de todos.
 
-   Y va MÁS negrilla que los demás apartados. La clase base ya estaba en 700
-   —que ES negrilla—, así que subirla no bastaba:
-
-   `font-weight: 800` NO SE VE EN BUENA PARTE DE LOS ANDROID. La app usa la
-   tipografía del sistema, y la familia `Roboto` que Android le ofrece al
-   navegador suele traer solo Regular, Medium y Bold: los pesos por encima
-   viven en familias aparte («Roboto Black»), que el emparejado de CSS no
-   alcanza. Pedir 800 ahí devuelve Bold, el mismo 700 de antes, y no cambia
-   un píxel. En iPhone sí funciona —San Francisco tiene Heavy— y por eso el
-   mismo CSS se ve distinto según el teléfono.
-
-   Por eso además se ENGROSA EL TRAZO con -webkit-text-stroke, que no depende
-   de qué pesos tenga instalados el aparato: dibuja el borde de cada letra
-   con su mismo color. 0,4px es el punto donde se nota sin que se cierren los
-   huecos de las letras. Funciona en Safari de iPhone, Chrome de Android,
-   Samsung Internet y Firefox.
-
-   `font-weight: 800` se queda igualmente: donde SÍ hay un peso más grueso
-   —iPhone, Windows— es mejor una letra diseñada para ser gruesa que una
-   engordada a la fuerza, y las dos cosas se suman sin estorbarse. */
-.seccion-titulo.acento {
-  color: #FFC300;
-  font-weight: 800;
-  -webkit-text-stroke: 0.4px currentColor;
-}
+   Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste, por
+   debajo del 3:1 recomendado para texto grande o en negrita. Va así porque
+   es un color pedido; el amarillo legible sobre blanco de la paleta es
+   #A66F1F, con 4,27:1.                                                    */
+.seccion-titulo.acento { color: #FFC300; }
 .btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
 
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
