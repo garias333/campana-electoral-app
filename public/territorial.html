@@ -133,11 +133,9 @@
       <div class="campo encabezado-form primero">Datos personales</div>
       <div class="campo">
         <label>Número de identificación</label>
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-          <input name="numero_identificacion" id="input-numero-persona" autocomplete="off" style="flex:1;">
-          <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion" style="display:none; white-space:nowrap;">🗳️ Consultar lugar de votación</button>
-        </div>
+        <input name="numero_identificacion" id="input-numero-persona" autocomplete="off">
         <small id="numero-persona-estado" style="font-size:0.75rem;"></small>
+        <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-persona" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio, Puesto (con la dirección) y Mesa.</small>
       </div>
       <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
@@ -2045,7 +2043,7 @@ document.getElementById('btn-consultar-lugar-votacion').addEventListener('click'
   const alto = Math.min(window.screen.availHeight, 800);
   const izquierda = window.screen.availWidth - ancho;
   window.open(
-    'https://wsp.registraduria.gov.co/censo/consultar/',
+    URL_CONSULTA_CENSO,
     'consultaLugarVotacion',
     `width=${ancho},height=${alto},left=${izquierda},top=0,noopener`
   );

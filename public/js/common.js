@@ -1,5 +1,21 @@
 /* Utilidades comunes: sesión, sidebar dinámico y helpers de fetch */
 
+/**
+ * La consulta de lugar de votación de la Registraduría.
+ *
+ * VIVE EN UN SOLO SITIO A PROPÓSITO. La dirección anterior
+ * —`wsp.registraduria.gov.co/censo/consultar/`— estaba escrita a mano en
+ * seis archivos, y cuando la Registraduría la movió, los seis botones
+ * quedaron abriendo una ventana con un 404. Nada falla del lado de la
+ * aplicación: el botón responde, la ventana se abre, y solo quien la mira
+ * se entera. Con una constante, el próximo cambio es una línea.
+ *
+ * Las dos pantallas de la app del celular (`app/registro-votante.html` y
+ * `app/puesto-votacion.html`) NO cargan este archivo y llevan la dirección
+ * en el `href` del enlace. Si vuelve a cambiar, son esas dos y esta línea.
+ */
+const URL_CONSULTA_CENSO = 'https://consultacenso.registraduria.gov.co/';
+
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {

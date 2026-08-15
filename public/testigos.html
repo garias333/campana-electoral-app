@@ -66,11 +66,9 @@
     <form id="form-testigo">
       <div class="campo">
         <label>Número de identificación</label>
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-          <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off" style="flex:1;">
-          <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion-testigo" style="display:none; white-space:nowrap;">🗳️ Consultar lugar de votación</button>
-        </div>
+        <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off">
         <small id="numero-testigo-estado" style="font-size:0.75rem;"></small>
+        <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion-testigo" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-testigo" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio y Mesa. El Puesto lo seleccionas de la lista (compáralo con el nombre y la dirección que te muestre la ventana).</small>
       </div>
       <div class="campo"><label>Nombre completo</label><input name="nombre" required></div>
@@ -218,7 +216,7 @@ document.getElementById('btn-consultar-lugar-votacion-testigo').addEventListener
   const alto = Math.min(window.screen.availHeight, 800);
   const izquierda = window.screen.availWidth - ancho;
   window.open(
-    'https://wsp.registraduria.gov.co/censo/consultar/',
+    URL_CONSULTA_CENSO,
     'consultaLugarVotacionTestigo',
     `width=${ancho},height=${alto},left=${izquierda},top=0,noopener`
   );
