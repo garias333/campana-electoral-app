@@ -4,14 +4,33 @@
  * Dos cargos no tienen meta propia: la suya se DERIVA de su equipo, y se
  * calcula al leer, nunca se guarda.
  *
- *   - Coordinador ................ suma la meta de los Líderes de su
- *                                  Comuna/Corregimiento (por territorio:
- *                                  el territorio del líder cuelga del suyo).
- *   - Coordinador Organizaciones . suma la meta de sus gremiales (por
- *                                  supervisor: este cargo NO tiene
- *                                  territorio geográfico).
+ *   - Coordinador ................ suma la meta de los Líderes QUE LE
+ *                                  REPORTAN (supervisor_id).
+ *   - Coordinador Organizaciones . suma la meta de sus gremiales (mismo
+ *                                  vínculo, más el filtro de tipo de cargo).
  *
- * Cualquier otro cargo usa su propio `meta_votos`.
+ * Cualquier otro cargo usa su propio `meta_votos`. En particular el LÍDER:
+ * su meta es la que le pone el administrador y NO se deriva. Los registros
+ * —los suyos y los de sus sublíderes— son lo que va cumpliendo esa meta,
+ * y viven en la columna Registros; sumarlos aquí convertiría la meta en un
+ * logro y la columna diría casi lo mismo que la de al lado.
+ *
+ * EL VÍNCULO ES «REPORTA A», NO EL TERRITORIO. La regla del Coordinador
+ * miraba si el territorio del líder colgaba del suyo, y eso da CERO en
+ * cuanto los dos están en el mismo nivel — que es lo normal donde no hay
+ * comunas ni corregimientos. Medido el 15 de agosto de 2026: en la campaña
+ * departamental los DIECISÉIS coordinadores mostraban 0 aunque sus líderes
+ * sumaran entre 50 y 520; ninguno tenía un solo líder colgando por
+ * territorio, y todos tenían entre 1 y 4 por «Reporta a».
+ *
+ * El cambio no altera el otro caso: en la campaña municipal, donde los
+ * coordinadores sí están en comunas y los líderes en barrios, los OCHO
+ * coordinadores dan exactamente el mismo número por los dos caminos
+ * (50, 100, 200, 850, 1000…). Comprobado uno por uno antes de cambiarlo.
+ *
+ * De paso, la meta y los Registros quedan contados con el MISMO vínculo:
+ * la columna Registros ya sumaba por supervisor_id, así que un coordinador
+ * podía mostrar registros de un equipo cuya meta le daba cero.
  *
  * POR QUÉ AL LEER Y NO GUARDADO. Antes, el Coordinador Organizaciones
  * guardaba el total en `meta_votos` (un "piso" manual `meta_votos_base`
@@ -63,8 +82,7 @@ function sqlMetaEfectiva(alias = 'e') {
     WHEN ${alias}.cargo = 'coordinador' THEN (
       SELECT COALESCE(SUM(el.meta_votos), 0)
         FROM estructura el
-        JOIN territorios tl ON tl.id = el.territorio_id
-       WHERE el.cargo = 'lider' AND el.activo = 1 AND tl.padre_id = ${alias}.territorio_id
+       WHERE el.cargo = 'lider' AND el.activo = 1 AND el.supervisor_id = ${alias}.usuario_id
     )
     WHEN ${alias}.cargo = 'coordinador_organizaciones' THEN (
       SELECT COALESCE(SUM(eg.meta_votos), 0)
