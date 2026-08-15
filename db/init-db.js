@@ -922,6 +922,28 @@ async function main() {
     'usar_nombre_barrios'
   );
 
+  // Los dos gemelos RURALES de las de arriba. La jerarquía tiene cuatro
+  // niveles bajo el municipio y hasta hoy solo los dos urbanos se podían
+  // apagar, así que una campaña de ciudad —sin un solo corregimiento— tenía
+  // que dejar esos dos campos a la vista pidiendo un dato que no existe.
+  //
+  // Corregimiento va con Comuna y Vereda con Barrio: son el mismo nivel de
+  // la jerarquía, lo urbano y lo rural conviven ahí y los distingue el
+  // tipo, no la profundidad.
+  //
+  // Por defecto 1, como las urbanas: una instalación que ya existe no puede
+  // notar el cambio hasta que alguien responda "No" a propósito.
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'usar_nombre_corregimientos TINYINT(1) NOT NULL DEFAULT 1 AFTER usar_nombre_barrios',
+    'usar_nombre_corregimientos'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    'usar_nombre_veredas TINYINT(1) NOT NULL DEFAULT 1 AFTER usar_nombre_corregimientos',
+    'usar_nombre_veredas'
+  );
+
   // "Apoyos": a qué otras campañas puede apoyar la gente que se registra.
   // El admin los activa en Datos de la campaña y elige cuáles aplican; esa
   // lista es la que aparece como "Apoya a" en los formularios de

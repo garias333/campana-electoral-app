@@ -71,6 +71,21 @@
     const conTexto = !!(opciones && opciones.incluirTextoResidencia);
     const usaComunas = cfg.ciudad_tiene_comunas !== 0;
     const usaBarrios = cfg.usar_nombre_barrios !== 0;
+    const usaCorregimientos = cfg.usar_nombre_corregimientos !== 0;
+    const usaVeredas = cfg.usar_nombre_veredas !== 0;
+
+    /**
+     * El título de una columna combinada, con los términos que la campaña
+     * dice usar.
+     *
+     * SI APAGA LOS DOS, LA COLUMNA CONSERVA SU NOMBRE COMPLETO. Podría
+     * quedar sin título, pero la columna solo aparece cuando HAY datos
+     * adentro, y una columna visible con el encabezado en blanco es peor
+     * que una con un término que la campaña ya no usa: lo segundo se
+     * entiende, lo primero parece un error.
+     */
+    const titulo = (urbano, usaUrbano, rural, usaRural) =>
+      unir([usaUrbano ? urbano : null, usaRural ? rural : null]) || unir([urbano, rural]);
 
     // La ETIQUETA depende de lo que la campaña dice usar; la VISIBILIDAD, de
     // lo que hay guardado. Son dos preguntas distintas y se responden por
@@ -80,8 +95,8 @@
     // El texto libre de residencia nunca toca la etiqueta: es un campo
     // combinado y no se sabe si lo escrito es un barrio o una vereda.
     const resultado = {
-      etiquetaComuna: unir([usaComunas ? 'Comuna' : null, 'Corregimiento']),
-      etiquetaBarrio: unir([usaBarrios ? 'Barrio' : null, 'Vereda']),
+      etiquetaComuna: titulo('Comuna', usaComunas, 'Corregimiento', usaCorregimientos),
+      etiquetaBarrio: titulo('Barrio', usaBarrios, 'Vereda', usaVeredas),
       mostrarComuna: hayDato(cfg.hay_datos_comuna) || hayDato(cfg.hay_datos_corregimiento)
                      || (conTexto && hayDato(cfg.hay_datos_comuna_texto)),
       mostrarBarrio: hayDato(cfg.hay_datos_barrio) || hayDato(cfg.hay_datos_vereda)

@@ -73,35 +73,75 @@
           <input id="input-partido-otro" placeholder="Escriba el nombre completo">
         </div>
 
-        <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:160px;">
-            <label>Departamento</label>
-            <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
-            <datalist id="lista-departamentos-campana"></datalist>
+        <!-- ===== TERRITORIO =====
+             Dónde se juega la campaña y con qué palabras se divide.
+             Las cuatro preguntas van juntas y en dos parejas —urbano y
+             rural— porque así es como está armada la jerarquía: Comuna y
+             Corregimiento son el mismo nivel, y Barrio y Vereda el
+             siguiente. Verlas en fila corrida invita a apagar una sola
+             mitad sin darse cuenta de que la otra existe. -->
+        <div id="bloque-territorio" style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
+          <div style="font-size:0.95rem; font-weight:700; color:#1B4C9C; margin-bottom:4px;">Territorio</div>
+          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
+            Dónde se desarrolla la campaña y qué divisiones usa para organizarla.
+          </small>
+
+          <div class="fila" style="flex-wrap:wrap;">
+            <div class="campo" style="flex:1; min-width:180px;">
+              <label>Departamento</label>
+              <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
+              <datalist id="lista-departamentos-campana"></datalist>
+            </div>
+            <div class="campo" style="flex:1; min-width:180px;">
+              <label>Ciudad</label>
+              <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
+              <datalist id="lista-ciudades-campana"></datalist>
+            </div>
           </div>
-          <div class="campo" style="flex:1; min-width:160px;">
-            <label>Ciudad</label>
-            <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
-            <datalist id="lista-ciudades-campana"></datalist>
+
+          <div style="font-size:0.8rem; font-weight:600; color:#1B4C9C; text-transform:uppercase; letter-spacing:0.03em; margin:6px 0 8px;">Divisiones urbanas</div>
+          <div class="fila" style="flex-wrap:wrap;">
+            <div class="campo" style="flex:1; min-width:220px;">
+              <label>¿Utilizar nombre de comunas?</label>
+              <select name="ciudad_tiene_comunas">
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+              </select>
+            </div>
+            <div class="campo" style="flex:1; min-width:220px;">
+              <label>¿Utilizar nombre de barrios?</label>
+              <select name="usar_nombre_barrios">
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+              </select>
+            </div>
           </div>
-          <div class="campo" style="flex:1; min-width:200px;">
-            <label>¿Utilizar nombre de comunas?</label>
-            <select name="ciudad_tiene_comunas">
-              <option value="1">Sí</option>
-              <option value="0">No</option>
-            </select>
+
+          <div style="font-size:0.8rem; font-weight:600; color:#1B4C9C; text-transform:uppercase; letter-spacing:0.03em; margin:6px 0 8px;">Divisiones rurales</div>
+          <div class="fila" style="flex-wrap:wrap;">
+            <div class="campo" style="flex:1; min-width:220px;">
+              <label>¿Utilizar nombre de corregimientos?</label>
+              <select name="usar_nombre_corregimientos">
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+              </select>
+            </div>
+            <div class="campo" style="flex:1; min-width:220px;">
+              <label>¿Utilizar nombre de veredas?</label>
+              <select name="usar_nombre_veredas">
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+              </select>
+            </div>
           </div>
-          <div class="campo" style="flex:1; min-width:200px;">
-            <label>¿Utilizar nombre de barrios?</label>
-            <select name="usar_nombre_barrios">
-              <option value="1">Sí</option>
-              <option value="0">No</option>
-            </select>
-          </div>
+
+          <small style="color:var(--color-text-muted); font-size:0.78rem; display:block;">
+            Responda <strong>No</strong> a la división que su territorio no use, o que no quiera manejar en la campaña: ese campo deja de aparecer en todos los formularios de captura —Coordinadores y líderes, Votantes y sublíderes, Eventos, Asistentes a reuniones y la app del celular— y tampoco se ofrece crear zonas de ese tipo en "Gestionar territorios".
+            Cada pareja funciona igual: si <em>Barrios</em> queda en No, la persona se asigna directo a la Comuna; si <em>Veredas</em> queda en No, se asigna directo al Corregimiento. Con las dos de una pareja en No, esa área se guarda sin subdivisión.
+            <br><br>
+            Lo que ya está registrado <strong>no se borra ni se mueve</strong>, pero deja de poder corregirse desde el formulario: si vuelve a guardar la ficha de alguien asignado a ese nivel, quedará en el nivel de arriba.
+          </small>
         </div>
-        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:-10px; margin-bottom:14px;">
-          Responda "No" en cualquiera de las dos si su ciudad no usa ese término (o no quiere organizar la campaña a ese nivel): el campo correspondiente (Comuna o Barrio) deja de aparecer en todos los formularios de la aplicación —Coordinadores y líderes, Votantes y sublíderes, Eventos, Asistentes a reuniones y la app del celular— y tampoco se ofrece crear zonas de ese tipo en "Gestionar territorios". Si "Barrios" queda en No, Líder/Sublíder/Testigo se asignan directo a la Comuna, igual que ya hace Coordinador; si las dos quedan en No, el área urbana se guarda sin subdivisión.
-        </small>
 
         <div class="fila" style="flex-wrap:wrap;">
           <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
@@ -568,53 +608,85 @@ document.getElementById('select-partido-politico').addEventListener('change', (e
   document.getElementById('campo-partido-otro').style.display = esOtro ? 'block' : 'none';
 });
 
-// Cambiar "¿Utilizar nombre de comunas?" o "¿Utilizar nombre de
-// barrios?" afecta el campo Comuna/Barrio en 5 formularios distintos de
-// captura — se pide la contraseña de un administrador como confirmación
-// extra apenas se toca cada selector (no solo al guardar todo el
-// formulario). Si cancela, se revierte al valor que tenía antes.
-function protegerCambioConPasswordAdmin(select, titulo, guardarPassword, leerValorPrevio, guardarValorPrevio) {
-  select.addEventListener('change', async (e) => {
-    const nuevoValor = e.target.value;
-    const password = await solicitarPasswordAdmin(titulo);
-    if (!password) {
-      select.value = leerValorPrevio();
-      return;
-    }
-    guardarPassword(password);
-    guardarValorPrevio(nuevoValor);
-  });
+/**
+ * Los cuatro niveles territoriales que se pueden apagar.
+ *
+ * Van en una tabla y no en cuatro bloques repetidos por la misma razón que
+ * en el servidor: la regla es idéntica para todos, y escribirla cuatro
+ * veces es la forma de que el cuarto se quede sin la protección que tienen
+ * los otros tres.
+ *
+ * `uso` es la clave con la que GET /configuracion/territorio/uso cuenta la
+ * gente que ya está asignada a ese nivel.
+ */
+const NIVELES_TERRITORIO = [
+  { campo: 'ciudad_tiene_comunas',       uso: 'comuna',        etiqueta: '¿Utilizar nombre de comunas?',        plural: 'comunas' },
+  { campo: 'usar_nombre_barrios',        uso: 'barrio',        etiqueta: '¿Utilizar nombre de barrios?',        plural: 'barrios' },
+  { campo: 'usar_nombre_corregimientos', uso: 'corregimiento', etiqueta: '¿Utilizar nombre de corregimientos?', plural: 'corregimientos' },
+  { campo: 'usar_nombre_veredas',        uso: 'vereda',        etiqueta: '¿Utilizar nombre de veredas?',        plural: 'veredas' },
+];
+
+// La contraseña capturada al tocar cada selector, y el valor que tenía
+// antes por si cancela.
+const passwordNivel = {};
+const valorPrevioNivel = {};
+
+// Cuánta gente hay ya asignada a cada nivel. Se pide una vez al abrir la
+// pantalla; si la consulta falla llega en null y el aviso sale sin número.
+let usoTerritorio = null;
+
+/**
+ * Apagar un nivel esconde su campo de los formularios de captura, y eso
+ * afecta a las personas YA registradas en él: el dato no se borra, pero si
+ * alguien vuelve a guardar una de esas fichas, el formulario la resuelve
+ * con los campos que sí ve y la persona sube de nivel sin avisar.
+ *
+ * Por eso el aviso lleva el NÚMERO. "Puede haber datos" no detiene a nadie;
+ * "hay 82 personas asignadas a veredas" sí. Y solo aparece al pasar a No:
+ * volver a encender un nivel no pone nada en riesgo.
+ */
+function tituloConfirmacion(nivel, nuevoValor) {
+  const base = `Confirmar cambio de "${nivel.etiqueta}"`;
+  if (nuevoValor !== '0') return base;
+  const cuantos = usoTerritorio ? usoTerritorio[nivel.uso] : null;
+  if (!cuantos) return base;
+  return `${base} — hay ${cuantos} persona(s) asignada(s) a ${nivel.plural}`;
 }
 
-let passwordAdminCiudadComunas = null;
-let valorPrevioCiudadTieneComunas = '1';
-protegerCambioConPasswordAdmin(
-  document.getElementById('form-campana').ciudad_tiene_comunas,
-  'Confirmar cambio de "¿Utilizar nombre de comunas?"',
-  (p) => { passwordAdminCiudadComunas = p; },
-  () => valorPrevioCiudadTieneComunas,
-  (v) => { valorPrevioCiudadTieneComunas = v; }
-);
-
-let passwordAdminUsarBarrios = null;
-let valorPrevioUsarNombreBarrios = '1';
-protegerCambioConPasswordAdmin(
-  document.getElementById('form-campana').usar_nombre_barrios,
-  'Confirmar cambio de "¿Utilizar nombre de barrios?"',
-  (p) => { passwordAdminUsarBarrios = p; },
-  () => valorPrevioUsarNombreBarrios,
-  (v) => { valorPrevioUsarNombreBarrios = v; }
-);
+NIVELES_TERRITORIO.forEach((nivel) => {
+  passwordNivel[nivel.campo] = null;
+  valorPrevioNivel[nivel.campo] = '1';
+  const select = document.getElementById('form-campana')[nivel.campo];
+  // Se pide la contraseña apenas se toca el selector, no al guardar todo el
+  // formulario: así el aviso llega junto al cambio que lo provoca. Si
+  // cancela, se revierte al valor que tenía antes.
+  select.addEventListener('change', async (e) => {
+    const nuevoValor = e.target.value;
+    const password = await solicitarPasswordAdmin(tituloConfirmacion(nivel, nuevoValor));
+    if (!password) {
+      select.value = valorPrevioNivel[nivel.campo];
+      return;
+    }
+    passwordNivel[nivel.campo] = password;
+    valorPrevioNivel[nivel.campo] = nuevoValor;
+  });
+});
 
 async function cargarConfiguracionCampana() {
   const config = await api('/configuracion/campana');
   const form = document.getElementById('form-campana');
   form.nombre_candidato.value = config.nombre_candidato || '';
   form.cargo_aspira.value = config.cargo_aspira || '';
-  form.ciudad_tiene_comunas.value = config.ciudad_tiene_comunas === 0 ? '0' : '1';
-  valorPrevioCiudadTieneComunas = form.ciudad_tiene_comunas.value;
-  form.usar_nombre_barrios.value = config.usar_nombre_barrios === 0 ? '0' : '1';
-  valorPrevioUsarNombreBarrios = form.usar_nombre_barrios.value;
+  NIVELES_TERRITORIO.forEach((nivel) => {
+    form[nivel.campo].value = config[nivel.campo] === 0 ? '0' : '1';
+    valorPrevioNivel[nivel.campo] = form[nivel.campo].value;
+  });
+  // El conteo por nivel se pide aparte y sin bloquear: si no llega, los
+  // avisos salen sin número, que es peor que con él pero mucho mejor que
+  // dejar la pantalla sin cargar por una cifra informativa.
+  api('/configuracion/territorio/uso')
+    .then((uso) => { usoTerritorio = uso; })
+    .catch(() => { usoTerritorio = null; });
   form.slogan_campana.value = config.slogan_campana || '';
   form.fecha_eleccion.value = config.fecha_eleccion || '';
   form.direccion_sede.value = config.direccion_sede || '';
@@ -661,9 +733,13 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
     nombre_candidato: form.nombre_candidato.value,
     cargo_aspira: form.cargo_aspira.value,
     ciudad_tiene_comunas: Number(form.ciudad_tiene_comunas.value),
-    password_ciudad_comunas: passwordAdminCiudadComunas,
+    password_ciudad_comunas: passwordNivel.ciudad_tiene_comunas,
     usar_nombre_barrios: Number(form.usar_nombre_barrios.value),
-    password_usar_barrios: passwordAdminUsarBarrios,
+    password_usar_barrios: passwordNivel.usar_nombre_barrios,
+    usar_nombre_corregimientos: Number(form.usar_nombre_corregimientos.value),
+    password_usar_corregimientos: passwordNivel.usar_nombre_corregimientos,
+    usar_nombre_veredas: Number(form.usar_nombre_veredas.value),
+    password_usar_veredas: passwordNivel.usar_nombre_veredas,
     slogan_campana: form.slogan_campana.value,
     fecha_eleccion: form.fecha_eleccion.value,
     partido_politico: partidoFinal,
@@ -682,8 +758,9 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
 
   try {
     await api('/configuracion/campana', { method: 'PUT', body: datos });
-    passwordAdminCiudadComunas = null;
-    passwordAdminUsarBarrios = null;
+    // Guardado el cambio, las contraseñas capturadas ya no sirven para nada
+    // y no tienen por qué seguir en memoria hasta que se cierre la pestaña.
+    NIVELES_TERRITORIO.forEach((nivel) => { passwordNivel[nivel.campo] = null; });
     okBox.textContent = 'Datos de la campaña guardados.';
     okBox.classList.add('visible');
   } catch (err) {

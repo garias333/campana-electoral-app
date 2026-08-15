@@ -301,13 +301,13 @@
             <small id="contador-barrios" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
           </div>
         </div>
-        <div class="fila" id="fila-rural-persona" style="display:none;">
-          <div class="campo">
+        <div class="fila" id="fila-rural-persona" data-fila="rural" style="display:none;">
+          <div class="campo" data-campo="corregimiento">
             <label>Corregimiento</label>
             <input id="input-corregimiento-persona" list="lista-corregimientos-persona" autocomplete="off">
             <datalist id="lista-corregimientos-persona"></datalist>
           </div>
-          <div class="campo" id="campo-vereda-persona">
+          <div class="campo" id="campo-vereda-persona" data-campo="vereda">
             <label>Vereda</label>
             <input id="input-vereda-persona" list="lista-veredas-persona" autocomplete="off">
             <datalist id="lista-veredas-persona"></datalist>
@@ -370,11 +370,11 @@
           </select>
         </div>
       </div>
-      <div class="campo" id="campo-comuna-padre" style="display:none;">
+      <div class="campo" id="campo-comuna-padre" data-campo="comuna" style="display:none;">
         <label>Comuna a la que pertenece</label>
         <select name="comunaPadre" id="select-comuna-padre"><option value="">Sin comuna específica</option></select>
       </div>
-      <div class="campo" id="campo-corregimiento-padre" style="display:none;">
+      <div class="campo" id="campo-corregimiento-padre" data-campo="corregimiento" style="display:none;">
         <label>Corregimiento al que pertenece</label>
         <select name="corregimientoPadre" id="select-corregimiento-padre"><option value="">Sin corregimiento específico</option></select>
       </div>
@@ -893,9 +893,19 @@ document.getElementById('select-area').addEventListener('change', (e) => {
       ? 'Nombre de la comuna o barrio'
       : (ciudadTieneComunas ? 'Nombre de la comuna' : 'Nombre del barrio');
   } else if (e.target.value === 'rural') {
-    selectTipo.disabled = false;
-    selectTipo.innerHTML = `<option value="corregimiento">Corregimiento</option><option value="vereda">Vereda</option>`;
-    labelNombre.textContent = 'Nombre del corregimiento o vereda';
+    // Mismo criterio que arriba: no se ofrece crear zonas de un tipo que la
+    // campaña apagó. Si se ofreciera, se podrían crear veredas que después
+    // ningún formulario deja elegir.
+    const tipos = [];
+    if (usarNombreCorregimientos) tipos.push('<option value="corregimiento">Corregimiento</option>');
+    if (usarNombreVeredas) tipos.push('<option value="vereda">Vereda</option>');
+    selectTipo.disabled = tipos.length === 0;
+    selectTipo.innerHTML = tipos.length
+      ? tipos.join('')
+      : '<option value="">La campaña no usa corregimientos ni veredas</option>';
+    labelNombre.textContent = usarNombreCorregimientos && usarNombreVeredas
+      ? 'Nombre del corregimiento o vereda'
+      : (usarNombreCorregimientos ? 'Nombre del corregimiento' : 'Nombre de la vereda');
   } else {
     selectTipo.disabled = true;
     selectTipo.innerHTML = `<option value="">Elija primero el área</option>`;
@@ -915,7 +925,14 @@ function buscarMunicipioActual() {
   return muni || null;
 }
 
-// Muestra/oculta y llena el selector de Comuna (para Barrio) o Corregimiento (para Vereda).
+// Muestra/oculta y llena el selector de Comuna (para Barrio) o Corregimiento
+// (para Vereda).
+//
+// Si la campaña apagó ese nivel, el marcador `data-campo` del contenedor lo
+// esconde igual: la regla de la hoja lleva !important y gana sobre el
+// display:block de aquí. La zona queda entonces colgando del municipio, que
+// es exactamente lo que significa la opción "Sin comuna específica" que el
+// selector ya ofrecía.
 function actualizarCamposPadreZona() {
   const tipoZona = document.getElementById('select-tipo-zona').value;
   const campoComuna = document.getElementById('campo-comuna-padre');
@@ -1069,6 +1086,10 @@ function aplicarApoyosConfigurados(SUFIJO, activos) {
 // cuelgan de ninguna comuna, sino directo del municipio).
 let ciudadTieneComunas = true;
 let usarNombreBarrios = true;
+// Los gemelos rurales: Corregimiento se comporta como Comuna y Vereda como
+// Barrio. Cada rama rural de abajo es la traducción literal de la urbana.
+let usarNombreCorregimientos = true;
+let usarNombreVeredas = true;
 // Cargos sin meta propia: el servidor la calcula sumando su equipo y la
 // manda en meta_votos_equipo. Debe coincidir con CARGOS_CON_META_DERIVADA
 // de config/metasEstructura.js — si se agrega un cargo allá, agregarlo
@@ -1173,7 +1194,10 @@ function actualizarBarriosPersona() {
 }
 
 function actualizarVeredasPersona() {
-  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+  // Con el Corregimiento oculto no hay nada escrito con qué acotar, así que
+  // se ofrecen todas las veredas del municipio — igual que hace Barrio
+  // cuando la ciudad no usa comunas.
+  const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
   const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
   let veredas;
   if (corregimiento) {
@@ -1421,10 +1445,13 @@ function actualizarVisibilidadBarrioVeredaSegunCargo() {
   // Los dos cargos de coordinación tienen la meta derivada de su equipo:
   // el campo se oculta y se deshabilita, y cada uno explica de dónde sale.
   const metaEsDerivada = esCoordinador || esCoordinadorOrg;
-  const ocultarBarrioVereda = esCoordinador || !usarNombreBarrios;
-  document.getElementById('campo-barrio-persona').style.display = ocultarBarrioVereda ? 'none' : 'block';
-  document.getElementById('campo-vereda-persona').style.display = ocultarBarrioVereda ? 'none' : 'block';
+  // Barrio y Vereda se ocultan por separado: son niveles distintos y la
+  // campaña puede usar uno y no el otro. Coordinador los oculta los dos,
+  // porque se asigna a la Comuna o al Corregimiento.
+  document.getElementById('campo-barrio-persona').style.display = (esCoordinador || !usarNombreBarrios) ? 'none' : 'block';
+  document.getElementById('campo-vereda-persona').style.display = (esCoordinador || !usarNombreVeredas) ? 'none' : 'block';
   document.getElementById('campo-comuna-persona').style.display = ciudadTieneComunas ? 'block' : 'none';
+  document.getElementById('input-corregimiento-persona').closest('.campo').style.display = usarNombreCorregimientos ? 'block' : 'none';
   document.getElementById('input-meta-votos-persona').style.display = metaEsDerivada ? 'none' : 'block';
   document.getElementById('input-meta-votos-persona').disabled = metaEsDerivada;
   document.getElementById('meta-votos-nota-coordinador').style.display = esCoordinador ? 'block' : 'none';
@@ -1664,10 +1691,14 @@ function resolverTerritorioPersona() {
     return { territorioId: barrio.id };
   }
   if (area === 'rural') {
-    if (esCoordinador) {
-      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+    // El espejo exacto de la rama urbana: Coordinador siempre va al
+    // Corregimiento, y con "¿Utilizar nombre de veredas?" en No los demás
+    // cargos también. Si tampoco se usan corregimientos, no queda nada que
+    // exigir y se guarda sin territorio geográfico rural.
+    if (esCoordinador || !usarNombreVeredas) {
+      const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       if (!nombreCorregimiento) {
-        if (disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista.' };
+        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista.' };
         return territorioMasFino();
       }
       const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
@@ -1677,7 +1708,7 @@ function resolverTerritorioPersona() {
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
     if (!nombreVereda) {
       if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista.' };
-      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-persona').value);
+      const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       const corregimiento = nombreCorregimiento ? listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       return corregimiento ? { territorioId: corregimiento.id } : territorioMasFino();
     }
@@ -2434,16 +2465,22 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     const configCampana = await obtenerConCacheReferencia('configuracion_campana', () => api('/configuracion/campana'));
     ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
     usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    usarNombreCorregimientos = configCampana.usar_nombre_corregimientos !== 0;
+    usarNombreVeredas = configCampana.usar_nombre_veredas !== 0;
     document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
+    document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
     // Igual que en Votantes: esta tabla lee el árbol de territorios.
-    aplicarColumnasTerritoriales(configCampana);
+    const columnas = aplicarColumnasTerritoriales(configCampana);
     ambitoDepartamental = ['gobernacion', 'asamblea'].includes(configCampana.cargo_aspira);
     document.getElementById('campo-municipio-influencia-persona').style.display = ambitoDepartamental ? 'block' : 'none';
-    document.getElementById('label-comuna-corregimiento-residencia').textContent =
-      ciudadTieneComunas ? 'Comuna / Corregimiento' : 'Corregimiento';
-    document.getElementById('label-barrio-vereda-residencia').textContent =
-      usarNombreBarrios ? 'Barrio / Vereda' : 'Vereda';
+    // Los campos de residencia son TEXTO LIBRE y combinados, así que no se
+    // ocultan nunca: solo cambia su etiqueta, y con el mismo cálculo que las
+    // columnas de la tabla. Tenerlo escrito dos veces fue lo que dejó esta
+    // copia sin la mitad rural cuando llegaron corregimientos y veredas.
+    document.getElementById('label-comuna-corregimiento-residencia').textContent = columnas.etiquetaComuna;
+    document.getElementById('label-barrio-vereda-residencia').textContent = columnas.etiquetaBarrio;
     aplicarApoyosConfigurados('persona', configCampana.apoyos_activos);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   actualizarVisibilidadBarrioVeredaSegunCargo();

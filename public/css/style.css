@@ -656,6 +656,19 @@ body.sin-comunas [data-campo="comuna"] { display: none !important; }
 body.sin-barrios [data-campo="barrio"] { display: none !important; }
 body.sin-comunas.sin-barrios [data-fila="urbano"] { display: none !important; }
 
+/* Y lo mismo del lado rural. Corregimiento va con Comuna y Vereda con
+   Barrio: son el mismo nivel de la jerarquía —lo urbano y lo rural conviven
+   ahí y los distingue el tipo, no la profundidad—, así que la regla es la
+   misma palabra por palabra.
+
+   El Área (Urbano/Rural) NO se toca: una persona puede vivir en el campo sin
+   que la campaña organice por veredas, igual que ya podía vivir en la ciudad
+   sin comunas ni barrios. Apagados los dos, se guarda con el área marcada y
+   sin subdivisión. */
+body.sin-corregimientos [data-campo="corregimiento"] { display: none !important; }
+body.sin-veredas [data-campo="vereda"] { display: none !important; }
+body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !important; }
+
 /* Sin ningún apoyo activo en Configuración → Datos de la campaña, la columna
    "Apoya a" queda vacía en todas las filas: se oculta entera en vez de dejar
    una columna en blanco ocupando ancho. La clase la pone votantes.html al

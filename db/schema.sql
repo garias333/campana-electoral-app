@@ -464,6 +464,8 @@ CREATE TABLE IF NOT EXISTS configuracion_campana (
   territorio_ciudad VARCHAR(100) NULL COMMENT 'Ciudad donde se desarrolla la campaña (solo para cargos municipales/locales)',
   ciudad_tiene_comunas TINYINT(1) NOT NULL DEFAULT 1 COMMENT '¿Utilizar nombre de comunas? — en 0, el campo Comuna deja de mostrarse en los formularios de captura de persona/evento',
   usar_nombre_barrios TINYINT(1) NOT NULL DEFAULT 1 COMMENT '¿Utilizar nombre de barrios? — en 0, el campo Barrio deja de mostrarse y Líder/Sublíder/Testigo se asignan directo a la Comuna, igual que ya hace Coordinador',
+  usar_nombre_corregimientos TINYINT(1) NOT NULL DEFAULT 1 COMMENT '¿Utilizar nombre de corregimientos? — el gemelo rural de ciudad_tiene_comunas: en 0, el campo Corregimiento deja de mostrarse y la Vereda se elige directo',
+  usar_nombre_veredas TINYINT(1) NOT NULL DEFAULT 1 COMMENT '¿Utilizar nombre de veredas? — el gemelo rural de usar_nombre_barrios: en 0, el campo Vereda deja de mostrarse y la persona se asigna directo al Corregimiento',
   fecha_eleccion DATE NULL COMMENT 'Fecha de la jornada electoral — se usa para que un testigo caiga directo en Día D al iniciar sesión ese día',
   direccion_sede VARCHAR(255) NULL,
   telefono VARCHAR(30) NULL,

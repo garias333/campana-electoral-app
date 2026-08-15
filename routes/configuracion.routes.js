@@ -159,13 +159,71 @@ router.get('/apoyos-posibles', requireRole('admin'), (req, res) => {
   res.json({ apoyos: apoyosPermitidos(String(req.query.cargo || '')) });
 });
 
+/**
+ * CUÁNTA GENTE HAY EN CADA NIVEL TERRITORIAL.
+ *
+ * Apagar un nivel en "Territorio" esconde su campo de los formularios. Lo
+ * que ya está guardado no se borra —el `territorio_id` sigue apuntando a la
+ * vereda de siempre— pero deja de poder editarse: si alguien abre la ficha
+ * de una persona asignada a una vereda con Veredas en No y la guarda, el
+ * formulario resuelve el territorio con los campos que SÍ ve y la persona
+ * sube de nivel sin que nadie lo note. Es la trampa de siempre: no falla,
+ * cambia el dato.
+ *
+ * Por eso la pantalla avisa CON EL NÚMERO antes de dejar apagar un nivel
+ * que tiene gente. Un aviso genérico —"puede haber datos"— no hace que
+ * nadie se detenga; "hay 82 personas asignadas a veredas" sí.
+ *
+ * Va en su propio endpoint y no dentro de GET /campana porque esa la piden
+ * cinco pantallas en cada carga y esto solo lo necesita Configuración
+ * cuando alguien toca uno de los cuatro selectores.
+ *
+ * `hay_datos_*` de GET /campana NO sirve para esto: son EXISTS (booleanos)
+ * y las tablas de listado los leen con la convención de que un valor que no
+ * es `true` ni `1` significa «no hay». Devolver un conteo ahí haría que
+ * `hay_datos_barrio = 5` se leyera como «no hay barrios» y la columna
+ * desapareciera. Son dos preguntas parecidas que no se pueden mezclar.
+ */
+router.get('/territorio/uso', requireRole('admin'), async (req, res) => {
+  // Comuna y corregimiento se cuentan también por el padre: quien vive en un
+  // barrio pertenece a la comuna de ese barrio. Barrio y vereda son el
+  // territorio mismo. Es el mismo criterio de hayDatosPorNivel().
+  const cuenta = (tabla, tipo, porPadre) => `(SELECT COUNT(*) FROM ${tabla} x
+       JOIN territorios t ON t.id = x.territorio_id
+       ${porPadre ? 'LEFT JOIN territorios p ON p.id = t.padre_id' : ''}
+      WHERE t.tipo = '${tipo}'${porPadre ? ` OR p.tipo = '${tipo}'` : ''})`;
+  const total = (tipo, porPadre) =>
+    `${cuenta('votantes', tipo, porPadre)} + ${cuenta('estructura', tipo, porPadre)}`;
+
+  try {
+    const [[uso]] = await pool.query(`
+      SELECT ${total('comuna', true)}         AS comuna,
+             ${total('corregimiento', true)}  AS corregimiento,
+             ${total('barrio', false)}        AS barrio,
+             ${total('vereda', false)}        AS vereda`);
+    res.json({
+      comuna: Number(uso.comuna), corregimiento: Number(uso.corregimiento),
+      barrio: Number(uso.barrio), vereda: Number(uso.vereda),
+    });
+  } catch (err) {
+    // `territorios` es una vista sobre el catálogo, en OTRA base: este es el
+    // punto que más fácil se cae. Sin conteo no se puede avisar, y un aviso
+    // inventado sería peor que ninguno — se responde `null` y la pantalla
+    // pide la confirmación de siempre, sin número.
+    console.error('No se pudo contar la gente por nivel territorial:', err.message);
+    res.json({ comuna: null, corregimiento: null, barrio: null, vereda: null });
+  }
+});
+
 // Crea o actualiza (upsert) el registro único de configuración. Solo admin.
 router.put('/campana', requireRole('admin'), async (req, res) => {
   const {
     nombre_candidato, cargo_aspira, slogan_campana, partido_politico,
     departamento, ciudad, direccion_sede, telefono, email,
     territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas,
-    usar_nombre_barrios, password_ciudad_comunas, password_usar_barrios,
+    usar_nombre_barrios, usar_nombre_corregimientos, usar_nombre_veredas,
+    password_ciudad_comunas, password_usar_barrios,
+    password_usar_corregimientos, password_usar_veredas,
     apoyos_activos
   } = req.body;
 
@@ -191,37 +249,58 @@ router.put('/campana', requireRole('admin'), async (req, res) => {
   }
 
   const aBooleano = (valor) => (valor === false || valor === 0 || valor === '0' ? 0 : 1);
-  const ciudadTieneComunasFinal = aBooleano(ciudad_tiene_comunas);
-  const usarNombreBarriosFinal = aBooleano(usar_nombre_barrios);
+
+  // Los cuatro niveles territoriales que la campaña puede apagar. Van en una
+  // lista y no en cuatro bloques repetidos porque la regla es idéntica para
+  // todos y repetirla cuatro veces es la forma de que el cuarto se quede
+  // sin la protección que tienen los otros tres.
+  const NIVELES = [
+    { columna: 'ciudad_tiene_comunas',        pedido: ciudad_tiene_comunas,        password: password_ciudad_comunas,        etiqueta: '¿Utilizar nombre de comunas?' },
+    { columna: 'usar_nombre_barrios',         pedido: usar_nombre_barrios,         password: password_usar_barrios,          etiqueta: '¿Utilizar nombre de barrios?' },
+    { columna: 'usar_nombre_corregimientos',  pedido: usar_nombre_corregimientos,  password: password_usar_corregimientos,   etiqueta: '¿Utilizar nombre de corregimientos?' },
+    { columna: 'usar_nombre_veredas',         pedido: usar_nombre_veredas,         password: password_usar_veredas,          etiqueta: '¿Utilizar nombre de veredas?' },
+  ];
 
   try {
-    // "¿Utilizar nombre de comunas?" / "¿Utilizar nombre de barrios?"
-    // cambian cómo se ven los campos Comuna/Barrio en 5 formularios
-    // distintos de captura — cambiar cualquiera de las dos exige la
-    // contraseña de un administrador como confirmación extra, además del
-    // rol admin que ya exige toda esta pantalla.
-    const [[actual]] = await pool.query(`SELECT ciudad_tiene_comunas, usar_nombre_barrios FROM configuracion_campana WHERE id = 1`);
-    const comunasActual = actual ? Number(actual.ciudad_tiene_comunas) : 1;
-    const barriosActual = actual ? Number(actual.usar_nombre_barrios) : 1;
+    const [[actual]] = await pool.query(
+      `SELECT ${NIVELES.map(n => n.columna).join(', ')} FROM configuracion_campana WHERE id = 1`);
 
-    if (ciudadTieneComunasFinal !== comunasActual) {
-      const autorizado = await verificarPasswordAdmin(password_ciudad_comunas);
-      if (!autorizado) {
-        return res.status(403).json({ error: 'Contraseña de administrador incorrecta. No se guardó el cambio de "¿Utilizar nombre de comunas?".' });
+    // UN FORMULARIO QUE NO TRAE EL CAMPO NO LO PUEDE PISAR. Si la petición
+    // llega sin una de estas banderas —una configuracion.html vieja servida
+    // desde la caché del navegador, por ejemplo— se conserva lo que ya está
+    // guardado. Sin esto, `aBooleano(undefined)` daría 1 y una pantalla
+    // desactualizada volvería a encender en silencio un nivel que el admin
+    // había apagado. Es la misma regla que ya costó las 18 áreas no
+    // municipalizadas del catálogo: si la fuente no trae el dato, la
+    // columna no se toca.
+    const valores = {};
+    for (const nivel of NIVELES) {
+      const guardado = actual ? Number(actual[nivel.columna]) : 1;
+      valores[nivel.columna] = nivel.pedido === undefined ? guardado : aBooleano(nivel.pedido);
+
+      // Cambiar cualquiera de las cuatro reordena los formularios de captura
+      // de toda la aplicación, así que exige la contraseña de un
+      // administrador como confirmación extra, además del rol admin que ya
+      // pide esta pantalla.
+      if (valores[nivel.columna] !== guardado) {
+        const autorizado = await verificarPasswordAdmin(nivel.password);
+        if (!autorizado) {
+          return res.status(403).json({ error: `Contraseña de administrador incorrecta. No se guardó el cambio de "${nivel.etiqueta}".` });
+        }
       }
     }
-    if (usarNombreBarriosFinal !== barriosActual) {
-      const autorizado = await verificarPasswordAdmin(password_usar_barrios);
-      if (!autorizado) {
-        return res.status(403).json({ error: 'Contraseña de administrador incorrecta. No se guardó el cambio de "¿Utilizar nombre de barrios?".' });
-      }
-    }
+
+    const ciudadTieneComunasFinal = valores.ciudad_tiene_comunas;
+    const usarNombreBarriosFinal = valores.usar_nombre_barrios;
+    const usarNombreCorregimientosFinal = valores.usar_nombre_corregimientos;
+    const usarNombreVeredasFinal = valores.usar_nombre_veredas;
 
     await pool.query(
       `INSERT INTO configuracion_campana
          (id, nombre_candidato, cargo_aspira, slogan_campana, partido_politico, departamento, ciudad, direccion_sede, telefono, email,
-          territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas, usar_nombre_barrios, apoyos_activos, actualizado_por)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas, usar_nombre_barrios,
+          usar_nombre_corregimientos, usar_nombre_veredas, apoyos_activos, actualizado_por)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nombre_candidato = VALUES(nombre_candidato),
          cargo_aspira = VALUES(cargo_aspira),
@@ -237,12 +316,15 @@ router.put('/campana', requireRole('admin'), async (req, res) => {
          fecha_eleccion = VALUES(fecha_eleccion),
          ciudad_tiene_comunas = VALUES(ciudad_tiene_comunas),
          usar_nombre_barrios = VALUES(usar_nombre_barrios),
+         usar_nombre_corregimientos = VALUES(usar_nombre_corregimientos),
+         usar_nombre_veredas = VALUES(usar_nombre_veredas),
          apoyos_activos = VALUES(apoyos_activos),
          actualizado_por = VALUES(actualizado_por)`,
       [nombre_candidato || null, cargo_aspira || null, (slogan_campana || '').trim() || null, partido_politico || null,
        departamento || null, ciudad || null, direccion_sede || null, telefono ? telefono.replace(/\D/g, '') : null, email || null,
        territorio_departamento || null, territorio_ciudad || null, fecha_eleccion || null,
        ciudadTieneComunasFinal, usarNombreBarriosFinal,
+       usarNombreCorregimientosFinal, usarNombreVeredasFinal,
        apoyosFinal === null ? null : JSON.stringify(apoyosFinal),
        req.session.usuario.id]
     );

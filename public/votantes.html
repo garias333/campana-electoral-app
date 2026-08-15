@@ -308,13 +308,13 @@
           <small id="contador-barrios-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
-      <div class="fila" id="fila-rural-votante" style="display:none;">
-        <div class="campo">
+      <div class="fila" id="fila-rural-votante" data-fila="rural" style="display:none;">
+        <div class="campo" data-campo="corregimiento">
           <label>Corregimiento</label>
           <input id="input-corregimiento-votante" list="lista-corregimientos-votante" autocomplete="off">
           <datalist id="lista-corregimientos-votante"></datalist>
         </div>
-        <div class="campo">
+        <div class="campo" data-campo="vereda">
           <label>Vereda</label>
           <input id="input-vereda-votante" list="lista-veredas-votante" autocomplete="off">
           <datalist id="lista-veredas-votante"></datalist>
@@ -377,6 +377,11 @@ let territorios = [];
 // comuna intermedia).
 let ciudadTieneComunas = true;
 let usarNombreBarrios = true;
+// Los gemelos rurales. Corregimiento se comporta como Comuna y Vereda como
+// Barrio: son el mismo nivel de la jerarquía, y por eso cada rama de abajo
+// es la traducción literal de la urbana.
+let usarNombreCorregimientos = true;
+let usarNombreVeredas = true;
 // Campañas de Gobernación o Asamblea abarcan todo el departamento: la
 // ciudad sede viene vacía, así que el área de influencia de un sublíder se
 // ancla a un Municipio propio en vez de a la Ciudad de residencia.
@@ -384,6 +389,8 @@ let ambitoDepartamental = false;
 function aplicarVisibilidadComunaVotante() {
   document.getElementById('campo-comuna-votante').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('campo-barrio-votante').style.display = usarNombreBarrios ? 'block' : 'none';
+  document.getElementById('input-corregimiento-votante').closest('.campo').style.display = usarNombreCorregimientos ? 'block' : 'none';
+  document.getElementById('input-vereda-votante').closest('.campo').style.display = usarNombreVeredas ? 'block' : 'none';
 }
 
 // --- Catálogo de departamentos y municipios de Colombia (para "Lugar de votación") ---
@@ -1050,7 +1057,10 @@ function actualizarBarriosVotante() {
 }
 
 function actualizarVeredasVotante() {
-  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+  // Mismo criterio que en Barrio: con el Corregimiento oculto se muestran
+  // TODAS las veredas del municipio, porque no hay nada escrito con qué
+  // acotarlas.
+  const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
   const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
   let veredas;
   if (corregimiento) {
@@ -1168,10 +1178,23 @@ function resolverTerritorioVotante() {
     return { territorioId: barrio.id, area };
   }
   if (area === 'rural') {
+    // El espejo exacto de la rama urbana. Con "¿Utilizar nombre de veredas?"
+    // en No se asigna directo al Corregimiento (Vereda queda oculta); si
+    // tampoco se usan corregimientos, se guarda sin territorio geográfico
+    // rural, igual que el área urbana sin comunas ni barrios.
+    if (!usarNombreVeredas) {
+      const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
+      const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+      if (!corregimiento) {
+        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista, o deje el área sin especificar.' };
+        return territorioMasFino();
+      }
+      return { territorioId: corregimiento.id, area };
+    }
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-votante').value);
     if (!nombreVereda) {
       if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
-      const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+      const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
       const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       return corregimiento ? { territorioId: corregimiento.id, area } : territorioMasFino();
     }
@@ -2107,8 +2130,12 @@ function alternarMesasEstimadoPuesto(i) {
     const configCampana = await obtenerConCacheReferencia('configuracion_campana', () => api('/configuracion/campana'));
     ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
     usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    usarNombreCorregimientos = configCampana.usar_nombre_corregimientos !== 0;
+    usarNombreVeredas = configCampana.usar_nombre_veredas !== 0;
     document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
+    document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
     // Encabezados y visibilidad de las columnas territoriales de la tabla.
     // Esta tabla lee el ÁRBOL de territorios, así que el texto libre de
     // residencia no cuenta (ver public/js/columnas-territoriales.js).

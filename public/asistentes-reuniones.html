@@ -146,13 +146,13 @@
           <datalist id="nv-lista-barrios"></datalist>
         </div>
       </div>
-      <div class="fila" id="nv-fila-rural" style="display:none;">
-        <div class="campo">
+      <div class="fila" id="nv-fila-rural" data-fila="rural" style="display:none;">
+        <div class="campo" data-campo="corregimiento">
           <label>Corregimiento</label>
           <input type="text" id="nv-corregimiento" list="nv-lista-corregimientos" autocomplete="off">
           <datalist id="nv-lista-corregimientos"></datalist>
         </div>
-        <div class="campo">
+        <div class="campo" data-campo="vereda">
           <label>Vereda</label>
           <input type="text" id="nv-vereda" list="nv-lista-veredas" autocomplete="off">
           <datalist id="nv-lista-veredas"></datalist>
@@ -203,9 +203,14 @@ let territoriosAsistentes = [];
 // barrios del municipio.
 let ciudadTieneComunas = true;
 let usarNombreBarrios = true;
+// Los gemelos rurales: Corregimiento va con Comuna y Vereda con Barrio.
+let usarNombreCorregimientos = true;
+let usarNombreVeredas = true;
 function aplicarVisibilidadComunaNv() {
   document.getElementById('nv-campo-comuna').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('nv-campo-barrio').style.display = usarNombreBarrios ? 'block' : 'none';
+  document.getElementById('nv-corregimiento').closest('.campo').style.display = usarNombreCorregimientos ? 'block' : 'none';
+  document.getElementById('nv-vereda').closest('.campo').style.display = usarNombreVeredas ? 'block' : 'none';
 }
 let catalogoColombiaAsistentes = null;
 let configCampanaAsistentes = null;
@@ -494,9 +499,14 @@ function actualizarBarriosNv() {
 document.getElementById('nv-comuna').addEventListener('input', actualizarBarriosNv);
 
 function actualizarVeredasNv() {
-  const nombreCorregimiento = normalizarTexto(document.getElementById('nv-corregimiento').value);
-  const corregimiento = territoriosAsistentes.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
-  const veredas = corregimiento ? territoriosAsistentes.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id) : [];
+  // Con el Corregimiento oculto no hay con qué acotar: se ofrecen todas las
+  // veredas, que si no la lista quedaría vacía y el campo sería imposible
+  // de llenar.
+  const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('nv-corregimiento').value) : '';
+  const corregimiento = nombreCorregimiento ? territoriosAsistentes.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+  const veredas = corregimiento
+    ? territoriosAsistentes.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id)
+    : (usarNombreCorregimientos ? [] : territoriosAsistentes.filter(t => t.tipo === 'vereda'));
   document.getElementById('nv-lista-veredas').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
 }
 document.getElementById('nv-corregimiento').addEventListener('input', actualizarVeredasNv);
@@ -530,6 +540,17 @@ function resolverTerritorioNv() {
     const barrio = territoriosAsistentes.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
     if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Estructura territorial > Gestionar territorios".' };
     return { territorioId: barrio.id, area };
+  }
+  // El espejo de la rama urbana: sin veredas se asigna al Corregimiento, y
+  // sin corregimientos tampoco, se guarda sin territorio.
+  if (!usarNombreVeredas) {
+    const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('nv-corregimiento').value) : '';
+    const corregimiento = nombreCorregimiento ? territoriosAsistentes.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+    if (!corregimiento) {
+      if (usarNombreCorregimientos) return { error: 'Seleccione un corregimiento de la lista, o deje el área sin especificar.' };
+      return { territorioId: null, area };
+    }
+    return { territorioId: corregimiento.id, area };
   }
   const nombreVereda = normalizarTexto(document.getElementById('nv-vereda').value);
   if (!nombreVereda) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
@@ -690,8 +711,12 @@ document.getElementById('btn-agregar-invitado').addEventListener('click', async 
     const configCampana = await api('/configuracion/campana');
     ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
     usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    usarNombreCorregimientos = configCampana.usar_nombre_corregimientos !== 0;
+    usarNombreVeredas = configCampana.usar_nombre_veredas !== 0;
     document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
+    document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
     // Aquí SÍ cuenta el texto libre: la columna se llena con
     // COALESCE(territorio, usuarios.barrio_residencia) — ver eventos.routes.js.
     aplicarColumnasTerritoriales(configCampana, { incluirTextoResidencia: true });

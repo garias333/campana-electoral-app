@@ -160,13 +160,13 @@
         <datalist id="lista-barrios"></datalist>
       </div>
     </div>
-    <div class="fila-app" id="fila-rural" style="display:none;">
-      <div class="campo-app">
+    <div class="fila-app" id="fila-rural" data-fila="rural" style="display:none;">
+      <div class="campo-app" data-campo="corregimiento">
         <label for="f-corregimiento">Corregimiento</label>
         <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off">
         <datalist id="lista-corregimientos"></datalist>
       </div>
-      <div class="campo-app">
+      <div class="campo-app" data-campo="vereda">
         <label for="f-vereda">Vereda</label>
         <input id="f-vereda" list="lista-veredas" autocomplete="off">
         <datalist id="lista-veredas"></datalist>
@@ -256,9 +256,14 @@ function aplicarApoyosConfiguradosApp(activos) {
 // comuna intermedia).
 let ciudadTieneComunas = true;
 let usarNombreBarrios = true;
+// Los gemelos rurales: Corregimiento va con Comuna y Vereda con Barrio.
+let usarNombreCorregimientos = true;
+let usarNombreVeredas = true;
 function aplicarVisibilidadComunaApp() {
   document.getElementById('campo-comuna-app').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('campo-barrio-app').style.display = usarNombreBarrios ? 'block' : 'none';
+  document.getElementById('f-corregimiento').closest('.campo-app').style.display = usarNombreCorregimientos ? 'block' : 'none';
+  document.getElementById('f-vereda').closest('.campo-app').style.display = usarNombreVeredas ? 'block' : 'none';
 }
 let categoriaActual = 'votante';
 let tipoInfluenciaActual = 'territorio';
@@ -370,9 +375,13 @@ function actualizarBarriosApp() {
 
 /** Llena Vereda según el Corregimiento escrito — igual que la cascada del panel de escritorio. */
 function actualizarVeredasApp() {
-  const nombreCorregimiento = normalizarTextoApp(document.getElementById('f-corregimiento').value);
-  const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTextoApp(t.nombre) === nombreCorregimiento);
-  const veredas = corregimiento ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id) : [];
+  // Con el Corregimiento oculto no hay con qué acotar y se ofrecen todas:
+  // si no, la lista quedaría vacía y el campo sería imposible de llenar.
+  const nombreCorregimiento = usarNombreCorregimientos ? normalizarTextoApp(document.getElementById('f-corregimiento').value) : '';
+  const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTextoApp(t.nombre) === nombreCorregimiento) : null;
+  const veredas = corregimiento
+    ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id)
+    : (usarNombreCorregimientos ? [] : territorios.filter(t => t.tipo === 'vereda'));
   document.getElementById('lista-veredas').innerHTML = veredas.map(v => `<option value="${escaparAppHtml(v.nombre)}">`).join('');
 }
 document.getElementById('f-comuna').addEventListener('input', actualizarBarriosApp);
@@ -485,6 +494,17 @@ function resolverTerritorio() {
     const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
     if (!barrio) return { error: 'Ese barrio no existe todavía en el sistema.' };
     return { territorioId: barrio.id, area: areaActual };
+  }
+  // El espejo de la rama urbana: sin veredas se asigna al Corregimiento; sin
+  // corregimientos tampoco, se guarda con el área marcada y sin subdivisión.
+  if (!usarNombreVeredas) {
+    const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('f-corregimiento').value) : '';
+    const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+    if (!corregimiento) {
+      if (usarNombreCorregimientos) return { error: 'Selecciona un corregimiento de la lista, o deja el área sin especificar.' };
+      return { territorioId: null, area: areaActual };
+    }
+    return { territorioId: corregimiento.id, area: areaActual };
   }
   const nombreVereda = normalizarTexto(document.getElementById('f-vereda').value);
   if (!nombreVereda) return { error: 'Selecciona una vereda de la lista, o deja el área sin especificar.' };
@@ -786,8 +806,12 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
     puestosVotacionApp = puestosConMesas || [];
     ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
     usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    usarNombreCorregimientos = configCampana.usar_nombre_corregimientos !== 0;
+    usarNombreVeredas = configCampana.usar_nombre_veredas !== 0;
     document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
+    document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
     aplicarApoyosConfiguradosApp(configCampana.apoyos_activos);
     aplicarVisibilidadComunaApp();
     poblarListasTerritorio();

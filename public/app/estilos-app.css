@@ -221,6 +221,13 @@ body.sin-comunas [data-campo="comuna"] { display: none !important; }
 body.sin-barrios [data-campo="barrio"] { display: none !important; }
 body.sin-comunas.sin-barrios [data-fila="urbano"] { display: none !important; }
 
+/* El gemelo rural: Corregimiento va con Comuna y Vereda con Barrio, que son
+   el mismo nivel de la jerarquía. El chip de Área no se toca — se puede ser
+   del campo sin que la campaña organice por veredas. */
+body.sin-corregimientos [data-campo="corregimiento"] { display: none !important; }
+body.sin-veredas [data-campo="vereda"] { display: none !important; }
+body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !important; }
+
 
 /* --- Autorización de la persona (registro de votantes) -------------------
    El texto de la política se muestra DENTRO del formulario, no en otra

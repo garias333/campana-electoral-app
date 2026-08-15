@@ -107,13 +107,13 @@
           <small id="contador-barrios-evento" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
-      <div class="fila" id="fila-rural-evento" style="display:none;">
-        <div class="campo">
+      <div class="fila" id="fila-rural-evento" data-fila="rural" style="display:none;">
+        <div class="campo" data-campo="corregimiento">
           <label>Corregimiento</label>
           <input id="input-corregimiento-evento" list="lista-corregimientos-evento" autocomplete="off">
           <datalist id="lista-corregimientos-evento"></datalist>
         </div>
-        <div class="campo">
+        <div class="campo" data-campo="vereda">
           <label>Vereda</label>
           <input id="input-vereda-evento" list="lista-veredas-evento" autocomplete="off">
           <datalist id="lista-veredas-evento"></datalist>
@@ -183,9 +183,14 @@ function proponerZonaCampanaEvento() {
   document.getElementById('input-ciudad-evento').value = zonaCampana.ciudad;
 }
 let usarNombreBarrios = true;
+// Los gemelos rurales: Corregimiento va con Comuna y Vereda con Barrio.
+let usarNombreCorregimientos = true;
+let usarNombreVeredas = true;
 function aplicarVisibilidadComunaEvento() {
   document.getElementById('campo-comuna-evento').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('campo-barrio-evento').style.display = usarNombreBarrios ? 'block' : 'none';
+  document.getElementById('input-corregimiento-evento').closest('.campo').style.display = usarNombreCorregimientos ? 'block' : 'none';
+  document.getElementById('input-vereda-evento').closest('.campo').style.display = usarNombreVeredas ? 'block' : 'none';
 }
 
 const etiquetasTipo = {
@@ -256,7 +261,8 @@ function actualizarBarriosEvento() {
 }
 
 function actualizarVeredasEvento() {
-  const nombreCorregimiento = normalizarTexto(document.getElementById('input-corregimiento-evento').value);
+  // Con el Corregimiento oculto no hay nada con qué acotar: se ofrecen todas.
+  const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-evento').value) : '';
   const corregimiento = territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
   const veredas = corregimiento
     ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id)
@@ -349,6 +355,17 @@ function resolverTerritorioEvento() {
     return { territorioId: barrio.id, area };
   }
   if (area === 'rural') {
+    // El espejo de la rama urbana: sin veredas, el evento se ubica en el
+    // Corregimiento; sin corregimientos tampoco, queda sin territorio.
+    if (!usarNombreVeredas) {
+      const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-evento').value) : '';
+      const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
+      if (!corregimiento) {
+        if (usarNombreCorregimientos) return { error: 'Seleccione un corregimiento de la lista, o deje el área sin especificar.' };
+        return { territorioId: null, area };
+      }
+      return { territorioId: corregimiento.id, area };
+    }
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-evento').value);
     if (!nombreVereda) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
     const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
@@ -499,8 +516,12 @@ document.getElementById('form-evento').addEventListener('submit', async (e) => {
     const configCampana = await api('/configuracion/campana');
     ciudadTieneComunas = configCampana.ciudad_tiene_comunas !== 0;
     usarNombreBarrios = configCampana.usar_nombre_barrios !== 0;
+    usarNombreCorregimientos = configCampana.usar_nombre_corregimientos !== 0;
+    usarNombreVeredas = configCampana.usar_nombre_veredas !== 0;
     document.body.classList.toggle('sin-comunas', !ciudadTieneComunas);
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
+    document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
+    document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
     zonaCampana = { departamento: configCampana.departamento || '', ciudad: configCampana.ciudad || '' };
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   await cargarCatalogoColombiaEvento();
