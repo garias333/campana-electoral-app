@@ -936,23 +936,44 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
    por eso eran los únicos de la aplicación con esquinas cuadradas. La regla
    vive aquí —y no repetida en cinco páginas— para que el día que cambie el
    radio de los botones, cambie también el de las pestañas. */
-/* Barra de pestañas — Configuración, Organigrama, Votantes, Día D y
-   Asistentes.
+/* BARRA UNIDA — el estilo de las barras horizontales de arriba.
+   Un solo bloque azul con los botones pegados y separados por una línea
+   fina, en vez de botones sueltos con espacio entre ellos.
 
-   ERA UN BLOQUE UNIDO y pasa a ser botones sueltos, como las barras de
-   acciones del resto de la aplicación. El bloque unido se quedaba fuera de
-   la norma que ya rige a todos los demás botones: esquinas redondeadas y
-   #0B5ED7 con texto blanco. Sus botones iban con las esquinas cuadradas y
-   pegados entre sí, y era el único sitio donde eso pasaba.
+   La usan las barras de pestañas (`.grupo-pestanas`, que es lo mismo con
+   otro nombre por historia) y las barras de acciones de las pantallas cuyos
+   botones son TODOS botones: Estructura territorial, Votantes, Testigos,
+   Eventos y Finanzas.
 
-   El `gap` reemplaza a los separadores de 1px que llevaba cada botón: con
-   espacio real entre ellos, la línea sobra. Y `flex-wrap` porque la barra de
-   Configuración tiene seis y en una pantalla angosta se salía. */
+   NO la llevan las barras que mezclan otra cosa —un contador en Día D, un
+   campo de texto en los tres Enviar, un desplegable en Agenda, dos grupos ya
+   unidos en Organigrama—: pegar un texto suelto a un botón no lo convierte
+   en barra, lo deja pareciendo un error de maquetación.
+
+   LOS SEPARADORES VAN AQUÍ Y NO EN CADA BOTÓN. Antes cada uno llevaba
+   `border:none; border-left:1px` escrito en su atributo `style`, que gana
+   sobre cualquier hoja: para cambiar el aspecto había que editar los 20
+   botones uno por uno. Con `> *` la barra los pinta sola, y agregar un botón
+   nuevo ya no exige acordarse del borde.
+
+   El separador es blanco translúcido, no gris: sobre un botón azul un gris
+   claro se pierde, y estas barras son azules. */
+.barra-unida,
 .grupo-pestanas {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  border-radius: 9px;
+  overflow: hidden;          /* recorta las esquinas de los botones de adentro */
+  width: fit-content;
 }
+.barra-unida > *,
+.grupo-pestanas > * {
+  border-radius: 0;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.38);
+}
+.barra-unida > :first-child,
+.grupo-pestanas > :first-child { border-left: none; }
 
 
 /* Botones de acción DENTRO de una fila de tabla: Editar, Eliminar, Ver…
