@@ -355,6 +355,61 @@ function aplicarFormatoNombrePropio(selector) {
 }
 
 /**
+ * El nombre de un LUGAR en formato de nombre propio.
+ *
+ * NO SIRVE formatoNombrePropio, que es para nombres de PERSONA y capitaliza
+ * todas las palabras: dejaría «Santa Fe De Antioquia» y «Bogotá, D.c.». Un
+ * topónimo tiene tres cosas que aquella no sabe.
+ *
+ * 1. LOS ENLACES VAN EN MINÚSCULA: de, del, y, e. «Loma del Guamo», «Santa
+ *    Fe de Siapana», «Brisas del Oriente».
+ *
+ * 2. EL ARTÍCULO SOLO BAJA SI VIENE DETRÁS DE UN ENLACE. «Alto de las
+ *    Palmas» y «Hato de la Virgen», pero «Honduras La Motilona» y «Canoas La
+ *    Vega», donde «La Motilona» es un nombre por su cuenta. Bajarlo siempre
+ *    arreglaba el primer caso y estropeaba el segundo; los dos existen en el
+ *    catálogo.
+ *
+ * 3. LAS SIGLAS NO SE TOCAN: «Bogotá, D.C.», no «D.c.». Son 89 nombres con
+ *    punto en el catálogo nacional.
+ *
+ * Y se capitaliza también detrás de un paréntesis, que formatoNombrePropio
+ * no contempla: hay 135 nombres con paréntesis —«Pital (Chimbuzal)»— y sin
+ * esto quedaban «Pital (chimbuzal)».
+ */
+const ENLACES_LUGAR = new Set(['de', 'del', 'y', 'e']);
+const ARTICULOS_LUGAR = new Set(['la', 'las', 'los', 'el']);
+
+function nombreLugar(texto) {
+  const bruto = (texto == null ? '' : String(texto)).trim();
+  if (!bruto) return '';
+  // Si ya viene en minúsculas o mezclado, se respeta: solo se reformatea lo
+  // que llega TODO en mayúsculas, que es como lo guarda el catálogo. Así un
+  // nombre escrito a mano por la campaña no se «corrige» a la fuerza.
+  if (bruto !== bruto.toUpperCase()) return bruto;
+
+  const palabras = bruto.toLowerCase().split(/(\s+)/);
+  let anterior = '';
+  return palabras.map((p) => {
+    if (/^\s+$/.test(p) || !p) return p;
+    const limpia = p.replace(/[(),.]/g, '');
+    let salida;
+    if (/^(?:[a-záéíóúñü]\.){2,}$/.test(p)) {
+      salida = p.toUpperCase();                       // sigla: D.C.
+    } else if (anterior && ENLACES_LUGAR.has(limpia)) {
+      salida = p;                                     // de, del, y, e
+    } else if (anterior && ARTICULOS_LUGAR.has(limpia) && ENLACES_LUGAR.has(anterior)) {
+      salida = p;                                     // «de las Palmas»
+    } else {
+      // Mayúscula en la primera letra, y también detrás de «(» o «-».
+      salida = p.replace(/(^|[(\-])([a-záéíóúñü])/g, (m, sep, letra) => sep + letra.toUpperCase());
+    }
+    anterior = limpia;
+    return salida;
+  }).join('');
+}
+
+/**
  * Escapa texto para meterlo en HTML sin que un dato con `<` o `&` rompa la
  * página —o peor, inyecte etiquetas—.
  *

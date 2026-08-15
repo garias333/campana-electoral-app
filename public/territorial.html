@@ -48,6 +48,12 @@
             <option value="urbano">Urbano</option>
             <option value="rural">Rural</option>
           </select>
+          <!-- Solo en campaña departamental. Mismo criterio que en Votantes:
+               un <input> con datalist, porque un departamento puede tener 120
+               municipios y escribir tres letras es más rápido que buscarlos. -->
+          <input type="text" id="filtro-estructura-municipio" list="lista-filtro-municipios-estructura"
+                 autocomplete="off" placeholder="Todos los municipios" style="display:none;">
+          <datalist id="lista-filtro-municipios-estructura"></datalist>
           <select id="filtro-estructura-zona">
             <option value="">Toda comuna/corregimiento</option>
           </select>
@@ -1177,7 +1183,7 @@ function poblarMunicipiosInfluenciaPersona() {
   const municipios = listaTerritorios.filter(t => t.tipo === 'municipio')
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
   document.getElementById('lista-municipios-influencia-persona').innerHTML =
-    municipios.map(m => `<option value="${m.nombre}">`).join('');
+    municipios.map(m => `<option value="${escaparHtml(nombreLugar(m.nombre))}">`).join('');
   document.getElementById('contador-municipios-influencia').textContent =
     municipios.length ? `${municipios.length} municipio(s) del departamento.` : 'No hay municipios cargados todavía.';
 }
@@ -1192,8 +1198,8 @@ function poblarListasUbicacionPersona() {
   const municipio = municipioDeInfluenciaPersona();
   const comunas = municipio ? listaTerritorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
   const corregimientos = municipio ? listaTerritorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
-  document.getElementById('lista-comunas-persona').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
-  document.getElementById('lista-corregimientos-persona').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('lista-comunas-persona').innerHTML = comunas.map(c => `<option value="${escaparHtml(nombreLugar(c.nombre))}">`).join('');
+  document.getElementById('lista-corregimientos-persona').innerHTML = corregimientos.map(c => `<option value="${escaparHtml(nombreLugar(c.nombre))}">`).join('');
   actualizarBarriosPersona();
   actualizarVeredasPersona();
 }
@@ -1218,7 +1224,7 @@ function actualizarBarriosPersona() {
     const idsComunas = new Set(listaTerritorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
     barrios = listaTerritorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
   }
-  document.getElementById('lista-barrios-persona').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+  document.getElementById('lista-barrios-persona').innerHTML = barrios.map(b => `<option value="${escaparHtml(nombreLugar(b.nombre))}">`).join('');
   document.getElementById('contador-barrios').textContent =
     barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Gestionar territorios".';
 }
@@ -1240,7 +1246,7 @@ function actualizarVeredasPersona() {
     veredas = listaTerritorios.filter(t => t.tipo === 'vereda' &&
       (idsCorregimientos.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
   }
-  document.getElementById('lista-veredas-persona').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+  document.getElementById('lista-veredas-persona').innerHTML = veredas.map(v => `<option value="${escaparHtml(nombreLugar(v.nombre))}">`).join('');
   document.getElementById('contador-veredas').textContent =
     veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Gestionar territorios".';
 }
@@ -1871,10 +1877,57 @@ async function cargarEstructura() {
 
 /** Llena los filtros de Comuna/Corregimiento y Barrio/Vereda a partir de listaTerritorios. */
 function poblarFiltrosEstructura() {
+  // Van juntas: la lista de municipios sale de listaTerritorios igual que las
+  // zonas, y la visibilidad depende del ámbito, que ya está resuelto cuando
+  // se llega aquí.
+  poblarFiltroMunicipioEstructura();
+  aplicarFiltrosEstructuraSegunAmbito();
   const zonas = listaTerritorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
   document.getElementById('filtro-estructura-zona').innerHTML = '<option value="">Toda comuna/corregimiento</option>' +
-    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${z.nombre}</option>`).join('');
+    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${escaparHtml(nombreLugar(z.nombre))}</option>`).join('');
   actualizarFiltroEstructuraTerritorio();
+}
+
+/**
+ * Llena el desplegable de Municipios del filtro de la tabla, y decide qué
+ * filtros tienen sentido segun el cargo al que aspira la campaña.
+ *
+ * En una campaña departamental sobran Comuna/Corregimiento y Barrio/Vereda,
+ * porque esos niveles no existen —Quindío: 12 municipios, 232 veredas y cero
+ * de los otros tres—. Un desplegable con todas las opciones vacías no es
+ * neutro: quien lo abre concluye que la campaña no tiene datos.
+ *
+ * El Cargo NO se esconde, a diferencia de Votantes: allí el filtro
+ * equivalente separaba votantes de sublíderes y en campaña departamental no
+ * hay sublíderes, mientras que aquí separa coordinadores de líderes, que sí
+ * los hay.
+ */
+function poblarFiltroMunicipioEstructura() {
+  const municipios = listaTerritorios.filter(t => t.tipo === 'municipio')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  document.getElementById('lista-filtro-municipios-estructura').innerHTML =
+    municipios.map(m => `<option value="${escaparHtml(nombreLugar(m.nombre))}">`).join('');
+}
+
+/** El id del municipio escrito, o vacío. Se compara sin tildes ni mayúsculas. */
+function idDelMunicipioFiltradoEstructura() {
+  const escrito = normalizarTexto(document.getElementById('filtro-estructura-municipio').value || '');
+  if (!escrito) return '';
+  const m = listaTerritorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === escrito);
+  return m ? String(m.id) : '';
+}
+
+function aplicarFiltrosEstructuraSegunAmbito() {
+  const municipal = !ambitoDepartamental;
+  document.getElementById('filtro-estructura-municipio').style.display = municipal ? 'none' : '';
+  ['filtro-estructura-zona', 'filtro-estructura-territorio'].forEach((id) => {
+    const el = document.getElementById(id);
+    el.style.display = municipal ? '' : 'none';
+    // Se limpia al esconderlo: un filtro invisible con valor puesto recorta
+    // la tabla y no hay forma de saber por qué.
+    if (!municipal) el.value = '';
+  });
+  if (municipal) document.getElementById('filtro-estructura-municipio').value = '';
 }
 
 function actualizarFiltroEstructuraTerritorio() {
@@ -1883,7 +1936,7 @@ function actualizarFiltroEstructuraTerritorio() {
     ? listaTerritorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && String(t.padre_id) === zonaId)
     : listaTerritorios.filter(t => t.tipo === 'barrio' || t.tipo === 'vereda');
   document.getElementById('filtro-estructura-territorio').innerHTML = '<option value="">Todo barrio/vereda</option>' +
-    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${h.nombre}</option>`).join('');
+    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${escaparHtml(nombreLugar(h.nombre))}</option>`).join('');
 }
 
 /**
@@ -1960,6 +2013,7 @@ function renderizarEstructura() {
   const area = document.getElementById('filtro-estructura-area').value;
   const zonaId = document.getElementById('filtro-estructura-zona').value;
   const territorioId = document.getElementById('filtro-estructura-territorio').value;
+  const municipioId = idDelMunicipioFiltradoEstructura();
 
   function cumpleFiltrosBase(f) {
     if (busqueda) {
@@ -1969,10 +2023,15 @@ function renderizarEstructura() {
       if (!coincideTexto) return false;
     }
     if (area) {
-      const esUrbano = f.territorio_tipo === 'barrio' || f.territorio_tipo === 'comuna';
-      const esRural = f.territorio_tipo === 'vereda' || f.territorio_tipo === 'corregimiento';
-      if (area === 'urbano' && !esUrbano) return false;
-      if (area === 'rural' && !esRural) return false;
+      // Manda el área GUARDADA; el tipo de territorio es el respaldo para las
+      // fichas anteriores a que existiera esa columna. Mirando solo el tipo,
+      // filtrar por Urbano no devolvía a NADIE en una campaña sin comunas ni
+      // barrios: allí todos cuelgan del municipio, que no es ni lo uno ni lo
+      // otro. Es el mismo fallo que tenía la columna Área de la tabla.
+      const efectiva = f.area
+        || (['barrio', 'comuna'].includes(f.territorio_tipo) ? 'urbano'
+          : ['vereda', 'corregimiento'].includes(f.territorio_tipo) ? 'rural' : null);
+      if (efectiva !== area) return false;
     }
     if (zonaId) {
       const t = listaTerritorios.find(tt => tt.id === f.territorio_id);
@@ -1981,6 +2040,17 @@ function renderizarEstructura() {
       if (!coincideDirecto && !coincidePadre) return false;
     }
     if (territorioId && String(f.territorio_id) !== territorioId) return false;
+    if (municipioId) {
+      // Los tres sitios donde puede estar la persona, igual que en Votantes:
+      // el municipio mismo, algo que cuelga de él, o algo que cuelga de una
+      // comuna suya.
+      const t = listaTerritorios.find(tt => tt.id === f.territorio_id);
+      const padre = t && t.padre_id ? listaTerritorios.find(tt => tt.id === t.padre_id) : null;
+      const coincide = (t && String(t.id) === municipioId)
+        || (t && String(t.padre_id) === municipioId)
+        || (padre && String(padre.padre_id) === municipioId);
+      if (!coincide) return false;
+    }
     return true;
   }
 
@@ -2024,17 +2094,17 @@ function renderizarEstructura() {
     // final. Antes cada rama armaba su propio texto, y añadir la etiqueta de
     // color habría significado repetir el mismo `<span>` en tres sitios.
     let areaValor = f.area || null;
-    let zonaTexto = '—', hojaTexto = f.territorio_nombre || '—';
+    let zonaTexto = '—', hojaTexto = nombreLugar(f.territorio_nombre) || '—';
     if (f.tipo_area_influencia === 'organizacion') {
       areaValor = null; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
     } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
       const territorio = listaTerritorios.find(t => t.id === f.territorio_id);
       const zona = territorio && territorio.padre_id ? listaTerritorios.find(t => t.id === territorio.padre_id) : null;
       areaValor = f.territorio_tipo === 'barrio' ? 'urbano' : 'rural';
-      zonaTexto = zona ? zona.nombre : '—';
+      zonaTexto = zona ? nombreLugar(zona.nombre) : '—';
     } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
       areaValor = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
-      zonaTexto = f.territorio_nombre;
+      zonaTexto = nombreLugar(f.territorio_nombre);
       hojaTexto = '—';
     }
     const areaTexto = etiquetaArea(areaValor);
@@ -2093,6 +2163,11 @@ document.getElementById('filtro-estructura-zona').addEventListener('change', () 
   renderizarEstructura();
 });
 document.getElementById('filtro-estructura-territorio').addEventListener('change', renderizarEstructura);
+let _tiempoMunicipioEstructura;
+document.getElementById('filtro-estructura-municipio').addEventListener('input', () => {
+  clearTimeout(_tiempoMunicipioEstructura);
+  _tiempoMunicipioEstructura = setTimeout(renderizarEstructura, 250);
+});
 
 document.getElementById('btn-quitar-filtros-estructura').addEventListener('click', () => {
   document.getElementById('filtro-estructura-busqueda').value = '';
@@ -2101,6 +2176,7 @@ document.getElementById('btn-quitar-filtros-estructura').addEventListener('click
   document.getElementById('filtro-estructura-zona').value = '';
   actualizarFiltroEstructuraTerritorio();
   document.getElementById('filtro-estructura-territorio').value = '';
+  document.getElementById('filtro-estructura-municipio').value = '';
   renderizarEstructura();
 });
 

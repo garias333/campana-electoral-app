@@ -913,8 +913,8 @@ async function cargarVotantes() {
       <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
-      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (v.zona_nombre || '—')}</td>
-      <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (v.territorio_nombre || '—')}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (nombreLugar(v.zona_nombre) || '—')}</td>
+      <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (nombreLugar(v.territorio_nombre) || '—')}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
       <td>${v.lider_nombre || '—'}</td>
       <td>${v.sublider_nombre || '—'}</td>
       <td class="col-apoya-a">${badgesApoyaA(v.apoya_a)}</td>
@@ -957,7 +957,7 @@ function poblarFiltroMunicipio() {
   const municipios = territorios.filter(t => t.tipo === 'municipio')
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   document.getElementById('lista-filtro-municipios').innerHTML =
-    municipios.map(m => `<option value="${escaparHtml(m.nombre)}">`).join('');
+    municipios.map(m => `<option value="${escaparHtml(nombreLugar(m.nombre))}">`).join('');
 }
 
 /**
@@ -1002,7 +1002,7 @@ function aplicarFiltrosSegunAmbito() {
 function poblarFiltroZona() {
   const zonas = territorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
   document.getElementById('filtro-zona').innerHTML = '<option value="">Toda comuna/corregimiento</option>' +
-    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${z.nombre}</option>`).join('');
+    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${escaparHtml(nombreLugar(z.nombre))}</option>`).join('');
 }
 
 /** Llena el filtro de Barrio/Vereda: si hay una zona elegida, solo sus hijos; si no, todos. */
@@ -1012,7 +1012,7 @@ function poblarFiltroTerritorio() {
     ? territorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && String(t.padre_id) === zonaId)
     : territorios.filter(t => t.tipo === 'barrio' || t.tipo === 'vereda');
   document.getElementById('filtro-territorio').innerHTML = '<option value="">Todo barrio/vereda</option>' +
-    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${h.nombre}</option>`).join('');
+    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${escaparHtml(nombreLugar(h.nombre))}</option>`).join('');
 }
 
 async function poblarFiltroLider() {
@@ -1131,8 +1131,8 @@ function poblarListasUbicacionVotante() {
   const municipio = municipioDeInfluenciaVotante();
   const comunas = municipio ? territorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
   const corregimientos = municipio ? territorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
-  document.getElementById('lista-comunas-votante').innerHTML = comunas.map(c => `<option value="${c.nombre}">`).join('');
-  document.getElementById('lista-corregimientos-votante').innerHTML = corregimientos.map(c => `<option value="${c.nombre}">`).join('');
+  document.getElementById('lista-comunas-votante').innerHTML = comunas.map(c => `<option value="${escaparHtml(nombreLugar(c.nombre))}">`).join('');
+  document.getElementById('lista-corregimientos-votante').innerHTML = corregimientos.map(c => `<option value="${escaparHtml(nombreLugar(c.nombre))}">`).join('');
   actualizarBarriosVotante();
   actualizarVeredasVotante();
 }
@@ -1155,7 +1155,7 @@ function actualizarBarriosVotante() {
     const idsComunas = new Set(territorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
     barrios = territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
   }
-  document.getElementById('lista-barrios-votante').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
+  document.getElementById('lista-barrios-votante').innerHTML = barrios.map(b => `<option value="${escaparHtml(nombreLugar(b.nombre))}">`).join('');
   document.getElementById('contador-barrios-votante').textContent =
     barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
 }
@@ -1177,7 +1177,7 @@ function actualizarVeredasVotante() {
     veredas = territorios.filter(t => t.tipo === 'vereda' &&
       (idsCorregimientos.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
   }
-  document.getElementById('lista-veredas-votante').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
+  document.getElementById('lista-veredas-votante').innerHTML = veredas.map(v => `<option value="${escaparHtml(nombreLugar(v.nombre))}">`).join('');
   document.getElementById('contador-veredas-votante').textContent =
     veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
 }
