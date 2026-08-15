@@ -605,6 +605,15 @@ form.form-amplio .chip-form input { padding: 0; }
 .tag-tipo.tag-area-urbano { background: #DDD9F3; color: #3B2F86; }
 .tag-tipo.tag-area-rural  { background: #DFEFC4; color: #42600F; }
 
+/* Un votante que ADEMÁS es testigo electoral, en Votantes y sublíderes.
+   Rojo claro: 6,7:1 de contraste, y a distancia 38 y 41 de las etiquetas de
+   Área de la columna vecina, para que no se confundan de un vistazo.
+
+   Es un FONDO y no un sufijo en el texto porque ser testigo es
+   independiente del cargo: 47 personas de la campaña departamental son
+   testigo Y otra cosa. Con un sufijo habría que elegir cuál mostrar. */
+.tag-tipo.tag-categoria-testigo { background: #FADBDB; color: #8F2222; }
+
 /* Casilla redonda de solo lectura que indica si "Lugar de votación" ya
    quedó diligenciado (verde) o falta por diligenciar (rojo) — se calcula
    sola según los datos de la persona, no se puede marcar a mano. */

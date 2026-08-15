@@ -867,7 +867,7 @@ async function cargarVotantes() {
       <td style="text-align:center;"><input type="checkbox" class="chk-datos-verificados" data-id="${v.id}" ${v.datos_verificados ? 'checked' : ''} ${puedeVerificarDatos() ? '' : 'disabled'} title="${v.datos_verificados ? 'Datos verificados' : 'Sin verificar'}"></td>
       <td><strong>${v.nombre}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + v.cedula + '</span>' : ''}</td>
       <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
-      <td>${v.categoria === 'sublider' ? '<span class="tag-tipo">Sublíder</span>' : '<span class="tag-tipo">Votante</span>'}</td>
+      <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
       <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (v.zona_nombre || '—')}</td>
@@ -1349,6 +1349,39 @@ function pintarConsentimiento(v) {
         : 'Sin versión del texto: la ficha es anterior a que se registrara cuál política se mostraba.'}
     </div>
     ${v.no_contactar ? '<div class="consent-linea consent-baja">Pidió no recibir más mensajes.</div>' : ''}`;
+}
+
+/**
+ * La celda de CATEGORÍA: qué es esta persona, además de un contacto.
+ *
+ * Media campaña está en las dos tablas a la vez —en la departamental, 49 de
+ * 82 votantes tienen también un cargo en la Estructura— y la columna decía
+ * «Votante» para todos por igual. Ahora dice cuál: Votante-COO, -LID o -SUB.
+ *
+ * Y EL TESTIGO NO ES UN CUARTO SUFIJO, ES EL FONDO. Son dos cosas
+ * independientes: se puede ser líder y testigo a la vez, y de hecho 47
+ * personas lo son. Con un sufijo habría que elegir cuál de los dos mostrar;
+ * con el color se ven los dos en la misma etiqueta.
+ *
+ * Sin cargo en la Estructura, la etiqueta dice lo de siempre.
+ */
+const SUFIJO_CARGO_VOTANTE = {
+  coordinador: 'COO',
+  coordinador_organizaciones: 'COO',
+  lider: 'LID',
+  usuario: 'SUB',
+};
+
+function etiquetaCategoriaVotante(v) {
+  const sufijo = SUFIJO_CARGO_VOTANTE[v.cargo_estructura];
+  const texto = sufijo
+    ? `Votante-${sufijo}`
+    : (v.categoria === 'sublider' ? 'Sublíder' : 'Votante');
+  // El título dice en palabras lo que el color insinúa: un fondo distinto
+  // sin explicación obliga a adivinar.
+  const clase = v.testigo_estructura_id ? 'tag-tipo tag-categoria-testigo' : 'tag-tipo';
+  const titulo = v.testigo_estructura_id ? ' title="Además es testigo electoral"' : '';
+  return `<span class="${clase}"${titulo}>${texto}</span>`;
 }
 
 async function editarVotante(v) {

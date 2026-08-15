@@ -175,6 +175,25 @@ router.get('/', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT v.*, t.nombre AS territorio_nombre, padre.nombre AS zona_nombre, u.nombre AS lider_nombre,
               sub.nombre AS sublider_nombre,
+              -- El cargo que esta MISMA persona tiene en la Estructura, si
+              -- lo tiene: es lo que convierte «Votante» en «Votante-COO»,
+              -- «-LID» o «-SUB». Se cruza por cédula, igual que la fila de
+              -- testigo de abajo.
+              --
+              -- SE QUEDA CON EL MÁS ALTO. Nada impide tener dos filas —hay
+              -- 47 personas que son testigo ADEMÁS de otra cosa— y una
+              -- etiqueta sola no puede decir dos cargos: manda el de arriba
+              -- de la cadena. El cargo testigo se excluye porque no es un
+              -- escalón de esa cadena sino un papel aparte, y tiene su
+              -- propia señal: el fondo rojo.
+              --
+              -- (Sin acentos graves en este comentario a propósito: va
+              -- dentro de una plantilla de JavaScript delimitada por ellos,
+              -- y uno solo corta la cadena a la mitad.)
+              (SELECT e2.cargo FROM estructura e2
+                WHERE e2.usuario_id = ut.id AND e2.activo = 1 AND e2.cargo <> 'testigo'
+                ORDER BY FIELD(e2.cargo, 'coordinador', 'coordinador_organizaciones', 'lider', 'usuario')
+                LIMIT 1) AS cargo_estructura,
               et.id AS testigo_estructura_id, et.tipo_testigo AS testigo_tipo_testigo, et.mesas_asignadas AS testigo_mesas_asignadas,
               COALESCE(et.puesto_votacion, ut.puesto_votacion) AS testigo_puesto_votacion,
               COALESCE(et.mesa_votacion, ut.mesa_votacion) AS testigo_mesa_votacion,
