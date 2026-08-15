@@ -936,12 +936,23 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
    por eso eran los únicos de la aplicación con esquinas cuadradas. La regla
    vive aquí —y no repetida en cinco páginas— para que el día que cambie el
    radio de los botones, cambie también el de las pestañas. */
+/* Barra de pestañas — Configuración, Organigrama, Votantes, Día D y
+   Asistentes.
+
+   ERA UN BLOQUE UNIDO y pasa a ser botones sueltos, como las barras de
+   acciones del resto de la aplicación. El bloque unido se quedaba fuera de
+   la norma que ya rige a todos los demás botones: esquinas redondeadas y
+   #0B5ED7 con texto blanco. Sus botones iban con las esquinas cuadradas y
+   pegados entre sí, y era el único sitio donde eso pasaba.
+
+   El `gap` reemplaza a los separadores de 1px que llevaba cada botón: con
+   espacio real entre ellos, la línea sobra. Y `flex-wrap` porque la barra de
+   Configuración tiene seis y en una pantalla angosta se salía. */
 .grupo-pestanas {
   display: flex;
-  border-radius: 9px;
-  overflow: hidden;          /* recorta las esquinas de los botones de adentro */
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.grupo-pestanas > button { border-radius: 0; }
 
 
 /* Botones de acción DENTRO de una fila de tabla: Editar, Eliminar, Ver…
