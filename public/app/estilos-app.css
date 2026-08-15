@@ -175,8 +175,20 @@ main.app-cuerpo {
    Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste,
    por debajo del 3:1 recomendado para texto grande o en negrita. Va así
    porque es un color pedido; el amarillo legible sobre blanco de la paleta
-   es #A66F1F, con 4,27:1. */
-.seccion-titulo.acento { color: #FFC300; }
+   es #A66F1F, con 4,27:1.
+
+   Y va MÁS negrilla que los demás apartados: la clase base ya estaba en 700
+   —que es negrilla— así que para que se note hay que subir a 800. La app usa
+   la tipografía del sistema, no una web, y las tres que aplican tienen un
+   peso por encima de Bold que el navegador puede elegir: San Francisco en
+   iPhone (Heavy), Roboto en Android (Black) y Segoe UI en Windows (Black).
+   Solo con el Arial de reserva se vería igual que 700, porque no trae nada
+   más grueso.
+
+   OJO SI SE VE DELGADO IGUAL: no es el peso, es el color. A 1,61:1 de
+   contraste el amarillo se lee tenue por mucho grosor que lleve; el trazo
+   mas grueso ayuda pero no arregla la causa. */
+.seccion-titulo.acento { color: #FFC300; font-weight: 800; }
 .btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
 
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
