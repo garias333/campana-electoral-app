@@ -160,6 +160,36 @@ async function geocodificarYGuardarVotante(votanteId, direccion, territorioId, d
   // que no cuesta una subconsulta por fila.
   const filtroMunicipio = (alias) => `(v.territorio_id = ? OR ${alias}.padre_id = ? OR padre.padre_id = ?)`;
 
+/**
+ * El Área de un votante, con la de la Estructura territorial mandando.
+ *
+ * MUCHA GENTE ESTA EN LAS DOS TABLAS —49 de 82 en la campaña departamental—
+ * y cada una guardaba su propia area. Medido el 15 de agosto de 2026: en 22
+ * de esas 49 no coincidian, con el MISMO territorio en las dos. O sea que la
+ * misma persona salia Urbana en una pantalla y Rural en la otra, y ninguna
+ * de las dos era "la mala": eran dos verdades guardadas aparte.
+ *
+ * Se resuelve AL LEER y no copiando el dato de una tabla a la otra, que es
+ * la misma decision que ya se tomo con la Meta derivada: un valor copiado se
+ * queda rancio la primera vez que alguien edita solo uno de los dos lados, y
+ * nadie se entera.
+ *
+ * Manda la Estructura porque es donde se define el rol de la persona; para
+ * quien no esta en ella —un votante corriente— no hay nada que preferir y
+ * queda la suya.
+ *
+ * VA EN UNA CONSTANTE porque la usan el listado Y el filtro: si el filtro
+ * mirara `v.area` y la tabla mostrara otra cosa, filtrar por Urbano dejaria
+ * fuera filas que dicen Urbano. Es el fallo que este arreglo viene a quitar,
+ * reaparecido un nivel mas abajo.
+ */
+const SQL_AREA_EFECTIVA = `COALESCE(
+  (SELECT e4.area FROM estructura e4
+    WHERE e4.usuario_id = ut.id AND e4.activo = 1 AND e4.cargo <> 'testigo' AND e4.area IS NOT NULL
+    ORDER BY FIELD(e4.cargo, 'coordinador', 'coordinador_organizaciones', 'lider', 'usuario')
+    LIMIT 1),
+  v.area)`;
+
 router.get('/', async (req, res) => {
   const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, categoria, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
@@ -177,7 +207,7 @@ router.get('/', async (req, res) => {
   if (territorio_id) { condiciones.push(`v.territorio_id = ?`); params.push(territorio_id); }
   if (apoya_a) { condiciones.push(`JSON_CONTAINS(v.apoya_a, JSON_QUOTE(?))`); params.push(apoya_a); }
   if (lider_id) { condiciones.push(`v.lider_id = ?`); params.push(lider_id); }
-  if (area) { condiciones.push(`v.area = ?`); params.push(area); }
+  if (area) { condiciones.push(`${SQL_AREA_EFECTIVA} = ?`); params.push(area); }
   if (zona_id) { condiciones.push(`t.padre_id = ?`); params.push(zona_id); }
   if (municipio_id) { condiciones.push(filtroMunicipio('t')); params.push(municipio_id, municipio_id, municipio_id); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
@@ -204,6 +234,7 @@ router.get('/', async (req, res) => {
               -- (Sin acentos graves en este comentario a propósito: va
               -- dentro de una plantilla de JavaScript delimitada por ellos,
               -- y uno solo corta la cadena a la mitad.)
+              ${SQL_AREA_EFECTIVA} AS area,
               (SELECT e2.cargo FROM estructura e2
                 WHERE e2.usuario_id = ut.id AND e2.activo = 1 AND e2.cargo <> 'testigo'
                 ORDER BY FIELD(e2.cargo, 'coordinador', 'coordinador_organizaciones', 'lider', 'usuario')
@@ -236,10 +267,21 @@ router.get('/', async (req, res) => {
        LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
+    // ESTA CONSULTA COMPARTE EL `whereSql` CON LA DE ARRIBA, ASI QUE NECESITA
+    // SUS MISMOS JOIN. Le faltaban `padre` y `ut`, y el filtro por municipio
+    // los usa: filtrar por municipio devolvia HTTP 500 y la pantalla se
+    // quedaba con un error, aunque la condicion SQL estuviera bien escrita.
+    //
+    // Se descubrio probando la RUTA; la vez anterior se habia probado solo
+    // la condicion suelta contra la base, que pasaba sin enterarse de que a
+    // la consulta hermana le faltaba un JOIN. Un WHERE compartido obliga a
+    // compartir el FROM.
     const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM votantes v
        LEFT JOIN territorios t ON t.id = v.territorio_id
+       LEFT JOIN territorios padre ON padre.id = t.padre_id
+       LEFT JOIN usuarios ut ON ut.numero_identificacion = v.cedula
        ${whereSql}`,
       params
     );
@@ -371,7 +413,7 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
     if (territorio_id) { condiciones.push(`v.territorio_id = ?`); params.push(territorio_id); }
     if (apoya_a) { condiciones.push(`JSON_CONTAINS(v.apoya_a, JSON_QUOTE(?))`); params.push(apoya_a); }
     if (lider_id) { condiciones.push(`v.lider_id = ?`); params.push(lider_id); }
-    if (area) { condiciones.push(`v.area = ?`); params.push(area); }
+    if (area) { condiciones.push(`${SQL_AREA_EFECTIVA} = ?`); params.push(area); }
     if (zona_id) { condiciones.push(`t.padre_id = ?`); params.push(zona_id); }
     // Tambien aqui: el boton dice "Exportar a Excel (filtrados)", asi que un
     // filtro que la pantalla aplica y la exportacion ignora sacaria un
@@ -383,7 +425,8 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
     const [filas] = await pool.query(`
       SELECT v.id, v.categoria, v.nombre, v.cedula, v.telefono, v.email, v.genero, v.edad, v.fecha_nacimiento,
              v.departamento_votacion, v.municipio_votacion, v.puesto_votacion, v.mesa_votacion,
-             v.area, v.direccion, v.departamento_residencia, v.ciudad_residencia, v.intencion_voto, v.apoya_a, v.observaciones,
+             ${SQL_AREA_EFECTIVA} AS area,
+             v.direccion, v.departamento_residencia, v.ciudad_residencia, v.intencion_voto, v.apoya_a, v.observaciones,
              v.tipo_area_influencia, v.organizacion,
              t.tipo AS territorio_tipo, t.nombre AS territorio_nombre, padre.nombre AS pertenece,
              lider.email AS lider_email
@@ -391,6 +434,9 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
       LEFT JOIN territorios t ON t.id = v.territorio_id
       LEFT JOIN territorios padre ON padre.id = t.padre_id
       LEFT JOIN usuarios lider ON lider.id = v.lider_id
+      -- Hace falta para el filtro de Área, que mira la Estructura: sin él,
+      -- exportar con ese filtro puesto fallaría igual que el conteo.
+      LEFT JOIN usuarios ut ON ut.numero_identificacion = v.cedula
       ${whereSql}
       ORDER BY v.nombre
     `, params);
@@ -427,7 +473,8 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
       'Departamento de residencia': f.departamento_residencia || '',
       'Ciudad de residencia': f.ciudad_residencia || '',
       'Dirección de Residencia': f.direccion || '',
-      'Área': f.territorio_tipo === 'barrio' ? 'Urbano' : (f.territorio_tipo === 'vereda' ? 'Rural' : (f.area || '')),
+      'Área': f.area ? (f.area === 'urbano' ? 'Urbano' : 'Rural')
+        : (f.territorio_tipo === 'barrio' ? 'Urbano' : (f.territorio_tipo === 'vereda' ? 'Rural' : '')),
       'Comuna': f.territorio_tipo === 'barrio' ? (f.pertenece || '') : '',
       'Barrio': f.territorio_tipo === 'barrio' ? f.territorio_nombre : '',
       'Corregimiento': f.territorio_tipo === 'vereda' ? (f.pertenece || '') : '',
