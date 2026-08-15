@@ -182,6 +182,14 @@
      la app: azul para editar, rojo para eliminar) para diferenciarlos de
      un vistazo. */
   .org-caja-acciones { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; justify-content: center; }
+  /* El de WhatsApp lleva el verde de la marca, el mismo del ícono que ya sale
+     junto al teléfono en Estructura y en Votantes: es la misma acción y se
+     reconoce por el color antes que por la forma. */
+  .btn-org-whatsapp {
+    background: #25D366; border-color: #1EBE5B; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .btn-org-whatsapp:hover { background: #1EBE5B; border-color: #17A34A; }
   .org-caja-acciones button {
     font-size: 0.85rem; font-weight: 700; padding: 7px 13px; border-radius: 8px;
     border: 1.5px solid var(--color-border, #dfe3e8);
@@ -549,7 +557,7 @@ function renderizarTablaPorCargo() {
             <td><strong>${n.cargo}</strong></td>
             <td>${n.nombres || (n.nombre ? n.nombre : '—')}</td>
             <td>${n.apellidos || '—'}</td>
-            <td class="mono">${n.telefono ? formatoTelefonoColombia(n.telefono) : '—'}</td>
+            <td class="mono">${celdaTelefonoWhatsApp(n.telefono)}</td>
             <td class="mono">${n.email || '—'}</td>
             <td>${ETIQUETAS_NIVEL[n.nivel] || '—'}</td>
             <td>${textoSubordinadoDe(n)}</td>
@@ -630,6 +638,33 @@ window.addEventListener('resize', () => {
 // Cada nodo puede tener subordinados en línea (jerarquía normal) y/o
 // asesores (relación horizontal) — en esta vista ambos se listan igual,
 // diferenciados con la etiqueta "Asesor", para no complicar la sangría.
+/**
+ * El botón de WhatsApp de una tarjeta del organigrama.
+ *
+ * Es la misma acción que ya existe en Estructura territorial y en Votantes
+ * —donde sale como ícono al lado del teléfono—, traída aquí como botón
+ * porque en el organigrama el teléfono no se muestra: la tarjeta solo tiene
+ * el cargo y el nombre.
+ *
+ * SOLO SI HAY NÚMERO: un botón que abre un chat vacío no sirve de nada.
+ *
+ * Se define ARRIBA y no dentro de la función que pinta, porque hay TRES
+ * vistas —diagrama, lista y tabla— con su propio código casi igual, y una
+ * copia por vista es exactamente cómo se quedan desincronizadas.
+ */
+function botonWhatsAppOrg(nodo) {
+  const digitos = String(nodo.telefono || '').replace(/\D/g, '');
+  if (!digitos) return '';
+  const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+  return `<a class="btn-secundario btn-sm btn-org-whatsapp" target="_blank" rel="noopener"
+             href="https://wa.me/${internacional}" title="Escribir por WhatsApp a ${escaparHtml(nodo.cargo)}"
+             aria-label="Escribir por WhatsApp">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.04-.98.22-3.3-.69-2.79-1.1-4.55-3.96-4.69-4.14-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34.18 0 .36 0 .52.01.17.01.39-.06.61.47.24.55.8 1.9.87 2.04.07.14.12.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.61-.07.17-.19.7-.82.89-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/>
+            </svg>
+          </a>`;
+}
+
 function renderizarNodoLista(nodo) {
   const hijos = nodos.filter(n => n.padre_id === nodo.id);
   const tieneHijos = hijos.length > 0;
@@ -652,12 +687,14 @@ function renderizarNodoLista(nodo) {
         ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
         <span class="org-imprimir-lista org-imprimir-word" style="${puedeEditar ? '' : 'margin-left:auto;'}" onclick="exportarCargoWord(${nodo.id})" title="Ficha de este cargo en Word">📝 Word</span>
         <span class="org-imprimir-lista org-imprimir-pdf" onclick="imprimirCargo(${nodo.id})" title="Ficha de este cargo en PDF">🖨️ PDF</span>
-        ${puedeEditar ? `
+        ${(puedeEditar || nodo.telefono) ? `
           <div class="org-acciones">
+            ${puedeEditar ? `
             <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'subordinado')">+ Subordinado</button>
             <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'asesor')">+ Asesor</button>
             <button class="btn-secundario btn-sm" onclick="editarNodo(${nodo.id})">Editar</button>
-            <button class="btn-secundario btn-sm" onclick="eliminarNodo(${nodo.id})">Eliminar</button>
+            <button class="btn-secundario btn-sm" onclick="eliminarNodo(${nodo.id})">Eliminar</button>` : ''}
+            ${botonWhatsAppOrg(nodo)}
           </div>` : ''}
       </div>
       <div class="org-hijos ${contraido ? 'contraido' : ''}" id="org-hijos-${nodo.id}">
@@ -684,12 +721,14 @@ function renderizarNodoDiagrama(nodo) {
       <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
       <span class="org-cargo">${nodo.cargo}</span>
       ${nombreAbreviado(nodo) ? `<span class="org-nombre">${nombreAbreviado(nodo)}</span>` : ''}
-      ${puedeEditar ? `
+      ${(puedeEditar || nodo.telefono) ? `
         <div class="org-caja-acciones">
+          ${puedeEditar ? `
           <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'subordinado')" title="Agregar subordinado">+ Sub.</button>
           <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'asesor')" title="Agregar asesor">+ Ases.</button>
           <button class="btn-secundario btn-sm btn-org-editar" onclick="editarNodo(${nodo.id})" title="Editar">✎</button>
-          <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${nodo.id})" title="Eliminar">🗑</button>
+          <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${nodo.id})" title="Eliminar">🗑</button>` : ''}
+          ${botonWhatsAppOrg(nodo)}
         </div>` : ''}
       ${tieneHijosLinea ? `<span class="org-caja-toggle" onclick="alternarNodo(${nodo.id})">${contraido ? '+' : '−'}</span>` : ''}
     </div>
@@ -704,10 +743,12 @@ function renderizarNodoDiagrama(nodo) {
           <span class="org-cargo">${a.cargo}</span>
           ${nombreAbreviado(a) ? `<span class="org-nombre">${nombreAbreviado(a)}</span>` : ''}
           <span class="org-etiqueta-asesor">Asesor</span>
-          ${puedeEditar ? `
+          ${(puedeEditar || a.telefono) ? `
             <div class="org-caja-acciones">
+              ${puedeEditar ? `
               <button class="btn-secundario btn-sm btn-org-editar" onclick="editarNodo(${a.id})" title="Editar">✎</button>
-              <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${a.id})" title="Eliminar">🗑</button>
+              <button class="btn-secundario btn-sm btn-org-eliminar" onclick="eliminarNodo(${a.id})" title="Eliminar">🗑</button>` : ''}
+              ${botonWhatsAppOrg(a)}
             </div>` : ''}
         </div>
       `).join('')}
