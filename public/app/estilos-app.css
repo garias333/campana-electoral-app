@@ -166,6 +166,17 @@ main.app-cuerpo {
   margin: 22px 0 14px;
 }
 .seccion-titulo:first-of-type { margin-top: 0; }
+
+/* Apartado destacado — "Lugar de votación", el único que se llena copiando
+   de la ventana de la Registraduría. Mismo color que en el panel de
+   escritorio (.encabezado-form.acento en style.css) para que las dos
+   pantallas del mismo formulario se vean iguales.
+
+   Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste,
+   por debajo del 3:1 recomendado para texto grande o en negrita. Va así
+   porque es un color pedido; el amarillo legible sobre blanco de la paleta
+   es #A66F1F, con 4,27:1. */
+.seccion-titulo.acento { color: #FFC300; }
 .btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
 
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
