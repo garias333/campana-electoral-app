@@ -37,6 +37,20 @@
       <div id="campana-error" class="mensaje-error"></div>
       <div id="campana-ok" class="mensaje-ok"></div>
       <form id="form-campana">
+
+        <!-- ===== DATOS DE LA CAMPAÑA =====
+             Quién es el candidato y cómo se le contacta. Los ocho campos
+             estaban sueltos y partidos en dos: los tres primeros arriba y
+             Dirección/Teléfono/Correo debajo del bloque de Territorio, que
+             no tiene nada que ver con ellos. Ahora van juntos y en un
+             recuadro propio, igual que Territorio: dos apartados con la
+             misma forma se leen como dos cosas del mismo rango. -->
+        <div id="bloque-datos-campana" style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
+          <div class="titulo-apartado">Datos de la campaña</div>
+          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
+            Quién es el candidato, a qué aspira y cómo contactar a la campaña.
+          </small>
+
         <div class="fila" style="flex-wrap:wrap;">
           <div class="campo" style="flex:1; min-width:200px;"><label>Nombre del candidato</label><input name="nombre_candidato"></div>
           <div class="campo" style="flex:1; min-width:200px;">
@@ -73,6 +87,13 @@
           <input id="input-partido-otro" placeholder="Escriba el nombre completo">
         </div>
 
+        <div class="fila" style="flex-wrap:wrap;">
+          <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label>Correo electrónico</label><input type="email" name="email"></div>
+        </div>
+        </div>
+
         <!-- ===== TERRITORIO =====
              Dónde se juega la campaña y con qué palabras se divide.
              Las cuatro preguntas van juntas y en dos parejas —urbano y
@@ -81,7 +102,7 @@
              siguiente. Verlas en fila corrida invita a apagar una sola
              mitad sin darse cuenta de que la otra existe. -->
         <div id="bloque-territorio" style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
-          <div style="font-size:0.95rem; font-weight:700; color:#1B4C9C; margin-bottom:4px;">Territorio</div>
+          <div class="titulo-apartado">Territorio</div>
           <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
             Dónde se desarrolla la campaña y qué divisiones usa para organizarla.
           </small>
@@ -99,7 +120,7 @@
             </div>
           </div>
 
-          <div style="font-size:0.8rem; font-weight:600; color:#1B4C9C; text-transform:uppercase; letter-spacing:0.03em; margin:6px 0 8px;">Divisiones urbanas</div>
+          <div class="subtitulo-apartado">Divisiones urbanas</div>
           <div class="fila" style="flex-wrap:wrap;">
             <div class="campo" style="flex:1; min-width:220px;">
               <label>¿Utilizar nombre de comunas?</label>
@@ -117,7 +138,7 @@
             </div>
           </div>
 
-          <div style="font-size:0.8rem; font-weight:600; color:#1B4C9C; text-transform:uppercase; letter-spacing:0.03em; margin:6px 0 8px;">Divisiones rurales</div>
+          <div class="subtitulo-apartado">Divisiones rurales</div>
           <div class="fila" style="flex-wrap:wrap;">
             <div class="campo" style="flex:1; min-width:220px;">
               <label>¿Utilizar nombre de corregimientos?</label>
@@ -141,12 +162,6 @@
             <br><br>
             Lo que ya está registrado <strong>no se borra ni se mueve</strong>, pero deja de poder corregirse desde el formulario: si vuelve a guardar la ficha de alguien asignado a ese nivel, quedará en el nivel de arriba.
           </small>
-        </div>
-
-        <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label>Correo electrónico</label><input type="email" name="email"></div>
         </div>
 
         <!-- Apoyos: define qué opciones aparecen como "Apoya a" en los

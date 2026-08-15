@@ -669,6 +669,46 @@ body.sin-corregimientos [data-campo="corregimiento"] { display: none !important;
 body.sin-veredas [data-campo="vereda"] { display: none !important; }
 body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !important; }
 
+/* ------------------------------------------------------------------
+   Título de un APARTADO dentro de un formulario largo — hoy los de
+   Configuración → Datos de la campaña ("DATOS DE LA CAMPAÑA",
+   "TERRITORIO").
+
+   Va en una clase y no en un estilo en línea por cada uno para que
+   tamaño y color se cambien en UN sitio: son la misma cosa repetida, y
+   dos apartados con títulos de distinto tamaño se leen como si uno
+   dependiera del otro.
+
+   El tamaño va en píxeles a propósito. El resto de la hoja usa `rem`
+   —que escala con la preferencia del navegador— pero aquí se pidió 15,
+   y 15 tienen que ser: en rem, quien tenga la letra del navegador en
+   otro tamaño vería otra cosa.
+
+   `text-transform` además de escribir el texto en mayúscula: así el
+   apartado se ve igual aunque alguien escriba el próximo título en
+   minúscula.                                                          */
+.titulo-apartado {
+  font-size: 15px;
+  color: #0B5ED7;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+/* Un nivel por debajo del título del apartado — hoy "Divisiones urbanas" y
+   "Divisiones rurales" dentro de Territorio. Mismo color que el título y
+   tamaño menor: la jerarquía se lee por el tamaño, no por inventar un
+   tercer azul dentro del mismo recuadro.                               */
+.subtitulo-apartado {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0B5ED7;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 6px 0 8px;
+}
+
 /* Sin ningún apoyo activo en Configuración → Datos de la campaña, la columna
    "Apoya a" queda vacía en todas las filas: se oculta entera en vez de dejar
    una columna en blanco ocupando ancho. La clase la pone votantes.html al
