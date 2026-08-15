@@ -1792,14 +1792,43 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
 // comparación es contra e.territorio_id directamente, no contra el padre_id
 // de su territorio. Se usa para autocompletar el campo "Coordinador" en
 // Nuevo evento y para el "Reporta a" automático en Agregar a la estructura.
+/**
+ * Los Coordinadores a los que puede reportar un Líder de esa zona,
+ * EMPEZANDO POR EL MÁS CERCANO.
+ *
+ * Antes esto era un `territorio_id = ?` a secas, y devolvía vacío en cuanto
+ * el coordinador estaba un escalón más arriba que el líder. Pasa siempre que
+ * la campaña no usa la capa intermedia: en Quindío no hay ni una comuna ni
+ * un corregimiento —los coordinadores están puestos en el MUNICIPIO— así que
+ * un líder de Buenavista no encontraba a ninguno de los dos coordinadores de
+ * Buenavista, y la pantalla caía a listar los 46 coordinadores y líderes de
+ * todo el departamento.
+ *
+ * Ahora se sube por `padre_id` desde la zona hasta el país y se devuelven
+ * los coordinadores de cada escalón, `nivel` 0 el de la zona misma. La
+ * pantalla los muestra en ese orden, así que el de su propio territorio
+ * queda de primero y preseleccionado.
+ *
+ * El límite de 6 saltos no es un número al azar: la jerarquía del catálogo
+ * tiene cinco niveles (país, departamento, municipio, comuna, barrio) y uno
+ * de margen. Sin él, un `padre_id` que apuntara en círculo por un error de
+ * datos dejaría la consulta girando.
+ */
 router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.id, u.nombre
-      FROM estructura e
-      JOIN usuarios u ON u.id = e.usuario_id
-      WHERE e.cargo = 'coordinador' AND e.activo = 1 AND e.territorio_id = ?
-      ORDER BY u.nombre
+      WITH RECURSIVE cadena AS (
+        SELECT id, padre_id, 0 AS nivel FROM territorios WHERE id = ?
+        UNION ALL
+        SELECT t.id, t.padre_id, c.nivel + 1
+          FROM territorios t JOIN cadena c ON t.id = c.padre_id
+         WHERE c.nivel < 6
+      )
+      SELECT u.id, u.nombre, c.nivel
+        FROM cadena c
+        JOIN estructura e ON e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1
+        JOIN usuarios u ON u.id = e.usuario_id
+       ORDER BY c.nivel, u.nombre
     `, [req.params.zonaId]);
     res.json(rows);
   } catch (err) {

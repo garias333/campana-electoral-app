@@ -324,8 +324,8 @@
       <div class="campo">
         <label>Reporta a (opcional)</label>
         <div id="busqueda-supervisor-persona" style="display:none;">
-          <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo ya trae a los líderes del Barrio/Vereda elegido arriba y a los de su mismo Coordinador — si necesitas a otro líder, búscalo por nombre aquí.</small>
-          <input type="text" id="input-buscar-supervisor-persona" placeholder="Buscar un líder por nombre..." autocomplete="off" style="margin-bottom:4px;">
+          <small id="nota-busqueda-supervisor" style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;"></small>
+          <input type="text" id="input-buscar-supervisor-persona" autocomplete="off" style="margin-bottom:4px;">
           <div id="resultados-buscar-supervisor-persona" style="margin-bottom:6px;"></div>
         </div>
         <select name="supervisor_id" id="select-supervisor"><option value="">Ninguno</option></select>
@@ -1232,22 +1232,40 @@ document.getElementById('input-corregimiento-persona').addEventListener('input',
   actualizarVeredasPersona();
   actualizarReportaAPorZona();
 });
-/** El buscador de "Reporta a" por nombre solo aplica cuando el Cargo es Sublíder (ahí "Reporta a" es un Líder); para los demás cargos "Reporta a" son Coordinadores y ya se listan todos en el desplegable. */
+/**
+ * A quién se puede buscar por nombre en "Reporta a", según la cadena de
+ * mando: un Sublíder reporta a un Líder y un Líder a un Coordinador. La
+ * búsqueda respeta esa regla en vez de ofrecer a cualquiera — elegir el
+ * cargo equivocado arma una jerarquía que después no cuadra en el
+ * organigrama y nadie sabe por qué.
+ *
+ * Los demás cargos no tienen un superior fijo y ya ven la lista completa
+ * en el desplegable, así que no necesitan buscador.
+ */
+const CARGO_QUE_SUPERVISA = { usuario: 'lider', lider: 'coordinador' };
+
 function actualizarVisibilidadBusquedaSupervisor() {
-  const esSublider = document.getElementById('select-cargo-persona').value === 'usuario';
-  document.getElementById('busqueda-supervisor-persona').style.display = esSublider ? 'block' : 'none';
-  if (!esSublider) {
+  const cargo = document.getElementById('select-cargo-persona').value;
+  const buscado = CARGO_QUE_SUPERVISA[cargo];
+  document.getElementById('busqueda-supervisor-persona').style.display = buscado ? 'block' : 'none';
+  if (!buscado) {
     document.getElementById('input-buscar-supervisor-persona').value = '';
     document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
+    return;
   }
+  const etiqueta = buscado === 'lider' ? 'líder' : 'coordinador';
+  document.getElementById('input-buscar-supervisor-persona').placeholder = `Buscar un ${etiqueta} por nombre...`;
+  document.getElementById('nota-busqueda-supervisor').textContent =
+    `La lista de abajo ya trae los de este territorio, del más cercano al más general — si necesitas a otro ${etiqueta}, búscalo por nombre aquí.`;
 }
 
 document.getElementById('input-buscar-supervisor-persona').addEventListener('input', () => {
   const texto = normalizarTexto(document.getElementById('input-buscar-supervisor-persona').value.trim());
   const cont = document.getElementById('resultados-buscar-supervisor-persona');
   if (!texto) { cont.innerHTML = ''; return; }
+  const buscado = CARGO_QUE_SUPERVISA[document.getElementById('select-cargo-persona').value];
   const coincidencias = listaCoordinadoresYLideres
-    .filter(u => u.rol === 'lider' && normalizarTexto(u.nombre).includes(texto))
+    .filter(u => u.rol === buscado && normalizarTexto(u.nombre).includes(texto))
     .slice(0, 8);
   cont.innerHTML = coincidencias.length
     ? coincidencias.map(u => `
@@ -1259,7 +1277,7 @@ document.getElementById('input-buscar-supervisor-persona').addEventListener('inp
     : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
 });
 
-/** Selecciona en "Reporta a" a un líder encontrado por la búsqueda de nombre, aunque no aparezca en la lista filtrada por Barrio/Vereda. */
+/** Selecciona en "Reporta a" al líder o coordinador encontrado por nombre, aunque no aparezca en la lista acotada al territorio. */
 function elegirSupervisorBuscado(id) {
   const encontrado = listaCoordinadoresYLideres.find(u => u.id === id);
   if (!encontrado) return;
@@ -1313,40 +1331,57 @@ document.getElementById('select-cargo-persona').addEventListener('change', () =>
 });
 
 /**
- * Cuando el Cargo elegido es Líder y ya se identificó la Comuna (o
- * Corregimiento) en Territorio de influencia, filtra "Reporta a" a solo
- * los Coordinadores de esa zona (autoselecciona si hay uno solo).
+ * A QUIÉN REPORTA. La cadena de mando es sublíder -> líder -> coordinador,
+ * y esta función llena "Reporta a" con los del PROPIO territorio de la
+ * persona, empezando por el más cercano.
  *
- * Cuando el Cargo elegido es Sublíder ("usuario"), "Reporta a" se llena
- * inicialmente con los Líderes adscritos al Barrio/Vereda elegido en
- * Territorio o área de influencia, más los que reportan al Coordinador de
- * esa Comuna/Corregimiento (equipo más amplio); el buscador por nombre de
- * al lado permite elegir cualquier otro líder que no aparezca aquí.
+ * EL TERRITORIO SE BUSCA DE LO FINO A LO GRUESO, y esa es la parte que
+ * faltaba. Antes se miraba solo un nivel —Comuna/Corregimiento para un
+ * Líder, Barrio/Vereda para un Sublíder— y, si ese nivel no daba nada, la
+ * lista se abría a TODOS los coordinadores y líderes de la campaña.
+ *
+ * Eso no era un caso raro: es lo normal en cuanto la campaña no usa la capa
+ * intermedia. En Quindío no hay ni una comuna ni un corregimiento —los dos
+ * coordinadores de Buenavista están puestos en el MUNICIPIO—, así que al
+ * crear un Líder de Buenavista, área urbana, "Reporta a" mostraba los 46
+ * coordinadores y líderes del departamento en vez de esos dos.
+ *
+ * Ahora, si el nivel fino no resuelve, se baja al Municipio, que en una
+ * campaña departamental siempre existe. Y el servidor, además, sube por la
+ * jerarquía desde donde se le pregunte, así que un líder de vereda encuentra
+ * al coordinador de su municipio aunque nadie esté puesto en la vereda.
+ *
+ * Si ni siquiera hay municipio, se abre la lista completa: es preferible
+ * ofrecer de más que dejar el campo vacío sin explicación.
  */
 async function actualizarReportaAPorZona() {
   const cargo = document.getElementById('select-cargo-persona').value;
+  const select = document.getElementById('select-supervisor');
+  const area = document.getElementById('select-area-persona').value;
+  const municipio = municipioDeInfluenciaPersona();
 
   if (cargo === 'usuario') {
-    const select = document.getElementById('select-supervisor');
-    const area = document.getElementById('select-area-persona').value;
-    let barrioId = null;
+    let zonaId = null;
     if (area === 'urbano') {
       const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
       const barrio = listaTerritorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
-      if (barrio) barrioId = barrio.id;
+      if (barrio) zonaId = barrio.id;
     } else if (area === 'rural') {
       const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
       const vereda = listaTerritorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
-      if (vereda) barrioId = vereda.id;
+      if (vereda) zonaId = vereda.id;
     }
+    if (!zonaId && municipio) zonaId = municipio.id;
 
-    if (!barrioId) {
+    if (!zonaId) {
       select.innerHTML = '<option value="">Ninguno</option>';
       return;
     }
     try {
-      const lideres = await api(`/territorial/lideres-para-sublider/${barrioId}`);
-      select.innerHTML = '<option value="">Ninguno</option>' + lideres.map(l => `<option value="${l.id}">${l.nombre}</option>`).join('');
+      const lideres = await api(`/territorial/lideres-para-sublider/${zonaId}`);
+      select.innerHTML = '<option value="">Ninguno</option>' +
+        lideres.map(l => `<option value="${l.id}">${escaparHtml(l.nombre)}</option>`).join('');
+      if (lideres.length === 1) select.value = String(lideres[0].id);
     } catch (err) {
       select.innerHTML = '<option value="">Ninguno</option>';
     }
@@ -1358,9 +1393,7 @@ async function actualizarReportaAPorZona() {
     return;
   }
 
-  const area = document.getElementById('select-area-persona').value;
   let zonaId = null;
-
   if (area === 'urbano') {
     const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
     const comuna = listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna);
@@ -1370,17 +1403,22 @@ async function actualizarReportaAPorZona() {
     const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
     if (corregimiento) zonaId = corregimiento.id;
   }
+  if (!zonaId && municipio) zonaId = municipio.id;
 
   if (!zonaId) {
     restaurarOpcionesReportaA();
     return;
   }
 
-  const select = document.getElementById('select-supervisor');
   try {
     const coordinadores = await api(`/territorial/coordinadores-por-zona/${zonaId}`);
-    select.innerHTML = '<option value="">Ninguno</option>' + coordinadores.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-    if (coordinadores.length === 1) select.value = String(coordinadores[0].id);
+    if (!coordinadores.length) { restaurarOpcionesReportaA(); return; }
+    // Llegan ordenados por cercanía: el del propio territorio primero. Se
+    // preselecciona ese, que es el caso normal; si hay varios, el usuario
+    // cambia, y si necesita a otro lo busca por nombre al lado.
+    select.innerHTML = '<option value="">Ninguno</option>' +
+      coordinadores.map(c => `<option value="${c.id}">${escaparHtml(c.nombre)}</option>`).join('');
+    select.value = String(coordinadores[0].id);
   } catch (err) {
     restaurarOpcionesReportaA();
   }
