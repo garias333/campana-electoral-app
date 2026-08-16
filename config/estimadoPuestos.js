@@ -35,7 +35,19 @@ async function calcularEstimadoPorPuesto(pool) {
     const clave = fila.puesto_id || fila.puesto_votacion;
     if (!destino.has(clave)) destino.set(clave, new Map());
     const mapaMesas = destino.get(clave);
-    const mesa = (fila.mesa_votacion || '').trim();
+    // `mesa_votacion` es INT en la base (ver la nota de db/schema.sql:99),
+    // así que aquí llega un NÚMERO, no una cadena: `(1 || '').trim()` no
+    // existe y reventaba la pantalla entera con «Error calculando el
+    // estimado». Se convierte antes de recortar.
+    //
+    // La clave del mapa tiene que quedar en texto porque más abajo se busca
+    // con `mapaMesas.get(String(m))`.
+    //
+    // `??` y no `||`: con `||`, una mesa 0 —dato inválido, pero lo hubo—
+    // caería en '' y se contaría como «sin mesa»; con `??` queda '0' y la
+    // comprobación de rango de abajo la clasifica igual, pero sin perder
+    // de vista cuál era.
+    const mesa = String(fila.mesa_votacion ?? '').trim();
     mapaMesas.set(mesa, (mapaMesas.get(mesa) || 0) + fila.total);
   }
 
