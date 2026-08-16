@@ -120,13 +120,91 @@ async function separarDatosDeTestigosExistentes(connection) {
   }
 }
 
-async function crearTriggersPuestoId(connection) {
-  const cuerpo = `SET NEW.puesto_id = (
-      SELECT p.id FROM dia_d_puestos_votacion p
-       WHERE NEW.puesto_votacion IS NOT NULL
-         AND NEW.puesto_votacion <> ''
-         AND p.nombre = NEW.puesto_votacion
+/**
+ * ¿Se puede llegar al catálogo desde esta base?
+ *
+ * Hay que preguntarlo ANTES de meter el catálogo dentro de un disparador: si
+ * la instalación no tiene permiso de lectura sobre `territoriosdb`, el
+ * disparador se crearía sin problema y reventaría en CADA alta de votante,
+ * dejando la campaña sin poder registrar a nadie. Se comprueba una vez y se
+ * elige qué disparador crear.
+ */
+async function alcanzaElCatalogo(connection) {
+  try {
+    await connection.query(
+      `SELECT cp.id
+         FROM dia_d_puestos_votacion p
+         JOIN territoriosdb.ctc_puestos_votacion cp ON cp.id = p.ctc_puesto_id
+         JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
+        LIMIT 1`
+    );
+    return true;
+  } catch (err) {
+    console.warn('  Catálogo no accesible desde esta base (' + (err.code || err.message) +
+      '): el cruce de puestos se hará solo por nombre exacto.');
+    return false;
+  }
+}
+
+/**
+ * El cruce del texto «Lugar de votación» contra el puesto de la campaña.
+ *
+ * DOS REGLAS, EN ESTE ORDEN, Y LA SEGUNDA SUMA — NO REEMPLAZA:
+ *
+ *   1. Nombre exacto contra la copia de la campaña. Es lo que había, y hay
+ *      que conservarlo: en la campaña municipal 16 de 87 personas tienen el
+ *      puesto escrito con un nombre TRUNCADO («ANTIGUO TERMINAL DE TRANS
+ *      PEOPLE») que coincide con esa copia pero no con el catálogo. Cambiar
+ *      una regla por otra los habría dejado sin cruzar.
+ *
+ *   2. Por catálogo, dentro del municipio de votación de la persona. Hace
+ *      falta porque al sembrar una campaña que abarca más de un municipio el
+ *      nombre lleva el municipio pegado —«IE CAMILO TORRES (ARMENIA)»— para
+ *      poder distinguir los homónimos, y entonces NUNCA es igual al texto que
+ *      escribió la persona, que es el nombre pelado del catálogo.
+ *
+ * SE CRUZA CONTRA EL CATÁLOGO, NO CONTRA EL NOMBRE RECORTADO. Quitarle el
+ * paréntesis al nombre sembrado parece más simple y está mal: hay puestos con
+ * paréntesis propios, como «COCORA (PALESTINA) (SALENTO)».
+ *
+ * EL MUNICIPIO SE BUSCA DENTRO DE SU DEPARTAMENTO. «Córdoba» es municipio de
+ * Quindío, de Bolívar y de Nariño; sin acotar por departamento el cruce mete
+ * gente en otro lado del país. Es la misma regla que el catálogo aplica a sus
+ * alias, y aquí se comprobó midiendo: sin el departamento, 62 votantes daban
+ * 107 coincidencias.
+ *
+ * Medido el 16 de agosto de 2026 sobre las dos campañas: con las dos reglas
+ * juntas cruzan 87/87 en la municipal y 81/81 en la departamental, y en CERO
+ * casos las dos reglas se contradicen — ninguna asignación ya correcta se
+ * mueve.
+ */
+function expresionPuestoId(alias, conCatalogo) {
+  const texto = `${alias}.puesto_votacion IS NOT NULL AND ${alias}.puesto_votacion <> ''`;
+  const porNombre = `(SELECT p.id FROM dia_d_puestos_votacion p
+       WHERE ${texto} AND p.nombre = ${alias}.puesto_votacion
        LIMIT 1)`;
+  if (!conCatalogo) return porNombre;
+  // LIMIT 1 y no una comprobación de unicidad: dentro de un municipio el
+  // nombre del puesto no se repite —verificado sobre los 62 casos, todos con
+  // un único candidato— y un COUNT en cada alta costaría el doble.
+  const porCatalogo = `(SELECT p.id FROM dia_d_puestos_votacion p
+         JOIN territoriosdb.ctc_puestos_votacion cp ON cp.id = p.ctc_puesto_id
+         JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
+         JOIN territoriosdb.ctc_territorios d ON d.id = m.padre_id
+       WHERE ${texto}
+         AND ${alias}.municipio_votacion IS NOT NULL AND ${alias}.municipio_votacion <> ''
+         AND cp.nombre = ${alias}.puesto_votacion
+         AND m.nombre = ${alias}.municipio_votacion
+         AND d.nombre = ${alias}.departamento_votacion
+       LIMIT 1)`;
+  // COALESCE evalúa de izquierda a derecha y se detiene en el primer valor:
+  // la consulta al catálogo solo corre cuando el nombre exacto no encontró.
+  return `COALESCE(${porNombre}, ${porCatalogo})`;
+}
+
+async function crearTriggersPuestoId(connection) {
+  const conCatalogo = await alcanzaElCatalogo(connection);
+  const cuerpo = `SET NEW.puesto_id = ${expresionPuestoId('NEW', conCatalogo)}`;
   try {
     // Las dos tablas se tratan igual: el texto sigue siendo lo que la
     // persona escribió, y el id se deduce de él. En `votantes` el id queda
@@ -151,11 +229,13 @@ async function crearTriggersPuestoId(connection) {
     //
     // Solo toca filas con el id vacío: nunca repisa uno ya resuelto.
     for (const tabla of ['usuarios', 'votantes']) {
+      // La MISMA expresión del disparador, no una parecida: si el relleno y
+      // el disparador razonaran distinto, una fila quedaría enlazada al
+      // guardarla y desenlazada al volver a guardarla, o al revés.
       const [r] = await connection.query(
         `UPDATE ${tabla} t
-            JOIN dia_d_puestos_votacion p ON p.nombre = t.puesto_votacion
-             SET t.puesto_id = p.id
-           WHERE t.puesto_id IS NULL AND t.puesto_votacion IS NOT NULL AND t.puesto_votacion <> ''`
+            SET t.puesto_id = ${expresionPuestoId('t', conCatalogo)}
+          WHERE t.puesto_id IS NULL AND t.puesto_votacion IS NOT NULL AND t.puesto_votacion <> ''`
       );
       if (r.affectedRows > 0) console.log(`  ${tabla}: ${r.affectedRows} fila(s) con puesto_id resuelto desde el texto.`);
     }
