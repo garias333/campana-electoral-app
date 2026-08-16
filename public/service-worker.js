@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v79';
+const CACHE_NAME = 'estrategia-v80';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -43,6 +43,11 @@ const ARCHIVOS_CASCARON = [
   '/app/dia-d.html',
   '/js/form-utils.js',
   '/js/offline-utils.js',
+  // Las casillas de «Apoya a» del formulario. Si falta, sin conexión el
+  // script no carga, apoyosEnOrden() no existe y el formulario entero muere
+  // con el mensaje de «no hay conexión» — que en ese caso sería cierto pero
+  // por el motivo equivocado, y seguiría fallando al volver la señal.
+  '/js/apoyos.js',
   '/js/mesas-testigo.js',
   // Va en la coraza porque la app del celular lo usa SIN CONEXIÓN: sin él,
   // los campos con lista se quedan con el comportamiento del navegador y
