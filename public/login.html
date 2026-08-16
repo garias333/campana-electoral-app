@@ -153,6 +153,29 @@
     border-radius: 10px;
     margin-top: 12px;
   }
+  /* La segunda vía de acceso: MISMA FORMA que «Enviar código» —para que se
+     lea como un botón y no como una nota al pie— pero en hueco, no en
+     amarillo. Dos botones amarillos iguales dejarían la pantalla sin decir
+     cuál es el camino ofrecido; éste es la alternativa y se ve que lo es.
+     El texto no va en versalitas ni tan grande porque es mucho más largo:
+     en un teléfono se partiría en dos renglones. */
+  .login-card button.btn-alterno {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.35);
+    color: #fff;
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: none;
+    padding: 14px 18px;
+    margin-top: 10px;
+  }
+  .login-card button.btn-alterno:hover {
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.6);
+    color: #fff;
+  }
+
   /* El texto del botón se queda NAVY también al pasar por encima: antes
      era blanco, y blanco sobre el amarillo del acento no se lee. */
   .login-card button.btn-primario:hover { background: var(--color-accent-dark); color: #10233F; }
@@ -297,9 +320,7 @@
         </label>
       </div>
       <button type="submit" class="btn-primario">Enviar código</button>
-      <div class="pie-login" style="margin-top:12px;">
-        <a href="#" id="ir-a-password" style="color: var(--color-text-muted);">Ingresar con usuario y contraseña</a>
-      </div>
+      <button type="button" class="btn-primario btn-alterno" id="ir-a-password">Ingresar con usuario y contraseña</button>
     </form>
 
     <form id="form-login" style="display:none;">

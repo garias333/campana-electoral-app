@@ -359,6 +359,27 @@ input, select, textarea {
 thead .col-rol-fija { z-index: 3; background: var(--color-bg, #F3F5F8); }
 tbody tr:hover .col-rol-fija { background: #FAFBFC; }
 
+/* Columnas alternas en la matriz de permisos.
+   Veinte módulos por ocho roles son 160 casillas iguales; sin una banda
+   que separe una columna de la siguiente es facilísimo marcar la de al
+   lado. La primera celda es el Rol —fija y con su propio fondo—, así que
+   los módulos empiezan en la segunda: por eso `even` es el primer módulo.
+   Los dos tonos son los que ya usa la aplicación (el gris de las casillas
+   de mesa y el beige de los filtros del mapa), no colores nuevos.
+   El hover mantiene la distinción de columna en vez de aplanarla: una
+   fila que al pasar el ratón pierde sus bandas deja de ayudar justo
+   cuando se está apuntando a una casilla. */
+#tabla-permisos td:nth-child(even),
+#tabla-permisos th:nth-child(even) { background: #F4F6F9; }
+#tabla-permisos td:nth-child(odd),
+#tabla-permisos th:nth-child(odd)  { background: #F8F3E9; }
+#tabla-permisos tbody tr:hover td:nth-child(even) { background: #E9EDF3; }
+#tabla-permisos tbody tr:hover td:nth-child(odd)  { background: #F1E8D5; }
+/* La columna del Rol va aparte: es la fija y no entra en la alternancia. */
+#tabla-permisos .col-rol-fija,
+#tabla-permisos thead .col-rol-fija { background: #fff; }
+#tabla-permisos tbody tr:hover .col-rol-fija { background: #FAFBFC; }
+
 /* ------------------------------------------------------------------
    Configuración → Usuarios: botón de WhatsApp y "Credenciales enviadas".
 
