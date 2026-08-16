@@ -1033,8 +1033,17 @@ async function inicializarLayout(paginaActiva) {
 
   document.getElementById('chk-2fa').addEventListener('change', async (e) => {
     const activar = e.target.checked;
+    // APAGARLO PIDE LA CONTRASEÑA; encenderlo no. Quien se haga con una sesión
+    // ajena no debe poder quitarle el segundo factor a esa cuenta sin saber
+    // siquiera la contraseña. El servidor lo exige igual: esto solo evita que
+    // la petición salga condenada al fallo.
+    let password = null;
+    if (!activar) {
+      password = prompt('Para desactivar la verificación en dos pasos, escriba su contraseña actual:');
+      if (password === null) { e.target.checked = true; return; }
+    }
     try {
-      await api('/auth/2fa', { method: 'PUT', body: { activar } });
+      await api('/auth/2fa', { method: 'PUT', body: { activar, password } });
     } catch (err) {
       alert(err.message);
       e.target.checked = !activar;

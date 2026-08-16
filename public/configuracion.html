@@ -878,6 +878,7 @@ function renderizarUsuarios() {
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
         <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
+        ${u.two_factor_enabled ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
         <button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>
       </td>
     </tr>
@@ -1048,6 +1049,30 @@ function abrirEdicionUsuario(u) {
   document.getElementById('usuario-form-error').classList.remove('visible');
   document.getElementById('usuario-form-ok').classList.remove('visible');
   document.getElementById('overlay-usuario-form').classList.add('abierto');
+}
+
+/**
+ * Le quita la verificación en dos pasos a alguien que quedó fuera.
+ *
+ * Es la salida de emergencia del 2FA. Sin ella, a quien se le rompa el correo
+ * con el 2FA encendido no lo puede rescatar nadie desde la aplicación: hay que
+ * entrar por base de datos. El botón solo aparece si la persona lo tiene
+ * encendido.
+ */
+async function desactivar2faUsuario(id) {
+  const u = listaUsuarios.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`¿Quitarle la verificación en dos pasos a ${u.nombre}?\n\n`
+    + 'Podrá entrar solo con su contraseña. Cuando recupere su correo, puede volver a activarla desde su propio panel.')) return;
+  try {
+    const r = await api(`/usuarios/${id}/desactivar-2fa`, { method: 'POST' });
+    alert(r.ya_estaba
+      ? `${r.nombre} no tenía la verificación en dos pasos activada.`
+      : `Listo: ${r.nombre} ya puede entrar solo con su contraseña.`);
+    await cargarUsuarios();
+  } catch (err) {
+    alert(err.message || 'No se pudo desactivar.');
+  }
 }
 
 async function restablecerPasswordUsuario(id) {

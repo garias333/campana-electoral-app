@@ -15,6 +15,20 @@ const { codigoDe: codigoDeBaja, urlDeBaja } = require('../config/bajaContacto');
 const router = express.Router();
 
 /**
+ * La dirección pública de esta instalación.
+ *
+ * Sale de LICENCIA_DOMINIO y no de la cabecera `Host`, que la manda el
+ * cliente. Estas URLs acaban dentro de correos y en el webhook que Twilio
+ * llama de vuelta: si alguien colara otro Host, los adjuntos se pedirían a un
+ * servidor ajeno y los avisos de entrega se irían a otro lado.
+ */
+function baseDelSitio(req) {
+  return process.env.LICENCIA_DOMINIO
+    ? `https://${process.env.LICENCIA_DOMINIO}`
+    : `${req.protocol}://${req.get('host')}`;
+}
+
+/**
  * Ruta PÚBLICA a propósito (va antes de requireAuth) — Twilio necesita
  * descargar el archivo adjunto de una campaña desde sus propios
  * servidores, sin ninguna sesión de este sitio.
@@ -1089,14 +1103,14 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
 
     const adjuntoNombre = req.file ? req.file.filename : null;
     const adjuntoUrl = req.file
-      ? `${req.protocol}://${req.get('host')}/api/comunicaciones/adjunto-publico/${req.file.filename}`
+      ? `${baseDelSitio(req)}/api/comunicaciones/adjunto-publico/${req.file.filename}`
       : null;
     // Solo aplica a SMS — le pide a Twilio que avise a esta URL cada vez
     // que el estado real de un mensaje cambie (por ejemplo, de "enviado"
     // a "no entregado"), porque esa confirmación casi siempre llega más
     // tarde de lo que se puede esperar en el momento del envío.
     const statusCallbackUrl = canal === 'sms'
-      ? `${req.protocol}://${req.get('host')}/webhooks/twilio/estado-mensaje`
+      ? `${baseDelSitio(req)}/webhooks/twilio/estado-mensaje`
       : null;
 
     // Programación: si trae una fecha futura, la campaña nace en

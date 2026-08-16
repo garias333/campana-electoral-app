@@ -50,6 +50,45 @@ function revisarCedula(b) {
 router.use(requireAuth, calcularAlcance);
 
 /**
+ * A qué votantes llega cada quien, según su cargo.
+ *
+ *   coordinador -> los suyos, los de SUS líderes, y los de los sublíderes que
+ *                  cuelgan de esos líderes. Es su rama entera.
+ *   los demás   -> solo los que registró en persona.
+ *
+ * SE ARMA EN SQL Y NO CON UNA CONSULTA PREVIA para que siga valiendo dentro
+ * del `whereSql` compartido por el listado y el conteo: si el alcance saliera
+ * de una consulta aparte, habría que acordarse de pasarlo a las dos, y ya se
+ * rompió una vez por eso (el conteo y el listado compartiendo WHERE sin
+ * compartir FROM).
+ *
+ * OJO CON LOS LÍDERES SIN SUPERVISOR: sus votantes no los ve ningún
+ * coordinador, solo el administrador. No es un fallo de esta consulta sino un
+ * dato que falta en Estructura territorial, y se arregla asignándoles su
+ * coordinador. Medido el 16 de agosto de 2026: 4 líderes así en la campaña
+ * municipal, 0 en la departamental.
+ */
+function condicionAlcanceVotantes(alcance, alias) {
+  const col = (alias === undefined ? 'v.' : (alias ? alias + '.' : '')) + 'lider_id';
+  if (alcance.cargo === 'coordinador') {
+    return `(${col} = ?
+             OR ${col} IN (SELECT el.usuario_id FROM estructura el
+                            WHERE el.activo = 1 AND el.supervisor_id = ?)
+             OR ${col} IN (SELECT es.usuario_id FROM estructura es
+                             JOIN estructura el2 ON el2.usuario_id = es.supervisor_id
+                            WHERE es.activo = 1 AND el2.activo = 1 AND el2.supervisor_id = ?))`;
+  }
+  return `${col} = ?`;
+}
+
+/** Los parámetros que consume la condición de arriba (1 o 3 veces el id). */
+function parametrosAlcanceVotantes(alcance) {
+  return alcance.cargo === 'coordinador'
+    ? [alcance.usuarioId, alcance.usuarioId, alcance.usuarioId]
+    : [alcance.usuarioId];
+}
+
+/**
  * Para la importación masiva por Excel: si el teléfono de la fila no
  * tiene exactamente 10 dígitos, no se rechaza la fila completa — se
  * importa esa persona igual, solo que sin teléfono.
@@ -234,7 +273,7 @@ router.get('/', async (req, res) => {
     condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
   } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
-  if (req.alcance) { condiciones.push(`v.lider_id = ?`); params.push(req.alcance.usuarioId); }
+  if (req.alcance) { condiciones.push(condicionAlcanceVotantes(req.alcance)); params.push(...parametrosAlcanceVotantes(req.alcance)); }
 
   const whereSql = armarWhereSql(condiciones);
 
@@ -855,7 +894,7 @@ router.get('/:id', async (req, res) => {
     let query = `SELECT * FROM votantes WHERE id = ?`;
     // Igual que el listado (GET /): fuera de admin/coordinador, cada quien
     // solo puede ver los votantes que él mismo refirió.
-    if (req.alcance) { query += ` AND lider_id = ?`; params.push(req.alcance.usuarioId); }
+    if (req.alcance) { query += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
     const [rows] = await pool.query(query, params);
     if (!rows.length) return res.status(404).json({ error: 'No encontrado.' });
     res.json(rows[0]);
@@ -1193,7 +1232,8 @@ router.put('/:id', async (req, res) => {
     // admin/coordinador, solo se puede editar un votante que uno mismo refirió.
     if (req.alcance) {
       const [[propio]] = await pool.query(
-        `SELECT id FROM votantes WHERE id = ? AND lider_id = ?`, [req.params.id, req.alcance.usuarioId]
+        `SELECT id FROM votantes WHERE id = ? AND ${condicionAlcanceVotantes(req.alcance, '')}`,
+        [req.params.id, ...parametrosAlcanceVotantes(req.alcance)]
       );
       if (!propio) return res.status(404).json({ error: 'No encontrado.' });
     }
@@ -1283,7 +1323,7 @@ router.post('/:id/asignar-testigo', async (req, res) => {
   try {
     const params = [req.params.id];
     let query = `SELECT * FROM votantes WHERE id = ?`;
-    if (req.alcance) { query += ` AND lider_id = ?`; params.push(req.alcance.usuarioId); }
+    if (req.alcance) { query += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
     const [[votante]] = await pool.query(query, params);
     if (!votante) return res.status(404).json({ error: 'No encontrado.' });
     if (!votante.cedula) {
@@ -1359,7 +1399,7 @@ router.delete('/:id', async (req, res) => {
     let query = `DELETE FROM votantes WHERE id = ?`;
     // Igual que GET/PUT: fuera de admin/coordinador, solo se puede borrar
     // un votante que uno mismo refirió.
-    if (req.alcance) { query += ` AND lider_id = ?`; params.push(req.alcance.usuarioId); }
+    if (req.alcance) { query += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
     const [resultado] = await pool.query(query, params);
     if (resultado.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });

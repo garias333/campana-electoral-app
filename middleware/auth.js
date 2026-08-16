@@ -90,10 +90,21 @@ function requireRole(...rolesPermitidos) {
  */
 function calcularAlcance(req, res, next) {
   const usuario = req.session.usuario;
-  if (['admin', 'coordinador'].includes(usuario.rol)) {
+  if (usuario.rol === 'admin') {
     req.alcance = null; // sin restricción
   } else {
-    req.alcance = { usuarioId: usuario.id, territorioId: usuario.territorio_id };
+    // EL COORDINADOR VE SU RAMA, NO TODA LA CAMPAÑA.
+    //
+    // Hasta ahora se le daba el mismo alcance que al administrador: sin
+    // restricción. En las campañas de prueba eso son NUEVE personas por
+    // campaña con acceso de lectura y exportación a la base entera de
+    // votantes — cédulas, teléfonos, direcciones e intención de voto.
+    //
+    // Un coordinador necesita ver el trabajo de SUS líderes, que es otra cosa
+    // y está registrada: `estructura.supervisor_id` ata cada líder a su
+    // coordinador. Con `cargo` en el alcance, cada consulta arma la condición
+    // que le toca (ver SQL_ALCANCE_VOTANTES en routes/votantes.routes.js).
+    req.alcance = { usuarioId: usuario.id, territorioId: usuario.territorio_id, cargo: usuario.rol };
   }
   next();
 }

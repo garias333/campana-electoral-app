@@ -295,6 +295,43 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
 });
 
 /**
+ * Le apaga la verificación en dos pasos a OTRA persona.
+ *
+ * POR QUÉ HACE FALTA. Hasta ahora `two_factor_enabled` solo se podía cambiar
+ * desde la propia cuenta (PUT /auth/2fa, que escribe sobre
+ * req.session.usuario.id). Es decir: a quien se le rompiera el correo con el
+ * 2FA encendido quedaba fuera de su cuenta y NADIE dentro de la aplicación
+ * podía sacarlo — había que entrar por base de datos.
+ *
+ * Eso convertía encender el 2FA en una puerta de un solo sentido, y era la
+ * razón de no activarlo. Con este botón, un bloqueo se resuelve en dos clics.
+ *
+ * SOLO APAGA, NUNCA ENCIENDE. Encenderle el 2FA a otro le exigiría un correo
+ * que quizá no revisa, y volveríamos al mismo problema desde el otro lado.
+ * Activarlo sigue siendo decisión de cada quien, desde su propio panel.
+ */
+router.post('/:id/desactivar-2fa', requireRole('admin'), async (req, res) => {
+  try {
+    const [[persona]] = await pool.query(
+      'SELECT nombre, two_factor_enabled FROM usuarios WHERE id = ?', [req.params.id]
+    );
+    if (!persona) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    if (!persona.two_factor_enabled) {
+      return res.json({ ok: true, ya_estaba: true, nombre: persona.nombre });
+    }
+    await pool.query('UPDATE usuarios SET two_factor_enabled = 0 WHERE id = ?', [req.params.id]);
+    await registrarAuditoria(
+      req.session.usuario.id, 'desactivar_2fa_ajeno', 'usuarios', req.params.id,
+      `Un administrador le desactivó la verificación en dos pasos a ${persona.nombre}.`, req.ip
+    );
+    res.json({ ok: true, ya_estaba: false, nombre: persona.nombre });
+  } catch (err) {
+    registrarErrorSinSql('usuarios', err);
+    res.status(500).json({ error: 'No se pudo desactivar la verificación en dos pasos.' });
+  }
+});
+
+/**
  * Deja constancia de que se le mandaron las credenciales a esta persona.
  *
  * Lo llama el botón de WhatsApp de Configuración → Usuarios DESPUÉS de abrir

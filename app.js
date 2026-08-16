@@ -94,7 +94,13 @@ app.use(session({
   cookie: {
     maxAge: 8 * 60 * 60 * 1000, // 8 horas
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production'
+    secure: process.env.NODE_ENV === 'production',
+    // Declarado y no dejado al criterio del navegador: los actuales aplican
+    // 'Lax' por omisión, pero eso es una convención reciente y no una
+    // garantía. 'lax' —y no 'strict'— porque la cookie tiene que seguir
+    // valiendo cuando alguien llega desde el enlace de un correo o de
+    // WhatsApp, que es justo como entra el equipo de campaña.
+    sameSite: 'lax'
   }
 }));
 

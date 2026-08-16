@@ -549,8 +549,21 @@ router.post('/verificar-2fa', async (req, res) => {
 });
 
 router.put('/2fa', requireAuth, async (req, res) => {
-  const { activar } = req.body;
+  const { activar, password } = req.body;
   try {
+    // APAGARLO EXIGE LA CONTRASEÑA; encenderlo no.
+    //
+    // No es simetría por gusto: quien se haga con una sesión ajena —una cookie
+    // robada, un token de dispositivo copiado del localStorage— podía quitarle
+    // el segundo factor a esa cuenta y consolidar el acceso sin saber ni la
+    // contraseña. Encenderlo no tiene ese riesgo: solo añade una traba.
+    if (!activar) {
+      const [[fila]] = await pool.query('SELECT password_hash FROM usuarios WHERE id = ?', [req.session.usuario.id]);
+      const valida = fila && await bcrypt.compare(password || '', fila.password_hash);
+      if (!valida) {
+        return res.status(400).json({ error: 'Para desactivar la verificación en dos pasos, escriba su contraseña actual.' });
+      }
+    }
     await pool.query(`UPDATE usuarios SET two_factor_enabled = ? WHERE id = ?`, [activar ? 1 : 0, req.session.usuario.id]);
     req.session.usuario.two_factor_enabled = !!activar;
     await registrarAuditoria(
@@ -609,7 +622,11 @@ router.post('/cambiar-password', requireAuth, async (req, res) => {
 
 // --- Recuperación de contraseña por correo ---
 
-router.post('/olvidar-password', async (req, res) => {
+// El MISMO limitador de /solicitar-codigo: 5 cada 15 minutos por IP. Sin él,
+// esta pantalla es una forma gratuita de llenarle el buzón a cualquiera y de
+// quemar la cuota del servidor de correo — y en este proyecto un SMTP caído
+// deja además sin recuperación a todo el mundo.
+router.post('/olvidar-password', limitadorCodigo, async (req, res) => {
   const { email } = req.body;
   // Respuesta genérica siempre, exista o no la cuenta, para no revelar
   // qué correos están registrados en el sistema.
@@ -637,7 +654,17 @@ router.post('/olvidar-password', async (req, res) => {
         [usuario.id, tokenHash, expiraEn]
       );
 
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      // EL DOMINIO SALE DE LA CONFIGURACIÓN, NO DE LA PETICIÓN. `req.get('host')`
+      // es una cabecera que manda el cliente: quien pudiera colarla haría que
+      // la víctima recibiera por correo un enlace legítimo, con un token
+      // válido, apuntando a un servidor ajeno. Hoy Nginx lo impide
+      // —comprobado: responde 421 a un Host que no coincide—, pero esa
+      // protección vive fuera del repositorio y un cambio de vhost la quita
+      // sin que nada avise. LICENCIA_DOMINIO es el mismo dato, y no viaja en
+      // la petición. Es lo que ya hace config/bajaContacto.js.
+      const baseUrl = process.env.LICENCIA_DOMINIO
+        ? `https://${process.env.LICENCIA_DOMINIO}`
+        : `${req.protocol}://${req.get('host')}`;
       const enlace = `${baseUrl}/reset-password.html?token=${tokenPlano}`;
 
       try {
