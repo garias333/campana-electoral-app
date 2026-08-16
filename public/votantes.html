@@ -2436,9 +2436,16 @@ function pintarEstimadoPuestos() {
     </tr>
     <tr id="fila-mesas-estimado-${i}" style="display:none;">
       <td colspan="5">
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-          ${p.mesas.map(m => `<span class="badge badge-mesa-estimado" style="${m.cantidad ? '' : 'opacity:0.55;'}">Mesa ${m.mesa}: <strong class="mono">${m.cantidad}</strong></span>`).join('')}
-          ${p.sinMesaValida ? `<span class="badge badge-indeciso">Sin mesa reconocida: <strong class="mono">${p.sinMesaValida}</strong></span>` : ''}
+        <div class="mesas-detalle">
+          <p class="mesas-detalle-resumen">${escaparHtml(resumenMesasPuesto(p))}</p>
+          <div class="mesas-rejilla">
+            ${p.mesas.map(m => `
+              <div class="mesa-casilla${m.cantidad ? ' con-votantes' : ''}">
+                <span class="mesa-casilla-etiqueta">Mesa ${m.mesa}</span>
+                <span class="mesa-casilla-numero mono">${m.cantidad}</span>
+              </div>`).join('')}
+          </div>
+          ${p.sinMesaValida ? `<p class="mesas-detalle-aviso">${p.sinMesaValida} registro(s) dicen votar en una Mesa que no está entre las ${p.cantidadMesas} configuradas de este puesto.</p>` : ''}
         </div>
       </td>
     </tr>
@@ -2448,6 +2455,22 @@ function pintarEstimadoPuestos() {
 document.querySelectorAll('[data-orden-estimado]').forEach((th) => {
   th.addEventListener('click', () => ordenarPorEstimado(th.dataset.ordenEstimado));
 });
+
+/**
+ * La línea que evita tener que leer las 50 casillas.
+ *
+ * El puesto más grande de la campaña departamental tiene 50 mesas y casi
+ * todas en cero: sin este renglón hay que recorrerlas una por una para
+ * averiguar algo que cabe en una frase.
+ */
+function resumenMesasPuesto(p) {
+  const enMesas = p.mesas.reduce((suma, m) => suma + m.cantidad, 0);
+  const conVotantes = p.mesas.filter(m => m.cantidad > 0).length;
+  if (!enMesas) {
+    return `Ningún registro dice votar en una de las ${p.cantidadMesas} mesa(s) de este puesto.`;
+  }
+  return `${enMesas} registro(s) en ${conVotantes} de ${p.cantidadMesas} mesa(s).`;
+}
 
 function alternarMesasEstimadoPuesto(i) {
   const fila = document.getElementById(`fila-mesas-estimado-${i}`);

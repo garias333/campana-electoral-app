@@ -415,6 +415,60 @@ tbody tr:hover { background: #FAFBFC; }
 /* Mesas del "Ver mesas" en Votantes estimados por puesto de votación. */
 .badge-mesa-estimado { background: #E7F0FD; color: #0B5ED7; }
 
+/* ------------------------------------------------------------------
+   Detalle de Mesas de un Puesto ("Ver mesas" en Votantes estimados).
+
+   ANTES ERA UNA FILA DE PASTILLAS «Mesa 1: 0» TODAS IGUALES. Con hasta
+   50 mesas en un solo puesto --y 21 puestos por encima de 20 en la
+   campana departamental-- habia que leerlas una a una para encontrar
+   las que tienen gente, que suelen ser dos o tres.
+
+   Ahora la casilla con votantes se distingue por el FONDO y el borde, no
+   por dejar el numero de las vacias medio borrado: el 0 tambien es un
+   dato y tiene que leerse. Contrastes medidos: 5.08:1 el azul sobre su
+   fondo, 5.53:1 el gris sobre el suyo, los dos por encima de AA.        */
+.mesas-detalle { padding: 2px 0 6px; }
+.mesas-detalle-resumen {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+/* auto-fill y no auto-fit: con dos o tres mesas las casillas conservan su
+   tamano en vez de estirarse a lo ancho de la pantalla. */
+.mesas-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 6px;
+}
+.mesa-casilla {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: #F4F6F9;
+  border: 1px solid transparent;
+}
+.mesa-casilla-etiqueta {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5B6472;
+}
+.mesa-casilla-numero { font-size: 1.02rem; font-weight: 700; color: #5B6472; line-height: 1.15; }
+.mesa-casilla.con-votantes { background: #E7F0FD; border-color: #B9D3F8; }
+.mesa-casilla.con-votantes .mesa-casilla-etiqueta,
+.mesa-casilla.con-votantes .mesa-casilla-numero { color: #0B5ED7; }
+.mesas-detalle-aviso {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: #8A6D1F;
+  background: #FFF6DC;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
 /* Modal */
 .overlay {
   position: fixed; inset: 0; background: rgba(16, 35, 63, 0.45);
