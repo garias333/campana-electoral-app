@@ -967,6 +967,49 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
  */
 const ROLES_QUE_REGISTRAN = ['admin', 'coordinador', 'lider', 'sublider', 'usuario', 'asistente_administrativo'];
 
+/**
+ * El id del puesto en el CATÁLOGO, resuelto al guardar.
+ *
+ * El disparador ya deja `ctc_puesto_id` escrito cuando el puesto está
+ * sembrado en la campaña (ver db/init-db.js). Esto cubre el caso que aquel no
+ * puede: quien vota FUERA del ámbito de la campaña —alguien registrado en
+ * Manizales que vota en Neiva— no tiene fila local de la que derivar el id, y
+ * sin esto se quedaría sin enlace al catálogo para siempre.
+ *
+ * SE PREFIERE LO QUE MANDE EL FORMULARIO. public/js/lugar-votacion-catalogo.js
+ * ya recibe el id desde /api/catalogo/puestos, pero hoy solo conserva el
+ * nombre en el <option>. Se acepta `ctc_puesto_id` desde ya para que el día
+ * que lo mande no haya que tocar nada más aquí.
+ *
+ * El municipio se busca DENTRO de su departamento: «Córdoba» es municipio de
+ * Quindío, de Bolívar y de Nariño, y sin acotar se enlazaría al del otro lado
+ * del país.
+ */
+async function resolverCtcPuestoId(b) {
+  if (b.ctc_puesto_id) return Number(b.ctc_puesto_id) || null;
+  const puesto = (b.puesto_votacion || '').trim();
+  const municipio = (b.municipio_votacion || '').trim();
+  const departamento = (b.departamento_votacion || '').trim();
+  if (!puesto || !municipio || !departamento) return null;
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT cp.id
+         FROM territoriosdb.ctc_puestos_votacion cp
+         JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
+         JOIN territoriosdb.ctc_territorios d ON d.id = m.padre_id
+        WHERE cp.nombre = ? AND m.nombre = ? AND d.nombre = ?
+        LIMIT 1`,
+      [puesto, municipio, departamento]
+    );
+    return fila ? fila.id : null;
+  } catch (err) {
+    // Sin permiso sobre el catálogo se sigue sin id: registrar un votante no
+    // puede fallar por esto.
+    console.warn('[lugar-votacion] no se pudo resolver el puesto en el catálogo:', err.code || err.message);
+    return null;
+  }
+}
+
 router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   const b = req.body;
 
@@ -1044,11 +1087,11 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
         tipo_area_influencia, organizacion,
         direccion, departamento_residencia, ciudad_residencia, area, lider_id, sublider_id, intencion_voto, apoya_a,
         departamento_votacion, municipio_votacion,
-        puesto_votacion, mesa_votacion, observaciones,
+        puesto_votacion, ctc_puesto_id, mesa_votacion, observaciones,
         consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
         consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
         cliente_uuid, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -1056,7 +1099,7 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
        esOrganizacion ? null : (b.area || null), b.lider_id || req.session.usuario.id, b.sublider_id || null,
        b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
-       b.puesto_votacion || null, b.mesa_votacion || null, b.observaciones || null,
+       b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null,
        b.consentimiento_autorizado ? 1 : 0,
        b.consentimiento_autorizado ? new Date() : null,
        b.consentimiento_autorizado ? (b.consentimiento_metodo || 'verbal_formulario_campo') : null,
@@ -1164,7 +1207,7 @@ router.put('/:id', async (req, res) => {
        fecha_nacimiento=?, territorio_id=?, tipo_area_influencia=?, organizacion=?, direccion=?,
        departamento_residencia=?, ciudad_residencia=?,
        area=?, lider_id=?, sublider_id=?, intencion_voto=?, apoya_a=?,
-       departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, mesa_votacion=?, observaciones=? WHERE id = ?`,
+       departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, ctc_puesto_id=?, mesa_votacion=?, observaciones=? WHERE id = ?`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -1172,7 +1215,7 @@ router.put('/:id', async (req, res) => {
        esOrganizacion ? null : (b.area || null), b.lider_id || null, b.sublider_id || null,
        b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
-       b.puesto_votacion || null, b.mesa_votacion || null, b.observaciones || null, req.params.id]
+       b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null, req.params.id]
     );
 
     // Solo se vuelve a geocodificar si la dirección o el territorio cambiaron

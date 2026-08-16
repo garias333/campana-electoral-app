@@ -180,10 +180,22 @@ async function alcanzaElCatalogo(connection) {
  */
 function expresionPuestoId(alias, conCatalogo) {
   const texto = `${alias}.puesto_votacion IS NOT NULL AND ${alias}.puesto_votacion <> ''`;
+  // REGLA 0, LA DEFINITIVA: si la fila ya tiene el id del catálogo, el puesto
+  // de la campaña sale de un enlace entre ids y NO se compara ni un carácter.
+  // Es inmune a que el puesto se renombre, a los sufijos de municipio y a los
+  // nombres truncados: el problema que resolvió el parche 86 no puede volver
+  // a ocurrir en una fila que pase por aquí.
+  //
+  // No necesita el catálogo abierto: `dia_d_puestos_votacion.ctc_puesto_id`
+  // es una columna de la propia campaña, y es única (uq_dia_d_puestos_ctc).
+  const porCtc = `(SELECT p.id FROM dia_d_puestos_votacion p
+       WHERE ${alias}.ctc_puesto_id IS NOT NULL
+         AND p.ctc_puesto_id = ${alias}.ctc_puesto_id
+       LIMIT 1)`;
   const porNombre = `(SELECT p.id FROM dia_d_puestos_votacion p
        WHERE ${texto} AND p.nombre = ${alias}.puesto_votacion
        LIMIT 1)`;
-  if (!conCatalogo) return porNombre;
+  if (!conCatalogo) return `COALESCE(${porCtc}, ${porNombre})`;
   // LIMIT 1 y no una comprobación de unicidad: dentro de un municipio el
   // nombre del puesto no se repite —verificado sobre los 62 casos, todos con
   // un único candidato— y un COUNT en cada alta costaría el doble.
@@ -199,12 +211,49 @@ function expresionPuestoId(alias, conCatalogo) {
        LIMIT 1)`;
   // COALESCE evalúa de izquierda a derecha y se detiene en el primer valor:
   // la consulta al catálogo solo corre cuando el nombre exacto no encontró.
-  return `COALESCE(${porNombre}, ${porCatalogo})`;
+  return `COALESCE(${porCtc}, ${porNombre}, ${porCatalogo})`;
+}
+
+/**
+ * El cuerpo del disparador, que hace DOS cosas:
+ *
+ *   1. Deja `ctc_puesto_id` —el id del puesto en el CATÁLOGO— guardado en la
+ *      fila. Es el arreglo de fondo: una vez escrito, el enlace no vuelve a
+ *      depender de comparar textos nunca más.
+ *   2. Deriva `puesto_id` (la copia de la campaña) de ese id.
+ *
+ * VA EN EL DISPARADOR Y NO SOLO EN LA RUTA porque hay más de un escritor: el
+ * alta y la edición pasan por routes/votantes.routes.js, pero la importación
+ * por Excel escribe con su propio INSERT. Poniéndolo aquí queda cubierto todo
+ * camino de escritura, presente y futuro, sin tener que acordarse.
+ *
+ * EL CASO DELICADO ES LA EDICIÓN. Si alguien cambia el Puesto, el
+ * `ctc_puesto_id` que trae la fila es el ANTERIOR, y la regla 0 lo tomaría
+ * como bueno dejando a la persona enlazada a su puesto viejo — un dato
+ * equivocado que además parece verificado. Por eso, cuando el texto cambia y
+ * el id NO cambia en esa misma escritura, el id se descarta y se vuelve a
+ * resolver. Si quien escribe manda un id distinto, ese manda: es una elección
+ * explícita.
+ */
+function cuerpoTriggerPuestoId(conCatalogo, esActualizacion) {
+  const expr = expresionPuestoId('NEW', conCatalogo);
+  const olvidarIdViejo = !esActualizacion ? '' : `
+    IF NOT (NEW.puesto_votacion <=> OLD.puesto_votacion)
+       OR NOT (NEW.municipio_votacion <=> OLD.municipio_votacion) THEN
+      IF NEW.ctc_puesto_id <=> OLD.ctc_puesto_id THEN
+        SET NEW.ctc_puesto_id = NULL;
+      END IF;
+    END IF;`;
+  return `BEGIN${olvidarIdViejo}
+    SET NEW.puesto_id = ${expr};
+    SET NEW.ctc_puesto_id = COALESCE(
+      NEW.ctc_puesto_id,
+      (SELECT p.ctc_puesto_id FROM dia_d_puestos_votacion p WHERE p.id = NEW.puesto_id));
+  END`;
 }
 
 async function crearTriggersPuestoId(connection) {
   const conCatalogo = await alcanzaElCatalogo(connection);
-  const cuerpo = `SET NEW.puesto_id = ${expresionPuestoId('NEW', conCatalogo)}`;
   try {
     // Las dos tablas se tratan igual: el texto sigue siendo lo que la
     // persona escribió, y el id se deduce de él. En `votantes` el id queda
@@ -213,6 +262,7 @@ async function crearTriggersPuestoId(connection) {
     for (const tabla of ['usuarios', 'votantes']) {
       for (const momento of ['ins', 'upd']) {
         const evento = momento === 'ins' ? 'INSERT' : 'UPDATE';
+        const cuerpo = cuerpoTriggerPuestoId(conCatalogo, momento === 'upd');
         await connection.query(`DROP TRIGGER IF EXISTS trg_${tabla}_puesto_id_${momento}`);
         await connection.query(
           `CREATE TRIGGER trg_${tabla}_puesto_id_${momento} BEFORE ${evento} ON ${tabla} FOR EACH ROW ${cuerpo}`
@@ -238,6 +288,19 @@ async function crearTriggersPuestoId(connection) {
           WHERE t.puesto_id IS NULL AND t.puesto_votacion IS NOT NULL AND t.puesto_votacion <> ''`
       );
       if (r.affectedRows > 0) console.log(`  ${tabla}: ${r.affectedRows} fila(s) con puesto_id resuelto desde el texto.`);
+
+      // Y SE GUARDA EL ID DEL CATÁLOGO, que es lo que hace el arreglo
+      // permanente. A partir de aquí esa fila ya no depende de ningún texto:
+      // la regla 0 la resuelve por id. El texto se conserva como etiqueta
+      // legible y como respaldo de las filas que nunca lleguen a tener id
+      // (puestos escritos a mano, sin enlace al catálogo).
+      const [rc] = await connection.query(
+        `UPDATE ${tabla} t
+            JOIN dia_d_puestos_votacion p ON p.id = t.puesto_id
+             SET t.ctc_puesto_id = p.ctc_puesto_id
+          WHERE t.ctc_puesto_id IS NULL AND p.ctc_puesto_id IS NOT NULL`
+      );
+      if (rc.affectedRows > 0) console.log(`  ${tabla}: ${rc.affectedRows} fila(s) enlazadas al catálogo por id.`);
     }
   } catch (err) {
     if (err.code === 'ER_SPECIFIC_ACCESS_DENIED_ERROR' || err.errno === 1142) {
@@ -1110,6 +1173,34 @@ async function main() {
   } catch (err) {
     if (err.code !== 'ER_DUP_KEYNAME') throw err;
     console.log('El índice uq_dia_d_puestos_ctc ya existía. Sin cambios.');
+  }
+
+  // --- El id del puesto del CATÁLOGO en la ficha de cada persona ---
+  //
+  // Es el arreglo de fondo del "Lugar de votación". Hasta ahora el enlace se
+  // DEDUCÍA comparando el texto que la persona eligió contra el nombre del
+  // puesto sembrado en la campaña, y por eso se rompía cada vez que ese
+  // nombre no era idéntico: con el municipio pegado para desambiguar
+  // homónimos, o recortado a 32 caracteres por la fuente de origen.
+  //
+  // Guardando el id del catálogo, el enlace deja de deducirse. Se resuelve
+  // UNA vez al guardar la ficha (routes/votantes.routes.js) y a partir de ahí
+  // la regla 0 del disparador lo usa directo. Renombrar un puesto ya no
+  // desconecta a nadie.
+  //
+  // BIGINT UNSIGNED para que case con ctc_puestos_votacion.id del catálogo y
+  // con dia_d_puestos_votacion.ctc_puesto_id — medidos los tres, son iguales.
+  // Un INT aquí obligaría a MySQL a convertir en cada cruce.
+  //
+  // Sin llave foránea a propósito: apunta a OTRA base de datos, y MySQL no
+  // admite foráneas entre bases (es la misma razón por la que la migración al
+  // catálogo soltó las que había).
+  for (const tabla of ['votantes', 'usuarios']) {
+    await agregarColumnaSiFalta(
+      connection, tabla,
+      'ctc_puesto_id BIGINT UNSIGNED NULL AFTER puesto_id',
+      'ctc_puesto_id'
+    );
   }
 
   // usuarios.puesto_id: el id del puesto de votación, derivado del texto
