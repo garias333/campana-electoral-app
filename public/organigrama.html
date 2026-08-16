@@ -656,7 +656,8 @@ function botonWhatsAppOrg(nodo) {
   const digitos = String(nodo.telefono || '').replace(/\D/g, '');
   if (!digitos) return '';
   const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
-  return `<a class="btn-secundario btn-sm btn-org-whatsapp" target="_blank" rel="noopener"
+  return `<a class="btn-secundario btn-sm btn-org-whatsapp" target="whatsappWeb"
+             onclick="abrirWhatsApp(event, '${internacional}')"
              href="https://wa.me/${internacional}" title="Escribir por WhatsApp a ${escaparHtml(nodo.cargo)}"
              aria-label="Escribir por WhatsApp">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -1032,10 +1033,23 @@ document.getElementById('btn-todo-word').addEventListener('click', () => {
 });
 
 async function eliminarNodo(id) {
-  const hijos = nodos.filter(n => n.padre_id === id);
-  const mensaje = hijos.length
-    ? '¿Eliminar este cargo y TODA su subestructura (subordinados y asesores)? Esta acción no se puede deshacer.'
-    : '¿Eliminar este cargo?';
+  const nodo = nodos.find(n => n.id === id);
+  const cargo = nodo ? nodo.cargo : 'este cargo';
+
+  // CUENTA TODA LA RAMA, NO SOLO LOS HIJOS DIRECTOS. El borrado es
+  // recursivo, pero el aviso miraba un solo nivel: un cargo con dos
+  // subordinados que a su vez tuvieran cinco cada uno decía «y toda su
+  // subestructura» sin decir que eran doce. Quien confirma tiene que saber
+  // cuántos se lleva por delante.
+  const contarRama = (padreId) => nodos
+    .filter(n => n.padre_id === padreId)
+    .reduce((suma, h) => suma + 1 + contarRama(h.id), 0);
+  const cuantos = contarRama(id);
+
+  const mensaje = cuantos
+    ? `¿Está seguro de eliminar el cargo ${cargo} y TODA su subestructura?\n\n` +
+      `Se eliminarán ${cuantos} cargo(s) más (subordinados y asesores). Esta acción no se puede deshacer.`
+    : `¿Está seguro de eliminar el cargo ${cargo}?\n\nEsta acción no se puede deshacer.`;
   if (!confirm(mensaje)) return;
   try {
     await api(`/organigrama/${id}`, { method: 'DELETE' });

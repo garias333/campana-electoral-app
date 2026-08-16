@@ -461,6 +461,33 @@ function formatoTelefonoColombia(valor) {
  *
  * Devuelve el guion largo si no hay teléfono — la celda nunca queda vacía.
  */
+/**
+ * Abre WhatsApp reutilizando SIEMPRE la misma pestaña.
+ *
+ * Con `target="_blank"` cada clic abría una pestaña nueva, y tras revisar
+ * diez contactos quedaban diez pestañas de WhatsApp. Con un nombre de
+ * ventana fijo, el navegador reutiliza la que ya existe y `focus()` la trae
+ * al frente: si WhatsApp Web ya está abierto ahí, solo cambia el chat.
+ *
+ * LO QUE NO SE PUEDE HACER, PARA NO PROMETERLO: si la pestaña de WhatsApp la
+ * abrió la persona por su cuenta, ninguna página puede apoderarse de ella —
+ * un sitio solo alcanza las ventanas que él mismo abrió. La primera vez se
+ * abrirá una pestaña nueva; a partir de ahí se reutiliza esa.
+ *
+ * `opener = null` va DESPUÉS de abrirla, y no con rel="noopener" en el
+ * enlace: `noopener` obliga al navegador a crear una ventana anónima cada
+ * vez, o sea que habría anulado justo la reutilización que se busca. Así se
+ * consiguen las dos cosas — se reutiliza y la página abierta no conserva un
+ * puntero a esta.
+ */
+function abrirWhatsApp(evento, numeroInternacional) {
+  if (evento && evento.preventDefault) evento.preventDefault();
+  const ventana = window.open(`https://wa.me/${numeroInternacional}`, 'whatsappWeb');
+  if (!ventana) return;                       // el navegador la bloqueó
+  try { ventana.opener = null; } catch (err) { /* algunos navegadores no dejan */ }
+  try { ventana.focus(); } catch (err) { /* si no deja enfocar, ya se abrió */ }
+}
+
 function celdaTelefonoWhatsApp(telefono) {
   const digitos = String(telefono || '').replace(/\D/g, '');
   if (!digitos) return '—';
@@ -476,7 +503,8 @@ function celdaTelefonoWhatsApp(telefono) {
   // rel="noopener" no es adorno: sin él, la pestaña que se abre puede tocar
   // la que la abrió a través de window.opener.
   return `<span class="tel-whatsapp">${visible}
-    <a href="https://wa.me/${internacional}" target="_blank" rel="noopener"
+    <a href="https://wa.me/${internacional}" target="whatsappWeb"
+       onclick="abrirWhatsApp(event, '${internacional}')"
        class="enlace-whatsapp" title="Escribir por WhatsApp a este número"
        aria-label="Escribir por WhatsApp">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
