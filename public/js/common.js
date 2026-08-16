@@ -603,9 +603,16 @@ function formatoTelefonoColombia(valor) {
  * consiguen las dos cosas — se reutiliza y la página abierta no conserva un
  * puntero a esta.
  */
-function abrirWhatsApp(evento, numeroInternacional) {
+/**
+ * Abre WhatsApp con este número, reutilizando la pestaña si ya está abierta.
+ *
+ * `texto` es opcional: si viene, el mensaje va escrito y listo para enviar.
+ * Va codificado porque lleva saltos de línea y el enlace de la aplicación.
+ */
+function abrirWhatsApp(evento, numeroInternacional, texto) {
   if (evento && evento.preventDefault) evento.preventDefault();
-  const ventana = window.open(`https://wa.me/${numeroInternacional}`, 'whatsappWeb');
+  const conTexto = texto ? `?text=${encodeURIComponent(texto)}` : '';
+  const ventana = window.open(`https://wa.me/${numeroInternacional}${conTexto}`, 'whatsappWeb');
   if (!ventana) return;                       // el navegador la bloqueó
   try { ventana.opener = null; } catch (err) { /* algunos navegadores no dejan */ }
   try { ventana.focus(); } catch (err) { /* si no deja enfocar, ya se abrió */ }

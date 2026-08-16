@@ -339,6 +339,37 @@ input, select, textarea {
 }
 #form-campana label { cursor: pointer; }
 
+/* ------------------------------------------------------------------
+   Configuración → Usuarios: botón de WhatsApp y "Credenciales enviadas".
+
+   El botón va PEGADO al teléfono, en la misma celda, porque es sobre ese
+   número que escribe: separarlo en su propia columna obligaría a mirar dos
+   sitios para saber a dónde va el mensaje. El verde #25D366 es el de la
+   marca, y aquí funciona como icono —no como texto—, así que la regla de
+   contraste que aplica es la de elementos gráficos.                      */
+.btn-whatsapp-credenciales {
+  background: none;
+  border: 0;
+  padding: 0 0 0 6px;
+  width: auto;
+  color: #25D366;
+  cursor: pointer;
+  vertical-align: middle;
+  line-height: 0;
+}
+.btn-whatsapp-credenciales:hover { color: #1DA851; }
+
+/* La casilla se marca sola al enviar y NO se puede desmarcar a mano: refleja
+   un hecho registrado en el servidor (con su fecha, visible al pasar el
+   ratón), no una preferencia. Va deshabilitada a propósito.
+
+   El fondo verde claro es lo que se lee de un vistazo recorriendo la
+   columna; la casilla sola, en gris de deshabilitada, se pierde. */
+td.credenciales-ok { background: #E7F6EE; }
+tbody tr:hover td.credenciales-ok { background: #DCF0E4; }
+td.credenciales-ok input[type="checkbox"] { accent-color: #1E7245; }
+td.col-num input[type="checkbox"] { width: 17px; height: 17px; padding: 0; }
+
 input:focus, select:focus, textarea:focus {
   outline: 2px solid var(--color-navy-lighter);
   outline-offset: 1px;

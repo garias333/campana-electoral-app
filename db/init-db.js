@@ -1203,6 +1203,25 @@ async function main() {
     );
   }
 
+  // --- Cuándo se le enviaron sus credenciales a cada persona del equipo ---
+  //
+  // Es una FECHA y no un sí/no: además de marcar la casilla, deja saber
+  // cuándo se mandó, que es lo que hace falta cuando alguien dice que nunca
+  // le llegó.
+  //
+  // Se pone en NULL al restablecer la contraseña: a partir de ese momento lo
+  // que la persona tenga guardado ya no sirve, y la casilla vuelve a estar en
+  // blanco para que se vea de un vistazo a quién falta volver a escribirle.
+  //
+  // OJO CON LO QUE SIGNIFICA: marca que el mensaje se ABRIÓ para enviarlo, no
+  // que la persona lo haya recibido ni leído. WhatsApp se abre en otra
+  // ventana y no hay forma de saber desde aquí si el envío se completó.
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'credenciales_enviadas DATETIME NULL AFTER telefono',
+    'credenciales_enviadas'
+  );
+
   // usuarios.puesto_id: el id del puesto de votación, derivado del texto
   // libre de usuarios.puesto_votacion. Existe para que los cruces del Día D
   // se hagan por id y no comparando dos textos carácter por carácter.

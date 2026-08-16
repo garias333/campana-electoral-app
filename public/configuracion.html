@@ -331,7 +331,7 @@
       <div class="mono" id="contador-usuarios" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:8px;"></div>
       <div class="tabla-contenedor">
       <table>
-        <thead><tr><th>Nombre</th><th>Número de identificación</th><th>Email</th><th>Teléfono</th><th>Rol</th><th>Territorio</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Número de identificación</th><th>Email</th><th>Teléfono</th><th class="col-num">Credenciales enviadas</th><th>Rol</th><th>Territorio</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbody-usuarios"></tbody>
       </table>
       </div>
@@ -857,12 +857,23 @@ function renderizarUsuarios() {
   document.getElementById('vacio-usuarios').style.display = filas.length ? 'none' : 'block';
   tbody.innerHTML = filas.map(u => `
     <tr>
-      <td><strong>${u.nombre}</strong></td>
-      <td class="mono">${u.numero_identificacion || '—'}</td>
-      <td>${u.email}</td>
-      <td class="mono">${u.telefono ? formatoTelefonoColombia(u.telefono) : '—'}</td>
-      <td><span class="tag-tipo">${u.rol}</span></td>
-      <td>${u.territorio_nombre || '—'}</td>
+      <td><strong>${escaparHtml(u.nombre)}</strong></td>
+      <td class="mono">${escaparHtml(u.numero_identificacion || '—')}</td>
+      <td>${escaparHtml(u.email)}</td>
+      <td class="mono" style="white-space:nowrap;">
+        ${u.telefono ? escaparHtml(formatoTelefonoColombia(u.telefono)) : '—'}
+        ${u.telefono ? `<button type="button" class="btn-whatsapp-credenciales"
+             onclick="enviarCredencialesWhatsApp(${u.id})"
+             title="Enviarle por WhatsApp el enlace de la aplicación y sus datos de acceso">
+             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.04-.98.22-3.3-.69-2.79-1.1-4.55-3.96-4.69-4.14-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34.18 0 .36 0 .52.01.17.01.39-.06.61.47.24.55.8 1.9.87 2.04.07.14.12.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.61-.07.17-.19.7-.82.89-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/></svg>
+           </button>` : ''}
+      </td>
+      <td class="col-num${u.credenciales_enviadas ? ' credenciales-ok' : ''}">
+        <input type="checkbox" disabled ${u.credenciales_enviadas ? 'checked' : ''}
+               title="${u.credenciales_enviadas ? 'Enviadas el ' + escaparHtml(new Date(u.credenciales_enviadas).toLocaleString('es-CO')) : 'Todavía no se le han enviado'}">
+      </td>
+      <td><span class="tag-tipo">${escaparHtml(u.rol)}</span></td>
+      <td>${escaparHtml(u.territorio_nombre || '—')}</td>
       <td>${u.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
@@ -871,6 +882,78 @@ function renderizarUsuarios() {
       </td>
     </tr>
   `).join('');
+}
+
+/**
+ * Le manda por WhatsApp a alguien del equipo el enlace de la aplicación y sus
+ * datos de acceso.
+ *
+ * POR QUÉ GENERA UNA CONTRASEÑA NUEVA, Y NO SE PUEDE HACER DE OTRA FORMA.
+ *   La contraseña no se guarda: en la base solo hay un hash de bcrypt, del
+ *   que no se puede volver atrás — es justamente su razón de ser. Así que
+ *   nadie, ni el administrador, puede consultar la contraseña de alguien
+ *   para reenviársela. La única manera honesta de mandar una que funcione es
+ *   poner una nueva en ese momento.
+ *
+ *   Por eso se avisa antes: si la persona ya venía entrando con su clave, va
+ *   a dejar de servirle en cuanto se confirme.
+ *
+ * LA VENTANA SE ABRE ANTES DE LLAMAR AL SERVIDOR, aunque todavía no haya
+ * nada que mostrar. Los navegadores solo permiten abrir una ventana durante
+ * el clic; si se abriera después del `await`, el bloqueador la detendría y el
+ * mensaje no aparecería — con la contraseña ya cambiada y sin forma de
+ * saberlo.
+ */
+async function enviarCredencialesWhatsApp(id) {
+  const u = listaUsuarios.find(x => x.id === id);
+  if (!u) return;
+  const digitos = String(u.telefono || '').replace(/\D/g, '');
+  if (!digitos) { alert('Esta persona no tiene teléfono registrado.'); return; }
+
+  const yaEnviadas = !!u.credenciales_enviadas;
+  const aviso = yaEnviadas
+    ? `A ${u.nombre} ya se le enviaron sus credenciales.\n\nVolver a enviarlas genera una CONTRASEÑA NUEVA, y la que tenga ahora dejará de funcionar.\n\n¿Continuar?`
+    : `Se le va a asignar a ${u.nombre} una contraseña nueva y se le enviará por WhatsApp junto con el enlace de la aplicación.\n\nSi ya estaba entrando con otra clave, dejará de funcionar.\n\n¿Continuar?`;
+  if (!confirm(aviso)) return;
+
+  // Ver el comentario de arriba: la ventana se pide dentro del clic.
+  const ventana = window.open('', 'whatsappWeb');
+
+  try {
+    const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST' });
+    const candidato = (document.querySelector('#form-campana [name="nombre_candidato"]') || {}).value || '';
+    const enlace = `${window.location.origin}/app/inicio.html`;
+    const texto = [
+      `Hola ${u.nombre}, te damos la bienvenida al equipo de la campaña${candidato ? ' de ' + candidato : ''}.`,
+      '',
+      '1) Instala la aplicación en tu celular desde este enlace:',
+      enlace,
+      '',
+      '2) Entra con estos datos:',
+      `Usuario: ${u.nombre_usuario || u.email}`,
+      `Contraseña: ${r.password_temporal}`,
+      '',
+      'La aplicación te va a pedir que cambies la contraseña la primera vez que entres. No compartas estos datos con nadie.'
+    ].join('\n');
+
+    const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+    const destino = `https://wa.me/${internacional}?text=${encodeURIComponent(texto)}`;
+    if (ventana) {
+      ventana.location = destino;
+      try { ventana.opener = null; } catch (e) { /* algunos navegadores no dejan */ }
+      try { ventana.focus(); } catch (e) { /* si no deja enfocar, ya se abrió */ }
+    } else {
+      // Bloqueada pese a todo: la contraseña YA cambió, así que no se puede
+      // callar. Se muestra para que el envío se pueda completar a mano.
+      alert(`No se pudo abrir WhatsApp.\n\nLa contraseña nueva de ${u.nombre} es: ${r.password_temporal}\n\nAnótela y envíesela, porque no se vuelve a mostrar.`);
+    }
+
+    await api(`/usuarios/${id}/credenciales-enviadas`, { method: 'POST' });
+    await cargarUsuarios();
+  } catch (err) {
+    if (ventana) ventana.close();
+    alert(err.message || 'No se pudieron enviar las credenciales.');
+  }
 }
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }

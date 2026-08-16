@@ -6,6 +6,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const router = express.Router();
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
+const { registrarAuditoria } = require('../config/auditoria');
 router.use(requireAuth);
 
 /**
@@ -68,7 +69,7 @@ router.get('/', async (req, res) => {
 router.get('/admin', requireRole('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, r.nombre AS rol, u.activo,
+      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo,
              u.debe_cambiar_password, u.two_factor_enabled, u.ultimo_login, u.created_at,
              COALESCE(t.nombre, te.nombre) AS territorio_nombre
       FROM usuarios u
@@ -206,14 +207,53 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
   try {
     const passwordTemporal = Math.random().toString(36).slice(-10);
     const hash = await bcrypt.hash(passwordTemporal, 12);
+    // `credenciales_enviadas = NULL`: la clave que la persona tenga guardada
+    // dejo de servir en este mismo instante, asi que la casilla de
+    // "Credenciales enviadas" vuelve a estar en blanco. Sin esto, la tabla
+    // seguiria diciendo que ya se le escribio y nadie se enteraria de que hay
+    // que volver a hacerlo.
     await pool.query(
-      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 1, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?`,
+      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 1, intentos_fallidos = 0,
+              bloqueado_hasta = NULL, credenciales_enviadas = NULL
+        WHERE id = ?`,
       [hash, req.params.id]
     );
     res.json({ ok: true, password_temporal: passwordTemporal });
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
     res.status(500).json({ error: 'Error restableciendo la contraseña.' });
+  }
+});
+
+/**
+ * Deja constancia de que se le mandaron las credenciales a esta persona.
+ *
+ * Lo llama el botón de WhatsApp de Configuración → Usuarios DESPUÉS de abrir
+ * la ventana del mensaje.
+ *
+ * LO QUE MARCA ES QUE EL MENSAJE SE ABRIÓ CON LOS DATOS PUESTOS, no que la
+ * persona lo recibiera ni lo leyera: WhatsApp se abre en otra ventana, fuera
+ * de esta aplicación, y desde aquí no hay forma de saber si el envío llegó a
+ * completarse. Conviene que la casilla se entienda así y no como un acuse de
+ * recibo.
+ */
+router.post('/:id/credenciales-enviadas', requireRole('admin'), async (req, res) => {
+  try {
+    const [r] = await pool.query(
+      `UPDATE usuarios SET credenciales_enviadas = NOW() WHERE id = ?`, [req.params.id]
+    );
+    if (!r.affectedRows) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    const [[fila]] = await pool.query(
+      `SELECT credenciales_enviadas FROM usuarios WHERE id = ?`, [req.params.id]
+    );
+    await registrarAuditoria(
+      req.session.usuario.id, 'credenciales_enviadas', 'usuarios', req.params.id,
+      'Se le enviaron por WhatsApp el enlace de la aplicación y sus datos de acceso.', req.ip
+    );
+    res.json({ ok: true, credenciales_enviadas: fila.credenciales_enviadas });
+  } catch (err) {
+    registrarErrorSinSql('usuarios', err);
+    res.status(500).json({ error: 'No se pudo dejar registrado el envío.' });
   }
 });
 
