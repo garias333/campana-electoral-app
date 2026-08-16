@@ -1150,8 +1150,13 @@ let ambitoDepartamental = false;
 function municipioDeInfluenciaPersona() {
   if (!ambitoDepartamental) return buscarMunicipioResidenciaPersona();
   const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-persona').value);
-  if (!nombre) return null;
-  return listaTerritorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre) || null;
+  const propio = nombre
+    ? listaTerritorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre)
+    : null;
+  // Mismo respaldo que en Votantes: sin municipio de influencia escrito,
+  // manda la Ciudad de residencia. Aquí el campo SÍ está a la vista, así que
+  // solo actúa cuando se deja vacío — y evita el mismo callejón sin salida.
+  return propio || buscarMunicipioResidenciaPersona();
 }
 
 /**

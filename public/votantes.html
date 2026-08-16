@@ -1101,8 +1101,20 @@ function buscarMunicipioResidenciaVotante() {
 function municipioDeInfluenciaVotante() {
   if (!ambitoDepartamental) return buscarMunicipioResidenciaVotante();
   const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-votante').value);
-  if (!nombre) return null;
-  return territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre) || null;
+  const propio = nombre
+    ? territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre)
+    : null;
+  // SI NO HAY MUNICIPIO DE INFLUENCIA, MANDA LA CIUDAD DE RESIDENCIA.
+  //
+  // Ese campo solo se muestra a un Sublíder: un Votante corriente no lo ve
+  // nunca. Sin este respaldo, elegir un Área en campaña departamental
+  // devolvía «Seleccione el municipio del área de influencia» y NO HABÍA
+  // FORMA DE OBEDECER, porque el campo que pedía no estaba en pantalla. El
+  // formulario quedaba imposible de guardar con área.
+  //
+  // La Ciudad es el municipio que la persona sí escribió, y para un votante
+  // es exactamente donde está: es el dato correcto, no un parche.
+  return propio || buscarMunicipioResidenciaVotante();
 }
 
 /**
