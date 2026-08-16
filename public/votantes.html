@@ -1573,6 +1573,27 @@ async function editarVotante(v) {
   if (puedeAsignarTestigoElectoral) await actualizarVisibilidadTipoTestigoVotante();
   poblarListasUbicacionVotante();
   if (!esOrganizacion) precargarUbicacionVotante(v.territorio_id);
+
+  // EL ÁREA GUARDADA SE REPONE DESPUÉS, Y ESTA LÍNEA ARREGLA UN FALLO SERIO.
+  //
+  // precargarUbicacionVotante() empieza VACIANDO el selector de Área y solo
+  // lo vuelve a llenar si el territorio es barrio, vereda, comuna o
+  // corregimiento. Si es el MUNICIPIO —que es el caso normal en campaña
+  // departamental, donde esas cuatro capas no existen— el Área quedaba en
+  // blanco al abrir la ficha. Y al guardar, resolverTerritorioVotante() lee
+  // ese selector vacío y devuelve territorio y área NULOS: bastaba con
+  // abrir a alguien, corregirle el teléfono y guardar para borrarle los dos.
+  //
+  // No da ningún error: el formulario guarda, y el dato se pierde callado.
+  //
+  // Se repone solo si hay algo guardado, para no pisar lo que la precarga sí
+  // acertó a deducir del territorio.
+  if (!esOrganizacion && v.area) {
+    document.getElementById('select-area-votante').value = v.area;
+    document.getElementById('fila-urbano-votante').style.display = v.area === 'urbano' ? 'flex' : 'none';
+    document.getElementById('fila-rural-votante').style.display = v.area === 'rural' ? 'flex' : 'none';
+  }
+
   await actualizarLiderPorTerritorioInfluencia(v.lider_id, v.lider_nombre);
   // Se llama de nuevo, aparte, para que el Sublíder que ya tenía asignado
   // quede seleccionado (la llamada anterior ya refrescó la lista, pero sin
