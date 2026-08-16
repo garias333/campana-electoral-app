@@ -850,6 +850,20 @@ function puedeAgregar(usuario, modulo) {
   const permiso = usuario && usuario.permisos && usuario.permisos[modulo];
   return permiso ? !!permiso.agregar : true;
 }
+/**
+ * El tercer permiso, «Ver», que faltaba.
+ *
+ * Para el menú lateral esto lo decidía itemVisible(), dentro de la función que
+ * lo pinta y sin exponerse a nadie. Hacía falta fuera: la pestaña Usuarios de
+ * Configuración no es un elemento del menú y necesita la misma pregunta.
+ *
+ * Misma convención que sus dos hermanas: sin datos de permisos se asume que sí
+ * —esconderle algo a alguien porque una consulta falló es peor que mostrarlo—.
+ */
+function puedeVer(usuario, modulo) {
+  const permiso = usuario && usuario.permisos && usuario.permisos[modulo];
+  return permiso ? !!permiso.ver : true;
+}
 
 /**
  * Muestra un modal pidiendo la contraseña de un administrador y devuelve la

@@ -52,7 +52,12 @@
       document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
         ? 'Puestos de votación y candidatos'
         : 'Configuración';
-      document.getElementById('barra-pestanas-config').style.display = esPantallaDiaD ? 'none' : 'flex';
+      // LA BARRA SE QUEDA, TAMBIÉN EN DÍA D. Antes se ocultaba: la idea era
+      // presentar «Puestos de votación y candidatos» como una pantalla propia,
+      // a la que se llega desde el menú lateral. En la práctica dejaba a quien
+      // entraba por la pestaña sin forma de volver, y parecía que el menú se
+      // hubiera roto. El encabezado sí cambia, que es lo que ubica.
+      document.getElementById('barra-pestanas-config').style.display = 'flex';
     }
     aplicarPresentacionPestana(window.location.hash.slice(1));
     </script>
@@ -352,7 +357,7 @@
       <div id="permisos-ok" class="mensaje-ok"></div>
       <div style="overflow-x:auto;">
         <table id="tabla-permisos">
-          <thead><tr id="permisos-encabezado"><th>Rol</th></tr></thead>
+          <thead><tr id="permisos-encabezado"><th class="col-rol-fija">Rol</th></tr></thead>
           <tbody id="tbody-permisos"></tbody>
         </table>
       </div>
@@ -501,7 +506,8 @@ let roles = [];
 function cambiarPestana(pestana) {
   document.getElementById('seccion-campana').style.display = pestana === 'campana' ? 'block' : 'none';
   document.getElementById('seccion-diad').style.display = pestana === 'diad' ? 'block' : 'none';
-  document.getElementById('seccion-usuarios').style.display = pestana === 'usuarios' ? 'block' : 'none';
+  document.getElementById('seccion-usuarios').style.display =
+    (pestana === 'usuarios' && puedeVer(usuarioActual, 'usuarios')) ? 'block' : 'none';
   document.getElementById('seccion-permisos').style.display = pestana === 'permisos' ? 'block' : 'none';
   document.getElementById('seccion-eliminar').style.display = pestana === 'eliminar' ? 'block' : 'none';
   document.getElementById('seccion-backup').style.display = pestana === 'backup' ? 'block' : 'none';
@@ -1180,7 +1186,7 @@ async function cargarMatrizPermisos() {
 
   document.getElementById('tbody-permisos').innerHTML = rolesPermisos.map(rol => `
     <tr>
-      <td><strong>${ETIQUETAS_ROL[rol] || rol}</strong></td>
+      <td class="col-rol-fija"><strong>${ETIQUETAS_ROL[rol] || rol}</strong></td>
       ${modulos.map(m => {
         const celda = permisos[`${rol}:${m.clave}`] || { ver: false, editar: false, agregar: false };
         return `
@@ -1793,6 +1799,12 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
 (async () => {
   usuarioActual = await inicializarLayout('/configuracion.html');
   if (!usuarioActual) return;
+  // La pestaña Usuarios se puede apagar desde Asignación de permisos, igual
+  // que cualquier otro módulo. Se oculta el botón Y su contenido: dejar el
+  // panel accesible por el ancla (#usuarios) haría del permiso un adorno.
+  if (!puedeVer(usuarioActual, 'usuarios')) {
+    document.getElementById('btn-tab-usuarios').style.display = 'none';
+  }
   if (usuarioActual.rol !== 'admin') {
     document.getElementById('vacio-sin-permiso').style.display = 'block';
     document.getElementById('seccion-campana').style.display = 'none';

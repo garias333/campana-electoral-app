@@ -340,6 +340,26 @@ input, select, textarea {
 #form-campana label { cursor: pointer; }
 
 /* ------------------------------------------------------------------
+   Matriz de permisos: la columna del Rol se queda quieta.
+
+   La tabla tiene diecinueve módulos y se desplaza a lo ancho; sin esto,
+   al llegar a la mitad ya no se sabe de qué rol es la fila que se está
+   marcando, que es justo cuando un error se paga caro.
+
+   `position: sticky` con `left: 0` y fondo propio: sin el fondo, las
+   celdas de la derecha se ven POR DEBAJO al pasar. El z-index deja el
+   encabezado por encima de las celdas, y su esquina por encima de todo. */
+.col-rol-fija {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+  text-align: left;
+}
+thead .col-rol-fija { z-index: 3; background: var(--color-bg, #F3F5F8); }
+tbody tr:hover .col-rol-fija { background: #FAFBFC; }
+
+/* ------------------------------------------------------------------
    Configuración → Usuarios: botón de WhatsApp y "Credenciales enviadas".
 
    El botón va PEGADO al teléfono, en la misma celda, porque es sobre ese

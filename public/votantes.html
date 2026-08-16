@@ -162,7 +162,7 @@
              y el clic lo maneja el <label> sin JavaScript. -->
         <div class="chips-form" role="group" aria-label="Categoría">
           <label class="chip-form"><input type="checkbox" id="chk-categoria-votante"> Votante</label>
-          <label class="chip-form"><input type="checkbox" id="chk-categoria-sublider"> Sublíder</label>
+          <label class="chip-form" id="chip-categoria-sublider"><input type="checkbox" id="chk-categoria-sublider"> Sublíder</label>
         </div>
         <label id="campo-meta-votos-sublider" style="display:none; align-items:center; gap:6px; font-weight:400; margin-top:10px;">
           Meta de votos
@@ -2475,6 +2475,18 @@ function alternarMesasEstimadoPuesto(i) {
 (async () => {
   usuarioActual = await inicializarLayout('/votantes.html');
   if (!usuarioActual) return;
+
+  // UN SUBLÍDER NO CREA SUBLÍDERES. La cadena es coordinador → líder →
+  // sublíder, y ahí se acaba: ofrecerle la casilla es ofrecerle un nivel que
+  // la estructura no contempla, y lo que se cree así queda colgando de nadie.
+  // Se oculta la opción, no solo se desmarca: una casilla que al marcarla no
+  // hace lo que dice es peor que no tenerla.
+  if (usuarioActual.rol === 'sublider') {
+    const chip = document.getElementById('chip-categoria-sublider');
+    if (chip) chip.style.display = 'none';
+    const casilla = document.getElementById('chk-categoria-sublider');
+    if (casilla) casilla.checked = false;
+  }
 
   // El aviso de pendientes y el reintento al recuperar señal se activan
   // ya mismo, sin depender de que el resto de la pantalla haya cargado —

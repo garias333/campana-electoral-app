@@ -666,6 +666,12 @@ function irDondeCorresponde(usuario) {
     window.location.href = '/app/dia-d.html';
     return;
   }
+  // El Invitado va derecho a registrar: es lo único que hace, y el menú
+  // lateral le mostraría una lista de pantallas a las que no puede entrar.
+  if (usuario && usuario.rol === 'invitado') {
+    window.location.href = '/app/registro-votante.html';
+    return;
+  }
   const rolesApp = ['lider', 'sublider'];
   window.location.href = (usuario && rolesApp.includes(usuario.rol)) ? '/app/inicio.html' : '/dashboard.html';
 }

@@ -27,6 +27,12 @@ const MODULOS = [
   { clave: 'configurar_crm', etiqueta: 'Configurar CRM' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
   { clave: 'finanzas', etiqueta: 'Finanzas' },
+  // «Usuarios» no es una pantalla del menú lateral sino una pestaña dentro de
+  // Configuración. Está aquí para poder decidir quién administra cuentas sin
+  // dar o quitar toda la Configuración de golpe. Ojo: hoy Configuración entera
+  // es solo para admin, así que esta fila regula al administrador; queda lista
+  // para el día que se abra a otro rol.
+  { clave: 'usuarios', etiqueta: 'Usuarios' },
   { clave: 'configuracion', etiqueta: 'Configuración' }
 ];
 const ROLES = ['admin', 'coordinador', 'lider', 'sublider', 'testigo', 'usuario', 'asistente_administrativo', 'invitado'];

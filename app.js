@@ -225,6 +225,11 @@ app.get('/', (req, res) => {
     if (req.session.usuario.rol === 'testigo') {
       return res.redirect('/app/dia-d.html');
     }
+    // El Invitado entra a registrar y a nada más: se le lleva directo al
+    // formulario, sin pasar por un menú donde casi todo le está vedado.
+    if (req.session.usuario.rol === 'invitado') {
+      return res.redirect('/app/registro-votante.html');
+    }
     // Líder y Sublíder trabajan principalmente desde la app de captura
     // (public/app/...); el resto de roles sigue yendo al panel de escritorio.
     const rolesApp = ['lider', 'sublider'];
