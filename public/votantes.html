@@ -684,7 +684,17 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
       try {
         const referentes = await api(
           `/territorial/referentes-por-municipio/${municipio.id}` + (area ? `?area=${area}` : ''));
-        let html = '<option value="">Yo mismo / no aplica</option>' +
+
+        // UNA LISTA VACÍA TIENE QUE DECIR POR QUÉ. Antes quedaba solo con «Yo
+        // mismo / no aplica», y eso significa tres cosas distintas —no hay
+        // nadie de esa área en ese municipio, no se pudo consultar, o falta
+        // elegir el municipio— sin forma de distinguirlas. Quien lo ve
+        // concluye que la aplicación está rota.
+        const etiquetaArea = area === 'urbano' ? 'urbanos' : area === 'rural' ? 'rurales' : '';
+        const aviso = referentes.length ? '' :
+          `<option value="" disabled>Sin líderes ${etiquetaArea} en ${escaparHtml(nombreLugar(municipio.nombre))} — búscalo por nombre arriba</option>`;
+
+        let html = '<option value="">Yo mismo / no aplica</option>' + aviso +
           referentes.map(u => `<option value="${u.id}">${escaparHtml(u.nombre)}</option>`).join('');
         if (preservarId && !referentes.some(u => String(u.id) === String(preservarId))) {
           html += `<option value="${preservarId}">${escaparHtml(preservarNombre || 'Asignado actualmente')}</option>`;
@@ -694,9 +704,17 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
         if (conservar && Array.from(select.options).some(o => o.value === String(conservar))) select.value = conservar;
         actualizarSublideresPorLider();
         return;
-      } catch (err) { /* si falla, cae al comportamiento de siempre */ }
+      } catch (err) {
+        // Un fallo de consulta NO puede parecerse a «no hay nadie».
+        console.warn('[referido-por] no se pudo consultar la lista:', err.message);
+        select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+          '<option value="" disabled>No se pudo consultar la lista — búscalo por nombre arriba</option>';
+        actualizarSublideresPorLider();
+        return;
+      }
     }
     select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+      '<option value="" disabled>Escriba primero la Ciudad de residencia</option>' +
       (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
     select.value = preservarId || '';
     actualizarSublideresPorLider();
