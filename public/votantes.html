@@ -1100,7 +1100,22 @@ function buscarMunicipioResidenciaVotante() {
  */
 function municipioDeInfluenciaVotante() {
   if (!ambitoDepartamental) return buscarMunicipioResidenciaVotante();
-  const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-votante').value);
+
+  // EL CAMPO DE INFLUENCIA SOLO MANDA SI ESTÁ A LA VISTA, o sea si la
+  // persona es Sublíder. Para un Votante ese campo está OCULTO, pero
+  // precargarUbicacionVotante() lo rellena igual con el municipio del
+  // territorio guardado — así que un territorio equivocado se perpetuaba
+  // solo: se corregía la Ciudad de residencia, se guardaba, y el territorio
+  // no se movía porque mandaba un campo invisible.
+  //
+  // Así aparecieron cuatro votantes que votaban y vivían en un municipio y
+  // figuraban en otro: Juan Carlos Velez vota y vive en Buenavista y salía
+  // en Génova. Lo que la persona ve y edita es la Ciudad; es esa la que
+  // tiene que decidir.
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  const nombre = esSublider
+    ? normalizarTexto(document.getElementById('input-municipio-influencia-votante').value)
+    : '';
   const propio = nombre
     ? territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre)
     : null;
