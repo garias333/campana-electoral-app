@@ -97,6 +97,10 @@
   <button type="button" class="btn-app btn-app-secundario" id="btn-cargar-mas" style="display:none; margin-top:6px;">
     Ver más
   </button>
+
+  <!-- Al final de la lista: quien entra directo a esta pantalla —Invitado,
+       Sublíder— no pasa por el menú de inicio y no tenía por dónde salir. -->
+  <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
 </div>
 
 <div id="ficha-overlay">
@@ -258,6 +262,15 @@ document.getElementById('buscador').addEventListener('input', (e) => {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
+
+  // Mismo criterio que en el resto de la app: avisar al servidor es «mejor
+  // esfuerzo» —sin señal no puede impedir salir— y la cuenta se desactiva
+  // pero no se olvida, para poder volver a entrar sin teclear la contraseña.
+  document.getElementById('btn-cerrar-sesion').addEventListener('click', async () => {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
+    desactivarCuentaDispositivo();
+    window.location.href = '/login.html';
+  });
   pintarBarraApp('Mis registros', 'Personas que has registrado', '/app/inicio.html');
   await cargarProgreso();
   await cargarVotantes(true);

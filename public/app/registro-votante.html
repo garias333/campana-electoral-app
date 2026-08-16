@@ -20,6 +20,7 @@
     <p style="color:var(--muted); margin:0 0 26px;" id="exito-detalle">El contacto quedó guardado correctamente.</p>
     <button class="btn-app btn-app-primario" id="btn-registrar-otro">Registrar otro contacto</button>
     <button class="btn-app btn-app-secundario" style="margin-top:10px;" onclick="window.location.href='/app/mis-registros.html'">Ver mis registros</button>
+    <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion-exito">Cerrar sesión</button>
   </div>
 
   <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
@@ -216,6 +217,7 @@
     </div>
 
     <button type="submit" class="btn-app btn-app-primario" id="btn-guardar">Guardar registro</button>
+    <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
   </form>
 </main>
 
@@ -238,10 +240,16 @@ const ETIQUETAS_APOYO_APP = {
 };
 
 /** Casillas de "Apoya a" según lo que el administrador activó en Configuración. Sin apoyos activos, la sección no aparece. */
-function aplicarApoyosConfiguradosApp(activos) {
+function aplicarApoyosConfiguradosApp(activos, posibles) {
   const bloque = document.getElementById('bloque-apoya-a-app');
   const casillas = document.getElementById('casillas-apoya-a-app');
-  const lista = Array.isArray(activos) ? activos : [];
+  // LA MISMA REGLA QUE EN EL ESCRITORIO, y por eso se llama a la función
+  // compartida de common.js. Aquí se usaba `apoyos_activos` en crudo: seguía
+  // mostrando los cinco de siempre aunque el cargo de la campaña solo
+  // contemple tres, porque ese arreglo conserva lo que se guardó el día que
+  // se configuró. Con apoyosEnOrden() se cruza contra los del cargo y además
+  // salen en el orden que manda.
+  const lista = apoyosEnOrden(activos, posibles);
   if (!lista.length) { bloque.style.display = 'none'; casillas.innerHTML = ''; return; }
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
@@ -780,6 +788,35 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
   if (!usuario) return;
   pintarBarraApp('Nuevo registro', 'Votante o sublíder', '/app/mis-registros.html');
 
+  // UN SUBLÍDER NO CREA SUBLÍDERES. La cadena es coordinador → líder →
+  // sublíder y ahí termina: lo que se creara desde aquí quedaría colgando de
+  // nadie. Se quita la opción del todo, y si estuviera elegida se vuelve a
+  // Votante — dejarla marcada y sin botón sería peor que dejar el botón.
+  if (usuario.rol === 'sublider') {
+    const chip = document.getElementById('chip-sublider');
+    if (chip) chip.style.display = 'none';
+    elegirCategoria('votante');
+  }
+
+  // CERRAR SESIÓN, EN LAS DOS PANTALLAS DE ESTA PÁGINA. El Invitado y el
+  // Sublíder entran directo aquí, sin pasar por el menú de inicio, así que
+  // sin estos botones no tenían por dónde salir.
+  //
+  // Avisar al servidor es «mejor esfuerzo»: sin señal esa llamada falla y
+  // cerrar sesión en este celular no puede depender de tener conexión. La
+  // cuenta se desactiva pero NO se olvida: sigue en el selector de /login.html
+  // para que otra persona, o la misma más tarde, entre sin volver a escribir
+  // la contraseña.
+  const cerrarSesionApp = async () => {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
+    desactivarCuentaDispositivo();
+    window.location.href = '/login.html';
+  };
+  ['btn-cerrar-sesion', 'btn-cerrar-sesion-exito'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (b) b.addEventListener('click', cerrarSesionApp);
+  });
+
   // El aviso de pendientes y el reintento al recuperar señal se activan
   // de una vez, sin depender de que el resto de la pantalla haya cargado
   // — así, si el líder abre la app sin conexión teniendo registros
@@ -813,7 +850,7 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
     document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
     document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
-    aplicarApoyosConfiguradosApp(configCampana.apoyos_activos);
+    aplicarApoyosConfiguradosApp(configCampana.apoyos_activos, configCampana.apoyos_posibles);
     aplicarVisibilidadComunaApp();
     poblarListasTerritorio();
     poblarDepartamentos();
