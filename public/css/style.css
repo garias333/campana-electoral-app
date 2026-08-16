@@ -990,15 +990,47 @@ body.sin-columna-barrio .col-barrio-vereda { display: none; }
 .barra-unida > :first-child,
 .grupo-pestanas > :first-child { border-left: none; }
 
-/* EL SELECCIONADO, EN AZUL OSCURO. Al igualar tamaño y grosor, la pestaña
-   activa dejaba de distinguirse: `.btn-acento` y `.btn-secundario` tienen
-   HOY el mismo fondo —#0B5ED7 desde que se unificaron los botones— y lo
-   único que la delataba era la letra más grande. Sin esto, la uniformidad
-   habría borrado la señal de en qué pestaña está uno. */
-.barra-unida > .btn-acento,
-.grupo-pestanas > .btn-acento { background: #084298; }
-.barra-unida > .btn-acento:hover,
-.grupo-pestanas > .btn-acento:hover { background: #063172; }
+/* EL SELECCIONADO, EN UN TONO MÁS OSCURO. Al igualar tamaño y grosor, la
+   pestaña activa dejaba de distinguirse: `.btn-acento` y `.btn-secundario`
+   tienen HOY el mismo fondo y lo único que la delataba era la letra más
+   grande. Sin esto, la uniformidad habría borrado la señal de en qué
+   pestaña está uno. */
+.barra-unida > .btn-acento { background: #084298; }
+.barra-unida > .btn-acento:hover { background: #063172; }
+
+/* LAS BARRAS DE CAMBIO DE VISTA VAN EN AMARILLO; LAS DE ACCIONES, EN AZUL.
+   Es la misma distinción que ya hace el resto de la aplicación —amarillo
+   para lo que se elige, azul para lo que se ejecuta— y ahora también separa
+   de un vistazo «cambiar de pestaña» de «exportar, importar, eliminar».
+
+   Negro sobre #FFC300 da 13,06:1, el contraste más alto de toda la
+   aplicación: es el mismo par que ya llevan los botones Editar y Eliminar de
+   cada fila. Blanco daría 1,61:1 y sería ilegible.
+
+   La pestaña abierta va en #CC9A00 — 8,19:1 con negro y a distancia 65 del
+   amarillo base, suficiente para verla sin mirar dos veces.
+
+   Y el separador pasa a negro translúcido: el blanco que usan las barras
+   azules desaparece sobre amarillo. */
+.grupo-pestanas > * {
+  background: #FFC300;
+  color: #000;
+  border-left-color: rgba(0, 0, 0, 0.22);
+}
+.grupo-pestanas > *:hover { background: #E6AF00; color: #000; }
+.grupo-pestanas > .btn-acento { background: #CC9A00; color: #000; }
+.grupo-pestanas > .btn-acento:hover { background: #B88A00; color: #000; }
+
+/* Salvo cuando el grupo vive DENTRO de una barra de acciones —el Organigrama
+   mete ahí su selector de vista y su zoom—: allí manda el azul de la barra
+   que lo contiene, o quedaría un trozo amarillo en mitad de una fila azul. */
+.barra-unida .grupo-pestanas > * {
+  background: var(--color-marca);
+  color: #fff;
+  border-left-color: rgba(255, 255, 255, 0.38);
+}
+.barra-unida .grupo-pestanas > *:hover { background: #084298; color: #fff; }
+.barra-unida .grupo-pestanas > .btn-acento { background: #084298; color: #fff; }
 
 /* Un grupo ya unido DENTRO de otra barra —el caso del Organigrama, que tiene
    la vista y el zoom— no vuelve a recortar ni a redondear: de eso se encarga
