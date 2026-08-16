@@ -1938,25 +1938,46 @@ router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
 router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
   const area = ['urbano', 'rural'].includes(req.query.area) ? req.query.area : null;
   try {
+    // EL ÁREA ORDENA, NO EXCLUYE — y esto es un cambio deliberado.
+    //
+    // Antes filtraba, y si no había nadie de esa área el desplegable quedaba
+    // VACÍO: sin forma de asignarle un líder a nadie, y sin decir por qué.
+    // Un desplegable vacío es el peor resultado posible aquí, porque bloquea
+    // el registro entero.
+    //
+    // Y el filtro tampoco era una regla de verdad: nada impide que a alguien
+    // del campo lo haya referido un líder urbano. El área es una AYUDA para
+    // encontrar antes al que corresponde, no una restricción.
+    //
+    // Así que ahora salen todos los del municipio, con los del área elegida
+    // ARRIBA. Se devuelve `area` en cada uno para que la pantalla pueda
+    // decir cuál es cuál.
+    const expresionArea = `COALESCE(
+      e.area,
+      CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
+           WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END)`;
+    // LA ORDENACIÓN VA EN UNA CONSULTA DE AFUERA, y no es un rodeo: con
+    // DISTINCT, MySQL no deja ordenar por una expresión que no esté en la
+    // selección, y si se usa el alias lo resuelve a la COLUMNA e.area, que
+    // tampoco está seleccionada. Las dos formas dan el mismo error. Sacando
+    // el DISTINCT a una subconsulta, la de afuera ordena por una columna que
+    // sin duda existe.
+    //
+    // (Se descubrió llamando a la ruta. Escrita a mano la consulta parecía
+    // correcta las dos veces.)
     const [rows] = await pool.query(`
-      SELECT DISTINCT u.id, u.nombre, e.cargo
-        FROM estructura e
-        JOIN usuarios u ON u.id = e.usuario_id
-        LEFT JOIN territorios t ON t.id = e.territorio_id
-        LEFT JOIN territorios padre ON padre.id = t.padre_id
-       WHERE e.activo = 1
-         AND e.cargo IN ('lider', 'coordinador')
-         AND (e.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
-         AND (? IS NULL OR COALESCE(
-               e.area,
-               CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
-                    WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END
-             ) IS NULL OR COALESCE(
-               e.area,
-               CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
-                    WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END
-             ) = ?)
-       ORDER BY FIELD(e.cargo, 'lider', 'coordinador'), u.nombre
+      SELECT * FROM (
+        SELECT DISTINCT u.id, u.nombre, e.cargo, ${expresionArea} AS area
+          FROM estructura e
+          JOIN usuarios u ON u.id = e.usuario_id
+          LEFT JOIN territorios t ON t.id = e.territorio_id
+          LEFT JOIN territorios padre ON padre.id = t.padre_id
+         WHERE e.activo = 1
+           AND e.cargo IN ('lider', 'coordinador')
+           AND (e.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
+      ) x
+      ORDER BY (? IS NOT NULL AND x.area = ?) DESC,
+               FIELD(x.cargo, 'lider', 'coordinador'), x.nombre
     `, [req.params.municipioId, req.params.municipioId, req.params.municipioId, area, area]);
     res.json(rows);
   } catch (err) {
