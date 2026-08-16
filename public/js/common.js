@@ -546,6 +546,108 @@ function apoyosEnOrden(activos, posibles) {
   return orden.filter(a => elegidos.includes(a));
 }
 
+/**
+ * NOMBRES DE LUGAR EN NOMBRE PROPIO, EN TODA LA APLICACIÓN.
+ *
+ * El catálogo guarda los territorios en mayúscula sostenida —«LA ENEA», «SAN
+ * PEREGRINO»— y así llegaban a las pantallas. Aquí se corrige la SALIDA, sin
+ * tocar el dato: nombreLugar() decide cómo se escribe y este vigilante lo
+ * aplica allí donde aparece.
+ *
+ * DOS SITIOS, Y SE TRATAN DISTINTO:
+ *
+ *   <datalist> — la opción ES el texto que se escribe en el campo, así que se
+ *                reformatea su `value`. Cambiarlo no rompe nada: quien
+ *                compara esos nombres lo hace ignorando mayúsculas y tildes.
+ *
+ *   <select>   — se reformatea SOLO el texto visible, NUNCA el `value`. Ahí
+ *                el value suele ser un id, y en algunos filtros es el nombre
+ *                exacto con el que se compara contra la base; tocarlo dejaría
+ *                el filtro sin encontrar nada.
+ *
+ * VA EN common.js Y NO EN listas-desplegables.js porque este archivo se carga
+ * en las 25 pantallas y aquel solo en seis. Con el vigilante allí, los
+ * desplegables de Enviar SMS, CRM, Configuración o el tablero se quedaban en
+ * mayúscula sostenida sin que nada lo explicara.
+ *
+ * Se acota por el id o el name del elemento: hay listas de documentos, de
+ * eventos o de cuentas del dispositivo a las que este formato no les aplica.
+ */
+const ES_NOMBRE_DE_LUGAR = /(departamento|depto|municipio|ciudad|comuna|corregimiento|barrio|vereda|territorio|zona)/i;
+
+function vigilarNombresDeLugar(elemento, campo) {
+  if (elemento.dataset.nombrePropio === 'si') return;
+  elemento.dataset.nombrePropio = 'si';
+
+  const aplicar = () => {
+    for (const opcion of elemento.options || []) {
+      if (campo === 'valor') {
+        const bonito = nombreLugar(opcion.value);
+        if (bonito !== opcion.value) opcion.value = bonito;
+        // En un datalist el texto sobra: el navegador muestra el value.
+        if (opcion.textContent && opcion.textContent !== opcion.value) opcion.textContent = '';
+      } else {
+        // Las opciones de encabezado —«Todas», «Seleccione...»— no son
+        // lugares: se reconocen porque su value está vacío.
+        if (!opcion.value) continue;
+        const bonito = nombreLugar(opcion.textContent);
+        if (bonito !== opcion.textContent) opcion.textContent = bonito;
+      }
+    }
+  };
+
+  // Se desconecta mientras escribe, o se llamaría a sí mismo sin parar.
+  const observador = new MutationObserver(() => {
+    observador.disconnect();
+    aplicar();
+    observador.observe(elemento, { childList: true });
+  });
+  aplicar();
+  observador.observe(elemento, { childList: true });
+}
+
+/** Engancha los datalist y select de lugares que haya ahora mismo en la página. */
+function normalizarNombresDeLugar(raiz) {
+  if (typeof nombreLugar !== 'function') return;
+  const base = raiz || document;
+  base.querySelectorAll('datalist').forEach((l) => {
+    if (ES_NOMBRE_DE_LUGAR.test(l.id || '')) vigilarNombresDeLugar(l, 'valor');
+  });
+  base.querySelectorAll('select').forEach((sel) => {
+    if (ES_NOMBRE_DE_LUGAR.test((sel.id || '') + ' ' + (sel.name || ''))) vigilarNombresDeLugar(sel, 'texto');
+  });
+}
+window.normalizarNombresDeLugar = normalizarNombresDeLugar;
+
+(function engancharNombresDeLugar() {
+  // Los desplegables que una pantalla crea DESPUÉS —CRM arma uno por cada
+  // grupo de destinatarios— no existirían en la primera pasada. En vez de
+  // pedirle a cada pantalla que se acuerde de avisar, se vuelve a mirar
+  // cuando el documento cambia. La revisión es barata: los ya enganchados
+  // llevan una marca y se saltan.
+  let pendiente = false;
+  const revisar = () => {
+    if (pendiente) return;
+    pendiente = true;
+    requestAnimationFrame(() => { pendiente = false; normalizarNombresDeLugar(); });
+  };
+  const arrancar = () => {
+    normalizarNombresDeLugar();
+    new MutationObserver((cambios) => {
+      for (const c of cambios) {
+        for (const nodo of c.addedNodes) {
+          if (nodo.nodeType === 1 && (nodo.tagName === 'SELECT' || nodo.tagName === 'DATALIST' || nodo.querySelector)) {
+            revisar();
+            return;
+          }
+        }
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
+  else arrancar();
+})();
+
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto == null ? '' : String(texto);

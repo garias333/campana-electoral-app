@@ -72,62 +72,15 @@
     });
   }
 
-  /**
-   * Las listas que contienen NOMBRES DE LUGAR, por su id.
-   *
-   * Va acotado y no a todas: de los 60 datalist de la aplicación, doce
-   * llevan otra cosa —documentos, eventos, respuestas, cuentas del
-   * dispositivo, puestos de votación…— y pasarles el formato de topónimo
-   * les cambiaría el texto sin motivo.
-   */
-  const ES_LISTA_DE_LUGARES = /(departamento|depto|municipio|ciudad|comuna|corregimiento|barrio|vereda)/i;
-
-  /**
-   * Deja en Nombre Propio las opciones de una lista de lugares.
-   *
-   * HACE FALTA VIGILAR, NO BASTA CON PINTAR UNA VEZ: la lista de Municipios
-   * de "Lugar de votación" la rellena public/js/lugar-votacion-catalogo.js
-   * cada vez que se toca el Departamento, con los nombres tal como los
-   * guarda el catálogo —en mayúscula sostenida—. Ese archivo no se puede
-   * modificar desde aquí (su ACL da solo lectura), así que se corrige su
-   * salida en vez de su código.
-   *
-   * Cambiar el texto NO rompe el cruce: quien compara esos nombres
-   * —buscarPorNombre() del módulo, y los formularios— lo hace ignorando
-   * mayúsculas y tildes, así que «Armenia» encuentra lo mismo que «ARMENIA».
-   *
-   * El observador se desconecta mientras escribe, o se llamaría a sí mismo
-   * sin parar.
-   */
-  function vigilarNombresDeLugar(lista) {
-    if (typeof nombreLugar !== 'function') return;   // pantallas sin common.js
-    if (lista.dataset.nombrePropio === 'si') return;
-    lista.dataset.nombrePropio = 'si';
-
-    const aplicar = () => {
-      let cambio = false;
-      for (const opcion of lista.options) {
-        const bonito = nombreLugar(opcion.value);
-        if (bonito !== opcion.value) { opcion.value = bonito; cambio = true; }
-        if (opcion.textContent && opcion.textContent !== bonito) opcion.textContent = '';
-      }
-      return cambio;
-    };
-
-    const observador = new MutationObserver(() => {
-      observador.disconnect();
-      aplicar();
-      observador.observe(lista, { childList: true });
-    });
-    aplicar();
-    observador.observe(lista, { childList: true });
-  }
+  // El formato Nombre Propio de los nombres de lugar VIVE EN common.js
+  // (normalizarNombresDeLugar), porque ese archivo se carga en todas las
+  // pantallas y este solo en seis. Aquí había una copia de la misma regla:
+  // dos implementaciones de un mismo criterio es exactamente cómo terminan
+  // divergiendo, así que se dejó una sola y este archivo se queda con lo
+  // suyo, que es el comportamiento del campo al recibir el foco.
 
   function activar() {
     document.querySelectorAll('input[list]').forEach(enganchar);
-    document.querySelectorAll('datalist').forEach((lista) => {
-      if (ES_LISTA_DE_LUGARES.test(lista.id)) vigilarNombresDeLugar(lista);
-    });
   }
 
   if (document.readyState === 'loading') {

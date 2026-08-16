@@ -303,7 +303,7 @@ function renderizarConsolidadoAsistentes() {
       <td>${escaparHtml(p.nombre || '—')}</td>
       <td class="mono">${escaparHtml(p.identidad || '—')}</td>
       <td>${celdaTelefonoWhatsApp(p.telefono)}</td>
-      <td class="col-barrio-vereda">${escaparHtml(p.barrio || '—')}</td>
+      <td class="col-barrio-vereda">${escaparHtml(nombreLugar(p.barrio) || '—')}</td>
       <td class="mono">${p.total_reuniones}</td>
       <td><button type="button" class="btn-secundario btn-sm" onclick="alternarReunionesConsolidado(${i})">Ver reuniones</button></td>
     </tr>
@@ -364,7 +364,7 @@ async function cargarAsistentesEvento() {
       <td>${escaparHtml(a.nombre_resuelto || '—')}</td>
       <td class="mono">${escaparHtml(a.identidad_resuelta || '—')}</td>
       <td>${celdaTelefonoWhatsApp(a.telefono_resuelto)}</td>
-      <td class="col-barrio-vereda">${escaparHtml(a.barrio_resuelto || '—')}</td>
+      <td class="col-barrio-vereda">${escaparHtml(nombreLugar(a.barrio_resuelto) || '—')}</td>
       <td><button type="button" class="btn-secundario btn-sm"  onclick="quitarAsistente(${a.id})">Quitar</button></td>
     </tr>
   `).join('');

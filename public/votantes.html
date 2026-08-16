@@ -1271,7 +1271,7 @@ function actualizarBarriosVotante() {
   }
   document.getElementById('lista-barrios-votante').innerHTML = barrios.map(b => `<option value="${escaparHtml(nombreLugar(b.nombre))}">`).join('');
   document.getElementById('contador-barrios-votante').textContent =
-    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
+    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + escaparHtml(nombreLugar(comuna.nombre)) : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
 }
 
 function actualizarVeredasVotante() {
@@ -1293,7 +1293,7 @@ function actualizarVeredasVotante() {
   }
   document.getElementById('lista-veredas-votante').innerHTML = veredas.map(v => `<option value="${escaparHtml(nombreLugar(v.nombre))}">`).join('');
   document.getElementById('contador-veredas-votante').textContent =
-    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
+    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + escaparHtml(nombreLugar(corregimiento.nombre)) : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
 }
 
 document.getElementById('input-municipio-influencia-votante').addEventListener('input', () => {

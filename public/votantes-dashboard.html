@@ -794,7 +794,7 @@ async function cargarPorComuna() {
   // El filtro de Comuna/Corregimiento del panel de Barrio se llena con esta misma lista.
   const selectComuna = document.getElementById('filtro-comuna-barrio');
   const valorPrevio = selectComuna.value;
-  selectComuna.innerHTML = '<option value="">Todas</option>' + filas.map(f => `<option value="${f.zona_id}">${escaparHtml(f.zona_nombre)}</option>`).join('');
+  selectComuna.innerHTML = '<option value="">Todas</option>' + filas.map(f => `<option value="${f.zona_id}">${escaparHtml(nombreLugar(f.zona_nombre))}</option>`).join('');
   if (valorPrevio && filas.some(f => String(f.zona_id) === valorPrevio)) selectComuna.value = valorPrevio;
 }
 
@@ -1077,7 +1077,7 @@ function construirHtmlInformeCobertura(detalle, tipo) {
     }
     return detalle.zonas.map(z => `
       <div class="informe-cobertura-zona">
-        <div class="informe-cobertura-zona-titulo">${etiquetaZona}: ${z.zona_nombre}</div>
+        <div class="informe-cobertura-zona-titulo">${etiquetaZona}: ${escaparHtml(nombreLugar(z.zona_nombre))}</div>
         <table class="tabla-mini">
           <thead><tr><th>${etiquetaHijo}</th><th>Líder asignado</th></tr></thead>
           <tbody>

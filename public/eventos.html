@@ -257,7 +257,7 @@ function actualizarBarriosEvento() {
     : territorios.filter(t => t.tipo === 'barrio');
   document.getElementById('lista-barrios-evento').innerHTML = barrios.map(b => `<option value="${b.nombre}">`).join('');
   document.getElementById('contador-barrios-evento').textContent =
-    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + comuna.nombre : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
+    barrios.length ? `${barrios.length} barrio(s) disponible(s)${comuna ? ' en ' + escaparHtml(nombreLugar(comuna.nombre)) : ''}.` : 'No hay barrios creados aún — créalos en "Estructura territorial > Gestionar territorios".';
 }
 
 function actualizarVeredasEvento() {
@@ -269,7 +269,7 @@ function actualizarVeredasEvento() {
     : territorios.filter(t => t.tipo === 'vereda');
   document.getElementById('lista-veredas-evento').innerHTML = veredas.map(v => `<option value="${v.nombre}">`).join('');
   document.getElementById('contador-veredas-evento').textContent =
-    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + corregimiento.nombre : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
+    veredas.length ? `${veredas.length} vereda(s) disponible(s)${corregimiento ? ' en ' + escaparHtml(nombreLugar(corregimiento.nombre)) : ''}.` : 'No hay veredas creadas aún — créalas en "Estructura territorial > Gestionar territorios".';
 }
 
 // --- Autocompletado de Coordinador (por Comuna/Corregimiento) y Líder (por Barrio/Vereda) ---

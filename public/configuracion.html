@@ -873,7 +873,7 @@ function renderizarUsuarios() {
                title="${u.credenciales_enviadas ? 'Enviadas el ' + escaparHtml(new Date(u.credenciales_enviadas).toLocaleString('es-CO')) : 'Todavía no se le han enviado'}">
       </td>
       <td><span class="tag-tipo">${escaparHtml(u.rol)}</span></td>
-      <td>${escaparHtml(u.territorio_nombre || '—')}</td>
+      <td>${escaparHtml(nombreLugar(u.territorio_nombre) || '—')}</td>
       <td>${u.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>

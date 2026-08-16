@@ -221,7 +221,7 @@ function renderizarCapas() {
     datosEventos.forEach(ev => {
       const fecha = ev.fecha_inicio ? new Date(ev.fecha_inicio).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
       crearMarcadorEvento(ev.latitud, ev.longitud,
-        `<strong>${ev.titulo}</strong><br>${fecha}<br>${ev.lugar || ''}${ev.territorio_nombre ? '<br>' + ev.territorio_nombre : ''}`)
+        `<strong>${ev.titulo}</strong><br>${fecha}<br>${ev.lugar || ''}${ev.territorio_nombre ? '<br>' + escaparHtml(nombreLugar(ev.territorio_nombre)) : ''}`)
         .addTo(capaEventos);
       totalVisible++;
     });
@@ -233,7 +233,7 @@ function renderizarCapas() {
       .forEach(e => {
         const color = COLOR_CARGO[e.cargo] || '#64748b';
         crearMarcador(e.latitud, e.longitud, color,
-          `<strong>${e.nombre}</strong><br>${e.cargo}<br>${e.territorio_nombre || ''}${e.direccion ? '<br>' + e.direccion : ''}`)
+          `<strong>${e.nombre}</strong><br>${e.cargo}<br>${escaparHtml(nombreLugar(e.territorio_nombre) || '')}${e.direccion ? '<br>' + e.direccion : ''}`)
           .addTo(capaEstructura);
         totalVisible++;
       });
@@ -243,7 +243,7 @@ function renderizarCapas() {
     datosVotantes
       .forEach(v => {
         crearMarcador(v.latitud, v.longitud, COLOR_VOTANTES,
-          `<strong>${v.nombre}</strong><br>${v.territorio_nombre || 'Sin territorio'}${v.direccion ? '<br>' + v.direccion : ''}`)
+          `<strong>${v.nombre}</strong><br>${escaparHtml(nombreLugar(v.territorio_nombre) || 'Sin territorio')}${v.direccion ? '<br>' + v.direccion : ''}`)
           .addTo(capaVotantes);
         totalVisible++;
       });

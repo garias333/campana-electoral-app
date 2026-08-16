@@ -267,7 +267,7 @@ function renderizarProgresoEquipo() {
 
   document.getElementById('progreso-equipo-vacio').style.display = datos.length ? 'none' : 'block';
   document.getElementById('progreso-equipo').innerHTML = datos.map(f => {
-    const etiqueta = `${f.nombre} · ${f.cargo}${f.territorio ? ' · ' + f.territorio : ''}`;
+    const etiqueta = `${f.nombre} · ${f.cargo}${f.territorio ? ' · ' + escaparHtml(nombreLugar(f.territorio)) : ''}`;
     return barraProgreso(etiqueta, f.enviados, f.meta, f.porcentaje);
   }).join('');
 }
