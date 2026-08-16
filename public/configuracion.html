@@ -1218,7 +1218,11 @@ async function cargarMatrizPermisos() {
   });
 }
 
-document.getElementById('btn-guardar-permisos').addEventListener('click', async () => {
+document.getElementById('btn-guardar-permisos').addEventListener('click', async (evento) => {
+  // Mismo aviso que el resto de los «Guardar» de la aplicación. Este botón no
+  // está dentro de un formulario, así que el enganche automático por `submit`
+  // no lo alcanzaba y había que pedirlo a mano.
+  marcarBotonGuardando(evento.currentTarget);
   const errorBox = document.getElementById('permisos-error');
   const okBox = document.getElementById('permisos-ok');
   errorBox.classList.remove('visible');

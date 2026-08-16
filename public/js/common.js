@@ -115,20 +115,35 @@ function terminarBotonGuardar(boton, ok) {
   boton.dataset.plazoGuardando = String(setTimeout(() => restaurarBotonGuardar(boton), 1500));
 }
 
+/**
+ * Pone un botón en «Guardando…» con su girador.
+ *
+ * Se expone porque NO TODO LO QUE GUARDA ES UN FORMULARIO. La matriz de
+ * permisos, por ejemplo, es un botón suelto con su manejador de clic: el
+ * enganche por `submit` de abajo no lo veía nunca, así que era el único
+ * «Guardar» de la aplicación que no daba señal de vida. Una pantalla que
+ * guarda 160 casillas sin decir nada es justo donde más falta hace.
+ *
+ * El final lo sigue detectando el vigilante: cuando aparece el mensaje de
+ * resultado, devuelve el botón a su estado.
+ */
+function marcarBotonGuardando(boton) {
+  if (!boton || boton.dataset.guardando === 'si') return;
+  boton.dataset.textoOriginal = boton.innerHTML;
+  boton.dataset.guardando = 'si';
+  boton.disabled = true;
+  boton.classList.add('btn-guardando');
+  boton.innerHTML = '<span class="girador" aria-hidden="true"></span> Guardando…';
+  boton.dataset.plazoGuardando = String(setTimeout(() => restaurarBotonGuardar(boton), PLAZO_MAXIMO_GUARDANDO));
+}
+
 function activarAvisoBotonesGuardar() {
   document.addEventListener('submit', (evento) => {
     const form = evento.target;
     if (!form || form.tagName !== 'FORM') return;
     const boton = form.querySelector('button[type="submit"]') ||
       Array.from(form.querySelectorAll('button')).find(b => !b.type || b.type === 'submit');
-    if (!boton || boton.dataset.guardando === 'si') return;
-
-    boton.dataset.textoOriginal = boton.innerHTML;
-    boton.dataset.guardando = 'si';
-    boton.disabled = true;
-    boton.classList.add('btn-guardando');
-    boton.innerHTML = '<span class="girador" aria-hidden="true"></span> Guardando…';
-    boton.dataset.plazoGuardando = String(setTimeout(() => restaurarBotonGuardar(boton), PLAZO_MAXIMO_GUARDANDO));
+    marcarBotonGuardando(boton);
   }, true);   // en captura: corre ANTES que el manejador de la página
 
   // El final se detecta por lo que la pantalla ya hace: mostrar el mensaje de
@@ -139,9 +154,16 @@ function activarAvisoBotonesGuardar() {
       if (!(el instanceof Element)) continue;
 
       if (el.classList.contains('mensaje-ok') || el.classList.contains('mensaje-error')) {
+        // Se busca el botón EN EL FORMULARIO Y, SI NO HAY, en la tarjeta o la
+        // ventana que contiene el mensaje. Antes solo miraba dentro de un
+        // <form>: un botón suelto se quedaba en «Guardando…» hasta que
+        // saltara el plazo de seguridad, aunque el guardado hubiera salido
+        // bien y el mensaje verde ya estuviera a la vista.
+        const contenedor = el.closest('.modal') || el.closest('.card') || document;
         const form = el.closest('form') || el.parentElement?.querySelector('form') ||
-          (el.closest('.modal') || el.closest('.card') || document).querySelector('form');
-        const boton = form && form.querySelector('button[data-guardando="si"]');
+          contenedor.querySelector('form');
+        const boton = (form && form.querySelector('button[data-guardando="si"]')) ||
+          contenedor.querySelector('button[data-guardando="si"]');
         if (boton && el.classList.contains('visible')) {
           terminarBotonGuardar(boton, el.classList.contains('mensaje-ok'));
         }
