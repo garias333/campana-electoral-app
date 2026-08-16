@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
@@ -205,7 +206,21 @@ router.put('/:id/estado', requireRole('admin'), async (req, res) => {
 // olvidó y no le llega el correo de recuperación, por ejemplo).
 router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) => {
   try {
-    const passwordTemporal = Math.random().toString(36).slice(-10);
+    // CÓDIGO DE 4 DÍGITOS, pedido para que se pueda dictar por teléfono y
+    // teclear en un celular en campo sin equivocarse. Es una credencial de
+    // un solo uso: `debe_cambiar_password = 1` obliga a cambiarla en el
+    // primer ingreso, así que solo tiene que durar lo que tarde la persona
+    // en entrar.
+    //
+    // `crypto.randomInt` y no `Math.random()`: con diez caracteres daba
+    // igual, con cuatro dígitos no. `Math.random()` no es un generador
+    // criptográfico y su estado se puede reconstruir observando unas pocas
+    // salidas — es decir, quien vea un par de códigos podría anticipar los
+    // siguientes. Es el mismo generador que ya usa el código 2FA.
+    //
+    // `padStart` importa: sin él, 42 saldría como "42" y no como "0042", y
+    // uno de cada diez códigos tendría menos dígitos de los debidos.
+    const passwordTemporal = String(crypto.randomInt(0, 10000)).padStart(4, '0');
     const hash = await bcrypt.hash(passwordTemporal, 12);
     // `credenciales_enviadas = NULL`: la clave que la persona tenga guardada
     // dejo de servir en este mismo instante, asi que la casilla de
