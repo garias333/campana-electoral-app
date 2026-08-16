@@ -634,6 +634,24 @@ function elegirLiderBuscado(id) {
  * territorio actual (ej. si el contacto cambió de dirección después).
  */
 async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNombre) {
+  // UN FALLO AQUÍ NO PUEDE PARECER «no hay nadie». Si algo revienta a mitad
+  // —un elemento que cambió de nombre, una respuesta inesperada— la lista se
+  // quedaba con «Yo mismo / no aplica» y sin un solo aviso: exactamente igual
+  // que una lista legítimamente vacía. Esa confusión costó tres intentos de
+  // diagnóstico, así que ahora el error se dice en pantalla y en la consola.
+  try {
+    return await armarListaReferidoPor(preservarId, preservarNombre);
+  } catch (err) {
+    console.error('[referido-por] no se pudo armar la lista:', err);
+    const s = document.getElementById('select-lider');
+    if (s) {
+      s.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+        '<option value="" disabled>⚠ No se pudo armar la lista — búsquelo por nombre</option>';
+    }
+  }
+}
+
+async function armarListaReferidoPor(preservarId, preservarNombre) {
   const select = document.getElementById('select-lider');
   const valorAnterior = select.value;
 
@@ -667,63 +685,9 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
     if (vereda) barrioOVeredaId = vereda.id;
   }
 
-  // SIN BARRIO NI COMUNA, SE BAJA AL MUNICIPIO. Antes el desplegable se
-  // quedaba vacío, y en una campaña departamental eso es SIEMPRE: allí no
-  // hay comunas, corregimientos ni barrios, así que no había forma de
-  // asignarle un líder a nadie.
-  //
-  // El municipio sale del de influencia si está a la vista —solo lo está
-  // para un Sublíder— y si no, de la Ciudad de residencia, que es el único
-  // municipio que un Votante llega a escribir.
-  //
-  // Se acota además al Área elegida, que es lo que distingue a un líder
-  // urbano de uno rural cuando los dos están puestos en el mismo municipio.
+  // Sin barrio ni vereda concretos, la lista se arma con todo el municipio.
   if (!barrioOVeredaId && !zonaId) {
-    const municipio = municipioDeInfluenciaVotante() || buscarMunicipioResidenciaVotante();
-    if (municipio) {
-      try {
-        const referentes = await api(
-          `/territorial/referentes-por-municipio/${municipio.id}` + (area ? `?area=${area}` : ''));
-
-        // UNA LISTA VACÍA TIENE QUE DECIR POR QUÉ. Antes quedaba solo con «Yo
-        // mismo / no aplica», y eso significa tres cosas distintas —no hay
-        // nadie de esa área en ese municipio, no se pudo consultar, o falta
-        // elegir el municipio— sin forma de distinguirlas. Quien lo ve
-        // concluye que la aplicación está rota.
-        // Salen TODOS los del municipio, con los del Área elegida arriba, y
-        // cada uno dice cuál es. Así el desplegable no puede quedar vacío por
-        // un filtro, y se sigue viendo de un golpe quién corresponde.
-        const aviso = referentes.length ? '' :
-          `<option value="" disabled>Sin líderes ni coordinadores en ${escaparHtml(nombreLugar(municipio.nombre))} — búscalo por nombre arriba</option>`;
-        const rotulo = (u) => {
-          const cargo = u.cargo === 'coordinador' ? 'coordinador' : 'líder';
-          return u.area ? `${u.nombre} — ${cargo} ${u.area}` : `${u.nombre} — ${cargo}`;
-        };
-        let html = '<option value="">Yo mismo / no aplica</option>' + aviso +
-          referentes.map(u => `<option value="${u.id}">${escaparHtml(rotulo(u))}</option>`).join('');
-        if (preservarId && !referentes.some(u => String(u.id) === String(preservarId))) {
-          html += `<option value="${preservarId}">${escaparHtml(preservarNombre || 'Asignado actualmente')}</option>`;
-        }
-        select.innerHTML = html;
-        const conservar = preservarId || valorAnterior;
-        if (conservar && Array.from(select.options).some(o => o.value === String(conservar))) select.value = conservar;
-        actualizarSublideresPorLider();
-        return;
-      } catch (err) {
-        // Un fallo de consulta NO puede parecerse a «no hay nadie».
-        console.warn('[referido-por] no se pudo consultar la lista:', err.message);
-        select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
-          '<option value="" disabled>No se pudo consultar la lista — búscalo por nombre arriba</option>';
-        actualizarSublideresPorLider();
-        return;
-      }
-    }
-    select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
-      '<option value="" disabled>Escriba primero la Ciudad de residencia</option>' +
-      (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
-    select.value = preservarId || '';
-    actualizarSublideresPorLider();
-    return;
+    return pintarReferentesDelMunicipio(select, area, preservarId, preservarNombre, valorAnterior);
   }
 
   try {
@@ -733,6 +697,25 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
     ]);
     const vistos = new Set();
     const unicos = [...lideres, ...coordinadores].filter(u => (vistos.has(u.id) ? false : (vistos.add(u.id), true)));
+
+    // Y SI EN ESA VEREDA O BARRIO NO HAY NADIE, SE BAJA AL MUNICIPIO.
+    //
+    // Era el caso de «no aparecen los líderes rurales», y estuvo escondido
+    // porque solo se da en lo rural: en una campaña departamental no hay
+    // barrios (Quindío: 0), así que lo urbano nunca llegaba hasta aquí y
+    // caía en el respaldo de arriba. Veredas sí hay —232—, de modo que al
+    // elegir una se consultaba SU territorio exacto, donde no hay ningún
+    // líder asignado, y el desplegable se quedaba con «Yo mismo / no
+    // aplica» y ni un aviso: los tres mensajes que explican una lista vacía
+    // viven en la rama del municipio, que con vereda elegida no se ejecuta.
+    //
+    // Los líderes están puestos a nivel de municipio, que es donde la
+    // campaña los organiza. Bajar a ese nivel es la misma regla que ya
+    // resolvió el Área vacía y el «Reporta a» vacío: buscar en el nivel que
+    // existe en vez de rendirse en el que no.
+    if (!unicos.length) {
+      return pintarReferentesDelMunicipio(select, area, preservarId, preservarNombre, valorAnterior);
+    }
 
     let opcionesHtml = '<option value="">Yo mismo / no aplica</option>' +
       unicos.map(u => `<option value="${u.id}">${u.nombre}</option>`).join('');
@@ -752,6 +735,66 @@ async function actualizarLiderPorTerritorioInfluencia(preservarId, preservarNomb
     actualizarSublideresPorLider();
   }
 }
+/**
+ * Llena «Referido por» con los líderes y coordinadores del MUNICIPIO.
+ *
+ * Es el nivel que siempre existe. Los de abajo —comuna, barrio,
+ * corregimiento, vereda— pueden no existir en absoluto (una campaña
+ * departamental no tiene ni uno) o existir sin nadie asignado, y en los dos
+ * casos la lista tiene que seguir dando nombres en vez de quedarse muda.
+ *
+ * El Área no filtra, ORDENA: salen todos los del municipio con los del área
+ * elegida arriba, y cada opción dice cuál es. Así el desplegable no puede
+ * quedar vacío por culpa de un filtro.
+ */
+async function pintarReferentesDelMunicipio(select, area, preservarId, preservarNombre, valorAnterior) {
+  const municipio = municipioDeInfluenciaVotante() || buscarMunicipioResidenciaVotante();
+  if (municipio) {
+    try {
+      const referentes = await api(
+        `/territorial/referentes-por-municipio/${municipio.id}` + (area ? `?area=${area}` : ''));
+
+      // UNA LISTA VACÍA TIENE QUE DECIR POR QUÉ. Antes quedaba solo con «Yo
+      // mismo / no aplica», y eso significa tres cosas distintas —no hay
+      // nadie de esa área en ese municipio, no se pudo consultar, o falta
+      // elegir el municipio— sin forma de distinguirlas. Quien lo ve
+      // concluye que la aplicación está rota.
+      // Salen TODOS los del municipio, con los del Área elegida arriba, y
+      // cada uno dice cuál es. Así el desplegable no puede quedar vacío por
+      // un filtro, y se sigue viendo de un golpe quién corresponde.
+      const aviso = referentes.length ? '' :
+        `<option value="" disabled>Sin líderes ni coordinadores en ${escaparHtml(nombreLugar(municipio.nombre))} — búscalo por nombre arriba</option>`;
+      const rotulo = (u) => {
+        const cargo = u.cargo === 'coordinador' ? 'coordinador' : 'líder';
+        return u.area ? `${u.nombre} — ${cargo} ${u.area}` : `${u.nombre} — ${cargo}`;
+      };
+      let html = '<option value="">Yo mismo / no aplica</option>' + aviso +
+        referentes.map(u => `<option value="${u.id}">${escaparHtml(rotulo(u))}</option>`).join('');
+      if (preservarId && !referentes.some(u => String(u.id) === String(preservarId))) {
+        html += `<option value="${preservarId}">${escaparHtml(preservarNombre || 'Asignado actualmente')}</option>`;
+      }
+      select.innerHTML = html;
+      const conservar = preservarId || valorAnterior;
+      if (conservar && Array.from(select.options).some(o => o.value === String(conservar))) select.value = conservar;
+      actualizarSublideresPorLider();
+      return;
+    } catch (err) {
+      // Un fallo de consulta NO puede parecerse a «no hay nadie».
+      console.warn('[referido-por] no se pudo consultar la lista:', err.message);
+      select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+        '<option value="" disabled>No se pudo consultar la lista — búscalo por nombre arriba</option>';
+      actualizarSublideresPorLider();
+      return;
+    }
+  }
+  select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
+    '<option value="" disabled>Escriba primero la Ciudad de residencia</option>' +
+    (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
+  select.value = preservarId || '';
+  actualizarSublideresPorLider();
+  return;
+}
+
 
 /**
  * Llena "Sublíder" con los sublíderes/colaboradores registrados bajo el
@@ -1900,6 +1943,13 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
     // código arriba — se repueblan a mano.
     poblarListasUbicacionVotante();
   } catch (e) { /* si falla, se deja en blanco sin interrumpir el formulario */ }
+
+  // Y AHORA SÍ SE ARMA «Referido por». Arriba se vació a una sola opción y
+  // nadie la volvía a llenar: al abrir «Nuevo votante o sublíder» no había ni
+  // un líder que elegir hasta tocar a mano algún campo de territorio. Va aquí,
+  // al final, porque la Ciudad de residencia que decide la lista es la que
+  // acaba de poner el autocompletado de arriba.
+  await actualizarLiderPorTerritorioInfluencia();
 
   document.getElementById('overlay-form').classList.add('abierto');
 });
