@@ -183,6 +183,20 @@ async function geocodificarYGuardarVotante(votanteId, direccion, territorioId, d
  * fuera filas que dicen Urbano. Es el fallo que este arreglo viene a quitar,
  * reaparecido un nivel mas abajo.
  */
+/**
+ * El cargo que la persona tiene en la Estructura territorial, o vacío.
+ *
+ * Es lo que la columna CATEGORÍA convierte en Votante-COO, -LID o -SUB, y
+ * ahora también lo que filtra el desplegable «Todo tipo de votante». Se saca
+ * con la MISMA expresión que pinta la etiqueta —incluido el orden por
+ * jerarquía— porque filtrar por «Votante-LID» y que salga alguien etiquetado
+ * de otra forma es peor que no tener el filtro.
+ */
+const SQL_CARGO_ESTRUCTURA = `(SELECT e5.cargo FROM estructura e5
+    WHERE e5.usuario_id = ut.id AND e5.activo = 1 AND e5.cargo <> 'testigo'
+    ORDER BY FIELD(e5.cargo, 'coordinador', 'coordinador_organizaciones', 'lider', 'usuario')
+    LIMIT 1)`;
+
 const SQL_AREA_EFECTIVA = `COALESCE(
   (SELECT e4.area FROM estructura e4
     WHERE e4.usuario_id = ut.id AND e4.activo = 1 AND e4.cargo <> 'testigo' AND e4.area IS NOT NULL
@@ -191,7 +205,7 @@ const SQL_AREA_EFECTIVA = `COALESCE(
   v.area)`;
 
 router.get('/', async (req, res) => {
-  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, categoria, page = 1, limit = 50 } = req.query;
+  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const condiciones = [];
   const params = [];
@@ -210,6 +224,15 @@ router.get('/', async (req, res) => {
   if (area) { condiciones.push(`${SQL_AREA_EFECTIVA} = ?`); params.push(area); }
   if (zona_id) { condiciones.push(`t.padre_id = ?`); params.push(zona_id); }
   if (municipio_id) { condiciones.push(filtroMunicipio('t')); params.push(municipio_id, municipio_id, municipio_id); }
+  // «ninguno» = quien NO tiene cargo en la Estructura, o sea el votante a
+  // secas. Va aparte porque es la ausencia de valor, no un valor.
+  if (tipo_votante === 'ninguno') { condiciones.push(`${SQL_CARGO_ESTRUCTURA} IS NULL`); }
+  else if (tipo_votante === 'coordinador') {
+    // Los dos cargos de coordinación comparten etiqueta (Votante-COO), así
+    // que el filtro tiene que traer los dos: si no, elegir Votante-COO
+    // escondería al Coordinador de Organizaciones que la tabla sí rotula así.
+    condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
+  } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
   if (req.alcance) { condiciones.push(`v.lider_id = ?`); params.push(req.alcance.usuarioId); }
 
@@ -399,7 +422,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin'), async (req, res)
 // coincide con el filtro que la persona tenía aplicado en pantalla.
 router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
-    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, categoria } = req.query;
+    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria } = req.query;
     const condiciones = [];
     const params = [];
     if (q) {
@@ -419,6 +442,10 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
     // filtro que la pantalla aplica y la exportacion ignora sacaria un
     // archivo con mas gente de la que se ve, sin avisar.
     if (municipio_id) { condiciones.push(filtroMunicipio('t')); params.push(municipio_id, municipio_id, municipio_id); }
+    if (tipo_votante === 'ninguno') { condiciones.push(`${SQL_CARGO_ESTRUCTURA} IS NULL`); }
+    else if (tipo_votante === 'coordinador') {
+      condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
+    } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
     if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
     const whereSql = armarWhereSql(condiciones);
 

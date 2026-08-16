@@ -47,6 +47,16 @@
             <option value="votante">Solo votantes</option>
             <option value="sublider">Solo sublíderes</option>
           </select>
+          <!-- Filtra por lo que la columna CATEGORÍA muestra: si la persona
+               tiene además un cargo en la Estructura territorial. El valor
+               viaja como `cargo_estructura` porque es de ahí de donde sale. -->
+          <select id="filtro-tipo-votante">
+            <option value="">Todo tipo de votante</option>
+            <option value="ninguno">Votante</option>
+            <option value="coordinador">Votante-COO</option>
+            <option value="lider">Votante-LID</option>
+            <option value="usuario">Votante-SUB</option>
+          </select>
           <select id="filtro-area">
             <option value="">Todas las áreas</option>
             <option value="urbano">Urbano</option>
@@ -772,6 +782,7 @@ function leerFiltrosVotantes() {
     q: document.getElementById('filtro-busqueda').value,
     apoya_a: document.getElementById('filtro-apoya-a').value,
     area: document.getElementById('filtro-area').value,
+    tipo_votante: document.getElementById('filtro-tipo-votante').value,
     zona_id: document.getElementById('filtro-zona').value,
     municipio_id: idDelMunicipioFiltrado(),
     territorio_id: document.getElementById('filtro-territorio').value,
@@ -1042,6 +1053,7 @@ document.getElementById('filtro-municipio').addEventListener('input', () => {
   _tiempoFiltroMunicipio = setTimeout(refiltrarVotantes, 250);
 });
 document.getElementById('filtro-area').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-tipo-votante').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-lider').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
 
@@ -1049,6 +1061,7 @@ document.getElementById('btn-quitar-filtros-votantes').addEventListener('click',
   document.getElementById('filtro-busqueda').value = '';
   document.getElementById('filtro-categoria').value = '';
   document.getElementById('filtro-area').value = '';
+  document.getElementById('filtro-tipo-votante').value = '';
   document.getElementById('filtro-zona').value = '';
   poblarFiltroTerritorio();
   document.getElementById('filtro-territorio').value = '';
