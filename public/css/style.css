@@ -314,6 +314,31 @@ input, select, textarea {
   background: #fff;
   color: var(--color-text);
 }
+/* ------------------------------------------------------------------
+   Casillas de verificación del formulario de "Datos de la campaña".
+
+   La regla de arriba pone `width: 100%` a TODO input, que en una casilla
+   no tiene sentido — por eso cada una traía un `style="width:auto"` en
+   línea. Ese estilo en línea le gana a cualquier hoja, así que para poder
+   agrandarlas hubo que quitarlo de la casilla de Apoyos y fijar aquí las
+   dos medidas.
+
+   Va por selector de sección y no por clase: las casillas de Apoyos las
+   pinta el JavaScript al vuelo, y una clase habría que acordarse de
+   ponerla en cada sitio que las genere.
+
+   `flex: none` no es adorno: la etiqueta que las envuelve es flex, y sin
+   eso la casilla se encoge cuando el texto no cabe.                      */
+#form-campana input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  padding: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+#form-campana label { cursor: pointer; }
+
 input:focus, select:focus, textarea:focus {
   outline: 2px solid var(--color-navy-lighter);
   outline-offset: 1px;

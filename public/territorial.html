@@ -1090,18 +1090,14 @@ const ETIQUETAS_APOYO_APP = {
  * Gobernación no debería estar ofreciendo apoyo a un concejo en
  * particular, y una que no use apoyos no tiene por qué ver el bloque.
  */
-function aplicarApoyosConfigurados(SUFIJO, activos) {
+function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
   const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
   const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
-  // Tres casos, y el primero importa: si NUNCA se configuraron apoyos
-  // (null), se ofrecen los cinco de siempre. Antes el apartado desaparecía
-  // del formulario, y una campaña que jamás entró a "Activar apoyos" se
-  // quedaba sin poder marcar a quién apoya cada persona — sin ningún aviso
-  // de por qué. Lista vacía ([]) sí lo oculta: ahí es una decisión tomada.
-  const nuncaConfigurado = activos === null || activos === undefined;
-  const lista = nuncaConfigurado
-    ? ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea']
-    : (Array.isArray(activos) ? activos : []);
+  // El orden y el conjunto los decide el cargo al que aspira la campaña; los
+  // tres casos (nunca configurado / lista vacía / lista) los resuelve
+  // apoyosEnOrden() en public/js/common.js, compartida con Votantes para que
+  // las dos pantallas no puedan discrepar.
+  const lista = apoyosEnOrden(activos, posibles);
   if (!lista.length) {
     bloque.style.display = 'none';
     casillas.innerHTML = '';
@@ -2679,7 +2675,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     // la mitad rural cuando llegaron corregimientos y veredas.
     document.getElementById('label-comuna-corregimiento-residencia').textContent = columnas.etiquetaComuna;
     document.getElementById('label-barrio-vereda-residencia').textContent = columnas.etiquetaBarrio;
-    aplicarApoyosConfigurados('persona', configCampana.apoyos_activos);
+    aplicarApoyosConfigurados('persona', configCampana.apoyos_activos, configCampana.apoyos_posibles);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   actualizarVisibilidadBarrioVeredaSegunCargo();
   await cargarCatalogoColombia();

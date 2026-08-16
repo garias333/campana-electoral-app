@@ -483,7 +483,7 @@ const ETIQUETAS_APOYO_APP = {
 // ciudadTieneComunas y usarNombreBarrios más abajo.
 let apoyosActivosVotantes = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
 
-function aplicarApoyosConfigurados(SUFIJO, activos) {
+function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
   const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
   const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
   // Tres casos, y el primero importa: si NUNCA se configuraron apoyos
@@ -491,10 +491,11 @@ function aplicarApoyosConfigurados(SUFIJO, activos) {
   // del formulario, y una campaña que jamás entró a "Activar apoyos" se
   // quedaba sin poder marcar a quién apoya cada persona — sin ningún aviso
   // de por qué. Lista vacía ([]) sí lo oculta: ahí es una decisión tomada.
-  const nuncaConfigurado = activos === null || activos === undefined;
-  const lista = nuncaConfigurado
-    ? ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea']
-    : (Array.isArray(activos) ? activos : []);
+  // El orden y el conjunto los decide el cargo al que aspira la campaña; los
+  // tres casos (nunca configurado / lista vacía / lista) los resuelve
+  // apoyosEnOrden() en public/js/common.js, compartida con Estructura
+  // territorial para que las dos pantallas no puedan discrepar.
+  const lista = apoyosEnOrden(activos, posibles);
   if (!lista.length) {
     bloque.style.display = 'none';
     casillas.innerHTML = '';
@@ -507,9 +508,6 @@ function aplicarApoyosConfigurados(SUFIJO, activos) {
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }
-
-// Los cinco de siempre, para las campañas que nunca configuraron apoyos.
-const APOYOS_CLASICOS = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
 
 /**
  * Deja la columna "Apoya a" y su filtro con los mismos cargos que las
@@ -527,11 +525,8 @@ const APOYOS_CLASICOS = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'
  *            ocuparía ancho.
  *   lista -> esos y nada más.
  */
-function aplicarApoyosATablaVotantes(activos) {
-  const nuncaConfigurado = activos === null || activos === undefined;
-  apoyosActivosVotantes = nuncaConfigurado
-    ? APOYOS_CLASICOS
-    : (Array.isArray(activos) ? activos : []);
+function aplicarApoyosATablaVotantes(activos, posibles) {
+  apoyosActivosVotantes = apoyosEnOrden(activos, posibles);
   document.body.classList.toggle('sin-apoyos', apoyosActivosVotantes.length === 0);
   const filtro = document.getElementById('filtro-apoya-a');
   const elegido = filtro.value;
@@ -2525,8 +2520,8 @@ function alternarMesasEstimadoPuesto(i) {
     // Se quita la clase en vez de ponerla: el <body> nace con ella, así la
     // columna no alcanza a asomarse mientras llega la configuración.
     document.body.classList.toggle('sin-columna-ciudad', !ambitoDepartamental);
-    aplicarApoyosConfigurados('votante', configCampana.apoyos_activos);
-    aplicarApoyosATablaVotantes(configCampana.apoyos_activos);
+    aplicarApoyosConfigurados('votante', configCampana.apoyos_activos, configCampana.apoyos_posibles);
+    aplicarApoyosATablaVotantes(configCampana.apoyos_activos, configCampana.apoyos_posibles);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   aplicarVisibilidadComunaVotante();
   await cargarCatalogoColombiaVotante();

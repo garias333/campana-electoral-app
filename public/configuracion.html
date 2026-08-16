@@ -606,7 +606,7 @@ function pintarApoyos(posibles, activos) {
   const marcados = Array.isArray(activos) ? activos : [];
   casillas.innerHTML = posibles.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" value="${a}" style="width:auto;" ${marcados.includes(a) ? 'checked' : ''}>
+      <input type="checkbox" value="${a}" ${marcados.includes(a) ? 'checked' : ''}>
       ${ETIQUETAS_APOYO[a] || a}
     </label>`).join('');
 

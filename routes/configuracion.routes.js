@@ -24,12 +24,34 @@ const CARGOS_VALIDOS = ['senado', 'camara_representantes', 'gobernacion', 'asamb
  * Senado y Cámara no usan esta función: su campaña no ofrece apoyos y la
  * sección no se muestra.
  */
+/*
+ * EL ORDEN DE ESTAS LISTAS ES EL QUE SE VE EN PANTALLA, y no es alfabético ni
+ * casual: cada cargo abre con el SUYO —que es el que la campaña está pidiendo
+ * y el que más se marca— y sigue con los demás a los que su gente puede
+ * apoyar. Lo consumen la pantalla de Configuración, las casillas del
+ * formulario de votantes y la columna «Apoya a» de la tabla, así que el orden
+ * se define UNA vez, aquí, y las tres lo respetan.
+ *
+ * TAMBIÉN DECIDEN CUÁLES APARECEN, no solo en qué orden. Un candidato a
+ * Alcaldía no le pide a su gente que apoye a un concejo o a una JAL en
+ * particular; uno a Gobernación tampoco reparte apoyos de asamblea. Por eso
+ * la lista se acorta a medida que sube el cargo.
+ *
+ * OJO AL ACORTARLA: lo ya guardado en `votantes.apoya_a` NO se borra, pero
+ * deja de mostrarse. Medido el 16 de agosto de 2026 en la campaña municipal
+ * (Alcaldía): 70 votantes tenían «concejo» y 43 «jal», y con esta lista esos
+ * círculos dejan de pintarse. Si el apoyo se vuelve a permitir, reaparecen
+ * solos — el dato siguió ahí todo el tiempo.
+ *
+ * Senado y Cámara no usan esta función: su campaña no ofrece apoyos y la
+ * sección no se muestra.
+ */
 const APOYOS_POR_CARGO = {
-  alcaldia: ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'],
-  concejo:  ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'],
-  jal:      ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'],
-  gobernacion: ['gobernacion', 'asamblea'],
-  asamblea:    ['gobernacion', 'asamblea']
+  jal:         ['jal', 'concejo', 'alcaldia', 'asamblea', 'gobernacion'],
+  concejo:     ['concejo', 'alcaldia', 'asamblea', 'gobernacion'],
+  alcaldia:    ['alcaldia', 'gobernacion', 'asamblea'],
+  asamblea:    ['asamblea', 'gobernacion'],
+  gobernacion: ['gobernacion']
 };
 
 /** Los apoyos permitidos para un cargo, o lista vacía si ese cargo no ofrece apoyos. */

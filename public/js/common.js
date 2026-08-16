@@ -513,6 +513,39 @@ function nombreLugar(texto) {
  * Definirla una vez donde todas la ven es lo que impide que vuelva a pasar.
  * Las copias de las otras pantallas se pueden ir quitando sin apuro.
  */
+/**
+ * Los apoyos que se muestran, EN EL ORDEN QUE MANDA EL CARGO.
+ *
+ * El orden y el conjunto los define el servidor en un solo sitio
+ * (APOYOS_POR_CARGO, routes/configuracion.routes.js) y llegan en
+ * `apoyos_posibles`. Aquí solo se cruzan con los que la campaña dejó activos.
+ *
+ * SE ORDENA POR `posibles`, NO POR LO GUARDADO. `apoyos_activos` conserva el
+ * orden que tenía el día que se guardó, que puede ser el de una versión
+ * anterior; si se respetara, la pantalla seguiría mostrando el orden viejo
+ * hasta que alguien volviera a entrar a Configuración y guardara.
+ *
+ * Y SE FILTRA, no solo se ordena: un apoyo que el cargo ya no contempla
+ * desaparece aunque siga listado en `apoyos_activos`. Así el cambio se ve de
+ * inmediato, sin tener que volver a guardar la configuración.
+ *
+ * Tres casos, y el del medio importa:
+ *   null / undefined -> nunca se configuró: se ofrecen todos los del cargo.
+ *   []               -> se configuró y se dejó sin ninguno: no se muestra nada.
+ *   lista            -> esos, en el orden del cargo.
+ */
+const APOYOS_SI_NO_LLEGA_LA_LISTA = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
+
+function apoyosEnOrden(activos, posibles) {
+  // Una página servida desde la caché contra un servidor que todavía no manda
+  // `apoyos_posibles` recibe undefined: se cae a los cinco de siempre, que es
+  // el comportamiento anterior, en vez de quedarse sin ninguno.
+  const orden = (Array.isArray(posibles) && posibles.length) ? posibles : APOYOS_SI_NO_LLEGA_LA_LISTA;
+  if (activos === null || activos === undefined) return orden.slice();
+  const elegidos = Array.isArray(activos) ? activos : [];
+  return orden.filter(a => elegidos.includes(a));
+}
+
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto == null ? '' : String(texto);
