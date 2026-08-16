@@ -370,6 +370,24 @@ thead th {
   padding: 8px 6px;
 }
 tbody td { padding: 10px 6px; border-bottom: 1px solid var(--color-border); }
+
+/* Columnas de NÚMEROS: la celda se centra igual que su encabezado.
+   La regla de arriba deja el contenido a la izquierda a propósito, porque
+   así se recorre con la vista una columna de nombres; pero con un conteo
+   eso dejaba el número pegado al borde y el encabezado centrado encima,
+   sin nada debajo. Solo aplica donde se pide la clase. */
+td.col-num, th.col-num { text-align: center; }
+
+/* Encabezados que ordenan la tabla.
+   La flecha doble apagada dice «esta columna se puede ordenar» antes de
+   tocarla: sin ninguna señal, nadie descubre que el encabezado responde. */
+th.th-ordenable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.th-ordenable:hover { color: var(--color-accent-dark); }
+th.th-ordenable::after { content: '↕'; margin-left: 6px; opacity: 0.35; }
+th.th-ordenable.orden-activo { color: var(--color-accent-dark); }
+th.th-ordenable.orden-activo::after { opacity: 1; }
+th.th-ordenable[data-orden-dir="asc"]::after { content: '▲'; }
+th.th-ordenable[data-orden-dir="desc"]::after { content: '▼'; }
 tbody tr:hover { background: #FAFBFC; }
 
 /* Semáforo / badges de estado */

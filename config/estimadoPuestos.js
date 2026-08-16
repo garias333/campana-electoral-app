@@ -6,10 +6,47 @@
  * ve la pantalla) como en la exportación a Excel del Dashboard de
  * votantes, para que ambos SIEMPRE muestren los mismos números.
  */
+/**
+ * Los puestos con su MUNICIPIO, sacado del catálogo.
+ *
+ * El municipio no está en la tabla de la campaña: se llega por
+ * `ctc_puesto_id`, que es la referencia al catálogo que deja la siembra
+ * (ver sembrar_puestos_campana.sql). Es el mismo cruce que ya usa el filtro
+ * de puestos por municipio.
+ *
+ * SE CRUZA POR LA REFERENCIA, NO POR EL NOMBRE. En campaña departamental el
+ * nombre trae el municipio pegado —«BARCELONA (CALARCÁ)»— para desambiguar
+ * dentro del departamento, pero ese texto es para leerlo, no para cruzarlo:
+ * hay puestos cuyo nombre ya lleva paréntesis propios, como
+ * «COCORA (PALESTINA) (SALENTO)».
+ *
+ * SI EL CATÁLOGO NO SE PUEDE LEER, SE SIGUE SIN MUNICIPIO. Una instalación a
+ * la que le falte el permiso sobre `territoriosdb` haría fallar la consulta
+ * entera, y esta pantalla ya estuvo caída una vez por reventar en un detalle
+ * (ver el .trim() sobre mesa_votacion). Perder una columna es aceptable;
+ * perder la pantalla, no.
+ */
+async function consultarPuestosConMunicipio(pool) {
+  try {
+    const [filas] = await pool.query(
+      `SELECT p.id, p.nombre, p.cantidad_mesas, m.nombre AS municipio
+         FROM dia_d_puestos_votacion p
+         LEFT JOIN territoriosdb.ctc_puestos_votacion cp ON cp.id = p.ctc_puesto_id
+         LEFT JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
+        ORDER BY p.nombre`
+    );
+    return filas;
+  } catch (err) {
+    console.warn('No se pudo leer el municipio de los puestos desde el catálogo:', err.code || err.message);
+    const [filas] = await pool.query(
+      `SELECT id, nombre, cantidad_mesas, NULL AS municipio FROM dia_d_puestos_votacion ORDER BY nombre`
+    );
+    return filas;
+  }
+}
+
 async function calcularEstimadoPorPuesto(pool) {
-  const [puestos] = await pool.query(
-    `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion ORDER BY nombre`
-  );
+  const puestos = await consultarPuestosConMunicipio(pool);
   // Se agrupa por `puesto_id` cuando el votante lo tiene, y por el texto
   // cuando no. Ese id lo mantiene al día un disparador desde el propio
   // texto, así que queda lleno para todo el que vote en un puesto de la
@@ -73,7 +110,7 @@ async function calcularEstimadoPorPuesto(pool) {
       const num = Number(mesa);
       if (!Number.isInteger(num) || num < 1 || num > p.cantidad_mesas) sinMesaValida += cantidad;
     }
-    return { puesto: p.nombre, cantidadMesas: p.cantidad_mesas, total: total + sinMesaValida, mesas, sinMesaValida };
+    return { puesto: p.nombre, municipio: p.municipio || null, cantidadMesas: p.cantidad_mesas, total: total + sinMesaValida, mesas, sinMesaValida };
   });
 
   // Votantes cuyo puesto no es ninguno de los configurados en Día D: texto

@@ -122,7 +122,13 @@
         <div class="mono" id="resumen-estimado-puestos" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:12px;"></div>
         <div class="tabla-contenedor">
           <table>
-            <thead><tr><th>Puesto de votación</th><th>Mesas configuradas</th><th>Votantes estimados</th><th></th></tr></thead>
+            <thead><tr>
+              <th class="th-ordenable" data-orden-estimado="puesto">Puesto de votación</th>
+              <th class="th-ordenable" data-orden-estimado="municipio">Ciudad</th>
+              <th class="th-ordenable col-num" data-orden-estimado="mesas">Mesas configuradas</th>
+              <th class="th-ordenable col-num" data-orden-estimado="total">Votantes estimados</th>
+              <th></th>
+            </tr></thead>
             <tbody id="tbody-estimado-puestos"></tbody>
           </table>
         </div>
@@ -133,7 +139,7 @@
         <p style="color:var(--color-text-muted); font-size:0.85rem;">Estos nombres de Puesto aparecen en "Lugar de votación" de algunos registros, pero no coinciden con ninguno de los configurados en Configuración → Día D → Puestos de votación (puede ser un texto libre de antes de existir el catálogo, o una diferencia de escritura).</p>
         <div class="tabla-contenedor">
           <table>
-            <thead><tr><th>Puesto (como quedó escrito)</th><th>Votantes</th></tr></thead>
+            <thead><tr><th>Puesto (como quedó escrito)</th><th class="col-num">Votantes</th></tr></thead>
             <tbody id="tbody-puestos-no-configurados"></tbody>
           </table>
         </div>
@@ -2341,30 +2347,95 @@ document.getElementById('btn-tab-estimado-puestos').addEventListener('click', ()
 
 async function cargarEstimadoPuestos() {
   const tbody = document.getElementById('tbody-estimado-puestos');
-  tbody.innerHTML = '<tr><td colspan="4" style="color:var(--color-text-muted);">Cargando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-muted);">Cargando...</td></tr>';
   let datos;
   try {
     datos = await api('/votantes/estimados-por-puesto');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--color-no-apoya, #A93226);">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--color-no-apoya, #A93226);">${err.message}</td></tr>`;
     return;
   }
-  const puestos = datos.puestos || [];
-  document.getElementById('vacio-estimado-puestos').style.display = puestos.length ? 'none' : 'block';
+  puestosEstimado = datos.puestos || [];
+  document.getElementById('vacio-estimado-puestos').style.display = puestosEstimado.length ? 'none' : 'block';
 
-  const totalGeneral = puestos.reduce((acc, p) => acc + p.total, 0);
+  const totalGeneral = puestosEstimado.reduce((acc, p) => acc + p.total, 0);
   document.getElementById('resumen-estimado-puestos').textContent =
-    `${totalGeneral} votante(s)/sublíder(es) con Puesto de votación registrado, repartidos en ${puestos.length} puesto(s) configurado(s).`;
+    `${totalGeneral} votante(s)/sublíder(es) con Puesto de votación registrado, repartidos en ${puestosEstimado.length} puesto(s) configurado(s).`;
+
+  pintarEstimadoPuestos();
+
+  const noConfigurados = datos.puestosNoConfigurados || [];
+  document.getElementById('card-puestos-no-configurados').style.display = noConfigurados.length ? 'block' : 'none';
+  document.getElementById('tbody-puestos-no-configurados').innerHTML = noConfigurados.map(p => `
+    <tr><td>${escaparHtml(p.puesto)}</td><td class="mono col-num">${p.total}</td></tr>
+  `).join('');
+}
+
+/**
+ * ORDENAR SIN VOLVER A PREGUNTAR. El estimado se calcula recorriendo toda la
+ * base de votantes; reordenar es acomodar lo que ya está en pantalla, no
+ * motivo para rehacer ese trabajo. Por eso los datos quedan aquí y el pintado
+ * va aparte de la carga.
+ */
+let puestosEstimado = [];
+let ordenEstimado = { campo: 'puesto', dir: 'asc' };
+
+function ordenarPorEstimado(campo) {
+  // Mismo encabezado dos veces = se invierte. Al cambiar de columna se
+  // empieza por lo que cada una responde mejor: los nombres de la A a la Z,
+  // y los números de mayor a menor, que es como se busca «dónde hay más».
+  if (ordenEstimado.campo === campo) {
+    ordenEstimado.dir = ordenEstimado.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    ordenEstimado = { campo, dir: ['mesas', 'total'].includes(campo) ? 'desc' : 'asc' };
+  }
+  pintarEstimadoPuestos();
+}
+
+function pintarEstimadoPuestos() {
+  const tbody = document.getElementById('tbody-estimado-puestos');
+  const signo = ordenEstimado.dir === 'asc' ? 1 : -1;
+  const { campo } = ordenEstimado;
+
+  const puestos = puestosEstimado.slice().sort((a, b) => {
+    if (campo === 'mesas' || campo === 'total') {
+      const va = campo === 'mesas' ? a.cantidadMesas : a.total;
+      const vb = campo === 'mesas' ? b.cantidadMesas : b.total;
+      // A igualdad de número, alfabético por puesto: sin este desempate el
+      // orden de los que empatan cambia de una pasada a otra y la tabla
+      // parece barajarse sola.
+      if (va !== vb) return (va - vb) * signo;
+      return a.puesto.localeCompare(b.puesto, 'es');
+    }
+    // Los que no tienen ciudad van SIEMPRE al final, se ordene como se
+    // ordene: son los puestos creados a mano, sin enlace al catálogo, y
+    // mezclarlos entre las ciudades reales los esconde.
+    if (campo === 'municipio') {
+      const ca = a.municipio || '', cb = b.municipio || '';
+      if (!ca !== !cb) return ca ? -1 : 1;
+      const cmp = ca.localeCompare(cb, 'es');
+      if (cmp !== 0) return cmp * signo;
+      return a.puesto.localeCompare(b.puesto, 'es');
+    }
+    return a.puesto.localeCompare(b.puesto, 'es') * signo;
+  });
+
+  document.querySelectorAll('[data-orden-estimado]').forEach((th) => {
+    const activo = th.dataset.ordenEstimado === campo;
+    th.classList.toggle('orden-activo', activo);
+    th.dataset.ordenDir = activo ? ordenEstimado.dir : '';
+  });
 
   tbody.innerHTML = puestos.map((p, i) => `
     <tr>
-      <td>${p.puesto}</td>
-      <td>${p.cantidadMesas}</td>
-      <td class="mono">${p.total}</td>
+      <td>${escaparHtml(p.puesto)}</td>
+      <td>${escaparHtml(nombreLugar(p.municipio) || '—')}</td>
+      <td class="col-num">${p.cantidadMesas}</td>
+      <td class="mono col-num">${p.total}</td>
       <td><button type="button" class="btn-secundario btn-sm" onclick="alternarMesasEstimadoPuesto(${i})">Ver mesas</button></td>
     </tr>
     <tr id="fila-mesas-estimado-${i}" style="display:none;">
-      <td colspan="4">
+      <td colspan="5">
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
           ${p.mesas.map(m => `<span class="badge badge-mesa-estimado" style="${m.cantidad ? '' : 'opacity:0.55;'}">Mesa ${m.mesa}: <strong class="mono">${m.cantidad}</strong></span>`).join('')}
           ${p.sinMesaValida ? `<span class="badge badge-indeciso">Sin mesa reconocida: <strong class="mono">${p.sinMesaValida}</strong></span>` : ''}
@@ -2372,13 +2443,11 @@ async function cargarEstimadoPuestos() {
       </td>
     </tr>
   `).join('');
-
-  const noConfigurados = datos.puestosNoConfigurados || [];
-  document.getElementById('card-puestos-no-configurados').style.display = noConfigurados.length ? 'block' : 'none';
-  document.getElementById('tbody-puestos-no-configurados').innerHTML = noConfigurados.map(p => `
-    <tr><td>${p.puesto}</td><td class="mono">${p.total}</td></tr>
-  `).join('');
 }
+
+document.querySelectorAll('[data-orden-estimado]').forEach((th) => {
+  th.addEventListener('click', () => ordenarPorEstimado(th.dataset.ordenEstimado));
+});
 
 function alternarMesasEstimadoPuesto(i) {
   const fila = document.getElementById(`fila-mesas-estimado-${i}`);
