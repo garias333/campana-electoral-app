@@ -5,9 +5,22 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
+
+/**
+ * Cuánto vive un código de acceso temporal.
+ *
+ * 48 horas es el margen para que alguien reciba el mensaje un viernes por la
+ * noche y entre el domingo. Más allá de eso el código deja de ser una
+ * comodidad y pasa a ser una puerta abierta: son cuatro dígitos, y con los 480
+ * intentos diarios que permite el bloqueo por cuenta, treinta días de vigencia
+ * dan un 76% de probabilidad de acertarlo. Con 48 horas queda por debajo del
+ * 10%.
+ */
+const HORAS_VIGENCIA_CODIGO = 48;
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { registrarAuditoria } = require('../config/auditoria');
+const smsSvc = require('../config/sms');
 router.use(requireAuth);
 
 /**
@@ -227,13 +240,54 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
     // "Credenciales enviadas" vuelve a estar en blanco. Sin esto, la tabla
     // seguiria diciendo que ya se le escribio y nadie se enteraria de que hay
     // que volver a hacerlo.
+    const expira = new Date(Date.now() + HORAS_VIGENCIA_CODIGO * 60 * 60 * 1000);
     await pool.query(
       `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 1, intentos_fallidos = 0,
-              bloqueado_hasta = NULL, credenciales_enviadas = NULL
+              bloqueado_hasta = NULL, credenciales_enviadas = NULL, password_temporal_expira = ?
         WHERE id = ?`,
-      [hash, req.params.id]
+      [hash, expira, req.params.id]
     );
-    res.json({ ok: true, password_temporal: passwordTemporal });
+
+    // EL CÓDIGO VIAJA POR OTRO CANAL QUE EL ENLACE.
+    //
+    // El enlace de la aplicación no es un secreto —el dominio está publicado
+    // en los registros de Certificate Transparency desde que se emitió su
+    // certificado, y ahí no se puede borrar—. El código sí lo es. Mandarlos
+    // juntos por WhatsApp significa que una sola captura reenviada lleva todo
+    // lo necesario para entrar; separados, cada mensaje por su lado no sirve.
+    //
+    // La clave NUNCA sale del servidor por este camino: se genera aquí y se
+    // manda desde aquí. El navegador solo recibe si salió o no.
+    let sms = { enviado: false, motivo: null };
+    if (req.body && req.body.enviar_sms) {
+      const [[persona]] = await pool.query('SELECT nombre, telefono FROM usuarios WHERE id = ?', [req.params.id]);
+      if (!persona || !persona.telefono) {
+        sms.motivo = 'la persona no tiene teléfono registrado';
+      } else {
+        try {
+          // `operativo: true`: es un mensaje de la aplicación a su propio
+          // equipo, no propaganda, así que no lo detiene la lista de baja.
+          await smsSvc.enviarSMS(
+            persona.telefono,
+            `Su codigo de acceso es ${passwordTemporal}. Vence en ${HORAS_VIGENCIA_CODIGO} horas.`,
+            null,
+            { origen: 'acceso', operativo: true, usuarioId: Number(req.params.id) }
+          );
+          sms.enviado = true;
+        } catch (err) {
+          sms.motivo = err.message || 'no se pudo enviar';
+          console.warn('[credenciales] SMS no enviado:', sms.motivo);
+        }
+      }
+    }
+
+    res.json({
+      ok: true,
+      password_temporal: passwordTemporal,
+      expira_en: expira,
+      horas_vigencia: HORAS_VIGENCIA_CODIGO,
+      sms
+    });
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
     res.status(500).json({ error: 'Error restableciendo la contraseña.' });

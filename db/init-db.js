@@ -1222,6 +1222,23 @@ async function main() {
     'credenciales_enviadas'
   );
 
+  // --- Hasta cuándo sirve la contraseña temporal ---
+  //
+  // El código que se le manda a alguien para que entre la primera vez no
+  // caducaba: seguía sirviendo semanas después, y desde el parche 91 es de
+  // cuatro dígitos. Con el bloqueo actual —5 intentos cada 15 minutos— caben
+  // 480 intentos al día contra una cuenta: en 30 días eso es un 76% de
+  // probabilidad de acertarlo. Con 48 horas de vigencia baja a menos del 10%.
+  //
+  // NULL significa «sin caducidad», que es lo correcto para todas las
+  // contraseñas que ya existen y para las que el propio usuario elige. Solo
+  // se llena al generar un código temporal.
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    'password_temporal_expira DATETIME NULL AFTER debe_cambiar_password',
+    'password_temporal_expira'
+  );
+
   // usuarios.puesto_id: el id del puesto de votación, derivado del texto
   // libre de usuarios.puesto_votacion. Existe para que los cruces del Día D
   // se hagan por id y no comparando dos textos carácter por carácter.

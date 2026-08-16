@@ -239,10 +239,39 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas.' });
     }
 
+    // EL CÓDIGO TEMPORAL CADUCA, Y SE COMPRUEBA DESPUÉS DE VALIDARLO.
+    //
+    // Va aquí y no antes a propósito: comprobarlo antes de saber si la
+    // contraseña es correcta convertiría este mensaje en una forma de
+    // averiguar qué cuentas tienen un código pendiente, sin acertar ninguno.
+    //
+    // Solo aplica a las contraseñas TEMPORALES: la columna queda en NULL para
+    // las que la persona eligió, y ésas no vencen nunca.
+    if (usuario.password_temporal_expira && new Date(usuario.password_temporal_expira) < new Date()) {
+      await registrarAuditoria(usuario.id, 'codigo_vencido',
+        'Intento de entrar con un código de acceso ya vencido.', req.ip);
+      return res.status(401).json({
+        error: 'Ese código de acceso ya venció. Pídale al administrador de la campaña que se lo envíe de nuevo.'
+      });
+    }
+
     await pool.query(
       `UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_login = NOW() WHERE id = ?`,
       [usuario.id]
     );
+
+    // Y UNA VEZ USADO, EL CÓDIGO SE APAGA.
+    //
+    // No se anula de golpe: si alguien entra y cierra la aplicación antes de
+    // terminar de poner su contraseña nueva, quedaría fuera de su propia
+    // cuenta sin haber hecho nada mal. Se le deja media hora, que alcanza de
+    // sobra para el cambio y no para que el código siga sirviendo mañana.
+    if (usuario.password_temporal_expira) {
+      await pool.query(
+        `UPDATE usuarios SET password_temporal_expira = LEAST(password_temporal_expira, NOW() + INTERVAL 30 MINUTE)
+          WHERE id = ?`, [usuario.id]
+      );
+    }
 
     // --- Líder/Sublíder que también es testigo electoral: se le pregunta
     // con cuál capacidad quiere entrar ANTES de seguir (incluso antes del
@@ -566,7 +595,7 @@ router.post('/cambiar-password', requireAuth, async (req, res) => {
     }
     const nuevoHash = await bcrypt.hash(passwordNueva, 12);
     await pool.query(
-      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0 WHERE id = ?`,
+      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0, password_temporal_expira = NULL WHERE id = ?`,
       [nuevoHash, req.session.usuario.id]
     );
     req.session.usuario.debe_cambiar_password = false;
@@ -649,7 +678,8 @@ router.post('/resetear-password', async (req, res) => {
     const nuevoHash = await bcrypt.hash(nuevaPassword, 12);
 
     await pool.query(
-      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0, intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?`,
+      `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0, intentos_fallidos = 0,
+              bloqueado_hasta = NULL, password_temporal_expira = NULL WHERE id = ?`,
       [nuevoHash, reset.usuario_id]
     );
     await pool.query(`UPDATE password_resets SET usado = 1 WHERE id = ?`, [reset.id]);

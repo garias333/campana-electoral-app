@@ -920,7 +920,9 @@ async function enviarCredencialesWhatsApp(id) {
   const ventana = window.open('', 'whatsappWeb');
 
   try {
-    const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST' });
+      const r = await api(`/usuarios/${id}/restablecer-password`, {
+        method: 'POST', body: { enviar_sms: true }
+      });
     const candidato = (document.querySelector('#form-campana [name="nombre_candidato"]') || {}).value || '';
     const enlace = `${window.location.origin}/app/inicio.html`;
     const texto = [
@@ -931,9 +933,16 @@ async function enviarCredencialesWhatsApp(id) {
       '',
       '2) Entra con estos datos:',
       `Usuario: ${u.nombre_usuario || u.email}`,
-      `Contraseña: ${r.password_temporal}`,
+      // EL CÓDIGO NO VIAJA EN ESTE MENSAJE si salió por SMS. El enlace es
+      // público —el dominio está en los registros de Certificate Transparency
+      // desde que se emitió su certificado, y de ahí no se puede borrar—; el
+      // código no lo es. Juntos, una sola captura reenviada alcanza para
+      // entrar; separados, cada mensaje por su lado no sirve de nada.
+      r.sms && r.sms.enviado
+        ? 'Tu código de acceso te llega aparte, por mensaje de texto.'
+        : `Contraseña: ${r.password_temporal}`,
       '',
-      'La aplicación te va a pedir que cambies la contraseña la primera vez que entres. No compartas estos datos con nadie.'
+      `La aplicación te va a pedir que cambies la contraseña la primera vez que entres. El código vence en ${r.horas_vigencia || 48} horas. No compartas estos datos con nadie.`
     ].join('\n');
 
     const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
@@ -946,6 +955,14 @@ async function enviarCredencialesWhatsApp(id) {
       // Bloqueada pese a todo: la contraseña YA cambió, así que no se puede
       // callar. Se muestra para que el envío se pueda completar a mano.
       alert(`No se pudo abrir WhatsApp.\n\nLa contraseña nueva de ${u.nombre} es: ${r.password_temporal}\n\nAnótela y envíesela, porque no se vuelve a mostrar.`);
+    }
+
+    // SI EL SMS NO SALIÓ HAY QUE DECIRLO, y decir el código. La contraseña YA
+    // cambió: callarse dejaría a la persona sin poder entrar y al
+    // administrador sin saber por qué.
+    if (r.sms && !r.sms.enviado) {
+      alert(`El código NO se pudo enviar por mensaje de texto${r.sms.motivo ? ' (' + r.sms.motivo + ')' : ''}.\n\n`
+        + `Por eso va incluido en el mensaje de WhatsApp. El código de ${u.nombre} es: ${r.password_temporal}`);
     }
 
     await api(`/usuarios/${id}/credenciales-enviadas`, { method: 'POST' });
@@ -1037,7 +1054,7 @@ async function restablecerPasswordUsuario(id) {
   if (!confirm('¿Restablecer la contraseña de este usuario? Se generará una contraseña temporal nueva.')) return;
   try {
     const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST' });
-    alert(`Contraseña temporal nueva: ${r.password_temporal}\n\nEl usuario deberá cambiarla en su próximo inicio de sesión.`);
+    alert(`Contraseña temporal nueva: ${r.password_temporal}\n\nVence en ${r.horas_vigencia || 48} horas y el usuario deberá cambiarla al entrar.`);
   } catch (err) {
     alert(err.message);
   }
