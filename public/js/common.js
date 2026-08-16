@@ -72,6 +72,96 @@ function fijarValorGuardadoEnSelect(select, valor) {
   select.value = v;
 }
 
+/* ------------------------------------------------------------------
+   AVISO EN EL PROPIO BOTÓN DE GUARDAR
+
+   Al pulsar Guardar no pasaba nada visible hasta que la respuesta volvía: en
+   una conexión lenta uno no sabe si el clic entró, y vuelve a pulsar. Ahora
+   el botón se pone en «Guardando…» con un girador, y al terminar dice
+   «Guardado» un momento antes de volver a lo suyo.
+
+   DE PASO IMPIDE EL DOBLE ENVÍO, que es más que un adorno: dos clics
+   seguidos en Guardar creaban dos veces a la misma persona.
+
+   SE ENGANCHA UNA SOLA VEZ, AL FORMULARIO, no botón por botón: hay 23
+   botones de guardar repartidos en 14 pantallas, cada uno con su propio
+   manejador, y tocarlos todos habría sido tocar 14 archivos y olvidarse del
+   siguiente que se agregue.
+
+   PARA SABER CUÁNDO TERMINÓ no se puede esperar al manejador de la página
+   —es suyo y no lo devuelve—, así que se mira lo que la pantalla YA hace al
+   acabar: enseñar un mensaje de resultado, o cerrar la ventana. Y por si
+   alguna no hace ninguna de las dos, hay un plazo de seguridad: un botón que
+   se quedara diciendo «Guardando…» para siempre sería peor que no avisar.
+   ------------------------------------------------------------------ */
+const PLAZO_MAXIMO_GUARDANDO = 12000;
+
+function restaurarBotonGuardar(boton) {
+  if (boton.dataset.guardando !== 'si') return;
+  clearTimeout(Number(boton.dataset.plazoGuardando));
+  boton.disabled = false;
+  boton.classList.remove('btn-guardando', 'btn-guardado');
+  boton.innerHTML = boton.dataset.textoOriginal || boton.innerHTML;
+  delete boton.dataset.guardando;
+}
+
+function terminarBotonGuardar(boton, ok) {
+  if (boton.dataset.guardando !== 'si') return;
+  clearTimeout(Number(boton.dataset.plazoGuardando));
+  if (!ok) { restaurarBotonGuardar(boton); return; }
+  boton.classList.remove('btn-guardando');
+  boton.classList.add('btn-guardado');
+  boton.innerHTML = '✓ Guardado';
+  boton.dataset.plazoGuardando = String(setTimeout(() => restaurarBotonGuardar(boton), 1500));
+}
+
+function activarAvisoBotonesGuardar() {
+  document.addEventListener('submit', (evento) => {
+    const form = evento.target;
+    if (!form || form.tagName !== 'FORM') return;
+    const boton = form.querySelector('button[type="submit"]') ||
+      Array.from(form.querySelectorAll('button')).find(b => !b.type || b.type === 'submit');
+    if (!boton || boton.dataset.guardando === 'si') return;
+
+    boton.dataset.textoOriginal = boton.innerHTML;
+    boton.dataset.guardando = 'si';
+    boton.disabled = true;
+    boton.classList.add('btn-guardando');
+    boton.innerHTML = '<span class="girador" aria-hidden="true"></span> Guardando…';
+    boton.dataset.plazoGuardando = String(setTimeout(() => restaurarBotonGuardar(boton), PLAZO_MAXIMO_GUARDANDO));
+  }, true);   // en captura: corre ANTES que el manejador de la página
+
+  // El final se detecta por lo que la pantalla ya hace: mostrar el mensaje de
+  // resultado o cerrar la ventana emergente.
+  const vigilante = new MutationObserver((cambios) => {
+    for (const c of cambios) {
+      const el = c.target;
+      if (!(el instanceof Element)) continue;
+
+      if (el.classList.contains('mensaje-ok') || el.classList.contains('mensaje-error')) {
+        const form = el.closest('form') || el.parentElement?.querySelector('form') ||
+          (el.closest('.modal') || el.closest('.card') || document).querySelector('form');
+        const boton = form && form.querySelector('button[data-guardando="si"]');
+        if (boton && el.classList.contains('visible')) {
+          terminarBotonGuardar(boton, el.classList.contains('mensaje-ok'));
+        }
+      }
+      // Ventana cerrada: se restaura sin más, que si no reaparecería
+      // diciendo «Guardando…» la próxima vez que se abra.
+      if (el.classList.contains('overlay') && !el.classList.contains('abierto')) {
+        el.querySelectorAll('button[data-guardando="si"]').forEach(restaurarBotonGuardar);
+      }
+    }
+  });
+  vigilante.observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', activarAvisoBotonesGuardar);
+} else {
+  activarAvisoBotonesGuardar();
+}
+
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {

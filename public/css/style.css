@@ -708,6 +708,41 @@ body.sin-veredas [data-campo="vereda"] { display: none !important; }
 body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !important; }
 
 /* ------------------------------------------------------------------
+   El botón de Guardar mientras guarda, y cuando termina.
+
+   Tres señales a la vez, porque una sola no le sirve a todo el mundo: el
+   TEXTO cambia («Guardando…», «Guardado»), el COLOR cambia, y hay un
+   girador. Quien no distinga bien los colores lee el texto; quien no lea el
+   texto ve el verde.
+
+   El botón queda deshabilitado mientras tanto — de ahí el cursor de espera y
+   la opacidad—, que es lo que impide el doble envío.
+
+   La animación respeta a quien pidió menos movimiento en su sistema: con
+   `prefers-reduced-motion` el girador deja de girar y queda como un punto,
+   pero el texto y el color siguen avisando.                              */
+.btn-guardando { cursor: progress; opacity: 0.9; }
+.btn-guardado {
+  background: #1E7245 !important;
+  border-color: #1E7245 !important;
+  color: #fff !important;
+}
+.girador {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .girador { animation: none; border-right-color: currentColor; opacity: 0.6; }
+}
+
+/* ------------------------------------------------------------------
    Título de un APARTADO dentro de un formulario largo — hoy los de
    Configuración → Datos de la campaña ("DATOS DE LA CAMPAÑA",
    "TERRITORIO").
