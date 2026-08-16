@@ -1314,7 +1314,7 @@ document.getElementById('input-barrio-votante').addEventListener('input', () => 
   if (barrio) {
     const comuna = territorios.find(t => t.id === barrio.padre_id);
     if (comuna && normalizarTexto(document.getElementById('input-comuna-votante').value) !== normalizarTexto(comuna.nombre)) {
-      document.getElementById('input-comuna-votante').value = comuna.nombre;
+      document.getElementById('input-comuna-votante').value = nombreLugar(comuna.nombre);
       actualizarBarriosVotante();
     }
   }
@@ -1327,7 +1327,7 @@ document.getElementById('input-vereda-votante').addEventListener('input', () => 
   if (vereda) {
     const corregimiento = territorios.find(t => t.id === vereda.padre_id);
     if (corregimiento && normalizarTexto(document.getElementById('input-corregimiento-votante').value) !== normalizarTexto(corregimiento.nombre)) {
-      document.getElementById('input-corregimiento-votante').value = corregimiento.nombre;
+      document.getElementById('input-corregimiento-votante').value = nombreLugar(corregimiento.nombre);
       actualizarVeredasVotante();
     }
   }
@@ -1488,7 +1488,7 @@ function precargarUbicacionVotante(territorioId) {
   // se llenara después saldrían vacías y borrarían lo ya precargado.
   if (ambitoDepartamental) {
     const municipio = municipioDeTerritorioVotante(territorio);
-    document.getElementById('input-municipio-influencia-votante').value = municipio ? municipio.nombre : '';
+    document.getElementById('input-municipio-influencia-votante').value = municipio ? nombreLugar(municipio.nombre) : '';
     poblarListasUbicacionVotante();
   }
 
@@ -1496,28 +1496,28 @@ function precargarUbicacionVotante(territorioId) {
     document.getElementById('select-area-votante').value = 'urbano';
     document.getElementById('fila-urbano-votante').style.display = 'flex';
     const comuna = territorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-comuna-votante').value = comuna ? comuna.nombre : '';
+    document.getElementById('input-comuna-votante').value = comuna ? nombreLugar(comuna.nombre) : '';
     actualizarBarriosVotante();
-    document.getElementById('input-barrio-votante').value = territorio.nombre;
+    document.getElementById('input-barrio-votante').value = nombreLugar(territorio.nombre);
   } else if (territorio.tipo === 'vereda') {
     document.getElementById('select-area-votante').value = 'rural';
     document.getElementById('fila-rural-votante').style.display = 'flex';
     const corregimiento = territorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-corregimiento-votante').value = corregimiento ? corregimiento.nombre : '';
+    document.getElementById('input-corregimiento-votante').value = corregimiento ? nombreLugar(corregimiento.nombre) : '';
     actualizarVeredasVotante();
-    document.getElementById('input-vereda-votante').value = territorio.nombre;
+    document.getElementById('input-vereda-votante').value = nombreLugar(territorio.nombre);
   } else if (territorio.tipo === 'comuna') {
     // Un sublíder puede quedar asignado a la Comuna cuando el municipio no
     // tiene barrios creados — antes esto no se precargaba y al editarlo se
     // perdía el territorio en silencio.
     document.getElementById('select-area-votante').value = 'urbano';
     document.getElementById('fila-urbano-votante').style.display = 'flex';
-    document.getElementById('input-comuna-votante').value = territorio.nombre;
+    document.getElementById('input-comuna-votante').value = nombreLugar(territorio.nombre);
     actualizarBarriosVotante();
   } else if (territorio.tipo === 'corregimiento') {
     document.getElementById('select-area-votante').value = 'rural';
     document.getElementById('fila-rural-votante').style.display = 'flex';
-    document.getElementById('input-corregimiento-votante').value = territorio.nombre;
+    document.getElementById('input-corregimiento-votante').value = nombreLugar(territorio.nombre);
     actualizarVeredasVotante();
   }
   // Si el territorio guardado es el municipio mismo (campaña departamental

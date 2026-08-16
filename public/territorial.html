@@ -578,7 +578,7 @@ document.getElementById('input-barrio-vereda-residencia-persona').addEventListen
   if (encontrado) {
     const zona = listaTerritorios.find(t => t.id === encontrado.padre_id);
     if (zona && normalizarTexto(document.getElementById('input-comuna-corregimiento-residencia-persona').value) !== normalizarTexto(zona.nombre)) {
-      document.getElementById('input-comuna-corregimiento-residencia-persona').value = zona.nombre;
+      document.getElementById('input-comuna-corregimiento-residencia-persona').value = nombreLugar(zona.nombre);
       actualizarBarrioVeredaResidencia();
     }
   }
@@ -591,8 +591,8 @@ function renderTablaTerritorios() {
   tbody.innerHTML = listaTerritorios.map(t => `
     <tr>
       <td><span class="tag-tipo">${t.tipo}</span></td>
-      <td><strong>${t.nombre}</strong></td>
-      <td>${t.padre_id && porId[t.padre_id] ? porId[t.padre_id].nombre : '—'}</td>
+      <td><strong>${escaparHtml(nombreLugar(t.nombre))}</strong></td>
+      <td>${escaparHtml(t.padre_id && porId[t.padre_id] ? nombreLugar(porId[t.padre_id].nombre) : '—')}</td>
       <td style="white-space:nowrap;">
         ${['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
           ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
@@ -1473,7 +1473,7 @@ document.getElementById('input-barrio-persona').addEventListener('input', () => 
   if (barrio) {
     const comuna = listaTerritorios.find(t => t.id === barrio.padre_id);
     if (comuna && normalizarTexto(document.getElementById('input-comuna-persona').value) !== normalizarTexto(comuna.nombre)) {
-      document.getElementById('input-comuna-persona').value = comuna.nombre;
+      document.getElementById('input-comuna-persona').value = nombreLugar(comuna.nombre);
       actualizarBarriosPersona();
     }
   }
@@ -1485,7 +1485,7 @@ document.getElementById('input-vereda-persona').addEventListener('input', () => 
   if (vereda) {
     const corregimiento = listaTerritorios.find(t => t.id === vereda.padre_id);
     if (corregimiento && normalizarTexto(document.getElementById('input-corregimiento-persona').value) !== normalizarTexto(corregimiento.nombre)) {
-      document.getElementById('input-corregimiento-persona').value = corregimiento.nombre;
+      document.getElementById('input-corregimiento-persona').value = nombreLugar(corregimiento.nombre);
       actualizarVeredasPersona();
     }
   }
@@ -1815,7 +1815,7 @@ function precargarUbicacionPersona(territorioId) {
   // se llenara después saldrían vacías y borrarían lo que ya se precargó.
   if (ambitoDepartamental) {
     const municipio = municipioDeTerritorio(territorio);
-    document.getElementById('input-municipio-influencia-persona').value = municipio ? municipio.nombre : '';
+    document.getElementById('input-municipio-influencia-persona').value = municipio ? nombreLugar(municipio.nombre) : '';
     poblarListasUbicacionPersona();
   }
 
@@ -1832,23 +1832,23 @@ function precargarUbicacionPersona(territorioId) {
     document.getElementById('fila-urbano-persona').style.display = 'flex';
     document.getElementById('fila-rural-persona').style.display = 'none';
     const comuna = listaTerritorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-comuna-persona').value = comuna ? comuna.nombre : '';
+    document.getElementById('input-comuna-persona').value = comuna ? nombreLugar(comuna.nombre) : '';
     actualizarBarriosPersona();
-    document.getElementById('input-barrio-persona').value = territorio.nombre;
+    document.getElementById('input-barrio-persona').value = nombreLugar(territorio.nombre);
   } else if (territorio.tipo === 'vereda') {
     document.getElementById('select-area-persona').value = 'rural';
     document.getElementById('fila-rural-persona').style.display = 'flex';
     document.getElementById('fila-urbano-persona').style.display = 'none';
     const corregimiento = listaTerritorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-corregimiento-persona').value = corregimiento ? corregimiento.nombre : '';
+    document.getElementById('input-corregimiento-persona').value = corregimiento ? nombreLugar(corregimiento.nombre) : '';
     actualizarVeredasPersona();
-    document.getElementById('input-vereda-persona').value = territorio.nombre;
+    document.getElementById('input-vereda-persona').value = nombreLugar(territorio.nombre);
   } else if (territorio.tipo === 'comuna') {
     // Coordinador asignado directamente a la Comuna (sin Barrio).
     document.getElementById('select-area-persona').value = 'urbano';
     document.getElementById('fila-urbano-persona').style.display = 'flex';
     document.getElementById('fila-rural-persona').style.display = 'none';
-    document.getElementById('input-comuna-persona').value = territorio.nombre;
+    document.getElementById('input-comuna-persona').value = nombreLugar(territorio.nombre);
     actualizarBarriosPersona();
     document.getElementById('input-barrio-persona').value = '';
   } else if (territorio.tipo === 'corregimiento') {
@@ -1856,7 +1856,7 @@ function precargarUbicacionPersona(territorioId) {
     document.getElementById('select-area-persona').value = 'rural';
     document.getElementById('fila-rural-persona').style.display = 'flex';
     document.getElementById('fila-urbano-persona').style.display = 'none';
-    document.getElementById('input-corregimiento-persona').value = territorio.nombre;
+    document.getElementById('input-corregimiento-persona').value = nombreLugar(territorio.nombre);
     actualizarVeredasPersona();
     document.getElementById('input-vereda-persona').value = '';
   }

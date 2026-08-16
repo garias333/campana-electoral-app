@@ -1439,7 +1439,7 @@ async function mostrarAvisoAmbitoPuestos() {
   document.getElementById('filtro-municipio-puestos').style.display = 'flex';
   document.getElementById('btn-mostrar-traer').style.display = '';
   btnDepto.style.display = '';
-  btnDepto.textContent = `📥 Traer todo ${ambitoCampanaCache.departamento.nombre}`;
+  btnDepto.textContent = `📥 Traer todo ${nombreLugar(ambitoCampanaCache.departamento.nombre)}`;
   selMuni.disabled = false;
   nota.textContent = 'Como la campaña abarca varios municipios, al nombre de cada puesto se le agrega el municipio entre paréntesis — así no se confunden los que se llaman igual (p. ej. "PUESTO CABECERA MUNICIPAL" existe en decenas de municipios). Se puede repetir sin duplicar.';
   try {
@@ -1604,7 +1604,7 @@ document.getElementById('btn-traer-departamento').addEventListener('click', (e) 
   traerPuestosDelCatalogo(
     e.currentTarget,
     { departamento_id: ambitoCampanaCache.departamento.id },
-    `TODO el departamento de ${ambitoCampanaCache.departamento.nombre}`
+    `TODO el departamento de ${nombreLugar(ambitoCampanaCache.departamento.nombre)}`
   );
 });
 

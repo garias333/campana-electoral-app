@@ -394,18 +394,18 @@ function precargarUbicacionEvento(territorioId) {
     document.getElementById('fila-urbano-evento').style.display = 'flex';
     document.getElementById('fila-rural-evento').style.display = 'none';
     const comuna = territorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-comuna-evento').value = comuna ? comuna.nombre : '';
+    document.getElementById('input-comuna-evento').value = comuna ? nombreLugar(comuna.nombre) : '';
     actualizarBarriosEvento();
-    document.getElementById('input-barrio-evento').value = territorio.nombre;
+    document.getElementById('input-barrio-evento').value = nombreLugar(territorio.nombre);
     if (comuna) actualizarCoordinadorPorZona(comuna.id);
   } else if (territorio.tipo === 'vereda') {
     document.getElementById('select-area-evento').value = 'rural';
     document.getElementById('fila-rural-evento').style.display = 'flex';
     document.getElementById('fila-urbano-evento').style.display = 'none';
     const corregimiento = territorios.find(t => t.id === territorio.padre_id);
-    document.getElementById('input-corregimiento-evento').value = corregimiento ? corregimiento.nombre : '';
+    document.getElementById('input-corregimiento-evento').value = corregimiento ? nombreLugar(corregimiento.nombre) : '';
     actualizarVeredasEvento();
-    document.getElementById('input-vereda-evento').value = territorio.nombre;
+    document.getElementById('input-vereda-evento').value = nombreLugar(territorio.nombre);
     if (corregimiento) actualizarCoordinadorPorZona(corregimiento.id);
   }
 }
