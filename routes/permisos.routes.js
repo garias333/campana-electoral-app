@@ -35,7 +35,23 @@ const MODULOS = [
   { clave: 'usuarios', etiqueta: 'Usuarios' },
   { clave: 'configuracion', etiqueta: 'Configuración' }
 ];
-const ROLES = ['admin', 'coordinador', 'lider', 'sublider', 'testigo', 'usuario', 'asistente_administrativo', 'invitado'];
+/*
+ * EL ORDEN ES EL DE LA JERARQUÍA, no el alfabético ni el de creación: se lee
+ * de arriba abajo como se lee el organigrama de la campaña, y así la fila que
+ * se busca está donde uno espera.
+ *
+ * «usuario» SE QUITA DE LA MATRIZ pero NO de la aplicación. El rol sigue
+ * existiendo y sus filas de `permisos_rol` siguen ahí y aplicándose: el
+ * guardado usa INSERT ... ON DUPLICATE KEY UPDATE y solo recorre esta lista,
+ * así que no las toca ni las borra. Lo que cambia es que dejan de poder
+ * editarse desde el panel.
+ *
+ * Comprobado antes de quitarlo (16 de agosto de 2026): una sola cuenta lo usa,
+ * en la campaña municipal, y su acceso queda congelado en los 10 módulos que
+ * tiene hoy. Si alguna vez hay que moverlo, basta con devolver 'usuario' a
+ * esta lista.
+ */
+const ROLES = ['admin', 'asistente_administrativo', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
 
 // Matriz completa (rol × módulo) para la pantalla de administración. Solo
 // admin. Cada casilla trae los tres niveles de permiso: Ver, Editar y
