@@ -980,20 +980,26 @@ async function cargarVotantes() {
       v.mesa_votacion && String(v.mesa_votacion).trim()
     );
     const numeroFila = (paginaActualVotantes - 1) * LIMITE_VOTANTES_POR_PAGINA + i + 1;
+    // TODO DATO DE PERSONA VA ESCAPADO. No es celo: el nombre lo escribe
+    // quien registra al votante —un líder, el rol de menor privilegio— y esta
+    // tabla la abre el administrador SIN filtro de alcance. Sin escapar, un
+    // nombre con etiquetas HTML se ejecutaba en la sesión del administrador,
+    // que es la que puede crear cuentas y exportar la base entera.
+    // escaparHtml() está en public/js/common.js.
     return `
     <tr>
       <td class="mono">${numeroFila}</td>
       <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
       <td style="text-align:center;"><input type="checkbox" class="chk-datos-verificados" data-id="${v.id}" ${v.datos_verificados ? 'checked' : ''} ${puedeVerificarDatos() ? '' : 'disabled'} title="${v.datos_verificados ? 'Datos verificados' : 'Sin verificar'}"></td>
-      <td><strong>${v.nombre}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + v.cedula + '</span>' : ''}</td>
+      <td><strong>${escaparHtml(v.nombre)}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + escaparHtml(v.cedula) + '</span>' : ''}</td>
       <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
       <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
-      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : (nombreLugar(v.zona_nombre) || '—')}</td>
-      <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (nombreLugar(v.territorio_nombre) || '—')}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
-      <td>${v.lider_nombre || '—'}</td>
-      <td>${v.sublider_nombre || '—'}</td>
+      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : escaparHtml(nombreLugar(v.zona_nombre) || '—')}</td>
+      <td class="col-barrio-vereda">${escaparHtml(v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (nombreLugar(v.territorio_nombre) || '—'))}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <td>${escaparHtml(v.lider_nombre || '—')}</td>
+      <td>${escaparHtml(v.sublider_nombre || '—')}</td>
       <td class="col-apoya-a">${badgesApoyaA(v.apoya_a)}</td>
       <td class="col-acciones">
         ${puedeEditar(usuarioActual, 'votantes') ? `

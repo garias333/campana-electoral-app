@@ -393,6 +393,18 @@ function escaparOrgHtml(texto) {
   return div.innerHTML;
 }
 
+/**
+ * Igual que escaparOrgHtml, pero además escapa las comillas.
+ *
+ * HACE FALTA UNO APARTE: `div.textContent = x; return div.innerHTML` escapa
+ * <, > y &, pero NO las comillas — dentro de un atributo (title="...") eso
+ * deja salir del atributo y añadir otro, por ejemplo un manejador de evento.
+ * Para texto entre etiquetas basta escaparOrgHtml; para atributos, este.
+ */
+function atribOrg(texto) {
+  return escaparOrgHtml(texto).replace(/"/g, '&quot;');
+}
+
 async function cargarOrganigrama() {
   nodos = await api('/organigrama');
   poblarFiltroOrgCargo();
@@ -554,14 +566,14 @@ function renderizarTablaPorCargo() {
       <tbody>
         ${filas.map(n => `
           <tr>
-            <td><strong>${n.cargo}</strong></td>
-            <td>${n.nombres || (n.nombre ? n.nombre : '—')}</td>
-            <td>${n.apellidos || '—'}</td>
+            <td><strong>${escaparOrgHtml(n.cargo)}</strong></td>
+            <td>${escaparOrgHtml(n.nombres || (n.nombre ? n.nombre : '—'))}</td>
+            <td>${escaparOrgHtml(n.apellidos || '—')}</td>
             <td class="mono">${celdaTelefonoWhatsApp(n.telefono)}</td>
-            <td class="mono">${n.email || '—'}</td>
+            <td class="mono">${escaparOrgHtml(n.email || '—')}</td>
             <td>${ETIQUETAS_NIVEL[n.nivel] || '—'}</td>
-            <td>${textoSubordinadoDe(n)}</td>
-            <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${n.funciones ? n.funciones.replace(/"/g, '&quot;') : ''}">${n.funciones ? n.funciones : '—'}</td>
+            <td>${escaparOrgHtml(textoSubordinadoDe(n))}</td>
+            <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${n.funciones ? atribOrg(n.funciones) : ''}">${escaparOrgHtml(n.funciones ? n.funciones : '—')}</td>
             <td style="white-space:nowrap;">
               <button class="btn-secundario btn-sm" onclick="imprimirCargo(${n.id})" title="Imprimir ficha de este cargo">🖨️</button>
               ${puedeEditar ? `
@@ -658,7 +670,7 @@ function botonWhatsAppOrg(nodo) {
   const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
   return `<a class="btn-secundario btn-sm btn-org-whatsapp" target="whatsappWeb"
              onclick="abrirWhatsApp(event, '${internacional}')"
-             href="https://wa.me/${internacional}" title="Escribir por WhatsApp a ${escaparHtml(nodo.cargo)}"
+             href="https://wa.me/${internacional}" title="Escribir por WhatsApp a ${atribOrg(nodo.cargo)}"
              aria-label="Escribir por WhatsApp">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
               <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.06c-.24.68-1.42 1.31-1.96 1.35-.5.04-.98.22-3.3-.69-2.79-1.1-4.55-3.96-4.69-4.14-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34.18 0 .36 0 .52.01.17.01.39-.06.61.47.24.55.8 1.9.87 2.04.07.14.12.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.61-.07.17-.19.7-.82.89-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/>
@@ -683,8 +695,8 @@ function renderizarNodoLista(nodo) {
     <div class="${claseNodo}">
       <div class="org-nodo-fila">
         <span class="org-toggle ${tieneHijos ? '' : 'vacio'}" onclick="alternarNodo(${nodo.id})">${contraido ? '▸' : '▾'}</span>
-        <span class="org-cargo ${claseColorCargo}">${nodo.cargo}</span>
-        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${nombreAbreviado(nodo)}</span>` : ''}
+        <span class="org-cargo ${claseColorCargo}">${escaparOrgHtml(nodo.cargo)}</span>
+        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
         ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
         <span class="org-imprimir-lista org-imprimir-word" style="${puedeEditar ? '' : 'margin-left:auto;'}" onclick="exportarCargoWord(${nodo.id})" title="Ficha de este cargo en Word">📝 Word</span>
         <span class="org-imprimir-lista org-imprimir-pdf" onclick="imprimirCargo(${nodo.id})" title="Ficha de este cargo en PDF">🖨️ PDF</span>
@@ -720,8 +732,8 @@ function renderizarNodoDiagrama(nodo) {
   const cajaHtml = `
     <div class="org-caja">
       <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
-      <span class="org-cargo">${nodo.cargo}</span>
-      ${nombreAbreviado(nodo) ? `<span class="org-nombre">${nombreAbreviado(nodo)}</span>` : ''}
+      <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
+      ${nombreAbreviado(nodo) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
       ${(puedeEditar || nodo.telefono) ? `
         <div class="org-caja-acciones">
           ${puedeEditar ? `
@@ -741,8 +753,8 @@ function renderizarNodoDiagrama(nodo) {
       ${asesores.map(a => `
         <div class="org-caja org-caja-asesor">
           <span class="org-caja-imprimir" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
-          <span class="org-cargo">${a.cargo}</span>
-          ${nombreAbreviado(a) ? `<span class="org-nombre">${nombreAbreviado(a)}</span>` : ''}
+          <span class="org-cargo">${escaparOrgHtml(a.cargo)}</span>
+          ${nombreAbreviado(a) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(a))}</span>` : ''}
           <span class="org-etiqueta-asesor">Asesor</span>
           ${(puedeEditar || a.telefono) ? `
             <div class="org-caja-acciones">
@@ -776,8 +788,8 @@ function renderizarNodoCompacto(nodo) {
     <div class="org-compacto-nodo">
       <div class="org-compacto-caja">
         <span class="org-caja-imprimir org-caja-imprimir-inline" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
-        <span class="org-cargo">${nodo.cargo}</span>
-        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${nombreAbreviado(nodo)}</span>` : ''}
+        <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
+        ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
         ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
         ${puedeEditar ? `
           <div class="org-caja-acciones">
@@ -803,8 +815,8 @@ function renderizarColumnasPorNivel() {
         <div class="org-columna-nivel-tarjetas">
           ${delNivel.length ? delNivel.map(n => `
             <div class="org-columna-tarjeta">
-              <span class="org-cargo">${n.cargo}</span>
-              ${nombreAbreviado(n) ? `<span class="org-nombre">${nombreAbreviado(n)}</span>` : ''}
+              <span class="org-cargo">${escaparOrgHtml(n.cargo)}</span>
+              ${nombreAbreviado(n) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(n))}</span>` : ''}
             </div>
           `).join('') : '<p class="org-columna-vacia">Sin cargos en este nivel.</p>'}
         </div>
@@ -849,8 +861,8 @@ function dibujarClusterRadial(raiz, idLienzo) {
     const nietos = nodos.filter(n => n.padre_id === h.id).length;
     return `
       <div class="org-radial-nodo" style="left:${x}px; top:${y}px;">
-        <span class="org-cargo">${h.cargo}</span>
-        ${nombreAbreviado(h) ? `<span class="org-nombre">${nombreAbreviado(h)}</span>` : ''}
+        <span class="org-cargo">${escaparOrgHtml(h.cargo)}</span>
+        ${nombreAbreviado(h) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(h))}</span>` : ''}
         ${h.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
         ${nietos ? `<span class="org-radial-mas">+${nietos} subordinado${nietos === 1 ? '' : 's'}</span>` : ''}
       </div>
@@ -860,8 +872,8 @@ function dibujarClusterRadial(raiz, idLienzo) {
   lienzo.innerHTML = `
     <svg class="org-radial-svg">${svgLineas}</svg>
     <div class="org-radial-nodo org-radial-centro" style="left:${centroX}px; top:${centroY}px;">
-      <span class="org-cargo">${raiz.cargo}</span>
-      ${nombreAbreviado(raiz) ? `<span class="org-nombre">${nombreAbreviado(raiz)}</span>` : ''}
+      <span class="org-cargo">${escaparOrgHtml(raiz.cargo)}</span>
+      ${nombreAbreviado(raiz) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(raiz))}</span>` : ''}
     </div>
     ${nodosHijos}
   `;
@@ -878,7 +890,7 @@ function poblarSelectorPadre(idAExcluir) {
   const select = document.getElementById('org-form-padre');
   const opciones = nodos
     .filter(n => n.id !== idAExcluir)
-    .map(n => `<option value="${n.id}">${n.cargo}${nombreAbreviado(n) ? ' — ' + nombreAbreviado(n) : ''}</option>`)
+    .map(n => `<option value="${n.id}">${escaparOrgHtml(n.cargo)}${nombreAbreviado(n) ? ' — ' + escaparOrgHtml(nombreAbreviado(n)) : ''}</option>`)
     .join('');
   select.innerHTML = '<option value="">Ninguno — cargo raíz</option>' + opciones;
 }

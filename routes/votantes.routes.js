@@ -948,7 +948,26 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
   return { creado: cuentaCreada, estructuraCreada, yaExistiaCuenta: !cuentaCreada };
 }
 
-router.post('/', async (req, res) => {
+/**
+ * QUIÉN PUEDE DAR DE ALTA A UNA PERSONA.
+ *
+ * Esta ruta no tenía ninguna guarda de rol: bastaba con tener sesión. Un
+ * `testigo` —cuyo trabajo es reportar el día de las elecciones— y un
+ * `invitado` —descrito en middleware/auth.js como «solo lectura»— podían
+ * insertar votantes, y el único requisito era que el nombre no viniera vacío.
+ *
+ * Se nombran los roles que SÍ pueden en vez de excluir a los dos que no: una
+ * lista de exclusión deja entrar solo a los roles que se inventen después, que
+ * es justo al revés de lo que conviene.
+ *
+ * Ojo: `permisos_rol` (Configuración → Asignación de permisos) puede AFINAR
+ * esto por campaña, pero hoy solo lo consulta el frontend — el servidor no lo
+ * aplica en ningún módulo. Esta guarda es el piso mínimo, no un sustituto de
+ * aplicar esa tabla del lado del servidor.
+ */
+const ROLES_QUE_REGISTRAN = ['admin', 'coordinador', 'lider', 'sublider', 'usuario', 'asistente_administrativo'];
+
+router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   const b = req.body;
 
   // Reintento idempotente: la app de líderes guarda el formulario en el
