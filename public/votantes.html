@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="sin-columna-ciudad">
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="topbar">
@@ -92,7 +92,7 @@
       </div>
       <div class="tabla-contenedor tabla-contenedor-votantes">
       <table>
-        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th>Área</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
+        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th>Área</th><th class="col-ciudad">Ciudad</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
           <div class="mini-torta-apoya-a" id="grafico-apoya-a-mini" style="display:none;">
             <div class="circulo" id="circulo-apoya-a-mini"></div>
             <div class="mini-torta-apoya-a-info">
@@ -996,6 +996,7 @@ async function cargarVotantes() {
       <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
+      <td class="col-ciudad">${escaparHtml(nombreLugar(v.ciudad_residencia) || '—')}</td>
       <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : escaparHtml(nombreLugar(v.zona_nombre) || '—')}</td>
       <td class="col-barrio-vereda">${escaparHtml(v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (nombreLugar(v.territorio_nombre) || '—'))}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
       <td>${escaparHtml(v.lider_nombre || '—')}</td>
@@ -2423,6 +2424,15 @@ function alternarMesasEstimadoPuesto(i) {
     // residencia no cuenta (ver public/js/columnas-territoriales.js).
     aplicarColumnasTerritoriales(configCampana);
     ambitoDepartamental = ['gobernacion', 'asamblea'].includes(configCampana.cargo_aspira);
+    // LA COLUMNA «CIUDAD» SOLO EN CAMPAÑA DEPARTAMENTAL. Con Gobernación o
+    // Asamblea la gente se reparte entre los municipios del departamento y
+    // saber en cuál está es el dato que ordena la lista; en una campaña
+    // municipal sería la misma ciudad en todas las filas, una columna que
+    // ocupa ancho y no distingue nada.
+    //
+    // Se quita la clase en vez de ponerla: el <body> nace con ella, así la
+    // columna no alcanza a asomarse mientras llega la configuración.
+    document.body.classList.toggle('sin-columna-ciudad', !ambitoDepartamental);
     aplicarApoyosConfigurados('votante', configCampana.apoyos_activos);
     aplicarApoyosATablaVotantes(configCampana.apoyos_activos);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }

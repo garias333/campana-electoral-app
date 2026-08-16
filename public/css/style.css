@@ -813,6 +813,10 @@ body.sin-apoyos .col-apoya-a { display: none; }
    el porqué con el caso que lo destapó. */
 body.sin-columna-comuna .col-comuna-correg { display: none; }
 body.sin-columna-barrio .col-barrio-vereda { display: none; }
+/* «Ciudad» en Votantes: solo aparece con Gobernación o Asamblea, donde la
+   campaña abarca varios municipios. Lo decide votantes.html al leer la
+   configuración; el <body> nace con la clase puesta para que no parpadee. */
+body.sin-columna-ciudad .col-ciudad { display: none; }
 
 /* ------------------------------------------------------------------
    Ojo para ver u ocultar la contraseña. La envoltura y el botón los
