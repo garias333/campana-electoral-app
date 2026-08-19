@@ -7,6 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<!-- El manifiesto va TAMBIÉN aquí, y es la mitad del arreglo: al desinstalar,
+     el celular abre esta pantalla, y sin el manifiesto el navegador no ve
+     ninguna aplicación que instalar. Antes solo lo enlazaban las pantallas de
+     /app/, a las que no se llega sin haber entrado. -->
+<link rel="manifest" href="/app/manifest.json">
+<meta name="theme-color" content="#142a3f">
 <style>
   body {
     min-height: 100vh;
@@ -384,11 +390,22 @@
     <div class="pie-login">
       <a href="/forgot-password.html" style="color: var(--color-text-muted);">¿Olvidaste tu contraseña?</a>
     </div>
+    <div id="zona-instalar-app" style="display:none;">
+    </div>
     <div class="pie-login">Marketing político con ciencia, estrategia y ética.</div>
   </div>
 
 <script src="/js/common.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/instalar-app.js"></script>
+<script>
+  // EL SERVICE WORKER TAMBIÉN AQUÍ. Sin uno registrado, el navegador no
+  // considera instalable la aplicación y nunca manda `beforeinstallprompt`:
+  // el botón no aparecería en la única pantalla que se ve tras desinstalar.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  }
+</script>
 <script>
 /* ------------------------------------------------------------------
    TORRE DE ACCESO

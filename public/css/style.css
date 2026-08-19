@@ -340,6 +340,33 @@ input, select, textarea {
 #form-campana label { cursor: pointer; }
 
 /* ------------------------------------------------------------------
+   Botón «Instalar la aplicación».
+   Se usa en dos sitios muy distintos --la tarjeta oscura del ingreso y la
+   pantalla clara de la app--, asi que toma el color del texto que lo
+   rodea (currentColor) en vez de fijar uno: en la tarjeta se ve claro
+   sobre navy y en la app oscuro sobre beige, sin dos reglas. */
+.btn-instalar-app {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed currentColor;
+  color: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  padding: 13px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: .85;
+}
+.btn-instalar-app:hover { opacity: 1; background: rgba(127,127,127,.10); }
+.nota-instalar-app {
+  font-size: .78rem;
+  line-height: 1.5;
+  opacity: .8;
+  margin: 0;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------
    Matriz de permisos: la columna del Rol se queda quieta.
 
    La tabla tiene diecinueve módulos y se desplaza a lo ancho; sin esto,

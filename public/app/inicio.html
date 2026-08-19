@@ -30,6 +30,10 @@
 
   <nav class="menu-app" id="menu-app"></nav>
 
+  <!-- Ofrecer la instalación también desde dentro: quien entró por el
+       navegador y todavía no la tiene instalada, la instala de un toque. -->
+  <div id="zona-instalar-app" style="display:none; margin-top:18px;"></div>
+
   <button class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
 </main>
 
@@ -37,6 +41,7 @@
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/avisos-push.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/js/instalar-app.js"></script>
 <script>
 const CARGOS = {
   senado: 'Senado', camara_representantes: 'Cámara de Representantes',
