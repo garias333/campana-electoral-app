@@ -116,10 +116,10 @@ const CFG_CACHE_MS = 60000;
  * recibido la migración— devuelve los valores por defecto en vez de tumbar el
  * envío: el canal tiene que poder arrancar antes que su tabla de ajustes.
  *
- * De esa tabla se aplican `forzar_gsm7`, `proveedor_preferido` y la franja
- * horaria (`horario_inicio`/`horario_fin`). Las que siguen SIN leer son
- * `firma` —se llenará cuando se mida cómo llega la firma del proveedor, para
- * poder descontar lo que ocupa— y `url_baja_base`.
+ * De esa tabla se aplican `forzar_gsm7`, `proveedor_preferido`, la franja
+ * horaria (`horario_inicio`/`horario_fin`) y `firma`, que no se escribe en el
+ * mensaje —la pone el proveedor— pero sí se cuenta, porque ocupa sitio en el
+ * segmento. La única que sigue sin leerse es `url_baja_base`.
  */
 async function configCampana() {
   const ahora = Date.now();
@@ -144,6 +144,10 @@ async function configCampana() {
 
   cfgCache = {
     forzarGSM7: fila ? Boolean(fila.forzar_gsm7) : true,
+    // La firma que el proveedor pega a cada mensaje. NO se escribe aquí: se
+    // lleva para poder CONTAR lo que ocupa en el segmento. Mientras la columna
+    // esté en NULL —hoy— el conteo se comporta igual que siempre.
+    firma: (fila && fila.firma) || '',
     proveedorPreferido: forzadoNone
       ? 'none'
       : ((fila && fila.proveedor_preferido) || process.env.SMS_PROVIDER || 'onurix'),
