@@ -341,6 +341,9 @@ async function cargarPuestosVotacion() {
 
 async function cargarEstadoCanales() {
   estadoCanales = await api('/comunicaciones/estado-canales');
+  // La firma que el operador pega a cada SMS, para que el contador la
+  // descuente. Sin esto la pantalla diría «1 SMS» y llegaría cobro de 2.
+  window.firmaSms = (estadoCanales.sms && estadoCanales.sms.firma) || '';
   document.getElementById('punto-email').className = 'punto-estado ' + (estadoCanales.email.configurado ? 'ok' : 'falta');
   document.getElementById('punto-sms').className = 'punto-estado ' + (estadoCanales.sms.configurado ? 'ok' : 'falta');
   document.getElementById('punto-push').className = 'punto-estado ' + ((estadoCanales.push || {}).configurado ? 'ok' : 'falta');

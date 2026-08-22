@@ -484,6 +484,14 @@ document.addEventListener('click', (e) => {
 
 (async () => {
   usuarioActual = await inicializarLayout('/enviar-sms.html');
+
+  // La firma del operador, para que el contador de SMS la descuente. Va en un
+  // try aparte: si esta consulta falla, el contador cuenta de menos, pero la
+  // pantalla tiene que abrir igual.
+  try {
+    const canales = await api('/comunicaciones/estado-canales');
+    window.firmaSms = (canales.sms && canales.sms.firma) || '';
+  } catch (err) { /* se cuenta sin la firma, como antes */ }
   if (!usuarioActual) return;
   if (usuarioActual.rol === 'admin') {
     document.getElementById('btn-eliminar-todo-historial').style.display = 'inline-block';

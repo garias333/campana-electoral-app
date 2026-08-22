@@ -441,10 +441,21 @@ async function obtenerDestinatariosDeGrupos(grupos, canal) {
 // Estado de configuración de cada canal (para mostrar en la interfaz cuáles ya se pueden usar).
 // WhatsApp no aparece: está desactivado en toda la aplicación (ver POST /campanas).
 router.get('/estado-canales', async (req, res) => {
+  // LA FIRMA VIAJA CON EL ESTADO DEL CANAL para que el contador del navegador
+  // pueda descontarla. La CRC obliga al proveedor a pegarla a cada SMS y ocupa
+  // sitio en el segmento: sin este dato la pantalla diría "1 SMS" mientras el
+  // proveedor cobra 2. Medida en un mensaje real, no supuesta.
+  const sms = await smsSvc.estadoCanal();
+  try {
+    const cfg = await smsSvc.configCampana();
+    sms.firma = cfg.firma || '';
+  } catch (_) {
+    sms.firma = '';   // sin tabla de ajustes todavía: se cuenta como antes
+  }
   res.json({
     email: await sendgridSvc.estadoCanal(),
     email_personal: { configurado: true, motivo: null }, // reutiliza el SMTP de Hostinger, ya configurado para toda la app
-    sms: await smsSvc.estadoCanal(),
+    sms,
     push: pushSvc.estadoCanal()
   });
 });

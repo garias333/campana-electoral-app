@@ -29,8 +29,27 @@
   /**
    * @returns {{alfabeto:'GSM-7'|'UCS-2', caracteres:number, segmentos:number, porSegmento:number, restantes:number}}
    */
+  /**
+   * La firma que el proveedor le pega a cada SMS por exigencia de la CRC.
+   *
+   * La pone Onurix, no esta aplicación, pero OCUPA SITIO EN EL SEGMENTO: sin
+   * contarla el contador decía «1 SMS» mientras el proveedor cobraba 2. La
+   * pantalla la recibe de /comunicaciones/estado-canales y la deja aquí.
+   *
+   * Medida en un mensaje real el 22 de agosto de 2026 —no supuesta—:
+   * «ESTRATEGIA MARKETING POLITICO» al final, 29 caracteres más el separador.
+   * Ojo: lo registrado en el portal fue «Estrategia - Marketing Politico», y
+   * el proveedor lo manda en mayúsculas y sin el guion. Son dos caracteres de
+   * diferencia, que es justo lo que separa un segmento de dos en el límite.
+   *
+   * Vacía mientras nadie la fije: el conteo se comporta como antes.
+   */
+  window.firmaSms = '';
+
   window.calcularSegmentosSms = function (texto) {
-    const t = String(texto || '');
+    // Se analiza el texto JUNTO con la firma, no por separado: si la firma
+    // trajera una tilde, el mensaje entero bajaría de 160 a 70 por segmento.
+    const t = String(texto || '') + String(window.firmaSms || '');
     let esGsm = true;
     let largo = 0;
     for (const ch of t) {
@@ -72,7 +91,15 @@
   window.pintarContadorSms = function (textarea, caja, cantidad) {
     if (!textarea || !caja) return;
     const r = window.calcularSegmentosSms(textarea.value);
-    const partes = [`${r.caracteres} caracteres · ${r.segmentos} ${r.segmentos === 1 ? 'SMS' : 'SMS'}`];
+    const firma = String(window.firmaSms || '');
+    // Se muestra lo que la persona escribió, no el total con la firma: el
+    // número de al lado ya no cuadraría con lo que ve en el cuadro. La firma
+    // se nombra aparte, para que se entienda por qué caben menos.
+    const escritos = [...String(textarea.value || '')].length;
+    const partes = [`${escritos} caracteres · ${r.segmentos} SMS`];
+    if (firma) {
+      partes.push(`+${firma.length} de la firma que agrega el operador`);
+    }
 
     if (r.alfabeto === 'UCS-2') {
       partes.push('con tildes o ñ: caben 70 por SMS en vez de 160');
