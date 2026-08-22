@@ -46,10 +46,34 @@
    */
   window.firmaSms = '';
 
+  /**
+   * El enlace de baja que el servidor agrega solo cuando el mensaje no trae
+   * {baja} (ver agregarBajaSms en routes/comunicaciones.routes.js).
+   *
+   * SE CUENTA AUNQUE NO SE VEA EN EL CUADRO. Son unos 77 caracteres que el
+   * servidor pega al final, y con la firma del operador encima pueden empujar
+   * el mensaje a un segundo segmento — el doble de factura. Un contador que
+   * los ignorara diria «1 SMS» y llegarian dos: el peor momento para
+   * enterarse del costo es el recibo.
+   *
+   * Se arma con el dominio REAL de esta instalacion, que es lo que hace largo
+   * al enlace: no es lo mismo «electoral» que «campanadepruebadepartamental».
+   */
+  function textoBajaAutomatica() {
+    if (typeof location === 'undefined') return '';
+    return ' Baja: ' + location.origin + '/b/v000000-XXXXXXXXXX';
+  }
+
+  /** ¿El servidor va a agregar el enlace a ESTE texto? */
+  window.llevaBajaAutomatica = function (texto) {
+    return !/\{baja\}/i.test(String(texto || ''));
+  };
+
   window.calcularSegmentosSms = function (texto) {
     // Se analiza el texto JUNTO con la firma, no por separado: si la firma
     // trajera una tilde, el mensaje entero bajaría de 160 a 70 por segmento.
-    const t = String(texto || '') + String(window.firmaSms || '');
+    const extra = window.llevaBajaAutomatica(texto) ? textoBajaAutomatica() : '';
+    const t = String(texto || '') + extra + String(window.firmaSms || '');
     let esGsm = true;
     let largo = 0;
     for (const ch of t) {
@@ -99,6 +123,12 @@
     const partes = [`${escritos} caracteres · ${r.segmentos} SMS`];
     if (firma) {
       partes.push(`+${firma.length} de la firma que agrega el operador`);
+    }
+    // Se nombra aparte, igual que la firma: quien escribe tiene que entender
+    // por que caben menos de los que ve, y que puede evitarlo poniendo {baja}
+    // donde le convenga en vez de dejarlo al final.
+    if (window.llevaBajaAutomatica(textarea.value)) {
+      partes.push(`+${textoBajaAutomatica().length} del enlace de baja que se agrega solo`);
     }
 
     if (r.alfabeto === 'UCS-2') {

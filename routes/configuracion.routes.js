@@ -6,9 +6,97 @@ const { registrarAuditoria } = require('../config/auditoria');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { estadoCanal: estadoCanalSms, enviarSMS } = require('../config/sms');
 const { estadoCanal: estadoCanalSendgrid, enviarCorreoMasivo } = require('../config/sendgrid');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const router = express.Router();
 router.use(requireAuth);
+
+/* ------------------------------------------------------------------
+   LA MARCA DE LA BARRA LATERAL
+
+   El logo, el nombre y la bajada estaban escritos dentro de common.js.
+   Para una plataforma que se licencia a varias campanas eso obligaba a
+   tocar codigo y publicar un parche para cambiar un texto, y quien
+   administra la campana no deberia depender de nadie para eso.
+   ------------------------------------------------------------------ */
+const CARPETA_MARCA = path.join(__dirname, '..', 'uploads', 'marca');
+fs.mkdirSync(CARPETA_MARCA, { recursive: true });
+
+const subirLogo = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, CARPETA_MARCA),
+    // El nombre lo pone el servidor, nunca el que traiga el archivo: un
+    // nombre de origen puede llevar barras y salirse de esta carpeta.
+    filename: (req, file, cb) =>
+      cb(null, `logo_${Date.now()}${path.extname(file.originalname).toLowerCase()}`),
+  }),
+  limits: { fileSize: 4 * 1024 * 1024 },   // un logo no necesita mas
+  fileFilter: (req, file, cb) => cb(
+    file.mimetype.startsWith('image/') ? null : new Error('El logo debe ser una imagen.'), true),
+});
+
+/**
+ * La marca, para pintar la barra lateral.
+ *
+ * Sin restriccion de rol: la barra la ve todo el que entra, no solo el
+ * administrador. Y devuelve cadenas VACIAS cuando no hay nada escrito, para
+ * que el navegador sepa que debe usar lo de siempre en vez de pintar "null".
+ */
+router.get('/marca', async (req, res) => {
+  try {
+    const [[c]] = await pool.query(
+      'SELECT marca_titulo, marca_subtitulo, marca_logo_url FROM configuracion_campana WHERE id = 1');
+    res.json({
+      titulo: (c && c.marca_titulo) || '',
+      subtitulo: (c && c.marca_subtitulo) || '',
+      logo_url: (c && c.marca_logo_url) || '',
+    });
+  } catch (err) {
+    // Una instalacion sin la migracion todavia: se responde vacio y la barra
+    // usa lo de siempre, en vez de quedarse sin pintar.
+    res.json({ titulo: '', subtitulo: '', logo_url: '' });
+  }
+});
+
+router.post('/marca/logo', requireRole('admin'), subirLogo.single('logo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se recibio ninguna imagen.' });
+  try {
+    const [[antes]] = await pool.query('SELECT marca_logo_url FROM configuracion_campana WHERE id = 1');
+    const url = `/uploads/marca/${req.file.filename}`;
+    await pool.query(
+      `INSERT INTO configuracion_campana (id, marca_logo_url, actualizado_por) VALUES (1, ?, ?)
+       ON DUPLICATE KEY UPDATE marca_logo_url = VALUES(marca_logo_url), actualizado_por = VALUES(actualizado_por)`,
+      [url, req.session.usuario.id]);
+    // Se borra el anterior para no ir dejando logos viejos en el disco. Solo
+    // los subidos: el del codigo (/img/logo.png) no vive en uploads.
+    if (antes && antes.marca_logo_url && antes.marca_logo_url.startsWith('/uploads/marca/')) {
+      fs.unlink(path.join(CARPETA_MARCA, path.basename(antes.marca_logo_url)), () => {});
+    }
+    await registrarAuditoria(req.session.usuario.id, 'cambiar_logo', 'configuracion', null,
+      'Cambio el logo de la barra lateral.', req.ip);
+    res.json({ ok: true, logo_url: url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo guardar el logo.' });
+  }
+});
+
+/** Vuelve al logo que trae la plataforma. */
+router.delete('/marca/logo', requireRole('admin'), async (req, res) => {
+  try {
+    const [[antes]] = await pool.query('SELECT marca_logo_url FROM configuracion_campana WHERE id = 1');
+    await pool.query('UPDATE configuracion_campana SET marca_logo_url = NULL WHERE id = 1');
+    if (antes && antes.marca_logo_url && antes.marca_logo_url.startsWith('/uploads/marca/')) {
+      fs.unlink(path.join(CARPETA_MARCA, path.basename(antes.marca_logo_url)), () => {});
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo quitar el logo.' });
+  }
+});
 
 const CARGOS_VALIDOS = ['senado', 'camara_representantes', 'gobernacion', 'asamblea', 'alcaldia', 'concejo', 'jal'];
 
@@ -241,6 +329,7 @@ router.get('/territorio/uso', requireRole('admin'), async (req, res) => {
 router.put('/campana', requireRole('admin'), async (req, res) => {
   const {
     nombre_candidato, cargo_aspira, slogan_campana, partido_politico,
+    marca_titulo, marca_subtitulo,
     departamento, ciudad, direccion_sede, telefono, email,
     territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas,
     usar_nombre_barrios, usar_nombre_corregimientos, usar_nombre_veredas,
@@ -321,8 +410,8 @@ router.put('/campana', requireRole('admin'), async (req, res) => {
       `INSERT INTO configuracion_campana
          (id, nombre_candidato, cargo_aspira, slogan_campana, partido_politico, departamento, ciudad, direccion_sede, telefono, email,
           territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas, usar_nombre_barrios,
-          usar_nombre_corregimientos, usar_nombre_veredas, apoyos_activos, actualizado_por)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          usar_nombre_corregimientos, usar_nombre_veredas, apoyos_activos, marca_titulo, marca_subtitulo, actualizado_por)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nombre_candidato = VALUES(nombre_candidato),
          cargo_aspira = VALUES(cargo_aspira),
@@ -341,6 +430,8 @@ router.put('/campana', requireRole('admin'), async (req, res) => {
          usar_nombre_corregimientos = VALUES(usar_nombre_corregimientos),
          usar_nombre_veredas = VALUES(usar_nombre_veredas),
          apoyos_activos = VALUES(apoyos_activos),
+         marca_titulo = VALUES(marca_titulo),
+         marca_subtitulo = VALUES(marca_subtitulo),
          actualizado_por = VALUES(actualizado_por)`,
       [nombre_candidato || null, cargo_aspira || null, (slogan_campana || '').trim() || null, partido_politico || null,
        departamento || null, ciudad || null, direccion_sede || null, telefono ? telefono.replace(/\D/g, '') : null, email || null,
@@ -348,6 +439,7 @@ router.put('/campana', requireRole('admin'), async (req, res) => {
        ciudadTieneComunasFinal, usarNombreBarriosFinal,
        usarNombreCorregimientosFinal, usarNombreVeredasFinal,
        apoyosFinal === null ? null : JSON.stringify(apoyosFinal),
+       (marca_titulo || '').trim() || null, (marca_subtitulo || '').trim() || null,
        req.session.usuario.id]
     );
     res.json({ ok: true });
@@ -607,6 +699,21 @@ router.delete('/eliminar-datos/:area', requireRole('admin'), async (req, res) =>
     console.error(err);
     res.status(500).json({ error: `Error eliminando la información de "${definicion.etiqueta}".` });
   }
+});
+
+// Los rechazos de multer (subida del logo) no llegan al try/catch de la ruta:
+// multer llama a next(err) y SE SALTA el handler. Sin esto caian en el
+// manejador global, que responde "error interno del servidor" — y no lo es:
+// el archivo pesa mucho o no es una imagen, y eso hay que decirlo tal cual.
+// Va DESPUES de las rutas para que solo atrape lo de este router.
+router.use((err, req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'El logo no puede pesar mas de 4 MB.' });
+  }
+  if (err && /debe ser una imagen/i.test(err.message || '')) {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
 });
 
 module.exports = router;

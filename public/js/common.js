@@ -356,10 +356,29 @@ function formatoMoneda(valor) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(valor || 0);
 }
 
+/**
+ * Fecha para mostrar.
+ *
+ * UNA FECHA SIN HORA NO SE CONVIERTE DE ZONA, Y ESO NO ES UN DETALLE.
+ * `new Date('2026-10-25')` no da el 25 de octubre: el estándar manda leer esa
+ * forma como MEDIANOCHE EN UTC, y en Colombia (UTC-5) esa medianoche cae a
+ * las 7 de la noche del día ANTERIOR. Resultado: toda columna DATE se veía un
+ * día antes — y el 1 de enero se veía como 31 de diciembre del año pasado.
+ *
+ * Por eso una fecha suelta se arma pieza por pieza, en hora local: el 25 es
+ * el 25, sin aritmética de por medio. Una fecha CON hora sí puede pasar por
+ * `new Date` — la base ya la entrega en hora de Colombia (ver el
+ * `SET time_zone` de config/db.js).
+ */
 function formatoFecha(fechaIso, conHora = false) {
   if (!fechaIso) return '—';
-  const d = new Date(fechaIso);
-  const opts = conHora
+  const texto = String(fechaIso);
+  const soloFecha = /^\d{4}-\d{2}-\d{2}$/.test(texto);
+  const d = soloFecha
+    ? new Date(Number(texto.slice(0, 4)), Number(texto.slice(5, 7)) - 1, Number(texto.slice(8, 10)))
+    : new Date(texto);
+  if (isNaN(d)) return '—';
+  const opts = conHora && !soloFecha
     ? { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
     : { day: '2-digit', month: 'short', year: 'numeric' };
   return d.toLocaleString('es-CO', opts);
@@ -640,6 +659,77 @@ window.normalizarNombresDeLugar = normalizarNombresDeLugar;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
   else arrancar();
 })();
+
+/* ------------------------------------------------------------------
+   Marca de la barra lateral: el nombre, la bajada y el logo que cada
+   campana puede cambiar desde Configuracion -> Datos de la campana.     */
+/**
+ * La identidad de la CAMPANA. Vacia por defecto — y vacia significa que no
+ * se pinta nada, no que se pinte un texto de relleno.
+ *
+ * Antes traia aqui el nombre de la plataforma. Dejo de tener sentido cuando
+ * la firma de la plataforma paso a su propio bloque (MARCA_PLATAFORMA, justo
+ * abajo): una instalacion recien creada mostraba «ESTRATEGIA» dos veces, una
+ * encima de la otra.
+ */
+const MARCA_POR_DEFECTO = {
+  titulo: '',
+  subtitulo: '',
+  logo_url: '',
+};
+
+/**
+ * La firma de quien hace la herramienta. NO es configurable: la campana
+ * edita lo de arriba, esto es de la plataforma y va igual en todas.
+ */
+const MARCA_PLATAFORMA = {
+  nombre: 'ESTRATEGIA | Marketing Político',
+  // Dos lineas EXPLICITAS, no una sola que se parta donde alcance. Dejada al
+  // ancho, quedaba «...de Campanas / Electorales», con una palabra suelta
+  // abajo. El corte es una decision de como se lee, no del tamano de la barra.
+  bajada: ['Administración Integral', 'de Campañas Electorales'],
+};
+const CLAVE_MARCA = 'marca_barra_lateral';
+
+function leerMarcaGuardada() {
+  try {
+    const crudo = localStorage.getItem(CLAVE_MARCA);
+    if (crudo) return JSON.parse(crudo);
+  } catch (err) { /* si no se puede leer, se usa lo de siempre */ }
+  return { ...MARCA_POR_DEFECTO };
+}
+
+/**
+ * Trae la marca del servidor y actualiza la barra si cambio.
+ *
+ * Solo toca el DOM cuando hay diferencia: reescribirlo en cada carga hace
+ * parpadear el logo aunque no haya cambiado nada.
+ */
+async function refrescarMarca() {
+  let m;
+  try {
+    m = await api('/configuracion/marca');
+  } catch (err) { return; }   // sin red se queda con lo guardado, que es lo correcto
+  try { localStorage.setItem(CLAVE_MARCA, JSON.stringify(m)); } catch (e) {}
+
+  const titulo = m.titulo || '';
+  const subtitulo = m.subtitulo || '';
+  const logo = m.logo_url || '/img/logo.png';
+  const elTitulo = document.getElementById('marca-titulo');
+  const elSub = document.getElementById('marca-subtitulo');
+  const elLogo = document.getElementById('marca-logo-img');
+  // Vacio se OCULTA. Con textContent = '' el div sigue ocupando su margen y
+  // deja un hueco entre el logo y la firma que parece un error de dibujo.
+  if (elTitulo) {
+    if (elTitulo.textContent !== titulo) elTitulo.textContent = titulo;
+    elTitulo.style.display = titulo ? '' : 'none';
+  }
+  if (elSub) {
+    if (elSub.textContent !== subtitulo) elSub.textContent = subtitulo;
+    elSub.style.display = subtitulo ? '' : 'none';
+  }
+  if (elLogo && !elLogo.src.endsWith(logo)) elLogo.src = logo;
+}
 
 function escaparHtml(texto) {
   const div = document.createElement('div');
@@ -993,14 +1083,31 @@ async function inicializarLayout(paginaActiva) {
       </a>`;
   }).join('');
 
+  // ---------------------------------------------------------------
+  // LA MARCA DE LA BARRA LATERAL
+  //
+  // Se pinta PRIMERO con lo guardado en este navegador y DESPUES se
+  // refresca contra el servidor. Al reves —esperar la respuesta— la barra
+  // aparecería con la marca de la plataforma y cambiaría a la de la campaña
+  // un instante despues, que es el parpadeo que se ve como un error.
+  //
+  // Vacio significa «use lo que trae la plataforma». Por eso los valores por
+  // defecto viven aqui y no en la base: una instalacion que no configure nada
+  // sigue viendose igual que siempre.
+  const marcaInicial = leerMarcaGuardada();
   const sidebar = document.createElement('aside');
   sidebar.className = 'sidebar';
   sidebar.innerHTML = `
     <div class="marca-logo" style="text-align:center; padding: 2px 0 4px;">
-      <img src="/img/logo.png" alt="Estrategia" style="width:100%; max-width:125px; height:auto;">
+      <img id="marca-logo-img" src="${marcaInicial.logo_url || '/img/logo.png'}" alt="Logo"
+           style="width:100%; max-width:170px; height:auto;">
     </div>
-    <div class="marca">ESTRATEGIA | Plataforma Electoral</div>
-    <div class="submarca">Administración Integral de Campañas</div>
+    <div class="marca" id="marca-titulo"${marcaInicial.titulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.titulo || '')}</div>
+    <div class="submarca" id="marca-subtitulo"${marcaInicial.subtitulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.subtitulo || '')}</div>
+    <div class="marca-plataforma">
+      <div class="marca-plataforma-nombre">${escaparHtml(MARCA_PLATAFORMA.nombre)}</div>
+      ${MARCA_PLATAFORMA.bajada.map(l => `<div class="marca-plataforma-bajada">${escaparHtml(l)}</div>`).join('')}
+    </div>
     <nav>${navHtml}</nav>
     <div class="usuario-box">
       <div class="nombre">${usuario.nombre}</div>
@@ -1013,6 +1120,9 @@ async function inicializarLayout(paginaActiva) {
     </div>
   `;
   shell.prepend(sidebar);
+  // Se refresca DESPUES de pintar y sin esperar: si el servidor tarda, la
+  // barra ya esta puesta con lo de la ultima vez.
+  refrescarMarca();
 
   // Contraer/expandir cada menú principal al hacer clic en su título — solo
   // uno puede quedar expandido a la vez: al abrir uno, se cierran todos los

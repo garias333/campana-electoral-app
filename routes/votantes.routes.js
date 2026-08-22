@@ -244,7 +244,7 @@ const SQL_AREA_EFECTIVA = `COALESCE(
   v.area)`;
 
 router.get('/', async (req, res) => {
-  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, page = 1, limit = 50 } = req.query;
+  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const condiciones = [];
   const params = [];
@@ -273,6 +273,12 @@ router.get('/', async (req, res) => {
     condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
   } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
+  // Quien pidió no recibir mensajes. '1' = solo esos; '0' = solo a quienes sí
+  // se les puede escribir. Se comparan como TEXTO porque así llegan en la URL
+  // y `if (no_contactar)` dejaría fuera el '0' —es una cadena vacía de
+  // significado pero no de valor—, que es justo la mitad útil del filtro.
+  if (no_contactar === '1') condiciones.push(`v.no_contactar = 1`);
+  if (no_contactar === '0') condiciones.push(`(v.no_contactar = 0 OR v.no_contactar IS NULL)`);
   if (req.alcance) { condiciones.push(condicionAlcanceVotantes(req.alcance)); params.push(...parametrosAlcanceVotantes(req.alcance)); }
 
   const whereSql = armarWhereSql(condiciones);
@@ -461,7 +467,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin'), async (req, res)
 // coincide con el filtro que la persona tenía aplicado en pantalla.
 router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
-    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria } = req.query;
+    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar } = req.query;
     const condiciones = [];
     const params = [];
     if (q) {
@@ -486,6 +492,12 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, r
       condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
     } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
     if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
+  // Quien pidió no recibir mensajes. '1' = solo esos; '0' = solo a quienes sí
+  // se les puede escribir. Se comparan como TEXTO porque así llegan en la URL
+  // y `if (no_contactar)` dejaría fuera el '0' —es una cadena vacía de
+  // significado pero no de valor—, que es justo la mitad útil del filtro.
+  if (no_contactar === '1') condiciones.push(`v.no_contactar = 1`);
+  if (no_contactar === '0') condiciones.push(`(v.no_contactar = 0 OR v.no_contactar IS NULL)`);
     const whereSql = armarWhereSql(condiciones);
 
     const [filas] = await pool.query(`

@@ -43,6 +43,28 @@
       <div id="lista-respuestas" style="font-size:0.88rem;"></div>
     </div>
 
+    <!-- QUIÉN PIDIÓ NO RECIBIR MÁS.
+         Va aquí y no en otra pantalla porque es lo que hay que mirar ANTES de
+         armar el siguiente envío, igual que las respuestas. Y va aparte de
+         ellas porque casi ninguna baja ES una respuesta: el enlace del
+         mensaje —hoy el camino principal— marca la ficha sin dejar respuesta
+         que leer, así que en esa tarjeta no aparecía ninguna. -->
+    <div class="card" style="margin-bottom:16px; display:none;" id="tarjeta-bajas">
+      <div class="topbar" style="margin-bottom:8px;">
+        <h3 style="margin:0;">Pidieron no recibir más <span id="badge-bajas" style="font-size:0.8rem; font-weight:600; color:var(--color-text-muted);"></span></h3>
+        <button type="button" class="btn-secundario btn-sm" id="btn-exportar-bajas">Exportar a Excel</button>
+      </div>
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr><th>Nombre</th><th>Tipo</th><th>Contacto</th><th>Cuándo</th><th>Por dónde</th><th></th></tr></thead>
+          <tbody id="tbody-bajas"></tbody>
+        </table>
+      </div>
+      <small style="color:var(--color-text-muted); display:block; margin-top:8px;">
+        A estas personas no se les envía nada, en ningún canal. La lista se respeta sola en cada envío.
+      </small>
+    </div>
+
     <div class="card" style="margin-bottom:16px;">
       <h3 style="margin-top:0;">1. Elige el canal</h3>
       <div style="display:flex; gap:12px; flex-wrap:wrap;" id="selector-canal">
@@ -92,7 +114,7 @@
           <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
           <button type="button" class="btn-secundario btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
         </div>
-<textarea id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien, y {baja} para el enlace personal de baja."></textarea>
+<textarea id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
         <div id="contador-sms-campana" style="font-size:0.78rem; margin-top:4px;"></div>
         <small style="color:var(--color-text-muted); font-size:0.78rem;">Tip: escribe <code>{nombre}</code> en cualquier parte del mensaje y se reemplaza por el primer nombre de cada persona.</small>
         <div style="margin-top:8px; padding:10px 12px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; background:var(--color-surface, #fff);">
@@ -130,7 +152,7 @@
       </div>
       <div class="tabla-contenedor">
       <table>
-        <thead><tr><th>Nombre</th><th>Canal</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Fecha</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Canal</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Omitidos</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-campanas"></tbody>
       </table>
       </div>
@@ -499,6 +521,27 @@ document.getElementById('btn-enviar-campana').addEventListener('click', async ()
   }
 });
 
+/**
+ * Lo que dice la insignia del historial.
+ *
+ * NO se lee de `estado` a secas. Ese campo dice si el proceso de envio
+ * TERMINO, no si alguien recibio algo: vale 'enviado' aunque se haya
+ * omitido a todos los destinatarios, y la fila quedaba anunciando un exito
+ * que no ocurrio. El resultado sale de los numeros, que son el unico dato
+ * que sabe cuanta gente recibio el mensaje.
+ */
+function resultadoEnvio(c) {
+  if (c.estado !== 'enviado') {
+    return { texto: ETIQUETAS_ESTADO_CAMPANA[c.estado] || c.estado, clase: `badge-${c.estado}` };
+  }
+  const total = Number(c.total_destinatarios) || 0;
+  const enviados = Number(c.enviados) || 0;
+  const problemas = (Number(c.fallidos) || 0) + (Number(c.omitidos) || 0);
+  if (total > 0 && enviados === 0) return { texto: 'No se envió', clase: 'badge-fallido' };
+  if (problemas > 0) return { texto: 'Enviado en parte', clase: 'badge-enviando' };
+  return { texto: 'Enviado', clase: 'badge-enviado' };
+}
+
 async function cargarCampanas() {
   const campanas = await api('/comunicaciones/campanas');
   document.getElementById('vacio-campanas').style.display = campanas.length ? 'none' : 'block';
@@ -506,10 +549,11 @@ async function cargarCampanas() {
     <tr>
       <td><strong>${c.nombre}</strong></td>
       <td>${ETIQUETAS_CANAL[c.canal] || c.canal}</td>
-      <td><span class="badge-campana badge-${c.estado}">${ETIQUETAS_ESTADO_CAMPANA[c.estado] || c.estado}</span></td>
+      <td><span class="badge-campana ${resultadoEnvio(c).clase}">${resultadoEnvio(c).texto}</span></td>
       <td class="mono">${formatoMillares(c.total_destinatarios)}</td>
       <td class="mono">${formatoMillares(c.enviados)}</td>
       <td class="mono">${formatoMillares(c.fallidos)}</td>
+      <td class="mono">${formatoMillares(c.omitidos || 0)}</td>
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>
@@ -614,6 +658,11 @@ document.querySelectorAll('#botones-eliminar-por-canal [data-canal]').forEach(bo
   await cargarPuestosVotacion();
   await cargarEstadoCanales();
   await cargarCampanas();
+  // Va AQUI DENTRO, no al final del archivo: la tarjeta de bajas decide si
+  // pinta el boton «Reactivar» segun el rol, y `usuarioActual` solo existe
+  // despues de este await. Llamandola afuera corria antes, veia undefined y
+  // se saltaba el boton — sin dar ningun error.
+  await cargarBajas();
 })();
 /**
  * Deja escrito un mensaje de Día D listo para enviar. No pisa lo que ya
@@ -699,6 +748,66 @@ function pintarRespuestas(datos) {
       ${r.leida ? '' : `<button type="button" class="btn-secundario btn-sm" onclick="marcarRespuestaLeida(${r.id})">Visto</button>`}
     </div>`).join('');
 }
+
+async function cargarBajas() {
+  const tarjeta = document.getElementById('tarjeta-bajas');
+  let filas;
+  try {
+    filas = await api('/comunicaciones/bajas');
+  } catch (err) {
+    // Un líder no tiene permiso para verla (es admin/coordinador): la tarjeta
+    // simplemente no aparece, en vez de mostrar un error que no puede resolver.
+    tarjeta.style.display = 'none';
+    return;
+  }
+  // Sin bajas no se muestra nada. Una tabla vacía con un título que habla de
+  // gente que se fue hace pensar que algo no cargó.
+  if (!filas.length) { tarjeta.style.display = 'none'; return; }
+  tarjeta.style.display = 'block';
+  document.getElementById('badge-bajas').textContent = `(${filas.length})`;
+  document.getElementById('tbody-bajas').innerHTML = filas.map(b => `
+    <tr>
+      <td><strong>${escaparHtml(b.nombre || '—')}</strong></td>
+      <td>${escaparHtml(b.tipo)}</td>
+      <td class="mono">${escaparHtml(b.telefono || b.email || '—')}</td>
+      <td>${b.fecha ? formatoFecha(b.fecha, true) : '—'}</td>
+      <td>${escaparHtml(b.origen_texto)}</td>
+      <td style="white-space:nowrap;">${usuarioActual && usuarioActual.rol === 'admin'
+        ? `<button class="btn-secundario btn-sm" onclick="reactivarBaja('${b.tipo === 'Votante' ? 'votante' : 'usuario'}', ${b.id}, '${escaparHtml(b.nombre || '').replace(/'/g, "&apos;")}')">Reactivar</button>`
+        : ''}</td>
+    </tr>`).join('');
+}
+
+/**
+ * Volver a habilitarle los mensajes a alguien que pidio no recibirlos.
+ *
+ * Se pregunta DOS veces —una confirmacion y un motivo— a proposito. Esta
+ * persona ejercio un derecho, y lo normal es que esto solo se haga cuando
+ * ella misma lo pide; no es una casilla que se deba poder desmarcar de un
+ * clic distraido. El motivo queda en la auditoria con quien lo hizo.
+ */
+async function reactivarBaja(tipo, id, nombre) {
+  if (!confirm(
+    `${nombre} pidió no recibir más mensajes.\n\n` +
+    'Solo debe reactivarla si ELLA lo pidió. Volver a escribirle sin que lo haya '
+    + 'autorizado va contra la ley de datos personales.\n\n¿Continuar?')) return;
+  const motivo = prompt('¿Por qué se reactiva? (queda en la auditoría, con su nombre)');
+  if (motivo === null) return;
+  if (!motivo.trim()) { alert('Hay que escribir el motivo.'); return; }
+  try {
+    const r = await api(`/comunicaciones/bajas/${tipo}/${id}/reactivar`, {
+      method: 'POST', body: { motivo },
+    });
+    alert(`Listo. Se reactivaron ${r.fichas} ficha(s) de esta persona.`);
+    await cargarBajas();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('btn-exportar-bajas').addEventListener('click', () => {
+  window.location = '/api/comunicaciones/bajas/exportar-excel';
+});
 
 async function cargarRespuestas() {
   try {

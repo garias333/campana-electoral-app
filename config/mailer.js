@@ -133,18 +133,25 @@ async function enviarCodigo2FA(destinatario, codigo, nombreApp) {
  * respetando los saltos de línea, dentro de una plantilla simple. Usa el
  * mismo remitente/transportador que el resto del sistema.
  */
-async function enviarCorreoMasivo(destinatario, asunto, mensaje) {
+async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja) {
   const mensajeHtml = String(mensaje || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>');
+  // Las mismas cabeceras que el canal de SendGrid, y por la misma razon: este
+  // canal tambien envia a listas. Si solo las llevara uno de los dos, la mitad
+  // de los correos de la campana seguiria sin salida visible.
+  const { cabecerasDeBaja, pieDeBaja } = require('./bajaContacto');
+  const pie = pieDeBaja(urlBaja);
   await transporter.sendMail({
     from: remitente(),
     to: destinatario,
     subject: asunto,
-    text: mensaje,
+    headers: cabecerasDeBaja(urlBaja),
+    text: mensaje + pie.texto,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color:#222; line-height:1.5;">
         ${mensajeHtml}
+        ${pie.html}
       </div>
     `
   });

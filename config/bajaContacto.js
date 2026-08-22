@@ -93,4 +93,44 @@ function urlDeBaja(codigo, base) {
   return `${raiz}/b/${codigo}`;
 }
 
-module.exports = { codigoDe, verificar, urlDeBaja };
+/**
+ * Las cabeceras que hacen que Gmail y Outlook pinten SU PROPIO boton de
+ * «Cancelar suscripcion» arriba del correo.
+ *
+ * POR QUE IMPORTA MAS DE LO QUE PARECE: desde 2024 Gmail y Yahoo las EXIGEN
+ * a quien envia en volumen. Sin ellas el correo no rebota con un error — se
+ * va a spam, que es la forma de fallar que nadie ve.
+ *
+ * `List-Unsubscribe-Post` activa el «un clic» del RFC 8058: el cliente de
+ * correo hace un POST a la URL sin abrir nada. Encaja con /b/:codigo, que ya
+ * era POST-only por otra razon (los clientes de correo abren los enlaces por
+ * su cuenta para revisarlos, y con la baja en el GET media lista quedaria
+ * dada de baja sin que nadie hiciera clic).
+ */
+function cabecerasDeBaja(url) {
+  if (!url) return {};
+  return {
+    'List-Unsubscribe': `<${url}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+}
+
+/**
+ * El pie visible, para quien no ve el boton del cliente de correo.
+ *
+ * Va ADEMAS de la cabecera, no en su lugar: la cabecera solo la muestran
+ * algunos clientes, y quien lea desde uno que no la pinte se queda sin salida.
+ */
+function pieDeBaja(url) {
+  if (!url) return { html: '', texto: '' };
+  return {
+    html: `<div style="margin-top:22px; padding-top:14px; border-top:1px solid #E3E8EF;
+                 font-size:12px; line-height:1.5; color:#8A94A6;">
+        Si no quiere recibir mas mensajes,
+        <a href="${url}" style="color:#5B6472;">haga clic aqui para darse de baja</a>.
+      </div>`,
+    texto: `\n\n---\nSi no quiere recibir mas mensajes, dese de baja aqui: ${url}`,
+  };
+}
+
+module.exports = { codigoDe, verificar, urlDeBaja, cabecerasDeBaja, pieDeBaja };

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { registrarAuditoria } = require('../config/auditoria');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
 const smsSvc = require('../config/sms');
 const sendgridSvc = require('../config/sendgrid');
@@ -640,8 +641,21 @@ router.get('/destinatarios/buscar', async (req, res) => {
 // Historial de campañas enviadas/en borrador.
 router.get('/campanas', async (req, res) => {
   try {
+    // OMITIDOS: los destinatarios que no se enviaron y tampoco fallaron —
+    // sin lugar de votación, sin dato de contacto, dados de baja, sin
+    // autorización. No estaban en ninguna columna, así que un envío donde
+    // se omitió a TODOS se veía como "Enviado · 1 destinatario · 0 enviados
+    // · 0 fallidos": las cuentas no cerraban y la pantalla daba por bueno
+    // un mensaje que nadie recibió.
+    //
+    // Se cuenta por descarte y no con una lista de estados omitidos, para
+    // que un estado nuevo entre solo en vez de quedarse invisible como
+    // estos. 'pendiente' queda fuera: ese todavía va en camino.
     const [filas] = await pool.query(`
-      SELECT c.*, u.nombre AS creado_por_nombre
+      SELECT c.*, u.nombre AS creado_por_nombre,
+             (SELECT COUNT(*) FROM comunicaciones_envios e
+               WHERE e.campana_id = c.id
+                 AND e.estado NOT IN ('enviado', 'fallido', 'pendiente')) AS omitidos
       FROM comunicaciones_campanas c
       LEFT JOIN usuarios u ON u.id = c.created_by
       ORDER BY c.created_at DESC
@@ -734,12 +748,12 @@ router.get('/campanas/:id', async (req, res) => {
  * negocios (ver POST /campanas). El parámetro adjuntoUrl se conserva
  * porque era exclusivo de ese canal y hoy siempre llega en null.
  */
-async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCallbackUrl) {
+async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCallbackUrl, urlBaja) {
   if (canal === 'email') {
-    await sendgridSvc.enviarCorreoMasivo(contacto, asunto, mensaje);
+    await sendgridSvc.enviarCorreoMasivo(contacto, asunto, mensaje, urlBaja);
     return null;
   } else if (canal === 'email_personal') {
-    await enviarCorreoPersonal(contacto, asunto, mensaje);
+    await enviarCorreoPersonal(contacto, asunto, mensaje, urlBaja);
     return null;
   } else if (canal === 'sms') {
     // statusCallbackUrl se sigue pasando pero HOY NO SE USA: Onurix no avisa
@@ -821,7 +835,34 @@ function limpiarSobrantes(texto) {
   return texto.replace(/[ \t]+$/gm, '').trim();
 }
 
-async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = null) {
+/**
+ * El texto que se agrega al final de un SMS cuando quien redactó no puso
+ * {baja}.
+ *
+ * POR QUÉ AUTOMÁTICO Y NO UN RECORDATORIO: {baja} era opcional, así que
+ * bastaba con olvidarlo para que saliera un envío sin ninguna salida. Un
+ * aviso en la pantalla no sirve — quien manda cien mensajes no lo lee — y el
+ * fallo no da error: sale perfecto y deja a la gente sin cómo salirse.
+ *
+ * SOLO SMS. El correo ya lleva su pie y la cabecera List-Unsubscribe, puestos
+ * por el propio remitente; agregarlo aquí lo duplicaría. Y a un aviso push no
+ * se le pega una URL.
+ *
+ * CUESTA 77 CARACTERES, y eso no es gratis: con la firma del operador puede
+ * empujar el mensaje a un segundo segmento y doblar la factura. Por eso el
+ * contador de la pantalla lo suma también (ver public/js/segmentos-sms.js):
+ * quien escribe tiene que ver el costo ANTES de enviar, no en el recibo.
+ */
+function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja) {
+  if (canal !== 'sms' || !urlBaja) return texto;
+  // Se mira el mensaje ORIGINAL, no el ya personalizado: en el personalizado
+  // {baja} fue reemplazado por la URL y el marcador ya no está, así que
+  // buscarlo ahí daría siempre «no lo puso» y lo agregaría dos veces.
+  if (/\{baja\}/i.test(String(mensajeOriginal || ''))) return texto;
+  return `${texto} Baja: ${urlBaja}`;
+}
+
+async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = null, canal = null) {
   // {slogan} se resuelve aparte de los del Lugar de votación: es el mismo
   // para todos y no debe disparar la búsqueda por persona ni el salto de
   // quien no tenga puesto registrado.
@@ -829,12 +870,17 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
   // SU enlace firmado. Un enlace común daría de baja a quien lo abriera, no a
   // quien lo pidió.
   const codigo = codigoDeBaja(envio.destinatario_tipo, envio.destinatario_id);
+  // Se devuelve ADEMAS de sustituirla en el texto: el correo la necesita
+  // para la cabecera List-Unsubscribe, exista o no {baja} en el mensaje.
+  const urlBaja = codigo ? urlDeBaja(codigo, urlBajaBase) : '';
   let texto = mensaje
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
     .replace(/\{slogan\}/gi, slogan || '')
-    .replace(/\{baja\}/gi, codigo ? urlDeBaja(codigo, urlBajaBase) : '');
+    .replace(/\{baja\}/gi, urlBaja);
   const minus = mensaje.toLowerCase();
-  if (!MARCADORES_LUGAR.some(m => minus.includes(m))) return { texto: limpiarSobrantes(texto) };
+  if (!MARCADORES_LUGAR.some(m => minus.includes(m))) {
+    return { texto: agregarBajaSms(limpiarSobrantes(texto), canal, mensaje, urlBaja), urlBaja };
+  }
 
   const lugar = await lugarDeVotacionDe(envio.destinatario_tipo, envio.destinatario_id) || {};
   const puesto = (lugar.puesto_votacion || '').trim();
@@ -851,16 +897,17 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
   ].filter(Boolean).join(', ');
 
   return {
+    urlBaja,
     // Sin Puesto no hay mensaje que valga la pena mandar: el resto del
     // Lugar de votación (municipio, departamento) no le dice a nadie a
     // dónde ir. Quien llama decide qué hacer con esto.
     faltaLugar: !puesto,
-    texto: limpiarSobrantes(texto
+    texto: agregarBajaSms(limpiarSobrantes(texto
       .replace(/\{lugar_votacion\}/gi, completo)
       .replace(/\{puesto\}/gi, puesto)
       .replace(/\{mesa\}/gi, mesa)
       .replace(/\{municipio\}/gi, municipio)
-      .replace(/\{departamento\}/gi, departamento))
+      .replace(/\{departamento\}/gi, departamento)), canal, mensaje, urlBaja),
   };
 }
 
@@ -923,7 +970,7 @@ async function procesarEnvioCampana(campanaId) {
     // puntual con un destinatario (incluso al guardar el resultado en la
     // base de datos) nunca debe tumbar el envío completo de la campaña.
     try {
-      const { texto: mensajePersonalizado, faltaLugar } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase);
+      const { texto: mensajePersonalizado, faltaLugar, urlBaja } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase, canal);
       // Se salta, no se manda a medias. Queda registrado con su motivo para
       // que el administrador sepa a quién le falta completar la ficha.
       if (faltaLugar) {
@@ -935,7 +982,7 @@ async function procesarEnvioCampana(campanaId) {
         continue;
       }
       try {
-        const sid = await enviarUno(canal, envio.destinatario_contacto, asunto, mensajePersonalizado, adjuntoUrl, statusCallbackUrl);
+        const sid = await enviarUno(canal, envio.destinatario_contacto, asunto, mensajePersonalizado, adjuntoUrl, statusCallbackUrl, urlBaja);
         await pool.query(
           `UPDATE comunicaciones_envios SET estado = 'enviado', twilio_sid = ?, enviado_en = NOW() WHERE id = ?`,
           [sid, envio.id]
@@ -1210,6 +1257,142 @@ async function despacharCampanasProgramadas() {
     console.error('Error revisando las campañas programadas:', err.message);
   }
 }
+
+/* ------------------------------------------------------------------
+   QUIÉN PIDIÓ NO RECIBIR MÁS
+
+   Estaba guardado pero no se podía ver junto: la baja marca la ficha de la
+   persona (no_contactar) y, SOLO si llegó por respuesta, deja ademas una fila
+   en comunicaciones_respuestas. Como el enlace es hoy el camino principal
+   —Onurix no recibe SMS entrantes—, casi ninguna baja aparecia en «Respuestas
+   recibidas», y para saber quien se salio habia que abrir las fichas una por
+   una.
+
+   Con tres da igual; con trescientas, no. Y si alguien reclama por la Ley
+   1581, lo que se necesita es poder mostrar el registro con su fecha y por
+   donde llego.
+   ------------------------------------------------------------------ */
+
+/** Las dos tablas donde vive una baja, con la misma forma. */
+const SQL_BAJAS = `
+  SELECT 'Votante' AS tipo, id, nombre, telefono, email,
+         no_contactar_fecha AS fecha, no_contactar_origen AS origen
+    FROM votantes  WHERE no_contactar = 1
+  UNION ALL
+  SELECT 'Equipo', id, nombre, telefono, email,
+         no_contactar_fecha, no_contactar_origen
+    FROM usuarios  WHERE no_contactar = 1`;
+
+/**
+ * Por donde llego la baja, en palabras.
+ *
+ * 'enlace' cubre el enlace del mensaje Y el boton de «Cancelar suscripcion»
+ * de Gmail: los dos terminan en la misma pagina. NULL es de las bajas
+ * anteriores a que se guardara el origen — se dice, en vez de dejar el hueco
+ * en blanco como si fuera un dato perdido.
+ */
+const ORIGEN_BAJA = {
+  enlace: 'Enlace del mensaje',
+  sms: 'Respondio al SMS',
+  whatsapp: 'Respondio por WhatsApp',
+};
+
+router.get('/bajas', requireRole('admin', 'coordinador'), async (req, res) => {
+  try {
+    const [filas] = await pool.query(`${SQL_BAJAS} ORDER BY fecha IS NULL, fecha DESC, nombre`);
+    res.json(filas.map(f => ({
+      ...f,
+      origen_texto: ORIGEN_BAJA[f.origen] || 'No quedo registrado',
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error leyendo la lista de bajas.' });
+  }
+});
+
+router.get('/bajas/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const [filas] = await pool.query(`${SQL_BAJAS} ORDER BY fecha IS NULL, fecha DESC, nombre`);
+    const columnas = ['Tipo', 'Nombre', 'Telefono', 'Correo', 'Cuando lo pidio', 'Por donde'];
+    const datos = filas.map(f => ({
+      Tipo: f.tipo,
+      Nombre: f.nombre || '',
+      Telefono: f.telefono || '',
+      Correo: f.email || '',
+      'Cuando lo pidio': f.fecha || '',
+      'Por donde': ORIGEN_BAJA[f.origen] || 'No quedo registrado',
+    }));
+    // Con la lista vacia, json_to_sheet no escribe ni los encabezados y sale
+    // un archivo en blanco que parece un error. Se arma la fila de titulos.
+    const hoja = datos.length
+      ? XLSX.utils.json_to_sheet(datos, { header: columnas })
+      : XLSX.utils.aoa_to_sheet([columnas]);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Bajas');
+    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="solicitudes-de-baja.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error exportando la lista de bajas.' });
+  }
+});
+
+/**
+ * Volver a habilitar a alguien que habia pedido no recibir mas.
+ *
+ * SOLO ADMIN, y con motivo obligatorio. No es una casilla mas: esta persona
+ * ejercio un derecho —revocar la autorizacion de sus datos, Ley 1581— y
+ * deshacerlo por dentro sin que ella lo pidiera es exactamente lo que la
+ * norma prohibe. El motivo no es burocracia: es lo unico que, dentro de seis
+ * meses, explica por que alguien que pidio salirse volvio a recibir mensajes.
+ *
+ * SE DESMARCAN TODAS SUS FICHAS, igual que al darla de baja. La baja marca a
+ * la persona (todo lo que comparta su telefono o su correo), asi que
+ * reactivar una sola ficha la dejaria bloqueada por la otra: el boton
+ * parecerian no funcionar, y nadie sabria por que.
+ */
+router.post('/bajas/:tipo/:id/reactivar', requireRole('admin'), async (req, res) => {
+  const { motivo } = req.body || {};
+  if (!motivo || !String(motivo).trim()) {
+    return res.status(400).json({ error: 'Escriba por que se reactiva: queda en la auditoria.' });
+  }
+  const tabla = req.params.tipo === 'votante' ? 'votantes'
+              : req.params.tipo === 'usuario' ? 'usuarios' : null;
+  if (!tabla) return res.status(400).json({ error: 'Tipo no valido.' });
+
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT nombre, telefono, email FROM ${tabla} WHERE id = ?`, [req.params.id]);
+    if (!fila) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+
+    const diez = String(fila.telefono || '').replace(/\D/g, '').slice(-10);
+    let tocadas = 0;
+    for (const t of ['votantes', 'usuarios']) {
+      const [r] = await pool.query(
+        `UPDATE ${t}
+            SET no_contactar = 0, no_contactar_fecha = NULL, no_contactar_origen = NULL
+          WHERE no_contactar = 1
+            AND ((? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
+              OR (? IS NOT NULL AND email = ?))`,
+        [diez, diez, fila.email || null, fila.email || null]);
+      tocadas += r.affectedRows;
+    }
+
+    await registrarAuditoria(
+      req.session.usuario.id, 'reactivar_contacto', tabla, Number(req.params.id),
+      `Volvio a habilitar el envio de mensajes a ${fila.nombre || '(sin nombre)'} `
+      + `(${tocadas} ficha(s)). Motivo: ${String(motivo).trim().slice(0, 200)}`,
+      req.ip);
+
+    res.json({ ok: true, fichas: tocadas });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo reactivar.' });
+  }
+});
 
 module.exports = router;
 module.exports.reanudarCampanasPendientes = reanudarCampanasPendientes;

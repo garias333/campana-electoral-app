@@ -78,6 +78,14 @@
           <select id="filtro-lider">
             <option value="">Todos los líderes</option>
           </select>
+          <!-- Quien pidio no recibir mensajes. Va aqui y no escondido en la
+               ficha de cada persona: antes de armar un envio hay que poder
+               ver de un vistazo a quien NO se le puede escribir. -->
+          <select id="filtro-no-contactar">
+            <option value="">Reciban o no mensajes</option>
+            <option value="1">Solo los que pidieron no recibir</option>
+            <option value="0">Solo los que sí reciben</option>
+          </select>
           <select id="filtro-apoya-a">
             <option value="">Apoya a (todos)</option>
             <option value="alcaldia">Alcaldía</option>
@@ -92,7 +100,7 @@
       </div>
       <div class="tabla-contenedor tabla-contenedor-votantes">
       <table>
-        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th>Área</th><th class="col-ciudad">Ciudad</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
+        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th style="text-align:center;" title="Quien pidió no recibir más mensajes. A esas personas no se les envía nada, en ningún canal.">Recibe mensajes</th><th>Área</th><th class="col-ciudad">Ciudad</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
           <div class="mini-torta-apoya-a" id="grafico-apoya-a-mini" style="display:none;">
             <div class="circulo" id="circulo-apoya-a-mini"></div>
             <div class="mini-torta-apoya-a-info">
@@ -855,7 +863,8 @@ function leerFiltrosVotantes() {
     municipio_id: idDelMunicipioFiltrado(),
     territorio_id: document.getElementById('filtro-territorio').value,
     lider_id: document.getElementById('filtro-lider').value,
-    categoria: document.getElementById('filtro-categoria').value
+    categoria: document.getElementById('filtro-categoria').value,
+    no_contactar: document.getElementById('filtro-no-contactar').value
   };
 }
 
@@ -997,6 +1006,9 @@ async function cargarVotantes() {
       <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
       <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
+      <td style="text-align:center;">${v.no_contactar
+        ? '<span style="color:#A93226; font-weight:700;" title="Pidió no recibir más mensajes">No</span>'
+        : '<span style="color:var(--color-text-muted); font-weight:700;">Sí</span>'}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
       <td class="col-ciudad">${escaparHtml(nombreLugar(v.ciudad_residencia) || '—')}</td>
       <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : escaparHtml(nombreLugar(v.zona_nombre) || '—')}</td>
@@ -1131,6 +1143,7 @@ document.getElementById('filtro-area').addEventListener('change', refiltrarVotan
 document.getElementById('filtro-tipo-votante').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-lider').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-no-contactar').addEventListener('change', refiltrarVotantes);
 
 document.getElementById('btn-quitar-filtros-votantes').addEventListener('click', () => {
   document.getElementById('filtro-busqueda').value = '';
@@ -1143,6 +1156,7 @@ document.getElementById('btn-quitar-filtros-votantes').addEventListener('click',
   document.getElementById('filtro-municipio').value = '';
   document.getElementById('filtro-lider').value = '';
   document.getElementById('filtro-apoya-a').value = '';
+  document.getElementById('filtro-no-contactar').value = '';
   refiltrarVotantes();
 });
 

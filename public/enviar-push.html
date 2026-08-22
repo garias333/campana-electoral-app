@@ -178,7 +178,7 @@
       </div>
       <div class="tabla-contenedor">
       <table>
-        <thead><tr><th>Nombre</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Fecha</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Omitidos</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-historial"></tbody>
       </table>
       </div>
@@ -418,16 +418,38 @@ document.getElementById('btn-enviar').addEventListener('click', async () => {
   }
 });
 
+/**
+ * Lo que dice la insignia del historial.
+ *
+ * NO se lee de `estado` a secas. Ese campo dice si el proceso de envio
+ * TERMINO, no si alguien recibio algo: vale 'enviado' aunque se haya
+ * omitido a todos los destinatarios, y la fila quedaba anunciando un exito
+ * que no ocurrio. El resultado sale de los numeros, que son el unico dato
+ * que sabe cuanta gente recibio el mensaje.
+ */
+function resultadoEnvio(c) {
+  if (c.estado !== 'enviado') {
+    return { texto: ETIQUETAS_ESTADO_CAMPANA[c.estado] || c.estado, clase: `badge-${c.estado}` };
+  }
+  const total = Number(c.total_destinatarios) || 0;
+  const enviados = Number(c.enviados) || 0;
+  const problemas = (Number(c.fallidos) || 0) + (Number(c.omitidos) || 0);
+  if (total > 0 && enviados === 0) return { texto: 'No se envió', clase: 'badge-fallido' };
+  if (problemas > 0) return { texto: 'Enviado en parte', clase: 'badge-enviando' };
+  return { texto: 'Enviado', clase: 'badge-enviado' };
+}
+
 async function cargarHistorial() {
   const campanas = (await api('/comunicaciones/campanas')).filter(c => c.canal === CANAL);
   document.getElementById('vacio-historial').style.display = campanas.length ? 'none' : 'block';
   document.getElementById('tbody-historial').innerHTML = campanas.map(c => `
     <tr>
       <td><strong>${c.nombre}</strong></td>
-      <td><span class="badge-campana badge-${c.estado}">${ETIQUETAS_ESTADO_CAMPANA[c.estado] || c.estado}</span></td>
+      <td><span class="badge-campana ${resultadoEnvio(c).clase}">${resultadoEnvio(c).texto}</span></td>
       <td class="mono">${formatoMillares(c.total_destinatarios)}</td>
       <td class="mono">${formatoMillares(c.enviados)}</td>
       <td class="mono">${formatoMillares(c.fallidos)}</td>
+      <td class="mono">${formatoMillares(c.omitidos || 0)}</td>
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalle(${c.id})">Ver detalle</button>

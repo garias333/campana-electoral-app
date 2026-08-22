@@ -137,6 +137,123 @@ function pideLaBaja(texto) {
   return FRASES_DE_BAJA.some(f => limpio.includes(f));
 }
 
+/**
+ * Qué se hace con un mensaje entrante, venga del proveedor que venga.
+ *
+ * Vive aparte porque hay DOS proveedores llamando —Twilio y Onurix— y esto
+ * marca gente como «no contactar». Dos copias de esta lógica se separan con
+ * el tiempo sin que nada avise, y el día que se separen, una de las dos
+ * dejaría de atender bajas: el fallo no da error, solo sigue enviando
+ * mensajes a quien pidió que pararan.
+ *
+ * SE MARCA A LA PERSONA, NO AL MENSAJE: un teléfono se comparte en una
+ * familia, así que se marcan todas las fichas que lo tengan.
+ */
+async function registrarEntrante({ canal, telefono, cuerpo, referencia }) {
+  const baja = pideLaBaja(cuerpo);
+
+  // A quién se le atribuye. Puede no encontrarse a nadie: un número
+  // desconocido también escribe, y esa respuesta igual se guarda.
+  let votanteId = null, usuarioId = null, nombre = null;
+  if (telefono.length === 10) {
+    const [[v]] = await pool.query(
+      `SELECT id, nombre FROM votantes
+        WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ? LIMIT 1`, [telefono]);
+    if (v) { votanteId = v.id; nombre = v.nombre; }
+    const [[u]] = await pool.query(
+      `SELECT id, nombre FROM usuarios
+        WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ? LIMIT 1`, [telefono]);
+    if (u) { usuarioId = u.id; nombre = nombre || u.nombre; }
+  }
+
+  if (baja && telefono.length === 10) {
+    for (const tabla of ['votantes', 'usuarios']) {
+      await pool.query(
+        `UPDATE ${tabla}
+            SET no_contactar = 1, no_contactar_fecha = NOW(), no_contactar_origen = ?
+          WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?`,
+        [canal, telefono]);
+    }
+  }
+
+  await pool.query(
+    `INSERT INTO comunicaciones_respuestas
+       (canal, de_contacto, mensaje, votante_id, usuario_id, nombre_resuelto, accion, twilio_sid)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [canal, telefono || '', cuerpo, votanteId, usuarioId, nombre, baja ? 'baja' : 'ninguna', referencia || null]);
+
+  return { baja, nombre };
+}
+
+/* ------------------------------------------------------------------
+   ONURIX
+
+   Onurix no firma sus llamadas. Lo que ofrece su panel es un
+   `verify_token` que viaja como parámetro de la URL, y su documentación
+   pide comprobarlo y responder 401 si no coincide. Eso es lo que se hace
+   aquí, con comparación en tiempo constante.
+
+   SIN TOKEN CONFIGURADO, LA RUTA NO ATIENDE A NADIE. Es deliberado: este
+   endpoint marca gente como «no contactar» sin sesión ni cookie. Dejarlo
+   abierto en una instalación que todavía no lo configuró permitiría que
+   cualquiera diera de baja listas enteras mandando números al azar, y
+   nadie lo notaría hasta que los mensajes dejaran de llegar.
+   ------------------------------------------------------------------ */
+function tokenOnurixValido(recibido) {
+  const esperado = process.env.ONURIX_WEBHOOK_TOKEN || '';
+  if (!esperado) return false;                 // sin configurar = cerrado
+  const a = Buffer.from(String(recibido || ''));
+  const b = Buffer.from(esperado);
+  // timingSafeEqual exige igual longitud; comparar antes delataria el largo,
+  // asi que se descarta por longitud y aun asi se compara en tiempo constante.
+  if (a.length !== b.length) return false;
+  return require('crypto').timingSafeEqual(a, b);
+}
+
+/** El texto de un entrante de Onurix, sea cual sea el tipo de mensaje. */
+function textoDeOnurix(cuerpo) {
+  // Un texto llega en `message`; el toque de un boton, en `text` o `title`;
+  // una imagen con pie, en `caption`. Se mira en ese orden y se toma el
+  // primero con contenido: si alguien pide la baja tocando un boton que dice
+  // «No recibir mas», eso vale igual que escribirlo.
+  for (const campo of ['message', 'text', 'title', 'caption']) {
+    const v = cuerpo && cuerpo[campo];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  return '';
+}
+
+router.post('/onurix/entrante', async (req, res) => {
+  if (!tokenOnurixValido(req.query.verify_token)) {
+    console.warn('Entrante de Onurix con verify_token invalido o sin ONURIX_WEBHOOK_TOKEN — se ignora.');
+    return res.status(401).json({ error: 'Token invalido.' });
+  }
+  try {
+    const cuerpo = req.body || {};
+    const telefono = tel10(cuerpo.fromWhatsAppNumber);
+    const texto = textoDeOnurix(cuerpo);
+
+    // Los eventos que NO son un mensaje de una persona (estados de entrega,
+    // plantillas aprobadas) se aceptan y se ignoran: responder un error haria
+    // que Onurix reintentara algo que aqui no tiene nada que hacer.
+    if (!String(cuerpo.event || '').startsWith('inbound_message')) {
+      return res.status(200).json({ ok: true, ignorado: 'no es un mensaje entrante' });
+    }
+
+    await registrarEntrante({
+      canal: 'whatsapp', telefono, cuerpo: texto, referencia: cuerpo.messageId,
+    });
+    // No se contesta acuse: enviar por WhatsApp requiere la API de envio de
+    // Onurix, que esta aplicacion todavia no usa. La baja SI queda aplicada.
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Error procesando un entrante de Onurix:', err.message);
+    // 200 a proposito: el mensaje ya se recibio y reintentarlo duplicaria la
+    // fila en el historial. El fallo queda en el log, que es donde se mira.
+    return res.status(200).json({ ok: true });
+  }
+});
+
 router.post('/twilio/entrante', async (req, res) => {
   // Se responde SIEMPRE 200 y con TwiML vacío o con el acuse: si esta ruta
   // devuelve un error, Twilio reintenta y la persona podría recibir varias
@@ -162,37 +279,11 @@ router.post('/twilio/entrante', async (req, res) => {
     const canal = de.startsWith('whatsapp:') ? 'whatsapp' : 'sms';
     const telefono = tel10(de);
     const cuerpo = String(req.body.Body || '').trim();
-    const baja = pideLaBaja(cuerpo);
 
-    // A quién se le atribuye. Puede no encontrarse a nadie: un número
-    // desconocido también escribe, y esa respuesta igual se guarda.
-    let votanteId = null, usuarioId = null, nombre = null;
-    if (telefono.length === 10) {
-      const [[v]] = await pool.query(
-        `SELECT id, nombre FROM votantes
-          WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ? LIMIT 1`, [telefono]);
-      if (v) { votanteId = v.id; nombre = v.nombre; }
-      const [[u]] = await pool.query(
-        `SELECT id, nombre FROM usuarios
-          WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ? LIMIT 1`, [telefono]);
-      if (u) { usuarioId = u.id; nombre = nombre || u.nombre; }
-    }
-
-    if (baja && telefono.length === 10) {
-      for (const tabla of ['votantes', 'usuarios']) {
-        await pool.query(
-          `UPDATE ${tabla}
-              SET no_contactar = 1, no_contactar_fecha = NOW(), no_contactar_origen = ?
-            WHERE RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?`,
-          [canal, telefono]);
-      }
-    }
-
-    await pool.query(
-      `INSERT INTO comunicaciones_respuestas
-         (canal, de_contacto, mensaje, votante_id, usuario_id, nombre_resuelto, accion, twilio_sid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [canal, telefono || de, cuerpo, votanteId, usuarioId, nombre, baja ? 'baja' : 'ninguna', req.body.MessageSid || null]);
+    // La misma funcion que usa Onurix: ver el comentario de registrarEntrante.
+    const { baja } = await registrarEntrante({
+      canal, telefono, cuerpo, referencia: req.body.MessageSid,
+    });
 
     // Solo se contesta cuando la persona pidió la baja: es el acuse que
     // prueba que se atendió. A un mensaje cualquiera no se le responde

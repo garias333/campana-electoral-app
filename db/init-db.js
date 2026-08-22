@@ -1239,6 +1239,33 @@ async function main() {
     'password_temporal_expira'
   );
 
+  // --- La marca que se ve en la barra lateral ---
+  //
+  // El logo, el nombre y la bajada estaban escritos DENTRO de common.js, así
+  // que cambiarlos exigía tocar código y un parche. Para una plataforma que se
+  // licencia a varias campañas eso no sirve: cada una quiere la suya, y quien
+  // la administra no debería depender de nadie para cambiarla.
+  //
+  // Se guardan VACIAS a propósito. Vacío significa «use lo de siempre», que es
+  // lo que ya está en el código: así ninguna instalación existente cambia de
+  // aspecto al recibir esta migración, y solo cambia la que decida escribir
+  // algo. Un valor por defecto aquí habría reescrito la marca de todas.
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "marca_titulo VARCHAR(120) NULL COMMENT 'Nombre en la barra lateral. Vacio = el del codigo'",
+    'marca_titulo'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "marca_subtitulo VARCHAR(160) NULL COMMENT 'Bajada bajo el nombre. Vacio = la del codigo'",
+    'marca_subtitulo'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "marca_logo_url VARCHAR(255) NULL COMMENT 'Logo propio subido por la campana. Vacio = /img/logo.png'",
+    'marca_logo_url'
+  );
+
   // usuarios.puesto_id: el id del puesto de votación, derivado del texto
   // libre de usuarios.puesto_votacion. Existe para que los cruces del Día D
   // se hagan por id y no comparando dos textos carácter por carácter.

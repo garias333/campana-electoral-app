@@ -13,6 +13,7 @@
  * cambio.
  */
 const { obtenerCredenciales } = require('./comunicacionesConfig');
+const { cabecerasDeBaja, pieDeBaja } = require('./bajaContacto');
 
 /** Estado de configuración, para mostrar en la interfaz del CRM. */
 async function estadoCanal() {
@@ -24,7 +25,11 @@ async function estadoCanal() {
   };
 }
 
-async function enviarCorreoMasivo(destinatario, asunto, mensaje) {
+/**
+ * @param urlBaja  El enlace personal de baja de ESTE destinatario. Si viene,
+ *                 se agregan las cabeceras List-Unsubscribe y el pie visible.
+ */
+async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja) {
   const cred = await obtenerCredenciales();
   if (!cred.sendgridApiKey || !cred.sendgridFrom) {
     throw new Error('SendGrid no está configurado (Configuración → Comunicaciones).');
@@ -38,6 +43,7 @@ async function enviarCorreoMasivo(destinatario, asunto, mensaje) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>');
 
+  const pie = pieDeBaja(urlBaja);
   await sgMail.send({
     to: destinatario,
     from: {
@@ -45,11 +51,13 @@ async function enviarCorreoMasivo(destinatario, asunto, mensaje) {
       name: cred.sendgridFromName || 'Estrategia - Campañas'
     },
     replyTo: cred.sendgridFrom,
+    headers: cabecerasDeBaja(urlBaja),
     subject: asunto,
-    text: mensaje,
+    text: mensaje + pie.texto,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color:#222; line-height:1.5;">
         ${mensajeHtml}
+        ${pie.html}
       </div>
     `
   });

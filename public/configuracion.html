@@ -126,6 +126,48 @@
         </div>
         </div>
 
+        <!-- ===== IDENTIDAD DE LA PLATAFORMA =====
+             El logo, el nombre y la bajada de la barra lateral. Estaban escritos
+             dentro del codigo, asi que cambiarlos exigia publicar un parche. Van
+             aqui, junto a los datos de la campana, porque son lo mismo: quien es
+             esta campana. -->
+        <div style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
+          <div class="titulo-apartado">Identidad en el menú lateral</div>
+          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
+            El logo, el nombre y el eslogan de la campaña, arriba del menú lateral, en
+            todas las pantallas. Deje un campo en blanco y no se muestra nada: la firma
+            de ESTRATEGIA sigue apareciendo debajo en cualquier caso.
+          </small>
+          <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
+            <div style="text-align:center;">
+              <label style="display:block; margin-bottom:6px;">Logo</label>
+              <div style="background:#10233F; border-radius:10px; padding:12px; width:150px;">
+                <img id="vista-logo" src="/img/logo.png" alt="Logo actual" style="width:100%; height:auto; display:block;">
+              </div>
+              <input type="file" id="archivo-logo" accept="image/*" style="display:none;">
+              <button type="button" class="btn-secundario btn-sm" id="btn-cambiar-logo" style="margin-top:8px;">Cambiar logo</button>
+              <button type="button" class="btn-secundario btn-sm" id="btn-quitar-logo" style="margin-top:6px; display:none;">Quitar</button>
+              <small style="display:block; color:var(--color-text-muted); font-size:0.72rem; margin-top:6px; max-width:150px;">
+                El fondo del menú es oscuro: un logo claro o con fondo transparente se ve mejor.
+              </small>
+            </div>
+            <div style="flex:1; min-width:240px;">
+              <div class="campo">
+                <label>Nombre de la campaña</label>
+                <input name="marca_titulo" maxlength="120" placeholder="Ej.: Manizales Avanza">
+              </div>
+              <div class="campo">
+                <label>Eslogan</label>
+                <input name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
+              </div>
+              <small style="color:var(--color-text-muted); font-size:0.78rem;">
+                El eslogan se muestra en mayúsculas y en amarillo. Los dos textos
+                aparecen al recargar cualquier pantalla.
+              </small>
+            </div>
+          </div>
+        </div>
+
         <!-- ===== TERRITORIO =====
              Dónde se juega la campaña y con qué palabras se divide.
              Las cuatro preguntas van juntas y en dos parejas —urbano y
@@ -735,6 +777,9 @@ async function cargarConfiguracionCampana() {
   form.direccion_sede.value = config.direccion_sede || '';
   form.telefono.value = formatoTelefonoColombia(config.telefono || '');
   form.email.value = config.email || '';
+  form.marca_titulo.value = config.marca_titulo || '';
+  form.marca_subtitulo.value = config.marca_subtitulo || '';
+  pintarVistaLogo(config.marca_logo_url || '');
   document.getElementById('input-departamento-campana').value = config.departamento || '';
   actualizarCiudadesCampana();
   document.getElementById('input-ciudad-campana').value = config.ciudad || '';
@@ -796,7 +841,11 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
       ? Array.from(document.querySelectorAll('#casillas-apoyos input:checked')).map(c => c.value)
       : null,
     telefono: form.telefono.value.replace(/\D/g, ''),
-    email: form.email.value
+    email: form.email.value,
+    // Vacio = volver a lo que trae la plataforma. El servidor los guarda
+    // como NULL, y la barra lateral cae en su valor por omision.
+    marca_titulo: form.marca_titulo.value,
+    marca_subtitulo: form.marca_subtitulo.value
   };
 
   try {
@@ -805,6 +854,88 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
     // y no tienen por qué seguir en memoria hasta que se cierre la pestaña.
     NIVELES_TERRITORIO.forEach((nivel) => { passwordNivel[nivel.campo] = null; });
     okBox.textContent = 'Datos de la campaña guardados.';
+    okBox.classList.add('visible');
+    // La barra lateral de ESTA pestaña se repinta ya; las demas, al
+    // recargar. Sin esto habria que recargar tambien aqui para ver el
+    // cambio que uno acaba de hacer, que parece que no guardo.
+    if (typeof refrescarMarca === 'function') refrescarMarca();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  }
+});
+
+/**
+ * El logo de la barra lateral.
+ *
+ * La vista previa y el boton "Quitar" salen del MISMO dato, para que no
+ * puedan contradecirse: si no hay logo propio se muestra el de la
+ * plataforma y no se ofrece quitar nada.
+ */
+function pintarVistaLogo(url) {
+  const img = document.getElementById('vista-logo');
+  const btnQuitar = document.getElementById('btn-quitar-logo');
+  if (!img) return;
+  img.src = url || '/img/logo.png';
+  if (btnQuitar) btnQuitar.style.display = url ? 'inline-block' : 'none';
+}
+
+document.getElementById('btn-cambiar-logo').addEventListener('click', () => {
+  document.getElementById('archivo-logo').click();
+});
+
+document.getElementById('archivo-logo').addEventListener('change', async (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const errorBox = document.getElementById('campana-error');
+  const okBox = document.getElementById('campana-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+
+  // El servidor tambien lo comprueba; esto es para no subir 4 MB y que
+  // rebote despues de la espera.
+  if (archivo.size > 4 * 1024 * 1024) {
+    errorBox.textContent = 'El logo no puede pesar mas de 4 MB.';
+    errorBox.classList.add('visible');
+    e.target.value = '';
+    return;
+  }
+
+  const btn = document.getElementById('btn-cambiar-logo');
+  const textoPrevio = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Subiendo...';
+  try {
+    const cuerpo = new FormData();
+    cuerpo.append('logo', archivo);
+    const r = await api('/configuracion/marca/logo', { method: 'POST', body: cuerpo });
+    pintarVistaLogo(r.logo_url || '');
+    if (typeof refrescarMarca === 'function') refrescarMarca();
+    okBox.textContent = 'Logo actualizado.';
+    okBox.classList.add('visible');
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoPrevio;
+    // Se limpia SIEMPRE: sin esto, volver a elegir el mismo archivo no
+    // dispara 'change' y el boton parece que dejo de funcionar.
+    e.target.value = '';
+  }
+});
+
+document.getElementById('btn-quitar-logo').addEventListener('click', async () => {
+  if (!confirm('¿Quitar el logo propio y volver al de la plataforma?')) return;
+  const errorBox = document.getElementById('campana-error');
+  const okBox = document.getElementById('campana-ok');
+  errorBox.classList.remove('visible');
+  okBox.classList.remove('visible');
+  try {
+    await api('/configuracion/marca/logo', { method: 'DELETE' });
+    pintarVistaLogo('');
+    if (typeof refrescarMarca === 'function') refrescarMarca();
+    okBox.textContent = 'Se volvio al logo de la plataforma.';
     okBox.classList.add('visible');
   } catch (err) {
     errorBox.textContent = err.message;
