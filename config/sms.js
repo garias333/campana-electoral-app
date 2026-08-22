@@ -148,6 +148,12 @@ async function configCampana() {
     // lleva para poder CONTAR lo que ocupa en el segmento. Mientras la columna
     // esté en NULL —hoy— el conteo se comporta igual que siempre.
     firma: (fila && fila.firma) || '',
+    // ¿Se le pega el enlace de baja a cada SMS? Encendido por omisión —una
+    // campaña sin configurar nada tiene que ofrecer salida—, pero se puede
+    // apagar: el enlace ocupa 78 caracteres y hay indicios de que los
+    // operadores filtran los SMS que llevan URL. Apagarlo NO quita la baja:
+    // {baja} sigue funcionando donde se escriba, y el correo no se toca.
+    bajaAutomatica: fila ? Boolean(fila.baja_automatica) : true,
     proveedorPreferido: forzadoNone
       ? 'none'
       : ((fila && fila.proveedor_preferido) || process.env.SMS_PROVIDER || 'onurix'),

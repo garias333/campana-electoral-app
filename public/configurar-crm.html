@@ -238,6 +238,21 @@
               <input id="comunicaciones-onurix-key" placeholder="Tu llave de Onurix" autocomplete="off">
             </div>
           </div>
+
+          <div class="campo" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--color-borde, #E3E8EF);">
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input type="checkbox" id="comunicaciones-baja-automatica" style="width:auto; margin-top:3px;" checked>
+              <span>
+                <strong>Agregar el enlace de baja a cada SMS</strong>
+                <small style="display:block; color:var(--color-text-muted); margin-top:3px; font-weight:normal;">
+                  Ocupa unos 78 caracteres y puede volver el mensaje de 1 a 2 SMS. Hay indicios
+                  de que algunos operadores no entregan los SMS que llevan enlaces; apagarlo
+                  sirve para comprobarlo. <strong>Apagarlo no quita la baja:</strong> escribiendo
+                  <code>{baja}</code> el enlace se pone igual donde usted quiera, y el correo no cambia.
+                </small>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="msj-panel msj-panel-secundario">
@@ -353,6 +368,8 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-onurix-client').value = c.onurix_client || '';
   document.getElementById('comunicaciones-onurix-key').value = c.onurix_key_mascara || '';
   document.getElementById('comunicaciones-onurix-key').dataset.mascara = c.onurix_key_mascara || '';
+  // undefined = servidor viejo que todavia no manda el campo: encendido.
+  document.getElementById('comunicaciones-baja-automatica').checked = c.baja_automatica !== false;
   // Decir CUAL cuenta se esta usando. Sin esto, dos campos vacios se leen
   // como "el SMS no esta configurado", cuando es justo lo contrario: esta
   // usando la cuenta del proveedor, que es lo normal.
@@ -387,7 +404,8 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         twilio_auth_token: valorSecretoOVacio('comunicaciones-twilio-token'),
         twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim(),
         onurix_client: document.getElementById('comunicaciones-onurix-client').value.trim(),
-        onurix_key: valorSecretoOVacio('comunicaciones-onurix-key')
+        onurix_key: valorSecretoOVacio('comunicaciones-onurix-key'),
+        baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }

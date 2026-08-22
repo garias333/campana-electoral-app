@@ -64,9 +64,17 @@
     return ' Baja: ' + location.origin + '/b/v000000-XXXXXXXXXX';
   }
 
+  /**
+   * ¿Esta campana tiene encendido el enlace automatico? Lo fija la pantalla
+   * con lo que responde /comunicaciones/estado-canales. Encendido mientras
+   * nadie diga lo contrario: contar de mas avisa de un costo que no era, y
+   * contar de menos deja que llegue una factura doble sin aviso.
+   */
+  window.bajaAutomaticaSms = true;
+
   /** ¿El servidor va a agregar el enlace a ESTE texto? */
   window.llevaBajaAutomatica = function (texto) {
-    return !/\{baja\}/i.test(String(texto || ''));
+    return window.bajaAutomaticaSms !== false && !/\{baja\}/i.test(String(texto || ''));
   };
 
   window.calcularSegmentosSms = function (texto) {

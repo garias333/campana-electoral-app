@@ -513,6 +513,7 @@ document.addEventListener('click', (e) => {
   try {
     const canales = await api('/comunicaciones/estado-canales');
     window.firmaSms = (canales.sms && canales.sms.firma) || '';
+    window.bajaAutomaticaSms = !(canales.sms && canales.sms.baja_automatica === false);
   } catch (err) { /* se cuenta sin la firma, como antes */ }
   if (!usuarioActual) return;
   if (usuarioActual.rol === 'admin') {

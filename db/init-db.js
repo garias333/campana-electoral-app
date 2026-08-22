@@ -1587,6 +1587,9 @@ async function main() {
     'consentimiento_version VARCHAR(64) NULL AFTER consentimiento_whatsapp', 'consentimiento_version');
 
   await agregarColumnaSiFalta(connection, 'sms_config',
+    "baja_automatica TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Pegar el enlace de baja al final de cada SMS que no traiga {baja}'",
+    'baja_automatica');
+  await agregarColumnaSiFalta(connection, 'sms_config',
     "firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final' AFTER firma", 'firma_posicion');
 
   // Índice de la lista de baja. El canal SMS pregunta por cada mensaje si ese

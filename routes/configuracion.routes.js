@@ -4,7 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria } = require('../config/auditoria');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
-const { estadoCanal: estadoCanalSms, enviarSMS } = require('../config/sms');
+const { estadoCanal: estadoCanalSms, enviarSMS, invalidarCache: invalidarCacheSms } = require('../config/sms');
 const { estadoCanal: estadoCanalSendgrid, enviarCorreoMasivo } = require('../config/sendgrid');
 const multer = require('multer');
 const path = require('path');
@@ -480,6 +480,14 @@ router.post('/comunicaciones/verificar-acceso', requireRole('admin'), async (req
 // Trae la configuración de Comunicaciones (SendGrid + Twilio). Los
 // campos secretos (API Key, Auth Token) viajan ENMASCARADOS — nunca se
 // manda el valor completo de vuelta al navegador una vez guardado.
+/** El ajuste vive en sms_config; si la tabla no existe todavia, va encendido. */
+async function leerBajaAutomatica() {
+  try {
+    const [[c]] = await pool.query('SELECT baja_automatica FROM sms_config WHERE id = 1');
+    return c ? Boolean(c.baja_automatica) : true;
+  } catch (_) { return true; }
+}
+
 router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_comunicaciones WHERE id = 1`);
@@ -497,7 +505,11 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       // usando la maestra: NUNCA se manda al navegador la del .env.
       onurix_client: fila.onurix_client || '',
       onurix_key_mascara: enmascarar(fila.onurix_key),
-      onurix_propio: Boolean(fila.onurix_client && fila.onurix_key)
+      onurix_propio: Boolean(fila.onurix_client && fila.onurix_key),
+      // Vive en sms_config, no aquí: es una regla de como se ARMA el SMS, al
+      // lado de la firma y de la URL de baja. Se expone en esta pantalla
+      // porque es donde el administrador configura las comunicaciones.
+      baja_automatica: await leerBajaAutomatica()
       // twilio_whatsapp_from no se devuelve: el canal está desactivado
       // (Meta prohíbe las campañas políticas en su API de negocios) y la
       // pantalla ya no tiene ese campo. La columna sigue en la base.
@@ -522,7 +534,7 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
     twilio_account_sid, twilio_auth_token, twilio_sms_from,
-    onurix_client, onurix_key
+    onurix_client, onurix_key, baja_automatica
   } = req.body;
 
   try {
@@ -567,6 +579,19 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
        valores.onurix_client, valores.onurix_key,
        req.session.usuario.id]
     );
+
+    // El enlace de baja automatico vive en sms_config. Solo se toca si el
+    // formulario lo mando: asi, guardar desde una pantalla vieja que no
+    // conoce el campo no lo apaga sin querer.
+    if (baja_automatica !== undefined) {
+      await pool.query(
+        `INSERT INTO sms_config (id, baja_automatica) VALUES (1, ?)
+         ON DUPLICATE KEY UPDATE baja_automatica = VALUES(baja_automatica)`,
+        [baja_automatica ? 1 : 0]);
+      // Sin esto, configCampana() sigue sirviendo el valor viejo de su cache
+      // y el cambio no se nota hasta que expire — parece que no guardo.
+      invalidarCacheSms();
+    }
 
     invalidarCacheComunicaciones();
     res.json({ ok: true });

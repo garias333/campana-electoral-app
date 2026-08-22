@@ -450,8 +450,11 @@ router.get('/estado-canales', async (req, res) => {
   try {
     const cfg = await smsSvc.configCampana();
     sms.firma = cfg.firma || '';
+    // Para que el contador sume (o no) los 78 caracteres del enlace.
+    sms.baja_automatica = cfg.bajaAutomatica !== false;
   } catch (_) {
     sms.firma = '';   // sin tabla de ajustes todavía: se cuenta como antes
+    sms.baja_automatica = true;
   }
   res.json({
     email: await sendgridSvc.estadoCanal(),
@@ -853,8 +856,8 @@ function limpiarSobrantes(texto) {
  * contador de la pantalla lo suma también (ver public/js/segmentos-sms.js):
  * quien escribe tiene que ver el costo ANTES de enviar, no en el recibo.
  */
-function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja) {
-  if (canal !== 'sms' || !urlBaja) return texto;
+function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja, encendido) {
+  if (canal !== 'sms' || !urlBaja || encendido === false) return texto;
   // Se mira el mensaje ORIGINAL, no el ya personalizado: en el personalizado
   // {baja} fue reemplazado por la URL y el marcador ya no está, así que
   // buscarlo ahí daría siempre «no lo puso» y lo agregaría dos veces.
@@ -873,13 +876,17 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
   // Se devuelve ADEMAS de sustituirla en el texto: el correo la necesita
   // para la cabecera List-Unsubscribe, exista o no {baja} en el mensaje.
   const urlBaja = codigo ? urlDeBaja(codigo, urlBajaBase) : '';
+  // Si esto falla, se sigue con el enlace PUESTO: quedarse sin salida por un
+  // fallo al leer un ajuste es peor que gastar 78 caracteres de más.
+  let bajaEncendida = true;
+  try { bajaEncendida = (await smsSvc.configCampana()).bajaAutomatica !== false; } catch (_) {}
   let texto = mensaje
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
     .replace(/\{slogan\}/gi, slogan || '')
     .replace(/\{baja\}/gi, urlBaja);
   const minus = mensaje.toLowerCase();
   if (!MARCADORES_LUGAR.some(m => minus.includes(m))) {
-    return { texto: agregarBajaSms(limpiarSobrantes(texto), canal, mensaje, urlBaja), urlBaja };
+    return { texto: agregarBajaSms(limpiarSobrantes(texto), canal, mensaje, urlBaja, bajaEncendida), urlBaja };
   }
 
   const lugar = await lugarDeVotacionDe(envio.destinatario_tipo, envio.destinatario_id) || {};
@@ -907,7 +914,7 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
       .replace(/\{puesto\}/gi, puesto)
       .replace(/\{mesa\}/gi, mesa)
       .replace(/\{municipio\}/gi, municipio)
-      .replace(/\{departamento\}/gi, departamento)), canal, mensaje, urlBaja),
+      .replace(/\{departamento\}/gi, departamento)), canal, mensaje, urlBaja, bajaEncendida),
   };
 }
 
