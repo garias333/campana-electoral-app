@@ -41,7 +41,13 @@
 set -euo pipefail
 
 SIMULAR=0
-[[ "${1:-}" == "--simular" ]] && SIMULAR=1
+SOLO_ROOT=0
+for ARG in "$@"; do
+  case "$ARG" in
+    --simular)   SIMULAR=1 ;;
+    --solo-root) SOLO_ROOT=1 ;;
+  esac
+done
 CONF=/etc/ssh/sshd_config
 COPIA="$CONF.antes-de-cerrar-$(date +%Y-%m-%d_%H%M)"
 
@@ -84,8 +90,13 @@ fi
 
 echo
 echo "== Cambios"
-echo "   PasswordAuthentication  yes -> no"
-echo "   PermitRootLogin         yes -> prohibit-password"
+if [[ $SOLO_ROOT -eq 1 ]]; then
+  echo "   PermitRootLogin         yes -> prohibit-password"
+  echo "   PasswordAuthentication  se deja en 'yes'  (--solo-root)"
+else
+  echo "   PasswordAuthentication  yes -> no"
+  echo "   PermitRootLogin         yes -> prohibit-password"
+fi
 echo "   + excepción para 169.254.0.0/16 (la consola del navegador)"
 
 if [[ $SIMULAR -eq 1 ]]; then
@@ -100,10 +111,22 @@ echo "   copia guardada en $COPIA"
 
 # `-i` con expresión anclada: sólo las directivas activas, no los comentarios
 # de ejemplo que el archivo trae y que confundirían un reemplazo global.
+#
+# CON --solo-root SE TOCA UNA SOLA DIRECTIVA, y es la que tiene evidencia
+# detrás. En este servidor root NUNCA ha entrado con contraseña: las 15
+# sesiones del registro son con llave, todas desde la consola del navegador.
+# Cerrarle la contraseña a root no le quita nada a nadie y saca de la mesa el
+# blanco más valioso. Las demás cuentas —que sí entran con contraseña todos los
+# días— se dejan para cuando sus llaves estén comprobadas, en vez de romperles
+# el acceso hoy a cambio de nada.
 sed -i -E \
-  -e 's/^[[:space:]]*PasswordAuthentication[[:space:]]+.*/PasswordAuthentication no/' \
   -e 's/^[[:space:]]*PermitRootLogin[[:space:]]+.*/PermitRootLogin prohibit-password/' \
   "$CONF"
+if [[ $SOLO_ROOT -eq 0 ]]; then
+  sed -i -E \
+    -e 's/^[[:space:]]*PasswordAuthentication[[:space:]]+.*/PasswordAuthentication no/' \
+    "$CONF"
+fi
 
 # LA EXCEPCIÓN VA AL FINAL, Y NO ES UN DETALLE DE ESTILO: en sshd_config todo
 # lo que viene después de un `Match` pertenece a ese bloque. Puesta en medio, se
@@ -124,21 +147,54 @@ else
   echo "   excepción para la consola del navegador: ya estaba"
 fi
 
-# Los archivos de /etc/ssh/sshd_config.d/ se leen DESPUÉS y pueden reponer lo
-# que acabamos de quitar. Se avisa en vez de editarlos a ciegas.
-if grep -rqiE '^[[:space:]]*(PasswordAuthentication|PermitRootLogin)' /etc/ssh/sshd_config.d/ 2>/dev/null; then
-  echo "   AVISO: hay directivas en /etc/ssh/sshd_config.d/ que pueden mandar sobre esto:"
-  grep -riE '^[[:space:]]*(PasswordAuthentication|PermitRootLogin)' /etc/ssh/sshd_config.d/ | sed 's/^/      /'
-fi
+# /etc/ssh/sshd_config.d/ MANDA SOBRE ESTE ARCHIVO, Y ESO NO ES INTUITIVO.
+#
+# En sshd_config gana el PRIMER valor que se lee, no el último — al revés que
+# en casi cualquier otro archivo de configuración. Y el `Include` de
+# sshd_config.d está en las primeras líneas. Resultado: `50-cloud-init.conf`,
+# que trae `PasswordAuthentication yes`, le gana a lo que escribamos aquí.
+#
+# La primera versión de este guion sólo AVISABA de esos archivos. El aviso
+# salió, el `sshd -t` dijo que todo estaba bien, el servicio recargó sin una
+# queja... y `sshd -T` seguía respondiendo `passwordauthentication yes`. Todo
+# parecía haber funcionado y no había cambiado nada. Por eso ahora se corrigen,
+# con su propia copia de respaldo cada uno.
+declare -a COPIAS_D=()
+for EXTRA in /etc/ssh/sshd_config.d/*.conf; do
+  [[ -f "$EXTRA" ]] || continue
+  grep -qiE '^[[:space:]]*(PasswordAuthentication|PermitRootLogin)' "$EXTRA" || continue
+
+  COPIA_EXTRA="$EXTRA.antes-de-cerrar-$(date +%Y-%m-%d_%H%M)"
+  cp -p "$EXTRA" "$COPIA_EXTRA"
+  COPIAS_D+=("$COPIA_EXTRA|$EXTRA")
+
+  sed -i -E \
+    -e 's/^[[:space:]]*PermitRootLogin[[:space:]]+.*/PermitRootLogin prohibit-password/' \
+    "$EXTRA"
+  if [[ $SOLO_ROOT -eq 0 ]]; then
+    sed -i -E \
+      -e 's/^[[:space:]]*PasswordAuthentication[[:space:]]+.*/PasswordAuthentication no/' \
+      "$EXTRA"
+  fi
+  echo "   corregido también $EXTRA (manda sobre el principal)"
+done
+
+restaurar_todo() {
+  cp -p "$COPIA" "$CONF"
+  for PAR in "${COPIAS_D[@]:-}"; do
+    [[ -n "$PAR" ]] || continue
+    cp -p "${PAR%%|*}" "${PAR##*|}"
+  done
+}
 
 if ! sshd -t 2>/tmp/sshd-t.err; then
   echo
-  echo "El archivo quedó inválido. Se restaura la copia y no se aplica nada:" >&2
+  echo "La configuración quedó inválida. Se restaura todo y no se aplica nada:" >&2
   sed 's/^/   /' /tmp/sshd-t.err >&2
-  cp -p "$COPIA" "$CONF"
+  restaurar_todo
   exit 1
 fi
-echo "   sshd -t: el archivo es válido"
+echo "   sshd -t: la configuración es válida"
 
 systemctl reload ssh 2>/dev/null || systemctl reload sshd
 echo "   recargado (las sesiones abiertas siguen vivas)"
@@ -147,7 +203,35 @@ echo
 echo "== Cómo quedó, según el propio sshd"
 sshd -T | grep -iE '^(passwordauthentication|permitrootlogin|pubkeyauthentication) ' | sed 's/^/   /'
 
+# SE COMPRUEBA CONTRA LO QUE DICE SSHD, NO CONTRA LO QUE ESCRIBIMOS. Editar el
+# archivo y que el servicio recargue no prueba nada: la primera vez que corrió
+# esto, las dos cosas salieron bien y la contraseña seguía habilitada porque un
+# archivo de sshd_config.d mandaba. `sshd -T` es la única fuente que sabe cuál
+# valor ganó de verdad.
+ESPERADO_ROOT='permitrootlogin (prohibit-password|without-password)'
+if ! sshd -T | grep -qiE "^$ESPERADO_ROOT$"; then
+  echo
+  echo "   NO QUEDÓ APLICADO: root sigue pudiendo entrar con contraseña." >&2
+  echo "   Se restaura todo para no dejar la configuración a medias." >&2
+  restaurar_todo; systemctl reload ssh 2>/dev/null || systemctl reload sshd
+  exit 1
+fi
+if [[ $SOLO_ROOT -eq 0 ]] && ! sshd -T | grep -qi '^passwordauthentication no$'; then
+  echo
+  echo "   NO QUEDÓ APLICADO: passwordauthentication sigue en 'yes'." >&2
+  echo "   Algo lo está reponiendo. Revise:  sshd -T | grep -i password" >&2
+  echo "   y  grep -ri passwordauth /etc/ssh/" >&2
+  echo "   No se restaura nada: el cambio de root sí entró y conviene conservarlo." >&2
+  exit 1
+fi
+echo "   comprobado contra sshd -T: el cambio quedó aplicado de verdad"
+
 echo
 echo "AHORA, SIN CERRAR ESTA TERMINAL: abra otra y compruebe que puede entrar."
-echo "Si no puede, vuelva acá y ejecute:"
-echo "   cp -p $COPIA $CONF && systemctl reload ssh"
+echo "Si no puede, vuelva acá y ejecute TODAS estas líneas:"
+echo "   cp -p $COPIA $CONF"
+for PAR in "${COPIAS_D[@]:-}"; do
+  [[ -n "$PAR" ]] || continue
+  echo "   cp -p ${PAR%%|*} ${PAR##*|}"
+done
+echo "   systemctl reload ssh"
