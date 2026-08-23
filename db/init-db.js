@@ -1568,6 +1568,9 @@ async function main() {
   // Credenciales propias de Onurix por campaña. Van vacías salvo que la
   // campaña traiga su propia cuenta: lo normal es usar la maestra del .env.
   await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
+    "telegram_bot_token VARCHAR(120) NULL COMMENT 'Bot de Telegram de esta campana (uno por instalacion)'",
+    'telegram_bot_token');
+  await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
     'onurix_client VARCHAR(50) NULL AFTER twilio_whatsapp_from', 'onurix_client');
   await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
     'onurix_key VARCHAR(255) NULL AFTER onurix_client', 'onurix_key');

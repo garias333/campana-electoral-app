@@ -476,7 +476,7 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
            propia fila, no de un chat comun de la campaña. */
         try {
           const tg = require('../config/telegram');
-          if (tg.telegramConfigurado() && usuario.telegram_chat_id) {
+          if (await tg.telegramConfigurado() && usuario.telegram_chat_id) {
             const r = await tg.enviarCodigoTelegram(
               usuario.telegram_chat_id, codigo, CODIGO_2FA_MINUTOS);
             if (!r.ok) console.warn('No se pudo mandar el código por Telegram:', r.error);
@@ -776,7 +776,7 @@ router.get('/telegram/enlace', requireAuth, async (req, res) => {
       'SELECT telegram_chat_id FROM usuarios WHERE id = ?', [req.session.usuario.id]);
     const vinculado = !!(yo && yo.telegram_chat_id);
 
-    if (!tg.telegramConfigurado()) {
+    if (!(await tg.telegramConfigurado())) {
       return res.json({ disponible: false, vinculado, motivo: 'Esta campaña no tiene Telegram configurado.' });
     }
     const bot = await tg.usuarioDelBot();

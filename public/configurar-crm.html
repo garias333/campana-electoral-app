@@ -240,6 +240,18 @@
           </div>
 
           <div class="campo" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--color-borde, #E3E8EF);">
+            <label>Bot de Telegram <span style="color:var(--color-text-muted); font-weight:normal;">(opcional)</span></label>
+            <input id="comunicaciones-telegram-token" placeholder="Vacío = sin Telegram" autocomplete="off">
+            <small style="display:block; color:var(--color-text-muted); margin-top:4px;">
+              El token lo da <strong>@BotFather</strong> en Telegram con <code>/newbot</code>.
+              Con esto, quien pida su código por correo lo recibe además en su Telegram —cada
+              quien vincula el suyo desde su panel—. <strong>Un bot distinto por campaña:</strong>
+              Telegram admite una sola dirección por bot, así que reutilizar uno deja a la otra
+              instalación sin recibir nada y sin avisar. Al guardar se configura solo.
+            </small>
+            <div id="telegram-estado" style="margin-top:6px; font-size:0.82rem;"></div>
+          </div>
+          <div class="campo">
             <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
               <input type="checkbox" id="comunicaciones-baja-automatica" style="width:auto; margin-top:3px;" checked>
               <span>
@@ -370,6 +382,10 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-onurix-key').dataset.mascara = c.onurix_key_mascara || '';
   // undefined = servidor viejo que todavia no manda el campo: encendido.
   document.getElementById('comunicaciones-baja-automatica').checked = c.baja_automatica !== false;
+  const campoTg = document.getElementById('comunicaciones-telegram-token');
+  campoTg.value = c.telegram_bot_token_mascara || '';
+  campoTg.dataset.mascara = c.telegram_bot_token_mascara || '';
+  pintarEstadoTelegram(c.telegram);
   // Decir CUAL cuenta se esta usando. Sin esto, dos campos vacios se leen
   // como "el SMS no esta configurado", cuando es justo lo contrario: esta
   // usando la cuenta del proveedor, que es lo normal.
@@ -381,6 +397,36 @@ async function cargarConfigComunicaciones() {
 // Si el campo secreto se quedó tal cual estaba (mostrando la máscara),
 // se manda vacío al servidor — que ya sabe que un valor vacío significa
 // "no cambiar lo que había". Solo se manda algo si la persona lo editó.
+/**
+ * Como esta el bot, debajo del campo.
+ *
+ * Se dice el nombre del bot y SI el webhook apunta aqui, no solo si hay token
+ * guardado. Tener el token no significa nada: si otra instalacion registro el
+ * mismo bot, este se quedo sin webhook y los vinculos no se completan, en
+ * silencio. Esa es justo la unica pista que habria.
+ */
+function pintarEstadoTelegram(t) {
+  const caja = document.getElementById('telegram-estado');
+  if (!caja) return;
+  if (!t || !t.configurado) { caja.textContent = ''; return; }
+  if (!t.valido) {
+    caja.innerHTML = `<span style="color:#A93226;">⚠ ${escaparHtml(t.motivo || 'El token no sirve.')}</span>`;
+    return;
+  }
+  const partes = [`Bot <strong>@${escaparHtml(t.bot)}</strong>`];
+  if (t.webhook_aqui) {
+    partes.push('<span style="color:#1E6B44;">conectado a esta campaña ✓</span>');
+  } else if (t.webhook_url) {
+    partes.push(`<span style="color:#A93226;">⚠ su dirección apunta a OTRA instalación `
+      + `(${escaparHtml(t.webhook_url)}). Guarde de nuevo para traerlo aquí, `
+      + `o use un bot distinto.</span>`);
+  } else {
+    partes.push('<span style="color:#A93226;">⚠ sin dirección registrada. Guarde para configurarlo.</span>');
+  }
+  if (t.ultimo_error) partes.push(`<br><span style="color:var(--color-text-muted);">Último error: ${escaparHtml(t.ultimo_error)}</span>`);
+  caja.innerHTML = partes.join(' · ');
+}
+
 function valorSecretoOVacio(id) {
   const campo = document.getElementById(id);
   return campo.value === campo.dataset.mascara ? '' : campo.value;
@@ -405,11 +451,22 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim(),
         onurix_client: document.getElementById('comunicaciones-onurix-client').value.trim(),
         onurix_key: valorSecretoOVacio('comunicaciones-onurix-key'),
-        baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked
+        baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked,
+        telegram_bot_token: valorSecretoOVacio('comunicaciones-telegram-token')
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }
     });
+    // Si el webhook no se pudo dejar apuntando aqui hay que decirlo: el token
+    // quedo guardado y el bot igual no va a funcionar.
+    if (r && r.telegram && !r.telegram.ok) {
+      alert('El token de Telegram quedó guardado, pero NO se pudo configurar su dirección:\n\n'
+        + (r.telegram.error || 'error desconocido'));
+    } else if (r && r.telegram && r.telegram.urlPrevia && r.telegram.urlPrevia !== r.telegram.url) {
+      alert('Ojo: ese bot estaba conectado a otra instalación\n(' + r.telegram.urlPrevia + ')\n\n'
+        + 'Ahora quedó conectado a esta, y aquella dejó de recibir vínculos. '
+        + 'Cada campaña necesita su propio bot.');
+    }
     okBox.textContent = 'Credenciales guardadas correctamente.';
     okBox.classList.add('visible');
     await cargarConfigComunicaciones();
