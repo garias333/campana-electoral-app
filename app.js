@@ -1,4 +1,28 @@
 require('dotenv').config();
+
+/* ---------------------------------------------------------------------------
+   EL PROCESO CORRE EN HORA DE COLOMBIA
+
+   El servidor es UTC. La sesion de MySQL ya habla en -05:00 (ver config/db.js),
+   pero JavaScript seguia en UTC, y eso dejaba las fechas partidas en dos:
+   `NOW()` escribia las 13:06 y un `new Date()` de JavaScript escribia las 18:06
+   para el mismo instante. Se veia en el bloqueo por intentos fallidos, que
+   anunciaba una hora cinco horas mas tarde de la real, y en el vencimiento de
+   las claves temporales.
+
+   Con esto todo queda en el mismo reloj: lo que escribe MySQL, lo que escribe
+   JavaScript, y lo que JavaScript lee de vuelta —una fecha sin zona horaria se
+   interpreta en la zona del proceso, asi que tiene que ser la misma que la de
+   la sesion de la base—.
+
+   VA ANTES QUE CUALQUIER OTRA COSA a proposito: fijarlo despues de que algun
+   modulo ya haya creado una fecha deja esa fecha en la zona vieja, y el error
+   resultante seria intermitente segun el orden de carga.
+
+   Se puede sobrescribir con TZ en el .env si algun dia hay una campana fuera
+   de Colombia.
+--------------------------------------------------------------------------- */
+process.env.TZ = process.env.TZ || 'America/Bogota';
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -142,6 +166,25 @@ app.use(middlewareLicencia);
 iniciarValidacionPeriodica();
 
 // --- Rutas de API ---
+/* La marca de la campaña, SIN sesión: es lo que pinta la pantalla de ingreso.
+   Se expone solo lo que ya se ve en esa pantalla —logo, nombre y eslogan—,
+   nada más de la configuración. Devuelve vacío si algo falla, para que un
+   problema aquí no deje a nadie sin poder entrar. */
+app.get('/api/marca-publica', async (req, res) => {
+  try {
+    const pool = require('./config/db');
+    const [[c]] = await pool.query(
+      'SELECT marca_titulo, marca_subtitulo, marca_logo_url FROM configuracion_campana WHERE id = 1');
+    res.json({
+      titulo: (c && c.marca_titulo) || '',
+      subtitulo: (c && c.marca_subtitulo) || '',
+      logo_url: (c && c.marca_logo_url) || '',
+    });
+  } catch (err) {
+    res.json({ titulo: '', subtitulo: '', logo_url: '' });
+  }
+});
+
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/territorial', require('./routes/territorial.routes'));
 app.use('/api/votantes', require('./routes/votantes.routes'));
@@ -185,6 +228,14 @@ require('./config/reconciliadorSms').iniciar();
 
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
+/* LOS LOGOS DE LA MARCA SON PÚBLICOS, el resto de uploads no.
+   La pantalla de ingreso tiene que poder pintar el logo de la campaña ANTES
+   de que nadie haya iniciado sesión — si no, la app del celular saluda con el
+   logo de la plataforma mientras la web ya muestra el de la campaña. Va
+   ANTES del montaje protegido: Express toma el primero que coincida.
+   Solo /uploads/marca. Todo lo demás (fotos de votantes, adjuntos, Excel
+   subidos) sigue exigiendo sesión. */
+app.use('/uploads/marca', express.static(path.join(__dirname, 'uploads', 'marca')));
 app.use('/uploads', requireAuth, express.static(path.join(__dirname, 'uploads')));
 
 // --- Frontend estático ---

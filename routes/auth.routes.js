@@ -468,6 +468,22 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
         );
       } else {
         await enviarCodigo2FA(destino, codigo);
+
+        /* Y TAMBIEN POR TELEGRAM, SI ESA PERSONA LO VINCULO.
+           Va DESPUES del correo y en su propio try: el correo es el canal que
+           se pidio, y un fallo del bot no puede tumbar un envio que ya
+           funciono. Cada quien recibe solo el suyo — el chat sale de su
+           propia fila, no de un chat comun de la campaña. */
+        try {
+          const tg = require('../config/telegram');
+          if (tg.telegramConfigurado() && usuario.telegram_chat_id) {
+            const r = await tg.enviarCodigoTelegram(
+              usuario.telegram_chat_id, codigo, CODIGO_2FA_MINUTOS);
+            if (!r.ok) console.warn('No se pudo mandar el código por Telegram:', r.error);
+          }
+        } catch (errTg) {
+          console.warn('Error mandando el código por Telegram:', errTg.message);
+        }
       }
     } catch (errEnvio) {
       // Un fallo de entrega SÍ se registra en el servidor, pero no cambia
@@ -594,8 +610,33 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.post('/cambiar-password', requireAuth, async (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
-  if (!passwordNueva || passwordNueva.length < 8) {
-    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' });
+
+  /* ------------------------------------------------------------------
+     SEIS CIFRAS, O UNA CONTRASEÑA LARGA. LAS DOS VALEN.
+
+     Un lider entra desde el celular con su cedula y cambia la clave por un
+     numero de seis cifras: exigirle ocho caracteres con letras es pedirle
+     algo que no va a recordar y que va a terminar anotado en un papel.
+     Un administrador, en cambio, sigue pudiendo poner una contraseña larga.
+
+     Se acepta CUALQUIERA DE LAS DOS en vez de mirar el rol: el rol dice
+     quien es hoy, no como quiere entrar, y una persona puede ser lider y
+     administradora a la vez —ya paso en esta campaña—.
+
+     Lo que NO se acepta es el terreno de en medio: cuatro cifras, o siete
+     caracteres. Ahi no hay ni lo memorizable ni lo seguro.
+     ------------------------------------------------------------------ */
+  const nueva = String(passwordNueva || '');
+  const esSeisCifras = /^\d{6}$/.test(nueva);
+  const esLarga = nueva.length >= 8;
+  if (!esSeisCifras && !esLarga) {
+    return res.status(400).json({
+      error: 'La clave nueva debe ser un número de 6 cifras, o una contraseña de al menos 8 caracteres.'
+    });
+  }
+  // 123456 y 000000 son las dos primeras que prueba cualquiera.
+  if (esSeisCifras && (/^(\d)\1{5}$/.test(nueva) || nueva === '123456' || nueva === '654321')) {
+    return res.status(400).json({ error: 'Ese número es demasiado fácil de adivinar. Elija otro de 6 cifras.' });
   }
   try {
     const [rows] = await pool.query(`SELECT password_hash FROM usuarios WHERE id = ?`, [req.session.usuario.id]);
@@ -717,6 +758,55 @@ router.post('/resetear-password', async (req, res) => {
   } catch (err) {
     console.error('Error en /resetear-password:', err);
     res.status(500).json({ error: 'Error interno al restablecer la contraseña.' });
+  }
+});
+
+/* ------------------------------------------------------------------
+   VINCULAR EL TELEGRAM PROPIO
+
+   Lo hace cada quien desde su sesion, y solo para si mismo: el id sale de
+   `req.session.usuario.id`, nunca del cuerpo de la peticion. Si viniera por
+   parametro, cualquiera podria pedir el enlace de otra persona, vincular su
+   propio Telegram a esa cuenta y quedarse recibiendo sus codigos de acceso.
+   ------------------------------------------------------------------ */
+router.get('/telegram/enlace', requireAuth, async (req, res) => {
+  try {
+    const tg = require('../config/telegram');
+    const [[yo]] = await pool.query(
+      'SELECT telegram_chat_id FROM usuarios WHERE id = ?', [req.session.usuario.id]);
+    const vinculado = !!(yo && yo.telegram_chat_id);
+
+    if (!tg.telegramConfigurado()) {
+      return res.json({ disponible: false, vinculado, motivo: 'Esta campaña no tiene Telegram configurado.' });
+    }
+    const bot = await tg.usuarioDelBot();
+    if (!bot) return res.json({ disponible: false, vinculado, motivo: 'No se pudo hablar con Telegram.' });
+
+    const { codigoDe, VIGENCIA_MS } = require('../config/telegramVinculo');
+    res.json({
+      disponible: true,
+      vinculado,
+      bot,
+      enlace: `https://t.me/${bot}?start=${codigoDe(req.session.usuario.id)}`,
+      horas_vigencia: Math.round(VIGENCIA_MS / 3600000),
+    });
+  } catch (err) {
+    console.error('Error armando el enlace de Telegram:', err.message);
+    res.status(500).json({ error: 'No se pudo preparar el enlace de Telegram.' });
+  }
+});
+
+/** Desvincular el propio. Tambien solo para si mismo. */
+router.delete('/telegram', requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE usuarios SET telegram_chat_id = NULL WHERE id = ?', [req.session.usuario.id]);
+    await registrarAuditoria(req.session.usuario.id, 'telegram_desvinculado',
+      'Desvinculo su Telegram: los codigos de acceso vuelven a llegarle solo por correo.', req.ip);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error desvinculando Telegram:', err.message);
+    res.status(500).json({ error: 'No se pudo desvincular.' });
   }
 });
 

@@ -151,8 +151,23 @@
       partes.push('los marcadores cambian el largo en cada envío, así que esto es aproximado');
     }
 
-    caja.innerHTML = partes.join(' · ');
-    caja.style.color = r.alfabeto === 'UCS-2' && r.segmentos > 1
+    /* PASAR DE UN SEGMENTO NO ES SOLO MAS CARO: HOY NO LLEGA.
+       Medido el 22 de agosto de 2026 sobre los envios reales de la campana:
+       todos los de un segmento llegaron —con enlace y sin el—; los de dos, no.
+       Onurix los acepta y los cobra igual, asi que el historial dice "Enviado"
+       y nada avisa. Mientras eso no se aclare con el proveedor, el contador
+       tiene que decirlo donde se escribe, no despues.
+
+       Va como aviso aparte y en rojo, no como un dato mas de la lista: «2 SMS»
+       se lee como un precio, y el problema no es el precio. */
+    const noLlega = r.segmentos > 1;
+    caja.innerHTML = partes.join(' · ')
+      + (noLlega
+        ? '<div style="margin-top:6px; font-weight:700;">'
+          + '⚠ Con más de un segmento el mensaje puede NO llegar. '
+          + 'Acórtelo hasta que diga 1 SMS.</div>'
+        : '');
+    caja.style.color = noLlega || (r.alfabeto === 'UCS-2' && r.segmentos > 1)
       ? '#A93226'
       : 'var(--color-text-muted)';
   };

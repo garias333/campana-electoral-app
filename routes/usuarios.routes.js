@@ -142,7 +142,11 @@ router.post('/', requireRole('admin'), async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, telefono, debe_cambiar_password)
        VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-      [nombre, (numero_identificacion || '').trim() || null, (nombre_usuario || '').trim() || null,
+      // Vacio con cedula a la mano: la cedula. Es lo que promete el campo del
+      // formulario, y guardar NULL dejaba a la persona sin con que entrar
+      // salvo por su correo — que un lider no suele tener.
+      [nombre, (numero_identificacion || '').trim() || null,
+       (nombre_usuario || '').trim() || (numero_identificacion || '').trim() || null,
        email.trim().toLowerCase(), hash, rolFila.id, telefono ? telefono.replace(/\D/g, '') : null]
     );
     res.json({
@@ -176,6 +180,38 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
     const [[rolFila]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [rol]);
     if (!rolFila) return res.status(400).json({ error: 'Rol no válido.' });
 
+    /* --------------------------------------------------------------------
+       EL NOMBRE DE USUARIO SIGUE A LA CÉDULA CUANDO ERA LA CÉDULA
+
+       Con qué se entra es `nombre_usuario`, no `numero_identificacion`. Al
+       cambiarle la cédula a alguien, el usuario se quedaba con la vieja: la
+       persona seguía entrando con el número anterior, y el mensaje de
+       WhatsApp le mandaba ese, que era correcto pero no era el que el
+       administrador acababa de escribir. Nadie daba error; simplemente los
+       dos números dejaban de ser el mismo.
+
+       Solo se re-sincroniza si el usuario ERA la cédula. Si el administrador
+       le puso a propósito otro nombre de usuario, no se le toca — pisarlo
+       seria decidir por él, y dejaria a esa persona sin poder entrar.
+       -------------------------------------------------------------------- */
+    const [[antes]] = await pool.query(
+      `SELECT numero_identificacion, nombre_usuario FROM usuarios WHERE id = ?`, [req.params.id]);
+    const cedula = (numero_identificacion || '').trim();
+    let usuarioFinal = (nombre_usuario || '').trim();
+
+    // Vacío con cédula a la mano: es lo que promete el propio campo del
+    // formulario («Se autocompleta con el Número de identificación»), y hasta
+    // hoy no lo cumplía — se guardaba NULL y la persona quedaba sin con qué
+    // entrar, salvo por su correo.
+    if (!usuarioFinal && cedula) usuarioFinal = cedula;
+
+    if (antes && cedula && antes.nombre_usuario
+        && antes.nombre_usuario === antes.numero_identificacion
+        && usuarioFinal === antes.nombre_usuario) {
+      usuarioFinal = cedula;
+    }
+    const usuarioParaGuardar = usuarioFinal || null;
+
     if (password && password.trim()) {
       // Se escribió una contraseña nueva: se actualiza y se obliga a
       // cambiarla en el próximo inicio de sesión (igual que al crear).
@@ -183,14 +219,14 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
       await pool.query(
         `UPDATE usuarios SET nombre = ?, numero_identificacion = ?, nombre_usuario = ?, email = ?, telefono = ?,
          rol_id = ?, activo = ?, password_hash = ?, debe_cambiar_password = 1 WHERE id = ?`,
-        [nombre, (numero_identificacion || '').trim() || null, (nombre_usuario || '').trim() || null,
+        [nombre, cedula || null, usuarioParaGuardar,
          email.trim().toLowerCase(), telefono ? telefono.replace(/\D/g, '') : null, rolFila.id, activo ? 1 : 0, hash, req.params.id]
       );
     } else {
       // Sin contraseña nueva: se deja la que ya tenía, sin tocarla.
       await pool.query(
         `UPDATE usuarios SET nombre = ?, numero_identificacion = ?, nombre_usuario = ?, email = ?, telefono = ?, rol_id = ?, activo = ? WHERE id = ?`,
-        [nombre, (numero_identificacion || '').trim() || null, (nombre_usuario || '').trim() || null,
+        [nombre, cedula || null, usuarioParaGuardar,
          email.trim().toLowerCase(), telefono ? telefono.replace(/\D/g, '') : null, rolFila.id, activo ? 1 : 0, req.params.id]
       );
     }
@@ -233,7 +269,25 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
     //
     // `padStart` importa: sin él, 42 saldría como "42" y no como "0042", y
     // uno de cada diez códigos tendría menos dígitos de los debidos.
-    const passwordTemporal = String(crypto.randomInt(0, 10000)).padStart(4, '0');
+    // LA CLAVE INICIAL ES LA CEDULA, y eso es una decision tomada a sabiendas.
+    //
+    // La cedula NO es un secreto: esta en el formulario de registro y la
+    // conocen lideres y coordinadores. Quien sepa la de otro puede entrar con
+    // su cuenta. Lo que lo hace aceptable son dos cosas, y las dos tienen que
+    // seguir ahi: VENCE —ver password_temporal_expira, abajo— y obliga a
+    // cambiarla en el primer ingreso. Es una llave para entrar una vez, no una
+    // contraseña.
+    //
+    // A cambio, el dato no tiene que viajar: la persona ya lo sabe. Eso quita
+    // de en medio el SMS del codigo, que hoy es justo lo que no esta llegando.
+    //
+    // Si no hay cedula registrada se cae al codigo aleatorio de antes: sin ese
+    // respaldo, esta persona se quedaria sin ninguna forma de entrar.
+    const [[quien]] = await pool.query(
+      'SELECT numero_identificacion FROM usuarios WHERE id = ?', [req.params.id]);
+    const cedula = quien && String(quien.numero_identificacion || '').trim();
+    const passwordTemporal = cedula || String(crypto.randomInt(0, 10000)).padStart(4, '0');
+    const esCedula = !!cedula;
     const hash = await bcrypt.hash(passwordTemporal, 12);
     // `credenciales_enviadas = NULL`: la clave que la persona tenga guardada
     // dejo de servir en este mismo instante, asi que la casilla de
@@ -284,6 +338,10 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
     res.json({
       ok: true,
       password_temporal: passwordTemporal,
+      // Para que el mensaje de WhatsApp sepa QUE decir: si la clave es la
+      // cedula, escribirla ahi seria mandar por escrito algo que la persona
+      // ya sabe, y de paso dejarla en una captura reenviable.
+      es_cedula: esCedula,
       expira_en: expira,
       horas_vigencia: HORAS_VIGENCIA_CODIGO,
       sms

@@ -77,6 +77,74 @@ router.post('/twilio/estado-mensaje', async (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------
+   TELEGRAM: EL BOT AVISA QUIEN LE ESCRIBIO
+
+   Telegram no dice quien es quien: lo unico que llega es un `chat_id`, un
+   numero que no significa nada para esta aplicacion. Por eso el enlace de
+   vinculacion lleva un codigo FIRMADO (ver config/telegramVinculo.js) y el
+   bot lo recibe en el primer mensaje, como `/start <codigo>`.
+
+   SE AUTENTICA CON LA CABECERA QUE TELEGRAM MANDA. Al registrar el webhook se
+   le pasa un `secret_token`, y Telegram lo devuelve en cada llamada en
+   X-Telegram-Bot-Api-Secret-Token. Sin esa cabecera correcta no se atiende:
+   este endpoint ATA un chat a una cuenta, y dejarlo abierto permitiria que
+   alguien vinculara su Telegram a la cuenta de otro y recibiera sus codigos.
+
+   SIN LA VARIABLE, CERRADO. Igual que el de Onurix: una instalacion que no lo
+   configuro no debe tener un endpoint asi respondiendo.
+   ------------------------------------------------------------------ */
+function secretoTelegramValido(recibido) {
+  const esperado = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+  if (!esperado) return false;
+  const a = Buffer.from(String(recibido || ''));
+  const b = Buffer.from(esperado);
+  if (a.length !== b.length) return false;
+  return require('crypto').timingSafeEqual(a, b);
+}
+
+router.post('/telegram', async (req, res) => {
+  if (!secretoTelegramValido(req.headers['x-telegram-bot-api-secret-token'])) {
+    console.warn('Llamada a /webhooks/telegram sin el secreto correcto — se ignora.');
+    return res.status(401).json({ error: 'No autorizado.' });
+  }
+  // Telegram reintenta lo que no responda 200, asi que se contesta 200 pase lo
+  // que pase: un fallo aqui no debe convertirse en un bucle de reintentos.
+  const listo = () => res.status(200).json({ ok: true });
+  try {
+    const msg = (req.body && (req.body.message || req.body.edited_message)) || null;
+    const texto = msg && typeof msg.text === 'string' ? msg.text.trim() : '';
+    const chatId = msg && msg.chat && msg.chat.id;
+    if (!chatId || !texto.startsWith('/start')) return listo();
+
+    const { verificar } = require('../config/telegramVinculo');
+    const { enviarTelegram } = require('../config/telegram');
+    const usuarioId = verificar(texto.slice('/start'.length).trim());
+
+    if (!usuarioId) {
+      await enviarTelegram(chatId,
+        'Ese enlace ya no sirve o no es valido. Pide uno nuevo desde la aplicacion, '
+        + 'en el boton de Telegram de tu propio panel.');
+      return listo();
+    }
+
+    const [[persona]] = await pool.query('SELECT nombre FROM usuarios WHERE id = ?', [usuarioId]);
+    if (!persona) return listo();
+
+    // UN CHAT SOLO PUEDE ESTAR EN UNA CUENTA. Sin esto, dos personas que
+    // compartan el telefono terminarian con el mismo chat vinculado y los
+    // codigos de una llegarian mezclados con los de la otra.
+    await pool.query('UPDATE usuarios SET telegram_chat_id = NULL WHERE telegram_chat_id = ?', [String(chatId)]);
+    await pool.query('UPDATE usuarios SET telegram_chat_id = ? WHERE id = ?', [String(chatId), usuarioId]);
+    await enviarTelegram(chatId,
+      `Listo, ${persona.nombre}. Aqui te van a llegar tus codigos de acceso, ademas del correo.`);
+    return listo();
+  } catch (err) {
+    console.error('Error en el webhook de Telegram:', err.message);
+    return listo();
+  }
+});
+
 module.exports = router;
 
 /* ------------------------------------------------------------------

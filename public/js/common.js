@@ -731,6 +731,43 @@ async function refrescarMarca() {
   if (elLogo && !elLogo.src.endsWith(logo)) elLogo.src = logo;
 }
 
+/**
+ * El botón de Telegram del panel propio.
+ *
+ * Vive al lado del interruptor de dos pasos porque es lo mismo: ajustes de la
+ * propia cuenta, no de la campaña. Cada persona vincula SU chat y recibe solo
+ * SU código.
+ *
+ * Si la campaña no tiene bot configurado, el botón no aparece — un botón que
+ * no lleva a ninguna parte es peor que ninguno.
+ */
+async function refrescarTelegram() {
+  const boton = document.getElementById('btn-telegram');
+  if (!boton) return;
+  let info;
+  try { info = await api('/auth/telegram/enlace'); } catch (e) { return; }
+  if (!info || !info.disponible) return;
+
+  boton.style.display = '';
+  boton.textContent = info.vinculado ? 'Telegram vinculado ✓' : 'Recibir códigos por Telegram';
+  boton.onclick = async () => {
+    if (info.vinculado) {
+      if (!confirm('Sus códigos de acceso volverán a llegarle solo por correo. ¿Desvincular Telegram?')) return;
+      try {
+        await api('/auth/telegram', { method: 'DELETE' });
+        await refrescarTelegram();
+      } catch (err) { alert(err.message); }
+      return;
+    }
+    // Se abre el enlace profundo: Telegram recibe el código firmado en el
+    // primer mensaje y ahí queda hecho el vínculo. El aviso va ANTES de
+    // abrir, porque después la pestaña ya no está al frente.
+    alert('Se va a abrir Telegram. Pulse INICIAR (o /start) y listo.\n\n'
+      + `El enlace sirve por ${info.horas_vigencia} horas.`);
+    window.open(info.enlace, '_blank', 'noopener');
+  };
+}
+
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto == null ? '' : String(texto);
@@ -1116,6 +1153,10 @@ async function inicializarLayout(paginaActiva) {
         <input type="checkbox" id="chk-2fa" style="width:auto;" ${usuario.two_factor_enabled ? 'checked' : ''}>
         Verificación en dos pasos por correo
       </label>
+      <!-- Solo aparece si la campaña tiene Telegram configurado: ver
+           refrescarTelegram(). Una instalación sin bot no muestra un botón
+           que no lleva a ninguna parte. -->
+      <button class="btn-secundario btn-sm" id="btn-telegram" style="display:none; margin-bottom:6px;"></button>
       <button class="btn-secundario btn-sm" id="btn-logout">Cerrar sesión</button>
     </div>
   `;
@@ -1123,6 +1164,7 @@ async function inicializarLayout(paginaActiva) {
   // Se refresca DESPUES de pintar y sin esperar: si el servidor tarda, la
   // barra ya esta puesta con lo de la ultima vez.
   refrescarMarca();
+  refrescarTelegram();
 
   // Contraer/expandir cada menú principal al hacer clic en su título — solo
   // uno puede quedar expandido a la vez: al abrir uno, se cierran todos los
@@ -1219,7 +1261,8 @@ function mostrarAvisoCambioPassword() {
       <div id="cambio-password-error" class="mensaje-error"></div>
       <form id="form-cambio-password">
         <div class="campo"><label>Contraseña actual (temporal)</label><input type="password" name="passwordActual" required></div>
-        <div class="campo"><label>Nueva contraseña</label><input type="password" name="passwordNueva" minlength="8" required></div>
+        <div class="campo"><label>Nueva clave</label><input type="password" name="passwordNueva" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="6 cifras" autocomplete="new-password"></div>
+        <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin:-8px 0 12px;">Un número de 6 cifras, fácil de recordar. Evite 123456 y los seis números iguales.</small>
         <button type="submit" class="btn-primario">Guardar y continuar</button>
       </form>
     </div>`;

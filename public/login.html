@@ -81,7 +81,23 @@
 
   /* Logotipo: el mismo /img/logo.png que ya usa el menú lateral. Es blanco
      sobre transparente, así que se apoya en el navy sin recorte ni fondo. */
-  .login-logo { display: block; margin: 0 auto 18px; width: 128px; height: auto; }
+  /* El logo ocupa el ancho util de la tarjeta hasta 216 px, y ahi se queda.
+     Con eso sale la tabla completa sin una sola media query: a 320 px de
+     pantalla el interior de la tarjeta mide 212 y es el que manda; de 360 en
+     adelante manda el tope de 216. Fijar un ancho por viewport habria sido
+     escribir cuatro reglas para describir lo que el contenedor ya sabe. */
+  .login-logo { display: block; margin: 0 auto 10px; width: 100%; max-width: 216px; height: auto; }
+  .login-marca { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem;
+                 color: #fff; text-align: center; margin-bottom: 4px; }
+  .login-eslogan { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+                   color: #FFC300; text-align: center; margin-bottom: 8px; }
+  .login-plataforma { border-top: 1px solid rgba(255,255,255,0.09);
+                      border-bottom: 1px solid rgba(255,255,255,0.09);
+                      padding: 10px 0; margin-bottom: 16px; text-align: center; }
+  .login-plataforma-nombre { font-family: var(--font-display); font-weight: 600;
+                             font-size: 0.78rem; letter-spacing: 0.02em; color: #DCE4F0; }
+  .login-plataforma-bajada { font-size: 0.76rem; line-height: 1.3; color: rgba(220,228,240,0.62); }
+  .login-plataforma-bajada:first-of-type { margin-top: 3px; }
   .login-card .login-eyebrow,
   .login-card h1 { text-align: center; }
   /* Tamaño y espaciado SIN TOCAR: "ADMINISTRACIÓN DE CAMPAÑA ELECTORAL"
@@ -240,7 +256,24 @@
     <!-- Este valor tiene que coincidir con TITULOS_PASO['form-torre'][0]:
          al cargar la página NADIE llama a mostrarPaso(), así que esto es
          literalmente lo que se ve en la primera pantalla. -->
-    <div class="login-eyebrow" id="login-eyebrow">Administración de campaña electoral</div>
+    <!-- La identidad de la campaña, igual que en la barra lateral de la web:
+         nombre en blanco y eslogan en amarillo. Vacíos por omisión y se llenan
+         solos si la campaña los configuró; una instalación sin configurar se
+         ve como siempre. -->
+    <div class="login-marca" id="login-marca-titulo" style="display:none;"></div>
+    <div class="login-eslogan" id="login-marca-eslogan" style="display:none;"></div>
+    <!-- LA FIRMA DE LA PLATAFORMA, IDÉNTICA A LA DE LA BARRA LATERAL DE LA WEB.
+         Arriba manda la campaña; aquí abajo firma quien hace la herramienta,
+         entre dos filetes. Es literalmente el mismo bloque —mismo texto, mismo
+         talle, mismos colores— para que la campaña se presente igual se entre
+         por donde se entre. Antes esto decía el nombre de la empresa y
+         desplazaba a la campaña de su propia pantalla de ingreso. -->
+    <div class="login-plataforma">
+      <div class="login-plataforma-nombre">ESTRATEGIA | Marketing Político</div>
+      <div class="login-plataforma-bajada">Administración Integral</div>
+      <div class="login-plataforma-bajada">de Campañas Electorales</div>
+    </div>
+    <div class="login-eyebrow" id="login-eyebrow" style="display:none;">Administración de campaña electoral</div>
     <h1 id="login-titulo">Torre de acceso</h1>
 
     <div id="selector-cuentas" style="display:none;">
@@ -301,32 +334,21 @@
         </p>
       </div>
       <div class="campo">
-        <!-- La etiqueta y el ejemplo cambian con el canal: pedir "correo"
-             cuando el código va por SMS hacía escribir el dato equivocado. -->
-        <label id="etiqueta-identificador">Correo electrónico</label>
-        <input type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com">
+        <!-- UN SOLO CAMPO Y UN SOLO BOTÓN: el canal se deduce de lo que se escriba
+             (con arroba, correo; sin ella, celular), en vez de pedir que lo elijan. -->
+        <label id="etiqueta-identificador">Correo electrónico o número de celular</label>
+        <input type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com o 3001234567">
       </div>
-      <div class="campo">
-        <label>¿Por dónde quieres recibirlo?</label>
-        <div style="display:flex; gap:12px;">
-          <label class="opcion-canal">
-            <input type="radio" name="canal" value="correo" checked style="width:auto;"> Por correo
-          </label>
-          <label class="opcion-canal">
-            <input type="radio" name="canal" value="sms" style="width:auto;"> Por SMS
-          </label>
-        </div>
-        <small style="display:block; margin-top:8px; font-size:.8rem;">
-          Por SMS solo llega si tu cuenta tiene un teléfono registrado.
-        </small>
-      </div>
+      <small id="pista-canal" style="display:block; margin:-2px 0 14px; font-size:.8rem; color:var(--color-text-muted);">
+        Si escribes un correo, el código te llega ahí. Si escribes un celular, por mensaje de texto.
+      </small>
       <div class="campo" style="margin-bottom:6px;">
         <label class="fila-recordar">
           <input type="checkbox" name="recordar"> Mantener sesión iniciada por 7 días
         </label>
       </div>
       <button type="submit" class="btn-primario">Enviar código</button>
-      <button type="button" class="btn-primario btn-alterno" id="ir-a-password">Ingresar con usuario y contraseña</button>
+      <button type="button" class="btn-primario btn-alterno" id="ir-a-password">Acceso a líderes</button>
     </form>
 
     <form id="form-login" style="display:none;">
@@ -417,7 +439,11 @@
    ------------------------------------------------------------------ */
 const TITULOS_PASO = {
   'form-torre': ['Administración de campaña electoral', 'Torre de acceso'],
-  'form-login': ['Estrategia · INGESES S.A.S.', 'Administración de campaña'],
+  // El encabezado habla de la CAMPAÑA, no de quien hace la herramienta: el
+  // nombre y el eslogan de la campaña ya van arriba, y decir aqui el nombre
+  // de la empresa la desplazaba de su propia pantalla de ingreso. La firma
+  // de la plataforma sigue, discreta, en el pie de la tarjeta.
+  'form-login': ['Administración de campaña electoral', 'Ingresar'],
   'form-2fa':   ['Administración de campaña electoral', 'Escribe tu código']
 };
 
@@ -436,7 +462,11 @@ function mostrarPaso(id) {
   });
   const t = TITULOS_PASO[id];
   if (t) {
-    document.getElementById('login-eyebrow').textContent = t[0];
+    // El encabezado quedó oculto: la firma de la plataforma dice lo que él
+    // decía, y mejor. Se sigue escribiendo por si algún día se vuelve a
+    // mostrar, pero sin dar por hecho que exista.
+    const eyebrow = document.getElementById('login-eyebrow');
+    if (eyebrow) eyebrow.textContent = t[0];
     document.getElementById('login-titulo').textContent = t[1];
   }
   if (id === 'form-2fa') {
@@ -471,25 +501,23 @@ document.getElementById('ir-a-torre').addEventListener('click', (e) => {
 const campoIdentificador = document.querySelector('#form-torre input[name="identificador"]');
 const etiquetaIdentificador = document.getElementById('etiqueta-identificador');
 
-function ajustarCampoSegunCanal() {
-  const canal = document.querySelector('#form-torre input[name="canal"]:checked').value;
-  if (canal === 'sms') {
-    etiquetaIdentificador.textContent = 'Teléfono móvil';
-    campoIdentificador.placeholder = '+573000000000';
-    campoIdentificador.inputMode = 'tel';
-    campoIdentificador.autocomplete = 'tel';
-  } else {
-    etiquetaIdentificador.textContent = 'Correo electrónico';
-    campoIdentificador.placeholder = 'tucorreo@dominio.com';
-    campoIdentificador.inputMode = 'email';
-    campoIdentificador.autocomplete = 'username';
-  }
+/**
+ * El canal sale de lo que la persona escriba: con arroba es un correo, sin
+ * ella es un celular.
+ *
+ * Antes lo elegia ella en dos botones de radio, y esa eleccion ya estaba
+ * contenida en el dato de al lado: equivocarse ahi significaba pedir el codigo
+ * por un canal que no existia y no recibir nada. La deduccion vive AQUI y la
+ * usan los dos sitios que la necesitan —enviar y reenviar—, para que no se
+ * puedan separar.
+ *
+ * El teclado NO se cambia mientras se teclea: hacerlo cierra y reabre el del
+ * celular a media palabra. Se deja el de correo, que tiene arroba, letras y
+ * cifras, y sirve para los dos casos.
+ */
+function canalSegunTexto(valor) {
+  return String(valor || '').includes('@') ? 'correo' : 'sms';
 }
-
-document.querySelectorAll('#form-torre input[name="canal"]').forEach(radio => {
-  radio.addEventListener('change', ajustarCampoSegunCanal);
-});
-ajustarCampoSegunCanal();
 
 document.getElementById('form-torre').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -497,7 +525,7 @@ document.getElementById('form-torre').addEventListener('submit', async (e) => {
   errorBox.classList.remove('visible');
 
   const form = e.target;
-  const canal = form.querySelector('input[name="canal"]:checked').value;
+  const canal = canalSegunTexto(form.identificador.value);
   const boton = form.querySelector('button[type="submit"]');
   boton.disabled = true;
   boton.textContent = 'Enviando…';
@@ -638,7 +666,7 @@ enlaceReenviar.addEventListener('click', async (e) => {
       method: 'POST',
       body: {
         identificador: form.identificador.value.trim(),
-        canal: form.querySelector('input[name="canal"]:checked').value,
+        canal: canalSegunTexto(form.identificador.value),
         recordar: form.recordar.checked
       }
     });
@@ -776,6 +804,124 @@ function renderizarSelectorCuentas() {
     // queda en esta pantalla, con el selector de cuentas y el formulario.
   }
 })();
+
+/* ---------------------------------------------------------------------------
+   MODO LÍDER (?modo=lider)
+
+   Es el enlace que le llega a un líder por WhatsApp junto con sus datos de
+   ingreso. Esa persona no tiene correo en el sistema ni entra por la Torre de
+   acceso: entra con su número de identificación y un código de cuatro cifras,
+   desde un celular. Todo lo demás de esta pantalla —el paso de la Torre, la
+   explicación de qué rol usa qué, el volver al ingreso con código— es ruido
+   para ella, y en una pantalla pequeña el ruido es lo que hace que la gente
+   se equivoque.
+
+   EL TECLADO ARRANCA EN NÚMEROS. Los dos datos son numéricos, y en un celular
+   la diferencia entre un teclado de letras y uno de cifras es la diferencia
+   entre teclear la cédula de una o pelearse con el corrector.
+
+   No se toca nada del modo normal: sin el parámetro, la pantalla es la de
+   siempre.
+--------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   LA CAMPAÑA SE PRESENTA DESDE LA PANTALLA DE INGRESO
+
+   La web ya mostraba el logo, el nombre y el eslogan de la campaña en su barra
+   lateral, pero eso solo aparece DESPUES de entrar. Quien abria la aplicacion
+   en el celular veia el logo de la plataforma y nada mas: la misma campaña se
+   presentaba de dos maneras distintas segun por donde se entrara.
+
+   Va contra un endpoint PUBLICO —/api/marca-publica—, porque aqui todavia no
+   hay sesion. Si falla, se queda el logo de la plataforma y ya: nadie se queda
+   sin poder entrar por un adorno.
+--------------------------------------------------------------------------- */
+(async () => {
+  let m;
+  try {
+    m = await fetch('/api/marca-publica').then(r => r.ok ? r.json() : null);
+  } catch (e) { return; }
+  if (!m) return;
+
+  if (m.logo_url) {
+    const img = document.querySelector('.login-logo');
+    if (img) { img.src = m.logo_url; img.alt = m.titulo || 'Logo de la campaña'; }
+  }
+  // textContent, no innerHTML: esto lo escribe un administrador y viaja sin
+  // sesion, asi que se pinta como texto y nunca como marcado.
+  const poner = (id, texto) => {
+    const el = document.getElementById(id);
+    if (!el || !texto) return;
+    el.textContent = texto;
+    el.style.display = '';
+  };
+  poner('login-marca-titulo', m.titulo);
+  poner('login-marca-eslogan', m.subtitulo);
+})();
+
+/* EL MODO SIMPLE SE RECUERDA EN ESTE DISPOSITIVO.
+   Quien instala la aplicacion desde el enlace la abre despues por el icono, y
+   ahi el arranque es /app/inicio.html —el start_url del manifiesto—, que sin
+   sesion redirige a /login.html SIN el parametro: la segunda vez, y todas las
+   demas, aparecia la pantalla completa. Se guarda la preferencia en el propio
+   telefono; con el enlace de abajo se vuelve a la pantalla completa, para que
+   un administrador que use el mismo aparato no quede encerrado. */
+const CLAVE_INGRESO_SIMPLE = 'ingreso_simple';
+if (new URLSearchParams(location.search).get('modo') === 'lider') {
+  try { localStorage.setItem(CLAVE_INGRESO_SIMPLE, '1'); } catch (e) {}
+}
+let ingresoSimple = false;
+try { ingresoSimple = localStorage.getItem(CLAVE_INGRESO_SIMPLE) === '1'; } catch (e) {}
+
+if (ingresoSimple) {
+  mostrarPaso('form-login');
+
+  const usuario = document.querySelector('#form-login [name="email"]');
+  const clave = document.querySelector('#form-login [name="password"]');
+  for (const campo of [usuario, clave]) {
+    if (!campo) continue;
+    campo.setAttribute('inputmode', 'numeric');
+    // `pattern` hace que algunos teclados de Android muestren solo cifras;
+    // `inputmode` solo no siempre alcanza.
+    campo.setAttribute('pattern', '[0-9]*');
+  }
+  if (usuario) {
+    usuario.setAttribute('autocomplete', 'username');
+    usuario.setAttribute('placeholder', 'Su número de identificación');
+    usuario.focus();
+  }
+  if (clave) clave.setAttribute('placeholder', 'El código que le llegó por mensaje');
+
+  // Etiquetas en los términos de quien las va a leer: «correo o número de
+  // identificación» no le dice nada a alguien que solo tiene lo segundo.
+  const etiqueta = (campo, texto) => {
+    const l = campo && campo.closest('.campo') && campo.closest('.campo').querySelector('label');
+    if (l) l.textContent = texto;
+  };
+  etiqueta(usuario, 'Número de identificación');
+  etiqueta(clave, 'Código de acceso');
+
+  // Fuera lo que sobra: la explicación de roles, el recordar sesión y el
+  // enlace de vuelta a la Torre.
+  const ocultar = (sel) => { const e = document.querySelector(sel); if (e) e.style.display = 'none'; };
+  ocultar('#form-login .campo small');
+  const recordar = document.querySelector('#form-login [name="recordar"]');
+  if (recordar && recordar.closest('.campo')) recordar.closest('.campo').style.display = 'none';
+  ocultar('#form-login .pie-login');
+
+  // Una salida, discreta pero visible: sin ella, el aparato queda casado con
+  // el formulario simple y quien necesite la Torre de acceso no tiene por
+  // donde. Al usarla se olvida la preferencia y vuelve la pantalla completa.
+  const salida = document.createElement('div');
+  salida.className = 'pie-login';
+  salida.style.marginTop = '14px';
+  salida.innerHTML = '<a href="#" id="ir-a-completo" style="color:var(--color-text-muted);">Otras formas de ingresar</a>';
+  document.getElementById('form-login').appendChild(salida);
+  document.getElementById('ir-a-completo').addEventListener('click', (e) => {
+    e.preventDefault();
+    try { localStorage.removeItem(CLAVE_INGRESO_SIMPLE); } catch (err) {}
+    location.href = '/login.html';
+  });
+}
 </script>
 </body>
 </html>

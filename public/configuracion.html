@@ -1062,7 +1062,13 @@ async function enviarCredencialesWhatsApp(id) {
         method: 'POST', body: { enviar_sms: true }
       });
     const candidato = (document.querySelector('#form-campana [name="nombre_candidato"]') || {}).value || '';
-    const enlace = `${window.location.origin}/app/inicio.html`;
+    // Al formulario SIMPLE, no a la pantalla completa: quien recibe esto entra
+    // con su número de identificación y un código de cuatro cifras desde un
+    // celular, y el resto de la pantalla de ingreso —la Torre de acceso, la
+    // explicación de qué rol usa qué— solo le estorba. Ver ?modo=lider en
+    // login.html. Desde ahí también se puede instalar la aplicación, y al
+    // entrar cae en /app/inicio.html igual que antes.
+    const enlace = `${window.location.origin}/login.html?modo=lider`;
     const texto = [
       `Hola ${u.nombre}, te damos la bienvenida al equipo de la campaña${candidato ? ' de ' + candidato : ''}.`,
       '',
@@ -1076,11 +1082,16 @@ async function enviarCredencialesWhatsApp(id) {
       // desde que se emitió su certificado, y de ahí no se puede borrar—; el
       // código no lo es. Juntos, una sola captura reenviada alcanza para
       // entrar; separados, cada mensaje por su lado no sirve de nada.
-      r.sms && r.sms.enviado
-        ? 'Tu código de acceso te llega aparte, por mensaje de texto.'
-        : `Contraseña: ${r.password_temporal}`,
+      // Si la clave es la cedula, no se escribe: la persona ya la sabe, y
+      // ponerla aqui la dejaria en una captura reenviable junto con el
+      // enlace y el usuario, que es todo lo necesario para entrar.
+      r.es_cedula
+        ? 'Contraseña: tu propio número de identificación.'
+        : (r.sms && r.sms.enviado
+          ? 'Tu código de acceso te llega aparte, por mensaje de texto.'
+          : `Contraseña: ${r.password_temporal}`),
       '',
-      `La aplicación te va a pedir que cambies la contraseña la primera vez que entres. El código vence en ${r.horas_vigencia || 48} horas. No compartas estos datos con nadie.`
+      `La aplicación te va a pedir que la cambies por un número de 6 cifras la primera vez que entres. Vence en ${r.horas_vigencia} horas.`,
     ].join('\n');
 
     const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;

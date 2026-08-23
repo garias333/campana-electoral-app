@@ -1017,6 +1017,9 @@ async function main() {
   // "Apoya a": a qué cargo(s) apoya esta persona — se guarda como una
   // lista en JSON (ej. ["alcaldia","concejo"]) porque alguien puede
   // apoyar a más de uno a la vez (son elecciones simultáneas).
+  await agregarColumnaSiFalta(connection, 'usuarios',
+    "telegram_chat_id VARCHAR(32) NULL COMMENT 'Chat de Telegram que cada persona vincula desde su sesion'",
+    'telegram_chat_id');
   await agregarColumnaSiFalta(connection, 'usuarios', 'apoya_a JSON NULL AFTER tipo_cargo', 'apoya_a');
   await agregarColumnaSiFalta(connection, 'votantes', 'apoya_a JSON NULL AFTER intencion_voto', 'apoya_a');
 
