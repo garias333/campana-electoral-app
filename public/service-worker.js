@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v97';
+const CACHE_NAME = 'estrategia-v107';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -48,6 +48,7 @@ const ARCHIVOS_CASCARON = [
   // con el mensaje de «no hay conexión» — que en ese caso sería cierto pero
   // por el motivo equivocado, y seguiría fallando al volver la señal.
   '/js/apoyos.js',
+  '/js/es-celular.js',
   '/js/instalar-app.js',
   '/js/mesas-testigo.js',
   // Va en la coraza porque la app del celular lo usa SIN CONEXIÓN: sin él,

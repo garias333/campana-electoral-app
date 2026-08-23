@@ -275,6 +275,19 @@ async function obtenerCanal() {
     config: {
       forzarGSM7: cfg.forzarGSM7,
       proveedorPreferido: cfg.proveedorPreferido,
+      // LA FIRMA CUENTA PARA LOS SEGMENTOS, Y FALTABA AQUI.
+      //
+      // El operador pega 30 caracteres a cada mensaje por obligacion de la
+      // CRC, y esos ocupan sitio en el segmento. La capa de creditos ya sabia
+      // sumarlos —analizarTexto(texto, config.firma)—, pero este objeto no le
+      // pasaba la firma, asi que contaba solo lo escrito.
+      //
+      // Efecto medido el 23 de agosto de 2026: un mensaje de 158 caracteres se
+      // registraba como 1 segmento y se cobraba 1 credito, cuando con la firma
+      // son 188 y el operador cobra 2. Todo lo que caiga entre 131 y 160
+      // caracteres se estaba descontando a mitad de precio, y el ledger se
+      // separaba de la realidad sin que nada avisara.
+      firma: cfg.firma,
       // Onurix: si la campaña guardó su propia cuenta en Configurar
       // mensajería, manda esa; si no, obtenerCredenciales() ya devuelve la
       // maestra del .env. La cuota se descuenta igual en los dos casos —los

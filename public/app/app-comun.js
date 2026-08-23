@@ -38,6 +38,12 @@ async function requerirSesionApp() {
     try {
       const sesion = await api('/auth/me');
       actualizarPerfilCuentaDispositivo(sesion.usuario);
+      // LA APP DEL CELULAR TAMBIEN TIENE QUE PEDIR EL CAMBIO DE CLAVE.
+      // Solo lo hacia el escritorio (common.js), y un lider entra por aqui:
+      // se le decia que debia cambiarla y nunca aparecia donde hacerlo.
+      if (sesion.usuario && sesion.usuario.debe_cambiar_password) {
+        pedirCambioClaveApp();
+      }
       return sesion.usuario;
     } catch (err) {
       ultimoError = err;
@@ -57,6 +63,83 @@ async function requerirSesionApp() {
   sessionStorage.setItem('app_destino_post_login', window.location.pathname);
   window.location.href = '/login.html';
   return null;
+}
+
+/**
+ * El cambio obligatorio de clave, dentro de la app del celular.
+ *
+ * No se puede cerrar ni saltar: la clave con la que entro es su propia cedula,
+ * que no es un secreto —esta en el formulario de registro y la conocen su
+ * lider y su coordinador—. Mientras no la cambie, cualquiera que sepa ese
+ * numero puede entrar con su cuenta.
+ *
+ * Pide SEIS CIFRAS, que es lo que el servidor acepta para este caso. El
+ * teclado arranca en numeros: en un celular, la diferencia entre teclear seis
+ * digitos y pelearse con el corrector es la diferencia entre hacerlo y no.
+ */
+function pedirCambioClaveApp() {
+  if (document.getElementById('capa-cambio-clave')) return;
+  const capa = document.createElement('div');
+  capa.id = 'capa-cambio-clave';
+  capa.style.cssText = 'position:fixed; inset:0; background:rgba(10,25,45,.94); z-index:9999;'
+    + 'display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;';
+  capa.innerHTML = `
+    <div style="background:#fff; border-radius:14px; padding:22px 20px; max-width:360px; width:100%;">
+      <h2 style="margin:0 0 6px; font-size:1.15rem; color:#10233F;">Cambie su clave</h2>
+      <p style="font-size:.9rem; color:#5B6472; line-height:1.5; margin:0 0 16px;">
+        Entro con su numero de identificacion, que no es un secreto.
+        Elija una clave de <strong>6 cifras</strong> que solo usted sepa.
+      </p>
+      <div id="error-cambio-clave" style="display:none; background:#FBEAEA; color:#A93226;
+           padding:9px 12px; border-radius:8px; font-size:.86rem; margin-bottom:12px;"></div>
+      <form id="form-cambio-clave-app">
+        <div class="campo-app">
+          <label>Clave actual (su numero de identificacion)</label>
+          <input type="password" name="passwordActual" inputmode="numeric" required autocomplete="current-password">
+        </div>
+        <div class="campo-app">
+          <label>Clave nueva</label>
+          <input type="password" name="passwordNueva" inputmode="numeric" pattern="[0-9]{6}"
+                 maxlength="6" required autocomplete="new-password" placeholder="6 cifras">
+        </div>
+        <div class="campo-app">
+          <label>Reptala</label>
+          <input type="password" name="repetir" inputmode="numeric" pattern="[0-9]{6}"
+                 maxlength="6" required autocomplete="new-password" placeholder="6 cifras">
+        </div>
+        <button type="submit" class="btn-app">Guardar y continuar</button>
+      </form>
+    </div>`;
+  document.body.appendChild(capa);
+  const error = capa.querySelector('#error-cambio-clave');
+  const mostrar = (t) => { error.textContent = t; error.style.display = 'block'; };
+
+  capa.querySelector('#form-cambio-clave-app').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    error.style.display = 'none';
+    const f = new FormData(e.target);
+    const nueva = String(f.get('passwordNueva') || '');
+    // Se comprueba aqui ADEMAS del servidor: en un celular, enterarse de que
+    // las dos claves no coinciden despues de un viaje de red es peor.
+    if (nueva !== String(f.get('repetir') || '')) return mostrar('Las dos claves nuevas no son iguales.');
+    if (!/^\d{6}$/.test(nueva)) return mostrar('La clave nueva debe ser un numero de 6 cifras.');
+    const boton = e.target.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    const antes = boton.textContent;
+    boton.textContent = 'Guardando...';
+    try {
+      await api('/auth/cambiar-password', {
+        method: 'POST',
+        body: { passwordActual: f.get('passwordActual'), passwordNueva: nueva },
+      });
+      capa.remove();
+    } catch (err) {
+      mostrar(err.message || 'No se pudo cambiar la clave.');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = antes;
+    }
+  });
 }
 
 /** Arma la barra superior con botón de volver y título — igual en toda la app. */

@@ -1708,8 +1708,18 @@ async function editarVotante(v) {
 
 async function eliminarVotante(id) {
   if (!confirm('¿Eliminar este contacto?')) return;
-  await api(`/votantes/${id}`, { method: 'DELETE' });
-  cargarVotantes();
+  // Su propia contraseña, no la del administrador: un líder puede borrar a su
+  // gente, así que esto confirma que es él y no una sesión que quedó abierta.
+  const password = await solicitarPasswordPropia(
+    'Confirme para eliminar',
+    'Eliminar un contacto no se puede deshacer. Escriba su propia contraseña para confirmar.');
+  if (!password) return;
+  try {
+    await api(`/votantes/${id}`, { method: 'DELETE', body: { password } });
+    cargarVotantes();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 /**
@@ -2154,6 +2164,17 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
   // tanto es un riesgo real de sobrescribir cambios sin darse cuenta, así
   // que esa acción sigue necesitando señal.
   if (!id) datos.cliente_uuid = generarUuid();
+
+  // Solo al EDITAR uno que ya existe. Crear no pide nada: no hay nada que
+  // proteger todavía, y pedirlo en cada registro nuevo volvería insoportable
+  // el trabajo de un líder en la calle.
+  if (id) {
+    const password = await solicitarPasswordPropia(
+      'Confirme para guardar los cambios',
+      'Está modificando la ficha de una persona ya registrada. Escriba su propia contraseña para confirmar.');
+    if (!password) return;
+    datos.password = password;
+  }
 
   try {
     let respuesta;

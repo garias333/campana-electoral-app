@@ -1017,9 +1017,6 @@ async function main() {
   // "Apoya a": a qué cargo(s) apoya esta persona — se guarda como una
   // lista en JSON (ej. ["alcaldia","concejo"]) porque alguien puede
   // apoyar a más de uno a la vez (son elecciones simultáneas).
-  await agregarColumnaSiFalta(connection, 'usuarios',
-    "telegram_chat_id VARCHAR(32) NULL COMMENT 'Chat de Telegram que cada persona vincula desde su sesion'",
-    'telegram_chat_id');
   await agregarColumnaSiFalta(connection, 'usuarios', 'apoya_a JSON NULL AFTER tipo_cargo', 'apoya_a');
   await agregarColumnaSiFalta(connection, 'votantes', 'apoya_a JSON NULL AFTER intencion_voto', 'apoya_a');
 
@@ -1567,9 +1564,6 @@ async function main() {
 
   // Credenciales propias de Onurix por campaña. Van vacías salvo que la
   // campaña traiga su propia cuenta: lo normal es usar la maestra del .env.
-  await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
-    "telegram_bot_token VARCHAR(120) NULL COMMENT 'Bot de Telegram de esta campana (uno por instalacion)'",
-    'telegram_bot_token');
   await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',
     'onurix_client VARCHAR(50) NULL AFTER twilio_whatsapp_from', 'onurix_client');
   await agregarColumnaSiFalta(connection, 'configuracion_comunicaciones',

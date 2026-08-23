@@ -103,7 +103,15 @@ const limitadorApi = rateLimit({
 });
 app.use('/api', limitadorApi);
 
-app.use(express.json({ limit: '5mb' }));
+/* El cuerpo TAL CUAL LLEGO, antes de convertirlo a objeto. Una firma se
+   calcula sobre los bytes exactos: si se recalcula desde el objeto ya
+   convertido, cualquier diferencia de orden o de espacios da otro resultado y
+   la comprobacion falla sin que se entienda por que. Lo usa el webhook de
+   estado de Onurix (cabecera X-Signature). */
+app.use(express.json({
+  limit: '5mb',
+  verify: (req, res, buf) => { req.cuerpoCrudo = buf ? buf.toString('utf8') : ''; },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // --- Sesión respaldada en MySQL (evita problemas de sesión en memoria en Hostinger/Passenger) ---

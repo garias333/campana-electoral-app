@@ -480,30 +480,14 @@ router.post('/comunicaciones/verificar-acceso', requireRole('admin'), async (req
 // Trae la configuración de Comunicaciones (SendGrid + Twilio). Los
 // campos secretos (API Key, Auth Token) viajan ENMASCARADOS — nunca se
 // manda el valor completo de vuelta al navegador una vez guardado.
-/**
- * Como esta el bot de Telegram, para mostrarlo al lado del campo.
- *
- * Se pregunta a Telegram, no a la base: tener el token guardado no significa
- * que sirva ni que el webhook apunte aqui. Justamente lo que interesa saber es
- * si otra instalacion se lo llevo — Telegram admite UNA sola URL por bot.
- */
-async function estadoTelegram() {
+/** Los creditos que le quedan a la cuenta de Onurix de esta campana. */
+async function saldoOnurix() {
   try {
-    const tg = require('../config/telegram');
-    if (!(await tg.telegramConfigurado())) return { configurado: false };
-    const bot = await tg.usuarioDelBot();
-    if (!bot) return { configurado: true, valido: false, motivo: 'El token no sirve o Telegram no respondió.' };
-    const info = await tg.llamar('getWebhookInfo', {});
-    const url = info.ok ? (info.resultado.url || '') : '';
-    const mia = `https://${process.env.LICENCIA_DOMINIO || ''}/webhooks/telegram`;
-    return {
-      configurado: true, valido: true, bot,
-      webhook_url: url,
-      webhook_aqui: url === mia,
-      ultimo_error: info.ok ? (info.resultado.last_error_message || null) : null,
-    };
+    const { consultarSaldoOnurix } = require('../lib/sms');
+    const cred = await require('../config/comunicacionesConfig').obtenerCredenciales();
+    return await consultarSaldoOnurix({ onurixClient: cred.onurixClient, onurixKey: cred.onurixKey });
   } catch (err) {
-    return { configurado: false, motivo: err.message };
+    return { ok: false, error: err.message };
   }
 }
 
@@ -537,8 +521,12 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       // lado de la firma y de la URL de baja. Se expone en esta pantalla
       // porque es donde el administrador configura las comunicaciones.
       baja_automatica: await leerBajaAutomatica(),
-      telegram_bot_token_mascara: enmascarar(fila.telegram_bot_token),
-      telegram: await estadoTelegram()
+      // El saldo REAL de la cuenta de Onurix. Con el ledger de licencias
+      // mandando (es la decision tomada), este numero es el que dice si Onurix
+      // puede respaldar lo que el ledger promete: si el ledger reparte 600 y
+      // aqui hay 100, la campana cree tener credito hasta que Onurix responde
+      // «creditos insuficientes» en pleno envio.
+      onurix_saldo: await saldoOnurix()
       // twilio_whatsapp_from no se devuelve: el canal está desactivado
       // (Meta prohíbe las campañas políticas en su API de negocios) y la
       // pantalla ya no tiene ese campo. La columna sigue en la base.
@@ -563,7 +551,7 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
     twilio_account_sid, twilio_auth_token, twilio_sms_from,
-    onurix_client, onurix_key, baja_automatica, telegram_bot_token
+    onurix_client, onurix_key, baja_automatica
   } = req.body;
 
   try {
@@ -583,19 +571,15 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
       // la que habia. Vaciar el cliente sin tocar la llave deja la campaña
       // usando la maestra, que es lo que se espera al "quitar" la cuenta.
       onurix_client: onurix_client !== undefined ? (onurix_client.trim() || null) : (actual.onurix_client || null),
-      onurix_key: (onurix_key && onurix_key.trim()) ? onurix_key.trim() : (actual.onurix_key || null),
-      // Como los demas secretos: vacio significa «deja el que ya habia», para
-      // que editar el remitente no obligue a re-escribir el token entero.
-      telegram_bot_token: (telegram_bot_token && telegram_bot_token.trim())
-        ? telegram_bot_token.trim() : (actual.telegram_bot_token || null)
+      onurix_key: (onurix_key && onurix_key.trim()) ? onurix_key.trim() : (actual.onurix_key || null)
     };
 
     await pool.query(
       `INSERT INTO configuracion_comunicaciones
          (id, sendgrid_api_key, sendgrid_from, sendgrid_from_name,
           twilio_account_sid, twilio_auth_token, twilio_sms_from, twilio_whatsapp_from,
-          onurix_client, onurix_key, telegram_bot_token, actualizado_por)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          onurix_client, onurix_key, actualizado_por)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          sendgrid_api_key = VALUES(sendgrid_api_key),
          sendgrid_from = VALUES(sendgrid_from),
@@ -606,11 +590,10 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
          twilio_whatsapp_from = VALUES(twilio_whatsapp_from),
          onurix_client = VALUES(onurix_client),
          onurix_key = VALUES(onurix_key),
-         telegram_bot_token = VALUES(telegram_bot_token),
          actualizado_por = VALUES(actualizado_por)`,
       [valores.sendgrid_api_key, valores.sendgrid_from, valores.sendgrid_from_name,
        valores.twilio_account_sid, valores.twilio_auth_token, valores.twilio_sms_from, valores.twilio_whatsapp_from,
-       valores.onurix_client, valores.onurix_key, valores.telegram_bot_token,
+       valores.onurix_client, valores.onurix_key,
        req.session.usuario.id]
     );
 
@@ -629,27 +612,7 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
 
     invalidarCacheComunicaciones();
 
-    /* EL WEBHOOK SE REGISTRA SOLO AL GUARDAR EL TOKEN.
-       Guardarlo sin registrar deja el bot mudo y no da ningun error: los
-       vinculos simplemente no se completan. Se hace aqui para que no dependa
-       de que alguien recuerde correr un script.
-
-       Va DESPUES de invalidar la cache, para que tokenDelBot() lea el nuevo. */
-    let telegram = null;
-    if (telegram_bot_token && telegram_bot_token.trim()) {
-      try {
-        const tg = require('../config/telegram');
-        const secreto = process.env.TELEGRAM_WEBHOOK_SECRET;
-        if (!secreto) {
-          telegram = { ok: false, error: 'Falta TELEGRAM_WEBHOOK_SECRET en el .env de esta instalación.' };
-        } else {
-          telegram = await tg.registrarWebhook(process.env.LICENCIA_DOMINIO, secreto);
-        }
-      } catch (err) {
-        telegram = { ok: false, error: err.message };
-      }
-    }
-    res.json({ ok: true, telegram });
+    res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error guardando la configuración de comunicaciones.' });

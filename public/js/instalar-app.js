@@ -18,6 +18,15 @@
  * periodo de espera— el botón no aparece y en su lugar se explica cómo
  * hacerlo a mano. Un botón que no hace nada al pulsarlo es peor que no
  * tenerlo.
+ *
+ * SOLO EN EL CELULAR. Chrome de escritorio también manda `beforeinstallprompt`
+ * —en el computador la aplicación se instala igual, en una ventana propia—,
+ * así que el botón salía en la pantalla de ingreso del PC diciendo «instalar
+ * la aplicación en este celular», que ahí no significa nada. Quien entra por
+ * computador es administración y trabaja en el navegador. La pregunta de si
+ * esto es un celular se le hace a `js/es-celular.js`, el mismo que usa la
+ * pantalla de ingreso para decidir qué formulario mostrar: así las dos cosas
+ * no pueden discrepar.
  */
 (function () {
   let avisoGuardado = null;
@@ -32,9 +41,16 @@
     return document.getElementById('zona-instalar-app');
   }
 
+  /** Si la definición común no cargó, no se ofrece nada: quedarse sin botón
+   *  deja el camino del menú del navegador, que es como se hacía antes.
+   *  Ofrecerlo donde no corresponde sí crea un problema nuevo. */
+  function enCelular() {
+    return typeof window.esCelular === 'function' && window.esCelular();
+  }
+
   function pintarBoton() {
     const zona = contenedor();
-    if (!zona || yaInstalada()) return;
+    if (!zona || yaInstalada() || !enCelular()) return;
     zona.innerHTML =
       '<button type="button" class="btn-instalar-app" id="btn-instalar-app">' +
       '📲 Instalar la aplicación en este celular</button>';
@@ -57,7 +73,7 @@
    */
   function pintarAyuda() {
     const zona = contenedor();
-    if (!zona || yaInstalada()) return;
+    if (!zona || yaInstalada() || !enCelular()) return;
     const esIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     zona.innerHTML = esIOS
       ? '<p class="nota-instalar-app">Para instalarla en un iPhone: toque <strong>Compartir</strong> ' +
@@ -87,7 +103,7 @@
   // manual. Dos segundos y medio: `beforeinstallprompt` llega en cuanto el
   // service worker toma el control, que es casi siempre antes.
   document.addEventListener('DOMContentLoaded', () => {
-    if (yaInstalada()) return;
+    if (yaInstalada() || !enCelular()) return;
     setTimeout(() => { if (!avisoGuardado) pintarAyuda(); }, 2500);
   });
 })();

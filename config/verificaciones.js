@@ -30,6 +30,27 @@ const pool = require('./db');
  * Se comparan todos los admins activos, no "el" admin: puede haber más de uno
  * y cualquiera de ellos debe poder confirmar.
  */
+/**
+ * Comprueba la contraseña DE QUIEN ESTA HACIENDO LA ACCION.
+ *
+ * Es distinto de verificarPasswordAdmin: aquel pregunta «¿es usted un
+ * administrador?» y sirve para acciones que solo un administrador debe poder
+ * hacer. Este pregunta «¿es usted quien dice ser?», y sirve para confirmar
+ * algo que la persona SI puede hacer, protegiendo el caso de una sesion
+ * abierta y sin dueño.
+ *
+ * Se usa al editar o eliminar un votante: un lider tiene derecho a corregir a
+ * su gente, asi que pedirle la clave del administrador le quitaria una
+ * capacidad; pedirle la suya solo le pide confirmar.
+ */
+async function verificarPasswordPropia(usuarioId, password) {
+  if (!usuarioId || !password) return false;
+  const [[fila]] = await pool.query(
+    'SELECT password_hash FROM usuarios WHERE id = ? AND activo = 1', [usuarioId]);
+  if (!fila || !fila.password_hash) return false;
+  return bcrypt.compare(String(password), fila.password_hash);
+}
+
 async function verificarPasswordAdmin(password) {
   if (!password) return false;
   const [admins] = await pool.query(
@@ -57,4 +78,4 @@ function validarTelefono10Digitos(valor) {
   return digitos.length === 10;
 }
 
-module.exports = { verificarPasswordAdmin, validarTelefono10Digitos };
+module.exports = { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia };

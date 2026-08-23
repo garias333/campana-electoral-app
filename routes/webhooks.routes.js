@@ -78,69 +78,89 @@ router.post('/twilio/estado-mensaje', async (req, res) => {
 });
 
 /* ------------------------------------------------------------------
-   TELEGRAM: EL BOT AVISA QUIEN LE ESCRIBIO
+   ONURIX: ESTADO DE ENTREGA DE UN SMS
 
-   Telegram no dice quien es quien: lo unico que llega es un `chat_id`, un
-   numero que no significa nada para esta aplicacion. Por eso el enlace de
-   vinculacion lleva un codigo FIRMADO (ver config/telegramVinculo.js) y el
-   bot lo recibe en el primer mensaje, como `/start <codigo>`.
+   Es lo que faltaba para saber si un mensaje LLEGO. Hasta hoy, Onurix
+   respondia «Enviado» tanto para el que llego como para el que no, y cobraba
+   los dos igual: desde aqui no habia forma de distinguirlos, y por eso los de
+   dos segmentos figuraban como exitosos sin haber llegado nunca.
 
-   SE AUTENTICA CON LA CABECERA QUE TELEGRAM MANDA. Al registrar el webhook se
-   le pasa un `secret_token`, y Telegram lo devuelve en cada llamada en
-   X-Telegram-Bot-Api-Secret-Token. Sin esa cabecera correcta no se atiende:
-   este endpoint ATA un chat a una cuenta, y dejarlo abierto permitiria que
-   alguien vinculara su Telegram a la cuenta de otro y recibiera sus codigos.
+   EL FORMATO NO ESTA DOCUMENTADO. Onurix documenta los webhooks de WhatsApp,
+   no los de SMS; su panel solo ofrece una casilla de URL. Asi que este
+   endpoint es DELIBERADAMENTE tolerante: busca el identificador y el estado
+   bajo varios nombres posibles, y GUARDA EL AVISO CRUDO en el registro las
+   primeras veces. Esa copia es lo unico que va a permitir ajustar esto a la
+   forma real en vez de seguir adivinando.
 
-   SIN LA VARIABLE, CERRADO. Igual que el de Onurix: una instalacion que no lo
-   configuro no debe tener un endpoint asi respondiendo.
+   SE AUTENTICA CON UN TOKEN EN LA URL, porque es lo unico que el panel
+   permite: no hay campo para una cabecera ni para un secreto aparte. Sin el
+   token correcto no se atiende — este endpoint escribe en la bitacora de
+   envios y no debe quedar abierto.
    ------------------------------------------------------------------ */
-function secretoTelegramValido(recibido) {
-  const esperado = process.env.TELEGRAM_WEBHOOK_SECRET || '';
-  if (!esperado) return false;
-  const a = Buffer.from(String(recibido || ''));
-  const b = Buffer.from(esperado);
-  if (a.length !== b.length) return false;
-  return require('crypto').timingSafeEqual(a, b);
+let avisosCrudosGuardados = 0;
+
+/** Busca el primer valor presente entre varios nombres posibles. */
+function primeroDe(objeto, nombres) {
+  for (const n of nombres) {
+    const v = objeto && objeto[n];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+  }
+  return null;
 }
 
-router.post('/telegram', async (req, res) => {
-  if (!secretoTelegramValido(req.headers['x-telegram-bot-api-secret-token'])) {
-    console.warn('Llamada a /webhooks/telegram sin el secreto correcto — se ignora.');
-    return res.status(401).json({ error: 'No autorizado.' });
+router.post('/onurix/estado', async (req, res) => {
+  if (!tokenOnurixValido(req.query.verify_token)) {
+    console.warn('Aviso de estado de Onurix con verify_token invalido — se ignora.');
+    return res.status(401).json({ error: 'Token invalido.' });
   }
-  // Telegram reintenta lo que no responda 200, asi que se contesta 200 pase lo
-  // que pase: un fallo aqui no debe convertirse en un bucle de reintentos.
+  // 200 SIEMPRE: si esto responde error, Onurix reintenta, y un fallo nuestro
+  // se convertiria en una tormenta de reintentos sobre la misma fila.
   const listo = () => res.status(200).json({ ok: true });
   try {
-    const msg = (req.body && (req.body.message || req.body.edited_message)) || null;
-    const texto = msg && typeof msg.text === 'string' ? msg.text.trim() : '';
-    const chatId = msg && msg.chat && msg.chat.id;
-    if (!chatId || !texto.startsWith('/start')) return listo();
+    const cuerpo = req.body || {};
 
-    const { verificar } = require('../config/telegramVinculo');
-    const { enviarTelegram } = require('../config/telegram');
-    const usuarioId = verificar(texto.slice('/start'.length).trim());
-
-    if (!usuarioId) {
-      await enviarTelegram(chatId,
-        'Ese enlace ya no sirve o no es valido. Pide uno nuevo desde la aplicacion, '
-        + 'en el boton de Telegram de tu propio panel.');
-      return listo();
+    // Las primeras veces se guarda tal cual. Es la unica forma de aprender un
+    // formato que el proveedor no publica.
+    if (avisosCrudosGuardados < 20) {
+      avisosCrudosGuardados++;
+      // Se anota TAMBIEN la firma y el cuerpo tal cual llego. El panel de
+      // Onurix ofrece una «Clave de Verificacion» con cabecera X-Signature,
+      // pero no dice como se calcula: sin el cuerpo exacto y la firma que
+      // vino con el, no hay forma de averiguar el algoritmo, y comprobar una
+      // firma a ciegas es rechazar avisos buenos.
+      console.log('AVISO DE ESTADO DE ONURIX #' + avisosCrudosGuardados
+        + '\n  firma    : ' + (req.headers['x-signature'] || '(ninguna)')
+        + '\n  cabeceras: ' + JSON.stringify(Object.keys(req.headers))
+        + '\n  crudo    : ' + String(req.cuerpoCrudo || JSON.stringify(cuerpo)).slice(0, 900));
     }
 
-    const [[persona]] = await pool.query('SELECT nombre FROM usuarios WHERE id = ?', [usuarioId]);
-    if (!persona) return listo();
+    const id = primeroDe(cuerpo, [
+      'dispatchId', 'dispatch_id', 'id', 'messageId', 'message_id', 'smsId', 'sms_id', 'idEnvio',
+    ]);
+    const estadoCrudo = primeroDe(cuerpo, ['state', 'status', 'estado', 'event', 'evento']);
+    if (!id || !estadoCrudo) return listo();
 
-    // UN CHAT SOLO PUEDE ESTAR EN UNA CUENTA. Sin esto, dos personas que
-    // compartan el telefono terminarian con el mismo chat vinculado y los
-    // codigos de una llegarian mezclados con los de la otra.
-    await pool.query('UPDATE usuarios SET telegram_chat_id = NULL WHERE telegram_chat_id = ?', [String(chatId)]);
-    await pool.query('UPDATE usuarios SET telegram_chat_id = ? WHERE id = ?', [String(chatId), usuarioId]);
-    await enviarTelegram(chatId,
-      `Listo, ${persona.nombre}. Aqui te van a llegar tus codigos de acceso, ademas del correo.`);
+    const { traducir } = require('../config/reconciliadorSms');
+    // 'message_status.delivered' -> 'delivered': si viene como evento con
+    // punto, lo que interesa es la ultima parte.
+    const estado = traducir(estadoCrudo.includes('.') ? estadoCrudo.split('.').pop() : estadoCrudo);
+    if (!estado) return listo();   // conocido pero no mueve nada (ej. 'enviado')
+
+    // Se busca por las DOS columnas: no sabemos cual de los dos identificadores
+    // manda Onurix en este aviso, y probar las dos cuesta lo mismo.
+    const [r] = await pool.query(
+      `UPDATE sms_envios
+          SET estado = ?, estado_proveedor = ?, actualizado_en = NOW()
+        WHERE (proveedor_lote_id = ? OR proveedor_id = ?)
+          AND estado NOT IN ('entregado', 'fallido')`,
+      [estado, estadoCrudo.slice(0, 40), id, id]);
+
+    if (!r.affectedRows) {
+      console.warn(`Aviso de estado de Onurix para un envio que no esta en la bitacora: ${id} (${estadoCrudo})`);
+    }
     return listo();
   } catch (err) {
-    console.error('Error en el webhook de Telegram:', err.message);
+    console.error('Error procesando un aviso de estado de Onurix:', err.message);
     return listo();
   }
 });

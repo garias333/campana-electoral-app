@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<!-- VA EN EL ENCABEZADO, NO AL PIE: el bloque que decide cuál formulario se
+     ve primero corre mientras el navegador todavía está leyendo el cuerpo, y
+     necesita esta definición ya cargada. -->
+<script src="/js/es-celular.js"></script>
 <!-- El manifiesto va TAMBIÉN aquí, y es la mitad del arreglo: al desinstalar,
      el celular abre esta pantalla, y sin el manifiesto el navegador no ve
      ninguna aplicación que instalar. Antes solo lo enlazaban las pantallas de
@@ -274,7 +278,7 @@
       <div class="login-plataforma-bajada">de Campañas Electorales</div>
     </div>
     <div class="login-eyebrow" id="login-eyebrow" style="display:none;">Administración de campaña electoral</div>
-    <h1 id="login-titulo">Torre de acceso</h1>
+    <h1 id="login-titulo">Ingresar con código</h1>
 
     <div id="selector-cuentas" style="display:none;">
       <div style="font-size:0.82rem; color:var(--color-text-muted); margin-bottom:10px;">Cuentas guardadas en este dispositivo</div>
@@ -298,6 +302,12 @@
         try { cuentas = JSON.parse(localStorage.getItem('app_cuentas_dispositivo') || '{}'); } catch (e) {}
         var ids = Object.keys(cuentas);
         if (!ids.length) return;
+        // SOLO EN EL CELULAR. En el computador la sesion no se guarda (ver el
+        // bloque de mas abajo), asi que una lista de cuentas guardadas seria
+        // justo lo contrario: dejar la puerta abierta en una maquina que suele
+        // ser compartida. La comprobacion va ACA, en el primer codigo que
+        // corre, para que en el PC la lista no llegue a dibujarse nunca.
+        if (!window.esCelular()) return;
         document.getElementById('selector-cuentas').style.display = 'block';
         document.getElementById('lista-cuentas-dispositivo').innerHTML = ids.map(function (id) {
           var nombre = (cuentas[id].usuario && cuentas[id].usuario.nombre) || '';
@@ -327,10 +337,85 @@
       existe, y eso convierte el ingreso en una forma de averiguar qué
       correos pertenecen a la campaña.
     -->
+    <!-- INSTALAR LA APLICACION, ARRIBA Y NO AL PIE.
+         Quien abre esto en un celular por primera vez viene de un enlace de
+         WhatsApp y lo que tiene que hacer es instalarla; el formulario de
+         ingreso viene despues. Al pie no lo veia sin desplazarse, que en la
+         practica es no verlo. Solo aparece si el navegador dice que se puede
+         instalar y todavia no lo esta (ver js/instalar-app.js). -->
+    <div id="zona-instalar-app" style="display:none; margin-bottom:18px;">
+    </div>
+
+    <!-- EN EL CELULAR LA PRIMERA PANTALLA ES UNA ELECCION; EN EL COMPUTADOR NO.
+         No es el mismo publico. Al computador entra sobre todo la
+         administracion, que pide su codigo por correo: ahi lo primero tiene que
+         ser el campo del correo. A la aplicacion del celular entra sobre todo
+         un lider, un sublider o un testigo, y a esa persona el campo de correo
+         no le sirve — entra con su numero de identificacion. Mostrarle primero
+         un formulario que no es el suyo la deja sin saber que hacer.
+
+         Por eso el celular ve dos botones y elige, y el computador ve
+         directamente el formulario del codigo, con el de contrasena a un toque.
+         La eleccion NO se recuerda: es una pantalla que la persona ya sabe
+         contestar, y recordarla fue justo lo que dejo celulares abriendo el
+         formulario equivocado sin forma de salir. -->
+    <div id="form-elegir-acceso" style="display:none;">
+      <button type="button" class="btn-primario" id="ir-a-lideres-desde-eleccion">
+        Acceso de Líderes o Testigos Electorales
+      </button>
+      <button type="button" class="btn-primario btn-alterno" id="ir-a-otros-desde-eleccion">
+        Otros usuarios
+      </button>
+      <p style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
+        Líderes, sublíderes y testigos entran con su número de identificación.
+        Administración y coordinación, con su correo o celular.
+      </p>
+    </div>
+
+    <script>
+      /* CUAL ES LA PRIMERA PANTALLA — SE DECIDE ACA Y NO ABAJO.
+         Este bloque corre mientras el navegador todavia esta leyendo el
+         documento, ANTES de que el formulario del codigo exista: asi en el
+         celular ese formulario no llega a dibujarse nunca. Puesto al final,
+         con el resto del codigo, se veia un instante la pantalla equivocada.
+
+         Los dos elementos se apagan y se prenden de forma distinta a
+         proposito: la eleccion ya existe en el documento y se le toca el
+         estilo directamente; el formulario del codigo todavia NO existe, asi
+         que se apaga con una regla de hoja de estilo. Ninguna de las dos
+         lleva !important, para que mostrarPaso() —que escribe estilos en
+         linea— pueda cambiar de pantalla despues sin pelear con esto. */
+      window.LOGIN_ES_CELULAR = window.esCelular();
+      if (window.LOGIN_ES_CELULAR) {
+        document.getElementById('form-elegir-acceso').style.display = 'block';
+        document.head.insertAdjacentHTML('beforeend', '<style>#form-torre{display:none}</style>');
+        document.getElementById('login-titulo').textContent = '¿Cómo va a ingresar?';
+      } else {
+        /* EN EL COMPUTADOR LA SESION NO SE QUEDA PUESTA.
+           El telefono es de una sola persona y lo lleva en el bolsillo; el
+           computador de una sede lo usa el que se siente. Dejar la sesion
+           abierta siete dias ahi significa que quien llegue despues entra sin
+           pedir nada — sin codigo, sin contrasena y sin que quede rastro de
+           que fue otro. Las casillas se apagan con una regla de hoja de
+           estilo porque los formularios todavia no existen cuando esto corre.
+           Sin marcar, el servidor no emite el token de dispositivo, asi que no
+           es solo que no se vea: no se guarda nada. */
+        document.head.insertAdjacentHTML('beforeend',
+          '<style>#campo-recordar-torre,#campo-recordar-login{display:none}</style>');
+        /* Y se sueltan las que hubieran quedado guardadas antes de este
+           cambio: esconder la lista sin borrarla dejaria vivo justo lo que se
+           quiere quitar. Es lo mismo que pulsar la ✕ de cada cuenta. */
+        try {
+          var guardadas = JSON.parse(localStorage.getItem('app_cuentas_dispositivo') || '{}');
+          if (Object.keys(guardadas).length) localStorage.removeItem('app_cuentas_dispositivo');
+        } catch (e) {}
+      }
+    </script>
+
     <form id="form-torre">
       <div style="text-align:center; margin-bottom:18px;">
         <p style="font-size:.95rem; margin:0; line-height:1.5;">
-          Te enviamos un código de acceso de un solo uso.<br>No necesitas contraseña.
+          Te enviamos un código de acceso de un solo uso, sin contraseña.
         </p>
       </div>
       <div class="campo">
@@ -342,13 +427,13 @@
       <small id="pista-canal" style="display:block; margin:-2px 0 14px; font-size:.8rem; color:var(--color-text-muted);">
         Si escribes un correo, el código te llega ahí. Si escribes un celular, por mensaje de texto.
       </small>
-      <div class="campo" style="margin-bottom:6px;">
+      <div class="campo" id="campo-recordar-torre" style="margin-bottom:6px;">
         <label class="fila-recordar">
           <input type="checkbox" name="recordar"> Mantener sesión iniciada por 7 días
         </label>
       </div>
       <button type="submit" class="btn-primario">Enviar código</button>
-      <button type="button" class="btn-primario btn-alterno" id="ir-a-password">Acceso a líderes</button>
+      <button type="button" class="btn-primario btn-alterno" id="ir-a-password">Ingresar con usuario y contraseña</button>
     </form>
 
     <form id="form-login" style="display:none;">
@@ -356,14 +441,14 @@
         <label>Correo electrónico o número de identificación</label>
         <input type="text" name="email" required autocomplete="username" inputmode="email">
         <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
-          Líder, Sublíder, Testigo y demás roles ingresan con su número de identificación. Administración, Coordinación y Asistencia administrativa pueden entrar sin contraseña desde la Torre de acceso.
+          Para quien ya tenga una contraseña asignada. Si no la tiene o no la recuerda, vuelva atrás y pida un código: llega a su correo o a su celular.
         </small>
       </div>
       <div class="campo">
         <label>Contraseña</label>
         <input type="password" name="password" required>
       </div>
-      <div class="campo" style="margin-bottom: 6px;">
+      <div class="campo" id="campo-recordar-login" style="margin-bottom: 6px;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
           <input type="checkbox" name="recordar" style="width:auto;"> Recordar sesión por 7 días
         </label>
@@ -412,8 +497,6 @@
     <div class="pie-login">
       <a href="/forgot-password.html" style="color: var(--color-text-muted);">¿Olvidaste tu contraseña?</a>
     </div>
-    <div id="zona-instalar-app" style="display:none;">
-    </div>
     <div class="pie-login">Marketing político con ciencia, estrategia y ética.</div>
   </div>
 
@@ -438,7 +521,8 @@
    convertiría esta pantalla en un detector de correos de la campaña.
    ------------------------------------------------------------------ */
 const TITULOS_PASO = {
-  'form-torre': ['Administración de campaña electoral', 'Torre de acceso'],
+  'form-elegir-acceso': ['Administración de campaña electoral', '¿Cómo va a ingresar?'],
+  'form-torre': ['Administración de campaña electoral', 'Ingresar con código'],
   // El encabezado habla de la CAMPAÑA, no de quien hace la herramienta: el
   // nombre y el eslogan de la campaña ya van arriba, y decir aqui el nombre
   // de la empresa la desplazaba de su propia pantalla de ingreso. La firma
@@ -457,7 +541,7 @@ const TITULOS_PASO = {
 let origen2fa = 'torre';
 
 function mostrarPaso(id) {
-  ['form-torre', 'form-login', 'form-2fa', 'form-elegir-rol'].forEach(f => {
+  ['form-elegir-acceso', 'form-torre', 'form-login', 'form-2fa', 'form-elegir-rol'].forEach(f => {
     document.getElementById(f).style.display = (f === id) ? 'block' : 'none';
   });
   const t = TITULOS_PASO[id];
@@ -485,6 +569,11 @@ function mostrarPaso(id) {
 document.getElementById('ir-a-password').addEventListener('click', (e) => {
   e.preventDefault();
   document.getElementById('login-error').classList.remove('visible');
+  // Este boton lleva al formulario COMPLETO. Si el aparato venia del modo
+  // simple de lideres, hay que deshacerlo primero: si no, quien llega aqui
+  // encuentra el campo pidiendo un numero de identificacion y el teclado en
+  // cifras, sin poder escribir un correo.
+  quitarModoLider();
   mostrarPaso('form-login');
 });
 
@@ -755,7 +844,9 @@ function renderizarSelectorCuentas() {
   const cuentas = listarCuentasDispositivo();
   const ids = Object.keys(cuentas);
   const cont = document.getElementById('selector-cuentas');
-  if (!ids.length) {
+  // La misma regla que arriba. Sin esto, en el computador la lista volveria a
+  // aparecer apenas terminara de cargar el resto del codigo.
+  if (!window.LOGIN_ES_CELULAR || !ids.length) {
     cont.style.display = 'none';
     return;
   }
@@ -806,24 +897,6 @@ function renderizarSelectorCuentas() {
 })();
 
 /* ---------------------------------------------------------------------------
-   MODO LÍDER (?modo=lider)
-
-   Es el enlace que le llega a un líder por WhatsApp junto con sus datos de
-   ingreso. Esa persona no tiene correo en el sistema ni entra por la Torre de
-   acceso: entra con su número de identificación y un código de cuatro cifras,
-   desde un celular. Todo lo demás de esta pantalla —el paso de la Torre, la
-   explicación de qué rol usa qué, el volver al ingreso con código— es ruido
-   para ella, y en una pantalla pequeña el ruido es lo que hace que la gente
-   se equivoque.
-
-   EL TECLADO ARRANCA EN NÚMEROS. Los dos datos son numéricos, y en un celular
-   la diferencia entre un teclado de letras y uno de cifras es la diferencia
-   entre teclear la cédula de una o pelearse con el corrector.
-
-   No se toca nada del modo normal: sin el parámetro, la pantalla es la de
-   siempre.
---------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
    LA CAMPAÑA SE PRESENTA DESDE LA PANTALLA DE INGRESO
 
    La web ya mostraba el logo, el nombre y el eslogan de la campaña en su barra
@@ -858,21 +931,17 @@ function renderizarSelectorCuentas() {
   poner('login-marca-eslogan', m.subtitulo);
 })();
 
-/* EL MODO SIMPLE SE RECUERDA EN ESTE DISPOSITIVO.
-   Quien instala la aplicacion desde el enlace la abre despues por el icono, y
-   ahi el arranque es /app/inicio.html —el start_url del manifiesto—, que sin
-   sesion redirige a /login.html SIN el parametro: la segunda vez, y todas las
-   demas, aparecia la pantalla completa. Se guarda la preferencia en el propio
-   telefono; con el enlace de abajo se vuelve a la pantalla completa, para que
-   un administrador que use el mismo aparato no quede encerrado. */
-const CLAVE_INGRESO_SIMPLE = 'ingreso_simple';
-if (new URLSearchParams(location.search).get('modo') === 'lider') {
-  try { localStorage.setItem(CLAVE_INGRESO_SIMPLE, '1'); } catch (e) {}
-}
-let ingresoSimple = false;
-try { ingresoSimple = localStorage.getItem(CLAVE_INGRESO_SIMPLE) === '1'; } catch (e) {}
+/* LA ELECCION NO SE GUARDA EN EL APARATO.
+   Antes si: quien tocaba «lideres» una vez quedaba casado con ese formulario,
+   y al abrir la aplicacion volvia a el aunque fuera otra persona. Se borra la
+   preferencia vieja para que ningun celular siga arrastrandola. */
+try { localStorage.removeItem('ingreso_simple'); } catch (e) {}
 
-if (ingresoSimple) {
+/**
+ * Deja la pantalla en el formulario simple de lideres: numero de
+ * identificacion, clave, teclado en cifras y nada mas.
+ */
+function ponerModoLider() {
   mostrarPaso('form-login');
 
   const usuario = document.querySelector('#form-login [name="email"]');
@@ -885,43 +954,87 @@ if (ingresoSimple) {
     campo.setAttribute('pattern', '[0-9]*');
   }
   if (usuario) {
-    usuario.setAttribute('autocomplete', 'username');
     usuario.setAttribute('placeholder', 'Su número de identificación');
     usuario.focus();
   }
-  if (clave) clave.setAttribute('placeholder', 'El código que le llegó por mensaje');
+  if (clave) clave.setAttribute('placeholder', 'Su clave de acceso');
 
-  // Etiquetas en los términos de quien las va a leer: «correo o número de
-  // identificación» no le dice nada a alguien que solo tiene lo segundo.
-  const etiqueta = (campo, texto) => {
-    const l = campo && campo.closest('.campo') && campo.closest('.campo').querySelector('label');
-    if (l) l.textContent = texto;
-  };
-  etiqueta(usuario, 'Número de identificación');
-  etiqueta(clave, 'Código de acceso');
+  // Etiquetas en los terminos de quien las va a leer: «correo o numero de
+  // identificacion» no le dice nada a alguien que solo tiene lo segundo.
+  ponerEtiquetaLogin(usuario, 'Número de identificación');
+  ponerEtiquetaLogin(clave, 'Clave de acceso');
 
-  // Fuera lo que sobra: la explicación de roles, el recordar sesión y el
-  // enlace de vuelta a la Torre.
+  // Fuera lo que sobra: la explicacion de roles, el recordar sesion y el
+  // enlace de vuelta al ingreso con codigo.
   const ocultar = (sel) => { const e = document.querySelector(sel); if (e) e.style.display = 'none'; };
   ocultar('#form-login .campo small');
   const recordar = document.querySelector('#form-login [name="recordar"]');
   if (recordar && recordar.closest('.campo')) recordar.closest('.campo').style.display = 'none';
   ocultar('#form-login .pie-login');
 
-  // Una salida, discreta pero visible: sin ella, el aparato queda casado con
-  // el formulario simple y quien necesite la Torre de acceso no tiene por
-  // donde. Al usarla se olvida la preferencia y vuelve la pantalla completa.
-  const salida = document.createElement('div');
-  salida.className = 'pie-login';
-  salida.style.marginTop = '14px';
-  salida.innerHTML = '<a href="#" id="ir-a-completo" style="color:var(--color-text-muted);">Otras formas de ingresar</a>';
-  document.getElementById('form-login').appendChild(salida);
-  document.getElementById('ir-a-completo').addEventListener('click', (e) => {
-    e.preventDefault();
-    try { localStorage.removeItem(CLAVE_INGRESO_SIMPLE); } catch (err) {}
-    location.href = '/login.html';
-  });
+  // Una salida, discreta pero visible: sin ella, quien llegue aqui por
+  // equivocacion no tiene por donde volver.
+  if (!document.getElementById('ir-a-completo')) {
+    const salida = document.createElement('div');
+    salida.className = 'pie-login';
+    salida.id = 'salida-modo-lider';
+    salida.style.marginTop = '14px';
+    salida.innerHTML = '<a href="#" id="ir-a-completo" style="color:var(--color-text-muted);">Otras formas de ingresar</a>';
+    document.getElementById('form-login').appendChild(salida);
+    document.getElementById('ir-a-completo').addEventListener('click', (e) => {
+      e.preventDefault();
+      quitarModoLider();
+      mostrarPaso(window.LOGIN_ES_CELULAR ? 'form-elegir-acceso' : 'form-torre');
+    });
+  }
+  document.getElementById('salida-modo-lider').style.display = 'block';
 }
+
+/** Devuelve `form-login` a su forma completa: correo, teclado de letras y
+ *  todos los textos de vuelta. Es lo contrario exacto de ponerModoLider. */
+function quitarModoLider() {
+  const usuario = document.querySelector('#form-login [name="email"]');
+  const clave = document.querySelector('#form-login [name="password"]');
+  for (const campo of [usuario, clave]) {
+    if (!campo) continue;
+    campo.removeAttribute('pattern');
+    campo.removeAttribute('inputmode');
+    campo.removeAttribute('placeholder');
+  }
+  if (usuario) usuario.setAttribute('inputmode', 'email');
+  ponerEtiquetaLogin(usuario, 'Correo electrónico o número de identificación');
+  ponerEtiquetaLogin(clave, 'Contraseña');
+
+  const mostrar = (sel) => { const e = document.querySelector(sel); if (e) e.style.display = ''; };
+  mostrar('#form-login .campo small');
+  const recordar = document.querySelector('#form-login [name="recordar"]');
+  if (recordar && recordar.closest('.campo')) recordar.closest('.campo').style.display = '';
+  const pie = document.querySelector('#form-login .pie-login');
+  if (pie) pie.style.display = '';
+  const salida = document.getElementById('salida-modo-lider');
+  if (salida) salida.style.display = 'none';
+}
+
+function ponerEtiquetaLogin(campo, texto) {
+  const l = campo && campo.closest('.campo') && campo.closest('.campo').querySelector('label');
+  if (l) l.textContent = texto;
+}
+
+document.getElementById('ir-a-lideres-desde-eleccion').addEventListener('click', () => {
+  document.getElementById('login-error').classList.remove('visible');
+  ponerModoLider();
+});
+
+document.getElementById('ir-a-otros-desde-eleccion').addEventListener('click', () => {
+  document.getElementById('login-error').classList.remove('visible');
+  mostrarPaso('form-torre');
+});
+
+/* QUE SE VE AL ABRIR. El bloque de arriba del documento ya dejo puesta la
+   pantalla que toca —para que no se vea un parpadeo—; esto la confirma
+   pasando por mostrarPaso, que ademas escribe el titulo. */
+mostrarPaso(window.LOGIN_ES_CELULAR ? 'form-elegir-acceso' : 'form-torre');
+
 </script>
 </body>
 </html>

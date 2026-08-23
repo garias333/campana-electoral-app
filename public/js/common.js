@@ -731,43 +731,6 @@ async function refrescarMarca() {
   if (elLogo && !elLogo.src.endsWith(logo)) elLogo.src = logo;
 }
 
-/**
- * El botón de Telegram del panel propio.
- *
- * Vive al lado del interruptor de dos pasos porque es lo mismo: ajustes de la
- * propia cuenta, no de la campaña. Cada persona vincula SU chat y recibe solo
- * SU código.
- *
- * Si la campaña no tiene bot configurado, el botón no aparece — un botón que
- * no lleva a ninguna parte es peor que ninguno.
- */
-async function refrescarTelegram() {
-  const boton = document.getElementById('btn-telegram');
-  if (!boton) return;
-  let info;
-  try { info = await api('/auth/telegram/enlace'); } catch (e) { return; }
-  if (!info || !info.disponible) return;
-
-  boton.style.display = '';
-  boton.textContent = info.vinculado ? 'Telegram vinculado ✓' : 'Recibir códigos por Telegram';
-  boton.onclick = async () => {
-    if (info.vinculado) {
-      if (!confirm('Sus códigos de acceso volverán a llegarle solo por correo. ¿Desvincular Telegram?')) return;
-      try {
-        await api('/auth/telegram', { method: 'DELETE' });
-        await refrescarTelegram();
-      } catch (err) { alert(err.message); }
-      return;
-    }
-    // Se abre el enlace profundo: Telegram recibe el código firmado en el
-    // primer mensaje y ahí queda hecho el vínculo. El aviso va ANTES de
-    // abrir, porque después la pestaña ya no está al frente.
-    alert('Se va a abrir Telegram. Pulse INICIAR (o /start) y listo.\n\n'
-      + `El enlace sirve por ${info.horas_vigencia} horas.`);
-    window.open(info.enlace, '_blank', 'noopener');
-  };
-}
-
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto == null ? '' : String(texto);
@@ -992,6 +955,49 @@ function puedeVer(usuario, modulo) {
  * verificación real de la contraseña ocurre en el servidor, en el mismo
  * endpoint que ejecuta la acción.
  */
+/**
+ * Pide la contraseña de QUIEN esta usando la aplicacion.
+ *
+ * Hermano de solicitarPasswordAdmin, con otra pregunta: aquel dice «¿es usted
+ * administrador?», este dice «¿es usted?». Se usa al editar o eliminar un
+ * votante, que un lider SI puede hacer: pedirle la clave del administrador le
+ * quitaria esa capacidad, pedirle la suya solo le pide confirmar.
+ *
+ * Devuelve la contraseña escrita, o null si cancelo.
+ */
+function solicitarPasswordPropia(titulo, explicacion) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay abierto';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-header"><h3>${escaparHtml(titulo || 'Confirme con su contraseña')}</h3></div>
+        <p style="color:var(--color-text-muted); font-size:0.85rem;">${escaparHtml(explicacion || 'Escriba su propia contraseña para confirmar.')}</p>
+        <div class="mensaje-error" id="error-password-propia"></div>
+        <form id="form-password-propia">
+          <div class="campo"><label>Su contraseña</label>
+            <input type="password" name="password" autocomplete="current-password" required></div>
+          <div style="display:flex; gap:10px;">
+            <button type="submit" class="btn-primario">Confirmar</button>
+            <button type="button" class="btn-secundario" id="cancelar-password-propia">Cancelar</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(overlay);
+    activarVerContrasena(overlay);
+    const campo = overlay.querySelector('input[name="password"]');
+    setTimeout(() => campo.focus(), 50);
+    const cerrar = (valor) => { overlay.remove(); resolve(valor); };
+    overlay.querySelector('#cancelar-password-propia').addEventListener('click', () => cerrar(null));
+    overlay.querySelector('#form-password-propia').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = campo.value;
+      if (!v) return;
+      cerrar(v);
+    });
+  });
+}
+
 function solicitarPasswordAdmin(titulo) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -1153,10 +1159,6 @@ async function inicializarLayout(paginaActiva) {
         <input type="checkbox" id="chk-2fa" style="width:auto;" ${usuario.two_factor_enabled ? 'checked' : ''}>
         Verificación en dos pasos por correo
       </label>
-      <!-- Solo aparece si la campaña tiene Telegram configurado: ver
-           refrescarTelegram(). Una instalación sin bot no muestra un botón
-           que no lleva a ninguna parte. -->
-      <button class="btn-secundario btn-sm" id="btn-telegram" style="display:none; margin-bottom:6px;"></button>
       <button class="btn-secundario btn-sm" id="btn-logout">Cerrar sesión</button>
     </div>
   `;
@@ -1164,7 +1166,6 @@ async function inicializarLayout(paginaActiva) {
   // Se refresca DESPUES de pintar y sin esperar: si el servidor tarda, la
   // barra ya esta puesta con lo de la ultima vez.
   refrescarMarca();
-  refrescarTelegram();
 
   // Contraer/expandir cada menú principal al hacer clic en su título — solo
   // uno puede quedar expandido a la vez: al abrir uno, se cierran todos los

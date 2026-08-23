@@ -12,7 +12,7 @@ const { validarCedula } = require('../lib/validarCedula');
 const { asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo } = require('../config/testigoElectoral');
 const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionVotantesEstructura');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
-const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
+const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
 
 const router = express.Router();
 
@@ -1222,6 +1222,16 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
+  /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO.
+     No es la del administrador: un lider tiene derecho a corregir a su gente,
+     y pedirle la clave ajena le quitaria esa capacidad. Pedirle la suya solo
+     le pide confirmar — y cierra el caso de una sesion abierta y sin dueño en
+     un celular prestado, que es el riesgo real en campaña.
+     Va ANTES de cualquier validacion o escritura: comprobar despues de haber
+     tocado la fila no confirma nada. */
+  if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  }
   const b = req.body;
   if (!b.nombre) {
     return res.status(400).json({ error: 'Nombres y apellidos son obligatorios.' });
@@ -1406,6 +1416,16 @@ router.put('/:id/verificar', requireRole('admin', 'asistente_administrativo'), a
 });
 
 router.delete('/:id', async (req, res) => {
+  /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO.
+     No es la del administrador: un lider tiene derecho a corregir a su gente,
+     y pedirle la clave ajena le quitaria esa capacidad. Pedirle la suya solo
+     le pide confirmar — y cierra el caso de una sesion abierta y sin dueño en
+     un celular prestado, que es el riesgo real en campaña.
+     Va ANTES de cualquier validacion o escritura: comprobar despues de haber
+     tocado la fila no confirma nada. */
+  if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  }
   try {
     const params = [req.params.id];
     let query = `DELETE FROM votantes WHERE id = ?`;

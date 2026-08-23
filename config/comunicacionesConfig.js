@@ -64,11 +64,7 @@ async function obtenerCredenciales() {
     // Para que la interfaz pueda decir CUAL de las dos se esta usando sin
     // mostrar ninguna clave: una cosa es "no hay credenciales" y otra muy
     // distinta "esta campaña trajo las suyas".
-    onurixPropio: Boolean(fila && fila.onurix_client && fila.onurix_key),
-    // La base manda sobre el .env, igual que los demas canales: se configura
-    // desde la pantalla y el .env queda como respaldo de las instalaciones
-    // que ya lo tenian escrito ahi.
-    telegramBotToken: (fila && fila.telegram_bot_token) || process.env.TELEGRAM_BOT_TOKEN || null
+    onurixPropio: Boolean(fila && fila.onurix_client && fila.onurix_key)
   };
   cacheEn = ahora;
   return cache;
