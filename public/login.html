@@ -492,11 +492,15 @@
     </form>
 
     <div id="form-elegir-rol" style="display:none;">
-      <p style="font-size:0.85rem; color: var(--color-text-muted); margin-bottom: 14px;">
-        Tu cuenta también está registrada como testigo electoral. ¿Cómo quieres ingresar esta vez?
+      <!-- LOS BOTONES LOS PINTA EL SERVIDOR, no están escritos aquí.
+           Una misma persona puede ser líder, testigo electoral Y aspirante al
+           Concejo a la vez, y ya ocurre. Con los botones fijos habría que
+           mantener en esta pantalla una lista de capacidades que el servidor ya
+           conoce, y quien dejara de ser aspirante seguiría viendo su botón. -->
+      <p style="font-size:0.95rem; color: var(--color-text-muted); margin-bottom: 14px;">
+        Tu cuenta puede entrar de varias formas. ¿Cómo quieres ingresar esta vez?
       </p>
-      <button type="button" class="btn-primario" data-entrar-como="principal">Como Líder/Sublíder</button>
-      <button type="button" class="btn-primario" data-entrar-como="testigo" style="margin-top:10px;">Como Testigo electoral</button>
+      <div id="botones-elegir-rol"></div>
     </div>
 
     <div class="pie-login">
@@ -661,6 +665,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     const r = await api('/auth/login', { method: 'POST', body: datos });
     if (r.requiereEleccionRol) {
       form.style.display = 'none';
+      pintarEleccionRol(r.opciones);
       document.getElementById('form-elegir-rol').style.display = 'block';
       return;
     }
@@ -683,14 +688,36 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
 });
 
 /**
- * Puede pasar que un Líder o Sublíder también esté registrado como
- * testigo electoral (ver "asignar como testigo" en Estructura territorial
- * y en Votantes/sublíderes) — el servidor detectó esa doble condición
- * (ver /auth/elegir-rol) y está esperando que la persona elija con cuál
- * de las dos capacidades quiere entrar antes de completar el ingreso.
+ * Una misma persona puede entrar con varios sombreros: Líder o Sublíder de la
+ * campaña, testigo electoral el día D, y —si tiene sublicencia— aspirante a
+ * otro cargo con su propia vista. Son trabajos distintos con pantallas
+ * distintas, y el servidor detectó que ésta tiene más de uno.
+ *
+ * LOS BOTONES SE PINTAN AQUÍ, con lo que mande el servidor. La pantalla no
+ * lleva escrita ninguna lista de capacidades: la que sabe cuáles tiene esta
+ * persona hoy es la base, no el formulario.
  */
-document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]').forEach(boton => {
-  boton.addEventListener('click', async () => {
+function pintarEleccionRol(opciones) {
+  const caja = document.getElementById('botones-elegir-rol');
+  // Respaldo por si un servidor viejo no manda `opciones`: los dos sombreros
+  // que existían antes. Sin esto, una campaña a medio actualizar mostraría la
+  // pregunta y ningún botón con que contestarla.
+  const lista = (opciones && opciones.length) ? opciones : [
+    { valor: 'principal', texto: 'Como Líder/Sublíder' },
+    { valor: 'testigo', texto: 'Como Testigo electoral' },
+  ];
+  caja.innerHTML = lista.map((o, i) =>
+    `<button type="button" class="btn-primario" data-entrar-como="${o.valor}"`
+    + `${i ? ' style="margin-top:10px;"' : ''}>${o.texto}</button>`).join('');
+}
+
+/* La escucha va en el CONTENEDOR y no en cada botón: los botones se crean
+   después de que esta línea corre, así que atarlos uno por uno aquí no ataría
+   ninguno. */
+document.getElementById('botones-elegir-rol').addEventListener('click', async (evento) => {
+  const boton = evento.target.closest('[data-entrar-como]');
+  if (!boton) return;
+  {
     const errorBox = document.getElementById('login-error');
     errorBox.classList.remove('visible');
     try {
@@ -706,7 +733,7 @@ document.getElementById('form-elegir-rol').querySelectorAll('[data-entrar-como]'
       errorBox.textContent = err.message;
       errorBox.classList.add('visible');
     }
-  });
+  }
 });
 
 /* ------------------------------------------------------------------

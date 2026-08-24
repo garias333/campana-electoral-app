@@ -107,14 +107,23 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
      lateral: todo lo que se le construyó (sus cuatro pantallas, su marca) vive
      en el panel, y el nunca lo veia. Medido con Camilo Arias el 24 de agosto
      de 2026: entraba a /app/inicio.html con la marca del alcalde. */
+  /* EL SOMBRERO LO ELIGE ELLA, NO SE LO PONE EL SISTEMA.
+     `es_aspirante` es verdadero sólo si ESTA VEZ entró como aspirante. La misma
+     persona, entrando como líder, trabaja para la campaña madre sin ninguna
+     restricción — que es lo correcto: sigue siendo su líder.
+
+     Se comprueba ademas que la sublicencia siga activa: sin eso, alguien
+     podria mandar `entrarComo: 'aspirante'` a mano y darse una vista que no
+     compro. */
   let esAspirante = false;
-  try {
-    const [f] = await pool.query(
-      'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
-    esAspirante = f.length > 0;
-  } catch (err) {
-    // Campaña sin las tablas de sublicencias: entra como siempre.
-    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al entrar:', err.message);
+  if (entrarComo === 'aspirante') {
+    try {
+      const [f] = await pool.query(
+        'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
+      esAspirante = f.length > 0;
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al entrar:', err.message);
+    }
   }
   req.session.usuario = {
     id: usuario.id,
@@ -149,6 +158,56 @@ async function tieneDobleRolTestigo(usuario) {
     [usuario.id]
   );
   return !!fila;
+}
+
+/** Cómo se llama, en la pantalla, cada cargo al que se puede aspirar. */
+const ASPIRANTE_A = {
+  concejo:  'Aspirante al Concejo Municipal',
+  jal:      'Aspirante a la JAL',
+  asamblea: 'Aspirante a la Asamblea',
+  edil:     'Aspirante a Edil',
+};
+
+/**
+ * Con cuántos sombreros puede entrar esta persona.
+ *
+ * UNA MISMA PERSONA PUEDE SER TRES COSAS A LA VEZ, y ya pasa: líder de la
+ * campaña madre, testigo electoral el día D, y aspirante al Concejo con su
+ * propia sublicencia. Son tres trabajos distintos con tres pantallas distintas,
+ * y elegir por ella —mandándola siempre a la del sombrero «más importante»— la
+ * deja sin poder hacer los otros dos.
+ *
+ * Devuelve la lista sólo cuando hay MÁS DE UNA: con una sola, preguntar es
+ * poner una pantalla en medio para que conteste lo único que se puede contestar.
+ */
+async function capacidadesDe(usuario) {
+  const opciones = [];
+  if (!['lider', 'sublider'].includes(usuario.rol)) return opciones;
+
+  opciones.push({
+    valor: 'principal',
+    texto: usuario.rol === 'sublider' ? 'Como Sublíder' : 'Como Líder',
+  });
+
+  const [[testigo]] = await pool.query(
+    `SELECT 1 FROM estructura WHERE usuario_id = ? AND cargo = 'testigo' LIMIT 1`, [usuario.id]);
+  if (testigo) opciones.push({ valor: 'testigo', texto: 'Como Testigo electoral' });
+
+  try {
+    const [[sub]] = await pool.query(
+      'SELECT cargo FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
+    if (sub) {
+      opciones.push({
+        valor: 'aspirante',
+        texto: ASPIRANTE_A[sub.cargo] ? 'Como ' + ASPIRANTE_A[sub.cargo] : 'Como Aspirante',
+      });
+    }
+  } catch (err) {
+    // Campaña sin las tablas de sublicencias: se sigue con los sombreros de siempre.
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al elegir rol:', err.message);
+  }
+
+  return opciones.length > 1 ? opciones : [];
 }
 
 /** Cola del 2FA (si está activado) o cierra el inicio de sesión de una vez — usado tanto por /login como por /elegir-rol, ya que a partir de ese punto ambos siguen exactamente el mismo camino. */
@@ -300,9 +359,15 @@ router.post('/login', async (req, res) => {
     // 2FA), porque de eso depende a qué pantalla se le manda y qué
     // permisos recibe la sesión (ver /auth/elegir-rol). ---
     const { entrarComo } = req.body;
-    if (!entrarComo && await tieneDobleRolTestigo(usuario)) {
-      req.session.pendienteEleccionRol = { usuarioId: usuario.id, recordar: !!recordar };
-      return res.json({ ok: true, requiereEleccionRol: true, nombre: usuario.nombre });
+    if (!entrarComo) {
+      const opciones = await capacidadesDe(usuario);
+      if (opciones.length) {
+        req.session.pendienteEleccionRol = { usuarioId: usuario.id, recordar: !!recordar };
+        // Las opciones las manda el SERVIDOR y no las tiene escritas la
+        // pantalla: quien es las tres cosas ve tres botones, y quien deja de
+        // ser aspirante deja de verlo sin que nadie toque el formulario.
+        return res.json({ ok: true, requiereEleccionRol: true, nombre: usuario.nombre, opciones });
+      }
     }
 
     await iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo);
@@ -320,7 +385,7 @@ router.post('/elegir-rol', async (req, res) => {
   if (!pendiente) {
     return res.status(400).json({ error: 'No hay una elección de ingreso en curso. Inicie sesión de nuevo.' });
   }
-  if (!['principal', 'testigo'].includes(entrarComo)) {
+  if (!['principal', 'testigo', 'aspirante'].includes(entrarComo)) {
     return res.status(400).json({ error: 'Elección inválida.' });
   }
 
@@ -338,7 +403,14 @@ router.post('/elegir-rol', async (req, res) => {
 
     // Se revalida la doble condición en el servidor: no basta con lo que
     // mande el cliente para conceder la capacidad de testigo.
-    const entrarComoValidado = (entrarComo === 'testigo' && await tieneDobleRolTestigo(usuario)) ? 'testigo' : null;
+    // Se revalida el sombrero contra la base: no basta con lo que mande el
+    // navegador para concederse una capacidad.
+    let entrarComoValidado = null;
+    if (entrarComo === 'testigo' && await tieneDobleRolTestigo(usuario)) entrarComoValidado = 'testigo';
+    if (entrarComo === 'aspirante') {
+      const opciones = await capacidadesDe(usuario);
+      if (opciones.some(o => o.valor === 'aspirante')) entrarComoValidado = 'aspirante';
+    }
 
     await iniciar2faOCompletarSesion(req, res, usuario, pendiente.recordar, entrarComoValidado);
   } catch (err) {
@@ -667,13 +739,16 @@ router.get('/me', requireAuth, async (req, res) => {
      sublicencia. Preguntándolo aquí, suspenderla surte efecto en la petición
      siguiente. */
   let esAspirante = false;
-  try {
-    const [f] = await pool.query(
-      'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1',
-      [req.session.usuario.id]);
-    esAspirante = f.length > 0;
-  } catch (err) {
-    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia en /me:', err.message);
+  if (req.session.usuario.es_aspirante) {
+    // Entro con ese sombrero; queda comprobar que la sublicencia SIGUE activa.
+    try {
+      const [f] = await pool.query(
+        'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1',
+        [req.session.usuario.id]);
+      esAspirante = f.length > 0;
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia en /me:', err.message);
+    }
   }
 
   res.json({

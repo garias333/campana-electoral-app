@@ -50,6 +50,13 @@ async function cargarSublicencia(req, res, next) {
   req.sublicencia = null;
   const u = req.session && req.session.usuario;
   if (!u) return next();
+
+  /* SOLO SI ENTRO CON ESE SOMBRERO.
+     Una misma persona puede ser lider de la campaña madre Y aspirante al
+     Concejo; elige al entrar. Si entro como lider, trabaja para la madre sin
+     ninguna restriccion — restringirlo por tener una sublicencia le quitaria
+     el trabajo por el que esta en la estructura. */
+  if (!u.es_aspirante) return next();
   try {
     const [filas] = await pool.query(
       `SELECT id, usuario_id, cargo, nombre, subtitulo, logo_url FROM sublicencias
