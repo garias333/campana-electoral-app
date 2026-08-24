@@ -4,6 +4,8 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { subarbolSql } = require('../lib/ramas');
+const { condicionAlcanceVotantes,
+        parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
@@ -2060,7 +2062,7 @@ router.get('/cobertura', async (req, res) => {
  * de Mapbox, no ocultándolo del navegador) — no es un secreto como las
  * demás API Keys del sistema.
  */
-router.get('/mapbox-token', requireRole('admin', 'coordinador'), (req, res) => {
+router.get('/mapbox-token', requireRole('admin', 'coordinador', 'aspirante'), (req, res) => {
   res.json({ token: process.env.MAPBOX_ACCESS_TOKEN || null });
 });
 
@@ -2070,8 +2072,26 @@ router.get('/mapbox-token', requireRole('admin', 'coordinador'), (req, res) => {
  * tengan latitud/longitud. Solo admin/coordinador, porque expone
  * ubicaciones exactas de personas registradas en los formularios.
  */
-router.get('/mapa-personas', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/mapa-personas', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
+    /* ESTE MAPA ES LA CONSULTA MÁS REVELADORA DE LA APLICACIÓN.
+       Devuelve la estructura y los votantes con DIRECCIÓN Y COORDENADAS: una
+       sola llamada y se sabe dónde vive cada persona de la campaña. Le bastaba
+       con `admin, coordinador` porque nadie más llegaba.
+
+       Al abrírselo al aspirante hay que acotarlo en las tres consultas, no en
+       una. Su rama de votantes no le sirve a la de estructura —son tablas
+       distintas y se cuelgan distinto— y los eventos no son suyos en absoluto:
+       son de la campaña madre, y él ni siquiera tiene ese módulo. */
+    const suyo = req.sublicencia ? req.sublicencia.usuario_id : null;
+    const enEstructura = suyo ? subarbolSql(suyo, 'e.usuario_id') : null;
+    const enVotantes = suyo
+      ? condicionAlcanceVotantes({ cargo: 'aspirante', usuarioId: suyo }, 'v')
+      : null;
+    const parVotantes = suyo
+      ? parametrosAlcanceVotantes({ cargo: 'aspirante', usuarioId: suyo })
+      : [];
+
     const [estructura] = await pool.query(`
       SELECT e.id, u.nombre, e.cargo, e.direccion, e.latitud, e.longitud,
              t.nombre AS territorio_nombre
@@ -2079,15 +2099,19 @@ router.get('/mapa-personas', requireRole('admin', 'coordinador'), async (req, re
       JOIN usuarios u ON u.id = e.usuario_id
       LEFT JOIN territorios t ON t.id = e.territorio_id
       WHERE e.latitud IS NOT NULL AND e.longitud IS NOT NULL AND e.activo = 1
-    `);
+      ${enEstructura ? 'AND ' + enEstructura.sql : ''}
+    `, enEstructura ? enEstructura.valores : []);
     const [votantes] = await pool.query(`
       SELECT v.id, v.nombre,
              v.direccion, v.latitud, v.longitud, t.nombre AS territorio_nombre
       FROM votantes v
       LEFT JOIN territorios t ON t.id = v.territorio_id
       WHERE v.latitud IS NOT NULL AND v.longitud IS NOT NULL
-    `);
-    const [eventos] = await pool.query(`
+      ${enVotantes ? 'AND ' + enVotantes : ''}
+    `, parVotantes);
+    // Los eventos son de la campaña madre. Para el aspirante, ninguno — y una
+    // lista vacía es la respuesta correcta, no un error: el mapa se pinta igual.
+    const [eventos] = suyo ? [[]] : await pool.query(`
       SELECT e.id, e.titulo, e.tipo, e.fecha_inicio, e.lugar, e.latitud, e.longitud,
              t.nombre AS territorio_nombre
       FROM eventos e

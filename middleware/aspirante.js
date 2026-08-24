@@ -36,7 +36,7 @@ const PERMITIDOS = [
 ];
 
 /** Los módulos que ve en el menú. Se corresponden uno a uno con sus pantallas. */
-const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'votantes', 'testigos'];
+const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'mapa', 'votantes', 'testigos'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -68,14 +68,16 @@ const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'votantes', 'testigos
  */
 const HREFS_ASPIRANTE = [
   '/territorial.html',
+  '/mapa.html',
   '/votantes.html',
   '/testigos.html',
   '/configuracion.html#campana',
 ];
 
 const PERMISOS_ASPIRANTE = {
-  configuracion: { ver: true, editar: false, agregar: false },
+  configuracion: { ver: true, editar: true,  agregar: false },
   territorial:   { ver: true, editar: false, agregar: false },
+  mapa:          { ver: true, editar: false, agregar: false },
   votantes:      { ver: true, editar: true,  agregar: true },
   testigos:      { ver: true, editar: true,  agregar: true },
 };

@@ -383,7 +383,40 @@ router.get('/territorio/uso', requireRole('admin'), async (req, res) => {
 });
 
 // Crea o actualiza (upsert) el registro único de configuración. Solo admin.
-router.put('/campana', requireRole('admin'), async (req, res) => {
+router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* EL ASPIRANTE GUARDA SU MARCA, Y NADA MAS — EN OTRA TABLA.
+     Sale por aqui y no por una ruta propia porque el formulario que la envia es
+     el mismo, y partirlo en dos habria dejado dos caminos que mantener.
+
+     Se corta ANTES de leer el cuerpo entero a proposito: lo que sigue escribe
+     en `configuracion_campana`, que es la fila de la campaña MADRE. Un aspirante
+     que cayera ahi le cambiaria el candidato, la fecha de eleccion o los cuatro
+     selectores territoriales a la campaña a la Alcaldia y a los demas
+     aspirantes, porque esa fila es una sola y la comparten todos.
+
+     Sin contraseña, por decision expresa: la que pedia esta pantalla es la del
+     ADMINISTRADOR, y protege justo los selectores que el no toca. Pedirsela
+     seria pedirle una clave que no tiene para confirmar un cambio que no hace. */
+  if (req.sublicencia) {
+    const titulo = String((req.body && req.body.marca_titulo) || '').trim();
+    const lema = String((req.body && req.body.marca_subtitulo) || '').trim();
+    if (!titulo) {
+      return res.status(400).json({ error: 'El nombre de su campaña no puede quedar vacío.' });
+    }
+    try {
+      await pool.query(
+        `UPDATE sublicencias
+            SET nombre = ?, subtitulo = ?, marca_editada_en = NOW()
+          WHERE usuario_id = ? AND activa = 1`,
+        [titulo.slice(0, 150), lema.slice(0, 200) || null, req.sublicencia.usuario_id]);
+      return res.json({ ok: true, marcaPropia: true,
+        mensaje: 'Guardado. Así se verá su campaña en toda la aplicación.' });
+    } catch (err) {
+      console.error('Guardando la marca del aspirante:', err.message);
+      return res.status(500).json({ error: 'No se pudo guardar.' });
+    }
+  }
+
   const {
     nombre_candidato, cargo_aspira, slogan_campana, partido_politico,
     marca_titulo, marca_subtitulo,

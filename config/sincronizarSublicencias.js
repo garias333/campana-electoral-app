@@ -49,12 +49,22 @@ async function sincronizar(lista) {
       }
 
       idsVigentes.push(u.id);
+      /* EL NOMBRE Y EL LEMA NO SE PISAN SI EL ASPIRANTE YA LOS TOCO.
+         Los dos lados pueden escribirlos: el superadministrador al vender, y el
+         aspirante desde Configuracion. Sin esta condicion, lo que el escribiera
+         viviria como mucho seis horas y desapareceria solo — sin error, sin
+         aviso, y sin forma de que nadie relacionara una cosa con la otra.
+
+         El resto lo sigue mandando Licencias: el cargo, el logo y si esta
+         activa. Lo que se le cede es su marca, que es lo unico suyo. */
       const [r] = await pool.query(
         `INSERT INTO sublicencias (usuario_id, cargo, nombre, subtitulo, logo_url, activa)
          VALUES (?, ?, ?, ?, ?, 1)
          ON DUPLICATE KEY UPDATE
-           cargo = VALUES(cargo), nombre = VALUES(nombre),
-           subtitulo = VALUES(subtitulo), logo_url = VALUES(logo_url), activa = 1`,
+           cargo = VALUES(cargo),
+           nombre    = IF(marca_editada_en IS NULL, VALUES(nombre), nombre),
+           subtitulo = IF(marca_editada_en IS NULL, VALUES(subtitulo), subtitulo),
+           logo_url = VALUES(logo_url), activa = 1`,
         [u.id, s.cargo || 'concejo', s.nombre_campana || null,
          s.subtitulo || null, s.logo_url || null]);
       // affectedRows: 1 = insertada, 2 = actualizada de verdad, 0 = igual.

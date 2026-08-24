@@ -1694,10 +1694,24 @@ async function main() {
       -- Una persona no puede aspirar a dos cosas a la vez dentro de la misma
       -- campana: si lo hiciera, un votante suyo tendria dos ramas principales y
       -- el reparto dejaria de ser una funcion.
+      marca_editada_en DATETIME NULL COMMENT 'Desde que el aspirante toco su marca, manda la suya',
       UNIQUE KEY uq_sublicencia_usuario (usuario_id),
       FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  /* QUIEN MANDA SOBRE EL NOMBRE Y EL LEMA, CUANDO LOS DOS PUEDEN ESCRIBIRLOS.
+     Los escribe el superadministrador al vender la sublicencia, y la campaña se
+     los vuelve a traer cada seis horas. Si el aspirante tambien los puede
+     cambiar, sin esta marca su texto duraria como mucho hasta la siguiente
+     validacion y desapareceria SOLO, sin error y sin explicacion.
+
+     Con ella, el dia que el los toca pasan a ser suyos: la sincronizacion sigue
+     mandando en el cargo, en si esta activa y en el logo, pero deja de pisar
+     esos dos campos. Es una decision, no un detalle — el superadministrador ya
+     no se los podra cambiar desde Licencias. */
+  await agregarColumnaSiFalta(connection, 'sublicencias',
+    'marca_editada_en DATETIME NULL', 'marca_editada_en');
 
   /* Las pertenencias ADICIONALES: el votante que apoya a dos aspirantes. La
      principal —quien lo registro primero— sigue en votantes.lider_id, que es lo

@@ -68,6 +68,13 @@
     <div class="card" id="seccion-campana">
       <div id="campana-error" class="mensaje-error"></div>
       <div id="campana-ok" class="mensaje-ok"></div>
+      <div id="aviso-sublicencia-campana" style="display:none; margin:0 0 16px; padding:12px 14px;
+           border-left:4px solid var(--acento, #FFC300); background:rgba(255,195,0,0.09); font-size:0.9rem;">
+        Ésta es <strong>su</strong> campaña. Puede cambiar el nombre y el lema con los que
+        aparece en toda la aplicación; se guardan sin pedirle ninguna contraseña.<br>
+        Lo demás —candidato, fecha de elección y la configuración territorial— pertenece a la
+        campaña principal, es la misma para todos y por eso se muestra bloqueado.
+      </div>
       <form id="form-campana">
 
         <!-- ===== DATOS DE LA CAMPAÑA =====
@@ -784,6 +791,32 @@ async function cargarConfiguracionCampana() {
   actualizarCiudadesCampana();
   document.getElementById('input-ciudad-campana').value = config.ciudad || '';
   pintarApoyos(config.apoyos_posibles || [], config.apoyos_activos);
+
+  /* AL ASPIRANTE SOLO SE LE ABREN SU NOMBRE Y SU LEMA.
+     Todo lo demas de este formulario vive en la fila de la campaña MADRE, que es
+     una sola y la comparten ella y todos los aspirantes: el candidato, la fecha
+     de eleccion y los cuatro selectores territoriales. El servidor ya ignora
+     esos campos cuando quien guarda es un aspirante, pero dejarlos escribibles
+     le haria teclear cambios que no se guardan y no dan error — que es la peor
+     de las dos formas de decir que no.
+
+     Los selectores quedan `disabled`, asi que su evento `change` no se dispara
+     y la contraseña de administrador no llega a pedirse. No hace falta quitar
+     ese aviso: hace falta que no haya nada que confirmar. */
+  if (config.es_sublicencia) {
+    const mios = ['marca_titulo', 'marca_subtitulo'];
+    Array.from(form.elements).forEach((campo) => {
+      if (!campo.name || mios.includes(campo.name)) return;
+      campo.disabled = true;
+    });
+    ['input-departamento-campana', 'input-ciudad-campana',
+     'select-partido-politico', 'input-partido-otro'].forEach((id) => {
+      const c = document.getElementById(id);
+      if (c) c.disabled = true;
+    });
+    const aviso = document.getElementById('aviso-sublicencia-campana');
+    if (aviso) aviso.style.display = 'block';
+  }
 
   const partido = config.partido_politico || '';
   const select = document.getElementById('select-partido-politico');
