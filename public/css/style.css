@@ -7,7 +7,26 @@
 :root {
   --color-bg: #F3F5F8;
   --color-surface: #FFFFFF;
-  --color-navy: #10233F;
+  /* CROMO AZUL COMPARTIDO CON LAS DEMÁS APLICACIONES DE ESTRATEGIA.
+     Estos cinco son los mismos valores que usa App Territorios, con los
+     nombres de aquí. La idea es que una persona reconozca la casa al entrar
+     a cualquiera de las siete, sin que cada una invente su propio azul.
+
+     OJO CON LA REPARTICIÓN, que no es la que uno supondría: --color-navy es
+     el MÁS OSCURO y hace de fondo; --color-navy-panel es más CLARO y hace de
+     tarjeta encima. Al revés, la tarjeta se hunde en el fondo en vez de
+     levantarse, que es justo lo que pasaba antes: la tarjeta de ingreso era
+     del mismo navy que el fondo y sólo se distinguía por la sombra. */
+  --color-navy:        #131F3B;   /* fondo de pantalla y franja lateral */
+  --color-navy-panel:  #1B2B4F;   /* tarjetas y paneles sobre el azul   */
+  --color-navy-campo:  #16264A;   /* campos de formulario sobre azul    */
+  --color-navy-borde:  #2E4271;   /* bordes y separadores sobre azul    */
+  --color-navy-tenue:  #A9BBD4;   /* texto secundario SOBRE azul        */
+
+  /* Estos dos NO son cromo: viven sobre blanco —enlaces, aros de foco,
+     insignias— y por eso se quedan como estaban. Aclararlos junto a los de
+     arriba habría bajado el contraste de los enlaces de toda la aplicación
+     sin que nadie lo pidiera. */
   --color-navy-light: #1C3A63;
   --color-navy-lighter: #29497A;
   /* Acento de la marca. Era el dorado #C98A2C.
@@ -74,7 +93,7 @@ a { color: var(--color-navy-lighter); }
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  background: linear-gradient(180deg, var(--color-navy) 0%, #0B1D33 100%);
+  background: linear-gradient(180deg, var(--color-navy) 0%, #0E1830 100%);
   color: #DCE4F0;
   display: flex;
   flex-direction: column;
@@ -155,7 +174,14 @@ a { color: var(--color-navy-lighter); }
   transition: background 0.15s, color 0.15s, border-color 0.15s, padding-left 0.15s;
 }
 .sidebar nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
-.sidebar nav a.activo { background: var(--color-navy-lighter); color: #fff; font-weight: 600; border-left-color: var(--color-accent); }
+/* EL RENGLÓN ACTIVO LO SEÑALA EL BORDE DORADO, NO EL RELLENO. Sobre azul
+   oscuro cualquier relleno de la misma familia queda en 1,2 de contraste —se
+   intuye, no se ve—. Antes esto era #29497A, bastante más claro, y sí se veía
+   por sí solo; con la paleta nueva ese azul ya no pertenece al cromo. Así que
+   el peso lo llevan el filete dorado de la izquierda y la letra en blanco y
+   negrita, y el relleno sólo acompaña. Si en uso resulta poco, lo que hay que
+   subir es el filete, no el relleno. */
+.sidebar nav a.activo { background: var(--color-navy-panel); color: #fff; font-weight: 600; border-left-color: var(--color-accent); }
 .sidebar nav a .icono { width: 20px; text-align: center; flex: none; font-size: 1.1em; transition: transform 0.15s; }
 .sidebar nav a:hover .icono { transform: scale(1.15); }
 

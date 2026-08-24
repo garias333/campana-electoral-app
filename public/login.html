@@ -23,7 +23,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at 20% 20%, var(--color-navy-lighter), var(--color-navy) 60%);
+    /* Azul plano, no degradado. El degradado radial aclaraba la esquina
+       superior izquierda hasta #29497A, y contra ese punto la tarjeta —que
+       ahora es #1B2B4F— perdía el borde. Plano, la tarjeta se levanta igual
+       en toda la pantalla. */
+    background: var(--color-navy);
   }
   .login-card {
     width: 100%; max-width: 380px;
@@ -62,7 +66,8 @@
      invierte el contraste (tarjeta oscura, texto claro). Suelto, esto
      teñiría formularios de toda la aplicación.
 
-     La base son los colores del sistema —navy #10233F y el crema
+     La base son los colores del sistema —el panel #1B2B4F sobre el fondo
+     #131F3B, y el crema
      #F8F3E9 de los formularios de personas (ver style.css,
      .modal-amplio)—. El acento es el OFICIAL de la aplicación,
      #FFC300, que vive en style.css: esta tarjeta no define uno propio.
@@ -77,7 +82,7 @@
     --color-accent-dark: #D9A400;   /* el oficial, un punto más hondo, para el hover */
 
     max-width: 520px;
-    background: var(--color-navy);
+    background: var(--color-navy-panel);
     border-top: 4px dashed var(--color-accent);
     padding: 38px 36px 32px;
     color: #fff;

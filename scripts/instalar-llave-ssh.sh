@@ -39,9 +39,10 @@ CUENTAS=(encuestashh pretestshh gariasapppanel gariasappelectoral
          gariasappmapamanizales territoriosshh gariasappproyector
          gariasappfoda gariasappescucha)
 
-SIMULAR=0; ARCHIVO=""; LLAVE=""; HUELLA=""
+SIMULAR=0; ARCHIVO=""; LLAVE=""; HUELLA=""; TODAS=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --todas)   TODAS=1; shift ;;
     --simular) SIMULAR=1; shift ;;
     --archivo) ARCHIVO="${2:-}"; shift 2 ;;
     --llave)   LLAVE="${2:-}";   shift 2 ;;
@@ -54,6 +55,22 @@ done
 if [[ $EUID -ne 0 ]]; then
   echo "Hay que correrlo como root." >&2
   exit 1
+fi
+
+# --todas: TODA cuenta con shell de verdad, no sólo las que salieron en el
+# registro.
+#
+# La lista fija de arriba se armó con las cuentas que habían entrado con
+# CONTRASEÑA en /var/log/auth.log. Parecía el conjunto correcto y no lo era:
+# `gariasapplicencias` no había entrado en esos días, así que no apareció, así
+# que no recibió la llave — y al cerrar el SSH a las contraseñas se quedó por
+# fuera. No estar en el registro significa «no se conectó últimamente», no «no
+# hace falta».
+if [[ $TODAS -eq 1 ]]; then
+  mapfile -t CUENTAS < <(
+    getent passwd | awk -F: '$3>=1000 && $3<65534 && $7 !~ /(nologin|false)$/ {print $1}' | sort
+  )
+  echo "Modo --todas: ${#CUENTAS[@]} cuenta(s) con shell de verdad."
 fi
 
 huella_de() { printf '%s\n' "$1" | ssh-keygen -lf - 2>/dev/null | awk '{print $2}'; }
