@@ -10,6 +10,7 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { armarWhereSql } = require('../config/filtros');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
+const { filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { generarDocumentoWord, construirBloqueSeccion } = require('../config/wordExport');
 const { COLOR_MARCA, formatoMillaresServidor } = require('../config/graficosServidor');
 
@@ -418,13 +419,13 @@ router.get('/exportar-excel', async (req, res) => {
       // Mismo cálculo que ve la pantalla (catálogo de Día D + estimado por
       // mesa), no el groupby crudo — para que el número exportado sea
       // idéntico al que se ve en "Por Puesto de votación".
-      const { puestos } = await calcularEstimadoPorPuesto(pool);
+      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
       const filas = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total)
         .map(p => ({ 'Puesto de votación': p.puesto, 'Mesas configuradas': p.cantidadMesas, 'Votantes estimados': p.total }));
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Por puesto');
     } else if (seccion === 'mesa') {
       if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
-      const { puestos } = await calcularEstimadoPorPuesto(pool);
+      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });
       const filas = encontrado.mesas.map(m => ({ 'Mesa': m.mesa, 'Votantes estimados': m.cantidad }));
@@ -585,7 +586,7 @@ router.get('/exportar-word', async (req, res) => {
       }));
       titulo = 'Por Líder';
     } else if (seccion === 'puesto') {
-      const { puestos } = await calcularEstimadoPorPuesto(pool);
+      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
       const filtrados = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Puesto de votación', subtitulo: 'Estimado de cuántos votarían en cada puesto, según lo que cada persona escribió en "Lugar de votación".',
@@ -596,7 +597,7 @@ router.get('/exportar-word', async (req, res) => {
       titulo = 'Por Puesto de votación';
     } else if (seccion === 'mesa') {
       if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
-      const { puestos } = await calcularEstimadoPorPuesto(pool);
+      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });
       secciones.push(await construirBloqueSeccion({
@@ -695,7 +696,7 @@ router.get('/exportar-word', async (req, res) => {
         columnas: ['Líder', 'Total votantes'], filas: filasLider
       }));
 
-      const { puestos } = await calcularEstimadoPorPuesto(pool);
+      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
       const filtrados = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Puesto de votación', subtitulo: 'Estimado de cuántos votarían en cada puesto, según lo que cada persona escribió en "Lugar de votación".',

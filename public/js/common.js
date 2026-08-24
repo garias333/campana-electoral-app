@@ -1075,9 +1075,13 @@ async function inicializarLayout(paginaActiva) {
   // creada, error de red, etc.), se usan los roles fijos de cada ítem como
   // respaldo — así nadie se queda sin menú por un problema de permisos.
   let modulosPermitidos = null;
+  let hrefsPermitidos = null;
   try {
     const permisos = await api('/permisos/mios');
     modulosPermitidos = permisos.modulos;
+    // Sólo el aspirante con sublicencia recibe esta lista, y recorta entrada por
+    // entrada: «configuracion» son seis pantallas y a él le toca una.
+    hrefsPermitidos = permisos.hrefs || null;
     // Se deja disponible en el objeto de usuario para que cada página
     // pueda mostrar/ocultar sus botones de Editar/Agregar nuevo según lo
     // configurado en Asignación de permisos (además de "Ver", que ya
@@ -1085,9 +1089,13 @@ async function inicializarLayout(paginaActiva) {
     usuario.permisos = permisos.permisos || {};
   } catch (e) {
     modulosPermitidos = null;
+    hrefsPermitidos = null;
     usuario.permisos = {};
   }
   function itemVisible(item) {
+    // La lista de direcciones manda sobre la de módulos cuando llega: es más
+    // fina. El servidor sólo la envía a quien la necesita.
+    if (hrefsPermitidos) return hrefsPermitidos.includes(item.href);
     if (modulosPermitidos && item.modulo) return modulosPermitidos.includes(item.modulo);
     return !item.roles || item.roles.includes(usuario.rol);
   }

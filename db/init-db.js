@@ -1708,12 +1708,21 @@ async function main() {
       aspirante_id INT NOT NULL,
       registrado_por INT NULL COMMENT 'Quien lo sumo a ESTA rama',
       creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      excluido TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El aspirante la quito de SU vista; la ficha sigue viva',
       PRIMARY KEY (votante_id, aspirante_id),
       KEY idx_vr_aspirante (aspirante_id),
       FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
       FOREIGN KEY (aspirante_id) REFERENCES usuarios(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  /* `excluido` PARA LAS INSTALACIONES QUE YA TENIAN LA TABLA.
+     Es lo que permite que «eliminar» signifique cosas distintas segun quien lo
+     haga: el administrador borra la ficha, y el aspirante la quita de SU vista.
+     Sin esta columna, un aspirante borrando a alguien de su base borraria a esa
+     persona tambien de la campaña madre — y esa fila no la registro el. */
+  await agregarColumnaSiFalta(connection, 'votante_ramas',
+    'excluido TINYINT(1) NOT NULL DEFAULT 0', 'excluido');
 
   /* La rama principal, DERIVADA y guardada. Se calcula subiendo por la cadena
      de mando hasta topar con un aspirante con sublicencia activa. Se guarda en

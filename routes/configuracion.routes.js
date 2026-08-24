@@ -244,6 +244,44 @@ router.get('/campana', async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_campana WHERE id = 1`);
     const cfg = rows[0] || {};
+
+    /* EL ASPIRANTE VE SU CAMPAÑA, NO LA DE LA MADRE.
+       Esta fila es de la campaña que lo aloja: candidato, lema, marca y CARGO.
+       Devolverla tal cual le decia que aspira a la Alcaldia.
+
+       El cargo no es cosmetico, y ahi estaba el daño de verdad. De el salen los
+       apoyos que ofrece el formulario, y MEDIDO el 24 de agosto de 2026:
+
+         alcaldia -> alcaldia, gobernacion, asamblea      (sin «concejo»)
+         concejo  -> concejo, alcaldia, asamblea, gobernacion
+
+       Con el cargo de la madre, el aspirante al Concejo NO PODIA MARCAR
+       «concejo» en su propio formulario. Y «alcaldia», que sigue estando en su
+       lista, es justo la casilla que comparte la ficha con la campaña madre:
+       las dos cosas que le hacen falta salen de este campo.
+
+       Lo territorial —municipio, comunas, veredas, fecha— se queda como esta:
+       es el mismo terreno y el mismo dia de eleccion. Cambiarlo seria inventar
+       una campaña distinta donde solo hay una. */
+    if (req.sublicencia) {
+      const [[persona]] = await pool.query('SELECT nombre FROM usuarios WHERE id = ?',
+        [req.sublicencia.usuario_id]);
+      cfg.cargo_aspira = req.sublicencia.cargo || cfg.cargo_aspira;
+      cfg.nombre_candidato = (persona && persona.nombre) || cfg.nombre_candidato;
+      cfg.slogan_campana = req.sublicencia.subtitulo || '';
+      cfg.marca_titulo = req.sublicencia.nombre || cfg.marca_titulo;
+      cfg.marca_subtitulo = req.sublicencia.subtitulo || '';
+      cfg.marca_logo_url = req.sublicencia.logo_url || null;
+      cfg.partido_politico = null;
+      cfg.direccion_sede = null;
+      cfg.telefono = null;
+      cfg.email = null;
+      cfg.es_sublicencia = true;
+      // Sus apoyos activos salen de SU cargo. Los de la madre no le sirven:
+      // son los tres de una campaña a la Alcaldia, y ninguno es «concejo».
+      cfg.apoyos_activos = apoyosPermitidos(req.sublicencia.cargo);
+    }
+
     // La regla de qué apoyos aplican vive en el servidor; el frontend solo
     // pinta lo que le llega. Así no hay dos copias que se puedan separar.
     cfg.apoyos_posibles = apoyosPermitidos(cfg.cargo_aspira);

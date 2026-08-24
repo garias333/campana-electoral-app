@@ -1707,12 +1707,22 @@ async function editarVotante(v) {
 }
 
 async function eliminarVotante(id) {
-  if (!confirm('¿Eliminar este contacto?')) return;
+  /* PARA UN ASPIRANTE ESTO NO BORRA: LO QUITA DE SU ESTRUCTURA.
+     La ficha es compartida —la registró un líder de la campaña madre y puede
+     estar en la rama de otro aspirante—, así que el servidor la conserva y sólo
+     deja de mostrársela a él. Decirle «no se puede deshacer» sería mentirle en
+     las dos mitades: ni se borra, ni es definitivo. */
+  const soyAspirante = !!(usuarioActual && usuarioActual.es_aspirante);
+  if (!confirm(soyAspirante
+      ? '¿Quitar a esta persona de su estructura?\n\nLa ficha NO se borra: sigue en la campaña principal. Sólo deja de aparecer en su base.'
+      : '¿Eliminar este contacto?')) return;
   // Su propia contraseña, no la del administrador: un líder puede borrar a su
   // gente, así que esto confirma que es él y no una sesión que quedó abierta.
   const password = await solicitarPasswordPropia(
-    'Confirme para eliminar',
-    'Eliminar un contacto no se puede deshacer. Escriba su propia contraseña para confirmar.');
+    soyAspirante ? 'Confirme para quitarlo' : 'Confirme para eliminar',
+    soyAspirante
+      ? 'Escriba su propia contraseña para confirmar. La ficha no se borra de la campaña principal.'
+      : 'Eliminar un contacto no se puede deshacer. Escriba su propia contraseña para confirmar.');
   if (!password) return;
   try {
     await api(`/votantes/${id}`, { method: 'DELETE', body: { password } });
@@ -2511,6 +2521,21 @@ function alternarMesasEstimadoPuesto(i) {
 (async () => {
   usuarioActual = await inicializarLayout('/votantes.html');
   if (!usuarioActual) return;
+
+  /* AL ASPIRANTE SE LE QUITAN LOS BOTONES QUE LE VAN A DECIR QUE NO.
+     Importar, las dos re-geocodificaciones y «Eliminar registros» son de
+     administrador y le responderían 403. No es que sobren en la pantalla: es
+     que quien los pulsa y ve un error no concluye «no tengo permiso», concluye
+     que la aplicación está rota. */
+  if (usuarioActual.es_aspirante) {
+    ['btn-regeocodificar-votantes', 'btn-regeocodificar-votantes-todos',
+     'btn-eliminar-votantes'].forEach((id) => {
+      const b = document.getElementById(id);
+      if (b) b.style.display = 'none';
+    });
+    const importar = document.getElementById('input-importar-votantes');
+    if (importar && importar.closest('label')) importar.closest('label').style.display = 'none';
+  }
 
   // UN SUBLÍDER NO CREA SUBLÍDERES. La cadena es coordinador → líder →
   // sublíder, y ahí se acaba: ofrecerle la casilla es ofrecerle un nivel que

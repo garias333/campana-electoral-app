@@ -7,6 +7,8 @@ const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
 const { aspiranteDe } = require('../lib/ramas');
+const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
+        filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria } = require('../config/auditoria');
 const { validarCedula } = require('../lib/validarCedula');
@@ -50,55 +52,6 @@ function revisarCedula(b) {
 
 router.use(requireAuth, calcularAlcance);
 
-/**
- * A qué votantes llega cada quien, según su cargo.
- *
- *   coordinador -> los suyos, los de SUS líderes, y los de los sublíderes que
- *                  cuelgan de esos líderes. Es su rama entera.
- *   los demás   -> solo los que registró en persona.
- *
- * SE ARMA EN SQL Y NO CON UNA CONSULTA PREVIA para que siga valiendo dentro
- * del `whereSql` compartido por el listado y el conteo: si el alcance saliera
- * de una consulta aparte, habría que acordarse de pasarlo a las dos, y ya se
- * rompió una vez por eso (el conteo y el listado compartiendo WHERE sin
- * compartir FROM).
- *
- * OJO CON LOS LÍDERES SIN SUPERVISOR: sus votantes no los ve ningún
- * coordinador, solo el administrador. No es un fallo de esta consulta sino un
- * dato que falta en Estructura territorial, y se arregla asignándoles su
- * coordinador. Medido el 16 de agosto de 2026: 4 líderes así en la campaña
- * municipal, 0 en la departamental.
- */
-function condicionAlcanceVotantes(alcance, alias) {
-  const col = (alias === undefined ? 'v.' : (alias ? alias + '.' : '')) + 'lider_id';
-  const pre = (alias === undefined ? 'v' : (alias ? alias : 'votantes'));
-  /* EL ASPIRANTE NO SE MIDE POR `lider_id`.
-     Su gente es la de su rama —calculada al guardar, en `rama_aspirante_id`—
-     más la que se sumó a mano (`votante_ramas`). Preguntar por quién tecleó la
-     ficha le devolvía cero. */
-  if (alcance.cargo === 'aspirante') {
-    return `(${pre}.rama_aspirante_id = ?
-             OR EXISTS (SELECT 1 FROM votante_ramas vr
-                         WHERE vr.votante_id = ${pre}.id AND vr.aspirante_id = ?))`;
-  }
-  if (alcance.cargo === 'coordinador') {
-    return `(${col} = ?
-             OR ${col} IN (SELECT el.usuario_id FROM estructura el
-                            WHERE el.activo = 1 AND el.supervisor_id = ?)
-             OR ${col} IN (SELECT es.usuario_id FROM estructura es
-                             JOIN estructura el2 ON el2.usuario_id = es.supervisor_id
-                            WHERE es.activo = 1 AND el2.activo = 1 AND el2.supervisor_id = ?))`;
-  }
-  return `${col} = ?`;
-}
-
-/** Los parámetros que consume la condición de arriba (1 o 3 veces el id). */
-function parametrosAlcanceVotantes(alcance) {
-  if (alcance.cargo === 'aspirante') return [alcance.usuarioId, alcance.usuarioId];
-  return alcance.cargo === 'coordinador'
-    ? [alcance.usuarioId, alcance.usuarioId, alcance.usuarioId]
-    : [alcance.usuarioId];
-}
 
 /**
  * Para la importación masiva por Excel: si el teléfono de la fila no
@@ -400,7 +353,7 @@ router.get('/resumen', async (req, res) => {
  */
 router.get('/estimados-por-puesto', async (req, res) => {
   try {
-    const resultado = await calcularEstimadoPorPuesto(pool);
+    const resultado = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
     res.json(resultado);
   } catch (err) {
     console.error(err);
@@ -1483,6 +1436,29 @@ router.delete('/:id', async (req, res) => {
     return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
   }
   try {
+    /* UN ASPIRANTE NO BORRA LA FICHA: LA QUITA DE SU VISTA.
+       Esa persona casi nunca es suya en exclusiva — la registro un lider de la
+       campaña madre, y puede estar tambien en la rama de otro aspirante. Un
+       `DELETE` aqui se la borraria a todos, y ni la madre ni el otro aspirante
+       verian jamas quien lo hizo ni por que les falta gente.
+
+       Se marca `excluido` en su propia rama. La ficha sigue entera, el deja de
+       verla, y se puede deshacer con un UPDATE — que es lo que hay que poder
+       hacer cuando alguien se equivoca de fila. */
+    if (req.sublicencia) {
+      const [[visible]] = await pool.query(
+        `SELECT 1 AS ok FROM votantes v WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')} LIMIT 1`,
+        [req.params.id, ...parametrosAlcanceVotantes(req.alcance)]);
+      if (!visible) return res.status(404).json({ error: 'No encontrado.' });
+      await pool.query(
+        `INSERT INTO votante_ramas (votante_id, aspirante_id, registrado_por, excluido)
+         VALUES (?, ?, ?, 1)
+         ON DUPLICATE KEY UPDATE excluido = 1`,
+        [req.params.id, req.sublicencia.usuario_id, req.session.usuario.id]);
+      return res.json({ ok: true, quitadoDeMiRama: true,
+        mensaje: 'Se quitó de su estructura. La ficha no se borró: sigue en la campaña principal.' });
+    }
+
     const params = [req.params.id];
     let query = `DELETE FROM votantes WHERE id = ?`;
     // Igual que GET/PUT: fuera de admin/coordinador, solo se puede borrar

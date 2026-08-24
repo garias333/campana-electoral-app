@@ -146,6 +146,7 @@ router.get('/mios', async (req, res) => {
       permisos[f.modulo] = { ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar };
     });
     let modulos = filas.filter(f => f.permitido).map(f => f.modulo);
+    let hrefs = null;   // sólo el aspirante recorta entrada por entrada
 
       /* EL ASPIRANTE VE SUS CUATRO MÓDULOS, Y NO SE INTERSECAN CON SU ROL.
          La versión anterior los cruzaba con la matriz del rol, razonando que
@@ -172,17 +173,20 @@ router.get('/mios', async (req, res) => {
          acciones destructivas de esos módulos siguen cerradas con
          `requireRole('admin')`, que él no cumple. */
     if (req.sublicencia) {
-      const { MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE } = require('../middleware/aspirante');
+      const { MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE,
+              HREFS_ASPIRANTE } = require('../middleware/aspirante');
       modulos = MODULOS_ASPIRANTE.slice();
       Object.keys(permisos).forEach(k => { delete permisos[k]; });
       MODULOS_ASPIRANTE.forEach((m) => { permisos[m] = { ...PERMISOS_ASPIRANTE[m] }; });
+      hrefs = HREFS_ASPIRANTE.slice();
     }
 
     res.json({
       // Se mantiene "modulos" (lista simple de módulos visibles) por
       // compatibilidad con lo que ya usa common.js para armar el menú.
       modulos,
-      permisos
+      permisos,
+      hrefs
     });
   } catch (err) {
     console.error(err);

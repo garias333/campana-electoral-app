@@ -45,7 +45,7 @@ async function consultarPuestosConMunicipio(pool) {
   }
 }
 
-async function calcularEstimadoPorPuesto(pool) {
+async function calcularEstimadoPorPuesto(pool, filtro) {
   const puestos = await consultarPuestosConMunicipio(pool);
   // Se agrupa por `puesto_id` cuando el votante lo tiene, y por el texto
   // cuando no. Ese id lo mantiene al día un disparador desde el propio
@@ -55,11 +55,22 @@ async function calcularEstimadoPorPuesto(pool) {
   //
   // Los de id nulo no desaparecen: caen en "puestos no configurados", que
   // es exactamente lo que son desde el punto de vista de la cobertura.
+  /* EL ESTIMADO SE ACOTA A QUIEN PREGUNTA.
+     Esta consulta contaba SIEMPRE la campaña entera. Se descubrio el 24 de
+     agosto de 2026 mirando la pantalla de un aspirante: su pestaña de votantes
+     decia 7 y esta decia 88 — los 88 de la campaña madre. No era solo cosa
+     suya: cualquier lider veia aqui el estimado completo, con nombres de puesto
+     y mesa, aunque su listado solo le mostrara los que el registro.
+
+     El filtro llega hecho desde la ruta, que es la que sabe quien pregunta. Sin
+     filtro (administrador) la consulta queda igual que siempre. */
   const [conteos] = await pool.query(
     `SELECT puesto_id, puesto_votacion, mesa_votacion, COUNT(*) AS total
-     FROM votantes
+     FROM votantes v
      WHERE puesto_votacion IS NOT NULL AND TRIM(puesto_votacion) != ''
-     GROUP BY puesto_id, puesto_votacion, mesa_votacion`
+     ${filtro && filtro.sql ? 'AND ' + filtro.sql : ''}
+     GROUP BY puesto_id, puesto_votacion, mesa_votacion`,
+    filtro && filtro.valores ? filtro.valores : []
   );
 
   // Dos índices: uno por id (el bueno) y otro por texto (el respaldo para

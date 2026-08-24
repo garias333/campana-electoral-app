@@ -50,6 +50,29 @@ const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'votantes', 'testigos
  * —rol «lider»— no cumple. Los dos dicen lo mismo a propósito: un botón que se
  * ofrece y luego falla con un 403 es peor que no ofrecerlo.
  */
+/**
+ * Las entradas de menú, una por una — porque «configuracion» son SEIS.
+ *
+ * El módulo `configuracion` no es una pantalla: cuelgan de él Datos de la
+ * campaña, Usuarios, Asignación de permisos, Eliminar información, Backup y
+ * Puestos de votación. Dándole el módulo entero, al aspirante se le ofrecían
+ * «Backup» y «Eliminar información» DE LA CAMPAÑA MADRE.
+ *
+ * Las rutas de esas pantallas son de admin y le habrían respondido 403, así que
+ * no había peligro de que las usara — pero ofrecer un botón que luego falla es
+ * el error que ya se cometió con el de importar: la persona no concluye «no
+ * tengo permiso», concluye «esto está roto».
+ *
+ * La lista va aquí y no en el navegador para que sea la misma que decide los
+ * módulos. Dos listas en dos sitios se separan; ésta no puede.
+ */
+const HREFS_ASPIRANTE = [
+  '/territorial.html',
+  '/votantes.html',
+  '/testigos.html',
+  '/configuracion.html#campana',
+];
+
 const PERMISOS_ASPIRANTE = {
   configuracion: { ver: true, editar: false, agregar: false },
   territorial:   { ver: true, editar: false, agregar: false },
@@ -111,5 +134,5 @@ function restringirAspirante(req, res, next) {
 
 module.exports = {
   cargarSublicencia, restringirAspirante,
-  MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE, PERMITIDOS,
+  MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE, HREFS_ASPIRANTE, PERMITIDOS,
 };
