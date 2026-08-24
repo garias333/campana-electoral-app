@@ -21,3 +21,8 @@
 
 ## Candidatos para CLAUDE.md
 -
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-08-24 13:48 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 3c29558 Un superadministrador único, invisible y protegido por la base | Sin commitear: 0 archivo(s)
