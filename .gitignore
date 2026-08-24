@@ -45,3 +45,8 @@ backups/
 # Copias que dejan editores y herramientas al reescribir un archivo. La regla
 # `*.bak-*` de arriba no coge `settings.json.bak.1787067065`, que lleva punto.
 *.bak.*
+
+# Respaldos que se dejan antes de tocar un archivo, con el nombre de lo que se
+# iba a cambiar: `configurar-crm.html.antes-logos-2026-08-24`. Son utiles en el
+# disco y no tienen nada que hacer en el repositorio — para eso esta git.
+*.antes-*

@@ -77,30 +77,74 @@
 .msj-chip-aviso::before { background: var(--color-probable); }
 
 /* Panel de cada canal. */
+/* ------------------------------------------------------------------
+   CADA PROVEEDOR SE DISTINGUE POR SU COLOR Y SU LOGO
+
+   Los tres paneles eran iguales salvo por un glifo, y con tres bloques de
+   campos casi idénticos había que leer el título para saber en cuál se estaba.
+   Ahora cada uno lleva un filete de color a la izquierda y la cabecera teñida
+   de ese mismo color al 6 %: se distinguen de un vistazo, sin leer.
+
+   LOS COLORES NO SON DE MEMORIA: salen de muestrear los propios logotipos.
+   Twilio #F22F46 (25.872 px de su icono), Onurix #2484C3 y #F2C500. El de
+   SendGrid es el azul del sistema, no el suyo, y hay una razón — abajo.
+   ------------------------------------------------------------------ */
 .msj-panel {
   border: 1px solid var(--color-border);
+  border-left: 4px solid var(--msj-color, var(--color-border));
   border-radius: 12px;
-  padding: 18px 18px 6px;
   margin-bottom: 18px;
+  padding-bottom: 12px;
   background: var(--color-surface);
+  overflow: hidden;
 }
+.msj-panel > .fila,
+.msj-panel > .campo,
+.msj-panel > .msj-nota,
+.msj-panel > p,
+.msj-panel > div:not(.msj-panel-cabeza) { margin-left: 18px; margin-right: 18px; }
 .msj-panel-secundario { background: #FAFBFC; }
 .msj-panel-cabeza {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: center; gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  /* color-mix da la tinta suave a partir del MISMO color del filete, en vez de
+     obligar a definir un segundo valor por proveedor que alguien tendría que
+     acordarse de cambiar en paralelo. */
+  /* El plano va primero como red: si el navegador no entiende color-mix, se
+     queda con un gris suave en vez de con nada. */
+  background: #F7F8FA;
+  background: color-mix(in srgb, var(--msj-color, #888) 6%, transparent);
+  border-bottom: 1px solid var(--color-border);
 }
 /* El icono no se encoge ni se estira: `flex: 0 0 auto` y medidas fijas. Una
    versión anterior de otra pantalla se deformó por dejar que el botón
    creciera dentro de un flex. */
 .msj-icono {
-  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px;
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 11px;
   display: inline-flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 1.2rem;
+  background: #fff; border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(16,35,63,.08);
+  overflow: hidden;
 }
-.msj-icono-email { background: var(--color-marca); }
-.msj-icono-sms { background: var(--color-navy); }
-.msj-icono-respaldo { background: var(--color-desconocido); }
+/* `contain` y no `cover`: el de Twilio es un cuadro rojo a sangre y el de
+   Onurix tiene fondo transparente. Recortando, uno de los dos perdería parte
+   de la marca. */
+.msj-icono img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 5px; }
+.msj-icono svg { width: 26px; height: 26px; display: block; }
+
+.msj-panel-email    { --msj-color: var(--color-marca); }
+.msj-panel-onurix   { --msj-color: #2484C3; }
+.msj-panel-twilio   { --msj-color: #F22F46; }
+
+/* En la sección de pruebas no caben logotipos: son dos cajas pequeñas dentro
+   de otra tarjeta. Un punto del color del proveedor basta para atarlas a su
+   panel de arriba sin repetir la marca a tamaño ilegible. */
+.msj-punto {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--msj-color); margin-right: 7px; vertical-align: baseline;
+}
 .msj-panel-titulo { flex: 1 1 220px; min-width: 0; }
 .msj-panel-titulo h4 { margin: 0 0 3px; font-size: 1.18rem; color: var(--color-navy); }
 .msj-panel-titulo p { margin: 0; font-size: 0.98rem; color: var(--color-text-muted); line-height: 1.45; }
@@ -188,9 +232,21 @@
       <div id="comunicaciones-error" class="mensaje-error"></div>
       <div id="comunicaciones-ok" class="mensaje-ok"></div>
       <form id="form-comunicaciones">
-        <div class="msj-panel">
+        <div class="msj-panel msj-panel-email">
           <div class="msj-panel-cabeza">
-            <span class="msj-icono msj-icono-email">✉</span>
+            <!-- SENDGRID NO TIENE LOGO PROPIO QUE PONER, y no es un descuido:
+                 sendgrid.com redirige a Twilio y sirve SU icono — comprobado,
+                 el mismo archivo byte por byte. Poner el de Twilio aquí haría
+                 que este panel y el de respaldo se vieran idénticos, que es lo
+                 contrario de lo que se busca. Así que va un sobre en el azul
+                 del sistema: se distingue, y no finge ser una marca ajena. -->
+            <span class="msj-icono">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-marca)" stroke-width="1.8"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
+                <path d="M3 7l9 6 9-6"></path>
+              </svg>
+            </span>
             <div class="msj-panel-titulo">
               <h4>Correo · SendGrid</h4>
               <p>Alimenta CRM y Mensajes, y la pantalla de Enviar E-mail.</p>
@@ -213,9 +269,11 @@
           </div>
         </div>
 
-        <div class="msj-panel">
+        <div class="msj-panel msj-panel-onurix">
           <div class="msj-panel-cabeza">
-            <span class="msj-icono msj-icono-sms">✆</span>
+            <span class="msj-icono">
+              <img src="/img/logo-onurix.png" alt="Onurix" width="46" height="46">
+            </span>
             <div class="msj-panel-titulo">
               <h4>SMS · Onurix</h4>
               <p id="onurix-cual">Esta campaña usa la cuenta del proveedor del servicio.</p>
@@ -257,9 +315,11 @@
           </div>
         </div>
 
-        <div class="msj-panel msj-panel-secundario">
+        <div class="msj-panel msj-panel-secundario msj-panel-twilio">
           <div class="msj-panel-cabeza">
-            <span class="msj-icono msj-icono-respaldo">↺</span>
+            <span class="msj-icono">
+              <img src="/img/logo-twilio.png" alt="Twilio" width="46" height="46">
+            </span>
             <div class="msj-panel-titulo">
               <h4>Respaldo de SMS · Twilio</h4>
               <p>Solo entra si el envío por Onurix falla, y únicamente cuando el respaldo está
@@ -332,7 +392,7 @@
       <div id="prueba-ok" class="mensaje-ok"></div>
       <div class="msj-prueba-grid">
         <div class="msj-prueba">
-          <h5><span class="msj-icono msj-icono-email" style="width:26px;height:26px;font-size:0.8rem;">✉</span> Correo</h5>
+          <h5><span class="msj-punto" style="--msj-color: var(--color-marca);"></span> Correo</h5>
           <div class="campo">
             <label>Correo de prueba</label>
             <input id="prueba-email-destino" type="email" placeholder="tucorreo@dominio.com">
@@ -340,7 +400,7 @@
           <button type="button" class="btn-secundario" id="btn-probar-email">Enviar correo de prueba</button>
         </div>
         <div class="msj-prueba">
-          <h5><span class="msj-icono msj-icono-sms" style="width:26px;height:26px;font-size:0.8rem;">✆</span> SMS</h5>
+          <h5><span class="msj-punto" style="--msj-color: #2484C3;"></span> SMS</h5>
           <div class="campo">
             <label>Teléfono móvil de prueba</label>
             <input id="prueba-sms-destino" type="tel" inputmode="tel" placeholder="+573000000000">
