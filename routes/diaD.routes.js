@@ -690,7 +690,12 @@ router.post('/reportes/eliminar-todo', requireRole('admin'), async (req, res) =>
 // nombre del puesto — por eso importa mantener los nombres consistentes
 // (de ahí que el testigo elija el puesto de una lista desplegable en vez
 // de escribirlo a mano).
-router.get('/config/puestos-votacion', requireRole('admin', 'coordinador'), async (req, res) => {
+/* EL ASPIRANTE LEE LOS PUESTOS, PERO NO LOS TOCA.
+   Los necesita para decir dónde va cada testigo suyo, y no son un dato de la
+   campaña madre: son los puestos del municipio, sembrados desde el catálogo.
+   Las rutas que CREAN, EDITAN o BORRAN puestos siguen siendo sólo de admin —
+   ahí sí estaría modificando la configuración de la campaña que lo aloja. */
+router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
     // La lista se recorta al ámbito declarado en Configuración → Datos de
     // la campaña: solo Departamento, o Departamento + Ciudad si también se

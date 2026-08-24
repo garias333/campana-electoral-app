@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { subarbolSql } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
@@ -799,13 +800,21 @@ function normalizarTelefonoImportado(valor) {
 // La sincronización hacia/desde Votantes y sublíderes vive en
 // config/sincronizacionVotantesEstructura.js (compartida con votantes.routes.js).
 
-router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   const {
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
     territorio_id, area, supervisor_id, meta_votos, direccion, cliente_uuid, tipo_testigo, mesas_asignadas
   } = req.body;
+
+  /* LO QUE CREA UN ASPIRANTE CUELGA DE ÉL, DIGA LO QUE DIGA EL FORMULARIO.
+     `supervisor_id` viene del navegador, así que un aspirante podría colgar a
+     su testigo de cualquiera de la campaña madre — y con eso metería gente en
+     una rama ajena, o se llevaría la suya a otra. Se ignora y se pone él.
+
+     No es una limitación: es lo que significa «sus testigos». */
+  const supervisorFinal = req.sublicencia ? req.sublicencia.usuario_id : (supervisor_id || null);
   // El Área se GUARDA, no se deduce. Deducirla del tipo de territorio deja
   // la columna vacía en cuanto la persona cuelga del municipio, que es lo
   // normal en una campaña sin comunas ni barrios. Se acota a los dos valores
@@ -947,7 +956,7 @@ router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res)
       [resultUsuario.insertId, territorio_id || null, areaFinal, cargo, tipoTestigoFinal,
        (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
        esOrganizacion ? 'organizacion' : 'territorio',
-       esOrganizacion ? organizacion.trim() : null, supervisor_id || null, meta_votos || 0, meta_votos || 0, direccion || null,
+       esOrganizacion ? organizacion.trim() : null, supervisorFinal, meta_votos || 0, meta_votos || 0, direccion || null,
        cliente_uuid || null]
     );
     estructuraId = resultEstructura.insertId;
@@ -990,8 +999,8 @@ router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res)
   // ella misma es un Coordinador Organizaciones, su propio total efectivo
   // se calcula a partir del piso que se acaba de escribir.
   await recalcularMetaVotosCoordinadorOrganizaciones(pool, usuarioId);
-  if (TIPOS_GREMIALES.includes(tipo_cargo) && supervisor_id) {
-    await recalcularMetaVotosCoordinadorOrganizaciones(pool, supervisor_id);
+  if (TIPOS_GREMIALES.includes(tipo_cargo) && supervisorFinal) {
+    await recalcularMetaVotosCoordinadorOrganizaciones(pool, supervisorFinal);
   }
   // "Lleva también los datos a Votante" — se sincroniza después de
   // confirmar la transacción, y nunca hace fallar la creación de la
@@ -1005,13 +1014,31 @@ router.post('/estructura', requireRole('admin', 'coordinador'), async (req, res)
   res.json({ ok: true, estructura_id: estructuraId, password_temporal: passwordTemporal, geocodificado: geo.geocodificado });
 });
 
-router.put('/estructura/:id', requireRole('admin', 'coordinador'), async (req, res) => {
+router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   const {
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
     territorio_id, area, supervisor_id, meta_votos, activo, direccion, tipo_testigo, mesas_asignadas
   } = req.body;
+
+  /* UN ASPIRANTE SÓLO EDITA DENTRO DE SU RAMA.
+     La guarda de arriba deja entrar; esto decide sobre QUÉ. Sin la comprobación
+     tendría el formulario de edición de cualquier persona de la campaña madre
+     con sólo cambiar el número de la dirección — y esa es la mitad de la fuga
+     que no se ve en pantalla, porque el menú no la ofrece.
+
+     Se responde 403 y no 404: no hay nada que esconder, esa persona existe;
+     lo que no es suya es la ficha. */
+  if (req.sublicencia) {
+    const dentro = subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id');
+    const [[suya]] = await pool.query(
+      `SELECT 1 AS ok FROM estructura e WHERE e.id = ? AND ${dentro.sql} LIMIT 1`,
+      [req.params.id, ...dentro.valores]);
+    if (!suya) {
+      return res.status(403).json({ error: 'Esa persona no pertenece a su estructura.' });
+    }
+  }
   const areaFinal = ['urbano', 'rural'].includes(area) ? area : null;
   const esOrganizacion = tipo_area_influencia === 'organizacion';
   const esCoordinadorOrganizaciones = cargo === 'coordinador_organizaciones';
@@ -2081,8 +2108,15 @@ router.get('/mapa-personas', requireRole('admin', 'coordinador'), async (req, re
 // vez de compartir las de Estructura territorial (pensadas para Coordinador/
 // Líder/Sublíder, con columnas que no aplican acá).
 
-router.get('/testigos', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/testigos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
+    /* EL ASPIRANTE VE LOS SUYOS, NO LA NÓMINA DE LA MADRE.
+       Esta consulta devolvía TODOS los testigos de la campaña — le bastaba a
+       admin y coordinador. Dejar entrar al aspirante sin este filtro le habría
+       entregado la lista completa de testigos de la alcaldía con cédula y
+       teléfono, que es exactamente lo que la sublicencia existe para separar. */
+    const acota = req.sublicencia
+      ? subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id') : null;
     const [rows] = await pool.query(`
       SELECT e.id, e.tipo_testigo, e.mesas_asignadas, u.nombre, u.numero_identificacion, u.telefono, u.email,
              COALESCE(e.departamento_votacion, u.departamento_votacion) AS departamento_votacion,
@@ -2093,8 +2127,9 @@ router.get('/testigos', requireRole('admin', 'coordinador'), async (req, res) =>
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'testigo'
+      ${acota ? 'AND ' + acota.sql : ''}
       ORDER BY u.nombre
-    `);
+    `, acota ? acota.valores : []);
     res.json(rows);
   } catch (err) {
     console.error(err);

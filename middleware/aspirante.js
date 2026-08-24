@@ -39,6 +39,25 @@ const PERMITIDOS = [
 const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'votantes', 'testigos'];
 
 /**
+ * Qué puede HACER en cada uno de sus cuatro módulos.
+ *
+ * Los dos que son suyos —su gente y sus testigos— van completos. Los otros dos
+ * van de sólo lectura: los datos de la campaña y el árbol territorial son de la
+ * madre, y él los consulta.
+ *
+ * Esto gobierna qué BOTONES se dibujan. Lo que de verdad impide escribir son
+ * los `requireRole('admin', …)` que ya llevan esas rutas, y que un aspirante
+ * —rol «lider»— no cumple. Los dos dicen lo mismo a propósito: un botón que se
+ * ofrece y luego falla con un 403 es peor que no ofrecerlo.
+ */
+const PERMISOS_ASPIRANTE = {
+  configuracion: { ver: true, editar: false, agregar: false },
+  territorial:   { ver: true, editar: false, agregar: false },
+  votantes:      { ver: true, editar: true,  agregar: true },
+  testigos:      { ver: true, editar: true,  agregar: true },
+};
+
+/**
  * Deja en `req.sublicencia` la sublicencia activa del usuario, o null.
  *
  * Se consulta en cada petición y no se guarda en la sesión a propósito: si se
@@ -90,4 +109,7 @@ function restringirAspirante(req, res, next) {
   });
 }
 
-module.exports = { cargarSublicencia, restringirAspirante, MODULOS_ASPIRANTE, PERMITIDOS };
+module.exports = {
+  cargarSublicencia, restringirAspirante,
+  MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE, PERMITIDOS,
+};

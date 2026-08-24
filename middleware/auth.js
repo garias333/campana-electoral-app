@@ -75,7 +75,16 @@ function requireRole(...rolesPermitidos) {
     if (!usuario) {
       return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
     }
-    if (!rolesPermitidos.includes(usuario.rol)) {
+    /* 'aspirante' NO ES UN ROL DE LA TABLA: es el sombrero de una sublicencia.
+       Se escribe en la lista de la ruta, igual que los demás, para que leyendo
+       la línea se sepa si un aspirante llega ahí — en vez de tener que buscarlo
+       en otro archivo. Su rol real sigue siendo 'lider'.
+
+       Ponerlo en la guarda ABRE LA PUERTA, no acota los datos. La ruta que lo
+       admita tiene que filtrar por su rama; sin eso, un aspirante vería la
+       campaña entera. Va comprobado en cada una de las que lo llevan. */
+    const esAspirante = rolesPermitidos.includes('aspirante') && !!req.sublicencia;
+    if (!esAspirante && !rolesPermitidos.includes(usuario.rol)) {
       return res.status(403).json({ error: 'No tiene permisos para realizar esta acción.' });
     }
     next();
@@ -90,6 +99,24 @@ function requireRole(...rolesPermitidos) {
  */
 function calcularAlcance(req, res, next) {
   const usuario = req.session.usuario;
+
+  /* EL ASPIRANTE VE SU RAMA, NO LO QUE REGISTRÓ EN PERSONA.
+     Su rol es 'lider', y el alcance de un líder es «los votantes cuyo
+     `lider_id` soy yo». Para un aspirante eso da casi siempre CERO: las
+     personas de su estructura las tecleó quien las captó, normalmente un
+     coordinador de la campaña madre. Medido en la municipal el 24 de agosto de
+     2026, Camilo tiene cinco personas colgando de él y ni una sola ficha con
+     su `lider_id` — su pantalla decía «0 registros» teniendo gente.
+
+     Se resuelve aquí, en el alcance, y no en cada consulta: las cinco
+     consultas de votantes ya comparten esta pieza, y una sexta que se escriba
+     mañana la hereda sin que nadie tenga que acordarse. */
+  if (req.sublicencia) {
+    req.alcance = { usuarioId: req.sublicencia.usuario_id, cargo: 'aspirante',
+                    territorioId: usuario.territorio_id };
+    return next();
+  }
+
   if (usuario.rol === 'admin') {
     req.alcance = null; // sin restricción
   } else {

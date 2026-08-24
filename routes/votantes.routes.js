@@ -71,6 +71,16 @@ router.use(requireAuth, calcularAlcance);
  */
 function condicionAlcanceVotantes(alcance, alias) {
   const col = (alias === undefined ? 'v.' : (alias ? alias + '.' : '')) + 'lider_id';
+  const pre = (alias === undefined ? 'v' : (alias ? alias : 'votantes'));
+  /* EL ASPIRANTE NO SE MIDE POR `lider_id`.
+     Su gente es la de su rama —calculada al guardar, en `rama_aspirante_id`—
+     más la que se sumó a mano (`votante_ramas`). Preguntar por quién tecleó la
+     ficha le devolvía cero. */
+  if (alcance.cargo === 'aspirante') {
+    return `(${pre}.rama_aspirante_id = ?
+             OR EXISTS (SELECT 1 FROM votante_ramas vr
+                         WHERE vr.votante_id = ${pre}.id AND vr.aspirante_id = ?))`;
+  }
   if (alcance.cargo === 'coordinador') {
     return `(${col} = ?
              OR ${col} IN (SELECT el.usuario_id FROM estructura el
@@ -84,6 +94,7 @@ function condicionAlcanceVotantes(alcance, alias) {
 
 /** Los parámetros que consume la condición de arriba (1 o 3 veces el id). */
 function parametrosAlcanceVotantes(alcance) {
+  if (alcance.cargo === 'aspirante') return [alcance.usuarioId, alcance.usuarioId];
   return alcance.cargo === 'coordinador'
     ? [alcance.usuarioId, alcance.usuarioId, alcance.usuarioId]
     : [alcance.usuarioId];

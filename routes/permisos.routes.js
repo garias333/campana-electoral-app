@@ -147,19 +147,35 @@ router.get('/mios', async (req, res) => {
     });
     let modulos = filas.filter(f => f.permitido).map(f => f.modulo);
 
-      /* EL ASPIRANTE VE CUATRO MÓDULOS, Y SE INTERSECA — NO SE REEMPLAZA.
-         Si la matriz ya le niega uno de los cuatro a su rol, la sublicencia no
-         se lo devuelve: restringir sólo puede quitar. Al revés, una sublicencia
-         sería una puerta trasera para saltarse la matriz.
+      /* EL ASPIRANTE VE SUS CUATRO MÓDULOS, Y NO SE INTERSECAN CON SU ROL.
+         La versión anterior los cruzaba con la matriz del rol, razonando que
+         «restringir sólo puede quitar». Suena prudente y estaba mal: MEDIDO el
+         24 de agosto de 2026, de los cuatro módulos del aspirante la matriz le
+         da al rol «lider» exactamente uno —
 
-         Esto recorta el MENÚ. Lo que de verdad impide llegar a lo demás es
-         middleware/aspirante.js, porque ninguna ruta consulta esta matriz. */
+           votantes ....... permitido 1
+           configuracion .. permitido 0
+           territorial .... permitido 0
+           testigos ....... permitido 0
+
+         — así que el aspirante entraba y veía UNA entrada de menú. Es lo que
+         se vio en pantalla: «Votantes y sublíderes» y nada más.
+
+         El error de fondo era tratar la sublicencia como un recorte del rol.
+         No lo es. Ese usuario tiene rol «lider» porque así figura en la
+         estructura de la campaña madre; lo que compró es otra cosa, y son
+         cuatro pantallas sobre SU rama.
+
+         Sigue sin ser una puerta trasera, y por dos razones que se pueden
+         comprobar: la lista es fija —estas cuatro, no las que él pida— y
+         `middleware/aspirante.js` corta todo lo demás en el servidor. Las
+         acciones destructivas de esos módulos siguen cerradas con
+         `requireRole('admin')`, que él no cumple. */
     if (req.sublicencia) {
-      const { MODULOS_ASPIRANTE } = require('../middleware/aspirante');
-      modulos = modulos.filter(m => MODULOS_ASPIRANTE.includes(m));
-      Object.keys(permisos).forEach(k => {
-        if (!MODULOS_ASPIRANTE.includes(k)) delete permisos[k];
-      });
+      const { MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE } = require('../middleware/aspirante');
+      modulos = MODULOS_ASPIRANTE.slice();
+      Object.keys(permisos).forEach(k => { delete permisos[k]; });
+      MODULOS_ASPIRANTE.forEach((m) => { permisos[m] = { ...PERMISOS_ASPIRANTE[m] }; });
     }
 
     res.json({
