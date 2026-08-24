@@ -1668,6 +1668,112 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'usuarios',
     "superadmin_unico TINYINT(1) GENERATED ALWAYS AS (IF(es_superadmin = 1, 1, NULL)) VIRTUAL AFTER es_superadmin",
     'superadmin_unico');
+  /* -------------------------------------------------------------------
+     SUBLICENCIAS PARA ASPIRANTES A OTROS CARGOS
+
+     Un aspirante al Concejo que trabaja dentro de la estructura de una
+     campaña a la Alcaldía puede tener su propia vista: su rama, sus votantes,
+     sus testigos. El dato NO se duplica — la persona sigue existiendo una sola
+     vez y quién la ve es una consulta.
+
+     ESTE PASO NO CAMBIA NADA TODAVÍA. Crea las tablas y la columna derivada, y
+     las llena. Ninguna ruta las consulta aún: se puede aplicar, medir y volver
+     atrás sin que nadie note una diferencia.
+     ------------------------------------------------------------------- */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS sublicencias (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL COMMENT 'El aspirante, que ya es lider o coordinador de la madre',
+      cargo VARCHAR(30) NOT NULL COMMENT 'concejo | jal | asamblea ...',
+      nombre VARCHAR(150) NULL COMMENT 'Como se llama SU campana, para su propia marca',
+      activa TINYINT(1) NOT NULL DEFAULT 1,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      -- Una persona no puede aspirar a dos cosas a la vez dentro de la misma
+      -- campana: si lo hiciera, un votante suyo tendria dos ramas principales y
+      -- el reparto dejaria de ser una funcion.
+      UNIQUE KEY uq_sublicencia_usuario (usuario_id),
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  /* Las pertenencias ADICIONALES: el votante que apoya a dos aspirantes. La
+     principal —quien lo registro primero— sigue en votantes.lider_id, que es lo
+     que ve la campana madre y por eso no se toca. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS votante_ramas (
+      votante_id INT NOT NULL,
+      aspirante_id INT NOT NULL,
+      registrado_por INT NULL COMMENT 'Quien lo sumo a ESTA rama',
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (votante_id, aspirante_id),
+      KEY idx_vr_aspirante (aspirante_id),
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
+      FOREIGN KEY (aspirante_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  /* La rama principal, DERIVADA y guardada. Se calcula subiendo por la cadena
+     de mando hasta topar con un aspirante con sublicencia activa. Se guarda en
+     vez de recorrerla en cada consulta porque la tabla de votantes se lista
+     entera muchas veces al dia, y una CTE recursiva por fila es un precio que
+     no hay que pagar. Se recalcula con scripts/recalcular-ramas.js */
+  await agregarColumnaSiFalta(connection, 'votantes',
+    `rama_aspirante_id INT NULL COMMENT 'Derivado: aspirante del que cuelga. Ver lib/ramas.js' AFTER sublider_id`,
+    'rama_aspirante_id');
+  try {
+    await connection.query(`ALTER TABLE votantes ADD INDEX idx_votantes_rama (rama_aspirante_id)`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+  }
+  /* -------------------------------------------------------------------
+     LA VALORACION, POR RAMA
+
+     Una persona puede estar CONFIRMADA con el concejal e INDECISA con el
+     alcalde. Con un solo `intencion_voto`, uno de los dos tableros miente.
+
+     PERO NO SE PARTE LA FICHA ENTERA, Y LA DISTINCION IMPORTA:
+
+       identidad ....... cedula, nombre, telefono, direccion, puesto.
+                         Es la misma persona para todos. Si el concejal
+                         corrige el telefono, el alcalde debe verlo corregido.
+
+       apoya_a ......... a quien apoya ELLA. Es un hecho suyo, declarado, no
+                         la opinion de nadie: dos aspirantes no pueden estar
+                         en desacuerdo sobre si apoya al alcalde. Se queda
+                         compartido — y de paso, el filtro de la madre lo
+                         sigue leyendo donde siempre.
+
+       valoracion ...... intencion_voto y observaciones. Eso SI es lo que
+                         cada campaña piensa, y va por rama.
+
+     LAS COLUMNAS DE `votantes` NO SE MUEVEN. Pasan a significar «la
+     valoracion de la campaña madre», que es exactamente lo que ya son. Por eso
+     este paso no toca ninguno de los once sitios que hoy las leen: la madre
+     sigue viendo lo suyo sin enterarse de que existe esta tabla.
+
+     Los campos van NULL a proposito: una sublicencia recien activada hereda la
+     valoracion de la madre en vez de estrenar a todo el mundo en
+     «desconocido», y diverge en cuanto alguien la cambie.
+     ------------------------------------------------------------------- */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS votante_opinion (
+      votante_id INT NOT NULL,
+      aspirante_id INT NOT NULL,
+      intencion_voto ENUM('confirmado','probable','indeciso','no_apoya','desconocido') NULL
+        COMMENT 'NULL = todavia no opina; se ve la de la madre',
+      observaciones TEXT NULL,
+      actualizado_por INT NULL,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (votante_id, aspirante_id),
+      KEY idx_vo_aspirante (aspirante_id),
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
+      FOREIGN KEY (aspirante_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  console.log('Sublicencias: tablas, columna derivada e indice listos.');
+
   try {
     await connection.query(
       `ALTER TABLE usuarios ADD UNIQUE INDEX uq_superadmin_unico (superadmin_unico)`);
