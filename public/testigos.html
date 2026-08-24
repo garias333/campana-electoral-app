@@ -507,7 +507,8 @@ document.getElementById('input-importar-testigos').addEventListener('change', as
   sincronizarColaOfflineEstructura();
   window.addEventListener('online', () => sincronizarColaOfflineEstructura());
 
-  esAdmin = usuarioActual.rol === 'admin';
+  // «Eliminar todos» borraria los testigos de la campaña entera, no los suyos.
+  esAdmin = usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante;
   document.getElementById('btn-eliminar-todos-testigos').style.display = esAdmin ? 'inline-flex' : 'none';
   aplicarFormatoTelefono('#form-testigo [name="telefono"]');
   aplicarFormatoNombrePropio('#form-testigo [name="nombre"]');

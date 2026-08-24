@@ -430,7 +430,10 @@ router.post('/regeocodificar-pendientes', requireRole('admin'), async (req, res)
 // area, zona_id, categoria) — si no llega ninguno, exporta la base
 // completa (comportamiento de siempre); si llegan, exporta solo lo que
 // coincide con el filtro que la persona tenía aplicado en pantalla.
-router.get('/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
+/* El aspirante exporta LO SUYO. La consulta de abajo ya aplica `req.alcance`,
+   que para el es su rama: son los mismos siete que ve en pantalla, no los 88 de
+   la campaña madre. Comprobado antes de abrirla. */
+router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
     const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar } = req.query;
     const condiciones = [];

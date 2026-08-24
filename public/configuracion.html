@@ -2045,6 +2045,24 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
   await cargarRoles();
   aplicarFormatoNombrePropio('#form-campana [name="nombre_candidato"], #usuario-form-nombre');
   aplicarFormatoTelefono('#form-campana [name="telefono"], #usuario-form-telefono');
+  /* AL ASPIRANTE SOLO LE QUEDA SU PESTAÑA.
+     Esta pantalla nunca miró el rol para decidir qué pestañas dibuja —le
+     bastaba con que al menú solo llegara un administrador—, así que las seis
+     salen siempre. Al aspirante le sobran cinco: Usuarios, Asignación de
+     permisos, Eliminar información y Backup son de la campaña MADRE, y sus
+     rutas le responderían 403 con un texto que no explica nada.
+
+     Se le quitan los botones y se le fija la pestaña, para que escribir la
+     dirección con otro `#` tampoco lo lleve a ninguna parte. */
+  if (usuarioActual && usuarioActual.es_aspirante) {
+    ['diad', 'usuarios', 'permisos', 'eliminar', 'backup'].forEach((t) => {
+      const b = document.getElementById('btn-tab-' + t);
+      if (b) b.style.display = 'none';
+    });
+    cambiarPestana('campana');
+    return;
+  }
+
   const pestanaInicial = ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'].includes(window.location.hash.slice(1))
     ? window.location.hash.slice(1) : 'campana';
   cambiarPestana(pestanaInicial);

@@ -597,7 +597,7 @@ function renderTablaTerritorios() {
       <td style="white-space:nowrap;">
         ${['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
           ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
-        ${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
+        ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -2148,7 +2148,7 @@ function renderizarEstructura() {
       <td>${f.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
       <td class="col-acciones">
         ${puedeEditar ? `<button class="btn-secundario btn-sm" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
-        ${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
+        ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `;
@@ -2651,6 +2651,13 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
     document.getElementById('btn-nuevo').style.display = 'none';
     document.getElementById('input-importar-estructura').closest('label').style.display = 'none';
+  }
+  /* El aspirante SI crea gente suya, pero no importa por Excel: esa ruta es de
+     admin y ademas es la que alimenta a `xlsx`, que sigue con una alerta alta
+     sin arreglo disponible. Cuantas menos manos le entreguen un archivo, mejor. */
+  if (usuarioActual.es_aspirante) {
+    const imp = document.getElementById('input-importar-estructura');
+    if (imp && imp.closest('label')) imp.closest('label').style.display = 'none';
   }
   aplicarFormatoNombrePropio('#form-estructura input[name="nombre"]');
   aplicarFormatoTelefono('#form-estructura [name="telefono"]');

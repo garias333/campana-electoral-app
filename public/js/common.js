@@ -1066,6 +1066,29 @@ async function inicializarLayout(paginaActiva) {
   }
   const usuario = sesion.usuario;
 
+  /* EN SU PROPIA CAMPAÑA, EL ASPIRANTE ES EL ADMINISTRADOR.
+     En la estructura de la campaña madre es un lider, y ese es su rol de
+     verdad. Pero dentro de su sublicencia no le manda nadie: su gente, sus
+     testigos y su marca son suyos, y las pantallas preguntaban por el rol para
+     decidir si dibujar el boton de crear o el de editar.
+
+     Con el rol crudo, DOS pantallas que ya tenian sus rutas abiertas y acotadas
+     —Testigos electorales y Mapa territorial— le respondian «No tiene permisos
+     para ver esta seccion» y se quedaban en blanco. El servidor decia que si y
+     el navegador que no.
+
+     ESTO SOLO CAMBIA LO QUE SE DIBUJA. La sesion del servidor sigue diciendo
+     'lider', y ahi es donde se decide de verdad: cada ruta que el alcanza lleva
+     su 'aspirante' escrito en la guarda y su filtro de rama. Si esta linea
+     fuera la que da los permisos, bastaria con abrir la consola del navegador
+     para ser administrador de la campaña madre.
+
+     Se guarda el rol real por si alguna pantalla necesita distinguirlos. */
+  if (usuario && usuario.es_aspirante) {
+    usuario.rol_real = usuario.rol;
+    usuario.rol = 'admin';
+  }
+
   const shell = document.getElementById('app-shell');
 
   const paginaBase = paginaActiva.split('#')[0];
@@ -1162,7 +1185,7 @@ async function inicializarLayout(paginaActiva) {
     <nav>${navHtml}</nav>
     <div class="usuario-box">
       <div class="nombre">${usuario.nombre}</div>
-      <div class="rol">${usuario.rol}</div>
+      <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : usuario.rol}</div>
       <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;">
         <input type="checkbox" id="chk-2fa" style="width:auto;" ${usuario.two_factor_enabled ? 'checked' : ''}>
         Verificación en dos pasos por correo
