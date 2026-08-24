@@ -7,12 +7,12 @@
 
 ## Anclas verificables
 
-- **Parche publicado:** 142. Las dos campañas reportan `version_actual = 142`;
+- **Parche publicado:** 143. Las dos campañas reportan `version_actual = 143`;
   electoral reporta 1 porque es la plantilla y no recibe parches, se los genera.
 - **Service worker:** `estrategia-v108` en las tres, comprobado sirviéndolo por
   cada dominio.
 - **Rama:** `auditoria-fable`
-- **Último commit:** `c316a73`
+- **Último commit:** `5495413`
 
 ## Hecho y verificado en la última sesión
 
@@ -40,15 +40,15 @@ Jornada del 23 y 24 de agosto de 2026.
 - [x] **Superadministrador único** (`3c29558`, hecho en otra sesión): no es un
       rol nuevo sino una bandera `usuarios.es_superadmin`, y la unicidad la
       garantiza una columna generada con `UNIQUE`, no un `if`.
+- [x] **Publicado como parche 143** el 24 de agosto, con `toca_base_datos = 1`.
+      Aplicado encima de lo que ya estaba en las dos campañas sin crear ni
+      duplicar nada: dos columnas, un índice `uq_superadmin_unico` y **un**
+      superadministrador en cada una, que es lo que había antes. Llegó además
+      `scripts/reiniciar-instancia.sh`, el único de los nueve archivos que
+      faltaba allá. `version_actual` pasó a 143 en las dos.
 
 ## Pendiente inmediato
 
-- [ ] **El superadministrador no viajó por el sistema de parches.** Las dos
-      campañas tienen `config/superadmin.js` y la columna `es_superadmin` en su
-      base, pero `parches_disponibles` llega hasta 142 y no existe un 143. O sea
-      que el registro dice una cosa y el disco otra. Decidir: publicarlo como
-      parche 143 (toca base de datos) para que quede registrado, o dejar
-      constancia de por qué se distribuyó a mano.
 - [ ] **Seis aplicaciones sin la paleta:** encuesta, foda, proyector,
       mapamanizales, escucha, pretest. En ese orden, de menos a más trabajo.
       No se alcanzan desde esta cuenta: hay que abrir la sesión de cada una y
@@ -86,6 +86,13 @@ Jornada del 23 y 24 de agosto de 2026.
 - **`50-cloud-init.conf` lo escribe cloud-init.** Si el VPS se reconstruye
   puede volver con `PasswordAuthentication yes` y deshacer el cierre en
   silencio. Se comprueba con `sshd -T | grep -i passwordauth`.
+- **Distribuir a mano deja el registro mintiendo.** El superadministrador
+  llegó a las dos campañas por fuera del sistema de parches: el código y la
+  columna estaban en el disco, pero `parches_disponibles` se quedaba en 142 y
+  `version_actual` decía 142. Nada fallaba —por eso no se veía— y la próxima
+  persona que mirara el número habría creído que a las campañas les faltaba el
+  superadministrador. Se corrigió publicándolo como 143. Regla: si un cambio
+  llega a una campaña, tiene que llegar con su número, aunque ya esté puesto.
 
 ## Candidatos para CLAUDE.md
 
@@ -95,6 +102,9 @@ Jornada del 23 y 24 de agosto de 2026.
   ser un solo valor.
 - Que las cuentas del VPS están aisladas entre sí desde el 23 de agosto, y que
   lo compartido va en `/usr/local/share/estrategia/`.
+- Que todo cambio que llegue a una campaña tiene que llegar **con su número de
+  parche**, aunque el archivo ya esté puesto en el disco. Copiar a mano no
+  falla; deja el registro mintiendo, que es peor porque no se ve.
 
 ---
 <!-- cierre automático -->
