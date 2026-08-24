@@ -113,6 +113,24 @@ async function validar() {
       ultimaValidacionExitosa: new Date().toISOString()
     };
     guardarCache();
+
+    /* LAS SUBLICENCIAS LLEGAN CON LA LICENCIA. Se sincronizan solo cuando la
+       validacion salio bien: con una licencia rechazada, la lista que venga no
+       es de fiar y apagar sublicencias a partir de ella seria dejar sin datos a
+       gente por culpa de un problema de la madre. */
+    if (estadoActual.valido && Array.isArray(datos.sublicencias)) {
+      const r = await require('./sincronizarSublicencias').sincronizar(datos.sublicencias);
+      if (r.activadas || r.apagadas || r.sinPersona.length) {
+        console.log(`[SUBLICENCIAS] ${r.activadas} activada(s), ${r.actualizadas} actualizada(s), `
+          + `${r.apagadas} apagada(s)`
+          + (r.votantesRecalculados !== undefined ? `, ${r.votantesRecalculados} votante(s) recalculado(s)` : ''));
+      }
+      if (r.sinPersona.length) {
+        console.warn('[SUBLICENCIAS] Vendidas a cedulas que NO existen en esta campana: '
+          + r.sinPersona.join(', ') + '. No se activaron.');
+      }
+    }
+
     if (!estadoActual.valido) {
       console.error(`[LICENCIA] Validación rechazada: ${estadoActual.motivo} — ${estadoActual.mensaje || ''}`);
     } else if (datos.avisar_vencimiento_proximo) {
