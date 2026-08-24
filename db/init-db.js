@@ -1686,6 +1686,8 @@ async function main() {
       usuario_id INT NOT NULL COMMENT 'El aspirante, que ya es lider o coordinador de la madre',
       cargo VARCHAR(30) NOT NULL COMMENT 'concejo | jal | asamblea ...',
       nombre VARCHAR(150) NULL COMMENT 'Como se llama SU campana, para su propia marca',
+      subtitulo VARCHAR(200) NULL COMMENT 'Su lema, bajo el nombre',
+      logo_url VARCHAR(255) NULL COMMENT 'Su logo. Lo sube el superadministrador, no el aspirante',
       activa TINYINT(1) NOT NULL DEFAULT 1,
       creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

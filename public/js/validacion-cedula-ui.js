@@ -65,15 +65,112 @@
     caja.style.display = 'block';
   }
 
+  /* ------------------------------------------------------------------
+     UNA CEDULA QUE YA EXISTE NO ES UN ERROR: ES OTRA SITUACION
+
+     Antes, teclear una cedula ya registrada no decia nada aqui y reventaba al
+     guardar con «Ya registrado por otro lider» — con la persona delante y sin
+     nada que hacer. Con dos aspirantes al Concejo en la misma campaña, eso pasa
+     a diario.
+
+     NO ES UN DIALOGO DE CONFIRMACION, y es deliberado: lo que ocurre todos los
+     dias se acepta sin leerlo, asi que no protege de nada y solo estorba. Se
+     resuelve en el propio formulario, mientras se escribe.
+
+     Tres desenlaces:
+       no existe ....... no se dice nada, formulario en blanco como siempre
+       ya es suya ...... se avisa, para que no la registre dos veces
+       es de otra rama . se rellenan nombre y telefono, y se ofrece sumarla
+
+     El tercero es el que ahorra el trabajo: nadie vuelve a teclear lo que ya
+     esta escrito.
+     ------------------------------------------------------------------ */
+  function cajaDeExistente(campo) {
+    const id = `existe-cedula-${campo.id}`;
+    let caja = document.getElementById(id);
+    if (!caja) {
+      caja = document.createElement('div');
+      caja.id = id;
+      caja.style.cssText = 'display:none; font-size:0.82rem; margin-top:6px; padding:9px 11px;'
+        + ' border-radius:8px; line-height:1.45;';
+      campo.insertAdjacentElement('afterend', caja);
+    }
+    return caja;
+  }
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /** Rellena un campo del formulario si existe y esta vacio. */
+  function rellenar(selector, valor) {
+    const el = document.querySelector(selector);
+    if (el && !((el.value || '').trim()) && valor) el.value = valor;
+  }
+
+  async function revisarExistente(campo, selectorNombre) {
+    const caja = cajaDeExistente(campo);
+    const valor = (campo.value || '').trim();
+    caja.style.display = 'none';
+    if (!valor || typeof window.api !== 'function') return;
+
+    let r;
+    try {
+      r = await window.api('/votantes/buscar-por-cedula?cedula=' + encodeURIComponent(valor));
+    } catch (e) { return; }   // sin red se calla; el guardado dira lo que haya que decir
+    if (!r || !r.id) return;
+
+    if (r.mia) {
+      caja.style.cssText += 'display:block; background:#FFF8E1; border:1px solid #E0A72E; color:#7A5B00;';
+      caja.innerHTML = `<strong>${esc(r.nombre)}</strong> ya está en su estructura. `
+        + 'No hace falta registrarla otra vez.';
+      return;
+    }
+
+    // Existe en otra rama: se rellena lo que ya se sabe y se ofrece sumarla.
+    rellenar(selectorNombre, r.nombre);
+    rellenar('input[name="telefono"]', r.telefono);
+
+    caja.style.cssText += 'display:block; background:#E6F4F1; border:1px solid #0F7B6C; color:#0A5348;';
+    caja.innerHTML = `<strong>${esc(r.nombre)}</strong> ya está registrada en la campaña.`
+      + (r.puede_sumar
+          ? ' <button type="button" class="btn-sumar-rama" data-id="' + r.id + '"'
+            + ' style="margin-left:6px; padding:4px 11px; border:none; border-radius:999px;'
+            + ' background:#0F7B6C; color:#fff; font-size:0.8rem; cursor:pointer;">'
+            + 'Agregar a mi estructura</button>'
+          : ' No hace falta volver a escribirla.');
+
+    const boton = caja.querySelector('.btn-sumar-rama');
+    if (boton) {
+      boton.addEventListener('click', async () => {
+        boton.disabled = true;
+        boton.textContent = 'Agregando...';
+        try {
+          await window.api('/votantes/' + r.id + '/sumar-a-mi-rama', { method: 'POST' });
+          caja.innerHTML = `<strong>${esc(r.nombre)}</strong> quedó en su estructura.`;
+        } catch (e) {
+          boton.disabled = false;
+          boton.textContent = 'Agregar a mi estructura';
+          caja.insertAdjacentHTML('beforeend',
+            '<div style="color:#A93226; margin-top:5px;">No se pudo: ' + esc(e.message) + '</div>');
+        }
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     for (const [idCampo, selectorNombre] of Object.entries(CAMPOS)) {
       const campo = document.getElementById(idCampo);
       if (!campo) continue;
       campo.addEventListener('blur', () => revisar(campo, selectorNombre));
+      campo.addEventListener('blur', () => revisarExistente(campo, selectorNombre));
       // Al corregir, el aviso se va sin esperar a salir del campo.
       campo.addEventListener('input', () => {
         const caja = document.getElementById(`aviso-cedula-${campo.id}`);
         if (caja) caja.style.display = 'none';
+        const otra = document.getElementById(`existe-cedula-${campo.id}`);
+        if (otra) otra.style.display = 'none';
       });
     }
   });

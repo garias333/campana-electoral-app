@@ -193,6 +193,14 @@ app.get('/api/marca-publica', async (req, res) => {
   }
 });
 
+/* EL ASPIRANTE CON SUBLICENCIA SOLO ALCANZA SUS CUATRO PANTALLAS.
+   Va aquí, antes de montar ninguna ruta, porque es lo único que garantiza que
+   un módulo nuevo nazca cerrado para él: si se pusiera dentro de cada router,
+   el que se agregue mañana quedaría abierto y nadie se enteraría.
+   Sin sublicencia activa no hace absolutamente nada. */
+const { cargarSublicencia, restringirAspirante } = require('./middleware/aspirante');
+app.use('/api', cargarSublicencia, restringirAspirante);
+
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/territorial', require('./routes/territorial.routes'));
 app.use('/api/votantes', require('./routes/votantes.routes'));

@@ -6,6 +6,7 @@ const { requireAuth, requireRole, calcularAlcance } = require('../middleware/aut
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
+const { aspiranteDe } = require('../lib/ramas');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria } = require('../config/auditoria');
 const { validarCedula } = require('../lib/validarCedula');
@@ -801,10 +802,54 @@ router.get('/buscar-por-cedula', async (req, res) => {
   if (!cedula) return res.json(null);
   try {
     const [[fila]] = await pool.query(
-      `SELECT id, nombre, telefono, cedula FROM votantes WHERE cedula = ? LIMIT 1`,
+      `SELECT id, nombre, telefono, cedula, lider_id, sublider_id, rama_aspirante_id
+         FROM votantes WHERE cedula = ? LIMIT 1`,
       [cedula]
     );
-    res.json(fila || null);
+    if (!fila) return res.json(null);
+
+    /* CON QUIEN PREGUNTA, LA MISMA CEDULA SIGNIFICA COSAS DISTINTAS.
+       Hasta ahora esto devolvia la ficha y punto, y el formulario no podia
+       hacer nada util con ella: si la persona ya existia, registrarla fallaba
+       con «Ya registrado por otro lider» y ahi se acababa. Con dos aspirantes
+       al Concejo en la misma campaña eso pasa a diario.
+
+       Se agregan dos datos, no una ruta nueva: `mia` para abrir la ficha en vez
+       de intentar crearla, y `puede_sumar` para ofrecer agregarla a su rama.
+
+       Lo que NO se agrega es la valoracion ni las observaciones de la otra
+       rama: el nombre y el telefono son de la persona; lo que otra campaña
+       piense de ella, no. */
+    let miRama = null;
+    try {
+      miRama = await aspiranteDe(pool, req.session.usuario.id);
+    } catch (err) {
+      // Campaña sin las tablas de sublicencias: se responde como siempre.
+      if (err.code !== 'ER_NO_SUCH_TABLE') throw err;
+    }
+
+    let yaEnMiRama = false;
+    if (miRama) {
+      const [[c]] = await pool.query(
+        'SELECT COUNT(*) n FROM votante_ramas WHERE votante_id = ? AND aspirante_id = ?',
+        [fila.id, miRama]);
+      yaEnMiRama = c.n > 0;
+    }
+
+    const mia = fila.lider_id === req.session.usuario.id
+             || fila.sublider_id === req.session.usuario.id
+             || !!(miRama && (fila.rama_aspirante_id === miRama || yaEnMiRama));
+
+    res.json({
+      id: fila.id,
+      nombre: fila.nombre,
+      telefono: fila.telefono,
+      cedula: fila.cedula,
+      mia,
+      // Sin rama propia no hay donde sumarla, y ofrecerlo seria un boton que se
+      // niega al pulsarlo — peor que no ofrecerlo.
+      puede_sumar: !!miRama && !mia,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error buscando por número de identificación.' });
@@ -1487,6 +1532,33 @@ router.post('/importar', async (req, res) => {
     }
   }
   res.json({ ok: true, insertados, errores });
+});
+
+/**
+ * Suma un votante que ya existe a la rama de quien lo pide.
+ *
+ * NO copia la ficha ni la toca: escribe una fila en `votante_ramas` y ya. La
+ * persona sigue siendo una sola, con un telefono y una direccion; lo que se
+ * agrega es que esta rama tambien la ve.
+ */
+router.post('/:id/sumar-a-mi-rama', async (req, res) => {
+  try {
+    const miRama = await aspiranteDe(pool, req.session.usuario.id);
+    if (!miRama) {
+      return res.status(403).json({ error: 'Usted no pertenece a la estructura de ningun aspirante con licencia propia.' });
+    }
+    const [[v]] = await pool.query('SELECT id FROM votantes WHERE id = ?', [req.params.id]);
+    if (!v) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+
+    await pool.query(
+      `INSERT IGNORE INTO votante_ramas (votante_id, aspirante_id, registrado_por)
+       VALUES (?, ?, ?)`,
+      [v.id, miRama, req.session.usuario.id]);
+    res.json({ ok: true, id: v.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo agregar a su estructura.' });
+  }
 });
 
 module.exports = router;

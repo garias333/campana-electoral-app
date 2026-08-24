@@ -145,10 +145,27 @@ router.get('/mios', async (req, res) => {
     filas.forEach(f => {
       permisos[f.modulo] = { ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar };
     });
+    let modulos = filas.filter(f => f.permitido).map(f => f.modulo);
+
+      /* EL ASPIRANTE VE CUATRO MÓDULOS, Y SE INTERSECA — NO SE REEMPLAZA.
+         Si la matriz ya le niega uno de los cuatro a su rol, la sublicencia no
+         se lo devuelve: restringir sólo puede quitar. Al revés, una sublicencia
+         sería una puerta trasera para saltarse la matriz.
+
+         Esto recorta el MENÚ. Lo que de verdad impide llegar a lo demás es
+         middleware/aspirante.js, porque ninguna ruta consulta esta matriz. */
+    if (req.sublicencia) {
+      const { MODULOS_ASPIRANTE } = require('../middleware/aspirante');
+      modulos = modulos.filter(m => MODULOS_ASPIRANTE.includes(m));
+      Object.keys(permisos).forEach(k => {
+        if (!MODULOS_ASPIRANTE.includes(k)) delete permisos[k];
+      });
+    }
+
     res.json({
       // Se mantiene "modulos" (lista simple de módulos visibles) por
       // compatibilidad con lo que ya usa common.js para armar el menú.
-      modulos: filas.filter(f => f.permitido).map(f => f.modulo),
+      modulos,
       permisos
     });
   } catch (err) {

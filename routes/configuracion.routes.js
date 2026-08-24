@@ -46,6 +46,25 @@ const subirLogo = multer({
  */
 router.get('/marca', async (req, res) => {
   try {
+    /* EL ASPIRANTE VE SU PROPIA MARCA, NO LA DE LA CAMPANA MADRE.
+       Va aqui y no en una ruta nueva porque esta es la UNICA que pinta la barra
+       lateral, en las veinte pantallas: cambiarla aqui le cambia la marca en
+       todas de una vez, sin tocar una linea del navegador.
+
+       La escribe el SUPERADMINISTRADOR al emitir la sublicencia, no el
+       aspirante: por eso no hay un formulario que la edite ni hace falta. El
+       aspirante la ve y nada mas.
+
+       Si la sublicencia no trae nombre —recien emitida, todavia sin llenar— se
+       cae a la de la madre en vez de dejar la barra en blanco. Una barra vacia
+       parece una aplicacion rota; la marca de la madre, al menos, es cierta. */
+    if (req.sublicencia && req.sublicencia.nombre) {
+      return res.json({
+        titulo: req.sublicencia.nombre,
+        subtitulo: req.sublicencia.subtitulo || '',
+        logo_url: req.sublicencia.logo_url || '',
+      });
+    }
     const [[c]] = await pool.query(
       'SELECT marca_titulo, marca_subtitulo, marca_logo_url FROM configuracion_campana WHERE id = 1');
     res.json({
