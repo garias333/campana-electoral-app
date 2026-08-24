@@ -38,6 +38,20 @@ async function requerirSesionApp() {
     try {
       const sesion = await api('/auth/me');
       actualizarPerfilCuentaDispositivo(sesion.usuario);
+
+      /* EL ASPIRANTE CON SUBLICENCIA NO TRABAJA EN ESTA APP.
+         En la estructura es un lider, y por eso llega aqui: el icono de la
+         aplicacion instalada abre /app/inicio.html sin preguntarle a nadie.
+         Pero el no entra a capturar votantes puerta a puerta, entra a dirigir
+         SU campaña — y sus cuatro pantallas y su marca estan en el panel.
+
+         Se le manda alla desde aqui y no solo al iniciar sesion porque el
+         `start_url` del manifiesto lo traeria a esta pantalla cada vez que
+         abriera el icono, con la sesion ya abierta y sin pasar por el ingreso. */
+      if (sesion.usuario && sesion.usuario.es_aspirante) {
+        window.location.replace('/votantes.html');
+        return sesion.usuario;
+      }
       // LA APP DEL CELULAR TAMBIEN TIENE QUE PEDIR EL CAMBIO DE CLAVE.
       // Solo lo hacia el escritorio (common.js), y un lider entra por aqui:
       // se le decia que debia cambiarla y nunca aparecia donde hacerlo.

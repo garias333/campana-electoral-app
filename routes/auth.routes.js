@@ -95,8 +95,27 @@ async function registrarAuditoria(usuarioId, accion, detalle, ip) {
  * conexión. Devuelve ese token (o null si no se pidió "recordar") para
  * que la ruta que llama lo incluya en la respuesta.
  */
-function completarSesion(req, usuario, recordar, entrarComo) {
+async function completarSesion(req, usuario, recordar, entrarComo) {
   const rolEfectivo = entrarComo === 'testigo' ? 'testigo' : usuario.rol;
+
+  /* ¿ESTA PERSONA TIENE SUBLICENCIA? Se anota en la sesión porque de eso
+     depende A DÓNDE va al entrar, y esa decisión la toma el navegador antes de
+     poder preguntar nada más.
+
+     Sin esto, un aspirante al Concejo —que en la estructura es un líder—
+     aterrizaba en la app de captura de campo, que no tiene menú ni barra
+     lateral: todo lo que se le construyó (sus cuatro pantallas, su marca) vive
+     en el panel, y el nunca lo veia. Medido con Camilo Arias el 24 de agosto
+     de 2026: entraba a /app/inicio.html con la marca del alcalde. */
+  let esAspirante = false;
+  try {
+    const [f] = await pool.query(
+      'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
+    esAspirante = f.length > 0;
+  } catch (err) {
+    // Campaña sin las tablas de sublicencias: entra como siempre.
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al entrar:', err.message);
+  }
   req.session.usuario = {
     id: usuario.id,
     nombre: usuario.nombre,
@@ -104,7 +123,8 @@ function completarSesion(req, usuario, recordar, entrarComo) {
     rol: rolEfectivo,
     territorio_id: usuario.territorio_id,
     debe_cambiar_password: !!usuario.debe_cambiar_password,
-    two_factor_enabled: !!usuario.two_factor_enabled
+    two_factor_enabled: !!usuario.two_factor_enabled,
+    es_aspirante: esAspirante
   };
   if (recordar) {
     req.session.cookie.maxAge = SIETE_DIAS_MS;
@@ -157,7 +177,7 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
     return;
   }
 
-  const dispositivoToken = completarSesion(req, usuario, recordar, entrarComo);
+  const dispositivoToken = await completarSesion(req, usuario, recordar, entrarComo);
   await registrarAuditoria(
     usuario.id,
     'login',
@@ -534,7 +554,7 @@ router.post('/verificar-2fa', async (req, res) => {
     );
     const usuario = usuarioRows[0];
 
-    const dispositivoToken = completarSesion(req, usuario, pendiente.recordar, pendiente.entrarComo);
+    const dispositivoToken = await completarSesion(req, usuario, pendiente.recordar, pendiente.entrarComo);
     delete req.session.pendiente2fa;
 
     await registrarAuditoria(
@@ -641,8 +661,27 @@ router.get('/me', requireAuth, async (req, res) => {
    * segundos) el cambio vale desde la petición siguiente, sin obligar a
    * nadie a volver a entrar.
    */
+  /* `es_aspirante` TAMBIÉN SE CONSULTA, Y POR LO MISMO. Se anota en la sesión
+     al entrar —ahí hace falta, para decidir a dónde va— pero una sesión de
+     siete días seguiría diciendo «aspirante» después de suspenderle la
+     sublicencia. Preguntándolo aquí, suspenderla surte efecto en la petición
+     siguiente. */
+  let esAspirante = false;
+  try {
+    const [f] = await pool.query(
+      'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1',
+      [req.session.usuario.id]);
+    esAspirante = f.length > 0;
+  } catch (err) {
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia en /me:', err.message);
+  }
+
   res.json({
-    usuario: { ...req.session.usuario, es_superadmin: await esSuperadmin(req.session.usuario) }
+    usuario: {
+      ...req.session.usuario,
+      es_superadmin: await esSuperadmin(req.session.usuario),
+      es_aspirante: esAspirante,
+    }
   });
 });
 

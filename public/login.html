@@ -832,6 +832,19 @@ function irDondeCorresponde(usuario) {
     window.location.href = '/app/registro-votante.html';
     return;
   }
+  /* EL ASPIRANTE CON SUBLICENCIA VA AL PANEL, NO A LA APP DE CAMPO.
+     En la estructura es un líder, y los líderes van a /app/inicio.html — una
+     pantalla de captura, sin menú ni barra lateral. Pero él no entra a capturar:
+     entra a dirigir SU campaña, y todo lo que se le construyó —sus cuatro
+     pantallas y su marca— está en el panel.
+
+     Va a /votantes.html y no a /dashboard.html porque el panel general NO está
+     entre sus módulos: lo mandaría a una pantalla que su propio permiso le
+     niega. Votantes es la primera de las suyas. */
+  if (usuario && usuario.es_aspirante) {
+    window.location.href = '/votantes.html';
+    return;
+  }
   const rolesApp = ['lider', 'sublider'];
   window.location.href = (usuario && rolesApp.includes(usuario.rol)) ? '/app/inicio.html' : '/dashboard.html';
 }
