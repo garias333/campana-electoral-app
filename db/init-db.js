@@ -1639,6 +1639,44 @@ async function main() {
     if (r.affectedRows) console.log(`Plantilla "${nombre}": se reemplazo la baja por respuesta por el enlace.`);
   }
 
+  /* -------------------------------------------------------------------
+     SUPERADMINISTRADOR — la única cuenta con control total.
+
+     La bandera va aparte del rol a propósito: la cuenta conserva su
+     `rol_id` de admin, y de ahí hereda las más de cuarenta rutas que
+     autorizan con `requireRole('admin')`. Un rol nuevo la habría dejado
+     FUERA de todas ellas. El razonamiento completo está en
+     config/superadmin.js.
+
+     La columna generada existe solo para colgarle el UNIQUE: vale 1 para el
+     superadministrador y NULL para el resto, y MySQL no compara NULL entre
+     sí en un índice único. Así «solo puede haber uno» lo garantiza la base
+     y no un `if` de JavaScript —que no cubriría lo que entra por la
+     consola de MySQL o por un respaldo restaurado—.
+
+     LA COLUMNA GENERADA VA DESPUÉS, EN SU PROPIO ALTER: en una base ya
+     creada MySQL no admite referenciar en la expresión de una columna
+     generada otra columna añadida en la MISMA sentencia.
+
+     Esto NO eleva a nadie: deja la base lista y ya. Otorgar la categoría es
+     un acto aparte y deliberado, `node scripts/elevar-superadmin.js`, y
+     ninguna ruta de la aplicación escribe esta columna.
+     ------------------------------------------------------------------- */
+  await agregarColumnaSiFalta(connection, 'usuarios',
+    "es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: única cuenta con control total. Ver config/superadmin.js' AFTER ultimo_login",
+    'es_superadmin');
+  await agregarColumnaSiFalta(connection, 'usuarios',
+    "superadmin_unico TINYINT(1) GENERATED ALWAYS AS (IF(es_superadmin = 1, 1, NULL)) VIRTUAL AFTER es_superadmin",
+    'superadmin_unico');
+  try {
+    await connection.query(
+      `ALTER TABLE usuarios ADD UNIQUE INDEX uq_superadmin_unico (superadmin_unico)`);
+    console.log('Índice uq_superadmin_unico creado: solo puede haber un superadministrador.');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_KEYNAME') throw err;
+    console.log('El índice uq_superadmin_unico ya existía. Sin cambios.');
+  }
+
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
 

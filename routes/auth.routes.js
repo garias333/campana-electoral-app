@@ -7,6 +7,8 @@ const rateLimit = require('express-rate-limit');
 const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
 const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
+const { esSuperadmin } = require('../config/superadmin');
+const { verificarPasswordPropia } = require('../config/verificaciones');
 
 const router = express.Router();
 
@@ -589,8 +591,59 @@ router.post('/logout', requireAuth, async (req, res) => {
   });
 });
 
-router.get('/me', requireAuth, (req, res) => {
-  res.json({ usuario: req.session.usuario });
+/**
+ * Comprueba la contraseña de quien está usando la aplicación, sin hacer nada
+ * más.
+ *
+ * PARA QUÉ. Las acciones sobre una cuenta ajena se confirman con la clave
+ * propia (ver confirmarConSuPassword en routes/usuarios.routes.js). En las
+ * que se resuelven de un clic eso basta: se pide, se manda, se ejecuta. Pero
+ * «Editar» abre un formulario, y pedir la clave al GUARDAR significa
+ * descubrir que estaba mal después de haberlo llenado entero. Con esto se
+ * pregunta al abrir y el formulario solo aparece si la clave era correcta.
+ *
+ * NO SUSTITUYE LA COMPROBACIÓN DE LA ACCIÓN, LA ADELANTA. El PUT sigue
+ * exigiendo `password_confirmacion` por su cuenta: esta ruta la llama el
+ * navegador, y lo que el navegador diga no es una autorización. Quien llame
+ * al PUT directamente se topa con la misma comprobación de siempre.
+ *
+ * EL LIMITADOR NO ES DECORACIÓN. Esta ruta dice sí o no sobre una contraseña,
+ * o sea que es un oráculo: sin freno, quien se siente en una sesión ajena
+ * abierta —el riesgo exacto que esta función existe para cerrar— podría
+ * probar claves hasta dar con la del dueño. Cinco por cuarto de hora deja
+ * pasar los errores de tecleo y no mucho más.
+ */
+const limitadorVerificarPassword = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos. Espere unos minutos antes de volver a intentar.' }
+});
+
+router.post('/verificar-password', requireAuth, limitadorVerificarPassword, async (req, res) => {
+  const ok = await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password);
+  if (!ok) return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  res.json({ ok: true });
+});
+
+router.get('/me', requireAuth, async (req, res) => {
+  /*
+   * `es_superadmin` SE CONSULTA, NO SE LEE DE LA SESIÓN.
+   *
+   * La sesión se guarda en la tabla `sessions` y con «Recordarme» dura
+   * siete días. Si la bandera viviera dentro de ella, una cuenta recién
+   * elevada seguiría viéndose como un administrador corriente hasta que su
+   * dueño cerrara sesión y volviera a entrar — y al revés, una sesión vieja
+   * seguiría diciendo «superadministrador» después de habérselo quitado.
+   *
+   * Preguntándolo aquí (config/superadmin.js cachea la respuesta 30
+   * segundos) el cambio vale desde la petición siguiente, sin obligar a
+   * nadie a volver a entrar.
+   */
+  res.json({
+    usuario: { ...req.session.usuario, es_superadmin: await esSuperadmin(req.session.usuario) }
+  });
 });
 
 router.post('/cambiar-password', requireAuth, async (req, res) => {

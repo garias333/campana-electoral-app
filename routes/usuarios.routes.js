@@ -18,9 +18,24 @@ const router = express.Router();
  */
 const HORAS_VIGENCIA_CODIGO = 48;
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
-const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
+const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
 const { registrarAuditoria } = require('../config/auditoria');
 const smsSvc = require('../config/sms');
+/*
+ * SUPERADMINISTRADOR — ver config/superadmin.js para el porqué de todo esto.
+ *
+ * Aquí se aplica en dos formas, y las dos hacen falta:
+ *
+ *   `filtroOcultar` lo saca de los LISTADOS. Es lo que lo vuelve invisible
+ *   en la pantalla de Usuarios y en los desplegables del resto de la
+ *   aplicación.
+ *
+ *   `protegerObjetivo` blinda las rutas que reciben un `:id`, y no es
+ *   redundante con lo anterior: esconder una fila no impide que alguien
+ *   escriba el número a mano. Sin esta segunda mitad, un administrador que
+ *   probara `DELETE /api/usuarios/1` borraría la cuenta que no puede ver.
+ */
+const { filtroOcultar, protegerObjetivo, protegerAutodestruccion } = require('../config/superadmin');
 router.use(requireAuth);
 
 /**
@@ -37,8 +52,10 @@ router.get('/buscar-por-cedula', async (req, res) => {
   const cedula = (req.query.cedula || '').trim();
   if (!cedula) return res.json(null);
   try {
+    const ocultar = await filtroOcultar(req.session.usuario, 'usuarios');
     const [[fila]] = await pool.query(
-      `SELECT id, nombre, telefono FROM usuarios WHERE numero_identificacion = ? LIMIT 1`,
+      `SELECT id, nombre, telefono FROM usuarios
+        WHERE numero_identificacion = ? ${ocultar} LIMIT 1`,
       [cedula]
     );
     res.json(fila || null);
@@ -63,7 +80,8 @@ router.get('/buscar-por-cedula', async (req, res) => {
 // la ruta por rol, que habría dejado sin desplegables a los Líderes.
 router.get('/', async (req, res) => {
   const { rol } = req.query;
-  const whereSql = rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1';
+  const ocultar = await filtroOcultar(req.session.usuario);
+  const whereSql = (rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1') + ocultar;
   const params = rol ? [rol] : [];
   try {
     const [rows] = await pool.query(
@@ -82,8 +100,13 @@ router.get('/', async (req, res) => {
 // Incluye inactivos, y datos que no hacen falta en los selects livianos de arriba.
 router.get('/admin', requireRole('admin'), async (req, res) => {
   try {
+    // '' para el propio superadministrador —tiene que verse a sí mismo o no
+    // podría administrar su cuenta—, y 'AND u.es_superadmin = 0' para
+    // cualquier otro administrador. El contador de la pantalla («N de M
+    // usuarios») sale de estas mismas filas, así que tampoco lo delata.
+    const ocultar = await filtroOcultar(req.session.usuario);
     const [rows] = await pool.query(`
-      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo,
+      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin,
              u.debe_cambiar_password, u.two_factor_enabled, u.ultimo_login, u.created_at,
              COALESCE(t.nombre, te.nombre) AS territorio_nombre
       FROM usuarios u
@@ -96,6 +119,7 @@ router.get('/admin', requireRole('admin'), async (req, res) => {
       -- persona salía duplicada en este listado.
       LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = r.nombre
       LEFT JOIN territorios te ON te.id = e.territorio_id
+      WHERE 1 = 1 ${ocultar}
       ORDER BY u.nombre
     `);
     res.json(rows);
@@ -120,6 +144,49 @@ router.get('/roles', requireRole('admin'), async (req, res) => {
 // cuentas de administración, invitados, etc. Si no se indica una
 // contraseña, se genera una temporal (igual que al crear alguien desde
 // Agregar a la estructura); si el admin sí escribe una, se usa esa.
+/**
+ * Las cuatro acciones sobre una cuenta ajena se confirman con la contraseña
+ * DE QUIEN LAS HACE: editar, restablecer la clave, quitar el 2FA y eliminar.
+ *
+ * Es `verificarPasswordPropia` y no `verificarPasswordAdmin` a propósito.
+ * Aquel acepta la clave de CUALQUIER administrador activo, así que responde
+ * «¿es usted un administrador?» — cosa que el rol de la ruta ya comprobó, y
+ * que no confirma quién está al teclado. Este responde «¿es usted?», que es
+ * la pregunta que cierra el caso real: una sesión abierta y sin dueño en un
+ * computador de la sede.
+ *
+ * VA ANTES DE LA GUARDA DEL SUPERADMINISTRADOR, Y NO ES UN DETALLE DE ESTILO.
+ *
+ *   Al revés, quien no mandara contraseña recibiría 404 para el
+ *   superadministrador y 403 para todos los demás — y esa diferencia es
+ *   exactamente el rastro que la guarda existe para borrar. Con la
+ *   contraseña primero, las dos respuestas son idénticas en los dos casos:
+ *   sin clave o con clave equivocada, 403 para cualquier id; con la clave
+ *   correcta, 404 tanto para el superadministrador como para un id que nunca
+ *   existió.
+ *
+ *   Ya pasó una vez en este mismo archivo, medido: las rutas contestaban
+ *   `200 {"ok":true}` para un id inexistente mientras el protegido daba 404,
+ *   y ese contraste lo señalaba con el dedo.
+ *
+ * EL CAMPO SE LLAMA `password_confirmacion`, NO `password`.
+ *
+ *   En este archivo `password` ya significa otra cosa: la contraseña NUEVA
+ *   que se le pone a la persona editada (formulario de Usuarios, campo
+ *   opcional). Reusar el nombre habría hecho que al editar a alguien Y
+ *   cambiarle la clave, la aplicación mandara la clave del OTRO como
+ *   confirmación de quien edita.
+ *
+ *   Fallaría casi siempre, que es lo de menos. Lo grave es el caso en que
+ *   NO falla: un administrador que le ponga a otro una contraseña igual a la
+ *   suya quedaría confirmado sin haber confirmado nada.
+ */
+async function confirmarConSuPassword(req, res) {
+  if (await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password_confirmacion)) return false;
+  res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  return true;
+}
+
 router.post('/', requireRole('admin'), async (req, res) => {
   const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, password } = req.body;
   if (!nombre || !email || !rol) {
@@ -166,6 +233,12 @@ router.post('/', requireRole('admin'), async (req, res) => {
 
 // Edita nombre/email/teléfono/rol/estado de un usuario existente.
 router.put('/:id', requireRole('admin'), async (req, res) => {
+  if (await confirmarConSuPassword(req, res)) return;
+  // VA ANTES DE VALIDAR, no después: la comprobación tiene que ser lo
+  // primero que decide, para que la respuesta no dependa de qué traía el
+  // formulario. Cubre de paso el cambio de rol —nadie le quita el admin al
+  // superadministrador— y el de contraseña.
+  if (await protegerObjetivo(req, res, req.params.id)) return;
   const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, activo, password } = req.body;
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
@@ -179,6 +252,11 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
   try {
     const [[rolFila]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [rol]);
     if (!rolFila) return res.status(400).json({ error: 'Rol no válido.' });
+
+    // Este formulario también trae la casilla de Activo: sin esto, el
+    // superadministrador podría desactivarse desde la pantalla de edición
+    // aunque el botón de estado se lo impida.
+    if (!activo && await protegerAutodestruccion(req, res, req.params.id)) return;
 
     /* --------------------------------------------------------------------
        EL NOMBRE DE USUARIO SIGUE A LA CÉDULA CUANDO ERA LA CÉDULA
@@ -196,6 +274,25 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
        -------------------------------------------------------------------- */
     const [[antes]] = await pool.query(
       `SELECT numero_identificacion, nombre_usuario FROM usuarios WHERE id = ?`, [req.params.id]);
+    /* ------------------------------------------------------------------
+       UN ID QUE NO EXISTE TIENE QUE RESPONDER 404, NO «ok».
+
+       Es un defecto por su cuenta —la ruta contestaba `{ok:true}` sin haber
+       tocado ninguna fila, y quien la llamara se quedaba creyendo que el
+       cambio se hizo—, pero además es lo que sostiene que el
+       superadministrador sea indetectable.
+
+       La guarda de arriba responde 404 para esa cuenta. Si todo lo demás
+       contestara 200, ese 404 sería justo la señal que se quería evitar:
+       recorriendo ids, el único que responde distinto es el que existe y
+       está protegido. Sirve de escondite que el resto conteste igual.
+
+       Medido antes de arreglarlo: PUT, PUT/estado, restablecer-password y
+       DELETE sobre el id 9999 devolvían los cuatro 200 {"ok":true}, y
+       restablecer-password llegaba a inventar y devolver una contraseña
+       temporal para una cuenta inexistente.
+       ------------------------------------------------------------------ */
+    if (!antes) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     const cedula = (numero_identificacion || '').trim();
     let usuarioFinal = (nombre_usuario || '').trim();
 
@@ -241,8 +338,16 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
 });
 
 router.put('/:id/estado', requireRole('admin'), async (req, res) => {
+  if (await protegerObjetivo(req, res, req.params.id)) return;
   const { activo } = req.body;
+  if (!activo && await protegerAutodestruccion(req, res, req.params.id)) return;
   try {
+    // Se comprueba con un SELECT y no con `affectedRows`: MySQL cuenta ahí
+    // las filas que CAMBIARON, así que poner «activo» en alguien que ya
+    // estaba activo da cero y se leería como inexistente. Ver la nota del
+    // PUT de arriba para por qué el 404 importa.
+    const [[existe]] = await pool.query(`SELECT id FROM usuarios WHERE id = ?`, [req.params.id]);
+    if (!existe) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     await pool.query(`UPDATE usuarios SET activo = ? WHERE id = ?`, [activo ? 1 : 0, req.params.id]);
     res.json({ ok: true });
   } catch (err) {
@@ -254,6 +359,8 @@ router.put('/:id/estado', requireRole('admin'), async (req, res) => {
 // Restablece la contraseña de un usuario a una nueva temporal (por si la
 // olvidó y no le llega el correo de recuperación, por ejemplo).
 router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) => {
+  if (await confirmarConSuPassword(req, res)) return;
+  if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
     // CÓDIGO DE 4 DÍGITOS, pedido para que se pueda dictar por teléfono y
     // teclear en un celular en campo sin equivocarse. Es una credencial de
@@ -285,6 +392,9 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
     // respaldo, esta persona se quedaria sin ninguna forma de entrar.
     const [[quien]] = await pool.query(
       'SELECT numero_identificacion FROM usuarios WHERE id = ?', [req.params.id]);
+    // Sin esto, un id inexistente recibía una contraseña temporal recién
+    // inventada y un 200. Ver la nota del PUT de arriba.
+    if (!quien) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     const cedula = quien && String(quien.numero_identificacion || '').trim();
     const passwordTemporal = cedula || String(crypto.randomInt(0, 10000)).padStart(4, '0');
     const esCedula = !!cedula;
@@ -369,6 +479,8 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
  * Activarlo sigue siendo decisión de cada quien, desde su propio panel.
  */
 router.post('/:id/desactivar-2fa', requireRole('admin'), async (req, res) => {
+  if (await confirmarConSuPassword(req, res)) return;
+  if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
     const [[persona]] = await pool.query(
       'SELECT nombre, two_factor_enabled FROM usuarios WHERE id = ?', [req.params.id]
@@ -402,6 +514,7 @@ router.post('/:id/desactivar-2fa', requireRole('admin'), async (req, res) => {
  * recibo.
  */
 router.post('/:id/credenciales-enviadas', requireRole('admin'), async (req, res) => {
+  if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
     const [r] = await pool.query(
       `UPDATE usuarios SET credenciales_enviadas = NOW() WHERE id = ?`, [req.params.id]
@@ -440,8 +553,18 @@ router.post('/sincronizar-con-identificacion', requireRole('admin'), async (req,
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
   try {
+    // EL SUPERADMINISTRADOR QUEDA FUERA DE ESTA ACCIÓN EN BLOQUE.
+    //
+    // Es un restablecimiento masivo de contraseñas: le pone a cada quien su
+    // cédula como clave y lo obliga a cambiarla al entrar. Sin esta
+    // exclusión, cualquier administrador dejaría al superadministrador con
+    // una contraseña que ese administrador conoce —la cédula está a la vista
+    // en media aplicación—, y sin verlo en ninguna pantalla. Es la vía por
+    // la que se le tomaría la cuenta sin tocar nunca su fila.
     const [usuarios] = await pool.query(
-      `SELECT id, numero_identificacion FROM usuarios WHERE numero_identificacion IS NOT NULL AND numero_identificacion != ''`
+      `SELECT id, numero_identificacion FROM usuarios
+        WHERE numero_identificacion IS NOT NULL AND numero_identificacion != ''
+          AND es_superadmin = 0`
     );
 
     let actualizados = 0;
@@ -468,8 +591,14 @@ router.post('/sincronizar-con-identificacion', requireRole('admin'), async (req,
 });
 
 router.delete('/:id', requireRole('admin'), async (req, res) => {
+  if (await confirmarConSuPassword(req, res)) return;
+  if (await protegerObjetivo(req, res, req.params.id)) return;
+  if (await protegerAutodestruccion(req, res, req.params.id)) return;
   try {
-    await pool.query(`DELETE FROM usuarios WHERE id = ?`, [req.params.id]);
+    // En un DELETE sí se puede confiar en `affectedRows`: cuenta filas
+    // borradas, no filas que cambiaron de valor. Ver la nota del PUT.
+    const [r] = await pool.query(`DELETE FROM usuarios WHERE id = ?`, [req.params.id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     res.json({ ok: true });
   } catch (err) {
     registrarErrorSinSql('usuarios', err);

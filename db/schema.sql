@@ -120,13 +120,22 @@ CREATE TABLE IF NOT EXISTS usuarios (
   intentos_fallidos INT DEFAULT 0,
   bloqueado_hasta DATETIME NULL,
   ultimo_login DATETIME NULL,
+  es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: la única cuenta con control total. Conserva rol_id de admin —de ahí saca sus permisos, ver config/superadmin.js— y esta bandera le suma lo demás: nadie más la ve ni la puede tocar. NINGUNA ruta de la aplicación la escribe; se otorga con scripts/elevar-superadmin.js',
+  superadmin_unico TINYINT(1) GENERATED ALWAYS AS (IF(es_superadmin = 1, 1, NULL)) VIRTUAL COMMENT 'Existe solo para colgarle el UNIQUE de abajo. Vale 1 para el superadministrador y NULL para todos los demás; como MySQL no compara los NULL entre sí en un índice único, los demás usuarios conviven sin estorbarse y un segundo superadministrador choca con ER_DUP_ENTRY',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (rol_id) REFERENCES roles(id),
   -- Sin FK hacia territorios: ver la nota de la tabla `territorios`. El índice
   -- sí hace falta y va explícito: antes lo creaba la propia FK, y al quitarla
   -- una instalación nueva se quedaba sin él (las bases actuales lo conservan,
   -- porque MySQL no borra el índice al soltar la llave).
-  INDEX idx_usuarios_territorio (territorio_id)
+  INDEX idx_usuarios_territorio (territorio_id),
+  -- SOLO PUEDE HABER UN SUPERADMINISTRADOR, Y LO GARANTIZA LA BASE.
+  --
+  -- No una comprobación en JavaScript: entre un «¿ya hay uno?» y el INSERT
+  -- que le sigue cabe otra petición, y sobre todo esa comprobación no cubre
+  -- lo que no pasa por la aplicación —la consola de MySQL, un respaldo
+  -- restaurado, un script—. Aquí no hay forma de meter el segundo.
+  UNIQUE KEY uq_superadmin_unico (superadmin_unico)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------

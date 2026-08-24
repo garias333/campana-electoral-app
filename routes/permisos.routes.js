@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
+const { esSuperadmin } = require('../config/superadmin');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -117,6 +118,25 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
 // permisos, no los de otros roles).
 router.get('/mios', async (req, res) => {
   try {
+    /*
+     * LA MATRIZ NO SE LE APLICA AL SUPERADMINISTRADOR.
+     *
+     * Esta pantalla la edita cualquier administrador, y la matriz está
+     * indexada por NOMBRE DE ROL. Como el superadministrador conserva el rol
+     * 'admin' —de ahí saca sus permisos, ver config/superadmin.js—, un
+     * administrador que le quitara módulos a la fila «admin» se los estaría
+     * quitando también a él: el menú del superadministrador se vaciaría por
+     * decisión de alguien a quien supervisa.
+     *
+     * Devolviéndole todo en verde, la matriz sigue gobernando a los demás
+     * roles —incluido «admin»— y a él no lo alcanza. Es exactamente lo que
+     * significa «control total».
+     */
+    if (await esSuperadmin(req.session.usuario)) {
+      const permisos = {};
+      MODULOS.forEach(m => { permisos[m.clave] = { ver: true, editar: true, agregar: true }; });
+      return res.json({ modulos: MODULOS.map(m => m.clave), permisos });
+    }
     const [filas] = await pool.query(
       `SELECT modulo, permitido, editar, agregar FROM permisos_rol WHERE rol = ?`,
       [req.session.usuario.rol]

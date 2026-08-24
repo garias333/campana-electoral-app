@@ -1009,14 +1009,16 @@ function renderizarUsuarios() {
         <input type="checkbox" disabled ${u.credenciales_enviadas ? 'checked' : ''}
                title="${u.credenciales_enviadas ? 'Enviadas el ' + escaparHtml(new Date(u.credenciales_enviadas).toLocaleString('es-CO')) : 'Todavía no se le han enviado'}">
       </td>
-      <td><span class="tag-tipo">${escaparHtml(u.rol)}</span></td>
+      <td>${u.es_superadmin
+        ? '<span class="tag-tipo" title="Única cuenta con control total. Solo usted la ve.">Superadministrador</span>'
+        : '<span class="tag-tipo">' + escaparHtml(u.rol) + '</span>'}</td>
       <td>${escaparHtml(nombreLugar(u.territorio_nombre) || '—')}</td>
       <td>${u.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
         <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
         ${u.two_factor_enabled ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
-        <button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>
+        ${u.es_superadmin ? '' : `<button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>`}
       </td>
     </tr>
   `).join('');
@@ -1157,7 +1159,43 @@ function abrirCreacionUsuario() {
   document.getElementById('overlay-usuario-form').classList.add('abierto');
 }
 
-function abrirEdicionUsuario(u) {
+/**
+ * LA CONTRASEÑA SE PIDE AL ABRIR, NO AL GUARDAR.
+ *
+ * Pedirla al guardar significa descubrir que estaba mal después de haber
+ * llenado el formulario entero. Preguntando al abrir, o se entra o no se
+ * entra, y no se pierde trabajo.
+ *
+ * SE COMPRUEBA CONTRA EL SERVIDOR EN ESE MISMO INSTANTE
+ * (POST /auth/verificar-password). Sin esa llamada, "pedirla al abrir" sería
+ * teatro: el formulario se abriría con cualquier cosa escrita y el rechazo
+ * llegaría igual al final, que es justo lo que se quería evitar.
+ *
+ * Y SE SIGUE MANDANDO EN EL PUT. La comprobación de arriba la hace el
+ * navegador, y lo que diga el navegador no autoriza nada: el servidor exige
+ * `password_confirmacion` por su cuenta en cada guardado.
+ */
+let passwordEdicionConfirmada = null;
+
+/**
+ * Crear NO la pide: no hay ninguna cuenta ajena de por medio que proteger.
+ * Por eso se olvida aquí y al cerrar el formulario — para que una
+ * confirmación de hace un rato no siga viva y sirva para lo siguiente.
+ */
+function olvidarPasswordEdicion() { passwordEdicionConfirmada = null; }
+
+async function abrirEdicionUsuario(u) {
+  const clave = await solicitarPasswordPropia(
+    'Editar la cuenta de ' + u.nombre,
+    'Escriba SU contraseña para abrir los datos de esta cuenta.');
+  if (!clave) return;
+  try {
+    await api('/auth/verificar-password', { method: 'POST', body: { password: clave } });
+  } catch (err) {
+    alert(err.message || 'Contraseña incorrecta.');
+    return;
+  }
+  passwordEdicionConfirmada = clave;
   document.getElementById('form-usuario').reset();
   document.getElementById('usuario-form-id').value = u.id;
   document.getElementById('usuario-form-titulo').textContent = 'Editar usuario';
@@ -1194,8 +1232,12 @@ async function desactivar2faUsuario(id) {
   if (!u) return;
   if (!confirm(`¿Quitarle la verificación en dos pasos a ${u.nombre}?\n\n`
     + 'Podrá entrar solo con su contraseña. Cuando recupere su correo, puede volver a activarla desde su propio panel.')) return;
+  const password_confirmacion = await solicitarPasswordPropia(
+    'Quitar la verificación en dos pasos',
+    `Escriba SU contraseña para confirmar que le quita el segundo factor a ${u.nombre}.`);
+  if (!password_confirmacion) return;
   try {
-    const r = await api(`/usuarios/${id}/desactivar-2fa`, { method: 'POST' });
+    const r = await api(`/usuarios/${id}/desactivar-2fa`, { method: 'POST', body: { password_confirmacion } });
     alert(r.ya_estaba
       ? `${r.nombre} no tenía la verificación en dos pasos activada.`
       : `Listo: ${r.nombre} ya puede entrar solo con su contraseña.`);
@@ -1207,8 +1249,12 @@ async function desactivar2faUsuario(id) {
 
 async function restablecerPasswordUsuario(id) {
   if (!confirm('¿Restablecer la contraseña de este usuario? Se generará una contraseña temporal nueva.')) return;
+  const password_confirmacion = await solicitarPasswordPropia(
+    'Restablecer la contraseña',
+    'Escriba SU contraseña para confirmar. La clave que esta persona tenga dejará de funcionar.');
+  if (!password_confirmacion) return;
   try {
-    const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST' });
+    const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password_confirmacion } });
     alert(`Contraseña temporal nueva: ${r.password_temporal}\n\nVence en ${r.horas_vigencia || 48} horas y el usuario deberá cambiarla al entrar.`);
   } catch (err) {
     alert(err.message);
@@ -1217,15 +1263,22 @@ async function restablecerPasswordUsuario(id) {
 
 async function eliminarUsuario(id) {
   if (!confirm('¿Eliminar este usuario? Si tiene un registro en la Estructura (coordinador/líder/testigo/usuario), también se eliminará. Esta acción no se puede deshacer.')) return;
+  const password_confirmacion = await solicitarPasswordPropia(
+    'Eliminar el usuario',
+    'Escriba SU contraseña para confirmar. Esta acción no se puede deshacer.');
+  if (!password_confirmacion) return;
   try {
-    await api(`/usuarios/${id}`, { method: 'DELETE' });
+    await api(`/usuarios/${id}`, { method: 'DELETE', body: { password_confirmacion } });
     await cargarUsuarios();
   } catch (err) {
     alert(err.message);
   }
 }
 
-document.getElementById('btn-nuevo-usuario').addEventListener('click', abrirCreacionUsuario);
+document.getElementById('btn-nuevo-usuario').addEventListener('click', () => {
+  olvidarPasswordEdicion();
+  abrirCreacionUsuario();
+});
 
 document.getElementById('btn-sincronizar-identificacion').addEventListener('click', async () => {
   if (!confirm('Esto va a CAMBIAR LA CONTRASEÑA de todos los usuarios que ya tengan Número de identificación guardado, poniéndosela igual a su número de identificación (y su Nombre de usuario también). Cada uno deberá cambiarla en su próximo inicio de sesión. Esta acción no se puede deshacer. ¿Continuar?')) return;
@@ -1241,8 +1294,10 @@ document.getElementById('btn-sincronizar-identificacion').addEventListener('clic
     alert(err.message);
   }
 });
-document.getElementById('cerrar-usuario-form').addEventListener('click', () =>
-  document.getElementById('overlay-usuario-form').classList.remove('abierto'));
+document.getElementById('cerrar-usuario-form').addEventListener('click', () => {
+  document.getElementById('overlay-usuario-form').classList.remove('abierto');
+  olvidarPasswordEdicion();
+});
 
 document.getElementById('form-usuario').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1269,6 +1324,17 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
   };
   if (id) {
     datos.activo = document.getElementById('usuario-form-activo').checked;
+    // La que ya se confirmó al abrir. Va con nombre propio y no dentro de
+    // `datos.password`, que en este mismo formulario significa la
+    // contraseña NUEVA de la persona editada.
+    //
+    // El respaldo de volver a pedirla cubre el caso de que el formulario se
+    // haya abierto por otro camino: sin él, el guardado saldría sin
+    // confirmación y volvería un 403 sin explicar por qué.
+    datos.password_confirmacion = passwordEdicionConfirmada
+      || await solicitarPasswordPropia('Guardar los cambios',
+           'Escriba SU contraseña para confirmar los cambios en esta cuenta.');
+    if (!datos.password_confirmacion) return;
   }
 
   try {
@@ -1279,6 +1345,7 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
         : 'Usuario actualizado.';
       okBox.classList.add('visible');
       await cargarUsuarios();
+      olvidarPasswordEdicion();
       setTimeout(() => document.getElementById('overlay-usuario-form').classList.remove('abierto'), 1200);
     } else {
       const r = await api('/usuarios', { method: 'POST', body: datos });
