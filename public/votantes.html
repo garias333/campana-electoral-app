@@ -2311,8 +2311,15 @@ document.getElementById('btn-regeocodificar-votantes').addEventListener('click',
 });
 
 document.getElementById('btn-regeocodificar-votantes-todos').addEventListener('click', async () => {
-  if (!confirm('Esto vuelve a calcular la ubicación de TODOS los votantes/colaboradores que tienen Dirección, incluso quienes ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Se procesa de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
-  const password = await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
+  const soyAspiranteGeo = !!(usuarioActual && usuarioActual.es_aspirante);
+  if (!confirm(soyAspiranteGeo
+      ? 'Esto vuelve a calcular la ubicación de las personas de SU estructura que tienen Dirección, incluso las que ya tenían coordenadas — les PISA la ubicación anterior. Se procesa de a pocos y puede tardar varios minutos (no cierre esta pestaña). ¿Continuar?'
+      : 'Esto vuelve a calcular la ubicación de TODOS los votantes/colaboradores que tienen Dirección, incluso quienes ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Se procesa de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
+  // Al aspirante se le pide LA SUYA: la del administrador no la tiene.
+  const password = soyAspiranteGeo
+    ? await solicitarPasswordPropia('Confirme la corrección',
+        'Esto pisa las coordenadas que ya tenían. Escriba su propia contraseña para confirmar.')
+    : await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
   if (!password) return;
 
   const boton = document.getElementById('btn-regeocodificar-votantes-todos');
@@ -2528,8 +2535,10 @@ function alternarMesasEstimadoPuesto(i) {
      que quien los pulsa y ve un error no concluye «no tengo permiso», concluye
      que la aplicación está rota. */
   if (usuarioActual.es_aspirante) {
-    ['btn-regeocodificar-votantes', 'btn-regeocodificar-votantes-todos',
-     'btn-eliminar-votantes'].forEach((id) => {
+    /* Las dos de geocodificar SI son suyas: corren sobre su rama y con su
+       propia contraseña. Lo que sigue oculto es «Eliminar registros», que borra
+       los votantes de la campaña entera, y el importar por Excel. */
+    ['btn-eliminar-votantes'].forEach((id) => {
       const b = document.getElementById(id);
       if (b) b.style.display = 'none';
     });

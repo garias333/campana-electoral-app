@@ -369,31 +369,51 @@ router.get('/estimados-por-puesto', async (req, res) => {
  * pausa entre solicitudes, para respetar el límite de uso de Nominatim
  * (máx. ~1 solicitud/segundo) y no exceder el tiempo de una sola petición.
  */
-router.post('/regeocodificar-pendientes', requireRole('admin'), async (req, res) => {
+router.post('/regeocodificar-pendientes', requireRole('admin', 'aspirante'), async (req, res) => {
   const tamanoLote = Math.min(Math.max(parseInt(req.query.lote) || 5, 1), 20);
   const despuesDe = parseInt(req.query.despues_de) || 0;
   const incluirTodos = req.query.todos === '1';
 
   if (incluirTodos) {
-    const autorizado = await verificarPasswordAdmin(req.body && req.body.password);
+    /* «Corregir ubicaciones existentes» PISA coordenadas que ya estaban, asi
+       que se confirma. Pero la clave que pedia es la del ADMINISTRADOR, y el
+       aspirante no la tiene ni debe tenerla: se le pide LA SUYA, igual que al
+       borrar un votante. Confirmar que es el, no pedirle una credencial ajena. */
+    const autorizado = req.sublicencia
+      ? await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password)
+      : await verificarPasswordAdmin(req.body && req.body.password);
     if (!autorizado) {
-      return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
+      return res.status(403).json({
+        error: req.sublicencia
+          ? 'Contraseña incorrecta. Escriba la suya para confirmar.'
+          : 'Contraseña de administrador incorrecta.',
+      });
     }
   }
 
   try {
     const condicionGeocodificado = incluirTodos ? '' : ' AND geocodificado_en IS NULL';
 
+    /* SE GEOCODIFICA LO SUYO, NO LA CAMPAÑA ENTERA.
+       Estas dos consultas recorrian `votantes` sin acotar — le bastaba porque
+       solo entraba el administrador. Un aspirante sin este filtro pondria a
+       correr un proceso de varios minutos sobre los 88 votantes de la campaña
+       madre, gastando geocodificaciones ajenas y PISANDO coordenadas que no son
+       suyas. El contador tambien: le diria «faltan 60» de gente que no ve. */
+    const acota = req.alcance
+      ? ' AND ' + condicionAlcanceVotantes(req.alcance, '') : '';
+    const parAcota = req.alcance ? parametrosAlcanceVotantes(req.alcance) : [];
+
     const [pendientes] = await pool.query(`
       SELECT id, direccion, territorio_id, departamento_residencia, ciudad_residencia FROM votantes
-      WHERE direccion IS NOT NULL AND direccion != '' AND id > ?${condicionGeocodificado}
+      WHERE direccion IS NOT NULL AND direccion != '' AND id > ?${condicionGeocodificado}${acota}
       ORDER BY id LIMIT ?
-    `, [despuesDe, tamanoLote]);
+    `, [despuesDe, ...parAcota, tamanoLote]);
 
     const [[{ totalPendientesDespues }]] = await pool.query(`
       SELECT COUNT(*) AS totalPendientesDespues FROM votantes
-      WHERE direccion IS NOT NULL AND direccion != '' AND id > ?${condicionGeocodificado}
-    `, [despuesDe]);
+      WHERE direccion IS NOT NULL AND direccion != '' AND id > ?${condicionGeocodificado}${acota}
+    `, [despuesDe, ...parAcota]);
 
     let geocodificados = 0;
     const fallidos = [];
