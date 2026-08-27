@@ -184,6 +184,23 @@
     border-radius: 10px;
     margin-top: 12px;
   }
+  /* LOS TRES DE LA ELECCIÓN SON HERMANOS, NO TRES LLAMADAS A LA ACCIÓN.
+     El botón amarillo grande está pensado para cuando hay UN camino ofrecido;
+     tres iguales, en versalitas y a 1,1rem, gritan lo mismo tres veces y
+     empujan «Otros usuarios» fuera de la pantalla — medido en el diseño de
+     512px de alto útil del celular de la captura, donde el botón anterior ya
+     partía en dos renglones él solo.
+
+     Se quedan amarillos —son el camino de este público— pero en tamaño de
+     menú: sin versalitas, con menos interletraje y menos relleno. Así cada uno
+     cabe en UN renglón y los cuatro entran sin desplazar. */
+  .login-card button.btn-primario.btn-eleccion {
+    font-size: .95rem;
+    letter-spacing: .02em;
+    text-transform: none;
+    padding: 14px 14px;
+    margin-top: 10px;
+  }
   /* La segunda vía de acceso: MISMA FORMA que «Enviar código» —para que se
      lea como un botón y no como una nota al pie— pero en hueco, no en
      amarillo. Dos botones amarillos iguales dejarían la pantalla sin decir
@@ -364,16 +381,38 @@
          La eleccion NO se recuerda: es una pantalla que la persona ya sabe
          contestar, y recordarla fue justo lo que dejo celulares abriendo el
          formulario equivocado sin forma de salir. -->
+    <!-- LOS TRES PRIMEROS BOTONES LLEVAN AL MISMO SITIO, Y ESO ES A PROPOSITO.
+         Lider, sublider, testigo y aspirante al Concejo entran todos con su
+         NUMERO DE IDENTIFICACION y su clave: no son tres ingresos distintos,
+         es uno con tres letreros. Antes habia un solo boton que decia
+         «Lideres o Testigos», y un aspirante al Concejo no se veia nombrado en
+         ninguna parte — la pregunta de la pantalla es «¿como va a ingresar?» y
+         el no tenia respuesta que marcar.
+
+         NO MANDAN «entrarComo». Cual sombrero se pone la persona se decide
+         DESPUES de autenticarse, donde el servidor ya sabe cuales tiene de
+         verdad (capacidadesDe, en auth.routes.js). Si estos botones mandaran
+         esa preferencia, un lider podria elegir «Testigos Electorales» y darse
+         una capacidad que no tiene. Aqui se elige el FORMULARIO, no el rol.
+
+         «Otros usuarios» se queda: es el correo/codigo de administracion y
+         coordinacion. Sin el, esas cuentas no entran desde el celular. -->
     <div id="form-elegir-acceso" style="display:none;">
-      <button type="button" class="btn-primario" id="ir-a-lideres-desde-eleccion">
-        Acceso de Líderes o Testigos Electorales
+      <button type="button" class="btn-primario btn-eleccion" id="ir-a-lideres-desde-eleccion">
+        Acceso a Líderes y Sublíderes
+      </button>
+      <button type="button" class="btn-primario btn-eleccion" id="ir-a-testigos-desde-eleccion">
+        Acceso a Testigos Electorales
+      </button>
+      <button type="button" class="btn-primario btn-eleccion" id="ir-a-aspirantes-desde-eleccion">
+        Acceso a Aspirantes al Concejo
       </button>
       <button type="button" class="btn-primario btn-alterno" id="ir-a-otros-desde-eleccion">
         Otros usuarios
       </button>
       <p style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
-        Líderes, sublíderes y testigos entran con su número de identificación.
-        Administración y coordinación, con su correo o celular.
+        Líderes, sublíderes, testigos y aspirantes entran con su número de
+        identificación. Administración y coordinación, con su correo o celular.
       </p>
     </div>
 
@@ -1065,9 +1104,18 @@ function ponerEtiquetaLogin(campo, texto) {
   if (l) l.textContent = texto;
 }
 
-document.getElementById('ir-a-lideres-desde-eleccion').addEventListener('click', () => {
-  document.getElementById('login-error').classList.remove('visible');
-  ponerModoLider();
+/* Los tres van a ponerModoLider() porque los tres entran igual: número de
+   identificación y clave. Lo que el botón elige es el TECLADO y las etiquetas
+   del formulario, no quién es la persona — eso lo resuelve el servidor al
+   autenticarla. Se atan uno por uno y no con un bucle sobre una lista de ids
+   para que, si mañana alguno necesita llevar a otro sitio, se vea aquí. */
+['ir-a-lideres-desde-eleccion',
+ 'ir-a-testigos-desde-eleccion',
+ 'ir-a-aspirantes-desde-eleccion'].forEach((id) => {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('login-error').classList.remove('visible');
+    ponerModoLider();
+  });
 });
 
 document.getElementById('ir-a-otros-desde-eleccion').addEventListener('click', () => {

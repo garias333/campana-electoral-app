@@ -96,7 +96,30 @@ async function registrarAuditoria(usuarioId, accion, detalle, ip) {
  * que la ruta que llama lo incluya en la respuesta.
  */
 async function completarSesion(req, usuario, recordar, entrarComo) {
-  const rolEfectivo = entrarComo === 'testigo' ? 'testigo' : usuario.rol;
+  /* EL SOMBRERO DE TESTIGO SE COMPRUEBA, NO SE CREE.
+     `POST /login` acepta `entrarComo` en el cuerpo y, cuando viene, se SALTA
+     la pregunta de «¿cómo quieres entrar?» — y con ella el `capacidadesDe()`
+     que es quien sabe qué puede ser esta persona. Hasta hoy sólo lo mandaba
+     /elegir-rol, donde ya venía filtrado, así que nadie lo notó; pero la ruta
+     está abierta y cualquiera con SUS PROPIAS credenciales podía pedir
+     `entrarComo: 'testigo'` y llevarse una sesión con `rol: 'testigo'` sin
+     tener una sola fila de testigo.
+
+     La rama de `aspirante`, tres líneas más abajo, siempre lo comprobó contra
+     `sublicencias`. Ésta no. Ahora hacen lo mismo las dos, y por el mismo
+     motivo: quien elige el sombrero es la persona, pero quién PUEDE ponérselo
+     lo dice la base.
+
+     (Se destapó al poner tres botones en el ingreso del celular: el paso
+     natural era que cada uno mandara su `entrarComo`, y al mirar qué haría el
+     servidor con eso apareció que no lo verificaba. Por eso los botones NO lo
+     mandan — ver login.html.) */
+  let rolEfectivo = usuario.rol;
+  if (entrarComo === 'testigo') {
+    const [[esTestigo]] = await pool.query(
+      `SELECT 1 FROM estructura WHERE usuario_id = ? AND cargo = 'testigo' LIMIT 1`, [usuario.id]);
+    if (esTestigo) rolEfectivo = 'testigo';
+  }
 
   /* ¿ESTA PERSONA TIENE SUBLICENCIA? Se anota en la sesión porque de eso
      depende A DÓNDE va al entrar, y esa decisión la toma el navegador antes de
