@@ -20,6 +20,50 @@ const { TIPOS_GREMIALES, CARGOS_CON_META_DERIVADA, sqlMetaEfectiva } = require('
 const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
+
+/**
+ * LA CATEGORIA DA EL ROL. Una sola tabla, tres sitios que la usan.
+ *
+ *   Coordinador de territorio     -> coordinador
+ *   Coordinador de organizaciones -> coordinador   (no tiene rol propio)
+ *   Aspirante al Concejo          -> aspirante_concejo
+ *   Lider                         -> lider
+ *   Sublider                      -> usuario
+ *   Testigo                       -> testigo
+ *
+ * «Aspirante al Concejo» no es un `cargo`: es lider + tipo_cargo, la misma
+ * deduccion que hacen los botones de la pantalla. Por eso recibe los dos.
+ */
+function rolDeLaCategoria(cargo, tipoCargo) {
+  if (cargo === 'lider' && tipoCargo === 'aspirante_concejo') return 'aspirante_concejo';
+  if (cargo === 'coordinador_organizaciones') return 'coordinador';
+  return cargo;
+}
+
+/**
+ * QUE ROLES PUEDE CAMBIAR LA CATEGORIA, Y CUALES NO SE TOCAN NUNCA.
+ *
+ * Al editar una ficha de Estructura hay que reajustar el rol, porque si no
+ * cambiar la categoria no cambia nada: es lo que le paso a Camilo, que paso a
+ * Aspirante al Concejo y se quedo con rol `lider`.
+ *
+ * Pero un `admin` o un `asistente_administrativo` que ademas tenga fila de
+ * Estructura NO puede ser degradado por editarle el barrio. Solo se reajustan
+ * los roles que describen un puesto en la estructura.
+ */
+const ROLES_QUE_DA_LA_CATEGORIA = ['coordinador', 'lider', 'aspirante_concejo', 'usuario', 'sublider', 'testigo'];
+
+/**
+ * `usuario` y `sublider` son la MISMA categoria con dos nombres historicos:
+ * el primero lo pone Estructura y el segundo Votantes. Tratarlos como
+ * distintos haria que editar a un sublider le cambiara el rol de ida y vuelta
+ * segun por que pantalla se le tocara, y con el sus filas de `permisos_rol`.
+ */
+function mismaCategoria(rolA, rolB) {
+  const nivel = (r) => (r === 'sublider' ? 'usuario' : r);
+  return nivel(rolA) === nivel(rolB);
+}
+
 router.use(requireAuth);
 
 /**
@@ -914,10 +958,7 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
   try {
     await conexion.beginTransaction();
 
-    // "Coordinador Organizaciones" es un cargo distinto dentro de la
-    // Estructura, pero para efectos de inicio de sesión/permisos usa el
-    // mismo rol que "coordinador" (no se creó un rol nuevo aparte).
-    const nombreRolLogin = cargo === 'coordinador_organizaciones' ? 'coordinador' : cargo;
+    const nombreRolLogin = rolDeLaCategoria(cargo, tipo_cargo);
     const [[rol]] = await conexion.query(`SELECT id FROM roles WHERE nombre = ?`, [nombreRolLogin]);
     if (!rol) throw new Error('Cargo/rol inválido.');
 
@@ -1114,6 +1155,31 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
        tipo_cargo || null, JSON.stringify(Array.isArray(apoya_a) ? apoya_a : []),
        (email || '').trim() ? email.trim().toLowerCase() : null, telefono ? telefono.replace(/\D/g, '') : null, fila.usuario_id]
     );
+
+    /* EL ROL SIGUE A LA CATEGORIA, TAMBIEN AL EDITAR.
+       Hasta aqui el PUT no tocaba `rol_id`: se podia cambiar a alguien de
+       Lider a Aspirante al Concejo y su rol seguia diciendo `lider`. Es lo que
+       le paso a Camilo — la categoria decia una cosa y el ingreso otra.
+
+       Se reajusta SOLO si su rol actual es uno de los que describe la
+       estructura: un `admin` con ficha de Estructura no puede quedar degradado
+       a lider por haberle corregido el barrio.
+
+       Y no se toca cuando el rol nuevo y el viejo son la misma categoria con
+       otro nombre (`usuario`/`sublider`): eso solo generaria idas y vueltas
+       segun por que pantalla se le edite. */
+    const rolQueToca = rolDeLaCategoria(cargo, tipo_cargo);
+    const [[rolActual]] = await conexion.query(
+      `SELECT r.nombre FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = ?`, [fila.usuario_id]);
+    if (rolActual && ROLES_QUE_DA_LA_CATEGORIA.includes(rolActual.nombre)
+        && !mismaCategoria(rolActual.nombre, rolQueToca)) {
+      const [[rolNuevo]] = await conexion.query(`SELECT id FROM roles WHERE nombre = ?`, [rolQueToca]);
+      // Si el rol no existe todavia —una campaña que aun no aplico el parche
+      // que lo crea— se deja el que tenia. Degradarla a nada seria peor.
+      if (rolNuevo) {
+        await conexion.query(`UPDATE usuarios SET rol_id = ? WHERE id = ?`, [rolNuevo.id, fila.usuario_id]);
+      }
+    }
 
     await conexion.query(
       `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, territorio_id = ?, area = ?, tipo_area_influencia = ?, organizacion = ?,
@@ -1785,7 +1851,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
       let estructuraId, usuarioIdImport;
       try {
         await conexion.beginTransaction();
-        const nombreRolLogin = cargo === 'coordinador_organizaciones' ? 'coordinador' : cargo;
+        const nombreRolLogin = rolDeLaCategoria(cargo, tipoCargo);
         const [[rol]] = await conexion.query(`SELECT id FROM roles WHERE nombre = ?`, [nombreRolLogin]);
         // El correo es opcional: si no viene en el Excel, se usa el Número
         // de identificación como Nombre de usuario y contraseña inicial.
