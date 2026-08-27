@@ -39,16 +39,25 @@ async function requerirSesionApp() {
       const sesion = await api('/auth/me');
       actualizarPerfilCuentaDispositivo(sesion.usuario);
 
-      /* EL ASPIRANTE CON SUBLICENCIA NO TRABAJA EN ESTA APP.
-         En la estructura es un lider, y por eso llega aqui: el icono de la
-         aplicacion instalada abre /app/inicio.html sin preguntarle a nadie.
-         Pero el no entra a capturar votantes puerta a puerta, entra a dirigir
-         SU campaña — y sus cuatro pantallas y su marca estan en el panel.
+      /* EL ASPIRANTE VA AL PANEL EN EL COMPUTADOR. EN EL CELULAR, SE QUEDA.
+         Sus cuatro pantallas y su marca estan en el panel, y a eso entra desde
+         el computador. Pero en el telefono SI trabaja aqui, como cualquier
+         lider: capturando en la calle.
 
-         Se le manda alla desde aqui y no solo al iniciar sesion porque el
-         `start_url` del manifiesto lo traeria a esta pantalla cada vez que
-         abriera el icono, con la sesion ya abierta y sin pasar por el ingreso. */
-      if (sesion.usuario && sesion.usuario.es_aspirante) {
+         Antes se le mandaba al panel sin mirar el aparato, asi que el telefono
+         lo sacaba de la app en cuanto abria el icono — y el panel en una
+         pantalla de 400px no es donde nadie captura de pie.
+
+         Se comprueba aqui y no solo al iniciar sesion porque el `start_url`
+         del manifiesto lo trae a esta pantalla cada vez que abre el icono, con
+         la sesion ya abierta y sin pasar por el ingreso.
+
+         `esCelular()` puede no estar definido si una pagina nueva de /app/ se
+         olvida de cargar /js/es-celular.js. En ese caso se prefiere NO desviar:
+         quedarse en la app es recuperable —hay menu para ir al panel— y sacar a
+         alguien de la pantalla en la que estaba trabajando, no. */
+      const enComputador = typeof window.esCelular === 'function' && !window.esCelular();
+      if (sesion.usuario && sesion.usuario.es_aspirante && enComputador) {
         window.location.replace('/votantes.html');
         return sesion.usuario;
       }
