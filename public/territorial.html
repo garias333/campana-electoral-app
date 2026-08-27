@@ -368,7 +368,7 @@
           <div id="resultados-buscar-supervisor-persona" style="margin-bottom:6px;"></div>
         </div>
         <select name="supervisor_id" id="select-supervisor"><option value="">Ninguno</option></select>
-        <small id="nota-reporta-a-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.78rem;">Un Coordinador es la cabeza de su territorio: no reporta a nadie. Los líderes reportan a él, y los sublíderes a los líderes.</small>
+        <small id="nota-reporta-a-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.78rem;">Un Coordinador es la cabeza de lo suyo —territorio u organizaciones— y no reporta a nadie. Los dos van al mismo nivel: ninguno manda sobre el otro.</small>
       </div>
       <div class="campo" id="campo-activo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px;">
@@ -536,7 +536,10 @@ async function cargarSelects() {
  */
 function restaurarOpcionesReportaA() {
   const select = document.getElementById('select-supervisor');
-  if (document.getElementById('select-cargo-persona').value === 'coordinador') {
+  // Las dos cabezas de la jerarquía, no sólo el Coordinador de territorio:
+  // desde que los dos comparten el rango 1, al de organizaciones tampoco hay
+  // a quién ofrecerle. Antes le salía la lista entera de la campaña.
+  if (esCabezaDeJerarquia(categoriaSeleccionadaPersona())) {
     select.innerHTML = '<option value="">Ninguno</option>';
     select.value = '';
     return;
@@ -1201,13 +1204,25 @@ function esAspiranteAlConcejo(f) {
  * y un líder son indistinguibles — justo la diferencia que hace falta. La
  * categoría vive en `estructura.cargo` + `usuarios.tipo_cargo`, y de ahí sale.
  */
+/* LOS DOS COORDINADORES COMPARTEN EL RANGO 1: son la cabeza, cada uno de lo
+   suyo —territorio y organizaciones—, y ninguno manda sobre el otro. El primer
+   intento les dio 0 y 1, o sea que el de organizaciones le reportaba al de
+   territorio; no es así, y por eso los números repiten a propósito.
+
+   Rango igual NO es rango superior, así que a los dos se les oculta el
+   buscador: arriba de ellos no hay nadie a quien ofrecer. */
 const RANGO_CATEGORIA = {
-  coordinador: 0,                  // Coordinador de territorio
+  coordinador: 1,                  // Coordinador de territorio
   coordinador_organizaciones: 1,   // Coordinador de organizaciones
   aspirante_concejo: 2,            // Aspirante al Concejo
   lider: 3,                        // Líder
   usuario: 4,                      // Sublíder
 };
+/** Categorías que no tienen a nadie por encima: no reportan a nadie. */
+function esCabezaDeJerarquia(categoria) {
+  const r = RANGO_CATEGORIA[categoria];
+  return r !== undefined && !Object.values(RANGO_CATEGORIA).some(otro => otro < r);
+}
 const ETIQUETAS_CATEGORIA = {
   coordinador: 'Coordinador de territorio',
   coordinador_organizaciones: 'Coordinador de organizaciones',
@@ -1391,11 +1406,13 @@ document.getElementById('input-corregimiento-persona').addEventListener('input',
 function actualizarVisibilidadBusquedaSupervisor() {
   const categoria = categoriaSeleccionadaPersona();
   const miRango = RANGO_CATEGORIA[categoria];
-  // Rango 0 —Coordinador de territorio— no tiene a nadie encima. Ofrecerle un
-  // buscador que nunca puede devolver nada es peor que no ofrecerlo.
-  const hayAlguienArriba = miRango !== undefined && miRango > 0;
+  // Se pregunta si hay ALGUIEN con rango menor, en vez de comparar contra un
+  // número escrito a mano. Cuando los dos coordinadores pasaron a compartir el
+  // rango 1, un `miRango > 0` habría seguido ofreciéndole el buscador al de
+  // organizaciones para que no encontrara nunca nada.
+  const hayAlguienArriba = miRango !== undefined && !esCabezaDeJerarquia(categoria);
   document.getElementById('busqueda-supervisor-persona').style.display = hayAlguienArriba ? 'block' : 'none';
-  document.getElementById('nota-reporta-a-coordinador').style.display = categoria === 'coordinador' ? 'block' : 'none';
+  document.getElementById('nota-reporta-a-coordinador').style.display = esCabezaDeJerarquia(categoria) ? 'block' : 'none';
   if (!hayAlguienArriba) {
     document.getElementById('input-buscar-supervisor-persona').value = '';
     document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
@@ -1665,12 +1682,23 @@ async function actualizarReportaAPorZona() {
   try {
     const coordinadores = await api(`/territorial/coordinadores-por-zona/${zonaId}`);
     if (!coordinadores.length) { restaurarOpcionesReportaA(); return; }
-    // Llegan ordenados por cercanía: el del propio territorio primero. Se
-    // preselecciona ese, que es el caso normal; si hay varios, el usuario
-    // cambia, y si necesita a otro lo busca por nombre al lado.
+    // Llegan ordenados por cercanía: el del propio territorio primero.
     select.innerHTML = '<option value="">Ninguno</option>' +
       coordinadores.map(c => `<option value="${c.id}">${escaparHtml(c.nombre)}</option>`).join('');
-    select.value = String(coordinadores[0].id);
+
+    /* AL ASPIRANTE AL CONCEJO NO SE LE PRESELECCIONA NINGUNO.
+       Un Líder sí reporta a un coordinador, así que proponerle el de su
+       territorio le ahorra un paso y acierta casi siempre. Un Aspirante al
+       Concejo NO necesariamente: dirige su propia estructura y puede no
+       colgar de nadie.
+
+       La diferencia importa porque preseleccionar no es sugerir — es dejar
+       escrito, y se guarda tal cual si nadie lo toca. Al aspirante se le
+       OFRECE la lista, por si de verdad reporta a uno, y se le deja en
+       «Ninguno» hasta que él lo diga. */
+    if (categoriaSeleccionadaPersona() !== TIPO_ASPIRANTE_CONCEJO) {
+      select.value = String(coordinadores[0].id);
+    }
   } catch (err) {
     restaurarOpcionesReportaA();
   }
