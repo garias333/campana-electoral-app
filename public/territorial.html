@@ -1346,23 +1346,61 @@ function actualizarVisibilidadBusquedaSupervisor() {
     return;
   }
   const etiqueta = buscado === 'lider' ? 'líder' : 'coordinador';
-  document.getElementById('input-buscar-supervisor-persona').placeholder = `Buscar un ${etiqueta} por nombre...`;
+  // El texto ya no promete SÓLO ese cargo: desde que se puede reportar a un
+  // Aspirante al Concejo —que es un líder—, decir «busca otro coordinador»
+  // haría creer que un líder no se puede elegir, cuando sí.
+  document.getElementById('input-buscar-supervisor-persona').placeholder = 'Buscar a otra persona por nombre...';
   document.getElementById('nota-busqueda-supervisor').textContent =
-    `La lista de abajo ya trae los de este territorio, del más cercano al más general — si necesitas a otro ${etiqueta}, búscalo por nombre aquí.`;
+    `La lista de abajo ya trae los ${etiqueta}es de este territorio, del más cercano al más general.`
+    + ' Aquí puedes buscar a cualquier otro coordinador o líder —incluido un Aspirante al Concejo—;'
+    + ` los ${etiqueta}es salen primero.`;
 }
 
+/**
+ * EL DESPLEGABLE PROPONE; EL BUSCADOR NO LIMITA.
+ *
+ * La lista de abajo sigue trayendo al coordinador del territorio de primero
+ * (ver actualizarReportaAPorZona), que es el caso normal y por eso va
+ * preseleccionado. Este buscador es para el caso que no lo es.
+ *
+ * ANTES SÓLO ENCONTRABA EL CARGO QUE «TOCA» —`u.rol === buscado`— y eso dejó
+ * de alcanzar en cuanto existió la categoría Aspirante al Concejo: un
+ * aspirante es un LÍDER en la base, así que al buscarle un supervisor a otro
+ * líder la búsqueda pedía rol «coordinador» y nunca lo devolvía. Escribir
+ * «Camilo» daba «Sin resultados» teniéndolo en la campaña, que es la peor
+ * respuesta posible: parece que la persona no existe.
+ *
+ * Ahora busca entre coordinadores y líderes —el mismo conjunto que ya ofrece
+ * el desplegable completo— y MUESTRA EL CARGO de cada uno. La regla de la
+ * cadena de mando no desaparece: los del cargo que corresponde salen primero,
+ * y elegir otro es una decisión visible en vez de un accidente.
+ *
+ * Y no se ofrece a sí misma: una persona que se reporta a sí misma arma un
+ * ciclo que el organigrama no puede dibujar.
+ */
 document.getElementById('input-buscar-supervisor-persona').addEventListener('input', () => {
   const texto = normalizarTexto(document.getElementById('input-buscar-supervisor-persona').value.trim());
   const cont = document.getElementById('resultados-buscar-supervisor-persona');
   if (!texto) { cont.innerHTML = ''; return; }
-  const buscado = CARGO_QUE_SUPERVISA[document.getElementById('select-cargo-persona').value];
+  const preferido = CARGO_QUE_SUPERVISA[document.getElementById('select-cargo-persona').value];
+  const filaEditada = edicionId ? listaEstructura.find(f => f.id === edicionId) : null;
+  const miUsuarioId = filaEditada ? filaEditada.usuario_id : null;
   const coincidencias = listaCoordinadoresYLideres
-    .filter(u => u.rol === buscado && normalizarTexto(u.nombre).includes(texto))
+    .filter(u => ['coordinador', 'lider'].includes(u.rol))
+    .filter(u => u.id !== miUsuarioId)
+    .filter(u => normalizarTexto(u.nombre).includes(texto))
+    // Primero el cargo que manda por jerarquía; dentro de cada grupo, por
+    // nombre. `sort` es estable, así que el segundo criterio no deshace el
+    // primero.
+    .sort((a, b) => {
+      const pa = a.rol === preferido ? 0 : 1, pb = b.rol === preferido ? 0 : 1;
+      return pa !== pb ? pa - pb : (a.nombre || '').localeCompare(b.nombre || '');
+    })
     .slice(0, 8);
   cont.innerHTML = coincidencias.length
     ? coincidencias.map(u => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
-          <span>${u.nombre}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
+          <span>${escaparHtml(u.nombre)} <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${escaparHtml(u.rol === 'lider' ? 'líder' : u.rol)}</span></span>
           <button type="button" class="btn-secundario btn-sm" onclick="elegirSupervisorBuscado(${u.id})">Elegir</button>
         </div>
       `).join('')
@@ -1375,7 +1413,12 @@ function elegirSupervisorBuscado(id) {
   if (!encontrado) return;
   const select = document.getElementById('select-supervisor');
   if (!Array.from(select.options).some(o => o.value === String(id))) {
-    select.insertAdjacentHTML('beforeend', `<option value="${id}">${encontrado.nombre}</option>`);
+    // Con el cargo detrás, igual que restaurarOpcionesReportaA: la lista
+    // acotada al territorio son coordinadores, así que un líder traído por
+    // el buscador tiene que verse distinto o pasaría por uno de ellos.
+    const etiquetaRol = encontrado.rol === 'lider' ? 'líder' : encontrado.rol;
+    select.insertAdjacentHTML('beforeend',
+      `<option value="${id}">${escaparHtml(encontrado.nombre)} — ${escaparHtml(etiquetaRol)}</option>`);
   }
   select.value = id;
   document.getElementById('input-buscar-supervisor-persona').value = '';
