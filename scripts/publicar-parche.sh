@@ -77,7 +77,14 @@ fi
 # entonces HTTP 500 y la campaña reporta el parche como fallido. Ya pasó.
 install -m 644 "$ORIGEN" "$DESTINO" || { echo "No se pudo copiar a $DESTINO"; exit 1; }
 
-echo "Publicado: $DESTINO"
+echo "Archivo puesto en: $DESTINO"
+echo
+echo "OJO: PUESTO NO ES SUBIDO. El panel lista desde la tabla"
+echo "\`parches_disponibles\`, y este guion no escribe en ninguna base de datos."
+echo "Mientras no exista esa fila, el parche NO aparece en el panel y ninguna"
+echo "instalación lo va a pedir — el archivo está ahí y no lo ve nadie."
+echo "Lo que crea la fila es el botón «+ Subir parche», que guarda el zip Y la"
+echo "registra en la misma operación."
 ls -l "$DESTINO"
 echo
 echo "  huella origen  : $(sha256sum "$ORIGEN"  | cut -c1-16)"
