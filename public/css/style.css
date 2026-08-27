@@ -806,27 +806,52 @@ tbody tr:hover { background: #FAFBFC; }
   outline-offset: 2px;
 }
 
-/* Los cuatro botones de Categoría en Estructura, en UNA sola línea.
+/* Los CINCO botones de Categoría en Estructura, en una sola línea.
 
-   `flex: 1 1 0` con `min-width: 0` los reparte en cuatro partes iguales y
-   deja que el texto se envuelva DENTRO de cada botón — «Coordinador de
-   organizaciones» no cabe en 112 px de ancho en un renglón, y si no se le
-   permite envolver, empuja a los demás a otra fila. Eso fue exactamente lo
-   que pasó en el intento anterior, cuando estaban dentro de media columna.
-
-   Van en azul #084298 con letra blanca, como se pidió. Como los cuatro son
+   Van en azul #084298 con letra blanca, como se pidió. Como los cinco son
    del mismo color, el elegido se distingue por tono más oscuro, un anillo y
    un ✓ delante: si el color fuera lo único que los diferencia, no se sabría
-   cuál está seleccionado. */
+   cuál está seleccionado.
+
+   CON CINCO YA NO CABÍA, Y SE VEÍA «Coordinador de organizacione».
+   La cuenta, en el modal de 520 px que había: 520 − 48 de relleno = 472 de
+   ancho útil, menos 32 de separaciones, entre 5 = 88 px por botón, de los
+   que 73 son texto. «organizaciones» es UNA palabra de catorce letras y a
+   0,78rem pide unos 96: no cabía, y como ninguna regla permitía partirla, se
+   salía del botón y se cortaba. Bajar la letra hasta que quepa daría 0,59rem,
+   ilegible al lado de sus hermanos.
+
+   Por eso el modal de personas pasó a 660 px (ver .modal-amplio abajo): con
+   612 útiles cada botón queda en 116 y el texto en 101. Es lo que costaba
+   pasar de cuatro categorías a cinco.
+
+   `min-width: 96px` en vez de 0 para que en un teléfono NO se sigan
+   encogiendo hasta partir palabras: con menos sitio se reparten en dos
+   renglones, que es legible; encogidas no.
+
+   Y `overflow-wrap: anywhere` es la red por debajo de todo lo anterior: si
+   alguna vez una etiqueta nueva es más larga de lo que cabe, se parte y se
+   ve fea — pero se ve. Cortada no se ve, y eso fue justo lo que pasó aquí. */
 .chips-cargo .chip-form {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 96px;
+  min-width: 96px;
   padding: 10px 6px;
   font-size: 0.78rem;
   line-height: 1.25;
   background: #084298;
   border-color: #084298;
   color: #fff;
+  overflow-wrap: anywhere;
+  /* CENTRADO EN LOS DOS EJES. El horizontal ya venía del `text-align:center`
+     de .chip-form; el vertical no existía: el flex padre estira los cinco a
+     la misma altura —la del más alto, «Coordinador de organizaciones» con
+     tres renglones— y los de un solo renglón se quedaban pegados arriba.
+     Volviendo cada botón un flex, su contenido se centra dentro de esa
+     altura común. El <input> real no estorba: es `position:absolute` y no
+     participa del flujo. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .chips-cargo .chip-form:hover { border-color: #052c66; background: #0a4fb5; }
 .chips-cargo .chip-form:has(:checked) {
@@ -836,7 +861,14 @@ tbody tr:hover { background: #FAFBFC; }
   box-shadow: inset 0 0 0 2px rgba(255,255,255,0.55);
   font-weight: 700;
 }
-.chips-cargo .chip-form:has(:checked)::before { content: '✓ '; }
+/* El ✓ es ahora un elemento flex más, así que el espacio de '✓ ' se
+   colapsaría: la separación va en margen. `flex:0 0 auto` para que no ceda
+   ancho ni lo robe cuando el texto ocupa tres renglones. */
+.chips-cargo .chip-form:has(:checked)::before {
+  content: '✓';
+  flex: 0 0 auto;
+  margin-right: 4px;
+}
 
 /* Campos más altos y más redondeados en los formularios de personas, para
    que coincidan con los de la app móvil. Acotado a esos dos formularios
@@ -855,7 +887,15 @@ form.form-amplio textarea {
    no se vea un recuadro blanco pegado arriba. Los campos siguen blancos
    —la regla general de `input` ya los pinta así—, que es justo lo que los
    hace resaltar sobre el crema. */
-.modal.modal-amplio { background: #F8F3E9; }
+/* MÁS ANCHO QUE LOS DEMÁS MODALES (520), y por una razón medida: los cinco
+   botones de Categoría no caben en 520 sin cortar «organizaciones» — la
+   cuenta está arriba, en .chips-cargo. Con 660 caben, y de paso las filas de
+   dos columnas de este formulario dejan de ir apretadas.
+
+   Solo lo llevan los dos formularios de personas (Estructura y Votantes);
+   ningún otro modal cambia. En el teléfono no cambia nada: `.modal` es
+   `width:100%` y manda el ancho de la pantalla, no este máximo. */
+.modal.modal-amplio { background: #F8F3E9; max-width: 660px; }
 form.form-amplio .chip-form input { padding: 0; }
 
 .tag-tipo {

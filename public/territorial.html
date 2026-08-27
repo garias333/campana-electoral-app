@@ -40,8 +40,11 @@
             <option value="">Todos los cargos</option>
             <option value="coordinador">Coordinador</option>
             <option value="coordinador_organizaciones">Coordinador Organizaciones</option>
-            <option value="lider">Líder</option>
+            <!-- Mismo orden que los botones de Categoría del formulario: son
+                 la misma lista en dos sitios, y leerla distinta en cada uno
+                 obliga a buscar dos veces. -->
             <option value="aspirante_concejo">Aspirante al Concejo</option>
+            <option value="lider">Líder</option>
             <option value="usuario">Sublíder</option>
           </select>
           <select id="filtro-estructura-area">
@@ -100,13 +103,18 @@
         <div class="chips-form chips-cargo" id="chips-cargo-persona" role="group" aria-label="Categoría">
           <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador"> Coordinador de territorio</label>
           <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador_organizaciones"> Coordinador de organizaciones</label>
-          <label class="chip-form"><input type="radio" name="cargo_visual" value="lider" checked> Líder</label>
-          <!-- NO es un cargo nuevo en la base: es un Líder con Tipo
+          <!-- VA ANTES DE «Líder» aunque en la base SEA un líder. El orden de
+               estos botones es el de la jerarquía de la campaña, no el del
+               modelo de datos: el aspirante al Concejo manda sobre su propia
+               estructura y por eso se lee antes.
+
+               NO es un cargo nuevo en la base: es un Líder con Tipo
                "Aspirante al concejo". El <select> de abajo sigue enviando
                "lider" y la columna `estructura.cargo` no cambia — así los
                aspirantes conservan su equipo, su meta y su rama como
                cualquier líder. Ver esAspiranteAlConcejo(). -->
           <label class="chip-form"><input type="radio" name="cargo_visual" value="aspirante_concejo"> Aspirante al Concejo</label>
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="lider" checked> Líder</label>
           <label class="chip-form"><input type="radio" name="cargo_visual" value="usuario"> Sublíder</label>
         </div>
         <select name="cargo" id="select-cargo-persona" required style="display:none;">
