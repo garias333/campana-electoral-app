@@ -24,6 +24,8 @@
  * existía, así que en ese caso no se sincroniza nada (para no crear
  * duplicados sueltos cada vez que se guarda).
  */
+const { ramaDeVotante } = require('../lib/ramas');
+
 /**
  * Busca la ficha de Votante de ESTA MISMA persona cuando la cédula no
  * coincide.
@@ -81,8 +83,8 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
          (nombre, cedula, telefono, email, genero, edad, apoya_a,
           departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
           departamento_residencia, ciudad_residencia, direccion, territorio_id,
-          categoria, created_by, origen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura')
+          categoria, created_by, origen, rama_aspirante_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
        ON DUPLICATE KEY UPDATE
          nombre = VALUES(nombre),
          telefono = VALUES(telefono), email = VALUES(email), genero = VALUES(genero), edad = VALUES(edad),
@@ -101,7 +103,17 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
         datos.puesto_votacion || null, datos.mesa_votacion || null,
         datos.departamento_residencia || null, datos.ciudad_residencia || null,
         datos.direccion || null, datos.territorio_id || null,
-        datos.creado_por || null
+        datos.creado_por || null,
+        /* DE QUE RAMA CUELGA, al crear la ficha. Esta persona esta en la
+           estructura, asi que su rama sale de subir por ahi — que es lo mismo
+           que calcularia `recalcularTodas()`.
+
+           VA SOLO EN EL `VALUES` Y NO EN EL `ON DUPLICATE KEY UPDATE`, a
+           proposito: si la ficha ya existe puede tener una rama sacada de su
+           `lider_id`, y pisarla con lo que da la cedula la borraria para todo
+           el que no este en la estructura de ningun aspirante. Al crear no hay
+           nada que perder; al actualizar si. */
+        await ramaDeVotante(pool, { cedula })
       ]
     );
   } catch (err) {

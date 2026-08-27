@@ -242,7 +242,13 @@ const ETIQUETAS_APOYO_APP = {
 };
 
 /** Casillas de "Apoya a" según lo que el administrador activó en Configuración. Sin apoyos activos, la sección no aparece. */
-function aplicarApoyosConfiguradosApp(activos, posibles) {
+function aplicarApoyosConfiguradosApp(activos, posibles, porDefecto = []) {
+  /* `porDefecto` SON LAS QUE NACEN MARCADAS, y las decide el servidor
+     (`apoyos_por_defecto`). Hoy solo trae una: el cargo del aspirante del que
+     cuelga quien registra. Se pone como ATRIBUTO `checked` y no por JavaScript
+     despues, para que un `form.reset()` las devuelva a marcado en vez de
+     dejarlas en blanco. Al editar una ficha existente, el formulario las pisa
+     con lo guardado, asi que esto solo afecta a las nuevas. */
   const bloque = document.getElementById('bloque-apoya-a-app');
   const casillas = document.getElementById('casillas-apoya-a-app');
   // LA MISMA REGLA QUE EN EL ESCRITORIO, y por eso se llama a la función
@@ -256,7 +262,7 @@ function aplicarApoyosConfiguradosApp(activos, posibles) {
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;"${porDefecto.includes(a) ? ' checked' : ''}>
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }
@@ -877,7 +883,7 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
     document.body.classList.toggle('sin-barrios', !usarNombreBarrios);
     document.body.classList.toggle('sin-corregimientos', !usarNombreCorregimientos);
     document.body.classList.toggle('sin-veredas', !usarNombreVeredas);
-    aplicarApoyosConfiguradosApp(configCampana.apoyos_activos, configCampana.apoyos_posibles);
+    aplicarApoyosConfiguradosApp(configCampana.apoyos_activos, configCampana.apoyos_posibles, configCampana.apoyos_por_defecto || []);
     aplicarVisibilidadComunaApp();
     poblarListasTerritorio();
     poblarDepartamentos();

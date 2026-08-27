@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria } = require('../config/auditoria');
+const { sublicenciaSobre } = require('../lib/ramas');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { estadoCanal: estadoCanalSms, enviarSMS, invalidarCache: invalidarCacheSms } = require('../config/sms');
 const { estadoCanal: estadoCanalSendgrid, enviarCorreoMasivo } = require('../config/sendgrid');
@@ -167,6 +168,25 @@ function apoyosPermitidos(cargo) {
 }
 
 /**
+ * Las dos listas juntas, sin repetidos y sin inventar un orden nuevo.
+ *
+ * PARA QUIEN TRABAJA PARA DOS CAMPAÑAS A LA VEZ: la gente de un aspirante al
+ * Concejo le registra votantes a él Y a la madre, así que necesita las casillas
+ * de las dos. Quitarle una de las dos listas le tapa la mitad de su trabajo.
+ *
+ * MANDA LA LISTA MÁS LARGA, y la otra solo aporta lo que falte. Las listas de
+ * `APOYOS_POR_CARGO` están encadenadas —la de un cargo bajo contiene la de uno
+ * alto— pero NO en el mismo orden interno: `alcaldia` pone «gobernacion» antes
+ * que «asamblea» y `concejo` al revés. Un orden canónico inventado aquí le
+ * movería las casillas de sitio a campañas que no tienen ningún aspirante.
+ */
+function unirApoyos(a, b) {
+  const base = (b.length > a.length) ? b : a;
+  const otro = (base === b) ? a : b;
+  return base.concat(otro.filter((x) => !base.includes(x)));
+}
+
+/**
  * ¿La campaña tiene gente registrada en cada nivel territorial?
  *
  * PARA QUÉ
@@ -280,11 +300,72 @@ router.get('/campana', async (req, res) => {
       // Sus apoyos activos salen de SU cargo. Los de la madre no le sirven:
       // son los tres de una campaña a la Alcaldia, y ninguno es «concejo».
       cfg.apoyos_activos = apoyosPermitidos(req.sublicencia.cargo);
+      // Y su propia casilla viene marcada: todo el que registra desde aqui
+      // apoya al aspirante — es la razon de que este registrandolo.
+      cfg.apoyos_por_defecto = [req.sublicencia.cargo];
     }
 
     // La regla de qué apoyos aplican vive en el servidor; el frontend solo
     // pinta lo que le llega. Así no hay dos copias que se puedan separar.
     cfg.apoyos_posibles = apoyosPermitidos(cfg.cargo_aspira);
+
+    /* LA GENTE DE UN ASPIRANTE VE TAMBIÉN LAS CASILLAS DE SU CAMPAÑA.
+       Un líder del aspirante al Concejo trabaja para las dos: le registra a la
+       madre y le registra a él. Si al votante solo se le puede marcar lo de la
+       madre, el líder no tiene con qué decir a quién apoya de verdad, y la rama
+       del aspirante queda sin el dato que la define.
+
+       ASÍ SE VEÍA EL FALLO: campaña madre a la Alcaldía, cuyos apoyos son
+       «alcaldia, gobernacion, asamblea» — sin «concejo». El aspirante SÍ veía
+       la casilla, porque el bloque de arriba le cambia el cargo; sus líderes
+       no, porque entran a la app con usuario y contraseña y ahí no hay
+       sublicencia que valga (`middleware/aspirante.js` solo la carga si se
+       entró con ese sombrero). Los 27 votantes de la rama tenían «alcaldia»
+       porque era lo único que se podía marcar.
+
+       SE AMPLÍA, NUNCA SE RECORTA. Lo de la madre sigue entero: lo que llega es
+       la unión. Y `apoyos_activos` se amplía igual, porque el frontend cruza
+       las dos listas (`public/js/apoyos.js`) y una casilla posible que no esté
+       activa no se pinta; con `null` —nunca configurado— se deja en null, que
+       ya significa «todas las posibles».
+
+       Cuesta una consulta más por carga de pantalla, y solo para quien no entró
+       como aspirante. Sube por la cadena de mando con la CTE de `lib/ramas.js`,
+       la misma que decide las ramas, para que no haya dos definiciones de
+       «cuelga de». */
+    // Sin aspirante encima no se marca ninguna: la campaña madre pregunta, no
+    // presupone. `cfg.apoyos_por_defecto` viaja siempre para que el frontend no
+    // tenga que distinguir «no llego» de «ninguna».
+    if (cfg.apoyos_por_defecto === undefined) cfg.apoyos_por_defecto = [];
+
+    if (!req.sublicencia && req.session && req.session.usuario) {
+      const jefe = await sublicenciaSobre(pool, req.session.usuario.id);
+      const suyos = jefe ? apoyosPermitidos(jefe.cargo) : [];
+      if (suyos.length) {
+        cfg.apoyos_posibles = unirApoyos(cfg.apoyos_posibles, suyos);
+        /* CON `apoyos_activos` EN `[]` TAMBIEN SE AMPLIA, y es a proposito.
+           Lista vacia significa «esta campaña decidio no pedir apoyos», y esa
+           decision es de la madre sobre SU gente; la del aspirante sigue
+           necesitando los suyos. Apagarselos porque la madre apago los propios
+           seria dejar que una campaña configure la otra. */
+        if (Array.isArray(cfg.apoyos_activos)) {
+          cfg.apoyos_activos = unirApoyos(cfg.apoyos_activos, suyos);
+        }
+        /* LA CASILLA DEL ASPIRANTE, MARCADA DE ENTRADA.
+           Quien registra es un lider suyo: el votante apoya al aspirante por
+           definicion, y lo que de verdad hay que decidir persona por persona es
+           si apoya ADEMAS a la madre. Diego Toro marca tambien Alcaldia y sale
+           en las dos campañas; Nora Gomez la deja sin marcar y sale solo en la
+           del aspirante. Dejar las cuatro en blanco hace que el caso normal
+           cueste un clic y que olvidarlo pierda la rama entera.
+
+           SOLO ES EL VALOR INICIAL DE UNA FICHA NUEVA. Al editar a alguien que
+           ya existe, el formulario pisa las casillas con lo que tenga guardado
+           (`votantes.html`), asi que esto no le agrega un apoyo a nadie por la
+           espalda. */
+        cfg.apoyos_por_defecto = [jefe.cargo];
+      }
+    }
 
     // Si esto falla, se responde que SÍ hay datos en todos los niveles: la
     // tabla muestra las columnas y no se esconde nada. Fallar mostrando de

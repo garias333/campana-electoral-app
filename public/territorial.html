@@ -1134,7 +1134,13 @@ const ETIQUETAS_APOYO_APP = {
  * Gobernación no debería estar ofreciendo apoyo a un concejo en
  * particular, y una que no use apoyos no tiene por qué ver el bloque.
  */
-function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
+function aplicarApoyosConfigurados(SUFIJO, activos, posibles, porDefecto = []) {
+  /* `porDefecto` SON LAS QUE NACEN MARCADAS, y las decide el servidor
+     (`apoyos_por_defecto`). Hoy solo trae una: el cargo del aspirante del que
+     cuelga quien registra. Se pone como ATRIBUTO `checked` y no por JavaScript
+     despues, para que un `form.reset()` las devuelva a marcado en vez de
+     dejarlas en blanco. Al editar una ficha existente, el formulario las pisa
+     con lo guardado, asi que esto solo afecta a las nuevas. */
   const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
   const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
   // El orden y el conjunto los decide el cargo al que aspira la campaña; los
@@ -1150,7 +1156,7 @@ function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;"${porDefecto.includes(a) ? ' checked' : ''}>
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }
@@ -3050,7 +3056,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     // la mitad rural cuando llegaron corregimientos y veredas.
     document.getElementById('label-comuna-corregimiento-residencia').textContent = columnas.etiquetaComuna;
     document.getElementById('label-barrio-vereda-residencia').textContent = columnas.etiquetaBarrio;
-    aplicarApoyosConfigurados('persona', configCampana.apoyos_activos, configCampana.apoyos_posibles);
+    aplicarApoyosConfigurados('persona', configCampana.apoyos_activos, configCampana.apoyos_posibles, configCampana.apoyos_por_defecto || []);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   actualizarVisibilidadBarrioVeredaSegunCargo();
   await cargarCatalogoColombia();

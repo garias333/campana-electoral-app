@@ -6,7 +6,7 @@ const { requireAuth, requireRole, calcularAlcance } = require('../middleware/aut
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
-const { aspiranteDe } = require('../lib/ramas');
+const { aspiranteDe, ramaDeVotante } = require('../lib/ramas');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
         filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { armarWhereSql } = require('../config/filtros');
@@ -598,6 +598,19 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.
     const errores = [];
     const posiblesDuplicados = [];
 
+    /* LA RAMA DE CADA LIDER, PREGUNTADA UNA SOLA VEZ.
+       Un Excel trae muchas filas y pocos lideres distintos, y averiguar la rama
+       sube por la cadena de mando con una CTE recursiva. Se guarda tambien el
+       `null`, que es la respuesta mas comun —la mayoria de los lideres no
+       cuelgan de ningun aspirante— y la que mas se repetiria. */
+    const ramaPorLider = new Map();
+    const ramaMemorizada = async (idLider) => {
+      if (!ramaPorLider.has(idLider)) {
+        ramaPorLider.set(idLider, await ramaDeVotante(pool, { lider_id: idLider }));
+      }
+      return ramaPorLider.get(idLider);
+    };
+
     for (const [i, fila] of filas.entries()) {
       const idFila = String(fila['ID'] || fila.id || '').trim() || null;
       // Admite tanto la columna nueva ("Nombres y apellidos", un solo
@@ -734,12 +747,17 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.
           `INSERT INTO votantes
            (nombre, cedula, telefono, email, genero, edad, fecha_nacimiento, territorio_id,
             direccion, departamento_residencia, ciudad_residencia, area, lider_id, intencion_voto, departamento_votacion, municipio_votacion,
-            puesto_votacion, mesa_votacion, observaciones, created_by, origen)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'importado')`,
+            puesto_votacion, mesa_votacion, observaciones, created_by, origen, rama_aspirante_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'importado', ?)`,
           [nombre, cedula, telefono, email, genero, edad, fechaNacimiento || null, territorioId,
            direccion, departamentoResidenciaImport, ciudadResidenciaImport, area || null, liderId || req.session.usuario.id, intencionVoto,
            departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion,
-           observaciones, req.session.usuario.id]
+           observaciones, req.session.usuario.id,
+           /* MISMA REGLA QUE EN EL FORMULARIO: la rama se escribe al guardar.
+              Aqui se memoriza por lider porque un Excel de 5.000 filas suele
+              traer dos o tres lideres distintos, y cada consulta sube por la
+              cadena de mando con una CTE recursiva. */
+           await ramaMemorizada(liderId || req.session.usuario.id)]
         );
         insertados++;
         geocodificarYGuardarVotante(result.insertId, direccion, territorioId, departamentoResidenciaImport, ciudadResidenciaImport)
@@ -1241,8 +1259,8 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
         puesto_votacion, ctc_puesto_id, mesa_votacion, observaciones,
         consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
         consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
-        cliente_uuid, created_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        cliente_uuid, created_by, rama_aspirante_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -1263,7 +1281,32 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
        b.consentimiento_autorizado ? (b.consentimiento_whatsapp ? 1 : 0) : 0,
        (b.consentimiento_version || '').slice(0, 64) || null,
        b.cliente_uuid || null,
-       req.session.usuario.id]
+       req.session.usuario.id,
+       /* DE QUE RAMA CUELGA, CALCULADO AL GUARDAR.
+          `lib/alcanceVotantes.js` ya daba por hecho que esta columna estaba
+          puesta —«su gente es la de su rama, calculada al guardar»— pero nadie
+          la escribia: `ramaDeVotante` solo se llamaba desde
+          `recalcularTodas()`, que corre con la sincronizacion de sublicencias.
+          O sea que un votante nuevo pasaba horas con `rama_aspirante_id` en
+          NULL, y NULL no es neutro: sale en la campaña madre pase lo que pase
+          (asi lo pide `filtroMadre`) y no sale en la del aspirante.
+
+          Medido el 27 de agosto de 2026 en la campaña municipal: Boston Dos,
+          que apoya a concejo, asamblea y gobernacion pero NO a la alcaldia,
+          aparecia igual en la madre; y ni el ni Boston Tres aparecian en la
+          sublicencia. Boston Uno, registrado dos horas y media antes, si
+          estaba bien — la unica diferencia era que a el ya lo habia alcanzado
+          una sincronizacion. Un fallo que se cura solo al rato es peor que uno
+          permanente: parece cosa de la pantalla.
+
+          Se calcula ANTES del INSERT y con los mismos datos que se van a
+          guardar, no despues con una segunda escritura: asi la fila nace
+          completa y no existe el instante en que esta a medias. */
+       await ramaDeVotante(pool, {
+         cedula: b.cedula || null,
+         lider_id: b.lider_id || req.session.usuario.id,
+         sublider_id: b.sublider_id || null
+       })]
     );
     votanteId = result.insertId;
   } catch (err) {
@@ -1372,7 +1415,8 @@ router.put('/:id', async (req, res) => {
        fecha_nacimiento=?, territorio_id=?, tipo_area_influencia=?, organizacion=?, direccion=?,
        departamento_residencia=?, ciudad_residencia=?,
        area=?, lider_id=?, sublider_id=?, intencion_voto=?, apoya_a=?,
-       departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, ctc_puesto_id=?, mesa_votacion=?, observaciones=? WHERE id = ?`,
+       departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, ctc_puesto_id=?, mesa_votacion=?, observaciones=?,
+       rama_aspirante_id=? WHERE id = ?`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -1380,7 +1424,16 @@ router.put('/:id', async (req, res) => {
        esOrganizacion ? null : (b.area || null), b.lider_id || null, b.sublider_id || null,
        b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
-       b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null, req.params.id]
+       b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null,
+       /* SE RECALCULA, no se conserva: cambiarle el lider a un votante lo
+          cambia de rama, y dejar la anterior lo dejaria contando para un
+          aspirante que ya no lo tiene. */
+       await ramaDeVotante(pool, {
+         cedula: b.cedula || null,
+         lider_id: b.lider_id || null,
+         sublider_id: b.sublider_id || null
+       }),
+       req.params.id]
     );
 
     // Solo se vuelve a geocodificar si la dirección o el territorio cambiaron
@@ -1604,10 +1657,16 @@ router.post('/importar', async (req, res) => {
     if (!b.nombre) { errores.push({ fila: i + 1, error: 'Falta el nombre' }); continue; }
     try {
       await pool.query(
-        `INSERT INTO votantes (nombre, cedula, telefono, territorio_id, intencion_voto, created_by, origen)
-         VALUES (?,?,?,?,?,?, 'importado')`,
+        `INSERT INTO votantes (nombre, cedula, telefono, territorio_id, intencion_voto, created_by, origen, rama_aspirante_id)
+         VALUES (?,?,?,?,?,?, 'importado', ?)`,
         [b.nombre, b.cedula || null, b.telefono || null, b.territorio_id || null,
-         b.intencion_voto || 'desconocido', req.session.usuario.id]
+         b.intencion_voto || 'desconocido', req.session.usuario.id,
+         /* ESTAS FILAS NO GUARDAN `lider_id`, asi que la rama solo puede salir
+            de la cedula: si esa persona esta en la estructura de un aspirante,
+            cuelga de el. NO se usa quien importa como si fuera su lider —seria
+            inventar un vinculo que la fila no registra— y ademas dejaria de
+            coincidir con lo que `recalcularTodas()` calcularia despues. */
+         await ramaDeVotante(pool, { cedula: b.cedula || null })]
       );
       insertados++;
     } catch (err) {

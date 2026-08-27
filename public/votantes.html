@@ -492,7 +492,13 @@ const ETIQUETAS_APOYO_APP = {
 // ciudadTieneComunas y usarNombreBarrios más abajo.
 let apoyosActivosVotantes = ['alcaldia', 'concejo', 'jal', 'gobernacion', 'asamblea'];
 
-function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
+function aplicarApoyosConfigurados(SUFIJO, activos, posibles, porDefecto = []) {
+  /* `porDefecto` SON LAS QUE NACEN MARCADAS, y las decide el servidor
+     (`apoyos_por_defecto`). Hoy solo trae una: el cargo del aspirante del que
+     cuelga quien registra. Se pone como ATRIBUTO `checked` y no por JavaScript
+     despues, para que un `form.reset()` las devuelva a marcado en vez de
+     dejarlas en blanco. Al editar una ficha existente, el formulario las pisa
+     con lo guardado, asi que esto solo afecta a las nuevas. */
   const bloque = document.getElementById(`bloque-apoya-a-${SUFIJO}`);
   const casillas = document.getElementById(`casillas-apoya-a-${SUFIJO}`);
   // Tres casos, y el primero importa: si NUNCA se configuraron apoyos
@@ -513,7 +519,7 @@ function aplicarApoyosConfigurados(SUFIJO, activos, posibles) {
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;">
+      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;"${porDefecto.includes(a) ? ' checked' : ''}>
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }
@@ -2672,7 +2678,7 @@ function alternarMesasEstimadoPuesto(i) {
     // Se quita la clase en vez de ponerla: el <body> nace con ella, así la
     // columna no alcanza a asomarse mientras llega la configuración.
     document.body.classList.toggle('sin-columna-ciudad', !ambitoDepartamental);
-    aplicarApoyosConfigurados('votante', configCampana.apoyos_activos, configCampana.apoyos_posibles);
+    aplicarApoyosConfigurados('votante', configCampana.apoyos_activos, configCampana.apoyos_posibles, configCampana.apoyos_por_defecto || []);
     aplicarApoyosATablaVotantes(configCampana.apoyos_activos, configCampana.apoyos_posibles);
   } catch (e) { /* si falla, se asume que sí tiene comunas/barrios (comportamiento previo) */ }
   aplicarVisibilidadComunaVotante();
