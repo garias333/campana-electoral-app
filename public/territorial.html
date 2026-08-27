@@ -132,7 +132,24 @@
             <option value="">Sin especificar</option>
             <option value="concejal">Concejal</option>
             <option value="edil">Edil</option>
-            <option value="aspirante_concejo">Aspirante al concejo</option>
+            <!-- FUERA DE LA LISTA, PERO NO FUERA DEL DOCUMENTO.
+                 Se quitó de las opciones elegibles porque ya es un botón de
+                 Categoría y ofrecerlo dos veces invita a dejar los dos campos
+                 diciendo cosas distintas.
+
+                 Pero la opción tiene que SEGUIR EXISTIENDO: la categoría se
+                 deduce de este valor, y el botón la pone con
+                 `select.value = 'aspirante_concejo'`. Asignar un valor que no
+                 tiene <option> NO da error — deja el <select> como estaba, en
+                 silencio. Es la misma trampa que documenta
+                 fijarValorGuardadoEnSelect() en common.js, y aquí habría
+                 roto la categoría entera sin una sola señal.
+
+                 `hidden` la saca del desplegable y la deja seleccionable por
+                 código. Cuando es el valor guardado, el campo la muestra: si
+                 dijera «Sin especificar» estaría mintiendo sobre lo que hay
+                 en la base. -->
+            <option value="aspirante_concejo" hidden>Aspirante al concejo</option>
             <option value="aspirante_jal">Aspirante a JAL</option>
             <option value="presidente_jal">Presidente de JAL</option>
             <option value="presidente_jac">Presidente de JAC</option>
