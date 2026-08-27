@@ -122,6 +122,21 @@ function main() {
   fs.writeFileSync(path.join(PROYECTO, '.version-base'), String(numero) + '\n', 'utf8');
   if (!archivos.includes('.version-base')) archivos.push('.version-base');
 
+  /* Y SE PONE AL DIA `.version-parche` DE ESTA INSTALACION.
+     Quien genera parches es la plantilla, y la plantilla NO los recibe: su
+     `.version-parche` solo existe para que, si alguien dispara una
+     actualizacion contra ella, no encuentre nada que aplicar. Si se queda
+     atras, encuentra su propia historia.
+     Ya paso: decia 161 con el codigo del 167 —seis parches de diferencia— y no
+     lo delataba nada, porque el numero no se usa para nada mas.
+     NUNCA LO BAJA. Este archivo viaja en los parches, asi que existe tambien en
+     las campañas; si alguien lo corriera alli con un numero menor, bajarle el
+     `.version-parche` le haria reaplicar parches ya puestos. */
+  const rutaVersion = path.join(PROYECTO, '.version-parche');
+  let versionActual = 0;
+  try { versionActual = parseInt(fs.readFileSync(rutaVersion, 'utf8').trim()) || 0; } catch (e) { /* no existe */ }
+  if (numero > versionActual) fs.writeFileSync(rutaVersion, String(numero) + '\n', 'utf8');
+
   fs.mkdirSync(SALIDA, { recursive: true });
   const nombreZip = `campana-parche${numero}.zip`;
   const rutaZip = path.join(SALIDA, nombreZip);
