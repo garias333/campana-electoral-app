@@ -73,7 +73,7 @@ const si = (v) => (v ? 'SÍ' : 'no');
     let sub = null;
     try {
       [[sub]] = await c.query(
-        `SELECT activa, cargo, nombre, subtitulo, logo_url FROM sublicencias WHERE usuario_id = ? LIMIT 1`,
+        `SELECT activa, cargo, nombre, subtitulo, logo_url, marca_editada_en FROM sublicencias WHERE usuario_id = ? LIMIT 1`,
         [u.id]);
     } catch (err) {
       if (err.code === 'ER_NO_SUCH_TABLE') console.log('\n  Esta campaña no tiene la tabla `sublicencias`.');
@@ -91,6 +91,13 @@ const si = (v) => (v ? 'SÍ' : 'no');
       console.log(`    su campaña ........ ${sub.nombre || '(hereda la de la madre)'}`);
       console.log(`    su lema ........... ${sub.subtitulo || '—'}`);
       console.log(`    su logo ........... ${sub.logo_url ? 'sí' : 'no'}`);
+      /* MARCA EDITADA: importa al recrear una sublicencia. Desde que el
+         aspirante toca su nombre o su lema, la sincronizacion deja de pisarlos
+         — asi que una sublicencia NUEVA para la misma persona heredaria estos
+         textos viejos en vez de los que se escriban al venderla. */
+      console.log(`    marca tocada por él  ${sub.marca_editada_en
+        ? 'SÍ (' + String(sub.marca_editada_en).slice(0, 19) + ') — una sublicencia nueva NO pisaría estos textos'
+        : 'no — una sublicencia nueva traería sus propios textos'}`);
     }
 
     // El veredicto, con las mismas reglas que aplica auth.routes.js.
