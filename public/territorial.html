@@ -1186,6 +1186,52 @@ const TIPO_ASPIRANTE_CONCEJO = 'aspirante_concejo';
 function esAspiranteAlConcejo(f) {
   return f.cargo === 'lider' && f.tipo_cargo === TIPO_ASPIRANTE_CONCEJO;
 }
+
+/**
+ * EL RANGO ES EL ORDEN DE LOS BOTONES DE CATEGORÍA, DE IZQUIERDA A DERECHA.
+ *
+ * Esa fila de botones ya expresa la jerarquía de la campaña; esto la escribe
+ * como números para poder preguntarle «¿quién está por encima de quién?».
+ * Si mañana cambia el orden de los botones, cambia aquí y en ningún otro sitio.
+ *
+ * NO SE PUEDE DEDUCIR DE `usuarios.rol`, y ese era el techo del intento
+ * anterior: en la tabla de roles no existen ni «coordinador de organizaciones»
+ * ni «aspirante al concejo». Los dos primeros comparten el rol `coordinador` y
+ * los dos siguientes el rol `lider`, así que preguntándole al rol un aspirante
+ * y un líder son indistinguibles — justo la diferencia que hace falta. La
+ * categoría vive en `estructura.cargo` + `usuarios.tipo_cargo`, y de ahí sale.
+ */
+const RANGO_CATEGORIA = {
+  coordinador: 0,                  // Coordinador de territorio
+  coordinador_organizaciones: 1,   // Coordinador de organizaciones
+  aspirante_concejo: 2,            // Aspirante al Concejo
+  lider: 3,                        // Líder
+  usuario: 4,                      // Sublíder
+};
+const ETIQUETAS_CATEGORIA = {
+  coordinador: 'Coordinador de territorio',
+  coordinador_organizaciones: 'Coordinador de organizaciones',
+  aspirante_concejo: 'Aspirante al Concejo',
+  lider: 'Líder',
+  usuario: 'Sublíder',
+};
+
+/** La categoría de una fila de Estructura, con el aspirante ya distinguido. */
+function categoriaDeFila(f) {
+  return esAspiranteAlConcejo(f) ? TIPO_ASPIRANTE_CONCEJO : f.cargo;
+}
+/** Número de rango; 99 para lo que no esté en la tabla (testigos y demás). */
+function rangoDeFila(f) {
+  const r = RANGO_CATEGORIA[categoriaDeFila(f)];
+  return r === undefined ? 99 : r;
+}
+/** La categoría que tienen marcada AHORA los botones del formulario. */
+function categoriaSeleccionadaPersona() {
+  return categoriaDeFila({
+    cargo: document.getElementById('select-cargo-persona').value,
+    tipo_cargo: document.getElementById('select-tipo-cargo-persona').value,
+  });
+}
 // Campañas de Gobernación o Asamblea abarcan TODO el departamento, así que
 // el área de influencia de una persona no se puede deducir de la ciudad
 // sede (no hay una: `ciudad` viene vacía). Con el ámbito departamental se
@@ -1323,37 +1369,45 @@ document.getElementById('input-corregimiento-persona').addEventListener('input',
   actualizarVeredasPersona();
   actualizarReportaAPorZona();
 });
-/**
- * A quién se puede buscar por nombre en "Reporta a", según la cadena de
- * mando: un Sublíder reporta a un Líder y un Líder a un Coordinador. La
- * búsqueda respeta esa regla en vez de ofrecer a cualquiera — elegir el
- * cargo equivocado arma una jerarquía que después no cuadra en el
- * organigrama y nadie sabe por qué.
- *
- * Los demás cargos no tienen un superior fijo y ya ven la lista completa
- * en el desplegable, así que no necesitan buscador.
- */
-const CARGO_QUE_SUPERVISA = { usuario: 'lider', lider: 'coordinador' };
+/* Aquí vivía CARGO_QUE_SUPERVISA = { usuario: 'lider', lider: 'coordinador' },
+   que decía a quién se podía buscar: UN solo cargo, el inmediatamente
+   superior. Se quitó al pasar al criterio de rango (RANGO_CATEGORIA), y se
+   quitó del todo en vez de dejarlo por si acaso: una tabla que sigue
+   describiendo la regla vieja es exactamente lo que alguien va a leer dentro
+   de seis meses para entender la nueva. */
 
+/**
+ * SE PUEDE REPORTAR A CUALQUIERA DE RANGO SUPERIOR, y punto.
+ *
+ * Antes el buscador miraba un solo cargo —el inmediatamente superior— y eso
+ * dejaba fuera casos legítimos: un sublíder que responde directamente a un
+ * coordinador, o cualquiera que responda a un Aspirante al Concejo. Ahora el
+ * criterio es el orden de los botones: vale todo el que esté a la izquierda.
+ *
+ * El desplegable de abajo NO cambia: sigue proponiendo a los del propio
+ * territorio, del más cercano al más general, con el coordinador de la zona
+ * preseleccionado. Este buscador es para salirse de esa propuesta.
+ */
 function actualizarVisibilidadBusquedaSupervisor() {
-  const cargo = document.getElementById('select-cargo-persona').value;
-  const buscado = CARGO_QUE_SUPERVISA[cargo];
-  document.getElementById('busqueda-supervisor-persona').style.display = buscado ? 'block' : 'none';
-  document.getElementById('nota-reporta-a-coordinador').style.display = cargo === 'coordinador' ? 'block' : 'none';
-  if (!buscado) {
+  const categoria = categoriaSeleccionadaPersona();
+  const miRango = RANGO_CATEGORIA[categoria];
+  // Rango 0 —Coordinador de territorio— no tiene a nadie encima. Ofrecerle un
+  // buscador que nunca puede devolver nada es peor que no ofrecerlo.
+  const hayAlguienArriba = miRango !== undefined && miRango > 0;
+  document.getElementById('busqueda-supervisor-persona').style.display = hayAlguienArriba ? 'block' : 'none';
+  document.getElementById('nota-reporta-a-coordinador').style.display = categoria === 'coordinador' ? 'block' : 'none';
+  if (!hayAlguienArriba) {
     document.getElementById('input-buscar-supervisor-persona').value = '';
     document.getElementById('resultados-buscar-supervisor-persona').innerHTML = '';
     return;
   }
-  const etiqueta = buscado === 'lider' ? 'líder' : 'coordinador';
-  // El texto ya no promete SÓLO ese cargo: desde que se puede reportar a un
-  // Aspirante al Concejo —que es un líder—, decir «busca otro coordinador»
-  // haría creer que un líder no se puede elegir, cuando sí.
+  const superiores = Object.keys(RANGO_CATEGORIA)
+    .filter(c => RANGO_CATEGORIA[c] < miRango)
+    .map(c => ETIQUETAS_CATEGORIA[c]);
   document.getElementById('input-buscar-supervisor-persona').placeholder = 'Buscar a otra persona por nombre...';
   document.getElementById('nota-busqueda-supervisor').textContent =
-    `La lista de abajo ya trae los ${etiqueta}es de este territorio, del más cercano al más general.`
-    + ' Aquí puedes buscar a cualquier otro coordinador o líder —incluido un Aspirante al Concejo—;'
-    + ` los ${etiqueta}es salen primero.`;
+    'La lista de abajo ya trae los de este territorio, del más cercano al más general.'
+    + ` Aquí puedes buscar a cualquiera de rango superior: ${superiores.join(', ')}.`;
 }
 
 /**
@@ -1378,30 +1432,51 @@ function actualizarVisibilidadBusquedaSupervisor() {
  * Y no se ofrece a sí misma: una persona que se reporta a sí misma arma un
  * ciclo que el organigrama no puede dibujar.
  */
+/**
+ * SE BUSCA EN LA ESTRUCTURA, NO EN LA LISTA DE USUARIOS.
+ *
+ * `/usuarios` sólo trae `rol`, y el rol no distingue las cinco categorías: un
+ * Coordinador de organizaciones tiene rol `coordinador` igual que uno de
+ * territorio, y un Aspirante al Concejo tiene rol `lider` igual que un líder.
+ * Con el rol como criterio, «de rango superior» no se puede ni calcular.
+ *
+ * `listaEstructura` sí trae `cargo` y `tipo_cargo`, que es de donde sale la
+ * categoría — la misma que pintan los botones y la columna de la tabla.
+ *
+ * El valor que se guarda sigue siendo el `usuario_id`: `supervisor_id` apunta
+ * a `usuarios`, no a `estructura`.
+ */
 document.getElementById('input-buscar-supervisor-persona').addEventListener('input', () => {
   const texto = normalizarTexto(document.getElementById('input-buscar-supervisor-persona').value.trim());
   const cont = document.getElementById('resultados-buscar-supervisor-persona');
   if (!texto) { cont.innerHTML = ''; return; }
-  const preferido = CARGO_QUE_SUPERVISA[document.getElementById('select-cargo-persona').value];
+  const miRango = RANGO_CATEGORIA[categoriaSeleccionadaPersona()];
+  if (miRango === undefined) { cont.innerHTML = ''; return; }
   const filaEditada = edicionId ? listaEstructura.find(f => f.id === edicionId) : null;
   const miUsuarioId = filaEditada ? filaEditada.usuario_id : null;
-  const coincidencias = listaCoordinadoresYLideres
-    .filter(u => ['coordinador', 'lider'].includes(u.rol))
-    .filter(u => u.id !== miUsuarioId)
-    .filter(u => normalizarTexto(u.nombre).includes(texto))
-    // Primero el cargo que manda por jerarquía; dentro de cada grupo, por
-    // nombre. `sort` es estable, así que el segundo criterio no deshace el
-    // primero.
+
+  const vistos = new Set();
+  const coincidencias = listaEstructura
+    // De rango superior: cualquiera a la IZQUIERDA en la fila de botones.
+    .filter(f => rangoDeFila(f) < miRango)
+    // Ni ella misma —eso sería un ciclo que el organigrama no puede dibujar—
+    // ni repetida: una persona puede tener más de una fila de Estructura.
+    .filter(f => f.usuario_id !== miUsuarioId)
+    .filter(f => normalizarTexto(f.nombre).includes(texto))
+    .filter(f => { if (vistos.has(f.usuario_id)) return false; vistos.add(f.usuario_id); return true; })
+    // En el mismo orden que los botones: primero los de más arriba. `sort` es
+    // estable, así que ordenar por nombre dentro de cada rango no lo deshace.
     .sort((a, b) => {
-      const pa = a.rol === preferido ? 0 : 1, pb = b.rol === preferido ? 0 : 1;
-      return pa !== pb ? pa - pb : (a.nombre || '').localeCompare(b.nombre || '');
+      const ra = rangoDeFila(a), rb = rangoDeFila(b);
+      return ra !== rb ? ra - rb : (a.nombre || '').localeCompare(b.nombre || '');
     })
     .slice(0, 8);
+
   cont.innerHTML = coincidencias.length
-    ? coincidencias.map(u => `
+    ? coincidencias.map(f => `
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
-          <span>${escaparHtml(u.nombre)} <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${escaparHtml(u.rol === 'lider' ? 'líder' : u.rol)}</span></span>
-          <button type="button" class="btn-secundario btn-sm" onclick="elegirSupervisorBuscado(${u.id})">Elegir</button>
+          <span>${escaparHtml(f.nombre)} <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${escaparHtml(ETIQUETAS_CATEGORIA[categoriaDeFila(f)] || f.cargo)}</span></span>
+          <button type="button" class="btn-secundario btn-sm" onclick="elegirSupervisorBuscado(${f.usuario_id})">Elegir</button>
         </div>
       `).join('')
     : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
@@ -1409,16 +1484,22 @@ document.getElementById('input-buscar-supervisor-persona').addEventListener('inp
 
 /** Selecciona en "Reporta a" al líder o coordinador encontrado por nombre, aunque no aparezca en la lista acotada al territorio. */
 function elegirSupervisorBuscado(id) {
-  const encontrado = listaCoordinadoresYLideres.find(u => u.id === id);
+  // El `id` es un usuario_id. Se busca primero en la Estructura, que es la que
+  // sabe la CATEGORÍA; si por lo que fuera no estuviera allí, se cae a la
+  // lista de usuarios para no dejar el botón sin efecto.
+  const fila = listaEstructura.find(f => f.usuario_id === id);
+  const encontrado = fila || listaCoordinadoresYLideres.find(u => u.id === id);
   if (!encontrado) return;
   const select = document.getElementById('select-supervisor');
   if (!Array.from(select.options).some(o => o.value === String(id))) {
-    // Con el cargo detrás, igual que restaurarOpcionesReportaA: la lista
-    // acotada al territorio son coordinadores, así que un líder traído por
-    // el buscador tiene que verse distinto o pasaría por uno de ellos.
-    const etiquetaRol = encontrado.rol === 'lider' ? 'líder' : encontrado.rol;
+    // Con la categoría detrás: la lista acotada al territorio son
+    // coordinadores, así que alguien traído por el buscador tiene que verse
+    // distinto o pasaría por uno de ellos.
+    const etiqueta = fila
+      ? (ETIQUETAS_CATEGORIA[categoriaDeFila(fila)] || fila.cargo)
+      : (encontrado.rol === 'lider' ? 'Líder' : encontrado.rol);
     select.insertAdjacentHTML('beforeend',
-      `<option value="${id}">${escaparHtml(encontrado.nombre)} — ${escaparHtml(etiquetaRol)}</option>`);
+      `<option value="${id}">${escaparHtml(encontrado.nombre)} — ${escaparHtml(etiqueta)}</option>`);
   }
   select.value = id;
   document.getElementById('input-buscar-supervisor-persona').value = '';
@@ -1436,14 +1517,11 @@ function elegirSupervisorBuscado(id) {
  * editar a un Coordinador los botones seguirían marcando "Líder".
  */
 function sincronizarChipsCargo() {
-  const cargo = document.getElementById('select-cargo-persona').value;
-  const tipo = document.getElementById('select-tipo-cargo-persona').value;
   // "Aspirante al Concejo" no es un valor de `cargo`: se deduce del par
-  // (cargo=lider, tipo=aspirante_concejo). Por eso el chip que se marca no
-  // siempre coincide con el <select>, y esta función traduce en un solo
-  // sitio — si la deducción viviera repartida, editar a un aspirante
-  // marcaría "Líder" y guardarlo lo sacaría de su categoría sin avisar.
-  const valor = (cargo === 'lider' && tipo === TIPO_ASPIRANTE_CONCEJO) ? TIPO_ASPIRANTE_CONCEJO : cargo;
+  // (cargo=lider, tipo=aspirante_concejo). La deducción vive en
+  // categoriaDeFila() y se usa desde aquí — si viviera repartida, editar a un
+  // aspirante marcaría "Líder" y guardarlo lo sacaría de su categoría.
+  const valor = categoriaSeleccionadaPersona();
   document.querySelectorAll('#chips-cargo-persona input[name="cargo_visual"]')
     .forEach(r => { r.checked = (r.value === valor); });
 }
@@ -1840,6 +1918,9 @@ document.getElementById('select-tipo-cargo-persona').addEventListener('change', 
   // aquí ese Tipo en un Líder tiene que mover el botón de arriba — si no, la
   // ficha diría "Líder" y la lista lo mostraría como Aspirante.
   sincronizarChipsCargo();
+  // Y con el botón cambia el RANGO, así que "Reporta a" tiene que volver a
+  // calcular a quién ofrece: un aspirante no puede reportarle a un líder.
+  actualizarVisibilidadBusquedaSupervisor();
 });
 
 function resolverTerritorioPersona() {
@@ -2560,12 +2641,13 @@ async function abrirEdicion(id) {
   form.email.value = fila.email || '';
   form.telefono.value = formatoTelefonoColombia(fila.telefono || '');
   form.cargo.value = fila.cargo;
-  actualizarVisibilidadBusquedaSupervisor();
   form.tipo_cargo.value = fila.tipo_cargo || '';
-  // Después del Tipo, no antes: la categoría "Aspirante al Concejo" se
-  // deduce de los dos campos, y sincronizando aquí arriba —como estaba— un
-  // aspirante abría su ficha con el botón "Líder" marcado.
+  // Las dos DESPUÉS del Tipo, no antes: la categoría "Aspirante al Concejo"
+  // se deduce de los dos campos. Sincronizando arriba —como estaba— un
+  // aspirante abría su ficha con el botón "Líder" marcado; y el buscador de
+  // "Reporta a" le habría ofrecido el rango de un líder, que es uno menos.
   sincronizarChipsCargo();
+  actualizarVisibilidadBusquedaSupervisor();
   const apoyaAGuardado = Array.isArray(fila.apoya_a) ? fila.apoya_a : [];
   form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardado.includes(c.value); });
   // Los dos cargos de coordinación muestran la meta calculada de su
