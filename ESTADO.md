@@ -110,3 +110,13 @@ Jornada del 23 y 24 de agosto de 2026.
 <!-- cierre automático -->
 Sesión cerrada: 2026-08-24 13:48 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 3c29558 Un superadministrador único, invisible y protegido por la base | Sin commitear: 0 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-08-27 16:04 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 1e887cd Las dos de geocodificar vuelven, pero corriendo sobre su rama | Sin commitear: 0 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-08-27 16:05 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 1e887cd Las dos de geocodificar vuelven, pero corriendo sobre su rama | Sin commitear: 1 archivo(s)

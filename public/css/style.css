@@ -32,12 +32,31 @@
   /* Acento de la marca. Era el dorado #C98A2C.
      --color-accent va en FONDOS y BORDES (botones, chips, pestañas), así
      que aclararlo no compromete la lectura.
-     --color-accent-dark se queda como estaba a propósito: es el que se usa
-     como TEXTO sobre blanco —los 📍 de Votantes y Eventos, los encabezados
-     de las tarjetas de ingreso, el organigrama—, y subirle el brillo lo
-     volvería difícil de leer justo donde es un dato, no un adorno. */
+     --color-accent-dark es el que hace de TEXTO sobre claro —los 📍 de
+     Votantes y Eventos, los encabezados de las tarjetas de ingreso, el
+     organigrama—, así que va al revés: cuanto más hondo, mejor se lee.
+
+     ERA #A66F1F Y NO LLEGABA A AA EN NINGÚN FONDO. Medido el 27 de agosto
+     de 2026 sobre los cinco fondos donde de verdad aparece:
+
+       blanco #FFFFFF ...... 4,27      crema #F8F3E9 ....... 3,86
+       página #F3F5F8 ...... 3,91      aviso  #FDF3E0 ...... 3,88
+       organigrama (el rótulo de asesor, sobre su propio velo) .... 3,68
+
+     El mínimo de AA para texto normal es 4,5. La guía compartida
+     (/usr/local/share/estrategia/paleta-navy.md) ya traía este pendiente
+     con dos candidatos, y el primero —#996619— NO sirve: da 4,45 sobre el
+     crema, que es el fondo de todos los modales de esta app. Se tomó el
+     segundo. Con #8C5E17 el peor caso pasa de 3,68 a 4,85.
+
+     El tono no cambia (H36°): sólo baja de L39% a L32%. Donde el mismo
+     valor hace de FONDO —el día de hoy en Agenda, el marcador de Recursos—
+     lleva letra blanca encima, así que oscurecerlo también la mejora.
+
+     login.html redefine esta variable dentro de .login-card y no la alcanza
+     este cambio; allí es un fondo de hover sobre azul, no texto. */
   --color-accent: #FFC300;
-  --color-accent-dark: #A66F1F;
+  --color-accent-dark: #8C5E17;
   --color-marca: #0B5ED7;
   --color-text: #161B26;
   --color-text-muted: #5B6472;
@@ -720,9 +739,14 @@ tbody tr:hover { background: #FAFBFC; }
    propósito y va tal cual; queda anotado para que nadie lo tome por un
    descuido y para que el reemplazo sea de una línea.
 
-   El amarillo legible sobre blanco que la paleta ya tiene es
-   --color-accent-dark (#A66F1F), con 4,27:1. Está reservado justo para
-   esto: amarillo que hace de TEXTO en vez de fondo.                     */
+   Y ojo con el fondo contra el que está medido ese 1,61: el modal de
+   personas NO es blanco, es crema (.modal.modal-amplio, #F8F3E9). Sobre
+   crema el mismo amarillo da 1,45 — todavía menos.
+
+   El amarillo legible que la paleta ya tiene es --color-accent-dark, que
+   desde el 27 de agosto de 2026 es #8C5E17: 5,63 sobre blanco y 5,09 sobre
+   el crema de este modal. Está reservado justo para esto: amarillo que hace
+   de TEXTO en vez de fondo.                                             */
 .encabezado-form.acento { color: #FFC300; }
 
 /* ------------------------------------------------------------------
@@ -840,10 +864,21 @@ form.form-amplio .chip-form input { padding: 0; }
 }
 
 /* Colores por Cargo en Estructura territorial (Coordinadores y Líderes):
-   un vistazo rápido a la columna Cargo sin tener que leer el texto. */
-.tag-tipo.tag-cargo-coordinador { background: #E1F5E6; color: #1E7245; }
-.tag-tipo.tag-cargo-lider { background: #DCEEFC; color: #1B5E8A; }
-.tag-tipo.tag-cargo-sublider { background: #FDEAD6; color: #A9631E; }
+   un vistazo rápido a la columna Cargo sin tener que leer el texto.
+
+   LOS CUATRO MEDIDOS. La letra es de 0,7rem, o sea texto normal: el umbral
+   que aplica es 4,5, no el 3 de texto grande. El de Sublíder daba 3,99 y no
+   pasaba; se le bajó la luminosidad conservando el tono (H30° -> H32°,
+   L39% -> L29%) hasta 5,59, que lo deja dentro del rango de sus tres
+   hermanos en vez de por debajo. No se cambió el fondo. */
+.tag-tipo.tag-cargo-coordinador { background: #E1F5E6; color: #1E7245; }  /* 5,19 */
+.tag-tipo.tag-cargo-lider { background: #DCEEFC; color: #1B5E8A; }        /* 5,86 */
+.tag-tipo.tag-cargo-sublider { background: #FDEAD6; color: #8A4F0C; }     /* 5,59 */
+/* Aspirante al Concejo: en la base es un Líder, pero es su propia categoría
+   y comparte columna con las otras tres — un azul apenas distinto del de
+   Líder se confundiría de un vistazo, que es justo para lo que sirve esta
+   columna. Morado, y medido: 6,67 de contraste, por encima del 4,5 de AA. */
+.tag-tipo.tag-cargo-aspirante { background: #EDE7F9; color: #5B3E9B; }
 
 /* Área: Urbano y Rural. Van en la columna de al lado de Cargo, así que se
    eligieron MIDIENDO, no a ojo:

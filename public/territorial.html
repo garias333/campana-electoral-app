@@ -41,6 +41,7 @@
             <option value="coordinador">Coordinador</option>
             <option value="coordinador_organizaciones">Coordinador Organizaciones</option>
             <option value="lider">Líder</option>
+            <option value="aspirante_concejo">Aspirante al Concejo</option>
             <option value="usuario">Sublíder</option>
           </select>
           <select id="filtro-estructura-area">
@@ -86,19 +87,26 @@
     <form id="form-estructura" class="form-amplio">
       <div class="campo encabezado-form primero">Categoría</div>
       <div class="campo">
-        <!-- Los cuatro cargos como botones. El <select> de siempre sigue
+        <!-- Las cinco categorías como botones. El <select> de siempre sigue
              abajo, oculto: nueve sitios de esta pantalla leen
              `select-cargo-persona.value` y es el que se envía al guardar.
              Los botones solo lo manejan (ver sincronizarChipsCargo).
 
-             Aquí SÍ caben los cuatro en una línea porque la sección ocupa
-             el ancho completo del formulario. En el intento anterior
-             estaban dentro de media columna y se apilaban en cuatro
-             renglones; ese fue el motivo de quitarlos entonces. -->
+             Caben porque la sección ocupa el ancho completo del formulario.
+             En el intento anterior estaban dentro de media columna y se
+             apilaban en cuatro renglones; ese fue el motivo de quitarlos
+             entonces. Con la quinta, `flex-wrap` la baja de renglón cuando
+             la ventana es angosta — no se apilan una por línea. -->
         <div class="chips-form chips-cargo" id="chips-cargo-persona" role="group" aria-label="Categoría">
           <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador"> Coordinador de territorio</label>
           <label class="chip-form"><input type="radio" name="cargo_visual" value="coordinador_organizaciones"> Coordinador de organizaciones</label>
           <label class="chip-form"><input type="radio" name="cargo_visual" value="lider" checked> Líder</label>
+          <!-- NO es un cargo nuevo en la base: es un Líder con Tipo
+               "Aspirante al concejo". El <select> de abajo sigue enviando
+               "lider" y la columna `estructura.cargo` no cambia — así los
+               aspirantes conservan su equipo, su meta y su rama como
+               cualquier líder. Ver esAspiranteAlConcejo(). -->
+          <label class="chip-form"><input type="radio" name="cargo_visual" value="aspirante_concejo"> Aspirante al Concejo</label>
           <label class="chip-form"><input type="radio" name="cargo_visual" value="usuario"> Sublíder</label>
         </div>
         <select name="cargo" id="select-cargo-persona" required style="display:none;">
@@ -805,8 +813,12 @@ async function ejecutarEliminacionMasivaEstructura(tipo, etiqueta) {
 
 document.getElementById('btn-eliminar-coordinadores').addEventListener('click', () =>
   ejecutarEliminacionMasivaEstructura('coordinador', 'todos los coordinadores'));
+// El servidor borra por `cargo`, y un Aspirante al Concejo se guarda con
+// cargo='lider'. La pantalla los muestra como categorías aparte, así que el
+// aviso lo dice: si no, alguien borraría "solo los líderes" y se llevaría por
+// delante a los aspirantes sin haberlo leído en ninguna parte.
 document.getElementById('btn-eliminar-lideres').addEventListener('click', () =>
-  ejecutarEliminacionMasivaEstructura('lider', 'todos los líderes'));
+  ejecutarEliminacionMasivaEstructura('lider', 'todos los líderes, incluidos los Aspirantes al Concejo'));
 document.getElementById('btn-eliminar-todo-estructura').addEventListener('click', () =>
   ejecutarEliminacionMasivaEstructura('todo', 'TODA la estructura (coordinadores, líderes, usuarios y testigos)'));
 
@@ -1128,6 +1140,27 @@ let usarNombreVeredas = true;
 // de config/metasEstructura.js — si se agrega un cargo allá, agregarlo
 // aquí, o la pantalla mostraría un campo editable que el servidor ignora.
 const CARGOS_META_DERIVADA = ['coordinador', 'coordinador_organizaciones'];
+
+/**
+ * ASPIRANTE AL CONCEJO — una categoría DEDUCIDA, no un cargo de la base.
+ *
+ * `estructura.cargo` es un ENUM y agregarle un quinto valor tocaría los roles
+ * (`requireRole`), las ramas, el alcance de votantes y el cálculo de metas —
+ * todo lo que hoy trata a un aspirante como lo que es: un líder con su equipo.
+ * En vez de eso, la categoría se deduce del par (cargo=lider, tipo=aspirante
+ * al concejo), que es exactamente lo que ya está guardado.
+ *
+ * El efecto inmediato es el que se pidió: los líderes que YA venían marcados
+ * con ese Tipo aparecen en la categoría nueva sin migrar un solo registro.
+ *
+ * La deducción vive en esta función y en ninguna otra parte. Es el mismo
+ * cuidado que exige `ctc_normalizar()` en el catálogo: dos copias de una regla
+ * se separan, y cuando se separan no fallan — mienten.
+ */
+const TIPO_ASPIRANTE_CONCEJO = 'aspirante_concejo';
+function esAspiranteAlConcejo(f) {
+  return f.cargo === 'lider' && f.tipo_cargo === TIPO_ASPIRANTE_CONCEJO;
+}
 // Campañas de Gobernación o Asamblea abarcan TODO el departamento, así que
 // el área de influencia de una persona no se puede deducir de la ciudad
 // sede (no hay una: `ciudad` viene vacía). Con el ámbito departamental se
@@ -1335,14 +1368,53 @@ function elegirSupervisorBuscado(id) {
  * editar a un Coordinador los botones seguirían marcando "Líder".
  */
 function sincronizarChipsCargo() {
-  const valor = document.getElementById('select-cargo-persona').value;
+  const cargo = document.getElementById('select-cargo-persona').value;
+  const tipo = document.getElementById('select-tipo-cargo-persona').value;
+  // "Aspirante al Concejo" no es un valor de `cargo`: se deduce del par
+  // (cargo=lider, tipo=aspirante_concejo). Por eso el chip que se marca no
+  // siempre coincide con el <select>, y esta función traduce en un solo
+  // sitio — si la deducción viviera repartida, editar a un aspirante
+  // marcaría "Líder" y guardarlo lo sacaría de su categoría sin avisar.
+  const valor = (cargo === 'lider' && tipo === TIPO_ASPIRANTE_CONCEJO) ? TIPO_ASPIRANTE_CONCEJO : cargo;
   document.querySelectorAll('#chips-cargo-persona input[name="cargo_visual"]')
     .forEach(r => { r.checked = (r.value === valor); });
 }
 document.querySelectorAll('#chips-cargo-persona input[name="cargo_visual"]').forEach(radio => {
   radio.addEventListener('change', () => {
     const sel = document.getElementById('select-cargo-persona');
-    sel.value = radio.value;
+    const selTipo = document.getElementById('select-tipo-cargo-persona');
+    const esAspirante = radio.value === TIPO_ASPIRANTE_CONCEJO;
+
+    // El valor se asigna ANTES de disparar nada. Asignar .value no dispara
+    // 'change', y el manejador del Tipo —que corre en seguida— vuelve a
+    // sincronizar los botones leyendo este <select>: si todavía tuviera el
+    // cargo viejo, volvería a marcar el botón anterior y el clic se
+    // desharía solo.
+    sel.value = esAspirante ? 'lider' : radio.value;
+
+    // El Tipo se toca SOLO cuando entra o sale de esta categoría. Al elegir
+    // "Aspirante al Concejo" se pone; al salir a otra categoría se quita,
+    // porque dejarlo puesto devolvería el botón a "Aspirante" en cuanto se
+    // reabriera la ficha y el cambio parecería no haberse guardado. Los
+    // demás Tipos (Concejal, Edil, Presidente de JAC…) no se tocan: son
+    // independientes de la categoría y borrarlos sería perder un dato que
+    // nadie pidió borrar.
+    //
+    // Y va ANTES del 'change' del cargo, no después: el Tipo vacío marca
+    // "Territorio" (TIPOS_QUE_ACTIVAN_TERRITORIO incluye la cadena vacía) y
+    // el cargo "Coordinador de organizaciones" marca "Organización". Al
+    // revés, pasar de Aspirante a Coordinador de organizaciones acababa en
+    // "Territorio", que es justo lo que ese cargo no usa.
+    if (esAspirante) {
+      if (selTipo.value !== TIPO_ASPIRANTE_CONCEJO) {
+        selTipo.value = TIPO_ASPIRANTE_CONCEJO;
+        selTipo.dispatchEvent(new Event('change'));
+      }
+    } else if (selTipo.value === TIPO_ASPIRANTE_CONCEJO) {
+      selTipo.value = '';
+      selTipo.dispatchEvent(new Event('change'));
+    }
+
     sel.dispatchEvent(new Event('change'));
   });
 });
@@ -1695,6 +1767,11 @@ document.getElementById('select-tipo-cargo-persona').addEventListener('change', 
     document.getElementById('chk-area-influencia-organizacion').checked = false;
     actualizarVisibilidadAreaInfluencia();
   }
+  // El Tipo se puede cambiar por su cuenta, sin tocar los botones de
+  // Categoría. Como "Aspirante al Concejo" se deduce de este campo, marcar
+  // aquí ese Tipo en un Líder tiene que mover el botón de arriba — si no, la
+  // ficha diría "Líder" y la lista lo mostraría como Aspirante.
+  sincronizarChipsCargo();
 });
 
 function resolverTerritorioPersona() {
@@ -2061,11 +2138,21 @@ function renderizarEstructura() {
   // El filtro de Cargo se aplica aparte: si se filtra específicamente por
   // "Líder", se incluyen también sus Sublíderes (cargo "usuario") — así el
   // líder aparece siempre junto con todo su equipo, no solo él solo.
-  if (cargo === 'lider') {
+  //
+  // "Aspirante al Concejo" se comporta igual —también arrastra su equipo—
+  // porque en la base es un Líder. Lo único que cambia es a cuáles líderes
+  // mira: las dos categorías se REPARTEN los líderes, no se solapan. Si
+  // "Líder" siguiera trayendo a los aspirantes, la misma persona saldría en
+  // dos categorías que los botones del formulario presentan como
+  // excluyentes, y el conteo de una no diría nada sobre el de la otra.
+  if (cargo === 'lider' || cargo === TIPO_ASPIRANTE_CONCEJO) {
+    const enCategoria = cargo === TIPO_ASPIRANTE_CONCEJO
+      ? (f) => esAspiranteAlConcejo(f)
+      : (f) => f.cargo === 'lider' && !esAspiranteAlConcejo(f);
     const idsLideresQueCoinciden = new Set(
-      listaEstructura.filter(f => f.cargo === 'lider' && cumpleFiltrosBase(f)).map(f => f.usuario_id)
+      listaEstructura.filter(f => enCategoria(f) && cumpleFiltrosBase(f)).map(f => f.usuario_id)
     );
-    filas = filas.filter(f => f.cargo === 'lider' || (f.cargo === 'usuario' && idsLideresQueCoinciden.has(f.supervisor_id)));
+    filas = filas.filter(f => enCategoria(f) || (f.cargo === 'usuario' && idsLideresQueCoinciden.has(f.supervisor_id)));
   } else if (cargo) {
     filas = filas.filter(f => f.cargo === cargo);
   }
@@ -2128,9 +2215,17 @@ function renderizarEstructura() {
       tieneMesa
     );
     const claseCargo = (f.cargo === 'coordinador' || f.cargo === 'coordinador_organizaciones') ? 'tag-cargo-coordinador'
+      : esAspiranteAlConcejo(f) ? 'tag-cargo-aspirante'
       : f.cargo === 'lider' ? 'tag-cargo-lider'
       : f.cargo === 'usuario' ? 'tag-cargo-sublider'
       : '';
+    // La columna Categoría dice lo mismo que los botones del formulario.
+    // Un aspirante guardado como "lider" que aquí saliera "líder" haría
+    // dudar de si la categoría se guardó.
+    const etiquetaCargo = esAspiranteAlConcejo(f) ? 'aspirante al concejo'
+      : f.cargo === 'coordinador_organizaciones' ? 'coordinador organizaciones'
+      : f.cargo === 'usuario' ? 'sublíder'
+      : f.cargo;
     return `
     <tr>
       <td class="mono">${i + 1}</td>
@@ -2138,7 +2233,7 @@ function renderizarEstructura() {
       <td style="padding-left:${16 + (f._nivel || 0) * 22}px;">${f._nivel ? '<span style="color:var(--color-text-muted);">↳</span> ' : ''}${f._tieneHijos ? `<button onclick="alternarColapsoEstructura(${f.usuario_id})" title="${nodosColapsadosEstructura.has(f.usuario_id) ? 'Expandir' : 'Contraer'}" style="border:1.5px solid #0B5ED7; border-radius:6px; background:#fff; cursor:pointer; color:#0B5ED7; font-size:1.5rem; font-weight:700; line-height:1; width:38px; height:38px; padding:0; margin-right:8px; vertical-align:middle;">${nodosColapsadosEstructura.has(f.usuario_id) ? '▸' : '▾'}</button>` : ''}<strong>${f.nombre}</strong><br><span style="color:var(--color-text-muted); font-size:0.78rem;">${f.email || '—'}</span></td>
       <td>${ETIQUETAS_GENERO[f.genero] || '—'}</td>
       <td class="mono">${celdaTelefonoWhatsApp(f.telefono)}</td>
-      <td><span class="tag-tipo ${claseCargo}">${f.cargo === 'coordinador_organizaciones' ? 'coordinador organizaciones' : (f.cargo === 'usuario' ? 'sublíder' : f.cargo)}</span></td>
+      <td><span class="tag-tipo ${claseCargo}">${etiquetaCargo}</span></td>
       <td>${areaTexto}</td>
       <td class="col-comuna-correg">${zonaTexto}</td>
       <td class="col-barrio-vereda">${hojaTexto}${f.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
@@ -2368,9 +2463,12 @@ async function abrirEdicion(id) {
   form.email.value = fila.email || '';
   form.telefono.value = formatoTelefonoColombia(fila.telefono || '');
   form.cargo.value = fila.cargo;
-  sincronizarChipsCargo();
   actualizarVisibilidadBusquedaSupervisor();
   form.tipo_cargo.value = fila.tipo_cargo || '';
+  // Después del Tipo, no antes: la categoría "Aspirante al Concejo" se
+  // deduce de los dos campos, y sincronizando aquí arriba —como estaba— un
+  // aspirante abría su ficha con el botón "Líder" marcado.
+  sincronizarChipsCargo();
   const apoyaAGuardado = Array.isArray(fila.apoya_a) ? fila.apoya_a : [];
   form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardado.includes(c.value); });
   // Los dos cargos de coordinación muestran la meta calculada de su

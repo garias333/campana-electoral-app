@@ -206,8 +206,11 @@ main.app-cuerpo {
 
    Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste, por
    debajo del 3:1 recomendado para texto grande o en negrita. Va así porque
-   es un color pedido; el amarillo legible sobre blanco de la paleta es
-   #A66F1F, con 4,27:1.                                                    */
+   es un color pedido; el amarillo legible sobre claro de la paleta es
+   --color-accent-dark, que el 27 de agosto de 2026 pasó de #A66F1F (4,27,
+   por debajo del 4,5 de AA) a #8C5E17 (5,63). Este comentario se actualiza
+   con el de style.css a propósito: si las dos hojas cuentan versiones
+   distintas de la misma paleta, la que se lea primero decide mal.       */
 .seccion-titulo.acento { color: #FFC300; }
 .btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
 

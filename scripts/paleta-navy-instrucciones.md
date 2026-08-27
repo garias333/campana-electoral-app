@@ -155,7 +155,7 @@ hoja de estilos. Buscarlo antes de suponer.
 
 No usa `#FFC300` sino **`#f5b400`**, más apagado. Aquí sí hay que unificar el
 acento, y aplica la trampa de la pareja: `--ing-oro` para fondos con letra
-oscura encima, y un oro hondo (`#A66F1F`) para texto y enlaces sobre claro.
+oscura encima, y un oro hondo (**`#8C5E17`**) para texto y enlaces sobre claro.
 Poner `#FFC300` en los dos sitios deja los enlaces en 1,45 de contraste.
 
 ### 6. Pretest — la última, y es harina de otro costal
@@ -182,11 +182,50 @@ botón #FFC300 con letra blanca ................. 1,61   ilegible
 
 O sea: unificar el acento **no es poner el mismo valor en todas partes**. Es
 poner la misma *pareja*: `--oro #FFC300` donde el acento es fondo, y
-`--oro-texto #A66F1F` donde es texto. En licencias el botón primario estaba en
-cobre con letra blanca (3,9) y pasó a oro con letra oscura (10,71).
+`--oro-texto` donde es texto. En licencias el botón primario estaba en cobre
+con letra blanca (3,9) y pasó a oro con letra oscura (10,71).
 
-Queda una deuda declarada, igual en licencias y en electoral: los **enlaces
-sobre fondo claro** dan 3,86, que no llega al 4,5 de AA para texto normal. No
-es una regresión —el cobre anterior daba 3,93— pero si algún día se corrige,
-hay que hacerlo en las dos a la vez o vuelven a divergir. Los candidatos:
-`#996619` (4,45) o `#8C5E17` (5,09).
+(Ese `--oro-texto` era `#A66F1F` cuando se escribió esto. **Hoy es `#8C5E17`**
+— ver el apartado siguiente, que explica por qué cambió.)
+
+### La deuda del oro de texto — saldada en electoral el 27 de agosto de 2026
+
+Decía así, y se deja para que se entienda la corrección:
+
+> Queda una deuda declarada, igual en licencias y en electoral: los **enlaces
+> sobre fondo claro** dan 3,86, que no llega al 4,5 de AA para texto normal. No
+> es una regresión —el cobre anterior daba 3,93— pero si algún día se corrige,
+> hay que hacerlo en las dos a la vez o vuelven a divergir. Los candidatos:
+> `#996619` (4,45) o `#8C5E17` (5,09).
+
+**El valor es `#8C5E17`.** Ya está puesto en electoral. Falta licencias, y hasta
+que se ponga las dos están divergidas — que era justo lo que el párrafo de
+arriba quería evitar. Es un cambio de una línea:
+
+```css
+--oro-texto: #8C5E17;   /* era #A66F1F */
+```
+
+**No tomar `#996619`.** Da 4,45 sobre el crema `#f8f3e9` y el mínimo es 4,5:
+se queda a cinco centésimas. Aparecía como candidato porque el 4,45 se leyó
+como si pasara.
+
+**El 3,86 era el mejor de los malos, no el peor.** Al medir electoral entero
+—no sólo el caso que estaba anotado— `#A66F1F` fallaba en los **cinco** fondos
+donde aparece:
+
+```
+blanco #FFFFFF ..... 4,27        crema  #F8F3E9 ..... 3,86
+página #F3F5F8 ..... 3,91        aviso  #FDF3E0 ..... 3,88
+rótulo del organigrama, sobre su propio velo ....... 3,68   <- el peor
+```
+
+Ese 3,68 no estaba en ninguna lista porque su fondo no es un color plano sino
+un `rgba(...,0.12)` sobre blanco: hay que componer la mezcla antes de medir.
+**Un fondo translúcido se salta las auditorías que sólo miran pares de
+hexadecimales.** Con `#8C5E17` el peor caso queda en 4,85.
+
+Y conviene mirar dónde el mismo token hace de **fondo** antes de oscurecerlo.
+En electoral son dos sitios (el día de hoy en Agenda, el marcador de Recursos)
+y los dos llevan letra blanca encima, así que oscurecer mejora también ahí —
+pero eso se comprueba, no se supone.
