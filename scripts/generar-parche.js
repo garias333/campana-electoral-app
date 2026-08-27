@@ -111,6 +111,17 @@ function main() {
   // actualizador la lee para decidir si corre npm run init-db.
   const tocaBaseDatos = archivos.some((a) => a.startsWith('db/'));
 
+  /* SE ESTAMPA A QUÉ PARCHE CORRESPONDE ESTE CÓDIGO, y viaja dentro del zip.
+     Lo lee `actualizar-automatico.js` cuando una instalación no tiene todavía
+     `.version-parche` — o sea, en su primera corrida.
+     Sin esto, una campaña recién desplegada se cree en cero y se baja los 156
+     parches que ya trae puestos, uno por uno; y mientras eso pueda pasar, no se
+     puede borrar ni un zip viejo del servidor de licencias.
+     Va SIEMPRE, aunque no se haya pedido: un parche que no lo lleve dejaría a
+     quien lo aplique diciendo un número más viejo del que tiene. */
+  fs.writeFileSync(path.join(PROYECTO, '.version-base'), String(numero) + '\n', 'utf8');
+  if (!archivos.includes('.version-base')) archivos.push('.version-base');
+
   fs.mkdirSync(SALIDA, { recursive: true });
   const nombreZip = `campana-parche${numero}.zip`;
   const rutaZip = path.join(SALIDA, nombreZip);

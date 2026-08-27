@@ -45,11 +45,50 @@ const ARCHIVO_VERSION = path.join(CARPETA_PROYECTO, '.version-parche');
 const CARPETA_BINARIOS = path.dirname(process.execPath);
 const ENTORNO = { ...process.env, PATH: `${CARPETA_BINARIOS}:${process.env.PATH || ''}` };
 
+/**
+ * A QUÉ PARCHE CORRESPONDE EL CÓDIGO QUE ESTÁ EN EL DISCO.
+ *
+ * Lo escribe `generar-parche.js` cada vez que se arma un parche, y viaja
+ * DENTRO del parche. Así, una campaña nueva —que se despliega copiando el
+ * código de electoral, ya parcheado— sabe con qué número nació.
+ */
+function leerVersionBase() {
+  try {
+    return parseInt(fs.readFileSync(path.join(CARPETA_PROYECTO, '.version-base'), 'utf8').trim()) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * SIN `.version-parche`, LA RESPUESTA NO ES CERO.
+ *
+ * Cero significa «a esta instalación no se le ha aplicado ningún parche», y de
+ * ahí el actualizador se baja y aplica TODOS los que existan — hoy 156, uno por
+ * uno, sobre un código que ya los trae puestos. Es trabajo inútil en el mejor
+ * caso, y en el peor se rompe: la cadena se detiene en el primer zip que ya no
+ * esté en el servidor, y entonces la campaña queda a medias con un error que
+ * habla de un parche de hace meses.
+ *
+ * Y ES LO QUE IMPIDE BORRAR LOS ZIP VIEJOS. Mientras una instalación nueva
+ * pueda pedir el parche #1, hay que conservar los 156.
+ *
+ * Una campaña recién desplegada no está en cero: está en el número del código
+ * que se le copió. Eso es lo que dice `.version-base`.
+ *
+ * Se sigue prefiriendo `.version-parche` cuando existe — es el estado real de
+ * ESTA instalación, y manda sobre lo que diga el código.
+ */
 function leerVersionActual() {
   try {
     return parseInt(fs.readFileSync(ARCHIVO_VERSION, 'utf8').trim()) || 0;
   } catch (e) {
-    return 0; // si no existe el archivo todavía, se asume que no hay ningún parche aplicado por este sistema
+    const base = leerVersionBase();
+    if (base > 0) {
+      console.log(`Primera corrida en esta instalación: el código que trae corresponde al parche #${base}.`);
+      guardarVersionActual(base);   // se anota, para no volver a deducirlo
+    }
+    return base;
   }
 }
 function guardarVersionActual(numero) {
