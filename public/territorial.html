@@ -2256,6 +2256,36 @@ function construirOrdenJerarquico(filas) {
 }
 
 /** IDs (usuario_id) de Coordinadores/Líderes actualmente colapsados en Estructura territorial. */
+/**
+ * Todo lo que cuelga de estas personas, a cualquier profundidad.
+ *
+ * Recibe `usuario_id` (que es a lo que apunta `supervisor_id`) y devuelve
+ * `id` de fila de Estructura, que es con lo que se filtra la tabla.
+ *
+ * BAJA HASTA DONDE LLEGUE, y por eso lleva guarda de ciclos: `supervisor_id`
+ * lo escribe una persona en un formulario, así que nada impide que A reporte a
+ * B y B a A. Sin `vistos`, ese par colgaría la pantalla en un bucle infinito
+ * en vez de dar un resultado raro — y una pantalla colgada no dice qué pasó.
+ */
+function descendientesEnEstructura(idsRaiz) {
+  const hijosDe = new Map();
+  listaEstructura.forEach((f) => {
+    if (!f.supervisor_id) return;
+    if (!hijosDe.has(f.supervisor_id)) hijosDe.set(f.supervisor_id, []);
+    hijosDe.get(f.supervisor_id).push(f);
+  });
+  const filasEquipo = new Set();
+  const vistos = new Set(idsRaiz);
+  const pendientes = [...idsRaiz];
+  while (pendientes.length) {
+    for (const hijo of hijosDe.get(pendientes.pop()) || []) {
+      filasEquipo.add(hijo.id);
+      if (!vistos.has(hijo.usuario_id)) { vistos.add(hijo.usuario_id); pendientes.push(hijo.usuario_id); }
+    }
+  }
+  return filasEquipo;
+}
+
 const nodosColapsadosEstructura = new Set();
 function alternarColapsoEstructura(usuarioId) {
   if (nodosColapsadosEstructura.has(usuarioId)) nodosColapsadosEstructura.delete(usuarioId);
@@ -2326,10 +2356,16 @@ function renderizarEstructura() {
     const enCategoria = cargo === TIPO_ASPIRANTE_CONCEJO
       ? (f) => esAspiranteAlConcejo(f)
       : (f) => f.cargo === 'lider' && !esAspiranteAlConcejo(f);
-    const idsLideresQueCoinciden = new Set(
-      listaEstructura.filter(f => enCategoria(f) && cumpleFiltrosBase(f)).map(f => f.usuario_id)
-    );
-    filas = filas.filter(f => enCategoria(f) || (f.cargo === 'usuario' && idsLideresQueCoinciden.has(f.supervisor_id)));
+    const raices = listaEstructura.filter(f => enCategoria(f) && cumpleFiltrosBase(f)).map(f => f.usuario_id);
+    /* EL EQUIPO SON LOS DESCENDIENTES, NO UN CARGO CONCRETO.
+       Antes esta línea decía `f.cargo === 'usuario'`: se escribió cuando la
+       cadena era coordinador → líder → sublíder y el equipo de un líder sólo
+       podían ser sublíderes. Con el Aspirante al Concejo en medio dejó de ser
+       cierto —su equipo son LÍDERES— y filtrar por su categoría lo mostraba
+       solo, como si no tuviera a nadie. Ahora se baja por la cadena de mando
+       hasta donde llegue, sin preguntar de qué cargo es cada escalón. */
+    const idsEquipo = descendientesEnEstructura(raices);
+    filas = filas.filter(f => enCategoria(f) || idsEquipo.has(f.id));
   } else if (cargo) {
     filas = filas.filter(f => f.cargo === cargo);
   }
