@@ -545,8 +545,11 @@ function restaurarOpcionesReportaA() {
     return;
   }
   select.innerHTML = '<option value="">Ninguno</option>' + listaCoordinadoresYLideres
-    .filter(u => ['coordinador', 'lider'].includes(u.rol))
-    .map(u => `<option value="${u.id}">${escaparHtml(u.nombre)} — ${u.rol}</option>`).join('');
+    // ROLES_CON_GENTE_A_CARGO y no ['coordinador','lider']: /usuarios devuelve
+    // el rol CRUDO, así que desde que la categoría da el rol, un Aspirante al
+    // Concejo llega como 'aspirante_concejo' y desaparecía de esta lista.
+    .filter(u => ROLES_CON_GENTE_A_CARGO.includes(u.rol))
+    .map(u => `<option value="${u.id}">${escaparHtml(u.nombre)} — ${escaparHtml(etiquetaRol(u.rol))}</option>`).join('');
 }
 
 /**

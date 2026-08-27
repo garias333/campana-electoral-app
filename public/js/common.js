@@ -1013,6 +1013,33 @@ function solicitarPasswordPropia(titulo, explicacion) {
  *
  * Devuelve la contraseña ya comprobada, o null si cancelaron o no era la suya.
  */
+/**
+ * LOS ROLES QUE PUEDEN TENER GENTE A CARGO, TAL COMO LOS DEVUELVE /usuarios.
+ *
+ * Ojo con de dónde sale el rol, que es lo que hace falta entender aquí:
+ * `req.session.usuario.rol` viene TRADUCIDO —un `aspirante_concejo` viaja en la
+ * sesión como `lider`, y por eso los `requireRole` y la matriz de permisos no
+ * hubo que tocarlos—. Pero `/usuarios` devuelve el rol CRUDO de la base, sin
+ * pasar por esa traducción.
+ *
+ * Así que los filtros del navegador que se arman con esa lista SÍ ven
+ * `aspirante_concejo`, y los que decían `['coordinador','lider']` dejaron de
+ * encontrar a los aspirantes en cuanto la categoría empezó a darles su rol:
+ * desaparecían del buscador de líderes, del filtro «Todos los líderes» y de
+ * «Reporta a». La lista va aquí para que sean uno y no tres.
+ */
+const ROLES_CON_GENTE_A_CARGO = ['coordinador', 'aspirante_concejo', 'lider'];
+
+/** Cómo se lee un rol en pantalla; sin esto se veía «aspirante_concejo» crudo. */
+const ETIQUETAS_ROL = {
+  coordinador: 'coordinador',
+  aspirante_concejo: 'Aspirante al Concejo',
+  lider: 'líder',
+  sublider: 'sublíder',
+  usuario: 'sublíder',
+};
+function etiquetaRol(rol) { return ETIQUETAS_ROL[rol] || rol; }
+
 async function confirmarConPasswordPropia(titulo, explicacion) {
   const clave = await solicitarPasswordPropia(titulo, explicacion);
   if (!clave) return null;

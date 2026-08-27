@@ -597,7 +597,9 @@ let listaLideresCoordinadoresTodos = [];
 async function cargarLideresCoordinadoresTodos() {
   if (listaLideresCoordinadoresTodos.length) return;
   const todos = await obtenerConCacheReferencia('coordinadores_lideres', () => api('/usuarios'));
-  listaLideresCoordinadoresTodos = todos.filter(u => ['coordinador', 'lider'].includes(u.rol));
+  // Incluye a los Aspirantes al Concejo: /usuarios devuelve el rol crudo y el
+  // suyo dejo de ser 'lider' cuando la categoria empezo a dar el rol.
+  listaLideresCoordinadoresTodos = todos.filter(u => ROLES_CON_GENTE_A_CARGO.includes(u.rol));
 }
 
 document.getElementById('input-buscar-lider').addEventListener('input', () => {
@@ -1115,9 +1117,9 @@ function poblarFiltroTerritorio() {
 
 async function poblarFiltroLider() {
   const usuarios = await api('/usuarios');
-  const lideres = usuarios.filter(u => ['coordinador', 'lider'].includes(u.rol));
+  const lideres = usuarios.filter(u => ROLES_CON_GENTE_A_CARGO.includes(u.rol));
   document.getElementById('filtro-lider').innerHTML = '<option value="">Todos los líderes</option>' +
-    lideres.map(u => `<option value="${u.id}">${u.nombre} — ${u.rol}</option>`).join('');
+    lideres.map(u => `<option value="${u.id}">${u.nombre} — ${etiquetaRol(u.rol)}</option>`).join('');
 }
 
 /** Cualquier cambio de filtro vuelve a la página 1 — si no, se podía quedar en una página que ya no existe para el nuevo filtro (o mostrar una tabla vacía aunque sí haya resultados). */
