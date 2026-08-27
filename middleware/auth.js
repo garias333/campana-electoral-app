@@ -8,6 +8,7 @@
  */
 
 const pool = require('../config/db');
+const { cargoDeLaMadre } = require('../config/cargoMadre');
 const { verificarTokenDispositivo } = require('../config/tokenDispositivo');
 
 /**
@@ -97,7 +98,7 @@ function requireRole(...rolesPermitidos) {
  * solo debería ver los votantes que él mismo ha registrado).
  * Se deja el criterio disponible en req.alcance para usarlo en las consultas SQL.
  */
-function calcularAlcance(req, res, next) {
+async function calcularAlcance(req, res, next) {
   const usuario = req.session.usuario;
 
   /* EL ASPIRANTE VE SU RAMA, NO LO QUE REGISTRÓ EN PERSONA.
@@ -117,8 +118,23 @@ function calcularAlcance(req, res, next) {
     return next();
   }
 
+  /* EL CARGO DE LA MADRE VIAJA EN EL ALCANCE, para que `filtroMadre` pueda
+     comparar contra el `apoya_a` de cada votante sin que cada consulta tenga
+     que ir a buscarlo. Va cacheado 30 s (ver config/cargoMadre.js).
+     Si no se puede leer viene null, y entonces el filtro no se aplica: sin
+     cargo no hay con qué comparar, y ocultar por si acaso dejaria a la campaña
+     sin ver a su propia gente por un error de lectura. */
+  let cargoMadre = null;
+  try { cargoMadre = await cargoDeLaMadre(); } catch (err) { /* se sigue sin filtro */ }
+
   if (usuario.rol === 'admin') {
-    req.alcance = null; // sin restricción
+    /* ANTES ERA `null`, «sin restricción», y todas las consultas hacen
+       `if (req.alcance)`. Ahora lleva objeto para que ese `if` sea verdadero y
+       la condición de la madre entre por el mismo sitio que las demás — sin
+       tocar una sola de las consultas.
+       `cargo: 'madre'` no acota por persona: es exactamente «toda la campaña»,
+       igual que antes, más el filtro de la rama. */
+    req.alcance = { cargo: 'madre', cargoMadre };
   } else {
     // EL COORDINADOR VE SU RAMA, NO TODA LA CAMPAÑA.
     //
@@ -131,7 +147,7 @@ function calcularAlcance(req, res, next) {
     // y está registrada: `estructura.supervisor_id` ata cada líder a su
     // coordinador. Con `cargo` en el alcance, cada consulta arma la condición
     // que le toca (ver SQL_ALCANCE_VOTANTES en routes/votantes.routes.js).
-    req.alcance = { usuarioId: usuario.id, territorioId: usuario.territorio_id, cargo: usuario.rol };
+    req.alcance = { usuarioId: usuario.id, territorioId: usuario.territorio_id, cargo: usuario.rol, cargoMadre };
   }
   next();
 }

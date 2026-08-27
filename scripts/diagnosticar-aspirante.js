@@ -100,6 +100,26 @@ const si = (v) => (v ? 'SÍ' : 'no');
         : 'no — una sublicencia nueva traería sus propios textos'}`);
     }
 
+    /* SU RAMA: que votantes lo tienen a el como aspirante. Es lo que decide
+       tanto lo que EL ve como lo que la madre dejaria de ver el dia que se
+       conecte `filtroMadre` (lib/ramas.js). */
+    if (sub) {
+      const [[rama]] = await c.query(
+        `SELECT COUNT(*) AS total,
+                SUM(JSON_CONTAINS(v.apoya_a, '"alcaldia"')) AS apoyan_alcaldia
+           FROM votantes v WHERE v.rama_aspirante_id = ?`, [u.id]);
+      const [[sueltos]] = await c.query(
+        `SELECT COUNT(*) AS total FROM votante_ramas WHERE aspirante_id = ? AND excluido = 0`, [u.id]);
+      console.log('\n  SU RAMA DE VOTANTES');
+      console.log(`    por cadena de mando ... ${rama.total}`);
+      console.log(`    sumados a mano ........ ${sueltos.total}`);
+      console.log(`    de esos, apoyan a la Alcaldía: ${Number(rama.apoyan_alcaldia || 0)}`);
+      if (rama.total > 0) {
+        console.log(`    -> los ${rama.total - Number(rama.apoyan_alcaldia || 0)} que NO la apoyan son los que`);
+        console.log('       la campaña madre dejaría de ver cuando se conecte filtroMadre.');
+      }
+    }
+
     // El veredicto, con las mismas reglas que aplica auth.routes.js.
     const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'aspirante_concejo'];
     const puedeCodigo = u.activo && ROLES_CON_CODIGO.includes(u.rol);
