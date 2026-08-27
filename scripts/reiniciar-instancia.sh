@@ -33,9 +33,37 @@ set -u
 
 USUARIO="${1:?Falta el usuario de la instancia (ej. campanadepruebamunicipal)}"
 PUERTO="${2:?Falta el puerto (ej. 3101)}"
+
+# LA CONVENCIÓN DE NOMBRES NO VALE PARA TODAS LAS INSTANCIAS.
+#
+# En las campañas el usuario y el dominio se llaman igual
+# (campanadepruebamunicipal -> campanadepruebamunicipal.appestrategia.net), y
+# de ahí salía la ruta. Electoral NO: su cuenta es `appestrategia-electoral` y
+# su dominio `electoral.appestrategia.net`, así que la ruta armada a mano no
+# existía y el script moría con «No existe» — o sea que la única instancia que
+# este archivo NO sabía reiniciar era la plantilla desde la que se parchean
+# todas las demás.
+#
+# Se prueba la convención primero y, si no está, se busca la carpeta que de
+# verdad tiene un `app.js` dentro de su `htdocs`. Se exige que haya UNA sola:
+# con dos, adivinar cuál es la buena sería reiniciar la equivocada, y eso no
+# da error — deja el sitio que importa corriendo el código viejo.
 DIR="/home/$USUARIO/htdocs/$USUARIO.appestrategia.net"
+if [ ! -d "$DIR" ]; then
+  CANDIDATOS=$(find "/home/$USUARIO/htdocs" -mindepth 2 -maxdepth 2 -name app.js 2>/dev/null | head -5)
+  CUANTOS=$(printf '%s\n' "$CANDIDATOS" | grep -c . )
+  if [ "$CUANTOS" = "1" ]; then
+    DIR="$(dirname "$CANDIDATOS")"
+    echo "ruta: $DIR (no sigue la convención; se encontró por su app.js)"
+  elif [ "$CUANTOS" -gt 1 ]; then
+    echo "En /home/$USUARIO/htdocs hay más de una aplicación y no sé cuál reiniciar:"
+    printf '  %s\n' $CANDIDATOS
+    exit 1
+  fi
+fi
 
 [ -d "$DIR" ] || { echo "No existe $DIR"; exit 1; }
+[ -f "$DIR/app.js" ] || { echo "En $DIR no hay app.js; no parece una instancia."; exit 1; }
 [ "$(id -u)" = "0" ] || { echo "Esto se corre como root: cada instancia tiene su propio PM2."; exit 1; }
 
 pid_actual() { pgrep -f "$DIR/app.js" | head -1; }
