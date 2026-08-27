@@ -58,7 +58,21 @@ const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
  *   campaña sin forma de volver a entrar salvo por SSH. La torre es el
  *   camino ofrecido; la contraseña, el que queda por si el correo falla.
  */
-const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo'];
+/* EL ASPIRANTE AL CONCEJO ENTRA POR LAS DOS PUERTAS, Y CADA UNA EN SU SITIO.
+ *
+ *   celular    -> nombre de usuario y contraseña, como cualquier líder: es el
+ *                 formulario al que lleva su botón del ingreso y el que sirve
+ *                 para trabajar de pie en la calle.
+ *   computador -> correo o celular y código de acceso, que es a lo que abre la
+ *                 pantalla en un computador y como entra al panel de su
+ *                 sublicencia.
+ *
+ * Las dos ya funcionaban para él salvo la del código, que exigía estar en esta
+ * lista. La contraseña le sigue sirviendo en los dos aparatos —es la salida de
+ * emergencia que explica el comentario de arriba, y el día que el SMTP falle
+ * él tampoco puede quedarse fuera de su propia campaña.
+ */
+const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'aspirante_concejo'];
 
 /**
  * Límite de solicitudes de código: 5 cada 15 minutos por IP.
@@ -114,7 +128,18 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
      natural era que cada uno mandara su `entrarComo`, y al mirar qué haría el
      servidor con eso apareció que no lo verificaba. Por eso los botones NO lo
      mandan — ver login.html.) */
-  let rolEfectivo = usuario.rol;
+  /* EL ROL «aspirante_concejo» VIAJA EN LA SESION COMO 'lider'.
+     Medido antes de crear el rol: 32 sitios comparan contra 'lider' —25 en el
+     servidor, 7 en el navegador— mas 6 `requireRole`. Un rol nuevo a secas
+     dejaria de coincidir en los 32, y cada uno que se escapara seria un
+     permiso que falla en silencio.
+     Un aspirante ES un lider en todo lo operativo: su alcance, sus rutas, su
+     matriz de permisos. Lo que lo distingue —que registra Lideres y que manda
+     sobre ellos— no viaja en el rol sino en `es_aspirante_concejo`.
+     El verdadero se guarda en `rol_real`, por si alguna pantalla necesita
+     saberlo sin preguntarle a la base. */
+  const ROL_ASPIRANTE_CONCEJO = 'aspirante_concejo';
+  let rolEfectivo = usuario.rol === ROL_ASPIRANTE_CONCEJO ? 'lider' : usuario.rol;
   if (entrarComo === 'testigo') {
     const [[esTestigo]] = await pool.query(
       `SELECT 1 FROM estructura WHERE usuario_id = ? AND cargo = 'testigo' LIMIT 1`, [usuario.id]);
@@ -153,6 +178,9 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
     nombre: usuario.nombre,
     email: usuario.email,
     rol: rolEfectivo,
+    // El de la base, sin traducir. `rol` es con lo que se decide todo; éste
+    // sólo sirve para saber qué se le asignó de verdad.
+    rol_real: usuario.rol,
     territorio_id: usuario.territorio_id,
     debe_cambiar_password: !!usuario.debe_cambiar_password,
     two_factor_enabled: !!usuario.two_factor_enabled,
@@ -175,7 +203,9 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
  * depende a qué pantalla se le manda y qué permisos recibe la sesión.
  */
 async function tieneDobleRolTestigo(usuario) {
-  if (!['lider', 'sublider'].includes(usuario.rol)) return false;
+  // Mismo motivo que en capacidadesDe: aquí el rol llega SIN traducir, y un
+  // aspirante que además sea testigo tiene que poder elegir con cuál entra.
+  if (!['lider', 'sublider', 'aspirante_concejo'].includes(usuario.rol)) return false;
   const [[fila]] = await pool.query(
     `SELECT 1 FROM estructura WHERE usuario_id = ? AND cargo = 'testigo' LIMIT 1`,
     [usuario.id]
@@ -205,7 +235,12 @@ const ASPIRANTE_A = {
  */
 async function capacidadesDe(usuario) {
   const opciones = [];
-  if (!['lider', 'sublider'].includes(usuario.rol)) return opciones;
+  /* `aspirante_concejo` entra aquí porque en la sesión ES un líder. Esta
+     función recibe la FILA DE LA BASE, no la sesión, así que el rol le llega
+     sin traducir: sin nombrarlo, alguien con el rol nuevo y una sublicencia
+     activa no vería la pregunta de «¿cómo quieres entrar?» y perdería el
+     acceso a su panel sin que nada fallara. */
+  if (!['lider', 'sublider', 'aspirante_concejo'].includes(usuario.rol)) return opciones;
 
   opciones.push({
     valor: 'principal',
@@ -808,8 +843,18 @@ router.get('/me', requireAuth, async (req, res) => {
   let esAspiranteConcejo = false;
   try {
     const [[fila]] = await pool.query(
-      `SELECT 1 AS ok FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-        WHERE e.usuario_id = ? AND e.cargo = 'lider' AND u.tipo_cargo = 'aspirante_concejo' LIMIT 1`,
+      /* DOS FORMAS DE SERLO, Y LAS DOS VALEN.
+         El ROL es lo que se le asigna en Editar usuario y manda; la CATEGORIA
+         (tipo_cargo) es como se marcaba antes de que el rol existiera, y sigue
+         viva en las fichas ya creadas. Mirar solo una dejaria fuera a la mitad
+         de la gente segun cuando se la registro. */
+      `SELECT 1 AS ok FROM usuarios u
+         LEFT JOIN roles r ON r.id = u.rol_id
+         LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = 'lider'
+        WHERE u.id = ?
+          AND (r.nombre = 'aspirante_concejo'
+               OR (e.id IS NOT NULL AND u.tipo_cargo = 'aspirante_concejo'))
+        LIMIT 1`,
       [req.session.usuario.id]);
     esAspiranteConcejo = !!fila;
   } catch (err) {

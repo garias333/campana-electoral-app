@@ -24,7 +24,22 @@ INSERT INTO roles (nombre, descripcion) VALUES
   ('usuario', 'Colaborador que registra sus propios contactos, bajo un líder'),
   ('testigo', 'Testigo electoral'),
   ('asistente_administrativo', 'Apoyo administrativo de la campaña'),
-  ('invitado', 'Solo consulta información pública de la campaña')
+  ('invitado', 'Solo consulta información pública de la campaña'),
+  -- EN LA SESIÓN SE COMPORTA COMO UN LÍDER, Y ESO NO ES UN ATAJO.
+  --
+  -- Medido antes de crearlo: hay 32 sitios que comparan contra el rol 'lider'
+  -- —25 en el servidor y 7 en el navegador— más 6 `requireRole`. Un rol nuevo
+  -- a secas dejaría de coincidir en los 32, y cada uno que se escapara sería
+  -- una pantalla que dice «no tiene permisos» sin que nadie sepa por qué.
+  --
+  -- Por eso `completarSesion` lo traduce a `rol: 'lider'` y guarda el
+  -- verdadero en `rol_real`, igual que ya se hacía con el sombrero de testigo.
+  -- Los 32 sitios siguen funcionando sin tocar uno solo, y lo que distingue a
+  -- un aspirante viaja aparte, en `es_aspirante_concejo`.
+  --
+  -- Consecuencia buscada: `permisos_rol` tampoco necesita filas nuevas — la
+  -- matriz de 'lider' es la que aplica, que es exactamente lo que se quiere.
+  ('aspirante_concejo', 'Aspirante al Concejo — dirige su propia estructura de líderes')
 ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 
 -- ---------------------------------------------------------

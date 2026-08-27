@@ -997,8 +997,18 @@ async function nivelQueRegistra(req) {
   if (req.sublicencia) return 'lider';
   try {
     const [[fila]] = await pool.query(
-      `SELECT 1 AS ok FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-        WHERE e.usuario_id = ? AND e.cargo = 'lider' AND u.tipo_cargo = 'aspirante_concejo' LIMIT 1`,
+      /* DOS FORMAS DE SERLO, Y LAS DOS VALEN.
+         El ROL es lo que se le asigna en Editar usuario y manda; la CATEGORIA
+         (tipo_cargo) es como se marcaba antes de que el rol existiera, y sigue
+         viva en las fichas ya creadas. Mirar solo una dejaria fuera a la mitad
+         de la gente segun cuando se la registro. */
+      `SELECT 1 AS ok FROM usuarios u
+         LEFT JOIN roles r ON r.id = u.rol_id
+         LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = 'lider'
+        WHERE u.id = ?
+          AND (r.nombre = 'aspirante_concejo'
+               OR (e.id IS NOT NULL AND u.tipo_cargo = 'aspirante_concejo'))
+        LIMIT 1`,
       [req.session.usuario.id]);
     if (fila) return 'lider';
   } catch (err) {
