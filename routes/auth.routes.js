@@ -213,13 +213,10 @@ async function tieneDobleRolTestigo(usuario) {
   return !!fila;
 }
 
-/** Cómo se llama, en la pantalla, cada cargo al que se puede aspirar. */
-const ASPIRANTE_A = {
-  concejo:  'Aspirante al Concejo Municipal',
-  jal:      'Aspirante a la JAL',
-  asamblea: 'Aspirante a la Asamblea',
-  edil:     'Aspirante a Edil',
-};
+/* Aquí vivía ASPIRANTE_A, el mapa de cómo se llamaba cada cargo en el botón
+   «Como Aspirante a…». Ese botón ya no existe: el sombrero lo da la puerta.
+   Se borra en vez de dejarlo por si acaso — una tabla sin usar que describe una
+   pantalla que se quitó es exactamente lo que confunde dentro de seis meses. */
 
 /**
  * Con cuántos sombreros puede entrar esta persona.
@@ -251,20 +248,16 @@ async function capacidadesDe(usuario) {
     `SELECT 1 FROM estructura WHERE usuario_id = ? AND cargo = 'testigo' LIMIT 1`, [usuario.id]);
   if (testigo) opciones.push({ valor: 'testigo', texto: 'Como Testigo electoral' });
 
-  try {
-    const [[sub]] = await pool.query(
-      'SELECT cargo FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
-    if (sub) {
-      opciones.push({
-        valor: 'aspirante',
-        texto: ASPIRANTE_A[sub.cargo] ? 'Como ' + ASPIRANTE_A[sub.cargo] : 'Como Aspirante',
-      });
-    }
-  } catch (err) {
-    // Campaña sin las tablas de sublicencias: se sigue con los sombreros de siempre.
-    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al elegir rol:', err.message);
-  }
+  /* YA NO SE PREGUNTA POR EL SOMBRERO DE ASPIRANTE: LO DICE LA PUERTA.
+     Entrar por la torre —correo o celular y codigo— con sublicencia activa ES
+     entrar como aspirante (ver /verificar-2fa); entrar con identificacion y
+     clave es entrar como lider. Preguntarlo ademas seria pedirle que conteste
+     lo que ya contesto al elegir formulario, y dejaba el caso raro de entrar
+     por la torre y elegir «Como Lider», que no significa nada.
 
+     El sombrero de TESTIGO se sigue preguntando, porque ese si es una eleccion
+     de verdad: la misma persona, por la misma puerta, puede querer una cosa u
+     otra el dia de las elecciones. */
   return opciones.length > 1 ? opciones : [];
 }
 
@@ -416,7 +409,15 @@ router.post('/login', async (req, res) => {
     // con cuál capacidad quiere entrar ANTES de seguir (incluso antes del
     // 2FA), porque de eso depende a qué pantalla se le manda y qué
     // permisos recibe la sesión (ver /auth/elegir-rol). ---
-    const { entrarComo } = req.body;
+    /* POR ESTA PUERTA NO SE ENTRA COMO ASPIRANTE, NUNCA.
+       Es la de numero de identificacion y contraseña: la del celular, la de
+       trabajar en la calle. El sombrero de aspirante lo da la otra —correo o
+       celular y codigo— y lo pone el servidor, no el cuerpo de la peticion.
+       Sin esta linea seguiria siendo posible pedirlo aqui a mano; lo frenaba
+       la comprobacion de sublicencia en completarSesion, pero apoyarse en una
+       comprobacion de mas abajo para algo que aqui ya se sabe es dejar la
+       puerta cerrada con el pestillo de otra habitacion. */
+    const entrarComo = req.body.entrarComo === 'aspirante' ? null : req.body.entrarComo;
     if (!entrarComo) {
       const opciones = await capacidadesDe(usuario);
       if (opciones.length) {
@@ -603,7 +604,15 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
     // La sesión recuerda a quién pertenece el código. El navegador nunca
     // recibe el usuario_id: si lo mandara él en el paso 2, bastaría con
     // cambiarlo para pedir el código de una cuenta y validar el de otra.
-    req.session.pendiente2fa = { usuarioId: usuario.id, recordar: !!recordar, entrarComo: null };
+    /* SE ANOTA POR QUE PUERTA ENTRO, y de eso depende con que sombrero sale.
+       LA PUERTA DECIDE EL SOMBRERO. Quien entra por aqui —correo o celular y
+       codigo— entra como aspirante si tiene sublicencia activa. Quien entra
+       con su numero de identificacion y su clave entra como lider, siempre.
+       Antes se le preguntaba, y preguntar sobra cuando la respuesta ya esta en
+       la puerta que la persona eligio: son dos formularios distintos.
+       Lo decide el SERVIDOR con este dato de sesion, no el navegador: si el
+       sombrero viajara en el cuerpo, cualquiera pediria el de aspirante. */
+    req.session.pendiente2fa = { usuarioId: usuario.id, recordar: !!recordar, entrarComo: null, via: 'torre' };
 
     try {
       if (via === 'sms') {
@@ -684,7 +693,23 @@ router.post('/verificar-2fa', async (req, res) => {
     );
     const usuario = usuarioRows[0];
 
-    const dispositivoToken = await completarSesion(req, usuario, pendiente.recordar, pendiente.entrarComo);
+    /* El sombrero se deduce de la puerta, no se pregunta. Solo cuando la
+       sublicencia existe y esta activa: sin ella no hay panel de aspirante que
+       mostrar —su nombre, su lema y su logo viven en esa fila— y mandarlo alla
+       le daria el panel de la campaña madre SIN acotar, porque el filtro de
+       rama cuelga justamente de `req.sublicencia`. */
+    let entrarComoFinal = pendiente.entrarComo;
+    if (pendiente.via === 'torre' && !entrarComoFinal) {
+      try {
+        const [f] = await pool.query(
+          'SELECT 1 FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
+        if (f.length) entrarComoFinal = 'aspirante';
+      } catch (err) {
+        if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia en la torre:', err.message);
+      }
+    }
+
+    const dispositivoToken = await completarSesion(req, usuario, pendiente.recordar, entrarComoFinal);
     delete req.session.pendiente2fa;
 
     await registrarAuditoria(
