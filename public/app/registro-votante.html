@@ -36,7 +36,7 @@
         <button type="button" class="chip-app activo" id="chip-votante" aria-pressed="true" onclick="elegirCategoria('votante')">Votante</button>
         <button type="button" class="chip-app" id="chip-sublider" aria-pressed="false" onclick="elegirCategoria('sublider')">Sublíder</button>
       </div>
-      <small>Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) — para eso, completa el Número de identificación.</small>
+      <small id="nota-categoria-subalterno">Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) — para eso, completa el Número de identificación.</small>
     </div>
     <div class="campo-app" id="campo-meta-votos" style="display:none;">
       <label for="f-meta-votos">Meta de votos del sublíder</label>
@@ -797,6 +797,26 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
     const chip = document.getElementById('chip-sublider');
     if (chip) chip.style.display = 'none';
     elegirCategoria('votante');
+  }
+
+  /* CADA QUIEN REGISTRA UN ESCALON POR DEBAJO DEL SUYO.
+       Aspirante al Concejo -> Votantes y LIDERES
+       Lider                -> Votantes y Sublideres
+       Sublider             -> solo Votantes  (el bloque de arriba)
+
+     Solo cambia el ROTULO. El valor que viaja sigue siendo 'sublider' —es el
+     marcador de «esta persona ademas ocupa un puesto en la estructura»— y
+     QUIEN DECIDE EL ESCALON ES EL SERVIDOR, mirando si la sesion entro con
+     sublicencia (ver procesarSublider en routes/votantes.routes.js). Si el
+     escalon viajara desde aqui, cualquiera podria pedir «creame un lider». */
+  if (usuario.es_aspirante) {
+    const chip = document.getElementById('chip-sublider');
+    if (chip) chip.textContent = 'Líder';
+    const nota = document.getElementById('nota-categoria-subalterno');
+    if (nota) nota.textContent = 'Si marcas "Líder", se le crea automáticamente una cuenta de acceso'
+      + ' (su Número de identificación como usuario y contraseña) — para eso, completa el Número de identificación.';
+    const meta = document.querySelector('label[for="f-meta-votos"]');
+    if (meta) meta.textContent = 'Meta de votos del líder';
   }
 
   // CERRAR SESIÓN, EN LAS DOS PANTALLAS DE ESTA PÁGINA. El Invitado y el

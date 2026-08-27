@@ -177,7 +177,7 @@
           <input type="number" name="meta_votos_sublider" id="input-meta-votos-sublider" min="0" value="0" style="width:90px;">
         </label>
         <small id="categoria-votante-error" style="color:var(--color-no-apoya, #A93226); font-size:0.78rem; display:none;">Debe elegir una de las dos opciones.</small>
-        <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:4px;">Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) y queda registrado en Estructura territorial bajo el Líder que lo refirió — para eso, completa más abajo el Número de identificación (el Correo electrónico es opcional).</small>
+        <small id="nota-categoria-subalterno" style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:4px;">Si marcas "Sublíder", se le crea automáticamente una cuenta de acceso (su Número de identificación como usuario y contraseña) y queda registrado en Estructura territorial bajo el Líder que lo refirió — para eso, completa más abajo el Número de identificación (el Correo electrónico es opcional).</small>
       </div>
       <div class="campo encabezado-form primero">Datos personales</div>
       <div class="campo">
@@ -2220,10 +2220,15 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     cargarVotantes();
 
     if (datos.categoria === 'sublider' && respuesta.usuario_sublider) {
+      // La palabra la pone el SERVIDOR, que es quien decidió el escalón: un
+      // Aspirante al Concejo crea líderes y un líder crea sublíderes. Si el
+      // aviso lo dedujera aquí, la regla viviría en dos sitios y algún día
+      // dirían cosas distintas sobre la misma fila.
+      const quien = respuesta.usuario_sublider.etiqueta || 'sublíder';
       if (respuesta.usuario_sublider.creado) {
-        alert('Se creó la cuenta de acceso del sublíder: su Nombre de usuario y contraseña son su Número de identificación. Deberá cambiarla en su primer inicio de sesión.');
+        alert(`Se creó la cuenta de acceso del ${quien}: su Nombre de usuario y contraseña son su Número de identificación. Deberá cambiarla en su primer inicio de sesión.`);
       } else if (respuesta.usuario_sublider.motivo) {
-        alert(`Sublíder guardado, pero no se pudo crear su cuenta de acceso: ${respuesta.usuario_sublider.motivo}`);
+        alert(`Se guardó, pero no se pudo crear la cuenta de acceso del ${quien}: ${respuesta.usuario_sublider.motivo}`);
       }
     }
 
@@ -2570,6 +2575,29 @@ function alternarMesasEstimadoPuesto(i) {
     });
     const importar = document.getElementById('input-importar-votantes');
     if (importar && importar.closest('label')) importar.closest('label').style.display = 'none';
+
+    /* CADA QUIEN REGISTRA UN ESCALON POR DEBAJO DEL SUYO.
+         Aspirante al Concejo -> Votantes y LIDERES
+         Lider                -> Votantes y Sublideres
+         Sublider             -> solo Votantes  (el bloque de abajo)
+
+       Solo cambia el ROTULO. El valor que viaja sigue siendo 'sublider' —el
+       marcador de «esta persona además ocupa un puesto en la estructura»— y el
+       escalón lo decide el SERVIDOR mirando la sublicencia de la sesión (ver
+       procesarSublider en routes/votantes.routes.js). Mandarlo desde aquí
+       dejaría que cualquiera pidiera «créame un líder».
+
+       Se toca `lastChild` y no `textContent`: dentro del <label> vive la
+       casilla real que lee media pantalla por id, y reescribir el rótulo
+       entero la borraría. */
+    const chipSub = document.getElementById('chip-categoria-sublider');
+    if (chipSub && chipSub.lastChild) chipSub.lastChild.textContent = ' Líder';
+    const rotuloMeta = document.getElementById('campo-meta-votos-sublider');
+    if (rotuloMeta && rotuloMeta.firstChild) rotuloMeta.firstChild.textContent = 'Meta de votos del líder ';
+    const notaSub = document.getElementById('nota-categoria-subalterno');
+    if (notaSub) notaSub.textContent = 'Si marcas "Líder", se le crea automáticamente una cuenta de acceso'
+      + ' (su Número de identificación como usuario y contraseña) y queda registrado en Estructura territorial'
+      + ' bajo usted — para eso, completa más abajo el Número de identificación (el Correo electrónico es opcional).';
   }
 
   // UN SUBLÍDER NO CREA SUBLÍDERES. La cadena es coordinador → líder →

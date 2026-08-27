@@ -959,9 +959,27 @@ router.get('/:id', async (req, res) => {
  * contraseña inicial) — el Correo electrónico es opcional. Si falta la
  * cédula, no se crea nada, pero el votante se guarda igual.
  */
-async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos }) {
+/**
+ * CADA QUIEN REGISTRA UN ESCALÓN POR DEBAJO DEL SUYO.
+ *
+ *   Aspirante al Concejo  ->  Líder      (rol `lider`,    estructura `lider`)
+ *   Líder                 ->  Sublíder   (rol `sublider`, estructura `usuario`)
+ *   Sublíder              ->  nadie      (la pantalla no le ofrece el botón)
+ *
+ * El escalón NO lo manda el navegador: lo decide el servidor mirando si la
+ * sesión entró con sublicencia (`req.sublicencia`). Si viajara en el cuerpo,
+ * cualquier líder podría pedir «créame un líder» y darse un subalterno de un
+ * nivel que no le corresponde.
+ */
+const NIVELES_SUBALTERNO = {
+  sublider: { rol: 'sublider', cargo: 'usuario', etiqueta: 'sublíder' },
+  lider:    { rol: 'lider',    cargo: 'lider',   etiqueta: 'líder' },
+};
+
+async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
+  const destino = NIVELES_SUBALTERNO[nivel] || NIVELES_SUBALTERNO.sublider;
   if (!cedula) {
-    return { creado: false, estructuraCreada: false, motivo: 'Falta el Número de identificación.' };
+    return { creado: false, estructuraCreada: false, etiqueta: destino.etiqueta, motivo: 'Falta el Número de identificación.' };
   }
   const emailLimpio = (email || '').trim().toLowerCase() || null;
 
@@ -979,21 +997,21 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
     if (existente) {
       usuarioId = existente.id;
     } else {
-      const [[rolSublider]] = await pool.query(`SELECT id FROM roles WHERE nombre = 'sublider'`);
-      if (!rolSublider) return { creado: false, estructuraCreada: false, motivo: 'El rol "sublider" no está configurado.' };
+      const [[rolDestino]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [destino.rol]);
+      if (!rolDestino) return { creado: false, estructuraCreada: false, etiqueta: destino.etiqueta, motivo: `El rol "${destino.rol}" no está configurado.` };
 
       const hash = await bcrypt.hash(cedula, 12);
       const [result] = await pool.query(
         `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, telefono, debe_cambiar_password)
          VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-        [(nombre || '').trim(), cedula, cedula, emailLimpio, hash, rolSublider.id, telefono || null]
+        [(nombre || '').trim(), cedula, cedula, emailLimpio, hash, rolDestino.id, telefono || null]
       );
       usuarioId = result.insertId;
       cuentaCreada = true;
     }
   } catch (err) {
     console.error('Error creando/verificando la cuenta de acceso del sublíder:', err);
-    return { creado: false, estructuraCreada: false, motivo: 'Error interno creando la cuenta de acceso.' };
+    return { creado: false, estructuraCreada: false, etiqueta: destino.etiqueta, motivo: 'Error interno creando la cuenta de acceso.' };
   }
 
   // Se asegura el registro en Estructura territorial (cargo "usuario",
@@ -1006,13 +1024,17 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
     // persona puede tener una SEGUNDA fila de Estructura con
     // cargo='testigo' — sin este filtro, este SELECT podía encontrar esa
     // otra fila en vez de la del propio Sublíder y sobrescribirla.
-    const [[yaExiste]] = await pool.query(`SELECT id FROM estructura WHERE usuario_id = ? AND cargo = 'usuario'`, [usuarioId]);
+    // El cargo que se busca es el del ESCALÓN que toca crear, no siempre
+    // 'usuario': un Aspirante al Concejo crea líderes. Buscar por el cargo
+    // equivocado encontraría otra fila de la misma persona y la pisaría.
+    const [[yaExiste]] = await pool.query(`SELECT id FROM estructura WHERE usuario_id = ? AND cargo = ?`, [usuarioId, destino.cargo]);
     const esOrganizacion = tipoAreaInfluencia === 'organizacion';
     if (!yaExiste) {
       await pool.query(
         `INSERT INTO estructura (usuario_id, territorio_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, activo)
-         VALUES (?, ?, 'usuario', ?, ?, ?, ?, 1)`,
-        [usuarioId, esOrganizacion ? null : (territorioId || null), esOrganizacion ? 'organizacion' : 'territorio',
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        [usuarioId, esOrganizacion ? null : (territorioId || null), destino.cargo,
+         esOrganizacion ? 'organizacion' : 'territorio',
          esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0]
       );
       estructuraCreada = true;
@@ -1028,7 +1050,10 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
     console.error('Error creando/actualizando el registro de Estructura territorial del sublíder:', err);
   }
 
-  return { creado: cuentaCreada, estructuraCreada, yaExistiaCuenta: !cuentaCreada };
+  // `etiqueta` viaja al navegador para que el aviso diga «líder» o «sublíder»
+  // segun lo que DE VERDAD se creo. Que lo adivine el navegador seria repetir
+  // en dos sitios la regla de quien crea a quien.
+  return { creado: cuentaCreada, estructuraCreada, yaExistiaCuenta: !cuentaCreada, etiqueta: destino.etiqueta };
 }
 
 /**
@@ -1232,7 +1257,10 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
       territorioId: esOrganizacion ? null : (b.territorio_id || null),
       tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
       organizacion: esOrganizacion ? b.organizacion.trim() : null,
-      metaVotos: b.meta_votos_sublider || 0
+      metaVotos: b.meta_votos_sublider || 0,
+      // El escalon lo decide la SESION, no el cuerpo de la peticion: quien
+      // entro con sublicencia crea lideres, los demas crean sublideres.
+      nivel: req.sublicencia ? 'lider' : 'sublider'
     });
     if (usuarioSublider.creado || usuarioSublider.yaExistiaCuenta) {
       await pool.query(`UPDATE votantes SET categoria = 'votante' WHERE id = ?`, [votanteId]);
@@ -1334,7 +1362,9 @@ router.put('/:id', async (req, res) => {
         territorioId: esOrganizacion ? null : (b.territorio_id || null),
         tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
         organizacion: esOrganizacion ? b.organizacion.trim() : null,
-        metaVotos: b.meta_votos_sublider || 0
+        metaVotos: b.meta_votos_sublider || 0,
+        // Mismo criterio que al crear: lo decide la sesion, no el cuerpo.
+        nivel: req.sublicencia ? 'lider' : 'sublider'
       });
       if (usuarioSublider.creado || usuarioSublider.yaExistiaCuenta) {
         await pool.query(`UPDATE votantes SET categoria = 'votante' WHERE id = ?`, [req.params.id]);
