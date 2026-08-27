@@ -2576,20 +2576,34 @@ function alternarMesasEstimadoPuesto(i) {
     const importar = document.getElementById('input-importar-votantes');
     if (importar && importar.closest('label')) importar.closest('label').style.display = 'none';
 
-    /* CADA QUIEN REGISTRA UN ESCALON POR DEBAJO DEL SUYO.
-         Aspirante al Concejo -> Votantes y LIDERES
-         Lider                -> Votantes y Sublideres
-         Sublider             -> solo Votantes  (el bloque de abajo)
+  }
 
-       Solo cambia el ROTULO. El valor que viaja sigue siendo 'sublider' —el
-       marcador de «esta persona además ocupa un puesto en la estructura»— y el
-       escalón lo decide el SERVIDOR mirando la sublicencia de la sesión (ver
-       procesarSublider en routes/votantes.routes.js). Mandarlo desde aquí
-       dejaría que cualquiera pidiera «créame un líder».
+  /* CADA QUIEN REGISTRA UN ESCALON POR DEBAJO DEL SUYO.
+       Aspirante al Concejo -> Votantes y LIDERES
+       Lider                -> Votantes y Sublideres
+       Sublider             -> solo Votantes  (el bloque de abajo)
 
-       Se toca `lastChild` y no `textContent`: dentro del <label> vive la
-       casilla real que lee media pantalla por id, y reescribir el rótulo
-       entero la borraría. */
+     ESTO MIRA LA CATEGORIA, NO LA LICENCIA, y por eso salio del bloque de
+     arriba —que es de licencia y ademas oculta botones de administrador—.
+     `es_aspirante` es «entro con ese sombrero y su sublicencia sigue activa»;
+     `es_aspirante_concejo` es «en la Estructura de esta campaña su categoria
+     es Aspirante al Concejo». La regla que se pidio habla de lo segundo.
+
+     Con el criterio anterior, alguien marcado en la estructura pero sin
+     sublicencia vendida veia «Sublider» mientras el servidor le creaba un
+     lider: el peor desacuerdo posible, porque el boton miente y el dato queda
+     bien.
+
+     Solo cambia el ROTULO. El valor que viaja sigue siendo 'sublider' —el
+     marcador de «esta persona ademas ocupa un puesto en la estructura»— y el
+     escalon lo decide el SERVIDOR (ver nivelQueRegistra en
+     routes/votantes.routes.js, que mira lo mismo). Mandarlo desde aqui
+     dejaria que cualquiera pidiera «creame un lider».
+
+     Se toca `lastChild` y no `textContent`: dentro del <label> vive la
+     casilla real que lee media pantalla por id, y reescribir el rotulo
+     entero la borraria. */
+  if (usuarioActual.es_aspirante_concejo || usuarioActual.es_aspirante) {
     const chipSub = document.getElementById('chip-categoria-sublider');
     if (chipSub && chipSub.lastChild) chipSub.lastChild.textContent = ' Líder';
     const rotuloMeta = document.getElementById('campo-meta-votos-sublider');

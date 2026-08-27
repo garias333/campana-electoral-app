@@ -789,11 +789,39 @@ router.get('/me', requireAuth, async (req, res) => {
     }
   }
 
+  /* DOS COSAS DISTINTAS QUE SE LLAMAN «ASPIRANTE», Y CONVIENE NO MEZCLARLAS.
+   *
+   *   es_aspirante          -> entró CON EL SOMBRERO de aspirante y su
+   *                            sublicencia sigue activa. Es de LICENCIA: decide
+   *                            a qué pantallas llega y qué ve del panel.
+   *   es_aspirante_concejo  -> en la Estructura de esta campaña su categoría es
+   *                            Aspirante al Concejo. Es de JERARQUÍA: decide a
+   *                            quién manda y a quién registra.
+   *
+   * Se pueden dar por separado, y de hecho se dan: alguien marcado en la
+   * estructura sin sublicencia vendida, o al revés. La app del celular
+   * necesita la SEGUNDA —el rótulo del botón habla de jerarquía, no de
+   * licencia— y hasta ahora miraba la primera, que en esa pantalla es siempre
+   * falsa: quien tiene sublicencia activa ni siquiera llega ahí, lo desvía
+   * app-comun.js al panel. Un rótulo condicionado a algo que no puede ocurrir
+   * nunca es un rótulo que no cambia. */
+  let esAspiranteConcejo = false;
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT 1 AS ok FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+        WHERE e.usuario_id = ? AND e.cargo = 'lider' AND u.tipo_cargo = 'aspirante_concejo' LIMIT 1`,
+      [req.session.usuario.id]);
+    esAspiranteConcejo = !!fila;
+  } catch (err) {
+    console.error('Leyendo categoría de estructura en /me:', err.message);
+  }
+
   res.json({
     usuario: {
       ...req.session.usuario,
       es_superadmin: await esSuperadmin(req.session.usuario),
       es_aspirante: esAspirante,
+      es_aspirante_concejo: esAspiranteConcejo,
     }
   });
 });

@@ -809,7 +809,12 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
      QUIEN DECIDE EL ESCALON ES EL SERVIDOR, mirando si la sesion entro con
      sublicencia (ver procesarSublider en routes/votantes.routes.js). Si el
      escalon viajara desde aqui, cualquiera podria pedir «creame un lider». */
-  if (usuario.es_aspirante) {
+  // `es_aspirante_concejo` y no `es_aspirante`: el primero es la CATEGORÍA en
+  // la estructura —de eso habla la regla— y el segundo es la LICENCIA. Y en
+  // esta pantalla el segundo es siempre falso: a quien tiene sublicencia
+  // activa lo desvía app-comun.js al panel antes de llegar aquí, así que el
+  // rótulo estaba condicionado a algo que no podía ocurrir nunca.
+  if (usuario.es_aspirante_concejo || usuario.es_aspirante) {
     const chip = document.getElementById('chip-sublider');
     if (chip) chip.textContent = 'Líder';
     const nota = document.getElementById('nota-categoria-subalterno');

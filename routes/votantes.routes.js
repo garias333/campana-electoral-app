@@ -976,6 +976,39 @@ const NIVELES_SUBALTERNO = {
   lider:    { rol: 'lider',    cargo: 'lider',   etiqueta: 'líder' },
 };
 
+/**
+ * ¿QUIÉN REGISTRA? La respuesta sale de la ESTRUCTURA, no de la licencia.
+ *
+ * El primer intento derivaba el escalón de `req.sublicencia`, o sea de si la
+ * persona entró con el sombrero de aspirante. Son dos cosas distintas:
+ *
+ *   sublicencia  -> licencia: qué pantallas alcanza, qué ve del panel
+ *   categoría    -> jerarquía: a quién manda y a quién registra
+ *
+ * La regla que se pidió —«un aspirante registra Líderes»— es de jerarquía. Y
+ * alguien puede estar marcado como Aspirante al Concejo en la estructura sin
+ * tener sublicencia vendida; con el criterio anterior, ese registraba
+ * sublíderes bajo un botón que decía otra cosa.
+ *
+ * Se mira la sublicencia TAMBIÉN, con un OR: quien tiene una es un aspirante
+ * aunque nadie se haya acordado de marcarlo en la estructura.
+ */
+async function nivelQueRegistra(req) {
+  if (req.sublicencia) return 'lider';
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT 1 AS ok FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+        WHERE e.usuario_id = ? AND e.cargo = 'lider' AND u.tipo_cargo = 'aspirante_concejo' LIMIT 1`,
+      [req.session.usuario.id]);
+    if (fila) return 'lider';
+  } catch (err) {
+    // Si la consulta falla se sigue con el escalón de siempre: crear un
+    // sublíder de más es recuperable; crear un líder por error, menos.
+    console.error('Leyendo la categoría de quien registra:', err.message);
+  }
+  return 'sublider';
+}
+
 async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
   const destino = NIVELES_SUBALTERNO[nivel] || NIVELES_SUBALTERNO.sublider;
   if (!cedula) {
@@ -1258,9 +1291,9 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
       tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
       organizacion: esOrganizacion ? b.organizacion.trim() : null,
       metaVotos: b.meta_votos_sublider || 0,
-      // El escalon lo decide la SESION, no el cuerpo de la peticion: quien
-      // entro con sublicencia crea lideres, los demas crean sublideres.
-      nivel: req.sublicencia ? 'lider' : 'sublider'
+      // El escalon lo decide el SERVIDOR mirando quien registra, no el
+      // cuerpo de la peticion. Ver nivelQueRegistra().
+      nivel: await nivelQueRegistra(req)
     });
     if (usuarioSublider.creado || usuarioSublider.yaExistiaCuenta) {
       await pool.query(`UPDATE votantes SET categoria = 'votante' WHERE id = ?`, [votanteId]);
@@ -1363,8 +1396,8 @@ router.put('/:id', async (req, res) => {
         tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
         organizacion: esOrganizacion ? b.organizacion.trim() : null,
         metaVotos: b.meta_votos_sublider || 0,
-        // Mismo criterio que al crear: lo decide la sesion, no el cuerpo.
-        nivel: req.sublicencia ? 'lider' : 'sublider'
+        // Mismo criterio que al crear. Ver nivelQueRegistra().
+        nivel: await nivelQueRegistra(req)
       });
       if (usuarioSublider.creado || usuarioSublider.yaExistiaCuenta) {
         await pool.query(`UPDATE votantes SET categoria = 'votante' WHERE id = ?`, [req.params.id]);
