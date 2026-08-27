@@ -24,8 +24,10 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 
 const ORIGEN = path.join(__dirname, '..');
+const SALIDA_PARCHES = path.join(ORIGEN, 'parches');
 
 // Dónde viven las demás instancias si no se indican por argumento. No se
 // descubren solas a propósito: una ruta equivocada daría un informe
@@ -72,6 +74,43 @@ function inventario(raiz) {
   return encontrados;
 }
 
+/**
+ * QUÉ ARCHIVOS TRAEN LOS PARCHES QUE A ESTA INSTANCIA LE FALTAN.
+ *
+ * Sin esto, el informe mezcla dos cosas muy distintas: un archivo que difiere
+ * porque hay un parche sin aplicar —normal, y se arregla solo en cuanto se
+ * active— y uno que difiere sin que ningún parche lo explique, que es el
+ * fallo de verdad: código que se toca aquí y nunca viaja.
+ *
+ * Mezclados, el informe SIEMPRE tiene líneas —basta con publicar un parche—,
+ * y una lista de alarmas que nunca está vacía se deja de leer. Es el mismo
+ * criterio con el que se separan los avisos benignos en el resto del proyecto.
+ *
+ * Se lee del zip, que es la fuente: lo que dice el panel es otra cosa, y el
+ * panel no se alcanza desde aquí.
+ */
+function archivosDeParchesPendientes(versionDestino) {
+  const desde = parseInt(versionDestino, 10);
+  const explicados = new Map();   // archivo -> primer parche que lo trae
+  if (!Number.isInteger(desde)) return explicados;
+  let nombres = [];
+  try { nombres = fs.readdirSync(SALIDA_PARCHES); } catch (err) { return explicados; }
+  const numeros = nombres
+    .map((n) => (n.match(/^campana-parche(\d+)\.zip$/) || [])[1])
+    .filter(Boolean).map(Number).filter((n) => n > desde).sort((a, b) => a - b);
+  for (const numero of numeros) {
+    let listado = '';
+    try {
+      listado = execFileSync('unzip', ['-Z1', path.join(SALIDA_PARCHES, `campana-parche${numero}.zip`)],
+                             { encoding: 'utf8' });
+    } catch (err) { continue; }
+    for (const archivo of listado.split('\n').map((x) => x.trim()).filter(Boolean)) {
+      if (!explicados.has(archivo)) explicados.set(archivo, numero);
+    }
+  }
+  return explicados;
+}
+
 function versionParche(raiz) {
   try {
     return fs.readFileSync(path.join(raiz, '.version-parche'), 'utf8').trim();
@@ -112,20 +151,34 @@ function main() {
       continue;
     }
 
-    huboDeriva = true;
-    console.log(`${etiqueta}: ${total} diferencia(s) (parche ${versionParche(destino)})`);
-    difieren.forEach((f) => console.log(`   distinto: ${f}`));
-    faltan.forEach((f) => console.log(`   le falta: ${f}`));
-    sobran.forEach((f) => console.log(`   solo ahí: ${f}`));
+    const version = versionParche(destino);
+    const pendientes = archivosDeParchesPendientes(version);
+    const esperado = (f) => pendientes.get(f);
+
+    const sinExplicar = [...difieren, ...faltan].filter((f) => !esperado(f)).concat(sobran);
+    const porAplicar = [...difieren, ...faltan].filter((f) => esperado(f));
+
+    console.log(`${etiqueta}: ${total} diferencia(s) (parche ${version})`);
+    if (porAplicar.length) {
+      const nums = [...new Set(porAplicar.map(esperado))].sort((a, b) => a - b);
+      console.log(`   ${porAplicar.length} explicada(s) por el parche ${nums.join(', ')} — sin aplicar todavía:`);
+      porAplicar.forEach((f) => console.log(`      #${esperado(f)}  ${f}`));
+    }
+    if (sinExplicar.length) {
+      huboDeriva = true;
+      console.log(`   ${sinExplicar.length} SIN EXPLICAR — ningún parche pendiente las trae:`);
+      sinExplicar.forEach((f) => console.log(`      ${sobran.includes(f) ? 'solo ahí: ' : ''}${f}`));
+    }
     console.log('');
   }
 
   if (huboDeriva) {
-    console.log('\nHay deriva. Si es código que debe viajar, empaquétalo:');
+    console.log('\nHay deriva SIN EXPLICAR: código que se tocó aquí y no viaja en ningún');
+    console.log('parche pendiente. Si debe llegar a las campañas, empaquétalo:');
     console.log('  node scripts/generar-parche.js <numero> <archivos...>');
     process.exit(1);
   }
-  console.log('\nTodas las instancias corren el mismo código.');
+  console.log('\nSin deriva. Lo que difiera está en un parche pendiente de aplicar.');
 }
 
 if (require.main === module) main();
