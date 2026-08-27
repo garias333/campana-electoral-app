@@ -1030,15 +1030,24 @@ function solicitarPasswordPropia(titulo, explicacion) {
  */
 const ROLES_CON_GENTE_A_CARGO = ['coordinador', 'aspirante_concejo', 'lider'];
 
-/** Cómo se lee un rol en pantalla; sin esto se veía «aspirante_concejo» crudo. */
-const ETIQUETAS_ROL = {
+/* NOMBRE_DEL_ROL y no ETIQUETAS_ROL: ese nombre YA existe, declarado en el
+   script de configuracion.html para su matriz de permisos. common.js y el
+   script de cada pagina comparten el mismo ambito global, asi que dos `const`
+   con el mismo nombre no se pisan: revientan con SyntaxError y el navegador
+   descarta el BLOQUE ENTERO de la pagina.
+   Paso de verdad —parche 164— y el sintoma no apuntaba a esto: Configuracion
+   se quedaba con los campos vacios y en la pestaña equivocada, porque su
+   script no llego a ejecutarse ni una linea. `node --check` sobre common.js no
+   lo ve: cada archivo por separado es valido; el choque solo existe cuando el
+   navegador los junta. */
+const NOMBRE_DEL_ROL = {
   coordinador: 'coordinador',
   aspirante_concejo: 'Aspirante al Concejo',
   lider: 'líder',
   sublider: 'sublíder',
   usuario: 'sublíder',
 };
-function etiquetaRol(rol) { return ETIQUETAS_ROL[rol] || rol; }
+function etiquetaRol(rol) { return NOMBRE_DEL_ROL[rol] || rol; }
 
 async function confirmarConPasswordPropia(titulo, explicacion) {
   const clave = await solicitarPasswordPropia(titulo, explicacion);
