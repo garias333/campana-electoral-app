@@ -1618,7 +1618,28 @@ function etiquetaCategoriaVotante(v) {
   return `<span class="${clase}"${titulo}>${texto}</span>`;
 }
 
+/**
+ * LA CONTRASEÑA SE PIDE AL PULSAR «EDITAR», NO AL GUARDAR.
+ *
+ * Antes se pedía al guardar, y eso significa llenar el formulario entero para
+ * descubrir al final que la clave estaba mal. Preguntando al abrir, o se entra
+ * o no se entra, y no se pierde trabajo — el mismo criterio que ya seguía
+ * Configuración → Usuarios.
+ *
+ * confirmarConPasswordPropia() la comprueba contra el servidor en ese instante;
+ * sin eso, «preguntar al abrir» sería teatro. Y se sigue mandando en el PUT,
+ * porque lo que compruebe el navegador no autoriza nada.
+ */
+let passwordEdicionVotante = null;
+function olvidarPasswordEdicionVotante() { passwordEdicionVotante = null; }
+
 async function editarVotante(v) {
+  const clave = await confirmarConPasswordPropia(
+    'Editar a ' + (v.nombre || 'esta persona'),
+    'Escriba SU contraseña para abrir esta ficha.');
+  if (!clave) return;
+  passwordEdicionVotante = clave;
+
   const form = document.getElementById('form-votante');
   document.getElementById('titulo-modal').textContent = 'Editar votante o sublíder';
   document.getElementById('form-error').classList.remove('visible');
@@ -1994,9 +2015,15 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
   // acaba de poner el autocompletado de arriba.
   await actualizarLiderPorTerritorioInfluencia();
 
+  // Crear no pide contraseña: no hay ficha ajena que proteger todavía. Se
+  // olvida la de la edición anterior para que no siga viva y sirva para otra.
+  olvidarPasswordEdicionVotante();
   document.getElementById('overlay-form').classList.add('abierto');
 });
-document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+document.getElementById('cerrar-modal').addEventListener('click', () => {
+  document.getElementById('overlay-form').classList.remove('abierto');
+  olvidarPasswordEdicionVotante();
+});
 document.getElementById('filtro-busqueda').addEventListener('input', debounce(refiltrarVotantes, 350));
 document.getElementById('filtro-apoya-a').addEventListener('change', refiltrarVotantes);
 
@@ -2178,19 +2205,18 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
   // Solo al EDITAR uno que ya existe. Crear no pide nada: no hay nada que
   // proteger todavía, y pedirlo en cada registro nuevo volvería insoportable
   // el trabajo de un líder en la calle.
-  if (id) {
-    const password = await solicitarPasswordPropia(
-      'Confirme para guardar los cambios',
-      'Está modificando la ficha de una persona ya registrada. Escriba su propia contraseña para confirmar.');
-    if (!password) return;
-    datos.password = password;
-  }
+  //
+  // Aquí ya no se pregunta: la contraseña se confirmó al pulsar «Editar» (ver
+  // editarVotante). Lo que viaja es esa misma, y el servidor la vuelve a
+  // exigir en el PUT.
+  if (id) datos.password = passwordEdicionVotante;
 
   try {
     let respuesta;
     if (id) respuesta = await api(`/votantes/${id}`, { method: 'PUT', body: datos });
     else respuesta = await api('/votantes', { method: 'POST', body: datos });
     document.getElementById('overlay-form').classList.remove('abierto');
+    olvidarPasswordEdicionVotante();
     cargarVotantes();
 
     if (datos.categoria === 'sublider' && respuesta.usuario_sublider) {

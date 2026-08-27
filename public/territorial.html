@@ -2335,6 +2335,11 @@ document.getElementById('input-numero-persona').addEventListener('input', () => 
 
 async function abrirCreacion() {
   edicionId = null;
+  // Crear no pide contraseña: no hay ficha ajena que proteger todavía, y
+  // pedirla en cada registro nuevo volvería insoportable el trabajo de un
+  // líder en la calle. Se olvida la de la edición anterior para que no siga
+  // viva y sirva para otra cosa.
+  olvidarPasswordEdicionEstructura();
   document.getElementById('modal-form-titulo').textContent = 'Agregar a la estructura';
   document.getElementById('btn-guardar-estructura').textContent = 'Guardar';
   document.getElementById('campo-activo').style.display = 'none';
@@ -2401,9 +2406,33 @@ async function abrirCreacion() {
   document.getElementById('overlay-form').classList.add('abierto');
 }
 
+/**
+ * LA CONTRASEÑA SE PIDE AL PULSAR «EDITAR», NO AL GUARDAR.
+ *
+ * Pedirla al guardar es descubrir que estaba mal después de haber llenado el
+ * formulario entero. Preguntando al abrir, o se entra o no se entra, y no se
+ * pierde trabajo. confirmarConPasswordPropia() la comprueba contra el servidor
+ * en ese mismo instante — sin eso, «preguntar al abrir» sería teatro.
+ *
+ * SE SIGUE MANDANDO EN EL PUT. Lo de arriba lo comprueba el navegador, y lo que
+ * diga el navegador no autoriza nada: la ruta la exige por su cuenta.
+ *
+ * Se olvida al cerrar el formulario, para que una confirmación de hace un rato
+ * no siga viva y sirva para la ficha siguiente.
+ */
+let passwordEdicionEstructura = null;
+function olvidarPasswordEdicionEstructura() { passwordEdicionEstructura = null; }
+
 async function abrirEdicion(id) {
   const fila = listaEstructura.find(f => f.id === id);
   if (!fila) return;
+
+  const clave = await confirmarConPasswordPropia(
+    'Editar a ' + fila.nombre,
+    'Escriba SU contraseña para abrir esta ficha.');
+  if (!clave) return;
+  passwordEdicionEstructura = clave;
+
   edicionId = id;
   document.getElementById('modal-form-titulo').textContent = 'Editar persona';
   document.getElementById('btn-guardar-estructura').textContent = 'Guardar cambios';
@@ -2533,13 +2562,30 @@ async function abrirEdicion(id) {
 }
 
 async function eliminarEstructura(id) {
-  if (!confirm('¿Eliminar este registro de la estructura?')) return;
-  await api(`/territorial/estructura/${id}`, { method: 'DELETE' });
-  cargarEstructura();
+  const fila = listaEstructura.find(f => f.id === id);
+  if (!confirm('¿Eliminar este registro de la estructura?\n\nSe borra también su cuenta de acceso.')) return;
+  /* Aquí NO se llama a /auth/verificar-password: la contraseña viaja en el
+     propio DELETE y la ruta la comprueba antes de tocar nada. Adelantarla
+     sería una vuelta de más al servidor para preguntar lo mismo dos veces —
+     al editar sí se adelanta, porque allí lo que se evita es llenar un
+     formulario entero para que lo rechacen al final. */
+  const password = await solicitarPasswordPropia(
+    fila ? 'Confirme para eliminar a ' + fila.nombre : 'Confirme para eliminar',
+    'Eliminar este registro borra también su cuenta de acceso y no se puede deshacer. Escriba su propia contraseña para confirmar.');
+  if (!password) return;
+  try {
+    await api(`/territorial/estructura/${id}`, { method: 'DELETE', body: { password } });
+    cargarEstructura();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 document.getElementById('btn-nuevo').addEventListener('click', abrirCreacion);
-document.getElementById('cerrar-modal').addEventListener('click', () => document.getElementById('overlay-form').classList.remove('abierto'));
+document.getElementById('cerrar-modal').addEventListener('click', () => {
+  document.getElementById('overlay-form').classList.remove('abierto');
+  olvidarPasswordEdicionEstructura();
+});
 
 /**
  * Captura sin conexión: si al crear una persona no hay señal
@@ -2650,6 +2696,11 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
   // que esa acción sigue necesitando señal.
   if (!edicionId) datos.cliente_uuid = generarUuid();
 
+  // Al editar viaja la contraseña que ya se confirmó al abrir; crear no manda
+  // ninguna, y su ruta (POST) tampoco la pide. El servidor la vuelve a exigir
+  // en el PUT: lo que comprobó el navegador no autoriza nada.
+  if (edicionId) datos.password = passwordEdicionEstructura;
+
   try {
     if (edicionId) {
       await api(`/territorial/estructura/${edicionId}`, { method: 'PUT', body: datos });
@@ -2682,6 +2733,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
       okBox.classList.add('visible');
       await cargarEstructura();
       await cargarSelects();
+      olvidarPasswordEdicionEstructura();
       setTimeout(() => document.getElementById('overlay-form').classList.remove('abierto'), 900);
     } else {
       const r = await api('/territorial/estructura', { method: 'POST', body: datos });

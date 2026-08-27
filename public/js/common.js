@@ -998,6 +998,35 @@ function solicitarPasswordPropia(titulo, explicacion) {
   });
 }
 
+/**
+ * Pide la contraseña propia Y LA COMPRUEBA CONTRA EL SERVIDOR en ese instante.
+ *
+ * Es lo que hace falta para pedirla AL PULSAR el botón en vez de al guardar.
+ * Sin la comprobación, «preguntar al abrir» es teatro: el formulario se abriría
+ * con cualquier cosa escrita y el rechazo llegaría igual al final, que es justo
+ * lo que se quería evitar. El patrón ya estaba en Configuración → Usuarios; esto
+ * lo saca a un solo sitio para que Estructura y Votantes no lo copien.
+ *
+ * NO AUTORIZA NADA. Lo comprueba el navegador, y lo que diga el navegador no es
+ * una autorización: la ruta que ejecuta la acción vuelve a exigir la contraseña
+ * por su cuenta. Quien la llame directamente se topa con la misma comprobación.
+ *
+ * Devuelve la contraseña ya comprobada, o null si cancelaron o no era la suya.
+ */
+async function confirmarConPasswordPropia(titulo, explicacion) {
+  const clave = await solicitarPasswordPropia(titulo, explicacion);
+  if (!clave) return null;
+  try {
+    await api('/auth/verificar-password', { method: 'POST', body: { password: clave } });
+  } catch (err) {
+    // El mensaje del servidor distingue «no es la suya» de «demasiados
+    // intentos», y son dos cosas muy distintas para quien está esperando.
+    alert(err.message || 'Contraseña incorrecta.');
+    return null;
+  }
+  return clave;
+}
+
 function solicitarPasswordAdmin(titulo) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');

@@ -353,9 +353,27 @@ async function eliminarTodosLosTestigos() {
 }
 document.getElementById('btn-eliminar-todos-testigos').addEventListener('click', eliminarTodosLosTestigos);
 
+/**
+ * Editar un testigo va por PUT /territorial/estructura/:id, la MISMA ruta que
+ * usa la pantalla de Estructura — y esa ruta exige la contraseña de quien
+ * edita. Sin pedirla aquí, este formulario guardaría contra un 403.
+ *
+ * Se pide al pulsar «Editar» y no al guardar, por lo de siempre: preguntar al
+ * final es descubrir que estaba mal después de haber llenado el formulario.
+ */
+let passwordEdicionTestigo = null;
+function olvidarPasswordEdicionTestigo() { passwordEdicionTestigo = null; }
+
 async function abrirEdicionTestigo(id) {
   const fila = listaTestigos.find(f => f.id === id);
   if (!fila) return;
+
+  const clave = await confirmarConPasswordPropia(
+    'Editar a ' + fila.nombre,
+    'Escriba SU contraseña para abrir esta ficha.');
+  if (!clave) return;
+  passwordEdicionTestigo = clave;
+
   edicionTestigoId = id;
   document.getElementById('modal-testigo-titulo').textContent = 'Editar testigo electoral';
   document.getElementById('btn-guardar-testigo').textContent = 'Guardar cambios';
@@ -388,7 +406,10 @@ async function abrirEdicionTestigo(id) {
   document.getElementById('overlay-form-testigo').classList.add('abierto');
 }
 
-document.getElementById('cerrar-modal-testigo').addEventListener('click', () => document.getElementById('overlay-form-testigo').classList.remove('abierto'));
+document.getElementById('cerrar-modal-testigo').addEventListener('click', () => {
+  document.getElementById('overlay-form-testigo').classList.remove('abierto');
+  olvidarPasswordEdicionTestigo();
+});
 
 /**
  * Captura sin conexión: mismo store y mismo endpoint que usa "Agregar
@@ -459,6 +480,9 @@ document.getElementById('form-testigo').addEventListener('submit', async (e) => 
     mesas_asignadas: leerMesasMarcadas(document.getElementById('casillas-mesas-testigo')),
     cargo: 'testigo',
     tipo_area_influencia: 'territorio',
+    // La que se confirmó al pulsar «Editar». El servidor la vuelve a exigir:
+    // lo que comprobó el navegador no autoriza nada.
+    password: passwordEdicionTestigo,
     activo: form.activo.checked
   };
   try {
@@ -466,6 +490,7 @@ document.getElementById('form-testigo').addEventListener('submit', async (e) => 
     okBox.textContent = 'Testigo actualizado correctamente.';
     okBox.classList.add('visible');
     cargarTestigos();
+    olvidarPasswordEdicionTestigo();
     setTimeout(() => document.getElementById('overlay-form-testigo').classList.remove('abierto'), 900);
   } catch (err) {
     errorBox.textContent = err.message;

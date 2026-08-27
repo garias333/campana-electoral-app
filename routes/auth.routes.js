@@ -704,10 +704,25 @@ router.post('/logout', requireAuth, async (req, res) => {
  * abierta —el riesgo exacto que esta función existe para cerrar— podría
  * probar claves hasta dar con la del dueño. Cinco por cuarto de hora deja
  * pasar los errores de tecleo y no mucho más.
+ *
+ * PERO SOLO CUENTAN LOS INTENTOS FALLIDOS (`skipSuccessfulRequests`).
+ *
+ * Lo que este freno persigue es ADIVINAR, y una contraseña correcta no es un
+ * intento de adivinarla. Contando también los aciertos, el límite lo agota
+ * quien trabaja bien: desde que Estructura y Votantes confirman fila por fila
+ * —52 y 102 registros en la campaña de prueba—, editar seis personas en un
+ * cuarto de hora dejaba a la persona fuera con «Demasiados intentos» habiendo
+ * escrito su clave bien las seis veces. Y el mensaje la manda a esperar sin
+ * decirle por qué, porque desde su lado no hizo nada mal.
+ *
+ * Con la bandera, cinco EQUIVOCACIONES siguen cerrando la puerta igual que
+ * antes; los aciertos ya no gastan cupo. El oráculo sigue frenado: quien
+ * prueba claves ajenas falla, y fallar es lo que se cuenta.
  */
 const limitadorVerificarPassword = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos. Espere unos minutos antes de volver a intentar.' }

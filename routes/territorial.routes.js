@@ -17,7 +17,7 @@ const {
   sincronizarVotanteDesdeEstructura, traerVotanteActualPorCedula
 } = require('../config/sincronizacionVotantesEstructura');
 const { TIPOS_GREMIALES, CARGOS_CON_META_DERIVADA, sqlMetaEfectiva } = require('../config/metasEstructura');
-const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
+const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digitos } = require('../config/verificaciones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -1017,6 +1017,18 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
 });
 
 router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+  /* MISMA CONFIRMACION QUE AL BORRAR, Y POR LA MISMA RAZON.
+     Editar una ficha de la estructura cambia el correo, el telefono y el
+     supervisor de una persona que TIENE CUENTA: cambiarle el correo es
+     cambiarle por donde recupera la contraseña. No es menos delicado que
+     borrarla, solo es mas silencioso.
+
+     La pide tambien Testigos, que edita por esta misma ruta. Si un dia
+     aparece un tercer llamador y no la manda, se enterara aqui con un 403
+     legible y no editando a medias. */
+  if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  }
   const {
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
@@ -1212,6 +1224,22 @@ router.post('/estructura/:id/asignar-testigo', requireRole('admin', 'coordinador
 // alimentan de la tabla usuarios). Los FK de supervisor_id/lider_id son
 // ON DELETE SET NULL, así que esto no rompe otros registros.
 router.delete('/estructura/:id', requireRole('admin', 'coordinador'), async (req, res) => {
+  /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO, igual que al
+     borrar un votante (DELETE /votantes/:id).
+
+     Aqui pesa mas que alla: esto no quita a nadie de una lista, borra la fila
+     de `estructura` Y la de `usuarios` — o sea la CUENTA de esa persona, con
+     su acceso. Hasta hoy no pedia nada, asi que una sesion abierta en un
+     celular prestado bastaba para dejar sin cuenta a un lider de un clic.
+
+     La suya y no la del administrador: no se le pide demostrar que conoce una
+     credencial ajena, se le pide confirmar que es el.
+
+     Va ANTES de abrir la transaccion: comprobar despues de haber tocado la
+     fila no confirma nada. */
+  if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  }
   const conexion = await pool.getConnection();
   let supervisorIdAnterior = null;
   try {
