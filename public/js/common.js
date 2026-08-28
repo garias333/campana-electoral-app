@@ -914,16 +914,35 @@ function formatoMillares(numero) {
  * Panel general y en el Dashboard de votantes, antes de sus tarjetas de
  * resumen — mismo texto y mismas reglas en los dos lugares.
  */
-function textoCuentaRegresivaElecciones(fechaEleccionIso) {
-  if (!fechaEleccionIso) return 'Configure la fecha en Configuración';
+function diasParaLasElecciones(fechaEleccionIso) {
+  if (!fechaEleccionIso) {
+    return { dias: null, cifra: null, leyenda: 'Configure la fecha en Configuración' };
+  }
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   const fecha = new Date(fechaEleccionIso + 'T00:00:00');
   const dias = Math.round((fecha - hoy) / 86400000);
-  if (dias > 1) return `Faltan ${dias} días para las elecciones`;
-  if (dias === 1) return 'Falta 1 día para las elecciones';
-  if (dias === 0) return '¡Hoy son las elecciones!';
-  return 'Ya se realizaron las elecciones';
+  if (dias > 1)  return { dias, cifra: String(dias), leyenda: 'días para las elecciones' };
+  if (dias === 1) return { dias, cifra: '1', leyenda: 'día para las elecciones' };
+  if (dias === 0) return { dias, cifra: null, leyenda: '¡Hoy son las elecciones!' };
+  return { dias, cifra: null, leyenda: 'Ya se realizaron las elecciones' };
+}
+
+/**
+ * La cuenta regresiva EN UNA FRASE, para quien la muestre de corrido.
+ *
+ * SE ARMA SOBRE `diasParaLasElecciones` Y NO REPITE LA CUENTA. El Panel general
+ * necesita el número y la leyenda por separado —el número va a 92px y la
+ * leyenda debajo, en versalitas— y la tentación era escribir esa resta una
+ * segunda vez allá. Dos implementaciones de la misma regla es exactamente la
+ * clase de cosa que se separa sin que nadie lo note: la de aquí redondea con
+ * `Math.round` sobre milisegundos, y una copia hecha a ojo con `Math.floor`
+ * daría un día menos la mitad del año.
+ */
+function textoCuentaRegresivaElecciones(fechaEleccionIso) {
+  const c = diasParaLasElecciones(fechaEleccionIso);
+  if (c.cifra === null) return c.leyenda;
+  return `${c.dias === 1 ? 'Falta' : 'Faltan'} ${c.cifra} ${c.leyenda}`;
 }
 
 /**

@@ -10,113 +10,292 @@
 <meta name="referrer" content="origin-when-cross-origin">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-  #mapa-dashboard { width: 100%; height: 320px; border-radius: 10px; }
+  /* ==================================================================
+     PANEL GENERAL — «SALA DE MANDO»
+
+     Elegida por el usuario entre tres propuestas (28 de agosto de 2026).
+     La idea: el panel de un centro de operaciones. La franja oscura de
+     arriba CONTIENE las cifras en vez de tener tarjetas blancas flotando
+     encima, los números mandan sobre las etiquetas, y el amarillo aparece
+     poco y siempre significa «esto exige atención».
+
+     LOS TRES COLORES DE LA MARCA, cada uno con su oficio:
+       #084298  azul hondo .. la barra más alta de la serie, los totales
+       #0B5ED7  azul marca .. las barras y los rellenos
+       #FFC300  amarillo .... la cuenta regresiva y el rezago. Nada más.
+
+     CONTRASTES MEDIDOS con la fórmula WCAG 2.1, no estimados:
+       amarillo #FFC300 sobre la franja #131F3B ........ 10,15
+       blanco   #FFFFFF sobre la franja ................ 16,32
+       #9FB0CC (texto secundario) sobre la franja ......  7,43
+       #0B5ED7 sobre blanco ............................  5,84
+       #084298 sobre blanco ............................  9,36
+       #8C5E17 sobre blanco ............................  5,63
+       #161B26 sobre el amarillo ....................... 10,71
+
+     TRES CORRECCIONES QUE SALIERON DE LA REVISIÓN, y por qué:
+       · El borde de la pista del medidor era #55648A: 2,78 sobre la
+         franja, por debajo del 3,0 que WCAG 1.4.11 pide a un componente
+         de interfaz. La pista misma es invisible sobre la franja (1,13),
+         así que ese borde es lo ÚNICO que la delimita. Subido a #6B7BA6
+         (3,55).
+       · El aviso de rezago no se separaba del lienzo: su fondo daba 1,03
+         contra el fondo de página. Se le puso borde propio #E3D08A.
+       · Los bordes de panel #E2E5EA daban 1,16 contra el lienzo. A
+         #D3D8E0. No hay mínimo exigible para un borde decorativo, pero
+         una tarjeta que sólo se distingue por el cambio de fondo no es
+         una tarjeta.
+     ================================================================== */
+
+  /* LA FRANJA SANGRA HASTA LOS BORDES DE `.main`, que trae 28px/36px de
+     relleno (20px por debajo de 640px, ver style.css). Sin esta sangría
+     quedaría un marco claro alrededor del bloque oscuro y perdería todo
+     el efecto de banda. */
+  .banda {
+    background: var(--color-navy);
+    border-bottom: 3px solid #FFC300;
+    margin: -28px -36px 0;
+    padding: 22px 36px 0;
+    color: #fff;
+  }
+  @media (max-width: 640px) { .banda { margin: -20px -20px 0; padding: 18px 20px 0; } }
+
+  .banda-cabecera {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 8px 18px; padding-bottom: 16px; border-bottom: 1px solid #2E3D5F;
+  }
+  .banda-cabecera .sub {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #9FB0CC;
+  }
+  .banda-cabecera h1 { font-size: clamp(17px, 2vw, 21px); color: #fff; margin: 3px 0 0; }
+  .banda .reloj { font-size: 13px; color: #9FB0CC; }
+
+  .mando { display: grid; grid-template-columns: minmax(230px, 290px) 1fr; border-bottom: 1px solid #2E3D5F; }
+  .regresiva { padding: 22px 28px 24px 0; border-right: 1px solid #2E3D5F; }
+  .regresiva .rotulo {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #9FB0CC;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .regresiva .rotulo::before { content: ""; width: 14px; height: 2px; background: #FFC300; }
+  .regresiva .cifra {
+    font-family: var(--font-mono); font-weight: 500; color: #FFC300;
+    font-size: clamp(52px, 8vw, 88px); line-height: .92; letter-spacing: -.03em; margin: 10px 0 2px;
+  }
+  .regresiva .pie {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: clamp(12px, 1.4vw, 14px); letter-spacing: .1em; text-transform: uppercase; color: #fff;
+  }
+
+  .cifras { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .celda { padding: 15px 10px 15px 20px; border-left: 1px solid #2E3D5F; border-bottom: 1px solid #2E3D5F; min-width: 0; }
+  .celda:nth-child(4n+1) { border-left: 0; }
+  .celda:nth-child(n+5) { border-bottom: 0; }
+  /* 10,5px y no 9,5: en versalitas espaciadas, por debajo de 10 deja de ser
+     cómodo aunque el contraste sobre. */
+  .celda .et {
+    font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: #9FB0CC;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .celda .val {
+    font-family: var(--font-mono); font-weight: 500; color: #fff;
+    font-size: clamp(24px, 3vw, 32px); line-height: 1.1; margin-top: 4px; letter-spacing: -.02em;
+  }
+  .celda.acento .val { color: #FFC300; }
+
+  .medidor { padding: 18px 0 22px; display: grid; grid-template-columns: auto 1fr auto; gap: 8px 22px; align-items: center; }
+  .medidor .et { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #9FB0CC; }
+  .medidor .pct { font-family: var(--font-mono); font-weight: 500; color: #FFC300; font-size: clamp(26px, 3.6vw, 36px); line-height: 1; }
+  .medidor .bloque-izq { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .pista { position: relative; height: 18px; background: #0A1428; border: 1px solid #6B7BA6; }
+  .pista .relleno { position: absolute; inset: 0 auto 0 0; min-width: 4px; background: #FFC300; }
+  .medidor .lectura { font-family: var(--font-mono); font-size: 13px; color: #fff; white-space: nowrap; }
+
+  /* ---------------- Zona clara: retícula de instrumentos ---------------- */
+  .malla { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; padding: 20px 0 10px; }
+  .panel { background: #fff; border: 1px solid #D3D8E0; border-radius: 2px; padding: 16px 18px 18px; min-width: 0; }
+  .panel > header {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid #D3D8E0;
+  }
+  .panel h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--color-navy); margin: 0;
+  }
+  .panel .anot { font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
+  .c12 { grid-column: span 12; } .c7 { grid-column: span 7; } .c5 { grid-column: span 5; }
+  .c6 { grid-column: span 6; }
+
+  /* Barras horizontales de «Apoya a» — comparables entre sí, que es de lo
+     que se trata. Cinco tarjetas iguales con un número cada una no dejan
+     ver que Alcaldía dobla a Concejo. */
+  .hb { display: grid; grid-template-columns: minmax(84px, auto) 1fr auto; gap: 9px 12px; align-items: center; }
+  .hb .et { font-size: 13px; color: var(--color-text); }
+  .hb .pistah { background: var(--color-bg); height: 14px; border: 1px solid #D3D8E0; position: relative; min-width: 40px; }
+  .hb .rell { position: absolute; inset: 0 auto 0 0; background: #0B5ED7; }
+  .hb .rell.jefe { background: #084298; }
+  .hb .v { font-family: var(--font-mono); font-size: 14px; color: var(--color-navy); text-align: right; }
+
+  .pie-panel {
+    margin-top: 14px; padding-top: 11px; border-top: 1px solid #D3D8E0;
+    font-size: 12px; color: var(--color-text-muted);
+  }
+
+  /* Eventos con ficha de fecha. La ficha LLEVA EL AÑO cuando no es el
+     actual: «30 / Jul» a secas se lee como julio próximo, y el segundo
+     evento de la campaña de prueba es de 2027. */
+  .evento { display: grid; grid-template-columns: 58px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid #D3D8E0; }
+  .evento:last-child { border-bottom: 0; padding-bottom: 0; }
+  .evento .ficha { background: var(--color-navy); color: #fff; text-align: center; padding: 7px 4px; height: fit-content; }
+  .evento .ficha .d { font-family: var(--font-mono); font-size: 20px; line-height: 1; }
+  .evento .ficha .m { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #9FB0CC; margin-top: 3px; }
+  .evento .ficha .a { font-size: 10.5px; font-family: var(--font-mono); color: #FFC300; margin-top: 2px; }
+  .evento .tit { font-size: 14px; font-weight: 600; color: var(--color-text); }
+  .evento .det { font-size: 12.5px; color: var(--color-text-muted); margin-top: 3px; }
+
+  /* Aviso de rezago. Con borde propio: sin él, su fondo daba 1,03 contra
+     el lienzo y el recuadro que debe llamar la atención no se percibía
+     como recuadro. */
+  .aviso-rezago {
+    grid-column: span 12; display: flex; gap: 14px; align-items: flex-start;
+    background: #FFF8E1; border: 1px solid #E3D08A; border-left: 3px solid #FFC300;
+    padding: 13px 16px; border-radius: 2px;
+  }
+  .aviso-rezago .marca-i {
+    font-family: var(--font-mono); font-size: 12.5px; color: #8C5E17;
+    letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; padding-top: 1px;
+  }
+  .aviso-rezago p { margin: 0; font-size: 13.5px; color: var(--color-text); }
+
+  #mapa-dashboard { width: 100%; height: 320px; border-radius: 2px; }
   .tendencia-svg text { font-family: var(--font-body, 'Inter', sans-serif); }
 
-  /* Mismo formato de tarjeta que usa el Dashboard de votantes: borde
-     izquierdo de color (según si el número resaltado usa el tono navy o
-     el acento ocre) en vez de una tarjeta plana. */
-  .stat-card { border-left: 4px solid var(--color-marca); }
-  .stat-card:has(.valor.accent) { border-left-color: var(--color-accent); }
-  #tarjeta-cuenta-regresiva { border-left-color: var(--color-probable); }
-  #tarjeta-cuenta-regresiva .valor { font-size: 1.2rem; line-height: 1.3; }
+  @media (max-width: 1180px) { .c7, .c5, .c6 { grid-column: span 12; } }
+  @media (max-width: 900px) {
+    .mando { grid-template-columns: 1fr; }
+    .regresiva { border-right: 0; border-bottom: 1px solid #2E3D5F; padding: 18px 0 20px; }
+    .cifras { grid-template-columns: repeat(2, 1fr); }
+    .celda { padding-left: 16px; }
+    .celda:nth-child(4n+1) { border-left: 1px solid #2E3D5F; }
+    .celda:nth-child(odd) { border-left: 0; }
+    .celda:nth-child(n+5) { border-bottom: 1px solid #2E3D5F; }
+    .celda:nth-child(n+7) { border-bottom: 0; }
+    .medidor { grid-template-columns: 1fr; }
+    /* LOS RÓTULOS PASAN A DOS LÍNEAS EN VEZ DE CORTARSE. Con la rejilla en dos
+       columnas cada celda deja unos 144px útiles, y «META DE VOTOS (LÍDERES)»
+       pide ~179px: con la elipsis salía «META DE VOTOS (LÍDER…», que no dice
+       nada. Un rótulo cortado no desborda —para eso está la elipsis— pero
+       tampoco informa, que es lo único que un rótulo tiene que hacer. */
+    .celda .et { white-space: normal; overflow: visible; line-height: 1.25; min-height: 2.5em; }
+  }
 </style>
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div>
-        <div class="eyebrow">Panel general</div>
-        <h1>Resumen de la campaña</h1>
-      </div>
-      <div class="mono" id="fecha-hoy" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
-    </div>
 
-    <div class="grid grid-5" style="margin-bottom:16px;">
-      <div class="card stat-card" id="tarjeta-cuenta-regresiva">
-        <div class="label">Cuenta regresiva</div>
-        <div class="valor accent" id="stat-cuenta-regresiva">—</div>
+    <!-- LA FRANJA DE MANDO. Contiene DENTRO las cifras principales en vez de
+         tener tarjetas blancas flotando encima: es lo que le da a la pantalla
+         cara de instrumento y no de collage. Todo lo de aquí lo escribe el
+         mismo JavaScript de antes; solo cambió dónde cae cada dato. -->
+    <div class="banda" id="tarjeta-cuenta-regresiva">
+      <div class="banda-cabecera">
+        <div>
+          <div class="sub">Panel general</div>
+          <h1>Resumen de la campaña</h1>
+        </div>
+        <div class="reloj mono" id="fecha-hoy"></div>
       </div>
-      <div class="card stat-card">
-        <div class="label">Coordinadores</div>
-        <div class="valor" id="stat-coordinadores">—</div>
-      </div>
-      <div class="card stat-card">
-        <div class="label">Líderes</div>
-        <div class="valor" id="stat-lideres">—</div>
-      </div>
-      <div class="card stat-card">
-        <div class="label">Testigos</div>
-        <div class="valor" id="stat-testigos">—</div>
-      </div>
-      <div class="card stat-card">
-        <div class="label">Votantes registrados</div>
-        <div class="valor accent" id="stat-votantes">—</div>
-      </div>
-    </div>
 
-    <div class="grid grid-4" style="margin-bottom:22px;">
-      <div class="card stat-card">
-        <div class="label">Meta de votos (líderes)</div>
-        <div class="valor accent" id="stat-meta-votos-lideres">—</div>
+      <div class="mando">
+        <div class="regresiva">
+          <div class="rotulo">Cuenta regresiva</div>
+          <!-- DOS ELEMENTOS Y NO UNO. `stat-cuenta-regresiva` conserva su id y
+               recibe la leyenda; la cifra va aparte para poder pintarla a 88px.
+               Los dos salen de `diasParaLasElecciones()` (common.js), que es
+               también de donde sale la frase de corrido que usan otras
+               pantallas: la resta se hace en un solo sitio. -->
+          <div class="cifra mono" id="stat-cuenta-regresiva-dias">—</div>
+          <div class="pie" id="stat-cuenta-regresiva">—</div>
+        </div>
+
+        <div class="cifras">
+          <div class="celda"><div class="et">Coordinadores</div><div class="val" id="stat-coordinadores">—</div></div>
+          <div class="celda"><div class="et">Líderes</div><div class="val" id="stat-lideres">—</div></div>
+          <div class="celda"><div class="et">Testigos</div><div class="val" id="stat-testigos">—</div></div>
+          <div class="celda acento"><div class="et">Votantes registrados</div><div class="val" id="stat-votantes">—</div></div>
+          <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
+          <div class="celda"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
+          <div class="celda"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
+          <div class="celda acento"><div class="et">Avance de registro</div><div class="val" id="stat-avance-registros-lideres">—</div></div>
+        </div>
       </div>
-      <div class="card stat-card">
-        <div class="label">Avance de registro de votantes</div>
-        <div class="valor accent" id="stat-avance-registros-lideres">—</div>
-        <div style="font-size:0.85rem; color:var(--color-text-muted); margin-top:2px;" id="stat-avance-registros-porcentaje"></div>
-      </div>
-      <div class="card stat-card">
-        <div class="label">Balance financiero</div>
-        <div class="valor" id="stat-balance">—</div>
-      </div>
-      <div class="card stat-card">
-        <div class="label">Eventos próximos</div>
-        <div class="valor accent" id="stat-eventos">—</div>
+
+      <div class="medidor">
+        <div class="bloque-izq">
+          <span class="et">Avance hacia la meta</span>
+        </div>
+        <div class="pista"><div class="relleno" id="medidor-relleno" style="width:0%"></div></div>
+        <div class="lectura" id="stat-avance-registros-porcentaje"></div>
       </div>
     </div>
 
-    <h3 style="margin-bottom:12px;">Apoya a</h3>
-    <div id="grid-apoya-a" style="margin-bottom:22px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:14px;"></div>
-
-    <div class="card">
-      <h3>Próximos eventos</h3>
-      <div id="lista-eventos" style="margin-top:12px;"></div>
-    </div>
-
-    <div class="card" style="margin-top:22px;">
-      <h3 style="margin-top:0;">Registro de votantes por semana</h3>
-      <div id="tendencia-contenedor" style="margin-top:8px;"></div>
-      <p id="tendencia-vacio" style="display:none; color:var(--color-text-muted); font-size:0.85rem;">Todavía no hay suficientes registros para mostrar una tendencia.</p>
-    </div>
-
-    <div id="bloque-tabla-posiciones" style="margin-top:22px; display:none;">
-      <div class="card">
-        <h3 style="margin-top:0;">Tabla de posiciones</h3>
-        <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:-4px;">Registros hechos por cada líder/sublíder — no muestra ningún dato de los votantes, solo cuántos registró cada quien.</p>
-        <div id="tabla-posiciones-lista" style="margin-top:10px;"></div>
+    <div class="malla">
+      <!-- El rezago se dice UNA vez aquí y otra en el medidor de arriba. Lo
+           tenía tres veces en la propuesta y repetir el mismo aviso se acerca
+           a dramatizar: el dato ya es bastante duro por sí solo. -->
+      <div class="aviso-rezago" id="aviso-rezago" style="display:none;">
+        <span class="marca-i">Atención</span>
+        <p id="aviso-rezago-texto"></p>
       </div>
-    </div>
 
-    <div id="bloque-mapa-dashboard" style="margin-top:22px; display:none;">
-      <div class="card">
-        <h3 style="margin-top:0;">Mapa de intención de voto</h3>
-        <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:-4px;">Vista rápida de dónde están los contactos ya geocodificados, coloreados por intención de voto — para el detalle completo con filtros, usa Territorial → Mapa.</p>
-        <div id="mapa-dashboard"></div>
+      <section class="panel c7">
+        <header>
+          <h2>Registro de votantes por semana</h2>
+          <span class="anot">Últimas semanas</span>
+        </header>
+        <div id="tendencia-contenedor"></div>
+        <p id="tendencia-vacio" style="display:none; color:var(--color-text-muted); font-size:0.85rem; margin:0;">Todavía no hay suficientes registros para mostrar una tendencia.</p>
+      </section>
+
+      <section class="panel c5">
+        <header>
+          <h2>A quién apoyan</h2>
+        </header>
+        <div id="grid-apoya-a"></div>
+        <!-- NO se rotula como «total de personas». La suma de los cinco no es
+             gente: una misma persona puede apoyar a varias corporaciones, y
+             puesta al lado de «votantes registrados» se lee como si fueran más
+             personas de las que hay. -->
+        <div class="pie-panel" id="apoya-a-pie"></div>
+      </section>
+
+      <section class="panel c5">
+        <header><h2>Próximos eventos</h2></header>
+        <div id="lista-eventos"></div>
+      </section>
+
+      <section class="panel c7">
+        <header><h2>Su equipo</h2><span class="anot">Personas registradas</span></header>
+        <div id="resumen-equipo"></div>
+      </section>
+
+      <div id="bloque-tabla-posiciones" class="panel c12" style="display:none;">
+        <header>
+          <h2>Tabla de posiciones</h2>
+          <span class="anot">Solo cuántos registró cada quien</span>
+        </header>
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin:0 0 10px;">Registros hechos por cada líder o sublíder — no muestra ningún dato de los votantes.</p>
+        <div id="tabla-posiciones-lista"></div>
       </div>
-    </div>
 
-    <div id="bloque-meta-personal" style="margin-top:22px; display:none;">
-      <div class="card">
-        <h3>Mi meta de votos</h3>
-        <div id="meta-personal" style="margin-top:12px;"></div>
+      <div id="bloque-meta-personal" class="panel c6" style="display:none;">
+        <header><h2>Mi meta de votos</h2></header>
+        <div id="meta-personal"></div>
       </div>
-    </div>
 
-    <div id="bloque-progreso-equipo" style="margin-top:22px; display:none;">
-      <div class="card">
-        <h3>Progreso del equipo</h3>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; margin-bottom:14px;">
+      <div id="bloque-progreso-equipo" class="panel c12" style="display:none;">
+        <header><h2>Progreso del equipo</h2></header>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
           <button type="button" class="filtro-chip activo" data-filtro-progreso="todos">Todos</button>
           <button type="button" class="filtro-chip" data-filtro-progreso="con-avance">Con avance</button>
           <button type="button" class="filtro-chip" data-filtro-progreso="sin-avance">Sin avance</button>
@@ -131,6 +310,15 @@
         </div>
         <div id="progreso-equipo"></div>
         <p id="progreso-equipo-vacio" style="display:none; color:var(--color-text-muted); font-size:0.85rem;">Nadie del equipo coincide con este filtro.</p>
+      </div>
+
+      <div id="bloque-mapa-dashboard" class="panel c12" style="display:none;">
+        <header>
+          <h2>Mapa de intención de voto</h2>
+          <span class="anot">Contactos ya geocodificados</span>
+        </header>
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin:0 0 12px;">Vista rápida de dónde están los contactos, coloreados por intención de voto — para el detalle completo con filtros, use Territorial → Mapa.</p>
+        <div id="mapa-dashboard"></div>
       </div>
     </div>
   </main>
@@ -159,11 +347,11 @@ function dibujarTendencia(semanas) {
     const etiquetaFecha = new Date(s.semanaInicio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
     return `
       <g>
-        <rect x="${x + 3}" y="${y}" width="${anchoBarra - 6}" height="${alturaBarra}" rx="3" fill="var(--color-accent, #c0621f)">
+        <rect x="${x + 3}" y="${y}" width="${anchoBarra - 6}" height="${alturaBarra}" fill="${s.total === max ? '#084298' : '#0B5ED7'}">
           <title>Semana del ${etiquetaFecha}: ${s.total} registro(s)</title>
         </rect>
         <text x="${x + anchoBarra / 2}" y="${alto - pad + 14}" font-size="9" fill="var(--color-text-muted, #5B6472)" text-anchor="middle">${etiquetaFecha}</text>
-        <text x="${x + anchoBarra / 2}" y="${y - 4}" font-size="10" fill="var(--color-text, #161B26)" text-anchor="middle">${s.total}</text>
+        <text x="${x + anchoBarra / 2}" y="${y - 4}" font-size="11" fill="#084298" text-anchor="middle" font-weight="500">${s.total}</text>
       </g>`;
   }).join('');
 
@@ -295,7 +483,14 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
 
   try {
     const configCampana = await api('/configuracion/campana');
-    document.getElementById('stat-cuenta-regresiva').textContent = textoCuentaRegresivaElecciones(configCampana.fecha_eleccion);
+    /* La cifra y la leyenda salen de la MISMA llamada. Sin fecha configurada,
+       o pasadas las elecciones, no hay número que pintar: se esconde el hueco
+       de 88px en vez de dejar un guion gigante, y el mensaje ocupa su sitio. */
+    const cuenta = diasParaLasElecciones(configCampana.fecha_eleccion);
+    const cifraCuenta = document.getElementById('stat-cuenta-regresiva-dias');
+    cifraCuenta.textContent = cuenta.cifra || '';
+    cifraCuenta.style.display = cuenta.cifra ? '' : 'none';
+    document.getElementById('stat-cuenta-regresiva').textContent = cuenta.leyenda;
   } catch (e) { /* si falla, la tarjeta se deja con el guion por defecto */ }
 
   try {
@@ -309,12 +504,25 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     document.getElementById('stat-meta-votos-lideres').textContent = formatoMillares(r.metaVotosLideres);
 
     const ETIQUETAS_APOYA = { alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea' };
-    document.getElementById('grid-apoya-a').innerHTML = Object.entries(ETIQUETAS_APOYA).map(([clave, etiqueta]) => `
-      <div class="card stat-card">
-        <div class="label">${etiqueta}</div>
-        <div class="valor accent">${formatoMillares((r.apoyaA && r.apoyaA[clave]) || 0)}</div>
-      </div>
-    `).join('');
+    /* BARRAS SOBRE UNA ESCALA COMÚN, no cinco tarjetas con un número cada una.
+       Con tarjetas iguales, que Alcaldía doble a Concejo no se ve: hay que
+       leer los cinco números y compararlos de memoria. La barra más larga se
+       pinta en el azul hondo para que se sepa cuál manda de un vistazo. */
+    const apoyos = Object.entries(ETIQUETAS_APOYA)
+      .map(([clave, etiqueta]) => ({ etiqueta, n: (r.apoyaA && r.apoyaA[clave]) || 0 }));
+    const mayorApoyo = Math.max(...apoyos.map(a => a.n), 1);
+    document.getElementById('grid-apoya-a').innerHTML = `<div class="hb">` + apoyos.map(a => `
+      <div class="et">${a.etiqueta}</div>
+      <div class="pistah"><div class="rell${a.n === mayorApoyo && a.n > 0 ? ' jefe' : ''}" style="width:${(a.n / mayorApoyo * 100).toFixed(1)}%"></div></div>
+      <div class="v">${formatoMillares(a.n)}</div>
+    `).join('') + `</div>`;
+    /* SE DICE «marcas», NO «personas». La suma de los cinco no es gente: una
+       misma persona puede apoyar a varias corporaciones a la vez, y ese total
+       puesto al lado de «votantes registrados» se lee como si hubiera más
+       personas de las que hay. */
+    const totalMarcas = apoyos.reduce((t, a) => t + a.n, 0);
+    document.getElementById('apoya-a-pie').textContent =
+      `${formatoMillares(totalMarcas)} marcas de apoyo en total — una persona puede apoyar a varias corporaciones.`;
     const porcentajeAvance = r.metaVotosLideres > 0
       ? ((r.votantes.total / r.metaVotosLideres) * 100).toFixed(1)
       : null;
@@ -322,8 +530,34 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
       ? `${porcentajeAvance}%`
       : '—';
     document.getElementById('stat-avance-registros-porcentaje').textContent = porcentajeAvance !== null
-      ? `${formatoMillares(r.votantes.total)} votantes registrados de ${formatoMillares(r.metaVotosLideres)} de meta`
+      ? `${formatoMillares(r.votantes.total)} de ${formatoMillares(r.metaVotosLideres)}`
       : 'Sin meta de votos registrada';
+    document.getElementById('medidor-relleno').style.width =
+      porcentajeAvance !== null ? `${Math.min(100, Number(porcentajeAvance))}%` : '0%';
+
+    /* EL AVISO SOLO APARECE SI HAY ALGO QUE AVISAR, y no se pinta de verde
+       nunca: este panel informa, no felicita. El umbral es la mitad de la
+       meta — por debajo de ahí la frase aporta; por encima, sobra. */
+    if (porcentajeAvance !== null && Number(porcentajeAvance) < 50) {
+      const faltan = r.metaVotosLideres - r.votantes.total;
+      document.getElementById('aviso-rezago-texto').textContent =
+        `Faltan ${formatoMillares(faltan)} registros para llegar a la meta de ${formatoMillares(r.metaVotosLideres)}.`;
+      document.getElementById('aviso-rezago').style.display = 'flex';
+    }
+
+    /* «Personas registradas» y no «activas»: la fuente da conteos, no
+       actividad. Decir «activas» sería afirmar algo que el dato no dice. */
+    document.getElementById('resumen-equipo').innerHTML = `<div class="hb">` + [
+      ['Coordinadores', r.estructura.coordinadores],
+      ['Líderes', r.estructura.lideres],
+      ['Testigos', r.estructura.testigos],
+    ].map(([et, n]) => {
+      const mayor = Math.max(r.estructura.coordinadores, r.estructura.lideres, r.estructura.testigos, 1);
+      return `
+      <div class="et">${et}</div>
+      <div class="pistah"><div class="rell${n === mayor && n > 0 ? ' jefe' : ''}" style="width:${(n / mayor * 100).toFixed(1)}%"></div></div>
+      <div class="v">${formatoMillares(n)}</div>`;
+    }).join('') + `</div>`;
 
     const balanceEl = document.getElementById('stat-balance');
     balanceEl.textContent = formatoMoneda(r.finanzas.balance);
@@ -334,14 +568,25 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     if (r.proximosEventos.length === 0) {
       listaEventos.innerHTML = `<div class="vacio"><div class="icono-vacio">■</div>No hay eventos programados próximamente.</div>`;
     } else {
-      listaEventos.innerHTML = r.proximosEventos.map(ev => `
-        <div style="padding:10px 0; border-bottom:1px solid var(--color-border);">
-          <div style="font-weight:600;">${ev.titulo}</div>
-          <div style="font-size:0.8rem; color:var(--color-text-muted);">
-            ${formatoFecha(ev.fecha_inicio, true)} ${ev.lugar ? '· ' + ev.lugar : ''}
+      const anoActual = new Date().getFullYear();
+      listaEventos.innerHTML = r.proximosEventos.map(ev => {
+        const d = new Date(ev.fecha_inicio);
+        const dia = String(d.getDate()).padStart(2, '0');
+        const mes = d.toLocaleDateString('es-CO', { month: 'short' }).replace('.', '');
+        /* EL AÑO SOLO CUANDO NO ES EL DE HOY, y entonces obligatorio. Una
+           ficha que dice «30 / Jul» a secas se lee como julio próximo; la
+           campaña de prueba tiene un evento de 2027 que así parecía de este
+           año. Ponerlo siempre sería ruido en el caso normal. */
+        const ano = d.getFullYear() !== anoActual ? `<div class="a">${d.getFullYear()}</div>` : '';
+        return `
+        <div class="evento">
+          <div class="ficha"><div class="d">${dia}</div><div class="m">${mes}</div>${ano}</div>
+          <div>
+            <div class="tit">${ev.titulo}</div>
+            <div class="det">${formatoFecha(ev.fecha_inicio, true)}${ev.lugar ? ' · ' + ev.lugar : ''}</div>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
   } catch (err) {
     console.error(err);

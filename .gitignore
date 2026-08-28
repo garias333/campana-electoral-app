@@ -50,3 +50,11 @@ backups/
 # iba a cambiar: `configurar-crm.html.antes-logos-2026-08-24`. Son utiles en el
 # disco y no tienen nada que hacer en el repositorio — para eso esta git.
 *.antes-*
+
+# MAQUETAS DE DISEÑO, que viven en `public/` solo para tener una URL que el
+# usuario pueda abrir en el navegador. No son parte de la aplicacion: se borran
+# en cuanto se elige una propuesta. Aqui para que no se cuelen en un commit ni,
+# peor, en un parche que las repartiria a todas las campañas.
+public/panel-opcion-*.html
+public/organigrama-opcion-*.html
+public/comparar-disenos.html
