@@ -113,7 +113,7 @@ async function resolverManualesContraLaBase(manuales, canal) {
     `SELECT id, nombre, ${columna} AS contacto, puesto_votacion, mesa_votacion, no_contactar
        FROM votantes WHERE ${columna} IN (?) ORDER BY id DESC`, [contactos]);
   const [gente] = await pool.query(
-    `SELECT e.id, u.nombre, u.${columna} AS contacto, e.cargo, u.no_contactar
+    `SELECT e.id, e.usuario_id, u.nombre, u.${columna} AS contacto, e.cargo, u.no_contactar
        FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
       WHERE u.${columna} IN (?) AND e.activo = 1 ORDER BY e.id DESC`, [contactos]);
 
@@ -121,8 +121,11 @@ async function resolverManualesContraLaBase(manuales, canal) {
   // La Estructura se indexa primero y los Votantes después, así que si
   // alguien está en las dos, gana su ficha de Votante: es la que tiene el
   // Lugar de votación de la persona (el de Estructura es donde vigila).
+  // `usuario_id` va aparte del id de estructura porque el canal Push manda a la
+  // CUENTA. Sin traerlo, un numero escrito a mano que resulta ser de alguien de
+  // la estructura quedaria «sin contacto» en un aviso push, sin un solo error.
   gente.forEach(g => porContacto.set(String(g.contacto).trim().toLowerCase(),
-    { tipo: 'estructura', id: g.id, nombre: g.nombre.trim(), contacto: g.contacto,
+    { tipo: 'estructura', id: g.id, usuario_id: g.usuario_id, nombre: g.nombre.trim(), contacto: g.contacto,
       dado_de_baja: !!g.no_contactar, detalle: `Estructura · ${g.cargo}` }));
   votantes.forEach(v => porContacto.set(String(v.contacto).trim().toLowerCase(),
     { tipo: 'votante', id: v.id, nombre: v.nombre.trim(), contacto: v.contacto,
@@ -187,6 +190,33 @@ async function destinatariosDeSeleccion(seleccion, canal) {
     } else if (d.contacto) {
       salida.push({ tipo: 'manual', id: null, nombre: d.nombre || d.contacto, contacto: d.contacto, detalle: 'Agregado manualmente' });
     }
+  }
+
+  /* LO ESCRITO A MANO TAMBIEN SE BUSCA EN LA BASE, igual que en la otra puerta.
+     Esta pantalla arma la lista antes de escribir el mensaje y mezcla gente
+     elegida con numeros tecleados; los elegidos se leian de la base y los
+     tecleados no, aunque fueran de la misma persona.
+
+     LO QUE COSTABA. El 27 de agosto de 2026 salio de la campaña municipal el
+     envio #281 al 3104157434 — un numero que era de Gildardo Arias Vidales
+     (votante 228) desde el 31 de julio. Como quedo de tipo «manual» y sin id:
+
+       · `{nombre}` se relleno con el propio numero: «Hola 3104157434».
+       · `{baja}` se relleno con NADA. El codigo de baja es un HMAC de
+         «tipo:id» y 'manual' no es un tipo firmable, asi que el mensaje
+         prometia «Para no recibir mas:» y no daba ninguna salida.
+       · los marcadores de Lugar de votacion se habrian saltado a esa persona
+         aunque su puesto estuviera registrado.
+
+     En el MISMO envio, el otro destinatario —elegido de la lista— salio bien.
+     La diferencia no era la persona: era por que puerta entro.
+
+     Se resuelve en un solo lote y se pisa la ficha en su sitio, para no
+     alterar el orden que eligio quien escribe. */
+  const tecleados = salida.filter(d => d.tipo === 'manual');
+  if (tecleados.length) {
+    const resueltos = await resolverManualesContraLaBase(tecleados, canal);
+    tecleados.forEach((m, i) => { if (resueltos[i] !== m) Object.assign(m, resueltos[i]); });
   }
   return salida;
 }
