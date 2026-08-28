@@ -54,20 +54,20 @@
   }
   .org-diagrama li::before, .org-diagrama li::after {
     content: ''; position: absolute; top: 0; right: 50%;
-    border-top: 2px solid var(--color-border-fuerte, #AEB9C9);
+    border-top: 1px solid var(--org-linea);
     width: 50%; height: 28px;
   }
-  .org-diagrama li::after { right: auto; left: 50%; border-left: 2px solid var(--color-border-fuerte, #AEB9C9); }
+  .org-diagrama li::after { right: auto; left: 50%; border-left: 1px solid var(--org-linea); }
   .org-diagrama li:only-child::after, .org-diagrama li:only-child::before { display: none; }
   .org-diagrama li:only-child { padding-top: 0; }
   .org-diagrama li:first-child::before, .org-diagrama li:last-child::after { border: 0 none; }
-  .org-diagrama li:last-child::before { border-right: 2px solid var(--color-border-fuerte, #AEB9C9); border-radius: 0 6px 0 0; }
+  .org-diagrama li:last-child::before { border-right: 1px solid var(--org-linea); border-radius: 0 6px 0 0; }
   .org-diagrama li:first-child::after { border-radius: 6px 0 0 0; }
   .org-diagrama > li { padding-top: 0; }
   .org-diagrama > li::before, .org-diagrama > li::after { display: none; }
   .org-diagrama ul::before {
     content: ''; position: absolute; top: -28px; left: 50%;
-    border-left: 2px solid var(--color-border-fuerte, #AEB9C9); width: 0; height: 28px;
+    border-left: 1px solid var(--org-linea); width: 0; height: 28px;
   }
   .org-diagrama ul { padding-top: 28px; }
 
@@ -98,19 +98,19 @@
   }
   .org-diagrama-horizontal li::before, .org-diagrama-horizontal li::after {
     top: 50%; left: 0; right: auto;
-    border-top: none; border-left: 2px solid var(--color-border-fuerte, #AEB9C9);
+    border-top: none; border-left: 1px solid var(--org-linea);
     width: 30px; height: 50%;
   }
-  .org-diagrama-horizontal li::before { top: 0; border-bottom: 2px solid var(--color-border-fuerte, #AEB9C9); }
-  .org-diagrama-horizontal li::after { top: 50%; border-top: 2px solid var(--color-border-fuerte, #AEB9C9); }
+  .org-diagrama-horizontal li::before { top: 0; border-bottom: 1px solid var(--org-linea); }
+  .org-diagrama-horizontal li::after { top: 50%; border-top: 1px solid var(--org-linea); }
   .org-diagrama-horizontal li:last-child::before { border-right: none; border-radius: 0; border-bottom-left-radius: 6px; }
   .org-diagrama-horizontal li:first-child::after { border-radius: 0; border-top-left-radius: 6px; }
   .org-diagrama-horizontal ul::before {
-    top: 50%; left: -30px; border-left: 2px solid var(--color-border-fuerte, #AEB9C9);
+    top: 50%; left: -30px; border-left: 1px solid var(--org-linea);
     border-top: none; width: 30px; height: 0;
   }
   .org-diagrama-horizontal ul { padding-top: 0; padding-left: 30px; }
-  .org-diagrama-horizontal .org-asesores-conector { width: 1px; height: 20px; border-top: none; border-left: 2px dashed var(--color-border-fuerte, #AEB9C9); margin: 6px 0 0; }
+  .org-diagrama-horizontal .org-asesores-conector { width: 1px; height: 20px; border-top: none; border-left: 1px dashed var(--org-linea); margin: 6px 0 0; }
   .org-diagrama-horizontal .org-caja-grupo { flex-direction: column; align-items: flex-start; }
   .org-diagrama-horizontal .org-asesores-lista { flex-direction: row; margin-left: 0; margin-top: 8px; }
 
@@ -157,31 +157,108 @@
   .org-radial-nodo .org-nombre { font-size: 0.86rem; display: block; }
   .org-radial-nodo .org-radial-mas { display: block; font-size: 0.76rem; color: var(--color-accent-dark, #a15a1f); margin-top: 2px; }
 
+  /* ==================================================================
+     DIAGRAMA — «PLANO INSTITUCIONAL»
+
+     Elegido por el usuario entre tres propuestas (28 de agosto de 2026).
+     La idea: que se vea como el organigrama oficial que uno imprime y
+     pega en la pared de la sede. Ancho uniforme, banda de nivel en la
+     cabecera, conectores ortogonales de 1px.
+
+     QUÉ RESOLVIÓ, porque el diseño anterior tenía tres problemas reales:
+
+     1. CIEN BOTONES DE COLOR. Cinco acciones por tarjeta × veinte cargos.
+        El ojo iba a los botones azules y verdes y no a la estructura, que
+        es lo único que un organigrama existe para mostrar. Ahora las
+        acciones viven en una sobrecapa que aparece al pasar el mouse o al
+        entrar con el teclado; en reposo solo se ve la jerarquía.
+
+     2. LOS COLORES DE NIVEL ERAN UN ARCOÍRIS —azul, verde, morado, rosa,
+        marrón— sin relación con la marca. Ahora son una ESCALA que baja
+        desde el navy hacia azules cada vez más claros, con el amarillo
+        reservado a los asesores. Contraste del texto sobre su propia
+        banda, medido: 16,32 · 9,36 · 5,84 · 5,01 · 7,88 · 10,71 · 10,15.
+        Todos por encima de 4,5.
+
+     3. EL COLOR ERA EL ÚNICO CANAL. La banda ahora LLEVA ESCRITO el
+        nivel, así que quien no distinga los azules claros lo lee igual, y
+        el organigrama impreso en blanco y negro sigue sirviendo.
+
+     EL BORDE DE LA TARJETA ES #7C8798, no el gris claro de la aplicación:
+     da 3,64 sobre blanco y 3,33 sobre el lienzo, por encima del 3,0 que
+     WCAG 1.4.11 pide a un componente de interfaz. Con el borde de antes,
+     las bandas claras (nivel 5 y 6 dan 2,07 y 1,52 contra el blanco) no
+     habrían delimitado nada.
+     ================================================================== */
+  :root {
+    --org-linea: #7C8798;
+    --org-ancho-tarjeta: 224px;
+    --org-sep: 30px;
+  }
+  .org-nivel-nivel_1 { background: #131F3B; color: #FFFFFF; }
+  .org-nivel-nivel_2 { background: #084298; color: #FFFFFF; }
+  .org-nivel-nivel_3 { background: #0B5ED7; color: #FFFFFF; }
+  .org-nivel-nivel_4 { background: #4F97B8; color: #131F3B; }
+  .org-nivel-nivel_5 { background: #93BACD; color: #131F3B; }
+  .org-nivel-nivel_6 { background: #C9D2E0; color: #131F3B; }
+  .org-nivel-asesores { background: #FFC300; color: #131F3B; }
+  .org-nivel-sin-nivel { background: #EEF0F3; color: #5B6472; }
+
   .org-caja-grupo { display: flex; align-items: flex-start; }
   .org-caja {
-    display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
-    background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-top: 3px solid var(--color-marca, #0B5ED7);
-    border-radius: 10px;
-    padding: 14px 20px 13px; min-width: 200px; box-shadow: var(--shadow-card, 0 1px 2px rgba(16,35,63,0.06), 0 4px 16px rgba(16,35,63,0.05));
-    position: relative; transition: box-shadow 0.15s, transform 0.15s;
+    position: relative; width: var(--org-ancho-tarjeta);
+    background: #fff; border: 1px solid var(--org-linea);
+    display: flex; flex-direction: column; border-radius: 2px;
   }
-  .org-caja:hover { box-shadow: 0 6px 20px rgba(16,35,63,0.12); transform: translateY(-1px); }
-  .org-caja .org-cargo { font-size: 1.08rem; color: var(--color-navy, #10233F); }
-  .org-caja .org-nombre { font-size: 1.02rem; }
+  .org-caja-banda {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 0.62rem; letter-spacing: .13em; text-transform: uppercase;
+    padding: 5px 10px; border-bottom: 1px solid var(--org-linea);
+    display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  }
+  .org-caja-cuerpo { padding: 11px 12px 10px; min-height: 76px; display: flex; flex-direction: column; gap: 5px; }
+  .org-caja .org-cargo { font-size: 0.86rem; text-transform: uppercase; color: var(--color-navy); line-height: 1.28; }
+  .org-caja .org-nombre { font-size: 0.9rem; }
+  /* UN CARGO SIN PERSONA SE VE DISTINTO, y a propósito: saber cuáles
+     están vacíos es justo lo que uno quiere al armar la campaña, y antes
+     se veían igual que los ocupados. #8C5E17 sobre #FFF6DC da 5,22. */
+  .org-caja-vacante {
+    align-self: flex-start; font-size: 0.74rem; font-weight: 500;
+    color: #8C5E17; background: #FFF6DC; border: 1px dashed #8C5E17;
+    padding: 1px 7px;
+  }
   .org-caja-toggle {
-    position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%);
-    width: 30px; height: 30px; border-radius: 50%; background: var(--color-accent, #c0621f);
-    color: #fff; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); user-select: none; z-index: 2;
-    transition: background 0.15s, transform 0.15s;
+    position: absolute; bottom: -11px; left: 50%; transform: translateX(-50%);
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; border: 1px solid var(--org-linea); color: var(--color-navy);
+    font-family: var(--font-mono); font-size: 0.8rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none; z-index: 4; padding: 0;
   }
-  .org-caja-toggle:hover { background: var(--color-accent-dark, #a15a1f); transform: translateX(-50%) translateY(-1px); }
+  .org-caja-toggle:hover { background: var(--color-navy); color: #fff; border-color: var(--color-navy); }
   /* Botones de acción de cada tarjeta del organigrama (+ Sub./+ Ases./
      Editar/Eliminar): más grandes que un .btn-secundario normal, y
      Editar/Eliminar con su propio color (igual criterio que el resto de
      la app: azul para editar, rojo para eliminar) para diferenciarlos de
      un vistazo. */
-  .org-caja-acciones { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; justify-content: center; }
+  /* LAS ACCIONES, EN UNA SOBRECAPA. En reposo no se ven: el diagrama
+     muestra estructura. Aparecen al pasar el mouse Y al entrar con el
+     teclado (`:focus-within`), que es lo que las hace alcanzables sin
+     ratón.
+
+     Y EN PANTALLA TÁCTIL SE QUEDAN SIEMPRE VISIBLES (ver el bloque
+     `@media (hover: none)` más abajo). En una tableta no existe el hover:
+     sin esa salida, las cinco acciones de cada cargo serían inalcanzables
+     y el rediseño habría roto la pantalla en vez de mejorarla. Es la
+     trampa evidente de esconder botones detrás del mouse. */
+  .org-caja-acciones {
+    position: absolute; inset: 0; background: rgba(19, 31, 59, 0.94);
+    opacity: 0; pointer-events: none; transition: opacity 0.12s ease;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 5px; padding: 8px; z-index: 3;
+  }
+  .org-caja:hover .org-caja-acciones,
+  .org-caja:focus-within .org-caja-acciones { opacity: 1; pointer-events: auto; }
   /* El de WhatsApp lleva el verde de la marca, el mismo del ícono que ya sale
      junto al teléfono en Estructura y en Votantes: es la misma acción y se
      reconoce por el color antes que por la forma. */
@@ -238,10 +315,56 @@
   .org-imprimir-lista.org-imprimir-word:hover { background: #1B4C9C; border-color: #1B4C9C; color: #fff; }
 
   /* Asesores: bloque horizontal a la derecha de la caja, conectado con línea punteada. */
-  .org-asesores-conector { width: 22px; height: 1px; border-top: 2px dashed var(--color-border-fuerte, #AEB9C9); margin-top: 30px; }
+  .org-asesores-conector { width: 22px; height: 1px; border-top: 1px dashed var(--org-linea); margin-top: 30px; }
   .org-asesores-lista { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .org-caja-asesor {
     border-style: dashed !important; background: #fbf8f4;
+  }
+
+  /* LEYENDA DE NIVELES, VISIBLE Y PERMANENTE. Antes el código de color
+     solo se explicaba dentro del filtro por Cargo, que está oculto casi
+     siempre: quien abría el organigrama por primera vez veía siete
+     colores y ninguna forma de saber qué significaban. */
+  .org-leyenda {
+    display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap;
+    padding: 0 0 14px; margin-bottom: 4px; border-bottom: 1px solid var(--color-border);
+    font-size: 0.8rem; color: var(--color-text-muted);
+  }
+  .org-leyenda .titulo {
+    font-family: var(--font-display); font-weight: 700; font-size: 0.72rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--color-navy);
+  }
+  .org-ley { display: inline-flex; align-items: center; gap: 6px; }
+  .org-ley .muestra {
+    width: 26px; height: 13px; border: 1px solid var(--org-linea); display: inline-block;
+  }
+
+  /* PIE CON EL CONTEO. Es el resumen que uno quiere al imprimirlo: cuántos
+     cargos hay y, sobre todo, cuántos están sin asignar. */
+  .org-pie-diagrama {
+    border-top: 1px solid var(--org-linea); margin-top: 18px;
+    display: flex; flex-wrap: wrap; gap: 10px 30px; align-items: center;
+    padding: 14px 2px 2px; font-size: 0.85rem; color: var(--color-text-muted);
+  }
+  .org-pie-diagrama b { font-family: var(--font-mono); color: var(--color-text); font-weight: 500; }
+
+  /* SIN MOUSE, LAS ACCIONES NO SE ESCONDEN. `hover: none` cubre tabletas y
+     teléfonos. La sobrecapa deja de serlo y pasa a ser una barra debajo del
+     cuerpo de la tarjeta: ocupa sitio, pero un botón que ocupa sitio es
+     infinitamente mejor que uno al que no se puede llegar. */
+  @media (hover: none) {
+    .org-caja-acciones {
+      position: static; inset: auto; opacity: 1; pointer-events: auto;
+      background: transparent; border-top: 1px solid var(--color-border);
+      padding: 8px; gap: 6px;
+    }
+  }
+
+  /* En papel sobran los controles: lo que se imprime es la estructura. */
+  @media print {
+    .org-caja-acciones, .org-caja-toggle, .org-caja-imprimir { display: none !important; }
+    .org-caja { break-inside: avoid; box-shadow: none; }
+    .org-diagrama-scroll { overflow: visible; }
   }
 
   /* --- Vista de tabla --- */
@@ -313,10 +436,12 @@
           <button type="button" class="org-subvista-chip" data-subvista="columnas">📊 Columnas por Nivel</button>
           <button type="button" class="org-subvista-chip" data-subvista="radial">🎯 Radial</button>
         </div>
+        <div class="org-leyenda" id="org-leyenda"></div>
         <ul id="org-diagrama" class="org-diagrama"></ul>
         <div id="org-diagrama-compacto" class="org-compacto-raiz" style="display:none;"></div>
         <div id="org-diagrama-columnas" class="org-columnas-tablero" style="display:none;"></div>
         <div id="org-diagrama-radial" style="display:none;"></div>
+        <div class="org-pie-diagrama" id="org-pie-diagrama"></div>
       </div>
       <div id="org-tabla-contenedor" style="display:none;">
         <p style="color:var(--color-text-muted); font-size:0.85rem; margin-top:0;">
@@ -441,10 +566,52 @@ function renderizarArbol() {
     document.getElementById('org-vacio').style.display = raices.length ? 'none' : 'block';
     diagBox.style.display = raices.length ? 'block' : 'none';
     renderizarSubVistaDiagrama(raices);
+    // La leyenda y el pie describen TODO el organigrama, no la sub-vista
+    // elegida: se dibujan una vez y valen para las cinco formas de verlo.
+    renderizarLeyendaNiveles();
+    renderizarPieDiagrama();
   }
 }
 
 /** Muestra/oculta el contenedor que corresponde a la sub-vista elegida dentro de Diagrama, y dibuja su contenido. */
+/**
+ * La leyenda de niveles, con SOLO los niveles que este organigrama usa.
+ *
+ * Pintar los siete siempre sería enseñar un código que la mitad de las
+ * campañas no utiliza: la leyenda dejaría de ayudar y pasaría a ser adorno.
+ */
+function renderizarLeyendaNiveles() {
+  const caja = document.getElementById('org-leyenda');
+  if (!caja) return;
+  const usados = ['nivel_1','nivel_2','nivel_3','nivel_4','nivel_5','nivel_6','asesores']
+    .filter(n => nodos.some(x => x.nivel === n || (n === 'asesores' && x.tipo_relacion === 'asesor')));
+  if (!usados.length) { caja.style.display = 'none'; return; }
+  caja.style.display = 'flex';
+  caja.innerHTML = `<span class="titulo">Niveles</span>` + usados.map(n =>
+    `<span class="org-ley"><span class="muestra org-nivel-${n}"></span>${escaparOrgHtml(ETIQUETAS_NIVEL[n])}</span>`
+  ).join('');
+}
+
+/**
+ * El pie del diagrama: cuántos cargos y cuántos siguen sin persona.
+ *
+ * Es el resumen que uno quiere al imprimir el organigrama, y el dato que
+ * antes había que contar a ojo tarjeta por tarjeta.
+ */
+function renderizarPieDiagrama() {
+  const pie = document.getElementById('org-pie-diagrama');
+  if (!pie) return;
+  const total = nodos.length;
+  const conPersona = nodos.filter(n => nombreAbreviado(n)).length;
+  const sinAsignar = total - conPersona;
+  const asesores = nodos.filter(n => n.tipo_relacion === 'asesor').length;
+  pie.innerHTML = total === 0 ? '' : `
+    <span><b>${total}</b> cargo${total === 1 ? '' : 's'} en el organigrama</span>
+    <span><b>${conPersona}</b> con persona asignada</span>
+    <span><b>${sinAsignar}</b> sin asignar</span>
+    ${asesores ? `<span><b>${asesores}</b> asesor${asesores === 1 ? '' : 'es'}</span>` : ''}`;
+}
+
 function renderizarSubVistaDiagrama(raices) {
   const cajaClasica = document.getElementById('org-diagrama');
   const cajaCompacto = document.getElementById('org-diagrama-compacto');
@@ -720,6 +887,35 @@ function renderizarNodoLista(nodo) {
 // --- Vista de diagrama (cajas conectadas por líneas, estilo organigrama de PowerPoint) ---
 // Los subordinados de línea bajan en el árbol normal; los asesores se
 // muestran como cajas punteadas horizontales junto a la caja del cargo.
+/**
+ * Cuánta gente cuelga de un cargo, contando toda su rama.
+ *
+ * Es el dato que uno quiere mirando un organigrama y que la pantalla no daba:
+ * un director con dieciocho personas debajo y otro con dos se veían igual.
+ *
+ * SE PROTEGE CONTRA CICLOS. `padre_id` lo escribe una persona en un formulario
+ * y nada impide guardar a alguien como subordinado de su propio subordinado.
+ * Sin el conjunto `vistos`, esta recursión se comería la pila y la pantalla
+ * quedaría en blanco sin decir por qué.
+ */
+function contarRama(id, vistos) {
+  vistos = vistos || new Set();
+  if (vistos.has(id)) return 0;
+  vistos.add(id);
+  const hijos = nodos.filter(n => n.padre_id === id);
+  return hijos.reduce((t, h) => t + 1 + contarRama(h.id, vistos), 0);
+}
+
+/** La banda de color de la cabecera, con el nivel ESCRITO además de pintado. */
+function bandaNivelHtml(nodo, cuantos) {
+  const nivel = nodo.nivel && ETIQUETAS_NIVEL[nodo.nivel] ? nodo.nivel : 'sin-nivel';
+  const etiqueta = ETIQUETAS_NIVEL[nodo.nivel] || 'Sin nivel';
+  return `<div class="org-caja-banda org-nivel-${nivel}">
+    <span>${escaparOrgHtml(etiqueta)}</span>
+    ${cuantos > 0 ? `<span title="Personas en su rama">${cuantos}</span>` : ''}
+  </div>`;
+}
+
 function renderizarNodoDiagrama(nodo) {
   const hijos = nodos.filter(n => n.padre_id === nodo.id);
   const subordinadosLinea = hijos.filter(h => h.tipo_relacion !== 'asesor');
@@ -731,9 +927,14 @@ function renderizarNodoDiagrama(nodo) {
 
   const cajaHtml = `
     <div class="org-caja">
-      <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
-      <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
-      ${nombreAbreviado(nodo) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
+      ${bandaNivelHtml(nodo, contarRama(nodo.id))}
+      <div class="org-caja-cuerpo">
+        <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
+        <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
+        ${nombreAbreviado(nodo)
+          ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(nodo))}</span>`
+          : `<span class="org-caja-vacante">Sin asignar</span>`}
+      </div>
       ${(puedeEditar || nodo.telefono) ? `
         <div class="org-caja-acciones">
           ${puedeEditar ? `
@@ -752,10 +953,14 @@ function renderizarNodoDiagrama(nodo) {
     <div class="org-asesores-lista">
       ${asesores.map(a => `
         <div class="org-caja org-caja-asesor">
-          <span class="org-caja-imprimir" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
-          <span class="org-cargo">${escaparOrgHtml(a.cargo)}</span>
-          ${nombreAbreviado(a) ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(a))}</span>` : ''}
-          <span class="org-etiqueta-asesor">Asesor</span>
+          <div class="org-caja-banda org-nivel-asesores"><span>Asesor</span></div>
+          <div class="org-caja-cuerpo">
+            <span class="org-caja-imprimir" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
+            <span class="org-cargo">${escaparOrgHtml(a.cargo)}</span>
+            ${nombreAbreviado(a)
+              ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(a))}</span>`
+              : `<span class="org-caja-vacante">Sin asignar</span>`}
+          </div>
           ${(puedeEditar || a.telefono) ? `
             <div class="org-caja-acciones">
               ${puedeEditar ? `
