@@ -57,4 +57,5 @@ backups/
 # peor, en un parche que las repartiria a todas las campañas.
 public/panel-opcion-*.html
 public/organigrama-opcion-*.html
+public/estructura-opcion-*.html
 public/comparar-disenos.html
