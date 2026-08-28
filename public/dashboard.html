@@ -96,9 +96,25 @@
     font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: #9FB0CC;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  /* LA CIFRA NO PUEDE SALIRSE DE SU CELDA. `.celda` lleva `min-width: 0`
+     —hace falta para que la rejilla no se estire— y eso significa que su
+     aporte mínimo es CERO: la columna no crece para acomodar el número, y
+     sin `overflow` el texto no se recorta, se SUPERPONE al de al lado.
+
+     Medido: «$ 12.345.678» son 12 caracteres ≈ 223px; a 1366px de ventana
+     la celda deja 158px, así que se montaba 65px encima de «Avance de
+     registro». Solo cabía por encima de los 1.625px de ventana, y
+     1366×768 es la resolución de portátil más común. Con saldo negativo
+     son 13 caracteres. Un balance de siete cifras en pesos colombianos no
+     es un caso extremo: es lo normal.
+
+     NO SE RECORTA CON ELIPSIS, se deja partir y encoger. Una cifra
+     cortada MIENTE —«$ 12.345…» se lee como otro número— y eso es peor
+     que una cifra en dos líneas. */
   .celda .val {
     font-family: var(--font-mono); font-weight: 500; color: #fff;
-    font-size: clamp(24px, 3vw, 32px); line-height: 1.1; margin-top: 4px; letter-spacing: -.02em;
+    font-size: clamp(19px, 2.3vw, 32px); line-height: 1.1; margin-top: 4px; letter-spacing: -.02em;
+    overflow-wrap: anywhere;
   }
   .celda.acento .val { color: #FFC300; }
 
@@ -170,6 +186,24 @@
   .tendencia-svg text { font-family: var(--font-body, 'Inter', sans-serif); }
 
   @media (max-width: 1180px) { .c7, .c5, .c6 { grid-column: span 12; } }
+  /* A DOS COLUMNAS POR DEBAJO DE 1500px, Y EL NÚMERO SALE DE MEDIRLO, no
+     de elegir un punto de quiebre redondo. Con cuatro columnas la celda
+     deja 158px a 1366 y 176px a 1440: caben nueve caracteres, y
+     «$ 12.345.678» son doce. 1366×768 es la resolución de portátil más
+     común, así que ese es el caso normal, no el extremo. A dos columnas la
+     misma celda pasa a 347px y caben diecinueve.
+
+     Por encima de 1500 quedan las cuatro, que es donde el diseño de
+     instrumento tiene sentido; y si aun así un número no cupiera, el
+     `overflow-wrap` de arriba lo parte en dos líneas en vez de dejarlo
+     invadir la celda vecina. */
+  @media (max-width: 1500px) {
+    .cifras { grid-template-columns: repeat(2, 1fr); }
+    .celda:nth-child(4n+1) { border-left: 1px solid #2E3D5F; }
+    .celda:nth-child(odd) { border-left: 0; }
+    .celda:nth-child(n+5) { border-bottom: 1px solid #2E3D5F; }
+    .celda:nth-child(n+7) { border-bottom: 0; }
+  }
   @media (max-width: 900px) {
     .mando { grid-template-columns: 1fr; }
     .regresiva { border-right: 0; border-bottom: 1px solid #2E3D5F; padding: 18px 0 20px; }
@@ -275,7 +309,12 @@
       </section>
 
       <section class="panel c7">
-        <header><h2>Su equipo</h2><span class="anot">Personas registradas</span></header>
+        <!-- NO DICE «SU EQUIPO». `/dashboard/resumen` no pasa por
+             `calcularAlcance`: devuelve los conteos de TODA la campaña, y
+             esta pantalla la abren también líderes, sublíderes y testigos.
+             Con el rótulo anterior, un líder con tres personas a cargo leía
+             «Su equipo · 37 líderes» y el número no era suyo. -->
+        <header><h2>La estructura de la campaña</h2><span class="anot">Personas registradas</span></header>
         <div id="resumen-equipo"></div>
       </section>
 
@@ -523,14 +562,27 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     const totalMarcas = apoyos.reduce((t, a) => t + a.n, 0);
     document.getElementById('apoya-a-pie').textContent =
       `${formatoMillares(totalMarcas)} marcas de apoyo en total — una persona puede apoyar a varias corporaciones.`;
+    /* EL NUMERADOR ES `avanceRegistrosLideres`, NO `votantes.total`.
+       Son dos cosas distintas: la meta es la SUMA DE LAS METAS DE LOS
+       LÍDERES, así que el avance contra ella tiene que ser lo que los
+       líderes registraron — no todos los votantes de la campaña, que
+       incluyen los que metió un coordinador o un administrador.
+
+       Con el numerador equivocado el porcentaje sale inflado y la campaña
+       se cree más cerca de la meta de lo que está. La API ya devolvía el
+       dato bueno (`routes/dashboard.routes.js`, línea 84) y esta pantalla
+       nunca lo usaba; venía así desde antes del rediseño (comprobado
+       contra git), pero el rediseño lo puso en una barra grande, y un dato
+       equivocado en letra grande engaña más. */
+    const registradosPorLideres = Number(r.avanceRegistrosLideres) || 0;
     const porcentajeAvance = r.metaVotosLideres > 0
-      ? ((r.votantes.total / r.metaVotosLideres) * 100).toFixed(1)
+      ? ((registradosPorLideres / r.metaVotosLideres) * 100).toFixed(1)
       : null;
     document.getElementById('stat-avance-registros-lideres').textContent = porcentajeAvance !== null
       ? `${porcentajeAvance}%`
       : '—';
     document.getElementById('stat-avance-registros-porcentaje').textContent = porcentajeAvance !== null
-      ? `${formatoMillares(r.votantes.total)} de ${formatoMillares(r.metaVotosLideres)}`
+      ? `${formatoMillares(registradosPorLideres)} de ${formatoMillares(r.metaVotosLideres)}`
       : 'Sin meta de votos registrada';
     document.getElementById('medidor-relleno').style.width =
       porcentajeAvance !== null ? `${Math.min(100, Number(porcentajeAvance))}%` : '0%';
@@ -539,7 +591,7 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
        nunca: este panel informa, no felicita. El umbral es la mitad de la
        meta — por debajo de ahí la frase aporta; por encima, sobra. */
     if (porcentajeAvance !== null && Number(porcentajeAvance) < 50) {
-      const faltan = r.metaVotosLideres - r.votantes.total;
+      const faltan = r.metaVotosLideres - registradosPorLideres;
       document.getElementById('aviso-rezago-texto').textContent =
         `Faltan ${formatoMillares(faltan)} registros para llegar a la meta de ${formatoMillares(r.metaVotosLideres)}.`;
       document.getElementById('aviso-rezago').style.display = 'flex';
