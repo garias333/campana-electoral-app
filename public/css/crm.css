@@ -1,0 +1,171 @@
+/* ==========================================================================
+   css/crm.css — la piel de CRM y mensajería.
+   ==========================================================================
+
+   VIVE EN UN ARCHIVO Y NO DENTRO DE CADA PÁGINA. Son CINCO pantallas —CRM y
+   Mensajes, Enviar E-mail, Enviar SMS, Pidieron no recibir más y Configurar
+   mensajería— y copiar el bloque en las cinco garantiza que dentro de tres
+   meses una tenga el azul viejo. Es el mismo criterio de /js/apoyos.js: una
+   regla que usan varios sitios se sirve desde un archivo.
+
+   NO REEMPLAZA A style.css: se carga DESPUÉS y solo añade lo de esta sección.
+   Las tarjetas, botones, tablas y campos siguen siendo los de la casa.
+
+   LOS TRES COLORES SON LOS DE LA MARCA y cada uno tiene UN oficio, para que
+   la pantalla no parezca un semáforo:
+
+     #084298  azul hondo .. fondos oscuros y títulos de tabla
+     #0B5ED7  azul marca .. lo interactivo: números de paso, canal elegido
+     #FFC300  amarillo .... UN solo acento por bloque, y la acción final
+
+   El amarillo NUNCA lleva texto encima salvo en el botón de enviar, y ahí va
+   en navy: amarillo con letra blanca no se lee (1,7 de contraste). Con
+   #131F3B encima da 10,15 — de sobra para AA y AAA.
+
+   LA LETRA ES MÁS GRANDE QUE EN EL RESTO DE LA APLICACIÓN, a propósito. La
+   base es 0,78-0,82 rem en las ayudas y 1 rem en los campos; aquí las ayudas
+   suben a 0,88-0,95 y los campos a 1,02. Son reglas de esta sección, no un
+   cambio global: subirlo en style.css movería cuarenta pantallas que nadie
+   pidió tocar.
+   ========================================================================== */
+:root {
+    --crm-azul: #0B5ED7;
+    --crm-azul-hondo: #084298;
+    --crm-amarillo: #FFC300;
+  }
+
+  /* Cabecera. Un solo bloque de color que le da cara a la pantalla, con el
+     filo amarillo abajo para amarrarla a la marca. */
+  .crm-hero {
+    background: linear-gradient(135deg, var(--crm-azul-hondo) 0%, var(--crm-azul) 100%);
+    border-radius: var(--radius);
+    padding: 26px 30px 24px;
+    margin-bottom: 22px;
+    border-bottom: 5px solid var(--crm-amarillo);
+    box-shadow: var(--shadow-card);
+  }
+  /* EL RÓTULO VA EN BLANCO, NO EN AMARILLO, y no por gusto: medido, el
+     #FFC300 da 3,63 sobre el extremo CLARO del degradado (#0B5ED7) y AA pide
+     4,5 para texto pequeño. Sobre el extremo oscuro daría 5,82 — pero es un
+     degradado, y no se puede prometer sobre qué tono cae cada letra. El
+     amarillo se queda donde no depende del fondo: el filo de abajo y la
+     barrita de la izquierda. Blanco sobre el peor caso: 5,84. */
+  .crm-hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: #FFFFFF; font-weight: 600;
+  }
+  .crm-hero .eyebrow::before {
+    content: ''; width: 22px; height: 3px; border-radius: 2px;
+    background: var(--crm-amarillo);
+  }
+  .crm-hero h1 { color: #fff; font-size: 2.1rem; margin: 6px 0 8px; letter-spacing: -0.02em; }
+  /* #E3EBF9 y no #D9E4F7: aquel daba 4,56 sobre el extremo claro, que pasa
+     por los pelos y se cae con cualquier retoque del degradado. Este da 4,87. */
+  .crm-hero p { margin: 0; color: #E3EBF9; font-size: 1rem; max-width: 62ch; line-height: 1.55; }
+
+  /* Los pasos. El numero deja de ser texto dentro del titulo y pasa a ser una
+     ficha: se ve de un vistazo por donde va uno, que es lo que hace falta en
+     una pantalla de tres pasos. */
+  .paso { margin-bottom: 20px; padding: 24px 26px; }
+  .paso-cabeza { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+  .paso-num {
+    width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%;
+    background: var(--crm-azul); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 1.15rem;
+    box-shadow: 0 0 0 4px rgba(11, 94, 215, 0.12);
+  }
+  .paso-cabeza h3 { font-size: 1.3rem; margin: 6px 0 0; }
+  .paso-cabeza .paso-sub { margin: 4px 0 0; color: var(--color-text-muted); font-size: 0.92rem; line-height: 1.5; }
+  .paso-cabeza .paso-accion { margin-left: auto; align-self: center; }
+
+  /* VARIANTE SIN NÚMERO, para las pantallas que no son una secuencia.
+     Configurar mensajería no tiene «paso 1» y «paso 2»: son tres bloques que
+     se miran en cualquier orden. Ponerles números sería mentir sobre cómo se
+     usa la pantalla, así que la ficha lleva un icono en vez de una cifra. */
+  .paso-num.paso-icono {
+    background: #EEF3FB; color: var(--crm-azul-hondo);
+    font-size: 1.15rem; box-shadow: 0 0 0 4px rgba(11, 94, 215, 0.08);
+  }
+
+  /* Campos mas grandes y con mas aire. */
+  .paso .campo label { font-size: 0.95rem; font-weight: 600; }
+  .paso input, .paso select, .paso textarea { font-size: 1.02rem; }
+  .paso textarea { line-height: 1.6; }
+  .paso small, .paso .ayuda { font-size: 0.88rem; color: var(--color-text-muted); line-height: 1.55; }
+
+  /* Canal elegido: azul lleno, no un borde tenue. Antes el activo y el
+     inactivo se distinguian por un tono de gris de diferencia. */
+  .canal-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 22px; border-radius: 999px; border: 2px solid var(--color-border, #d8d8d8);
+    background: #fff; cursor: pointer; font-weight: 600; font-size: 1rem;
+    color: var(--color-navy); transition: background .12s, border-color .12s, color .12s;
+  }
+  .canal-chip:hover { border-color: var(--crm-azul); }
+  .canal-chip.activo {
+    border-color: var(--crm-azul-hondo); background: var(--crm-azul); color: #fff;
+    box-shadow: 0 2px 8px rgba(8, 66, 152, 0.25);
+  }
+  .canal-chip .punto-estado { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .canal-chip .punto-estado.ok { background: #16a34a; }
+  .canal-chip .punto-estado.falta { background: #dc2626; }
+  /* Sobre el azul lleno, el verde y el rojo pierden contraste: se les pone
+     un aro claro para que sigan leyendose como semaforo. */
+  .canal-chip.activo .punto-estado { box-shadow: 0 0 0 2px rgba(255,255,255,0.85); }
+
+  /* Recuadro de ayuda del Dia D: el amarillo hace de marcador lateral. */
+  .caja-diad {
+    margin-top: 12px; padding: 14px 16px; border-radius: var(--radius);
+    background: #FFFBF0; border: 1px solid #F3E2B4; border-left: 4px solid var(--crm-amarillo);
+  }
+  .caja-diad .titulo { font-weight: 700; color: var(--crm-azul-hondo); font-size: 0.95rem; margin-bottom: 6px; }
+  .caja-diad .detalle { font-size: 0.88rem; color: var(--color-text); line-height: 1.65; }
+  .caja-diad code {
+    background: #fff; border: 1px solid #E6D9AF; border-radius: 4px;
+    padding: 1px 6px; font-size: 0.85rem; color: var(--crm-azul-hondo);
+  }
+
+  /* LA ACCION FINAL, en amarillo y grande. Es lo unico de la pantalla que
+     manda mensajes de verdad, y estaba del mismo azul que «+ Agregar grupo».
+     El texto va en navy: ver la nota de contraste arriba. */
+  .btn-accion-crm,
+  #btn-enviar-campana {
+    background: var(--crm-amarillo); color: #131F3B;
+    font-size: 1.12rem; font-weight: 700; padding: 14px 30px;
+    border: none; border-radius: 8px; margin-top: 6px;
+    box-shadow: 0 2px 10px rgba(255, 195, 0, 0.35);
+  }
+  .btn-accion-crm:hover,
+  #btn-enviar-campana:hover { background: #E8B200; }
+  /* Un botón deshabilitado en amarillo sigue pareciendo pulsable. Se apaga. */
+  .btn-accion-crm:disabled { background: #E8E3D2; color: #8A8778; box-shadow: none; cursor: not-allowed; }
+
+  /* Avisos de arriba: barras finas, no tarjetas. No compiten con los pasos. */
+  .aviso-crm { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+               padding: 14px 18px; border-radius: var(--radius); margin-bottom: 14px;
+               font-size: 0.95rem; border: 1px solid var(--color-border); }
+  .aviso-crm .icono { font-size: 1.2rem; }
+  .aviso-crm .btn-secundario { margin-left: auto; }
+  .aviso-respuestas { background: #FBEAEA; border-color: #EBC9C9; }
+  .aviso-bajas { background: #EEF3FB; border-color: #CFE0F6; }
+
+  /* Historial. */
+  .crm-historial thead th {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--crm-azul-hondo);
+  }
+  .destinatario-fila { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--color-border, #f0f0f0); font-size:0.92rem; }
+  .badge-campana { padding:4px 12px; border-radius:12px; font-size:0.8rem; font-weight:600; }
+  .badge-enviado { background:#dcfce7; color:#166534; }
+  .badge-enviando { background:#fef3c7; color:#92400e; }
+  .badge-fallido { background:#fee2e2; color:#991b1b; }
+  .badge-borrador { background:#f1f5f9; color:#475569; }
+
+  @media (max-width: 640px) {
+    .crm-hero { padding: 20px; }
+    .crm-hero h1 { font-size: 1.6rem; }
+    .paso { padding: 18px; }
+    .paso-cabeza .paso-accion { margin-left: 0; width: 100%; }
+  }

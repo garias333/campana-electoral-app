@@ -7,29 +7,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
-<style>
-  .canal-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px; border: 1.5px solid var(--color-border, #d8d8d8);
-    background: #fff; cursor: pointer; font-weight: 600; font-size: 0.88rem;
-  }
-  .canal-chip.activo { border-color: #0B5ED7; background: #f0f4f8; }
-  .canal-chip .punto-estado { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .canal-chip .punto-estado.ok { background: #16a34a; }
-  .canal-chip .punto-estado.falta { background: #dc2626; }
-  .destinatario-fila { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--color-border, #f0f0f0); font-size:0.85rem; }
-  .badge-campana { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
-  .badge-enviado { background:#dcfce7; color:#166534; }
-  .badge-enviando { background:#fef3c7; color:#92400e; }
-  .badge-fallido { background:#fee2e2; color:#991b1b; }
-  .badge-borrador { background:#f1f5f9; color:#475569; }
-</style>
+<link rel="stylesheet" href="/css/crm.css">
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Comunicaciones</div><h1>CRM y Mensajes</h1></div>
+    <div class="crm-hero">
+      <div class="eyebrow">Comunicaciones</div>
+      <h1>CRM y Mensajes</h1>
+      <p>Arme un envío en tres pasos: elija el canal, escoja a quién le llega y escriba
+         el mensaje. Quien haya pedido no recibir más queda fuera solo, sin que usted
+         tenga que acordarse.</p>
     </div>
 
     <!-- Respuestas entrantes. Va ARRIBA de todo a propósito: si alguien
@@ -37,36 +25,35 @@
          siguiente envío, no después. -->
     <div class="card" style="margin-bottom:16px; display:none;" id="tarjeta-respuestas">
       <div class="topbar" style="margin-bottom:8px;">
-        <h3 style="margin:0;">Respuestas recibidas <span id="badge-respuestas" style="font-size:0.8rem; font-weight:600; color:#A93226;"></span></h3>
+        <h3 style="margin:0; font-size:1.15rem;">Respuestas recibidas <span id="badge-respuestas" style="font-size:0.9rem; font-weight:700; color:#A93226;"></span></h3>
         <button type="button" class="btn-secundario btn-sm" id="btn-ver-todas-respuestas">Ver todas</button>
       </div>
-      <div id="lista-respuestas" style="font-size:0.88rem;"></div>
+      <div id="lista-respuestas" style="font-size:0.94rem;"></div>
     </div>
 
-    <!-- QUIÉN PIDIÓ NO RECIBIR MÁS.
-         Va aquí y no en otra pantalla porque es lo que hay que mirar ANTES de
-         armar el siguiente envío, igual que las respuestas. Y va aparte de
-         ellas porque casi ninguna baja ES una respuesta: el enlace del
-         mensaje —hoy el camino principal— marca la ficha sin dejar respuesta
-         que leer, así que en esa tarjeta no aparecía ninguna. -->
-    <div class="card" style="margin-bottom:16px; display:none;" id="tarjeta-bajas">
-      <div class="topbar" style="margin-bottom:8px;">
-        <h3 style="margin:0;">Pidieron no recibir más <span id="badge-bajas" style="font-size:0.8rem; font-weight:600; color:var(--color-text-muted);"></span></h3>
-        <button type="button" class="btn-secundario btn-sm" id="btn-exportar-bajas">Exportar a Excel</button>
-      </div>
-      <div class="tabla-contenedor">
-        <table>
-          <thead><tr><th>Nombre</th><th>Tipo</th><th>Contacto</th><th>Cuándo</th><th>Por dónde</th><th></th></tr></thead>
-          <tbody id="tbody-bajas"></tbody>
-        </table>
-      </div>
-      <small style="color:var(--color-text-muted); display:block; margin-top:8px;">
-        A estas personas no se les envía nada, en ningún canal. La lista se respeta sola en cada envío.
-      </small>
+    <!-- QUIÉN PIDIÓ NO RECIBIR MÁS — AHORA EN SU PROPIA PANTALLA.
+         La tabla entera vivía aquí y empujaba hacia abajo los tres pasos del
+         envío, que es a lo que se entra a esta página. Se movió a
+         /no-contactar.html (menú: CRM y mensajería › Pidieron no recibir más).
+
+         PERO NO SE BORRÓ EL RASTRO. La razón por la que estaba aquí sigue en
+         pie: es lo que conviene mirar ANTES de armar el siguiente envío. Queda
+         una línea con el número y un enlace — se ve al entrar, sin ocupar
+         media pantalla. Si no hay ninguna baja, ni eso aparece. -->
+    <div class="aviso-crm aviso-bajas" style="display:none;" id="tarjeta-bajas">
+      <span class="icono">🚫</span>
+      <span id="badge-bajas"></span>
+      <a href="/no-contactar.html" class="btn-secundario btn-sm">Ver la lista</a>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="margin-top:0;">1. Elige el canal</h3>
+    <div class="card paso">
+      <div class="paso-cabeza">
+        <div class="paso-num">1</div>
+        <div>
+          <h3>Elige el canal</h3>
+          <p class="paso-sub">Por dónde va a salir el mensaje. El punto verde indica que ese canal ya está configurado.</p>
+        </div>
+      </div>
       <div style="display:flex; gap:12px; flex-wrap:wrap;" id="selector-canal">
         <button type="button" class="canal-chip activo" data-canal="email">
           <span class="punto-estado" id="punto-email"></span> Email
@@ -78,32 +65,39 @@
           <span class="punto-estado" id="punto-push"></span> Aviso en la app
         </button>
       </div>
-      <p id="nota-canal" style="color:var(--color-text-muted); font-size:0.82rem; margin-bottom:0; margin-top:10px;"></p>
+      <p id="nota-canal" class="ayuda" style="margin-bottom:0; margin-top:12px;"></p>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <div class="topbar" style="margin-bottom:6px;">
-        <h3 style="margin:0;">2. Elige a quién le va a llegar</h3>
-        <button type="button" class="btn-secundario btn-sm" id="btn-agregar-grupo">+ Agregar grupo</button>
+    <div class="card paso">
+      <div class="paso-cabeza">
+        <div class="paso-num">2</div>
+        <div>
+          <h3>Elige a quién le va a llegar</h3>
+          <p class="paso-sub">Cada grupo suma sus propios destinatarios al envío — use «+ Agregar grupo» para combinar, por ejemplo, un Territorio con un Nivel del Organigrama, todo en la misma campaña.</p>
+        </div>
+        <button type="button" class="btn-secundario btn-sm paso-accion" id="btn-agregar-grupo">+ Agregar grupo</button>
       </div>
-      <p style="color:var(--color-text-muted); font-size:0.82rem; margin-top:0;">
-        Cada grupo suma sus propios destinatarios al envío — usa "+ Agregar grupo" para combinar, por ejemplo, un Territorio con un Nivel del Organigrama, todo en la misma campaña.
-      </p>
       <div id="grupos-destinatarios"></div>
       <div class="campo">
         <label>O agrega destinatarios manualmente (opcional)</label>
         <textarea id="input-destinatarios-manuales" rows="3" placeholder="Escribe uno o varios números de teléfono o correos electrónicos, separados por coma, punto y coma, o cada uno en su propia línea.&#10;Ej: 3001234567, 3109876543&#10;o: correo1@ejemplo.com&#10;correo2@ejemplo.com"></textarea>
-        <small style="color:var(--color-text-muted); font-size:0.78rem;">Estos se suman a los que traigan los grupos de arriba. Si escribes un teléfono para una campaña de correo (o viceversa), no va a llegar — usa el formato que corresponda al canal elegido arriba.</small>
+        <small>Estos se suman a los que traigan los grupos de arriba. Si escribes un teléfono para una campaña de correo (o viceversa), no va a llegar — usa el formato que corresponda al canal elegido arriba.</small>
       </div>
       <button type="button" class="btn-secundario btn-sm" id="btn-ver-destinatarios">Ver cuántos van a recibir el mensaje</button>
       <div id="resultado-destinatarios" style="margin-top:14px; display:none;">
-        <p class="mono" id="conteo-destinatarios" style="font-size:0.95rem;"></p>
+        <p class="mono" id="conteo-destinatarios" style="font-size:1.05rem; color:var(--crm-azul-hondo); font-weight:600;"></p>
         <div id="lista-muestra-destinatarios"></div>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="margin-top:0;">3. Escribe el mensaje</h3>
+    <div class="card paso">
+      <div class="paso-cabeza">
+        <div class="paso-num">3</div>
+        <div>
+          <h3>Escribe el mensaje</h3>
+          <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. Puede guardarlo como plantilla para reusarlo.</p>
+        </div>
+      </div>
       <div class="campo"><label>Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
       <div class="campo" id="campo-asunto"><label>Asunto (solo Email)</label><input id="input-asunto-campana"></div>
       <div class="campo">
@@ -115,11 +109,10 @@
           <button type="button" class="btn-secundario btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
         </div>
 <textarea id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
-        <div id="contador-sms-campana" style="font-size:0.78rem; margin-top:4px;"></div>
-        <small style="color:var(--color-text-muted); font-size:0.78rem;">Tip: escribe <code>{nombre}</code> en cualquier parte del mensaje y se reemplaza por el primer nombre de cada persona.</small>
-        <div style="margin-top:8px; padding:10px 12px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; background:var(--color-surface, #fff);">
-          <div style="font-weight:700; color:#0B5ED7; font-size:0.82rem; margin-bottom:4px;">Día D — decirle a cada quien dónde vota</div>
-          <div style="font-size:0.78rem; color:var(--color-text-muted); line-height:1.5;">
+        <div id="contador-sms-campana" style="font-size:0.88rem; margin-top:6px;"></div>
+        <div class="caja-diad">
+          <div class="titulo">Día D — decirle a cada quien dónde vota</div>
+          <div class="detalle">
             Estos marcadores se reemplazan con el Lugar de votación <strong>de cada destinatario</strong>:
             <code>{lugar_votacion}</code> (todo junto), <code>{puesto}</code>, <code>{mesa}</code>,
             <code>{municipio}</code>, <code>{departamento}</code>.
@@ -133,16 +126,16 @@
       <div id="crm-form-ok" class="mensaje-ok"></div>
       <!-- Programación. Vacío = sale ya, que es lo de siempre. -->
       <div class="campo" style="max-width:280px;">
-        <label style="font-size:0.82rem;">Programar el envío (opcional)</label>
+        <label>Programar el envío (opcional)</label>
         <input type="datetime-local" id="input-programado-para">
-        <small style="color:var(--color-text-muted); font-size:0.76rem;">Si lo dejas vacío, sale de inmediato. La hora es la de tu equipo.</small>
+        <small>Si lo deja vacío, sale de inmediato. La hora es la de su equipo.</small>
       </div>
       <button type="button" class="btn-acento" id="btn-enviar-campana">Enviar campaña</button>
     </div>
 
-    <div class="card">
-      <div class="topbar" style="margin-bottom:6px; flex-wrap:wrap; gap:8px;">
-        <h3 style="margin:0;">Historial de campañas</h3>
+    <div class="card crm-historial">
+      <div class="topbar" style="margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0; font-size:1.3rem;">Historial de campañas</h3>
         <div id="botones-eliminar-por-canal" style="display:none; gap:6px; flex-wrap:wrap;">
           <button type="button" class="btn-secundario btn-sm" data-canal="email">Eliminar todas (Email)</button>
           <button type="button" class="btn-secundario btn-sm" data-canal="email_personal">Eliminar todas (Email personal)</button>
@@ -441,7 +434,7 @@ document.getElementById('btn-ver-destinatarios').addEventListener('click', async
         <span>${d.nombre} <span style="color:var(--color-text-muted);">— ${d.detalle}</span></span>
         <span class="mono">${d.contacto || '—'}</span>
       </div>
-    `).join('') + (r.total > r.muestra.length ? `<p style="color:var(--color-text-muted); font-size:0.8rem; margin-top:6px;">... y ${formatoMillares(r.total - r.muestra.length)} más.</p>` : '');
+    `).join('') + (r.total > r.muestra.length ? `<p style="color:var(--color-text-muted); font-size:0.9rem; margin-top:8px;">… y ${formatoMillares(r.total - r.muestra.length)} más.</p>` : '');
   } catch (err) {
     alert(err.message);
   } finally {
@@ -756,59 +749,31 @@ async function cargarBajas() {
   try {
     filas = await api('/comunicaciones/bajas');
   } catch (err) {
-    // Un líder no tiene permiso para verla (es admin/coordinador): la tarjeta
+    // Un líder no tiene permiso para verla (es admin/coordinador): el aviso
     // simplemente no aparece, en vez de mostrar un error que no puede resolver.
     tarjeta.style.display = 'none';
     return;
   }
-  // Sin bajas no se muestra nada. Una tabla vacía con un título que habla de
-  // gente que se fue hace pensar que algo no cargó.
+  // Sin bajas no se muestra nada. Un aviso que hable de gente que se fue,
+  // cuando no se fue nadie, es ruido en la pantalla de armar el envío.
   if (!filas.length) { tarjeta.style.display = 'none'; return; }
+
+  /* SE CUENTAN PERSONAS, NO FICHAS. Quien está en Votantes y además en el
+     equipo aparece DOS veces en esta consulta —son dos filas unidas por el
+     mismo teléfono— y decir «2 personas» donde hay una sola es un dato falso
+     en la cara de quien va a mandar el mensaje. Se agrupa por los últimos diez
+     dígitos, que es la llave con la que la baja se aplica de verdad
+     (`estaDadoDeBaja` en config/sms.js). El detalle está en /no-contactar.html. */
+  const llaves = new Set(filas.map(b => String(b.telefono || '').replace(/\D/g, '').slice(-10)
+    || (b.email || '').trim().toLowerCase() || `ficha:${b.tipo}:${b.id}`));
+  const n = llaves.size;
   tarjeta.style.display = 'block';
-  document.getElementById('badge-bajas').textContent = `(${filas.length})`;
-  document.getElementById('tbody-bajas').innerHTML = filas.map(b => `
-    <tr>
-      <td><strong>${escaparHtml(b.nombre || '—')}</strong></td>
-      <td>${escaparHtml(b.tipo)}</td>
-      <td class="mono">${escaparHtml(b.telefono || b.email || '—')}</td>
-      <td>${b.fecha ? formatoFecha(b.fecha, true) : '—'}</td>
-      <td>${escaparHtml(b.origen_texto)}</td>
-      <td style="white-space:nowrap;">${usuarioActual && usuarioActual.rol === 'admin'
-        ? `<button class="btn-secundario btn-sm" onclick="reactivarBaja('${b.tipo === 'Votante' ? 'votante' : 'usuario'}', ${b.id}, '${escaparHtml(b.nombre || '').replace(/'/g, "&apos;")}')">Reactivar</button>`
-        : ''}</td>
-    </tr>`).join('');
+  // La frase entera se arma aquí, no a medias en el HTML: con «1 persona no
+  // reciben» la concordancia quedaba mal justo en el caso más común.
+  document.getElementById('badge-bajas').innerHTML = n === 1
+    ? '<strong>1 persona</strong> no recibe mensajes por ningún canal. La lista se respeta sola en cada envío.'
+    : `<strong>${n} personas</strong> no reciben mensajes por ningún canal. La lista se respeta sola en cada envío.`;
 }
-
-/**
- * Volver a habilitarle los mensajes a alguien que pidio no recibirlos.
- *
- * Se pregunta DOS veces —una confirmacion y un motivo— a proposito. Esta
- * persona ejercio un derecho, y lo normal es que esto solo se haga cuando
- * ella misma lo pide; no es una casilla que se deba poder desmarcar de un
- * clic distraido. El motivo queda en la auditoria con quien lo hizo.
- */
-async function reactivarBaja(tipo, id, nombre) {
-  if (!confirm(
-    `${nombre} pidió no recibir más mensajes.\n\n` +
-    'Solo debe reactivarla si ELLA lo pidió. Volver a escribirle sin que lo haya '
-    + 'autorizado va contra la ley de datos personales.\n\n¿Continuar?')) return;
-  const motivo = prompt('¿Por qué se reactiva? (queda en la auditoría, con su nombre)');
-  if (motivo === null) return;
-  if (!motivo.trim()) { alert('Hay que escribir el motivo.'); return; }
-  try {
-    const r = await api(`/comunicaciones/bajas/${tipo}/${id}/reactivar`, {
-      method: 'POST', body: { motivo },
-    });
-    alert(`Listo. Se reactivaron ${r.fichas} ficha(s) de esta persona.`);
-    await cargarBajas();
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-document.getElementById('btn-exportar-bajas').addEventListener('click', () => {
-  window.location = '/api/comunicaciones/bajas/exportar-excel';
-});
 
 async function cargarRespuestas() {
   try {
@@ -835,7 +800,16 @@ function actualizarContadorCampana() {
   const caja = document.getElementById('contador-sms-campana');
   const esTexto = typeof canalElegido !== 'undefined' && canalElegido === 'sms';
   if (!esTexto) { caja.innerHTML = ''; return; }
-  const conteo = document.getElementById('resumen-destinatarios');
+  /* ERA 'resumen-destinatarios', UN ID QUE NO EXISTE EN ESTA PAGINA. El
+     elemento se llama 'conteo-destinatarios'. No reventaba —hay un `conteo ?`
+     que lo cubre— asi que el contador se limitaba a suponer CERO destinatarios
+     y no podia decir cuanto cuesta el envio. Y en SMS eso es plata: se cobra
+     por segmento, una sola tilde parte el mensaje en tres, y el numero que
+     multiplica es justo el que se estaba perdiendo.
+     Encontrado el 28 de agosto de 2026 comparando los `getElementById` de la
+     pagina contra los `id` que de verdad tiene. Venia de antes del rediseño:
+     comprobado contra la version en git. */
+  const conteo = document.getElementById('conteo-destinatarios');
   const n = conteo ? Number((conteo.textContent.match(/(\d[\d.,]*)\s+tienen/) || [])[1]?.replace(/[.,]/g, '') || 0) : 0;
   pintarContadorSms(document.getElementById('input-mensaje-campana'), caja, n);
 }

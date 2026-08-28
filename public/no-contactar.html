@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pidieron no recibir más · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
+<style>
+  /* AVISO DE LEY, no una tarjeta más. Lleva la franja lateral roja para que
+     se lea como lo que es —una obligación, no un consejo— sin gritar con un
+     fondo entero de color. */
+  .aviso-ley {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: #FFFBF0; border: 1px solid #F3E2B4; border-left: 4px solid var(--crm-amarillo);
+    border-radius: var(--radius); padding: 16px 18px; margin-bottom: 18px;
+  }
+  .aviso-ley .icono { font-size: 1.3rem; line-height: 1.3; }
+  /* Texto en el navy de la casa y no en rojo: es una advertencia permanente,
+     no una alarma. En rojo, a la tercera visita ya no se lee. */
+  .aviso-ley p { margin: 0; font-size: 0.94rem; color: var(--color-text); line-height: 1.6; }
+  .aviso-ley p + p { margin-top: 4px; }
+
+  /* La inicial de la persona. Da un punto de anclaje a la vista para recorrer
+     una lista larga con el ojo, sin cargar ninguna imagen. */
+  .inicial {
+    width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%;
+    background: var(--crm-azul-hondo); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+  .persona { display: flex; align-items: center; gap: 10px; }
+  .persona .nombre { font-weight: 600; color: var(--color-text); }
+  .persona .contacto { font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-text-muted); }
+
+  .chip-ficha {
+    display: inline-block; padding: 2px 9px; border-radius: 12px;
+    font-size: 0.82rem; font-weight: 600; margin-right: 4px;
+  }
+  .chip-votante { background: #EEF3FB; color: var(--color-navy-light); }
+  .chip-equipo  { background: #FDF3E0; color: var(--color-accent-dark); }
+
+  .chip-origen {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 12px; background: #EEF0F3;
+    font-size: 0.84rem; font-weight: 600; color: var(--color-text-muted);
+  }
+
+  .cuando .relativo { font-weight: 600; color: var(--color-text); }
+  .cuando .exacto { display: block; font-size: 0.84rem; color: var(--color-text-muted); }
+
+  .barra-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .barra-filtros input[type="search"] { min-width: 260px; flex: 1 1 260px; }
+  .barra-filtros select { width: auto; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="crm-hero">
+      <div class="eyebrow">CRM y mensajería</div>
+      <h1>Pidieron no recibir más</h1>
+      <p>Quien está en esta lista queda fuera de todos los envíos, por cualquier canal,
+         sin que usted tenga que acordarse de excluirlo.</p>
+    </div>
+
+    <div class="topbar" style="margin-bottom:16px;">
+      <div></div>
+      <button type="button" class="btn-secundario" id="btn-exportar">⬇ Exportar a Excel</button>
+    </div>
+
+    <div class="aviso-ley">
+      <span class="icono">⚖️</span>
+      <div>
+        <p><strong>A estas personas no se les envía nada, por ningún canal.</strong>
+           La lista se respeta sola en cada envío: no hay que acordarse de excluirlas.</p>
+        <p>Revocar la autorización de sus datos es un derecho (Ley 1581). Volver a
+           escribirles sin que ellas lo pidan va contra la norma.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-3" style="margin-bottom:16px;">
+      <div class="card stat-card">
+        <div class="label">Personas</div>
+        <div class="valor" id="kpi-personas">—</div>
+        <small style="color:var(--color-text-muted);" id="kpi-fichas-nota">&nbsp;</small>
+      </div>
+      <div class="card stat-card">
+        <div class="label">En los últimos 30 días</div>
+        <div class="valor accent" id="kpi-recientes">—</div>
+        <small style="color:var(--color-text-muted);">Cuántas se salieron hace poco</small>
+      </div>
+      <div class="card stat-card">
+        <div class="label">Por dónde lo pidieron</div>
+        <div class="valor" id="kpi-canal-top" style="font-size:1.15rem; font-family:var(--font-body);">—</div>
+        <small style="color:var(--color-text-muted);" id="kpi-canal-nota">&nbsp;</small>
+      </div>
+    </div>
+
+    <div class="card paso crm-historial">
+      <div class="barra-filtros">
+        <input type="search" id="filtro-texto" placeholder="Buscar por nombre, teléfono o correo…">
+        <select id="filtro-tipo">
+          <option value="">Votantes y equipo</option>
+          <option value="Votante">Solo votantes</option>
+          <option value="Equipo">Solo equipo</option>
+        </select>
+        <select id="filtro-origen">
+          <option value="">Por cualquier vía</option>
+        </select>
+        <span style="color:var(--color-text-muted); font-size:0.85rem;" id="conteo-visible"></span>
+      </div>
+
+      <div class="tabla-contenedor">
+        <table>
+          <thead><tr>
+            <th>Persona</th>
+            <th style="width:150px;">Está en</th>
+            <th style="width:170px;">Cuándo lo pidió</th>
+            <th style="width:180px;">Por dónde</th>
+            <th style="width:110px;" class="col-acciones"></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="vacio" id="vacio" style="display:none;">
+        <div class="icono-vacio">✅</div>
+        <div id="texto-vacio">Nadie ha pedido salirse de los envíos.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual = null;
+/* Se guarda la lista completa y los filtros trabajan sobre ella en memoria:
+   son dos docenas de filas en el peor caso, y volver a pedirlas al servidor
+   por cada letra que se teclea sería gastar una consulta por pulsación. */
+let personas = [];
+
+const ETIQUETA_TIPO = { Votante: 'Votante', Equipo: 'Equipo' };
+
+/**
+ * Una persona puede estar dada de baja DOS VECES: como votante y como
+ * miembro del equipo. Son dos fichas de la misma persona, unidas por el
+ * teléfono o el correo — que es exactamente como la baja se aplica
+ * (`estaDadoDeBaja` compara los últimos diez dígitos) y como se deshace
+ * (`/bajas/:tipo/:id/reactivar` desmarca TODAS las fichas que compartan
+ * contacto).
+ *
+ * Sin agrupar, el contador mentía: la pantalla decía «(2)» donde había UNA
+ * sola persona, y ofrecía dos botones «Reactivar» que hacían exactamente lo
+ * mismo. Se agrupa por contacto y queda una fila por persona.
+ */
+function agruparPorPersona(filas) {
+  const mapa = new Map();
+  for (const f of filas) {
+    const diez = String(f.telefono || '').replace(/\D/g, '').slice(-10);
+    // El teléfono manda porque es la llave con la que se aplica la baja; el
+    // correo es el respaldo para quien no tiene número. Sin ninguno de los
+    // dos, la ficha va sola: agruparlas todas bajo «sin contacto» juntaría
+    // gente distinta.
+    const llave = diez || (f.email || '').trim().toLowerCase() || `ficha:${f.tipo}:${f.id}`;
+    if (!mapa.has(llave)) {
+      mapa.set(llave, {
+        nombre: f.nombre || '', telefono: f.telefono || '', email: f.email || '',
+        fecha: f.fecha || null, origen: f.origen || null, origen_texto: f.origen_texto,
+        fichas: [], tipos: new Set(),
+      });
+    }
+    const p = mapa.get(llave);
+    p.fichas.push({ tipo: f.tipo, id: f.id });
+    p.tipos.add(f.tipo);
+    if (!p.nombre && f.nombre) p.nombre = f.nombre;
+    if (!p.telefono && f.telefono) p.telefono = f.telefono;
+    if (!p.email && f.email) p.email = f.email;
+    // Se queda la fecha MÁS ANTIGUA: es cuando la persona lo pidió. La
+    // segunda ficha se marcó sola, en la misma operación o después.
+    if (f.fecha && (!p.fecha || f.fecha < p.fecha)) { p.fecha = f.fecha; p.origen = f.origen; p.origen_texto = f.origen_texto; }
+  }
+  return [...mapa.values()];
+}
+
+/** «hace 3 días», para no obligar a restar fechas mentalmente. */
+function haceCuanto(fecha) {
+  if (!fecha) return '';
+  const dias = Math.floor((Date.now() - new Date(fecha).getTime()) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 30) return `hace ${dias} días`;
+  if (dias < 60) return 'hace un mes';
+  if (dias < 365) return `hace ${Math.floor(dias / 30)} meses`;
+  return `hace ${Math.floor(dias / 365)} año(s)`;
+}
+
+function inicialDe(nombre) {
+  const limpio = String(nombre || '').trim();
+  return limpio ? limpio[0].toUpperCase() : '?';
+}
+
+function pintarKpis() {
+  const fichas = personas.reduce((n, p) => n + p.fichas.length, 0);
+  document.getElementById('kpi-personas').textContent = personas.length;
+  // Solo se menciona la diferencia cuando la hay: «2 personas / 2 fichas» no
+  // le dice nada a nadie.
+  document.getElementById('kpi-fichas-nota').textContent =
+    fichas > personas.length ? `${fichas} fichas en total (alguien está en las dos listas)` : ' ';
+
+  const hace30 = Date.now() - 30 * 86400000;
+  document.getElementById('kpi-recientes').textContent =
+    personas.filter(p => p.fecha && new Date(p.fecha).getTime() >= hace30).length;
+
+  const porOrigen = new Map();
+  personas.forEach(p => porOrigen.set(p.origen_texto, (porOrigen.get(p.origen_texto) || 0) + 1));
+  const top = [...porOrigen.entries()].sort((a, b) => b[1] - a[1])[0];
+  document.getElementById('kpi-canal-top').textContent = top ? top[0] : '—';
+  document.getElementById('kpi-canal-nota').textContent =
+    top ? `${top[1]} de ${personas.length}` : ' ';
+}
+
+function pintarFiltroOrigen() {
+  const select = document.getElementById('filtro-origen');
+  const vistos = [...new Set(personas.map(p => p.origen_texto))].sort();
+  select.innerHTML = '<option value="">Por cualquier vía</option>'
+    + vistos.map(o => `<option value="${escaparHtml(o)}">${escaparHtml(o)}</option>`).join('');
+}
+
+function pintarTabla() {
+  const texto = document.getElementById('filtro-texto').value.trim().toLowerCase();
+  const tipo = document.getElementById('filtro-tipo').value;
+  const origen = document.getElementById('filtro-origen').value;
+
+  const visibles = personas.filter(p => {
+    if (tipo && !p.tipos.has(tipo)) return false;
+    if (origen && p.origen_texto !== origen) return false;
+    if (!texto) return true;
+    return `${p.nombre} ${p.telefono} ${p.email}`.toLowerCase().includes(texto);
+  });
+
+  const cuerpo = document.getElementById('tbody');
+  const vacio = document.getElementById('vacio');
+  document.getElementById('conteo-visible').textContent =
+    visibles.length === personas.length ? '' : `${visibles.length} de ${personas.length}`;
+
+  if (!visibles.length) {
+    cuerpo.innerHTML = '';
+    vacio.style.display = 'block';
+    // Se distingue «no hay nadie» de «el filtro no encontró a nadie»: son dos
+    // situaciones distintas y la primera es una buena noticia.
+    document.getElementById('texto-vacio').textContent = personas.length
+      ? 'Ninguna persona coincide con lo que buscó.'
+      : 'Nadie ha pedido salirse de los envíos.';
+    vacio.previousElementSibling.style.display = 'none';
+    return;
+  }
+  vacio.style.display = 'none';
+  vacio.previousElementSibling.style.display = '';
+
+  cuerpo.innerHTML = visibles.map(p => {
+    const contacto = p.telefono || p.email || 'sin contacto registrado';
+    const puedeReactivar = usuarioActual && usuarioActual.rol === 'admin';
+    // Se reactiva desde CUALQUIERA de sus fichas: el servidor desmarca todas
+    // las que compartan teléfono o correo.
+    const f = p.fichas[0];
+    const tipoRuta = f.tipo === 'Votante' ? 'votante' : 'usuario';
+    return `
+    <tr>
+      <td>
+        <div class="persona">
+          <div class="inicial">${escaparHtml(inicialDe(p.nombre))}</div>
+          <div>
+            <div class="nombre">${escaparHtml(p.nombre || 'Sin nombre')}</div>
+            <div class="contacto">${escaparHtml(contacto)}</div>
+          </div>
+        </div>
+      </td>
+      <td>${[...p.tipos].map(t => `<span class="chip-ficha chip-${t === 'Votante' ? 'votante' : 'equipo'}">${escaparHtml(ETIQUETA_TIPO[t] || t)}</span>`).join('')}</td>
+      <td class="cuando">${p.fecha
+        ? `<span class="relativo">${escaparHtml(haceCuanto(p.fecha))}</span><span class="exacto">${escaparHtml(formatoFecha(p.fecha, true))}</span>`
+        : '<span style="color:var(--color-text-muted);">No quedó registrado</span>'}</td>
+      <td><span class="chip-origen">${escaparHtml(p.origen_texto)}</span></td>
+      <td class="col-acciones" style="white-space:nowrap;">${puedeReactivar
+        ? `<button class="btn-secundario btn-sm" data-tipo="${tipoRuta}" data-id="${f.id}" data-nombre="${escaparHtml(p.nombre || '')}">Reactivar</button>`
+        : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+/**
+ * Volver a habilitarle los mensajes a alguien que pidió no recibirlos.
+ *
+ * Se pregunta DOS veces —una confirmación y un motivo— a propósito. Esta
+ * persona ejerció un derecho, y lo normal es que esto solo se haga cuando
+ * ella misma lo pide; no es una casilla que se deba poder desmarcar de un
+ * clic distraído. El motivo queda en la auditoría con quién lo hizo.
+ */
+async function reactivar(tipo, id, nombre) {
+  if (!confirm(
+    `${nombre || 'Esta persona'} pidió no recibir más mensajes.\n\n` +
+    'Solo debe reactivarla si ELLA lo pidió. Volver a escribirle sin que lo haya '
+    + 'autorizado va contra la ley de datos personales.\n\n¿Continuar?')) return;
+  const motivo = prompt('¿Por qué se reactiva? (queda en la auditoría, con su nombre)');
+  if (motivo === null) return;
+  if (!motivo.trim()) { alert('Hay que escribir el motivo.'); return; }
+  try {
+    const r = await api(`/comunicaciones/bajas/${tipo}/${id}/reactivar`, {
+      method: 'POST', body: { motivo },
+    });
+    alert(`Listo. Se reactivaron ${r.fichas} ficha(s) de esta persona.`);
+    await cargar();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Un solo oyente para toda la tabla: las filas se vuelven a pintar en cada
+// filtro, y colgarle un oyente a cada botón los dejaría huérfanos.
+document.getElementById('tbody').addEventListener('click', (e) => {
+  const boton = e.target.closest('button[data-tipo]');
+  if (boton) reactivar(boton.dataset.tipo, boton.dataset.id, boton.dataset.nombre);
+});
+
+['filtro-texto', 'filtro-tipo', 'filtro-origen'].forEach(id =>
+  document.getElementById(id).addEventListener('input', pintarTabla));
+
+document.getElementById('btn-exportar').addEventListener('click', () => {
+  window.location = '/api/comunicaciones/bajas/exportar-excel';
+});
+
+async function cargar() {
+  let filas;
+  try {
+    filas = await api('/comunicaciones/bajas');
+  } catch (err) {
+    // Esta pantalla es de admin y coordinador. Quien llegue sin permiso ve
+    // por qué, en vez de una tabla vacía que parece un fallo.
+    document.getElementById('vacio').style.display = 'block';
+    document.getElementById('texto-vacio').textContent = err.message;
+    document.getElementById('vacio').previousElementSibling.style.display = 'none';
+    return;
+  }
+  personas = agruparPorPersona(filas);
+  pintarKpis();
+  pintarFiltroOrigen();
+  pintarTabla();
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/no-contactar.html');
+  if (!usuarioActual) return;
+  await cargar();
+})();
+</script>
+</body>
+</html>

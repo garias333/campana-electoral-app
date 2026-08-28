@@ -869,6 +869,42 @@ function limpiarSobrantes(texto) {
 }
 
 /**
+ * Quita la FRASE de baja entera cuando no hay enlace que poner.
+ *
+ * POR QUE NO BASTA CON DEJAR EL MARCADOR VACIO. Un destinatario escrito a mano
+ * que no esta en la base no tiene ficha que dar de baja: el codigo es un HMAC
+ * de «tipo:id» y sin id no hay codigo, asi que `{baja}` se resolvia a cadena
+ * vacia. El mensaje salia prometiendo una salida y sin darla:
+ *
+ *     «... Gracias por acompanarnos. Para no recibir mas: »
+ *
+ * Eso es peor que no prometer nada — quien lo lee cree que el enlace se perdio
+ * y no tiene a quien reclamarle. Se prefiere mandar el mensaje sin la frase.
+ *
+ * SE TRABAJA SOBRE EL TEXTO ORIGINAL, con el marcador todavia puesto. Buscar
+ * una frase colgando DESPUES de sustituir seria adivinar: el texto lo escribe
+ * cada campaña y «Para no recibir mas:» es solo una de mil formas de decirlo.
+ * Con el marcador en su sitio, la frase se delimita sola.
+ *
+ * Se borra desde el final de la frase anterior —punto, admiracion,
+ * interrogacion o salto de linea— hasta el marcador y su puntuacion final. El
+ * separador de la izquierda se conserva: si no, «Gracias.» perderia su punto.
+ *
+ * SI ESO VACIA EL MENSAJE, NO SE TOCA NADA. Un texto que sea solo el enlace no
+ * tiene otra cosa que decir, y mandar un SMS vacio falla en el operador — un
+ * error nuevo a cambio de arreglar una frase.
+ */
+function quitarFraseDeBaja(mensaje) {
+  let texto = String(mensaje);
+  let previo;
+  do {
+    previo = texto;
+    texto = texto.replace(/(^|[.!?\n])[^.!?\n]*\{baja\}[^.!?\n]*[.!?]?/i, (todo, separador) => separador);
+  } while (texto !== previo && /\{baja\}/i.test(texto));
+  return limpiarSobrantes(texto) ? texto : String(mensaje);
+}
+
+/**
  * El texto que se agrega al final de un SMS cuando quien redactó no puso
  * {baja}.
  *
@@ -910,11 +946,16 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
   // fallo al leer un ajuste es peor que gastar 78 caracteres de más.
   let bajaEncendida = true;
   try { bajaEncendida = (await smsSvc.configCampana()).bajaAutomatica !== false; } catch (_) {}
-  let texto = mensaje
+  // Sin enlace, la frase de baja se cae entera en vez de quedar colgando. Las
+  // sustituciones siguen corriendo sobre ESTE texto, que puede haber perdido
+  // esa frase; `mensaje` se conserva intacto porque `agregarBajaSms` lo mira
+  // para saber si quien redacto puso {baja} a mano.
+  const plantilla = urlBaja ? mensaje : quitarFraseDeBaja(mensaje);
+  let texto = plantilla
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
     .replace(/\{slogan\}/gi, slogan || '')
     .replace(/\{baja\}/gi, urlBaja);
-  const minus = mensaje.toLowerCase();
+  const minus = plantilla.toLowerCase();
   if (!MARCADORES_LUGAR.some(m => minus.includes(m))) {
     return { texto: agregarBajaSms(limpiarSobrantes(texto), canal, mensaje, urlBaja, bajaEncendida), urlBaja };
   }

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
 <style>
 /* Estilo propio de esta pantalla.
    VA AQUÍ Y NO EN style.css a propósito: esa hoja la comparten 24 pantallas y
@@ -203,32 +204,38 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <!-- El archivo sigue llamándose configurar-crm.html y el módulo de
-           permisos sigue siendo 'configurar_crm': solo cambia el texto que
-           se ve. Renombrar el archivo rompería los enlaces guardados y
-           renombrar el módulo dejaría a los admin sin acceso. -->
-      <div><div class="eyebrow">CRM y mensajería</div><h1>Configurar mensajería</h1></div>
+    <!-- El archivo sigue llamándose configurar-crm.html y el módulo de
+         permisos sigue siendo 'configurar_crm': solo cambia el texto que
+         se ve. Renombrar el archivo rompería los enlaces guardados y
+         renombrar el módulo dejaría a los admin sin acceso. -->
+    <div class="crm-hero">
+      <div class="eyebrow">CRM y mensajería</div>
+      <h1>Configurar mensajería</h1>
+      <p>Las llaves de correo y SMS, el estado de cada canal y un envío de prueba.
+         Sin esto configurado, las pantallas de envío no pueden mandar nada.</p>
     </div>
 
     <div class="card" id="crm-config-bloqueado">
       <div style="text-align:center; padding:26px 10px;">
         <div style="font-size:2.4rem; margin-bottom:10px;">🔒</div>
-        <h3 style="margin:0 0 8px;">Esta pantalla está protegida</h3>
-        <p style="color:var(--color-text-muted); font-size:0.9rem; max-width:420px; margin:0 auto 18px;">
+        <h3 style="margin:0 0 8px; font-size:1.3rem;">Esta pantalla está protegida</h3>
+        <p style="color:var(--color-text-muted); font-size:0.95rem; max-width:440px; margin:0 auto 18px; line-height:1.6;">
           Las credenciales de los canales de mensajería son sensibles — para verlas o editarlas, confirma tu contraseña de administrador.
         </p>
         <button type="button" class="btn-primario" id="btn-desbloquear-crm">Ingresar contraseña de administrador</button>
       </div>
     </div>
 
-    <div class="card" id="crm-config-card" style="display:none;">
-      <h3 style="margin-top:0;">Credenciales de los canales</h3>
-      <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:16px;">
-        Se guardan en esta base de datos, no en el servidor — así se actualizan desde acá sin
-        necesitar acceso por SSH. Los campos de clave se muestran enmascarados una vez guardados:
-        si los dejas con los puntos, se conserva el valor que ya tenías.
-      </p>
+    <div class="card paso" id="crm-config-card" style="display:none;">
+      <div class="paso-cabeza">
+        <div class="paso-num paso-icono">🔑</div>
+        <div>
+          <h3>Credenciales de los canales</h3>
+          <p class="paso-sub">Se guardan en esta base de datos, no en el servidor — así se actualizan
+            desde acá sin necesitar acceso por SSH. Los campos de clave se muestran enmascarados una
+            vez guardados: si los deja con los puntos, se conserva el valor que ya tenía.</p>
+        </div>
+      </div>
       <div id="comunicaciones-error" class="mensaje-error"></div>
       <div id="comunicaciones-ok" class="mensaje-ok"></div>
       <form id="form-comunicaciones">
@@ -360,8 +367,15 @@
     <!-- Estado y prueba. Guardar credenciales no garantiza que sirvan: el
          canal puede verse configurado y aun así no enviar nada (pasó con un
          número que tenía espacios). Estas dos cosas cierran ese hueco. -->
-    <div class="card" id="crm-estado-card" style="display:none;">
-      <h3 style="margin-top:0;">Estado de los canales</h3>
+    <div class="card paso" id="crm-estado-card" style="display:none;">
+      <div class="paso-cabeza">
+        <div class="paso-num paso-icono">📶</div>
+        <div>
+          <h3>Estado de los canales</h3>
+          <p class="paso-sub">Guardar las credenciales no garantiza que sirvan. Acá se ve si cada
+            canal responde de verdad, y cuántos créditos de SMS quedan.</p>
+        </div>
+      </div>
       <div class="msj-estado-grid" id="estado-canales">
         <div class="msj-tarjeta-estado">
           <span class="msj-rotulo">Correo</span>
@@ -382,7 +396,12 @@
       </div>
       <p id="estado-motivos" style="color:var(--color-text-muted); font-size:0.85rem; margin:14px 0 0;"></p>
 
-      <h3 style="margin:26px 0 6px;">Enviar un mensaje de prueba</h3>
+      <div class="paso-cabeza" style="margin-top:30px;">
+        <div class="paso-num paso-icono">✉</div>
+        <div>
+          <h3>Enviar un mensaje de prueba</h3>
+        </div>
+      </div>
       <p class="msj-nota">
         <strong>El mensaje se envía de verdad.</strong> El SMS consume un crédito de la campaña y
         llega al número que escribas. Si algo falla, acá vas a ver el error exacto que devuelve el

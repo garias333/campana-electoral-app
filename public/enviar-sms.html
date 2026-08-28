@@ -7,43 +7,49 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
 <style>
   .resultado-busqueda {
     display: flex; justify-content: space-between; align-items: center;
     padding: 8px 10px; border-bottom: 1px solid var(--color-border, #f0f0f0);
-    cursor: pointer; font-size: 0.85rem;
+    cursor: pointer; font-size: 0.92rem;
   }
   .resultado-busqueda:hover { background: #f7f8fa; }
   .resultado-busqueda.ya-elegido { opacity: 0.4; cursor: default; }
   .chip-contacto {
     display: inline-flex; align-items: center; gap: 6px;
     background: #eef2f6; border-radius: 16px; padding: 5px 6px 5px 12px;
-    font-size: 0.82rem; margin: 3px 4px 3px 0;
+    font-size: 0.9rem; margin: 3px 4px 3px 0;
   }
   .chip-contacto button {
     border: none; background: #d8dee5; color: #333; border-radius: 50%;
     width: 18px; height: 18px; line-height: 18px; text-align: center;
     cursor: pointer; font-size: 0.75rem; padding: 0;
   }
-  .badge-campana { padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:600; }
-  .badge-enviado { background:#dcfce7; color:#166534; }
-  .badge-enviando { background:#fef3c7; color:#92400e; }
-  .badge-fallido { background:#fee2e2; color:#991b1b; }
-  .badge-borrador { background:#f1f5f9; color:#475569; }
+  /* Las insignias de estado (.badge-campana y compañía) NO se definen aquí:
+     viven en /css/crm.css, compartidas con las otras cuatro pantallas de la
+     sección. Estaban copiadas, y como este bloque va DESPUÉS del <link>
+     ganaba la copia: la hoja compartida subía la letra a 0,8 rem y estas dos
+     pantallas se quedaban en 0,75 sin que nada lo delatara. */
 </style>
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">CRM y mensajería</div><h1>Enviar SMS</h1></div>
+    <div class="crm-hero">
+      <div class="eyebrow">CRM y mensajería</div>
+      <h1>Enviar SMS</h1>
+      <p>Para avisos puntuales a un contacto o a un grupo pequeño — citar a una reunión, confirmar un evento. No es para envíos masivos: para eso está CRM y Mensajes.</p>
     </div>
-    <p style="color:var(--color-text-muted); font-size:0.88rem; margin-top:-8px; margin-bottom:18px;">
-      Para avisos puntuales a un contacto o a un grupo pequeño — citar a una reunión, confirmar un evento, etc. No es para envíos masivos (para eso está CRM y Mensajes).
-    </p>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="margin-top:0;">1. Elige a quién le va a llegar</h3>
+    <div class="card paso">
+      <div class="paso-cabeza">
+        <div class="paso-num">1</div>
+        <div>
+          <h3>Elige a quién le va a llegar</h3>
+          <p class="paso-sub">Busque a la persona por nombre, cargo o nivel, o pegue números escritos a mano.</p>
+        </div>
+      </div>
       <div class="campo">
         <label>Busca por nombre, cargo o nivel (Votantes, Estructura, Organigrama)</label>
         <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
@@ -135,8 +141,14 @@
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="margin-top:0;">2. Escribe el mensaje</h3>
+    <div class="card paso">
+      <div class="paso-cabeza">
+        <div class="paso-num">2</div>
+        <div>
+          <h3>Escribe el mensaje</h3>
+          <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada quien. Ojo con las tildes: una sola parte el SMS de 1 segmento a 3.</p>
+        </div>
+      </div>
       <div class="campo">
         <label>Mensaje</label>
         <!-- Plantillas guardadas. Solo se ofrecen las de este canal (y las
@@ -149,11 +161,11 @@
         <textarea id="input-mensaje" rows="5" placeholder="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien."></textarea>
         <!-- Cuántos SMS es de verdad: el precio se cobra por segmento, y una
              tilde parte el mensaje en tres. Ver public/js/segmentos-sms.js -->
-        <div id="contador-sms" style="font-size:0.78rem; margin-top:4px;"></div>
-        <small style="color:var(--color-text-muted); font-size:0.78rem;">Tip: escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. El enlace de baja se agrega solo al final de cada SMS; escribe <code>{baja}</code> si prefieres ponerlo en otro sitio del mensaje. Ocupa unos 78 caracteres — el contador de abajo ya los cuenta.</small>
-        <div style="margin-top:8px; padding:10px 12px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; background:var(--color-surface, #fff);">
-          <div style="font-weight:700; color:#0B5ED7; font-size:0.82rem; margin-bottom:4px;">Día D — decirle a cada quien dónde vota</div>
-          <div style="font-size:0.78rem; color:var(--color-text-muted); line-height:1.5;">
+        <div id="contador-sms" style="font-size:0.88rem; margin-top:6px;"></div>
+        <small>Tip: escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. El enlace de baja se agrega solo al final de cada SMS; escribe <code>{baja}</code> si prefieres ponerlo en otro sitio del mensaje. Ocupa unos 78 caracteres — el contador de abajo ya los cuenta.</small>
+        <div class="caja-diad">
+          <div class="titulo">Día D — decirle a cada quien dónde vota</div>
+          <div class="detalle">
             Estos marcadores se reemplazan con el Lugar de votación <strong>de cada destinatario</strong>:
             <code>{lugar_votacion}</code> (todo junto), <code>{puesto}</code>, <code>{mesa}</code>,
             <code>{municipio}</code>, <code>{departamento}</code>.
@@ -165,12 +177,12 @@
       </div>
       <div id="form-error" class="mensaje-error"></div>
       <div id="form-ok" class="mensaje-ok"></div>
-      <button type="button" class="btn-acento" id="btn-enviar">Enviar SMS</button>
+      <button type="button" class="btn-accion-crm" id="btn-enviar">Enviar SMS</button>
     </div>
 
-    <div class="card">
-      <div class="topbar" style="margin-bottom:6px;">
-        <h3 style="margin:0;">Historial de envíos</h3>
+    <div class="card crm-historial">
+      <div class="topbar" style="margin-bottom:10px;">
+        <h3 style="margin:0; font-size:1.3rem;">Historial de envíos</h3>
         <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todo-historial" style="display:none;">Eliminar todas</button>
       </div>
       <div class="tabla-contenedor">
@@ -351,7 +363,7 @@ document.getElementById('input-buscar-contacto').addEventListener('input', (e) =
       return `
         <div class="resultado-busqueda ${yaElegido ? 'ya-elegido' : ''}" onclick='agregarDesdeBusqueda(${JSON.stringify(d).replace(/'/g, "&apos;")})'>
           <span>${d.nombre} <span style="color:var(--color-text-muted);">— ${d.detalle}</span></span>
-          <span class="mono" style="font-size:0.78rem;">${yaElegido ? 'Agregado' : d.contacto}</span>
+          <span class="mono" style="font-size:0.88rem;">${yaElegido ? 'Agregado' : d.contacto}</span>
         </div>`;
     }).join('');
     caja.style.display = 'block';

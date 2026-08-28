@@ -226,6 +226,15 @@ const NAV_ITEMS = [
       { href: '/crm.html', texto: 'CRM y Mensajes', modulo: 'crm', roles: ['admin', 'coordinador'] },
       { href: '/enviar-email.html', texto: 'Enviar E-mail', modulo: 'enviar_email', roles: ['admin', 'coordinador', 'lider'] },
       { href: '/enviar-sms.html', texto: 'Enviar SMS', modulo: 'enviar_sms', roles: ['admin', 'coordinador', 'lider'] },
+      /* Vivía como una tarjeta dentro de CRM y Mensajes, empujando hacia abajo
+         los tres pasos del envío. Es una lista que se consulta y se exporta,
+         no un paso para mandar un mensaje: tiene su propia pantalla.
+         EL MÓDULO SIGUE SIENDO 'crm', y no uno nuevo: los permisos se guardan
+         por módulo, y un nombre que no exista en `permisos.modulos` esconde el
+         ítem a TODA campaña que tenga permisos configurados (ver la línea de
+         `modulosPermitidos.includes` más abajo). Comparte pantalla de permisos
+         con CRM, que es de donde salió. */
+      { href: '/no-contactar.html', texto: 'Pidieron no recibir más', modulo: 'crm', roles: ['admin', 'coordinador'] },
       { href: '/enviar-push.html', texto: 'Aviso en la app', modulo: 'enviar_push', roles: ['admin', 'coordinador', 'lider'] },
       // El módulo sigue siendo 'configurar_crm' (gobierna permisos) y el
       // archivo conserva su nombre: solo cambia el texto visible, porque
