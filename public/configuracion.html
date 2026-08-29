@@ -2039,11 +2039,26 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
   if (!puedeVer(usuarioActual, 'usuarios')) {
     document.getElementById('btn-tab-usuarios').style.display = 'none';
   }
-  if (usuarioActual.rol !== 'admin') {
+  /* EL ASPIRANTE ENTRA, CON DOS PESTAÑAS DE SEIS.
+     Este corte miraba solo el rol, y el suyo es «lider»: tenía la entrada de
+     menú a Datos de la campaña y al llegar leía «sin permiso». Se le deja
+     pasar y se le quitan las cuatro pestañas que no son suyas —Día D,
+     permisos, eliminar información y backup son de la campaña madre—.
+     El servidor no depende de esto: sus rutas son de `admin` y él no lo es,
+     salvo las de cuentas, que comprueban una por una que la cuenta sea de su
+     equipo. Esto solo evita ofrecerle botones que le responderían 403. */
+  const soyAspirante = !!usuarioActual.es_aspirante;
+  if (usuarioActual.rol !== 'admin' && !soyAspirante) {
     document.getElementById('vacio-sin-permiso').style.display = 'block';
     document.getElementById('seccion-campana').style.display = 'none';
     document.querySelector('.topbar').style.display = 'none';
     return;
+  }
+  if (soyAspirante) {
+    ['btn-tab-diad', 'btn-tab-permisos', 'btn-tab-eliminar', 'btn-tab-backup'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.style.display = 'none';
+    });
   }
   await cargarCatalogoColombiaCampana();
   await cargarPartidos();

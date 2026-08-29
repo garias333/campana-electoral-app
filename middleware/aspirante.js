@@ -26,6 +26,10 @@ const pool = require('../config/db');
 const PERMITIDOS = [
   '/auth',           // la sesión, siempre
   '/permisos',       // el menú se arma con esto
+  /* El Panel general. Se abre SOLO porque sus cinco consultas ya vienen
+     acotadas a la rama del aspirante; sin eso, esta línea sola le habría
+     entregado los totales de la campaña madre en el primer JSON. */
+  '/dashboard',
   '/configuracion',  // datos de la campaña, cargos y apoyos
   '/territorial',    // Estructura territorial
   '/votantes',       // Votantes y sublíderes
@@ -36,7 +40,13 @@ const PERMITIDOS = [
 ];
 
 /** Los módulos que ve en el menú. Se corresponden uno a uno con sus pantallas. */
-const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'mapa', 'votantes', 'testigos'];
+/* `panel_general` ENTRA, y con él el panel deja de contar la campaña madre.
+   Las cinco consultas de routes/dashboard.routes.js nacieron sin acotar —le
+   habrían enseñado los votantes de la alcaldía, su balance y su tabla de
+   posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
+   el filtro son el mismo cambio, y separarlos habría dejado una fuga con
+   pinta de función nueva. */
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -67,14 +77,22 @@ const MODULOS_ASPIRANTE = ['configuracion', 'territorial', 'mapa', 'votantes', '
  * módulos. Dos listas en dos sitios se separan; ésta no puede.
  */
 const HREFS_ASPIRANTE = [
+  '/dashboard.html',
   '/territorial.html',
   '/mapa.html',
   '/votantes.html',
   '/testigos.html',
   '/configuracion.html#campana',
+  /* Las cuentas de SU equipo. Son las de su rama que no marcan el cargo de la
+     madre: quien apoya a la alcaldía lo administra la alcaldía, porque
+     restablecer una contraseña no es algo que puedan hacer dos personas sin
+     pisarse. Ver `usuariosDelAspiranteSql` en lib/ramas.js. */
+  '/configuracion.html#usuarios',
 ];
 
 const PERMISOS_ASPIRANTE = {
+  panel_general: { ver: true, editar: false, agregar: false },
+  usuarios:      { ver: true, editar: true,  agregar: true },
   configuracion: { ver: true, editar: true,  agregar: false },
   territorial:   { ver: true, editar: false, agregar: false },
   mapa:          { ver: true, editar: false, agregar: false },
@@ -92,6 +110,16 @@ const PERMISOS_ASPIRANTE = {
  */
 async function cargarSublicencia(req, res, next) {
   req.sublicencia = null;
+  /* «NO PUDE LEERLA» NO ES LO MISMO QUE «NO TIENE».
+     Las dos cosas dejaban `req.sublicencia` en null, y null desarma
+     `restringirAspirante` entero: con un error pasajero de la base —un
+     ER_LOCK_WAIT_TIMEOUT, el pool agotado, una conexión cortada— el aspirante
+     dejaba de estar acotado en TODAS las rutas y su panel pasaba a contar la
+     campaña madre. Sin ningún error visible: la pantalla solo mostraba
+     números más grandes.
+     La bandera separa los dos casos para poder cerrar en uno y seguir abierto
+     en el otro. */
+  req.sublicenciaIlegible = false;
   const u = req.session && req.session.usuario;
   if (!u) return next();
 
@@ -112,13 +140,27 @@ async function cargarSublicencia(req, res, next) {
     // Si la tabla todavía no existe —una campaña que aún no aplicó el parche—
     // se sigue como si no hubiera sublicencias. Tumbar la aplicación entera por
     // una funcionalidad que esa campaña no usa sería el peor cambio posible.
-    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia:', err.message);
+    /* SIN TABLA SE SIGUE COMO SIEMPRE: una campaña que no aplicó el parche no
+       tiene aspirantes, así que no hay nada que acotar y no hay riesgo.
+       Cualquier OTRO error sí es «no sé si esta persona está acotada», y a esa
+       pregunta sin respuesta se contesta cerrando. */
+    if (err.code === 'ER_NO_SUCH_TABLE') return next();
+    console.error('Leyendo sublicencia:', err.message);
+    req.sublicenciaIlegible = true;
   }
   next();
 }
 
 /** Corta lo que un aspirante no debe alcanzar. Sin sublicencia, no hace nada. */
 function restringirAspirante(req, res, next) {
+  /* Se falla CERRADO, y con 503 y no 403: no es que no tenga permiso, es que
+     no se pudo comprobar. El mensaje lo dice, para que quien lo lea vuelva a
+     intentarlo en vez de creer que le quitaron el acceso. */
+  if (req.sublicenciaIlegible) {
+    return res.status(503).json({
+      error: 'No se pudo verificar su acceso en este momento. Vuelva a intentarlo en unos segundos.',
+    });
+  }
   if (!req.sublicencia) return next();
 
   const ruta = req.path || '';

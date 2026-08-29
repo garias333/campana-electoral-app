@@ -1001,6 +1001,50 @@ function puedeVer(usuario, modulo) {
  *
  * Devuelve la contraseña escrita, o null si cancelo.
  */
+/**
+ * Confirmar SIN `confirm()`, con el modal de la propia aplicación.
+ *
+ * POR QUÉ EXISTE. `confirm()` es una ventana del navegador, y el navegador la
+ * apaga: tras varias seguidas ofrece «impedir que esta página cree más
+ * diálogos», y si alguien lo marca —o lo marca sin querer— a partir de ahí
+ * `confirm()` devuelve `false` de inmediato, sin preguntar nada. El código lo
+ * lee como «el usuario dijo que no» y se va en silencio.
+ *
+ * El efecto es un botón muerto: se pulsa y NO PASA NADA DE NADA. Ni diálogo,
+ * ni error, ni nada en la consola. Es imposible de diagnosticar mirando la
+ * pantalla, y le pasa justo a quien más usa la aplicación, porque la
+ * supresión se activa después de varios diálogos seguidos.
+ *
+ * Esto pinta un modal propio, que es DOM de la página: el navegador no tiene
+ * ninguna forma de suprimirlo. Devuelve una promesa que resuelve a true o a
+ * false, así que sustituye a `confirm()` con sólo poner `await` delante.
+ */
+function confirmarEnModal(titulo, explicacion, textoBoton) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay abierto';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:430px;">
+        <div class="modal-header"><h3>${escaparHtml(titulo || '¿Confirma?')}</h3></div>
+        <p style="color:var(--color-text-muted); font-size:0.9rem; line-height:1.5; white-space:pre-line;">${escaparHtml(explicacion || '')}</p>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+          <button type="button" class="btn-primario" id="si-confirmar-modal">${escaparHtml(textoBoton || 'Confirmar')}</button>
+          <button type="button" class="btn-secundario" id="no-confirmar-modal">Cancelar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const cerrar = (valor) => { overlay.remove(); resolve(valor); };
+    overlay.querySelector('#si-confirmar-modal').addEventListener('click', () => cerrar(true));
+    overlay.querySelector('#no-confirmar-modal').addEventListener('click', () => cerrar(false));
+    // Clic fuera y Escape cancelan, como en el resto de los modales.
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(false); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { document.removeEventListener('keydown', esc); cerrar(false); }
+    });
+    overlay.querySelector('#si-confirmar-modal').focus();
+  });
+}
+
 function solicitarPasswordPropia(titulo, explicacion) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');

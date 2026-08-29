@@ -301,6 +301,23 @@
           <datalist id="lista-ciudades-residencia-votante"></datalist>
         </div>
       </div>
+      <!-- DÓNDE VIVE, no dónde trabaja. El «Territorio o área de influencia»
+           de más abajo es otra cosa y tiene sus propios campos. Estos dos
+           existían solo en la ficha de Estructura, así que un votante que no
+           estuviera en la estructura no tenía dónde guardarlos — y la lista
+           acababa enseñando su territorio en las columnas de residencia. -->
+      <div class="fila">
+        <div class="campo">
+          <label>Comuna / Corregimiento</label>
+          <input name="comuna_corregimiento_residencia" id="input-comuna-residencia-votante" list="lista-comuna-residencia-votante" autocomplete="off" placeholder="Ej. Comuna 1 - Atardeceres">
+          <datalist id="lista-comuna-residencia-votante"></datalist>
+        </div>
+        <div class="campo">
+          <label>Barrio / Vereda</label>
+          <input name="barrio_residencia" id="input-barrio-residencia-votante" list="lista-barrio-residencia-votante" autocomplete="off" placeholder="Ej. Arenillo">
+          <datalist id="lista-barrio-residencia-votante"></datalist>
+        </div>
+      </div>
       <div class="campo encabezado-form" id="titulo-territorio-influencia-votante" style="display:none;">Territorio o área de influencia</div>
       <div class="campo" id="campo-area-influencia-votante" style="display:none;">
         <div style="display:flex; gap:22px; margin-bottom:4px;">
@@ -586,6 +603,7 @@ document.getElementById('input-ciudad-residencia-votante').addEventListener('inp
   // Al cambiar la Ciudad de residencia, se refiltran las opciones de
   // Comuna/Barrio/Corregimiento/Vereda para que no mezclen otras ciudades.
   if (typeof poblarListasUbicacionVotante === 'function') poblarListasUbicacionVotante();
+  poblarComunaResidenciaVotante();
   // Y también la lista de "Referido por": sin Barrio ni Comuna —el caso de
   // toda campaña departamental— esa lista sale del MUNICIPIO, y el municipio
   // es justo esta Ciudad. Sin esto había que tocar otro campo para que se
@@ -1024,8 +1042,23 @@ async function cargarVotantes() {
         : '<span style="color:var(--color-text-muted); font-weight:700;">Sí</span>'}</td>
       <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
       <td class="col-ciudad">${escaparHtml(nombreLugar(v.ciudad_residencia) || '—')}</td>
-      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización' : escaparHtml(nombreLugar(v.zona_nombre) || '—')}</td>
-      <td class="col-barrio-vereda">${escaparHtml(v.tipo_area_influencia === 'organizacion' ? (v.organizacion || '—') : (nombreLugar(v.territorio_nombre) || '—'))}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
+      <!-- ESTAS DOS COLUMNAS SON DE RESIDENCIA, NO DE INFLUENCIA.
+           Mostraban el territorio donde la persona TRABAJA, y el encabezado
+           dice «Comuna / Corregimiento» y «Barrio / Vereda», que en el
+           formulario están en Datos de contacto: donde VIVE. La misma persona
+           salía con una comuna en Estructura y otra aquí, y parecía que la
+           sincronización estuviera rota.
+           Si no hay residencia registrada se cae al territorio, entre
+           paréntesis, en vez de dejar un guion: para las fichas viejas ese
+           dato es lo único que hay, y esconderlo sería perderlo de vista. -->
+      <td class="col-comuna-correg">${v.tipo_area_influencia === 'organizacion' ? '🏛 Organización'
+        : (v.comuna_corregimiento_residencia
+            ? escaparHtml(nombreLugar(v.comuna_corregimiento_residencia))
+            : (v.zona_nombre ? `<span title="Sin residencia registrada; se muestra su territorio de influencia" style="color:var(--color-text-muted);">(${escaparHtml(nombreLugar(v.zona_nombre))})</span>` : '—'))}</td>
+      <td class="col-barrio-vereda">${v.tipo_area_influencia === 'organizacion' ? escaparHtml(v.organizacion || '—')
+        : (v.barrio_residencia
+            ? escaparHtml(nombreLugar(v.barrio_residencia))
+            : (v.territorio_nombre ? `<span title="Sin residencia registrada; se muestra su territorio de influencia" style="color:var(--color-text-muted);">(${escaparHtml(nombreLugar(v.territorio_nombre))})</span>` : '—'))}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
       <td>${escaparHtml(v.lider_nombre || '—')}</td>
       <td>${escaparHtml(v.sublider_nombre || '—')}</td>
       <td class="col-apoya-a">${badgesApoyaA(v.apoya_a)}</td>
@@ -1187,6 +1220,62 @@ document.getElementById('btn-exportar-filtrados-votantes').addEventListener('cli
  * corregimientos/veredas que de verdad pertenecen a esa ciudad, no las
  * de todas las ciudades que existan en el sistema.
  */
+/**
+ * Las listas de Comuna/Corregimiento y Barrio/Vereda de RESIDENCIA.
+ *
+ * Mismo comportamiento que en la ficha de Estructura: la comuna se filtra por
+ * la Ciudad escrita arriba, y el barrio por la comuna — pero si la comuna aún
+ * no coincide con ninguna, se ofrecen todos los barrios del municipio, para
+ * poder escribir el barrio sin saber antes a qué comuna pertenece.
+ */
+/* Los dos campos de residencia alimentan el bloque de abajo. Se enganchan
+   aquí y no en el listener de la ciudad, porque lo que manda es la comuna o el
+   barrio escrito, no el municipio. */
+document.getElementById('input-comuna-residencia-votante').addEventListener('input', () => {
+  actualizarBarrioResidenciaVotante();
+  sincronizarInfluenciaDesdeResidenciaVotante();
+});
+document.getElementById('input-barrio-residencia-votante').addEventListener('input', () => {
+  /* Si el barrio escrito es de otra comuna, se completa la comuna sola —
+     mismo gesto que ya hace el bloque de influencia, para no obligar a
+     saberse de memoria a qué comuna pertenece cada barrio. */
+  const nombre = normalizarTexto(document.getElementById('input-barrio-residencia-votante').value);
+  const punto = territorios.find(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && normalizarTexto(t.nombre) === nombre);
+  if (punto) {
+    const zona = territorios.find(t => t.id === punto.padre_id);
+    const campoZona = document.getElementById('input-comuna-residencia-votante');
+    if (zona && normalizarTexto(campoZona.value) !== normalizarTexto(zona.nombre)) campoZona.value = nombreLugar(zona.nombre);
+  }
+  sincronizarInfluenciaDesdeResidenciaVotante();
+});
+
+function poblarComunaResidenciaVotante() {
+  const municipio = buscarMunicipioResidenciaVotante();
+  const zonas = municipio
+    ? territorios.filter(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && t.padre_id === municipio.id)
+    : [];
+  const lista = document.getElementById('lista-comuna-residencia-votante');
+  if (lista) lista.innerHTML = zonas.map(z => `<option value="${escaparHtml(z.nombre)}">`).join('');
+  actualizarBarrioResidenciaVotante();
+}
+
+function actualizarBarrioResidenciaVotante() {
+  const campo = document.getElementById('input-comuna-residencia-votante');
+  const lista = document.getElementById('lista-barrio-residencia-votante');
+  if (!campo || !lista) return;
+  const nombreZona = normalizarTexto(campo.value);
+  const zona = territorios.find(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && normalizarTexto(t.nombre) === nombreZona);
+  let hijos;
+  if (zona) {
+    hijos = territorios.filter(t => t.padre_id === zona.id && (t.tipo === 'barrio' || t.tipo === 'vereda'));
+  } else {
+    const municipio = buscarMunicipioResidenciaVotante();
+    const ids = new Set(territorios.filter(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && (!municipio || t.padre_id === municipio.id)).map(z => z.id));
+    hijos = territorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && ids.has(t.padre_id));
+  }
+  lista.innerHTML = hijos.map(h => `<option value="${escaparHtml(h.nombre)}">`).join('');
+}
+
 function buscarMunicipioResidenciaVotante() {
   const nombreDepto = normalizarTexto(document.getElementById('input-departamento-residencia-votante').value);
   const nombreMuni = normalizarTexto(document.getElementById('input-ciudad-residencia-votante').value);
@@ -1363,8 +1452,8 @@ document.getElementById('input-vereda-votante').addEventListener('input', () => 
 });
 
 document.getElementById('select-area-votante').addEventListener('change', (e) => {
-  document.getElementById('fila-urbano-votante').style.display = e.target.value === 'urbano' ? 'flex' : 'none';
-  document.getElementById('fila-rural-votante').style.display = e.target.value === 'rural' ? 'flex' : 'none';
+  mostrarFilaInfluenciaVotante('fila-urbano-votante', e.target.value === 'urbano');
+  mostrarFilaInfluenciaVotante('fila-rural-votante', e.target.value === 'rural');
   if (e.target.value === 'urbano') actualizarBarriosVotante();
   if (e.target.value === 'rural') actualizarVeredasVotante();
   actualizarLiderPorTerritorioInfluencia();
@@ -1457,6 +1546,76 @@ function resolverTerritorioVotante() {
  * Votante se mantiene el campo "Área" simple de siempre. Organización
  * oculta la cascada geográfica y muestra el nombre de la organización.
  */
+/**
+ * PARA UN VOTANTE, DONDE VIVE Y SU TERRITORIO SON LA MISMA COSA.
+ *
+ * El formulario pedía la comuna y el barrio DOS veces: en Datos de contacto
+ * y otra vez abajo, en el bloque de Área. Para un Sublíder tiene sentido —su
+ * zona de trabajo puede no ser donde vive—, pero para un votante corriente es
+ * el mismo dato preguntado dos veces, y así se veía: dos pares de campos
+ * idénticos, uno encima del otro.
+ *
+ * Ahora se escribe UNA vez, en Datos de contacto, y este puente rellena los
+ * campos de abajo —que quedan ocultos para el votante— con lo mismo.
+ *
+ * SE RELLENAN EN VEZ DE QUITARSE, y es deliberado. Esos campos los leen cinco
+ * sitios: el guardado del territorio, la lista de «Referido por», la cascada
+ * de barrios, el contador y el mapa. Quitarlos obligaba a tocar los cinco;
+ * dejarlos puestos y alimentados no cambia nada de lo que ya funciona. El
+ * usuario deja de verlos, que era el problema.
+ *
+ * El Área (urbano/rural) también sale de aquí: si lo que eligió es un barrio o
+ * una comuna, es urbano; si es una vereda o un corregimiento, rural. Deducirlo
+ * es mejor que preguntarlo — nadie escribe «Vereda La Cabaña» y quiere decir
+ * que es urbano.
+ */
+/**
+ * UNA SOLA PUERTA PARA MOSTRAR LAS FILAS DE INFLUENCIA.
+ *
+ * Siete sitios distintos las ponían visibles, y bastó con que uno se
+ * escapara para que los campos duplicados reaparecieran: el propio puente de
+ * aquí abajo dispara un `change` sobre el Área, y el escucha de ese `change`
+ * las volvía a mostrar. Se escondía el Área pero no las filas, así que en
+ * pantalla quedaban «Comuna» y «Barrio» sueltos, sin encabezado, justo debajo
+ * de los de Datos de contacto — que es lo que se reportó.
+ *
+ * Con la puerta única da igual quién pida mostrarlas: si no es un Sublíder, no
+ * se muestran. Esconderlas nunca hace falta guardarlo, así que los `= 'none'`
+ * se quedan como estaban.
+ */
+function mostrarFilaInfluenciaVotante(id, visible) {
+  const esSublider = document.getElementById('chk-categoria-sublider').checked;
+  document.getElementById(id).style.display = (visible && esSublider) ? 'flex' : 'none';
+}
+
+function sincronizarInfluenciaDesdeResidenciaVotante() {
+  if (document.getElementById('chk-categoria-sublider').checked) return;   // el sublíder sí decide aparte
+  const nombreZona = normalizarTexto(document.getElementById('input-comuna-residencia-votante').value);
+  const nombrePunto = normalizarTexto(document.getElementById('input-barrio-residencia-votante').value);
+  const zona = nombreZona ? territorios.find(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && normalizarTexto(t.nombre) === nombreZona) : null;
+  const punto = nombrePunto ? territorios.find(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && normalizarTexto(t.nombre) === nombrePunto) : null;
+
+  const referencia = punto || zona;
+  const area = !referencia ? ''
+    : (referencia.tipo === 'vereda' || referencia.tipo === 'corregimiento') ? 'rural' : 'urbano';
+
+  const selArea = document.getElementById('select-area-votante');
+  if (selArea.value !== area) {
+    selArea.value = area;
+    selArea.dispatchEvent(new Event('change'));   // para que las filas y las listas se enteren
+  }
+  if (area === 'urbano') {
+    document.getElementById('input-comuna-votante').value = zona ? nombreLugar(zona.nombre) : '';
+    actualizarBarriosVotante();
+    document.getElementById('input-barrio-votante').value = punto ? nombreLugar(punto.nombre) : '';
+  } else if (area === 'rural') {
+    document.getElementById('input-corregimiento-votante').value = zona ? nombreLugar(zona.nombre) : '';
+    actualizarVeredasVotante();
+    document.getElementById('input-vereda-votante').value = punto ? nombreLugar(punto.nombre) : '';
+  }
+  actualizarLiderPorTerritorioInfluencia();
+}
+
 function actualizarSeccionTerritorioVotante() {
   const esSublider = document.getElementById('chk-categoria-sublider').checked;
   document.getElementById('titulo-territorio-influencia-votante').style.display = esSublider ? 'block' : 'none';
@@ -1470,7 +1629,11 @@ function actualizarSeccionTerritorioVotante() {
 
   const esOrganizacion = esSublider && document.getElementById('chk-area-influencia-votante-organizacion').checked;
   document.getElementById('campo-organizacion-votante').style.display = esOrganizacion ? 'block' : 'none';
-  document.getElementById('campo-area-votante-normal').style.display = esOrganizacion ? 'none' : 'block';
+  /* El bloque de Área/Comuna/Barrio solo lo ve el Sublíder: para un votante
+     lo rellena `sincronizarInfluenciaDesdeResidenciaVotante()` con lo escrito
+     en Datos de contacto, y enseñarlo sería pedir dos veces lo mismo. */
+  const soloSublider = document.getElementById('chk-categoria-sublider').checked;
+  document.getElementById('campo-area-votante-normal').style.display = (esOrganizacion || !soloSublider) ? 'none' : 'block';
   if (esOrganizacion) {
     document.getElementById('fila-urbano-votante').style.display = 'none';
     document.getElementById('fila-rural-votante').style.display = 'none';
@@ -1522,14 +1685,14 @@ function precargarUbicacionVotante(territorioId) {
 
   if (territorio.tipo === 'barrio') {
     document.getElementById('select-area-votante').value = 'urbano';
-    document.getElementById('fila-urbano-votante').style.display = 'flex';
+    mostrarFilaInfluenciaVotante('fila-urbano-votante', true);
     const comuna = territorios.find(t => t.id === territorio.padre_id);
     document.getElementById('input-comuna-votante').value = comuna ? nombreLugar(comuna.nombre) : '';
     actualizarBarriosVotante();
     document.getElementById('input-barrio-votante').value = nombreLugar(territorio.nombre);
   } else if (territorio.tipo === 'vereda') {
     document.getElementById('select-area-votante').value = 'rural';
-    document.getElementById('fila-rural-votante').style.display = 'flex';
+    mostrarFilaInfluenciaVotante('fila-rural-votante', true);
     const corregimiento = territorios.find(t => t.id === territorio.padre_id);
     document.getElementById('input-corregimiento-votante').value = corregimiento ? nombreLugar(corregimiento.nombre) : '';
     actualizarVeredasVotante();
@@ -1539,12 +1702,12 @@ function precargarUbicacionVotante(territorioId) {
     // tiene barrios creados — antes esto no se precargaba y al editarlo se
     // perdía el territorio en silencio.
     document.getElementById('select-area-votante').value = 'urbano';
-    document.getElementById('fila-urbano-votante').style.display = 'flex';
+    mostrarFilaInfluenciaVotante('fila-urbano-votante', true);
     document.getElementById('input-comuna-votante').value = nombreLugar(territorio.nombre);
     actualizarBarriosVotante();
   } else if (territorio.tipo === 'corregimiento') {
     document.getElementById('select-area-votante').value = 'rural';
-    document.getElementById('fila-rural-votante').style.display = 'flex';
+    mostrarFilaInfluenciaVotante('fila-rural-votante', true);
     document.getElementById('input-corregimiento-votante').value = nombreLugar(territorio.nombre);
     actualizarVeredasVotante();
   }
@@ -1669,6 +1832,7 @@ async function editarVotante(v) {
   const apoyaAGuardadoVotante = Array.isArray(v.apoya_a) ? v.apoya_a : [];
   form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardadoVotante.includes(c.value); });
   actualizarCiudadesResidenciaVotante();
+  poblarComunaResidenciaVotante();
   document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
   pintarConsentimiento(v);
   document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
@@ -1728,8 +1892,8 @@ async function editarVotante(v) {
   // acertó a deducir del territorio.
   if (!esOrganizacion && v.area) {
     document.getElementById('select-area-votante').value = v.area;
-    document.getElementById('fila-urbano-votante').style.display = v.area === 'urbano' ? 'flex' : 'none';
-    document.getElementById('fila-rural-votante').style.display = v.area === 'rural' ? 'flex' : 'none';
+    mostrarFilaInfluenciaVotante('fila-urbano-votante', v.area === 'urbano');
+    mostrarFilaInfluenciaVotante('fila-rural-votante', v.area === 'rural');
   }
 
   await actualizarLiderPorTerritorioInfluencia(v.lider_id, v.lider_nombre);
@@ -1747,15 +1911,18 @@ async function eliminarVotante(id) {
      deja de mostrársela a él. Decirle «no se puede deshacer» sería mentirle en
      las dos mitades: ni se borra, ni es definitivo. */
   const soyAspirante = !!(usuarioActual && usuarioActual.es_aspirante);
-  if (!confirm(soyAspirante
-      ? '¿Quitar a esta persona de su estructura?\n\nLa ficha NO se borra: sigue en la campaña principal. Sólo deja de aparecer en su base.'
-      : '¿Eliminar este contacto?')) return;
-  // Su propia contraseña, no la del administrador: un líder puede borrar a su
-  // gente, así que esto confirma que es él y no una sesión que quedó abierta.
+  /* SE QUITÓ EL `confirm()` DE EN MEDIO, y no por estética.
+     El navegador lo apaga: tras varios diálogos seguidos ofrece «impedir que
+     esta página cree más diálogos», y desde ese momento `confirm()` devuelve
+     `false` sin preguntar. El `if (!confirm(...)) return` de antes lo leía
+     como un «no» y se iba en silencio — el botón se pulsaba y NO PASABA NADA,
+     sin error ni rastro en la consola. Es lo que se reportó.
+     El modal de la contraseña es DOM de la página y no se puede suprimir, así
+     que la advertencia se dice ahí y se ahorra un paso. */
   const password = await solicitarPasswordPropia(
-    soyAspirante ? 'Confirme para quitarlo' : 'Confirme para eliminar',
+    soyAspirante ? '¿Quitar a esta persona de su estructura?' : '¿Eliminar este contacto?',
     soyAspirante
-      ? 'Escriba su propia contraseña para confirmar. La ficha no se borra de la campaña principal.'
+      ? 'La ficha NO se borra: sigue en la campaña principal. Solo deja de aparecer en su base. Escriba su propia contraseña para confirmar.'
       : 'Eliminar un contacto no se puede deshacer. Escriba su propia contraseña para confirmar.');
   if (!password) return;
   try {

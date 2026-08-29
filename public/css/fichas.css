@@ -350,3 +350,11 @@
 .card.envoltorio-fichas {
   background: transparent; border: 0; box-shadow: none; padding: 0;
 }
+
+/* «Eliminado por …» — lo ve la campaña madre cuando un aspirante quitó a esa
+   persona de SU equipo. Ámbar y no rojo a propósito: no pasó nada malo ni se
+   perdió nada, es información. #7A4B00 sobre #FFF4D6 da 7,31. */
+.badge-excluido {
+  background: #FFF4D6; color: #7A4B00; border: 1px solid #8C5E17;
+  font-size: .72rem; white-space: nowrap;
+}

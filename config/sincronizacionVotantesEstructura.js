@@ -82,9 +82,10 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
       `INSERT INTO votantes
          (nombre, cedula, telefono, email, genero, edad, apoya_a,
           departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
-          departamento_residencia, ciudad_residencia, direccion, territorio_id,
+          departamento_residencia, ciudad_residencia,
+          comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
           categoria, created_by, origen, rama_aspirante_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
        ON DUPLICATE KEY UPDATE
          nombre = VALUES(nombre),
          telefono = VALUES(telefono), email = VALUES(email), genero = VALUES(genero), edad = VALUES(edad),
@@ -92,6 +93,13 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
          departamento_votacion = VALUES(departamento_votacion), municipio_votacion = VALUES(municipio_votacion),
          puesto_votacion = VALUES(puesto_votacion), mesa_votacion = VALUES(mesa_votacion),
          departamento_residencia = VALUES(departamento_residencia), ciudad_residencia = VALUES(ciudad_residencia),
+         /* La comuna y el barrio de RESIDENCIA si se pisan al actualizar: son
+            un dato de la persona, y la ficha de estructura es donde se edita.
+            La rama del aspirante, mas abajo, es el caso contrario y esta
+            explicado alli. (Sin acentos graves en este comentario: va DENTRO
+            de una plantilla de JavaScript y la cortarian.) */
+         comuna_corregimiento_residencia = VALUES(comuna_corregimiento_residencia),
+         barrio_residencia = VALUES(barrio_residencia),
          direccion = VALUES(direccion), territorio_id = VALUES(territorio_id)`,
       [
         (datos.nombre || '').trim(), cedula,
@@ -102,6 +110,7 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
         datos.departamento_votacion || null, datos.municipio_votacion || null,
         datos.puesto_votacion || null, datos.mesa_votacion || null,
         datos.departamento_residencia || null, datos.ciudad_residencia || null,
+        datos.comuna_corregimiento_residencia || null, datos.barrio_residencia || null,
         datos.direccion || null, datos.territorio_id || null,
         datos.creado_por || null,
         /* DE QUE RAMA CUELGA, al crear la ficha. Esta persona esta en la

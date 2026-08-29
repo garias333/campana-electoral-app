@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { subarbolSql, filtroMadreEstructura } = require('../lib/ramas');
+const { subarbolSql, filtroMadreEstructura, recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 /* EL CARGO DE LA MADRE SE PIDE AQUÍ, NO SE LEE DE `req.alcance`.
    Este router monta `requireAuth` y nada más: `calcularAlcance` solo se aplica
    en routes/votantes.routes.js, así que `req.alcance` es SIEMPRE undefined en
@@ -13,6 +13,21 @@ const { subarbolSql, filtroMadreEstructura } = require('../lib/ramas');
    (Montar `calcularAlcance` en este router habría sido la otra salida, pero
    activaría de golpe los `if (req.alcance)` dormidos de otras rutas.) */
 const { cargoDeLaMadre } = require('../config/cargoMadre');
+
+/* ¿EXISTE YA `estructura_exclusiones`? Se pregunta UNA vez por proceso.
+   Sin esto, una campaña que todavía no aplicó el parche vería reventar la
+   pantalla entera de Coordinadores y líderes por una tabla que no usa. Es el
+   mismo criterio de `sublicenciaSobre` con `sublicencias`: lo que no está,
+   no rompe. */
+let _hayExclusiones = null;
+async function hayExclusiones() {
+  if (_hayExclusiones !== null) return _hayExclusiones;
+  try {
+    const [f] = await pool.query("SHOW TABLES LIKE 'estructura_exclusiones'");
+    _hayExclusiones = f.length > 0;
+  } catch (_) { _hayExclusiones = false; }
+  return _hayExclusiones;
+}
 const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
 const { condicionAlcanceVotantes,
         parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
@@ -700,6 +715,14 @@ router.get('/estructura/verificar-identificacion', async (req, res) => {
 router.get('/estructura', async (req, res) => {
   try {
     const usuario = req.session.usuario;
+    /* ESTA LÍNEA VA AQUÍ Y NO MÁS ABAJO, Y NO ES UN DETALLE DE ESTILO.
+       Se usa DENTRO de la plantilla `let query = \`…\`` que empieza unas
+       líneas más abajo, y una plantilla se evalúa entera en el momento en que
+       se escribe. Declarada después, cada petición moría con
+       «Cannot access 'conExcl' before initialization» — un 500 en CADA carga
+       de Coordinadores y líderes, que en pantalla se ve como una lista vacía
+       sin ningún mensaje. Así llegó en el parche 192 y así se descubrió. */
+    const conExcl = await hayExclusiones();
     // Los conteos de "registros" se calculan UNA vez para toda la tabla, no
     // una vez por fila. Antes cada fila disparaba subconsultas anidadas
     // (líderes -> sublíderes -> votantes), así que el costo crecía con el
@@ -757,6 +780,10 @@ router.get('/estructura', async (req, res) => {
              u.tipo_cargo, u.email, u.telefono, u.activo, u.apoya_a, u.no_contactar,
              t.nombre AS territorio_nombre, t.tipo AS territorio_tipo,
              sup.nombre AS supervisor_nombre,
+             ${conExcl ? `(SELECT GROUP_CONCAT(ua.nombre ORDER BY ua.nombre SEPARATOR ', ')
+                             FROM estructura_exclusiones ee
+                             JOIN usuarios ua ON ua.id = ee.aspirante_id
+                            WHERE ee.estructura_id = e.id)` : 'NULL'} AS excluido_por,
              -- Meta derivada del equipo: Líderes para un Coordinador,
              -- gremiales para un Coordinador Organizaciones. Ver
              -- config/metasEstructura.js — la regla vive en un solo sitio.
@@ -800,6 +827,13 @@ router.get('/estructura', async (req, res) => {
       const suya = subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id');
       condiciones.push(suya.sql);
       params.push(...suya.valores);
+      /* Y fuera los que él mismo quitó de su equipo. La fila sigue viva para
+         la campaña madre; lo que desaparece es de SU lista. */
+      if (conExcl) {
+        condiciones.push(`NOT EXISTS (SELECT 1 FROM estructura_exclusiones ee
+                                       WHERE ee.estructura_id = e.id AND ee.aspirante_id = ?)`);
+        params.push(req.sublicencia.usuario_id);
+      }
     } else if (!['admin', 'coordinador'].includes(usuario.rol)) {
       condiciones.push('(e.supervisor_id = ? OR e.usuario_id = ?)');
       params.push(usuario.id, usuario.id);
@@ -1108,7 +1142,8 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
   await sincronizarVotanteDesdeEstructura(pool, {
     nombre, numero_identificacion, telefono, email, genero, edad, apoya_a,
     departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
-    departamento_residencia, ciudad_residencia, direccion, territorio_id,
+    departamento_residencia, ciudad_residencia,
+    comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
     creado_por: req.session.usuario.id
   });
   res.json({ ok: true, estructura_id: estructuraId, password_temporal: passwordTemporal, geocodificado: geo.geocodificado });
@@ -1249,6 +1284,16 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
 
     await conexion.commit();
 
+    /* MOVER A ALGUIEN DE SUPERVISOR LE CAMBIA LA RAMA A SUS VOTANTES.
+       `rama_aspirante_id` es un dato derivado que hasta ahora sólo se escribía
+       al guardar un votante: reasignar un líder que colgaba de un aspirante
+       dejaba sus fichas —con cédula y teléfono— visibles para ese aspirante
+       indefinidamente. Va en segundo plano porque cuesta una consulta por
+       votante afectado y la edición ya está confirmada. */
+    if (String(supervisor_id || '') !== String(fila.supervisor_id_anterior || '')) {
+      recalcularRamaEnSegundoPlano(pool, fila.usuario_id, `mover a ${fila.usuario_id} de supervisor`);
+    }
+
     // Un Testigo electoral se georreferencia por el NOMBRE del Puesto de
     // votación (no tiene dirección de residencia en su formulario); el
     // resto de cargos sigue usando su dirección de residencia. En los dos
@@ -1280,7 +1325,8 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
     await sincronizarVotanteDesdeEstructura(pool, {
       nombre, numero_identificacion, telefono, email, genero, edad, apoya_a,
       departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
-      departamento_residencia, ciudad_residencia, direccion, territorio_id,
+      departamento_residencia, ciudad_residencia,
+      comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
       creado_por: req.session.usuario.id
     });
 
@@ -1346,7 +1392,40 @@ router.post('/estructura/:id/asignar-testigo', requireRole('admin', 'coordinador
 // apareciendo en los desplegables de "Reporta a", "Líder", etc., que se
 // alimentan de la tabla usuarios). Los FK de supervisor_id/lider_id son
 // ON DELETE SET NULL, así que esto no rompe otros registros.
-router.delete('/estructura/:id', requireRole('admin', 'coordinador'), async (req, res) => {
+router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+  /* EL ASPIRANTE NO BORRA: SE QUITA A ESA PERSONA DE SU EQUIPO.
+     Abajo, este mismo endpoint borra la fila de `estructura` Y la cuenta de
+     `usuarios`. Las dos son de la campaña madre —él no las creó, las hereda
+     por colgar de ella—, así que dejarle pasar por ahí significaría que un
+     aspirante al concejo puede dejar sin cuenta a un líder de la alcaldía.
+     Se apunta la exclusión y se sale. Es exactamente lo que ya hace
+     `votante_ramas.excluido` con los votantes: mismo gesto, mismo significado.
+
+     NO SE LE PIDE LA CONTRASEÑA, y es deliberado: abajo se pide porque aquello
+     es irreversible. Esto no destruye nada y se deshace con un DELETE de una
+     fila. Pedirla enseñaría que las dos cosas son igual de graves, y no lo son.
+
+     La campaña madre lo ve: `GET /estructura` devuelve el nombre de quien
+     excluyó a cada persona, y la ficha lo muestra. */
+  if (req.sublicencia) {
+    const dentro = subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id');
+    const [[suyo]] = await pool.query(
+      `SELECT 1 AS ok FROM estructura e WHERE e.id = ? AND ${dentro.sql} LIMIT 1`,
+      [req.params.id, ...dentro.valores]
+    );
+    if (!suyo) return res.status(403).json({ error: 'Esa persona no pertenece a su equipo.' });
+    try {
+      await pool.query(
+        `INSERT IGNORE INTO estructura_exclusiones (estructura_id, aspirante_id) VALUES (?, ?)`,
+        [req.params.id, req.sublicencia.usuario_id]
+      );
+      return res.json({ ok: true, excluido: true });
+    } catch (err) {
+      console.error('Excluyendo de la rama:', err.message);
+      return res.status(500).json({ error: 'No se pudo quitar a esa persona de su equipo.' });
+    }
+  }
+
   /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO, igual que al
      borrar un votante (DELETE /votantes/:id).
 
@@ -1755,13 +1834,24 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
         continue;
       }
 
-      // Un Coordinador se asigna directamente a la Comuna o Corregimiento
-      // (permitirSoloZona), sin necesidad de Barrio/Vereda. Un Coordinador
-      // Organizaciones no necesita territorio en absoluto (ver parche 105).
+      /* Un Coordinador se asigna directamente a la Comuna o Corregimiento
+         (permitirSoloZona), sin necesidad de Barrio/Vereda. Un Coordinador
+         Organizaciones no necesita territorio en absoluto (ver parche 105).
+
+         Y EL ASPIRANTE AL CONCEJO, IGUAL QUE EL COORDINADOR. Manda sobre una
+         zona entera, no sobre una manzana. Hay que preguntarlo por el TIPO y
+         no por el cargo: en la base se guarda como `lider` —así conserva su
+         equipo, su meta y su rama— así que `cargo === 'coordinador'` no lo
+         distingue de un líder cualquiera. Es la misma deducción que hace
+         `esAspiranteAlConcejo()` en la pantalla, y si las dos no coincidieran,
+         un aspirante que se puede crear a mano sin barrio fallaría al
+         importarlo por Excel. */
       let territorioIdImport = null;
       if (!esCoordinadorOrganizacionesImport) {
+        const soloZonaImport = cargo === 'coordinador'
+          || (cargo === 'lider' && tipoCargo === 'aspirante_concejo');
         const resuelto = await resolverTerritorioConCache({
-          area, comuna, barrio, corregimiento, vereda, permitirSoloZona: cargo === 'coordinador'
+          area, comuna, barrio, corregimiento, vereda, permitirSoloZona: soloZonaImport
         });
         if (resuelto.error) { errores.push({ fila: i + 2, error: resuelto.error }); continue; }
         if (!resuelto.territorioId) {
@@ -1822,6 +1912,9 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
                tipoAreaInfluenciaImport, organizacionImport, idFila]
             );
             await conexion.commit();
+            // Igual que en el PUT: la importación también puede mover a alguien
+            // de supervisor, y entonces sus votantes cambian de rama.
+            if (tocarSupervisor) recalcularRamaEnSegundoPlano(pool, usuarioId, 'importar estructura por Excel');
             actualizados++;
           } catch (err) {
             await conexion.rollback();
@@ -2011,20 +2104,46 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
  */
 router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
   try {
+    /* SE BUSCA HACIA ARRIBA Y TAMBIÉN HACIA ABAJO.
+       Antes solo subía: desde la comuna hacia el municipio. Bastaba mientras
+       un Coordinador se guardara SIEMPRE en la comuna, que es como estaba
+       forzado el formulario.
+
+       Desde que el barrio es opcional y no obligatorio, un Coordinador puede
+       concentrarse en un barrio — y subiendo desde la comuna nunca se le
+       encontraba. El efecto habría sido mudo y desconcertante: sus propios
+       líderes dejarían de verlo en «Reporta a», sin ningún error, y quien lo
+       notara no tendría forma de relacionarlo con el barrio que eligió.
+
+       La rama de abajo solo AÑADE: antes ningún coordinador podía estar ahí,
+       así que a nadie le aparece alguien que antes no le apareciera. */
     const [rows] = await pool.query(`
-      WITH RECURSIVE cadena AS (
+      WITH RECURSIVE arriba AS (
         SELECT id, padre_id, 0 AS nivel FROM territorios WHERE id = ?
         UNION ALL
-        SELECT t.id, t.padre_id, c.nivel + 1
-          FROM territorios t JOIN cadena c ON t.id = c.padre_id
-         WHERE c.nivel < 6
+        SELECT t.id, t.padre_id, a.nivel + 1
+          FROM territorios t JOIN arriba a ON t.id = a.padre_id
+         WHERE a.nivel < 6
+      ),
+      abajo AS (
+        SELECT id, padre_id, 0 AS nivel FROM territorios WHERE id = ?
+        UNION ALL
+        SELECT t.id, t.padre_id, b.nivel + 1
+          FROM territorios t JOIN abajo b ON t.padre_id = b.id
+         WHERE b.nivel < 3
+      ),
+      cadena AS (
+        SELECT id, nivel FROM arriba
+        UNION
+        SELECT id, nivel FROM abajo
       )
-      SELECT u.id, u.nombre, c.nivel
+      SELECT u.id, u.nombre, MIN(c.nivel) AS nivel
         FROM cadena c
         JOIN estructura e ON e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1
         JOIN usuarios u ON u.id = e.usuario_id
-       ORDER BY c.nivel, u.nombre
-    `, [req.params.zonaId]);
+       GROUP BY u.id, u.nombre
+       ORDER BY nivel, u.nombre
+    `, [req.params.zonaId, req.params.zonaId]);
     res.json(rows);
   } catch (err) {
     console.error(err);

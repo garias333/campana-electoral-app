@@ -4,6 +4,7 @@
 #
 # SE CORRE COMO ROOT, EN EL SERVIDOR:
 #   bash scripts/reiniciar-instancia.sh appestrategia-electoral
+#   bash scripts/reiniciar-instancia.sh appestrategia-licencias
 #   bash scripts/reiniciar-instancia.sh campanadepruebamunicipal
 #   bash scripts/reiniciar-instancia.sh campanadepruebadepartamental
 #
@@ -55,11 +56,11 @@ PUERTO="${2:-}"
 # da error — deja el sitio que importa corriendo el código viejo.
 DIR="/home/$USUARIO/htdocs/$USUARIO.appestrategia.net"
 if [ ! -d "$DIR" ]; then
-  CANDIDATOS=$(find "/home/$USUARIO/htdocs" -mindepth 2 -maxdepth 2 -name app.js 2>/dev/null | head -5)
+  CANDIDATOS=$(find "/home/$USUARIO/htdocs" -mindepth 2 -maxdepth 2 \( -name app.js -o -name server.js \) 2>/dev/null | head -5)
   CUANTOS=$(printf '%s\n' "$CANDIDATOS" | grep -c . )
   if [ "$CUANTOS" = "1" ]; then
     DIR="$(dirname "$CANDIDATOS")"
-    echo "ruta: $DIR (no sigue la convención; se encontró por su app.js)"
+    echo "ruta: $DIR (no sigue la convención; se encontró por su archivo de arranque)"
   elif [ "$CUANTOS" -gt 1 ]; then
     echo "En /home/$USUARIO/htdocs hay más de una aplicación y no sé cuál reiniciar:"
     printf '  %s\n' $CANDIDATOS
@@ -68,7 +69,18 @@ if [ ! -d "$DIR" ]; then
 fi
 
 [ -d "$DIR" ] || { echo "No existe $DIR"; exit 1; }
-[ -f "$DIR/app.js" ] || { echo "En $DIR no hay app.js; no parece una instancia."; exit 1; }
+# EL ARCHIVO DE ARRANQUE NO SIEMPRE SE LLAMA `app.js`.
+#
+# Las campañas y Electoral arrancan con `app.js`, pero el Servidor de Licencias
+# lo hace con `server.js` — y este guion lo daba por sentado en CINCO sitios.
+# Pedirle que reiniciara el panel moría con «No existe …», que no dice nada de
+# la causa real. Se descubre igual que todo lo demás aquí: mirando, no
+# suponiendo.
+if   [ -f "$DIR/app.js" ];    then ARRANQUE=app.js
+elif [ -f "$DIR/server.js" ]; then ARRANQUE=server.js
+else echo "En $DIR no hay app.js ni server.js; no parece una instancia."; exit 1
+fi
+echo "arranque: $ARRANQUE"
 [ "$(id -u)" = "0" ] || { echo "Esto se corre como root: cada instancia tiene su propio PM2."; exit 1; }
 
 # EL PUERTO, DEL .env DE LA INSTANCIA si no vino como argumento. Se lee sólo
@@ -80,7 +92,7 @@ if [ -z "$PUERTO" ]; then
 fi
 [ -n "$PUERTO" ] || { echo "No pude leer PORT de $DIR/.env; páselo como segundo argumento."; exit 1; }
 
-pid_actual() { pgrep -f "$DIR/app.js" | head -1; }
+pid_actual() { pgrep -f "$DIR/$ARRANQUE" | head -1; }
 responde()   { curl -s -o /dev/null --max-time 5 "http://127.0.0.1:$PUERTO/login.html"; }
 
 PID_ANTES="$(pid_actual)"
@@ -149,7 +161,7 @@ if [ -n "${PID_ANTES:-}" ] && kill -0 "$PID_ANTES" 2>/dev/null; then
   kill -0 "$PID_ANTES" 2>/dev/null && { echo "  no se detuvo; no sigo a ciegas."; exit 1; }
 fi
 
-como_usuario "'$PM2BIN' start app.js --name '$NOMBRE' --interpreter '$NODEBIN'" | tail -3
+como_usuario "'$PM2BIN' start '$ARRANQUE' --name '$NOMBRE' --interpreter '$NODEBIN'" | tail -3
 sleep 6
 
 PID_FINAL="$(pid_actual)"

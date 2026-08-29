@@ -102,8 +102,17 @@ async function activar() {
 async function validar() {
   try {
     const fingerprint = obtenerFingerprint();
+    /* LOS EQUIPOS VIAJAN CON LA VALIDACIÓN, por el mismo carril que las
+       sublicencias y por la misma razón: este servidor no puede escribir en la
+       base del panel ni el panel en la nuestra. La validación periódica es el
+       único camino que ya existe entre los dos.
+       Si leerlos falla se manda una lista vacía: reportar equipos no puede
+       impedir que se valide la licencia, que es lo que mantiene viva la
+       campaña. */
+    let equipos = [];
+    try { equipos = await require('./equiposAutorizados').equiposParaReportar(); } catch (_) {}
     const { ok, datos } = await llamarServidorLicencias('/api/licencia/validar', {
-      dominio: DOMINIO_INSTALACION, fingerprint, version_actual: versionParcheAplicada()
+      dominio: DOMINIO_INSTALACION, fingerprint, version_actual: versionParcheAplicada(), equipos
     });
     estadoActual = {
       valido: ok && datos.valido,
@@ -118,6 +127,19 @@ async function validar() {
        validacion salio bien: con una licencia rechazada, la lista que venga no
        es de fiar y apagar sublicencias a partir de ella seria dejar sin datos a
        gente por culpa de un problema de la madre. */
+    /* Y lo que baja se aplica: el cupo y las revocaciones. Solo con la
+       licencia válida, mismo criterio que las sublicencias — de una respuesta
+       rechazada no se toma ninguna decisión sobre quién entra. */
+    if (estadoActual.valido && (datos.equipos_config || datos.equipos_estados)) {
+      try {
+        const r = await require('./equiposAutorizados')
+          .aplicarRespuestaDeLicencia(datos.equipos_config, datos.equipos_estados);
+        if (r.cupo !== null || r.cambiados) {
+          console.log(`Equipos autorizados: cupo ${r.cupo === null ? 'sin cambios' : r.cupo}, ${r.cambiados} equipo(s) cambiaron de estado.`);
+        }
+      } catch (e) { console.error('Aplicando equipos:', e.message); }
+    }
+
     if (estadoActual.valido && Array.isArray(datos.sublicencias)) {
       const r = await require('./sincronizarSublicencias').sincronizar(datos.sublicencias);
       if (r.activadas || r.apagadas || r.sinPersona.length) {

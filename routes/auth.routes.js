@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
 const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
+const { reconocerEquipo, mensajeDeRechazo } = require('../config/equiposAutorizados');
 const { esSuperadmin } = require('../config/superadmin');
 const { verificarPasswordPropia } = require('../config/verificaciones');
 
@@ -385,6 +386,22 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({
         error: 'Ese código de acceso ya venció. Pídale al administrador de la campaña que se lo envíe de nuevo.'
       });
+    }
+
+    /* ¿DESDE QUÉ EQUIPO SE ESTÁ ENTRANDO?
+       Va DESPUÉS de la contraseña y del código vencido, y por lo mismo que
+       aquéllos van en ese orden: responder «este equipo no está autorizado» a
+       quien ni siquiera acertó la clave le confirmaría que la cuenta existe.
+       Y va ANTES de crear la sesión: dejar la sesión hecha y cortar después
+       sería darle acceso por un instante.
+
+       Mientras la licencia no fije un límite —hoy— esto no rechaza a nadie:
+       solo anota el equipo. Ver config/equiposAutorizados.js. */
+    const equipo = await reconocerEquipo(req, res, usuario.id);
+    if (!equipo.permitido) {
+      await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
+        `Intento de entrar desde un equipo ${equipo.motivo}.`, req.ip);
+      return res.status(403).json({ error: mensajeDeRechazo(equipo.motivo), equipoNoAutorizado: true });
     }
 
     await pool.query(

@@ -3,10 +3,18 @@
  * Recalcula de qué rama de aspirante cuelga cada votante.
  *
  * CUÁNDO CORRERLO. `rama_aspirante_id` es un dato DERIVADO: se calcula al
- * guardar un votante y al mover a alguien en la estructura. Este guion existe
- * para las veces en que eso no pasa por la aplicación — una carga por Excel, un
- * arreglo a mano en la base, un respaldo restaurado — y para la primera vez,
- * cuando la columna acaba de crearse y está vacía.
+ * guardar un votante y al mover a alguien en la estructura.
+ *
+ * LA SEGUNDA MITAD DE ESA FRASE ERA FALSA HASTA HOY, y conviene que quede
+ * escrito porque el fallo era invisible: ninguno de los tres sitios que
+ * escriben `estructura.supervisor_id` recalculaba nada. Reasignar un líder que
+ * colgaba de un aspirante dejaba sus votantes en la rama vieja para siempre, y
+ * ese aspirante seguía viendo fichas que ya no eran suyas. Ahora los tres
+ * llaman a `recalcularRamaEnSegundoPlano` (lib/ramas.js).
+ *
+ * Este guion sigue existiendo para las veces en que el cambio no pasa por la
+ * aplicación — un arreglo a mano en la base, un respaldo restaurado — y para
+ * la primera vez, cuando la columna acaba de crearse y está vacía.
  *
  *   node scripts/recalcular-ramas.js --simular   dice qué cambiaría, sin tocar
  *   node scripts/recalcular-ramas.js             recalcula y guarda

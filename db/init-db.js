@@ -1721,6 +1721,68 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'sublicencias',
     'marca_editada_en DATETIME NULL', 'marca_editada_en');
 
+  /* QUIÉN QUITÓ A QUIÉN DE SU EQUIPO, SIN BORRAR A NADIE.
+     Es la hermana de `votante_ramas.excluido`, para la estructura. Un aspirante
+     con sublicencia no puede borrar personas: la fila de `estructura` y la
+     cuenta de `usuarios` son de la campaña madre, y el botón «Eliminar» de esa
+     pantalla borra las dos — un aspirante usándolo dejaría sin cuenta a un
+     líder de la alcaldía. Lo que hace es apuntar aquí que esa persona sale de
+     SU vista; la madre la sigue viendo, con la marca de quién la quitó.
+     Se guarda `aspirante_id` y no un simple booleano porque puede haber varios
+     aspirantes y cada uno decide por su cuenta. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS estructura_exclusiones (
+      estructura_id INT NOT NULL,
+      aspirante_id INT NOT NULL,
+      excluido_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (estructura_id, aspirante_id),
+      KEY idx_ee_aspirante (aspirante_id),
+      FOREIGN KEY (estructura_id) REFERENCES estructura(id) ON DELETE CASCADE,
+      FOREIGN KEY (aspirante_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  console.log('Tabla estructura_exclusiones lista.');
+
+  /* EQUIPOS AUTORIZADOS — «que solo se entre desde los computadores de la
+     campaña». Ver config/equiposAutorizados.js, que explica qué se puede y qué
+     no se puede prometer desde un navegador.
+     `identificador` es el que va firmado en la cookie; la firma impide
+     inventarlo, y esta tabla es la que decide si entra, para poder revocarlo
+     desde el panel sin tocar el equipo. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS equipos_autorizados (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      identificador VARCHAR(64) NOT NULL,
+      nombre VARCHAR(120) NULL COMMENT 'Se lo pone una persona: «Portátil de Diego»',
+      estado ENUM('autorizado','pendiente','revocado') NOT NULL DEFAULT 'autorizado',
+      primer_uso DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ultimo_uso DATETIME NULL,
+      ultimo_usuario_id INT NULL,
+      user_agent VARCHAR(250) NULL,
+      ultima_ip VARCHAR(45) NULL,
+      UNIQUE KEY uq_equipo_identificador (identificador),
+      KEY idx_equipo_estado (estado),
+      FOREIGN KEY (ultimo_usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  /* EL LÍMITE LO MANDA EL SERVIDOR DE LICENCIAS, no se edita aquí: es la
+     condición que se vende. Llega en la misma respuesta de validación por la
+     que ya viajan las sublicencias.
+     `max_equipos = 0` es «sin restricción», y es el valor de arranque: mientras
+     ninguna licencia diga otra cosa, esto solo registra desde dónde se entra.
+     Una fila única, como sms_config. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS licencia_equipos_config (
+      id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+      max_equipos INT NOT NULL DEFAULT 0 COMMENT '0 = sin restricción',
+      requiere_aprobacion TINYINT(1) NOT NULL DEFAULT 0,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await connection.query(`INSERT IGNORE INTO licencia_equipos_config (id, max_equipos) VALUES (1, 0)`);
+  console.log('Tablas de equipos autorizados listas.');
+
   /* Las pertenencias ADICIONALES: el votante que apoya a dos aspirantes. La
      principal —quien lo registro primero— sigue en votantes.lider_id, que es lo
      que ve la campana madre y por eso no se toca. */
@@ -1751,6 +1813,22 @@ async function main() {
      vez de recorrerla en cada consulta porque la tabla de votantes se lista
      entera muchas veces al dia, y una CTE recursiva por fila es un precio que
      no hay que pagar. Se recalcula con scripts/recalcular-ramas.js */
+  /* LA COMUNA Y EL BARRIO DE RESIDENCIA, TAMBIÉN EN VOTANTES.
+     Existían solo en `usuarios`, así que un votante que no está en la
+     estructura no tenía dónde guardarlos — y la pantalla de Votantes acababa
+     mostrando en esas dos columnas el TERRITORIO DE INFLUENCIA, que es otra
+     cosa: dónde trabaja la persona, no dónde vive. Por eso la misma persona
+     salía en «Comuna 03 - Cumanday › Centro» en Estructura y en «Comuna 01 -
+     Atardeceres › Chipre» en Votantes, y parecía un fallo de sincronización.
+     Con las columnas aquí, cada pantalla muestra lo suyo y la sincronización
+     puede traer el dato de la ficha de estructura. */
+  await agregarColumnaSiFalta(connection, 'votantes',
+    'comuna_corregimiento_residencia VARCHAR(120) NULL AFTER ciudad_residencia',
+    'comuna_corregimiento_residencia');
+  await agregarColumnaSiFalta(connection, 'votantes',
+    'barrio_residencia VARCHAR(120) NULL AFTER comuna_corregimiento_residencia',
+    'barrio_residencia');
+
   await agregarColumnaSiFalta(connection, 'votantes',
     `rama_aspirante_id INT NULL COMMENT 'Derivado: aspirante del que cuelga. Ver lib/ramas.js' AFTER sublider_id`,
     'rama_aspirante_id');

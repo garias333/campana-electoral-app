@@ -267,8 +267,8 @@
           <div class="celda"><div class="et">Testigos</div><div class="val" id="stat-testigos">—</div></div>
           <div class="celda acento"><div class="et">Votantes registrados</div><div class="val" id="stat-votantes">—</div></div>
           <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
-          <div class="celda"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
-          <div class="celda"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
+          <div class="celda" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
+          <div class="celda" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
           <div class="celda acento"><div class="et">Avance de registro</div><div class="val" id="stat-avance-registros-lideres">—</div></div>
         </div>
       </div>
@@ -312,12 +312,12 @@
         <div class="pie-panel" id="apoya-a-pie"></div>
       </section>
 
-      <section class="panel c5">
+      <section class="panel c5" id="panel-proximos-eventos">
         <header><h2>Próximos eventos</h2></header>
         <div id="lista-eventos"></div>
       </section>
 
-      <section class="panel c7">
+      <section class="panel c7" id="panel-estructura-campana">
         <!-- NO DICE «SU EQUIPO». `/dashboard/resumen` no pasa por
              `calcularAlcance`: devuelve los conteos de TODA la campaña, y
              esta pantalla la abren también líderes, sublíderes y testigos.
@@ -551,6 +551,23 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     document.getElementById('stat-cuenta-regresiva').textContent = cuenta.leyenda;
   } catch (e) { /* si falla, la tarjeta se deja con el guion por defecto */ }
 
+  /* EL ASPIRANTE NO VE DINERO NI AGENDA, Y SE LE QUITAN DE LA PANTALLA.
+     El servidor ya no se los manda (ver routes/dashboard.routes.js): son de la
+     campaña madre entera y no hay forma de acotarlos a su rama. Dejar las
+     tarjetas con un cero sería peor que quitarlas — un «Balance financiero: $0»
+     se lee como «mi campaña está sin plata», que no es lo que pasa.
+     Al esconder «Próximos eventos», que ocupa 5 de las 12 columnas, su vecina
+     pasa de 7 a 12: si no, queda un hueco donde estaba. */
+  const soyAspirante = !!(usuario && usuario.es_aspirante);
+  if (soyAspirante) {
+    ['celda-eventos', 'celda-balance', 'panel-proximos-eventos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const vecina = document.getElementById('panel-estructura-campana');
+    if (vecina) vecina.classList.replace('c7', 'c12');
+  }
+
   try {
     const r = await api('/dashboard/resumen');
 
@@ -708,9 +725,15 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     console.error('Error cargando la tabla de posiciones:', err);
   }
 
-  // El mapa expone ubicaciones exactas de contactos — mismo criterio de
-  // acceso que ya usa /territorial/mapa-personas en el backend.
-  if (['admin', 'coordinador'].includes(usuario.rol)) {
+  /* El mapa expone ubicaciones exactas de contactos — mismo criterio de
+     acceso que ya usa /territorial/mapa-personas en el backend.
+
+     EL ASPIRANTE ENTRA, y hay que decirlo aparte porque su rol es «lider».
+     Esa ruta ya lo admite (`requireRole('admin','coordinador','aspirante')`) y
+     ya le acota las tres consultas a su rama. Dejar la condición solo por rol
+     escondía el mapa a quien el servidor sí atiende: la mitad del permiso
+     concedida, que es la forma más silenciosa de que una función parezca rota. */
+  if (soyAspirante || ['admin', 'coordinador'].includes(usuario.rol)) {
     document.getElementById('bloque-mapa-dashboard').style.display = 'block';
     cargarMapaDashboard().catch(err => console.error('Error cargando el mapa del panel:', err));
   }

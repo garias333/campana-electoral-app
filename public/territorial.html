@@ -1377,6 +1377,36 @@ function poblarListasUbicacionPersona() {
   actualizarVeredasPersona();
 }
 
+/**
+ * AL CAMBIAR LA ZONA, EL PUNTO QUE YA NO LE PERTENECE SE VACÍA.
+ *
+ * EL FALLO QUE ARREGLA. Cambiar la Comuna de un líder repoblaba la lista de
+ * Barrios pero dejaba escrito el barrio ANTERIOR. Y al guardar, el barrio se
+ * resuelve por NOMBRE entre todos los territorios —no solo entre los de la
+ * comuna elegida—, así que se encontraba el viejo y se guardaba su id: la
+ * pantalla decía «guardado», y al volver a abrir aparecía el área de antes.
+ * Sin error, sin aviso, y con toda la pinta de que el formulario ignora lo que
+ * uno escribe.
+ *
+ * SOLO SE VACÍA SI ES INCOHERENTE, no siempre. Vaciarlo en cada pulsación
+ * pelearía con el autocompletado de al lado —el que rellena la Comuna cuando
+ * uno escribe un Barrio conocido—: ése deja los dos campos coherentes, y
+ * borrar entonces sería deshacer lo que la persona acaba de conseguir.
+ * Tampoco se toca nada con la zona a medio escribir: mientras no coincida con
+ * ninguna comuna real, no hay con qué comparar.
+ */
+function limpiarPuntoSiNoEsDeSuZona(idZona, tipoZona, idPunto, tipoPunto) {
+  const campoPunto = document.getElementById(idPunto);
+  const nombrePunto = normalizarTexto(campoPunto.value);
+  if (!nombrePunto) return;
+  const nombreZona = normalizarTexto(document.getElementById(idZona).value);
+  if (!nombreZona) return;
+  const zona = listaTerritorios.find(t => t.tipo === tipoZona && normalizarTexto(t.nombre) === nombreZona);
+  if (!zona) return;                       // zona a medio escribir: no se toca nada
+  const punto = listaTerritorios.find(t => t.tipo === tipoPunto && normalizarTexto(t.nombre) === nombrePunto);
+  if (punto && punto.padre_id !== zona.id) campoPunto.value = '';
+}
+
 function actualizarBarriosPersona() {
   // Si la ciudad no tiene comunas, el campo Comuna está oculto (salvo para
   // Coordinador) — el Barrio se busca directo entre TODOS los del
@@ -1429,10 +1459,12 @@ document.getElementById('input-municipio-influencia-persona').addEventListener('
   actualizarReportaAPorZona();
 });
 document.getElementById('input-comuna-persona').addEventListener('input', () => {
+  limpiarPuntoSiNoEsDeSuZona('input-comuna-persona', 'comuna', 'input-barrio-persona', 'barrio');
   actualizarBarriosPersona();
   actualizarReportaAPorZona();
 });
 document.getElementById('input-corregimiento-persona').addEventListener('input', () => {
+  limpiarPuntoSiNoEsDeSuZona('input-corregimiento-persona', 'corregimiento', 'input-vereda-persona', 'vereda');
   actualizarVeredasPersona();
   actualizarReportaAPorZona();
 });
@@ -1814,6 +1846,38 @@ document.getElementById('input-vereda-persona').addEventListener('input', () => 
  * cargos (no solo Coordinador) — Líder/Usuario/Testigo también se asignan
  * directo a la Comuna/Corregimiento, igual que ya hace Coordinador.
  */
+/**
+ * ¿PARA ESTE CARGO EL BARRIO O LA VEREDA ES OPCIONAL?
+ *
+ * Dos cargos: el Coordinador de territorio y el Aspirante al Concejo. Los dos
+ * PUEDEN mandar sobre una zona entera, pero también pueden concentrarse en un
+ * solo barrio — un candidato al Concejo que hace toda su campaña en Chipre es
+ * un caso normal, no una excepción.
+ *
+ * POR ESO EL CAMPO SE DEJA VISIBLE Y SE VUELVE OPCIONAL, en vez de esconderse.
+ * Esconderlo decide por la persona: le impide decir algo verdadero sobre su
+ * campaña. Lo que sobraba era la EXIGENCIA, no el campo.
+ *
+ * Si se llena, manda el barrio; si se deja vacío, se guarda con la comuna. Sin
+ * comuna ni barrio se sube al municipio, que es lo que ya hacía el formulario
+ * cuando el municipio no tiene barrios creados.
+ *
+ * EL ASPIRANTE HAY QUE PREGUNTARLO POR EL SELECTOR VISUAL, no por `cargo`.
+ * En la base se guarda como `lider` —a propósito: así conserva su equipo, su
+ * meta y su rama, ver esAspiranteAlConcejo()— así que el `<select>` oculto
+ * dice «lider» y una comprobación por ahí no lo distingue de un líder normal.
+ * Lo que lo identifica en el formulario es el botón elegido.
+ *
+ * La respuesta vive AQUÍ y en ningún otro sitio: la usan el pintado de los
+ * campos y la validación al guardar, y si cada uno la dedujera por su cuenta
+ * acabarían discrepando.
+ */
+function barrioEsOpcional() {
+  const cargo = document.getElementById('select-cargo-persona').value;
+  const visual = document.querySelector('#chips-cargo-persona input[name="cargo_visual"]:checked');
+  return cargo === 'coordinador' || (visual && visual.value === 'aspirante_concejo');
+}
+
 function actualizarVisibilidadBarrioVeredaSegunCargo() {
   const esCoordinador = document.getElementById('select-cargo-persona').value === 'coordinador';
   const esCoordinadorOrg = document.getElementById('select-cargo-persona').value === 'coordinador_organizaciones';
@@ -1823,8 +1887,12 @@ function actualizarVisibilidadBarrioVeredaSegunCargo() {
   // Barrio y Vereda se ocultan por separado: son niveles distintos y la
   // campaña puede usar uno y no el otro. Coordinador los oculta los dos,
   // porque se asigna a la Comuna o al Corregimiento.
-  document.getElementById('campo-barrio-persona').style.display = (esCoordinador || !usarNombreBarrios) ? 'none' : 'block';
-  document.getElementById('campo-vereda-persona').style.display = (esCoordinador || !usarNombreVeredas) ? 'none' : 'block';
+  /* Barrio y Vereda solo los esconde el ajuste de la campaña («¿Utilizar
+     nombre de barrios?»). Ya NO se esconden por cargo: para Coordinador y
+     Aspirante al Concejo son opcionales, y opcional no es lo mismo que
+     inexistente — pueden querer decir en qué barrio se concentran. */
+  document.getElementById('campo-barrio-persona').style.display = !usarNombreBarrios ? 'none' : 'block';
+  document.getElementById('campo-vereda-persona').style.display = !usarNombreVeredas ? 'none' : 'block';
   document.getElementById('campo-comuna-persona').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('input-corregimiento-persona').closest('.campo').style.display = usarNombreCorregimientos ? 'block' : 'none';
   document.getElementById('input-meta-votos-persona').style.display = metaEsDerivada ? 'none' : 'block';
@@ -2049,7 +2117,7 @@ function resolverTerritorioPersona() {
     // barrios?" está en No, Líder/Usuario/Testigo también se asignan a la
     // Comuna directo (Barrio queda oculto). Si ADEMÁS la ciudad tampoco usa
     // comunas, no hay nada que exigir: se guarda sin territorio geográfico.
-    if (esCoordinador || !usarNombreBarrios) {
+    if (!usarNombreBarrios) {
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
       const comuna = nombreComuna ? listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
       if (!comuna) {
@@ -2062,7 +2130,8 @@ function resolverTerritorioPersona() {
     }
     const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
     if (!nombreBarrio) {
-      if (disp.barrios.length) return { error: 'Seleccione un barrio de la lista.' };
+      // Vacío y obligatorio -> se pide. Vacío y opcional -> se cae a la comuna.
+      if (disp.barrios.length && !barrioEsOpcional()) return { error: 'Seleccione un barrio de la lista.' };
       // Sin barrios creados se baja al mayor detalle disponible: la comuna
       // escrita, si la hay, y si no el municipio.
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
@@ -2074,11 +2143,12 @@ function resolverTerritorioPersona() {
     return { territorioId: barrio.id };
   }
   if (area === 'rural') {
-    // El espejo exacto de la rama urbana: Coordinador siempre va al
-    // Corregimiento, y con "¿Utilizar nombre de veredas?" en No los demás
-    // cargos también. Si tampoco se usan corregimientos, no queda nada que
-    // exigir y se guarda sin territorio geográfico rural.
-    if (esCoordinador || !usarNombreVeredas) {
+    // El espejo exacto de la rama urbana: con "¿Utilizar nombre de veredas?"
+    // en No, todos los cargos se asignan al Corregimiento. Si tampoco se usan
+    // corregimientos, no queda nada que exigir y se guarda sin territorio
+    // geográfico rural. La vereda es opcional para los cargos que dice
+    // `barrioEsOpcional()`, igual que el barrio.
+    if (!usarNombreVeredas) {
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       if (!nombreCorregimiento) {
         if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista.' };
@@ -2090,7 +2160,9 @@ function resolverTerritorioPersona() {
     }
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-persona').value);
     if (!nombreVereda) {
-      if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista.' };
+      // Igual que el barrio arriba: obligatoria salvo para los cargos a los
+      // que se les deja elegir entre la zona entera y un punto concreto.
+      if (disp.veredas.length && !barrioEsOpcional()) return { error: 'Seleccione una vereda de la lista.' };
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       const corregimiento = nombreCorregimiento ? listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       return corregimiento ? { territorioId: corregimiento.id } : territorioMasFino();
@@ -2669,9 +2741,11 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
 
         <div class="lateral-p">
           <span class="badge-p ${f.activo ? 'badge-activo' : 'badge-inactivo'}"><span class="punto"></span>${f.activo ? 'Activo' : 'Inactivo'}</span>
+          ${f.excluido_por ? `<span class="badge-p badge-excluido" title="Esta persona sigue en su estructura; solo dejó de verla ese aspirante.">Eliminado por ${escaparHtml(f.excluido_por)}</span>` : ''}
           <div class="acciones-p">
             ${puedeEditar ? `<button class="btn-neutro" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
             ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-neutro btn-eliminar-p" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
+            ${usuarioActual.es_aspirante && f.usuario_id !== usuarioActual.id ? `<button class="btn-neutro btn-eliminar-p" title="Sale de SU equipo. La persona sigue en la campaña principal, que verá quién la quitó." onclick="quitarDeMiEquipo(${f.id})">Quitar de mi equipo</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -2989,9 +3063,35 @@ async function abrirEdicion(id) {
   document.getElementById('overlay-form').classList.add('abierto');
 }
 
+/* QUITAR NO ES ELIMINAR, y el nombre del botón lo dice.
+   El aspirante no puede borrar: la ficha y la cuenta son de la campaña madre.
+   Esto apunta que esa persona sale de su vista, y allá aparece con la marca de
+   quién la quitó. No pide contraseña porque no destruye nada y se deshace. */
+async function quitarDeMiEquipo(id) {
+  const fila = listaEstructura.find(f => f.id === id);
+  const quien = fila ? fila.nombre : 'esta persona';
+  /* Con el modal propio y no con `confirm()`: éste lo apaga el navegador tras
+     varios diálogos seguidos y el botón se queda muerto sin decir nada.
+     Ver `confirmarEnModal` en js/common.js. */
+  const seguro = await confirmarEnModal(
+    `¿Quitar a ${quien} de su equipo?`,
+    'Dejará de aparecer en sus listas y en sus cifras.\n\nNO se borra: sigue en la campaña principal, que verá que usted la quitó.',
+    'Quitar de mi equipo');
+  if (!seguro) return;
+  try {
+    await api(`/territorial/estructura/${id}`, { method: 'DELETE' });
+    cargarEstructura();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 async function eliminarEstructura(id) {
   const fila = listaEstructura.find(f => f.id === id);
-  if (!confirm('¿Eliminar este registro de la estructura?\n\nSe borra también su cuenta de acceso.')) return;
+  /* Igual que arriba: el `confirm()` que había aquí podía devolver false sin
+     preguntar y dejar el botón muerto en silencio. */
+  if (!(await confirmarEnModal('¿Eliminar este registro de la estructura?',
+        'Se borra también su cuenta de acceso.', 'Eliminar'))) return;
   /* Aquí NO se llama a /auth/verificar-password: la contraseña viaja en el
      propio DELETE y la ruta la comprueba antes de tocar nada. Adelantarla
      sería una vuelta de más al servidor para preguntar lo mismo dos veces —

@@ -1,4 +1,29 @@
 const express = require('express');
+const { usuariosDelAspiranteSql } = require('../lib/ramas');
+const { cargoDeLaMadre } = require('../config/cargoMadre');
+
+/* EL ALCANCE DE CUENTAS DEL ASPIRANTE, en un solo sitio.
+   Devuelve null para la campaña madre —sin acotar, como siempre— y el trozo de
+   WHERE para el aspirante. Son ONCE rutas las que administran cuentas; que
+   cada una arme su propia condición sería once oportunidades de que a una se
+   le olvide, y el precio de olvidarse aquí es que un aspirante restablezca la
+   contraseña de un líder de la alcaldía. */
+async function alcanceCuentas(req) {
+  if (!req.sublicencia) return null;
+  return usuariosDelAspiranteSql(req.sublicencia.usuario_id, await cargoDeLaMadre());
+}
+
+/* ¿Puede este aspirante tocar ESTA cuenta? Se pregunta a la base, no se
+   deduce: es la misma condición del listado, así que no pueden divergir. */
+async function puedeAdministrar(req, usuarioId) {
+  const alcance = await alcanceCuentas(req);
+  if (!alcance) return !req.sublicencia;   // la madre sí; un aspirante sin cargo de madre, no
+  const [[ok]] = await pool.query(
+    `SELECT 1 AS ok FROM usuarios u WHERE u.id = ? AND ${alcance.sql} LIMIT 1`,
+    [usuarioId, ...alcance.valores]
+  );
+  return !!ok;
+}
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
@@ -84,10 +109,28 @@ router.get('/', async (req, res) => {
   const whereSql = (rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1') + ocultar;
   const params = rol ? [rol] : [];
   try {
+    /* QUIEN YA NO ESTÁ EN LA ESTRUCTURA NO SALE EN LOS DESPLEGABLES.
+       Esta consulta miraba `usuarios.activo` y nada más, y son dos cosas
+       distintas: dar de baja a alguien desde Coordinadores y líderes apaga su
+       fila de `estructura` (`activo = 0` en el PUT de esa pantalla), NO su
+       cuenta. La lista de la estructura filtra por `e.activo = 1` y esa persona
+       desaparecía de ahí —para quien la dio de baja, «ya la eliminé»— pero
+       seguía apareciendo en el desplegable de líderes de Votantes, donde
+       todavía se le podían asignar personas.
+
+       LA CONDICIÓN NO ES «TIENE FILA ACTIVA», ES «NO TIENE SOLO FILAS
+       APAGADAS». Un administrador no tiene fila en `estructura` y tiene que
+       seguir saliendo —es quien aparece como responsable de un evento—; con
+       un `JOIN` a secas se habría caído de todos los desplegables de la
+       aplicación. Se excluye únicamente a quien ESTUVO y ya no está. */
+    const enEstructura = `AND (
+        NOT EXISTS (SELECT 1 FROM estructura ex WHERE ex.usuario_id = u.id)
+        OR EXISTS (SELECT 1 FROM estructura ex WHERE ex.usuario_id = u.id AND ex.activo = 1)
+      )`;
     const [rows] = await pool.query(
       `SELECT u.id, u.nombre, r.nombre AS rol, u.territorio_id
        FROM usuarios u JOIN roles r ON r.id = u.rol_id
-       ${whereSql} ORDER BY u.nombre`, params
+       ${whereSql} ${enEstructura} ORDER BY u.nombre`, params
     );
     res.json(rows);
   } catch (err) {
@@ -98,8 +141,9 @@ router.get('/', async (req, res) => {
 
 // Listado completo para el panel de administración de Usuarios (Configuración).
 // Incluye inactivos, y datos que no hacen falta en los selects livianos de arriba.
-router.get('/admin', requireRole('admin'), async (req, res) => {
+router.get('/admin', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
+    const alcance = await alcanceCuentas(req);
     // '' para el propio superadministrador —tiene que verse a sí mismo o no
     // podría administrar su cuenta—, y 'AND u.es_superadmin = 0' para
     // cualquier otro administrador. El contador de la pantalla («N de M
@@ -120,8 +164,9 @@ router.get('/admin', requireRole('admin'), async (req, res) => {
       LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = r.nombre
       LEFT JOIN territorios te ON te.id = e.territorio_id
       WHERE 1 = 1 ${ocultar}
+      ${alcance ? 'AND ' + alcance.sql : ''}
       ORDER BY u.nombre
-    `);
+    `, alcance ? alcance.valores : []);
     res.json(rows);
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
@@ -130,7 +175,7 @@ router.get('/admin', requireRole('admin'), async (req, res) => {
 });
 
 // Lista de roles disponibles (para el selector de "Asignar roles y perfiles").
-router.get('/roles', requireRole('admin'), async (req, res) => {
+router.get('/roles', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT id, nombre, descripcion FROM roles ORDER BY id`);
     res.json(rows);
@@ -187,7 +232,7 @@ async function confirmarConSuPassword(req, res) {
   return true;
 }
 
-router.post('/', requireRole('admin'), async (req, res) => {
+router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
   const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, password } = req.body;
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
@@ -232,7 +277,13 @@ router.post('/', requireRole('admin'), async (req, res) => {
 });
 
 // Edita nombre/email/teléfono/rol/estado de un usuario existente.
-router.put('/:id', requireRole('admin'), async (req, res) => {
+router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await confirmarConSuPassword(req, res)) return;
   // VA ANTES DE VALIDAR, no después: la comprobación tiene que ser lo
   // primero que decide, para que la respuesta no dependa de qué traía el
@@ -337,7 +388,13 @@ router.put('/:id', requireRole('admin'), async (req, res) => {
   }
 });
 
-router.put('/:id/estado', requireRole('admin'), async (req, res) => {
+router.put('/:id/estado', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await protegerObjetivo(req, res, req.params.id)) return;
   const { activo } = req.body;
   if (!activo && await protegerAutodestruccion(req, res, req.params.id)) return;
@@ -358,7 +415,13 @@ router.put('/:id/estado', requireRole('admin'), async (req, res) => {
 
 // Restablece la contraseña de un usuario a una nueva temporal (por si la
 // olvidó y no le llega el correo de recuperación, por ejemplo).
-router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) => {
+router.post('/:id/restablecer-password', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await confirmarConSuPassword(req, res)) return;
   if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
@@ -478,7 +541,13 @@ router.post('/:id/restablecer-password', requireRole('admin'), async (req, res) 
  * que quizá no revisa, y volveríamos al mismo problema desde el otro lado.
  * Activarlo sigue siendo decisión de cada quien, desde su propio panel.
  */
-router.post('/:id/desactivar-2fa', requireRole('admin'), async (req, res) => {
+router.post('/:id/desactivar-2fa', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await confirmarConSuPassword(req, res)) return;
   if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
@@ -513,7 +582,13 @@ router.post('/:id/desactivar-2fa', requireRole('admin'), async (req, res) => {
  * completarse. Conviene que la casilla se entienda así y no como un acuse de
  * recibo.
  */
-router.post('/:id/credenciales-enviadas', requireRole('admin'), async (req, res) => {
+router.post('/:id/credenciales-enviadas', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
     const [r] = await pool.query(
@@ -590,7 +665,13 @@ router.post('/sincronizar-con-identificacion', requireRole('admin'), async (req,
   }
 });
 
-router.delete('/:id', requireRole('admin'), async (req, res) => {
+router.delete('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
+  /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
+     la pestaña le daría la administración de toda la campaña madre. */
+  if (req.sublicencia && !(await puedeAdministrar(req, req.params.id))) {
+    return res.status(403).json({ error: 'Esa cuenta pertenece a la campaña principal.' });
+  }
+
   if (await confirmarConSuPassword(req, res)) return;
   if (await protegerObjetivo(req, res, req.params.id)) return;
   if (await protegerAutodestruccion(req, res, req.params.id)) return;

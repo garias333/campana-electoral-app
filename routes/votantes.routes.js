@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
+const { recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
@@ -1107,6 +1108,10 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
         [esOrganizacion ? null : (territorioId || null), esOrganizacion ? 'organizacion' : 'territorio',
          esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0, yaExiste.id]
       );
+      /* Aquí también cambia el `supervisor_id`: a un sublíder que ya existía
+         se le puede estar poniendo otro líder. Ver la nota del PUT en
+         routes/territorial.routes.js. */
+      recalcularRamaEnSegundoPlano(pool, usuarioId, 'reasignar un sublíder desde Votantes');
     }
   } catch (err) {
     console.error('Error creando/actualizando el registro de Estructura territorial del sublíder:', err);
@@ -1255,17 +1260,19 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
       `INSERT INTO votantes
        (categoria, nombre, cedula, telefono, email, genero, edad, fecha_nacimiento, territorio_id,
         tipo_area_influencia, organizacion,
-        direccion, departamento_residencia, ciudad_residencia, area, lider_id, sublider_id, intencion_voto, apoya_a,
+        direccion, departamento_residencia, ciudad_residencia,
+        comuna_corregimiento_residencia, barrio_residencia, area, lider_id, sublider_id, intencion_voto, apoya_a,
         departamento_votacion, municipio_votacion,
         puesto_votacion, ctc_puesto_id, mesa_votacion, observaciones,
         consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
         consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
         cliente_uuid, created_by, rama_aspirante_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
        b.direccion || null, b.departamento_residencia || null, b.ciudad_residencia || null,
+       b.comuna_corregimiento_residencia || null, b.barrio_residencia || null,
        esOrganizacion ? null : (b.area || null), b.lider_id || req.session.usuario.id, b.sublider_id || null,
        b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
@@ -1422,6 +1429,7 @@ router.put('/:id', async (req, res) => {
       `UPDATE votantes SET categoria=?, nombre=?, cedula=?, telefono=?, email=?, genero=?, edad=?,
        fecha_nacimiento=?, territorio_id=?, tipo_area_influencia=?, organizacion=?, direccion=?,
        departamento_residencia=?, ciudad_residencia=?,
+       comuna_corregimiento_residencia=?, barrio_residencia=?,
        area=?, lider_id=?, sublider_id=?, intencion_voto=?, apoya_a=?,
        departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, ctc_puesto_id=?, mesa_votacion=?, observaciones=?,
        rama_aspirante_id=? WHERE id = ?`,
@@ -1429,6 +1437,7 @@ router.put('/:id', async (req, res) => {
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
        b.direccion || null, b.departamento_residencia || null, b.ciudad_residencia || null,
+       b.comuna_corregimiento_residencia || null, b.barrio_residencia || null,
        esOrganizacion ? null : (b.area || null), b.lider_id || null, b.sublider_id || null,
        b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
