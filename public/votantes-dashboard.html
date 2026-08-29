@@ -287,6 +287,120 @@
   body.pdf-medir .fila-resumen-dash { display: block; }
   body.pdf-medir .grafico-cuerpo > * { margin-bottom: 14px; }
   body.pdf-medir .pdf-tbody-td { width: 16.59cm; }
+
+  /* ==================================================================
+     DASHBOARD DE VOTANTES — «INFORME EJECUTIVO»
+
+     Elegido por el usuario entre tres propuestas (29 de agosto de 2026).
+     La idea: que se lea como el informe que un jefe de campaña imprimiría
+     para una reunión, no como seis tarjetas iguales apiladas.
+
+     LO QUE RESUELVE:
+
+     1. LA PANTALLA DESCRIBÍA PERO NO SEÑALABA. Decía cuántos hay en cada
+        sitio y nunca dónde está el hueco — que es para lo que un jefe de
+        campaña la abre. Ahora arriba va una franja con las frases que los
+        datos gritan, cada una con su cifra.
+
+     2. LOS HUECOS ERAN UNA BARRA AZUL MÁS. Medido el 29 de agosto en la
+        campaña municipal: «(sin territorio)» son 22 de 111 —el SEGUNDO
+        grupo más grande—, «(sin barrio)» otros 22 y «(sin líder)» 17. Una
+        quinta parte de la base no tiene dónde ubicarse, y eso se pintaba
+        igual que Comuna 01. Ahora llevan color y etiqueta propios.
+
+     3. DIECIOCHO BOTONES DE EXPORTACIÓN. Tres arriba y tres en cada una de
+        las seis tarjetas: el control más repetido de la pantalla y el que
+        menos se usa. Quedan uno arriba con menú y uno discreto por sección.
+
+     CONTRASTES MEDIDOS con la fórmula WCAG 2.1, no estimados.
+     ================================================================== */
+  :root {
+    --dash-navy: #131F3B;
+    --dash-panel: #1C2A4A;
+    --dash-hueco-fondo: #FBEEE0;
+    --dash-hueco-fila: #FDF6EE;
+    --dash-hueco-texto: #8A4B12;
+    --dash-hueco-borde: #C2661B;
+    --dash-hueco-barra: #B85E15;
+    --dash-linea-ctrl: #767E8C;
+    --dash-pista: #F1F3F6;
+  }
+
+  /* La franja de hallazgos. Oscura y con filo amarillo: es lo primero que
+     se lee y lo único de la pantalla que interpreta en vez de describir. */
+  .hallazgos {
+    background: var(--dash-navy); border-radius: 12px;
+    padding: clamp(18px, 2.6vw, 26px); margin-bottom: 20px;
+    border-left: 5px solid #FFC300;
+  }
+  .hallazgos-encabezado {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .hallazgos-encabezado h2 {
+    color: #fff; font-size: 1.05rem; margin: 0;
+    font-family: var(--font-display); font-weight: 600;
+  }
+  .hallazgos-fecha { color: #9FB0CC; font-size: 0.8rem; }
+  .hallazgos-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); }
+  .hallazgo { background: var(--dash-panel); border-radius: 10px; padding: 16px 18px; border-top: 3px solid #FFC300; }
+  .hallazgo-cifra { font-family: var(--font-mono); font-size: 1.75rem; font-weight: 500; color: #FFC300; line-height: 1.1; }
+  .hallazgo-frase { color: #fff; font-weight: 600; font-size: 0.96rem; margin: 8px 0 6px; font-family: var(--font-display); }
+  .hallazgo-detalle { color: #C7D3E6; font-size: 0.84rem; margin: 0; line-height: 1.5; }
+  .hallazgos-vacio { color: #C7D3E6; font-size: 0.9rem; margin: 0; }
+
+  /* Las secciones, numeradas y en orden de importancia. */
+  .seccion-cabecera-inf {
+    display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap;
+    padding-bottom: 12px; margin-bottom: 16px; border-bottom: 2px solid var(--dash-navy);
+  }
+  .seccion-numero {
+    font-family: var(--font-mono); font-size: 0.95rem; font-weight: 500;
+    background: var(--dash-navy); color: #fff;
+    width: 30px; height: 30px; border-radius: 8px; flex: none;
+    display: grid; place-items: center;
+  }
+
+  /* EL HUECO SE PINTA DISTINTO. #8A4B12 sobre #FBEEE0 da 6,49 y la barra
+     #B85E15 sobre la pista #F1F3F6 da 4,29: se distingue del azul por color
+     Y por la etiqueta escrita, así que no depende de ver el color. */
+  .barra-fila.es-hueco { background: var(--dash-hueco-fila); border-radius: 6px; }
+  .barra-fila.es-hueco .barra-relleno,
+  .barra-svg-wrap .es-hueco { background: var(--dash-hueco-barra); }
+  .etiqueta-hueco {
+    display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+    background: var(--dash-hueco-fondo); color: var(--dash-hueco-texto);
+    border: 1px solid var(--dash-hueco-borde); margin-right: 7px; vertical-align: 1px;
+  }
+
+  /* UN SOLO BOTÓN DE EXPORTAR POR SECCIÓN. Abre las mismas tres opciones que
+     antes ocupaban tres botones en cada tarjeta. */
+  .btn-discreto {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #fff; color: #084298;
+    border: 1.5px solid var(--dash-linea-ctrl); border-radius: 9px;
+    padding: 7px 13px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .btn-discreto:hover { background: #084298; color: #fff; border-color: #084298; }
+  .menu-exportar {
+    position: absolute; z-index: 90; min-width: 210px; background: #fff;
+    border: 1px solid var(--dash-linea-ctrl); border-radius: 11px;
+    box-shadow: 0 10px 30px rgba(19,31,59,.22); padding: 6px;
+  }
+  .menu-exportar button {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 0.86rem; color: var(--color-text);
+  }
+  .menu-exportar button:hover { background: #EEF3FC; }
+
+  /* En papel sobran los controles: lo que se imprime es el informe. */
+  @media print {
+    .btn-discreto, .menu-exportar, .grafico-toggle, .topbar-acciones { display: none !important; }
+    .hallazgos { break-inside: avoid; }
+    .grafico-card, .card { break-inside: avoid; box-shadow: none; }
+  }
 </style>
 </head>
 <body>
@@ -313,6 +427,18 @@
       <a href="/votantes.html">Votantes y sublíderes</a>.
     </p>
 
+    <!-- LA FRANJA DE HALLAZGOS. Es lo único de la pantalla que INTERPRETA en
+         vez de describir, y va primero porque es lo que un jefe de campaña
+         viene a buscar. La llena `pintarHallazgos()` con los mismos datos que
+         ya trae la página: no consulta nada nuevo. -->
+    <div class="hallazgos" id="franja-hallazgos" style="display:none;">
+      <div class="hallazgos-encabezado">
+        <h2>Lo que dicen estos datos</h2>
+        <span class="hallazgos-fecha mono" id="hallazgos-fecha"></span>
+      </div>
+      <div class="hallazgos-grid" id="hallazgos-grid"></div>
+    </div>
+
     <div class="fila-resumen-dash" style="display:flex; gap:18px; flex-wrap:wrap; margin-bottom:18px;">
       <div class="card stat-card" id="tarjeta-cuenta-regresiva-dash" style="flex:1; min-width:220px; max-width:320px;">
         <div class="label">Cuenta regresiva</div>
@@ -331,9 +457,9 @@
             <p class="grafico-subtitulo">Comunas/Corregimientos con coordinador y todos sus barrios/veredas con líder</p>
           </div>
           <div class="grafico-exportar">
-            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('cobertura')">⬇ Excel</button>
-            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('cobertura')">📝 Word</button>
-            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-cobertura-seccion')">📄 PDF</button>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionExcel('cobertura')" data-word="exportarSeccionWord('cobertura')" data-pdf="exportarSeccionPDF('tarjeta-cobertura-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
           </div>
         </div>
 
@@ -436,9 +562,9 @@
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
           <div class="grafico-exportar">
-            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('comuna')">⬇ Excel</button>
-            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('comuna', { tipo_grafico: tipoGraficoActivo('comuna') })">📝 Word</button>
-            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-comuna-seccion')">📄 PDF</button>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionExcel('comuna')" data-word="exportarSeccionWord('comuna', { tipo_grafico: tipoGraficoActivo('comuna') })" data-pdf="exportarSeccionPDF('tarjeta-comuna-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
           </div>
         </div>
       </div>
@@ -469,9 +595,9 @@
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
           <div class="grafico-exportar">
-            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('barrio')">⬇ Excel</button>
-            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('barrio', { tipo_grafico: tipoGraficoActivo('barrio') })">📝 Word</button>
-            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-barrio-seccion')">📄 PDF</button>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionExcel('barrio')" data-word="exportarSeccionWord('barrio', { tipo_grafico: tipoGraficoActivo('barrio') })" data-pdf="exportarSeccionPDF('tarjeta-barrio-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
           </div>
         </div>
       </div>
@@ -506,9 +632,9 @@
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
           <div class="grafico-exportar">
-            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('lider')">⬇ Excel</button>
-            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('lider', { tipo_grafico: tipoGraficoActivo('lider') })">📝 Word</button>
-            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-lider-seccion')">📄 PDF</button>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionExcel('lider')" data-word="exportarSeccionWord('lider', { tipo_grafico: tipoGraficoActivo('lider') })" data-pdf="exportarSeccionPDF('tarjeta-lider-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
           </div>
         </div>
       </div>
@@ -539,9 +665,9 @@
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
           <div class="grafico-exportar">
-            <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionExcel('puesto')">⬇ Excel</button>
-            <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionWord('puesto', { tipo_grafico: tipoGraficoActivo('puesto') })">📝 Word</button>
-            <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-puesto-seccion')">📄 PDF</button>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionExcel('puesto')" data-word="exportarSeccionWord('puesto', { tipo_grafico: tipoGraficoActivo('puesto') })" data-pdf="exportarSeccionPDF('tarjeta-puesto-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
           </div>
         </div>
       </div>
@@ -567,10 +693,10 @@
           <p class="grafico-subtitulo">Elige un Puesto de votación para ver cómo se reparten sus mesas.</p>
         </div>
         <div class="grafico-exportar">
-          <button type="button" class="btn-exportar btn-exportar-xlsx" onclick="exportarSeccionMesaExcel()">⬇ Excel</button>
-          <button type="button" class="btn-exportar btn-exportar-word" onclick="exportarSeccionMesaWord()">📝 Word</button>
-          <button type="button" class="btn-exportar btn-exportar-pdf" onclick="exportarSeccionPDF('tarjeta-mesa-seccion')">📄 PDF</button>
-        </div>
+            <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
+                    data-excel="exportarSeccionMesaExcel()" data-word="exportarSeccionMesaWord()" data-pdf="exportarSeccionPDF('tarjeta-mesa-seccion')"
+                    aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
+          </div>
       </div>
       <div class="campo-mesa-select">
         <label for="select-puesto-mesa" style="font-size:0.82rem; color:var(--color-text-muted); font-weight:600;">Puesto de votación:</label>
@@ -630,14 +756,23 @@ function construirBarraHorizontal(datos, color) {
   const barras = filas.map((f, i) => {
     const anchoBarra = (anchoMax * f.total) / max;
     const y = padVert + i * altoFila;
-    const nombreCorto = f.etiqueta.length > 24 ? f.etiqueta.slice(0, 23) + '…' : f.etiqueta;
+    const etiqueta = f.etiqueta == null || String(f.etiqueta).trim() === '' ? 'Sin asignar' : String(f.etiqueta);
+    const nombreCorto = etiqueta.length > 24 ? etiqueta.slice(0, 23) + '…' : etiqueta;
+    /* EL HUECO NO ES UNA CATEGORÍA MÁS. «(sin territorio)» son 22 de 111 en la
+       campaña municipal —el segundo grupo más grande— y se pintaba con el
+       mismo azul que Comuna 01, así que se leía como un sitio donde hay gente
+       en vez de como gente que no se puede ubicar.
+
+       Va en el ocre de aviso (#B85E15, 4,06 sobre la pista) Y con la etiqueta
+       en versalitas: quien no distinga los dos colores lo lee igual. */
+    const hueco = esHueco(f.etiqueta);
     return `
       <g>
-        <text x="${anchoEtiqueta - 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="var(--color-text, #161B26)" text-anchor="end">${escaparHtml(nombreCorto)}</text>
-        <rect x="${anchoEtiqueta}" y="${y + 5}" width="${Math.max(anchoBarra, 1)}" height="${altoFila - 10}" rx="3" fill="${color}">
-          <title>${escaparHtml(f.etiqueta)}: ${formatoMillares(f.total)}</title>
+        <text x="${anchoEtiqueta - 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="${hueco ? '#8A4B12' : 'var(--color-text, #161B26)'}" text-anchor="end"${hueco ? ' font-weight="600"' : ''}>${escaparHtml(nombreCorto)}</text>
+        <rect x="${anchoEtiqueta}" y="${y + 5}" width="${Math.max(anchoBarra, 1)}" height="${altoFila - 10}" rx="3" fill="${hueco ? '#B85E15' : color}">
+          <title>${escaparHtml(etiqueta)}: ${formatoMillares(f.total)}${hueco ? ' — sin ubicar' : ''}</title>
         </rect>
-        <text x="${anchoEtiqueta + anchoBarra + 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="var(--color-text, #161B26)" font-family="var(--font-mono)">${formatoMillares(f.total)}</text>
+        <text x="${anchoEtiqueta + anchoBarra + 8}" y="${y + altoFila / 2 + 4}" font-size="9" fill="${hueco ? '#8A4B12' : 'var(--color-text, #161B26)'}" font-family="var(--font-mono)">${formatoMillares(f.total)}${hueco ? '  ⚠' : ''}</text>
       </g>`;
   }).join('');
   return `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; min-width:420px; height:auto;">${barras}</svg>`;
@@ -688,6 +823,56 @@ function construirDona(datosCompletos) {
 }
 
 /** Arma el cuerpo de una sección (barra u dona, según el tipo activo del toggle) y su tabla. */
+/**
+ * UN BOTÓN DE EXPORTAR POR SECCIÓN, en vez de tres.
+ *
+ * Eran VEINTIDÓS botones de exportación en la pantalla: tres en la barra
+ * superior y tres en cada una de las seis secciones. Es el control más
+ * repetido y el que menos se usa, y con seis tarjetas apiladas convertía cada
+ * encabezado en una fila de botones de colores.
+ *
+ * LOS `onclick` NO CAMBIAN: viajan en `data-excel`, `data-word` y `data-pdf` y
+ * se ejecutan igual que antes. Esto es un cambio de presentación, no de
+ * comportamiento — ninguna exportación hace nada distinto.
+ *
+ * El menú se cierra al elegir, al pulsar fuera y con Escape. Sin eso quedaría
+ * abierto tapando la sección de abajo, que es justo lo que un revisor le
+ * encontró a una de las maquetas.
+ */
+function abrirMenuExportar(evento, boton) {
+  evento.stopPropagation();
+  cerrarMenuExportar();
+  const menu = document.createElement('div');
+  menu.className = 'menu-exportar';
+  menu.id = 'menu-exportar-activo';
+  menu.setAttribute('role', 'menu');
+  menu.innerHTML = `
+    <button type="button" role="menuitem" data-accion="excel">⬇ Exportar a Excel</button>
+    <button type="button" role="menuitem" data-accion="word">📝 Exportar a Word</button>
+    <button type="button" role="menuitem" data-accion="pdf">📄 Exportar a PDF</button>`;
+  menu.addEventListener('click', (e) => {
+    const opcion = e.target.closest('button[data-accion]');
+    if (!opcion) return;
+    const codigo = boton.dataset[opcion.dataset.accion];
+    cerrarMenuExportar();
+    // El mismo `onclick` de antes, ejecutado con el `this` del botón.
+    if (codigo) new Function(codigo).call(boton);
+  });
+  boton.parentElement.style.position = 'relative';
+  boton.parentElement.appendChild(menu);
+  boton.setAttribute('aria-expanded', 'true');
+  setTimeout(() => {
+    document.addEventListener('click', cerrarMenuExportar, { once: true });
+  }, 0);
+}
+function cerrarMenuExportar() {
+  const abierto = document.getElementById('menu-exportar-activo');
+  if (abierto) abierto.remove();
+  document.querySelectorAll('.btn-discreto[aria-expanded="true"]')
+    .forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenuExportar(); });
+
 function renderizarSeccion(clave, datos, colorBarra, columnasTabla) {
   const tipoActivo = document.querySelector(`.grafico-toggle[data-grafico="${clave}"] button.activo`);
   const tipo = tipoActivo ? tipoActivo.dataset.tipo : 'barra';
@@ -734,9 +919,100 @@ const columnasBarrio = (d) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td>${esca
 const columnasLider = (d, total) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td class="num">${formatoMillares(d.total)}</td><td class="num">${Math.round((d.total / total) * 100)}%</td></tr>`;
 const columnasPuesto = (d) => `<tr><td>${escaparHtml(d.etiqueta)}</td><td class="num">${d.cantidadMesas}</td><td class="num">${formatoMillares(d.total)}</td></tr>`;
 
+/* Se GUARDAN, no solo se pintan: la franja de hallazgos los necesita para
+   calcular porcentajes, y volver a pedirlos al servidor sería una consulta
+   más para un dato que ya está en la página. */
+let totalVotantesDash = 0;
+let sinLiderDash = 0;
+
 async function cargarResumen() {
   const r = await api('/votantes-dashboard/resumen');
+  totalVotantesDash = Number(r.total) || 0;
   document.getElementById('kpi-total').textContent = formatoMillares(r.total);
+  pintarHallazgos();
+}
+
+/** ¿Esta etiqueta es un HUECO —gente sin territorio, sin barrio, sin líder—? */
+function esHueco(etiqueta) {
+  const t = String(etiqueta == null ? '' : etiqueta).trim().toLowerCase();
+  return t === '' || t === '—' || t === '-' || t.startsWith('(sin') || t.startsWith('sin ');
+}
+
+/**
+ * LA FRANJA DE HALLAZGOS: lo único de la pantalla que interpreta.
+ *
+ * NO CONSULTA NADA. Trabaja sobre lo que las cinco secciones ya cargaron, así
+ * que se puede llamar cada vez que llega una y se va completando sola.
+ *
+ * TRES REGLAS, y las tres salen de mirar los datos de verdad (campaña
+ * municipal, 29 de agosto de 2026: 111 votantes, 22 sin territorio, 22 sin
+ * barrio, 17 sin líder, y un líder con 28):
+ *
+ *   · el hueco más grande —gente que no se puede ubicar—;
+ *   · la concentración: qué parte de la base carga una sola persona;
+ *   · cuántos no tienen líder asignado.
+ *
+ * SI UN HALLAZGO NO APLICA, NO SE INVENTA. Una campaña con todo el mundo
+ * ubicado no debe ver una tarjeta diciendo «0 sin territorio»: se calla. Y si
+ * no hay ninguno, la franja entera se esconde — una franja titulada «lo que
+ * dicen estos datos» que no dice nada es peor que no tenerla.
+ */
+function pintarHallazgos() {
+  const caja = document.getElementById('franja-hallazgos');
+  const grid = document.getElementById('hallazgos-grid');
+  if (!caja || !grid) return;
+  const total = totalVotantesDash;
+  if (!total) { caja.style.display = 'none'; return; }
+
+  const pct = (n) => Math.round((n / total) * 100);
+  const hallazgos = [];
+
+  // 1. El hueco más grande de los tres ejes.
+  const huecos = [
+    ['sin territorio', (cacheDatosComuna || []).filter(d => esHueco(d.etiqueta)).reduce((t, d) => t + d.total, 0)],
+    ['sin barrio o vereda', (cacheDatosBarrio || []).filter(d => esHueco(d.etiqueta)).reduce((t, d) => t + d.total, 0)],
+  ].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  if (huecos.length) {
+    const [donde, n] = huecos[0];
+    hallazgos.push({
+      cifra: `${formatoMillares(n)} de ${formatoMillares(total)}`,
+      frase: `Hay ${formatoMillares(n)} personas ${donde}`,
+      detalle: `Es el ${pct(n)}% de la base. Sin territorio no se les puede asignar líder ni contar en la cobertura.`,
+    });
+  }
+
+  // 2. Concentración: cuánto carga la persona que más registra.
+  const lideres = (cacheDatosLider || []).filter(d => !esHueco(d.etiqueta)).sort((a, b) => b.total - a.total);
+  if (lideres.length && lideres[0].total > 0) {
+    const p = pct(lideres[0].total);
+    hallazgos.push({
+      cifra: `${p}%`,
+      frase: `${lideres[0].etiqueta} concentra ${formatoMillares(lideres[0].total)} registros`,
+      detalle: p >= 20
+        ? 'Una sola persona carga con una parte grande de la base. Conviene repartir o revisar por qué.'
+        : 'Es quien más registros lleva.',
+    });
+  }
+
+  // 3. Gente sin líder asignado.
+  if (sinLiderDash > 0) {
+    hallazgos.push({
+      cifra: formatoMillares(sinLiderDash),
+      frase: 'personas sin líder asignado',
+      detalle: `El ${pct(sinLiderDash)}% de la base no tiene a nadie que responda por ella.`,
+    });
+  }
+
+  if (!hallazgos.length) { caja.style.display = 'none'; return; }
+  caja.style.display = 'block';
+  document.getElementById('hallazgos-fecha').textContent =
+    new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+  grid.innerHTML = hallazgos.map(h => `
+    <div class="hallazgo">
+      <div class="hallazgo-cifra">${escaparHtml(h.cifra)}</div>
+      <p class="hallazgo-frase">${escaparHtml(h.frase)}</p>
+      <p class="hallazgo-detalle">${escaparHtml(h.detalle)}</p>
+    </div>`).join('');
 }
 
 /**
@@ -790,6 +1066,7 @@ async function cargarPorComuna() {
   const filas = await api('/votantes-dashboard/por-comuna');
   cacheDatosComuna = filas.map(f => ({ etiqueta: f.zona_nombre, total: f.total, id: f.zona_id }));
   renderizarSeccion('comuna', cacheDatosComuna, 'var(--color-marca)', columnasComuna);
+  pintarHallazgos();
 
   // El filtro de Comuna/Corregimiento del panel de Barrio se llena con esta misma lista.
   const selectComuna = document.getElementById('filtro-comuna-barrio');
@@ -805,12 +1082,15 @@ async function cargarPorBarrio() {
   const filas = await api(`/votantes-dashboard/por-barrio?${params.toString()}`);
   cacheDatosBarrio = filas.map(f => ({ etiqueta: f.barrio_nombre, zona: f.zona_nombre, total: f.total }));
   renderizarSeccion('barrio', cacheDatosBarrio, 'var(--color-marca)', columnasBarrio);
+  pintarHallazgos();
 }
 
 async function cargarPorLider() {
   const r = await api('/votantes-dashboard/por-lider');
   cacheDatosLider = r.lideres.map(f => ({ etiqueta: f.lider_nombre, total: f.total }));
   renderizarSeccion('lider', cacheDatosLider, 'var(--color-marca)', columnasLider);
+  sinLiderDash = Number(r.sinLider) || 0;
+  pintarHallazgos();
   if (r.sinLider) {
     document.getElementById('tabla-lider').insertAdjacentHTML('beforeend', `
       <tr style="color:var(--color-text-muted);"><td>Sin líder asignado</td><td class="num">${formatoMillares(r.sinLider)}</td><td class="num">—</td></tr>

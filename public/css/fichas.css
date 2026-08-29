@@ -1,0 +1,273 @@
+/* ==========================================================================
+   css/fichas.css — la ficha de persona.
+   ==========================================================================
+
+   VIVE EN UN ARCHIVO Y NO DENTRO DE CADA PÁGINA. La usa «Coordinadores y
+   líderes», y está pensada para que la pueda usar cualquier otra lista de
+   gente. Copiar el bloque en cada página garantiza que dentro de tres meses
+   una tenga el azul viejo — es el criterio de /css/crm.css y /js/apoyos.js.
+
+   NO REEMPLAZA A style.css: se carga DESPUÉS y solo añade.
+
+   POR QUÉ SE FUE LA TABLA. Catorce columnas, varias casi siempre vacías:
+   «Barrio/Vereda» y «Reporta a» mostraban «—» en la mayoría de las filas y
+   ocupaban su ancho igual. Buscar un dato costaba recorrer la fila entera, y
+   en un portátil ni siquiera cabían todas. Y eran CIENTO OCHO botones
+   amarillos: Editar y Eliminar en cada una de las 54 filas.
+
+   CONTRASTES MEDIDOS con la fórmula WCAG 2.1, no estimados. Las 22
+   combinaciones de esta hoja se calcularon una por una; la única que no
+   llegaba —el número de registro sobre la ficha anidada, 4,48— se corrigió
+   subiendo el gris de #6B7482 a #626B77 (5,12 sobre la anidada, 4,90 sobre
+   la doblemente anidada, 5,40 sobre blanco).
+   ========================================================================== */
+:root {
+  --fi-tarjeta-anidada: #F7F9FC;
+  --fi-borde-fuerte: #7F8794;   /* 3,62 sobre blanco — WCAG 1.4.11 */
+  --fi-riel: #4A7BC8;           /* 4,24 sobre blanco */
+  --fi-pista: #E4E8EE;
+  --fi-texto-3: #626B77;
+}
+
+.lista-fichas { display: flex; flex-direction: column; gap: 0; }
+
+/* El filete izquierdo dice el cargo. El chip de al lado lo dice en palabras,
+   así que el color nunca es el único canal. */
+.ficha-p {
+  background: #fff; border: 1px solid var(--color-border);
+  border-left: 4px solid #084298; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(19,31,59,.05); margin-bottom: 12px; overflow: hidden;
+}
+.ficha-p[data-cargo="lider"] { border-left-color: #0B5ED7; }
+.ficha-p[data-cargo="aspirante_concejo"] { border-left-color: #5B3E9B; }
+.ficha-p[data-cargo="usuario"] { border-left-color: #8A4F0C; }
+.ficha-p[data-cargo="testigo"] { border-left-color: #5B6472; }
+.ficha-p[data-estado="inactivo"] { border-left-color: #5B6472; }
+
+.ficha-cuerpo {
+  display: grid; grid-template-columns: 1fr; gap: 12px 18px;
+  padding: 14px 16px; align-items: start;
+}
+.ficha-cuerpo:hover { background: #FBFCFE; }
+@media (min-width: 900px) {
+  .ficha-cuerpo { grid-template-columns: minmax(0,1.55fr) minmax(0,1.25fr) 172px minmax(150px,auto); align-items: center; gap: 14px 20px; }
+}
+@media (min-width: 1200px) {
+  .ficha-cuerpo { grid-template-columns: minmax(0,1.6fr) minmax(0,1.3fr) 190px minmax(210px,auto); }
+}
+
+/* ---------------------------------------------------------------- quién es */
+.quien { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.avatar-p {
+  flex: none; width: 42px; height: 42px; border-radius: 50%;
+  background: #084298; color: #fff;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.ficha-p[data-cargo="lider"] .avatar-p { background: #0B5ED7; }
+.ficha-p[data-cargo="aspirante_concejo"] .avatar-p { background: #5B3E9B; }
+.ficha-p[data-cargo="usuario"] .avatar-p { background: #8A4F0C; }
+.ficha-p[data-cargo="testigo"] .avatar-p { background: #5B6472; }
+.ficha-p[data-estado="inactivo"] .avatar-p { background: #4E5666; }
+
+.linea-nombre { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.id-registro { font-family: var(--font-mono); font-size: .78rem; color: var(--fi-texto-3); }
+.nombre-p { font-family: var(--font-display); font-size: 1.02rem; font-weight: 600; color: var(--color-text); overflow-wrap: anywhere; }
+/* `overflow-wrap: anywhere` y no `nowrap`: hay correos de treinta caracteres
+   sin espacios («joserstevenbarbosaamaris@yahoo») y sin esto empujan la ficha
+   entera y sacan la página de cauce. */
+.correo-p { font-size: .8rem; color: var(--color-text-muted); overflow-wrap: anywhere; margin-top: 2px; display: block; }
+.correo-p .sep { color: var(--fi-borde-fuerte); padding: 0 5px; }
+
+/* El teléfono deja de ser una columna y se vuelve la acción. Navy sobre el
+   verde de WhatsApp da 8,23; blanco daría 1,9 y sería ilegible. */
+.btn-wa-fila {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 7px;
+  padding: 5px 11px 5px 8px; border-radius: 999px; cursor: pointer; text-decoration: none;
+  background: #25D366; color: #131F3B; border: 1.5px solid #0E7A3E;
+  font-family: var(--font-mono); font-size: .8rem; font-weight: 500;
+}
+.btn-wa-fila:hover { background: #3ADC77; }
+
+/* --------------------------------------------------------------- dónde va */
+.territorio-p { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.chips-p { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-p {
+  font-size: .72rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap; border: 1px solid;
+}
+.chip-coordinador { background: #E7EEFB; color: #084298; border-color: #084298; }
+.chip-lider       { background: #E7EEFB; color: #0B5ED7; border-color: #0B5ED7; }
+.chip-usuario     { background: #FBEEDD; color: #8A4F0C; border-color: #8A4F0C; }
+.chip-aspirante   { background: #EDE7F9; color: #5B3E9B; border-color: #5B3E9B; }
+.chip-otro        { background: #EFF2F6; color: #2C3A55; border-color: #2C3A55; }
+.chip-urbano      { background: #EFF2F6; color: #2C3A55; border-color: #2C3A55; }
+.chip-rural       { background: #E6F3EB; color: #1F6B3F; border-color: #1F6B3F; }
+.migaja { font-size: .86rem; color: #3B4657; overflow-wrap: anywhere; }
+.migaja .flecha { color: var(--fi-borde-fuerte); padding: 0 5px; font-weight: 600; }
+.migaja .hoja { font-weight: 600; color: var(--color-text); }
+.geo-chip {
+  font-size: .74rem; color: #8A4F0C; background: #FBEEDD;
+  border: 1px solid #8A4F0C; border-radius: 6px; padding: 1px 6px; white-space: nowrap;
+}
+/* LO EXCEPCIONAL ES LO QUE MERECE TINTA. Antes había una casilla en cada fila
+   diciendo si el Lugar de votación estaba completo: en 54 filas, 54 marcas
+   iguales que nadie mira. Solo se ve a quien le FALTA. */
+.aviso-falta {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  background: #FFF4DA; color: #8C5E17; border: 1.5px solid #A06A19;
+  border-radius: 8px; padding: 4px 10px; font-size: .78rem; font-weight: 600;
+}
+
+/* --------------------------------------------------------------- cómo va */
+.avance-p { min-width: 0; }
+.avance-cifra { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.avance-cifra .n { font-family: var(--font-mono); font-size: 1.32rem; color: var(--color-navy); line-height: 1; }
+.avance-cifra .de { font-size: .8rem; color: var(--color-text-muted); }
+.avance-cifra .meta { font-family: var(--font-mono); font-size: 1.02rem; color: var(--color-text-muted); }
+/* La pista sola no llega a 3,0 contra la ficha; el borde sí. Sin él, con el
+   avance al 1% no se ve dónde termina el recorrido. */
+.medidor-p {
+  height: 8px; border-radius: 999px; background: var(--fi-pista);
+  border: 1px solid var(--fi-borde-fuerte); margin: 7px 0 5px; overflow: hidden;
+}
+.medidor-p i { display: block; height: 100%; background: #0B5ED7; border-radius: 999px; }
+.medidor-p.completo i { background: #1B7A4B; }
+.medidor-p.vacio { background: repeating-linear-gradient(45deg, #EFF2F6 0 6px, #E4E8EE 6px 12px); }
+/* LA Σ SE EXPLICA EN PALABRAS. Un símbolo que nadie explica no informa. Y son
+   DOS cosas distintas: en un coordinador la meta es la suma de las de su
+   equipo; en un líder la meta es propia pero los registros incluyen a su
+   equipo. Decir «meta propia» a secas en un líder sería falso sobre la otra
+   cifra. */
+.avance-pie { font-size: .75rem; color: var(--color-text-muted); display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.sigma-p {
+  font-family: var(--font-mono); font-size: .95rem; color: var(--color-navy);
+  background: #fff; border: 1px solid var(--fi-borde-fuerte);
+  border-radius: 5px; padding: 0 5px; text-decoration: none;
+}
+
+/* -------------------------------------------------------------- lateral */
+.lateral-p { display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
+@media (min-width: 900px) { .lateral-p { align-items: flex-end; } }
+.badge-p { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 11px; font-size: .78rem; font-weight: 600; border: 1px solid; }
+.badge-activo { background: #E6F3EB; color: #1B7A4B; border-color: #1B7A4B; }
+.badge-inactivo { background: #EFF2F6; color: #4E5666; border-color: #4E5666; }
+.badge-p .punto { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+/* SIEMPRE VISIBLES, pero neutras. El problema no era que se vieran: era que
+   eran 108 botones AMARILLOS, el acento de la marca gastado en lo más
+   repetitivo. En contorno gris y rojo no compiten con la estructura, y no
+   hace falta esconderlas tras :hover — que en una tableta las volvería
+   inalcanzables. */
+.acciones-p { display: flex; gap: 7px; flex-wrap: wrap; }
+@media (min-width: 900px) { .acciones-p { justify-content: flex-end; } }
+.acciones-p .btn-secundario { padding: 6px 11px; font-size: .8rem; border-color: var(--fi-borde-fuerte); }
+.btn-eliminar-p { color: #B02A2A; border-color: var(--fi-borde-fuerte); }
+.btn-eliminar-p:hover { background: #FDECEC; border-color: #B02A2A; }
+
+/* ------------------------------------------------------------- el equipo */
+/* Los subordinados van DENTRO de la ficha de su jefe, con su propio fondo y
+   un riel: la jerarquía se ve por continencia, no por 22px de sangría y una
+   flecha «↳» diminuta. */
+.hijos-p {
+  margin: 0 14px 14px 22px; padding-left: 16px;
+  border-left: 3px solid var(--fi-riel);
+  background: var(--fi-tarjeta-anidada); border-radius: 0 12px 12px 0;
+}
+.hijos-p .ficha-p { background: var(--fi-tarjeta-anidada); box-shadow: none; margin-bottom: 10px; border-color: var(--color-border); }
+.hijos-p .ficha-cuerpo:hover { background: #F1F5FB; }
+.hijos-p .ficha-p:last-child { margin-bottom: 12px; }
+.hijos-p .hijos-p { background: #F1F4FA; }
+.rama-titulo { font-size: .75rem; color: var(--color-text-muted); padding: 9px 4px 3px; font-weight: 500; }
+.rama-titulo b { color: var(--color-text); font-weight: 600; }
+
+.plegar-p {
+  flex: none; width: 34px; height: 34px; margin-top: 2px;
+  border: 1.5px solid #084298; border-radius: 8px; background: #fff;
+  color: #084298; font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer;
+  display: grid; place-items: center; padding: 0;
+}
+.plegar-p:hover { background: #EAF0FB; }
+.hueco-plegar { flex: none; width: 34px; }
+
+/* --------------------------------------------------------------------------
+   BARRA SUPERIOR AGRUPADA POR PESO
+   --------------------------------------------------------------------------
+   Los ocho controles siguen estando; cambia su jerarquía. Antes eran ocho
+   botones azules idénticos donde «Eliminar registros» —que borra en masa—
+   pesaba lo mismo que «Exportar a Excel», y «+ Agregar persona», que es lo
+   que se hace todos los días, estaba al final.
+   -------------------------------------------------------------------------- */
+.acciones-cabecera { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px; }
+.acciones-cabecera .grupo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.acciones-cabecera .grupo-etiqueta {
+  font-size: .66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--color-text-muted); padding-left: 2px;
+}
+.acciones-cabecera .grupo-etiqueta.riesgo { color: #B3261E; }
+.acciones-cabecera .grupo-botones { display: flex; flex-wrap: wrap; gap: 8px; }
+.acciones-cabecera .separado { border-left: 1px solid var(--color-border); padding-left: 14px; }
+/* Rojo de CONTORNO, no de relleno: un botón rojo lleno invita a pulsarlo, y
+   este es justo el que no hay que pulsar por accidente. */
+.btn-peligro-borde { color: #B3261E; border: 1.5px solid #B3261E; background: #fff; font-weight: 600; }
+.btn-peligro-borde:hover { background: #B3261E; color: #fff; }
+.btn-wa-cabecera { background: #25D366; color: #131F3B; border: 1.5px solid #0E7A3E; font-weight: 600; }
+.btn-wa-cabecera:hover { background: #3ADC77; }
+.resumen-cabecera { color: var(--color-text-muted); font-size: .9rem; margin-top: 4px; }
+
+/* ------------------------------------------------------------------ leyenda */
+/* El punto verde, la Σ, el 📍 y el riel no se explicaban en ninguna parte. */
+.leyenda-fichas {
+  display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center;
+  font-size: .82rem; color: var(--color-text-muted); padding: 11px 16px;
+  margin-bottom: 12px; background: #EDF0F5; border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.leyenda-fichas .it { display: inline-flex; align-items: center; gap: 7px; }
+.leyenda-fichas b { color: var(--color-text); font-weight: 600; }
+.leyenda-fichas .muestra-riel { display: inline-block; width: 4px; height: 15px; border-radius: 2px; background: var(--fi-riel); }
+
+
+/* ==========================================================================
+   BOTÓN NEUTRO — la pieza que faltaba para que esto se vea como se diseñó
+   ==========================================================================
+   `.btn-secundario` de style.css es AZUL SÓLIDO (`--color-marca`) con letra
+   blanca. Sirve en las otras cuarenta pantallas, pero aquí convertía en azul
+   fuerte las cinco herramientas de la cabecera y los dos botones de cada una
+   de las 54 fichas: el mismo problema de los 108 botones amarillos, cambiado
+   de color.
+
+   `.btn-neutro` es blanco con borde: #084298 sobre blanco da 9,36 y el borde
+   #7F8794 da 3,62, por encima del 3,0 que WCAG 1.4.11 pide a un control.
+
+   NO SE TOCA `.btn-secundario` GLOBAL. Cambiarlo aquí arreglaría esta pantalla
+   y repintaría las otras cuarenta sin que nadie lo hubiera pedido.
+   ========================================================================== */
+.btn-neutro {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  padding: 9px 14px; border-radius: 9px; cursor: pointer; text-decoration: none;
+  background: #fff; color: #084298;
+  border: 1.5px solid var(--fi-borde-fuerte);
+  font-weight: 600; font-size: .86rem; line-height: 1.2;
+  transition: background .12s ease, border-color .12s ease;
+}
+.btn-neutro:hover { background: #EAF0FB; border-color: #084298; }
+.acciones-p .btn-neutro { padding: 6px 11px; font-size: .8rem; }
+.btn-eliminar-p { color: #B02A2A; }
+.btn-eliminar-p:hover { background: #FDECEC; border-color: #B02A2A; }
+
+/* «+ Agregar persona»: amarillo con letra navy (10,15) y borde dorado, que es
+   lo que lo separa del fondo claro sin ensuciar el amarillo. */
+.btn-principal-fichas {
+  background: #FFC300; color: #131F3B; border: 1.5px solid #8C5E17;
+  font-size: .95rem; padding: 12px 20px; border-radius: 9px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 2px 0 rgba(140,94,23,.35);
+}
+.btn-principal-fichas:hover { background: #E8B200; }
+
+/* LA LISTA NO VA DENTRO DE UNA TARJETA BLANCA. Cada ficha YA es una tarjeta;
+   meterlas todas dentro de otra las hacía desaparecer sobre el mismo blanco y
+   añadía 20px de relleno que la maqueta no tiene. El envoltorio se queda —lo
+   usa el resto de la pantalla— pero aquí se vuelve transparente. */
+.card.envoltorio-fichas {
+  background: transparent; border: 0; box-shadow: none; padding: 0;
+}

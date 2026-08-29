@@ -7,26 +7,60 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/fichas.css">
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="topbar">
-      <div><div class="eyebrow">Estructura</div><h1>Coordinadores y líderes</h1></div>
-      <div class="barra-unida">
-        <a class="btn-secundario btn-sm btn-excel-app" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-        <label class="btn-secundario btn-sm btn-excel-app"
-               title="Para actualizar personas ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea una persona nueva.">
-          ⬆ Importar desde Excel
-          <input type="file" id="input-importar-estructura" accept=".xlsx,.xls" style="display:none;">
-        </label>
-        <button class="btn-secundario" id="btn-territorios">Gestionar territorios</button>
-        <button class="btn-secundario" id="btn-regeocodificar" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
-        <button class="btn-secundario" id="btn-regeocodificar-todos"  title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
-        <button class="btn-secundario" id="btn-eliminar-masivo">🗑 Eliminar registros</button>
-        <button class="btn-secundario btn-sm" id="btn-whatsapp-lote"
-                title="Abre el chat de cada persona del filtro con el mensaje ya escrito">💬 Escribir por WhatsApp</button>
-        <button class="btn-acento" id="btn-nuevo">+ Agregar persona</button>
+      <div>
+        <div class="eyebrow">Estructura</div>
+        <h1>Coordinadores y líderes</h1>
+        <!-- Las cifras que antes había que contar a ojo recorriendo 54 filas.
+             Las llena `renderizarEstructura()` con lo que ya tiene cargado. -->
+        <div class="resumen-cabecera" id="resumen-estructura"></div>
+      </div>
+
+      <!-- LOS OCHO CONTROLES SIGUEN ESTANDO; cambia su peso. Ver la nota en
+           css/fichas.css. «Eliminar registros» sale de la fila y es el único
+           rojo de la pantalla. -->
+      <div class="acciones-cabecera">
+        <div class="grupo">
+          <span class="grupo-etiqueta">A diario</span>
+          <div class="grupo-botones">
+            <button class="btn-principal-fichas" id="btn-nuevo">+ Agregar persona</button>
+            <button class="btn-neutro btn-wa-cabecera" id="btn-whatsapp-lote"
+                    title="Abre el chat de cada persona del filtro con el mensaje ya escrito">💬 Escribir por WhatsApp</button>
+          </div>
+        </div>
+
+        <div class="grupo separado">
+          <span class="grupo-etiqueta">Datos</span>
+          <div class="grupo-botones">
+            <a class="btn-neutro" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+            <label class="btn-neutro"
+                   title="Para actualizar personas ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea una persona nueva.">
+              ⬆ Importar desde Excel
+              <input type="file" id="input-importar-estructura" accept=".xlsx,.xls" style="display:none;">
+            </label>
+          </div>
+        </div>
+
+        <div class="grupo separado">
+          <span class="grupo-etiqueta">Territorio y mapa</span>
+          <div class="grupo-botones">
+            <button class="btn-neutro" id="btn-territorios">Gestionar territorios</button>
+            <button class="btn-neutro" id="btn-regeocodificar" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
+            <button class="btn-neutro" id="btn-regeocodificar-todos" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
+          </div>
+        </div>
+
+        <div class="grupo separado">
+          <span class="grupo-etiqueta riesgo">Irreversible</span>
+          <div class="grupo-botones">
+            <button class="btn-neutro btn-peligro-borde" id="btn-eliminar-masivo" title="Elimina personas y sus cuentas de forma permanente. Pide contraseña de administrador.">🗑 Eliminar registros</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -70,13 +104,17 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="tabla-contenedor">
-      <table>
-        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Nombre</th><th>Género</th><th>Teléfono</th><th>Cargo</th><th>Área</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th>Reporta a</th><th>Meta votos</th><th>Registros</th><th>Estado</th><th class="col-acciones"></th></tr></thead>
-        <tbody id="tbody-estructura"></tbody>
-      </table>
+    <div class="card envoltorio-fichas">
+      <!-- `tbody-estructura` CONSERVA SU ID aunque ya no sea un <tbody>: es el
+           mismo contenedor que llena `renderizarEstructura()`, y cambiarle el
+           nombre habría obligado a tocar el resto sin ninguna ganancia. -->
+      <div class="leyenda-fichas">
+        <span class="it"><span class="sigma-p">Σ</span><span>la cifra <b>incluye a su equipo</b>, no es solo suya</span></span>
+        <span class="it"><span class="falta-voto">Falta lugar de votación</span><span>solo aparece a quien le falte: Departamento, Municipio, Puesto o Mesa</span></span>
+        <span class="it"><span>📍</span><span>tiene coordenadas en el mapa</span></span>
+        <span class="it"><span class="muestra-riel"></span><span>el riel azul marca a <b>quién le reporta</b></span></span>
       </div>
+      <div id="tbody-estructura" class="lista-fichas"></div>
       <div id="vacio-estructura" class="vacio" style="display:none;"><div class="icono-vacio">▲</div>Aún no hay personas registradas en la estructura.</div>
     </div>
   </main>
@@ -2382,6 +2420,52 @@ function renderizarEstructura() {
   filas = construirOrdenJerarquico(filas);
 
   document.getElementById('contador-estructura').textContent = `${formatoMillares(filas.length)} registro(s)`;
+
+  /* EL RESUMEN DE LA CABECERA. Cuenta sobre TODA la estructura cargada
+     (`estructura`), no sobre `filas`, que son las del filtro vigente: la frase
+     dice cuánta gente hay en la campaña, y cambiarla al filtrar haría creer
+     que la gente desaparece. El contador de al lado sí sigue al filtro, que es
+     su oficio.
+
+     Se usa `categoriaDeFila()`, la misma que decide el chip de cada ficha, en
+     vez de mirar `cargo` a mano: un aspirante al Concejo se guarda como
+     «lider» con `tipo_cargo`, y contarlo por `cargo` lo metería entre los
+     líderes en un sitio y no en el otro.
+
+     Y SE ENUMERAN TODAS LAS CATEGORÍAS, incluidos los TESTIGOS. Medido en la
+     campaña municipal: 67 personas, de las cuales 13 son testigos. Listando
+     solo las cinco categorías del organigrama, la frase habría dicho «67
+     personas» y luego cifras que suman 54 — trece personas desaparecidas sin
+     explicación, que es peor que no dar el desglose. Lo que no encaje en
+     ninguna categoría conocida se agrupa al final y también se nombra. */
+  const resumenCaja = document.getElementById('resumen-estructura');
+  if (resumenCaja) {
+    const cuenta = {};
+    listaEstructura.forEach(f => {
+      const c = categoriaDeFila(f);
+      cuenta[c] = (cuenta[c] || 0) + 1;
+    });
+    const total = listaEstructura.length;
+    const NOMBRES = [
+      ['coordinador', 'coordinador', 'coordinadores'],
+      ['coordinador_organizaciones', 'coordinador de organizaciones', 'coordinadores de organizaciones'],
+      ['aspirante_concejo', 'aspirante al Concejo', 'aspirantes al Concejo'],
+      ['lider', 'líder', 'líderes'],
+      ['usuario', 'sublíder', 'sublíderes'],
+      ['testigo', 'testigo', 'testigos'],
+    ];
+    const partes = NOMBRES
+      .filter(([clave]) => cuenta[clave] > 0)
+      .map(([clave, uno, varios]) => `${formatoMillares(cuenta[clave])} ${cuenta[clave] === 1 ? uno : varios}`);
+    // Lo que no está en la lista de arriba, para que la suma cuadre siempre.
+    const conocidas = NOMBRES.map(([c]) => c);
+    const otras = Object.entries(cuenta).filter(([c]) => !conocidas.includes(c))
+      .reduce((t, [, n]) => t + n, 0);
+    if (otras > 0) partes.push(`${formatoMillares(otras)} de otra categoría`);
+    resumenCaja.textContent = total
+      ? `${formatoMillares(total)} persona${total === 1 ? '' : 's'} en la campaña` + (partes.length ? ' · ' + partes.join(' · ') : '')
+      : '';
+  }
   // Las filas del filtro vigente, para el asistente de WhatsApp. Se guardan
   // aquí —y no se recalculan aparte— porque estas son EXACTAMENTE las que la
   // persona está viendo: cualquier otra copia se desincronizaría del filtro.
@@ -2389,87 +2473,176 @@ function renderizarEstructura() {
   const tbody = document.getElementById('tbody-estructura');
   document.getElementById('vacio-estructura').style.display = filas.length ? 'none' : 'block';
   const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
-  tbody.innerHTML = filas.map((f, i) => {
-    // Un Coordinador se asigna directamente a la Comuna/Corregimiento (sin
-    // Barrio/Vereda); Líder/Usuario/Testigo siguen en un Barrio/Vereda cuyo
-    // padre es la Comuna/Corregimiento. Si el área de influencia es una
-    // Organización, no hay nada geográfico que mostrar.
-    // EL ÁREA SALE DE LO GUARDADO, y solo si no hay nada guardado se deduce
-    // del tipo de territorio. Deducirla era lo único que había, y funciona
-    // mientras la persona cuelgue de una comuna, corregimiento, barrio o
-    // vereda; en cuanto cuelga del MUNICIPIO no hay tipo del que deducirla y
-    // la casilla salía con una raya. En la campaña departamental eran 27 de
-    // 75 personas. El respaldo se queda para las fichas anteriores a que la
-    // columna existiera.
-    // Se calcula el VALOR ('urbano'/'rural'/null) y se pinta una sola vez al
-    // final. Antes cada rama armaba su propio texto, y añadir la etiqueta de
-    // color habría significado repetir el mismo `<span>` en tres sitios.
-    let areaValor = f.area || null;
-    let zonaTexto = '—', hojaTexto = nombreLugar(f.territorio_nombre) || '—';
-    if (f.tipo_area_influencia === 'organizacion') {
-      areaValor = null; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '—';
-    } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
-      const territorio = listaTerritorios.find(t => t.id === f.territorio_id);
-      const zona = territorio && territorio.padre_id ? listaTerritorios.find(t => t.id === territorio.padre_id) : null;
-      areaValor = f.territorio_tipo === 'barrio' ? 'urbano' : 'rural';
-      zonaTexto = zona ? nombreLugar(zona.nombre) : '—';
-    } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
-      areaValor = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
-      zonaTexto = nombreLugar(f.territorio_nombre);
-      hojaTexto = '—';
+  /* SE PINTAN ANIDADAS, aunque `filas` venga PLANA.
+     `construirOrdenJerarquico()` ya dejó a cada persona justo debajo de su
+     jefe y le puso `_nivel`; aprovechar ese orden es lo que permite anidar sin
+     tocar la lógica de filtros ni la de plegado, que funcionan.
+
+     Se recorre una sola vez llevando una pila de niveles abiertos: cuando el
+     nivel sube se abre un bloque de equipo con su rótulo «Reportan a X ·
+     N personas»; cuando baja, se cierran los que sobren. Al final se cierra
+     todo lo que quede abierto — sin eso, una rama que termina el listado
+     dejaría <div> sin cerrar y el navegador se comería el resto de la página.
+
+     LA CUENTA DE CADA RAMA se calcula antes, mirando cuántos consecutivos
+     traen el nivel inmediatamente superior. Es la misma información que ya
+     estaba en el orden; no hace falta preguntarle nada al servidor. */
+  const hijosDirectos = filas.map((f, i) => {
+    const nivel = f._nivel || 0;
+    let n = 0;
+    for (let j = i + 1; j < filas.length; j++) {
+      const nj = filas[j]._nivel || 0;
+      if (nj <= nivel) break;
+      if (nj === nivel + 1) n++;
     }
-    const areaTexto = etiquetaArea(areaValor);
-    // Coordinador y Coordinador Organizaciones no tienen meta propia: la
-    // suya la calcula el servidor sumando su equipo (ver
-    // config/metasEstructura.js), y llega en meta_votos_equipo.
-    const metaMostrada = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
-    // El Coordinador de puesto (testigo con tipo_testigo="puesto") no usa
-    // una sola Mesa sino varias (mesas_asignadas) — para ese caso se exige
-    // al menos una mesa asignada, en vez del campo Mesa (que para él
-    // siempre queda vacío a propósito).
-    const tieneMesa = (f.cargo === 'testigo' && f.tipo_testigo === 'puesto')
-      ? Array.isArray(f.mesas_asignadas) && f.mesas_asignadas.length > 0
-      : !!(f.mesa_votacion && String(f.mesa_votacion).trim());
-    const tieneLugarVotacion = !!(
-      f.departamento_votacion && String(f.departamento_votacion).trim() &&
-      f.municipio_votacion && String(f.municipio_votacion).trim() &&
-      f.puesto_votacion && String(f.puesto_votacion).trim() &&
-      tieneMesa
-    );
-    const claseCargo = (f.cargo === 'coordinador' || f.cargo === 'coordinador_organizaciones') ? 'tag-cargo-coordinador'
-      : esAspiranteAlConcejo(f) ? 'tag-cargo-aspirante'
-      : f.cargo === 'lider' ? 'tag-cargo-lider'
-      : f.cargo === 'usuario' ? 'tag-cargo-sublider'
-      : '';
-    // La columna Categoría dice lo mismo que los botones del formulario.
-    // Un aspirante guardado como "lider" que aquí saliera "líder" haría
-    // dudar de si la categoría se guardó.
-    const etiquetaCargo = esAspiranteAlConcejo(f) ? 'aspirante al concejo'
-      : f.cargo === 'coordinador_organizaciones' ? 'coordinador organizaciones'
-      : f.cargo === 'usuario' ? 'sublíder'
-      : f.cargo;
-    return `
-    <tr>
-      <td class="mono">${i + 1}</td>
-      <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
-      <td style="padding-left:${16 + (f._nivel || 0) * 22}px;">${f._nivel ? '<span style="color:var(--color-text-muted);">↳</span> ' : ''}${f._tieneHijos ? `<button onclick="alternarColapsoEstructura(${f.usuario_id})" title="${nodosColapsadosEstructura.has(f.usuario_id) ? 'Expandir' : 'Contraer'}" style="border:1.5px solid #0B5ED7; border-radius:6px; background:#fff; cursor:pointer; color:#0B5ED7; font-size:1.5rem; font-weight:700; line-height:1; width:38px; height:38px; padding:0; margin-right:8px; vertical-align:middle;">${nodosColapsadosEstructura.has(f.usuario_id) ? '▸' : '▾'}</button>` : ''}<strong>${f.nombre}</strong><br><span style="color:var(--color-text-muted); font-size:0.78rem;">${f.email || '—'}</span></td>
-      <td>${ETIQUETAS_GENERO[f.genero] || '—'}</td>
-      <td class="mono">${celdaTelefonoWhatsApp(f.telefono)}</td>
-      <td><span class="tag-tipo ${claseCargo}">${etiquetaCargo}</span></td>
-      <td>${areaTexto}</td>
-      <td class="col-comuna-correg">${zonaTexto}</td>
-      <td class="col-barrio-vereda">${hojaTexto}${f.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
-      <td>${f.supervisor_nombre || '—'}</td>
-      <td class="mono">${formatoMillares(metaMostrada)}${f.cargo === 'coordinador' ? ' <span title="Suma de las metas de sus líderes" style="color:var(--color-text-muted);">Σ</span>' : ''}</td>
-      <td class="mono"${f.cargo === 'usuario' ? ' style="color:var(--color-text-muted);"' : ''}>${formatoMillares(f.registros ?? 0)}${(f.cargo === 'coordinador' || f.cargo === 'lider') ? ' <span title="Incluye los registros de su equipo" style="color:var(--color-text-muted);">Σ</span>' : ''}</td>
-      <td>${f.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
-      <td class="col-acciones">
-        ${puedeEditar ? `<button class="btn-secundario btn-sm" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
-        ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
-      </td>
-    </tr>
-  `;
-  }).join('');
+    return n;
+  });
+
+  const partes = [];
+  const pila = [];   // niveles de bloque de equipo abiertos
+  filas.forEach((f, i) => {
+    const nivel = f._nivel || 0;
+    while (pila.length > nivel) { partes.push('</div></div>'); pila.pop(); }
+    partes.push(fichaEstructuraHtml(f, i, hijosDirectos[i], puedeEditar));
+    if (hijosDirectos[i] > 0 && !nodosColapsadosEstructura.has(f.usuario_id)) {
+      const n = hijosDirectos[i];
+      partes.push(`<div class="hijos-p"><div class="rama-titulo">Reportan a <b>${f.nombre}</b> · ${formatoMillares(n)} persona${n === 1 ? '' : 's'}</div>`);
+      pila.push(nivel + 1);
+    } else {
+      partes.push('</div>');   // cierra la ficha sin equipo
+    }
+  });
+  while (pila.length) { partes.push('</div></div>'); pila.pop(); }
+  tbody.innerHTML = partes.join('');
+}
+
+/**
+ * Una ficha. Los mismos catorce datos de la tabla, en cuatro zonas: quién es,
+ * dónde trabaja, cómo va y las acciones.
+ *
+ * DEVUELVE LA FICHA SIN CERRAR: el `</div>` lo pone quien la llama, porque si
+ * tiene equipo el bloque de hijos va DENTRO de ella. Que la etiqueta se cierre
+ * en otro sitio es feo, y por eso está escrito aquí.
+ */
+function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
+  const categoria = categoriaDeFila(f);
+  const inicial = (f.nombre || '?').trim().charAt(0).toUpperCase();
+
+  let areaValor = f.area || null;
+  let zonaTexto = '', hojaTexto = nombreLugar(f.territorio_nombre) || '';
+  if (f.tipo_area_influencia === 'organizacion') {
+    areaValor = null; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '';
+  } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
+    const territorio = listaTerritorios.find(t => t.id === f.territorio_id);
+    const zona = territorio && territorio.padre_id ? listaTerritorios.find(t => t.id === territorio.padre_id) : null;
+    areaValor = f.territorio_tipo === 'barrio' ? 'urbano' : 'rural';
+    zonaTexto = zona ? nombreLugar(zona.nombre) : '';
+  } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
+    areaValor = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
+    zonaTexto = nombreLugar(f.territorio_nombre); hojaTexto = '';
+  }
+
+  const metaMostrada = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
+  const registros = f.registros ?? 0;
+  const pct = metaMostrada > 0 ? Math.min(100, (registros / metaMostrada) * 100) : 0;
+
+  const tieneMesa = (f.cargo === 'testigo' && f.tipo_testigo === 'puesto')
+    ? Array.isArray(f.mesas_asignadas) && f.mesas_asignadas.length > 0
+    : !!(f.mesa_votacion && String(f.mesa_votacion).trim());
+  const tieneLugarVotacion = !!(
+    f.departamento_votacion && String(f.departamento_votacion).trim() &&
+    f.municipio_votacion && String(f.municipio_votacion).trim() &&
+    f.puesto_votacion && String(f.puesto_votacion).trim() && tieneMesa);
+
+  /* EL PIE DE LA CIFRA, EN PALABRAS. La Σ marcaba dos cosas distintas sin
+     decir cuál: en «Meta votos» solo para el coordinador —su meta es la suma
+     de las de sus líderes, no una promesa suya— y en «Registros» para
+     coordinador Y líder. Un líder tiene meta propia pero registros que
+     incluyen a su equipo; llamarlo «meta propia» a secas mentiría sobre la
+     otra cifra. */
+  const SIGMA = '<span class="sigma-p" title="Esta cifra no es solo suya">Σ</span>';
+  let pie = '';
+  if (f.cargo === 'coordinador' || f.cargo === 'coordinador_organizaciones') {
+    /* «Sin equipo todavía» se dice por `_tieneHijos`, no por `cuantosHijos`:
+       con la rama plegada el segundo vale cero y la ficha habría afirmado que
+       no tiene equipo justo cuando el usuario acaba de esconderlo. */
+    pie = !f._tieneHijos
+      ? `Sin equipo todavía ${SIGMA}`
+      : cuantosHijos > 0
+        ? `${SIGMA} suma de su equipo (${formatoMillares(cuantosHijos)} ${cuantosHijos === 1 ? 'persona' : 'personas'})`
+        : `${SIGMA} suma de su equipo`;
+  } else if (f.cargo === 'lider' || categoria === 'aspirante_concejo') {
+    pie = `meta propia · registros suyos y de su equipo ${SIGMA}`;
+  } else if (metaMostrada > 0) {
+    pie = 'meta propia';
+  }
+
+  const etiquetaCargo = categoria === 'aspirante_concejo' ? 'Aspirante al Concejo'
+    : f.cargo === 'coordinador_organizaciones' ? 'Coord. organizaciones'
+    : f.cargo === 'usuario' ? 'Sublíder'
+    : f.cargo === 'coordinador' ? 'Coordinador'
+    : f.cargo === 'lider' ? 'Líder' : f.cargo;
+  const claseChip = categoria === 'aspirante_concejo' ? 'chip-aspirante'
+    : (f.cargo === 'coordinador' || f.cargo === 'coordinador_organizaciones') ? 'chip-coordinador'
+    : f.cargo === 'lider' ? 'chip-lider'
+    : f.cargo === 'usuario' ? 'chip-usuario' : 'chip-otro';
+
+  const colapsado = nodosColapsadosEstructura.has(f.usuario_id);
+
+  /* EL BOTÓN DE PLEGAR DEPENDE DE `_tieneHijos`, NO DE `cuantosHijos`.
+     `construirOrdenJerarquico()` NO incluye a los descendientes de una rama
+     plegada, así que al plegar `cuantosHijos` cae a cero — y con la condición
+     puesta ahí, el botón desaparecía y la rama quedaba cerrada PARA SIEMPRE,
+     sin forma de volver a abrirla. `_tieneHijos` se calcula sobre el árbol
+     completo y no cambia al plegar, que es justo lo que hace falta.
+
+     OJO AL EDITAR LO DE ABAJO: la plantilla de la ficha es un template
+     literal. Un comentario con comillas invertidas DENTRO de ella la cierra y
+     rompe el archivo entero. Ya pasó tres veces en esta pantalla; los
+     comentarios explicativos van aquí arriba, en JavaScript, no adentro. */
+
+  return `
+    <div class="ficha-p" data-cargo="${categoria}" data-estado="${f.activo ? 'activo' : 'inactivo'}">
+      <div class="ficha-cuerpo">
+        <div class="quien">
+          ${f._tieneHijos
+            ? `<button class="plegar-p" onclick="alternarColapsoEstructura(${f.usuario_id})" aria-expanded="${colapsado ? 'false' : 'true'}" title="${colapsado ? 'Mostrar su equipo' : 'Ocultar su equipo'}">${colapsado ? '▸' : '▾'}</button>`
+            : '<span class="hueco-plegar"></span>'}
+          <span class="avatar-p" aria-hidden="true">${inicial}</span>
+          <div style="min-width:0;">
+            <div class="linea-nombre">
+              <span class="id-registro">${String(i + 1).padStart(2, '0')}</span>
+              <span class="nombre-p">${f.nombre}</span>
+            </div>
+            <span class="correo-p">${f.email || 'Sin correo'}<span class="sep">·</span>${ETIQUETAS_GENERO[f.genero] || 'Sin género'}</span>
+            ${celdaTelefonoWhatsApp(f.telefono)}
+          </div>
+        </div>
+
+        <div class="territorio-p">
+          <div class="chips-p">
+            <span class="chip-p ${claseChip}">${etiquetaCargo}</span>
+            ${areaValor ? `<span class="chip-p chip-${areaValor}">${areaValor === 'urbano' ? 'Urbano' : 'Rural'}</span>` : ''}
+            ${f.latitud ? '<span class="geo-chip" title="Georreferenciado">📍</span>' : ''}
+          </div>
+          <div class="migaja">${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}</div>
+          ${tieneLugarVotacion ? '' : '<span class="aviso-falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta lugar de votación</span>'}
+        </div>
+
+        <div class="avance-p">
+          <div class="avance-cifra"><span class="n">${formatoMillares(registros)}</span><span class="de">de</span><span class="meta">${formatoMillares(metaMostrada)}</span></div>
+          <div class="medidor-p${metaMostrada > 0 ? (pct >= 100 ? ' completo' : '') : ' vacio'}"><i style="width:${pct.toFixed(1)}%"></i></div>
+          ${pie ? `<div class="avance-pie">${pie}</div>` : ''}
+        </div>
+
+        <div class="lateral-p">
+          <span class="badge-p ${f.activo ? 'badge-activo' : 'badge-inactivo'}"><span class="punto"></span>${f.activo ? 'Activo' : 'Inactivo'}</span>
+          <div class="acciones-p">
+            ${puedeEditar ? `<button class="btn-neutro" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
+            ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-neutro btn-eliminar-p" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
+          </div>
+        </div>
+      </div>`;
 }
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }

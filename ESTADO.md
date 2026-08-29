@@ -165,3 +165,8 @@ Rama: auditoria-fable | Commit: 1e887cd Las dos de geocodificar vuelven, pero co
 <!-- cierre automático -->
 Sesión cerrada: 2026-08-27 16:05 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 1e887cd Las dos de geocodificar vuelven, pero corriendo sobre su rama | Sin commitear: 1 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-08-29 00:14 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 6da7311 El panel dejaba de decir la verdad en cuatro sitios | Sin commitear: 2 archivo(s)
