@@ -34,6 +34,40 @@
   /* El recuadro de filtros va en el beige de la casa, para separarlo del
      mapa que tiene debajo sin meter otra línea. */
   .mapa-filtros { background: #F8F3E9; }
+  /* ==================================================================
+     PANTALLA COMPLETA
+
+     Se pide con la API del navegador sobre el CONTENEDOR, no sobre el
+     `#mapa`: así la leyenda —que va dentro, en posición absoluta— y el botón
+     de salir viajan con él. Pidiéndola sobre el mapa a secas, la leyenda se
+     quedaría fuera y el usuario perdería el código de color justo cuando más
+     sitio tiene para mirarlo.
+
+     HAY MODO DE RESPALDO. `requestFullscreen()` puede fallar: un iframe sin
+     `allow="fullscreen"`, una política del navegador, o un permiso denegado.
+     En ese caso se aplica `.mapa-pantalla-completa`, que fija el contenedor
+     al viewport con `position: fixed`. No es lo mismo —la barra del navegador
+     sigue ahí— pero el mapa se ve grande, que es lo que se pidió.
+     ================================================================== */
+  .mapa-contenedor:fullscreen { height: 100vh; border-radius: 0; }
+  .mapa-contenedor:fullscreen #mapa { height: 100%; }
+  .mapa-pantalla-completa {
+    position: fixed; inset: 0; z-index: 4000;
+    height: 100vh !important; max-height: 100vh; border-radius: 0; margin: 0;
+  }
+  /* Botón de salir: solo se ve estando en pantalla completa, y por encima de
+     los controles de Leaflet (que van en z-index 1000). */
+  .btn-salir-completa {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 1200; display: none;
+    background: #131F3B; color: #fff; border: 1.5px solid #2E3D5F;
+    border-radius: 999px; padding: 8px 18px; font-weight: 600; font-size: 0.85rem;
+    cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  }
+  .btn-salir-completa:hover { background: #0B5ED7; border-color: #0B5ED7; }
+  .mapa-contenedor:fullscreen .btn-salir-completa,
+  .mapa-pantalla-completa .btn-salir-completa { display: block; }
+
   .mapa-leyenda {
     position: absolute; top: 14px; right: 14px; z-index: 1000;
     background: var(--color-surface, #fff); border-radius: 10px; padding: 12px 14px;
@@ -88,11 +122,14 @@
           <button type="button" class="filtro-chip" data-valor="votante">Votante</button>
         </div>
         <span class="mono" id="contador-mapa" style="color:var(--color-text-muted); font-size:0.85rem; margin-left:auto;"></span>
+        <button type="button" class="btn-secundario btn-sm" id="btn-pantalla-completa"
+                title="Ver el mapa ocupando toda la pantalla (Esc para salir)">⛶ Pantalla completa</button>
       </div>
     </div>
 
-    <div class="card mapa-contenedor">
+    <div class="card mapa-contenedor" id="mapa-contenedor">
       <div id="mapa"></div>
+      <button type="button" class="btn-salir-completa" id="btn-salir-completa">✕ Salir de pantalla completa</button>
 
       <div class="mapa-leyenda">
         <h4>Estructura · por cargo</h4>
@@ -121,6 +158,94 @@ const COLOR_CARGO = { coordinador: '#2563eb', lider: '#7c3aed', testigo: '#f59e0
 const COLOR_VOTANTES = '#ec4899';
 
 let mapa, capaEstructura, capaVotantes, capaEventos;
+
+/* ====================================================================
+   PANTALLA COMPLETA DEL MAPA
+   ====================================================================
+
+   LO QUE NO SE PUEDE OLVIDAR: `map.invalidateSize()`. Leaflet calcula el
+   tamaño del lienzo UNA vez y lo guarda; al cambiar de tamaño sin avisarle,
+   sigue pidiendo las mismas teselas para el área vieja y la mitad de la
+   pantalla queda gris, con los pines corridos respecto al mapa. No da ningún
+   error: se ve roto y ya.
+
+   Va con un `setTimeout` de 0 porque el navegador todavía no ha terminado de
+   redimensionar cuando dispara `fullscreenchange`; midiendo en ese instante,
+   Leaflet se queda con el tamaño anterior.
+
+   SE PIDE SOBRE EL CONTENEDOR, no sobre `#mapa`: así la leyenda —que va
+   dentro, en posición absoluta— entra también. Sobre el mapa a secas, el
+   usuario perdería el código de color justo cuando más sitio tiene.
+
+   Y HAY RESPALDO. `requestFullscreen()` devuelve una promesa que puede
+   rechazarse: un iframe sin `allow="fullscreen"`, una política del navegador,
+   un permiso denegado. En vez de dejar el botón sin hacer nada —que es lo
+   peor: el usuario cree que la aplicación está rota— se cae a un modo con
+   `position: fixed` que ocupa el viewport. No es idéntico, pero cumple.
+   ==================================================================== */
+function enPantallaCompleta() {
+  return !!document.fullscreenElement ||
+         document.getElementById('mapa-contenedor').classList.contains('mapa-pantalla-completa');
+}
+
+function refrescarTamanoMapa() {
+  // El 0 no es un adorno: ver la nota de arriba.
+  setTimeout(() => { if (mapa) mapa.invalidateSize(); }, 0);
+}
+
+function pintarBotonPantallaCompleta() {
+  const boton = document.getElementById('btn-pantalla-completa');
+  if (!boton) return;
+  const dentro = enPantallaCompleta();
+  boton.textContent = dentro ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+  boton.setAttribute('aria-pressed', dentro ? 'true' : 'false');
+}
+
+function respaldoPantallaCompleta(activar) {
+  document.getElementById('mapa-contenedor')
+    .classList.toggle('mapa-pantalla-completa', activar);
+  // Con `position: fixed` la página de atrás seguiría desplazándose bajo el
+  // mapa; se congela mientras dure.
+  document.body.style.overflow = activar ? 'hidden' : '';
+  pintarBotonPantallaCompleta();
+  refrescarTamanoMapa();
+}
+
+function alternarPantallaCompleta() {
+  const caja = document.getElementById('mapa-contenedor');
+  if (enPantallaCompleta()) {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else respaldoPantallaCompleta(false);
+    return;
+  }
+  if (caja.requestFullscreen) {
+    caja.requestFullscreen().catch(() => respaldoPantallaCompleta(true));
+  } else {
+    respaldoPantallaCompleta(true);
+  }
+}
+
+document.getElementById('btn-pantalla-completa').addEventListener('click', alternarPantallaCompleta);
+document.getElementById('btn-salir-completa').addEventListener('click', alternarPantallaCompleta);
+
+/* El navegador avisa cuando se entra Y cuando se sale, incluida la salida con
+   Escape, que no pasa por nuestro botón. Sin escuchar esto, al salir con Esc
+   el rótulo seguiría diciendo «Salir» y el mapa se quedaría con el tamaño
+   grande dentro de una caja pequeña. */
+document.addEventListener('fullscreenchange', () => {
+  pintarBotonPantallaCompleta();
+  refrescarTamanoMapa();
+});
+
+/* Escape solo cierra el modo de respaldo: en el nativo lo maneja el
+   navegador, y llamarlo dos veces daría error en consola. */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.fullscreenElement &&
+      document.getElementById('mapa-contenedor').classList.contains('mapa-pantalla-completa')) {
+    respaldoPantallaCompleta(false);
+  }
+});
+
 let datosEstructura = [];
 let datosVotantes = [];
 let datosEventos = [];

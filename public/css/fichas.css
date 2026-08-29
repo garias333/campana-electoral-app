@@ -213,11 +213,60 @@
    pesaba lo mismo que «Exportar a Excel», y «+ Agregar persona», que es lo
    que se hace todos los días, estaba al final.
    -------------------------------------------------------------------------- */
-.acciones-cabecera { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px; }
+/* LA ALINEACIÓN NO SE DEJA AL AZAR DE LA ALTURA DE CADA GRUPO.
+   Antes: `align-items: flex-end`, que alinea los grupos POR ABAJO. Basta con
+   que uno sea un píxel más alto —un rótulo que envuelve, un botón que salta
+   de línea— para que su rótulo suba y la fila se vea escalonada, que es
+   exactamente lo que pasaba: «A DIARIO» quedaba ~26px por encima de los
+   otros tres rótulos.
+
+   Ahora se alinean POR ARRIBA y cada pieza tiene altura fija: el rótulo mide
+   lo mismo en los cuatro (14px de caja, aunque el texto sea «A diario» o
+   «Territorio y mapa»), el hueco es el mismo, y los botones ya miden 42px.
+   Con las tres alturas fijas, la posición de cada botón es la misma por
+   construcción y no depende de lo que contenga su grupo. */
+.acciones-cabecera { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 14px; }
+
+/* TODOS LOS BOTONES DE LA CABECERA, DEL MISMO ALTO Y ALINEADOS.
+   No lo estaban: `.btn-principal-fichas` armaba 45,2px (12px de relleno +
+   0,95rem de letra + 1,5 de borde) y `.btn-neutro` 37,5px — 7,7 de
+   diferencia, suficiente para que la fila se vea desalineada.
+
+   NO SE IGUALAN BAJANDO EL RELLENO DE UNO Y SUBIENDO EL DEL OTRO: eso vuelve
+   a descuadrarse en cuanto alguien toque un tamaño de letra. Se fija la
+   ALTURA y el relleno vertical pasa a ser irrelevante; `box-sizing:
+   border-box` hace que el borde entre dentro de esos 42px, y `align-items:
+   center` centra el texto sea cual sea su tamaño.
+
+   Los tres son etiquetas distintas —button, a y label— y sin `inline-flex`
+   cada una se alinea a su manera: el `<a>` por la línea base del texto y el
+   `<label>` como caja en línea. Por eso la regla los nombra a los tres. */
+.acciones-cabecera .btn-neutro,
+.acciones-cabecera .btn-principal-fichas,
+.acciones-cabecera button,
+.acciones-cabecera a,
+.acciones-cabecera label {
+  height: 42px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding-top: 0; padding-bottom: 0; line-height: 1;
+}
+/* El botón principal conserva su peso por COLOR y grosor de letra, no por
+   tamaño: más ancho, no más alto. */
+.acciones-cabecera .btn-principal-fichas { padding-left: 22px; padding-right: 22px; }
+/* La fila de cada grupo se alinea abajo, así los rótulos de arriba pueden
+   ocupar una o dos líneas sin desnivelar los botones. */
+.acciones-cabecera .grupo-botones { align-items: flex-start; }
+/* El separador de los grupos parte de arriba y baja lo mismo en los cuatro. */
+.acciones-cabecera .separado { align-self: stretch; }
 .acciones-cabecera .grupo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .acciones-cabecera .grupo-etiqueta {
   font-size: .66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
   color: var(--color-text-muted); padding-left: 2px;
+  /* Altura de caja fija: sin ella, un rótulo que envolviera a dos líneas
+     empujaría los botones de SU grupo hacia abajo y solo los de ese grupo.
+     `nowrap` lo impide, y la altura fija lo garantiza aunque alguien cambie
+     el texto por uno más largo. */
+  height: 14px; line-height: 14px; white-space: nowrap;
 }
 .acciones-cabecera .grupo-etiqueta.riesgo { color: #B3261E; }
 .acciones-cabecera .grupo-botones { display: flex; flex-wrap: wrap; gap: 8px; }
