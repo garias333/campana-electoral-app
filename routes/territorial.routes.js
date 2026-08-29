@@ -3,7 +3,17 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { subarbolSql } = require('../lib/ramas');
+const { subarbolSql, filtroMadreEstructura } = require('../lib/ramas');
+/* EL CARGO DE LA MADRE SE PIDE AQUÍ, NO SE LEE DE `req.alcance`.
+   Este router monta `requireAuth` y nada más: `calcularAlcance` solo se aplica
+   en routes/votantes.routes.js, así que `req.alcance` es SIEMPRE undefined en
+   este archivo — comprobado. Un filtro colgado de él no se habría aplicado
+   nunca y la pantalla habría seguido igual, sin dar ningún error.
+   `cargoDeLaMadre()` es la misma fuente que usa el alcance, con 30 s de caché.
+   (Montar `calcularAlcance` en este router habría sido la otra salida, pero
+   activaría de golpe los `if (req.alcance)` dormidos de otras rutas.) */
+const { cargoDeLaMadre } = require('../config/cargoMadre');
+const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
 const { condicionAlcanceVotantes,
         parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { geocodificarDireccion } = require('../config/geocoder');
@@ -772,11 +782,47 @@ router.get('/estructura', async (req, res) => {
       LEFT JOIN total_coord agc ON agc.uid = e.usuario_id
       LEFT JOIN total_lider agl ON agl.uid = e.usuario_id
       LEFT JOIN cnt_ambos   agb ON agb.uid = e.usuario_id`;
+    /* LAS CONDICIONES VAN EN UNA LISTA Y NO PEGADAS A LA CADENA.
+       La versión anterior escribía `WHERE e.supervisor_id = ? OR e.usuario_id = ?`
+       directamente. Añadirle detrás un `AND` habría dado
+       `WHERE a OR b AND c`, que MySQL lee como `a OR (b AND c)`: el líder
+       habría seguido viendo a todo su equipo sin filtrar. Con la lista, cada
+       condición llega ya entre paréntesis y el orden no depende de acordarse. */
+    const condiciones = [];
     const params = [];
-    if (!['admin', 'coordinador'].includes(usuario.rol)) {
-      query += ` WHERE e.supervisor_id = ? OR e.usuario_id = ?`;
+
+    if (req.sublicencia) {
+      /* EL ASPIRANTE VE SU RAMA ENTERA, NO UN SOLO NIVEL.
+         Caía en la rama de abajo —su rol es 'lider'— y esa condición devuelve
+         a quien cuelga DIRECTAMENTE de él. Con dos niveles de equipo, la mitad
+         de su gente no aparecía en su propia pantalla. Es la misma pieza que
+         ya usan /mapa-personas y /testigos para acotarlo. */
+      const suya = subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id');
+      condiciones.push(suya.sql);
+      params.push(...suya.valores);
+    } else if (!['admin', 'coordinador'].includes(usuario.rol)) {
+      condiciones.push('(e.supervisor_id = ? OR e.usuario_id = ?)');
       params.push(usuario.id, usuario.id);
     }
+
+    /* LA CAMPAÑA MADRE NO VE LA GENTE DE LA RAMA DE UN ASPIRANTE QUE NO MARQUE
+       SU CARGO EN «APOYA A». La regla ya estaba escrita en lib/ramas.js y
+       conectada para los VOTANTES; a la estructura no llegaba, así que un
+       líder inscrito por un aspirante al concejo que no apoya a la alcaldía
+       salía igual en la estructura de la campaña madre.
+
+       SOLO A ADMIN Y COORDINADOR, igual que en los votantes y por lo mismo:
+       el alcance de un líder es su propio equipo, y si ese líder cuelga de un
+       aspirante, aplicárselo le vaciaría la pantalla sin decirle por qué. */
+    if (!req.sublicencia && ['admin', 'coordinador'].includes(usuario.rol)) {
+      const deLaMadre = await filtroMadreEstructura(pool, await cargoDeLaMadre());
+      if (deLaMadre) {
+        condiciones.push(deLaMadre.sql);
+        params.push(...deLaMadre.valores);
+      }
+    }
+
+    if (condiciones.length) query += ` WHERE ${condiciones.join(' AND ')}`;
     query += ` ORDER BY e.cargo, u.nombre`;
     const [rows] = await pool.query(query, params);
     res.json(rows);
@@ -1026,6 +1072,17 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
   } finally {
     conexion.release();
   }
+
+  /* EL SMS DE BIENVENIDA, si la campaña lo tiene encendido (apagado de
+     fábrica; se enciende en Configurar mensajería). Va DESPUÉS del commit y
+     por la misma razón que la geocodificación: la persona ya está guardada y
+     un problema de mensajería no puede deshacer eso. `encolarBienvenida` no
+     lanza nunca, pero el `catch` queda igual — una promesa rechazada sin
+     manejar tumba el proceso de Node entero en las versiones nuevas.
+     `destinatario_id` es el id de ESTRUCTURA, no el de usuario: es lo que
+     espera `lugarDeVotacionDe` y lo que usa el resto del CRM. */
+  encolarBienvenida({ tipo: 'estructura', id: estructuraId, nombre, telefono })
+    .catch(err => console.error('Bienvenida automática (estructura):', err.message));
 
   // La geocodificación se hace después de confirmar la transacción, y nunca
   // hace fallar la creación del registro aunque el servicio no responda.
@@ -1507,6 +1564,11 @@ function formatoTelefonoExcel(valor) {
 // en pantalla (Coordinadores y Líderes) ya la excluye por el mismo motivo.
 router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
+    /* MISMA REGLA QUE EN LA PANTALLA, y no por simetría: sin esto el Excel
+       traería a las personas de la rama de un aspirante que la pantalla acaba
+       de esconder. Una lista que se ve y otra que se descarga, distintas, es
+       peor que no filtrar — nadie sospecha de un archivo. */
+    const deLaMadre = await filtroMadreEstructura(pool, await cargoDeLaMadre());
     const [filas] = await pool.query(`
       SELECT e.id AS estructura_id, u.nombre, u.numero_identificacion, u.email, u.telefono, u.genero, u.edad,
              u.departamento_residencia, u.ciudad_residencia,
@@ -1523,8 +1585,9 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), as
       LEFT JOIN territorios padre ON padre.id = t.padre_id
       LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
       WHERE e.cargo != 'testigo'
+      ${deLaMadre ? 'AND ' + deLaMadre.sql : ''}
       ORDER BY e.cargo, u.nombre
-    `);
+    `, deLaMadre ? deLaMadre.valores : []);
 
     const ETIQUETAS_GENERO = {
       mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder'

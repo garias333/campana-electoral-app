@@ -1592,6 +1592,14 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'sms_config',
     "firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final' AFTER firma", 'firma_posicion');
 
+  // APAGADA POR OMISIÓN, al revés que `baja_automatica`. Aquella no cuesta
+  // nada y protege a quien recibe, así que va encendida; ésta gasta un
+  // crédito por cada persona que se registre, y encenderla es una decisión
+  // que toma cada campaña — no algo que le llegue en un parche.
+  await agregarColumnaSiFalta(connection, 'sms_config',
+    "bienvenida_automatica TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Mandar la plantilla Bienvenida (primer contacto) al registrar a alguien nuevo'",
+    'bienvenida_automatica');
+
   // Índice de la lista de baja. El canal SMS pregunta por cada mensaje si ese
   // teléfono pidió no recibir, y el filtro que decide es `no_contactar = 1`:
   // los dados de baja son pocos, así que con índice MySQL recorre solo esas

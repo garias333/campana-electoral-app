@@ -320,6 +320,26 @@
               </span>
             </label>
           </div>
+
+          <div class="campo">
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+              <input type="checkbox" id="comunicaciones-bienvenida-automatica" style="width:auto; margin-top:3px;">
+              <span>
+                <strong>Mandar un SMS de bienvenida a cada persona nueva</strong>
+                <small style="display:block; color:var(--color-text-muted); margin-top:3px; font-weight:normal;">
+                  Al agregar a alguien en <strong>Coordinadores y líderes</strong> o registrar un
+                  <strong>votante</strong> desde el formulario, se le manda la plantilla
+                  <strong>«Bienvenida (primer contacto)»</strong>. Puede editar ese texto en
+                  <a href="/crm.html">CRM y Mensajes → Plantillas</a>.
+                  <br><strong>Gasta un crédito de SMS por cada registro</strong>, por eso viene apagado.
+                  No le llega a quien no tenga teléfono ni a quien pidió no recibir más. Si la
+                  persona se registra fuera de la franja de envío (8:00 a 20:00), el mensaje
+                  queda en cola y sale a las 8 de la mañana siguiente.
+                  <br>Las cargas masivas por Excel <strong>no</strong> mandan nada.
+                </small>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="msj-panel msj-panel-secundario msj-panel-twilio">
@@ -451,6 +471,8 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-onurix-key').dataset.mascara = c.onurix_key_mascara || '';
   // undefined = servidor viejo que todavia no manda el campo: encendido.
   document.getElementById('comunicaciones-baja-automatica').checked = c.baja_automatica !== false;
+  // Aqui el undefined significa lo contrario que arriba: apagada.
+  document.getElementById('comunicaciones-bienvenida-automatica').checked = c.bienvenida_automatica === true;
   // Decir CUAL cuenta se esta usando. Sin esto, dos campos vacios se leen
   // como "el SMS no esta configurado", cuando es justo lo contrario: esta
   // usando la cuenta del proveedor, que es lo normal.
@@ -497,7 +519,8 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         twilio_sms_from: document.getElementById('comunicaciones-twilio-sms').value.trim(),
         onurix_client: document.getElementById('comunicaciones-onurix-client').value.trim(),
         onurix_key: valorSecretoOVacio('comunicaciones-onurix-key'),
-        baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked
+        baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked,
+        bienvenida_automatica: document.getElementById('comunicaciones-bienvenida-automatica').checked
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }

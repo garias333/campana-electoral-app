@@ -12,14 +12,19 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
+    <div class="sec-hero">
+      <div class="eyebrow">Estructura</div>
+      <h1>Coordinadores y líderes</h1>
+      <p>El equipo de la campaña por territorio: quién coordina qué, de quién
+         depende cada persona y cuánta gente lleva registrada.</p>
+      <!-- Las cifras que antes había que contar a ojo recorriendo 54 filas.
+           Las llena `renderizarEstructura()` con lo que ya tiene cargado.
+           Se queda DENTRO del encabezado, con el color aclarado por la regla
+           `.sec-hero .resumen-cabecera` de css/style.css: su gris de
+           `--color-text-muted` sobre el azul no se leería. -->
+      <div class="resumen-cabecera" id="resumen-estructura"></div>
+    </div>
     <div class="topbar">
-      <div>
-        <div class="eyebrow">Estructura</div>
-        <h1>Coordinadores y líderes</h1>
-        <!-- Las cifras que antes había que contar a ojo recorriendo 54 filas.
-             Las llena `renderizarEstructura()` con lo que ya tiene cargado. -->
-        <div class="resumen-cabecera" id="resumen-estructura"></div>
-      </div>
 
       <!-- LOS OCHO CONTROLES SIGUEN ESTANDO; cambia su peso. Ver la nota en
            css/fichas.css. «Eliminar registros» sale de la fila y es el único

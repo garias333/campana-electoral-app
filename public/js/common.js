@@ -213,14 +213,6 @@ const NAV_ITEMS = [
     ]
   },
   {
-    grupo: 'Comunicaciones', iconoGrupo: '📣',
-    items: [
-      { href: '/recursos.html', texto: 'Información para compartir', modulo: 'recursos', roles: null },
-      { href: '/contenido.html?clave=biografia_candidato', texto: 'Biografía del candidato', modulo: 'biografia_candidato', roles: null },
-      { href: '/contenido.html?clave=politica_privacidad', texto: 'Política de privacidad', modulo: 'politica_privacidad', roles: null },
-    ]
-  },
-  {
     grupo: 'CRM y mensajería', iconoGrupo: '💬',
     items: [
       { href: '/crm.html', texto: 'CRM y Mensajes', modulo: 'crm', roles: ['admin', 'coordinador'] },
@@ -243,6 +235,22 @@ const NAV_ITEMS = [
     ]
   },
   { href: '/finanzas.html', icono: '💰', texto: 'Finanzas', modulo: 'finanzas', roles: ['admin', 'coordinador'] },
+  /* CONTENIDO PARA COMPARTIR — antes «Comunicaciones», y antes de Finanzas.
+     Son tres pantallas, no una: la de recursos y las dos de `contenido.html`.
+     Al superadministrador le aparece UNA sola porque `biografia_candidato` y
+     `politica_privacidad` no están en el catálogo MODULOS de
+     routes/permisos.routes.js, y a él el menú se le arma con ese catálogo.
+     Por eso el grupo no se convirtió en un enlace suelto: la regla de
+     «un solo hijo visible» de más abajo lo pinta como enlace directo a quien
+     ve uno, y como grupo a quien ve los tres. */
+  {
+    grupo: 'Contenido para compartir', iconoGrupo: '📣', colapsarSiUno: true,
+    items: [
+      { href: '/recursos.html', texto: 'Información para compartir', modulo: 'recursos', roles: null },
+      { href: '/contenido.html?clave=biografia_candidato', texto: 'Biografía del candidato', modulo: 'biografia_candidato', roles: null },
+      { href: '/contenido.html?clave=politica_privacidad', texto: 'Política de privacidad', modulo: 'politica_privacidad', roles: null },
+    ]
+  },
   {
     grupo: 'Configuración', iconoGrupo: '⚙️',
     items: [
@@ -1225,6 +1233,37 @@ async function inicializarLayout(paginaActiva) {
       // style.css) en vez de un display:none/block instantáneo.
       const hijosVisibles = item.items.filter(itemVisible);
       if (!hijosVisibles.length) return '';
+      /* UN GRUPO CON UN SOLO HIJO VISIBLE NO ES UN GRUPO: obligar a desplegar
+         un menú para encontrar una única entrada es un clic que no informa de
+         nada. Se pinta como entrada de primer nivel, con el NOMBRE DEL GRUPO,
+         llevando derecho a esa página.
+
+         VA POR GRUPO (`colapsarSiUno`) Y NO PARA TODOS, y la razón se puede
+         medir. Aplicándola a todos, con la matriz de permisos de hoy:
+
+           asistente_administrativo   «DÍA D»            -> Jornada electoral
+           líder                      «CRM Y MENSAJERÍA» -> Aviso en la app
+           testigo                    «LOGÍSTICA»        -> Eventos y GOTV
+
+         Ese segundo caso es un rótulo que miente sobre su destino: quien lee
+         «CRM y mensajería» no espera aterrizar en «Aviso en la app». En
+         «Contenido para compartir» no pasa, porque el nombre del grupo y el
+         de la pantalla dicen lo mismo. De ahí la bandera: se activa donde el
+         nombre del grupo sirve de rótulo, no en todas partes por simetría.
+
+         Y es una regla del pintado, no un ítem suelto escrito a mano, porque
+         quien VE las tres pantallas debe seguir viendo el grupo con las tres.
+         Al superadministrador le aparece una sola por el catálogo MODULOS
+         (ver la nota en la definición del grupo), no porque haya una sola. */
+      if (item.colapsarSiUno && hijosVisibles.length === 1) {
+        const uno = hijosVisibles[0];
+        const unoBase = uno.href.split('#')[0];
+        const activoUno = unoBase === paginaBase
+          && (!uno.href.includes('#') || window.location.hash === '#' + uno.href.split('#')[1]);
+        return `<a href="${uno.href}" class="nav-link-principal ${activoUno ? 'activo' : ''}">
+        <span class="icono">${item.iconoGrupo || '♜'}</span> ${item.grupo.toUpperCase()}
+      </a>`;
+      }
       const grupoId = `nav-grupo-${indice}`;
       const contieneActivo = hijosVisibles.some(sub => sub.href.split('#')[0] === paginaBase);
       const subHtml = hijosVisibles.map(sub => {

@@ -25,12 +25,17 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Jornada electoral</div><h1>Día D</h1></div>
-      <div style="display:flex; align-items:center; gap:14px;">
-        <div class="mono" id="ultima-actualizacion" style="color:var(--color-text-muted); font-size:0.8rem;"></div>
-        <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
-      </div>
+    <div class="sec-hero">
+      <div class="eyebrow">Jornada electoral</div>
+      <h1>Día D</h1>
+      <p>El tablero de la jornada: lo que reportan los testigos desde cada puesto,
+         mesa por mesa, según va llegando.</p>
+      <!-- La hora del último refresco se queda junto al título: dice si lo que
+           se está mirando es de hace un minuto o de hace una hora. -->
+      <div class="mono" id="ultima-actualizacion" style="font-size:0.8rem; margin-top:10px;"></div>
+    </div>
+    <div class="topbar" style="margin-bottom:0;">
+      <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none; margin-bottom:18px;">🗑 Eliminar todos los reportes</button>
     </div>
 
     <!-- Los testigos reportan desde su propia app móvil (/app/dia-d.html) — acá solo se consolida lo que ya reportaron. -->

@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
+const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
@@ -1322,6 +1323,13 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
     const msg = err.code === 'ER_DUP_ENTRY' ? 'Ya registrado por otro líder.' : 'Error registrando el votante.';
     return res.status(400).json({ error: msg });
   }
+
+  /* EL SMS DE BIENVENIDA, si la campaña lo tiene encendido (apagado de
+     fábrica; se enciende en Configurar mensajería). Ver la nota gemela en
+     routes/territorial.routes.js: va después de que el votante esté guardado
+     y no puede hacer fallar el registro. */
+  encolarBienvenida({ tipo: 'votante', id: votanteId, nombre: b.nombre, telefono: b.telefono })
+    .catch(err => console.error('Bienvenida automática (votante):', err.message));
 
   // La geocodificación se hace después de confirmar el registro, y nunca
   // hace fallar la creación del contacto aunque el servicio no responda

@@ -68,6 +68,23 @@
   .mapa-contenedor:fullscreen .btn-salir-completa,
   .mapa-pantalla-completa .btn-salir-completa { display: block; }
 
+  /* EL SELECTOR DE FONDO VA DEBAJO DE LA LEYENDA, no encima.
+     Leaflet pone sus controles de `topright` en la esquina superior derecha,
+     que es justo donde vive la leyenda: uno tapaba al otro. Se le da al
+     control un margen superior igual al alto de la leyenda más su hueco.
+     Se mide con la leyenda desplegada, que es como está siempre: 12px de
+     relleno arriba y abajo, dos títulos de 22 y seis filas de 20 dan unos
+     188px. Con 14px de hueco, 205. Ese es el número, no uno redondo. */
+  .leaflet-top.leaflet-right .leaflet-control-layers { margin-top: 205px; margin-right: 14px; }
+  /* Y el control se viste como la leyenda, para que se lean como dos piezas
+     del mismo sitio y no como un añadido de la librería. */
+  .leaflet-control-layers {
+    border-radius: 10px !important; border: 0 !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18) !important;
+  }
+  .leaflet-control-layers-expanded { padding: 10px 14px 10px 10px !important; font-size: 0.8rem; }
+  .leaflet-control-layers-list label { margin-bottom: 4px; }
+
   .mapa-leyenda {
     position: absolute; top: 14px; right: 14px; z-index: 1000;
     background: var(--color-surface, #fff); border-radius: 10px; padding: 12px 14px;
@@ -91,8 +108,11 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Territorio</div><h1>Mapa de estructura y votantes</h1></div>
+    <div class="sec-hero">
+      <div class="eyebrow">Territorio</div>
+      <h1>Mapa de estructura y votantes</h1>
+      <p>Dónde está cada persona de la estructura y cada votante con dirección
+         ubicada. El fondo del mapa se cambia con el control de la derecha.</p>
     </div>
 
     <div class="card mapa-filtros" style="margin-bottom:16px;">
@@ -263,19 +283,40 @@ async function inicializarMapa() {
     mapboxToken = r.token;
   } catch (err) { mapboxToken = null; }
 
+  /* TRES FONDOS A ELEGIR, con el control propio de Leaflet.
+     Antes había uno solo, decidido por si existía el token. Cada fondo sirve
+     para algo distinto: OpenStreetMap para leer nombres de calles, Mapbox
+     Calles con más detalle en Colombia, y Satélite para reconocer el terreno
+     —un barrio de invasión o una vereda se identifican mejor por la foto que
+     por el callejero.
+
+     SIN TOKEN SOLO APARECE OPENSTREETMAP, y no se ofrece un Mapbox que
+     mostraría teselas en blanco: un fondo roto se lee como aplicación rota.
+
+     `L.control.layers` con el segundo argumento vacío pinta los fondos como
+     botones de opción (uno excluye a otro), que es la forma correcta: no son
+     capas que se sumen. */
+  const fondos = {};
+  fondos['OpenStreetMap'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19
+  });
   if (mapboxToken) {
-    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, {
+    const comun = {
       attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      tileSize: 512,
-      zoomOffset: -1,
-      maxZoom: 22
-    }).addTo(mapa);
-  } else {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; colaboradores de OpenStreetMap',
-      maxZoom: 19
-    }).addTo(mapa);
+      tileSize: 512, zoomOffset: -1, maxZoom: 22
+    };
+    fondos['Mapbox Calles'] = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, comun);
+    fondos['Mapbox Satélite'] = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}`, comun);
   }
+  /* Se enciende Mapbox Calles si lo hay —es el que había antes, así que quien
+     ya usaba el mapa no nota el cambio— y OpenStreetMap si no. */
+  (fondos['Mapbox Calles'] || fondos['OpenStreetMap']).addTo(mapa);
+  /* `satellite-streets` y no `satellite` a secas: la foto sin nombres de
+     calle no sirve para ubicar una dirección, que es para lo que se abre
+     este mapa. */
+  L.control.layers(fondos, {}, { position: 'topright', collapsed: true }).addTo(mapa);
 
   capaEstructura = L.layerGroup().addTo(mapa);
   capaVotantes = L.layerGroup().addTo(mapa);

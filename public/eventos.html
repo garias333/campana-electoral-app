@@ -7,16 +7,35 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/seccion.css">
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Agenda</div><h1>Eventos y movilización</h1></div>
-      <div class="barra-unida">
-        <button class="btn-secundario btn-sm" id="btn-regeocodificar-eventos" title="Vuelve a intentar ubicar en el mapa los eventos que tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
-        <button class="btn-secundario btn-sm" id="btn-regeocodificar-eventos-todos"  title="Vuelve a calcular las coordenadas de TODOS los eventos, incluso los que ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
-        <button class="btn-acento" id="btn-nuevo">+ Nuevo evento</button>
+    <div class="sec-hero">
+      <div class="eyebrow">Logística</div>
+      <h1>Eventos y movilización</h1>
+      <p>Los eventos de la campaña con su lugar y su hora. Los que tengan dirección
+         se ubican en el mapa; los asistentes se registran desde
+         <a href="/asistentes-reuniones.html" style="color:#fff;">Asistentes a reuniones</a>.</p>
+    </div>
+
+    <!-- LOS TRES CONTROLES, AGRUPADOS POR PESO. «Nuevo evento» es lo que se
+         hace a diario y va con el amarillo de la marca; las dos herramientas
+         de ubicación se usan de vez en cuando y van juntas, neutras. -->
+    <div class="sec-acciones" style="margin-bottom:18px;">
+      <div class="sec-grupo">
+        <span class="sec-rotulo">A diario</span>
+        <div class="sec-botones">
+          <button class="btn-sec-principal" id="btn-nuevo">+ Nuevo evento</button>
+        </div>
+      </div>
+      <div class="sec-grupo sec-separado">
+        <span class="sec-rotulo">Ubicación en el mapa</span>
+        <div class="sec-botones">
+          <button class="btn-sec-neutro" id="btn-regeocodificar-eventos" title="Vuelve a intentar ubicar en el mapa los eventos que tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
+          <button class="btn-sec-neutro" id="btn-regeocodificar-eventos-todos" title="Vuelve a calcular las coordenadas de TODOS los eventos, incluso los que ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
+        </div>
       </div>
     </div>
     <div class="card">
@@ -225,8 +244,8 @@ async function cargarEventos() {
       <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
       <td>${etiquetasEstado[ev.estado] || ev.estado}</td>
       <td style="white-space:nowrap;">
-        ${['admin', 'coordinador', 'lider'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick='abrirEdicion(${JSON.stringify(ev).replace(/'/g, "&apos;")})'>Editar</button>` : ''}
-        ${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarEvento(${ev.id})">Eliminar</button>` : ''}
+        ${['admin', 'coordinador', 'lider'].includes(usuarioActual.rol) ? `<button class="btn-sec-neutro" onclick='abrirEdicion(${JSON.stringify(ev).replace(/'/g, "&apos;")})'>Editar</button>` : ''}
+        ${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-sec-neutro btn-sec-peligro" onclick="eliminarEvento(${ev.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');

@@ -670,6 +670,15 @@ async function leerBajaAutomatica() {
   } catch (_) { return true; }
 }
 
+/** La bienvenida automatica, en cambio, va APAGADA mientras nadie la encienda:
+ *  gasta un credito por cada registro. Ver config/bienvenidaAutomatica.js. */
+async function leerBienvenidaAutomatica() {
+  try {
+    const [[c]] = await pool.query('SELECT bienvenida_automatica FROM sms_config WHERE id = 1');
+    return !!(c && c.bienvenida_automatica);
+  } catch (_) { return false; }
+}
+
 router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_comunicaciones WHERE id = 1`);
@@ -692,6 +701,7 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       // lado de la firma y de la URL de baja. Se expone en esta pantalla
       // porque es donde el administrador configura las comunicaciones.
       baja_automatica: await leerBajaAutomatica(),
+      bienvenida_automatica: await leerBienvenidaAutomatica(),
       // El saldo REAL de la cuenta de Onurix. Con el ledger de licencias
       // mandando (es la decision tomada), este numero es el que dice si Onurix
       // puede respaldar lo que el ledger promete: si el ledger reparte 600 y
@@ -722,7 +732,7 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
     twilio_account_sid, twilio_auth_token, twilio_sms_from,
-    onurix_client, onurix_key, baja_automatica
+    onurix_client, onurix_key, baja_automatica, bienvenida_automatica
   } = req.body;
 
   try {
@@ -778,6 +788,16 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
         [baja_automatica ? 1 : 0]);
       // Sin esto, configCampana() sigue sirviendo el valor viejo de su cache
       // y el cambio no se nota hasta que expire — parece que no guardo.
+      invalidarCacheSms();
+    }
+
+    // Mismo criterio que arriba: solo se toca si el formulario lo mandó, para
+    // que guardar desde una pantalla vieja no lo apague sin querer.
+    if (bienvenida_automatica !== undefined) {
+      await pool.query(
+        `INSERT INTO sms_config (id, bienvenida_automatica) VALUES (1, ?)
+         ON DUPLICATE KEY UPDATE bienvenida_automatica = VALUES(bienvenida_automatica)`,
+        [bienvenida_automatica ? 1 : 0]);
       invalidarCacheSms();
     }
 

@@ -1,0 +1,108 @@
+/* ==========================================================================
+   css/seccion.css — cabecera y botones de las pantallas de Logística/Agenda.
+   ==========================================================================
+
+   La usan agenda.html, eventos.html y asistentes-reuniones.html: las tres
+   pantallas de la misma familia, que hasta ahora no tenían ningún estilo
+   propio y heredaban el azul sólido de la hoja global en cada botón.
+
+   POR QUÉ NO REUTILIZA LOS NOMBRES DE fichas.css. Aquella hoja tiene su
+   propio `.btn-neutro`, y sería la misma pieza con el mismo nombre en dos
+   archivos: el día que alguien cargue las dos en una página, gana la última
+   y el estilo cambia sin que nadie toque nada. Aquí los nombres llevan el
+   prefijo `sec-`. No es duplicación por descuido: es la alternativa a un
+   choque silencioso, y queda escrito para que quien unifique las dos hojas
+   —que sería lo ideal— sepa que son la misma idea.
+
+   LOS TRES COLORES DE LA MARCA, cada uno con un oficio:
+     #084298  azul hondo .. la cabecera y el texto de los botones
+     #0B5ED7  azul marca .. lo interactivo
+     #FFC300  amarillo .... la acción principal de cada pantalla, y nada más
+
+   CONTRASTES MEDIDOS con la fórmula WCAG 2.1, no estimados. Los valores van
+   anotados al lado de cada color.
+   ========================================================================== */
+
+/* LA CABECERA YA NO ESTÁ AQUÍ. `.sec-hero` se mudó a css/style.css para que
+   la usen las veintitantas pantallas de la aplicación y no solo estas tres —
+   y para que exista una sola vez, no una copia aquí y otra en css/crm.css.
+   Lo que queda en esta hoja son los botones y las pestañas. */
+
+/* Los controles, agrupados por peso y con altura fija: sin ella, un botón
+   principal más grande desnivela la fila entera. */
+.sec-acciones { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 14px; }
+.sec-acciones .sec-grupo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sec-acciones .sec-rotulo {
+  font-size: .66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--color-text-muted); padding-left: 2px;
+  height: 14px; line-height: 14px; white-space: nowrap;   /* ver nota de altura fija */
+}
+.sec-acciones .sec-botones { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.sec-acciones .sec-separado { border-left: 1px solid var(--color-border); padding-left: 14px; align-self: stretch; }
+/* Altura fija en las TRES etiquetas —button, a y label—: los controles de
+   estas pantallas no son todos botones, y sin `inline-flex` el enlace se
+   alinea por la línea base y la etiqueta como caja en línea. */
+.sec-acciones button, .sec-acciones a, .sec-acciones label,
+.sec-botones button, .sec-botones a, .sec-botones label {
+  height: 42px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding-top: 0; padding-bottom: 0; line-height: 1;
+}
+
+/* ----------------------------------------------------------------- botones */
+/* `.btn-secundario` de la hoja global es AZUL SÓLIDO con letra blanca. Sirve
+   en el resto de la aplicación, pero en una barra de seis controles convierte
+   la cabecera en un muro azul donde nada destaca. Blanco con borde:
+   #084298 sobre blanco da 9,36 y el borde #7F8794 da 3,62, por encima del 3,0
+   que WCAG 1.4.11 pide a un control. */
+.btn-sec-neutro {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  padding: 9px 14px; border-radius: 9px; cursor: pointer; text-decoration: none;
+  background: #fff; color: #084298; border: 1.5px solid #7F8794;
+  font-weight: 600; font-size: .86rem; line-height: 1.2;
+  transition: background .12s ease, border-color .12s ease;
+}
+.btn-sec-neutro:hover { background: #EAF0FB; border-color: #084298; }
+
+/* La acción principal, en el amarillo de la marca con letra navy: 10,15. El
+   amarillo con letra blanca daría 1,7 y sería ilegible. Es el ÚNICO amarillo
+   de cada pantalla — si hubiera dos, ninguno significaría nada. */
+.btn-sec-principal {
+  background: #FFC300; color: #131F3B; border: 1.5px solid #8C5E17;
+  font-size: .95rem; padding: 12px 22px; border-radius: 9px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 2px 0 rgba(140,94,23,.35);
+}
+.btn-sec-principal:hover { background: #E8B200; }
+
+/* Excel, en el verde de WhatsApp al 20% (#D3F6E0, la mezcla real con blanco):
+   se emparenta con lo que ya usa ese verde en otras pantallas. El texto sigue
+   en #084298, que sobre ese fondo da 8,04. */
+.btn-sec-excel { background: #D3F6E0; border-color: #0E7A3E; }
+.btn-sec-excel:hover { background: #B9F0CE; }
+
+/* Lo irreversible, en rojo de CONTORNO y no de relleno: un botón rojo lleno
+   invita a pulsarlo, y este es el que no hay que pulsar por accidente.
+   #B3261E sobre blanco da 6,54. */
+.btn-sec-peligro { color: #B3261E; border-color: #B3261E; }
+.btn-sec-peligro:hover { background: #B3261E; color: #fff; }
+
+/* --------------------------------------------------------------- pestañas */
+/* Las de «Asistentes a reuniones» eran dos botones sueltos, uno amarillo y
+   otro azul: se leían como dos acciones, no como dos vistas de lo mismo. */
+.sec-pestanas { display: inline-flex; background: #EDF0F5; border-radius: 999px; padding: 4px; gap: 4px; }
+.sec-pestanas button {
+  border: 0; background: transparent; border-radius: 999px; cursor: pointer;
+  padding: 8px 18px; font-weight: 600; font-size: .88rem; color: #084298;
+}
+.sec-pestanas button.activa { background: #084298; color: #fff; }   /* 9,36 */
+.sec-pestanas button:not(.activa):hover { background: #DDE4EE; }
+
+/* ------------------------------------------------------------ encabezados */
+.sec-titulo-tabla {
+  font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: #084298;
+}
+
+/* El desplegable que va dentro de un grupo de la cabecera se alinea con los
+   botones: sin esto queda 4px más bajo, porque `select` trae su propio
+   relleno y no lo alcanza la regla de altura de arriba. */
+.sec-botones select { height: 42px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }

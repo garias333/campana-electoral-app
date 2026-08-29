@@ -182,7 +182,16 @@
   }
   .aviso-rezago p { margin: 0; font-size: 13.5px; color: var(--color-text); }
 
-  #mapa-dashboard { width: 100%; height: 320px; border-radius: 2px; }
+  /* EL MAPA OCUPA TODO EL ESPACIO DE SU PANEL, no una franja de 320px.
+     `70vh` con un mínimo de 420: en un portátil de 768px de alto da 537, y en
+     una pantalla pequeña no baja de 420, que es donde el mapa deja de servir
+     para ubicar nada. NO se usa `100vh`: el panel general tiene que seguir
+     viéndose alrededor —es lo que se pidió— y un mapa de pantalla completa
+     dejaría fuera las cifras y las secciones de arriba. */
+  #mapa-dashboard { width: 100%; height: clamp(420px, 70vh, 760px); border-radius: 2px; }
+  /* (El panel ya llevaba la clase `c12`, que es `grid-column: span 12`: el
+     ancho completo ya estaba resuelto y añadir una regla habría sido repetir
+     lo mismo en dos sitios. Lo que faltaba era el ALTO.) */
   .tendencia-svg text { font-family: var(--font-body, 'Inter', sans-serif); }
 
   @media (max-width: 1180px) { .c7, .c5, .c6 { grid-column: span 12; } }
@@ -432,18 +441,28 @@ function crearIconoPinDashboard(color) {
 
 async function cargarMapaDashboard() {
   mapaDashboard = L.map('mapa-dashboard').setView([5.0689, -75.5174], 11);
-  try {
-    const { token } = await api('/territorial/mapbox-token');
-    if (token) {
-      L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, {
-        attribution: '© Mapbox © OpenStreetMap', tileSize: 512, zoomOffset: -1, maxZoom: 19
-      }).addTo(mapaDashboard);
-    } else {
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaDashboard);
-    }
-  } catch (err) {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaDashboard);
+  /* LOS MISMOS TRES FONDOS QUE EL MAPA TERRITORIAL: OpenStreetMap para leer
+     calles, Mapbox Calles con más detalle en Colombia, y Satélite para
+     reconocer el terreno. Sin token solo aparece OpenStreetMap — ofrecer un
+     Mapbox que pintaría teselas en blanco se lee como aplicación rota.
+
+     El `catch` cubre que la consulta del token falle: ahí también queda
+     OpenStreetMap, que no necesita ninguna. */
+  let token = null;
+  try { ({ token } = await api('/territorial/mapbox-token')); } catch (err) { token = null; }
+
+  const fondos = {};
+  fondos['OpenStreetMap'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 });
+  if (token) {
+    const comun = { attribution: '© Mapbox © OpenStreetMap', tileSize: 512, zoomOffset: -1, maxZoom: 19 };
+    fondos['Mapbox Calles'] = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
+    fondos['Mapbox Satélite'] = L.tileLayer(
+      `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
   }
+  (fondos['Mapbox Calles'] || fondos['OpenStreetMap']).addTo(mapaDashboard);
+  L.control.layers(fondos, {}, { position: 'topright', collapsed: true }).addTo(mapaDashboard);
 
   try {
     const { votantes } = await api('/territorial/mapa-personas');

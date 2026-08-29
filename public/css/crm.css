@@ -34,35 +34,12 @@
     --crm-amarillo: #FFC300;
   }
 
-  /* Cabecera. Un solo bloque de color que le da cara a la pantalla, con el
-     filo amarillo abajo para amarrarla a la marca. */
-  .crm-hero {
-    background: linear-gradient(135deg, var(--crm-azul-hondo) 0%, var(--crm-azul) 100%);
-    border-radius: var(--radius);
-    padding: 26px 30px 24px;
-    margin-bottom: 22px;
-    border-bottom: 5px solid var(--crm-amarillo);
-    box-shadow: var(--shadow-card);
-  }
-  /* EL RÓTULO VA EN BLANCO, NO EN AMARILLO, y no por gusto: medido, el
-     #FFC300 da 3,63 sobre el extremo CLARO del degradado (#0B5ED7) y AA pide
-     4,5 para texto pequeño. Sobre el extremo oscuro daría 5,82 — pero es un
-     degradado, y no se puede prometer sobre qué tono cae cada letra. El
-     amarillo se queda donde no depende del fondo: el filo de abajo y la
-     barrita de la izquierda. Blanco sobre el peor caso: 5,84. */
-  .crm-hero .eyebrow {
-    display: inline-flex; align-items: center; gap: 9px;
-    font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.12em;
-    color: #FFFFFF; font-weight: 600;
-  }
-  .crm-hero .eyebrow::before {
-    content: ''; width: 22px; height: 3px; border-radius: 2px;
-    background: var(--crm-amarillo);
-  }
-  .crm-hero h1 { color: #fff; font-size: 2.1rem; margin: 6px 0 8px; letter-spacing: -0.02em; }
-  /* #E3EBF9 y no #D9E4F7: aquel daba 4,56 sobre el extremo claro, que pasa
-     por los pelos y se cae con cualquier retoque del degradado. Este da 4,87. */
-  .crm-hero p { margin: 0; color: #E3EBF9; font-size: 1rem; max-width: 62ch; line-height: 1.55; }
+  /* LA CABECERA SE MUDÓ A css/style.css, con el nombre `.sec-hero` y
+     `.crm-hero` como segundo selector de la misma regla. Estaba definida dos
+     veces —aquí y en css/seccion.css— con los mismos colores y las mismas
+     medidas escritas a mano en los dos sitios. Estas seis pantallas siguen
+     escribiendo `crm-hero` en su HTML y se ven igual; lo que cambia es que
+     ahora hay un solo lugar donde tocarla. */
 
   /* Los pasos. El numero deja de ser texto dentro del titulo y pasa a ser una
      ficha: se ve de un vistazo por donde va uno, que es lo que hace falta en
@@ -164,8 +141,6 @@
   .badge-borrador { background:#f1f5f9; color:#475569; }
 
   @media (max-width: 640px) {
-    .crm-hero { padding: 20px; }
-    .crm-hero h1 { font-size: 1.6rem; }
     .paso { padding: 18px; }
     .paso-cabeza .paso-accion { margin-left: 0; width: 100%; }
   }

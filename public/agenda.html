@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/seccion.css">
 <style>
   .calendario-grid {
     display: grid;
@@ -78,20 +79,39 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Logística</div><h1>Agenda</h1></div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <select id="filtro-agenda-tipo">
-          <option value="">Todos los tipos</option>
-          <option value="reunion">Reunión</option>
-          <option value="evento_publico">Evento público</option>
-          <option value="gotv">Movilización (GOTV)</option>
-          <option value="capacitacion">Capacitación</option>
-          <option value="otro">Otro</option>
-        </select>
-        <button type="button" class="btn-secundario btn-sm" id="btn-mes-anterior">‹</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-mes-hoy">Hoy</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-mes-siguiente">›</button>
+    <div class="sec-hero">
+      <div class="eyebrow">Logística</div>
+      <h1>Agenda</h1>
+      <p>El mes completo, con los eventos de la campaña en su día. Pulse un día para
+         ver lo que hay en él; los eventos se crean y se editan desde
+         <a href="/eventos.html" style="color:#fff;">Eventos y movilización</a>.</p>
+    </div>
+
+    <!-- LA NAVEGACIÓN DEL MES Y EL FILTRO, SEPARADOS Y ROTULADOS. Antes eran
+         cuatro controles en fila sin decir cuál hacía qué: el «‹» y el «›» de
+         un calendario no se explican solos si están pegados a un desplegable
+         de tipos. -->
+    <div class="sec-acciones" style="margin-bottom:18px;">
+      <div class="sec-grupo">
+        <span class="sec-rotulo">Mes</span>
+        <div class="sec-botones">
+          <button type="button" class="btn-sec-neutro" id="btn-mes-anterior" title="Mes anterior" aria-label="Mes anterior">‹</button>
+          <button type="button" class="btn-sec-neutro" id="btn-mes-hoy">Hoy</button>
+          <button type="button" class="btn-sec-neutro" id="btn-mes-siguiente" title="Mes siguiente" aria-label="Mes siguiente">›</button>
+        </div>
+      </div>
+      <div class="sec-grupo sec-separado">
+        <span class="sec-rotulo">Ver solo</span>
+        <div class="sec-botones">
+          <select id="filtro-agenda-tipo">
+            <option value="">Todos los tipos</option>
+            <option value="reunion">Reunión</option>
+            <option value="evento_publico">Evento público</option>
+            <option value="gotv">Movilización (GOTV)</option>
+            <option value="capacitacion">Capacitación</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
       </div>
     </div>
 

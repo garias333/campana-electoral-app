@@ -3,8 +3,13 @@
 # reinició de verdad.
 #
 # SE CORRE COMO ROOT, EN EL SERVIDOR:
-#   bash scripts/reiniciar-instancia.sh campanadepruebamunicipal 3101
-#   bash scripts/reiniciar-instancia.sh campanadepruebadepartamental 3102
+#   bash scripts/reiniciar-instancia.sh appestrategia-electoral
+#   bash scripts/reiniciar-instancia.sh campanadepruebamunicipal
+#   bash scripts/reiniciar-instancia.sh campanadepruebadepartamental
+#
+# El puerto es opcional: si no se pasa, sale del PORT del .env de esa
+# instancia. Tener que recordarlo era una excusa para improvisar un
+# `pm2 restart` a mano, que es exactamente lo que este archivo evita.
 #
 # ------------------------------------------------------------------------
 # POR QUÉ NO BASTA UN «pm2 restart», Y POR QUÉ NO BASTA MIRAR EL PUERTO
@@ -32,7 +37,7 @@
 set -u
 
 USUARIO="${1:?Falta el usuario de la instancia (ej. campanadepruebamunicipal)}"
-PUERTO="${2:?Falta el puerto (ej. 3101)}"
+PUERTO="${2:-}"
 
 # LA CONVENCIÓN DE NOMBRES NO VALE PARA TODAS LAS INSTANCIAS.
 #
@@ -65,6 +70,15 @@ fi
 [ -d "$DIR" ] || { echo "No existe $DIR"; exit 1; }
 [ -f "$DIR/app.js" ] || { echo "En $DIR no hay app.js; no parece una instancia."; exit 1; }
 [ "$(id -u)" = "0" ] || { echo "Esto se corre como root: cada instancia tiene su propio PM2."; exit 1; }
+
+# EL PUERTO, DEL .env DE LA INSTANCIA si no vino como argumento. Se lee sólo
+# la línea PORT — el resto de ese archivo son credenciales y no tienen por qué
+# pasar por aquí.
+if [ -z "$PUERTO" ]; then
+  PUERTO="$(sed -n 's/^[[:space:]]*PORT[[:space:]]*=[[:space:]]*\([0-9]\{2,5\}\).*/\1/p' "$DIR/.env" 2>/dev/null | head -1)"
+  [ -n "$PUERTO" ] && echo "puerto: $PUERTO (del .env)"
+fi
+[ -n "$PUERTO" ] || { echo "No pude leer PORT de $DIR/.env; páselo como segundo argumento."; exit 1; }
 
 pid_actual() { pgrep -f "$DIR/app.js" | head -1; }
 responde()   { curl -s -o /dev/null --max-time 5 "http://127.0.0.1:$PUERTO/login.html"; }

@@ -281,6 +281,65 @@ a { color: var(--color-navy-lighter); }
   color: var(--color-text-muted);
 }
 
+/* ---------------- Encabezado de pantalla (.sec-hero) ----------------
+   EL MISMO ENCABEZADO EN TODAS LAS PANTALLAS. Antes cada hoja resolvía su
+   título a su manera: `.topbar` con letra gris en la mayoría, `.crm-hero`
+   en las seis de mensajería y `.sec-hero` en las tres de Logística. Tres
+   maneras de hacer lo mismo son tres sitios donde tocar cuando cambie una.
+
+   VIVE AQUÍ, EN LA HOJA GLOBAL, y no en una hoja aparte: así una pantalla
+   nueva lo tiene sin acordarse de enlazar nada. `.crm-hero` se conserva
+   como nombre porque lo escriben seis archivos; es la MISMA regla, no una
+   copia — el día que diverjan, divergen en un solo sitio y se ve.
+
+   VA DESPUÉS DE `.topbar .eyebrow` A PROPÓSITO: las dos reglas tienen la
+   misma especificidad (0,2,0), así que decide el orden. Antes de ella, el
+   rótulo del encabezado saldría gris sobre azul.
+
+   LOS COLORES VAN LITERALES, no con las variables `--crm-*`: esas se
+   declaran en css/crm.css, que solo cargan seis pantallas. Con variables,
+   las otras veinte pintarían el degradado con dos colores vacíos.
+
+   CONTRASTES MEDIDOS con la fórmula WCAG 2.1, anotados al lado. */
+.sec-hero, .crm-hero {
+  background: linear-gradient(135deg, #084298 0%, #0B5ED7 100%);
+  border-radius: 12px;
+  padding: 24px 28px 22px;
+  margin-bottom: 20px;
+  border-bottom: 5px solid #FFC300;
+  box-shadow: 0 1px 2px rgba(16, 35, 63, .06), 0 4px 16px rgba(16, 35, 63, .05);
+}
+/* EL RÓTULO VA EN BLANCO, NO EN AMARILLO. Medido: #FFC300 da 3,63 sobre el
+   extremo CLARO del degradado y AA pide 4,5 para texto pequeño. Sobre el
+   extremo oscuro daría 5,82, pero es un degradado y no se puede prometer
+   sobre qué tono cae cada letra. El amarillo se queda donde no depende del
+   fondo: el filo de abajo y la barrita. Blanco, en el peor caso: 5,84. */
+.sec-hero .eyebrow, .crm-hero .eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.12em;
+  color: #FFFFFF; font-weight: 600;
+}
+.sec-hero .eyebrow::before, .crm-hero .eyebrow::before {
+  content: ''; width: 22px; height: 3px; border-radius: 2px; background: #FFC300;
+}
+.sec-hero h1, .crm-hero h1 {
+  color: #fff; font-size: 2.1rem; margin: 6px 0 8px; letter-spacing: -0.02em;
+}
+/* #E3EBF9 y no #D9E4F7: aquel daba 4,56 sobre el extremo claro, que pasa por
+   los pelos y se cae con cualquier retoque del degradado. Este da 4,87. */
+.sec-hero p, .crm-hero p {
+  margin: 0; color: #E3EBF9; font-size: 1rem; max-width: 62ch; line-height: 1.55;
+}
+.sec-hero a, .crm-hero a { color: #fff; }
+/* Los datos que acompañan al título —el resumen de Coordinadores y líderes,
+   la hora del último refresco del Día D— se escribieron para fondo claro y
+   salen en gris de `--color-text-muted`: sobre el azul quedarían ilegibles. */
+.sec-hero .resumen-cabecera, .sec-hero .mono { color: #E3EBF9; }
+@media (max-width: 640px) {
+  .sec-hero, .crm-hero { padding: 20px; }
+  .sec-hero h1, .crm-hero h1 { font-size: 1.6rem; }
+}
+
 /* ---------------- Tarjetas / componentes ---------------- */
 
 .card {

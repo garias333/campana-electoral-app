@@ -7,17 +7,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/seccion.css">
 </head>
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="topbar">
-      <div><div class="eyebrow">Logística</div><h1>Asistentes a reuniones</h1></div>
+    <div class="sec-hero">
+      <div class="eyebrow">Logística</div>
+      <h1>Asistentes a reuniones</h1>
+      <p>Quién fue a cada reunión, y el acumulado de una misma persona en todas ellas.
+         Las reuniones se crean en <a href="/eventos.html" style="color:#fff;">Eventos y movilización</a>.</p>
     </div>
 
-    <div class="grupo-pestanas" style="margin-bottom:16px;">
-      <button type="button" class="btn-acento btn-sm" id="btn-tab-reuniones">Reuniones</button>
-      <button type="button" class="btn-secundario btn-sm" id="btn-tab-consolidado">Consolidado de asistentes</button>
+    <div class="sec-pestanas" style="margin-bottom:18px;">
+      <button type="button" class="activa" id="btn-tab-reuniones">Reuniones</button>
+      <button type="button" id="btn-tab-consolidado">Consolidado de asistentes</button>
     </div>
 
     <div id="seccion-reuniones">
@@ -33,7 +37,7 @@
             <option value="capacitacion">Capacitación</option>
             <option value="otro">Otro</option>
           </select>
-          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-evento">Quitar filtros</button>
+          <button type="button" class="btn-sec-neutro" id="btn-quitar-filtros-evento">Quitar filtros</button>
         </div>
         <div class="mono" id="contador-eventos-asistentes" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
       </div>
@@ -61,7 +65,7 @@
               <input type="checkbox" id="filtro-repetidos-consolidado" style="width:auto;"> Solo asistentes a más de una reunión
             </label>
           </div>
-          <a class="btn-secundario btn-sm btn-excel-app" href="/api/eventos/asistentes-consolidado/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+          <a class="btn-sec-neutro btn-sec-excel" href="/api/eventos/asistentes-consolidado/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
         </div>
         <div class="mono" id="contador-consolidado" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:10px;"></div>
         <div class="tabla-contenedor">
@@ -83,7 +87,7 @@
     <div class="modal-header"><h3 id="titulo-modal-asistentes">Asistentes</h3><button class="modal-cerrar" id="cerrar-modal-asistentes">×</button></div>
     <div id="asistentes-error" class="mensaje-error"></div>
 
-    <button type="button" class="btn-secundario btn-sm" id="btn-mostrar-agregar-asistente" style="display:none; margin-bottom:10px;">+ Agregar asistente</button>
+    <button type="button" class="btn-sec-neutro" id="btn-mostrar-agregar-asistente" style="display:none; margin-bottom:10px;">+ Agregar asistente</button>
 
     <div id="seccion-agregar-asistente">
     <div class="campo">
@@ -92,7 +96,7 @@
       <div id="resultados-buscar-votante" style="margin-top:4px;"></div>
       <div id="aviso-cedula-no-registrada" style="display:none; margin-top:6px; padding:10px 12px; background:#FDF3E0; border-radius:8px; font-size:0.85rem;">
         Esa cédula no está registrada todavía.
-        <button type="button" class="btn-secundario btn-sm" id="btn-registrar-nuevo-votante" style="margin-top:6px; display:block;">+ Registrar como nuevo votante</button>
+        <button type="button" class="btn-sec-neutro" id="btn-registrar-nuevo-votante" style="margin-top:6px; display:block;">+ Registrar como nuevo votante</button>
       </div>
     </div>
 
@@ -166,7 +170,7 @@
       </div>
       <div style="display:flex; gap:10px;">
         <button type="button" class="btn-primario btn-sm" id="btn-guardar-nuevo-votante">Guardar y agregar como asistente</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-cancelar-nuevo-votante">Cancelar</button>
+        <button type="button" class="btn-sec-neutro" id="btn-cancelar-nuevo-votante">Cancelar</button>
       </div>
     </div>
 
@@ -175,7 +179,7 @@
         <label>O agregar a alguien que no está registrado</label>
         <input type="text" id="input-nombre-invitado" placeholder="Nombre completo">
       </div>
-      <button type="button" class="btn-secundario btn-sm" id="btn-agregar-invitado" style="align-self:flex-end; margin-bottom:14px; white-space:nowrap;">+ Agregar</button>
+      <button type="button" class="btn-sec-neutro" id="btn-agregar-invitado" style="align-self:flex-end; margin-bottom:14px; white-space:nowrap;">+ Agregar</button>
     </div>
     </div>
 
@@ -249,8 +253,8 @@ function renderizarEventosAsistentes() {
       <td>${escaparHtml(ev.lugar || '—')}</td>
       <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
       <td style="white-space:nowrap;">
-        <button class="btn-secundario btn-sm" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "agregar")'>Registrar asistencia</button>
-        <button class="btn-secundario btn-sm" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "ver")'>Ver asistentes</button>
+        <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "agregar")'>Registrar asistencia</button>
+        <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "ver")'>Ver asistentes</button>
       </td>
     </tr>
   `).join('');
@@ -269,10 +273,8 @@ document.getElementById('btn-quitar-filtros-evento').addEventListener('click', (
 function cambiarPestanaAsistentes(pestana) {
   document.getElementById('seccion-reuniones').style.display = pestana === 'reuniones' ? 'block' : 'none';
   document.getElementById('seccion-consolidado').style.display = pestana === 'consolidado' ? 'block' : 'none';
-  document.getElementById('btn-tab-reuniones').classList.toggle('btn-acento', pestana === 'reuniones');
-  document.getElementById('btn-tab-reuniones').classList.toggle('btn-secundario', pestana !== 'reuniones');
-  document.getElementById('btn-tab-consolidado').classList.toggle('btn-acento', pestana === 'consolidado');
-  document.getElementById('btn-tab-consolidado').classList.toggle('btn-secundario', pestana !== 'consolidado');
+  document.getElementById('btn-tab-reuniones').classList.toggle('activa', pestana === 'reuniones');
+  document.getElementById('btn-tab-consolidado').classList.toggle('activa', pestana === 'consolidado');
   if (pestana === 'consolidado') cargarConsolidadoAsistentes();
 }
 document.getElementById('btn-tab-reuniones').addEventListener('click', () => cambiarPestanaAsistentes('reuniones'));
@@ -305,7 +307,7 @@ function renderizarConsolidadoAsistentes() {
       <td>${celdaTelefonoWhatsApp(p.telefono)}</td>
       <td class="col-barrio-vereda">${escaparHtml(nombreLugar(p.barrio) || '—')}</td>
       <td class="mono">${p.total_reuniones}</td>
-      <td><button type="button" class="btn-secundario btn-sm" onclick="alternarReunionesConsolidado(${i})">Ver reuniones</button></td>
+      <td><button type="button" class="btn-sec-neutro" onclick="alternarReunionesConsolidado(${i})">Ver reuniones</button></td>
     </tr>
     <tr id="fila-reuniones-consolidado-${i}" style="display:none;">
       <td colspan="6">
@@ -365,7 +367,7 @@ async function cargarAsistentesEvento() {
       <td class="mono">${escaparHtml(a.identidad_resuelta || '—')}</td>
       <td>${celdaTelefonoWhatsApp(a.telefono_resuelto)}</td>
       <td class="col-barrio-vereda">${escaparHtml(nombreLugar(a.barrio_resuelto) || '—')}</td>
-      <td><button type="button" class="btn-secundario btn-sm"  onclick="quitarAsistente(${a.id})">Quitar</button></td>
+      <td><button type="button" class="btn-sec-neutro btn-sec-peligro" onclick="quitarAsistente(${a.id})">Quitar</button></td>
     </tr>
   `).join('');
 }
@@ -394,7 +396,7 @@ function filaResultadoBusqueda(persona, tipo) {
   return `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--color-border, #e2e2e2);">
       <span>${escaparHtml(nombre)}${persona.cedula ? ` <span style="color:var(--color-text-muted); font-size:0.8rem;">— ${escaparHtml(persona.cedula)}</span>` : ''}${etiqueta}</span>
-      <button type="button" class="btn-secundario btn-sm" onclick="${funcion}(${persona.id})">Agregar</button>
+      <button type="button" class="btn-sec-neutro" onclick="${funcion}(${persona.id})">Agregar</button>
     </div>
   `;
 }
