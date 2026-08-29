@@ -37,8 +37,8 @@
         <div class="grupo separado">
           <span class="grupo-etiqueta">Datos</span>
           <div class="grupo-botones">
-            <a class="btn-neutro" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-            <label class="btn-neutro"
+            <a class="btn-neutro btn-excel-verde" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+            <label class="btn-neutro btn-excel-verde"
                    title="Para actualizar personas ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea una persona nueva.">
               ⬆ Importar desde Excel
               <input type="file" id="input-importar-estructura" accept=".xlsx,.xls" style="display:none;">
@@ -2658,7 +2658,7 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
 
         <div class="avance-p">
           <div class="avance-cifra"><span class="n">${formatoMillares(registros)}</span><span class="de">de</span><span class="meta">${formatoMillares(metaMostrada)}</span></div>
-          <div class="medidor-p${metaMostrada > 0 ? (pct >= 100 ? ' completo' : '') : ' vacio'}"><i style="width:${pct.toFixed(1)}%"></i></div>
+          <div class="medidor-p${metaMostrada > 0 && pct >= 100 ? ' completo' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>
           ${pie ? `<div class="avance-pie">${pie}</div>` : ''}
         </div>
 

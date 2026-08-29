@@ -138,7 +138,18 @@
 }
 .medidor-p i { display: block; height: 100%; background: #0B5ED7; border-radius: 999px; }
 .medidor-p.completo i { background: #1B7A4B; }
-.medidor-p.vacio { background: repeating-linear-gradient(45deg, #EFF2F6 0 6px, #E4E8EE 6px 12px); }
+/* SIN MODIFICADOR `.vacio`: ESE NOMBRE YA EXISTE EN style.css.
+   Allí `.vacio` es el estado vacío de una pantalla —«Aún no hay personas
+   registradas»— y trae `padding: 40px 20px` y `text-align: center`. Al
+   ponérselo a una barra de 8px, ese relleno la convertía en una caja rayada
+   de casi cien píxeles: por eso solo se deformaban las fichas con «0 de 0»,
+   que son las únicas que llevaban la clase.
+
+   Es el mismo género de fallo que el `const ETIQUETAS_ROL` que tumbó una
+   pantalla entera: un nombre global reutilizado sin mirar si estaba libre.
+
+   Y una barra a cero YA SE VE como una barra a cero — la pista vacía lo dice.
+   El rayado no aportaba nada que la cifra «0 de 0» no dijera mejor. */
 /* LA Σ SE EXPLICA EN PALABRAS. Un símbolo que nadie explica no informa. Y son
    DOS cosas distintas: en un coordinador la meta es la suma de las de su
    equipo; en un líder la meta es propia pero los registros incluyen a su
@@ -215,8 +226,7 @@
    este es justo el que no hay que pulsar por accidente. */
 .btn-peligro-borde { color: #B3261E; border: 1.5px solid #B3261E; background: #fff; font-weight: 600; }
 .btn-peligro-borde:hover { background: #B3261E; color: #fff; }
-.btn-wa-cabecera { background: #25D366; color: #131F3B; border: 1.5px solid #0E7A3E; font-weight: 600; }
-.btn-wa-cabecera:hover { background: #3ADC77; }
+
 .resumen-cabecera { color: var(--color-text-muted); font-size: .9rem; margin-top: 4px; }
 
 /* ------------------------------------------------------------------ leyenda */
@@ -256,6 +266,21 @@
   transition: background .12s ease, border-color .12s ease;
 }
 .btn-neutro:hover { background: #EAF0FB; border-color: #084298; }
+
+/* ESTAS DOS VAN DESPUÉS DE `.btn-neutro`, y el orden es el arreglo.
+   Estaban declaradas ANTES, así que el `background: #fff` de `.btn-neutro`
+   las pisaba y el botón de WhatsApp salía blanco. Misma especificidad: gana
+   la última. */
+
+/* WhatsApp, en su verde. Navy encima da 8,23; blanco daría 1,9. */
+.btn-wa-cabecera { background: #25D366; color: #131F3B; border-color: #0E7A3E; }
+.btn-wa-cabecera:hover { background: #3ADC77; }
+
+/* Excel, en el mismo verde AL 20% —#D3F6E0 sobre blanco—: se emparentan con
+   WhatsApp sin competir con él, que es lo que hace la acción principal. El
+   texto sigue en #084298, que sobre ese verde da 8,04. */
+.btn-excel-verde { background: #D3F6E0; border-color: #0E7A3E; }
+.btn-excel-verde:hover { background: #B9F0CE; }
 .acciones-p .btn-neutro { padding: 6px 11px; font-size: .8rem; }
 .btn-eliminar-p { color: #B02A2A; }
 .btn-eliminar-p:hover { background: #FDECEC; border-color: #B02A2A; }
