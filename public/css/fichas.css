@@ -127,8 +127,13 @@
 .avance-cifra .meta { font-family: var(--font-mono); font-size: 1.02rem; color: var(--color-text-muted); }
 /* La pista sola no llega a 3,0 contra la ficha; el borde sí. Sin él, con el
    avance al 1% no se ve dónde termina el recorrido. */
+/* `max-height` y `box-sizing` además del `height`: es una barra de 8px dentro
+   de una rejilla, y basta con que alguien le ponga `align-items: stretch` a un
+   contenedor para que se estire hasta ocupar la fila entera y se vea como una
+   caja rayada gigante en vez de como un medidor. */
 .medidor-p {
-  height: 8px; border-radius: 999px; background: var(--fi-pista);
+  height: 8px; max-height: 8px; box-sizing: border-box; flex: none;
+  border-radius: 999px; background: var(--fi-pista);
   border: 1px solid var(--fi-borde-fuerte); margin: 7px 0 5px; overflow: hidden;
 }
 .medidor-p i { display: block; height: 100%; background: #0B5ED7; border-radius: 999px; }

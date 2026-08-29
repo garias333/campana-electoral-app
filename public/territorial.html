@@ -2517,6 +2517,33 @@ function renderizarEstructura() {
 }
 
 /**
+ * EL TELÉFONO COMO PÍLDORA VERDE, con el número DENTRO del botón.
+ *
+ * `celdaTelefonoWhatsApp()` de common.js pinta otra cosa: el número en texto
+ * plano y un iconito de WhatsApp al lado. Está bien en una celda de tabla
+ * —para eso se escribió— pero en la ficha el teléfono deja de ser un dato y
+ * pasa a ser LA ACCIÓN, así que va como botón.
+ *
+ * NO SE CAMBIA `celdaTelefonoWhatsApp`: la usan Votantes y el resto de la
+ * aplicación, y allí su forma es la correcta.
+ *
+ * Navy sobre el verde de WhatsApp da 8,23. Blanco daría 1,9 y sería
+ * ilegible, que es el error clásico con este verde.
+ *
+ * `rel="noopener"` no es adorno: sin él la pestaña que se abre puede tocar a
+ * la que la abrió a través de `window.opener`.
+ */
+function pildoraWhatsApp(telefono, nombre) {
+  const digitos = String(telefono || '').replace(/\D/g, '');
+  if (!digitos) return '<span class="dato-min">Sin teléfono</span>';
+  const visible = digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos;
+  const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+  return `<a class="btn-wa-fila" href="https://wa.me/${internacional}" target="whatsappWeb" rel="noopener"
+     onclick="abrirWhatsApp(event, '${internacional}')"
+     title="Escribir por WhatsApp a ${escaparHtml(nombre || 'esta persona')}">💬 ${visible}</a>`;
+}
+
+/**
  * Una ficha. Los mismos catorce datos de la tabla, en cuatro zonas: quién es,
  * dónde trabaja, cómo va y las acciones.
  *
@@ -2615,7 +2642,7 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
               <span class="nombre-p">${f.nombre}</span>
             </div>
             <span class="correo-p">${f.email || 'Sin correo'}<span class="sep">·</span>${ETIQUETAS_GENERO[f.genero] || 'Sin género'}</span>
-            ${celdaTelefonoWhatsApp(f.telefono)}
+            ${pildoraWhatsApp(f.telefono, f.nombre)}
           </div>
         </div>
 
