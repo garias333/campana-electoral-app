@@ -413,7 +413,8 @@
           <input type="text" id="input-buscar-supervisor-persona" autocomplete="off" style="margin-bottom:4px;">
           <div id="resultados-buscar-supervisor-persona" style="margin-bottom:6px;"></div>
         </div>
-        <select name="supervisor_id" id="select-supervisor"><option value="">Ninguno</option></select>
+        <!-- Reporta a: ordenado por cercania y por rango, a proposito. -->
+        <select name="supervisor_id" id="select-supervisor" data-sin-ordenar><option value="">Ninguno</option></select>
         <small id="nota-reporta-a-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.78rem;">Un Coordinador es la cabeza de lo suyo —territorio u organizaciones— y no reporta a nadie. Los dos van al mismo nivel: ninguno manda sobre el otro.</small>
       </div>
       <div class="campo" id="campo-activo" style="display:none;">
@@ -456,7 +457,8 @@
         </div>
         <div class="campo">
           <label>Tipo de zona</label>
-          <select name="tipoZona" id="select-tipo-zona" required disabled>
+          <!-- Urbano antes que rural: la misma convencion que el ENUM de la base. -->
+          <select name="tipoZona" id="select-tipo-zona" data-sin-ordenar required disabled>
             <option value="">Elija primero el área</option>
           </select>
         </div>

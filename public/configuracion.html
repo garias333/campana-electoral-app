@@ -407,7 +407,8 @@
       </div>
       <div class="toolbar-filtros" style="margin-bottom:14px;">
         <input type="text" id="filtro-usuarios-busqueda" placeholder="Buscar por nombre, número de identificación, email o teléfono...">
-        <select id="filtro-usuarios-rol">
+        <!-- Los roles salen en orden de mando, no alfabetico. -->
+        <select id="filtro-usuarios-rol" data-sin-ordenar>
           <option value="">Todos los roles</option>
         </select>
         <select id="filtro-usuarios-territorio">

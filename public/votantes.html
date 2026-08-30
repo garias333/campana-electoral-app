@@ -91,7 +91,10 @@
             <option value="1">Solo los que pidieron no recibir</option>
             <option value="0">Solo los que sí reciben</option>
           </select>
-          <select id="filtro-apoya-a">
+          <!-- EL ORDEN LO MANDA EL CARGO, no el alfabeto: APOYOS_POR_CARGO pone primero
+               el cargo propio de la campana y despues los de arriba. Alfabetizar borra
+               esa lectura de "el mio primero, luego los superiores". -->
+          <select id="filtro-apoya-a" data-sin-ordenar>
             <option value="">Apoya a (todos)</option>
             <option value="alcaldia">Alcaldía</option>
             <option value="concejo">Concejo</option>
@@ -603,16 +606,26 @@ function aplicarApoyosConfigurados(SUFIJO, activos, posibles, porDefecto = []) {
  *            ocuparía ancho.
  *   lista -> esos y nada más.
  */
-function aplicarApoyosATablaVotantes(activos, posibles) {
+function aplicarApoyosATablaVotantes(activos, posibles, conservarEleccion) {
   apoyosActivosVotantes = apoyosEnOrden(activos, posibles);
   document.body.classList.toggle('sin-apoyos', apoyosActivosVotantes.length === 0);
   const filtro = document.getElementById('filtro-apoya-a');
   const elegido = filtro.value;
   filtro.innerHTML = '<option value="">Apoya a (todos)</option>' +
     apoyosActivosVotantes.map(a => `<option value="${a}">${ETIQUETAS_APOYO_APP[a] || a}</option>`).join('');
-  // Si el cargo que estaba filtrado ya no está activo, el filtro se cae a
-  // "todos" — dejarlo puesto mostraría una lista recortada sin decir por qué.
-  filtro.value = apoyosActivosVotantes.includes(elegido) ? elegido : '';
+  /* AL CARGAR SE EMPIEZA SIN FILTRO, Y ESTO ARREGLA UN FALLO REAL.
+     Esta funcion se llama UNA sola vez, al abrir la pantalla. Y en ese momento
+     el unico valor que `filtro.value` puede traer no lo puso nadie: es el que
+     el NAVEGADOR restaura del formulario al recargar la pagina. Conservarlo
+     dejaba el filtro puesto entre visitas -"se quedo fijado en Gobernacion"-
+     con la tabla recortada y sin nada que explicara por que: los demas filtros
+     se ven en blanco porque nunca se tocaron, asi que el recorte parece que
+     faltaran registros, no que haya un filtro activo.
+     El parametro queda para el dia que alguien la llame otra vez sin recargar
+     -si cambia la configuracion de apoyos en caliente-: ahi si conviene
+     respetar lo que la persona acababa de elegir, y si ese cargo ya no esta
+     activo el filtro se cae a "todos" igualmente. */
+  filtro.value = (conservarEleccion && apoyosActivosVotantes.includes(elegido)) ? elegido : '';
 }
 
 async function cargarPuestosVotacionParaSelectVotante() {
@@ -1862,15 +1875,22 @@ function precargarUbicacionVotante(territorioId) {
  */
 /* A QUIEN SE LE PIDE. La misma regla que routes/votantes.routes.js aplica al
    crear; si alla cambia, aqui tambien, o vuelve el rechazo sin casilla. */
+/* SE LE PIDE A CUALQUIERA QUE REGISTRE, NO SOLO AL LIDER.
+   Antes se miraba el rol, copiando la regla que el servidor tenia entonces:
+   solo Lider y Sublider, con el argumento de que un admin corrigiendo datos
+   no presencio nada que pueda confirmar. Pero este formulario no corrige: es
+   "Nuevo votante o sublider", y quien lo abre esta dando de alta a una
+   persona. Quien captura es quien tiene que haberle informado, y eso no
+   depende de su cargo.
+   Ademas, mirar el rol aqui salio mal dos veces: inicializarLayout lo
+   reescribe a 'admin' para el aspirante con sublicencia mientras el servidor
+   sigue viendo 'lider', asi que la casilla se le escondia justo a quien iba a
+   recibir el rechazo por no marcarla. Sin condicion de rol no hay dos
+   versiones del rol que puedan discrepar.
+   El boton que abre este formulario ya esta acotado por puedeAgregar(usuario,
+   'votantes'): si alguien llego hasta aqui, puede registrar. */
 function exigeAutorizacionVotante() {
-  if (!usuarioActual) return false;
-  /* `rol_sesion` Y NO `rol`: el segundo lo reescribe inicializarLayout a
-     'admin' para el aspirante con sublicencia, y el servidor sigue viendo
-     'lider'. Con `rol` la casilla no se dibujaba justo a quien iba a recibir
-     el rechazo por no marcarla. El respaldo a `rol` es para un navegador que
-     tenga cacheado un common.js anterior a este cambio. */
-  const rolQueDecide = usuarioActual.rol_sesion || usuarioActual.rol;
-  return ['lider', 'sublider'].includes(rolQueDecide);
+  return true;
 }
 
 let versionPoliticaVotante = '';

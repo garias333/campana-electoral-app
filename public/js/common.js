@@ -1230,18 +1230,21 @@ async function inicializarLayout(paginaActiva) {
 
      Se guarda el rol real por si alguna pantalla necesita distinguirlos. */
   /* EL ROL QUE DECIDE EN EL SERVIDOR, GUARDADO ANTES DE REESCRIBIRLO.
-     La linea de abajo cambia `rol` para dibujar, y eso ya rompio una cosa: la
-     casilla de autorizacion de datos en Votantes se muestra a quien el
-     SERVIDOR se la va a exigir -Lider y Sublider-, y para el aspirante con
-     sublicencia el servidor dice 'lider' mientras el navegador decia 'admin'.
-     Resultado: el guardado se rechazaba pidiendo marcar una casilla que la
-     pantalla no dibujaba, porque se creia administradora.
-     `rol_real` NO servia para esto: para un aspirante al concejo SIN
+     La linea de abajo cambia `rol` para dibujar, y hay que saber que existen
+     DOS valores del rol que pueden discrepar. Costo dos vueltas descubrirlo:
+     la casilla de autorizacion de datos en Votantes se mostraba segun el rol,
+     y para el aspirante con sublicencia el servidor decia 'lider' mientras el
+     navegador decia 'admin' — asi que el guardado se rechazaba pidiendo marcar
+     una casilla que la pantalla no dibujaba, porque se creia administradora.
+     (Aquella pantalla ya no mira el rol: se le pide a todo el que registra. La
+     trampa sigue estando, y por eso sigue anotado.)
+     `rol_real` NO sirve para esto: para un aspirante al concejo SIN
      sublicencia vale 'aspirante_concejo', y el servidor en ese caso mira
      'lider'. El unico valor fiable es el que vino, sin tocar.
-     Cualquier pantalla que necesite saber que va a decidir el servidor
-     -permisos, guardas, campos obligatorios- pregunta por `rol_sesion`;
-     `rol` es solo para dibujar. */
+     REGLA: `rol` es para dibujar. Cualquier pantalla que necesite saber que va
+     a decidir el servidor -permisos, guardas, campos obligatorios- pregunta
+     por `rol_sesion`. Hoy no lo usa nadie; esta puesto para que el siguiente
+     no tenga que volver a descubrirlo. */
   if (usuario) usuario.rol_sesion = usuario.rol;
 
   if (usuario && usuario.es_aspirante) {

@@ -8,7 +8,7 @@ const { recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
-const { aspiranteDe, ramaDeVotante } = require('../lib/ramas');
+const { aspiranteDe, ramaDeVotante, subarbolSql } = require('../lib/ramas');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
         filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { armarWhereSql } = require('../config/filtros');
@@ -927,6 +927,13 @@ router.get('/verificar-duplicado', async (req, res) => {
 router.get('/mi-referido', async (req, res) => {
   const usuario = req.session.usuario;
   try {
+    /* Al aspirante NO se le autocompleta, por lo mismo que no se le coacciona
+       al guardar: su sesion dice 'lider' pero el registra bajo la gente de su
+       rama, no bajo si mismo. Devolverle su propio nombre aqui le llenaba el
+       campo con la respuesta equivocada antes de que pudiera elegir. */
+    if (await esAspiranteAlConcejo(req)) {
+      return res.json({ lider_id: null, lider_nombre: null, sublider_id: null, sublider_nombre: null });
+    }
     if (usuario.rol === 'lider') {
       return res.json({ lider_id: usuario.id, lider_nombre: usuario.nombre, sublider_id: null, sublider_nombre: null });
     }
@@ -1012,8 +1019,17 @@ const NIVELES_SUBALTERNO = {
  * Se mira la sublicencia TAMBIÉN, con un OR: quien tiene una es un aspirante
  * aunque nadie se haya acordado de marcarlo en la estructura.
  */
-async function nivelQueRegistra(req) {
-  if (req.sublicencia) return 'lider';
+/**
+ * ¿Quien registra es Aspirante al Concejo?
+ *
+ * Estaba dentro de `nivelQueRegistra`, que solo lo usaba para decidir que
+ * escalon crea. Hace falta en mas sitios —el aspirante es CABEZA DE RAMA y hay
+ * guardas escritas para un lider raso que a el no le sirven— y la regla no se
+ * puede copiar: son dos formas de serlo y mirar una sola deja fuera a la mitad
+ * de la gente segun cuando se la registro.
+ */
+async function esAspiranteAlConcejo(req) {
+  if (req.sublicencia) return true;
   try {
     const [[fila]] = await pool.query(
       /* DOS FORMAS DE SERLO, Y LAS DOS VALEN.
@@ -1029,13 +1045,17 @@ async function nivelQueRegistra(req) {
                OR (e.id IS NOT NULL AND u.tipo_cargo = 'aspirante_concejo'))
         LIMIT 1`,
       [req.session.usuario.id]);
-    if (fila) return 'lider';
+    if (fila) return true;
   } catch (err) {
     // Si la consulta falla se sigue con el escalón de siempre: crear un
     // sublíder de más es recuperable; crear un líder por error, menos.
     console.error('Leyendo la categoría de quien registra:', err.message);
   }
-  return 'sublider';
+  return false;
+}
+
+async function nivelQueRegistra(req) {
+  return (await esAspiranteAlConcejo(req)) ? 'lider' : 'sublider';
 }
 
 async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
@@ -1224,14 +1244,20 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   }
   b.telefono = b.telefono ? b.telefono.replace(/\D/g, '') : null;
 
-  // Consentimiento (Circular SIC 002 de 2026 / Ley 1581 de 2012): exigible
-  // solo cuando quien registra es Líder o Sublíder — es el momento real de
-  // captura frente a la persona, a pie de calle. Un admin/coordinador
-  // corrigiendo o importando datos desde el panel de escritorio no está en
-  // ese momento, así que ahí no se exige (no tendría sentido pedirle a un
-  // admin que "confirme" una autorización que no presenció).
-  const exigeConsentimiento = ['lider', 'sublider'].includes(req.session.usuario.rol);
-  if (exigeConsentimiento && !b.consentimiento_autorizado) {
+  /* Consentimiento (Circular SIC 002 de 2026 / Ley 1581 de 2012): se exige a
+     TODO EL QUE CREE POR AQUI, sea cual sea su cargo.
+     Antes se pedia solo a Lider y Sublider, razonando que un admin corrigiendo
+     o importando datos no presencio la captura. Pero esta ruta no corrige
+     -corregir es el PUT, que no lo exige- ni importa -importar es
+     /importar-excel, que tampoco pasa por aqui-: esto es dar de alta a una
+     persona nueva, y ahi el cargo de quien teclea no cambia que a esa persona
+     hubo que informarle.
+     No rompe a nadie: los tres clientes que crean por esta ruta ya lo mandan
+     -el formulario de Votantes, la app movil de captura y el alta rapida de
+     Asistentes a reuniones-, verificado antes de apretar la regla.
+     Y va en el servidor y no solo en la pantalla porque lo que compruebe el
+     navegador no autoriza nada. */
+  if (!b.consentimiento_autorizado) {
     return res.status(400).json({ error: 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.' });
   }
 
@@ -1241,7 +1267,31 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   // esto protege tanto al panel de escritorio como a la app móvil de
   // captura, para que nadie pueda registrar un votante "a nombre" de otro
   // líder/sublíder distinto al de su propia sesión.
-  if (req.session.usuario.rol === 'lider') {
+  /* EL ASPIRANTE AL CONCEJO NO ES UN LIDER RASO, AUNQUE LA SESION LO LLAME ASI.
+     `rolEfectivo` en el login convierte 'aspirante_concejo' en 'lider', asi que
+     la coaccion de abajo se le aplicaba a el: elegia "referido por Lider Con
+     Uno / Sublider Con Uno Dos", guardaba, y el servidor lo reescribia con el
+     aspirante como lider y el sublider en blanco. La ficha quedaba colgando de
+     el en vez de de la gente de su rama, sin avisar de nada.
+     El es CABEZA de rama: registrar bajo SUS lideres y SUS sublideres es
+     exactamente su trabajo. Pero la proteccion original sigue haciendo falta
+     —nadie debe registrar a nombre de otro—, asi que en vez de quitarsela se
+     le cambia el alcance: puede elegir a cualquiera DENTRO de su subarbol, y a
+     nadie de fuera. */
+  const esAspiranteQuienRegistra = await esAspiranteAlConcejo(req);
+
+  if (esAspiranteQuienRegistra) {
+    const dentro = subarbolSql(req.session.usuario.id, 'u.id');
+    for (const campo of ['lider_id', 'sublider_id']) {
+      if (!b[campo]) continue;
+      const [[fila]] = await pool.query(
+        `SELECT 1 AS ok FROM usuarios u WHERE ${dentro.sql} AND u.id = ? LIMIT 1`,
+        [...dentro.valores, b[campo]]);
+      if (!fila) {
+        return res.status(403).json({ error: 'Solo puedes registrar bajo lideres y sublideres de tu propio equipo.' });
+      }
+    }
+  } else if (req.session.usuario.rol === 'lider') {
     b.lider_id = req.session.usuario.id;
     b.sublider_id = null;
   } else if (req.session.usuario.rol === 'sublider') {
