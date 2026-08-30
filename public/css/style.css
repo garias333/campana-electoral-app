@@ -1542,3 +1542,36 @@ table td .btn-primario:hover {
 .consent-no { color: #8E2F2F; font-weight: 600; }
 .consent-nc { color: var(--color-text-muted); font-style: italic; }
 .consent-baja { color: #8E2F2F; font-weight: 600; }
+
+/* ---------------- Cobertura de testigos por puesto ----------------
+   La celda «Mesas por asignar testigo» decía una cifra pequeña y debajo los
+   números en gris de 0.74rem, todos en una línea corrida. A ojo no se
+   distinguía un puesto entero sin cubrir de uno al que le falta una mesa, que
+   es la única pregunta que esa columna tiene que contestar de un vistazo.
+   La cifra manda —grande y roja— y cada mesa pendiente es una ficha propia:
+   se cuentan sin leerlas, y el pulgar alcanza cualquiera en un celular.
+   Cuando no falta ninguna se dice con palabras y en verde: un 0 suelto se lee
+   igual que un dato que no cargó. */
+.cobertura-faltan {
+  font-size: 1.5rem; font-weight: 700; line-height: 1.05; color: #A93226;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.cobertura-completo {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.82rem; font-weight: 600; color: #1E6B44;
+  background: #E9F5EF; border: 1px solid #B6DDC8;
+  border-radius: 999px; padding: 3px 11px; white-space: nowrap;
+}
+.mesas-faltantes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; max-width: 320px; }
+.chip-mesa {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 0.85rem; font-weight: 600; line-height: 1.35;
+  color: #A93226; background: #FDEDEA; border: 1px solid #F0C4BC;
+  border-radius: 6px; padding: 2px 8px; min-width: 26px; text-align: center;
+}
+/* La ficha del resto no es una mesa: no se puede tocar ni buscar, así que no
+   se pinta como las demás. */
+.chip-mesa-mas {
+  color: var(--color-text-muted); background: var(--color-bg);
+  border-color: var(--color-border); font-weight: 500; cursor: help;
+}

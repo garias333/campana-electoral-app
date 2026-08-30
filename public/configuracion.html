@@ -1792,7 +1792,7 @@ async function cargarPuestosVotacion() {
       <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
       <td class="mono">${p.cantidad_mesas}</td>
       <td class="mono">${p.mesas_con_testigo}</td>
-      <td class="mono" style="${p.mesas_por_asignar > 0 ? 'color:#A93226; font-weight:700;' : ''}">${p.mesas_por_asignar}${listaMesasFaltantes(p)}</td>
+      <td>${celdaCobertura(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
@@ -1825,17 +1825,25 @@ function cumpleFiltroCobertura(p) {
   return true;
 }
 
-/* CUALES FALTAN, DEBAJO DE CUANTAS. La cifra sola obligaba a abrir el puesto y
-   cotejar a mano contra la lista de testigos para saber a que mesa mandar a
-   alguien. Se recortan a doce para no romper la fila; el resto queda en el
-   titulo, que es donde no estorba. */
-function listaMesasFaltantes(p) {
+/* CUANTAS FALTAN Y CUALES. La cifra sola obligaba a abrir el puesto y cotejar a
+   mano contra la lista de testigos para saber a que mesa mandar a alguien.
+   Cubierto del todo se dice con palabras y no con un cero: un cero suelto se
+   lee igual que un dato que no cargo.
+   Se muestran doce fichas como mucho. No es por el ancho -las fichas fluyen en
+   varias lineas- sino porque un puesto con 23 mesas pendientes no necesita 23
+   numeros para decir lo que dice: la cifra grande ya lo dijo, y las fichas
+   sirven para localizar mesas sueltas. El resto va en el titulo. */
+function celdaCobertura(p) {
   const f = p.mesas_faltantes || [];
-  if (!f.length) return '';
-  const corte = f.slice(0, 12).join(', ');
-  const resto = f.length > 12 ? ` +${f.length - 12}` : '';
-  return `<div style="font-weight:400; font-size:0.74rem; color:var(--color-text-muted); margin-top:2px;"
-               title="Mesas sin testigo: ${f.join(', ')}">${corte}${resto}</div>`;
+  if (!p.mesas_por_asignar) {
+    return '<span class="cobertura-completo">✓ Todas cubiertas</span>';
+  }
+  const visibles = f.slice(0, 12).map(m => `<span class="chip-mesa">${m}</span>`).join('');
+  const resto = f.length > 12
+    ? `<span class="chip-mesa chip-mesa-mas" title="Y ${f.length - 12} mesas mas: ${f.slice(12).join(', ')}">+${f.length - 12}</span>`
+    : '';
+  return `<div class="cobertura-faltan">${p.mesas_por_asignar}</div>`
+       + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`;
 }
 
 /**
