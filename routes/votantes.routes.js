@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
-const { recalcularRamaEnSegundoPlano } = require('../lib/ramas');
+const { recalcularRamaEnSegundoPlano, duenoDeLaCampana } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
@@ -356,7 +356,7 @@ router.get('/resumen', async (req, res) => {
  */
 router.get('/estimados-por-puesto', async (req, res) => {
   try {
-    const resultado = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req));
+    const resultado = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
     res.json(resultado);
   } catch (err) {
     console.error(err);

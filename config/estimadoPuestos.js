@@ -26,27 +26,35 @@
  * (ver el .trim() sobre mesa_votacion). Perder una columna es aceptable;
  * perder la pantalla, no.
  */
-async function consultarPuestosConMunicipio(pool) {
+/* LOS PUESTOS TAMBIEN SE ACOTAN, no solo los votantes.
+   Desde que cada campaña tiene su propia lista, esta consulta las traia TODAS:
+   en la campaña de prueba, con la sublicencia del aspirante ya sembrada, la
+   pantalla decia «182 puestos configurados» donde Manizales tiene 91, y cada
+   puesto salia dos veces, una por campaña. El filtro de abajo ya acotaba los
+   VOTANTES a quien pregunta; faltaba la otra mitad. */
+async function consultarPuestosConMunicipio(pool, dueno = 0) {
   try {
     const [filas] = await pool.query(
       `SELECT p.id, p.nombre, p.cantidad_mesas, m.nombre AS municipio
          FROM dia_d_puestos_votacion p
          LEFT JOIN territoriosdb.ctc_puestos_votacion cp ON cp.id = p.ctc_puesto_id
          LEFT JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
-        ORDER BY p.nombre`
+        WHERE p.aspirante_id = ?
+        ORDER BY p.nombre`, [dueno]
     );
     return filas;
   } catch (err) {
     console.warn('No se pudo leer el municipio de los puestos desde el catálogo:', err.code || err.message);
     const [filas] = await pool.query(
-      `SELECT id, nombre, cantidad_mesas, NULL AS municipio FROM dia_d_puestos_votacion ORDER BY nombre`
+      `SELECT id, nombre, cantidad_mesas, NULL AS municipio FROM dia_d_puestos_votacion
+        WHERE aspirante_id = ? ORDER BY nombre`, [dueno]
     );
     return filas;
   }
 }
 
-async function calcularEstimadoPorPuesto(pool, filtro) {
-  const puestos = await consultarPuestosConMunicipio(pool);
+async function calcularEstimadoPorPuesto(pool, filtro, dueno = 0) {
+  const puestos = await consultarPuestosConMunicipio(pool, dueno);
   // Se agrupa por `puesto_id` cuando el votante lo tiene, y por el texto
   // cuando no. Ese id lo mantiene al día un disparador desde el propio
   // texto, así que queda lleno para todo el que vote en un puesto de la

@@ -5,7 +5,9 @@ const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, uploadExcel } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
-const { aspiranteDe, subarbolSql, filtroTestigosMadre } = require('../lib/ramas');
+const { subarbolSql, filtroTestigosMadre, duenoDeLaCampana: duenoDeLaCampanaRama } = require('../lib/ramas');
+const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
+const { filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 
 /**
  * DE QUE CAMPANA SON LOS PUESTOS Y LOS CANDIDATOS DE QUIEN PREGUNTA.
@@ -44,8 +46,7 @@ async function acotaJornada(req, columna) {
 }
 
 async function duenoDeLaCampana(req) {
-  if (req.sublicencia) return req.sublicencia.usuario_id;
-  return (await aspiranteDe(pool, req.session.usuario.id)) || 0;
+  return duenoDeLaCampanaRama(pool, req);
 }
 
 const router = express.Router();
@@ -1004,8 +1005,30 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
       }
     }
 
+    /* QUE MESAS YA TIENEN GENTE QUE DICE VOTAR AHI.
+       Una mesa sin testigo no es tan urgente como una mesa sin testigo DONDE LA
+       CAMPAÑA YA TIENE VOTANTES: esa segunda es donde hay votos propios que
+       nadie va a cuidar. El dato sale de `calcularEstimadoPorPuesto`, el mismo
+       que alimenta la pestaña «Votantes estimados por puesto de votación», y se
+       reusa a proposito: si cada pantalla contara por su cuenta, dirian cifras
+       distintas del mismo hecho y no habria forma de saber cual creer.
+       Si falla, se sigue sin el dato: perder el color es aceptable, perder la
+       pantalla de cobertura no. */
+    let votantesPorMesa = new Map();
+    try {
+      const est = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), dueno);
+      est.puestos.forEach((e) => {
+        const m = new Map();
+        (e.mesas || []).forEach((x) => { if (x.cantidad > 0) m.set(Number(x.mesa), x.cantidad); });
+        if (m.size) votantesPorMesa.set(e.puesto, m);
+      });
+    } catch (err) {
+      console.warn('No se pudo cruzar el estimado de votantes por mesa:', err.code || err.message);
+    }
+
     const filas = puestos.map(p => {
       const cubiertas = mesasPorPuesto.get(p.nombre) || new Set();
+      const conVotantes = votantesPorMesa.get(p.nombre) || new Map();
       /* QUE MESAS FALTAN, NO SOLO CUANTAS. La cifra decia «faltan 13» y ahi se
          acababa: para saber cuales habia que abrir el puesto y comparar a mano
          contra la lista de testigos. Se devuelven los numeros que SI estan
@@ -1014,11 +1037,17 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
          catalogo: siempre 1..N, sin huecos-. */
       const faltantes = [];
       for (let m = 1; m <= p.cantidad_mesas; m++) if (!cubiertas.has(m)) faltantes.push(m);
+      /* Solo las que FALTAN: una mesa ya cubierta con votantes no es un aviso,
+         es lo normal. Se manda como pares mesa->cuantos para que la pantalla
+         pueda decir la cifra en el titulo sin volver a preguntar. */
+      const faltantesConVotantes = {};
+      faltantes.forEach((m) => { if (conVotantes.has(m)) faltantesConVotantes[m] = conVotantes.get(m); });
       return {
         ...p,
         mesas_con_testigo: cubiertas.size,
         mesas_por_asignar: Math.max(p.cantidad_mesas - cubiertas.size, 0),
-        mesas_faltantes: faltantes
+        mesas_faltantes: faltantes,
+        mesas_faltantes_con_votantes: faltantesConVotantes
       };
     });
     res.json(filas);

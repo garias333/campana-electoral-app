@@ -1850,13 +1850,29 @@ function celdaCobertura(p) {
   const TOPE = 20;
   const cabenTodas = f.length <= TOPE;
   const aMostrar = cabenTodas ? f : f.slice(0, TOPE - 1);
-  const visibles = aMostrar.map(m => `<span class="chip-mesa">${m}</span>`).join('');
+  /* LA MESA QUE YA TIENE VOTANTES SE PINTA DISTINTO. Sin testigo y sin nadie
+     registrado es una mesa por cubrir; sin testigo pero CON gente que dice
+     votar ahi son votos propios que nadie va a cuidar el dia de la eleccion, y
+     esa es la que hay que cubrir primero. El titulo dice cuantos son, para que
+     el color no obligue a adivinar de que tamano es el problema. */
+  const conVotantes = p.mesas_faltantes_con_votantes || {};
+  const visibles = aMostrar.map(m => {
+    const n = conVotantes[m];
+    if (!n) return `<span class="chip-mesa">${m}</span>`;
+    const gente = n === 1 ? '1 votante registrado vota' : `${n} votantes registrados votan`;
+    return `<span class="chip-mesa chip-mesa-votos" title="${gente} en esta mesa. Conviene cubrirla con un testigo.">${m}</span>`;
+  }).join('');
   const ocultas = f.slice(aMostrar.length);
   const resto = ocultas.length
     ? `<span class="chip-mesa chip-mesa-mas" title="Y ${ocultas.length} mesas mas: ${ocultas.join(', ')}">+${ocultas.length}</span>`
     : '';
+  const cuantasConVotantes = Object.keys(conVotantes).length;
+  const leyenda = cuantasConVotantes
+    ? `<div class="cobertura-aviso">${cuantasConVotantes === 1 ? 'la resaltada ya tiene' : `las ${cuantasConVotantes} resaltadas ya tienen`} votantes registrados</div>`
+    : '';
   return `<div class="cobertura-faltan">${p.mesas_por_asignar}</div>`
-       + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`;
+       + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`
+       + leyenda;
 }
 
 /**

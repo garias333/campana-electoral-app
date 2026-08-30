@@ -1569,9 +1569,20 @@ table td .btn-primario:hover {
    quiebre cae siempre en la décima.
    El ancho lo manda el caso peor medido, no la vista: el puesto más grande del
    catálogo tiene 265 mesas, así que la ficha debe caber TRES dígitos. */
+/* ARRANCAN EN EL MISMO MARGEN QUE LA CIFRA DE ARRIBA. Las dos cosas —el número
+   y la rejilla— son un solo bloque leído de arriba abajo; con la rejilla
+   centrada, la cifra quedaba colgando a un lado y no había una línea vertical
+   donde apoyar la vista al recorrer la lista.
+   VA TODO EN ESTA REGLA, sin una segunda que la corrija. Antes la alineación
+   vivía en un `.tabla-cobertura .mesas-faltantes` aparte, y bastaba una hoja de
+   estilos vieja en la caché del navegador para que las dos se contradijeran:
+   el HTML nuevo dejaba la cifra a la izquierda y la hoja vieja seguía centrando
+   la rejilla. Una sola regla no puede desincronizarse consigo misma. */
 .mesas-faltantes {
   display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px;
-  max-width: 386px;            /* 10 fichas de 35 + 9 huecos de 4 = 386 */
+  justify-content: flex-start;
+  margin-left: 0; margin-right: auto;
+  max-width: 400px;            /* 10 fichas de 35 + 9 huecos de 4 = 386, con holgura */
 }
 .chip-mesa {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
@@ -1639,8 +1650,21 @@ table td .btn-primario:hover {
    derecha porque la columna de acciones no lo usa. */
 .tabla-cobertura th.col-cobertura,
 .tabla-cobertura td.col-cobertura { text-align: left; min-width: 420px; }
-.tabla-cobertura .mesas-faltantes { justify-content: flex-start; margin-left: 0; margin-right: 0; max-width: 400px; }
 .tabla-cobertura .cobertura-faltan { margin-bottom: 3px; }
 /* El nombre del puesto es lo que se busca al recorrer la lista: se queda a la
    izquierda y gana peso frente a las columnas de números. */
 .tabla-cobertura tbody td:first-child { font-weight: 600; color: #1B2432; line-height: 1.35; }
+
+/* La mesa que ya tiene votantes registrados y sigue sin testigo. Es el aviso
+   que de verdad importa de esa columna: no es una casilla más por cubrir, son
+   votos propios que el día de la elección nadie va a estar mirando. Va en
+   relleno y no en borde, para que se encuentre recorriendo la tabla de lejos
+   sin tener que leer ninguna. */
+.chip-mesa-votos {
+  background: #A93226; border-color: #8E2A20; color: #FFFFFF;
+  cursor: help;
+}
+.cobertura-aviso {
+  margin-top: 6px; font-size: 0.78rem; color: #A93226; font-weight: 600;
+  max-width: 400px; line-height: 1.35;
+}
