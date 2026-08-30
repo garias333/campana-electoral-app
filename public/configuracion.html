@@ -1174,15 +1174,37 @@ async function enviarCredencialesWhatsApp(id) {
     // A la pantalla de ingreso normal: ya no hay formulario aparte para
     // lideres. Desde ahi tambien se instala la aplicacion.
     const enlace = `${window.location.origin}/login.html`;
+    /* EL MENSAJE DESCRIBÍA UNA FORMA DE ENTRAR QUE ESTA PERSONA NO TIENE.
+       Decía «entra con tu correo o tu celular: te mandamos un código» y «no
+       necesitas contraseña». Eso es cierto sólo para admin, coordinador,
+       administrativo, asistente administrativo y aspirante al Concejo — los
+       roles de `ROLES_CON_CODIGO`, en routes/auth.routes.js. Un líder o un
+       sublíder entra con usuario y contraseña, así que el mensaje les pedía
+       hacer algo que su pantalla no ofrece.
+
+       Y las dos son su número de cédula: `restablecer-password` pone como
+       contraseña `numero_identificacion`, y el usuario se crea con esa misma
+       cédula al darlos de alta en la Estructura.
+
+       LAS HORAS SALEN DEL SERVIDOR, no escritas aquí. Son 48, no 24, y viven
+       en `HORAS_VIGENCIA_CODIGO`; copiarlas a mano habría dejado el mensaje
+       mintiendo el día que alguien cambie la constante.
+
+       QUIEN NO TIENE CÉDULA REGISTRADA recibe un código de cuatro dígitos, y
+       a ése no se le puede decir lo mismo. El servidor lo distingue y lo
+       devuelve en `es_cedula`. */
+    const horas = r.horas_vigencia || 48;
     const texto = [
       `Hola ${u.nombre}, te damos la bienvenida al equipo de la campaña${candidato ? ' de ' + candidato : ''}.`,
       '',
       '1) Instala la aplicación en tu celular desde este enlace:',
       enlace,
       '',
-      '2) Entra con tu correo o tu número de celular: la aplicación te manda un código de un solo uso.',
+      r.es_cedula
+        ? '2) Tu número de cédula es tu usuario y también tu contraseña.'
+        : '2) Tu usuario es tu número de cédula. La contraseña te llega aparte, por mensaje de texto.',
       '',
-      'No necesitas contraseña: cada vez que entres te llega un código nuevo.',
+      `3) La aplicación te pedirá cambiar la contraseña la primera vez que entres. Hazlo cuanto antes: la que tienes ahora vence en ${horas} horas y después no te dejará entrar.`,
     ].join('\n');
 
     const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
@@ -1194,15 +1216,27 @@ async function enviarCredencialesWhatsApp(id) {
     } else {
       // Bloqueada pese a todo: la contraseña YA cambió, así que no se puede
       // callar. Se muestra para que el envío se pueda completar a mano.
-      alert(`No se pudo abrir WhatsApp.\n\nLa contraseña nueva de ${u.nombre} es: ${r.password_temporal}\n\nAnótela y envíesela, porque no se vuelve a mostrar.`);
+      alert(`No se pudo abrir WhatsApp.\n\n`
+        + (r.es_cedula
+            ? `La contraseña de ${u.nombre} es su número de cédula, y vence en ${horas} horas.`
+            : `La contraseña nueva de ${u.nombre} es: ${r.password_temporal}\n\nAnótela y envíesela, porque no se vuelve a mostrar.`)
+        + `\n\nEl enlace de la aplicación es: ${enlace}`);
     }
 
     // SI EL SMS NO SALIÓ HAY QUE DECIRLO, y decir el código. La contraseña YA
     // cambió: callarse dejaría a la persona sin poder entrar y al
     // administrador sin saber por qué.
-    if (r.sms && !r.sms.enviado) {
-      alert(`El código NO se pudo enviar por mensaje de texto${r.sms.motivo ? ' (' + r.sms.motivo + ')' : ''}.\n\n`
-        + `Por eso va incluido en el mensaje de WhatsApp. El código de ${u.nombre} es: ${r.password_temporal}`);
+    /* SOLO SI EL SMS HACÍA FALTA. Desde que la contraseña es la cédula, el
+       servidor responde `enviado: false` con el motivo «no hace falta» en el
+       caso normal — que es casi siempre. Sin esta condición, cada envío
+       terminaba con un aviso rojo diciendo que el código NO se pudo mandar,
+       que es alarmante y además falso: no se mandó porque no había nada que
+       mandar. Solo interesa cuando la persona no tiene cédula y ese código de
+       cuatro dígitos es su única forma de entrar. */
+    if (!r.es_cedula && r.sms && !r.sms.enviado) {
+      alert(`La contraseña NO se pudo enviar por mensaje de texto${r.sms.motivo ? ' (' + r.sms.motivo + ')' : ''}.\n\n`
+        + `${u.nombre} no tiene cédula registrada, así que su contraseña es un código: ${r.password_temporal}\n\n`
+        + `Anótelo y désela usted, porque no se vuelve a mostrar.`);
     }
 
     await api(`/usuarios/${id}/credenciales-enviadas`, { method: 'POST' });

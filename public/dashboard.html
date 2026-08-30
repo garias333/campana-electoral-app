@@ -266,7 +266,7 @@
           <div class="celda"><div class="et">Líderes</div><div class="val" id="stat-lideres">—</div></div>
           <div class="celda"><div class="et">Testigos</div><div class="val" id="stat-testigos">—</div></div>
           <div class="celda acento"><div class="et">Votantes registrados</div><div class="val" id="stat-votantes">—</div></div>
-          <div class="celda"><div class="et">Votos de la campaña</div><div class="val" id="stat-meta-votos-campana">—</div></div>
+          <div class="celda"><div class="et">Meta votos de la campaña</div><div class="val" id="stat-meta-votos-campana">—</div></div>
           <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
           <div class="celda" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
           <div class="celda" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
@@ -577,7 +577,7 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     document.getElementById('stat-testigos').textContent = formatoMillares(r.estructura.testigos);
     document.getElementById('stat-votantes').textContent = formatoMillares(r.votantes.total);
     document.getElementById('stat-eventos').textContent = formatoMillares(r.eventos.proximos);
-    /* «Votos de la campaña» es la meta declarada, no calculada. Un guion
+    /* «Meta votos de la campaña» es la meta declarada, no calculada. Un guion
        cuando nadie la ha fijado todavía: un cero se leería como «la meta es
        cero votos», que es otra cosa. Se fija en Configuración → Datos de la
        campaña, y un aspirante la fija en la suya. */

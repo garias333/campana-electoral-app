@@ -508,8 +508,21 @@ router.post('/:id/restablecer-password', requireRole('admin', 'aspirante'), asyn
     //
     // La clave NUNCA sale del servidor por este camino: se genera aquí y se
     // manda desde aquí. El navegador solo recibe si salió o no.
+    /* Y NO SE MANDA CUANDO LA CLAVE ES LA CÉDULA, que es el caso normal.
+       Mandarle a alguien por SMS un número que se sabe de memoria no protege
+       nada: gasta un crédito, llega un mensaje que no aporta, y deja la clave
+       escrita en un aparato más. El razonamiento de arriba —separar el código
+       del enlace— sigue valiendo entero para el otro caso: quien no tiene
+       cédula registrada recibe un código de cuatro dígitos, y ése sí es un
+       secreto que no puede viajar en el mismo WhatsApp que el enlace.
+
+       La decisión se toma AQUÍ y no en el navegador porque es aquí donde se
+       sabe cuál de los dos casos es: el front pide el envío sin saber qué
+       contraseña se va a generar. */
     let sms = { enviado: false, motivo: null };
-    if (req.body && req.body.enviar_sms) {
+    if (esCedula) {
+      sms.motivo = 'no hace falta: la contraseña es su número de cédula';
+    } else if (req.body && req.body.enviar_sms) {
       const [[persona]] = await pool.query('SELECT nombre, telefono FROM usuarios WHERE id = ?', [req.params.id]);
       if (!persona || !persona.telefono) {
         sms.motivo = 'la persona no tiene teléfono registrado';

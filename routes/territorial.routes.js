@@ -977,9 +977,19 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
   // desde el formulario aparte de "Testigo electoral", sin territorio.
   const esCoordinadorOrganizaciones = cargo === 'coordinador_organizaciones';
   const esTestigo = cargo === 'testigo';
+  /* AL ASPIRANTE AL CONCEJO NO SE LE EXIGE ÁREA DE INFLUENCIA.
+     Hace campaña en toda la ciudad, así que obligarlo a escoger una comuna es
+     pedirle que declare una frontera que no tiene. El formulario ya lo trataba
+     como opcional; el servidor no, y por eso al guardar respondía «Nombre,
+     cargo y territorio son obligatorios» — un rechazo que no se podía
+     satisfacer sin inventarse un barrio.
+
+     `tipo_cargo` es lo que lo distingue: un aspirante se guarda con
+     cargo = 'lider', así que por el cargo no se le puede reconocer. */
+  const esAspiranteConcejo = tipo_cargo === 'aspirante_concejo';
   if (!nombre || !cargo
-      || (!esCoordinadorOrganizaciones && !esTestigo && !esOrganizacion && !territorio_id)
-      || (!esCoordinadorOrganizaciones && esOrganizacion && !organizacion)) {
+      || (!esCoordinadorOrganizaciones && !esTestigo && !esAspiranteConcejo && !esOrganizacion && !territorio_id)
+      || (!esCoordinadorOrganizaciones && !esAspiranteConcejo && esOrganizacion && !organizacion)) {
     return res.status(400).json({
       error: esOrganizacion
         ? 'Nombre, cargo y nombre de la organización son obligatorios.'
@@ -1144,7 +1154,8 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
     departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia,
     comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
-    creado_por: req.session.usuario.id
+    creado_por: req.session.usuario.id,
+    supervisor_id: supervisorFinal
   });
   res.json({ ok: true, estructura_id: estructuraId, password_temporal: passwordTemporal, geocodificado: geo.geocodificado });
 });
@@ -1193,9 +1204,19 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
   const tipoTestigoFinal = tipo_testigo === 'puesto' ? 'puesto' : 'mesa';
   const mesaVotacionFinal = (esTestigo && tipoTestigoFinal === 'puesto') ? null : (mesa_votacion || null);
   const mesasAsignadasFinal = Array.isArray(mesas_asignadas) ? mesas_asignadas.map(Number) : [];
+  /* AL ASPIRANTE AL CONCEJO NO SE LE EXIGE ÁREA DE INFLUENCIA.
+     Hace campaña en toda la ciudad, así que obligarlo a escoger una comuna es
+     pedirle que declare una frontera que no tiene. El formulario ya lo trataba
+     como opcional; el servidor no, y por eso al guardar respondía «Nombre,
+     cargo y territorio son obligatorios» — un rechazo que no se podía
+     satisfacer sin inventarse un barrio.
+
+     `tipo_cargo` es lo que lo distingue: un aspirante se guarda con
+     cargo = 'lider', así que por el cargo no se le puede reconocer. */
+  const esAspiranteConcejo = tipo_cargo === 'aspirante_concejo';
   if (!nombre || !cargo
-      || (!esCoordinadorOrganizaciones && !esTestigo && !esOrganizacion && !territorio_id)
-      || (!esCoordinadorOrganizaciones && esOrganizacion && !organizacion)) {
+      || (!esCoordinadorOrganizaciones && !esTestigo && !esAspiranteConcejo && !esOrganizacion && !territorio_id)
+      || (!esCoordinadorOrganizaciones && !esAspiranteConcejo && esOrganizacion && !organizacion)) {
     return res.status(400).json({
       error: esOrganizacion
         ? 'Nombre, cargo y nombre de la organización son obligatorios.'
@@ -1220,7 +1241,8 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
       `SELECT e.usuario_id, e.direccion AS direccion_anterior, e.supervisor_id AS supervisor_id_anterior,
               u.comuna_corregimiento_residencia AS comuna_residencia_anterior,
               u.barrio_residencia AS barrio_residencia_anterior, u.nombre_usuario AS nombre_usuario_anterior,
-              u.tipo_cargo AS tipo_cargo_anterior, u.puesto_votacion AS puesto_votacion_anterior
+              u.tipo_cargo AS tipo_cargo_anterior, u.puesto_votacion AS puesto_votacion_anterior,
+              u.numero_identificacion AS cedula_anterior
        FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
        WHERE e.id = ?`,
       [req.params.id]
@@ -1345,7 +1367,12 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
       departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
       departamento_residencia, ciudad_residencia,
       comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
-      creado_por: req.session.usuario.id
+      creado_por: req.session.usuario.id,
+      // Para que un cambio de cédula MUEVA la ficha de Votantes en vez de
+      // dejar la vieja suelta, y para que «Líder que registró» diga a quién
+      // reporta. Ver la nota larga en config/sincronizacionVotantesEstructura.js.
+      cedula_anterior: fila.cedula_anterior,
+      supervisor_id: supervisorGuardado
     });
 
     res.json({ ok: true });

@@ -65,6 +65,36 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
   const cedula = (datos.numero_identificacion || '').trim();
   if (!cedula) return;
   try {
+    /* UN CAMBIO DE CÉDULA MUEVE LA FICHA; NO CREA OTRA.
+       Este INSERT cruza por `cedula`, que es UNIQUE. Si a alguien se le
+       corrige la cédula en Estructura, la nueva no cruza con nada y el
+       `ON DUPLICATE KEY UPDATE` no entra: nace una ficha nueva y la vieja se
+       queda suelta, con el nombre y el teléfono de esa persona pero sin
+       correspondencia en la estructura.
+
+       Y una ficha suelta no es solo basura: `ramaDeVotante` deduce la rama de
+       la ficha de estructura o del líder, y esa huérfana no tiene ninguna de
+       las dos — así que su `rama_aspirante_id` queda NULL, y NULL significa
+       «es de la campaña madre». O sea que la persona registrada por un
+       aspirante aparecía en la lista de la campaña principal.
+
+       Medido en la campaña de prueba municipal el 30 de agosto de 2026: tres
+       fichas así, una de ellas creada ese mismo día al corregirle la cédula a
+       un sublíder. */
+    const cedulaAnterior = String(datos.cedula_anterior || '').trim();
+    if (cedulaAnterior && cedula && cedulaAnterior !== cedula) {
+      try {
+        await pool.query(
+          `UPDATE votantes SET cedula = ? WHERE cedula = ? AND origen = 'estructura'`,
+          [cedula, cedulaAnterior]);
+      } catch (err) {
+        /* Si la cédula nueva ya la tiene otra ficha, el UNIQUE lo impide y se
+           deja como estaba: el INSERT de abajo actualizará esa otra, que es lo
+           correcto — son la misma persona. Duplicar sería peor que no mover. */
+        if (err.code !== 'ER_DUP_ENTRY') throw err;
+      }
+    }
+
     // Si nadie tiene esta cédula pero sí existe la ficha de esta misma
     // persona con otra, se le corrige la cédula ANTES de insertar: así el
     // `ON DUPLICATE KEY` de abajo la encuentra y actualiza esa ficha en
@@ -96,14 +126,15 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
       } catch (_) { /* sin territorio legible se deja en null, como antes */ }
     }
 
+
     await pool.query(
       `INSERT INTO votantes
          (nombre, cedula, telefono, email, genero, edad, apoya_a,
           departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
           departamento_residencia, ciudad_residencia,
           comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id, area,
-          categoria, created_by, origen, rama_aspirante_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
+          categoria, created_by, origen, lider_id, rama_aspirante_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?, ?)
        ON DUPLICATE KEY UPDATE
          nombre = VALUES(nombre),
          telefono = VALUES(telefono), email = VALUES(email), genero = VALUES(genero), edad = VALUES(edad),
@@ -141,7 +172,18 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
            `lider_id`, y pisarla con lo que da la cedula la borraria para todo
            el que no este en la estructura de ningun aspirante. Al crear no hay
            nada que perder; al actualizar si. */
-        await ramaDeVotante(pool, { cedula })
+        /* QUIEN LA REGISTRO ES SU JEFE EN LA ESTRUCTURA, y por eso se guarda
+           en `lider_id`: es la columna que la pantalla de Votantes enseña
+           como «Lider que registro». Se quedaba en NULL y la columna decia
+           un guion para toda la gente de la estructura — incluida la que un
+           aspirante acababa de dar de alta, que es justo donde mas importa
+           saber de quien cuelga.
+
+           Como la rama, va SOLO en el VALUES: si la ficha ya existe puede
+           tener un `lider_id` puesto a mano desde Votantes, y pisarlo con el
+           supervisor lo borraria sin que nadie lo pidiera. */
+        datos.supervisor_id || null,
+        await ramaDeVotante(pool, { cedula, lider_id: datos.supervisor_id || null })
       ]
     );
   } catch (err) {

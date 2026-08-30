@@ -347,7 +347,10 @@
 
       <div class="campo encabezado-form">Territorio o área de influencia</div>
       <div class="campo">
-        <div style="display:flex; gap:22px; margin-bottom:4px;">
+        <div style="display:flex; gap:22px; margin-bottom:4px; flex-wrap:wrap;">
+          <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+            <input type="checkbox" id="chk-area-influencia-municipio" style="width:auto;"> Todo el municipio
+          </label>
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
             <input type="checkbox" id="chk-area-influencia-territorio" style="width:auto;" checked> Territorio
           </label>
@@ -1677,9 +1680,7 @@ document.getElementById('select-cargo-persona').addEventListener('change', () =>
   // ya no se exige llenar Área/Comuna/Barrio (mismo mecanismo que ya
   // usan los Tipos de cargo gremiales, ver TIPOS_QUE_ACTIVAN_ORGANIZACION).
   if (document.getElementById('select-cargo-persona').value === 'coordinador_organizaciones') {
-    document.getElementById('chk-area-influencia-organizacion').checked = true;
-    document.getElementById('chk-area-influencia-territorio').checked = false;
-    actualizarVisibilidadAreaInfluencia();
+    marcarAreaInfluencia('organizacion');
   }
 });
 
@@ -1946,7 +1947,13 @@ function actualizarVisibilidadBarrioVeredaSegunCargo() {
  */
 function actualizarVisibilidadAreaInfluencia() {
   const esOrganizacion = document.getElementById('chk-area-influencia-organizacion').checked;
-  document.getElementById('bloque-territorio-geografico-persona').style.display = esOrganizacion ? 'none' : 'block';
+  const esTodoElMunicipio = document.getElementById('chk-area-influencia-municipio').checked;
+  /* «Todo el municipio» esconde la cascada de Área/Comuna/Barrio igual que
+     «Organización»: los tres son la misma pregunta —dónde trabaja esta
+     persona— respondida a distinta altura, y enseñar los campos de la
+     respuesta que NO se eligió invita a llenarlos para nada. */
+  document.getElementById('bloque-territorio-geografico-persona').style.display =
+    (esOrganizacion || esTodoElMunicipio) ? 'none' : 'block';
   document.getElementById('campo-organizacion-persona').style.display = esOrganizacion ? 'block' : 'none';
 }
 
@@ -2056,15 +2063,51 @@ document.getElementById('chk-asignar-testigo-persona').addEventListener('change'
     try { selectPuesto.showPicker(); } catch (err) { /* No soportado en este navegador — se deja el foco nada más. */ }
   }
 });
-document.getElementById('chk-area-influencia-territorio').addEventListener('change', (e) => {
-  if (e.target.checked) document.getElementById('chk-area-influencia-organizacion').checked = false;
-  else if (!document.getElementById('chk-area-influencia-organizacion').checked) e.target.checked = true; // siempre una marcada
+/* AHORA SON TRES Y SIGUEN SIENDO EXCLUYENTES, y por eso el par de
+   manejadores escritos a mano se cambia por uno solo con la lista.
+   Con tres casillas, la forma anterior —cada una apagando a la otra— habría
+   necesitado seis líneas cruzadas, y basta olvidar una para que queden dos
+   marcadas a la vez y el formulario guarde algo distinto de lo que se ve.
+
+   La regla es la de siempre: siempre hay exactamente una marcada. Desmarcar
+   la que está puesta la vuelve a marcar, porque no existe el estado «ninguna
+   de las tres». */
+/**
+ * Marca UNA de las tres casillas de área de influencia y apaga las otras dos.
+ *
+ * Existe porque hay seis sitios del formulario que las marcan por código —al
+ * abrir una edición, al limpiar, al elegir un Tipo gremial…— y hasta ahora
+ * cada uno apagaba a mano la que sobraba. Con dos casillas eso eran dos
+ * líneas por sitio; con tres serían tres, y basta olvidar una para que queden
+ * dos marcadas a la vez y el formulario guarde algo distinto de lo que se ve.
+ *
+ * Es una función declarada, no una constante: se la llama desde manejadores
+ * escritos más arriba en el archivo, y una `const` ahí daría error de zona
+ * muerta. (Ya pasó una vez en esta pantalla y se llevó por delante la
+ * estructura entera; ver el parche 195.)
+ */
+function marcarAreaInfluencia(cual) {
+  CASILLAS_AREA_INFLUENCIA.forEach((id) => {
+    document.getElementById(id).checked = (id === `chk-area-influencia-${cual}`);
+  });
   actualizarVisibilidadAreaInfluencia();
-});
-document.getElementById('chk-area-influencia-organizacion').addEventListener('change', (e) => {
-  if (e.target.checked) document.getElementById('chk-area-influencia-territorio').checked = false;
-  else if (!document.getElementById('chk-area-influencia-territorio').checked) e.target.checked = true; // siempre una marcada
-  actualizarVisibilidadAreaInfluencia();
+}
+
+const CASILLAS_AREA_INFLUENCIA = [
+  'chk-area-influencia-municipio',
+  'chk-area-influencia-territorio',
+  'chk-area-influencia-organizacion',
+];
+CASILLAS_AREA_INFLUENCIA.forEach((id) => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (e.target.checked) {
+      CASILLAS_AREA_INFLUENCIA.filter(o => o !== id)
+        .forEach(o => { document.getElementById(o).checked = false; });
+    } else {
+      e.target.checked = true;   // no existe «ninguna de las tres»
+    }
+    actualizarVisibilidadAreaInfluencia();
+  });
 });
 
 // Si el Tipo (opcional) elegido corresponde a un cargo de gremio/asociación
@@ -2077,9 +2120,7 @@ const TIPOS_QUE_ACTIVAN_ORGANIZACION = ['presidente_gremio', 'presidente_asociac
 const TIPOS_QUE_ACTIVAN_TERRITORIO = ['', 'concejal', 'edil', 'aspirante_concejo', 'aspirante_jal', 'presidente_jal', 'presidente_jac', 'miembro_jal', 'miembro_jac'];
 document.getElementById('select-tipo-cargo-persona').addEventListener('change', async (e) => {
   if (TIPOS_QUE_ACTIVAN_ORGANIZACION.includes(e.target.value)) {
-    document.getElementById('chk-area-influencia-organizacion').checked = true;
-    document.getElementById('chk-area-influencia-territorio').checked = false;
-    actualizarVisibilidadAreaInfluencia();
+    marcarAreaInfluencia('organizacion');
 
     try {
       const coordinadores = await api('/territorial/coordinador-organizaciones');
@@ -2095,8 +2136,7 @@ document.getElementById('select-tipo-cargo-persona').addEventListener('change', 
       }
     } catch (err) { /* si falla, se deja el "Reporta a" como estaba */ }
   } else if (TIPOS_QUE_ACTIVAN_TERRITORIO.includes(e.target.value)) {
-    document.getElementById('chk-area-influencia-territorio').checked = true;
-    document.getElementById('chk-area-influencia-organizacion').checked = false;
+    marcarAreaInfluencia('territorio');
     actualizarVisibilidadAreaInfluencia();
   }
   // El Tipo se puede cambiar por su cuenta, sin tocar los botones de
@@ -2124,6 +2164,20 @@ function resolverTerritorioPersona() {
     if (!document.getElementById('select-area-persona').value) {
       return { territorioId: null };
     }
+  }
+
+  /* «TODO EL MUNICIPIO»: se guarda con el id del municipio, no con NULL.
+     Es un territorio de verdad —el más grande de la campaña— y guardarlo así
+     mantiene a la persona dentro de los filtros, los mapas y los conteos por
+     territorio. Con NULL se caería de todos ellos sin que nada lo explique.
+
+     Si el municipio no se puede resolver —campaña departamental sin municipio
+     escrito todavía— se guarda sin territorio en vez de dar error: la casilla
+     dice lo que la persona quiso decir, y el dato exacto se puede completar
+     después. */
+  if (document.getElementById('chk-area-influencia-municipio').checked) {
+    const m = disponiblesEnMunicipioPersona().municipio;
+    return { territorioId: m ? m.id : null };
   }
 
   // Si el área de influencia es una Organización, no hay territorio
@@ -2961,8 +3015,7 @@ async function abrirCreacion() {
   ['input-comuna-persona', 'input-barrio-persona', 'input-corregimiento-persona', 'input-vereda-persona'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('chk-area-influencia-territorio').checked = true;
-  document.getElementById('chk-area-influencia-organizacion').checked = false;
+  marcarAreaInfluencia('territorio');
   document.getElementById('input-organizacion-persona').value = '';
   actualizarVisibilidadAreaInfluencia();
   restaurarOpcionesReportaA();
@@ -3116,8 +3169,15 @@ async function abrirEdicion(id) {
   const areaGuardadaPersona = fila.area || '';
 
   const esOrganizacion = fila.tipo_area_influencia === 'organizacion';
-  document.getElementById('chk-area-influencia-territorio').checked = !esOrganizacion;
-  document.getElementById('chk-area-influencia-organizacion').checked = esOrganizacion;
+  /* «Todo el municipio» se reconoce por el territorio guardado: si es un
+     municipio, es que se eligió esa casilla. No hace falta columna nueva —
+     `tipo_area_influencia` sigue siendo 'territorio', porque un municipio ES
+     un territorio, solo que el más grande. */
+  const territorioGuardado = listaTerritorios.find(t => t.id === fila.territorio_id);
+  marcarAreaInfluencia(
+    esOrganizacion ? 'organizacion'
+      : (!fila.territorio_id || (territorioGuardado && territorioGuardado.tipo === 'municipio'))
+        ? 'municipio' : 'territorio');
   document.getElementById('input-organizacion-persona').value = fila.organizacion || '';
   actualizarVisibilidadAreaInfluencia();
 
