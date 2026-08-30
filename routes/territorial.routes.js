@@ -34,7 +34,7 @@ const { condicionAlcanceVotantes,
 const { geocodificarDireccion } = require('../config/geocoder');
 const { resolverTerritorioDesdeNombres } = require('../config/territorioResolver');
 const { uploadExcel } = require('../middleware/upload');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const {
   asegurarEstructuraTestigo, verificarMesasDisponibles, geocodificarTestigoPorPuestoYGuardar
 } = require('../config/testigoElectoral');
@@ -1392,6 +1392,43 @@ router.post('/estructura/:id/asignar-testigo', requireRole('admin', 'coordinador
 // apareciendo en los desplegables de "Reporta a", "Líder", etc., que se
 // alimentan de la tabla usuarios). Los FK de supervisor_id/lider_id son
 // ON DELETE SET NULL, así que esto no rompe otros registros.
+/**
+ * El texto del apunte de auditoría cuando se borra a una persona.
+ *
+ * TIENE QUE BASTARSE SOLO. Se lee meses después, cuando de la persona no
+ * queda ni la fila de `usuarios`: nada de lo que diga aquí se puede volver a
+ * consultar en ninguna tabla. Por eso el nombre y la cédula van escritos, y
+ * por eso el cargo va traducido a palabras y no como la clave del `enum`.
+ *
+ * Los cargos se nombran aquí y no se importan de otro sitio porque en el
+ * servidor no existía ese diccionario: las etiquetas viven en el navegador
+ * (ETIQUETAS_CATEGORIA, en public/territorial.html). Duplicar cinco palabras
+ * es preferible a que un apunte de auditoría dependa de un archivo del front.
+ */
+const NOMBRE_DEL_CARGO = {
+  coordinador: 'Coordinador de territorio',
+  coordinador_organizaciones: 'Coordinador de organizaciones',
+  lider: 'Líder',
+  usuario: 'Sublíder',
+  testigo: 'Testigo electoral',
+};
+function descripcionDePersonaBorrada(fila) {
+  const cargo = fila.tipo_cargo === 'aspirante_concejo'
+    ? 'Aspirante al Concejo'
+    : (NOMBRE_DEL_CARGO[fila.cargo] || fila.cargo || 'sin cargo');
+  const partes = [
+    `Eliminó a ${fila.nombre || 'una persona sin nombre'}`,
+    fila.numero_identificacion ? ` (cédula ${fila.numero_identificacion})` : '',
+    `, ${cargo}. Se borró también su cuenta de acceso.`,
+    ` El identificador de usuario era ${fila.usuario_id}`,
+    fila.supervisor_nombre ? `; le reportaba a ${fila.supervisor_nombre}.` : '; no le reportaba a nadie.',
+  ];
+  if (fila.a_su_cargo > 0) {
+    partes.push(` ${fila.a_su_cargo} ${fila.a_su_cargo === 1 ? 'persona quedó' : 'personas quedaron'} sin quién ${fila.a_su_cargo === 1 ? 'la' : 'las'} coordine.`);
+  }
+  return partes.join('');
+}
+
 router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   /* EL ASPIRANTE NO BORRA: SE QUITA A ESA PERSONA DE SU EQUIPO.
      Abajo, este mismo endpoint borra la fila de `estructura` Y la cuenta de
@@ -1442,12 +1479,72 @@ router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'
   if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
     return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
   }
-  const conexion = await pool.getConnection();
+  /* QUEDA CONSTANCIA, PORQUE DESPUÉS DE ESTO NO HAY DÓNDE MIRAR.
+     Hasta el 29 de agosto de 2026 este endpoint no registraba nada. El
+     borrado masivo sí —`eliminar_masivo`, unas líneas más abajo—, y el de uno
+     solo no: al revés de como debería, porque el masivo se hace a propósito y
+     el de uno es el que se hace por error.
+
+     Se supo cuando alguien eliminó por equivocación a un aspirante al Concejo
+     de la campaña de prueba. Reconstruirlo fue posible, pero la auditoría no
+     ayudó en nada: no se pudo saber quién lo había borrado ni a qué hora.
+
+     LOS DATOS SE LEEN ANTES DE BORRAR, Y VAN EN TEXTO, NO EN IDENTIFICADORES.
+     Después del `DELETE` la fila de `usuarios` ya no existe, así que un apunte
+     que dijera «eliminó al usuario 275» no se podría traducir a un nombre
+     nunca más. El nombre, la cédula y el cargo van escritos en `detalle`, que
+     es TEXT y no depende de ninguna otra tabla.
+
+     PERO EL NÚMERO TAMBIÉN VA, y por una razón concreta: otras tablas siguen
+     apuntando a ese id después del borrado —`votantes.rama_aspirante_id` sin
+     ir más lejos— y son las que permiten reconstruir a la persona. Recuperar
+     al aspirante consistió justamente en volver a crear la cuenta CON SU ID
+     VIEJO; sin ese número habría habido que deducirlo.
+
+     CUÁNTOS QUEDAN COLGANDO SE CUENTA AQUÍ, antes de borrar. La foránea de
+     `supervisor_id` es ON DELETE SET NULL: al irse un jefe su equipo no se
+     borra, se queda sin nadie encima, en silencio. Es lo que le pasó a los dos
+     líderes del aspirante. Dicho en el apunte, se sabe a quién hay que
+     reasignar sin tener que buscarlo. */
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`, y aquí importa más que en otras
+     rutas: desde que `registrarAuditoriaEn` LANZA cuando el apunte falla, el
+     `catch` de abajo es lo que convierte ese fallo en un rollback. Si la
+     conexión se pidiera fuera y el pool estuviera agotado, la promesa moriría
+     en el `unhandledRejection` de app.js y el cliente no recibiría ninguna
+     respuesta: el botón girando hasta que corte Nginx. */
+  let conexion;
   let supervisorIdAnterior = null;
   try {
+    conexion = await pool.getConnection();
     await conexion.beginTransaction();
-    const [[fila]] = await conexion.query(`SELECT usuario_id, supervisor_id FROM estructura WHERE id = ?`, [req.params.id]);
-    await conexion.query(`DELETE FROM estructura WHERE id = ?`, [req.params.id]);
+    const [[fila]] = await conexion.query(
+      `SELECT e.id AS estructura_id, e.usuario_id, e.supervisor_id, e.cargo,
+              u.nombre, u.numero_identificacion, u.tipo_cargo,
+              sup.nombre AS supervisor_nombre,
+              (SELECT COUNT(*) FROM estructura h WHERE h.supervisor_id = e.usuario_id) AS a_su_cargo
+         FROM estructura e
+         LEFT JOIN usuarios u   ON u.id = e.usuario_id
+         LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
+        WHERE e.id = ?`, [req.params.id]);
+    if (fila) {
+      await registrarAuditoriaEn(
+        conexion, req.session.usuario.id, 'eliminar_persona', 'estructura', fila.estructura_id,
+        descripcionDePersonaBorrada(fila), req.ip
+      );
+    }
+    /* SE COMPRUEBA `affectedRows`. El SELECT de arriba es una lectura
+       consistente que no bloquea —la base corre en REPEATABLE-READ—, así que
+       dos administradores, o un doble clic, ven los dos la fila y los dos
+       escriben su apunte. El segundo borraría cero filas y confirmaría igual,
+       dejando UN borrado con DOS apuntes. */
+    const [borrado] = await conexion.query(`DELETE FROM estructura WHERE id = ?`, [req.params.id]);
+    if (!borrado.affectedRows) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
+      return res.status(404).json({ error: 'Esa persona ya no está en la estructura.' });
+    }
     if (fila) {
       await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [fila.usuario_id]);
       supervisorIdAnterior = fila.supervisor_id;
@@ -1462,7 +1559,7 @@ router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'
     console.error(err);
     res.status(500).json({ error: 'Error eliminando el registro.' });
   } finally {
-    conexion.release();
+    if (conexion) conexion.release();
   }
 });
 
@@ -1486,12 +1583,33 @@ router.post('/estructura/eliminar-masivo', requireRole('admin', 'coordinador'), 
     : tipo === 'lider' ? ['lider']
     : ['coordinador', 'lider', 'usuario', 'testigo'];
 
-  const conexion = await pool.getConnection();
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`, y aquí importa más que en otras
+     rutas: desde que `registrarAuditoriaEn` LANZA cuando el apunte falla, el
+     `catch` de abajo es lo que convierte ese fallo en un rollback. Si la
+     conexión se pidiera fuera y el pool estuviera agotado, la promesa moriría
+     en el `unhandledRejection` de app.js y el cliente no recibiría ninguna
+     respuesta: el botón girando hasta que corte Nginx. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
     await conexion.beginTransaction();
     const placeholders = cargos.map(() => '?').join(',');
-    const [filas] = await conexion.query(`SELECT usuario_id FROM estructura WHERE cargo IN (${placeholders})`, cargos);
+    const [filas] = await conexion.query(
+      `SELECT e.usuario_id, u.nombre FROM estructura e
+         LEFT JOIN usuarios u ON u.id = e.usuario_id
+        WHERE e.cargo IN (${placeholders})`, cargos);
     const usuarioIds = filas.map(f => f.usuario_id);
+
+    /* EL APUNTE, DENTRO DE LA TRANSACCIÓN Y ANTES DE BORRAR. Estaba después
+       del commit y por el pool —o sea por otra conexión, con el error
+       tragado—: si fallaba, el bloque quedaba borrado y sin constancia. Y se
+       guardan los nombres, no solo el número: son decenas, caben, y son lo
+       único con lo que se puede volver a montar el equipo. */
+    const nombres = filas.map(f => f.nombre).filter(Boolean).join(', ');
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_masivo', 'estructura', null,
+      `Eliminó en bloque la estructura de tipo "${tipo}": ${usuarioIds.length} personas, con sus cuentas de acceso.`
+      + (nombres ? ` Eran: ${nombres}.` : ''), req.ip);
 
     await conexion.query(`DELETE FROM estructura WHERE cargo IN (${placeholders})`, cargos);
     if (usuarioIds.length) {
@@ -1509,17 +1627,16 @@ router.post('/estructura/eliminar-masivo', requireRole('admin', 'coordinador'), 
       await recalcularMetaVotosCoordinadorOrganizaciones(pool, c.usuario_id);
     }
 
-    await registrarAuditoria(
-      req.session.usuario.id, 'eliminar_masivo', 'estructura', null,
-      `Eliminó en bloque la estructura de tipo "${tipo}" (${usuarioIds.length} personas).`, req.ip
-    );
     res.json({ ok: true, eliminados: usuarioIds.length });
   } catch (err) {
-    await conexion.rollback();
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando los registros.' });
   } finally {
-    conexion.release();
+    if (conexion) conexion.release();
   }
 });
 
@@ -2104,6 +2221,14 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), u
  */
 router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
   try {
+    /* A UN ASPIRANTE, SOLO LOS SUYOS. Esta lista llena «Reporta a» al crear
+       una persona, y sin acotar le ofrecía los coordinadores de la campaña
+       MADRE: medido el 30 de agosto de 2026, dos nombres que no eran suyos.
+       Se usa `subarbolSql`, la misma condición con la que ve su estructura,
+       para que el desplegable no pueda ofrecer a nadie que no aparezca en su
+       propia pantalla. Para la campaña madre no cambia nada: `suyos` es null
+       y la consulta queda igual, letra por letra. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
     /* SE BUSCA HACIA ARRIBA Y TAMBIÉN HACIA ABAJO.
        Antes solo subía: desde la comuna hacia el municipio. Bastaba mientras
        un Coordinador se guardara SIEMPRE en la comuna, que es como estaba
@@ -2141,9 +2266,10 @@ router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
         FROM cadena c
         JOIN estructura e ON e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1
         JOIN usuarios u ON u.id = e.usuario_id
+       WHERE 1 = 1 ${suyos ? `AND ${suyos.sql}` : ''}
        GROUP BY u.id, u.nombre
        ORDER BY nivel, u.nombre
-    `, [req.params.zonaId, req.params.zonaId]);
+    `, [req.params.zonaId, req.params.zonaId, ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2156,13 +2282,18 @@ router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
 // a un cargo gremial/asociativo/organizacional.
 router.get('/coordinador-organizaciones', async (req, res) => {
   try {
+    // Mismo motivo que en `/coordinadores-por-zona`: alimenta el mismo
+    // desplegable «Reporta a», así que a un aspirante solo le puede ofrecer
+    // gente de su rama. Para la madre la consulta queda igual.
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
     const [rows] = await pool.query(`
       SELECT u.id, u.nombre
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'coordinador_organizaciones' AND e.activo = 1
+        ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `);
+    `, suyos ? suyos.valores : []);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2628,15 +2759,44 @@ router.delete('/testigos/:id', requireRole('admin'), async (req, res) => {
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
-  const conexion = await pool.getConnection();
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`, y aquí importa más que en otras
+     rutas: desde que `registrarAuditoriaEn` LANZA cuando el apunte falla, el
+     `catch` de abajo es lo que convierte ese fallo en un rollback. Si la
+     conexión se pidiera fuera y el pool estuviera agotado, la promesa moriría
+     en el `unhandledRejection` de app.js y el cliente no recibiría ninguna
+     respuesta: el botón girando hasta que corte Nginx. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
     await conexion.beginTransaction();
-    const [[fila]] = await conexion.query(`SELECT usuario_id FROM estructura WHERE id = ? AND cargo = 'testigo'`, [req.params.id]);
+    /* Mismo apunte que al borrar a cualquier otra persona, y por lo mismo:
+       esto se lleva la fila de `estructura` Y la cuenta de `usuarios`. Un
+       testigo borrado el día antes de la elección deja un puesto sin cubrir,
+       y hasta hoy no había forma de saber quién lo quitó. */
+    const [[fila]] = await conexion.query(
+      `SELECT e.id AS estructura_id, e.usuario_id, e.cargo, u.nombre, u.numero_identificacion, u.tipo_cargo,
+              sup.nombre AS supervisor_nombre,
+              (SELECT COUNT(*) FROM estructura h WHERE h.supervisor_id = e.usuario_id) AS a_su_cargo
+         FROM estructura e
+         LEFT JOIN usuarios u   ON u.id = e.usuario_id
+         LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
+        WHERE e.id = ? AND e.cargo = 'testigo'`, [req.params.id]);
     if (!fila) {
-      await conexion.rollback();
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
       return res.status(404).json({ error: 'No encontrado.' });
     }
-    await conexion.query(`DELETE FROM estructura WHERE id = ?`, [req.params.id]);
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_persona', 'estructura', fila.estructura_id,
+      descripcionDePersonaBorrada(fila), req.ip
+    );
+    const [borrado] = await conexion.query(`DELETE FROM estructura WHERE id = ?`, [req.params.id]);
+    if (!borrado.affectedRows) {   // mismo motivo que en /estructura/:id
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese testigo ya no existe.' });
+    }
     await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [fila.usuario_id]);
     await conexion.commit();
     res.json({ ok: true });
@@ -2645,7 +2805,7 @@ router.delete('/testigos/:id', requireRole('admin'), async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Error eliminando el testigo.' });
   } finally {
-    conexion.release();
+    if (conexion) conexion.release();
   }
 });
 
@@ -2655,10 +2815,50 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
-  const conexion = await pool.getConnection();
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`, y aquí importa más que en otras
+     rutas: desde que `registrarAuditoriaEn` LANZA cuando el apunte falla, el
+     `catch` de abajo es lo que convierte ese fallo en un rollback. Si la
+     conexión se pidiera fuera y el pool estuviera agotado, la promesa moriría
+     en el `unhandledRejection` de app.js y el cliente no recibiría ninguna
+     respuesta: el botón girando hasta que corte Nginx. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
     await conexion.beginTransaction();
-    const [filas] = await conexion.query(`SELECT usuario_id FROM estructura WHERE cargo = 'testigo'`);
+    const [filas] = await conexion.query(
+      `SELECT e.usuario_id, u.nombre FROM estructura e
+         LEFT JOIN usuarios u ON u.id = e.usuario_id
+        WHERE e.cargo = 'testigo'`);
+    /* SE GUARDAN LOS NOMBRES, NO SÓLO EL NÚMERO. `eliminar_masivo` anota
+       cuántas personas se llevó por delante, que sirve para saber qué pasó
+       pero no para deshacerlo. Aquí caben: los testigos de una campaña son
+       decenas, no miles, y con la lista escrita se puede volver a montar el
+       equipo del día D sin depender de que exista un respaldo de esa noche.
+
+       EL RECORTE LO HACE `registrarAuditoriaEn`, y cuenta BYTES. Aquí había un
+       `slice(0, 60000)` con un comentario que afirmaba que pasarse «no da un
+       error visible, MySQL recorta por lo sano». Las dos cosas eran falsas.
+       `detalle` aguanta 65.535 BYTES y en utf8mb4 una eñe ocupa dos: los 2.551
+       testigos de Caldas dan 60.000 caracteres = 67.200 bytes. Y este servidor
+       corre con `STRICT_TRANS_TABLES` —comprobado—, así que MySQL no recorta:
+       responde ERROR 1406 y rechaza la fila. Con la versión anterior de este
+       código el error se tragaba y los testigos se borraban sin apunte, justo
+       en la campaña más grande. */
+    /* SIN TESTIGOS NO SE APUNTA NADA. Pulsar el botón con la lista vacía
+       dejaba escrito «Eliminó de un golpe a los 0 testigos», y quien mañana
+       busque en la auditoría quién barrió el equipo del Día D se encontraría
+       ese renglón con la misma cara que uno de verdad. */
+    if (!filas.length) {
+      await conexion.commit();
+      return res.json({ ok: true, eliminados: 0 });
+    }
+    const listaNombres = filas.map(f => f.nombre).filter(Boolean).join(', ');
+    const detalle = `Eliminó de un golpe a los ${filas.length} testigos electorales de la campaña, y con ellos sus cuentas de acceso.`
+      + (listaNombres ? ` Eran: ${listaNombres}.` : '');
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_masivo', 'estructura', null,
+      detalle, req.ip
+    );
     await conexion.query(`DELETE FROM estructura WHERE cargo = 'testigo'`);
     if (filas.length) {
       await conexion.query(`DELETE FROM usuarios WHERE id IN (?)`, [filas.map(f => f.usuario_id)]);
@@ -2666,11 +2866,14 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
     await conexion.commit();
     res.json({ ok: true, eliminados: filas.length });
   } catch (err) {
-    await conexion.rollback();
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando los testigos.' });
   } finally {
-    conexion.release();
+    if (conexion) conexion.release();
   }
 });
 

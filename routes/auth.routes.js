@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
 const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
-const { reconocerEquipo, mensajeDeRechazo } = require('../config/equiposAutorizados');
+const { reconocerEquipo, mensajeDeRechazo, equipoControlado } = require('../config/equiposAutorizados');
 const { esSuperadmin } = require('../config/superadmin');
 const { verificarPasswordPropia } = require('../config/verificaciones');
 
@@ -73,7 +73,7 @@ const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
  * emergencia que explica el comentario de arriba, y el día que el SMTP falle
  * él tampoco puede quedarse fuera de su propia campaña.
  */
-const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'aspirante_concejo'];
+const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'administrativo', 'aspirante_concejo'];
 
 /**
  * Límite de solicitudes de código: 5 cada 15 minutos por IP.
@@ -395,13 +395,22 @@ router.post('/login', async (req, res) => {
        Y va ANTES de crear la sesión: dejar la sesión hecha y cortar después
        sería darle acceso por un instante.
 
-       Mientras la licencia no fije un límite —hoy— esto no rechaza a nadie:
-       solo anota el equipo. Ver config/equiposAutorizados.js. */
-    const equipo = await reconocerEquipo(req, res, usuario.id);
-    if (!equipo.permitido) {
-      await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
-        `Intento de entrar desde un equipo ${equipo.motivo}.`, req.ip);
-      return res.status(403).json({ error: mensajeDeRechazo(equipo.motivo), equipoNoAutorizado: true });
+       Mientras la licencia no fije un límite esto no rechaza a nadie: solo
+       anota el equipo. Ver config/equiposAutorizados.js.
+
+       Y SOLO SE LE PREGUNTA A QUIEN ADMINISTRA LA LICENCIA. Un líder, un
+       sublíder, un testigo o un aspirante al Concejo entrando desde su
+       celular no está activando ningún computador de la campaña, y pedirle
+       autorización lo deja fuera de su trabajo por una protección que no va
+       con él. La regla vive en `equipoControlado`, no aquí: hay una sola
+       lista de roles controlados y está en un solo archivo. */
+    if (await equipoControlado({ rol: usuario.rol, id: usuario.id })) {
+      const equipo = await reconocerEquipo(req, res, usuario.id);
+      if (!equipo.permitido) {
+        await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
+          `Intento de entrar desde un equipo ${equipo.motivo}.`, req.ip);
+        return res.status(403).json({ error: mensajeDeRechazo(equipo.motivo), equipoNoAutorizado: true });
+      }
     }
 
     await pool.query(

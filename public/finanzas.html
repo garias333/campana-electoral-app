@@ -129,8 +129,16 @@ async function cargarMovimientos() {
 }
 
 async function eliminarMovimiento(id) {
-  if (!confirm('¿Eliminar este movimiento financiero?')) return;
-  await api(`/finanzas/movimientos/${id}`, { method: 'DELETE' });
+  // Mismo par de arreglos que en eliminarEvento(), y por lo mismo: ver la
+  // nota larga en public/eventos.html.
+  if (!(await confirmarEnModal('¿Eliminar este movimiento financiero?',
+        'Queda registrado en la auditoría con su importe y su tercero, pero el movimiento no se puede recuperar.',
+        'Sí, eliminar'))) return;
+  try {
+    await api(`/finanzas/movimientos/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert(err.message || 'No se pudo eliminar el movimiento.');
+  }
   cargarMovimientos(); cargarResumen();
 }
 

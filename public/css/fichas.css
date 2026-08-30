@@ -50,10 +50,10 @@
 }
 .ficha-cuerpo:hover { background: #FBFCFE; }
 @media (min-width: 900px) {
-  .ficha-cuerpo { grid-template-columns: minmax(0,1.55fr) minmax(0,1.25fr) 172px minmax(150px,auto); align-items: center; gap: 14px 20px; }
+  .ficha-cuerpo { grid-template-columns: minmax(0,1.45fr) minmax(0,1.1fr) minmax(0,.95fr) 172px minmax(150px,auto); align-items: center; gap: 14px 20px; }
 }
 @media (min-width: 1200px) {
-  .ficha-cuerpo { grid-template-columns: minmax(0,1.6fr) minmax(0,1.3fr) 190px minmax(210px,auto); }
+  .ficha-cuerpo { grid-template-columns: minmax(0,1.5fr) minmax(0,1.15fr) minmax(0,1fr) 190px minmax(210px,auto); }
 }
 
 /* ---------------------------------------------------------------- quién es */
@@ -106,6 +106,37 @@
 .migaja { font-size: .86rem; color: #3B4657; overflow-wrap: anywhere; }
 .migaja .flecha { color: var(--fi-borde-fuerte); padding: 0 5px; font-weight: 600; }
 .migaja .hoja { font-weight: 600; color: var(--color-text); }
+
+/* ------------------------------------------------------ de quién depende */
+/* COLUMNA PROPIA, NO UNA LÍNEA MÁS DEBAJO DE LA COMUNA.
+
+   Colgado de la migaja, el nombre del jefe parecía parte de la dirección
+   —«Comuna 07 › La Enea › le reporta a José Luis»— cuando es otra cosa
+   distinta: uno es dónde trabaja y el otro de quién depende. En su propia
+   columna las dos se leen de un vistazo y se pueden comparar en vertical
+   entre fichas, que es como se lee una lista.
+
+   El rótulo va en cada ficha porque estas tarjetas no tienen fila de
+   encabezado: sin él, un nombre suelto en mitad de la ficha no se sabe
+   de quién es. */
+.jefe-p { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jefe-rotulo {
+  font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--fi-texto-3);
+}
+/* Fuente mediana: por debajo del nombre de la persona (1.02rem), que es de
+   quien trata la ficha, y por encima de la migaja (.86rem), que es contexto.
+   Que el jefe pese lo mismo que el titular confundiría de quién es cada
+   ficha en una lista de cincuenta. */
+.jefe-nombre { font-size: .95rem; font-weight: 600; color: var(--color-text); overflow-wrap: anywhere; }
+/* Cabeza de rama: es un cargo, no una persona. Misma fuente mediana para que
+   la columna no baile, pero en gris y sin negrita — así se distingue de un
+   nombre a la primera ojeada, sin tener que leerlo. */
+.jefe-cabeza { font-size: .95rem; font-weight: 400; color: var(--color-text-muted); overflow-wrap: anywhere; }
+/* Nadie lo coordina. Mismo par de colores que `.aviso-falta`, porque es la
+   misma clase de mensaje —falta algo que debería estar— y dos amarillos
+   distintos en la misma ficha se leerían como dos cosas distintas. */
+.jefe-nadie { font-size: .88rem; font-weight: 600; color: #8C5E17; overflow-wrap: anywhere; }
 .geo-chip {
   font-size: .74rem; color: #8A4F0C; background: #FBEEDD;
   border: 1px solid #8A4F0C; border-radius: 6px; padding: 1px 6px; white-space: nowrap;

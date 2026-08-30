@@ -1,6 +1,7 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
+const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, uploadExcel } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
@@ -386,8 +387,16 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
   //
   // Los votos van además en un solo INSERT de varias filas: menos viajes a
   // la base en el momento de más carga de la jornada.
-  const conexion = await pool.getConnection();
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
     await conexion.beginTransaction();
 
     // votos_candidato se mantiene por compatibilidad con el resumen del
@@ -439,7 +448,10 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     await conexion.commit();
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
-    await conexion.rollback();
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     if (err.code === 'ER_DUP_ENTRY' && b.cliente_uuid) {
       const [[existente]] = await pool.query(`SELECT id FROM dia_d_reportes WHERE cliente_uuid = ?`, [b.cliente_uuid]).catch(() => [[null]]);
       if (existente) return res.json({ ok: true, id: existente.id, yaExistia: true });
@@ -447,7 +459,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     console.error(err);
     res.status(500).json({ error: 'Error guardando el reporte.' });
   } finally {
-    conexion.release();
+    if (conexion) conexion.release();
   }
 });
 
@@ -652,13 +664,88 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  /* QUEDA CONSTANCIA, Y AQUÍ EL DATO NO SE PUEDE VOLVER A PEDIR.
+     Un reporte del Día D es el conteo de una mesa en el momento en que se
+     cerró: el testigo lo mandó desde el puesto y esa mesa no se vuelve a
+     abrir. A diferencia de un votante o un evento, no hay forma de recoger el
+     dato otra vez. Por eso el apunte guarda los números —votos y total de la
+     mesa— y no solo el identificador: es lo más cerca de una copia que se
+     puede dejar.
+
+     Si había foto del E-14, se dice. El archivo sigue en `uploads/` después
+     del borrado, así que saber que existía es saber que aún se puede
+     recuperar la cifra. */
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    const [resultado] = await pool.query(`DELETE FROM dia_d_reportes WHERE id = ?`, [req.params.id]);
-    if (resultado.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[rep]] = await conexion.query(
+      `SELECT r.id, r.puesto_votacion, r.mesa_votacion, r.municipio,
+              r.total_votantes_mesa, r.novedad, r.foto_e14_url,
+              u.nombre AS testigo
+         FROM dia_d_reportes r
+         LEFT JOIN usuarios u ON u.id = r.testigo_id
+        WHERE r.id = ?`, [req.params.id]);
+    /* LOS VOTOS ESTÁN EN OTRA TABLA, y esta es la que el borrado se lleva por
+       cascada. `dia_d_reportes.votos_candidato` guarda SOLO los votos del
+       candidato propio, y queda NULL cuando el nombre del reporte no cruza con
+       `configuracion_campana.nombre_candidato` —una comparación de texto libre
+       en minúsculas—. Comprobado en la base desplegada: `nombre_candidato` es
+       NULL, así que HOY todos los reportes tienen `votos_candidato` NULL.
+
+       Apuntar esa columna habría escrito «0 votos» en el momento exacto en que
+       desaparecen los votos de todos los candidatos de esa mesa. El desglose
+       real vive en `dia_d_reporte_votos`, se va con el reporte, y es lo que
+       hay que copiar al apunte. */
+    const [votosPorCandidato] = await conexion.query(
+      `SELECT candidato_nombre, votos FROM dia_d_reporte_votos
+        WHERE reporte_id = ? ORDER BY votos DESC, candidato_nombre`, [req.params.id]);
+    if (!rep) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'No encontrado.' });
+    }
+
+    const detalle = `Eliminó el reporte del Día D de la mesa ${rep.mesa_votacion} del puesto ${rep.puesto_votacion}`
+      + (rep.municipio ? ` (${rep.municipio})` : '')
+      + '. '
+      + (votosPorCandidato.length
+          ? `Reportaba ${votosPorCandidato.map(v => `${v.candidato_nombre}: ${v.votos}`).join(', ')}`
+          : 'No traía votos por candidato')
+      + (rep.total_votantes_mesa !== null ? `, sobre ${rep.total_votantes_mesa} votantes de la mesa` : '')
+      + '.'
+      + (rep.testigo ? ` Lo había enviado ${rep.testigo}.` : '')
+      + (rep.novedad ? ` Tenía anotada una novedad.` : '')
+      + (rep.foto_e14_url ? ` Tenía foto del E-14 (${rep.foto_e14_url}), que no se borra con el reporte.` : ' No tenía foto del E-14.')
+      + ` El identificador era ${rep.id}.`;
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_reporte', 'dia_d_reportes', rep.id,
+      detalle, req.ip
+    );
+
+    const [resultado] = await conexion.query(`DELETE FROM dia_d_reportes WHERE id = ?`, [req.params.id]);
+    if (resultado.affectedRows === 0) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'No encontrado.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando el reporte.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 
@@ -668,12 +755,63 @@ router.post('/reportes/eliminar-todo', requireRole('admin'), async (req, res) =>
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  /* SE GUARDAN LOS TOTALES, no solo cuántas filas eran. Con los reportes
+     borrados nadie puede volver a sumar, así que el apunte conserva el conteo
+     agregado: es lo único que quedaría de una jornada electoral entera si
+     alguien pulsa esto por error. Cabe de sobra en `detalle`. */
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    await pool.query(`DELETE FROM dia_d_reportes`);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[t]] = await conexion.query(
+      `SELECT COUNT(*) AS reportes, COUNT(DISTINCT testigo_id) AS testigos,
+              COUNT(DISTINCT puesto_votacion) AS puestos,
+              COALESCE(SUM(total_votantes_mesa), 0) AS votantes,
+              (SELECT COALESCE(SUM(votos), 0) FROM dia_d_reporte_votos) AS votos
+         FROM dia_d_reportes`);
+    /* EL DESGLOSE POR CANDIDATO, no solo el total. Borrar todos los reportes
+       vacía también `dia_d_reporte_votos` en cascada; si el apunte guarda una
+       sola cifra, no queda forma de saber cómo se repartía. Son unos pocos
+       candidatos, así que cabe de sobra. */
+    const [porCandidato] = await conexion.query(
+      `SELECT candidato_nombre, SUM(votos) AS votos FROM dia_d_reporte_votos
+        GROUP BY candidato_nombre ORDER BY votos DESC`);
+
+    const detalle = t.reportes === 0
+      ? 'Pulsó eliminar todos los reportes del Día D, pero no había ninguno.'
+      : (t.reportes === 1
+          ? 'Eliminó el único reporte del Día D que había'
+          : `Eliminó de un golpe los ${t.reportes} reportes del Día D`)
+        + `, ${t.reportes === 1 ? 'enviado' : 'enviados'} por ${t.testigos} ${t.testigos === 1 ? 'testigo' : 'testigos'} desde ${t.puestos} ${t.puestos === 1 ? 'puesto' : 'puestos'}.`
+        + ` ${t.reportes === 1 ? 'Sumaba' : 'Sumaban'} ${t.votos} votos sobre ${t.votantes} votantes de mesa.`
+        + (porCandidato.length
+            ? ` El reparto era: ${porCandidato.map(c => `${c.candidato_nombre} ${c.votos}`).join(', ')}.`
+            : '');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_masivo', 'dia_d_reportes', null,
+      detalle, req.ip
+    );
+
+    await conexion.query(`DELETE FROM dia_d_reportes`);
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando los reportes.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

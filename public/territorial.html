@@ -1872,6 +1872,28 @@ document.getElementById('input-vereda-persona').addEventListener('input', () => 
  * campos y la validación al guardar, y si cada uno la dedujera por su cuenta
  * acabarían discrepando.
  */
+/**
+ * A UN ASPIRANTE AL CONCEJO NO SE LE EXIGE UN ÁREA DE INFLUENCIA.
+ *
+ * Los demás cargos se definen por dónde trabajan: un líder responde por su
+ * barrio, un coordinador por su comuna. Un aspirante al Concejo no — hace
+ * campaña en toda la ciudad, y obligarlo a escoger una comuna es pedirle que
+ * declare una frontera que no tiene.
+ *
+ * ES OPCIONAL, NO INEXISTENTE, y la diferencia es la misma que se aplicó al
+ * barrio: el bloque sigue en pantalla porque un aspirante SÍ puede querer
+ * decir que se concentra en una comuna o en un barrio, y entonces se guarda
+ * tal cual. Lo que se quita es la obligación, no la posibilidad.
+ *
+ * Se mira el chip visual y no `select-cargo-persona` porque un aspirante al
+ * Concejo se guarda con cargo `lider`: en el desplegable no se distingue de
+ * cualquier otro líder, y a un líder el área sí se le exige.
+ */
+function territorioEsOpcional() {
+  const visual = document.querySelector('#chips-cargo-persona input[name="cargo_visual"]:checked');
+  return !!(visual && visual.value === 'aspirante_concejo');
+}
+
 function barrioEsOpcional() {
   const cargo = document.getElementById('select-cargo-persona').value;
   const visual = document.querySelector('#chips-cargo-persona input[name="cargo_visual"]:checked');
@@ -2092,7 +2114,13 @@ function resolverTerritorioPersona() {
   // geográfico que resolver — se valida el nombre de la organización aparte.
   if (document.getElementById('chk-area-influencia-organizacion').checked) {
     const nombreOrg = document.getElementById('input-organizacion-persona').value.trim();
-    if (!nombreOrg) return { error: 'Escriba el nombre de la organización.' };
+    // Al aspirante tampoco se le exige aquí: puede marcar «Organización» y no
+    // llenar nada, y se guarda igual que si hubiera dejado el territorio en
+    // blanco. Es la misma regla por la otra puerta.
+    if (!nombreOrg) {
+      if (territorioEsOpcional()) return { territorioId: null };
+      return { error: 'Escriba el nombre de la organización.' };
+    }
     return { territorioId: null };
   }
 
@@ -2171,6 +2199,10 @@ function resolverTerritorioPersona() {
     if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Gestionar territorios".' };
     return { territorioId: vereda.id };
   }
+  /* Sin área elegida: para un aspirante al Concejo se guarda sin territorio
+     geográfico, que es lo que de verdad describe su campaña. Para todos los
+     demás sigue siendo un error, porque su trabajo se define por dónde. */
+  if (territorioEsOpcional()) return { territorioId: null };
   return { error: 'Seleccione el área (Urbano o Rural).' };
 }
 
@@ -2691,6 +2723,54 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
     : f.cargo === 'lider' ? 'chip-lider'
     : f.cargo === 'usuario' ? 'chip-usuario' : 'chip-otro';
 
+  /* A QUIÉN LE REPORTA, CON NOMBRE Y APELLIDO.
+     El riel azul de la izquierda ya lo dice por la sangría, pero solo cuando
+     el jefe está justo encima en la pantalla: con la rama plegada, con un
+     filtro puesto o al buscar por nombre, la ficha aparece suelta y el riel
+     no marca nada. El nombre escrito sirve en los cuatro casos.
+
+     `supervisor_nombre` ya venía en la respuesta de GET /estructura (por el
+     LEFT JOIN a `usuarios sup`); no hizo falta tocar la consulta.
+
+     NO TENER JEFE SIGNIFICA COSAS DISTINTAS SEGÚN EL CARGO, así que el aviso
+     se limita a quienes de verdad deberían tener a alguien encima. Contado
+     en la campaña de prueba municipal, sobre sus 66 fichas:
+
+       12 coordinadores + 1 de organizaciones .. cabezas de rama, correcto
+       12 testigos ............................. cuelgan de un puesto, no de una persona
+        2 aspirantes al Concejo ................. cabeza de su propia rama
+        5 líderes y sublíderes .................. huérfanos de verdad
+
+     Avisar en los 32 habría sido ruido en 27 fichas donde no pasa nada. Y
+     los 5 sí importan: es justo lo que deja un borrado —la foránea de
+     `supervisor_id` es ON DELETE SET NULL, así que al eliminar a un jefe su
+     equipo queda colgando de nadie, sin error y sin aviso. */
+  const CATEGORIAS_QUE_ESPERAN_JEFE = ['lider', 'usuario'];
+  /* EL COORDINADOR NO DEJA LA CASILLA EN BLANCO: dice su propio cargo.
+     Una celda vacía no distingue «esta persona es la cabeza» de «esto no
+     se ha llenado todavía», y en una lista con huecos intercalados la
+     segunda lectura es la que se impone. Escrito, se sabe que no falta nada.
+
+     VA EN GRIS Y SIN NEGRITA, a diferencia de un nombre de persona. Bajo el
+     rótulo «Le reporta a», la palabra Coordinador en el mismo estilo que
+     «Karen Cristina Fernandez Rueda» se leería como si hubiera alguien
+     llamado así. El color lo dice antes que el texto: aquí no hay nadie
+     encima, hay un cargo.
+
+     Se incluye también al Coordinador de organizaciones, que es cabeza de lo
+     suyo igual que el de territorio —los dos van al mismo nivel y ninguno
+     manda sobre el otro, como ya explica la nota del formulario— y se nombra
+     con su propia etiqueta, no con la del otro. */
+  const CATEGORIAS_CABEZA = ['coordinador', 'coordinador_organizaciones'];
+  const ROTULO_JEFE = '<span class="jefe-rotulo">Le reporta a</span>';
+  const reportaA = f.supervisor_nombre
+    ? `${ROTULO_JEFE}<span class="jefe-nombre">${escaparHtml(f.supervisor_nombre)}</span>`
+    : CATEGORIAS_CABEZA.includes(categoria)
+      ? `${ROTULO_JEFE}<span class="jefe-cabeza" title="Es la cabeza de su rama: no depende de nadie por encima.">${etiquetaCargo}</span>`
+      : CATEGORIAS_QUE_ESPERAN_JEFE.includes(categoria)
+        ? `${ROTULO_JEFE}<span class="jefe-nadie" title="Nadie lo coordina. Suele quedar así cuando se elimina a quien lo coordinaba.">sin quién lo coordine</span>`
+        : '';
+
   const colapsado = nodosColapsadosEstructura.has(f.usuario_id);
 
   /* EL BOTÓN DE PLEGAR DEPENDE DE `_tieneHijos`, NO DE `cuantosHijos`.
@@ -2732,6 +2812,8 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
           <div class="migaja">${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}</div>
           ${tieneLugarVotacion ? '' : '<span class="aviso-falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta lugar de votación</span>'}
         </div>
+
+        <div class="jefe-p">${reportaA}</div>
 
         <div class="avance-p">
           <div class="avance-cifra"><span class="n">${formatoMillares(registros)}</span><span class="de">de</span><span class="meta">${formatoMillares(metaMostrada)}</span></div>

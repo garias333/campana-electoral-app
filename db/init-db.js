@@ -321,6 +321,20 @@ async function crearTriggersPuestoId(connection) {
  * pantalla, esos quedan intactos (INSERT IGNORE no los pisa).
  */
 const ROLES_PERMISOS = ['admin', 'coordinador', 'lider', 'sublider', 'testigo', 'usuario', 'asistente_administrativo', 'invitado'];
+
+/* EL ROL «administrativo» SE SIEMBRA, PERO NO ENTRA EN `ROLES_PERMISOS`.
+   Esa lista tiene dos oficios que aquí se separan: es la lista de roles a los
+   que hay que crearles fila en la matriz, Y es el valor que usan los módulos
+   que quieren decir «todos» —panel_general, votantes, agenda, biografía,
+   política, recursos y ayuda—. Metiéndolo ahí, el rol nuevo se llevaría esos
+   siete de una vez, incluido Votantes, que es la base entera de la campaña.
+
+   Se pidió que naciera con lo mínimo y que sus módulos se asignen a mano
+   desde Configuración → Asignación de permisos, así que se le siembra fila en
+   TODOS los módulos —para que la pantalla lo muestre completo— pero con el
+   permiso puesto solo en los cuatro de abajo. */
+const ROLES_A_SEMBRAR = [...ROLES_PERMISOS, 'administrativo'];
+const MODULOS_INICIALES_ADMINISTRATIVO = ['panel_general', 'agenda', 'recursos', 'ayuda'];
 const PERMISOS_POR_DEFECTO = {
   panel_general: ROLES_PERMISOS,
   organigrama: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
@@ -367,8 +381,10 @@ async function sembrarPermisosPorDefecto(connection) {
   for (const modulo of Object.keys(PERMISOS_POR_DEFECTO)) {
     const rolesPermitidos = PERMISOS_POR_DEFECTO[modulo];
     const restriccion = RESTRICCION_EDITAR_AGREGAR[modulo];
-    for (const rol of ROLES_PERMISOS) {
-      const ver = rolesPermitidos.includes(rol) ? 1 : 0;
+    for (const rol of ROLES_A_SEMBRAR) {
+      const ver = rol === 'administrativo'
+        ? (MODULOS_INICIALES_ADMINISTRATIVO.includes(modulo) ? 1 : 0)
+        : (rolesPermitidos.includes(rol) ? 1 : 0);
       const puedeEditarAgregar = ver && rol !== 'invitado' && (!restriccion || restriccion.includes(rol));
       const editar = puedeEditarAgregar ? 1 : 0;
       const agregar = puedeEditarAgregar ? 1 : 0;
@@ -1250,6 +1266,21 @@ async function main() {
   // lo que ya está en el código: así ninguna instalación existente cambia de
   // aspecto al recibir esta migración, y solo cambia la que decida escribir
   // algo. Un valor por defecto aquí habría reescrito la marca de todas.
+  /* LA META DE VOTOS DE LA CAMPAÑA, declarada y no calculada.
+     El panel venía mostrando como meta la SUMA de las metas de sus líderes
+     (`meta_votos_lideres`), que es otra cosa: eso es lo que el equipo se
+     comprometió a traer, no lo que la campaña necesita para ganar. Los dos
+     números son útiles y no tienen por qué coincidir.
+
+     Entra NULL y no 0 a propósito, y no es lo mismo: cero es una meta de cero
+     votos, escrita por alguien; NULL es que todavía no la ha fijado nadie.
+     Con un valor por defecto, todas las campañas existentes aparecerían de
+     golpe con una meta que nunca declararon. */
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "meta_votos_campana INT UNSIGNED NULL COMMENT 'Meta de votos que se fija la campana. NULL = sin declarar, distinto de cero'",
+    'meta_votos_campana'
+  );
   await agregarColumnaSiFalta(
     connection, 'configuracion_campana',
     "marca_titulo VARCHAR(120) NULL COMMENT 'Nombre en la barra lateral. Vacio = el del codigo'",
@@ -1720,6 +1751,19 @@ async function main() {
      no se los podra cambiar desde Licencias. */
   await agregarColumnaSiFalta(connection, 'sublicencias',
     'marca_editada_en DATETIME NULL', 'marca_editada_en');
+
+  /* LA META DEL ASPIRANTE PARA SU PROPIA CAMPAÑA.
+     Son DOS metas distintas y viven en dos sitios porque las pone gente
+     distinta:
+       · `sublicencias.meta_votos` — a cuántos votos aspira ÉL al Concejo. La
+         escribe él, en su Configuración → Datos de la campaña.
+       · `estructura.meta_votos`  — cuántos votos le promete a la campaña a la
+         Alcaldía. Se la ponen a él al inscribirlo en la campaña principal.
+     Juntarlas en una sola columna habría obligado a elegir quién manda, y la
+     respuesta es «cada una manda en la suya». */
+  await agregarColumnaSiFalta(connection, 'sublicencias',
+    "meta_votos INT NOT NULL DEFAULT 0 COMMENT 'Meta de votos de SU campaña. La define el aspirante.'",
+    'meta_votos');
 
   /* QUIÉN QUITÓ A QUIÉN DE SU EQUIPO, SIN BORRAR A NADIE.
      Es la hermana de `votante_ramas.excluido`, para la estructura. Un aspirante

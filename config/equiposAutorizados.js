@@ -105,6 +105,54 @@ function cookieDelEncabezado(req, nombre) {
 }
 
 /** El límite vigente. 0 —o sin fila— significa «sin restricción». */
+/**
+ * QUÉ EQUIPOS CONTROLA ESTA LICENCIA: los de quien la administra, y solo esos.
+ *
+ * El control existe para que una licencia vendida no se pueda correr desde
+ * cualquier computador — es una protección sobre la licencia, no sobre las
+ * personas. Quien podría prestarla es quien administra la campaña; un líder
+ * entrando desde su celular en la calle no está activando ninguna licencia.
+ *
+ * SE APLICABA A TODO EL MUNDO, Y ESO LO ROMPÍA. Medido en la campaña de
+ * prueba municipal el 30 de agosto de 2026: 37 líderes, 10 coordinadores, 3
+ * sublíderes, 2 aspirantes al Concejo y 1 testigo —53 personas de campo—
+ * contra 2 administradores, con un cupo de 2 equipos. Cada celular gastaba
+ * una plaza, así que el cupo se llenaba con los dos primeros teléfonos y a
+ * partir de ahí no entraba nadie. De hecho los dos equipos que quedaron
+ * bloqueados eran de aspirantes al Concejo, ninguno de un administrador.
+ *
+ * `admin` Y NADIE MÁS, de momento. Coordinador y asistente administrativo
+ * también trabajan desde equipos de la campaña y se podrían añadir aquí; se
+ * dejaron fuera porque son 10 en una campaña municipal y volverían a llenar
+ * el cupo. Si algún día se quieren dentro, se agregan a esta lista y no hay
+ * que tocar nada más.
+ */
+const ROLES_CON_CONTROL_DE_EQUIPO = ['admin'];
+
+/**
+ * ¿A esta persona se le controla el equipo desde el que entra?
+ *
+ * El rol manda, con una excepción declarada: quien tiene sublicencia activa
+ * NUNCA se controla, aunque su rol figure entre los de arriba. Un aspirante
+ * al Concejo es dueño de su propia campaña y entra desde su celular; su
+ * equipo no es «un computador de la licencia principal».
+ */
+async function equipoControlado(usuario) {
+  if (!usuario || !ROLES_CON_CONTROL_DE_EQUIPO.includes(usuario.rol)) return false;
+  /* La consulta de sublicencia se hace AQUÍ Y NO ANTES, para que solo la
+     paguen los pocos roles controlados. Puesta al principio, correría en cada
+     inicio de sesión de los 53 usuarios de campo para responder siempre lo
+     mismo. Y si la tabla no existe —una instalación sin sublicencias— se
+     asume que no hay: no tenerla no puede convertirse en un bloqueo. */
+  try {
+    const [[fila]] = await pool.query(
+      'SELECT 1 AS hay FROM sublicencias WHERE usuario_id = ? AND activa = 1 LIMIT 1', [usuario.id]);
+    return !fila;
+  } catch (_) {
+    return true;
+  }
+}
+
 async function limiteVigente() {
   try {
     const [[c]] = await pool.query('SELECT max_equipos, requiere_aprobacion FROM licencia_equipos_config WHERE id = 1');
@@ -283,6 +331,8 @@ function mensajeDeRechazo(motivo) {
 }
 
 module.exports = {
+  equipoControlado,
+  ROLES_CON_CONTROL_DE_EQUIPO,
   reconocerEquipo, mensajeDeRechazo, limiteVigente,
   equiposParaReportar, aplicarRespuestaDeLicencia,
   crearIdentificador, leerIdentificador, NOMBRE_COOKIE,

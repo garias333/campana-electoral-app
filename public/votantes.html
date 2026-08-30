@@ -1040,7 +1040,14 @@ async function cargarVotantes() {
       <td style="text-align:center;">${v.no_contactar
         ? '<span style="color:#A93226; font-weight:700;" title="Pidió no recibir más mensajes">No</span>'
         : '<span style="color:var(--color-text-muted); font-weight:700;">Sí</span>'}</td>
-      <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area)}</td>
+      <!-- SI NO HAY «area» GUARDADA, SE DEDUCE DE DONDE ESTÁ.
+           Las fichas que llegaron desde la Estructura nunca la tuvieron —la
+           sincronización no escribía esa columna— así que salían con un guion
+           teniendo comuna y barrio a la vista, en la misma fila. Un barrio o
+           una comuna es urbano; una vereda o un corregimiento, rural. Se
+           deduce al pintar para que las fichas viejas también lo digan, sin
+           esperar a que alguien las vuelva a guardar. -->
+      <td>${v.tipo_area_influencia === 'organizacion' ? '—' : etiquetaArea(v.area || areaDeducidaDeVotante(v))}</td>
       <td class="col-ciudad">${escaparHtml(nombreLugar(v.ciudad_residencia) || '—')}</td>
       <!-- ESTAS DOS COLUMNAS SON DE RESIDENCIA, NO DE INFLUENCIA.
            Mostraban el territorio donde la persona TRABAJA, y el encabezado
@@ -1059,7 +1066,16 @@ async function cargarVotantes() {
         : (v.barrio_residencia
             ? escaparHtml(nombreLugar(v.barrio_residencia))
             : (v.territorio_nombre ? `<span title="Sin residencia registrada; se muestra su territorio de influencia" style="color:var(--color-text-muted);">(${escaparHtml(nombreLugar(v.territorio_nombre))})</span>` : '—'))}${v.latitud ? ' <span title="Georreferenciado" style="color:var(--color-accent-dark);">📍</span>' : ''}</td>
-      <td>${escaparHtml(v.lider_nombre || '—')}</td>
+      <!-- QUIEN NO LE REPORTA A NADIE NO DEBE PARECER QUE SÍ.
+           Esta columna es «quién registró la ficha», y para casi todos coincide
+           con de quién dependen. Para un Coordinador o un Aspirante al Concejo
+           no: ellos son cabeza de su rama, y ver ahí el nombre de quien tecleó
+           su ficha se lee como una jerarquía que no existe. Se muestra su
+           cargo en gris, que es la respuesta verdadera a lo que la columna
+           parece preguntar. -->
+      <td>${esCabezaDeRama(v)
+        ? `<span style="color:var(--color-text-muted); font-size:.82rem;" title="Un ${etiquetaCabezaDeRama(v)} no le reporta a nadie: es cabeza de su rama.">${etiquetaCabezaDeRama(v)}</span>`
+        : escaparHtml(v.lider_nombre || '—')}</td>
       <td>${escaparHtml(v.sublider_nombre || '—')}</td>
       <td class="col-apoya-a">${badgesApoyaA(v.apoya_a)}</td>
       <td class="col-acciones">
@@ -1248,6 +1264,39 @@ document.getElementById('input-barrio-residencia-votante').addEventListener('inp
   }
   sincronizarInfluenciaDesdeResidenciaVotante();
 });
+
+/**
+ * El área de una ficha que no la tiene guardada, deducida de su territorio.
+ *
+ * Se mira primero la residencia —que es lo que la fila muestra en las columnas
+ * de al lado— y después el territorio de influencia, para no contradecir lo
+ * que se ve dos celdas más allá.
+ */
+/** Coordinador, Coordinador de organizaciones y Aspirante al Concejo: nadie
+ *  por encima. El aspirante se reconoce por el TIPO, no por el cargo — en la
+ *  base es un lider, igual que en la Estructura territorial. */
+function esCabezaDeRama(v) {
+  return ['coordinador', 'coordinador_organizaciones'].includes(v.cargo_estructura)
+      || (v.cargo_estructura === 'lider' && v.tipo_cargo_estructura === 'aspirante_concejo');
+}
+function etiquetaCabezaDeRama(v) {
+  if (v.cargo_estructura === 'coordinador_organizaciones') return 'Coordinador de organizaciones';
+  if (v.cargo_estructura === 'coordinador') return 'Coordinador';
+  return 'Aspirante al Concejo';
+}
+
+function areaDeducidaDeVotante(v) {
+  const norm = (t) => normalizarTexto(t || '');
+  const candidatos = [v.barrio_residencia, v.comuna_corregimiento_residencia, v.territorio_nombre, v.zona_nombre];
+  for (const nombre of candidatos) {
+    if (!nombre) continue;
+    const t = territorios.find(x => norm(x.nombre) === norm(nombre));
+    if (!t) continue;
+    if (['vereda', 'corregimiento'].includes(t.tipo)) return 'rural';
+    if (['barrio', 'comuna'].includes(t.tipo)) return 'urbano';
+  }
+  return '';
+}
 
 function poblarComunaResidenciaVotante() {
   const municipio = buscarMunicipioResidenciaVotante();
@@ -1474,6 +1523,35 @@ function resolverTerritorioVotante() {
     return { territorioId: null, area: null };
   }
 
+  /* EL VOTANTE SE RESUELVE DESDE DONDE VIVE, SIN PASAR POR LOS CAMPOS DE ABAJO.
+     Aquellos están escondidos para él y los rellena un puente al teclear. Pero
+     hacer que el GUARDADO dependa de que ese puente haya corrido es frágil, y
+     falló: rellenar la ficha desde código —al editar— no dispara eventos, así
+     que los campos ocultos quedaban vacíos y el formulario respondía
+     «Seleccione un barrio de la lista» teniendo el barrio escrito arriba, a la
+     vista. Imposible de entender para quien lo lee.
+
+     Leyendo la residencia directamente, el guardado no depende de que nada se
+     haya sincronizado antes. El puente se queda porque lo necesitan los OTROS
+     consumidores —la lista de «Referido por», la cascada y el mapa—, pero ya
+     no es el único camino hacia el dato. */
+  if (!esSublider) {
+    const nombreZona = normalizarTexto(document.getElementById('input-comuna-residencia-votante').value);
+    const nombrePunto = normalizarTexto(document.getElementById('input-barrio-residencia-votante').value);
+    const zona = nombreZona ? territorios.find(t => (t.tipo === 'comuna' || t.tipo === 'corregimiento') && normalizarTexto(t.nombre) === nombreZona) : null;
+    const punto = nombrePunto ? territorios.find(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && normalizarTexto(t.nombre) === nombrePunto) : null;
+    const ref = punto || zona;
+    if (!ref) {
+      // Nada reconocible: se guarda sin territorio en vez de bloquear. Un
+      // votante con la dirección escrita y el barrio aún sin crear es un caso
+      // corriente, y no poder guardarlo sería peor que no saber su barrio.
+      const muni = disponiblesEnMunicipioVotante().municipio;
+      return { territorioId: muni ? muni.id : null, area: null };
+    }
+    const areaRef = ['vereda', 'corregimiento'].includes(ref.tipo) ? 'rural' : 'urbano';
+    return { territorioId: ref.id, area: areaRef };
+  }
+
   const area = document.getElementById('select-area-votante').value;
   if (!area) return { territorioId: null, area: null };
 
@@ -1501,6 +1579,16 @@ function resolverTerritorioVotante() {
     }
     const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-votante').value);
     if (!nombreBarrio) {
+      /* SI HAY UNA COMUNA VÁLIDA, VALE LA COMUNA. Antes esto era un error, y
+         convertía en imposibles de volver a guardar las fichas cuyo territorio
+         ES una comuna: las de los coordinadores que llegan sincronizados desde
+         la Estructura, donde un Coordinador se asigna a la comuna entera. Al
+         editarlas, el formulario exigía un barrio que esa ficha nunca tuvo, y
+         el mensaje —«Seleccione un barrio de la lista»— no daba ninguna pista
+         de por qué. */
+      const nombreComunaSola = normalizarTexto(document.getElementById('input-comuna-votante').value);
+      const comunaSola = nombreComunaSola ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComunaSola) : null;
+      if (comunaSola) return { territorioId: comunaSola.id, area };
       if (disp.barrios.length) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
       // Sin barrios creados en ese municipio se baja al mayor detalle que
       // sí exista: la comuna escrita, si la hay, y si no el municipio.
@@ -1528,6 +1616,10 @@ function resolverTerritorioVotante() {
     }
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-votante').value);
     if (!nombreVereda) {
+      // El espejo rural del caso de arriba: si hay corregimiento, vale.
+      const nombreCorrSolo = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
+      const corrSolo = nombreCorrSolo ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorrSolo) : null;
+      if (corrSolo) return { territorioId: corrSolo.id, area };
       if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
       const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;

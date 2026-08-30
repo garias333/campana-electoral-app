@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
 const smsSvc = require('../config/sms');
 const sendgridSvc = require('../config/sendgrid');
@@ -713,31 +713,128 @@ router.delete('/campanas', requireRole('admin'), async (req, res) => {
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  /* El hermano masivo de la ruta de abajo, y tampoco dejaba rastro. Dejar solo
+     una de las dos auditada reproduciría dentro de este archivo la misma
+     asimetría que se está corrigiendo en toda la aplicación. */
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
     const canal = req.body && req.body.canal;
+    const [[t]] = canal
+      ? await conexion.query(
+          `SELECT COUNT(*) AS campanas, COALESCE(SUM(enviados),0) AS enviados,
+                  (SELECT COUNT(*) FROM comunicaciones_envios e
+                    JOIN comunicaciones_campanas c2 ON c2.id = e.campana_id
+                   WHERE c2.canal = ?) AS envios
+             FROM comunicaciones_campanas WHERE canal = ?`, [canal, canal])
+      : await conexion.query(
+          `SELECT COUNT(*) AS campanas, COALESCE(SUM(enviados),0) AS enviados,
+                  (SELECT COUNT(*) FROM comunicaciones_envios) AS envios
+             FROM comunicaciones_campanas`);
+
+    const detalle = `Eliminó de un golpe ${t.campanas} ${t.campanas === 1 ? 'campaña' : 'campañas'}`
+      + (canal ? ` del canal ${canal}` : ' de todos los canales')
+      + `, que sumaban ${t.enviados} mensajes enviados.`
+      + (t.envios > 0 ? ` Con ellas se borraron ${t.envios} registros de envío.` : '');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_masivo', 'comunicaciones_campanas', null,
+      detalle, req.ip
+    );
+
     const [resultado] = canal
-      ? await pool.query(`DELETE FROM comunicaciones_campanas WHERE canal = ?`, [canal])
-      : await pool.query(`DELETE FROM comunicaciones_campanas`);
+      ? await conexion.query(`DELETE FROM comunicaciones_campanas WHERE canal = ?`, [canal])
+      : await conexion.query(`DELETE FROM comunicaciones_campanas`);
+    await conexion.commit();
     res.json({ ok: true, eliminadas: resultado.affectedRows });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando las campañas.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 
 // Elimina UNA sola campaña puntual (y sus envíos, en cascada). Disponible
 // para los mismos roles que ya pueden usar este módulo — al ser un solo
 // registro (no un borrado masivo), no pide contraseña de administrador.
+/* QUEDA CONSTANCIA, Y LO QUE SE PIERDE ES LA PRUEBA DE ENVÍO.
+ *
+ * Borrar una campaña se lleva en cascada sus `comunicaciones_envios`: a quién
+ * se le escribió, a qué número o correo, y con qué resultado. Ese historial es
+ * lo que permite responder «a esta persona nunca se le mandó nada» cuando
+ * alguien reclama — y es la contrapartida de la lista de bajas, que sí se
+ * conserva. Sin él, la campaña queda sin forma de demostrar lo que hizo.
+ *
+ * Esta ruta NO pide contraseña, a diferencia del borrado de todas: es una sola
+ * fila y así estaba decidido. El apunte no cambia esa decisión — la
+ * complementa, que es lo que faltaba. */
 router.delete('/campanas/:id', async (req, res) => {
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    const [resultado] = await pool.query(`DELETE FROM comunicaciones_campanas WHERE id = ?`, [req.params.id]);
-    if (resultado.affectedRows === 0) {
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[c]] = await conexion.query(
+      `SELECT c.id, c.nombre, c.canal, c.estado, c.total_destinatarios, c.enviados, c.fallidos,
+              u.nombre AS creada_por,
+              (SELECT COUNT(*) FROM comunicaciones_envios e WHERE e.campana_id = c.id) AS envios
+         FROM comunicaciones_campanas c
+         LEFT JOIN usuarios u ON u.id = c.created_by
+        WHERE c.id = ?`, [req.params.id]);
+    if (!c) {
+      await conexion.rollback();
       return res.status(404).json({ error: 'Esa campaña ya no existe.' });
     }
+
+    const detalle = `Eliminó la campaña de ${c.canal} «${c.nombre}», en estado ${c.estado}`
+      + `, con ${c.total_destinatarios} ${c.total_destinatarios === 1 ? 'destinatario' : 'destinatarios'}`
+      + ` (${c.enviados} ${c.enviados === 1 ? 'enviado' : 'enviados'}, ${c.fallidos} ${c.fallidos === 1 ? 'fallido' : 'fallidos'}).`
+      + ` El identificador era ${c.id}`
+      + (c.creada_por ? `; la había creado ${c.creada_por}.` : '.')
+      + (c.envios > 0
+          ? ` Con ella se ${c.envios === 1 ? 'borró 1 registro de envío, que era' : `borraron ${c.envios} registros de envío, que eran`} la constancia de a quién se le escribió.`
+          : '');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_campana', 'comunicaciones_campanas', c.id,
+      detalle, req.ip
+    );
+
+    const [resultado] = await conexion.query(`DELETE FROM comunicaciones_campanas WHERE id = ?`, [req.params.id]);
+    if (resultado.affectedRows === 0) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Esa campaña ya no existe.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando la campaña.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

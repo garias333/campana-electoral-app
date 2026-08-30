@@ -110,12 +110,12 @@
 <script>
 const ICONOS_MANUAL = {
   instalacion: '🛠️', admin: '👑', coordinador: '🧭', lider: '🚩', sublider: '🤝',
-  testigo: '📋', usuario: '🤝', asistente_administrativo: '🗂️', invitado: '👀'
+  testigo: '📋', usuario: '🤝', asistente_administrativo: '🗂️', administrativo: '🏢', invitado: '👀'
 };
 const TITULOS_MANUAL = {
   instalacion: 'Manual de instalación', admin: 'Manual del administrador', coordinador: 'Manual del Coordinador',
   lider: 'Manual del Líder', sublider: 'Manual del Sublíder', testigo: 'Manual del Testigo',
-  usuario: 'Manual del Usuario', asistente_administrativo: 'Manual del Asistente administrativo', invitado: 'Manual del Invitado'
+  usuario: 'Manual del Usuario', asistente_administrativo: 'Manual del Asistente administrativo', administrativo: 'Manual del perfil Administrativo', invitado: 'Manual del Invitado'
 };
 const DESCRIPCIONES_MANUAL = {
   instalacion: 'Cómo instalar y mantener el servidor de la aplicación (solo para administradores técnicos).',
@@ -126,6 +126,7 @@ const DESCRIPCIONES_MANUAL = {
   testigo: 'Consulta de información el día de las elecciones y previo a ellas.',
   usuario: 'Acceso operativo básico dentro de la estructura de campaña.',
   asistente_administrativo: 'Apoyo administrativo — gestión de datos sin acceso a configuración sensible.',
+  administrativo: 'Perfil administrativo — ve los módulos que le asigne el administrador en Asignación de permisos.',
   invitado: 'Acceso de solo consulta a información pública de la campaña.'
 };
 
@@ -165,7 +166,8 @@ async function cargarPortada(usuarioActual) {
   const todos = [
     { clave: 'instalacion' },
     { clave: 'admin' }, { clave: 'coordinador' }, { clave: 'lider' }, { clave: 'sublider' },
-    { clave: 'testigo' }, { clave: 'usuario' }, { clave: 'asistente_administrativo' }, { clave: 'invitado' }
+    { clave: 'testigo' }, { clave: 'usuario' }, { clave: 'asistente_administrativo' },
+    { clave: 'administrativo' }, { clave: 'invitado' }
   ];
   // El administrador ve los 9 manuales; cualquier otro rol solo ve el
   // suyo propio (nunca el de instalación, que es documentación de

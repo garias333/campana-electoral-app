@@ -252,8 +252,28 @@ async function cargarEventos() {
 }
 
 async function eliminarEvento(id) {
-  if (!confirm('¿Eliminar este evento?')) return;
-  await api(`/eventos/${id}`, { method: 'DELETE' });
+  /* DOS ARREGLOS EN CUATRO LÍNEAS, y los dos por lo mismo: el botón fallaba
+     sin decirlo.
+
+     1. `confirm()` NO SIEMPRE APARECE. El navegador lo suprime cuando la
+        pestaña ha abierto demasiados diálogos, y entonces devuelve `false`
+        sin preguntar nada: el botón queda muerto y el usuario cree que la
+        aplicación se rompió. Ya pasó en Estructura, y de ahí salió
+        `confirmarEnModal`, que dibuja el suyo y no depende del navegador.
+
+     2. SIN `try`, EL 404 SE TRAGA. `api()` lanza en cualquier respuesta que
+        no sea 2xx, así que un evento que otro administrador ya borró aborta
+        la función ANTES del refresco: la fila fantasma se queda en pantalla,
+        no sale ningún aviso y el rechazo muere en la consola. Recargar es
+        justo lo que hay que hacer cuando el servidor dice que ya no está. */
+  if (!(await confirmarEnModal('¿Eliminar este evento?',
+        'Se borran también sus asistentes registrados. No se puede deshacer.',
+        'Sí, eliminar'))) return;
+  try {
+    await api(`/eventos/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    alert(err.message || 'No se pudo eliminar el evento.');
+  }
   cargarEventos();
 }
 

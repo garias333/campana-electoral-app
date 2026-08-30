@@ -1,6 +1,7 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
+const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 const { armarWhereSql } = require('../config/filtros');
@@ -201,12 +202,87 @@ router.post('/movimientos', upload.single('comprobante'), async (req, res) => {
   }
 });
 
+/* QUEDA CONSTANCIA, Y AQUÍ NO ES SOLO POR ORDEN INTERNO.
+ *
+ * Los ingresos y gastos de una campaña se reportan a Cuentas Claras y los
+ * revisa el Consejo Nacional Electoral. Un movimiento que desaparece sin
+ * rastro deja la contabilidad cuadrando consigo misma pero sin forma de
+ * explicar la diferencia con lo reportado — y quien tenga que responder por
+ * ella no va a poder decir siquiera quién lo quitó.
+ *
+ * Por eso el apunte guarda el importe, el tercero y su documento: son los
+ * campos que identifican el movimiento en el reporte, no en la base.
+ *
+ * El `console.error` faltaba, además: un borrado que fallaba respondía 500 y
+ * no dejaba nada escrito en ninguna parte.
+ */
 router.delete('/movimientos/:id', requireRole('admin'), async (req, res) => {
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    await pool.query(`DELETE FROM finanzas_movimientos WHERE id = ?`, [req.params.id]);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[m]] = await conexion.query(
+      `SELECT m.id, m.tipo, m.monto, m.descripcion, m.tercero, m.documento_tercero, m.fecha,
+              c.nombre AS categoria, u.nombre AS registrado_por
+         FROM finanzas_movimientos m
+         LEFT JOIN finanzas_categorias c ON c.id = m.categoria_id
+         LEFT JOIN usuarios u            ON u.id = m.registrado_por
+        WHERE m.id = ?`, [req.params.id]);
+    if (!m) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese movimiento ya no existe.' });
+    }
+
+    const fecha = m.fecha ? new Date(m.fecha).toISOString().slice(0, 10) : 'sin fecha';
+    /* CON LOS DOS DECIMALES. `monto` es DECIMAL(16,2) y guarda centavos;
+       redondear a pesos enteros escribiría 1.500 donde había 1.500,49. En
+       cualquier otra pantalla eso es cosmético porque la fila sigue en la base
+       — aquí no: después del DELETE este texto es el único registro que queda,
+       y es el que habrá que enseñar si el Consejo Nacional Electoral pregunta
+       por la diferencia con lo reportado a Cuentas Claras. */
+    const importe = new Intl.NumberFormat('es-CO', {
+      style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(Number(m.monto) || 0);
+    const detalle = `Eliminó un ${m.tipo === 'ingreso' ? 'ingreso' : 'gasto'} de ${importe} del ${fecha}`
+      + (m.categoria ? `, categoría ${m.categoria}` : '')
+      + (m.descripcion ? `, por «${m.descripcion}»` : '')
+      + '.'
+      + (m.tercero ? ` El tercero era ${m.tercero}${m.documento_tercero ? ` (documento ${m.documento_tercero})` : ''}.` : '')
+      + ` El identificador era ${m.id}`
+      + (m.registrado_por ? `; lo había registrado ${m.registrado_por}.` : '.');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_movimiento', 'finanzas_movimientos', m.id,
+      detalle, req.ip
+    );
+
+    /* SE COMPRUEBA `affectedRows`. El SELECT de arriba es una lectura
+       consistente que no bloquea —REPEATABLE-READ—, así que dos peticiones
+       simultáneas, o un doble clic, ven las dos la fila y las dos escriben su
+       apunte. La segunda borraría cero filas y confirmaría igual. */
+    const [borrado] = await conexion.query(`DELETE FROM finanzas_movimientos WHERE id = ?`, [req.params.id]);
+    if (!borrado.affectedRows) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese movimiento ya no existe.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
+    console.error(err);
     res.status(500).json({ error: 'Error eliminando el movimiento.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

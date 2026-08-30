@@ -1,5 +1,5 @@
 const express = require('express');
-const { usuariosDelAspiranteSql } = require('../lib/ramas');
+const { usuariosDelAspiranteSql, subarbolSql } = require('../lib/ramas');
 const { cargoDeLaMadre } = require('../config/cargoMadre');
 
 /* EL ALCANCE DE CUENTAS DEL ASPIRANTE, en un solo sitio.
@@ -44,7 +44,7 @@ const router = express.Router();
 const HORAS_VIGENCIA_CODIGO = 48;
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
 const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const smsSvc = require('../config/sms');
 /*
  * SUPERADMINISTRADOR — ver config/superadmin.js para el porqué de todo esto.
@@ -106,8 +106,31 @@ router.get('/buscar-por-cedula', async (req, res) => {
 router.get('/', async (req, res) => {
   const { rol } = req.query;
   const ocultar = await filtroOcultar(req.session.usuario);
-  const whereSql = (rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1') + ocultar;
+  /* UN ASPIRANTE SOLO VE A SU GENTE, TAMBIÉN AQUÍ.
+     Esta lista llena los desplegables de media aplicación, y el de «Reporta a»
+     de Coordinadores y líderes entre ellos. Sin acotar, un aspirante que
+     creaba un líder veía en ese desplegable a la campaña entera: medido el 30
+     de agosto de 2026 en la campaña de prueba municipal, le llegaban las 62
+     personas cuando su rama son 8 — 54 nombres que no son suyos.
+
+     SE ACOTA CON `subarbolSql` Y NO CON `usuariosDelAspiranteSql`, que es el
+     que usa el listado de administración de este mismo archivo. Son dos reglas
+     distintas y está escrito así a propósito en lib/ramas.js: administrar una
+     cuenta es de quien la tiene en exclusiva, así que de ahí se excluye a
+     quien también apoya a la madre; VER a su propia gente incluye a todos los
+     de su rama. Usar aquí la regla de administrar le escondería del
+     desplegable a sus propios líderes que además apoyan a la Alcaldía.
+
+     Comprobado antes de acotar: nadie de esa rama reporta hoy a alguien de
+     fuera de ella, así que esto no le quita el jefe a ninguna ficha existente. */
+  let alcanceRama = '';
   const params = rol ? [rol] : [];
+  if (req.sublicencia) {
+    const suyos = subarbolSql(req.sublicencia.usuario_id, 'u.id');
+    alcanceRama = ` AND ${suyos.sql}`;
+    params.push(...suyos.valores);
+  }
+  const whereSql = (rol ? 'WHERE r.nombre = ? AND u.activo = 1' : 'WHERE u.activo = 1') + ocultar + alcanceRama;
   try {
     /* QUIEN YA NO ESTÁ EN LA ESTRUCTURA NO SALE EN LOS DESPLEGABLES.
        Esta consulta miraba `usuarios.activo` y nada más, y son dos cosas
@@ -665,6 +688,31 @@ router.post('/sincronizar-con-identificacion', requireRole('admin'), async (req,
   }
 });
 
+/**
+ * El texto del apunte al borrar una cuenta. Se basta solo: después del
+ * `DELETE` no queda fila de `usuarios` que consultar, y el identificador
+ * numérico se escribe porque otras tablas lo siguen guardando —
+ * `votantes.rama_aspirante_id` es la que permitió reconstruir a un aspirante
+ * borrado por error el 29 de agosto de 2026.
+ */
+function descripcionDeCuentaBorrada(u) {
+  const quedan = [];
+  if (u.a_su_cargo > 0)     quedan.push(`${u.a_su_cargo} ${u.a_su_cargo === 1 ? 'persona quedó' : 'personas quedaron'} sin quién ${u.a_su_cargo === 1 ? 'la' : 'las'} coordine`);
+  if (u.votantes_suyos > 0) quedan.push(`${u.votantes_suyos} ${u.votantes_suyos === 1 ? 'votante quedó' : 'votantes quedaron'} sin líder`);
+  if (u.reportes > 0)       quedan.push(`se ${u.reportes === 1 ? 'borró' : 'borraron'} ${u.reportes} ${u.reportes === 1 ? 'reporte' : 'reportes'} del Día D`);
+  const cola = quedan.length
+    ? ` ${quedan.slice(0, -1).join(', ')}${quedan.length > 1 ? ' y ' : ''}${quedan[quedan.length - 1]}.`
+    : '';
+  return `Eliminó la cuenta de ${u.nombre || 'un usuario sin nombre'}`
+    + (u.numero_identificacion ? ` (cédula ${u.numero_identificacion})` : '')
+    + `, con rol ${u.rol || 'sin rol'}`
+    + (u.tipo_cargo === 'aspirante_concejo' ? ' — aspirante al Concejo' : '')
+    + (u.cargo_estructura ? `, y con ella su ficha de la Estructura.` : '.')
+    + ` El identificador de usuario era ${u.id}`
+    + (u.email ? `, el correo ${u.email}.` : '.')
+    + cola;
+}
+
 router.delete('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
      la pestaña le daría la administración de toda la campaña madre. */
@@ -675,15 +723,67 @@ router.delete('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   if (await confirmarConSuPassword(req, res)) return;
   if (await protegerObjetivo(req, res, req.params.id)) return;
   if (await protegerAutodestruccion(req, res, req.params.id)) return;
+  /* QUEDA CONSTANCIA. Esta ruta borra una CUENTA, con todo lo que cuelga de
+     ella: su ficha de estructura, sus reportes del Día D, su sublicencia si
+     era aspirante y las opiniones que tuviera registradas. Nada de eso vuelve.
+
+     Se lee antes del `DELETE` porque después no hay dónde, y se apunta dentro
+     de la transacción para que el registro valga exactamente lo mismo que el
+     borrado — ni un apunte de algo que no pasó, ni un borrado sin apunte.
+
+     LO QUE SE CUENTA NO ES ADORNO. Al irse una cuenta, su equipo NO se borra:
+     la foránea de `supervisor_id` lo deja sin nadie encima, y los votantes que
+     esa persona registró pierden su `lider_id`, los dos en silencio. Dicho en
+     el apunte, se sabe a quién hay que reasignar sin tener que buscarlo. */
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[ficha]] = await conexion.query(
+      `SELECT u.id, u.nombre, u.numero_identificacion, u.email, u.tipo_cargo,
+              r.nombre AS rol, e.cargo AS cargo_estructura,
+              (SELECT COUNT(*) FROM estructura h WHERE h.supervisor_id = u.id)  AS a_su_cargo,
+              (SELECT COUNT(*) FROM votantes v  WHERE v.lider_id = u.id)        AS votantes_suyos,
+              (SELECT COUNT(*) FROM dia_d_reportes d WHERE d.testigo_id = u.id) AS reportes
+         FROM usuarios u
+         LEFT JOIN roles r      ON r.id = u.rol_id
+         LEFT JOIN estructura e ON e.usuario_id = u.id
+        WHERE u.id = ?`, [req.params.id]);
+    if (!ficha) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    }
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_persona', 'usuarios', ficha.id,
+      descripcionDeCuentaBorrada(ficha), req.ip
+    );
+
     // En un DELETE sí se puede confiar en `affectedRows`: cuenta filas
     // borradas, no filas que cambiaron de valor. Ver la nota del PUT.
-    const [r] = await pool.query(`DELETE FROM usuarios WHERE id = ?`, [req.params.id]);
-    if (!r.affectedRows) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    const [r] = await conexion.query(`DELETE FROM usuarios WHERE id = ?`, [req.params.id]);
+    if (!r.affectedRows) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     registrarErrorSinSql('usuarios', err);
     res.status(500).json({ error: 'Error eliminando el usuario.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

@@ -266,6 +266,7 @@
           <div class="celda"><div class="et">Líderes</div><div class="val" id="stat-lideres">—</div></div>
           <div class="celda"><div class="et">Testigos</div><div class="val" id="stat-testigos">—</div></div>
           <div class="celda acento"><div class="et">Votantes registrados</div><div class="val" id="stat-votantes">—</div></div>
+          <div class="celda"><div class="et">Votos de la campaña</div><div class="val" id="stat-meta-votos-campana">—</div></div>
           <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
           <div class="celda" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
           <div class="celda" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
@@ -576,6 +577,12 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     document.getElementById('stat-testigos').textContent = formatoMillares(r.estructura.testigos);
     document.getElementById('stat-votantes').textContent = formatoMillares(r.votantes.total);
     document.getElementById('stat-eventos').textContent = formatoMillares(r.eventos.proximos);
+    /* «Votos de la campaña» es la meta declarada, no calculada. Un guion
+       cuando nadie la ha fijado todavía: un cero se leería como «la meta es
+       cero votos», que es otra cosa. Se fija en Configuración → Datos de la
+       campaña, y un aspirante la fija en la suya. */
+    document.getElementById('stat-meta-votos-campana').textContent =
+      r.metaVotosCampana > 0 ? formatoMillares(r.metaVotosCampana) : '—';
     document.getElementById('stat-meta-votos-lideres').textContent = formatoMillares(r.metaVotosLideres);
 
     const ETIQUETAS_APOYA = { alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea' };
@@ -686,8 +693,17 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
       const mp = await api('/dashboard/mi-progreso');
       if (mp.tieneMetaAsignada) {
         document.getElementById('bloque-meta-personal').style.display = 'block';
-        document.getElementById('meta-personal').innerHTML =
-          barraProgreso('Formularios enviados', mp.enviados, mp.meta, mp.porcentaje);
+        /* EL ASPIRANTE VE DOS BARRAS, Y SON DOS COMPROMISOS DISTINTOS: los
+           votos de su propia campaña y los que le prometió a la principal.
+           Quien marca las dos casillas cuenta en las dos; quien marca solo la
+           suya, solo en la de arriba. Enseñar una sola cifra obligaría a
+           elegir cuál, y las dos son ciertas. */
+        document.getElementById('meta-personal').innerHTML = mp.dosMetas
+          ? barraProgreso(mp.propia.etiqueta, mp.propia.avance, mp.propia.meta, mp.propia.porcentaje)
+            + barraProgreso(mp.madre.etiqueta, mp.madre.avance, mp.madre.meta, mp.madre.porcentaje)
+            + '<p style="color:var(--muted, #9FB0CC); font-size:.78rem; margin:8px 0 0;">'
+            + 'Quien apoya a las dos campañas suma en las dos barras.</p>'
+          : barraProgreso('Formularios enviados', mp.enviados, mp.meta, mp.porcentaje);
       }
     } catch (err) {
       console.error('Error cargando mi-progreso:', err);

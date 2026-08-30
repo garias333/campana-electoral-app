@@ -4,7 +4,7 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { geocodificarConTerritorio } = require('../config/geoTerritorio');
 const { armarWhereSql } = require('../config/filtros');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
@@ -233,13 +233,78 @@ router.put('/:id', requireRole('admin', 'coordinador', 'lider'), async (req, res
   }
 });
 
+/* QUEDA CONSTANCIA. Un evento no es una fila: es una convocatoria con su
+   lista de asistentes, que se va entera en cascada
+   (`evento_asistentes.evento_id`). Borrado el evento, no hay forma de saber
+   quién había confirmado ni quién asistió — y esa lista es media jornada de
+   trabajo de un líder.
+
+   `affectedRows` importa aquí más de lo que parece: el código anterior
+   respondía «ok» aunque el id no existiera, así que quien se equivocaba de
+   fila creía haber borrado algo y no sabía cuál. Ahora un id que no está
+   devuelve 404. */
 router.delete('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    await pool.query(`DELETE FROM eventos WHERE id = ?`, [req.params.id]);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[ev]] = await conexion.query(
+      `SELECT e.id, e.titulo, e.tipo, e.fecha_inicio, e.lugar, e.estado,
+              r.nombre AS responsable,
+              (SELECT COUNT(*) FROM evento_asistentes a WHERE a.evento_id = e.id) AS asistentes
+         FROM eventos e
+         LEFT JOIN usuarios r ON r.id = e.responsable_id
+        WHERE e.id = ?`, [req.params.id]);
+    if (!ev) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese evento ya no existe.' });
+    }
+
+    const cuando = ev.fecha_inicio ? ` del ${new Date(ev.fecha_inicio).toISOString().slice(0, 10)}` : ', sin fecha';
+    const detalle = `Eliminó el evento «${ev.titulo}»${cuando}`
+      + (ev.lugar ? `, en ${ev.lugar}` : '')
+      + `, en estado ${ev.estado || 'sin estado'}.`
+      + ` El identificador era ${ev.id}`
+      + (ev.responsable ? `; el responsable era ${ev.responsable}.` : '.')
+      + (ev.asistentes > 0
+          ? ` Con él se ${ev.asistentes === 1 ? 'borró 1 asistente registrado' : `borraron ${ev.asistentes} asistentes registrados`}.`
+          : '');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_evento', 'eventos', ev.id,
+      detalle, req.ip
+    );
+
+    /* SE COMPRUEBA `affectedRows`, y no basta con el 404 del SELECT de arriba.
+       La base corre en REPEATABLE-READ —consultado—, así que ese SELECT es una
+       lectura consistente que no bloquea: dos administradores en el mismo
+       listado, o un doble clic, ven los dos la fila y los dos escriben su
+       apunte. El segundo borra cero filas y confirmaría igual, dejando UN
+       borrado con DOS apuntes, el segundo mintiendo sobre unos asistentes que
+       ya no estaban. */
+    const [resultado] = await conexion.query(`DELETE FROM eventos WHERE id = ?`, [req.params.id]);
+    if (!resultado.affectedRows) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese evento ya no existe.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando el evento.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

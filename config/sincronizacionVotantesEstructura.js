@@ -78,14 +78,32 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
         console.log(`Votante ${equivalente.id}: se unificó la cédula (${equivalente.cedula || 'vacía'} -> ${cedula}) con la ficha de Estructura territorial, en vez de crear un registro duplicado.`);
       }
     }
+    /* EL AREA SE DEDUCE DEL TERRITORIO, y hasta hoy no se escribia en absoluto:
+       la columna `area` no aparecia en este INSERT. Resultado: quien llegaba a
+       Votantes desde la Estructura tenia su comuna y su barrio pero la columna
+       AREA en blanco, y el filtro «Todas las areas» no lo encontraba nunca.
+
+       Se deduce en vez de copiarse de `estructura.area` porque el dato que no
+       miente es el territorio: si es un barrio o una comuna es urbano, y si es
+       una vereda o un corregimiento es rural. Nadie escribe «Vereda La Cabaña»
+       queriendo decir que es urbano. */
+    let areaDeducida = null;
+    if (datos.territorio_id) {
+      try {
+        const [[t]] = await pool.query('SELECT tipo FROM territorios WHERE id = ?', [datos.territorio_id]);
+        if (t) areaDeducida = ['vereda', 'corregimiento'].includes(t.tipo) ? 'rural'
+                            : ['barrio', 'comuna'].includes(t.tipo) ? 'urbano' : null;
+      } catch (_) { /* sin territorio legible se deja en null, como antes */ }
+    }
+
     await pool.query(
       `INSERT INTO votantes
          (nombre, cedula, telefono, email, genero, edad, apoya_a,
           departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
           departamento_residencia, ciudad_residencia,
-          comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id,
+          comuna_corregimiento_residencia, barrio_residencia, direccion, territorio_id, area,
           categoria, created_by, origen, rama_aspirante_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?)
        ON DUPLICATE KEY UPDATE
          nombre = VALUES(nombre),
          telefono = VALUES(telefono), email = VALUES(email), genero = VALUES(genero), edad = VALUES(edad),
@@ -100,7 +118,8 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
             de una plantilla de JavaScript y la cortarian.) */
          comuna_corregimiento_residencia = VALUES(comuna_corregimiento_residencia),
          barrio_residencia = VALUES(barrio_residencia),
-         direccion = VALUES(direccion), territorio_id = VALUES(territorio_id)`,
+         direccion = VALUES(direccion), territorio_id = VALUES(territorio_id),
+         area = VALUES(area)`,
       [
         (datos.nombre || '').trim(), cedula,
         datos.telefono ? datos.telefono.replace(/\D/g, '') : null,
@@ -111,7 +130,7 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
         datos.puesto_votacion || null, datos.mesa_votacion || null,
         datos.departamento_residencia || null, datos.ciudad_residencia || null,
         datos.comuna_corregimiento_residencia || null, datos.barrio_residencia || null,
-        datos.direccion || null, datos.territorio_id || null,
+        datos.direccion || null, datos.territorio_id || null, areaDeducida,
         datos.creado_por || null,
         /* DE QUE RAMA CUELGA, al crear la ficha. Esta persona esta en la
            estructura, asi que su rama sale de subir por ahi — que es lo mismo

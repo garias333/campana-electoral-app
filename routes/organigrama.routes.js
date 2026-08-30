@@ -1,6 +1,7 @@
 const express = require('express');
 const { Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, PageBreak, WidthType } = require('docx');
 const pool = require('../config/db');
+const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { generarDocumentoWord } = require('../config/wordExport');
 const { validarTelefono10Digitos } = require('../config/verificaciones');
@@ -182,14 +183,79 @@ router.put('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
   }
 });
 
-// Elimina un nodo y toda su subestructura (ON DELETE CASCADE en padre_id).
+/* Elimina un nodo y toda su subestructura (ON DELETE CASCADE en padre_id).
+ *
+ * QUEDA CONSTANCIA, Y SE CUENTA LA SUBESTRUCTURA ANTES DE BORRARLA. Es lo que
+ * hace distinta a esta ruta: el botón dice «eliminar el cargo» y lo que se
+ * lleva es la rama entera colgada de él. Quien borra un nodo de nivel 2 puede
+ * estar borrando veinte cargos sin saberlo, porque la cascada no avisa y la
+ * pantalla se limita a redibujarse más pequeña.
+ *
+ * El conteo va con un CTE recursivo, que es la única forma de saber cuántos
+ * descendientes hay: la tabla es una lista de adyacencia (`padre_id`) sin ruta
+ * materializada, así que la profundidad no se conoce de antemano.
+ */
 router.delete('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
+  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+     Express 4 no envuelve los manejadores `async`, así que muere en el
+     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
+     este cambio la consulta iba dentro del try y una base caída salía como un
+     500 legible; había que conservarlo. */
+  let conexion;
   try {
-    await pool.query(`DELETE FROM organigrama_nodos WHERE id = ?`, [req.params.id]);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[nodo]] = await conexion.query(
+      `WITH RECURSIVE rama AS (
+         SELECT id, cargo FROM organigrama_nodos WHERE id = ?
+         UNION ALL
+         SELECT h.id, h.cargo FROM organigrama_nodos h JOIN rama ON h.padre_id = rama.id
+       )
+       SELECT n.id, n.cargo, n.nivel,
+              TRIM(CONCAT(COALESCE(n.nombres, n.nombre, ''), ' ', COALESCE(n.apellidos, ''))) AS ocupante,
+              (SELECT COUNT(*) - 1 FROM rama) AS descendientes
+         FROM organigrama_nodos n WHERE n.id = ?`,
+      [req.params.id, req.params.id]);
+    if (!nodo) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese cargo ya no existe.' });
+    }
+
+    const detalle = `Eliminó del organigrama el cargo «${nodo.cargo}»`
+      + (nodo.ocupante ? `, ocupado por ${nodo.ocupante}` : ', sin nadie asignado')
+      + (nodo.nivel ? ` (${String(nodo.nivel).replace('_', ' ')})` : '')
+      + `. El identificador era ${nodo.id}.`
+      + (nodo.descendientes > 0
+          ? ` Con él se ${nodo.descendientes === 1 ? 'borró 1 cargo que colgaba debajo' : `borraron ${nodo.descendientes} cargos que colgaban debajo`}.`
+          : '');
+
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_cargo', 'organigrama_nodos', nodo.id,
+      detalle, req.ip
+    );
+
+    /* SE COMPRUEBA `affectedRows`. El SELECT de arriba es una lectura
+       consistente que no bloquea —REPEATABLE-READ—, así que dos peticiones
+       simultáneas, o un doble clic, ven las dos la fila y las dos escriben su
+       apunte. La segunda borraría cero filas y confirmaría igual. */
+    const [borrado] = await conexion.query(`DELETE FROM organigrama_nodos WHERE id = ?`, [req.params.id]);
+    if (!borrado.affectedRows) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese cargo ya no existe.' });
+    }
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
+    /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
+       reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
+       `res.status(500)` de abajo no llegaría a ejecutarse nunca. */
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando el cargo.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

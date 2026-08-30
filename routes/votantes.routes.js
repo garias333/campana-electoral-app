@@ -12,7 +12,7 @@ const { aspiranteDe, ramaDeVotante } = require('../lib/ramas');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
         filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { armarWhereSql } = require('../config/filtros');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { validarCedula } = require('../lib/validarCedula');
 const { asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo } = require('../config/testigoElectoral');
 const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionVotantesEstructura');
@@ -274,6 +274,9 @@ router.get('/', async (req, res) => {
                 WHERE e2.usuario_id = ut.id AND e2.activo = 1 AND e2.cargo <> 'testigo'
                 ORDER BY FIELD(e2.cargo, 'coordinador', 'coordinador_organizaciones', 'lider', 'usuario')
                 LIMIT 1) AS cargo_estructura,
+              -- El TIPO de cargo distingue al Aspirante al Concejo, que en la
+              -- base es un lider: sin esto no hay forma de reconocerlo.
+              ut.tipo_cargo AS tipo_cargo_estructura,
               et.id AS testigo_estructura_id, et.tipo_testigo AS testigo_tipo_testigo, et.mesas_asignadas AS testigo_mesas_asignadas,
               COALESCE(et.puesto_votacion, ut.puesto_votacion) AS testigo_puesto_votacion,
               COALESCE(et.mesa_votacion, ut.mesa_votacion) AS testigo_mesa_votacion,
@@ -1590,6 +1593,72 @@ router.put('/:id/verificar', requireRole('admin', 'asistente_administrativo'), a
   }
 });
 
+/**
+ * El texto del apunte de auditoría cuando se borra la ficha de una persona.
+ *
+ * TIENE QUE BASTARSE SOLO, porque aquí no queda absolutamente nada. Al borrar
+ * a alguien de la Estructura sobrevive su ficha de votante —así se pudo
+ * reconstruir al aspirante el 29 de agosto de 2026—, pero al revés no: un
+ * votante corriente, que nunca recibió una comunicación, no deja rastro en
+ * ninguna otra tabla. Ni `usuarios`, ni `comunicaciones_envios`, ni
+ * `sms_envios`. Este texto es la única copia.
+ *
+ * SE NOMBRA LO QUE SE VA EN CASCADA, no solo la ficha. Tres foráneas cuelgan
+ * de `votantes` con ON DELETE CASCADE —`evento_asistentes`, `votante_ramas` y
+ * `votante_opinion`—, así que un borrado se lleva también a qué eventos
+ * asistió, de qué ramas formaba parte y qué opinión tenía cada aspirante sobre
+ * esa persona. Contado antes de borrar, el apunte dice cuánto trabajo se
+ * perdió; sin contarlo, el borrado parece una fila.
+ *
+ * Y SE DEJA CONSTANCIA DEL CONSENTIMIENTO. Los tres campos de la Ley 1581
+ * —autorización, fecha y versión de la política— son justamente lo que hay que
+ * poder demostrar ante la SIC. Borrada la ficha, la prueba desaparece; el
+ * apunte al menos conserva que existió, de cuándo era y contra qué texto.
+ */
+function descripcionDeVotanteBorrado(v) {
+  const INTENCION = {
+    confirmado: 'confirmado', probable: 'probable', indeciso: 'indeciso',
+    no_apoya: 'no apoya', desconocido: 'sin definir',
+  };
+  const partes = [
+    `Eliminó la ficha de ${v.nombre || 'una persona sin nombre'}`,
+    v.cedula ? ` (cédula ${v.cedula})` : ' (sin cédula)',
+    `, ${v.categoria === 'sublider' ? 'Sublíder' : 'Votante'}`,
+    v.territorio_nombre ? ` de ${v.territorio_nombre}` : '',
+    `, intención de voto ${INTENCION[v.intencion_voto] || v.intencion_voto || 'sin definir'}.`,
+    ` El identificador de la ficha era ${v.id}`,
+    v.telefono ? `, el teléfono ${v.telefono}` : '',
+    v.email ? `, el correo ${v.email}` : '',
+    v.lider_nombre ? `; la había registrado ${v.lider_nombre}.` : '.',
+  ];
+
+  /* La autorización de datos, en sus propias palabras: «no consta» y «no
+     autorizó» no son lo mismo, y la columna distingue el 0 del NULL a
+     propósito (ver la nota del esquema). El apunte respeta esa diferencia. */
+  if (v.consentimiento_autorizado) {
+    const cuando = v.consentimiento_fecha
+      ? new Date(v.consentimiento_fecha).toISOString().slice(0, 10) : 'sin fecha';
+    partes.push(` Tenía autorización de tratamiento de datos (${cuando}`
+      + (v.consentimiento_version ? `, política ${v.consentimiento_version}` : '') + ').');
+  } else {
+    partes.push(' No constaba autorización de tratamiento de datos.');
+  }
+
+  const arrastre = [];
+  if (v.eventos > 0)   arrastre.push([v.eventos, `${v.eventos} ${v.eventos === 1 ? 'asistencia a un evento' : 'asistencias a eventos'}`]);
+  if (v.ramas > 0)     arrastre.push([v.ramas, `${v.ramas} ${v.ramas === 1 ? 'vínculo con la rama de un aspirante' : 'vínculos con ramas de aspirantes'}`]);
+  if (v.opiniones > 0) arrastre.push([v.opiniones, `${v.opiniones} ${v.opiniones === 1 ? 'opinión registrada' : 'opiniones registradas'}`]);
+  if (arrastre.length) {
+    const textos = arrastre.map(a => a[1]);
+    const lista = textos.length === 1 ? textos[0]
+      : `${textos.slice(0, -1).join(', ')} y ${textos[textos.length - 1]}`;
+    const enSingular = arrastre.length === 1 && arrastre[0][0] === 1;
+    partes.push(` Con la ficha se ${enSingular ? 'borró' : 'borraron'} ${lista}.`);
+  }
+
+  return partes.join('');
+}
+
 router.delete('/:id', async (req, res) => {
   /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO.
      No es la del administrador: un lider tiene derecho a corregir a su gente,
@@ -1625,15 +1694,93 @@ router.delete('/:id', async (req, res) => {
         mensaje: 'Se quitó de su estructura. La ficha no se borró: sigue en la campaña principal.' });
     }
 
-    const params = [req.params.id];
-    let query = `DELETE FROM votantes WHERE id = ?`;
-    // Igual que GET/PUT: fuera de admin/coordinador, solo se puede borrar
-    // un votante que uno mismo refirió.
-    if (req.alcance) { query += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
-    const [resultado] = await pool.query(query, params);
-    if (resultado.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
-    res.json({ ok: true });
+    /* QUEDA CONSTANCIA, PORQUE AQUÍ NO SOBREVIVE NADA.
+       Este es el borrado más destructivo de la aplicación y hasta el 29 de
+       agosto de 2026 era también el más silencioso: el masivo de aquí abajo
+       —`eliminar-todo`— sí registraba, y el de una sola persona no dejaba una
+       línea. La misma asimetría que tenía la Estructura, y por la misma razón
+       equivocada: el masivo se hace a propósito, el de uno es el que se hace
+       por error.
+
+       SE LEE ANTES DE BORRAR Y DENTRO DE LA TRANSACCIÓN, las dos cosas por
+       necesidad. Antes, porque después del `DELETE` no hay dónde consultar el
+       nombre. Y dentro, porque el apunte tiene que valer exactamente lo mismo
+       que el borrado: si el `DELETE` no alcanza ninguna fila —la ficha se fue
+       entre medias, o queda fuera del alcance de quien lo pide— se deshacen
+       los dos juntos y no queda registrado un borrado que no ocurrió.
+
+       LA CLÁUSULA DE ALCANCE SE MANTIENE EN EL `DELETE`, aunque el `SELECT` de
+       arriba ya la haya aplicado. Es a propósito: quitarla dejaría que un
+       error en la consulta de lectura ensanchara lo que se puede borrar, y ese
+       es un fallo que no avisa. Comprobarlo dos veces no cuesta nada. */
+    const condicionAlcance = req.alcance ? ` AND ${condicionAlcanceVotantes(req.alcance, 'v')}` : '';
+    const paramsAlcance = req.alcance ? parametrosAlcanceVotantes(req.alcance) : [];
+
+    /* MISMA FORMA QUE LOS OTROS CATORCE MANEJADORES DE BORRADO. Aquí el
+       `try` exterior ya cubría un fallo de `getConnection()`, así que
+       funcionaba; pero era el único con una estructura distinta, y un caso
+       especial que hay que volver a razonar cada vez cuesta más que la línea
+       que ahorra. */
+    let conexion;
+    try {
+      conexion = await pool.getConnection();
+      await conexion.beginTransaction();
+
+      const [[ficha]] = await conexion.query(
+        `SELECT v.id, v.nombre, v.cedula, v.telefono, v.email, v.categoria,
+                v.intencion_voto,
+                v.consentimiento_autorizado, v.consentimiento_fecha, v.consentimiento_version,
+                t.nombre AS territorio_nombre,
+                l.nombre AS lider_nombre,
+                (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.votante_id = v.id) AS eventos,
+                (SELECT COUNT(*) FROM votante_ramas vr    WHERE vr.votante_id = v.id) AS ramas,
+                (SELECT COUNT(*) FROM votante_opinion vo  WHERE vo.votante_id = v.id) AS opiniones
+           FROM votantes v
+           LEFT JOIN territorios t ON t.id = v.territorio_id
+           LEFT JOIN usuarios l    ON l.id = v.lider_id
+          WHERE v.id = ?${condicionAlcance}`,
+        [req.params.id, ...paramsAlcance]);
+
+      if (!ficha) {
+        await conexion.rollback();
+        return res.status(404).json({ error: 'No encontrado.' });
+      }
+
+      await registrarAuditoriaEn(
+        conexion, req.session.usuario.id, 'eliminar_persona', 'votantes', ficha.id,
+        descripcionDeVotanteBorrado(ficha), req.ip
+      );
+
+      const params = [req.params.id];
+      let query = `DELETE FROM votantes WHERE id = ?`;
+      // Igual que GET/PUT: fuera de admin/coordinador, solo se puede borrar
+      // un votante que uno mismo refirió.
+      if (req.alcance) { query += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
+      const [resultado] = await conexion.query(query, params);
+      if (resultado.affectedRows === 0) {
+        await conexion.rollback();
+        return res.status(404).json({ error: 'No encontrado.' });
+      }
+
+      await conexion.commit();
+      res.json({ ok: true });
+    } catch (err) {
+      /* EL ROLLBACK VA PROTEGIDO O SE COME EL ERROR ORIGINAL. Sobre una
+         conexión muerta —MySQL reiniciado, `wait_timeout`, un KILL— el propio
+         `rollback()` rechaza, y entonces el `throw err` de abajo no llega a
+         ejecutarse: al log y al usuario les llega el fallo del rollback en
+         vez de la causa real. */
+      if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
+      throw err;
+    } finally {
+      if (conexion) conexion.release();
+    }
   } catch (err) {
+    /* El `console.error` faltaba, y era el mismo agujero en pequeño: un
+       borrado que falla respondía 500 y tampoco dejaba nada escrito en
+       ninguna parte. Casi todos los demás handlers de este archivo sí lo
+       tienen. */
+    console.error(err);
     res.status(500).json({ error: 'Error eliminando el registro.' });
   }
 });
@@ -1649,16 +1796,36 @@ router.post('/eliminar-todo', requireRole('admin', 'coordinador'), async (req, r
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  /* SE APUNTA DENTRO DE LA TRANSACCIÓN Y ANTES DE BORRAR, como los demás.
+     Antes se escribía DESPUÉS y por el pool, o sea por otra conexión y con el
+     error tragado: si el apunte fallaba, el borrado ya estaba confirmado y no
+     quedaba constancia de nada. En el borrado más destructivo de la
+     aplicación era donde peor sentaba. */
+  let conexion;
   try {
-    const [result] = await pool.query(`DELETE FROM votantes`);
-    await registrarAuditoria(
-      req.session.usuario.id, 'eliminar_todo', 'votantes', null,
-      `Eliminó todos los votantes/contactos (${result.affectedRows} registros).`, req.ip
-    );
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[antes]] = await conexion.query(
+      `SELECT COUNT(*) AS total,
+              SUM(categoria = 'sublider') AS sublideres,
+              SUM(consentimiento_autorizado = 1) AS con_autorizacion
+         FROM votantes`);
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_todo', 'votantes', null,
+      `Eliminó todos los votantes y contactos de la campaña: ${antes.total} fichas`
+      + `, de las cuales ${antes.sublideres || 0} eran de sublíderes`
+      + ` y ${antes.con_autorizacion || 0} tenían autorización de tratamiento de datos.`
+      + ' Con ellas se fueron sus asistencias a eventos, sus vínculos con ramas de aspirantes y las opiniones registradas.',
+      req.ip);
+    const [result] = await conexion.query(`DELETE FROM votantes`);
+    await conexion.commit();
     res.json({ ok: true, eliminados: result.affectedRows });
   } catch (err) {
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: 'Error eliminando los votantes.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

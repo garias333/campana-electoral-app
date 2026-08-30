@@ -2,8 +2,9 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { sqlMetaEfectiva } = require('../config/metasEstructura');
-const { PROFUNDIDAD_MAXIMA } = require('../lib/ramas');
+const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura } = require('../lib/ramas');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
+const { cargoDeLaMadre } = require('../config/cargoMadre');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -78,13 +79,84 @@ router.get('/resumen', async (req, res) => {
     const filtroVot = ambito ? `AND ${ambito.votantesSql}` : '';
     const parVot = ambito ? ambito.votantesPar : [];
 
+    /* LA META DE LA MADRE NO SUMA LAS METAS DE LAS RAMAS DE SUS ASPIRANTES.
+       Lo que un aspirante le prometió a la campaña principal ya está en SU
+       propia fila de estructura —los votos que pactó al inscribirse—, y esa
+       fila sí entra en la suma, porque él es un líder de la madre por derecho
+       propio. Las metas de SUS líderes no: son el reparto interno de esa misma
+       promesa, y sumarlas encima la cuenta dos veces.
+
+       Medido en la campaña de prueba municipal antes de este cambio: el panel
+       decía 4.243 donde la cifra correcta es 4.020. Los 223 de diferencia eran
+       las metas de la rama del aspirante, ya representadas por los 2.000 que
+       él prometió.
+
+       SOLO CUANDO MIRA LA MADRE. Con `ambito` puesto quien mira es el propio
+       aspirante, y su panel tiene que sumar justamente lo que este filtro
+       quita — aplicárselo le dejaría la meta en cero.
+
+       Y SOLO A LA META, NO AL AVANCE: un votante que registró un líder del
+       aspirante y marcó «alcaldía» sí cuenta para la Alcaldía. Ver la nota
+       larga de `filtroMetaMadreEstructura`, en lib/ramas.js. */
+    /* EN SU PROPIO PANEL, EL ASPIRANTE NO ES UNO DE LOS SUYOS.
+       `ambitoDelPanel` arma la lista de su rama empezando por él mismo
+       (`SELECT ? AS usuario_id, 0 AS nivel`), y hace bien: para ver a su gente
+       hay que partir de él. Pero contarlo dentro del equipo produce dos cifras
+       falsas, las dos vistas en pantalla el 30 de agosto de 2026:
+
+         Líderes ................ decía 3, y sus líderes son 2. El tercero era él.
+         Meta de votos (líderes)  decía 2.223 = 2.000 + 100 + 123.
+
+       Esos 2.000 son lo que él le prometió a la Alcaldía al inscribirse en la
+       campaña madre; no son la meta de ningún líder suyo, y menos en el panel
+       de su campaña al Concejo. Los 223 sí: son los 100 de un líder y los 123
+       del otro, que es exactamente como debe crecer esa cifra — sumando la
+       meta de cada líder según se registra.
+
+       SOLO SE APLICA A LO QUE ES «SU EQUIPO». Los votantes que él registre en
+       persona siguen contando en el avance: ahí lo que manda es quién registró
+       la ficha, no de quién cuelga. Por eso hay dos filtros y no uno. */
+    const filtroEquipo = ambito ? `${filtroEst} AND e.usuario_id <> ?` : '';
+    const parEquipo = ambito ? [...parEst, ambito.aspiranteId] : [];
+
+    /* LA META QUE LA CAMPAÑA SE FIJÓ, que es otra cosa que la suma de las
+       metas de sus líderes. Una la decide quien dirige —«necesito 4.000 votos
+       para la curul»— y no se mueve; la otra crece sola según se registran
+       líderes y cada uno se compromete con un número. Enseñarlas juntas es lo
+       que deja ver si el equipo alcanza para la meta o falta gente.
+
+       Cada campaña la guarda donde le corresponde: la principal en
+       `configuracion_campana.meta_votos_campana`, y un aspirante en
+       `sublicencias.meta_votos`, que es la que él escribe en su propia
+       Configuración. No se mezclan nunca: la de la Alcaldía no es asunto suyo.
+
+       Va en su propio try porque la columna es nueva: una campaña que aplicó
+       el parche sin marcar la casilla de base de datos no la tiene todavía, y
+       el panel entero no puede caerse por una cifra informativa. */
+    let metaVotosCampana = 0;
+    try {
+      if (req.sublicencia) {
+        const [[sl]] = await pool.query(
+          'SELECT meta_votos FROM sublicencias WHERE usuario_id = ? LIMIT 1', [req.sublicencia.usuario_id]);
+        metaVotosCampana = sl ? Number(sl.meta_votos) || 0 : 0;
+      } else {
+        const [[cfg]] = await pool.query(
+          'SELECT meta_votos_campana FROM configuracion_campana WHERE id = 1');
+        metaVotosCampana = cfg && cfg.meta_votos_campana !== null ? Number(cfg.meta_votos_campana) || 0 : 0;
+      }
+    } catch (_) { metaVotosCampana = 0; }
+
+    const soloMadre = ambito ? null : await filtroMetaMadreEstructura(pool);
+    const filtroMeta = soloMadre ? `AND ${soloMadre.sql}` : '';
+    const parMeta = soloMadre ? soloMadre.valores : [];
+
     const [[estructura]] = await pool.query(`
       SELECT
         COUNT(CASE WHEN e.cargo='coordinador' THEN 1 END) AS coordinadores,
         COUNT(CASE WHEN e.cargo='lider' THEN 1 END) AS lideres,
         COUNT(CASE WHEN e.cargo='testigo' THEN 1 END) AS testigos
-      FROM estructura e WHERE e.activo = 1 ${filtroEst}
-    `, parEst);
+      FROM estructura e WHERE e.activo = 1 ${filtroEquipo}
+    `, parEquipo);
     const [[votantes]] = await pool.query(`
       SELECT COUNT(*) AS total,
         COUNT(CASE WHEN v.intencion_voto='confirmado' THEN 1 END) AS confirmados,
@@ -97,15 +169,29 @@ router.get('/resumen', async (req, res) => {
     // tienen como Líder a cada uno de ellos (lo que han "aportado" en total).
     const [[metaYAvanceLideres]] = await pool.query(`
       SELECT
+        -- SOLO LÍDERES. La meta de un sublíder NO suma aquí, y sumarla era
+        -- contar dos veces lo mismo: un sublíder trabaja PARA su líder, así
+        -- que sus 50 votos ya están dentro de los 200 que ese líder se
+        -- comprometió a traer. Medido en la campaña de prueba municipal el 30
+        -- de agosto de 2026: 4.730 de los líderes más 270 de los sublíderes
+        -- daban 5.000, cuando la cifra correcta es 4.730.
+        -- LO QUE SÍ CUENTA DE UN SUBLÍDER SON SUS REGISTROS, y por eso la
+        -- subconsulta de abajo —el avance— sigue incluyendo el cargo usuario:
+        -- cada persona que registra un sublíder empuja la meta de su líder, y
+        -- con ella la de la campaña. Misma asimetría que con el aspirante: la
+        -- meta se acota, el avance no.
+        -- (Comentario SQL y sin comillas invertidas: esto va dentro de un
+        --  template literal de JavaScript, y una sola comilla invertida aquí
+        --  cierra la cadena y rompe el archivo entero. Ya pasó al escribirlo.)
         COALESCE((SELECT SUM(e.meta_votos) FROM estructura e
-                   WHERE e.cargo IN ('lider','usuario') AND e.activo = 1 ${filtroEst}), 0) AS meta_votos_lideres,
+                   WHERE e.cargo = 'lider' AND e.activo = 1 ${filtroEquipo} ${filtroMeta}), 0) AS meta_votos_lideres,
         (
           SELECT COUNT(*) FROM votantes v
           WHERE v.lider_id IN (SELECT e.usuario_id FROM estructura e
                                 WHERE e.cargo IN ('lider','usuario') AND e.activo = 1 ${filtroEst})
             ${filtroVot}
         ) AS avance_registros_lideres
-    `, [...parEst, ...parEst, ...parVot]);
+    `, [...parEquipo, ...parMeta, ...parEst, ...parVot]);
     /* LAS TRES QUE NO SE CONSULTAN SIQUIERA CUANDO MIRA EL ASPIRANTE.
        El dinero, la agenda y las menciones son de la campaña madre entera y no
        tienen a quién colgarse para acotarlas. Se devuelven vacías y el panel
@@ -159,6 +245,7 @@ router.get('/resumen', async (req, res) => {
     res.json({
       estructura,
       votantes,
+      metaVotosCampana,
       metaVotosLideres: Number(metaYAvanceLideres.meta_votos_lideres),
       avanceRegistrosLideres: Number(metaYAvanceLideres.avance_registros_lideres),
       finanzas: {
@@ -242,11 +329,50 @@ router.get('/mi-progreso', async (req, res) => {
       return res.json({ tieneMetaAsignada: false });
     }
 
-    const meta = fila.meta_votos || 0;
+    const meta = Number(fila.meta_votos) || 0;
     const enviados = fila.enviados || 0;
     const porcentaje = meta > 0 ? Math.min(100, Math.round((enviados / meta) * 100)) : 0;
 
-    res.json({ tieneMetaAsignada: true, meta, enviados, porcentaje });
+    /* EL ASPIRANTE TIENE DOS METAS, Y SON DOS COSAS DISTINTAS.
+         · La suya, al Concejo: la define él en Datos de la campaña, y avanza
+           con TODA su rama — todo el que registra su equipo lo apoya a él, que
+           es la razón de que lo estén registrando.
+         · La que le prometió a la Alcaldía al inscribirse allá: vive en
+           `estructura.meta_votos` y solo avanza con quienes marcan «alcaldía».
+       Quien marca las dos casillas suma en las dos; quien marca solo concejo,
+       solo en la suya. No es una regla nueva: es `apoya_a`, leída dos veces.
+
+       Se devuelven las dos y la pantalla las pinta como dos barras. Enseñar
+       una sola obligaría a elegir cuál, y las dos son ciertas. */
+    if (!req.sublicencia) {
+      return res.json({ tieneMetaAsignada: true, meta, enviados, porcentaje });
+    }
+
+    const cargo = req.sublicencia.cargo;
+    const contar = async (apoyo) => {
+      const [[r]] = await pool.query(
+        `SELECT COUNT(*) AS n FROM votantes v
+          WHERE ${ambito.votantesSql} AND JSON_CONTAINS(v.apoya_a, ?)`,
+        [...ambito.votantesPar, JSON.stringify(apoyo)]);
+      return Number(r.n) || 0;
+    };
+    let metaPropia = 0;
+    try {
+      const [[sl]] = await pool.query(
+        'SELECT meta_votos FROM sublicencias WHERE usuario_id = ? LIMIT 1', [req.sublicencia.usuario_id]);
+      metaPropia = sl ? Number(sl.meta_votos) || 0 : 0;
+    } catch (_) { /* sin la columna todavia: 0, y la barra no se pinta */ }
+
+    const avancePropio = await contar(cargo);
+    const avanceMadre = await contar(await cargoDeLaMadre());
+    const pct = (a, m) => (m > 0 ? Math.min(100, Math.round((a / m) * 100)) : 0);
+
+    return res.json({
+      tieneMetaAsignada: true, meta, enviados, porcentaje,
+      dosMetas: true,
+      propia: { etiqueta: `Mi campaña (${cargo})`, meta: metaPropia, avance: avancePropio, porcentaje: pct(avancePropio, metaPropia) },
+      madre:  { etiqueta: 'Comprometido con la campaña principal', meta, avance: avanceMadre, porcentaje: pct(avanceMadre, meta) },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando el progreso de meta.' });
@@ -297,9 +423,14 @@ router.get('/progreso-equipo', async (req, res) => {
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       LEFT JOIN territorios t ON t.id = e.territorio_id
+      -- El aspirante no sale en la lista de SU equipo: es la cabeza, no un
+      -- miembro, y su fila traería como meta los 2.000 que le prometió a la
+      -- Alcaldía, que no tienen nada que ver con su campaña al Concejo. Mismo
+      -- motivo que en /resumen; ver la nota larga de allí.
       WHERE e.activo = 1 AND e.cargo IN ('coordinador','lider') ${filtroEst}
+        ${ambito ? 'AND e.usuario_id <> ?' : ''}
       ORDER BY e.cargo, u.nombre
-    `, [...parVot, ...parEst]);
+    `, [...parVot, ...parEst, ...(ambito ? [ambito.aspiranteId] : [])]);
 
     const conPorcentaje = filas.map(f => ({
       ...f,

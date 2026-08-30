@@ -24,6 +24,7 @@ INSERT INTO roles (nombre, descripcion) VALUES
   ('usuario', 'Colaborador que registra sus propios contactos, bajo un líder'),
   ('testigo', 'Testigo electoral'),
   ('asistente_administrativo', 'Apoyo administrativo de la campaña'),
+  ('administrativo', 'Perfil administrativo — sus módulos los asigna el administrador'),
   ('invitado', 'Solo consulta información pública de la campaña'),
   -- EN LA SESIÓN SE COMPORTA COMO UN LÍDER, Y ESO NO ES UN ATAJO.
   --
@@ -482,6 +483,7 @@ CREATE TABLE IF NOT EXISTS configuracion_campana (
   nombre_candidato VARCHAR(150) NULL,
   cargo_aspira ENUM('senado','camara_representantes','gobernacion','asamblea','alcaldia','concejo','jal') NULL,
   slogan_campana VARCHAR(255) NULL,
+  meta_votos_campana INT UNSIGNED NULL COMMENT 'Meta de votos que se fija la campaña. NULL = no la ha declarado, que no es lo mismo que cero',
   partido_politico VARCHAR(150) NULL,
   departamento VARCHAR(100) NULL,
   ciudad VARCHAR(100) NULL,

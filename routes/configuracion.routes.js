@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
-const { registrarAuditoria } = require('../config/auditoria');
+const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { sublicenciaSobre } = require('../lib/ramas');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { estadoCanal: estadoCanalSms, enviarSMS, invalidarCache: invalidarCacheSms } = require('../config/sms');
@@ -293,6 +293,11 @@ router.get('/campana', async (req, res) => {
       cfg.marca_subtitulo = req.sublicencia.subtitulo || '';
       cfg.marca_logo_url = req.sublicencia.logo_url || null;
       cfg.partido_politico = null;
+      /* La meta de la campaña principal NO se le muestra al aspirante: es de
+         la Alcaldía, no suya. Él tiene las suyas dos líneas más abajo
+         —`meta_votos`, la de su curul, y `meta_a_la_madre`, la que prometió—
+         y mezclarlas en la misma pantalla sería justo lo que hay que evitar. */
+      cfg.meta_votos_campana = null;
       cfg.direccion_sede = null;
       cfg.telefono = null;
       cfg.email = null;
@@ -303,6 +308,31 @@ router.get('/campana', async (req, res) => {
       // Y su propia casilla viene marcada: todo el que registra desde aqui
       // apoya al aspirante — es la razon de que este registrandolo.
       cfg.apoyos_por_defecto = [req.sublicencia.cargo];
+      /* SUS DOS METAS, para que la pantalla pueda enseñar las dos y no
+         confundirlas. `meta_votos` es la de SU campaña, que él define aquí;
+         `meta_a_la_madre` es la que le prometió a la campaña principal al
+         inscribirse allá, y aquí solo se muestra — se cambia en la ficha de
+         Estructura de la madre, que es donde se pactó. */
+      /* SE LEE AQUÍ Y NO EN `cargarSublicencia`, que es lo que parecía natural.
+         Esa consulta corre en CADA petición a /api, y una columna que todavía
+         no exista —una campaña que aplicó el parche sin marcar la casilla de
+         base de datos— la haría fallar. Y desde el arreglo del fallo en
+         abierto, una lectura fallida de la sublicencia responde 503: el
+         aspirante se quedaría fuera de TODA la aplicación por un dato que solo
+         hace falta en esta pantalla. Aquí, si falta, se muestra 0. */
+      cfg.meta_votos = 0;
+      cfg.meta_a_la_madre = 0;
+      try {
+        const [[sl]] = await pool.query(
+          'SELECT meta_votos FROM sublicencias WHERE usuario_id = ? LIMIT 1', [req.sublicencia.usuario_id]);
+        cfg.meta_votos = sl ? Number(sl.meta_votos) || 0 : 0;
+      } catch (_) { /* sin la columna todavia: 0 */ }
+      try {
+        const [[e]] = await pool.query(
+          "SELECT meta_votos FROM estructura WHERE usuario_id = ? AND cargo != 'testigo' LIMIT 1",
+          [req.sublicencia.usuario_id]);
+        cfg.meta_a_la_madre = e ? Number(e.meta_votos) || 0 : 0;
+      } catch (_) { /* 0 */ }
     }
 
     // La regla de qué apoyos aplican vive en el servidor; el frontend solo
@@ -485,11 +515,23 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
       return res.status(400).json({ error: 'El nombre de su campaña no puede quedar vacío.' });
     }
     try {
+      /* Y SU META. Es lo segundo que puede tocar de «su campaña», y va en la
+         misma fila: `sublicencias.meta_votos`. La de la campaña principal
+         —cuántos votos le promete a la Alcaldía— NO se toca aquí; ésa vive en
+         `estructura.meta_votos` y se la ponen al inscribirlo allá.
+         Sin el campo en el cuerpo se conserva la que hubiera: guardar desde
+         una pantalla vieja no debe ponerla en cero. */
+      const metaCruda = req.body && req.body.meta_votos;
+      const meta = metaCruda === undefined || metaCruda === null || metaCruda === ''
+        ? null : Number(metaCruda);
+      if (meta !== null && (!Number.isInteger(meta) || meta < 0 || meta > 10000000)) {
+        return res.status(400).json({ error: 'La meta de votos debe ser un número entero de 0 o más.' });
+      }
       await pool.query(
         `UPDATE sublicencias
-            SET nombre = ?, subtitulo = ?, marca_editada_en = NOW()
+            SET nombre = ?, subtitulo = ?, meta_votos = COALESCE(?, meta_votos), marca_editada_en = NOW()
           WHERE usuario_id = ? AND activa = 1`,
-        [titulo.slice(0, 150), lema.slice(0, 200) || null, req.sublicencia.usuario_id]);
+        [titulo.slice(0, 150), lema.slice(0, 200) || null, meta, req.sublicencia.usuario_id]);
       return res.json({ ok: true, marcaPropia: true,
         mensaje: 'Guardado. Así se verá su campaña en toda la aplicación.' });
     } catch (err) {
@@ -500,6 +542,7 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
 
   const {
     nombre_candidato, cargo_aspira, slogan_campana, partido_politico,
+    meta_votos_campana,
     marca_titulo, marca_subtitulo,
     departamento, ciudad, direccion_sede, telefono, email,
     territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas,
@@ -577,16 +620,34 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
     const usarNombreCorregimientosFinal = valores.usar_nombre_corregimientos;
     const usarNombreVeredasFinal = valores.usar_nombre_veredas;
 
+    /* SE DISTINGUE «VACÍO» DE «CERO», que es la razón de que esto no sea un
+       `Number(x) || null`. Dejar la casilla en blanco significa «no la he
+       fijado» y guarda NULL; escribir un 0 es una meta de cero votos, rara
+       pero legítima, y se guarda como 0. Con `||` las dos acabarían en NULL y
+       no habría forma de borrar una meta ya escrita.
+
+       El tope es el mismo que el de la meta del aspirante, unas líneas más
+       arriba: diez millones. No es un número mágico, es que el censo electoral
+       de Colombia entero no llega a cuarenta, y un dedo torpe en el teclado
+       numérico no debería poder escribir una meta de mil millones. */
+    const metaCampanaCruda = meta_votos_campana;
+    const metaCampana = metaCampanaCruda === undefined || metaCampanaCruda === null || metaCampanaCruda === ''
+      ? null : Number(metaCampanaCruda);
+    if (metaCampana !== null && (!Number.isInteger(metaCampana) || metaCampana < 0 || metaCampana > 10000000)) {
+      return res.status(400).json({ error: 'La meta de votos de la campaña debe ser un número entero de 0 o más.' });
+    }
+
     await pool.query(
       `INSERT INTO configuracion_campana
-         (id, nombre_candidato, cargo_aspira, slogan_campana, partido_politico, departamento, ciudad, direccion_sede, telefono, email,
+         (id, nombre_candidato, cargo_aspira, slogan_campana, meta_votos_campana, partido_politico, departamento, ciudad, direccion_sede, telefono, email,
           territorio_departamento, territorio_ciudad, fecha_eleccion, ciudad_tiene_comunas, usar_nombre_barrios,
           usar_nombre_corregimientos, usar_nombre_veredas, apoyos_activos, marca_titulo, marca_subtitulo, actualizado_por)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nombre_candidato = VALUES(nombre_candidato),
          cargo_aspira = VALUES(cargo_aspira),
          slogan_campana = VALUES(slogan_campana),
+         meta_votos_campana = VALUES(meta_votos_campana),
          partido_politico = VALUES(partido_politico),
          departamento = VALUES(departamento),
          ciudad = VALUES(ciudad),
@@ -604,7 +665,7 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
          marca_titulo = VALUES(marca_titulo),
          marca_subtitulo = VALUES(marca_subtitulo),
          actualizado_por = VALUES(actualizado_por)`,
-      [nombre_candidato || null, cargo_aspira || null, (slogan_campana || '').trim() || null, partido_politico || null,
+      [nombre_candidato || null, cargo_aspira || null, (slogan_campana || '').trim() || null, metaCampana, partido_politico || null,
        departamento || null, ciudad || null, direccion_sede || null, telefono ? telefono.replace(/\D/g, '') : null, email || null,
        territorio_departamento || null, territorio_ciudad || null, fecha_eleccion || null,
        ciudadTieneComunasFinal, usarNombreBarriosFinal,
@@ -918,20 +979,41 @@ router.delete('/eliminar-datos/:area', requireRole('admin'), async (req, res) =>
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  /* SE APUNTA DENTRO DE LA TRANSACCIÓN Y ANTES DE BORRAR, como los demás.
+     Antes se escribía DESPUÉS y por el pool, o sea por otra conexión y con el
+     error tragado: si el apunte fallaba, el borrado ya estaba confirmado y no
+     quedaba constancia de nada. En el borrado más destructivo de la
+     aplicación era donde peor sentaba. */
+  let conexion;
   try {
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    /* SE CUENTA TABLA POR TABLA ANTES DE VACIARLAS. El apunte anterior decía
+       un total y ya; con el desglose se sabe qué se llevó por delante cada
+       área, que es lo que hace falta para decidir desde qué respaldo
+       reconstruir. */
+    const conteos = [];
+    for (const tabla of definicion.tablas) {
+      const [[c]] = await conexion.query(`SELECT COUNT(*) AS n FROM ${tabla}`);
+      conteos.push(`${tabla}: ${c.n}`);
+    }
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_datos_area', 'configuracion', null,
+      `Eliminó todos los registros del área "${definicion.etiqueta}". Se vaciaron ${conteos.join(', ')}.`,
+      req.ip);
     let eliminadas = 0;
     for (const tabla of definicion.tablas) {
-      const [resultado] = await pool.query(`DELETE FROM ${tabla}`);
+      const [resultado] = await conexion.query(`DELETE FROM ${tabla}`);
       eliminadas += resultado.affectedRows;
     }
-    await registrarAuditoria(
-      req.session.usuario.id, 'eliminar_datos_area', 'configuracion', null,
-      `Eliminó todos los registros del área "${definicion.etiqueta}" (${eliminadas} registros).`, req.ip
-    );
+    await conexion.commit();
     res.json({ ok: true, eliminadas });
   } catch (err) {
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     console.error(err);
     res.status(500).json({ error: `Error eliminando la información de "${definicion.etiqueta}".` });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 

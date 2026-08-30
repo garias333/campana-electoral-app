@@ -132,6 +132,18 @@
           <input id="input-partido-otro" placeholder="Escriba el nombre completo">
         </div>
 
+        <div class="fila" id="campo-meta-campana">
+          <div class="campo">
+            <label>Meta de votos de su campaña</label>
+            <input type="number" name="meta_votos_campana" min="0" step="1" placeholder="Ej. 20000">
+            <small style="color:var(--color-text-muted);">
+              Los votos que la campaña necesita para ganar. La fija usted: no
+              es la suma de las metas de los líderes, que es otra cifra —lo que
+              el equipo se comprometió a traer— y no tiene por qué coincidir.
+            </small>
+          </div>
+        </div>
+
         <div class="fila" style="flex-wrap:wrap;">
           <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
           <div class="campo" style="flex:1; min-width:200px;"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
@@ -172,6 +184,26 @@
               <div class="campo">
                 <label>Eslogan</label>
                 <input name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
+
+      <!-- SOLO PARA EL ASPIRANTE. Es la meta de SU campaña, la que él se pone.
+           La otra —cuántos votos le prometió a la campaña principal— se la
+           ponen al inscribirlo allá, y aquí se muestra sin poder tocarla:
+           es un pacto con la otra campaña, no una decisión suya. -->
+      <div class="campo" id="campo-meta-sublicencia" style="display:none;">
+        <label>Meta de votos de su campaña</label>
+        <input type="number" name="meta_votos" id="input-meta-sublicencia" min="0" step="1" placeholder="Ej. 1200">
+        <small style="color:var(--color-text-muted);">
+          Avanza con todo el que registre su equipo. Quien además marque
+          «Alcaldía» suma también en lo que usted le prometió a la campaña principal.
+        </small>
+      </div>
+      <div class="campo" id="campo-meta-madre" style="display:none;">
+        <label>Comprometido con la campaña principal</label>
+        <input type="text" id="input-meta-madre" disabled>
+        <small style="color:var(--color-text-muted);">
+          Se pactó al inscribirlo en la campaña principal; se cambia allá.
+        </small>
+      </div>
               </div>
               <small style="color:var(--color-text-muted); font-size:0.78rem;">
                 El eslogan se muestra en mayúsculas y en amarillo. Los dos textos
@@ -786,6 +818,10 @@ async function cargarConfiguracionCampana() {
     .then((uso) => { usoTerritorio = uso; })
     .catch(() => { usoTerritorio = null; });
   form.slogan_campana.value = config.slogan_campana || '';
+  /* VACÍO NO ES CERO, y por eso no lleva `|| 0` ni `|| ''` a secas. Una meta
+     sin declarar deja la casilla en blanco; una meta de cero votos escribe un
+     0. `?? ''` distingue las dos, `||` las juntaría. */
+  form.meta_votos_campana.value = config.meta_votos_campana ?? '';
   form.fecha_eleccion.value = config.fecha_eleccion || '';
   form.direccion_sede.value = config.direccion_sede || '';
   form.telefono.value = formatoTelefonoColombia(config.telefono || '');
@@ -810,7 +846,17 @@ async function cargarConfiguracionCampana() {
      y la contraseña de administrador no llega a pedirse. No hace falta quitar
      ese aviso: hace falta que no haya nada que confirmar. */
   if (config.es_sublicencia) {
-    const mios = ['marca_titulo', 'marca_subtitulo'];
+    /* SE ESCONDE LA META DE LA CAMPAÑA PRINCIPAL. No basta con que el bucle de
+       abajo la deje `disabled`: el rótulo es palabra por palabra el mismo que
+       el de SU meta, unas líneas más abajo, y dos casillas con el mismo nombre
+       en la misma pantalla —una vacía y bloqueada— no se distinguen. */
+    document.getElementById('campo-meta-campana').style.display = 'none';
+    document.getElementById('campo-meta-sublicencia').style.display = 'block';
+    document.getElementById('input-meta-sublicencia').value = config.meta_votos || 0;
+    document.getElementById('campo-meta-madre').style.display = 'block';
+    document.getElementById('input-meta-madre').value =
+      (config.meta_a_la_madre || 0) + ' votos';
+    const mios = ['marca_titulo', 'marca_subtitulo', 'meta_votos'];
     Array.from(form.elements).forEach((campo) => {
       if (!campo.name || mios.includes(campo.name)) return;
       campo.disabled = true;
@@ -857,6 +903,10 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
     : partidoSeleccionado;
 
   const datos = {
+    /* La meta de SU campaña. Va siempre, aunque el campo esté escondido para
+       la madre: el servidor solo la mira cuando quien guarda es un aspirante,
+       y si llega vacía conserva la que hubiera. */
+    meta_votos: document.getElementById('input-meta-sublicencia').value,
     nombre_candidato: form.nombre_candidato.value,
     cargo_aspira: form.cargo_aspira.value,
     ciudad_tiene_comunas: Number(form.ciudad_tiene_comunas.value),
@@ -868,6 +918,7 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
     usar_nombre_veredas: Number(form.usar_nombre_veredas.value),
     password_usar_veredas: passwordNivel.usar_nombre_veredas,
     slogan_campana: form.slogan_campana.value,
+    meta_votos_campana: form.meta_votos_campana.value,
     fecha_eleccion: form.fecha_eleccion.value,
     partido_politico: partidoFinal,
     departamento: document.getElementById('input-departamento-campana').value,
@@ -1098,9 +1149,26 @@ async function enviarCredencialesWhatsApp(id) {
   // Ver el comentario de arriba: la ventana se pide dentro del clic.
   const ventana = window.open('', 'whatsappWeb');
 
+  /* LA CONTRASEÑA SE PIDE AQUÍ, Y VA DESPUÉS DE ABRIR LA VENTANA A PROPÓSITO.
+     Este botón llama al mismo `restablecer-password` que el de la lista, y
+     ese endpoint exige la contraseña de quien lo hace. El botón de la lista
+     ya la pedía; éste no, así que el servidor lo rechazaba con «Contraseña
+     incorrecta. Escriba la suya para confirmar.» — un mensaje desconcertante,
+     porque nadie había escrito ninguna contraseña.
+
+     El orden importa: el diálogo es asíncrono y rompe la cadena del clic, así
+     que si se pidiera ANTES el bloqueador de ventanas emergentes cerraría la
+     de WhatsApp. Se abre primero, se pregunta después, y si se cancela se
+     cierra sin haber tocado nada — la contraseña de la persona solo cambia
+     cuando el servidor responde. */
+  const password_confirmacion = await solicitarPasswordPropia(
+    'Confirme con su contraseña',
+    `Se le va a asignar una contraseña nueva a ${u.nombre} y se le enviará por WhatsApp.`);
+  if (!password_confirmacion) { if (ventana) ventana.close(); return; }
+
   try {
       const r = await api(`/usuarios/${id}/restablecer-password`, {
-        method: 'POST', body: { enviar_sms: true }
+        method: 'POST', body: { enviar_sms: true, password_confirmacion }
       });
     const candidato = (document.querySelector('#form-campana [name="nombre_candidato"]') || {}).value || '';
     // A la pantalla de ingreso normal: ya no hay formulario aparte para
@@ -1403,7 +1471,7 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
 // --- Asignación de permisos ---
 const ETIQUETAS_ROL = {
   admin: 'Administrador', coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder',
-  testigo: 'Testigo', usuario: 'Usuario', asistente_administrativo: 'Asistente administrativo', invitado: 'Invitado'
+  testigo: 'Testigo', usuario: 'Usuario', asistente_administrativo: 'Asistente administrativo', administrativo: 'Administrativo', invitado: 'Invitado'
 };
 let matrizPermisosActual = null;
 

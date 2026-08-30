@@ -52,7 +52,7 @@ const MODULOS = [
  * tiene hoy. Si alguna vez hay que moverlo, basta con devolver 'usuario' a
  * esta lista.
  */
-const ROLES = ['admin', 'asistente_administrativo', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
+const ROLES = ['admin', 'administrativo', 'asistente_administrativo', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
 
 // Matriz completa (rol × módulo) para la pantalla de administración. Solo
 // admin. Cada casilla trae los tres niveles de permiso: Ver, Editar y

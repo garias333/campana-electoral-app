@@ -9,6 +9,43 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/crm.css">
 <style>
+
+/* ---------------------------------------------------- interruptores de envío */
+/* LOS DOS QUE CUESTAN DINERO O CAMBIAN LO QUE RECIBE LA GENTE VAN SOBRE FONDO.
+   Estaban en el mismo gris que los diez campos de credenciales de alrededor,
+   y son de otra clase: los demás guardan un dato, éstos encienden y apagan un
+   comportamiento —uno gasta un crédito de SMS por cada registro, el otro
+   cambia el texto que le llega a cada persona—. El fondo los separa de lo que
+   solo es configuración.
+
+   Los colores salen de las variables del tema —`--color-bg`, `--color-border`
+   y `--color-marca`, comprobadas en public/css/style.css— y no de un hex
+   suelto, para que sigan a la marca de cada campaña. La primera versión de
+   esto usaba `--color-bg-alt`, `--fi-borde` y `--color-primary`, que NO
+   existen: habría funcionado igual por los valores de reserva, y por eso el
+   error no se habría visto nunca — el panel se quedaría fijo en un gris que
+   ninguna campaña puede cambiar. */
+.interruptor-destacado {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-marca);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.interruptor-destacado > label { margin: 0; }
+.interruptor-destacado strong { font-size: 1rem; }
+
+/* AL DOBLE, Y CON `width`/`height`, NO CON `transform: scale(2)`. Escalar no
+   reserva sitio: la casilla se dibuja el doble pero sigue ocupando lo que
+   ocupaba, y se monta encima del texto de al lado. */
+.interruptor-destacado input[type="checkbox"] {
+  width: 26px; height: 26px;
+  flex: none;                 /* que el flex no la estire ni la encoja */
+  margin-top: 1px;
+  accent-color: var(--color-marca);
+  cursor: pointer;
+}
 /* Estilo propio de esta pantalla.
    VA AQUÍ Y NO EN style.css a propósito: esa hoja la comparten 24 pantallas y
    estos paneles, chips e indicadores solo existen acá. Suelto en la hoja
@@ -306,9 +343,9 @@
 
           <div id="onurix-saldo" style="margin-top:8px; font-size:0.85rem; color:var(--color-text-muted);"></div>
 
-          <div class="campo">
-            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-              <input type="checkbox" id="comunicaciones-baja-automatica" style="width:auto; margin-top:3px;" checked>
+          <div class="campo interruptor-destacado">
+            <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer;">
+              <input type="checkbox" id="comunicaciones-baja-automatica" checked>
               <span>
                 <strong>Agregar el enlace de baja a cada SMS</strong>
                 <small style="display:block; color:var(--color-text-muted); margin-top:3px; font-weight:normal;">
@@ -321,9 +358,9 @@
             </label>
           </div>
 
-          <div class="campo">
-            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
-              <input type="checkbox" id="comunicaciones-bienvenida-automatica" style="width:auto; margin-top:3px;">
+          <div class="campo interruptor-destacado">
+            <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer;">
+              <input type="checkbox" id="comunicaciones-bienvenida-automatica">
               <span>
                 <strong>Mandar un SMS de bienvenida a cada persona nueva</strong>
                 <small style="display:block; color:var(--color-text-muted); margin-top:3px; font-weight:normal;">
