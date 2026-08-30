@@ -425,7 +425,12 @@ function dibujarTablaPosiciones(filas, usuarioActualId) {
   }).join('');
 }
 
-const COLOR_INTENCION_DASHBOARD = { confirmado: '#16a34a', probable: '#84cc16', indeciso: '#eab308', no_apoya: '#dc2626', desconocido: '#94a3b8' };
+/* UN SOLO COLOR PARA TODOS LOS PINES. Antes se coloreaban por intención de
+   voto, pero `/territorial/mapa-personas` nunca devolvió esa columna: la
+   expresión caía siempre en el gris de «desconocido» y el mapa llevaba años
+   pintándose de un solo color sin que nadie lo notara. Al quitarse la
+   intención de voto de la aplicación, se deja explícito lo que ya pasaba. */
+const COLOR_PIN_DASHBOARD = '#0B5ED7';
 let mapaDashboard = null;
 
 /** Mismo pin (bola + vara) que usa el Mapa completo (Territorial → Mapa), para que ambos mapas se vean consistentes. */
@@ -470,8 +475,7 @@ async function cargarMapaDashboard() {
     const puntos = (votantes || []).filter(v => v.latitud && v.longitud);
     const grupo = L.featureGroup();
     puntos.forEach(v => {
-      const color = COLOR_INTENCION_DASHBOARD[v.intencion_voto] || COLOR_INTENCION_DASHBOARD.desconocido;
-      L.marker([v.latitud, v.longitud], { icon: crearIconoPinDashboard(color) }).addTo(grupo);
+      L.marker([v.latitud, v.longitud], { icon: crearIconoPinDashboard(COLOR_PIN_DASHBOARD) }).addTo(grupo);
     });
     grupo.addTo(mapaDashboard);
     if (puntos.length) mapaDashboard.fitBounds(grupo.getBounds().pad(0.2));

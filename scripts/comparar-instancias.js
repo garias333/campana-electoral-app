@@ -119,6 +119,64 @@ function versionParche(raiz) {
   }
 }
 
+
+/**
+ * ¿EL PROCESO DE ESTA INSTANCIA ESTA CORRIENDO SUS PROPIOS ARCHIVOS?
+ *
+ * Node carga los modulos al arrancar. Editar un `routes/*.js` no cambia nada
+ * hasta que el proceso se reinicia — y el sitio sigue respondiendo 200 todo el
+ * tiempo, asi que nada avisa.
+ *
+ * A LAS CAMPAÑAS NO LES PASA: cada parche las reinicia. Le pasa a la
+ * instalacion BASE, que es donde se edita y que justamente no recibe parches,
+ * asi que nadie la reinicia nunca. El 30 de agosto de 2026 la base llevaba
+ * 23 horas en pie con un dia entero de cambios en disco: su matriz de permisos
+ * seguia sin el rol nuevo mientras las dos campañas ya lo tenian. Se descubrio
+ * porque alguien noto que la base iba por detras de sus propias hijas.
+ *
+ * POR ESO SOLO SE COMPRUEBA EL ORIGEN. Las fechas de los archivos de una
+ * campaña vienen del zip del parche y arrastran cinco horas de desfase; aqui
+ * los archivos se editan en el sitio, asi que su fecha es la de verdad.
+ *
+ * La edad del proceso se lee de `/proc/<pid>/stat` via `ps`, no de PM2: PM2
+ * llega a decir «online» con el proceso muerto (ver la nota del 24 de agosto
+ * de 2026 en las memorias del proyecto).
+ */
+function procesoDesactualizado(raiz) {
+  let salida;
+  try {
+    salida = execFileSync('ps', ['-eo', 'pid=,lstart=,cmd='], { encoding: 'utf8' });
+  } catch (_) { return null; }        // sin `ps` no se puede saber: no se inventa
+  const linea = salida.split('\n').find((l) => l.includes(`node `) && l.includes(`${raiz}/app.js`));
+  if (!linea) return null;            // no esta corriendo: no es asunto de esto
+  const pid = linea.trim().split(/\s+/)[0];
+  const arranque = new Date(linea.slice(linea.indexOf(pid) + pid.length, linea.indexOf('node ')).trim());
+  if (isNaN(arranque)) return null;
+
+  /* SOLO LO QUE EL SERVIDOR CARGA. `scripts/` son guiones que se corren a
+     mano —generar un parche, comparar instancias, elevar un superadmin— y no
+     los lee `app.js` nunca: tocarlos no deja el proceso desactualizado, y
+     contarlos daba un aviso falso a los diez segundos de editar este mismo
+     archivo. `public/` tampoco entra: se sirve desde el disco en cada
+     peticion, asi que un cambio ahi ya esta vivo sin reiniciar nada. */
+  const CARGADAS_POR_EL_SERVIDOR = (a) => !a.startsWith('scripts/') && !a.startsWith('public/');
+
+  let masNuevo = null;
+  for (const archivo of inventario(raiz).keys()) {
+    if (!CARGADAS_POR_EL_SERVIDOR(archivo)) continue;
+    const completo = path.join(raiz, archivo);
+    let m;
+    try { m = fs.statSync(completo).mtime; } catch (_) { continue; }
+    /* Una fecha en el FUTURO no es un archivo recien tocado: es el desfase de
+       cinco horas que traen los zips. Se descarta en vez de dar una alarma
+       falsa. */
+    if (m > new Date()) continue;
+    if (!masNuevo || m > masNuevo) masNuevo = m;
+  }
+  if (!masNuevo || masNuevo <= arranque) return null;
+  return { pid, arranque, masNuevo, horas: (masNuevo - arranque) / 3600000 };
+}
+
 function main() {
   const destinos = process.argv.slice(2).length ? process.argv.slice(2) : INSTANCIAS_POR_DEFECTO;
   const base = inventario(ORIGEN);
@@ -170,6 +228,19 @@ function main() {
       sinExplicar.forEach((f) => console.log(`      ${sobran.includes(f) ? 'solo ahí: ' : ''}${f}`));
     }
     console.log('');
+  }
+
+  /* Se avisa del ORIGEN aunque no haya deriva de archivos: son dos problemas
+     distintos y el segundo no se ve en ningun md5. */
+  const viejo = procesoDesactualizado(ORIGEN);
+  if (viejo) {
+    console.log('EL PROCESO DE ESTA INSTANCIA CORRE CODIGO VIEJO.');
+    console.log(`   pid ${viejo.pid}, arrancado el ${viejo.arranque.toLocaleString('es-CO')}`);
+    console.log(`   el archivo mas nuevo es de ${viejo.masNuevo.toLocaleString('es-CO')}`);
+    console.log(`   son ${viejo.horas.toFixed(1)} horas de cambios en disco que nadie ha cargado.`);
+    console.log('   Node lee los modulos al arrancar, y el sitio responde 200 igual.');
+    console.log('   Como root:  bash scripts/reiniciar-instancia.sh appestrategia-electoral');
+    console.log('   La prueba de que reinicio es que el PID cambie.\n');
   }
 
   if (huboDeriva) {

@@ -236,7 +236,6 @@ CREATE TABLE IF NOT EXISTS votantes (
   geocodificado_en DATETIME NULL,
   lider_id INT NULL COMMENT 'usuario_id del líder responsable del contacto',
   sublider_id INT NULL COMMENT 'usuario_id del sublíder (colaborador bajo el líder) que refirió al contacto, opcional',
-  intencion_voto ENUM('confirmado','probable','indeciso','no_apoya','desconocido') DEFAULT 'desconocido',
   apoya_a JSON NULL COMMENT 'A qué cargo(s) apoya esta persona: alcaldia, concejo, jal, gobernacion, asamblea — puede ser más de uno',
   departamento_votacion VARCHAR(100) NULL,
   municipio_votacion VARCHAR(100) NULL,
@@ -268,7 +267,6 @@ CREATE TABLE IF NOT EXISTS votantes (
   FOREIGN KEY (lider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (sublider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
-  INDEX idx_votante_intencion (intencion_voto),
   INDEX idx_votante_territorio (territorio_id),
   UNIQUE INDEX uq_votante_cliente_uuid (cliente_uuid),
   FULLTEXT INDEX ft_votante_nombre (nombre)

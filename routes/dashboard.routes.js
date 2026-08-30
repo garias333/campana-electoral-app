@@ -158,10 +158,10 @@ router.get('/resumen', async (req, res) => {
       FROM estructura e WHERE e.activo = 1 ${filtroEquipo}
     `, parEquipo);
     const [[votantes]] = await pool.query(`
-      SELECT COUNT(*) AS total,
-        COUNT(CASE WHEN v.intencion_voto='confirmado' THEN 1 END) AS confirmados,
-        COUNT(CASE WHEN v.intencion_voto='probable' THEN 1 END) AS probables,
-        COUNT(CASE WHEN v.intencion_voto='indeciso' THEN 1 END) AS indecisos
+      -- Los tres contadores por intencion de voto (confirmados, probables,
+      -- indecisos) se quitaron con la propia intencion de voto: el panel
+      -- nunca los pinto, asi que se calculaban en cada carga para nada.
+      SELECT COUNT(*) AS total
       FROM votantes v WHERE 1 = 1 ${filtroVot}
     `, parVot);
     // Meta de votos = suma de la meta de votos que cada Líder tiene

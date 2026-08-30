@@ -79,17 +79,6 @@
             </div>
           </div>
           <div class="fila">
-            <div class="campo" id="grupo-campo-intencion">
-              <label>Intención de voto (solo Votantes)</label>
-              <select id="grupo-intencion">
-                <option value="">Todas</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="probable">Probable</option>
-                <option value="indeciso">Indeciso</option>
-                <option value="no_apoya">No apoya</option>
-                <option value="desconocido">Desconocido</option>
-              </select>
-            </div>
             <div class="campo" id="grupo-campo-categoria">
               <label>Categoría (solo Votantes)</label>
               <select id="grupo-categoria">
@@ -287,7 +276,6 @@ function actualizarVisibilidadFiltrosGrupo() {
   const esSoloOrganigrama = fuente === 'organigrama';
   const esTestigos = fuente === 'testigos';
   document.getElementById('grupo-campo-territorio').style.display = (esSoloOrganigrama || esTestigos) ? 'none' : 'block';
-  document.getElementById('grupo-campo-intencion').style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
   document.getElementById('grupo-campo-categoria').style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
   document.getElementById('grupo-campo-cargo').style.display = (esSoloOrganigrama || fuente === 'votantes' || esTestigos) ? 'none' : 'block';
   // El Puesto de votación ahora sirve también para Votantes: es el corte
@@ -306,7 +294,6 @@ document.getElementById('btn-agregar-grupo-resolver').addEventListener('click', 
     const filtroGrupo = {
       fuente: document.getElementById('grupo-fuente').value,
       territorio_id: document.getElementById('grupo-territorio').value || null,
-      intencion_voto: document.getElementById('grupo-intencion').value || null,
       categoria: document.getElementById('grupo-categoria').value || null,
       cargo: document.getElementById('grupo-cargo').value || null,
       puesto_votacion: document.getElementById('grupo-puesto-votacion').value || null,

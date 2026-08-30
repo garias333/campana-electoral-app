@@ -80,11 +80,45 @@ router.get('/marca', async (req, res) => {
   }
 });
 
-router.post('/marca/logo', requireRole('admin'), subirLogo.single('logo'), async (req, res) => {
+/* EL ASPIRANTE SUBE SU PROPIO LOGO, como ya escribia su nombre y su lema.
+   Hasta hoy la columna decia «Su logo. Lo sube el superadministrador, no el
+   aspirante», y era una decision, no un olvido: la marca la ponia quien vendia
+   la sublicencia. Se cambia a peticion de quien la vende.
+
+   ESCRIBE EN OTRA TABLA, y por eso no basta con abrirle la ruta. El logo de la
+   campaña madre vive en `configuracion_campana.marca_logo_url`; el suyo, en
+   `sublicencias.logo_url`. Dejarle escribir el primero le habria cambiado el
+   logo a la Alcaldia.
+
+   Y SE MARCA `marca_editada_en`, que es lo que impide que la sincronizacion
+   con el Servidor de Licencias se lo pise en la siguiente pasada. Ese IF
+   habia que añadirlo tambien en config/sincronizarSublicencias.js: el logo
+   era el unico de los tres campos de marca que no lo tenia. */
+router.post('/marca/logo', requireRole('admin', 'aspirante'), subirLogo.single('logo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se recibio ninguna imagen.' });
+  const url = `/uploads/marca/${req.file.filename}`;
+
+  if (req.sublicencia) {
+    try {
+      const [[suya]] = await pool.query(
+        'SELECT logo_url FROM sublicencias WHERE usuario_id = ? AND activa = 1', [req.sublicencia.usuario_id]);
+      await pool.query(
+        `UPDATE sublicencias SET logo_url = ?, marca_editada_en = NOW()
+          WHERE usuario_id = ? AND activa = 1`, [url, req.sublicencia.usuario_id]);
+      if (suya && suya.logo_url && suya.logo_url.startsWith('/uploads/marca/')) {
+        fs.unlink(path.join(CARPETA_MARCA, path.basename(suya.logo_url)), () => {});
+      }
+      await registrarAuditoria(req.session.usuario.id, 'cambiar_logo', 'sublicencias',
+        req.sublicencia.usuario_id, 'Cambio el logo de su propia campaña.', req.ip);
+      return res.json({ ok: true, logo_url: url });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'No se pudo guardar el logo.' });
+    }
+  }
+
   try {
     const [[antes]] = await pool.query('SELECT marca_logo_url FROM configuracion_campana WHERE id = 1');
-    const url = `/uploads/marca/${req.file.filename}`;
     await pool.query(
       `INSERT INTO configuracion_campana (id, marca_logo_url, actualizado_por) VALUES (1, ?, ?)
        ON DUPLICATE KEY UPDATE marca_logo_url = VALUES(marca_logo_url), actualizado_por = VALUES(actualizado_por)`,
@@ -104,7 +138,27 @@ router.post('/marca/logo', requireRole('admin'), subirLogo.single('logo'), async
 });
 
 /** Vuelve al logo que trae la plataforma. */
-router.delete('/marca/logo', requireRole('admin'), async (req, res) => {
+router.delete('/marca/logo', requireRole('admin', 'aspirante'), async (req, res) => {
+  if (req.sublicencia) {
+    try {
+      const [[suya]] = await pool.query(
+        'SELECT logo_url FROM sublicencias WHERE usuario_id = ? AND activa = 1', [req.sublicencia.usuario_id]);
+      /* `marca_editada_en` se marca TAMBIEN al quitarlo: si no, la siguiente
+         sincronizacion le devolveria el logo que tenga el panel de licencias,
+         y quitarlo no habria servido de nada. Quitar es una decision igual de
+         valida que poner. */
+      await pool.query(
+        `UPDATE sublicencias SET logo_url = NULL, marca_editada_en = NOW()
+          WHERE usuario_id = ? AND activa = 1`, [req.sublicencia.usuario_id]);
+      if (suya && suya.logo_url && suya.logo_url.startsWith('/uploads/marca/')) {
+        fs.unlink(path.join(CARPETA_MARCA, path.basename(suya.logo_url)), () => {});
+      }
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'No se pudo quitar el logo.' });
+    }
+  }
   try {
     const [[antes]] = await pool.query('SELECT marca_logo_url FROM configuracion_campana WHERE id = 1');
     await pool.query('UPDATE configuracion_campana SET marca_logo_url = NULL WHERE id = 1');

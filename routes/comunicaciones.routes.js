@@ -59,10 +59,6 @@ router.get('/adjunto-publico/:archivo', async (req, res) => {
 router.use(requireAuth);
 router.use(requireRole('admin', 'coordinador', 'lider', 'asistente_administrativo'));
 
-const ETIQUETAS_INTENCION = {
-  confirmado: 'Confirmado', probable: 'Probable', indeciso: 'Indeciso',
-  no_apoya: 'No apoya', desconocido: 'Desconocido'
-};
 const ETIQUETAS_CARGO = {
   coordinador: 'Coordinador', coordinador_organizaciones: 'Coordinador Organizaciones',
   lider: 'Líder', usuario: 'Sublíder', testigo: 'Testigo'
@@ -268,10 +264,6 @@ async function obtenerDestinatarios(filtros, canal) {
       condiciones.push('(v.territorio_id = ? OR t.padre_id = ?)');
       params.push(filtros.territorio_id, filtros.territorio_id);
     }
-    if (filtros.intencion_voto) {
-      condiciones.push('v.intencion_voto = ?');
-      params.push(filtros.intencion_voto);
-    }
     if (filtros.categoria) {
       condiciones.push('v.categoria = ?');
       params.push(filtros.categoria);
@@ -288,7 +280,7 @@ async function obtenerDestinatarios(filtros, canal) {
     const whereSql = armarWhereSql(condiciones, 'AND');
     const [filas] = await pool.query(`
       SELECT v.id, v.nombre, v.email, v.telefono,
-             v.intencion_voto, v.categoria, t.nombre AS territorio_nombre,
+             v.categoria, t.nombre AS territorio_nombre,
              v.puesto_votacion, v.mesa_votacion, v.no_contactar,
              v.consentimiento_email, v.consentimiento_sms, v.consentimiento_whatsapp
       FROM votantes v
@@ -315,7 +307,6 @@ async function obtenerDestinatarios(filtros, canal) {
         dado_de_baja: !!f.no_contactar,
         detalle: [
           f.categoria === 'sublider' ? 'Sublíder' : 'Votante',
-          f.intencion_voto ? ETIQUETAS_INTENCION[f.intencion_voto] : null,
           f.territorio_nombre,
           f.puesto_votacion ? `Puesto: ${f.puesto_votacion}${f.mesa_votacion ? ' · Mesa ' + f.mesa_votacion : ''}` : null
         ].filter(Boolean).join(' · ')

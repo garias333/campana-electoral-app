@@ -333,15 +333,13 @@ router.get('/', async (req, res) => {
 // Resumen estadístico para el dashboard (por intención de voto y territorio)
 router.get('/resumen', async (req, res) => {
   try {
-    const [porIntencion] = await pool.query(
-      `SELECT intencion_voto, COUNT(*) AS total FROM votantes GROUP BY intencion_voto`
-    );
+    // El desglose por intención de voto se fue con la propia intención.
     const [porTerritorio] = await pool.query(`
       SELECT t.nombre, COUNT(v.id) AS total
       FROM votantes v JOIN territorios t ON t.id = v.territorio_id
       GROUP BY t.id ORDER BY total DESC LIMIT 15
     `);
-    res.json({ porIntencion, porTerritorio });
+    res.json({ porTerritorio });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error generando el resumen.' });
@@ -497,7 +495,7 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       SELECT v.id, v.categoria, v.nombre, v.cedula, v.telefono, v.email, v.genero, v.edad, v.fecha_nacimiento,
              v.departamento_votacion, v.municipio_votacion, v.puesto_votacion, v.mesa_votacion,
              ${SQL_AREA_EFECTIVA} AS area,
-             v.direccion, v.departamento_residencia, v.ciudad_residencia, v.intencion_voto, v.apoya_a, v.observaciones,
+             v.direccion, v.departamento_residencia, v.ciudad_residencia, v.apoya_a, v.observaciones,
              v.tipo_area_influencia, v.organizacion,
              t.tipo AS territorio_tipo, t.nombre AS territorio_nombre, padre.nombre AS pertenece,
              lider.email AS lider_email
@@ -552,7 +550,6 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       'Vereda': f.territorio_tipo === 'vereda' ? f.territorio_nombre : '',
       'Organización': f.tipo_area_influencia === 'organizacion' ? (f.organizacion || '') : '',
       'Líder o coordinador': f.lider_email || '',
-      'Intención de voto': f.intencion_voto,
       'Apoya a': (Array.isArray(f.apoya_a) ? f.apoya_a : []).map(v => ETIQUETAS_APOYA_A[v] || v).join(', '),
       'Observaciones': f.observaciones || ''
     }));
@@ -659,7 +656,6 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.
       const departamentoResidenciaImport = String(fila['Departamento de residencia'] || fila.departamento_residencia || '').trim() || null;
       const ciudadResidenciaImport = String(fila['Ciudad de residencia'] || fila.ciudad_residencia || '').trim() || null;
       const liderEmail = String(fila['Líder o coordinador'] || fila.lider_email || '').trim().toLowerCase();
-      const intencionVoto = String(fila['Intención de voto'] || fila.intencion_voto || '').trim().toLowerCase() || 'desconocido';
       const observaciones = String(fila.Observaciones || fila.observaciones || '').trim() || null;
 
       // Si estas columnas vienen vacías en una fila que SÍ trae ID (modo
@@ -700,13 +696,13 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.
                direccion = ?, departamento_residencia = ?, ciudad_residencia = ?, area = ?,
                territorio_id = COALESCE(?, territorio_id),
                lider_id = COALESCE(?, lider_id),
-               intencion_voto = ?, departamento_votacion = ?, municipio_votacion = ?, puesto_votacion = ?, mesa_votacion = ?, observaciones = ?
+               departamento_votacion = ?, municipio_votacion = ?, puesto_votacion = ?, mesa_votacion = ?, observaciones = ?
              WHERE id = ?`,
             [nombre, cedula, telefono, email, genero, edad, fechaNacimiento || null,
              direccion, departamentoResidenciaImport, ciudadResidenciaImport, area || null,
              tocarTerritorio ? territorioId : null,
              tocarLider ? liderId : null,
-             intencionVoto, departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion, observaciones,
+             departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion, observaciones,
              idFila]
           );
           actualizados++;
@@ -751,11 +747,11 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.
         const [result] = await pool.query(
           `INSERT INTO votantes
            (nombre, cedula, telefono, email, genero, edad, fecha_nacimiento, territorio_id,
-            direccion, departamento_residencia, ciudad_residencia, area, lider_id, intencion_voto, departamento_votacion, municipio_votacion,
+            direccion, departamento_residencia, ciudad_residencia, area, lider_id, departamento_votacion, municipio_votacion,
             puesto_votacion, mesa_votacion, observaciones, created_by, origen, rama_aspirante_id)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'importado', ?)`,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'importado', ?)`,
           [nombre, cedula, telefono, email, genero, edad, fechaNacimiento || null, territorioId,
-           direccion, departamentoResidenciaImport, ciudadResidenciaImport, area || null, liderId || req.session.usuario.id, intencionVoto,
+           direccion, departamentoResidenciaImport, ciudadResidenciaImport, area || null, liderId || req.session.usuario.id,
            departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion,
            observaciones, req.session.usuario.id,
            /* MISMA REGLA QUE EN EL FORMULARIO: la rama se escribe al guardar.
@@ -1264,20 +1260,20 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
        (categoria, nombre, cedula, telefono, email, genero, edad, fecha_nacimiento, territorio_id,
         tipo_area_influencia, organizacion,
         direccion, departamento_residencia, ciudad_residencia,
-        comuna_corregimiento_residencia, barrio_residencia, area, lider_id, sublider_id, intencion_voto, apoya_a,
+        comuna_corregimiento_residencia, barrio_residencia, area, lider_id, sublider_id, apoya_a,
         departamento_votacion, municipio_votacion,
         puesto_votacion, ctc_puesto_id, mesa_votacion, observaciones,
         consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
         consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
         cliente_uuid, created_by, rama_aspirante_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
        b.direccion || null, b.departamento_residencia || null, b.ciudad_residencia || null,
        b.comuna_corregimiento_residencia || null, b.barrio_residencia || null,
        esOrganizacion ? null : (b.area || null), b.lider_id || req.session.usuario.id, b.sublider_id || null,
-       b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
+       JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
        b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null,
        b.consentimiento_autorizado ? 1 : 0,
@@ -1433,7 +1429,7 @@ router.put('/:id', async (req, res) => {
        fecha_nacimiento=?, territorio_id=?, tipo_area_influencia=?, organizacion=?, direccion=?,
        departamento_residencia=?, ciudad_residencia=?,
        comuna_corregimiento_residencia=?, barrio_residencia=?,
-       area=?, lider_id=?, sublider_id=?, intencion_voto=?, apoya_a=?,
+       area=?, lider_id=?, sublider_id=?, apoya_a=?,
        departamento_votacion=?, municipio_votacion=?, puesto_votacion=?, ctc_puesto_id=?, mesa_votacion=?, observaciones=?,
        rama_aspirante_id=? WHERE id = ?`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
@@ -1442,7 +1438,7 @@ router.put('/:id', async (req, res) => {
        b.direccion || null, b.departamento_residencia || null, b.ciudad_residencia || null,
        b.comuna_corregimiento_residencia || null, b.barrio_residencia || null,
        esOrganizacion ? null : (b.area || null), b.lider_id || null, b.sublider_id || null,
-       b.intencion_voto || 'desconocido', JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
+       JSON.stringify(Array.isArray(b.apoya_a) ? b.apoya_a : []),
        b.departamento_votacion || null, b.municipio_votacion || null,
        b.puesto_votacion || null, await resolverCtcPuestoId(b), b.mesa_votacion || null, b.observaciones || null,
        /* SE RECALCULA, no se conserva: cambiarle el lider a un votante lo
@@ -1605,10 +1601,8 @@ router.put('/:id/verificar', requireRole('admin', 'asistente_administrativo'), a
  *
  * SE NOMBRA LO QUE SE VA EN CASCADA, no solo la ficha. Tres foráneas cuelgan
  * de `votantes` con ON DELETE CASCADE —`evento_asistentes`, `votante_ramas` y
- * `votante_opinion`—, así que un borrado se lleva también a qué eventos
- * asistió, de qué ramas formaba parte y qué opinión tenía cada aspirante sobre
- * esa persona. Contado antes de borrar, el apunte dice cuánto trabajo se
- * perdió; sin contarlo, el borrado parece una fila.
+ * asistió y de qué ramas formaba parte. Contado antes de borrar, el apunte
+ * dice cuánto trabajo se perdió; sin contarlo, el borrado parece una fila.
  *
  * Y SE DEJA CONSTANCIA DEL CONSENTIMIENTO. Los tres campos de la Ley 1581
  * —autorización, fecha y versión de la política— son justamente lo que hay que
@@ -1616,16 +1610,12 @@ router.put('/:id/verificar', requireRole('admin', 'asistente_administrativo'), a
  * apunte al menos conserva que existió, de cuándo era y contra qué texto.
  */
 function descripcionDeVotanteBorrado(v) {
-  const INTENCION = {
-    confirmado: 'confirmado', probable: 'probable', indeciso: 'indeciso',
-    no_apoya: 'no apoya', desconocido: 'sin definir',
-  };
   const partes = [
     `Eliminó la ficha de ${v.nombre || 'una persona sin nombre'}`,
     v.cedula ? ` (cédula ${v.cedula})` : ' (sin cédula)',
     `, ${v.categoria === 'sublider' ? 'Sublíder' : 'Votante'}`,
     v.territorio_nombre ? ` de ${v.territorio_nombre}` : '',
-    `, intención de voto ${INTENCION[v.intencion_voto] || v.intencion_voto || 'sin definir'}.`,
+    '.',
     ` El identificador de la ficha era ${v.id}`,
     v.telefono ? `, el teléfono ${v.telefono}` : '',
     v.email ? `, el correo ${v.email}` : '',
@@ -1647,7 +1637,6 @@ function descripcionDeVotanteBorrado(v) {
   const arrastre = [];
   if (v.eventos > 0)   arrastre.push([v.eventos, `${v.eventos} ${v.eventos === 1 ? 'asistencia a un evento' : 'asistencias a eventos'}`]);
   if (v.ramas > 0)     arrastre.push([v.ramas, `${v.ramas} ${v.ramas === 1 ? 'vínculo con la rama de un aspirante' : 'vínculos con ramas de aspirantes'}`]);
-  if (v.opiniones > 0) arrastre.push([v.opiniones, `${v.opiniones} ${v.opiniones === 1 ? 'opinión registrada' : 'opiniones registradas'}`]);
   if (arrastre.length) {
     const textos = arrastre.map(a => a[1]);
     const lista = textos.length === 1 ? textos[0]
@@ -1728,13 +1717,11 @@ router.delete('/:id', async (req, res) => {
 
       const [[ficha]] = await conexion.query(
         `SELECT v.id, v.nombre, v.cedula, v.telefono, v.email, v.categoria,
-                v.intencion_voto,
                 v.consentimiento_autorizado, v.consentimiento_fecha, v.consentimiento_version,
                 t.nombre AS territorio_nombre,
                 l.nombre AS lider_nombre,
                 (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.votante_id = v.id) AS eventos,
-                (SELECT COUNT(*) FROM votante_ramas vr    WHERE vr.votante_id = v.id) AS ramas,
-                (SELECT COUNT(*) FROM votante_opinion vo  WHERE vo.votante_id = v.id) AS opiniones
+                (SELECT COUNT(*) FROM votante_ramas vr    WHERE vr.votante_id = v.id) AS ramas
            FROM votantes v
            LEFT JOIN territorios t ON t.id = v.territorio_id
            LEFT JOIN usuarios l    ON l.id = v.lider_id
@@ -1841,10 +1828,10 @@ router.post('/importar', async (req, res) => {
     if (!b.nombre) { errores.push({ fila: i + 1, error: 'Falta el nombre' }); continue; }
     try {
       await pool.query(
-        `INSERT INTO votantes (nombre, cedula, telefono, territorio_id, intencion_voto, created_by, origen, rama_aspirante_id)
-         VALUES (?,?,?,?,?,?, 'importado', ?)`,
+        `INSERT INTO votantes (nombre, cedula, telefono, territorio_id, created_by, origen, rama_aspirante_id)
+         VALUES (?,?,?,?,?, 'importado', ?)`,
         [b.nombre, b.cedula || null, b.telefono || null, b.territorio_id || null,
-         b.intencion_voto || 'desconocido', req.session.usuario.id,
+         req.session.usuario.id,
          /* ESTAS FILAS NO GUARDAN `lider_id`, asi que la rama solo puede salir
             de la cedula: si esa persona esta en la estructura de un aspirante,
             cuelga de el. NO se usa quien importa como si fuera su lider —seria

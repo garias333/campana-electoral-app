@@ -64,7 +64,15 @@ async function sincronizar(lista) {
            cargo = VALUES(cargo),
            nombre    = IF(marca_editada_en IS NULL, VALUES(nombre), nombre),
            subtitulo = IF(marca_editada_en IS NULL, VALUES(subtitulo), subtitulo),
-           logo_url = VALUES(logo_url), activa = 1`,
+           -- EL LOGO SE PROTEGE IGUAL QUE EL NOMBRE Y EL LEMA.
+           -- Estaba sin proteger: se pisaba en cada sincronizacion, cada seis
+           -- horas. Mientras el logo solo lo subia el superadministrador desde
+           -- el panel daba igual, porque el panel era la unica fuente. Desde
+           -- que el aspirante puede subir el suyo, sin este IF su logo duraba
+           -- hasta la siguiente pasada y desaparecia sin que nada avisara —
+           -- el peor final posible para una funcion que parece funcionar.
+           logo_url  = IF(marca_editada_en IS NULL, VALUES(logo_url), logo_url),
+           activa = 1`,
         [u.id, s.cargo || 'concejo', s.nombre_campana || null,
          s.subtitulo || null, s.logo_url || null]);
       // affectedRows: 1 = insertada, 2 = actualizada de verdad, 0 = igual.

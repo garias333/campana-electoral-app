@@ -18,6 +18,33 @@ const crypto = require('crypto');
  * diferencia de MariaDB/PostgreSQL) no soporta "ADD COLUMN IF NOT EXISTS",
  * así que se maneja capturando el error de columna duplicada.
  */
+/**
+ * Quita una columna que ya no se usa, sin fallar si no está.
+ *
+ * El gemelo de `agregarColumnaSiFalta`, y hace falta por lo mismo: el esquema
+ * se aplica con `CREATE TABLE IF NOT EXISTS`, que crea lo que falta pero no
+ * quita nada. Sin esto, una columna retirada del esquema seguiría viva en
+ * todas las instalaciones que ya existen — y ahí sí es peor que no haberla
+ * quitado, porque el código deja de escribirla y nadie sabe si el dato que
+ * queda es de ayer o de hace un año.
+ *
+ * ES IRREVERSIBLE: se lleva el dato. Solo se usa cuando la decisión de retirar
+ * el campo está tomada, no para «limpiar» por si acaso.
+ */
+async function quitarColumnaSiSobra(connection, tabla, nombreColumna) {
+  try {
+    await connection.query(`ALTER TABLE ${tabla} DROP COLUMN ${nombreColumna}`);
+    console.log(`Columna ${nombreColumna} eliminada de ${tabla}.`);
+    return true;
+  } catch (err) {
+    // 1091: no existe la columna — ya se habia quitado en una corrida anterior.
+    if (err.errno === 1091 || err.code === 'ER_CANT_DROP_FIELD_OR_KEY') {
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function agregarColumnaSiFalta(connection, tabla, definicionColumna, nombreColumna) {
   try {
     await connection.query(`ALTER TABLE ${tabla} ADD COLUMN ${definicionColumna}`);
@@ -724,7 +751,7 @@ async function main() {
   // y Mesa ya existían en el esquema pero sin campo en el formulario).
   await agregarColumnaSiFalta(
     connection, 'votantes',
-    'departamento_votacion VARCHAR(100) NULL AFTER intencion_voto',
+    'departamento_votacion VARCHAR(100) NULL',
     'departamento_votacion'
   );
   await agregarColumnaSiFalta(
@@ -1034,7 +1061,7 @@ async function main() {
   // lista en JSON (ej. ["alcaldia","concejo"]) porque alguien puede
   // apoyar a más de uno a la vez (son elecciones simultáneas).
   await agregarColumnaSiFalta(connection, 'usuarios', 'apoya_a JSON NULL AFTER tipo_cargo', 'apoya_a');
-  await agregarColumnaSiFalta(connection, 'votantes', 'apoya_a JSON NULL AFTER intencion_voto', 'apoya_a');
+  await agregarColumnaSiFalta(connection, 'votantes', 'apoya_a JSON NULL', 'apoya_a');
 
   // "Datos verificados": casilla en el listado de Votantes y sublíderes que
   // solo Administrador y Asistente administrativo pueden marcar/desmarcar
@@ -1881,51 +1908,6 @@ async function main() {
   } catch (err) {
     if (err.code !== 'ER_DUP_KEYNAME') throw err;
   }
-  /* -------------------------------------------------------------------
-     LA VALORACION, POR RAMA
-
-     Una persona puede estar CONFIRMADA con el concejal e INDECISA con el
-     alcalde. Con un solo `intencion_voto`, uno de los dos tableros miente.
-
-     PERO NO SE PARTE LA FICHA ENTERA, Y LA DISTINCION IMPORTA:
-
-       identidad ....... cedula, nombre, telefono, direccion, puesto.
-                         Es la misma persona para todos. Si el concejal
-                         corrige el telefono, el alcalde debe verlo corregido.
-
-       apoya_a ......... a quien apoya ELLA. Es un hecho suyo, declarado, no
-                         la opinion de nadie: dos aspirantes no pueden estar
-                         en desacuerdo sobre si apoya al alcalde. Se queda
-                         compartido — y de paso, el filtro de la madre lo
-                         sigue leyendo donde siempre.
-
-       valoracion ...... intencion_voto y observaciones. Eso SI es lo que
-                         cada campaña piensa, y va por rama.
-
-     LAS COLUMNAS DE `votantes` NO SE MUEVEN. Pasan a significar «la
-     valoracion de la campaña madre», que es exactamente lo que ya son. Por eso
-     este paso no toca ninguno de los once sitios que hoy las leen: la madre
-     sigue viendo lo suyo sin enterarse de que existe esta tabla.
-
-     Los campos van NULL a proposito: una sublicencia recien activada hereda la
-     valoracion de la madre en vez de estrenar a todo el mundo en
-     «desconocido», y diverge en cuanto alguien la cambie.
-     ------------------------------------------------------------------- */
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS votante_opinion (
-      votante_id INT NOT NULL,
-      aspirante_id INT NOT NULL,
-      intencion_voto ENUM('confirmado','probable','indeciso','no_apoya','desconocido') NULL
-        COMMENT 'NULL = todavia no opina; se ve la de la madre',
-      observaciones TEXT NULL,
-      actualizado_por INT NULL,
-      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (votante_id, aspirante_id),
-      KEY idx_vo_aspirante (aspirante_id),
-      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
-      FOREIGN KEY (aspirante_id) REFERENCES usuarios(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
 
   console.log('Sublicencias: tablas, columna derivada e indice listos.');
 
@@ -1937,6 +1919,21 @@ async function main() {
     if (err.code !== 'ER_DUP_KEYNAME') throw err;
     console.log('El índice uq_superadmin_unico ya existía. Sin cambios.');
   }
+
+  /* LA INTENCIÓN DE VOTO SE RETIRA DE LA APLICACIÓN (30 de agosto de 2026).
+     Era una escala —confirmado, probable, indeciso, no apoya— que en la
+     práctica nadie llenaba: el campo no estaba en ningún formulario, así que
+     solo podía entrar por importación de Excel. Medido antes de quitarla: 4
+     votantes de 97 en una campaña y 0 de 81 en la otra tenían algo distinto de
+     «desconocido», el panel calculaba tres contadores que no pintaba, el mapa
+     coloreaba por una columna que su consulta no devolvía —todos los pines
+     grises desde siempre— y `votante_opinion`, la misma escala por aspirante,
+     tenía cero filas.
+
+     Se retira también el filtro de destinatarios de los cuatro envíos, que
+     filtraba por un valor que no se podía escribir. */
+  await quitarColumnaSiSobra(connection, 'votantes', 'intencion_voto');
+  await connection.query('DROP TABLE IF EXISTS votante_opinion');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);

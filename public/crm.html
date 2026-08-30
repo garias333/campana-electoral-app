@@ -231,17 +231,6 @@ function plantillaGrupo(idx) {
         </div>
       </div>
       <div class="fila">
-        <div class="campo" id="campo-filtro-intencion-${idx}">
-          <label>Intención de voto (solo Votantes)</label>
-          <select id="filtro-intencion-${idx}">
-            <option value="">Todas</option>
-            <option value="confirmado">Confirmado</option>
-            <option value="probable">Probable</option>
-            <option value="indeciso">Indeciso</option>
-            <option value="no_apoya">No apoya</option>
-            <option value="desconocido">Desconocido</option>
-          </select>
-        </div>
         <div class="campo" id="campo-filtro-categoria-${idx}">
           <label>Categoría (solo Votantes)</label>
           <select id="filtro-categoria-${idx}">
@@ -336,7 +325,6 @@ function actualizarVisibilidadFiltrosGrupo(idx) {
   const esSoloOrganigrama = fuente === 'organigrama';
   const esTestigos = fuente === 'testigos';
   document.getElementById(`campo-filtro-territorio-${idx}`).style.display = (esSoloOrganigrama || esTestigos) ? 'none' : 'block';
-  document.getElementById(`campo-filtro-intencion-${idx}`).style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
   document.getElementById(`campo-filtro-categoria-${idx}`).style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
   document.getElementById(`campo-filtro-cargo-${idx}`).style.display = (esSoloOrganigrama || fuente === 'votantes' || esTestigos) ? 'none' : 'block';
   // El Puesto de votación ahora sirve también para Votantes: es el corte
@@ -404,7 +392,6 @@ function leerTodosLosGrupos() {
     grupos.push({
       fuente: document.getElementById(`filtro-fuente-${idx}`).value,
       territorio_id: document.getElementById(`filtro-territorio-${idx}`).value || null,
-      intencion_voto: document.getElementById(`filtro-intencion-${idx}`).value || null,
       categoria: document.getElementById(`filtro-categoria-${idx}`).value || null,
       cargo: document.getElementById(`filtro-cargo-${idx}`).value || null,
       puesto_votacion: document.getElementById(`filtro-puesto-votacion-${idx}`).value || null,

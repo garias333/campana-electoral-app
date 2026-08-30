@@ -1560,3 +1560,156 @@ function activarVerContrasena(raiz) {
 }
 
 document.addEventListener('DOMContentLoaded', () => activarVerContrasena());
+
+/* ==========================================================================
+   DESPLEGABLES ORDENADOS SOLOS
+   ==========================================================================
+
+   Las 144 listas desplegables de la aplicación se ordenan alfabéticamente sin
+   que cada pantalla tenga que acordarse — y siguen ordenadas cuando alguien
+   les añade una opción después, que es lo que pasa a todas horas: los
+   territorios llegan por `api()`, los líderes se repueblan al cambiar de
+   barrio, los puestos de votación se filtran por municipio.
+
+   POR QUÉ UN OBSERVADOR Y NO UNA LLAMADA AL CARGAR. Ordenar en el arranque
+   dejaría bien los desplegables escritos en el HTML y mal todos los demás,
+   que son la mayoría y se llenan segundos después. Y obligar a cada sitio que
+   los llena a llamar a `ordenarSelect()` es repartir la responsabilidad entre
+   ochenta llamadas: basta que una se olvide para que ese desplegable quede
+   desordenado sin que nada avise.
+
+   LO QUE NO SE ORDENA, Y POR QUÉ:
+
+   · La opción vacía se queda arriba. «Seleccione...», «Ninguno», «Todos los
+     cargos», «Toda comuna/corregimiento» son la etiqueta del campo, no un
+     valor entre los demás; ordenarlas las mandaría al medio de la lista.
+   · Dentro de cada `<optgroup>` por separado. Los grupos son una
+     clasificación deliberada: mezclarlos la borraría.
+   · Los números se ordenan como números. Con la comparación de texto, las
+     mesas 1, 2, 10 salen como 1, 10, 2. `Intl.Collator` con `numeric: true`
+     lo resuelve sin tener que adivinar si una lista es numérica.
+   · Un `<select data-sin-ordenar>` se deja intacto. Es la salida para los que
+     tienen un orden con sentido: una escala como la intención de voto
+     (confirmado > probable > indeciso), unos ordinales como los niveles del
+     organigrama, o una lista ya ordenada a propósito por cercanía o por rango,
+     como «Reporta a».
+*/
+
+/* Comparación en español: la Ñ va después de la N, las tildes no separan
+   palabras, y `numeric` hace que 2 vaya antes que 10. Se crea UNA vez: un
+   `Intl.Collator` nuevo por comparación es de lo más caro que hay en una lista
+   de mil opciones. */
+const COMPARADOR_OPCIONES = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
+
+/**
+ * Ordena las opciones de un desplegable. Devuelve true si tuvo que moverlas.
+ *
+ * SI YA ESTABA ORDENADO NO TOCA EL DOM, y no es una optimización cosmética:
+ * cada movimiento despierta al observador de abajo, así que reordenar a lo
+ * tonto se realimenta. Comprobar primero corta ese ciclo en el caso normal.
+ */
+function ordenarSelect(select) {
+  if (!select || select.tagName !== 'SELECT') return false;
+  if (select.hasAttribute('data-sin-ordenar')) return false;
+
+  // El propio select y cada grupo son contenedores independientes.
+  const contenedores = [select, ...select.querySelectorAll('optgroup')];
+  let cambio = false;
+
+  for (const contenedor of contenedores) {
+    const opciones = Array.from(contenedor.children).filter((n) => n.tagName === 'OPTION');
+    if (opciones.length < 2) continue;
+
+    // La opción sin valor es el rótulo del campo: se queda donde está.
+    const fijas = opciones.filter((o) => o.value === '');
+    const movibles = opciones.filter((o) => o.value !== '');
+    if (movibles.length < 2) continue;
+
+    const ordenadas = movibles.slice().sort((a, b) =>
+      COMPARADOR_OPCIONES.compare((a.textContent || '').trim(), (b.textContent || '').trim()));
+    if (ordenadas.every((o, i) => o === movibles[i])) continue;   // ya estaba
+
+    /* SE GUARDA LA SELECCIÓN Y SE RESTAURA. Mover el <option> que está
+       seleccionado hace que algunos navegadores devuelvan el select a su
+       primera opción; el usuario vería su elección cambiar sola mientras
+       escribe en otro campo. */
+    const seleccionadas = Array.from(contenedor.querySelectorAll('option:checked')).map((o) => o.value);
+    const valorPrevio = select.value;
+
+    const trozo = document.createDocumentFragment();
+    fijas.forEach((o) => trozo.appendChild(o));
+    ordenadas.forEach((o) => trozo.appendChild(o));
+    contenedor.appendChild(trozo);
+
+    if (select.multiple) {
+      Array.from(select.options).forEach((o) => { o.selected = seleccionadas.includes(o.value); });
+    } else if (valorPrevio !== '' && select.value !== valorPrevio) {
+      select.value = valorPrevio;
+    }
+    cambio = true;
+  }
+  return cambio;
+}
+
+/** Ordena todos los desplegables que haya bajo `raiz` (por omisión, la página). */
+function ordenarTodosLosSelects(raiz) {
+  const donde = raiz && raiz.querySelectorAll ? raiz : document;
+  donde.querySelectorAll('select').forEach(ordenarSelect);
+}
+
+/* EL OBSERVADOR. Mira toda la página y ordena el desplegable que acabe de
+   recibir opciones.
+
+   SE DESACTIVA MIENTRAS ORDENA, y después se tiran los registros que él mismo
+   provocó con `takeRecords()`. Sin eso el ciclo es inevitable: la llamada del
+   observador es asíncrona, así que los movimientos hechos con la bandera
+   puesta llegarían igualmente cuando ya está quitada, y volvería a ordenar
+   para siempre.
+
+   Se agrupa el trabajo en un `requestAnimationFrame` porque llenar un
+   desplegable con `innerHTML` de mil opciones dispara una avalancha de
+   mutaciones: ordenar en cada una sería ordenar mil veces la misma lista. */
+let observadorSelects = null;
+let pendientesDeOrdenar = new Set();
+let ordenadoProgramado = false;
+
+function procesarPendientes() {
+  ordenadoProgramado = false;
+  const lista = Array.from(pendientesDeOrdenar);
+  pendientesDeOrdenar.clear();
+  if (!lista.length || !observadorSelects) return;
+  observadorSelects.disconnect();
+  try {
+    lista.forEach((s) => { if (s.isConnected) ordenarSelect(s); });
+  } finally {
+    observadorSelects.takeRecords();
+    observadorSelects.observe(document.documentElement, { childList: true, subtree: true });
+  }
+}
+
+function vigilarDesplegables() {
+  if (observadorSelects || typeof MutationObserver === 'undefined') return;
+  observadorSelects = new MutationObserver((mutaciones) => {
+    for (const m of mutaciones) {
+      // El contenedor que cambió: el select mismo, o el optgroup que lo lleva.
+      const destino = m.target && m.target.closest ? m.target.closest('select') : null;
+      if (destino) { pendientesDeOrdenar.add(destino); continue; }
+      // O un trozo de página recién pintado que TRAE desplegables dentro.
+      m.addedNodes && m.addedNodes.forEach((n) => {
+        if (n.nodeType !== 1) return;
+        if (n.tagName === 'SELECT') pendientesDeOrdenar.add(n);
+        else if (n.querySelectorAll) n.querySelectorAll('select').forEach((s) => pendientesDeOrdenar.add(s));
+      });
+    }
+    if (pendientesDeOrdenar.size && !ordenadoProgramado) {
+      ordenadoProgramado = true;
+      requestAnimationFrame(procesarPendientes);
+    }
+  });
+  observadorSelects.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ordenarTodosLosSelects();
+  vigilarDesplegables();
+});
