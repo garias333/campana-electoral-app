@@ -26,7 +26,18 @@
          seguridad. Cada pestaña es una sección.</p>
     </div>
     <div class="topbar">
-      <div class="grupo-pestanas" id="barra-pestanas-config">
+      <!-- ESTA BARRA DUPLICABA EL MENU LATERAL, ENTERA. Las seis pestañas
+           tienen su propia entrada en la barra de la izquierda —«Datos de la
+           campaña», «Puestos de votación y candidatos», «Usuarios»,
+           «Asignación de permisos», «Eliminar información» y «Backup»—, cada
+           una apuntando al mismo `#`. Dos navegaciones para lo mismo, y encima
+           discrepando: al llegar desde el menú a «Puestos de votación y
+           candidatos», la barra de arriba seguia ofreciendo Backup y Eliminar
+           información, que no es donde el usuario acaba de decir que queria ir.
+           Se ocultan los botones en vez de borrarlos: `cambiarPestana()` les
+           cambia las clases en una docena de sitios y quitarlos obligaria a
+           tocar todo eso para no ganar nada. La navegacion es el menu. -->
+      <div class="grupo-pestanas" id="barra-pestanas-config" style="display:none;">
         <button type="button" class="btn-acento btn-sm" id="btn-tab-campana">Datos de la campaña</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-diad">Día D</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios">Usuarios</button>
@@ -651,9 +662,21 @@ document.getElementById('btn-subtab-diad-candidatos').addEventListener('click', 
 // clic no tenía ningún efecto visible. Con esto, cualquier cambio de hash
 // (por navegación del menú, atrás/adelante del navegador, etc.) abre la
 // pestaña correspondiente.
+/* QUE SECCIONES PUEDE ABRIR QUIEN MIRA, EN UN SOLO SITIO.
+   Estaba en dos —la carga inicial y este `hashchange`— y no decian lo mismo:
+   el aspirante quedaba acotado al entrar, pero cambiando el `#` a mano se
+   colaba en Backup o Eliminar información de la campaña MADRE. Con la barra de
+   pestañas fuera, el `#` es la unica navegacion que queda, asi que esa
+   diferencia dejo de ser teorica. */
+function pestanasPermitidas() {
+  return (usuarioActual && usuarioActual.es_aspirante)
+    ? ['campana', 'diad', 'usuarios']
+    : ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'];
+}
+
 window.addEventListener('hashchange', () => {
   const pestana = window.location.hash.slice(1);
-  if (['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'].includes(pestana)) cambiarPestana(pestana);
+  if (pestanasPermitidas().includes(pestana)) cambiarPestana(pestana);
 });
 
 // --- Datos de la campaña ---
@@ -2159,7 +2182,7 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
     return;
   }
   if (soyAspirante) {
-    ['btn-tab-diad', 'btn-tab-permisos', 'btn-tab-eliminar', 'btn-tab-backup'].forEach(id => {
+    ['btn-tab-permisos', 'btn-tab-eliminar', 'btn-tab-backup'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.style.display = 'none';
     });
@@ -2178,17 +2201,31 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
      rutas le responderían 403 con un texto que no explica nada.
 
      Se le quitan los botones y se le fija la pestaña, para que escribir la
-     dirección con otro `#` tampoco lo lleve a ninguna parte. */
+     dirección con otro `#` tampoco lo lleve a ninguna parte.
+
+     QUE LE QUEDAN Y POR QUE, porque la lista cambio dos veces:
+       · Datos de la campaña — su nombre, su lema, su logo.
+       · Día D — desde que cada campaña tiene su propia lista de puestos y de
+         candidatos, esa pantalla es SUYA. Antes era la de la madre y por eso
+         estaba fuera.
+       · Usuarios — las cuentas de SU equipo, acotadas una por una en el
+         servidor. Estaba escondida aquí Y ofrecida en el menú al mismo
+         tiempo (`HREFS_ASPIRANTE` en middleware/aspirante.js), asi que ese
+         boton del menu le aterrizaba en «Datos de la campaña» sin decir nada.
+         Dos listas en dos sitios se separaron; ahora dicen lo mismo.
+     Fuera quedan Asignación de permisos, Eliminar información y Backup, que sí
+     son de la campaña madre y le responderían 403. */
   if (usuarioActual && usuarioActual.es_aspirante) {
-    ['diad', 'usuarios', 'permisos', 'eliminar', 'backup'].forEach((t) => {
+    ['permisos', 'eliminar', 'backup'].forEach((t) => {
       const b = document.getElementById('btn-tab-' + t);
       if (b) b.style.display = 'none';
     });
-    cambiarPestana('campana');
+    const pedida = window.location.hash.slice(1);
+    cambiarPestana(pestanasPermitidas().includes(pedida) ? pedida : 'campana');
     return;
   }
 
-  const pestanaInicial = ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'].includes(window.location.hash.slice(1))
+  const pestanaInicial = pestanasPermitidas().includes(window.location.hash.slice(1))
     ? window.location.hash.slice(1) : 'campana';
   cambiarPestana(pestanaInicial);
 })();

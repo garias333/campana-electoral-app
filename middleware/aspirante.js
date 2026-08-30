@@ -88,6 +88,13 @@ const HREFS_ASPIRANTE = [
      restablecer una contraseña no es algo que puedan hacer dos personas sin
      pisarse. Ver `usuariosDelAspiranteSql` en lib/ramas.js. */
   '/configuracion.html#usuarios',
+  /* Puestos de votacion y candidatos del Dia D. Antes NO estaba, y con razon:
+     esa pestaña mostraba los puestos de la campaña MADRE, y ofrecersela habria
+     sido enseñarle la lista de otra campaña. Desde que cada campaña tiene la
+     suya —con su propia cantidad de mesas por puesto y sus propios conteos—
+     esa pantalla es la suya, y sin esta linea el menu no se la ofrecia aunque
+     el servidor ya se la sirviera bien. */
+  '/configuracion.html#diad',
 ];
 
 const PERMISOS_ASPIRANTE = {
