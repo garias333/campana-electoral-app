@@ -1664,7 +1664,30 @@ table td .btn-primario:hover {
   background: #A93226; border-color: #8E2A20; color: #FFFFFF;
   cursor: help;
 }
+/* Va encima de la rejilla y a 0.92rem: a 0.78 era la letra mas pequeña de la
+   fila justo en la linea que explica el unico color que hay que entender. */
 .cobertura-aviso {
-  margin-top: 6px; font-size: 0.78rem; color: #A93226; font-weight: 600;
+  margin: 2px 0 7px; font-size: 0.92rem; color: #A93226; font-weight: 600;
   max-width: 400px; line-height: 1.35;
 }
+
+/* El globo de aviso de una mesa con votantes. Letra de 0.95rem —el `title` del
+   navegador la fija en unos 11px y no hay manera de tocarla— y por encima de
+   todo: la tabla va dentro de un contenedor con desplazamiento, así que el
+   globo se dibuja fuera de él (ver mostrarGloboMesa en configuracion.html). */
+.globo-mesa {
+  position: fixed; z-index: 9999; display: none;
+  max-width: 320px; padding: 9px 13px;
+  background: #1B2432; color: #FFFFFF;
+  font-size: 0.95rem; font-weight: 500; line-height: 1.4;
+  border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.22);
+  pointer-events: none;   /* que no se interponga entre el ratón y la casilla */
+}
+/* La flecha apunta a la casilla: hacia abajo cuando el globo está encima, y al
+   revés en el caso en que no cabe arriba. */
+.globo-mesa::after {
+  content: ''; position: absolute; left: 50%; margin-left: -6px;
+  border: 6px solid transparent;
+}
+.globo-mesa::after { top: 100%; border-top-color: #1B2432; }
+.globo-mesa.abajo::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #1B2432; }

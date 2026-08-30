@@ -1821,6 +1821,66 @@ async function cargarPuestosVotacion() {
 
 /** Los cinco cortes de cobertura. Se filtra en el navegador: la lista ya vino
     entera y volver a pedirla por cada cambio del desplegable no aporta nada. */
+/* EL GLOBO DE AVISO, PROPIO Y NO EL DEL NAVEGADOR.
+   El `title` de toda la vida se abre DEBAJO del puntero, tapando la casilla
+   siguiente y la linea que explica el color, y su letra la fija el sistema: no
+   hay forma de agrandarla. Este se abre ARRIBA y se lee.
+
+   VA COLGADO DEL BODY, y no es un capricho: la tabla vive en un
+   `.tabla-contenedor` con `overflow-x: auto`, y en CSS pedir desplazamiento en
+   un eje obliga al otro a recortar. Un globo dibujado dentro de la celda con
+   `::after` quedaria cortado por arriba justo en las filas de mas interes.
+   Fuera del contenedor no lo recorta nadie.
+
+   Se posiciona con coordenadas de pantalla (`position: fixed`), asi que no hay
+   que compensar el desplazamiento de la pagina ni el de la tabla. */
+let globoMesa = null;
+
+function mostrarGloboMesa(casilla) {
+  const texto = casilla.getAttribute('data-aviso');
+  if (!texto) return;
+  if (!globoMesa) {
+    globoMesa = document.createElement('div');
+    globoMesa.className = 'globo-mesa';
+    document.body.appendChild(globoMesa);
+  }
+  globoMesa.textContent = texto;
+  globoMesa.style.visibility = 'hidden';
+  globoMesa.style.display = 'block';
+
+  const c = casilla.getBoundingClientRect();
+  const g = globoMesa.getBoundingClientRect();
+  /* Centrado sobre la casilla, pero sin salirse de la pantalla: en la primera
+     y la ultima columna el globo es mas ancho que la casilla y se saldria. */
+  const margen = 8;
+  let x = c.left + c.width / 2 - g.width / 2;
+  x = Math.max(margen, Math.min(x, window.innerWidth - g.width - margen));
+  /* Arriba, que es lo que se pidio. Si no cabe —la fila esta pegada al borde
+     superior— se pone debajo antes que dejarlo cortado. */
+  const arriba = c.top - g.height - 10;
+  const cabeArriba = arriba >= margen;
+  globoMesa.classList.toggle('abajo', !cabeArriba);
+  globoMesa.style.left = `${Math.round(x)}px`;
+  globoMesa.style.top = `${Math.round(cabeArriba ? arriba : c.bottom + 10)}px`;
+  globoMesa.style.visibility = 'visible';
+}
+
+function ocultarGloboMesa() {
+  if (globoMesa) globoMesa.style.display = 'none';
+}
+
+/* Delegado en el cuerpo de la tabla: las casillas se repintan en cada filtrado
+   y enganchar una a una obligaria a acordarse de hacerlo cada vez. */
+document.addEventListener('mouseover', (e) => {
+  const casilla = e.target.closest && e.target.closest('.chip-mesa-votos');
+  if (casilla) mostrarGloboMesa(casilla);
+});
+document.addEventListener('mouseout', (e) => {
+  if (e.target.closest && e.target.closest('.chip-mesa-votos')) ocultarGloboMesa();
+});
+/* Al desplazar, el globo se quedaria flotando donde ya no esta su casilla. */
+window.addEventListener('scroll', ocultarGloboMesa, true);
+
 function cumpleFiltroCobertura(p) {
   const cual = document.getElementById('filtro-cobertura-puestos').value;
   if (!cual) return true;
@@ -1860,7 +1920,9 @@ function celdaCobertura(p) {
     const n = conVotantes[m];
     if (!n) return `<span class="chip-mesa">${m}</span>`;
     const gente = n === 1 ? '1 votante registrado vota' : `${n} votantes registrados votan`;
-    return `<span class="chip-mesa chip-mesa-votos" title="${gente} en esta mesa. Conviene cubrirla con un testigo.">${m}</span>`;
+    /* `data-aviso` y no `title`: el globo lo pinta la funcion de abajo, porque
+       el del navegador no se puede ni agrandar ni subir por encima del puntero. */
+    return `<span class="chip-mesa chip-mesa-votos" data-aviso="${gente} en esta mesa. Conviene cubrirla con un testigo.">${m}</span>`;
   }).join('');
   const ocultas = f.slice(aMostrar.length);
   const resto = ocultas.length
@@ -1870,9 +1932,13 @@ function celdaCobertura(p) {
   const leyenda = cuantasConVotantes
     ? `<div class="cobertura-aviso">${cuantasConVotantes === 1 ? 'la resaltada ya tiene' : `las ${cuantasConVotantes} resaltadas ya tienen`} votantes registrados</div>`
     : '';
+  /* LA LEYENDA VA ARRIBA DE LA REJILLA, no debajo. El globo del navegador se
+     abre por debajo del puntero, asi que al posarse en una casilla de la ultima
+     fila tapaba justo el texto que explica el color. Arriba tambien se lee
+     mejor: primero que significa el rojo, despues las casillas. */
   return `<div class="cobertura-faltan">${p.mesas_por_asignar}</div>`
-       + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`
-       + leyenda;
+       + leyenda
+       + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`;
 }
 
 /**

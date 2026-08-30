@@ -84,11 +84,26 @@ async function calcularEstimadoPorPuesto(pool, filtro, dueno = 0) {
   // Dos índices: uno por id (el bueno) y otro por texto (el respaldo para
   // quien todavía no tenga id, por ejemplo si el hosting no permitió crear
   // el disparador).
+  /* EL ID SOLO SIRVE SI ES DE ESTA CAMPAÑA, y esto no era asi.
+     `votantes.puesto_id` lo mantiene un disparador que resuelve el TEXTO del
+     lugar de votación contra `dia_d_puestos_votacion`. Desde que cada campaña
+     tiene su propia lista, dos filas distintas comparten nombre —una por
+     campaña— y el disparador se queda con una sola: la de la madre, que es la
+     que existía primero. Resultado medido en la campaña de prueba: en la
+     sublicencia del aspirante ningún puesto encontraba votantes, porque sus
+     filas tienen otros id y la rama del texto ni se probaba —un votante CON id
+     no llegaba nunca a ella—. En la campaña madre funcionaba, y por eso el
+     fallo solo se veía de un lado.
+     Si el id no es de la lista de quien pregunta, se cae al texto. Dentro de
+     una misma campaña el nombre es único —lo garantiza uq_puesto_nombre, que
+     es (dueño, nombre)—, asi que ese respaldo no puede ser ambiguo. */
+  const idsDeEstaCampana = new Set(puestos.map(p => p.id));
   const porId = new Map();
   const porTexto = new Map();
   for (const fila of conteos) {
-    const destino = fila.puesto_id ? porId : porTexto;
-    const clave = fila.puesto_id || fila.puesto_votacion;
+    const idPropio = fila.puesto_id && idsDeEstaCampana.has(fila.puesto_id);
+    const destino = idPropio ? porId : porTexto;
+    const clave = idPropio ? fila.puesto_id : fila.puesto_votacion;
     if (!destino.has(clave)) destino.set(clave, new Map());
     const mapaMesas = destino.get(clave);
     // `mesa_votacion` es INT en la base (ver la nota de db/schema.sql:99),
