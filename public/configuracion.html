@@ -69,12 +69,18 @@
       document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
         ? 'Puestos de votación y candidatos'
         : 'Configuración';
-      // LA BARRA SE QUEDA, TAMBIÉN EN DÍA D. Antes se ocultaba: la idea era
-      // presentar «Puestos de votación y candidatos» como una pantalla propia,
-      // a la que se llega desde el menú lateral. En la práctica dejaba a quien
-      // entraba por la pestaña sin forma de volver, y parecía que el menú se
-      // hubiera roto. El encabezado sí cambia, que es lo que ubica.
-      document.getElementById('barra-pestanas-config').style.display = 'flex';
+      /* LA BARRA NO SE PINTA NUNCA. Ya se intento quitarla antes y se
+         revirtio, con este motivo escrito aqui: «dejaba a quien entraba por la
+         pestaña sin forma de volver, y parecia que el menu se hubiera roto».
+         Esa objecion era cierta entonces y ya no lo es, y se puede comprobar:
+         las SEIS secciones tienen su propia entrada en el menu lateral
+         —«Datos de la campaña», «Puestos de votacion y candidatos»,
+         «Usuarios», «Asignacion de permisos», «Eliminar informacion» y
+         «Backup»—, cada una apuntando al mismo `#`. Volver es un clic a la
+         izquierda; no hay a donde quedarse encerrado.
+         Lo que si se ganaba con la barra —saber donde esta uno— lo da el
+         encabezado, que cambia dos lineas mas arriba. */
+      document.getElementById('barra-pestanas-config').style.display = 'none';
     }
     aplicarPresentacionPestana(window.location.hash.slice(1));
     </script>
@@ -350,6 +356,23 @@
           <label for="select-filtro-municipio" style="font-size:0.85rem; font-weight:600; white-space:nowrap;">🔎 Ver solo el municipio:</label>
           <select id="select-filtro-municipio" style="max-width:300px;"><option value="">Todos los del departamento</option></select>
           <span id="conteo-puestos-filtro" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
+        </div>
+
+        <!-- FILTRO DE COBERTURA. Va en su propia fila y no en la de arriba,
+             porque esa solo se muestra en campana departamental y esto sirve
+             en las dos. Con 92 puestos, encontrar los que estan a medias
+             recorriendo la tabla con el dedo es el trabajo que esta linea
+             evita. -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <label for="filtro-cobertura-puestos" style="font-size:0.85rem; font-weight:600; white-space:nowrap;">🛡️ Cobertura de testigos:</label>
+          <select id="filtro-cobertura-puestos" data-sin-ordenar style="max-width:280px;">
+            <option value="">Todos los puestos</option>
+            <option value="incompletos">Con mesas por asignar</option>
+            <option value="sin">Sin ningún testigo</option>
+            <option value="parciales">Empezados, pero incompletos</option>
+            <option value="completos">Cubiertos del todo</option>
+          </select>
+          <span id="conteo-cobertura" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
         </div>
 
         <div id="panel-traer-catalogo" style="display:none; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
@@ -635,6 +658,7 @@ function cambiarPestana(pestana) {
   if (pestana === 'permisos') cargarMatrizPermisos();
 }
 document.getElementById('btn-tab-campana').addEventListener('click', () => cambiarPestana('campana'));
+document.getElementById('filtro-cobertura-puestos').addEventListener('change', cargarPuestosVotacion);
 document.getElementById('btn-tab-diad').addEventListener('click', () => cambiarPestana('diad'));
 document.getElementById('btn-tab-usuarios').addEventListener('click', () => cambiarPestana('usuarios'));
 document.getElementById('btn-tab-permisos').addEventListener('click', () => cambiarPestana('permisos'));
@@ -1761,13 +1785,14 @@ async function cargarPuestosVotacion() {
   const puestos = await api('/dia-d/config/puestos-votacion' +
     (municipioFiltro ? `?municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
   const tbody = document.getElementById('tbody-puestos-votacion');
-  document.getElementById('vacio-puestos').style.display = puestos.length ? 'none' : 'block';
-  tbody.innerHTML = puestos.map(p => `
+  const visibles = puestos.filter(cumpleFiltroCobertura);
+  document.getElementById('vacio-puestos').style.display = visibles.length ? 'none' : 'block';
+  tbody.innerHTML = visibles.map(p => `
     <tr>
       <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
       <td class="mono">${p.cantidad_mesas}</td>
       <td class="mono">${p.mesas_con_testigo}</td>
-      <td class="mono" style="${p.mesas_por_asignar > 0 ? 'color:#A93226; font-weight:700;' : ''}">${p.mesas_por_asignar}</td>
+      <td class="mono" style="${p.mesas_por_asignar > 0 ? 'color:#A93226; font-weight:700;' : ''}">${p.mesas_por_asignar}${listaMesasFaltantes(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
@@ -1777,6 +1802,40 @@ async function cargarPuestosVotacion() {
 
   const conteo = document.getElementById('conteo-puestos-filtro');
   conteo.textContent = puestos.length === 1 ? '1 puesto' : `${puestos.length} puestos`;
+
+  /* EL CONTEO DICE DE CUANTOS, y no solo cuantos. Con un filtro puesto, un
+     numero suelto no deja saber si quedan pocos porque hay pocos o porque el
+     filtro escondio el resto. */
+  const cob = document.getElementById('conteo-cobertura');
+  const faltanMesas = puestos.reduce((n, p) => n + p.mesas_por_asignar, 0);
+  cob.textContent = visibles.length === puestos.length
+    ? (faltanMesas ? `${faltanMesas} mesas sin testigo en total` : 'todas las mesas tienen testigo')
+    : `mostrando ${visibles.length} de ${puestos.length}`;
+}
+
+/** Los cinco cortes de cobertura. Se filtra en el navegador: la lista ya vino
+    entera y volver a pedirla por cada cambio del desplegable no aporta nada. */
+function cumpleFiltroCobertura(p) {
+  const cual = document.getElementById('filtro-cobertura-puestos').value;
+  if (!cual) return true;
+  if (cual === 'incompletos') return p.mesas_por_asignar > 0;
+  if (cual === 'sin')         return p.mesas_con_testigo === 0;
+  if (cual === 'parciales')   return p.mesas_con_testigo > 0 && p.mesas_por_asignar > 0;
+  if (cual === 'completos')   return p.mesas_por_asignar === 0;
+  return true;
+}
+
+/* CUALES FALTAN, DEBAJO DE CUANTAS. La cifra sola obligaba a abrir el puesto y
+   cotejar a mano contra la lista de testigos para saber a que mesa mandar a
+   alguien. Se recortan a doce para no romper la fila; el resto queda en el
+   titulo, que es donde no estorba. */
+function listaMesasFaltantes(p) {
+  const f = p.mesas_faltantes || [];
+  if (!f.length) return '';
+  const corte = f.slice(0, 12).join(', ');
+  const resto = f.length > 12 ? ` +${f.length - 12}` : '';
+  return `<div style="font-weight:400; font-size:0.74rem; color:var(--color-text-muted); margin-top:2px;"
+               title="Mesas sin testigo: ${f.join(', ')}">${corte}${resto}</div>`;
 }
 
 /**

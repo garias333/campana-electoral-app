@@ -22,6 +22,27 @@ const { aspiranteDe, subarbolSql, filtroTestigosMadre } = require('../lib/ramas'
  *     cuelgan de alguien; antes nacian sin supervisor y esta subida se cortaba.)
  * Si no cuelga de ningun aspirante, 0: la campana principal.
  */
+/**
+ * LA JORNADA DE CADA CAMPANA, ACOTADA POR QUIEN REPORTA.
+ *
+ * `dia_d_reportes` no tiene columna de dueno y no le hace falta: la trae quien
+ * firma el reporte. Un reporte es del aspirante si su testigo cuelga de el, y
+ * de la campana madre si no cuelga de ningun aspirante — la misma regla que
+ * separa los testigos, y por el mismo motivo: el reporte de una mesa pertenece
+ * a quien puso a la persona que la vigila.
+ *
+ * OJO, VA EN LAS DOS MITADES DE CADA CONSULTA. Todas agrupan primero «el
+ * ultimo reporte por mesa» en una subconsulta y filtran despues. Acotando solo
+ * la de fuera, el ultimo reporte de una mesa podria ser el de la OTRA campana:
+ * la subconsulta lo elegiria, el filtro de fuera lo descartaria, y esa mesa
+ * desapareceria del tablero como si nadie la hubiera reportado. Por eso el
+ * ayudante recibe el nombre de la columna: dentro la tabla va sin alias.
+ */
+async function acotaJornada(req, columna) {
+  const dueno = await duenoDeLaCampana(req);
+  return dueno ? subarbolSql(dueno, columna) : await filtroTestigosMadre(pool, columna);
+}
+
 async function duenoDeLaCampana(req) {
   if (req.sublicencia) return req.sublicencia.usuario_id;
   return (await aspiranteDe(pool, req.session.usuario.id)) || 0;
@@ -90,7 +111,14 @@ async function ambitoDeLaCampana() {
  * también en Configuración → Día D → Candidatos. El resto queda en el
  * mismo orden de ingreso en que se configuraron.
  */
-async function obtenerCandidatosParaReporte() {
+/* RECIBE `req`, Y NO LO RECIBIA. Al separar las listas por campana se le metio
+   aqui dentro un `duenoDeLaCampana(req)` sin darse cuenta de que esto es una
+   FUNCION AUXILIAR y no un manejador de ruta: `req` no existia en su ambito.
+   Resultado, un ReferenceError que tumbaba /resumen-candidatos con un 500, y
+   con el el tablero entero del Dia D — todas las tarjetas en blanco, como si
+   se hubiera perdido la jornada. No se perdio nada: la pantalla no podia
+   pintarse. Los dos llamadores son rutas y tienen `req` a mano. */
+async function obtenerCandidatosParaReporte(req) {
   const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
   const [configurados] = await pool.query(
       `SELECT nombre FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`, [await duenoDeLaCampana(req)]);
@@ -142,7 +170,7 @@ router.get('/mi-lugar-votacion', async (req, res) => {
 /** Candidatos a mostrar en el formulario de reporte (candidato propio primero, luego el resto configurado en Día D). */
 router.get('/candidatos-para-reporte', async (req, res) => {
   try {
-    const nombres = await obtenerCandidatosParaReporte();
+    const nombres = await obtenerCandidatosParaReporte(req);
     res.json(nombres);
   } catch (err) {
     console.error(err);
@@ -536,8 +564,10 @@ router.get('/mis-reportes', async (req, res) => {
  * parcial y su corrección posterior), más el listado completo para ver el
  * historial de cada una si hace falta revisar algo.
  */
-router.get('/reportes', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/reportes', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
+    const aDentro = await acotaJornada(req, 'testigo_id');
+    const aFuera  = await acotaJornada(req, 'r.testigo_id');
     const [ultimosPorMesa] = await pool.query(`
       SELECT r.*, u.nombre AS testigo_nombre,
         (SELECT COALESCE(SUM(v.votos), 0) FROM dia_d_reporte_votos v WHERE v.reporte_id = r.id) AS total_votos_mesa
@@ -555,17 +585,20 @@ router.get('/reportes', requireRole('admin', 'coordinador'), async (req, res) =>
         SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
                mesa_votacion, MAX(id) AS ultimo_id
         FROM dia_d_reportes
+        ${aDentro ? 'WHERE ' + aDentro.sql : ''}
         GROUP BY clave_puesto, mesa_votacion
       ) mas_reciente ON mas_reciente.ultimo_id = r.id
+      ${aFuera ? 'WHERE ' + aFuera.sql : ''}
       ORDER BY r.created_at DESC
-    `);
+    `, [...(aDentro ? aDentro.valores : []), ...(aFuera ? aFuera.valores : [])]);
     const [historialCompleto] = await pool.query(`
       SELECT r.*, u.nombre AS testigo_nombre
       FROM dia_d_reportes r
       JOIN usuarios u ON u.id = r.testigo_id
+      ${aFuera ? 'WHERE ' + aFuera.sql : ''}
       ORDER BY r.created_at DESC
       LIMIT 300
-    `);
+    `, aFuera ? aFuera.valores : []);
     // Los otros documentos de TODOS los reportes de las dos tablas, en una
     // sola consulta. Pedirlos por reporte convertiria este tablero —que se
     // recarga solo durante la jornada— en decenas de viajes a la base.
@@ -590,8 +623,10 @@ router.get('/reportes', requireRole('admin', 'coordinador'), async (req, res) =>
 });
 
 /** Consolidado para las tarjetas del tablero — usa el mismo criterio de "reporte más reciente por mesa" que /reportes. */
-router.get('/resumen', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/resumen', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
+    const aDentro = await acotaJornada(req, 'testigo_id');
+    const aFuera  = await acotaJornada(req, 'r.testigo_id');
     const [[resumen]] = await pool.query(`
       SELECT
         COUNT(*) AS mesas_reportando,
@@ -611,9 +646,11 @@ router.get('/resumen', requireRole('admin', 'coordinador'), async (req, res) => 
         SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
                mesa_votacion, MAX(id) AS ultimo_id
         FROM dia_d_reportes
+        ${aDentro ? 'WHERE ' + aDentro.sql : ''}
         GROUP BY clave_puesto, mesa_votacion
       ) mas_reciente ON mas_reciente.ultimo_id = r.id
-    `);
+      ${aFuera ? 'WHERE ' + aFuera.sql : ''}
+    `, [...(aDentro ? aDentro.valores : []), ...(aFuera ? aFuera.valores : [])]);
     // Total de mesas de la jornada: la suma de "Cantidad de mesas" de todos
     // los puestos configurados en Configuración → Día D → Puestos de
     // votación — es la referencia contra la que se mide qué tanto se ha
@@ -642,9 +679,11 @@ router.get('/resumen', requireRole('admin', 'coordinador'), async (req, res) => 
  * todavía no tengan ningún voto reportado (aparecen con 0), y siempre deja
  * de primero al candidato propio de la campaña.
  */
-router.get('/resumen-candidatos', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
-    const nombresCandidatos = await obtenerCandidatosParaReporte();
+    const aDentro = await acotaJornada(req, 'testigo_id');
+    const aFuera  = await acotaJornada(req, 'r.testigo_id');
+    const nombresCandidatos = await obtenerCandidatosParaReporte(req);
     const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
     const nombrePropio = (campana && campana.nombre_candidato || '').trim();
 
@@ -660,11 +699,13 @@ router.get('/resumen-candidatos', requireRole('admin', 'coordinador'), async (re
           SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
                  mesa_votacion, MAX(id) AS ultimo_id
           FROM dia_d_reportes
+          ${aDentro ? 'WHERE ' + aDentro.sql : ''}
           GROUP BY clave_puesto, mesa_votacion
         ) mas_reciente ON mas_reciente.ultimo_id = r.id
+        ${aFuera ? 'WHERE ' + aFuera.sql : ''}
       ) reportes_vigentes ON reportes_vigentes.id = v.reporte_id
       GROUP BY v.candidato_nombre
-    `);
+    `, [...(aDentro ? aDentro.valores : []), ...(aFuera ? aFuera.valores : [])]);
 
     const votosPorNombre = new Map();
     filas.forEach(f => votosPorNombre.set(f.candidato_nombre.trim().toLowerCase(), Number(f.votos)));
@@ -777,7 +818,7 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
 });
 
 /** Elimina TODOS los reportes del Día D — pide contraseña de administrador. */
-router.post('/reportes/eliminar-todo', requireRole('admin'), async (req, res) => {
+router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async (req, res) => {
   const autorizado = await verificarPasswordAdmin(req.body && req.body.password);
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
@@ -797,19 +838,33 @@ router.post('/reportes/eliminar-todo', requireRole('admin'), async (req, res) =>
   try {
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
-    const [[t]] = await conexion.query(
+    /* CADA CAMPANA BORRA LA SUYA. Este boton arrasaba con `DELETE FROM
+       dia_d_reportes` a secas: con la jornada ya separada, el aspirante
+       limpiando su prueba se habria llevado por delante los reportes de la
+       campana madre, y ella los de el. Se recogen los `id` y se borra POR
+       ESOS, no repitiendo la condicion, para que lo que se audita y lo que se
+       borra no puedan discrepar — el apunte dice cuantos eran y como se
+       repartian los votos, y es lo unico que queda despues. */
+    const acota = await acotaJornada(req, 'testigo_id');
+    const [aBorrar] = await conexion.query(
+      `SELECT id FROM dia_d_reportes ${acota ? 'WHERE ' + acota.sql : ''}`,
+      acota ? acota.valores : []);
+    const ids = aBorrar.map(f => f.id);
+    const [[t]] = ids.length ? await conexion.query(
       `SELECT COUNT(*) AS reportes, COUNT(DISTINCT testigo_id) AS testigos,
               COUNT(DISTINCT puesto_votacion) AS puestos,
               COALESCE(SUM(total_votantes_mesa), 0) AS votantes,
-              (SELECT COALESCE(SUM(votos), 0) FROM dia_d_reporte_votos) AS votos
-         FROM dia_d_reportes`);
+              (SELECT COALESCE(SUM(votos), 0) FROM dia_d_reporte_votos WHERE reporte_id IN (?)) AS votos
+         FROM dia_d_reportes WHERE id IN (?)`, [ids, ids])
+      : [[{ reportes: 0, testigos: 0, puestos: 0, votantes: 0, votos: 0 }]];
     /* EL DESGLOSE POR CANDIDATO, no solo el total. Borrar todos los reportes
        vacía también `dia_d_reporte_votos` en cascada; si el apunte guarda una
        sola cifra, no queda forma de saber cómo se repartía. Son unos pocos
        candidatos, así que cabe de sobra. */
-    const [porCandidato] = await conexion.query(
+    const [porCandidato] = ids.length ? await conexion.query(
       `SELECT candidato_nombre, SUM(votos) AS votos FROM dia_d_reporte_votos
-        GROUP BY candidato_nombre ORDER BY votos DESC`);
+        WHERE reporte_id IN (?)
+        GROUP BY candidato_nombre ORDER BY votos DESC`, [ids]) : [[]];
 
     const detalle = t.reportes === 0
       ? 'Pulsó eliminar todos los reportes del Día D, pero no había ninguno.'
@@ -827,7 +882,7 @@ router.post('/reportes/eliminar-todo', requireRole('admin'), async (req, res) =>
       detalle, req.ip
     );
 
-    await conexion.query(`DELETE FROM dia_d_reportes`);
+    if (ids.length) await conexion.query(`DELETE FROM dia_d_reportes WHERE id IN (?)`, [ids]);
     await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
@@ -950,11 +1005,20 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
     }
 
     const filas = puestos.map(p => {
-      const mesasConTestigo = (mesasPorPuesto.get(p.nombre) || new Set()).size;
+      const cubiertas = mesasPorPuesto.get(p.nombre) || new Set();
+      /* QUE MESAS FALTAN, NO SOLO CUANTAS. La cifra decia «faltan 13» y ahi se
+         acababa: para saber cuales habia que abrir el puesto y comparar a mano
+         contra la lista de testigos. Se devuelven los numeros que SI estan
+         cubiertos y la pantalla calcula el resto sobre 1..cantidad_mesas, que
+         es la numeracion real de un puesto -medido sobre los 12.885 del
+         catalogo: siempre 1..N, sin huecos-. */
+      const faltantes = [];
+      for (let m = 1; m <= p.cantidad_mesas; m++) if (!cubiertas.has(m)) faltantes.push(m);
       return {
         ...p,
-        mesas_con_testigo: mesasConTestigo,
-        mesas_por_asignar: Math.max(p.cantidad_mesas - mesasConTestigo, 0)
+        mesas_con_testigo: cubiertas.size,
+        mesas_por_asignar: Math.max(p.cantidad_mesas - cubiertas.size, 0),
+        mesas_faltantes: faltantes
       };
     });
     res.json(filas);
@@ -1075,12 +1139,19 @@ router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin', '
 
     // Una sola sentencia en vez de 1.202 idas y vueltas a la base.
     await pool.query(
-      `INSERT IGNORE INTO dia_d_puestos_votacion (nombre, cantidad_mesas, ctc_puesto_id, created_by)
-       SELECT ${expresionNombre}, COALESCE(p.total_mesas, 0), p.id, ?
+      /* EL DUEÑO VA EN EL INSERT, Y SE ME QUEDO FUERA AL SEPARAR LAS LISTAS.
+         Esta es la sentencia que trae los puestos del catalogo con sus mesas, y
+         era la unica escritura de la tabla que no estampaba `aspirante_id`. Con
+         el valor por omision, todo lo que el aspirante importara habria caido
+         en la lista de la campana PRINCIPAL: su pantalla seguiria vacia y la de
+         ella se llenaria de filas que nadie pidio. La misma fuente para las dos
+         campañas —el catalogo oficial— y una copia para cada una. */
+      `INSERT IGNORE INTO dia_d_puestos_votacion (nombre, cantidad_mesas, ctc_puesto_id, created_by, aspirante_id)
+       SELECT ${expresionNombre}, COALESCE(p.total_mesas, 0), p.id, ?, ?
          FROM ${CATALOGO}.ctc_puestos_votacion p
          JOIN ${CATALOGO}.ctc_territorios m ON m.id = p.municipio_id
         WHERE p.estado = 'ACTIVO' AND ${condicionZona}`,
-      [req.session.usuario.id, idZona]
+      [req.session.usuario.id, dueno, idZona]
     );
 
     const [[despues]] = await pool.query(`SELECT COUNT(*) n FROM dia_d_puestos_votacion WHERE aspirante_id = ?`, [dueno]);

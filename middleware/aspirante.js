@@ -95,6 +95,11 @@ const HREFS_ASPIRANTE = [
      esa pantalla es la suya, y sin esta linea el menu no se la ofrecia aunque
      el servidor ya se la sirviera bien. */
   '/configuracion.html#diad',
+  /* La jornada electoral. Su tablero es SUYO: los reportes se acotan por quien
+     los firma, asi que ve los de sus testigos y ninguno de la campana madre.
+     Sin esta linea tenia los puestos y los testigos pero no donde ver lo que
+     reportan el dia de la eleccion, que es para lo que sirve todo lo anterior. */
+  '/dia-d.html',
 ];
 
 const PERMISOS_ASPIRANTE = {
