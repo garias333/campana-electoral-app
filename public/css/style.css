@@ -1553,25 +1553,77 @@ table td .btn-primario:hover {
    Cuando no falta ninguna se dice con palabras y en verde: un 0 suelto se lee
    igual que un dato que no cargó. */
 .cobertura-faltan {
-  font-size: 1.5rem; font-weight: 700; line-height: 1.05; color: #A93226;
+  font-size: 1.7rem; font-weight: 700; line-height: 1.05; color: #A93226;
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
 }
 .cobertura-completo {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 0.82rem; font-weight: 600; color: #1E6B44;
+  font-size: 0.9rem; font-weight: 600; color: #1E6B44;
   background: #E9F5EF; border: 1px solid #B6DDC8;
-  border-radius: 999px; padding: 3px 11px; white-space: nowrap;
+  border-radius: 999px; padding: 4px 13px; white-space: nowrap;
 }
-.mesas-faltantes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; max-width: 320px; }
+/* DIEZ POR FILA, Y LAS FILAS COMPLETAS. Las fichas eran de ancho variable —una
+   de 3 era más angosta que una de 12— y el renglón cortaba donde cayera, así
+   que las dos filas quedaban desiguales y la última media vacía. Ahora la
+   ficha es de tamaño fijo y el contenedor mide diez exactas, así que el
+   quiebre cae siempre en la décima.
+   El ancho lo manda el caso peor medido, no la vista: el puesto más grande del
+   catálogo tiene 265 mesas, así que la ficha debe caber TRES dígitos. */
+.mesas-faltantes {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px;
+  max-width: 386px;            /* 10 fichas de 35 + 9 huecos de 4 = 386 */
+}
 .chip-mesa {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
-  font-size: 0.85rem; font-weight: 600; line-height: 1.35;
+  font-size: 0.9rem; font-weight: 600;
   color: #A93226; background: #FDEDEA; border: 1px solid #F0C4BC;
-  border-radius: 6px; padding: 2px 8px; min-width: 26px; text-align: center;
+  border-radius: 6px;
+  /* Fijas, no según su contenido: es lo que hace que las filas cuadren. */
+  width: 35px; height: 30px; box-sizing: border-box; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 /* La ficha del resto no es una mesa: no se puede tocar ni buscar, así que no
-   se pinta como las demás. */
+   se pinta como las demás. Conserva la caja —si no, se rompe la rejilla— y
+   encoge la letra, porque «+246» son cuatro caracteres donde las otras llevan
+   uno o dos. */
 .chip-mesa-mas {
   color: var(--color-text-muted); background: var(--color-bg);
   border-color: var(--color-border); font-weight: 500; cursor: help;
+  font-size: 0.72rem; letter-spacing: -0.02em;
 }
+
+/* ---------------- Tabla de cobertura de puestos ----------------
+   El encabezado de 0.72rem quedaba diminuto al lado de una cifra de 1.5rem, y
+   sobre todo: iba centrado con los números pegados al borde izquierdo debajo.
+   `thead th` centra por pedido y deja el contenido a la izquierda a propósito
+   —así se recorre con la vista una columna de NOMBRES—, pero en una columna de
+   conteos eso deja el encabezado flotando sin nada debajo. Se usa `.col-num`,
+   que ya existe para esto, y se sube la letra.
+
+   VA ACOTADO A ESTA TABLA. Subir `thead th` en la hoja entera reflujaría los
+   encabezados de todas las demás, y algunas llevan catorce columnas donde un
+   par de píxeles decide si un rótulo cabe en una línea o en dos. */
+.tabla-cobertura thead th {
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  color: #46505F;
+  padding: 14px 12px;
+  vertical-align: bottom;
+}
+/* LA FILA ENTERA SUBE, no solo los números. `table` fija 0.87rem para toda la
+   aplicación y el nombre del puesto lo heredaba: al lado de los conteos
+   quedaba pequeño justo en la columna que uno lee para buscar. Sube a 1rem,
+   que es el tamaño del texto corrido del resto de la pantalla. */
+.tabla-cobertura tbody td { padding: 15px 12px; vertical-align: middle; font-size: 1rem; }
+/* Los dos conteos sueltos, al tamaño de la fila y no al del texto corrido: al
+   lado de la cifra grande de la última columna, a 0.87rem parecían una nota al
+   pie de su propia columna. */
+.tabla-cobertura tbody td.mono.col-num { font-size: 1.3rem; font-weight: 600; color: #46505F; }
+/* Un cero de mesas cubiertas no es un dato más: es el puesto que nadie ha
+   tocado. Se apaga para que el ojo lo separe de un conteo real. */
+.tabla-cobertura tbody td.mono.col-num.nadie { color: #B0B7C3; font-weight: 500; }
+.tabla-cobertura .mesas-faltantes { justify-content: center; margin-left: auto; margin-right: auto; }
+.tabla-cobertura .cobertura-faltan { margin-bottom: 2px; }
+/* El nombre del puesto es lo que se busca al recorrer la lista: se queda a la
+   izquierda y gana peso frente a las columnas de números. */
+.tabla-cobertura tbody td:first-child { font-weight: 600; color: #1B2432; line-height: 1.35; }

@@ -394,8 +394,14 @@
           <small id="nota-traer-catalogo" style="display:block; margin-top:8px; color:var(--color-text-muted); font-size:0.78rem;"></small>
         </div>
         <div class="tabla-contenedor" id="tabla-puestos-contenedor">
-          <table>
-            <thead><tr><th>Nombre del puesto</th><th>Cantidad de mesas</th><th>Mesas con testigos asignados</th><th>Mesas por asignar testigo</th><th></th></tr></thead>
+          <table class="tabla-cobertura">
+            <thead><tr>
+              <th>Nombre del puesto</th>
+              <th class="col-num">Cantidad de mesas</th>
+              <th class="col-num">Mesas con testigos asignados</th>
+              <th class="col-num">Mesas por asignar testigo</th>
+              <th></th>
+            </tr></thead>
             <tbody id="tbody-puestos-votacion"></tbody>
           </table>
         </div>
@@ -1790,9 +1796,9 @@ async function cargarPuestosVotacion() {
   tbody.innerHTML = visibles.map(p => `
     <tr>
       <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
-      <td class="mono">${p.cantidad_mesas}</td>
-      <td class="mono">${p.mesas_con_testigo}</td>
-      <td>${celdaCobertura(p)}</td>
+      <td class="mono col-num">${p.cantidad_mesas}</td>
+      <td class="mono col-num${p.mesas_con_testigo ? '' : ' nadie'}">${p.mesas_con_testigo}</td>
+      <td class="col-num">${celdaCobertura(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
@@ -1838,9 +1844,16 @@ function celdaCobertura(p) {
   if (!p.mesas_por_asignar) {
     return '<span class="cobertura-completo">✓ Todas cubiertas</span>';
   }
-  const visibles = f.slice(0, 12).map(m => `<span class="chip-mesa">${m}</span>`).join('');
-  const resto = f.length > 12
-    ? `<span class="chip-mesa chip-mesa-mas" title="Y ${f.length - 12} mesas mas: ${f.slice(12).join(', ')}">+${f.length - 12}</span>`
+  /* VEINTE CASILLAS: dos filas de diez, ni una a medias. Si caben todas se
+     muestran todas; si no, van diecinueve y la vigésima dice cuántas quedan.
+     Antes eran doce y la del resto, que dejaba la segunda fila con tres. */
+  const TOPE = 20;
+  const cabenTodas = f.length <= TOPE;
+  const aMostrar = cabenTodas ? f : f.slice(0, TOPE - 1);
+  const visibles = aMostrar.map(m => `<span class="chip-mesa">${m}</span>`).join('');
+  const ocultas = f.slice(aMostrar.length);
+  const resto = ocultas.length
+    ? `<span class="chip-mesa chip-mesa-mas" title="Y ${ocultas.length} mesas mas: ${ocultas.join(', ')}">+${ocultas.length}</span>`
     : '';
   return `<div class="cobertura-faltan">${p.mesas_por_asignar}</div>`
        + `<div class="mesas-faltantes" title="Mesas sin testigo: ${f.join(', ')}">${visibles}${resto}</div>`;
