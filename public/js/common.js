@@ -1229,6 +1229,21 @@ async function inicializarLayout(paginaActiva) {
      para ser administrador de la campaña madre.
 
      Se guarda el rol real por si alguna pantalla necesita distinguirlos. */
+  /* EL ROL QUE DECIDE EN EL SERVIDOR, GUARDADO ANTES DE REESCRIBIRLO.
+     La linea de abajo cambia `rol` para dibujar, y eso ya rompio una cosa: la
+     casilla de autorizacion de datos en Votantes se muestra a quien el
+     SERVIDOR se la va a exigir -Lider y Sublider-, y para el aspirante con
+     sublicencia el servidor dice 'lider' mientras el navegador decia 'admin'.
+     Resultado: el guardado se rechazaba pidiendo marcar una casilla que la
+     pantalla no dibujaba, porque se creia administradora.
+     `rol_real` NO servia para esto: para un aspirante al concejo SIN
+     sublicencia vale 'aspirante_concejo', y el servidor en ese caso mira
+     'lider'. El unico valor fiable es el que vino, sin tocar.
+     Cualquier pantalla que necesite saber que va a decidir el servidor
+     -permisos, guardas, campos obligatorios- pregunta por `rol_sesion`;
+     `rol` es solo para dibujar. */
+  if (usuario) usuario.rol_sesion = usuario.rol;
+
   if (usuario && usuario.es_aspirante) {
     usuario.rol_real = usuario.rol;
     usuario.rol = 'admin';
@@ -1565,18 +1580,37 @@ document.addEventListener('DOMContentLoaded', () => activarVerContrasena());
    DESPLEGABLES ORDENADOS SOLOS
    ==========================================================================
 
-   Las 144 listas desplegables de la aplicación se ordenan alfabéticamente sin
-   que cada pantalla tenga que acordarse — y siguen ordenadas cuando alguien
-   les añade una opción después, que es lo que pasa a todas horas: los
-   territorios llegan por `api()`, los líderes se repueblan al cambiar de
-   barrio, los puestos de votación se filtran por municipio.
+   SE ORDENA LO QUE VIENE DE DATOS; SE RESPETA LO QUE ESCRIBIÓ UNA PERSONA.
+   Los territorios llegan por `api()`, los líderes se repueblan al cambiar de
+   barrio, los puestos de votación se filtran por municipio: esas listas
+   nacen en la base de datos, no tienen orden propio y se ordenan solas.
 
-   POR QUÉ UN OBSERVADOR Y NO UNA LLAMADA AL CARGAR. Ordenar en el arranque
-   dejaría bien los desplegables escritos en el HTML y mal todos los demás,
-   que son la mayoría y se llenan segundos después. Y obligar a cada sitio que
-   los llena a llamar a `ordenarSelect()` es repartir la responsabilidad entre
-   ochenta llamadas: basta que una se olvide para que ese desplegable quede
-   desordenado sin que nada avise.
+   POR QUÉ NO SE ORDENA TODO. Se clasificaron los 144 desplegables uno a uno
+   y 44 tienen un orden que significa algo: escalas, la cadena de mando
+   (RANGO_CATEGORIA), los ordinales del organigrama, los pares Sí/No, el
+   ciclo de vida de un evento, la convención urbano→rural que también está
+   en el ENUM de la base. Casi todos son opciones escritas a mano en el HTML.
+   Ordenarlos pondría «Hombre» delante de «Mujer» y «Rural» delante de
+   «Urbano», deshaciendo elecciones deliberadas.
+
+   Y no valía marcarlos uno por uno: la misma lista de Género, idéntica letra
+   por letra, está en tres pantallas, y el par urbano/rural en siete. Cualquier
+   marca que se olvide deja el MISMO campo con dos órdenes distintos en la
+   misma aplicación, que es peor que no ordenar. La regla de arriba no se
+   puede olvidar: no depende de que nadie marque nada.
+
+   El coste del error también cambia de lado. Si esta regla se equivoca, una
+   lista se queda sin ordenar: se ve y se arregla. Al revés —ordenar lo que no
+   se debía— el daño es silencioso y nadie lo mira dos veces.
+
+   POR QUÉ UN OBSERVADOR. Obligar a cada sitio que llena un desplegable a
+   llamar a `ordenarSelect()` es repartir la responsabilidad entre ochenta
+   llamadas: basta que una se olvide para que ese desplegable quede
+   desordenado sin que nada avise. El observador no se puede olvidar.
+
+   Y el observador distingue solo las dos cosas: opciones que APARECEN dentro
+   de un select que ya estaba son datos y se ordenan; un select que LLEGA ya
+   lleno lo pintó una plantilla y su orden es de quien la escribió.
 
    LO QUE NO SE ORDENA, Y POR QUÉ:
 
@@ -1693,13 +1727,15 @@ function vigilarDesplegables() {
     for (const m of mutaciones) {
       // El contenedor que cambió: el select mismo, o el optgroup que lo lleva.
       const destino = m.target && m.target.closest ? m.target.closest('select') : null;
-      if (destino) { pendientesDeOrdenar.add(destino); continue; }
-      // O un trozo de página recién pintado que TRAE desplegables dentro.
-      m.addedNodes && m.addedNodes.forEach((n) => {
-        if (n.nodeType !== 1) return;
-        if (n.tagName === 'SELECT') pendientesDeOrdenar.add(n);
-        else if (n.querySelectorAll) n.querySelectorAll('select').forEach((s) => pendientesDeOrdenar.add(s));
-      });
+      if (destino) pendientesDeOrdenar.add(destino);
+      /* UN DESPLEGABLE QUE LLEGA YA LLENO NO SE TOCA, y esta es la linea
+         entera del diseño. Si las opciones aparecen DENTRO de un select que
+         ya estaba en la pagina, vienen de la base de datos y se ordenan. Si
+         llega un trozo de pagina que TRAE el select escrito dentro, lo
+         escribio una persona en una plantilla y su orden es suyo:
+         plantillaGrupo() en crm.html pinta asi cuatro desplegables cuyo orden
+         es un rango, y el primero de ellos lleva `selected` en una opcion con
+         valor real, que el alfabeto moveria de sitio. */
     }
     if (pendientesDeOrdenar.size && !ordenadoProgramado) {
       ordenadoProgramado = true;
@@ -1709,7 +1745,11 @@ function vigilarDesplegables() {
   observadorSelects.observe(document.documentElement, { childList: true, subtree: true });
 }
 
+/* NO SE ORDENA LA PAGINA AL CARGAR, A PROPOSITO. Ver la nota de arriba: lo
+   que ya esta escrito en el HTML lo puso una persona y su orden significa
+   algo. Solo se vigila lo que llegue despues, que es lo que viene de la base
+   de datos. `ordenarTodosLosSelects()` queda disponible para la pantalla que
+   quiera pedirlo a mano; no la llama nadie sola. */
 document.addEventListener('DOMContentLoaded', () => {
-  ordenarTodosLosSelects();
   vigilarDesplegables();
 });

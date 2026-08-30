@@ -39,9 +39,27 @@ const INSTANCIAS_POR_DEFECTO = [
 
 // Qué se compara: el código que viaja en los parches. Se excluye lo que
 // DEBE ser distinto en cada instancia (.env, licencia, subidas, respaldos).
-const CARPETAS = ['routes', 'config', 'middleware', 'lib', 'db', 'scripts', 'public/js'];
+/* SE COMPARA TODO public, NO SOLO public/js, Y TAMBIEN .html Y .css.
+   Antes la lista era ['...', 'public/js'] con extensiones ['.js','.sql'], asi
+   que las 41 pantallas y las 4 hojas de estilo NO SE COMPARABAN NUNCA. El
+   parche 214 fue seis .html y un .css: entero invisible para este script, que
+   existe justamente para que no se olvide nada. Habria dicho "sin diferencias"
+   con las campanas corriendo pantallas viejas — la respuesta tranquilizadora
+   es la peor de las dos.
+   public/ no tiene carpetas volatiles (app, css, data, img, js: 40 archivos),
+   asi que recorrerlo entero no mete ruido. Los subidos van en uploads/, fuera. */
+const CARPETAS = ['routes', 'config', 'middleware', 'lib', 'db', 'scripts', 'public'];
 const SUELTOS = ['app.js'];
-const EXTENSIONES = ['.js', '.sql'];
+const EXTENSIONES = ['.js', '.sql', '.html', '.css'];
+
+/* MAQUETAS DE DISEÑO QUE NUNCA VIAJARON, Y NO DEBEN VIAJAR. comparar-disenos
+   .html enlaza a las doce *-opcion-A/B/C.html y nada en la aplicacion enlaza a
+   ella: es una isla cerrada, trabajo de taller. Sin esta lista el script
+   gritaria trece diferencias en cada corrida, y una alarma que siempre suena
+   deja de leerse — que es como se pierde la que si importa. Si algun dia una
+   de estas pantallas se adopta de verdad, se quita de aqui y empieza a
+   compararse como cualquier otra. */
+const IGNORAR = [/^public\/comparar-disenos\.html$/, /^public\/[a-z]+-opcion-[A-Z]\.html$/];
 
 function huella(archivo) {
   return crypto.createHash('sha256').update(fs.readFileSync(archivo)).digest('hex');
@@ -62,6 +80,8 @@ function inventario(raiz) {
       const hijo = path.join(rel, e.name);
       if (e.isDirectory()) recorrer(hijo);
       else if (EXTENSIONES.includes(path.extname(e.name))) {
+        const rel = hijo.split(path.sep).join('/');
+        if (IGNORAR.some((re) => re.test(rel))) continue;
         encontrados.set(hijo, huella(path.join(raiz, hijo)));
       }
     }

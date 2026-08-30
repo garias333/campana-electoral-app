@@ -264,7 +264,7 @@
 
       <div class="campo" id="campo-asignar-testigo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:700; color:#A93226;">
-          <input type="checkbox" id="chk-asignar-testigo-persona" style="width:auto;"> Es también testigo electoral
+          <input type="checkbox" id="chk-asignar-testigo-persona"> Es también testigo electoral
         </label>
         <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:2px;">
           Además de su cargo actual, esta persona también podrá ingresar como testigo electoral y usar la app de Día D. El puesto donde vigila se elige aquí abajo y puede ser distinto de donde vota.
@@ -349,13 +349,13 @@
       <div class="campo">
         <div style="display:flex; gap:22px; margin-bottom:4px; flex-wrap:wrap;">
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-            <input type="checkbox" id="chk-area-influencia-municipio" style="width:auto;"> Todo el municipio
+            <input type="checkbox" id="chk-area-influencia-municipio"> Todo el municipio
           </label>
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-            <input type="checkbox" id="chk-area-influencia-territorio" style="width:auto;" checked> Territorio
+            <input type="checkbox" id="chk-area-influencia-territorio" checked> Territorio
           </label>
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-            <input type="checkbox" id="chk-area-influencia-organizacion" style="width:auto;"> Organización
+            <input type="checkbox" id="chk-area-influencia-organizacion"> Organización
           </label>
         </div>
       </div>
@@ -418,7 +418,7 @@
       </div>
       <div class="campo" id="campo-activo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" name="activo" checked style="width:auto;"> Persona activa
+          <input type="checkbox" name="activo" checked> Persona activa
         </label>
       </div>
       <button type="submit" class="btn-primario" id="btn-guardar-estructura">Guardar</button>
@@ -1202,7 +1202,7 @@ function aplicarApoyosConfigurados(SUFIJO, activos, posibles, porDefecto = []) {
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;"${porDefecto.includes(a) ? ' checked' : ''}>
+      <input type="checkbox" name="apoya_a" value="${a}"${porDefecto.includes(a) ? ' checked' : ''}>
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }

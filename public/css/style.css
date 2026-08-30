@@ -438,6 +438,29 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 .btn-peligro:hover { background: #F6D9D9; }
 .btn-sm { padding: 8px 14px; font-size: 0.88rem; }
 
+/* CASILLAS DE VERIFICACIÓN, UN 50% MÁS GRANDES QUE LAS DEL NAVEGADOR.
+   Las de serie miden unos 13px y en una tabla de catorce columnas —o marcadas
+   con el dedo en un celular— son difíciles de acertar. Con 20px se ven y se
+   pulsan.
+
+   VA COMO REGLA GLOBAL Y NO CASILLA POR CASILLA. La hoja declara
+   `input { width: 100% }` para los campos de texto, y eso alcanzaba también a
+   las casillas: por eso había dieciocho repartidas por la aplicación con un
+   `style="width:auto"` en línea, puesto a mano para deshacer el estiramiento.
+   Esos estilos en línea se quitaron con este cambio — un estilo en línea gana
+   a la hoja, así que los que quedaran habrían dejado su casilla con la altura
+   nueva y el ancho viejo, deformada.
+
+   `flex: none` no es adorno: muchas van dentro de una etiqueta flex, y sin eso
+   la casilla se encoge cuando el texto de al lado no cabe. */
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 /* Formularios */
 label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
 input, select, textarea {
@@ -572,7 +595,7 @@ tbody tr:hover .col-rol-fija { background: #FAFBFC; }
 td.credenciales-ok { background: #E7F6EE; }
 tbody tr:hover td.credenciales-ok { background: #DCF0E4; }
 td.credenciales-ok input[type="checkbox"] { accent-color: #1E7245; }
-td.col-num input[type="checkbox"] { width: 17px; height: 17px; padding: 0; }
+td.col-num input[type="checkbox"] { width: 20px; height: 20px; padding: 0; }
 
 input:focus, select:focus, textarea:focus {
   outline: 2px solid var(--color-navy-lighter);

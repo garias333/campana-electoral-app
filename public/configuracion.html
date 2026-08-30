@@ -523,11 +523,12 @@
       <div class="campo"><label>Correo electrónico</label><input type="email" id="usuario-form-email" required></div>
       <div class="campo">
         <label>Rol / Perfil</label>
-        <select id="usuario-form-rol" required></select>
+        <!-- El orden es la cadena de mando, no el alfabeto: lo arma el JS por rango. -->
+        <select id="usuario-form-rol" data-sin-ordenar required></select>
       </div>
       <div class="campo" id="campo-usuario-activo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="usuario-form-activo" checked style="width:auto;"> Usuario activo
+          <input type="checkbox" id="usuario-form-activo" checked> Usuario activo
         </label>
       </div>
       <button type="submit" class="btn-primario">Guardar</button>
@@ -1524,13 +1525,13 @@ async function cargarMatrizPermisos() {
         return `
         <td style="text-align:center; white-space:nowrap; font-size:0.75rem;">
           <label style="display:inline-flex; align-items:center; gap:2px; margin-right:6px;" title="Ver">
-            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="ver" ${celda.ver ? 'checked' : ''}> V
+            <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="ver" ${celda.ver ? 'checked' : ''}> V
           </label>
           <label style="display:inline-flex; align-items:center; gap:2px; margin-right:6px;" title="Editar">
-            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="editar" ${celda.editar ? 'checked' : ''}> E
+            <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="editar" ${celda.editar ? 'checked' : ''}> E
           </label>
           <label style="display:inline-flex; align-items:center; gap:2px;" title="Agregar nuevo">
-            <input type="checkbox" style="width:auto;" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="agregar" ${celda.agregar ? 'checked' : ''}> A
+            <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="agregar" ${celda.agregar ? 'checked' : ''}> A
           </label>
         </td>`;
       }).join('')}

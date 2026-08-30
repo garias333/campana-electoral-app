@@ -237,7 +237,7 @@
 
       <div class="campo" id="campo-asignar-testigo-votante" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
-          <input type="checkbox" id="chk-asignar-testigo-votante" style="width:auto;"> Es también testigo electoral
+          <input type="checkbox" id="chk-asignar-testigo-votante"> Es también testigo electoral
         </label>
         <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-top:2px;">
           Además de ser Votante o Sublíder, esta persona también podrá ingresar como testigo electoral y usar la app de Día D. El puesto donde vigila se elige aquí abajo y puede ser distinto de donde vota. Necesita tener Número de identificación.
@@ -322,10 +322,10 @@
       <div class="campo" id="campo-area-influencia-votante" style="display:none;">
         <div style="display:flex; gap:22px; margin-bottom:4px;">
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-            <input type="checkbox" id="chk-area-influencia-votante-territorio" style="width:auto;" checked> Territorio
+            <input type="checkbox" id="chk-area-influencia-votante-territorio" checked> Territorio
           </label>
           <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-            <input type="checkbox" id="chk-area-influencia-votante-organizacion" style="width:auto;"> Organización
+            <input type="checkbox" id="chk-area-influencia-votante-organizacion"> Organización
           </label>
         </div>
       </div>
@@ -381,7 +381,8 @@
         <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo trae los líderes y coordinadores del territorio elegido arriba, con los del Área elegida de primeros — si necesitas a otra persona, búscala por nombre aquí.</small>
         <input type="text" id="input-buscar-lider" placeholder="Buscar otro líder o coordinador por nombre..." autocomplete="off" style="margin-bottom:4px;">
         <div id="resultados-buscar-lider" style="margin-bottom:6px;"></div>
-        <select name="lider_id" id="select-lider"><option value="">Yo mismo / no aplica</option></select>
+        <!-- Los del Area elegida van de primeros, y la pantalla lo promete justo arriba. -->
+        <select name="lider_id" id="select-lider" data-sin-ordenar><option value="">Yo mismo / no aplica</option></select>
       </div>
       <div class="campo">
         <label>Sublíder</label>
@@ -396,6 +397,46 @@
       <div class="campo campo-ancho" id="bloque-consentimiento-votante" style="display:none;">
         <label>Autorización de tratamiento de datos</label>
         <div id="detalle-consentimiento" class="detalle-consentimiento"></div>
+      </div>
+
+      <!-- EL ACTO DE AUTORIZAR, QUE AQUI NO EXISTIA. El bloque de arriba es la
+           evidencia de lo ya autorizado; este es donde se autoriza. El servidor
+           lo exige solo a Lider y Sublider, porque es el unico momento de
+           captura real -a pie de calle, frente a la persona-: un admin
+           corrigiendo una ficha no presencio nada que pueda confirmar. Pero
+           esta pantalla no tenia la casilla, asi que un lider en computador
+           recibia el rechazo del servidor SIN NADA QUE MARCAR, y solo podia
+           registrar desde el celular. Sale solo al crear, y solo a quien el
+           servidor se lo va a pedir: a un admin no se le enseña un campo que
+           en su caso no significa nada. -->
+      <div class="campo" id="bloque-autorizacion-votante" style="display:none; background:var(--color-bg); border:1px solid var(--color-border); border-radius:8px; padding:14px;">
+        <label style="margin-bottom:8px;">Autorización de la persona</label>
+
+        <!-- MOSTRARLE EL TEXTO ES LO QUE HACE QUE EL CONSENTIMIENTO SEA
+             "INFORMADO". Se abre aqui mismo, sin salir del formulario ni
+             perder lo escrito, que es lo que pasaria con un enlace. -->
+        <button type="button" class="btn-secundario btn-sm" id="btn-ver-politica-votante">Leer la política de tratamiento de datos</button>
+        <div id="texto-politica-votante" style="display:none; margin-top:10px; max-height:220px; overflow-y:auto; font-size:0.85rem; line-height:1.5; border:1px solid var(--color-border); border-radius:6px; padding:10px; white-space:pre-wrap;"></div>
+
+        <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; margin-top:12px;">
+          <input type="checkbox" id="chk-consentimiento-votante">
+          <span>Le leí o le mostré esta información y <strong>autoriza el tratamiento de sus datos</strong>.</span>
+        </label>
+
+        <p style="margin:12px 0 6px; font-size:0.85rem; color:var(--color-text-muted);">¿Por cuáles medios autoriza que le escribamos?</p>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="chk-consentimiento-email-votante"> Correo electrónico
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="chk-consentimiento-sms-votante"> Mensajes de texto (SMS)
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="chk-consentimiento-whatsapp-votante"> WhatsApp
+        </label>
+        <p style="margin:8px 0 0; font-size:0.8rem; color:var(--color-text-muted);">
+          Puede autorizar unos y otros no. Si no marca ninguno queda registrada igual,
+          pero no le llegarán mensajes de la campaña.
+        </p>
       </div>
 
       <button type="submit" class="btn-primario">Guardar</button>
@@ -541,7 +582,7 @@ function aplicarApoyosConfigurados(SUFIJO, activos, posibles, porDefecto = []) {
   bloque.style.display = 'block';
   casillas.innerHTML = lista.map(a => `
     <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" name="apoya_a" value="${a}" style="width:auto;"${porDefecto.includes(a) ? ' checked' : ''}>
+      <input type="checkbox" name="apoya_a" value="${a}"${porDefecto.includes(a) ? ' checked' : ''}>
       ${ETIQUETAS_APOYO_APP[a] || a}
     </label>`).join('');
 }
@@ -1819,6 +1860,61 @@ function precargarUbicacionVotante(territorioId) {
  * Es lo único que permite demostrar A QUÉ dijo que sí, porque el texto pudo
  * cambiar después.
  */
+/* A QUIEN SE LE PIDE. La misma regla que routes/votantes.routes.js aplica al
+   crear; si alla cambia, aqui tambien, o vuelve el rechazo sin casilla. */
+function exigeAutorizacionVotante() {
+  if (!usuarioActual) return false;
+  /* `rol_sesion` Y NO `rol`: el segundo lo reescribe inicializarLayout a
+     'admin' para el aspirante con sublicencia, y el servidor sigue viendo
+     'lider'. Con `rol` la casilla no se dibujaba justo a quien iba a recibir
+     el rechazo por no marcarla. El respaldo a `rol` es para un navegador que
+     tenga cacheado un common.js anterior a este cambio. */
+  const rolQueDecide = usuarioActual.rol_sesion || usuarioActual.rol;
+  return ['lider', 'sublider'].includes(rolQueDecide);
+}
+
+let versionPoliticaVotante = '';
+let textoPoliticaVotante = '';
+
+async function cargarPoliticaVotante() {
+  if (textoPoliticaVotante) return;
+  try {
+    const p = await api('/contenido/politica_privacidad');
+    textoPoliticaVotante = p.contenido || '';
+    versionPoliticaVotante = p.version || '';
+  } catch (_) { /* sin politica cargada el boton lo dice; la casilla sigue sirviendo */ }
+}
+
+/* Se guarda la VERSION del texto que se mostro, no solo que alguien marco una
+   casilla: una autorizacion sin saber sobre que texto se dio no prueba nada. */
+function mostrarBloqueAutorizacionVotante(esNuevo) {
+  const bloque = document.getElementById('bloque-autorizacion-votante');
+  if (!bloque) return;
+  const visible = !!esNuevo && exigeAutorizacionVotante();
+  bloque.style.display = visible ? '' : 'none';
+  ['chk-consentimiento-votante', 'chk-consentimiento-email-votante',
+   'chk-consentimiento-sms-votante', 'chk-consentimiento-whatsapp-votante']
+    .forEach((id) => { const c = document.getElementById(id); if (c) c.checked = false; });
+  const caja = document.getElementById('texto-politica-votante');
+  if (caja) caja.style.display = 'none';
+  if (visible) cargarPoliticaVotante();
+}
+
+document.getElementById('btn-ver-politica-votante').addEventListener('click', async () => {
+  const caja = document.getElementById('texto-politica-votante');
+  const boton = document.getElementById('btn-ver-politica-votante');
+  if (caja.style.display !== 'none') {
+    caja.style.display = 'none';
+    boton.textContent = 'Leer la política de tratamiento de datos';
+    return;
+  }
+  await cargarPoliticaVotante();
+  caja.textContent = textoPoliticaVotante
+    || 'Todavía no se ha escrito la política de tratamiento de datos. Se configura en Configuración → Contenidos.';
+  caja.style.display = '';
+  boton.textContent = 'Ocultar la política';
+});
+
 function pintarConsentimiento(v) {
   const bloque = document.getElementById('bloque-consentimiento-votante');
   const caja = document.getElementById('detalle-consentimiento');
@@ -1927,6 +2023,7 @@ async function editarVotante(v) {
   poblarComunaResidenciaVotante();
   document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
   pintarConsentimiento(v);
+  mostrarBloqueAutorizacionVotante(false);   // al editar no se vuelve a pedir: el servidor solo la exige al crear
   document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
   document.getElementById('categoria-votante-error').style.display = 'none';
   document.getElementById('input-meta-votos-sublider').value = 0;
@@ -2244,6 +2341,7 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
   puestoActualTestigoVotante = null;
   document.getElementById('select-lider').innerHTML = '<option value="">Yo mismo / no aplica</option>';
   document.getElementById('select-sublider-votante').innerHTML = '<option value="">Ninguno</option>';
+  mostrarBloqueAutorizacionVotante(true);
   poblarListasUbicacionVotante();
 
   // Auto-llena Departamento/Ciudad de residencia Y Departamento/Municipio
@@ -2277,7 +2375,19 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
     // Mismo motivo: las opciones de Comuna/Barrio/Corregimiento/Vereda
     // dependen de la Ciudad de residencia, que se acaba de poner por
     // código arriba — se repueblan a mano.
+    //
+    // SON DOS BLOQUES DISTINTOS Y HAY QUE LLAMAR A LOS DOS. La línea de
+    // abajo llena el Área de Influencia (lista-comunas-votante,
+    // lista-corregimientos-votante, lista-barrios-votante); los dos campos
+    // de Datos de contacto tienen sus propias listas
+    // (lista-comuna-residencia-votante y lista-barrio-residencia-votante) y
+    // las llena la otra función. Faltaba, y por eso al abrir el formulario
+    // Comuna / Corregimiento y Barrio / Vereda no desplegaban nada: la
+    // Ciudad llega puesta desde la configuración, así que el evento "input"
+    // que normalmente las llena no se dispara nunca. Solo aparecían si
+    // alguien tocaba la Ciudad a mano.
     poblarListasUbicacionVotante();
+    poblarComunaResidenciaVotante();   // esta arrastra el Barrio: la llama al final
   } catch (e) { /* si falla, se deja en blanco sin interrumpir el formulario */ }
 
   // Y AHORA SÍ SE ARMA «Referido por». Arriba se vació a una sola opción y
@@ -2457,6 +2567,23 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
   const datos = Object.fromEntries(new FormData(e.target));
   const id = datos.id;
   delete datos.id;
+
+  /* SE COMPRUEBA AQUI PARA DAR EL MENSAJE JUNTO A LA CASILLA, pero quien manda
+     es el servidor: lo que compruebe el navegador no autoriza nada. */
+  if (!id && exigeAutorizacionVotante()) {
+    if (!document.getElementById('chk-consentimiento-votante').checked) {
+      errorBox.textContent = 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.';
+      errorBox.classList.add('visible');
+      document.getElementById('bloque-autorizacion-votante').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    datos.consentimiento_autorizado = true;
+    datos.consentimiento_metodo = 'verbal_formulario_campo';
+    datos.consentimiento_email = document.getElementById('chk-consentimiento-email-votante').checked;
+    datos.consentimiento_sms = document.getElementById('chk-consentimiento-sms-votante').checked;
+    datos.consentimiento_whatsapp = document.getElementById('chk-consentimiento-whatsapp-votante').checked;
+    datos.consentimiento_version = versionPoliticaVotante || '';
+  }
   datos.categoria = esVotante ? 'votante' : 'sublider';
   datos.telefono = (datos.telefono || '').replace(/\D/g, '');
   datos.territorio_id = resuelto.territorioId || '';

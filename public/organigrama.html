@@ -419,7 +419,8 @@
     <div class="card" id="card-org">
       <div class="campo" id="campo-filtro-org-cargo" style="display:none; max-width:520px;">
         <label>Filtrar por Cargo (muestra a quien lo encabeza y sus subordinados)</label>
-        <select id="filtro-org-cargo">
+        <!-- Los cargos salen ya agrupados por nivel del organigrama; el alfabeto los mezclaria. -->
+        <select id="filtro-org-cargo" data-sin-ordenar>
           <option value="">Todos los cargos</option>
         </select>
         <div style="margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; font-size:0.8rem;">
