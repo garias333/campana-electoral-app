@@ -399,7 +399,7 @@
               <th>Nombre del puesto</th>
               <th class="col-num">Cantidad de mesas</th>
               <th class="col-num">Mesas con testigos asignados</th>
-              <th class="col-num">Mesas por asignar testigo</th>
+              <th class="col-cobertura">Mesas por asignar testigo</th>
               <th></th>
             </tr></thead>
             <tbody id="tbody-puestos-votacion"></tbody>
@@ -1798,7 +1798,7 @@ async function cargarPuestosVotacion() {
       <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
       <td class="mono col-num">${p.cantidad_mesas}</td>
       <td class="mono col-num${p.mesas_con_testigo ? '' : ' nadie'}">${p.mesas_con_testigo}</td>
-      <td class="col-num">${celdaCobertura(p)}</td>
+      <td class="col-cobertura">${celdaCobertura(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>

@@ -1604,26 +1604,43 @@ table td .btn-primario:hover {
    encabezados de todas las demás, y algunas llevan catorce columnas donde un
    par de píxeles decide si un rótulo cabe en una línea o en dos. */
 .tabla-cobertura thead th {
-  font-size: 0.86rem;
-  letter-spacing: 0.05em;
-  color: #46505F;
-  padding: 14px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #2B3444;
+  padding: 16px 12px 12px;
   vertical-align: bottom;
+  /* Una linea mas marcada bajo el encabezado: con la letra ya grande, el filo
+     de 1px de la hoja general no alcanzaba a separar el rotulo del primer
+     dato y las dos cosas se leian como un bloque. */
+  border-bottom: 2px solid #D5DAE2;
 }
 /* LA FILA ENTERA SUBE, no solo los números. `table` fija 0.87rem para toda la
    aplicación y el nombre del puesto lo heredaba: al lado de los conteos
    quedaba pequeño justo en la columna que uno lee para buscar. Sube a 1rem,
    que es el tamaño del texto corrido del resto de la pantalla. */
-.tabla-cobertura tbody td { padding: 15px 12px; vertical-align: middle; font-size: 1rem; }
+.tabla-cobertura tbody td { padding: 15px 12px; vertical-align: middle; font-size: 1.08rem; }
 /* Los dos conteos sueltos, al tamaño de la fila y no al del texto corrido: al
    lado de la cifra grande de la última columna, a 0.87rem parecían una nota al
    pie de su propia columna. */
-.tabla-cobertura tbody td.mono.col-num { font-size: 1.3rem; font-weight: 600; color: #46505F; }
+.tabla-cobertura tbody td.mono.col-num { font-size: 1.45rem; font-weight: 600; color: #46505F; }
 /* Un cero de mesas cubiertas no es un dato más: es el puesto que nadie ha
    tocado. Se apaga para que el ojo lo separe de un conteo real. */
 .tabla-cobertura tbody td.mono.col-num.nadie { color: #B0B7C3; font-weight: 500; }
-.tabla-cobertura .mesas-faltantes { justify-content: center; margin-left: auto; margin-right: auto; }
-.tabla-cobertura .cobertura-faltan { margin-bottom: 2px; }
+/* ESTA COLUMNA VA A LA IZQUIERDA, no centrada como las otras dos.
+   Las otras llevan un numero suelto y centrarlo bajo su rotulo es lo correcto.
+   Esta lleva un bloque: la cifra y debajo hasta dos filas de casillas. Centrado,
+   la cifra bailaba de sitio segun cuantas casillas hubiera debajo, y al
+   recorrer la lista con la vista no habia una linea donde apoyarse.
+   ANCHO PROPIO, Y NO POR CAPRICHO: las casillas quiebran donde acabe la celda,
+   no donde diga el contenedor. La columna se quedaba mas angosta que las diez
+   casillas y el resultado eran TRES filas -diez, ocho y dos- en vez de dos.
+   Se le reserva el ancho de diez casillas con holgura; hay sitio de sobra a la
+   derecha porque la columna de acciones no lo usa. */
+.tabla-cobertura th.col-cobertura,
+.tabla-cobertura td.col-cobertura { text-align: left; min-width: 420px; }
+.tabla-cobertura .mesas-faltantes { justify-content: flex-start; margin-left: 0; margin-right: 0; max-width: 400px; }
+.tabla-cobertura .cobertura-faltan { margin-bottom: 3px; }
 /* El nombre del puesto es lo que se busca al recorrer la lista: se queda a la
    izquierda y gana peso frente a las columnas de números. */
 .tabla-cobertura tbody td:first-child { font-weight: 600; color: #1B2432; line-height: 1.35; }

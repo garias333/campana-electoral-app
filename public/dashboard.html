@@ -270,13 +270,22 @@
           <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
           <div class="celda" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
           <div class="celda" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
-          <div class="celda acento"><div class="et">Avance de registro</div><div class="val" id="stat-avance-registros-lideres">—</div></div>
+          <div class="celda acento"><div class="et">Avance · meta campaña</div><div class="val" id="stat-avance-campana">—</div></div>
+          <div class="celda acento"><div class="et">Avance · meta líderes</div><div class="val" id="stat-avance-registros-lideres">—</div></div>
         </div>
       </div>
 
       <div class="medidor">
         <div class="bloque-izq">
-          <span class="et">Avance hacia la meta</span>
+          <span class="et">Hacia la meta de la campaña</span>
+        </div>
+        <div class="pista"><div class="relleno" id="medidor-relleno-campana" style="width:0%"></div></div>
+        <div class="lectura" id="stat-avance-campana-lectura"></div>
+      </div>
+
+      <div class="medidor">
+        <div class="bloque-izq">
+          <span class="et">Hacia la meta de los líderes</span>
         </div>
         <div class="pista"><div class="relleno" id="medidor-relleno" style="width:0%"></div></div>
         <div class="lectura" id="stat-avance-registros-porcentaje"></div>
@@ -628,6 +637,34 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     document.getElementById('stat-avance-registros-lideres').textContent = porcentajeAvance !== null
       ? `${porcentajeAvance}%`
       : '—';
+
+    /* EL SEGUNDO AVANCE, Y CADA UNO CON SU NUMERADOR. No son la misma cuenta
+       con otro divisor, y confundirlos es el error que el comentario de arriba
+       ya documenta para el caso contrario.
+
+       · META DE LOS LIDERES: lo que la estructura se comprometio a traer. Su
+         avance solo puede ser lo que la estructura trajo — votantes con un
+         lider o sublider detras. Meter aqui los que cargo un administrador
+         directamente inflaria el cumplimiento de gente que no los registro.
+       · META DE LA CAMPAÑA: los votos que el candidato aspira a sacar. Ahi si
+         cuenta TODO lo que la campaña tiene registrado, venga de un lider o lo
+         haya subido un coordinador: para la urna da lo mismo quien lo trajo.
+
+       Por eso el numerador de arriba es `avanceRegistrosLideres` (57 en la
+       campaña de prueba) y el de aqui es el total (109). Cruzarlos daria dos
+       cifras equivocadas en direcciones opuestas. */
+    const registradosCampana = Number(r.votantes.total) || 0;
+    const porcentajeCampana = r.metaVotosCampana > 0
+      ? ((registradosCampana / r.metaVotosCampana) * 100).toFixed(1)
+      : null;
+    document.getElementById('stat-avance-campana').textContent = porcentajeCampana !== null
+      ? `${porcentajeCampana}%`
+      : '—';
+    document.getElementById('stat-avance-campana-lectura').textContent = porcentajeCampana !== null
+      ? `${formatoMillares(registradosCampana)} de ${formatoMillares(r.metaVotosCampana)}`
+      : 'Sin meta de campaña registrada';
+    document.getElementById('medidor-relleno-campana').style.width =
+      porcentajeCampana !== null ? `${Math.min(100, Number(porcentajeCampana))}%` : '0%';
     document.getElementById('stat-avance-registros-porcentaje').textContent = porcentajeAvance !== null
       ? `${formatoMillares(registradosPorLideres)} de ${formatoMillares(r.metaVotosLideres)}`
       : 'Sin meta de votos registrada';
@@ -640,7 +677,7 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     if (porcentajeAvance !== null && Number(porcentajeAvance) < 50) {
       const faltan = r.metaVotosLideres - registradosPorLideres;
       document.getElementById('aviso-rezago-texto').textContent =
-        `Faltan ${formatoMillares(faltan)} registros para llegar a la meta de ${formatoMillares(r.metaVotosLideres)}.`;
+        `Faltan ${formatoMillares(faltan)} registros para llegar a la meta de los líderes, ${formatoMillares(r.metaVotosLideres)}.`;
       document.getElementById('aviso-rezago').style.display = 'flex';
     }
 
