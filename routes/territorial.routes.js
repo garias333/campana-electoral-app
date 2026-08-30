@@ -1273,13 +1273,31 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
       }
     }
 
+    /* UN ASPIRANTE NO PUEDE DEJAR A ALGUIEN SIN JEFE DESDE ESTE FORMULARIO.
+       El POST ya lo tenía resuelto (linea 943: el supervisor de todo lo que
+       crea un aspirante es él mismo); este UPDATE escribia `supervisor_id`
+       en crudo, y un formulario guardado con ese campo en blanco desenganchaba
+       a la persona de su rama — se caia de su estructura sin error y sin
+       aviso, y ni el que edita ni la campaña madre se enteraban.
+
+       Con la lista de «Reporta a» acotada a su rama eso dejo de ser teorico:
+       basta con cambiar el Area dentro del formulario para que el desplegable
+       se repueble y pierda la opcion que estaba puesta.
+
+       Vacio significa «no lo toques», no «quitaselo». Para sacar a alguien de
+       su equipo esta el boton «Quitar de mi equipo», que anota una exclusion
+       en vez de romper la cadena de mando de la campaña madre. */
+    const supervisorGuardado = req.sublicencia
+      ? (supervisor_id || fila.supervisor_id_anterior || req.sublicencia.usuario_id)
+      : (supervisor_id || null);
+
     await conexion.query(
       `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, territorio_id = ?, area = ?, tipo_area_influencia = ?, organizacion = ?,
        supervisor_id = ?, meta_votos = ?, meta_votos_base = ?, activo = ?, direccion = ?
        WHERE id = ?`,
       [cargo, tipoTestigoFinal, (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
        territorio_id || null, areaFinal, esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? organizacion.trim() : null,
-       supervisor_id || null, meta_votos || 0, meta_votos || 0, activo ? 1 : 0, direccion || null, req.params.id]
+       supervisorGuardado, meta_votos || 0, meta_votos || 0, activo ? 1 : 0, direccion || null, req.params.id]
     );
 
     await conexion.commit();
@@ -2305,13 +2323,19 @@ router.get('/coordinador-organizaciones', async (req, res) => {
 // para autocompletar el campo "Líder" en Nuevo evento apenas se elige el Barrio/Vereda.
 router.get('/lideres-por-territorio/:territorioId', async (req, res) => {
   try {
+    /* A UN ASPIRANTE, SOLO SU GENTE. Mismo motivo y misma pieza que en
+       `/coordinadores-por-zona`: estas listas llenan desplegables donde no
+       puede aparecer nadie que no esté en su propia estructura. Con la madre
+       `suyos` es null y la consulta queda igual, letra por letra. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
     const [rows] = await pool.query(`
       SELECT u.id, u.nombre
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'lider' AND e.activo = 1 AND e.territorio_id = ?
+        ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `, [req.params.territorioId]);
+    `, [req.params.territorioId, ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2328,6 +2352,9 @@ router.get('/lideres-por-territorio/:territorioId', async (req, res) => {
 // por nombre si no aparece aquí.
 router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
   try {
+    /* A UN ASPIRANTE, SOLO SU GENTE. Misma pieza que en las otras listas de
+       este archivo. Con la madre `suyos` es null y la consulta no cambia. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
     const [rows] = await pool.query(`
       SELECT DISTINCT u.id, u.nombre
       FROM estructura e
@@ -2342,8 +2369,9 @@ router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
             WHERE ec.cargo = 'coordinador' AND ec.activo = 1 AND ec.territorio_id = t.padre_id
           )
         )
+        ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `, [req.params.territorioId, req.params.territorioId]);
+    `, [req.params.territorioId, req.params.territorioId, ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2374,6 +2402,10 @@ router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
 router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
   const area = ['urbano', 'rural'].includes(req.query.area) ? req.query.area : null;
   try {
+    /* A UN ASPIRANTE, SOLO SU GENTE. Misma pieza que en las otras listas de
+       este archivo. Con la madre `suyos` es null y la consulta no cambia. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
+
     // EL ÁREA ORDENA, NO EXCLUYE — y esto es un cambio deliberado.
     //
     // Antes filtraba, y si no había nadie de esa área el desplegable quedaba
@@ -2411,10 +2443,17 @@ router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
          WHERE e.activo = 1
            AND e.cargo IN ('lider', 'coordinador')
            AND (e.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
+           -- El acotado va AQUI DENTRO, no en la consulta de afuera: el alias
+           -- u solo existe en esta subconsulta. Puesto fuera, MySQL no
+           -- encuentra la columna y la ruta responde 500.
+           -- (Sin comillas invertidas: esto vive dentro de un template
+           --  literal y una sola cerraria la cadena.)
+           ${suyos ? `AND ${suyos.sql}` : ''}
       ) x
       ORDER BY (? IS NOT NULL AND x.area = ?) DESC,
                FIELD(x.cargo, 'lider', 'coordinador'), x.nombre
-    `, [req.params.municipioId, req.params.municipioId, req.params.municipioId, area, area]);
+    `, [req.params.municipioId, req.params.municipioId, req.params.municipioId,
+        ...(suyos ? suyos.valores : []), area, area]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2426,13 +2465,19 @@ router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
 // a un Líder específico — para el campo "Sublíder" en Nuevo votante o sublíder.
 router.get('/subliders-por-lider/:liderId', async (req, res) => {
   try {
+    /* A UN ASPIRANTE, SOLO SU GENTE. Mismo motivo y misma pieza que en
+       `/coordinadores-por-zona`: estas listas llenan desplegables donde no
+       puede aparecer nadie que no esté en su propia estructura. Con la madre
+       `suyos` es null y la consulta queda igual, letra por letra. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
     const [rows] = await pool.query(`
       SELECT u.id, u.nombre
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'usuario' AND e.activo = 1 AND e.supervisor_id = ?
+        ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `, [req.params.liderId]);
+    `, [req.params.liderId, ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2443,6 +2488,20 @@ router.get('/subliders-por-lider/:liderId', async (req, res) => {
 // Resumen de cobertura territorial (para dashboard/mapa)
 router.get('/cobertura', async (req, res) => {
   try {
+    /* LAS CIFRAS TAMBIÉN SON DATOS. Las filas de aquí son territorios, que el
+       aspirante comparte legítimamente con la madre —trabaja en el mismo
+       municipio—, pero los cuatro conteos de cada fila son de la campaña
+       entera: cuántos líderes, coordinadores, testigos y votantes tiene la
+       madre en cada barrio. Acotado, cada aspirante ve su propia cobertura.
+
+       El acotado va sobre el ON de cada LEFT JOIN y no en un WHERE: en el
+       WHERE, un territorio sin gente suya desaparecería de la lista en vez de
+       aparecer con ceros, y el mapa de cobertura perdería justo los sitios
+       donde no tiene a nadie, que son los que hay que ver.
+
+       Hoy no lo llama ninguna pantalla —comprobado— pero es alcanzable a mano,
+       y eso basta. */
+    const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id') : null;
     const [rows] = await pool.query(`
       SELECT t.id, t.nombre, t.tipo,
              COUNT(DISTINCT CASE WHEN e.cargo = 'lider' THEN e.id END) AS lideres,
@@ -2451,10 +2510,12 @@ router.get('/cobertura', async (req, res) => {
              COUNT(DISTINCT v.id) AS votantes
       FROM territorios t
       LEFT JOIN estructura e ON e.territorio_id = t.id AND e.activo = 1
+        ${suyos ? `AND ${suyos.sql}` : ''}
       LEFT JOIN votantes v ON v.territorio_id = t.id
+        ${suyos ? 'AND v.rama_aspirante_id = ?' : ''}
       GROUP BY t.id
       ORDER BY t.tipo, t.nombre
-    `);
+    `, suyos ? [...suyos.valores, req.sublicencia.usuario_id] : []);
     res.json(rows);
   } catch (err) {
     console.error(err);

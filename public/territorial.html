@@ -1732,11 +1732,27 @@ async function actualizarReportaAPorZona() {
     }
     try {
       const lideres = await api(`/territorial/lideres-para-sublider/${zonaId}`);
+      /* SI NO HAY NINGUNO, SE CAE A LA LISTA COMPLETA — como ya hacen las
+         otras ramas de esta misma función.
+
+         Era la única de las cuatro que escribía la lista directo sin
+         respaldo, y dejarla así se volvió peligroso desde que el endpoint se
+         acota a la rama del aspirante: en un territorio donde él todavía no
+         tiene líderes, la lista llega vacía y el desplegable se queda solo con
+         «Ninguno». Y como cambiar el Área dentro del formulario reescribe este
+         `innerHTML`, la opción que `abrirEdicion` había dejado seleccionada se
+         pierde — y al guardar, el PUT escribe `supervisor_id` en blanco y
+         desengancha a esa persona de su rama, sin error y sin aviso.
+
+         Cayendo a `restaurarOpcionesReportaA()` el campo nunca queda vacío:
+         ofrece a la gente de su propia estructura, que es de donde tiene que
+         salir su jefe. */
+      if (!lideres.length) { restaurarOpcionesReportaA(); return; }
       select.innerHTML = '<option value="">Ninguno</option>' +
         lideres.map(l => `<option value="${l.id}">${escaparHtml(l.nombre)}</option>`).join('');
       if (lideres.length === 1) select.value = String(lideres[0].id);
     } catch (err) {
-      select.innerHTML = '<option value="">Ninguno</option>';
+      restaurarOpcionesReportaA();
     }
     return;
   }
