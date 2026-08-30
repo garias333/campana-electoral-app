@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { geocodificarDireccion } = require('./geocoder');
+const { aspiranteDe, subarbolSql, filtroTestigosMadre } = require('../lib/ramas');
 
 /**
  * A diferencia de Coordinador/Líder (que se georreferencian por su
@@ -39,14 +40,27 @@ async function geocodificarTestigoPorPuestoYGuardar(pool, estructuraId, puestoVo
  * personas queden asignadas a la misma mesa por error. Devuelve la lista de
  * números de mesa en conflicto (vacía si no hay ninguno).
  */
-async function verificarMesasDisponibles(pool, puesto, mesasSolicitadas, excluirEstructuraId) {
+/* CADA CAMPANA OCUPA SUS PROPIAS MESAS.
+   Antes esta comprobacion miraba todos los testigos de la base, asi que el
+   testigo de la campana madre en la mesa 3 le impedia al aspirante poner el
+   suyo en la mesa 3 del mismo puesto. Y eso no es un conflicto: cada campana
+   pone su propio testigo en cada mesa — de eso se trata la figura.
+   El dueno se deduce de la persona que se esta nombrando, subiendo por la
+   cadena de mando hasta el aspirante mas cercano; si no cuelga de ninguno, es
+   de la campana principal. */
+async function verificarMesasDisponibles(pool, puesto, mesasSolicitadas, excluirEstructuraId, duenoCampana = 0) {
   const mesas = (mesasSolicitadas || []).map(Number).filter(m => Number.isInteger(m) && m > 0);
   if (!puesto || !mesas.length) return [];
   // Mismo criterio que /dia-d/mesas-ocupadas: se cruza por id, no por texto.
   const [[p]] = await pool.query(
-    `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ?`, [puesto]);
+    `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
+    [puesto, duenoCampana || 0]);
   // Puesto desconocido: no se puede afirmar que haya conflicto.
   if (!p) return [];
+
+  const acota = duenoCampana
+    ? subarbolSql(duenoCampana, 'e.usuario_id')
+    : await filtroTestigosMadre(pool, 'e.usuario_id');
 
   // COALESCE porque el puesto/mesa del testigo puede estar en dos sitios:
   // en "estructura" si la persona tiene otro cargo y ADEMÁS es testigo (así
@@ -58,8 +72,10 @@ async function verificarMesasDisponibles(pool, puesto, mesasSolicitadas, excluir
             COALESCE(e.mesa_votacion, u.mesa_votacion) AS mesa_votacion,
             e.mesas_asignadas
      FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-     WHERE e.cargo = 'testigo' AND COALESCE(e.puesto_id, u.puesto_id) = ? AND e.id != ?`,
-    [p.id, excluirEstructuraId || 0]
+     WHERE e.cargo = 'testigo' AND COALESCE(e.puesto_id, u.puesto_id) = ? AND e.id != ?
+       ${acota ? 'AND ' + acota.sql : ''}`,
+    acota ? [p.id, excluirEstructuraId || 0, ...acota.valores]
+          : [p.id, excluirEstructuraId || 0]
   );
   const ocupadas = new Set();
   for (const f of filas) {
@@ -136,6 +152,38 @@ async function ubicacionDelPuestoDeCampana(pool, nombrePuesto) {
  * lo correcto es avisar del duplicado, no reescribirle el puesto a otra
  * persona sin que nadie lo pida.
  */
+/**
+ * DE QUIEN CUELGA EL TESTIGO. Sin esto la fila nacia con `supervisor_id` en
+ * NULL, o sea colgando de nadie, y eso rompia las dos direcciones a la vez:
+ * el aspirante no veia sus propios testigos -su subarbol baja por
+ * supervisor_id y nunca llegaba- y la campana madre no podia excluirlos, asi
+ * que aparecian en la lista de ella. Se veia como "0 testigos" en la
+ * sublicencia y el mismo nombre asomando en la principal.
+ *
+ * El testigo cuelga de quien cuelga la persona:
+ *   1. Su otra fila de estructura, si ya esta en el organigrama (lider,
+ *      sublider, coordinador). Su jefe es el mismo.
+ *   2. Si solo es votante, del sublider que lo registro, o del lider si no
+ *      hubo sublider. `votantes` no guarda usuario_id: el enlace es la cedula.
+ * Si no se puede resolver, se deja NULL como hasta ahora — mejor un testigo
+ * sin rama que uno colgado del sitio equivocado.
+ */
+async function supervisorDelTestigo(pool, usuarioId) {
+  const [[propia]] = await pool.query(
+    `SELECT supervisor_id FROM estructura
+      WHERE usuario_id = ? AND cargo <> 'testigo' AND supervisor_id IS NOT NULL
+      LIMIT 1`, [usuarioId]);
+  if (propia && propia.supervisor_id) return propia.supervisor_id;
+
+  const [[comoVotante]] = await pool.query(
+    `SELECT COALESCE(v.sublider_id, v.lider_id) AS jefe
+       FROM usuarios u JOIN votantes v ON v.cedula = u.numero_identificacion
+      WHERE u.id = ? AND u.numero_identificacion IS NOT NULL
+        AND COALESCE(v.sublider_id, v.lider_id) IS NOT NULL
+      LIMIT 1`, [usuarioId]);
+  return comoVotante ? comoVotante.jefe : null;
+}
+
 async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTestigo, mesasAsignadas, opciones = {}) {
   const { puesto_votacion, mesa_votacion } = datosVotacion || {};
   const tipo = tipoTestigo === 'puesto' ? 'puesto' : 'mesa';
@@ -151,8 +199,9 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
   const mesasSolicitadas = tipo === 'puesto' ? (mesasAsignadas || []) : (mesa_votacion ? [mesa_votacion] : []);
   // Al editar hay que excluirse a uno mismo del cruce: si no, sus propias
   // mesas actuales aparecerían como "ya ocupadas" y no se podría guardar.
+  const duenoCampana = (await aspiranteDe(pool, usuarioId)) || 0;
   const conflicto = await verificarMesasDisponibles(
-    pool, puesto_votacion, mesasSolicitadas, yaExiste ? yaExiste.id : 0);
+    pool, puesto_votacion, mesasSolicitadas, yaExiste ? yaExiste.id : 0, duenoCampana);
   if (conflicto.length) {
     return { creado: false, conflicto };
   }
@@ -160,14 +209,17 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
   // El id del puesto se resuelve acá y se guarda: los cruces del Día D se
   // hacen por id, no comparando el nombre carácter por carácter.
   const [[puestoCampana]] = await pool.query(
-    `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ?`, [puesto_votacion || '']);
+    `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
+    [puesto_votacion || '', duenoCampana]);
   const ubicacion = await ubicacionDelPuestoDeCampana(pool, puesto_votacion);
 
   if (yaExiste) {
     await pool.query(
       `UPDATE estructura
           SET tipo_testigo = ?, mesas_asignadas = ?, puesto_votacion = ?, mesa_votacion = ?,
-              puesto_id = ?, departamento_votacion = ?, municipio_votacion = ?
+              puesto_id = ?, departamento_votacion = ?, municipio_votacion = ?,
+              -- Solo si nacio sin rama: nunca se pisa una ya puesta a mano.
+              supervisor_id = COALESCE(supervisor_id, ?)
         WHERE id = ?`,
       [
         tipo,
@@ -176,6 +228,7 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
         tipo === 'puesto' ? null : (mesa_votacion || null),
         puestoCampana ? puestoCampana.id : null,
         ubicacion.departamento, ubicacion.municipio,
+        await supervisorDelTestigo(pool, usuarioId),
         yaExiste.id
       ]
     );
@@ -183,11 +236,12 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
     return { creado: false, actualizado: true, estructuraId: yaExiste.id };
   }
 
+  const supervisorId = await supervisorDelTestigo(pool, usuarioId);
   const [result] = await pool.query(
     `INSERT INTO estructura
        (usuario_id, cargo, tipo_testigo, mesas_asignadas, puesto_votacion, mesa_votacion,
-        puesto_id, departamento_votacion, municipio_votacion, tipo_area_influencia, activo)
-     VALUES (?, 'testigo', ?, ?, ?, ?, ?, ?, ?, 'territorio', 1)`,
+        puesto_id, departamento_votacion, municipio_votacion, tipo_area_influencia, supervisor_id, activo)
+     VALUES (?, 'testigo', ?, ?, ?, ?, ?, ?, ?, 'territorio', ?, 1)`,
     [
       usuarioId, tipo,
       tipo === 'puesto' ? JSON.stringify(mesasSolicitadas.map(Number)) : null,
@@ -197,7 +251,7 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
       // Testigo electoral normal (tipo "mesa").
       tipo === 'puesto' ? null : (mesa_votacion || null),
       puestoCampana ? puestoCampana.id : null,
-      ubicacion.departamento, ubicacion.municipio
+      ubicacion.departamento, ubicacion.municipio, supervisorId
     ]
   );
   await geocodificarTestigoPorPuestoYGuardar(pool, result.insertId, puesto_votacion, ubicacion.municipio, ubicacion.departamento);
@@ -241,5 +295,8 @@ async function resolverOCrearUsuarioParaTestigo(pool, { nombre, cedula, email, t
 
 module.exports = {
   asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo, verificarMesasDisponibles,
-  geocodificarTestigoPorPuestoYGuardar
+  geocodificarTestigoPorPuestoYGuardar,
+  // Se exporta para poder comprobarla sola: de quien cuelga un testigo decide
+  // en que campana aparece, y eso merece una prueba propia y no deducirlo.
+  supervisorDelTestigo
 };

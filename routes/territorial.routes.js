@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { subarbolSql, filtroMadreEstructura, recalcularRamaEnSegundoPlano } = require('../lib/ramas');
+const { subarbolSql, filtroMadreEstructura, filtroTestigosMadre, recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 /* EL CARGO DE LA MADRE SE PIDE AQUÍ, NO SE LEE DE `req.alcance`.
    Este router monta `requireAuth` y nada más: `calcularAlcance` solo se aplica
    en routes/votantes.routes.js, así que `req.alcance` es SIEMPRE undefined en
@@ -732,31 +732,45 @@ router.get('/estructura', async (req, res) => {
     // pero recorren `votantes` una sola vez.
     let query = `
       WITH
-      cnt_lider AS (
-        SELECT lider_id AS uid, COUNT(*) AS c FROM votantes WHERE lider_id IS NOT NULL GROUP BY lider_id
+      -- Cada votante, con cada persona por la que cuenta: su líder y su
+      -- sublíder son dos filas distintas del mismo votante.
+      pares AS (
+        SELECT id AS vid, lider_id    AS uid FROM votantes WHERE lider_id    IS NOT NULL
+        UNION ALL
+        SELECT id AS vid, sublider_id AS uid FROM votantes WHERE sublider_id IS NOT NULL
       ),
       -- COUNT(DISTINCT) y no COUNT(*): si alguien figura como líder Y como
       -- sublíder del mismo votante, esa persona cuenta una sola vez, igual
       -- que hacía el "OR" de la consulta anterior.
       cnt_ambos AS (
-        SELECT uid, COUNT(DISTINCT vid) AS c FROM (
-          SELECT id AS vid, lider_id    AS uid FROM votantes WHERE lider_id    IS NOT NULL
-          UNION ALL
-          SELECT id AS vid, sublider_id AS uid FROM votantes WHERE sublider_id IS NOT NULL
-        ) x GROUP BY uid
+        SELECT uid, COUNT(DISTINCT vid) AS c FROM pares GROUP BY uid
       ),
-      subs AS (
-        SELECT es.supervisor_id AS uid, COALESCE(SUM(cb.c), 0) AS c
-          FROM estructura es LEFT JOIN cnt_ambos cb ON cb.uid = es.usuario_id
+      -- El líder y su gente, como pares (líder, miembro). El líder se incluye
+      -- a sí mismo: los que registró directamente también son suyos.
+      miembros AS (
+        SELECT e2.usuario_id AS lider, e2.usuario_id AS miembro
+          FROM estructura e2 WHERE e2.cargo = 'lider'
+        UNION
+        SELECT es.supervisor_id, es.usuario_id
+          FROM estructura es
          WHERE es.cargo = 'usuario' AND es.activo = 1 AND es.supervisor_id IS NOT NULL
-         GROUP BY es.supervisor_id
       ),
+      /* CONTAR PERSONAS DISTINTAS, NO SUMAR DOS CUENTAS QUE SE PISAN.
+         Antes era cnt_lider + subs, y eso contaba dos veces a todo votante
+         registrado por un sublíder: el POST de votantes le pone SIEMPRE el
+         lider_id del líder del sublíder, ademas del sublider_id. Asi que
+         entraba por cnt_lider (por su lider_id) y otra vez por subs (por su
+         sublider_id).
+         Medido con un caso real: un lider con 2 votantes propios, 2
+         sublideres y 2 votantes por cada sublider son 8 personas, y la ficha
+         decia 12 — los 4 de los sublideres, dos veces. Reproducido en una
+         transaccion contra el esquema de verdad antes de tocar nada.
+         El coordinador suma estos totales, asi que su cifra estaba inflada
+         por lo mismo y se arregla sola. */
       total_lider AS (
-        SELECT e2.usuario_id AS uid, COALESCE(cl.c, 0) + COALESCE(s.c, 0) AS total
-          FROM estructura e2
-          LEFT JOIN cnt_lider cl ON cl.uid = e2.usuario_id
-          LEFT JOIN subs      s  ON s.uid  = e2.usuario_id
-         WHERE e2.cargo = 'lider'
+        SELECT m.lider AS uid, COUNT(DISTINCT p.vid) AS total
+          FROM miembros m JOIN pares p ON p.uid = m.miembro
+         GROUP BY m.lider
       ),
       total_coord AS (
         SELECT el.supervisor_id AS uid, COALESCE(SUM(tl.total), 0) AS total
@@ -2634,8 +2648,15 @@ router.get('/testigos', requireRole('admin', 'coordinador', 'aspirante'), async 
        admin y coordinador. Dejar entrar al aspirante sin este filtro le habría
        entregado la lista completa de testigos de la alcaldía con cédula y
        teléfono, que es exactamente lo que la sublicencia existe para separar. */
+    /* Y LA MADRE VE LOS SUYOS, NO LOS DEL ASPIRANTE. Faltaba la otra mitad:
+       el aspirante ya quedaba acotado a su rama, pero la campaña principal no
+       filtraba nada, asi que el testigo que nombraba el aspirante aparecia en
+       las DOS listas. Un testigo es una asignacion de mesa: si las dos
+       campañas lo cuentan como suyo, el dia de la eleccion una de las dos se
+       queda sin nadie en esa mesa creyendo que la tenia cubierta. */
     const acota = req.sublicencia
-      ? subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id') : null;
+      ? subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id')
+      : await filtroTestigosMadre(pool, 'e.usuario_id');
     const [rows] = await pool.query(`
       SELECT e.id, e.tipo_testigo, e.mesas_asignadas, u.nombre, u.numero_identificacion, u.telefono, u.email,
              COALESCE(e.departamento_votacion, u.departamento_votacion) AS departamento_votacion,
@@ -2658,6 +2679,11 @@ router.get('/testigos', requireRole('admin', 'coordinador', 'aspirante'), async 
 
 router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
+    /* MISMO ALCANCE QUE LA PANTALLA. Si la lista deja fuera a los testigos del
+       aspirante y la exportacion no, el Excel entrega con nombre, cedula y
+       telefono exactamente lo que la sublicencia existe para separar — y por
+       una puerta que nadie mira. */
+    const acota = await filtroTestigosMadre(pool, 'e.usuario_id');
     const [filas] = await pool.query(`
       SELECT e.id, e.tipo_testigo, e.mesas_asignadas, u.nombre, u.numero_identificacion, u.telefono, u.email,
              COALESCE(e.departamento_votacion, u.departamento_votacion) AS departamento_votacion,
@@ -2668,8 +2694,9 @@ router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), asyn
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'testigo'
+      ${acota ? 'AND ' + acota.sql : ''}
       ORDER BY u.nombre
-    `);
+    `, acota ? acota.valores : []);
     const columnas = ['ID', 'Tipo', 'Nombre', 'Número de identificación', 'Teléfono', 'Email', 'Departamento votación', 'Municipio votación', 'Puesto', 'Mesa', 'Activo'];
     const datos = filas.map(f => ({
       'ID': f.id,
@@ -2861,6 +2888,10 @@ router.delete('/testigos/:id', requireRole('admin'), async (req, res) => {
        esto se lleva la fila de `estructura` Y la cuenta de `usuarios`. Un
        testigo borrado el día antes de la elección deja un puesto sin cubrir,
        y hasta hoy no había forma de saber quién lo quitó. */
+    /* Mismo alcance que la lista: un id que no sale en la pantalla tampoco se
+       borra tecleandolo. Sin esto, la unica proteccion de los testigos del
+       aspirante seria que a nadie se le ocurriera el numero. */
+    const acotaUno = await filtroTestigosMadre(conexion, 'e.usuario_id');
     const [[fila]] = await conexion.query(
       `SELECT e.id AS estructura_id, e.usuario_id, e.cargo, u.nombre, u.numero_identificacion, u.tipo_cargo,
               sup.nombre AS supervisor_nombre,
@@ -2868,7 +2899,9 @@ router.delete('/testigos/:id', requireRole('admin'), async (req, res) => {
          FROM estructura e
          LEFT JOIN usuarios u   ON u.id = e.usuario_id
          LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
-        WHERE e.id = ? AND e.cargo = 'testigo'`, [req.params.id]);
+        WHERE e.id = ? AND e.cargo = 'testigo'
+          ${acotaUno ? 'AND ' + acotaUno.sql : ''}`,
+      acotaUno ? [req.params.id, ...acotaUno.valores] : [req.params.id]);
     if (!fila) {
     /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
        reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
@@ -2913,10 +2946,21 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
   try {
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
+    /* NO SE BORRA LO QUE NO SE VE. La pantalla de la madre deja fuera a los
+       testigos de las ramas de los aspirantes; sin el mismo filtro aqui, este
+       boton se los llevaba igual. Es el peor reparto posible: invisibles para
+       revisarlos, alcanzables para destruirlos, y el aspirante se queda sin
+       equipo del dia D sin que nadie de su lado haya tocado nada.
+       Se recogen tambien los `id` de estructura y el DELETE va POR ESOS ID, no
+       repitiendo el WHERE: asi la lista que se audita y las filas que se
+       borran no pueden discrepar nunca. */
+    const acotaBorrado = await filtroTestigosMadre(conexion, 'e.usuario_id');
     const [filas] = await conexion.query(
-      `SELECT e.usuario_id, u.nombre FROM estructura e
+      `SELECT e.id AS estructura_id, e.usuario_id, u.nombre FROM estructura e
          LEFT JOIN usuarios u ON u.id = e.usuario_id
-        WHERE e.cargo = 'testigo'`);
+        WHERE e.cargo = 'testigo'
+        ${acotaBorrado ? 'AND ' + acotaBorrado.sql : ''}`,
+      acotaBorrado ? acotaBorrado.valores : []);
     /* SE GUARDAN LOS NOMBRES, NO SÓLO EL NÚMERO. `eliminar_masivo` anota
        cuántas personas se llevó por delante, que sirve para saber qué pasó
        pero no para deshacerlo. Aquí caben: los testigos de una campaña son
@@ -2947,8 +2991,8 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
       conexion, req.session.usuario.id, 'eliminar_masivo', 'estructura', null,
       detalle, req.ip
     );
-    await conexion.query(`DELETE FROM estructura WHERE cargo = 'testigo'`);
     if (filas.length) {
+      await conexion.query(`DELETE FROM estructura WHERE id IN (?)`, [filas.map(f => f.estructura_id)]);
       await conexion.query(`DELETE FROM usuarios WHERE id IN (?)`, [filas.map(f => f.usuario_id)]);
     }
     await conexion.commit();

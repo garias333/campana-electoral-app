@@ -42,6 +42,36 @@ const router = express.Router();
  * 10%.
  */
 const HORAS_VIGENCIA_CODIGO = 48;
+
+/* QUE ROLES PUEDE REPARTIR CADA QUIEN. ESTO CERRABA UNA ESCALADA REAL.
+ *
+ * El rol pedido se validaba solo comprobando que EXISTIERA en la tabla
+ * `roles`. Y 'admin' existe. Como estas dos rutas admiten al aspirante
+ * -requireRole('admin','aspirante'), y middleware/auth.js las abre a
+ * cualquiera con sublicencia-, un aspirante mandaba
+ * POST /api/usuarios {rol:'admin', password:'la que el elija}, entraba con esa
+ * cuenta y era ADMINISTRADOR DE LA CAMPANA MADRE: toda la base de votantes a
+ * la vista, con cedula y telefono.
+ *
+ * El POST era ademas la unica ruta de escritura del fichero sin
+ * `puedeAdministrar` -las otras siete lo tienen-, asi que no habia nada mas
+ * entre esa peticion y la cuenta nueva.
+ *
+ * Y el PUT tenia la misma puerta un paso mas lejos: `puedeAdministrar` acota A
+ * QUIEN se toca, no QUE ROL se le pone, asi que bastaba ascender a 'admin' a
+ * alguien de su propia rama.
+ *
+ * La lista va por lo que cada uno necesita, no por lo que existe: un aspirante
+ * arma su equipo -lideres, sublideres, votantes y testigos- y nada mas. Los
+ * roles de la campana madre, y el que marca a un aspirante, son del
+ * administrador. Se declara UNA vez para que las dos rutas no se separen.
+ */
+const ROLES_DEL_ASPIRANTE = ['lider', 'sublider', 'usuario', 'testigo'];
+
+function rolPermitido(req, rol) {
+  if (!req.sublicencia) return true;          // admin de la campana: sin cambios
+  return ROLES_DEL_ASPIRANTE.includes(rol);
+}
 const { campoDuplicado, registrarErrorSinSql } = require('../config/erroresUsuarios');
 const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
@@ -267,6 +297,9 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
   }
   try {
+    if (!rolPermitido(req, rol)) {
+      return res.status(403).json({ error: 'No puedes asignar ese rol. Tu campaña maneja líderes, sublíderes, votantes y testigos.' });
+    }
     const [[rolFila]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [rol]);
     if (!rolFila) return res.status(400).json({ error: 'Rol no válido.' });
 
@@ -324,6 +357,9 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
   }
   try {
+    if (!rolPermitido(req, rol)) {
+      return res.status(403).json({ error: 'No puedes asignar ese rol. Tu campaña maneja líderes, sublíderes, votantes y testigos.' });
+    }
     const [[rolFila]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [rol]);
     if (!rolFila) return res.status(400).json({ error: 'Rol no válido.' });
 

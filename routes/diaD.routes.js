@@ -5,6 +5,27 @@ const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { upload, uploadExcel } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
+const { aspiranteDe, subarbolSql, filtroTestigosMadre } = require('../lib/ramas');
+
+/**
+ * DE QUE CAMPANA SON LOS PUESTOS Y LOS CANDIDATOS DE QUIEN PREGUNTA.
+ *
+ * La sublicencia del Aspirante al Concejo es una campana aparte: sus puestos
+ * del Dia D, con su propia cantidad de mesas, y sus propios candidatos. Antes
+ * habia una sola lista y el aspirante veia la de la campana madre.
+ *
+ * Dos maneras de resolverlo, y hacen falta las dos:
+ *   · Con sublicencia -el aspirante en su panel- es el mismo.
+ *   · Sin ella, se sube por la cadena de mando hasta el aspirante mas cercano.
+ *     Eso es lo que hace que un TESTIGO suyo reporte contra los candidatos de
+ *     su campana y no contra los de la madre. (Funciona porque los testigos ya
+ *     cuelgan de alguien; antes nacian sin supervisor y esta subida se cortaba.)
+ * Si no cuelga de ningun aspirante, 0: la campana principal.
+ */
+async function duenoDeLaCampana(req) {
+  if (req.sublicencia) return req.sublicencia.usuario_id;
+  return (await aspiranteDe(pool, req.session.usuario.id)) || 0;
+}
 
 const router = express.Router();
 router.use(requireAuth);
@@ -71,7 +92,8 @@ async function ambitoDeLaCampana() {
  */
 async function obtenerCandidatosParaReporte() {
   const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
-  const [configurados] = await pool.query(`SELECT nombre FROM dia_d_candidatos ORDER BY id ASC`);
+  const [configurados] = await pool.query(
+      `SELECT nombre FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`, [await duenoDeLaCampana(req)]);
 
   const nombrePropio = (campana && campana.nombre_candidato || '').trim();
   const resto = configurados
@@ -161,7 +183,9 @@ router.get('/puestos-para-reporte', async (req, res) => {
   const formatear = (filas) => (conId ? filas : filas.map(f => f.nombre));
   try {
     if (!municipio) {
-      const [filas] = await pool.query(`SELECT ${columnas} FROM dia_d_puestos_votacion ORDER BY nombre`);
+      const [filas] = await pool.query(
+        `SELECT ${columnas} FROM dia_d_puestos_votacion WHERE aspirante_id = ? ORDER BY nombre`,
+        [await duenoDeLaCampana(req)]);
       return res.json(formatear(filas));
     }
     // La comparación va con la colación de la base, que ignora mayúsculas y
@@ -172,8 +196,8 @@ router.get('/puestos-para-reporte', async (req, res) => {
          FROM dia_d_puestos_votacion p
          LEFT JOIN territoriosdb.ctc_puestos_votacion cp ON cp.id = p.ctc_puesto_id
          LEFT JOIN territoriosdb.ctc_territorios m ON m.id = cp.municipio_id
-        WHERE p.ctc_puesto_id IS NULL OR m.nombre = ?
-        ORDER BY p.nombre`, [municipio]);
+        WHERE p.aspirante_id = ? AND (p.ctc_puesto_id IS NULL OR m.nombre = ?)
+        ORDER BY p.nombre`, [await duenoDeLaCampana(req), municipio]);
     res.json(formatear(filas));
   } catch (err) {
     console.error(err);
@@ -196,7 +220,9 @@ router.get('/puestos-con-mesas', async (req, res) => {
     // compatible: los consumidores leen `.nombre` y `.cantidad_mesas` y no
     // se enteran del resto — incluidos los que tengan la respuesta vieja
     // guardada en la caché del teléfono.
-    const [filas] = await pool.query(`SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion ORDER BY nombre`);
+    const [filas] = await pool.query(
+      `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE aspirante_id = ? ORDER BY nombre`,
+      [await duenoDeLaCampana(req)]);
     res.json(filas);
   } catch (err) {
     console.error(err);
@@ -229,8 +255,8 @@ router.get('/mesas-ocupadas', async (req, res) => {
     // siempre; el id no depende de eso. usuarios.puesto_id lo mantiene al
     // dia un disparador (ver puesto_id_sincronizado.sql en el CTC).
     const [[config]] = puestoIdPedido
-      ? await pool.query(`SELECT id, cantidad_mesas FROM dia_d_puestos_votacion WHERE id = ?`, [puestoIdPedido])
-      : await pool.query(`SELECT id, cantidad_mesas FROM dia_d_puestos_votacion WHERE nombre = ?`, [puesto]);
+      ? await pool.query(`SELECT id, cantidad_mesas FROM dia_d_puestos_votacion WHERE id = ? AND aspirante_id = ?`, [puestoIdPedido, await duenoDeLaCampana(req)])
+      : await pool.query(`SELECT id, cantidad_mesas FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`, [puesto, await duenoDeLaCampana(req)]);
     const cantidadMesas = config ? config.cantidad_mesas : 0;
     const puestoId = config ? config.id : null;
 
@@ -324,7 +350,8 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
   let puestoId = Number(b.puesto_id) || null;
   if (!puestoId) {
     const [[hallado]] = await pool.query(
-      `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ?`, [String(b.puesto_votacion).trim()]);
+      `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
+      [String(b.puesto_votacion).trim(), await duenoDeLaCampana(req)]);
     puestoId = hallado ? hallado.id : null;
   }
   // Se marca para revisión lo que no cruza con ningún puesto de la lista:
@@ -592,8 +619,8 @@ router.get('/resumen', requireRole('admin', 'coordinador'), async (req, res) => 
     // votación — es la referencia contra la que se mide qué tanto se ha
     // reportado, no una cuenta de reportes.
     const [[{ total_mesas: totalMesas }]] = await pool.query(
-      `SELECT COALESCE(SUM(cantidad_mesas), 0) AS total_mesas FROM dia_d_puestos_votacion`
-    );
+      `SELECT COALESCE(SUM(cantidad_mesas), 0) AS total_mesas FROM dia_d_puestos_votacion WHERE aspirante_id = ?`,
+      [await duenoDeLaCampana(req)]);
     res.json({
       mesasReportando: resumen.mesas_reportando,
       totalMesas: Number(totalMesas),
@@ -864,20 +891,24 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
     // Los puestos sin ctc_puesto_id (escritos a mano) se muestran solo
     // cuando no se está filtrando por un municipio puntual: ahí el filtro
     // es una búsqueda concreta y colarlos sería ruido.
+    /* CADA CAMPANA VE SU LISTA. Sin esto el aspirante veia los puestos de la
+       campana madre, que es justo lo que middleware/auth.js advierte que pasa
+       cuando una ruta admite 'aspirante' y no filtra por su rama. */
+    const dueno = await duenoDeLaCampana(req);
     let filtroSql;
-    const params = [];
+    const params = [dueno];
     if (municipioId) {
       const incluirSinCatalogar = municipioPedido ? '' : 'p.ctc_puesto_id IS NULL OR ';
-      filtroSql = `WHERE ${incluirSinCatalogar}EXISTS (
+      filtroSql = `WHERE p.aspirante_id = ? AND (${incluirSinCatalogar}EXISTS (
         SELECT 1 FROM ${CATALOGO}.ctc_puestos_votacion cp
           JOIN ${CATALOGO}.ctc_territorios m ON m.id = cp.municipio_id
-         WHERE cp.id = p.ctc_puesto_id AND cp.municipio_id = ? AND m.padre_id = ?)`;
+         WHERE cp.id = p.ctc_puesto_id AND cp.municipio_id = ? AND m.padre_id = ?))`;
       params.push(municipioId, departamentoId);
     } else {
-      filtroSql = `WHERE p.ctc_puesto_id IS NULL OR EXISTS (
+      filtroSql = `WHERE p.aspirante_id = ? AND (p.ctc_puesto_id IS NULL OR EXISTS (
         SELECT 1 FROM ${CATALOGO}.ctc_puestos_votacion cp
           JOIN ${CATALOGO}.ctc_territorios m ON m.id = cp.municipio_id
-         WHERE cp.id = p.ctc_puesto_id AND m.padre_id = ?)`;
+         WHERE cp.id = p.ctc_puesto_id AND m.padre_id = ?))`;
       params.push(departamentoId);
     }
     const [puestos] = await pool.query(
@@ -888,6 +919,14 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
     // todas las que tenga en mesas_asignadas — de ahí que no baste con
     // contar filas de Estructura como antes (un solo Coordinador de puesto
     // con 5 mesas debe sumar 5, no 1).
+    /* Y SOLO CUENTAN LOS TESTIGOS DE ESTA CAMPANA. Esta consulta no filtraba
+       por rama, asi que la columna "mesas con testigos asignados" de la
+       principal sumaba tambien los testigos del aspirante — y al reves. Con
+       las dos listas ya separadas, seguir contando en comun daria a las dos
+       campanas una mesa por cubierta que ninguna cubre. */
+    const acotaTestigos = dueno
+      ? subarbolSql(dueno, 'e.usuario_id')
+      : await filtroTestigosMadre(pool, 'e.usuario_id');
     const [testigos] = await pool.query(`
       SELECT COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto_votacion,
              e.tipo_testigo,
@@ -897,7 +936,8 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
       WHERE e.cargo = 'testigo'
         AND COALESCE(e.puesto_votacion, u.puesto_votacion) IS NOT NULL
         AND COALESCE(e.puesto_votacion, u.puesto_votacion) != ''
-    `);
+        ${acotaTestigos ? 'AND ' + acotaTestigos.sql : ''}
+    `, acotaTestigos ? acotaTestigos.valores : []);
     const mesasPorPuesto = new Map();
     for (const t of testigos) {
       if (!mesasPorPuesto.has(t.puesto_votacion)) mesasPorPuesto.set(t.puesto_votacion, new Set());
@@ -924,7 +964,7 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
   }
 });
 
-router.post('/config/puestos-votacion', requireRole('admin'), async (req, res) => {
+router.post('/config/puestos-votacion', requireRole('admin', 'aspirante'), async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const cantidadMesas = Number(req.body.cantidad_mesas);
   if (!nombre) return res.status(400).json({ error: 'El nombre del puesto es obligatorio.' });
@@ -936,8 +976,8 @@ router.post('/config/puestos-votacion', requireRole('admin'), async (req, res) =
   const ctcPuestoId = Number(req.body.ctc_puesto_id) || null;
   try {
     const [result] = await pool.query(
-      `INSERT INTO dia_d_puestos_votacion (nombre, cantidad_mesas, ctc_puesto_id, created_by) VALUES (?,?,?,?)`,
-      [nombre, cantidadMesas, ctcPuestoId, req.session.usuario.id]
+      `INSERT INTO dia_d_puestos_votacion (nombre, cantidad_mesas, ctc_puesto_id, created_by, aspirante_id) VALUES (?,?,?,?,?)`,
+      [nombre, cantidadMesas, ctcPuestoId, req.session.usuario.id, await duenoDeLaCampana(req)]
     );
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -949,7 +989,7 @@ router.post('/config/puestos-votacion', requireRole('admin'), async (req, res) =
   }
 });
 
-router.put('/config/puestos-votacion/:id', requireRole('admin'), async (req, res) => {
+router.put('/config/puestos-votacion/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   const nombre = String(req.body.nombre || '').trim();
   const cantidadMesas = Number(req.body.cantidad_mesas);
   if (!nombre) return res.status(400).json({ error: 'El nombre del puesto es obligatorio.' });
@@ -959,8 +999,8 @@ router.put('/config/puestos-votacion/:id', requireRole('admin'), async (req, res
   const ctcPuestoId = Number(req.body.ctc_puesto_id) || null;
   try {
     const [result] = await pool.query(
-      `UPDATE dia_d_puestos_votacion SET nombre = ?, cantidad_mesas = ?, ctc_puesto_id = ? WHERE id = ?`,
-      [nombre, cantidadMesas, ctcPuestoId, req.params.id]
+      `UPDATE dia_d_puestos_votacion SET nombre = ?, cantidad_mesas = ?, ctc_puesto_id = ? WHERE id = ? AND aspirante_id = ?`,
+      [nombre, cantidadMesas, ctcPuestoId, req.params.id, await duenoDeLaCampana(req)]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });
@@ -995,7 +1035,7 @@ router.put('/config/puestos-votacion/:id', requireRole('admin'), async (req, res
  * estaban no se dupliquen, así que se puede volver a correr sin pensarlo
  * — por ejemplo cuando el catálogo agrega puestos nuevos.
  */
-router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin'), async (req, res) => {
+router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin', 'aspirante'), async (req, res) => {
   const municipioId = Number(req.body.municipio_id) || 0;
   const departamentoId = Number(req.body.departamento_id) || 0;
   if (!municipioId && !departamentoId) {
@@ -1030,7 +1070,8 @@ router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin'), 
       return res.status(400).json({ error: 'El catálogo oficial no tiene puestos de votación registrados para esa zona.' });
     }
 
-    const [[antes]] = await pool.query(`SELECT COUNT(*) n FROM dia_d_puestos_votacion`);
+    const dueno = await duenoDeLaCampana(req);
+    const [[antes]] = await pool.query(`SELECT COUNT(*) n FROM dia_d_puestos_votacion WHERE aspirante_id = ?`, [dueno]);
 
     // Una sola sentencia en vez de 1.202 idas y vueltas a la base.
     await pool.query(
@@ -1042,7 +1083,7 @@ router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin'), 
       [req.session.usuario.id, idZona]
     );
 
-    const [[despues]] = await pool.query(`SELECT COUNT(*) n FROM dia_d_puestos_votacion`);
+    const [[despues]] = await pool.query(`SELECT COUNT(*) n FROM dia_d_puestos_votacion WHERE aspirante_id = ?`, [dueno]);
     res.json({
       ok: true,
       agregados: despues.n - antes.n,
@@ -1061,9 +1102,10 @@ router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin'), 
   }
 });
 
-router.delete('/config/puestos-votacion/:id', requireRole('admin'), async (req, res) => {
+router.delete('/config/puestos-votacion/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [result] = await pool.query(`DELETE FROM dia_d_puestos_votacion WHERE id = ?`, [req.params.id]);
+    const [result] = await pool.query(`DELETE FROM dia_d_puestos_votacion WHERE id = ? AND aspirante_id = ?`,
+      [req.params.id, await duenoDeLaCampana(req)]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });
   } catch (err) {
@@ -1072,9 +1114,11 @@ router.delete('/config/puestos-votacion/:id', requireRole('admin'), async (req, 
   }
 });
 
-router.get('/config/puestos-votacion/exportar-excel', requireRole('admin'), async (req, res) => {
+router.get('/config/puestos-votacion/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion ORDER BY nombre`);
+    const [filas] = await pool.query(
+      `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE aspirante_id = ? ORDER BY nombre`,
+      [await duenoDeLaCampana(req)]);
     const columnas = ['ID', 'Nombre del puesto', 'Cantidad de mesas'];
     const datos = filas.map(f => ({ 'ID': f.id, 'Nombre del puesto': f.nombre, 'Cantidad de mesas': f.cantidad_mesas }));
     const hoja = datos.length
@@ -1096,12 +1140,13 @@ router.get('/config/puestos-votacion/exportar-excel', requireRole('admin'), asyn
 // para editar uno existente), Nombre del puesto, Cantidad de mesas. Sirve
 // tanto para una carga manual como para el Excel descargado del sitio de la
 // Registraduría al usar el botón "Buscar listado oficial en internet".
-router.post('/config/puestos-votacion/importar-excel', requireRole('admin'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/config/puestos-votacion/importar-excel', requireRole('admin', 'aspirante'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
     const hoja = libro.Sheets[libro.SheetNames[0]];
     const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+    const dueno = await duenoDeLaCampana(req);   // una vez, no una consulta por fila
 
     let insertados = 0;
     let actualizados = 0;
@@ -1122,8 +1167,8 @@ router.post('/config/puestos-votacion/importar-excel', requireRole('admin'), upl
       try {
         if (idFila) {
           const [result] = await pool.query(
-            `UPDATE dia_d_puestos_votacion SET nombre = ?, cantidad_mesas = ? WHERE id = ?`,
-            [nombre, cantidadMesas, idFila]
+            `UPDATE dia_d_puestos_votacion SET nombre = ?, cantidad_mesas = ? WHERE id = ? AND aspirante_id = ?`,
+            [nombre, cantidadMesas, idFila, dueno]
           );
           if (result.affectedRows === 0) {
             errores.push({ fila: i + 2, error: `No existe un puesto con ID ${idFila}.` });
@@ -1132,8 +1177,8 @@ router.post('/config/puestos-votacion/importar-excel', requireRole('admin'), upl
           actualizados++;
         } else {
           await pool.query(
-            `INSERT INTO dia_d_puestos_votacion (nombre, cantidad_mesas, created_by) VALUES (?,?,?)`,
-            [nombre, cantidadMesas, req.session.usuario.id]
+            `INSERT INTO dia_d_puestos_votacion (nombre, cantidad_mesas, created_by, aspirante_id) VALUES (?,?,?,?)`,
+            [nombre, cantidadMesas, req.session.usuario.id, dueno]
           );
           insertados++;
         }
@@ -1148,9 +1193,10 @@ router.post('/config/puestos-votacion/importar-excel', requireRole('admin'), upl
   }
 });
 
-router.get('/config/candidatos', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/config/candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT * FROM dia_d_candidatos ORDER BY id ASC`);
+    const [filas] = await pool.query(`SELECT * FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`,
+      [await duenoDeLaCampana(req)]);
     res.json(filas);
   } catch (err) {
     console.error(err);
@@ -1166,7 +1212,7 @@ function formatoNombrePropio(s) {
     .replace(/(^|[\s'-])([a-záéíóúñü])/g, (m, sep, letra) => sep + letra.toUpperCase());
 }
 
-router.post('/config/candidatos', requireRole('admin'), async (req, res) => {
+router.post('/config/candidatos', requireRole('admin', 'aspirante'), async (req, res) => {
   // Siempre en formato Nombre Propio, sin importar cómo lo haya escrito el
   // admin — así el nombre queda consistente entre el formulario de reporte
   // del testigo, el gráfico de resultados y cualquier importación posterior.
@@ -1174,8 +1220,8 @@ router.post('/config/candidatos', requireRole('admin'), async (req, res) => {
   if (!nombre) return res.status(400).json({ error: 'El nombre del candidato es obligatorio.' });
   try {
     const [result] = await pool.query(
-      `INSERT INTO dia_d_candidatos (nombre, created_by) VALUES (?,?)`,
-      [nombre, req.session.usuario.id]
+      `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id) VALUES (?,?,?)`,
+      [nombre, req.session.usuario.id, await duenoDeLaCampana(req)]
     );
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -1184,11 +1230,12 @@ router.post('/config/candidatos', requireRole('admin'), async (req, res) => {
   }
 });
 
-router.put('/config/candidatos/:id', requireRole('admin'), async (req, res) => {
+router.put('/config/candidatos/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   const nombre = formatoNombrePropio(req.body.nombre);
   if (!nombre) return res.status(400).json({ error: 'El nombre del candidato es obligatorio.' });
   try {
-    const [result] = await pool.query(`UPDATE dia_d_candidatos SET nombre = ? WHERE id = ?`, [nombre, req.params.id]);
+    const [result] = await pool.query(`UPDATE dia_d_candidatos SET nombre = ? WHERE id = ? AND aspirante_id = ?`,
+      [nombre, req.params.id, await duenoDeLaCampana(req)]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });
   } catch (err) {
@@ -1197,9 +1244,10 @@ router.put('/config/candidatos/:id', requireRole('admin'), async (req, res) => {
   }
 });
 
-router.delete('/config/candidatos/:id', requireRole('admin'), async (req, res) => {
+router.delete('/config/candidatos/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [result] = await pool.query(`DELETE FROM dia_d_candidatos WHERE id = ?`, [req.params.id]);
+    const [result] = await pool.query(`DELETE FROM dia_d_candidatos WHERE id = ? AND aspirante_id = ?`,
+      [req.params.id, await duenoDeLaCampana(req)]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });
   } catch (err) {
@@ -1208,9 +1256,10 @@ router.delete('/config/candidatos/:id', requireRole('admin'), async (req, res) =
   }
 });
 
-router.get('/config/candidatos/exportar-excel', requireRole('admin'), async (req, res) => {
+router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT id, nombre FROM dia_d_candidatos ORDER BY id ASC`);
+    const [filas] = await pool.query(`SELECT id, nombre FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`,
+      [await duenoDeLaCampana(req)]);
     const columnas = ['ID', 'Nombre del candidato'];
     const datos = filas.map(f => ({ 'ID': f.id, 'Nombre del candidato': f.nombre }));
     const hoja = datos.length
@@ -1231,12 +1280,13 @@ router.get('/config/candidatos/exportar-excel', requireRole('admin'), async (req
 // Importa candidatos desde un Excel con columnas: ID (opcional, solo para
 // editar uno existente), Nombre del candidato. Los nuevos quedan al final,
 // respetando el orden de entrada de cada fila del archivo.
-router.post('/config/candidatos/importar-excel', requireRole('admin'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
     const hoja = libro.Sheets[libro.SheetNames[0]];
     const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+    const dueno = await duenoDeLaCampana(req);   // una vez, no una consulta por fila
 
     let insertados = 0;
     let actualizados = 0;
@@ -1251,14 +1301,16 @@ router.post('/config/candidatos/importar-excel', requireRole('admin'), uploadExc
       }
       try {
         if (idFila) {
-          const [result] = await pool.query(`UPDATE dia_d_candidatos SET nombre = ? WHERE id = ?`, [nombre, idFila]);
+          const [result] = await pool.query(`UPDATE dia_d_candidatos SET nombre = ? WHERE id = ? AND aspirante_id = ?`,
+      [nombre, idFila, dueno]);
           if (result.affectedRows === 0) {
             errores.push({ fila: i + 2, error: `No existe un candidato con ID ${idFila}.` });
             continue;
           }
           actualizados++;
         } else {
-          await pool.query(`INSERT INTO dia_d_candidatos (nombre, created_by) VALUES (?,?)`, [nombre, req.session.usuario.id]);
+          await pool.query(`INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id) VALUES (?,?,?)`,
+            [nombre, req.session.usuario.id, dueno]);
           insertados++;
         }
       } catch (err) {

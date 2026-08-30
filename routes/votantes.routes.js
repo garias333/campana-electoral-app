@@ -930,8 +930,12 @@ router.get('/mi-referido', async (req, res) => {
     /* Al aspirante NO se le autocompleta, por lo mismo que no se le coacciona
        al guardar: su sesion dice 'lider' pero el registra bajo la gente de su
        rama, no bajo si mismo. Devolverle su propio nombre aqui le llenaba el
-       campo con la respuesta equivocada antes de que pudiera elegir. */
-    if (await esAspiranteAlConcejo(req)) {
+       campo con la respuesta equivocada antes de que pudiera elegir.
+       LA MISMA LLAVE QUE LA GUARDA, `req.sublicencia`. Lo que se ofrece y lo
+       que se acepta tienen que decidirse igual: a quien cumpliera un criterio
+       y no el otro, esta ruta le dejaba el campo en blanco para que eligiera y
+       despues el guardado se lo reescribia igual. */
+    if (req.sublicencia) {
       return res.json({ lider_id: null, lider_nombre: null, sublider_id: null, sublider_nombre: null });
     }
     if (usuario.rol === 'lider') {
@@ -1030,32 +1034,45 @@ const NIVELES_SUBALTERNO = {
  */
 async function esAspiranteAlConcejo(req) {
   if (req.sublicencia) return true;
-  try {
-    const [[fila]] = await pool.query(
-      /* DOS FORMAS DE SERLO, Y LAS DOS VALEN.
-         El ROL es lo que se le asigna en Editar usuario y manda; la CATEGORIA
-         (tipo_cargo) es como se marcaba antes de que el rol existiera, y sigue
-         viva en las fichas ya creadas. Mirar solo una dejaria fuera a la mitad
-         de la gente segun cuando se la registro. */
-      `SELECT 1 AS ok FROM usuarios u
-         LEFT JOIN roles r ON r.id = u.rol_id
-         LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = 'lider'
-        WHERE u.id = ?
-          AND (r.nombre = 'aspirante_concejo'
-               OR (e.id IS NOT NULL AND u.tipo_cargo = 'aspirante_concejo'))
-        LIMIT 1`,
-      [req.session.usuario.id]);
-    if (fila) return true;
-  } catch (err) {
-    // Si la consulta falla se sigue con el escalón de siempre: crear un
-    // sublíder de más es recuperable; crear un líder por error, menos.
-    console.error('Leyendo la categoría de quien registra:', err.message);
-  }
-  return false;
+  const [[fila]] = await pool.query(
+    /* DOS FORMAS DE SERLO, Y LAS DOS VALEN.
+       El ROL es lo que se le asigna en Editar usuario y manda; la CATEGORIA
+       (tipo_cargo) es como se marcaba antes de que el rol existiera, y sigue
+       viva en las fichas ya creadas. Mirar solo una dejaria fuera a la mitad
+       de la gente segun cuando se la registro. */
+    `SELECT 1 AS ok FROM usuarios u
+       LEFT JOIN roles r ON r.id = u.rol_id
+       LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = 'lider'
+      WHERE u.id = ?
+        AND (r.nombre = 'aspirante_concejo'
+             OR (e.id IS NOT NULL AND u.tipo_cargo = 'aspirante_concejo'))
+      LIMIT 1`,
+    [req.session.usuario.id]);
+  return !!fila;
 }
 
+/* EL FALLO NO SE TRAGA AQUI, Y ESO CAMBIA QUIEN LO DECIDE.
+   Antes esta consulta tenia su propio try/catch y devolvia `false`: con un
+   hipo de MySQL el aspirante se degradaba a lider raso y volvia la coaccion
+   —su eleccion de lider y sublider reescrita en silencio, que es justo el
+   fallo que este parche vino a arreglar—. Un error transitorio no puede
+   cambiar a nombre de quien queda una ficha.
+   La excepcion sube, y cada uso decide qué hacer con ella:
+     · `nivelQueRegistra` la atrapa y se queda en el escalon bajo, como antes:
+       crear un sublider de mas es recuperable; crear un lider por error, menos.
+     · `/mi-referido` la atrapa en su propio try y responde 500, que es lo
+       correcto: sin saber quien es, no hay autocompletado que ofrecer.
+   Quien ya no la llama es `resolverAtribucion`: decide con `req.sublicencia`,
+   que no consulta nada y por tanto no puede fallar. Esa es la otra mitad del
+   arreglo — la decision de a nombre de quien queda una ficha dejo de depender
+   de que una consulta responda. */
 async function nivelQueRegistra(req) {
-  return (await esAspiranteAlConcejo(req)) ? 'lider' : 'sublider';
+  try {
+    return (await esAspiranteAlConcejo(req)) ? 'lider' : 'sublider';
+  } catch (err) {
+    console.error('Leyendo la categoría de quien registra:', err.message);
+    return 'sublider';
+  }
 }
 
 async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
@@ -1204,6 +1221,84 @@ async function resolverCtcPuestoId(b) {
   }
 }
 
+/**
+ * QUIEN QUEDA COMO LIDER Y COMO SUBLIDER DE UNA FICHA, Y QUIEN PUEDE DECIDIRLO.
+ *
+ * Vive en un solo sitio porque estaba en uno solo: el POST. El PUT escribia
+ * `b.lider_id` y `b.sublider_id` en crudo, sin nada, asi que la regla entera se
+ * saltaba editando. Dos agujeros medidos: el aspirante creaba una ficha valida
+ * y acto seguido la editaba poniendo un lider de la alcaldia; y un LIDER RASO
+ * podia plantarle una ficha suya a otro lider, que es literalmente lo que la
+ * coaccion existe para impedir. De paso movia `rama_aspirante_id`, o sea el
+ * conteo de una campana a otra, sin dejar rastro.
+ *
+ * `anterior` es lo que distingue crear de editar, y no es un detalle:
+ *
+ *   · CREAR: para un lider o sublider los dos campos SE CALCULAN desde la
+ *     estructura. Nadie registra a nombre de otro.
+ *   · EDITAR: se CONSERVA lo que la ficha ya tiene. Calcularlos aqui seria
+ *     destructivo — un lider corrigiendo el telefono de un votante de SU
+ *     sublider le borraria el sublider a esa ficha, porque la regla de crear
+ *     dice `sublider_id = null` para un lider. La ficha ya esta atribuida; esto
+ *     solo impide reatribuirla.
+ *
+ * El ASPIRANTE es el caso aparte, y vale igual creando que editando: es cabeza
+ * de rama y reasignar entre SU gente es su trabajo. Se le comprueba que los dos
+ * ids esten dentro de su subarbol.
+ *
+ * Admin y coordinador no se tocan.
+ *
+ * Devuelve null si todo bien, o {status, error} para rechazar.
+ */
+async function resolverAtribucion(req, b, anterior) {
+  /* SE DECIDE CON `req.sublicencia`, LA MISMA LLAVE QUE LLENA LOS DESPLEGABLES.
+     Aqui habia `esAspiranteAlConcejo(req)`, que es un superconjunto: vale
+     tambien por el rol o por `tipo_cargo`, sin sublicencia. Y todo el resto de
+     la aplicacion —las listas que se le ofrecen, el alcance de cada pantalla,
+     el middleware— acota por `req.sublicencia` a secas. Con dos llaves
+     distintas, a quien cumpliera una y no la otra se le ofrecia gente que
+     despues el 403 le rechazaba: la pantalla prometiendo lo que el servidor
+     niega. Que la guarda y la lista se decidan igual no es elegancia, es lo
+     unico que hace que el 403 sea imposible de encontrar usando la aplicacion.
+     `nivelQueRegistra` si conserva el superconjunto: eso es jerarquia -que
+     escalon crea- y su comentario justifica mirar las dos formas de serlo. */
+  if (req.sublicencia) {
+    const dentro = subarbolSql(req.session.usuario.id, 'u.id');
+    for (const campo of ['lider_id', 'sublider_id']) {
+      if (!b[campo]) continue;
+      const [[fila]] = await pool.query(
+        `SELECT 1 AS ok FROM usuarios u WHERE ${dentro.sql} AND u.id = ? LIMIT 1`,
+        [...dentro.valores, b[campo]]);
+      if (!fila) {
+        return { status: 403, error: 'Solo puedes registrar bajo lideres y sublideres de tu propio equipo.' };
+      }
+    }
+    return null;
+  }
+
+  if (!['lider', 'sublider'].includes(req.session.usuario.rol)) return null;
+
+  if (anterior) {
+    b.lider_id = anterior.lider_id;
+    b.sublider_id = anterior.sublider_id;
+    return null;
+  }
+
+  if (req.session.usuario.rol === 'lider') {
+    b.lider_id = req.session.usuario.id;
+    b.sublider_id = null;
+    return null;
+  }
+  // Filtrado por cargo='usuario': si esta cuenta también es testigo
+  // electoral (dos filas en Estructura para el mismo usuario_id), esto
+  // evita quedarse con la fila equivocada y perder a qué Líder reporta.
+  const [[estructuraPropia]] = await pool.query(
+    `SELECT supervisor_id FROM estructura WHERE usuario_id = ? AND cargo = 'usuario'`, [req.session.usuario.id]);
+  b.lider_id = estructuraPropia ? estructuraPropia.supervisor_id : null;
+  b.sublider_id = req.session.usuario.id;
+  return null;
+}
+
 router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   const b = req.body;
 
@@ -1267,41 +1362,8 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   // esto protege tanto al panel de escritorio como a la app móvil de
   // captura, para que nadie pueda registrar un votante "a nombre" de otro
   // líder/sublíder distinto al de su propia sesión.
-  /* EL ASPIRANTE AL CONCEJO NO ES UN LIDER RASO, AUNQUE LA SESION LO LLAME ASI.
-     `rolEfectivo` en el login convierte 'aspirante_concejo' en 'lider', asi que
-     la coaccion de abajo se le aplicaba a el: elegia "referido por Lider Con
-     Uno / Sublider Con Uno Dos", guardaba, y el servidor lo reescribia con el
-     aspirante como lider y el sublider en blanco. La ficha quedaba colgando de
-     el en vez de de la gente de su rama, sin avisar de nada.
-     El es CABEZA de rama: registrar bajo SUS lideres y SUS sublideres es
-     exactamente su trabajo. Pero la proteccion original sigue haciendo falta
-     —nadie debe registrar a nombre de otro—, asi que en vez de quitarsela se
-     le cambia el alcance: puede elegir a cualquiera DENTRO de su subarbol, y a
-     nadie de fuera. */
-  const esAspiranteQuienRegistra = await esAspiranteAlConcejo(req);
-
-  if (esAspiranteQuienRegistra) {
-    const dentro = subarbolSql(req.session.usuario.id, 'u.id');
-    for (const campo of ['lider_id', 'sublider_id']) {
-      if (!b[campo]) continue;
-      const [[fila]] = await pool.query(
-        `SELECT 1 AS ok FROM usuarios u WHERE ${dentro.sql} AND u.id = ? LIMIT 1`,
-        [...dentro.valores, b[campo]]);
-      if (!fila) {
-        return res.status(403).json({ error: 'Solo puedes registrar bajo lideres y sublideres de tu propio equipo.' });
-      }
-    }
-  } else if (req.session.usuario.rol === 'lider') {
-    b.lider_id = req.session.usuario.id;
-    b.sublider_id = null;
-  } else if (req.session.usuario.rol === 'sublider') {
-    // Filtrado por cargo='usuario': si esta cuenta también es testigo
-    // electoral (dos filas en Estructura para el mismo usuario_id), esto
-    // evita quedarse con la fila equivocada y perder a qué Líder reporta.
-    const [[estructuraPropia]] = await pool.query(`SELECT supervisor_id FROM estructura WHERE usuario_id = ? AND cargo = 'usuario'`, [req.session.usuario.id]);
-    b.lider_id = estructuraPropia ? estructuraPropia.supervisor_id : null;
-    b.sublider_id = req.session.usuario.id;
-  }
+  const rechazo = await resolverAtribucion(req, b, null);
+  if (rechazo) return res.status(rechazo.status).json({ error: rechazo.error });
 
   let votanteId;
   try {
@@ -1471,8 +1533,13 @@ router.put('/:id', async (req, res) => {
     }
 
     const [[anterior]] = await pool.query(
-      `SELECT direccion, territorio_id FROM votantes WHERE id = ?`, [req.params.id]
+      `SELECT direccion, territorio_id, lider_id, sublider_id FROM votantes WHERE id = ?`, [req.params.id]
     );
+
+    /* LA MISMA REGLA QUE AL CREAR. Sin esto el PUT escribia lider_id y
+       sublider_id en crudo y toda la guarda del POST se saltaba editando. */
+    const rechazo = await resolverAtribucion(req, b, anterior || {});
+    if (rechazo) return res.status(rechazo.status).json({ error: rechazo.error });
 
     await pool.query(
       `UPDATE votantes SET categoria=?, nombre=?, cedula=?, telefono=?, email=?, genero=?, edad=?,
@@ -1866,8 +1933,17 @@ router.post('/eliminar-todo', requireRole('admin', 'coordinador'), async (req, r
   }
 });
 
-// Importación masiva (arreglo de objetos ya parseado en el frontend desde CSV/Excel)
-router.post('/importar', async (req, res) => {
+/* Importación masiva (arreglo de objetos ya parseado en el frontend desde CSV/Excel).
+ *
+ * LLEVA EL MISMO ROL QUE `/importar-excel`, Y NO LO LLEVABA. Colgaba solo del
+ * `router.use(requireAuth, calcularAlcance)` de arriba, que exige sesion pero
+ * incluye a lideres y sublideres: cualquiera de ellos podia insertar votantes
+ * en masa, sin guarda de rol y sin la autorizacion de datos que el alta de uno
+ * en uno si exige. Era la puerta de al lado de la que acabamos de cerrar.
+ * No rompe ninguna pantalla: ninguna la llama —la importacion de la aplicacion
+ * va por `/importar-excel`—, asi que la guarda no le quita nada a nadie.
+ */
+router.post('/importar', requireRole('admin', 'coordinador'), async (req, res) => {
   const { registros } = req.body;
   if (!Array.isArray(registros) || registros.length === 0) {
     return res.status(400).json({ error: 'No se recibieron registros para importar.' });

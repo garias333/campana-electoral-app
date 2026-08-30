@@ -279,6 +279,24 @@ function cuerpoTriggerPuestoId(conCatalogo, esActualizacion) {
   END`;
 }
 
+/**
+ * Rehace un indice unico solo si sus columnas cambiaron. Idempotente: si ya
+ * esta como se pide, no toca nada — importa porque esto corre en cada arranque
+ * y un DROP+CREATE gratuito sobre una tabla con datos no es gratis.
+ */
+async function rehacerIndiceUnico(connection, tabla, nombre, columnas) {
+  const [filas] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?
+      ORDER BY SEQ_IN_INDEX`, [tabla, nombre]);
+  const actual = filas.map(f => f.COLUMN_NAME).join(',');
+  if (actual === columnas.join(',')) return false;
+  if (actual) await connection.query(`ALTER TABLE \`${tabla}\` DROP INDEX \`${nombre}\``);
+  await connection.query(
+    `ALTER TABLE \`${tabla}\` ADD UNIQUE KEY \`${nombre}\` (${columnas.map(c => '`' + c + '`').join(',')})`);
+  return true;
+}
+
 async function crearTriggersPuestoId(connection) {
   const conCatalogo = await alcanzaElCatalogo(connection);
   try {
@@ -1934,6 +1952,58 @@ async function main() {
      filtraba por un valor que no se podía escribir. */
   await quitarColumnaSiSobra(connection, 'votantes', 'intencion_voto');
   await connection.query('DROP TABLE IF EXISTS votante_opinion');
+
+  /* LOS TESTIGOS QUE NACIERON SIN RAMA.
+     Hasta ahora la fila de estructura de un testigo se creaba sin
+     `supervisor_id`, o sea colgando de nadie. Eso rompia las dos direcciones a
+     la vez: el aspirante no veia sus propios testigos —su subarbol baja por
+     supervisor_id y nunca llegaba— y la campana madre tampoco podia
+     excluirlos, asi que salian en la lista de ella. Se veia como «0 testigos»
+     en la sublicencia y el mismo nombre asomando en la principal.
+     Ya se arreglo el alta (config/testigoElectoral.js), pero los que existen
+     siguen sueltos y no se reparan solos: solo se tocan si alguien vuelve a
+     editar ese testigo, y nadie tiene motivo para hacerlo.
+     Se cuelgan de donde cuelga la persona, en el mismo orden que usa el alta:
+     su otra fila de estructura si esta en el organigrama, y si solo es
+     votante, del sublider que la registro o del lider si no hubo sublider.
+     Solo toca filas con supervisor_id NULL: una rama puesta a mano no se pisa,
+     y correrlo dos veces no cambia nada. */
+  await connection.query(`
+    UPDATE estructura e
+       JOIN estructura o ON o.usuario_id = e.usuario_id
+                        AND o.cargo <> 'testigo' AND o.supervisor_id IS NOT NULL
+       SET e.supervisor_id = o.supervisor_id
+     WHERE e.cargo = 'testigo' AND e.supervisor_id IS NULL`);
+  await connection.query(`
+    UPDATE estructura e
+       JOIN usuarios u ON u.id = e.usuario_id AND u.numero_identificacion IS NOT NULL
+       JOIN votantes v ON v.cedula = u.numero_identificacion
+       SET e.supervisor_id = COALESCE(v.sublider_id, v.lider_id)
+     WHERE e.cargo = 'testigo' AND e.supervisor_id IS NULL
+       AND COALESCE(v.sublider_id, v.lider_id) IS NOT NULL`);
+
+  /* CADA CAMPANA TIENE SU PROPIA LISTA DE PUESTOS Y DE CANDIDATOS.
+     La sublicencia del Aspirante al Concejo es una campana aparte: sus puestos
+     del Dia D, con su propia cantidad de mesas, no son los de la campana
+     madre. Hasta ahora habia una sola lista y el aspirante veia la de ella.
+
+     `aspirante_id` = 0 ES LA CAMPANA PRINCIPAL, y es 0 y no NULL a proposito:
+     en MySQL un indice unico admite tantos NULL como quieras, asi que con NULL
+     la campana madre habria podido repetir el mismo nombre de puesto tantas
+     veces como filas — justo la unicidad que el indice existe para garantizar.
+     Con 0 la pareja (0, 'LA FLORESTA') choca consigo misma como debe.
+
+     Y por eso los dos unicos pasan a llevar el dueno delante: dos campanas
+     cubren los MISMOS sitios fisicos, asi que sin el dueno la segunda que
+     intentara traer un puesto del catalogo chocaria con la primera. */
+  await agregarColumnaSiFalta(connection, 'dia_d_puestos_votacion',
+    'aspirante_id INT NOT NULL DEFAULT 0', 'aspirante_id');
+  await agregarColumnaSiFalta(connection, 'dia_d_candidatos',
+    'aspirante_id INT NOT NULL DEFAULT 0', 'aspirante_id');
+  await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_puesto_nombre',
+    ['aspirante_id', 'nombre']);
+  await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',
+    ['aspirante_id', 'ctc_puesto_id']);
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
