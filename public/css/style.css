@@ -1743,12 +1743,17 @@ table td .btn-primario:hover {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
   font-size: 3.4rem; font-weight: 700; line-height: 1; margin-right: 12px;
 }
-/* #FFD6D0 da 4,39:1 sobre el extremo claro; a 3.4rem cuenta como texto grande
-   y le sobra. El rojo de antes se quedaba en 3,41. */
-.fr-val.fr-alerta { color: #FFD6D0; }
-/* #E1EAF8: 4,82:1 en el extremo claro y 7,72 en el oscuro — cumple en todo el
-   ancho de la barra, que es lo que hay que exigirle a un degradado. */
-.fr-et { font-size: 1.64rem; color: #E1EAF8; }
+/* SE ELIGIERON ESTOS DOS TONOS VIENDO LAS DOS VERSIONES LADO A LADO.
+   El rosa aguanta mejor la cifra grande que un salmon aclarado, y el gris de
+   los rotulos es el mismo que usa el resto de la aplicacion sobre azul
+   (--color-navy-tenue), asi que la franja no inventa una paleta propia.
+   Queda anotado el dato medido: sobre el extremo CLARO del degradado el gris
+   da 2,99:1 y el minimo para texto normal es 4,5 — a 1.64rem cuenta como texto
+   grande, donde el minimo baja a 3, asi que se queda justo en el filo. Si
+   alguna vez se ve flojo, la salida no es aclarar el gris sino oscurecer el
+   final del degradado: mueve un solo valor y arregla los dos textos. */
+.fr-val.fr-alerta { color: #FFB3A8; }
+.fr-et { font-size: 1.64rem; color: #A9BBD4; }
 /* Blanco translucido y no un color fijo: mantiene la misma presencia sobre los
    dos extremos del degradado sin tener que elegir uno. */
 .fr-sep { width: 1px; height: 46px; background: rgba(255,255,255,.3); }
@@ -1793,7 +1798,16 @@ table td .btn-primario:hover {
   background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.32); color: #fff;
 }
 .barra-acciones-diad .btn-secundario:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.45); }
-.barra-acciones-diad .btn-acento { font-weight: 700; }
+/* AMARILLO, PORQUE EL AZUL ERA EL DE LA PROPIA BARRA. `.btn-acento` es
+   #0B5ED7, que es exactamente el tono del extremo claro del degradado: el
+   boton que CREA se fundia con el fondo y quedaba menos visible que los tres
+   secundarios, que al menos tienen borde. El amarillo es el de la casa y da
+   13:1 con letra oscura. */
+.barra-acciones-diad .btn-acento {
+  background: var(--color-accent, #FFC400); color: #1B2432;
+  border-color: var(--color-accent, #FFC400); font-weight: 700;
+}
+.barra-acciones-diad .btn-acento:hover { background: #E6AF00; border-color: #E6AF00; color: #1B2432; }
 
 /* Las dos pestañas del Día D. Van más grandes que un `btn-sm` corriente
    —1.32rem, un 50% sobre los 0.88 de la hoja— porque no son un botón dentro de
