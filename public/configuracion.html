@@ -703,12 +703,6 @@ document.getElementById('btn-tab-backup').addEventListener('click', () => cambia
 
 const SUBTABS_DIAD = ['puestos', 'candidatos'];
 
-/* LA NUMERACIÓN ARRANCA EN 0 EN LA CAMPAÑA DE UN ASPIRANTE, y coincide con la
-   que ve el testigo en su celular: son las dos caras del mismo papel y se
-   cotejan casilla por casilla. En el tarjetón de una corporación el 0 es el
-   voto solo por la lista y los candidatos van del 1 en adelante. */
-let numeracionDesdeCero = false;
-
 /* Lo único que cambia entre los tres bloques. Si mañana hay un cuarto, es una
    entrada más aquí y una en el ENUM de la base — no otra copia de la tabla. */
 const BLOQUES_DIAD = {
@@ -952,7 +946,6 @@ async function cargarConfiguracionCampana() {
      Los selectores quedan `disabled`, asi que su evento `change` no se dispara
      y la contraseña de administrador no llega a pedirse. No hace falta quitar
      ese aviso: hace falta que no haya nada que confirmar. */
-  numeracionDesdeCero = !!config.es_sublicencia;
   if (config.es_sublicencia) {
     /* SE ESCONDE LA META DE LA CAMPAÑA PRINCIPAL. No basta con que el bucle de
        abajo la deje `disabled`: el rótulo es palabra por palabra el mismo que
@@ -2360,9 +2353,10 @@ document.getElementById('input-importar-puestos').addEventListener('change', asy
 async function cargarCandidatos() {
   const hoja = await api('/dia-d/config/candidatos');
   const cont = document.getElementById('hoja-listas-diad');
-  const ultimo = hoja.orden.length - 1;
+  const ultimo = hoja.bloques.length - 1;
 
-  cont.innerHTML = hoja.orden.map((grupo, iBloque) => {
+  cont.innerHTML = hoja.bloques.map((cfg, iBloque) => {
+    const grupo = cfg.grupo;
     const b = BLOQUES_DIAD[grupo];
     const filas = hoja.filas.filter(f => f.grupo === grupo);
     /* Las flechas del BLOQUE van deshabilitadas en los extremos, igual que las
@@ -2373,6 +2367,20 @@ async function cargarCandidatos() {
               onclick="moverBloque('${grupo}', 'arriba')" ${iBloque === 0 ? 'disabled' : ''}>&#9650;</button>
       <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar el bloque"
               onclick="moverBloque('${grupo}', 'abajo')" ${iBloque === ultimo ? 'disabled' : ''}>&#9660;</button>`;
+    /* EL CONTROL DE NUMERACIÓN. La casilla de inicio se esconde cuando el
+       bloque no se numera —un «empieza en» junto a una casilla desmarcada no
+       significa nada— pero conserva su valor: quien la vuelva a marcar
+       encuentra el número que tenía, no un 1 puesto por el camino. */
+    const numeracion = `
+      <label class="numeracion-bloque" title="Si este bloque lleva número de casilla en la hoja y en el formulario del testigo">
+        <input type="checkbox" ${cfg.numerado ? 'checked' : ''}
+               onchange="guardarNumeracion('${grupo}', this.checked, this.closest('.numeracion-bloque').querySelector('input[type=number]').value)">
+        Numerar
+        <input type="number" step="1" value="${cfg.inicio}" title="Número de la primera fila"
+               style="${cfg.numerado ? '' : 'display:none;'}"
+               onchange="guardarNumeracion('${grupo}', true, this.value)">
+      </label>`;
+
     const acciones = `
       <a class="btn-secundario btn-sm btn-excel-app" target="_blank"
          href="/api/dia-d/config/candidatos/exportar-excel?grupo=${grupo}">&#8681; Exportar</a>
@@ -2383,10 +2391,10 @@ async function cargarCandidatos() {
 
     const cuerpo = filas.length
       ? `<div class="tabla-contenedor"><table>
-           <thead><tr><th class="col-num">#</th><th>${escaparHtmlDiaD(b.columna)}</th><th></th></tr></thead>
+           <thead><tr>${cfg.numerado ? '<th class="col-num">#</th>' : ''}<th>${escaparHtmlDiaD(b.columna)}</th><th></th></tr></thead>
            <tbody>${filas.map((c, i) => `
              <tr>
-               <td class="mono num-candidato col-num">${i + (numeracionDesdeCero ? 0 : 1)}</td>
+               ${cfg.numerado ? `<td class="mono num-candidato col-num">${cfg.inicio + i}</td>` : ''}
                <td class="nombre-candidato">${escaparHtmlDiaD(c.nombre)}</td>
                <td style="text-align:right; white-space:nowrap;">
                  <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"
@@ -2404,11 +2412,28 @@ async function cargarCandidatos() {
       <div class="cabecera-bloque-e14">
         <div class="flechas-bloque">${flechas}</div>
         <h4>${escaparHtmlDiaD(b.titulo)}</h4>
+        ${numeracion}
         <div class="acciones-bloque">${acciones}</div>
       </div>
       ${cuerpo}
     </section>`;
   }).join('');
+}
+
+/* Se manda `numerado` e `inicio` juntos aunque solo cambie uno: son un solo
+   ajuste —«¿lleva número y desde cuál?»— y mandarlos por separado abre la
+   posibilidad de que el servidor guarde medio cambio si el segundo envío falla. */
+async function guardarNumeracion(grupo, numerado, inicio) {
+  try {
+    await api(`/dia-d/config/bloques/${grupo}`, {
+      method: 'PUT',
+      body: { numerado, inicio: Number(inicio) }
+    });
+    await cargarCandidatos();
+  } catch (err) {
+    alert(err.message);
+    await cargarCandidatos();   // se repinta para que la casilla vuelva a lo guardado
+  }
 }
 
 async function moverBloque(grupo, direccion) {

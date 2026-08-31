@@ -321,21 +321,34 @@ async function cargarCandidatosParaReporte() {
      queda ahí sin estorbar. */
   const listas = await obtenerConCacheReferencia('diad_listas_e14', () => api('/dia-d/listas-para-reporte'));
   esCampanaDeAspirante = !!(listas && listas.esCampanaDeAspirante);
+
+  /* LA NUMERACIÓN LA DECIDE CADA BLOQUE, no la campaña. Antes se pintaba si la
+     campaña era de un aspirante, que acertaba a veces; ahora cada bloque dice si
+     lleva número y desde cuál, y esta pantalla solo obedece. La columna «#»
+     aparece si ALGUNO la lleva: una tabla con la columna a medias dejaría las
+     filas sin numerar corridas una casilla a la izquierda.
+
+     Se calcula ANTES de `aplicarFormaDelFormulario()`, que decide si el
+     encabezado lleva la columna «#»: al revés leería el valor de la vez
+     anterior, y la primera vez ninguno. */
+  const bloques = (listas && Array.isArray(listas.bloques) && listas.bloques.length)
+    ? listas.bloques
+    : ORDEN_E14_POR_OMISION.map(g => ({ grupo: g, numerado: false, inicio: 1 }));
+  hayNumerosE14 = bloques.some(b => b.numerado);
   aplicarFormaDelFormulario();
 
   const tbody = document.getElementById('tbody-votos-candidatos');
-  const columnas = esCampanaDeAspirante ? 3 : 2;
-  const orden = (listas && Array.isArray(listas.orden) && listas.orden.length)
-    ? listas.orden : ORDEN_E14_POR_OMISION;
+  const columnas = hayNumerosE14 ? 3 : 2;
 
   /* CON UN SOLO BLOQUE CON CONTENIDO NO SE PINTA NINGÚN TÍTULO: sería una
      cabecera «Candidatos» encima de la única tabla, repitiendo el rótulo que ya
      está arriba. En cuanto hay dos, los tres llevan el suyo — incluido el
      primero, que sin él quedaría como si sus filas fueran de nadie. */
-  const conFilas = orden.filter(g => ((listas && listas[g]) || []).length);
+  const conFilas = bloques.filter(b => ((listas && listas[b.grupo]) || []).length);
   const conTitulos = conFilas.length > 1;
 
-  tbody.innerHTML = conFilas.flatMap((clave) => {
+  tbody.innerHTML = conFilas.flatMap((bloque) => {
+    const clave = bloque.grupo;
     const nombres = listas[clave];
     const titulo = conTitulos ? TITULOS_E14[clave] : null;
     // El encabezado de bloque es una fila de la misma tabla, no otra tabla:
@@ -343,13 +356,14 @@ async function cargarCandidatosParaReporte() {
     const cabecera = titulo
       ? [`<tr class="fila-bloque-e14"><td colspan="${columnas}">${escaparHtml(titulo)}</td></tr>`]
       : [];
-    /* LA NUMERACIÓN ARRANCA EN 0 Y ES POR BLOQUE, igual que en la hoja de
-       configuración: son las dos caras del mismo papel y el testigo coteja una
-       contra la otra casilla por casilla. En el tarjetón de una corporación el
-       0 es el voto solo por la lista y los candidatos van del 1 en adelante. */
+    /* El mismo número que muestra la hoja de configuración: son las dos caras
+       del mismo papel y el testigo coteja una contra la otra casilla por
+       casilla. Si el bloque no se numera, la celda va vacía pero SE PINTA —sin
+       ella la fila tendría una columna menos que las demás y todo lo de la
+       derecha se correría. */
     return cabecera.concat(nombres.map((nombre, i) => `
     <tr>
-      ${esCampanaDeAspirante ? `<td class="num-e14">${i}</td>` : ''}
+      ${hayNumerosE14 ? `<td class="num-e14">${bloque.numerado ? bloque.inicio + i : ''}</td>` : ''}
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
       <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
     </tr>`));
@@ -368,6 +382,7 @@ async function cargarCandidatosParaReporte() {
  * cambia de nombre.
  */
 let esCampanaDeAspirante = false;
+let hayNumerosE14 = false;
 
 function aplicarFormaDelFormulario() {
   const campo = document.getElementById('campo-total-votantes');
@@ -382,9 +397,9 @@ function aplicarFormaDelFormulario() {
   // más que las filas — la tabla entera corrida, sin ningún error.
   const cabecera = document.getElementById('cabecera-votos-e14');
   const yaTiene = !!cabecera.querySelector('th.th-num-e14');
-  if (esCampanaDeAspirante && !yaTiene) {
+  if (hayNumerosE14 && !yaTiene) {
     cabecera.insertAdjacentHTML('afterbegin', '<th class="th-num-e14">#</th>');
-  } else if (!esCampanaDeAspirante && yaTiene) {
+  } else if (!hayNumerosE14 && yaTiene) {
     cabecera.querySelector('th.th-num-e14').remove();
   }
 }

@@ -554,6 +554,30 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
   padding: 14px 16px;
 }
 
+/* EL CONTROL DE NUMERACION DE CADA BLOQUE, en su cabecera.
+
+   Va entre el titulo y las acciones. `white-space: nowrap` porque «Numerar» y
+   su casilla son una sola idea: partidos en dos lineas se leen como dos
+   ajustes distintos. */
+.numeracion-bloque {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.numeracion-bloque input[type="number"] {
+  width: 72px;
+  padding: 6px 8px;
+  font-size: 0.92rem;
+  /* Los `input` de la hoja son `width:100%`; sin esto, la casilla se comeria
+     la cabecera entera. */
+  min-width: 0;
+}
+.numeracion-bloque input[type="checkbox"] { cursor: pointer; }
+
 /* LAS CABECERAS DE LOS TRES BLOQUES DEL E-14, dentro de la hoja de candidatos.
 
    Tres columnas: las flechas que mueven el bloque, el titulo, y las acciones de

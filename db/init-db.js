@@ -2045,7 +2045,30 @@ async function main() {
       orden INT NOT NULL,
       PRIMARY KEY (aspirante_id, grupo)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  console.log('Tabla dia_d_bloques lista.');
+  await agregarColumnaSiFalta(connection, 'dia_d_bloques',
+    'numerado TINYINT(1) NOT NULL DEFAULT 1', 'numerado');
+  await agregarColumnaSiFalta(connection, 'dia_d_bloques',
+    'numero_inicial INT NOT NULL DEFAULT 1', 'numero_inicial');
+
+  /* SE SIEMBRA LO QUE HOY SE VE, para que nadie note un cambio al actualizar.
+     Hasta ahora la numeracion arrancaba en 0 si la campaña era de un aspirante
+     y en 1 si no, deducido en el navegador. Eso pasa a ser un dato por bloque,
+     y aqui se escribe el valor que esa campaña ya estaba mostrando.
+
+     Solo para las campañas que YA tienen filas en dia_d_candidatos: una que
+     todavia no ha configurado nada estrena el valor por defecto (numerada
+     desde 1) sin necesidad de una fila. Y con INSERT IGNORE, una campaña que ya
+     hubiera movido un bloque conserva lo suyo. */
+  const [duenos] = await connection.query('SELECT DISTINCT aspirante_id FROM dia_d_candidatos');
+  for (const { aspirante_id: duenoId } of duenos) {
+    for (const [i, grupo] of ['candidato', 'nivelacion', 'otros'].entries()) {
+      await connection.query(
+        `INSERT IGNORE INTO dia_d_bloques (aspirante_id, grupo, orden, numerado, numero_inicial)
+         VALUES (?,?,?,1,?)`,
+        [duenoId, grupo, i + 1, duenoId ? 0 : 1]);
+    }
+  }
+  console.log(`Tabla dia_d_bloques lista (${duenos.length} campaña(s) con su numeración sembrada).`);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_puesto_nombre',
     ['aspirante_id', 'nombre']);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',

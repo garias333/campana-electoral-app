@@ -106,7 +106,8 @@ const GRUPOS = ['candidato', 'nivelacion', 'otros'];
 const grupoValido = (g) => GRUPOS.includes(String(g || '').trim()) ? String(g).trim() : null;
 
 /**
- * EL ORDEN DE LOS TRES BLOQUES en esta campaña.
+ * CÓMO SE PINTA CADA BLOQUE en esta campaña: en qué orden va, si lleva
+ * numeración y desde qué número empieza.
  *
  * Sin filas en `dia_d_bloques` devuelve el orden natural, que es el de GRUPOS.
  * Por eso la migración no siembra nada: una campaña que nunca mueva un bloque
@@ -117,12 +118,28 @@ const grupoValido = (g) => GRUPOS.includes(String(g || '').trim()) ? String(g).t
  * cuarto bloque algún día no deje a las campañas viejas sin él: aparecería al
  * final en vez de desaparecer de la hoja.
  */
-async function ordenDeLosBloques(req, conexion = pool) {
+async function configuracionDeBloques(req, conexion = pool) {
   const dueno = await duenoDeLaCampanaRama(conexion, req);
   const [filas] = await conexion.query(
-    'SELECT grupo, orden FROM dia_d_bloques WHERE aspirante_id = ? ORDER BY orden ASC', [dueno]);
-  const guardados = filas.map(f => f.grupo).filter(g => GRUPOS.includes(g));
-  return [...guardados, ...GRUPOS.filter(g => !guardados.includes(g))];
+    'SELECT grupo, orden, numerado, numero_inicial FROM dia_d_bloques WHERE aspirante_id = ? ORDER BY orden ASC',
+    [dueno]);
+  const porGrupo = new Map(filas.filter(f => GRUPOS.includes(f.grupo)).map(f => [f.grupo, f]));
+  const orden = [...porGrupo.keys(), ...GRUPOS.filter(g => !porGrupo.has(g))];
+  return orden.map((grupo) => {
+    const f = porGrupo.get(grupo);
+    return {
+      grupo,
+      // Numerado desde 1 cuando no hay fila: es lo que la pantalla mostraba
+      // antes de que esto se pudiera configurar.
+      numerado: f ? !!f.numerado : true,
+      inicio: f ? Number(f.numero_inicial) : 1
+    };
+  });
+}
+
+/** Solo los nombres, en orden — lo que necesitan quienes no miran la numeración. */
+async function ordenDeLosBloques(req, conexion = pool) {
+  return (await configuracionDeBloques(req, conexion)).map(b => b.grupo);
 }
 
 const router = express.Router();
@@ -224,7 +241,8 @@ async function listasParaReporte(req) {
      que verse igual, y si el móvil llevara su propia lista fija, mover un
      bloque en la pantalla no cambiaría nada en el teléfono — sin error, y sin
      que nadie lo note hasta el día de la elección. */
-  listas.orden = await ordenDeLosBloques(req);
+  listas.bloques = await configuracionDeBloques(req);
+  listas.orden = listas.bloques.map(b => b.grupo);   // forma corta, para quien solo mira el orden
   return listas;
 }
 
@@ -1603,7 +1621,7 @@ router.get('/config/candidatos', requireRole('admin', 'coordinador', 'aspirante'
        sola llamada a propósito — pedir las filas por un lado y el orden por
        otro deja una ventana en la que la pantalla puede pintar los bloques con
        un orden y las filas con otro. */
-    res.json(grupo ? filas : { filas, orden: await ordenDeLosBloques(req) });
+    res.json(grupo ? filas : { filas, bloques: await configuracionDeBloques(req) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los candidatos.' });
@@ -1794,6 +1812,41 @@ router.post('/config/bloques/:grupo/mover', requireRole('admin', 'aspirante'), a
     res.status(500).json({ error: 'Error cambiando el orden de los bloques.' });
   } finally {
     if (conexion) conexion.release();
+  }
+});
+
+/**
+ * Si un bloque lleva numeración y desde qué número.
+ *
+ * Escribe una fila con el ORDEN que el bloque tiene ahora mismo, no con uno
+ * inventado: si la campaña nunca movió nada, aquí nace su primera fila, y
+ * ponerle un orden cualquiera cambiaría el orden de la hoja por tocar una
+ * casilla de numeración.
+ */
+router.put('/config/bloques/:grupo', requireRole('admin', 'aspirante'), async (req, res) => {
+  const grupo = grupoValido(req.params.grupo);
+  if (!grupo) return res.status(400).json({ error: 'Bloque inválido.' });
+  const numerado = ['1', 1, true, 'true'].includes(req.body && req.body.numerado) ? 1 : 0;
+  /* El inicio se admite negativo: no se me ocurre un tarjetón que lo use, pero
+     tampoco una razón para prohibirlo, y un límite inventado es lo que obliga a
+     tocar el código el día que aparezca el caso. Lo que sí se rechaza es que no
+     sea un número: un texto entraría como 0 sin avisar. */
+  const inicio = Number(req.body && req.body.inicio);
+  if (!Number.isInteger(inicio)) {
+    return res.status(400).json({ error: 'El número inicial debe ser un número entero.' });
+  }
+  try {
+    const dueno = await duenoDeLaCampana(req);
+    const orden = (await ordenDeLosBloques(req)).indexOf(grupo) + 1;
+    await pool.query(
+      `INSERT INTO dia_d_bloques (aspirante_id, grupo, orden, numerado, numero_inicial)
+       VALUES (?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE numerado = VALUES(numerado), numero_inicial = VALUES(numero_inicial)`,
+      [dueno, grupo, orden, numerado, inicio]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error guardando la numeración del bloque.' });
   }
 });
 

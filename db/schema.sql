@@ -642,6 +642,13 @@ CREATE TABLE IF NOT EXISTS dia_d_bloques (
   aspirante_id INT NOT NULL DEFAULT 0,
   grupo ENUM('candidato','nivelacion','otros') NOT NULL,
   orden INT NOT NULL,
+  -- Si el bloque se numera y desde qué número. El tarjetón de una corporación
+  -- empieza en 0 —el voto solo por la lista— y los candidatos siguen en 1; la
+  -- nivelación de la mesa normalmente no lleva número. Antes esto se deducía de
+  -- si la campaña era una sublicencia, que acertaba a veces y no se podía
+  -- corregir; ahora se pregunta.
+  numerado TINYINT(1) NOT NULL DEFAULT 1,
+  numero_inicial INT NOT NULL DEFAULT 1,
   PRIMARY KEY (aspirante_id, grupo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
