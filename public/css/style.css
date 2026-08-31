@@ -469,7 +469,11 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 
 .ayuda-candidatos {
   color: var(--color-text-muted);
-  font-size: 1.64rem;
+  /* Bajo un 30% desde el 1,64rem al que se subio: 1,64 x 0,7 = 1,148.
+     Al doble competia con el nombre del candidato, que es el dato; una
+     instruccion que se lee una vez no debe pesar como el contenido que se
+     consulta siempre. */
+  font-size: 1.15rem;
   line-height: 1.45;
   margin: -4px 0 18px;
 }
@@ -477,10 +481,65 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 #panel-diad-candidatos td.nombre-candidato,
 #panel-diad-candidatos td.num-candidato { font-size: 1.74rem; }
 
+/* LOS ENCABEZADOS DE ESTA TABLA, MAS GRANDES Y SOBRE SU COLUMNA.
+
+   0,72rem -> 1,20rem (12px -> 19px). Se quedan por debajo de los 1,74rem del
+   nombre a proposito: un encabezado que pesa lo mismo que el dato deja de
+   leerse como encabezado.
+
+   Y SE ALINEAN A LA IZQUIERDA. La regla general los centra —con su razon
+   escrita: centrar tambien los datos costaria recorrer la columna con la
+   vista—, pero aqui eso deja «#» y «NOMBRE DEL CANDIDATO» flotando en medio
+   de columnas cuyo contenido va pegado a la izquierda. Con dos columnas de
+   datos y una fuente grande, el desajuste se ve; en una tabla de catorce no
+   se notaba, y por eso la regla general no se toca. */
+#panel-diad-candidatos thead th { font-size: 1.2rem; text-align: left; }
+
 /* Los tres botones de la cabecera. Piden «un tamaño más grande», no el
    doble: a 1,76rem un botón con «⬆ Importar desde Excel» dentro ocuparía
    media fila y empujaría a los otros dos a una segunda línea. */
 #panel-diad-candidatos .toolbar .btn-sm { font-size: 1.15rem; padding: 11px 19px; }
+
+/* LOS CUATRO BOTONES DE CADA FILA DE LA HOJA DE CANDIDATOS, UN 50% MAS GRANDES.
+
+   Las cuentas, sobre los valores que ya tenia `table td .btn-secundario`:
+     fuente   0,80rem -> 1,20rem   (13px -> 19px)
+     relleno  5px 12px -> 8px 18px
+     flechas  34px de ancho -> 51px, y 0,78rem -> 1,17rem
+
+   POR QUE VA ACOTADO Y NO EN LA REGLA GENERAL. `table td .btn-secundario` la
+   comparten Usuarios, Puestos de votacion, Eventos, Recursos y varias mas —su
+   propio comentario lo dice—. Agrandar ahi un 50% le mete 6 pixeles de alto a
+   cada fila de una tabla de catorce columnas que ya va justa. Aqui el nombre
+   del candidato mide 28px y estos botones a 13 se veian de otra pantalla.
+
+   EL BORDE PASA DE NEGRO A GRIS FINO. El comentario de la regla general
+   justifica el negro por contraste, pero lo que ahi se mide es la LETRA sobre
+   el amarillo: 13,6:1, y la letra no se toca — sigue negra. El borde es
+   decoracion, y a 1px negro sobre un boton amarillo pequeno lo que hace es
+   engordarlo visualmente.
+
+   El gris es #B9BEC7 y no `--color-border` (#E2E5EA), que fue lo primero que
+   probe: contra el amarillo del boton ese token es mas claro que el fondo del
+   propio boton y el borde desaparece del todo, que no es «delgado» sino
+   «ninguno». Este dibuja el canto y se lee como linea de pelo. */
+#panel-diad-candidatos td .btn-secundario,
+#panel-diad-candidatos td .btn-primario {
+  padding: 8px 18px;
+  font-size: 1.2rem;
+  border: 1px solid #B9BEC7;
+}
+#panel-diad-candidatos td .btn-secundario:hover,
+#panel-diad-candidatos td .btn-primario:hover { border-color: #B9BEC7; }
+
+/* Las flechas, despues de las de arriba para que su relleno cero gane: van
+   con ancho fijo y un solo caracter dentro. */
+#panel-diad-candidatos td .btn-mover {
+  width: 51px;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 1.17rem;
+}
 
 /* LAS FLECHAS DE REORDENAR. Cuadradas y estrechas: llevan un solo carácter y
    con el relleno de `.btn-sm` quedaban tan anchas como «Editar», empujando la
