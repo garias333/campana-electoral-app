@@ -157,11 +157,6 @@ const INFO_MODULOS = {
   dashboard: { icono: '📊', texto: 'Panel general de métricas de la campaña.', pasos: [] }
 };
 
-function normalizarClaveManual(param) {
-  // "admin" en la URL corresponde al rol "admin" en la matriz de permisos.
-  return param;
-}
-
 async function cargarPortada(usuarioActual) {
   const todos = [
     { clave: 'instalacion' },

@@ -631,13 +631,6 @@ document.getElementById('ir-a-torre').addEventListener('click', (e) => {
   mostrarPaso('form-torre');
 });
 
-// El campo de arriba es el mismo, pero lo que hay que escribir en él
-// depende del canal. Se cambia la etiqueta, el ejemplo y el teclado que
-// abre el celular; el valor escrito NO se borra, para que quien ya puso
-// su correo y se equivocó de canal no tenga que teclearlo otra vez.
-const campoIdentificador = document.querySelector('#form-torre input[name="identificador"]');
-const etiquetaIdentificador = document.getElementById('etiqueta-identificador');
-
 /**
  * El canal sale de lo que la persona escriba: con arroba es un correo, sin
  * ella es un celular.

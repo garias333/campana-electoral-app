@@ -241,29 +241,6 @@ async function geocodificarResidenciaYGuardar(estructuraId, direccion, comunaCor
   }
 }
 
-/** Geocodifica una dirección + territorio y actualiza la fila de estructura. No lanza error si falla. */
-async function geocodificarYGuardar(estructuraId, direccion, territorioId) {
-  if (!direccion || !direccion.trim()) return { geocodificado: false };
-  try {
-    const cadena = await resolverCadenaTerritorio(territorioId);
-    const direccionCompleta = `${direccion.trim()}, ${cadena.join(', ')}, Colombia`;
-    const resultado = await geocodificarDireccion(direccionCompleta);
-    if (!resultado) {
-      await pool.query(`UPDATE estructura SET direccion = ? WHERE id = ?`, [direccion.trim(), estructuraId]);
-      return { geocodificado: false };
-    }
-    await pool.query(
-      `UPDATE estructura SET direccion = ?, latitud = ?, longitud = ?, geocodificado_en = NOW() WHERE id = ?`,
-      [direccion.trim(), resultado.latitud, resultado.longitud, estructuraId]
-    );
-    return { geocodificado: true, ...resultado };
-  } catch (err) {
-    console.error('Error geocodificando dirección:', err);
-    await pool.query(`UPDATE estructura SET direccion = ? WHERE id = ?`, [direccion.trim(), estructuraId]);
-    return { geocodificado: false };
-  }
-}
-
 /**
  * Busca un territorio por tipo + nombre (+ padre opcional). Si no existe, lo crea.
  * Se usa para que el flujo Departamento -> Municipio -> Comuna/Barrio/Corregimiento/Vereda

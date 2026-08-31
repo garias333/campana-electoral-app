@@ -97,11 +97,6 @@
 .sec-pestanas button.activa { background: #084298; color: #fff; }   /* 9,36 */
 .sec-pestanas button:not(.activa):hover { background: #DDE4EE; }
 
-/* ------------------------------------------------------------ encabezados */
-.sec-titulo-tabla {
-  font-size: .82rem; text-transform: uppercase; letter-spacing: .05em; color: #084298;
-}
-
 /* El desplegable que va dentro de un grupo de la cabecera se alinea con los
    botones: sin esto queda 4px más bajo, porque `select` trae su propio
    relleno y no lo alcanza la regla de altura de arriba. */

@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { sublicenciaSobre } = require('../lib/ramas');
+const { olvidarCargoDeLaMadre } = require('../config/cargoMadre');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { estadoCanal: estadoCanalSms, enviarSMS, invalidarCache: invalidarCacheSms } = require('../config/sms');
 const { estadoCanal: estadoCanalSendgrid, enviarCorreoMasivo } = require('../config/sendgrid');
@@ -728,6 +729,23 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
        (marca_titulo || '').trim() || null, (marca_subtitulo || '').trim() || null,
        req.session.usuario.id]
     );
+    /* EL CARGO DE LA MADRE ACABA DE CAMBIAR: hay que olvidar la copia.
+       `config/cargoMadre.js` cachea `cargo_aspira` 30 segundos y trae desde
+       el principio un `olvidarCargoDeLaMadre()` con el comentario «para las
+       pruebas y para después de guardar la configuración» — pero ese segundo
+       caso nunca se cableó, y nadie lo llamaba desde ningún sitio.
+
+       No es cosmético: ese valor alimenta `req.alcance.cargoMadre`, y con él
+       los filtros de rama que separan lo de la campaña madre de lo de cada
+       aspirante (`filtroMadre`, `filtroMadreEstructura`,
+       `usuariosDelAspiranteSql`). Durante esos 30 segundos el reparto se hacía
+       con el cargo viejo, sin error y sin aviso.
+
+       Va aquí y no antes del INSERT porque lo que invalida el cargo es que se
+       haya guardado; si la consulta falla, la caché sigue siendo correcta.
+       Es la misma pauta que ya siguen las cachés de SMS y comunicaciones en
+       este mismo archivo. */
+    olvidarCargoDeLaMadre();
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
