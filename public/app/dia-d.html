@@ -16,6 +16,17 @@
   .reporte-tarjeta .detalle { font-size: 0.86rem; color: var(--ink); }
   .reporte-tarjeta .novedad { font-size: 0.82rem; color: #A93226; margin-top: 6px; }
   .reporte-tarjeta a.foto-e14 { font-size: 0.8rem; display: inline-block; margin-top: 6px; }
+  /* LOS DOS TÍTULOS DE ESTA PANTALLA, al tamaño de las cabeceras de bloque.
+     «Reportar conteo de mi mesa» y «Mis reportes de hoy» abren las dos mitades
+     del formulario, y a 0,88rem pesaban menos que un encabezado de bloque, que
+     está dentro de una de ellas: el rótulo mayor se leía más pequeño que el
+     menor.
+
+     Va acotado a ESTA página y no a `.seccion-titulo` en estilos-app.css: esa
+     clase la comparten los seis títulos de «Registrar votante», que no se
+     piden más grandes y viven en una pantalla más apretada. */
+  .seccion-titulo { font-size: 1.08rem; font-weight: 800; }
+
   .tabla-votos-candidatos { width: 100%; border-collapse: collapse; margin-top: 4px; }
   .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
   .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
@@ -55,14 +66,22 @@
        vistazo en la pantalla. Del gris apagado de antes al azul de la casa, y
        del 0,78rem a 1,08 — más grandes que el nombre de un candidato (0,9),
        que es lo que los hace leerse como el título de un tramo y no como una
-       fila más. */
+       fila más.
+
+       EL AZUL ES #0B5ED7, EL MISMO DE «MIS REPORTES DE HOY» y no el `--navy`
+       del texto: los títulos de sección y los de bloque son la misma clase de
+       rótulo —dicen dónde empieza un tramo— y con dos azules distintos se leían
+       como dos jerarquías. Se escribe el valor y no `var(--navy)` porque ese
+       color no está en las variables de esta hoja; vive en `.seccion-titulo` de
+       estilos-app.css, y ahí está anotado. */
     padding: 20px 6px 6px;
     font-size: 1.08rem;
     font-weight: 800;
+    -webkit-text-stroke: 0.4px currentColor;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--navy);
-    border-bottom: 2px solid var(--navy);
+    color: #0B5ED7;
+    border-bottom: 2px solid #0B5ED7;
   }
   /* El primero no necesita el aire de arriba: no separa de nada. */
   .tabla-votos-candidatos tr.fila-bloque-e14:first-child td { padding-top: 4px; }
