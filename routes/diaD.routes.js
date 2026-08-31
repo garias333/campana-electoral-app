@@ -120,11 +120,22 @@ const grupoValido = (g) => GRUPOS.includes(String(g || '').trim()) ? String(g).t
  */
 async function configuracionDeBloques(req, conexion = pool) {
   const dueno = await duenoDeLaCampanaRama(conexion, req);
+  /* LA NIVELACIÓN DE LA MESA Y LOS OTROS VOTOS SON DE LAS CORPORACIONES, y las
+     campañas de aspirante son las que se presentan a una. El E-14 de una
+     alcaldía no trae esos renglones, así que su campaña no ve los bloques: ni
+     en la hoja, ni en el formulario del testigo, ni en el Excel.
+
+     Se decide AQUÍ, en el único sitio que dice qué bloques existen, y no en
+     cada pantalla. Repetida en tres sitios, esta condición se separa el día que
+     alguien toque uno: la hoja mostraría un bloque que el formulario no, y
+     nadie lo notaría hasta que un testigo tuviera delante un papel con un
+     renglón que su celular no le pide. */
+  const permitidos = dueno ? GRUPOS : ['candidato'];
   const [filas] = await conexion.query(
     'SELECT grupo, orden, numerado, numero_inicial FROM dia_d_bloques WHERE aspirante_id = ? ORDER BY orden ASC',
     [dueno]);
-  const porGrupo = new Map(filas.filter(f => GRUPOS.includes(f.grupo)).map(f => [f.grupo, f]));
-  const orden = [...porGrupo.keys(), ...GRUPOS.filter(g => !porGrupo.has(g))];
+  const porGrupo = new Map(filas.filter(f => permitidos.includes(f.grupo)).map(f => [f.grupo, f]));
+  const orden = [...porGrupo.keys(), ...permitidos.filter(g => !porGrupo.has(g))];
   return orden.map((grupo) => {
     const f = porGrupo.get(grupo);
     return {
@@ -1644,6 +1655,12 @@ router.post('/config/candidatos', requireRole('admin', 'aspirante'), async (req,
   if (!nombre) return res.status(400).json({ error: 'El nombre del candidato es obligatorio.' });
   const grupo = grupoValido(req.body.grupo) || 'candidato';
   try {
+    // La campaña madre no tiene los bloques de corporación: si la pantalla no
+    // los ofrece, la ruta tampoco los acepta. Un botón escondido no es una
+    // guarda.
+    if (!(await duenoDeLaCampana(req)) && grupo !== 'candidato') {
+      return res.status(400).json({ error: 'Este bloque no existe en esta campaña.' });
+    }
     /* AL FINAL DE SU BLOQUE, con un `orden` explicito. Dejarlo en el 0 por
        defecto lo mandaria al PRINCIPIO —0 es menor que cualquier posicion ya
        asignada—, asi que cada candidato nuevo se colaria delante del que

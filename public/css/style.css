@@ -486,6 +486,15 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 
 #panel-diad-listas td.nombre-candidato,
 #panel-diad-listas td.num-candidato { font-size: 1.2rem; }
+/* EN MAYUSCULA, como vienen impresos en el E-14 y como los ve el testigo en su
+   celular: las dos pantallas se cotejan renglon por renglon y una en mayuscula
+   y otra en «Nombre Propio» se leen como listas distintas.
+
+   Con CSS, no cambiando el dato: el nombre guardado sigue siendo el que se
+   escribio, que es el que viaja en el reporte y con el que cruzan los votos.
+   Pasarlo a mayuscula en la base habria cambiado el texto de los reportes ya
+   enviados y roto ese cruce. */
+#panel-diad-listas td.nombre-candidato { text-transform: uppercase; }
 
 /* LOS ENCABEZADOS DE ESTA TABLA, MAS GRANDES Y SOBRE SU COLUMNA.
 

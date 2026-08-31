@@ -19,7 +19,20 @@
   .tabla-votos-candidatos { width: 100%; border-collapse: collapse; margin-top: 4px; }
   .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
   .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
-  .tabla-votos-candidatos td.nombre-candidato { font-size: 0.9rem; }
+  /* TODOS LOS NOMBRES EN MAYÚSCULA, como vienen impresos en el E-14. Se hace
+     con CSS y no cambiando el dato: el nombre guardado sigue siendo el que se
+     escribió, que es el que viaja en el reporte y con el que cruzan los votos.
+     Pasarlo a mayúscula en la base habría cambiado el texto de los reportes ya
+     enviados y roto ese cruce. */
+  .tabla-votos-candidatos td.nombre-candidato { font-size: 0.9rem; text-transform: uppercase; }
+  /* El total de la agrupación política, última fila de su bloque. */
+  .tabla-votos-candidatos tr.fila-total-e14 td {
+    padding-top: 10px;
+    font-weight: 700;
+    color: var(--navy);
+    border-top: 1px solid var(--linea);
+  }
+  .tabla-votos-candidatos tr.fila-total-e14 input { font-weight: 700; }
   /* Separador de bloque del E-14 (Nivelación de la mesa, Otros votos). Va como
      una fila más de la misma tabla para que las dos columnas sigan alineadas de
      arriba abajo — el testigo copia el papel de corrido y una tabla partida en
@@ -120,7 +133,7 @@
           <tbody id="tbody-votos-candidatos"></tbody>
         </table>
       </div>
-      <div class="campo-app">
+      <div class="campo-app" id="campo-total-votos-mesa">
         <label id="rotulo-total-votos">Total votos en la mesa</label>
         <input id="f-total-votos-mesa" type="text" disabled value="0">
       </div>
@@ -361,12 +374,28 @@ async function cargarCandidatosParaReporte() {
        casilla. Si el bloque no se numera, la celda va vacía pero SE PINTA —sin
        ella la fila tendría una columna menos que las demás y todo lo de la
        derecha se correría. */
-    return cabecera.concat(nombres.map((nombre, i) => `
+    const filas = nombres.map((nombre, i) => `
     <tr>
       ${hayNumerosE14 ? `<td class="num-e14">${bloque.numerado ? bloque.inicio + i : ''}</td>` : ''}
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
       <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
-    </tr>`));
+    </tr>`);
+
+    /* EL TOTAL VA AL FINAL DEL BLOQUE DE CANDIDATOS, no debajo de toda la tabla,
+       y suma SOLO ese bloque: es el total de la agrupación política, y sumarle
+       la nivelación o los votos en blanco daría una cifra que no está en ningún
+       renglón del E-14. Va dentro de la misma tabla para que quede pegado a lo
+       que suma — con un campo aparte debajo, entre él y sus filas quedarían los
+       otros dos bloques. */
+    const total = (clave === 'candidato' && esCampanaDeAspirante)
+      ? [`<tr class="fila-total-e14">
+           ${hayNumerosE14 ? '<td></td>' : ''}
+           <td>Total votos agrupación política</td>
+           <td><input id="f-total-bloque-candidatos" type="text" disabled value="0"></td>
+         </tr>`]
+      : [];
+
+    return cabecera.concat(filas, total);
   }).join('');
 
   tbody.addEventListener('input', recalcularTotalVotosMesa);
@@ -390,6 +419,13 @@ function aplicarFormaDelFormulario() {
   // `required` en un campo oculto BLOQUEA el envío sin decir dónde: el
   // navegador intenta enfocar un elemento que no se ve y no muestra el aviso.
   document.getElementById('f-total-votantes').required = !esCampanaDeAspirante;
+  /* En la campaña de un aspirante el total vive dentro de la tabla, al final del
+     bloque de candidatos: el campo suelto de abajo sobra y se esconde. Se
+     ESCONDE en vez de borrarse porque `recalcularTotalVotosMesa` le sigue
+     escribiendo la suma de todo, y ese valor lo lee la comprobación de totales
+     de la campaña madre. */
+  document.getElementById('campo-total-votos-mesa').style.display =
+    esCampanaDeAspirante ? 'none' : '';
   document.getElementById('rotulo-total-votos').textContent =
     esCampanaDeAspirante ? 'Total votos agrupación política' : 'Total votos en la mesa';
   // Idempotente a propósito: hoy esto corre una sola vez, pero una segunda
@@ -406,9 +442,24 @@ function aplicarFormaDelFormulario() {
 
 /** Suma en vivo, solo para que el testigo se autoverifique, los votos que va escribiendo por cada candidato. No se envía al servidor — el total real ya viaja implícito en la lista de votos por candidato. */
 function recalcularTotalVotosMesa() {
-  const total = [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')]
-    .reduce((suma, inp) => suma + (Number(inp.value) || 0), 0);
-  document.getElementById('f-total-votos-mesa').value = total;
+  const todas = [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')];
+  const suma = (lista) => lista.reduce((s, inp) => s + (Number(inp.value) || 0), 0);
+  document.getElementById('f-total-votos-mesa').value = suma(todas);
+
+  /* El total del bloque de candidatos cuenta las filas que hay ANTES de la
+     cabecera del siguiente bloque. Se recorre el cuerpo de la tabla en orden en
+     vez de marcar cada input con su bloque: una sola fuente —el orden en que
+     están pintadas— en lugar de un atributo que hay que acordarse de poner en
+     cada fila nueva. */
+  const propio = document.getElementById('f-total-bloque-candidatos');
+  if (!propio) return;
+  const delBloque = [];
+  for (const fila of document.getElementById('tbody-votos-candidatos').rows) {
+    if (fila.classList.contains('fila-bloque-e14')) break;   // empieza otro bloque
+    const inp = fila.querySelector('input[data-candidato]');
+    if (inp) delBloque.push(inp);
+  }
+  propio.value = suma(delBloque);
 }
 
 // Valor de la opción "Mi puesto no aparece en la lista".

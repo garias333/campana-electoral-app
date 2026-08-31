@@ -445,15 +445,14 @@
 
       <div id="panel-diad-listas" style="display:none;">
       <div class="card">
-        <div class="toolbar">
+        <!-- EL TÍTULO SE QUITA CUANDO HAY VARIOS BLOQUES: cada uno lleva el suyo
+             en su cabecera, y un «Candidatos» encima de los tres nombraría al
+             conjunto con el nombre de una de sus partes. Con un solo bloque —la
+             campaña de una alcaldía— se queda, porque ahí sí lo nombra. -->
+        <div class="toolbar" id="cabecera-hoja-diad">
           <h3 style="margin:0;">Candidatos</h3>
         </div>
-        <p class="ayuda-candidatos">
-          Los tres bloques del E-14, en el mismo orden en que el testigo los ve al transcribirlo.
-          Las flechas de cada fila la mueven dentro de su bloque; las de la cabecera mueven el
-          bloque entero. Agregue también a su propio candidato: ya no se pone solo, porque en el
-          E-14 no siempre va de primero.
-        </p>
+        <p class="ayuda-candidatos" id="ayuda-hoja-diad"></p>
         <!-- LOS TRES BLOQUES LOS PINTA EL JS, y no van escritos tres veces en la
              maqueta: tres copias de la misma tabla se separan el día que alguien
              arregle algo en una sola, y quedarían dos bloques buenos y uno con el
@@ -2354,6 +2353,17 @@ async function cargarCandidatos() {
   const hoja = await api('/dia-d/config/candidatos');
   const cont = document.getElementById('hoja-listas-diad');
   const ultimo = hoja.bloques.length - 1;
+  const variosBloques = hoja.bloques.length > 1;
+
+  document.getElementById('cabecera-hoja-diad').style.display = variosBloques ? 'none' : '';
+  document.getElementById('ayuda-hoja-diad').textContent = variosBloques
+    ? 'Los bloques del E-14, en el mismo orden en que el testigo los ve al transcribirlo. Las '
+      + 'flechas de cada fila la mueven dentro de su bloque; las de la cabecera mueven el bloque '
+      + 'entero. Agregue también a su propio candidato: ya no se pone solo, porque en el E-14 no '
+      + 'siempre va de primero.'
+    : 'Este es el orden en que el testigo los ve al transcribir el E-14, así que debe ser el del '
+      + 'tarjetón. Use ▲ y ▼ para moverlos. Agregue también a su propio candidato: ya no se pone '
+      + 'solo, porque en el E-14 no siempre va de primero.';
 
   cont.innerHTML = hoja.bloques.map((cfg, iBloque) => {
     const grupo = cfg.grupo;
