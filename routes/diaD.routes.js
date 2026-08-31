@@ -829,9 +829,17 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
     /* LOS VOTOS ESTÁN EN OTRA TABLA, y esta es la que el borrado se lleva por
        cascada. `dia_d_reportes.votos_candidato` guarda SOLO los votos del
        candidato propio, y queda NULL cuando el nombre del reporte no cruza con
-       `configuracion_campana.nombre_candidato` —una comparación de texto libre
-       en minúsculas—. Comprobado en la base desplegada: `nombre_candidato` es
-       NULL, así que HOY todos los reportes tienen `votos_candidato` NULL.
+       el del candidato de ESA campaña —una comparación de texto libre en
+       minúsculas—. Quién es ese candidato lo decide `nombreDelCandidatoPropio`:
+       la configuración de la campaña para la madre, el nombre del aspirante
+       para su rama.
+
+       Este comentario decía antes que el cruce era siempre contra
+       `configuracion_campana.nombre_candidato` y que por eso «HOY todos los
+       reportes tienen votos_candidato NULL». Las dos cosas dejaron de ser
+       ciertas: la fuente cambió, y medido en campanadepruebamunicipal hay 4
+       reportes con cifra y 2 con NULL —los 2 son de un testigo del aspirante,
+       guardados antes de este arreglo—.
 
        Apuntar esa columna habría escrito «0 votos» en el momento exacto en que
        desaparecen los votos de todos los candidatos de esa mesa. El desglose
