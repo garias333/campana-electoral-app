@@ -49,6 +49,41 @@ async function duenoDeLaCampana(req) {
   return duenoDeLaCampanaRama(pool, req);
 }
 
+/**
+ * EL CANDIDATO DE ESTA CAMPANA — el que se pinta en amarillo en el grafico y
+ * cuyos votos van a `dia_d_reportes.votos_candidato`.
+ *
+ * Se leia SIEMPRE de `configuracion_campana.nombre_candidato`, que es el de la
+ * campana MADRE. En una sublicencia eso no cruza con ningun nombre de su hoja,
+ * asi que el aspirante veia su grafico entero en azul: su propia barra, la mas
+ * alta, sin distinguir de las demas. No fallaba nada — sencillamente ninguna
+ * fila cumplia la condicion, y una condicion que nunca se cumple no da error.
+ *
+ * El dueno sale de `duenoDeLaCampana`, la MISMA regla con la que se lee la
+ * lista de candidatos. Tiene que ser la misma: si la lista se acota por una y
+ * el «cual es el mio» por otra, el dia que discrepen el grafico resaltaria a un
+ * candidato que no esta en la lista, o a ninguno.
+ *
+ * Y ES POR RAMA, NO POR `req.sublicencia`. Quien manda un reporte es un TESTIGO
+ * del aspirante, no el aspirante: su sesion no lleva sublicencia y esa via
+ * habria caido en la madre otra vez, justo en el sitio donde el dato se guarda
+ * y ya no se puede recalcular. `duenoDeLaCampana` sube por la cadena de mando
+ * hasta el aspirante mas cercano, que es lo que su propio comentario en
+ * lib/ramas.js promete.
+ *
+ * Para la madre (dueno 0) se sigue leyendo la configuracion de la campana, que
+ * es donde vive su candidato.
+ */
+async function nombreDelCandidatoPropio(req, conexion = pool) {
+  const dueno = await duenoDeLaCampanaRama(conexion, req);
+  if (dueno) {
+    const [[persona]] = await conexion.query('SELECT nombre FROM usuarios WHERE id = ?', [dueno]);
+    return ((persona && persona.nombre) || '').trim();
+  }
+  const [[campana]] = await conexion.query('SELECT nombre_candidato FROM configuracion_campana WHERE id = 1');
+  return ((campana && campana.nombre_candidato) || '').trim();
+}
+
 /* UNA SOLA DEFINICION DEL ORDEN DE LOS CANDIDATOS, porque son cinco consultas
    —la hoja, el formulario del testigo, el tablero, el Excel que sale y el que
    entra— y si una sola discrepa, la lista del papel y la de la pantalla dejan
@@ -480,8 +515,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     // votos_candidato se mantiene por compatibilidad con el resumen del
     // tablero: son los votos del candidato propio de la campaña dentro de
     // la lista que mandó el testigo (si no aparece ahí, queda en null).
-    const [[campana]] = await conexion.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
-    const nombrePropio = (campana && campana.nombre_candidato || '').trim().toLowerCase();
+    const nombrePropio = (await nombreDelCandidatoPropio(req, conexion)).toLowerCase();
     const votoPropio = votosPorCandidato.find(v => String(v.nombre).trim().toLowerCase() === nombrePropio);
     const votosCandidato = votoPropio ? Number(votoPropio.votos) : null;
 
@@ -716,8 +750,7 @@ router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante
     const aDentro = await acotaJornada(req, 'testigo_id');
     const aFuera  = await acotaJornada(req, 'r.testigo_id');
     const nombresCandidatos = await obtenerCandidatosParaReporte(req);
-    const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
-    const nombrePropio = (campana && campana.nombre_candidato || '').trim();
+    const nombrePropio = await nombreDelCandidatoPropio(req);
 
     const [filas] = await pool.query(`
       SELECT v.candidato_nombre, COALESCE(SUM(v.votos), 0) AS votos
