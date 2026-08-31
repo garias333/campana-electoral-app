@@ -438,6 +438,50 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 .btn-peligro:hover { background: #F6D9D9; }
 .btn-sm { padding: 8px 14px; font-size: 0.88rem; }
 
+/* ------------------------------------------------------------------
+   LA HOJA DE CANDIDATOS DEL DIA D, EN GRANDE.
+
+   No es una tabla de consulta: es la lista contra la que un testigo copia
+   un E-14 a mano, y se revisa comparando pantalla y papel. A los tamaños
+   de una tabla normal —0,87rem el dato, 0,82rem la instrucción— hay que
+   acercarse a leerla, que es justo lo que no se puede hacer con un papel
+   en la otra mano.
+
+   Los valores son el DOBLE de los de partida, no un ojo:
+     título      1,17rem (h3 por omisión)  ->  2,34rem
+     instrucción 0,82rem                   ->  1,64rem
+     nombre      0,87rem (`table`)         ->  1,74rem
+   Los tres se midieron de la hoja antes de multiplicarlos.
+
+   El número de fila sube con el nombre: dejarlo en 0,87 al lado de un
+   nombre de 1,74 no se lee como un detalle, se lee como un fallo.
+
+   TRES DE LAS CUATRO VAN ACOTADAS a #panel-diad-candidatos, y no por
+   pulcritud: la pestaña de Puestos comparte con ésta `.card`, `.toolbar`,
+   `table` y `.btn-sm`, así que sin el prefijo esto se llevaría por delante
+   una tabla de catorce columnas que sí necesita entrar en la pantalla.
+
+   La cuarta, `.ayuda-candidatos`, va sin prefijo a propósito: es una clase
+   propia que no comparte nombre con nada, y así sirve si algún día otra
+   pantalla necesita la misma instrucción en el mismo tamaño.
+   ------------------------------------------------------------------ */
+#panel-diad-candidatos .toolbar h3 { font-size: 2.34rem; line-height: 1.2; }
+
+.ayuda-candidatos {
+  color: var(--color-text-muted);
+  font-size: 1.64rem;
+  line-height: 1.45;
+  margin: -4px 0 18px;
+}
+
+#panel-diad-candidatos td.nombre-candidato,
+#panel-diad-candidatos td.num-candidato { font-size: 1.74rem; }
+
+/* Los tres botones de la cabecera. Piden «un tamaño más grande», no el
+   doble: a 1,76rem un botón con «⬆ Importar desde Excel» dentro ocuparía
+   media fila y empujaría a los otros dos a una segunda línea. */
+#panel-diad-candidatos .toolbar .btn-sm { font-size: 1.15rem; padding: 11px 19px; }
+
 /* LAS FLECHAS DE REORDENAR. Cuadradas y estrechas: llevan un solo carácter y
    con el relleno de `.btn-sm` quedaban tan anchas como «Editar», empujando la
    columna de acciones fuera de la tabla en pantallas pequeñas. El ancho fijo
