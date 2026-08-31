@@ -1691,3 +1691,118 @@ table td .btn-primario:hover {
 }
 .globo-mesa::after { top: 100%; border-top-color: #1B2432; }
 .globo-mesa.abajo::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #1B2432; }
+
+/* --- El resto de las mesas, a un clic ---------------------------------
+   Un puesto de 50 mesas no cabe en la fila, pero esconder las que sobran en el
+   título del navegador era esconderlas del todo: un dato que hay que descubrir
+   posando el ratón no existe. Ahora están en la página y se abren pulsando la
+   misma casilla que dice cuántas son.
+   El texto sale de `data-mas` y lo cambia el CSS, así nada tiene que
+   reescribirse al abrir: la clase de la rejilla es el único estado. */
+.mesas-faltantes .oculta-resto { display: none; }
+.mesas-faltantes.abierta .oculta-resto { display: inline-flex; }
+.chip-mesa-toggle { cursor: pointer; }
+.chip-mesa-toggle::after { content: attr(data-mas); }
+.chip-mesa-toggle:hover { background: #DDE3EC; border-color: #9AA6B8; color: #2B3444; }
+/* Abierta, la misma casilla es la flecha de contraer: el mando no cambia de
+   sitio ni aparece nada nuevo en la fila.
+   TRIANGULO LLENO Y NO EL PEQUEÑO. El caracter «▴» ocupa una parte minima de su
+   cuadratin, asi que a 0.95rem quedaba como una mota dentro de una casilla de
+   35 pixeles: no se leia como un boton. «▲» dibuja el mismo triangulo llenando
+   el espacio, y con el color del texto oscuro se ve que es un mando y no un
+   adorno. */
+.mesas-faltantes.abierta .chip-mesa-toggle::after {
+  content: '▲';
+  /* Un 75% mas grande que el primer intento (1.05rem). El triangulo llena
+     ahora la casilla de 35x30 sin desbordarla: `line-height: 1` evita que la
+     linea crezca con la letra y le empuje la altura a la ficha. */
+  font-size: 1.85rem;
+  line-height: 1;
+  color: #2B3444;
+}
+
+
+/* --- Resumen de Puestos de votación -----------------------------------
+   Las tres cifras que la campaña mira primero. Estaban repartidas: las mesas
+   sin testigo en letra pequeña al lado del filtro y los votantes en ningún
+   sitio. La letra va al doble de la primera versión —cifras a 3.4rem y
+   rótulos a 1.64rem— porque esto es el encabezado de la sección y se lee de
+   lejos, no un dato más de la tabla. */
+/* EL MISMO AZUL QUE EL ENCABEZADO DE LA PANTALLA. Es un degradado, y eso
+   obliga a mirar el contraste en los DOS extremos, no en uno: el tono final
+   (#0B5ED7) es bastante mas claro que el inicial y ahi los grises de antes se
+   caian. Medido: el rotulo #A9BBD4 daba 2,99:1 sobre el extremo claro cuando
+   el minimo para texto normal es 4,5. Se ve de reojo o con el brillo bajo —
+   «votantes registrados» se desvanecia contra el final de la barra. */
+.franja-resumen {
+  display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #084298 0%, #0B5ED7 100%); color: #fff;
+  border-radius: 10px; padding: 20px 26px; margin-bottom: 16px;
+}
+.fr-val {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 3.4rem; font-weight: 700; line-height: 1; margin-right: 12px;
+}
+/* #FFD6D0 da 4,39:1 sobre el extremo claro; a 3.4rem cuenta como texto grande
+   y le sobra. El rojo de antes se quedaba en 3,41. */
+.fr-val.fr-alerta { color: #FFD6D0; }
+/* #E1EAF8: 4,82:1 en el extremo claro y 7,72 en el oscuro — cumple en todo el
+   ancho de la barra, que es lo que hay que exigirle a un degradado. */
+.fr-et { font-size: 1.64rem; color: #E1EAF8; }
+/* Blanco translucido y no un color fijo: mantiene la misma presencia sobre los
+   dos extremos del degradado sin tener que elegir uno. */
+.fr-sep { width: 1px; height: 46px; background: rgba(255,255,255,.3); }
+
+/* La columna de votantes por puesto: la cifra y una barra proporcional al
+   mayor de la lista, para ver dónde está concentrada la gente sin leer. */
+.vot-cifra {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 1.45rem; font-weight: 600; color: #46505F; line-height: 1.1;
+}
+.vot-cifra.vot-cero { color: #B0B7C3; font-weight: 500; }
+.vot-barra { height: 5px; border-radius: 99px; background: #EDEFF3; margin: 6px auto 0; max-width: 76px; overflow: hidden; }
+.vot-barra i { display: block; height: 100%; background: #2F6BC4; border-radius: 99px; }
+
+/* --- Barra de acciones de Puestos de votación --------------------------
+   Lleva el MISMO azul que el encabezado de la pantalla, igual que la franja de
+   cifras: las tres barras son ahora una sola familia. Se pierde la jerarquia
+   por tono que tenian antes —la de acciones mas oscura que la de cifras— y es
+   una decision tomada a la vista de las dos, no un descuido: lo que las separa
+   ahora es el hueco entre ellas y lo que cada una contiene. */
+.barra-acciones-diad {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 18px; flex-wrap: wrap;
+  background: linear-gradient(135deg, #084298 0%, #0B5ED7 100%);
+  border-radius: 12px; padding: 18px 24px; margin-bottom: 12px;
+}
+.barra-acciones-diad .bad-izq { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.barra-acciones-diad h3 { margin: 0; font-size: 1.45rem; font-weight: 700; color: #fff; }
+.barra-acciones-diad .bad-acc { display: flex; gap: 8px; flex-wrap: wrap; }
+/* El ámbito como etiqueta y no como frase gris debajo de los botones. */
+/* Blanco translucido sobre el degradado: un color fijo se veria bien en un
+   extremo y mal en el otro. */
+.barra-acciones-diad .chip-ambito {
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.30); color: #fff;
+  border-radius: 999px; padding: 6px 14px;
+  font-size: 0.88rem; font-weight: 600; white-space: nowrap;
+}
+/* Los botones se repintan para el fondo oscuro: los de la hoja general son
+   para tarjeta blanca y aquí quedarían ilegibles. Solo «Agregar puesto»
+   conserva el amarillo — es la única que crea algo. */
+.barra-acciones-diad .btn-secundario {
+  background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.32); color: #fff;
+}
+.barra-acciones-diad .btn-secundario:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.45); }
+.barra-acciones-diad .btn-acento { font-weight: 700; }
+
+/* Las dos pestañas del Día D. Van más grandes que un `btn-sm` corriente
+   —1.32rem, un 50% sobre los 0.88 de la hoja— porque no son un botón dentro de
+   una tarjeta: son la navegación de la sección, y con una cabecera oscura
+   debajo quedaban como una nota entre dos bloques.
+   MARGEN IGUAL ARRIBA Y ABAJO. Antes eran 44px arriba y 18 abajo: 20 del hero
+   más 24 del `.topbar` vacío que quedó al ocultar la barra de pestañas. Ese
+   envoltorio ya no se pinta, así que aquí basta con pedir lo mismo por los dos
+   lados y el bloque queda centrado en su hueco.
+   Va acotado por clase: `.grupo-pestanas` lo usan cuatro pantallas más. */
+.subtabs-diad { width: fit-content; margin: 22px 0; }
+.subtabs-diad > .btn-sm { font-size: 1.32rem; padding: 13px 26px; }

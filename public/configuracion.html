@@ -21,11 +21,15 @@
     <div class="sec-hero">
       <div class="eyebrow" id="encabezado-eyebrow">Administración</div>
       <h1 id="encabezado-titulo">Configuración</h1>
-      <p>Los datos de la campaña, las cuentas de usuario, lo que puede ver cada
+      <p id="encabezado-descripcion">Los datos de la campaña, las cuentas de usuario, lo que puede ver cada
          tipo de usuario, los puestos de votación del Día D y las copias de
          seguridad. Cada pestaña es una sección.</p>
     </div>
-    <div class="topbar">
+    <!-- SE OCULTA EL ENVOLTORIO, NO SOLO SU CONTENIDO. Al esconder la barra de
+         pestañas quedo este `.topbar` vacio, y `.topbar` lleva 24px de margen
+         inferior en la hoja: un hueco fantasma que nadie podia explicar
+         mirando la pantalla, y que descuadraba lo que viniera debajo. -->
+    <div class="topbar" style="display:none;">
       <!-- ESTA BARRA DUPLICABA EL MENU LATERAL, ENTERA. Las seis pestañas
            tienen su propia entrada en la barra de la izquierda —«Datos de la
            campaña», «Puestos de votación y candidatos», «Usuarios»,
@@ -69,6 +73,15 @@
       document.getElementById('encabezado-titulo').textContent = esPantallaDiaD
         ? 'Puestos de votación y candidatos'
         : 'Configuración';
+      /* LA DESCRIPCION CAMBIA CON EL TITULO, y no podia quedarse fija.
+         Se pidio cambiarla por la del Dia D, pero este mismo encabezado sirve
+         a las otras cinco secciones: dejar ahi «los puestos de votacion y los
+         candidatos» habria puesto un texto falso encima de Usuarios, Backup o
+         Eliminar informacion. El titulo ya cambiaba dos lineas mas arriba; la
+         descripcion va con el. */
+      document.getElementById('encabezado-descripcion').textContent = esPantallaDiaD
+        ? 'Los puestos de votación del Día D y la lista de candidatos de la elección, en cada pestaña.'
+        : 'Los datos de la campaña, las cuentas de usuario, lo que puede ver cada tipo de usuario, los puestos de votación del Día D y las copias de seguridad. Cada pestaña es una sección.';
       /* LA BARRA NO SE PINTA NUNCA. Ya se intento quitarla antes y se
          revirtio, con este motivo escrito aqui: «dejaba a quien entraba por la
          pestaña sin forma de volver, y parecia que el menu se hubiera roto».
@@ -325,27 +338,46 @@
 
     <!-- ===== DÍA D (configuración previa a la jornada) ===== -->
     <div id="seccion-diad" style="display:none;">
-      <div class="grupo-pestanas" style="width:fit-content; margin-bottom:18px;">
+      <div class="grupo-pestanas subtabs-diad" id="subtabs-diad">
         <button type="button" class="btn-acento btn-sm" id="btn-subtab-diad-puestos">Puestos de votación</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidatos">Candidatos</button>
       </div>
 
       <div id="panel-diad-puestos">
-      <div class="card">
-        <div class="toolbar">
-          <h3 style="margin:0;">Puestos de votación</h3>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a class="btn-secundario btn-sm btn-excel-app" href="/api/dia-d/config/puestos-votacion/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-            <label class="btn-secundario btn-sm btn-excel-app"
-                   title="Para actualizar puestos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un puesto nuevo.">
-              ⬆ Importar desde Excel
-              <input type="file" id="input-importar-puestos" accept=".xlsx,.xls" style="display:none;">
-            </label>
-            <button type="button" class="btn-secundario btn-sm" id="btn-mostrar-traer"
-                    style="display:none;">📥 Traer del catálogo</button>
-            <button type="button" class="btn-acento btn-sm" id="btn-nuevo-puesto">+ Agregar puesto</button>
-          </div>
+      <!-- LA BARRA DE ACCIONES, OSCURA Y APARTE DE LAS CIFRAS.
+           Antes el titulo y los cuatro botones iban dentro de la tarjeta
+           blanca, todos del mismo azul: la accion que CREA pesaba igual que
+           las tres que mueven datos, y el titulo competia con ellas.
+           Va un tono mas oscura que la franja de cifras a proposito. Sin esa
+           diferencia las dos barras parecen la misma cortada por accidente;
+           con ella se leen como lo que son, lo que se HACE y lo que HAY. -->
+      <div class="barra-acciones-diad">
+        <div class="bad-izq">
+          <h3>Puestos de votación</h3>
+          <span class="chip-ambito" id="chip-ambito-puestos" style="display:none;"></span>
         </div>
+        <div class="bad-acc">
+          <a class="btn-secundario btn-sm btn-excel-app" href="/api/dia-d/config/puestos-votacion/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+          <label class="btn-secundario btn-sm btn-excel-app"
+                 title="Para actualizar puestos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un puesto nuevo.">
+            ⬆ Importar desde Excel
+            <input type="file" id="input-importar-puestos" accept=".xlsx,.xls" style="display:none;">
+          </label>
+          <button type="button" class="btn-secundario btn-sm" id="btn-mostrar-traer"
+                  style="display:none;">📥 Traer del catálogo</button>
+          <button type="button" class="btn-acento btn-sm" id="btn-nuevo-puesto">+ Agregar puesto</button>
+        </div>
+      </div>
+
+      <div class="franja-resumen">
+        <div><span class="fr-val" id="fr-votantes">—</span><span class="fr-et">votantes registrados</span></div>
+        <div class="fr-sep"></div>
+        <div><span class="fr-val fr-alerta" id="fr-mesas">—</span><span class="fr-et">mesas sin testigo</span></div>
+        <div class="fr-sep"></div>
+        <div><span class="fr-val" id="fr-puestos">—</span><span class="fr-et">puestos</span></div>
+      </div>
+
+      <div class="card">
         <p id="aviso-ambito-puestos" style="display:none; margin:0 0 10px; font-size:0.82rem; color:var(--color-text-muted);"></p>
 
         <!-- Filtro de la tabla: solo cambia lo que se ve, no agrega nada.
@@ -397,6 +429,7 @@
           <table class="tabla-cobertura">
             <thead><tr>
               <th>Nombre del puesto</th>
+              <th class="col-num">Votantes registrados</th>
               <th class="col-num">Cantidad de mesas</th>
               <th class="col-num">Mesas con testigos asignados</th>
               <th class="col-cobertura">Mesas por asignar testigo</th>
@@ -1792,10 +1825,14 @@ async function cargarPuestosVotacion() {
     (municipioFiltro ? `?municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
   const tbody = document.getElementById('tbody-puestos-votacion');
   const visibles = puestos.filter(cumpleFiltroCobertura);
+  /* La barra es proporcional AL MAYOR DE LA LISTA, no a un tope fijo: lo que
+     se compara es entre puestos, y un maximo inventado achataria a todos. */
+  const mayorVotantes = Math.max(1, ...puestos.map(p => p.votantes_estimados || 0));
   document.getElementById('vacio-puestos').style.display = visibles.length ? 'none' : 'block';
   tbody.innerHTML = visibles.map(p => `
     <tr>
       <td>${escaparHtmlDiaD(p.nombre)}${p.ctc_puesto_id ? '' : ' <span title="Escrito a mano, sin vincular al catálogo oficial. Edítalo y elígelo de la lista para vincularlo." style="font-size:0.72rem; color:#A97226; border:1px solid #E0C089; background:#FCF6E8; border-radius:8px; padding:1px 6px; white-space:nowrap;">sin catalogar</span>'}</td>
+      <td class="col-num">${celdaVotantes(p, mayorVotantes)}</td>
       <td class="mono col-num">${p.cantidad_mesas}</td>
       <td class="mono col-num${p.mesas_con_testigo ? '' : ' nadie'}">${p.mesas_con_testigo}</td>
       <td class="col-cobertura">${celdaCobertura(p)}</td>
@@ -1812,15 +1849,35 @@ async function cargarPuestosVotacion() {
   /* EL CONTEO DICE DE CUANTOS, y no solo cuantos. Con un filtro puesto, un
      numero suelto no deja saber si quedan pocos porque hay pocos o porque el
      filtro escondio el resto. */
+  /* La franja cuenta sobre TODOS los puestos, no sobre los que deja ver el
+     filtro: es el estado de la campaña, no el de la vista. */
+  document.getElementById('fr-votantes').textContent = formatoMillares(puestos.reduce((n, p) => n + (p.votantes_estimados || 0), 0));
+  document.getElementById('fr-mesas').textContent = formatoMillares(puestos.reduce((n, p) => n + p.mesas_por_asignar, 0));
+  document.getElementById('fr-puestos').textContent = formatoMillares(puestos.length);
+
   const cob = document.getElementById('conteo-cobertura');
   const faltanMesas = puestos.reduce((n, p) => n + p.mesas_por_asignar, 0);
+  /* Ya no repite «N mesas sin testigo en total»: eso esta arriba en la franja,
+     en grande. Aqui solo cabe lo que el filtro decide, que es cuantos se ven. */
   cob.textContent = visibles.length === puestos.length
-    ? (faltanMesas ? `${faltanMesas} mesas sin testigo en total` : 'todas las mesas tienen testigo')
+    ? (puestos.length ? `mostrando los ${puestos.length}` : '')
     : `mostrando ${visibles.length} de ${puestos.length}`;
 }
 
 /** Los cinco cortes de cobertura. Se filtra en el navegador: la lista ya vino
     entera y volver a pedirla por cada cambio del desplegable no aporta nada. */
+/* DESPLEGAR EL RESTO DE LAS MESAS. Solo responde la casilla del «+N»: las
+   demas son informativas y pulsarlas no deberia mover la fila. Se cambia una
+   clase en la rejilla y el CSS hace el resto —mostrar las escondidas y
+   convertir esa casilla en la flecha de contraer—, asi que no hay texto que
+   reescribir ni estado que se pueda desincronizar. */
+document.addEventListener('click', (e) => {
+  const boton = e.target.closest && e.target.closest('.chip-mesa-toggle');
+  if (!boton) return;
+  const rejilla = boton.closest('.mesas-faltantes');
+  if (rejilla) rejilla.classList.toggle('abierta');
+});
+
 /* EL GLOBO DE AVISO, PROPIO Y NO EL DEL NAVEGADOR.
    El `title` de toda la vida se abre DEBAJO del puntero, tapando la casilla
    siguiente y la linea que explica el color, y su letra la fija el sistema: no
@@ -1899,14 +1956,27 @@ function cumpleFiltroCobertura(p) {
    varias lineas- sino porque un puesto con 23 mesas pendientes no necesita 23
    numeros para decir lo que dice: la cifra grande ya lo dijo, y las fichas
    sirven para localizar mesas sueltas. El resto va en el titulo. */
+/* La cifra del puesto y su barra. Cero se apaga: es el puesto donde la campaña
+   todavia no tiene a nadie, y en gris se separa de un conteo real. */
+function celdaVotantes(p, mayor) {
+  const v = p.votantes_estimados || 0;
+  if (!v) return '<div class="vot-cifra vot-cero">0</div>';
+  return `<div class="vot-cifra">${formatoMillares(v)}</div>`
+       + `<div class="vot-barra"><i style="width:${Math.round(v / mayor * 100)}%"></i></div>`;
+}
+
 function celdaCobertura(p) {
   const f = p.mesas_faltantes || [];
   if (!p.mesas_por_asignar) {
     return '<span class="cobertura-completo">✓ Todas cubiertas</span>';
   }
-  /* VEINTE CASILLAS: dos filas de diez, ni una a medias. Si caben todas se
-     muestran todas; si no, van diecinueve y la vigésima dice cuántas quedan.
-     Antes eran doce y la del resto, que dejaba la segunda fila con tres. */
+  /* VEINTE A LA VISTA Y EL RESTO A UN CLIC. Dos filas de diez, ni una a
+     medias: si caben todas se muestran todas; si no, van diecinueve y la
+     vigésima casilla dice cuántas quedan Y ES EL BOTON que las despliega.
+     Al abrirse, esa misma casilla pasa a ser la flecha de contraer, asi que el
+     mando esta siempre en el mismo sitio y no aparece ni desaparece nada de la
+     fila. Ya no se pierde ninguna mesa: antes las que no cabian solo estaban en
+     el titulo, y un dato que hay que descubrir posando el raton no existe. */
   const TOPE = 20;
   const cabenTodas = f.length <= TOPE;
   const aMostrar = cabenTodas ? f : f.slice(0, TOPE - 1);
@@ -1925,8 +1995,18 @@ function celdaCobertura(p) {
     return `<span class="chip-mesa chip-mesa-votos" data-aviso="${gente} en esta mesa. Conviene cubrirla con un testigo.">${m}</span>`;
   }).join('');
   const ocultas = f.slice(aMostrar.length);
+  /* El texto de la casilla lo pone el CSS desde `data-mas`, para que al abrir y
+     cerrar no haya que reescribir nada: la clase de la rejilla decide si se ve
+     el «+11» o la flecha. */
   const resto = ocultas.length
-    ? `<span class="chip-mesa chip-mesa-mas" title="Y ${ocultas.length} mesas mas: ${ocultas.join(', ')}">+${ocultas.length}</span>`
+    ? `<span class="chip-mesa chip-mesa-mas chip-mesa-toggle" data-mas="+${ocultas.length}"`
+      + ` title="Ver u ocultar las ${ocultas.length} mesas restantes"></span>`
+      + ocultas.map(m => {
+          const n = conVotantes[m];
+          if (!n) return `<span class="chip-mesa oculta-resto">${m}</span>`;
+          const gente = n === 1 ? '1 votante registrado vota' : `${n} votantes registrados votan`;
+          return `<span class="chip-mesa chip-mesa-votos oculta-resto" data-aviso="${gente} en esta mesa. Conviene cubrirla con un testigo.">${m}</span>`;
+        }).join('')
     : '';
   const cuantasConVotantes = Object.keys(conVotantes).length;
   const leyenda = cuantasConVotantes
@@ -1969,6 +2049,16 @@ async function mostrarAvisoAmbitoPuestos() {
     panel.style.display = 'none';
     return false;
   }
+  /* CON ZONA, EL AMBITO ES UNA ETIQUETA JUNTO AL TITULO y no una frase gris
+     debajo de los botones: es un dato de la seccion, no una nota al pie. El
+     parrafo se reserva para cuando NO hay zona, que si es una instruccion. */
+  const chip = document.getElementById('chip-ambito-puestos');
+  if (chip) {
+    chip.textContent = ciudad ? `📍 ${ciudad}, ${depto}` : `📍 ${depto}`;
+    chip.title = 'Zona de la campaña, según Datos de la campaña';
+    chip.style.display = '';
+  }
+  aviso.style.display = 'none';
   aviso.textContent = ciudad
     ? `Mostrando solo los puestos de ${ciudad}, ${depto} (según Datos de la campaña).`
     : `Mostrando solo los puestos de ${depto} (según Datos de la campaña).`;

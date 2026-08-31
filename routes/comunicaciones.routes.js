@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
+const { duenoDeLaCampana } = require('../lib/ramas');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
@@ -335,9 +336,17 @@ async function obtenerDestinatarios(filtros, canal) {
       // Se traduce el nombre a id para segmentar por la referencia dura.
       // Si el nombre no existe se filtra a NADIE (= 0), no a todos: un
       // envio vacio se nota y se corrige; uno al publico equivocado no.
+      /* EL PUESTO SE BUSCA DENTRO DE LA CAMPAÑA DE QUIEN ENVIA.
+         Desde que cada campaña tiene su propia lista hay dos filas distintas
+         con el mismo nombre, y esta consulta se quedaba con una cualquiera —
+         MySQL no promete orden sin ORDER BY—. Si le tocaba la de la otra
+         campaña, el envio quedaba segmentado por un id que ninguno de sus
+         testigos tiene: cero destinatarios, y el comentario de arriba explica
+         justamente por que eso es preferible a mandarselo a todos… pero aqui
+         no seria una eleccion, seria un accidente. */
       const [[pf]] = await pool.query(
-        `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ?`,
-        [filtros.puesto_votacion]);
+        `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
+        [filtros.puesto_votacion, await duenoDeLaCampana(pool, req)]);
       // COALESCE: el puesto donde vigila un testigo esta en "estructura" si
       // la persona tiene ademas otro cargo, y en "usuarios" si es testigo
       // puro. Mirar solo uno dejaria fuera del envio a media lista.

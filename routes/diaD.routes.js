@@ -2,7 +2,7 @@ const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { upload, uploadExcel } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { subarbolSql, filtroTestigosMadre, duenoDeLaCampana: duenoDeLaCampanaRama } = require('../lib/ramas');
@@ -916,7 +916,15 @@ router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async 
    campaña madre: son los puestos del municipio, sembrados desde el catálogo.
    Las rutas que CREAN, EDITAN o BORRAN puestos siguen siendo sólo de admin —
    ahí sí estaría modificando la configuración de la campaña que lo aloja. */
-router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+/* `calcularAlcance` VA AQUI Y NO EN EL ROUTER ENTERO.
+   Es lo que llena `req.alcance`, y sin el `filtroAlcanceEstimado(req)` devuelve
+   null: el cruce de mesas y el total por puesto cuentan entonces TODA la base,
+   la de las dos campañas juntas. Se vio en las cifras -la sublicencia decia 95
+   votantes teniendo 22, y la principal 111 teniendo 98-, y pasaba en las dos.
+   Solo esta ruta lo necesita. Ponerlo en el `router.use` de arriba lo haria
+   correr en las quince rutas del Dia D, incluidas las que los testigos golpean
+   sin parar el dia de la eleccion, para que ninguna lo lea. */
+router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspirante'), calcularAlcance, async (req, res) => {
   try {
     // La lista se recorta al ámbito declarado en Configuración → Datos de
     // la campaña: solo Departamento, o Departamento + Ciudad si también se
@@ -1015,12 +1023,19 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
        Si falla, se sigue sin el dato: perder el color es aceptable, perder la
        pantalla de cobertura no. */
     let votantesPorMesa = new Map();
+    /* EL TOTAL DEL PUESTO, no solo el de las mesas sin cubrir. La columna nueva
+       responde «cuanta gente mia vota aqui», y para eso cuentan todas: las que
+       ya tienen testigo tambien son votos propios. `total` del estimado incluye
+       ademas a quien escribio una mesa fuera de rango o la dejo en blanco, que
+       vota en el puesto igual. */
+    let totalPorPuesto = new Map();
     try {
       const est = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), dueno);
       est.puestos.forEach((e) => {
         const m = new Map();
         (e.mesas || []).forEach((x) => { if (x.cantidad > 0) m.set(Number(x.mesa), x.cantidad); });
         if (m.size) votantesPorMesa.set(e.puesto, m);
+        if (e.total > 0) totalPorPuesto.set(e.puesto, e.total);
       });
     } catch (err) {
       console.warn('No se pudo cruzar el estimado de votantes por mesa:', err.code || err.message);
@@ -1047,7 +1062,8 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
         mesas_con_testigo: cubiertas.size,
         mesas_por_asignar: Math.max(p.cantidad_mesas - cubiertas.size, 0),
         mesas_faltantes: faltantes,
-        mesas_faltantes_con_votantes: faltantesConVotantes
+        mesas_faltantes_con_votantes: faltantesConVotantes,
+        votantes_estimados: totalPorPuesto.get(p.nombre) || 0
       };
     });
     res.json(filas);

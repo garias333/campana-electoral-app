@@ -100,7 +100,13 @@ async function verificarMesasDisponibles(pool, puesto, mesasSolicitadas, excluir
  * lectura sobre el catálogo — no se deja caer la asignación del testigo
  * por eso.
  */
-async function ubicacionDelPuestoDeCampana(pool, nombrePuesto) {
+/* RECIBE EL DUEÑO, y sin el se equivocaba de fila.
+   Busca por NOMBRE, y desde que cada campaña tiene su propia lista hay dos
+   filas distintas con el mismo. Si una de las dos se escribio a mano —sin
+   enlace al catalogo— y MySQL devolvia esa, los JOIN no casaban y el testigo
+   se quedaba sin departamento ni municipio, en silencio: la asignacion se
+   guardaba igual, solo que a medias. */
+async function ubicacionDelPuestoDeCampana(pool, nombrePuesto, dueno = 0) {
   const vacio = { departamento: null, municipio: null };
   if (!nombrePuesto || !nombrePuesto.trim()) return vacio;
   const catalogo = process.env.CATALOGO_DB || 'territoriosdb';
@@ -111,9 +117,9 @@ async function ubicacionDelPuestoDeCampana(pool, nombrePuesto) {
          JOIN ${catalogo}.ctc_puestos_votacion p ON p.id = c.ctc_puesto_id
          JOIN ${catalogo}.ctc_territorios     m ON m.id = p.municipio_id
          JOIN ${catalogo}.ctc_territorios     d ON d.id = m.padre_id
-        WHERE c.nombre = ?
+        WHERE c.nombre = ? AND c.aspirante_id = ?
         LIMIT 1`,
-      [nombrePuesto.trim()]
+      [nombrePuesto.trim(), dueno]
     );
     return fila || vacio;
   } catch (err) {
@@ -211,7 +217,7 @@ async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTes
   const [[puestoCampana]] = await pool.query(
     `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
     [puesto_votacion || '', duenoCampana]);
-  const ubicacion = await ubicacionDelPuestoDeCampana(pool, puesto_votacion);
+  const ubicacion = await ubicacionDelPuestoDeCampana(pool, puesto_votacion, duenoCampana);
 
   if (yaExiste) {
     await pool.query(

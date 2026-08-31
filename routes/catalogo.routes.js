@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../config/db');
+const { duenoDeLaCampana } = require('../lib/ramas');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -237,9 +238,9 @@ router.get('/ubicacion-de-puesto', async (req, res) => {
          JOIN ${CAT}.ctc_puestos_votacion p ON p.id = c.ctc_puesto_id
          JOIN ${CAT}.ctc_territorios     m ON m.id = p.municipio_id
          JOIN ${CAT}.ctc_territorios     d ON d.id = m.padre_id
-        WHERE c.id = ?
+        WHERE c.id = ? AND c.aspirante_id = ?
         LIMIT 1`,
-      [puestoCampanaId]
+      [puestoCampanaId, await duenoDeLaCampana(pool, req)]
     );
     // Un puesto creado a mano desde Configuración → Día D no tiene
     // `ctc_puesto_id`, así que no hay nada que reconciliar. No es un error.
