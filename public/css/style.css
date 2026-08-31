@@ -447,14 +447,20 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    acercarse a leerla, que es justo lo que no se puede hacer con un papel
    en la otra mano.
 
-   Los valores son el DOBLE de los de partida, no un ojo:
+   Los valores, medidos de la hoja antes de tocarlos:
      título      1,17rem (h3 por omisión)  ->  2,34rem
-     instrucción 0,82rem                   ->  1,64rem
-     nombre      0,87rem (`table`)         ->  1,74rem
-   Los tres se midieron de la hoja antes de multiplicarlos.
+     nombre      0,87rem (`table`)         ->  1,20rem
+     instrucción 0,82rem                   ->  1,15rem
 
-   El número de fila sube con el nombre: dejarlo en 0,87 al lado de un
-   nombre de 1,74 no se lee como un detalle, se lee como un fallo.
+   EL NOMBRE PASÓ POR 1,74rem Y VOLVIÓ. Al doble se leía de lejos, que era lo
+   que se buscaba, pero con siete u ocho candidatos la tabla dejaba de caber
+   entera en la pantalla y había que desplazarse para verla — justo lo
+   contrario de para lo que sirve, que es cotejarla de un vistazo contra el
+   papel. Queda igualada al encabezado, que es el tamaño que se pidió ya
+   viéndola en grande.
+
+   El número de fila va con el nombre, siempre: son la misma fila de datos, y
+   una diferencia entre los dos no se lee como un detalle sino como un fallo.
 
    TRES DE LAS CUATRO VAN ACOTADAS a #panel-diad-candidatos, y no por
    pulcritud: la pestaña de Puestos comparte con ésta `.card`, `.toolbar`,
@@ -479,13 +485,14 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 }
 
 #panel-diad-candidatos td.nombre-candidato,
-#panel-diad-candidatos td.num-candidato { font-size: 1.74rem; }
+#panel-diad-candidatos td.num-candidato { font-size: 1.2rem; }
 
 /* LOS ENCABEZADOS DE ESTA TABLA, MAS GRANDES Y SOBRE SU COLUMNA.
 
-   0,72rem -> 1,20rem (12px -> 19px). Se quedan por debajo de los 1,74rem del
-   nombre a proposito: un encabezado que pesa lo mismo que el dato deja de
-   leerse como encabezado.
+   0,72rem -> 1,20rem (12px -> 19px). Miden LO MISMO que el nombre y el
+   numero, por pedido. El encabezado se sigue distinguiendo sin depender del
+   tamano —va en mayusculas, con `letter-spacing` y en gris apagado—, asi que
+   igualar la fuente no lo confunde con el dato.
 
    Y SE ALINEAN A LA IZQUIERDA, salvo la columna del numero. La regla general
    los centra —con su razon escrita: centrar tambien los datos costaria
@@ -495,9 +502,12 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 
    CON «#» NO SIRVE LA IZQUIERDA, y por eso lleva `:not(.col-num)`. Alinear los
    dos al mismo borde no los pone en la misma linea: el «#» va en la fuente del
-   encabezado a 1,2rem y los numeros en monoespaciada a 1,74rem, y cada glifo
-   trae su propio margen interno, proporcional al tamano. Con relleno identico
-   —6px en `th` y en `td`— el simbolo seguia cayendo unos pixeles a un lado.
+   encabezado y los numeros en monoespaciada, y cada glifo trae su propio
+   margen interno. Con relleno identico —6px en `th` y en `td`— el simbolo
+   seguia cayendo unos pixeles a un lado.
+
+   Que ahora midan los dos 1,2rem no lo arregla: iguala la escala del desfase,
+   no lo elimina, porque las dos fuentes siguen siendo distintas.
 
    La aplicacion ya tenia resuelto exactamente esto: `col-num` centra la celda
    Y su encabezado, asi que quedan en la misma linea sin depender de las
