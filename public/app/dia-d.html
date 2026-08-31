@@ -29,6 +29,7 @@
   .tabla-votos-candidatos tr.fila-total-e14 td {
     padding-top: 10px;
     font-weight: 700;
+    text-transform: uppercase;
     color: var(--navy);
     border-top: 1px solid var(--linea);
   }
@@ -49,14 +50,22 @@
     color: var(--muted);
   }
   .tabla-votos-candidatos tr.fila-bloque-e14 td {
-    padding: 14px 6px 4px;
-    font-size: 0.78rem;
-    font-weight: 700;
+    /* Los encabezados de bloque mandan sobre la lectura del papel: el testigo
+       busca «Nivelación de la mesa» en el E-14 y tiene que encontrarla de un
+       vistazo en la pantalla. Del gris apagado de antes al azul de la casa, y
+       del 0,78rem a 1,08 — más grandes que el nombre de un candidato (0,9),
+       que es lo que los hace leerse como el título de un tramo y no como una
+       fila más. */
+    padding: 20px 6px 6px;
+    font-size: 1.08rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--muted);
-    border-bottom: 1px solid var(--linea);
+    letter-spacing: 0.02em;
+    color: var(--navy);
+    border-bottom: 2px solid var(--navy);
   }
+  /* El primero no necesita el aire de arriba: no separa de nada. */
+  .tabla-votos-candidatos tr.fila-bloque-e14:first-child td { padding-top: 4px; }
   .tabla-votos-candidatos input { width: 100%; box-sizing: border-box; }
 
   /* Cámara propia para la Foto del E-14 (ver más abajo por qué no se usa el input nativo) */
@@ -127,7 +136,6 @@
       </div>
       <div class="campo-app" id="campo-total-votantes"><label for="f-total-votantes">Total votantes en la mesa</label><input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric"></div>
       <div class="campo-app">
-        <label>Votos por candidato</label>
         <table class="tabla-votos-candidatos">
           <thead><tr id="cabecera-votos-e14"><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>
           <tbody id="tbody-votos-candidatos"></tbody>
@@ -375,7 +383,7 @@ async function cargarCandidatosParaReporte() {
        ella la fila tendría una columna menos que las demás y todo lo de la
        derecha se correría. */
     const filas = nombres.map((nombre, i) => `
-    <tr>
+    <tr data-bloque="${clave}">
       ${hayNumerosE14 ? `<td class="num-e14">${bloque.numerado ? bloque.inicio + i : ''}</td>` : ''}
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
       <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
@@ -446,20 +454,18 @@ function recalcularTotalVotosMesa() {
   const suma = (lista) => lista.reduce((s, inp) => s + (Number(inp.value) || 0), 0);
   document.getElementById('f-total-votos-mesa').value = suma(todas);
 
-  /* El total del bloque de candidatos cuenta las filas que hay ANTES de la
-     cabecera del siguiente bloque. Se recorre el cuerpo de la tabla en orden en
-     vez de marcar cada input con su bloque: una sola fuente —el orden en que
-     están pintadas— en lugar de un atributo que hay que acordarse de poner en
-     cada fila nueva. */
+  /* CADA FILA DICE DE QUÉ BLOQUE ES, y por eso se pregunta por el atributo.
+     La primera versión recorría la tabla desde arriba y paraba en la cabecera
+     del siguiente bloque, con el argumento de no depender de un atributo que
+     hay que acordarse de poner. Estaba mal: daba por hecho que Candidatos va
+     primero. En cuanto la campaña sube «Nivelación de la mesa» —que es
+     exactamente lo que hace falta cuando el E-14 la trae arriba—, el recorrido
+     se topa con esa cabecera en la primera vuelta, para, y el total queda en
+     cero. Sin error y con un 0 perfectamente creíble. */
   const propio = document.getElementById('f-total-bloque-candidatos');
   if (!propio) return;
-  const delBloque = [];
-  for (const fila of document.getElementById('tbody-votos-candidatos').rows) {
-    if (fila.classList.contains('fila-bloque-e14')) break;   // empieza otro bloque
-    const inp = fila.querySelector('input[data-candidato]');
-    if (inp) delBloque.push(inp);
-  }
-  propio.value = suma(delBloque);
+  propio.value = suma([...document.querySelectorAll(
+    '#tbody-votos-candidatos tr[data-bloque="candidato"] input[data-candidato]')]);
 }
 
 // Valor de la opción "Mi puesto no aparece en la lista".
