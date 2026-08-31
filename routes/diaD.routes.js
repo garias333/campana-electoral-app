@@ -255,7 +255,17 @@ router.get('/mi-lugar-votacion', async (req, res) => {
  */
 router.get('/listas-para-reporte', async (req, res) => {
   try {
-    res.json(await listasParaReporte(req));
+    /* `esCampanaDeAspirante` VA POR RAMA, no por `req.sublicencia`, y esa
+       distinción ya costó un fallo antes: quien abre este formulario es un
+       TESTIGO del aspirante, no el aspirante. Su sesión no lleva sublicencia,
+       así que preguntando por ella la respuesta sería siempre `false` y el
+       formulario se comportaría como el de la campaña madre — pidiéndole un
+       dato que su E-14 no trae. `duenoDeLaCampana` sube por la cadena de mando
+       hasta el aspirante más cercano, que es lo que hace falta aquí. */
+    res.json({
+      ...(await listasParaReporte(req)),
+      esCampanaDeAspirante: (await duenoDeLaCampana(req)) !== 0
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando las listas del reporte.' });
@@ -507,7 +517,18 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
   if (!b.mesa_votacion || !String(b.mesa_votacion).trim()) {
     return res.status(400).json({ error: 'El número de mesa es obligatorio.' });
   }
-  if (b.total_votantes_mesa === undefined || String(b.total_votantes_mesa).trim() === '') {
+  /* EL TOTAL DE VOTANTES SOLO SE EXIGE EN LA CAMPAÑA MADRE. En la de un
+     aspirante ese campo no existe en su formulario, porque su E-14 no lo trae
+     así: cuenta votos por agrupación política, no votantes de la mesa. Si la
+     guarda siguiera siendo general, el reporte se rechazaría con un 400 pidiendo
+     un dato que la pantalla nunca mostró — el peor error posible el día de la
+     elección, porque el testigo no tendría forma de arreglarlo.
+
+     La columna admite NULL y `/resumen` suma con COALESCE, así que un reporte
+     sin ese dato no rompe ningún conteo: solo no aporta a «Total votantes
+     reportados», que es exactamente lo que corresponde. */
+  if ((await duenoDeLaCampana(req)) === 0
+      && (b.total_votantes_mesa === undefined || String(b.total_votantes_mesa).trim() === '')) {
     return res.status(400).json({ error: 'El total de votantes en la mesa es obligatorio.' });
   }
   // Con `fields`, multer entrega req.files como un objeto por campo: el E-14

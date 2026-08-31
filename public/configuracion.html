@@ -747,6 +747,18 @@ const BLOQUES_DIAD = {
 const SUBTABS_DIAD = ['puestos', 'candidato', 'nivelacion', 'otros'];
 let bloqueDiadActual = 'candidato';
 
+/* LA NUMERACIÓN ARRANCA EN 0 EN LA CAMPAÑA DE UN ASPIRANTE, y coincide con la
+   que ve el testigo en su celular: son las dos caras del mismo papel y se
+   cotejan casilla por casilla. En el tarjetón de una corporación el 0 es el
+   voto solo por la lista y los candidatos van del 1 en adelante.
+
+   Se decide con `es_sublicencia`, que ya llega en /configuracion/campana y es
+   la misma condición con la que el formulario del testigo quita el total de
+   votantes. Una sola regla para las dos pantallas: dos condiciones distintas
+   para lo mismo se separan, y aquí separarse significa que la hoja y el papel
+   dejen de coincidir. */
+let numeracionDesdeCero = false;
+
 // Sub-pestañas dentro de "Día D". Los tres bloques del E-14 comparten panel y
 // solo cambia su contenido; Puestos de votación tiene el suyo aparte.
 function cambiarSubPestanaDiaD(sub) {
@@ -990,6 +1002,7 @@ async function cargarConfiguracionCampana() {
      Los selectores quedan `disabled`, asi que su evento `change` no se dispara
      y la contraseña de administrador no llega a pedirse. No hace falta quitar
      ese aviso: hace falta que no haya nada que confirmar. */
+  numeracionDesdeCero = !!config.es_sublicencia;
   if (config.es_sublicencia) {
     /* SE ESCONDE LA META DE LA CAMPAÑA PRINCIPAL. No basta con que el bucle de
        abajo la deje `disabled`: el rótulo es palabra por palabra el mismo que
@@ -2403,7 +2416,7 @@ async function cargarCandidatos() {
      ancho al reordenar, y se pierde el sitio donde se estaba pulsando. */
   tbody.innerHTML = candidatos.map((c, i) => `
     <tr>
-      <td class="mono num-candidato col-num">${i + 1}</td>
+      <td class="mono num-candidato col-num">${i + (numeracionDesdeCero ? 0 : 1)}</td>
       <td class="nombre-candidato">${escaparHtmlDiaD(c.nombre)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"

@@ -24,6 +24,17 @@
      una fila más de la misma tabla para que las dos columnas sigan alineadas de
      arriba abajo — el testigo copia el papel de corrido y una tabla partida en
      tres le daría tres anchos de columna distintos. */
+  /* La casilla del tarjetón. Monoespaciada y a la derecha para que los números
+     de dos cifras no muevan el nombre de sitio al pasar del 9 al 10. */
+  .tabla-votos-candidatos td.num-e14,
+  .tabla-votos-candidatos th.th-num-e14 {
+    width: 38px;
+    text-align: right;
+    padding-right: 10px;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
   .tabla-votos-candidatos tr.fila-bloque-e14 td {
     padding: 14px 6px 4px;
     font-size: 0.78rem;
@@ -101,16 +112,16 @@
         <label>Mesa que vas a reportar</label>
         <div id="lista-mesas-coordinador" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:6px;"></div>
       </div>
-      <div class="campo-app"><label for="f-total-votantes">Total votantes en la mesa</label><input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric"></div>
+      <div class="campo-app" id="campo-total-votantes"><label for="f-total-votantes">Total votantes en la mesa</label><input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric"></div>
       <div class="campo-app">
         <label>Votos por candidato</label>
         <table class="tabla-votos-candidatos">
-          <thead><tr><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>
+          <thead><tr id="cabecera-votos-e14"><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>
           <tbody id="tbody-votos-candidatos"></tbody>
         </table>
       </div>
       <div class="campo-app">
-        <label>Total votos en la mesa</label>
+        <label id="rotulo-total-votos">Total votos en la mesa</label>
         <input id="f-total-votos-mesa" type="text" disabled value="0">
       </div>
       <div class="campo-app">
@@ -302,18 +313,27 @@ async function cargarCandidatosParaReporte() {
      nueva, la primera vez que haya señal se guarda la forma nueva; la vieja
      queda ahí sin estorbar. */
   const listas = await obtenerConCacheReferencia('diad_listas_e14', () => api('/dia-d/listas-para-reporte'));
+  esCampanaDeAspirante = !!(listas && listas.esCampanaDeAspirante);
+  aplicarFormaDelFormulario();
+
   const tbody = document.getElementById('tbody-votos-candidatos');
+  const columnas = esCampanaDeAspirante ? 3 : 2;
 
   tbody.innerHTML = BLOQUES_E14.flatMap(({ clave, titulo }) => {
     const nombres = (listas && listas[clave]) || [];
     if (!nombres.length) return [];
     // El encabezado de bloque es una fila de la misma tabla, no otra tabla:
-    // así las dos columnas siguen alineadas de arriba abajo.
+    // así las columnas siguen alineadas de arriba abajo.
     const cabecera = titulo
-      ? [`<tr class="fila-bloque-e14"><td colspan="2">${escaparHtml(titulo)}</td></tr>`]
+      ? [`<tr class="fila-bloque-e14"><td colspan="${columnas}">${escaparHtml(titulo)}</td></tr>`]
       : [];
-    return cabecera.concat(nombres.map(nombre => `
+    /* LA NUMERACIÓN ARRANCA EN 0 Y ES POR BLOQUE, igual que en la hoja de
+       configuración: son las dos caras del mismo papel y el testigo coteja una
+       contra la otra casilla por casilla. En el tarjetón de una corporación el
+       0 es el voto solo por la lista y los candidatos van del 1 en adelante. */
+    return cabecera.concat(nombres.map((nombre, i) => `
     <tr>
+      ${esCampanaDeAspirante ? `<td class="num-e14">${i}</td>` : ''}
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
       <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
     </tr>`));
@@ -321,6 +341,36 @@ async function cargarCandidatosParaReporte() {
 
   tbody.addEventListener('input', recalcularTotalVotosMesa);
   recalcularTotalVotosMesa();
+}
+
+/**
+ * LA FORMA DEL FORMULARIO SEGÚN DE QUIÉN SEA LA CAMPAÑA.
+ *
+ * En la de un aspirante el E-14 no cuenta votantes de la mesa: cuenta votos por
+ * agrupación política. Se le quita ese campo —y con él la comprobación de que
+ * los dos totales cuadren, que sin uno de los dos no significa nada— y el total
+ * cambia de nombre.
+ */
+let esCampanaDeAspirante = false;
+
+function aplicarFormaDelFormulario() {
+  const campo = document.getElementById('campo-total-votantes');
+  campo.style.display = esCampanaDeAspirante ? 'none' : '';
+  // `required` en un campo oculto BLOQUEA el envío sin decir dónde: el
+  // navegador intenta enfocar un elemento que no se ve y no muestra el aviso.
+  document.getElementById('f-total-votantes').required = !esCampanaDeAspirante;
+  document.getElementById('rotulo-total-votos').textContent =
+    esCampanaDeAspirante ? 'Total votos agrupación política' : 'Total votos en la mesa';
+  // Idempotente a propósito: hoy esto corre una sola vez, pero una segunda
+  // llamada añadiría otra columna «#» al encabezado y lo dejaría con una celda
+  // más que las filas — la tabla entera corrida, sin ningún error.
+  const cabecera = document.getElementById('cabecera-votos-e14');
+  const yaTiene = !!cabecera.querySelector('th.th-num-e14');
+  if (esCampanaDeAspirante && !yaTiene) {
+    cabecera.insertAdjacentHTML('afterbegin', '<th class="th-num-e14">#</th>');
+  } else if (!esCampanaDeAspirante && yaTiene) {
+    cabecera.querySelector('th.th-num-e14').remove();
+  }
 }
 
 /** Suma en vivo, solo para que el testigo se autoverifique, los votos que va escribiendo por cada candidato. No se envía al servidor — el total real ya viaja implícito en la lista de votos por candidato. */
@@ -753,7 +803,9 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
     // error de digitación, o algo real que vale la pena dejar anotado.
     const totalVotantes = Number(document.getElementById('f-total-votantes').value) || 0;
     const totalVotosMesa = Number(document.getElementById('f-total-votos-mesa').value) || 0;
-    if (totalVotantes !== totalVotosMesa) {
+    // Sin el campo de votantes no hay dos totales que comparar: el aviso
+    // saltaría SIEMPRE, con 0 contra la suma real, y enseñaría a ignorarlo.
+    if (!esCampanaDeAspirante && totalVotantes !== totalVotosMesa) {
       const continuar = confirm('Diferencia de votos en los totales.\n\n¿Está seguro de enviar el reporte?');
       if (!continuar) return;
       const novedadInput = document.getElementById('f-novedad');
