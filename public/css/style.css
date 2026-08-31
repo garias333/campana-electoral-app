@@ -487,13 +487,23 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    nombre a proposito: un encabezado que pesa lo mismo que el dato deja de
    leerse como encabezado.
 
-   Y SE ALINEAN A LA IZQUIERDA. La regla general los centra —con su razon
-   escrita: centrar tambien los datos costaria recorrer la columna con la
-   vista—, pero aqui eso deja «#» y «NOMBRE DEL CANDIDATO» flotando en medio
-   de columnas cuyo contenido va pegado a la izquierda. Con dos columnas de
-   datos y una fuente grande, el desajuste se ve; en una tabla de catorce no
-   se notaba, y por eso la regla general no se toca. */
-#panel-diad-candidatos thead th { font-size: 1.2rem; text-align: left; }
+   Y SE ALINEAN A LA IZQUIERDA, salvo la columna del numero. La regla general
+   los centra —con su razon escrita: centrar tambien los datos costaria
+   recorrer la columna con la vista—, pero aqui eso dejaba «NOMBRE DEL
+   CANDIDATO» flotando en medio de una columna cuyo contenido va pegado a la
+   izquierda.
+
+   CON «#» NO SIRVE LA IZQUIERDA, y por eso lleva `:not(.col-num)`. Alinear los
+   dos al mismo borde no los pone en la misma linea: el «#» va en la fuente del
+   encabezado a 1,2rem y los numeros en monoespaciada a 1,74rem, y cada glifo
+   trae su propio margen interno, proporcional al tamano. Con relleno identico
+   —6px en `th` y en `td`— el simbolo seguia cayendo unos pixeles a un lado.
+
+   La aplicacion ya tenia resuelto exactamente esto: `col-num` centra la celda
+   Y su encabezado, asi que quedan en la misma linea sin depender de las
+   metricas de dos fuentes distintas. Se usa esa, en vez de inventar una. */
+#panel-diad-candidatos thead th:not(.col-num) { text-align: left; }
+#panel-diad-candidatos thead th { font-size: 1.2rem; }
 
 /* Los tres botones de la cabecera. Piden «un tamaño más grande», no el
    doble: a 1,76rem un botón con «⬆ Importar desde Excel» dentro ocuparía

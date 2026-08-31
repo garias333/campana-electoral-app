@@ -465,7 +465,7 @@
         </p>
         <div class="tabla-contenedor">
           <table>
-            <thead><tr><th>#</th><th>Nombre del candidato</th><th></th></tr></thead>
+            <thead><tr><th class="col-num">#</th><th>Nombre del candidato</th><th></th></tr></thead>
             <tbody id="tbody-candidatos"></tbody>
           </table>
         </div>
@@ -2351,7 +2351,7 @@ async function cargarCandidatos() {
      ancho al reordenar, y se pierde el sitio donde se estaba pulsando. */
   tbody.innerHTML = candidatos.map((c, i) => `
     <tr>
-      <td class="mono num-candidato">${i + 1}</td>
+      <td class="mono num-candidato col-num">${i + 1}</td>
       <td class="nombre-candidato">${escaparHtmlDiaD(c.nombre)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"
