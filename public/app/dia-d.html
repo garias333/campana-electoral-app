@@ -20,6 +20,19 @@
   .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
   .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
   .tabla-votos-candidatos td.nombre-candidato { font-size: 0.9rem; }
+  /* Separador de bloque del E-14 (Nivelación de la mesa, Otros votos). Va como
+     una fila más de la misma tabla para que las dos columnas sigan alineadas de
+     arriba abajo — el testigo copia el papel de corrido y una tabla partida en
+     tres le daría tres anchos de columna distintos. */
+  .tabla-votos-candidatos tr.fila-bloque-e14 td {
+    padding: 14px 6px 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--linea);
+  }
   .tabla-votos-candidatos input { width: 100%; box-sizing: border-box; }
 
   /* Cámara propia para la Foto del E-14 (ver más abajo por qué no se usa el input nativo) */
@@ -265,20 +278,47 @@ async function sincronizarColaOfflineDiaD() {
 
 /**
  * Arma la tabla de "Votos por candidato" con los candidatos configurados
- * en Configuración → Día D → Candidatos (el candidato propio de la
- * campaña siempre viene primero desde el backend). Se llama una sola vez
- * al cargar la pantalla — la lista de candidatos no cambia mientras el
- * testigo está reportando.
+ * en Configuración → Día D, en sus tres bloques: Candidatos, Nivelación de
+ * la mesa y Otros votos. Se llama una sola vez al cargar la pantalla — las
+ * listas no cambian mientras el testigo está reportando.
+ *
+ * Los tres van en la MISMA tabla, separados por una fila de encabezado. El
+ * testigo copia un papel de arriba abajo, y partirlo en tres tablas le pondría
+ * tres columnas de números en tres anchos distintos.
  */
+const BLOQUES_E14 = [
+  { clave: 'candidato',  titulo: null },                       // sin encabezado: es el bloque principal
+  { clave: 'nivelacion', titulo: 'Nivelación de la mesa' },
+  { clave: 'otros',      titulo: 'Otros votos' }
+];
+
 async function cargarCandidatosParaReporte() {
-  const nombres = await obtenerConCacheReferencia('diad_candidatos', () => api('/dia-d/candidatos-para-reporte'));
+  /* CLAVE DE CACHÉ NUEVA, y no es un detalle. `obtenerConCacheReferencia`
+     guarda la respuesta en el teléfono para poder reportar sin señal. Si esta
+     versión reusara la clave 'diad_candidatos', un teléfono que ya tuviera
+     guardado el arreglo plano de la versión anterior lo leería como si fuera el
+     objeto de tres bloques, no encontraría ninguno, y pintaría la tabla vacía
+     el día de la elección — sin error y sin forma de saber por qué. Con clave
+     nueva, la primera vez que haya señal se guarda la forma nueva; la vieja
+     queda ahí sin estorbar. */
+  const listas = await obtenerConCacheReferencia('diad_listas_e14', () => api('/dia-d/listas-para-reporte'));
   const tbody = document.getElementById('tbody-votos-candidatos');
-  tbody.innerHTML = nombres.map(nombre => `
+
+  tbody.innerHTML = BLOQUES_E14.flatMap(({ clave, titulo }) => {
+    const nombres = (listas && listas[clave]) || [];
+    if (!nombres.length) return [];
+    // El encabezado de bloque es una fila de la misma tabla, no otra tabla:
+    // así las dos columnas siguen alineadas de arriba abajo.
+    const cabecera = titulo
+      ? [`<tr class="fila-bloque-e14"><td colspan="2">${escaparHtml(titulo)}</td></tr>`]
+      : [];
+    return cabecera.concat(nombres.map(nombre => `
     <tr>
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
       <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
-    </tr>
-  `).join('');
+    </tr>`));
+  }).join('');
+
   tbody.addEventListener('input', recalcularTotalVotosMesa);
   recalcularTotalVotosMesa();
 }

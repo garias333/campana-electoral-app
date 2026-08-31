@@ -2017,6 +2017,21 @@ async function main() {
     const [r] = await connection.query('UPDATE dia_d_candidatos SET orden = id WHERE orden = 0');
     console.log(`Orden inicial de candidatos asignado a ${r.affectedRows} fila(s).`);
   }
+
+  /* LOS TRES BLOQUES DEL E-14: candidatos, nivelacion de la mesa y otros votos.
+     Todo lo que ya existia cae en `candidato` por el DEFAULT, asi que despues
+     de migrar la aplicacion se comporta EXACTAMENTE igual que antes: la misma
+     lista, en el mismo orden, en el mismo grafico. Repartirlo entre los tres
+     bloques es decision de cada campaña.
+
+     NO se intenta adivinar el bloque por el nombre. Seria facil mandar a
+     `otros` todo lo que empiece por «Votos », y es justo el tipo de regla que
+     acierta en la campaña de prueba y falla en la primera real —un candidato
+     que se apellide asi, una lista llamada «Votos por el cambio»—. Mover una
+     fila de bloque cuesta dos clics; deshacer un reparto automatico que nadie
+     pidio, no. */
+  await agregarColumnaSiFalta(connection, 'dia_d_candidatos',
+    "grupo ENUM('candidato','nivelacion','otros') NOT NULL DEFAULT 'candidato'", 'grupo');
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_puesto_nombre',
     ['aspirante_id', 'nombre']);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',

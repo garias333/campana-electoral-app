@@ -94,6 +94,17 @@ async function nombreDelCandidatoPropio(req, conexion = pool) {
    ve un cambio. */
 const ORDEN_CANDIDATOS = 'ORDER BY orden ASC, id ASC';
 
+/* LOS TRES BLOQUES DEL E-14, y el unico sitio donde se escriben sus nombres.
+   `candidato` es el de siempre —los del tarjeton, los unicos que compiten en el
+   grafico y en el ranking por puesto—; los otros dos se cuentan, se guardan y
+   se ven en el detalle del reporte, pero no salen en las barras.
+
+   Se valida contra esta lista y no contra el ENUM de la base a proposito: un
+   grupo invalido tiene que dar 400 aqui, no un error de MySQL a mitad de un
+   INSERT con el mensaje en ingles. */
+const GRUPOS = ['candidato', 'nivelacion', 'otros'];
+const grupoValido = (g) => GRUPOS.includes(String(g || '').trim()) ? String(g).trim() : null;
+
 const router = express.Router();
 router.use(requireAuth);
 
@@ -182,11 +193,23 @@ async function ambitoDeLaCampana() {
    con el el tablero entero del Dia D — todas las tarjetas en blanco, como si
    se hubiera perdido la jornada. No se perdio nada: la pantalla no podia
    pintarse. Los dos llamadores son rutas y tienen `req` a mano. */
-async function obtenerCandidatosParaReporte(req) {
-  const [configurados] = await pool.query(
-      `SELECT nombre FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
+async function listasParaReporte(req) {
+  const [filas] = await pool.query(
+      `SELECT nombre, grupo FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
       [await duenoDeLaCampana(req)]);
-  return configurados.map(c => c.nombre);
+  const listas = { candidato: [], nivelacion: [], otros: [] };
+  for (const f of filas) (listas[f.grupo] || listas.candidato).push(f.nombre);
+  return listas;
+}
+
+/**
+ * Solo los del tarjeton. Es lo que alimenta el grafico y el ranking por puesto:
+ * la nivelacion y los otros votos se cuentan y se guardan, pero no compiten en
+ * las barras — no son candidatos, y ponerlos ahi haria que «en blanco» le
+ * ganara a media lista.
+ */
+async function obtenerCandidatosParaReporte(req) {
+  return (await listasParaReporte(req)).candidato;
 }
 
 /**
@@ -225,11 +248,42 @@ router.get('/mi-lugar-votacion', async (req, res) => {
   }
 });
 
-/** Candidatos a mostrar en el formulario de reporte (candidato propio primero, luego el resto configurado en Día D). */
+/**
+ * LO QUE EL TESTIGO CUENTA EN LA MESA, en los tres bloques del E-14.
+ *
+ * Esta es la ruta que usa el formulario del celular desde que hay bloques.
+ */
+router.get('/listas-para-reporte', async (req, res) => {
+  try {
+    res.json(await listasParaReporte(req));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error consultando las listas del reporte.' });
+  }
+});
+
+/**
+ * LA MISMA LISTA, EN LA FORMA VIEJA — un arreglo plano de nombres.
+ *
+ * NO SE BORRA, Y NO ES POR PEREZA. `public/app/dia-d.html` guarda esta
+ * respuesta en el almacenamiento del celular para poder reportar sin señal
+ * (`obtenerConCacheReferencia('diad_candidatos', ...)`). Un teléfono que
+ * todavía tenga la versión anterior de la página cacheada la seguirá pidiendo,
+ * y si aquí no hubiera nada se quedaría sin lista el día de la elección — que
+ * es el único día en que esa pantalla se usa.
+ *
+ * Devuelve los TRES bloques seguidos, no solo los candidatos: en la versión
+ * vieja no había bloques y todo iba en una lista, así que eso es exactamente lo
+ * que ese teléfono espera ver.
+ *
+ * Sale de `listasParaReporte`, la misma fuente que la ruta nueva. Dos consultas
+ * separadas para dos formas del mismo dato se separan el día que alguien toque
+ * una: aquí no pueden.
+ */
 router.get('/candidatos-para-reporte', async (req, res) => {
   try {
-    const nombres = await obtenerCandidatosParaReporte(req);
-    res.json(nombres);
+    const l = await listasParaReporte(req);
+    res.json([...l.candidato, ...l.nivelacion, ...l.otros]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los candidatos.' });
@@ -1471,8 +1525,15 @@ router.post('/config/puestos-votacion/importar-excel', requireRole('admin', 'asp
 
 router.get('/config/candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT * FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
-      [await duenoDeLaCampana(req)]);
+    /* Sin `?grupo=` devuelve los tres bloques, que es lo que espera cualquier
+       llamador anterior a esta pantalla. Con él, solo ese: la hoja de
+       configuración pide uno por sección. */
+    const grupo = req.query.grupo ? grupoValido(req.query.grupo) : null;
+    if (req.query.grupo && !grupo) return res.status(400).json({ error: 'Bloque inválido.' });
+    const dueno = await duenoDeLaCampana(req);
+    const [filas] = await pool.query(
+      `SELECT * FROM dia_d_candidatos WHERE aspirante_id = ?${grupo ? ' AND grupo = ?' : ''} ${ORDEN_CANDIDATOS}`,
+      grupo ? [dueno, grupo] : [dueno]);
     res.json(filas);
   } catch (err) {
     console.error(err);
@@ -1494,18 +1555,21 @@ router.post('/config/candidatos', requireRole('admin', 'aspirante'), async (req,
   // del testigo, el gráfico de resultados y cualquier importación posterior.
   const nombre = formatoNombrePropio(req.body.nombre);
   if (!nombre) return res.status(400).json({ error: 'El nombre del candidato es obligatorio.' });
+  const grupo = grupoValido(req.body.grupo) || 'candidato';
   try {
-    /* AL FINAL DE LA LISTA, con un `orden` explicito. Dejarlo en el 0 por
+    /* AL FINAL DE SU BLOQUE, con un `orden` explicito. Dejarlo en el 0 por
        defecto lo mandaria al PRINCIPIO —0 es menor que cualquier posicion ya
        asignada—, asi que cada candidato nuevo se colaria delante del que
        encabeza el tarjeton. El subconsulta va dentro del mismo INSERT para que
        dos altas simultaneas no lean el mismo maximo. */
     const dueno = await duenoDeLaCampana(req);
+    // Cada bloque lleva su propia numeración: mezclarlas dejaría huecos en las
+    // tres y el primero de «otros votos» arrancaría en el 15.
     const [result] = await pool.query(
-      `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden)
-       SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1
-         FROM dia_d_candidatos c WHERE c.aspirante_id = ?`,
-      [nombre, req.session.usuario.id, dueno, dueno]
+      `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden, grupo)
+       SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1, ?
+         FROM dia_d_candidatos c WHERE c.aspirante_id = ? AND c.grupo = ?`,
+      [nombre, req.session.usuario.id, dueno, grupo, dueno, grupo]
     );
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -1570,8 +1634,19 @@ router.post('/config/candidatos/:id/mover', requireRole('admin', 'aspirante'), a
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
 
+    /* SOLO SE MUEVE DENTRO DE SU BLOQUE. Se lee primero el grupo de la fila y
+       se renumera únicamente ese: con los tres seguidos, la flecha de arriba
+       del primer «otro voto» lo habría metido en «nivelación» sin decir nada, y
+       el testigo lo habría visto aparecer en la sección equivocada. */
+    const [[cual]] = await conexion.query(
+      'SELECT grupo FROM dia_d_candidatos WHERE id = ? AND aspirante_id = ?', [req.params.id, dueno]);
+    if (!cual) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'No encontrado.' });
+    }
     const [filas] = await conexion.query(
-      `SELECT id FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS} FOR UPDATE`, [dueno]);
+      `SELECT id FROM dia_d_candidatos WHERE aspirante_id = ? AND grupo = ? ${ORDEN_CANDIDATOS} FOR UPDATE`,
+      [dueno, cual.grupo]);
     const desde = filas.findIndex(f => String(f.id) === String(req.params.id));
     if (desde === -1) {
       await conexion.rollback();
@@ -1605,8 +1680,13 @@ router.post('/config/candidatos/:id/mover', requireRole('admin', 'aspirante'), a
 
 router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT id, nombre FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
-      [await duenoDeLaCampana(req)]);
+    /* Cada sección exporta e importa LO SUYO. Un solo Excel con los tres
+       bloques obligaría a llevar una columna de bloque, y quien la borrara o la
+       tradujera al reimportar movería filas de sección sin querer. */
+    const grupo = grupoValido(req.query.grupo) || 'candidato';
+    const [filas] = await pool.query(
+      `SELECT id, nombre FROM dia_d_candidatos WHERE aspirante_id = ? AND grupo = ? ${ORDEN_CANDIDATOS}`,
+      [await duenoDeLaCampana(req), grupo]);
     const columnas = ['ID', 'Nombre del candidato'];
     const datos = filas.map(f => ({ 'ID': f.id, 'Nombre del candidato': f.nombre }));
     const hoja = datos.length
@@ -1616,7 +1696,7 @@ router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'
     XLSX.utils.book_append_sheet(libro, hoja, 'Candidatos');
     const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="candidatos.xlsx"');
+    res.setHeader('Content-Disposition', `attachment; filename="${grupo === 'candidato' ? 'candidatos' : grupo}.xlsx"`);
     res.send(buffer);
   } catch (err) {
     console.error(err);
@@ -1634,6 +1714,7 @@ router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante
     const hoja = libro.Sheets[libro.SheetNames[0]];
     const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
     const dueno = await duenoDeLaCampana(req);   // una vez, no una consulta por fila
+    const grupo = grupoValido(req.body && req.body.grupo) || 'candidato';
 
     let insertados = 0;
     let actualizados = 0;
@@ -1648,10 +1729,15 @@ router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante
       }
       try {
         if (idFila) {
-          const [result] = await pool.query(`UPDATE dia_d_candidatos SET nombre = ? WHERE id = ? AND aspirante_id = ?`,
-      [nombre, idFila, dueno]);
+          /* El ID tiene que ser de ESTE bloque. Sin el `AND grupo`, exportar
+             «Otros votos», pegar por error un ID de la hoja de candidatos y
+             reimportar renombraría a un candidato del tarjetón desde la
+             pantalla equivocada, sin que nada avisara. */
+          const [result] = await pool.query(
+            `UPDATE dia_d_candidatos SET nombre = ? WHERE id = ? AND aspirante_id = ? AND grupo = ?`,
+            [nombre, idFila, dueno, grupo]);
           if (result.affectedRows === 0) {
-            errores.push({ fila: i + 2, error: `No existe un candidato con ID ${idFila}.` });
+            errores.push({ fila: i + 2, error: `No existe un registro con ID ${idFila} en esta sección.` });
             continue;
           }
           actualizados++;
@@ -1661,10 +1747,10 @@ router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante
           // final"; sin esto los mandaba al principio, uno por uno y en orden
           // inverso al del archivo.
           await pool.query(
-            `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden)
-             SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1
-               FROM dia_d_candidatos c WHERE c.aspirante_id = ?`,
-            [nombre, req.session.usuario.id, dueno, dueno]);
+            `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden, grupo)
+             SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1, ?
+               FROM dia_d_candidatos c WHERE c.aspirante_id = ? AND c.grupo = ?`,
+            [nombre, req.session.usuario.id, dueno, grupo, dueno, grupo]);
           insertados++;
         }
       } catch (err) {

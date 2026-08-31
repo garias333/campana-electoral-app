@@ -637,6 +637,16 @@ CREATE TABLE IF NOT EXISTS dia_d_candidatos (
   -- papel. Se ordena por `orden` y se desempata por `id`, así una tabla que
   -- todavía tenga todo en 0 conserva exactamente el orden que tenía antes.
   orden INT NOT NULL DEFAULT 0,
+  -- Los tres bloques del E-14. La tabla dejó de ser «los candidatos» para ser
+  -- «lo que el testigo cuenta en la mesa», que es lo que el papel trae:
+  --   candidato  — los del tarjetón, y los únicos que compiten en el gráfico
+  --   nivelacion — la nivelación de la mesa
+  --   otros      — en blanco, nulos, no marcados, solo por la lista
+  -- `candidato` por defecto NO es un detalle: al agregar la columna, todo lo
+  -- que ya existía cae ahí y la aplicación se comporta exactamente igual que
+  -- antes. Reorganizarlo en los tres bloques es una decisión de cada campaña,
+  -- no algo que la migración haga por su cuenta y sin avisar.
+  grupo ENUM('candidato','nivelacion','otros') NOT NULL DEFAULT 'candidato',
   created_by INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL

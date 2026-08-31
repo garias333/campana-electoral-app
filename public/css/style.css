@@ -462,7 +462,7 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    El número de fila va con el nombre, siempre: son la misma fila de datos, y
    una diferencia entre los dos no se lee como un detalle sino como un fallo.
 
-   TRES DE LAS CUATRO VAN ACOTADAS a #panel-diad-candidatos, y no por
+   TRES DE LAS CUATRO VAN ACOTADAS a #panel-diad-listas, y no por
    pulcritud: la pestaña de Puestos comparte con ésta `.card`, `.toolbar`,
    `table` y `.btn-sm`, así que sin el prefijo esto se llevaría por delante
    una tabla de catorce columnas que sí necesita entrar en la pantalla.
@@ -471,7 +471,7 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    propia que no comparte nombre con nada, y así sirve si algún día otra
    pantalla necesita la misma instrucción en el mismo tamaño.
    ------------------------------------------------------------------ */
-#panel-diad-candidatos .toolbar h3 { font-size: 2.34rem; line-height: 1.2; }
+#panel-diad-listas .toolbar h3 { font-size: 2.34rem; line-height: 1.2; }
 
 .ayuda-candidatos {
   color: var(--color-text-muted);
@@ -484,8 +484,8 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
   margin: -4px 0 18px;
 }
 
-#panel-diad-candidatos td.nombre-candidato,
-#panel-diad-candidatos td.num-candidato { font-size: 1.2rem; }
+#panel-diad-listas td.nombre-candidato,
+#panel-diad-listas td.num-candidato { font-size: 1.2rem; }
 
 /* LOS ENCABEZADOS DE ESTA TABLA, MAS GRANDES Y SOBRE SU COLUMNA.
 
@@ -512,13 +512,13 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    La aplicacion ya tenia resuelto exactamente esto: `col-num` centra la celda
    Y su encabezado, asi que quedan en la misma linea sin depender de las
    metricas de dos fuentes distintas. Se usa esa, en vez de inventar una. */
-#panel-diad-candidatos thead th:not(.col-num) { text-align: left; }
-#panel-diad-candidatos thead th { font-size: 1.2rem; }
+#panel-diad-listas thead th:not(.col-num) { text-align: left; }
+#panel-diad-listas thead th { font-size: 1.2rem; }
 
 /* Los tres botones de la cabecera. Piden «un tamaño más grande», no el
    doble: a 1,76rem un botón con «⬆ Importar desde Excel» dentro ocuparía
    media fila y empujaría a los otros dos a una segunda línea. */
-#panel-diad-candidatos .toolbar .btn-sm { font-size: 1.15rem; padding: 11px 19px; }
+#panel-diad-listas .toolbar .btn-sm { font-size: 1.15rem; padding: 11px 19px; }
 
 /* LOS DOS BOTONES DE ACCION DEL DIA D, DEL TAMANO DE UNA TARJETA.
 
@@ -577,18 +577,18 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    probe: contra el amarillo del boton ese token es mas claro que el fondo del
    propio boton y el borde desaparece del todo, que no es «delgado» sino
    «ninguno». Este dibuja el canto y se lee como linea de pelo. */
-#panel-diad-candidatos td .btn-secundario,
-#panel-diad-candidatos td .btn-primario {
+#panel-diad-listas td .btn-secundario,
+#panel-diad-listas td .btn-primario {
   padding: 8px 18px;
   font-size: 1.2rem;
   border: 1px solid #B9BEC7;
 }
-#panel-diad-candidatos td .btn-secundario:hover,
-#panel-diad-candidatos td .btn-primario:hover { border-color: #B9BEC7; }
+#panel-diad-listas td .btn-secundario:hover,
+#panel-diad-listas td .btn-primario:hover { border-color: #B9BEC7; }
 
 /* Las flechas, despues de las de arriba para que su relleno cero gane: van
    con ancho fijo y un solo caracter dentro. */
-#panel-diad-candidatos td .btn-mover {
+#panel-diad-listas td .btn-mover {
   width: 51px;
   padding-left: 0;
   padding-right: 0;
