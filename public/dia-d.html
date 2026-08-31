@@ -55,8 +55,8 @@
       <div class="toolbar">
         <h3 style="margin:0;">Votos por candidato</h3>
         <div class="grupo-pestanas">
-          <button type="button" class="btn-acento btn-sm" id="btn-grafico-vertical">▮ Verticales</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-grafico-horizontal">▬ Horizontales</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-grafico-vertical">▮ Verticales</button>
+          <button type="button" class="btn-acento btn-sm" id="btn-grafico-horizontal">▬ Horizontales</button>
         </div>
       </div>
       <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
@@ -156,7 +156,12 @@ async function eliminarTodosLosReportes() {
 }
 document.getElementById('btn-eliminar-todos-reportes').addEventListener('click', eliminarTodosLosReportes);
 
-let orientacionGraficoCandidatos = 'vertical';
+/* HORIZONTALES POR OMISION. Con nueve o diez candidatos, las barras verticales
+   dejan 8,5 pixeles de fuente y un nombre cortado a 16 caracteres — ilegible
+   justo en la pantalla donde se lee el resultado de la eleccion. En horizontal
+   el nombre va en su propia linea y cabe entero. El boton sigue ahi para quien
+   prefiera lo otro. */
+let orientacionGraficoCandidatos = 'horizontal';
 
 /**
  * Gráfico de barras (SVG, sin librerías) con los votos por candidato. El
@@ -196,14 +201,18 @@ function dibujarGraficoCandidatos(filas) {
     }).join('');
     cont.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:280px;">${barras}</svg>`;
   } else {
-    const altoFila = 32, padVert = 8, anchoEtiqueta = 150, anchoMax = 320;
+    /* EL ANCHO DE LA ETIQUETA SUBE DE 150 A 200 y el corte del nombre de 22 a
+       30 caracteres: al doble de tamaño sobra sitio, y «Aspirante De Prueba
+       A…» cortado al lado de la tabla que lo escribe entero se lee como un
+       fallo. */
+    const altoFila = 32, padVert = 8, anchoEtiqueta = 200, anchoMax = 320;
     const ancho = anchoEtiqueta + anchoMax + 60;
     const alto = altoFila * filas.length + padVert * 2;
     const barras = filas.map((f, i) => {
       const anchoBarra = (anchoMax * f.votos) / max;
       const y = padVert + i * altoFila;
       const color = f.esPropio ? 'var(--color-accent, #FFC300)' : 'var(--color-navy-light, #1C3A63)';
-      const nombreCorto = f.nombre.length > 22 ? f.nombre.slice(0, 21) + '…' : f.nombre;
+      const nombreCorto = f.nombre.length > 30 ? f.nombre.slice(0, 29) + '…' : f.nombre;
       return `
         <g>
           <text x="${anchoEtiqueta - 8}" y="${y + altoFila / 2 + 4}" font-size="11" fill="var(--color-text, #161B26)" text-anchor="end">${escaparHtml(nombreCorto)}</text>
@@ -213,7 +222,19 @@ function dibujarGraficoCandidatos(filas) {
           <text x="${anchoEtiqueta + anchoBarra + 8}" y="${y + altoFila / 2 + 4}" font-size="11" fill="var(--color-text, #161B26)">${formatoMillares(f.votos)}</text>
         </g>`;
     }).join('');
-    cont.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:${alto}px;">${barras}</svg>`;
+    /* EL DOBLE DE GRANDE, Y LA PALANCA ES `max-height`, NO EL viewBox.
+       El SVG se dibuja con `width:100%`, asi que multiplicar las coordenadas
+       de dentro no cambia NADA: el navegador lo reescala igual y se ve idéntico.
+       Lo que lo tenia pequeño era este tope, que valia exactamente `alto` — el
+       alto natural del dibujo— y obligaba al SVG a encogerse a sus 530 pixeles
+       de ancho aunque la tarjeta ofreciera novecientos. De ahi el espacio vacio
+       a la derecha.
+
+       Con el tope al doble, el que manda pasa a ser el ancho disponible: el
+       dibujo crece hasta llenar la tarjeta y la letra crece con el, porque va
+       dentro del mismo SVG. Con pocos candidatos el tope ni se alcanza y no
+       pasa nada raro. */
+    cont.innerHTML = `<svg viewBox="0 0 ${ancho} ${alto}" style="width:100%; height:auto; max-height:${alto * 2}px;">${barras}</svg>`;
   }
 }
 
