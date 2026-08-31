@@ -528,10 +528,16 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    `inline-flex` y por omision se encoge al texto, asi que sin `width:100%`
    quedaria una pastilla pequena flotando en una celda ancha.
 
-   `min-height` 92px sale de medir la tarjeta de al lado: 20px de relleno
-   arriba, ~15 la etiqueta, ~36 la cifra a 1,9rem y 20 abajo. No se fija una
-   altura exacta porque el texto de «Reportes por puesto de votacion» ocupa dos
-   lineas en pantallas estrechas y con `height` se saldria.
+   `min-height` 74px: son los 92 que mide la tarjeta de al lado —20px de
+   relleno arriba, ~15 la etiqueta, ~36 la cifra a 1,9rem y 20 abajo— menos el
+   20% pedido. Deja de igualar el alto de la tarjeta a proposito: dos botones
+   tan altos como las seis tarjetas pesaban mas que ellas, y lo que se consulta
+   son las tarjetas. El ANCHO si sigue siendo el de una tarjeta, que es lo que
+   los mantiene a plomo con la rejilla.
+
+   No se fija una altura exacta porque el texto de «Reportes por puesto de
+   votacion» ocupa dos lineas en pantallas estrechas y con `height` se saldria;
+   con `min-height` crece y ya.
 
    `text-align: center` NO es redundante con el `justify-content: center` de la
    regla base: aquel centra la caja del texto dentro del boton, este centra la
@@ -541,7 +547,7 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    de `.col-acciones`, otra regla. La propiedad sobraba y se quito.) */
 .btn-accion-diad {
   width: 100%;
-  min-height: 92px;
+  min-height: 74px;
   font-size: 1.02rem;
   line-height: 1.3;
   text-align: center;
