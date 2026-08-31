@@ -49,6 +49,16 @@ async function duenoDeLaCampana(req) {
   return duenoDeLaCampanaRama(pool, req);
 }
 
+/* UNA SOLA DEFINICION DEL ORDEN DE LOS CANDIDATOS, porque son cinco consultas
+   —la hoja, el formulario del testigo, el tablero, el Excel que sale y el que
+   entra— y si una sola discrepa, la lista del papel y la de la pantalla dejan
+   de coincidir sin que nada falle.
+
+   `id` DESEMPATA A PROPOSITO: mientras `orden` valga 0 en toda la tabla (una
+   base que aun no corrio la migracion), esto ordena igual que antes y nadie
+   ve un cambio. */
+const ORDEN_CANDIDATOS = 'ORDER BY orden ASC, id ASC';
+
 const router = express.Router();
 router.use(requireAuth);
 
@@ -107,10 +117,28 @@ async function ambitoDeLaCampana() {
 
 /**
  * Lista de candidatos a mostrar en el formulario de reporte y en el
- * tablero: el candidato propio (el de Configuración → Datos de la
- * campaña) SIEMPRE va de primero, así el admin no lo haya agregado
- * también en Configuración → Día D → Candidatos. El resto queda en el
- * mismo orden de ingreso en que se configuraron.
+ * tablero: EXACTAMENTE los de Configuración → Día D → Candidatos, en el
+ * orden que tengan ahí.
+ *
+ * EL CANDIDATO PROPIO YA NO SE AGREGA SOLO. Antes esta función leía
+ * `configuracion_campana.nombre_candidato` y lo anteponía siempre, aunque
+ * el admin no lo hubiera agregado a la hoja. Se quitó porque el testigo no
+ * está llenando una encuesta: está transcribiendo un E-14, y en el E-14 el
+ * orden lo fija el tarjetón de la Registraduría, no la campaña. Al propio
+ * candidato le puede tocar la casilla 5.
+ *
+ * Ponerlo a la fuerza de primero hacía que el formulario y el papel no
+ * coincidieran, y copiar cifras entre dos listas desalineadas es un error
+ * que no da ningún aviso: los votos entran, suman, y quedan en el candidato
+ * equivocado.
+ *
+ * Y traía un efecto secundario peor: como se filtraba el nombre propio de
+ * la lista configurada para no duplicarlo, el candidato dueño de la campaña
+ * NO APARECÍA en la hoja de candidatos aunque se agregara a mano. Se veía
+ * como si no se hubiera guardado.
+ *
+ * Ahora la hoja manda: quien quiera a su candidato en la lista lo agrega,
+ * en la posición que le corresponda en el tarjetón.
  */
 /* RECIBE `req`, Y NO LO RECIBIA. Al separar las listas por campana se le metio
    aqui dentro un `duenoDeLaCampana(req)` sin darse cuenta de que esto es una
@@ -120,16 +148,10 @@ async function ambitoDeLaCampana() {
    se hubiera perdido la jornada. No se perdio nada: la pantalla no podia
    pintarse. Los dos llamadores son rutas y tienen `req` a mano. */
 async function obtenerCandidatosParaReporte(req) {
-  const [[campana]] = await pool.query(`SELECT nombre_candidato FROM configuracion_campana WHERE id = 1`);
   const [configurados] = await pool.query(
-      `SELECT nombre FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`, [await duenoDeLaCampana(req)]);
-
-  const nombrePropio = (campana && campana.nombre_candidato || '').trim();
-  const resto = configurados
-    .map(c => c.nombre)
-    .filter(nombre => nombre.trim().toLowerCase() !== nombrePropio.toLowerCase());
-
-  return nombrePropio ? [nombrePropio, ...resto] : resto;
+      `SELECT nombre FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
+      [await duenoDeLaCampana(req)]);
+  return configurados.map(c => c.nombre);
 }
 
 /**
@@ -677,8 +699,17 @@ router.get('/resumen', requireRole('admin', 'coordinador', 'aspirante'), async (
  * tablero del Día D. Usa el mismo criterio de "reporte más reciente por
  * mesa" que /reportes y /resumen, para no contar dos veces un parcial y su
  * corrección posterior. Incluye a TODOS los candidatos configurados aunque
- * todavía no tengan ningún voto reportado (aparecen con 0), y siempre deja
- * de primero al candidato propio de la campaña.
+ * todavía no tengan ningún voto reportado (aparecen con 0).
+ *
+ * AQUI EL PROPIO SI VA DE PRIMERO, y no se contradice con lo de arriba. El
+ * formulario del testigo copia un E-14 y tiene que ir en el orden del tarjetón;
+ * este tablero es de la campaña y lo primero que quiere ver es cómo va lo suyo.
+ * Son dos pantallas con dos trabajos distintos.
+ *
+ * La diferencia es que ahora esto depende de que el candidato ESTE en la hoja:
+ * se reconoce cruzando su nombre con `configuracion_campana.nombre_candidato`.
+ * Si no está agregado, o está escrito distinto, no se resalta y el gráfico
+ * queda ordenado solo por votos — sin error y sin hueco.
  */
 router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
@@ -1311,7 +1342,7 @@ router.post('/config/puestos-votacion/importar-excel', requireRole('admin', 'asp
 
 router.get('/config/candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT * FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`,
+    const [filas] = await pool.query(`SELECT * FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
       [await duenoDeLaCampana(req)]);
     res.json(filas);
   } catch (err) {
@@ -1335,9 +1366,17 @@ router.post('/config/candidatos', requireRole('admin', 'aspirante'), async (req,
   const nombre = formatoNombrePropio(req.body.nombre);
   if (!nombre) return res.status(400).json({ error: 'El nombre del candidato es obligatorio.' });
   try {
+    /* AL FINAL DE LA LISTA, con un `orden` explicito. Dejarlo en el 0 por
+       defecto lo mandaria al PRINCIPIO —0 es menor que cualquier posicion ya
+       asignada—, asi que cada candidato nuevo se colaria delante del que
+       encabeza el tarjeton. El subconsulta va dentro del mismo INSERT para que
+       dos altas simultaneas no lean el mismo maximo. */
+    const dueno = await duenoDeLaCampana(req);
     const [result] = await pool.query(
-      `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id) VALUES (?,?,?)`,
-      [nombre, req.session.usuario.id, await duenoDeLaCampana(req)]
+      `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden)
+       SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1
+         FROM dia_d_candidatos c WHERE c.aspirante_id = ?`,
+      [nombre, req.session.usuario.id, dueno, dueno]
     );
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -1372,9 +1411,72 @@ router.delete('/config/candidatos/:id', requireRole('admin', 'aspirante'), async
   }
 });
 
+/**
+ * Sube o baja un candidato una posición en la hoja.
+ *
+ * POR QUE UN BOTON Y NO ARRASTRAR. Esta pantalla se usa desde el celular
+ * tanto como desde el escritorio, y arrastrar filas en una tabla táctil pelea
+ * con el desplazamiento de la página. Dos flechas funcionan igual en los dos
+ * sitios y no necesitan explicación.
+ *
+ * RENUMERA LA LISTA ENTERA, no solo intercambia dos valores. Suena a trabajo
+ * de más para mover una fila, pero es lo que hace que la operación sea segura
+ * en cualquier estado de la tabla: si dos candidatos comparten `orden` —lo que
+ * pasa en cualquier base donde la migración no haya corrido y todo valga 0—,
+ * intercambiar dos números los deja igual de empatados y la fila no se mueve.
+ * Renumerando 1..N el resultado es correcto salga de donde salga. Son un puñado
+ * de filas: el coste es irrelevante y la garantía no.
+ *
+ * `FOR UPDATE` y transacción porque dos administradores moviendo a la vez
+ * podrían leer la misma lista y escribir posiciones cruzadas.
+ */
+router.post('/config/candidatos/:id/mover', requireRole('admin', 'aspirante'), async (req, res) => {
+  const direccion = String(req.body && req.body.direccion || '').toLowerCase();
+  if (direccion !== 'arriba' && direccion !== 'abajo') {
+    return res.status(400).json({ error: 'Indique si el candidato sube o baja.' });
+  }
+  let conexion;
+  try {
+    const dueno = await duenoDeLaCampana(req);   // fuera de la transacción: es una lectura aparte
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+
+    const [filas] = await conexion.query(
+      `SELECT id FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS} FOR UPDATE`, [dueno]);
+    const desde = filas.findIndex(f => String(f.id) === String(req.params.id));
+    if (desde === -1) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'No encontrado.' });
+    }
+    const hasta = direccion === 'arriba' ? desde - 1 : desde + 1;
+    // Ya está en un extremo. No es un error: el botón simplemente no tenía a
+    // dónde llevarlo, y responder 400 haría aparecer una alerta por nada.
+    if (hasta < 0 || hasta >= filas.length) {
+      await conexion.rollback();
+      return res.json({ ok: true, sinCambio: true });
+    }
+
+    const ids = filas.map(f => f.id);
+    [ids[desde], ids[hasta]] = [ids[hasta], ids[desde]];
+    for (const [posicion, id] of ids.entries()) {
+      await conexion.query(`UPDATE dia_d_candidatos SET orden = ? WHERE id = ? AND aspirante_id = ?`,
+        [posicion + 1, id, dueno]);
+    }
+
+    await conexion.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    if (conexion) await conexion.rollback().catch(() => {});
+    console.error(err);
+    res.status(500).json({ error: 'Error cambiando el orden de los candidatos.' });
+  } finally {
+    if (conexion) conexion.release();
+  }
+});
+
 router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT id, nombre FROM dia_d_candidatos WHERE aspirante_id = ? ORDER BY id ASC`,
+    const [filas] = await pool.query(`SELECT id, nombre FROM dia_d_candidatos WHERE aspirante_id = ? ${ORDEN_CANDIDATOS}`,
       [await duenoDeLaCampana(req)]);
     const columnas = ['ID', 'Nombre del candidato'];
     const datos = filas.map(f => ({ 'ID': f.id, 'Nombre del candidato': f.nombre }));
@@ -1425,8 +1527,15 @@ router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante
           }
           actualizados++;
         } else {
-          await pool.query(`INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id) VALUES (?,?,?)`,
-            [nombre, req.session.usuario.id, dueno]);
+          // Mismo criterio que el alta manual: al final, con `orden` explicito.
+          // El comentario de arriba ya prometia que "los nuevos quedan al
+          // final"; sin esto los mandaba al principio, uno por uno y en orden
+          // inverso al del archivo.
+          await pool.query(
+            `INSERT INTO dia_d_candidatos (nombre, created_by, aspirante_id, orden)
+             SELECT ?, ?, ?, COALESCE(MAX(c.orden), 0) + 1
+               FROM dia_d_candidatos c WHERE c.aspirante_id = ?`,
+            [nombre, req.session.usuario.id, dueno, dueno]);
           insertados++;
         }
       } catch (err) {

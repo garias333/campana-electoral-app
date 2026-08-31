@@ -438,6 +438,31 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
 .btn-peligro:hover { background: #F6D9D9; }
 .btn-sm { padding: 8px 14px; font-size: 0.88rem; }
 
+/* LAS FLECHAS DE REORDENAR. Cuadradas y estrechas: llevan un solo carácter y
+   con el relleno de `.btn-sm` quedaban tan anchas como «Editar», empujando la
+   columna de acciones fuera de la tabla en pantallas pequeñas. El ancho fijo
+   además evita que la columna respire al cambiar de fila. */
+.btn-mover {
+  width: 34px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  font-size: 0.78rem;   /* ▲ y ▼ se dibujan grandes; a 0.88rem desbordaban el botón */
+  line-height: 1;
+}
+
+/* UN BOTON DESHABILITADO TIENE QUE VERSE DESHABILITADO.
+   La hoja no tenía ninguna regla para `:disabled`, así que la flecha del primer
+   candidato se veía exactamente igual que las demás y al pulsarla no pasaba
+   nada. Es el mismo malentendido que el de `confirm()` suprimido: la persona no
+   concluye «no se puede», concluye «esto está roto». */
+button:disabled,
+button[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* CASILLAS DE VERIFICACIÓN, UN 50% MÁS GRANDES QUE LAS DEL NAVEGADOR.
    Las de serie miden unos 13px y en una tabla de catorce columnas —o marcadas
    con el dedo en un celular— son difíciles de acertar. Con 20px se ven y se

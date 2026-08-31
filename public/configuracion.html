@@ -457,7 +457,12 @@
             <button type="button" class="btn-acento btn-sm" id="btn-nuevo-candidato">+ Agregar candidato</button>
           </div>
         </div>
-        <p style="color:var(--color-text-muted); font-size:0.82rem; margin:-4px 0 14px;">Se muestran en el orden en que se van agregando.</p>
+        <p style="color:var(--color-text-muted); font-size:0.82rem; margin:-4px 0 14px;">
+          Este es el orden en que el testigo los ve al transcribir el E-14, así que
+          debe ser el del tarjetón. Use <strong>&#9650;</strong> y <strong>&#9660;</strong> para moverlos.
+          Agregue también a su propio candidato: ya no se pone solo, porque en el E-14
+          no siempre va de primero.
+        </p>
         <div class="tabla-contenedor">
           <table>
             <thead><tr><th>#</th><th>Nombre del candidato</th><th></th></tr></thead>
@@ -1104,7 +1109,8 @@ document.getElementById('archivo-logo').addEventListener('change', async (e) => 
 });
 
 document.getElementById('btn-quitar-logo').addEventListener('click', async () => {
-  if (!confirm('¿Quitar el logo propio y volver al de la plataforma?')) return;
+  if (!(await confirmarEnModal('¿Quitar el logo propio?',
+        'La campaña volverá a mostrar el logo de la plataforma.', 'Quitar el logo'))) return;
   const errorBox = document.getElementById('campana-error');
   const okBox = document.getElementById('campana-ok');
   errorBox.classList.remove('visible');
@@ -1232,7 +1238,8 @@ async function enviarCredencialesWhatsApp(id) {
   const aviso = yaEnviadas
     ? `A ${u.nombre} ya se le enviaron sus credenciales.\n\nVolver a enviarlas genera una CONTRASEÑA NUEVA, y la que tenga ahora dejará de funcionar.\n\n¿Continuar?`
     : `Se le va a asignar a ${u.nombre} una contraseña nueva y se le enviará por WhatsApp junto con el enlace de la aplicación.\n\nSi ya estaba entrando con otra clave, dejará de funcionar.\n\n¿Continuar?`;
-  if (!confirm(aviso)) return;
+  if (!(await confirmarEnModal(yaEnviadas ? '¿Volver a enviar las credenciales?' : '¿Enviar las credenciales?',
+        aviso, 'Enviar por WhatsApp'))) return;
 
   // Ver el comentario de arriba: la ventana se pide dentro del clic.
   const ventana = window.open('', 'whatsappWeb');
@@ -1459,8 +1466,9 @@ async function abrirEdicionUsuario(u) {
 async function desactivar2faUsuario(id) {
   const u = listaUsuarios.find(x => x.id === id);
   if (!u) return;
-  if (!confirm(`¿Quitarle la verificación en dos pasos a ${u.nombre}?\n\n`
-    + 'Podrá entrar solo con su contraseña. Cuando recupere su correo, puede volver a activarla desde su propio panel.')) return;
+  if (!(await confirmarEnModal(`¿Quitarle la verificación en dos pasos a ${u.nombre}?`,
+        'Podrá entrar solo con su contraseña. Cuando recupere su correo, puede volver a activarla desde su propio panel.',
+        'Quitar el segundo factor'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Quitar la verificación en dos pasos',
     `Escriba SU contraseña para confirmar que le quita el segundo factor a ${u.nombre}.`);
@@ -1477,7 +1485,8 @@ async function desactivar2faUsuario(id) {
 }
 
 async function restablecerPasswordUsuario(id) {
-  if (!confirm('¿Restablecer la contraseña de este usuario? Se generará una contraseña temporal nueva.')) return;
+  if (!(await confirmarEnModal('¿Restablecer la contraseña de este usuario?',
+        'Se generará una contraseña temporal nueva y la actual dejará de funcionar.', 'Restablecer'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Restablecer la contraseña',
     'Escriba SU contraseña para confirmar. La clave que esta persona tenga dejará de funcionar.');
@@ -1491,7 +1500,9 @@ async function restablecerPasswordUsuario(id) {
 }
 
 async function eliminarUsuario(id) {
-  if (!confirm('¿Eliminar este usuario? Si tiene un registro en la Estructura (coordinador/líder/testigo/usuario), también se eliminará. Esta acción no se puede deshacer.')) return;
+  if (!(await confirmarEnModal('¿Eliminar este usuario?',
+        'Si tiene un registro en la Estructura (coordinador, líder, testigo o usuario), también se eliminará.\n\nEsta acción no se puede deshacer.',
+        'Eliminar'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Eliminar el usuario',
     'Escriba SU contraseña para confirmar. Esta acción no se puede deshacer.');
@@ -1510,7 +1521,11 @@ document.getElementById('btn-nuevo-usuario').addEventListener('click', () => {
 });
 
 document.getElementById('btn-sincronizar-identificacion').addEventListener('click', async () => {
-  if (!confirm('Esto va a CAMBIAR LA CONTRASEÑA de todos los usuarios que ya tengan Número de identificación guardado, poniéndosela igual a su número de identificación (y su Nombre de usuario también). Cada uno deberá cambiarla en su próximo inicio de sesión. Esta acción no se puede deshacer. ¿Continuar?')) return;
+  if (!(await confirmarEnModal('¿Sincronizar usuario y contraseña con el número de identificación?',
+        'Esto va a CAMBIAR LA CONTRASEÑA de todos los usuarios que ya tengan Número de identificación guardado, '
+        + 'poniéndosela igual a su número de identificación (y su Nombre de usuario también).\n\n'
+        + 'Cada uno deberá cambiarla en su próximo inicio de sesión. Esta acción no se puede deshacer.',
+        'Sincronizar'))) return;
   const password = await solicitarPasswordAdmin('Confirmar sincronización de usuarios');
   if (!password) return;
 
@@ -1700,7 +1715,8 @@ async function eliminarInformacionArea(clave, etiqueta) {
   errorBox.classList.remove('visible');
   okBox.classList.remove('visible');
 
-  if (!confirm(`¿Eliminar TODA la información de "${etiqueta}"? Esta acción no se puede deshacer.`)) return;
+  if (!(await confirmarEnModal(`¿Eliminar TODA la información de "${etiqueta}"?`,
+        'Esta acción no se puede deshacer.', 'Eliminar todo'))) return;
   const password = await solicitarPasswordAdmin(`Confirmar eliminación de "${etiqueta}"`);
   if (!password) return;
 
@@ -1774,7 +1790,8 @@ document.getElementById('btn-restaurar-backup').addEventListener('click', async 
     errorBox.classList.add('visible');
     return;
   }
-  if (!confirm('¿Restaurar este backup? Se reemplazará TODA la información actual del servidor y no se puede deshacer. ¿Continuar?')) return;
+  if (!(await confirmarEnModal('¿Restaurar este backup?',
+        'Se reemplazará TODA la información actual del servidor y no se puede deshacer.', 'Restaurar'))) return;
 
   const password = await solicitarPasswordAdmin('Confirmar restauración de backup');
   if (!password) return;
@@ -2130,7 +2147,8 @@ document.getElementById('btn-cerrar-traer').addEventListener('click', () => {
 
 /** Trae puestos del catálogo y refresca la tabla. `cuerpo` dice si es un municipio o el departamento entero. */
 async function traerPuestosDelCatalogo(boton, cuerpo, descripcion) {
-  if (!confirm(`Se van a agregar los puestos de votación oficiales de ${descripcion}. ¿Continuar?`)) return;
+  if (!(await confirmarEnModal('¿Traer los puestos del catálogo?',
+        `Se van a agregar los puestos de votación oficiales de ${descripcion}.`, 'Traer los puestos'))) return;
   const textoOriginal = boton.textContent;
   boton.disabled = true;
   boton.textContent = 'Trayendo...';
@@ -2294,7 +2312,8 @@ document.getElementById('form-puesto').addEventListener('submit', async (e) => {
 });
 
 async function eliminarPuesto(id) {
-  if (!confirm('¿Eliminar este puesto de votación? Esta acción no se puede deshacer.')) return;
+  if (!(await confirmarEnModal('¿Eliminar este puesto de votación?',
+        'Esta acción no se puede deshacer.', 'Eliminar'))) return;
   try {
     await api(`/dia-d/config/puestos-votacion/${id}`, { method: 'DELETE' });
     await cargarPuestosVotacion();
@@ -2327,11 +2346,18 @@ async function cargarCandidatos() {
   const candidatos = await api('/dia-d/config/candidatos');
   const tbody = document.getElementById('tbody-candidatos');
   document.getElementById('vacio-candidatos').style.display = candidatos.length ? 'none' : 'block';
+  /* Las flechas van DESHABILITADAS en los extremos en vez de escondidas: un
+     botón que aparece y desaparece según la fila hace que la columna cambie de
+     ancho al reordenar, y se pierde el sitio donde se estaba pulsando. */
   tbody.innerHTML = candidatos.map((c, i) => `
     <tr>
       <td class="mono">${i + 1}</td>
       <td>${escaparHtmlDiaD(c.nombre)}</td>
       <td style="text-align:right; white-space:nowrap;">
+        <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"
+                onclick="moverCandidato(${c.id}, 'arriba')" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+        <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar un puesto"
+                onclick="moverCandidato(${c.id}, 'abajo')" ${i === candidatos.length - 1 ? 'disabled' : ''}>&#9660;</button>
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarCandidato(${c.id})">Eliminar</button>
       </td>
@@ -2379,8 +2405,24 @@ document.getElementById('form-candidato').addEventListener('submit', async (e) =
   }
 });
 
+/**
+ * Sube o baja un candidato una posición.
+ *
+ * No pide confirmación: es reversible con la flecha contraria, y preguntar en
+ * cada paso haría insoportable ordenar una lista de doce.
+ */
+async function moverCandidato(id, direccion) {
+  try {
+    await api(`/dia-d/config/candidatos/${id}/mover`, { method: 'POST', body: { direccion } });
+    await cargarCandidatos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 async function eliminarCandidato(id) {
-  if (!confirm('¿Eliminar este candidato? Esta acción no se puede deshacer.')) return;
+  if (!(await confirmarEnModal('¿Eliminar este candidato?',
+        'Esta acción no se puede deshacer.', 'Eliminar'))) return;
   try {
     await api(`/dia-d/config/candidatos/${id}`, { method: 'DELETE' });
     await cargarCandidatos();

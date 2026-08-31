@@ -2000,6 +2000,23 @@ async function main() {
     'aspirante_id INT NOT NULL DEFAULT 0', 'aspirante_id');
   await agregarColumnaSiFalta(connection, 'dia_d_candidatos',
     'aspirante_id INT NOT NULL DEFAULT 0', 'aspirante_id');
+
+  /* EL ORDEN DEL TARJETON, QUE NO ES EL ORDEN DE CAPTURA.
+     El testigo transcribe un E-14 y alli el orden lo fija la Registraduria.
+     Hasta hoy la lista salia por `id` —orden en que el admin fue tecleando— y
+     no habia forma de cuadrarla con el papel, asi que las cifras se copiaban
+     corridas de lugar sin que nada avisara.
+
+     Se rellena con el `id` en la primera corrida: como `id` es unico y
+     creciente, el orden que habia se conserva EXACTO y nadie ve un cambio.
+     La condicion `orden = 0` hace que solo actue sobre lo que nunca se ordeno;
+     una campana que ya movio sus candidatos no se toca en la siguiente
+     corrida. */
+  if (await agregarColumnaSiFalta(connection, 'dia_d_candidatos',
+        'orden INT NOT NULL DEFAULT 0', 'orden')) {
+    const [r] = await connection.query('UPDATE dia_d_candidatos SET orden = id WHERE orden = 0');
+    console.log(`Orden inicial de candidatos asignado a ${r.affectedRows} fila(s).`);
+  }
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_puesto_nombre',
     ['aspirante_id', 'nombre']);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',

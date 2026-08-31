@@ -160,9 +160,16 @@ let orientacionGraficoCandidatos = 'vertical';
 
 /**
  * Gráfico de barras (SVG, sin librerías) con los votos por candidato. El
- * candidato propio de la campaña siempre llega de primero desde el
- * backend (/dia-d/resumen-candidatos) y se pinta en un color distinto
- * para distinguirlo; el resto ya viene ordenado de mayor a menor.
+ * candidato propio de la campaña llega de primero desde el backend
+ * (/dia-d/resumen-candidatos) y se pinta en un color distinto para
+ * distinguirlo; el resto ya viene ordenado de mayor a menor.
+ *
+ * «Llega de primero» dejó de ser «siempre»: desde que el candidato propio se
+ * agrega a mano en la hoja de candidatos —el orden ahí es el del tarjetón, no
+ * el que le convenga a la campaña—, el backend solo lo reconoce si está en la
+ * lista y su nombre coincide con el de Datos de la campaña. Si no está, el
+ * gráfico sale ordenado solo por votos y ninguna barra se resalta. No es un
+ * fallo: es que esa campaña no puso a su candidato en la lista.
  */
 function dibujarGraficoCandidatos(filas) {
   const cont = document.getElementById('grafico-candidatos-contenedor');

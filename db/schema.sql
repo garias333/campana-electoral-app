@@ -631,6 +631,12 @@ CREATE TABLE IF NOT EXISTS dia_d_puestos_votacion (
 CREATE TABLE IF NOT EXISTS dia_d_candidatos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL,
+  -- Posición en el tarjetón. El testigo transcribe un E-14 y allí el orden lo
+  -- fija la Registraduría, no la campaña: sin esta columna la lista salía por
+  -- `id`, es decir por orden de captura, y no había forma de cuadrarla con el
+  -- papel. Se ordena por `orden` y se desempata por `id`, así una tabla que
+  -- todavía tenga todo en 0 conserva exactamente el orden que tenía antes.
+  orden INT NOT NULL DEFAULT 0,
   created_by INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
