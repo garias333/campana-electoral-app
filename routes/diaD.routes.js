@@ -706,15 +706,37 @@ router.get('/reportes', requireRole('admin', 'coordinador', 'aspirante'), async 
       FROM dia_d_reportes r
       JOIN usuarios u ON u.id = r.testigo_id
       INNER JOIN (
-        -- Se agrupa por el ID del puesto, no por su nombre. El nombre es la
-        -- instantánea de ese día: si el puesto se renombra, dos reportes de
-        -- la MISMA mesa quedarían en grupos distintos y el panel mostraría
-        -- las dos versiones como si fueran mesas diferentes.
+        -- LA MESA SE IDENTIFICA POR EL NOMBRE DEL PUESTO, y esto es lo que
+        -- hace que un reporte corregido anule al anterior. Cuando un testigo
+        -- vuelve a enviar la misma mesa, el MAX(id) se queda con el último y
+        -- el primero deja de contar. Esa es la regla, y este es el sitio donde
+        -- se implementa: las otras cuatro consultas la repiten.
         --
-        -- COALESCE con el texto para el reporte hecho desde un puesto fuera
-        -- de la lista (salida de emergencia): ahí no hay id, y agrupar por
-        -- NULL juntaría en uno solo todos los de puestos distintos.
-        SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
+        -- ANTES LA CLAVE ERA COALESCE(CAST(puesto_id AS CHAR),
+        -- puesto_votacion): el id cuando lo había, el texto si no. Suena más
+        -- robusto y es justo lo contrario, porque MEZCLA DOS NUMERACIONES en la
+        -- misma columna. Un reporte guardado sin puesto_id y su propia
+        -- corrección guardada con él caen en grupos distintos, los dos
+        -- sobreviven, y la anulación NO OCURRE.
+        --
+        -- No es hipotético. En campanadepruebamunicipal los reportes 25 y 28
+        -- son la mesa 2 del mismo puesto —el 28 corrige al 25 catorce horas
+        -- después— y el tablero contaba los dos: 50 votantes de más repartidos
+        -- entre siete candidatos, con el propio pasando de 125 a 155. Sin
+        -- error, sin aviso, y con una cifra perfectamente creíble.
+        --
+        -- EL NOMBRE ES SEGURO COMO CLAVE, medido antes de cambiarlo: dentro de
+        -- una campaña uq_puesto_nombre impide que dos puestos se llamen
+        -- igual, los reportes siempre traen el texto, y los 56 nombres que sí
+        -- se repiten ENTRE campañas no pueden mezclarse porque esta subconsulta
+        -- ya va acotada a los testigos de una sola.
+        --
+        -- Lo que se pierde: si un puesto se renombrara a mitad de la jornada,
+        -- los reportes de antes y de después quedarían en grupos distintos. Es
+        -- el riesgo que la clave vieja intentaba cubrir — y para cubrir un
+        -- renombre que nadie hace el día de la elección, rompía la anulación en
+        -- todas las mesas reportadas antes de que existiera puesto_id.
+        SELECT puesto_votacion AS clave_puesto,
                mesa_votacion, MAX(id) AS ultimo_id
         FROM dia_d_reportes
         ${aDentro ? 'WHERE ' + aDentro.sql : ''}
@@ -767,15 +789,10 @@ router.get('/resumen', requireRole('admin', 'coordinador', 'aspirante'), async (
         SUM(CASE WHEN novedad IS NOT NULL AND novedad != '' THEN 1 ELSE 0 END) AS mesas_con_novedad
       FROM dia_d_reportes r
       INNER JOIN (
-        -- Se agrupa por el ID del puesto, no por su nombre. El nombre es la
-        -- instantánea de ese día: si el puesto se renombra, dos reportes de
-        -- la MISMA mesa quedarían en grupos distintos y el panel mostraría
-        -- las dos versiones como si fueran mesas diferentes.
-        --
-        -- COALESCE con el texto para el reporte hecho desde un puesto fuera
-        -- de la lista (salida de emergencia): ahí no hay id, y agrupar por
-        -- NULL juntaría en uno solo todos los de puestos distintos.
-        SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
+        -- Misma regla que en /reportes: la mesa se identifica por el NOMBRE
+        -- del puesto, y el último reporte anula al anterior. El porqué de que
+        -- la clave no sea puesto_id está explicado allí.
+        SELECT puesto_votacion AS clave_puesto,
                mesa_votacion, MAX(id) AS ultimo_id
         FROM dia_d_reportes
         ${aDentro ? 'WHERE ' + aDentro.sql : ''}
@@ -835,9 +852,9 @@ router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante
         SELECT r.id
         FROM dia_d_reportes r
         INNER JOIN (
-          -- Misma regla que arriba: se agrupa por id, con el texto como
-          -- respaldo para los de la salida de emergencia.
-          SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
+          -- Misma regla que arriba: la mesa se identifica por el NOMBRE del
+          -- puesto (ver el comentario de /reportes).
+          SELECT puesto_votacion AS clave_puesto,
                  mesa_votacion, MAX(id) AS ultimo_id
           FROM dia_d_reportes
           ${aDentro ? 'WHERE ' + aDentro.sql : ''}
@@ -899,14 +916,14 @@ router.get('/rendimiento-candidato', requireRole('admin', 'coordinador', 'aspira
 
     const [filas] = await pool.query(`
       SELECT r.puesto_votacion AS puesto,
-             COALESCE(CAST(r.puesto_id AS CHAR), r.puesto_votacion) AS clave_puesto,
+             r.puesto_votacion AS clave_puesto,
              r.mesa_votacion AS mesa,
              v.votos AS votos,
              r.total_votantes_mesa AS votantes
       FROM dia_d_reporte_votos v
       INNER JOIN dia_d_reportes r ON r.id = v.reporte_id
       INNER JOIN (
-        SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
+        SELECT puesto_votacion AS clave_puesto,
                mesa_votacion, MAX(id) AS ultimo_id
         FROM dia_d_reportes
         ${aDentro ? 'WHERE ' + aDentro.sql : ''}
