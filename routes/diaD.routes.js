@@ -741,9 +741,10 @@ router.get('/resumen', requireRole('admin', 'coordinador', 'aspirante'), async (
  * Son dos pantallas con dos trabajos distintos.
  *
  * La diferencia es que ahora esto depende de que el candidato ESTE en la hoja:
- * se reconoce cruzando su nombre con `configuracion_campana.nombre_candidato`.
- * Si no está agregado, o está escrito distinto, no se resalta y el gráfico
- * queda ordenado solo por votos — sin error y sin hueco.
+ * se reconoce cruzando su nombre con el que devuelve `nombreDelCandidatoPropio`
+ * —la configuración de la campaña para la madre, el nombre del aspirante para
+ * su rama—. Si no está agregado, o está escrito distinto, no se resalta y el
+ * gráfico queda ordenado solo por votos: sin error y sin hueco.
  */
 router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   try {
@@ -788,6 +789,93 @@ router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error generando el resumen por candidato.' });
+  }
+});
+
+/**
+ * DONDE LE FUE MEJOR Y PEOR A UN CANDIDATO — por puesto y por mesa.
+ *
+ * Responde la pregunta con la que se decide dónde volver a pisar: en qué
+ * puestos sacó más y en cuáles menos, y dentro de ellos qué mesas.
+ *
+ * UNA SOLA CONSULTA, A NIVEL DE MESA, y el total por puesto se suma aquí en
+ * JavaScript. Podrían ser dos `GROUP BY` distintos, pero entonces las dos
+ * tablas de la pantalla saldrían de dos consultas que pueden discrepar el día
+ * que alguien toque una y no la otra — y discrepar en silencio, porque las dos
+ * seguirían dando números creíbles. Sumadas de la misma lista no pueden.
+ *
+ * MISMA REGLA DE «ÚLTIMO REPORTE POR MESA» que /reportes, /resumen y
+ * /resumen-candidatos: un parcial y su corrección posterior son la misma mesa,
+ * y contar los dos inflaría justo el sitio donde más se corrigió.
+ *
+ * SOLO SALEN LAS MESAS DONDE EL CANDIDATO APARECE EN EL DESGLOSE. Un cero
+ * reportado es un dato —"lo miraron y no sacó nada"— y cuenta para el peor
+ * puesto. Una mesa donde el testigo no lo listó NO es un cero: es que no se
+ * sabe, y meterla como cero pondría el peor resultado en el sitio donde
+ * simplemente se reportó incompleto. Por eso la pantalla muestra también en
+ * cuántas mesas hay dato, para que el promedio se lea con eso delante.
+ */
+router.get('/rendimiento-candidato', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+  const candidato = String(req.query.candidato || '').trim();
+  if (!candidato) return res.status(400).json({ error: 'Indique el candidato.' });
+  try {
+    const aDentro = await acotaJornada(req, 'testigo_id');
+    const aFuera  = await acotaJornada(req, 'r.testigo_id');
+
+    const [filas] = await pool.query(`
+      SELECT r.puesto_votacion AS puesto,
+             COALESCE(CAST(r.puesto_id AS CHAR), r.puesto_votacion) AS clave_puesto,
+             r.mesa_votacion AS mesa,
+             v.votos AS votos,
+             r.total_votantes_mesa AS votantes
+      FROM dia_d_reporte_votos v
+      INNER JOIN dia_d_reportes r ON r.id = v.reporte_id
+      INNER JOIN (
+        SELECT COALESCE(CAST(puesto_id AS CHAR), puesto_votacion) AS clave_puesto,
+               mesa_votacion, MAX(id) AS ultimo_id
+        FROM dia_d_reportes
+        ${aDentro ? 'WHERE ' + aDentro.sql : ''}
+        GROUP BY clave_puesto, mesa_votacion
+      ) mas_reciente ON mas_reciente.ultimo_id = r.id
+      WHERE v.candidato_nombre = ?
+      ${aFuera ? 'AND ' + aFuera.sql : ''}
+    `, [...(aDentro ? aDentro.valores : []), candidato, ...(aFuera ? aFuera.valores : [])]);
+
+    const porcentaje = (votos, votantes) =>
+      votantes > 0 ? Math.round((votos * 1000) / votantes) / 10 : null;
+
+    const porMesa = filas.map(f => ({
+      puesto: f.puesto,
+      mesa: Number(f.mesa),
+      votos: Number(f.votos),
+      votantes: f.votantes === null ? null : Number(f.votantes),
+      porcentaje: porcentaje(Number(f.votos), Number(f.votantes))
+    })).sort((a, b) => b.votos - a.votos || a.puesto.localeCompare(b.puesto) || a.mesa - b.mesa);
+
+    const puestos = new Map();
+    for (const f of filas) {
+      if (!puestos.has(f.clave_puesto)) {
+        puestos.set(f.clave_puesto, { puesto: f.puesto, mesas: 0, votos: 0, votantes: 0 });
+      }
+      const p = puestos.get(f.clave_puesto);
+      p.mesas += 1;
+      p.votos += Number(f.votos);
+      p.votantes += Number(f.votantes || 0);
+    }
+    const porPuesto = [...puestos.values()]
+      .map(p => ({ ...p, porcentaje: porcentaje(p.votos, p.votantes) }))
+      .sort((a, b) => b.votos - a.votos || a.puesto.localeCompare(b.puesto));
+
+    res.json({
+      candidato,
+      totalVotos: porMesa.reduce((a, m) => a + m.votos, 0),
+      mesasConDato: porMesa.length,
+      porPuesto,
+      porMesa
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error generando el reporte por puesto de votación.' });
   }
 });
 

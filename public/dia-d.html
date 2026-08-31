@@ -34,8 +34,14 @@
            se está mirando es de hace un minuto o de hace una hora. -->
       <div class="mono" id="ultima-actualizacion" style="font-size:0.8rem; margin-top:10px;"></div>
     </div>
-    <div class="topbar" style="margin-bottom:0;">
-      <button class="btn-secundario btn-sm" id="btn-eliminar-todos-reportes" style="display:none; margin-bottom:18px;">🗑 Eliminar todos los reportes</button>
+    <!-- Los dos botones van en la MISMA rejilla de seis que las tarjetas de
+         abajo, así que cada uno mide exactamente lo que una tarjeta y quedan
+         a plomo con ellas. Con `display:none` en el de borrar —que solo ve un
+         admin— el otro pasa solo a la primera columna: la rejilla no deja el
+         hueco, porque un elemento oculto no ocupa celda. -->
+    <div class="grid grid-6" style="margin-bottom:18px;">
+      <button class="btn-secundario btn-accion-diad" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
+      <button class="btn-acento btn-accion-diad" id="btn-reportes-por-puesto">📍 Reportes por puesto de votación</button>
     </div>
 
     <!-- Los testigos reportan desde su propia app móvil (/app/dia-d.html) — acá solo se consolida lo que ya reportaron. -->
@@ -69,6 +75,41 @@
         </div>
       </div>
       <div id="vacio-candidatos-grafico" class="vacio" style="display:none;"><div class="icono-vacio">📊</div>Todavía no hay votos reportados.</div>
+    </div>
+
+    <!-- DÓNDE LE FUE MEJOR Y PEOR A UN CANDIDATO. Nace plegada: es una consulta
+         que se hace a propósito, no un dato que se mira de paso, y desplegada
+         empujaría el historial media pantalla hacia abajo. -->
+    <div class="card" id="seccion-reportes-puesto" style="display:none; margin-bottom:18px;">
+      <div class="toolbar">
+        <h3 style="margin:0;">Reportes por puesto de votación</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <select id="rp-candidato" style="min-width:260px; width:auto;"></select>
+          <button type="button" class="btn-secundario btn-sm" id="rp-orden">▼ Mayor primero</button>
+        </div>
+      </div>
+      <p id="rp-resumen" style="color:var(--color-text-muted); font-size:0.85rem; margin:-4px 0 16px;"></p>
+      <div class="grid grid-2">
+        <div>
+          <h4 style="margin:0 0 10px;">Por puesto de votación</h4>
+          <div class="tabla-contenedor">
+            <table>
+              <thead><tr><th>Puesto</th><th class="col-num">Mesas</th><th class="col-num">Votos</th><th class="col-num">%</th></tr></thead>
+              <tbody id="rp-tbody-puestos"></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 10px;">Por mesa</h4>
+          <div class="tabla-contenedor">
+            <table>
+              <thead><tr><th>Puesto</th><th class="col-num">Mesa</th><th class="col-num">Votos</th><th class="col-num">%</th></tr></thead>
+              <tbody id="rp-tbody-mesas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="rp-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📍</div>Todavía no hay votos reportados para este candidato.</div>
     </div>
 
     <div class="card" style="margin-bottom:18px;">
@@ -269,6 +310,98 @@ async function cargarResumenCandidatos() {
   `).join('');
   dibujarGraficoCandidatos(filas);
 }
+
+/* ---------------------------------------------------------------------------
+   REPORTES POR PUESTO DE VOTACIÓN
+
+   Responde «dónde saqué más y dónde menos», por puesto y por mesa, para un
+   candidato a la vez. Se guarda la última consulta en `rpDatos` para que
+   invertir el orden no vuelva a pedirla al servidor: es el mismo conjunto
+   mirado al revés, no otra pregunta.
+   --------------------------------------------------------------------------- */
+let rpDatos = null;
+let rpMayorPrimero = true;
+
+function rpPintar() {
+  const vacio = !rpDatos || !rpDatos.porMesa.length;
+  document.getElementById('rp-vacio').style.display = vacio ? 'block' : 'none';
+  const tbP = document.getElementById('rp-tbody-puestos');
+  const tbM = document.getElementById('rp-tbody-mesas');
+  if (vacio) {
+    tbP.innerHTML = ''; tbM.innerHTML = '';
+    document.getElementById('rp-resumen').textContent = '';
+    return;
+  }
+  // El servidor devuelve de mayor a menor; invertir una copia deja intacto el
+  // original, así el botón se puede pulsar tantas veces como se quiera.
+  const orden = (lista) => rpMayorPrimero ? lista : [...lista].reverse();
+  const pct = (v) => v === null ? '—' : v + '%';
+
+  tbP.innerHTML = orden(rpDatos.porPuesto).map(p => `
+    <tr>
+      <td>${escaparHtml(p.puesto)}</td>
+      <td class="mono col-num">${p.mesas}</td>
+      <td class="mono col-num">${formatoMillares(p.votos)}</td>
+      <td class="mono col-num">${pct(p.porcentaje)}</td>
+    </tr>`).join('');
+
+  tbM.innerHTML = orden(rpDatos.porMesa).map(m => `
+    <tr>
+      <td>${escaparHtml(m.puesto)}</td>
+      <td class="mono col-num">${m.mesa}</td>
+      <td class="mono col-num">${formatoMillares(m.votos)}</td>
+      <td class="mono col-num">${pct(m.porcentaje)}</td>
+    </tr>`).join('');
+
+  document.getElementById('rp-resumen').textContent =
+    `${formatoMillares(rpDatos.totalVotos)} voto(s) en ${rpDatos.porPuesto.length} puesto(s) `
+    + `y ${rpDatos.mesasConDato} mesa(s) con dato. `
+    + 'Solo se cuentan las mesas donde el testigo listó a este candidato: un cero reportado sí cuenta, '
+    + 'una mesa donde no lo listó no se sabe y por eso no aparece.';
+}
+
+async function rpConsultar() {
+  const nombre = document.getElementById('rp-candidato').value;
+  if (!nombre) { rpDatos = null; rpPintar(); return; }
+  try {
+    rpDatos = await api(`/dia-d/rendimiento-candidato?candidato=${encodeURIComponent(nombre)}`);
+  } catch (err) {
+    rpDatos = null;
+    alert(err.message);
+  }
+  rpPintar();
+}
+
+/* La lista sale de /resumen-candidatos y no de la hoja de configuración a
+   propósito: así llega en el mismo orden que el gráfico —el candidato propio
+   de primero— y quien abre esto encuentra el suyo arriba sin buscarlo. */
+async function rpCargarCandidatos() {
+  const sel = document.getElementById('rp-candidato');
+  if (sel.options.length) return;               // ya estaba llena
+  const filas = await api('/dia-d/resumen-candidatos');
+  sel.innerHTML = filas.map(f =>
+    `<option value="${escaparHtml(f.nombre)}"${f.esPropio ? ' selected' : ''}>${escaparHtml(f.nombre)}</option>`
+  ).join('');
+  sel.setAttribute('data-sin-ordenar', '');     // el orden lo pone el servidor
+}
+
+document.getElementById('btn-reportes-por-puesto').addEventListener('click', async () => {
+  const seccion = document.getElementById('seccion-reportes-puesto');
+  const abierta = seccion.style.display !== 'none';
+  if (abierta) { seccion.style.display = 'none'; return; }
+  seccion.style.display = 'block';
+  await rpCargarCandidatos();
+  await rpConsultar();
+  seccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+document.getElementById('rp-candidato').addEventListener('change', rpConsultar);
+
+document.getElementById('rp-orden').addEventListener('click', (e) => {
+  rpMayorPrimero = !rpMayorPrimero;
+  e.currentTarget.textContent = rpMayorPrimero ? '▼ Mayor primero' : '▲ Menor primero';
+  rpPintar();
+});
 
 async function cargarVistaCampana() {
   const [resumen, reportes] = await Promise.all([

@@ -520,6 +520,34 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
    media fila y empujaría a los otros dos a una segunda línea. */
 #panel-diad-candidatos .toolbar .btn-sm { font-size: 1.15rem; padding: 11px 19px; }
 
+/* LOS DOS BOTONES DE ACCION DEL DIA D, DEL TAMANO DE UNA TARJETA.
+
+   Van dentro de la misma `.grid-6` que las tarjetas de estadistica, asi que el
+   ancho ya se lo da la rejilla —una columna, exactamente lo que mide una
+   tarjeta—. Aqui solo hace falta que LLENEN esa columna: un boton es
+   `inline-flex` y por omision se encoge al texto, asi que sin `width:100%`
+   quedaria una pastilla pequena flotando en una celda ancha.
+
+   `min-height` 92px sale de medir la tarjeta de al lado: 20px de relleno
+   arriba, ~15 la etiqueta, ~36 la cifra a 1,9rem y 20 abajo. No se fija una
+   altura exacta porque el texto de «Reportes por puesto de votacion» ocupa dos
+   lineas en pantallas estrechas y con `height` se saldria.
+
+   `text-align: center` NO es redundante con el `justify-content: center` de la
+   regla base: aquel centra la caja del texto dentro del boton, este centra la
+   SEGUNDA LINEA respecto de la primera cuando el rotulo se parte en dos.
+   (Iba tambien un `white-space: normal` con el comentario de que la regla base
+   ponia `nowrap`. Se comprobo y es falso: el `nowrap` de la linea de al lado es
+   de `.col-acciones`, otra regla. La propiedad sobraba y se quito.) */
+.btn-accion-diad {
+  width: 100%;
+  min-height: 92px;
+  font-size: 1.02rem;
+  line-height: 1.3;
+  text-align: center;
+  padding: 14px 16px;
+}
+
 /* LOS CUATRO BOTONES DE CADA FILA DE LA HOJA DE CANDIDATOS, UN 50% MAS GRANDES.
 
    Las cuentas, sobre los valores que ya tenia `table td .btn-secundario`:
