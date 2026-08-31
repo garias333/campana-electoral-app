@@ -297,11 +297,18 @@ async function sincronizarColaOfflineDiaD() {
  * testigo copia un papel de arriba abajo, y partirlo en tres tablas le pondría
  * tres columnas de números en tres anchos distintos.
  */
-const BLOQUES_E14 = [
-  { clave: 'candidato',  titulo: null },                       // sin encabezado: es el bloque principal
-  { clave: 'nivelacion', titulo: 'Nivelación de la mesa' },
-  { clave: 'otros',      titulo: 'Otros votos' }
-];
+/* EL ORDEN LO MANDA LA CONFIGURACIÓN, no esta lista. Antes iba fijo aquí, y
+   con eso mover un bloque en la hoja de la campaña no habría cambiado nada en
+   el teléfono: las dos pantallas mostrarían el mismo E-14 en distinto orden y
+   nadie lo notaría hasta el día de la elección, cuando el testigo copia por
+   posición. El servidor manda `orden` junto con las listas; esto solo pone los
+   títulos. */
+const TITULOS_E14 = {
+  candidato:  'Candidatos',
+  nivelacion: 'Nivelación de la mesa',
+  otros:      'Otros votos'
+};
+const ORDEN_E14_POR_OMISION = ['candidato', 'nivelacion', 'otros'];
 
 async function cargarCandidatosParaReporte() {
   /* CLAVE DE CACHÉ NUEVA, y no es un detalle. `obtenerConCacheReferencia`
@@ -318,10 +325,19 @@ async function cargarCandidatosParaReporte() {
 
   const tbody = document.getElementById('tbody-votos-candidatos');
   const columnas = esCampanaDeAspirante ? 3 : 2;
+  const orden = (listas && Array.isArray(listas.orden) && listas.orden.length)
+    ? listas.orden : ORDEN_E14_POR_OMISION;
 
-  tbody.innerHTML = BLOQUES_E14.flatMap(({ clave, titulo }) => {
-    const nombres = (listas && listas[clave]) || [];
-    if (!nombres.length) return [];
+  /* CON UN SOLO BLOQUE CON CONTENIDO NO SE PINTA NINGÚN TÍTULO: sería una
+     cabecera «Candidatos» encima de la única tabla, repitiendo el rótulo que ya
+     está arriba. En cuanto hay dos, los tres llevan el suyo — incluido el
+     primero, que sin él quedaría como si sus filas fueran de nadie. */
+  const conFilas = orden.filter(g => ((listas && listas[g]) || []).length);
+  const conTitulos = conFilas.length > 1;
+
+  tbody.innerHTML = conFilas.flatMap((clave) => {
+    const nombres = listas[clave];
+    const titulo = conTitulos ? TITULOS_E14[clave] : null;
     // El encabezado de bloque es una fila de la misma tabla, no otra tabla:
     // así las columnas siguen alineadas de arriba abajo.
     const cabecera = titulo

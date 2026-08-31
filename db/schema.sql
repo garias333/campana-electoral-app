@@ -628,6 +628,23 @@ CREATE TABLE IF NOT EXISTS dia_d_puestos_votacion (
   FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Orden de los tres bloques del E-14 dentro de la hoja de candidatos. Una fila
+-- por bloque y por campaña (`aspirante_id` 0 es la principal, igual que en el
+-- resto del Día D).
+--
+-- POR QUE UNA TABLA Y NO UNA COLUMNA MAS EN `dia_d_candidatos`: el orden de los
+-- bloques es un dato de la CAMPAÑA, no de cada renglón. Repetido en cada fila
+-- habría tantas copias como candidatos, y bastaría con que una quedara
+-- desactualizada —una importación de Excel que no lo escriba, por ejemplo—
+-- para que la hoja y el formulario del testigo mostraran bloques en distinto
+-- orden, cada uno con su parte de razón.
+CREATE TABLE IF NOT EXISTS dia_d_bloques (
+  aspirante_id INT NOT NULL DEFAULT 0,
+  grupo ENUM('candidato','nivelacion','otros') NOT NULL,
+  orden INT NOT NULL,
+  PRIMARY KEY (aspirante_id, grupo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS dia_d_candidatos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL,

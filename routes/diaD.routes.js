@@ -105,6 +105,26 @@ const ORDEN_CANDIDATOS = 'ORDER BY orden ASC, id ASC';
 const GRUPOS = ['candidato', 'nivelacion', 'otros'];
 const grupoValido = (g) => GRUPOS.includes(String(g || '').trim()) ? String(g).trim() : null;
 
+/**
+ * EL ORDEN DE LOS TRES BLOQUES en esta campaña.
+ *
+ * Sin filas en `dia_d_bloques` devuelve el orden natural, que es el de GRUPOS.
+ * Por eso la migración no siembra nada: una campaña que nunca mueva un bloque
+ * no escribe una sola línea, y estrena el orden que ya tenía.
+ *
+ * Los bloques que la tabla no mencione van DETRÁS, en el orden de GRUPOS. Suena
+ * a caso imposible con tres filas fijas, pero es lo que hace que agregar un
+ * cuarto bloque algún día no deje a las campañas viejas sin él: aparecería al
+ * final en vez de desaparecer de la hoja.
+ */
+async function ordenDeLosBloques(req, conexion = pool) {
+  const dueno = await duenoDeLaCampanaRama(conexion, req);
+  const [filas] = await conexion.query(
+    'SELECT grupo, orden FROM dia_d_bloques WHERE aspirante_id = ? ORDER BY orden ASC', [dueno]);
+  const guardados = filas.map(f => f.grupo).filter(g => GRUPOS.includes(g));
+  return [...guardados, ...GRUPOS.filter(g => !guardados.includes(g))];
+}
+
 const router = express.Router();
 router.use(requireAuth);
 
@@ -199,6 +219,12 @@ async function listasParaReporte(req) {
       [await duenoDeLaCampana(req)]);
   const listas = { candidato: [], nivelacion: [], otros: [] };
   for (const f of filas) (listas[f.grupo] || listas.candidato).push(f.nombre);
+  /* EL ORDEN DE LOS BLOQUES VIAJA CON LAS LISTAS. El formulario del celular lo
+     pinta en ese orden: la hoja de configuración y el papel del testigo tienen
+     que verse igual, y si el móvil llevara su propia lista fija, mover un
+     bloque en la pantalla no cambiaría nada en el teléfono — sin error, y sin
+     que nadie lo note hasta el día de la elección. */
+  listas.orden = await ordenDeLosBloques(req);
   return listas;
 }
 
@@ -293,7 +319,7 @@ router.get('/listas-para-reporte', async (req, res) => {
 router.get('/candidatos-para-reporte', async (req, res) => {
   try {
     const l = await listasParaReporte(req);
-    res.json([...l.candidato, ...l.nivelacion, ...l.otros]);
+    res.json(l.orden.flatMap(g => l[g] || []));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los candidatos.' });
@@ -1572,7 +1598,12 @@ router.get('/config/candidatos', requireRole('admin', 'coordinador', 'aspirante'
     const [filas] = await pool.query(
       `SELECT * FROM dia_d_candidatos WHERE aspirante_id = ?${grupo ? ' AND grupo = ?' : ''} ${ORDEN_CANDIDATOS}`,
       grupo ? [dueno, grupo] : [dueno]);
-    res.json(filas);
+    /* CON `?grupo=` DEVUELVE EL ARREGLO DE SIEMPRE; sin él, la hoja completa:
+       las filas y el orden de los bloques en un solo objeto. Se pide en una
+       sola llamada a propósito — pedir las filas por un lado y el orden por
+       otro deja una ventana en la que la pantalla puede pintar los bloques con
+       un orden y las filas con otro. */
+    res.json(grupo ? filas : { filas, orden: await ordenDeLosBloques(req) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los candidatos.' });
@@ -1711,6 +1742,56 @@ router.post('/config/candidatos/:id/mover', requireRole('admin', 'aspirante'), a
     if (conexion) await conexion.rollback().catch(() => {});
     console.error(err);
     res.status(500).json({ error: 'Error cambiando el orden de los candidatos.' });
+  } finally {
+    if (conexion) conexion.release();
+  }
+});
+
+/**
+ * Sube o baja un BLOQUE entero en la hoja — Candidatos, Nivelación de la mesa,
+ * Otros votos.
+ *
+ * Escribe las TRES filas, no solo las dos que se intercambian. Una campaña que
+ * nunca movió nada no tiene ninguna fila aquí (usa el orden natural), así que
+ * un intercambio de dos dejaría la tercera sin posición y el orden dependería
+ * de con cuál se empezó. Escribiendo las tres, el resultado es el mismo salga
+ * de donde salga.
+ */
+router.post('/config/bloques/:grupo/mover', requireRole('admin', 'aspirante'), async (req, res) => {
+  const grupo = grupoValido(req.params.grupo);
+  const direccion = String(req.body && req.body.direccion || '').toLowerCase();
+  if (!grupo) return res.status(400).json({ error: 'Bloque inválido.' });
+  if (direccion !== 'arriba' && direccion !== 'abajo') {
+    return res.status(400).json({ error: 'Indique si el bloque sube o baja.' });
+  }
+  let conexion;
+  try {
+    const dueno = await duenoDeLaCampana(req);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+
+    const orden = await ordenDeLosBloques(req, conexion);
+    const desde = orden.indexOf(grupo);
+    const hasta = direccion === 'arriba' ? desde - 1 : desde + 1;
+    // Ya está en un extremo. No es un error: el botón no tenía a dónde llevarlo.
+    if (hasta < 0 || hasta >= orden.length) {
+      await conexion.rollback();
+      return res.json({ ok: true, sinCambio: true });
+    }
+    [orden[desde], orden[hasta]] = [orden[hasta], orden[desde]];
+
+    for (const [posicion, g] of orden.entries()) {
+      await conexion.query(
+        `INSERT INTO dia_d_bloques (aspirante_id, grupo, orden) VALUES (?,?,?)
+         ON DUPLICATE KEY UPDATE orden = VALUES(orden)`,
+        [dueno, g, posicion + 1]);
+    }
+    await conexion.commit();
+    res.json({ ok: true, orden });
+  } catch (err) {
+    if (conexion) await conexion.rollback().catch(() => {});
+    console.error(err);
+    res.status(500).json({ error: 'Error cambiando el orden de los bloques.' });
   } finally {
     if (conexion) conexion.release();
   }

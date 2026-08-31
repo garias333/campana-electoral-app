@@ -554,6 +554,40 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
   padding: 14px 16px;
 }
 
+/* LAS CABECERAS DE LOS TRES BLOQUES DEL E-14, dentro de la hoja de candidatos.
+
+   Tres columnas: las flechas que mueven el bloque, el titulo, y las acciones de
+   ese bloque. El titulo va en `flex:1` para que las acciones queden pegadas a
+   la derecha sin depender de lo largo que sea —«Nivelacion de la mesa» mide el
+   doble que «Otros votos»—.
+
+   La linea de arriba separa un bloque del anterior y no se pinta en el primero:
+   una raya sobre la primera cabecera parece el borde de la tarjeta partido. */
+.bloque-e14 + .bloque-e14 { margin-top: 26px; padding-top: 22px; border-top: 2px solid var(--color-border); }
+.cabecera-bloque-e14 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.cabecera-bloque-e14 h4 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.45rem;
+  color: var(--color-navy);
+}
+.cabecera-bloque-e14 .acciones-bloque { display: flex; gap: 8px; flex-wrap: wrap; }
+.cabecera-bloque-e14 .flechas-bloque { display: flex; gap: 6px; }
+/* Las flechas del bloque son las mismas que las de las filas, pero AZULES:
+   mueven otra cosa, y con el mismo amarillo de la fila se confundirian con la
+   flecha del renglon de al lado. */
+#panel-diad-listas .cabecera-bloque-e14 .btn-mover {
+  background: var(--color-marca);
+  border-color: var(--color-marca);
+  color: #fff;
+}
+
 /* LOS CUATRO BOTONES DE CADA FILA DE LA HOJA DE CANDIDATOS, UN 50% MAS GRANDES.
 
    Las cuentas, sobre los valores que ya tenia `table td .btn-secundario`:

@@ -2032,6 +2032,20 @@ async function main() {
      pidio, no. */
   await agregarColumnaSiFalta(connection, 'dia_d_candidatos',
     "grupo ENUM('candidato','nivelacion','otros') NOT NULL DEFAULT 'candidato'", 'grupo');
+
+  /* El ORDEN de los bloques, que es un dato de la campaña y no de cada fila.
+     La tabla se crea vacia: `ordenDeLosBloques()` en routes/diaD.routes.js
+     devuelve el orden natural cuando una campaña no tiene filas aqui, asi que
+     no hace falta sembrar nada y una campaña que nunca mueva un bloque no
+     escribe ni una linea. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS dia_d_bloques (
+      aspirante_id INT NOT NULL DEFAULT 0,
+      grupo ENUM('candidato','nivelacion','otros') NOT NULL,
+      orden INT NOT NULL,
+      PRIMARY KEY (aspirante_id, grupo)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  console.log('Tabla dia_d_bloques lista.');
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_puesto_nombre',
     ['aspirante_id', 'nombre']);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',

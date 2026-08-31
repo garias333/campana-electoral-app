@@ -340,14 +340,7 @@
     <div id="seccion-diad" style="display:none;">
       <div class="grupo-pestanas subtabs-diad" id="subtabs-diad">
         <button type="button" class="btn-acento btn-sm" id="btn-subtab-diad-puestos">Puestos de votación</button>
-        <!-- LOS TRES BLOQUES DEL E-14 COMPARTEN UN SOLO PANEL, y cambian de
-             contenido con la pestaña. La alternativa era triplicar la maqueta
-             y las nueve funciones que la manejan; tres copias de un CRUD se
-             separan el día que alguien arregle un fallo en una sola, y la
-             pantalla se quedaría con dos secciones buenas y una con el error. -->
-        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidato">Candidatos</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-nivelacion">Nivelación de la mesa</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-otros">Otros votos</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-subtab-diad-candidatos">Candidatos</button>
       </div>
 
       <div id="panel-diad-puestos">
@@ -453,25 +446,22 @@
       <div id="panel-diad-listas" style="display:none;">
       <div class="card">
         <div class="toolbar">
-          <h3 style="margin:0;" id="titulo-lista-diad">Candidatos</h3>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a class="btn-secundario btn-sm btn-excel-app" href="/api/dia-d/config/candidatos/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-            <label class="btn-secundario btn-sm btn-excel-app"
-                   title="Para actualizar candidatos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un candidato nuevo.">
-              ⬆ Importar desde Excel
-              <input type="file" id="input-importar-candidatos" accept=".xlsx,.xls" style="display:none;">
-            </label>
-            <button type="button" class="btn-acento btn-sm" id="btn-nuevo-candidato">+ Agregar candidato</button>
-          </div>
+          <h3 style="margin:0;">Candidatos</h3>
         </div>
-        <p class="ayuda-candidatos" id="ayuda-lista-diad"></p>
-        <div class="tabla-contenedor">
-          <table>
-            <thead><tr><th class="col-num">#</th><th id="th-nombre-lista-diad">Nombre del candidato</th><th></th></tr></thead>
-            <tbody id="tbody-candidatos"></tbody>
-          </table>
-        </div>
-        <div id="vacio-candidatos" class="vacio" style="display:none;"><div class="icono-vacio">🏅</div><span id="vacio-lista-diad">Todavía no hay candidatos registrados.</span></div>
+        <p class="ayuda-candidatos">
+          Los tres bloques del E-14, en el mismo orden en que el testigo los ve al transcribirlo.
+          Las flechas de cada fila la mueven dentro de su bloque; las de la cabecera mueven el
+          bloque entero. Agregue también a su propio candidato: ya no se pone solo, porque en el
+          E-14 no siempre va de primero.
+        </p>
+        <!-- LOS TRES BLOQUES LOS PINTA EL JS, y no van escritos tres veces en la
+             maqueta: tres copias de la misma tabla se separan el día que alguien
+             arregle algo en una sola, y quedarían dos bloques buenos y uno con el
+             fallo. Además el ORDEN es un dato, no maqueta: viene del servidor. -->
+        <div id="hoja-listas-diad"></div>
+        <!-- Uno solo para los tres: al pulsar «Importar» se apunta el bloque
+             en `bloqueDiadActual` y este input lo lee al cambiar. -->
+        <input type="file" id="input-importar-candidatos" accept=".xlsx,.xls" style="display:none;">
       </div>
       </div>
     </div>
@@ -711,81 +701,41 @@ document.getElementById('btn-tab-permisos').addEventListener('click', () => camb
 document.getElementById('btn-tab-eliminar').addEventListener('click', () => cambiarPestana('eliminar'));
 document.getElementById('btn-tab-backup').addEventListener('click', () => cambiarPestana('backup'));
 
-/* LOS TRES BLOQUES DEL E-14, cada uno con su título, su ayuda y su vacío.
-   Todo lo que cambia entre las tres secciones está AQUÍ, en un solo sitio: si
-   mañana hay un cuarto bloque, es una línea más en este objeto y un botón en la
-   maqueta, no otra copia del CRUD. */
-const BLOQUES_DIAD = {
-  candidato: {
-    titulo: 'Candidatos',
-    columna: 'Nombre del candidato',
-    vacio: 'Todavía no hay candidatos registrados.',
-    ayuda: 'Este es el orden en que el testigo los ve al transcribir el E-14, así que debe ser '
-         + 'el del tarjetón. Use ▲ y ▼ para moverlos. Agregue también a su propio candidato: ya '
-         + 'no se pone solo, porque en el E-14 no siempre va de primero.',
-    singular: 'candidato'
-  },
-  nivelacion: {
-    titulo: 'Nivelación de la mesa',
-    columna: 'Concepto',
-    vacio: 'Todavía no hay conceptos de nivelación registrados.',
-    ayuda: 'Los renglones de nivelación de la mesa, en el orden en que aparecen en el E-14. '
-         + 'El testigo los cuenta y los reporta igual que a los candidatos, pero NO compiten '
-         + 'en el gráfico de votos: se guardan y se ven en el detalle de cada reporte.',
-    singular: 'concepto'
-  },
-  otros: {
-    titulo: 'Otros votos',
-    columna: 'Concepto',
-    vacio: 'Todavía no hay otros votos registrados.',
-    ayuda: 'En blanco, nulos, no marcados, solo por la lista — lo que el E-14 cuenta aparte de '
-         + 'los candidatos. Se reportan y se guardan igual, y tampoco compiten en el gráfico: '
-         + 'ahí «en blanco» le ganaría a media lista y no diría nada.',
-    singular: 'concepto'
-  }
-};
-const SUBTABS_DIAD = ['puestos', 'candidato', 'nivelacion', 'otros'];
-let bloqueDiadActual = 'candidato';
+const SUBTABS_DIAD = ['puestos', 'candidatos'];
 
 /* LA NUMERACIÓN ARRANCA EN 0 EN LA CAMPAÑA DE UN ASPIRANTE, y coincide con la
    que ve el testigo en su celular: son las dos caras del mismo papel y se
    cotejan casilla por casilla. En el tarjetón de una corporación el 0 es el
-   voto solo por la lista y los candidatos van del 1 en adelante.
-
-   Se decide con `es_sublicencia`, que ya llega en /configuracion/campana y es
-   la misma condición con la que el formulario del testigo quita el total de
-   votantes. Una sola regla para las dos pantallas: dos condiciones distintas
-   para lo mismo se separan, y aquí separarse significa que la hoja y el papel
-   dejen de coincidir. */
+   voto solo por la lista y los candidatos van del 1 en adelante. */
 let numeracionDesdeCero = false;
 
-// Sub-pestañas dentro de "Día D". Los tres bloques del E-14 comparten panel y
-// solo cambia su contenido; Puestos de votación tiene el suyo aparte.
+/* Lo único que cambia entre los tres bloques. Si mañana hay un cuarto, es una
+   entrada más aquí y una en el ENUM de la base — no otra copia de la tabla. */
+const BLOQUES_DIAD = {
+  candidato:  { titulo: 'Candidatos',            columna: 'Nombre del candidato', singular: 'candidato',
+                vacio: 'Todavía no hay candidatos registrados.' },
+  nivelacion: { titulo: 'Nivelación de la mesa', columna: 'Concepto',             singular: 'concepto',
+                vacio: 'Todavía no hay conceptos de nivelación registrados.' },
+  otros:      { titulo: 'Otros votos',           columna: 'Concepto',             singular: 'concepto',
+                vacio: 'Todavía no hay otros votos registrados.' }
+};
+// Qué bloque tocó el último botón pulsado: lo leen el alta, la importación y el
+// borrado, que comparten un solo formulario para los tres.
+let bloqueDiadActual = 'candidato';
+
 function cambiarSubPestanaDiaD(sub) {
   if (!SUBTABS_DIAD.includes(sub)) sub = 'puestos';
   document.getElementById('panel-diad-puestos').style.display = sub === 'puestos' ? 'block' : 'none';
-  document.getElementById('panel-diad-listas').style.display = sub === 'puestos' ? 'none' : 'block';
-  SUBTABS_DIAD.forEach((s) => {
-    const b = document.getElementById('btn-subtab-diad-' + s);
-    b.classList.toggle('btn-acento', s === sub);
-    b.classList.toggle('btn-secundario', s !== sub);
+  document.getElementById('panel-diad-listas').style.display = sub === 'candidatos' ? 'block' : 'none';
+  SUBTABS_DIAD.forEach((x) => {
+    const b = document.getElementById('btn-subtab-diad-' + x);
+    b.classList.toggle('btn-acento', x === sub);
+    b.classList.toggle('btn-secundario', x !== sub);
   });
-  if (sub === 'puestos') return;
-  bloqueDiadActual = sub;
-  const b = BLOQUES_DIAD[sub];
-  document.getElementById('titulo-lista-diad').textContent = b.titulo;
-  document.getElementById('ayuda-lista-diad').textContent = b.ayuda;
-  document.getElementById('th-nombre-lista-diad').textContent = b.columna;
-  document.getElementById('vacio-lista-diad').textContent = b.vacio;
-  document.getElementById('btn-nuevo-candidato').textContent = '+ Agregar ' + b.singular;
-  // El enlace de exportar es un <a> con href fijo: hay que reapuntarlo al
-  // bloque, o los tres bajarían el mismo archivo de candidatos.
-  document.querySelector('a[href^="/api/dia-d/config/candidatos/exportar-excel"]')
-    .setAttribute('href', `/api/dia-d/config/candidatos/exportar-excel?grupo=${sub}`);
-  cargarCandidatos();
+  if (sub === 'candidatos') cargarCandidatos();
 }
-SUBTABS_DIAD.forEach((s) =>
-  document.getElementById('btn-subtab-diad-' + s).addEventListener('click', () => cambiarSubPestanaDiaD(s)));
+SUBTABS_DIAD.forEach((x) =>
+  document.getElementById('btn-subtab-diad-' + x).addEventListener('click', () => cambiarSubPestanaDiaD(x)));
 
 // Los enlaces del submenú "Configuración" (Usuarios, Asignación de
 // permisos) apuntan a esta misma página con distinto "#". Si ya estabas en
@@ -2408,29 +2358,78 @@ document.getElementById('input-importar-puestos').addEventListener('change', asy
 });
 
 async function cargarCandidatos() {
-  const candidatos = await api(`/dia-d/config/candidatos?grupo=${bloqueDiadActual}`);
-  const tbody = document.getElementById('tbody-candidatos');
-  document.getElementById('vacio-candidatos').style.display = candidatos.length ? 'none' : 'block';
-  /* Las flechas van DESHABILITADAS en los extremos en vez de escondidas: un
-     botón que aparece y desaparece según la fila hace que la columna cambie de
-     ancho al reordenar, y se pierde el sitio donde se estaba pulsando. */
-  tbody.innerHTML = candidatos.map((c, i) => `
-    <tr>
-      <td class="mono num-candidato col-num">${i + (numeracionDesdeCero ? 0 : 1)}</td>
-      <td class="nombre-candidato">${escaparHtmlDiaD(c.nombre)}</td>
-      <td style="text-align:right; white-space:nowrap;">
-        <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"
-                onclick="moverCandidato(${c.id}, 'arriba')" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
-        <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar un puesto"
-                onclick="moverCandidato(${c.id}, 'abajo')" ${i === candidatos.length - 1 ? 'disabled' : ''}>&#9660;</button>
-        <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
-        <button type="button" class="btn-secundario btn-sm"  onclick="eliminarCandidato(${c.id})">Eliminar</button>
-      </td>
-    </tr>
-  `).join('');
+  const hoja = await api('/dia-d/config/candidatos');
+  const cont = document.getElementById('hoja-listas-diad');
+  const ultimo = hoja.orden.length - 1;
+
+  cont.innerHTML = hoja.orden.map((grupo, iBloque) => {
+    const b = BLOQUES_DIAD[grupo];
+    const filas = hoja.filas.filter(f => f.grupo === grupo);
+    /* Las flechas del BLOQUE van deshabilitadas en los extremos, igual que las
+       de las filas: esconderlas cambiaría el ancho de la cabecera al reordenar
+       y se perdería el sitio donde se estaba pulsando. */
+    const flechas = `
+      <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir el bloque"
+              onclick="moverBloque('${grupo}', 'arriba')" ${iBloque === 0 ? 'disabled' : ''}>&#9650;</button>
+      <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar el bloque"
+              onclick="moverBloque('${grupo}', 'abajo')" ${iBloque === ultimo ? 'disabled' : ''}>&#9660;</button>`;
+    const acciones = `
+      <a class="btn-secundario btn-sm btn-excel-app" target="_blank"
+         href="/api/dia-d/config/candidatos/exportar-excel?grupo=${grupo}">&#8681; Exportar</a>
+      <button type="button" class="btn-secundario btn-sm btn-excel-app"
+              onclick="importarBloque('${grupo}')"
+              title="Exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila, esa fila crea un registro nuevo.">&#8679; Importar</button>
+      <button type="button" class="btn-acento btn-sm" onclick="abrirCreacionCandidato('${grupo}')">+ Agregar ${b.singular}</button>`;
+
+    const cuerpo = filas.length
+      ? `<div class="tabla-contenedor"><table>
+           <thead><tr><th class="col-num">#</th><th>${escaparHtmlDiaD(b.columna)}</th><th></th></tr></thead>
+           <tbody>${filas.map((c, i) => `
+             <tr>
+               <td class="mono num-candidato col-num">${i + (numeracionDesdeCero ? 0 : 1)}</td>
+               <td class="nombre-candidato">${escaparHtmlDiaD(c.nombre)}</td>
+               <td style="text-align:right; white-space:nowrap;">
+                 <button type="button" class="btn-secundario btn-sm btn-mover" title="Subir un puesto"
+                         onclick="moverCandidato(${c.id}, 'arriba')" ${i === 0 ? 'disabled' : ''}>&#9650;</button>
+                 <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar un puesto"
+                         onclick="moverCandidato(${c.id}, 'abajo')" ${i === filas.length - 1 ? 'disabled' : ''}>&#9660;</button>
+                 <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
+                 <button type="button" class="btn-secundario btn-sm" onclick="eliminarCandidato(${c.id}, '${grupo}')">Eliminar</button>
+               </td>
+             </tr>`).join('')}</tbody>
+         </table></div>`
+      : `<div class="vacio"><div class="icono-vacio">🏅</div>${escaparHtmlDiaD(b.vacio)}</div>`;
+
+    return `<section class="bloque-e14">
+      <div class="cabecera-bloque-e14">
+        <div class="flechas-bloque">${flechas}</div>
+        <h4>${escaparHtmlDiaD(b.titulo)}</h4>
+        <div class="acciones-bloque">${acciones}</div>
+      </div>
+      ${cuerpo}
+    </section>`;
+  }).join('');
 }
 
-function abrirCreacionCandidato() {
+async function moverBloque(grupo, direccion) {
+  try {
+    await api(`/dia-d/config/bloques/${grupo}/mover`, { method: 'POST', body: { direccion } });
+    await cargarCandidatos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function importarBloque(grupo) {
+  bloqueDiadActual = grupo;
+  document.getElementById('input-importar-candidatos').click();
+}
+
+function abrirCreacionCandidato(grupo) {
+  // Cada bloque tiene su propio «+ Agregar» y le dice cuál es: los tres
+  // comparten un solo formulario, y sin esto el alta caería siempre en el
+  // último bloque que se hubiera tocado por otra razón.
+  if (grupo) bloqueDiadActual = grupo;
   document.getElementById('candidato-form-titulo').textContent =
     'Agregar ' + BLOQUES_DIAD[bloqueDiadActual].singular;
   document.getElementById('candidato-form-id').value = '';
@@ -2440,6 +2439,8 @@ function abrirCreacionCandidato() {
 }
 
 function abrirEdicionCandidato(c) {
+  // La fila trae su `grupo` del servidor, así que no hay que suponerlo.
+  if (c && c.grupo) bloqueDiadActual = c.grupo;
   document.getElementById('candidato-form-titulo').textContent =
     'Editar ' + BLOQUES_DIAD[bloqueDiadActual].singular;
   document.getElementById('candidato-form-id').value = c.id;
@@ -2448,7 +2449,6 @@ function abrirEdicionCandidato(c) {
   document.getElementById('overlay-candidato-form').classList.add('abierto');
 }
 
-document.getElementById('btn-nuevo-candidato').addEventListener('click', abrirCreacionCandidato);
 document.getElementById('cerrar-candidato-form').addEventListener('click', () =>
   document.getElementById('overlay-candidato-form').classList.remove('abierto'));
 
@@ -2487,7 +2487,8 @@ async function moverCandidato(id, direccion) {
   }
 }
 
-async function eliminarCandidato(id) {
+async function eliminarCandidato(id, grupo) {
+  if (grupo) bloqueDiadActual = grupo;
   if (!(await confirmarEnModal('¿Eliminar este ' + BLOQUES_DIAD[bloqueDiadActual].singular + '?',
         'Esta acción no se puede deshacer.', 'Eliminar'))) return;
   try {
