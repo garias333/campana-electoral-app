@@ -242,6 +242,35 @@ router.get('/resumen', async (req, res) => {
     const apoyaA = {};
     CARGOS_APOYA.forEach(c => { apoyaA[c] = Number(apoyaAFila[c]) || 0; });
 
+    /* QUE CORPORACIONES PIDE ESTA CAMPAÑA, junto a sus cifras y en la misma
+       respuesta. El grafico del tablero pinta una barra por cada una, y hasta
+       ahora las pintaba las cinco: una campaña a la Alcaldia —que solo ofrece
+       alcaldia, gobernacion y asamblea— mostraba tambien Concejo y JAL, que son
+       marcas reales de la gente de sus aspirantes pero que su propio formulario
+       no pregunta.
+
+       VIAJA CON LOS DATOS Y NO SE PIDE APARTE. El primer intento leyo la lista
+       de otra llamada que la pantalla ya hacia, y fallo: esa variable vive
+       dentro de un `try` distinto, asi que en el grafico no existia y el
+       ReferenceError se llevo por delante la tarjeta entera. Mandandola aqui, la
+       lista y las cifras no pueden desacoplarse ni depender de donde este
+       declarada una variable.
+
+       Vacio o ausente significa «esta campaña no configuro apoyos»: el tablero
+       pinta las cinco, que es lo que se veia hasta hoy. */
+    let apoyosActivos = [];
+    try {
+      const [[cfg]] = await pool.query(
+        'SELECT apoyos_activos FROM configuracion_campana WHERE id = 1');
+      const crudo = cfg && cfg.apoyos_activos;
+      const lista = typeof crudo === 'string' ? JSON.parse(crudo) : crudo;
+      if (Array.isArray(lista)) apoyosActivos = lista.filter(x => CARGOS_APOYA.includes(x));
+    } catch (err) {
+      // Que falte o venga mal no puede dejar el tablero sin tarjeta: se manda
+      // vacio y el navegador pinta las cinco, como antes.
+      console.error('Leyendo apoyos_activos para el tablero:', err.message);
+    }
+
     res.json({
       estructura,
       votantes,
@@ -256,7 +285,8 @@ router.get('/resumen', async (req, res) => {
       eventos,
       proximosEventos,
       menciones,
-      apoyaA
+      apoyaA,
+      apoyosActivos
     });
   } catch (err) {
     console.error(err);

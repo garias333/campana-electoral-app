@@ -603,25 +603,19 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
        Con tarjetas iguales, que Alcaldía doble a Concejo no se ve: hay que
        leer los números y compararlos de memoria. La barra más larga se
        pinta en el azul hondo para que se sepa cuál manda de un vistazo. */
-    /* SOLO LAS CORPORACIONES QUE ESTA CAMPAÑA PIDE. Antes se pintaban las cinco
-       siempre, y una campaña a la Alcaldía —que según `APOYOS_POR_CARGO` solo
-       ofrece alcaldía, gobernación y asamblea— mostraba también Concejo y JAL.
-       No eran cifras inventadas: son marcas reales que registró la gente de los
-       aspirantes al Concejo. Pero en el tablero de la madre se leen como si su
-       campaña preguntara por algo que su formulario no pregunta.
+    /* SOLO LAS CORPORACIONES QUE ESTA CAMPAÑA PIDE. La lista llega con las
+       cifras, en `r.apoyosActivos`, y no de otra llamada.
 
-       Se filtra por `apoyos_activos`, que es lo que la campaña ya declaró en
-       Configuración, y no por una lista escrita aquí. Así el gráfico se ajusta
-       solo: si mañana cambia el cargo, esto sigue diciendo la verdad sin que
-       nadie lo toque. Y a quien cuelga de un aspirante, el servidor ya le amplía
-       la lista con la de su jefe (`unirApoyos` en configuracion.routes.js), así
-       que él SÍ ve la suya.
+       ESA FUE LA PRIMERA VERSIÓN Y BORRÓ LA TARJETA ENTERA: leía
+       `configCampana`, que se declara con `const` DENTRO de otro `try` de esta
+       misma función. Un `const` no sale de su bloque, así que aquí no existía y
+       el ReferenceError se llevó por delante el gráfico y su pie. Contar llaves
+       para comprobar el ámbito no sirve: `try{...}catch{...}` abre y cierra
+       parejo, y el balance da cero aunque el bloque sea otro.
 
-       Sin configurar —lista vacía o ausente— se pintan las cinco, que es lo que
-       se veía hasta ahora: una campaña recién creada no debe estrenar un
-       gráfico en blanco. */
-    const apoyosActivos = Array.isArray(configCampana.apoyos_activos) && configCampana.apoyos_activos.length
-      ? configCampana.apoyos_activos
+       Vacía o ausente se pintan las cinco, que es lo que se veía hasta hoy. */
+    const apoyosActivos = Array.isArray(r.apoyosActivos) && r.apoyosActivos.length
+      ? r.apoyosActivos
       : Object.keys(ETIQUETAS_APOYA);
     const apoyos = Object.entries(ETIQUETAS_APOYA)
       .filter(([clave]) => apoyosActivos.includes(clave))
