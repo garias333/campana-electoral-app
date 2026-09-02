@@ -2,7 +2,11 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { sqlMetaEfectiva } = require('../config/metasEstructura');
-const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura } = require('../lib/ramas');
+const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura, sublicenciaSobre } = require('../lib/ramas');
+// La misma regla que usa Configuración para saber qué apoyos ofrece cada
+// cargo. Compartida a propósito: el gráfico del tablero y las casillas del
+// formulario tienen que decir lo mismo.
+const { apoyosPermitidos, unirApoyos } = require('../config/apoyos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { cargoDeLaMadre } = require('../config/cargoMadre');
 
@@ -258,17 +262,44 @@ router.get('/resumen', async (req, res) => {
 
        Vacio o ausente significa «esta campaña no configuro apoyos»: el tablero
        pinta las cinco, que es lo que se veia hasta hoy. */
+    /* LA MISMA LISTA QUE VE EL FORMULARIO, no una recalculada aqui.
+       Se resuelve igual que en /configuracion/campana, con los ayudantes de
+       config/apoyos.js, porque tienen que coincidir: si el tablero pinta una
+       barra que el formulario no pregunta —o al reves— una de las dos pantallas
+       esta mintiendo y no hay forma de saber cual.
+
+       TRES CASOS:
+         · El aspirante en su panel: manda SU cargo. Por eso en la sublicencia al
+           Concejo si sale la barra de Concejo, aunque la campaña madre sea de
+           Alcaldia y no la pida.
+         · Alguien de la campaña madre que cuelga de un aspirante: la lista de la
+           madre AMPLIADA con la de su jefe. Registra para las dos.
+         · La campaña madre a secas: lo que tenga configurado en `apoyos_activos`.
+
+       Si algo falla se manda vacio y el navegador pinta las cinco, como antes.
+       El modo degradado tiene que ser el de siempre, no una tarjeta en blanco. */
     let apoyosActivos = [];
     try {
-      const [[cfg]] = await pool.query(
-        'SELECT apoyos_activos FROM configuracion_campana WHERE id = 1');
-      const crudo = cfg && cfg.apoyos_activos;
-      const lista = typeof crudo === 'string' ? JSON.parse(crudo) : crudo;
-      if (Array.isArray(lista)) apoyosActivos = lista.filter(x => CARGOS_APOYA.includes(x));
+      if (req.sublicencia && req.sublicencia.cargo) {
+        apoyosActivos = apoyosPermitidos(req.sublicencia.cargo);
+      } else {
+        const [[cfg]] = await pool.query(
+          'SELECT apoyos_activos FROM configuracion_campana WHERE id = 1');
+        const crudo = cfg && cfg.apoyos_activos;
+        const lista = typeof crudo === 'string' ? JSON.parse(crudo) : crudo;
+        apoyosActivos = Array.isArray(lista) ? lista : [];
+
+        const jefe = req.session && req.session.usuario
+          ? await sublicenciaSobre(pool, req.session.usuario.id)
+          : null;
+        const suyos = jefe ? apoyosPermitidos(jefe.cargo) : [];
+        if (suyos.length) apoyosActivos = unirApoyos(apoyosActivos, suyos);
+      }
+      apoyosActivos = apoyosActivos.filter((x) => CARGOS_APOYA.includes(x));
     } catch (err) {
-      // Que falte o venga mal no puede dejar el tablero sin tarjeta: se manda
-      // vacio y el navegador pinta las cinco, como antes.
-      console.error('Leyendo apoyos_activos para el tablero:', err.message);
+      // Que falte o venga mal no puede dejar el tablero sin tarjeta.
+      console.error('Resolviendo los apoyos del tablero:', err.message);
+      apoyosActivos = [];
     }
 
     res.json({

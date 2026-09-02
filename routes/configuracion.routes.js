@@ -4,6 +4,9 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { sublicenciaSobre } = require('../lib/ramas');
+// La regla de que apoyos ofrece cada cargo vive en config/apoyos.js: la
+// comparten esta pantalla y el tablero, y dos copias se separarian.
+const { apoyosPermitidos, unirApoyos } = require('../config/apoyos');
 const { olvidarCargoDeLaMadre } = require('../config/cargoMadre');
 const { verificarPasswordAdmin, validarTelefono10Digitos } = require('../config/verificaciones');
 const { estadoCanal: estadoCanalSms, enviarSMS, invalidarCache: invalidarCacheSms } = require('../config/sms');
@@ -229,37 +232,6 @@ const CARGOS_VALIDOS = ['senado', 'camara_representantes', 'gobernacion', 'asamb
  * Senado y Cámara no usan esta función: su campaña no ofrece apoyos y la
  * sección no se muestra.
  */
-const APOYOS_POR_CARGO = {
-  jal:         ['jal', 'concejo', 'alcaldia', 'asamblea', 'gobernacion'],
-  concejo:     ['concejo', 'alcaldia', 'asamblea', 'gobernacion'],
-  alcaldia:    ['alcaldia', 'gobernacion', 'asamblea'],
-  asamblea:    ['asamblea', 'gobernacion'],
-  gobernacion: ['gobernacion']
-};
-
-/** Los apoyos permitidos para un cargo, o lista vacía si ese cargo no ofrece apoyos. */
-function apoyosPermitidos(cargo) {
-  return APOYOS_POR_CARGO[cargo] || [];
-}
-
-/**
- * Las dos listas juntas, sin repetidos y sin inventar un orden nuevo.
- *
- * PARA QUIEN TRABAJA PARA DOS CAMPAÑAS A LA VEZ: la gente de un aspirante al
- * Concejo le registra votantes a él Y a la madre, así que necesita las casillas
- * de las dos. Quitarle una de las dos listas le tapa la mitad de su trabajo.
- *
- * MANDA LA LISTA MÁS LARGA, y la otra solo aporta lo que falte. Las listas de
- * `APOYOS_POR_CARGO` están encadenadas —la de un cargo bajo contiene la de uno
- * alto— pero NO en el mismo orden interno: `alcaldia` pone «gobernacion» antes
- * que «asamblea» y `concejo` al revés. Un orden canónico inventado aquí le
- * movería las casillas de sitio a campañas que no tienen ningún aspirante.
- */
-function unirApoyos(a, b) {
-  const base = (b.length > a.length) ? b : a;
-  const otro = (base === b) ? a : b;
-  return base.concat(otro.filter((x) => !base.includes(x)));
-}
 
 /**
  * ¿La campaña tiene gente registrada en cada nivel territorial?
