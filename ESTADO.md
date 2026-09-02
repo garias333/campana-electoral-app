@@ -152,3 +152,8 @@ la base real y aplicado en las tres instalaciones.
 - Que la regla de «último reporte por mesa» agrupa por **nombre de puesto**, y
   por qué no por `puesto_id` (mezclar dos numeraciones en una columna rompía la
   anulación de los reportes corregidos).
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-09-02 11:53 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 7b2a1da Parche 251: el logo de WhatsApp en el renglón de Soporte | Sin commitear: 0 archivo(s)

@@ -37,7 +37,31 @@ async function requerirSesionApp() {
   for (let intento = 1; intento <= intentosRed; intento++) {
     try {
       const sesion = await api('/auth/me');
-      actualizarPerfilCuentaDispositivo(sesion.usuario);
+      /* `api()` NO LANZA en un 401: redirige a login por su cuenta y devuelve
+         `undefined` (ver api-core.js). Sin esta linea, la siguiente hacia
+         `sesion.usuario` sobre `undefined`. */
+      if (!sesion) return null;
+      // La sesion resolvio: se borra la marca del rebote. Sin esto, un fallo
+      // legitimo mas tarde en esta misma pantalla encontraria la marca puesta
+      // de una vez anterior y mostraria el aviso en lugar de mandar a login,
+      // que es lo que corresponde cuando la sesion de verdad caduco.
+      sessionStorage.removeItem('app_rebote_login');
+
+      /* CON `typeof`, PORQUE ESTA FUNCION PUEDE NO EXISTIR. La define
+         /js/cuentas-dispositivo.js, y CUATRO pantallas de /app/ no lo cargan:
+         informacion, biografia, politica-privacidad y puesto-votacion.
+
+         Ahi esta llamada lanzaba un ReferenceError que el `catch` de abajo
+         interpretaba como «la sesion no vale», mandaba a login.html, login veia
+         la sesion viva y devolvia a la misma pantalla —y otra vez—. El sintoma
+         era la app parpadeando sin entrar a ningun apartado.
+
+         Es la misma precaucion que ya se toma doce lineas mas abajo con
+         `esCelular`, y que common.js toma con `desactivarCuentaDispositivo`.
+         Faltaba aqui. */
+      if (typeof actualizarPerfilCuentaDispositivo === 'function') {
+        actualizarPerfilCuentaDispositivo(sesion.usuario);
+      }
 
       /* EL ASPIRANTE VA AL PANEL EN EL COMPUTADOR. EN EL CELULAR, SE QUEDA.
          Sus cuatro pantallas y su marca estan en el panel, y a eso entra desde
@@ -78,11 +102,38 @@ async function requerirSesionApp() {
     }
   }
 
-  if (ultimoError && ultimoError.esErrorDeRed) {
+  if (ultimoError && ultimoError.esErrorDeRed
+      && typeof obtenerPerfilCuentaActiva === 'function') {
     const perfil = obtenerPerfilCuentaActiva();
     if (perfil) return perfil;
   }
 
+  /* NO SE VUELVE A LOGIN DOS VECES POR LA MISMA PANTALLA.
+     Este salto y el de login.html se llaman entre si: aqui se guarda a donde
+     queria entrar la persona, y login —si encuentra la sesion viva— la manda de
+     vuelta. Cuando el fallo NO es de sesion, los dos tienen razon y el resultado
+     es un ping-pong infinito: la app parpadea y no entra a nada.
+
+     La marca corta el segundo salto y deja el error a la vista. Un mensaje feo
+     es infinitamente mejor que una pantalla que parpadea: lo primero se puede
+     leer y contar, lo segundo no se puede ni describir. */
+  const yaVolvimos = sessionStorage.getItem('app_rebote_login') === window.location.pathname;
+  if (yaVolvimos) {
+    sessionStorage.removeItem('app_rebote_login');
+    const aviso = document.createElement('div');
+    aviso.style.cssText = 'position:fixed; inset:0; z-index:9999; background:#fff; padding:24px;'
+      + 'font-family:system-ui,sans-serif; color:#10233F; display:flex; flex-direction:column;'
+      + 'align-items:center; justify-content:center; text-align:center; gap:14px;';
+    aviso.innerHTML = '<strong style="font-size:1.05rem;">No se pudo abrir esta pantalla</strong>'
+      + '<p style="margin:0; font-size:.92rem; color:#5B6472; max-width:320px; line-height:1.5;">'
+      + 'Su sesion esta activa, pero esta seccion fallo al cargar. Avise a soporte y, '
+      + 'mientras tanto, vuelva al inicio.</p>'
+      + '<a href="/app/inicio.html" style="background:#0B5ED7; color:#fff; text-decoration:none;'
+      + 'padding:11px 18px; border-radius:9px; font-weight:600;">Volver al inicio</a>';
+    document.body.appendChild(aviso);
+    return null;
+  }
+  sessionStorage.setItem('app_rebote_login', window.location.pathname);
   sessionStorage.setItem('app_destino_post_login', window.location.pathname);
   window.location.href = '/login.html';
   return null;
