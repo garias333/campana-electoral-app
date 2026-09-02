@@ -193,6 +193,43 @@ a { color: var(--color-navy-lighter); }
   transition: background 0.15s, color 0.15s, border-color 0.15s, padding-left 0.15s;
 }
 .sidebar nav a:hover { background: rgba(255,255,255,0.07); color: #fff; }
+
+/* SOPORTE — el enlace de WhatsApp que va debajo de Ayuda.
+
+   Vive FUERA de `<nav>` porque no es una pantalla de la aplicacion: es un
+   enlace a otro sitio. Por eso repite el aspecto de un renglon del menu en vez
+   de heredarlo — heredarlo habria significado meterlo dentro de `nav`, y
+   entonces el codigo que marca el renglon activo por su `href` tendria que
+   aprender a saltarselo.
+
+   El verde es el de WhatsApp y no el dorado del menu: dice, antes de leerlo,
+   que este renglon lleva a otra parte. */
+.sidebar .nav-soporte {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  margin-top: 2px;
+  color: #B9C4D9;
+  text-decoration: none;
+  border-radius: 8px;
+  border-left: 3px solid #25D366;
+  /* Misma tipografia que `.nav-link-principal`, para que se lea como un renglon
+     mas del menu y no como algo pegado debajo. */
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s, padding-left 0.15s;
+}
+.sidebar .nav-soporte:hover { background: rgba(37,211,102,0.14); color: #fff; padding-left: 16px; }
+/* El numero, debajo del rotulo: en una sola linea empujaba «Soporte» contra el
+   borde en las barras estrechas. */
+.sidebar .nav-soporte small {
+  display: block;
+  font-size: 0.74rem;
+  color: #8FA3C0;
+  font-variant-numeric: tabular-nums;
+}
 /* EL RENGLÓN ACTIVO LO SEÑALA EL BORDE DORADO, NO EL RELLENO. Sobre azul
    oscuro cualquier relleno de la misma familia queda en 1,2 de contraste —se
    intuye, no se ve—. Antes esto era #29497A, bastante más claro, y sí se veía

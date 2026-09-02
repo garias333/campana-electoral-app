@@ -203,7 +203,7 @@ router.get('/admin', requireRole('admin', 'aspirante'), async (req, res) => {
     // usuarios») sale de estas mismas filas, así que tampoco lo delata.
     const ocultar = await filtroOcultar(req.session.usuario);
     const [rows] = await pool.query(`
-      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin,
+      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin, u.telefono_soporte,
              u.debe_cambiar_password, u.two_factor_enabled, u.ultimo_login, u.created_at,
              COALESCE(t.nombre, te.nombre) AS territorio_nombre
       FROM usuarios u
@@ -346,7 +346,13 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   // formulario. Cubre de paso el cambio de rol —nadie le quita el admin al
   // superadministrador— y el de contraseña.
   if (await protegerObjetivo(req, res, req.params.id)) return;
-  const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, activo, password } = req.body;
+  const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, activo, password, telefono_soporte } = req.body;
+  /* `telefono_soporte` SOLO EXISTE PARA EL SUPERADMINISTRADOR, y se comprueba
+     aunque el formulario no lo muestre a nadie más: un campo que la pantalla
+     esconde sigue siendo un campo que se puede mandar a mano. */
+  if (telefono_soporte !== undefined && !validarTelefono10Digitos(telefono_soporte)) {
+    return res.status(400).json({ error: 'Error de digitación: el teléfono de soporte debe tener 10 dígitos.' });
+  }
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
   }
@@ -436,6 +442,21 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
         [nombre, cedula || null, usuarioParaGuardar,
          email.trim().toLowerCase(), telefono ? telefono.replace(/\D/g, '') : null, rolFila.id, activo ? 1 : 0, req.params.id]
       );
+    }
+
+    /* EL TELEFONO DE SOPORTE VA EN SU PROPIO UPDATE, y no dentro de los dos de
+       arriba —uno con contraseña y otro sin ella—: meterlo en ambos es la clase
+       de duplicado que se separa el día que alguien toque uno solo.
+
+       El `AND es_superadmin = 1` es la guarda de verdad. Un `if` en JavaScript
+       también habría servido hoy, pero la condición vive donde vive el dato: si
+       mañana otra ruta reusa esta consulta, no puede escribir el número de
+       soporte en la fila de nadie más. `undefined` significa «el formulario no
+       traía el campo», que no es lo mismo que «lo dejaron vacío». */
+    if (telefono_soporte !== undefined) {
+      await pool.query(
+        `UPDATE usuarios SET telefono_soporte = ? WHERE id = ? AND es_superadmin = 1`,
+        [telefono_soporte ? String(telefono_soporte).replace(/\D/g, '') : null, req.params.id]);
     }
     res.json({ ok: true });
   } catch (err) {

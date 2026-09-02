@@ -582,6 +582,18 @@
         <div class="campo"><label>Número de identificación</label><input id="usuario-form-identificacion"></div>
         <div class="campo"><label>Teléfono</label><input id="usuario-form-telefono" placeholder="300 123 4567"></div>
       </div>
+      <!-- SOLO PARA EL ADMINISTRADOR DE LA APLICACIÓN. Es el WhatsApp al que
+           escribe cualquier usuario de cualquier campaña cuando algo falla, así
+           que no vive en Datos de la campaña: ahí lo podría cambiar cada admin
+           y estaría desviando a su gente. -->
+      <div class="campo" id="campo-telefono-soporte" style="display:none;">
+        <label>Teléfono de soporte</label>
+        <input id="usuario-form-telefono-soporte" placeholder="300 123 4567">
+        <small style="color:var(--color-text-muted); font-size:0.8rem;">
+          Aparece en el menú de todos los usuarios, debajo de Ayuda, con enlace directo a WhatsApp.
+          Déjelo vacío para no mostrarlo.
+        </small>
+      </div>
       <div class="fila">
         <div class="campo"><label>Nombre de usuario</label><input id="usuario-form-nombre-usuario" placeholder="Se autocompleta con el Número de identificación" autocomplete="off"></div>
         <div class="campo" id="campo-usuario-password">
@@ -1390,6 +1402,9 @@ function abrirCreacionUsuario() {
   document.getElementById('form-usuario').reset();
   document.getElementById('usuario-form-id').value = '';
   document.getElementById('usuario-form-titulo').textContent = 'Crear usuario';
+  // Nadie crea un superadministrador desde aquí (`scripts/elevar-superadmin.js`
+  // es el único camino), así que en el alta el campo no tiene sentido.
+  document.getElementById('campo-telefono-soporte').style.display = 'none';
   document.getElementById('campo-usuario-activo').style.display = 'none';
   document.getElementById('campo-usuario-password').style.display = 'block';
   document.getElementById('nota-password-usuario').style.display = 'block';
@@ -1447,6 +1462,14 @@ async function abrirEdicionUsuario(u) {
   document.getElementById('usuario-form-nombre-usuario').value = u.nombre_usuario || '';
   document.getElementById('usuario-form-email').value = u.email;
   document.getElementById('usuario-form-telefono').value = formatoTelefonoColombia(u.telefono || '');
+  /* `u` viene del listado, que solo el propio superadministrador ve con
+     `es_superadmin = 1`; para cualquier otro admin esa fila ni siquiera está en
+     la respuesta. Así que esta condición no esconde nada: acota el campo a la
+     única cuenta donde significa algo. */
+  const esSuper = !!u.es_superadmin;
+  document.getElementById('campo-telefono-soporte').style.display = esSuper ? '' : 'none';
+  document.getElementById('usuario-form-telefono-soporte').value =
+    esSuper ? formatoTelefonoColombia(u.telefono_soporte || '') : '';
   document.getElementById('usuario-form-rol').value = u.rol;
   document.getElementById('usuario-form-activo').checked = !!u.activo;
   document.getElementById('campo-usuario-activo').style.display = 'block';
@@ -1570,6 +1593,13 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
     nombre_usuario: document.getElementById('usuario-form-nombre-usuario').value,
     email: document.getElementById('usuario-form-email').value,
     telefono: document.getElementById('usuario-form-telefono').value.replace(/\D/g, ''),
+    /* Se manda SOLO cuando el campo está a la vista. Mandarlo siempre —vacío
+       para todos los demás— haría que editar a cualquier usuario borrara el
+       número de soporte, porque el servidor distingue «no vino» de «vino
+       vacío» y lo segundo significa borrarlo. */
+    ...(document.getElementById('campo-telefono-soporte').style.display !== 'none'
+      ? { telefono_soporte: document.getElementById('usuario-form-telefono-soporte').value.replace(/\D/g, '') }
+      : {}),
     rol: document.getElementById('usuario-form-rol').value,
     password: document.getElementById('usuario-form-password').value
   };
@@ -2590,7 +2620,7 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
   await cargarConfiguracionCampana();
   await cargarRoles();
   aplicarFormatoNombrePropio('#form-campana [name="nombre_candidato"], #usuario-form-nombre');
-  aplicarFormatoTelefono('#form-campana [name="telefono"], #usuario-form-telefono');
+  aplicarFormatoTelefono('#form-campana [name="telefono"], #usuario-form-telefono, #usuario-form-telefono-soporte');
   /* AL ASPIRANTE SOLO LE QUEDA SU PESTAÑA.
      Esta pantalla nunca miró el rol para decidir qué pestañas dibuja —le
      bastaba con que al menú solo llegara un administrador—, así que las seis

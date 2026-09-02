@@ -1749,6 +1749,18 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'usuarios',
     "es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: única cuenta con control total. Ver config/superadmin.js' AFTER ultimo_login",
     'es_superadmin');
+
+  /* EL TELEFONO AL QUE ESCRIBE QUIEN NECESITA SOPORTE. Vive en la fila del
+     superadministrador y no en `configuracion_campana` a proposito: la
+     configuracion de campaña la edita cada admin de campaña, y el soporte lo
+     da INGESES, no la campaña. Puesto ahi, cualquier admin podria cambiar el
+     numero al que escriben sus propios usuarios cuando algo falla.
+
+     Va en `usuarios` y no en una tabla nueva porque es un dato de esa cuenta,
+     y la cuenta ya es unica (`superadmin_unico`). */
+  await agregarColumnaSiFalta(connection, 'usuarios',
+    "telefono_soporte VARCHAR(20) NULL COMMENT 'Solo del superadministrador: el WhatsApp de soporte que ve toda la aplicacion' AFTER es_superadmin",
+    'telefono_soporte');
   await agregarColumnaSiFalta(connection, 'usuarios',
     "superadmin_unico TINYINT(1) GENERATED ALWAYS AS (IF(es_superadmin = 1, 1, NULL)) VIRTUAL AFTER es_superadmin",
     'superadmin_unico');

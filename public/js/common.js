@@ -746,6 +746,34 @@ async function refrescarMarca() {
     elSub.style.display = subtitulo ? '' : 'none';
   }
   if (elLogo && !elLogo.src.endsWith(logo)) elLogo.src = logo;
+  pintarSoporte(m.telefono_soporte);
+}
+
+/**
+ * EL ENLACE DE SOPORTE DE LA BARRA LATERAL.
+ *
+ * El número lo escribe el Administrador de la aplicación en su propia cuenta y
+ * llega con la marca, así que esto se llama dos veces: al pintar la barra con
+ * lo guardado —para que el enlace esté desde el primer instante, incluso sin
+ * señal— y otra vez cuando el servidor responde.
+ *
+ * Sin número no se pinta nada. Un «Soporte» que abre un WhatsApp vacío es peor
+ * que no ofrecerlo: la persona cree que escribió y nadie recibe.
+ */
+function pintarSoporte(telefono) {
+  const el = document.getElementById('nav-soporte');
+  if (!el) return;
+  const digitos = String(telefono || '').replace(/\D/g, '');
+  if (!digitos) { el.style.display = 'none'; return; }
+  const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
+  const visible = digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos;
+  el.href = 'https://wa.me/' + internacional;
+  el.title = 'Escribir al soporte por WhatsApp';
+  // `abrirWhatsApp` ya existe y anula `window.opener` antes de soltar la
+  // pestaña nueva; se reutiliza en vez de repetir aquí esa precaución.
+  el.onclick = (e) => abrirWhatsApp(e, internacional);
+  el.innerHTML = '<span class="icono">\uD83D\uDCAC</span><span>Soporte<small>' + escaparHtml(visible) + '</small></span>';
+  el.style.display = '';
 }
 
 function escaparHtml(texto) {
@@ -1377,6 +1405,13 @@ async function inicializarLayout(paginaActiva) {
       ${MARCA_PLATAFORMA.bajada.map(l => `<div class="marca-plataforma-bajada">${escaparHtml(l)}</div>`).join('')}
     </div>
     <nav>${navHtml}</nav>
+    <!-- SOPORTE, DEBAJO DE AYUDA Y FUERA DEL ARREGLO NAV_ITEMS. No es una
+         pantalla de la aplicacion sino un enlace a WhatsApp, y su numero viene
+         del servidor: metido en el menu habria que reconstruirlo entero cada
+         vez que llega la marca. Nace oculto y lo enciende pintarSoporte().
+         SIN ACENTOS GRAVES: esto va dentro de una plantilla de JavaScript, que
+         se delimita igual, y cada cita cerraria la cadena. -->
+    <a class="nav-soporte" id="nav-soporte" target="whatsappWeb" rel="noopener" style="display:none;"></a>
     <div class="usuario-box">
       <div class="nombre">${usuario.nombre}</div>
       <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : usuario.rol}</div>
@@ -1388,6 +1423,9 @@ async function inicializarLayout(paginaActiva) {
     </div>
   `;
   shell.prepend(sidebar);
+  // Con lo guardado, antes de que responda el servidor: si hay número de la
+  // vez anterior, el enlace está desde el primer instante.
+  pintarSoporte(marcaInicial.telefono_soporte);
   // Se refresca DESPUES de pintar y sin esperar: si el servidor tarda, la
   // barra ya esta puesta con lo de la ultima vez.
   refrescarMarca();

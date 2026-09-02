@@ -137,6 +137,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
   bloqueado_hasta DATETIME NULL,
   ultimo_login DATETIME NULL,
   es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: la única cuenta con control total. Conserva rol_id de admin —de ahí saca sus permisos, ver config/superadmin.js— y esta bandera le suma lo demás: nadie más la ve ni la puede tocar. NINGUNA ruta de la aplicación la escribe; se otorga con scripts/elevar-superadmin.js',
+  -- Solo del superadministrador: el WhatsApp de soporte que ve toda la
+  -- aplicación, en la barra lateral debajo de Ayuda.
+  telefono_soporte VARCHAR(20) NULL,
   superadmin_unico TINYINT(1) GENERATED ALWAYS AS (IF(es_superadmin = 1, 1, NULL)) VIRTUAL COMMENT 'Existe solo para colgarle el UNIQUE de abajo. Vale 1 para el superadministrador y NULL para todos los demás; como MySQL no compara los NULL entre sí en un índice único, los demás usuarios conviven sin estorbarse y un segundo superadministrador choca con ER_DUP_ENTRY',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (rol_id) REFERENCES roles(id),

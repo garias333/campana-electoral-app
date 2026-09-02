@@ -60,11 +60,30 @@ router.get('/marca', async (req, res) => {
        Si la sublicencia no trae nombre —recien emitida, todavia sin llenar— se
        cae a la de la madre en vez de dejar la barra en blanco. Una barra vacia
        parece una aplicacion rota; la marca de la madre, al menos, es cierta. */
+    /* EL TELEFONO DE SOPORTE VA EN LAS DOS SALIDAS DE ESTA RUTA, y por eso se
+       lee antes del `if`. Es lo mismo para todos —lo da INGESES, no la
+       campaña—, así que ponerlo solo abajo lo habría dejado fuera de la barra
+       de todos los aspirantes, que son justo quienes menos a quién preguntar
+       tienen. Esta ruta tiene dos returns y es fácil atender uno solo.
+
+       Sale de la fila del superadministrador, la única que lo guarda. Si no hay
+       cuenta o no tiene número, viaja vacío y la barra no pinta el enlace. */
+    let telefonoSoporte = '';
+    try {
+      const [[s]] = await pool.query(
+        'SELECT telefono_soporte FROM usuarios WHERE es_superadmin = 1 LIMIT 1');
+      telefonoSoporte = (s && s.telefono_soporte) || '';
+    } catch (err) {
+      // Que falte el soporte no puede dejar la barra lateral sin marca.
+      console.error('Leyendo el teléfono de soporte:', err.message);
+    }
+
     if (req.sublicencia && req.sublicencia.nombre) {
       return res.json({
         titulo: req.sublicencia.nombre,
         subtitulo: req.sublicencia.subtitulo || '',
         logo_url: req.sublicencia.logo_url || '',
+        telefono_soporte: telefonoSoporte,
       });
     }
     const [[c]] = await pool.query(
@@ -73,6 +92,7 @@ router.get('/marca', async (req, res) => {
       titulo: (c && c.marca_titulo) || '',
       subtitulo: (c && c.marca_subtitulo) || '',
       logo_url: (c && c.marca_logo_url) || '',
+      telefono_soporte: telefonoSoporte,
     });
   } catch (err) {
     // Una instalacion sin la migracion todavia: se responde vacio y la barra
