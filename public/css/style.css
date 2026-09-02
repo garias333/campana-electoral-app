@@ -232,12 +232,21 @@ a { color: var(--color-navy-lighter); }
   display: flex;
   justify-content: center;
   line-height: 0;
+  /* EL VERDE, SIEMPRE. El glifo va en el color de la marca tambien en reposo:
+     el renglon lleva a WhatsApp y quien lo necesita tiene que reconocerlo de un
+     vistazo, sin pasar el raton por encima para averiguarlo.
+
+     Se pone aqui y no en el SVG porque ese usa `currentColor`: el color vive en
+     un solo sitio —esta regla— y cambiarlo no obliga a tocar el glifo.
+
+     Es el UNICO color de la barra fuera del gris del menu y el dorado del
+     renglon activo. Se sostiene porque tambien es el unico enlace que sale de
+     la aplicacion; si algun dia hay dos, esto deja de distinguir y hay que
+     repensarlo. */
+  color: #25D366;
   transition: transform 0.15s;
 }
-/* EL VERDE SOLO AL PASAR EL RATON. En reposo el glifo hereda el gris del menu y
-   el renglon no grita mas que los demas; al apuntarlo se enciende con el color
-   de la marca y confirma a donde lleva antes de pulsarlo. */
-.sidebar .nav-soporte:hover .icono { color: #25D366; transform: scale(1.15); }
+.sidebar .nav-soporte:hover .icono { transform: scale(1.15); }
 /* El numero, debajo del rotulo: en una sola linea empujaba «Soporte» contra el
    borde en las barras estrechas. */
 .sidebar .nav-soporte small {

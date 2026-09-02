@@ -756,10 +756,9 @@ async function refrescarMarca() {
    archivo que no estuviera cacheado dejaria el renglon con el hueco justo
    cuando mas falta hace escribir al soporte.
 
-   `currentColor` en el relleno para que herede el color del enlace: en reposo
-   va del gris del menu y al pasar el raton se aclara con el resto del renglon,
-   sin una regla aparte que mantener. El verde de la marca ya lo pone el borde
-   izquierdo.
+   `currentColor` en el relleno para que el color viva en la hoja de estilos y
+   no aqui: hoy es el verde de la marca, fijo, y cambiarlo es una linea en
+   `.nav-soporte .icono` sin volver a tocar el glifo.
 
    `aria-hidden` porque al lado va la palabra «Soporte»: un lector de pantalla
    que anunciara el icono diria dos veces lo mismo. */
