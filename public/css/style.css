@@ -222,6 +222,22 @@ a { color: var(--color-navy-lighter); }
   transition: background 0.15s, color 0.15s, padding-left 0.15s;
 }
 .sidebar .nav-soporte:hover { background: rgba(37,211,102,0.14); color: #fff; padding-left: 16px; }
+/* La ranura del icono, del mismo ancho que la de los renglones del menu, para
+   que los rotulos queden todos a plomo. `line-height: 0` quita el hueco que el
+   navegador reserva debajo de un elemento en linea: sin el, el glifo queda un
+   par de pixeles alto respecto al texto de al lado. */
+.sidebar .nav-soporte .icono {
+  width: 20px;
+  flex: none;
+  display: flex;
+  justify-content: center;
+  line-height: 0;
+  transition: transform 0.15s;
+}
+/* EL VERDE SOLO AL PASAR EL RATON. En reposo el glifo hereda el gris del menu y
+   el renglon no grita mas que los demas; al apuntarlo se enciende con el color
+   de la marca y confirma a donde lleva antes de pulsarlo. */
+.sidebar .nav-soporte:hover .icono { color: #25D366; transform: scale(1.15); }
 /* El numero, debajo del rotulo: en una sola linea empujaba «Soporte» contra el
    borde en las barras estrechas. */
 .sidebar .nav-soporte small {
