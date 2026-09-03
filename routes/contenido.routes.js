@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { huellaDePolitica, archivarVersion } = require('../config/politicaVersiones');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -112,6 +113,46 @@ router.delete('/:clave/:tipo(foto|video)', requireRole('admin'), async (req, res
   }
 });
 
+// EL ARCHIVO, PARA PODER EXHIBIRLO. De nada sirve guardar la huella si nadie
+// puede recuperar el texto al que apunta: esto es lo que convierte
+// `votantes.consentimiento_version` en una prueba que se puede enseñar.
+// Va antes de /:clave, aunque esa ruta solo casa un segmento y no lo taparía.
+router.get('/politica/versiones', requireRole('admin'), async (req, res) => {
+  try {
+    const [filas] = await pool.query(
+      `SELECT v.huella, v.titulo, v.archivada_en, v.archivada_por_nombre,
+              CHAR_LENGTH(v.contenido) AS largo,
+              (SELECT COUNT(*) FROM votantes t WHERE t.consentimiento_version = v.huella) AS votantes
+         FROM politica_versiones v
+        WHERE v.clave = 'politica_privacidad'
+        ORDER BY v.archivada_en DESC`
+    );
+    res.json(filas);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error listando las versiones de la política.' });
+  }
+});
+
+router.get('/politica/versiones/:huella', requireRole('admin'), async (req, res) => {
+  const { huella } = req.params;
+  if (!/^[0-9a-f]{16}$/.test(huella || '')) {
+    return res.status(400).json({ error: 'Huella no válida.' });
+  }
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT huella, titulo, contenido, archivada_en, archivada_por_nombre
+         FROM politica_versiones WHERE huella = ? AND clave = 'politica_privacidad'`,
+      [huella]
+    );
+    if (!fila) return res.status(404).json({ error: 'Esa versión no está archivada.' });
+    res.json(fila);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo la versión.' });
+  }
+});
+
 // Trae el contenido de una página. Si nunca se ha guardado nada, responde
 // con un título por defecto y contenido vacío (no 404), para que la
 // pantalla arranque en blanco lista para editar.
@@ -127,9 +168,19 @@ router.get('/:clave', async (req, res) => {
     // sí, porque la política pudo cambiar diez veces desde entonces.
     // Se calcula aquí y no en el navegador para que sea la misma para todos y
     // no dependa de la versión del teléfono.
-    salida.version = crypto.createHash('sha256')
-      .update(String(salida.contenido || ''), 'utf8').digest('hex').slice(0, 16);
+    salida.version = huellaDePolitica(salida.contenido);
     res.json(salida);
+    // SE ARCHIVA AL ENTREGARLO, no solo al guardarlo. Si solo se archivara en
+    // el PUT, el texto que ya estaba escrito antes de que existiera el archivo
+    // no entraría nunca — y es justo el que firmaron todos los votantes
+    // registrados hasta hoy. Va después del res.json a propósito: nadie debe
+    // esperar por esto, y si falla, la pantalla igual funciona.
+    if (clave === 'politica_privacidad' && salida.contenido) {
+      archivarVersion({
+        clave, titulo: salida.titulo, contenido: salida.contenido,
+        usuarioId: null, usuarioNombre: 'archivado al entregarse'
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error obteniendo el contenido.' });
@@ -148,6 +199,18 @@ router.put('/:clave', requireRole('admin'), async (req, res) => {
        ON DUPLICATE KEY UPDATE titulo = VALUES(titulo), contenido = VALUES(contenido), actualizado_por = VALUES(actualizado_por)`,
       [clave, (titulo || '').trim() || TITULOS_POR_DEFECTO[clave] || null, contenido || '', req.session.usuario.id]
     );
+    // Se archiva DESPUÉS de guardar y ANTES de responder: si el archivo
+    // falla no rompe nada (archivarVersion no lanza), pero mientras funcione
+    // ninguna versión de la política puede quedar guardada sin copia.
+    if (clave === 'politica_privacidad') {
+      await archivarVersion({
+        clave,
+        titulo: (titulo || '').trim() || TITULOS_POR_DEFECTO[clave] || null,
+        contenido: contenido || '',
+        usuarioId: req.session.usuario.id,
+        usuarioNombre: req.session.usuario.nombre || null
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

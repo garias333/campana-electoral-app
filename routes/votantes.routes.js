@@ -19,6 +19,8 @@ const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionV
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
 const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
 
+const { versionConocida } = require('../config/politicaVersiones');
+const { guardarFirma } = require('../config/firmaConsentimiento');
 const router = express.Router();
 
 /**
@@ -962,6 +964,28 @@ router.get('/mi-referido', async (req, res) => {
   }
 });
 
+/* EXHIBIR LA FIRMA. Sin esto la firma se guarda y no la ve nadie, que es
+   tanto como no tenerla: la evidencia sirve cuando se puede enseñar.
+   Va ANTES de /:id porque Express casa por orden y '/:id' se tragaría
+   cualquier cosa de un solo segmento — aquí son dos, pero el orden se
+   respeta igual para que nadie tenga que verificarlo mentalmente.
+   Restringida a quien administra: la firma es un dato biométrico de la
+   persona y no tiene por qué verla el líder que la capturó ni nadie más. */
+router.get('/:id/firma', requireRole('admin', 'coordinador'), async (req, res) => {
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT f.firma, f.creada_en, v.nombre
+         FROM votante_firmas f JOIN votantes v ON v.id = f.votante_id
+        WHERE f.votante_id = ?`, [req.params.id]
+    );
+    if (!fila) return res.status(404).json({ error: 'Esa persona no tiene firma registrada.' });
+    res.json(fila);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error obteniendo la firma.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const params = [req.params.id];
@@ -1377,8 +1401,9 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
         puesto_votacion, ctc_puesto_id, mesa_votacion, observaciones,
         consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
         consentimiento_email, consentimiento_sms, consentimiento_whatsapp, consentimiento_version,
+        consentimiento_version_ok,
         cliente_uuid, created_by, rama_aspirante_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [b.categoria, b.nombre, b.cedula || null, b.telefono || null, b.email || null,
        b.genero || 'prefiero_no_responder', b.edad || null, b.fecha_nacimiento || null, esOrganizacion ? null : (b.territorio_id || null),
        esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? b.organizacion.trim() : null,
@@ -1398,7 +1423,19 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
        b.consentimiento_autorizado ? (b.consentimiento_email ? 1 : 0) : 0,
        b.consentimiento_autorizado ? (b.consentimiento_sms ? 1 : 0) : 0,
        b.consentimiento_autorizado ? (b.consentimiento_whatsapp ? 1 : 0) : 0,
+       /* LA HUELLA SE GUARDA TAL COMO LLEGA, Y APARTE SI EL SERVIDOR LA
+          RECONOCE. No se recalcula contra la política vigente, y es
+          deliberado: la cola sin señal puede reenviar días después un
+          registro capturado cuando la política era otra. Sobrescribir esa
+          huella con la de hoy diría que la persona vio un texto que no vio
+          — sería fabricar la evidencia, no guardarla.
+          Lo que sí hace el servidor es COMPROBARLA contra el archivo. Antes
+          se guardaba a ciegas: cualquier cliente autenticado podía mandar
+          una huella inventada y quedaba archivada como si fuera la prueba.
+          Un 0 aquí no acusa a nadie —una campaña que estrena esto tendrá
+          muchos— pero distingue lo que se puede exhibir de lo que no. */
        (b.consentimiento_version || '').slice(0, 64) || null,
+       (await versionConocida(b.consentimiento_version)) ? 1 : 0,
        b.cliente_uuid || null,
        req.session.usuario.id,
        /* DE QUE RAMA CUELGA, CALCULADO AL GUARDAR.
@@ -1440,6 +1477,20 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
     console.error(err);
     const msg = err.code === 'ER_DUP_ENTRY' ? 'Ya registrado por otro líder.' : 'Error registrando el votante.';
     return res.status(400).json({ error: msg });
+  }
+
+  /* LA FIRMA, EN SU PROPIA TABLA Y DESPUÉS DEL INSERT.
+     No puede ir dentro del INSERT porque necesita el id que ese INSERT
+     genera. Y va con `await` pero sin poder tumbar nada: `guardarFirma` no
+     lanza. Si la firma llega ilegible o la tabla falla, la persona queda
+     registrada igual y el motivo se anota en el log — perder el registro de
+     alguien por un fallo al guardar su firma sería cambiar un problema por
+     otro peor.
+     Solo se guarda si además autorizó: una firma sin autorización marcada no
+     es evidencia de nada, y guardarla sería quedarse con el trazo de alguien
+     sin razón para tenerlo. */
+  if (b.consentimiento_autorizado && b.consentimiento_firma) {
+    await guardarFirma(pool, votanteId, b.consentimiento_firma);
   }
 
   /* EL SMS DE BIENVENIDA, si la campaña lo tiene encendido (apagado de

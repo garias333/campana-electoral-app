@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v128';
+const CACHE_NAME = 'estrategia-v129';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -53,6 +53,7 @@ const ARCHIVOS_CASCARON = [
      Con él, ve el botón y este le explica que hace falta señal — que es una
      información distinta de «esta app no dicta». */
   '/js/dictado.js',
+  '/js/firma.js',
   '/js/es-celular.js',
   '/js/instalar-app.js',
   '/js/mesas-testigo.js',

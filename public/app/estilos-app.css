@@ -282,6 +282,23 @@ main.app-cuerpo {
    borde ya distinguen el estado. */
 @media (prefers-reduced-motion: reduce) { .btn-dictado.oyendo { animation: none; } }
 
+/* EL LIENZO DE LA FIRMA.
+   `touch-action: none` no es cosmético: sin él, el primer trazo que baje o
+   suba desplaza la página en vez de dibujar, y la firma sale partida. Es el
+   error clásico de un canvas de dibujo en un teléfono. */
+.lienzo-firma {
+  display: block; width: 100%; height: 150px;
+  border: 1.5px dashed var(--navy); border-radius: 10px;
+  background: #fff; touch-action: none; cursor: crosshair;
+}
+.lienzo-firma.firmado { border-style: solid; }
+.firma-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 8px 0 4px;
+}
+#firma-estado { font-size: 0.78rem; color: var(--muted); }
+#firma-estado.lista { color: var(--copper); font-weight: 600; }
+
 .dictado-aviso { display: block; margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
 .dictado-aviso.malo { color: #A93226; }
 

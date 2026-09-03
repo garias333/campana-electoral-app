@@ -259,7 +259,8 @@ CREATE TABLE IF NOT EXISTS votantes (
   -- Huella del texto de la política que se le MOSTRÓ a la persona. Es lo que
   -- convierte la casilla en evidencia: sin ella, dentro de un año no se puede
   -- demostrar a qué dijo que sí, porque el texto pudo cambiar diez veces.
-  consentimiento_version VARCHAR(64) NULL COMMENT 'Cómo se obtuvo: verbal_formulario_campo, escrito, etc.',
+  consentimiento_version VARCHAR(64) NULL COMMENT 'Huella del texto de la política que se le mostró — resuelve contra politica_versiones',
+  consentimiento_version_ok TINYINT(1) NULL COMMENT 'El servidor pudo resolver esa huella contra el archivo. NULL = no se comprobó (fichas anteriores a la comprobación)',
   datos_verificados TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Marcado por Administrador o Asistente administrativo cuando ya revisaron/confirmaron la calidad de estos datos',
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el celular al guardar el formulario (antes de enviarlo) — evita crear un duplicado si el mismo registro se reintenta más de una vez tras un corte de señal',
   origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual',
@@ -273,6 +274,25 @@ CREATE TABLE IF NOT EXISTS votantes (
   INDEX idx_votante_territorio (territorio_id),
   UNIQUE INDEX uq_votante_cliente_uuid (cliente_uuid),
   FULLTEXT INDEX ft_votante_nombre (nombre)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------------------------------------------------------
+-- La firma que la persona dibuja en la pantalla al autorizar
+--
+-- EN TABLA APARTE, NO EN UNA COLUMNA DE `votantes`. Una firma es un PNG en
+-- data URL de entre 5 y 30 KB. Metida en la fila del votante, cada consulta
+-- que haga `SELECT *` para pintar una lista se traería megabytes que nadie
+-- va a mirar; con diez mil votantes son cientos de MB moviéndose por gusto.
+-- Es la misma razón por la que un catálogo guarda los polígonos aparte.
+--
+-- ON DELETE CASCADE a propósito: si se borra al votante —porque ejerció su
+-- derecho a que lo borren— la firma se va con él. Conservar la prueba de una
+-- autorización revocada sería justo lo contrario de lo que pide la norma.
+CREATE TABLE IF NOT EXISTS votante_firmas (
+  votante_id INT NOT NULL PRIMARY KEY,
+  firma MEDIUMTEXT NOT NULL COMMENT 'PNG en data URL, dibujado por la propia persona',
+  creada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------
@@ -707,6 +727,34 @@ CREATE TABLE IF NOT EXISTS contenido_paginas (
   actualizado_por INT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------------------------------------------------------
+-- Versiones archivadas de la política de tratamiento de datos
+--
+-- POR QUÉ EXISTE ESTA TABLA. Cada votante guarda en
+-- `consentimiento_version` una huella del texto que se le mostró al pedirle
+-- la autorización. Pero `contenido_paginas` tiene una sola fila por clave y
+-- el PUT la SOBRESCRIBE: en cuanto un administrador corrige una coma, esa
+-- huella apunta a un texto que ya no existe en ninguna parte.
+--
+-- Es decir que sin esta tabla la campaña guarda la huella digital de un
+-- documento que no puede producir. Y en una reclamación de habeas data la
+-- carga de la prueba es de la campaña: una huella suelta no demuestra nada.
+--
+-- SOLO SE INSERTA. Nunca se actualiza ni se borra una fila; el archivo es la
+-- evidencia. Por eso el nombre de quien archivó se guarda además como texto:
+-- si esa cuenta se borra, la fila sigue diciendo quién fue.
+CREATE TABLE IF NOT EXISTS politica_versiones (
+  huella CHAR(16) NOT NULL PRIMARY KEY COMMENT 'sha256 del contenido, 16 hex — la misma que devuelve /api/contenido/:clave',
+  clave VARCHAR(50) NOT NULL,
+  titulo VARCHAR(150) NULL,
+  contenido MEDIUMTEXT NOT NULL COMMENT 'El texto EXACTO que se le mostró a la persona',
+  archivada_por INT NULL,
+  archivada_por_nombre VARCHAR(150) NULL COMMENT 'Copia del nombre, para que sobreviva al borrado de la cuenta',
+  archivada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_polver_clave (clave, archivada_en),
+  FOREIGN KEY (archivada_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------

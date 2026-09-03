@@ -1661,6 +1661,13 @@ async function main() {
   }
   await agregarColumnaSiFalta(connection, 'votantes',
     'consentimiento_version VARCHAR(64) NULL AFTER consentimiento_whatsapp', 'consentimiento_version');
+  // ¿El servidor pudo resolver esa huella contra su archivo de versiones?
+  // NULL en todo lo ya registrado, que es lo honesto: esas fichas se crearon
+  // cuando nadie comprobaba nada, así que no consta ni que sí ni que no.
+  // Un 0 significa "se comprobó y no cuadró"; NULL, "no se comprobó".
+  await agregarColumnaSiFalta(connection, 'votantes',
+    "consentimiento_version_ok TINYINT(1) NULL COMMENT 'La huella recibida corresponde a una versión archivada de la política' AFTER consentimiento_version",
+    'consentimiento_version_ok');
 
   await agregarColumnaSiFalta(connection, 'sms_config',
     "baja_automatica TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Pegar el enlace de baja al final de cada SMS que no traiga {baja}'",
