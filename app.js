@@ -163,6 +163,12 @@ app.use('/actualizador', require('./routes/actualizador.routes'));
 // que la campaña tenga la licencia al día. El mensaje ya salió.
 app.use('/b', express.urlencoded({ extended: false }), require('./routes/baja.routes'));
 
+// Doble confirmación de la autorización de datos. Junto a /b y por lo mismo:
+// sin sesión y antes del candado. Y FUERA DE /api a propósito — `csrfProtegido`
+// cubre todo /api y exige un token que la persona, que no tiene cuenta aquí,
+// no puede tener; su confirmación fallaría con un 403.
+app.use('/c', express.urlencoded({ extended: false }), require('./routes/confirmacion.routes'));
+
 // --- Candado de licencia: bloquea TODO lo de abajo (rutas de API y
 // frontend) si esta instalación no tiene una licencia vigente. Va antes
 // de montar cualquier ruta real, para que nada funcione sin pasar por

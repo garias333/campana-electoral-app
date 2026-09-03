@@ -804,6 +804,15 @@ async function leerBienvenidaAutomatica() {
   } catch (_) { return false; }
 }
 
+/* Gemela de la anterior. Apagada ante cualquier fallo, igual que aquélla: la
+   respuesta segura cuando no se puede leer es no mandar nada. */
+async function leerConfirmacionEmailAutomatica() {
+  try {
+    const [[c]] = await pool.query('SELECT confirmacion_email_automatica FROM sms_config WHERE id = 1');
+    return !!(c && c.confirmacion_email_automatica);
+  } catch (_) { return false; }
+}
+
 router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_comunicaciones WHERE id = 1`);
@@ -827,6 +836,7 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       // porque es donde el administrador configura las comunicaciones.
       baja_automatica: await leerBajaAutomatica(),
       bienvenida_automatica: await leerBienvenidaAutomatica(),
+      confirmacion_email_automatica: await leerConfirmacionEmailAutomatica(),
       // El saldo REAL de la cuenta de Onurix. Con el ledger de licencias
       // mandando (es la decision tomada), este numero es el que dice si Onurix
       // puede respaldar lo que el ledger promete: si el ledger reparte 600 y
@@ -857,7 +867,7 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
     twilio_account_sid, twilio_auth_token, twilio_sms_from,
-    onurix_client, onurix_key, baja_automatica, bienvenida_automatica
+    onurix_client, onurix_key, baja_automatica, bienvenida_automatica, confirmacion_email_automatica
   } = req.body;
 
   try {
@@ -924,6 +934,15 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
          ON DUPLICATE KEY UPDATE bienvenida_automatica = VALUES(bienvenida_automatica)`,
         [bienvenida_automatica ? 1 : 0]);
       invalidarCacheSms();
+    }
+
+    /* La guarda `!== undefined` no es opcional: sin ella, guardar desde una
+       pantalla vieja que no conoce este campo lo apagaría en silencio. */
+    if (confirmacion_email_automatica !== undefined) {
+      await pool.query(
+        `INSERT INTO sms_config (id, confirmacion_email_automatica) VALUES (1, ?)
+         ON DUPLICATE KEY UPDATE confirmacion_email_automatica = VALUES(confirmacion_email_automatica)`,
+        [confirmacion_email_automatica ? 1 : 0]);
     }
 
     invalidarCacheComunicaciones();

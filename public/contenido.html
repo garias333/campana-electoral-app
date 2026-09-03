@@ -206,6 +206,17 @@
       <img id="foto-vista" style="display:none;" alt="Foto">
       <video id="video-vista" style="display:none;" controls></video>
       <div id="contenido-vista"></div>
+      <!-- EL ARCHIVO DE VERSIONES. Solo en la política y solo para admin: es
+           donde se demuestra a qué texto autorizó cada persona. Sin esto, la
+           tabla `politica_versiones` guarda evidencia que nadie puede ver. -->
+      <div id="archivo-politica" style="display:none;">
+        <h2 class="titulo-archivo-politica">Versiones archivadas de esta política</h2>
+        <p class="nota-archivo-politica">
+          Cada persona registrada guarda la huella del texto que se le mostró.
+          Aquí está ese texto, tal cual, para poder exhibirlo.
+        </p>
+        <div id="lista-versiones-politica"></div>
+      </div>
       <div id="contenido-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📄</div>Todavía no se ha escrito nada aquí.</div>
     </div>
 
@@ -646,6 +657,54 @@ document.getElementById('btn-guardar-contenido').addEventListener('click', async
     document.getElementById('btn-editar-contenido').style.display = 'inline-block';
   }
   await cargarContenido();
+  /* SOLO ADMIN, no admin+coordinador como el botón de editar. El endpoint
+     GET /contenido/politica/versiones es requireRole('admin'): ofrecérselo al
+     coordinador repetiría el desajuste que ya existe con el botón de editar,
+     que él ve y al guardar le devuelve un 403. */
+  if (ES_POLITICA && usuarioActual.rol === 'admin') await cargarVersionesPolitica();
+/** El archivo de versiones de la política: la evidencia que se puede exhibir. */
+async function cargarVersionesPolitica() {
+  const caja = document.getElementById('archivo-politica');
+  const lista = document.getElementById('lista-versiones-politica');
+  try {
+    const versiones = await api('/contenido/politica/versiones');
+    caja.style.display = 'block';
+    if (!versiones.length) {
+      lista.innerHTML = '<p class="nota-archivo-politica">Todavía no hay ninguna versión archivada. La primera se guarda sola en cuanto alguien abra la política desde la app.</p>';
+      return;
+    }
+    lista.innerHTML = versiones.map(v => `
+      <div class="version-politica">
+        <div>
+          <code>${escaparHtml(v.huella)}</code>
+          · ${escaparHtml(new Date(v.archivada_en).toLocaleString('es-CO'))}
+          · ${v.largo} caracteres
+          · <strong>${v.votantes}</strong> ${v.votantes === 1 ? 'persona autorizó' : 'personas autorizaron'} con este texto
+          <button type="button" class="btn-evidencia" data-ver="${escaparHtml(v.huella)}">Ver el texto</button>
+        </div>
+        <pre class="texto-version" id="texto-${escaparHtml(v.huella)}" style="display:none;"></pre>
+      </div>`).join('');
+    lista.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', async () => {
+      const pre = document.getElementById('texto-' + b.dataset.ver);
+      if (pre.style.display !== 'none') { pre.style.display = 'none'; b.textContent = 'Ver el texto'; return; }
+      b.disabled = true;
+      try {
+        const d = await api('/contenido/politica/versiones/' + b.dataset.ver);
+        // textContent y no innerHTML: esto es la prueba, se muestra tal cual y
+        // sin interpretar nada de lo que lleve dentro.
+        pre.textContent = d.contenido;
+        pre.style.display = 'block';
+        b.textContent = 'Ocultar';
+      } catch (err) { alert(err.message); }
+      finally { b.disabled = false; }
+    }));
+  } catch (err) {
+    // Que el archivo no cargue no puede romper la pantalla de la política: lo
+    // normal es que la tabla aún no exista en una instalación sin migrar.
+    console.error('No se pudo cargar el archivo de versiones:', err.message);
+  }
+}
+
 })();
 </script>
 </body>

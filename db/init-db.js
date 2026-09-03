@@ -1668,6 +1668,14 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'votantes',
     "consentimiento_version_ok TINYINT(1) NULL COMMENT 'La huella recibida corresponde a una versión archivada de la política' AFTER consentimiento_version",
     'consentimiento_version_ok');
+  // Doble confirmación. NULL mientras nadie confirme: no es "no confirmó",
+  // es que no se le ha pedido — que es el estado de todo lo ya registrado.
+  await agregarColumnaSiFalta(connection, 'votantes',
+    "consentimiento_confirmado_en DATETIME NULL COMMENT 'La persona lo confirmó desde su propio teléfono o correo' AFTER consentimiento_version_ok",
+    'consentimiento_confirmado_en');
+  await agregarColumnaSiFalta(connection, 'votantes',
+    "consentimiento_confirmado_canal ENUM('sms','email') NULL AFTER consentimiento_confirmado_en",
+    'consentimiento_confirmado_canal');
 
   await agregarColumnaSiFalta(connection, 'sms_config',
     "baja_automatica TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Pegar el enlace de baja al final de cada SMS que no traiga {baja}'",
@@ -1682,6 +1690,13 @@ async function main() {
   await agregarColumnaSiFalta(connection, 'sms_config',
     "bienvenida_automatica TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Mandar la plantilla Bienvenida (primer contacto) al registrar a alguien nuevo'",
     'bienvenida_automatica');
+  // Confirmación de consentimiento por CORREO al registrar. Apagada de fábrica
+  // como la de arriba, aunque el correo no gaste crédito: mandarle algo a
+  // alguien recién registrado lo decide la campaña, no el programa. Solo
+  // correo — para SMS está el botón manual de la ficha, que avisa del costo.
+  await agregarColumnaSiFalta(connection, 'sms_config',
+    "confirmacion_email_automatica TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Pedir la doble confirmación por correo al registrar a alguien nuevo'",
+    'confirmacion_email_automatica');
 
   // Índice de la lista de baja. El canal SMS pregunta por cada mensaje si ese
   // teléfono pidió no recibir, y el filtro que decide es `no_contactar = 1`:

@@ -21,6 +21,8 @@ const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropi
 
 const { versionConocida } = require('../config/politicaVersiones');
 const { guardarFirma } = require('../config/firmaConsentimiento');
+const { crearConfirmacion } = require('../config/confirmacionConsentimiento');
+const { pedirConfirmacionSiProcede } = require('../config/confirmacionAutomatica');
 const router = express.Router();
 
 /**
@@ -964,6 +966,94 @@ router.get('/mi-referido', async (req, res) => {
   }
 });
 
+/* PEDIRLE A LA PERSONA QUE CONFIRME DESDE SU PROPIO CANAL.
+   POR SMS, SIEMPRE A MANO: cada mensaje gasta crédito real del saldo, y una
+   campaña que registre mil personas en un día se gastaría mil créditos sin
+   que nadie lo hubiera decidido. Por correo puede ser automático, pero solo
+   si la campaña lo enciende — ver `config/confirmacionAutomatica.js`, que
+   nace apagado y aplica exactamente estos mismos filtros.
+   Tampoco se manda a quien no autorizó ese canal: pedirle permiso por un medio
+   que dijo que no quería es exactamente lo que la autorización prohíbe. */
+router.post('/:id/pedir-confirmacion', requireRole('admin', 'coordinador'), async (req, res) => {
+  const canal = req.body && req.body.canal;
+  if (canal !== 'sms' && canal !== 'email') {
+    return res.status(400).json({ error: 'El canal debe ser sms o email.' });
+  }
+  try {
+    /* TAMBIÉN ACOTADO POR RAMA, y aquí importa el doble: este botón gasta
+       crédito real de SMS de la campaña. Sin el filtro, un coordinador podía
+       disparar mensajes contra toda la base, no solo contra su gente. */
+    let sqlV = `SELECT id, nombre, telefono, email, consentimiento_autorizado,
+                       consentimiento_sms, consentimiento_email, consentimiento_confirmado_en
+                  FROM votantes WHERE id = ?`;
+    const paramsV = [req.params.id];
+    if (req.alcance) {
+      sqlV += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`;
+      paramsV.push(...parametrosAlcanceVotantes(req.alcance));
+    }
+    const [[v]] = await pool.query(sqlV, paramsV);
+    if (!v) return res.status(404).json({ error: 'Esa persona no existe.' });
+    if (!v.consentimiento_autorizado) {
+      return res.status(400).json({ error: 'Esa persona no tiene autorización registrada.' });
+    }
+    if (v.consentimiento_confirmado_en) {
+      return res.json({ ok: true, yaConfirmado: true, en: v.consentimiento_confirmado_en });
+    }
+    // Un 0 explícito es un no; NULL es "no consta" y se deja pasar, igual que
+    // hace `autorizaCanal` en comunicaciones — si no, las fichas anteriores a
+    // que existiera la pregunta quedarían fuera de todo.
+    const autorizaEse = canal === 'sms' ? v.consentimiento_sms !== 0 : v.consentimiento_email !== 0;
+    if (!autorizaEse) {
+      return res.status(400).json({ error: `Esa persona no autorizó que se le escriba por ${canal === 'sms' ? 'mensaje de texto' : 'correo'}.` });
+    }
+    const destino = canal === 'sms' ? v.telefono : v.email;
+    if (!destino) return res.status(400).json({ error: `No hay ${canal === 'sms' ? 'teléfono' : 'correo'} registrado.` });
+
+    /* NO REENVIAR ANTES DE 24 HORAS. Cada SMS gasta crédito del saldo de la
+       campaña —y uno con enlace ocupa dos segmentos, o sea dos créditos—, así
+       que una pantalla que reenvíe de un clic puede quemar el saldo sin que
+       nadie se dé cuenta. Y para la persona, recibir el mismo enlace cuatro
+       veces se parece mucho al acoso que la autorización pretende evitar.
+       Con `?forzar=1` se salta, para el caso legítimo de un número corregido. */
+    if (!req.query.forzar) {
+      const [[reciente]] = await pool.query(
+        `SELECT enviada_en FROM consentimiento_confirmaciones
+          WHERE votante_id = ? AND canal = ? AND enviada_en > NOW() - INTERVAL 24 HOUR
+          ORDER BY enviada_en DESC LIMIT 1`, [v.id, canal]
+      );
+      if (reciente) {
+        return res.status(429).json({
+          error: 'Ya se le envió una confirmación por ese medio en las últimas 24 horas.',
+          enviadaEn: reciente.enviada_en
+        });
+      }
+    }
+
+    const { enlace } = await crearConfirmacion({ req, votanteId: v.id, canal, destino });
+
+    if (canal === 'email') {
+      const { enviarCorreoMasivo } = require('../config/mailer');
+      await enviarCorreoMasivo(destino,
+        'Confirme su autorización de datos',
+        'Usted autorizó que la campaña guarde sus datos y le escriba.\n\n' +
+        'Para dejar constancia, abra este enlace y pulse el botón:\n' + enlace + '\n\n' +
+        'Si no reconoce esta solicitud, ignore este mensaje: sin su confirmación no pasa nada.',
+        null);
+    } else {
+      const { enviarSMS } = require('../config/sms');
+      // Corto a propósito: cada segmento de más es otro crédito, y config/sms.js
+      // ya le pega el enlace de baja al final cuando esa opción está encendida.
+      await enviarSMS(destino, 'Confirme su autorizacion de datos: ' + enlace);
+    }
+    res.json({ ok: true, canal, destino });
+  } catch (err) {
+    console.error(err);
+    // Los errores del canal traen mensajes que sí sirven a quien los lee
+    // (fuera de franja, dado de baja, sin saldo): se dejan pasar tal cual.
+    res.status(400).json({ error: err.message || 'No se pudo enviar la confirmación.' });
+  }
+});
+
 /* EXHIBIR LA FIRMA. Sin esto la firma se guarda y no la ve nadie, que es
    tanto como no tenerla: la evidencia sirve cuando se puede enseñar.
    Va ANTES de /:id porque Express casa por orden y '/:id' se tragaría
@@ -973,11 +1063,22 @@ router.get('/mi-referido', async (req, res) => {
    persona y no tiene por qué verla el líder que la capturó ni nadie más. */
 router.get('/:id/firma', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
-    const [[fila]] = await pool.query(
-      `SELECT f.firma, f.creada_en, v.nombre
-         FROM votante_firmas f JOIN votantes v ON v.id = f.votante_id
-        WHERE f.votante_id = ?`, [req.params.id]
-    );
+    /* ACOTADA POR RAMA, igual que GET /:id. Sin esto, un coordinador podía
+       leer la firma —un dato biométrico— de CUALQUIER persona de la campaña,
+       no solo de las que cuelgan de él. La ruta hermana sí filtraba: la
+       incoherencia entre dos rutas del mismo recurso es la peor clase de
+       agujero, porque parece cubierto. */
+    let sql = `SELECT f.firma, f.creada_en, v.nombre
+                 FROM votante_firmas f JOIN votantes v ON v.id = f.votante_id
+                WHERE f.votante_id = ?`;
+    const params = [req.params.id];
+    if (req.alcance) {
+      // Sin segundo argumento el helper usa el alias `v.`, que es justo el de
+      // esta consulta. Pasarle 'v.' con punto daría `v..lider_id`.
+      sql += ` AND ${condicionAlcanceVotantes(req.alcance)}`;
+      params.push(...parametrosAlcanceVotantes(req.alcance));
+    }
+    const [[fila]] = await pool.query(sql, params);
     if (!fila) return res.status(404).json({ error: 'Esa persona no tiene firma registrada.' });
     res.json(fila);
   } catch (err) {
@@ -1499,6 +1600,16 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
      y no puede hacer fallar el registro. */
   encolarBienvenida({ tipo: 'votante', id: votanteId, nombre: b.nombre, telefono: b.telefono })
     .catch(err => console.error('Bienvenida automática (votante):', err.message));
+
+  /* Y la doble confirmación por correo, si la campaña la tiene encendida.
+     Mismo trato que la bienvenida: sin `await` para no hacer esperar a quien
+     está registrando de pie en la calle, y con `.catch()` aunque el módulo no
+     lance — una promesa rechazada sin manejar tumba el proceso de Node. */
+  pedirConfirmacionSiProcede(req, votanteId, {
+    email: b.email,
+    consentimiento_autorizado: b.consentimiento_autorizado,
+    consentimiento_email: b.consentimiento_autorizado ? (b.consentimiento_email ? 1 : 0) : 0
+  }).catch(err => console.error('Confirmación automática (votante):', err.message));
 
   // La geocodificación se hace después de confirmar el registro, y nunca
   // hace fallar la creación del contacto aunque el servicio no responda

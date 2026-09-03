@@ -377,6 +377,21 @@
               </span>
             </label>
           </div>
+
+      <div class="campo interruptor-destacado">
+        <label>
+          <input type="checkbox" id="comunicaciones-confirmacion-email-automatica">
+          <strong>Pedir la confirmación de autorización por correo</strong>
+        </label>
+        <small>
+          Al registrar a alguien que dejó su correo y autorizó que se le escriba,
+          se le manda un enlace para que confirme desde su propio buzón. Sirve
+          como prueba de que la autorización la dio la persona y no quien la
+          registró, y de paso comprueba que el correo existe.
+          No gasta crédito: el correo no cuesta. <strong>Solo correo</strong> —
+          por SMS se pide a mano desde la ficha, porque cada mensaje sí gasta.
+        </small>
+      </div>
         </div>
 
         <div class="msj-panel msj-panel-secundario msj-panel-twilio">
@@ -510,6 +525,7 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-baja-automatica').checked = c.baja_automatica !== false;
   // Aqui el undefined significa lo contrario que arriba: apagada.
   document.getElementById('comunicaciones-bienvenida-automatica').checked = c.bienvenida_automatica === true;
+  document.getElementById('comunicaciones-confirmacion-email-automatica').checked = c.confirmacion_email_automatica === true;
   // Decir CUAL cuenta se esta usando. Sin esto, dos campos vacios se leen
   // como "el SMS no esta configurado", cuando es justo lo contrario: esta
   // usando la cuenta del proveedor, que es lo normal.
@@ -557,7 +573,8 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         onurix_client: document.getElementById('comunicaciones-onurix-client').value.trim(),
         onurix_key: valorSecretoOVacio('comunicaciones-onurix-key'),
         baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked,
-        bienvenida_automatica: document.getElementById('comunicaciones-bienvenida-automatica').checked
+        bienvenida_automatica: document.getElementById('comunicaciones-bienvenida-automatica').checked,
+        confirmacion_email_automatica: document.getElementById('comunicaciones-confirmacion-email-automatica').checked
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }

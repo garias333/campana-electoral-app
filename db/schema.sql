@@ -261,6 +261,8 @@ CREATE TABLE IF NOT EXISTS votantes (
   -- demostrar a qué dijo que sí, porque el texto pudo cambiar diez veces.
   consentimiento_version VARCHAR(64) NULL COMMENT 'Huella del texto de la política que se le mostró — resuelve contra politica_versiones',
   consentimiento_version_ok TINYINT(1) NULL COMMENT 'El servidor pudo resolver esa huella contra el archivo. NULL = no se comprobó (fichas anteriores a la comprobación)',
+  consentimiento_confirmado_en DATETIME NULL COMMENT 'La persona lo confirmó desde su propio teléfono o correo (doble confirmación)',
+  consentimiento_confirmado_canal ENUM('sms','email') NULL,
   datos_verificados TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Marcado por Administrador o Asistente administrativo cuando ya revisaron/confirmaron la calidad de estos datos',
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el celular al guardar el formulario (antes de enviarlo) — evita crear un duplicado si el mismo registro se reintenta más de una vez tras un corte de señal',
   origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual',
@@ -292,6 +294,37 @@ CREATE TABLE IF NOT EXISTS votante_firmas (
   votante_id INT NOT NULL PRIMARY KEY,
   firma MEDIUMTEXT NOT NULL COMMENT 'PNG en data URL, dibujado por la propia persona',
   creada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------------------------------------------------------
+-- Doble confirmación: la autorización vuelta a decir por la propia persona
+--
+-- La firma se dibuja en el teléfono DEL LÍDER, delante de él. Esto es lo
+-- contrario: un enlace que llega al teléfono o al correo DE LA PERSONA, y que
+-- solo ella puede abrir. Para la mensajería es la prueba más fuerte que se
+-- puede tener, y de paso valida que el número o el correo existen.
+--
+-- SE GUARDA EL SHA-256 DEL TOKEN, NUNCA EL TOKEN. Igual que `password_resets`:
+-- quien lea esta tabla no puede confirmar por nadie. El token en claro existe
+-- solo dentro del enlace que se envió.
+--
+-- NO se copia el patrón del enlace de baja (`config/bajaContacto.js`): aquel es
+-- un HMAC recalculable, sin caducidad y reutilizable. Sirve para una baja
+-- —repetirla no hace daño— pero como prueba de un acto concreto no vale.
+CREATE TABLE IF NOT EXISTS consentimiento_confirmaciones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  votante_id INT NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  canal ENUM('sms','email') NOT NULL,
+  destino VARCHAR(150) NOT NULL COMMENT 'Número o correo al que se envió — parte de la evidencia',
+  expira_en DATETIME NOT NULL,
+  enviada_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  confirmada_en DATETIME NULL,
+  confirmada_ip VARCHAR(45) NULL,
+  confirmada_agente VARCHAR(255) NULL COMMENT 'User-Agent del navegador que confirmó',
+  UNIQUE KEY uq_confirm_token (token_hash),
+  INDEX idx_confirm_votante (votante_id, enviada_en),
   FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

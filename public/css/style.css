@@ -1823,6 +1823,40 @@ table td .btn-primario:hover {
 /* --- Autorización de tratamiento de datos, como evidencia ----------------
    Va en la ficha de la persona y es de SOLO LECTURA: poder editarla la
    volvería inútil como prueba. */
+/* Los botones del bloque de evidencia del consentimiento. Pequeños y sobrios
+   a propósito: están dentro de un bloque de SOLO LECTURA, y no deben competir
+   con los botones de guardar de la ficha. */
+/* El archivo de versiones de la política de datos. */
+.titulo-archivo-politica { font-size: 1.05rem; color: #10233F; margin: 28px 0 4px; }
+.nota-archivo-politica { font-size: 0.85rem; color: #5B6472; margin: 0 0 14px; }
+.version-politica {
+  border: 1px solid #E2E7EE; border-radius: 8px; padding: 10px 12px;
+  margin-bottom: 10px; font-size: 0.85rem; color: #3A4454;
+}
+.version-politica code { background: #F1F4F9; padding: 1px 5px; border-radius: 4px; }
+/* El texto archivado se muestra TAL CUAL, con sus saltos de línea: es la
+   prueba, y reformatearla sería alterarla. De ahí el <pre> y el pre-wrap. */
+.texto-version {
+  margin: 10px 0 0; padding: 12px; background: #FBFCFD;
+  border: 1px solid #E2E7EE; border-radius: 6px;
+  white-space: pre-wrap; word-break: break-word;
+  font-size: 0.8rem; line-height: 1.5; max-height: 320px; overflow-y: auto;
+}
+
+.btn-evidencia {
+  border: 1px solid #B9C2CF; background: #fff; color: #10233F;
+  border-radius: 6px; padding: 3px 9px; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; margin-left: 6px;
+}
+.btn-evidencia:hover:not(:disabled) { background: #F1F4F9; }
+.btn-evidencia:disabled { opacity: 0.6; cursor: default; }
+/* La firma, con fondo blanco explícito: se guarda con el trazo oscuro y sin
+   fondo, así que sobre una tarjeta gris se leería mal. */
+.firma-vista {
+  display: block; margin-top: 6px; max-width: 260px; width: 100%;
+  border: 1px solid #D9DEE7; border-radius: 8px; background: #fff;
+}
+
 .detalle-consentimiento {
   border: 1px solid var(--color-border); border-radius: 10px;
   padding: 12px 14px; background: var(--color-bg); font-size: 0.9rem; line-height: 1.6;

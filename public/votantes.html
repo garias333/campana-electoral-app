@@ -1963,10 +1963,88 @@ function pintarConsentimiento(v) {
     </div>
     <div class="consent-linea consent-version">
       ${v.consentimiento_version
-        ? `Texto mostrado: versión <code>${escaparHtml(v.consentimiento_version)}</code>`
+        ? `Texto mostrado: versión <code>${escaparHtml(v.consentimiento_version)}</code> ${selloVersion(v)}`
         : 'Sin versión del texto: la ficha es anterior a que se registrara cuál política se mostraba.'}
     </div>
+    <div class="consent-linea">${lineaConfirmacion(v)}</div>
+    <div class="consent-linea" id="linea-firma-votante">${lineaFirma(v)}</div>
     ${v.no_contactar ? '<div class="consent-linea consent-baja">Pidió no recibir más mensajes.</div>' : ''}`;
+
+  engancharBotonesEvidencia(v);
+}
+
+/* ¿EL SERVIDOR RECONOCIÓ ESA HUELLA? Sin este sello, la línea de arriba solo
+   dice que el celular mandó un código — que es lo que pasaba antes, cuando el
+   servidor guardaba lo que le dijeran sin comprobarlo. NULL no es un fallo:
+   son las fichas anteriores a que existiera la comprobación. */
+function selloVersion(v) {
+  if (v.consentimiento_version_ok === null || v.consentimiento_version_ok === undefined) {
+    return '<span class="consent-nc">(sin comprobar)</span>';
+  }
+  return Number(v.consentimiento_version_ok) === 1
+    ? '<span class="consent-si">✓ el texto está archivado</span>'
+    : '<span class="consent-no">✗ no corresponde a ninguna versión archivada</span>';
+}
+
+/* LA DOBLE CONFIRMACIÓN, y el botón para pedirla.
+   El botón solo se ofrece a admin y coordinador porque el servidor solo se lo
+   permite a ellos: ofrecer lo que la API va a negar con un 403 es peor que no
+   ofrecerlo — la persona cree que algo se rompió. */
+function lineaConfirmacion(v) {
+  if (v.consentimiento_confirmado_en) {
+    const cuando = new Date(v.consentimiento_confirmado_en).toLocaleString('es-CO');
+    const canal = v.consentimiento_confirmado_canal === 'sms' ? 'mensaje de texto' : 'correo';
+    return `<span class="consent-si">Lo confirmó desde su ${escaparHtml(canal)}</span> · ${escaparHtml(cuando)}`;
+  }
+  if (!v.consentimiento_autorizado) return '<span class="consent-nc">Sin confirmar desde su propio medio.</span>';
+  const puede = usuarioActual && ['admin', 'coordinador'].includes(usuarioActual.rol);
+  if (!puede) return '<span class="consent-nc">Sin confirmar desde su propio medio.</span>';
+  return `<span class="consent-nc">Sin confirmar desde su propio medio.</span>
+    ${v.email ? `<button type="button" class="btn-evidencia" data-pedir="email" data-id="${v.id}">Pedirlo por correo</button>` : ''}
+    ${v.telefono ? `<button type="button" class="btn-evidencia" data-pedir="sms" data-id="${v.id}">Pedirlo por SMS (gasta crédito)</button>` : ''}`;
+}
+
+/* LA FIRMA NO VIAJA EN EL LISTADO —vive en su propia tabla y pesa— así que se
+   pide solo cuando alguien la quiere ver. Un botón, no una carga automática:
+   abrir la ficha de cien personas no debe traer cien imágenes. */
+function lineaFirma(v) {
+  const puede = usuarioActual && ['admin', 'coordinador'].includes(usuarioActual.rol);
+  if (!puede) return '';
+  return `Firma de la persona: <button type="button" class="btn-evidencia" data-firma="${v.id}">Ver</button>`;
+}
+
+function engancharBotonesEvidencia(v) {
+  const caja = document.getElementById('detalle-consentimiento');
+  if (!caja) return;
+
+  const verFirma = caja.querySelector('[data-firma]');
+  if (verFirma) verFirma.addEventListener('click', async () => {
+    verFirma.disabled = true;
+    try {
+      const d = await api(`/votantes/${verFirma.dataset.firma}/firma`);
+      document.getElementById('linea-firma-votante').innerHTML =
+        `Firma de la persona:<br><img src="${d.firma}" alt="Firma" class="firma-vista">`;
+    } catch (err) {
+      verFirma.disabled = false;
+      alert(err.message);
+    }
+  });
+
+  caja.querySelectorAll('[data-pedir]').forEach(boton => {
+    boton.addEventListener('click', async () => {
+      const canal = boton.dataset.pedir;
+      if (canal === 'sms' && !confirm('Enviar un SMS gasta crédito de la campaña. ¿Continuar?')) return;
+      const antes = boton.textContent;
+      boton.disabled = true; boton.textContent = 'Enviando...';
+      try {
+        const r = await api(`/votantes/${boton.dataset.id}/pedir-confirmacion`, { method: 'POST', body: { canal } });
+        boton.textContent = r.yaConfirmado ? 'Ya estaba confirmado' : 'Enviado';
+      } catch (err) {
+        boton.disabled = false; boton.textContent = antes;
+        alert(err.message);
+      }
+    });
+  });
 }
 
 /**
