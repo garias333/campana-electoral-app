@@ -229,22 +229,54 @@ main.app-cuerpo {
    el tamaño de letra por accesibilidad. */
 .campo-con-dictado { display: flex; gap: 8px; align-items: stretch; }
 .campo-con-dictado input { flex: 1; min-width: 0; }
+/* EN RELIEVE, Y QUE EL RELIEVE SE HUNDA AL PULSAR. La tecla se dibuja con tres
+   sombras: el canto inferior solido —el grosor del boton—, una sombra ambiental
+   difusa que lo despega del papel, y un brillo interior arriba que hace de luz.
+   Al pulsar, el boton baja los mismos 3px que mide su canto y el canto
+   desaparece: el dedo lo aplasta contra la pagina. Sin ese hundido el relieve es
+   un adorno; con el, la pantalla responde como responderia una tecla. */
 .btn-dictado {
   flex: none;
   width: 48px;
   border: 1.5px solid var(--navy);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, var(--cream) 58%, #ece3d3 100%);
+  box-shadow: 0 3px 0 var(--navy),
+              0 5px 9px rgba(20, 42, 63, 0.26),
+              inset 0 1px 0 rgba(255, 255, 255, 0.95);
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
   font-family: inherit;
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
+  -webkit-tap-highlight-color: transparent;
 }
-.btn-dictado:active { background: var(--cream); }
+.btn-dictado:active {
+  transform: translateY(3px);
+  background: linear-gradient(180deg, #ece3d3 0%, var(--cream) 100%);
+  box-shadow: 0 0 0 var(--navy),
+              0 1px 2px rgba(20, 42, 63, 0.22),
+              inset 0 2px 5px rgba(20, 42, 63, 0.20);
+}
 /* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: en la calle, con sol,
    un cambio de tono no se distingue. El latido dice «te estoy oyendo» sin
    depender de la pantalla ni de la vista de quien la mira. */
-.btn-dictado.oyendo { background: var(--copper); border-color: var(--copper); animation: dictado-latido 1s ease-in-out infinite; }
+.btn-dictado.oyendo {
+  background: linear-gradient(180deg, #d8752f 0%, var(--copper) 60%, #a54e18 100%);
+  border-color: #8f4413;
+  box-shadow: 0 3px 0 #7a3a10,
+              0 5px 10px rgba(143, 68, 19, 0.38),
+              inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  animation: dictado-latido 1s ease-in-out infinite;
+}
+/* Pulsar mientras escucha es como se DETIENE el dictado, y esa pulsacion pasa
+   siempre. Sin esta regla, `.oyendo` (que va despues) le devolveria el canto
+   levantado y el boton bajaria 3px sin hundirse: se veria flotando. */
+.btn-dictado.oyendo:active {
+  box-shadow: 0 0 0 #7a3a10,
+              0 1px 2px rgba(143, 68, 19, 0.30),
+              inset 0 2px 5px rgba(60, 25, 5, 0.34);
+}
 @keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 /* Quien haya pedido menos animacion en su sistema no la recibe: el color y el
    borde ya distinguen el estado. */
@@ -253,7 +285,19 @@ main.app-cuerpo {
 .dictado-aviso { display: block; margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
 .dictado-aviso.malo { color: #A93226; }
 
-.btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
+/* `inline-flex`, NO inline. Este selector lo llevan un <a> («Lugar de votacion»)
+   y dos <button> (GPS, Subir ahora). Un <button> ya es inline-block y reserva su
+   alto; un <a> es inline puro, y el padding vertical de un inline NO empuja a
+   nadie: se desborda y se pinta ENCIMA del campo de arriba. Mientras el enlace
+   vivio dentro de un `display:flex` no se vio, porque ser hijo de un flex lo
+   convertia en bloque. Al sacarlo de ahi reaparecio. */
+.btn-mini {
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap; padding: 13px 12px; font-size: 0.82rem;
+  border-radius: 10px; border: 1.5px solid var(--navy);
+  background: #fff; color: var(--navy); font-weight: 600;
+  text-decoration: none; cursor: pointer;
+}
 
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-app {
