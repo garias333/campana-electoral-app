@@ -606,8 +606,14 @@ aplicarFormatoNombrePropio('#f-nombre');
    se borra esta llamada y el <script> de dictado.js. */
 if (typeof activarDictado === 'function') {
   activarDictado([
-    { selector: '#f-cedula', tipo: 'digitos', etiqueta: 'número de identificación' },
-    { selector: '#f-nombre', tipo: 'nombre',  etiqueta: 'nombre' }
+    { selector: '#f-cedula',    tipo: 'digitos',   etiqueta: 'número de identificación' },
+    { selector: '#f-nombre',    tipo: 'nombre',    etiqueta: 'nombre' },
+    /* El teléfono usa `digitos` a secas: el campo ya tiene su propio escuchador
+       de `input` que lo formatea a «300 123 4567», y el dictado dispara ese
+       evento. Una segunda copia del formateo aquí se separaría de aquella. */
+    { selector: '#f-telefono',  tipo: 'digitos',   etiqueta: 'teléfono' },
+    { selector: '#f-email',     tipo: 'correo',    etiqueta: 'correo' },
+    { selector: '#f-direccion', tipo: 'direccion', etiqueta: 'dirección' }
   ]);
 }
 activarBotonGps('btn-gps', 'f-direccion', aplicarUbicacionGps);

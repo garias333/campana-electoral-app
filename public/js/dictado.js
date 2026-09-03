@@ -54,7 +54,44 @@
     return typeof formatoNombrePropio === 'function' ? formatoNombrePropio(limpio) : limpio;
   }
 
-  const TRANSFORMA = { digitos: aDigitos, nombre: aNombre };
+  /**
+   * Correo dictado. Nadie dice «arroba jota eme»; dice «juan punto perez arroba
+   * gmail punto com». Chrome a veces ya devuelve el simbolo y a veces la
+   * palabra, asi que se admiten las dos formas.
+   *
+   * EL ORDEN DE LOS REEMPLAZOS IMPORTA: «guion bajo» tiene que resolverse antes
+   * que «guion», o el primero se convertiria en «-bajo».
+   */
+  function aCorreo(texto) {
+    let t = texto.toLowerCase().trim();
+    t = t.replace(/\s*(arroba|at)\s*/g, '@');
+    t = t.replace(/\s*(guion|guión)\s+bajo\s*/g, '_');
+    t = t.replace(/\s*(guion|guión)\s*/g, '-');
+    t = t.replace(/\s*punto\s*/g, '.');
+    t = t.replace(/\s+/g, '');
+    // Un correo sin arroba no es un correo: se avisa en vez de escribir basura.
+    return /@/.test(t) ? t : '';
+  }
+
+  /**
+   * Direccion dictada. En Colombia se dice «calle diez numeral cinco guion
+   * veinte», y eso se escribe «Calle 10 #5-20» — el propio campo lo sugiere en
+   * su marcador de posicion.
+   *
+   * NO se intenta convertir «diez» en «10»: Chrome ya devuelve las cifras casi
+   * siempre, y una tabla de numeros escritos acertaria con «diez» y fallaria con
+   * «ciento cuarenta y dos». Se prefiere dejar lo que se oyo, que la persona lee
+   * y corrige, antes que inventar un numero.
+   */
+  function aDireccion(texto) {
+    let t = texto.trim();
+    t = t.replace(/\s*(numeral|almohadilla|n[uú]mero)\s*/gi, ' #');
+    t = t.replace(/\s*(guion|guión)\s*/gi, '-');
+    t = t.replace(/\s+/g, ' ').replace(/#\s+/g, '#').trim();
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+  }
+
+  const TRANSFORMA = { digitos: aDigitos, nombre: aNombre, correo: aCorreo, direccion: aDireccion };
 
   function escribirEn(campo, valor) {
     campo.value = valor;
@@ -87,11 +124,16 @@
     const aviso = document.createElement('small');
     aviso.className = 'dictado-aviso';
 
+    /* EL MICROFONO VA DELANTE DEL CAMPO, no detras. Con el boton a la derecha,
+       el dedo que lo pulsa tapa justo lo que se acaba de escribir; a la
+       izquierda queda fuera de la linea de lectura. Y en un formulario de doce
+       campos, tenerlos todos en la misma columna deja una guia vertical: se
+       encuentra el de al lado sin buscarlo. */
     const caja = document.createElement('div');
     caja.className = 'campo-con-dictado';
     campo.parentNode.insertBefore(caja, campo);
-    caja.appendChild(campo);
     caja.appendChild(boton);
+    caja.appendChild(campo);
     caja.parentNode.insertBefore(aviso, caja.nextSibling);
 
     let reconociendo = null;
