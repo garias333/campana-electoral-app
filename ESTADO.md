@@ -157,3 +157,8 @@ la base real y aplicado en las tres instalaciones.
 <!-- cierre automático -->
 Sesión cerrada: 2026-09-02 11:53 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 7b2a1da Parche 251: el logo de WhatsApp en el renglón de Soporte | Sin commitear: 0 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-09-03 17:44 UTC desde srv1807015
+Rama: auditoria-fable | Commit: af80452 Parche 253: el gráfico de apoyos por campaña | Sin commitear: 0 archivo(s)
