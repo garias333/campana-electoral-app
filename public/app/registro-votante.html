@@ -230,6 +230,7 @@
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/js/apoyos.js"></script>
+<script src="/js/dictado.js"></script>
 <script>
 let territorios = [];
 let catalogoColombia = null;
@@ -598,6 +599,17 @@ document.getElementById('f-telefono').addEventListener('input', (e) => {
   e.target.value = formatoTelefonoColombia(e.target.value);
 });
 aplicarFormatoNombrePropio('#f-nombre');
+
+/* DICTADO POR VOZ en los dos campos que más se teclean de pie en la calle.
+   `activarDictado` no hace nada si el navegador no lo soporta —Safari de iPhone
+   no lo trae— así que no hace falta preguntar aquí. Para retirar la función:
+   se borra esta llamada y el <script> de dictado.js. */
+if (typeof activarDictado === 'function') {
+  activarDictado([
+    { selector: '#f-cedula', tipo: 'digitos', etiqueta: 'número de identificación' },
+    { selector: '#f-nombre', tipo: 'nombre',  etiqueta: 'nombre' }
+  ]);
+}
 activarBotonGps('btn-gps', 'f-direccion', aplicarUbicacionGps);
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }

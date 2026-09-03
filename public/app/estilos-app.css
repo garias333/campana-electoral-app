@@ -212,6 +212,41 @@ main.app-cuerpo {
    con el de style.css a propósito: si las dos hojas cuentan versiones
    distintas de la misma paleta, la que se lea primero decide mal.       */
 .seccion-titulo.acento { color: #FFC300; }
+/* DICTADO POR VOZ — el microfono que va pegado al campo.
+
+   El boton NO es un `.btn-mini` reciclado: aquel es ancho y con texto, y aqui
+   hace falta un cuadrado que no le robe sitio al campo en una pantalla de
+   360px. Mismo borde y mismo azul, para que se lean como de la misma familia.
+
+   `align-items: stretch` en la caja: el boton crece hasta la altura del input,
+   sea cual sea. Con una altura fija se descuadra en cuanto el navegador cambia
+   el tamaño de letra por accesibilidad. */
+.campo-con-dictado { display: flex; gap: 8px; align-items: stretch; }
+.campo-con-dictado input { flex: 1; min-width: 0; }
+.btn-dictado {
+  flex: none;
+  width: 48px;
+  border: 1.5px solid var(--navy);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-dictado:active { background: var(--cream); }
+/* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: en la calle, con sol,
+   un cambio de tono no se distingue. El latido dice «te estoy oyendo» sin
+   depender de la pantalla ni de la vista de quien la mira. */
+.btn-dictado.oyendo { background: var(--copper); border-color: var(--copper); animation: dictado-latido 1s ease-in-out infinite; }
+@keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+/* Quien haya pedido menos animacion en su sistema no la recibe: el color y el
+   borde ya distinguen el estado. */
+@media (prefers-reduced-motion: reduce) { .btn-dictado.oyendo { animation: none; } }
+
+.dictado-aviso { display: block; margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
+.dictado-aviso.malo { color: #A93226; }
+
 .btn-mini { white-space: nowrap; padding: 13px 12px; font-size: 0.82rem; border-radius: 10px; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); font-weight: 600; }
 
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
