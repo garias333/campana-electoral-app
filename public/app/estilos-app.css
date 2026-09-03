@@ -154,8 +154,14 @@ main.app-cuerpo {
 .campo-app input[readonly] { background: var(--cream); color: var(--muted); }
 .campo-app small { display: block; margin-top: 5px; font-size: 0.76rem; color: var(--muted); }
 .campo-app .error { color: var(--error); }
-.campo-app.con-boton { display: flex; gap: 8px; align-items: flex-end; }
-.campo-app.con-boton input { flex: 1; }
+
+/* UN BOTON QUE ACOMPAÑA AL CAMPO DE ARRIBA, no al de abajo.
+
+   El margen inferior es el de `.campo-app` (16px) para que el siguiente campo
+   quede a la distancia de siempre; arriba va pegado —margen negativo sobre los
+   16px del campo— porque pertenece a EL, y con la separacion normal se leeria
+   como un boton suelto entre dos campos. */
+.boton-bajo-campo { margin: -8px 0 16px; }
 
 .fila-app { display: flex; gap: 12px; }
 .fila-app .campo-app { flex: 1; }

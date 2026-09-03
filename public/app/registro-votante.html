@@ -44,12 +44,15 @@
     </div>
 
     <div class="seccion-titulo">Datos personales</div>
-    <div class="campo-app con-boton">
-      <div style="flex:1;">
-        <label for="f-cedula">Número de identificación</label>
-        <input id="f-cedula" inputmode="numeric" autocomplete="off">
-        <small id="cedula-estado" style="font-size:0.75rem;"></small>
-      </div>
+    <div class="campo-app">
+      <label for="f-cedula">Número de identificación</label>
+      <input id="f-cedula" inputmode="numeric" autocomplete="off">
+      <small id="cedula-estado" style="font-size:0.75rem;"></small>
+    </div>
+    <!-- El enlace va DEBAJO del campo, no al lado. Al lado le robaba la mitad
+         del ancho a la cédula justo donde ahora hay además un micrófono: tres
+         cosas en una línea de 360px no caben sin que algo se estreche. -->
+    <div class="boton-bajo-campo">
       <a class="btn-mini" href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Lugar de votación</a>
     </div>
 
@@ -106,15 +109,16 @@
     </div>
 
     <div class="seccion-titulo">Datos de contacto</div>
-    <div class="fila-app">
-      <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" placeholder="300 123 4567" inputmode="numeric"></div>
-      <div class="campo-app"><label for="f-email">Correo (opcional)</label><input id="f-email" type="email" autocomplete="off"></div>
+    <!-- Uno debajo del otro y no en dos columnas: con el micrófono delante, cada
+         campo pierde 48px, y a media pantalla un correo se queda sin sitio para
+         verse entero mientras se dicta. -->
+    <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" placeholder="300 123 4567" inputmode="numeric"></div>
+    <div class="campo-app"><label for="f-email">Correo (opcional)</label><input id="f-email" type="email" autocomplete="off"></div>
+    <div class="campo-app">
+      <label for="f-direccion">Dirección de residencia</label>
+      <input id="f-direccion" placeholder="Ej. Calle 10 #5-20" autocomplete="off">
     </div>
-    <div class="campo-app con-boton">
-      <div style="flex:1;">
-        <label for="f-direccion">Dirección de residencia</label>
-        <input id="f-direccion" placeholder="Ej. Calle 10 #5-20" autocomplete="off">
-      </div>
+    <div class="boton-bajo-campo">
       <button type="button" class="btn-mini" id="btn-gps"><span aria-hidden="true">📍</span> GPS</button>
     </div>
     <div class="fila-app">
