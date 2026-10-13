@@ -47,6 +47,11 @@ const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digito
 // estas rutas escriben en `usuarios` a partir de una fila de estructura: si algún día la
 // hubiera, que no sirvan para editarlo ni borrarlo. Ver config/superadmin.js.
 const { protegerObjetivo } = require('../config/superadmin');
+const { territoriosEsVista } = require('../config/territoriosModo');
+const {
+  validarNombre, validarTipo, validarPadre, municipioDe, buscarDuplicado,
+  referenciasDe, referenciasGlobales, describirReferencias, limpiarNombre, abreviar
+} = require('../config/territoriosValidacion');
 
 const router = express.Router();
 
@@ -96,11 +101,14 @@ function mismaCategoria(rolA, rolB) {
 router.use(requireAuth);
 
 /**
- * Los territorios vienen del Catalogo Territorial (CTC): la tabla
- * `territorios` es una VISTA de solo lectura sobre territoriosdb.
- * Ver vista_territorios_catalogo.sql en el proyecto del catalogo.
+ * En una campaña CONECTADA al Catalogo Territorial (CTC), `territorios` es una
+ * VISTA de solo lectura sobre territoriosdb (vista_territorios_catalogo.sql, en
+ * el proyecto del catalogo). Las seis rutas de escritura de Territorios
+ * preguntan primero `territoriosEsVista()` (config/territoriosModo.js) y, si lo
+ * es, responden con esto. En una campaña nueva `territorios` es una TABLA local
+ * y esas rutas funcionan.
  *
- * Sin esta guarda MySQL rechaza igual la escritura, pero con un
+ * Sin esta guarda MySQL rechaza igual la escritura sobre una vista, pero con un
  * mensaje ilegible ("target table is not updatable").
  */
 function catalogoSoloLectura(res) {
@@ -333,14 +341,35 @@ router.get('/territorios', async (req, res) => {
   }
 });
 
+/**
+ * ¿Se pueden editar los territorios de esta campaña? Solo si `territorios` es una
+ * TABLA local. En una campaña conectada al catálogo es una vista y no se edita.
+ * La pantalla lo usa para mostrar u ocultar los botones de agregar e importar.
+ * (config/territoriosModo.js: falla cerrado — ante la duda responde `false`.)
+ */
+router.get('/territorios/modo', async (req, res) => {
+  res.json({ editable: !(await territoriosEsVista()) });
+});
+
+/**
+ * Agrega un territorio a la tabla local. Solo corre si `territorios` es una tabla
+ * (ver config/territoriosModo.js); en una campaña conectada al catálogo responde 409.
+ */
 router.post('/territorios', requireRole('admin', 'coordinador'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
-  const { tipo, nombre, padre_id } = req.body;
-  if (!tipo || !nombre) return res.status(400).json({ error: 'Tipo y nombre son obligatorios.' });
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
+  const tipo = validarTipo(req.body.tipo);
+  if (tipo.error) return res.status(400).json({ error: tipo.error });
+  const nombre = validarNombre(req.body.nombre);
+  if (nombre.error) return res.status(400).json({ error: nombre.error });
   try {
+    const padre = await validarPadre(pool, tipo.valor, req.body.padre_id);
+    if (padre.error) return res.status(400).json({ error: padre.error });
+    if (await buscarDuplicado(pool, tipo.valor, nombre.valor, padre.padreId)) {
+      return res.status(409).json({ error: 'Ya existe un territorio con ese nombre, de ese tipo, en esa ubicación.' });
+    }
     const [result] = await pool.query(
       `INSERT INTO territorios (tipo, nombre, padre_id) VALUES (?, ?, ?)`,
-      [tipo, nombre, padre_id || null]
+      [tipo.valor, nombre.valor, padre.padreId]
     );
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
@@ -360,20 +389,25 @@ router.post('/territorios', requireRole('admin', 'coordinador'), async (req, res
  * que si se renombra un territorio, se actualizan también esos campos en
  * `usuarios` que coincidían exactamente con el nombre anterior, para que no
  * queden desincronizados.
+ *
+ * El nombre no puede pasar de 120 caracteres ni repetir uno existente (mismo
+ * tipo y padre, sin distinguir mayúsculas ni tildes). Un nuevo padre debe existir,
+ * ser de un tipo compatible, colgar del MISMO municipio y no crear un ciclo.
  */
 router.put('/territorios/:id', requireRole('admin', 'coordinador'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
-  const { nombre, padre_id } = req.body;
-  if (!nombre || !nombre.trim()) {
-    return res.status(400).json({ error: 'El nombre es obligatorio.' });
-  }
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Identificador no válido.' });
+  const nombreOk = validarNombre(req.body.nombre);
+  if (nombreOk.error) return res.status(400).json({ error: nombreOk.error });
+  const { padre_id } = req.body;
 
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
 
     const [[actual]] = await conexion.query(
-      `SELECT tipo, nombre, padre_id FROM territorios WHERE id = ?`, [req.params.id]
+      `SELECT tipo, nombre, padre_id FROM territorios WHERE id = ? FOR UPDATE`, [id]
     );
     if (!actual) throw new Error('Territorio no encontrado.');
     if (!['comuna', 'corregimiento', 'barrio', 'vereda'].includes(actual.tipo)) {
@@ -381,24 +415,26 @@ router.put('/territorios/:id', requireRole('admin', 'coordinador'), async (req, 
     }
 
     const nombreAnterior = actual.nombre;
-    const nombreNuevo = nombre.trim();
+    const nombreNuevo = nombreOk.valor;
     // Solo Barrio/Vereda pueden reasignarse a otra Comuna/Corregimiento;
     // para Comuna/Corregimiento el padre (Municipio) no se toca aquí.
-    const padreNuevo = (['barrio', 'vereda'].includes(actual.tipo) && padre_id) ? padre_id : actual.padre_id;
+    let padreNuevo = actual.padre_id;
+    const piden = padre_id !== undefined && padre_id !== null && padre_id !== '';
+    if (['barrio', 'vereda'].includes(actual.tipo) && piden && Number(padre_id) !== Number(actual.padre_id)) {
+      const validacion = await validarPadre(conexion, actual.tipo, padre_id, {
+        territorioId: id, municipioEsperado: await municipioDe(conexion, id)
+      });
+      if (validacion.error) throw new Error(validacion.error);
+      padreNuevo = validacion.padreId;
+    }
 
-    const [duplicado] = await conexion.query(
-      `SELECT id FROM territorios
-       WHERE tipo = ? AND LOWER(nombre) COLLATE utf8mb4_unicode_ci = LOWER(?) COLLATE utf8mb4_unicode_ci
-       AND (padre_id <=> ?) AND id != ?`,
-      [actual.tipo, nombreNuevo, padreNuevo, req.params.id]
-    );
-    if (duplicado.length) {
+    if (await buscarDuplicado(conexion, actual.tipo, nombreNuevo, padreNuevo, id)) {
       throw new Error('Ya existe otro territorio con ese nombre en la misma ubicación.');
     }
 
     await conexion.query(
       `UPDATE territorios SET nombre = ?, padre_id = ? WHERE id = ?`,
-      [nombreNuevo, padreNuevo, req.params.id]
+      [nombreNuevo, padreNuevo, id]
     );
 
     // Propaga el cambio de nombre a los campos de residencia (texto libre)
@@ -433,74 +469,152 @@ router.put('/territorios/:id', requireRole('admin', 'coordinador'), async (req, 
   }
 });
 
+/**
+ * Elimina UN territorio — solo si no cuelga nada de él.
+ *
+ * Se rechaza con 409 si tiene hijos o si alguien lo usa como `territorio_id`
+ * (usuarios, estructura, votantes, eventos, finanzas). Antes lo rechazaba MySQL por
+ * las llaves foráneas; ya no existen (db/schema.sql), y sin esta comprobación el
+ * borrado dejaría personas apuntando a un id que no existe. El apunte de auditoría
+ * va en la misma transacción: si no se puede dejar constancia, no se borra.
+ */
 router.delete('/territorios/:id', requireRole('admin'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Identificador no válido.' });
+  let conexion;
   try {
-    await pool.query(`DELETE FROM territorios WHERE id = ?`, [req.params.id]);
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const [[t]] = await conexion.query(`SELECT id, tipo, nombre FROM territorios WHERE id = ? FOR UPDATE`, [id]);
+    if (!t) {
+      await conexion.rollback();
+      return res.status(404).json({ error: 'Ese territorio ya no existe.' });
+    }
+    const refs = await referenciasDe(conexion, [id]);
+    if (refs.hijos > 0 || refs.total > 0) {
+      await conexion.rollback();
+      const motivos = [];
+      if (refs.hijos > 0) motivos.push(`${refs.hijos} territorio(s) que cuelgan de él`);
+      if (refs.total > 0) motivos.push(describirReferencias(refs));
+      return res.status(409).json({
+        error: `No se puede eliminar "${t.nombre}": tiene ${motivos.join(' y ')}. ` +
+               'Elimine o reasigne eso primero.',
+        hijos: refs.hijos, referencias: refs.porTabla
+      });
+    }
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_territorio', 'territorios', t.id,
+      `Eliminó el territorio ${t.tipo} "${t.nombre}" (id ${t.id}).`, req.ip
+    );
+    await conexion.query(`DELETE FROM territorios WHERE id = ?`, [id]);
+    await conexion.commit();
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: 'No se pudo eliminar. Verifique que no tenga dependencias asociadas.' });
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
+    console.error(err);
+    res.status(500).json({ error: err.auditoria ? err.message : 'No se pudo eliminar el territorio.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 
 /**
- * Elimina TODOS los territorios (departamentos, municipios, comunas,
- * corregimientos, barrios, veredas). Requiere la contraseña de un
- * administrador. Si hay personas de la Estructura o Votantes que todavía
- * dependen de algún territorio, la base de datos rechaza el borrado (no se
- * fuerza), para no dejar referencias huérfanas o violar campos obligatorios.
+ * Elimina TODOS los territorios locales. Requiere la contraseña de un
+ * administrador.
+ *
+ * Se rechaza con 409 si alguna persona, votante, evento o movimiento de finanzas
+ * todavía usa un territorio: antes lo impedían las llaves foráneas, y ya no
+ * existen. La comprobación y el borrado van en una transacción, con su apunte de
+ * auditoría dentro: si no se puede dejar constancia, no se borra.
  */
 router.post('/territorios/eliminar-todo', requireRole('admin'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const { password } = req.body;
   const autorizado = await verificarPasswordAdmin(password);
   if (!autorizado) {
     return res.status(403).json({ error: 'Contraseña de administrador incorrecta.' });
   }
+  let conexion;
   try {
-    await pool.query(`DELETE FROM territorios`);
-    await registrarAuditoria(
-      req.session.usuario.id, 'eliminar_todo', 'territorios', null,
-      'Eliminó todos los territorios.', req.ip
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
-      return res.status(400).json({
-        error: 'No se pueden eliminar: hay personas de la Estructura, Votantes o Eventos que todavía dependen de algún territorio. Elimine o reasigne esos registros primero.'
+    conexion = await pool.getConnection();
+    await conexion.beginTransaction();
+    const refs = await referenciasGlobales(conexion);
+    if (refs.total > 0) {
+      await conexion.rollback();
+      return res.status(409).json({
+        error: `No se pueden eliminar los territorios: hay ${describirReferencias(refs)} que todavía dependen de alguno. ` +
+               'Elimine o reasigne eso primero.',
+        referencias: refs.porTabla
       });
     }
-    res.status(500).json({ error: 'Error eliminando los territorios.' });
+    const [[{ n }]] = await conexion.query(`SELECT COUNT(*) AS n FROM territorios`);
+    if (n === 0) {
+      await conexion.rollback();
+      return res.json({ ok: true, eliminados: 0 });
+    }
+    await registrarAuditoriaEn(
+      conexion, req.session.usuario.id, 'eliminar_todo', 'territorios', null,
+      `Eliminó todos los territorios locales (${n} filas).`, req.ip
+    );
+    await conexion.query(`DELETE FROM territorios`);
+    await conexion.commit();
+    res.json({ ok: true, eliminados: Number(n) });
+  } catch (err) {
+    if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
+    console.error(err);
+    res.status(500).json({ error: err.auditoria ? err.message : 'Error eliminando los territorios.' });
+  } finally {
+    if (conexion) conexion.release();
   }
 });
 
 /**
  * Crea una zona (Comuna/Barrio/Corregimiento/Vereda) resolviendo automáticamente
  * el Departamento y Municipio como padres (los crea si aún no existen).
+ *
+ * Si la zona ya existe en esa ubicación responde 409 (sin distinguir mayúsculas ni
+ * tildes). `padreZonaId`, si se indica, debe existir, ser una Comuna (para un Barrio)
+ * o un Corregimiento (para una Vereda) y colgar de ese mismo municipio.
  */
 router.post('/territorios/crear-zona', requireRole('admin', 'coordinador'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
-  const { departamento, municipio, tipoZona, nombreZona, padreZonaId } = req.body;
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
+  const { tipoZona, padreZonaId } = req.body;
   const tiposValidos = ['comuna', 'barrio', 'corregimiento', 'vereda'];
-  if (!departamento || !municipio || !tiposValidos.includes(tipoZona) || !nombreZona) {
+  if (!req.body.departamento || !req.body.municipio || !tiposValidos.includes(tipoZona) || !req.body.nombreZona) {
     return res.status(400).json({ error: 'Departamento, municipio, tipo de zona y nombre son obligatorios.' });
   }
+  const departamento = validarNombre(req.body.departamento, 'El departamento');
+  const municipio = validarNombre(req.body.municipio, 'El municipio');
+  const nombreZona = validarNombre(req.body.nombreZona, 'El nombre de la zona');
+  const malo = [departamento, municipio, nombreZona].find((v) => v.error);
+  if (malo) return res.status(400).json({ error: malo.error });
+
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
-    const departamentoId = await buscarOCrearTerritorio(conexion, 'departamento', departamento, null);
-    const municipioId = await buscarOCrearTerritorio(conexion, 'municipio', municipio, departamentoId);
+    const departamentoId = await buscarOCrearTerritorio(conexion, 'departamento', departamento.valor, null);
+    const municipioId = await buscarOCrearTerritorio(conexion, 'municipio', municipio.valor, departamentoId);
     // Un Barrio puede colgar de una Comuna, y una Vereda de un Corregimiento;
     // si no se especifica, cuelga directamente del municipio.
-    const padreFinal = padreZonaId || municipioId;
-    const zonaId = await buscarOCrearTerritorio(conexion, tipoZona, nombreZona, padreFinal);
+    const hayPadre = padreZonaId !== undefined && padreZonaId !== null && padreZonaId !== '';
+    const padre = await validarPadre(conexion, tipoZona, hayPadre ? padreZonaId : municipioId,
+                                     { municipioEsperado: municipioId });
+    if (padre.error) {
+      await conexion.rollback();
+      return res.status(400).json({ error: padre.error });
+    }
+    if (await buscarDuplicado(conexion, tipoZona, nombreZona.valor, padre.padreId)) {
+      await conexion.rollback();
+      return res.status(409).json({ error: 'Ya existe una zona con ese nombre en esa ubicación.' });
+    }
+    const zonaId = await buscarOCrearTerritorio(conexion, tipoZona, nombreZona.valor, padre.padreId);
     await conexion.commit();
     res.json({ ok: true, departamentoId, municipioId, zonaId });
   } catch (err) {
     await conexion.rollback();
     console.error(err);
-    res.status(400).json({ error: 'Ya existe una zona con ese nombre en esa ubicación, o hubo un error al crearla.' });
+    res.status(400).json({ error: 'No se pudo crear la zona. Revise los datos e inténtelo de nuevo.' });
   } finally {
     conexion.release();
   }
@@ -570,15 +684,20 @@ router.get('/territorios/exportar-excel', async (req, res) => {
 // Si un Barrio/Vereda ya existía con el padre equivocado (ej. de una
 // importación anterior a este parche, que colgaba todo del municipio), se
 // corrige en el mismo registro en lugar de crear uno duplicado.
-router.post('/territorios/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.single('archivo'), async (req, res) => {
-  return catalogoSoloLectura(res);   // catalogo de solo lectura
+router.post('/territorios/importar-excel', requireRole('admin'), uploadExcel.single('archivo'), async (req, res) => {
+  if (await territoriosEsVista()) return catalogoSoloLectura(res);
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
 
+  /* SOLO ADMINISTRADOR, Y ESTO ES DELIBERADO. `xlsx` tiene una vulnerabilidad alta
+     sin arreglo publicado y esta ruta le entrega un archivo subido por la web; se
+     reduce al mínimo quién puede hacerlo (igual que la importación de votantes). El
+     tope de 10 MB lo pone `uploadExcel` (middleware/upload.js). */
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
     const hoja = libro.Sheets[libro.SheetNames[0]];
     const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
     const tiposValidos = ['comuna', 'barrio', 'corregimiento', 'vereda'];
+    const [[{ n: antes }]] = await pool.query(`SELECT COUNT(*) AS n FROM territorios`);
 
     let insertados = 0;
     let reparentados = 0;
@@ -602,23 +721,39 @@ router.post('/territorios/importar-excel', requireRole('admin', 'coordinador'), 
     const cacheMunicipios = new Map();
 
     for (const [i, fila] of filas.entries()) {
-      let departamento = String(fila.Departamento || fila.departamento || '').trim();
-      let municipio = String(fila.Municipio || fila.municipio || '').trim();
-      const tipo = String(fila.Tipo || fila.tipo || '').trim().toLowerCase();
-      const nombre = String(fila.Nombre || fila.nombre || '').trim();
-      const pertenece = String(
-        fila.Pertenece || fila.pertenece || fila['Pertenece a'] || fila['pertenece a'] || ''
-      ).trim();
+      const numFila = i + 2;   // la fila 1 del Excel es el encabezado
+      let departamento = limpiarNombre(fila.Departamento || fila.departamento);
+      let municipio = limpiarNombre(fila.Municipio || fila.municipio);
+      const tipoOriginal = limpiarNombre(fila.Tipo || fila.tipo);
+      const tipo = tipoOriginal.toLowerCase();
+      const nombre = limpiarNombre(fila.Nombre || fila.nombre);
+      const pertenece = limpiarNombre(
+        fila.Pertenece || fila.pertenece || fila['Pertenece a'] || fila['pertenece a']
+      );
 
       if (!departamento) departamento = ultimoDepartamento;
       if (!municipio) municipio = ultimoMunicipio;
 
-      if (!departamento || !municipio || !tipo || !nombre) {
-        errores.push({ fila: i + 2, error: 'Faltan datos obligatorios (Departamento, Municipio, Tipo, Nombre).' });
+      // Cada error dice QUÉ falta o QUÉ está mal y en qué fila — no «posible duplicado».
+      const faltan = [];
+      if (!departamento) faltan.push('Departamento');
+      if (!municipio) faltan.push('Municipio');
+      if (!tipo) faltan.push('Tipo');
+      if (!nombre) faltan.push('Nombre');
+      if (faltan.length) {
+        errores.push({ fila: numFila, error: `Falta ${faltan.join(', ')}.` });
         continue;
       }
       if (!tiposValidos.includes(tipo)) {
-        errores.push({ fila: i + 2, error: `Tipo "${fila.Tipo}" no válido. Use Comuna, Barrio, Corregimiento o Vereda.` });
+        errores.push({ fila: numFila, error: `Tipo "${abreviar(tipoOriginal)}" no válido. Use Comuna, Barrio, Corregimiento o Vereda.` });
+        continue;
+      }
+      const largo = [['Departamento', departamento], ['Municipio', municipio], ['Nombre', nombre], ['Pertenece', pertenece]]
+        .filter(([, valor]) => valor)
+        .map(([etiqueta, valor]) => validarNombre(valor, `El campo ${etiqueta}`))
+        .find((v) => v.error);
+      if (largo) {
+        errores.push({ fila: numFila, error: largo.error });
         continue;
       }
 
@@ -637,6 +772,11 @@ router.post('/territorios/importar-excel', requireRole('admin', 'coordinador'), 
           ? cacheMunicipios.get(claveMuni)
           : await buscarOCrearTerritorio(conexion, 'municipio', municipio, departamentoId);
 
+        /* EL PADRE («Pertenece») SE CREA SI NO EXISTE, y es a propósito: el archivo
+           que exporta esta misma pantalla ordena por tipo, y «barrio» va antes que
+           «comuna», así que un archivo exportado trae los barrios ANTES de sus
+           comunas. Exigir que la comuna ya exista rompería la importación de lo que
+           la propia aplicación exportó. */
         if (tipo === 'comuna' || tipo === 'corregimiento') {
           await buscarOCrearTerritorio(conexion, tipo, nombre, municipioId);
         } else if (tipo === 'barrio') {
@@ -658,19 +798,49 @@ router.post('/territorios/importar-excel', requireRole('admin', 'coordinador'), 
         cacheMunicipios.set(claveMuni, municipioId);
         insertados++;
       } catch (err) {
-        await conexion.rollback();
-        errores.push({ fila: i + 2, error: 'Error al insertar esta fila (posible duplicado).' });
+        try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ }
+        // Sin volcar la sentencia (lleva los valores del archivo): solo el código.
+        console.error(`[territorios] importar-excel, fila ${numFila}:`, err.code || err.message);
+        errores.push({ fila: numFila, error: describirErrorDeFila(err) });
       } finally {
         conexion.release();
       }
     }
 
-    res.json({ ok: true, insertados, reparentados, errores });
+    const [[{ n: despues }]] = await pool.query(`SELECT COUNT(*) AS n FROM territorios`);
+    const creados = Number(despues) - Number(antes);
+
+    // La constancia de lo importado. `registrarAuditoria` no lanza: un fallo del
+    // apunte no deshace una importación que ya terminó.
+    await registrarAuditoria(
+      req.session.usuario.id, 'importar_territorios', 'territorios', null,
+      `Importó territorios desde "${abreviar(req.file.originalname || 'archivo', 80)}": ` +
+      `${filas.length} fila(s) leída(s), ${insertados} procesada(s), ${creados} territorio(s) nuevo(s), ` +
+      `${reparentados} con jerarquía corregida, ${errores.length} con error` +
+      (errores.length ? ` (primera: fila ${errores[0].fila}, ${errores[0].error})` : '') + '.',
+      req.ip
+    );
+
+    res.json({
+      ok: true, insertados, reparentados, creados,
+      errores: errores.slice(0, 500), erroresTotal: errores.length
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
   }
 });
+
+/** Una excepción de MySQL, dicha en palabras. Nunca el SQL ni los valores. */
+function describirErrorDeFila(err) {
+  switch (err && err.code) {
+    case 'ER_DATA_TOO_LONG': return 'Un valor es demasiado largo para su columna.';
+    case 'ER_DUP_ENTRY': return 'Ya existe un territorio igual.';
+    case 'ER_NO_REFERENCED_ROW':
+    case 'ER_NO_REFERENCED_ROW_2': return 'El padre indicado no existe.';
+    default: return `Error inesperado al guardar esta fila (${(err && err.code) || 'sin código'}).`;
+  }
+}
 
 /* ------------------------- Estructura (personas) ------------------------- */
 

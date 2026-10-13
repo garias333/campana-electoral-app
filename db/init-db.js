@@ -697,6 +697,49 @@ async function crearTriggersEstructuraSinSuperadmin(connection) {
   }
 }
 
+/**
+ * Los ids de la tabla LOCAL `territorios` nacen en un rango que el catálogo no usa.
+ *
+ * Una campaña nueva edita sus territorios en una tabla local (config/territoriosModo.js).
+ * Los ids locales y los del catálogo (`territoriosdb.ctc_territorios`, unas 42 mil
+ * filas) se solaparían desde el 1, y si algún día esa campaña se conecta al catálogo,
+ * un `territorio_id` viejo resolvería a OTRO territorio real en vez de fallar — el error
+ * que ya costó un votante de Manizales asignado a Arcabuco. Desde 500.000.000 un id
+ * local no existe en el catálogo: la referencia vieja da NULL y se ve. Cabe en INT.
+ *
+ * NUNCA SOBRE UNA VISTA. Las campañas conectadas tienen `territorios` como vista y
+ * `ALTER TABLE` sobre ella fallaría — o peor. Se mira `TABLE_TYPE` y solo `BASE TABLE`
+ * pasa. Se decide con `MAX(id)`, no con el contador de information_schema, que MySQL
+ * guarda en caché y puede estar atrasado. Es idempotente: si ya hay ids en el rango, o
+ * el contador ya está ahí, no hace nada.
+ */
+const INICIO_IDS_LOCALES = 500000000;
+async function ajustarContadorTerritorios(connection) {
+  const [[t]] = await connection.query(
+    `SELECT TABLE_TYPE AS tipo FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'territorios' LIMIT 1`);
+  if (!t || t.tipo !== 'BASE TABLE') {
+    console.log(`territorios no es una tabla local (${t ? t.tipo : 'no existe'}): no se toca su contador.`);
+    return false;
+  }
+  const [[m]] = await connection.query(`SELECT COALESCE(MAX(id), 0) AS maximo FROM territorios`);
+  if (Number(m.maximo) >= INICIO_IDS_LOCALES) return false;
+
+  // ¿El contador ya está alto? Se pide al servidor que no use la caché de estadísticas
+  // (MySQL 8); si no se puede, se aplica el ALTER, que es idempotente.
+  try {
+    await connection.query(`SET SESSION information_schema_stats_expiry = 0`);
+    const [[c]] = await connection.query(
+      `SELECT AUTO_INCREMENT AS siguiente FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'territorios'`);
+    if (c && Number(c.siguiente) >= INICIO_IDS_LOCALES) return false;
+  } catch (_) { /* se aplica igual */ }
+
+  await connection.query(`ALTER TABLE territorios AUTO_INCREMENT = ${INICIO_IDS_LOCALES}`);
+  console.log(`territorios (tabla local): los ids nuevos empezarán en ${INICIO_IDS_LOCALES}.`);
+  return true;
+}
+
 async function main() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -2158,6 +2201,7 @@ async function main() {
   // una instalación nueva).
   await crearTriggersEstructuraSinSuperadmin(connection);
   await crearSuperadminInicial(connection, adminCreadoEstaCorrida);
+  await ajustarContadorTerritorios(connection);
 
   /* LA INTENCIÓN DE VOTO SE RETIRA DE LA APLICACIÓN (30 de agosto de 2026).
      Era una escala —confirmado, probable, indeciso, no apoya— que en la

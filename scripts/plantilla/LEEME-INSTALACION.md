@@ -133,6 +133,51 @@ proxy inverso hacia `http://127.0.0.1:<puerto>` y emita el certificado desde
 el panel de hosting; este repositorio no incluye configuración de Nginx ni
 automatiza el certificado.
 
+## 7b. Catálogo territorial: solo puestos de votación y mesas
+
+**Territorios y catálogo son cosas distintas en una campaña nueva.**
+
+- **Territorios (comunas, barrios, corregimientos, veredas):** `territorios` es una
+  **tabla local** de esta campaña, vacía al nacer y editable. Se llena desde
+  Territorial → Territorios: agregar uno a uno, o **importar desde Excel** (solo el
+  administrador; el formato es el que produce «Exportar a Excel», que con la tabla
+  vacía baja la hoja con los encabezados). No toca el catálogo ni otras campañas. Los
+  ids nuevos empiezan en 500.000.000 (`init-db` lo deja así) para no confundirse nunca
+  con los del catálogo. **No** se convierte en vista ni se usa `campana_ambito`.
+- **Puestos de votación y mesas:** salen del catálogo (`territoriosdb`), que la campaña
+  solo **lee**. Hace falta un permiso, que otorga quien administra MySQL.
+
+**El permiso (como root de MySQL, por TCP: `mysql -h 127.0.0.1 -P 3306 -u root -p`).**
+La aplicación lee tres tablas del catálogo, y solo con `SELECT`. Reemplace
+`<usuario_bd>` por el usuario de la base de esta campaña (el que creó en el paso 2),
+con el host con el que esté creado en `mysql.user` (suele ser `'%'`):
+
+```sql
+GRANT SELECT ON `territoriosdb`.`ctc_territorios`      TO '<usuario_bd>'@'%';
+GRANT SELECT ON `territoriosdb`.`ctc_puestos_votacion` TO '<usuario_bd>'@'%';
+GRANT SELECT ON `territoriosdb`.`ctc_alias`            TO '<usuario_bd>'@'%';
+```
+
+**Nunca** `GRANT SELECT ON territoriosdb.*`: esa base también guarda las contraseñas del
+panel del catálogo. Si el host no coincide con el de la cuenta, `GRANT` intenta *crear*
+la cuenta y falla con «You are not allowed to create a user with GRANT».
+
+**Después del permiso**, como el usuario del sitio, vuelva a correr `npm run init-db`.
+Así `init-db` ya alcanza el catálogo y recrea los disparadores de `puesto_id` con el cruce
+por catálogo (sin el permiso avisó «Catálogo no accesible» y los creó solo por nombre).
+
+**Traer los puestos del catálogo.** En Configuración → Día D, elija el departamento (y el
+municipio) de la campaña y use el panel «Traer puestos del catálogo oficial». Equivale a
+`POST /api/dia-d/config/puestos-votacion/importar-catalogo` con `municipio_id` o
+`departamento_id`. Es repetible: lo ya traído no se duplica. Las mesas de cada puesto
+salen de `total_mesas` del catálogo y quedan como `cantidad_mesas`, un dato propio de la
+campaña.
+
+**Verificar que quedó conectada.** Con sesión iniciada, `GET /api/catalogo/salud` debe
+responder `{"accesible":true, ...}` con los conteos de departamentos, municipios y
+puestos. Si responde 503 con `accesible:false`, falta el permiso (o el host del usuario
+no coincide). `init-db` ya no debe imprimir «Catálogo no accesible».
+
 ## 8. Superadministrador en una campaña que ya existía (opcional)
 
 Una instalación nueva ya lo trae (paso 4). Para elevar una cuenta de una campaña

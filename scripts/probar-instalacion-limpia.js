@@ -67,6 +67,17 @@ const COMPROBACIONES = [
    `SELECT COUNT(*) n FROM information_schema.tables
      WHERE table_schema=DATABASE() AND table_name='campana_ambito'`, 1],
 
+  // Parche 262: una campaña nueva se queda con `territorios` como TABLA local editable y
+  // sus ids nacen en 500.000.000, lejos de los del catálogo (db/init-db.js,
+  // ajustarContadorTerritorios).
+  ['territorios es una TABLA local (BASE TABLE), no una vista',
+   `SELECT COUNT(*) n FROM information_schema.tables
+     WHERE table_schema=DATABASE() AND table_name='territorios' AND table_type='BASE TABLE'`, 1],
+
+  ['El contador de territorios.id quedó en 500.000.000 o más',
+   `SELECT COUNT(*) n FROM information_schema.tables
+     WHERE table_schema=DATABASE() AND table_name='territorios' AND auto_increment >= 500000000`, 1],
+
   ['Ninguna FK apunta a territorios salvo la suya propia (A2: una FK viva impide convertirla en vista)',
    `SELECT COUNT(*) n FROM information_schema.key_column_usage
      WHERE table_schema=DATABASE() AND referenced_table_name='territorios'
@@ -198,6 +209,9 @@ async function main() {
 
   console.log('\nComprobando cómo quedó:\n');
   cx = await mysql.createConnection(conf);
+  // El contador de AUTO_INCREMENT de information_schema viene de una caché de
+  // estadísticas (MySQL 8): sin esto la comprobación leería un valor atrasado.
+  try { await cx.query('SET SESSION information_schema_stats_expiry = 0'); } catch (_) { /* servidor sin esa variable */ }
   let fallos = 0;
   for (const [titulo, sql, esperado] of COMPROBACIONES) {
     let obtenido;

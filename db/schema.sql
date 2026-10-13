@@ -46,20 +46,25 @@ ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 -- ---------------------------------------------------------
 -- Territorios (jerarquía: departamento > municipio > comuna/corregimiento > barrio/vereda)
 --
--- ATENCIÓN: EN UNA CAMPAÑA CONECTADA AL CATÁLOGO, ESTO NO ES UNA TABLA.
+-- UNA CAMPAÑA NUEVA TIENE ESTA TABLA LOCAL, Y LA EDITA ELLA.
 --
--- Se crea aquí como tabla local vacía para que una instalación desde cero
--- nunca falle, aunque todavía no tenga permisos sobre el catálogo. El paso
--- que la convierte en la VISTA de solo lectura sobre
--- `territoriosdb.ctc_territorios`, acotada por `campana_ambito`, vive en el
--- proyecto del catálogo (`vista_territorios_catalogo.sql`) — y ahí debe
--- seguir: es la definición de la integración, y tener dos copias que puedan
--- divergir es el error que este proyecto ya pagó caro con `ctc_normalizar()`.
+-- Decisión de producto (parche 262): una campaña nueva se queda con `territorios`
+-- como TABLA local editable —agrega e importa desde Excel sus comunas, barrios,
+-- corregimientos y veredas, y eso afecta solo a esa campaña— y se conecta al
+-- catálogo (`territoriosdb`) ÚNICAMENTE para puestos de votación y mesas. No se
+-- convierte en vista ni usa `campana_ambito`.
 --
--- Estado medido el 9 de agosto de 2026: en las dos campañas reales
--- `territorios` es una VISTA; en la plantilla `electoraldb` sigue siendo esta
--- tabla, vacía. O sea que una campaña clonada de la plantilla NO nace
--- conectada: hay que correr ese script.
+-- Las campañas que YA estaban conectadas al catálogo siguen igual: en ellas
+-- `territorios` es una VISTA de solo lectura sobre `territoriosdb.ctc_territorios`
+-- (su definición, `vista_territorios_catalogo.sql`, vive en el proyecto del
+-- catálogo y ahí debe seguir: tener dos copias que puedan divergir es el error que
+-- este proyecto ya pagó caro con `ctc_normalizar()`). La aplicación distingue los
+-- dos casos preguntándole a MySQL si es tabla o vista (config/territoriosModo.js);
+-- en la vista las rutas de escritura responden 409.
+--
+-- LOS IDS LOCALES NACEN EN 500.000.000 (db/init-db.js, ajustarContadorTerritorios).
+-- Así no se confunden con los del catálogo: si esta campaña se conecta algún día, un
+-- `territorio_id` viejo no resuelve a otro territorio real, resuelve a NADA.
 --
 -- POR ESO NINGUNA OTRA TABLA TIENE FK HACIA AQUÍ.
 --   Una llave foránea no puede apuntar a una vista, ni cruzar bases de datos.
@@ -68,6 +73,8 @@ ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 --   finanzas_movimientos) se quitaron: no existían en NINGUNA de las tres
 --   bases reales, así que sólo servían para bloquear la conversión en una
 --   instalación nueva.
+--   Y SIN ELLAS NADIE IMPIDE BORRAR UN TERRITORIO EN USO: lo comprueba la aplicación
+--   antes de borrar (config/territoriosValidacion.js, referenciasDe).
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS territorios (
   id INT AUTO_INCREMENT PRIMARY KEY,

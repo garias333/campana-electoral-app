@@ -433,6 +433,11 @@
     <div id="territorio-error" class="mensaje-error"></div>
     <div id="territorio-ok" class="mensaje-ok"></div>
 
+    <div id="aviso-territorios-vista" class="mensaje-ok" style="display:none;">
+      Los territorios de esta campaña vienen del Catálogo Territorial y no se editan aquí: si falta
+      alguno, o hay un nombre mal escrito, se corrige una vez en el catálogo.
+    </div>
+
     <form id="form-territorio" style="margin-bottom:18px;">
       <div class="fila">
         <div class="campo">
@@ -480,7 +485,7 @@
 
     <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
       <a class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-excel" href="/api/territorial/territorios/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-      <label class="btn-secundario btn-sm btn-excel-app" style="cursor:pointer; margin:0;">
+      <label class="btn-secundario btn-sm btn-excel-app" id="label-importar-excel" style="cursor:pointer; margin:0;">
         ⬆ Importar desde Excel
         <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
       </label>
@@ -550,6 +555,8 @@ if ('serviceWorker' in navigator) {
 let usuarioActual;
 const ETIQUETAS_GENERO = { mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder' };
 let listaTerritorios = [];
+// ¿`territorios` es una tabla local editable? Lo confirma aplicarModoTerritorios() (GET /territorios/modo).
+let territoriosEditables = true;
 let listaCoordinadoresYLideres = [];
 
 async function cargarSelects() {
@@ -682,9 +689,9 @@ function renderTablaTerritorios() {
       <td><strong>${escaparHtml(nombreLugar(t.nombre))}</strong></td>
       <td>${escaparHtml(t.padre_id && porId[t.padre_id] ? nombreLugar(porId[t.padre_id].nombre) : '—')}</td>
       <td style="white-space:nowrap;">
-        ${['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
+        ${territoriosEditables && ['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
           ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
-        ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
+        ${territoriosEditables && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -769,9 +776,30 @@ document.getElementById('form-editar-territorio').addEventListener('submit', asy
 });
 
 
+/**
+ * ¿Se pueden editar los territorios? GET /territorios/modo. Si `territorios` es una vista del
+ * catálogo se ocultan agregar, importar y eliminar; si es una tabla local se muestran
+ * (importar y eliminar todo, solo al administrador — el servidor lo exige igual).
+ * SI LA CONSULTA FALLA no se toca nada: queda como estaba, y el servidor decide.
+ */
+async function aplicarModoTerritorios() {
+  try {
+    const r = await api('/territorial/territorios/modo');
+    territoriosEditables = r.editable !== false;
+  } catch (_) { return; }
+  const esAdmin = usuarioActual && usuarioActual.rol === 'admin';
+  const mostrar = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+  mostrar('form-territorio', territoriosEditables);
+  mostrar('label-importar-excel', territoriosEditables && esAdmin);
+  mostrar('btn-eliminar-territorios', territoriosEditables && esAdmin);
+  mostrar('aviso-territorios-vista', !territoriosEditables);
+  renderTablaTerritorios();
+}
+
 document.getElementById('btn-territorios').addEventListener('click', async () => {
   document.getElementById('overlay-territorios').classList.add('abierto');
   renderTablaTerritorios();
+  aplicarModoTerritorios();
   await cargarCatalogoColombia();
   precargarUltimaUbicacion();
 });
