@@ -68,28 +68,30 @@
   .mapa-contenedor:fullscreen .btn-salir-completa,
   .mapa-pantalla-completa .btn-salir-completa { display: block; }
 
-  /* EL SELECTOR DE FONDO VA DEBAJO DE LA LEYENDA, no encima.
-     Leaflet pone sus controles de `topright` en la esquina superior derecha,
-     que es justo donde vive la leyenda: uno tapaba al otro. Se le da al
-     control un margen superior igual al alto de la leyenda más su hueco.
-     Se mide con la leyenda desplegada, que es como está siempre: 12px de
-     relleno arriba y abajo, dos títulos de 22 y seis filas de 20 dan unos
-     188px. Con 14px de hueco, 205. Ese es el número, no uno redondo. */
-  .leaflet-top.leaflet-right .leaflet-control-layers { margin-top: 205px; margin-right: 14px; }
+  /* EL SELECTOR DE FONDO VA DEBAJO DE LA LEYENDA, y ya no por un número.
+     Antes esto era `margin-top: 205px`, medido a mano sumando los títulos y
+     las filas de la leyenda. Funcionaba con esa leyenda exacta: en cuanto
+     cambió el alto real —otra fuente, una fila más— el selector volvió a
+     montarse encima, que es lo que pasó.
+     Ahora la leyenda es un CONTROL de Leaflet como el selector, así que
+     Leaflet los apila él en la misma esquina y ninguno puede taparse.
+     No hay número que mantener. */
+  .leaflet-top.leaflet-right .leaflet-control-layers { margin-right: 14px; }
   /* Y el control se viste como la leyenda, para que se lean como dos piezas
      del mismo sitio y no como un añadido de la librería. */
   .leaflet-control-layers {
     border-radius: 10px !important; border: 0 !important;
     box-shadow: 0 2px 10px rgba(0,0,0,0.18) !important;
   }
-  .leaflet-control-layers-expanded { padding: 10px 14px 10px 10px !important; font-size: 0.8rem; }
-  .leaflet-control-layers-list label { margin-bottom: 4px; }
+  .leaflet-control-layers-expanded { padding: 10px 12px !important; font-size: 0.8rem; }
 
+  /* Sin `position: absolute`: la coloca Leaflet, que para eso es un control.
+     El alto se limita en unidades de pantalla y no en % del contenedor,
+     porque dentro de un control ese % no tiene contra qué medirse. */
   .mapa-leyenda {
-    position: absolute; top: 14px; right: 14px; z-index: 1000;
     background: var(--color-surface, #fff); border-radius: 10px; padding: 12px 14px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.18); font-size: 0.78rem; max-width: 190px;
-    max-height: calc(100% - 28px); overflow-y: auto;
+    max-height: 46vh; overflow-y: auto;
   }
   .mapa-leyenda h4 {
     margin: 10px 0 6px 0; font-size: 0.7rem; text-transform: uppercase;
@@ -316,6 +318,27 @@ async function inicializarMapa() {
   /* `satellite-streets` y no `satellite` a secas: la foto sin nombres de
      calle no sirve para ubicar una dirección, que es para lo que se abre
      este mapa. */
+  /* LA LEYENDA, COMO CONTROL. Adopta el <div> que ya está en el HTML en vez
+     de construir otro: así el contenido se sigue editando donde se lee.
+     Se añade ANTES que el selector de fondos porque Leaflet apila por orden
+     de alta, y la leyenda va arriba.
+     `disableClickPropagation` y `disableScrollPropagation` no son de adorno
+     AHORA: antes la leyenda era hermana de `#mapa` y los gestos ni lo
+     rozaban. Al meterla dentro del contenedor de controles pasa a estar
+     encima del mapa, y sin esas dos líneas arrastrar sobre la leyenda
+     movería el mapa por debajo y la rueda haría zoom. */
+  const cajaLeyenda = document.querySelector('.mapa-leyenda');
+  if (cajaLeyenda) {
+    const ControlLeyenda = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd: function () {
+        L.DomEvent.disableClickPropagation(cajaLeyenda);
+        L.DomEvent.disableScrollPropagation(cajaLeyenda);
+        return cajaLeyenda;
+      }
+    });
+    new ControlLeyenda().addTo(mapa);
+  }
   L.control.layers(fondos, {}, { position: 'topright', collapsed: true }).addTo(mapa);
 
   capaEstructura = L.layerGroup().addTo(mapa);

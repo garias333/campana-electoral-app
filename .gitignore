@@ -21,6 +21,10 @@ Thumbs.db
 .licencia-cache.json
 .version-parche
 
+# Contraseña inicial del superadministrador: la deja db/init-db.js (modo 0600) en
+# una instalación nueva, para leerla con cat y borrarla. Nunca debe versionarse.
+.credenciales-superadmin.txt
+
 # Artefactos de build
 parches/*.zip
 
@@ -37,7 +41,7 @@ respaldos_parches/
 
 # Respaldos operativos. Ahi caen .env completos y volcados con datos de
 # personas: `git add backups/` metia
-# `backups/.env_antes_ramos2027_2026-08-22` al repositorio, con todas las
+# `backups/.env_antes_<campana>_<fecha>` al repositorio, con todas las
 # credenciales dentro. Las reglas de arriba no lo tapaban porque `.env.*`
 # pide un punto y ese archivo lleva guion bajo.
 backups/

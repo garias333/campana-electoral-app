@@ -33,6 +33,7 @@ const PROHIBIDOS = [
   /^\.env$/,
   /^\.env\./,
   /^\.licencia-cache\.json$/,
+  /^\.credenciales-superadmin\.txt$/,
   /^uploads\//,
   /^backups\//,
   /^node_modules\//,
@@ -44,7 +45,14 @@ const PROHIBIDOS = [
   /^(?!db\/).*\.sql$/,
   /^parches\//,
   /^conversaciones\//,
-  /^\.claude\//
+  /^\.claude\//,
+  // La llave pública con la que cada instalación verifica la firma de un
+  // parche antes de aplicarlo (ver config/verificarFirmaParche.js). Si un
+  // parche pudiera tocar su propia llave de verificación, un solo parche
+  // colado sin firma válida bastaría para plantar la llave del atacante y
+  // que sus firmas futuras "verificaran". Rotarla es un despliegue manual,
+  // nunca un parche.
+  /^config\/llaves-parches\//
 ];
 
 function esProhibido(rel) {

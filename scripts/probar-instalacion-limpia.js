@@ -23,11 +23,17 @@
 // prueba, es una ruleta.
 
 require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const { execFileSync } = require('child_process');
 
 const PROYECTO = path.join(__dirname, '..');
+
+// Donde init-db deja la clave del superadministrador (db/init-db.js). Cae en la carpeta
+// del proyecto, o sea EN ESTE ÁRBOL aunque la base sea desechable: por eso la prueba
+// se niega a empezar si ya hay uno y borra el suyo al terminar.
+const ARCHIVO_SUPERADMIN = path.join(PROYECTO, '.credenciales-superadmin.txt');
 
 // Nunca, bajo ninguna circunstancia, contra estas.
 const BASES_PROHIBIDAS = [
@@ -83,14 +89,41 @@ const COMPROBACIONES = [
      WHERE table_schema=DATABASE() AND table_type='BASE TABLE'
        AND table_name <> 'sessions' AND table_collation <> 'utf8mb4_0900_ai_ci'`, 0],
 
-  ['Los 8 roles quedaron sembrados',
-   `SELECT COUNT(*) n FROM roles`, 8],
+  // 10 filas: db/schema.sql:20-28 (9 roles) + :43 (aspirante_concejo); el
+  // INSERT es el de :19 y no hay otro INSERT/REPLACE/UPDATE de roles en
+  // db/, routes/ ni config/.
+  ['Los 10 roles quedaron sembrados',
+   `SELECT COUNT(*) n FROM roles`, 10],
 
-  ['Se creó exactamente un administrador',
-   `SELECT COUNT(*) n FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE r.nombre='admin'`, 1],
+  // El superadministrador también tiene rol admin (config/superadmin.js), así que el
+  // administrador corriente se cuenta aparte: rol admin y es_superadmin = 0.
+  ['Se creó exactamente un administrador corriente (es_superadmin = 0)',
+   `SELECT COUNT(*) n FROM usuarios u JOIN roles r ON r.id=u.rol_id
+     WHERE r.nombre='admin' AND u.es_superadmin = 0`, 1],
 
-  ['Los permisos por defecto están sembrados',
-   `SELECT COUNT(*) n FROM permisos_rol WHERE modulo='votantes'`, 8],
+  ['Se creó exactamente un superadministrador (rol admin, activo)',
+   `SELECT COUNT(*) n FROM usuarios u JOIN roles r ON r.id=u.rol_id
+     WHERE u.es_superadmin = 1 AND r.nombre='admin' AND u.activo = 1`, 1],
+
+  ['...y debe cambiar la contraseña en el primer ingreso (debe_cambiar_password = 1)',
+   `SELECT COUNT(*) n FROM usuarios WHERE es_superadmin = 1 AND debe_cambiar_password = 1`, 1],
+
+  ['...sin cédula ni nombre de usuario (no cruza con ningún votante)',
+   `SELECT COUNT(*) n FROM usuarios
+     WHERE es_superadmin = 1 AND numero_identificacion IS NULL AND nombre_usuario IS NULL`, 1],
+
+  ['...y su creación quedó en la auditoría',
+   `SELECT COUNT(*) n FROM auditoria WHERE accion = 'crear_superadmin'`, 1],
+
+  ['El superadministrador NO está en la estructura (disparadores creados)',
+   `SELECT COUNT(*) n FROM information_schema.triggers
+     WHERE trigger_schema = DATABASE() AND trigger_name LIKE 'trg_estructura_sin_superadmin_%'`, 2],
+
+  // 9 filas por módulo, una por rol de ROLES_A_SEMBRAR (db/init-db.js:381 =
+  // los 8 de ROLES_PERMISOS de :368 + 'administrativo'), con permitido 0 o 1
+  // (:424-440). 'aspirante_concejo' NO entra: está en `roles` y no en esa lista.
+  ['Los permisos por defecto están sembrados (9 roles x módulo votantes)',
+   `SELECT COUNT(*) n FROM permisos_rol WHERE modulo='votantes'`, 9],
 
   ['La política de privacidad quedó sembrada',
    `SELECT COUNT(*) n FROM contenido_paginas WHERE clave='politica_privacidad'`, 1],
@@ -118,7 +151,7 @@ async function main() {
                  '       del shell y visible en `ps`. Para evitarlo: DB_PASSWORD_PRUEBA=... node ...\n');
   }
   if (BASES_PROHIBIDAS.includes(base.toLowerCase())) {
-    console.error(`NO. "${base}" es una base real o del sistema. Esta prueba escribe y borra: usa una desechable.`);
+    console.error(`NO. "${base}" es una base real o del sistema. Esta prueba crea tablas y escribe datos (no borra nada) y solo corre sobre una base desechable y VACÍA.`);
     process.exit(1);
   }
 
@@ -145,6 +178,12 @@ async function main() {
     process.exit(1);
   }
   await cx.end();
+
+  if (fs.existsSync(ARCHIVO_SUPERADMIN)) {
+    console.error(`NO. Ya existe ${ARCHIVO_SUPERADMIN}. init-db no crearía el superadministrador ` +
+                  'para no pisar una clave sin leer, y la prueba no probaría nada. Léalo (cat) y bórrelo antes.');
+    process.exit(1);
+  }
 
   console.log(`Base "${base}": vacía. Levantando el esquema...\n`);
   try {
@@ -174,6 +213,52 @@ async function main() {
   }
   const [[{ n: total }]] = await cx.query(
     `SELECT COUNT(*) n FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE'`);
+  const [[superFila]] = await cx.query(`SELECT email FROM usuarios WHERE es_superadmin = 1 LIMIT 1`);
+
+  // --- El archivo con la clave del superadministrador ------------------------
+  const informar = (bien, titulo, detalle) => {
+    if (!bien) fallos++;
+    console.log(`  ${bien ? 'OK  ' : 'FALLA'}  ${titulo}${bien ? '' : `  [${detalle}]`}`);
+  };
+  console.log('');
+  let existe = false, modo = null, contenido = '';
+  try {
+    const st = fs.statSync(ARCHIVO_SUPERADMIN);
+    existe = st.isFile(); modo = st.mode & 0o777;
+    contenido = fs.readFileSync(ARCHIVO_SUPERADMIN, 'utf8');
+  } catch (_) { /* informar lo dice */ }
+  informar(existe, 'Existe .credenciales-superadmin.txt en la carpeta del proyecto', 'no existe');
+  informar(modo === 0o600, 'El archivo está en modo 0600',
+           `modo ${modo === null ? 'n/a' : '0' + modo.toString(8)}`);
+  const claveSuper = (contenido.match(/^Contraseña:\s+(\S+)/m) || [])[1] || '';
+  informar(claveSuper.length >= 16, 'Trae una contraseña de 16 o más caracteres', `${claveSuper.length} caracteres`);
+  informar(Boolean(superFila) && contenido.includes(superFila.email),
+           'Y el correo del archivo es el del superadministrador de la base', 'no coincide');
+  // La prueba no deja la clave de una base desechable dentro del árbol del proyecto.
+  try { fs.unlinkSync(ARCHIVO_SUPERADMIN); } catch (_) { /* ya no está */ }
+
+  // --- SEGUNDA CORRIDA: sobre una base ya instalada no debe crear nada --------
+  console.log('\nSegunda corrida de init-db sobre la base ya instalada (se captura su salida):\n');
+  let salida2 = '';
+  try {
+    salida2 = execFileSync(process.execPath, [path.join(PROYECTO, 'db', 'init-db.js')], {
+      cwd: PROYECTO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+      env: { ...process.env, DB_NAME: base, DB_USER: usuario, DB_PASSWORD: clave },
+    });
+  } catch (err) {
+    informar(false, 'La segunda corrida termina sin error', String(err.message).split('\n')[0]);
+  }
+  informar(!fs.existsSync(ARCHIVO_SUPERADMIN), 'No escribió ningún archivo de credenciales', 'apareció el archivo');
+  try { fs.unlinkSync(ARCHIVO_SUPERADMIN); } catch (_) { /* no está, como debe */ }
+  informar(!/Password:|Contraseña:|Usuario administrador creado|Superadministrador creado/.test(salida2),
+           'No imprimió credenciales ni "creado"', 'la salida menciona una creación');
+  const [[{ n: admins2 }]] = await cx.query(
+    `SELECT COUNT(*) n FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE r.nombre='admin' AND u.es_superadmin = 0`);
+  const [[{ n: supers2 }]] = await cx.query(`SELECT COUNT(*) n FROM usuarios WHERE es_superadmin = 1`);
+  const [[{ n: usuarios2 }]] = await cx.query(`SELECT COUNT(*) n FROM usuarios`);
+  informar(admins2 === 1 && supers2 === 1 && usuarios2 === 2,
+           'Siguen 1 administrador, 1 superadministrador y 2 usuarios en total',
+           `admins ${admins2}, superadmins ${supers2}, usuarios ${usuarios2}`);
   await cx.end();
 
   console.log(`\n${total} tablas creadas. ${fallos === 0 ? 'Todo correcto.' : `${fallos} comprobación(es) fallida(s).`}`);

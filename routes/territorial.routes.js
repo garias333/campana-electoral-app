@@ -43,6 +43,10 @@ const {
 } = require('../config/sincronizacionVotantesEstructura');
 const { TIPOS_GREMIALES, CARGOS_CON_META_DERIVADA, sqlMetaEfectiva } = require('../config/metasEstructura');
 const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digitos } = require('../config/verificaciones');
+// El superadministrador no está en la estructura (lo impide un disparador de la base), pero
+// estas rutas escriben en `usuarios` a partir de una fila de estructura: si algún día la
+// hubiera, que no sirvan para editarlo ni borrarlo. Ver config/superadmin.js.
+const { protegerObjetivo } = require('../config/superadmin');
 
 const router = express.Router();
 
@@ -1239,6 +1243,7 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
       [req.params.id]
     );
     if (!fila) throw new Error('Registro no encontrado.');
+    if (await protegerObjetivo(req, res, fila.usuario_id)) { await conexion.rollback(); return; }
 
     // Si todavía no tenía Nombre de usuario asignado y ahora se está
     // completando el Número de identificación, se aprovecha para
@@ -1562,6 +1567,7 @@ router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'
          LEFT JOIN usuarios u   ON u.id = e.usuario_id
          LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
         WHERE e.id = ?`, [req.params.id]);
+    if (fila && await protegerObjetivo(req, res, fila.usuario_id)) { await conexion.rollback(); return; }
     if (fila) {
       await registrarAuditoriaEn(
         conexion, req.session.usuario.id, 'eliminar_persona', 'estructura', fila.estructura_id,
@@ -1633,7 +1639,8 @@ router.post('/estructura/eliminar-masivo', requireRole('admin', 'coordinador'), 
     const [filas] = await conexion.query(
       `SELECT e.usuario_id, u.nombre FROM estructura e
          LEFT JOIN usuarios u ON u.id = e.usuario_id
-        WHERE e.cargo IN (${placeholders})`, cargos);
+        WHERE e.cargo IN (${placeholders})
+          AND COALESCE(u.es_superadmin, 0) = 0`, cargos);
     const usuarioIds = filas.map(f => f.usuario_id);
 
     /* EL APUNTE, DENTRO DE LA TRANSACCIÓN Y ANTES DE BORRAR. Estaba después
@@ -2886,6 +2893,7 @@ router.delete('/testigos/:id', requireRole('admin'), async (req, res) => {
     if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
       return res.status(404).json({ error: 'No encontrado.' });
     }
+    if (await protegerObjetivo(req, res, fila.usuario_id)) { await conexion.rollback(); return; }
     await registrarAuditoriaEn(
       conexion, req.session.usuario.id, 'eliminar_persona', 'estructura', fila.estructura_id,
       descripcionDePersonaBorrada(fila), req.ip
@@ -2936,6 +2944,7 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
       `SELECT e.id AS estructura_id, e.usuario_id, u.nombre FROM estructura e
          LEFT JOIN usuarios u ON u.id = e.usuario_id
         WHERE e.cargo = 'testigo'
+          AND COALESCE(u.es_superadmin, 0) = 0
         ${acotaBorrado ? 'AND ' + acotaBorrado.sql : ''}`,
       acotaBorrado ? acotaBorrado.valores : []);
     /* SE GUARDAN LOS NOMBRES, NO SÓLO EL NÚMERO. `eliminar_masivo` anota

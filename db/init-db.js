@@ -528,6 +528,175 @@ async function sembrarPoliticaPrivacidadPorDefecto(connection) {
   console.log('Política de privacidad por defecto verificada/sembrada (no se pisa si el admin ya la editó).');
 }
 
+/**
+ * El archivo donde se deja la contraseña inicial del superadministrador.
+ * Vive en la carpeta de la instalación, con modo 0600, y está en .gitignore y
+ * fuera de las plantillas (scripts/generar-plantilla.js).
+ */
+const ARCHIVO_CREDENCIALES_SUPERADMIN = '.credenciales-superadmin.txt';
+
+/**
+ * Crea el superadministrador de una instalación NUEVA.
+ *
+ * SOLO SI EL ADMINISTRADOR SE CREÓ EN ESTA MISMA CORRIDA (`adminCreadoEstaCorrida`).
+ * init-db no es solo de la instalación: el actualizador lo corre en cada parche
+ * que toca `db/` (scripts/actualizar-automatico.js), con la salida a un log. Sin
+ * esta condición, cada campaña que ya existe recibiría un superadministrador
+ * nuevo y su contraseña acabaría en un archivo y en un log. Para una campaña
+ * existente el camino es `node scripts/elevar-superadmin.js`.
+ *
+ * NO IMPRIME LA CONTRASEÑA. La deja en ARCHIVO_CREDENCIALES_SUPERADMIN (modo
+ * 0600) y muestra solo la ruta. El archivo se escribe ANTES de tocar la base y
+ * con `wx` (no sobrescribe): si la escritura falla no queda una cuenta cuya
+ * clave nadie conoce, y si ya hay un archivo sin leer no se pisa.
+ *
+ * IDEMPOTENTE. Si ya hay un es_superadmin = 1, no hace nada. Si el correo ya
+ * pertenece a otra cuenta, no la eleva en silencio: avisa y remite a
+ * scripts/elevar-superadmin.js.
+ *
+ * Devuelve true solo si creó la cuenta.
+ */
+async function crearSuperadminInicial(connection, adminCreadoEstaCorrida) {
+  if (!adminCreadoEstaCorrida) return false;
+
+  // Se lee aquí y no arriba: el valor sale del .env, y dotenv ya se cargó.
+  const { CORREO_SUPERADMIN } = require('../config/superadminCorreo');
+  const ruta = path.join(__dirname, '..', ARCHIVO_CREDENCIALES_SUPERADMIN);
+
+  const [yaHay] = await connection.query(`SELECT id FROM usuarios WHERE es_superadmin = 1 LIMIT 1`);
+  if (yaHay.length) {
+    console.log('Ya existe un superadministrador. No se creó otro.');
+    return false;
+  }
+
+  const [correoUsado] = await connection.query(
+    `SELECT id FROM usuarios WHERE LOWER(email) = ? LIMIT 1`, [CORREO_SUPERADMIN]);
+  if (correoUsado.length) {
+    console.warn(`AVISO: ${CORREO_SUPERADMIN} ya pertenece a otra cuenta (id ${correoUsado[0].id}). ` +
+      'No se creó el superadministrador ni se elevó esa cuenta. Para elevarla a propósito:\n' +
+      `  node scripts/elevar-superadmin.js ${CORREO_SUPERADMIN}`);
+    return false;
+  }
+
+  const [[rolAdmin]] = await connection.query(`SELECT id FROM roles WHERE nombre = 'admin'`);
+  if (!rolAdmin) throw new Error('No existe el rol "admin": no se puede crear el superadministrador.');
+
+  const passwordPlano = crypto.randomBytes(12).toString('base64url');
+  const hash = await bcrypt.hash(passwordPlano, 12);
+
+  // 1. El archivo primero. `wx`: falla si ya existe, en vez de pisar una clave
+  //    que quizá nadie ha leído todavía.
+  try {
+    fs.writeFileSync(
+      ruta,
+      `Superadministrador de esta instalación\n` +
+      `Correo:     ${CORREO_SUPERADMIN}\n` +
+      `Contraseña: ${passwordPlano}\n` +
+      `Creada:     ${new Date().toISOString()}\n\n` +
+      `Debe cambiarla en el primer ingreso. Lea este archivo con cat y BÓRRELO.\n`,
+      { flag: 'wx', mode: 0o600 }
+    );
+    // `mode` se enmascara con el umask y puede heredar una ACL de la carpeta:
+    // se fija y se comprueba, no se supone.
+    fs.chmodSync(ruta, 0o600);
+    if ((fs.statSync(ruta).mode & 0o777) !== 0o600) {
+      throw new Error(`No se pudo dejar ${ruta} en modo 0600.`);
+    }
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      console.warn(`AVISO: ya existe ${ruta}. No se creó el superadministrador para no ` +
+        'pisar credenciales sin leer. Léalo con cat, bórrelo y vuelva a correr init-db.');
+      return false;
+    }
+    try { fs.unlinkSync(ruta); } catch (_) { /* no se llegó a crear */ }
+    throw err;
+  }
+
+  // 2. La cuenta y su apunte, en una transacción.
+  try {
+    await connection.beginTransaction();
+    const [r] = await connection.query(
+      `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, es_superadmin, debe_cambiar_password)
+       VALUES ('Superadministrador', ?, ?, ?, 1, 1, 1)`,
+      [CORREO_SUPERADMIN, hash, rolAdmin.id]
+    );
+    await connection.query(
+      `INSERT INTO auditoria (usuario_id, accion, entidad, entidad_id, detalle, ip)
+       VALUES (?, 'crear_superadmin', 'usuarios', ?, ?, NULL)`,
+      [r.insertId, r.insertId,
+       `Se creó la cuenta de superadministrador ${CORREO_SUPERADMIN} al instalar la campaña (init-db).`]
+    );
+    await connection.commit();
+  } catch (err) {
+    try { await connection.rollback(); } catch (_) { /* la conexión ya no sirve */ }
+    try { fs.unlinkSync(ruta); } catch (_) { /* nada que borrar */ }
+    if (err.code === 'ER_DUP_ENTRY') {
+      console.warn('AVISO: otra corrida creó el superadministrador (o el correo) a la vez. No se creó otro.');
+      return false;
+    }
+    throw err;
+  }
+
+  console.log('----------------------------------------------------');
+  console.log('Superadministrador creado: ' + CORREO_SUPERADMIN);
+  console.log('  Credenciales en: ' + ruta + ' (modo 0600)');
+  console.log('  Léalas con:      cat ' + ruta);
+  console.log('  y BORRE el archivo después. Deberá cambiar la contraseña en el primer ingreso.');
+  console.log('----------------------------------------------------');
+  return true;
+}
+
+/**
+ * El superadministrador no puede formar parte de la estructura.
+ *
+ * Casi todo listado de personas (estructura, organigrama, dashboard, testigos,
+ * exportaciones) parte de `estructura JOIN usuarios`. La cuenta es invisible
+ * en ellos MIENTRAS NO TENGA FILA en `estructura`: si un administrador teclea
+ * su correo en «Agregar a la estructura», varias rutas reutilizan la cuenta
+ * existente y la cuenta aparecería en todas partes. Se impide en la base, no
+ * en cada una de las seis rutas que insertan, igual que el índice
+ * uq_superadmin_unico: da igual por dónde entre el INSERT.
+ *
+ * Solo los crea si faltan: en una corrida sobre una base ya instalada no toca
+ * nada. (Si algún día cambia el cuerpo, hay que cambiar también el nombre.)
+ *
+ * Sin el privilegio TRIGGER solo avisa, como crearTriggersPuestoId.
+ */
+async function crearTriggersEstructuraSinSuperadmin(connection) {
+  const [existentes] = await connection.query(
+    `SELECT TRIGGER_NAME FROM information_schema.TRIGGERS
+      WHERE TRIGGER_SCHEMA = DATABASE()
+        AND TRIGGER_NAME IN ('trg_estructura_sin_superadmin_ins', 'trg_estructura_sin_superadmin_upd')`);
+  if (existentes.length === 2) return false;
+  const cuerpo = (esActualizacion) => `
+    IF ${esActualizacion ? 'NOT (NEW.usuario_id <=> OLD.usuario_id) AND ' : ''}EXISTS (
+         SELECT 1 FROM usuarios WHERE id = NEW.usuario_id AND es_superadmin = 1) THEN
+      SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El superadministrador no puede formar parte de la estructura.';
+    END IF`;
+  try {
+    for (const momento of ['ins', 'upd']) {
+      const evento = momento === 'ins' ? 'INSERT' : 'UPDATE';
+      await connection.query(`DROP TRIGGER IF EXISTS trg_estructura_sin_superadmin_${momento}`);
+      await connection.query(
+        `CREATE TRIGGER trg_estructura_sin_superadmin_${momento} BEFORE ${evento} ON estructura
+         FOR EACH ROW ${cuerpo(momento === 'upd')}`
+      );
+    }
+    console.log('Disparadores de estructura (el superadministrador no entra en ella) creados.');
+    return true;
+  } catch (err) {
+    if (err.code === 'ER_SPECIFIC_ACCESS_DENIED_ERROR' || err.errno === 1142) {
+      console.warn(
+        'AVISO: sin permiso para crear disparadores (TRIGGER): nada impide en la base que el ' +
+        'superadministrador sea añadido a la estructura. Hay que pedirle ese privilegio al hosting.'
+      );
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function main() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -808,6 +977,9 @@ async function main() {
     'lider_id INT NULL AFTER coordinador_id',
     'lider_id'
   );
+  // ¿Este es el arranque de una instalación NUEVA? Lo decide el administrador: si lo
+  // creamos ahora, la base estaba vacía de personas. Lo usa crearSuperadminInicial.
+  let adminCreadoEstaCorrida = false;
   const [admins] = await connection.query(
     `SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' LIMIT 1`
   );
@@ -835,6 +1007,7 @@ async function main() {
        VALUES (?, ?, ?, ?, 1, 1)`,
       ['Administrador de Campaña', email, hash, rolAdmin.id]
     );
+    adminCreadoEstaCorrida = true;
     console.log('----------------------------------------------------');
     console.log('Usuario administrador creado:');
     console.log('  Email:    ', email);
@@ -1257,6 +1430,14 @@ async function main() {
   // admite foráneas entre bases (es la misma razón por la que la migración al
   // catálogo soltó las que había).
   for (const tabla of ['votantes', 'usuarios']) {
+    // `puesto_id` es el ancla del AFTER de abajo, y su definición «oficial» está
+    // más adelante en este archivo. En una base VACÍA votantes todavía no la
+    // tiene aquí (schema.sql solo la crea en usuarios) y el ALTER moría con
+    // ER_BAD_FIELD_ERROR. Se asegura antes; la de abajo queda como no-op. En
+    // una base que ya la tiene, esto tampoco cambia nada.
+    await agregarColumnaSiFalta(
+      connection, tabla, 'puesto_id INT NULL AFTER puesto_votacion', 'puesto_id'
+    );
     await agregarColumnaSiFalta(
       connection, tabla,
       'ctc_puesto_id BIGINT UNSIGNED NULL AFTER puesto_id',
@@ -1971,6 +2152,12 @@ async function main() {
     if (err.code !== 'ER_DUP_KEYNAME') throw err;
     console.log('El índice uq_superadmin_unico ya existía. Sin cambios.');
   }
+
+  // Con la columna y el índice único ya garantizados: el disparador que mantiene al
+  // superadministrador fuera de la estructura, y la cuenta inicial (solo si esta es
+  // una instalación nueva).
+  await crearTriggersEstructuraSinSuperadmin(connection);
+  await crearSuperadminInicial(connection, adminCreadoEstaCorrida);
 
   /* LA INTENCIÓN DE VOTO SE RETIRA DE LA APLICACIÓN (30 de agosto de 2026).
      Era una escala —confirmado, probable, indeciso, no apoya— que en la

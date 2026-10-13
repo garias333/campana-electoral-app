@@ -194,11 +194,11 @@ async function destinatariosDeSeleccion(seleccion, canal) {
      elegida con numeros tecleados; los elegidos se leian de la base y los
      tecleados no, aunque fueran de la misma persona.
 
-     LO QUE COSTABA. El 27 de agosto de 2026 salio de la campaña municipal el
-     envio #281 al 3104157434 — un numero que era de Gildardo Arias Vidales
-     (votante 228) desde el 31 de julio. Como quedo de tipo «manual» y sin id:
+     LO QUE COSTABA. El 27 de agosto de 2026 salio de la campaña municipal un
+     envio a un numero tecleado a mano que ya era el de un votante registrado
+     desde el 31 de julio. Como quedo de tipo «manual» y sin id:
 
-       · `{nombre}` se relleno con el propio numero: «Hola 3104157434».
+       · `{nombre}` se relleno con el propio numero: «Hola <el numero>».
        · `{baja}` se relleno con NADA. El codigo de baja es un HMAC de
          «tipo:id» y 'manual' no es un tipo firmable, asi que el mensaje
          prometia «Para no recibir mas:» y no daba ninguna salida.
@@ -1456,7 +1456,8 @@ const SQL_BAJAS = `
   UNION ALL
   SELECT 'Equipo', id, nombre, telefono, email,
          no_contactar_fecha, no_contactar_origen
-    FROM usuarios  WHERE no_contactar = 1`;
+    FROM usuarios  WHERE no_contactar = 1
+     AND es_superadmin = 0`;   // el superadministrador no sale en ninguna lista (config/superadmin.js)
 
 /**
  * Por donde llego la baja, en palabras.

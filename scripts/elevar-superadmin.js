@@ -6,11 +6,16 @@
 // puede haber una.
 //
 // Uso:
-//   node scripts/elevar-superadmin.js                       (correo por omisión)
-//   node scripts/elevar-superadmin.js otro@dominio.com
-//   node scripts/elevar-superadmin.js --simular             (no escribe nada)
+//   node scripts/elevar-superadmin.js                       (el correo por omisión)
+//   node scripts/elevar-superadmin.js otro@dominio.com      (el correo es OPCIONAL)
+//   node scripts/elevar-superadmin.js [correo] --simular    (no escribe nada)
 //   node scripts/elevar-superadmin.js --estado              (solo informa)
-//   node scripts/elevar-superadmin.js --revocar
+//   node scripts/elevar-superadmin.js [correo] --revocar
+//
+// El correo por omisión es SUPERADMIN_EMAIL (.env) o, si no está, el valor de
+// config/superadminCorreo.js: el mismo con el que db/init-db.js crea la cuenta
+// al instalar una campaña nueva. Este script es para las campañas que ya
+// existían, o para mover la categoría a otra cuenta.
 //
 // ESTO NO SE HACE DESDE LA APLICACIÓN, Y ESA ES LA IDEA.
 //
@@ -26,18 +31,22 @@
 
 require('dotenv').config();
 const pool = require('../config/db');
-const { olvidarCache } = require('../config/superadmin');
-
-// El correo de la cuenta que manda. Se puede pasar otro por la línea de
-// comandos; este es el valor por omisión para no tener que recordarlo en
-// cada instancia.
-const CORREO_POR_OMISION = 'correo@gildardoarias.com';
+const { olvidarCache, CORREO_SUPERADMIN } = require('../config/superadmin');
 
 const args = process.argv.slice(2);
 const simular = args.includes('--simular');
 const revocar = args.includes('--revocar');
 const soloEstado = args.includes('--estado');
-const correo = (args.find(a => !a.startsWith('--')) || CORREO_POR_OMISION).trim().toLowerCase();
+const correoArg = args.find(a => !a.startsWith('--'));
+
+// El valor por omisión es el mismo que usa init-db (config/superadmin.js lo
+// exporta). Se dice cuál se usa: elevar una cuenta es una decisión, y no debe
+// salir de un valor que nadie vio.
+const correo = (correoArg || CORREO_SUPERADMIN).trim().toLowerCase();
+if (!correoArg && !soloEstado) {
+  console.log(`Sin correo en la línea de comandos: se usa el de por omisión, ${correo}.`);
+  console.log('(Para otra cuenta:  node scripts/elevar-superadmin.js otro@dominio.com)\n');
+}
 
 /**
  * ¿La base ya tiene la columna?

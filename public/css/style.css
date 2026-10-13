@@ -774,6 +774,25 @@ input[type="checkbox"] {
 
 /* Formularios */
 label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+
+/* ESTAS DOS REGLAS DE FORMULARIO SE METEN DENTRO DE LOS CONTROLES DE LEAFLET,
+   y hay que desactivarlas ahí. La de abajo —`input { width: 100% }`— estira el
+   redondel de un radio a TODO el ancho del control de capas: el punto queda
+   centrado y solo, y su texto cae a la línea siguiente. Se veía como tres
+   etiquetas sueltas con un circulito encima de cada una.
+
+   Leaflet no puede preverlo, su HTML es correcto. Por eso el arreglo vive aquí,
+   pegado a la regla que lo causa, y no en una pantalla: el mismo control está
+   en el Mapa territorial y en el panel, y arreglar solo uno deja el otro roto
+   esperando a que alguien despliegue el selector. */
+.leaflet-control-layers-list label {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px; font-size: 0.8rem; font-weight: 500;
+  color: var(--color-text); white-space: nowrap; cursor: pointer;
+}
+.leaflet-control-layers-list label:last-child { margin-bottom: 0; }
+.leaflet-control-layers-list input[type="radio"],
+.leaflet-control-layers-list input[type="checkbox"] { width: auto; flex: none; margin: 0; }
 input, select, textarea {
   width: 100%;
   font-family: var(--font-body);

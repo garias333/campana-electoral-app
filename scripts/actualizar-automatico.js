@@ -18,11 +18,33 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { execSync, execFileSync } = require('child_process');
 // La revisión del zip vive en config/, compartida con el respaldo:
 // dos copias de una comprobación de seguridad divergen igual que
 // cualquier otra, y aquí divergir deja un camino sin proteger.
 const { validarEntradasDelZip } = require('../config/zipSeguro');
+const { verificarFirmaParche } = require('../config/verificarFirmaParche');
+
+/**
+ * A PARTIR DE ESTE NÚMERO, LA FIRMA ES OBLIGATORIA. SIN EXCEPCIÓN.
+ *
+ * El #260 es el parche que TRAE este verificador — no puede exigirse su
+ * propia firma a sí mismo, porque cuando se generó no existía todavía nada
+ * que lo firmara. Es la única ventana que no se puede cerrar por diseño: no
+ * se puede verificar criptográficamente el parche que instala la primera
+ * verificación criptográfica. Por eso el corte es el SIGUIENTE número, no
+ * una fecha de calendario — en cuanto exista un parche #261, ya tiene que
+ * venir firmado o no se aplica.
+ *
+ * Del #260 hacia atrás, ningún parche antiguo trae firma (nunca la tuvo) y
+ * eso está bien: ya se aplicaron, esto no los vuelve a tocar.
+ * Del #260 en adelante, si el campo `firma` viene presente pero no
+ * verifica, se rechaza igual que si la exigencia ya estuviera activa — el
+ * modo puente tolera la AUSENCIA de firma, nunca una firma presente pero
+ * inválida.
+ */
+const EXIGIR_FIRMA_DESDE_PARCHE = 261;
 
 const SERVIDOR_LICENCIAS = process.env.LICENCIA_SERVIDOR_URL;
 const API_SECRET = process.env.LICENCIA_API_SECRET;
@@ -158,7 +180,8 @@ function numeroDeParcheValido(valor) {
 }
 
 
-async function aplicarParche(numeroParche) {
+async function aplicarParche(parcheInfo) {
+  const numeroParche = parcheInfo.numero_parche;
   if (!numeroDeParcheValido(numeroParche)) {
     throw new Error(`El Servidor de Licencias mandó un número de parche que no es un entero: ${JSON.stringify(numeroParche)}.`);
   }
@@ -169,6 +192,42 @@ async function aplicarParche(numeroParche) {
   const resp = await llamarConSecreto(`/parches/descargar/${numeroParche}?dominio=${encodeURIComponent(DOMINIO_INSTALACION)}`);
   if (!resp.ok) throw new Error(`No se pudo descargar el parche #${numeroParche} (HTTP ${resp.status})`);
   const buffer = Buffer.from(await resp.arrayBuffer());
+
+  /* SE REGISTRA EL SHA-256 DE LO QUE DE VERDAD LLEGÓ, ANTES DE USARLO PARA
+     NADA — ni para verificar la firma, ni para escribirlo a disco. La vez
+     que hizo falta reconstruir esta evidencia (parches #260/#261) no
+     existía ningún rastro de qué bytes había recibido cada instalación:
+     el .zip se borra al terminar con éxito, así que la única forma de
+     confirmarlo después fue una cadena de inferencias (el hash publicado,
+     que ninguna instalación fue rechazada). Con esto en el log, la próxima
+     vez la respuesta está ahí directamente, sin reconstruir nada. */
+  const sha256Descargado = crypto.createHash('sha256').update(buffer).digest('hex');
+  console.log(`Descargado: ${buffer.length} bytes, sha256 ${sha256Descargado}`);
+
+  /* LA FIRMA SE COMPRUEBA AQUÍ, SOBRE LOS BYTES EN MEMORIA — antes de que
+     toquen disco, así sea transitoriamente. `validarEntradasDelZip` de abajo
+     ya invoca `unzip -Z1` sobre el archivo para listarlo; que ese archivo
+     exista siquiera debe depender de que la firma haya verificado, no al
+     revés.
+
+     "Presente pero inválida" se rechaza SIEMPRE, exija o no la versión
+     actual la firma — el modo puente tolera la AUSENCIA de firma en
+     parches anteriores al #261, nunca una firma presente que no verifica.
+     Ver EXIGIR_FIRMA_DESDE_PARCHE arriba para el porqué del número. */
+  if (parcheInfo.firma) {
+    if (!verificarFirmaParche(buffer, parcheInfo.firma)) {
+      throw new Error(`La firma del parche #${numeroParche} no coincide con el contenido descargado. No se aplica.`);
+    }
+    console.log(`Firma verificada correctamente (Ed25519, ${buffer.length} bytes).`);
+  } else if (numeroParche >= EXIGIR_FIRMA_DESDE_PARCHE) {
+    throw new Error(
+      `El parche #${numeroParche} no trae firma y la verificación es obligatoria desde el ` +
+      `#${EXIGIR_FIRMA_DESDE_PARCHE}. No se aplica.`
+    );
+  } else {
+    console.log('Sin firma — permitido por el modo puente (parche anterior al #' + EXIGIR_FIRMA_DESDE_PARCHE + ').');
+  }
+
   fs.writeFileSync(rutaZip, buffer);
 
   console.log(`Aplicando parche #${numeroParche}...`);
@@ -219,9 +278,12 @@ async function aplicarParche(numeroParche) {
   // catálogo (el servidor de licencias nos dice cuáles lo necesitan) —
   // es seguro correrlo de más (las migraciones son defensivas), no lo es
   // saltárselo cuando sí hace falta.
-  const infoDisponibles = await (await llamarConSecreto(`/parches/disponibles?version_actual=${numeroParche - 1}&dominio=${encodeURIComponent(DOMINIO_INSTALACION)}`)).json();
-  const infoEsteParche = infoDisponibles.find((p) => p.numero_parche === numeroParche);
-  if (infoEsteParche && infoEsteParche.toca_base_datos) {
+  //
+  // YA NO SE VUELVE A CONSULTAR /parches/disponibles PARA ESTO: `main()` ya
+  // tiene el objeto completo de este parche desde la lista que pidió antes
+  // de empezar, y nos lo pasa entero — pedirlo dos veces era una llamada de
+  // red redundante por cada parche que se aplicaba.
+  if (parcheInfo.toca_base_datos) {
     console.log('Este parche toca la base de datos — corriendo npm run init-db...');
     execSync('npm run init-db', { cwd: CARPETA_PROYECTO, stdio: 'inherit', env: ENTORNO });
   }
@@ -258,7 +320,7 @@ async function main() {
 
   for (const parche of disponibles) {
     try {
-      await aplicarParche(parche.numero_parche);
+      await aplicarParche(parche);
       console.log(`Parche #${parche.numero_parche} aplicado correctamente.\n`);
       await llamarConSecreto('/parches/confirmar', {
         method: 'POST',
@@ -289,4 +351,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { numeroDeParcheValido };
+module.exports = { numeroDeParcheValido, aplicarParche, EXIGIR_FIRMA_DESDE_PARCHE };

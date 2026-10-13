@@ -62,6 +62,10 @@
  */
 
 const pool = require('./db');
+// El correo con el que nace el superadministrador (SUPERADMIN_EMAIL o el valor por
+// omisión). Vive en un archivo sin dependencias para que db/init-db.js pueda leerlo
+// sin abrir el pool de la aplicación; aquí se vuelve a exportar.
+const { CORREO_SUPERADMIN } = require('./superadminCorreo');
 
 /**
  * El id se consulta a la base, no se lee de la sesión.
@@ -186,6 +190,7 @@ async function protegerAutodestruccion(req, res, idObjetivo) {
 }
 
 module.exports = {
+  CORREO_SUPERADMIN,
   idSuperadmin,
   esSuperadmin,
   filtroOcultar,
