@@ -3,6 +3,7 @@ const { Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, PageBreak,
 const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { generarDocumentoWord } = require('../config/wordExport');
 const { validarTelefono10Digitos } = require('../config/verificaciones');
 
@@ -260,7 +261,7 @@ router.delete('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
 });
 
 // Ficha de UN cargo en Word (mismo contenido que imprimirCargo() en pantalla/PDF).
-router.get('/:id/exportar-word', async (req, res) => {
+router.get('/:id/exportar-word', requiereImportarExportar('organigrama'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM organigrama_nodos`);
     const mapaPorId = new Map(rows.map(n => [n.id, n]));
@@ -280,7 +281,7 @@ router.get('/:id/exportar-word', async (req, res) => {
 });
 
 // Ficha de TODOS los cargos en un solo Word, una por hoja (mismo orden que imprimirTodoOrganigrama()).
-router.get('/exportar-word', async (req, res) => {
+router.get('/exportar-word', requiereImportarExportar('organigrama'), async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM organigrama_nodos`);
     if (!rows.length) return res.status(400).json({ error: 'Todavía no hay cargos en el organigrama.' });

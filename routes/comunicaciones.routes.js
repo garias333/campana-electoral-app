@@ -4,6 +4,7 @@ const path = require('path');
 const pool = require('../config/db');
 const { duenoDeLaCampana } = require('../lib/ramas');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
 const smsSvc = require('../config/sms');
@@ -1486,7 +1487,7 @@ router.get('/bajas', requireRole('admin', 'coordinador'), async (req, res) => {
   }
 });
 
-router.get('/bajas/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/bajas/exportar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('crm'), async (req, res) => {
   try {
     const XLSX = require('xlsx');
     const [filas] = await pool.query(`${SQL_BAJAS} ORDER BY fecha IS NULL, fecha DESC, nombre`);

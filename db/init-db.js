@@ -418,6 +418,11 @@ const PERMISOS_POR_DEFECTO = {
 // excepción fija (nunca edita ni agrega, aunque sí pueda ver). Para
 // "territorial" se preserva el comportamiento que ya existía antes de
 // esta granularidad: solo Admin y Coordinador pueden Editar/Agregar ahí.
+// «Importar / Exportar»: qué módulos lo tienen y a quién se le da de fábrica.
+// Es un archivo de datos puros (sin conexión a la base) y es la MISMA lista que
+// leen la matriz de permisos y el middleware que bloquea las rutas.
+const { IMPORTAR_EXPORTAR_POR_DEFECTO, importarExportarPorDefecto } = require('../config/importarExportar');
+
 const RESTRICCION_EDITAR_AGREGAR = {
   territorial: ['admin', 'coordinador']
 };
@@ -433,9 +438,15 @@ async function sembrarPermisosPorDefecto(connection) {
       const puedeEditarAgregar = ver && rol !== 'invitado' && (!restriccion || restriccion.includes(rol));
       const editar = puedeEditarAgregar ? 1 : 0;
       const agregar = puedeEditarAgregar ? 1 : 0;
+      // Importar/Exportar NO sigue a «Ver»: un coordinador sin Ver en un módulo
+      // conserva la casilla encendida, porque hoy las rutas no miran la matriz y
+      // apagarla aquí cambiaría lo que ya funciona. La tabla de fábrica es la
+      // de config/importarExportar.js, y los roles que no figuran quedan en 0.
+      const importarExportar = importarExportarPorDefecto(rol, modulo);
       await connection.query(
-        `INSERT IGNORE INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES (?, ?, ?, ?, ?)`,
-        [rol, modulo, ver, editar, agregar]
+        `INSERT IGNORE INTO permisos_rol (rol, modulo, permitido, editar, agregar, importar_exportar)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [rol, modulo, ver, editar, agregar, importarExportar]
       );
     }
   }
@@ -1087,6 +1098,32 @@ async function main() {
        WHERE modulo = 'territorial' AND rol NOT IN ('admin', 'coordinador')`
     );
     console.log('Editar/Agregar de "territorial" ajustado para preservar el comportamiento previo (solo Admin y Coordinador).');
+  }
+
+  // «Importar / Exportar» — un cuarto nivel, aparte de Ver/Editar/Agregar, que
+  // gobierna los botones de importar, exportar e imprimir a PDF y, a diferencia
+  // de los otros tres, TAMBIÉN las rutas del servidor (middleware/permisoModulo.js).
+  //
+  // DEFAULT 0: una fila que nadie rellenó no da permiso. Pero eso por sí solo
+  // dejaría sin importar ni exportar a quien hoy puede, así que al crearse la
+  // columna se enciende para quien ya tenía el derecho — y SOLO entonces, igual
+  // que arriba: si se repitiera en cada corrida, pisaría lo que el administrador
+  // haya apagado desde Asignación de permisos.
+  const importarExportarRecienCreada = await agregarColumnaSiFalta(
+    connection, 'permisos_rol',
+    "importar_exportar TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Importar y exportar archivos de datos de ese módulo' AFTER agregar",
+    'importar_exportar'
+  );
+  if (importarExportarRecienCreada) {
+    let encendidas = 0;
+    for (const [modulo, roles] of Object.entries(IMPORTAR_EXPORTAR_POR_DEFECTO)) {
+      const [r] = await connection.query(
+        `UPDATE permisos_rol SET importar_exportar = 1 WHERE modulo = ? AND rol IN (?)`,
+        [modulo, roles]
+      );
+      encendidas += r.affectedRows;
+    }
+    console.log(`Importar/Exportar encendido para administrador y coordinador donde ya importaban o exportaban (${encendidas} fila(s)). OJO: cuatro exportaciones que antes solo pedían sesión (territorios, asistentes de eventos y 2 de Word del organigrama) ahora exigen el permiso.`);
   }
 
   // El campo Género de Votantes/sublíderes nunca se había expuesto en el

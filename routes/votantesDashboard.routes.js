@@ -8,6 +8,7 @@ const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { armarWhereSql } = require('../config/filtros');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
 const { duenoDeLaCampana } = require('../lib/ramas');
@@ -200,7 +201,7 @@ router.get('/cobertura-detalle', async (req, res) => {
   }
 });
 
-router.get('/cobertura-detalle/exportar-excel', async (req, res) => {
+router.get('/cobertura-detalle/exportar-excel', requiereImportarExportar('votantes_dashboard'), async (req, res) => {
   const { tipo } = req.query;
   try {
     const detalle = await obtenerDetalleCobertura(tipo, req.query.estado);
@@ -238,7 +239,7 @@ router.get('/cobertura-detalle/exportar-excel', async (req, res) => {
   }
 });
 
-router.get('/cobertura-detalle/exportar-word', async (req, res) => {
+router.get('/cobertura-detalle/exportar-word', requiereImportarExportar('votantes_dashboard'), async (req, res) => {
   const { tipo } = req.query;
   try {
     const detalle = await obtenerDetalleCobertura(tipo, req.query.estado);
@@ -349,7 +350,7 @@ const NOMBRES_SECCION = {
   mesa: 'Por mesa'
 };
 
-router.get('/exportar-excel', async (req, res) => {
+router.get('/exportar-excel', requiereImportarExportar('votantes_dashboard'), async (req, res) => {
   const { seccion, puesto } = req.query;
   try {
     const libro = XLSX.utils.book_new();
@@ -500,7 +501,7 @@ router.get('/exportar-excel', async (req, res) => {
  * "tipo_grafico") como imagen, y la tabla de datos debajo. Ver
  * config/wordExport.js y config/graficosServidor.js.
  */
-router.get('/exportar-word', async (req, res) => {
+router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), async (req, res) => {
   const { seccion, puesto } = req.query;
   const tipoGraficoSeccionUnica = req.query.tipo_grafico === 'dona' ? 'dona' : 'barra';
   try {

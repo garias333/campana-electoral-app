@@ -1842,6 +1842,16 @@ table td .btn-primario:hover {
 /* --- Autorización de tratamiento de datos, como evidencia ----------------
    Va en la ficha de la persona y es de SOLO LECTURA: poder editarla la
    volvería inútil como prueba. */
+/* CONTROLES DE IMPORTAR / EXPORTAR / IMPRIMIR SIN PERMISO.
+   Los botones llevan `data-ie="módulo"` y nacen con esta clase; `common.js`
+   (aplicarImportarExportar) se la quita a quien sí puede usarlos.
+
+   `!important` A PROPÓSITO: varias pantallas deciden qué mostrar con
+   `elemento.style.display = ''`, y una regla normal perdería contra eso. Aquí
+   lo que se protege son listados de personas, y no debe depender de que cada
+   pantalla recuerde no tocarlo. */
+.sin-importar-exportar { display: none !important; }
+
 /* Los botones del bloque de evidencia del consentimiento. Pequeños y sobrios
    a propósito: están dentro de un bloque de SOLO LECTURA, y no deben competir
    con los botones de guardar de la ficha. */

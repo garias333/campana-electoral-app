@@ -102,14 +102,39 @@ const HREFS_ASPIRANTE = [
   '/dia-d.html',
 ];
 
+/*
+   `importar_exportar` ES LO QUE EL ASPIRANTE PUEDE HACER HOY, no una concesión
+   nueva. Se midió contra las rutas (el 14 de octubre de 2026): llega a
+     · exportar sus votantes                            → votantes
+     · exportar el catálogo de territorios              → territorial
+     · exportar e importar los puestos y candidatos     → configuracion
+       del Día D, y traerlos del catálogo
+   y NO llega a importar votantes, ni a exportar o importar la estructura ni los
+   testigos: esas rutas piden admin o coordinador y un aspirante es «lider».
+   Por eso `votantes` y `territorial` van en true aunque en ellos solo exporte,
+   y `testigos` en false.
+   Este permiso se suma a `requireRole` (middleware/permisoModulo.js), no lo
+   reemplaza: encenderlo aquí no abre ninguna ruta que `requireRole` cierre.
+
+   COSTE CONOCIDO, y ya existía: la casilla es POR MÓDULO y el módulo
+   `territorial` mezcla una exportación que el aspirante sí alcanza (el
+   catálogo de territorios) con otras que no (exportar e importar la
+   estructura). El botón «Exportar a Excel» de la estructura le salía ANTES de
+   este permiso —nada lo escondía— y ya le respondía 403 al pulsarlo; con la
+   casilla en true sigue igual. (El de importar la estructura lo esconde
+   territorial.html por `es_aspirante`, y el de importar territorios, por la
+   página, solo a administradores.) No es una regresión; es una decisión
+   pendiente: o se parte el módulo en dos casillas, o se oculta ese botón para
+   el aspirante.
+*/
 const PERMISOS_ASPIRANTE = {
-  panel_general: { ver: true, editar: false, agregar: false },
-  usuarios:      { ver: true, editar: true,  agregar: true },
-  configuracion: { ver: true, editar: true,  agregar: false },
-  territorial:   { ver: true, editar: false, agregar: false },
-  mapa:          { ver: true, editar: false, agregar: false },
-  votantes:      { ver: true, editar: true,  agregar: true },
-  testigos:      { ver: true, editar: true,  agregar: true },
+  panel_general: { ver: true, editar: false, agregar: false, importar_exportar: false },
+  usuarios:      { ver: true, editar: true,  agregar: true,  importar_exportar: false },
+  configuracion: { ver: true, editar: true,  agregar: false, importar_exportar: true  },
+  territorial:   { ver: true, editar: false, agregar: false, importar_exportar: true  },
+  mapa:          { ver: true, editar: false, agregar: false, importar_exportar: false },
+  votantes:      { ver: true, editar: true,  agregar: true,  importar_exportar: true  },
+  testigos:      { ver: true, editar: true,  agregar: true,  importar_exportar: false },
 };
 
 /**

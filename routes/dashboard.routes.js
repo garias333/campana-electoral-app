@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../config/db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { sqlMetaEfectiva } = require('../config/metasEstructura');
 const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura, sublicenciaSobre } = require('../lib/ramas');
 // La misma regla que usa Configuración para saber qué apoyos ofrece cada
@@ -9,6 +9,8 @@ const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura, sublicenciaSobre } = requ
 const { apoyosPermitidos, unirApoyos } = require('../config/apoyos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { cargoDeLaMadre } = require('../config/cargoMadre');
+const { filtroOcultar } = require('../config/superadmin');
+const { avanceDeLideres } = require('../lib/avanceLideres');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -502,6 +504,67 @@ router.get('/progreso-equipo', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando el progreso del equipo.' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   AVANCE DE MIS LÍDERES — lo que ve un coordinador, desde el celular
+
+   Qué lleva cada líder de este coordinador frente a la meta que se comprometió.
+   La consulta está en lib/avanceLideres.js, que explica qué cuenta como registro
+   y por qué.
+
+   NO REUTILIZA `/progreso-equipo`, y no por capricho. Aquella trae a TODOS los
+   coordinadores y líderes de la campaña —solo se acota cuando mira un aspirante—
+   y, para un coordinador, compara la suma de las metas de sus líderes contra
+   solo sus propios registros. Servirla tal cual al celular le habría enseñado a
+   cada coordinador la nómina entera con sus metas, y un porcentaje que no mide
+   lo que dice.
+
+   QUIÉN LA LLAMA. El coordinador ve SIEMPRE los suyos: el id sale de la sesión y
+   cualquier `coordinador_id` que mande se IGNORA. El administrador y el
+   superadministrador —que conserva el rol 'admin'— eligen a cuál mirar con
+   `?coordinador_id=`. El aspirante con sublicencia no pasa: su rol es 'lider', y
+   lo que él necesita ver es «Progreso del equipo», ya acotado a su rama.
+   --------------------------------------------------------------------------- */
+router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (req, res) => {
+  try {
+    const sesion = req.session.usuario;
+    let coordinador;
+
+    if (sesion.rol === 'admin') {
+      const pedido = Number(req.query.coordinador_id);
+      if (!Number.isInteger(pedido) || pedido <= 0) {
+        return res.status(400).json({
+          error: 'Indique de qué coordinador quiere ver el avance (coordinador_id).'
+        });
+      }
+      /* Se comprueba que SEA un coordinador de esta campaña, activo, y se le
+         aplica el filtro del superadministrador oculto: sin eso, esta ruta
+         serviría para sondear ids de usuario y confirmar cuáles existen. El
+         404 es el mismo para «no existe» y «no es coordinador». */
+      const ocultarAlConsultado = await filtroOcultar(sesion, 'u');
+      const [[fila]] = await pool.query(
+        `SELECT u.id, u.nombre
+           FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+          WHERE e.usuario_id = ? AND e.cargo = 'coordinador' AND e.activo = 1
+                ${ocultarAlConsultado}
+          LIMIT 1`,
+        [pedido]
+      );
+      if (!fila) return res.status(404).json({ error: 'Ese coordinador no existe.' });
+      coordinador = { id: fila.id, nombre: fila.nombre };
+    } else {
+      coordinador = { id: sesion.id, nombre: sesion.nombre };
+    }
+
+    const ocultar = await filtroOcultar(sesion, 'u');
+    const { lideres, total } = await avanceDeLideres(pool, coordinador.id, ocultar);
+    res.json({ coordinador, lideres, total });
+  } catch (err) {
+    // Solo el código y el mensaje: `err.sql` lleva la consulta entera.
+    console.error('Avance de mis líderes:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo cargar el avance de sus líderes.' });
   }
 });
 

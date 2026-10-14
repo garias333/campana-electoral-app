@@ -575,6 +575,10 @@ CREATE TABLE IF NOT EXISTS permisos_rol (
   permitido TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Ver: si el módulo aparece en el menú y se puede consultar',
   editar TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Editar registros existentes de ese módulo',
   agregar TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Agregar registros nuevos en ese módulo',
+  -- Importar y exportar archivos de datos de ese módulo (Excel, Word, impresión a PDF).
+  -- DEFAULT 0, A DIFERENCIA DE LAS DOS DE ARRIBA: una fila que nadie rellenó no
+  -- da permiso. El servidor lo lee con fallo cerrado (middleware/permisoModulo.js).
+  importar_exportar TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Importar y exportar archivos de datos de ese módulo',
   PRIMARY KEY (rol, modulo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

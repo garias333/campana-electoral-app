@@ -422,9 +422,9 @@
     <div class="topbar">
       <div class="topbar-acciones" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <span class="mono" id="dash-cargando" style="color:var(--color-text-muted); font-size:0.82rem;"></span>
-        <button type="button" class="btn-exportar btn-exportar-xlsx" id="btn-exportar-excel-dash">⬇ Excel</button>
-        <button type="button" class="btn-exportar btn-exportar-word" id="btn-exportar-word-dash">📝 Word</button>
-        <button type="button" class="btn-exportar btn-exportar-pdf" id="btn-exportar-pdf-dash">🖨 PDF</button>
+        <button type="button" class="btn-exportar btn-exportar-xlsx sin-importar-exportar" data-ie="votantes_dashboard" id="btn-exportar-excel-dash">⬇ Excel</button>
+        <button type="button" class="btn-exportar btn-exportar-word sin-importar-exportar" data-ie="votantes_dashboard" id="btn-exportar-word-dash">📝 Word</button>
+        <button type="button" class="btn-exportar btn-exportar-pdf sin-importar-exportar" data-ie="votantes_dashboard" id="btn-exportar-pdf-dash">🖨 PDF</button>
       </div>
     </div>
     <p style="color:var(--color-text-muted); font-size:0.88rem; margin-top:-8px; margin-bottom:18px;">
@@ -461,7 +461,7 @@
             <h3>Cobertura territorial</h3>
             <p class="grafico-subtitulo">Comunas/Corregimientos con coordinador y todos sus barrios/veredas con líder</p>
           </div>
-          <div class="grafico-exportar">
+          <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionExcel('cobertura')" data-word="exportarSeccionWord('cobertura')" data-pdf="exportarSeccionPDF('tarjeta-cobertura-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -566,7 +566,7 @@
             <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
-          <div class="grafico-exportar">
+          <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionExcel('comuna')" data-word="exportarSeccionWord('comuna', { tipo_grafico: tipoGraficoActivo('comuna') })" data-pdf="exportarSeccionPDF('tarjeta-comuna-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -599,7 +599,7 @@
             <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
-          <div class="grafico-exportar">
+          <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionExcel('barrio')" data-word="exportarSeccionWord('barrio', { tipo_grafico: tipoGraficoActivo('barrio') })" data-pdf="exportarSeccionPDF('tarjeta-barrio-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -636,7 +636,7 @@
             <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
-          <div class="grafico-exportar">
+          <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionExcel('lider')" data-word="exportarSeccionWord('lider', { tipo_grafico: tipoGraficoActivo('lider') })" data-pdf="exportarSeccionPDF('tarjeta-lider-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -669,7 +669,7 @@
             <button type="button" class="activo" data-tipo="barra">📊 Barras</button>
             <button type="button" data-tipo="dona">🍩 Dona</button>
           </div>
-          <div class="grafico-exportar">
+          <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionExcel('puesto')" data-word="exportarSeccionWord('puesto', { tipo_grafico: tipoGraficoActivo('puesto') })" data-pdf="exportarSeccionPDF('tarjeta-puesto-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -697,7 +697,7 @@
           <h3>Por Mesa</h3>
           <p class="grafico-subtitulo">Elige un Puesto de votación para ver cómo se reparten sus mesas.</p>
         </div>
-        <div class="grafico-exportar">
+        <div class="grafico-exportar sin-importar-exportar" data-ie="votantes_dashboard">
             <button type="button" class="btn-discreto" onclick="abrirMenuExportar(event, this)"
                     data-excel="exportarSeccionMesaExcel()" data-word="exportarSeccionMesaWord()" data-pdf="exportarSeccionPDF('tarjeta-mesa-seccion')"
                     aria-haspopup="menu" aria-expanded="false" title="Exportar esta sección">⬇ Exportar</button>
@@ -1332,17 +1332,23 @@ function mostrarMenuInforme(evt, tipo, estado, titulo) {
   menu.id = 'menu-informe-cobertura-activo';
   menu.style.top = `${rect.bottom + 6}px`;
   menu.style.left = `${Math.max(8, rect.right - 190)}px`;
+  /* «INFORME» ES UN BOTÓN MIXTO: ver en pantalla y sacar a Excel, Word o PDF.
+     Quien no tiene «Importar / Exportar» sigue pudiendo ver el informe —eso no
+     es exportar— y pierde solo las tres salidas. Esconder el botón entero le
+     habría quitado una función que el permiso no gobierna. */
+  const puedeSacar = typeof puedeImportarExportar === 'function' && puedeImportarExportar(usuarioActual, 'votantes_dashboard');   // sin la función (common.js antiguo en caché): sin permiso
   menu.innerHTML = `
     <button type="button">📊 Ver en pantalla</button>
+    ${puedeSacar ? `
     <button type="button">⬇ Excel</button>
     <button type="button">📝 Word</button>
-    <button type="button">🖨 PDF</button>
+    <button type="button">🖨 PDF</button>` : ''}
   `;
   const [btnVer, btnExcel, btnWord, btnPdf] = menu.querySelectorAll('button');
   btnVer.addEventListener('click', () => { cerrarMenuInforme(); mostrarInformeCoberturaEnPantalla(tipo, estado, titulo); });
-  btnExcel.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaExcel(tipo, estado); });
-  btnWord.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaWord(tipo, estado); });
-  btnPdf.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaPDF(tipo, estado, titulo); });
+  if (btnExcel) btnExcel.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaExcel(tipo, estado); });
+  if (btnWord) btnWord.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaWord(tipo, estado); });
+  if (btnPdf) btnPdf.addEventListener('click', () => { cerrarMenuInforme(); exportarInformeCoberturaPDF(tipo, estado, titulo); });
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', cerrarMenuInforme, { once: true }), 0);
 }

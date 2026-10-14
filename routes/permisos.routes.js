@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { esSuperadmin } = require('../config/superadmin');
+const { MODULOS_CON_IMPORTAR_EXPORTAR, moduloTieneImportarExportar } = require('../config/importarExportar');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -54,17 +55,52 @@ const MODULOS = [
  */
 const ROLES = ['admin', 'administrativo', 'asistente_administrativo', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
 
+/* ¿LA COLUMNA `importar_exportar` TODAVÍA NO EXISTE? Entre el momento en que el
+   actualizador descomprime el parche y el momento en que `init-db` la crea (o si
+   `init-db` no llegó a correr), este código ya está sirviendo y la base todavía
+   no la tiene. Sin este respaldo, `/mios` respondería 500 a CADA usuario —lo
+   llama common.js en cada página— y el menú de toda la campaña dejaría de
+   dibujarse por una casilla nueva. Con él, la pantalla funciona como antes y el
+   permiso nuevo queda cerrado (el middleware cierra por defecto).
+   No se mira solo el código del error: otra columna que faltara también es
+   ER_BAD_FIELD_ERROR, y eso SÍ debe fallar a la vista. */
+function faltaColumnaImportarExportar(err) {
+  return !!err && err.code === 'ER_BAD_FIELD_ERROR'
+    && /importar_exportar/.test(err.sqlMessage || err.message || '');
+}
+
 // Matriz completa (rol × módulo) para la pantalla de administración. Solo
 // admin. Cada casilla trae los tres niveles de permiso: Ver, Editar y
 // Agregar nuevo.
 router.get('/matriz', requireRole('admin'), async (req, res) => {
   try {
-    const [filas] = await pool.query(`SELECT rol, modulo, permitido, editar, agregar FROM permisos_rol`);
+    let filas;
+    let columnaExiste = true;
+    try {
+      [filas] = await pool.query(
+        `SELECT rol, modulo, permitido, editar, agregar, importar_exportar FROM permisos_rol`);
+    } catch (err) {
+      if (!faltaColumnaImportarExportar(err)) throw err;
+      columnaExiste = false;
+      [filas] = await pool.query(`SELECT rol, modulo, permitido, editar, agregar FROM permisos_rol`);
+    }
     const permisos = {};
     filas.forEach(f => {
-      permisos[`${f.rol}:${f.modulo}`] = { ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar };
+      permisos[`${f.rol}:${f.modulo}`] = {
+        ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar,
+        importar_exportar: !!f.importar_exportar
+      };
     });
-    res.json({ modulos: MODULOS, roles: ROLES, permisos });
+    /* `modulos_con_importar_exportar` viaja con la matriz para que la pantalla
+       sepa en qué filas ofrecer la cuarta casilla sin llevar su propia copia de
+       la lista: una casilla en un módulo que no tiene nada que importar ni
+       exportar no hace nada, y una que miente es peor que ninguna. */
+    res.json({
+      modulos: MODULOS, roles: ROLES, permisos,
+      // Sin la columna no se ofrece la casilla: dibujarla y que no guarde nada
+      // sería una casilla que miente.
+      modulos_con_importar_exportar: columnaExiste ? MODULOS_CON_IMPORTAR_EXPORTAR : []
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error obteniendo la matriz de permisos.' });
@@ -77,11 +113,28 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
   if (!permisos || typeof permisos !== 'object') {
     return res.status(400).json({ error: 'Formato de permisos inválido.' });
   }
+  /* ¿ESTA PANTALLA CONOCE LA CUARTA CASILLA? El guardado reescribe TODAS las
+     celdas rol×módulo. Una pantalla que quedó abierta —o en la caché del
+     navegador— de antes de «Importar / Exportar» no la manda, y tomar su
+     ausencia por «apagada» le quitaría el permiso a todos los roles de un
+     golpe, sin error y sin que el administrador hiciera nada. Si ninguna celda
+     la trae, esa columna no se toca. */
+  const traeImportarExportar = Object.values(permisos)
+    .some(c => c && typeof c === 'object' && 'importar_exportar' in c);
+
   const filas = [];
   for (const rol of ROLES) {
     for (const { clave: modulo } of MODULOS) {
       const celda = permisos[`${rol}:${modulo}`] || {};
-      filas.push([rol, modulo, celda.ver ? 1 : 0, celda.editar ? 1 : 0, celda.agregar ? 1 : 0]);
+      const fila = [rol, modulo, celda.ver ? 1 : 0, celda.editar ? 1 : 0, celda.agregar ? 1 : 0];
+      if (traeImportarExportar) {
+        /* El administrador SIEMPRE lo tiene donde existe (el servidor no se lo
+           pregunta, así que la matriz no puede decir otra cosa), y un módulo sin
+           rutas de importar ni exportar siempre en 0, venga lo que venga. */
+        fila.push(!moduloTieneImportarExportar(modulo) ? 0
+          : (rol === 'admin' ? 1 : (celda.importar_exportar ? 1 : 0)));
+      }
+      filas.push(fila);
     }
   }
 
@@ -92,8 +145,12 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
     // separadas, una por cada casilla rol×módulo) — mismo resultado en la
     // base de datos, un solo viaje en vez de 128.
     await conexion.query(
-      `INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ?
-       ON DUPLICATE KEY UPDATE permitido = VALUES(permitido), editar = VALUES(editar), agregar = VALUES(agregar)`,
+      traeImportarExportar
+        ? `INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar, importar_exportar) VALUES ?
+           ON DUPLICATE KEY UPDATE permitido = VALUES(permitido), editar = VALUES(editar),
+             agregar = VALUES(agregar), importar_exportar = VALUES(importar_exportar)`
+        : `INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ?
+           ON DUPLICATE KEY UPDATE permitido = VALUES(permitido), editar = VALUES(editar), agregar = VALUES(agregar)`,
       [filas]
     );
     await conexion.commit();
@@ -134,17 +191,40 @@ router.get('/mios', async (req, res) => {
      */
     if (await esSuperadmin(req.session.usuario)) {
       const permisos = {};
-      MODULOS.forEach(m => { permisos[m.clave] = { ver: true, editar: true, agregar: true }; });
+      MODULOS.forEach(m => { permisos[m.clave] = { ver: true, editar: true, agregar: true, importar_exportar: true }; });
       return res.json({ modulos: MODULOS.map(m => m.clave), permisos });
     }
-    const [filas] = await pool.query(
-      `SELECT modulo, permitido, editar, agregar FROM permisos_rol WHERE rol = ?`,
-      [req.session.usuario.rol]
-    );
+    let filas;
+    try {
+      [filas] = await pool.query(
+        `SELECT modulo, permitido, editar, agregar, importar_exportar FROM permisos_rol WHERE rol = ?`,
+        [req.session.usuario.rol]
+      );
+    } catch (err) {
+      if (!faltaColumnaImportarExportar(err)) throw err;
+      [filas] = await pool.query(
+        `SELECT modulo, permitido, editar, agregar FROM permisos_rol WHERE rol = ?`,
+        [req.session.usuario.rol]
+      );
+    }
     const permisos = {};
     filas.forEach(f => {
-      permisos[f.modulo] = { ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar };
+      permisos[f.modulo] = {
+        ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar,
+        importar_exportar: !!f.importar_exportar
+      };
     });
+    /* EL ADMINISTRADOR LO TIENE SIEMPRE, y aquí se dice así para que el
+       navegador no lo contradiga. El servidor no le pregunta a la matriz por el
+       administrador (middleware/permisoModulo.js): si la fila de «admin»
+       dijera 0 —porque alguien la apagó, o porque falta—, los botones se
+       esconderían y las rutas seguirían abiertas. Peor que cualquiera de las
+       dos por separado. */
+    if (req.session.usuario.rol === 'admin') {
+      MODULOS_CON_IMPORTAR_EXPORTAR.forEach(m => {
+        permisos[m] = { ver: false, editar: false, agregar: false, ...permisos[m], importar_exportar: true };
+      });
+    }
     let modulos = filas.filter(f => f.permitido).map(f => f.modulo);
     let hrefs = null;   // sólo el aspirante recorta entrada por entrada
 

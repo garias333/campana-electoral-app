@@ -411,8 +411,8 @@
           <button type="button" class="btn-secundario btn-sm" id="btn-zoom-mas" title="Acercar">+</button>
         </div>
         <button class="btn-acento" id="btn-nuevo-raiz">+ Agregar cargo raíz</button>
-        <button type="button" class="btn-secundario" id="btn-todo-word" title="Ficha de cada cargo en Word, una por hoja">📝 Todo a Word</button>
-        <button type="button" class="btn-secundario" id="btn-imprimir-todo" title="Ficha de cada cargo en PDF, una por hoja">🖨️ Todo a PDF</button>
+        <button type="button" class="btn-secundario sin-importar-exportar" data-ie="organigrama" id="btn-todo-word" title="Ficha de cada cargo en Word, una por hoja">📝 Todo a Word</button>
+        <button type="button" class="btn-secundario sin-importar-exportar" data-ie="organigrama" id="btn-imprimir-todo" title="Ficha de cada cargo en PDF, una por hoja">🖨️ Todo a PDF</button>
       </div>
     </div>
 
@@ -511,6 +511,15 @@
 <script src="/js/common.js"></script>
 <script>
 let usuarioActual;
+/* «Importar / Exportar» desde un common.js ANTIGUO. El navegador guarda los .js
+   hasta 10 minutos: si esta página llega nueva y common.js todavía no trae
+   `claseImportarExportar`, llamarla directo lanzaría un ReferenceError que
+   abortaría el dibujo de toda la pantalla. Sin la función se asume que NO hay
+   permiso (el botón nace escondido): se pierde un botón unos minutos, no la página. */
+const claseIE = (modulo) => (typeof claseImportarExportar === 'function'
+  ? claseImportarExportar(usuarioActual, modulo)
+  : 'sin-importar-exportar');
+
 let nodos = [];
 let vista = 'diagrama'; // 'diagrama' | 'lista'
 let subVistaDiagrama = 'clasico'; // 'clasico' | 'horizontal' | 'compacto' | 'columnas' | 'radial'
@@ -748,7 +757,7 @@ function renderizarTablaPorCargo() {
             <td>${escaparOrgHtml(textoSubordinadoDe(n))}</td>
             <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${n.funciones ? atribOrg(n.funciones) : ''}">${escaparOrgHtml(n.funciones ? n.funciones : '—')}</td>
             <td style="white-space:nowrap;">
-              <button class="btn-secundario btn-sm" onclick="imprimirCargo(${n.id})" title="Imprimir ficha de este cargo">🖨️</button>
+              <button class="btn-secundario btn-sm ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${n.id})" title="Imprimir ficha de este cargo">🖨️</button>
               ${puedeEditar ? `
                 <button class="btn-secundario btn-sm" onclick="editarNodo(${n.id})">Editar</button>
                 <button class="btn-secundario btn-sm" onclick="eliminarNodo(${n.id})">Eliminar</button>
@@ -871,8 +880,8 @@ function renderizarNodoLista(nodo) {
         <span class="org-cargo ${claseColorCargo}">${escaparOrgHtml(nodo.cargo)}</span>
         ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
         ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}
-        <span class="org-imprimir-lista org-imprimir-word" style="${puedeEditar ? '' : 'margin-left:auto;'}" onclick="exportarCargoWord(${nodo.id})" title="Ficha de este cargo en Word">📝 Word</span>
-        <span class="org-imprimir-lista org-imprimir-pdf" onclick="imprimirCargo(${nodo.id})" title="Ficha de este cargo en PDF">🖨️ PDF</span>
+        <span class="org-imprimir-lista org-imprimir-word ${claseIE('organigrama')}" data-ie="organigrama" style="${puedeEditar ? '' : 'margin-left:auto;'}" onclick="exportarCargoWord(${nodo.id})" title="Ficha de este cargo en Word">📝 Word</span>
+        <span class="org-imprimir-lista org-imprimir-pdf ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${nodo.id})" title="Ficha de este cargo en PDF">🖨️ PDF</span>
         ${(puedeEditar || nodo.telefono) ? `
           <div class="org-acciones">
             ${puedeEditar ? `
@@ -935,7 +944,7 @@ function renderizarNodoDiagrama(nodo) {
     <div class="org-caja">
       ${bandaNivelHtml(nodo, contarRama(nodo.id))}
       <div class="org-caja-cuerpo">
-        <span class="org-caja-imprimir" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
+        <span class="org-caja-imprimir ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
         <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
         ${nombreAbreviado(nodo)
           ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(nodo))}</span>`
@@ -961,7 +970,7 @@ function renderizarNodoDiagrama(nodo) {
         <div class="org-caja org-caja-asesor">
           <div class="org-caja-banda org-nivel-asesores"><span>Asesor</span></div>
           <div class="org-caja-cuerpo">
-            <span class="org-caja-imprimir" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
+            <span class="org-caja-imprimir ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${a.id})" title="Imprimir ficha de este cargo">🖨️</span>
             <span class="org-cargo">${escaparOrgHtml(a.cargo)}</span>
             ${nombreAbreviado(a)
               ? `<span class="org-nombre">${escaparOrgHtml(nombreAbreviado(a))}</span>`
@@ -998,7 +1007,7 @@ function renderizarNodoCompacto(nodo) {
   return `
     <div class="org-compacto-nodo">
       <div class="org-compacto-caja">
-        <span class="org-caja-imprimir org-caja-imprimir-inline" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
+        <span class="org-caja-imprimir org-caja-imprimir-inline ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${nodo.id})" title="Imprimir ficha de este cargo">🖨️</span>
         <span class="org-cargo">${escaparOrgHtml(nodo.cargo)}</span>
         ${nombreAbreviado(nodo) ? `<span class="org-nombre">— ${escaparOrgHtml(nombreAbreviado(nodo))}</span>` : ''}
         ${nodo.tipo_relacion === 'asesor' ? `<span class="org-etiqueta-asesor">Asesor</span>` : ''}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Avance de mis líderes · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* El total del coordinador — lo primero que ve al entrar. Mismo lenguaje que la
+     tarjeta de progreso de «Mis registros». */
+  .total-card {
+    background: #fff; border: 1px solid var(--linea); border-radius: 14px;
+    padding: 16px; margin-bottom: 18px;
+  }
+  .total-card .titulo { font-size: 0.82rem; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .total-card .cifras { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+  .total-card .grande { font-size: 1.7rem; font-weight: 700; color: #0B5ED7; }
+  .total-card .meta { font-size: 0.86rem; color: var(--muted); }
+  .total-card .pct { font-size: 1.05rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
+  .total-card .detalle { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
+
+  .barra-fondo { height: 12px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
+  .barra-relleno { height: 100%; background: #0B5ED7; border-radius: 999px; transition: width .3s ease; }
+  /* Quien llegó o pasó su meta (`cumplida`, que decide el servidor): la barra se pone
+     verde. El ancho se corta en 100 % porque no cabe más en la caja, pero la CIFRA
+     sí dice 143 %. */
+  .barra-relleno.supera { background: var(--exito); }
+
+  .subtitulo-lista { font-size: 0.8rem; color: var(--muted); margin: 0 2px 10px; }
+
+  .lider-fila {
+    background: #fff; border: 1px solid var(--linea); border-radius: 12px;
+    padding: 13px 14px; margin-bottom: 10px;
+  }
+  .lider-fila .cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .lider-fila .nombre {
+    font-size: 0.98rem; font-weight: 600; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .lider-fila .pct { font-size: 0.98rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
+  .lider-fila .pct.sin-meta { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .lider-fila .pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; font-size: 0.82rem; color: var(--muted); }
+  .lider-fila .llamar { color: var(--navy); font-weight: 600; text-decoration: none; white-space: nowrap; }
+
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+
+  <div id="cargando" class="vacio-app">Cargando el avance…</div>
+
+  <div class="total-card" id="total-card" style="display:none;">
+    <p class="titulo">Total de mis líderes</p>
+    <div class="cifras">
+      <div>
+        <span class="grande" id="total-registros">0</span>
+        <span class="meta" id="total-meta"></span>
+      </div>
+      <span class="pct" id="total-pct"></span>
+    </div>
+    <div class="barra-fondo"><div class="barra-relleno" id="total-barra" style="width:0%"></div></div>
+    <p class="detalle" id="total-detalle"></p>
+  </div>
+
+  <p class="subtitulo-lista" id="subtitulo-lista" style="display:none;">De menor a mayor avance: arriba, a quién hay que empujar.</p>
+  <div id="lista-lideres"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/app/avance-resumen.js"></script>
+<script>
+function mostrarAviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto;
+  el.className = 'aviso-app visible ' + (tipo || 'error');
+}
+
+// `escaparAppHtml` escapa < > y &, pero NO las comillas: dentro de un atributo
+// (aria-label="...") un nombre como  Juan "El Flaco"  cerraría el atributo y dejaría
+// escribir otro. Para atributos se escapan también.
+const comoAtributo = (t) => escaparAppHtml(t).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// 1.234 · y un decimal solo cuando hace falta: 12,5 %, pero 9 % y no 9,0 %.
+const numero = (n) => Number(n).toLocaleString('es-CO');
+const porcentaje = (p) => Number(p).toLocaleString('es-CO', { maximumFractionDigits: 1 }) + ' %';
+
+function pintarTotal(total) {
+  // Los textos del total los arma `resumenTotalAvance` (avance-resumen.js), el mismo
+  // que usa la tarjeta de «Mis registros» del coordinador: las dos dicen lo mismo.
+  const r = resumenTotalAvance(total);
+  document.getElementById('total-registros').textContent = r.grande;
+  document.getElementById('total-meta').textContent = r.meta;
+  document.getElementById('total-pct').textContent = r.pct;
+  const barra = document.getElementById('total-barra');
+  barra.style.width = r.ancho + '%';
+  barra.classList.toggle('supera', r.cumplida);
+  document.getElementById('total-detalle').textContent = r.detalle;
+  document.getElementById('total-card').style.display = 'block';
+}
+
+function filaLider(l) {
+  const nombre = escaparAppHtml(l.nombre);
+  const tel = l.telefono ? String(l.telefono).replace(/\D/g, '') : '';
+  const subs = l.sublideres > 0
+    ? `${l.sublideres} ${l.sublideres === 1 ? 'sublíder' : 'sublíderes'}`
+    : '';
+  const llamar = tel ? `<a class="llamar" href="tel:${tel}">📞 Llamar</a>` : '';
+  const pie = [subs && `<span>${subs}</span>`, llamar].filter(Boolean).join('');
+
+  if (l.sin_meta) {
+    return `
+      <div class="lider-fila">
+        <div class="cabeza"><span class="nombre">${nombre}</span><span class="pct sin-meta">Sin meta</span></div>
+        <div class="pie"><span>${numero(l.registros)} ${l.registros === 1 ? 'registro' : 'registros'}</span>${pie}</div>
+      </div>`;
+  }
+  const ancho = Math.min(100, l.porcentaje);
+  return `
+    <div class="lider-fila">
+      <div class="cabeza"><span class="nombre">${nombre}</span><span class="pct">${porcentaje(l.porcentaje)}</span></div>
+      <div class="barra-fondo" role="progressbar" aria-label="Avance de ${comoAtributo(l.nombre)}"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(ancho)}">
+        <div class="barra-relleno${l.cumplida ? ' supera' : ''}" style="width:${ancho}%"></div>
+      </div>
+      <div class="pie"><span>${numero(l.registros)} de ${numero(l.meta)} registros</span>${pie}</div>
+    </div>`;
+}
+
+async function cargar() {
+  // Un administrador elige a cuál coordinador mirar con ?coordinador_id=; para un
+  // coordinador el servidor ignora ese dato y le da siempre los suyos.
+  const pedido = new URLSearchParams(window.location.search).get('coordinador_id');
+  const ruta = '/dashboard/avance-mis-lideres' + (pedido ? `?coordinador_id=${encodeURIComponent(pedido)}` : '');
+
+  try {
+    const r = await api(ruta);
+    document.getElementById('cargando').style.display = 'none';
+
+    if (!r.lideres.length) {
+      const vacio = document.getElementById('vacio');
+      vacio.textContent = 'Todavía no tiene líderes a su cargo.';
+      vacio.style.display = 'block';
+      return;
+    }
+    pintarTotal(r.total);
+    document.getElementById('subtitulo-lista').style.display = 'block';
+    document.getElementById('lista-lideres').innerHTML = r.lideres.map(filaLider).join('');
+  } catch (err) {
+    document.getElementById('cargando').style.display = 'none';
+    // Sin señal no es un error de la persona ni del servidor: se le dice tal cual.
+    mostrarAviso(err.esErrorDeRed
+      ? 'Sin conexión: no se pudo cargar el avance. Intente de nuevo cuando tenga señal.'
+      : (err.message || 'No se pudo cargar el avance.'));
+  }
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+
+  pintarBarraApp('Avance de mis líderes', 'Registros frente a la meta de cada líder', '/app/inicio.html');
+
+  // El servidor es quien lo exige (esta ruta es de coordinador y administrador);
+  // esto solo evita dejarle a otro rol una pantalla que responderá 403.
+  if (!['coordinador', 'admin'].includes(usuario.rol)) {
+    document.getElementById('cargando').style.display = 'none';
+    mostrarAviso('Esta pantalla es para coordinadores.');
+    return;
+  }
+  await cargar();
+})();
+</script>
+</body>
+</html>

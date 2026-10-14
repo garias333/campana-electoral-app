@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { upload } = require('../middleware/upload');
 const { armarWhereSql } = require('../config/filtros');
 
@@ -116,7 +117,7 @@ router.get('/resumen', async (req, res) => {
  * clasifica ingresos/gastos), con el tope legal de cada una al lado, listos
  * para copiar al portal real — hay que confirmar ahí los códigos vigentes.
  */
-router.get('/exportar-cuentas-claras', async (req, res) => {
+router.get('/exportar-cuentas-claras', requiereImportarExportar('finanzas'), async (req, res) => {
   try {
     const [porCategoria] = await pool.query(`
       SELECT c.nombre, c.tipo, c.tope_legal, COALESCE(SUM(m.monto), 0) AS total

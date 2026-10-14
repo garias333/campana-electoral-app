@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { upload, uploadExcel } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { subarbolSql, filtroTestigosMadre, duenoDeLaCampana: duenoDeLaCampanaRama } = require('../lib/ramas');
@@ -1451,7 +1452,7 @@ router.put('/config/puestos-votacion/:id', requireRole('admin', 'aspirante'), as
  * estaban no se dupliquen, así que se puede volver a correr sin pensarlo
  * — por ejemplo cuando el catálogo agrega puestos nuevos.
  */
-router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin', 'aspirante'), async (req, res) => {
+router.post('/config/puestos-votacion/importar-catalogo', requireRole('admin', 'aspirante'), requiereImportarExportar('configuracion'), async (req, res) => {
   const municipioId = Number(req.body.municipio_id) || 0;
   const departamentoId = Number(req.body.departamento_id) || 0;
   if (!municipioId && !departamentoId) {
@@ -1537,7 +1538,7 @@ router.delete('/config/puestos-votacion/:id', requireRole('admin', 'aspirante'),
   }
 });
 
-router.get('/config/puestos-votacion/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
+router.get('/config/puestos-votacion/exportar-excel', requireRole('admin', 'aspirante'), requiereImportarExportar('configuracion'), async (req, res) => {
   try {
     const [filas] = await pool.query(
       `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE aspirante_id = ? ORDER BY nombre`,
@@ -1563,7 +1564,7 @@ router.get('/config/puestos-votacion/exportar-excel', requireRole('admin', 'aspi
 // para editar uno existente), Nombre del puesto, Cantidad de mesas. Sirve
 // tanto para una carga manual como para el Excel descargado del sitio de la
 // Registraduría al usar el botón "Buscar listado oficial en internet".
-router.post('/config/puestos-votacion/importar-excel', requireRole('admin', 'aspirante'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/config/puestos-votacion/importar-excel', requireRole('admin', 'aspirante'), requiereImportarExportar('configuracion'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -1867,7 +1868,7 @@ router.put('/config/bloques/:grupo', requireRole('admin', 'aspirante'), async (r
   }
 });
 
-router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'), async (req, res) => {
+router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'), requiereImportarExportar('configuracion'), async (req, res) => {
   try {
     /* Cada sección exporta e importa LO SUYO. Un solo Excel con los tres
        bloques obligaría a llevar una columna de bloque, y quien la borrara o la
@@ -1896,7 +1897,7 @@ router.get('/config/candidatos/exportar-excel', requireRole('admin', 'aspirante'
 // Importa candidatos desde un Excel con columnas: ID (opcional, solo para
 // editar uno existente), Nombre del candidato. Los nuevos quedan al final,
 // respetando el orden de entrada de cada fila del archivo.
-router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante'), requiereImportarExportar('configuracion'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });

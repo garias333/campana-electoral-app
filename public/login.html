@@ -871,8 +871,9 @@ document.getElementById('form-2fa').addEventListener('submit', async (e) => {
  * a qué pantalla quería entrar — se le devuelve ahí mismo. Si no: Testigo
  * cae directo y siempre en Día D (su única pantalla de trabajo, no tiene
  * sentido que busque nada más en el menú). Líder y Sublíder van directo a
- * la app de captura (su pantalla de trabajo del día a día); el resto
- * sigue yendo al panel de escritorio.
+ * la app de captura (su pantalla de trabajo del día a día); el coordinador
+ * también, pero solo si entra desde un celular; el resto sigue yendo al panel de
+ * escritorio.
  */
 function irDondeCorresponde(usuario) {
   const destino = sessionStorage.getItem('app_destino_post_login');
@@ -906,6 +907,24 @@ function irDondeCorresponde(usuario) {
      niega. Votantes es la primera de las suyas. */
   if (usuario && usuario.es_aspirante && !window.esCelular()) {
     window.location.href = '/votantes.html';
+    return;
+  }
+  /* EL COORDINADOR VA A LA APP SI ENTRA DESDE EL CELULAR, Y AL PANEL SI ENTRA
+     DESDE UN COMPUTADOR. Antes caía siempre en el panel de escritorio, también en
+     una pantalla de 400 px, y era la razón de que la app del celular no fuera su
+     lugar de trabajo. Ahora tiene su propio menú (app/inicio.html) con el avance
+     de sus líderes y un enlace al panel completo.
+
+     «Celular» es `window.esCelular()` —la definición única de la aplicación:
+     aplicación instalada, o pantalla de hasta 820 px— y no un `matchMedia` propio
+     de este archivo: si cada pantalla midiera a su manera, un mismo aparato sería
+     celular para el login y computador para el formulario.
+
+     La redirección del SERVIDOR (app.js, la raíz «/») no cambia: no ve el ancho de
+     la pantalla, y mandar al coordinador a la app desde allí sería decidirlo a
+     ciegas. Esto solo decide lo que el navegador sí sabe. */
+  if (usuario && usuario.rol === 'coordinador' && window.esCelular()) {
+    window.location.href = '/app/inicio.html';
     return;
   }
   const rolesApp = ['lider', 'sublider'];

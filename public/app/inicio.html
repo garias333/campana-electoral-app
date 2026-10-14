@@ -60,13 +60,27 @@ function limpiarNombreCandidato(nombre) {
   return (nombre || '').replace(/^\s*candidato\s*:\s*/i, '').trim();
 }
 
-// Menú de líder/sublíder/coordinador — el mismo de siempre, sin cambios.
+// Menú de líder y sublíder.
 const MENU_LIDER = [
   { href: '/app/mis-registros.html', icono: '📝', titulo: 'Registro de votantes y sublíderes', subtitulo: 'Ver tu avance y agregar contactos' },
   { href: '/app/biografia.html', icono: '👤', titulo: 'Biografía del candidato', subtitulo: 'Conoce su trayectoria' },
   { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
   { href: '/app/politica-privacidad.html', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Cómo se protege tu información' },
+];
+
+// Menú de coordinador. Lo de siempre del líder —registrar, biografía, material,
+// puesto de votación y política— MÁS lo que un coordinador necesita y un líder no:
+// ver cómo va cada líder a su cargo, y llegar al panel completo.
+//
+// «Avance de mis líderes» va primero porque es para lo que un coordinador abre la
+// aplicación en la calle. «Panel completo» va al final y abre el panel de
+// escritorio: no hay pantalla móvil para todo lo que ahí se hace, y un coordinador
+// que entra desde el celular antes caía directamente en él sin otra opción.
+const MENU_COORDINADOR = [
+  { href: '/app/avance-lideres.html', icono: '📊', titulo: 'Avance de mis líderes', subtitulo: 'Cuánto lleva cada líder frente a su meta' },
+  ...MENU_LIDER,
+  { href: '/dashboard.html', icono: '🖥️', titulo: 'Panel completo', subtitulo: 'Abrir el panel de escritorio' },
 ];
 
 // Menú de administrador — incluye accesos directos al panel de escritorio
@@ -88,7 +102,7 @@ const MENU_ADMIN = [
 ];
 
 function pintarMenu(rol) {
-  const items = rol === 'admin' ? MENU_ADMIN : MENU_LIDER;
+  const items = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
   document.getElementById('menu-app').innerHTML = items.map(it => `
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>

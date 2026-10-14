@@ -21,6 +21,11 @@
   .progreso-card .pct { font-size: 1rem; font-weight: 700; color: var(--navy); }
   .barra-fondo { height: 12px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
   .barra-relleno { height: 100%; background: #0B5ED7; border-radius: 999px; transition: width .3s ease; }
+  /* Solo la tarjeta del coordinador (avance de sus líderes) lleva título, detalle y
+     enlace; para líder y sublíder siguen ocultos y la tarjeta es la de siempre. */
+  .progreso-card .titulo { font-size: 0.82rem; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .progreso-card .detalle { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
+  .barra-relleno.supera { background: var(--exito); }
 
   .buscador-app { position: relative; margin-bottom: 14px; }
   .buscador-app input { width: 100%; }
@@ -73,6 +78,7 @@
   <div id="aviso" class="aviso-app"></div>
 
   <div class="progreso-card" id="progreso-card" style="display:none;">
+    <p class="titulo" id="progreso-titulo" style="display:none;">Total de mis líderes</p>
     <div class="cifras">
       <div>
         <span class="grande" id="progreso-enviados">0</span>
@@ -81,6 +87,9 @@
       <span class="pct" id="progreso-pct">0%</span>
     </div>
     <div class="barra-fondo"><div class="barra-relleno" id="progreso-barra" style="width:0%"></div></div>
+    <p class="detalle" id="progreso-detalle" style="display:none;"></p>
+    <a class="btn-app btn-app-secundario" id="progreso-enlace" href="/app/avance-lideres.html"
+       style="display:none; margin-top:12px; text-decoration:none; box-sizing:border-box;">Avance de mis líderes →</a>
   </div>
 
   <button type="button" class="btn-app btn-app-primario" id="btn-nuevo-registro" style="margin-bottom:18px;">
@@ -117,6 +126,7 @@
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/app/avance-resumen.js"></script>
 <script>
 const POR_PAGINA = 25;
 let paginaActual = 1;
@@ -130,8 +140,16 @@ function mostrarAviso(texto, tipo) {
   el.className = 'aviso-app visible ' + (tipo || 'error');
 }
 
-/** Progreso hacia la meta. Si a esta persona no le asignaron meta, la tarjeta simplemente no aparece. */
-async function cargarProgreso() {
+/**
+ * Progreso hacia la meta. Si a esta persona no le asignaron meta, la tarjeta simplemente no aparece.
+ *
+ * El COORDINADOR no ve aquí su propia meta sino la de su equipo: la tarjeta cuenta lo mismo
+ * que la pantalla «Avance de mis líderes» (mismo endpoint, mismo resumen) y enlaza a ella.
+ * Antes comparaba SUS registros con la SUMA de las metas de sus líderes, una cifra que no
+ * significaba nada. Líder y sublíder siguen con su progreso personal de siempre.
+ */
+async function cargarProgreso(usuario) {
+  if (usuario && usuario.rol === 'coordinador') return cargarAvanceDeMisLideres();
   try {
     const p = await api('/dashboard/mi-progreso');
     if (!p || !p.tieneMetaAsignada || !p.meta) return;
@@ -142,6 +160,30 @@ async function cargarProgreso() {
     document.getElementById('progreso-card').style.display = 'block';
   } catch (err) {
     // Sin progreso la pantalla sigue sirviendo: no vale la pena molestar.
+  }
+}
+
+/** La tarjeta del coordinador: el total de «Avance de mis líderes» y el enlace a esa pantalla. */
+async function cargarAvanceDeMisLideres() {
+  try {
+    const r = await api('/dashboard/avance-mis-lideres');
+    // Sin líderes a su cargo no hay equipo que medir: la tarjeta no aparece, como cuando no hay meta.
+    if (!r || !r.total || !r.lideres || !r.lideres.length) return;
+    const t = resumenTotalAvance(r.total);
+    document.getElementById('progreso-titulo').style.display = 'block';
+    document.getElementById('progreso-enviados').textContent = t.grande;
+    document.getElementById('progreso-meta').textContent = t.meta;
+    document.getElementById('progreso-pct').textContent = t.pct;
+    const barra = document.getElementById('progreso-barra');
+    barra.style.width = `${t.ancho}%`;
+    barra.classList.toggle('supera', t.cumplida);
+    const detalle = document.getElementById('progreso-detalle');
+    detalle.textContent = t.detalle;
+    detalle.style.display = 'block';
+    document.getElementById('progreso-enlace').style.display = 'block';
+    document.getElementById('progreso-card').style.display = 'block';
+  } catch (err) {
+    // Igual que arriba: sin el avance la pantalla sigue sirviendo, y «Avance de mis líderes» está en el menú.
   }
 }
 
@@ -273,7 +315,7 @@ document.getElementById('buscador').addEventListener('input', (e) => {
     window.location.href = '/login.html';
   });
   pintarBarraApp('Mis registros', 'Personas que has registrado', '/app/inicio.html');
-  await cargarProgreso();
+  await cargarProgreso(usuario);
   await cargarVotantes(true);
 })();
 </script>

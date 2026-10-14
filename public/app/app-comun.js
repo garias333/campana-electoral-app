@@ -1,6 +1,12 @@
 /* Utilidades compartidas de la app de captura de campo.
-   Reutiliza el helper api() (con manejo de CSRF) ya definido en
-   /js/common.js — este archivo se carga DESPUÉS de ese, en cada página. */
+   Reutiliza el helper api() (con manejo de CSRF) definido en /js/api-core.js —
+   este archivo se carga DESPUÉS de ese, en cada pantalla de la app.
+
+   NINGUNA PANTALLA DE public/app/ CARGA /js/common.js. Antes este comentario
+   decía lo contrario, y mandaba a buscar aquí helpers que solo existen en el
+   panel de escritorio (como los de permisos, que la app no usa: filtra por rol).
+   Lo que sí se comparte con el escritorio vive en js/api-core.js, js/es-celular.js
+   y js/cuentas-dispositivo.js. */
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

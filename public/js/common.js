@@ -1041,6 +1041,66 @@ function puedeVer(usuario, modulo) {
 }
 
 /**
+ * El cuarto permiso, «Importar / Exportar»: los botones de importar, exportar e
+ * imprimir a PDF de un módulo.
+ *
+ * FALLA CERRADO, y es lo contrario de sus tres hermanas. Aquéllas, sin datos de
+ * permisos, dicen que sí para no esconderle un botón a nadie por un fallo ajeno.
+ * Éste dice que no: lo que abre son listados de personas con cédula y teléfono, y
+ * si `/permisos/mios` falló —o la fila del módulo no existe— el botón no debe
+ * salir. El servidor lo exige igual (middleware/permisoModulo.js); esto solo
+ * evita ofrecer lo que va a responder 403.
+ *
+ * SE PREGUNTA POR `rol_sesion` Y NO POR `rol`. Para el aspirante, `inicializarLayout`
+ * reescribe `rol` a 'admin' para poder DIBUJAR el panel de administración; con
+ * `rol` aquí, el aspirante pasaría por administrador. La regla está escrita en
+ * `inicializarLayout`: quien decida permisos pregunta por `rol_sesion`.
+ *
+ * EL ADMINISTRADOR SIEMPRE PUEDE: el servidor no le pregunta a la matriz por él,
+ * y la casilla del administrador no existe como decisión de nadie.
+ */
+function puedeImportarExportar(usuario, modulo) {
+  if (!usuario) return false;
+  if (usuario.rol_sesion === 'admin') return true;
+  const permiso = usuario.permisos && usuario.permisos[modulo];
+  return !!(permiso && permiso.importar_exportar);
+}
+
+/**
+ * La clase que esconde un control cuando el permiso falta, para armarla DENTRO de
+ * las plantillas de texto que pintan botones desde JavaScript:
+ *
+ *   `<a class="btn ${claseImportarExportar(usuarioActual, 'organigrama')}" ...>`
+ *
+ * Devuelve '' si se puede y 'sin-importar-exportar' si no —y si no hay usuario
+ * todavía, también esconde: el control nace oculto salvo que se demuestre lo
+ * contrario, no al revés.
+ */
+function claseImportarExportar(usuario, modulo) {
+  return puedeImportarExportar(usuario, modulo) ? '' : 'sin-importar-exportar';
+}
+
+/**
+ * Recorre la página y deja visibles solo los controles `[data-ie="modulo"]` que el
+ * usuario puede usar. Se llama sola al terminar `inicializarLayout`; hay que
+ * llamarla a mano solo tras pintar controles nuevos desde JavaScript.
+ *
+ * LOS CONTROLES NACEN OCULTOS en el HTML (`class="sin-importar-exportar"`) y esta
+ * función solo les quita la clase. Si el script falla, o `/permisos/mios` tarda,
+ * no hay un instante en que se vean — que es lo que pasaría con la lógica al
+ * revés (visibles hasta que se compruebe).
+ *
+ * Se esconde con una CLASE y no con `style.display`: varias pantallas ponen
+ * `style.display = ''` por su cuenta al decidir qué mostrar, y esto no puede
+ * dejarse deshacer por ellas.
+ */
+function aplicarImportarExportar(usuario, raiz) {
+  (raiz || document).querySelectorAll('[data-ie]').forEach((el) => {
+    el.classList.toggle('sin-importar-exportar', !puedeImportarExportar(usuario, el.dataset.ie));
+  });
+}
+
+/**
  * Muestra un modal pidiendo la contraseña de un administrador y devuelve la
  * contraseña ingresada (o null si se cancela). Se usa como confirmación
  * extra antes de acciones destructivas (eliminaciones masivas). La
@@ -1539,6 +1599,11 @@ async function inicializarLayout(paginaActiva) {
   if (usuario.debe_cambiar_password) {
     mostrarAvisoCambioPassword();
   }
+
+  // Con los permisos ya cargados, se muestran los botones de importar/exportar
+  // que le corresponden. Van aquí y no en cada pantalla para que ninguna se
+  // olvide: basta con que el control lleve `data-ie="módulo"`.
+  aplicarImportarExportar(usuario);
 
   return usuario;
 }

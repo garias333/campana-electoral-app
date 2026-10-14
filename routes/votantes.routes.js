@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
 const { recalcularRamaEnSegundoPlano, duenoDeLaCampana } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
@@ -460,7 +461,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin', 'aspirante'), asy
 /* El aspirante exporta LO SUYO. La consulta de abajo ya aplica `req.alcance`,
    que para el es su rama: son los mismos siete que ve en pantalla, no los 88 de
    la campaña madre. Comprobado antes de abrirla. */
-router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), requiereImportarExportar('votantes'), async (req, res) => {
   try {
     const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar } = req.query;
     const condiciones = [];
@@ -592,7 +593,7 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
 // nuevo); si el ID viene vacío, se crea un contacto nuevo, igual que
 // siempre. Así, el flujo "exportar -> editar en Excel -> volver a
 // importar" queda soportado sin duplicar a nadie.
-router.post('/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('votantes'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -2105,7 +2106,7 @@ router.post('/eliminar-todo', requireRole('admin', 'coordinador'), async (req, r
  * No rompe ninguna pantalla: ninguna la llama —la importacion de la aplicacion
  * va por `/importar-excel`—, asi que la guarda no le quita nada a nadie.
  */
-router.post('/importar', requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/importar', requireRole('admin', 'coordinador'), requiereImportarExportar('votantes'), async (req, res) => {
   const { registros } = req.body;
   if (!Array.isArray(registros) || registros.length === 0) {
     return res.status(400).json({ error: 'No se recibieron registros para importar.' });

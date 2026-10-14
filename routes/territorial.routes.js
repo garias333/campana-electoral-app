@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { subarbolSql, filtroMadreEstructura, filtroTestigosMadre, recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 /* EL CARGO DE LA MADRE SE PIDE AQUÍ, NO SE LEE DE `req.alcance`.
    Este router monta `requireAuth` y nada más: `calcularAlcance` solo se aplica
@@ -624,7 +625,7 @@ router.post('/territorios/crear-zona', requireRole('admin', 'coordinador'), asyn
 // municipio y de qué comuna/corregimiento depende cada barrio/vereda
 // (columna "Pertenece", necesaria para que la importación reconstruya la
 // jerarquía correctamente).
-router.get('/territorios/exportar-excel', async (req, res) => {
+router.get('/territorios/exportar-excel', requiereImportarExportar('territorial'), async (req, res) => {
   try {
     const [filas] = await pool.query(`
       SELECT
@@ -684,7 +685,7 @@ router.get('/territorios/exportar-excel', async (req, res) => {
 // Si un Barrio/Vereda ya existía con el padre equivocado (ej. de una
 // importación anterior a este parche, que colgaba todo del municipio), se
 // corrige en el mismo registro en lugar de crear uno duplicado.
-router.post('/territorios/importar-excel', requireRole('admin'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/territorios/importar-excel', requireRole('admin'), requiereImportarExportar('territorial'), uploadExcel.single('archivo'), async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
 
@@ -1971,7 +1972,7 @@ function formatoTelefonoExcel(valor) {
 // /votantes/:id/asignar-testigo), y esa fila extra en "estructura" hacía
 // que esa misma persona apareciera duplicada en este archivo — el listado
 // en pantalla (Coordinadores y Líderes) ya la excluye por el mismo motivo.
-router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('territorial'), async (req, res) => {
   try {
     /* MISMA REGLA QUE EN LA PANTALLA, y no por simetría: sin esto el Excel
        traería a las personas de la rama de un aspirante que la pantalla acaba
@@ -2091,7 +2092,7 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), as
 // Comuna, Barrio, Corregimiento, Vereda, Meta votos, Reporta a (email).
 // Para Cargo = Coordinador, basta con Área + Comuna (o Corregimiento); no se
 // necesita Barrio/Vereda.
-router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('territorial'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -2831,7 +2832,7 @@ router.get('/testigos', requireRole('admin', 'coordinador', 'aspirante'), async 
   }
 });
 
-router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), async (req, res) => {
+router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('testigos'), async (req, res) => {
   try {
     /* MISMO ALCANCE QUE LA PANTALLA. Si la lista deja fuera a los testigos del
        aspirante y la exportacion no, el Excel entrega con nombre, cedula y
@@ -2884,7 +2885,7 @@ router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), asyn
 // Importa/actualiza testigos desde un Excel con columnas: ID (opcional, solo
 // para actualizar uno ya existente), Nombre, Número de identificación,
 // Teléfono, Email, Departamento votación, Municipio votación, Puesto, Mesa.
-router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), requiereImportarExportar('testigos'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });

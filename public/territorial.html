@@ -42,8 +42,8 @@
         <div class="grupo separado">
           <span class="grupo-etiqueta">Datos</span>
           <div class="grupo-botones">
-            <a class="btn-neutro btn-excel-verde" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-            <label class="btn-neutro btn-excel-verde"
+            <a class="btn-neutro btn-excel-verde sin-importar-exportar" data-ie="territorial" id="btn-exportar-estructura" href="/api/territorial/estructura/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+            <label class="btn-neutro btn-excel-verde sin-importar-exportar" data-ie="territorial"
                    title="Para actualizar personas ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea una persona nueva.">
               ⬆ Importar desde Excel
               <input type="file" id="input-importar-estructura" accept=".xlsx,.xls" style="display:none;">
@@ -484,8 +484,8 @@
     </form>
 
     <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-      <a class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-excel" href="/api/territorial/territorios/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-      <label class="btn-secundario btn-sm btn-excel-app" id="label-importar-excel" style="cursor:pointer; margin:0;">
+      <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="territorial" id="btn-exportar-excel" href="/api/territorial/territorios/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+      <label class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="territorial" id="label-importar-excel" style="cursor:pointer; margin:0;">
         ⬆ Importar desde Excel
         <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
       </label>
@@ -787,7 +787,12 @@ async function aplicarModoTerritorios() {
     const r = await api('/territorial/territorios/modo');
     territoriosEditables = r.editable !== false;
   } catch (_) { return; }
-  const esAdmin = usuarioActual && usuarioActual.rol === 'admin';
+  /* `rol` NO sirve para esto: `inicializarLayout` lo reescribe a 'admin' para el
+     aspirante (es solo para dibujar; el rol real queda en `rol_sesion`). Con la
+     comparación a secas, el aspirante veía «Importar desde Excel» y «Eliminar
+     todos» de este modal, y el servidor —que los reserva al administrador— le
+     respondía 403. */
+  const esAdmin = !!(usuarioActual && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante);
   const mostrar = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
   mostrar('form-territorio', territoriosEditables);
   mostrar('label-importar-excel', territoriosEditables && esAdmin);
@@ -3514,9 +3519,11 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   sincronizarColaOfflineEstructura();
   window.addEventListener('online', () => sincronizarColaOfflineEstructura());
 
+  /* El botón de importar la estructura ya NO se esconde aquí por rol: lleva
+     `data-ie="territorial"` y lo gobierna «Importar / Exportar» en Asignación de
+     permisos, el mismo permiso que el servidor exige. Aquí solo queda «nuevo». */
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
     document.getElementById('btn-nuevo').style.display = 'none';
-    document.getElementById('input-importar-estructura').closest('label').style.display = 'none';
   }
   /* El aspirante SI crea gente suya, pero no importa por Excel: esa ruta es de
      admin y ademas es la que alimenta a `xlsx`, que sigue con una alerta alta
@@ -3524,6 +3531,14 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   if (usuarioActual.es_aspirante) {
     const imp = document.getElementById('input-importar-estructura');
     if (imp && imp.closest('label')) imp.closest('label').style.display = 'none';
+    /* Y tampoco SACA la estructura a Excel: esa ruta es de administrador y
+       coordinador, y el aspirante es «lider» para el servidor. Como el permiso
+       «Importar / Exportar» es por MÓDULO y `territorial` se lo da (porque sí
+       alcanza la exportación del catálogo de territorios), la casilla solo no
+       basta para esconder este botón: se esconde aquí, igual que el de importar.
+       Antes del permiso ya salía y ya respondía 403; ahora ya no sale. */
+    const exp = document.getElementById('btn-exportar-estructura');
+    if (exp) exp.style.display = 'none';
   }
   aplicarFormatoNombrePropio('#form-estructura input[name="nombre"]');
   aplicarFormatoTelefono('#form-estructura [name="telefono"]');

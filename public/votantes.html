@@ -19,8 +19,8 @@
     </div>
     <div class="topbar">
       <div class="barra-unida">
-        <a class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-excel-votantes" href="/api/votantes/exportar-excel" target="_blank" style="display:none;">⬇ Exportar a Excel</a>
-        <label class="btn-secundario btn-sm btn-excel-app"
+        <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes" id="btn-exportar-excel-votantes" href="/api/votantes/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
+        <label class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes"
                title="Para actualizar contactos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un contacto nuevo.">
           ⬆ Importar desde Excel
           <input type="file" id="input-importar-votantes" accept=".xlsx,.xls" style="display:none;">
@@ -103,7 +103,7 @@
             <option value="asamblea">Asamblea</option>
           </select>
           <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-votantes">Quitar filtros</button>
-          <button type="button" class="btn-secundario btn-sm btn-excel-app" id="btn-exportar-filtrados-votantes" style="display:none;">⬇ Exportar a Excel (filtrados)</button>
+          <button type="button" class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes" id="btn-exportar-filtrados-votantes">⬇ Exportar a Excel (filtrados)</button>
         </div>
       </div>
       <div class="tabla-contenedor tabla-contenedor-votantes">
@@ -3132,14 +3132,16 @@ function alternarMesasEstimadoPuesto(i) {
   sincronizarColaOfflineVotantes();
   window.addEventListener('online', () => sincronizarColaOfflineVotantes());
 
-  if (['admin', 'coordinador'].includes(usuarioActual.rol)) {
-    document.getElementById('btn-exportar-excel-votantes').style.display = '';
-    document.getElementById('btn-exportar-filtrados-votantes').style.display = '';
-  }
+  /* EXPORTAR E IMPORTAR YA NO DEPENDEN DEL ROL NI DE «AGREGAR».
+     Los tres controles llevan `data-ie="votantes"` y los muestra common.js
+     según «Importar / Exportar» en Asignación de permisos, el mismo permiso que
+     el servidor exige. Antes de importar se miraba `puedeAgregar`, que incluye a
+     los líderes —cuyo trabajo es registrar gente—, y el botón salía para quien
+     el servidor luego rechazaba con un 403: la persona no concluye «no tengo
+     permiso», concluye «esto está roto». Cada quien registra; no cada quien
+     importa un archivo entero. */
   if (!puedeAgregar(usuarioActual, 'votantes')) {
     document.getElementById('btn-nuevo').style.display = 'none';
-    const inputImportar = document.getElementById('input-importar-votantes');
-    if (inputImportar) inputImportar.closest('label').style.display = 'none';
   }
   aplicarFormatoTelefono('#form-votante [name="telefono"]');
   aplicarFormatoNombrePropio('#form-votante [name="nombre"]');

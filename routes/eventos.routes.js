@@ -2,6 +2,7 @@ const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { geocodificarConTerritorio } = require('../config/geoTerritorio');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
@@ -120,7 +121,7 @@ router.get('/asistentes-consolidado', async (req, res) => {
   }
 });
 
-router.get('/asistentes-consolidado/exportar-excel', async (req, res) => {
+router.get('/asistentes-consolidado/exportar-excel', requiereImportarExportar('asistentes_reuniones'), async (req, res) => {
   try {
     const consolidado = await obtenerConsolidadoAsistentes();
     const columnas = ['Nombre', 'Identidad', 'Teléfono', 'Barrio', 'Total de reuniones', 'Reuniones (fecha - título)'];
