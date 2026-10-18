@@ -751,6 +751,54 @@ async function ajustarContadorTerritorios(connection) {
   return true;
 }
 
+/**
+ * Los territorios de una persona: la tabla `estructura_territorios` ya existe
+ * (la crea db/schema.sql, que se aplica entera al principio de cada corrida);
+ * aquí se la RELLENA.
+ *
+ * Una fila principal por cada persona que tiene `estructura.territorio_id` y
+ * NO TIENE NINGUNA fila en la tabla. La condición es «ninguna», no «ninguna
+ * principal», y no es un detalle: si alguien quitó a mano un territorio, o
+ * cambió de principal, volver a correr esto no debe resucitar lo que se quitó.
+ * Una persona que ya tiene su lista no se toca.
+ *
+ * No lee `territorios`, así que da igual que sea vista del catálogo o tabla
+ * local. Es idempotente: la segunda corrida inserta 0 filas.
+ *
+ * Al terminar se cuenta cuántas personas quedaron con la columna y la fila
+ * principal en desacuerdo (la consulta de control de lib/territoriosPersona.js);
+ * si no es 0 se AVISA, no se arregla: el desacuerdo sería de código, y
+ * corregirlo en silencio lo taparía.
+ */
+async function rellenarTerritoriosPuente(connection) {
+  const [[existe]] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'estructura_territorios'`);
+  if (!Number(existe.n)) {
+    throw new Error('Falta la tabla estructura_territorios: db/schema.sql debía crearla en esta misma corrida.');
+  }
+  const [res] = await connection.query(
+    `INSERT INTO estructura_territorios (estructura_id, territorio_id, es_principal)
+     SELECT e.id, e.territorio_id, 1
+       FROM estructura e
+      WHERE e.territorio_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM estructura_territorios x WHERE x.estructura_id = e.id)`);
+  console.log(`estructura_territorios: ${res.affectedRows} persona(s) con su territorio principal copiado a la lista.`);
+
+  const [[desacuerdo]] = await connection.query(
+    `SELECT COUNT(*) AS n
+       FROM estructura e
+      WHERE e.territorio_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM estructura_territorios x
+                         WHERE x.estructura_id = e.id AND x.es_principal = 1
+                           AND x.territorio_id = e.territorio_id)`);
+  if (Number(desacuerdo.n) > 0) {
+    console.warn(`AVISO: ${desacuerdo.n} persona(s) tienen estructura.territorio_id sin su fila principal igual en estructura_territorios. Corra la consulta de control de lib/territoriosPersona.js para verlas.`);
+  } else {
+    console.log('estructura_territorios: la columna y la fila principal coinciden en todas las personas.');
+  }
+}
+
 async function main() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST,
@@ -2239,6 +2287,7 @@ async function main() {
   await crearTriggersEstructuraSinSuperadmin(connection);
   await crearSuperadminInicial(connection, adminCreadoEstaCorrida);
   await ajustarContadorTerritorios(connection);
+  await rellenarTerritoriosPuente(connection);
 
   /* LA INTENCIÓN DE VOTO SE RETIRA DE LA APLICACIÓN (30 de agosto de 2026).
      Era una escala —confirmado, probable, indeciso, no apoya— que en la

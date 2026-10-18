@@ -947,6 +947,61 @@ input:focus, select:focus, textarea:focus {
 .fila { display: flex; gap: 12px; }
 .fila > * { flex: 1; }
 
+/* ---------------- Varios territorios por persona ----------------
+   Las fichas de territorio (public/js/territorios-multiples.js) y el «+N» del
+   listado. Los colores son los del resto de la aplicación: la ficha PRINCIPAL
+   va en azul de marca porque es la que se guarda como «el territorio» de la
+   persona; las demás, en neutro. */
+.bloque-fichas-territorio { margin-bottom: 14px; }
+.bloque-fichas-territorio .ayuda-fichas {
+  display: block; margin-top: 6px;
+  color: var(--color-text-muted); font-size: 0.78rem;
+}
+.fichas-territorio {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 0 0 10px;
+}
+.ficha-territorio {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px;
+  padding: 4px 4px 4px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+.ficha-territorio-principal { border-color: var(--color-marca); }
+.ficha-territorio-texto { overflow-wrap: anywhere; }
+.ficha-territorio-marca {
+  color: var(--color-marca); font-weight: 600; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.ficha-territorio-quitar {
+  flex: 0 0 auto;
+  width: 32px; height: 32px; min-height: 32px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: transparent; color: var(--color-text-muted);
+  font-size: 1.2rem; line-height: 1; cursor: pointer;
+}
+.ficha-territorio-quitar:hover { background: var(--color-bg); color: var(--color-text); }
+.mas-territorios {
+  display: inline-block; margin-left: 6px; padding: 0 7px;
+  border-radius: 999px; background: var(--color-bg);
+  color: var(--color-text-muted); font-size: 0.75rem; font-weight: 600;
+  cursor: help;
+}
+@media (max-width: 640px) {
+  /* En celular las filas del selector de territorio (Comuna/Barrio,
+     Corregimiento/Vereda) pasan a una columna: a 360 px dos campos con lista
+     lado a lado quedan de ~150 px cada uno y el nombre de un barrio no cabe. */
+  .fila.fila-territorio { flex-direction: column; gap: 0; }
+  /* Y cada ficha, con la altura de un dedo (44 px), igual que los botones. */
+  .ficha-territorio { min-height: 44px; padding-left: 14px; }
+  .ficha-territorio-quitar { width: 44px; height: 44px; min-height: 44px; }
+}
+
 /* Tablas */
 .tabla-contenedor { overflow-x: auto; }
 

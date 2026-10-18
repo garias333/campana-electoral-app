@@ -83,9 +83,15 @@ const COMPROBACIONES = [
      WHERE table_schema=DATABASE() AND referenced_table_name='territorios'
        AND table_name <> 'territorios'`, 0],
 
-  ['territorio_id sigue indexado en las 5 tablas (A2: al quitar las FK se perdía su índice)',
+  // Las cinco de siempre (usuarios, estructura, votantes, eventos, finanzas_movimientos)
+  // más estructura_territorios, la lista de territorios por persona (db/schema.sql).
+  ['territorio_id sigue indexado en las 6 tablas (A2: al quitar las FK se perdía su índice; la 6.ª es estructura_territorios)',
    `SELECT COUNT(DISTINCT table_name) n FROM information_schema.statistics
-     WHERE table_schema=DATABASE() AND column_name='territorio_id'`, 5],
+     WHERE table_schema=DATABASE() AND column_name='territorio_id'`, 6],
+
+  ['estructura_territorios existe (la crea db/schema.sql; que no tenga FK hacia territorios lo comprueba la prueba de arriba)',
+   `SELECT COUNT(*) n FROM information_schema.tables
+     WHERE table_schema=DATABASE() AND table_name='estructura_territorios'`, 1],
 
   ['mesa_votacion es INT en las 4 tablas (A13)',
    `SELECT COUNT(*) n FROM information_schema.columns

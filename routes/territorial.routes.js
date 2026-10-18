@@ -43,6 +43,11 @@ const {
   sincronizarVotanteDesdeEstructura, traerVotanteActualPorCedula
 } = require('../config/sincronizacionVotantesEstructura');
 const { TIPOS_GREMIALES, CARGOS_CON_META_DERIVADA, sqlMetaEfectiva } = require('../config/metasEstructura');
+/* LOS TERRITORIOS DE UNA PERSONA SE ESCRIBEN SOLO POR ESTE MÓDULO.
+   `estructura.territorio_id` (el principal) y la lista de `estructura_territorios`
+   tienen que moverse juntos; ningún SQL de este archivo vuelve a nombrar esa
+   columna en un INSERT o un UPDATE de `estructura`. Ver lib/territoriosPersona.js. */
+const territoriosPersona = require('../lib/territoriosPersona');
 const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digitos } = require('../config/verificaciones');
 // El superadministrador no está en la estructura (lo impide un disparador de la base), pero
 // estas rutas escriben en `usuarios` a partir de una fila de estructura: si algún día la
@@ -1025,6 +1030,14 @@ router.get('/estructura', async (req, res) => {
     if (condiciones.length) query += ` WHERE ${condiciones.join(' AND ')}`;
     query += ` ORDER BY e.cargo, u.nombre`;
     const [rows] = await pool.query(query, params);
+    /* La lista completa de territorios de cada persona. Si falla, el listado
+       sale igual con el principal de siempre: un 500 aquí se vería como una
+       pantalla de estructura VACÍA, sin ningún mensaje (ya pasó con `conExcl`). */
+    try {
+      await territoriosPersona.adjuntarListas(pool, rows);
+    } catch (errLista) {
+      console.error('Estructura: no se pudo leer la lista de territorios (se devuelve solo el principal):', errLista.message);
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -1097,8 +1110,18 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
-    territorio_id, area, supervisor_id, meta_votos, direccion, cliente_uuid, tipo_testigo, mesas_asignadas
+    area, supervisor_id, meta_votos, direccion, cliente_uuid, tipo_testigo, mesas_asignadas
   } = req.body;
+
+  /* VARIOS TERRITORIOS POR PERSONA. El cuerpo trae `territorio_ids` (arreglo,
+     el primero es el principal) o, como siempre, solo `territorio_id`. Desde
+     aquí `territorio_id` es EL PRINCIPAL, y el resto de la ruta lo usa igual
+     que antes: la validación, la copia a `usuarios` y la sincronización con
+     Votantes no cambian. La lista completa se guarda más abajo, dentro de la
+     transacción, por lib/territoriosPersona.js. */
+  const { lista: territoriosPedidos, error: errorTerritorios } = territoriosPersona.listaDesdeCuerpo(req.body);
+  if (errorTerritorios) return res.status(400).json({ error: errorTerritorios });
+  const territorio_id = territoriosPedidos.length ? territoriosPedidos[0] : null;
 
   /* LO QUE CREA UN ASPIRANTE CUELGA DE ÉL, DIGA LO QUE DIGA EL FORMULARIO.
      `supervisor_id` viene del navegador, así que un aspirante podría colgar a
@@ -1250,15 +1273,17 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
     usuarioId = resultUsuario.insertId;
 
     const [resultEstructura] = await conexion.query(
-      `INSERT INTO estructura (usuario_id, territorio_id, area, cargo, tipo_testigo, mesas_asignadas, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion, cliente_uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [resultUsuario.insertId, territorio_id || null, areaFinal, cargo, tipoTestigoFinal,
+      `INSERT INTO estructura (usuario_id, area, cargo, tipo_testigo, mesas_asignadas, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion, cliente_uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [resultUsuario.insertId, areaFinal, cargo, tipoTestigoFinal,
        (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
        esOrganizacion ? 'organizacion' : 'territorio',
        esOrganizacion ? organizacion.trim() : null, supervisorFinal, meta_votos || 0, meta_votos || 0, direccion || null,
        cliente_uuid || null]
     );
     estructuraId = resultEstructura.insertId;
+    // El principal y la lista, juntos y en la misma transacción.
+    await territoriosPersona.guardar(conexion, estructuraId, territoriosPedidos);
 
     await conexion.commit();
   } catch (err) {
@@ -1343,8 +1368,13 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
     genero, edad, tipo_cargo, apoya_a, email, telefono, cargo, tipo_area_influencia, organizacion,
-    territorio_id, area, supervisor_id, meta_votos, activo, direccion, tipo_testigo, mesas_asignadas
+    area, supervisor_id, meta_votos, activo, direccion, tipo_testigo, mesas_asignadas
   } = req.body;
+
+  // Igual que en el POST: `territorio_id` pasa a ser EL PRINCIPAL de la lista.
+  const { lista: territoriosPedidos, error: errorTerritorios } = territoriosPersona.listaDesdeCuerpo(req.body);
+  if (errorTerritorios) return res.status(400).json({ error: errorTerritorios });
+  const territorio_id = territoriosPedidos.length ? territoriosPedidos[0] : null;
 
   /* UN ASPIRANTE SÓLO EDITA DENTRO DE SU RAMA.
      La guarda de arriba deja entrar; esto decide sobre QUÉ. Sin la comprobación
@@ -1481,13 +1511,15 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
       : (supervisor_id || null);
 
     await conexion.query(
-      `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, territorio_id = ?, area = ?, tipo_area_influencia = ?, organizacion = ?,
+      `UPDATE estructura SET cargo = ?, tipo_testigo = ?, mesas_asignadas = ?, area = ?, tipo_area_influencia = ?, organizacion = ?,
        supervisor_id = ?, meta_votos = ?, meta_votos_base = ?, activo = ?, direccion = ?
        WHERE id = ?`,
       [cargo, tipoTestigoFinal, (esTestigo && tipoTestigoFinal === 'puesto') ? JSON.stringify(mesasAsignadasFinal) : null,
-       territorio_id || null, areaFinal, esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? organizacion.trim() : null,
+       areaFinal, esOrganizacion ? 'organizacion' : 'territorio', esOrganizacion ? organizacion.trim() : null,
        supervisorGuardado, meta_votos || 0, meta_votos || 0, activo ? 1 : 0, direccion || null, req.params.id]
     );
+    // La lista guardada REEMPLAZA a la anterior (el formulario manda la lista entera).
+    await territoriosPersona.guardar(conexion, req.params.id, territoriosPedidos);
 
     await conexion.commit();
 
@@ -2003,11 +2035,20 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
       mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder'
     };
 
+    /* Los territorios que NO son el principal, por persona. Si no se pueden
+       leer, la columna sale vacía: la exportación no debe fallar por eso. */
+    let listasPorPersona = new Map();
+    try {
+      listasPorPersona = await territoriosPersona.leerListas(pool, filas.map(f => f.estructura_id));
+    } catch (errLista) {
+      console.error('Exportación: no se pudo leer la lista de territorios (la columna «Otros territorios» saldrá vacía):', errLista.message);
+    }
+
     const columnas = [
       'ID', 'Nombre', 'Número de identificación', 'Email', 'Teléfono', 'Género', 'Edad',
       'Departamento de residencia', 'Ciudad de residencia',
       'Dirección de residencia', 'Comuna o Corregimiento (residencia)', 'Barrio o Vereda (residencia)',
-      'Cargo', 'Tipo', 'Área', 'Comuna', 'Barrio', 'Corregimiento', 'Vereda', 'Organización',
+      'Cargo', 'Tipo', 'Área', 'Comuna', 'Barrio', 'Corregimiento', 'Vereda', 'Otros territorios', 'Organización',
       'Meta votos', 'Meta de votos (total con gremiales)', 'Reporta a', 'Activo'
     ];
 
@@ -2049,6 +2090,9 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
         'Barrio': barrio,
         'Corregimiento': corregimiento,
         'Vereda': vereda,
+        // Informativa, como «Meta de votos (total…)»: la importación NO la lee.
+        // Los nombres de los demás territorios de la persona, separados por «; ».
+        'Otros territorios': territoriosPersona.nombresOtros(listasPorPersona.get(f.estructura_id)),
         'Organización': f.tipo_area_influencia === 'organizacion' ? (f.organizacion || '') : '',
         // "Meta votos" es el número PROPIO de la persona (meta_votos_base)
         // — es lo que se vuelve a leer si reimportas este mismo archivo.
@@ -2197,6 +2241,10 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
         const resuelto = await resolverTerritorioConCache({ area, comuna, barrio, corregimiento, vereda, permitirSoloZona: true });
         if (!resuelto.error) territorioIdImport = resuelto.territorioId;
       }
+      /* El Excel trae UN territorio por persona. Es el principal; los demás
+         territorios que la persona ya tenga no se borran (ver `conservarExtras`
+         en lib/territoriosPersona.js). */
+      const listaImport = territorioIdImport ? [territorioIdImport] : [];
 
       let supervisorId = null;
       if (reportaEmail) {
@@ -2237,11 +2285,12 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
                departamentoResidenciaImport, ciudadResidenciaImport, tipoCargo, email || null, telefono, genero, edad, usuarioId]
             );
             await conexion.query(
-              `UPDATE estructura SET territorio_id = ?, cargo = ?, supervisor_id = COALESCE(?, supervisor_id), meta_votos = ?, meta_votos_base = ?, direccion = ?,
+              `UPDATE estructura SET cargo = ?, supervisor_id = COALESCE(?, supervisor_id), meta_votos = ?, meta_votos_base = ?, direccion = ?,
                tipo_area_influencia = ?, organizacion = ? WHERE id = ?`,
-              [territorioIdImport, cargo, tocarSupervisor ? supervisorId : null, metaVotos || 0, metaVotos || 0, direccion,
+              [cargo, tocarSupervisor ? supervisorId : null, metaVotos || 0, metaVotos || 0, direccion,
                tipoAreaInfluenciaImport, organizacionImport, idFila]
             );
+            await territoriosPersona.guardar(conexion, idFila, listaImport, { conservarExtras: true });
             await conexion.commit();
             // Igual que en el PUT: la importación también puede mover a alguien
             // de supervisor, y entonces sus votantes cambian de rama.
@@ -2308,11 +2357,23 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
           continue;
         }
         try {
-          await pool.query(
-            `INSERT INTO estructura (usuario_id, territorio_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [usuarioIdExistenteImport, territorioIdImport, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
-          );
+          // La fila y su lista de territorios, juntas: o entran las dos o ninguna.
+          const conexionCargo = await pool.getConnection();
+          try {
+            await conexionCargo.beginTransaction();
+            const [resultCargo] = await conexionCargo.query(
+              `INSERT INTO estructura (usuario_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [usuarioIdExistenteImport, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
+            );
+            await territoriosPersona.guardar(conexionCargo, resultCargo.insertId, listaImport);
+            await conexionCargo.commit();
+          } catch (errCargo) {
+            await conexionCargo.rollback();
+            throw errCargo;
+          } finally {
+            conexionCargo.release();
+          }
           if (supervisorId) await recalcularMetaVotosCoordinadorOrganizaciones(pool, supervisorId);
           await recalcularMetaVotosCoordinadorOrganizaciones(pool, usuarioIdExistenteImport);
           insertados++;
@@ -2362,11 +2423,12 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
         );
         usuarioIdImport = resultUsuario.insertId;
         const [resultEstructura] = await conexion.query(
-          `INSERT INTO estructura (usuario_id, territorio_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [resultUsuario.insertId, territorioIdImport, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
+          `INSERT INTO estructura (usuario_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [resultUsuario.insertId, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
         );
         estructuraId = resultEstructura.insertId;
+        await territoriosPersona.guardar(conexion, estructuraId, listaImport);
         await conexion.commit();
         insertados++;
       } catch (err) {
@@ -2443,6 +2505,8 @@ router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
        propia pantalla. Para la campaña madre no cambia nada: `suyos` es null
        y la consulta queda igual, letra por letra. */
     const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
+    // Un coordinador con varios territorios aparece en cada uno de ellos.
+    const puente = await territoriosPersona.hayPuente();
     /* SE BUSCA HACIA ARRIBA Y TAMBIÉN HACIA ABAJO.
        Antes solo subía: desde la comuna hacia el municipio. Bastaba mientras
        un Coordinador se guardara SIEMPRE en la comuna, que es como estaba
@@ -2478,7 +2542,7 @@ router.get('/coordinadores-por-zona/:zonaId', async (req, res) => {
       )
       SELECT u.id, u.nombre, MIN(c.nivel) AS nivel
         FROM cadena c
-        JOIN estructura e ON e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1
+        JOIN estructura e ON ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1
         JOIN usuarios u ON u.id = e.usuario_id
        WHERE 1 = 1 ${suyos ? `AND ${suyos.sql}` : ''}
        GROUP BY u.id, u.nombre
@@ -2524,14 +2588,16 @@ router.get('/lideres-por-territorio/:territorioId', async (req, res) => {
        puede aparecer nadie que no esté en su propia estructura. Con la madre
        `suyos` es null y la consulta queda igual, letra por letra. */
     const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
+    // Un líder con tres barrios sale en los tres.
+    const puente = await territoriosPersona.hayPuente();
     const [rows] = await pool.query(`
       SELECT u.id, u.nombre
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
-      WHERE e.cargo = 'lider' AND e.activo = 1 AND e.territorio_id = ?
+      WHERE e.cargo = 'lider' AND e.activo = 1 AND ${territoriosPersona.sqlAsignado('e', '?', puente)}
         ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `, [req.params.territorioId, ...(suyos ? suyos.valores : [])]);
+    `, [...territoriosPersona.paramsAsignado(puente, req.params.territorioId), ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2551,23 +2617,26 @@ router.get('/lideres-para-sublider/:territorioId', async (req, res) => {
     /* A UN ASPIRANTE, SOLO SU GENTE. Misma pieza que en las otras listas de
        este archivo. Con la madre `suyos` es null y la consulta no cambia. */
     const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'u.id') : null;
+    // Líderes con el territorio entre los suyos, o que reportan a un coordinador
+    // que tiene entre los suyos la comuna/corregimiento del que cuelga.
+    const puente = await territoriosPersona.hayPuente();
     const [rows] = await pool.query(`
       SELECT DISTINCT u.id, u.nombre
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       WHERE e.cargo = 'lider' AND e.activo = 1
         AND (
-          e.territorio_id = ?
+          ${territoriosPersona.sqlAsignado('e', '?', puente)}
           OR e.supervisor_id IN (
             SELECT ec.usuario_id
             FROM estructura ec
             JOIN territorios t ON t.id = ?
-            WHERE ec.cargo = 'coordinador' AND ec.activo = 1 AND ec.territorio_id = t.padre_id
+            WHERE ec.cargo = 'coordinador' AND ec.activo = 1 AND ${territoriosPersona.sqlAsignado('ec', 't.padre_id', puente, 'etc')}
           )
         )
         ${suyos ? `AND ${suyos.sql}` : ''}
       ORDER BY u.nombre
-    `, [req.params.territorioId, req.params.territorioId, ...(suyos ? suyos.valores : [])]);
+    `, [...territoriosPersona.paramsAsignado(puente, req.params.territorioId), req.params.territorioId, ...(suyos ? suyos.valores : [])]);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -2616,10 +2685,18 @@ router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
     // Así que ahora salen todos los del municipio, con los del área elegida
     // ARRIBA. Se devuelve `area` en cada uno para que la pantalla pueda
     // decir cuál es cuál.
+    /* CON VARIOS TERRITORIOS, UNA PERSONA CABE POR CUALQUIERA DE ELLOS.
+       Se recorren los pares (persona, territorio) —el principal y los demás—
+       y se agrupa de vuelta por persona, para que no salga repetida. El área
+       que se devuelve es la guardada; si no la hay, la del territorio que
+       coincide, prefiriendo la que se pidió cuando alguno la tiene. */
+    const puente = await territoriosPersona.hayPuente();
+    const areaDelTerritorio = `CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
+                                    WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END`;
     const expresionArea = `COALESCE(
       e.area,
-      CASE WHEN t.tipo IN ('barrio', 'comuna') THEN 'urbano'
-           WHEN t.tipo IN ('vereda', 'corregimiento') THEN 'rural' END)`;
+      CASE WHEN ? IS NOT NULL AND SUM((${areaDelTerritorio}) = ?) > 0 THEN ?
+           ELSE MIN(${areaDelTerritorio}) END)`;
     // LA ORDENACIÓN VA EN UNA CONSULTA DE AFUERA, y no es un rodeo: con
     // DISTINCT, MySQL no deja ordenar por una expresión que no esté en la
     // selección, y si se usa el alias lo resuelve a la COLUMNA e.area, que
@@ -2631,24 +2708,27 @@ router.get('/referentes-por-municipio/:municipioId', async (req, res) => {
     // correcta las dos veces.)
     const [rows] = await pool.query(`
       SELECT * FROM (
-        SELECT DISTINCT u.id, u.nombre, e.cargo, ${expresionArea} AS area
+        SELECT u.id, u.nombre, e.cargo, ${expresionArea} AS area
           FROM estructura e
           JOIN usuarios u ON u.id = e.usuario_id
-          LEFT JOIN territorios t ON t.id = e.territorio_id
+          JOIN ${territoriosPersona.sqlParesPersonaTerritorio(puente)} pt ON pt.estructura_id = e.id
+          LEFT JOIN territorios t ON t.id = pt.territorio_id
           LEFT JOIN territorios padre ON padre.id = t.padre_id
          WHERE e.activo = 1
            AND e.cargo IN ('lider', 'coordinador')
-           AND (e.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
+           AND (pt.territorio_id = ? OR t.padre_id = ? OR padre.padre_id = ?)
            -- El acotado va AQUI DENTRO, no en la consulta de afuera: el alias
            -- u solo existe en esta subconsulta. Puesto fuera, MySQL no
            -- encuentra la columna y la ruta responde 500.
            -- (Sin comillas invertidas: esto vive dentro de un template
            --  literal y una sola cerraria la cadena.)
            ${suyos ? `AND ${suyos.sql}` : ''}
+         GROUP BY e.id, u.id, u.nombre, e.cargo, e.area
       ) x
       ORDER BY (? IS NOT NULL AND x.area = ?) DESC,
                FIELD(x.cargo, 'lider', 'coordinador'), x.nombre
-    `, [req.params.municipioId, req.params.municipioId, req.params.municipioId,
+    `, [area, area, area,
+        req.params.municipioId, req.params.municipioId, req.params.municipioId,
         ...(suyos ? suyos.valores : []), area, area]);
     res.json(rows);
   } catch (err) {
@@ -2698,6 +2778,8 @@ router.get('/cobertura', async (req, res) => {
        Hoy no lo llama ninguna pantalla —comprobado— pero es alcanzable a mano,
        y eso basta. */
     const suyos = req.sublicencia ? subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id') : null;
+    // Una persona con tres barrios cuenta en los tres.
+    const puenteCobertura = await territoriosPersona.hayPuente();
     const [rows] = await pool.query(`
       SELECT t.id, t.nombre, t.tipo,
              COUNT(DISTINCT CASE WHEN e.cargo = 'lider' THEN e.id END) AS lideres,
@@ -2705,7 +2787,7 @@ router.get('/cobertura', async (req, res) => {
              COUNT(DISTINCT CASE WHEN e.cargo = 'testigo' THEN e.id END) AS testigos,
              COUNT(DISTINCT v.id) AS votantes
       FROM territorios t
-      LEFT JOIN estructura e ON e.territorio_id = t.id AND e.activo = 1
+      LEFT JOIN estructura e ON ${territoriosPersona.sqlAsignado('e', 't.id', puenteCobertura)} AND e.activo = 1
         ${suyos ? `AND ${suyos.sql}` : ''}
       LEFT JOIN votantes v ON v.territorio_id = t.id
         ${suyos ? 'AND v.rama_aspirante_id = ?' : ''}
@@ -2765,6 +2847,18 @@ router.get('/mapa-personas', requireRole('admin', 'coordinador', 'aspirante'), a
       WHERE e.latitud IS NOT NULL AND e.longitud IS NOT NULL AND e.activo = 1
       ${enEstructura ? 'AND ' + enEstructura.sql : ''}
     `, enEstructura ? enEstructura.valores : []);
+    /* `territorio_nombre` sigue siendo el principal. Se añade `otros_territorios`
+       (texto «A; B») para quien cubre más de uno; si no se puede leer la lista,
+       el pin sale igual con el principal. */
+    try {
+      await territoriosPersona.adjuntarListas(pool, estructura);
+      for (const fila of estructura) {
+        fila.otros_territorios = fila.territorios
+          .filter(t => !t.es_principal && t.nombre).map(t => t.nombre).join('; ');
+      }
+    } catch (errLista) {
+      console.error('Mapa: no se pudo leer la lista de territorios (se devuelve solo el principal):', errLista.message);
+    }
     const [votantes] = await pool.query(`
       SELECT v.id, v.nombre,
              v.direccion, v.latitud, v.longitud, t.nombre AS territorio_nombre

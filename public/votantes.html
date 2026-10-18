@@ -350,7 +350,7 @@
           <option value="rural">Rural</option>
         </select>
       </div>
-      <div class="fila" id="fila-urbano-votante" data-fila="urbano" style="display:none;">
+      <div class="fila fila-territorio" id="fila-urbano-votante" data-fila="urbano" style="display:none;">
         <div class="campo" id="campo-comuna-votante" data-campo="comuna">
           <label>Comuna</label>
           <input id="input-comuna-votante" list="lista-comunas-votante" autocomplete="off">
@@ -363,7 +363,7 @@
           <small id="contador-barrios-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
-      <div class="fila" id="fila-rural-votante" data-fila="rural" style="display:none;">
+      <div class="fila fila-territorio" id="fila-rural-votante" data-fila="rural" style="display:none;">
         <div class="campo" data-campo="corregimiento">
           <label>Corregimiento</label>
           <input id="input-corregimiento-votante" list="lista-corregimientos-votante" autocomplete="off">
@@ -375,6 +375,14 @@
           <datalist id="lista-veredas-votante"></datalist>
           <small id="contador-veredas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
+      </div>
+      <!-- Varios territorios, solo para un Sublíder: cada pulsación convierte la
+           selección de arriba en una ficha. El primero de la lista es el principal. -->
+      <div id="bloque-fichas-territorio-votante" class="bloque-fichas-territorio" style="display:none;">
+        <div id="fichas-territorio-votante" class="fichas-territorio" role="list" aria-live="polite" style="display:none;"></div>
+        <button type="button" class="btn-secundario btn-sm" id="btn-agregar-territorio-votante">+ Agregar otro territorio</button>
+        <small class="ayuda-fichas">Elija el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
+        <small class="ayuda-fichas" id="ayuda-municipio-completo-votante" style="display:none;">Para sumar un municipio completo: escríbalo en Municipio, deje el Área sin especificar y pulse el botón.</small>
       </div>
       <div id="territorio-votante-error" class="mensaje-error"></div>
 
@@ -455,6 +463,7 @@
 <script src="/js/validacion-cedula-ui.js"></script>
 <script src="/js/mesas-testigo.js"></script>
 <script src="/js/columnas-territoriales.js"></script>
+<script src="/js/territorios-multiples.js"></script>
 <script>
 // Cachea el cascarón de esta pantalla (y de Estructura territorial/
 // Testigos) para que abran sin conexión — ver /service-worker.js.
@@ -483,6 +492,70 @@ let usarNombreVeredas = true;
 // ciudad sede viene vacía, así que el área de influencia de un sublíder se
 // ancla a un Municipio propio en vez de a la Ciudad de residencia.
 let ambitoDepartamental = false;
+
+/* VARIOS TERRITORIOS PARA UN SUBLÍDER. Las fichas ya confirmadas viven en esta
+   pieza (public/js/territorios-multiples.js); lo escrito en el selector es la
+   selección PENDIENTE. Al guardar un sublíder se manda `[...fichas, pendiente]`,
+   con el primero como principal. Si el archivo no cargó (caché vieja) el
+   formulario sigue con un solo territorio, como antes. */
+const fichasTerritoriosVotante = (typeof crearFichasTerritorios === 'function')
+  ? crearFichasTerritorios({
+      contenedor: document.getElementById('fichas-territorio-votante'),
+      boton: document.getElementById('btn-agregar-territorio-votante'),
+      resolver: resolverFichaVotante,
+      nombreDe: nombreDeTerritorioVotante,
+      limpiar: limpiarSeleccionTerritorioVotante,
+      mostrarError: (texto) => {
+        const caja = document.getElementById('territorio-votante-error');
+        caja.textContent = texto;
+        caja.classList.add('visible');
+      },
+      quitarError: () => document.getElementById('territorio-votante-error').classList.remove('visible'),
+    })
+  : { ids: () => [], hayFichas: () => false, principal: () => null, fijar() {}, vaciar() {},
+      listaParaGuardar: (pendiente) => (pendiente ? [pendiente] : []) };
+
+/** Cómo se llama un territorio dentro de una ficha. En departamental lleva su municipio: hay barrios homónimos. */
+function nombreDeTerritorioVotante(id) {
+  const t = territorios.find(x => x.id === id);
+  if (!t) return null;
+  const nombre = nombreLugar(t.nombre);
+  if (t.tipo === 'municipio') return `${nombre} (todo el municipio)`;
+  if (!ambitoDepartamental) return nombre;
+  const municipio = municipioDeTerritorioVotante(t);
+  return municipio ? `${nombre} · ${nombreLugar(municipio.nombre)}` : nombre;
+}
+
+/**
+ * La selección que se convierte en ficha. Es la de siempre (`resolverTerritorioVotante`)
+ * con UNA añadidura para campaña departamental: un municipio completo, que se
+ * pide escribiéndolo en Municipio y dejando el Área sin especificar. Aquí no hay
+ * casilla «Todo el municipio» como en Estructura. Al GUARDAR, un municipio sin
+ * Área sigue sin contar como territorio pendiente (es lo que hacía este
+ * formulario): solo entra a la lista si se pulsó el botón.
+ */
+function resolverFichaVotante() {
+  const r = resolverTerritorioVotante();
+  if (r.error || r.territorioId) return r;
+  if (ambitoDepartamental && !document.getElementById('select-area-votante').value) {
+    const nombre = normalizarTexto(document.getElementById('input-municipio-influencia-votante').value);
+    const municipio = nombre ? territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === nombre) : null;
+    if (municipio) return { territorioId: municipio.id, area: null };
+  }
+  return r;
+}
+
+/** Deja el selector vacío para elegir otro territorio, sin disparar eventos. El Municipio se conserva. */
+function limpiarSeleccionTerritorioVotante() {
+  document.getElementById('select-area-votante').value = '';
+  document.getElementById('fila-urbano-votante').style.display = 'none';
+  document.getElementById('fila-rural-votante').style.display = 'none';
+  ['input-comuna-votante', 'input-barrio-votante', 'input-corregimiento-votante', 'input-vereda-votante']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  actualizarBarriosVotante();
+  actualizarVeredasVotante();
+}
+
 function aplicarVisibilidadComunaVotante() {
   document.getElementById('campo-comuna-votante').style.display = ciudadTieneComunas ? 'block' : 'none';
   document.getElementById('campo-barrio-votante').style.display = usarNombreBarrios ? 'block' : 'none';
@@ -1775,6 +1848,9 @@ function actualizarSeccionTerritorioVotante() {
 
   const esOrganizacion = esSublider && document.getElementById('chk-area-influencia-votante-organizacion').checked;
   document.getElementById('campo-organizacion-votante').style.display = esOrganizacion ? 'block' : 'none';
+  // Las fichas de territorio: solo un Sublíder, y no si su área es una Organización.
+  document.getElementById('bloque-fichas-territorio-votante').style.display = (esSublider && !esOrganizacion) ? 'block' : 'none';
+  document.getElementById('ayuda-municipio-completo-votante').style.display = ambitoDepartamental ? 'block' : 'none';
   /* El bloque de Área/Comuna/Barrio solo lo ve el Sublíder: para un votante
      lo rellena `sincronizarInfluenciaDesdeResidenciaVotante()` con lo escrito
      en Datos de contacto, y enseñarlo sería pedir dos veces lo mismo. */
@@ -2104,6 +2180,8 @@ async function editarVotante(v) {
 
   const form = document.getElementById('form-votante');
   document.getElementById('titulo-modal').textContent = 'Editar votante o sublíder';
+  // Las fichas son del alta de un sublíder; una ficha de Votantes que se edita no trae lista.
+  fichasTerritoriosVotante.vaciar();
   document.getElementById('form-error').classList.remove('visible');
   document.getElementById('territorio-votante-error').classList.remove('visible');
   document.getElementById('input-buscar-lider').value = '';
@@ -2424,6 +2502,7 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
   document.getElementById('chk-area-influencia-votante-organizacion').checked = false;
   document.getElementById('input-organizacion-votante').value = '';
   actualizarSeccionTerritorioVotante();
+  fichasTerritoriosVotante.vaciar();
   document.getElementById('fila-urbano-votante').style.display = 'none';
   document.getElementById('fila-rural-votante').style.display = 'none';
   identificacionVotanteDisponible = true;
@@ -2684,7 +2763,17 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
   }
   datos.categoria = esVotante ? 'votante' : 'sublider';
   datos.telefono = (datos.telefono || '').replace(/\D/g, '');
-  datos.territorio_id = resuelto.territorioId || '';
+  /* El sublíder puede traer VARIOS territorios: las fichas más lo pendiente en
+     el selector, con el primero como principal. `territorio_id` sigue siendo ese
+     principal (la ficha de Votantes y los clientes que no conocen la lista lo
+     usan tal cual). Un votante corriente manda lo de siempre. */
+  const conFichas = esSublider && !document.getElementById('chk-area-influencia-votante-organizacion').checked
+    && fichasTerritoriosVotante.hayFichas();
+  const idsTerritorios = conFichas
+    ? fichasTerritoriosVotante.listaParaGuardar(resuelto.territorioId)
+    : (resuelto.territorioId ? [resuelto.territorioId] : []);
+  datos.territorio_id = idsTerritorios.length ? idsTerritorios[0] : (resuelto.territorioId || '');
+  if (esSublider) datos.territorio_ids = idsTerritorios;
   datos.area = resuelto.area || '';
   datos.tipo_area_influencia = document.getElementById('chk-area-influencia-votante-organizacion').checked ? 'organizacion' : 'territorio';
   datos.organizacion = document.getElementById('input-organizacion-votante').value;

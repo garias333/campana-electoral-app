@@ -422,7 +422,7 @@ function renderizarCapas() {
       .forEach(e => {
         const color = COLOR_CARGO[e.cargo] || '#64748b';
         crearMarcador(e.latitud, e.longitud, color,
-          `<strong>${e.nombre}</strong><br>${e.cargo}<br>${escaparHtml(nombreLugar(e.territorio_nombre) || '')}${e.direccion ? '<br>' + e.direccion : ''}`)
+          `<strong>${e.nombre}</strong><br>${e.cargo}<br>${escaparHtml(nombreLugar(e.territorio_nombre) || '')}${e.otros_territorios ? '<br>También: ' + escaparHtml(e.otros_territorios.split('; ').map(n => nombreLugar(n)).join('; ')) : ''}${e.direccion ? '<br>' + e.direccion : ''}`)
           .addTo(capaEstructura);
         totalVisible++;
       });

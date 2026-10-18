@@ -13,6 +13,11 @@ const { armarWhereSql } = require('../config/filtros');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
 const { duenoDeLaCampana } = require('../lib/ramas');
 const { filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
+/* «TIENE LÍDER» / «TIENE COORDINADOR» MIRA TODOS LOS TERRITORIOS DE LA PERSONA.
+   Un líder con tres barrios cubre los tres; uno con dos municipios, los dos. La
+   regla de siempre se mantiene: quien está asignado a un MUNICIPIO no cubre por
+   eso los barrios o veredas que cuelgan de él. Ver lib/territoriosPersona.js. */
+const territoriosPersona = require('../lib/territoriosPersona');
 const { generarDocumentoWord, construirBloqueSeccion } = require('../config/wordExport');
 const { COLOR_MARCA, formatoMillaresServidor } = require('../config/graficosServidor');
 
@@ -85,24 +90,25 @@ function clasificarCobertura(zonas, hijos) {
 
 router.get('/cobertura', async (req, res) => {
   try {
+    const puente = await territoriosPersona.hayPuente();
     const [comunas] = await pool.query(`
       SELECT c.id,
-        EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
       FROM territorios c WHERE c.tipo = 'comuna'
     `);
     const [barrios] = await pool.query(`
       SELECT b.id, b.padre_id,
-        EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = b.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'b.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
       FROM territorios b WHERE b.tipo = 'barrio'
     `);
     const [corregimientos] = await pool.query(`
       SELECT c.id,
-        EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
       FROM territorios c WHERE c.tipo = 'corregimiento'
     `);
     const [veredas] = await pool.query(`
       SELECT v.id, v.padre_id,
-        EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = v.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'v.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
       FROM territorios v WHERE v.tipo = 'vereda'
     `);
 
@@ -162,17 +168,18 @@ function detalleCoberturaPorEstado(zonas, hijos, estado) {
  *    "parcial"/"sin").
  */
 async function obtenerDetalleCobertura(tipo, estado) {
+  const puente = await territoriosPersona.hayPuente();
   if (tipo === 'comuna' || tipo === 'corregimiento') {
     const tipoHijo = tipo === 'comuna' ? 'barrio' : 'vereda';
     const [zonas] = await pool.query(`
       SELECT c.id, c.nombre,
-        EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
       FROM territorios c WHERE c.tipo = ?
     `, [tipo]);
     const [hijos] = await pool.query(`
       SELECT h.id, h.nombre, h.padre_id,
         (SELECT u.nombre FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-         WHERE e.territorio_id = h.id AND e.cargo = 'lider' AND e.activo = 1 LIMIT 1) AS lider_nombre
+         WHERE ${territoriosPersona.sqlAsignado('e', 'h.id', puente)} AND e.cargo = 'lider' AND e.activo = 1 LIMIT 1) AS lider_nombre
       FROM territorios h WHERE h.tipo = ?
     `, [tipoHijo]);
     return { modo: 'zonas', tipoHijo, zonas: detalleCoberturaPorEstado(zonas, hijos, estado) };
@@ -181,7 +188,7 @@ async function obtenerDetalleCobertura(tipo, estado) {
     const [hijos] = await pool.query(`
       SELECT h.id, h.nombre, padre.nombre AS zona_nombre,
         (SELECT u.nombre FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-         WHERE e.territorio_id = h.id AND e.cargo = 'lider' AND e.activo = 1 LIMIT 1) AS lider_nombre
+         WHERE ${territoriosPersona.sqlAsignado('e', 'h.id', puente)} AND e.cargo = 'lider' AND e.activo = 1 LIMIT 1) AS lider_nombre
       FROM territorios h LEFT JOIN territorios padre ON padre.id = h.padre_id
       WHERE h.tipo = ?
     `, [tipo]);
@@ -353,24 +360,25 @@ const NOMBRES_SECCION = {
 router.get('/exportar-excel', requiereImportarExportar('votantes_dashboard'), async (req, res) => {
   const { seccion, puesto } = req.query;
   try {
+    const puente = await territoriosPersona.hayPuente();
     const libro = XLSX.utils.book_new();
 
     // --- Exportación de UNA sola sección (botones "⬇ Excel" de cada tarjeta) ---
     if (seccion === 'cobertura') {
       const [comunas] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'comuna'
       `);
       const [barrios] = await pool.query(`
-        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = b.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'b.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios b WHERE b.tipo = 'barrio'
       `);
       const [corregimientos] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'corregimiento'
       `);
       const [veredas] = await pool.query(`
-        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = v.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'v.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios v WHERE v.tipo = 'vereda'
       `);
       const barriosConLider = barrios.filter(b => !!b.tiene_lider).length;
@@ -505,24 +513,25 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
   const { seccion, puesto } = req.query;
   const tipoGraficoSeccionUnica = req.query.tipo_grafico === 'dona' ? 'dona' : 'barra';
   try {
+    const puente = await territoriosPersona.hayPuente();
     let titulo = 'Dashboard de votantes';
     const secciones = [];
 
     if (seccion === 'cobertura') {
       const [comunas] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'comuna'
       `);
       const [barrios] = await pool.query(`
-        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = b.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'b.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios b WHERE b.tipo = 'barrio'
       `);
       const [corregimientos] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'corregimiento'
       `);
       const [veredas] = await pool.query(`
-        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = v.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'v.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios v WHERE v.tipo = 'vereda'
       `);
       const barriosConLider = barrios.filter(b => !!b.tiene_lider).length;
@@ -622,19 +631,19 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       }));
 
       const [comunasCob] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'comuna'
       `);
       const [barriosCob] = await pool.query(`
-        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = b.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT b.id, b.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'b.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios b WHERE b.tipo = 'barrio'
       `);
       const [corregimientosCob] = await pool.query(`
-        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = c.id AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
+        SELECT c.id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'c.id', puente)} AND e.cargo = 'coordinador' AND e.activo = 1) AS tiene_coordinador
         FROM territorios c WHERE c.tipo = 'corregimiento'
       `);
       const [veredasCob] = await pool.query(`
-        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE e.territorio_id = v.id AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
+        SELECT v.id, v.padre_id, EXISTS(SELECT 1 FROM estructura e WHERE ${territoriosPersona.sqlAsignado('e', 'v.id', puente)} AND e.cargo = 'lider' AND e.activo = 1) AS tiene_lider
         FROM territorios v WHERE v.tipo = 'vereda'
       `);
       const barriosConLiderCob = barriosCob.filter(b => !!b.tiene_lider).length;

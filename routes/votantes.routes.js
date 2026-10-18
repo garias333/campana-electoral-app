@@ -17,6 +17,8 @@ const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditori
 const { validarCedula } = require('../lib/validarCedula');
 const { asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo } = require('../config/testigoElectoral');
 const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionVotantesEstructura');
+// Los territorios de una persona de la estructura se escriben SOLO por este módulo.
+const territoriosPersona = require('../lib/territoriosPersona');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
 const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropia } = require('../config/verificaciones');
 
@@ -1201,10 +1203,20 @@ async function nivelQueRegistra(req) {
   }
 }
 
-async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
+async function procesarSublider({ nombre, cedula, email, telefono, liderId, territorioId, territorioIds, tipoAreaInfluencia, organizacion, metaVotos, nivel }) {
   const destino = NIVELES_SUBALTERNO[nivel] || NIVELES_SUBALTERNO.sublider;
   if (!cedula) {
     return { creado: false, estructuraCreada: false, etiqueta: destino.etiqueta, motivo: 'Falta el Número de identificación.' };
+  }
+  /* VARIOS TERRITORIOS. `territorioIds` es la lista (el primero es el principal);
+     sin ella vale `territorioId` suelto, como hasta ahora. Se resuelve ANTES de
+     crear la cuenta: una lista mal formada no debe dejar una cuenta sin su
+     estructura. Una Organización no tiene territorios. */
+  const esOrganizacionSublider = tipoAreaInfluencia === 'organizacion';
+  const { lista: territoriosSublider, error: errorTerritoriosSublider } = territoriosPersona.listaDesdeCuerpo(
+    esOrganizacionSublider ? {} : { territorio_ids: territorioIds, territorio_id: territorioId });
+  if (errorTerritoriosSublider) {
+    return { creado: false, estructuraCreada: false, etiqueta: destino.etiqueta, motivo: errorTerritoriosSublider };
   }
   const emailLimpio = (email || '').trim().toLowerCase() || null;
 
@@ -1253,23 +1265,41 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
     // 'usuario': un Aspirante al Concejo crea líderes. Buscar por el cargo
     // equivocado encontraría otra fila de la misma persona y la pisaría.
     const [[yaExiste]] = await pool.query(`SELECT id FROM estructura WHERE usuario_id = ? AND cargo = ?`, [usuarioId, destino.cargo]);
-    const esOrganizacion = tipoAreaInfluencia === 'organizacion';
+    const esOrganizacion = esOrganizacionSublider;
+    /* LA FILA Y SU LISTA DE TERRITORIOS, EN UNA SOLA TRANSACCIÓN: o se guardan las
+       dos o ninguna. `estructura.territorio_id` ya no se nombra en estas
+       sentencias; lo escribe `territoriosPersona.guardar`. */
+    const conexionEstructura = await pool.getConnection();
+    try {
+      await conexionEstructura.beginTransaction();
+      if (!yaExiste) {
+        const [resultNueva] = await conexionEstructura.query(
+          `INSERT INTO estructura (usuario_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, activo)
+           VALUES (?, ?, ?, ?, ?, ?, 1)`,
+          [usuarioId, destino.cargo,
+           esOrganizacion ? 'organizacion' : 'territorio',
+           esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0]
+        );
+        await territoriosPersona.guardar(conexionEstructura, resultNueva.insertId, territoriosSublider);
+      } else {
+        await conexionEstructura.query(
+          `UPDATE estructura SET tipo_area_influencia = ?, organizacion = ?, supervisor_id = ?, meta_votos = ?
+           WHERE id = ?`,
+          [esOrganizacion ? 'organizacion' : 'territorio',
+           esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0, yaExiste.id]
+        );
+        await territoriosPersona.guardar(conexionEstructura, yaExiste.id, territoriosSublider);
+      }
+      await conexionEstructura.commit();
+    } catch (errEstructura) {
+      await conexionEstructura.rollback();
+      throw errEstructura;
+    } finally {
+      conexionEstructura.release();
+    }
     if (!yaExiste) {
-      await pool.query(
-        `INSERT INTO estructura (usuario_id, territorio_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, activo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-        [usuarioId, esOrganizacion ? null : (territorioId || null), destino.cargo,
-         esOrganizacion ? 'organizacion' : 'territorio',
-         esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0]
-      );
       estructuraCreada = true;
     } else {
-      await pool.query(
-        `UPDATE estructura SET territorio_id = ?, tipo_area_influencia = ?, organizacion = ?, supervisor_id = ?, meta_votos = ?
-         WHERE id = ?`,
-        [esOrganizacion ? null : (territorioId || null), esOrganizacion ? 'organizacion' : 'territorio',
-         esOrganizacion ? (organizacion || null) : null, liderId || null, metaVotos || 0, yaExiste.id]
-      );
       /* Aquí también cambia el `supervisor_id`: a un sublíder que ya existía
          se le puede estar poniendo otro líder. Ver la nota del PUT en
          routes/territorial.routes.js. */
@@ -1630,6 +1660,7 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
       nombre: b.nombre, cedula: b.cedula, email: b.email, telefono: b.telefono,
       liderId: b.lider_id || null,
       territorioId: esOrganizacion ? null : (b.territorio_id || null),
+      territorioIds: esOrganizacion ? [] : b.territorio_ids,
       tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
       organizacion: esOrganizacion ? b.organizacion.trim() : null,
       metaVotos: b.meta_votos_sublider || 0,
@@ -1752,6 +1783,7 @@ router.put('/:id', async (req, res) => {
         nombre: b.nombre, cedula: b.cedula, email: b.email, telefono: b.telefono,
         liderId: b.lider_id || null,
         territorioId: esOrganizacion ? null : (b.territorio_id || null),
+        territorioIds: esOrganizacion ? [] : b.territorio_ids,
         tipoAreaInfluencia: esOrganizacion ? 'organizacion' : 'territorio',
         organizacion: esOrganizacion ? b.organizacion.trim() : null,
         metaVotos: b.meta_votos_sublider || 0,

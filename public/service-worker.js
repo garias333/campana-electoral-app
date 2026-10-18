@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v131';
+const CACHE_NAME = 'estrategia-v132';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -63,6 +63,11 @@ const ARCHIVOS_CASCARON = [
   // los campos con lista se quedan con el comportamiento del navegador y
   // hay que borrarlos a mano para volver a ver la lista.
   '/js/listas-desplegables.js',
+  // Las fichas de «varios territorios por persona». Las cargan Estructura
+  // territorial y Votantes, que SÍ están en la coraza: sin este archivo, esas
+  // dos pantallas sin conexión se quedarían en un solo territorio (no se rompen:
+  // revisan que exista antes de usarlo).
+  '/js/territorios-multiples.js',
   // Formularios de crear (escritorio)
   '/votantes.html',
   '/territorial.html',

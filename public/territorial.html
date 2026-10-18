@@ -370,6 +370,10 @@
           <datalist id="lista-municipios-influencia-persona"></datalist>
           <small id="contador-municipios-influencia" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
+        <!-- El Área y las filas de abajo van en su propio contenedor: «Todo el
+             municipio» esconde ESTO, pero no el campo Municipio de arriba, que en
+             campaña departamental hace falta para elegir cuál municipio. -->
+        <div id="bloque-area-detalle-persona">
         <div class="campo">
           <label>Área</label>
           <select name="areaPersona" id="select-area-persona">
@@ -378,7 +382,7 @@
             <option value="rural">Rural</option>
           </select>
         </div>
-        <div class="fila" id="fila-urbano-persona" data-fila="urbano" style="display:none;">
+        <div class="fila fila-territorio" id="fila-urbano-persona" data-fila="urbano" style="display:none;">
           <div class="campo" id="campo-comuna-persona" data-campo="comuna">
             <label>Comuna</label>
             <input id="input-comuna-persona" list="lista-comunas-persona" autocomplete="off">
@@ -391,7 +395,7 @@
             <small id="contador-barrios" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
           </div>
         </div>
-        <div class="fila" id="fila-rural-persona" data-fila="rural" style="display:none;">
+        <div class="fila fila-territorio" id="fila-rural-persona" data-fila="rural" style="display:none;">
           <div class="campo" data-campo="corregimiento">
             <label>Corregimiento</label>
             <input id="input-corregimiento-persona" list="lista-corregimientos-persona" autocomplete="off">
@@ -404,6 +408,15 @@
             <small id="contador-veredas" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
           </div>
         </div>
+        </div><!-- /bloque-area-detalle-persona -->
+      </div>
+      <!-- Varios territorios: cada pulsación convierte la selección de arriba en una
+           ficha. Va FUERA del bloque geográfico para que «Todo el municipio»
+           también se pueda agregar como ficha. -->
+      <div id="bloque-fichas-territorio-persona" class="bloque-fichas-territorio">
+        <div id="fichas-territorio-persona" class="fichas-territorio" role="list" aria-live="polite" style="display:none;"></div>
+        <button type="button" class="btn-secundario btn-sm" id="btn-agregar-territorio-persona">+ Agregar otro territorio</button>
+        <small class="ayuda-fichas">Elija el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
       </div>
       <div id="territorio-persona-error" class="mensaje-error"></div>
       <div class="campo">
@@ -542,6 +555,7 @@
 <script src="/js/validacion-cedula-ui.js"></script>
 <script src="/js/mesas-testigo.js"></script>
 <script src="/js/columnas-territoriales.js"></script>
+<script src="/js/territorios-multiples.js"></script>
 <script>
 // Cachea el cascarón de esta pantalla (y de Votantes/Testigos) para que
 // abran sin conexión — ver /service-worker.js. Nunca cachea /api
@@ -1344,6 +1358,67 @@ function categoriaSeleccionadaPersona() {
 // influencia", y de ahí cuelgan Comuna/Barrio y Corregimiento/Vereda.
 let ambitoDepartamental = false;
 
+/* VARIOS TERRITORIOS POR PERSONA. Las fichas ya confirmadas viven en esta
+   pieza (public/js/territorios-multiples.js); lo que hay escrito en el selector
+   es la selección PENDIENTE, y al guardar se manda `[...fichas, pendiente]`
+   con el primero como principal. Si el archivo no cargó (caché vieja), la
+   pantalla sigue funcionando con un solo territorio, como antes. */
+const fichasTerritorios = (typeof crearFichasTerritorios === 'function')
+  ? crearFichasTerritorios({
+      contenedor: document.getElementById('fichas-territorio-persona'),
+      boton: document.getElementById('btn-agregar-territorio-persona'),
+      resolver: resolverTerritorioPersona,
+      nombreDe: nombreDeTerritorioPersona,
+      limpiar: limpiarSeleccionTerritorioPersona,
+      mostrarError: (texto) => {
+        const caja = document.getElementById('territorio-persona-error');
+        caja.textContent = texto;
+        caja.classList.add('visible');
+      },
+      quitarError: () => document.getElementById('territorio-persona-error').classList.remove('visible'),
+      alCambiar: (motivo, cambioElPrincipal) => {
+        // Al quitar la primera ficha cambia QUIÉN es el principal, y «Reporta a»
+        // se calcula desde el principal. Agregar no lo toca: lo que se escogió a
+        // mano en «Reporta a» no se pisa.
+        if (motivo === 'quitar' && cambioElPrincipal) actualizarReportaAPorZona().catch(() => {});
+      },
+    })
+  : { ids: () => [], hayFichas: () => false, principal: () => null, fijar() {}, vaciar() {},
+      listaParaGuardar: (pendiente) => (pendiente ? [pendiente] : []) };
+
+/** Cómo se llama un territorio dentro de una ficha. En departamental lleva su municipio: hay barrios homónimos. */
+function nombreDeTerritorioPersona(id) {
+  const t = listaTerritorios.find(x => x.id === id);
+  if (!t) return null;
+  const nombre = nombreLugar(t.nombre);
+  if (t.tipo === 'municipio') return `${nombre} (todo el municipio)`;
+  if (!ambitoDepartamental) return nombre;
+  const municipio = municipioDeTerritorio(t);
+  return municipio ? `${nombre} · ${nombreLugar(municipio.nombre)}` : nombre;
+}
+
+/**
+ * Deja el selector vacío para elegir otro territorio. Mueve los valores a mano y
+ * NO dispara eventos: un `change` del Área recalcularía «Reporta a» y pisaría lo
+ * que la persona ya escogió ahí. El Municipio del área de influencia se conserva:
+ * lo normal es sumar otro barrio o vereda del mismo municipio.
+ */
+function limpiarSeleccionTerritorioPersona() {
+  document.getElementById('select-area-persona').value = '';
+  document.getElementById('fila-urbano-persona').style.display = 'none';
+  document.getElementById('fila-rural-persona').style.display = 'none';
+  ['input-comuna-persona', 'input-barrio-persona', 'input-corregimiento-persona', 'input-vereda-persona']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  marcarAreaInfluencia('territorio');
+  poblarListasUbicacionPersona();
+}
+
+/** ¿No hay nada elegido en el selector? (el Municipio del área no cuenta: se conserva a propósito). */
+function seleccionTerritorioPersonaVacia() {
+  return !document.getElementById('chk-area-influencia-municipio').checked
+    && !document.getElementById('select-area-persona').value;
+}
+
 // --- Cascada de ubicación para el formulario de personas (Área -> Comuna/Barrio o Corregimiento/Vereda) ---
 
 /**
@@ -1743,15 +1818,38 @@ document.getElementById('select-cargo-persona').addEventListener('change', () =>
  * Si ni siquiera hay municipio, se abre la lista completa: es preferible
  * ofrecer de más que dejar el campo vacío sin explicación.
  */
+/**
+ * La zona con la que se filtra «Reporta a» cuando la persona ya tiene fichas, a
+ * partir de la primera. Es lo mismo que decide el selector con un solo territorio:
+ *   · Sublíder: el territorio mismo (barrio, vereda o municipio).
+ *   · Líder: la comuna o el corregimiento; si cuelga directo del municipio, el municipio.
+ */
+function zonaDeReportaADesdeFichas(cargo) {
+  const t = listaTerritorios.find(x => x.id === fichasTerritorios.principal());
+  if (!t) return null;
+  if (cargo === 'usuario') return t.id;
+  if (['comuna', 'corregimiento', 'municipio'].includes(t.tipo)) return t.id;
+  const padre = listaTerritorios.find(x => x.id === t.padre_id);
+  if (padre && ['comuna', 'corregimiento'].includes(padre.tipo)) return padre.id;
+  const municipio = municipioDeTerritorio(t);
+  return municipio ? municipio.id : null;
+}
+
 async function actualizarReportaAPorZona() {
   const cargo = document.getElementById('select-cargo-persona').value;
   const select = document.getElementById('select-supervisor');
   const area = document.getElementById('select-area-persona').value;
   const municipio = municipioDeInfluenciaPersona();
+  /* CON FICHAS, «REPORTA A» SALE DEL PRINCIPAL (la primera ficha), no de lo que
+     haya en el selector: ahí puede estar el segundo territorio que se está
+     eligiendo, y a quien reporta una persona no cambia por eso. */
+  const zonaDeFichas = fichasTerritorios.hayFichas() ? zonaDeReportaADesdeFichas(cargo) : null;
 
   if (cargo === 'usuario') {
-    let zonaId = null;
-    if (area === 'urbano') {
+    let zonaId = zonaDeFichas;
+    if (zonaId) {
+      // viene de la primera ficha
+    } else if (area === 'urbano') {
       const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
       const barrio = listaTerritorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
       if (barrio) zonaId = barrio.id;
@@ -1798,8 +1896,10 @@ async function actualizarReportaAPorZona() {
     return;
   }
 
-  let zonaId = null;
-  if (area === 'urbano') {
+  let zonaId = zonaDeFichas;
+  if (zonaId) {
+    // viene de la primera ficha
+  } else if (area === 'urbano') {
     const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
     const comuna = listaTerritorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna);
     if (comuna) zonaId = comuna.id;
@@ -1987,8 +2087,14 @@ function actualizarVisibilidadAreaInfluencia() {
      «Organización»: los tres son la misma pregunta —dónde trabaja esta
      persona— respondida a distinta altura, y enseñar los campos de la
      respuesta que NO se eligió invita a llenarlos para nada. */
-  document.getElementById('bloque-territorio-geografico-persona').style.display =
+  /* «Organización» esconde el bloque entero (y las fichas: una organización no
+     tiene territorios). «Todo el municipio» esconde solo el detalle —Área,
+     Comuna, Barrio…—: el campo Municipio se queda a la vista, porque en campaña
+     departamental es lo único que dice CUÁL municipio es. */
+  document.getElementById('bloque-territorio-geografico-persona').style.display = esOrganizacion ? 'none' : 'block';
+  document.getElementById('bloque-area-detalle-persona').style.display =
     (esOrganizacion || esTodoElMunicipio) ? 'none' : 'block';
+  document.getElementById('bloque-fichas-territorio-persona').style.display = esOrganizacion ? 'none' : 'block';
   document.getElementById('campo-organizacion-persona').style.display = esOrganizacion ? 'block' : 'none';
 }
 
@@ -2580,23 +2686,31 @@ function renderizarEstructura() {
           : ['vereda', 'corregimiento'].includes(f.territorio_tipo) ? 'rural' : null);
       if (efectiva !== area) return false;
     }
+    /* LOS TRES FILTROS DE TERRITORIO MIRAN TODOS LOS DE LA PERSONA, no solo el
+       principal: un líder con tres barrios sale al filtrar por cualquiera de
+       los tres. Sin lista (filas de un servidor viejo) vale `territorio_id`. */
+    const idsDeLaPersona = (Array.isArray(f.territorio_ids) && f.territorio_ids.length)
+      ? f.territorio_ids : (f.territorio_id ? [f.territorio_id] : []);
     if (zonaId) {
-      const t = listaTerritorios.find(tt => tt.id === f.territorio_id);
-      const coincideDirecto = t && String(t.id) === zonaId;
-      const coincidePadre = t && String(t.padre_id) === zonaId;
-      if (!coincideDirecto && !coincidePadre) return false;
+      const coincideAlguno = idsDeLaPersona.some((idT) => {
+        const t = listaTerritorios.find(tt => tt.id === idT);
+        return t && (String(t.id) === zonaId || String(t.padre_id) === zonaId);
+      });
+      if (!coincideAlguno) return false;
     }
-    if (territorioId && String(f.territorio_id) !== territorioId) return false;
+    if (territorioId && !idsDeLaPersona.some(idT => String(idT) === territorioId)) return false;
     if (municipioId) {
       // Los tres sitios donde puede estar la persona, igual que en Votantes:
       // el municipio mismo, algo que cuelga de él, o algo que cuelga de una
       // comuna suya.
-      const t = listaTerritorios.find(tt => tt.id === f.territorio_id);
-      const padre = t && t.padre_id ? listaTerritorios.find(tt => tt.id === t.padre_id) : null;
-      const coincide = (t && String(t.id) === municipioId)
-        || (t && String(t.padre_id) === municipioId)
-        || (padre && String(padre.padre_id) === municipioId);
-      if (!coincide) return false;
+      const coincideAlguno = idsDeLaPersona.some((idT) => {
+        const t = listaTerritorios.find(tt => tt.id === idT);
+        const padre = t && t.padre_id ? listaTerritorios.find(tt => tt.id === t.padre_id) : null;
+        return (t && String(t.id) === municipioId)
+          || (t && String(t.padre_id) === municipioId)
+          || (padre && String(padre.padre_id) === municipioId);
+      });
+      if (!coincideAlguno) return false;
     }
     return true;
   }
@@ -2783,6 +2897,13 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
     zonaTexto = nombreLugar(f.territorio_nombre); hojaTexto = '';
   }
 
+  // «+N»: cuántos territorios tiene además del principal, con sus nombres al pasar el cursor.
+  const otrosTerritorios = f.tipo_area_influencia === 'organizacion' ? []
+    : (Array.isArray(f.territorios) ? f.territorios.filter(t => !t.es_principal) : []);
+  const masTerritorios = otrosTerritorios.length
+    ? `<span class="mas-territorios" title="${escaparHtml(otrosTerritorios.map(t => nombreLugar(t.nombre) || '').filter(Boolean).join(', '))}">+${otrosTerritorios.length}</span>`
+    : '';
+
   const metaMostrada = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
   const registros = f.registros ?? 0;
   const pct = metaMostrada > 0 ? Math.min(100, (registros / metaMostrada) * 100) : 0;
@@ -2914,7 +3035,7 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
             ${areaValor ? `<span class="chip-p chip-${areaValor}">${areaValor === 'urbano' ? 'Urbano' : 'Rural'}</span>` : ''}
             ${f.latitud ? '<span class="geo-chip" title="Georreferenciado">📍</span>' : ''}
           </div>
-          <div class="migaja">${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}</div>
+          <div class="migaja">${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}${masTerritorios}</div>
           ${tieneLugarVotacion ? '' : '<span class="aviso-falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta lugar de votación</span>'}
         </div>
 
@@ -3051,6 +3172,7 @@ async function abrirCreacion() {
     document.getElementById(id).value = '';
   });
   marcarAreaInfluencia('territorio');
+  fichasTerritorios.vaciar();
   document.getElementById('input-organizacion-persona').value = '';
   actualizarVisibilidadAreaInfluencia();
   restaurarOpcionesReportaA();
@@ -3121,6 +3243,7 @@ async function abrirEdicion(id) {
   passwordEdicionEstructura = clave;
 
   edicionId = id;
+  fichasTerritorios.vaciar();
   document.getElementById('modal-form-titulo').textContent = 'Editar persona';
   document.getElementById('btn-guardar-estructura').textContent = 'Guardar cambios';
   document.getElementById('campo-activo').style.display = 'block';
@@ -3253,6 +3376,18 @@ async function abrirEdicion(id) {
     selectSupervisor.value = fila.supervisor_id;
   }
 
+  /* VARIOS TERRITORIOS AL ABRIR. Con uno solo, la ficha se abre como siempre: el
+     territorio en el selector, listo para CAMBIARLO (si apareciera como ficha,
+     escoger otro lo sumaría en vez de reemplazarlo). Con dos o más, todos pasan a
+     fichas —el principal primero— y el selector queda vacío para sumar otro.
+     Va al final a propósito: «Reporta a» y la precarga se calcularon arriba con
+     el principal puesto en el selector, igual que antes. */
+  const idsGuardados = Array.isArray(fila.territorio_ids) ? fila.territorio_ids : [];
+  if (!esOrganizacion && idsGuardados.length > 1) {
+    fichasTerritorios.fijar(idsGuardados);
+    limpiarSeleccionTerritorioPersona();
+  }
+
   document.getElementById('overlay-form').classList.add('abierto');
 }
 
@@ -3364,12 +3499,26 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     return;
   }
 
-  const resuelto = resolverTerritorioPersona();
+  /* CON FICHAS, EL SELECTOR VACÍO NO ES UN ERROR. Sin fichas, resolverTerritorioPersona
+     sigue mandando como siempre (incluida su exigencia de elegir un área). Con
+     fichas, lo que hay en el selector es solo una selección PENDIENTE: si está
+     vacío se ignora, y si tiene algo se resuelve con las mismas reglas y se
+     suma al final. Una Organización no tiene territorios: las fichas se
+     conservan en pantalla, pero no viajan. */
+  const hayFichasAlGuardar = !document.getElementById('chk-area-influencia-organizacion').checked
+    && fichasTerritorios.hayFichas();
+  const resuelto = (hayFichasAlGuardar && seleccionTerritorioPersonaVacia())
+    ? { territorioId: null }
+    : resolverTerritorioPersona();
   if (resuelto.error) {
     territorioErrorBox.textContent = resuelto.error;
     territorioErrorBox.classList.add('visible');
     return;
   }
+  // El primero es el principal. Sin fichas es [el territorio de siempre] o [].
+  const idsTerritorios = hayFichasAlGuardar
+    ? fichasTerritorios.listaParaGuardar(resuelto.territorioId)
+    : (resuelto.territorioId ? [resuelto.territorioId] : []);
 
   if (!identificacionPersonaDisponible) {
     errorBox.textContent = 'Ya registrado por otro líder.';
@@ -3399,7 +3548,11 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     organizacion: document.getElementById('input-organizacion-persona').value,
     meta_votos: form.meta_votos.value,
     direccion: form.direccion.value,
-    territorio_id: resuelto.territorioId,
+    // `territorio_id` sigue siendo EL PRINCIPAL (los clientes que no conocen la
+    // lista, y el servidor mientras no la tenga, lo usan tal cual); `territorio_ids`
+    // lleva la lista completa con el principal primero.
+    territorio_id: idsTerritorios.length ? idsTerritorios[0] : resuelto.territorioId,
+    territorio_ids: idsTerritorios,
     // El Área se manda tal cual la eligió el usuario. Antes no viajaba, y la
     // tabla la deducía del tipo de territorio: con la persona colgando del
     // municipio —campaña sin comunas ni barrios— no había de dónde deducirla

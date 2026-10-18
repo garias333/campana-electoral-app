@@ -40,8 +40,37 @@ const PADRES_PERMITIDOS = {
 
 const MAX_NOMBRE = 120;   // territorios.nombre es VARCHAR(120)
 
-/** Las cinco tablas que guardan un `territorio_id` local. */
-const TABLAS_CON_TERRITORIO = ['usuarios', 'estructura', 'votantes', 'eventos', 'finanzas_movimientos'];
+/**
+ * Las tablas que guardan un `territorio_id` local: las cinco de siempre más
+ * `estructura_territorios`, la lista de territorios de cada persona de la
+ * estructura (ver lib/territoriosPersona.js). Sin ella, borrar un territorio que
+ * una persona tiene como SEGUNDO o tercero se permitiría en silencio.
+ */
+const TABLAS_CON_TERRITORIO = ['usuarios', 'estructura', 'votantes', 'eventos', 'finanzas_movimientos', 'estructura_territorios'];
+
+/**
+ * Qué filas de cada tabla cuentan. En la lista de territorios solo los que NO
+ * son el principal: el principal de cada persona ya se cuenta en `estructura`, y
+ * contarlo otra vez diría «3 personas y 3 territorios de personas» de las mismas
+ * tres personas. Con el invariante intacto no se pierde nada.
+ */
+const CONDICION_EXTRA = { estructura_territorios: 'es_principal = 0' };
+
+/**
+ * Cuenta las filas de una tabla que cumplen `condicion`. La lista de
+ * territorios puede no existir todavía (el código llegó antes que `init-db`):
+ * ahí vale 0 en vez de romper el borrado de un territorio.
+ */
+async function contarFilas(ejecutor, tabla, condicion, params) {
+  const extra = CONDICION_EXTRA[tabla] ? ` AND ${CONDICION_EXTRA[tabla]}` : '';
+  try {
+    const [[{ n }]] = await ejecutor.query(`SELECT COUNT(*) AS n FROM ${tabla} WHERE ${condicion}${extra}`, params);
+    return Number(n);
+  } catch (err) {
+    if (tabla === 'estructura_territorios' && err.code === 'ER_NO_SUCH_TABLE') return 0;
+    throw err;
+  }
+}
 
 /** Espacios sobrantes fuera. No toca mayúsculas ni tildes: eso lo decide la colación al comparar. */
 function limpiarNombre(valor) {
@@ -155,17 +184,16 @@ async function buscarDuplicado(ejecutor, tipo, nombre, padreId, excluirId = null
 
 /**
  * Qué cuelga de estos territorios: hijos directos y filas que los usan como
- * `territorio_id` en las cinco tablas. `ids` es un arreglo no vacío.
+ * `territorio_id` en las tablas de TABLAS_CON_TERRITORIO. `ids` es un arreglo no vacío.
  */
 async function referenciasDe(ejecutor, ids) {
   const marcas = ids.map(() => '?').join(',');
   const porTabla = {};
   let total = 0;
   for (const tabla of TABLAS_CON_TERRITORIO) {
-    const [[{ n }]] = await ejecutor.query(
-      `SELECT COUNT(*) AS n FROM ${tabla} WHERE territorio_id IN (${marcas})`, ids);
-    porTabla[tabla] = Number(n);
-    total += Number(n);
+    const n = await contarFilas(ejecutor, tabla, `territorio_id IN (${marcas})`, ids);
+    porTabla[tabla] = n;
+    total += n;
   }
   const [[{ h }]] = await ejecutor.query(
     `SELECT COUNT(*) AS h FROM territorios WHERE padre_id IN (${marcas})`, ids);
@@ -177,17 +205,17 @@ async function referenciasGlobales(ejecutor) {
   const porTabla = {};
   let total = 0;
   for (const tabla of TABLAS_CON_TERRITORIO) {
-    const [[{ n }]] = await ejecutor.query(
-      `SELECT COUNT(*) AS n FROM ${tabla} WHERE territorio_id IS NOT NULL`);
-    porTabla[tabla] = Number(n);
-    total += Number(n);
+    const n = await contarFilas(ejecutor, tabla, 'territorio_id IS NOT NULL', []);
+    porTabla[tabla] = n;
+    total += n;
   }
   return { porTabla, total, hijos: 0 };
 }
 
 const ETIQUETAS_TABLA = {
   usuarios: 'usuarios', estructura: 'personas de la estructura', votantes: 'votantes',
-  eventos: 'eventos', finanzas_movimientos: 'movimientos de finanzas'
+  eventos: 'eventos', finanzas_movimientos: 'movimientos de finanzas',
+  estructura_territorios: 'territorios adicionales de personas de la estructura'
 };
 
 /** «12 votantes y 3 eventos», solo con lo que no es cero. */

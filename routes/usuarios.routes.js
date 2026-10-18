@@ -205,7 +205,14 @@ router.get('/admin', requireRole('admin', 'aspirante'), async (req, res) => {
     const [rows] = await pool.query(`
       SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin, u.telefono_soporte,
              u.debe_cambiar_password, u.two_factor_enabled, u.ultimo_login, u.created_at,
-             COALESCE(t.nombre, te.nombre) AS territorio_nombre
+             -- MANDA EL TERRITORIO DE ESTRUCTURA. Antes era COALESCE(t.nombre, te.nombre),
+             -- o sea la copia de usuarios primero, y esa copia solo se escribe al
+             -- crear la cuenta: nadie la actualiza al editar, así que mostraba el
+             -- territorio de cuando se dio de alta. La de usuarios queda solo para
+             -- cuentas SIN fila de estructura (e.id IS NULL), que no tienen otra.
+             -- (Sin comillas invertidas en este comentario: vive dentro de un
+             -- template literal y una sola cerraría la cadena.)
+             CASE WHEN e.id IS NOT NULL THEN te.nombre ELSE t.nombre END AS territorio_nombre
       FROM usuarios u
       JOIN roles r ON r.id = u.rol_id
       LEFT JOIN territorios t ON t.id = u.territorio_id

@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { invalidarCache: invalidarCacheComunicaciones } = require('../config/comunicacionesConfig');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { sublicenciaSobre } = require('../lib/ramas');
+const territoriosPersona = require('../lib/territoriosPersona');
 // La regla de que apoyos ofrece cada cargo vive en config/apoyos.js: la
 // comparten esta pantalla y el tablero, y dos copias se separarian.
 const { apoyosPermitidos, unirApoyos } = require('../config/apoyos');
@@ -276,13 +277,19 @@ const CARGOS_VALIDOS = ['senado', 'camara_representantes', 'gobernacion', 'asamb
  *   la columna se muestra.
  */
 async function hayDatosPorNivel() {
+  /* LA ESTRUCTURA SE RECORRE POR (persona, territorio), no por su columna sola:
+     una persona cuyo territorio principal es un barrio y cuyo segundo es una
+     vereda tiene datos de AMBOS niveles, y mirando solo el principal la columna
+     «Vereda» se escondería con datos adentro. */
+  const puente = await territoriosPersona.hayPuente();
+  const fuente = (tabla) => (tabla === 'estructura' ? territoriosPersona.sqlParesPersonaTerritorio(puente) : tabla);
   const porArbol = (tabla, tipo) =>
-    `EXISTS(SELECT 1 FROM ${tabla} x
+    `EXISTS(SELECT 1 FROM ${fuente(tabla)} x
               JOIN territorios t ON t.id = x.territorio_id
               LEFT JOIN territorios p ON p.id = t.padre_id
              WHERE t.tipo = '${tipo}' OR p.tipo = '${tipo}')`;
   const porTerritorio = (tabla, tipo) =>
-    `EXISTS(SELECT 1 FROM ${tabla} x
+    `EXISTS(SELECT 1 FROM ${fuente(tabla)} x
               JOIN territorios t ON t.id = x.territorio_id
              WHERE t.tipo = '${tipo}')`;
 
@@ -513,7 +520,10 @@ router.get('/territorio/uso', requireRole('admin'), async (req, res) => {
   // Comuna y corregimiento se cuentan también por el padre: quien vive en un
   // barrio pertenece a la comuna de ese barrio. Barrio y vereda son el
   // territorio mismo. Es el mismo criterio de hayDatosPorNivel().
-  const cuenta = (tabla, tipo, porPadre) => `(SELECT COUNT(*) FROM ${tabla} x
+  // Personas DISTINTAS: con varios territorios, una persona aparece en varias filas.
+  const puente = await territoriosPersona.hayPuente();
+  const fuente = (tabla) => (tabla === 'estructura' ? territoriosPersona.sqlParesPersonaTerritorio(puente) : tabla);
+  const cuenta = (tabla, tipo, porPadre) => `(SELECT COUNT(${tabla === 'estructura' ? 'DISTINCT x.estructura_id' : '*'}) FROM ${fuente(tabla)} x
        JOIN territorios t ON t.id = x.territorio_id
        ${porPadre ? 'LEFT JOIN territorios p ON p.id = t.padre_id' : ''}
       WHERE t.tipo = '${tipo}'${porPadre ? ` OR p.tipo = '${tipo}'` : ''})`;

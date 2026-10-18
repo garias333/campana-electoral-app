@@ -222,6 +222,39 @@ ALTER TABLE estructura MODIFY territorio_id INT NULL;
 ALTER TABLE estructura MODIFY cargo ENUM('coordinador','coordinador_organizaciones','lider','usuario','testigo') NOT NULL;
 
 -- ---------------------------------------------------------
+-- Los territorios de una persona de la estructura: UNO O VARIOS.
+--
+-- `estructura.territorio_id` SIGUE SIENDO EL PRINCIPAL, y esta tabla guarda la
+-- lista completa, principal incluido (`es_principal = 1`). Se conservó la
+-- columna vieja a propósito: más de treinta consultas la leen para pintar «el
+-- territorio» de alguien (listado, exportación, copia a Votantes, mapa), y
+-- todas siguen valiendo sin tocarlas. Solo las que preguntan «quién cubre el
+-- territorio X» miran también esta tabla.
+--
+-- EL INVARIANTE: si `estructura.territorio_id` no es NULL, aquí hay una fila
+-- con ese territorio y `es_principal = 1`. Lo mantiene un único módulo
+-- (lib/territoriosPersona.js); ningún otro código escribe esa columna. La
+-- consulta que lo comprueba está al final de ese archivo y debe dar 0.
+--
+-- SIN FK HACIA `territorios`, por la misma razón que las otras cinco tablas
+-- (ver la nota de `territorios`): puede ser una vista sobre otra base. Sí hay
+-- FK hacia `estructura`: es una tabla real de esta misma base, y si la persona
+-- se borra sus filas se van con ella.
+--
+-- `creado_en` solo da un orden estable a los territorios que no son el
+-- principal; no se usa para nada más.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS estructura_territorios (
+  estructura_id INT NOT NULL,
+  territorio_id INT NOT NULL COMMENT 'Sin FK: puede ser un id de la vista del catálogo o de la tabla local',
+  es_principal TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = es el mismo que estructura.territorio_id',
+  creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_estructura_territorio (estructura_id, territorio_id),
+  INDEX idx_estructura_territorios_territorio (territorio_id),
+  FOREIGN KEY (estructura_id) REFERENCES estructura(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------------------------------------------------------
 -- Base de datos de votantes y contactos
 -- ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS votantes (
