@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#142a3f">
 <title>Mis registros · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* Progreso hacia la meta — lo primero que ve el líder al entrar. */
@@ -57,6 +62,7 @@
     background: var(--cream); width: 100%; border-radius: 18px 18px 0 0;
     padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
     max-height: 85vh; overflow-y: auto;
+    max-height: 85dvh;
   }
   .ficha .nombre-ficha {
     font-size: 1.25rem; font-weight: 700; color: #0B5ED7; margin: 0 0 6px;

@@ -27,7 +27,7 @@ body {
 .app-barra {
   background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%);
   color: #fff;
-  padding: 18px 20px calc(18px + env(safe-area-inset-top, 0px));
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 18px;
   display: flex;
   align-items: center;
   gap: 12px;

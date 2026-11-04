@@ -2,6 +2,7 @@
   "name": "Estrategia · Captura de Campo",
   "short_name": "Estrategia",
   "description": "Registro de votantes y sublíderes, biografía del candidato, publicidad de campaña y política de privacidad.",
+  "id": "/app/inicio.html",
   "start_url": "/app/inicio.html",
   "scope": "/",
   "display": "standalone",

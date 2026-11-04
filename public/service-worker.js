@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v132';
+const CACHE_NAME = 'estrategia-v133';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -37,6 +37,7 @@ const ARCHIVOS_CASCARON = [
   '/app/manifest.json',
   '/app/icons/icon-192.png',
   '/app/icons/icon-512.png',
+  '/app/apple-touch-icon.png',
   '/js/api-core.js',
   '/app/mis-registros.html',
   '/app/avance-lideres.html',
