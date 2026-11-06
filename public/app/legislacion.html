@@ -24,7 +24,7 @@
   .leg-tarjeta p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); line-height: 1.5; }
   .leg-meta { font-size: 0.76rem; }
   .leg-acciones { display: flex; gap: 10px; }
-  .leg-acciones a.btn-app { text-decoration: none; flex: 1; text-align: center; }
+  .leg-acciones .btn-app { flex: 1; text-align: center; }
   .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
 </style>
 </head>
@@ -55,6 +55,7 @@
 <script>
 let normas = [];
 let tipoActual = null;   // null = todos
+let visiblesActuales = [];
 
 const ETIQUETA_TIPO = {
   ley: 'Ley', decreto: 'Decreto', resolucion: 'Resolución', acuerdo: 'Acuerdo',
@@ -79,6 +80,88 @@ function formatoTamano(bytes) {
 
 function enlaceArchivo(n, descargar) {
   return `/api/legislacion/archivo/${encodeURIComponent(n.archivo)}${descargar ? '?descargar=1' : ''}`;
+}
+
+/* «VER» Y «DESCARGAR» PIDEN EL PDF CON fetch, NO CON UN ENLACE.
+   Un enlace es una navegación del navegador y SOLO lleva la cookie de sesión.
+   Pero esa cookie dura 8 horas fijas (app.js: cookie.maxAge, sin rolling) y el
+   token de dispositivo de «Recordar sesión» dura 7 días (config/tokenDispositivo.js),
+   y el token solo viaja como encabezado X-Device-Token (api-core.js). Con la
+   pantalla abierta pasadas las 8 horas, o con la cookie borrada, el enlace
+   mostraba el JSON «Debe iniciar sesión» aunque la sesión del dispositivo
+   siguiera vigente. fetch manda el MISMO encabezado que el resto de la app, y
+   de paso el servidor renueva la cookie en la respuesta.
+   El token nunca va en la dirección. */
+async function pedirPdf(n, descargar) {
+  const encabezados = {};
+  const token = (typeof obtenerTokenDispositivoActivo === 'function') ? obtenerTokenDispositivoActivo() : null;
+  if (token) encabezados['X-Device-Token'] = token;
+
+  let resp;
+  try {
+    resp = await fetch(enlaceArchivo(n, descargar), { headers: encabezados, credentials: 'same-origin' });
+  } catch (err) {
+    const e = new Error('Se necesita conexión a internet para abrir la norma.');
+    e.esErrorDeRed = true;
+    throw e;
+  }
+  if (resp.status === 401) { window.location.href = '/login.html'; return null; }   // igual que api()
+  if (!resp.ok) {
+    let mensaje = 'No se pudo abrir la norma.';
+    try { const j = await resp.json(); if (j && j.error) mensaje = j.error; } catch (e) { /* sin cuerpo JSON */ }
+    throw new Error(mensaje);
+  }
+  // El tipo se fija a mano: si el visor recibe un blob sin tipo, no sabe qué es.
+  return new Blob([await resp.arrayBuffer()], { type: 'application/pdf' });
+}
+
+/* QUÉ SE HACE CON EL BLOB, Y POR QUÉ.
+   Ver: se navega la MISMA ventana al blob. Descartado `window.open`/target
+   _blank: tras el `await` del fetch ya no hay gesto del usuario y Safari lo
+   bloquea como ventana emergente. Descartado un iframe/embed: Safari de iPhone
+   muestra solo la PRIMERA página de un PDF incrustado y Chrome de Android no
+   tiene visor de PDF incrustado. Una navegación de la ventana actual no está
+   sujeta al bloqueo y Safari abre su visor nativo, con todas las páginas; se
+   vuelve con el gesto/botón de atrás. (Es una función aparte para poder
+   sustituirla en las pruebas.) */
+function mostrarPdfEnPantalla(urlBlob) {
+  window.location.assign(urlBlob);
+}
+
+function guardarPdf(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function accionNorma(boton) {
+  const n = visiblesActuales[Number(boton.dataset.i)];
+  if (!n || boton.disabled) return;
+  const descargar = boton.dataset.accion === 'descargar';
+  const textoOriginal = boton.textContent;
+  const caja = document.getElementById('error-carga');
+  caja.classList.remove('visible');
+  boton.disabled = true;
+  boton.textContent = 'Abriendo…';
+  try {
+    const blob = await pedirPdf(n, descargar);
+    if (!blob) return;   // fue a login
+    if (descargar) guardarPdf(blob, n.archivo);
+    else mostrarPdfEnPantalla(URL.createObjectURL(blob));
+  } catch (err) {
+    caja.textContent = err.message || 'No se pudo abrir la norma.';
+    caja.classList.add('visible');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
 }
 
 function pintarFiltros() {
@@ -115,7 +198,8 @@ function pintarLista() {
   document.getElementById('vacio').style.display = hayNinguna ? 'block' : 'none';
   document.getElementById('vacio-texto').textContent = normas.length ? 'Ninguna norma coincide con la búsqueda.' : 'Aún no se han cargado normas.';
 
-  document.getElementById('lista-normas').innerHTML = visibles.map(n => {
+  visiblesActuales = visibles;
+  document.getElementById('lista-normas').innerHTML = visibles.map((n, i) => {
     const meta = [formatoTamano(n.tamano_bytes), n.anio ? `Año ${n.anio}` : ''].filter(Boolean).join(' · ');
     return `
       <div class="leg-tarjeta">
@@ -124,8 +208,8 @@ function pintarLista() {
         ${n.descripcion ? `<p>${escaparAppHtml(n.descripcion)}</p>` : ''}
         ${meta ? `<p class="leg-meta">${escaparAppHtml(meta)}</p>` : ''}
         <div class="leg-acciones">
-          <a class="btn-app btn-app-primario" href="${enlaceArchivo(n, false)}" target="_blank" rel="noopener">Ver</a>
-          <a class="btn-app btn-app-secundario" href="${enlaceArchivo(n, true)}">Descargar</a>
+          <button type="button" class="btn-app btn-app-primario" data-accion="ver" data-i="${i}">Ver</button>
+          <button type="button" class="btn-app btn-app-secundario" data-accion="descargar" data-i="${i}">Descargar</button>
         </div>
       </div>`;
   }).join('');
@@ -145,6 +229,10 @@ function pintarLista() {
     if (normas.length) {
       document.getElementById('zona-busqueda').style.display = 'block';
       document.getElementById('leg-buscar').addEventListener('input', pintarLista);
+      document.getElementById('lista-normas').addEventListener('click', (ev) => {
+        const boton = ev.target.closest('button[data-accion]');
+        if (boton) accionNorma(boton);
+      });
       pintarFiltros();
     }
     pintarLista();
