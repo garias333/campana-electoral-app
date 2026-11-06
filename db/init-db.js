@@ -556,6 +556,13 @@ async function sembrarPoliticaPrivacidadPorDefecto(connection) {
 const ARCHIVO_CREDENCIALES_SUPERADMIN = '.credenciales-superadmin.txt';
 
 /**
+ * Lo mismo para el administrador inicial (admin@campana.local o ADMIN_EMAIL):
+ * mismo formato, modo 0600, mismo trato en .gitignore y en parches/plantillas.
+ * Solo se escribe si la contraseña se GENERÓ (sin ADMIN_PASSWORD).
+ */
+const ARCHIVO_CREDENCIALES_ADMIN = '.credenciales-admin.txt';
+
+/**
  * Crea el superadministrador de una instalación NUEVA.
  *
  * SOLO SI EL ADMINISTRADOR SE CREÓ EN ESTA MISMA CORRIDA (`adminCreadoEstaCorrida`).
@@ -1140,20 +1147,76 @@ async function main() {
     // sirve de nada si quien entra primero no es el dueño de la campaña.
     // Una al azar cierra esa ventana sin estorbar el aprovisionamiento: se
     // imprime abajo, igual que antes.
+    const claveDeEntorno = Boolean(process.env.ADMIN_PASSWORD);
     const passwordPlano = process.env.ADMIN_PASSWORD
       || crypto.randomBytes(12).toString('base64url');
     const hash = await bcrypt.hash(passwordPlano, 12);
     const [[rolAdmin]] = await connection.query(`SELECT id FROM roles WHERE nombre = 'admin'`);
-    await connection.query(
-      `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, debe_cambiar_password)
-       VALUES (?, ?, ?, ?, 1, 1)`,
-      ['Administrador de Campaña', email, hash, rolAdmin.id]
-    );
+
+    /* LA CONTRASEÑA GENERADA NO SE IMPRIME: SE DEJA EN UN ARCHIVO.
+       Lo que sale por consola acaba en el historial del terminal, en la salida
+       del actualizador o en un log (el actualizador corre init-db con la salida
+       a un archivo). El archivo queda en la carpeta de la instalación, modo 0600,
+       igual que el del superadministrador: se lee con cat y se borra.
+
+       Solo cuando la clave se GENERÓ. Si el operador la fijó en ADMIN_PASSWORD
+       ya la tiene, y copiarla a un segundo archivo en claro sería dejar dos
+       copias donde antes había una.
+
+       El archivo se escribe ANTES de tocar la base y con `wx` (no sobrescribe):
+       si la escritura falla no queda una cuenta cuya clave nadie conoce, y si ya
+       hay un archivo sin leer NO se pisa — se detiene, porque seguir sin dejar la
+       clave en ninguna parte dejaría una instalación sin administrador utilizable. */
+    const rutaAdmin = path.join(__dirname, '..', ARCHIVO_CREDENCIALES_ADMIN);
+    if (!claveDeEntorno) {
+      try {
+        fs.writeFileSync(
+          rutaAdmin,
+          `Administrador de esta instalación\n` +
+          `Correo:     ${email}\n` +
+          `Contraseña: ${passwordPlano}\n` +
+          `Creada:     ${new Date().toISOString()}\n\n` +
+          `Debe cambiarla en el primer ingreso. Lea este archivo con cat y BÓRRELO.\n`,
+          { flag: 'wx', mode: 0o600 }
+        );
+        // `mode` se enmascara con el umask y puede heredar una ACL de la carpeta:
+        // se fija y se comprueba, no se supone.
+        fs.chmodSync(rutaAdmin, 0o600);
+        if ((fs.statSync(rutaAdmin).mode & 0o777) !== 0o600) {
+          throw new Error(`No se pudo dejar ${rutaAdmin} en modo 0600.`);
+        }
+      } catch (err) {
+        if (err.code === 'EEXIST') {
+          throw new Error(`Ya existe ${rutaAdmin}. No se creó el administrador para no pisar ` +
+            'credenciales sin leer. Léalo con cat, bórrelo y vuelva a correr init-db.');
+        }
+        try { fs.unlinkSync(rutaAdmin); } catch (_) { /* no se llegó a crear */ }
+        throw err;
+      }
+    }
+
+    try {
+      await connection.query(
+        `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, debe_cambiar_password)
+         VALUES (?, ?, ?, ?, 1, 1)`,
+        ['Administrador de Campaña', email, hash, rolAdmin.id]
+      );
+    } catch (err) {
+      // Sin cuenta no hay clave que guardar: el archivo no se queda mintiendo.
+      if (!claveDeEntorno) { try { fs.unlinkSync(rutaAdmin); } catch (_) { /* ya no está */ } }
+      throw err;
+    }
     adminCreadoEstaCorrida = true;
     console.log('----------------------------------------------------');
     console.log('Usuario administrador creado:');
     console.log('  Email:    ', email);
-    console.log('  Password: ', passwordPlano);
+    if (claveDeEntorno) {
+      console.log('  Contraseña: la de ADMIN_PASSWORD (.env)');
+    } else {
+      console.log('  Credenciales en: ' + rutaAdmin + ' (modo 0600)');
+      console.log('  Léalas con:      cat ' + rutaAdmin);
+      console.log('  y BORRE el archivo después.');
+    }
     console.log('  (Deberá cambiar la contraseña en el primer ingreso)');
     console.log('----------------------------------------------------');
   } else {

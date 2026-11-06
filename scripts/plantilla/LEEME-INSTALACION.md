@@ -60,7 +60,8 @@ También están en `.env.example`, todas opcionales y vacías al nacer:
   no tiene (por omisión, 3104157434).
 
 Opcional: `ADMIN_EMAIL` y `ADMIN_PASSWORD` fijan el administrador inicial. Si no
-se define la contraseña, el paso 4 genera una al azar.
+se define la contraseña, el paso 4 genera una al azar y la deja en un archivo (no la
+imprime). Si se define, `init-db` no escribe ningún archivo: la clave ya está en el `.env`.
 
 ## 4. Dependencias y tablas
 
@@ -72,24 +73,31 @@ npm run init-db
 ```
 
 `init-db` aplica `db/schema.sql`, las migraciones, los permisos por omisión y
-crea el administrador inicial. **Imprime una sola vez el correo y la contraseña**
-del administrador; anótelos. Debe cambiar la contraseña en el primer ingreso.
+crea el administrador inicial (`admin@campana.local`, o `ADMIN_EMAIL`).
 
-También crea el **superadministrador**, una cuenta que ningún otro rol ve (ni
-siquiera el administrador). Su correo es `SUPERADMIN_EMAIL` del `.env` o, si está
-vacío, el de por omisión de `config/superadminCorreo.js`. **Su contraseña no se
-imprime**: queda en `.credenciales-superadmin.txt`, en la carpeta del sitio, con
-modo 0600. Léala y bórrela:
+**Ninguna contraseña generada se imprime.** `init-db` deja cada una en un archivo de
+la carpeta del sitio, con modo 0600, y solo muestra su ruta:
+
+- `.credenciales-admin.txt`: el administrador inicial.
+- `.credenciales-superadmin.txt`: el **superadministrador**, una cuenta que ningún otro
+  rol ve (ni siquiera el administrador). Su correo es `SUPERADMIN_EMAIL` del `.env` o, si
+  está vacío, el de por omisión de `config/superadminCorreo.js`.
+
+**Léalos y bórrelos** (la contraseña del archivo es la única copia; en la base solo
+queda su hash):
 
 ```bash
-cat .credenciales-superadmin.txt
-rm .credenciales-superadmin.txt
+cat .credenciales-admin.txt .credenciales-superadmin.txt
+rm .credenciales-admin.txt .credenciales-superadmin.txt
 ```
 
-Debe cambiarla en el primer ingreso. Solo se crea en una instalación nueva (cuando
-`init-db` crea también al administrador); en una segunda corrida no hace nada. Si
-el archivo ya existe, `init-db` no crea la cuenta y lo avisa. El archivo no viaja
-en las plantillas ni en los parches.
+Cada cuenta debe cambiar su contraseña en el primer ingreso. Los dos archivos se crean
+solo en una instalación nueva (cuando `init-db` crea también al administrador); en una
+segunda corrida no hacen nada. **Si ya existe uno al volver a correr `init-db`, no se
+pisa:** el del administrador detiene `init-db` con un mensaje (sin él no habría cómo
+entrar); el del superadministrador solo avisa y no crea esa cuenta. En ambos casos:
+léalo con `cat`, bórrelo y vuelva a correr `init-db`. Los archivos no viajan en las
+plantillas ni en los parches, y están en `.gitignore`.
 Está escrito para poder repetirse (`CREATE TABLE IF NOT EXISTS`, y solo crea
 un administrador si no hay ninguno).
 
@@ -283,7 +291,7 @@ base central de licencias. Esa parte vive fuera de esta plantilla.
 
 ## Qué no incluye esta plantilla
 
-`.env`, `.licencia-cache.json`, `.credenciales-superadmin.txt`, `backups/`, `node_modules/`, `parches/`
+`.env`, `.licencia-cache.json`, `.credenciales-*.txt`, `backups/`, `node_modules/`, `parches/`
 y el contenido de `uploads/` y de `logs/` (las carpetas vienen vacías).
 
 La carpeta `legislacion/` la llena el cron central; no subir PDF a mano.

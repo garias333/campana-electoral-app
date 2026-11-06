@@ -23,9 +23,11 @@ Thumbs.db
 .licencia-cache.json
 .version-parche
 
-# Contraseña inicial del superadministrador: la deja db/init-db.js (modo 0600) en
-# una instalación nueva, para leerla con cat y borrarla. Nunca debe versionarse.
-.credenciales-superadmin.txt
+# Contraseñas iniciales del superadministrador y del administrador: las deja
+# db/init-db.js (modo 0600) en una instalación nueva, para leerlas con cat y
+# borrarlas. Por patrón, para que cualquier archivo de credenciales futuro tampoco
+# se versione. Nunca deben subirse.
+.credenciales-*.txt
 
 # Artefactos de build
 parches/*.zip

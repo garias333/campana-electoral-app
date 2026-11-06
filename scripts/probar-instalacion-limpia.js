@@ -39,6 +39,9 @@ const { TELEFONO_SUPERADMIN: TELEFONO_ESPERADO } = require('../config/superadmin
 // del proyecto, o sea EN ESTE ÁRBOL aunque la base sea desechable: por eso la prueba
 // se niega a empezar si ya hay uno y borra el suyo al terminar.
 const ARCHIVO_SUPERADMIN = path.join(PROYECTO, '.credenciales-superadmin.txt');
+// Lo mismo para el administrador inicial (db/init-db.js): la clave generada no se imprime,
+// se deja aquí con modo 0600. Misma razón para negarse a empezar si ya hay uno y para borrarlo.
+const ARCHIVO_ADMIN = path.join(PROYECTO, '.credenciales-admin.txt');
 
 // Nunca, bajo ninguna circunstancia, contra estas.
 const BASES_PROHIBIDAS = [
@@ -217,13 +220,26 @@ async function main() {
     process.exit(1);
   }
 
+  if (fs.existsSync(ARCHIVO_ADMIN)) {
+    console.error(`NO. Ya existe ${ARCHIVO_ADMIN}. init-db no crearía el administrador (se detiene ` +
+                  'para no pisar una clave sin leer), y la prueba no probaría nada. Léalo (cat) y bórrelo antes.');
+    process.exit(1);
+  }
+
   console.log(`Base "${base}": vacía. Levantando el esquema...\n`);
+  // La salida de init-db se CAPTURA (y se muestra al terminar) para poder comprobar que no
+  // imprimió la contraseña del administrador. ADMIN_EMAIL/ADMIN_PASSWORD se vacían a propósito:
+  // si el .env de esta instalación los define, el hijo los heredaría y la prueba ya no
+  // comprobaría el camino de una instalación sin ellos (clave generada, archivo escrito).
+  let salida1 = '';
   try {
-    execFileSync(process.execPath, [path.join(PROYECTO, 'db', 'init-db.js')], {
-      cwd: PROYECTO, stdio: 'inherit',
-      env: { ...process.env, DB_NAME: base, DB_USER: usuario, DB_PASSWORD: clave },
+    salida1 = execFileSync(process.execPath, [path.join(PROYECTO, 'db', 'init-db.js')], {
+      cwd: PROYECTO, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'],
+      env: { ...process.env, DB_NAME: base, DB_USER: usuario, DB_PASSWORD: clave, ADMIN_EMAIL: '', ADMIN_PASSWORD: '' },
     });
+    process.stdout.write(salida1);
   } catch (err) {
+    if (err.stdout) process.stdout.write(String(err.stdout));
     console.error('\n>>> init-db FALLÓ. Ese es el resultado de la prueba: una campaña nueva no se puede crear.');
     process.exit(1);
   }
@@ -272,6 +288,27 @@ async function main() {
   // La prueba no deja la clave de una base desechable dentro del árbol del proyecto.
   try { fs.unlinkSync(ARCHIVO_SUPERADMIN); } catch (_) { /* ya no está */ }
 
+  // --- El archivo con la clave del administrador ---------------------------------
+  let adminExiste = false, adminModo = null, adminContenido = '';
+  try {
+    const st = fs.statSync(ARCHIVO_ADMIN);
+    adminExiste = st.isFile(); adminModo = st.mode & 0o777;
+    adminContenido = fs.readFileSync(ARCHIVO_ADMIN, 'utf8');
+  } catch (_) { /* informar lo dice */ }
+  const claveAdmin = (adminContenido.match(/^Contraseña:\s+(\S+)/m) || [])[1] || '';
+  informar(adminExiste, 'Existe .credenciales-admin.txt en la carpeta del proyecto', 'no existe');
+  informar(adminModo === 0o600, 'El archivo del administrador está en modo 0600',
+           `modo ${adminModo === null ? 'n/a' : '0' + adminModo.toString(8)}`);
+  informar(/^Correo:\s+admin@campana\.local\s*$/m.test(adminContenido),
+           'Trae el correo admin@campana.local', 'no aparece');
+  informar(claveAdmin.length >= 16, 'Trae una contraseña de 16 o más caracteres', `${claveAdmin.length} caracteres`);
+  informar(claveAdmin.length > 0 && !salida1.includes(claveAdmin),
+           'La salida de init-db NO contiene la contraseña del administrador',
+           claveAdmin ? 'la contraseña salió por consola' : 'no hay contraseña que buscar');
+  informar(!/^\s*Password:|Contraseña:\s+\S/m.test(salida1),
+           'Y no imprime ninguna línea «Password:» ni «Contraseña: …»', 'la salida trae una línea de contraseña');
+  try { fs.unlinkSync(ARCHIVO_ADMIN); } catch (_) { /* ya no está */ }
+
   // --- SEGUNDA CORRIDA: sobre una base ya instalada no debe crear nada --------
   console.log('\nSegunda corrida de init-db sobre la base ya instalada (se captura su salida):\n');
   let salida2 = '';
@@ -283,8 +320,10 @@ async function main() {
   } catch (err) {
     informar(false, 'La segunda corrida termina sin error', String(err.message).split('\n')[0]);
   }
-  informar(!fs.existsSync(ARCHIVO_SUPERADMIN), 'No escribió ningún archivo de credenciales', 'apareció el archivo');
+  informar(!fs.existsSync(ARCHIVO_SUPERADMIN) && !fs.existsSync(ARCHIVO_ADMIN),
+           'No escribió ningún archivo de credenciales', 'apareció un archivo .credenciales-*.txt');
   try { fs.unlinkSync(ARCHIVO_SUPERADMIN); } catch (_) { /* no está, como debe */ }
+  try { fs.unlinkSync(ARCHIVO_ADMIN); } catch (_) { /* no está, como debe */ }
   informar(!/Password:|Contraseña:|Usuario administrador creado|Superadministrador creado/.test(salida2),
            'No imprimió credenciales ni "creado"', 'la salida menciona una creación');
   // asegurarSuperadmin corre en CADA init-db y debe decir cuántos superadmins cubre: uno.

@@ -33,7 +33,7 @@ const PROHIBIDOS = [
   /^\.env$/,
   /^\.env\./,
   /^\.licencia-cache\.json$/,
-  /^\.credenciales-superadmin\.txt$/,
+  /^\.credenciales-[^/]*\.txt$/, // la clave inicial del superadmin y del admin de ESTA instalación
   /^uploads\//,
   /^backups\//,
   /^node_modules\//,

@@ -50,7 +50,7 @@ const EXCLUIR = [
   /^\.env$/,
   /^\.env\.(?!example$)/,
   /^\.licencia-cache\.json$/,
-  /^\.credenciales-superadmin\.txt$/, // la clave inicial del superadministrador de ESTA instalación
+  /^\.credenciales-[^/]*\.txt$/, // la clave inicial del superadministrador y del administrador de ESTA instalación
   /^backups\//,
   /^logs\//,
   /^node_modules\//,
