@@ -89,6 +89,13 @@ const EXCLUIR = [
   /^scripts\/revisar-llaves-ssh\.sh$/,
   /^scripts\/limpiar-copias-env\.sh$/,
   /^scripts\/cerrar-permisos-codigo\.sh$/,
+  // Guiones de UN solo parche o de UN solo respaldo del servidor: verifican o
+  // comparan lo que llevó un parche concreto entre instalaciones (verificar-parche264,
+  // comparar-parche265…) o respaldan la base de una instalación (respaldar-base-instalacion).
+  // Por patrón y no por nombre, para que los de parches futuros tampoco viajen.
+  /^scripts\/verificar-parche[^/]*\.sh$/,
+  /^scripts\/comparar-parche[^/]*\.sh$/,
+  /^scripts\/respaldar-base-instalacion\.sh$/,
   // Herramientas del operador del VPS: recorren o comparan OTRAS instancias, o
   // llevan sus nombres y rutas dentro.
   /^scripts\/comparar-instancias\.js$/,

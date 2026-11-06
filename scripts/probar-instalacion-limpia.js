@@ -30,6 +30,11 @@ const { execFileSync } = require('child_process');
 
 const PROYECTO = path.join(__dirname, '..');
 
+// El celular con el que init-db debe haber creado al superadministrador. Sale del MISMO
+// módulo que usa init-db, leído después de dotenv, así que respeta SUPERADMIN_TELEFONO si
+// está definido (los procesos hijos heredan este entorno) y, si no, vale 3104157434.
+const { TELEFONO_SUPERADMIN: TELEFONO_ESPERADO } = require('../config/superadminCorreo');
+
 // Donde init-db deja la clave del superadministrador (db/init-db.js). Cae en la carpeta
 // del proyecto, o sea EN ESTE ÁRBOL aunque la base sea desechable: por eso la prueba
 // se niega a empezar si ya hay uno y borra el suyo al terminar.
@@ -124,6 +129,16 @@ const COMPROBACIONES = [
 
   ['...y debe cambiar la contraseña en el primer ingreso (debe_cambiar_password = 1)',
    `SELECT COUNT(*) n FROM usuarios WHERE es_superadmin = 1 AND debe_cambiar_password = 1`, 1],
+
+  // El superadministrador entra SIEMPRE con código (db/init-db.js: crearSuperadminInicial
+  // y asegurarSuperadmin). Sin la bandera, entraría solo con la clave; sin teléfono, el
+  // código por SMS no tendría a dónde llegar.
+  ['...y nace con el código de ingreso encendido (two_factor_enabled = 1)',
+   `SELECT COUNT(*) n FROM usuarios WHERE es_superadmin = 1 AND two_factor_enabled = 1`, 1],
+
+  [`...y con el celular ${TELEFONO_ESPERADO} (SUPERADMIN_TELEFONO o el de por omisión)`,
+   `SELECT COUNT(*) n FROM usuarios
+     WHERE es_superadmin = 1 AND telefono = ${mysql.escape(TELEFONO_ESPERADO)}`, 1],
 
   ['...sin cédula ni nombre de usuario (no cruza con ningún votante)',
    `SELECT COUNT(*) n FROM usuarios
@@ -272,10 +287,15 @@ async function main() {
   try { fs.unlinkSync(ARCHIVO_SUPERADMIN); } catch (_) { /* no está, como debe */ }
   informar(!/Password:|Contraseña:|Usuario administrador creado|Superadministrador creado/.test(salida2),
            'No imprimió credenciales ni "creado"', 'la salida menciona una creación');
+  // asegurarSuperadmin corre en CADA init-db y debe decir cuántos superadmins cubre: uno.
+  informar(/superadmin asegurado \(1\)/.test(salida2),
+           'Imprimió «superadmin asegurado (1)»',
+           (salida2.match(/superadmin asegurado \(\d+\)/) || ['no apareció'])[0]);
   const [[{ n: admins2 }]] = await cx.query(
     `SELECT COUNT(*) n FROM usuarios u JOIN roles r ON r.id=u.rol_id WHERE r.nombre='admin' AND u.es_superadmin = 0`);
   const [[{ n: supers2 }]] = await cx.query(`SELECT COUNT(*) n FROM usuarios WHERE es_superadmin = 1`);
   const [[{ n: usuarios2 }]] = await cx.query(`SELECT COUNT(*) n FROM usuarios`);
+  informar(supers2 === 1, 'Sigue habiendo exactamente un superadministrador', `hay ${supers2}`);
   informar(admins2 === 1 && supers2 === 1 && usuarios2 === 2,
            'Siguen 1 administrador, 1 superadministrador y 2 usuarios en total',
            `admins ${admins2}, superadmins ${supers2}, usuarios ${usuarios2}`);
