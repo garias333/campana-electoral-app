@@ -861,6 +861,16 @@ async function main() {
     multipleStatements: true
   });
   console.log('Conectado a MySQL. Aplicando esquema...');
+  /* QUÉ TABLAS DE «YA VOTÓ» EXISTÍAN ANTES DE APLICAR schema.sql. Se mira AQUÍ, antes
+     del CREATE TABLE IF NOT EXISTS: después es imposible distinguir «ya estaba» de
+     «la acaba de crear esta misma corrida». La primera versión lo deducía por la
+     hora de creación (CREATE_TIME) y decía «creada» en una segunda corrida hecha a
+     los pocos segundos de la primera — justo lo que se hace para comprobar que
+     init-db es repetible. */
+  const [yaExistian] = await connection.query(
+    `SELECT TABLE_NAME AS t FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens')`);
+  const tablasVotoQueExistian = new Set(yaExistian.map(r => r.t));
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await connection.query(schema);
   console.log('Esquema aplicado correctamente.');
@@ -2070,17 +2080,16 @@ async function main() {
   // --- Día D fase 2: «ya votó» ---
   //
   // Las dos tablas las crea db/schema.sql (CREATE TABLE IF NOT EXISTS, al
-  // principio de cada corrida). Aquí solo se COMPRUEBA y se dice si ya estaban:
-  // CREATE_TIME reciente = se crearon en esta misma corrida.
+  // principio de cada corrida). Aquí solo se COMPRUEBA que existan y se dice si ya
+  // estaban, según lo que había ANTES de aplicar el esquema (ver `tablasVotoQueExistian`).
   for (const tabla of ['votante_votos', 'votante_voto_tokens']) {
     const [[t]] = await connection.query(
-      `SELECT CREATE_TIME AS creada, TIMESTAMPDIFF(SECOND, CREATE_TIME, NOW()) AS hace
-         FROM INFORMATION_SCHEMA.TABLES
+      `SELECT 1 AS x FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
     if (!t) throw new Error(`Falta la tabla ${tabla}: db/schema.sql debía crearla en esta misma corrida.`);
-    console.log(t.hace !== null && t.hace < 120
-      ? `Tabla ${tabla} creada.`
-      : `La tabla ${tabla} ya existía. Sin cambios.`);
+    console.log(tablasVotoQueExistian.has(tabla)
+      ? `La tabla ${tabla} ya existía. Sin cambios.`
+      : `Tabla ${tabla} creada.`);
   }
 
   // Índices de votantes que la lista de faltantes necesita. `sublider_id` y
