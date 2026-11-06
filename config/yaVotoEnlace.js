@@ -24,6 +24,8 @@
  * pierde: no se puede «rotar» el enlace de una sola persona (se tendría que
  * rotar SESSION_SECRET, que también invalida los enlaces de baja).
  *
+ * LA FECHA EN EL TOKEN. Ver `tokenDe`: el enlace es de ESA elección.
+ *
  * VIGENCIA. Vale el día de la elección: `vence_en` es ese día a las 23:59:59,
  * hora de Colombia (la sesión de config/db.js fija -05:00, y NOW()/CURDATE() son
  * hora de Colombia). Y la página, además de `vence_en`, comprueba que HOY sea la
@@ -44,11 +46,21 @@ function llave() {
   return crypto.createHmac('sha256', base).update('ya-voto:v1').digest();
 }
 
-/** El token de un votante, o null si la instalación no tiene SESSION_SECRET. */
-function tokenDe(votanteId) {
+/**
+ * El token de un votante PARA UNA ELECCIÓN, o null si falta SESSION_SECRET o la fecha.
+ *
+ * LA FECHA DE LA ELECCIÓN ENTRA EN EL HMAC (votante_id + fecha). Por eso el enlace
+ * de una misma persona es otro en cada elección —o en una segunda vuelta— y un
+ * enlace viejo no puede marcar en una jornada nueva, aunque la fila de
+ * `votante_voto_tokens` siga ahí: `buscarEnlaceActivo` lo recalcula con la fecha
+ * ACTUAL y lo compara. Consecuencia que hay que saber: si alguien CAMBIA la fecha
+ * de elección en Configuración, los enlaces ya enviados dejan de servir y hay que
+ * volver a mandarlos (la pantalla de Configuración lo avisa junto a la fecha).
+ */
+function tokenDe(votanteId, fecha) {
   const k = llave();
-  if (!k) return null;
-  return crypto.createHmac('sha256', k).update(`votante:${Number(votanteId)}`)
+  if (!k || !fecha) return null;
+  return crypto.createHmac('sha256', k).update(`votante:${Number(votanteId)}:${fecha}`)
     .digest('base64url').slice(0, LARGO_TOKEN);
 }
 
@@ -102,10 +114,10 @@ async function asegurarEnlaces(votanteIds, base = baseDelSitio()) {
     await pool.query(
       `INSERT INTO votante_voto_tokens (votante_id, token_hash, vence_en) VALUES ?
        ON DUPLICATE KEY UPDATE token_hash = VALUES(token_hash), vence_en = VALUES(vence_en)`,
-      [lote.map(id => [id, huellaDeToken(tokenDe(id)), vence])]);
+      [lote.map(id => [id, huellaDeToken(tokenDe(id, fecha)), vence])]);
   }
   const raiz = String(base || '').replace(/\/+$/, '');
-  for (const id of ids) mapa.set(id, `${raiz}/v/${tokenDe(id)}`);
+  for (const id of ids) mapa.set(id, `${raiz}/v/${tokenDe(id, fecha)}`);
   return mapa;
 }
 
@@ -126,8 +138,16 @@ async function buscarEnlaceActivo(token) {
       WHERE t.token_hash = ? AND t.vence_en >= NOW()`,
     [huellaDeToken(token)]);
   if (!fila) return null;
-  const { esHoy } = await estadoDeLaElección();
-  return esHoy ? fila : null;
+  const { fecha, esHoy } = await estadoDeLaElección();
+  if (!esHoy) return null;
+  /* EL TOKEN TIENE QUE SER EL DE ESTA ELECCIÓN. La fila puede ser de la elección
+     anterior (la fecha cambió y todavía no se regeneró el enlace de esta persona):
+     se recalcula con la fecha actual y se compara. Un enlace de otra jornada no marca. */
+  const esperado = tokenDe(fila.votante_id, fecha);
+  if (!esperado) return null;
+  const a = Buffer.from(String(token)), b = Buffer.from(esperado);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return fila;
 }
 
 /** Registra el voto. `INSERT IGNORE`: si ya estaba, no cambia nada —ni la hora—. */

@@ -145,6 +145,7 @@
             <label>Fecha de elecciones</label>
             <input type="date" name="fecha_eleccion">
             <small style="color:var(--color-text-muted);">Informativa: los testigos siempre entran directo al formulario de Día D al iniciar sesión, sin importar esta fecha.</small>
+            <small style="color:#8A5A00; display:block; margin-top:4px;">⚠ Los enlaces «Ya voté» que se envían a los votantes son <strong>de esta fecha</strong>: sirven solo ese día. Si la cambia —por una segunda vuelta o una elección nueva—, <strong>los enlaces ya enviados dejan de funcionar</strong> y hay que volver a mandarlos.</small>
           </div>
         </div>
 
@@ -669,6 +670,7 @@
 
 <script src="/js/common.js"></script>
 <script>
+let fechaEleccionCargada = '';   // la fecha de elección tal como se cargó (ver el aviso de enlaces «Ya voté»)
 let usuarioActual;
 /* «Importar / Exportar» desde un common.js ANTIGUO. El navegador guarda los .js
    hasta 10 minutos: si esta página llega nueva y common.js todavía no trae
@@ -944,6 +946,7 @@ async function cargarConfiguracionCampana() {
      0. `?? ''` distingue las dos, `||` las juntaría. */
   form.meta_votos_campana.value = config.meta_votos_campana ?? '';
   form.fecha_eleccion.value = config.fecha_eleccion || '';
+  fechaEleccionCargada = config.fecha_eleccion || '';   // para avisar si se cambia (enlaces «Ya voté»)
   form.direccion_sede.value = config.direccion_sede || '';
   form.telefono.value = formatoTelefonoColombia(config.telefono || '');
   form.email.value = config.email || '';
@@ -1018,6 +1021,12 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
   }
 
   const form = e.target;
+  // Cambiar la fecha de elección invalida los enlaces «Ya voté» ya enviados (el enlace
+  // lleva la fecha dentro). Se pregunta ANTES de guardar, no después de enterarse.
+  if (fechaEleccionCargada && form.fecha_eleccion.value !== fechaEleccionCargada
+      && !confirm('Vas a cambiar la fecha de la elección.\n\nLos enlaces «Ya voté» que ya enviaste a los votantes dejarán de funcionar y habrá que volver a mandarlos.\n\n¿Guardar el cambio?')) {
+    return;
+  }
   const partidoSeleccionado = document.getElementById('select-partido-politico').value;
   const partidoFinal = partidoSeleccionado === 'Otro'
     ? document.getElementById('input-partido-otro').value.trim()

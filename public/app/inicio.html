@@ -69,6 +69,9 @@ const MENU_LIDER = [
   { href: '/app/mis-registros.html', icono: '📝', titulo: 'Registro de votantes y sublíderes', subtitulo: 'Ver tu avance y agregar contactos' },
   // Día D: quién de los míos ya votó y quién falta. Solo con «Ver» en el módulo `rescate_votos`.
   { href: '/app/faltantes.html', icono: '🗳️', titulo: 'Faltan por votar', subtitulo: 'Tus votantes del día de la elección', modulo: 'rescate_votos' },
+  // El aspirante (rol «lider» con sublicencia) también ve el ranking de SU rama. Un líder
+  // corriente no: por eso `soloAspirante`. El coordinador ya lo tiene en su menú.
+  { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder de tu equipo', modulo: 'rescate_votos', soloAspirante: true },
   { href: '/app/biografia.html', icono: '👤', titulo: 'Biografía del candidato', subtitulo: 'Conoce su trayectoria' },
   { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
@@ -140,12 +143,13 @@ async function modulosPermitidosApp() {
   }
 }
 
-function pintarMenu(rol, modulosPermitidos) {
+function pintarMenu(rol, modulosPermitidos, esAspirante) {
   const base = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
   let prefiereEscritorio = false;
   try { prefiereEscritorio = localStorage.getItem('admin_preferir_escritorio') === '1'; } catch (e) { /* sin almacenamiento */ }
   const items = base.filter(it => (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
-                              && (!it.soloSiEscritorio || prefiereEscritorio));
+                              && (!it.soloSiEscritorio || prefiereEscritorio)
+                              && (!it.soloAspirante || esAspirante));
   document.getElementById('menu-app').innerHTML = items.map(it => `
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>
@@ -204,7 +208,7 @@ function pintarCampana(campana, bio) {
 
   pintarBarraApp('Estrategia', null, null);
   document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
-  pintarMenu(usuario.rol, await modulosPermitidosApp());
+  pintarMenu(usuario.rol, await modulosPermitidosApp(), !!usuario.es_aspirante);
 
   try {
     const [campana, bio] = await Promise.all([
