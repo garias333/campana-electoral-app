@@ -12,23 +12,31 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 271** (`parches/campana-parche271.zip`, 163.478 bytes,
-  sha256 `983dcbea037cb9cd09cc324aba479cf11761eb852098165263638dc8a1eee07e`, 12 archivos).
-  **Publicado** en la carpeta de licencias (`parche-271.zip`, 19:32, mismo sha256).
-  Los zip 265 a 270 también están publicados (el 265 a las 18:24 del 4 de nov.; los demás el
-  6 de nov.) y los de 265 a 271 coinciden en tamaño con los locales (el 271 y el 270, también en sha256).
+- **Último parche generado: 272** (`parches/campana-parche272.zip`, 138.099 bytes,
+  sha256 `f4333fcb6a8217d0f3dbac7bbf3c2bafe6dcd566e3d22888c18e1b92e37496b1`, 11 archivos).
+  **Publicado** en la carpeta de licencias (`parche-272.zip`, 21:31, mismo sha256, 0644) y
+  **registrado y firmado, INACTIVO**, con `toca_base_datos = true` (lo marcó solo el servidor de
+  licencias: respuesta `{"ok":true,"numero_parche":272,…,"toca_base_datos":true}`). Es el
+  **Día D fase 1** (detalle abajo). El 271 (163.478 bytes, sha256 `983dcbea…`, 12 archivos) y los
+  zip 265 a 270 también están publicados; los de 265 a 271 coinciden en tamaño con los locales.
+  **Distribución del 272: NO MEDIDA, y hay que fijarla ANTES de activarlo.** `registrar-parche.js`
+  no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de abajo): en el panel hay
+  que ponerlo en «seleccionadas» y marcar solo las campañas elegidas.
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
-  (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **271**.
-- **Service worker:** `estrategia-v145` (subió de `v144` en el commit `6b803f0`, para que
-  los navegadores recojan `common.js` y `configuracion.html` del 271). Cada campaña lo
-  tendrá cuando reciba el 271.
+  (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **272**
+  (la Base no recibe parches: los genera). El 272 no se ha activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v146` en el código de la Base y dentro del 272 (subió de
+  `v145`, que fue el del 271, para que los celulares recojan `app/dia-d.html` y `dia-d.html`).
+  Cada campaña lo tendrá cuando reciba el 272.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
   19:18:41, después de la última edición de código de ejecución (19:07:07). Su `.env` tiene
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla v271:** `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
+- **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 272` (y `--forzar`
+  si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
   imprime la contraseña del admin y su LEEME no explica los dos archivos de credenciales):
@@ -41,6 +49,40 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
+## Parche 272 — Día D fase 1 (6 de noviembre de 2026, INACTIVO)
+
+Zip de 11 archivos: `app.js`, `config/verificarEsquema.js`, `db/init-db.js`, `db/schema.sql`,
+`middleware/upload.js`, `public/app/dia-d.html`, `public/dia-d.html`, `public/service-worker.js`
+(`v146`), `routes/diaD.routes.js`, `scripts/limpiar-fotos-dia-d.js` y `.version-base` (272).
+Commits que recoge: `868e22f`, `e102ab9` (Día D) y `39b18eb` (clave del admin inicial en
+`.credenciales-admin.txt`, que viaja porque está dentro de `db/init-db.js`). Los demás commits
+posteriores al 271 (`3ab4ddf`, `2f1ce57`, `90b5948`, `9cb3e25`, `8dfca61`, `0c2311a`) son de
+documentación y herramientas de la plantilla: no viajan.
+
+- **Verificado sobre el zip:** los 11 archivos coinciden por md5 con el disco; no trae `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/` ni `backups/`; `CACHE_NAME = 'estrategia-v146'`;
+  contiene `dia_d_reportes.alertas` en `verificarEsquema.js`, `idx_diad_foto_url`,
+  `cerrarFotosDelDiaD` y `GET_LOCK`.
+- **`scripts/limpiar-fotos-dia-d.js` SÍ viaja en el 272** (decisión de Gildardo). La plantilla,
+  en cambio, no lo lleva todavía.
+- **Qué hace:** el testigo solo reporta su mesa (403 si no es suya; 400 si la mesa no está entre 1 y
+  la cantidad de mesas del puesto); el testigo asignado siempre puede reemplazar su mesa; un envío
+  a la vez por mesa (`GET_LOCK`); alertas que pone el servidor (`suma_distinta`, `fuera_de_lista`,
+  `enviado_por_staff`, `puesto_sin_mesas`) sin rechazar, con filtro «Solo con alertas» en el
+  tablero; fotos nuevas en `uploads/dia-d/`, servidas solo por
+  `/api/dia-d/reportes/:id/foto` y `/documentos/:docId` (testigo dueño, o admin/coordinador/aspirante
+  dentro de `acotaJornada`; acepta `X-Device-Token`); `/uploads/dia-d` cerrado y, en la raíz de
+  `uploads/`, solo se niegan los archivos que figuren en un reporte del Día D (si la consulta falla,
+  503); borrar un reporte borra sus archivos y sus filas de documentos; en el celular: «Subir foto»
+  si la cámara falla, Reintentar/Descartar en reportes fallidos, foto de máximo 2400 px a JPEG 0,85.
+- **Gildardo lo probó en la Base (navegador y celular) y le funcionó.** Las campañas no.
+- **TOCA LA BASE y es obligatorio:** `init-db` agrega `dia_d_reportes.alertas` y dos índices.
+  `verificarEsquema.js` exige la columna: **una campaña que reciba el 272 sin correr `npm run init-db`
+  no arranca.** El actualizador corre `init-db` solo si el registro dice `toca_base_datos` — y dice que sí.
+- **Fotos viejas:** las anteriores al 272 siguen en la raíz de `uploads/`; el filtro las cierra por
+  la base, pero el script de limpieza no las toca (un archivo de la raíz sin referencia en el Día D
+  puede ser un comprobante de finanzas).
+
 ## Parches 266 a 271 (6 de noviembre de 2026) y lo que vino después
 
 | Parche | Hora del zip | Qué trae (según `git log` entre cada «Parche N: .version-base») |
@@ -52,7 +94,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 | 270 | 18:27 | App del admin: lista de Estructura y formulario por pasos; formularios por pasos (lugar de votación antes de la cédula, micrófono, aviso del nombre); registro de votante o sublíder en 4 pasos; copiado automático de la cédula (también en Votantes y Testigos de escritorio). |
 | 271 | 19:24 | Código de ingreso del superadmin por Telegram, 2FA obligatorio y sin interruptor; SW `v145`. Archivos: `config/{mailer,superadmin,superadminCorreo,telegram}.js`, `db/init-db.js`, `routes/{auth,usuarios}.routes.js`, `public/{configuracion.html,js/common.js,service-worker.js}`, `scripts/limpiar-copias-env.sh`, `.version-base`. **Toca `db/`**: el actualizador corre `init-db`. `.env.example` NO entra (el generador rechaza todo `.env.*`). |
 
-*Dónde está aplicado:* en la **Base**, todos (271). En las **campañas**, no medido (ver arriba).
+*Dónde está aplicado:* en la **Base**, todos (271; el 272 está en su código y solo en el zip, ver arriba). En las **campañas**, no medido (ver arriba).
 
 ### Superadmin: siempre con código, y por Telegram (parche 271)
 
@@ -85,7 +127,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   escribe archivo. `.gitignore`, `generar-parche.js` y `generar-plantilla.js` bloquean
   `.credenciales-*.txt` por patrón; la prueba limpia verifica el archivo (0600, correo, clave
   ausente de la salida) y se niega a correr si hay uno viejo. **No está en el 271**: solo afecta
-  a instalaciones nuevas (el bloque corre cuando no hay admin), así que entra en el próximo parche.
+  a instalaciones nuevas (el bloque corre cuando no hay admin). **Entra en el 272**, dentro de `db/init-db.js`.
 - Commits de la tanda: `38826b6`, `0e06d7d`, `6b803f0`, `7610063`, `3ab4ddf`, `2f1ce57`, `39b18eb`,
   `9cb3e25`, `90b5948` (LEEME: con `ADMIN_PASSWORD` no se escribe archivo) y `0c2311a`.
 - **Prueba limpia corrida y pasada** (base desechable `pruebalimpia`, 44 tablas, todas las
@@ -542,3 +584,8 @@ Rama: auditoria-fable | Commit: 2d8cbf4 Parche 267: .version-base a 267 (Legisla
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-06 18:43 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 5f31a08 Parche 270: .version-base a 270 (Estructura en la app del admin, formularios por pasos y copiado de la cédula) | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-06 20:34 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 8dfca61 ESTADO.md: remoto en GitHub (privado, deploy key), verificación y quién empuja | Sin commitear: 3 archivo(s)
