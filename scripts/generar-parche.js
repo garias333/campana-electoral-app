@@ -43,6 +43,11 @@ const PROHIBIDOS = [
   // jamás debe pisarlos ni agregarlos: lo que haya en la carpeta es de ESA
   // instalación (ver routes/legislacion.routes.js).
   /^legislacion\//,
+  // El guion que copia legislacion/ a las campañas corre SOLO en el VPS, como
+  // root, desde esta instalación; en una campaña no tiene nada que hacer (y su
+  // lista de exclusión lleva rutas de este servidor).
+  /^scripts\/sincronizar-legislacion\.sh$/,
+  /^scripts\/legislacion-excluir\.txt$/,
   // Cualquier .sql que NO sea del esquema: los volcados de datos
   // (respaldo_*.sql, datos-campana.sql) llevan votantes reales de ESTA
   // campaña. `db/schema.sql` sí viaja: es la definición de las tablas y
@@ -72,6 +77,8 @@ function archivosDesde(fecha) {
     '-not', '-path', './.git/*',
     '-not', '-path', './uploads/*',
     '-not', '-path', './legislacion/*',
+    '-not', '-path', './scripts/sincronizar-legislacion.sh',
+    '-not', '-path', './scripts/legislacion-excluir.txt',
     '-not', '-path', './backups/*',
     '-not', '-path', './parches/*'
   ], { cwd: PROYECTO, encoding: 'utf8' });

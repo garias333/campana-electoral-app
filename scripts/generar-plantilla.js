@@ -61,6 +61,9 @@ const EXCLUIR = [
   // quien la administra. Sin seguimiento de git, `ls-files -o` los traería a la
   // plantilla. La ruta tolera que la carpeta no exista (lista vacía).
   /^legislacion\//,
+  // El guion de sincronización SÍ viaja en la plantilla (es del producto); su
+  // lista de exclusión no: lleva rutas del servidor donde se escribió.
+  /^scripts\/legislacion-excluir\.txt$/,
   /^sessions\//,
   /^tmp\//,
   /^\.claude\//,

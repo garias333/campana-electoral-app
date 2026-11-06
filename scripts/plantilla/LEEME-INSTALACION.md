@@ -247,3 +247,5 @@ base central de licencias. Esa parte vive fuera de esta plantilla.
 
 `.env`, `.licencia-cache.json`, `.credenciales-superadmin.txt`, `backups/`, `node_modules/`, `parches/`
 y el contenido de `uploads/` y de `logs/` (las carpetas vienen vacías).
+
+La carpeta `legislacion/` la llena el cron central; no subir PDF a mano.

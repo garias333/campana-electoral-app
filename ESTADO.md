@@ -30,11 +30,11 @@ anterior.*
   `bash scripts/reiniciar-instancia.sh appestrategia-electoral`
   La prueba es que el PID cambie, no que el puerto responda.
 
-## Sección Legislación (6 de noviembre de 2026) — hecho, SIN parche
+## Sección Legislación (6 de noviembre de 2026) — parche 266 registrado, INACTIVO
 
-Commit local en `auditoria-fable`, sin push y **sin generar parche** (se
-empaqueta cuando se pida). Las anclas de arriba son de agosto; lo que sigue está
-medido hoy sobre este árbol.
+Commits locales en `auditoria-fable`, sin push. El parche 266 se generó y
+registró **inactivo** (ver abajo). Las anclas de arriba son de agosto; lo que
+sigue está medido hoy sobre este árbol.
 
 - **Qué es.** Una pantalla «Legislación» (escritorio `/legislacion.html` y
   celular `/app/legislacion.html`) que lista los PDF de la carpeta
@@ -69,7 +69,35 @@ medido hoy sobre este árbol.
   de ese menú que depende de la matriz; las demás siguen fijas por rol.
 - **Para que funcione en una campaña** hace falta: el parche, que corra
   `init-db` (toca `db/`; si no, el coordinador recibe 403 por falta de la fila),
-  y subir los PDF a `legislacion/` en esa instalación.
+  y que `legislacion/` tenga los PDF — ya no se suben a mano en cada campaña:
+  los copia el cron central (siguiente punto).
+- **Parche 266** (6 nov): generado, publicado en el servidor de licencias y
+  registrado y firmado como **INACTIVO**; toca `db/`. sha256
+  `93751f89002f19a7e241c776aad93498c8273067ef75d9f8f0f762a8f2fd1ff9`. Lleva 12
+  archivos; no lleva `ESTADO.md` ni `generar-plantilla.js`. Activarlo y aplicarlo
+  lo decide Gildardo desde el panel. En la PWA, «Ver» y «Descargar» piden el PDF
+  con `fetch` y `X-Device-Token` (commit aparte): un enlace solo lleva la cookie,
+  que dura 8 h, y el token 7 días.
+- **Una sola carpeta central, copiada por cron** (decisión de Gildardo). La
+  fuente es `/home/appestrategia-electoral/htdocs/electoral.appestrategia.net/legislacion`.
+  `scripts/sincronizar-legislacion.sh` (corre como **root**, nada se ejecutó aún
+  en el VPS) la copia a `legislacion/` de cada campaña con rsync: solo
+  `*.pdf`/`*.PDF` e `indice.json`, sin subcarpetas ni enlaces, `--delete`,
+  `--delay-updates`, dueño = dueño de la instalación, 750/640, `flock`, registro
+  en `/var/log/sincronizar-legislacion.log`. Opciones `--simular` y `--una RUTA`.
+  Descubre las campañas por `package.json` con `"name": "campana-electoral-app"`
+  y **resuelve enlaces**: el `~/htdocs` de las cuentas SSH es un enlace al de la
+  cuenta del sitio y, sin eso, cada campaña saldría dos veces (y electoral
+  también). **Si el origen no existe o no tiene ni un PDF, no toca nada**: con
+  `--delete` vaciaría todas las campañas; para vaciarlas a propósito hay que
+  hacerlo a mano. `scripts/legislacion-excluir.txt` (opcional, no existe) salta
+  rutas. Una campaña cuyo `legislacion` sea un enlace simbólico se OMITE.
+  El guion está en git y en la plantilla, y **fuera de los parches**
+  (`PROHIBIDOS` de `generar-parche.js`): como esa lista cambió después del 266,
+  la copia de `generar-parche.js` en las campañas queda atrasada hasta el
+  próximo parche que la lleve (lo notará `comparar-instancias.js`, no es fallo).
+  Probado sin root con carpetas de prueba; **no probado**: el `--chown` a un
+  dueño distinto del que corre (necesita root), ni ninguna campaña real.
 - **Probado en desarrollo** con un MySQL desechable (ya borrado), no con las
   bases de campaña: ver el informe de la sesión. Lo no probado: la copia real de
   la base municipal (el usuario de esta cuenta no la puede leer ni crear bases),
