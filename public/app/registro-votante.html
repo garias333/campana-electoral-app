@@ -48,20 +48,14 @@
       <input id="f-meta-votos" type="number" min="0" value="0">
     </div>
 
-    <div class="seccion-titulo">Datos personales</div>
-    <div class="campo-app">
-      <label for="f-cedula">Número de identificación</label>
-      <input id="f-cedula" inputmode="numeric" autocomplete="off">
-      <small id="cedula-estado" style="font-size:0.75rem;"></small>
-    </div>
-    <!-- El enlace va DEBAJO del campo, no al lado. Al lado le robaba la mitad
-         del ancho a la cédula justo donde ahora hay además un micrófono: tres
-         cosas en una línea de 360px no caben sin que algo se estreche. -->
-    <div class="boton-bajo-campo">
-      <a class="btn-mini" href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Lugar de votación</a>
-    </div>
-
+    <!-- EL ORDEN ES UNA REGLA DE LA CAMPAÑA, igual que en el formulario de Estructura (territorial.html, modo app):
+         primero el botón para consultar dónde vota la persona, luego Departamento, Municipio, Puesto y Mesa, y AL
+         FINAL el Número de identificación. La cédula NO va en «Datos personales»: con el lugar de votación ya a la
+         vista, se teclea la cédula. -->
     <div class="seccion-titulo acento">Lugar de votación</div>
+    <div class="boton-bajo-campo" style="margin:0 0 14px;">
+      <a class="btn-mini" href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Consultar lugar de votación</a>
+    </div>
     <div class="fila-app">
       <div class="campo-app">
         <label for="f-depto-votacion">Departamento</label>
@@ -88,6 +82,13 @@
         </select>
       </div>
     </div>
+    <div class="campo-app">
+      <label for="f-cedula">Número de identificación</label>
+      <input id="f-cedula" inputmode="numeric" autocomplete="off">
+      <small id="cedula-estado" style="font-size:0.75rem;"></small>
+    </div>
+
+    <div class="seccion-titulo">Datos personales</div>
     <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off"></div>
     <small id="duplicado-estado" style="display:block; margin:-10px 0 14px; color:#A93226;"></small>
     <div class="fila-app">

@@ -32,6 +32,15 @@
     'f-cedula': '#f-nombre',
   };
 
+  /* DÓNDE VA UN AVISO «DEBAJO DEL CAMPO». Si el campo lleva el micrófono del dictado (js/dictado.js), el
+     campo vive dentro de una caja `.campo-con-dictado` —micrófono + campo, en fila—, y un aviso insertado
+     «después del campo» quedaría DENTRO de esa fila, al lado. Se pone después de la caja. Sin micrófono, el
+     ancla es el propio campo, como siempre. */
+  function anclaDe(campo) {
+    const padre = campo.parentElement;
+    return padre && padre.classList.contains('campo-con-dictado') ? padre : campo;
+  }
+
   function cajaDeAviso(campo) {
     const id = `aviso-cedula-${campo.id}`;
     let caja = document.getElementById(id);
@@ -39,18 +48,37 @@
       caja = document.createElement('small');
       caja.id = id;
       caja.style.cssText = 'display:none; color:#A93226; font-size:0.78rem; margin-top:3px;';
-      campo.insertAdjacentElement('afterend', caja);
+      anclaDe(campo).insertAdjacentElement('afterend', caja);
     }
     return caja;
   }
 
+  /* EL AVISO DEL NOMBRE VA DEBAJO DEL NOMBRE, no debajo de la cédula. «Revise la escritura del nombre y el
+     apellido» sale de revisar la cédula junto con los nombres, y por eso aparecía bajo el campo de la
+     cédula: la persona lo leía como un problema del número. Es de otro campo y se muestra en el otro. */
+  function cajaDeAvisoNombre(idCedula, campoNombre) {
+    const id = `aviso-nombre-${idCedula}`;
+    let caja = document.getElementById(id);
+    if (!caja) {
+      caja = document.createElement('small');
+      caja.id = id;
+      caja.style.cssText = 'display:none; color:#A93226; font-size:0.78rem; margin-top:3px;';
+      anclaDe(campoNombre).insertAdjacentElement('afterend', caja);
+    }
+    return caja;
+  }
+  const esMensajeDelNombre = (m) => /nombre y el apellido/i.test(m);
+
   function revisar(campo, selectorNombre) {
     if (!window.ValidarCedula) return; // el validador no cargó: se calla
     const caja = cajaDeAviso(campo);
-    const valor = (campo.value || '').trim();
-    if (!valor) { caja.style.display = 'none'; return; } // la cédula no es obligatoria
-
     const campoNombre = selectorNombre ? document.querySelector(selectorNombre) : null;
+    const cajaNombre = campoNombre ? cajaDeAvisoNombre(campo.id, campoNombre) : null;
+    const valor = (campo.value || '').trim();
+    caja.style.display = 'none';
+    if (cajaNombre) cajaNombre.style.display = 'none';
+    if (!valor) return; // la cédula no es obligatoria
+
     const nombre = campoNombre ? (campoNombre.value || '').trim() : '';
     const partes = nombre.split(/\s+/).filter(Boolean);
 
@@ -60,9 +88,12 @@
       primerApellido: partes.length > 1 ? partes[partes.length - 1] : '',
     }, []);
 
-    if (r.nivel === 'ok' || !r.mensajes.length) { caja.style.display = 'none'; return; }
-    caja.textContent = r.mensajes[0];
-    caja.style.display = 'block';
+    if (r.nivel === 'ok' || !r.mensajes.length) return;
+    // Cada mensaje en el campo del que habla. Sin campo de nombre en la pantalla, todo va bajo la cédula.
+    const delNombre = cajaNombre ? r.mensajes.filter(esMensajeDelNombre) : [];
+    const delNumero = r.mensajes.filter((m) => !cajaNombre || !esMensajeDelNombre(m));
+    if (delNumero.length) { caja.textContent = delNumero[0]; caja.style.display = 'block'; }
+    if (delNombre.length) { cajaNombre.textContent = delNombre[0]; cajaNombre.style.display = 'block'; }
   }
 
   /* ------------------------------------------------------------------
@@ -93,7 +124,7 @@
       caja.id = id;
       caja.style.cssText = 'display:none; font-size:0.82rem; margin-top:6px; padding:9px 11px;'
         + ' border-radius:8px; line-height:1.45;';
-      campo.insertAdjacentElement('afterend', caja);
+      anclaDe(campo).insertAdjacentElement('afterend', caja);
     }
     return caja;
   }
@@ -165,6 +196,17 @@
       if (!campo) continue;
       campo.addEventListener('blur', () => revisar(campo, selectorNombre));
       campo.addEventListener('blur', () => revisarExistente(campo, selectorNombre));
+      /* Al salir del NOMBRE también: en los formularios donde la cédula va ANTES (Registro de votantes y el
+         de Estructura, que consultan primero el lugar de votación) el nombre todavía no existía cuando se
+         salió de la cédula, y el aviso de la escritura del nombre no habría salido nunca. */
+      const campoDelNombre = selectorNombre ? document.querySelector(selectorNombre) : null;
+      if (campoDelNombre) {
+        campoDelNombre.addEventListener('blur', () => revisar(campo, selectorNombre));
+        campoDelNombre.addEventListener('input', () => {
+          const c = document.getElementById(`aviso-nombre-${campo.id}`);
+          if (c) c.style.display = 'none';
+        });
+      }
       // Al corregir, el aviso se va sin esperar a salir del campo.
       campo.addEventListener('input', () => {
         const caja = document.getElementById(`aviso-cedula-${campo.id}`);

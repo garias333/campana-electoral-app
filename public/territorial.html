@@ -73,6 +73,35 @@
   html.modo-app #form-estructura textarea { font-size: 16px; }   /* menos de 16 px y el iPhone hace zoom al tocar */
   html.modo-app #form-estructura .campo-error { border-color: #A93226 !important; box-shadow: 0 0 0 3px rgba(169, 50, 38, .22); }
   html.modo-app #overlay-form .wz-cuerpo .mensaje-error { margin: 0 0 14px; }
+  /* Paso 2: la consulta del lugar de votación es lo primero, no depende de haber tecleado la cédula. */
+  html.modo-app #btn-consultar-lugar-votacion { display: inline-flex !important; margin: 0 0 6px !important; }
+  html.modo-app #nota-copiar-lugar-votacion-persona { display: block !important; margin-bottom: 12px; }
+
+  /* Micrófono de dictado (public/js/dictado.js), el mismo de app/registro-votante.html. Estilos copiados de
+     app/estilos-app.css, que esta pantalla no carga. Delante del campo, no detrás: el dedo no tapa lo escrito. */
+  html.modo-app .campo-con-dictado { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+  html.modo-app .campo-con-dictado > input { flex: 1; min-width: 0; }
+  /* Lo que otros scripts insertan después del campo (avisos de teléfono, de cédula) baja a su propia línea. */
+  html.modo-app .campo-con-dictado > :not(.btn-dictado):not(input) { flex: 0 0 100%; }
+  html.modo-app .btn-dictado {
+    flex: none; width: 48px; min-height: 0; padding: 0; margin: 0;
+    border: 1.5px solid #142a3f; border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f3e9 58%, #ece3d3 100%);
+    box-shadow: 0 3px 0 #142a3f, 0 5px 9px rgba(20, 42, 63, .26), inset 0 1px 0 rgba(255, 255, 255, .95);
+    font-size: 1.2rem; line-height: 1; cursor: pointer; transition: transform .06s ease-out, box-shadow .06s ease-out;
+  }
+  html.modo-app .btn-dictado:active { transform: translateY(3px); box-shadow: 0 0 0 #142a3f, 0 1px 2px rgba(20, 42, 63, .22), inset 0 2px 5px rgba(20, 42, 63, .2); }
+  html.modo-app .btn-dictado.oyendo {
+    background: linear-gradient(180deg, #d8752f 0%, #bf5e1f 60%, #a54e18 100%); border-color: #8f4413;
+    box-shadow: 0 3px 0 #7a3a10, 0 5px 10px rgba(143, 68, 19, .38), inset 0 1px 0 rgba(255, 255, 255, .45);
+    animation: dictado-latido 1s ease-in-out infinite;
+  }
+  @keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { html.modo-app .btn-dictado.oyendo { animation: none; } }
+  html.modo-app .fila.wz-columna { flex-direction: column; gap: 0; }
+  html.modo-app .dictado-aviso { display: block; margin: 4px 0 0; font-size: .78rem; color: #6b6b6b; }
+  html.modo-app .dictado-aviso.malo { color: #A93226; }
+
   .wz-exito {
     position: fixed; inset: 0; z-index: 60; background: #F8F3E9; display: none; flex-direction: column;
     align-items: center; justify-content: center; text-align: center; gap: 12px;
@@ -3848,8 +3877,13 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
    en #form-error y #territorio-persona-error; aquí solo se OBSERVAN para llevar a la persona al paso donde
    está el problema. En el computador este archivo no hace nada: lo primero que comprueba es la clase.
 
-   Pasos:  1 Categoría · 2 Datos personales y contacto · 3 Lugar de votación (y testigo, al editar)
-           4 Territorio de influencia · 5 Reporta a (y Persona activa, al editar) */
+   Pasos:  1 Categoría · 2 Lugar de votación e identificación · 3 Datos personales y contacto (y testigo, al editar)
+           4 Territorio de influencia · 5 Reporta a (y Persona activa, al editar)
+
+   EL ORDEN DEL PASO 2 ES UNA REGLA DE LA CAMPAÑA, igual en Registro de votantes (app/registro-votante.html):
+   primero el botón «Consultar lugar de votación», luego Departamento, Municipio, Puesto y Mesa, y AL FINAL el
+   Número de identificación. La cédula no va en «Datos personales»: quien registra de pie consulta primero
+   dónde vota la persona, y con ese dato a la vista teclea la cédula. */
 (function () {
   'use strict';
   if (!document.documentElement.classList.contains('modo-app')) return;
@@ -3863,7 +3897,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   const btnGuardar = document.getElementById('btn-guardar-estructura');
   if (!form || !overlay || !modal || !errorBox || !okBox || !btnGuardar) return;   // el formulario cambió: se deja como está
 
-  const TITULOS = ['Categoría', 'Datos personales', 'Lugar de votación', 'Territorio de influencia', 'Reporta a'];
+  const TITULOS = ['Categoría', 'Lugar de votación e identificación', 'Datos personales y contacto', 'Territorio de influencia', 'Reporta a'];
   const TOTAL = TITULOS.length;
   let actual = 1;
 
@@ -3877,19 +3911,32 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
 
   /* Qué nodo va en qué paso, en el orden en que se ven. Todo se busca por id o por nombre, no por posición. */
   const cedula = hijoDe('#input-numero-persona');
+  /* El botón y su nota de ayuda están DENTRO del campo de la cédula; en el paso 2 van antes del lugar de
+     votación. Se mueven los dos nodos sueltos (conservan id y manejadores). Por omisión el formulario los
+     esconde hasta que se teclea una cédula (mostrarBotonLugarVotacion): aquí se dejan siempre a la vista con
+     CSS, porque en este orden la consulta es lo PRIMERO que se hace. */
+  const botonConsultar = document.getElementById('btn-consultar-lugar-votacion');
+  const notaConsultar = document.getElementById('nota-copiar-lugar-votacion-persona');
   const filaLugar1 = hijoDe('#input-departamento-votacion-persona');
   const filaTel = hijoDe('[name="telefono"]');
   const chkMunicipio = hijoDe('#chk-area-influencia-municipio');
   const grupos = [
     [form.firstElementChild, hijoDe('#chips-cargo-persona'), hijoDe('#select-tipo-cargo-persona')],
-    [anterior(cedula), cedula, hijoDe('[name="nombre"]'), hijoDe('[name="genero"]'), hijoDe('#bloque-apoya-a-persona'),
-      anterior(filaTel), filaTel, hijoDe('#input-direccion-persona'), hijoDe('#input-departamento-residencia-persona'),
-      hijoDe('#input-comuna-corregimiento-residencia-persona'), hijoDe('#input-barrio-vereda-residencia-persona')],
-    [anterior(filaLugar1), filaLugar1, hijoDe('#input-puesto-votacion-persona'), hijoDe('#campo-asignar-testigo')],
+    // 2 · Lugar de votación e identificación: botón → Departamento, Municipio, Puesto, Mesa → cédula.
+    [anterior(filaLugar1), botonConsultar, notaConsultar, filaLugar1, hijoDe('#input-puesto-votacion-persona'), cedula],
+    // 3 · Datos personales y contacto (el testigo, al editar, va aquí: ya no hay un paso de votación aparte).
+    [anterior(cedula), hijoDe('[name="nombre"]'), hijoDe('[name="genero"]'), hijoDe('#campo-asignar-testigo'),
+      hijoDe('#bloque-apoya-a-persona'), anterior(filaTel), filaTel, hijoDe('#input-direccion-persona'),
+      hijoDe('#input-departamento-residencia-persona'), hijoDe('#input-comuna-corregimiento-residencia-persona'),
+      hijoDe('#input-barrio-vereda-residencia-persona')],
     [anterior(chkMunicipio), chkMunicipio, hijoDe('#campo-organizacion-persona'), hijoDe('#bloque-territorio-geografico-persona'),
       hijoDe('#bloque-fichas-territorio-persona'), hijoDe('#territorio-persona-error')],
     [hijoDe('#select-supervisor'), hijoDe('#campo-activo')]
   ];
+
+  /* Teléfono y correo, uno debajo del otro (como en Registro de votantes): con el micrófono delante, cada
+     campo pierde 48 px y en dos columnas el teléfono no se vería entero mientras se dicta. */
+  if (filaTel) filaTel.classList.add('wz-columna');
 
   const pasos = grupos.map((nodos, i) => {
     const sec = document.createElement('section');
@@ -3983,15 +4030,17 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   /* ----------------------- «Siguiente»: solo lo de ESTE paso ----------------------- */
   function validarPaso(n) {
     if (n === 2) {
-      const nombre = form.querySelector('[name="nombre"]');
-      if (!nombre.value.trim()) { senalar(2, 'Escriba los nombres y apellidos.', nombre); return false; }
-      // La misma comprobación del envío: 10 dígitos, o vacío.
-      if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
-        senalar(2, 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).', form.querySelector('[name="telefono"]'));
-        return false;
-      }
       // El número ya lo verificó el servidor mientras se escribía (identificacionPersonaDisponible).
       if (!identificacionPersonaDisponible) { senalar(2, 'Ya registrado por otro líder.', document.getElementById('input-numero-persona')); return false; }
+    }
+    if (n === 3) {
+      const nombre = form.querySelector('[name="nombre"]');
+      if (!nombre.value.trim()) { senalar(3, 'Escriba los nombres y apellidos.', nombre); return false; }
+      // La misma comprobación del envío: 10 dígitos, o vacío.
+      if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
+        senalar(3, 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).', form.querySelector('[name="telefono"]'));
+        return false;
+      }
     }
     if (n === 4) {
       // La misma resolución que hace el envío (con fichas, un selector vacío no es error).
@@ -4040,12 +4089,13 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     const q = (s) => form.querySelector(s);
     if (/contrase/.test(m)) return { paso: actual };
     if (/nombre de usuario|ya registrado|identificaci/.test(m)) return { paso: 2, campo: q('#input-numero-persona') };
-    if (/email|correo/.test(m)) return { paso: 2, campo: q('[name="email"]') };
-    if (/tel[eé]fono|d[ií]gitos/.test(m)) return { paso: 2, campo: q('[name="telefono"]') };
+    if (/email|correo/.test(m)) return { paso: 3, campo: q('[name="email"]') };
+    if (/tel[eé]fono|d[ií]gitos/.test(m)) return { paso: 3, campo: q('[name="telefono"]') };
     // «Nombre, cargo y territorio son obligatorios»: según qué falte.
     if (/nombre, cargo y/.test(m)) {
-      return q('[name="nombre"]').value.trim() ? { paso: 4 } : { paso: 2, campo: q('[name="nombre"]') };
+      return q('[name="nombre"]').value.trim() ? { paso: 4 } : { paso: 3, campo: q('[name="nombre"]') };
     }
+    // Mesas ya asignadas a otro testigo / ya es testigo: el bloque del testigo está en el paso 3.
     if (/mesa|puesto|testigo/.test(m)) return { paso: 3 };
     if (/territorio|organizaci|[aá]rea|barrio|vereda|comuna|corregimiento|municipio/.test(m)) return { paso: 4 };
     return { paso: actual };
@@ -4087,6 +4137,25 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     marcar(null);
     irAPaso(1);
   }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+
+  /* DICTADO POR VOZ en los mismos campos que lo tienen en app/registro-votante.html. Solo en modo app: el
+     script se carga desde aquí, así que en el computador ni se descarga. `activarDictado` no dibuja nada si el
+     navegador no soporta el reconocimiento (Safari de iPhone). Va DESPUÉS de armar los pasos: envuelve cada
+     campo en una caja, y los campos ya están en su sitio. Dispara `input` al escribir, así que la cédula sigue
+     verificándose y el teléfono sigue formateándose. */
+  const guion = document.createElement('script');
+  guion.src = '/js/dictado.js';
+  guion.onload = () => {
+    if (typeof activarDictado !== 'function') return;
+    activarDictado([
+      { selector: '#input-numero-persona', tipo: 'digitos', etiqueta: 'número de identificación' },
+      { selector: '#form-estructura input[name="nombre"]', tipo: 'nombre', etiqueta: 'nombre' },
+      { selector: '#form-estructura input[name="telefono"]', tipo: 'digitos', etiqueta: 'teléfono' },
+      { selector: '#form-estructura input[name="email"]', tipo: 'correo', etiqueta: 'correo' },
+      { selector: '#input-direccion-persona', tipo: 'direccion', etiqueta: 'dirección' }
+    ]);
+  };
+  document.head.appendChild(guion);
 
   irAPaso(1);
 })();
