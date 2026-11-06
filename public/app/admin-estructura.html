@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Estructura · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  html, body { overflow-x: hidden; }
+  .app-barra .mas-barra { margin-left: auto; flex: none; width: 40px; height: 38px; border: 0; border-radius: 10px; background: rgba(255,255,255,.14); color: #fff; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+
+  .busqueda { display: flex; gap: 8px; margin-bottom: 10px; }
+  .busqueda input { flex: 1; min-width: 0; padding: 12px 14px; border: 1.5px solid var(--linea); border-radius: 12px; font-size: 16px; font-family: inherit; background: #fff; }
+  .btn-filtros { flex: none; position: relative; padding: 0 14px; border: 1.5px solid var(--navy); border-radius: 12px; background: #fff; color: var(--navy); font-weight: 700; font-size: .86rem; font-family: inherit; cursor: pointer; }
+  .btn-filtros .n { position: absolute; top: -7px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--copper); color: #fff; font-size: .72rem; display: none; align-items: center; justify-content: center; padding: 0 5px; }
+  .btn-filtros.con .n { display: flex; }
+  .chip-n { margin-left: 5px; font-weight: 800; opacity: .75; font-variant-numeric: tabular-nums; }
+
+  .resumen-linea { display: flex; justify-content: space-between; align-items: baseline; font-size: .84rem; color: var(--navy); font-weight: 700; margin: 2px 2px 4px; }
+  .leyenda-linea { font-size: .72rem; color: var(--muted); margin: 0 2px 12px; line-height: 1.4; }
+
+  /* La ficha. El riel azul y la sangría marcan a quién le reporta (hasta tres niveles: más
+     adentro no queda ancho en 390 px). */
+  .fi { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 12px 10px; margin-bottom: 10px; min-width: 0; }
+  .fi[data-n="1"] { margin-left: 10px; }
+  .fi[data-n="2"] { margin-left: 20px; }
+  .fi[data-n="3"] { margin-left: 30px; }
+  .fi:not([data-n="0"]) { border-left: 4px solid #0B5ED7; }
+  .fi[data-inactivo="1"] { opacity: .78; }
+  .fi-sup { display: flex; gap: 10px; align-items: flex-start; }
+  .plegar { flex: none; width: 28px; height: 28px; border: 1px solid var(--linea); border-radius: 8px; background: #fff; color: var(--navy); font-size: .8rem; cursor: pointer; padding: 0; }
+  .hueco { flex: none; width: 0; }
+  .av { flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--navy-2); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; }
+  .fi-nom { min-width: 0; flex: 1; }
+  .fi-nom h3 { margin: 0 0 5px; font-size: .98rem; color: var(--navy); overflow-wrap: anywhere; line-height: 1.25; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ch { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: #eee; color: #333; }
+  .ch.coord { background: var(--navy); color: #fff; }
+  .ch.org { background: #7b5ea7; color: #fff; }
+  .ch.asp { background: var(--copper); color: #fff; }
+  .ch.lid { background: #1e7a3d; color: #fff; }
+  .ch.sub { background: #6b6b6b; color: #fff; }
+  .ch.urb { background: #e3ecf9; color: #174a9b; }
+  .ch.rur { background: #e4f3e6; color: #1b6a2f; }
+  .ch.falta { background: #fdf0d8; color: #8a5a00; border: 1px solid #ecc67a; }
+  .ch.act { background: #e7f4ea; color: var(--exito); }
+  .ch.ina { background: #fbe9e7; color: var(--error); }
+  .fi-zona { margin: 9px 0 2px; font-size: .84rem; color: var(--ink); overflow-wrap: anywhere; }
+  .fi-zona .fl { color: var(--muted); margin: 0 3px; }
+  .fi-zona .mas { background: var(--cream); color: var(--copper); font-weight: 800; font-size: .7rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+  .fi-jefe { margin: 2px 0 8px; font-size: .78rem; color: var(--muted); }
+  .fi-jefe b { color: var(--navy); }
+  .fi-jefe i { font-style: normal; color: var(--muted); }
+  .fi-jefe .nadie { color: var(--error); }
+  .fi-avance { margin: 0 0 9px; }
+  .fi-avance .txt { display: flex; justify-content: space-between; font-size: .78rem; color: var(--navy); font-weight: 700; margin-bottom: 4px; }
+  .fi-avance .sig { color: var(--copper); }
+  .fi-avance .pista { height: 8px; background: #efe9dc; border-radius: 5px; overflow: hidden; }
+  .fi-avance .pista > i { display: block; height: 100%; background: var(--navy-2); border-radius: 5px; }
+  .fi-avance .pista > i.ok { background: var(--exito); }
+  .fi-acc { display: flex; gap: 8px; }
+  .fi-acc a, .fi-acc button { flex: 1; min-width: 0; text-align: center; padding: 10px 6px; border-radius: 10px; font-weight: 700; font-size: .82rem; text-decoration: none; font-family: inherit; cursor: pointer; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fi-acc a.wa { background: #25d366; border-color: #1fae54; color: #0b2a17; flex: 1.6; }
+  .fi-acc button.del { flex: 0 0 46px; border-color: #e6b3ae; color: var(--error); }
+
+  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--copper); color: #fff; font-size: 2rem; line-height: 56px; text-align: center; text-decoration: none; box-shadow: 0 6px 16px rgba(20,42,63,.35); }
+
+  .capa { position: fixed; inset: 0; z-index: 90; background: rgba(10,25,45,.55); display: none; align-items: flex-end; justify-content: center; }
+  .capa.abierta { display: flex; }
+  .hoja { background: #fff; width: 100%; max-width: 560px; border-radius: 18px 18px 0 0; padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; max-height: 92dvh; overflow-y: auto; }
+  .hoja h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--navy); overflow-wrap: anywhere; }
+  .hoja .btn-app + .btn-app { margin-top: 10px; }
+  .hoja select, .hoja input[type=text], .hoja input[type=password] { width: 100%; padding: 12px; border: 1.5px solid var(--linea); border-radius: 10px; font-size: 16px; background: #fff; font-family: inherit; }
+  .opcion-menu { display: block; width: 100%; text-align: left; padding: 14px 4px; background: none; border: 0; border-bottom: 1px solid var(--linea); font-size: 1rem; font-family: inherit; cursor: pointer; color: var(--ink); }
+  .opcion-menu.peligro { color: var(--error); }
+  .opcion-menu small { display: block; color: var(--muted); font-size: .76rem; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="error-carga" class="aviso-app error"></div>
+
+  <div id="contenido" style="display:none;">
+    <div class="busqueda">
+      <input type="search" id="busqueda" placeholder="Nombre, correo o cédula" autocomplete="off" aria-label="Buscar">
+      <button type="button" class="btn-filtros" id="btn-filtros">⚙ Filtros<span class="n" id="n-filtros">0</span></button>
+    </div>
+    <div class="tira-chips" id="chips-cargo" aria-label="Cargo"></div>
+    <div class="resumen-linea"><span id="contador"></span></div>
+    <p class="leyenda-linea">Σ incluye a su equipo · 📍 georreferenciado · riel azul = a quién le reporta</p>
+    <div id="lista"></div>
+    <div id="vacio" class="adm-vacio" style="display:none;">Nadie coincide con estos filtros.</div>
+  </div>
+</main>
+
+<a class="fab" href="/territorial.html?app=1#nuevo" aria-label="Agregar persona">＋</a>
+
+<!-- Filtros -->
+<div class="capa" id="capa-filtros"><div class="hoja">
+  <h2>Filtros</h2>
+  <div class="campo-app"><label for="f-area">Área</label>
+    <select id="f-area"><option value="">Todas las áreas</option><option value="urbano">Urbano</option><option value="rural">Rural</option></select></div>
+  <div class="campo-app" id="caja-zona"><label for="f-zona">Comuna / corregimiento</label><select id="f-zona"><option value="">Toda comuna o corregimiento</option></select></div>
+  <div class="campo-app" id="caja-territorio"><label for="f-territorio">Barrio / vereda</label><select id="f-territorio"><option value="">Todo barrio o vereda</option></select></div>
+  <div class="campo-app" id="caja-municipio" style="display:none;"><label for="f-municipio">Municipio</label>
+    <input type="text" id="f-municipio" list="lista-municipios" autocomplete="off" placeholder="Todos los municipios"><datalist id="lista-municipios"></datalist></div>
+  <button type="button" class="btn-app btn-app-primario" id="f-aplicar">Ver resultados</button>
+  <button type="button" class="btn-app btn-app-secundario" id="f-quitar">Quitar filtros</button>
+</div></div>
+
+<!-- Menú ⋯ -->
+<div class="capa" id="capa-menu"><div class="hoja">
+  <h2>Estructura territorial</h2>
+  <button type="button" class="opcion-menu" id="m-exportar">⬇ Exportar a Excel</button>
+  <a class="opcion-menu" id="m-importar" href="/territorial.html?app=1#importar" style="text-decoration:none;">⬆ Importar desde Excel<small>Se abre la pantalla de escritorio</small></a>
+  <a class="opcion-menu" href="/territorial.html?app=1#gestionar-territorios" style="text-decoration:none;">🏛 Gestionar territorios<small>Se abre la pantalla de escritorio</small></a>
+  <a class="opcion-menu peligro" href="/territorial.html?app=1#eliminar-registros" style="text-decoration:none;">🗑 Eliminar registros<small>Borrado masivo, pide tu contraseña</small></a>
+  <button type="button" class="opcion-menu" id="m-cancelar">Cerrar</button>
+</div></div>
+
+<!-- Eliminar -->
+<div class="capa" id="capa-eliminar"><div class="hoja">
+  <h2 id="el-titulo">Eliminar</h2>
+  <p style="font-size:.9rem; line-height:1.5; color:var(--ink); margin:0 0 12px;">Se borra su registro de la estructura <b>y su cuenta de acceso</b>. No se puede deshacer. Escribe tu contraseña para confirmar.</p>
+  <div class="aviso-app error" id="el-error"></div>
+  <form id="form-eliminar" autocomplete="off">
+    <div class="campo-app"><label for="el-clave">Tu contraseña</label><input type="password" id="el-clave" autocomplete="current-password" required></div>
+    <button type="submit" class="btn-app btn-app-primario" id="el-ok" style="background:var(--error);">Eliminar</button>
+    <button type="button" class="btn-app btn-app-secundario" id="el-cancelar">Cancelar</button>
+  </form>
+</div></div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/admin-nav.js"></script>
+<script src="/app/ayudas-estructura.js"></script>
+<script>
+const CATEGORIAS = [
+  { clave: '', texto: 'Todos' },
+  { clave: 'coordinador', texto: 'Coordinadores' },
+  { clave: 'coordinador_organizaciones', texto: 'Coord. organizaciones' },
+  { clave: 'aspirante_concejo', texto: 'Aspirantes' },
+  { clave: 'lider', texto: 'Líderes' },
+  { clave: 'usuario', texto: 'Sublíderes' }
+];
+const ETIQUETA_CAT = { coordinador: 'Coordinador', coordinador_organizaciones: 'Coord. organizaciones', aspirante_concejo: 'Aspirante al Concejo', lider: 'Líder', usuario: 'Sublíder' };
+const CLASE_CAT = { coordinador: 'coord', coordinador_organizaciones: 'org', aspirante_concejo: 'asp', lider: 'lid', usuario: 'sub' };
+const CARGOS_META_DERIVADA = ['coordinador', 'coordinador_organizaciones'];
+
+let lista = [];            // la estructura SIN testigos (territorial.html:2493)
+let territorios = [];
+let ambitoDepartamental = false;
+let usuarioActual = null;
+let puedeImportarExportar = true;
+const colapsados = new Set();
+const filtros = { cargo: '', area: '', zona: '', territorio: '', municipio: '' };
+let eliminando = null;
+
+function mostrarError(msg) { const c = document.getElementById('error-carga'); c.textContent = msg; c.classList.add('visible'); }
+
+/* ------------------------------ filtros ------------------------------ */
+/* Misma lógica que public/territorial.html:2697-2780. */
+
+function idDelMunicipioFiltrado() {
+  const escrito = normalizarTexto(filtros.municipio);
+  if (!escrito) return '';
+  const m = territorios.find(t => t.tipo === 'municipio' && normalizarTexto(t.nombre) === escrito);
+  return m ? String(m.id) : '';
+}
+
+function idsTerritorioDe(f) {
+  return (Array.isArray(f.territorio_ids) && f.territorio_ids.length) ? f.territorio_ids : (f.territorio_id ? [f.territorio_id] : []);
+}
+
+function cumpleBase(f) {
+  const q = normalizarTexto(document.getElementById('busqueda').value);
+  if (q) {
+    const ok = normalizarTexto(f.nombre).includes(q) || normalizarTexto(f.email).includes(q) || normalizarTexto(f.numero_identificacion).includes(q);
+    if (!ok) return false;
+  }
+  if (filtros.area) {
+    const efectiva = f.area
+      || (['barrio', 'comuna'].includes(f.territorio_tipo) ? 'urbano'
+        : ['vereda', 'corregimiento'].includes(f.territorio_tipo) ? 'rural' : null);
+    if (efectiva !== filtros.area) return false;
+  }
+  /* LOS TRES FILTROS DE TERRITORIO MIRAN TODOS LOS DE LA PERSONA, no solo el principal. */
+  const ids = idsTerritorioDe(f);
+  if (filtros.zona) {
+    const ok = ids.some(idT => {
+      const t = territorios.find(tt => tt.id === idT);
+      return t && (String(t.id) === filtros.zona || String(t.padre_id) === filtros.zona);
+    });
+    if (!ok) return false;
+  }
+  if (filtros.territorio && !ids.some(idT => String(idT) === filtros.territorio)) return false;
+  const municipioId = idDelMunicipioFiltrado();
+  if (municipioId) {
+    const ok = ids.some(idT => {
+      const t = territorios.find(tt => tt.id === idT);
+      const padre = t && t.padre_id ? territorios.find(tt => tt.id === t.padre_id) : null;
+      return (t && String(t.id) === municipioId) || (t && String(t.padre_id) === municipioId) || (padre && String(padre.padre_id) === municipioId);
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
+function filasFiltradas() {
+  let filas = lista.filter(cumpleBase);
+  const cargo = filtros.cargo;
+  /* Filtrar por Líder o Aspirante arrastra a su equipo (los DESCENDIENTES, no un cargo concreto). */
+  if (cargo === 'lider' || cargo === TIPO_ASPIRANTE_CONCEJO) {
+    const enCategoria = cargo === TIPO_ASPIRANTE_CONCEJO
+      ? (f) => esAspiranteAlConcejo(f)
+      : (f) => f.cargo === 'lider' && !esAspiranteAlConcejo(f);
+    const raices = lista.filter(f => enCategoria(f) && cumpleBase(f)).map(f => f.usuario_id);
+    const idsEquipo = descendientesEn(lista, raices);
+    filas = filas.filter(f => enCategoria(f) || idsEquipo.has(f.id));
+  } else if (cargo) {
+    filas = filas.filter(f => f.cargo === cargo);
+  }
+  return ordenJerarquico(filas, colapsados);
+}
+
+/* ------------------------------- ficha ------------------------------- */
+
+function fichaHtml(f, i) {
+  const categoria = categoriaDeFila(f);
+  const nivel = Math.min(f._nivel || 0, 3);
+  const inicial = (f.nombre || '?').trim().charAt(0).toUpperCase();
+
+  let area = f.area || null;
+  let zonaTexto = '', hojaTexto = nombreLugar(f.territorio_nombre) || '';
+  if (f.tipo_area_influencia === 'organizacion') {
+    area = null; zonaTexto = '🏛 Organización'; hojaTexto = f.organizacion || '';
+  } else if (f.territorio_tipo === 'barrio' || f.territorio_tipo === 'vereda') {
+    const t = territorios.find(x => x.id === f.territorio_id);
+    const zona = t && t.padre_id ? territorios.find(x => x.id === t.padre_id) : null;
+    area = f.territorio_tipo === 'barrio' ? 'urbano' : 'rural';
+    zonaTexto = zona ? nombreLugar(zona.nombre) : '';
+  } else if (f.territorio_tipo === 'comuna' || f.territorio_tipo === 'corregimiento') {
+    area = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
+    zonaTexto = nombreLugar(f.territorio_nombre); hojaTexto = '';
+  }
+  const otros = f.tipo_area_influencia === 'organizacion' ? [] : (Array.isArray(f.territorios) ? f.territorios.filter(t => !t.es_principal) : []);
+  const masTerr = otros.length
+    ? `<span class="mas" title="${escaparHtml(otros.map(t => nombreLugar(t.nombre) || '').filter(Boolean).join(', '))}">+${otros.length}</span>` : '';
+  const miga = (zonaTexto || hojaTexto || masTerr)
+    ? `${escaparHtml(zonaTexto)}${zonaTexto && hojaTexto ? '<span class="fl">›</span>' : ''}${escaparHtml(hojaTexto)}${masTerr}`
+    : '<span style="color:var(--muted)">Sin territorio asignado</span>';
+
+  /* A quién le reporta: el nombre del supervisor; los coordinadores dicen su propio cargo (son la
+     cabeza); a un líder o sublíder sin jefe se le avisa (territorial.html:3026-3032). */
+  const etq = ETIQUETA_CAT[categoria] || f.cargo;
+  const reporta = f.supervisor_nombre
+    ? `Le reporta a <b>${escaparHtml(f.supervisor_nombre)}</b>`
+    : (['coordinador', 'coordinador_organizaciones'].includes(categoria)
+      ? `Le reporta a <i>${escaparHtml(etq)} (cabeza de su rama)</i>`
+      : (['lider', 'usuario'].includes(categoria) ? 'Le reporta a <span class="nadie">sin quién lo coordine</span>' : ''));
+
+  const meta = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : (f.meta_votos ?? 0);
+  const registros = f.registros ?? 0;
+  const pct = meta > 0 ? Math.min(100, (registros / meta) * 100) : 0;
+  const incluyeEquipo = ['coordinador', 'coordinador_organizaciones', 'lider'].includes(f.cargo) || categoria === TIPO_ASPIRANTE_CONCEJO;
+  const sigma = incluyeEquipo ? '<span class="sig" title="Incluye a su equipo">Σ</span>' : '';
+
+  const wa = datosWhatsApp(f.telefono);
+  const colapsado = colapsados.has(f.usuario_id);
+  const puedeEliminar = usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante;
+
+  return `<article class="fi" data-n="${nivel}" data-inactivo="${f.activo ? 0 : 1}">
+    <div class="fi-sup">
+      ${f._tieneHijos ? `<button type="button" class="plegar" data-plegar="${f.usuario_id}" aria-expanded="${colapsado ? 'false' : 'true'}" title="${colapsado ? 'Mostrar su equipo' : 'Ocultar su equipo'}">${colapsado ? '▸' : '▾'}</button>` : '<span class="hueco"></span>'}
+      <span class="av" aria-hidden="true">${escaparHtml(inicial)}</span>
+      <div class="fi-nom">
+        <h3>${escaparHtml(f.nombre)}</h3>
+        <div class="chips">
+          <span class="ch ${CLASE_CAT[categoria] || ''}">${escaparHtml(etq)}</span>
+          ${area ? `<span class="ch ${area === 'urbano' ? 'urb' : 'rur'}">${area === 'urbano' ? 'Urbano' : 'Rural'}</span>` : ''}
+          ${f.latitud ? '<span class="ch" title="Georreferenciado">📍</span>' : ''}
+          ${tieneLugarVotacion(f) ? '' : '<span class="ch falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta votación</span>'}
+          <span class="ch ${f.activo ? 'act' : 'ina'}">${f.activo ? 'Activo' : 'Inactivo'}</span>
+        </div>
+      </div>
+    </div>
+    <p class="fi-zona">${miga}</p>
+    ${reporta ? `<p class="fi-jefe">${reporta}</p>` : ''}
+    <div class="fi-avance">
+      <div class="txt"><span>${meta > 0 ? `${formatoMillares(registros)} / ${formatoMillares(meta)}` : `${formatoMillares(registros)} registros · sin meta`} ${sigma}</span>${meta > 0 ? `<span>${Math.round(pct)}%</span>` : ''}</div>
+      ${meta > 0 ? `<div class="pista"><i class="${pct >= 100 ? 'ok' : ''}" style="width:${pct.toFixed(1)}%"></i></div>` : ''}
+    </div>
+    <div class="fi-acc">
+      ${wa ? `<a class="wa" href="${wa.url}" target="_blank" rel="noopener" title="Escribir por WhatsApp">💬 ${escaparHtml(wa.visible)}</a>` : ''}
+      <a href="/territorial.html?app=1#editar=${f.id}">Editar</a>
+      ${puedeEliminar ? `<button type="button" class="del" data-eliminar="${f.id}" aria-label="Eliminar a ${escaparHtml(f.nombre)}">🗑</button>` : ''}
+    </div>
+  </article>`;
+}
+
+function pintar() {
+  const filas = filasFiltradas();
+  document.getElementById('contador').textContent = `${formatoMillares(filas.length)} persona${filas.length === 1 ? '' : 's'}`;
+  document.getElementById('vacio').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('lista').innerHTML = filas.map(fichaHtml).join('');
+  const activos = ['area', 'zona', 'territorio', 'municipio'].filter(k => filtros[k] && (k !== 'municipio' || idDelMunicipioFiltrado())).length;
+  const btn = document.getElementById('btn-filtros');
+  btn.classList.toggle('con', activos > 0);
+  document.getElementById('n-filtros').textContent = String(activos);
+}
+
+function pintarChips() {
+  const cuenta = {};
+  lista.forEach(f => { const c = categoriaDeFila(f); cuenta[c] = (cuenta[c] || 0) + 1; });
+  document.getElementById('chips-cargo').innerHTML = CATEGORIAS.map(c =>
+    `<button type="button" class="chip-app ${filtros.cargo === c.clave ? 'activo' : ''}" data-cargo="${c.clave}">${c.texto}<span class="chip-n">${formatoMillares(c.clave ? (cuenta[c.clave] || 0) : lista.length)}</span></button>`).join('');
+}
+
+/* ---------------------- hojas: filtros, menú, eliminar ---------------------- */
+function abrir(id) { document.getElementById(id).classList.add('abierta'); }
+function cerrar(id) { document.getElementById(id).classList.remove('abierta'); }
+['capa-filtros', 'capa-menu', 'capa-eliminar'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => { if (e.target.id === id) cerrar(id); });
+});
+
+function llenarFiltrosTerritorio() {
+  const zonas = territorios.filter(t => t.tipo === 'comuna' || t.tipo === 'corregimiento');
+  document.getElementById('f-zona').innerHTML = '<option value="">Toda comuna o corregimiento</option>' +
+    zonas.map(z => `<option value="${z.id}">${z.tipo === 'comuna' ? 'Comuna' : 'Corregimiento'}: ${escaparHtml(nombreLugar(z.nombre))}</option>`).join('');
+  actualizarSelectTerritorio();
+  document.getElementById('lista-municipios').innerHTML = territorios.filter(t => t.tipo === 'municipio')
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(m => `<option value="${escaparHtml(nombreLugar(m.nombre))}">`).join('');
+  // Campaña departamental: Municipio; municipal: comuna y barrio (territorial.html:2577-2588).
+  document.getElementById('caja-municipio').style.display = ambitoDepartamental ? '' : 'none';
+  document.getElementById('caja-zona').style.display = ambitoDepartamental ? 'none' : '';
+  document.getElementById('caja-territorio').style.display = ambitoDepartamental ? 'none' : '';
+}
+function actualizarSelectTerritorio() {
+  const zonaId = document.getElementById('f-zona').value;
+  const hojas = zonaId
+    ? territorios.filter(t => (t.tipo === 'barrio' || t.tipo === 'vereda') && String(t.padre_id) === zonaId)
+    : territorios.filter(t => t.tipo === 'barrio' || t.tipo === 'vereda');
+  document.getElementById('f-territorio').innerHTML = '<option value="">Todo barrio o vereda</option>' +
+    hojas.map(h => `<option value="${h.id}">${h.tipo === 'barrio' ? 'Barrio' : 'Vereda'}: ${escaparHtml(nombreLugar(h.nombre))}</option>`).join('');
+}
+document.getElementById('f-zona').addEventListener('change', actualizarSelectTerritorio);
+document.getElementById('btn-filtros').addEventListener('click', () => {
+  document.getElementById('f-area').value = filtros.area;
+  document.getElementById('f-zona').value = filtros.zona; actualizarSelectTerritorio();
+  document.getElementById('f-territorio').value = filtros.territorio;
+  document.getElementById('f-municipio').value = filtros.municipio;
+  abrir('capa-filtros');
+});
+document.getElementById('f-aplicar').addEventListener('click', () => {
+  filtros.area = document.getElementById('f-area').value;
+  filtros.zona = ambitoDepartamental ? '' : document.getElementById('f-zona').value;
+  filtros.territorio = ambitoDepartamental ? '' : document.getElementById('f-territorio').value;
+  filtros.municipio = ambitoDepartamental ? document.getElementById('f-municipio').value : '';
+  cerrar('capa-filtros'); pintar();
+});
+document.getElementById('f-quitar').addEventListener('click', () => {
+  filtros.area = filtros.zona = filtros.territorio = filtros.municipio = '';
+  document.getElementById('busqueda').value = '';
+  filtros.cargo = '';
+  cerrar('capa-filtros'); pintarChips(); pintar();
+});
+
+let _t;
+document.getElementById('busqueda').addEventListener('input', () => { clearTimeout(_t); _t = setTimeout(pintar, 250); });
+document.getElementById('chips-cargo').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-app'); if (!b) return;
+  filtros.cargo = b.dataset.cargo; pintarChips(); pintar();
+});
+document.getElementById('lista').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-plegar]');
+  if (p) {
+    const id = Number(p.dataset.plegar);
+    if (colapsados.has(id)) colapsados.delete(id); else colapsados.add(id);
+    pintar(); return;
+  }
+  const d = e.target.closest('[data-eliminar]');
+  if (d) {
+    const f = lista.find(x => x.id === Number(d.dataset.eliminar)); if (!f) return;
+    eliminando = f;
+    document.getElementById('el-titulo').textContent = `Eliminar a ${f.nombre}`;
+    document.getElementById('el-clave').value = '';
+    document.getElementById('el-error').classList.remove('visible');
+    abrir('capa-eliminar');
+    setTimeout(() => document.getElementById('el-clave').focus(), 150);
+  }
+});
+
+/* Eliminar: la contraseña PROPIA viaja en el cuerpo del DELETE y la ruta la comprueba antes de tocar
+   nada (routes/territorial.routes.js:1676), igual que en territorial.html:3451. */
+document.getElementById('el-cancelar').onclick = () => cerrar('capa-eliminar');
+document.getElementById('form-eliminar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!eliminando) return;
+  const clave = document.getElementById('el-clave').value;
+  if (!clave) return;
+  const btn = document.getElementById('el-ok'); const caja = document.getElementById('el-error');
+  caja.classList.remove('visible'); btn.disabled = true; btn.textContent = 'Eliminando…';
+  try {
+    await api('/territorial/estructura/' + eliminando.id, { method: 'DELETE', body: { password: clave } });
+    cerrar('capa-eliminar'); avisoPasajero('Registro eliminado.');
+    eliminando = null;
+    await cargar();
+  } catch (err) {
+    caja.textContent = err.esErrorDeRed ? 'Sin conexión: no se eliminó.' : (err.message || 'No se pudo eliminar.');
+    caja.classList.add('visible');
+  } finally { btn.disabled = false; btn.textContent = 'Eliminar'; }
+});
+
+/* Menú ⋯ */
+document.getElementById('m-cancelar').onclick = () => cerrar('capa-menu');
+document.getElementById('m-exportar').addEventListener('click', async () => {
+  cerrar('capa-menu');
+  avisoPasajero('Preparando el Excel…');
+  try {
+    const r = await pedirArchivoApp('/territorial/estructura/exportar-excel');
+    if (!r) return;
+    guardarBlobApp(r.blob, r.nombre || 'estructura.xlsx');
+    avisoPasajero('Excel listo: revisa tus descargas.');
+  } catch (err) {
+    avisoPasajero(err.esErrorDeRed ? 'Sin conexión: no se pudo generar el Excel.' : (err.message || 'No se pudo exportar.'), true);
+  }
+});
+
+/* ------------------------------- carga ------------------------------- */
+async function cargar() {
+  const [filas, terr] = await Promise.all([api('/territorial/estructura'), api('/territorial/territorios')]);
+  if (!filas) return;
+  lista = (filas || []).filter(f => f.cargo !== 'testigo');
+  territorios = terr || [];
+  llenarFiltrosTerritorio();
+  pintarChips(); pintar();
+}
+
+(async () => {
+  usuarioActual = await exigirAdminApp(null);
+  if (!usuarioActual) return;
+  montarNavAdmin('');                         // ninguno de los cinco botones es «Estructura»
+  pintarBarraApp('Estructura territorial', null, '/app/inicio.html');
+  const bm = document.createElement('button');
+  bm.type = 'button'; bm.className = 'mas-barra'; bm.setAttribute('aria-label', 'Más opciones'); bm.textContent = '⋯';
+  bm.onclick = () => abrir('capa-menu');
+  document.getElementById('app-barra').appendChild(bm);
+
+  // La configuración y los permisos son un complemento: si fallan, la lista sale igual.
+  api('/configuracion/campana').then(c => { if (c) { ambitoDepartamental = ['gobernacion', 'asamblea'].includes(c.cargo_aspira); if (lista.length) { llenarFiltrosTerritorio(); } } }).catch(() => {});
+  api('/permisos/mios').then(p => {
+    const t = p && p.permisos && p.permisos.territorial;
+    puedeImportarExportar = !!(t && t.importar_exportar);
+    ['m-exportar', 'm-importar'].forEach(id => { document.getElementById(id).style.display = puedeImportarExportar ? '' : 'none'; });
+  }).catch(() => {});
+
+  try {
+    await cargar();
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    mostrarError(err && err.esErrorDeRed ? 'Sin conexión. La estructura necesita internet para mostrar datos al día.' : ((err && err.message) || 'No se pudo cargar la estructura.'));
+  }
+})();
+</script>
+</body>
+</html>

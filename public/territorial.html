@@ -12,7 +12,7 @@
      app del celular (public/app/inicio.html) con `?app=1`. En ese caso —o con la app instalada
      (modo standalone) en una pantalla de celular o tableta chica, hasta 820 px— se esconde el
      menú lateral, que apilado en 390 px ocupa más de media pantalla antes de la primera ficha,
-     y se muestra arriba «← Volver a la app», porque desde la PWA no hay botón de volver.
+     y se muestra arriba «← Volver a la app» (a la lista de Estructura de la app, /app/admin-estructura.html), porque desde la PWA no hay botón de volver.
      NO CAMBIA NADA en el computador: sin `?app=1` y sin la app instalada en una pantalla
      chica, no se agrega la clase y todo lo de abajo queda sin efecto (una PWA instalada en un
      computador, de más de 820 px, tampoco lo activa).
@@ -40,10 +40,55 @@
     box-shadow: 0 2px 8px rgba(20, 42, 63, 0.25);
   }
   html.modo-app body { padding-top: calc(52px + env(safe-area-inset-top, 0px)); }
+
+  /* FORMULARIO «AGREGAR / EDITAR» POR PASOS, SOLO EN MODO APP. En el computador nada de esto aplica:
+     todos los selectores empiezan por html.modo-app. El JS que arma los pasos está al final del archivo. */
+  html.modo-app #overlay-form { padding: 0; align-items: stretch; justify-content: stretch; }
+  html.modo-app #overlay-form .modal.modal-amplio {
+    max-width: none; width: 100%; height: 100vh; height: 100dvh; max-height: none;
+    border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+  html.modo-app #overlay-form .modal-header {
+    flex: none; margin: 0; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 8px;
+  }
+  html.modo-app #overlay-form .modal-header h3 { margin: 0; font-size: 1.1rem; }
+  html.modo-app #overlay-form .modal-cerrar { min-width: 44px; min-height: 44px; }
+  .wz-cab { flex: none; padding: 0 16px 10px; border-bottom: 1px solid #e3dccb; }
+  .wz-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+  .wz-num { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #6b6b6b; }
+  .wz-titulo { font-size: 1rem; font-weight: 800; color: #142a3f; text-align: right; }
+  .wz-barra { height: 7px; border-radius: 5px; background: #e3dccb; overflow: hidden; }
+  .wz-barra > i { display: block; height: 100%; width: 20%; background: #bf5e1f; border-radius: 5px; transition: width .2s; }
+  html.modo-app #form-estructura { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; }
+  .wz-cuerpo { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px 20px; }
+  .wz-pie {
+    flex: none; display: flex; gap: 10px; background: #fff; border-top: 1px solid #e3dccb;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .wz-pie button { flex: 1; min-height: 48px; border-radius: 12px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; margin: 0; }
+  .wz-pie .wz-atras { background: #fff; color: #142a3f; border: 1.5px solid #142a3f; }
+  .wz-pie .wz-sig, .wz-pie #btn-guardar-estructura { background: #bf5e1f; color: #fff; border: 0; }
+  html.modo-app #form-estructura input,
+  html.modo-app #form-estructura select,
+  html.modo-app #form-estructura textarea { font-size: 16px; }   /* menos de 16 px y el iPhone hace zoom al tocar */
+  html.modo-app #form-estructura .campo-error { border-color: #A93226 !important; box-shadow: 0 0 0 3px rgba(169, 50, 38, .22); }
+  html.modo-app #overlay-form .wz-cuerpo .mensaje-error { margin: 0 0 14px; }
+  .wz-exito {
+    position: fixed; inset: 0; z-index: 60; background: #F8F3E9; display: none; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; gap: 12px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  .wz-exito.visible { display: flex; }
+  .wz-exito .marca { font-size: 3.2rem; color: #1e7a3d; line-height: 1; }
+  .wz-exito h2 { margin: 0; font-size: 1.4rem; color: #142a3f; }
+  .wz-exito p { margin: 0; max-width: 320px; font-size: .92rem; line-height: 1.5; color: #333; overflow-wrap: anywhere; }
+  .wz-exito button { width: 100%; max-width: 320px; min-height: 50px; border-radius: 12px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .wz-exito .wz-otra { background: #bf5e1f; color: #fff; border: 0; }
+  .wz-exito .wz-lista { background: #fff; color: #142a3f; border: 1.5px solid #142a3f; }
 </style>
 </head>
 <body>
-<a id="barra-volver-app" href="/app/inicio.html">← Volver a la app</a>
+<a id="barra-volver-app" href="/app/admin-estructura.html">← Volver a la app</a>
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="sec-hero">
@@ -3772,9 +3817,279 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     const botonNuevo = document.getElementById('btn-nuevo');
     if (botonNuevo && botonNuevo.style.display !== 'none') botonNuevo.click();
   }
+  /* LOS ENLACES DE LA LISTA DE ESTRUCTURA DE LA APP (public/app/admin-estructura.html).
+       #editar=<id>        abre la edición de esa persona (<id> es el id de la fila de estructura, el mismo
+                           que usa el botón «Editar»). Pide la contraseña de siempre al abrir, y solo si el
+                           usuario puede editar (admin o coordinador); un id que no esté en la lista no hace nada.
+       #importar           lleva a los botones de Excel. NO se abre el selector de archivos solo: el navegador
+                           exige un toque de la persona para eso.
+       #eliminar-registros abre el borrado masivo, que pide la contraseña de administrador. */
+  const hashEditar = /^#editar=(\d+)$/.exec(window.location.hash);
+  if (hashEditar && ['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    abrirEdicion(Number(hashEditar[1]));
+  } else if (window.location.hash === '#importar') {
+    const grupo = document.getElementById('btn-exportar-estructura');
+    if (grupo) grupo.scrollIntoView({ block: 'center' });
+  } else if (window.location.hash === '#eliminar-registros') {
+    document.getElementById('btn-eliminar-masivo').click();
+  }
 })();
 </script>
   <script src="/js/lugar-votacion-catalogo.js"></script>
   <script src="/js/listas-desplegables.js"></script>
+
+<script>
+/* FORMULARIO «AGREGAR / EDITAR A LA ESTRUCTURA» POR PASOS — SOLO EN MODO APP.
+   (la clase `modo-app` la pone el script de la cabecera: ?app=1, o la app instalada en pantalla chica.)
+
+   NO CAMBIA LA LÓGICA DEL FORMULARIO NI SUS FUNCIONES. Este bloque solo MUEVE los nodos que ya existen
+   a cinco contenedores (appendChild conserva el nodo, su id y sus manejadores) y muestra uno a la vez.
+   El envío sigue siendo el de siempre —el submit de #form-estructura, más arriba—, que escribe sus errores
+   en #form-error y #territorio-persona-error; aquí solo se OBSERVAN para llevar a la persona al paso donde
+   está el problema. En el computador este archivo no hace nada: lo primero que comprueba es la clase.
+
+   Pasos:  1 Categoría · 2 Datos personales y contacto · 3 Lugar de votación (y testigo, al editar)
+           4 Territorio de influencia · 5 Reporta a (y Persona activa, al editar) */
+(function () {
+  'use strict';
+  if (!document.documentElement.classList.contains('modo-app')) return;
+
+  const form = document.getElementById('form-estructura');
+  const overlay = document.getElementById('overlay-form');
+  const modal = form && form.closest('.modal');
+  const errorBox = document.getElementById('form-error');
+  const okBox = document.getElementById('form-ok');
+  const terrErr = document.getElementById('territorio-persona-error');
+  const btnGuardar = document.getElementById('btn-guardar-estructura');
+  if (!form || !overlay || !modal || !errorBox || !okBox || !btnGuardar) return;   // el formulario cambió: se deja como está
+
+  const TITULOS = ['Categoría', 'Datos personales', 'Lugar de votación', 'Territorio de influencia', 'Reporta a'];
+  const TOTAL = TITULOS.length;
+  let actual = 1;
+
+  /* El hijo DIRECTO del formulario que contiene a este elemento. */
+  const hijoDe = (sel) => {
+    let el = form.querySelector(sel);
+    while (el && el.parentElement !== form) el = el.parentElement;
+    return el;
+  };
+  const anterior = (el) => (el ? el.previousElementSibling : null);
+
+  /* Qué nodo va en qué paso, en el orden en que se ven. Todo se busca por id o por nombre, no por posición. */
+  const cedula = hijoDe('#input-numero-persona');
+  const filaLugar1 = hijoDe('#input-departamento-votacion-persona');
+  const filaTel = hijoDe('[name="telefono"]');
+  const chkMunicipio = hijoDe('#chk-area-influencia-municipio');
+  const grupos = [
+    [form.firstElementChild, hijoDe('#chips-cargo-persona'), hijoDe('#select-tipo-cargo-persona')],
+    [anterior(cedula), cedula, hijoDe('[name="nombre"]'), hijoDe('[name="genero"]'), hijoDe('#bloque-apoya-a-persona'),
+      anterior(filaTel), filaTel, hijoDe('#input-direccion-persona'), hijoDe('#input-departamento-residencia-persona'),
+      hijoDe('#input-comuna-corregimiento-residencia-persona'), hijoDe('#input-barrio-vereda-residencia-persona')],
+    [anterior(filaLugar1), filaLugar1, hijoDe('#input-puesto-votacion-persona'), hijoDe('#campo-asignar-testigo')],
+    [anterior(chkMunicipio), chkMunicipio, hijoDe('#campo-organizacion-persona'), hijoDe('#bloque-territorio-geografico-persona'),
+      hijoDe('#bloque-fichas-territorio-persona'), hijoDe('#territorio-persona-error')],
+    [hijoDe('#select-supervisor'), hijoDe('#campo-activo')]
+  ];
+
+  const pasos = grupos.map((nodos, i) => {
+    const sec = document.createElement('section');
+    sec.className = 'wz-paso';
+    sec.dataset.paso = String(i + 1);
+    nodos.filter(Boolean).forEach((n) => sec.appendChild(n));
+    return sec;
+  });
+  /* Lo que haya quedado suelto (un campo nuevo que alguien agregue mañana al formulario) va al último paso:
+     mejor un campo en un paso raro que un campo que desaparece. */
+  Array.from(form.children).forEach((n) => {
+    if (n !== btnGuardar) pasos[TOTAL - 1].appendChild(n);
+  });
+
+  const cuerpo = document.createElement('div');
+  cuerpo.className = 'wz-cuerpo';
+  pasos.forEach((sec) => cuerpo.appendChild(sec));
+
+  const pie = document.createElement('div');
+  pie.className = 'wz-pie';
+  const btnAtras = document.createElement('button');
+  btnAtras.type = 'button'; btnAtras.className = 'wz-atras'; btnAtras.textContent = '← Atrás';
+  const btnSig = document.createElement('button');
+  btnSig.type = 'button'; btnSig.className = 'wz-sig'; btnSig.textContent = 'Siguiente →';
+  pie.append(btnAtras, btnSig, btnGuardar);          // el botón de guardar sigue siendo el submit del formulario
+
+  form.append(cuerpo, pie);
+
+  /* Barra de progreso, justo debajo del título del modal. */
+  const cab = document.createElement('div');
+  cab.className = 'wz-cab';
+  cab.innerHTML = '<div class="wz-linea"><span class="wz-num" id="wz-num"></span><span class="wz-titulo" id="wz-titulo"></span></div>'
+    + '<div class="wz-barra" aria-hidden="true"><i id="wz-avance"></i></div>';
+  const encabezadoModal = modal.querySelector('.modal-header');
+  encabezadoModal.insertAdjacentElement('afterend', cab);
+  /* Los avisos de éxito/error del modal quedan entre la barra y el formulario, con margen lateral. */
+  [errorBox, okBox].forEach((c) => { c.style.margin = '10px 16px 0'; });
+
+  /* La pantalla de «Guardado». Va FUERA del modal: al editar, el formulario cierra el modal solo a los 900 ms
+     y esto tiene que seguir a la vista. */
+  const exito = document.createElement('div');
+  exito.className = 'wz-exito';
+  exito.setAttribute('role', 'alertdialog');
+  exito.innerHTML = '<div class="marca" aria-hidden="true">✓</div><h2>Guardado</h2><p id="wz-exito-texto"></p>'
+    + '<button type="button" class="wz-otra">Agregar otra persona</button>'
+    + '<button type="button" class="wz-lista">Volver a la lista</button>';
+  document.body.appendChild(exito);
+
+  /* ------------------------------- navegación ------------------------------- */
+  function irAPaso(n) {
+    actual = Math.max(1, Math.min(TOTAL, n));
+    pasos.forEach((sec, i) => { sec.hidden = (i + 1 !== actual); });
+    document.getElementById('wz-num').textContent = `Paso ${actual} de ${TOTAL}`;
+    document.getElementById('wz-titulo').textContent = TITULOS[actual - 1];
+    document.getElementById('wz-avance').style.width = `${(actual / TOTAL) * 100}%`;
+    btnAtras.style.visibility = actual === 1 ? 'hidden' : 'visible';
+    btnSig.style.display = actual === TOTAL ? 'none' : '';
+    btnGuardar.style.display = actual === TOTAL ? '' : 'none';
+    cuerpo.scrollTop = 0;
+  }
+  const pasoDe = (el) => {
+    const sec = el && el.closest && el.closest('.wz-paso');
+    return sec ? Number(sec.dataset.paso) : null;
+  };
+
+  /* Marca un campo y lleva el aviso al paso donde está. `errorBox` es el MISMO nodo que usa el envío: se
+     cambia de sitio, no se copia. */
+  function marcar(campo) {
+    form.querySelectorAll('.campo-error').forEach((c) => c.classList.remove('campo-error'));
+    if (campo) campo.classList.add('campo-error');
+  }
+  /* `campo` undefined = no tocar las marcas que ya haya (el aviso se vuelve a leer del DOM y no debe borrar
+     la que acaba de poner `senalar`); null = limpiarlas; un elemento = marcarlo. */
+  function mostrarEnPaso(n, campo) {
+    irAPaso(n);
+    pasos[n - 1].insertBefore(errorBox, pasos[n - 1].firstChild);
+    errorBox.style.margin = '';
+    if (campo !== undefined) marcar(campo);
+    const objetivo = campo || errorBox;
+    objetivo.scrollIntoView({ block: 'center' });
+    if (campo && typeof campo.focus === 'function') campo.focus({ preventScroll: true });
+  }
+  function senalar(n, texto, campo) {
+    errorBox.textContent = texto;
+    errorBox.classList.add('visible');
+    mostrarEnPaso(n, campo);
+  }
+  form.addEventListener('input', (e) => e.target.classList && e.target.classList.remove('campo-error'));
+  form.addEventListener('change', (e) => e.target.classList && e.target.classList.remove('campo-error'));
+
+  /* ----------------------- «Siguiente»: solo lo de ESTE paso ----------------------- */
+  function validarPaso(n) {
+    if (n === 2) {
+      const nombre = form.querySelector('[name="nombre"]');
+      if (!nombre.value.trim()) { senalar(2, 'Escriba los nombres y apellidos.', nombre); return false; }
+      // La misma comprobación del envío: 10 dígitos, o vacío.
+      if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
+        senalar(2, 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).', form.querySelector('[name="telefono"]'));
+        return false;
+      }
+      // El número ya lo verificó el servidor mientras se escribía (identificacionPersonaDisponible).
+      if (!identificacionPersonaDisponible) { senalar(2, 'Ya registrado por otro líder.', document.getElementById('input-numero-persona')); return false; }
+    }
+    if (n === 4) {
+      // La misma resolución que hace el envío (con fichas, un selector vacío no es error).
+      const hayFichas = !document.getElementById('chk-area-influencia-organizacion').checked && fichasTerritorios.hayFichas();
+      const r = (hayFichas && seleccionTerritorioPersonaVacia()) ? { territorioId: null } : resolverTerritorioPersona();
+      if (r.error) {
+        terrErr.textContent = r.error;
+        terrErr.classList.add('visible');
+        irAPaso(4);
+        terrErr.scrollIntoView({ block: 'center' });
+        return false;
+      }
+      terrErr.classList.remove('visible');
+    }
+    errorBox.classList.remove('visible');
+    return true;
+  }
+  btnSig.addEventListener('click', () => { if (validarPaso(actual)) irAPaso(actual + 1); });
+  btnAtras.addEventListener('click', () => irAPaso(actual - 1));
+
+  /* Enter en un campo NO envía el formulario desde un paso intermedio: avanza (y en el último no hace nada). */
+  form.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+    if (e.target.type === 'checkbox' || e.target.type === 'radio') return;
+    e.preventDefault();
+    if (actual < TOTAL) btnSig.click();
+  });
+
+  /* El navegador valida los `required` al enviar. Si el campo inválido está en un paso oculto, no podría
+     mostrar su aviso: se lleva a la persona a ese paso antes de que intente enfocarlo. */
+  let saltando = false;
+  form.addEventListener('invalid', (e) => {
+    if (saltando) return;
+    const n = pasoDe(e.target);
+    if (!n) return;
+    saltando = true;
+    irAPaso(n);
+    marcar(e.target);
+    setTimeout(() => { saltando = false; }, 0);
+  }, true);
+
+  /* ------------------ errores del envío → al paso donde está el campo ------------------ */
+  /* Los mensajes son los del propio envío y los del servidor (routes/territorial.routes.js). */
+  function destinoDelError(msg) {
+    const m = String(msg || '').toLowerCase();
+    const q = (s) => form.querySelector(s);
+    if (/contrase/.test(m)) return { paso: actual };
+    if (/nombre de usuario|ya registrado|identificaci/.test(m)) return { paso: 2, campo: q('#input-numero-persona') };
+    if (/email|correo/.test(m)) return { paso: 2, campo: q('[name="email"]') };
+    if (/tel[eé]fono|d[ií]gitos/.test(m)) return { paso: 2, campo: q('[name="telefono"]') };
+    // «Nombre, cargo y territorio son obligatorios»: según qué falte.
+    if (/nombre, cargo y/.test(m)) {
+      return q('[name="nombre"]').value.trim() ? { paso: 4 } : { paso: 2, campo: q('[name="nombre"]') };
+    }
+    if (/mesa|puesto|testigo/.test(m)) return { paso: 3 };
+    if (/territorio|organizaci|[aá]rea|barrio|vereda|comuna|corregimiento|municipio/.test(m)) return { paso: 4 };
+    return { paso: actual };
+  }
+  new MutationObserver(() => {
+    if (!errorBox.classList.contains('visible')) return;
+    const d = destinoDelError(errorBox.textContent);
+    mostrarEnPaso(d.paso, d.campo);
+  }).observe(errorBox, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(() => {
+    if (!terrErr.classList.contains('visible')) return;
+    irAPaso(4);
+    terrErr.scrollIntoView({ block: 'center' });
+  }).observe(terrErr, { attributes: true, attributeFilter: ['class'] });
+
+  /* ------------------------------- guardado correcto ------------------------------- */
+  new MutationObserver(() => {
+    if (!okBox.classList.contains('visible')) return;
+    const texto = okBox.textContent || '';
+    if (!/^(Registro (creado|actualizado)|No hay señal)/.test(texto)) return;
+    document.getElementById('wz-exito-texto').textContent = texto;
+    exito.classList.add('visible');
+  }).observe(okBox, { attributes: true, attributeFilter: ['class'] });
+
+  exito.querySelector('.wz-otra').addEventListener('click', async () => {
+    exito.classList.remove('visible');
+    okBox.classList.remove('visible');
+    await abrirCreacion();              // la función de siempre: deja el formulario vacío y abre el modal
+    irAPaso(1);
+  });
+  exito.querySelector('.wz-lista').addEventListener('click', () => {
+    window.location.href = '/app/admin-estructura.html';
+  });
+
+  /* Cada vez que se abre el modal (crear o editar) se empieza en el paso 1, sin marcas ni éxito. */
+  new MutationObserver(() => {
+    if (!overlay.classList.contains('abierto')) return;
+    exito.classList.remove('visible');
+    marcar(null);
+    irAPaso(1);
+  }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+
+  irAPaso(1);
+})();
+</script>
 </body>
 </html>

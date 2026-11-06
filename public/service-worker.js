@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v139';
+const CACHE_NAME = 'estrategia-v140';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -51,6 +51,8 @@ const ARCHIVOS_CASCARON = [
   '/app/admin-votantes.html',
   '/app/admin-mapa.html',
   '/app/admin-contenido.html',
+  '/app/admin-estructura.html',
+  '/app/ayudas-estructura.js',
   '/js/form-utils.js',
   '/js/offline-utils.js',
   // Las casillas de «Apoya a» del formulario. Si falta, sin conexión el
