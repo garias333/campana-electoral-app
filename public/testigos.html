@@ -74,7 +74,8 @@
         <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off">
         <small id="numero-testigo-estado" style="font-size:0.75rem;"></small>
         <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion-testigo" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
-        <small id="nota-copiar-lugar-votacion-testigo" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio y Mesa. El Puesto lo seleccionas de la lista (compáralo con el nombre y la dirección que te muestre la ventana).</small>
+        <small id="nota-copiar-lugar-votacion-testigo" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio, Puesto y Mesa.</small>
+        <small id="aviso-consulta-lugar-votacion-testigo" role="status" style="display:none;"></small>
       </div>
       <div class="campo"><label>Nombre completo</label><input name="nombre" required></div>
       <div class="fila">
@@ -139,6 +140,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/consulta-censo.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -216,7 +218,12 @@ function mostrarBotonLugarVotacionTestigo(mostrar) {
   document.getElementById('btn-consultar-lugar-votacion-testigo').style.display = mostrar ? 'inline-flex' : 'none';
   document.getElementById('nota-copiar-lugar-votacion-testigo').style.display = mostrar ? 'block' : 'none';
 }
+// Antes de abrir la Registraduría se copia la cédula (solo los dígitos) al portapapeles, para pegarla allá. Va
+// primero y sin esperar nada, dentro del mismo toque: ver js/consulta-censo.js.
 document.getElementById('btn-consultar-lugar-votacion-testigo').addEventListener('click', () => {
+  if (typeof copiarCedulaParaConsulta === 'function') {
+    copiarCedulaParaConsulta(document.getElementById('input-numero-testigo'), document.getElementById('aviso-consulta-lugar-votacion-testigo'));
+  }
   const ancho = 480;
   const alto = Math.min(window.screen.availHeight, 800);
   const izquierda = window.screen.availWidth - ancho;
