@@ -1229,7 +1229,7 @@ function renderizarUsuarios() {
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
         <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
-        ${u.two_factor_enabled ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
+        ${(u.two_factor_enabled && !u.es_superadmin) ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
         ${u.es_superadmin ? '' : `<button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>`}
       </td>
     </tr>

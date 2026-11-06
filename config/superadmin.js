@@ -189,8 +189,17 @@ async function protegerAutodestruccion(req, res, idObjetivo) {
   return true;
 }
 
+/**
+ * Lo que se le responde (400) a quien intenta apagar el código de ingreso del
+ * superadministrador. Vive aquí para que PUT /auth/2fa y
+ * POST /usuarios/:id/desactivar-2fa —las dos únicas rutas que escriben
+ * `usuarios.two_factor_enabled` a cero— digan exactamente lo mismo.
+ */
+const ERROR_2FA_OBLIGATORIO = 'El código de ingreso es obligatorio para esta cuenta.';
+
 module.exports = {
   CORREO_SUPERADMIN,
+  ERROR_2FA_OBLIGATORIO,
   idSuperadmin,
   esSuperadmin,
   filtroOcultar,

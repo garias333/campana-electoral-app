@@ -1514,8 +1514,8 @@ async function inicializarLayout(paginaActiva) {
     <div class="usuario-box">
       <div class="nombre">${usuario.nombre}</div>
       <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : usuario.rol}</div>
-      <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;">
-        <input type="checkbox" id="chk-2fa" style="width:auto;" ${usuario.two_factor_enabled ? 'checked' : ''}>
+      <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;"${usuario.es_superadmin ? ' title="El código de ingreso es obligatorio para esta cuenta."' : ''}>
+        <input type="checkbox" id="chk-2fa" style="width:auto;" ${(usuario.two_factor_enabled || usuario.es_superadmin) ? 'checked' : ''}${usuario.es_superadmin ? ' disabled' : ''}>
         Verificación en dos pasos por correo
       </label>
       <button class="btn-secundario btn-sm" id="btn-logout">Cerrar sesión</button>

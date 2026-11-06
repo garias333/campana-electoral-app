@@ -90,7 +90,7 @@ const smsSvc = require('../config/sms');
  *   escriba el número a mano. Sin esta segunda mitad, un administrador que
  *   probara `DELETE /api/usuarios/1` borraría la cuenta que no puede ver.
  */
-const { filtroOcultar, protegerObjetivo, protegerAutodestruccion } = require('../config/superadmin');
+const { filtroOcultar, protegerObjetivo, protegerAutodestruccion, ERROR_2FA_OBLIGATORIO } = require('../config/superadmin');
 router.use(requireAuth);
 
 /**
@@ -652,9 +652,15 @@ router.post('/:id/desactivar-2fa', requireRole('admin', 'aspirante'), async (req
   if (await protegerObjetivo(req, res, req.params.id)) return;
   try {
     const [[persona]] = await pool.query(
-      'SELECT nombre, two_factor_enabled FROM usuarios WHERE id = ?', [req.params.id]
+      'SELECT nombre, two_factor_enabled, es_superadmin FROM usuarios WHERE id = ?', [req.params.id]
     );
     if (!persona) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    /* Aquí solo llega el propio superadministrador: protegerObjetivo ya le
+       respondió 404 a cualquier otro que apuntara a su id. Y a él tampoco se
+       le apaga: entra siempre con código. */
+    if (Number(persona.es_superadmin) === 1) {
+      return res.status(400).json({ error: ERROR_2FA_OBLIGATORIO });
+    }
     if (!persona.two_factor_enabled) {
       return res.json({ ok: true, ya_estaba: true, nombre: persona.nombre });
     }

@@ -9,7 +9,7 @@ const { enviarTelegramSuperadmin } = require('../config/telegram');
 const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 const { reconocerEquipo, mensajeDeRechazo, equipoControlado } = require('../config/equiposAutorizados');
-const { esSuperadmin } = require('../config/superadmin');
+const { esSuperadmin, ERROR_2FA_OBLIGATORIO } = require('../config/superadmin');
 const { verificarPasswordPropia } = require('../config/verificaciones');
 
 const router = express.Router();
@@ -789,6 +789,15 @@ router.post('/verificar-2fa', async (req, res) => {
 router.put('/2fa', requireAuth, async (req, res) => {
   const { activar, password } = req.body;
   try {
+    // EL SUPERADMINISTRADOR NO PUEDE APAGARLO. Es la cuenta con control total y
+    // entra siempre con código (init-db lo vuelve a encender en cada corrida).
+    // Va ANTES de pedir la contraseña: con contraseña correcta tampoco se
+    // apaga, así que pedirla solo sería hacer el rechazo más lento. Encenderlo
+    // sigue permitido. `esSuperadmin` consulta la base, no la sesión (ver /me).
+    if (!activar && await esSuperadmin(req.session.usuario)) {
+      return res.status(400).json({ error: ERROR_2FA_OBLIGATORIO });
+    }
+
     // APAGARLO EXIGE LA CONTRASEÑA; encenderlo no.
     //
     // No es simetría por gusto: quien se haga con una sesión ajena —una cookie
