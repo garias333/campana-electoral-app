@@ -22,6 +22,7 @@ const pool = require('./db');
 // [tabla, columna, qué se rompe si falta]
 const COLUMNAS_CRITICAS = [
   ['usuarios', 'nombre_usuario', 'el inicio de sesión (routes/auth.routes.js)'],
+  ['dia_d_reportes', 'alertas', 'guardar CUALQUIER reporte del Día D (routes/diaD.routes.js): sin la columna cada envío del testigo responde 500'],
 ];
 
 async function verificarColumnasCriticas() {

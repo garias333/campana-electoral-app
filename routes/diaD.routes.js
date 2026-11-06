@@ -1,5 +1,6 @@
 const express = require('express');
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
@@ -629,6 +630,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
   };
 
   let conexion;
+  let claveBloqueoMesa = null;   // nombre del GET_LOCK de esta mesa, si se tomó
   try {
     // Reintento idempotente: el celular guarda el reporte cuando no hay señal
     // y lo reintenta solo más tarde — si el mismo envío llega dos veces, esto
@@ -722,25 +724,24 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
       return rechazar(403, 'Esta mesa no está asignada a ti.');
     }
 
-    /* UN REPORTE NUEVO SOLO REEMPLAZA AL ANTERIOR SI LO ENVÍA LA MISMA PERSONA,
-       o la coordinación. El tablero se queda con el último reporte de cada
-       mesa, así que enviar sobre una mesa ya reportada por otro la sustituye.
-       Cualquier otro caso se rechaza para que nadie pise el resultado ajeno.
-       Si el último lo mandó la coordinación en nombre del testigo, el testigo
-       tampoco lo reemplaza: la corrección la hace quien corrigió. */
+    /* REEMPLAZAR UNA MESA YA REPORTADA.
+       El tablero se queda con el último reporte de cada mesa, y quien llega
+       hasta aquí ya pasó la comprobación de arriba: o es la coordinación, o es
+       el testigo ASIGNADO HOY a esa mesa. Los dos pueden reemplazar el reporte
+       anterior —lo haya enviado quien lo haya enviado—, y el anterior no se
+       borra: sigue en el historial.
+
+       Esto cambió respecto de la primera versión, que devolvía 409 si el último
+       reporte era de otra persona. Mal pensado para el día de la elección: si
+       la coordinación reportó una mesa en nombre del testigo, o la mesa cambió
+       de testigo a media jornada, el testigo asignado se quedaba sin poder
+       corregir su propia mesa. Quien NO está asignado ni es de la coordinación
+       no llega a este punto: ya recibió su 403.
+
+       Por eso un «fuera de lista» tampoco pisa el reporte de un testigo ajeno:
+       para llegar aquí tuvo que ser el puesto y la mesa asignados a ESA persona,
+       y la misma comprobación vale para el nombre escrito a mano. */
     const nombreDelPuesto = puestoFila ? puestoFila.nombre : textoPuesto;
-    if (esTestigo) {
-      const aFuera = await acotaJornada(req, 'r.testigo_id');
-      const [[previo]] = await pool.query(
-        `SELECT r.id, r.testigo_id FROM dia_d_reportes r
-          WHERE r.puesto_votacion = ? AND r.mesa_votacion = ?
-          ${aFuera ? 'AND ' + aFuera.sql : ''}
-          ORDER BY r.id DESC LIMIT 1`,
-        [nombreDelPuesto, mesa, ...(aFuera ? aFuera.valores : [])]);
-      if (previo && previo.testigo_id !== req.session.usuario.id) {
-        return rechazar(409, 'Esta mesa ya fue reportada por otra persona. Avisa a la coordinación para que la corrija.');
-      }
-    }
 
     /* EL TOTAL DE VOTANTES SOLO SE EXIGE EN LA CAMPAÑA MADRE. En la de un
        aspirante ese campo no existe en su formulario, porque su E-14 no lo trae
@@ -825,6 +826,31 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
        `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
        respuesta y el botón se queda girando hasta que corte Nginx. */
     conexion = await pool.getConnection();
+
+    /* UN SOLO ENVÍO A LA VEZ POR MESA. «El último reporte» es el de mayor `id`,
+       y el `id` lo asigna MySQL al insertar, no al confirmar: dos envíos
+       simultáneos de la misma mesa podían numerarse en un orden y confirmarse en
+       el contrario, y el tablero mostraría como vigente el que llegó primero.
+       Un bloqueo con nombre (GET_LOCK) por campaña, puesto y mesa los pone en
+       fila y los hace confirmar en el orden en que se numeran.
+
+       GET_LOCK y no `SELECT … FOR UPDATE`: sobre una mesa que todavía no tiene
+       ningún reporte, FOR UPDATE toma un bloqueo de hueco, y dos envíos que lo
+       toman a la vez se bloquean entre sí al insertar —un deadlock, y MySQL
+       mata a uno—. El bloqueo con nombre no tiene ese problema.
+
+       Es por conexión y sobrevive al COMMIT: se suelta a mano en el `finally`,
+       ANTES de devolver la conexión al pool; si no, la siguiente petición que
+       reciba esa conexión heredaría el bloqueo. 10 s de espera: pasado ese
+       tiempo se responde 503 y el celular lo reintenta. */
+    claveBloqueoMesa = 'diad_' + crypto.createHash('sha1')
+      .update(`${dueno}|${normalizarTexto(nombreDelPuesto)}|${mesa}`).digest('hex');
+    const [[bloqueo]] = await conexion.query('SELECT GET_LOCK(?, 10) AS tomado', [claveBloqueoMesa]);
+    if (Number(bloqueo.tomado) !== 1) {
+      claveBloqueoMesa = null;
+      return rechazar(503, 'Otro envío de esta misma mesa está en curso. Intenta de nuevo en unos segundos.');
+    }
+
     await conexion.beginTransaction();
 
     // votos_candidato se mantiene por compatibilidad con el resumen del
@@ -891,7 +917,14 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     await borrarArchivosSubidos(subidas);
     if (!res.headersSent) res.status(500).json({ error: 'Error guardando el reporte.' });
   } finally {
-    if (conexion) conexion.release();
+    if (conexion) {
+      // El bloqueo se suelta ANTES de devolver la conexión al pool (ver arriba).
+      if (claveBloqueoMesa) {
+        try { await conexion.query('SELECT RELEASE_LOCK(?)', [claveBloqueoMesa]); }
+        catch (_) { /* si la conexión murió, MySQL ya liberó el bloqueo */ }
+      }
+      conexion.release();
+    }
   }
 });
 
