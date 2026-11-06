@@ -234,6 +234,11 @@ app.use('/api/contenido', require('./routes/contenido.routes'));
 // Rescate de votos (quién ya votó, faltantes, ranking). ANTES de /api/dia-d: son rutas
 // distintas, pero así la ruta hija se resuelve sin pasar por las del tablero.
 app.use('/api/dia-d/rescate', require('./routes/rescateVotos.routes'));
+// Resultados del Día D (fase 3): consolidado, resultado oficial, diferencias y paquete para el
+// abogado. Al arrancar se limpia lo que quedó a medias y se programa el borrado de los vencidos.
+const resultadosDiaD = require('./routes/resultadosDiaD.routes');
+app.use('/api/dia-d/resultados', resultadosDiaD);
+resultadosDiaD.iniciarMantenimiento();
 app.use('/api/dia-d', require('./routes/diaD.routes'));
 app.use('/api/catalogo', require('./routes/catalogo.routes'));
 app.use('/api/backup', require('./routes/backup.routes'));

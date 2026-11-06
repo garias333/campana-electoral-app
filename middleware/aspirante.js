@@ -46,7 +46,7 @@ const PERMITIDOS = [
    posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
    el filtro son el mismo cambio, y separarlos habría dejado una fuga con
    pinta de función nueva. */
-const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos'];
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -105,6 +105,7 @@ const HREFS_ASPIRANTE = [
   '/app/faltantes.html',
   '/app/ranking-dia-d.html',
   '/dia-d.html#avance',
+  '/dia-d.html#resultados',
 ];
 
 /*
@@ -144,6 +145,10 @@ const PERMISOS_ASPIRANTE = {
      (routes/rescateVotos.routes.js) cuelgan de /dia-d, que ya es suyo, y acotan
      por `req.alcance` de aspirante: ve a sus votantes y a sus líderes. */
   rescate_votos: { ver: true, editar: true,  agregar: false, importar_exportar: false },
+  /* Resultados del Día D: consolidado, resultado oficial y diferencias de SU campaña.
+     Las rutas (routes/resultadosDiaD.routes.js) cuelgan de /dia-d y se acotan por la jornada
+     de su rama (`acotaJornada`) y por su propia lista de puestos y candidatos. */
+  resultados_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
 };
 
 /**

@@ -788,6 +788,10 @@ CREATE TABLE IF NOT EXISTS dia_d_reporte_votos (
   reporte_id INT NOT NULL,
   candidato_nombre VARCHAR(200) NOT NULL,
   votos INT NOT NULL DEFAULT 0,
+  -- El bloque del E-14 al que pertenecía este renglón AL REPORTAR. NULL en los reportes
+  -- anteriores: ahí el bloque se deduce, como siempre, cruzando el nombre con la hoja de
+  -- candidatos (ver lib/puestosDiaD.js).
+  grupo ENUM('candidato','nivelacion','otros') NULL,
   FOREIGN KEY (reporte_id) REFERENCES dia_d_reportes(id) ON DELETE CASCADE,
   INDEX idx_reporte_votos_reporte (reporte_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -970,6 +974,70 @@ CREATE TABLE IF NOT EXISTS votante_voto_tokens (
   vence_en DATETIME NOT NULL COMMENT 'El día de la elección a las 23:59:59, hora de Colombia',
   UNIQUE KEY uq_vvt_hash (token_hash),
   FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ---------------------------------------------------------
+-- Día D, fase 3: resultado oficial, revisión de mesas y paquete para el abogado.
+--
+-- EL RESULTADO OFICIAL ES UNA FUENTE APARTE, no columnas en dia_d_reportes: un reporte es
+-- la instantánea inmutable de lo que dijo el testigo, y el oficial cambia (preconteo, luego
+-- escrutinio) y se corrige. Mezclarlos destruiría el historial de qué dijo cada quien.
+-- `puesto_texto` guarda el nombre del puesto TAL COMO SE DIGITÓ (el de la lista de la
+-- campaña, o el texto original si está fuera de lista); `puesto_id` es NULL fuera de lista.
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dia_d_resultado_oficial (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  puesto_id INT NULL,
+  puesto_texto VARCHAR(200) NOT NULL,
+  mesa INT NOT NULL,
+  candidato_nombre VARCHAR(200) NOT NULL,
+  grupo ENUM('candidato','nivelacion','otros') NULL,
+  votos INT UNSIGNED NOT NULL,
+  fuente ENUM('preconteo','escrutinio') NOT NULL,
+  cargado_por INT NULL,
+  cargado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_por INT NULL,
+  actualizado_en DATETIME NULL,
+  UNIQUE KEY uq_oficial (aspirante_id, puesto_texto, mesa, candidato_nombre, fuente),
+  INDEX idx_oficial_fuente (aspirante_id, fuente),
+  INDEX idx_oficial_puesto (puesto_id),
+  FOREIGN KEY (cargado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+  FOREIGN KEY (actualizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Lo que el equipo decide de cada mesa con diferencia. Una fila por (campaña, puesto, mesa),
+-- sin la fuente: la decisión es sobre la MESA, no sobre cuál de los dos conteos la mostró.
+CREATE TABLE IF NOT EXISTS dia_d_mesa_revision (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  puesto_texto VARCHAR(200) NOT NULL,
+  mesa INT NOT NULL,
+  estado ENUM('para_reclamar','revisada') NOT NULL,
+  nota TEXT NULL,
+  marcado_por INT NULL,
+  marcado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_revision (aspirante_id, puesto_texto, mesa),
+  FOREIGN KEY (marcado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Los paquetes ZIP para el abogado. El archivo vive en uploads/dia-d/paquetes/ (cubierto por
+-- el filtro de /uploads: no se baja por ruta estática) y vence a las 24 horas.
+CREATE TABLE IF NOT EXISTS dia_d_paquetes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  pedido_por INT NULL,
+  pedido_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  estado ENUM('en_cola','armando','listo','error') NOT NULL DEFAULT 'en_cola',
+  mesas INT NOT NULL DEFAULT 0,
+  archivos INT NOT NULL DEFAULT 0,
+  bytes BIGINT NOT NULL DEFAULT 0,
+  sha256 CHAR(64) NULL,
+  ruta VARCHAR(255) NULL,
+  error TEXT NULL,
+  vence_en DATETIME NULL,
+  INDEX idx_paquetes_campana (aspirante_id, estado),
+  FOREIGN KEY (pedido_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

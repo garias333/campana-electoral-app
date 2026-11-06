@@ -1080,6 +1080,9 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
     // JSON, uno por candidato mostrado en la tabla.
     const votos = [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')].map(inp => ({
       nombre: inp.dataset.candidato,
+      // El bloque del E-14 de esta fila (candidato, nivelación u otros): el servidor lo guarda
+      // con el voto, para no tener que deducirlo después cruzando nombres.
+      grupo: (inp.closest('tr') && inp.closest('tr').dataset.bloque) || undefined,
       votos: inp.value === '' ? null : Number(inp.value)
     }));
     const faltante = votos.find(v => v.votos === null || Number.isNaN(v.votos));

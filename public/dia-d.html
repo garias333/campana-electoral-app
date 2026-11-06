@@ -40,6 +40,8 @@
     <div class="grupo-pestanas" style="margin-bottom:16px;">
       <button type="button" class="btn-acento btn-sm" id="pestana-reportes">Reportes de mesas</button>
       <button type="button" class="btn-secundario btn-sm" id="pestana-avance">Avance de votación</button>
+      <!-- Solo con el módulo `resultados_dia_d` (se muestra al cargar, ver el final del script). -->
+      <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;">Resultados</button>
     </div>
 
     <div id="vista-reportes">
@@ -161,6 +163,113 @@
         </div>
       </div>
     </div><!-- /vista-avance -->
+
+    <!-- RESULTADOS (fase 3): consolidado, resultado oficial y diferencias. En celular las rejillas se
+         apilan y las tablas se desplazan de lado dentro de su contenedor. -->
+    <div id="vista-resultados" style="display:none;">
+      <div class="grupo-pestanas" style="margin-bottom:14px; flex-wrap:wrap;">
+        <button type="button" class="btn-acento btn-sm" data-sub="consolidado">Consolidado</button>
+        <button type="button" class="btn-secundario btn-sm" data-sub="oficial">Resultado oficial</button>
+        <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Diferencias <span id="contador-dif" class="mono"></span></button>
+      </div>
+
+      <!-- a) CONSOLIDADO -->
+      <div id="sub-consolidado">
+        <div class="grid grid-6" id="res-totales" style="margin-bottom:14px;"></div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+            <div id="res-chips" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+            <a class="btn-secundario btn-sm" id="res-excel" href="#">⬇ Exportar a Excel</a>
+          </div>
+          <div class="tabla-contenedor">
+            <table id="tabla-consolidado">
+              <thead><tr>
+                <th data-ord="puesto" style="cursor:pointer;">Puesto</th><th data-ord="mesas_reportadas" style="cursor:pointer;">Mesas</th>
+                <th class="col-num" data-ord="propio" id="th-propio" style="cursor:pointer;">Propio</th>
+                <th class="col-num" data-ord="rival1" id="th-rival1" style="cursor:pointer;">Rival 1</th>
+                <th class="col-num" data-ord="rival2" id="th-rival2" style="cursor:pointer;">Rival 2</th>
+                <th class="col-num" data-ord="blanco" style="cursor:pointer;">Blanco</th>
+                <th class="col-num" data-ord="alertas" style="cursor:pointer;">Alertas</th>
+              </tr></thead>
+              <tbody id="tbody-consolidado"></tbody>
+            </table>
+          </div>
+          <div id="res-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📊</div>No hay puestos con esos filtros.</div>
+        </div>
+      </div>
+
+      <!-- b) RESULTADO OFICIAL -->
+      <div id="sub-oficial" style="display:none;">
+        <div class="card" style="margin-bottom:14px;">
+          <div class="fila" style="gap:12px; flex-wrap:wrap;">
+            <div class="campo" style="flex:2; min-width:220px;"><label>Puesto</label><select id="of-puesto"></select>
+              <input id="of-puesto-texto" placeholder="Escriba el puesto (fuera de lista)" style="display:none; margin-top:6px;"></div>
+            <div class="campo" style="flex:1; min-width:110px;"><label>Mesa</label><select id="of-mesa"></select></div>
+            <div class="campo" style="flex:1; min-width:150px;"><label>Fuente</label>
+              <select id="of-fuente"><option value="preconteo">Preconteo</option><option value="escrutinio">Escrutinio</option></select></div>
+          </div>
+          <div id="of-info" style="font-size:0.85rem; color:var(--color-text-muted); margin:6px 0;"></div>
+          <div class="tabla-contenedor"><table>
+            <thead><tr><th>Candidato</th><th class="col-num">Testigo</th><th class="col-num" style="width:130px;">Oficial</th><th class="col-num">Diferencia</th></tr></thead>
+            <tbody id="tbody-oficial"></tbody>
+          </table></div>
+          <div id="of-error" class="error-msg" style="margin-top:10px;"></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button type="button" class="btn-primario" id="of-guardar">Guardar y siguiente mesa</button>
+            <button type="button" class="btn-secundario" id="of-foto" disabled>📷 Ver foto del E-14</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- c) DIFERENCIAS -->
+      <div id="sub-diferencias" style="display:none;">
+        <div id="dif-vacio-oficial" class="card" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#8A5A00;">
+          Todavía no hay resultado oficial cargado. Primero digítelo en la pestaña <strong>Resultado oficial</strong>:
+          las diferencias se calculan comparándolo con lo que reportó el testigo de cada mesa.
+        </div>
+        <div class="card" style="margin-bottom:14px;">
+          <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+            <h3 style="margin:0;">Mesas con diferencia <span id="dif-total" class="mono"></span></h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <button type="button" class="btn-acento btn-sm" data-filtro-dif="perdida">Pierde el propio</button>
+              <button type="button" class="btn-secundario btn-sm" data-filtro-dif="cualquiera">Cualquier diferencia</button>
+              <button type="button" class="btn-secundario btn-sm" data-filtro-dif="marcadas">Solo marcadas</button>
+              <select id="dif-fuente" style="width:auto;"><option value="todas">Ambas fuentes</option><option value="preconteo">Preconteo</option><option value="escrutinio">Escrutinio</option></select>
+            </div>
+          </div>
+          <div class="tabla-contenedor"><table>
+            <thead><tr><th style="width:34px;"></th><th>Puesto · Mesa</th><th>Testigo</th><th>Oficial</th><th class="col-num">Δ propio</th><th>Foto</th><th>Estado</th></tr></thead>
+            <tbody id="tbody-dif"></tbody>
+          </table></div>
+          <div id="dif-vacio" class="vacio" style="display:none;"><div class="icono-vacio">✅</div>No hay mesas con ese filtro.</div>
+        </div>
+        <div class="card">
+          <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+            <h3 style="margin:0;">Paquete para el abogado</h3>
+            <button type="button" class="btn-primario" id="btn-paquete" disabled>Armar paquete (0 marcadas)</button>
+          </div>
+          <p style="font-size:0.85rem; color:var(--color-text-muted); margin:6px 0 10px;">
+            Un ZIP con el Excel de las mesas marcadas «para reclamar», las fotos del E-14 y los documentos de cada una, y un
+            <code>sha256.txt</code> con la huella de cada archivo. Se arma solo y vence a las 24 horas.</p>
+          <div class="tabla-contenedor"><table>
+            <thead><tr><th>Pedido</th><th>Estado</th><th class="col-num">Mesas</th><th class="col-num">Archivos</th><th class="col-num">Tamaño</th><th>Vence</th><th></th></tr></thead>
+            <tbody id="tbody-paquetes"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div><!-- /vista-resultados -->
+
+    <!-- Nota y estado de una mesa con diferencia -->
+    <div id="modal-revision" class="overlay" style="display:none;">
+      <div class="modal" style="max-width:460px;">
+        <div class="modal-header"><h3 id="rev-titulo">Mesa</h3><button class="modal-cerrar" id="rev-cerrar">&times;</button></div>
+        <div class="campo"><label>Estado</label>
+          <select id="rev-estado"><option value="para_reclamar">Para reclamar</option><option value="revisada">Revisada (sin reclamo)</option><option value="ninguno">Sin revisión</option></select></div>
+        <div class="campo"><label>Nota</label><textarea id="rev-nota" rows="4" placeholder="Ej. el acta tiene un tachón en la fila del candidato"></textarea></div>
+        <div id="rev-error" class="error-msg"></div>
+        <button type="button" class="btn-primario" id="rev-guardar">Guardar</button>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -486,22 +595,27 @@ async function cargarAvance() {
   }
 }
 
+let intervaloPaquetes = null;
 function mostrarPestana(cual) {
-  const avance = cual === 'avance';
-  document.getElementById('vista-reportes').style.display = avance ? 'none' : 'block';
-  document.getElementById('vista-avance').style.display = avance ? 'block' : 'none';
-  const a = document.getElementById('pestana-avance'), r = document.getElementById('pestana-reportes');
-  a.classList.toggle('btn-acento', avance); a.classList.toggle('btn-secundario', !avance);
-  r.classList.toggle('btn-acento', !avance); r.classList.toggle('btn-secundario', avance);
-  if (location.hash !== (avance ? '#avance' : '')) history.replaceState(null, '', avance ? '#avance' : location.pathname);
-  clearInterval(intervaloAvance);
-  if (avance) {
+  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados' };
+  if (!vistas[cual]) cual = 'reportes';
+  Object.entries(vistas).forEach(([k, id]) => { document.getElementById(id).style.display = k === cual ? 'block' : 'none'; });
+  Object.keys(vistas).forEach((k) => {
+    const b = document.getElementById('pestana-' + k);
+    b.classList.toggle('btn-acento', k === cual); b.classList.toggle('btn-secundario', k !== cual);
+  });
+  const hash = cual === 'reportes' ? '' : '#' + cual;
+  if (location.hash !== hash) history.replaceState(null, '', cual === 'reportes' ? location.pathname : hash);
+  clearInterval(intervaloAvance); clearInterval(intervaloPaquetes);
+  if (cual === 'avance') {
     cargarAvance().catch(err => alert(err.message || 'No se pudo cargar el avance.'));
     intervaloAvance = setInterval(() => cargarAvance().catch(() => {}), 30000);
   }
+  if (cual === 'resultados') abrirResultados();
 }
 document.getElementById('pestana-reportes').addEventListener('click', () => mostrarPestana('reportes'));
 document.getElementById('pestana-avance').addEventListener('click', () => mostrarPestana('avance'));
+document.getElementById('pestana-resultados').addEventListener('click', () => mostrarPestana('resultados'));
 document.querySelectorAll('[data-orden-ranking]').forEach(b => b.addEventListener('click', () => {
   ordenRanking = b.dataset.ordenRanking;
   document.querySelectorAll('[data-orden-ranking]').forEach(x => {
@@ -524,6 +638,244 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
   }
 });
 
+/* ——— RESULTADOS (fase 3) ——— */
+let puedeResultados = false;
+const RES = '/dia-d/resultados';
+const fmtN = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-CO'));
+const fmtB = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+let resCons = null, resOrden = { campo: 'puesto', asc: true }, resMunicipio = '', resSoloAlertas = false;
+let puestosOficial = [], mesaOficial = null, filtroDif = 'perdida', ultimasDif = null, revisionAbierta = null, numMarcadas = 0;
+
+function subResultados(cual) {
+  ['consolidado', 'oficial', 'diferencias'].forEach(k => { document.getElementById('sub-' + k).style.display = k === cual ? 'block' : 'none'; });
+  document.querySelectorAll('[data-sub]').forEach(b => { b.classList.toggle('btn-acento', b.dataset.sub === cual); b.classList.toggle('btn-secundario', b.dataset.sub !== cual); });
+  if (cual === 'consolidado') cargarConsolidado().catch(err => alert(err.message));
+  if (cual === 'oficial') prepararOficial().catch(err => alert(err.message));
+  if (cual === 'diferencias') { cargarDiferencias().catch(err => alert(err.message)); cargarPaquetes().catch(() => {}); }
+}
+document.querySelectorAll('[data-sub]').forEach(b => b.addEventListener('click', () => subResultados(b.dataset.sub)));
+function abrirResultados() { subResultados('consolidado'); cargarDiferencias(true).catch(() => {}); }
+
+/* a) CONSOLIDADO */
+async function cargarConsolidado() {
+  const p = new URLSearchParams();
+  if (resMunicipio) p.set('municipio', resMunicipio);
+  if (resSoloAlertas) p.set('solo_alertas', '1');
+  resCons = await api(`${RES}/consolidado?${p.toString()}`);
+  document.getElementById('res-excel').href = `/api${RES}/consolidado/excel?${p.toString()}`;
+  pintarConsolidado();
+}
+function pintarConsolidado() {
+  const c = resCons; if (!c) return;
+  const t = c.totales;
+  document.getElementById('res-totales').innerHTML = [
+    ['Mesas reportadas', `${fmtN(t.mesas_reportadas)} de ${fmtN(t.mesas_total)}`], [c.candidatos.propio || 'Propio', fmtN(t.propio)],
+    [c.candidatos.rival1 || 'Rival 1', fmtN(t.rival1)], [c.candidatos.rival2 || 'Rival 2', fmtN(t.rival2)],
+    ['Voto en blanco', fmtN(t.blanco)], ['Mesas con alertas', fmtN(t.alertas)],
+  ].map(([l, v]) => `<div class="card stat-card"><div class="label">${escaparHtml(l)}</div><div class="valor" style="font-size:1.3rem;">${escaparHtml(v)}</div></div>`).join('');
+  document.getElementById('th-propio').textContent = c.candidatos.propio || 'Propio';
+  document.getElementById('th-rival1').textContent = c.candidatos.rival1 || 'Rival 1';
+  document.getElementById('th-rival2').textContent = c.candidatos.rival2 || 'Rival 2';
+  const chip = (texto, activo, fn) => `<button type="button" class="${activo ? 'btn-acento' : 'btn-secundario'} btn-sm" onclick="${fn}">${escaparHtml(texto)}</button>`;
+  document.getElementById('res-chips').innerHTML =
+    chip('Todos los municipios', !resMunicipio && !resSoloAlertas, "elegirMunicipio('')")
+    + c.municipios.map(m => chip(m, resMunicipio === m, `elegirMunicipio(${JSON.stringify(m).replace(/"/g, '&quot;')})`)).join('')
+    + chip('Solo con alertas', resSoloAlertas, 'alternarSoloAlertas()');
+  const filas = c.filas.slice().sort((a, b) => {
+    const x = a[resOrden.campo], y = b[resOrden.campo];
+    const r = typeof x === 'string' ? x.localeCompare(y) : (x - y);
+    return resOrden.asc ? r : -r;
+  });
+  const barra = (f, total) => {
+    const pct = total ? Math.min(100, Math.round((f / total) * 100)) : (f ? 100 : 0);
+    return `<div style="display:flex; align-items:center; gap:8px; min-width:130px;"><div style="flex:1; height:8px; background:#E8EAEE; border-radius:99px; overflow:hidden;"><div style="width:${pct}%; height:100%; background:var(--color-navy-light, #1C3A63);"></div></div><span class="mono" style="font-size:0.8rem; white-space:nowrap;">${f}/${total === null ? '?' : total}</span></div>`;
+  };
+  const fila = (f, extra) => `<tr${extra || ''}>
+      <td>${escaparHtml(f.puesto)}${f.municipio ? `<div style="font-size:0.75rem; color:var(--color-text-muted);">${escaparHtml(f.municipio)}</div>` : ''}${f.textos ? `<div style="font-size:0.75rem; color:var(--color-text-muted);">${f.textos.map(escaparHtml).join(' · ')}</div>` : ''}</td>
+      <td>${barra(f.mesas_reportadas, f.mesas_total)}</td>
+      <td class="mono col-num">${fmtN(f.propio)}</td><td class="mono col-num">${fmtN(f.rival1)}</td><td class="mono col-num">${fmtN(f.rival2)}</td>
+      <td class="mono col-num">${fmtN(f.blanco)}</td>
+      <td class="mono col-num">${f.alertas ? `<span class="distintivo-alerta">⚠ ${f.alertas}</span>` : '—'}</td></tr>`;
+  document.getElementById('tbody-consolidado').innerHTML = filas.map(f => fila(f)).join('')
+    + (c.fuera_de_lista ? fila(c.fuera_de_lista, ' style="background:#FAF6EC;"') : '');
+  document.getElementById('res-vacio').style.display = (filas.length || c.fuera_de_lista) ? 'none' : 'block';
+}
+function elegirMunicipio(m) { resMunicipio = m; resSoloAlertas = false; cargarConsolidado().catch(e => alert(e.message)); }
+function alternarSoloAlertas() { resSoloAlertas = !resSoloAlertas; if (resSoloAlertas) resMunicipio = ''; cargarConsolidado().catch(e => alert(e.message)); }
+document.querySelectorAll('#tabla-consolidado [data-ord]').forEach(th => th.addEventListener('click', () => {
+  resOrden = { campo: th.dataset.ord, asc: resOrden.campo === th.dataset.ord ? !resOrden.asc : th.dataset.ord === 'puesto' };
+  pintarConsolidado();
+}));
+
+/* b) RESULTADO OFICIAL */
+const FUERA = '__fuera__';
+async function prepararOficial() {
+  if (!puestosOficial.length) puestosOficial = await api('/dia-d/puestos-con-mesas');
+  const sel = document.getElementById('of-puesto');
+  if (!sel.options.length) {
+    sel.innerHTML = puestosOficial.map(p => `<option value="${p.id}">${escaparHtml(p.nombre)}</option>`).join('')
+      + `<option value="${FUERA}">— Fuera de lista (escribir el nombre) —</option>`;
+    sel.addEventListener('change', async () => { await llenarMesas(); await cargarMesaOficial(); });
+    document.getElementById('of-mesa').addEventListener('change', cargarMesaOficial);
+    document.getElementById('of-fuente').addEventListener('change', async () => { await llenarMesas(); await cargarMesaOficial(); });
+    document.getElementById('of-puesto-texto').addEventListener('change', cargarMesaOficial);
+  }
+  await llenarMesas();
+  await cargarMesaOficial();
+}
+const consultaPuesto = () => {
+  const v = document.getElementById('of-puesto').value;
+  return v === FUERA ? { puesto_texto: document.getElementById('of-puesto-texto').value.trim() } : { puesto_id: Number(v) };
+};
+async function llenarMesas(mesaElegida) {
+  const v = document.getElementById('of-puesto').value;
+  document.getElementById('of-puesto-texto').style.display = v === FUERA ? 'block' : 'none';
+  const mesa = document.getElementById('of-mesa');
+  if (v === FUERA) { mesa.innerHTML = Array.from({ length: 60 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join(''); return; }
+  const fuente = document.getElementById('of-fuente').value;
+  const r = await api(`${RES}/pendientes?puesto_id=${encodeURIComponent(v)}&fuente=${fuente}`);
+  const previa = mesaElegida || Number(mesa.value) || 1;
+  mesa.innerHTML = r.mesas.map(m => `<option value="${m.mesa}">${m.con_oficial ? '✓ ' : ''}${m.mesa}${m.con_reporte ? '' : ' (sin reporte)'}</option>`).join('');
+  mesa.value = String(previa <= r.cantidad_mesas ? previa : 1);
+}
+async function cargarMesaOficial() {
+  const err = document.getElementById('of-error'); err.textContent = '';
+  const q = consultaPuesto();
+  if (q.puesto_texto === '') { document.getElementById('tbody-oficial').innerHTML = ''; return; }
+  const p = new URLSearchParams({ ...q, mesa: document.getElementById('of-mesa').value, fuente: document.getElementById('of-fuente').value });
+  try { mesaOficial = await api(`${RES}/mesa?${p.toString()}`); } catch (e) { err.textContent = e.message; return; }
+  const m = mesaOficial;
+  document.getElementById('of-info').textContent = m.reporte
+    ? `Reporte del testigo ${m.reporte.testigo} a las ${String(m.reporte.hora).slice(11, 16)}${m.reporte.alertas ? ' · con alertas' : ''}.`
+    : 'Esta mesa todavía no tiene reporte del testigo: solo se puede digitar el oficial.';
+  document.getElementById('of-foto').disabled = !(m.reporte && m.reporte.tiene_foto);
+  document.getElementById('tbody-oficial').innerHTML = m.candidatos.map((c, i) => `
+    <tr data-i="${i}"><td>${escaparHtml(c.nombre)}${c.es_propio ? ' ★' : ''}<div style="font-size:0.72rem; color:var(--color-text-muted);">${c.grupo === 'candidato' ? '' : escaparHtml(c.grupo)}</div></td>
+      <td class="mono col-num">${fmtN(c.testigo)}</td>
+      <td class="col-num"><input type="number" min="0" step="1" inputmode="numeric" class="of-voto" data-i="${i}" value="${c.oficial === null ? '' : c.oficial}" style="width:110px; text-align:right;"></td>
+      <td class="mono col-num dif-celda" data-i="${i}">—</td></tr>`).join('');
+  document.querySelectorAll('.of-voto').forEach(inp => inp.addEventListener('input', pintarDiferenciasOficial));
+  pintarDiferenciasOficial();
+}
+function pintarDiferenciasOficial() {
+  document.querySelectorAll('.of-voto').forEach(inp => {
+    const c = mesaOficial.candidatos[Number(inp.dataset.i)];
+    const celda = document.querySelector(`.dif-celda[data-i="${inp.dataset.i}"]`);
+    if (inp.value === '' || c.testigo === null) { celda.textContent = '—'; celda.style.color = ''; return; }
+    const d = Number(inp.value) - c.testigo;
+    celda.textContent = d > 0 ? `+${d}` : String(d);
+    // Roja si el PROPIO pierde, verde si coincide; el resto, sin juicio.
+    celda.style.color = d === 0 ? 'var(--color-confirmado, #1E7245)' : (c.es_propio && d < 0 ? 'var(--color-no-apoya, #A93226)' : '');
+    celda.style.fontWeight = d !== 0 && c.es_propio && d < 0 ? '700' : '';
+  });
+}
+document.getElementById('of-foto').addEventListener('click', () => {
+  if (mesaOficial && mesaOficial.reporte && mesaOficial.reporte.foto_ruta) window.open(mesaOficial.reporte.foto_ruta, '_blank', 'noopener');
+});
+document.getElementById('of-guardar').addEventListener('click', async () => {
+  const err = document.getElementById('of-error'); err.textContent = '';
+  const votos = [...document.querySelectorAll('.of-voto')].filter(i => i.value !== '').map(i => ({
+    candidato_nombre: mesaOficial.candidatos[Number(i.dataset.i)].nombre, grupo: mesaOficial.candidatos[Number(i.dataset.i)].grupo, votos: i.value }));
+  if (!votos.length) { err.textContent = 'Digite al menos el resultado de un candidato.'; return; }
+  const boton = document.getElementById('of-guardar'); boton.disabled = true;
+  try {
+    const r = await api(`${RES}/mesa`, { method: 'PUT', body: { ...consultaPuesto(), mesa: Number(document.getElementById('of-mesa').value), fuente: document.getElementById('of-fuente').value, votos } });
+    if (r.siguiente) {
+      document.getElementById('of-puesto').value = String(r.siguiente.puesto_id);
+      await llenarMesas(r.siguiente.mesa);
+      document.getElementById('of-mesa').value = String(r.siguiente.mesa);
+    } else {
+      await llenarMesas(Number(document.getElementById('of-mesa').value));
+      document.getElementById('of-info').textContent = 'Guardado. No quedan más mesas pendientes en este puesto.';
+    }
+    await cargarMesaOficial();
+    if (!r.siguiente) document.getElementById('of-info').textContent = 'Guardado. No quedan más mesas pendientes en este puesto.';
+    cargarDiferencias(true).catch(() => {});
+  } catch (e) { err.textContent = e.message || 'No se pudo guardar.'; }
+  finally { boton.disabled = false; }
+});
+
+/* c) DIFERENCIAS Y PAQUETE */
+async function cargarDiferencias(soloContador) {
+  const fuente = document.getElementById('dif-fuente').value;
+  const r = await api(`${RES}/diferencias?filtro=${filtroDif}&fuente=${fuente}`);
+  ultimasDif = r; numMarcadas = r.marcadas;
+  document.getElementById('contador-dif').textContent = r.total ? `(${r.total})` : '';
+  const b = document.getElementById('btn-paquete');
+  b.textContent = `Armar paquete (${r.marcadas} marcadas)`;
+  b.disabled = !r.marcadas;
+  if (soloContador && document.getElementById('sub-diferencias').style.display === 'none') return;
+  document.getElementById('dif-total').textContent = `(${r.total})`;
+  document.getElementById('dif-vacio-oficial').style.display = r.hay_oficial ? 'none' : 'block';
+  document.querySelectorAll('[data-filtro-dif]').forEach(x => { x.classList.toggle('btn-acento', x.dataset.filtroDif === filtroDif); x.classList.toggle('btn-secundario', x.dataset.filtroDif !== filtroDif); });
+  const ETQ = { para_reclamar: 'Para reclamar', revisada: 'Revisada' };
+  document.getElementById('dif-vacio').style.display = r.filas.length ? 'none' : 'block';
+  document.getElementById('tbody-dif').innerHTML = r.filas.map((f, i) => {
+    const propio = f.diferencias.find(d => d.es_propio);
+    const resumen = f.diferencias.length ? f.diferencias.map(d => `${escaparHtml(d.candidato)} ${d.oficial} (${d.delta > 0 ? '+' : ''}${d.delta})`).join(' · ') : 'Coincide';
+    const dp = f.delta_propio;
+    return `<tr data-i="${i}" style="cursor:pointer;">
+      <td><input type="checkbox" class="dif-marca" data-i="${i}" ${f.estado === 'para_reclamar' ? 'checked' : ''} style="width:auto;"></td>
+      <td>${escaparHtml(f.puesto)} · Mesa ${f.mesa}<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(f.municipio)} · ${f.fuente}</div></td>
+      <td>${escaparHtml(f.testigo)}</td><td style="font-size:0.82rem;">${resumen}</td>
+      <td class="mono col-num" style="${dp !== null && dp < 0 ? 'color:var(--color-no-apoya,#A93226); font-weight:700;' : (dp === 0 ? 'color:var(--color-confirmado,#1E7245);' : '')}">${dp === null ? '—' : (dp > 0 ? '+' : '') + dp}${propio ? '' : ''}</td>
+      <td>${f.tiene_foto ? `<a href="/api/dia-d/reportes/${f.reporte_id}/foto" target="_blank" rel="noopener" onclick="event.stopPropagation()">📷</a>` : '—'}</td>
+      <td>${f.estado ? ETQ[f.estado] : '—'}${f.nota ? `<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(String(f.nota).slice(0, 60))}</div>` : ''}</td></tr>`;
+  }).join('');
+}
+document.querySelectorAll('[data-filtro-dif]').forEach(b => b.addEventListener('click', () => { filtroDif = b.dataset.filtroDif; cargarDiferencias().catch(e => alert(e.message)); }));
+document.getElementById('dif-fuente').addEventListener('change', () => cargarDiferencias().catch(e => alert(e.message)));
+document.getElementById('tbody-dif').addEventListener('click', async (e) => {
+  const fila = e.target.closest('tr[data-i]'); if (!fila) return;
+  const f = ultimasDif.filas[Number(fila.dataset.i)];
+  if (e.target.classList.contains('dif-marca')) {
+    try {
+      await api(`${RES}/revision`, { method: 'PUT', body: { puesto_id: f.puesto_id || undefined, puesto_texto: f.puesto_id ? undefined : f.puesto_texto, mesa: f.mesa, estado: e.target.checked ? 'para_reclamar' : 'ninguno', nota: f.nota } });
+      await cargarDiferencias();
+    } catch (err) { e.target.checked = !e.target.checked; alert(err.message); }
+    return;
+  }
+  if (e.target.closest('a')) return;
+  revisionAbierta = f;
+  document.getElementById('rev-titulo').textContent = `${f.puesto} · Mesa ${f.mesa}`;
+  document.getElementById('rev-estado').value = f.estado || 'para_reclamar';
+  document.getElementById('rev-nota').value = f.nota || '';
+  document.getElementById('rev-error').textContent = '';
+  document.getElementById('modal-revision').style.display = 'flex';
+});
+document.getElementById('rev-cerrar').addEventListener('click', () => { document.getElementById('modal-revision').style.display = 'none'; });
+document.getElementById('rev-guardar').addEventListener('click', async () => {
+  const f = revisionAbierta; if (!f) return;
+  try {
+    await api(`${RES}/revision`, { method: 'PUT', body: { puesto_id: f.puesto_id || undefined, puesto_texto: f.puesto_id ? undefined : f.puesto_texto, mesa: f.mesa,
+      estado: document.getElementById('rev-estado').value, nota: document.getElementById('rev-nota').value } });
+    document.getElementById('modal-revision').style.display = 'none';
+    await cargarDiferencias();
+  } catch (err) { document.getElementById('rev-error').textContent = err.message; }
+});
+
+async function cargarPaquetes() {
+  const lista = await api(`${RES}/paquetes`);
+  const ETQ = { en_cola: 'En cola…', armando: 'Armando…', listo: 'Listo', error: 'Error' };
+  document.getElementById('tbody-paquetes').innerHTML = lista.length ? lista.map(p => `<tr>
+    <td>${String(p.pedido_en).slice(0, 16)}<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(p.pedido_por || '')}</div></td>
+    <td>${ETQ[p.estado]}${p.error ? `<div style="font-size:0.72rem; color:var(--color-no-apoya,#A93226);">${escaparHtml(String(p.error).slice(0, 120))}</div>` : ''}</td>
+    <td class="mono col-num">${p.mesas}</td><td class="mono col-num">${p.archivos || '—'}</td><td class="mono col-num">${p.bytes ? fmtB(p.bytes) : '—'}</td>
+    <td>${p.estado === 'listo' ? (p.descargable ? String(p.vence_en).slice(0, 16) : 'Venció') : '—'}</td>
+    <td>${p.descargable ? `<a class="btn-secundario btn-sm" href="/api${RES}/paquete/${p.id}/descargar">⬇ Descargar</a><div class="mono" style="font-size:0.65rem; word-break:break-all;" title="sha256 del ZIP">${escaparHtml(String(p.sha256 || '').slice(0, 16))}…</div>` : ''}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="vacio" style="text-align:center;">Todavía no se ha armado ningún paquete.</td></tr>';
+  // Mientras se arma, se vuelve a mirar cada 10 s (la pantalla lo muestra al recargar la lista).
+  clearInterval(intervaloPaquetes);
+  if (lista.some(p => p.estado === 'en_cola' || p.estado === 'armando')) intervaloPaquetes = setInterval(() => cargarPaquetes().catch(() => {}), 10000);
+}
+document.getElementById('btn-paquete').addEventListener('click', async () => {
+  const b = document.getElementById('btn-paquete'); b.disabled = true;
+  try {
+    await api(`${RES}/paquete`, { method: 'POST', body: {} });
+  } catch (err) { alert(err.message); }
+  await cargarPaquetes().catch(() => {});
+  await cargarDiferencias().catch(() => {});
+});
 (async () => {
   usuarioActual = await inicializarLayout('/dia-d.html');
   if (!usuarioActual) return;
@@ -555,7 +907,13 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
   }
 
   await cargarVistaCampana();
+  // La pestaña «Resultados» solo existe con el módulo `resultados_dia_d` (el servidor lo vuelve a exigir
+  // en cada ruta: esto solo evita ofrecer un botón que daría 403). Sin datos de permisos NO se muestra.
+  const permRes = usuarioActual.permisos && usuarioActual.permisos.resultados_dia_d;
+  puedeResultados = !!(permRes && permRes.ver);
+  document.getElementById('pestana-resultados').style.display = puedeResultados ? 'inline-flex' : 'none';
   if (location.hash === '#avance') mostrarPestana('avance');
+  else if (location.hash === '#resultados' && puedeResultados) mostrarPestana('resultados');
   // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
   // en esta app, así que un refresco corto por sondeo es lo más simple y
   // suficiente para seguir el conteo el día de la jornada.

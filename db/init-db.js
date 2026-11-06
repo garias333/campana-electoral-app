@@ -397,6 +397,10 @@ const PERMISOS_POR_DEFECTO = {
   // no. El aspirante no figura aquí: su acceso va en PERMISOS_ASPIRANTE
   // (middleware/aspirante.js), porque su rol de fila es «lider».
   rescate_votos: ['admin', 'coordinador', 'lider', 'sublider'],
+  // Resultados del Día D (fase 3): consolidado, resultado oficial y diferencias. Lo ven el
+  // administrador y el coordinador de fábrica (el aspirante, por PERMISOS_ASPIRANTE); líder,
+  // sublíder, testigo e invitado no. No existe un rol de «abogado» en la matriz.
+  resultados_dia_d: ['admin', 'coordinador'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   crm: ['admin', 'coordinador', 'asistente_administrativo'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
@@ -869,7 +873,8 @@ async function main() {
      init-db es repetible. */
   const [yaExistian] = await connection.query(
     `SELECT TABLE_NAME AS t FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens')`);
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens',
+       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes')`);
   const tablasVotoQueExistian = new Set(yaExistian.map(r => r.t));
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await connection.query(schema);
@@ -2082,7 +2087,8 @@ async function main() {
   // Las dos tablas las crea db/schema.sql (CREATE TABLE IF NOT EXISTS, al
   // principio de cada corrida). Aquí solo se COMPRUEBA que existan y se dice si ya
   // estaban, según lo que había ANTES de aplicar el esquema (ver `tablasVotoQueExistian`).
-  for (const tabla of ['votante_votos', 'votante_voto_tokens']) {
+  for (const tabla of ['votante_votos', 'votante_voto_tokens',
+                       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes']) {
     const [[t]] = await connection.query(
       `SELECT 1 AS x FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
@@ -2091,6 +2097,17 @@ async function main() {
       ? `La tabla ${tabla} ya existía. Sin cambios.`
       : `Tabla ${tabla} creada.`);
   }
+
+  // --- Día D fase 3: el bloque de cada voto ---
+  // `dia_d_reporte_votos` guardaba solo el NOMBRE del candidato; el bloque (candidato,
+  // nivelación, otros) se deducía cruzando ese nombre con la hoja de HOY, y si el candidato se
+  // renombraba o se borraba el cruce se perdía. Los reportes nuevos lo guardan; los viejos
+  // quedan en NULL y se siguen deduciendo por nombre (nada se reescribe).
+  await agregarColumnaSiFalta(
+    connection, 'dia_d_reporte_votos',
+    `grupo ENUM('candidato','nivelacion','otros') NULL AFTER votos`,
+    'grupo'
+  );
 
   // Índices de votantes que la lista de faltantes necesita. `sublider_id` y
   // `puesto_id` no tenían ninguno (medido con SHOW INDEX): el filtro por

@@ -873,9 +873,20 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
        alertas.length ? alertas.join(',') : null]
     );
 
+    /* EL BLOQUE DE CADA RENGLÓN SE GUARDA AL REPORTAR. Lo manda el formulario del
+       celular (`grupo`, el bloque de la fila que el testigo llenó); si no viene —un teléfono
+       con la página vieja, o un reporte que estaba en la cola sin señal— se deduce de la hoja
+       de candidatos de ESTA campaña por nombre; y si tampoco cruza, queda NULL (los
+       consolidados lo siguen deduciendo por nombre, como con los reportes anteriores). */
+    const [hoja] = await conexion.query(
+      `SELECT nombre, grupo FROM dia_d_candidatos WHERE aspirante_id = ?`, [dueno]);
+    const grupoDeLaHoja = new Map(hoja.map(h => [normalizarTexto(h.nombre), h.grupo]));
     await conexion.query(
-      `INSERT INTO dia_d_reporte_votos (reporte_id, candidato_nombre, votos) VALUES ?`,
-      [votosPorCandidato.map(item => [result.insertId, String(item.nombre).trim(), Number(item.votos)])]
+      `INSERT INTO dia_d_reporte_votos (reporte_id, candidato_nombre, votos, grupo) VALUES ?`,
+      [votosPorCandidato.map(item => [
+        result.insertId, String(item.nombre).trim(), Number(item.votos),
+        grupoValido(item.grupo) || grupoDeLaHoja.get(normalizarTexto(item.nombre)) || null,
+      ])]
     );
 
     // Los otros documentos van en la MISMA transacción que el reporte, por lo
@@ -2275,5 +2286,14 @@ router.post('/config/candidatos/importar-excel', requireRole('admin', 'aspirante
     res.status(500).json({ error: 'Error procesando el archivo Excel.' });
   }
 });
+
+/* LO QUE COMPARTE CON routes/resultadosDiaD.routes.js. Se exponen en vez de copiarse: la
+   regla de «de qué campaña es esta jornada» y la de «quién es el candidato propio» ya
+   costaron errores cuando divergieron (ver los comentarios de arriba), y el consolidado de
+   resultados tiene que decir exactamente lo mismo que el tablero. */
+router.compartido = {
+  duenoDeLaCampana, acotaJornada, nombreDelCandidatoPropio, ORDEN_CANDIDATOS,
+  GRUPOS, grupoValido, normalizarTexto, rutasDelArchivoDiaD,
+};
 
 module.exports = router;
