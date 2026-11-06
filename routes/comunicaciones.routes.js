@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 const { duenoDeLaCampana } = require('../lib/ramas');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { upload, UPLOAD_DIR } = require('../middleware/upload');
@@ -14,6 +14,8 @@ const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer')
 const { armarWhereSql } = require('../config/filtros');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { codigoDe: codigoDeBaja, urlDeBaja } = require('../config/bajaContacto');
+const yaVoto = require('../config/yaVotoEnlace');
+const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 
 const router = express.Router();
 
@@ -253,11 +255,36 @@ function autorizaCanal(fila, canal) {
   return fila[columna] === null || fila[columna] === undefined || Number(fila[columna]) === 1;
 }
 
-async function obtenerDestinatarios(filtros, canal) {
+async function obtenerDestinatarios(filtros, canal, alcance = null) {
   // "seleccion" y "manual" traen la lista ya hecha: no se consulta nada
   // masivo, o se agregarían destinatarios que nadie pidió.
   const fuente = filtros.fuente || 'ambos';
   const resultados = [];
+
+  /* «MIS VOTANTES QUE AÚN NO HAN VOTADO» (Día D, fase 2). A diferencia de las
+     otras fuentes, ESTA SÍ SE ACOTA POR QUIEN PREGUNTA: lo que hace es leer el
+     alcance del usuario (la misma condición del listado de Votantes). Un líder
+     que la elija escribe a SUS votantes, no a toda la base. Sin `req.alcance` no
+     devuelve a nadie: acotar a nadie es el error seguro. */
+  if (fuente === 'mis_votantes_sin_voto') {
+    if (!alcance) return [];
+    const [filas] = await pool.query(`
+      SELECT v.id, v.nombre, v.email, v.telefono, v.categoria, v.puesto_votacion, v.mesa_votacion,
+             v.no_contactar, v.consentimiento_email, v.consentimiento_sms, v.consentimiento_whatsapp
+        FROM votantes v
+        LEFT JOIN votante_votos vv ON vv.votante_id = v.id
+       WHERE vv.votante_id IS NULL AND ${condicionAlcanceVotantes(alcance, 'v')}`,
+      parametrosAlcanceVotantes(alcance));
+    filas.forEach(f => resultados.push({
+      tipo: 'votante', id: f.id, nombre: f.nombre.trim(),
+      contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+      sin_lugar_votacion: !(f.puesto_votacion && String(f.puesto_votacion).trim()),
+      sin_autorizacion: !autorizaCanal(f, canal),
+      dado_de_baja: !!f.no_contactar,
+      detalle: ['Votante sin votar', f.puesto_votacion ? `Puesto: ${f.puesto_votacion}${f.mesa_votacion ? ' · Mesa ' + f.mesa_votacion : ''}` : null]
+        .filter(Boolean).join(' · '),
+    }));
+  }
 
   if (fuente === 'votantes' || fuente === 'ambos') {
     const condiciones = [];
@@ -454,11 +481,65 @@ async function obtenerDestinatarios(filtros, canal) {
  * "Territorio X" y también a "Nivel 1 del Organigrama" en una misma
  * campaña, agregando un grupo tras otro.
  */
-async function obtenerDestinatariosDeGrupos(grupos, canal) {
+/**
+ * El alcance del usuario, SOLO si algún grupo lo necesita («Mis votantes que aún
+ * no han votado»). Se calcula aquí y no con un `router.use` porque casi todo este
+ * módulo no lo usa, y porque `calcularAlcance` vive en el middleware de la
+ * aplicación: solo llena `req.alcance` y llama a `next`, nunca responde.
+ */
+async function alcanceSiHaceFalta(req, res, grupos) {
+  const lista = Array.isArray(grupos) ? grupos : [grupos];
+  if (!lista.some(g => g && g.fuente === 'mis_votantes_sin_voto')) return null;
+  if (!req.alcance) {
+    await new Promise((ok, no) => calcularAlcance(req, res, (e) => (e ? no(e) : ok())));
+  }
+  return req.alcance || null;
+}
+
+const MARCADOR_ENLACE = /\{enlace_ya_vote\}/i;
+
+/**
+ * LA REGLA ESTRICTA DEL ENLACE «YA VOTÉ». Solo se aplica a un mensaje que lleva
+ * `{enlace_ya_vote}`; la regla general del módulo NO cambia.
+ *
+ * Un enlace que registra un dato electoral no se manda a quien «no dijo que no»:
+ * se manda solo a quien dijo que SÍ. Por eso aquí el consentimiento NULL —«no
+ * consta», que en el resto del módulo deja pasar— EXCLUYE, igual que un 0. Y
+ * excluye a quien no es un votante registrado (no hay ficha donde constar su
+ * consentimiento) y a quien pidió la baja.
+ *
+ * Quien queda fuera por tener el consentimiento en NULL se cuenta APARTE
+ * (`sin_autorizacion_registrada`): el administrador tiene que poder distinguir
+ * «dijo que no» de «nunca le preguntamos».
+ */
+async function aplicarReglaDelEnlace(destinatarios, canal) {
+  const columna = canal === 'sms' ? 'consentimiento_sms' : null;
+  const ids = destinatarios.filter(d => d.tipo === 'votante' && d.id).map(d => Number(d.id));
+  const filas = new Map();
+  if (ids.length && columna) {
+    const [r] = await pool.query(
+      `SELECT id, no_contactar, ${columna} AS consentimiento FROM votantes WHERE id IN (?)`, [ids]);
+    r.forEach(f => filas.set(f.id, f));
+  }
+  for (const d of destinatarios) {
+    const f = d.tipo === 'votante' && d.id ? filas.get(Number(d.id)) : null;
+    if (!f) { d.sin_autorizacion = true; d.sin_autorizacion_registrada = true; continue; }
+    if (Number(f.no_contactar) === 1) d.dado_de_baja = true;
+    if (Number(f.consentimiento) !== 1) {
+      d.sin_autorizacion = true;
+      if (f.consentimiento === null || f.consentimiento === undefined) d.sin_autorizacion_registrada = true;
+    } else {
+      d.sin_autorizacion = false;
+    }
+  }
+  return destinatarios;
+}
+
+async function obtenerDestinatariosDeGrupos(grupos, canal, alcance = null) {
   if (!Array.isArray(grupos)) grupos = [grupos]; // compatibilidad: también acepta un solo grupo suelto
   const resultados = [];
   for (const grupo of grupos) {
-    resultados.push(...await obtenerDestinatarios(grupo || {}, canal));
+    resultados.push(...await obtenerDestinatarios(grupo || {}, canal, alcance));
   }
   const vistos = new Set();
   return resultados.filter(d => {
@@ -614,8 +695,12 @@ router.delete('/plantillas/:id', async (req, res) => {
 // Vista previa: cuántos destinatarios y una muestra, según los filtros — antes de enviar nada.
 router.post('/destinatarios/preview', async (req, res) => {
   try {
-    const { filtros, canal, completo } = req.body;
-    const destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email');
+    const { filtros, canal, completo, mensaje } = req.body;
+    const alcance = await alcanceSiHaceFalta(req, res, filtros || {});
+    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email', alcance);
+    // Un mensaje con {enlace_ya_vote} se manda solo con consentimiento explícito.
+    const conEnlace = MARCADOR_ENLACE.test(String(mensaje || ''));
+    if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal || 'sms');
     // Quien pidió la baja no cuenta como "con contacto": tiene teléfono o
     // correo, pero no se le va a escribir. Sumarlo ahí haría prometer más
     // envíos de los que van a ocurrir. Lo mismo con quien no autorizó ESTE
@@ -630,6 +715,10 @@ router.post('/destinatarios/preview', async (req, res) => {
       sinContacto: destinatarios.filter(d => !d.contacto).length,
       dadosDeBaja,
       sinAutorizacion,
+      // Solo con {enlace_ya_vote}: quienes quedan fuera por NO TENER registrada su
+      // autorización (consentimiento en blanco), aparte de los que dijeron que no.
+      sinAutorizacionRegistrada: conEnlace
+        ? destinatarios.filter(d => d.sin_autorizacion_registrada && !d.dado_de_baja).length : 0,
       muestra: destinatarios.slice(0, 8),
       // "completo" trae la lista entera (con contacto) — la usan las
       // pantallas de Enviar E-mail/SMS para agregar de un tirón
@@ -1029,7 +1118,7 @@ function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja, encendido) {
   return `${texto} Baja: ${urlBaja}`;
 }
 
-async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = null, canal = null) {
+async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = null, canal = null, baseEnlace = '') {
   // {slogan} se resuelve aparte de los del Lugar de votación: es el mismo
   // para todos y no debe disparar la búsqueda por persona ni el salto de
   // quien no tenga puesto registrado.
@@ -1049,8 +1138,26 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
   // esa frase; `mensaje` se conserva intacto porque `agregarBajaSms` lo mira
   // para saber si quien redacto puso {baja} a mano.
   const plantilla = urlBaja ? mensaje : quitarFraseDeBaja(mensaje);
+  /* {enlace_ya_vote}: el enlace «Ya voté» de ESTE votante (se crea o se reutiliza).
+     Solo existe para votantes registrados; para cualquier otro destinatario —o si
+     no hay con qué armar la URL— se devuelve `faltaEnlace` y quien llama marca el
+     envío como fallido en vez de mandar el marcador crudo. */
+  let urlYaVote = '';
+  if (MARCADOR_ENLACE.test(plantilla)) {
+    if (envio.destinatario_tipo !== 'votante' || !envio.destinatario_id || !baseEnlace) {
+      return { texto: '', urlBaja, faltaEnlace: true };
+    }
+    try {
+      const mapa = await yaVoto.asegurarEnlaces([envio.destinatario_id], baseEnlace);
+      urlYaVote = mapa.get(Number(envio.destinatario_id)) || '';
+    } catch (err) {
+      return { texto: '', urlBaja, faltaEnlace: true, motivoEnlace: err.message };
+    }
+  }
   let texto = plantilla
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
+    .replace(/\{primer_nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
+    .replace(/\{enlace_ya_vote\}/gi, urlYaVote)
     .replace(/\{slogan\}/gi, slogan || '')
     .replace(/\{baja\}/gi, urlBaja);
   const minus = plantilla.toLowerCase();
@@ -1123,6 +1230,10 @@ async function procesarEnvioCampana(campanaId) {
     urlBajaBase = c && c.url_baja_base ? c.url_baja_base : null;
   } catch (_) { /* la tabla puede no existir todavía */ }
   const slogan = (cfg && cfg.slogan_campana ? cfg.slogan_campana : '').trim();
+  // La base del enlace «Ya voté»: el dominio de la campaña, o —si el .env no lo
+  // trae— el origen de la URL de baja, que es del mismo sitio.
+  let baseEnlace = yaVoto.baseDelSitio();
+  if (!baseEnlace && urlBajaBase) { try { baseEnlace = new URL(urlBajaBase).origin; } catch (_) { /* sin base */ } }
 
   const [pendientes] = await pool.query(
     `SELECT id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto
@@ -1146,7 +1257,13 @@ async function procesarEnvioCampana(campanaId) {
     // puntual con un destinatario (incluso al guardar el resultado en la
     // base de datos) nunca debe tumbar el envío completo de la campaña.
     try {
-      const { texto: mensajePersonalizado, faltaLugar, urlBaja } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase, canal);
+      const { texto: mensajePersonalizado, faltaLugar, urlBaja, faltaEnlace, motivoEnlace } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase, canal, baseEnlace);
+      if (faltaEnlace) {
+        await pool.query(
+          `UPDATE comunicaciones_envios SET estado = 'fallido', error_mensaje = ? WHERE id = ?`,
+          [String(motivoEnlace || 'No se pudo armar el enlace «Ya voté» para esta persona: solo se envía a votantes registrados.').slice(0, 250), envio.id]);
+        continue;
+      }
       // Se salta, no se manda a medias. Queda registrado con su motivo para
       // que el administrador sepa a quién le falta completar la ficha.
       if (faltaLugar) {
@@ -1329,8 +1446,24 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     }
   }
 
+  // {enlace_ya_vote}: solo SMS y solo si la campaña tiene fecha de elección. Se
+  // rechaza ANTES de crear nada: una campaña con el marcador sin resolver
+  // mandaría «avísanos aquí: {enlace_ya_vote}» tal cual a cientos de personas.
+  const conEnlace = MARCADOR_ENLACE.test(String(mensaje || ''));
+  if (conEnlace) {
+    if (canal !== 'sms') {
+      return res.status(400).json({ error: 'El enlace «Ya voté» solo se puede enviar por SMS (o con el asistente de WhatsApp).' });
+    }
+    const e = await yaVoto.estadoDeLaElección().catch(() => ({ fecha: null }));
+    if (!e.fecha) {
+      return res.status(400).json({ error: 'La campaña no tiene fecha de elección. Configúrela en Configuración → Datos de la campaña para poder enviar el enlace «Ya voté».' });
+    }
+  }
+
   try {
-    const destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal);
+    const alcance = await alcanceSiHaceFalta(req, res, filtros || {});
+    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal, alcance);
+    if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal);
     if (destinatarios.length === 0) {
       return res.status(400).json({ error: 'No hay destinatarios que coincidan con los filtros elegidos.' });
     }

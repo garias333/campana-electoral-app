@@ -46,7 +46,7 @@ const PERMITIDOS = [
    posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
    el filtro son el mismo cambio, y separarlos habría dejado una fuga con
    pinta de función nueva. */
-const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos'];
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -100,6 +100,11 @@ const HREFS_ASPIRANTE = [
      Sin esta linea tenia los puestos y los testigos pero no donde ver lo que
      reportan el dia de la eleccion, que es para lo que sirve todo lo anterior. */
   '/dia-d.html',
+  /* Rescate de votos del Día D (celular y escritorio). Es de su rama: las rutas
+     acotan por `req.alcance`. */
+  '/app/faltantes.html',
+  '/app/ranking-dia-d.html',
+  '/dia-d.html#avance',
 ];
 
 /*
@@ -135,6 +140,10 @@ const PERMISOS_ASPIRANTE = {
   mapa:          { ver: true, editar: false, agregar: false, importar_exportar: false },
   votantes:      { ver: true, editar: true,  agregar: true,  importar_exportar: true  },
   testigos:      { ver: true, editar: true,  agregar: true,  importar_exportar: false },
+  /* «Faltan por votar» y el ranking del Día D: lo de SU rama. Las rutas
+     (routes/rescateVotos.routes.js) cuelgan de /dia-d, que ya es suyo, y acotan
+     por `req.alcance` de aspirante: ve a sus votantes y a sus líderes. */
+  rescate_votos: { ver: true, editar: true,  agregar: false, importar_exportar: false },
 };
 
 /**

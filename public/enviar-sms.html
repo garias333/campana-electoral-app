@@ -74,6 +74,7 @@
                 <option value="estructura">Solo Estructura (coordinadores/líderes/testigos)</option>
                 <option value="testigos">Testigos y Coordinadores de puesto</option>
                 <option value="organigrama">Solo Organigrama</option>
+                <option value="mis_votantes_sin_voto">Mis votantes que aún no han votado (Día D)</option>
               </select>
             </div>
             <div class="campo" id="grupo-campo-territorio">
@@ -160,6 +161,8 @@
             <code>{municipio}</code>, <code>{departamento}</code>.
             A quien le falte el dato, el marcador le queda vacío.
             <br><code>{slogan}</code> pone el eslogan de Configuración → Datos de la campaña.
+            <br><code>{enlace_ya_vote}</code> pone el enlace personal donde cada votante avisa «ya voté» (solo el día de la elección).
+            Se envía <strong>únicamente a quien autorizó SMS de forma expresa</strong>: quien no tiene autorización registrada queda fuera.
           </div>
           <button type="button" class="btn-secundario btn-sm" id="btn-plantilla-dia-d-sms" style="margin-top:8px;">Insertar mensaje de Día D</button>
         </div>
@@ -283,13 +286,15 @@ function actualizarVisibilidadFiltrosGrupo() {
   const fuente = document.getElementById('grupo-fuente').value;
   const esSoloOrganigrama = fuente === 'organigrama';
   const esTestigos = fuente === 'testigos';
-  document.getElementById('grupo-campo-territorio').style.display = (esSoloOrganigrama || esTestigos) ? 'none' : 'block';
-  document.getElementById('grupo-campo-categoria').style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos) ? 'none' : 'block';
-  document.getElementById('grupo-campo-cargo').style.display = (esSoloOrganigrama || fuente === 'votantes' || esTestigos) ? 'none' : 'block';
+  // «Mis votantes que aún no han votado» no tiene más filtros: ya es «los míos que faltan».
+  const esMisVotantes = fuente === 'mis_votantes_sin_voto';
+  document.getElementById('grupo-campo-territorio').style.display = (esSoloOrganigrama || esTestigos || esMisVotantes) ? 'none' : 'block';
+  document.getElementById('grupo-campo-categoria').style.display = (esSoloOrganigrama || fuente === 'estructura' || esTestigos || esMisVotantes) ? 'none' : 'block';
+  document.getElementById('grupo-campo-cargo').style.display = (esSoloOrganigrama || fuente === 'votantes' || esTestigos || esMisVotantes) ? 'none' : 'block';
   // El Puesto de votación ahora sirve también para Votantes: es el corte
   // natural del Día D ("todos los que votan en tal puesto"). Sigue oculto
   // para Organigrama, que no tiene ese dato.
-  document.getElementById('grupo-campo-puesto-votacion').style.display = esSoloOrganigrama ? 'none' : 'block';
+  document.getElementById('grupo-campo-puesto-votacion').style.display = (esSoloOrganigrama || esMisVotantes) ? 'none' : 'block';
   document.getElementById('grupo-fila-organigrama').style.display = esSoloOrganigrama ? 'flex' : 'none';
 }
 
@@ -310,7 +315,9 @@ document.getElementById('btn-agregar-grupo-resolver').addEventListener('click', 
       organigrama_nivel: document.getElementById('grupo-organigrama-nivel').value || null
     };
     const r = await api('/comunicaciones/destinatarios/preview', {
-      method: 'POST', body: { filtros: [filtroGrupo], canal: CANAL, completo: true }
+      // El mensaje viaja para que, si lleva {enlace_ya_vote}, la vista previa aplique su
+      // regla estricta (solo con autorización explícita) y no cuente de más.
+      method: 'POST', body: { filtros: [filtroGrupo], canal: CANAL, completo: true, mensaje: document.getElementById('input-mensaje').value }
     });
     let agregados = 0;
     (r.destinatarios || []).forEach(d => {
@@ -320,7 +327,8 @@ document.getElementById('btn-agregar-grupo-resolver').addEventListener('click', 
       agregados++;
     });
     renderizarSeleccionados();
-    estado.textContent = `${formatoMillares(agregados)} contacto(s) agregado(s) (de ${formatoMillares(r.conContacto)} encontrados con ese filtro).`;
+    estado.textContent = `${formatoMillares(agregados)} contacto(s) agregado(s) (de ${formatoMillares(r.conContacto)} encontrados con ese filtro).`
+      + (r.sinAutorizacionRegistrada ? ` ${formatoMillares(r.sinAutorizacionRegistrada)} sin autorización registrada: no recibirán el enlace «Ya voté».` : '');
     document.getElementById('panel-agregar-grupo').style.display = 'none';
   } catch (err) {
     estado.textContent = err.message;
@@ -384,7 +392,24 @@ document.getElementById('btn-enviar').addEventListener('click', async () => {
     errorBox.classList.add('visible');
     return;
   }
-  if (!confirm(`Vas a enviar este SMS a ${seleccionados.length} persona(s). ¿Confirmas?`)) return;
+  // Con {enlace_ya_vote} el envío es estricto: solo recibe quien autorizó
+  // EXPRESAMENTE los SMS. Se dice cuántos quedan fuera ANTES de confirmar.
+  if (/\{enlace_ya_vote\}/i.test(mensaje)) {
+    try {
+      const seleccionPrevia = seleccionados.map(d => ({ tipo: d.tipo, id: d.id, nombre: d.nombre, contacto: d.contacto }));
+      const previa = await api('/comunicaciones/destinatarios/preview', {
+        method: 'POST', body: { filtros: { fuente: 'seleccion', seleccion: seleccionPrevia }, canal: CANAL, mensaje }
+      });
+      const fuera = previa.total - previa.conContacto;
+      if (!confirm(`El enlace «Ya voté» solo se envía a quien autorizó SMS expresamente.\n\n`
+        + `Recibirán el mensaje: ${previa.conContacto} de ${previa.total}.\n`
+        + `Sin autorización registrada: ${previa.sinAutorizacionRegistrada}. Dados de baja: ${previa.dadosDeBaja}. Sin teléfono: ${previa.sinContacto}.\n\n¿Confirmas el envío?`)) return;
+    } catch (err) {
+      errorBox.textContent = err.message;
+      errorBox.classList.add('visible');
+      return;
+    }
+  } else if (!confirm(`Vas a enviar este SMS a ${seleccionados.length} persona(s). ¿Confirmas?`)) return;
   if (!confirmarFaltantesDeLugar(seleccionados)) return;
 
   const boton = document.getElementById('btn-enviar');

@@ -1119,6 +1119,9 @@ document.getElementById('btn-whatsapp-lote').addEventListener('click', () => {
       }
       return (r.data || []).map(v => ({
         nombre: v.nombre, telefono: v.telefono, no_contactar: v.no_contactar,
+        // Para {puesto}, {mesa} y {enlace_ya_vote} del asistente (Día D).
+        votante_id: v.id, consentimiento_whatsapp: v.consentimiento_whatsapp,
+        puesto: v.puesto_votacion, mesa: v.mesa_votacion,
       }));
     },
   });

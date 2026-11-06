@@ -35,6 +35,14 @@
            se está mirando es de hace un minuto o de hace una hora. -->
       <div class="mono" id="ultima-actualizacion" style="font-size:0.8rem; margin-top:10px;"></div>
     </div>
+    <!-- DOS PESTAÑAS: los reportes de las mesas (lo de siempre) y el avance de votación de la
+         fase 2 (quién ya votó). La URL con #avance abre la segunda: el menú enlaza ahí. -->
+    <div class="grupo-pestanas" style="margin-bottom:16px;">
+      <button type="button" class="btn-acento btn-sm" id="pestana-reportes">Reportes de mesas</button>
+      <button type="button" class="btn-secundario btn-sm" id="pestana-avance">Avance de votación</button>
+    </div>
+
+    <div id="vista-reportes">
     <!-- Los dos botones van en la MISMA rejilla de seis que las tarjetas de
          abajo, así que cada uno mide exactamente lo que una tarjeta y quedan
          a plomo con ellas. Con `display:none` en el de borrar —que solo ve un
@@ -104,6 +112,55 @@
         </table>
       </div>
     </div>
+    </div><!-- /vista-reportes -->
+
+    <div id="vista-avance" style="display:none;">
+      <div id="avance-prueba" class="card" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#8A5A00; margin-bottom:14px;">
+        <strong>Modo prueba:</strong> hoy no es el día de la elección. Las marcas de esta pantalla se pueden vaciar al terminar el simulacro.
+      </div>
+      <div class="grid grid-6" style="margin-bottom:18px;">
+        <div class="card stat-card"><div class="label">Votantes en tu alcance</div><div class="valor" id="av-total">—</div></div>
+        <div class="card stat-card"><div class="label">Ya votaron</div><div class="valor accent" id="av-votaron">—</div></div>
+        <div class="card stat-card"><div class="label">Faltan</div><div class="valor" id="av-faltan" style="color:var(--color-no-apoya);">—</div></div>
+        <div class="card stat-card"><div class="label">Avance</div><div class="valor" id="av-pct">—</div></div>
+        <div class="card stat-card"><div class="label">Última marca</div><div class="valor" id="av-ultima" style="font-size:1.1rem;">—</div></div>
+        <button class="btn-secundario btn-accion-diad" id="btn-vaciar-marcas" style="display:none;">🗑 Vaciar marcas (simulacro)</button>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <h3 style="margin-top:0;">Votos por hora (hoy)</h3>
+        <div id="av-horas"></div>
+        <div id="av-horas-vacio" class="vacio" style="display:none;"><div class="icono-vacio">⏱️</div>Todavía no hay marcas hoy.</div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <div class="toolbar">
+          <h3 style="margin:0;">Ranking de líderes</h3>
+          <div class="grupo-pestanas">
+            <button type="button" class="btn-acento btn-sm" data-orden-ranking="faltantes">Más faltantes</button>
+            <button type="button" class="btn-secundario btn-sm" data-orden-ranking="pct">Menor %</button>
+            <button type="button" class="btn-secundario btn-sm" data-orden-ranking="sin_movimiento">Sin movimiento 1 h</button>
+          </div>
+        </div>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Líder</th><th class="col-num">Votantes</th><th class="col-num">Votaron</th><th class="col-num">Faltan</th><th class="col-num">%</th><th>Última marca</th><th>Teléfono</th></tr></thead>
+            <tbody id="tbody-ranking"></tbody>
+          </table>
+        </div>
+        <div id="av-ranking-vacio" class="vacio" style="display:none;"><div class="icono-vacio">🏁</div>No hay líderes que mostrar con este filtro.</div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Por puesto de votación</h3>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Puesto</th><th class="col-num">Votantes</th><th class="col-num">Votaron</th><th class="col-num">Faltan</th><th class="col-num">%</th></tr></thead>
+            <tbody id="tbody-av-puestos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /vista-avance -->
   </main>
 </div>
 
@@ -372,6 +429,101 @@ async function cargarVistaCampana() {
   document.getElementById('ultima-actualizacion').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
 }
 
+/* ——— AVANCE DE VOTACIÓN (fase 2) ——— */
+let ordenRanking = 'faltantes';
+let intervaloAvance = null;
+const fmtP = (p) => String(p).replace('.', ',') + ' %';
+
+function pintarHoras(porHora) {
+  const cont = document.getElementById('av-horas');
+  const vacio = document.getElementById('av-horas-vacio');
+  if (!porHora.length) { cont.innerHTML = ''; vacio.style.display = 'block'; return; }
+  vacio.style.display = 'none';
+  // De la primera a la última hora con marcas, SIN huecos: una hora sin marcas es un dato (cero),
+  // no una barra que falta.
+  const porNumero = new Map(porHora.map(h => [h.hora, h.n]));
+  const desde = Math.min(...porHora.map(h => h.hora)), hasta = Math.max(...porHora.map(h => h.hora));
+  const max = Math.max(...porHora.map(h => h.n), 1);
+  let html = '<div style="display:flex; align-items:flex-end; gap:6px; height:170px; padding-top:18px;">';
+  for (let h = desde; h <= hasta; h++) {
+    const n = porNumero.get(h) || 0;
+    html += `<div style="flex:1; min-width:22px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+      <span class="mono" style="font-size:0.75rem;">${n}</span>
+      <div style="width:100%; height:${Math.max(2, Math.round((n / max) * 120))}px; background:var(--color-navy-light, #1C3A63); border-radius:4px 4px 0 0;"></div>
+      <span class="mono" style="font-size:0.72rem; color:var(--color-text-muted);">${String(h).padStart(2, '0')}h</span></div>`;
+  }
+  cont.innerHTML = html + '</div>';
+}
+
+async function cargarAvance() {
+  const [r, rk] = await Promise.all([
+    api('/dia-d/rescate/resumen'),
+    api(`/dia-d/rescate/ranking?orden=${ordenRanking}`).catch(() => null),
+  ]);
+  document.getElementById('avance-prueba').style.display = r.modo_prueba ? 'block' : 'none';
+  document.getElementById('av-total').textContent = formatoMillares(r.total);
+  document.getElementById('av-votaron').textContent = formatoMillares(r.votaron);
+  document.getElementById('av-faltan').textContent = formatoMillares(r.faltan);
+  document.getElementById('av-pct').textContent = fmtP(r.pct);
+  document.getElementById('av-ultima').textContent = r.ultima_marca ? String(r.ultima_marca).slice(11, 16) : '—';
+  pintarHoras(r.por_hora);
+  document.getElementById('tbody-av-puestos').innerHTML = r.por_puesto.map(p => `
+    <tr><td>${escaparHtml(p.puesto)}</td><td class="mono col-num">${p.total}</td><td class="mono col-num">${p.votaron}</td>
+        <td class="mono col-num">${p.faltan}</td><td class="mono col-num">${fmtP(p.pct)}</td></tr>`).join('');
+
+  const tbody = document.getElementById('tbody-ranking');
+  const vacio = document.getElementById('av-ranking-vacio');
+  if (!rk || !rk.lideres.length) { tbody.innerHTML = ''; vacio.style.display = 'block'; }
+  else {
+    vacio.style.display = 'none';
+    tbody.innerHTML = rk.lideres.map(l => `
+      <tr class="${l.sin_movimiento ? 'novedad-fila' : ''}">
+        <td>${escaparHtml(l.nombre)}</td><td class="mono col-num">${l.total}</td><td class="mono col-num">${l.votaron}</td>
+        <td class="mono col-num">${l.faltan}</td><td class="mono col-num">${fmtP(l.pct)}</td>
+        <td>${l.ultima_marca ? String(l.ultima_marca).slice(11, 16) : '<span style="color:var(--color-no-apoya);">sin marcas</span>'}${l.sin_movimiento ? ' ⚠' : ''}</td>
+        <td>${l.telefono ? `<a href="tel:${escaparHtml(l.telefono)}">${escaparHtml(l.telefono)}</a>` : '—'}</td>
+      </tr>`).join('');
+  }
+}
+
+function mostrarPestana(cual) {
+  const avance = cual === 'avance';
+  document.getElementById('vista-reportes').style.display = avance ? 'none' : 'block';
+  document.getElementById('vista-avance').style.display = avance ? 'block' : 'none';
+  const a = document.getElementById('pestana-avance'), r = document.getElementById('pestana-reportes');
+  a.classList.toggle('btn-acento', avance); a.classList.toggle('btn-secundario', !avance);
+  r.classList.toggle('btn-acento', !avance); r.classList.toggle('btn-secundario', avance);
+  if (location.hash !== (avance ? '#avance' : '')) history.replaceState(null, '', avance ? '#avance' : location.pathname);
+  clearInterval(intervaloAvance);
+  if (avance) {
+    cargarAvance().catch(err => alert(err.message || 'No se pudo cargar el avance.'));
+    intervaloAvance = setInterval(() => cargarAvance().catch(() => {}), 30000);
+  }
+}
+document.getElementById('pestana-reportes').addEventListener('click', () => mostrarPestana('reportes'));
+document.getElementById('pestana-avance').addEventListener('click', () => mostrarPestana('avance'));
+document.querySelectorAll('[data-orden-ranking]').forEach(b => b.addEventListener('click', () => {
+  ordenRanking = b.dataset.ordenRanking;
+  document.querySelectorAll('[data-orden-ranking]').forEach(x => {
+    x.classList.toggle('btn-acento', x === b); x.classList.toggle('btn-secundario', x !== b);
+  });
+  cargarAvance().catch(err => alert(err.message));
+}));
+
+/** Vacía las marcas «ya votó» y los enlaces de SU alcance (simulacro). Pide SU contraseña. */
+document.getElementById('btn-vaciar-marcas').addEventListener('click', async () => {
+  if (!confirm('¿Vaciar TODAS las marcas de «ya votó» y los enlaces de tu alcance?\n\nSirve para empezar de cero tras un simulacro. No se puede deshacer.')) return;
+  const password = await solicitarPasswordAdmin('Confirma con tu contraseña para vaciar las marcas');
+  if (password === null) return;
+  try {
+    const r = await api('/dia-d/rescate/vaciar', { method: 'POST', body: { password } });
+    alert(`Listo: ${r.marcas} marcas y ${r.enlaces} enlaces borrados.`);
+    await cargarAvance();
+  } catch (err) {
+    alert(err.message || 'No se pudieron vaciar las marcas.');
+  }
+});
+
 (async () => {
   usuarioActual = await inicializarLayout('/dia-d.html');
   if (!usuarioActual) return;
@@ -386,6 +538,8 @@ async function cargarVistaCampana() {
   // el tablero, pero no borrar datos de la jornada electoral.
   esAdmin = usuarioActual.rol === 'admin';
   document.getElementById('btn-eliminar-todos-reportes').style.display = esAdmin ? 'inline-flex' : 'none';
+  // «Vaciar marcas» es del administrador y del aspirante (cada uno vacía lo suyo).
+  document.getElementById('btn-vaciar-marcas').style.display = (usuarioActual.rol === 'admin' || usuarioActual.es_aspirante) ? 'inline-flex' : 'none';
 
   // El rótulo de la tarjeta de votos muestra el nombre real del candidato
   // (Configuración → Datos de la campaña) en vez del texto genérico.
@@ -401,6 +555,7 @@ async function cargarVistaCampana() {
   }
 
   await cargarVistaCampana();
+  if (location.hash === '#avance') mostrarPestana('avance');
   // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
   // en esta app, así que un refresco corto por sondeo es lo más simple y
   // suficiente para seguir el conteo el día de la jornada.

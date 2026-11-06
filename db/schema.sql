@@ -933,4 +933,43 @@ CREATE TABLE IF NOT EXISTS dia_d_reporte_documentos (
   INDEX idx_doc_url (url)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ---------------------------------------------------------
+-- Día D, fase 2: «ya votó».
+--
+-- UNA FILA POR VOTANTE QUE YA VOTÓ. La ausencia de fila es «todavía no», así que
+-- no hay un estado intermedio que mantener ni una columna más en `votantes`.
+-- Es una tabla aparte, y no columnas en la ficha, por tres razones: lleva quién
+-- marcó, cuándo y por qué vía (el avance por hora y cualquier «yo no marqué eso»
+-- dependen de eso); se puede vaciar entera tras un simulacro sin tocar una sola
+-- ficha; y el avance por hora, líder y puesto sale de un GROUP BY sobre una tabla
+-- pequeña, no de recorrer la base de votantes.
+--
+-- `puesto_id` se COPIA al marcar, como `dia_d_reportes`: el avance por puesto
+-- cuenta dónde votó la persona ese día aunque después alguien edite su ficha.
+-- `voto_en` va en hora de Colombia (la sesión de config/db.js fija -05:00).
+-- ---------------------------------------------------------
+CREATE TABLE IF NOT EXISTS votante_votos (
+  votante_id INT NOT NULL PRIMARY KEY,
+  voto_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  marcado_por INT NULL COMMENT 'Usuario del equipo que lo marcó. NULL si vino por el enlace público',
+  origen ENUM('equipo','enlace') NOT NULL,
+  puesto_id INT NULL COMMENT 'Copia de votantes.puesto_id al momento de marcar',
+  INDEX idx_vv_voto_en (voto_en),
+  INDEX idx_vv_puesto (puesto_id),
+  FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
+  FOREIGN KEY (marcado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- El enlace «Ya voté» de cada votante. SOLO SE GUARDA EL HASH del token (como en
+-- consentimiento_confirmaciones): con la tabla a la vista no se puede votar por
+-- nadie. Ver config/yaVotoEnlace.js.
+CREATE TABLE IF NOT EXISTS votante_voto_tokens (
+  votante_id INT NOT NULL PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL,
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  vence_en DATETIME NOT NULL COMMENT 'El día de la elección a las 23:59:59, hora de Colombia',
+  UNIQUE KEY uq_vvt_hash (token_hash),
+  FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

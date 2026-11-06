@@ -34,7 +34,10 @@
   // Los dos primeros cambian POR PERSONA; los dos últimos son de la campaña
   // y valen lo mismo para todos. Se separan porque los de campaña se leen una
   // sola vez al abrir el asistente, y no una por destinatario.
-  const MARCADORES_PERSONA = ['{nombre}', '{primer_nombre}'];
+  // {puesto} y {mesa} salen de la ficha de cada votante (solo si la pantalla que abre el
+  // asistente los trae: Votantes sí; Estructura no, y ahí queda vacío). {enlace_ya_vote}
+  // lo pide al servidor y solo se genera para quien autorizó WhatsApp expresamente.
+  const MARCADORES_PERSONA = ['{nombre}', '{primer_nombre}', '{puesto}', '{mesa}', '{enlace_ya_vote}'];
   const MARCADORES_CAMPANA = ['{candidato}', '{slogan}'];
   const MARCADORES = [...MARCADORES_PERSONA, ...MARCADORES_CAMPANA];
 
@@ -47,7 +50,7 @@
     return d.startsWith('57') ? d : '57' + d;
   }
 
-  function reemplazarMarcadores(texto, persona, campana = {}) {
+  function reemplazarMarcadores(texto, persona, campana = {}, enlaceYaVote = '') {
     const nombre = String(persona.nombre || '').trim();
     // Los de campaña se reemplazan por cadena vacía si no están configurados,
     // no por el marcador crudo: mandar «Hola Ana, {slogan}» es peor que
@@ -55,6 +58,9 @@
     return String(texto || '')
       .replace(/\{nombre\}/gi, nombre)
       .replace(/\{primer_nombre\}/gi, nombre.split(/\s+/)[0] || nombre)
+      .replace(/\{puesto\}/gi, String(persona.puesto || '').trim())
+      .replace(/\{mesa\}/gi, String(persona.mesa || '').trim())
+      .replace(/\{enlace_ya_vote\}/gi, enlaceYaVote)
       .replace(/\{candidato\}/gi, String(campana.candidato || '').trim())
       .replace(/\{slogan\}/gi, String(campana.slogan || '').trim())
       .replace(/[ \t]{2,}/g, ' ')       // sin marcador, no queda doble espacio
@@ -70,7 +76,8 @@
   /**
    * @param {Object} opciones
    * @param {string} opciones.titulo     qué lista es, para el encabezado
-   * @param {Function} opciones.obtenerPersonas  async () => [{nombre, telefono, no_contactar}]
+   * @param {Function} opciones.obtenerPersonas  async () => [{nombre, telefono, no_contactar,
+   *        y, si los tiene: votante_id, consentimiento_whatsapp, puesto, mesa}]
    *        Cada pantalla sabe cómo conseguir SUS filtrados: Estructura los
    *        tiene en memoria, Votantes tiene que volver a preguntarle al
    *        servidor porque su tabla está paginada y solo muestra 50.
@@ -169,6 +176,7 @@
             <strong id="wa-lote-progreso">0 de ${conTelefono.length}</strong> abiertos
             ${sinTelefono ? ` · <span title="No hay a dónde escribirles">${sinTelefono} sin teléfono</span>` : ''}
             ${dadosDeBaja ? ` · <span title="Pidieron no recibir mensajes">${dadosDeBaja} dados de baja</span>` : ''}
+            <span id="wa-lote-sin-aut" style="display:none; color:#A93226;"></span>
           </div>
 
           <ul class="wa-lote-lista" id="wa-lote-lista"></ul>
@@ -181,6 +189,17 @@
     const progreso = fondo.querySelector('#wa-lote-progreso');
     let abiertos = 0;
 
+    const usaEnlace = () => /\{enlace_ya_vote\}/i.test(texto.value);
+    const puedeRecibirEnlace = (p) => !!p.votante_id && Number(p.consentimiento_whatsapp) === 1 && !p.no_contactar;
+    // Dice cuántos quedan fuera mientras se escribe: sin esto, descubrirlo persona por persona.
+    const avisoSinAut = fondo.querySelector('#wa-lote-sin-aut');
+    texto.addEventListener('input', () => {
+      if (!usaEnlace()) { avisoSinAut.style.display = 'none'; return; }
+      const fuera = conTelefono.filter(p => !puedeRecibirEnlace(p)).length;
+      avisoSinAut.textContent = fuera ? ` · ${fuera} sin autorización registrada (no reciben el enlace «Ya voté»)` : '';
+      avisoSinAut.style.display = fuera ? 'inline' : 'none';
+    });
+
     conTelefono.forEach((p, i) => {
       const li = document.createElement('li');
       li.innerHTML = `
@@ -191,14 +210,36 @@
         <button type="button" class="btn-secundario btn-sm wa-lote-abrir">Abrir chat</button>`;
       lista.appendChild(li);
 
-      li.querySelector('.wa-lote-abrir').addEventListener('click', () => {
-        const cuerpo = reemplazarMarcadores(texto.value, p, campana);
+      li.querySelector('.wa-lote-abrir').addEventListener('click', async () => {
+        let enlaceYaVote = '';
+        let ventana = null;
+        if (usaEnlace()) {
+          /* EL ENLACE «YA VOTÉ» ES ESTRICTO: solo con autorización EXPLÍCITA por WhatsApp y
+             sin baja, y solo para votantes registrados. El servidor lo vuelve a comprobar;
+             esto evita abrir el chat para nada. La ventana se abre ANTES de pedir el enlace
+             (dentro del clic): después del `await` el bloqueador de ventanas la detendría. */
+          if (!puedeRecibirEnlace(p)) {
+            alert('Esta persona no tiene autorización registrada para recibir este enlace por WhatsApp. No se le escribe con él.');
+            return;
+          }
+          ventana = window.open('', '_blank');
+          try {
+            const r = await api('/dia-d/rescate/enlace', { method: 'POST', body: { votante_id: p.votante_id } });
+            enlaceYaVote = r.url;
+          } catch (err) {
+            if (ventana) ventana.close();
+            alert(err.message || 'No se pudo generar el enlace.');
+            return;
+          }
+        }
+        const cuerpo = reemplazarMarcadores(texto.value, p, campana, enlaceYaVote);
         // El texto va como parámetro `text`: WhatsApp lo deja escrito en el
         // chat y la persona presiona enviar. Sin encodeURIComponent, un signo
         // de interrogación o un & cortan el mensaje a la mitad.
         const url = `https://wa.me/${aInternacional(p.telefono)}`
           + (cuerpo.trim() ? `?text=${encodeURIComponent(cuerpo)}` : '');
-        window.open(url, '_blank', 'noopener');
+        if (ventana) { ventana.opener = null; ventana.location = url; }
+        else window.open(url, '_blank', 'noopener');
 
         if (!li.classList.contains('wa-lote-hecho')) {
           li.classList.add('wa-lote-hecho');

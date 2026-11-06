@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Faltan por votar · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* Día D — «Faltan por votar» (diseño B): la lista de los míos, por puesto. */
+  .franja-prueba {
+    background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none;
+  }
+  .avance-card { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .avance-card .cifras { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .avance-card .grande { font-size: 2rem; font-weight: 800; color: #0B5ED7; }
+  .avance-card .faltan { font-size: 1rem; font-weight: 700; color: #a93226; }
+  .barra-fondo { height: 12px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
+  .barra-relleno { height: 100%; border-radius: 999px; transition: width .3s ease; }
+  .rojo { background: #c0392b; } .ambar { background: #d68910; } .verde { background: var(--exito); }
+
+  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .chip {
+    flex: 1 0 auto; border: 1.5px solid var(--navy); background: #fff; color: var(--navy);
+    border-radius: 999px; padding: 9px 14px; font-size: 0.88rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    white-space: nowrap;
+  }
+  .chip.activo { background: var(--navy); color: #fff; }
+
+  .buscador-app { margin-bottom: 12px; }
+  .buscador-app input { width: 100%; }
+
+  .puesto-grupo { background: #fff; border: 1px solid var(--linea); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .puesto-cabeza { padding: 13px 14px 10px; }
+  .puesto-cabeza .nombre { font-size: 1rem; font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .puesto-cabeza .cuenta { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin: 3px 0 8px; }
+  .persona { border-top: 1px solid var(--linea); padding: 12px 14px; }
+  .persona .quien { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .persona .nombre { font-weight: 600; font-size: 0.97rem; overflow-wrap: anywhere; }
+  .persona .mesa { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+  .persona .tel { font-size: 0.84rem; color: var(--muted); margin: 2px 0 8px; }
+  .persona .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+  .accion {
+    flex: 1 1 0; min-width: 84px; text-align: center; text-decoration: none; border: 0; border-radius: 10px;
+    padding: 11px 8px; font-size: 0.86rem; font-weight: 700; font-family: inherit; cursor: pointer; color: #fff;
+  }
+  .accion.llamar { background: var(--navy); }
+  .accion.wa { background: #1e7a3d; }
+  .accion.voto { background: #0B5ED7; }
+  .accion.deshacer { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
+  .accion:disabled { opacity: 0.5; }
+  .persona.voto .nombre::before { content: '✓ '; color: var(--exito); }
+  .voto-hora { font-size: 0.8rem; color: var(--exito); font-weight: 600; margin-bottom: 6px; }
+
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+  .estado-red { font-size: 0.8rem; color: var(--muted); text-align: center; margin: 0 0 10px; }
+
+  #toast-deshacer {
+    position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 950;
+    background: var(--navy); color: #fff; border-radius: 12px; padding: 12px 14px; display: none;
+    align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem;
+  }
+  #toast-deshacer button { background: #fff; color: var(--navy); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-family: inherit; }
+  #aviso-cola { display: none; background: #fdf3e0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<div class="app-contenido">
+  <div id="aviso" class="aviso-app"></div>
+  <div class="franja-prueba" id="franja-prueba">Modo prueba: hoy no es el día de la elección. Las marcas que hagas se pueden borrar después.</div>
+  <div id="aviso-cola"></div>
+
+  <div class="avance-card" id="avance" style="display:none;">
+    <div class="cifras">
+      <span class="grande" id="av-pct">0 %</span>
+      <span class="faltan" id="av-faltan"></span>
+    </div>
+    <div class="barra-fondo"><div class="barra-relleno verde" id="av-barra" style="width:0%"></div></div>
+    <div class="estado-red" id="av-detalle" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="chips" id="chips">
+    <button type="button" class="chip activo" data-filtro="faltan">Faltan</button>
+    <button type="button" class="chip" data-filtro="votaron">Ya votaron</button>
+    <button type="button" class="chip" data-filtro="sin_telefono">Sin teléfono</button>
+  </div>
+
+  <div class="buscador-app campo-app">
+    <input type="search" id="buscador" placeholder="Buscar por nombre" autocomplete="off">
+  </div>
+
+  <p class="estado-red" id="estado-red"></p>
+  <div id="lista"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+</div>
+
+<div id="toast-deshacer"><span id="toast-texto"></span><button type="button" id="toast-btn">Deshacer</button></div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE_MARCAS = 'marcas_voto_pendientes';
+const STORE_CACHE = 'faltantes_cache';
+const MS_DESHACER = 10000;
+
+let filtro = 'faltan';
+let busqueda = '';
+let datos = null;            // lo último que dijo el servidor (o la copia guardada)
+let desdeCopia = false;      // ¿lo que se ve es la copia guardada, no el servidor?
+let cargando = false;
+let temporizadorBusqueda = null;
+let timerToast = null;
+let ultimaMarca = null;      // { id, nombre, clienteUuid } para «Deshacer»
+
+function aviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  if (!texto) { el.className = 'aviso-app'; el.textContent = ''; return; }
+  el.textContent = texto;
+  el.className = 'aviso-app visible ' + (tipo || 'error');
+}
+
+const esc = (t) => escaparAppHtml(t);
+const horaDe = (s) => (s ? String(s).slice(11, 16) : '');
+const claseBarra = (pct) => (pct < 50 ? 'rojo' : (pct < 75 ? 'ambar' : 'verde'));
+const soloDigitos = (t) => String(t || '').replace(/\D/g, '');
+function aInternacional(tel) {
+  const d = soloDigitos(tel);
+  if (!d) return '';
+  return d.startsWith('57') ? d : '57' + d;
+}
+
+/* ——— Copia para ver la lista sin señal (IndexedDB: cajón `faltantes_cache`) ——— */
+async function guardarCopia(f, d) {
+  try { await guardarEnColaOffline(STORE_CACHE, { clienteUuid: 'lista:' + f, datos: d, guardadoEn: Date.now() }); } catch (_) { /* sin copia */ }
+}
+async function leerCopia(f) {
+  try {
+    const todo = await listarColaOffline(STORE_CACHE);
+    // Con el filtro pedido; si no hay, con «faltan», que es la que siempre se abre.
+    return todo.find(x => x.clienteUuid === 'lista:' + f) || todo.find(x => x.clienteUuid === 'lista:faltan') || null;
+  } catch (_) { return null; }
+}
+
+/* ——— Marcas pendientes de subir: se ven ya como «votó» ——— */
+async function pendientes() {
+  try { return await listarColaOffline(STORE_MARCAS); } catch (_) { return []; }
+}
+
+/** Copia de `d` con las marcas pendientes ya aplicadas, como si el servidor las tuviera. */
+function conPendientes(d, cola) {
+  const mias = new Map(cola.filter(r => r.estado !== 'fallido').map(r => [Number(r.payload.votante_id), r]));
+  const copia = JSON.parse(JSON.stringify(d));
+  if (!mias.size) return copia;
+  const quitar = filtro === 'faltan' || filtro === 'sin_telefono';
+  let nuevas = 0;
+  for (const g of copia.puestos) {
+    for (const p of g.personas.slice()) {
+      const r = mias.get(Number(p.id));
+      if (!r || p.voto_en) continue;
+      nuevas++; g.votaron++; g.faltan--;
+      g.pct = g.total ? Math.round((g.votaron * 1000) / g.total) / 10 : 0;
+      p.voto_en = new Date(r.creadoEn).toLocaleString('sv-SE').slice(0, 19);
+      p.origen = 'equipo';
+      if (quitar) g.personas.splice(g.personas.indexOf(p), 1);
+    }
+  }
+  if (quitar) copia.puestos = copia.puestos.filter(g => g.personas.length);
+  copia.totales.votaron += nuevas;
+  copia.totales.faltan -= nuevas;
+  copia.totales.pct = copia.totales.total ? Math.round((copia.totales.votaron * 1000) / copia.totales.total) / 10 : 0;
+  return copia;
+}
+
+async function pintarAvisoCola() {
+  const cola = await pendientes();
+  const pend = cola.filter(r => r.estado !== 'fallido');
+  const fall = cola.filter(r => r.estado === 'fallido');
+  const el = document.getElementById('aviso-cola');
+  if (!pend.length && !fall.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    ${pend.length ? `<div>📶 ${pend.length} marca(s) guardadas en este celular, pendientes de subir.
+      <button type="button" class="btn-mini" id="btn-subir-ahora" style="margin-left:6px;">Subir ahora</button></div>` : ''}
+    ${fall.length ? `<div style="color:#A93226; margin-top:${pend.length ? '8px' : '0'};">
+      ⚠ ${fall.length === 1 ? '1 marca no se pudo subir' : fall.length + ' marcas no se pudieron subir'}:
+      ${fall.map(f => `
+        <div style="margin-top:8px; padding-top:8px; border-top:1px solid #E5C27A;">
+          <strong>${esc(f.nombre || 'Votante ' + f.payload.votante_id)}</strong><br><span>${esc(f.error || 'error desconocido')}</span>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="btn-mini" data-reintentar="${esc(f.clienteUuid)}">Reintentar</button>
+            <button type="button" class="btn-mini" data-descartar="${esc(f.clienteUuid)}">Descartar</button>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}`;
+  const b = document.getElementById('btn-subir-ahora');
+  if (b) b.addEventListener('click', () => subirCola());
+}
+
+document.getElementById('aviso-cola').addEventListener('click', async (e) => {
+  const re = e.target.closest('[data-reintentar]');
+  const de = e.target.closest('[data-descartar]');
+  if (!re && !de) return;
+  const uuid = (re || de).dataset.reintentar || (re || de).dataset.descartar;
+  const cola = await pendientes();
+  const reg = cola.find(r => r.clienteUuid === uuid);
+  if (!reg) { await pintarAvisoCola(); return; }
+  if (de) {
+    if (!confirm(`¿Descartar la marca de ${reg.nombre || 'este votante'}?\n\nSe borra de este celular y NO se envía. No se puede deshacer.`)) return;
+    await borrarDeColaOffline(STORE_MARCAS, uuid);
+    await pintarAvisoCola();
+    await cargar(true);
+    return;
+  }
+  re.disabled = true; re.textContent = 'Enviando…';
+  reg.estado = 'pendiente'; delete reg.error;
+  await guardarEnColaOffline(STORE_MARCAS, reg);
+  await subirCola();
+});
+
+/** Sube las marcas guardadas. El servidor es idempotente: repetir una no cambia la hora. */
+async function subirCola() {
+  const r = await sincronizarCola(STORE_MARCAS, '/dia-d/rescate/marcar', (reg) => ({
+    votante_id: reg.payload.votante_id, cliente_uuid: reg.clienteUuid, marcado_en: reg.payload.marcado_en,
+  }));
+  await pintarAvisoCola();
+  if (r && r.subidos) await cargar(true);
+  return r;
+}
+
+/* ——— Carga y pintura ——— */
+async function cargar(silencioso) {
+  if (cargando) return;
+  cargando = true;
+  try {
+    const params = new URLSearchParams({ filtro });
+    if (busqueda) params.set('q', busqueda);
+    try {
+      datos = await api(`/dia-d/rescate/faltantes?${params.toString()}`);
+      desdeCopia = false;
+      if (!busqueda) await guardarCopia(filtro, datos);
+      aviso('');
+    } catch (err) {
+      if (!err.esErrorDeRed) throw err;
+      const copia = await leerCopia(filtro);
+      if (!copia) { aviso('Sin conexión y todavía no hay una lista guardada en este celular.'); return; }
+      datos = copia.datos; desdeCopia = copia;
+    }
+    await pintar();
+  } catch (err) {
+    aviso(err.message || 'No se pudo cargar la lista.');
+  } finally {
+    cargando = false;
+  }
+}
+
+async function pintar() {
+  if (!datos) return;
+  const cola = await pendientes();
+  const d = conPendientes(datos, cola);
+  document.getElementById('franja-prueba').style.display = d.modo_prueba ? 'block' : 'none';
+
+  const t = d.totales;
+  document.getElementById('avance').style.display = 'block';
+  document.getElementById('av-pct').textContent = `${String(t.pct).replace('.', ',')} %`;
+  document.getElementById('av-faltan').textContent = `Faltan ${t.faltan}`;
+  const barra = document.getElementById('av-barra');
+  barra.style.width = Math.min(100, t.pct) + '%';
+  barra.className = 'barra-relleno ' + claseBarra(t.pct);
+  document.getElementById('av-detalle').textContent = `${t.votaron} de ${t.total} ya votaron`;
+
+  document.getElementById('estado-red').textContent = desdeCopia
+    ? `Sin señal: se muestra la última lista guardada (${new Date(desdeCopia.guardadoEn).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}).`
+    : (d.truncado ? 'La lista es muy larga y se muestra recortada: usa el buscador.' : '');
+
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('activo', c.dataset.filtro === filtro));
+
+  const lista = document.getElementById('lista');
+  const vacio = document.getElementById('vacio');
+  if (!d.puestos.length) {
+    lista.innerHTML = '';
+    vacio.style.display = 'block';
+    vacio.textContent = busqueda ? 'Nadie coincide con esa búsqueda.'
+      : (filtro === 'faltan' ? '🎉 No falta nadie por votar en tu lista.'
+        : (filtro === 'votaron' ? 'Todavía nadie ha votado.' : 'Todos tus votantes tienen teléfono.'));
+    return;
+  }
+  vacio.style.display = 'none';
+  lista.innerHTML = d.puestos.map(g => `
+    <div class="puesto-grupo">
+      <div class="puesto-cabeza">
+        <div class="nombre">${esc(g.puesto)}${g.municipio ? ` <span style="font-weight:400;color:var(--muted);">· ${esc(g.municipio)}</span>` : ''}</div>
+        <div class="cuenta"><span>${g.votaron} de ${g.total} votaron</span><span>${String(g.pct).replace('.', ',')} %</span></div>
+        <div class="barra-fondo"><div class="barra-relleno ${claseBarra(g.pct)}" style="width:${Math.min(100, g.pct)}%"></div></div>
+      </div>
+      ${g.personas.map(p => filaPersona(p, g)).join('')}
+    </div>`).join('');
+}
+
+function filaPersona(p, g) {
+  const votado = !!p.voto_en;
+  const tel = soloDigitos(p.telefono);
+  const primer = String(p.nombre || '').trim().split(/\s+/)[0] || '';
+  // El mensaje dice dónde le toca votar: ese dato es lo que el votante necesita. No se
+  // ofrece si pidió no recibir mensajes (no_contactar), igual que en todo el módulo.
+  const texto = `Hola ${primer}, ¿ya votaste? Tu puesto es ${g.puesto}` + (p.mesa ? `, mesa ${p.mesa}` : '') + '. ¡Tu voto cuenta!';
+  const wa = (tel && !p.no_contactar)
+    ? `<a class="accion wa" href="https://wa.me/${aInternacional(p.telefono)}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">WhatsApp</a>` : '';
+  const llamar = tel ? `<a class="accion llamar" href="tel:${tel}">Llamar</a>` : '';
+  return `
+    <div class="persona ${votado ? 'voto' : ''}" data-id="${p.id}">
+      <div class="quien"><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span></div>
+      <div class="tel">${tel ? esc(p.telefono) : 'Sin teléfono'}${p.no_contactar ? ' · no desea mensajes' : ''}</div>
+      ${votado ? `<div class="voto-hora">Votó a las ${horaDe(p.voto_en)}${p.origen === 'enlace' ? ' (avisó por su enlace)' : ''}</div>` : ''}
+      <div class="acciones">
+        ${llamar}${wa}
+        ${votado
+          ? `<button type="button" class="accion deshacer" data-quitar="${p.id}" data-nombre="${esc(p.nombre)}">Deshacer</button>`
+          : `<button type="button" class="accion voto" data-marcar="${p.id}" data-nombre="${esc(p.nombre)}">Ya votó</button>`}
+      </div>
+    </div>`;
+}
+
+/* ——— «Ya votó» y «Deshacer» ——— */
+function mostrarToast(texto) {
+  const t = document.getElementById('toast-deshacer');
+  document.getElementById('toast-texto').textContent = texto;
+  t.style.display = 'flex';
+  clearTimeout(timerToast);
+  timerToast = setTimeout(() => { t.style.display = 'none'; ultimaMarca = null; }, MS_DESHACER);
+}
+
+async function marcar(id, nombre) {
+  const clienteUuid = generarUuid();
+  // Primero a la cola, que es el único sitio donde la marca sobrevive a un corte de señal; y
+  // la pantalla la da ya por hecha. La subida va enseguida (y sola si no hay señal).
+  await guardarEnColaOffline(STORE_MARCAS, {
+    clienteUuid, nombre, creadoEn: Date.now(), estado: 'pendiente',
+    payload: { votante_id: id, marcado_en: new Date().toISOString() },
+  });
+  ultimaMarca = { id, nombre, clienteUuid };
+  mostrarToast(`Marcado: ${nombre}`);
+  await pintar();
+  await subirCola();
+  await pintarAvisoCola();
+}
+
+async function deshacer(id, nombre, clienteUuid) {
+  try {
+    // Si todavía está en la cola (no subió), basta con sacarla: el servidor no se entera.
+    const cola = await pendientes();
+    const enCola = cola.find(r => (clienteUuid ? r.clienteUuid === clienteUuid : Number(r.payload.votante_id) === Number(id)));
+    if (enCola) {
+      await borrarDeColaOffline(STORE_MARCAS, enCola.clienteUuid);
+    } else {
+      await api(`/dia-d/rescate/marcar/${id}`, { method: 'DELETE' });
+    }
+    document.getElementById('toast-deshacer').style.display = 'none';
+    ultimaMarca = null;
+    await pintarAvisoCola();
+    await cargar(true);
+  } catch (err) {
+    alert(err.esErrorDeRed ? 'Sin señal: no se pudo deshacer ahora. Inténtalo de nuevo con conexión.' : (err.message || 'No se pudo deshacer.'));
+  }
+}
+
+document.getElementById('lista').addEventListener('click', async (e) => {
+  const m = e.target.closest('[data-marcar]');
+  const q = e.target.closest('[data-quitar]');
+  if (m) { m.disabled = true; await marcar(Number(m.dataset.marcar), m.dataset.nombre); return; }
+  if (q) {
+    if (!confirm(`¿Quitar la marca de «ya votó» de ${q.dataset.nombre}?`)) return;
+    await deshacer(Number(q.dataset.quitar), q.dataset.nombre, null);
+  }
+});
+document.getElementById('toast-btn').addEventListener('click', () => {
+  if (ultimaMarca) deshacer(ultimaMarca.id, ultimaMarca.nombre, ultimaMarca.clienteUuid);
+});
+
+document.getElementById('chips').addEventListener('click', (e) => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  filtro = c.dataset.filtro;
+  cargar();
+});
+document.getElementById('buscador').addEventListener('input', (e) => {
+  clearTimeout(temporizadorBusqueda);
+  temporizadorBusqueda = setTimeout(() => { busqueda = e.target.value.trim(); cargar(); }, 300);
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  if (usuario.rol === 'testigo') { window.location.replace('/app/dia-d.html'); return; }
+  pintarBarraApp('Faltan por votar', null, '/app/inicio.html');
+  await pintarAvisoCola();
+  await subirCola();      // lo que quedó pendiente de una vez anterior
+  await cargar();
+  window.addEventListener('online', () => subirCola());
+  // Se recarga sola cada minuto —los demás van marcando—, sin pisar una carga en curso.
+  setInterval(() => { if (!document.hidden) { subirCola().then(() => cargar(true)); } }, 60000);
+})();
+</script>
+</body>
+</html>

@@ -200,6 +200,9 @@ const NAV_ITEMS = [
     grupo: 'Día D', iconoGrupo: '⏱️',
     items: [
       { href: '/dia-d.html', texto: 'Jornada electoral', modulo: 'dia_d', roles: ['admin', 'coordinador'] },
+      // Avance de votación: es una pestaña de la misma pantalla (hash #avance). Lleva su propio
+      // módulo para que la matriz de permisos pueda abrirlo o cerrarlo sin tocar la Jornada.
+      { href: '/dia-d.html#avance', texto: 'Avance de votación', modulo: 'rescate_votos', roles: ['admin', 'coordinador'] },
       { href: '/testigos.html', texto: 'Testigos electorales', modulo: 'testigos', roles: ['admin', 'coordinador'] },
       { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
     ]

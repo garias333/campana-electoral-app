@@ -169,6 +169,10 @@ app.use('/b', express.urlencoded({ extended: false }), require('./routes/baja.ro
 // no puede tener; su confirmación fallaría con un 403.
 app.use('/c', express.urlencoded({ extended: false }), require('./routes/confirmacion.routes'));
 
+// Enlace «Ya voté» del Día D. Junto a /b y /c y por lo mismo: sin sesión, antes del
+// candado de licencia y fuera de /api (sin CSRF). Ver routes/yaVoto.routes.js.
+app.use('/v', express.urlencoded({ extended: false }), require('./routes/yaVoto.routes'));
+
 // --- Candado de licencia: bloquea TODO lo de abajo (rutas de API y
 // frontend) si esta instalación no tiene una licencia vigente. Va antes
 // de montar cualquier ruta real, para que nada funcione sin pasar por
@@ -227,6 +231,9 @@ app.use('/api/permisos', require('./routes/permisos.routes'));
 const comunicacionesRouter = require('./routes/comunicaciones.routes');
 app.use('/api/comunicaciones', comunicacionesRouter);
 app.use('/api/contenido', require('./routes/contenido.routes'));
+// Rescate de votos (quién ya votó, faltantes, ranking). ANTES de /api/dia-d: son rutas
+// distintas, pero así la ruta hija se resuelve sin pasar por las del tablero.
+app.use('/api/dia-d/rescate', require('./routes/rescateVotos.routes'));
 app.use('/api/dia-d', require('./routes/diaD.routes'));
 app.use('/api/catalogo', require('./routes/catalogo.routes'));
 app.use('/api/backup', require('./routes/backup.routes'));

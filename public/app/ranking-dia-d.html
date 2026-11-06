@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Ranking Día D · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* Día D — «Ranking de líderes» (diseño C): quién lleva cuánto, y a quién llamar. */
+  .franja-prueba {
+    background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none;
+  }
+  .cifras-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .cifra { background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .cifra .n { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
+  .cifra .e { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+  .cifra.faltan .n { color: #a93226; } .cifra.ok .n { color: var(--exito); }
+  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .chip { flex: 1 0 auto; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); border-radius: 999px;
+          padding: 9px 14px; font-size: 0.86rem; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .chip.activo { background: var(--navy); color: #fff; }
+  .lider { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .lider .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .lider .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .lider .pct { font-weight: 800; font-size: 1.1rem; }
+  .lider .det { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); margin: 4px 0 8px; }
+  .lider .det .f { color: #a93226; font-weight: 700; }
+  .barra-fondo { height: 10px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
+  .barra-relleno { height: 100%; border-radius: 999px; }
+  .rojo { background: #c0392b; } .ambar { background: #d68910; } .verde { background: var(--exito); }
+  .lider .mov { font-size: 0.8rem; margin: 8px 0 10px; color: var(--muted); }
+  .lider .mov.alerta { color: #a93226; font-weight: 700; }
+  .lider .acciones { display: flex; gap: 8px; }
+  .accion { flex: 1 1 0; text-align: center; text-decoration: none; border-radius: 10px; padding: 11px 8px; font-size: 0.86rem; font-weight: 700; color: #fff; }
+  .accion.llamar { background: var(--navy); } .accion.wa { background: #1e7a3d; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+  .estado-red { font-size: 0.8rem; color: var(--muted); text-align: center; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<div class="app-contenido">
+  <div id="aviso" class="aviso-app"></div>
+  <div class="franja-prueba" id="franja-prueba">Modo prueba: hoy no es el día de la elección.</div>
+
+  <div class="cifras-3" id="cifras" style="display:none;">
+    <div class="cifra ok"><div class="n" id="c-votaron">0</div><div class="e">Ya votaron</div></div>
+    <div class="cifra faltan"><div class="n" id="c-faltan">0</div><div class="e">Faltan</div></div>
+    <div class="cifra"><div class="n" id="c-pct">0 %</div><div class="e">Avance</div></div>
+  </div>
+
+  <div class="chips" id="chips">
+    <button type="button" class="chip activo" data-orden="faltantes">Más faltantes</button>
+    <button type="button" class="chip" data-orden="pct">Menor %</button>
+    <button type="button" class="chip" data-orden="sin_movimiento">Sin movimiento 1 h</button>
+  </div>
+
+  <p class="estado-red" id="estado-red"></p>
+  <div id="lista"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+let orden = 'faltantes';
+let cargando = false;
+
+const esc = (t) => escaparAppHtml(t);
+const claseBarra = (pct) => (pct < 50 ? 'rojo' : (pct < 75 ? 'ambar' : 'verde'));
+const soloDigitos = (t) => String(t || '').replace(/\D/g, '');
+const aInternacional = (tel) => { const d = soloDigitos(tel); return d ? (d.startsWith('57') ? d : '57' + d) : ''; };
+const fmtPct = (p) => String(p).replace('.', ',') + ' %';
+
+function aviso(texto) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto || '';
+  el.className = texto ? 'aviso-app visible error' : 'aviso-app';
+}
+
+function textoMovimiento(l) {
+  if (l.faltan === 0) return 'Ya votaron todos sus votantes.';
+  if (l.min_sin_marca === null) return 'Todavía no ha marcado a nadie.';
+  if (l.min_sin_marca < 1) return 'Última marca: hace un momento.';
+  if (l.min_sin_marca < 60) return `Última marca: hace ${l.min_sin_marca} min.`;
+  const h = Math.floor(l.min_sin_marca / 60), m = l.min_sin_marca % 60;
+  return `Última marca: hace ${h} h${m ? ' ' + m + ' min' : ''}.`;
+}
+
+async function cargar() {
+  if (cargando) return;
+  cargando = true;
+  try {
+    const d = await api(`/dia-d/rescate/ranking?orden=${orden}`);
+    aviso('');
+    document.getElementById('estado-red').textContent = '';
+    document.getElementById('franja-prueba').style.display = d.modo_prueba ? 'block' : 'none';
+    document.getElementById('cifras').style.display = 'grid';
+    document.getElementById('c-votaron').textContent = d.totales.votaron;
+    document.getElementById('c-faltan').textContent = d.totales.faltan;
+    document.getElementById('c-pct').textContent = fmtPct(d.totales.pct);
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('activo', c.dataset.orden === orden));
+
+    const vacio = document.getElementById('vacio');
+    if (!d.lideres.length) {
+      document.getElementById('lista').innerHTML = '';
+      vacio.style.display = 'block';
+      vacio.textContent = orden === 'sin_movimiento' ? '👏 Todos los líderes han marcado en la última hora.' : 'Todavía no hay votantes registrados en tu alcance.';
+      return;
+    }
+    vacio.style.display = 'none';
+    document.getElementById('lista').innerHTML = d.lideres.map(l => {
+      const tel = soloDigitos(l.telefono);
+      const texto = `Hola ${String(l.nombre).split(/\s+/)[0]}, ¿cómo vas? Llevan ${l.votaron} de ${l.total} de tus votantes y faltan ${l.faltan}. ¡Vamos por ellos!`;
+      return `
+      <div class="lider">
+        <div class="cab"><span class="nombre">${esc(l.nombre)}</span><span class="pct">${fmtPct(l.pct)}</span></div>
+        <div class="det"><span>${l.votaron} de ${l.total} votaron</span><span class="f">Faltan ${l.faltan}</span></div>
+        <div class="barra-fondo"><div class="barra-relleno ${claseBarra(l.pct)}" style="width:${Math.min(100, l.pct)}%"></div></div>
+        <div class="mov ${l.sin_movimiento ? 'alerta' : ''}">${l.sin_movimiento ? '⚠ ' : ''}${esc(textoMovimiento(l))}</div>
+        ${tel ? `<div class="acciones">
+          <a class="accion llamar" href="tel:${tel}">Llamar</a>
+          <a class="accion wa" href="https://wa.me/${aInternacional(l.telefono)}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">WhatsApp</a>
+        </div>` : '<div class="mov">Sin teléfono registrado.</div>'}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    if (err.esErrorDeRed) document.getElementById('estado-red').textContent = 'Sin señal: se muestra lo último que se cargó.';
+    else aviso(err.message || 'No se pudo cargar el ranking.');
+  } finally {
+    cargando = false;
+  }
+}
+
+document.getElementById('chips').addEventListener('click', (e) => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  orden = c.dataset.orden;
+  cargar();
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Ranking Día D', null, '/app/inicio.html');
+  await cargar();
+  setInterval(() => { if (!document.hidden) cargar(); }, 60000);
+})();
+</script>
+</body>
+</html>

@@ -392,6 +392,11 @@ const PERMISOS_POR_DEFECTO = {
   eventos: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   asistentes_reuniones: ['admin', 'coordinador', 'lider'],
   dia_d: ['admin', 'coordinador'],
+  // «Faltan por votar» y el ranking del Día D (fase 2): lo usa toda la gente
+  // que trabaja votantes ese día, no solo la coordinación. Testigo e invitado
+  // no. El aspirante no figura aquí: su acceso va en PERMISOS_ASPIRANTE
+  // (middleware/aspirante.js), porque su rol de fila es «lider».
+  rescate_votos: ['admin', 'coordinador', 'lider', 'sublider'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   crm: ['admin', 'coordinador', 'asistente_administrativo'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
@@ -2060,6 +2065,57 @@ async function main() {
       if (err.code !== 'ER_DUP_KEYNAME') throw err;
       console.log(`El índice ${indice} ya existía. Sin cambios.`);
     }
+  }
+
+  // --- Día D fase 2: «ya votó» ---
+  //
+  // Las dos tablas las crea db/schema.sql (CREATE TABLE IF NOT EXISTS, al
+  // principio de cada corrida). Aquí solo se COMPRUEBA y se dice si ya estaban:
+  // CREATE_TIME reciente = se crearon en esta misma corrida.
+  for (const tabla of ['votante_votos', 'votante_voto_tokens']) {
+    const [[t]] = await connection.query(
+      `SELECT CREATE_TIME AS creada, TIMESTAMPDIFF(SECOND, CREATE_TIME, NOW()) AS hace
+         FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
+    if (!t) throw new Error(`Falta la tabla ${tabla}: db/schema.sql debía crearla en esta misma corrida.`);
+    console.log(t.hace !== null && t.hace < 120
+      ? `Tabla ${tabla} creada.`
+      : `La tabla ${tabla} ya existía. Sin cambios.`);
+  }
+
+  // Índices de votantes que la lista de faltantes necesita. `sublider_id` y
+  // `puesto_id` no tenían ninguno (medido con SHOW INDEX): el filtro por
+  // sublíder y por puesto recorría la tabla entera. Se busca CUALQUIER índice
+  // que ya empiece por esa columna —una base creada desde el esquema trae el de
+  // la llave foránea con otro nombre— para no duplicarlo.
+  for (const [columna, nombre] of [['sublider_id', 'idx_votantes_sublider'], ['puesto_id', 'idx_votantes_puesto_id']]) {
+    const [[ya]] = await connection.query(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'votantes'
+          AND COLUMN_NAME = ? AND SEQ_IN_INDEX = 1`, [columna]);
+    if (ya.n > 0) {
+      console.log(`votantes.${columna} ya tenía índice. Sin cambios.`);
+    } else {
+      await connection.query(`ALTER TABLE votantes ADD INDEX ${nombre} (${columna})`);
+      console.log(`Índice ${nombre} creado.`);
+    }
+  }
+
+  // Plantilla de arranque del enlace «Ya voté». SIN TILDES (SMS, GSM-7: ver la
+  // nota de las plantillas de abajo). INSERT ... WHERE NOT EXISTS por nombre:
+  // si alguien la edita, una corrida posterior no le pisa el texto.
+  for (const [nombre, canal, cuerpo] of [
+    ['Dia D - aviso ya voto', 'sms',
+     'Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avisanos aqui: {enlace_ya_vote}'],
+    ['WhatsApp · Ya voté', 'whatsapp',
+     'Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avísanos aquí: {enlace_ya_vote}'],
+  ]) {
+    const [r] = await connection.query(
+      `INSERT INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo)
+       SELECT ?, ?, NULL, ? FROM DUAL
+        WHERE NOT EXISTS (SELECT 1 FROM comunicaciones_plantillas WHERE nombre = ?)`,
+      [nombre, canal, cuerpo, nombre]);
+    console.log(r.affectedRows ? `Plantilla «${nombre}» creada.` : `La plantilla «${nombre}» ya existía. Sin cambios.`);
   }
 
   // --- Testigo electoral: puesto/mesa propios, separados del lugar de

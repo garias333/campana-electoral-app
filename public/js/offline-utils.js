@@ -11,12 +11,15 @@
    un error de verdad del servidor (ver esErrorDeRed en api-core.js). */
 
 const OFFLINE_DB_NOMBRE = 'estrategia_offline';
-const OFFLINE_DB_VERSION = 2;
+const OFFLINE_DB_VERSION = 3;
 // Un "store" (cajón) por cada tipo de formulario que se pueda guardar sin
 // conexión. Agregar uno nuevo acá NO borra los que ya existían en el
 // dispositivo de nadie — IndexedDB solo agrega los que falten al subir de
 // versión, conserva intacto lo que ya estaba guardado.
-const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reportes_diad_pendientes'];
+// `marcas_voto_pendientes`: las marcas «ya votó» hechas sin señal (Día D, fase 2).
+// `faltantes_cache`: la última lista de faltantes, para verla sin conexión.
+const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reportes_diad_pendientes',
+                        'marcas_voto_pendientes', 'faltantes_cache'];
 
 function abrirBaseOffline() {
   return new Promise((resolve, reject) => {
@@ -29,7 +32,20 @@ function abrirBaseOffline() {
       });
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      /* VersionError: la base de este teléfono ya está en una versión MÁS NUEVA que la
+         de este script (otra pantalla —ya actualizada— la subió, y esta página quedó
+         con el script viejo en memoria). Abrirla SIN pedir versión usa la que haya,
+         que contiene todos los cajones de esta: así la cola de reportes del Día D no
+         se rompe por una diferencia de versiones. */
+      if (req.error && req.error.name === 'VersionError') {
+        const r2 = indexedDB.open(OFFLINE_DB_NOMBRE);
+        r2.onsuccess = () => resolve(r2.result);
+        r2.onerror = () => reject(r2.error);
+        return;
+      }
+      reject(req.error);
+    };
   });
 }
 
