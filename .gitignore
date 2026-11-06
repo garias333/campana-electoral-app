@@ -8,6 +8,8 @@ npm-debug.log*
 sessions/
 uploads/
 public/uploads/
+# Caché del buscador de Legislación (texto de los PDF). Se regenera sola.
+datos/
 tmp/
 *.sql
 *.sqlite

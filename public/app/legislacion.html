@@ -12,94 +12,37 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
-<style>
-  .leg-aviso { background: #fbf1e4; border: 1px solid var(--copper); border-left: 4px solid var(--copper); border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; margin: 0 0 16px; line-height: 1.5; }
-  .leg-buscar { margin-bottom: 12px; }
-  .leg-buscar input { width: 100%; padding: 12px 14px; font-size: 1rem; border: 1.5px solid var(--linea); border-radius: 10px; background: #fff; }
-  .filtros-app { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .leg-contador { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
-  .leg-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-  .leg-tipo { display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); font-weight: 700; margin-bottom: 6px; }
-  .leg-tarjeta h3 { margin: 0 0 6px; font-size: 1rem; color: var(--navy); overflow-wrap: anywhere; }
-  .leg-tarjeta p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); line-height: 1.5; }
-  .leg-meta { font-size: 0.76rem; }
-  .leg-acciones { display: flex; gap: 10px; }
-  .leg-acciones .btn-app { flex: 1; text-align: center; }
-  .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
-</style>
+<link rel="stylesheet" href="/css/legislacion.css">
 </head>
 <body>
 <div class="app-barra" id="app-barra"></div>
 <main class="app-cuerpo">
-  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
-  <div id="contenedor" style="display:none;">
-    <p class="leg-aviso">Consulte siempre la versión vigente en la fuente oficial.</p>
-    <div id="zona-busqueda" style="display:none;">
-      <div class="leg-buscar"><input type="search" id="leg-buscar" placeholder="Buscar norma…" aria-label="Buscar norma" autocomplete="off"></div>
-      <div class="filtros-app" id="filtros-app"></div>
-      <p class="leg-contador" id="leg-contador"></p>
-    </div>
-    <div id="lista-normas"></div>
-    <div id="vacio" class="vacio-app" style="display:none;">
-      <div style="font-size:2.2rem; margin-bottom:10px;">⚖️</div>
-      <span id="vacio-texto">Aún no se han cargado normas.</span>
-    </div>
-  </div>
-  <div id="error-carga" class="aviso-app error" style="display:none;"></div>
+  <div id="leg-raiz"></div>
 </main>
 
 <script src="/js/api-core.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/js/legislacion-comun.js"></script>
 <script>
-let normas = [];
-let tipoActual = null;   // null = todos
-let visiblesActuales = [];
-
-const ETIQUETA_TIPO = {
-  ley: 'Ley', decreto: 'Decreto', resolucion: 'Resolución', acuerdo: 'Acuerdo',
-  circular: 'Circular', sentencia: 'Sentencia', concepto: 'Concepto'
-};
-
-function etiquetaTipo(tipo) {
-  if (!tipo) return 'Otras';
-  const sinAcento = tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  return ETIQUETA_TIPO[sinAcento] || (tipo.charAt(0).toUpperCase() + tipo.slice(1));
-}
-
-function normalizarBusqueda(t) {
-  return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
-function formatoTamano(bytes) {
-  if (!bytes) return '';
-  const kb = bytes / 1024;
-  return kb >= 1024 ? `${(kb / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.round(kb)} KB`;
-}
-
-function enlaceArchivo(n, descargar) {
-  return `/api/legislacion/archivo/${encodeURIComponent(n.archivo)}${descargar ? '?descargar=1' : ''}`;
-}
-
 /* «VER» Y «DESCARGAR» PIDEN EL PDF CON fetch, NO CON UN ENLACE.
-   Un enlace es una navegación del navegador y SOLO lleva la cookie de sesión.
-   Pero esa cookie dura 8 horas fijas (app.js: cookie.maxAge, sin rolling) y el
-   token de dispositivo de «Recordar sesión» dura 7 días (config/tokenDispositivo.js),
-   y el token solo viaja como encabezado X-Device-Token (api-core.js). Con la
-   pantalla abierta pasadas las 8 horas, o con la cookie borrada, el enlace
-   mostraba el JSON «Debe iniciar sesión» aunque la sesión del dispositivo
-   siguiera vigente. fetch manda el MISMO encabezado que el resto de la app, y
-   de paso el servidor renueva la cookie en la respuesta.
-   El token nunca va en la dirección. */
-async function pedirPdf(n, descargar) {
+   Un enlace es una navegación del navegador y SOLO lleva la cookie de sesión. Pero esa cookie
+   dura 8 horas fijas (app.js: cookie.maxAge, sin rolling) y el token de dispositivo de
+   «Recordar sesión» dura 7 días (config/tokenDispositivo.js), y el token solo viaja como
+   encabezado X-Device-Token (api-core.js). Con la pantalla abierta pasadas las 8 horas, o con
+   la cookie borrada, el enlace mostraba el JSON «Debe iniciar sesión» aunque la sesión del
+   dispositivo siguiera vigente. fetch manda el MISMO encabezado que el resto de la app, y de
+   paso el servidor renueva la cookie en la respuesta. El token nunca va en la dirección. */
+async function pedirPdf(norma, descargar) {
   const encabezados = {};
   const token = (typeof obtenerTokenDispositivoActivo === 'function') ? obtenerTokenDispositivoActivo() : null;
   if (token) encabezados['X-Device-Token'] = token;
 
   let resp;
   try {
-    resp = await fetch(enlaceArchivo(n, descargar), { headers: encabezados, credentials: 'same-origin' });
+    resp = await fetch(`/api/legislacion/archivo/${encodeURIComponent(norma.archivo)}${descargar ? '?descargar=1' : ''}`,
+      { headers: encabezados, credentials: 'same-origin' });
   } catch (err) {
     const e = new Error('Se necesita conexión a internet para abrir la norma.');
     e.esErrorDeRed = true;
@@ -116,14 +59,13 @@ async function pedirPdf(n, descargar) {
 }
 
 /* QUÉ SE HACE CON EL BLOB, Y POR QUÉ.
-   Ver: se navega la MISMA ventana al blob. Descartado `window.open`/target
-   _blank: tras el `await` del fetch ya no hay gesto del usuario y Safari lo
-   bloquea como ventana emergente. Descartado un iframe/embed: Safari de iPhone
-   muestra solo la PRIMERA página de un PDF incrustado y Chrome de Android no
-   tiene visor de PDF incrustado. Una navegación de la ventana actual no está
-   sujeta al bloqueo y Safari abre su visor nativo, con todas las páginas; se
-   vuelve con el gesto/botón de atrás. (Es una función aparte para poder
-   sustituirla en las pruebas.) */
+   Ver: se navega la MISMA ventana al blob. Descartado `window.open`/target _blank: tras el
+   `await` del fetch ya no hay gesto del usuario y Safari lo bloquea como ventana emergente.
+   Descartado un iframe/embed: Safari de iPhone muestra solo la PRIMERA página de un PDF
+   incrustado y Chrome de Android no tiene visor de PDF incrustado. Una navegación de la
+   ventana actual no está sujeta al bloqueo y Safari abre su visor nativo, con todas las
+   páginas; se vuelve con el gesto/botón de atrás. (Función aparte para poder sustituirla en
+   las pruebas.) */
 function mostrarPdfEnPantalla(urlBlob) {
   window.location.assign(urlBlob);
 }
@@ -140,110 +82,20 @@ function guardarPdf(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-async function accionNorma(boton) {
-  const n = visiblesActuales[Number(boton.dataset.i)];
-  if (!n || boton.disabled) return;
-  const descargar = boton.dataset.accion === 'descargar';
-  const textoOriginal = boton.textContent;
-  const caja = document.getElementById('error-carga');
-  caja.classList.remove('visible');
-  boton.disabled = true;
-  boton.textContent = 'Abriendo…';
-  try {
-    const blob = await pedirPdf(n, descargar);
-    if (!blob) return;   // fue a login
-    if (descargar) guardarPdf(blob, n.archivo);
-    else mostrarPdfEnPantalla(URL.createObjectURL(blob));
-  } catch (err) {
-    caja.textContent = err.message || 'No se pudo abrir la norma.';
-    caja.classList.add('visible');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } finally {
-    boton.disabled = false;
-    boton.textContent = textoOriginal;
-  }
-}
-
-function pintarFiltros() {
-  const claves = [...new Set(normas.map(n => n.tipo || ''))]
-    .sort((a, b) => etiquetaTipo(a).localeCompare(etiquetaTipo(b), 'es'));
-  const contenedor = document.getElementById('filtros-app');
-  // Con un solo tipo, los chips no sirven de nada.
-  if (claves.length < 2) { contenedor.innerHTML = ''; return; }
-  const chips = [{ clave: null, texto: 'Todas' }, ...claves.map(c => ({ clave: c, texto: etiquetaTipo(c) }))];
-  contenedor.innerHTML = '';
-  chips.forEach(c => {
-    const el = document.createElement('div');
-    el.className = 'chip-app' + (tipoActual === c.clave ? ' activo' : '');
-    el.style.cssText = 'flex:0 0 auto; white-space:nowrap;';
-    el.textContent = c.texto;
-    el.addEventListener('click', () => { tipoActual = c.clave; pintarFiltros(); pintarLista(); });
-    contenedor.appendChild(el);
-  });
-}
-
-function pintarLista() {
-  const consulta = normalizarBusqueda(document.getElementById('leg-buscar').value).trim();
-  const visibles = normas.filter(n => {
-    if (tipoActual !== null && (n.tipo || '') !== tipoActual) return false;
-    if (!consulta) return true;
-    const pajar = normalizarBusqueda([n.titulo, n.descripcion, n.numero, n.anio, etiquetaTipo(n.tipo)].join(' '));
-    return consulta.split(/\s+/).every(p => pajar.includes(p));
-  });
-
-  document.getElementById('leg-contador').textContent =
-    visibles.length === normas.length ? `${normas.length} ${normas.length === 1 ? 'norma' : 'normas'}` : `${visibles.length} de ${normas.length}`;
-
-  const hayNinguna = !visibles.length;
-  document.getElementById('vacio').style.display = hayNinguna ? 'block' : 'none';
-  document.getElementById('vacio-texto').textContent = normas.length ? 'Ninguna norma coincide con la búsqueda.' : 'Aún no se han cargado normas.';
-
-  visiblesActuales = visibles;
-  document.getElementById('lista-normas').innerHTML = visibles.map((n, i) => {
-    const meta = [formatoTamano(n.tamano_bytes), n.anio ? `Año ${n.anio}` : ''].filter(Boolean).join(' · ');
-    return `
-      <div class="leg-tarjeta">
-        ${n.tipo ? `<span class="leg-tipo">${escaparAppHtml(etiquetaTipo(n.tipo))}</span>` : ''}
-        <h3>${escaparAppHtml(n.titulo)}</h3>
-        ${n.descripcion ? `<p>${escaparAppHtml(n.descripcion)}</p>` : ''}
-        ${meta ? `<p class="leg-meta">${escaparAppHtml(meta)}</p>` : ''}
-        <div class="leg-acciones">
-          <button type="button" class="btn-app btn-app-primario" data-accion="ver" data-i="${i}">Ver</button>
-          <button type="button" class="btn-app btn-app-secundario" data-accion="descargar" data-i="${i}">Descargar</button>
-        </div>
-      </div>`;
-  }).join('');
-}
-
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
   pintarBarraApp('Legislación', null, '/app/inicio.html');
 
-  try {
-    const lista = await api('/legislacion');
-    if (!lista) return;   // api() ya redirigió a login
-    normas = Array.isArray(lista) ? lista : [];
-    document.getElementById('pantalla-carga').style.display = 'none';
-    document.getElementById('contenedor').style.display = 'block';
-    if (normas.length) {
-      document.getElementById('zona-busqueda').style.display = 'block';
-      document.getElementById('leg-buscar').addEventListener('input', pintarLista);
-      document.getElementById('lista-normas').addEventListener('click', (ev) => {
-        const boton = ev.target.closest('button[data-accion]');
-        if (boton) accionNorma(boton);
-      });
-      pintarFiltros();
+  Legis.montar(document.getElementById('leg-raiz'), {
+    abrirPdf: async (accion, norma, pagina) => {
+      const blob = await pedirPdf(norma, accion === 'descargar');
+      if (!blob) return;   // fue a login
+      if (accion === 'descargar') guardarPdf(blob, norma.archivo);
+      // «#page=N»: Safari de iPhone lo ignora y abre en la primera página; Chrome lo respeta.
+      else mostrarPdfEnPantalla(URL.createObjectURL(blob) + (pagina ? `#page=${pagina}` : ''));
     }
-    pintarLista();
-  } catch (err) {
-    document.getElementById('pantalla-carga').style.display = 'none';
-    const box = document.getElementById('error-carga');
-    box.textContent = err.esErrorDeRed
-      ? 'Se necesita conexión a internet para consultar la legislación.'
-      : (err.message || 'No se pudo consultar la legislación en este momento.');
-    box.classList.add('visible');
-  }
+  });
 })();
 </script>
 </body>

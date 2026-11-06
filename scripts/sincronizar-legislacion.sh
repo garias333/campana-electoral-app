@@ -24,7 +24,8 @@
 #                                            (la carpeta que tiene package.json)
 #
 # QUÉ COPIA
-#   Solo *.pdf, *.PDF e indice.json, del nivel superior de la carpeta central.
+#   Solo *.pdf, *.PDF, indice.json y calendario.json, del nivel superior de la
+#   carpeta central (el índice de títulos y el calendario electoral).
 #   Ni subcarpetas ni enlaces simbólicos. Con --delete: lo que se borre en la
 #   central desaparece en las campañas. Cualquier OTRO archivo que alguien deje
 #   en el `legislacion/` de una campaña (por ejemplo un .txt) no se toca.
@@ -265,7 +266,7 @@ sincronizar_una() {
     "--chown=$dueno:$grupo"
     -i                         # una línea por cambio, para contar
     --exclude='*/'             # ninguna subcarpeta, ni una llamada «algo.pdf»
-    --include='/*.pdf' --include='/*.PDF' --include='/indice.json'
+    --include='/*.pdf' --include='/*.PDF' --include='/indice.json' --include='/calendario.json'
     --exclude='*'              # y nada más (lo ajeno en el destino queda intacto)
   )
   (( SIMULAR == 1 )) && opciones+=(-n)

@@ -25,6 +25,15 @@
  * Si falta, está mal escrito o no menciona un PDF, el título sale del nombre del
  * archivo. Un JSON dañado NO tumba la página: se ignora y se deja un aviso en el
  * log.
+ *
+ * OTRAS DOS RUTAS, con el mismo permiso:
+ *   GET /api/legislacion/calendario  lee `legislacion/calendario.json` (calendario
+ *       electoral). Roto o ausente = lista vacía y un aviso en el log, como el
+ *       índice. El estado de cada actividad (cumplida, en curso, próxima) lo
+ *       calcula el NAVEGADOR con la fecha de Colombia: aquí solo se entregan datos.
+ *   GET /api/legislacion/buscar?q=   busca dentro del texto de los PDF, por
+ *       artículo (lib/legislacionTexto.js). La caché vive en datos/cache-legislacion/,
+ *       FUERA de `legislacion/`, porque el cron que copia esa carpeta usa --delete.
  */
 'use strict';
 
@@ -33,12 +42,16 @@ const fs = require('fs');
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { crearBuscador } = require('../lib/legislacionTexto');
 
 const router = express.Router();
 
 const CARPETA = path.join(__dirname, '..', 'legislacion');
 const ARCHIVO_INDICE = path.join(CARPETA, 'indice.json');
 const MAX_BYTES_INDICE = 1024 * 1024;
+const ARCHIVO_CALENDARIO = path.join(CARPETA, 'calendario.json');
+const CARPETA_CACHE = path.join(__dirname, '..', 'datos', 'cache-legislacion');
+const buscador = crearBuscador({ carpetaPdf: CARPETA, carpetaCache: CARPETA_CACHE, aviso: (m) => console.warn(m) });
 
 router.use(requireAuth, requiereVerModulo('legislacion'));
 
@@ -203,13 +216,112 @@ function listarNormas() {
   return normas;
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
-    res.json(listarNormas());
+    const normas = listarNormas();
+    // Páginas de cada PDF (para las tarjetas). Se guardan en memoria; si no se pueden contar, null.
+    for (const n of normas) n.paginas = await buscador.paginasDe(n);
+    res.json(normas);
   } catch (err) {
     console.error('[legislacion] error listando:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo consultar la legislación.' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   CALENDARIO ELECTORAL
+   --------------------------------------------------------------------------- */
+
+let cacheCalendario = { firma: null, datos: [] };
+
+function fechaValida(texto) {
+  if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
+  const d = new Date(`${texto}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === texto;
+}
+
+/** Lee calendario.json. Cualquier problema → [] y un aviso (una vez por cambio del archivo). */
+function leerCalendario() {
+  let stat;
+  try {
+    stat = fs.statSync(ARCHIVO_CALENDARIO);
+  } catch (err) {
+    if (cacheCalendario.firma !== 'ausente') console.warn('[legislacion] calendario.json no existe; el calendario sale vacío.');
+    cacheCalendario = { firma: 'ausente', datos: [] };
+    return cacheCalendario.datos;
+  }
+  const firma = `${stat.mtimeMs}:${stat.size}`;
+  if (cacheCalendario.firma === firma) return cacheCalendario.datos;
+
+  let datos = [];
+  try {
+    if (!stat.isFile()) throw new Error('calendario.json no es un archivo');
+    if (stat.size > MAX_BYTES_INDICE) throw new Error(`pesa ${stat.size} bytes (máximo ${MAX_BYTES_INDICE})`);
+    const crudo = JSON.parse(fs.readFileSync(ARCHIVO_CALENDARIO, 'utf8').replace(/^\uFEFF/, ''));
+    if (!Array.isArray(crudo)) throw new Error('debe ser un arreglo de actividades');
+    let descartadas = 0;
+    crudo.forEach((f) => {
+      const ok = f && typeof f === 'object' && fechaValida(f.inicio)
+        && (f.fin == null || (fechaValida(f.fin) && f.fin >= f.inicio))
+        && texto(f.actividad, 800);
+      if (!ok) { descartadas += 1; return; }
+      datos.push({
+        inicio: f.inicio,
+        fin: f.fin == null ? null : f.fin,
+        actividad: texto(f.actividad, 800),
+        referencia: texto(f.referencia, 300),
+        grupo: texto(f.grupo, 80),
+        plazo: texto(f.plazo, 400),
+        soporte_legal: texto(f.soporte_legal, 500)
+      });
+    });
+    if (descartadas) console.warn(`[legislacion] calendario.json: ${descartadas} actividad(es) descartada(s) por fecha o texto no válidos.`);
+    // Cronológico y estable: a igual fecha se conserva el orden del archivo.
+    datos = datos.map((d, i) => ({ d, i })).sort((a, b) => (a.d.inicio < b.d.inicio ? -1 : a.d.inicio > b.d.inicio ? 1 : a.i - b.i)).map((x) => x.d);
+  } catch (err) {
+    console.warn(`[legislacion] calendario.json ignorado (el calendario sale vacío): ${err.message}`);
+    datos = [];
+  }
+  cacheCalendario = { firma, datos };
+  return datos;
+}
+
+router.get('/calendario', (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(leerCalendario());
+  } catch (err) {
+    console.error('[legislacion] error en calendario:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo consultar el calendario.' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   BÚSQUEDA DENTRO DE LOS PDF
+   --------------------------------------------------------------------------- */
+
+router.get('/buscar', async (req, res) => {
+  const q = req.query.q;
+  if (typeof q !== 'string' || q.trim().length < 2 || q.trim().length > 100) {
+    return res.status(400).json({ error: 'Escriba entre 2 y 100 caracteres para buscar.' });
+  }
+  try {
+    res.set('Cache-Control', 'no-store');
+    const t0 = Date.now();
+    const r = await buscador.buscar(q.trim(), listarNormas());
+    res.json({
+      q: q.trim(),
+      total: r.total,
+      mostrados: r.resultados.length,
+      terminos: r.terminos,
+      resultados: r.resultados,
+      omitidas: r.omitidas,
+      ms: Date.now() - t0
+    });
+  } catch (err) {
+    console.error('[legislacion] error buscando:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo buscar en la legislación.' });
   }
 });
 

@@ -43,6 +43,8 @@ const PROHIBIDOS = [
   // jamás debe pisarlos ni agregarlos: lo que haya en la carpeta es de ESA
   // instalación (ver routes/legislacion.routes.js).
   /^legislacion\//,
+  // Caché del buscador de Legislación: se regenera sola en cada instalación.
+  /^datos\//,
   // El guion que copia legislacion/ a las campañas corre SOLO en el VPS, como
   // root, desde esta instalación; en una campaña no tiene nada que hacer (y su
   // lista de exclusión lleva rutas de este servidor).
@@ -77,6 +79,7 @@ function archivosDesde(fecha) {
     '-not', '-path', './.git/*',
     '-not', '-path', './uploads/*',
     '-not', '-path', './legislacion/*',
+    '-not', '-path', './datos/*',
     '-not', '-path', './scripts/sincronizar-legislacion.sh',
     '-not', '-path', './scripts/legislacion-excluir.txt',
     '-not', '-path', './backups/*',

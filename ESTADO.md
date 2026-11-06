@@ -14,8 +14,8 @@ anterior.*
 - **Aplicado en las tres instalaciones:** **249**, comprobado leyendo
   `.version-parche` de cada una. El registro del actualizador de la campaña
   municipal termina en «Parche #249 aplicado correctamente».
-- **Service worker:** `estrategia-v134` en ESTE árbol (6 de noviembre de 2026;
-  era `v133` antes de Legislación). El `v121` que decía aquí era de agosto y
+- **Service worker:** `estrategia-v135` en ESTE árbol (6 de noviembre de 2026;
+  `v133` antes de Legislación, `v134` en el parche 266). El `v121` que decía aquí era de agosto y
   estaba desactualizado. En las campañas valdrá `v134` cuando reciban el parche
   que lo lleve: **no medido allí**. `.version-parche` local = 265.
 - **`scripts/comparar-instancias.js`:** 137 archivos, **1 sola diferencia** en
@@ -31,6 +31,53 @@ anterior.*
   La prueba es que el PID cambie, no que el puerto responda.
 
 ## Sección Legislación (6 de noviembre de 2026) — parche 266 registrado, INACTIVO
+
+### Lo que se agregó después del 266 (SIN parche; el 267 lo arma Gildardo)
+
+Pantalla de tres pestañas, con `?tab=calendario|buscar|normas` (por omisión,
+Calendario). Escritorio y celular comparten `public/js/legislacion-comun.js` y
+`public/css/legislacion.css`; cada página solo aporta su marco y cómo abrir un PDF.
+Service worker a `estrategia-v135` (las páginas siguen sin precachearse).
+
+- **Datos en la carpeta central** (`legislacion/` de la Base, la que copia el cron):
+  `indice.json` con los epígrafes literales de los 10 PDF y `calendario.json` con
+  las 35 actividades de la Resolución 12338 de 2026. **Gildardo renombró
+  `resolucion-09458-de-2026-CNE.pdf` a `…-de-2025-CNE.pdf`** (el documento es del
+  11 de septiembre de 2025); las claves de `indice.json` siguen los nombres
+  actuales, así que **si se vuelve a renombrar un PDF hay que cambiar su clave**.
+  `scripts/sincronizar-legislacion.sh` ahora copia también `calendario.json`.
+- **`calendario.json`**: arreglo de `{inicio, fin|null, actividad, referencia,
+  grupo}` con fechas AAAA-MM-DD, más `plazo` y `soporte_legal` (el texto literal
+  del cuadro). Las horas («desde las 3:30 de la tarde») van en `plazo`, no en la
+  fecha. **Casi todo son días sueltos**: la resolución no da rangos en una fila
+  (inicio y cierre van en filas distintas), así que «En curso» solo muestra lo que
+  ocurre hoy; para tener rangos hay que escribir `fin` a mano en el archivo.
+  **Cuatro fechas son dudosas** (filas 14, 15, 23 y 27): el texto dice «60», «30» y
+  «8 días» y la fecha impresa solo cuadra con días HÁBILES (ver orden 5); se dejó
+  la fecha impresa. El estado (cumplida / en curso / próxima) lo calcula el
+  navegador con la fecha de Colombia; `?hoy=AAAA-MM-DD` simula otro día.
+- **`GET /api/legislacion/calendario`** y **`GET /api/legislacion/buscar?q=`**,
+  con el mismo permiso `legislacion`. El buscador está en `lib/legislacionTexto.js`.
+- **Extractor de texto: `pdftotext -raw` si está en /usr/bin; si no, Ghostscript.**
+  `/usr/bin/pdftotext` y `pdfinfo` **ya existen en el VPS** (poppler 24.02; no
+  estaban cuando se midió en la orden 5). El modo es `-raw` a propósito: con el
+  modo por defecto dos encabezados de la Resolución 09458 («DÉCIMO SÉPTIMO»,
+  «VIGÉSIMO SEGUNDO») salen partidos y se pierden dos artículos. Sin poppler, la
+  ruta de Ghostscript da los mismos artículos (probado), pero tarda unas 2,5 veces más.
+- **Qué indexa y cómo**: 9 de los 10 PDF por artículo (1.801: 249; Decreto 2241:
+  218; 1475: 55; 130: 54; 996: 42; 09458: 29; 163: 18; 6: 14; 0920: 10) más
+  «Texto general» por página. Un encabezado cuenta solo si su número sigue al
+  anterior. Coincidencia por **inicio de palabra**, sin tildes ni mayúsculas, la ñ
+  distinta de la n («elección» no encuentra «selección»; «ano» no encuentra «año»).
+  Reconoce «artículo 24», «art. 24 ley 130», «1475 artículo 35»; máximo 50.
+- **La Resolución 12338 NO se busca**: es un escaneo (una imagen por página) con una
+  capa de texto parcial. Se omite con un aviso en el log y una nota en pantalla; su
+  contenido útil es el calendario. Si algún día se le hace OCR, se indexa sola.
+- **Caché** en `datos/cache-legislacion/` (fuera de `legislacion/`, porque el cron
+  borra lo que sobra ahí; fuera de git y de parches/plantilla). Clave = nombre +
+  tamaño + fecha + versión del extractor. Primera búsqueda ≈ 2 s (todo el
+  corpus); después, milisegundos. Hay que dejar que la app pueda crear `datos/` en
+  cada instalación (la carpeta de la instalación es del usuario de la campaña: sí).
 
 Commits locales en `auditoria-fable`, sin push. El parche 266 se generó y
 registró **inactivo** (ver abajo). Las anclas de arriba son de agosto; lo que
@@ -61,8 +108,8 @@ sigue está medido hoy sobre este árbol.
   las dos**: la plantilla la habría llevado (`git ls-files -o` incluye lo que no
   tiene seguimiento) y `--desde-fecha` también. Los PDF siguen SIN seguimiento
   de git a propósito: no hacer `git add -A`.
-- **Service worker** a `estrategia-v134`. La página nueva NO se precachea (necesita
-  conexión).
+- **Service worker** a `estrategia-v134` en el parche 266 (ahora `v135`). La página nueva NO
+  se precachea (necesita conexión).
 - **En el celular, la entrada del menú depende del permiso.** `inicio.html`
   ahora consulta `/permisos/mios` antes de pintar el menú (espera máx. 2,5 s;
   sin respuesta, las entradas con `modulo` no se pintan). Es la primera entrada
