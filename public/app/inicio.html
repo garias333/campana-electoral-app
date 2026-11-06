@@ -96,15 +96,16 @@ const MENU_COORDINADOR = [
 // Panel general, Dashboard de votantes, Mapa territorial y Compartir contenido tienen
 // versión propia para el celular (admin-*.html, con su barra inferior de cinco botones:
 // ver admin-nav.js). Estructura territorial y «Agregar coordinadores o líderes» NO la
-// tienen: abren la pantalla de escritorio (territorial.html) — la segunda con #nuevo,
-// que abre de una vez el formulario de crear (ver el final de territorial.html). Esas
-// dos salen de la app y no traen botón de volver: se regresa con el gesto del sistema.
+// tienen: abren la pantalla de escritorio (territorial.html) con `?app=1`, que esconde su
+// menú lateral y pone arriba «← Volver a la app» (ver la cabecera de territorial.html). La
+// segunda lleva además #nuevo, que abre de una vez el formulario de crear (ver el final
+// de territorial.html); el `?app=1` no interfiere: el #nuevo es el hash, no la consulta.
 // No incluye Biografía del candidato ni Política de privacidad: el administrador las
 // edita desde Compartir contenido.
 const MENU_ADMIN = [
   { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
-  { href: '/territorial.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
-  { href: '/territorial.html#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
+  { href: '/territorial.html?app=1', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
+  { href: '/territorial.html?app=1#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
   { href: '/app/admin-votantes.html', icono: '📈', titulo: 'Dashboard de votantes', subtitulo: 'Cobertura y votantes por zona, líder y puesto' },
   { href: '/app/registro-votante.html', icono: '📝', titulo: 'Registro de votantes', subtitulo: 'Agregar un nuevo contacto al equipo' },
   { href: '/app/admin-mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Equipo, votantes y eventos en el mapa' },

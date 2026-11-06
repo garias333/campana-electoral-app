@@ -8,8 +8,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/fichas.css">
+<!-- MODO APP. Esta pantalla es de escritorio, pero el administrador la abre desde el menú de la
+     app del celular (public/app/inicio.html) con `?app=1`. En ese caso —o con la app instalada
+     (modo standalone) en una pantalla de celular o tableta chica, hasta 820 px— se esconde el
+     menú lateral, que apilado en 390 px ocupa más de media pantalla antes de la primera ficha,
+     y se muestra arriba «← Volver a la app», porque desde la PWA no hay botón de volver.
+     NO CAMBIA NADA en el computador: sin `?app=1` y sin la app instalada en una pantalla
+     chica, no se agrega la clase y todo lo de abajo queda sin efecto (una PWA instalada en un
+     computador, de más de 820 px, tampoco lo activa).
+     La clase se pone en <html> desde aquí, antes de pintar, para que el menú no parpadee. -->
+<script>
+(function () {
+  try {
+    var pedida = new URLSearchParams(window.location.search).get('app') === '1';
+    var instalada = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    var pantallaChica = window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
+    if (pedida || (instalada && pantallaChica)) document.documentElement.classList.add('modo-app');
+  } catch (e) { /* sin matchMedia: se queda la pantalla de escritorio de siempre */ }
+})();
+</script>
+<style>
+  #barra-volver-app { display: none; }
+  html.modo-app .sidebar { display: none !important; }
+  html.modo-app #barra-volver-app {
+    display: flex; align-items: center; gap: 8px;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;     /* bajo .overlay (50): los formularios la tapan */
+    min-height: 52px; box-sizing: border-box;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+    background: linear-gradient(155deg, #142a3f 0%, #204264 100%);
+    color: #fff; text-decoration: none; font-weight: 700; font-size: 0.98rem;
+    box-shadow: 0 2px 8px rgba(20, 42, 63, 0.25);
+  }
+  html.modo-app body { padding-top: calc(52px + env(safe-area-inset-top, 0px)); }
+</style>
 </head>
 <body>
+<a id="barra-volver-app" href="/app/inicio.html">← Volver a la app</a>
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="sec-hero">

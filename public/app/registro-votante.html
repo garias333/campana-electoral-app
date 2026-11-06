@@ -882,7 +882,10 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Nuevo registro', 'Votante o sublíder', '/app/mis-registros.html');
+  /* La flecha va a «Mis registros» (la pantalla del líder). Para el administrador esa pantalla
+     no es su punto de partida —entra aquí desde el menú de inicio— así que vuelve al menú. */
+  pintarBarraApp('Nuevo registro', 'Votante o sublíder',
+    usuario.rol === 'admin' ? '/app/inicio.html' : '/app/mis-registros.html');
 
   // UN SUBLÍDER NO CREA SUBLÍDERES. La cadena es coordinador → líder →
   // sublíder y ahí termina: lo que se creara desde aquí quedaría colgando de
