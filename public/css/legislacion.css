@@ -74,6 +74,13 @@
 .leg-cal-act { margin-top: 4px; font-size: 0.9rem; }
 .leg-cal-plazo { margin-top: 4px; font-size: 0.8rem; color: var(--leg-gris); }
 .leg-cal-ref { margin-top: 6px; font-size: 0.78rem; color: var(--leg-gris); border-top: 1px dashed var(--leg-linea); padding-top: 6px; }
+.leg-cal-nombre { font-weight: 700; color: var(--leg-navy); margin: 2px 0 4px; }
+.leg-prog { height: 10px; background: #dfe7df; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+.leg-prog span { display: block; height: 100%; background: var(--leg-verde); border-radius: 999px; }
+.leg-prog-txt { margin-top: 4px; font-size: 0.78rem; color: var(--leg-verde); font-weight: 600; }
+.leg-art-pagina { display: none; margin: -6px 0 12px; font-size: 0.86rem; color: var(--leg-gris); font-weight: 600; }
+.leg-visor .leg-art-pagina { display: block; }
+.leg-tab-corto { display: none; }
 .leg-cal-grupo { display: inline-block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--leg-azul); margin-bottom: 2px; }
 .leg-chip { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 0.74rem; font-weight: 700; }
 .leg-chip-proxima { background: #fbeadb; color: var(--leg-cobre); }
@@ -164,7 +171,11 @@
 }
 @media (max-width: 600px) {
   .leg-grid { grid-template-columns: 1fr; }
-  .leg-tab { flex: 1 1 auto; padding: 8px 10px; font-size: 0.88rem; }
+  /* Una sola fila de pestañas: rótulos cortos. */
+  .leg-tabs { flex-wrap: nowrap; gap: 0; }
+  .leg-tab { flex: 1 1 0; min-width: 0; padding: 8px 4px; font-size: 0.92rem; text-align: center; white-space: nowrap; }
+  .leg-tab-largo { display: none; }
+  .leg-tab-corto { display: inline; }
   .leg-form { flex-wrap: wrap; }
   .leg-form .leg-btn { flex: 1 1 100%; }
 }

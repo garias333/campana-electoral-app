@@ -28,8 +28,9 @@
  *
  * OTRAS DOS RUTAS, con el mismo permiso:
  *   GET /api/legislacion/calendario  lee `legislacion/calendario.json` (calendario
- *       electoral). Roto o ausente = lista vacía y un aviso en el log, como el
- *       índice. El estado de cada actividad (cumplida, en curso, próxima) lo
+ *       electoral) y responde { meta, filas, periodos }. Acepta el formato viejo
+ *       (un arreglo de actividades) y el nuevo. Roto o ausente = vacío y un aviso en
+ *       el log, como el índice. El estado de cada actividad (cumplida, en curso, próxima) lo
  *       calcula el NAVEGADOR con la fecha de Colombia: aquí solo se entregan datos.
  *   GET /api/legislacion/buscar?q=   busca dentro del texto de los PDF, por
  *       artículo (lib/legislacionTexto.js). La caché vive en datos/cache-legislacion/,
@@ -233,7 +234,8 @@ router.get('/', async (req, res) => {
    CALENDARIO ELECTORAL
    --------------------------------------------------------------------------- */
 
-let cacheCalendario = { firma: null, datos: [] };
+const CALENDARIO_VACIO = { meta: null, filas: [], periodos: [] };
+let cacheCalendario = { firma: null, datos: CALENDARIO_VACIO };
 
 function fechaValida(texto) {
   if (typeof texto !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
@@ -241,47 +243,90 @@ function fechaValida(texto) {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === texto;
 }
 
-/** Lee calendario.json. Cualquier problema → [] y un aviso (una vez por cambio del archivo). */
+/**
+ * Lee calendario.json. Dos formatos, los dos válidos:
+ *   · el viejo: un arreglo de actividades;
+ *   · el nuevo: { meta, filas, periodos }, donde cada periodo es una pareja que la
+ *     resolución une de forma expresa: { nombre, fila_inicio, fila_fin }. Las filas se
+ *     cuentan desde 1 en el ORDEN DEL ARCHIVO (antes de descartar ninguna), de modo que
+ *     quitar una fila mala no corre la numeración de los periodos.
+ * Cualquier problema → calendario vacío (o sin esa parte) y un aviso, una vez por cambio
+ * del archivo. Devuelve siempre { meta, filas, periodos }, con las fechas de cada periodo
+ * ya resueltas.
+ */
 function leerCalendario() {
   let stat;
   try {
     stat = fs.statSync(ARCHIVO_CALENDARIO);
   } catch (err) {
     if (cacheCalendario.firma !== 'ausente') console.warn('[legislacion] calendario.json no existe; el calendario sale vacío.');
-    cacheCalendario = { firma: 'ausente', datos: [] };
+    cacheCalendario = { firma: 'ausente', datos: CALENDARIO_VACIO };
     return cacheCalendario.datos;
   }
   const firma = `${stat.mtimeMs}:${stat.size}`;
   if (cacheCalendario.firma === firma) return cacheCalendario.datos;
 
-  let datos = [];
+  let datos = CALENDARIO_VACIO;
   try {
     if (!stat.isFile()) throw new Error('calendario.json no es un archivo');
     if (stat.size > MAX_BYTES_INDICE) throw new Error(`pesa ${stat.size} bytes (máximo ${MAX_BYTES_INDICE})`);
-    const crudo = JSON.parse(fs.readFileSync(ARCHIVO_CALENDARIO, 'utf8').replace(/^\uFEFF/, ''));
-    if (!Array.isArray(crudo)) throw new Error('debe ser un arreglo de actividades');
+    const crudo = JSON.parse(fs.readFileSync(ARCHIVO_CALENDARIO, 'utf8').replace(/^﻿/, ''));
+    let filasCrudas;
+    let periodosCrudos = [];
+    let metaCruda = null;
+    if (Array.isArray(crudo)) {
+      filasCrudas = crudo;
+    } else if (crudo && typeof crudo === 'object' && Array.isArray(crudo.filas)) {
+      filasCrudas = crudo.filas;
+      if (Array.isArray(crudo.periodos)) periodosCrudos = crudo.periodos;
+      else if (crudo.periodos !== undefined) console.warn('[legislacion] calendario.json: «periodos» debe ser un arreglo; se ignora.');
+      if (crudo.meta && typeof crudo.meta === 'object' && !Array.isArray(crudo.meta)) metaCruda = crudo.meta;
+    } else {
+      throw new Error('debe ser un arreglo de actividades o un objeto { meta, filas, periodos }');
+    }
+
     let descartadas = 0;
-    crudo.forEach((f) => {
+    const entradas = [];     // { pos (1 = primera del archivo), fila }
+    filasCrudas.forEach((f, i) => {
       const ok = f && typeof f === 'object' && fechaValida(f.inicio)
         && (f.fin == null || (fechaValida(f.fin) && f.fin >= f.inicio))
         && texto(f.actividad, 800);
       if (!ok) { descartadas += 1; return; }
-      datos.push({
-        inicio: f.inicio,
-        fin: f.fin == null ? null : f.fin,
-        actividad: texto(f.actividad, 800),
-        referencia: texto(f.referencia, 300),
-        grupo: texto(f.grupo, 80),
-        plazo: texto(f.plazo, 400),
-        soporte_legal: texto(f.soporte_legal, 500)
+      entradas.push({
+        pos: i + 1,
+        fila: {
+          inicio: f.inicio,
+          fin: f.fin == null ? null : f.fin,
+          actividad: texto(f.actividad, 800),
+          referencia: texto(f.referencia, 300),
+          grupo: texto(f.grupo, 80),
+          plazo: texto(f.plazo, 400),
+          soporte_legal: texto(f.soporte_legal, 500)
+        }
       });
     });
     if (descartadas) console.warn(`[legislacion] calendario.json: ${descartadas} actividad(es) descartada(s) por fecha o texto no válidos.`);
+
+    const porPosicion = new Map(entradas.map((e) => [e.pos, e.fila]));
+    const periodos = [];
+    let periodosMalos = 0;
+    periodosCrudos.forEach((p) => {
+      const a = p && Number.isInteger(p.fila_inicio) ? porPosicion.get(p.fila_inicio) : null;
+      const b = p && Number.isInteger(p.fila_fin) ? porPosicion.get(p.fila_fin) : null;
+      const nombre = p ? texto(p.nombre, 200) : null;
+      if (!a || !b || !nombre || b.inicio <= a.inicio) { periodosMalos += 1; return; }
+      periodos.push({ nombre, fila_inicio: p.fila_inicio, fila_fin: p.fila_fin, inicio: a.inicio, fin: b.inicio });
+    });
+    if (periodosMalos) console.warn(`[legislacion] calendario.json: ${periodosMalos} periodo(s) descartado(s) (fila inexistente o descartada, nombre vacío, o el cierre no es posterior al inicio).`);
+    periodos.sort((x, y) => (x.inicio < y.inicio ? -1 : x.inicio > y.inicio ? 1 : x.fin < y.fin ? -1 : 1));
+
     // Cronológico y estable: a igual fecha se conserva el orden del archivo.
-    datos = datos.map((d, i) => ({ d, i })).sort((a, b) => (a.d.inicio < b.d.inicio ? -1 : a.d.inicio > b.d.inicio ? 1 : a.i - b.i)).map((x) => x.d);
+    const filas = entradas.map((e, i) => ({ f: e.fila, i }))
+      .sort((a, b) => (a.f.inicio < b.f.inicio ? -1 : a.f.inicio > b.f.inicio ? 1 : a.i - b.i)).map((x) => x.f);
+    datos = { meta: metaCruda, filas, periodos };
   } catch (err) {
     console.warn(`[legislacion] calendario.json ignorado (el calendario sale vacío): ${err.message}`);
-    datos = [];
+    datos = CALENDARIO_VACIO;
   }
   cacheCalendario = { firma, datos };
   return datos;

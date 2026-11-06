@@ -16,9 +16,9 @@
   const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const TIPOS = { ley: 'Ley', decreto: 'Decreto', resolucion: 'Resolución', acuerdo: 'Acuerdo', circular: 'Circular', sentencia: 'Sentencia', concepto: 'Concepto' };
   const TABS = [
-    { id: 'calendario', texto: 'Calendario electoral' },
-    { id: 'buscar', texto: 'Buscar norma' },
-    { id: 'normas', texto: 'Leyes, decretos y resoluciones' }
+    { id: 'calendario', texto: 'Calendario electoral', corto: 'Calendario' },
+    { id: 'buscar', texto: 'Buscar norma', corto: 'Buscar' },
+    { id: 'normas', texto: 'Leyes, decretos y resoluciones', corto: 'Normas' }
   ];
 
   /* ------------------------------------------------------------------ utilidades */
@@ -101,13 +101,20 @@
     return `${fechaLarga(inicio)} – ${fechaLarga(fin)}`;
   }
 
-  /** cumplida / en-curso / proxima. Un día suelto está «en curso» solo el día mismo. */
+  /** cumplida / proxima. El día de la actividad cuenta como próxima («Hoy»): todavía puede estar por pasar.
+      «En curso» no es de las filas sino de los PERIODOS (pareja inicio → cierre de la propia resolución);
+      solo una fila con `fin` propio (formato viejo) puede estar en curso. */
   function estadoActividad(item, hoy) {
-    const fin = item.fin || item.inicio;
-    if (hoy < item.inicio) return 'proxima';
-    if (hoy <= fin) return 'en-curso';
-    return 'cumplida';
+    if (item.fin && item.fin !== item.inicio) {
+      if (hoy < item.inicio) return 'proxima';
+      if (hoy <= item.fin) return 'en-curso';
+      return 'cumplida';
+    }
+    return hoy < item.inicio ? 'proxima' : (hoy === item.inicio ? 'proxima' : 'cumplida');
   }
+
+  /** Periodo en curso: su inicio ya pasó (o es hoy) y su cierre no. */
+  function periodoEnCurso(p, hoy) { return p.inicio <= hoy && hoy <= p.fin; }
 
   /* ------------------------------------------------------------------ piezas de HTML */
 
@@ -119,6 +126,7 @@
       return `<span class="leg-chip leg-chip-curso">${faltan === 0 ? 'Termina hoy' : `Termina en ${faltan} ${faltan === 1 ? 'día' : 'días'}`}</span>`;
     }
     const n = diasEntre(hoy, item.inicio);
+    if (n === 0) return '<span class="leg-chip leg-chip-proxima">Hoy</span>';
     return `<span class="leg-chip leg-chip-proxima">En ${n} ${n === 1 ? 'día' : 'días'}</span>`;
   }
 
@@ -132,6 +140,22 @@
     </article>`;
   }
 
+  /** Tarjeta de un periodo en curso: desde … hasta …, cuánto falta y una barra de avance. */
+  function tarjetaPeriodo(p, hoy) {
+    const total = Math.max(1, diasEntre(p.inicio, p.fin));
+    const pasados = Math.max(0, Math.min(total, diasEntre(p.inicio, hoy)));
+    const pct = Math.round((100 * pasados) / total);
+    const faltan = diasEntre(hoy, p.fin);
+    const termina = faltan === 0 ? 'Termina hoy' : `Termina en ${faltan} ${faltan === 1 ? 'día' : 'días'}`;
+    return `<article class="leg-cal-card en-curso">
+      <span class="leg-cal-grupo">Periodo</span>
+      <div class="leg-cal-nombre">${esc(p.nombre)}</div>
+      <div class="leg-cal-fecha">Desde ${esc(fechaLarga(p.inicio))} hasta ${esc(fechaLarga(p.fin))} <span class="leg-chip leg-chip-curso">${termina}</span></div>
+      <div class="leg-prog" role="progressbar" aria-label="Avance del periodo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>
+      <p class="leg-prog-txt">${pct} % del periodo transcurrido (${pasados} de ${total} días)</p>
+    </article>`;
+  }
+
   function columna(clase, titulo, tarjetas, vacia) {
     return `<section class="leg-col ${clase}" data-col="${clase}">
       <button type="button" class="leg-col-cab" aria-expanded="true"><span>${esc(titulo)}</span><span class="leg-cuenta">${tarjetas.length}</span></button>
@@ -139,16 +163,21 @@
     </section>`;
   }
 
-  function htmlCalendario(items, hoy) {
+  /** `datos` = { filas, periodos } (o, en el formato viejo, un arreglo de filas). */
+  function htmlCalendario(datos, hoy) {
+    const filas = Array.isArray(datos) ? datos : (datos.filas || []);
+    const periodos = Array.isArray(datos) ? [] : (datos.periodos || []);
     const grupos = { cumplida: [], 'en-curso': [], proxima: [] };
-    for (const it of items) grupos[estadoActividad(it, hoy)].push(it);
+    for (const it of filas) grupos[estadoActividad(it, hoy)].push(it);
     grupos.cumplida.reverse();                                           // lo más reciente arriba
-    grupos['en-curso'].sort((a, b) => (a.fin || a.inicio).localeCompare(b.fin || b.inicio));
     const t = (lista, estado) => lista.map((i) => tarjetaCalendario(i, estado, hoy));
+    const enCurso = periodos.filter((p) => periodoEnCurso(p, hoy)).sort((a, b) => a.fin.localeCompare(b.fin) || a.inicio.localeCompare(b.inicio))
+      .map((p) => tarjetaPeriodo(p, hoy))
+      .concat(t(grupos['en-curso'], 'en-curso'));
     return `<p class="leg-hoy">Hoy: ${esc(fechaLarga(hoy))} (hora de Colombia)</p>
       <div class="leg-cal">
         ${columna('leg-col-cumplidas', 'Cumplidas', t(grupos.cumplida, 'cumplida'), 'Aún no se cumple ninguna actividad.')}
-        ${columna('leg-col-en-curso', 'En curso', t(grupos['en-curso'], 'en-curso'), 'No hay nada en curso hoy.')}
+        ${columna('leg-col-en-curso', 'En curso', enCurso, 'No hay ningún periodo en curso hoy.')}
         ${columna('leg-col-proximas', 'Próximas', t(grupos.proxima, 'proxima'), 'No quedan actividades por venir.')}
       </div>`;
   }
@@ -195,7 +224,7 @@
       <p class="leg-aviso">Consulte siempre la versión vigente en la fuente oficial.</p>
       <div class="leg-error" id="leg-error" role="alert" hidden></div>
       <div class="leg-tabs" role="tablist" aria-label="Secciones de legislación">
-        ${TABS.map((t) => `<button type="button" class="leg-tab" role="tab" id="leg-t-${t.id}" data-tab="${t.id}" aria-controls="leg-p-${t.id}" aria-selected="false" tabindex="-1">${esc(t.texto)}</button>`).join('')}
+        ${TABS.map((t) => `<button type="button" class="leg-tab" role="tab" id="leg-t-${t.id}" data-tab="${t.id}" aria-controls="leg-p-${t.id}" aria-label="${esc(t.texto)}" aria-selected="false" tabindex="-1"><span class="leg-tab-largo">${esc(t.texto)}</span><span class="leg-tab-corto">${esc(t.corto)}</span></button>`).join('')}
       </div>
       <section class="leg-panel" id="leg-p-calendario" role="tabpanel" aria-labelledby="leg-t-calendario" hidden></section>
       <section class="leg-panel" id="leg-p-buscar" role="tabpanel" aria-labelledby="leg-t-buscar" hidden>
@@ -277,11 +306,12 @@
       if (cargado.calendario) return;
       pCal.innerHTML = '<p class="leg-cargando">Cargando el calendario…</p>';
       try {
-        const items = await global.api('/legislacion/calendario');
-        if (!items) return;
+        const datos = await global.api('/legislacion/calendario');
+        if (!datos) return;
         cargado.calendario = true;
-        if (!items.length) { pCal.innerHTML = '<p class="leg-vacio">Aún no se ha cargado el calendario electoral.</p>'; return; }
-        pCal.innerHTML = htmlCalendario(items, hoyBogota());
+        const hayFilas = Array.isArray(datos) ? datos.length : (datos.filas || []).length;
+        if (!hayFilas) { pCal.innerHTML = '<p class="leg-vacio">Aún no se ha cargado el calendario electoral.</p>'; return; }
+        pCal.innerHTML = htmlCalendario(datos, hoyBogota());
         // En el celular, lo cumplido arranca plegado.
         const cumplidas = pCal.querySelector('.leg-col-cumplidas');
         if (cumplidas && !esAncha()) { cumplidas.classList.add('plegada'); cumplidas.querySelector('.leg-col-cab').setAttribute('aria-expanded', 'false'); }
@@ -309,6 +339,7 @@
           <button type="button" class="leg-btn leg-btn-primario" data-accion-art="pdf">Ver en el PDF</button>
           <button type="button" class="leg-btn" data-accion-art="copiar">Copiar texto</button>
         </div>
+        <p class="leg-art-pagina">Está en la página ${esc(r.pagina)}</p>
         <div class="leg-art-texto">${parrafosResaltados(r.texto, terminos)}</div>`;
     }
 
@@ -464,5 +495,5 @@
     if (q0 && tabDeLaUrl() === 'buscar') { $('leg-q').value = q0; buscar(q0); }
   }
 
-  global.Legis = { montar, normalizar, resaltar, estadoActividad, hoyBogota, textoFecha, diasEntre, htmlCalendario };
+  global.Legis = { montar, normalizar, resaltar, estadoActividad, periodoEnCurso, hoyBogota, textoFecha, diasEntre, htmlCalendario };
 })(window);

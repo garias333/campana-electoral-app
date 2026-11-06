@@ -46,17 +46,29 @@ Service worker a `estrategia-v135` (las páginas siguen sin precachearse).
   11 de septiembre de 2025); las claves de `indice.json` siguen los nombres
   actuales, así que **si se vuelve a renombrar un PDF hay que cambiar su clave**.
   `scripts/sincronizar-legislacion.sh` ahora copia también `calendario.json`.
-- **`calendario.json`**: arreglo de `{inicio, fin|null, actividad, referencia,
-  grupo}` con fechas AAAA-MM-DD, más `plazo` y `soporte_legal` (el texto literal
-  del cuadro). Las horas («desde las 3:30 de la tarde») van en `plazo`, no en la
-  fecha. **Casi todo son días sueltos**: la resolución no da rangos en una fila
-  (inicio y cierre van en filas distintas), así que «En curso» solo muestra lo que
-  ocurre hoy; para tener rangos hay que escribir `fin` a mano en el archivo.
+- **`calendario.json`**: objeto `{meta, filas, periodos}` (el lector acepta también
+  el formato viejo, un arreglo de filas). Cada fila: `{inicio, fin|null, actividad,
+  referencia, grupo}` con fechas AAAA-MM-DD, más `plazo` y `soporte_legal` (el texto
+  literal del cuadro; las horas van en `plazo`). **`periodos`** son las parejas que la
+  resolución une de forma expresa, `{nombre, fila_inicio, fila_fin}`, con las filas
+  contadas desde 1 en el orden del archivo (una fila inválida no corre la numeración).
+  Hoy hay seis: 1→4 registro de comités inscriptores, 2→20 inscripción por cambio de
+  domicilio, 6→10 inscripción de candidatos, 12→16 modificación por renuncia o no
+  aceptación, 21→30 espacios gratuitos en medios, 22→28 postulación de testigos.
+  **Se dejó fuera 1→11 (recolección de apoyos)**: la fila 1 dice «periodo de recolección
+  de apoyos ciudadanos» y la 11 «recolección y entrega de firmas»; no es la misma frase.
+  Tampoco se cierra la propaganda en espacio público (fila 7): el cuadro no le da cierre.
+  **No se escribe `fin` a mano ni se inventan fechas.**
+  **En la pantalla, «En curso» son los PERIODOS** cuyo inicio ya pasó y cuyo fin no, con
+  «desde … hasta …», «Termina en N días» y una barra de avance. Las 35 filas van a
+  Cumplidas o Próximas; una fila del día de hoy queda en Próximas con la etiqueta «Hoy».
   **Cuatro fechas son dudosas** (filas 14, 15, 23 y 27): el texto dice «60», «30» y
-  «8 días» y la fecha impresa solo cuadra con días HÁBILES (ver orden 5); se dejó
-  la fecha impresa. El estado (cumplida / en curso / próxima) lo calcula el
-  navegador con la fecha de Colombia; `?hoy=AAAA-MM-DD` simula otro día.
-- **`GET /api/legislacion/calendario`** y **`GET /api/legislacion/buscar?q=`**,
+  «8 días» y la fecha impresa solo cuadra con días HÁBILES (ver orden 5); se dejó la
+  fecha impresa. El estado lo calcula el navegador con la fecha de Colombia;
+  `?hoy=AAAA-MM-DD` simula otro día. A 390 px las pestañas usan rótulos cortos
+  («Calendario», «Buscar», «Normas») y en el celular el artículo dice «Está en la
+  página N» (Safari ignora `#page`).
+- **`GET /api/legislacion/calendario`** (responde `{meta, filas, periodos}`) y **`GET /api/legislacion/buscar?q=`**,
   con el mismo permiso `legislacion`. El buscador está en `lib/legislacionTexto.js`.
 - **Extractor de texto: `pdftotext -raw` si está en /usr/bin; si no, Ghostscript.**
   `/usr/bin/pdftotext` y `pdfinfo` **ya existen en el VPS** (poppler 24.02; no
