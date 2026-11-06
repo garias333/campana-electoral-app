@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v141';
+const CACHE_NAME = 'estrategia-v142';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -43,6 +43,9 @@ const ARCHIVOS_CASCARON = [
   '/app/avance-lideres.html',
   '/app/avance-resumen.js',
   '/app/registro-votante.html',
+  // El formulario de registro, paso a paso: sin estos dos, sin señal se vería el formulario largo (o sin estilos).
+  '/app/pasos-formulario.js',
+  '/app/pasos-formulario.css',
   '/app/dia-d.html',
   // Pantallas de ADMINISTRADOR del celular (+ su barra inferior). Leaflet NO va: viene de
   // unpkg (otro origen, que este service worker no toca) y sin red el mapa dice «Sin conexión».

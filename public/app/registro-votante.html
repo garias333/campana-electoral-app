@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/pasos-formulario.css">
 </head>
 <body>
 <div class="app-barra" id="app-barra"></div>
@@ -252,6 +253,7 @@
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/app/pasos-formulario.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/dictado.js"></script>
 <script src="/js/firma.js"></script>
@@ -1026,5 +1028,90 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
 })();
 </script>
   <script src="/js/listas-desplegables.js"></script>
+
+<script>
+/* EL FORMULARIO, PASO A PASO. Reorganiza el formulario de arriba en cuatro pasos (app/pasos-formulario.js) SIN
+   tocar su lógica: mismas validaciones, mismo POST a /votantes, misma cola sin señal y mismo dictado. Solo se
+   MUEVEN los nodos a cuatro secciones y se muestra una a la vez.
+
+     1 Categoría (Votante o Sublíder, su ayuda y su meta)
+     2 Lugar de votación e identificación: botón de consulta → Departamento, Municipio, Puesto, Mesa → cédula
+     3 Datos personales y contacto
+     4 Territorio, observaciones y autorización (con la firma)
+
+   Si pasos-formulario.js no cargó (actualización a medias), el formulario se queda largo y funciona igual.
+   La pantalla la usan líder, sublíder, coordinador y administrador: nada de aquí depende del rol. */
+(function () {
+  if (!window.PasosFormulario) return;
+  const form = document.getElementById('form-registro');
+  const H = (sel) => PasosFormulario.hijoDe(form, sel);
+  const anterior = (el) => (el ? el.previousElementSibling : null);   // el título de sección que va delante
+
+  /* Todo se busca por id ANTES de mover nada: los títulos de sección se encuentran por su vecino. */
+  const nombre = H('#f-nombre');
+  const telefono = H('#f-telefono');
+  const observaciones = H('#f-observaciones');
+  const grupos = [
+    // 1 · Categoría. «Cerrar sesión» queda aquí: el Invitado y el Sublíder entran directo a esta pantalla.
+    [H('#caja-referido'), H('#chip-votante'), H('#campo-meta-votos'), H('#btn-cerrar-sesion')],
+    // 2 · La regla de la campaña: consultar primero dónde vota, luego los campos, y AL FINAL la cédula.
+    [H('.seccion-titulo.acento'), H('a[href*="consultacenso"]'), H('#f-depto-votacion'), H('#f-puesto-votacion'), H('#f-cedula')],
+    // 3 · Datos personales y de contacto.
+    [anterior(nombre), nombre, H('#duplicado-estado'), H('#f-genero'), H('#bloque-apoya-a-app'),
+      anterior(telefono), telefono, H('#f-email'), H('#f-direccion'), H('#btn-gps'), H('#f-depto-residencia')],
+    // 4 · Territorio de influencia, observaciones y la autorización con su firma.
+    [H('#titulo-influencia'), H('#campo-influencia-tipo'), H('#campo-organizacion'), H('#campo-area'),
+      H('#fila-urbano'), H('#fila-rural'), anterior(observaciones), observaciones, H('.bloque-consentimiento')]
+  ];
+
+  /* Cada error —del envío o del servidor— se lleva al paso del campo. Son los mensajes de la propia pantalla y de
+     routes/votantes.routes.js (POST /votantes). */
+  const campo = (id) => document.getElementById(id);
+  function destinoDelError(texto) {
+    const m = String(texto || '').toLowerCase();
+    if (/ya registrado|c[eé]dula|identificaci/.test(m)) return { paso: 2, campo: campo('f-cedula') };
+    if (/tel[eé]fono|d[ií]gitos/.test(m)) return { paso: 3, campo: campo('f-telefono') };
+    if (/nombres y apellidos/.test(m)) return { paso: 3, campo: campo('f-nombre') };
+    if (/votante o subl/.test(m)) return { paso: 1 };
+    if (/firma/.test(m)) return { paso: 4, campo: campo('lienzo-firma') };
+    if (/autoriz/.test(m)) return { paso: 4, campo: campo('f-consentimiento') };
+    if (/organizaci|barrio|comuna|vereda|corregimiento|[aá]rea|territorio/.test(m)) return { paso: 4 };
+    return undefined;     // cualquier otro (p. ej. «no hay señal y no se pudo guardar»): donde esté la persona
+  }
+
+  const ctl = PasosFormulario.crear({
+    form,
+    titulos: ['Categoría', 'Lugar de votación e identificación', 'Datos personales y contacto', 'Territorio y autorización'],
+    grupos,
+    botonGuardar: campo('btn-guardar'),
+    cajaError: campo('aviso-error'),
+    arriba: campo('app-barra'),
+    destinoDelError,
+    /* «Siguiente» valida SOLO su paso, con las mismas reglas del envío:
+         2 → la cédula no puede estar ya registrada (identificacionVotanteDisponible, que verifica el servidor
+             mientras se teclea);
+         3 → el nombre y el teléfono de 10 dígitos (validarTelefonoCampo).
+       Lo del último paso (autorización, firma, territorio) lo valida el envío de siempre, que se ejecuta al guardar. */
+    validarPaso(n, c) {
+      if (n === 2 && !identificacionVotanteDisponible) {
+        c.senalar(2, 'Ya registrado por otro líder.', campo('f-cedula'));
+        return false;
+      }
+      if (n === 3) {
+        if (!campo('f-nombre').value.trim()) { c.senalar(3, 'Escribe los nombres y apellidos.', campo('f-nombre')); return false; }
+        if (!validarTelefonoCampo(campo('f-telefono'))) {
+          c.senalar(3, 'Error de digitación: el teléfono debe tener 10 dígitos.', campo('f-telefono'));
+          return false;
+        }
+      }
+      return true;
+    }
+  });
+
+  /* «Registrar otro»: la pantalla de éxito ya lo tenía y deja el formulario vacío; aquí además se vuelve al paso 1.
+     (Este escuchador se agrega DESPUÉS del de la pantalla, así que corre cuando el formulario ya está limpio.) */
+  campo('btn-registrar-otro').addEventListener('click', () => ctl.reiniciar());
+})();
+</script>
 </body>
 </html>
