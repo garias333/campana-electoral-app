@@ -50,6 +50,15 @@ Complete al menos las variables marcadas **obligatoria** en `.env.example`:
 
 Una contraseña que contenga `#` debe ir entre comillas dobles, o dotenv la corta.
 
+También están en `.env.example`, todas opcionales y vacías al nacer:
+
+- `APP_NOMBRE`: cómo se llama la campaña en el correo y en el aviso de Telegram con
+  el código de ingreso (por omisión, «Estrategia | App electoral»).
+- `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID`: el aviso por Telegram al
+  superadministrador. No se llenan a mano: las pone el script del paso 4b.
+- `SUPERADMIN_TELEFONO`: el celular que `init-db` le pone al superadministrador si
+  no tiene (por omisión, 3104157434).
+
 Opcional: `ADMIN_EMAIL` y `ADMIN_PASSWORD` fijan el administrador inicial. Si no
 se define la contraseña, el paso 4 genera una al azar.
 
@@ -83,6 +92,35 @@ el archivo ya existe, `init-db` no crea la cuenta y lo avisa. El archivo no viaj
 en las plantillas ni en los parches.
 Está escrito para poder repetirse (`CREATE TABLE IF NOT EXISTS`, y solo crea
 un administrador si no hay ninguno).
+
+## 4b. Código de ingreso del superadmin por Telegram
+
+El superadministrador (`correo@gildardoarias.com`, o el `SUPERADMIN_EMAIL` del `.env`)
+**entra siempre con código**: `init-db` lo crea con la verificación en dos pasos
+encendida y con el teléfono 3104157434 (o `SUPERADMIN_TELEFONO`). Desde la aplicación
+no se puede apagar, y cada corrida de `init-db` lo vuelve a asegurar (no pisa un
+teléfono que ya tenga).
+
+Ese código le llega por el canal de siempre (correo o SMS) y, además, por Telegram, con
+el nombre de la campaña, para saber de cuál viene. Para activar Telegram, **como root**:
+
+```bash
+bash scripts/poner-telegram-env.sh <ruta del .env>
+```
+
+Pide, sin mostrarlos: el token del bot, el `chat_id` del superadministrador y
+`APP_NOMBRE` (el nombre que sale en el mensaje del código; con Enter no se cambia).
+Escribe las tres variables en el `.env` sin duplicarlas.
+
+- **Sin estas variables el ingreso sigue solo por correo**, sin errores. Por eso el
+  correo (`SMTP_*`, paso 3) debe funcionar **antes del primer ingreso**: el
+  superadministrador siempre necesita un código, y si no sale por ningún canal no entra.
+- **El bot debe haber recibido antes un `/start` de Gildardo.** Telegram no deja que un
+  bot le escriba a quien no le ha escrito primero; sin eso el aviso falla con
+  «Telegram falló: HTTP 400» o 403 en el registro del proceso.
+- **Reinicie después** con `bash scripts/reiniciar-instancia.sh <usuario-de-la-cuenta>`.
+  Un `pm2 restart` a secas **no relee el `.env`**. Si todavía no se ha hecho el primer
+  arranque (paso 6), basta con arrancar: ya lo lee.
 
 ## 5. Activar la licencia
 
