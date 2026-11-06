@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Legislación · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .leg-aviso { background: #fbf1e4; border: 1px solid var(--copper); border-left: 4px solid var(--copper); border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; margin: 0 0 16px; line-height: 1.5; }
+  .leg-buscar { margin-bottom: 12px; }
+  .leg-buscar input { width: 100%; padding: 12px 14px; font-size: 1rem; border: 1.5px solid var(--linea); border-radius: 10px; background: #fff; }
+  .filtros-app { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .leg-contador { font-size: 0.78rem; color: var(--muted); margin: 0 0 10px; }
+  .leg-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .leg-tipo { display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--copper); font-weight: 700; margin-bottom: 6px; }
+  .leg-tarjeta h3 { margin: 0 0 6px; font-size: 1rem; color: var(--navy); overflow-wrap: anywhere; }
+  .leg-tarjeta p { margin: 0 0 10px; font-size: 0.86rem; color: var(--muted); line-height: 1.5; }
+  .leg-meta { font-size: 0.76rem; }
+  .leg-acciones { display: flex; gap: 10px; }
+  .leg-acciones a.btn-app { text-decoration: none; flex: 1; text-align: center; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="contenedor" style="display:none;">
+    <p class="leg-aviso">Consulte siempre la versión vigente en la fuente oficial.</p>
+    <div id="zona-busqueda" style="display:none;">
+      <div class="leg-buscar"><input type="search" id="leg-buscar" placeholder="Buscar norma…" aria-label="Buscar norma" autocomplete="off"></div>
+      <div class="filtros-app" id="filtros-app"></div>
+      <p class="leg-contador" id="leg-contador"></p>
+    </div>
+    <div id="lista-normas"></div>
+    <div id="vacio" class="vacio-app" style="display:none;">
+      <div style="font-size:2.2rem; margin-bottom:10px;">⚖️</div>
+      <span id="vacio-texto">Aún no se han cargado normas.</span>
+    </div>
+  </div>
+  <div id="error-carga" class="aviso-app error" style="display:none;"></div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+let normas = [];
+let tipoActual = null;   // null = todos
+
+const ETIQUETA_TIPO = {
+  ley: 'Ley', decreto: 'Decreto', resolucion: 'Resolución', acuerdo: 'Acuerdo',
+  circular: 'Circular', sentencia: 'Sentencia', concepto: 'Concepto'
+};
+
+function etiquetaTipo(tipo) {
+  if (!tipo) return 'Otras';
+  const sinAcento = tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return ETIQUETA_TIPO[sinAcento] || (tipo.charAt(0).toUpperCase() + tipo.slice(1));
+}
+
+function normalizarBusqueda(t) {
+  return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function formatoTamano(bytes) {
+  if (!bytes) return '';
+  const kb = bytes / 1024;
+  return kb >= 1024 ? `${(kb / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.round(kb)} KB`;
+}
+
+function enlaceArchivo(n, descargar) {
+  return `/api/legislacion/archivo/${encodeURIComponent(n.archivo)}${descargar ? '?descargar=1' : ''}`;
+}
+
+function pintarFiltros() {
+  const claves = [...new Set(normas.map(n => n.tipo || ''))]
+    .sort((a, b) => etiquetaTipo(a).localeCompare(etiquetaTipo(b), 'es'));
+  const contenedor = document.getElementById('filtros-app');
+  // Con un solo tipo, los chips no sirven de nada.
+  if (claves.length < 2) { contenedor.innerHTML = ''; return; }
+  const chips = [{ clave: null, texto: 'Todas' }, ...claves.map(c => ({ clave: c, texto: etiquetaTipo(c) }))];
+  contenedor.innerHTML = '';
+  chips.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'chip-app' + (tipoActual === c.clave ? ' activo' : '');
+    el.style.cssText = 'flex:0 0 auto; white-space:nowrap;';
+    el.textContent = c.texto;
+    el.addEventListener('click', () => { tipoActual = c.clave; pintarFiltros(); pintarLista(); });
+    contenedor.appendChild(el);
+  });
+}
+
+function pintarLista() {
+  const consulta = normalizarBusqueda(document.getElementById('leg-buscar').value).trim();
+  const visibles = normas.filter(n => {
+    if (tipoActual !== null && (n.tipo || '') !== tipoActual) return false;
+    if (!consulta) return true;
+    const pajar = normalizarBusqueda([n.titulo, n.descripcion, n.numero, n.anio, etiquetaTipo(n.tipo)].join(' '));
+    return consulta.split(/\s+/).every(p => pajar.includes(p));
+  });
+
+  document.getElementById('leg-contador').textContent =
+    visibles.length === normas.length ? `${normas.length} ${normas.length === 1 ? 'norma' : 'normas'}` : `${visibles.length} de ${normas.length}`;
+
+  const hayNinguna = !visibles.length;
+  document.getElementById('vacio').style.display = hayNinguna ? 'block' : 'none';
+  document.getElementById('vacio-texto').textContent = normas.length ? 'Ninguna norma coincide con la búsqueda.' : 'Aún no se han cargado normas.';
+
+  document.getElementById('lista-normas').innerHTML = visibles.map(n => {
+    const meta = [formatoTamano(n.tamano_bytes), n.anio ? `Año ${n.anio}` : ''].filter(Boolean).join(' · ');
+    return `
+      <div class="leg-tarjeta">
+        ${n.tipo ? `<span class="leg-tipo">${escaparAppHtml(etiquetaTipo(n.tipo))}</span>` : ''}
+        <h3>${escaparAppHtml(n.titulo)}</h3>
+        ${n.descripcion ? `<p>${escaparAppHtml(n.descripcion)}</p>` : ''}
+        ${meta ? `<p class="leg-meta">${escaparAppHtml(meta)}</p>` : ''}
+        <div class="leg-acciones">
+          <a class="btn-app btn-app-primario" href="${enlaceArchivo(n, false)}" target="_blank" rel="noopener">Ver</a>
+          <a class="btn-app btn-app-secundario" href="${enlaceArchivo(n, true)}">Descargar</a>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Legislación', null, '/app/inicio.html');
+
+  try {
+    const lista = await api('/legislacion');
+    if (!lista) return;   // api() ya redirigió a login
+    normas = Array.isArray(lista) ? lista : [];
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenedor').style.display = 'block';
+    if (normas.length) {
+      document.getElementById('zona-busqueda').style.display = 'block';
+      document.getElementById('leg-buscar').addEventListener('input', pintarLista);
+      pintarFiltros();
+    }
+    pintarLista();
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    const box = document.getElementById('error-carga');
+    box.textContent = err.esErrorDeRed
+      ? 'Se necesita conexión a internet para consultar la legislación.'
+      : (err.message || 'No se pudo consultar la legislación en este momento.');
+    box.classList.add('visible');
+  }
+})();
+</script>
+</body>
+</html>

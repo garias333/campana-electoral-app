@@ -57,6 +57,10 @@ const EXCLUIR = [
   /^parches\//,
   /^uploads\//,          // el contenido; las carpetas se recrean vacías abajo
   /^public\/uploads\//,
+  // Los PDF de Legislación (y su indice.json) son de cada instalación: los sube
+  // quien la administra. Sin seguimiento de git, `ls-files -o` los traería a la
+  // plantilla. La ruta tolera que la carpeta no exista (lista vacía).
+  /^legislacion\//,
   /^sessions\//,
   /^tmp\//,
   /^\.claude\//,

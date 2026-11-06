@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legislación · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  :root {
+    --leg-navy: #142a3f; --leg-copper: #bf5e1f; --leg-line: #e4ddd0;
+    --leg-ink: #1c1c1c; --leg-muted: #6b6b6b;
+  }
+  .leg-aviso {
+    background: #fbf1e4; border: 1px solid var(--leg-copper); border-left: 4px solid var(--leg-copper);
+    border-radius: 8px; padding: 12px 16px; font-size: 0.9rem; margin: 0 0 18px; line-height: 1.5;
+  }
+  .leg-herramientas { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+  .leg-herramientas input[type="search"] { flex: 1 1 260px; min-width: 200px; }
+  .leg-herramientas select { flex: 0 1 220px; }
+  .leg-contador { font-size: 0.82rem; color: var(--leg-muted); margin: 0 0 12px; }
+  .leg-lista { display: grid; gap: 14px; }
+  .leg-norma {
+    background: #fff; border: 1px solid var(--leg-line); border-radius: 14px; padding: 18px 20px;
+    display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; justify-content: space-between;
+  }
+  .leg-norma-info { flex: 1 1 320px; min-width: 0; }
+  .leg-tipo {
+    display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    background: #e2ecf5; color: #204264; border-radius: 999px; padding: 3px 10px; margin-bottom: 6px;
+  }
+  .leg-norma h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.04rem; color: var(--leg-navy); margin: 0 0 4px; overflow-wrap: anywhere; }
+  .leg-desc { font-size: 0.88rem; color: var(--leg-ink); line-height: 1.5; margin: 6px 0 0; }
+  .leg-meta { font-size: 0.78rem; color: var(--leg-muted); margin: 6px 0 0; }
+  .leg-acciones { display: flex; gap: 10px; flex-wrap: wrap; }
+  .leg-acciones a { text-decoration: none; }
+  .leg-vacio { text-align: center; padding: 50px 20px; color: var(--leg-muted); background: #fff; border: 1px dashed var(--leg-line); border-radius: 14px; }
+  @media (max-width: 640px) { .leg-norma { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="sec-hero">
+      <div class="eyebrow">Consulta</div>
+      <h1>Legislación</h1>
+      <p>Normas electorales y de campaña para consultar o descargar en PDF.</p>
+    </div>
+
+    <p class="leg-aviso">Consulte siempre la versión vigente en la fuente oficial.</p>
+
+    <div id="leg-contenido" style="display:none;">
+      <div class="leg-herramientas">
+        <input type="search" id="leg-buscar" placeholder="Buscar por nombre, número, año o tema…" aria-label="Buscar normas" autocomplete="off">
+        <select id="leg-tipo" aria-label="Filtrar por tipo"></select>
+      </div>
+      <p class="leg-contador" id="leg-contador"></p>
+      <div class="leg-lista" id="leg-lista"></div>
+    </div>
+    <div class="leg-vacio" id="leg-vacio" style="display:none;">Aún no se han cargado normas.</div>
+    <div class="leg-vacio" id="leg-error" style="display:none;"></div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let normas = [];
+
+const ETIQUETA_TIPO = {
+  ley: 'Ley', decreto: 'Decreto', resolucion: 'Resolución', acuerdo: 'Acuerdo',
+  circular: 'Circular', sentencia: 'Sentencia', concepto: 'Concepto'
+};
+
+function etiquetaTipo(tipo) {
+  if (!tipo) return 'Otras';
+  const sinAcento = tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return ETIQUETA_TIPO[sinAcento] || (tipo.charAt(0).toUpperCase() + tipo.slice(1));
+}
+
+function normalizarBusqueda(t) {
+  return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function formatoTamano(bytes) {
+  if (!bytes) return '';
+  const kb = bytes / 1024;
+  return kb >= 1024 ? `${(kb / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.round(kb)} KB`;
+}
+
+function enlaceArchivo(n, descargar) {
+  // encodeURIComponent deja el nombre seguro dentro del atributo (cualquier comilla queda codificada).
+  return `/api/legislacion/archivo/${encodeURIComponent(n.archivo)}${descargar ? '?descargar=1' : ''}`;
+}
+
+function pintarTipos() {
+  const claves = [...new Set(normas.map(n => n.tipo || ''))];
+  claves.sort((a, b) => etiquetaTipo(a).localeCompare(etiquetaTipo(b), 'es'));
+  const select = document.getElementById('leg-tipo');
+  /* «Todos los tipos» lleva valor VACÍO a propósito: common.js ordena los
+     desplegables alfabéticamente y deja arriba solo la opción sin valor (el
+     rótulo del campo). Con cualquier otro valor se iría al final de la lista.
+     Las normas sin tipo van como «Otras», con su propio valor. */
+  select.innerHTML = '<option value="">Todos los tipos</option>' +
+    claves.map(c => `<option value="${c ? escaparHtml(encodeURIComponent(c)) : '__otras'}">${escaparHtml(etiquetaTipo(c))}</option>`).join('');
+}
+
+function pintarLista() {
+  const consulta = normalizarBusqueda(document.getElementById('leg-buscar').value).trim();
+  const tipoElegido = document.getElementById('leg-tipo').value;
+  const tipo = tipoElegido === '' ? null : (tipoElegido === '__otras' ? '' : decodeURIComponent(tipoElegido));
+
+  const visibles = normas.filter(n => {
+    if (tipo !== null && (n.tipo || '') !== tipo) return false;
+    if (!consulta) return true;
+    const pajar = normalizarBusqueda([n.titulo, n.descripcion, n.numero, n.anio, etiquetaTipo(n.tipo), n.archivo].join(' '));
+    return consulta.split(/\s+/).every(palabra => pajar.includes(palabra));
+  });
+
+  document.getElementById('leg-contador').textContent =
+    visibles.length === normas.length
+      ? `${normas.length} ${normas.length === 1 ? 'norma' : 'normas'}`
+      : `${visibles.length} de ${normas.length} normas`;
+
+  const lista = document.getElementById('leg-lista');
+  if (!visibles.length) {
+    lista.innerHTML = '<div class="leg-vacio">Ninguna norma coincide con la búsqueda.</div>';
+    return;
+  }
+  lista.innerHTML = visibles.map(n => {
+    const meta = [formatoTamano(n.tamano_bytes), n.anio ? `Año ${n.anio}` : ''].filter(Boolean).join(' · ');
+    return `
+      <article class="leg-norma">
+        <div class="leg-norma-info">
+          ${n.tipo ? `<span class="leg-tipo">${escaparHtml(etiquetaTipo(n.tipo))}</span>` : ''}
+          <h3>${escaparHtml(n.titulo)}</h3>
+          ${n.descripcion ? `<p class="leg-desc">${escaparHtml(n.descripcion)}</p>` : ''}
+          ${meta ? `<p class="leg-meta">${escaparHtml(meta)}</p>` : ''}
+        </div>
+        <div class="leg-acciones">
+          <a class="btn-primario btn-sm" href="${enlaceArchivo(n, false)}" target="_blank" rel="noopener">Ver</a>
+          <a class="btn-secundario btn-sm" href="${enlaceArchivo(n, true)}">Descargar</a>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+(async () => {
+  const usuarioActual = await inicializarLayout('/legislacion.html');
+  if (!usuarioActual) return;
+
+  try {
+    const respuesta = await api('/legislacion');
+    if (!respuesta) return;   // api() ya redirigió a login por un 401
+    normas = Array.isArray(respuesta) ? respuesta : [];
+  } catch (err) {
+    const caja = document.getElementById('leg-error');
+    caja.textContent = err.message || 'No se pudo consultar la legislación.';
+    caja.style.display = 'block';
+    return;
+  }
+
+  if (!normas.length) {
+    document.getElementById('leg-vacio').style.display = 'block';
+    return;
+  }
+  pintarTipos();
+  document.getElementById('leg-contenido').style.display = 'block';
+  document.getElementById('leg-buscar').addEventListener('input', pintarLista);
+  document.getElementById('leg-tipo').addEventListener('change', pintarLista);
+  pintarLista();
+})();
+</script>
+</body>
+</html>

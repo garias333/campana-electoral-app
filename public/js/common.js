@@ -261,6 +261,13 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#backup', texto: 'Backup', modulo: 'configuracion', roles: ['admin'] },
     ]
   },
+  /* LEGISLACIÓN, JUSTO ANTES DE AYUDA. Lleva `modulo`: se oculta a quien no
+     tenga «Ver» en Asignación de permisos. `roles` solo entra si esa consulta
+     falla (ver itemVisible), y repite la siembra de fábrica. El
+     módulo `legislacion` está en MODULOS (routes/permisos.routes.js) y en la
+     siembra de db/init-db.js; sin esa fila nadie lo vería. El aspirante con
+     sublicencia tampoco: su lista de direcciones (HREFS_ASPIRANTE) no la trae. */
+  { href: '/legislacion.html', icono: '⚖️', texto: 'Legislación', modulo: 'legislacion', roles: ['admin', 'coordinador'] },
   { href: '/ayuda.html', icono: '❔', texto: 'Ayuda', roles: null },
 ];
 

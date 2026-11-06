@@ -71,6 +71,9 @@ const MENU_LIDER = [
   { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
   { href: '/app/politica-privacidad.html', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Cómo se protege tu información' },
+  // `modulo`: la entrada solo se pinta si el rol tiene «Ver» en ese módulo de
+  // Asignación de permisos (ver pintarMenu). Sin `modulo`, siempre se pinta.
+  { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
 ];
 
 // Menú de coordinador. Lo de siempre del líder —registrar, biografía, material,
@@ -103,10 +106,29 @@ const MENU_ADMIN = [
   { href: '/territorial.html#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
   { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puestos de votación', subtitulo: 'Página oficial de la Registraduría' },
+  { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
 ];
 
-function pintarMenu(rol) {
-  const items = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
+/* Módulos que este usuario puede VER según Asignación de permisos
+   (/permisos/mios). Hasta ahora ninguna entrada de este menú dependía de eso;
+   la primera es Legislación. Si la consulta falla o tarda —sin señal—, queda
+   en [] y las entradas con `modulo` simplemente no se pintan: Legislación
+   necesita conexión de todos modos. Las entradas SIN `modulo` no cambian. */
+async function modulosPermitidosApp() {
+  try {
+    const permisos = await Promise.race([
+      api('/permisos/mios'),
+      new Promise((_, rechazar) => setTimeout(() => rechazar(new Error('tarda')), 2500))
+    ]);
+    return (permisos && permisos.modulos) || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function pintarMenu(rol, modulosPermitidos) {
+  const base = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
+  const items = base.filter(it => !it.modulo || (modulosPermitidos || []).includes(it.modulo));
   document.getElementById('menu-app').innerHTML = items.map(it => `
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>
@@ -165,7 +187,7 @@ function pintarCampana(campana, bio) {
 
   pintarBarraApp('Estrategia', null, null);
   document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
-  pintarMenu(usuario.rol);
+  pintarMenu(usuario.rol, await modulosPermitidosApp());
 
   try {
     const [campana, bio] = await Promise.all([

@@ -28,6 +28,9 @@ const MODULOS = [
   { clave: 'enviar_sms', etiqueta: 'Enviar SMS' },
   { clave: 'configurar_crm', etiqueta: 'Configurar CRM' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
+  // Normas en PDF que el equipo técnico deja en la carpeta `legislacion/` de la
+  // instalación; la aplicación solo las lista y las sirve (routes/legislacion.routes.js).
+  { clave: 'legislacion', etiqueta: 'Legislación' },
   { clave: 'finanzas', etiqueta: 'Finanzas' },
   // «Usuarios» no es una pantalla del menú lateral sino una pestaña dentro de
   // Configuración. Está aquí para poder decidir quién administra cuentas sin

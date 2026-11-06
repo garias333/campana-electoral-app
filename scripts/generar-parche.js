@@ -15,7 +15,7 @@
 // hasta cuál va (archivo .version-parche).
 //
 // QUÉ NO ENTRA NUNCA, aunque se pida explícitamente: .env,
-// .licencia-cache.json, uploads/, backups/, node_modules/ y cualquier
+// .licencia-cache.json, uploads/, legislacion/, backups/, node_modules/ y cualquier
 // .sql de datos. Un parche va a TODAS las campañas; si se colara el .env
 // de esta instalación, las demás quedarían apuntando a esta base de datos
 // y con estas credenciales. Por eso la exclusión no es opcional ni
@@ -38,6 +38,11 @@ const PROHIBIDOS = [
   /^backups\//,
   /^node_modules\//,
   /^\.git\//,
+  // Los PDF de Legislación (y su indice.json) los sube el administrador de
+  // cada instalación con el administrador de archivos del servidor. Un parche
+  // jamás debe pisarlos ni agregarlos: lo que haya en la carpeta es de ESA
+  // instalación (ver routes/legislacion.routes.js).
+  /^legislacion\//,
   // Cualquier .sql que NO sea del esquema: los volcados de datos
   // (respaldo_*.sql, datos-campana.sql) llevan votantes reales de ESTA
   // campaña. `db/schema.sql` sí viaja: es la definición de las tablas y
@@ -66,6 +71,7 @@ function archivosDesde(fecha) {
     '-not', '-path', './node_modules/*',
     '-not', '-path', './.git/*',
     '-not', '-path', './uploads/*',
+    '-not', '-path', './legislacion/*',
     '-not', '-path', './backups/*',
     '-not', '-path', './parches/*'
   ], { cwd: PROYECTO, encoding: 'utf8' });

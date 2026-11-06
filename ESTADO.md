@@ -14,7 +14,10 @@ anterior.*
 - **Aplicado en las tres instalaciones:** **249**, comprobado leyendo
   `.version-parche` de cada una. El registro del actualizador de la campaña
   municipal termina en «Parche #249 aplicado correctamente».
-- **Service worker:** `estrategia-v121` en las tres.
+- **Service worker:** `estrategia-v134` en ESTE árbol (6 de noviembre de 2026;
+  era `v133` antes de Legislación). El `v121` que decía aquí era de agosto y
+  estaba desactualizado. En las campañas valdrá `v134` cuando reciban el parche
+  que lo lleve: **no medido allí**. `.version-parche` local = 265.
 - **`scripts/comparar-instancias.js`:** 137 archivos, **1 sola diferencia** en
   cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí. No es
   deriva real: se borró aquí en la limpieza y **el sistema de parches no sabe
@@ -26,6 +29,51 @@ anterior.*
   reinicia sola**. Primer comando de la próxima sesión, como root:
   `bash scripts/reiniciar-instancia.sh appestrategia-electoral`
   La prueba es que el PID cambie, no que el puerto responda.
+
+## Sección Legislación (6 de noviembre de 2026) — hecho, SIN parche
+
+Commit local en `auditoria-fable`, sin push y **sin generar parche** (se
+empaqueta cuando se pida). Las anclas de arriba son de agosto; lo que sigue está
+medido hoy sobre este árbol.
+
+- **Qué es.** Una pantalla «Legislación» (escritorio `/legislacion.html` y
+  celular `/app/legislacion.html`) que lista los PDF de la carpeta
+  `legislacion/` de la raíz de cada instalación. **La app solo lee**: no sube ni
+  borra; los PDF los sube Gildardo por el administrador de archivos de
+  CloudPanel. No hay tabla nueva.
+- **Permiso.** Módulo `legislacion` en `MODULOS` (`routes/permisos.routes.js`) y
+  en `PERMISOS_POR_DEFECTO` (`db/init-db.js`): Ver = 1 para admin y coordinador,
+  0 para el resto; Editar/Agregar/Importar en 0 para todos. El servidor lo exige
+  con `requiereVerModulo('legislacion')` (nuevo, en `middleware/permisoModulo.js`):
+  admin y superadmin siempre pasan, los demás por su fila de `permisos_rol`,
+  falla cerrado, y el aspirante con sublicencia queda fuera.
+- **Rutas** (`routes/legislacion.routes.js`, montada junto a `/api/recursos`):
+  `GET /api/legislacion` y `GET /api/legislacion/archivo/:nombre`
+  (`?descargar=1` baja; por omisión se ve en línea). El archivo que se abre
+  sale del listado leído del directorio, nunca de lo que escribe la persona.
+- **`legislacion/indice.json` es opcional**: `{ "archivo.pdf": { titulo, tipo,
+  numero, anio, descripcion, orden } }`. Sin él, o para un PDF que no figure,
+  el título sale del nombre («Ley 1475 de 2011», «Resolución 0920 de 2011
+  (CNE)»). Un JSON roto se ignora y deja un aviso en el log de PM2.
+- **`legislacion/` no viaja en parches ni plantilla**: `scripts/generar-parche.js`
+  la tiene en `PROHIBIDOS` (y en el `find` de `--desde-fecha`) y
+  `scripts/generar-plantilla.js` en `EXCLUIR`. **Antes no estaba en ninguna de
+  las dos**: la plantilla la habría llevado (`git ls-files -o` incluye lo que no
+  tiene seguimiento) y `--desde-fecha` también. Los PDF siguen SIN seguimiento
+  de git a propósito: no hacer `git add -A`.
+- **Service worker** a `estrategia-v134`. La página nueva NO se precachea (necesita
+  conexión).
+- **En el celular, la entrada del menú depende del permiso.** `inicio.html`
+  ahora consulta `/permisos/mios` antes de pintar el menú (espera máx. 2,5 s;
+  sin respuesta, las entradas con `modulo` no se pintan). Es la primera entrada
+  de ese menú que depende de la matriz; las demás siguen fijas por rol.
+- **Para que funcione en una campaña** hace falta: el parche, que corra
+  `init-db` (toca `db/`; si no, el coordinador recibe 403 por falta de la fila),
+  y subir los PDF a `legislacion/` en esa instalación.
+- **Probado en desarrollo** con un MySQL desechable (ya borrado), no con las
+  bases de campaña: ver el informe de la sesión. Lo no probado: la copia real de
+  la base municipal (el usuario de esta cuenta no la puede leer ni crear bases),
+  `nginx` de CloudPanel, y abrir un PDF en un iPhone real.
 
 ## Hecho y verificado en la última sesión
 
@@ -102,6 +150,83 @@ la base real y aplicado en las tres instalaciones.
    confirmados pero NO seguros de borrar: el primero es una de las reglas de
    rama que el propio fichero advierte no tocar, y los otros son API de
    biblioteca. Decisión pendiente, no olvido.
+7. **Botones «Re-geocodificar pendientes» y «Re-geocodificar todos»**
+   (`public/votantes.html:28-29`) **sin guarda de rol.** La ruta es
+   `requireRole('admin', 'aspirante')` (`routes/votantes.routes.js:380`), así que
+   el coordinador, el líder, el sublíder, el testigo y el invitado los ven y
+   reciben 403 al pulsarlos. Lo destapó la auditoría del permiso Importar /
+   Exportar (14 de octubre de 2026) y **se dejó fuera de ese commit a propósito**:
+   es otra función con otra guarda. Arreglo previsto: esconderlos cuando
+   `usuarioActual.rol !== 'admin'` (para el aspirante `rol` ya llega reescrito a
+   `'admin'`, y la ruta sí lo admite). Misma familia, solo para el aspirante, que
+   la auditoría también anotó y tampoco se tocó: «Ver» firma y «Pedir
+   confirmación» (`votantes.html:2000-2014`), casilla «Datos verificados»
+   (`votantes.html:1089`, `:2230`), y `finanzas.html:191`, que no lo expulsa.
+8. **Dos cuentas con cargo de coordinador y rol de cuenta distinto**, en
+   campanadepruebamunicipal: **131** (cuenta `sublider`, 2 líderes a cargo) y
+   **124** (cuenta `lider`, cargo coordinador + testigo, 2 líderes). «Avance de
+   mis líderes» y el menú del coordinador deciden por el **rol de la cuenta**,
+   como el resto de la app, así que a esas dos personas la pantalla les responde
+   403. Es un dato inconsistente de la campaña de prueba, no del código; **no se
+   tocó**. Decisión pendiente: corregir el rol de las dos cuentas, o decidir que
+   el cargo de la estructura manda. Las cuentas con rol `coordinador` que sí
+   tienen líderes son 75, 77, 76, 82 y 83 (13, 8, 3, 1 y 1).
+9. **Un parche registrado por CLI nace INACTIVO pero con distribución «todos»**
+   — **parche aparte, del servidor de licencias** (no de esta aplicación).
+   `POST /parches/registrar-y-firmar` inserta `activo = 0` pero no menciona
+   `modo_distribucion` (`routes/actualizaciones.routes.js:490-495` en el servidor
+   de licencias), y la columna tiene `DEFAULT 'todos'` (`db/schema.sql:117`,
+   `db/init-db.js:46-49`, y el volcado real del 12 de agosto de 2026). Mientras
+   está inactivo no lo recibe nadie (`:384` y `:411` exigen `activo = 1`), pero
+   en cuanto alguien lo activa —el interruptor del panel, `PUT /:id/activo`, o
+   «Aplicar ahora», que además fuerza `activo = 1` en `:301`— llega a TODAS las
+   instalaciones con actualización automática. Detectado el 14 de octubre de
+   2026 al registrar el 263; esa vez se resolvió a mano (poner «seleccionadas»
+   con solo la campaña de prueba, ANTES de activar). Arreglo propuesto (opción B):
+   que el `INSERT` de `:490-493` incluya `modo_distribucion = 'seleccionadas'`,
+   de modo que un parche recién registrado no le llegue a nadie ni aunque lo
+   activen por error y haya que elegir a quién se le abre. El comentario de
+   `:461-464` dice que unificar ese comportamiento es una decisión aparte.
+10. **El botón «Aplicar ahora» falló en la municipal con `spawnSync unzip ENOENT`**
+    (`logs/actualizaciones.log`, 13 de octubre de 2026, parche 262: «Firma
+    verificada… Aplicando parche #262… Error aplicando el parche #262: … spawnSync
+    unzip ENOENT»). El actualizador lanzado desde la app hereda el PATH del
+    proceso de la app (`routes/actualizador.routes.js:206-208`;
+    `scripts/actualizar-automatico.js:68` solo le antepone la carpeta de
+    binarios de node), y ahí no se encuentra `unzip` (`/usr/bin/unzip`). Los
+    parches 255 a 259 se aplicaron por ese mismo botón cuando aún funcionaba; el
+    cron de las 03:00 nunca ha aplicado uno ahí (solo escribe «Ya estás al día»),
+    así que el 263 será su primera prueba real. **Se repitió el 14 de octubre de
+    2026 a las 17:55:25 UTC con el 263**, también desde el panel: descarga bien,
+    «Firma verificada correctamente (Ed25519, 550889 bytes)», y el mismo
+    `spawnSync unzip ENOENT`. Falla en la validación del zip (`unzip -Z1`), ANTES
+    de escribir: no quedó nada a medias (ningún archivo nuevo, sin la columna,
+    `.version-parche` en 262). **La causa sigue sin demostrarse.** Descartado: no es
+    `reiniciar-instancia.sh`, que arranca con `su -` (PATH de login, con
+    `/usr/bin`). No se pudo mirar el entorno real de la app ni el `dump.pm2` (EACCES
+    desde la cuenta de desarrollo). Pendiente: leerlo como root
+    (`/proc/<pid de app.js>/environ`, solo la variable PATH) o hacer que
+    `scripts/actualizar-automatico.js:68` añada `/usr/bin:/bin` al PATH, lo que
+    arreglaría el botón sin saber la causa.
+    **Actualización (14 de octubre de 2026, 23:35 UTC): el botón SÍ funciona en la
+    departamental** — aplicó el 262 (13-oct) y el 263 (14-oct) con `init-db` y
+    reinicio de PM2, 0 errores `unzip ENOENT` en todo su log. Por tanto el fallo
+    es propio del entorno de la app de la **municipal**, no del botón en general.
+11. **c001-2027 recibió el 263 sin respaldo previo.** El 14 de octubre de 2026,
+    entre las 23:33 y las 23:36 UTC, alguien usó «Aplicar actualización» del panel
+    con las tres campañas: la departamental se actualizó a las 23:35:03 (verificada:
+    versión 263, 35 de 35 huellas md5 idénticas a la plantilla, HTTP 200 en el
+    3102, columna `tinyint(1)/NO/0` con `admin` 9 y `coordinador` 8) y c001 se
+    reinició a las 23:36:39 (PID 48008 → 180450). La carpeta de c001 es ilegible
+    para la cuenta de desarrollo, así que **no se pudo confirmar** su versión, su
+    log ni la columna; solo que hoy el servidor le entrega el 263 (HTTP 200; antes
+    daba 403). El respaldo de su base que se había pedido «antes de aplicar» NO
+    se sacó. Pendiente como root: leer `.version-parche` y las últimas líneas de
+    `logs/actualizaciones.log` de c001, verificar la columna, y sacar un respaldo
+    AHORA (ya no será «antes», pero sigue siendo la línea base). Los scripts
+    `orden7_parte1.sh` (verifica, y aplica solo si hace falta) y `orden7_parte2.sh`
+    (lee c001 y respalda) quedaron preparados, revisados dos veces y probados con
+    92 casos, en la carpeta de trabajo de esa sesión.
 
 ## Trampas encontradas
 
@@ -162,3 +287,63 @@ Rama: auditoria-fable | Commit: 7b2a1da Parche 251: el logo de WhatsApp en el re
 <!-- cierre automático -->
 Sesión cerrada: 2026-09-03 17:44 UTC desde srv1807015
 Rama: auditoria-fable | Commit: af80452 Parche 253: el gráfico de apoyos por campaña | Sin commitear: 0 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-09-04 20:52 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 90274cb Un token de Mapbox por campaña, y una herramienta que lo comprueba | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-09-19 14:01 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 90274cb Un token de Mapbox por campaña, y una herramienta que lo comprueba | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-14 13:13 UTC desde srv1807015
+Rama: auditoria-fable | Commit: a438988 Parche 262: territorios como tabla local editable en campañas nuevas | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-15 01:15 UTC desde srv1807015
+Rama: auditoria-fable | Commit: d7d9efc Parche 263: .version-base a 263 | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-15 11:20 UTC desde srv1807015
+Rama: auditoria-fable | Commit: d7d9efc Parche 263: .version-base a 263 | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-18 20:19 UTC desde srv1807015
+Rama: auditoria-fable | Commit: d7d9efc Parche 263: .version-base a 263 | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-18 20:20 UTC desde srv1807015
+Rama: auditoria-fable | Commit: d7d9efc Parche 263: .version-base a 263 | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-18 20:20 UTC desde srv1807015
+Rama: auditoria-fable | Commit: d7d9efc Parche 263: .version-base a 263 | Sin commitear: 2 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-18 22:37 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 092beb4 Parche 264: varios territorios por persona en estructura | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-19 17:03 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 092beb4 Parche 264: varios territorios por persona en estructura | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-10-19 17:09 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 092beb4 Parche 264: varios territorios por persona en estructura | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-04 18:39 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 9fc8fa5 Parche 265: PWA para iPhone | Sin commitear: 4 archivo(s)

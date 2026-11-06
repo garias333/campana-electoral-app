@@ -215,6 +215,9 @@ app.use('/api/finanzas', require('./routes/finanzas.routes'));
 app.use('/api/eventos', require('./routes/eventos.routes'));
 app.use('/api/social', require('./routes/social.routes'));
 app.use('/api/recursos', require('./routes/recursos.routes'));
+// Legislación: lista y sirve los PDF de la carpeta `legislacion/` (raíz del
+// proyecto, fuera de public/ y de uploads/). Pide sesión y permiso «legislacion».
+app.use('/api/legislacion', require('./routes/legislacion.routes'));
 app.use('/api/dashboard', require('./routes/dashboard.routes'));
 app.use('/api/usuarios', require('./routes/usuarios.routes'));
 app.use('/api/geo', require('./routes/geo.routes'));

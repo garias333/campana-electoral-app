@@ -405,6 +405,11 @@ const PERMISOS_POR_DEFECTO = {
   biografia_candidato: ROLES_PERMISOS,
   politica_privacidad: ROLES_PERMISOS,
   recursos: ROLES_PERMISOS,
+  // Legislación: solo consulta de PDF. De fábrica la ven administrador y
+  // coordinador; el resto se abre desde Asignación de permisos. Sin esta
+  // línea la entrada del menú no le aparece a nadie (common.js oculta todo
+  // ítem cuyo módulo no esté en los permisos del usuario).
+  legislacion: ['admin', 'coordinador'],
   finanzas: ['admin', 'coordinador', 'asistente_administrativo'],
   configuracion: ['admin', 'asistente_administrativo'],
   // El menú "Ayuda" en sí es visible para todos los roles (cada quien ve
@@ -424,7 +429,11 @@ const PERMISOS_POR_DEFECTO = {
 const { IMPORTAR_EXPORTAR_POR_DEFECTO, importarExportarPorDefecto } = require('../config/importarExportar');
 
 const RESTRICCION_EDITAR_AGREGAR = {
-  territorial: ['admin', 'coordinador']
+  territorial: ['admin', 'coordinador'],
+  // Legislación es de solo consulta: no hay nada que editar ni agregar desde
+  // la aplicación (los PDF se suben por el administrador de archivos del
+  // servidor). Lista vacía = Editar y Agregar en 0 para todos.
+  legislacion: []
 };
 
 async function sembrarPermisosPorDefecto(connection) {
