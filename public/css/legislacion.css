@@ -160,9 +160,11 @@
 /* --- Celular y pantallas angostas --- */
 @media (max-width: 860px) {
   .leg-cal { grid-template-columns: 1fr; }
-  .leg-col-en-curso { order: 1; }
-  .leg-col-proximas { order: 2; }
-  .leg-col-cumplidas { order: 3; }
+  /* Apiladas: el MISMO orden que en el escritorio (Cumplidas, En curso, Próximas), que es el
+     del HTML de legislacion-comun.js. Antes eran En curso, Próximas y Cumplidas al final. */
+  .leg-col-cumplidas { order: 1; }
+  .leg-col-en-curso { order: 2; }
+  .leg-col-proximas { order: 3; }
   .leg-col-cumplidas.plegada .leg-col-cuerpo { display: none; }
   .leg-col-cab::after { content: '▾'; font-size: 0.9rem; opacity: 0.7; }
   .leg-col-cumplidas.plegada .leg-col-cab::after { content: '▸'; }
