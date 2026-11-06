@@ -13,7 +13,8 @@ la división político-administrativa del país.
 - **Base:** `territoriosdb` · usuario `territoriosuser` · 23 tablas + 2 vistas
 
 Otras apps del ecosistema y sus puertos: mapamanizales 3001, electoral 3002,
-proyector 3006, escucha 4200. Todas en el mismo VPS y el mismo MySQL.
+proyector 3006, escucha 3005 (antes 4200; ya consta en el 3005 el 9 de septiembre de 2026).
+Todas en el mismo VPS y el mismo MySQL.
 
 ---
 
