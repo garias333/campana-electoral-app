@@ -7,28 +7,85 @@
 
 ## Anclas verificables
 
-*Todas medidas al cierre del 31 de agosto de 2026, no heredadas de la sesión
-anterior.*
+*Medidas el 6 de noviembre de 2026 a las ~20:05 desde la cuenta `gariasappelectoral`,
+que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo que
+dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
+limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado, publicado y registrado:** **249**.
-- **Aplicado en las tres instalaciones:** **249**, comprobado leyendo
-  `.version-parche` de cada una. El registro del actualizador de la campaña
-  municipal termina en «Parche #249 aplicado correctamente».
-- **Service worker:** `estrategia-v135` en ESTE árbol (6 de noviembre de 2026;
-  `v133` antes de Legislación, `v134` en el parche 266). El `v121` que decía aquí era de agosto y
-  estaba desactualizado. En las campañas valdrá `v134` cuando reciban el parche
-  que lo lleve: **no medido allí**. `.version-parche` local = 265.
-- **`scripts/comparar-instancias.js`:** 137 archivos, **1 sola diferencia** en
-  cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí. No es
-  deriva real: se borró aquí en la limpieza y **el sistema de parches no sabe
-  borrar** (`unzip -o`). Se quita a mano en cada servidor o se deja; no estorba.
-- **Rama:** `auditoria-fable`. **Último commit:** ver `git log -1`. Árbol limpio.
-- **ELECTORAL CORRE CÓDIGO VIEJO.** Su proceso (pid 1374446) arrancó a las
-  03:16:04 y el archivo más nuevo del disco es de las 03:29:37. Las campañas sí
-  están al día porque el actualizador las reinicia solo; **electoral no se
-  reinicia sola**. Primer comando de la próxima sesión, como root:
-  `bash scripts/reiniciar-instancia.sh appestrategia-electoral`
-  La prueba es que el PID cambie, no que el puerto responda.
+- **Último parche generado: 271** (`parches/campana-parche271.zip`, 163.478 bytes,
+  sha256 `983dcbea037cb9cd09cc324aba479cf11761eb852098165263638dc8a1eee07e`, 12 archivos).
+  **Publicado** en la carpeta de licencias (`parche-271.zip`, 19:32, mismo sha256).
+  Los zip 265 a 270 también están publicados (el 265 a las 18:24 del 4 de nov.; los demás el
+  6 de nov.) y los de 265 a 271 coinciden en tamaño con los locales (el 271 y el 270, también en sha256).
+- **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
+  `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
+  (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **271**.
+- **Service worker:** `estrategia-v145` (subió de `v144` en el commit `6b803f0`, para que
+  los navegadores recojan `common.js` y `configuracion.html` del 271). Cada campaña lo
+  tendrá cuando reciba el 271.
+- **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
+  19:18:41, después de la última edición de código de ejecución (19:07:07). Su `.env` tiene
+  `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
+  estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
+  registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
+- **Plantilla v271:** `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
+  sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
+  secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
+  imprime la contraseña del admin y su LEEME no explica los dos archivos de credenciales):
+  hay que regenerarla con `--forzar` antes de usarla.
+- **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
+  1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
+  el sistema de parches no sabe borrar (`unzip -o`).
+- **Rama:** `auditoria-fable`, sin push. Árbol: `CLAUDE.md` modificado (de Gildardo, sin
+  commitear), `legislacion/` y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
+  `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo).
+
+## Parches 266 a 271 (6 de noviembre de 2026) y lo que vino después
+
+| Parche | Hora del zip | Qué trae (según `git log` entre cada «Parche N: .version-base») |
+|---|---|---|
+| 266 | 13:19 | Sección Legislación: módulo con permiso, lista desde `legislacion/`, vista PWA con Ver/Descargar por token de dispositivo. SW `v134`. |
+| 267 | 14:55 | Copia automática de `legislacion/` desde la carpeta central; calendario electoral, buscador dentro de los PDF y tarjetas con epígrafe; periodos en «En curso», pestañas cortas en celular y página del artículo. SW `v135`. |
+| 268 | 16:10 | Panel general atado al permiso `panel_general` y sin finanzas para quien no las administra. |
+| 269 | 17:11 | App del celular para administradores (Panel, Votantes, Mapa, Compartir), menú en el orden pedido (SW `v137`), Estructura territorial en modo app, Calendario del celular apilado en Cumplidas / En curso / Próximas. |
+| 270 | 18:27 | App del admin: lista de Estructura y formulario por pasos; formularios por pasos (lugar de votación antes de la cédula, micrófono, aviso del nombre); registro de votante o sublíder en 4 pasos; copiado automático de la cédula (también en Votantes y Testigos de escritorio). |
+| 271 | 19:24 | Código de ingreso del superadmin por Telegram, 2FA obligatorio y sin interruptor; SW `v145`. Archivos: `config/{mailer,superadmin,superadminCorreo,telegram}.js`, `db/init-db.js`, `routes/{auth,usuarios}.routes.js`, `public/{configuracion.html,js/common.js,service-worker.js}`, `scripts/limpiar-copias-env.sh`, `.version-base`. **Toca `db/`**: el actualizador corre `init-db`. `.env.example` NO entra (el generador rechaza todo `.env.*`). |
+
+*Dónde está aplicado:* en la **Base**, todos (271). En las **campañas**, no medido (ver arriba).
+
+### Superadmin: siempre con código, y por Telegram (parche 271)
+
+- El código de ingreso del superadmin (`correo@gildardoarias.com`, o `SUPERADMIN_EMAIL`) sale
+  por el canal de siempre **y** por Telegram, en paralelo (`Promise.allSettled`). Texto:
+  «Código de ingreso a `<APP_NOMBRE>`: 123456. Vence en 10 minutos.». En el 2FA tras clave solo
+  responde 500 si no salió ninguno. Para los demás usuarios nada cambia ni se nota.
+- Variables: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_SUPERADMIN_CHAT_ID` (`config/telegram.js`; sin una
+  de las dos no hace nada y devuelve `false`), `APP_NOMBRE` (el nombre del mensaje) y
+  `SUPERADMIN_TELEFONO` (por omisión 3104157434). El log nunca lleva token, chat ni URL.
+- Se ponen con **`scripts/poner-telegram-env.sh <ruta del .env>`** (como root; pide sin mostrar;
+  no duplica líneas). Después, `bash scripts/reiniciar-instancia.sh <usuario>`: `pm2 restart`
+  no relee el `.env`. El bot necesita un `/start` previo de Gildardo.
+- `init-db` crea al superadmin con `two_factor_enabled = 1` y el celular, y `asegurarSuperadmin`
+  (cada corrida) los garantiza en cuentas existentes sin pisar un teléfono puesto.
+  `PUT /auth/2fa` y `POST /usuarios/:id/desactivar-2fa` responden 400 «El código de ingreso es
+  obligatorio para esta cuenta.»; el interruptor del perfil sale encendido y deshabilitado.
+- **Riesgo conocido:** con el 2FA forzado, si el correo de una campaña no funciona y todavía no
+  tiene Telegram, el superadmin no entra. Probar el correo antes y poner las variables enseguida.
+
+### Después del 271 (en la Base, SIN parche)
+
+- `2f1ce57`: la plantilla ya no lleva `verificar-parche*.sh`, `comparar-parche*.sh` ni
+  `respaldar-base-instalacion.sh` (por patrón); `probar-instalacion-limpia.js` comprueba que el
+  superadmin nazca con 2FA y celular y que la 2.ª corrida diga «superadmin asegurado (1)».
+  **La prueba limpia NO se ha corrido** (necesita una base vacía creada en CloudPanel).
+- `39b18eb`: **la contraseña generada del administrador inicial ya no se imprime.** `init-db`
+  la deja en `.credenciales-admin.txt` (0600, formato del del superadmin); si el archivo ya
+  existe, `init-db` se detiene sin crear la cuenta. Con `ADMIN_PASSWORD` en el `.env` no se
+  escribe archivo. `.gitignore`, `generar-parche.js` y `generar-plantilla.js` bloquean
+  `.credenciales-*.txt` por patrón; la prueba limpia verifica el archivo (0600, correo, clave
+  ausente de la salida) y se niega a correr si hay uno viejo. **No está en el 271**: solo afecta
+  a instalaciones nuevas (el bloque corre cuando no hay admin), así que entra en el próximo parche.
+- Commits de la tanda: `38826b6`, `0e06d7d`, `6b803f0`, `7610063`, `3ab4ddf`, `2f1ce57`, `39b18eb`.
 
 ## Sección Legislación (6 de noviembre de 2026) — parche 266 registrado, INACTIVO
 
@@ -434,3 +491,18 @@ Rama: auditoria-fable | Commit: 092beb4 Parche 264: varios territorios por perso
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-04 18:39 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 9fc8fa5 Parche 265: PWA para iPhone | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-06 15:17 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 2d8cbf4 Parche 267: .version-base a 267 (Legislación: calendario, buscador y tarjetas) | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-06 15:21 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 2d8cbf4 Parche 267: .version-base a 267 (Legislación: calendario, buscador y tarjetas) | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-06 18:43 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 5f31a08 Parche 270: .version-base a 270 (Estructura en la app del admin, formularios por pasos y copiado de la cédula) | Sin commitear: 5 archivo(s)
