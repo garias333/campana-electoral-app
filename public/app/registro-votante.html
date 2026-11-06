@@ -50,12 +50,19 @@
     </div>
 
     <!-- EL ORDEN ES UNA REGLA DE LA CAMPAÑA, igual que en el formulario de Estructura (territorial.html, modo app):
-         primero el botón para consultar dónde vota la persona, luego Departamento, Municipio, Puesto y Mesa, y AL
-         FINAL el Número de identificación. La cédula NO va en «Datos personales»: con el lugar de votación ya a la
-         vista, se teclea la cédula. -->
+         primero el Número de identificación, luego el botón «Consultar lugar de votación» y después
+         Departamento, Municipio, Puesto y Mesa. La cédula NO va en «Datos personales».
+         El botón copia la cédula (solo los dígitos) antes de abrir la Registraduría: ver js/consulta-censo.js. -->
     <div class="seccion-titulo acento">Lugar de votación</div>
-    <div class="boton-bajo-campo" style="margin:0 0 14px;">
-      <a class="btn-mini" href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Consultar lugar de votación</a>
+    <div class="campo-app">
+      <label for="f-cedula">Número de identificación</label>
+      <input id="f-cedula" inputmode="numeric" autocomplete="off">
+      <small id="cedula-estado" style="font-size:0.75rem;"></small>
+    </div>
+    <div id="bloque-consulta-lugar" class="boton-bajo-campo" style="margin:0 0 16px;">
+      <a class="btn-mini" id="btn-consultar-lugar" href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener"><span aria-hidden="true">🗳️</span> Consultar lugar de votación</a>
+      <small style="display:block; margin-top:8px; font-size:0.76rem; color:var(--muted); line-height:1.45;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio, Puesto y Mesa.</small>
+      <small id="aviso-consulta-lugar" role="status" style="display:none;"></small>
     </div>
     <div class="fila-app">
       <div class="campo-app">
@@ -82,11 +89,6 @@
           <option value="">Seleccione un puesto primero...</option>
         </select>
       </div>
-    </div>
-    <div class="campo-app">
-      <label for="f-cedula">Número de identificación</label>
-      <input id="f-cedula" inputmode="numeric" autocomplete="off">
-      <small id="cedula-estado" style="font-size:0.75rem;"></small>
     </div>
 
     <div class="seccion-titulo">Datos personales</div>
@@ -253,6 +255,7 @@
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/js/consulta-censo.js"></script>
 <script src="/app/pasos-formulario.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/dictado.js"></script>
@@ -1035,12 +1038,22 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
    MUEVEN los nodos a cuatro secciones y se muestra una a la vez.
 
      1 Categoría (Votante o Sublíder, su ayuda y su meta)
-     2 Lugar de votación e identificación: botón de consulta → Departamento, Municipio, Puesto, Mesa → cédula
+     2 Lugar de votación e identificación: cédula → botón de consulta → Departamento, Municipio, Puesto, Mesa
      3 Datos personales y contacto
      4 Territorio, observaciones y autorización (con la firma)
 
    Si pasos-formulario.js no cargó (actualización a medias), el formulario se queda largo y funciona igual.
    La pantalla la usan líder, sublíder, coordinador y administrador: nada de aquí depende del rol. */
+/* «CONSULTAR LUGAR DE VOTACIÓN» COPIA LA CÉDULA (solo los dígitos) antes de abrir la Registraduría, para pegarla
+   allá. Es un enlace normal: NO se le pone preventDefault, así que se abre en el mismo toque, y el copiado
+   empieza antes, sin esperar nada (Safari solo deja copiar durante el gesto). Con la cédula vacía se abre igual y
+   se avisa. Va fuera del bloque de pasos: tiene que funcionar aunque pasos-formulario.js no haya cargado. */
+document.getElementById('btn-consultar-lugar').addEventListener('click', () => {
+  if (typeof copiarCedulaParaConsulta === 'function') {
+    copiarCedulaParaConsulta(document.getElementById('f-cedula'), document.getElementById('aviso-consulta-lugar'));
+  }
+});
+
 (function () {
   if (!window.PasosFormulario) return;
   const form = document.getElementById('form-registro');
@@ -1054,8 +1067,8 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
   const grupos = [
     // 1 · Categoría. «Cerrar sesión» queda aquí: el Invitado y el Sublíder entran directo a esta pantalla.
     [H('#caja-referido'), H('#chip-votante'), H('#campo-meta-votos'), H('#btn-cerrar-sesion')],
-    // 2 · La regla de la campaña: consultar primero dónde vota, luego los campos, y AL FINAL la cédula.
-    [H('.seccion-titulo.acento'), H('a[href*="consultacenso"]'), H('#f-depto-votacion'), H('#f-puesto-votacion'), H('#f-cedula')],
+    // 2 · La regla de la campaña: la cédula, el botón de consulta (copia la cédula) y luego los campos de votación.
+    [H('.seccion-titulo.acento'), H('#f-cedula'), H('#bloque-consulta-lugar'), H('#f-depto-votacion'), H('#f-puesto-votacion')],
     // 3 · Datos personales y de contacto.
     [anterior(nombre), nombre, H('#duplicado-estado'), H('#f-genero'), H('#bloque-apoya-a-app'),
       anterior(telefono), telefono, H('#f-email'), H('#f-direccion'), H('#btn-gps'), H('#f-depto-residencia')],

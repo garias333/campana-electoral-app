@@ -73,8 +73,8 @@
   html.modo-app #form-estructura textarea { font-size: 16px; }   /* menos de 16 px y el iPhone hace zoom al tocar */
   html.modo-app #form-estructura .campo-error { border-color: #A93226 !important; box-shadow: 0 0 0 3px rgba(169, 50, 38, .22); }
   html.modo-app #overlay-form .wz-cuerpo .mensaje-error { margin: 0 0 14px; }
-  /* Paso 2: la consulta del lugar de votación es lo primero, no depende de haber tecleado la cédula. */
-  html.modo-app #btn-consultar-lugar-votacion { display: inline-flex !important; margin: 0 0 6px !important; }
+  /* Paso 2: el botón de consulta va justo debajo de la cédula y se ve siempre, no solo cuando ya se tecleó algo. */
+  html.modo-app #btn-consultar-lugar-votacion { display: inline-flex !important; margin: 10px 0 6px !important; }
   html.modo-app #nota-copiar-lugar-votacion-persona { display: block !important; margin-bottom: 12px; }
 
   /* Micrófono de dictado (public/js/dictado.js), el mismo de app/registro-votante.html. Estilos copiados de
@@ -326,7 +326,8 @@
         <input name="numero_identificacion" id="input-numero-persona" autocomplete="off">
         <small id="numero-persona-estado" style="font-size:0.75rem;"></small>
         <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
-        <small id="nota-copiar-lugar-votacion-persona" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Copia acá abajo lo que te muestre la ventana de la Registraduría: Departamento, Municipio, Puesto (con la dirección) y Mesa.</small>
+        <small id="nota-copiar-lugar-votacion-persona" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio, Puesto y Mesa.</small>
+        <small id="aviso-consulta-lugar-votacion" role="status" style="display:none;"></small>
       </div>
 
       <div class="campo encabezado-form acento">Lugar de Votación</div>
@@ -656,6 +657,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/consulta-censo.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
 <script src="/js/offline-utils.js"></script>
@@ -3211,7 +3213,17 @@ function mostrarBotonLugarVotacion(mostrar) {
 // Abre la Registraduría en una ventana aparte, angosta y pegada al lado
 // derecho de la pantalla — así queda visible junto al formulario, sin
 // tener que alternar entre pestañas para copiar los datos.
+//
+// ANTES DE ABRIRLA SE COPIA LA CÉDULA (solo los dígitos) al portapapeles, para pegarla allá (ver
+// js/consulta-censo.js). Va PRIMERO y sin esperar nada, dentro del mismo toque: Safari solo deja copiar durante
+// el gesto, y abrir la ventana también lo necesita. Con la cédula vacía se abre igual y se avisa. Este manejador
+// es el mismo en el computador y en el modo app: allá también llega el copiado.
 document.getElementById('btn-consultar-lugar-votacion').addEventListener('click', () => {
+  if (typeof copiarCedulaParaConsulta === 'function') {
+    copiarCedulaParaConsulta(
+      document.getElementById('input-numero-persona'),
+      document.getElementById('aviso-consulta-lugar-votacion'));
+  }
   const ancho = 480;
   const alto = Math.min(window.screen.availHeight, 800);
   const izquierda = window.screen.availWidth - ancho;
@@ -3881,9 +3893,10 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
            4 Territorio de influencia · 5 Reporta a (y Persona activa, al editar)
 
    EL ORDEN DEL PASO 2 ES UNA REGLA DE LA CAMPAÑA, igual en Registro de votantes (app/registro-votante.html):
-   primero el botón «Consultar lugar de votación», luego Departamento, Municipio, Puesto y Mesa, y AL FINAL el
-   Número de identificación. La cédula no va en «Datos personales»: quien registra de pie consulta primero
-   dónde vota la persona, y con ese dato a la vista teclea la cédula. */
+   primero el Número de identificación, luego el botón «Consultar lugar de votación» (que copia la cédula para
+   pegarla en la Registraduría) y después Departamento, Municipio, Puesto y Mesa. La cédula no va en «Datos
+   personales». El botón y su ayuda ya están DENTRO del campo de la cédula, justo debajo de ella, así que no hace
+   falta moverlos. */
 (function () {
   'use strict';
   if (!document.documentElement.classList.contains('modo-app')) return;
@@ -3911,19 +3924,16 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
 
   /* Qué nodo va en qué paso, en el orden en que se ven. Todo se busca por id o por nombre, no por posición. */
   const cedula = hijoDe('#input-numero-persona');
-  /* El botón y su nota de ayuda están DENTRO del campo de la cédula; en el paso 2 van antes del lugar de
-     votación. Se mueven los dos nodos sueltos (conservan id y manejadores). Por omisión el formulario los
-     esconde hasta que se teclea una cédula (mostrarBotonLugarVotacion): aquí se dejan siempre a la vista con
-     CSS, porque en este orden la consulta es lo PRIMERO que se hace. */
-  const botonConsultar = document.getElementById('btn-consultar-lugar-votacion');
-  const notaConsultar = document.getElementById('nota-copiar-lugar-votacion-persona');
+  /* El botón de consulta y su ayuda están DENTRO del campo de la cédula, debajo de ella (ese es el orden
+     pedido). Por omisión el formulario los esconde hasta que se teclea una cédula (mostrarBotonLugarVotacion):
+     en modo app se dejan siempre a la vista con CSS, ver `#btn-consultar-lugar-votacion` arriba. */
   const filaLugar1 = hijoDe('#input-departamento-votacion-persona');
   const filaTel = hijoDe('[name="telefono"]');
   const chkMunicipio = hijoDe('#chk-area-influencia-municipio');
   const grupos = [
     [form.firstElementChild, hijoDe('#chips-cargo-persona'), hijoDe('#select-tipo-cargo-persona')],
-    // 2 · Lugar de votación e identificación: botón → Departamento, Municipio, Puesto, Mesa → cédula.
-    [anterior(filaLugar1), botonConsultar, notaConsultar, filaLugar1, hijoDe('#input-puesto-votacion-persona'), cedula],
+    // 2 · Lugar de votación e identificación: cédula → botón de consulta (con su ayuda) → Departamento, Municipio, Puesto, Mesa.
+    [anterior(filaLugar1), cedula, filaLugar1, hijoDe('#input-puesto-votacion-persona')],
     // 3 · Datos personales y contacto (el testigo, al editar, va aquí: ya no hay un paso de votación aparte).
     [anterior(cedula), hijoDe('[name="nombre"]'), hijoDe('[name="genero"]'), hijoDe('#campo-asignar-testigo'),
       hijoDe('#bloque-apoya-a-persona'), anterior(filaTel), filaTel, hijoDe('#input-direccion-persona'),

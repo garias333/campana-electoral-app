@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v142';
+const CACHE_NAME = 'estrategia-v143';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -70,6 +70,8 @@ const ARCHIVOS_CASCARON = [
   '/js/dictado.js',
   '/js/firma.js',
   '/js/es-celular.js',
+  // Copia la cédula antes de abrir la Registraduría (Registro de votantes y Estructura territorial).
+  '/js/consulta-censo.js',
   '/js/instalar-app.js',
   '/js/mesas-testigo.js',
   // Va en la coraza porque la app del celular lo usa SIN CONEXIÓN: sin él,
