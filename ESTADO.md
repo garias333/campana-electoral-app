@@ -12,30 +12,32 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 272** (`parches/campana-parche272.zip`, 138.099 bytes,
-  sha256 `f4333fcb6a8217d0f3dbac7bbf3c2bafe6dcd566e3d22888c18e1b92e37496b1`, 11 archivos).
-  **Publicado** en la carpeta de licencias (`parche-272.zip`, 21:31, mismo sha256, 0644) y
+- **Último parche generado: 273** (`parches/campana-parche273.zip`, 290.834 bytes,
+  sha256 `11b498b699f14b03ff995dfaed8be6f8cda978d2e13da037d12dbae96e93a0bb`, 22 archivos).
+  **Publicado** en la carpeta de licencias (`parche-273.zip`, mismo sha256, 0644, empieza por `PK`) y
   **registrado y firmado, INACTIVO**, con `toca_base_datos = true` (lo marcó solo el servidor de
-  licencias: respuesta `{"ok":true,"numero_parche":272,…,"toca_base_datos":true}`). Es el
-  **Día D fase 1** (detalle abajo). El 271 (163.478 bytes, sha256 `983dcbea…`, 12 archivos) y los
-  zip 265 a 270 también están publicados; los de 265 a 271 coinciden en tamaño con los locales.
-  **Distribución del 272: NO MEDIDA, y hay que fijarla ANTES de activarlo.** `registrar-parche.js`
-  no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de abajo): en el panel hay
-  que ponerlo en «seleccionadas» y marcar solo las campañas elegidas.
+  licencias: `{"ok":true,"numero_parche":273,…,"toca_base_datos":true}`). Es el **Día D fase 2**
+  (detalle abajo). El 272 (138.099 bytes, sha256 `f4333fcb…`, 11 archivos, Día D fase 1) también está
+  publicado e inactivo; el 273 asume que el 272 ya está aplicado (el 273 NO repite sus archivos
+  salvo los que volvió a tocar: `app.js`, `db/init-db.js`, `db/schema.sql`, `public/dia-d.html`,
+  `public/service-worker.js`). Los zip 265 a 271 también están publicados.
+  **Distribución del 273 (y del 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de activar.**
+  `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
+  abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas.
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
-  (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **272**
-  (la Base no recibe parches: los genera). El 272 no se ha activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v146` en el código de la Base y dentro del 272 (subió de
-  `v145`, que fue el del 271, para que los celulares recojan `app/dia-d.html` y `dia-d.html`).
-  Cada campaña lo tendrá cuando reciba el 272.
+  (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
+  (la Base no recibe parches: los genera). Ni el 272 ni el 273 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v147` en el código de la Base y dentro del 273 (el 272 lleva
+  `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
+  `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
   19:18:41, después de la última edición de código de ejecución (19:07:07). Su `.env` tiene
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 272` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 273` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -48,6 +50,52 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 273 — Día D fase 2: «ya votó» (6 de noviembre de 2026, INACTIVO)
+
+Zip de 22 archivos: `app.js`, `config/yaVotoEnlace.js`, `db/init-db.js`, `db/schema.sql`,
+`lib/alcanceVotantes.js`, `middleware/aspirante.js`, `public/app/faltantes.html`,
+`public/app/inicio.html`, `public/app/ranking-dia-d.html`, `public/configuracion.html`,
+`public/dia-d.html`, `public/enviar-sms.html`, `public/js/common.js`, `public/js/offline-utils.js`,
+`public/js/whatsapp-lote.js`, `public/service-worker.js` (`v147`), `public/votantes.html`,
+`routes/comunicaciones.routes.js`, `routes/permisos.routes.js`, `routes/rescateVotos.routes.js`,
+`routes/yaVoto.routes.js` y `.version-base` (273).
+Commits que recoge: `207b195` (la fase 2), `374f434` (la fecha de elección dentro del token y el
+ranking en el menú del aspirante) y `67a8a23` (init-db dice «ya existía» para las tablas nuevas).
+
+- **Verificado sobre el zip:** los 22 archivos coinciden por md5 con el disco; no trae `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/` ni `backups/`; `CACHE_NAME = 'estrategia-v147'`;
+  `verificar-requires.js` revisó 70 `require` locales y todos resuelven.
+- **Qué trae:** tablas `votante_votos` y `votante_voto_tokens`; índices en `votantes` (`sublider_id`,
+  `puesto_id`, solo si no había ya uno); módulo de permisos `rescate_votos` (admin, coordinador, líder
+  y sublíder de fábrica; el aspirante por `PERMISOS_ASPIRANTE`); dos plantillas de arranque; API
+  `/api/dia-d/rescate` (faltantes por puesto, marcar idempotente, desmarcar con auditoría, resumen por
+  hora y puesto, ranking de líderes, enlace de WhatsApp, vaciar marcas con la contraseña propia);
+  enlace público `/v/<token>`; en el CRM `{enlace_ya_vote}`, `{primer_nombre}` y el filtro «Mis votantes
+  que aún no han votado», con regla estricta de consentimiento solo para esos mensajes; pantallas
+  `app/faltantes.html` (lista por puesto, cola y copia sin señal), `app/ranking-dia-d.html` y la pestaña
+  «Avance de votación» de `dia-d.html`; IndexedDB sube a la versión 3. **Arregla el alcance del
+  sublíder**, que veía su lista vacía (`lib/alcanceVotantes.js`).
+- **Probado solo con bases simuladas y SQL sobre sqlite.** No se corrió `init-db` en MySQL, ni nada en
+  un celular real, ni un SMS real. Esas pruebas las hace Gildardo en la Base antes de activar.
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **La campaña necesita `fecha_eleccion` en Configuración → Datos de la campaña.** Sin ella no se
+   genera ningún enlace «Ya voté» (el envío se rechaza con ese mensaje) y las pantallas siguen
+   funcionando en «modo prueba». El enlace solo sirve el día de esa fecha.
+2. **Cambiar la fecha invalida los enlaces ya enviados.** La fecha va dentro del token (HMAC de
+   votante + fecha): hay que volver a mandarlos. Configuración lo avisa junto a la fecha y pide
+   confirmación al guardar. Vale también para una segunda vuelta.
+3. **El SMS con el enlace y la baja ocupa 2 mensajes.** La plantilla sembrada (sin tildes) mide 133
+   caracteres con un puesto corto y 158 con uno de 41; el enlace `/v/…` mide 50 con el dominio de la
+   Base, y el sistema agrega solo « Baja: …» (+60). Con tildes pasa a UCS-2 y ocupa 4. El horario de SMS
+   (08:00–20:00) no cambió.
+4. **Correr `npm run init-db`** (el actualizador lo hace solo porque `toca_base_datos` es sí). La
+   aplicación no se rompe sin las tablas nuevas, pero las pantallas de rescate sí darían error.
+5. **Los votantes sin consentimiento de SMS registrado (NULL) NO reciben el enlace**: la regla estricta
+   es solo para esos mensajes y no cambia la del resto del módulo.
+6. El token se deriva de `SESSION_SECRET`: rotarlo invalida también estos enlaces (y los de baja).
 
 ## Parche 272 — Día D fase 1 (6 de noviembre de 2026, INACTIVO)
 
