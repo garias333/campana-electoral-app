@@ -45,6 +45,16 @@ function remitente() {
   return `"${nombre}" <${direccion}>`;
 }
 
+/**
+ * Cómo se llama esta aplicación para quien recibe un código: APP_NOMBRE (.env)
+ * o, si no está, "Estrategia | App electoral". Es la fuente del correo del
+ * código 2FA, y también del aviso por Telegram al superadministrador
+ * (routes/auth.routes.js): así ambos dicen lo mismo de qué campaña vienen.
+ */
+function nombreDeLaApp() {
+  return process.env.APP_NOMBRE || 'Estrategia | App electoral';
+}
+
 async function enviarCorreoRecuperacion(destinatario, enlace) {
   await transporter.sendMail({
     from: remitente(),
@@ -91,7 +101,7 @@ async function enviarCorreoRecuperacion(destinatario, enlace) {
  *   de suplantación.
  */
 async function enviarCodigo2FA(destinatario, codigo, nombreApp) {
-  const app = nombreApp || process.env.APP_NOMBRE || 'Estrategia | App electoral';
+  const app = nombreApp || nombreDeLaApp();
   await transporter.sendMail({
     from: remitente(),
     to: destinatario,
@@ -157,4 +167,4 @@ async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja) {
   });
 }
 
-module.exports = { transporter, enviarCorreoRecuperacion, enviarCodigo2FA, enviarCorreoMasivo };
+module.exports = { transporter, enviarCorreoRecuperacion, enviarCodigo2FA, enviarCorreoMasivo, nombreDeLaApp };

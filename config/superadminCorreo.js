@@ -18,4 +18,17 @@ const CORREO_SUPERADMIN_POR_OMISION = 'correo@gildardoarias.com';
 const CORREO_SUPERADMIN =
   (process.env.SUPERADMIN_EMAIL || '').trim().toLowerCase() || CORREO_SUPERADMIN_POR_OMISION;
 
-module.exports = { CORREO_SUPERADMIN, CORREO_SUPERADMIN_POR_OMISION };
+/**
+ * El celular del superadministrador. Sale de `SUPERADMIN_TELEFONO` (.env) y,
+ * si no está, del valor de abajo. Lo usa db/init-db.js para que la cuenta
+ * siempre tenga a dónde llegarle el código por SMS.
+ */
+const TELEFONO_SUPERADMIN_POR_OMISION = '3104157434';
+
+const TELEFONO_SUPERADMIN =
+  (process.env.SUPERADMIN_TELEFONO || '').trim() || TELEFONO_SUPERADMIN_POR_OMISION;
+
+module.exports = {
+  CORREO_SUPERADMIN, CORREO_SUPERADMIN_POR_OMISION,
+  TELEFONO_SUPERADMIN, TELEFONO_SUPERADMIN_POR_OMISION,
+};

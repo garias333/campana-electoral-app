@@ -4,7 +4,9 @@
 #
 # QUÉ ARREGLA. Al lado del `.env` vivo hay copias fechadas de cada vez que se
 # tocó algo. Traen credenciales que YA se retiraron —la llave de Anthropic, el
-# token de Telegram— y que por lo tanto siguen en el servidor aunque el `.env`
+# token del bot de Telegram anterior; TELEGRAM_BOT_TOKEN y
+# TELEGRAM_SUPERADMIN_CHAT_ID, en cambio, están VIGENTES, ver VIGENTES_RX más
+# abajo— y que por lo tanto siguen en el servidor aunque el `.env`
 # de verdad ya no las tenga. Retirar una credencial y dejar la copia al lado es
 # no haberla retirado.
 #
@@ -52,6 +54,20 @@ claves() { grep -oE '^[A-Z_][A-Z0-9_]*=' "$1" 2>/dev/null | tr -d '=' | sort -u;
 # borrarla, no de conservarla.
 RETIRADAS_RX='^(ANTHROPIC_API_KEY|TELEGRAM_[A-Z0-9_]*)$'
 
+# EXCEPCIÓN: estas dos NO están retiradas. Volvieron con el aviso por Telegram
+# al superadministrador (config/telegram.js) y son credenciales vigentes. Sin
+# esta excepción el script las trataría como retiradas: no las contaría como
+# claves propias de una copia y la borraría, aunque fuera la única que las
+# conserva. Con ella, una copia que tenga una que el .env vivo no tiene se
+# CONSERVA y se avisa, como con cualquier clave vigente.
+# Ojo: el nombre TELEGRAM_BOT_TOKEN es el mismo que tuvo el bot anterior, así
+# que una copia vieja con el token de aquel bot ya no se distingue por nombre.
+# Si se rotó el token, la copia vieja hay que revisarla a mano.
+VIGENTES_RX='^TELEGRAM_(BOT_TOKEN|SUPERADMIN_CHAT_ID)$'
+
+# Claves de un archivo SIN las retiradas (las vigentes se conservan en la lista).
+sin_retiradas() { awk -v ret="$RETIRADAS_RX" -v vig="$VIGENTES_RX" '$0 ~ vig || $0 !~ ret'; }
+
 SOBRAN=0
 for COPIA in .env.*; do
   [[ -f "$COPIA" ]] || continue
@@ -62,8 +78,9 @@ for COPIA in .env.*; do
   # devuelve 1 y mata el script entero. Y «no encuentra nada» es justo el caso
   # bueno — la copia no aporta claves propias. Sin esto, el script se moría en
   # silencio en la primera copia limpia y no imprimía ni una línea.
-  PROPIAS=$(comm -23 <(claves "$COPIA") <(claves "$VIVO") | grep -vE "$RETIRADAS_RX" | tr '\n' ' ' || true)
-  RETIRADAS=$(grep -cE '^(ANTHROPIC_API_KEY|TELEGRAM_[A-Z_]*)=.+' "$COPIA" 2>/dev/null || true)
+  PROPIAS=$(comm -23 <(claves "$COPIA") <(claves "$VIVO") | sin_retiradas | tr '\n' ' ' || true)
+  RETIRADAS=$(grep -E '^(ANTHROPIC_API_KEY|TELEGRAM_[A-Z_]*)=.+' "$COPIA" 2>/dev/null \
+    | grep -vE '^TELEGRAM_(BOT_TOKEN|SUPERADMIN_CHAT_ID)=' | wc -l || true)
 
   echo "== $COPIA"
   [[ "${RETIRADAS:-0}" -gt 0 ]] && echo "   contiene $RETIRADAS credencial(es) ya retiradas: motivo para borrarla"

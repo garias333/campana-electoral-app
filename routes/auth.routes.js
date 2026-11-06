@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
-const { enviarCorreoRecuperacion, enviarCodigo2FA } = require('../config/mailer');
+const { enviarCorreoRecuperacion, enviarCodigo2FA, nombreDeLaApp } = require('../config/mailer');
+const { enviarTelegramSuperadmin } = require('../config/telegram');
 const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 const { reconocerEquipo, mensajeDeRechazo, equipoControlado } = require('../config/equiposAutorizados');
@@ -262,6 +263,26 @@ async function capacidadesDe(usuario) {
   return opciones.length > 1 ? opciones : [];
 }
 
+/**
+ * El mismo código de ingreso, también por Telegram, SOLO para el superadministrador.
+ *
+ * Devuelve una promesa de true/false (nunca rechaza: config/telegram.js no
+ * lanza), o null si la cuenta no es la superadministradora — entonces no hay
+ * nada que enviar y el flujo de los demás usuarios queda exactamente como era.
+ * El nombre de la campaña sale de la misma fuente que el correo del código
+ * (nombreDeLaApp: APP_NOMBRE o "Estrategia | App electoral"), para que quien
+ * lo recibe sepa de qué campaña viene.
+ *
+ * NADA de esto llega al navegador: ni la respuesta ni la pantalla dicen que
+ * existe este segundo envío.
+ */
+function avisarCodigoPorTelegram(usuario, codigo) {
+  if (!usuario || Number(usuario.es_superadmin) !== 1) return null;
+  return enviarTelegramSuperadmin(
+    `Código de ingreso a ${nombreDeLaApp()}: ${codigo}. Vence en ${CODIGO_2FA_MINUTOS} minutos.`
+  );
+}
+
 /** Cola del 2FA (si está activado) o cierra el inicio de sesión de una vez — usado tanto por /login como por /elegir-rol, ya que a partir de ese punto ambos siguen exactamente el mismo camino. */
 async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo) {
   if (usuario.two_factor_enabled) {
@@ -276,10 +297,18 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
 
     req.session.pendiente2fa = { usuarioId: usuario.id, recordar: !!recordar, entrarComo: entrarComo || null };
 
-    try {
-      await enviarCodigo2FA(usuario.email, codigo);
-    } catch (mailErr) {
-      console.error('Error enviando código 2FA:', mailErr);
+    // En paralelo: el correo de siempre y, solo para el superadministrador,
+    // Telegram. El ingreso falla únicamente si NINGUNO salió. Para los demás
+    // usuarios hay un solo envío (el correo), así que se comporta como antes.
+    const correo = enviarCodigo2FA(usuario.email, codigo).then(() => true);
+    const telegram = avisarCodigoPorTelegram(usuario, codigo);
+    const [resCorreo, resTelegram] = await Promise.allSettled(telegram ? [correo, telegram] : [correo]);
+    if (resCorreo.status === 'rejected') {
+      console.error('Error enviando código 2FA:', resCorreo.reason);
+    }
+    const salioAlguno = resCorreo.status === 'fulfilled'
+      || (resTelegram && resTelegram.status === 'fulfilled' && resTelegram.value === true);
+    if (!salioAlguno) {
       res.status(500).json({ error: 'No se pudo enviar el código de verificación. Intente de nuevo en unos minutos.' });
       return;
     }
@@ -640,7 +669,12 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
        sombrero viajara en el cuerpo, cualquiera pediria el de aspirante. */
     req.session.pendiente2fa = { usuarioId: usuario.id, recordar: !!recordar, entrarComo: null, via: 'torre' };
 
-    try {
+    // El canal pedido y, solo para el superadministrador, Telegram — en
+    // paralelo. Un fallo de entrega SÍ se registra en el servidor, pero no
+    // cambia la respuesta: si dijéramos "no se pudo enviar", habríamos
+    // confirmado que la cuenta existe. (Telegram se registra solo, en
+    // config/telegram.js.)
+    const principal = (async () => {
       if (via === 'sms') {
         // `operativo: true`: el código de acceso es un mensaje de la
         // aplicación a su propio equipo, no mensajería de campaña, así que no
@@ -655,13 +689,13 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
         );
       } else {
         await enviarCodigo2FA(destino, codigo);
-
       }
-    } catch (errEnvio) {
-      // Un fallo de entrega SÍ se registra en el servidor, pero no cambia
-      // la respuesta: si dijéramos "no se pudo enviar", habríamos
-      // confirmado que la cuenta existe.
-      console.error(`Error enviando código de acceso por ${via}:`, errEnvio.message);
+    })();
+    const telegram = avisarCodigoPorTelegram(usuario, codigo);
+    const [resPrincipal] = await Promise.allSettled(telegram ? [principal, telegram] : [principal]);
+    if (resPrincipal.status === 'rejected') {
+      const motivo = resPrincipal.reason;
+      console.error(`Error enviando código de acceso por ${via}:`, motivo && motivo.message);
     }
 
     await registrarAuditoria(usuario.id, 'solicitar_codigo_acceso', `Código de acceso solicitado por ${via}.`, req.ip);

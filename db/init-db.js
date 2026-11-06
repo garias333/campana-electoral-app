@@ -580,7 +580,7 @@ async function crearSuperadminInicial(connection, adminCreadoEstaCorrida) {
   if (!adminCreadoEstaCorrida) return false;
 
   // Se lee aquí y no arriba: el valor sale del .env, y dotenv ya se cargó.
-  const { CORREO_SUPERADMIN } = require('../config/superadminCorreo');
+  const { CORREO_SUPERADMIN, TELEFONO_SUPERADMIN } = require('../config/superadminCorreo');
   const ruta = path.join(__dirname, '..', ARCHIVO_CREDENCIALES_SUPERADMIN);
 
   const [yaHay] = await connection.query(`SELECT id FROM usuarios WHERE es_superadmin = 1 LIMIT 1`);
@@ -636,9 +636,12 @@ async function crearSuperadminInicial(connection, adminCreadoEstaCorrida) {
   try {
     await connection.beginTransaction();
     const [r] = await connection.query(
-      `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, es_superadmin, debe_cambiar_password)
-       VALUES ('Superadministrador', ?, ?, ?, 1, 1, 1)`,
-      [CORREO_SUPERADMIN, hash, rolAdmin.id]
+      // `telefono` y `two_factor_enabled = 1`: el superadministrador entra
+      // siempre con código, y el código necesita a dónde llegar.
+      `INSERT INTO usuarios (nombre, email, password_hash, rol_id, activo, es_superadmin, debe_cambiar_password,
+                             telefono, two_factor_enabled)
+       VALUES ('Superadministrador', ?, ?, ?, 1, 1, 1, ?, 1)`,
+      [CORREO_SUPERADMIN, hash, rolAdmin.id, TELEFONO_SUPERADMIN]
     );
     await connection.query(
       `INSERT INTO auditoria (usuario_id, accion, entidad, entidad_id, detalle, ip)
@@ -664,6 +667,34 @@ async function crearSuperadminInicial(connection, adminCreadoEstaCorrida) {
   console.log('  y BORRE el archivo después. Deberá cambiar la contraseña en el primer ingreso.');
   console.log('----------------------------------------------------');
   return true;
+}
+
+/**
+ * El superadministrador entra SIEMPRE con código, y el código necesita a dónde
+ * llegar. Corre en cada init-db (no solo en instalaciones nuevas), así que
+ * alcanza también a las campañas que ya existían.
+ *
+ * Para la cuenta con `es_superadmin = 1`:
+ *   - `two_factor_enabled = 1`;
+ *   - `telefono` = SUPERADMIN_TELEFONO, SOLO si está vacío (nunca pisa uno puesto).
+ *
+ * NO crea ni eleva cuentas (eso es crearSuperadminInicial y
+ * scripts/elevar-superadmin.js) y NO toca contraseñas. Idempotente: segunda
+ * pasada, cero filas cambiadas. Imprime solo cuántos superadmins asegura.
+ */
+async function asegurarSuperadmin(connection) {
+  const { TELEFONO_SUPERADMIN } = require('../config/superadminCorreo');
+  await connection.query(
+    `UPDATE usuarios
+        SET two_factor_enabled = 1,
+            telefono = IF(telefono IS NULL OR TRIM(telefono) = '', ?, telefono)
+      WHERE es_superadmin = 1
+        AND (two_factor_enabled IS NULL OR two_factor_enabled <> 1
+             OR telefono IS NULL OR TRIM(telefono) = '')`,
+    [TELEFONO_SUPERADMIN]
+  );
+  const [[{ n }]] = await connection.query(`SELECT COUNT(*) AS n FROM usuarios WHERE es_superadmin = 1`);
+  console.log(`superadmin asegurado (${n})`);
 }
 
 /**
@@ -2295,6 +2326,7 @@ async function main() {
   // una instalación nueva).
   await crearTriggersEstructuraSinSuperadmin(connection);
   await crearSuperadminInicial(connection, adminCreadoEstaCorrida);
+  await asegurarSuperadmin(connection);
   await ajustarContadorTerritorios(connection);
   await rellenarTerritoriosPuente(connection);
 
