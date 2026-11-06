@@ -705,9 +705,11 @@ CREATE TABLE IF NOT EXISTS dia_d_reportes (
   foto_e14_url VARCHAR(255) NULL COMMENT 'Foto del formulario de preconteo E-14 que sube el testigo como respaldo',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el celular al guardar el reporte sin conexión — evita duplicar el reporte si el envío se reintenta más de una vez',
+  alertas TEXT NULL COMMENT 'Marcas que pone el SERVIDOR al guardar, separadas por coma: suma_distinta, fuera_de_lista, enviado_por_staff, puesto_sin_mesas. NULL = sin alertas. Nunca rechazan el reporte: avisan',
   FOREIGN KEY (testigo_id) REFERENCES usuarios(id) ON DELETE CASCADE,
   INDEX idx_diad_testigo (testigo_id),
   INDEX idx_diad_mesa (puesto_votacion, mesa_votacion),
+  INDEX idx_diad_foto_url (foto_e14_url),
   UNIQUE INDEX uq_diad_reporte_cliente_uuid (cliente_uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -927,7 +929,8 @@ CREATE TABLE IF NOT EXISTS dia_d_reporte_documentos (
   descripcion VARCHAR(150) NULL COMMENT 'Lo que el testigo escribió: "acta de escrutinio", "reclamación"…',
   orden TINYINT UNSIGNED NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_doc_reporte (reporte_id)
+  INDEX idx_doc_reporte (reporte_id),
+  INDEX idx_doc_url (url)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

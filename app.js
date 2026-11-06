@@ -261,7 +261,53 @@ require('./config/reconciliadorSms').iniciar();
    Solo /uploads/marca. Todo lo demás (fotos de votantes, adjuntos, Excel
    subidos) sigue exigiendo sesión. */
 app.use('/uploads/marca', express.static(path.join(__dirname, 'uploads', 'marca')));
-app.use('/uploads', requireAuth, express.static(path.join(__dirname, 'uploads')));
+/* LAS FOTOS DEL DÍA D NO SE SIRVEN POR AQUÍ.
+   Un E-14 es el respaldo de un resultado electoral, y por /uploads lo abría
+   cualquier sesión —un líder de otra rama incluido— con solo tener el enlace.
+   Ahora salen únicamente por GET /api/dia-d/reportes/:id/foto (y
+   /documentos/:docId), que comprueba quién pregunta y de qué campaña es el
+   reporte. Dos cierres, porque hay dos ubicaciones:
+     · uploads/dia-d/  — donde caen las fotos nuevas. Se niega siempre.
+     · la RAÍZ de uploads/ — donde cayeron las anteriores, mezcladas con
+       comprobantes de finanzas y adjuntos de comunicaciones. Ahí solo se
+       niega el archivo que figure en un reporte del Día D.
+   Las subcarpetas contenido/ y marca/ no pasan por el filtro de la raíz. */
+const SUBCARPETA_PRIVADA_DIA_D = 'dia-d';
+async function cerrarFotosDelDiaD(req, res, next) {
+  let relativa;
+  try {
+    // Misma normalización que hará express.static: así `//archivo`,
+    // `/./archivo` o `/contenido/../archivo` no esquivan la comprobación.
+    relativa = path.posix.normalize(decodeURIComponent(req.path)).replace(/^\/+/, '');
+  } catch (err) {
+    return res.status(400).end();
+  }
+  const partes = relativa.split('/').filter(Boolean);
+  if (!partes.length) return next();
+  if (partes[0].toLowerCase() === SUBCARPETA_PRIVADA_DIA_D) {
+    return res.status(403).json({ error: 'Esta foto se abre desde el tablero del Día D.' });
+  }
+  // Solo los archivos sueltos de la raíz. Las demás subcarpetas siguen igual.
+  if (partes.length > 1) return next();
+  try {
+    const url = '/uploads/' + partes[0];
+    const [[hallado]] = await pool.query(
+      `SELECT 1 AS x FROM dia_d_reportes WHERE foto_e14_url = ?
+       UNION ALL
+       SELECT 1 FROM dia_d_reporte_documentos WHERE url = ?
+       LIMIT 1`, [url, url]);
+    if (hallado) {
+      return res.status(403).json({ error: 'Esta foto se abre desde el tablero del Día D.' });
+    }
+    next();
+  } catch (err) {
+    // SI LA CONSULTA FALLA SE NIEGA: abrir "por si acaso" dejaría la foto de
+    // un acta al alcance de cualquiera justo cuando la base está en problemas.
+    console.error('No se pudo comprobar si el archivo es del Día D; se niega por seguridad:', err.code || err.message);
+    res.status(503).json({ error: 'No se pudo abrir el archivo en este momento. Intente de nuevo.' });
+  }
+}
+app.use('/uploads', requireAuth, cerrarFotosDelDiaD, express.static(path.join(__dirname, 'uploads')));
 
 // --- Frontend estático ---
 // El propio archivo del Service Worker NUNCA debe quedar en caché HTTP: el

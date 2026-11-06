@@ -1,10 +1,12 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
-const { upload, uploadExcel } = require('../middleware/upload');
+const { uploadDiaD, uploadExcel, UPLOAD_DIR, UPLOAD_DIA_D_DIR } = require('../middleware/upload');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { subarbolSql, filtroTestigosMadre, duenoDeLaCampana: duenoDeLaCampanaRama } = require('../lib/ramas');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
@@ -519,127 +521,309 @@ router.get('/mesas-ocupadas', async (req, res) => {
 // reclamación, la constancia de una novedad). El tope de 8 existe para que un
 // dedo pegado al botón no llene el disco del servidor.
 const MAX_DOCUMENTOS_REPORTE = 8;
-router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
-  upload.fields([{ name: 'foto_e14', maxCount: 1 }, { name: 'documentos', maxCount: MAX_DOCUMENTOS_REPORTE }]),
-  async (req, res) => {
-  const b = req.body;
 
-  // Reintento idempotente: el celular guarda el reporte cuando no hay señal
-  // y lo reintenta solo más tarde — si el mismo envío llega dos veces, esto
-  // evita duplicar el reporte (un testigo SÍ puede reportar la misma mesa
-  // más de una vez a propósito — parcial y luego final — pero eso siempre
-  // trae un cliente_uuid distinto; acá solo se ataja el reintento exacto
-  // del mismo envío). Sin cliente_uuid sigue de largo como siempre.
-  if (b.cliente_uuid) {
-    try {
-      const [[yaExiste]] = await pool.query(`SELECT id FROM dia_d_reportes WHERE cliente_uuid = ?`, [b.cliente_uuid]);
-      if (yaExiste) {
-        return res.json({ ok: true, id: yaExiste.id, yaExistia: true });
+/* ———————————————— ARCHIVOS DEL DÍA D ————————————————
+   Las fotos nuevas caen en uploads/dia-d/ (URL `/uploads/dia-d/<archivo>`).
+   Las de antes de esa carpeta están en la RAÍZ de uploads/ (URL
+   `/uploads/<archivo>`). Todo lo que lee o borra archivos pasa por estas
+   funciones y por eso acepta las dos ubicaciones. */
+
+/** Rutas del disco donde puede estar el archivo de esa URL, en orden de preferencia. */
+function rutasDelArchivoDiaD(url) {
+  if (typeof url !== 'string' || !url.startsWith('/uploads/')) return [];
+  const nombre = path.basename(url);
+  if (!nombre || nombre === '.' || nombre === '..') return [];
+  if (url.startsWith('/uploads/dia-d/')) return [path.join(UPLOAD_DIA_D_DIR, nombre)];
+  // La raíz primero; la subcarpeta de respaldo por si alguien movió el archivo.
+  return [path.join(UPLOAD_DIR, nombre), path.join(UPLOAD_DIA_D_DIR, nombre)];
+}
+
+/** Borra los archivos de esas URLs. Mejor esfuerzo: un archivo ya ausente no es un error. */
+async function borrarArchivosDiaD(urls) {
+  let borrados = 0;
+  for (const url of [...new Set((urls || []).filter(Boolean))]) {
+    for (const ruta of rutasDelArchivoDiaD(url)) {
+      try {
+        await fs.promises.unlink(ruta);
+        borrados++;
+        break;
+      } catch (err) {
+        if (err.code !== 'ENOENT') console.error('No se pudo borrar el archivo del Día D', ruta, err.code || err.message);
       }
-    } catch (err) {
-      console.error('Error verificando cliente_uuid (se sigue con el registro normal):', err);
     }
   }
+  return borrados;
+}
 
-  if (!b.puesto_votacion || !String(b.puesto_votacion).trim()) {
-    return res.status(400).json({ error: 'El puesto de votación es obligatorio.' });
+/** Borra lo que multer acaba de guardar cuando el reporte no se guardó. */
+async function borrarArchivosSubidos(archivos) {
+  for (const f of archivos || []) {
+    if (!f || !f.path) continue;
+    try { await fs.promises.unlink(f.path); }
+    catch (err) { if (err.code !== 'ENOENT') console.error('No se pudo descartar la subida', f.path, err.code || err.message); }
   }
-  // El id es OPCIONAL a propósito, y no se puede volver obligatorio:
-  //
-  //  - un reporte encolado sin señal ANTES de esta versión llega DESPUÉS,
-  //    y solo trae el texto. Rechazarlo lo perdería;
-  //  - el testigo puede estar en un puesto que la siembra no incluyó, y
-  //    para eso existe la salida de emergencia (puesto_fuera_de_lista).
-  //
-  // Si no viene el id, se intenta resolver del texto una sola vez, aquí.
-  // Lo que se guarde queda fijo: el texto es la instantánea de ese día.
-  let puestoId = Number(b.puesto_id) || null;
-  if (!puestoId) {
-    const [[hallado]] = await pool.query(
-      `SELECT id FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
-      [String(b.puesto_votacion).trim(), await duenoDeLaCampana(req)]);
-    puestoId = hallado ? hallado.id : null;
-  }
-  // Se marca para revisión lo que no cruza con ningún puesto de la lista:
-  // o el testigo usó la salida de emergencia, o el nombre viene de una
-  // fuente vieja. En los dos casos alguien tiene que mirarlo.
-  // Se compara contra los valores verdaderos EXPLÍCITAMENTE. El reporte
-  // llega como multipart, así que todo es texto — y la cadena '0' es
-  // *verdadera* en JavaScript. Un `b.puesto_fuera_de_lista ? 1 : 0` marcaba
-  // para revisión hasta los reportes correctos, y la lista de revisión
-  // habría quedado con todo adentro, que es igual a no tenerla.
-  const marcadoPorElCliente = ['1', 1, true, 'true'].includes(b.puesto_fuera_de_lista);
-  const fueraDeLista = puestoId === null ? 1 : (marcadoPorElCliente ? 1 : 0);
-  if (!b.mesa_votacion || !String(b.mesa_votacion).trim()) {
-    return res.status(400).json({ error: 'El número de mesa es obligatorio.' });
-  }
-  /* EL TOTAL DE VOTANTES SOLO SE EXIGE EN LA CAMPAÑA MADRE. En la de un
-     aspirante ese campo no existe en su formulario, porque su E-14 no lo trae
-     así: cuenta votos por agrupación política, no votantes de la mesa. Si la
-     guarda siguiera siendo general, el reporte se rechazaría con un 400 pidiendo
-     un dato que la pantalla nunca mostró — el peor error posible el día de la
-     elección, porque el testigo no tendría forma de arreglarlo.
+}
 
-     La columna admite NULL y `/resumen` suma con COALESCE, así que un reporte
-     sin ese dato no rompe ningún conteo: solo no aporta a «Total votantes
-     reportados», que es exactamente lo que corresponde. */
-  if ((await duenoDeLaCampana(req)) === 0
-      && (b.total_votantes_mesa === undefined || String(b.total_votantes_mesa).trim() === '')) {
-    return res.status(400).json({ error: 'El total de votantes en la mesa es obligatorio.' });
+/** Texto comparable: sin tildes, sin mayúsculas, espacios colapsados. */
+function normalizarTexto(t) {
+  return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function mesasComoLista(valor) {
+  let v = valor;
+  if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { v = []; } }
+  return Array.isArray(v) ? v.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+}
+
+/**
+ * Un testigo (o un líder que entró «como testigo») reporta SOLO la mesa que
+ * tiene asignada. Antes el servidor aceptaba cualquier puesto y cualquier mesa
+ * y el último reporte de una mesa anula al anterior: bastaba equivocarse de
+ * número —o querer hacerlo— para pisar el resultado de otro testigo.
+ *
+ * De dónde sale lo asignado: igual que en /mi-lugar-votacion, de `estructura`
+ * (si la persona tiene otro cargo además) o de `usuarios` (testigo puro).
+ * El puesto se compara por id y, si el id de su ficha viene de otra lista de
+ * puestos (la madre y cada aspirante tienen la suya), por el nombre.
+ */
+async function mesaAsignadaAlTestigo(usuarioId, puestoFila, textoPuesto, mesa) {
+  const [[a]] = await pool.query(
+    `SELECT e.tipo_testigo, e.mesas_asignadas,
+            COALESCE(e.puesto_id, u.puesto_id)             AS puesto_id,
+            COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto_votacion,
+            COALESCE(e.mesa_votacion, u.mesa_votacion)     AS mesa_votacion
+       FROM usuarios u
+       LEFT JOIN estructura e ON e.usuario_id = u.id AND e.cargo = 'testigo'
+      WHERE u.id = ?`, [usuarioId]);
+  if (!a) return false;
+  const mesas = a.tipo_testigo === 'puesto'
+    ? mesasComoLista(a.mesas_asignadas)
+    : (Number(a.mesa_votacion) > 0 ? [Number(a.mesa_votacion)] : []);
+  if (!mesas.includes(mesa)) return false;
+  if (puestoFila) {
+    return (a.puesto_id != null && Number(a.puesto_id) === puestoFila.id)
+        || normalizarTexto(a.puesto_votacion) === normalizarTexto(puestoFila.nombre);
   }
+  return normalizarTexto(a.puesto_votacion) === normalizarTexto(textoPuesto);
+}
+
+router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
+  uploadDiaD.fields([{ name: 'foto_e14', maxCount: 1 }, { name: 'documentos', maxCount: MAX_DOCUMENTOS_REPORTE }]),
+  async (req, res) => {
+  const b = req.body;
   // Con `fields`, multer entrega req.files como un objeto por campo: el E-14
   // ya no está en req.file. Dejarlo así habría hecho que TODO reporte se
   // rechazara por "falta la foto" aunque viniera.
   const archivoE14 = req.files && req.files.foto_e14 && req.files.foto_e14[0];
   const archivosDocumentos = (req.files && req.files.documentos) || [];
-  if (!archivoE14) {
-    return res.status(400).json({ error: 'La foto del E-14 es obligatoria.' });
-  }
+  const subidas = [...(archivoE14 ? [archivoE14] : []), ...archivosDocumentos];
 
-  // Los votos viajan como un solo campo de texto con JSON adentro (el
-  // formulario es multipart por la foto, así que no se puede mandar un
-  // array anidado como campos sueltos): [{ nombre, votos }, ...], uno por
-  // candidato mostrado en el formulario.
-  let votosPorCandidato = [];
-  if (b.votos_json) {
-    try {
-      votosPorCandidato = JSON.parse(b.votos_json);
-    } catch (err) {
-      return res.status(400).json({ error: 'Los votos por candidato llegaron en un formato inválido.' });
-    }
-  }
-  if (!Array.isArray(votosPorCandidato) || !votosPorCandidato.length) {
-    return res.status(400).json({ error: 'Debe reportar los votos de al menos un candidato.' });
-  }
-  for (const item of votosPorCandidato) {
-    if (!item || !String(item.nombre || '').trim()) {
-      return res.status(400).json({ error: 'Cada candidato reportado debe tener nombre.' });
-    }
-    if (item.votos === '' || item.votos === undefined || item.votos === null || !Number.isInteger(Number(item.votos)) || Number(item.votos) < 0) {
-      return res.status(400).json({ error: `Los votos de "${item.nombre}" deben ser un número entero mayor o igual a 0.` });
-    }
-  }
+  /* TODA SALIDA SIN GUARDAR BORRA LO QUE MULTER YA ESCRIBIÓ. Multer guarda las
+     fotos antes de que corra una sola línea de este manejador; si el reporte se
+     rechaza —o es un reintento ya guardado—, esos archivos quedarían en disco
+     sin reporte que los reclame. */
+  const rechazar = async (estado, error) => {
+    await borrarArchivosSubidos(subidas);
+    return res.status(estado).json({ error });
+  };
 
-  const fotoE14Url = `/uploads/${archivoE14.filename}`;
-  // EL REPORTE Y SUS VOTOS SE GUARDAN JUNTOS O NO SE GUARDAN.
-  //
-  // Antes eran un INSERT del reporte y luego un INSERT suelto por candidato,
-  // todos fuera de transacción. Si el proceso moría a mitad del bucle —o
-  // fallaba un solo INSERT—, quedaba un reporte con VOTOS INCOMPLETOS: le
-  // faltan candidatos, pero se ve igual de válido que cualquier otro. En el
-  // conteo del Día D eso no es un error visible, es un resultado equivocado.
-  //
-  // Los votos van además en un solo INSERT de varias filas: menos viajes a
-  // la base en el momento de más carga de la jornada.
-  /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
-     MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
-     Express 4 no envuelve los manejadores `async`, así que muere en el
-     `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
-     respuesta y el botón se queda girando hasta que corte Nginx. Antes de
-     este cambio la consulta iba dentro del try y una base caída salía como un
-     500 legible; había que conservarlo. */
   let conexion;
   try {
+    // Reintento idempotente: el celular guarda el reporte cuando no hay señal
+    // y lo reintenta solo más tarde — si el mismo envío llega dos veces, esto
+    // evita duplicar el reporte (un testigo SÍ puede reportar la misma mesa
+    // más de una vez a propósito — parcial y luego final — pero eso siempre
+    // trae un cliente_uuid distinto; acá solo se ataja el reintento exacto
+    // del mismo envío). Sin cliente_uuid sigue de largo como siempre.
+    if (b.cliente_uuid) {
+      try {
+        const [[yaExiste]] = await pool.query(`SELECT id FROM dia_d_reportes WHERE cliente_uuid = ?`, [b.cliente_uuid]);
+        if (yaExiste) {
+          await borrarArchivosSubidos(subidas);
+          return res.json({ ok: true, id: yaExiste.id, yaExistia: true });
+        }
+      } catch (err) {
+        console.error('Error verificando cliente_uuid (se sigue con el registro normal):', err);
+      }
+    }
+
+    if (!b.puesto_votacion || !String(b.puesto_votacion).trim()) {
+      return rechazar(400, 'El puesto de votación es obligatorio.');
+    }
+    const textoPuesto = String(b.puesto_votacion).trim();
+    const dueno = await duenoDeLaCampana(req);
+    const esTestigo = req.session.usuario.rol === 'testigo';
+
+    /* EL PUESTO SE RESUELVE EN EL SERVIDOR, contra la lista de ESTA campaña.
+       Antes se guardaba el `puesto_id` que mandaba el cliente sin comprobarlo:
+       el de otra campaña, o uno inventado, quedaba grabado como si fuera
+       válido. Ahora el id solo vale si pertenece a la lista de la campaña; si
+       no, se busca por el nombre; y si tampoco cruza, el puesto es «fuera de
+       lista».
+
+       Lo que se guarda en `puesto_votacion` es el nombre de la lista, no el
+       texto que escribió el cliente: el tablero identifica la mesa por ese
+       texto, y dos escrituras del mismo puesto serían dos mesas distintas.
+
+       El id sigue siendo OPCIONAL a propósito, y no se puede volver
+       obligatorio: un reporte encolado sin señal ANTES de esta versión llega
+       DESPUÉS y solo trae el texto; y el testigo puede estar en un puesto que
+       la siembra no incluyó, y para eso existe la salida «fuera de lista». */
+    let puestoFila = null;
+    const idDelCliente = Number(b.puesto_id) || 0;
+    if (idDelCliente) {
+      [[puestoFila]] = await pool.query(
+        `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE id = ? AND aspirante_id = ?`,
+        [idDelCliente, dueno]);
+    }
+    if (!puestoFila) {
+      [[puestoFila]] = await pool.query(
+        `SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE nombre = ? AND aspirante_id = ?`,
+        [textoPuesto, dueno]);
+    }
+    puestoFila = puestoFila || null;
+
+    // Quien reporta por la coordinación solo puede hacerlo sobre un puesto que
+    // exista en la lista: la salida «fuera de lista» es para el testigo que
+    // está en el sitio y no encuentra el suyo.
+    if (!esTestigo && !puestoFila) {
+      return rechazar(400, 'El puesto no existe en la lista de puestos de esta campaña.');
+    }
+
+    // Se marca para revisión lo que no cruza con ningún puesto de la lista:
+    // o el testigo usó la salida de emergencia, o el nombre viene de una
+    // fuente vieja. En los dos casos alguien tiene que mirarlo.
+    // Se compara contra los valores verdaderos EXPLÍCITAMENTE. El reporte
+    // llega como multipart, así que todo es texto — y la cadena '0' es
+    // *verdadera* en JavaScript. Un `b.puesto_fuera_de_lista ? 1 : 0` marcaba
+    // para revisión hasta los reportes correctos, y la lista de revisión
+    // habría quedado con todo adentro, que es igual a no tenerla.
+    const marcadoPorElCliente = ['1', 1, true, 'true'].includes(b.puesto_fuera_de_lista);
+    const fueraDeLista = !puestoFila || marcadoPorElCliente;
+
+    const mesaTexto = String(b.mesa_votacion == null ? '' : b.mesa_votacion).trim();
+    if (!mesaTexto) return rechazar(400, 'El número de mesa es obligatorio.');
+    if (!/^\d{1,6}$/.test(mesaTexto) || Number(mesaTexto) < 1) {
+      return rechazar(400, 'El número de mesa debe ser un número entero mayor que 0.');
+    }
+    const mesa = Number(mesaTexto);
+
+    /* LA MESA TIENE QUE EXISTIR EN EL PUESTO: de 1 a su cantidad de mesas. Vale
+       para todos, también para el testigo. Un puesto con cantidad 0 es uno al
+       que nadie le configuró las mesas: ahí el rango no significa nada y
+       rechazar bloquearía al testigo el día de la elección, que es peor que
+       aceptar. Se deja pasar y el reporte queda con una alerta. */
+    if (puestoFila && puestoFila.cantidad_mesas > 0 && mesa > puestoFila.cantidad_mesas) {
+      return rechazar(400, `La mesa ${mesa} no existe en este puesto: tiene ${puestoFila.cantidad_mesas} mesas (de la 1 a la ${puestoFila.cantidad_mesas}).`);
+    }
+
+    if (esTestigo && !(await mesaAsignadaAlTestigo(req.session.usuario.id, puestoFila, textoPuesto, mesa))) {
+      return rechazar(403, 'Esta mesa no está asignada a ti.');
+    }
+
+    /* UN REPORTE NUEVO SOLO REEMPLAZA AL ANTERIOR SI LO ENVÍA LA MISMA PERSONA,
+       o la coordinación. El tablero se queda con el último reporte de cada
+       mesa, así que enviar sobre una mesa ya reportada por otro la sustituye.
+       Cualquier otro caso se rechaza para que nadie pise el resultado ajeno.
+       Si el último lo mandó la coordinación en nombre del testigo, el testigo
+       tampoco lo reemplaza: la corrección la hace quien corrigió. */
+    const nombreDelPuesto = puestoFila ? puestoFila.nombre : textoPuesto;
+    if (esTestigo) {
+      const aFuera = await acotaJornada(req, 'r.testigo_id');
+      const [[previo]] = await pool.query(
+        `SELECT r.id, r.testigo_id FROM dia_d_reportes r
+          WHERE r.puesto_votacion = ? AND r.mesa_votacion = ?
+          ${aFuera ? 'AND ' + aFuera.sql : ''}
+          ORDER BY r.id DESC LIMIT 1`,
+        [nombreDelPuesto, mesa, ...(aFuera ? aFuera.valores : [])]);
+      if (previo && previo.testigo_id !== req.session.usuario.id) {
+        return rechazar(409, 'Esta mesa ya fue reportada por otra persona. Avisa a la coordinación para que la corrija.');
+      }
+    }
+
+    /* EL TOTAL DE VOTANTES SOLO SE EXIGE EN LA CAMPAÑA MADRE. En la de un
+       aspirante ese campo no existe en su formulario, porque su E-14 no lo trae
+       así: cuenta votos por agrupación política, no votantes de la mesa. Si la
+       guarda siguiera siendo general, el reporte se rechazaría con un 400 pidiendo
+       un dato que la pantalla nunca mostró — el peor error posible el día de la
+       elección, porque el testigo no tendría forma de arreglarlo.
+
+       La columna admite NULL y `/resumen` suma con COALESCE, así que un reporte
+       sin ese dato no rompe ningún conteo: solo no aporta a «Total votantes
+       reportados», que es exactamente lo que corresponde. */
+    const sinTotal = b.total_votantes_mesa === undefined || b.total_votantes_mesa === null
+      || String(b.total_votantes_mesa).trim() === '';
+    if (dueno === 0 && sinTotal) {
+      return rechazar(400, 'El total de votantes en la mesa es obligatorio.');
+    }
+    const totalVotantes = sinTotal ? null : Number(b.total_votantes_mesa);
+    if (totalVotantes !== null && (!Number.isInteger(totalVotantes) || totalVotantes < 0)) {
+      return rechazar(400, 'El total de votantes en la mesa debe ser un número entero mayor o igual a 0.');
+    }
+    if (!archivoE14) {
+      return rechazar(400, 'La foto del E-14 es obligatoria.');
+    }
+
+    // Los votos viajan como un solo campo de texto con JSON adentro (el
+    // formulario es multipart por la foto, así que no se puede mandar un
+    // array anidado como campos sueltos): [{ nombre, votos }, ...], uno por
+    // candidato mostrado en el formulario.
+    let votosPorCandidato = [];
+    if (b.votos_json) {
+      try {
+        votosPorCandidato = JSON.parse(b.votos_json);
+      } catch (err) {
+        return rechazar(400, 'Los votos por candidato llegaron en un formato inválido.');
+      }
+    }
+    if (!Array.isArray(votosPorCandidato) || !votosPorCandidato.length) {
+      return rechazar(400, 'Debe reportar los votos de al menos un candidato.');
+    }
+    for (const item of votosPorCandidato) {
+      if (!item || !String(item.nombre || '').trim()) {
+        return rechazar(400, 'Cada candidato reportado debe tener nombre.');
+      }
+      if (item.votos === '' || item.votos === undefined || item.votos === null || !Number.isInteger(Number(item.votos)) || Number(item.votos) < 0) {
+        return rechazar(400, `Los votos de "${item.nombre}" deben ser un número entero mayor o igual a 0.`);
+      }
+    }
+
+    /* LAS ALERTAS LAS PONE EL SERVIDOR, y NO rechazan nada. Un E-14 mal sumado
+       es exactamente lo que la campaña necesita ver para reclamar: devolverle
+       un error al testigo lo dejaría sin forma de reportarlo. El aviso del
+       celular puede seguir existiendo, pero es solo una cortesía —se puede
+       esquivar y no corre en las campañas de aspirante—; la marca que cuenta
+       es esta.
+         suma_distinta     la suma de los votos reportados no es el total de
+                           votantes de la mesa (solo si el reporte trae total)
+         fuera_de_lista    el puesto no cruzó con la lista de la campaña
+         enviado_por_staff lo mandó la coordinación, no el testigo
+         puesto_sin_mesas  el puesto no tiene cantidad de mesas configurada,
+                           así que no se pudo comprobar el rango */
+    const sumaVotos = votosPorCandidato.reduce((s, i) => s + Number(i.votos), 0);
+    const alertas = [];
+    if (totalVotantes !== null && sumaVotos !== totalVotantes) alertas.push('suma_distinta');
+    if (fueraDeLista) alertas.push('fuera_de_lista');
+    if (!esTestigo) alertas.push('enviado_por_staff');
+    if (puestoFila && !(puestoFila.cantidad_mesas > 0)) alertas.push('puesto_sin_mesas');
+
+    const fotoE14Url = `/uploads/dia-d/${archivoE14.filename}`;
+    // EL REPORTE Y SUS VOTOS SE GUARDAN JUNTOS O NO SE GUARDAN.
+    //
+    // Antes eran un INSERT del reporte y luego un INSERT suelto por candidato,
+    // todos fuera de transacción. Si el proceso moría a mitad del bucle —o
+    // fallaba un solo INSERT—, quedaba un reporte con VOTOS INCOMPLETOS: le
+    // faltan candidatos, pero se ve igual de válido que cualquier otro. En el
+    // conteo del Día D eso no es un error visible, es un resultado equivocado.
+    //
+    // Los votos van además en un solo INSERT de varias filas: menos viajes a
+    // la base en el momento de más carga de la jornada.
+    /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
+       MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
+       Express 4 no envuelve los manejadores `async`, así que muere en el
+       `unhandledRejection` de app.js, que solo la imprime. No se envía NINGUNA
+       respuesta y el botón se queda girando hasta que corte Nginx. */
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
 
@@ -652,14 +836,15 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
 
     const [result] = await conexion.query(
       `INSERT INTO dia_d_reportes
-       (testigo_id, departamento, municipio, puesto_votacion, puesto_id, puesto_fuera_de_lista, mesa_votacion, votos_candidato, total_votantes_mesa, novedad, foto_e14_url, cliente_uuid)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+       (testigo_id, departamento, municipio, puesto_votacion, puesto_id, puesto_fuera_de_lista, mesa_votacion, votos_candidato, total_votantes_mesa, novedad, foto_e14_url, cliente_uuid, alertas)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [req.session.usuario.id,
        b.departamento || null, b.municipio || null,
-       String(b.puesto_votacion).trim(), puestoId, fueraDeLista, String(b.mesa_votacion).trim(),
+       nombreDelPuesto, puestoFila ? puestoFila.id : null, fueraDeLista ? 1 : 0, mesa,
        votosCandidato,
-       b.total_votantes_mesa !== '' && b.total_votantes_mesa !== undefined ? Number(b.total_votantes_mesa) : null,
-       b.novedad || null, fotoE14Url, b.cliente_uuid || null]
+       totalVotantes,
+       b.novedad || null, fotoE14Url, b.cliente_uuid || null,
+       alertas.length ? alertas.join(',') : null]
     );
 
     await conexion.query(
@@ -681,7 +866,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
         `INSERT INTO dia_d_reporte_documentos (reporte_id, url, descripcion, orden) VALUES ?`,
         [archivosDocumentos.map((f, i) => [
           result.insertId,
-          `/uploads/${f.filename}`,
+          `/uploads/dia-d/${f.filename}`,
           (descripciones[i] || '').toString().trim().slice(0, 150) || null,
           i + 1,
         ])]
@@ -689,7 +874,7 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     }
 
     await conexion.commit();
-    res.json({ ok: true, id: result.insertId });
+    res.json({ ok: true, id: result.insertId, alertas });
   } catch (err) {
     /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
        reiniciado, `wait_timeout`, un KILL— también lanza, y sin esto el
@@ -697,10 +882,14 @@ router.post('/reportes', requireRole('testigo', 'admin', 'coordinador'),
     if (conexion) { try { await conexion.rollback(); } catch (_) { /* la conexión ya no sirve */ } }
     if (err.code === 'ER_DUP_ENTRY' && b.cliente_uuid) {
       const [[existente]] = await pool.query(`SELECT id FROM dia_d_reportes WHERE cliente_uuid = ?`, [b.cliente_uuid]).catch(() => [[null]]);
-      if (existente) return res.json({ ok: true, id: existente.id, yaExistia: true });
+      if (existente) {
+        await borrarArchivosSubidos(subidas);
+        return res.json({ ok: true, id: existente.id, yaExistia: true });
+      }
     }
     console.error(err);
-    res.status(500).json({ error: 'Error guardando el reporte.' });
+    await borrarArchivosSubidos(subidas);
+    if (!res.headersSent) res.status(500).json({ error: 'Error guardando el reporte.' });
   } finally {
     if (conexion) conexion.release();
   }
@@ -728,14 +917,14 @@ router.get('/mis-reportes', async (req, res) => {
       // Los otros documentos, en una sola consulta para todos los reportes:
       // uno por reporte convertiria un listado de 50 en 51 viajes a la base.
       const [docs] = await pool.query(
-        `SELECT reporte_id, url, descripcion FROM dia_d_reporte_documentos
+        `SELECT id, reporte_id, url, descripcion FROM dia_d_reporte_documentos
           WHERE reporte_id IN (?) ORDER BY reporte_id, orden`,
         [rows.map(r => r.id)]
       );
       const docsPorReporte = new Map();
       docs.forEach(d => {
         if (!docsPorReporte.has(d.reporte_id)) docsPorReporte.set(d.reporte_id, []);
-        docsPorReporte.get(d.reporte_id).push({ url: d.url, descripcion: d.descripcion });
+        docsPorReporte.get(d.reporte_id).push({ id: d.id, url: d.url, descripcion: d.descripcion });
       });
       rows.forEach(r => { r.documentos = docsPorReporte.get(r.id) || []; });
     }
@@ -815,12 +1004,12 @@ router.get('/reportes', requireRole('admin', 'coordinador', 'aspirante'), async 
     const idsReportes = [...new Set([...ultimosPorMesa, ...historialCompleto].map(r => r.id))];
     if (idsReportes.length) {
       const [docs] = await pool.query(
-        `SELECT reporte_id, url, descripcion FROM dia_d_reporte_documentos
+        `SELECT id, reporte_id, url, descripcion FROM dia_d_reporte_documentos
           WHERE reporte_id IN (?) ORDER BY reporte_id, orden`, [idsReportes]);
       const porReporte = new Map();
       docs.forEach(d => {
         if (!porReporte.has(d.reporte_id)) porReporte.set(d.reporte_id, []);
-        porReporte.get(d.reporte_id).push({ url: d.url, descripcion: d.descripcion });
+        porReporte.get(d.reporte_id).push({ id: d.id, url: d.url, descripcion: d.descripcion });
       });
       [...ultimosPorMesa, ...historialCompleto].forEach(r => { r.documentos = porReporte.get(r.id) || []; });
     }
@@ -1027,6 +1216,76 @@ router.get('/rendimiento-candidato', requireRole('admin', 'coordinador', 'aspira
   }
 });
 
+/* ———————————————— FOTOS Y DOCUMENTOS DE UN REPORTE ————————————————
+   Única puerta de entrada a los archivos del Día D (el acceso directo por
+   /uploads está cerrado en app.js). Abre el archivo:
+     · el testigo DUEÑO del reporte, o
+     · admin, coordinador o aspirante, con el mismo alcance del tablero
+       (`acotaJornada`): un coordinador de la campaña madre no abre las fotos
+       de la rama de un aspirante, ni al revés.
+   Un líder, un sublíder o cualquier otro rol recibe 403.
+   Va por /api, así que acepta la cookie de sesión (escritorio) y el
+   X-Device-Token (la PWA, que lo pide con pedirArchivoApp). */
+async function reporteVisiblePara(req, reporteId) {
+  const [[rep]] = await pool.query(
+    `SELECT id, testigo_id, foto_e14_url FROM dia_d_reportes WHERE id = ?`, [reporteId]);
+  if (!rep) return { estado: 404, error: 'Ese reporte ya no existe.' };
+  const u = req.session.usuario;
+  if (rep.testigo_id === u.id) return { rep };
+  const esEquipo = ['admin', 'coordinador'].includes(u.rol) || !!req.sublicencia;
+  if (!esEquipo) return { estado: 403, error: 'No tiene permisos para ver este archivo.' };
+  const aFuera = await acotaJornada(req, 'r.testigo_id');
+  const [[dentro]] = await pool.query(
+    `SELECT r.id FROM dia_d_reportes r WHERE r.id = ? ${aFuera ? 'AND ' + aFuera.sql : ''}`,
+    [reporteId, ...(aFuera ? aFuera.valores : [])]);
+  if (!dentro) return { estado: 403, error: 'Ese reporte es de otra campaña.' };
+  return { rep };
+}
+
+function enviarArchivoDiaD(res, url) {
+  for (const ruta of rutasDelArchivoDiaD(url)) {
+    if (fs.existsSync(ruta)) {
+      return res.sendFile(ruta, {
+        headers: { 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' }
+      });
+    }
+  }
+  return res.status(404).json({ error: 'El archivo ya no está en el servidor.' });
+}
+
+router.get('/reportes/:id/foto', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Reporte inválido.' });
+  try {
+    const r = await reporteVisiblePara(req, id);
+    if (r.error) return res.status(r.estado).json({ error: r.error });
+    if (!r.rep.foto_e14_url) return res.status(404).json({ error: 'Este reporte no tiene foto del E-14.' });
+    enviarArchivoDiaD(res, r.rep.foto_e14_url);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo abrir la foto.' });
+  }
+});
+
+router.get('/reportes/:id/documentos/:docId', async (req, res) => {
+  const id = Number(req.params.id);
+  const docId = Number(req.params.docId);
+  if (!Number.isInteger(id) || id < 1 || !Number.isInteger(docId) || docId < 1) {
+    return res.status(400).json({ error: 'Documento inválido.' });
+  }
+  try {
+    const r = await reporteVisiblePara(req, id);
+    if (r.error) return res.status(r.estado).json({ error: r.error });
+    const [[doc]] = await pool.query(
+      `SELECT url FROM dia_d_reporte_documentos WHERE id = ? AND reporte_id = ?`, [docId, id]);
+    if (!doc) return res.status(404).json({ error: 'Ese documento no existe.' });
+    enviarArchivoDiaD(res, doc.url);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo abrir el documento.' });
+  }
+});
+
 /** Elimina un solo reporte — pide contraseña de administrador, como cualquier borrado en esta app. */
 router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
   const autorizado = await verificarPasswordAdmin(req.body && req.body.password);
@@ -1052,6 +1311,7 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
      este cambio la consulta iba dentro del try y una base caída salía como un
      500 legible; había que conservarlo. */
   let conexion;
+  let archivosABorrar = [];
   try {
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
@@ -1089,6 +1349,15 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
       return res.status(404).json({ error: 'No encontrado.' });
     }
 
+    /* LOS DOCUMENTOS VAN CON EL REPORTE. La tabla no tiene llave foránea hacia
+       `dia_d_reportes` (a propósito, ver schema.sql), así que el DELETE de
+       abajo NO se los llevaba: quedaban filas huérfanas apuntando a archivos.
+       Se recogen las URLs antes de borrar, y los archivos se borran DESPUÉS del
+       commit — con un rollback, los archivos tienen que seguir ahí. */
+    const [docsDelReporte] = await conexion.query(
+      `SELECT url FROM dia_d_reporte_documentos WHERE reporte_id = ?`, [req.params.id]);
+    archivosABorrar = [rep.foto_e14_url, ...docsDelReporte.map(d => d.url)].filter(Boolean);
+
     const detalle = `Eliminó el reporte del Día D de la mesa ${rep.mesa_votacion} del puesto ${rep.puesto_votacion}`
       + (rep.municipio ? ` (${rep.municipio})` : '')
       + '. '
@@ -1099,7 +1368,9 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
       + '.'
       + (rep.testigo ? ` Lo había enviado ${rep.testigo}.` : '')
       + (rep.novedad ? ` Tenía anotada una novedad.` : '')
-      + (rep.foto_e14_url ? ` Tenía foto del E-14 (${rep.foto_e14_url}), que no se borra con el reporte.` : ' No tenía foto del E-14.')
+      + (rep.foto_e14_url ? ' Tenía foto del E-14' : ' No tenía foto del E-14')
+      + (docsDelReporte.length ? ` y ${docsDelReporte.length} ${docsDelReporte.length === 1 ? 'documento anexo' : 'documentos anexos'}` : '')
+      + (archivosABorrar.length ? '; los archivos se borraron del servidor con el reporte.' : '.')
       + ` El identificador era ${rep.id}.`;
 
     await registrarAuditoriaEn(
@@ -1112,7 +1383,9 @@ router.delete('/reportes/:id', requireRole('admin'), async (req, res) => {
       await conexion.rollback();
       return res.status(404).json({ error: 'No encontrado.' });
     }
+    await conexion.query(`DELETE FROM dia_d_reporte_documentos WHERE reporte_id = ?`, [req.params.id]);
     await conexion.commit();
+    await borrarArchivosDiaD(archivosABorrar);
     res.json({ ok: true });
   } catch (err) {
     /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL
@@ -1144,6 +1417,7 @@ router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async 
      este cambio la consulta iba dentro del try y una base caída salía como un
      500 legible; había que conservarlo. */
   let conexion;
+  let archivosABorrar = [];
   try {
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
@@ -1159,6 +1433,12 @@ router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async 
       `SELECT id FROM dia_d_reportes ${acota ? 'WHERE ' + acota.sql : ''}`,
       acota ? acota.valores : []);
     const ids = aBorrar.map(f => f.id);
+    /* Las URLs se recogen ANTES de borrar: después ya no hay de dónde sacarlas. */
+    if (ids.length) {
+      const [fotos] = await conexion.query(`SELECT foto_e14_url AS url FROM dia_d_reportes WHERE id IN (?)`, [ids]);
+      const [anexos] = await conexion.query(`SELECT url FROM dia_d_reporte_documentos WHERE reporte_id IN (?)`, [ids]);
+      archivosABorrar = [...fotos, ...anexos].map(f => f.url).filter(Boolean);
+    }
     const [[t]] = ids.length ? await conexion.query(
       `SELECT COUNT(*) AS reportes, COUNT(DISTINCT testigo_id) AS testigos,
               COUNT(DISTINCT puesto_votacion) AS puestos,
@@ -1184,15 +1464,24 @@ router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async 
         + ` ${t.reportes === 1 ? 'Sumaba' : 'Sumaban'} ${t.votos} votos sobre ${t.votantes} votantes de mesa.`
         + (porCandidato.length
             ? ` El reparto era: ${porCandidato.map(c => `${c.candidato_nombre} ${c.votos}`).join(', ')}.`
-            : '');
+            : '')
+        + (archivosABorrar.length ? ` Se borraron del servidor ${archivosABorrar.length} archivos (fotos de E-14 y documentos).` : '');
 
     await registrarAuditoriaEn(
       conexion, req.session.usuario.id, 'eliminar_masivo', 'dia_d_reportes', null,
       detalle, req.ip
     );
 
-    if (ids.length) await conexion.query(`DELETE FROM dia_d_reportes WHERE id IN (?)`, [ids]);
+    if (ids.length) {
+      await conexion.query(`DELETE FROM dia_d_reportes WHERE id IN (?)`, [ids]);
+      await conexion.query(`DELETE FROM dia_d_reporte_documentos WHERE reporte_id IN (?)`, [ids]);
+    }
     await conexion.commit();
+    // Los archivos, DESPUÉS del commit: con un rollback tienen que seguir ahí.
+    const borrados = await borrarArchivosDiaD(archivosABorrar);
+    if (archivosABorrar.length && borrados < archivosABorrar.length) {
+      console.warn(`Día D: se borraron ${borrados} de ${archivosABorrar.length} archivos (los demás ya no estaban).`);
+    }
     res.json({ ok: true });
   } catch (err) {
     /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL

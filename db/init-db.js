@@ -2030,6 +2030,38 @@ async function main() {
     'puesto_fuera_de_lista'
   );
 
+  // --- Día D: alertas de coherencia que pone el servidor ---
+  //
+  // El servidor anota —no rechaza— lo que un E-14 mal sumado o un reporte
+  // dudoso tiene de raro: suma de votos distinta del total de votantes, mesa
+  // fuera de lista, reporte enviado por la coordinación en lugar del testigo.
+  // Rechazar esos casos escondería justo lo que la campaña necesita ver para
+  // reclamar. NULL = sin alertas.
+  await agregarColumnaSiFalta(
+    connection, 'dia_d_reportes',
+    'alertas TEXT NULL',
+    'alertas'
+  );
+
+  // --- Día D: índices sobre la URL de las fotos ---
+  //
+  // El filtro de /uploads (app.js) pregunta, por cada archivo suelto de la
+  // raíz que alguien intenta abrir, si ese archivo es de un reporte del Día D.
+  // Sin estos índices cada apertura recorrería las dos tablas enteras.
+  // 255 caracteres × 4 bytes caben de sobra en el límite de 3072 de InnoDB.
+  for (const [tabla, columna, indice] of [
+    ['dia_d_reportes', 'foto_e14_url', 'idx_diad_foto_url'],
+    ['dia_d_reporte_documentos', 'url', 'idx_doc_url'],
+  ]) {
+    try {
+      await connection.query(`ALTER TABLE ${tabla} ADD INDEX ${indice} (${columna})`);
+      console.log(`Índice ${indice} creado.`);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_KEYNAME') throw err;
+      console.log(`El índice ${indice} ya existía. Sin cambios.`);
+    }
+  }
+
   // --- Testigo electoral: puesto/mesa propios, separados del lugar de
   // votación de la persona ---
   // Antes, a un Líder/Coordinador/Sublíder/Votante que además se marcaba

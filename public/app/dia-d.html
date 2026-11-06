@@ -179,6 +179,8 @@
           <img id="img-previa-foto-e14" alt="Foto del E-14 ya procesada">
         </div>
         <button type="button" class="btn-app btn-app-secundario" id="btn-abrir-camara-e14">Tomar foto del E-14</button>
+        <input type="file" id="archivo-foto-e14" accept="image/*" capture="environment" hidden>
+        <small id="aviso-sin-camara" role="status" style="display:none; color:#A93226; margin-top:6px;"></small>
       </div>
 
       <div class="campo-app">
@@ -189,6 +191,7 @@
         </p>
         <div id="lista-documentos"></div>
         <button type="button" class="btn-app btn-app-secundario" id="btn-abrir-camara-documento">Tomar foto de otro documento</button>
+        <input type="file" id="archivo-foto-documento" accept="image/*" capture="environment" hidden>
         <small>Obligatoria — es el respaldo del conteo que reportas. Se toma en blanco y negro y se optimiza el contraste para que se lea bien.</small>
       </div>
       <button type="submit" class="btn-app btn-app-primario" id="btn-enviar-reporte">Enviar reporte</button>
@@ -264,11 +267,61 @@ async function cargarMisReportes() {
       <div class="detalle">${(f.votos_por_candidato || []).map(v => `${escaparHtml(v.nombre)}: ${v.votos}`).join(' · ') || '—'}</div>
       <div class="detalle">${f.total_votantes_mesa ?? '—'} total votantes en la mesa</div>
       ${f.novedad ? `<div class="novedad">⚠ ${escaparHtml(f.novedad)}</div>` : ''}
-      ${f.foto_e14_url ? `<a class="foto-e14" href="${escaparHtml(f.foto_e14_url)}" target="_blank" rel="noopener">Ver foto del E-14</a>` : ''}
-      ${(f.documentos || []).map((d, i) => `<a class="foto-e14" href="${escaparHtml(d.url)}" target="_blank" rel="noopener">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`).join('')}
+      ${f.foto_e14_url ? `<a class="foto-e14" href="#" data-archivo="/dia-d/reportes/${f.id}/foto">Ver foto del E-14</a>` : ''}
+      ${(f.documentos || []).map((d, i) => `<a class="foto-e14" href="#" data-archivo="/dia-d/reportes/${f.id}/documentos/${d.id}">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`).join('')}
     </div>
   `).join('');
 }
+
+/* LAS FOTOS YA NO SE ABREN CON UN ENLACE A /uploads: esa carpeta está cerrada.
+   Se piden a /api/dia-d/reportes/:id/foto con el token del dispositivo
+   (pedirArchivoApp, el mismo patrón de Información y Legislación) y se muestran
+   dentro de la propia pantalla. Un `window.open` de un blob se pierde en la
+   app instalada (PWA), donde no hay otra pestaña a la que volver. */
+let urlVisorFoto = null;
+function cerrarVisorFoto() {
+  const v = document.getElementById('visor-foto');
+  if (v) v.remove();
+  if (urlVisorFoto) { URL.revokeObjectURL(urlVisorFoto); urlVisorFoto = null; }
+}
+async function abrirFotoProtegida(ruta) {
+  cerrarVisorFoto();
+  const visor = document.createElement('div');
+  visor.id = 'visor-foto';
+  visor.style.cssText = 'position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.92); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px;';
+  visor.innerHTML = '<div id="visor-foto-cuerpo" style="color:#fff; font-size:0.95rem;">Cargando…</div>'
+    + '<button type="button" id="visor-foto-cerrar" class="btn-app btn-app-fantasma" style="margin-top:12px; flex:none; padding:10px 22px;">Cerrar</button>';
+  document.body.appendChild(visor);
+  document.getElementById('visor-foto-cerrar').addEventListener('click', cerrarVisorFoto);
+  try {
+    const got = await pedirArchivoApp(ruta);
+    if (!got || !document.getElementById('visor-foto')) return;
+    urlVisorFoto = URL.createObjectURL(got.blob);
+    const cuerpo = document.getElementById('visor-foto-cuerpo');
+    if ((got.tipo || got.blob.type || '').startsWith('image/')) {
+      cuerpo.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = urlVisorFoto;
+      img.alt = 'Foto del reporte';
+      img.style.cssText = 'max-width:100%; max-height:78vh; object-fit:contain; border-radius:6px;';
+      cuerpo.appendChild(img);
+    } else {
+      cuerpo.textContent = 'Este archivo no es una imagen.';
+      window.open(urlVisorFoto, '_blank');
+    }
+  } catch (err) {
+    const cuerpo = document.getElementById('visor-foto-cuerpo');
+    if (cuerpo) cuerpo.textContent = err.esErrorDeRed
+      ? 'Sin conexión: no se pudo abrir la foto.'
+      : (err.message || 'No se pudo abrir la foto.');
+  }
+}
+document.getElementById('lista-mis-reportes').addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-archivo]');
+  if (!a) return;
+  e.preventDefault();
+  abrirFotoProtegida(a.dataset.archivo);
+});
 
 /**
  * Captura sin conexión: si al enviar no hay señal (esErrorDeRed, ver
@@ -299,12 +352,58 @@ async function actualizarAvisoColaOfflineDiaD() {
       <button type="button" class="btn-mini" id="btn-subir-cola-ahora">Subir ahora</button>
     </div>` : ''}
     ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
-      ⚠ ${fallidos.length} reporte(s) no se pudieron subir — revísalos: ${fallidos.map(f => escaparHtml(`Mesa ${f.payload.campos.mesa_votacion} (${f.error || 'error desconocido'})`)).join(', ')}
+      ⚠ ${fallidos.length === 1 ? '1 reporte no se pudo subir' : fallidos.length + ' reportes no se pudieron subir'}:
+      ${fallidos.map(f => `
+        <div style="margin-top:8px; padding-top:8px; border-top:1px solid #E5C27A;">
+          <strong>${escaparHtml(f.payload.campos.puesto_votacion || 'Puesto')} · Mesa ${escaparHtml(f.payload.campos.mesa_votacion)}</strong><br>
+          <span>${escaparHtml(f.error || 'error desconocido')}</span>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button type="button" class="btn-mini" data-reintentar="${escaparHtml(f.clienteUuid)}">Reintentar</button>
+            <button type="button" class="btn-mini" data-descartar="${escaparHtml(f.clienteUuid)}">Descartar</button>
+          </div>
+        </div>`).join('')}
     </div>` : ''}
   `;
   const btnSubir = document.getElementById('btn-subir-cola-ahora');
   if (btnSubir) btnSubir.addEventListener('click', () => sincronizarColaOfflineDiaD());
 }
+
+/* REINTENTAR Y DESCARTAR un reporte que el servidor rechazó. Sin esto un
+   reporte «fallido» quedaba para siempre en el celular con un aviso rojo y
+   ninguna salida —ni siquiera cuando el motivo era pasajero, como un 502 en el
+   momento de más carga—. Los fallidos NO se reintentan solos (sincronizarCola
+   los salta): un 403 o un 409 repetido en bucle no arregla nada, así que cada
+   reintento es una decisión de la persona.
+
+   La delegación va sobre el contenedor, que no se reconstruye: el aviso se
+   repinta entero con innerHTML y los botones nuevos no tendrían oyentes. */
+document.getElementById('aviso-cola-offline').addEventListener('click', async (e) => {
+  const reintentar = e.target.closest('[data-reintentar]');
+  const descartar = e.target.closest('[data-descartar]');
+  if (!reintentar && !descartar) return;
+  const uuid = (reintentar || descartar).dataset.reintentar || (reintentar || descartar).dataset.descartar;
+  try {
+    const cola = await listarColaOffline(OFFLINE_STORE_DIAD);
+    const registro = cola.find(r => r.clienteUuid === uuid);
+    if (!registro) { await actualizarAvisoColaOfflineDiaD(); return; }
+    if (descartar) {
+      const m = registro.payload.campos.mesa_votacion;
+      if (!confirm(`¿Descartar el reporte de la mesa ${m}?\n\nSe borra de este celular, con su foto, y NO se envía. Esta acción no se puede deshacer.`)) return;
+      await borrarDeColaOffline(OFFLINE_STORE_DIAD, uuid);
+      await actualizarAvisoColaOfflineDiaD();
+      return;
+    }
+    reintentar.disabled = true;
+    reintentar.textContent = 'Enviando…';
+    registro.estado = 'pendiente';
+    delete registro.error;
+    await guardarEnColaOffline(OFFLINE_STORE_DIAD, registro);
+    await sincronizarColaOfflineDiaD();
+  } catch (err) {
+    console.error('Error con la cola del Día D:', err);
+    await actualizarAvisoColaOfflineDiaD();
+  }
+});
 
 /** Reconstruye el FormData (con la foto real, guardada como Blob) a partir de lo que quedó en la cola. */
 function construirFormDataReporte(registro) {
@@ -674,7 +773,10 @@ async function abrirCamaraE14() {
     actualizarBotonFlashE14();
   } catch (err) {
     cerrarCamaraE14();
-    alert('No se pudo abrir la cámara: ' + (err.message || 'revisa los permisos de cámara del navegador.'));
+    // Sin permiso o sin cámara NO se queda sin forma de reportar: los botones
+    // pasan a subir una foto desde el celular (que abre la cámara nativa).
+    activarRespaldoArchivo('No se pudo abrir la cámara' + (err && err.name === 'NotAllowedError' ? ' (permiso negado)' : '')
+      + '. Usa «Subir foto» para tomarla con la cámara del celular o elegirla de tu galería.');
   }
 }
 
@@ -697,12 +799,72 @@ function cerrarCamaraE14() {
 // Duplicar la cámara habría significado dos sitios que arreglar cada vez.
 let modoCamara = 'e14';   // 'e14' | 'documento'
 
+/* RESPALDO CUANDO LA CÁMARA PROPIA NO ABRE: un <input type="file"> con
+   `capture="environment"`, que en el celular abre la cámara nativa (o la
+   galería) y no necesita permiso de cámara del navegador. La foto pasa por el
+   MISMO procesado y el mismo tope de tamaño que la de la cámara propia. */
+let camaraNoDisponible = false;
+function activarRespaldoArchivo(mensaje) {
+  camaraNoDisponible = true;
+  document.getElementById('btn-abrir-camara-e14').textContent = '📷 Subir foto del E-14';
+  const docs = document.getElementById('btn-abrir-camara-documento');
+  // Se cuenta desde la pantalla y no desde `documentosAdjuntos`: ese arreglo se
+  // declara más abajo y esta función puede correr antes (al cargar la página).
+  const nDocs = document.getElementById('lista-documentos').children.length;
+  docs.textContent = nDocs ? `Agregar otro documento (${nDocs})` : 'Subir foto de otro documento';
+  const aviso = document.getElementById('aviso-sin-camara');
+  if (mensaje) { aviso.textContent = mensaje; aviso.style.display = 'block'; }
+}
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  activarRespaldoArchivo('Este navegador no permite abrir la cámara dentro de la app. Usa «Subir foto» para tomarla con la cámara del celular.');
+}
+
+async function imagenDesdeArchivo(archivo) {
+  // `from-image` respeta la orientación EXIF: sin ella una foto vertical del
+  // celular entra girada 90°.
+  if (window.createImageBitmap) {
+    try { const b = await createImageBitmap(archivo, { imageOrientation: 'from-image' }); return { fuente: b, ancho: b.width, alto: b.height }; }
+    catch (_) { /* se prueba con <img> */ }
+  }
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ fuente: img, ancho: img.naturalWidth, alto: img.naturalHeight }); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen.')); };
+    img.src = url;
+  });
+}
+
+async function usarArchivoComoFoto(archivo, modo) {
+  if (!archivo) return;
+  try {
+    const { fuente, ancho, alto } = await imagenDesdeArchivo(archivo);
+    canvasProcesadoE14 = procesarFotoE14(fuente, ancho, alto);
+    modoCamara = modo;
+    await usarFotoProcesada();
+  } catch (err) {
+    alert(err.message || 'No se pudo usar esa imagen. Prueba con otra foto.');
+  }
+}
+document.getElementById('archivo-foto-e14').addEventListener('change', async (e) => {
+  const archivo = e.target.files && e.target.files[0];
+  e.target.value = '';   // permite volver a elegir el mismo archivo
+  await usarArchivoComoFoto(archivo, 'e14');
+});
+document.getElementById('archivo-foto-documento').addEventListener('change', async (e) => {
+  const archivo = e.target.files && e.target.files[0];
+  e.target.value = '';
+  await usarArchivoComoFoto(archivo, 'documento');
+});
+
 document.getElementById('btn-abrir-camara-e14').addEventListener('click', () => {
   modoCamara = 'e14';
+  if (camaraNoDisponible) return document.getElementById('archivo-foto-e14').click();
   abrirCamaraE14();
 });
 document.getElementById('btn-abrir-camara-documento').addEventListener('click', () => {
   modoCamara = 'documento';
+  if (camaraNoDisponible) return document.getElementById('archivo-foto-documento').click();
   abrirCamaraE14();
 });
 document.getElementById('btn-cancelar-camara-e14').addEventListener('click', cerrarCamaraE14);
@@ -741,14 +903,25 @@ document.getElementById('btn-flash-e14').addEventListener('click', alternarFlash
  * el texto se vea más legible — sin recortar nada, se usa la foto
  * completa tal como se capturó.
  */
-function procesarFotoE14(video) {
-  const ancho = video.videoWidth;
-  const alto = video.videoHeight;
+/* LADO MAYOR MÁXIMO Y CALIDAD DEL JPEG DEL E-14.
+   2400 px en el lado mayor sigue leyendo el acta (un E-14 en hoja carta a esa
+   resolución queda a unos 290 ppp) y deja de mandar los 12 MP de una foto
+   completa por datos móviles el día de la elección. 0,85 en lugar de 0,92:
+   en texto sobre papel casi no se nota y el archivo baja mucho. */
+const MAX_LADO_FOTO = 2400;
+const CALIDAD_JPG_FOTO = 0.85;
+
+function procesarFotoE14(fuente, anchoOrigen, altoOrigen) {
+  // `fuente` puede ser el <video> de la cámara o una imagen ya cargada de un
+  // archivo; el procesado (blanco y negro + contraste) es el mismo en los dos.
+  const escala = Math.min(1, MAX_LADO_FOTO / Math.max(anchoOrigen, altoOrigen));
+  const ancho = Math.max(1, Math.round(anchoOrigen * escala));
+  const alto = Math.max(1, Math.round(altoOrigen * escala));
   const canvasOriginal = document.createElement('canvas');
   canvasOriginal.width = ancho;
   canvasOriginal.height = alto;
   const ctxOriginal = canvasOriginal.getContext('2d');
-  ctxOriginal.drawImage(video, 0, 0, ancho, alto);
+  ctxOriginal.drawImage(fuente, 0, 0, ancho, alto);
   const pixeles = ctxOriginal.getImageData(0, 0, ancho, alto).data;
   const totalPixeles = ancho * alto;
 
@@ -783,7 +956,7 @@ function procesarFotoE14(video) {
 
 function capturarFotoE14() {
   const video = document.getElementById('video-camara-e14');
-  canvasProcesadoE14 = procesarFotoE14(video);
+  canvasProcesadoE14 = procesarFotoE14(video, video.videoWidth, video.videoHeight);
 
   const canvasVista = document.getElementById('canvas-preview-e14');
   canvasVista.width = canvasProcesadoE14.width;
@@ -804,7 +977,7 @@ document.getElementById('btn-repetir-e14').addEventListener('click', () => {
 });
 
 function generarJpgDesdeCanvas(canvas) {
-  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92));
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', CALIDAD_JPG_FOTO));
 }
 
 /**
@@ -840,10 +1013,14 @@ function pintarDocumentos() {
     cont.appendChild(fila);
   });
   document.getElementById('btn-abrir-camara-documento').textContent =
-    documentosAdjuntos.length ? `Agregar otro documento (${documentosAdjuntos.length})` : 'Tomar foto de otro documento';
+    documentosAdjuntos.length ? `Agregar otro documento (${documentosAdjuntos.length})`
+      : (camaraNoDisponible ? 'Subir foto de otro documento' : 'Tomar foto de otro documento');
 }
 
-document.getElementById('btn-usar-foto-e14').addEventListener('click', async () => {
+document.getElementById('btn-usar-foto-e14').addEventListener('click', usarFotoProcesada);
+
+/** Da por buena la foto procesada: va al E-14 o a los otros documentos, según el modo. */
+async function usarFotoProcesada() {
   if (!canvasProcesadoE14) return;
 
   if (modoCamara === 'documento') {
@@ -854,7 +1031,7 @@ document.getElementById('btn-usar-foto-e14').addEventListener('click', async () 
     }
     documentosAdjuntos.push({
       blob: await generarJpgDesdeCanvas(canvasProcesadoE14),
-      miniatura: canvasProcesadoE14.toDataURL('image/jpeg', 0.5),
+      miniatura: canvasProcesadoE14.toDataURL('image/jpeg', 0.4),
       descripcion: '',
     });
     pintarDocumentos();
@@ -864,11 +1041,11 @@ document.getElementById('btn-usar-foto-e14').addEventListener('click', async () 
 
   archivoFotoE14 = await generarJpgDesdeCanvas(canvasProcesadoE14);
   nombreFotoE14 = 'foto_e14.jpg';
-  document.getElementById('img-previa-foto-e14').src = canvasProcesadoE14.toDataURL('image/jpeg', 0.92);
+  document.getElementById('img-previa-foto-e14').src = canvasProcesadoE14.toDataURL('image/jpeg', 0.6);
   document.getElementById('vista-previa-foto-e14').style.display = 'block';
-  document.getElementById('btn-abrir-camara-e14').textContent = '📷 Repetir foto del E-14';
+  document.getElementById('btn-abrir-camara-e14').textContent = camaraNoDisponible ? '📷 Cambiar foto del E-14' : '📷 Repetir foto del E-14';
   document.getElementById('camara-e14-overlay').style.display = 'none';
-});
+}
 
 /** Limpia la foto ya capturada (después de enviar el reporte, o al empezar uno nuevo). */
 function limpiarFotoE14() {
@@ -877,7 +1054,7 @@ function limpiarFotoE14() {
   nombreFotoE14 = null;
   document.getElementById('vista-previa-foto-e14').style.display = 'none';
   document.getElementById('img-previa-foto-e14').src = '';
-  document.getElementById('btn-abrir-camara-e14').textContent = 'Tomar foto del E-14';
+  document.getElementById('btn-abrir-camara-e14').textContent = camaraNoDisponible ? '📷 Subir foto del E-14' : 'Tomar foto del E-14';
   documentosAdjuntos = [];
   pintarDocumentos();
 }

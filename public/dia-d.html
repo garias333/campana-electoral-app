@@ -20,6 +20,7 @@
   /* Toggle Verticales/Horizontales más grande — es el único control de
      esta pantalla, así que se destaca más que un botón secundario normal. */
   #btn-grafico-vertical, #btn-grafico-horizontal { padding: 12px 22px; font-size: 1rem; }
+  .distintivo-alerta { display:inline-block; background:#FDF3E0; color:#8A5A00; border:1px solid #E5C27A; border-radius:999px; padding:1px 8px; font-size:0.75rem; white-space:nowrap; margin:1px 0; }
 </style>
 </head>
 <body>
@@ -78,10 +79,16 @@
     </div>
 
     <div class="card" style="margin-bottom:18px;">
-      <h3 style="margin-top:0;">Último reporte por mesa</h3>
+      <div class="toolbar">
+        <h3 style="margin:0;">Último reporte por mesa</h3>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; cursor:pointer;">
+          <input type="checkbox" id="filtro-solo-alertas" style="width:auto;">
+          Solo con alertas <span id="conteo-alertas" class="mono" style="color:var(--color-text-muted);"></span>
+        </label>
+      </div>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
+          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>Alertas</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-mesas"></tbody>
         </table>
       </div>
@@ -92,7 +99,7 @@
       <h3 style="margin-top:0;">Historial completo</h3>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
+          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>Alertas</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-historial"></tbody>
         </table>
       </div>
@@ -118,16 +125,35 @@ function escaparHtml(texto) {
  * testigo la escribió — no como un solo enlace de "ver documentos", porque
  * cada uno es una prueba distinta y se abre por separado.
  */
-function celdaDocumentos(documentos) {
+function celdaDocumentos(idReporte, documentos) {
   if (!documentos || !documentos.length) return '—';
+  /* NO SE ENLAZA AL ARCHIVO, SE ENLAZA A LA RUTA CON CONTROL DE ACCESO.
+     /uploads/dia-d/ está cerrado: las fotos salen solo por
+     /api/dia-d/reportes/:id/documentos/:docId, que comprueba quién pregunta. */
   return documentos
-    .map((d, i) => `<a href="${escaparHtml(d.url)}" target="_blank" rel="noopener">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`)
+    .map((d, i) => `<a href="/api/dia-d/reportes/${idReporte}/documentos/${d.id}" target="_blank" rel="noopener">${escaparHtml(d.descripcion || 'Documento ' + (i + 1))}</a>`)
     .join('<br>');
 }
 
 /** Celda con enlace a la foto del E-14, o un guion si no hay ninguna en ese reporte. */
-function celdaFotoE14(url) {
-  return url ? `<a href="${escaparHtml(url)}" target="_blank" rel="noopener">Ver foto</a>` : '—';
+function celdaFotoE14(idReporte, url) {
+  return url ? `<a href="/api/dia-d/reportes/${idReporte}/foto" target="_blank" rel="noopener">Ver foto</a>` : '—';
+}
+
+/* ALERTAS QUE PONE EL SERVIDOR al guardar cada reporte (columna `alertas`).
+   No rechazan nada: señalan lo que alguien debería mirar. */
+const ETIQUETAS_ALERTA = {
+  suma_distinta:     { texto: 'Suma ≠ votantes', ayuda: 'La suma de los votos reportados no coincide con el total de votantes de la mesa.' },
+  fuera_de_lista:    { texto: 'Fuera de lista',  ayuda: 'El testigo escribió un puesto que no está en la lista de la campaña.' },
+  enviado_por_staff: { texto: 'Lo envió la coordinación', ayuda: 'Este reporte lo envió la coordinación, no el testigo de la mesa.' },
+  puesto_sin_mesas:  { texto: 'Puesto sin mesas configuradas', ayuda: 'El puesto no tiene cantidad de mesas configurada, por eso no se pudo comprobar el número de mesa.' },
+};
+function celdaAlertas(alertas) {
+  if (!alertas) return '—';
+  return String(alertas).split(',').filter(Boolean).map(a => {
+    const e = ETIQUETAS_ALERTA[a] || { texto: a, ayuda: '' };
+    return `<span class="distintivo-alerta" title="${escaparHtml(e.ayuda)}">⚠ ${escaparHtml(e.texto)}</span>`;
+  }).join('<br>');
 }
 
 /** Botón "Eliminar" por fila — solo se pinta si es admin (mismo criterio que el botón de "eliminar todos"). */
@@ -276,6 +302,54 @@ async function cargarResumenCandidatos() {
   dibujarGraficoCandidatos(filas);
 }
 
+/** Pinta las dos tablas con lo último que llegó, respetando el filtro «Solo con alertas». */
+let reportesCache = { mesas: [], historial: [] };
+function pintarTablasDeReportes() {
+  const soloAlertas = document.getElementById('filtro-solo-alertas').checked;
+  const pasa = (f) => !soloAlertas || !!f.alertas;
+  const mesas = reportesCache.mesas.filter(pasa);
+  const historial = reportesCache.historial.filter(pasa);
+  const conAlertas = reportesCache.mesas.filter(f => !!f.alertas).length;
+  document.getElementById('conteo-alertas').textContent = conAlertas ? `(${conAlertas} de ${reportesCache.mesas.length} mesas)` : '';
+
+  const tbodyMesas = document.getElementById('tbody-mesas');
+  const vacio = document.getElementById('vacio-mesas');
+  vacio.style.display = mesas.length ? 'none' : 'block';
+  vacio.lastChild.textContent = soloAlertas && reportesCache.mesas.length
+    ? 'Ninguna mesa tiene alertas.' : 'Todavía no hay reportes de ninguna mesa.';
+  tbodyMesas.innerHTML = mesas.map(f => `
+    <tr class="${f.novedad ? 'novedad-fila' : ''}">
+      <td>${escaparHtml(f.puesto_votacion)}</td>
+      <td>${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono">${f.votos_candidato ?? '—'}</td>
+      <td class="mono">${f.total_votos_mesa ?? '—'}</td>
+      <td>${escaparHtml(f.testigo_nombre)}</td>
+      <td>${formatoFecha(f.created_at, true)}</td>
+      <td>${escaparHtml(f.novedad || '')}</td>
+      <td>${celdaAlertas(f.alertas)}</td>
+      <td>${celdaFotoE14(f.id, f.foto_e14_url)}</td>
+      <td>${celdaDocumentos(f.id, f.documentos)}</td>
+      <td>${celdaEliminarReporte(f.id)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('tbody-historial').innerHTML = historial.map(f => `
+    <tr class="${f.novedad ? 'novedad-fila' : ''}">
+      <td>${formatoFecha(f.created_at, true)}</td>
+      <td>${escaparHtml(f.testigo_nombre)}</td>
+      <td>${escaparHtml(f.puesto_votacion)}</td>
+      <td>${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono">${f.votos_candidato ?? '—'}</td>
+      <td>${escaparHtml(f.novedad || '')}</td>
+      <td>${celdaAlertas(f.alertas)}</td>
+      <td>${celdaFotoE14(f.id, f.foto_e14_url)}</td>
+      <td>${celdaDocumentos(f.id, f.documentos)}</td>
+      <td>${celdaEliminarReporte(f.id)}</td>
+    </tr>
+  `).join('');
+}
+document.getElementById('filtro-solo-alertas').addEventListener('change', pintarTablasDeReportes);
+
 async function cargarVistaCampana() {
   const [resumen, reportes] = await Promise.all([
     api('/dia-d/resumen'),
@@ -292,36 +366,8 @@ async function cargarVistaCampana() {
   document.getElementById('stat-votantes').textContent = formatoMillares(resumen.totalVotantes);
   document.getElementById('stat-novedades').textContent = formatoMillares(resumen.mesasConNovedad);
 
-  const tbodyMesas = document.getElementById('tbody-mesas');
-  document.getElementById('vacio-mesas').style.display = reportes.mesas.length ? 'none' : 'block';
-  tbodyMesas.innerHTML = reportes.mesas.map(f => `
-    <tr class="${f.novedad ? 'novedad-fila' : ''}">
-      <td>${escaparHtml(f.puesto_votacion)}</td>
-      <td>${escaparHtml(f.mesa_votacion)}</td>
-      <td class="mono">${f.votos_candidato ?? '—'}</td>
-      <td class="mono">${f.total_votos_mesa ?? '—'}</td>
-      <td>${escaparHtml(f.testigo_nombre)}</td>
-      <td>${formatoFecha(f.created_at, true)}</td>
-      <td>${escaparHtml(f.novedad || '')}</td>
-      <td>${celdaFotoE14(f.foto_e14_url)}</td>
-      <td>${celdaDocumentos(f.documentos)}</td>
-      <td>${celdaEliminarReporte(f.id)}</td>
-    </tr>
-  `).join('');
-
-  document.getElementById('tbody-historial').innerHTML = reportes.historial.map(f => `
-    <tr class="${f.novedad ? 'novedad-fila' : ''}">
-      <td>${formatoFecha(f.created_at, true)}</td>
-      <td>${escaparHtml(f.testigo_nombre)}</td>
-      <td>${escaparHtml(f.puesto_votacion)}</td>
-      <td>${escaparHtml(f.mesa_votacion)}</td>
-      <td class="mono">${f.votos_candidato ?? '—'}</td>
-      <td>${escaparHtml(f.novedad || '')}</td>
-      <td>${celdaFotoE14(f.foto_e14_url)}</td>
-      <td>${celdaDocumentos(f.documentos)}</td>
-      <td>${celdaEliminarReporte(f.id)}</td>
-    </tr>
-  `).join('');
+  reportesCache = reportes;
+  pintarTablasDeReportes();
 
   document.getElementById('ultima-actualizacion').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
 }
