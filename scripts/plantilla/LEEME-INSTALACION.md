@@ -78,7 +78,7 @@ crea el administrador inicial (`admin@campana.local`, o `ADMIN_EMAIL`).
 **Ninguna contraseña generada se imprime.** `init-db` deja cada una en un archivo de
 la carpeta del sitio, con modo 0600, y solo muestra su ruta:
 
-- `.credenciales-admin.txt`: el administrador inicial.
+- `.credenciales-admin.txt`: el administrador inicial. **Si `ADMIN_PASSWORD` está en el `.env`, este archivo no se escribe** (la clave ya es la del `.env`).
 - `.credenciales-superadmin.txt`: el **superadministrador**, una cuenta que ningún otro
   rol ve (ni siquiera el administrador). Su correo es `SUPERADMIN_EMAIL` del `.env` o, si
   está vacío, el de por omisión de `config/superadminCorreo.js`.
