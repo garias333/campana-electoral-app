@@ -371,7 +371,11 @@ async function api(path, opciones = {}) {
       }
       throw new Error((data && data.error) || 'No autenticado.');
     }
-    throw new Error((data && data.error) || 'Error en la solicitud.');
+    // `status` para que una pantalla pueda distinguir «no tiene acceso» (403)
+    // de un fallo cualquiera sin comparar textos (ver dashboard.html).
+    const errorHttp = new Error((data && data.error) || 'Error en la solicitud.');
+    errorHttp.status = resp.status;
+    throw errorHttp;
   }
   return data;
 }

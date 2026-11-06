@@ -236,6 +236,13 @@
 <div class="app-shell" id="app-shell">
   <main class="main">
 
+    <!-- Se enciende solo si el servidor niega el Panel (403): el rol no tiene
+         activa la casilla «Panel general» en Asignación de permisos. -->
+    <div id="aviso-sin-acceso" role="alert" style="display:none; margin:0 0 18px; padding:22px 24px; border:1px solid var(--color-no-apoya, #A93226); border-left-width:6px; border-radius:10px; background:#FBEAEA; color:#7B1F16;">
+      <strong style="display:block; font-size:1.1rem; margin-bottom:6px;">No tienes acceso al Panel general</strong>
+      <span style="font-size:0.92rem; line-height:1.5;">Tu tipo de usuario no tiene habilitado este panel. Si lo necesitas, pídele al administrador de la campaña que lo active en Asignación de permisos.</span>
+    </div>
+
     <!-- LA FRANJA DE MANDO. Contiene DENTRO las cifras principales en vez de
          tener tarjetas blancas flotando encima: es lo que le da a la pantalla
          cara de instrumento y no de collage. Todo lo de aquí lo escribe el
@@ -710,9 +717,17 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
       <div class="v">${formatoMillares(n)}</div>`;
     }).join('') + `</div>`;
 
-    const balanceEl = document.getElementById('stat-balance');
-    balanceEl.textContent = formatoMoneda(r.finanzas.balance);
-    if (r.finanzas.balance < 0) balanceEl.style.color = 'var(--color-no-apoya)';
+    /* El servidor solo manda `finanzas` a administrador, coordinador y
+       aspirante (routes/dashboard.routes.js). Sin la clave, la tarjeta se quita:
+       un «$ 0» o un guion se leería como «la campaña no tiene plata». */
+    if (r.finanzas) {
+      const balanceEl = document.getElementById('stat-balance');
+      balanceEl.textContent = formatoMoneda(r.finanzas.balance);
+      if (r.finanzas.balance < 0) balanceEl.style.color = 'var(--color-no-apoya)';
+    } else {
+      const celdaBalance = document.getElementById('celda-balance');
+      if (celdaBalance) celdaBalance.style.display = 'none';
+    }
 
 
     const listaEventos = document.getElementById('lista-eventos');
@@ -741,6 +756,15 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     }
   } catch (err) {
     console.error(err);
+    /* 403 = el servidor negó el Panel a este rol. Se dice con un aviso visible
+       y se quita el resto: antes quedaba el tablero con guiones y ceros, que se
+       leía como «la campaña está en cero». Las demás llamadas del panel
+       (tendencia, posiciones) llevan la misma regla y fallarían igual. */
+    if (err && err.status === 403) {
+      document.getElementById('aviso-sin-acceso').style.display = 'block';
+      document.querySelectorAll('.banda, .malla').forEach(el => { el.style.display = 'none'; });
+      return;
+    }
   }
 
   // Progreso personal (líder, coordinador o testigo con meta asignada)

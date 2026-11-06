@@ -48,7 +48,7 @@
 const pool = require('../config/db');
 const { esSuperadmin } = require('../config/superadmin');
 const { moduloTieneImportarExportar } = require('../config/importarExportar');
-const { PERMISOS_ASPIRANTE } = require('./aspirante');
+const { PERMISOS_ASPIRANTE, MODULOS_ASPIRANTE } = require('./aspirante');
 
 const MENSAJE_NEGADO =
   'Su tipo de usuario no tiene permiso para importar ni exportar datos en este módulo. '
@@ -117,10 +117,21 @@ function requiereImportarExportar(modulo) {
  * EL ASPIRANTE CON SUBLICENCIA NO PASA, aunque su rol sea «lider» y la matriz
  * de «lider» diga que sí: lo que compró son cuatro pantallas, y esta no es una.
  * (`restringirAspirante` ya lo corta antes en `/api`; esto es el segundo cerrojo.)
+ * SALVO que la ruta lo pida con `{ aspirante: true }` Y el módulo esté en
+ * `MODULOS_ASPIRANTE` (hoy, `panel_general`): el Panel general sí es suyo y la
+ * matriz de «lider» no dice nada de lo que compró. Ver `/api/dashboard`.
  *
  * SE FALLA CERRADO: fila ausente o error al leer, se niega.
  */
-function requiereVerModulo(modulo) {
+function requiereVerModulo(modulo, opciones = {}) {
+  /* EL ASPIRANTE PASA SOLO SI SE PIDE Y SOLO A UN MÓDULO QUE SEA SUYO.
+     Por omisión sigue sin pasar (Legislación). `opciones.aspirante` abre la
+     puerta únicamente cuando el módulo figura en `MODULOS_ASPIRANTE`, la lista
+     que decide qué ve en su menú: así la ruta y el menú no pueden separarse. Una
+     ruta que pida `aspirante` para un módulo que no es suyo queda cerrada para
+     él, no abierta. Que la ruta pase al aspirante NO acota sus datos: la ruta
+     tiene que filtrar por su rama (el Panel lo hace con `ambitoDelPanel`). */
+  const aspirantePuedeEntrar = opciones.aspirante === true && MODULOS_ASPIRANTE.includes(modulo);
   return async function permisoVerModulo(req, res, next) {
     const usuario = req.session && req.session.usuario;
     if (!usuario) {
@@ -129,6 +140,7 @@ function requiereVerModulo(modulo) {
     const negado = (mensaje) => res.status(403).json({ error: mensaje });
     try {
       if (req.sublicencia) {
+        if (aspirantePuedeEntrar) return next();
         return negado('Esta sección no está disponible para su tipo de acceso.');
       }
       if (usuario.rol === 'admin' || await esSuperadmin(usuario)) return next();

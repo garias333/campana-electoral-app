@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { requiereVerModulo } = require('../middleware/permisoModulo');
 const { sqlMetaEfectiva } = require('../config/metasEstructura');
 const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura, sublicenciaSobre } = require('../lib/ramas');
 // La misma regla que usa Configuración para saber qué apoyos ofrece cada
@@ -14,6 +15,18 @@ const { avanceDeLideres } = require('../lib/avanceLideres');
 
 const router = express.Router();
 router.use(requireAuth);
+
+/* LAS TRES RUTAS DEL PANEL QUE CONTABAN LA CAMPAÑA A CUALQUIER SESIÓN.
+   `/resumen`, `/tendencia-registros` y `/tabla-posiciones` solo pedían sesión:
+   un líder o un testigo recibía las cifras de toda la campaña aunque el
+   administrador hubiera apagado el Panel general para su rol, porque esa casilla
+   solo gobernaba el menú. Ahora la casilla `panel_general` manda también aquí.
+   Admin y superadmin pasan siempre; el aspirante con sublicencia también, porque
+   el Panel es suyo (`panel_general` está en MODULOS_ASPIRANTE) y las consultas ya
+   vienen acotadas a su rama por `ambitoDelPanel`. Falla cerrado: sin fila o con
+   error al leer, niega. NO se aplica a `/mi-progreso`, `/progreso-equipo` ni
+   `/avance-mis-lideres`: cada una tiene su propia regla. */
+const verPanelGeneral = requiereVerModulo('panel_general', { aspirante: true });
 
 /* ---------------------------------------------------------------------------
    EL PANEL DEL ASPIRANTE ES EL MISMO, CON SUS NÚMEROS
@@ -74,7 +87,7 @@ async function ambitoDelPanel(req) {
   };
 }
 
-router.get('/resumen', async (req, res) => {
+router.get('/resumen', verPanelGeneral, async (req, res) => {
   try {
     const ambito = await ambitoDelPanel(req);
     // Cada trozo se arma una vez y se pega donde toca. Con `ambito` nulo todos
@@ -204,7 +217,15 @@ router.get('/resumen', async (req, res) => {
        esconde esas tarjetas — ver `esAspirante` en public/dashboard.html.
        No se consultan en absoluto: lo que no se lee no se puede filtrar mal
        más adelante, y son cuatro viajes menos a la base en su panel. */
-    const [[finanzas]] = ambito ? [[{ ingresos: 0, gastos: 0 }]] : await pool.query(`
+    /* EL DINERO SOLO VIAJA A QUIEN LO ADMINISTRA. Administrador (el
+       superadministrador conserva ese rol), coordinador y aspirante. A cualquier
+       otro rol con el Panel encendido —líder, sublíder, testigo…— ni se le
+       consulta ni se le envía: se quita del JSON, no solo de la pantalla, porque
+       el navegador recibe la respuesta entera y esconder una tarjeta no oculta
+       nada. Sin la clave `finanzas`, dashboard.html esconde la tarjeta. */
+    const verFinanzas = !!req.sublicencia
+      || ['admin', 'coordinador'].includes(req.session.usuario.rol);
+    const [[finanzas]] = !verFinanzas ? [[null]] : ambito ? [[{ ingresos: 0, gastos: 0 }]] : await pool.query(`
       SELECT
         COALESCE(SUM(CASE WHEN tipo='ingreso' THEN monto END),0) AS ingresos,
         COALESCE(SUM(CASE WHEN tipo='gasto' THEN monto END),0) AS gastos
@@ -310,11 +331,11 @@ router.get('/resumen', async (req, res) => {
       metaVotosCampana,
       metaVotosLideres: Number(metaYAvanceLideres.meta_votos_lideres),
       avanceRegistrosLideres: Number(metaYAvanceLideres.avance_registros_lideres),
-      finanzas: {
+      ...(verFinanzas ? { finanzas: {
         ingresos: Number(finanzas.ingresos),
         gastos: Number(finanzas.gastos),
         balance: Number(finanzas.ingresos) - Number(finanzas.gastos)
-      },
+      } } : {}),
       eventos,
       proximosEventos,
       menciones,
@@ -332,7 +353,7 @@ router.get('/resumen', async (req, res) => {
 // lunes a domingo), que es el criterio que la gente espera al pensar
 // "esta semana" en Colombia (a diferencia del modo por defecto de MySQL,
 // que empieza la semana en domingo).
-router.get('/tendencia-registros', async (req, res) => {
+router.get('/tendencia-registros', verPanelGeneral, async (req, res) => {
   try {
     const ambito = await ambitoDelPanel(req);
     const filtroVot = ambito ? `AND ${ambito.votantesSql}` : '';
@@ -582,7 +603,7 @@ router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (re
  * cada sublíder registró con la suya — sin que el conteo de un líder se
  * infle con lo que sus sublíderes ya aportan por su lado.
  */
-router.get('/tabla-posiciones', async (req, res) => {
+router.get('/tabla-posiciones', verPanelGeneral, async (req, res) => {
   try {
     const ambito = await ambitoDelPanel(req);
     const filtroEst = ambito ? 'AND e.usuario_id IN (?)' : '';
