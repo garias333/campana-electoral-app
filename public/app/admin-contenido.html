@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Compartir · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  html, body { overflow-x: hidden; }
+  .enlaces-fijos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .enlaces-fijos a { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 12px; text-decoration: none; color: var(--navy); font-weight: 700; font-size: .84rem; min-width: 0; }
+  .enlaces-fijos a span.i { font-size: 1.3rem; flex: none; }
+
+  .rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rc { background: #fff; border: 1px solid var(--linea); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .rc-media { position: relative; aspect-ratio: 1 / 1; background: var(--cream); display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; border: 0; width: 100%; padding: 0; font-family: inherit; }
+  .rc-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rc-media .icono { font-size: 2.6rem; }
+  .rc-media .pie { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(20,42,63,.72); color: #fff; font-size: .68rem; padding: 4px 6px; text-align: center; }
+  .rc-cuerpo { padding: 9px 10px 4px; min-width: 0; flex: 1; }
+  .rc-tipo { display: block; font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: var(--copper); font-weight: 800; }
+  .rc-cuerpo h3 { margin: 2px 0 2px; font-size: .86rem; color: var(--navy); line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .rc-meta { font-size: .7rem; color: var(--muted); }
+  .rc-acciones { display: flex; gap: 6px; padding: 6px 8px 9px; }
+  .rc-acciones .comp { flex: 1; min-width: 0; padding: 9px 4px; border-radius: 9px; border: 0; background: var(--copper); color: #fff; font-weight: 700; font-size: .78rem; font-family: inherit; cursor: pointer; }
+  .rc-acciones .comp:disabled { background: #d8b79c; }
+  .rc-acciones .mas { flex: none; width: 40px; border-radius: 9px; border: 1.5px solid var(--linea); background: #fff; font-size: 1.1rem; cursor: pointer; font-family: inherit; }
+
+  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--copper); color: #fff; font-size: 2rem; line-height: 1; box-shadow: 0 6px 16px rgba(20,42,63,.35); cursor: pointer; }
+
+  /* Hojas inferiores (subir, editar, menú) y visor */
+  .capa { position: fixed; inset: 0; z-index: 90; background: rgba(10,25,45,.55); display: none; align-items: flex-end; justify-content: center; }
+  .capa.abierta { display: flex; }
+  .hoja { background: #fff; width: 100%; max-width: 560px; border-radius: 18px 18px 0 0; padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; max-height: 92dvh; overflow-y: auto; }
+  .hoja h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--navy); }
+  .hoja .btn-app + .btn-app { margin-top: 10px; }
+  .opcion-menu { display: block; width: 100%; text-align: left; padding: 14px 4px; background: none; border: 0; border-bottom: 1px solid var(--linea); font-size: 1rem; font-family: inherit; cursor: pointer; color: var(--ink); }
+  .opcion-menu.peligro { color: var(--error); }
+  .progreso { height: 10px; background: #efe9dc; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; display: none; }
+  .progreso > i { display: block; height: 100%; width: 0; background: var(--copper); transition: width .15s; }
+  .archivo-elegido { font-size: .84rem; color: var(--navy); background: var(--cream); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
+  .fila-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+
+  .visor { position: fixed; inset: 0; z-index: 95; background: rgba(0,0,0,.92); display: none; flex-direction: column; align-items: center; justify-content: center; padding: calc(56px + env(safe-area-inset-top, 0px)) 10px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .visor.abierto { display: flex; }
+  .visor img, .visor video { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  .visor audio { width: 100%; max-width: 420px; }
+  .visor .cerrar { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 50%; width: 42px; height: 42px; font-size: 1.3rem; cursor: pointer; }
+  .visor .titulo { color: #fff; font-size: .9rem; margin: 0 0 10px; text-align: center; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div class="enlaces-fijos">
+    <a href="/app/biografia.html"><span class="i">👤</span>Biografía del candidato</a>
+    <a href="/app/politica-privacidad.html"><span class="i">🔒</span>Política de privacidad</a>
+  </div>
+
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="error-carga" class="aviso-app error"></div>
+
+  <div id="contenido" style="display:none;">
+    <div class="tira-chips" id="chips-tipo"></div>
+    <div class="rejilla" id="rejilla"></div>
+    <div id="vacio" class="adm-vacio" style="display:none;">Todavía no hay contenido en esta categoría.</div>
+  </div>
+</main>
+
+<button type="button" class="fab" id="fab" aria-label="Subir contenido">＋</button>
+
+<!-- Menú ⋯ de una tarjeta -->
+<div class="capa" id="capa-menu"><div class="hoja">
+  <h2 id="menu-titulo"></h2>
+  <button type="button" class="opcion-menu" id="menu-editar">✏️ Editar</button>
+  <button type="button" class="opcion-menu peligro" id="menu-borrar">🗑️ Borrar</button>
+  <button type="button" class="opcion-menu" id="menu-cancelar">Cancelar</button>
+</div></div>
+
+<!-- Editar -->
+<div class="capa" id="capa-editar"><div class="hoja">
+  <h2>Editar contenido</h2>
+  <div class="aviso-app error" id="editar-error"></div>
+  <form id="form-editar">
+    <div class="campo-app"><label for="ed-titulo">Título</label><input id="ed-titulo" maxlength="200" required></div>
+    <div class="campo-app"><label for="ed-tipo">Tipo</label><select id="ed-tipo"></select></div>
+    <div class="campo-app"><label for="ed-desc">Descripción</label><textarea id="ed-desc" rows="3"></textarea></div>
+    <div class="campo-app"><label for="ed-enlace">Enlace externo (opcional)</label><input id="ed-enlace" type="url" inputmode="url" placeholder="https://"></div>
+    <div class="campo-app" id="ed-fecha-caja"><label for="ed-fecha">Fecha del evento (opcional)</label><input id="ed-fecha" type="date"></div>
+    <button type="submit" class="btn-app btn-app-primario" id="ed-guardar">Guardar cambios</button>
+    <button type="button" class="btn-app btn-app-secundario" id="ed-cancelar">Cancelar</button>
+  </form>
+</div></div>
+
+<!-- Subir -->
+<div class="capa" id="capa-subir"><div class="hoja">
+  <h2>Subir contenido</h2>
+  <div class="aviso-app error" id="subir-error"></div>
+  <form id="form-subir">
+    <div class="fila-botones">
+      <button type="button" class="btn-app btn-app-secundario" id="btn-elegir">📁 Elegir archivo</button>
+      <button type="button" class="btn-app btn-app-secundario" id="btn-camara">📷 Cámara</button>
+    </div>
+    <input type="file" id="in-archivo" hidden>
+    <input type="file" id="in-camara" accept="image/*" capture="environment" hidden>
+    <div class="archivo-elegido" id="archivo-elegido" style="display:none;"></div>
+    <div class="campo-app"><label for="su-titulo">Título</label><input id="su-titulo" maxlength="200" required></div>
+    <div class="campo-app"><label for="su-tipo">Tipo</label><select id="su-tipo"></select></div>
+    <div class="campo-app"><label for="su-desc">Descripción (opcional)</label><textarea id="su-desc" rows="2"></textarea></div>
+    <div class="campo-app"><label for="su-enlace">O un enlace externo (opcional)</label><input id="su-enlace" type="url" inputmode="url" placeholder="https://"><small>Un archivo o un enlace: hace falta al menos uno. Archivos de hasta 50 MB.</small></div>
+    <div class="campo-app" id="su-fecha-caja" style="display:none;"><label for="su-fecha">Fecha del evento (opcional)</label><input id="su-fecha" type="date"></div>
+    <div class="progreso" id="progreso"><i></i></div>
+    <div class="adm-nota" id="progreso-texto" style="display:none;"></div>
+    <button type="submit" class="btn-app btn-app-primario" id="su-enviar">Subir</button>
+    <button type="button" class="btn-app btn-app-secundario" id="su-cancelar">Cancelar</button>
+  </form>
+</div></div>
+
+<!-- Visor de imagen / video / audio -->
+<div class="visor" id="visor" role="dialog" aria-modal="true">
+  <button type="button" class="cerrar" id="visor-cerrar" aria-label="Cerrar">✕</button>
+  <p class="titulo" id="visor-titulo"></p>
+  <div id="visor-cuerpo" style="display:flex; align-items:center; justify-content:center; width:100%; min-height:0; flex:1;"></div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/admin-nav.js"></script>
+<script>
+/* Mismos tipos que public/recursos.html y app/informacion.html: son los valores reales que
+   guarda routes/recursos.routes.js, no etiquetas libres. */
+const TIPOS = [
+  { clave: '', etiqueta: 'Todos' },
+  { clave: 'noticia', etiqueta: 'Noticias' },
+  { clave: 'post_redes', etiqueta: 'Post para redes' },
+  { clave: 'video', etiqueta: 'Videos' },
+  { clave: 'publicidad_digital', etiqueta: 'Publicidad digital' },
+  { clave: 'publicidad_impresa', etiqueta: 'Publicidad impresa' },
+  { clave: 'proxima_reunion', etiqueta: 'Próximas reuniones' },
+  { clave: 'jingle', etiqueta: 'Jingles' },
+  { clave: 'foto_campana', etiqueta: 'Fotos de la campaña' }
+];
+const ETQ = Object.fromEntries(TIPOS.filter(t => t.clave).map(t => [t.clave, t.etiqueta]));
+/* Las extensiones que acepta middleware/upload.js. Si allá cambian, aquí también. */
+const EXT_PERMITIDAS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.mp4', '.mov', '.avi', '.mp3'];
+const LIMITE_MB = 50;                    // middleware/upload.js
+const LIMITE_COMPARTIR_MB = 25;          // más pesado que esto se descarga en vez de compartir
+const LIMITE_VISTA_MB = 8;               // una imagen más pesada no se baja sola para la miniatura
+
+let recursos = [];
+let filtro = '';
+let menuId = null;
+let editandoId = null;
+
+function mostrarError(msg) { const c = document.getElementById('error-carga'); c.textContent = msg; c.classList.add('visible'); }
+function mb(kb) { return (kb / 1024).toFixed(1).replace('.', ',') + ' MB'; }
+function tamano(kb) { return !kb ? '' : (kb >= 1024 ? mb(kb) : kb + ' KB'); }
+function clase(r) {
+  const m = r.archivo_mime || '';
+  if (!r.archivo_url) return r.enlace_externo ? 'enlace' : 'otro';
+  if (m.startsWith('image/')) return 'imagen';
+  if (m.startsWith('video/')) return 'video';
+  if (m.startsWith('audio/')) return 'audio';
+  if (m === 'application/pdf') return 'pdf';
+  return 'otro';
+}
+const ICONO = { imagen: '🖼️', video: '🎬', audio: '🎵', pdf: '📄', enlace: '🔗', otro: '📎' };
+const PIE = { video: 'Tocar para ver', audio: 'Tocar para oír', pdf: 'Tocar para abrir', enlace: 'Abrir enlace', otro: 'Tocar para descargar' };
+
+/* ---------------- Vistas previas de imagen: fetch + token → blob, bajo demanda ---------------- */
+const urlsVista = new Map();      // id → URL de objeto (en orden de uso; se libera la más vieja)
+const MAX_VISTAS = 24;
+function guardarVista(id, url) {
+  urlsVista.set(id, url);
+  while (urlsVista.size > MAX_VISTAS) {
+    const [viejoId, viejaUrl] = urlsVista.entries().next().value;
+    const img = document.querySelector(`.rc-media[data-id="${viejoId}"] img`);
+    if (img) img.remove();
+    URL.revokeObjectURL(viejaUrl);
+    urlsVista.delete(viejoId);
+    const caja = document.querySelector(`.rc-media[data-id="${viejoId}"]`);
+    if (caja) { caja.dataset.vista = ''; observador && observador.observe(caja); }
+  }
+}
+function liberarVistas() { urlsVista.forEach(u => URL.revokeObjectURL(u)); urlsVista.clear(); }
+window.addEventListener('pagehide', liberarVistas);
+
+let cola = [], activas = 0;
+function encolarVista(caja) { cola.push(caja); atenderCola(); }
+function atenderCola() {
+  while (activas < 3 && cola.length) {
+    const caja = cola.shift();
+    activas++;
+    cargarVista(caja).finally(() => { activas--; atenderCola(); });
+  }
+}
+async function cargarVista(caja) {
+  const id = Number(caja.dataset.id);
+  if (urlsVista.has(id)) { ponerImagen(caja, urlsVista.get(id)); return; }
+  try {
+    const r = await pedirArchivoApp(`/recursos/${id}/descargar`);
+    if (!r || !document.body.contains(caja)) return;
+    const url = URL.createObjectURL(r.blob);
+    guardarVista(id, url);
+    ponerImagen(caja, url);
+  } catch (err) {
+    caja.dataset.vista = '';     // se reintenta al tocar
+  }
+}
+function ponerImagen(caja, url) {
+  caja.querySelector('.icono').style.display = 'none';
+  let img = caja.querySelector('img');
+  if (!img) { img = document.createElement('img'); img.alt = ''; caja.insertBefore(img, caja.firstChild); }
+  img.src = url;
+}
+const observador = ('IntersectionObserver' in window) ? new IntersectionObserver((entradas) => {
+  entradas.forEach(en => {
+    if (!en.isIntersecting) return;
+    const caja = en.target;
+    observador.unobserve(caja);
+    if (caja.dataset.vista === 'pedida') return;
+    caja.dataset.vista = 'pedida';
+    encolarVista(caja);
+  });
+}, { rootMargin: '200px 0px' }) : null;
+
+/* ---------------- Pintado ---------------- */
+function pintarChips() {
+  document.getElementById('chips-tipo').innerHTML = TIPOS.map(t =>
+    `<button type="button" class="chip-app ${filtro === t.clave ? 'activo' : ''}" data-tipo="${t.clave}">${t.etiqueta}</button>`).join('');
+}
+document.getElementById('chips-tipo').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-app');
+  if (!b) return;
+  filtro = b.dataset.tipo; pintarChips(); pintarRejilla();
+});
+
+function pintarRejilla() {
+  if (observador) observador.disconnect();
+  cola = [];
+  const lista = filtro ? recursos.filter(r => r.tipo === filtro) : recursos;
+  document.getElementById('vacio').style.display = lista.length ? 'none' : 'block';
+  document.getElementById('rejilla').innerHTML = lista.map(r => {
+    const c = clase(r);
+    const detalle = [tamano(r.archivo_tamano_kb), r.fecha_evento ? new Date(r.fecha_evento).toLocaleDateString('es-CO') : ''].filter(Boolean).join(' · ');
+    const pesada = c === 'imagen' && (r.archivo_tamano_kb || 0) > LIMITE_VISTA_MB * 1024;
+    return `<article class="rc" data-id="${r.id}">
+      <button type="button" class="rc-media" data-id="${r.id}" data-clase="${c}" aria-label="Abrir ${escHtml(r.titulo)}">
+        <span class="icono" aria-hidden="true">${ICONO[c]}</span>
+        ${c !== 'imagen' ? `<span class="pie">${PIE[c]}</span>` : (pesada ? `<span class="pie">Tocar para ver (${tamano(r.archivo_tamano_kb)})</span>` : '')}
+      </button>
+      <div class="rc-cuerpo">
+        <span class="rc-tipo">${escHtml(ETQ[r.tipo] || r.tipo || '')}</span>
+        <h3>${escHtml(r.titulo)}</h3>
+        ${detalle ? `<span class="rc-meta">${escHtml(detalle)}</span>` : ''}
+      </div>
+      <div class="rc-acciones">
+        <button type="button" class="comp" data-accion="compartir" data-id="${r.id}">Compartir</button>
+        <button type="button" class="mas" data-accion="menu" data-id="${r.id}" aria-label="Más opciones">⋯</button>
+      </div>
+    </article>`;
+  }).join('');
+  /* Las imágenes livianas se piden al entrar en pantalla, no todas de golpe. */
+  document.querySelectorAll('.rc-media[data-clase="imagen"]').forEach(caja => {
+    const r = recursos.find(x => x.id === Number(caja.dataset.id));
+    if ((r.archivo_tamano_kb || 0) > LIMITE_VISTA_MB * 1024) return;
+    if (urlsVista.has(r.id)) { ponerImagen(caja, urlsVista.get(r.id)); return; }
+    if (observador) observador.observe(caja); else encolarVista(caja);
+  });
+}
+
+/* ---------------- Visor ---------------- */
+let urlVisor = null;
+function abrirVisor(titulo, nodo, url) {
+  document.getElementById('visor-titulo').textContent = titulo || '';
+  const cuerpo = document.getElementById('visor-cuerpo');
+  cuerpo.innerHTML = ''; cuerpo.appendChild(nodo);
+  urlVisor = url || null;
+  document.getElementById('visor').classList.add('abierto');
+}
+function cerrarVisor() {
+  const v = document.getElementById('visor');
+  v.classList.remove('abierto');
+  const cuerpo = document.getElementById('visor-cuerpo');
+  cuerpo.querySelectorAll('video,audio').forEach(m => { m.pause(); m.removeAttribute('src'); m.load(); });
+  cuerpo.innerHTML = '';
+  if (urlVisor) { URL.revokeObjectURL(urlVisor); urlVisor = null; }
+}
+document.getElementById('visor-cerrar').addEventListener('click', cerrarVisor);
+
+async function abrirMedia(r, boton) {
+  const c = clase(r);
+  if (c === 'enlace') { window.open(r.enlace_externo, '_blank', 'noopener'); return; }
+  if (c === 'imagen' && urlsVista.has(r.id)) {
+    const img = document.createElement('img'); img.src = urlsVista.get(r.id); img.alt = '';
+    abrirVisor(r.titulo, img, null);          // la URL es de la cuadrícula: el visor no la libera
+    return;
+  }
+  const pie = boton.querySelector('.pie');
+  const textoPie = pie ? pie.textContent : '';
+  if (pie) pie.textContent = 'Cargando…';
+  try {
+    const got = await pedirArchivoApp(`/recursos/${r.id}/descargar`);
+    if (!got) return;
+    const tipoMime = r.archivo_mime || got.tipo;
+    const blob = got.blob.type ? got.blob : new Blob([got.blob], { type: tipoMime });
+    if (c === 'imagen') {
+      const url = URL.createObjectURL(blob);
+      guardarVista(r.id, url);
+      ponerImagen(boton, url);
+      const img = document.createElement('img'); img.src = url; img.alt = '';
+      abrirVisor(r.titulo, img, null);
+    } else if (c === 'video' || c === 'audio') {
+      const url = URL.createObjectURL(blob);
+      const m = document.createElement(c); m.src = url; m.controls = true; m.autoplay = true;
+      if (c === 'video') m.setAttribute('playsinline', '');
+      abrirVisor(r.titulo, m, url);
+    } else if (c === 'pdf') {
+      /* Misma razón que app/legislacion.html: navegar la ventana al blob, porque tras un await
+         ya no hay gesto del usuario y Safari bloquearía una ventana nueva. */
+      window.location.assign(URL.createObjectURL(new Blob([blob], { type: 'application/pdf' })));
+    } else {
+      guardarBlobApp(blob, r.archivo_nombre || got.nombre || 'archivo');
+      avisoPasajero('Archivo descargado.');
+    }
+  } catch (err) {
+    avisoPasajero(err.esErrorDeRed ? 'Sin conexión: no se pudo abrir el archivo.' : (err.message || 'No se pudo abrir.'), true);
+  } finally {
+    if (pie) pie.textContent = textoPie;
+  }
+}
+
+/* ---------------- Compartir ----------------
+   Cada contenido se baja con fetch + token. Si el aparato admite compartir ARCHIVOS
+   (navigator.canShare({files})), se abre la hoja nativa con el archivo. Si no, o si pesa más
+   de 25 MB, se descarga y se avisa.
+   iOS exige que navigator.share ocurra pegado a un toque. Tras bajar un archivo grande el
+   toque «caduca» (NotAllowedError): el archivo queda guardado en memoria y el botón pide un
+   segundo toque, que comparte al instante. */
+let archivoListo = null;      // { id, file } — solo uno a la vez, para no llenar la memoria
+async function compartir(r, boton) {
+  const antes = 'Compartir';
+  try {
+    if (!r.archivo_url) {                         // solo enlace externo
+      if (navigator.share) { await navigator.share({ title: r.titulo, text: r.descripcion || r.titulo, url: r.enlace_externo }); }
+      else if (navigator.clipboard && r.enlace_externo) { await navigator.clipboard.writeText(r.enlace_externo); avisoPasajero('Enlace copiado.'); }
+      else { window.open(r.enlace_externo, '_blank', 'noopener'); }
+      return;
+    }
+    let file = archivoListo && archivoListo.id === r.id ? archivoListo.file : null;
+    if (!file) {
+      boton.disabled = true; boton.textContent = 'Preparando…';
+      const got = await pedirArchivoApp(`/recursos/${r.id}/descargar`);
+      if (!got) return;
+      const nombre = r.archivo_nombre || got.nombre || 'archivo';
+      file = new File([got.blob], nombre, { type: r.archivo_mime || got.tipo || got.blob.type });
+      if (file.size > LIMITE_COMPARTIR_MB * 1024 * 1024) {
+        guardarBlobApp(file, nombre);
+        avisoPasajero(`Pesa ${mb(file.size / 1024)}: se descargó en vez de compartir.`);
+        return;
+      }
+      archivoListo = { id: r.id, file };
+    }
+    if (!(navigator.canShare && navigator.canShare({ files: [file] }))) {
+      guardarBlobApp(file, file.name);
+      avisoPasajero('Este navegador no permite compartir archivos: se descargó para que lo envíes desde tus descargas.');
+      return;
+    }
+    await navigator.share({ files: [file], title: r.titulo, text: r.descripcion || r.titulo });
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;                    // cerró la hoja: no es un error
+    if (err && err.name === 'NotAllowedError' && archivoListo && archivoListo.id === r.id) {
+      boton.dataset.listo = '1';
+      avisoPasajero('Archivo listo. Toca «Enviar» para compartirlo.');
+      boton.textContent = 'Enviar';
+      boton.disabled = false;
+      return;
+    }
+    avisoPasajero(err && err.esErrorDeRed ? 'Sin conexión: no se pudo preparar el archivo.' : ((err && err.message) || 'No se pudo compartir.'), true);
+  } finally {
+    if (boton.dataset.listo !== '1') { boton.disabled = false; boton.textContent = antes; }
+  }
+}
+
+/* ---------------- Eventos de la rejilla ---------------- */
+document.getElementById('rejilla').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const r = recursos.find(x => x.id === Number(b.dataset.id));
+  if (!r) return;
+  if (b.classList.contains('rc-media')) { abrirMedia(r, b); return; }
+  if (b.dataset.accion === 'compartir') {
+    if (b.dataset.listo === '1') { b.dataset.listo = ''; b.textContent = 'Compartir'; }
+    compartir(r, b);
+  }
+  if (b.dataset.accion === 'menu') { menuId = r.id; document.getElementById('menu-titulo').textContent = r.titulo; abrir('capa-menu'); }
+});
+
+/* ---------------- Hojas ---------------- */
+function abrir(id) { document.getElementById(id).classList.add('abierta'); }
+function cerrar(id) { document.getElementById(id).classList.remove('abierta'); }
+['capa-menu', 'capa-editar', 'capa-subir'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => { if (e.target.id === id && !enSubida) cerrar(id); });
+});
+function llenarTipos(select, conVacio) {
+  select.innerHTML = TIPOS.filter(t => t.clave).map(t => `<option value="${t.clave}">${t.etiqueta}</option>`).join('');
+}
+llenarTipos(document.getElementById('ed-tipo'));
+llenarTipos(document.getElementById('su-tipo'));
+
+document.getElementById('menu-cancelar').onclick = () => cerrar('capa-menu');
+
+/* Editar */
+document.getElementById('menu-editar').onclick = () => {
+  const r = recursos.find(x => x.id === menuId); if (!r) return;
+  cerrar('capa-menu'); editandoId = r.id;
+  document.getElementById('ed-titulo').value = r.titulo || '';
+  document.getElementById('ed-tipo').value = r.tipo || 'noticia';
+  document.getElementById('ed-desc').value = r.descripcion || '';
+  document.getElementById('ed-enlace').value = r.enlace_externo || '';
+  document.getElementById('ed-fecha').value = r.fecha_evento ? String(r.fecha_evento).slice(0, 10) : '';
+  document.getElementById('editar-error').classList.remove('visible');
+  abrir('capa-editar');
+};
+document.getElementById('ed-cancelar').onclick = () => cerrar('capa-editar');
+document.getElementById('form-editar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const r = recursos.find(x => x.id === editandoId); if (!r) return;
+  const err = document.getElementById('editar-error'); err.classList.remove('visible');
+  const btn = document.getElementById('ed-guardar'); btn.disabled = true; btn.textContent = 'Guardando…';
+  /* El PUT del servidor reescribe enlace y fecha con lo que reciba (vacío = NULL): por eso se mandan
+     siempre, con su valor actual si la persona no los tocó. El archivo no se envía: se conserva. */
+  const fd = new FormData();
+  fd.append('titulo', document.getElementById('ed-titulo').value.trim());
+  fd.append('tipo', document.getElementById('ed-tipo').value);
+  fd.append('descripcion', document.getElementById('ed-desc').value.trim());
+  fd.append('enlace_externo', document.getElementById('ed-enlace').value.trim());
+  fd.append('fecha_evento', document.getElementById('ed-fecha').value);
+  try {
+    await api('/recursos/' + r.id, { method: 'PUT', body: fd });
+    cerrar('capa-editar'); avisoPasajero('Cambios guardados.');
+    await cargar();
+  } catch (ex) {
+    err.textContent = ex.esErrorDeRed ? 'Sin conexión. Inténtalo de nuevo cuando tengas señal.' : (ex.message || 'No se pudo guardar.');
+    err.classList.add('visible');
+  } finally { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+});
+
+/* Borrar */
+document.getElementById('menu-borrar').onclick = async () => {
+  const r = recursos.find(x => x.id === menuId); if (!r) return;
+  cerrar('capa-menu');
+  if (!confirm(`¿Borrar «${r.titulo}»?\n\nSe elimina también el archivo del servidor y no se puede deshacer.`)) return;
+  try {
+    await api('/recursos/' + r.id, { method: 'DELETE' });
+    avisoPasajero('Contenido borrado.');
+    await cargar();
+  } catch (ex) {
+    avisoPasajero(ex.esErrorDeRed ? 'Sin conexión: no se borró.' : (ex.message || 'No se pudo borrar.'), true);
+  }
+};
+
+/* ---------------- Subir ---------------- */
+let archivoSubir = null;
+let enSubida = false;
+const extension = (n) => { const i = String(n || '').lastIndexOf('.'); return i < 0 ? '' : n.slice(i).toLowerCase(); };
+
+function limpiarSubida() {
+  archivoSubir = null; enSubida = false;
+  document.getElementById('form-subir').reset();
+  ['in-archivo', 'in-camara'].forEach(i => { document.getElementById(i).value = ''; });
+  document.getElementById('archivo-elegido').style.display = 'none';
+  document.getElementById('progreso').style.display = 'none';
+  document.getElementById('progreso-texto').style.display = 'none';
+  document.getElementById('subir-error').classList.remove('visible');
+  document.getElementById('su-fecha-caja').style.display = 'none';
+}
+function errorSubida(texto) { const e = document.getElementById('subir-error'); e.textContent = texto; e.classList.add('visible'); }
+
+function elegirArchivo(file) {
+  const err = document.getElementById('subir-error'); err.classList.remove('visible');
+  if (!file) return;
+  const ext = extension(file.name);
+  if (!EXT_PERMITIDAS.includes(ext)) {
+    archivoSubir = null;
+    document.getElementById('archivo-elegido').style.display = 'none';
+    return errorSubida(`No se admite el tipo «${ext || 'desconocido'}». Se aceptan: ${EXT_PERMITIDAS.join(' ')}.`);
+  }
+  if (file.size > LIMITE_MB * 1024 * 1024) {
+    archivoSubir = null;
+    document.getElementById('archivo-elegido').style.display = 'none';
+    return errorSubida(`El archivo pesa ${mb(file.size / 1024)} y el límite es ${LIMITE_MB} MB. Redúcelo o súbelo como enlace (por ejemplo, un video de YouTube).`);
+  }
+  archivoSubir = file;
+  const caja = document.getElementById('archivo-elegido');
+  caja.textContent = `${file.name} · ${mb(file.size / 1024)}`; caja.style.display = 'block';
+  const titulo = document.getElementById('su-titulo');
+  if (!titulo.value.trim()) titulo.value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+  const t = document.getElementById('su-tipo');
+  if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) t.value = 'post_redes';
+  else if (['.mp4', '.mov', '.avi'].includes(ext)) t.value = 'video';
+  else if (ext === '.mp3') t.value = 'jingle';
+  else t.value = 'noticia';
+  t.dispatchEvent(new Event('change'));
+}
+document.getElementById('in-archivo').accept = EXT_PERMITIDAS.join(',');
+document.getElementById('btn-elegir').onclick = () => document.getElementById('in-archivo').click();
+document.getElementById('btn-camara').onclick = () => document.getElementById('in-camara').click();
+document.getElementById('in-archivo').addEventListener('change', (e) => elegirArchivo(e.target.files[0]));
+document.getElementById('in-camara').addEventListener('change', (e) => elegirArchivo(e.target.files[0]));
+document.getElementById('su-tipo').addEventListener('change', () => {
+  document.getElementById('su-fecha-caja').style.display = document.getElementById('su-tipo').value === 'proxima_reunion' ? 'block' : 'none';
+});
+document.getElementById('fab').onclick = () => { limpiarSubida(); abrir('capa-subir'); };
+document.getElementById('su-cancelar').onclick = () => { if (!enSubida) cerrar('capa-subir'); };
+
+/* POST con progreso: fetch no informa del avance de la SUBIDA, XMLHttpRequest sí. */
+async function enviarConProgreso(fd, alAvanzar, reintento) {
+  const csrf = await obtenerCsrfToken();
+  return new Promise((resolver, rechazar) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', '/api/recursos');
+    const h = encabezadosTokenApp();
+    Object.keys(h).forEach(k => x.setRequestHeader(k, h[k]));
+    x.setRequestHeader('X-CSRF-Token', csrf);
+    x.upload.onprogress = (ev) => { if (ev.lengthComputable) alAvanzar(ev.loaded, ev.total); };
+    x.onerror = () => { const e = new Error('Se cortó la conexión durante la subida. Revisa tu señal e inténtalo de nuevo.'); e.esErrorDeRed = true; rechazar(e); };
+    x.ontimeout = x.onerror;
+    x.onload = () => {
+      let cuerpo = null; try { cuerpo = JSON.parse(x.responseText); } catch (_) { /* HTML del proxy, p. ej. */ }
+      if (x.status >= 200 && x.status < 300) return resolver(cuerpo);
+      if (x.status === 401) { window.location.href = '/login.html'; return; }
+      if (x.status === 403 && !reintento) {            // token CSRF vencido: se renueva una vez
+        _csrfTokenCache = null;
+        return enviarConProgreso(fd, alAvanzar, true).then(resolver, rechazar);
+      }
+      const e = new Error((cuerpo && cuerpo.error)
+        || (x.status === 413 ? `El archivo es demasiado grande para el servidor (el límite es ${LIMITE_MB} MB).` : 'No se pudo subir el contenido.'));
+      e.status = x.status; rechazar(e);
+    };
+    x.send(fd);
+  });
+}
+
+document.getElementById('form-subir').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (enSubida) return;
+  document.getElementById('subir-error').classList.remove('visible');
+  const enlace = document.getElementById('su-enlace').value.trim();
+  if (!archivoSubir && !enlace) return errorSubida('Elige un archivo, toma una foto o escribe un enlace externo.');
+  const fd = new FormData();
+  fd.append('titulo', document.getElementById('su-titulo').value.trim());
+  fd.append('tipo', document.getElementById('su-tipo').value);
+  fd.append('descripcion', document.getElementById('su-desc').value.trim());
+  if (enlace) fd.append('enlace_externo', enlace);
+  const fecha = document.getElementById('su-fecha').value;
+  if (fecha) fd.append('fecha_evento', fecha);
+  if (archivoSubir) fd.append('archivo', archivoSubir, archivoSubir.name);     // el archivo va al FINAL: multer lee los campos antes
+
+  const btn = document.getElementById('su-enviar');
+  const barra = document.getElementById('progreso'), texto = document.getElementById('progreso-texto');
+  enSubida = true; btn.disabled = true; btn.textContent = 'Subiendo…';
+  barra.style.display = 'block'; texto.style.display = 'block'; texto.textContent = 'Preparando…';
+  try {
+    await enviarConProgreso(fd, (cargado, total) => {
+      const p = Math.round((cargado / total) * 100);
+      barra.firstElementChild.style.width = p + '%';
+      texto.textContent = `${p}% · ${mb(cargado / 1024)} de ${mb(total / 1024)}`;
+    });
+    enSubida = false; cerrar('capa-subir'); avisoPasajero('Contenido subido.');
+    await cargar();
+  } catch (ex) {
+    errorSubida(ex.message || 'No se pudo subir el contenido.');
+    barra.style.display = 'none'; texto.style.display = 'none';
+  } finally { enSubida = false; btn.disabled = false; btn.textContent = 'Subir'; }
+});
+
+/* ---------------- Carga ---------------- */
+async function cargar() {
+  const lista = await api('/recursos');
+  if (!lista) return;
+  recursos = Array.isArray(lista) ? lista : [];
+  pintarRejilla();
+}
+
+(async () => {
+  const usuario = await exigirAdminApp('compartir');
+  if (!usuario) return;
+  pintarBarraApp('Compartir', null, '/app/inicio.html');
+  try {
+    await cargar();
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+    pintarChips();
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    mostrarError(err && err.esErrorDeRed ? 'Sin conexión. Necesitas internet para ver y compartir contenido.' : ((err && err.message) || 'No se pudo cargar el contenido.'));
+  }
+})();
+</script>
+</body>
+</html>

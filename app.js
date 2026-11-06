@@ -316,6 +316,28 @@ app.get('/', (req, res) => {
 
 // --- Manejo de errores de subida de archivos (multer) y otros errores no capturados ---
 app.use((err, req, res, next) => {
+  /* UN ARCHIVO MÁS PESADO QUE EL LÍMITE ES UN 413, NO UN 500.
+     multer lanza LIMIT_FILE_SIZE y, sin este caso, caía en el 500 genérico de abajo
+     («Ocurrió un error interno»): quien subía un video de 80 MB creía que el servidor
+     se había roto. El límite depende de la ruta (cada una tiene su multer):
+       /api/recursos ......................... 50 MB (middleware/upload.js)
+       /api/contenido/:clave/foto ............  8 MB (routes/contenido.routes.js)
+       /api/contenido/:clave/video ........... 100 MB (routes/contenido.routes.js)
+       importaciones de Excel ................ 10 MB (uploadExcel)
+     Si aparece otra ruta con otro límite, se dice sin cifra en vez de inventarla. */
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    const ruta = req.originalUrl || '';
+    let limite = null;
+    if (/^\/api\/recursos(\/|\?|$)/.test(ruta)) limite = '50 MB';
+    else if (/^\/api\/contenido\/[^/]+\/foto/.test(ruta)) limite = '8 MB';
+    else if (/^\/api\/contenido\/[^/]+\/video/.test(ruta)) limite = '100 MB';
+    else if (/importar/i.test(ruta)) limite = '10 MB';
+    return res.status(413).json({
+      error: limite
+        ? `El archivo es demasiado grande. El límite es de ${limite}. Redúcelo e inténtalo de nuevo${/^\/api\/recursos/.test(ruta) ? ' o súbelo como enlace (por ejemplo, un video de YouTube)' : ''}.`
+        : 'El archivo es demasiado grande para este envío. Redúcelo e inténtalo de nuevo.'
+    });
+  }
   console.error('Error no controlado:', err);
   if (err.message && err.message.includes('no permitido')) {
     return res.status(400).json({ error: err.message });

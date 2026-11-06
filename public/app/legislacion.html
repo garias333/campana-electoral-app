@@ -24,6 +24,7 @@
 <script src="/js/es-celular.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/app/admin-nav.js"></script>
 <script src="/js/legislacion-comun.js"></script>
 <script>
 /* «VER» Y «DESCARGAR» PIDEN EL PDF CON fetch, NO CON UN ENLACE.
@@ -86,6 +87,8 @@ function guardarPdf(blob, nombre) {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
   pintarBarraApp('Legislación', null, '/app/inicio.html');
+  // El administrador conserva su barra inferior también aquí («Ley» es su quinto botón).
+  if (usuario.rol === 'admin' && typeof montarNavAdmin === 'function') montarNavAdmin('ley');
 
   Legis.montar(document.getElementById('leg-raiz'), {
     abrirPdf: async (accion, norma, pagina) => {

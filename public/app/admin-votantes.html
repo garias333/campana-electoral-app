@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Votantes · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  html, body { overflow-x: hidden; }
+  .total-caja { background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%); color: #fff; border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .total-caja .et { font-size: 0.72rem; letter-spacing: .05em; text-transform: uppercase; color: rgba(255,255,255,.72); }
+  .total-caja .val { font-size: 2.1rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .btn-excel { flex: none; background: #fff; color: var(--navy); border: 0; border-radius: 10px; padding: 11px 13px; font-weight: 700; font-size: 0.82rem; font-family: inherit; cursor: pointer; min-height: 44px; }
+  .btn-excel:disabled { opacity: .6; }
+  .cob-bloque + .cob-bloque { margin-top: 16px; }
+  .cob-bloque h3 { margin: 0 0 8px; font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+  .filtro-aviso { font-size: 0.76rem; color: var(--muted); margin: -4px 0 12px; }
+  .campo-sel select { width: 100%; padding: 12px; border: 1.5px solid var(--linea); border-radius: 10px; font-size: 1rem; background: #fff; font-family: inherit; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="error-carga" class="aviso-app error"></div>
+
+  <div id="contenido" style="display:none;">
+    <div class="total-caja">
+      <div><div class="et">Votantes registrados</div><div class="val" id="total">—</div></div>
+      <button type="button" class="btn-excel" id="btn-excel">⬇ Exportar a Excel</button>
+    </div>
+
+    <div class="tira-chips" id="chips-zona" aria-label="Filtrar por zona"></div>
+    <p class="filtro-aviso" id="aviso-filtro" style="display:none;">La zona elegida filtra la lista «Por barrio / vereda».</p>
+
+    <div class="adm-tarjeta">
+      <h2>Cobertura territorial</h2>
+      <div id="cobertura"><div class="adm-carga">Cargando…</div></div>
+    </div>
+
+    <div class="adm-tarjeta">
+      <h2>Por comuna / corregimiento</h2>
+      <div id="lista-comuna"><div class="adm-carga">Cargando…</div></div>
+    </div>
+
+    <div class="adm-tarjeta">
+      <h2>Por barrio / vereda</h2>
+      <div id="lista-barrio"><div class="adm-carga">Cargando…</div></div>
+    </div>
+
+    <div class="adm-tarjeta">
+      <h2>Por líder</h2>
+      <div id="lista-lider"><div class="adm-carga">Cargando…</div></div>
+    </div>
+
+    <div class="adm-tarjeta">
+      <h2>Por puesto de votación</h2>
+      <div id="lista-puesto"><div class="adm-carga">Cargando…</div></div>
+    </div>
+
+    <div class="adm-tarjeta">
+      <h2>Por mesa</h2>
+      <div class="campo-sel"><select id="sel-puesto" aria-label="Puesto de votación"><option value="">Elige un puesto…</option></select></div>
+      <div id="lista-mesa"><div class="adm-vacio">Elige un puesto para ver el detalle por mesa.</div></div>
+    </div>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/admin-nav.js"></script>
+<script>
+const TOP = 5;          // filas visibles antes de «Ver todas»
+const TOPE_TODAS = 300; // y aun con «Ver todas», no más de esto en pantalla
+const COLOR_OK = '#1e7a3d', COLOR_PARCIAL = '#d9a21b', COLOR_SIN = '#b3261e';
+
+let zonas = [];         // por-comuna
+let zonaElegida = '';
+let puestos = [];
+
+function pct(n, t) { return t > 0 ? (n / t) * 100 : 0; }
+function fmtPct(x) { return x.toFixed(1).replace('.', ',') + '%'; }
+function mostrarError(msg) { const c = document.getElementById('error-carga'); c.textContent = msg; c.classList.add('visible'); }
+
+/* Lista de barras horizontales, top 5 y «Ver todas». Todas miden contra el MAYOR
+   de la lista (no contra el total), para que las diferencias se lean. */
+function listaBarras(idCaja, items, vacio) {
+  const caja = document.getElementById(idCaja);
+  if (!items.length) { caja.innerHTML = `<div class="adm-vacio">${escHtml(vacio)}</div>`; return; }
+  const mayor = Math.max(...items.map(i => i.total), 1);
+  const suma = items.reduce((t, i) => t + i.total, 0);
+  let todas = false;
+  function pintar() {
+    const visibles = todas ? items.slice(0, TOPE_TODAS) : items.slice(0, TOP);
+    caja.innerHTML = `<div class="barras-h">${visibles.map(i => `
+      <div class="barra-h">
+        <div class="cab"><span class="nom">${escHtml(i.nombre)}</span><span class="val">${fmtNumero(i.total)}</span></div>
+        <div class="pista"><i style="width:${pct(i.total, mayor).toFixed(1)}%"></i></div>
+        ${i.sub ? `<div class="sub">${escHtml(i.sub)}</div>` : ''}
+      </div>`).join('')}</div>
+      ${items.length > TOP ? `<button type="button" class="btn-ver-todas">${todas ? 'Ver menos' : `Ver todas (${fmtNumero(items.length)})`}</button>` : ''}
+      ${todas && items.length > TOPE_TODAS ? `<p class="adm-nota">Mostrando las primeras ${TOPE_TODAS} de ${fmtNumero(items.length)}. Para el detalle completo, usa Exportar a Excel.</p>` : ''}
+      <p class="adm-nota">${fmtNumero(suma)} votantes en esta lista.</p>`;
+    const b = caja.querySelector('.btn-ver-todas');
+    if (b) b.onclick = () => { todas = !todas; pintar(); };
+  }
+  pintar();
+}
+
+/* Semáforo de cobertura: cubiertas (verde), parciales (ámbar), sin cobertura (rojo). */
+function bloqueSemaforo(titulo, c) {
+  if (!c || !c.total) return '';
+  const seg = [
+    { n: c.cubiertas.total, color: COLOR_OK, et: 'Cubiertas' },
+    { n: c.parciales.total, color: COLOR_PARCIAL, et: 'Parciales' },
+    { n: c.sinCobertura.total, color: COLOR_SIN, et: 'Sin cobertura' }
+  ];
+  return `<div class="cob-bloque"><h3>${titulo} (${fmtNumero(c.total)})</h3>
+    <div class="apilada" role="img" aria-label="${titulo}: cubiertas, parciales y sin cobertura">
+      ${seg.filter(s => s.n > 0).map(s => `<i style="width:${pct(s.n, c.total).toFixed(2)}%; background:${s.color}"></i>`).join('')}
+    </div>
+    <div class="leyenda-ap">${seg.map(s => `<span><b style="background:${s.color}"></b>${s.et} ${fmtNumero(s.n)} (${fmtPct(pct(s.n, c.total))})</span>`).join('')}</div></div>`;
+}
+function bloqueSimple(titulo, o, etCubiertos) {
+  if (!o || !o.total) return '';
+  const cub = o.cubiertos != null ? o.cubiertos : o.cubiertas;
+  return `<div class="cob-bloque"><h3>${titulo}</h3>
+    <div class="apilada"><i style="width:${pct(cub, o.total).toFixed(2)}%; background:${COLOR_OK}"></i></div>
+    <div class="leyenda-ap"><span><b style="background:${COLOR_OK}"></b>${etCubiertos} ${fmtNumero(cub)} de ${fmtNumero(o.total)} (${fmtPct(Number(o.pct) || 0)})</span></div></div>`;
+}
+function pintarCobertura(c) {
+  const html = bloqueSemaforo('Comunas con coordinador y líderes', c.comunas)
+    + bloqueSemaforo('Corregimientos con coordinador y líderes', c.corregimientos)
+    + bloqueSimple('Barrios con líder', c.barrios, 'Con líder')
+    + bloqueSimple('Veredas con líder', c.veredas, 'Con líder');
+  document.getElementById('cobertura').innerHTML = html || '<div class="adm-vacio">Todavía no hay comunas, barrios ni veredas creados.</div>';
+}
+
+function pintarChips() {
+  const caja = document.getElementById('chips-zona');
+  if (zonas.length < 2) { caja.style.display = 'none'; return; }
+  caja.innerHTML = `<button type="button" class="chip-app ${zonaElegida === '' ? 'activo' : ''}" data-z="">Todas las zonas</button>`
+    + zonas.map(z => `<button type="button" class="chip-app ${String(z.zona_id) === zonaElegida ? 'activo' : ''}" data-z="${z.zona_id}">${escHtml(z.zona_nombre)}</button>`).join('');
+  document.getElementById('aviso-filtro').style.display = 'block';
+}
+
+async function cargarBarrios() {
+  const caja = document.getElementById('lista-barrio');
+  caja.innerHTML = '<div class="adm-carga">Cargando…</div>';
+  try {
+    const filas = await api('/votantes-dashboard/por-barrio' + (zonaElegida ? '?zona_id=' + encodeURIComponent(zonaElegida) : ''));
+    listaBarras('lista-barrio', (filas || []).map(f => ({ nombre: f.barrio_nombre, total: Number(f.total), sub: f.zona_nombre || '' })),
+      'No hay votantes en barrios o veredas' + (zonaElegida ? ' de esta zona.' : ' todavía.'));
+  } catch (err) {
+    caja.innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar.')}</div>`;
+  }
+}
+
+document.getElementById('chips-zona').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-app');
+  if (!b) return;
+  zonaElegida = b.dataset.z;
+  pintarChips();
+  cargarBarrios();
+});
+
+function pintarMesas() {
+  const nombre = document.getElementById('sel-puesto').value;
+  const caja = document.getElementById('lista-mesa');
+  const p = puestos.find(x => x.puesto === nombre);
+  if (!p) { caja.innerHTML = '<div class="adm-vacio">Elige un puesto para ver el detalle por mesa.</div>'; return; }
+  const mesas = (p.mesas || []).map(m => ({ nombre: 'Mesa ' + m.mesa, total: Number(m.cantidad) })).filter(m => m.total > 0)
+    .sort((a, b) => b.total - a.total);
+  listaBarras('lista-mesa', mesas, 'Este puesto todavía no tiene votantes por mesa.');
+}
+document.getElementById('sel-puesto').addEventListener('change', pintarMesas);
+
+/* Excel: fetch + token + Blob, igual que pedirPdf de app/legislacion.html. */
+document.getElementById('btn-excel').addEventListener('click', async () => {
+  const b = document.getElementById('btn-excel');
+  const antes = b.textContent;
+  b.disabled = true; b.textContent = 'Preparando…';
+  try {
+    const r = await pedirArchivoApp('/votantes-dashboard/exportar-excel');
+    if (!r) return;
+    guardarBlobApp(r.blob, r.nombre || 'dashboard-votantes.xlsx');
+    avisoPasajero('Excel listo: revisa tus descargas.');
+  } catch (err) {
+    avisoPasajero(err.esErrorDeRed ? 'Sin conexión: no se pudo generar el Excel.' : (err.message || 'No se pudo exportar.'), true);
+  } finally {
+    b.disabled = false; b.textContent = antes;
+  }
+});
+
+(async () => {
+  const usuario = await exigirAdminApp('votantes');
+  if (!usuario) return;
+  pintarBarraApp('Votantes', null, '/app/inicio.html');
+
+  try {
+    const resumen = await api('/votantes-dashboard/resumen');
+    if (!resumen) return;
+    document.getElementById('total').textContent = fmtNumero(resumen.total);
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    mostrarError(err && err.esErrorDeRed ? 'Sin conexión. Esta pantalla necesita internet.' : ((err && err.message) || 'No se pudo cargar.'));
+    return;
+  }
+
+  /* El resto se pide en paralelo y cada bloque falla por separado: que una
+     consulta lenta o caída no deje la pantalla entera en blanco. */
+  api('/votantes-dashboard/cobertura').then(pintarCobertura)
+    .catch(err => { document.getElementById('cobertura').innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar.')}</div>`; });
+
+  api('/votantes-dashboard/por-comuna').then(filas => {
+    zonas = filas || [];
+    listaBarras('lista-comuna', zonas.map(z => ({ nombre: z.zona_nombre, total: Number(z.total) })), 'No hay votantes en comunas o corregimientos todavía.');
+    pintarChips();
+  }).catch(err => { document.getElementById('lista-comuna').innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar.')}</div>`; });
+
+  cargarBarrios();
+
+  api('/votantes-dashboard/por-lider').then(r => {
+    const items = ((r && r.lideres) || []).map(l => ({ nombre: l.lider_nombre, total: Number(l.total) }));
+    if (r && Number(r.sinLider) > 0) items.push({ nombre: 'Sin líder asignado', total: Number(r.sinLider) });
+    items.sort((a, b) => b.total - a.total);
+    listaBarras('lista-lider', items, 'Todavía no hay votantes con líder.');
+  }).catch(err => { document.getElementById('lista-lider').innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar.')}</div>`; });
+
+  api('/votantes/estimados-por-puesto').then(r => {
+    puestos = ((r && r.puestos) || []).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
+    listaBarras('lista-puesto', puestos.map(p => ({ nombre: p.puesto, total: Number(p.total), sub: p.cantidadMesas ? `${p.cantidadMesas} mesas` : '' })),
+      'Aún no hay puestos con votantes (se configuran en Configuración → Día D).');
+    document.getElementById('sel-puesto').innerHTML = '<option value="">Elige un puesto…</option>'
+      + puestos.map(p => `<option value="${escHtml(p.puesto)}">${escHtml(p.puesto)} (${fmtNumero(p.total)})</option>`).join('');
+  }).catch(err => { document.getElementById('lista-puesto').innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar.')}</div>`; });
+})();
+</script>
+</body>
+</html>

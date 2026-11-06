@@ -239,3 +239,79 @@ function escaparAppHtml(texto) {
   div.textContent = texto == null ? '' : String(texto);
   return div.innerHTML;
 }
+
+/* ------------------------------------------------------------------
+   ARCHIVOS QUE EXIGEN SESIÓN: SE PIDEN CON fetch, NO CON UN ENLACE.
+
+   Un enlace (`<a href>`, `<img src>`, `<video src>`) es una navegación del
+   navegador y SOLO lleva la cookie de sesión, que dura 8 horas; el token de
+   dispositivo de «Recordar sesión» dura 7 días y solo viaja como encabezado
+   `X-Device-Token`. Con la cookie vencida, el enlace mostraba el JSON «Debe
+   iniciar sesión» aunque la sesión del dispositivo siguiera vigente. Es lo
+   mismo que ya se arregló en Legislación (`pedirPdf`, app/legislacion.html);
+   aquí queda como pieza común para Información para compartir y las
+   pantallas de administrador. El token nunca va en la dirección.
+   ------------------------------------------------------------------ */
+
+/** Los encabezados de la cuenta activa del dispositivo (vacío si no hay token). */
+function encabezadosTokenApp(extra) {
+  const h = Object.assign({}, extra || {});
+  const token = (typeof obtenerTokenDispositivoActivo === 'function') ? obtenerTokenDispositivoActivo() : null;
+  if (token) h['X-Device-Token'] = token;
+  return h;
+}
+
+/** `filename*=UTF-8''…` primero (acentos), luego `filename="…"`. null si no viene. */
+function nombreDeContentDisposition(cabecera) {
+  if (!cabecera) return null;
+  let m = /filename\*=UTF-8''([^;]+)/i.exec(cabecera);
+  if (m) { try { return decodeURIComponent(m[1]); } catch (e) { /* cae al otro */ } }
+  m = /filename="?([^";]+)"?/i.exec(cabecera);
+  return m ? m[1] : null;
+}
+
+/**
+ * Pide un archivo a la API (`ruta` SIN el prefijo /api) y lo devuelve como
+ * { blob, nombre, tipo }. Lanza con `esErrorDeRed` si no hay señal, y con
+ * `status` si el servidor respondió con error. Un 401 manda a iniciar sesión
+ * (igual que api()) y devuelve null.
+ */
+async function pedirArchivoApp(ruta, opciones) {
+  const o = opciones || {};
+  let resp;
+  try {
+    resp = await fetch('/api' + ruta, { headers: encabezadosTokenApp(), credentials: 'same-origin', signal: o.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') throw err;
+    const e = new Error('Se necesita conexión a internet para obtener el archivo.');
+    e.esErrorDeRed = true;
+    throw e;
+  }
+  if (resp.status === 401) { window.location.href = '/login.html'; return null; }
+  if (!resp.ok) {
+    let mensaje = 'No se pudo obtener el archivo.';
+    try { const j = await resp.json(); if (j && j.error) mensaje = j.error; } catch (e) { /* sin cuerpo JSON */ }
+    const e = new Error(mensaje);
+    e.status = resp.status;
+    throw e;
+  }
+  const blob = await resp.blob();
+  return {
+    blob,
+    nombre: nombreDeContentDisposition(resp.headers.get('Content-Disposition')),
+    tipo: resp.headers.get('Content-Type') || blob.type || ''
+  };
+}
+
+/** Descarga un Blob como archivo. */
+function guardarBlobApp(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre || 'archivo';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}

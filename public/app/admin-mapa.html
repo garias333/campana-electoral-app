@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<!-- Mapbox valida el dominio de origen del token con el Referer; sin esto el
+     navegador no lo manda y los mosaicos salen en blanco (ver mapa.html). -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Mapa · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  html, body { overflow: hidden; }
+  /* Pantalla de alto fijo: barra superior, chips, mapa (lo que sobra) y barra inferior.
+     `dvh` descuenta la barra de direcciones del navegador móvil; `vh` es el respaldo. */
+  body.pagina-mapa { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+  .mapa-chips { flex: none; background: #fff; border-bottom: 1px solid var(--linea); padding: 8px 12px 0; }
+  .mapa-chips .tira-chips { padding-bottom: 8px; }
+  .mapa-chips select { width: 100%; padding: 9px 10px; border: 1.5px solid var(--linea); border-radius: 10px; font-size: 16px; background: #fff; margin-bottom: 8px; font-family: inherit; }
+  .mapa-zona { flex: 1 1 auto; min-height: 0; position: relative; margin-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); --alto-ficha: 0px; }
+  #mapa { position: absolute; inset: 0; background: #e8e4d8; }
+  /* La atribución y los controles suben con la ficha para que nunca queden tapados. */
+  .mapa-zona .leaflet-bottom { bottom: var(--alto-ficha); }
+
+  .btn-ubicacion { position: absolute; right: 12px; bottom: calc(var(--alto-ficha) + 34px); z-index: 900; width: 46px; height: 46px; border-radius: 50%; border: 0; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); font-size: 1.3rem; cursor: pointer; }
+  .btn-ubicacion:disabled { opacity: .6; }
+
+  .ficha { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1000; background: #fff; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 16px rgba(20,42,63,.22); max-height: 62%; overflow-y: auto; }
+  .ficha-asa { width: 38px; height: 4px; border-radius: 3px; background: var(--linea); margin: 7px auto 2px; }
+  .ficha-sel { padding: 6px 16px 12px; border-bottom: 1px solid var(--linea); }
+  .ficha-sel .tipo { display: inline-block; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #fff; padding: 2px 8px; border-radius: 6px; }
+  .ficha-sel h2 { margin: 6px 0 4px; font-size: 1.05rem; color: var(--navy); overflow-wrap: anywhere; }
+  .ficha-sel p { margin: 2px 0; font-size: .86rem; color: var(--ink); overflow-wrap: anywhere; }
+  .ficha-sel p.apagado { color: var(--muted); }
+  .ficha-acciones { display: flex; gap: 8px; margin-top: 12px; }
+  .ficha-acciones a, .ficha-acciones button { flex: 1; text-align: center; padding: 12px 8px; border-radius: 10px; font-weight: 700; font-size: .9rem; text-decoration: none; font-family: inherit; cursor: pointer; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); }
+  .ficha-acciones a.principal { background: var(--copper); border-color: var(--copper); color: #fff; }
+  .ficha-ley { padding: 8px 16px calc(10px); display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--muted); }
+  .ficha-ley span { display: inline-flex; align-items: center; gap: 6px; }
+  .ficha-ley b { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .mapa-aviso { position: absolute; left: 12px; right: 12px; top: 12px; z-index: 1100; background: #fff; border: 1px solid #f2b8b3; color: var(--error); border-radius: 12px; padding: 12px 14px; font-size: .9rem; box-shadow: 0 4px 14px rgba(0,0,0,.2); display: none; }
+  .mapa-aviso.visible { display: block; }
+  .sin-conexion { position: absolute; inset: 0; z-index: 1200; background: var(--cream); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 8px; color: var(--navy); }
+  .sin-conexion.visible { display: flex; }
+  .sin-conexion strong { font-size: 1.2rem; }
+  .sin-conexion span { font-size: .9rem; color: var(--muted); max-width: 280px; line-height: 1.45; }
+</style>
+</head>
+<body class="pagina-mapa">
+<div class="app-barra" id="app-barra"></div>
+
+<div class="mapa-chips" id="mapa-chips">
+  <div class="tira-chips" id="chips-capa" aria-label="Capas del mapa"></div>
+  <select id="sel-territorio" aria-label="Filtrar por territorio" style="display:none;"><option value="">Todos los territorios</option></select>
+</div>
+
+<div class="mapa-zona" id="mapa-zona">
+  <div id="mapa"></div>
+  <div class="mapa-aviso" id="mapa-aviso" role="alert"></div>
+  <button type="button" class="btn-ubicacion" id="btn-ubicacion" aria-label="Mi ubicación">📍</button>
+
+  <div class="ficha" id="ficha">
+    <div class="ficha-asa"></div>
+    <div class="ficha-sel" id="ficha-sel" hidden></div>
+    <div class="ficha-ley" id="ficha-ley"></div>
+  </div>
+
+  <div class="sin-conexion" id="sin-conexion">
+    <div style="font-size:2.4rem;">📡</div>
+    <strong>Sin conexión</strong>
+    <span>El mapa necesita internet para cargar. Cuando vuelvas a tener señal, recarga esta pantalla.</span>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/admin-nav.js"></script>
+<script>
+const CAPAS = [
+  { id: 'todo', texto: 'Todo' },
+  { id: 'equipo', texto: 'Equipo' },
+  { id: 'votantes', texto: 'Votantes' },
+  { id: 'eventos', texto: 'Eventos' }
+];
+const TIPOS = {
+  equipo:   { nombre: 'Equipo',   color: '#142a3f' },
+  votantes: { nombre: 'Votante',  color: '#bf5e1f' },
+  eventos:  { nombre: 'Evento',   color: '#7b5ea7' }
+};
+const CARGOS = { coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder', usuario: 'Sublíder', testigo: 'Testigo', aspirante: 'Aspirante' };
+
+let mapa = null, capaPines = null, miMarca = null, anillo = null;
+let puntos = [];           // [{ tipo, nombre, lat, lng, territorio, detalle[], telefono }]
+let capaActiva = 'todo';
+let territorioActivo = '';
+
+function mostrarSinConexion() { document.getElementById('sin-conexion').classList.add('visible'); }
+function mostrarAviso(texto) {
+  const a = document.getElementById('mapa-aviso');
+  a.textContent = texto; a.classList.add('visible');
+  setTimeout(() => a.classList.remove('visible'), 5000);
+}
+function ajustarFicha() {
+  /* La altura real de la ficha se la damos a CSS para que suba la atribución y el botón. */
+  const alto = document.getElementById('ficha').offsetHeight;
+  document.getElementById('mapa-zona').style.setProperty('--alto-ficha', alto + 'px');
+  if (mapa) mapa.invalidateSize();
+}
+
+function pintarChips() {
+  document.getElementById('chips-capa').innerHTML = CAPAS.map(c =>
+    `<button type="button" class="chip-app ${c.id === capaActiva ? 'activo' : ''}" data-capa="${c.id}">${c.texto}</button>`).join('');
+}
+document.getElementById('chips-capa').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-app');
+  if (!b) return;
+  capaActiva = b.dataset.capa;
+  pintarChips();
+  dibujarPines(true);
+});
+document.getElementById('sel-territorio').addEventListener('change', (e) => {
+  territorioActivo = e.target.value;
+  dibujarPines(true);
+});
+
+function visibles() {
+  return puntos.filter(p => (capaActiva === 'todo' || capaActiva === p.tipo)
+    && (!territorioActivo || p.territorio === territorioActivo));
+}
+
+function pintarLeyenda(lista) {
+  const cuenta = { equipo: 0, votantes: 0, eventos: 0 };
+  lista.forEach(p => { cuenta[p.tipo]++; });
+  document.getElementById('ficha-ley').innerHTML = Object.keys(TIPOS)
+    .map(t => `<span><b style="background:${TIPOS[t].color}"></b>${TIPOS[t].nombre}${t === 'equipo' ? '' : 's'}: ${fmtNumero(cuenta[t])}</span>`).join('')
+    + (lista.length ? '' : '<span>No hay pines con estos filtros.</span>');
+  ajustarFicha();
+}
+
+function dibujarPines(ajustar) {
+  if (!mapa) return;
+  cerrarSeleccion();
+  if (capaPines) capaPines.clearLayers();
+  const lista = visibles();
+  lista.forEach(p => {
+    const m = L.circleMarker([p.lat, p.lng], {
+      radius: 10, color: '#fff', weight: 2.5, fillColor: TIPOS[p.tipo].color, fillOpacity: 1
+    });
+    m.on('click', () => seleccionar(p));
+    capaPines.addLayer(m);
+  });
+  pintarLeyenda(lista);
+  if (ajustar && lista.length) {
+    mapa.fitBounds(lista.map(p => [p.lat, p.lng]), { padding: [40, 40], maxZoom: 16 });
+  }
+}
+
+function cerrarSeleccion() {
+  const sel = document.getElementById('ficha-sel');
+  sel.hidden = true; sel.innerHTML = '';
+  if (anillo && mapa) { mapa.removeLayer(anillo); anillo = null; }
+  ajustarFicha();
+}
+
+function seleccionar(p) {
+  const sel = document.getElementById('ficha-sel');
+  const tipo = TIPOS[p.tipo];
+  const destino = `${p.lat},${p.lng}`;
+  const tel = p.telefono ? String(p.telefono).replace(/[^\d+]/g, '') : '';
+  sel.innerHTML = `
+    <span class="tipo" style="background:${tipo.color}">${tipo.nombre}${p.etiqueta ? ' · ' + escHtml(p.etiqueta) : ''}</span>
+    <h2>${escHtml(p.nombre)}</h2>
+    ${p.detalle.map(d => `<p${d.apagado ? ' class="apagado"' : ''}>${escHtml(d.texto)}</p>`).join('')}
+    <div class="ficha-acciones">
+      ${tel ? `<a href="tel:${escHtml(tel)}">📞 Llamar</a>` : ''}
+      <a class="principal" href="https://www.google.com/maps/dir/?api=1&destination=${destino}" target="_blank" rel="noopener">🧭 Cómo llegar</a>
+      <button type="button" id="ficha-cerrar">Cerrar</button>
+    </div>`;
+  sel.hidden = false;
+  sel.querySelector('#ficha-cerrar').onclick = cerrarSeleccion;
+  if (anillo) mapa.removeLayer(anillo);
+  anillo = L.circleMarker([p.lat, p.lng], { radius: 17, color: tipo.color, weight: 3, fill: false }).addTo(mapa);
+  mapa.panTo([p.lat, p.lng]);
+  ajustarFicha();
+}
+
+function valido(lat, lng) { return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180; }
+
+function armarPuntos(datos) {
+  const fuera = [];
+  (datos.estructura || []).forEach(e => {
+    const lat = Number(e.latitud), lng = Number(e.longitud);
+    if (!valido(lat, lng)) return;
+    fuera.push({
+      tipo: 'equipo', nombre: e.nombre, lat, lng, territorio: e.territorio_nombre || '',
+      etiqueta: CARGOS[e.cargo] || e.cargo || '', telefono: e.telefono || e.celular || '',
+      detalle: [
+        e.territorio_nombre ? { texto: e.territorio_nombre } : null,
+        e.otros_territorios ? { texto: 'También: ' + e.otros_territorios, apagado: true } : null,
+        e.direccion ? { texto: e.direccion, apagado: true } : null
+      ].filter(Boolean)
+    });
+  });
+  (datos.votantes || []).forEach(v => {
+    const lat = Number(v.latitud), lng = Number(v.longitud);
+    if (!valido(lat, lng)) return;
+    fuera.push({
+      tipo: 'votantes', nombre: v.nombre, lat, lng, territorio: v.territorio_nombre || '',
+      telefono: v.telefono || v.celular || '',
+      detalle: [
+        v.territorio_nombre ? { texto: v.territorio_nombre } : null,
+        v.direccion ? { texto: v.direccion, apagado: true } : null
+      ].filter(Boolean)
+    });
+  });
+  (datos.eventos || []).forEach(ev => {
+    const lat = Number(ev.latitud), lng = Number(ev.longitud);
+    if (!valido(lat, lng)) return;
+    const f = new Date(ev.fecha_inicio);
+    fuera.push({
+      tipo: 'eventos', nombre: ev.titulo, lat, lng, territorio: ev.territorio_nombre || '',
+      etiqueta: ev.tipo || '',
+      detalle: [
+        isNaN(f) ? null : { texto: f.toLocaleString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) },
+        ev.lugar ? { texto: ev.lugar } : null,
+        ev.territorio_nombre ? { texto: ev.territorio_nombre, apagado: true } : null
+      ].filter(Boolean)
+    });
+  });
+  return fuera;
+}
+
+function llenarTerritorios() {
+  const nombres = [...new Set(puntos.map(p => p.territorio).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const sel = document.getElementById('sel-territorio');
+  if (nombres.length < 2) { sel.style.display = 'none'; return; }
+  sel.innerHTML = '<option value="">Todos los territorios</option>' + nombres.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  sel.style.display = 'block';
+  ajustarFicha();
+}
+
+async function crearMapa() {
+  let token = null;
+  try { const r = await api('/territorial/mapbox-token'); token = r && r.token; } catch (e) { token = null; }
+
+  mapa = L.map('mapa', { zoomControl: false, preferCanvas: true, attributionControl: true }).setView([4.6, -74.1], 6);
+  mapa.attributionControl.setPrefix(false);
+  L.control.zoom({ position: 'topleft' }).addTo(mapa);
+
+  /* Mismos fondos que mapa.html. Sin token solo OpenStreetMap: ofrecer un Mapbox que
+     pintaría mosaicos en blanco se lee como aplicación rota. */
+  const fondos = {};
+  fondos['OpenStreetMap'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19
+  });
+  if (token) {
+    const comun = {
+      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      tileSize: 512, zoomOffset: -1, maxZoom: 22
+    };
+    fondos['Mapbox Calles'] = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
+    fondos['Mapbox Satélite'] = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
+  }
+  (fondos['Mapbox Calles'] || fondos['OpenStreetMap']).addTo(mapa);
+  L.control.layers(fondos, null, { position: 'topright', collapsed: true }).addTo(mapa);
+
+  capaPines = L.layerGroup().addTo(mapa);
+  mapa.on('click', cerrarSeleccion);
+}
+
+document.getElementById('btn-ubicacion').addEventListener('click', () => {
+  if (!mapa) return;
+  if (!navigator.geolocation) { mostrarAviso('Este dispositivo no permite obtener la ubicación.'); return; }
+  const b = document.getElementById('btn-ubicacion');
+  b.disabled = true;
+  navigator.geolocation.getCurrentPosition((pos) => {
+    b.disabled = false;
+    const ll = [pos.coords.latitude, pos.coords.longitude];
+    if (miMarca) mapa.removeLayer(miMarca);
+    miMarca = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#0B5ED7', fillOpacity: 1 }).addTo(mapa);
+    mapa.setView(ll, Math.max(mapa.getZoom(), 16));      // solo centra: no filtra ni cambia nada más
+  }, (err) => {
+    b.disabled = false;
+    mostrarAviso(err && err.code === 1
+      ? 'No diste permiso para usar tu ubicación. Actívalo en los ajustes del navegador si quieres centrar el mapa en ti.'
+      : 'No se pudo obtener tu ubicación. Intenta de nuevo con mejor señal.');
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+});
+
+(async () => {
+  const usuario = await exigirAdminApp('mapa');
+  if (!usuario) return;
+  pintarBarraApp('Mapa territorial', null, '/app/inicio.html');
+  pintarChips();
+
+  /* Leaflet viene de unpkg y NO se guarda en el service worker: sin red no existe `L`. */
+  if (typeof L === 'undefined' || navigator.onLine === false) { mostrarSinConexion(); return; }
+
+  ajustarFicha();
+  try {
+    await crearMapa();
+    const datos = await api('/territorial/mapa-personas');
+    if (!datos) return;
+    puntos = armarPuntos(datos);
+    llenarTerritorios();
+    dibujarPines(true);
+    if (!puntos.length) mostrarAviso('Todavía no hay personas ni eventos con ubicación en el mapa.');
+  } catch (err) {
+    if (err && err.esErrorDeRed) mostrarSinConexion();
+    else mostrarAviso((err && err.message) || 'No se pudieron cargar los datos del mapa.');
+  }
+})();
+window.addEventListener('resize', () => { if (mapa) mapa.invalidateSize(); });
+window.addEventListener('online', () => location.reload());
+</script>
+</body>
+</html>

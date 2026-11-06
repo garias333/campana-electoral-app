@@ -90,23 +90,27 @@ const MENU_COORDINADOR = [
   { href: '/dashboard.html', icono: '🖥️', titulo: 'Panel completo', subtitulo: 'Abrir el panel de escritorio' },
 ];
 
-// Menú de administrador — incluye accesos directos al panel de escritorio
-// (no hay pantallas móviles propias para Panel general/Estructura
-// territorial/Dashboard de votantes/Mapa territorial, así que abren esas
-// mismas pantallas de escritorio). No incluye Biografía del candidato ni
-// Política de privacidad. "Agregar coordinadores o líderes" manda a
-// Estructura territorial con #nuevo, que abre el formulario de crear de
-// una vez (igual que "Registro de Votantes" ya hace con el suyo).
+// Menú de administrador. Panel general, Dashboard de votantes, Mapa territorial y
+// Compartir contenido tienen versión propia para el celular (admin-*.html, con su
+// barra inferior de cinco botones: ver admin-nav.js); Estructura territorial sigue
+// abriendo la pantalla de escritorio, porque no hay versión móvil de ella.
+// «Agregar coordinadores o líderes» manda a Estructura territorial con #nuevo, que
+// abre el formulario de crear de una vez (igual que «Registro de Votantes» ya hace
+// con el suyo). No incluye Biografía del candidato ni Política de privacidad: el
+// administrador las edita desde Compartir contenido.
 const MENU_ADMIN = [
-  { href: '/dashboard.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Resumen general de la campaña' },
+  { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
+  { href: '/app/admin-votantes.html', icono: '📈', titulo: 'Dashboard de votantes', subtitulo: 'Cobertura y votantes por zona, líder y puesto' },
+  { href: '/app/admin-mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Equipo, votantes y eventos en el mapa' },
+  { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
   { href: '/territorial.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
-  { href: '/votantes-dashboard.html', icono: '📈', titulo: 'Dashboard de votantes', subtitulo: 'Análisis y gráficas de la base de datos' },
-  { href: '/mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Ubicación geográfica de la estructura' },
   { href: '/app/registro-votante.html', icono: '📝', titulo: 'Registro de Votantes', subtitulo: 'Agregar un nuevo contacto al equipo' },
   { href: '/territorial.html#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
-  { href: '/app/informacion.html?modo=informacion', icono: '📚', titulo: 'Información para compartir', subtitulo: 'Materiales y contenidos de apoyo' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puestos de votación', subtitulo: 'Página oficial de la Registraduría' },
   { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
+  // Solo aparece si el administrador eligió «Ver versión de escritorio» en el Panel:
+  // volver a la del celular borra esa preferencia (la recoge admin-panel.html).
+  { href: '/app/admin-panel.html?celular=1', icono: '📱', titulo: 'Usar la versión de celular', subtitulo: 'Hoy entras al panel de escritorio', soloSiEscritorio: true },
 ];
 
 /* Módulos que este usuario puede VER según Asignación de permisos
@@ -128,7 +132,10 @@ async function modulosPermitidosApp() {
 
 function pintarMenu(rol, modulosPermitidos) {
   const base = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
-  const items = base.filter(it => !it.modulo || (modulosPermitidos || []).includes(it.modulo));
+  let prefiereEscritorio = false;
+  try { prefiereEscritorio = localStorage.getItem('admin_preferir_escritorio') === '1'; } catch (e) { /* sin almacenamiento */ }
+  const items = base.filter(it => (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
+                              && (!it.soloSiEscritorio || prefiereEscritorio));
   document.getElementById('menu-app').innerHTML = items.map(it => `
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>

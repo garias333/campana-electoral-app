@@ -23,6 +23,10 @@
   .rec-tarjeta p { margin: 0 0 12px; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
   .rec-meta { font-size: 0.76rem; color: var(--muted); margin: -6px 0 12px; }
   .rec-tarjeta a.btn-app { text-decoration: none; }
+  /* Vista previa que se carga con fetch + token: mientras no llega, un recuadro del tamaño de una miniatura. */
+  .rec-vista { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; margin-bottom: 10px; background: var(--cream); border: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; font-family: inherit; color: var(--navy); font-weight: 600; font-size: .86rem; cursor: pointer; overflow: hidden; padding: 0; }
+  .rec-vista .ico { font-size: 2rem; }
+  .rec-vista img { width: 100%; height: 100%; object-fit: cover; display: block; margin: 0; border-radius: 0; }
   .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
 </style>
 </head>
@@ -93,6 +97,7 @@ function elegirFiltro(clave) {
 }
 
 function pintarLista() {
+  liberarVistas();
   const items = filtroActual ? itemsCache.filter(r => r.tipo === filtroActual) : itemsCache;
   document.getElementById('vacio').style.display = items.length ? 'none' : 'block';
 
@@ -107,18 +112,26 @@ function pintarLista() {
       r.fecha_evento ? new Date(r.fecha_evento).toLocaleDateString('es-CO') : ''
     ].filter(Boolean).join(' · ');
 
+    /* DESCARGA Y VISTAS PREVIAS CON fetch + X-Device-Token (ver pedirArchivoApp en app-comun.js).
+       Antes: <a href="/recursos/:id/descargar"> — sin /api (esa ruta no existe) y sin token, porque un
+       enlace solo lleva la cookie de 8 horas. Y <img src="/uploads/…"> tenía el mismo límite. */
     let boton = '';
     if (r.archivo_url) {
-      boton = `<a class="btn-app btn-app-primario" href="/recursos/${r.id}/descargar" target="_blank" rel="noopener">Descargar</a>`;
+      boton = `<button type="button" class="btn-app btn-app-primario" data-descargar="${r.id}">Descargar</button>`;
     } else if (r.enlace_externo) {
       boton = `<a class="btn-app btn-app-primario" href="${escaparAppHtml(r.enlace_externo)}" target="_blank" rel="noopener">Abrir enlace</a>`;
     }
 
+    let vista = '';
+    /* Una imagen de más de 8 MB no se baja sola para la miniatura (el celular puede estar con datos): se toca para verla. */
+    const imagenPesada = esImagen && (r.archivo_tamano_kb || 0) > 8 * 1024;
+    if (esImagen) vista = `<button type="button" class="rec-vista" data-vista="imagen" data-id="${r.id}"${imagenPesada ? ' data-pesada="1"' : ''} aria-label="Ver imagen"><span class="ico">🖼️</span>${imagenPesada ? 'Tocar para ver (' + formatoTamano(r.archivo_tamano_kb) + ')' : ''}</button>`;
+    else if (esVideo) vista = `<button type="button" class="rec-vista" data-vista="video" data-id="${r.id}"><span class="ico">🎬</span>Tocar para ver el video</button>`;
+    else if (esAudio) vista = `<button type="button" class="rec-vista" data-vista="audio" data-id="${r.id}"><span class="ico">🎵</span>Tocar para escuchar</button>`;
+
     return `
       <div class="rec-tarjeta">
-        ${esImagen ? `<img src="${escaparAppHtml(r.archivo_url)}" alt="">` : ''}
-        ${esVideo ? `<video src="${escaparAppHtml(r.archivo_url)}" controls preload="metadata"></video>` : ''}
-        ${esAudio ? `<audio src="${escaparAppHtml(r.archivo_url)}" controls preload="none"></audio>` : ''}
+        ${vista}
         ${etiquetaTipo ? `<span class="rec-tipo">${iconoTipo} ${escaparAppHtml(etiquetaTipo)}</span>` : ''}
         <h3>${escaparAppHtml(r.titulo)}</h3>
         ${detalles ? `<p class="rec-meta">${escaparAppHtml(detalles)}</p>` : ''}
@@ -127,7 +140,71 @@ function pintarLista() {
       </div>
     `;
   }).join('');
+  activarVistas();
 }
+
+/* ---- Vistas previas y descarga con token ---- */
+const urlsVista = [];                       // URLs de objeto vivas: se liberan al re-pintar y al salir
+function liberarVistas() { while (urlsVista.length) URL.revokeObjectURL(urlsVista.pop()); }
+window.addEventListener('pagehide', liberarVistas);
+
+async function cargarVista(boton) {
+  const id = boton.dataset.id;
+  const tipo = boton.dataset.vista;
+  if (boton.dataset.cargando === '1') return;
+  boton.dataset.cargando = '1';
+  const textoAntes = boton.innerHTML;
+  if (tipo !== 'imagen') boton.textContent = 'Cargando…';
+  try {
+    const got = await pedirArchivoApp(`/recursos/${id}/descargar`);
+    if (!got || !document.body.contains(boton)) return;
+    const url = URL.createObjectURL(got.blob);
+    urlsVista.push(url);
+    let el;
+    if (tipo === 'imagen') { el = document.createElement('img'); el.alt = ''; }
+    else { el = document.createElement(tipo); el.controls = true; if (tipo === 'video') el.setAttribute('playsinline', ''); el.preload = 'metadata'; }
+    el.src = url;
+    if (tipo === 'imagen') { boton.innerHTML = ''; boton.appendChild(el); boton.dataset.vista = 'lista'; }
+    else { boton.replaceWith(el); el.style.cssText = 'width:100%; border-radius:10px; margin-bottom:10px; display:block;'; }
+  } catch (err) {
+    boton.innerHTML = textoAntes;
+    boton.dataset.cargando = '';
+  }
+}
+
+/* Las imágenes se piden al entrar en pantalla, no todas de golpe. */
+const observadorVistas = ('IntersectionObserver' in window) ? new IntersectionObserver((entradas) => {
+  entradas.forEach(en => {
+    if (!en.isIntersecting) return;
+    observadorVistas.unobserve(en.target);
+    cargarVista(en.target);
+  });
+}, { rootMargin: '200px 0px' }) : null;
+
+function activarVistas() {
+  document.querySelectorAll('.rec-vista[data-vista="imagen"]:not([data-pesada])').forEach(b => {
+    if (observadorVistas) observadorVistas.observe(b); else cargarVista(b);
+  });
+}
+
+document.getElementById('lista-recursos').addEventListener('click', async (e) => {
+  const v = e.target.closest('.rec-vista');
+  if (v && v.dataset.vista !== 'lista') { cargarVista(v); return; }
+  const d = e.target.closest('[data-descargar]');
+  if (!d) return;
+  const r = itemsCache.find(x => String(x.id) === d.dataset.descargar);
+  const antes = d.textContent;
+  d.disabled = true; d.textContent = 'Descargando…';
+  try {
+    const got = await pedirArchivoApp(`/recursos/${d.dataset.descargar}/descargar`);
+    if (!got) return;
+    guardarBlobApp(got.blob, (r && r.archivo_nombre) || got.nombre || 'archivo');
+  } catch (err) {
+    alert(err.esErrorDeRed ? 'Sin conexión: no se pudo descargar el archivo.' : (err.message || 'No se pudo descargar el archivo.'));
+  } finally {
+    d.disabled = false; d.textContent = antes;
+  }
+});
 
 (async () => {
   const usuario = await requerirSesionApp();

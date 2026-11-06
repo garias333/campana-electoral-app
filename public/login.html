@@ -933,6 +933,22 @@ function irDondeCorresponde(usuario) {
     window.location.href = '/app/inicio.html';
     return;
   }
+  /* EL ADMINISTRADOR VA A SU PANEL DE CELULAR SI ENTRA DESDE UN CELULAR. Igual que el
+     coordinador de arriba: la misma definición de «celular» (`window.esCelular()`) y el mismo
+     motivo — caía en un panel de escritorio dentro de una pantalla de 400 px. El superadministrador
+     conserva el rol 'admin' y entra por aquí también.
+
+     RESPETA LA PREFERENCIA «Ver versión de escritorio» que el propio Panel guarda
+     (`admin_preferir_escritorio`, ver public/app/admin-nav.js). Con try/catch: el almacenamiento
+     puede no existir (navegación privada) y entonces simplemente no hay preferencia. */
+  if (usuario && usuario.rol === 'admin' && window.esCelular()) {
+    let prefiereEscritorio = false;
+    try { prefiereEscritorio = localStorage.getItem('admin_preferir_escritorio') === '1'; } catch (e) { /* sin preferencia */ }
+    if (!prefiereEscritorio) {
+      window.location.href = '/app/admin-panel.html';
+      return;
+    }
+  }
   const rolesApp = ['lider', 'sublider'];
   window.location.href = (usuario && rolesApp.includes(usuario.rol)) ? '/app/inicio.html' : '/dashboard.html';
 }

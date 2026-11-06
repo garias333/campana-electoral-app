@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Panel · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  html, body { overflow-x: hidden; }
+
+  /* La fila de cifras: SOLO ella se desliza; la página no. Sangra hasta el borde
+     (margen negativo = el relleno de main) para que se vea que hay más a la derecha. */
+  .cifras-tira {
+    display: flex; gap: 10px; overflow-x: auto; margin: 0 -18px 16px; padding: 2px 18px 6px;
+    scroll-snap-type: x mandatory; scroll-padding: 0 18px; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .cifras-tira::-webkit-scrollbar { display: none; }
+  .cifra {
+    flex: 0 0 62%; max-width: 230px; scroll-snap-align: start;
+    background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%); color: #fff;
+    border-radius: 16px; padding: 16px 16px 14px; box-shadow: 0 4px 12px rgba(20,42,63,0.18);
+  }
+  .cifra .et { font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
+  .cifra .val { font-size: 2rem; font-weight: 800; line-height: 1.1; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .cifra .pie { font-size: 0.78rem; color: rgba(255,255,255,0.78); }
+  .cifra .mini { height: 6px; background: rgba(255,255,255,0.18); border-radius: 4px; margin-top: 9px; overflow: hidden; }
+  .cifra .mini > i { display: block; height: 100%; background: #f1b27d; border-radius: 4px; }
+
+  .tabs-adm { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+  .tabs-adm .chip-app { min-width: 0; padding: 11px 2px; font-size: 0.78rem; flex: none; }
+
+  .tendencia-svg { width: 100%; height: auto; display: block; }
+  .tendencia-svg text { font-family: inherit; }
+
+  .fila-persona { display: flex; gap: 10px; align-items: baseline; }
+  .insignia { flex: none; font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 6px; border-radius: 6px; background: var(--cream); color: var(--copper); }
+  .pos-fila { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+  .pos-fila:last-child { border-bottom: 0; }
+  .pos-num { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--cream); color: var(--navy); font-weight: 800; font-size: 0.82rem; display: flex; align-items: center; justify-content: center; }
+  .pos-fila:nth-child(-n+3) .pos-num { background: var(--copper); color: #fff; }
+  .pos-fila .nom { flex: 1; min-width: 0; font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pos-fila .reg { flex: none; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+
+  .ev-fila { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linea); }
+  .ev-fila:last-child { border-bottom: 0; }
+  .ev-ficha { flex: none; width: 48px; text-align: center; background: var(--cream); border-radius: 10px; padding: 6px 0; }
+  .ev-ficha .d { font-size: 1.2rem; font-weight: 800; color: var(--navy); line-height: 1.1; }
+  .ev-ficha .m { font-size: 0.68rem; text-transform: uppercase; color: var(--copper); font-weight: 700; }
+  .ev-cuerpo { min-width: 0; }
+  .ev-cuerpo strong { display: block; font-size: 0.92rem; overflow-wrap: anywhere; }
+  .ev-cuerpo span { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 2px; overflow-wrap: anywhere; }
+
+  .filtro-zona { margin-bottom: 14px; }
+  .filtro-zona select { width: 100%; padding: 12px; border: 1.5px solid var(--linea); border-radius: 10px; font-size: 1rem; background: #fff; font-family: inherit; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+  <div id="error-carga" class="aviso-app error"></div>
+
+  <div id="contenido" style="display:none;">
+    <div class="cifras-tira" id="cifras" aria-label="Cifras de la campaña"></div>
+
+    <div class="tabs-adm" role="tablist" id="tabs">
+      <button type="button" class="chip-app" role="tab" data-tab="resumen">Resumen</button>
+      <button type="button" class="chip-app" role="tab" data-tab="equipo">Equipo</button>
+      <button type="button" class="chip-app" role="tab" data-tab="posiciones">Posiciones</button>
+      <button type="button" class="chip-app" role="tab" data-tab="eventos">Eventos</button>
+    </div>
+
+    <section id="tab-resumen" hidden>
+      <div class="adm-tarjeta">
+        <h2>¿A quién apoyan?</h2>
+        <div id="apoya-a"></div>
+      </div>
+      <div class="adm-tarjeta">
+        <h2>Registros por semana</h2>
+        <div id="tendencia"></div>
+      </div>
+    </section>
+
+    <section id="tab-equipo" hidden>
+      <div class="filtro-zona" id="zona-caja" style="display:none;">
+        <select id="zona" aria-label="Filtrar por zona"></select>
+      </div>
+      <div class="adm-tarjeta"><div id="equipo"><div class="adm-carga">Cargando equipo…</div></div></div>
+    </section>
+
+    <section id="tab-posiciones" hidden>
+      <div class="adm-tarjeta"><div id="posiciones"><div class="adm-carga">Cargando posiciones…</div></div></div>
+    </section>
+
+    <section id="tab-eventos" hidden>
+      <div class="adm-tarjeta"><div id="eventos"></div></div>
+    </section>
+
+    <button type="button" class="enlace-discreto" id="ver-escritorio">Ver versión de escritorio</button>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/admin-nav.js"></script>
+<script>
+const ETIQUETAS_APOYO = { alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea' };
+const COLORES_APOYO = { alcaldia: '#204264', concejo: '#bf5e1f', jal: '#1e7a3d', gobernacion: '#7b5ea7', asamblea: '#c9a227' };
+const ETIQUETA_CARGO = { coordinador: 'Coordinador', lider: 'Líder' };
+const TABS = ['resumen', 'equipo', 'posiciones', 'eventos'];
+
+let resumen = null;
+const cargadas = {};      // pestañas ya pedidas al servidor
+let equipoDatos = [];
+
+function pct(n, total) { return total > 0 ? (n / total) * 100 : 0; }
+function fmtPct(x) { return x.toFixed(1).replace('.', ',') + '%'; }
+function mostrarError(msg) {
+  const caja = document.getElementById('error-carga');
+  caja.textContent = msg; caja.classList.add('visible');
+}
+
+/* Días al día E: la MISMA cuenta que diasParaLasElecciones() de common.js
+   (esta pantalla no carga common.js, que es el de escritorio). */
+function cuentaRegresiva(fechaIso) {
+  if (!fechaIso) return { cifra: '—', pie: 'Fecha sin configurar' };
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const dias = Math.round((new Date(String(fechaIso).slice(0, 10) + 'T00:00:00') - hoy) / 86400000);
+  if (isNaN(dias)) return { cifra: '—', pie: 'Fecha sin configurar' };
+  if (dias > 1) return { cifra: String(dias), pie: 'días para las elecciones' };
+  if (dias === 1) return { cifra: '1', pie: 'día para las elecciones' };
+  if (dias === 0) return { cifra: '¡Hoy!', pie: 'son las elecciones' };
+  return { cifra: '—', pie: 'Ya se realizaron las elecciones' };
+}
+
+function pintarCifras(config) {
+  const total = Number(resumen.votantes && resumen.votantes.total) || 0;
+  const meta = Number(resumen.metaVotosCampana) || 0;
+  const lideres = Number(resumen.estructura && resumen.estructura.lideres) || 0;
+  const dia = cuentaRegresiva(config && config.fecha_eleccion);
+  const p = pct(total, meta);
+  const tarjetas = [
+    `<div class="cifra"><div class="et">Meta de votos</div>
+       <div class="val">${meta > 0 ? fmtPct(p) : '—'}</div>
+       <div class="pie">${meta > 0 ? `${fmtNumero(total)} de ${fmtNumero(meta)}` : 'Sin meta registrada'}</div>
+       ${meta > 0 ? `<div class="mini"><i style="width:${Math.min(100, p).toFixed(1)}%"></i></div>` : ''}</div>`,
+    `<div class="cifra"><div class="et">Contactos</div><div class="val">${fmtNumero(total)}</div><div class="pie">registrados en la campaña</div></div>`,
+    `<div class="cifra"><div class="et">Líderes</div><div class="val">${fmtNumero(lideres)}</div><div class="pie">${fmtNumero(resumen.estructura.coordinadores)} coordinadores · ${fmtNumero(resumen.estructura.testigos)} testigos</div></div>`,
+    `<div class="cifra"><div class="et">Día E</div><div class="val">${escHtml(dia.cifra)}</div><div class="pie">${escHtml(dia.pie)}</div></div>`
+  ];
+  document.getElementById('cifras').innerHTML = tarjetas.join('');
+}
+
+/* ---- Resumen ------------------------------------------------------------ */
+function pintarApoyo() {
+  const caja = document.getElementById('apoya-a');
+  const activos = Array.isArray(resumen.apoyosActivos) && resumen.apoyosActivos.length
+    ? resumen.apoyosActivos : Object.keys(ETIQUETAS_APOYO);
+  const filas = Object.keys(ETIQUETAS_APOYO)
+    .filter(c => activos.includes(c))
+    .map(c => ({ c, n: Number(resumen.apoyaA && resumen.apoyaA[c]) || 0 }));
+  const suma = filas.reduce((t, f) => t + f.n, 0);
+  if (!suma) { caja.innerHTML = '<div class="adm-vacio">Todavía no hay marcas de apoyo registradas.</div>'; return; }
+  caja.innerHTML = `
+    <div class="apilada" role="img" aria-label="Distribución de apoyos por corporación">
+      ${filas.filter(f => f.n > 0).map(f => `<i style="width:${pct(f.n, suma).toFixed(2)}%; background:${COLORES_APOYO[f.c]}"></i>`).join('')}
+    </div>
+    <div class="leyenda-ap">
+      ${filas.map(f => `<span><b style="background:${COLORES_APOYO[f.c]}"></b>${ETIQUETAS_APOYO[f.c]} ${fmtNumero(f.n)} (${fmtPct(pct(f.n, suma))})</span>`).join('')}
+    </div>
+    <p class="adm-nota">Son marcas de apoyo, no personas: una misma persona puede apoyar a varias corporaciones.</p>`;
+}
+
+async function pintarTendencia() {
+  const caja = document.getElementById('tendencia');
+  caja.innerHTML = '<div class="adm-carga">Cargando…</div>';
+  try {
+    const datos = await api('/dashboard/tendencia-registros');
+    if (!datos || !datos.length) { caja.innerHTML = '<div class="adm-vacio">Todavía no hay suficientes registros para mostrar una tendencia.</div>'; return; }
+    const W = 320, H = 150, base = 120, tope = 16, margen = 4;
+    const maximo = Math.max(...datos.map(d => Number(d.total)), 1);
+    const ancho = (W - margen * 2) / datos.length;
+    const barras = datos.map((d, i) => {
+      const alto = Math.max(2, (Number(d.total) / maximo) * (base - tope));
+      const x = margen + i * ancho + ancho * 0.15;
+      const w = ancho * 0.7;
+      const f = new Date(String(d.semanaInicio).slice(0, 10) + 'T00:00:00');
+      const etq = isNaN(f) ? '' : `${f.getDate()}/${f.getMonth() + 1}`;
+      return `<rect x="${x.toFixed(1)}" y="${(base - alto).toFixed(1)}" width="${w.toFixed(1)}" height="${alto.toFixed(1)}" rx="3" fill="#204264"/>
+        <text x="${(x + w / 2).toFixed(1)}" y="${(base - alto - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="#142a3f" font-weight="700">${d.total}</text>
+        ${i % 2 === datos.length % 2 ? `<text x="${(x + w / 2).toFixed(1)}" y="${base + 14}" text-anchor="middle" font-size="8.5" fill="#6b6b6b">${etq}</text>` : ''}`;
+    }).join('');
+    caja.innerHTML = `<svg class="tendencia-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Registros de las últimas semanas">
+      <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="#e4ddd0"/>${barras}</svg>
+      <p class="adm-nota">Registros nuevos por semana (inicio de semana abajo).</p>`;
+  } catch (err) {
+    caja.innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar la tendencia.')}</div>`;
+  }
+}
+
+/* ---- Equipo ------------------------------------------------------------- */
+function pintarEquipo() {
+  const zona = document.getElementById('zona').value;
+  const filas = equipoDatos.filter(f => !zona || (f.territorio || 'Sin zona') === zona);
+  const caja = document.getElementById('equipo');
+  if (!filas.length) { caja.innerHTML = '<div class="adm-vacio">Nadie coincide con esta zona.</div>'; return; }
+  caja.innerHTML = `<div class="barras-h">${filas.map(f => {
+    const meta = Number(f.meta) || 0;
+    const p = Number(f.porcentaje) || 0;
+    const color = p >= 100 ? 'var(--exito)' : (p < 50 ? 'var(--copper)' : 'var(--navy-2)');
+    return `<div class="barra-h">
+      <div class="cab"><span class="nom">${escHtml(f.nombre)}</span><span class="val">${meta > 0 ? p + '%' : '—'}</span></div>
+      <div class="pista"><i style="width:${meta > 0 ? Math.min(100, p) : 0}%; background:${color}"></i></div>
+      <div class="sub">${escHtml(ETIQUETA_CARGO[f.cargo] || f.cargo)} · ${escHtml(f.territorio || 'Sin zona')} · ${meta > 0 ? `${fmtNumero(f.enviados)} de ${fmtNumero(meta)}` : `${fmtNumero(f.enviados)} registros, sin meta`}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function cargarEquipo() {
+  const caja = document.getElementById('equipo');
+  try {
+    const r = await api('/dashboard/progreso-equipo');
+    equipoDatos = (r && r.data) || [];
+    const zonas = [...new Set(equipoDatos.map(f => f.territorio || 'Sin zona'))].sort((a, b) => a.localeCompare(b, 'es'));
+    const sel = document.getElementById('zona');
+    sel.innerHTML = '<option value="">Todas las zonas</option>' + zonas.map(z => `<option value="${escHtml(z)}">${escHtml(z)}</option>`).join('');
+    document.getElementById('zona-caja').style.display = zonas.length > 1 ? 'block' : 'none';
+    sel.onchange = pintarEquipo;
+    if (!equipoDatos.length) { caja.innerHTML = '<div class="adm-vacio">Todavía no hay coordinadores ni líderes activos.</div>'; return; }
+    pintarEquipo();
+  } catch (err) {
+    caja.innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudo cargar el equipo.')}</div>`;
+    cargadas.equipo = false;
+  }
+}
+
+/* ---- Posiciones --------------------------------------------------------- */
+async function cargarPosiciones() {
+  const caja = document.getElementById('posiciones');
+  try {
+    const filas = await api('/dashboard/tabla-posiciones');
+    if (!filas || !filas.length) { caja.innerHTML = '<div class="adm-vacio">Todavía nadie tiene registros.</div>'; return; }
+    caja.innerHTML = filas.map((f, i) => `
+      <div class="pos-fila">
+        <div class="pos-num">${i + 1}</div>
+        <div class="nom">${escHtml(f.nombre)}${f.esLider ? '' : ' <span class="insignia">Sublíder</span>'}</div>
+        <div class="reg">${fmtNumero(f.registros)}</div>
+      </div>`).join('');
+  } catch (err) {
+    caja.innerHTML = `<div class="adm-vacio">${escHtml(err.message || 'No se pudieron cargar las posiciones.')}</div>`;
+    cargadas.posiciones = false;
+  }
+}
+
+/* ---- Eventos ------------------------------------------------------------ */
+function pintarEventos() {
+  const caja = document.getElementById('eventos');
+  const lista = resumen.proximosEventos || [];
+  if (!lista.length) { caja.innerHTML = '<div class="adm-vacio">No hay eventos programados próximamente.</div>'; return; }
+  caja.innerHTML = lista.map(ev => {
+    const d = new Date(ev.fecha_inicio);
+    const dia = isNaN(d) ? '—' : String(d.getDate()).padStart(2, '0');
+    const mes = isNaN(d) ? '' : d.toLocaleDateString('es-CO', { month: 'short' }).replace('.', '');
+    const hora = isNaN(d) ? '' : d.toLocaleString('es-CO', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return `<div class="ev-fila">
+      <div class="ev-ficha"><div class="d">${dia}</div><div class="m">${escHtml(mes)}</div></div>
+      <div class="ev-cuerpo"><strong>${escHtml(ev.titulo)}</strong><span>${escHtml(hora)}${ev.lugar ? ' · ' + escHtml(ev.lugar) : ''}</span></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---- Pestañas ----------------------------------------------------------- */
+function irAPestana(tab, guardar) {
+  if (!TABS.includes(tab)) tab = 'resumen';
+  document.querySelectorAll('#tabs .chip-app').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('activo', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  TABS.forEach(t => { document.getElementById('tab-' + t).hidden = (t !== tab); });
+  if (guardar) {
+    try { history.replaceState(null, '', '?tab=' + tab); } catch (e) { /* sin historial: no importa */ }
+  }
+  if (tab === 'equipo' && !cargadas.equipo) { cargadas.equipo = true; cargarEquipo(); }
+  if (tab === 'posiciones' && !cargadas.posiciones) { cargadas.posiciones = true; cargarPosiciones(); }
+}
+
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip-app');
+  if (b) irAPestana(b.dataset.tab, true);
+});
+
+document.getElementById('ver-escritorio').addEventListener('click', () => {
+  adminFijarPreferenciaEscritorio(true);
+  window.location.href = '/dashboard.html';
+});
+
+(async () => {
+  const usuario = await exigirAdminApp('panel');
+  if (!usuario) return;
+  pintarBarraApp('Panel general', null, '/app/inicio.html');
+  // «Usar la versión de celular» (menú de inicio) llega con ?celular=1: se borra la preferencia de escritorio.
+  if (new URLSearchParams(location.search).get('celular') === '1') {
+    adminFijarPreferenciaEscritorio(false);
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* no importa */ }
+  }
+
+  try {
+    const [r, config] = await Promise.all([
+      api('/dashboard/resumen'),
+      api('/configuracion/campana').catch(() => null)
+    ]);
+    if (!r) return;     // api() ya mandó a login
+    resumen = r;
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+    pintarCifras(config);
+    pintarApoyo();
+    pintarEventos();
+    pintarTendencia();
+    irAPestana(new URLSearchParams(location.search).get('tab'), false);
+  } catch (err) {
+    document.getElementById('pantalla-carga').style.display = 'none';
+    mostrarError(err && err.esErrorDeRed
+      ? 'Sin conexión. El Panel necesita internet para mostrar cifras al día.'
+      : ((err && err.message) || 'No se pudo cargar el panel.'));
+  }
+})();
+</script>
+</body>
+</html>
