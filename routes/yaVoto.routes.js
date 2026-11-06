@@ -26,7 +26,9 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { buscarEnlaceActivo, registrarVoto } = require('../config/yaVotoEnlace');
+const pool = require('../config/db');
+const { buscarEnlaceActivo, buscarVotantePorToken, registrarVoto } = require('../config/yaVotoEnlace');
+const { aplicarBajaDeFicha } = require('../config/bajaContacto');
 
 const router = express.Router();
 
@@ -55,6 +57,7 @@ function pagina({ titulo, cuerpo, extra = '', ok = false }) {
   button.grande { background: #1E6B44; color: #fff; border: 0; border-radius: 14px; width: 100%;
                   font-size: 1.35rem; font-weight: 800; padding: 20px 16px; cursor: pointer; }
   button.grande:active { background: #155233; }
+  a.baja { display: block; margin-top: 22px; color: #5B6472; font-size: 0.9rem; text-decoration: underline; padding: 8px; }
   a.mapa { display: block; margin-top: 16px; color: #0B5ED7; font-weight: 700; text-decoration: none; padding: 10px; }
   .ok { color: #1E6B44; font-weight: 700; }
 </style></head><body><div class="caja">
@@ -62,11 +65,25 @@ function pagina({ titulo, cuerpo, extra = '', ok = false }) {
 </div></body></html>`;
 }
 
+/* «NO QUIERO RECIBIR MÁS MENSAJES». El enlace del SMS ya no trae el enlace de baja aparte
+   (ocupaba 78 caracteres y empujaba el mensaje a dos segmentos): la baja vive AQUÍ.
+   Es un enlace RELATIVO a la misma URL (`?baja=1`) y no lleva el token, a propósito: así la
+   página «no activo» —la misma para un token inexistente, vencido o fuera del día— puede
+   ofrecerla sin cambiar un solo byte entre un caso y otro. Es quien valida el token. */
+const ENLACE_BAJA = `<a class="baja" href="?baja=1">No quiero recibir más mensajes</a>`;
+
 // La misma página para «no existe», «venció» y «no es el día».
 const NO_ACTIVO = {
   titulo: 'Enlace no activo',
   cuerpo: 'Este enlace no está activo. Solo funciona el día de la elección. '
         + 'Si necesita ayuda, escríbale a quien se lo envió.',
+  extra: ENLACE_BAJA,
+};
+
+// La misma página para un token que no existe, en la baja.
+const BAJA_NO_VALIDA = {
+  titulo: 'Enlace no válido',
+  cuerpo: 'Este enlace no es válido. Si quiere dejar de recibir mensajes, escríbale a quien se lo envió.',
 };
 
 function cabeceras(res) {
@@ -113,13 +130,24 @@ function lugar(fila) {
 router.get('/:token', async (req, res) => {
   cabeceras(res);
   try {
+    if (req.query.baja !== undefined) {
+      // La BAJA: no mira la fecha ni la vigencia. Muestra la confirmación; NO da de baja
+      // (un GET no cambia nada: los clientes de SMS abren los enlaces por su cuenta).
+      const v = await buscarVotantePorToken(req.params.token);
+      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      return res.send(pagina({
+        titulo: 'No recibir más mensajes',
+        cuerpo: 'Si confirma, esta campaña dejará de enviarle mensajes de texto, correos y avisos.',
+        extra: `<form method="post" action="?baja=1"><button type="submit" class="grande" style="background:#10233F;">Confirmar mi baja</button></form>`,
+      }));
+    }
     const fila = await buscarEnlaceActivo(req.params.token);
     if (!fila) return res.status(404).send(pagina(NO_ACTIVO));
     const hola = primerNombre(fila.nombre);
     if (fila.voto_en) {
       return res.send(pagina({
         titulo: hola ? `Hola, ${hola}` : 'Hola',
-        cuerpo: 'Gracias, ya teníamos tu voto.', ok: true,
+        cuerpo: 'Gracias, ya teníamos tu voto.', ok: true, extra: ENLACE_BAJA,
       }));
     }
     res.send(pagina({
@@ -128,7 +156,7 @@ router.get('/:token', async (req, res) => {
       extra: `${lugar(fila)}
 <form method="post" action="/v/${encodeURIComponent(req.params.token)}">
   <button type="submit" class="grande">Ya voté</button>
-</form>${enlaceMapa(fila)}`,
+</form>${enlaceMapa(fila)}${ENLACE_BAJA}`,
     }));
   } catch (err) {
     console.error('ya-voto GET:', err.code || err.message);
@@ -139,6 +167,18 @@ router.get('/:token', async (req, res) => {
 router.post('/:token', async (req, res) => {
   cabeceras(res);
   try {
+    if (req.query.baja !== undefined) {
+      // Misma baja que /b (`aplicarBajaDeFicha`): marca a la persona y a las fichas que
+      // comparten su teléfono o correo, con origen «enlace».
+      const v = await buscarVotantePorToken(req.params.token);
+      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      await aplicarBajaDeFicha(pool, 'votantes', v.votante_id);
+      return res.send(pagina({
+        titulo: 'Listo',
+        cuerpo: 'Su solicitud quedó registrada. No volverá a recibir mensajes de esta campaña.',
+        ok: true,
+      }));
+    }
     const fila = await buscarEnlaceActivo(req.params.token);
     if (!fila) return res.status(404).send(pagina(NO_ACTIVO));
     const r = await registrarVoto({
@@ -148,7 +188,7 @@ router.post('/:token', async (req, res) => {
     res.send(pagina({
       titulo: hola ? `¡Gracias, ${hola}!` : '¡Gracias!',
       cuerpo: r.yaEstaba ? 'Gracias, ya teníamos tu voto.' : 'Registramos tu voto. ¡Gracias por participar!',
-      ok: true,
+      ok: true, extra: ENLACE_BAJA,
     }));
   } catch (err) {
     console.error('ya-voto POST:', err.code || err.message);

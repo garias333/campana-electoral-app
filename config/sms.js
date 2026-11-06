@@ -316,6 +316,11 @@ async function obtenerCanal() {
  *        SÍ consumen crédito, porque cuestan igual.
  */
 async function enviarSMS(telefono, mensaje, statusCallbackUrl, opciones = {}) {
+  /* SIN TILDES NI EÑE, EN TODO SMS. Es el único sitio por el que sale un SMS de esta
+     aplicación —CRM, código de ingreso, recuperación de clave, confirmación de datos—, y
+     va ANTES de elegir proveedor, así que vale también para el respaldo de Twilio. Un solo
+     carácter fuera de GSM-7 baja el segmento de 160 a 70 (ver lib/transliterarSms.js). */
+  mensaje = require('../lib/transliterarSms').transliterarSms(mensaje);
   const canal = await obtenerCanal_o_null();
   const { normalizarCelular } = require('../lib/sms');
   const destino = normalizarCelular(telefono);

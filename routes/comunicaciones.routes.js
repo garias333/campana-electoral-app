@@ -1115,6 +1115,12 @@ function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja, encendido) {
   // {baja} fue reemplazado por la URL y el marcador ya no está, así que
   // buscarlo ahí daría siempre «no lo puso» y lo agregaría dos veces.
   if (/\{baja\}/i.test(String(mensajeOriginal || ''))) return texto;
+  /* UN MENSAJE CON {enlace_ya_vote} NO LLEVA EL ENLACE DE BAJA AL FINAL. Esos ~60
+     caracteres, más el enlace «Ya voté» y la firma del operador, pasaban de un segmento
+     (160) y el mensaje podía NO llegar. La baja vive en la página del propio enlace
+     («No quiero recibir más mensajes», /v/<token>?baja=1). Quien quiera el enlace de baja
+     igual lo escribe a mano con {baja}, que ya se respetó arriba. */
+  if (MARCADOR_ENLACE.test(String(mensajeOriginal || ''))) return texto;
   return `${texto} Baja: ${urlBaja}`;
 }
 

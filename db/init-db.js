@@ -2110,21 +2110,50 @@ async function main() {
     }
   }
 
-  // Plantilla de arranque del enlace «Ya voté». SIN TILDES (SMS, GSM-7: ver la
-  // nota de las plantillas de abajo). INSERT ... WHERE NOT EXISTS por nombre:
-  // si alguien la edita, una corrida posterior no le pisa el texto.
-  for (const [nombre, canal, cuerpo] of [
-    ['Dia D - aviso ya voto', 'sms',
-     'Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avisanos aqui: {enlace_ya_vote}'],
-    ['WhatsApp · Ya voté', 'whatsapp',
-     'Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avísanos aquí: {enlace_ya_vote}'],
-  ]) {
+  // Plantillas de arranque del enlace «Ya voté».
+  //
+  // LA DE SMS ES CORTA A PROPÓSITO. Con el enlace (~50 a ~70 caracteres según el dominio) y la
+  // firma del operador (30), la versión anterior —«Hola {primer_nombre}, hoy votas en {puesto},
+  // mesa {mesa}…»— pasaba de un segmento y el mensaje podía NO llegar. La página del enlace ya
+  // muestra el puesto, la mesa y cómo llegar, así que el SMS no los repite. Va sin tildes (ver la
+  // nota de las plantillas de arriba).
+  //
+  // SI EL ADMINISTRADOR YA LA EDITÓ NO SE LE PISA: solo se reemplaza el texto que esta migración
+  // sembró antes (el viejo, exacto). Si cambió, la nueva se crea aparte como «… (corto)».
+  const NOMBRE_YA_VOTO = 'Dia D - aviso ya voto';
+  const TEXTO_YA_VOTO_VIEJO = 'Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avisanos aqui: {enlace_ya_vote}';
+  const TEXTO_YA_VOTO_NUEVO = '{primer_nombre}, hoy votamos. Cuando votes, avisanos aqui: {enlace_ya_vote}';
+  const [[existente]] = await connection.query(
+    `SELECT cuerpo FROM comunicaciones_plantillas WHERE nombre = ?`, [NOMBRE_YA_VOTO]);
+  if (!existente) {
+    await connection.query(
+      `INSERT INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo) VALUES (?, 'sms', NULL, ?)`,
+      [NOMBRE_YA_VOTO, TEXTO_YA_VOTO_NUEVO]);
+    console.log(`Plantilla «${NOMBRE_YA_VOTO}» creada.`);
+  } else if (existente.cuerpo === TEXTO_YA_VOTO_NUEVO) {
+    console.log(`La plantilla «${NOMBRE_YA_VOTO}» ya existía. Sin cambios.`);
+  } else if (existente.cuerpo === TEXTO_YA_VOTO_VIEJO) {
+    await connection.query(`UPDATE comunicaciones_plantillas SET cuerpo = ? WHERE nombre = ?`,
+      [TEXTO_YA_VOTO_NUEVO, NOMBRE_YA_VOTO]);
+    console.log(`Plantilla «${NOMBRE_YA_VOTO}» actualizada al texto corto (1 SMS).`);
+  } else {
+    // La editó el administrador: se respeta y la corta se agrega aparte, si no estaba ya.
     const [r] = await connection.query(
       `INSERT INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo)
-       SELECT ?, ?, NULL, ? FROM DUAL
+       SELECT ?, 'sms', NULL, ? FROM DUAL
         WHERE NOT EXISTS (SELECT 1 FROM comunicaciones_plantillas WHERE nombre = ?)`,
-      [nombre, canal, cuerpo, nombre]);
-    console.log(r.affectedRows ? `Plantilla «${nombre}» creada.` : `La plantilla «${nombre}» ya existía. Sin cambios.`);
+      [`${NOMBRE_YA_VOTO} (corto)`, TEXTO_YA_VOTO_NUEVO, `${NOMBRE_YA_VOTO} (corto)`]);
+    console.log(r.affectedRows
+      ? `La plantilla «${NOMBRE_YA_VOTO}» fue editada: se respeta y se creó «${NOMBRE_YA_VOTO} (corto)».`
+      : `La plantilla «${NOMBRE_YA_VOTO} (corto)» ya existía. Sin cambios.`);
+  }
+  {
+    const [r] = await connection.query(
+      `INSERT INTO comunicaciones_plantillas (nombre, canal, asunto, cuerpo)
+       SELECT 'WhatsApp · Ya voté', 'whatsapp', NULL, ? FROM DUAL
+        WHERE NOT EXISTS (SELECT 1 FROM comunicaciones_plantillas WHERE nombre = 'WhatsApp · Ya voté')`,
+      ['Hola {primer_nombre}, hoy votas en {puesto}, mesa {mesa}. Cuando votes, avísanos aquí: {enlace_ya_vote}']);
+    console.log(r.affectedRows ? 'Plantilla «WhatsApp · Ya voté» creada.' : 'La plantilla «WhatsApp · Ya voté» ya existía. Sin cambios.');
   }
 
   // --- Testigo electoral: puesto/mesa propios, separados del lugar de

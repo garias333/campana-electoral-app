@@ -150,6 +150,23 @@ async function buscarEnlaceActivo(token) {
   return fila;
 }
 
+/**
+ * El votante de un token SIN mirar la fecha ni la vigencia. Es para la BAJA («No quiero
+ * recibir más mensajes»): darse de baja no puede depender de que sea el día de la elección,
+ * ni de que el enlace siga vigente para votar. Solo hace falta que el token exista.
+ *
+ * Límite conocido: si se cambia la fecha de elección y se REGENERAN los enlaces, el token
+ * viejo desaparece (se sobrescribe el hash) y su baja deja de funcionar. Quien conserve el
+ * SMS de la elección anterior ya no puede darse de baja por ahí.
+ */
+async function buscarVotantePorToken(token) {
+  if (!PATRON_TOKEN.test(String(token || ''))) return null;
+  const [[fila]] = await pool.query(
+    `SELECT t.votante_id FROM votante_voto_tokens t JOIN votantes v ON v.id = t.votante_id
+      WHERE t.token_hash = ?`, [huellaDeToken(token)]);
+  return fila ? { votante_id: fila.votante_id } : null;
+}
+
 /** Registra el voto. `INSERT IGNORE`: si ya estaba, no cambia nada —ni la hora—. */
 async function registrarVoto({ votanteId, puestoId, origen, marcadoPor = null, votoEn = null }) {
   const [r] = await pool.query(
@@ -161,5 +178,5 @@ async function registrarVoto({ votanteId, puestoId, origen, marcadoPor = null, v
 
 module.exports = {
   tokenDe, huellaDeToken, baseDelSitio, estadoDeLaElección,
-  asegurarEnlaces, buscarEnlaceActivo, registrarVoto, PATRON_TOKEN,
+  asegurarEnlaces, buscarEnlaceActivo, buscarVotantePorToken, registrarVoto, PATRON_TOKEN,
 };

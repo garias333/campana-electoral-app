@@ -136,7 +136,7 @@
         <div class="paso-num">2</div>
         <div>
           <h3>Escribe el mensaje</h3>
-          <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada quien. Ojo con las tildes: una sola parte el SMS de 1 segmento a 3.</p>
+          <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada quien. Las tildes y la ñ se quitan solas al enviar, para que el SMS no pase de 160 a 70 caracteres por segmento.</p>
         </div>
       </div>
       <div class="campo">
@@ -152,7 +152,7 @@
         <!-- Cuántos SMS es de verdad: el precio se cobra por segmento, y una
              tilde parte el mensaje en tres. Ver public/js/segmentos-sms.js -->
         <div id="contador-sms" style="font-size:0.88rem; margin-top:6px;"></div>
-        <small>Tip: escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. El enlace de baja se agrega solo al final de cada SMS; escribe <code>{baja}</code> si prefieres ponerlo en otro sitio del mensaje. Ocupa unos 78 caracteres — el contador de abajo ya los cuenta.</small>
+        <small>Tip: escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. El enlace de baja se agrega solo al final de cada SMS; escribe <code>{baja}</code> si prefieres ponerlo en otro sitio del mensaje. Ocupa unos 78 caracteres — el contador de abajo ya los cuenta. <strong>Con <code>{enlace_ya_vote}</code> no se agrega:</strong> la baja va dentro de la página del enlace («No quiero recibir más mensajes»).</small>
         <div class="caja-diad">
           <div class="titulo">Día D — decirle a cada quien dónde vota</div>
           <div class="detalle">

@@ -72,16 +72,47 @@
    */
   window.bajaAutomaticaSms = true;
 
+  /**
+   * Las tildes y la ñ se QUITAN al enviar cualquier SMS (ver lib/transliterarSms.js, de la
+   * que ésta es la GEMELA: si divergen, el contador miente justo donde importa; hay una
+   * prueba que las compara). Un solo carácter fuera de GSM-7 —una «á»— pasa el mensaje
+   * de 160 a 70 por segmento, así que el servidor lo transliteró y el contador cuenta lo
+   * que de verdad va a salir.
+   */
+  const MAPA_TRANSLIT = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
+    'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ü': 'U', 'Ñ': 'N',
+    '¿': '', '¡': '',
+  };
+  window.transliterarSms = function (texto) {
+    return String(texto == null ? '' : texto).normalize('NFC')
+      .replace(/[áéíóúüñÁÉÍÓÚÜÑ¿¡]/g, (c) => MAPA_TRANSLIT[c]);
+  };
+
+  /** ¿Lleva el marcador del enlace «Ya voté»? Esos mensajes NO llevan el enlace de baja al final. */
+  window.llevaEnlaceYaVote = function (texto) {
+    return /\{enlace_ya_vote\}/i.test(String(texto || ''));
+  };
+
   /** ¿El servidor va a agregar el enlace a ESTE texto? */
   window.llevaBajaAutomatica = function (texto) {
-    return window.bajaAutomaticaSms !== false && !/\{baja\}/i.test(String(texto || ''));
+    // Un mensaje con {enlace_ya_vote} no lo lleva: la baja va en la página del enlace
+    // (ver agregarBajaSms en routes/comunicaciones.routes.js), así que tampoco se cuenta.
+    return window.bajaAutomaticaSms !== false && !/\{baja\}/i.test(String(texto || ''))
+      && !window.llevaEnlaceYaVote(texto);
   };
 
   window.calcularSegmentosSms = function (texto) {
     // Se analiza el texto JUNTO con la firma, no por separado: si la firma
     // trajera una tilde, el mensaje entero bajaría de 160 a 70 por segmento.
     const extra = window.llevaBajaAutomatica(texto) ? textoBajaAutomatica() : '';
-    const t = String(texto || '') + extra + String(window.firmaSms || '');
+    /* {enlace_ya_vote} se cuenta con el LARGO REAL del enlace (dominio de esta instalación +
+       /v/ + 12 del token). Contar el marcador tal cual valdría 15 caracteres, y el enlace son
+       entre 50 y 70: el contador diría «1 SMS» y saldrían dos. */
+    const enlaceYaVote = (typeof location === 'undefined' ? '' : location.origin) + '/v/XXXXXXXXXXXX';
+    // Se cuenta lo que va a SALIR: ya sin tildes ni ñ.
+    const t = window.transliterarSms(String(texto || '').replace(/\{enlace_ya_vote\}/gi, enlaceYaVote))
+      + extra + String(window.firmaSms || '');
     let esGsm = true;
     let largo = 0;
     for (const ch of t) {
@@ -139,8 +170,18 @@
       partes.push(`+${textoBajaAutomatica().length} del enlace de baja que se agrega solo`);
     }
 
+    // Las tildes y la ñ no cuestan nada porque se quitan solas al enviar: se dice, para que
+    // nadie pierda tiempo reescribiendo el texto sin ellas.
+    if (window.transliterarSms(textarea.value) !== String(textarea.value || '').normalize('NFC')) {
+      partes.push('las tildes y la ñ se quitan al enviar');
+    }
+    if (window.llevaEnlaceYaVote(textarea.value)) {
+      partes.push('con el enlace «Ya voté» no se agrega el enlace de baja: va en la página del enlace');
+    }
     if (r.alfabeto === 'UCS-2') {
-      partes.push('con tildes o ñ: caben 70 por SMS en vez de 160');
+      // Después de transliterar, lo que queda fuera de GSM-7 es otra cosa (un emoji, unas
+      // comillas curvas): ese sí baja el límite a 70 y hay que sacarlo.
+      partes.push('hay caracteres fuera del alfabeto SMS (emoji o comillas curvas): caben 70 por SMS en vez de 160');
     }
     if (cantidad > 0 && r.segmentos > 0) {
       partes.push(`${cantidad} destinatarios → <strong>${cantidad * r.segmentos} mensajes facturados</strong>`);

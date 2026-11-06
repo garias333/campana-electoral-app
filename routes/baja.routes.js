@@ -22,7 +22,7 @@
 
 const express = require('express');
 const pool = require('../config/db');
-const { verificar } = require('../config/bajaContacto');
+const { verificar, aplicarBajaDeFicha } = require('../config/bajaContacto');
 
 const router = express.Router();
 
@@ -94,27 +94,12 @@ router.post('/:codigo', async (req, res) => {
       }
       id = e.usuario_id;
     }
-    const [[fila]] = await pool.query(`SELECT telefono, email FROM ${tabla} WHERE id = ?`, [id]);
-    if (!fila) {
+    // Se marcan TODAS las fichas de esa persona (ver `aplicarBajaDeFicha`, que es la misma
+    // que usa la baja desde el enlace «Ya voté»).
+    if (!(await aplicarBajaDeFicha(pool, tabla, id))) {
       return res.status(404).send(pagina({
         titulo: 'Enlace no válido', cuerpo: 'Este enlace no es válido o ya no está vigente.',
       }));
-    }
-
-    // Se marcan TODAS las fichas de esa persona: la suya, y las que compartan
-    // su teléfono o su correo. Es la misma regla del parche 14 — se marca a la
-    // persona, no al registro.
-    const diez = String(fila.telefono || '').replace(/\D/g, '').slice(-10);
-    for (const t of ['votantes', 'usuarios']) {
-      await pool.query(
-        `UPDATE ${t}
-            SET no_contactar = 1,
-                no_contactar_fecha = NOW(),
-                no_contactar_origen = 'enlace'
-          WHERE (? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
-             OR (? IS NOT NULL AND email = ?)`,
-        [diez, diez, fila.email || null, fila.email || null]
-      );
     }
 
     res.send(pagina({

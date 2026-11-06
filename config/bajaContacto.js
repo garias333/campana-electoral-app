@@ -133,4 +133,40 @@ function pieDeBaja(url) {
   };
 }
 
-module.exports = { codigoDe, verificar, urlDeBaja, cabecerasDeBaja, pieDeBaja };
+/**
+ * LA BAJA, en un solo sitio: la usan la página /b (el enlace de baja de siempre) y la
+ * página del enlace «Ya voté» (/v/<token>?baja=1). Dos copias de esto divergen solas, y
+ * aquí divergir significa que una de las dos páginas deja de dar de baja de verdad.
+ *
+ * Marca a la PERSONA, no al registro: la ficha de `tabla` + `id`, y todas las fichas —de
+ * votantes y de usuarios— que compartan su teléfono (últimos 10 dígitos) o su correo. Es la
+ * regla del parche 14: un teléfono se comparte en una familia, y marcar solo una ficha
+ * dejaría a la misma persona recibiendo por la otra.
+ *
+ * `origen = 'enlace'` es lo que distingue, en «Bajas», a quien se dio de baja por sí
+ * mismo de quien lo pidió respondiendo al SMS.
+ *
+ * @param {object} pool   el pool de mysql2 (este módulo no abre conexiones propias)
+ * @param {'votantes'|'usuarios'} tabla
+ * @returns {Promise<boolean>} false si la ficha ya no existe
+ */
+async function aplicarBajaDeFicha(pool, tabla, id) {
+  if (!['votantes', 'usuarios'].includes(tabla)) throw new Error('Tabla no válida para la baja.');
+  const [[fila]] = await pool.query(`SELECT telefono, email FROM ${tabla} WHERE id = ?`, [id]);
+  if (!fila) return false;
+  const diez = String(fila.telefono || '').replace(/\D/g, '').slice(-10);
+  for (const t of ['votantes', 'usuarios']) {
+    await pool.query(
+      `UPDATE ${t}
+          SET no_contactar = 1,
+              no_contactar_fecha = NOW(),
+              no_contactar_origen = 'enlace'
+        WHERE (? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
+           OR (? IS NOT NULL AND email = ?)`,
+      [diez, diez, fila.email || null, fila.email || null]
+    );
+  }
+  return true;
+}
+
+module.exports = { codigoDe, verificar, urlDeBaja, cabecerasDeBaja, pieDeBaja, aplicarBajaDeFicha };
