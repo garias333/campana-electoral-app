@@ -36,9 +36,10 @@ limpio») estaban obsoletas y se reemplazaron.*
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
-- **Rama:** `auditoria-fable`, sin push. Árbol: `CLAUDE.md` modificado (de Gildardo, sin
-  commitear), `legislacion/` y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
-  `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo).
+- **Rama:** `auditoria-fable`, publicada en GitHub (ver «Remoto» abajo). Árbol: `legislacion/`
+  y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
+  `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
+  quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
 ## Parches 266 a 271 (6 de noviembre de 2026) y lo que vino después
 
@@ -85,7 +86,42 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.credenciales-*.txt` por patrón; la prueba limpia verifica el archivo (0600, correo, clave
   ausente de la salida) y se niega a correr si hay uno viejo. **No está en el 271**: solo afecta
   a instalaciones nuevas (el bloque corre cuando no hay admin), así que entra en el próximo parche.
-- Commits de la tanda: `38826b6`, `0e06d7d`, `6b803f0`, `7610063`, `3ab4ddf`, `2f1ce57`, `39b18eb`.
+- Commits de la tanda: `38826b6`, `0e06d7d`, `6b803f0`, `7610063`, `3ab4ddf`, `2f1ce57`, `39b18eb`,
+  `9cb3e25`, `90b5948` (LEEME: con `ADMIN_PASSWORD` no se escribe archivo) y `0c2311a`.
+- **Prueba limpia corrida y pasada** (base desechable `pruebalimpia`, 44 tablas, todas las
+  comprobaciones en OK, salida 0): el superadmin nace con 2FA y celular 3104157434; la clave del
+  admin queda en `.credenciales-admin.txt` (0600, `admin@campana.local`) y no sale por consola; la
+  2.ª corrida imprime «superadmin asegurado (1)». La plantilla v271 se **regeneró** después de
+  `39b18eb`: sha256 `c3e4a6715d3365da6990243ed77c0846acdd50e987ca6fdc921c3f9a1c6a8e80`, 194
+  archivos, secretos 0, su `init-db` ya no imprime la clave (la de `c11c9904…` de arriba quedó
+  obsoleta).
+
+### Remoto en GitHub (6 de noviembre de 2026)
+
+- **Remoto `origin`:** `git@github.com:garias333/campana-electoral-app.git` — repositorio
+  **privado**. Se subió de cero (estaba vacío).
+- **Acceso:** deploy key **con escritura**, par ed25519 `~/.ssh/campana_github` de la cuenta
+  `gariasappelectoral` (huella `SHA256:e1n5q6CP0OrDoJUkqu/JfZbHvfIwHQ3ZO9HRAHmyLPM`), solo para este
+  repo. `core.sshCommand` del repo: `ssh -i ~/.ssh/campana_github -o IdentitiesOnly=yes`. La
+  huella de `github.com` se verificó contra la publicada antes de guardarla en `known_hosts`.
+- **Quién empuja:** **Gildardo, como root, con `su - gariasappelectoral`**. Claude Code deniega los
+  `git push` (permiso «Data Exfiltration»); solo deja pasar `--dry-run`. Comando:
+  `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && git push origin auditoria-fable'`
+  (las claves son de esa cuenta: desde otra, `core.sshCommand` no encuentra la llave).
+- **Verificado el 6 de nov. con `git ls-remote` y `git branch -vv`:** `origin/auditoria-fable` =
+  `0c2311a` (0 adelante / 0 atrás), `origin/main` = `27c22d2` (0 / 0; `main` local **no** tiene
+  seguimiento configurado), y los 3 tags `punto-restauracion-2026-08-24`, `-2026-08-31` y
+  `-antes-dictado` coinciden con los locales.
+- **Los hashes que cita este documento coinciden con GitHub:** los 15 hashes de 7 caracteres que
+  aparecen en él son commits de este repo y todos son alcanzables desde `origin/auditoria-fable`.
+  (Se comprobó antes de añadir el commit de esta nota, que queda 1 adelante hasta el próximo push.)
+- **Autor:** el historial NO se reescribió. Quedan 298 commits con `tu@correo.com` (todos los de
+  antes de hoy salvo 3) y los demás con `correo@gildardoarias.com`; el repo ya tiene
+  `user.email = correo@gildardoarias.com` (`.git/config`), así que los nuevos salen bien.
+- **Seguridad previa al push:** revisión de secretos sobre los 309 commits de todas las ramas y
+  tags: 0 hallazgos reales (dos marcadores: `.env.example` y `public/ayuda.html`; la única `.pem`
+  es una llave pública; los `.sql` son esquema). El código lleva el correo y el celular del
+  superadmin como valores por omisión: **mantener el repositorio privado**.
 
 ## Sección Legislación (6 de noviembre de 2026) — parche 266 registrado, INACTIVO
 
@@ -148,7 +184,7 @@ Service worker a `estrategia-v135` (las páginas siguen sin precachearse).
   corpus); después, milisegundos. Hay que dejar que la app pueda crear `datos/` en
   cada instalación (la carpeta de la instalación es del usuario de la campaña: sí).
 
-Commits locales en `auditoria-fable`, sin push. El parche 266 se generó y
+Commits locales en `auditoria-fable` (entonces sin push; hoy publicada, ver «Remoto»). El parche 266 se generó y
 registró **inactivo** (ver abajo). Las anclas de arriba son de agosto; lo que
 sigue está medido hoy sobre este árbol.
 
