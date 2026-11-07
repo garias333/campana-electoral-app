@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 282** (`parches/campana-parche282.zip`, 79.606 bytes,
-  sha256 `cfe2292831b80eb8246134fd7f1a478fc646b1bc91ebc73b5cb738a50ccca32c`, 9 archivos).
-  **Publicado** en la carpeta de licencias (`parche-282.zip`, mismo sha256, 0644) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`; nombre en el panel:
-  «Cédulas: sin duplicados en alta, importación y edición (Requiere el 281)» (detalle abajo); **requiere el 281**.
-  El anterior, el 281 (`parches/campana-parche281.zip`, 152.925 bytes,
+- **Último parche generado: 283** (`parches/campana-parche283.zip`, 110.782 bytes,
+  sha256 `60fecc764fba702e864f7dac158075c9e980ba185eebdd8a70a81e4dcd398f52`, 6 archivos).
+  **Publicado** en la carpeta de licencias (`parche-283.zip`, mismo sha256, 0644) y
+  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
+  «Privacidad al buscar cédula y SMS al reinscribirse (Requiere el 282)» (detalle abajo); **requiere el 282**.
+  El anterior, el 282 (`parches/campana-parche282.zip`, 79.606 bytes,
+  sha256 `cfe2292831b80eb8246134fd7f1a478fc646b1bc91ebc73b5cb738a50ccca32c`, 9 archivos, cédulas sin duplicados,
+  `toca_base_datos = false`, requiere el 281), sigue publicado e inactivo, igual que el 281 (`parches/campana-parche281.zip`, 152.925 bytes,
   sha256 `bb30c0ffcb0fd1327790009cd780b09a1fcb2373d900ef7e6d2d7ed7f22a7298`, 10 archivos, mensaje de invitación con
   eslogan, `toca_base_datos = true`, requiere el 280), sigue publicado e inactivo, igual que el 280 (`parches/campana-parche280.zip`, 119.765 bytes,
   sha256 `dd45aec9f83de9ec25e8d633657cf7106337fd372cec712f4516806ef9faa40a`, 9 archivos, botón a la Registraduría y
@@ -32,15 +34,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 282 (y del 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 283 (y del 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 282, `.version-parche` y `.version-base` = **282**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281 ni el 282 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 282 no lo toca; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 283, `.version-parche` y `.version-base` = **283**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282 ni el 283 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -49,7 +51,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 282` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 283` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -62,6 +64,93 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 283 — privacidad al buscar cédula y SMS al reinscribirse (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 6 archivos: `config/inscripcionRegistro.js`, `db/init-db.js`, `public/asistentes-reuniones.html`,
+`public/js/validacion-cedula-ui.js`, `routes/votantes.routes.js` y `.version-base` (283). Commit que recoge: `f9e4798` (a
+partir de `badeaae`, el del 282). `scripts/probar-inscripcion-enlace.js` (465 comprobaciones) **no viaja**. **Service worker sin
+cambio** (`v157`): ninguno de los archivos que cambian está en su precache y los demás se piden «red primero».
+
+### Parte A — buscar por cédula sin exponer datos ajenos
+
+- **Lo que pasaba:** `GET /api/votantes/buscar-por-cedula` (cualquier usuario con sesión; el router solo exige `requireAuth`)
+  devolvía **nombre, teléfono y cédula** de la ficha dueña de esa cédula **aunque fuera de otro líder**, y las pantallas
+  **rellenaban el formulario** con ese nombre y teléfono. Lo llamaban `public/js/validacion-cedula-ui.js` (cargado por
+  `votantes.html` —escritorio—, `territorial.html`, `testigos.html` y `app/registro-votante.html` —celular—) y la alta rápida de
+  `public/asistentes-reuniones.html`.
+- **Qué devuelve ahora (JSON de ejemplo inventado):**
+  - **Ficha propia o dentro de su alcance** (la misma condición del listado, `lib/alcanceVotantes.js`; o `mia`: es suya, o de su
+    rama): como siempre. `{ "id": 41, "nombre": "Pedro Gómez Ruiz", "telefono": "3001234567", "cedula": "1053123456", "mia": true, "puede_sumar": false }`
+  - **Ficha de otro líder:** solo `{ "existe": true, "de_otro_lider": true, "iniciales": "P. R.", "puede_sumar": false }`. Ni
+    teléfono, ni cédula, ni nombre, ni correo, ni dirección, ni puesto, **ni id**, ni quién es el líder dueño. Las iniciales son
+    la primera y la última palabra del nombre, sin partículas («de», «del»…).
+  - **Administrador** (sin sublicencia): todo, como siempre. **Cédula que no existe:** `null`, como siempre.
+  - **Ojo, el coordinador NO tiene «alcance total»:** su alcance es su rama (sus líderes y los de ellos), no toda la campaña. Una
+    ficha de otra rama —por ejemplo la de un aspirante— le sale con iniciales. La orden decía «coordinador con alcance total»; no
+    existe tal cosa hoy y no lo cambié.
+  - **Pasados 60 en 10 minutos:** HTTP 429 `{ "error": "Demasiadas búsquedas, espera unos minutos" }`.
+- **El límite:** 60 por **usuario** (no por IP: varios líderes comparten la wifi de un evento) cada 10 minutos, con `express-rate-limit`
+  en memoria del proceso (un reinicio de PM2 lo pone en cero). **Cuenta también a `sumar-por-cedula` y a
+  `/:id/sumar-a-mi-rama` cuando traen cédula** (son la misma pregunta). Una consulta sin cédula no cuenta.
+- **La bitácora:** la tabla `auditoria` que ya existía (`registrarAuditoria`), acción **`buscar_cedula_ajena`**, entidad `votantes`,
+  `usuario_id`, `created_at`, `ip` y el detalle «Buscó una cédula de otro líder (***456)»: solo los tres últimos dígitos, nunca la
+  cédula completa ni el id de la ficha. **No hay tabla ni columna nueva para esto.** Solo deja rastro una búsqueda que cae en una
+  ficha ajena (no la propia ni una cédula inexistente). Para ver a quien recorre cédulas, como administrador en la base:
+  `SELECT usuario_id, COUNT(*) n, MIN(created_at), MAX(created_at) FROM auditoria WHERE accion = 'buscar_cedula_ajena' GROUP BY usuario_id ORDER BY n DESC;`
+- **Sumar a mi rama:** la regla **no cambió** (se acredita con la cédula o con el alcance; solo quien está en la rama de un aspirante
+  puede sumar). Como una ficha ajena ya no trae su id, **nueva ruta `POST /api/votantes/sumar-por-cedula { cedula }`**: el servidor
+  encuentra la ficha por la cédula (normalizada, con las variantes guardadas) y aplica la MISMA función que `/:id/sumar-a-mi-rama`
+  (que sigue existiendo). Sumada, la búsqueda la devuelve completa y como propia.
+- **Las pantallas** (probadas en Chromium con un `api()` simulado): «**Esta persona ya está inscrita con otro líder (P. G.)**»; el
+  botón «**Sumar a mi rama**» solo si `puede_sumar`; **no se rellena nada del formulario** y no se muestran campos vacíos; ya sumada
+  dice «Listo: esta persona quedó en su rama.». Pasado el límite se dice el mensaje. En la **alta rápida de asistentes** una ficha
+  ajena ya no ofrece «Agregar» (no tiene id): primero se suma, y entonces la búsqueda la encuentra como propia.
+- **No cambió, y conviene saberlo:** `GET /api/usuarios/buscar-por-cedula` (cuentas del sistema) sigue devolviendo nombre y teléfono
+  del usuario con esa cédula a quien pregunte (la alta rápida de asistentes lo usa). Son cuentas de la estructura, no votantes; si se
+  quiere tratarlo igual, es otra orden.
+
+### Parte B — SMS de confirmación al reinscribirse por `/i`
+
+- **La regla:** cédula que ya existe + **el celular coincide** → se encola **otra vez el mismo SMS de confirmación** de `/c` si se
+  cumplen **las cuatro a la vez**: (1) `consentimiento_confirmado_en` vacío; (2) la persona **marcó el SMS en este envío**; (3) la ficha
+  no tiene `no_contactar` (la baja); (4) no se le mandó uno —enviado o en cola— en las **últimas 24 horas**. Celular que no coincide,
+  ficha ya confirmada o casilla sin marcar: **no se manda nada y no se modifica nada**. **La respuesta pública no cambia** (la misma
+  página «¡Listo!» para nueva, existente con SMS, y existente sin SMS; la prueba lo compara byte a byte).
+- **La cola:** `inscripcion_sms_cola` tiene `UNIQUE(votante_id)` (uno por ficha en la vida); para poder repetir se **reutiliza la
+  misma fila**: pasa otra vez a `pendiente` y se le renueva `creado_en`. «Hace cuánto» es `COALESCE(enviado_en, creado_en)`.
+- **La evidencia de ESTE envío, solo en campos vacíos**, antes de encolar: fecha, método, versión de la política y los canales marcados
+  que estén en NULL («no consta»), y la fila de `votante_consentimiento_evidencia` (IP, navegador, enlace, política; si ya había, se
+  conserva la primera). **Interpretación que conviene confirmar:** un **0 puesto a mano** en una ficha de un líder (la persona dijo que
+  no) **no se convierte en 1**, y entonces no se manda nada; en una ficha que **nació de este mismo formulario** (`origen = enlace_lider`)
+  el 0 solo significa «no marcó el SMS», así que lo último que declara la propia persona manda y pasa a 1. Sin ese 1 la cola omite el
+  mensaje («no autorizó el SMS»), por eso sin él ni se encola.
+- **La anotación:** columna nueva **`inscripcion_intentos.sms_reenviado TINYINT(1) NOT NULL DEFAULT 0`** (por eso toca la base); se pone
+  en 1 si se encoló en la reinscripción. Sin la columna (init-db sin correr) la inscripción sigue y simplemente no anota.
+- Una ficha de **otro líder** con el celular que coincide también recibe el SMS (la regla no la excluye) y el dueño no cambia.
+  Un cambio de pasada: la rama «completar la autorización de una ficha sin consentimiento» ahora también cubre un `NULL` (la columna es
+  `NOT NULL DEFAULT 0`, así que en la práctica no cambia nada).
+
+### Verificación y despliegue
+
+- **Verificado sobre el zip:** los 5 archivos de código coinciden por md5 con el commit `f9e4798`; sin `.env`, `.credenciales-*`,
+  `uploads/`, `legislacion/`, `backups/`, `scripts/` ni `.sql`; `verificar-requires.js` revisó 41 `require` locales y todos resuelven
+  **aplicando el zip sobre una copia del árbol del 282** (`badeaae`), con un control negativo. `express-rate-limit` ya es dependencia.
+- **Probado:** 465 comprobaciones sobre una base simulada (las de la orden: ficha propia, ajena —con el JSON completo revisado—,
+  coordinador, administrador, aspirante, la 61 con 429, la bitácora, sumar, y los siete casos del SMS) y `probar-instalacion-limpia.js`.
+  **Control negativo:** contra el código anterior fallan 21 de las nuevas. **NO se probó:** el envío real del SMS (el proveedor se
+  sustituyó por un registro en memoria), las pantallas contra el servidor real (solo el cliente con un `api()` simulado), ni el tope
+  de 60 con varios procesos (vive en memoria de cada uno).
+- **Cómo exige el 282.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 283 con el 282, el 281, el 280, el 279, el
+  278, el 277 y el 276 y los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Toca la base:** `init-db` agrega una columna (ya viene marcado «toca base de datos»).
+2. Los líderes dejarán de ver nombre y teléfono de personas de otros líderes al teclear su cédula: ahora solo se dice que ya están
+   inscritas. Avisar al equipo; es lo esperado.
+3. Una persona que se reinscribe puede recibir otro SMS de confirmación (máximo uno cada 24 horas).
+4. Aplicar después del 282, con la misma lista de campañas.
 
 ## Parche 282 — cédulas sin duplicados en el alta, la importación y la edición (7 de noviembre de 2026, INACTIVO)
 
