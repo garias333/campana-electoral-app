@@ -147,11 +147,25 @@ function cabeceras(res) {
   });
 }
 
-/* Solo las respuestas fallidas (>= 400) gastan el cupo: ver el encabezado. */
+/* «NO ACTIVO» RESPONDE 200, NO 404. Es la misma página para un token inexistente, mal formado, vencido,
+   antes del día y después del día, y un cliente de mensajería puede descartar la tarjeta (vista previa) de
+   una respuesta 404 y cachearla así. Con 200 la tarjeta sale igual en todos los casos; lo único que cambia
+   es el código, y nadie que adivine tokens puede distinguir uno que existe de uno que no.
+
+   PERO EL LÍMITE DE INTENTOS CONTABA LOS 404, y por eso se marca aparte: sin esta marca, adivinar tokens
+   ya no gastaría el cupo (un 200 no cuenta) y el límite dejaría de proteger. `res.locals.noActivo` es lo
+   que lee `requestWasSuccessful` aquí abajo. */
+function responderNoActivo(res, head) {
+  res.locals.noActivo = true;
+  return res.status(200).send(pagina({ ...NO_ACTIVO, head, tituloPestana: TITULO_TARJETA }));
+}
+
+/* Solo las respuestas fallidas gastan el cupo: las >= 400 y las páginas «no activo» (que responden 200). */
 router.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 40,
   skipSuccessfulRequests: true,
+  requestWasSuccessful: (req, res) => res.statusCode < 400 && !res.locals.noActivo,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => { cabeceras(res); res.status(429).send(pagina({
@@ -200,7 +214,7 @@ router.get('/:token', async (req, res) => {
     const fila = await buscarEnlaceActivo(req.params.token);
     // La tarjeta se arma ANTES de mirar si hay fila, y es la misma en las tres respuestas de abajo.
     const head = await metasDeLaTarjeta();
-    if (!fila) return res.status(404).send(pagina({ ...NO_ACTIVO, head, tituloPestana: TITULO_TARJETA }));
+    if (!fila) return responderNoActivo(res, head);
     const hola = primerNombre(fila.nombre);
     if (fila.voto_en) {
       return res.send(pagina({
@@ -238,7 +252,7 @@ router.post('/:token', async (req, res) => {
     const fila = await buscarEnlaceActivo(req.params.token);
     // Misma página que el GET, byte a byte (también con la tarjeta): quien pide por POST no debe
     // poder distinguir «no existe» de «no es el día» por una diferencia que el GET no tiene.
-    if (!fila) return res.status(404).send(pagina({ ...NO_ACTIVO, head: await metasDeLaTarjeta(), tituloPestana: TITULO_TARJETA }));
+    if (!fila) return responderNoActivo(res, await metasDeLaTarjeta());
     const r = await registrarVoto({
       votanteId: fila.votante_id, puestoId: fila.puesto_id, origen: 'enlace', marcadoPor: null,
     });
