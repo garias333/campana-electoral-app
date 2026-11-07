@@ -157,6 +157,16 @@ app.use('/webhooks', require('./routes/webhooks.routes'));
 // problema. Va protegido con el secreto compartido, no con sesión. ---
 app.use('/actualizador', require('./routes/actualizador.routes'));
 
+// La imagen de la tarjeta (vista previa) del enlace «Ya voté». Sin sesión y ANTES del candado de
+// licencia, como /v: la piden los robots de WhatsApp y de Google Mensajes (y los teléfonos de quien
+// recibe el mensaje), nunca alguien con cuenta. Caché de un día; `cross-origin` porque helmet manda
+// `same-origin` por omisión y un cliente de mensajería que la incruste desde otro origen la perdería.
+// (Va por una ruta propia y no por el express.static de más abajo, que la serviría con 10 minutos de caché.)
+app.get('/img/ya-vote-og.png', (req, res) => {
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.sendFile(path.join(__dirname, 'public', 'img', 'ya-vote-og.png'), { maxAge: '1d' });
+});
+
 // Baja de contacto por enlace. Sin sesión y ANTES del candado de licencia, por
 // la misma razón que el actualizador y una más: quien recibe un mensaje no
 // tiene cuenta aquí, y revocar la autorización de datos no puede depender de

@@ -27,7 +27,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const pool = require('../config/db');
-const { buscarEnlaceActivo, buscarVotantePorToken, registrarVoto } = require('../config/yaVotoEnlace');
+const { buscarEnlaceActivo, buscarVotantePorToken, registrarVoto, baseDelSitio } = require('../config/yaVotoEnlace');
 const { aplicarBajaDeFicha } = require('../config/bajaContacto');
 const { confirmacionDeBaja, ANTES, LISTO } = require('../config/paginaBaja');
 
@@ -39,12 +39,64 @@ function esc(t) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function pagina({ titulo, cuerpo, extra = '', ok = false }) {
+/* LA TARJETA (vista previa) del enlace. WhatsApp y Google Mensajes piden el enlace por su cuenta al
+   escribir el mensaje y arman una tarjeta con lo que haya en <head>: con estos metadatos sale una
+   tarjeta grande, con el ✓, que se toca como un botón. NO se pueden poner botones de verdad en un
+   SMS ni en el WhatsApp que se manda con wa.me; esto es lo más cercano.
+
+   Quien pide la vista previa es un ROBOT, no la persona, y la ve cualquiera que mire el celular: por eso
+   NADA del votante entra aquí —ni nombre, ni puesto, ni mesa— y los metadatos son IDÉNTICOS para un
+   token válido, inexistente o vencido, y antes, durante y después del día de la elección (la misma regla
+   de respuesta idéntica de esta ruta). Que el robot pida el enlace tampoco marca nada: el GET no cambia
+   estado, el voto es un POST. */
+const TITULO_TARJETA = 'Avísanos cuando votes ✓';
+const DESCRIPCION_TARJETA = 'Toca aquí el día de la elección cuando ya hayas votado.';
+const ALT_TARJETA = 'Ya voté: toca aquí cuando votes';
+
+let marcaEnMemoria = { texto: '', hasta: 0 };
+/** El nombre de la campaña (`marca_titulo`), con memoria de 5 minutos: lo piden los robots, sin sesión. */
+async function nombreDeLaCampana() {
+  if (Date.now() < marcaEnMemoria.hasta) return marcaEnMemoria.texto;
+  let texto = '';
+  try {
+    const [[c]] = await pool.query('SELECT marca_titulo FROM configuracion_campana WHERE id = 1');
+    texto = String((c && c.marca_titulo) || '').trim();
+  } catch (_) { /* sin nombre: la tarjeta sale igual */ }
+  marcaEnMemoria = { texto, hasta: Date.now() + 5 * 60 * 1000 };
+  return texto;
+}
+
+/** Los <meta> de la tarjeta grande «Ya voté». La imagen va con URL ABSOLUTA, del dominio de la licencia (nunca de la cabecera Host). */
+async function metasDeLaTarjeta() {
+  const marca = await nombreDeLaCampana();
+  const base = baseDelSitio();
+  const imagen = base ? `${base}/img/ya-vote-og.png` : '';
+  return [
+    `<meta property="og:type" content="website">`,
+    marca ? `<meta property="og:site_name" content="${esc(marca)}">` : '',
+    `<meta property="og:title" content="${esc(TITULO_TARJETA)}">`,
+    `<meta property="og:description" content="${esc(DESCRIPCION_TARJETA)}">`,
+    `<meta name="description" content="${esc(DESCRIPCION_TARJETA)}">`,
+    imagen ? `<meta property="og:image" content="${esc(imagen)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(ALT_TARJETA)}">` : '',
+    `<meta name="twitter:card" content="summary_large_image">`,
+  ].filter(Boolean).join('\n');
+}
+
+/** La página de la BAJA no lleva tarjeta grande —sólo título— para no confundirla con «Ya voté». */
+const METAS_BAJA = `<meta property="og:type" content="website">
+<meta property="og:title" content="Dejar de recibir mensajes">
+<meta name="twitter:card" content="summary">`;
+
+function pagina({ titulo, cuerpo, extra = '', ok = false, head = '', tituloPestana = null }) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<title>${esc(titulo)}</title>
+<title>${esc(tituloPestana || titulo)}</title>
+${head}
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
          background: #F3F5F8; color: #161B26; margin: 0;
@@ -135,8 +187,9 @@ router.get('/:token', async (req, res) => {
       // La BAJA: no mira la fecha ni la vigencia. Muestra la confirmación; NO da de baja
       // (un GET no cambia nada: los clientes de SMS abren los enlaces por su cuenta).
       const v = await buscarVotantePorToken(req.params.token);
-      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      if (!v) return res.status(404).send(pagina({ ...BAJA_NO_VALIDA, head: METAS_BAJA }));
       return res.send(pagina({
+        head: METAS_BAJA,
         titulo: ANTES.titulo,
         cuerpo: ANTES.cuerpo,
         // El botón (config/paginaBaja.js, el mismo bloque que /b) es lo único que da la baja:
@@ -145,15 +198,19 @@ router.get('/:token', async (req, res) => {
       }));
     }
     const fila = await buscarEnlaceActivo(req.params.token);
-    if (!fila) return res.status(404).send(pagina(NO_ACTIVO));
+    // La tarjeta se arma ANTES de mirar si hay fila, y es la misma en las tres respuestas de abajo.
+    const head = await metasDeLaTarjeta();
+    if (!fila) return res.status(404).send(pagina({ ...NO_ACTIVO, head, tituloPestana: TITULO_TARJETA }));
     const hola = primerNombre(fila.nombre);
     if (fila.voto_en) {
       return res.send(pagina({
+        head, tituloPestana: TITULO_TARJETA,
         titulo: hola ? `Hola, ${hola}` : 'Hola',
         cuerpo: 'Gracias, ya teníamos tu voto.', ok: true, extra: ENLACE_BAJA,
       }));
     }
     res.send(pagina({
+      head, tituloPestana: TITULO_TARJETA,
       titulo: hola ? `Hola, ${hola}` : 'Hola',
       cuerpo: 'Cuando hayas votado, avísanos con un toque.',
       extra: `${lugar(fila)}
@@ -174,12 +231,14 @@ router.post('/:token', async (req, res) => {
       // Misma baja que /b (`aplicarBajaDeFicha`): marca a la persona y a las fichas que
       // comparten su teléfono o correo, con origen «enlace».
       const v = await buscarVotantePorToken(req.params.token);
-      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      if (!v) return res.status(404).send(pagina({ ...BAJA_NO_VALIDA, head: METAS_BAJA }));
       await aplicarBajaDeFicha(pool, 'votantes', v.votante_id);
       return res.send(pagina({ titulo: LISTO.titulo, cuerpo: LISTO.cuerpo, ok: true }));
     }
     const fila = await buscarEnlaceActivo(req.params.token);
-    if (!fila) return res.status(404).send(pagina(NO_ACTIVO));
+    // Misma página que el GET, byte a byte (también con la tarjeta): quien pide por POST no debe
+    // poder distinguir «no existe» de «no es el día» por una diferencia que el GET no tiene.
+    if (!fila) return res.status(404).send(pagina({ ...NO_ACTIVO, head: await metasDeLaTarjeta(), tituloPestana: TITULO_TARJETA }));
     const r = await registrarVoto({
       votanteId: fila.votante_id, puestoId: fila.puesto_id, origen: 'enlace', marcadoPor: null,
     });
