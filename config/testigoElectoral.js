@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { geocodificarDireccion } = require('./geocoder');
 const { aspiranteDe, subarbolSql, filtroTestigosMadre } = require('../lib/ramas');
+const { normalizarCedula, buscarFichaPorCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 
 /**
  * A diferencia de Coordinador/Líder (que se georreferencian por su
@@ -181,13 +182,15 @@ async function supervisorDelTestigo(pool, usuarioId) {
       LIMIT 1`, [usuarioId]);
   if (propia && propia.supervisor_id) return propia.supervisor_id;
 
+  /* Como votante: la ficha con la MISMA cédula que la cuenta, escrita como esté en cada tabla («1.053…» = «1053…»).
+     Se busca por la función común (por el índice, y solo si no hay se barren las variantes) y no con una unión
+     normalizada en SQL: aquí la cuenta es UNA fila, y la unión barrería todos los votantes en cada llamada. */
+  const [[cuenta]] = await pool.query('SELECT numero_identificacion FROM usuarios WHERE id = ?', [usuarioId]);
+  const fichaId = cuenta ? await buscarFichaPorCedula(pool, normalizarCedula(cuenta.numero_identificacion)) : null;
+  if (!fichaId) return null;
   const [[comoVotante]] = await pool.query(
-    `SELECT COALESCE(v.sublider_id, v.lider_id) AS jefe
-       FROM usuarios u JOIN votantes v ON v.cedula = u.numero_identificacion
-      WHERE u.id = ? AND u.numero_identificacion IS NOT NULL
-        AND COALESCE(v.sublider_id, v.lider_id) IS NOT NULL
-      LIMIT 1`, [usuarioId]);
-  return comoVotante ? comoVotante.jefe : null;
+    `SELECT COALESCE(sublider_id, lider_id) AS jefe FROM votantes WHERE id = ?`, [fichaId]);
+  return comoVotante && comoVotante.jefe ? comoVotante.jefe : null;
 }
 
 async function asegurarEstructuraTestigo(pool, usuarioId, datosVotacion, tipoTestigo, mesasAsignadas, opciones = {}) {
@@ -277,12 +280,10 @@ async function resolverOCrearUsuarioParaTestigo(pool, { nombre, cedula, email, t
     return { usuarioId: null, motivo: 'Falta el Número de identificación.' };
   }
   const emailLimpio = (email || '').trim().toLowerCase() || null;
-  const [[existente]] = await pool.query(
-    emailLimpio
-      ? `SELECT id FROM usuarios WHERE email = ? OR numero_identificacion = ? LIMIT 1`
-      : `SELECT id FROM usuarios WHERE numero_identificacion = ? LIMIT 1`,
-    emailLimpio ? [emailLimpio, cedula] : [cedula]
-  );
+  // Por correo, o por cédula escrita como sea («1.053…» y «1053…» son la misma cuenta).
+  let existente = null;
+  if (emailLimpio) [[existente]] = await pool.query(`SELECT id FROM usuarios WHERE email = ? LIMIT 1`, [emailLimpio]);
+  if (!existente) existente = await buscarUsuarioPorCedula(pool, normalizarCedula(cedula));
   if (existente) {
     return { usuarioId: existente.id, creado: false };
   }

@@ -33,6 +33,7 @@ const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { registrarAuditoria } = require('../config/auditoria');
 const { asegurarEstructuraTestigo } = require('../config/testigoElectoral');
 const diaD = require('./diaD.routes').compartido;
+const { normalizarCedula } = require('../lib/normalizarCedula');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const {
   cargarTestigos, repartirPorPuesto, acotaDeLaCampana, leerLimiteDeMesas, cargarUbicaciones, listaEnPalabras,
@@ -208,7 +209,8 @@ router.get('/puesto/:id', async (req, res) => {
 
     /* LOS SUGERIDOS: gente de la campaña que VOTA en este puesto y todavía no es testigo. */
     const idsTestigos = new Set(todos.map(t => t.usuario_id));
-    const cedulasTestigos = new Set(todos.map(t => t.numero_identificacion).filter(Boolean));
+    // Normalizadas (solo dígitos): «1.053…» y «1053…» son la misma persona al cotejar votantes con cuentas.
+    const cedulasTestigos = new Set(todos.map(t => normalizarCedula(t.numero_identificacion)).filter(Boolean));
     const acota = await acotaDeLaCampana(pool, dueno);
     const [usuarios] = await pool.query(
       `SELECT u.id AS usuario_id, u.nombre, u.telefono, u.numero_identificacion, u.no_contactar,
@@ -227,7 +229,7 @@ router.get('/puesto/:id', async (req, res) => {
         mesa: u.mesa_votacion || null, cargo: etiquetas[u.cargo] || u.cargo, no_contactar: !!u.no_contactar,
         cedula: u.numero_identificacion || null, estructura_id: u.estructura_id,
       }));
-    const cedulasUsuarios = new Set(usuarios.map(u => u.numero_identificacion).filter(Boolean));
+    const cedulasUsuarios = new Set(usuarios.map(u => normalizarCedula(u.numero_identificacion)).filter(Boolean));
 
     const a = req.alcance ? { sql: condicionAlcanceVotantes(req.alcance, 'v'), valores: parametrosAlcanceVotantes(req.alcance) } : null;
     let sugeridosVotantes = [];
@@ -238,7 +240,7 @@ router.get('/puesto/:id', async (req, res) => {
           WHERE (v.puesto_id = ? OR v.puesto_votacion = ?) AND ${a.sql}
           ORDER BY v.nombre LIMIT 300`, [puesto.id, puesto.nombre, ...a.valores]);
       sugeridosVotantes = votantes
-        .filter(v => !(v.cedula && (cedulasTestigos.has(v.cedula) || cedulasUsuarios.has(v.cedula))))
+        .filter(v => { const c = normalizarCedula(v.cedula); return !(c && (cedulasTestigos.has(c) || cedulasUsuarios.has(c))); })
         .map(v => ({
           tipo: 'votante', votante_id: v.id, nombre: v.nombre, telefono: v.telefono || '', email: v.email || '',
           cedula: v.cedula || null, mesa: v.mesa_votacion || null,

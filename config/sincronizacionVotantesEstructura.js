@@ -25,6 +25,7 @@
  * duplicados sueltos cada vez que se guarda).
  */
 const { ramaDeVotante } = require('../lib/ramas');
+const { normalizarCedula, sqlCedulaNormalizada, buscarFichaConCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 
 /**
  * Busca la ficha de Votante de ESTA MISMA persona cuando la cédula no
@@ -54,7 +55,7 @@ async function buscarFichaDeLaMismaPersona(pool, cedula, nombre, telefono) {
     `SELECT id, cedula FROM votantes
       WHERE TRIM(nombre) = ?
         AND REGEXP_REPLACE(COALESCE(telefono, ''), '[^0-9]', '') = ?
-        AND (cedula IS NULL OR cedula = '' OR cedula <> ?)
+        AND (cedula IS NULL OR cedula = '' OR ${sqlCedulaNormalizada('cedula')} <> ?)
       ORDER BY id LIMIT 1`,
     [nom, soloDigitos, cedula]
   );
@@ -62,9 +63,15 @@ async function buscarFichaDeLaMismaPersona(pool, cedula, nombre, telefono) {
 }
 
 async function sincronizarVotanteDesdeEstructura(pool, datos) {
-  const cedula = (datos.numero_identificacion || '').trim();
-  if (!cedula) return;
+  /* LA CÉDULA SE GUARDA NORMALIZADA (solo dígitos, sin ceros a la izquierda) y la ficha se busca escrita como esté:
+     la cuenta de Estructura puede traer «1.053.123.456» y la ficha de Votantes estar guardada como «1053123456», o al
+     revés. Si ya hay una ficha de esa persona con otra forma de escribirla, se usa ESA escritura tal cual (sin reescribirla)
+     como llave del INSERT, para que el ON DUPLICATE KEY la encuentre en vez de crear una segunda. */
+  const cedulaNormalizada = normalizarCedula(datos.numero_identificacion);
+  if (!cedulaNormalizada) return;
   try {
+    const fichaExistente = await buscarFichaConCedula(pool, cedulaNormalizada);
+    const cedula = fichaExistente ? fichaExistente.cedula : cedulaNormalizada;
     /* UN CAMBIO DE CÉDULA MUEVE LA FICHA; NO CREA OTRA.
        Este INSERT cruza por `cedula`, que es UNIQUE. Si a alguien se le
        corrige la cédula en Estructura, la nueva no cruza con nada y el
@@ -81,12 +88,13 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
        Medido en la campaña de prueba municipal el 30 de agosto de 2026: tres
        fichas así, una de ellas creada ese mismo día al corregirle la cédula a
        un sublíder. */
-    const cedulaAnterior = String(datos.cedula_anterior || '').trim();
-    if (cedulaAnterior && cedula && cedulaAnterior !== cedula) {
+    const cedulaAnterior = normalizarCedula(datos.cedula_anterior);
+    if (cedulaAnterior && cedulaAnterior !== cedulaNormalizada) {
       try {
         await pool.query(
-          `UPDATE votantes SET cedula = ? WHERE cedula = ? AND origen = 'estructura'`,
-          [cedula, cedulaAnterior]);
+          `UPDATE votantes SET cedula = ?
+            WHERE origen = 'estructura' AND (cedula = ? OR ${sqlCedulaNormalizada('cedula')} = ?)`,
+          [cedulaNormalizada, cedulaAnterior, cedulaAnterior]);
       } catch (err) {
         /* Si la cédula nueva ya la tiene otra ficha, el UNIQUE lo impide y se
            deja como estaba: el INSERT de abajo actualizará esa otra, que es lo
@@ -100,11 +108,11 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
     // `ON DUPLICATE KEY` de abajo la encuentra y actualiza esa ficha en
     // vez de crear una nueva. Es seguro cambiarla porque acabamos de
     // comprobar que ninguna otra fila la tiene.
-    const [[yaConEsaCedula]] = await pool.query(`SELECT id FROM votantes WHERE cedula = ?`, [cedula]);
+    const yaConEsaCedula = fichaExistente || await buscarFichaConCedula(pool, cedulaNormalizada);
     if (!yaConEsaCedula) {
-      const equivalente = await buscarFichaDeLaMismaPersona(pool, cedula, datos.nombre, datos.telefono);
+      const equivalente = await buscarFichaDeLaMismaPersona(pool, cedulaNormalizada, datos.nombre, datos.telefono);
       if (equivalente) {
-        await pool.query(`UPDATE votantes SET cedula = ? WHERE id = ?`, [cedula, equivalente.id]);
+        await pool.query(`UPDATE votantes SET cedula = ? WHERE id = ?`, [cedulaNormalizada, equivalente.id]);
         console.log(`Votante ${equivalente.id}: se unificó la cédula (${equivalente.cedula || 'vacía'} -> ${cedula}) con la ficha de Estructura territorial, en vez de crear un registro duplicado.`);
       }
     }
@@ -201,10 +209,11 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
  * Estructura, no hace nada (la mayoría de los votantes no lo son).
  */
 async function sincronizarEstructuraDesdeVotante(pool, datos) {
-  const cedula = (datos.cedula || '').trim();
+  const cedula = normalizarCedula(datos.cedula);
   if (!cedula) return;
   try {
-    const [[usuario]] = await pool.query(`SELECT id FROM usuarios WHERE numero_identificacion = ?`, [cedula]);
+    // La cuenta se busca por la cédula escrita como esté («1.053…» o «1053…»).
+    const usuario = await buscarUsuarioPorCedula(pool, cedula);
     if (!usuario) return;
     await pool.query(
       `UPDATE usuarios SET
@@ -243,10 +252,11 @@ async function sincronizarEstructuraDesdeVotante(pool, datos) {
  * no lo borre por no venir en la fila del Excel.
  */
 async function traerVotanteActualPorCedula(pool, cedula) {
-  if (!cedula) return null;
+  const ficha = await buscarFichaConCedula(pool, normalizarCedula(cedula));
+  if (!ficha) return null;
   const [[fila]] = await pool.query(
-    `SELECT apoya_a, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion FROM votantes WHERE cedula = ?`,
-    [cedula]
+    `SELECT apoya_a, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion FROM votantes WHERE id = ?`,
+    [ficha.id]
   );
   return fila || null;
 }

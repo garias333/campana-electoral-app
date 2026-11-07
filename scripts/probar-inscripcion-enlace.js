@@ -1076,6 +1076,189 @@ const F = (codigo, huella, extra = {}) => ({
   ok(/estrategia-v157/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker subió a v157');
   } // fin del bloque de la orden 29
 
+  console.log('\n== Cédulas sin duplicados en el alta, la edición, la importación y los cruces (orden 30)');
+  { // bloque propio
+  const path = require('path');
+  const bcrypt = require('bcryptjs');
+  const XLSX = require('xlsx');
+  const { spawnSync } = require('child_process');
+  const { validarCedula } = require('../lib/validarCedula');
+  const { normalizarCedula, buscarFichaConCedula, mapaDeFichasPorCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
+  const ramasLib = require('../lib/ramas');
+  const { supervisorDelTestigo } = require('../config/testigoElectoral');
+  const sync = require('../config/sincronizacionVotantesEstructura');
+  const { reporte, imprimir } = require('./reporte-cedulas');
+
+  await pool.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [await bcrypt.hash('clave-prueba', 4), admin]);
+  const cuentaFichas = async (digitos) => (await q("SELECT COUNT(*) c FROM votantes WHERE cedula IS NOT NULL AND TRIM(LEADING '0' FROM REGEXP_REPLACE(cedula, '[^0-9]', '')) = ?", [digitos]))[0].c;
+  const alta = (cuerpo, quien = l1) => pedir('POST', '/api/votantes', { usuario: U(quien, 'lider'), json: { categoria: 'votante', telefono: '3310000000', consentimiento_autorizado: true, nombre: 'Persona Alta Prueba', ...cuerpo } });
+
+  console.log('  -- alta normal: se guarda solo con dígitos');
+  const a1 = await alta({ cedula: '1.053.777.001', telefono: '3310000001' });
+  ok(a1.status === 200 && (await q("SELECT cedula c FROM votantes WHERE id = ?", [a1.datos.id]))[0].c === '1053777001', 'alta con puntos «1.053.777.001»: se guarda «1053777001»', a1.datos);
+  const a2 = await alta({ cedula: ' 1 053 777 002 ', telefono: '3310000002' });
+  ok(a2.status === 200 && (await q("SELECT cedula c FROM votantes WHERE id = ?", [a2.datos.id]))[0].c === '1053777002', 'alta con espacios: solo dígitos');
+  const a3 = await alta({ cedula: '01053777003', telefono: '3310000003' });
+  ok(a3.status === 200 && (await q("SELECT cedula c FROM votantes WHERE id = ?", [a3.datos.id]))[0].c === '1053777003', 'alta con un cero delante: sin el cero');
+  const a4 = await alta({ telefono: '3310000004', nombre: 'Persona Sin Cedula' });
+  ok(a4.status === 200 && (await q("SELECT cedula c FROM votantes WHERE id = ?", [a4.datos.id]))[0].c === null, 'sin cédula sigue siendo posible (queda NULL)');
+  for (const [mala, que] of [['abc', 'letras'], ['12', 'demasiado corta'], ['0000000', 'solo ceros'], ['1-053-777-005', 'con guiones']]) {
+    const r = await alta({ cedula: mala, telefono: '3310000005' });
+    const esperado = validarCedula({ cedula: mala, primerNombre: 'Persona', primerApellido: 'Prueba' }, []).mensajes[0] || 'El número de cédula no es válido.';
+    ok(r.status === 400 && r.datos.error === esperado, `cédula «${mala}» (${que}): se rechaza con el MISMO mensaje de siempre`, { got: r.datos, esperado });
+  }
+
+  console.log('  -- alta de una variante de una cédula que ya existe');
+  const vVieja = await votante('1.053.777.010', 'Ficha Vieja Con Puntos', '3310000010', l1, { consent: true });
+  const dup1 = await alta({ cedula: '1053777010', telefono: '3310000011' });
+  ok(dup1.status === 400 && dup1.datos.error === 'Ya registrado por otro líder.', 'guardada «1.053.777.010» y escrita «1053777010»: se rechaza con el mensaje de siempre', dup1.datos);
+  const dup2 = await alta({ cedula: '01.053.777.010', telefono: '3310000012' });
+  ok(dup2.status === 400 && dup2.datos.error === 'Ya registrado por otro líder.', 'escrita con un cero y puntos: también');
+  const dup3 = await alta({ cedula: '1053777001', telefono: '3310000013' });
+  ok(dup3.status === 400 && dup3.datos.error === 'Ya registrado por otro líder.', 'y la idéntica de siempre, con el mismo mensaje');
+  ok(await cuentaFichas('1053777010') === 1 && await cuentaFichas('1053777001') === 1, '…y no se creó ninguna ficha nueva');
+  const dupAjena = await alta({ cedula: '1053777010', telefono: '3310000014' }, l2);
+  ok(dupAjena.status === 400 && dupAjena.datos.error === 'Ya registrado por otro líder.' && !/Ficha Vieja|3310000010/.test(JSON.stringify(dupAjena.datos)), 'para un líder de otra rama el mensaje es el mismo y no trae datos de la ficha');
+  const bu = await pedir('GET', '/api/votantes/buscar-por-cedula?cedula=01053777010', { usuario: U(l2, 'lider') });
+  ok(bu.status === 200 && bu.datos && bu.datos.id === vVieja, 'buscar-por-cedula (lo que consulta el formulario antes de guardar) encuentra la ficha vieja con la cédula escrita como sea');
+  const ve = await pedir('GET', '/api/votantes/verificar-identificacion?numero=1.053.777.010', { usuario: U(l1, 'lider') });
+  const ve2 = await pedir('GET', `/api/votantes/verificar-identificacion?numero=1053777010&excluir_id=${vVieja}`, { usuario: U(l1, 'lider') });
+  const ve3 = await pedir('GET', '/api/votantes/verificar-identificacion?numero=1053777999', { usuario: U(l1, 'lider') });
+  ok(ve.datos.disponible === false && ve2.datos.disponible === true && ve3.datos.disponible === true, 'verificar-identificacion: ocupada, libre para la propia ficha y libre si no existe');
+
+  console.log('  -- edición');
+  const vA = await votante('1053777020', 'Ficha Edicion A', '3310000020', l1, { consent: true });
+  const vB = await votante('1.053.777.021', 'Ficha Edicion B', '3310000021', l1, { consent: true });
+  const editar = (id, cuerpo) => pedir('PUT', `/api/votantes/${id}`, { usuario: U(admin, 'admin'), json: { categoria: 'votante', nombre: 'Ficha Edicion', telefono: '3310000099', password: 'clave-prueba', ...cuerpo } });
+  const e1x = await editar(vB, { cedula: '1053777020' });
+  ok(e1x.status === 400 && e1x.datos.error === 'Ya registrado por otro líder.' && (await q('SELECT cedula c FROM votantes WHERE id = ?', [vB]))[0].c === '1.053.777.021', 'cambiar B a la cédula de A se rechaza y B queda como estaba');
+  const e2x = await editar(vB, { cedula: '01.053.777.020' });
+  ok(e2x.status === 400 && e2x.datos.error === 'Ya registrado por otro líder.', '…también escrita con puntos y un cero');
+  const e3x = await editar(vB, { cedula: '1.053.777.021' });
+  ok(e3x.status === 200 && (await q('SELECT cedula c FROM votantes WHERE id = ?', [vB]))[0].c === '1053777021', 'guardar B con su propia cédula (vieja, con puntos) no choca consigo misma y queda normalizada');
+  const e4x = await editar(vA, { cedula: '1.053.777.020' });
+  ok(e4x.status === 200 && (await q('SELECT cedula c FROM votantes WHERE id = ?', [vA]))[0].c === '1053777020', 'editar A con puntos: se guarda solo con dígitos');
+  const e5x = await editar(vA, { cedula: 'abc' });
+  ok(e5x.status === 400, 'una cédula inválida se rechaza también al editar');
+  const e6x = await editar(vA, { cedula: '1053777030' });
+  ok(e6x.status === 200 && (await q('SELECT cedula c FROM votantes WHERE id = ?', [vA]))[0].c === '1053777030', 'cambiar a una cédula libre sí se puede');
+
+  console.log('  -- importación por Excel');
+  const vImp = await votante('1.053.778.099', 'Ficha Para Actualizar Por Excel', '3310000098', l1, { consent: true });
+  const importar = async (filas) => {
+    const hoja = XLSX.utils.aoa_to_sheet([['ID', 'Nombres y apellidos', 'Número de identificación', 'Teléfono'], ...filas]);
+    const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, hoja, 'Votantes');
+    const buf = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+    const fd = new FormData(); fd.append('archivo', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'votantes.xlsx');
+    const r = await fetch(base + '/api/votantes/importar-excel', { method: 'POST', headers: { 'X-Forwarded-For': ipNueva(), 'X-Test-User': JSON.stringify(U(admin, 'admin')) }, body: fd });
+    const texto = await r.text(); let datos = null; try { datos = JSON.parse(texto); } catch (_) { /* html */ }
+    return { status: r.status, texto, datos };
+  };
+  const imp = await importar([
+    ['', 'Import Nuevo Uno', '1.053.778.001', '3330000001'],      // fila 2: se importa
+    ['', 'Import Repetido Archivo', '1053778001', '3330000002'],  // fila 3: repetida EN EL ARCHIVO (misma que la 2)
+    ['', 'Import Contra La Base', '1053777010', '3330000003'],     // fila 4: repetida CONTRA LA BASE («1.053.777.010» guardada)
+    ['', 'Import Con Cero', '01053778002', '3330000004'],          // fila 5: se importa, sin el cero
+    ['', 'Import Cedula Mala', 'abc', '3330000005'],               // fila 6: inválida
+    ['', 'Import Sin Cedula', '', '3330000006'],                   // fila 7: sin cédula, se importa
+    [vImp, 'Import Actualiza Propia', '1053778099', '3330000007'], // fila 8: actualiza SU ficha (guardada con puntos): permitido
+    [vImp, 'Import Actualiza Ajena', '1053777020x', '3330000008'], // fila 9: cédula con una letra: inválida
+  ]);
+  ok(imp.status === 200 && imp.datos.insertados === 3 && imp.datos.actualizados === 1, 'importa las que corresponden: 3 nuevas y 1 actualizada', imp.datos);
+  const rep = imp.datos.cedulasRepetidas || [];
+  ok(rep.length === 2 && rep[0].fila === 3 && rep[0].donde === 'archivo' && rep[0].cedula === '***001' && rep[0].otraFila === 2 && rep[1].fila === 4 && rep[1].donde === 'base' && rep[1].cedula === '***010',
+     'las repetidas se saltan y se reportan con su número de fila (3: del archivo, 4: de la base) y la cédula enmascarada', rep);
+  ok(!/1053778001|1053777010|1\.053\.7/.test(imp.texto), 'la respuesta NO trae ninguna cédula completa');
+  ok((imp.datos.errores || []).some(e => e.fila === 3 && /repetida/i.test(e.error)) && (imp.datos.errores || []).some(e => e.fila === 6) && (imp.datos.errores || []).some(e => e.fila === 9), 'las repetidas y las inválidas aparecen también en «errores» (lo que ya muestra la pantalla)');
+  ok(await cuentaFichas('1053778001') === 1 && await cuentaFichas('1053778002') === 1 && await cuentaFichas('1053777010') === 1, 'en la base: una sola ficha por cédula');
+  ok((await q("SELECT cedula c FROM votantes WHERE nombre = 'Import Nuevo Uno'"))[0].c === '1053778001' && (await q("SELECT cedula c FROM votantes WHERE nombre = 'Import Con Cero'"))[0].c === '1053778002', 'lo importado queda con solo dígitos');
+  ok((await q("SELECT cedula c FROM votantes WHERE id = ?", [vImp]))[0].c === '1053778099', 'la fila que actualiza su propia ficha no choca consigo misma y deja la cédula normalizada');
+  ok((await q("SELECT COUNT(*) c FROM votantes WHERE nombre = 'Import Cedula Mala' OR nombre = 'Import Repetido Archivo' OR nombre = 'Import Contra La Base'"))[0].c === 0, 'las saltadas no entraron');
+  const imp2 = await importar([[vImp, 'Import Actualiza Ajena', '1.053.777.020', '3330000008']]);   // la cédula de la ficha A (1053777030 ahora; la 020 quedó libre)
+  const imp3 = await importar([[vImp, 'Import Actualiza Ajena', '1.053.777.021', '3330000008']]);   // la cédula de B (1053777021)
+  ok(imp3.datos.actualizados === 0 && (imp3.datos.cedulasRepetidas || []).length === 1 && imp3.datos.cedulasRepetidas[0].donde === 'base', 'modo actualizar con la cédula de OTRA ficha (escrita con puntos): se salta', imp3.datos);
+  ok(imp2.datos.actualizados === 1, 'y con una cédula libre sí actualiza', imp2.datos);
+  const jsonImp = await pedir('POST', '/api/votantes/importar', { usuario: U(admin, 'admin'), json: { registros: [
+    { nombre: 'Json Nuevo Uno', cedula: '1.053.778.201' }, { nombre: 'Json Repetido', cedula: '1053778201' }, { nombre: 'Json Contra Base', cedula: '01053777010' }, { nombre: 'Json Mala', cedula: 'zzz' },
+  ] } });
+  ok(jsonImp.status === 200 && jsonImp.datos.insertados === 1 && (jsonImp.datos.cedulasRepetidas || []).length === 2 && (await q("SELECT cedula c FROM votantes WHERE nombre = 'Json Nuevo Uno'"))[0].c === '1053778201', 'la importación JSON (/importar) aplica las mismas reglas', jsonImp.datos);
+
+  console.log('  -- cruces con usuarios, escritos distinto en cada tabla');
+  const rolLider = (await q("SELECT id FROM roles WHERE nombre = 'lider'"))[0].id;
+  const cuenta = async (numero, nombre) => (await pool.query(
+    `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, password_hash, rol_id, activo) VALUES (?, ?, ?, 'x', ?, 1)`,
+    [nombre, numero, 'u' + String(numero).replace(/\D/g, ''), rolLider]))[0].insertId;
+  const uPunt = await cuenta('1.053.779.001', 'Cuenta Con Puntos Uno');
+  const fLimpia = await votante('1053779001', 'Ficha Limpia Uno', '3340000001', l1, { consent: true });
+  await estructura(uPunt, 'lider', coord);
+  ok((await buscarUsuarioPorCedula(pool, '1053779001')).id === uPunt && (await buscarUsuarioPorCedula(pool, normalizarCedula('01.053.779.001'))).id === uPunt && (await buscarUsuarioPorCedula(pool, '1053779999')) === null, 'buscarUsuarioPorCedula: cuenta «1.053.779.001» se encuentra con la cédula limpia, con ceros o con puntos');
+  ok(await ramasLib.usuarioDeVotante(pool, { cedula: '1053779001' }) === uPunt && await ramasLib.usuarioDeVotante(pool, { cedula: '1.053.779.001' }) === uPunt, 'lib/ramas: la ficha «1053779001» casa con la cuenta «1.053.779.001» (y al revés)');
+  const lista = await pedir('GET', '/api/votantes?limit=1000', { usuario: U(admin, 'admin') });
+  const filaLista = (lista.datos.data || []).find(x => x.id === fLimpia);
+  ok(lista.status === 200 && filaLista && filaLista.cargo_estructura === 'lider', 'el LISTADO de votantes (unión SQL normalizada) reconoce que esa ficha es la de la cuenta con puntos', filaLista && filaLista.cargo_estructura);
+  const uLimpia = await cuenta('1053779002', 'Cuenta Limpia Dos');
+  const fPunt = await votante('1.053.779.002', 'Ficha Con Puntos Dos', '3340000002', l1, { consent: true });
+  await estructura(uLimpia, 'lider', coord);
+  const lista2 = await pedir('GET', '/api/votantes?limit=1000', { usuario: U(admin, 'admin') });
+  ok(((lista2.datos.data || []).find(x => x.id === fPunt) || {}).cargo_estructura === 'lider', 'y al revés: ficha «1.053.779.002» con cuenta «1053779002»');
+  const exp = await fetch(base + '/api/votantes/exportar-excel', { headers: { 'X-Test-User': JSON.stringify(U(admin, 'admin')), 'X-Forwarded-For': ipNueva() } });
+  ok(exp.status === 200, 'la exportación sigue funcionando con la unión normalizada');
+  const total = await pedir('GET', '/api/votantes?limit=5', { usuario: U(admin, 'admin') });
+  ok(total.status === 200 && Number(total.datos.total) > 50, 'el conteo del listado también (misma unión)', total.datos && total.datos.total);
+  const sim = await ramasLib.recalcularTodas(pool, { simular: true });
+  ok(sim && sim.revisados > 50 && Array.isArray(sim.cambios), 'recalcularTodas (unión de ramas) corre con la comparación normalizada', sim && sim.revisados);
+  const uTest = await cuenta('1.053.779.003', 'Cuenta Testigo Tres');
+  await votante('1053779003', 'Ficha Del Testigo Tres', '3340000003', l1, { consent: true });
+  ok(await supervisorDelTestigo(pool, uTest) === l1, 'supervisorDelTestigo: la cuenta «1.053.779.003» encuentra a su jefe por la ficha «1053779003»');
+
+  console.log('  -- sincronización con Estructura territorial');
+  const uSync = await cuenta('1.053.779.004', 'Cuenta Sync Cuatro');
+  const fSync = await votante('1053779004', 'Persona Estructura Cuatro', '3320000004', l1, { consent: true });
+  await sync.sincronizarVotanteDesdeEstructura(pool, { numero_identificacion: '1.053.779.004', nombre: 'Persona Estructura Cuatro', telefono: '3320000004', creado_por: admin, supervisor_id: l1 });
+  ok(await cuentaFichas('1053779004') === 1 && (await q('SELECT cedula c FROM votantes WHERE id = ?', [fSync]))[0].c === '1053779004', 'estructura → votantes: la cuenta con puntos NO crea una segunda ficha y no toca la cédula de la existente');
+  const fSync2 = await votante('1.053.779.007', 'Persona Estructura Siete', '3320000007', l1, { consent: true });
+  await sync.sincronizarVotanteDesdeEstructura(pool, { numero_identificacion: '1053779007', nombre: 'Persona Estructura Siete', telefono: '3320000007', creado_por: admin, supervisor_id: l1 });
+  ok(await cuentaFichas('1053779007') === 1 && (await q('SELECT cedula c FROM votantes WHERE id = ?', [fSync2]))[0].c === '1.053.779.007', 'y al revés: ficha vieja «1.053.779.007», cuenta «1053779007»: una sola ficha, sin reescribirla');
+  await sync.sincronizarVotanteDesdeEstructura(pool, { numero_identificacion: '1.053.779.005', nombre: 'Persona Estructura Cinco', telefono: '3320000005', creado_por: admin, supervisor_id: l1 });
+  ok((await q("SELECT cedula c FROM votantes WHERE nombre = 'Persona Estructura Cinco'"))[0].c === '1053779005', 'si no hay ficha, la que se crea nace normalizada');
+  await sync.sincronizarEstructuraDesdeVotante(pool, { cedula: '1053779004', nombre: 'Persona Estructura Cuatro', telefono: '3329999999' });
+  ok((await q('SELECT telefono t FROM usuarios WHERE id = ?', [uSync]))[0].t === '3329999999', 'votantes → estructura: la ficha «1053779004» actualiza a la cuenta «1.053.779.004»');
+  const traida = await sync.traerVotanteActualPorCedula(pool, '01.053.779.004');
+  ok(traida !== null, 'traerVotanteActualPorCedula la encuentra escrita de cualquier forma');
+
+  console.log('  -- sumar-a-mi-rama con la cédula escrita distinto');
+  const fRama = await votante('1053779010', 'Ficha Para Sumar', '3340000010', l1, { consent: true });
+  const U3b = U(l3, 'lider');
+  const sm0 = await pedir('POST', `/api/votantes/${fRama}/sumar-a-mi-rama`, { usuario: U3b, json: { cedula: '1.053.779.011' } });
+  const sm1 = await pedir('POST', `/api/votantes/${fRama}/sumar-a-mi-rama`, { usuario: U3b, json: { cedula: '1.053.779.010' } });
+  ok(sm0.status === 403 && sm1.status === 200 && (await q('SELECT COUNT(*) c FROM votante_ramas WHERE votante_id = ? AND aspirante_id = ?', [fRama, asp]))[0].c === 1, 'acreditar con «1.053.779.010» a la ficha «1053779010» sirve; con otra cédula, 403');
+  ok((await pedir('POST', `/api/votantes/${fRama}/sumar-a-mi-rama`, { usuario: U(l2, 'lider'), json: { cedula: '...' } })).status === 403, 'una cédula sin dígitos nunca acredita');
+
+  console.log('  -- mapa de cédulas para importaciones grandes');
+  const mapa = await mapaDeFichasPorCedula(pool, ['1053777010', '1053779001', '1053779999', '12345678']);
+  ok(mapa.get('1053777010').id === vVieja && mapa.get('1053779001').id === fLimpia && !mapa.has('1053779999'), 'mapaDeFichasPorCedula: por el índice y por las variantes (una consulta + un barrido), no por fila');
+
+  console.log('  -- scripts/reporte-cedulas.js (solo lectura)');
+  const gA = await votante('1.053.780.001', 'Reporte Duplicado Con Puntos', '3350000001', l1, { consent: true });
+  const gB = await votante('1053780001', 'Reporte Duplicado Limpio', '3350000002', l2, { consent: true });
+  await votante('1.053.780.002', 'Reporte Solo Con Puntos', '3350000003', l1, { consent: true });
+  await votante('0012345679', 'Reporte Solo Con Ceros', '3350000004', l1, { consent: true });
+  const antesCk = (await q('CHECKSUM TABLE votantes'))[0].Checksum;
+  const rp = await reporte(pool, {});
+  const grupo = rp.detalle.find(g => g.cedula === '***001' && g.miembros.some(m => m.id === gA));
+  ok(rp.grupos >= 1 && grupo && grupo.fichas === 2, 'el reporte encuentra el grupo de casi-duplicados («1.053.780.001» y «1053780001»)', rp.detalle.map(d => d.cedula));
+  ok(grupo.miembros.map(m => m.id).join() === [gA, gB].join() && grupo.miembros[0].guardada === 'con signos o espacios' && grupo.miembros[1].guardada === 'limpia', 'de cada ficha: id, cómo está guardada, en orden de creación');
+  ok(grupo.miembros[0].lider === 'Lider Uno Prueba' && grupo.miembros[1].lider === 'Lider Dos Prueba' && grupo.miembros.every(m => m.creada && /^\*\*\*\d{3}$/.test(m.cedula)), 'con el líder, la fecha de creación y la cédula enmascarada (últimos 3 dígitos)');
+  ok(rp.sin_normalizar >= 4 && rp.con_ceros >= 1 && rp.sin_normalizar_sin_duplicado >= 2 && rp.sin_normalizar_sin_duplicado < rp.sin_normalizar, 'cuenta las guardadas con signos o ceros, y de ellas las que NO tienen duplicado', { n: rp.sin_normalizar, sin: rp.sin_normalizar_sin_duplicado });
+  const salida = imprimir(rp, 'simulada');
+  ok(!/1053780001|1053780002|0012345679|1\.053\.780/.test(salida + JSON.stringify(rp)), 'ni el informe ni su JSON traen una cédula completa');
+  ok((await q('CHECKSUM TABLE votantes'))[0].Checksum === antesCk, 'el reporte no modifica nada (checksum de la tabla igual antes y después)');
+  const cli = spawnSync(process.execPath, [path.join(__dirname, 'reporte-cedulas.js')], { env: process.env, encoding: 'utf8', cwd: path.join(__dirname, '..') });
+  ok(cli.status === 2 && /REPORTE DE CÉDULAS/.test(cli.stdout) && /HAY \d+ grupo/.test(cli.stdout) && !/1053780001/.test(cli.stdout), 'por la línea de comandos: sale con código 2 cuando hay casi-duplicados, y no imprime cédulas completas', { status: cli.status, err: cli.stderr && cli.stderr.slice(0, 200) });
+  ok((await q('CHECKSUM TABLE votantes'))[0].Checksum === antesCk, '…y tampoco modifica nada');
+  } // fin del bloque de la orden 30
+
+
 
 
 

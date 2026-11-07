@@ -20,6 +20,7 @@
  */
 const pool = require('./db');
 const { recalcularTodas } = require('../lib/ramas');
+const { normalizarCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 
 /**
  * Deja `sublicencias` igual a lo que dice el Servidor de Licencias.
@@ -37,8 +38,8 @@ async function sincronizar(lista) {
       const cedula = String(s.cedula || '').trim();
       if (!cedula) continue;
 
-      const [[u]] = await pool.query(
-        'SELECT id FROM usuarios WHERE numero_identificacion = ? LIMIT 1', [cedula]);
+      // La cédula de la sublicencia puede venir con puntos y la cuenta estar guardada sin ellos, o al revés.
+      const u = await buscarUsuarioPorCedula(pool, normalizarCedula(cedula));
 
       if (!u) {
         // NO se calla: una sublicencia vendida cuya persona no existe en esta

@@ -53,7 +53,7 @@ const { transliterarSms } = require('../lib/transliterarSms');
 const { analizarTexto } = require('../lib/sms');
 const geocoder = require('./geocoder');
 const { atribucionDe } = require('./inscripcionEnlace');
-const { normalizarCedula, sqlCedulaNormalizada, finDeCedula } = require('../lib/normalizarCedula');
+const { normalizarCedula, finDeCedula, buscarFichaPorCedula } = require('../lib/normalizarCedula');
 
 const sha256 = (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
 const ultimos10 = (t) => String(t || '').replace(/\D/g, '').slice(-10);
@@ -106,22 +106,6 @@ async function anotarRechazo({ enlaceId, motivo, telefonoHash = null, ip, navega
   } catch (err) {
     console.error('No se pudo anotar el rechazo de inscripción:', err.code || err.message);
   }
-}
-
-/**
- * El id de la ficha que ya tiene esta cédula, o null. Dos pasos: el exacto (por el índice UNIQUE) y, si no hay,
- * las variantes guardadas con puntos, espacios o ceros a la izquierda (sin índice: solo se paga cuando la cédula
- * es nueva, y el prefiltro descarta de entrada las filas ya normalizadas). Sin FOR UPDATE a propósito: un
- * barrido con bloqueo cerraría todas las filas que recorre; la ficha encontrada se bloquea aparte, por su id.
- */
-async function buscarFichaPorCedula(cx, cedulaNormalizada) {
-  if (!cedulaNormalizada) return null;
-  const [[exacta]] = await cx.query('SELECT id FROM votantes WHERE cedula = ? LIMIT 1', [cedulaNormalizada]);
-  if (exacta) return exacta.id;
-  const [[variante]] = await cx.query(
-    `SELECT id FROM votantes
-      WHERE cedula REGEXP '[^0-9]|^0' AND ${sqlCedulaNormalizada('cedula')} = ? LIMIT 1`, [cedulaNormalizada]);
-  return variante ? variante.id : null;
 }
 
 async function leerFichaParaActualizar(cx, id) {

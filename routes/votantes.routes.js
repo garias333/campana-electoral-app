@@ -15,6 +15,9 @@ const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { validarCedula } = require('../lib/validarCedula');
+// UNA regla de «es la misma cédula» para todas las entradas (orden 30): ver lib/normalizarCedula.js.
+const { normalizarCedula, enmascararCedula, buscarFichaConCedula, buscarFichaPorCedula,
+        mapaDeFichasPorCedula, buscarUsuarioPorCedula, sqlCedulaNormalizada } = require('../lib/normalizarCedula');
 const { asegurarEstructuraTestigo, resolverOCrearUsuarioParaTestigo } = require('../config/testigoElectoral');
 const { sincronizarEstructuraDesdeVotante } = require('../config/sincronizacionVotantesEstructura');
 // Los territorios de una persona de la estructura se escriben SOLO por este módulo.
@@ -58,6 +61,18 @@ function revisarCedula(b) {
     avisos: r.nivel === 'advertencia' ? r.mensajes : [],
   };
 }
+
+/**
+ * DESPUÉS de revisarCedula (que valida lo que se tecleó, con los mismos mensajes de siempre: acepta puntos y
+ * espacios): lo que se GUARDA es solo dígitos y sin ceros a la izquierda. «1.053.123.456» y «01053123456» quedan
+ * como «1053123456». Vacío, o sin cédula, queda null.
+ */
+function normalizarCedulaDelCuerpo(b) {
+  b.cedula = (b.cedula != null && String(b.cedula).trim() !== '') ? (normalizarCedula(b.cedula) || null) : null;
+}
+
+/** La unión de `votantes` con `usuarios` por cédula, comparando NORMALIZADO de los dos lados (ver la nota de la orden 30 en ESTADO.md: medido, no es más lento). */
+const SQL_UNION_USUARIO_POR_CEDULA = `${sqlCedulaNormalizada('ut.numero_identificacion')} = ${sqlCedulaNormalizada('v.cedula')}`;
 
 router.use(requireAuth, calcularAlcance);
 
@@ -298,7 +313,7 @@ router.get('/', async (req, res) => {
        LEFT JOIN territorios padre ON padre.id = t.padre_id
        LEFT JOIN usuarios u ON u.id = v.lider_id
        LEFT JOIN usuarios sub ON sub.id = v.sublider_id
-       LEFT JOIN usuarios ut ON ut.numero_identificacion = v.cedula
+       LEFT JOIN usuarios ut ON ${SQL_UNION_USUARIO_POR_CEDULA}
        -- Se engancha UNA sola fila de testigo, la más reciente. Con un
        -- LEFT JOIN corriente (et.usuario_id = ut.id AND cargo='testigo'),
        -- si una persona llegara a tener dos filas de testigo, su fila de
@@ -330,7 +345,7 @@ router.get('/', async (req, res) => {
        FROM votantes v
        LEFT JOIN territorios t ON t.id = v.territorio_id
        LEFT JOIN territorios padre ON padre.id = t.padre_id
-       LEFT JOIN usuarios ut ON ut.numero_identificacion = v.cedula
+       LEFT JOIN usuarios ut ON ${SQL_UNION_USUARIO_POR_CEDULA}
        ${whereSql}`,
       params
     );
@@ -519,7 +534,7 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       LEFT JOIN usuarios lider ON lider.id = v.lider_id
       -- Hace falta para el filtro de Área, que mira la Estructura: sin él,
       -- exportar con ese filtro puesto fallaría igual que el conteo.
-      LEFT JOIN usuarios ut ON ut.numero_identificacion = v.cedula
+      LEFT JOIN usuarios ut ON ${SQL_UNION_USUARIO_POR_CEDULA}
       ${whereSql}
       ORDER BY v.nombre
     `, params);
@@ -627,6 +642,16 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       return ramaPorLider.get(idLider);
     };
 
+    /* LAS CÉDULAS REPETIDAS (orden 30). Una fila cuya cédula —normalizada: «1.053…» y «1053…» son la misma— ya está
+       en la base, o en una fila anterior del mismo archivo, se SALTA y queda en el resumen con su número de fila y la
+       cédula enmascarada. La base se consulta UNA vez para todo el archivo (no una vez por fila: un Excel de 5.000
+       filas contra 200.000 fichas no se puede barrer 5.000 veces). */
+    const cedulaCruda = (f) => String(f['Número de identificación'] || f.Cédula || f.Cedula || f.cedula || '').trim();
+    const cedulasDelArchivo = filas.map(f => normalizarCedula(cedulaCruda(f))).filter(Boolean);
+    const fichasPorCedula = await mapaDeFichasPorCedula(pool, cedulasDelArchivo);
+    const cedulaVistaEnFila = new Map();      // cédula normalizada → fila (Excel) donde sí se importó
+    const cedulasRepetidas = [];              // { fila, donde: 'archivo' | 'base', cedula: '***456', otraFila? }
+
     for (const [i, fila] of filas.entries()) {
       const idFila = String(fila['ID'] || fila.id || '').trim() || null;
       // Admite tanto la columna nueva ("Nombres y apellidos", un solo
@@ -641,7 +666,28 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
         errores.push({ fila: i + 2, error: 'Nombres y apellidos son obligatorios.' });
         continue;
       }
-      const cedula = String(fila['Número de identificación'] || fila.Cédula || fila.Cedula || fila.cedula || '').trim() || null;
+      let cedula = cedulaCruda(fila) || null;
+      if (cedula) {
+        // Lo que se tecleó se valida como siempre (mismos mensajes); lo que se guarda es solo dígitos.
+        const rev = revisarCedula({ cedula, nombre });
+        if (rev.bloqueo) { errores.push({ fila: i + 2, error: rev.bloqueo }); continue; }
+        cedula = normalizarCedula(cedula) || null;
+      }
+      if (cedula) {
+        const otraFila = cedulaVistaEnFila.get(cedula);
+        if (otraFila) {
+          cedulasRepetidas.push({ fila: i + 2, donde: 'archivo', cedula: enmascararCedula(cedula), otraFila });
+          errores.push({ fila: i + 2, error: `Cédula repetida (${enmascararCedula(cedula)}): ya viene en la fila ${otraFila} de este archivo. Se saltó.` });
+          continue;
+        }
+        const enBase = fichasPorCedula.get(cedula);
+        // En modo actualizar, la ficha que se está actualizando no cuenta como «otra».
+        if (enBase && String(enBase.id) !== String(idFila || '')) {
+          cedulasRepetidas.push({ fila: i + 2, donde: 'base', cedula: enmascararCedula(cedula) });
+          errores.push({ fila: i + 2, error: `Cédula repetida (${enmascararCedula(cedula)}): ya existe en la base${idFila ? ' en otro contacto' : ''}. Se saltó.` });
+          continue;
+        }
+      }
       // Tolerante: si el teléfono de la fila no tiene 10 dígitos, se
       // importa la persona igual, solo que sin teléfono (no se rechaza la
       // fila completa por ese único campo).
@@ -700,10 +746,6 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
             errores.push({ fila: i + 2, error: `No existe un contacto con ID ${idFila} — no se puede actualizar. Borra la columna ID en esta fila si quieres crear uno nuevo.` });
             continue;
           }
-          if (cedula) {
-            const [dupe] = await pool.query(`SELECT id FROM votantes WHERE cedula = ? AND id != ?`, [cedula, idFila]);
-            if (dupe.length) { errores.push({ fila: i + 2, error: 'Número de identificación duplicado (pertenece a otro contacto).' }); continue; }
-          }
           await pool.query(
             `UPDATE votantes SET
                nombre = ?, cedula = ?, telefono = ?, email = ?, genero = ?, edad = ?, fecha_nacimiento = ?,
@@ -720,6 +762,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
              idFila]
           );
           actualizados++;
+          if (cedula) cedulaVistaEnFila.set(cedula, i + 2);
           geocodificarYGuardarVotante(idFila, direccion, tocarTerritorio ? territorioId : null, departamentoResidenciaImport, ciudadResidenciaImport)
             .catch(err => console.error(`Error geocodificando la fila actualizada (votante id ${idFila}):`, err));
         } catch (err) {
@@ -775,6 +818,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
            await ramaMemorizada(liderId || req.session.usuario.id)]
         );
         insertados++;
+        if (cedula) cedulaVistaEnFila.set(cedula, i + 2);
         geocodificarYGuardarVotante(result.insertId, direccion, territorioId, departamentoResidenciaImport, ciudadResidenciaImport)
           .catch(err => console.error(`Error geocodificando la fila importada (votante id ${result.insertId}):`, err));
       } catch (err) {
@@ -782,7 +826,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       }
     }
 
-    res.json({ ok: true, insertados, actualizados, errores, posiblesDuplicados });
+    res.json({ ok: true, insertados, actualizados, errores, posiblesDuplicados, cedulasRepetidas });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
@@ -796,11 +840,9 @@ router.get('/verificar-identificacion', async (req, res) => {
   const { numero, excluir_id } = req.query;
   if (!numero || !numero.trim()) return res.json({ disponible: true });
   try {
-    let query = `SELECT id FROM votantes WHERE cedula = ?`;
-    const params = [numero.trim()];
-    if (excluir_id) { query += ` AND id != ?`; params.push(excluir_id); }
-    const [rows] = await pool.query(query, params);
-    res.json({ disponible: rows.length === 0 });
+    // Normalizado y con las variantes guardadas («1.053…», ceros): lo mismo que comprueba el guardado.
+    const hay = await buscarFichaPorCedula(pool, normalizarCedula(numero), excluir_id || null);
+    res.json({ disponible: !hay });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error verificando el número de identificación.' });
@@ -821,10 +863,13 @@ router.get('/buscar-por-cedula', async (req, res) => {
   const cedula = (req.query.cedula || '').trim();
   if (!cedula) return res.json(null);
   try {
+    // Por la cédula normalizada y con las variantes guardadas: la misma persona se encuentra se escriba como se escriba.
+    const hallada = await buscarFichaPorCedula(pool, normalizarCedula(cedula));
+    if (!hallada) return res.json(null);
     const [[fila]] = await pool.query(
       `SELECT id, nombre, telefono, cedula, lider_id, sublider_id, rama_aspirante_id
-         FROM votantes WHERE cedula = ? LIMIT 1`,
-      [cedula]
+         FROM votantes WHERE id = ?`,
+      [hallada]
     );
     if (!fila) return res.json(null);
 
@@ -1233,12 +1278,10 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
   let cuentaCreada = false;
 
   try {
-    const [[existente]] = await pool.query(
-      emailLimpio
-        ? `SELECT id FROM usuarios WHERE email = ? OR numero_identificacion = ? LIMIT 1`
-        : `SELECT id FROM usuarios WHERE numero_identificacion = ? LIMIT 1`,
-      emailLimpio ? [emailLimpio, cedula] : [cedula]
-    );
+    // Por correo, o por cédula escrita como sea («1.053…» y «1053…» son la misma cuenta).
+    let existente = null;
+    if (emailLimpio) [[existente]] = await pool.query(`SELECT id FROM usuarios WHERE email = ? LIMIT 1`, [emailLimpio]);
+    if (!existente) existente = await buscarUsuarioPorCedula(pool, normalizarCedula(cedula));
 
     if (existente) {
       usuarioId = existente.id;
@@ -1491,6 +1534,17 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   }
   const revision = revisarCedula(b);
   if (revision.bloqueo) return res.status(400).json({ error: revision.bloqueo });
+  normalizarCedulaDelCuerpo(b);
+  /* UNA CÉDULA, UNA FICHA, escrita como se escriba. El índice UNIQUE solo ve el texto idéntico y una ficha vieja
+     puede estar guardada como «1.053.123.456»: se busca también entre las variantes. Mismo mensaje de siempre. */
+  try {
+    if (b.cedula && await buscarFichaPorCedula(pool, b.cedula)) {
+      return res.status(400).json({ error: 'Ya registrado por otro líder.' });
+    }
+  } catch (err) {
+    console.error('votantes (alta, revisando la cédula):', err.code || err.message);
+    return res.status(400).json({ error: 'Error registrando el votante.' });
+  }
   const esOrganizacion = b.categoria === 'sublider' && b.tipo_area_influencia === 'organizacion';
   if (esOrganizacion && !(b.organizacion || '').trim()) {
     return res.status(400).json({ error: 'Escriba el nombre de la organización.' });
@@ -1737,6 +1791,7 @@ router.put('/:id', async (req, res) => {
   }
   const revision = revisarCedula(b);
   if (revision.bloqueo) return res.status(400).json({ error: revision.bloqueo });
+  normalizarCedulaDelCuerpo(b);
   const esOrganizacion = b.categoria === 'sublider' && b.tipo_area_influencia === 'organizacion';
   if (esOrganizacion && !(b.organizacion || '').trim()) {
     return res.status(400).json({ error: 'Escriba el nombre de la organización.' });
@@ -1764,6 +1819,12 @@ router.put('/:id', async (req, res) => {
        sublider_id en crudo y toda la guarda del POST se saltaba editando. */
     const rechazo = await resolverAtribucion(req, b, anterior || {});
     if (rechazo) return res.status(rechazo.status).json({ error: rechazo.error });
+
+    /* Cambiarle la cédula a una que ya tiene OTRA ficha (escrita como sea) se rechaza, con el mismo mensaje que daba el
+       índice UNIQUE. La propia ficha no cuenta: puede traer su cédula vieja («1.053…») y se guarda ya normalizada. */
+    if (b.cedula && await buscarFichaPorCedula(pool, b.cedula, req.params.id)) {
+      return res.status(400).json({ error: 'Ya registrado por otro líder.' });
+    }
 
     await pool.query(
       `UPDATE votantes SET categoria=?, nombre=?, cedula=?, telefono=?, email=?, genero=?, edad=?,
@@ -2175,8 +2236,25 @@ router.post('/importar', requireRole('admin', 'coordinador'), requiereImportarEx
   }
   let insertados = 0;
   const errores = [];
+  // Mismas reglas que /importar-excel: cédula normalizada, y la repetida (en la base o en el mismo envío) se salta.
+  const cedulasRepetidas = [];
+  const fichasPorCedula = await mapaDeFichasPorCedula(pool, registros.map(r => normalizarCedula(r && r.cedula)).filter(Boolean));
+  const vistaEnFila = new Map();
   for (const [i, b] of registros.entries()) {
     if (!b.nombre) { errores.push({ fila: i + 1, error: 'Falta el nombre' }); continue; }
+    if (b.cedula != null && String(b.cedula).trim() !== '') {
+      const rev = revisarCedula({ cedula: b.cedula, nombre: b.nombre });
+      if (rev.bloqueo) { errores.push({ fila: i + 1, error: rev.bloqueo }); continue; }
+    }
+    normalizarCedulaDelCuerpo(b);
+    if (b.cedula) {
+      const donde = vistaEnFila.has(b.cedula) ? 'archivo' : (fichasPorCedula.has(b.cedula) ? 'base' : null);
+      if (donde) {
+        cedulasRepetidas.push({ fila: i + 1, donde, cedula: enmascararCedula(b.cedula) });
+        errores.push({ fila: i + 1, error: `Cédula repetida (${enmascararCedula(b.cedula)}): ${donde === 'base' ? 'ya existe en la base' : 'ya viene en este envío'}. Se saltó.` });
+        continue;
+      }
+    }
     try {
       await pool.query(
         `INSERT INTO votantes (nombre, cedula, telefono, territorio_id, created_by, origen, rama_aspirante_id)
@@ -2191,11 +2269,12 @@ router.post('/importar', requireRole('admin', 'coordinador'), requiereImportarEx
          await ramaDeVotante(pool, { cedula: b.cedula || null })]
       );
       insertados++;
+      if (b.cedula) vistaEnFila.set(b.cedula, i + 1);
     } catch (err) {
       errores.push({ fila: i + 1, error: err.code === 'ER_DUP_ENTRY' ? 'Cédula duplicada' : 'Error al insertar' });
     }
   }
-  res.json({ ok: true, insertados, errores });
+  res.json({ ok: true, insertados, errores, cedulasRepetidas });
 });
 
 /**
@@ -2226,7 +2305,8 @@ router.post('/:id/sumar-a-mi-rama', async (req, res) => {
        para fichas que NO son suyas. */
     let acreditada = false;
     const cedulaEnviada = String((req.body && req.body.cedula) || '').trim();
-    if (cedulaEnviada && v.cedula && cedulaEnviada === String(v.cedula).trim()) acreditada = true;
+    // Normalizadas las dos: «1.053.123.456» acredita a quien está guardado como «1053123456» y al revés.
+    if (cedulaEnviada && v.cedula && normalizarCedula(cedulaEnviada) !== '' && normalizarCedula(cedulaEnviada) === normalizarCedula(v.cedula)) acreditada = true;
     if (!acreditada && req.alcance) {
       const [[visible]] = await pool.query(
         `SELECT 1 AS ok FROM votantes v WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')}`,
