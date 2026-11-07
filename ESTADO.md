@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 280** (`parches/campana-parche280.zip`, 119.765 bytes,
-  sha256 `dd45aec9f83de9ec25e8d633657cf7106337fd372cec712f4516806ef9faa40a`, 9 archivos).
-  **Publicado** en la carpeta de licencias (`parche-280.zip`, mismo sha256, 0644) y
+- **Último parche generado: 281** (`parches/campana-parche281.zip`, 152.925 bytes,
+  sha256 `bb30c0ffcb0fd1327790009cd780b09a1fcb2373d900ef7e6d2d7ed7f22a7298`, 10 archivos).
+  **Publicado** en la carpeta de licencias (`parche-281.zip`, mismo sha256, 0644) y
   **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
-  «Inscripción: botón consulta de puesto y control de cédulas (Requiere el 279)». Botón a la Registraduría y control de
-  cédulas duplicadas en la inscripción por enlace (detalle abajo) y **requiere el 279**. El anterior, el 279
+  «Inscripción: mensaje de invitación con eslogan (Requiere el 280)». Mensaje de invitación con eslogan y vista previa
+  del enlace (detalle abajo); **requiere el 280**. El anterior, el 280 (`parches/campana-parche280.zip`, 119.765 bytes,
+  sha256 `dd45aec9f83de9ec25e8d633657cf7106337fd372cec712f4516806ef9faa40a`, 9 archivos, botón a la Registraduría y
+  control de cédulas, `toca_base_datos = true`, requiere el 279), sigue publicado e inactivo, igual que el 279
   (`parches/campana-parche279.zip`, 22.390 bytes, sha256 `27ceca3c28a0a081866e18a50e50ddd0845c2b8f45610121e50f1e329ec1e0ee`,
   3 archivos, formulario por secciones y GPS, `toca_base_datos = false`, requiere el 278), sigue publicado e inactivo, igual que el 278 (`parches/campana-parche278.zip`, 18.199 bytes,
   sha256 `673b60c0f58bec76b55b688a9555c23f2194bb496dc407e425183e66ad6ee02b`, 3 archivos, datos de contacto completos,
@@ -28,15 +30,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 280 (y del 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 281 (y del 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 280, `.version-parche` y `.version-base` = **280**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279 ni el 280 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v156` en el código de la Base y dentro del 280 (el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 281, `.version-parche` y `.version-base` = **281**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280 ni el 281 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -45,7 +47,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 280` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 281` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -58,6 +60,96 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 281 — inscripción por enlace: mensaje de invitación con eslogan (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 10 archivos: `config/inscripcionMensaje.js` y `config/inscripcionTarjeta.js` (**nuevos**), `db/init-db.js`,
+`public/app/mi-enlace.html`, `public/img/inscripcion-og.png` (**nuevo**, imagen genérica de la tarjeta),
+`public/service-worker.js` (**v157**), `public/votantes.html`, `routes/inscripcion.panel.routes.js`,
+`routes/inscripcion.routes.js` y `.version-base` (281). Commit que recoge: `82d8637` (a partir de `fae7508`, el del 280).
+`scripts/probar-inscripcion-enlace.js` (357 comprobaciones) y `scripts/generar-imagen-inscripcion.js` **no viajan**.
+
+> **LLENAR EL ESLOGAN EN LA CONFIGURACIÓN DE CADA CAMPAÑA** (Configuración → Datos de la campaña → «Slogan de la
+> campaña», y el nombre del candidato). Sin eslogan el mensaje sale sin su línea ✨ y la vista previa dice solo
+> «Inscríbete con {candidato}»; sin candidato, «Inscríbete con nuestro equipo».
+
+- **Columnas que ya existían (no se creó ninguna de datos de campaña):** `configuracion_campana.slogan_campana VARCHAR(255)`
+  (el eslogan; ya se llena en Configuración), `nombre_candidato VARCHAR(150)`, y para la marca `marca_titulo`,
+  `marca_subtitulo` y `marca_logo_url` (ruta `/uploads/marca/…`, carpeta que ya es pública). No hay columna de foto.
+  Respaldo: si falta `slogan_campana` se usa `marca_subtitulo`; si falta `nombre_candidato`, `marca_titulo`. Un líder que
+  cuelga de un **aspirante con sublicencia** usa los DEL ASPIRANTE (su nombre y el subtítulo de su sublicencia), igual que
+  `GET /api/configuracion`.
+- **La única columna nueva:** `inscripcion_config.mensaje_plantilla TEXT NULL` (por eso toca la base). **NULL = el texto
+  sugerido**, que vive en `config/inscripcionMensaje.js`: así las campañas que nunca lo editaron reciben las mejoras
+  futuras. Guardar un texto idéntico al sugerido lo deja en NULL.
+- **Plantilla y reglas.** Variables: `{nombre_lider}` (primer nombre, bien escrito), `{candidato}`, `{eslogan}`, `{enlace}`;
+  **no hay `{cargo}` ni número de tarjetón**, y el texto sugerido no menciona cargo, elección, voto ni tarjetón (una
+  prueba lo comprueba). **Si a una línea le falta un dato, se quita la línea entera**; nunca queda «{eslogan}» ni dos
+  líneas en blanco seguidas; una llave desconocida cuenta como dato faltante. Un dato que trae llaves no se vuelve a
+  expandir. El administrador la edita en **Votantes → Inscripciones por enlace → Ajustes → «Mensaje de invitación»**, con
+  vista previa y **«Restaurar texto sugerido»**; el servidor rechaza (400) una variable que no existe, un texto sin
+  `{enlace}`, vacío, de más de 1000 caracteres o con una llave suelta. Cada cambio queda en la auditoría.
+- **Texto final (datos de ejemplo):**
+  ```
+  Hola 👋, soy Ana.
+  ✨ Juntos por Manizales
+  Te invito a sumarte al equipo de María Gómez. Juntos vamos a lograrlo.
+  📝 Inscríbete en menos de 1 minuto, desde tu celular:
+  👉 https://electoral.appestrategia.net/i/AB23CD45
+  Tus datos están protegidos y solo se usan para la campaña. ¡Cuento contigo!
+  ```
+- **«Mi enlace»** (`GET /api/inscripcion/mi-mensaje`): el líder ve el texto ya lleno en un cuadro y el SMS corto en otro,
+  los edita **solo para ese envío** (no se guardan), y los botones **Por WhatsApp**, **Por SMS** (`sms:?&body=`, abre en
+  iPhone y Android), **Copiar mensaje** y **Compartir…** usan lo que haya en los cuadros; «Copiar solo el enlace» queda
+  como texto. Sin conexión o si el servidor falla, vuelve el texto sencillo de antes. El mensaje se guarda en el
+  teléfono junto con el QR; las cédulas enmascaradas del aviso del 280, no.
+- **SMS corto** (automático, sin emojis ni tildes): `{nombre_lider}: {eslogan}. Inscribete con {candidato} aqui: {enlace}`.
+  Si no cabe en 1 SMS **se quita el eslogan**; si aún no cabe, también el candidato. Lo manda el líder desde SU teléfono:
+  no lleva firma ni «Baja:». **Medido con los tres dominios** (enlace de 8 caracteres): `electoral.appestrategia.net`
+  106 caracteres, `campanadepruebamunicipal.appestrategia.net` 121, `campanadepruebadepartamental.appestrategia.net` 125; en
+  el peor caso (nombre de 39 letras y eslogan de 80) 119 / 134 / 138, **sin eslogan** y en 1 SMS.
+- **Vista previa del enlace (Open Graph de `/i/<código>`):** `og:title` «{candidato} · {eslogan}» (o «Inscríbete con
+  {candidato}», o «Inscríbete con nuestro equipo»), `og:description` «Súmate al equipo. Inscríbete en menos de 1 minuto.»,
+  `og:image` 1200 × 630, `twitter:card`; **`noindex` se mantiene**. **Idéntica para un código válido, inexistente, mal
+  formado, desactivado o de otro líder y sin nada del líder** (la prueba compara los `<meta>` de los cinco casos); sale
+  también en la página «Enlace no activo». **Usa la campaña madre, no la del aspirante:** si un líder cuelga de un
+  aspirante, su MENSAJE nombra al aspirante pero la tarjeta del enlace muestra al candidato de la campaña. Es el precio de
+  que la tarjeta no dependa del código; si molesta, se cambia.
+- **La imagen.** Con logo (`marca_logo_url`): `/i/og/imagen`, una copia **JPEG de 1200 × 630** hecha con `sharp`
+  (el logo no se enlaza: puede pesar hasta 4 MB y WhatsApp descarta lo grande), en memoria, con tope de 400 KB y
+  `?v=` que cambia con el logo. Un logo **claro con transparencia** (como el de la plataforma, hecho para fondos
+  oscuros) va sobre el azul de la app; uno oscuro o sin transparencia, sobre blanco. Sin logo, o si no se puede
+  leer, o si la ruta no está dentro de `/uploads/marca` (se usa solo el nombre del archivo): **`inscripcion-og.png`**,
+  «SÚMATE AL EQUIPO · Inscríbete en menos de 1 minuto» con una persona y un «+», generada como `ya-vote-og.png` (el
+  guion `scripts/generar-imagen-inscripcion.js` la rehace). Sin `LICENCIA_DOMINIO` no se inventa una URL de imagen.
+- **Seguridad de despliegue.** `leerAjustes` (que usa cada visita a `/i`) **no se tocó**: la plantilla se lee aparte y
+  tolerante. Una campaña que aplique el parche pero **no corra `init-db`** sigue inscribiendo; «Mi enlace» usa el texto
+  sugerido y guardar la plantilla responde 409 «falta actualizar la base de datos», no un 500 (lo prueba la suite
+  quitando la columna a propósito).
+- **Verificado sobre el zip:** los 9 archivos de código coinciden por md5 con el commit `82d8637`; sin `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/` ni `.sql`; `verificar-requires.js` revisó 24
+  `require` locales y todos resuelven **aplicando el zip sobre una copia del árbol del 280** (`fae7508`), con un control
+  negativo (sin `lib/transliterarSms.js` falla). `sharp` ya es dependencia declarada del proyecto.
+- **Probado:** 357 comprobaciones sobre una base simulada (reemplazo de variables, línea faltante, validaciones, SMS con
+  los tres dominios, plantilla editar/restaurar y permisos, sin la columna, OG con y sin eslogan, OG idéntico para códigos
+  inválidos, imagen con un logo de 0,7 MB y uno ilegible, fondo según el logo, y los textos de las dos pantallas) y
+  `probar-instalacion-limpia.js` (58 tablas). Capturas a 360 px de «Mi enlace» y de la imagen con el logo real de la
+  plataforma. **NO se probó:** la vista previa **en WhatsApp de verdad** (el robot de WhatsApp tiene sus propias reglas de
+  caché y de tamaño), el botón «Por SMS» en un iPhone y un Android, ni el editor del escritorio en un navegador con
+  sesión (solo su HTML y los endpoints). WhatsApp guarda en caché la tarjeta de un enlace por días: si se prueba con un
+  enlace ya compartido, puede seguir mostrando «Inscríbete».
+- **Cómo exige el 280.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 281 con el 280, el 279, el 278,
+  el 277 y el 276 y los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Llenar el eslogan y el nombre del candidato** en Configuración → Datos de la campaña, y subir el logo si hay.
+2. **Toca la base:** `init-db` agrega una columna (ya viene marcado «toca base de datos»).
+3. Revisar el texto en Votantes → Inscripciones por enlace → Ajustes → «Mensaje de invitación»: es el sugerido y se
+   puede cambiar. Para una campaña que ya está en fase de elección, el administrador puede escribir su propio texto con
+   cargo o llamado al voto; el texto sugerido es a propósito de precampaña.
+4. **Service worker v157:** los teléfonos con la app instalada refrescan solos al tener señal.
+5. Aplicar después del 280, con la misma lista de campañas.
 
 ## Parche 280 — inscripción por enlace: botón de consulta de puesto y control de cédulas (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
