@@ -12,24 +12,23 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 275** (`parches/campana-parche275.zip`, 33.002 bytes,
-  sha256 `da76d397503c0f77de93012c6c7834d120e2a57f55034058c51c8b4b386846fd`, 5 archivos).
-  **Publicado** en la carpeta de licencias (`parche-275.zip`, mismo sha256, 0644, empieza por `PK`) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`. Es la **tarjeta de vista
-  previa del enlace «Ya voté»** (detalle abajo) y **requiere el 274** (el nombre en el panel lo dice).
-  El 274 (456.956 bytes, sha256 `3c69dddb…`, 30 archivos: SMS de 1 segmento, Día D fase 3, baja a mano y
-  enlace desde Faltantes), el 273 (290.834 bytes, `11b498b6…`, 22 archivos, Día D fase 2) y el 272
-  (138.099 bytes, `f4333fcb…`, 11 archivos, Día D fase 1) siguen publicados e inactivos; los zip 265 a 271
-  también están publicados.
-  **Distribución del 275 (y del 274, el 273 y el 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
-  activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9
-  de abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
-  cuatro**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
+- **Último parche generado: 276** (`parches/campana-parche276.zip`, 551.144 bytes,
+  sha256 `28471a84304ebc590121351690020621f2adb288a9b0783a2b9f5b1e1d46a40c`, 36 archivos).
+  **Publicado** en la carpeta de licencias (`parche-276.zip`, mismo sha256, 0644, empieza por `PK`) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true`. Es el **Día D fase 4**
+  (cobertura de testigos, check-in, alertas y avisos push; detalle abajo) y **requiere el 275**. Los
+  anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
+  `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
+  265 a 271 también están publicados.
+  **Distribución del 276 (y del 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
+  abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
+  cinco**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 275, `.version-parche` y `.version-base` = **275**. Ni el 272, ni el 273, ni el 274 ni el 275 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v151` en el código de la Base y dentro del 275 (el 274 lleva `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 276, `.version-parche` y `.version-base` = **276**. Ni el 272, ni el 273, ni el 274, ni el 275 ni el 276 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v154` en el código de la Base y dentro del 276 (el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -38,7 +37,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 275` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 276` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -51,6 +50,59 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 276 — Día D fase 4: cobertura, check-in, alertas y avisos (7 de noviembre de 2026, INACTIVO)
+
+Zip de 36 archivos: `app.js`, `db/init-db.js`, `db/schema.sql`, `lib/alertasDiaD.js`, `lib/avisosAlertas.js`,
+`lib/coberturaTestigos.js`, `lib/jornadaDiaD.js`, `lib/mesasEnVivo.js` (los cinco, nuevos),
+`middleware/aspirante.js`, `public/app/alertas-dia-d.html` y `public/app/checkin.js` (nuevos),
+`public/app/dia-d.html`, `public/app/faltantes.html`, `public/app/inicio.html`, `public/configuracion.html`,
+`public/css/style.css`, `public/dia-d.html`, `public/enviar-sms.html`, `public/js/alertas-dia-d.js` y
+`public/js/cobertura-testigos.js` (nuevos), `public/js/common.js`, `public/js/offline-utils.js`,
+`public/js/segmentos-sms.js`, `public/service-worker.js` (`v154`), `public/territorial.html`,
+`public/votantes.html`, `routes/alertasDiaD.routes.js`, `routes/checkinDiaD.routes.js` y
+`routes/coberturaTestigos.routes.js` (nuevos), `routes/comunicaciones.routes.js`, `routes/diaD.routes.js`,
+`routes/permisos.routes.js`, `routes/rescateVotos.routes.js`, `routes/resultadosDiaD.routes.js`,
+`routes/votantes.routes.js` y `.version-base` (276).
+Commits que recoge, en orden: `8c186e1` (cobertura de testigos), `356eb0c` (aviso al testigo por SMS),
+`f735d11` (plantilla más corta), `12bed88` (servidor de la fase 4), `eaeb2d4` (pantallas de la fase 4),
+`ec3c1fe` (avisos push automáticos) y `cb077c8` (interruptor, diagnóstico y franja).
+
+- **Verificado sobre el zip:** los 36 archivos coinciden por md5 con el disco; no trae `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/` ni pruebas; `CACHE_NAME =
+  'estrategia-v154'`; `verificar-requires.js` revisó 158 `require` locales y todos resuelven, **aplicando el
+  zip sobre una copia del árbol del 275** (`ba98b06`).
+- **Toca la base de datos (sí; lo marcó el servidor):** tablas `dia_d_suplentes_testigo`, `dia_d_checkin`,
+  `dia_d_alertas_atendidas` y `dia_d_alertas_avisadas`; en `configuracion_campana`: `max_mesas_por_testigo` y los
+  siete de la jornada (`jornada_apertura`, `jornada_cierre`, `plazo_e14_min`, `alerta_checkin_min`,
+  `baja_votacion_pct`, `baja_votacion_desde`, `avisos_alertas_push`); `votantes.necesita_transporte`; el módulo
+  de permisos `alertas_dia_d` (admin y coordinador de fábrica) y la plantilla «Testigo - aviso de asignacion».
+  Todo idempotente, con «ya existía». IndexedDB del celular sube a la versión 4.
+- **Probado solo con bases simuladas.** No se corrió `init-db` en MySQL, ni un push real, ni nada en un celular o
+  un navegador. La latencia real de una vuelta de avisos no se midió (solo su CPU: ~230 ms la primera con 300
+  alertas y 12 destinatarios, ~50 ms las siguientes).
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Revisar los horarios de la jornada ANTES del día:** Configuración → Datos de la campaña → «Jornada del Día
+   D» (apertura 08:00, cierre 16:00, plazo del E-14 120 min, aviso de llegada 30 min, baja votación 40 % desde las
+   12:00). Salen con esos valores por omisión; sin la fecha de elección configurada, los avisos automáticos no
+   trabajan. Solo el administrador de la campaña principal los edita.
+2. **Los coordinadores deben abrir la app del celular y activar los avisos** (casilla «Recibir avisos en este
+   dispositivo», en la pantalla de inicio; en iPhone, con la app agregada a la pantalla de inicio). La franja
+   «Activa los avisos…» se lo recuerda, y la pestaña Alertas del escritorio muestra «N coordinadores sin avisos
+   activados» con nombres y teléfonos.
+3. **El Excel de acreditación pone «CC» y separa nombres y apellidos de forma aproximada** (la app no guarda el
+   tipo de documento y `usuarios` tiene un solo campo de nombre): revisarlo antes de enviarlo. El formato no es el
+   de la Registraduría —no hay rastro de él en el repositorio—; las columnas son las de la orden 18.
+4. **Una misma alerta se avisa una sola vez por día** (clave tipo + puesto + mesa + fecha) y a lo sumo un push cada
+   5 minutos por persona, agrupado. Una alerta atendida no se avisa. Los avisos son solo de los tipos 1 a 6
+   (no «mesa sin testigo y sin votantes propios») y solo activas (no las «pendiente»).
+5. **El aviso al testigo por SMS no lleva el «Baja: …» automático** y la plantilla «Testigo - aviso de
+   asignacion» cabe en 1 SMS con puestos de hasta 43 caracteres (dominio departamental, firma de 30, una mesa).
+6. **Aplicar después del 275, con la misma lista de campañas.** El 276 no declara su dependencia: sin el 275 y los
+   anteriores le faltarían `config/paginaBaja.js` y las tablas de la fase 2.
+7. **Correr `npm run init-db`** (el actualizador lo hace solo porque `toca_base_datos` es sí).
 
 ## Parche 275 — tarjeta de vista previa del enlace «Ya voté» (7 de noviembre de 2026, INACTIVO)
 
