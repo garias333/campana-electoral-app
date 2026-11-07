@@ -498,7 +498,7 @@ router.get('/avisar', async (req, res) => {
         detalle: `Testigo · ${t.puesto_texto || ''}${t.mesas.length ? ' · mesa ' + listaEnPalabras(t.mesas) : ''}`,
         dado_de_baja: !!t.no_contactar,
       })),
-      plantilla: '{primer_nombre}, eres testigo en {puesto_testigo}, mesa {mesas_testigo}. Entra a la app: {enlace_app}',
+      plantilla: '{primer_nombre}, testigo en {puesto_testigo}, mesa {mesas_testigo}. {enlace_app}',
     });
   } catch (err) {
     console.error('cobertura/avisar:', err.code || err.message);

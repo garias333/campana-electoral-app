@@ -1945,7 +1945,7 @@ async function main() {
     // Aviso al testigo desde Cobertura de testigos. Sin tildes (SMS); con la firma del operador y un puesto
     // corto cabe en 1 segmento, con un puesto largo pasa a 2: ver la nota de ESTADO.md.
     ['Testigo - aviso de asignacion', 'sms', null,
-     '{primer_nombre}, eres testigo en {puesto_testigo}, mesa {mesas_testigo}. Entra a la app: {enlace_app}'],
+     '{primer_nombre}, testigo en {puesto_testigo}, mesa {mesas_testigo}. {enlace_app}'],
     ['Convocatoria a testigos', 'sms', null,
      'Hola {nombre}, usted es testigo en {puesto}, mesa {mesa}. Presentese a las 7 am con su cedula y credencial.'],
     ['Agradecimiento post jornada', 'sms', null,
@@ -2318,11 +2318,16 @@ async function main() {
   plantillasConBajaVieja.push(['Bienvenida al equipo',
     'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, respóndanos y lo retiramos de la lista.',
     'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, use el enlace para darse de baja que aparece al pie de este mensaje.']);
+  // La del aviso al testigo se acortó (orden 19): «eres testigo en … Entra a la app:» pasaba de 1 SMS con casi
+  // cualquier nombre de puesto. Sólo se cambia si sigue EXACTAMENTE como se sembró.
+  plantillasConBajaVieja.push(['Testigo - aviso de asignacion',
+    '{primer_nombre}, eres testigo en {puesto_testigo}, mesa {mesas_testigo}. Entra a la app: {enlace_app}',
+    '{primer_nombre}, testigo en {puesto_testigo}, mesa {mesas_testigo}. {enlace_app}']);
   for (const [nombre, textoViejo, textoNuevo] of plantillasConBajaVieja) {
     const [r] = await connection.query(
       `UPDATE comunicaciones_plantillas SET cuerpo = ? WHERE nombre = ? AND cuerpo = ?`,
       [textoNuevo, nombre, textoViejo]);
-    if (r.affectedRows) console.log(`Plantilla "${nombre}": se reemplazo la baja por respuesta por el enlace.`);
+    if (r.affectedRows) console.log(`Plantilla "${nombre}": se actualizo el texto sembrado.`);
   }
 
   /* -------------------------------------------------------------------
