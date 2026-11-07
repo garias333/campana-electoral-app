@@ -2202,8 +2202,31 @@ router.post('/:id/sumar-a-mi-rama', async (req, res) => {
     if (!miRama) {
       return res.status(403).json({ error: 'Usted no pertenece a la estructura de ningun aspirante con licencia propia.' });
     }
-    const [[v]] = await pool.query('SELECT id FROM votantes WHERE id = ?', [req.params.id]);
+    const [[v]] = await pool.query('SELECT id, cedula FROM votantes WHERE id = ?', [req.params.id]);
     if (!v) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+
+    /* QUIEN LLAMA TIENE QUE PODER ACREDITAR A ESA PERSONA. Antes bastaba con un
+       id: cualquiera con sesión y rama propia podía recorrer ids y sumar a su
+       base a gente que nunca vio. Se acepta una de dos cosas:
+         a) la ficha ya es visible para él según su alcance (la misma condición
+            del listado), o
+         b) trae la cédula de la persona y coincide: es el flujo normal, donde la
+            persona está en OTRA rama (no es visible, por definición) y quien
+            registra la tecleó y el formulario la verificó con /buscar-por-cedula.
+       La visibilidad sola rompería el caso de uso: `puede_sumar` solo se ofrece
+       para fichas que NO son suyas. */
+    let acreditada = false;
+    const cedulaEnviada = String((req.body && req.body.cedula) || '').trim();
+    if (cedulaEnviada && v.cedula && cedulaEnviada === String(v.cedula).trim()) acreditada = true;
+    if (!acreditada && req.alcance) {
+      const [[visible]] = await pool.query(
+        `SELECT 1 AS ok FROM votantes v WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')}`,
+        [v.id, ...parametrosAlcanceVotantes(req.alcance)]);
+      acreditada = !!visible;
+    }
+    if (!acreditada) {
+      return res.status(403).json({ error: 'No puede agregar a esa persona: no está en su alcance ni acreditó su número de identificación.' });
+    }
 
     await pool.query(
       `INSERT IGNORE INTO votante_ramas (votante_id, aspirante_id, registrado_por)

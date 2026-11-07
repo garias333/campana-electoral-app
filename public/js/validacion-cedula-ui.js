@@ -178,7 +178,8 @@
         boton.disabled = true;
         boton.textContent = 'Agregando...';
         try {
-          await window.api('/votantes/' + r.id + '/sumar-a-mi-rama', { method: 'POST' });
+          // La cédula tecleada acredita a la persona ante el servidor (ver sumar-a-mi-rama).
+          await window.api('/votantes/' + r.id + '/sumar-a-mi-rama', { method: 'POST', body: { cedula: valor } });
           caja.innerHTML = `<strong>${esc(r.nombre)}</strong> quedó en su estructura.`;
         } catch (e) {
           boton.disabled = false;
