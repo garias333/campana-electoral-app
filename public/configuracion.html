@@ -171,6 +171,12 @@
             <div class="campo"><label>Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
               <small style="color:var(--color-text-muted);">Antes de esa hora la alerta aparece en gris, «pendiente».</small></div>
           </div>
+          <div class="fila">
+            <div class="campo">
+              <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="jornada-avisos-push" style="width:auto;" checked> Avisos automáticos por notificación (push)</label>
+              <small style="color:var(--color-text-muted);">Con esto encendido, el día de la elección la coordinación recibe un aviso en el celular cuando aparece una alerta (testigo que no llegó, mesa sin E-14, baja votación…), sin tener la pantalla abierta. Un aviso cada 5 minutos como máximo, agrupado. Necesita que cada persona haya activado los avisos en su app.</small>
+            </div>
+          </div>
         </div>
 
         <div class="fila">
@@ -732,6 +738,7 @@ async function cargarJornadaEnElFormulario() {
     document.getElementById('jornada-plazo-e14').value = c.plazo_e14_min;
     document.getElementById('jornada-baja-pct').value = c.baja_votacion_pct;
     document.getElementById('jornada-baja-desde').value = c.baja_votacion_desde;
+    document.getElementById('jornada-avisos-push').checked = c.avisos_alertas_push !== false;
   } catch (_) { bloque.style.display = 'none'; }
 }
 async function guardarJornadaDelFormulario() {
@@ -744,6 +751,7 @@ async function guardarJornadaDelFormulario() {
     plazo_e14_min: document.getElementById('jornada-plazo-e14').value,
     baja_votacion_pct: document.getElementById('jornada-baja-pct').value,
     baja_votacion_desde: document.getElementById('jornada-baja-desde').value,
+    avisos_alertas_push: document.getElementById('jornada-avisos-push').checked,
   } });
 }
 

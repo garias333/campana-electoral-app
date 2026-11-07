@@ -169,6 +169,12 @@
     <!-- ALERTAS (fase 4): lo que la coordinación tiene que atender ahora. Se recalcula cada 30 s. -->
     <div id="vista-alertas" style="display:none;">
       <div id="franja-alertas" style="display:none; background:#FDF3E0; color:#8A5A00; border-radius:8px; padding:6px 12px; font-size:0.85rem; margin-bottom:10px;"></div>
+      <!-- «N coordinadores sin avisos activados»: quienes tienen el módulo y ningún dispositivo suscrito. Al tocar, nombres y teléfonos. -->
+      <div id="barra-avisos" style="display:none; margin-bottom:10px; font-size:0.85rem;">
+        <span id="texto-avisos-apagados" style="display:none; color:#8A5A00;">Los avisos automáticos están apagados (Configuración → Datos de la campaña).</span>
+        <button type="button" class="btn-secundario btn-sm" id="btn-sin-avisos" style="display:none;"></button>
+        <div id="lista-sin-avisos" style="display:none; margin-top:8px; padding:8px 12px; border:1px solid var(--color-border); border-radius:8px; background:#fff;"></div>
+      </div>
       <div id="chips-alertas" class="al-chips"></div>
       <div id="lista-alertas"></div>
       <div id="vacio-alertas" class="vacio" style="display:none;"><div class="icono-vacio">✅</div>No hay alertas con este filtro.</div>
@@ -625,6 +631,7 @@ function mostrarPestana(cual) {
   }
   if (cual === 'resultados') abrirResultados();
   if (cual === 'alertas') {
+    cargarAvisos();
     cargarAlertas().catch(err => alert(err.message || 'No se pudieron cargar las alertas.'));
     intervaloAlertas = setInterval(() => { if (!document.hidden) cargarAlertas().catch(() => {}); }, 30000);
   }
@@ -653,6 +660,23 @@ function pintarAlertas() {
     `Apertura ${r.jornada.apertura}, cierre ${r.jornada.cierre}, E-14 hasta ${r.jornada.plazo_e14_min} min después del cierre. Se actualiza cada 30 segundos.`
     + (r.sin_votantes_omitidas ? ` Hay ${r.sin_votantes_omitidas} mesas más sin testigo y sin votantes propios que no se listan (están en el conteo).` : '');
 }
+/* Diagnóstico de los avisos push: cuántos de la coordinación NO los tienen activados, y quiénes. */
+async function cargarAvisos() {
+  try {
+    const a = await api('/dia-d/alertas/avisos');
+    document.getElementById('barra-avisos').style.display = 'block';
+    document.getElementById('texto-avisos-apagados').style.display = a.avisos_activos ? 'none' : 'inline';
+    const btn = document.getElementById('btn-sin-avisos');
+    btn.style.display = a.sin_avisos.length ? 'inline-block' : 'none';
+    btn.textContent = `${a.sin_avisos.length} ${a.sin_avisos.length === 1 ? 'coordinador sin avisos activados' : 'coordinadores sin avisos activados'}`;
+    document.getElementById('lista-sin-avisos').innerHTML = '<div style="margin-bottom:4px; color:var(--color-text-muted);">Pídeles que abran la app en su celular y activen «Recibir avisos en este dispositivo»:</div>'
+      + a.sin_avisos.map(u => `<div>${escaparHtml(u.nombre)}${u.telefono ? ' · <a href="tel:' + escaparHtml(String(u.telefono).replace(/\D/g, '')) + '">' + escaparHtml(u.telefono) + '</a>' : ' · sin teléfono'}</div>`).join('');
+  } catch (_) { /* el diagnóstico es un extra: sin él, el cuadro sigue */ }
+}
+document.getElementById('btn-sin-avisos').addEventListener('click', () => {
+  const l = document.getElementById('lista-sin-avisos');
+  l.style.display = l.style.display === 'none' ? 'block' : 'none';
+});
 document.getElementById('chips-alertas').addEventListener('click', (e) => {
   const c = e.target.closest('[data-tipo]');
   if (!c) return;

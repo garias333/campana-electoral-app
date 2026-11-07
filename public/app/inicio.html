@@ -32,6 +32,17 @@
 
   <div id="saludo" class="saludo-app"></div>
 
+  <!-- AVISOS DE ALERTAS (Día D). Sólo para quien tiene el módulo «Alertas del Día D» y todavía no activó los avisos en este
+       celular. Se puede cerrar (se recuerda en este dispositivo). Lleva a la casilla de avisos, abajo en esta misma pantalla. -->
+  <div id="franja-avisos-alertas" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#6B4A00; border-radius:12px; padding:12px 14px; margin:0 0 14px; font-size:0.9rem;">
+    <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+      <div><strong>Activa los avisos para el día de la elección.</strong><br>
+        Así te llega una notificación cuando hay una alerta (un testigo que no llega, una mesa sin E-14…), aunque no tengas la app abierta.
+        <br><a href="#caja-avisos-push" id="enlace-activar-avisos" style="font-weight:700; color:#6B4A00;">Activar los avisos →</a></div>
+      <button type="button" id="cerrar-franja-avisos" aria-label="Cerrar" style="border:0; background:transparent; font-size:1.3rem; line-height:1; cursor:pointer; color:#6B4A00;">×</button>
+    </div>
+  </div>
+
   <nav class="menu-app" id="menu-app"></nav>
 
   <!-- Ofrecer la instalación también desde dentro: quien entró por el
@@ -210,7 +221,9 @@ function pintarCampana(campana, bio) {
 
   pintarBarraApp('Estrategia', null, null);
   document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
-  pintarMenu(usuario.rol, await modulosPermitidosApp(), !!usuario.es_aspirante);
+  const modulosApp = await modulosPermitidosApp();
+  pintarMenu(usuario.rol, modulosApp, !!usuario.es_aspirante);
+  mostrarFranjaDeAvisos(modulosApp);
 
   try {
     const [campana, bio] = await Promise.all([
@@ -233,6 +246,22 @@ document.getElementById('btn-cerrar-sesion').addEventListener('click', async () 
   // misma más tarde) pueda volver a entrar sin escribir la contraseña.
   desactivarCuentaDispositivo();
   window.location.href = '/login.html';
+});
+
+/* La franja «Activa los avisos». Sólo si la persona tiene el módulo de alertas y NINGÚN dispositivo suscrito; la ruta
+   /dia-d/alertas/mis-avisos responde 403 a quien no tiene el módulo, y entonces no se ofrece. Se puede cerrar. */
+async function mostrarFranjaDeAvisos(modulos) {
+  try {
+    if (!(modulos || []).includes('alertas_dia_d')) return;
+    if (localStorage.getItem('franja_avisos_alertas_cerrada') === '1') return;
+    const r = await api('/dia-d/alertas/mis-avisos');
+    if (r.suscrito || r.avisos_activos === false) return;
+    document.getElementById('franja-avisos-alertas').style.display = 'block';
+  } catch (_) { /* sin la franja: no es crítico */ }
+}
+document.getElementById('cerrar-franja-avisos').addEventListener('click', () => {
+  document.getElementById('franja-avisos-alertas').style.display = 'none';
+  try { localStorage.setItem('franja_avisos_alertas_cerrada', '1'); } catch (_) { /* sin almacenamiento */ }
 });
 
 /* Interruptor de avisos. Se monta al final: si el navegador no los admite
