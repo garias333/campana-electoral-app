@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 285** (`parches/campana-parche285.zip`, 101.622 bytes,
-  sha256 `767fd7efbe66bb93d38e0fd8286b02ab3d96c992bd240f536be741c2a841cc93`, 5 archivos).
-  **Publicado** en la carpeta de licencias (`parche-285.zip`, misma huella) y
-  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**; nombre en el panel:
-  «Menú Día D: navegación entre pestañas (Requiere el 284)» (detalle abajo); **requiere el 284**.
-  El anterior, el 284 (`parches/campana-parche284.zip`, 282.785 bytes,
+- **Último parche generado: 286** (`parches/campana-parche286.zip`, 244.821 bytes,
+  sha256 `edac98f0d40f3229aa4370deb1fb9a90f1e0d40435f3cffd27adba8bffda54c2`, 21 archivos).
+  **Publicado** en la carpeta de licencias (`parche-286.zip`, misma huella) y
+  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
+  «Día D: transporte, parte 2 y orden del menú (Requiere el 285)» (detalle abajo); **requiere el 285**.
+  El anterior, el 285 (`parches/campana-parche285.zip`, 101.622 bytes,
+  sha256 `767fd7efbe66bb93d38e0fd8286b02ab3d96c992bd240f536be741c2a841cc93`, 5 archivos, menú de Día D,
+  `toca_base_datos = false`, requiere el 284), sigue publicado e inactivo, igual que el 284 (`parches/campana-parche284.zip`, 282.785 bytes,
   sha256 `00eacb9230ab661b1a9ffac49cd51b70151df4af91939ca70fc6104ab73c6333`, 28 archivos, transporte parte 1,
   `toca_base_datos = true`, requiere el 283), sigue publicado e inactivo, igual que el 283 (`parches/campana-parche283.zip`, 110.782 bytes,
   sha256 `60fecc764fba702e864f7dac158075c9e980ba185eebdd8a70a81e4dcd398f52`, 6 archivos, privacidad al buscar
@@ -38,15 +40,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 285 (y del 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 286 (y del 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 285, `.version-parche` y `.version-base` = **285**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v159` en el código de la Base y dentro del 285 (el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 286, `.version-parche` y `.version-base` = **286**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v161` en el código de la Base y dentro del 286 (el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -68,6 +70,80 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 286 — Día D: transporte, parte 2 y orden del menú (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 21 archivos (+ `.version-base` = 286): `lib/canalesDelEnlace.js` y `public/js/firma-sms-aviso.js` (**nuevos**) y los modificados
+`db/init-db.js`, `db/schema.sql`, `lib/alertasDiaD.js`, `lib/avisosAlertas.js`, `lib/jornadaDiaD.js`, `lib/transporteDiaD.js`,
+`middleware/aspirante.js`, `public/app/inicio.html`, `public/configuracion.html`, `public/configurar-crm.html`, `public/js/alertas-dia-d.js`,
+`public/js/common.js`, `public/js/transporte-conductor.js`, `public/service-worker.js` (**v161**), `routes/alertasDiaD.routes.js`,
+`routes/configuracion.routes.js`, `routes/rescateVotos.routes.js` y `routes/transporte.routes.js`. Commits que recoge: `e0b7da1` (el orden
+del menú, que quedó fuera del 285) y `cd1cb1c` (la parte 2). `scripts/probar-transporte-parte2.js` (80 comprobaciones), `probar-transporte-diad.js`
+(123) y `probar-inscripcion-enlace.js` (465) **no viajan**. **Requiere el 285** (sin dependencia declarada: activarlo con el 285 y la misma lista
+de campañas).
+
+> **Cada «Voy en camino» con consentimiento cuesta 1 SMS.** Una vez por parada, solo a quien autorizó SMS (`consentimiento_sms = 1`), no está en
+> «no contactar», tiene teléfono y —si llegó por `/i`— ya confirmó por `/c`. Con la firma real de cada campaña (ver abajo) el texto mide 1 SMS;
+> si una firma lo hiciera pasar, el mensaje se recorta (primero la placa, luego «Ten tu cedula lista.») y, si ni así cabe, **se envía igual y
+> queda un aviso en el registro** (`[transporte] el aviso «va en camino» … no cabe en 1 SMS`).
+
+- **Menú (e0b7da1).** «Transporte del Día D» va al final del submenú de escritorio (después de «Puestos de votación y candidatos») y, en las
+  tarjetas del celular, después de «Ranking Día D» (coordinador y administrador). En el coordinador NO se partió el menú del líder: su «Faltan por
+  votar» (que viene de `MENU_LIDER`) sigue más abajo. Las pestañas de `dia-d.html` ya tenían Transporte al final. **Hallazgo:** la lista de
+  direcciones del aspirante con sublicencia (`HREFS_ASPIRANTE`) **no traía `/dia-d.html#transporte`** (el módulo sí era suyo y la API lo servía,
+  pero el menú manda la lista de direcciones sobre la de módulos): se agregó.
+- **Alerta «Transporte sin recoger»** (`lib/alertasDiaD.js`, `TIPOS`: `transporte_sin_recoger`, gravedad **7**; «mesa sin testigo» pasó a 8 y el
+  chip nuevo es verde azulado). Por puesto. **Solo el día de la elección** (`fecha_eleccion` = hoy): con otra fecha, o sin fecha, no existe ni como
+  «pendiente». Antes de `transporte_alerta_desde` (14:00) sale «pendiente» y en gris, como las demás que dependen de la hora; desde esa hora, activa.
+  Cuenta, sin contar a quien ya votó: **a)** paradas en estado «asignado» (hay conductor, no ha recogido) y **b)** votantes con
+  `necesita_transporte = 1` sin parada viva (la cancelada no cuenta). Texto: «Puesto X: N personas con transporte sin recoger (M sin
+  conductor)», con N = a + b y M = b; **cuenta filas** (una parada, un votante), no el campo «personas» de la parada, y dice «1 persona» en singular.
+  Con el alcance de quien pregunta (la misma condición que el listado de votantes) y **también en `alertasParaUsuario`** (la ruta de los avisos).
+  **El aviso push la toma**: entra en `TIPOS_AVISADOS` de `lib/avisosAlertas.js` (esa lista es explícita, no «todas») con la frase «puesto con
+  transporte sin recoger». Se avisa una vez por (persona, puesto, día): una vez avisado un puesto, los cambios de N no vuelven a avisar.
+- **La hora** se cambia en Configuración → «Jornada del Día D» (campo nuevo «Transporte sin recoger: avisar desde las»), con el resto de los
+  horarios (`PUT /api/dia-d/alertas/config`). Una pantalla vieja que no manda el campo **no pisa** la hora guardada (`COALESCE`); una hora inválida da 400.
+- **«Voy en camino»** (`POST /t/:codigo/avisar`, botón en `public/js/transporte-conductor.js`). Las reglas viven en `lib/canalesDelEnlace.js` (la
+  función se **movió** de `rescateVotos.routes.js`: una sola copia para «Ya voté» y para esto). Sale por `smsSvc.enviarSMS` —transliteración, lista de
+  baja y franja horaria—, **sin** la opción `operativo`, con `origen = 'transporte'` (queda en la bitácora de SMS, `sms_envios`) y
+  `aviso_enviado_en` en la parada (**columna nueva**). Una sola vez: se **reclama** con un `UPDATE … WHERE aviso_enviado_en IS NULL` antes de enviar, así
+  que dos toques a la vez mandan un solo SMS; si el proveedor falla se suelta la reclamación y se puede volver a tocar (respuesta 200 con
+  `ok:false`, para no gastar el cupo de intentos fallidos de un conductor en la calle). El conductor ve «Aviso enviado» o «Esta persona no recibe SMS» (**nunca
+  el motivo**; la lista lo calcula al cargar, no al tocar) y el botón no se repite. Solo si la parada sigue «asignada»: ya recogida, no hay botón.
+  **Necesita señal** (lo manda el servidor): no entra en la cola sin señal.
+- **El texto** (el A): «{primer_nombre}, tu transporte va en camino. Conductor {nombre_corto}, placa {placa}. Ten tu cedula lista.», sin enlace y sin
+  «Baja». **Medido con la firma real de cada campaña** (`sms_config.firma`, leída en cada envío; NO se supone 30). Medido hoy: sin firma 88 caracteres;
+  con la de la **Base** (`« ESTRATEGIA MARKETING POLITICO»`, 30 con el espacio inicial) 118; con la de la **municipal** del panel del proveedor
+  (`«Estrategia Marketing Politico - Campaña municipal»`, 49 + separador = 50) **138 → 1 SMS, sin recorte**. Con nombres largos (Maximiliano / Bartolomé
+  Rodríguez Hernández) 149, también 1 SMS. De la departamental y c001-2027 **no sé** qué tienen en `sms_config.firma` (esta cuenta no las lee).
+- **LA FIRMA: dónde vive y qué hacemos con ella.** La pega **el proveedor** (Onurix; la CRC la exige) y se registra **en su cuenta**: esta aplicación NO la
+  escribe en el mensaje, y por eso **no se puede transliterar desde aquí**. `sms_config.firma` (en la base de cada campaña) es solo una **copia para
+  CONTAR** lo que ocupa. Hasta hoy **no había ninguna pantalla** para llenarla (se llenaba a mano por SQL) y la columna era `VARCHAR(40)`: la de la
+  municipal (~50) no cabía. Ahora: columna `VARCHAR(80)` (`init-db`, `MODIFY`, no toca el contenido) y un campo en **Configurar CRM → SMS** con contador y
+  advertencia en vivo («Firma larga: los SMS de confirmación, Ya voté y transporte pueden costar 2 créditos» si pasa de 30 o lleva tildes o ñ). **No la
+  cambia sola** y se guarda tal cual (con su ñ: es lo que hay que medir). Una pantalla vieja que no manda el campo no la borra.
+- **Una corrección a lo que se creía de la ñ.** La ñ, la é y la ü **sí están en GSM-7** (`lib/sms.js`): una firma con «Campaña» **no** baja el SMS a 70
+  caracteres; lo hacen á, í, ó, ú. La advertencia avisa de las dos cosas pero el detalle distingue: con ñ dice «confirme con el proveedor cómo la envía»; con í/ó,
+  «baja a 70». **Lo que SÍ pasó con los 2 créditos de la confirmación de `/c` en la municipal** es probablemente otra cosa: si `sms_config.firma` está
+  vacía allí, `textoDeConfirmacion` mide sin firma, no recorta y el proveedor cobra 2 al sumar sus ~50 caracteres. **Llenar la firma en cada campaña** arregla
+  la medición de todos los SMS. (Hipótesis, no medida: no se puede leer la base de la municipal.)
+- **Probado** (`scripts/probar-transporte-parte2.js`, 80 comprobaciones, con el **proveedor de SMS simulado**): el orden del menú; la alerta antes (13:00,
+  «pendiente») y después (15:00, activa) de la hora, al día siguiente y sin fecha (no hay), por alcance (dos coordinadores y `alertasParaUsuario`), y con la
+  hora cambiada a 15:30; el SMS con y sin consentimiento, con 0, de baja, sin teléfono, sin confirmar por `/c` y confirmado por `/c`; un segundo toque (no reenvía);
+  dos toques a la vez; el fallo del proveedor y el `DADO_DE_BAJA`; el recorte con firmas de 50, 89, 110 y 115 caracteres (más una de 80 y una con ó, de extremo a extremo por /t); el texto transliterado;
+  el guardado de la firma (recortada, con ñ, sin borrarla desde una pantalla vieja, 80 sí / 81 no) y la advertencia (30 / 31 caracteres, ñ, í). Más: `init-db` dos veces
+  y `probar-instalacion-limpia.js` (61 tablas). En **Chromium sin interfaz**: la pantalla del conductor a 360 px con «Voy en camino» (tocarlo lo cambia a «Aviso
+  enviado» y el proveedor simulado recibe el texto exacto) y la pantalla de la firma con su advertencia. Suites: transporte 123/123, inscripción 465/465.
+  **NO se probó:** un SMS real por Onurix (ni lo que cobra de verdad ni cómo trata la firma), el aviso push llegando a un teléfono, la alerta con tráfico de
+  un día de elección, `Voy en camino` desde un teléfono con señal intermitente, ni la firma de la departamental y de c001-2027.
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Toca la base:** `init-db` agrega `transporte_asignaciones.aviso_enviado_en` y ensancha `sms_config.firma` a 80 (ya viene marcado «toca base de datos»).
+2. **Cada «Voy en camino» con consentimiento cuesta 1 SMS.**
+3. **Llenar la firma** en Configurar CRM → SMS de cada campaña (la que tiene registrada el proveedor, con su espacio inicial si lo lleva): sin ella el contador no la cuenta.
+4. La alerta solo existe el día de la elección; la hora (14:00) se cambia en Configuración → Jornada del Día D.
+5. Aplicar después del 285, con la misma lista de campañas.
 
 ## Parche 285 — Menú Día D: navegación entre pestañas (7 de noviembre de 2026, INACTIVO, NO toca la base)
 
