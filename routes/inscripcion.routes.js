@@ -78,7 +78,7 @@ const CSS = `
   input[type=text],input[type=tel],input[type=email],input[type=number],select{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
   input:focus,select:focus{outline:2px solid #0B5ED7;outline-offset:1px}
   .fila{display:flex;gap:10px}.fila>div{flex:1}
-  .acepto{display:flex;gap:10px;align-items:flex-start;margin:16px 0 4px;font-size:.92rem;line-height:1.4;color:#161B26}
+  .acepto{display:flex;gap:10px;align-items:flex-start;margin:16px 0 4px;font-size:.92rem;line-height:1.4;color:#161B26;font-weight:400}
   .acepto input{margin-top:3px;width:20px;height:20px;flex:none}
   .canales{background:#F3F5F8;border-radius:10px;padding:10px 12px;margin:10px 0}
   .canales .tit{font-size:.85rem;color:#5B6472;margin:0 0 6px}

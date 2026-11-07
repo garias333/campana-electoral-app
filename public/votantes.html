@@ -37,6 +37,8 @@
     <div class="grupo-pestanas" style="margin-bottom:16px;">
       <button type="button" class="btn-acento btn-sm" id="btn-tab-votantes">Votantes y sublíderes</button>
       <button type="button" class="btn-secundario btn-sm" id="btn-tab-estimado-puestos">Votantes estimados por puesto de votación</button>
+      <!-- Solo admin, coordinador y aspirante: se muestra en el arranque (ver el final del script). -->
+      <button type="button" class="btn-secundario btn-sm" id="btn-tab-inscripciones" style="display:none;">Inscripciones por enlace</button>
     </div>
 
     <div id="seccion-votantes">
@@ -102,6 +104,13 @@
             <option value="gobernacion">Gobernación</option>
             <option value="asamblea">Asamblea</option>
           </select>
+          <!-- Inscripción por el enlace/QR del líder. «Sin confirmar» = se inscribió solo y aún no abrió
+               el enlace de confirmación que le llegó por SMS: esas personas no reciben envíos masivos. -->
+          <select id="filtro-inscripcion">
+            <option value="">Cualquier origen</option>
+            <option value="enlace">Se inscribió por enlace</option>
+            <option value="sin_confirmar">Por enlace · sin confirmar</option>
+          </select>
           <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-votantes">Quitar filtros</button>
           <button type="button" class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes" id="btn-exportar-filtrados-votantes">⬇ Exportar a Excel (filtrados)</button>
         </div>
@@ -128,6 +137,50 @@
         <button type="button" class="btn-secundario btn-sm" id="btn-pagina-siguiente-votantes">Siguiente →</button>
       </div>
     </div>
+    </div>
+
+    <div id="seccion-inscripciones" style="display:none;">
+      <div class="card" style="margin-bottom:16px;">
+        <p style="color:var(--color-text-muted); font-size:0.85rem; margin-top:0;">
+          Cada líder, sublíder y coordinador tiene un enlace y un QR propios para que la gente se inscriba sola desde su celular.
+          Aquí ves cuánta gente lleva cada uno, cuántos ya confirmaron su autorización (los que no, no reciben envíos masivos)
+          y cuántas veces alguien intentó inscribirse con la cédula de una persona que ya era de otro líder.
+          No se muestra ninguna cédula.
+        </p>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr>
+              <th>Líder</th><th>Cargo</th>
+              <th class="col-num">Hoy</th><th class="col-num">Total</th>
+              <th class="col-num">Confirmados</th><th class="col-num">Sin confirmar</th>
+              <th class="col-num" title="Veces que alguien se inscribió por este enlace con la cédula de una persona que ya era de otro líder. La persona NO cambió de dueño.">Cédula de otro líder</th>
+              <th>Enlace</th><th></th>
+            </tr></thead>
+            <tbody id="tbody-inscripciones"></tbody>
+          </table>
+        </div>
+        <div id="vacio-inscripciones" class="vacio" style="display:none;">No hay líderes con enlace en tu equipo.</div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <h3 style="margin-top:0; font-size:1rem;">Intentos con la cédula de otro líder (últimos 50)</h3>
+        <div class="tabla-contenedor">
+          <table>
+            <thead><tr><th>Cuándo</th><th>Por el enlace de</th><th>La persona ya era de</th></tr></thead>
+            <tbody id="tbody-intentos-otro-lider"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" id="caja-ajustes-inscripcion" style="margin-bottom:16px; display:none;">
+        <h3 style="margin-top:0; font-size:1rem;">Ajustes de la inscripción por enlace</h3>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+          <label style="display:flex; gap:6px; align-items:center;"><input type="checkbox" id="aj-insc-habilitado"> Inscripción por enlace encendida</label>
+          <label>Tope por enlace al día<br><input type="number" id="aj-insc-enlace" min="1" max="10000" style="width:110px;"></label>
+          <label>Tope por teléfono al día<br><input type="number" id="aj-insc-telefono" min="1" max="50" style="width:110px;"></label>
+          <label>Segundos mínimos al llenar<br><input type="number" id="aj-insc-segundos" min="0" max="120" style="width:110px;"></label>
+          <button type="button" class="btn-acento btn-sm" id="btn-guardar-ajustes-insc">Guardar</button>
+        </div>
+        <p style="color:var(--color-text-muted); font-size:0.8rem; margin-bottom:0;">Apagarla hace que todos los enlaces digan «no activo». No borra a nadie.</p>
+      </div>
     </div>
 
     <div id="seccion-estimado-puestos" style="display:none;">
@@ -1033,7 +1086,10 @@ function leerFiltrosVotantes() {
     territorio_id: document.getElementById('filtro-territorio').value,
     lider_id: document.getElementById('filtro-lider').value,
     categoria: document.getElementById('filtro-categoria').value,
-    no_contactar: document.getElementById('filtro-no-contactar').value
+    no_contactar: document.getElementById('filtro-no-contactar').value,
+    // «Se inscribió por enlace» y «Por enlace · sin confirmar» son dos filtros del servidor, no uno.
+    origen: ['enlace', 'sin_confirmar'].includes(document.getElementById('filtro-inscripcion').value) ? 'enlace_lider' : '',
+    sin_confirmar: document.getElementById('filtro-inscripcion').value === 'sin_confirmar' ? '1' : ''
   };
 }
 
@@ -1347,6 +1403,7 @@ document.getElementById('filtro-tipo-votante').addEventListener('change', refilt
 document.getElementById('filtro-lider').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-no-contactar').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-inscripcion').addEventListener('change', refiltrarVotantes);
 
 document.getElementById('btn-quitar-filtros-votantes').addEventListener('click', () => {
   document.getElementById('filtro-busqueda').value = '';
@@ -1360,6 +1417,7 @@ document.getElementById('btn-quitar-filtros-votantes').addEventListener('click',
   document.getElementById('filtro-lider').value = '';
   document.getElementById('filtro-apoya-a').value = '';
   document.getElementById('filtro-no-contactar').value = '';
+  document.getElementById('filtro-inscripcion').value = '';
   refiltrarVotantes();
 });
 
@@ -2206,7 +2264,13 @@ function etiquetaCategoriaVotante(v) {
   // sin explicación obliga a adivinar.
   const clase = v.testigo_estructura_id ? 'tag-tipo tag-categoria-testigo' : 'tag-tipo';
   const titulo = v.testigo_estructura_id ? ' title="Además es testigo electoral"' : '';
-  return `<span class="${clase}"${titulo}>${texto}</span>`;
+  // Se inscribió solo por el enlace/QR de un líder. «Sin confirmar» = aún no abrió /c (no recibe masivos).
+  const porEnlace = v.origen === 'enlace_lider'
+    ? `<br><span class="tag-tipo" style="font-size:0.72rem; ${v.consentimiento_confirmado_en ? 'background:#E3F1E8; color:#1E6B44;' : 'background:#FDF3E0; color:#8A5A00;'}"`
+      + ` title="${v.consentimiento_confirmado_en ? 'Confirmó su autorización desde su propio celular' : 'Aún no confirma su autorización: no recibe envíos masivos'}">`
+      + `Se inscribió solo · ${v.consentimiento_confirmado_en ? 'confirmado' : 'sin confirmar'}</span>`
+    : '';
+  return `<span class="${clase}"${titulo}>${texto}</span>${porEnlace}`;
 }
 
 /**
@@ -3063,14 +3127,94 @@ document.getElementById('btn-eliminar-votantes').addEventListener('click', async
 function cambiarPestanaVotantes(pestana) {
   document.getElementById('seccion-votantes').style.display = pestana === 'votantes' ? 'block' : 'none';
   document.getElementById('seccion-estimado-puestos').style.display = pestana === 'estimado' ? 'block' : 'none';
+  document.getElementById('seccion-inscripciones').style.display = pestana === 'inscripciones' ? 'block' : 'none';
+  document.getElementById('btn-tab-inscripciones').classList.toggle('btn-acento', pestana === 'inscripciones');
+  document.getElementById('btn-tab-inscripciones').classList.toggle('btn-secundario', pestana !== 'inscripciones');
   document.getElementById('btn-tab-votantes').classList.toggle('btn-acento', pestana === 'votantes');
   document.getElementById('btn-tab-votantes').classList.toggle('btn-secundario', pestana !== 'votantes');
   document.getElementById('btn-tab-estimado-puestos').classList.toggle('btn-acento', pestana === 'estimado');
   document.getElementById('btn-tab-estimado-puestos').classList.toggle('btn-secundario', pestana !== 'estimado');
   if (pestana === 'estimado') cargarEstimadoPuestos();
+  if (pestana === 'inscripciones') cargarInscripciones();
 }
 document.getElementById('btn-tab-votantes').addEventListener('click', () => cambiarPestanaVotantes('votantes'));
 document.getElementById('btn-tab-estimado-puestos').addEventListener('click', () => cambiarPestanaVotantes('estimado'));
+
+// --- «Inscripciones por enlace»: cuánta gente lleva cada líder por su enlace/QR, y desactivar o cambiar un enlace. ---
+document.getElementById('btn-tab-inscripciones').addEventListener('click', () => cambiarPestanaVotantes('inscripciones'));
+
+const ROTULO_CARGO_INSC = { coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder', aspirante_concejo: 'Aspirante' };
+
+async function cargarInscripciones() {
+  const tbody = document.getElementById('tbody-inscripciones');
+  tbody.innerHTML = '<tr><td colspan="9" style="color:var(--color-text-muted);">Cargando...</td></tr>';
+  let r, bit;
+  try {
+    [r, bit] = await Promise.all([api('/inscripcion/resumen'), api('/inscripcion/intentos-otro-lider')]);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="9" style="color:#A93226;">${escaparHtml(err.message)}</td></tr>`;
+    return;
+  }
+  const filas = r.lideres || [];
+  document.getElementById('vacio-inscripciones').style.display = filas.length ? 'none' : 'block';
+  tbody.innerHTML = filas.map((f) => `
+    <tr>
+      <td><strong>${escaparHtml(f.nombre)}</strong></td>
+      <td>${escaparHtml(ROTULO_CARGO_INSC[f.rol] || f.rol)}</td>
+      <td class="col-num">${f.hoy}</td>
+      <td class="col-num"><strong>${f.total}</strong></td>
+      <td class="col-num">${f.confirmados}</td>
+      <td class="col-num" style="${f.sin_confirmar ? 'color:#8A5A00; font-weight:700;' : ''}">${f.sin_confirmar}</td>
+      <td class="col-num" style="${f.intentos_otro_lider ? 'color:#A93226; font-weight:700;' : ''}">${f.intentos_otro_lider}</td>
+      <td>${f.activo ? '<span style="color:#1E6B44; font-weight:700;">Activo</span>' : '<span style="color:#A93226; font-weight:700;">Desactivado</span>'}</td>
+      <td style="white-space:nowrap;">
+        <button type="button" class="btn-secundario btn-sm" onclick="cambiarActivoEnlace(${f.usuario_id}, ${f.activo ? 0 : 1}, this)">${f.activo ? 'Desactivar' : 'Activar'}</button>
+        <button type="button" class="btn-secundario btn-sm" onclick="rotarEnlaceDe(${f.usuario_id}, this)" title="El enlace y el QR actuales dejan de servir; la persona ve el nuevo en «Mi enlace».">Cambiar enlace</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('tbody-intentos-otro-lider').innerHTML = (bit || []).length
+    ? bit.map((b) => `<tr><td class="mono">${escaparHtml(String(b.creado_en || '').slice(0, 16))}</td>
+        <td>${escaparHtml(b.lider_del_enlace)}</td><td>${escaparHtml(b.dueno_actual || '—')}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--color-text-muted);">Ningún intento todavía.</td></tr>';
+
+  const aj = r.ajustes || {};
+  const caja = document.getElementById('caja-ajustes-inscripcion');
+  caja.style.display = usuarioActual && usuarioActual.rol === 'admin' ? 'block' : 'none';
+  document.getElementById('aj-insc-habilitado').checked = !!aj.habilitado;
+  document.getElementById('aj-insc-enlace').value = aj.limite_enlace_dia;
+  document.getElementById('aj-insc-telefono').value = aj.limite_telefono_dia;
+  document.getElementById('aj-insc-segundos').value = aj.segundos_minimos;
+}
+
+async function cambiarActivoEnlace(usuarioId, activo, boton) {
+  if (!activo && !confirm('¿Desactivar este enlace? El QR y el enlace dejarán de servir hasta que lo vuelvas a activar. Lo ya inscrito no se toca.')) return;
+  boton.disabled = true;
+  try {
+    await api(`/inscripcion/enlaces/${usuarioId}/activo`, { method: 'POST', body: { activo } });
+    cargarInscripciones();
+  } catch (err) { alert(err.message); boton.disabled = false; }
+}
+
+async function rotarEnlaceDe(usuarioId, boton) {
+  if (!confirm('¿Cambiar el enlace de esta persona? El enlace y el QR que ya difundió o imprimió dejarán de funcionar.')) return;
+  boton.disabled = true;
+  try {
+    await api(`/inscripcion/enlaces/${usuarioId}/rotar`, { method: 'POST', body: {} });
+    cargarInscripciones();
+  } catch (err) { alert(err.message); boton.disabled = false; }
+}
+
+document.getElementById('btn-guardar-ajustes-insc').addEventListener('click', async () => {
+  try {
+    await api('/inscripcion/ajustes', { method: 'PUT', body: {
+      habilitado: document.getElementById('aj-insc-habilitado').checked,
+      limite_enlace_dia: Number(document.getElementById('aj-insc-enlace').value),
+      limite_telefono_dia: Number(document.getElementById('aj-insc-telefono').value),
+      segundos_minimos: Number(document.getElementById('aj-insc-segundos').value),
+    } });
+    cargarInscripciones();
+  } catch (err) { alert(err.message); }
+});
 
 async function cargarEstimadoPuestos() {
   const tbody = document.getElementById('tbody-estimado-puestos');
@@ -3207,6 +3351,11 @@ function alternarMesasEstimadoPuesto(i) {
 (async () => {
   usuarioActual = await inicializarLayout('/votantes.html');
   if (!usuarioActual) return;
+
+  // La pestaña «Inscripciones por enlace» es de quien gestiona equipo. Las rutas tienen su propia guarda.
+  if (['admin', 'coordinador'].includes(usuarioActual.rol) || usuarioActual.es_aspirante) {
+    document.getElementById('btn-tab-inscripciones').style.display = '';
+  }
 
   /* AL ASPIRANTE SE LE QUITAN LOS BOTONES QUE LE VAN A DECIR QUE NO.
      Importar, las dos re-geocodificaciones y «Eliminar registros» son de

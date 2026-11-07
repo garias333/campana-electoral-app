@@ -469,7 +469,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin', 'aspirante'), asy
    la campaña madre. Comprobado antes de abrirla. */
 router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), requiereImportarExportar('votantes'), async (req, res) => {
   try {
-    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar } = req.query;
+    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar } = req.query;
     const condiciones = [];
     const params = [];
     if (q) {
@@ -500,6 +500,9 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
   // significado pero no de valor—, que es justo la mitad útil del filtro.
   if (no_contactar === '1') condiciones.push(`v.no_contactar = 1`);
   if (no_contactar === '0') condiciones.push(`(v.no_contactar = 0 OR v.no_contactar IS NULL)`);
+    // Los mismos dos filtros que el listado: «Exportar (filtrados)» tiene que exportar lo que se ve.
+    if (origen === 'enlace_lider') condiciones.push(`v.origen = 'enlace_lider'`);
+    if (sin_confirmar === '1') condiciones.push(`(v.origen = 'enlace_lider' AND v.consentimiento_confirmado_en IS NULL)`);
     const whereSql = armarWhereSql(condiciones);
 
     const [filas] = await pool.query(`
