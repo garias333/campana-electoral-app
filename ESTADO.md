@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 281** (`parches/campana-parche281.zip`, 152.925 bytes,
-  sha256 `bb30c0ffcb0fd1327790009cd780b09a1fcb2373d900ef7e6d2d7ed7f22a7298`, 10 archivos).
-  **Publicado** en la carpeta de licencias (`parche-281.zip`, mismo sha256, 0644) y
-  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
-  «Inscripción: mensaje de invitación con eslogan (Requiere el 280)». Mensaje de invitación con eslogan y vista previa
-  del enlace (detalle abajo); **requiere el 280**. El anterior, el 280 (`parches/campana-parche280.zip`, 119.765 bytes,
+- **Último parche generado: 282** (`parches/campana-parche282.zip`, 79.606 bytes,
+  sha256 `cfe2292831b80eb8246134fd7f1a478fc646b1bc91ebc73b5cb738a50ccca32c`, 9 archivos).
+  **Publicado** en la carpeta de licencias (`parche-282.zip`, mismo sha256, 0644) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`; nombre en el panel:
+  «Cédulas: sin duplicados en alta, importación y edición (Requiere el 281)» (detalle abajo); **requiere el 281**.
+  El anterior, el 281 (`parches/campana-parche281.zip`, 152.925 bytes,
+  sha256 `bb30c0ffcb0fd1327790009cd780b09a1fcb2373d900ef7e6d2d7ed7f22a7298`, 10 archivos, mensaje de invitación con
+  eslogan, `toca_base_datos = true`, requiere el 280), sigue publicado e inactivo, igual que el 280 (`parches/campana-parche280.zip`, 119.765 bytes,
   sha256 `dd45aec9f83de9ec25e8d633657cf7106337fd372cec712f4516806ef9faa40a`, 9 archivos, botón a la Registraduría y
   control de cédulas, `toca_base_datos = true`, requiere el 279), sigue publicado e inactivo, igual que el 279
   (`parches/campana-parche279.zip`, 22.390 bytes, sha256 `27ceca3c28a0a081866e18a50e50ddd0845c2b8f45610121e50f1e329ec1e0ee`,
@@ -30,15 +32,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 281 (y del 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 282 (y del 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 281, `.version-parche` y `.version-base` = **281**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280 ni el 281 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 282, `.version-parche` y `.version-base` = **282**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281 ni el 282 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 282 no lo toca; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -47,7 +49,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 281` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 282` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -60,6 +62,109 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 282 — cédulas sin duplicados en el alta, la importación y la edición (7 de noviembre de 2026, INACTIVO)
+
+Zip de 9 archivos: `config/inscripcionRegistro.js`, `config/sincronizacionVotantesEstructura.js`,
+`config/sincronizarSublicencias.js`, `config/testigoElectoral.js`, `lib/normalizarCedula.js`, `lib/ramas.js`,
+`routes/coberturaTestigos.routes.js`, `routes/votantes.routes.js` y `.version-base` (282). Commit que recoge: `6d14c9a`
+(a partir de `a314d13`, el del 281). **NO toca la base de datos** (sin `db/`) **ni el service worker** (ningún archivo
+cacheado cambió). `scripts/probar-inscripcion-enlace.js` (413 comprobaciones) y `scripts/reporte-cedulas.js` **no viajan**.
+
+> **ANTES Y DESPUÉS DE APLICAR, correr `scripts/reporte-cedulas.js` en cada campaña** (ver «Cómo correr el reporte»).
+> El parche no limpia nada: deja de CREAR duplicados; los que ya existan los muestra el reporte y se limpian en otra orden.
+
+- **El problema.** `votantes.cedula` es `UNIQUE`, pero el índice solo ve el texto idéntico, y el alta normal, la edición
+  y las importaciones guardaban la cédula **como se tecleaba**. «1.053.123.456» y «1053123456» eran dos fichas de la misma
+  persona, sin error (la prueba nueva lo confirma: contra la ruta anterior, el alta de la variante responde 200 y crea la
+  segunda ficha; la orden 28 solo lo había cerrado en `/i`).
+- **Dónde se guarda una cédula en `votantes` (las seis entradas, y qué hacen ahora):**
+  1. **Alta normal** (`POST /api/votantes`; la usan el formulario de escritorio, la app del celular y el alta rápida de
+     asistentes): valida lo tecleado con `revisarCedula` (mismos mensajes: acepta puntos y espacios; rechaza letras, guiones,
+     vacía-de-dígitos, demasiado corta o larga), guarda **solo dígitos sin ceros a la izquierda**, y rechaza con el mensaje de
+     siempre —**«Ya registrado por otro líder.»**— si otra ficha ya tiene esa cédula escrita como sea.
+  2. **Edición** (`PUT /api/votantes/:id`): igual; la propia ficha no cuenta (puede traer su cédula vieja con puntos y se
+     guarda ya normalizada).
+  3. **Importación por Excel** (`POST /api/votantes/importar-excel`): valida cada cédula (antes NO validaba nada: una letra
+     entraba), la guarda normalizada, y **salta** la fila si la cédula ya está en una fila anterior del archivo o en la base
+     (normalizada). Cada una queda en `cedulasRepetidas` —`{ fila, donde: 'archivo'|'base', cedula: '***456', otraFila }`—
+     y también en `errores` (lo que la pantalla ya muestra), con el número de fila de Excel y **nunca la cédula completa**.
+     La base se consulta **una vez para todo el archivo** (`mapaDeFichasPorCedula`: un `IN` por el índice y un solo barrido de
+     las guardadas con signos o ceros), no una vez por fila. En modo «actualizar» (fila con ID) la propia ficha no cuenta.
+  4. **Importación JSON** (`POST /api/votantes/importar`, solo admin/coordinador; ninguna pantalla la llama): las mismas reglas.
+  5. **Sincronización Estructura → Votantes** (`config/sincronizacionVotantesEstructura.js`, al crear o editar una cuenta de
+     la estructura): la ficha se busca escrita como esté y, si existe, se usa **su** escritura como llave del `INSERT … ON
+     DUPLICATE KEY` (no crea una segunda ni la reescribe); si no existe, nace normalizada.
+  6. **El formulario público `/i`** (orden 28): ya normalizaba; ahora usa la MISMA función de búsqueda (movida a la librería,
+     no duplicada).
+  **No hay escáner de cédulas en el código** (`SPEC-escaner-cedulas.md` es solo una especificación) ni otra pantalla que escriba
+  `votantes.cedula`. `sumar-a-mi-rama` no la escribe: compara (ver abajo).
+- **La regla, en un solo sitio:** `lib/normalizarCedula.js` — `normalizarCedula` (solo dígitos, sin ceros delante),
+  `buscarFichaConCedula` / `buscarFichaPorCedula` (por el índice y, si no hay, entre las variantes guardadas),
+  `mapaDeFichasPorCedula` (para importar) y `buscarUsuarioPorCedula`. **No se reescribe ninguna cédula ya guardada** salvo
+  la de la ficha que alguien edita (queda normalizada): otras partes cruzan por texto y la limpieza va aparte.
+- **Lo que hoy MUESTRA el sistema de otra ficha (no se cambió, y es lo que preguntaste):** `GET /api/votantes/buscar-por-cedula`
+  —lo que el formulario consulta antes de guardar— devuelve **nombre, teléfono y cédula** de la ficha dueña de esa cédula
+  **aunque sea de otro líder**, sin filtro de alcance: es una decisión documentada en el propio código («solo confirma quién es
+  el dueño de ESA cédula puntual», para poder sumar a esa persona a la rama). Lo único que cambió es que ahora la encuentra
+  también si está guardada con puntos o ceros (la misma exposición, ahora completa para las variantes). El alta y la edición
+  **no** muestran nada de la otra ficha: solo «Ya registrado por otro líder.».
+- **Cruces por texto con `usuarios.numero_identificacion`, ahora comparando normalizado los dos lados** (una ficha vieja
+  «1.053.123.456» sigue casando con una cuenta «1053123456» y al revés):
+  `routes/votantes.routes.js` (el **listado**, su **conteo** y la **exportación**: `LEFT JOIN usuarios ut ON …`),
+  `lib/ramas.js` (`usuarioDeVotante`, `recalcularTodas` y la actualización por sublicencia),
+  `config/testigoElectoral.js` (`supervisorDelTestigo` y `resolverOCrearUsuarioParaTestigo`),
+  `routes/votantes.routes.js` `procesarSublider` (cuenta del sublíder), `config/sincronizarSublicencias.js`,
+  `config/sincronizacionVotantesEstructura.js` (los dos sentidos) y `routes/coberturaTestigos.routes.js` (los conjuntos de cédulas).
+  `sumar-a-mi-rama` y `verificar-identificacion` también comparan normalizado.
+  **Sin cambiar a propósito:** (a) las altas y ediciones de `usuarios` (`routes/territorial.routes.js`, `routes/usuarios.routes.js`):
+  comparan cuentas contra cuentas y `numero_identificacion` es también el nombre de usuario y la clave inicial —normalizarlo
+  ahí cambiaría cómo entra la gente—; (b) `db/init-db.js` (unión de una migración de una sola vez); (c) la búsqueda de texto
+  del listado (`v.cedula LIKE '%…%'`): buscar «1.053» no encuentra «1053…»; (d) `routes/eventos.routes.js`, que solo muestra
+  `COALESCE(v.cedula, u.numero_identificacion)`.
+- **MEDIDO ANTES DE CAMBIAR LOS CRUCES SQL** (MySQL 8.4 privado, 200.000 votantes, 3.000 cuentas, 150 de ellas con puntos), con la
+  ruta real, mediana de 5 corridas (de 2 en la exportación): el **listado** pasa de **2,4 s a 1,9 s** (páginas 1 y 400), y la
+  **exportación completa** de **35,7 s a 33,9 s**. **No es más lento**: igualar por una expresión sobre los dos lados hace que
+  MySQL use una unión por hash en vez de 200.000 búsquedas por índice. (Y casa a las 150 cuentas con puntos, que la igualdad
+  exacta dejaba sin unir: 2.850 de 3.000.) La variante «solo normalizar la cuenta y dejar un tramo `OR` para fichas viejas»
+  **no terminó** en más de 200 s: se descartó. Ojo con un dato aparte: la exportación de 200.000 fichas ya tardaba ~35 s antes.
+  `supervisorDelTestigo`, que es UNA cuenta, NO usa la unión (barrería todos los votantes en cada llamada): busca por la función común.
+- **Cómo correr el reporte** (solo lectura; **no viaja en el parche**: está en `scripts/` de la Base). Desde la carpeta de cada
+  campaña, con el node de SU cuenta y su `.env`, copiando el archivo si hace falta:
+  ```bash
+  cp /home/appestrategia-electoral/htdocs/electoral.appestrategia.net/scripts/reporte-cedulas.js <carpeta-de-la-campaña>/scripts/
+  cd <carpeta-de-la-campaña> && node scripts/reporte-cedulas.js          # 200 grupos; --todos o --json
+  ```
+  Lista **(a)** los grupos de casi-duplicados —id de ficha, líder, fecha de creación, cédula enmascarada (***456) y cómo está
+  guardada— y **(b)** cuántas cédulas están guardadas con signos o ceros sin tener duplicado. Nunca imprime una cédula completa
+  y no modifica nada (la prueba compara el `CHECKSUM TABLE`). Sale con código **2 si hay casi-duplicados**, 0 si no, 1 si falla.
+  Con 200.000 fichas tarda unos 6 s.
+- **Resultado en la Base** (`electoraldb`, 7 de noviembre de 2026): 0 fichas (es la plantilla), índice `UNIQUE` presente, 0
+  casi-duplicados, 0 guardadas con signos o ceros. **Las campañas NO se pudieron medir** (esta cuenta no lee sus bases).
+- **Verificado sobre el zip:** los 8 archivos de código coinciden por md5 con el commit `6d14c9a`; sin `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/` ni `.sql`; `verificar-requires.js` revisó 56 `require`
+  locales y todos resuelven **aplicando el zip sobre una copia del árbol del 281** (`a314d13`), con un control negativo.
+- **Probado:** 413 comprobaciones sobre una base simulada (alta con puntos, espacios y ceros; alta de una variante, con el mismo
+  mensaje y sin datos de la otra ficha; edición a una cédula existente; importación con una repetida en el archivo y otra contra
+  la base, con su número de fila y sin cédula completa; cruces con cuentas escritas distinto, en el listado, el conteo, la
+  exportación, ramas, testigos y sincronización; el reporte sobre datos sembrados) y `probar-instalacion-limpia.js`.
+  **Control negativo:** la misma suite contra la ruta `votantes.routes.js` anterior falla 25 comprobaciones. **NO se probó:** una
+  campaña real con fichas viejas, el formulario de escritorio ni la app del celular contra el servidor (solo sus rutas), ni el
+  orden de magnitud de una importación de miles de filas contra un catálogo grande con muchas variantes.
+- **Un cambio de conducta que conviene saber:** la importación por Excel **ahora rechaza** una fila con la cédula inválida (con letras,
+  guiones, demasiado corta…); antes la guardaba tal cual. Y una cédula con guiones («1-053-123-456») sigue rechazándose en el alta
+  y la edición, como hoy.
+- **Cómo exige el 281.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 282 con el 281, el 280, el 279, el
+  278, el 277 y el 276 y los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Antes:** correr `scripts/reporte-cedulas.js` y guardar el resultado. **Después:** correrlo otra vez; no debe haber grupos
+   nuevos. Los que ya existían se limpian en otra orden, con lo que salga.
+2. No toca la base: no hace falta `init-db` ni cambia el service worker.
+3. Una ficha vieja con la cédula con puntos **se normaliza sola la primera vez que alguien la edita** (queda «1053…»); una cuenta
+   con puntos sigue casando con ella.
+4. Aplicar después del 281, con la misma lista de campañas.
 
 ## Parche 281 — inscripción por enlace: mensaje de invitación con eslogan (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
