@@ -422,7 +422,11 @@ document.getElementById('input-buscar-votante').addEventListener('input', () => 
           api(`/votantes/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`),
           api(`/usuarios/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`)
         ]);
-        if (votante) {
+        if (votante && votante.de_otro_lider) {
+          // Ficha de OTRO líder (orden 31): el servidor no manda nombre, teléfono ni id. Solo se dice que ya está inscrita y,
+          // si se puede, se ofrece sumarla a la rama; ya sumada, la búsqueda la encuentra como propia y se puede agregar.
+          cont.innerHTML = cajaPersonaDeOtroLider(votante, texto);
+        } else if (votante) {
           cont.innerHTML = filaResultadoBusqueda(votante, 'votante');
         } else if (usuario) {
           cont.innerHTML = filaResultadoBusqueda(usuario, 'usuario');
@@ -438,10 +442,31 @@ document.getElementById('input-buscar-votante').addEventListener('input', () => 
         ? resultados.map(v => filaResultadoBusqueda(v, 'votante')).join('')
         : '<div style="color:var(--color-text-muted); font-size:0.85rem;">Sin resultados.</div>';
     } catch (err) {
-      cont.innerHTML = '';
+      // Pasarse del límite de búsquedas (60 cada 10 minutos) se dice; cualquier otro fallo se calla como siempre.
+      cont.innerHTML = /demasiadas b/i.test(String(err && err.message))
+        ? `<div style="color:#8A1C13; font-size:0.85rem;">${escaparHtml(err.message)}.</div>` : '';
     }
   }, 350);
 });
+
+function cajaPersonaDeOtroLider(r, cedulaTecleada) {
+  const boton = r.puede_sumar
+    ? ` <button type="button" class="btn-sec-neutro" onclick="sumarPersonaDeOtroLider(this, '${escaparHtml(cedulaTecleada).replace(/'/g, '&#39;')}')">Sumar a mi rama</button>`
+    : '';
+  return `<div style="padding:8px 0; font-size:0.9rem;">Esta persona ya está inscrita con otro líder (${escaparHtml(r.iniciales || '')}).${boton}</div>`;
+}
+
+async function sumarPersonaDeOtroLider(boton, cedulaTecleada) {
+  boton.disabled = true;
+  try {
+    await api('/votantes/sumar-por-cedula', { method: 'POST', body: { cedula: cedulaTecleada } });
+    // Ya en su rama: se repite la búsqueda y ahora aparece como propia, con su botón «Agregar».
+    document.getElementById('input-buscar-votante').dispatchEvent(new Event('input'));
+  } catch (err) {
+    boton.disabled = false;
+    boton.insertAdjacentHTML('afterend', ` <span style="color:#A93226;">No se pudo: ${escaparHtml(err.message)}</span>`);
+  }
+}
 
 /** Catálogo de departamentos/municipios de Colombia (DANE), para Departamento/Ciudad del votante nuevo. */
 async function cargarCatalogoColombiaAsistentes() {

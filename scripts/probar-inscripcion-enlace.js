@@ -1119,8 +1119,10 @@ const F = (codigo, huella, extra = {}) => ({
   ok(await cuentaFichas('1053777010') === 1 && await cuentaFichas('1053777001') === 1, '…y no se creó ninguna ficha nueva');
   const dupAjena = await alta({ cedula: '1053777010', telefono: '3310000014' }, l2);
   ok(dupAjena.status === 400 && dupAjena.datos.error === 'Ya registrado por otro líder.' && !/Ficha Vieja|3310000010/.test(JSON.stringify(dupAjena.datos)), 'para un líder de otra rama el mensaje es el mismo y no trae datos de la ficha');
-  const bu = await pedir('GET', '/api/votantes/buscar-por-cedula?cedula=01053777010', { usuario: U(l2, 'lider') });
-  ok(bu.status === 200 && bu.datos && bu.datos.id === vVieja, 'buscar-por-cedula (lo que consulta el formulario antes de guardar) encuentra la ficha vieja con la cédula escrita como sea');
+  const bu = await pedir('GET', '/api/votantes/buscar-por-cedula?cedula=01053777010', { usuario: U(l1, 'lider') });
+  ok(bu.status === 200 && bu.datos && bu.datos.id === vVieja, 'buscar-por-cedula (lo que consulta el formulario antes de guardar) encuentra la ficha vieja con la cédula escrita como sea (para su dueño; a otro líder desde la orden 31 solo le dice que existe)');
+  const buAjeno = await pedir('GET', '/api/votantes/buscar-por-cedula?cedula=01053777010', { usuario: U(l2, 'lider') });
+  ok(buAjeno.status === 200 && buAjeno.datos && buAjeno.datos.de_otro_lider === true && !('id' in buAjeno.datos), 'y a un líder ajeno la misma cédula con ceros y puntos le responde solo que existe');
   const ve = await pedir('GET', '/api/votantes/verificar-identificacion?numero=1.053.777.010', { usuario: U(l1, 'lider') });
   const ve2 = await pedir('GET', `/api/votantes/verificar-identificacion?numero=1053777010&excluir_id=${vVieja}`, { usuario: U(l1, 'lider') });
   const ve3 = await pedir('GET', '/api/votantes/verificar-identificacion?numero=1053777999', { usuario: U(l1, 'lider') });
@@ -1257,6 +1259,179 @@ const F = (codigo, huella, extra = {}) => ({
   ok(cli.status === 2 && /REPORTE DE CÉDULAS/.test(cli.stdout) && /HAY \d+ grupo/.test(cli.stdout) && !/1053780001/.test(cli.stdout), 'por la línea de comandos: sale con código 2 cuando hay casi-duplicados, y no imprime cédulas completas', { status: cli.status, err: cli.stderr && cli.stderr.slice(0, 200) });
   ok((await q('CHECKSUM TABLE votantes'))[0].Checksum === antesCk, '…y tampoco modifica nada');
   } // fin del bloque de la orden 30
+
+  console.log('\n== Buscar por cédula sin exponer datos ajenos, y SMS al reinscribirse (orden 31)');
+  { // bloque propio
+  const fs = require('fs'), path = require('path');
+  const buscar = (cedula, quien, rol = 'lider', sub) => pedir('GET', `/api/votantes/buscar-por-cedula?cedula=${encodeURIComponent(cedula)}`, { usuario: U(quien, rol), ...(sub ? { sublicencia: sub } : {}) });
+  const auditorias = async (accion, uid) => q('SELECT usuario_id, detalle, ip, created_at FROM auditoria WHERE accion = ? AND usuario_id = ? ORDER BY id', [accion, uid]);
+
+  console.log('  -- parte A: lo que devuelve la búsqueda, según quién pregunta');
+  const fPropia = await votante('1053900001', 'Pedro Gómez Ruiz', '3360000001', l1, { consent: true });
+  await pool.query("UPDATE votantes SET email = 'pedro@correo.co', direccion = 'Calle 9 # 8-7', puesto_votacion = 'PUESTO SECRETO', observaciones = 'nota privada' WHERE id = ?", [fPropia]);
+  const propia = await buscar('1053900001', l1);
+  ok(propia.status === 200 && propia.datos.id === fPropia && propia.datos.nombre === 'Pedro Gómez Ruiz' && propia.datos.telefono === '3360000001' && propia.datos.cedula === '1053900001' && propia.datos.mia === true && propia.datos.puede_sumar === false,
+     'un líder busca una ficha PROPIA y ve todo, como hoy (id, nombre, teléfono, cédula, mia, puede_sumar)', propia.datos);
+  ok(Object.keys(propia.datos).sort().join() === 'cedula,id,mia,nombre,puede_sumar,telefono', 'y exactamente esos campos: la forma de siempre');
+  const antesAud = (await auditorias('buscar_cedula_ajena', l2)).length;
+  const ajena = await buscar('1053900001', l2);
+  ok(ajena.status === 200 && JSON.stringify(Object.keys(ajena.datos).sort()) === JSON.stringify(['de_otro_lider', 'existe', 'iniciales', 'puede_sumar']),
+     'un líder busca una ficha AJENA y recibe SOLO { existe, de_otro_lider, iniciales, puede_sumar }', ajena.datos);
+  ok(ajena.datos.existe === true && ajena.datos.de_otro_lider === true && ajena.datos.iniciales === 'P. R.' && ajena.datos.puede_sumar === false, 'existe, de otro líder, iniciales «P. R.» y sin posibilidad de sumar (no tiene rama de aspirante)', ajena.datos);
+  const crudo = ajena.texto;
+  ok(!/3360000001|1053900001|\b053900001|Pedro|Gómez|Ruiz|pedro@correo|Calle 9|SECRETO|nota privada|Lider Uno|"id"|"telefono"|"cedula"|"nombre"|"email"|"lider/i.test(crudo), 'el JSON completo NO trae teléfono, cédula, nombre, correo, dirección, puesto, ni quién es el líder dueño ni el id', crudo);
+  const ajena2 = await buscar('1.053.900.001', l2);
+  ok(JSON.stringify(ajena2.datos) === JSON.stringify(ajena.datos), 'la misma respuesta mínima si la cédula se escribe con puntos');
+  const iniciales = (await Promise.all([['Ana', 'A.'], ['María de los Ángeles Pérez del Río', 'M. R.'], ['juan  carlos  Ñíguez', 'J. Ñ.']].map(async ([n, esperado], i) => {
+    await votante(`10539001${i}0`, n, `33600001${i}0`, l1, { consent: true });
+    return [n, esperado, (await buscar(`10539001${i}0`, l2)).datos.iniciales];
+  })));
+  ok(iniciales.every(([, e, g]) => e === g), 'iniciales: primera y última palabra, sin partículas («de», «del»…), en mayúscula y con tilde', iniciales);
+  ok((await buscar('1053900777', l2)).datos === null, 'una cédula que no existe sigue respondiendo null');
+
+  // La ficha ajena para un coordinador y un administrador
+  const fDeAsp = await votante('1053900002', 'Sofía Beltrán Mora', '3360000002', l3, { consent: true });
+  const coordAjena = await buscar('1053900002', coord, 'coordinador');
+  ok(coordAjena.datos.de_otro_lider === true && !/3360000002|Sofía/.test(coordAjena.texto), 'un coordinador busca una ficha FUERA de su rama (de la de un aspirante): solo iniciales (hoy el coordinador NO tiene alcance total: ve su rama)', coordAjena.datos);
+  const coordPropia = await buscar('1053900001', coord, 'coordinador');
+  ok(coordPropia.datos.id === fPropia && coordPropia.datos.telefono === '3360000001', 'el mismo coordinador sí ve todo de una ficha de SU rama (de su líder)', coordPropia.datos);
+  const admVe = await buscar('1053900002', admin, 'admin');
+  ok(admVe.datos.id === fDeAsp && admVe.datos.nombre === 'Sofía Beltrán Mora' && admVe.datos.telefono === '3360000002', 'el administrador ve todo, también lo de la rama de un aspirante');
+  const aspVe = await buscar('1053900002', l3);
+  ok(aspVe.datos.id === fDeAsp && aspVe.datos.mia === true, 'un líder de un aspirante ve todo de una ficha de su rama');
+
+  console.log('  -- la bitácora de las búsquedas que caen en una ficha ajena');
+  const aud = await auditorias('buscar_cedula_ajena', l2);
+  ok(aud.length >= antesAud + 5, 'cada búsqueda en una ficha ajena queda en `auditoria` (accion «buscar_cedula_ajena»), con el usuario', aud.length - antesAud);
+  ok(aud.every(a => a.created_at && /^Buscó una cédula de otro líder \(\*\*\*\d{3}\)$/.test(a.detalle)) && aud.some(a => a.detalle.endsWith('(***001)')), 'con la fecha y SOLO los tres últimos dígitos de la cédula', aud.slice(-2));
+  ok(!/1053900001/.test(JSON.stringify(aud)), '…y nunca la cédula completa');
+  const nAud = (await q("SELECT COUNT(*) c FROM auditoria WHERE accion = 'buscar_cedula_ajena'"))[0].c;
+  await buscar('1053900001', l1); await buscar('1053900777', l2);
+  ok((await q("SELECT COUNT(*) c FROM auditoria WHERE accion = 'buscar_cedula_ajena'"))[0].c === nAud, 'buscar una ficha propia o una cédula inexistente NO deja rastro (solo las ajenas)');
+
+  console.log('  -- sumar a mi rama sigue igual');
+  const smPor = await pedir('POST', '/api/votantes/sumar-por-cedula', { usuario: U(l3, 'lider'), json: { cedula: '1.053.900.001' } });
+  ok(smPor.status === 200 && (await q('SELECT COUNT(*) c FROM votante_ramas WHERE votante_id = ? AND aspirante_id = ?', [fPropia, asp]))[0].c === 1, 'sumar-por-cedula (sin id: lo resuelve el servidor con la cédula tecleada): suma a la rama de quien lo pide', smPor.datos);
+  ok((await pedir('POST', '/api/votantes/sumar-por-cedula', { usuario: U(l3, 'lider'), json: { cedula: '1053900888' } })).status === 404, 'una cédula que no existe → 404');
+  ok((await pedir('POST', '/api/votantes/sumar-por-cedula', { usuario: U(l2, 'lider'), json: { cedula: '1053900001' } })).status === 403, 'quien no pertenece a la rama de ningún aspirante → 403 (la misma regla)');
+  const tras = await buscar('1053900001', l3);
+  ok(tras.datos.id === fPropia && tras.datos.mia === true && tras.datos.puede_sumar === false, 'ya sumada, la búsqueda la devuelve completa y como propia');
+  const fParaSumar = await votante('1053900003', 'Rosa Castaño', '3360000003', l1, { consent: true });
+  const viejoS = await pedir('POST', `/api/votantes/${fParaSumar}/sumar-a-mi-rama`, { usuario: U(l3, 'lider'), json: { cedula: '1.053.900.003' } });
+  ok(viejoS.status === 200, 'la ruta de siempre, /:id/sumar-a-mi-rama con la cédula, sigue funcionando', viejoS.datos);
+  const ajenaSum = await buscar('1053900002', l2);   // (l2 sin rama: puede_sumar false) vs un líder de aspirante buscando una ficha de la madre
+  const deMadre = await votante('1053900004', 'Tomás Ibáñez', '3360000004', l1, { consent: true });
+  const vistaAsp = await buscar('1053900004', l3);
+  ok(vistaAsp.datos.de_otro_lider === true && vistaAsp.datos.puede_sumar === true && !/Tomás|3360000004/.test(vistaAsp.texto), 'un líder de aspirante ante una ficha de la campaña madre: iniciales y «puede_sumar: true» (sin nada más)', vistaAsp.datos);
+
+  console.log('  -- el límite: 60 búsquedas cada 10 minutos por usuario');
+  const lSpam = await usuario('Lider Spam Prueba', 'lider'); await estructura(lSpam, 'lider', coord);
+  const estados = [];
+  for (let i = 0; i < 61; i++) estados.push((await buscar(`10539${String(50000 + i)}`, lSpam)).status);
+  ok(estados.slice(0, 60).every(s => s === 200) && estados[60] === 429, `las 60 primeras responden 200 y la búsqueda 61 recibe 429`, estados.filter(s => s !== 200));
+  const r429 = await buscar('1053950000', lSpam);
+  ok(r429.status === 429 && r429.datos.error === 'Demasiadas búsquedas, espera unos minutos', 'con el mensaje «Demasiadas búsquedas, espera unos minutos»', r429.datos);
+  ok((await pedir('POST', '/api/votantes/sumar-por-cedula', { usuario: U(lSpam, 'lider'), json: { cedula: '1053950001' } })).status === 429, 'sumar-por-cedula comparte el mismo tope (es la misma pregunta)');
+  ok((await buscar('1053900001', l2)).status === 200, 'el tope es por usuario: otro usuario no se ve afectado');
+  ok((await pedir('GET', '/api/votantes/buscar-por-cedula?cedula=', { usuario: U(lSpam, 'lider') })).status === 200, 'una consulta sin cédula no cuenta ni se bloquea');
+
+  console.log('  -- las pantallas');
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'public/js/validacion-cedula-ui.js'), 'utf8');
+  const ramaOtro = ui.slice(ui.indexOf('if (r.de_otro_lider) {'), ui.indexOf("if (!r.id) return;"));
+  ok(ramaOtro.includes('Esta persona ya está inscrita con otro líder (') && ramaOtro.includes('Sumar a mi rama') && ramaOtro.includes('/votantes/sumar-por-cedula') && !/rellenar\(/.test(ramaOtro) && !/r\.nombre|r\.telefono/.test(ramaOtro),
+     'escritorio y app del celular (validacion-cedula-ui.js): «Esta persona ya está inscrita con otro líder (P. G.)», botón «Sumar a mi rama» solo si se puede, y NO rellena el formulario ni usa nombre o teléfono', ramaOtro.length);
+  ok(/puede_sumar\s*\?/.test(ramaOtro) && /demasiadas b/i.test(ui), 'el botón sale solo si puede_sumar, y se avisa cuando se pasa el límite');
+  ok(/validacion-cedula-ui/.test(fs.readFileSync(path.join(__dirname, '..', 'public/app/registro-votante.html'), 'utf8')) && /validacion-cedula-ui/.test(fs.readFileSync(path.join(__dirname, '..', 'public/votantes.html'), 'utf8')), 'lo cargan la app del celular (registro-votante) y el escritorio (votantes)');
+  const asis = fs.readFileSync(path.join(__dirname, '..', 'public/asistentes-reuniones.html'), 'utf8');
+  ok(/votante\.de_otro_lider/.test(asis) && /cajaPersonaDeOtroLider/.test(asis) && /sumar-por-cedula/.test(asis) && /Esta persona ya está inscrita con otro líder/.test(asis), 'alta rápida de asistentes: muestra el aviso y el botón, sin fila para agregar a una ficha ajena');
+
+  console.log('  -- parte B: SMS de confirmación al reinscribirse por /i');
+  await pool.query('UPDATE inscripcion_config SET limite_telefono_dia = 50 WHERE id = 1');
+  const inscribir = (cedula, tel, extra = {}) => pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula, telefono: tel, nombre: 'Persona Reinscribe Prueba', canal_sms: '1', ...extra }) });
+  const esperarSms = async () => { for (let i = 0; i < 30 && !smsEnviados.length; i++) await dormir(100); await reg.procesarCola(); };
+  const nadaEnviado = async () => { await dormir(350); await reg.procesarCola(); return smsEnviados.length === 0; };
+  const colaDe = async (id) => (await q('SELECT estado, detalle FROM inscripcion_sms_cola WHERE votante_id = ?', [id]))[0];
+  const intentoDe = async (id) => (await q('SELECT sms_reenviado, motivo, celular_coincide FROM inscripcion_intentos WHERE votante_id = ? ORDER BY id DESC LIMIT 1', [id]))[0];
+  const envejecer = (id) => pool.query("UPDATE inscripcion_sms_cola SET enviado_en = NOW() - INTERVAL 25 HOUR, creado_en = NOW() - INTERVAL 25 HOUR WHERE votante_id = ?", [id]);
+
+  // Persona nueva con SMS marcado: el SMS original, que no se confirma
+  smsEnviados.length = 0;
+  const rNuevaB = await inscribir('9830000001', '3370000001');
+  await esperarSms();
+  const vB = (await q("SELECT id FROM votantes WHERE cedula = '9830000001'"))[0].id;
+  ok(smsEnviados.length === 1 && /\/c\//.test(smsEnviados[0].mensaje) && (await colaDe(vB)).estado === 'enviado', 'persona nueva: recibe su SMS de confirmación (lo de siempre)');
+  ok((await intentoDe(vB)).sms_reenviado === 0, 'y su intento NO figura como «reenviado»');
+  const textoBase = rNuevaB.texto;
+
+  smsEnviados.length = 0;
+  const r2 = await inscribir('9830000001', '3370000001');
+  ok(await nadaEnviado() && (await intentoDe(vB)).sms_reenviado === 0, 'una SEGUNDA vez dentro de 24 horas: no se manda nada, y el intento no marca reenvío');
+  ok(r2.texto === textoBase, 'la respuesta pública es la misma que la de la persona nueva (byte a byte)');
+
+  await envejecer(vB);
+  smsEnviados.length = 0;
+  const r3 = await inscribir('9830000001', '3370000001');
+  await esperarSms();
+  ok(smsEnviados.length === 1 && smsEnviados[0].telefono === '3370000001' && /\/c\//.test(smsEnviados[0].mensaje), 'reinscripción con el MISMO celular, sin confirmar, SMS marcado y pasadas 24 h: se manda otra vez el SMS de confirmación', smsEnviados);
+  ok((await colaDe(vB)).estado === 'enviado' && (await intentoDe(vB)).sms_reenviado === 1 && (await intentoDe(vB)).motivo === 'cedula_existente', 'el intento queda con sms_reenviado = 1 (y sigue como cedula_existente)', await intentoDe(vB));
+  ok(r3.texto === textoBase, '…y la respuesta pública sigue idéntica');
+  smsEnviados.length = 0;
+  await inscribir('9830000001', '3370000001');
+  ok(await nadaEnviado(), 'y justo después otra vez: no (una cada 24 horas)');
+  ok((await q('SELECT COUNT(*) c FROM inscripcion_sms_cola WHERE votante_id = ?', [vB]))[0].c === 1, 'la cola sigue teniendo UNA fila por ficha (se reutiliza)');
+
+  console.log('  -- los casos en que NO se manda');
+  await envejecer(vB);
+  smsEnviados.length = 0;
+  const rOtroCel = await inscribir('9830000001', '3379999999');
+  ok(await nadaEnviado() && (await intentoDe(vB)).sms_reenviado === 0 && rOtroCel.texto === textoBase, 'celular DISTINTO: no se manda nada, no se modifica nada y la respuesta es la misma');
+  smsEnviados.length = 0;
+  const rSinCasilla = await inscribir('9830000001', '3370000001', { canal_sms: '' });
+  ok(await nadaEnviado() && (await intentoDe(vB)).sms_reenviado === 0 && rSinCasilla.texto.includes('¡Listo!'), 'casilla de SMS SIN marcar en este envío: no se manda');
+  await pool.query('UPDATE votantes SET consentimiento_confirmado_en = NOW() WHERE id = ?', [vB]);
+  smsEnviados.length = 0;
+  const rConf = await inscribir('9830000001', '3370000001');
+  ok(await nadaEnviado() && (await intentoDe(vB)).sms_reenviado === 0 && rConf.texto === textoBase, 'ficha YA CONFIRMADA: no se manda');
+  await pool.query('UPDATE votantes SET consentimiento_confirmado_en = NULL, no_contactar = 1 WHERE id = ?', [vB]);
+  smsEnviados.length = 0;
+  await inscribir('9830000001', '3370000001');
+  ok(await nadaEnviado() && (await intentoDe(vB)).sms_reenviado === 0, 'ficha con no_contactar (la baja): no se manda');
+  await pool.query('UPDATE votantes SET no_contactar = 0 WHERE id = ?', [vB]);
+
+  console.log('  -- la evidencia de ESTE envío: solo en los campos vacíos');
+  // Ficha de un líder (origen manual), autorizada a mano, con su SMS «no consta» (NULL) y su evidencia ya escrita
+  const vM = await votante('9830000011', 'Ficha Manual Autorizada', '3370000011', l1, { consent: true });
+  await pool.query("UPDATE votantes SET consentimiento_metodo = 'verbal_formulario_campo', consentimiento_fecha = '2026-01-02 03:04:05', consentimiento_version = 'huella-vieja', consentimiento_whatsapp = 0 WHERE id = ?", [vM]);
+  smsEnviados.length = 0;
+  await inscribir('9830000011', '3370000011', { canal_whatsapp: '1' });
+  await esperarSms();
+  const [m1] = await q("SELECT consentimiento_sms s, consentimiento_whatsapp w, consentimiento_metodo m, DATE_FORMAT(consentimiento_fecha, '%Y-%m-%d %H:%i:%s') f, consentimiento_version v FROM votantes WHERE id = ?", [vM]);
+  ok(smsEnviados.length === 1 && m1.s === 1, 'ficha manual con el SMS «no consta» (NULL): se llena con este envío (1) y se manda el SMS', m1);
+  ok(m1.m === 'verbal_formulario_campo' && m1.f === '2026-01-02 03:04:05' && m1.v === 'huella-vieja' && m1.w === 0, '…y lo que ya tenía (método, fecha, versión de la política, un WhatsApp en 0 puesto por el líder) NO se pisa', m1);
+  ok((await q('SELECT COUNT(*) c FROM votante_consentimiento_evidencia WHERE votante_id = ?', [vM]))[0].c === 1, 'queda la fila de evidencia (IP, navegador, enlace, política) de este envío');
+  // Un 0 puesto a mano en el SMS de una ficha manual NO se convierte en 1
+  const vM0 = await votante('9830000012', 'Ficha Manual Dijo No', '3370000012', l1, { consent: true });
+  await pool.query('UPDATE votantes SET consentimiento_sms = 0 WHERE id = ?', [vM0]);
+  smsEnviados.length = 0;
+  await inscribir('9830000012', '3370000012');
+  ok(await nadaEnviado() && (await q('SELECT consentimiento_sms s FROM votantes WHERE id = ?', [vM0]))[0].s === 0 && (await intentoDe(vM0)).sms_reenviado === 0, 'un SMS en 0 de una ficha manual (la persona dijo que no) NO se vuelve 1 ni se manda nada');
+  // Una ficha nacida de este mismo formulario sin marcar el SMS (0): lo último que declara la persona manda
+  smsEnviados.length = 0;
+  await inscribir('9830000013', '3370000013', { canal_sms: '' });
+  const vF = (await q("SELECT id FROM votantes WHERE cedula = '9830000013'"))[0].id;
+  ok((await q('SELECT consentimiento_sms s FROM votantes WHERE id = ?', [vF]))[0].s === 0 && smsEnviados.length === 0, 'primera inscripción sin marcar el SMS: queda en 0 y no se manda nada');
+  await inscribir('9830000013', '3370000013');
+  await esperarSms();
+  ok(smsEnviados.length === 1 && (await q('SELECT consentimiento_sms s FROM votantes WHERE id = ?', [vF]))[0].s === 1 && (await intentoDe(vF)).sms_reenviado === 1, 'si vuelve y SÍ lo marca: la ficha nacida de este formulario pasa a 1 y se le manda el SMS');
+  // ficha de OTRO líder, mismo celular: también (la condición no la excluye), y el dueño no cambia
+  const vO = await votante('9830000014', 'Ficha De Otro Lider Reinscribe', '3370000014', l1, { consent: true });
+  smsEnviados.length = 0;
+  await inscribir('9830000014', '3370000014');
+  await esperarSms();
+  ok(smsEnviados.length === 1 && (await q('SELECT lider_id l FROM votantes WHERE id = ?', [vO]))[0].l === l1, 'ficha de otro líder con el celular que coincide: se manda, y el dueño no cambia');
+  await pool.query('UPDATE inscripcion_config SET limite_telefono_dia = 3 WHERE id = 1');
+  } // fin del bloque de la orden 31
+
 
 
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
@@ -859,12 +860,48 @@ router.get('/verificar-identificacion', async (req, res) => {
  * por nombre, esto no expone el resto del libro de contactos de otro
  * líder: solo confirma quién es el dueño de ESA cédula puntual.
  */
-router.get('/buscar-por-cedula', async (req, res) => {
+/* LÍMITE DE BÚSQUEDAS POR CÉDULA (orden 31): 60 por usuario cada 10 minutos. Esta ruta confirma que una cédula existe
+   y, para quien no la ve, de quién es; sin tope sirve para recorrer cédulas y averiguar quién está en la base. 60 es
+   holgado para quien registra (se busca una vez al salir del campo) y poco para quien barre. Cuenta por USUARIO y no
+   por IP (varios líderes comparten la wifi de un evento), y también a `sumar-por-cedula`, que es la misma pregunta.
+   Vive en memoria del proceso: un reinicio de PM2 lo pone en cero. */
+const limiteBuscarCedula = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !String((req.query && req.query.cedula) || (req.body && req.body.cedula) || '').trim(),
+  keyGenerator: (req) => 'usuario:' + ((req.session && req.session.usuario && req.session.usuario.id) || 'sin-sesion'),
+  handler: (req, res) => res.status(429).json({ error: 'Demasiadas búsquedas, espera unos minutos' }),
+});
+const PARTICULAS_DE_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'di', 'van', 'von']);
+
+/** «Pedro Gómez Ruiz» → «P. R.»; «María» → «M.». Primera y última palabra, sin partículas («de», «del»…): lo mínimo para reconocer a alguien sin decir quién es. */
+function inicialesDe(nombre) {
+  const palabras = String(nombre || '').trim().split(/\s+/).filter(w => w && !PARTICULAS_DE_NOMBRE.has(w.toLowerCase()));
+  if (!palabras.length) return '';
+  const ini = (w) => Array.from(w)[0].toLocaleUpperCase('es') + '.';
+  return palabras.length === 1 ? ini(palabras[0]) : `${ini(palabras[0])} ${ini(palabras[palabras.length - 1])}`;
+}
+
+/**
+ * LA FICHA, SEGÚN QUIÉN PREGUNTA (orden 31). Antes devolvía nombre, teléfono y cédula de la ficha dueña de esa cédula
+ * a CUALQUIERA con sesión, fuera o no de su alcance: bastaba teclear cédulas para averiguar quién estaba inscrito con
+ * otro líder y cómo llamarlo. Ahora:
+ *   · si la ficha está en su alcance (la ve en su listado) o es suya: responde como siempre;
+ *   · si es de otro líder: SOLO { existe, de_otro_lider, iniciales, puede_sumar }. Ni teléfono, ni cédula, ni correo,
+ *     ni dirección, ni puesto, ni quién es el líder dueño;
+ *   · el administrador ve todo.
+ * Cada búsqueda que cae en una ficha ajena queda en `auditoria` con los tres últimos dígitos de la cédula, para
+ * detectar a quien recorre cédulas.
+ */
+router.get('/buscar-por-cedula', limiteBuscarCedula, async (req, res) => {
   const cedula = (req.query.cedula || '').trim();
   if (!cedula) return res.json(null);
   try {
     // Por la cédula normalizada y con las variantes guardadas: la misma persona se encuentra se escriba como se escriba.
-    const hallada = await buscarFichaPorCedula(pool, normalizarCedula(cedula));
+    const cedulaNormalizada = normalizarCedula(cedula);
+    const hallada = await buscarFichaPorCedula(pool, cedulaNormalizada);
     if (!hallada) return res.json(null);
     const [[fila]] = await pool.query(
       `SELECT id, nombre, telefono, cedula, lider_id, sublider_id, rama_aspirante_id
@@ -874,17 +911,8 @@ router.get('/buscar-por-cedula', async (req, res) => {
     if (!fila) return res.json(null);
 
     /* CON QUIEN PREGUNTA, LA MISMA CEDULA SIGNIFICA COSAS DISTINTAS.
-       Hasta ahora esto devolvia la ficha y punto, y el formulario no podia
-       hacer nada util con ella: si la persona ya existia, registrarla fallaba
-       con «Ya registrado por otro lider» y ahi se acababa. Con dos aspirantes
-       al Concejo en la misma campaña eso pasa a diario.
-
-       Se agregan dos datos, no una ruta nueva: `mia` para abrir la ficha en vez
-       de intentar crearla, y `puede_sumar` para ofrecer agregarla a su rama.
-
-       Lo que NO se agrega es la valoracion ni las observaciones de la otra
-       rama: el nombre y el telefono son de la persona; lo que otra campaña
-       piense de ella, no. */
+       `mia` para abrir la ficha en vez de intentar crearla, y `puede_sumar` para ofrecer agregarla a su rama.
+       Lo que NO se agrega es la valoracion ni las observaciones de la otra rama. */
     let miRama = null;
     try {
       miRama = await aspiranteDe(pool, req.session.usuario.id);
@@ -904,19 +932,35 @@ router.get('/buscar-por-cedula', async (req, res) => {
     const mia = fila.lider_id === req.session.usuario.id
              || fila.sublider_id === req.session.usuario.id
              || !!(miRama && (fila.rama_aspirante_id === miRama || yaEnMiRama));
+    // Sin rama propia no hay donde sumarla, y ofrecerlo seria un boton que se niega al pulsarlo.
+    const puedeSumar = !!miRama && !mia;
 
-    res.json({
-      id: fila.id,
-      nombre: fila.nombre,
-      telefono: fila.telefono,
-      cedula: fila.cedula,
-      mia,
-      // Sin rama propia no hay donde sumarla, y ofrecerlo seria un boton que se
-      // niega al pulsarlo — peor que no ofrecerlo.
-      puede_sumar: !!miRama && !mia,
-    });
+    // ¿La ve en su listado? La misma condición que el listado (lib/alcanceVotantes.js). El administrador, sin sublicencia, ve todo.
+    let enMiAlcance = mia || (req.session.usuario.rol === 'admin' && !req.sublicencia) || !req.alcance;
+    if (!enMiAlcance) {
+      const [[visible]] = await pool.query(
+        `SELECT 1 AS ok FROM votantes v WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')}`,
+        [fila.id, ...parametrosAlcanceVotantes(req.alcance)]);
+      enMiAlcance = !!visible;
+    }
+
+    if (enMiAlcance) {
+      return res.json({
+        id: fila.id,
+        nombre: fila.nombre,
+        telefono: fila.telefono,
+        cedula: fila.cedula,
+        mia,
+        puede_sumar: puedeSumar,
+      });
+    }
+
+    // Ficha de otro líder: queda el rastro (quién, cuándo —lo pone la tabla— y los tres últimos dígitos) y se responde lo mínimo.
+    await registrarAuditoria(req.session.usuario.id, 'buscar_cedula_ajena', 'votantes', null,
+      `Buscó una cédula de otro líder (${enmascararCedula(cedulaNormalizada)})`, req.ip);
+    res.json({ existe: true, de_otro_lider: true, iniciales: inicialesDe(fila.nombre), puede_sumar: puedeSumar });
   } catch (err) {
-    console.error(err);
+    console.error(err.code || err.message);
     res.status(500).json({ error: 'Error buscando por número de identificación.' });
   }
 });
@@ -2284,13 +2328,13 @@ router.post('/importar', requireRole('admin', 'coordinador'), requiereImportarEx
  * persona sigue siendo una sola, con un telefono y una direccion; lo que se
  * agrega es que esta rama tambien la ve.
  */
-router.post('/:id/sumar-a-mi-rama', async (req, res) => {
+async function sumarARama(req, res, votanteId, cedulaCruda) {
   try {
     const miRama = await aspiranteDe(pool, req.session.usuario.id);
     if (!miRama) {
       return res.status(403).json({ error: 'Usted no pertenece a la estructura de ningun aspirante con licencia propia.' });
     }
-    const [[v]] = await pool.query('SELECT id, cedula FROM votantes WHERE id = ?', [req.params.id]);
+    const [[v]] = await pool.query('SELECT id, cedula FROM votantes WHERE id = ?', [votanteId]);
     if (!v) return res.status(404).json({ error: 'Esa persona ya no existe.' });
 
     /* QUIEN LLAMA TIENE QUE PODER ACREDITAR A ESA PERSONA. Antes bastaba con un
@@ -2304,7 +2348,7 @@ router.post('/:id/sumar-a-mi-rama', async (req, res) => {
        La visibilidad sola rompería el caso de uso: `puede_sumar` solo se ofrece
        para fichas que NO son suyas. */
     let acreditada = false;
-    const cedulaEnviada = String((req.body && req.body.cedula) || '').trim();
+    const cedulaEnviada = String(cedulaCruda || '').trim();
     // Normalizadas las dos: «1.053.123.456» acredita a quien está guardado como «1053123456» y al revés.
     if (cedulaEnviada && v.cedula && normalizarCedula(cedulaEnviada) !== '' && normalizarCedula(cedulaEnviada) === normalizarCedula(v.cedula)) acreditada = true;
     if (!acreditada && req.alcance) {
@@ -2324,6 +2368,25 @@ router.post('/:id/sumar-a-mi-rama', async (req, res) => {
     res.json({ ok: true, id: v.id });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'No se pudo agregar a su estructura.' });
+  }
+}
+
+router.post('/:id/sumar-a-mi-rama', limiteBuscarCedula, (req, res) => sumarARama(req, res, req.params.id, req.body && req.body.cedula));
+
+/**
+ * Lo mismo, pero SIN id (orden 31): la búsqueda por cédula ya no devuelve el id de una ficha ajena, así que el servidor
+ * la resuelve con la cédula. La regla es EXACTAMENTE la de arriba (se acredita con la cédula, y se suma a la rama de
+ * quien lo pide); aquí solo cambia cómo se encuentra la ficha.
+ */
+router.post('/sumar-por-cedula', limiteBuscarCedula, async (req, res) => {
+  const cedula = String((req.body && req.body.cedula) || '').trim();
+  try {
+    const id = normalizarCedula(cedula) ? await buscarFichaPorCedula(pool, normalizarCedula(cedula)) : null;
+    if (!id) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+    return sumarARama(req, res, id, cedula);
+  } catch (err) {
+    console.error(err.code || err.message);
     res.status(500).json({ error: 'No se pudo agregar a su estructura.' });
   }
 });

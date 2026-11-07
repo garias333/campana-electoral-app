@@ -2769,6 +2769,7 @@ async function main() {
       motivo VARCHAR(40) NULL COMMENT 'En rechazados: honeypot, muy_rapido, tope_telefono, tope_enlace. En una cédula que ya existía: cedula_existente',
       cedula_fin CHAR(3) NULL COMMENT 'Últimos 3 dígitos de la cédula, solo cuando ya existía (para el aviso al líder)',
       celular_coincide TINYINT(1) NULL COMMENT 'Solo cuando la cédula ya existía: 1 si el celular escrito coincidía con el de la ficha',
+      sms_reenviado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Reinscripción con celular coincidente: 1 si se encoló otra vez el SMS de confirmación',
       ip VARCHAR(45) NULL,
       navegador VARCHAR(255) NULL,
       KEY idx_insc_int_enlace (enlace_id, creado_en),
@@ -2782,6 +2783,10 @@ async function main() {
     "cedula_fin CHAR(3) NULL COMMENT 'Últimos 3 dígitos de la cédula, solo cuando ya existía (para el aviso al líder)'", 'cedula_fin');
   await agregarColumnaSiFalta(connection, 'inscripcion_intentos',
     "celular_coincide TINYINT(1) NULL COMMENT 'Solo cuando la cédula ya existía: 1 si el celular escrito coincidía con el de la ficha'", 'celular_coincide');
+
+  /* La reinscripción de una ficha sin confirmar vuelve a mandar el SMS de confirmación (orden 31): el intento anota si se encoló. */
+  await agregarColumnaSiFalta(connection, 'inscripcion_intentos',
+    "sms_reenviado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Reinscripción con celular coincidente: 1 si se encoló otra vez el SMS de confirmación'", 'sms_reenviado');
 
   /* UNA CÉDULA, UNA FICHA: el índice UNIQUE de votantes.cedula. Viene en db/schema.sql, así que toda campaña
      creada con él lo tiene; esto cubre a la que no. CONDICIONAL: si ya hay cédulas repetidas NO se crea (fallaría

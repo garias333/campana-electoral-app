@@ -149,8 +149,49 @@
     let r;
     try {
       r = await window.api('/votantes/buscar-por-cedula?cedula=' + encodeURIComponent(valor));
-    } catch (e) { return; }   // sin red se calla; el guardado dira lo que haya que decir
-    if (!r || !r.id) return;
+    } catch (e) {
+      /* Sin red se calla; el guardado dira lo que haya que decir. Pasarse del limite de busquedas (60 cada 10
+         minutos) SI se dice: de otro modo parece que la cedula no existe. */
+      if (/demasiadas b/i.test(String(e && e.message))) {
+        caja.style.cssText += 'display:block; background:#FDECEA; border:1px solid #E5A5A0; color:#8A1C13;';
+        caja.textContent = e.message + '.';
+      }
+      return;
+    }
+    if (!r) return;
+
+    /* UNA FICHA DE OTRO LIDER NO SE DESCRIBE (orden 31). El servidor solo dice que existe, las iniciales y si se
+       puede sumar: ni nombre, ni telefono, ni quien es su lider. Por eso aqui NO se rellena el formulario con nada:
+       no hay datos ajenos que rellenar, y los campos vacios no se inventan. */
+    if (r.de_otro_lider) {
+      caja.style.cssText += 'display:block; background:#E6F4F1; border:1px solid #0F7B6C; color:#0A5348;';
+      caja.innerHTML = 'Esta persona ya está inscrita con otro líder (' + esc(r.iniciales || '') + ').'
+        + (r.puede_sumar
+            ? ' <button type="button" class="btn-sumar-rama"'
+              + ' style="margin-left:6px; padding:4px 11px; border:none; border-radius:999px;'
+              + ' background:#0F7B6C; color:#fff; font-size:0.8rem; cursor:pointer;">'
+              + 'Sumar a mi rama</button>'
+            : '');
+      const botonOtro = caja.querySelector('.btn-sumar-rama');
+      if (botonOtro) {
+        botonOtro.addEventListener('click', async () => {
+          botonOtro.disabled = true;
+          botonOtro.textContent = 'Sumando...';
+          try {
+            // Sin id: el servidor encuentra la ficha por la cedula tecleada, que es lo que acredita a la persona.
+            await window.api('/votantes/sumar-por-cedula', { method: 'POST', body: { cedula: valor } });
+            caja.textContent = 'Listo: esta persona quedó en su rama.';
+          } catch (e) {
+            botonOtro.disabled = false;
+            botonOtro.textContent = 'Sumar a mi rama';
+            caja.insertAdjacentHTML('beforeend',
+              '<div style="color:#A93226; margin-top:5px;">No se pudo: ' + esc(e.message) + '</div>');
+          }
+        });
+      }
+      return;
+    }
+    if (!r.id) return;
 
     if (r.mia) {
       caja.style.cssText += 'display:block; background:#FFF8E1; border:1px solid #E0A72E; color:#7A5B00;';

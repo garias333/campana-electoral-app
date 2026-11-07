@@ -112,7 +112,10 @@ async function leerFichaParaActualizar(cx, id) {
   const [[f]] = await cx.query(
     `SELECT id, cedula, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id,
             email, direccion, departamento_residencia, ciudad_residencia,
-            comuna_corregimiento_residencia, barrio_residencia, latitud, longitud
+            comuna_corregimiento_residencia, barrio_residencia, latitud, longitud,
+            origen, no_contactar, consentimiento_confirmado_en, consentimiento_fecha, consentimiento_metodo,
+            consentimiento_version, consentimiento_version_ok,
+            consentimiento_sms, consentimiento_whatsapp, consentimiento_email
        FROM votantes WHERE id = ? FOR UPDATE`, [id]);
   return f || null;
 }
@@ -214,6 +217,8 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
     let consentimientoCompletado = false;
     let camposCompletados = [];
     let celularCoincide = false;
+    let reenviarSms = false;     // ver «LA REINSCRIPCIÓN» abajo
+    let intentoId = null;
     if (existente) {
       votanteId = existente.id;
       const mismoLider = existente.lider_id === atrib.lider_id
@@ -231,7 +236,7 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
                 SET consentimiento_autorizado = 1, consentimiento_fecha = NOW(), consentimiento_metodo = ?,
                     consentimiento_email = ?, consentimiento_sms = ?, consentimiento_whatsapp = ?,
                     consentimiento_version = ?, consentimiento_version_ok = ?
-              WHERE id = ? AND consentimiento_autorizado = 0`,
+              WHERE id = ? AND (consentimiento_autorizado = 0 OR consentimiento_autorizado IS NULL)`,
             [METODO, campos.email, campos.sms, campos.whatsapp, huellaPolitica || null, versionOk, existente.id]);
           await cx.query(
             `INSERT IGNORE INTO votante_consentimiento_evidencia (votante_id, metodo, ip, navegador, enlace_id, politica_version)
@@ -239,6 +244,44 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
             [existente.id, METODO, ipRec, navRec, enlace.enlace_id, huellaPolitica || null]);
           consentimientoCompletado = true;
           if (!otroLider) resultado = 'consentimiento_completado';
+        }
+        /* LA REINSCRIPCIÓN (orden 31). Alguien que ya estaba, con SU celular, vuelve a llenar el formulario y marca
+           el SMS: si su autorización todavía no está confirmada se le manda OTRA VEZ el SMS de confirmación (el mismo de
+           /c que recibe un inscrito nuevo). Las cuatro condiciones, todas:
+             1. la ficha no está confirmada (consentimiento_confirmado_en vacío);
+             2. marcó la casilla de SMS en ESTE envío;
+             3. la ficha no pidió la baja (no_contactar);
+             4. no se le mandó uno en las últimas 24 horas (lo decide la cola, en encolarSmsDeConfirmacion).
+           Antes de encolar se guarda la evidencia de ESTE envío, solo en los campos vacíos (la ficha ya autorizada no
+           se pisa). «Vacío» es NULL («no consta»); un 0 puesto a mano por un líder NO se convierte en 1 —salvo en una
+           ficha que nació de este mismo formulario (origen enlace_lider), donde el 0 es solo «no marcó el SMS» y lo
+           último que declaró la propia persona manda—. El envío mismo lo autoriza el 1 de consentimiento_sms: sin él
+           la cola omite el mensaje, así que sin él ni se encola. */
+        if (canales.sms && !existente.consentimiento_confirmado_en && !Number(existente.no_contactar)) {
+          if (Number(existente.consentimiento_autorizado) === 1) {
+            const sets = []; const vals = [];
+            const vacio = (v) => v == null;
+            const delFormulario = existente.origen === 'enlace_lider';
+            if (vacio(existente.consentimiento_fecha)) { sets.push('consentimiento_fecha = NOW()'); }
+            if (vacio(existente.consentimiento_metodo)) { sets.push('consentimiento_metodo = ?'); vals.push(METODO); }
+            if (vacio(existente.consentimiento_version)) {
+              sets.push('consentimiento_version = ?', 'consentimiento_version_ok = ?'); vals.push(huellaPolitica || null, versionOk);
+            }
+            const canal = (col, marcado) => {
+              if (!marcado) return;
+              if (vacio(existente[col]) || (delFormulario && Number(existente[col]) === 0)) { sets.push(`${col} = 1`); existente[col] = 1; }
+            };
+            canal('consentimiento_sms', true); canal('consentimiento_whatsapp', canales.whatsapp); canal('consentimiento_email', canales.email);
+            if (sets.length) await cx.query(`UPDATE votantes SET ${sets.join(', ')} WHERE id = ?`, [...vals, existente.id]);
+            await cx.query(
+              `INSERT IGNORE INTO votante_consentimiento_evidencia (votante_id, metodo, ip, navegador, enlace_id, politica_version)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [existente.id, METODO, ipRec, navRec, enlace.enlace_id, huellaPolitica || null]);
+          } else {
+            // Recién autorizada arriba (la rama «!consentimiento_autorizado»): esos campos ya quedaron con este envío.
+            existente.consentimiento_sms = 1;
+          }
+          reenviarSms = Number(existente.consentimiento_sms) === 1;
         }
         /* LOS DATOS DE CONTACTO: SOLO LOS QUE LA FICHA TENÍA VACÍOS. Nunca se pisa uno con dato. */
         const candidatos = [
@@ -277,13 +320,14 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
        queda con motivo 'cedula_existente', los tres últimos dígitos y si el celular coincidía: es lo que
        el líder dueño del enlace ve en «Mi enlace» para revisarlo. */
     const existia = !!existente;
-    await cx.query(
+    const [insIntento] = await cx.query(
       `INSERT INTO inscripcion_intentos
          (enlace_id, resultado, motivo, votante_id, cedula_hash, cedula_fin, celular_coincide, telefono_hash, otro_lider, ip, navegador)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [enlace.enlace_id, resultado, existia ? 'cedula_existente' : null, votanteId, cedulaHash,
        existia ? finDeCedula(datos.cedula) : null, existia ? (celularCoincide ? 1 : 0) : null,
        telefonoHash, otroLider, ipRec, navRec]);
+    intentoId = insIntento.insertId;
     await cx.commit();
 
     const nuevo = resultado === 'nuevo';
@@ -294,7 +338,7 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
       ciudad: contacto.ciudad || (existente && existente.ciudad_residencia) || null,
       departamento: contacto.departamento || (existente && existente.departamento_residencia) || null,
     } : null;
-    salida = { resultado, votanteId, otroLider: !!otroLider, nuevo, consentimientoCompletado, camposCompletados, dirGeo };
+    salida = { resultado, votanteId, otroLider: !!otroLider, nuevo, consentimientoCompletado, camposCompletados, dirGeo, reenviarSms, intentoId };
   } catch (err) {
     try { await cx.rollback(); } catch (_) { /* conexión ya cerrada */ }
     throw err;
@@ -311,10 +355,21 @@ async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica 
 
   // El SMS va DESPUÉS de confirmar la transacción, y su fallo no deshace la inscripción.
   salida.smsEncolado = false;
-  if (canales.sms && (salida.nuevo || salida.consentimientoCompletado)) {
+  if (canales.sms && salida.nuevo) {
     try { salida.smsEncolado = await encolarSmsDeConfirmacion(salida.votanteId); }
     catch (err) { console.error('Inscripción: no se pudo encolar el SMS de confirmación:', err.code || err.message); }
+  } else if (salida.reenviarSms) {
+    // La reinscripción de una ficha sin confirmar: sí se puede repetir, pero no más de uno cada 24 horas.
+    try {
+      salida.smsEncolado = await encolarSmsDeConfirmacion(salida.votanteId, { repetible: true });
+      // Queda anotado en el intento si se encoló. Sin la columna (init-db sin correr) se sigue sin anotar: no es motivo para fallar.
+      if (salida.smsEncolado && salida.intentoId) {
+        await pool.query('UPDATE inscripcion_intentos SET sms_reenviado = 1 WHERE id = ?', [salida.intentoId])
+          .catch(err => { if (err.code !== 'ER_BAD_FIELD_ERROR') console.error('Inscripción: no se pudo anotar sms_reenviado:', err.code || err.message); });
+      }
+    } catch (err) { console.error('Inscripción: no se pudo encolar el SMS de confirmación (reinscripción):', err.code || err.message); }
   }
+  delete salida.reenviarSms; delete salida.intentoId;
   return salida;
 }
 
@@ -356,22 +411,57 @@ async function geocodificarVotante(votanteId, { direccion, barrio, ciudad, depar
 // El SMS de confirmación (un solo envío, respetando la franja de mensajería)
 // ---------------------------------------------------------------------------
 
-/** Encola el SMS. Devuelve true si quedó encolado ahora (false si ya estaba: es uno por persona). */
-async function encolarSmsDeConfirmacion(votanteId) {
+/**
+ * Encola el SMS de confirmación. Devuelve true si quedó encolado ahora.
+ *   · De una persona NUEVA es uno en la vida (`uq_insc_sms_votante`): false si ya estaba.
+ *   · `repetible` (la reinscripción de una ficha sin confirmar, orden 31) reutiliza la MISMA fila de la cola, porque
+ *     la llave es única por ficha: si el último SMS se mandó (o se encoló) hace menos de 24 horas devuelve false; si no,
+ *     la deja otra vez pendiente. «Hace cuánto» es `COALESCE(enviado_en, creado_en)`, y al reencolar se renueva `creado_en`.
+ */
+async function encolarSmsDeConfirmacion(votanteId, { repetible = false } = {}) {
   const smsSvc = require('./sms');
   const { minutosHastaLaFranja } = require('./bienvenidaAutomatica');
   let minutos = 0;
   try { minutos = minutosHastaLaFranja(await smsSvc.configCampana()); } catch (_) { /* sin config: se intenta ya */ }
-  const [r] = await pool.query(
-    // DATE_ADD(NOW(), …) y no una hora escrita a mano: correcto en los tres husos a la vez
-    // (la razón está en config/bienvenidaAutomatica.js).
-    `INSERT IGNORE INTO inscripcion_sms_cola (votante_id, enviar_desde)
-     VALUES (?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`, [votanteId, minutos]);
-  if (r.affectedRows > 0 && minutos === 0) {
+  let encolado = false;
+  if (!repetible) {
+    const [r] = await pool.query(
+      // DATE_ADD(NOW(), …) y no una hora escrita a mano: correcto en los tres husos a la vez
+      // (la razón está en config/bienvenidaAutomatica.js).
+      `INSERT IGNORE INTO inscripcion_sms_cola (votante_id, enviar_desde)
+       VALUES (?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`, [votanteId, minutos]);
+    encolado = r.affectedRows > 0;
+  } else {
+    const cx = await pool.getConnection();
+    try {
+      await cx.beginTransaction();
+      const [[fila]] = await cx.query(
+        `SELECT id, COALESCE(enviado_en, creado_en) > NOW() - INTERVAL 24 HOUR AS reciente
+           FROM inscripcion_sms_cola WHERE votante_id = ? FOR UPDATE`, [votanteId]);
+      if (!fila) {
+        await cx.query(`INSERT INTO inscripcion_sms_cola (votante_id, enviar_desde) VALUES (?, DATE_ADD(NOW(), INTERVAL ? MINUTE))`, [votanteId, minutos]);
+        encolado = true;
+      } else if (!Number(fila.reciente)) {
+        await cx.query(
+          `UPDATE inscripcion_sms_cola
+              SET estado = 'pendiente', detalle = NULL, enviado_en = NULL, creado_en = NOW(),
+                  enviar_desde = DATE_ADD(NOW(), INTERVAL ? MINUTE)
+            WHERE id = ?`, [minutos, fila.id]);
+        encolado = true;
+      }
+      await cx.commit();
+    } catch (err) {
+      try { await cx.rollback(); } catch (_) { /* conexión ya cerrada */ }
+      throw err;
+    } finally {
+      cx.release();
+    }
+  }
+  if (encolado && minutos === 0) {
     // Dentro de la franja: sale ya, sin esperar al reloj de 60 s. Sin await: la persona no espera.
     setImmediate(() => procesarCola().catch(e => console.error('Cola SMS de inscripción:', e.message)));
   }
-  return r.affectedRows > 0;
+  return encolado;
 }
 
 /** Las letras que caben del primer nombre. Con más, el saludo se omite: mejor sin nombre que en 2 SMS. */
