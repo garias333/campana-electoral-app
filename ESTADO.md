@@ -12,24 +12,24 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 274** (`parches/campana-parche274.zip`, 456.956 bytes,
-  sha256 `3c69dddbfc503878aa20bd3c53fbe7a3be8f8436d8bb41a69553132cabf1e7b8`, 30 archivos).
-  **Publicado** en la carpeta de licencias (`parche-274.zip`, mismo sha256, 0644, empieza por `PK`) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true` (lo derivó el servidor de
-  licencias). Reúne el SMS «Ya voté» de 1 segmento, el Día D fase 3, la baja a mano y el enlace desde
-  Faltantes (detalle abajo). **Asume que el 273 (y el 272) ya están aplicados**: ver «Cómo exige el 273».
-  El 273 (290.834 bytes, sha256 `11b498b6…`, 22 archivos, Día D fase 2) y el 272 (138.099 bytes,
-  sha256 `f4333fcb…`, 11 archivos, Día D fase 1) siguen publicados e inactivos; los zip 265 a 271
+- **Último parche generado: 275** (`parches/campana-parche275.zip`, 33.002 bytes,
+  sha256 `da76d397503c0f77de93012c6c7834d120e2a57f55034058c51c8b4b386846fd`, 5 archivos).
+  **Publicado** en la carpeta de licencias (`parche-275.zip`, mismo sha256, 0644, empieza por `PK`) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`. Es la **tarjeta de vista
+  previa del enlace «Ya voté»** (detalle abajo) y **requiere el 274** (el nombre en el panel lo dice).
+  El 274 (456.956 bytes, sha256 `3c69dddb…`, 30 archivos: SMS de 1 segmento, Día D fase 3, baja a mano y
+  enlace desde Faltantes), el 273 (290.834 bytes, `11b498b6…`, 22 archivos, Día D fase 2) y el 272
+  (138.099 bytes, `f4333fcb…`, 11 archivos, Día D fase 1) siguen publicados e inactivos; los zip 265 a 271
   también están publicados.
-  **Distribución del 274 (y del 273 y el 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de activar.**
-  `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
-  abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
-  tres**—, nunca la Base.
+  **Distribución del 275 (y del 274, el 273 y el 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9
+  de abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
+  cuatro**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 274, `.version-parche` y `.version-base` = **274**. Ni el 272, ni el 273 ni el 274 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v150` en el código de la Base y dentro del 274 (el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 275, `.version-parche` y `.version-base` = **275**. Ni el 272, ni el 273, ni el 274 ni el 275 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v151` en el código de la Base y dentro del 275 (el 274 lleva `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -38,7 +38,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 274` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 275` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -51,6 +51,45 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 275 — tarjeta de vista previa del enlace «Ya voté» (7 de noviembre de 2026, INACTIVO)
+
+Zip de 5 archivos: `app.js`, `public/img/ya-vote-og.png` (nuevo, **binario**, 13.501 bytes),
+`public/service-worker.js` (`v151`), `routes/yaVoto.routes.js` y `.version-base` (275).
+Commits que recoge: `3782e85` (la tarjeta Open Graph y su imagen) y `1bbdaac` (la página «no activo» de
+`/v` responde 200 en vez de 404). `scripts/generar-imagen-ya-voto.js` (con el que se hizo la imagen) y las
+pruebas **no viajan**.
+
+- **Verificado sobre el zip:** los 5 archivos coinciden por md5 con el disco (el PNG, además, byte a byte y
+  marcado como binario en el listado del zip); no trae `.env`, `.credenciales-*`, `uploads/`, `legislacion/`,
+  `backups/` ni `scripts/`; `CACHE_NAME = 'estrategia-v151'`; `verificar-requires.js` revisó 41 `require`
+  locales y todos resuelven **aplicando el zip sobre una copia del árbol del 274** (`7206133`).
+- **NO toca la base de datos** (`toca_base_datos = false`): no hay cambios en `db/`, y no hace falta `init-db`.
+- **Qué hace:** `GET /v/<token>` lleva en el `<head>` `og:title` «Avísanos cuando votes ✓», `og:description`,
+  `og:site_name` (el `marca_titulo` de la campaña), `og:type`, `og:image` absoluta (1200×630, con alt) y
+  `twitter:card summary_large_image`; WhatsApp y Google Mensajes arman con eso una tarjeta grande con el ✓,
+  que se toca como un botón. **Nada del votante** entra en los metadatos, y son idénticos para un token
+  válido, inexistente, mal formado, vencido, ya votado y fuera del día. La página `?baja=1` no lleva tarjeta
+  grande, solo título. La imagen se sirve en `/img/ya-vote-og.png` sin sesión, antes del candado de licencia,
+  con caché de un día. «No activo» responde ahora **200** (antes 404) con la misma página, porque un cliente
+  puede descartar —y cachear así— la tarjeta de una respuesta 404; el **límite de intentos por IP sigue
+  contando esas respuestas** (`requestWasSuccessful` + `res.locals.noActivo`), así que adivinar tokens se corta
+  igual con 429. La página ya llevaba `<meta robots noindex, nofollow>` y `X-Robots-Tag: noindex, nofollow`.
+- **Probado solo con bases simuladas y el servidor de la app.** No se vio la tarjeta en WhatsApp ni en Google
+  Mensajes reales, ni la imagen servida por el Nginx de una campaña.
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Aplicar después del 274, con la misma lista de campañas.** El 275 no declara su dependencia: si una
+   campaña lo recibiera sin el 274 le faltaría `config/paginaBaja.js` y `/v?baja=1` fallaría.
+2. **La tarjeta solo sale bien si la campaña tiene `marca_titulo` y el dominio de la licencia
+   (`LICENCIA_DOMINIO`) correctos.** Sin `marca_titulo`, la tarjeta sale sin nombre de campaña; sin dominio en
+   el `.env`, sale **sin imagen** (la URL de `og:image` se arma con ese dominio, nunca con la cabecera Host).
+3. **En iPhone, la tarjeta del SMS solo sale si el remitente está en los contactos.** Es del sistema, no de la
+   aplicación. WhatsApp y Google Mensajes (Android) no tienen esa condición.
+4. **La vista previa se cachea en el cliente.** Si un robot pide el enlace antes del día de la elección, recibe
+   la página «no activo» (200, con la misma tarjeta): la tarjeta sale igual, pero conviene mandar los enlaces
+   el día de la elección. El correo **no** acepta `{enlace_ya_vote}` (el envío lo rechaza con 400).
 
 ## Parche 274 — SMS de 1 segmento, Día D fase 3, baja a mano y enlace desde Faltantes (7 de noviembre de 2026, INACTIVO)
 
