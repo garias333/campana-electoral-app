@@ -31,6 +31,8 @@ const smsSvc = require('../config/sms');
 const { huellaDePolitica, archivarVersion } = require('../config/politicaVersiones');
 const insc = require('../config/inscripcionEnlace');
 const reg = require('../config/inscripcionRegistro');
+const { analizarTexto } = require('../lib/sms');
+const confirm = require('../config/confirmacionConsentimiento');
 
 let fallos = 0, pruebas = 0;
 function ok(cond, texto, extra) {
@@ -220,8 +222,11 @@ const F = (codigo, huella, extra = {}) => ({
   for (let i = 0; i < 30 && !smsEnviados.length; i++) await dormir(100);
   await reg.procesarCola();
   ok(smsEnviados.length === 1, 'sale UN SMS', smsEnviados.length);
-  const m = smsEnviados[0] && /https:\/\/campana\.prueba\/c\/([0-9a-f]{64})/.exec(smsEnviados[0].mensaje);
-  ok(!!m, 'el SMS lleva el enlace de /c', smsEnviados[0]);
+  const m = smsEnviados[0] && /https:\/\/campana\.prueba\/c\/([A-Za-z0-9_-]{22})$/.exec(smsEnviados[0].mensaje);
+  ok(!!m, 'el SMS lleva el enlace de /c con el token corto de 22 caracteres, al final del texto', smsEnviados[0]);
+  ok(smsEnviados[0] && smsEnviados[0].mensaje === `Maria, confirma tu inscripcion aqui: https://campana.prueba/c/${m && m[1]}`,
+    'el texto es «{primer_nombre}, confirma tu inscripcion aqui: {enlace}»', smsEnviados[0] && smsEnviados[0].mensaje);
+  ok(smsEnviados[0] && !/Baja:/i.test(smsEnviados[0].mensaje), 'el SMS NO lleva el «Baja: …» automático');
   await reg.procesarCola(); await reg.procesarCola();
   ok(smsEnviados.length === 1, 'procesar la cola otra vez no lo repite');
   ok((await reg.encolarSmsDeConfirmacion(v.id)) === false, 'encolar de nuevo a la misma persona no crea otro (uno en la vida)');
@@ -332,6 +337,67 @@ const F = (codigo, huella, extra = {}) => ({
   await dormir(300); await reg.procesarCola();
   const [fy] = await q("SELECT id FROM votantes WHERE cedula = '9100000002'");
   ok(smsEnviados.length === 0 && (await q('SELECT COUNT(*) c FROM inscripcion_sms_cola WHERE votante_id = ?', [fy.id]))[0].c === 0, 'sin marcar SMS: no se encola ni se manda nada');
+
+  console.log('\n== El SMS de confirmación cabe en 1 SMS (con la firma de 30), con los tres dominios');
+  const FIRMA30 = 'F'.repeat(30);
+  await pool.query('UPDATE sms_config SET firma = ? WHERE id = 1', [FIRMA30]);
+  smsSvc.invalidarCache();
+  const DOMINIOS = ['electoral.appestrategia.net', 'campanadepruebamunicipal.appestrategia.net', 'campanadepruebadepartamental.appestrategia.net'];
+  let k = 0;
+  const largos = [];
+  for (const dom of DOMINIOS) {
+    process.env.LICENCIA_DOMINIO = dom;
+    k++;
+    smsEnviados.length = 0;
+    // «Bañuelitos» son 10 letras con una eñe: el peor caso de nombre, y se transliterado a «Banuelitos».
+    await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: `92000000${k}1`, telefono: `32100000${k}1`, canal_sms: '1', nombre: 'Bañuelitos Pérez Gómez' }) });
+    for (let i = 0; i < 30 && !smsEnviados.length; i++) await dormir(100);
+    await reg.procesarCola();
+    const msg = smsEnviados[0] && smsEnviados[0].mensaje;
+    const a = msg ? analizarTexto(msg, FIRMA30) : null;
+    largos.push({ dom, texto: msg && msg.length, conFirma: a && a.caracteres });
+    ok(!!msg && msg.startsWith('Banuelitos, confirma tu inscripcion aqui: https://' + dom + '/c/'), `${dom}: lleva el nombre transliterado y el enlace`, msg);
+    ok(a && a.gsm7 && a.segmentos === 1 && a.caracteres <= 160, `${dom}: 1 SMS (${msg && msg.length} caracteres, ${a && a.caracteres} con la firma de 30)`, a);
+    ok(msg && /^[\x20-\x7E]+$/.test(msg), `${dom}: solo ASCII (nada que pase el SMS a 70)`);
+    ok(msg && !/Baja:/i.test(msg), `${dom}: sin «Baja: …»`);
+  }
+  console.log('  largos medidos:', JSON.stringify(largos));
+  // Un primer nombre de más de 10 letras: se omite el saludo, y sigue siendo 1 SMS.
+  process.env.LICENCIA_DOMINIO = DOMINIOS[2];
+  smsEnviados.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9200000091', telefono: '3210000091', canal_sms: '1', nombre: 'Maximiliano Alexander Gómez' }) });
+  for (let i = 0; i < 30 && !smsEnviados.length; i++) await dormir(100);
+  await reg.procesarCola();
+  ok(smsEnviados[0] && smsEnviados[0].mensaje.startsWith('Confirma tu inscripcion aqui: https://') && analizarTexto(smsEnviados[0].mensaje, FIRMA30).segmentos === 1,
+    'nombre de más de 10 letras: se omite el saludo y sigue en 1 SMS', smsEnviados[0] && smsEnviados[0].mensaje);
+  process.env.LICENCIA_DOMINIO = 'campana.prueba';
+  await pool.query('UPDATE sms_config SET firma = NULL WHERE id = 1');
+  smsSvc.invalidarCache();
+
+  console.log('\n== /c ofrece «No quiero recibir más mensajes» (como /v)');
+  const vBaja = await votante('9300000001', 'Persona Para Baja', '3220000001', l1, { consent: true });
+  const tokBaja = (await confirm.crearConfirmacion({ req: { protocol: 'https', get: () => '' }, votanteId: vBaja, canal: 'sms', destino: '3220000001', corto: true })).token;
+  const cPag = await pedir('GET', `/c/${tokBaja}`);
+  ok(cPag.status === 200 && cPag.texto.includes('href="?baja=1"') && cPag.texto.includes('No quiero recibir más mensajes'), '/c ofrece el enlace de baja junto al botón de confirmar');
+  const cBajaGet = await pedir('GET', `/c/${tokBaja}?baja=1`);
+  ok(cBajaGet.status === 200 && cBajaGet.texto.includes('Aún no estás dado de baja') && cBajaGet.texto.includes('id="baja-boton"'), 'GET ?baja=1 muestra la confirmación con el botón');
+  ok((await q('SELECT no_contactar n FROM votantes WHERE id = ?', [vBaja]))[0].n === 0, 'un GET NO da de baja (los revisores de SMS abren los enlaces solos)');
+  const cBajaPost = await pedir('POST', `/c/${tokBaja}?baja=1`);
+  ok(cBajaPost.status === 200 && cBajaPost.texto.includes('Ya no recibirás más mensajes'), 'el botón (POST) da de baja');
+  ok((await q('SELECT no_contactar n FROM votantes WHERE id = ?', [vBaja]))[0].n === 1, 'queda no_contactar = 1');
+  const cMala = await pedir('GET', '/c/' + 'x'.repeat(22) + '?baja=1');
+  ok(cMala.status === 404, 'token inexistente en la baja → 404');
+  // La baja no depende de la vigencia de 15 días; la confirmación sí.
+  const vVenc = await votante('9300000002', 'Persona Vencida', '3220000002', l1, { consent: true });
+  const tokVenc = (await confirm.crearConfirmacion({ req: { protocol: 'https', get: () => '' }, votanteId: vVenc, canal: 'sms', destino: '3220000002', corto: true })).token;
+  await pool.query('UPDATE consentimiento_confirmaciones SET expira_en = NOW() - INTERVAL 1 DAY WHERE votante_id = ?', [vVenc]);
+  ok((await pedir('GET', `/c/${tokVenc}`)).status === 404, 'enlace de confirmación vencido → ya no confirma');
+  ok((await pedir('POST', `/c/${tokVenc}?baja=1`)).status === 200 && (await q('SELECT no_contactar n FROM votantes WHERE id = ?', [vVenc]))[0].n === 1, '…pero la baja SÍ funciona con el enlace vencido');
+  // Los enlaces de 64 hexadecimales ya enviados siguen sirviendo.
+  const vViejo = await votante('9300000003', 'Persona Enlace Viejo', '3220000003', l1, { consent: true });
+  const tokViejo = (await confirm.crearConfirmacion({ req: { protocol: 'https', get: () => '' }, votanteId: vViejo, canal: 'sms', destino: '3220000003' })).token;
+  ok(/^[0-9a-f]{64}$/.test(tokViejo) && (await pedir('GET', `/c/${tokViejo}`)).texto.includes('Sí, lo confirmo'), 'un enlace de 64 hexadecimales (el formato anterior) sigue confirmando');
+  ok((await pedir('POST', `/c/${tokViejo}?baja=1`)).status === 200, '…y también ofrece la baja');
 
   console.log('\n== «Mi enlace»: ver, rotar, el viejo deja de servir');
   const sinSesion = await pedir('GET', '/api/inscripcion/mi-enlace');

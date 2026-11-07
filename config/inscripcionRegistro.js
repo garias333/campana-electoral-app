@@ -38,6 +38,8 @@ const pool = require('./db');
 const { ramaDeVotante, aspiranteDe } = require('../lib/ramas');
 const { versionConocida } = require('./politicaVersiones');
 const { crearConfirmacion } = require('./confirmacionConsentimiento');
+const { transliterarSms } = require('../lib/transliterarSms');
+const { analizarTexto } = require('../lib/sms');
 const { atribucionDe } = require('./inscripcionEnlace');
 
 const sha256 = (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
@@ -222,6 +224,39 @@ async function encolarSmsDeConfirmacion(votanteId) {
   return r.affectedRows > 0;
 }
 
+/** Las letras que caben del primer nombre. Con más, el saludo se omite: mejor sin nombre que en 2 SMS. */
+const MAX_LETRAS_NOMBRE = 10;
+
+/** «bañuelitos PÉREZ» → «Banuelitos». Solo letras, transliterado (una tilde pasaría el SMS de 160 a 70). */
+function primerNombreParaSms(nombre) {
+  const t = transliterarSms(String(nombre || '').trim().split(/\s+/)[0] || '').replace(/[^A-Za-z]/g, '');
+  return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : '';
+}
+
+/**
+ * EL TEXTO DEL SMS DE CONFIRMACIÓN. Tiene que caber en UN segmento con el dominio más largo
+ * (`campanadepruebadepartamental.appestrategia.net`), la firma del operador (30 caracteres) y un
+ * primer nombre de 10 letras:
+ *
+ *     «{primer_nombre}, confirma tu inscripcion aqui: {enlace}»
+ *
+ * NO LLEVA EL «Baja: …» AUTOMÁTICO. Ese pie lo pega `agregarBajaSms` (routes/comunicaciones.routes.js)
+ * a los envíos de la campaña; este mensaje sale directo por `enviarSMS` y no pasa por ahí, y no
+ * debe: son 77 caracteres que lo llevarían a 2 SMS. La baja vive en la página de /c
+ * («No quiero recibir más mensajes», `/c/<token>?baja=1`), igual que la de «Ya voté» vive en /v.
+ *
+ * Se mide con el mismo `analizarTexto` que usa el ledger de créditos, firma incluida. Si aun así
+ * no cabe (una firma más larga que 30, un dominio todavía más largo) se omite el saludo; el
+ * mensaje sin nombre es 12 caracteres más corto.
+ */
+function textoDeConfirmacion(nombre, enlace, firma = '') {
+  const n = primerNombreParaSms(nombre);
+  const conNombre = n && n.length <= MAX_LETRAS_NOMBRE ? `${n}, confirma tu inscripcion aqui: ${enlace}` : null;
+  const sinNombre = `Confirma tu inscripcion aqui: ${enlace}`;
+  if (conNombre && analizarTexto(conNombre, firma).segmentos === 1) return conNombre;
+  return sinNombre;
+}
+
 let procesando = false;
 
 /** Despacha los SMS cuya hora llegó. Se llama cada 60 s (app.js) y al encolar. */
@@ -233,7 +268,7 @@ async function procesarCola() {
     const smsSvc = require('./sms');
     const { minutosHastaLaFranja } = require('./bienvenidaAutomatica');
     const [filas] = await pool.query(
-      `SELECT c.id, c.votante_id, v.telefono, v.consentimiento_sms, v.consentimiento_confirmado_en
+      `SELECT c.id, c.votante_id, v.nombre, v.telefono, v.consentimiento_sms, v.consentimiento_confirmado_en
          FROM inscripcion_sms_cola c JOIN votantes v ON v.id = c.votante_id
         WHERE c.estado = 'pendiente' AND c.enviar_desde <= NOW()
         ORDER BY c.id LIMIT 25`);
@@ -252,9 +287,12 @@ async function procesarCola() {
         if (f.consentimiento_confirmado_en) { await cerrar('omitido', 'ya estaba confirmado'); continue; }
         if (ultimos10(f.telefono).length !== 10) { await cerrar('omitido', 'sin celular válido'); continue; }
         if (!process.env.LICENCIA_DOMINIO) { await cerrar('fallido', 'falta LICENCIA_DOMINIO: no se puede armar el enlace'); continue; }
+        // `corto`: token de 22 caracteres, para que el enlace quepa (ver generarTokenCorto).
         const { enlace } = await crearConfirmacion({
-          req: { protocol: 'https', get: () => '' }, votanteId: f.votante_id, canal: 'sms', destino: f.telefono });
-        await smsSvc.enviarSMS(f.telefono, `Confirma tu inscripcion y la autorizacion de tus datos: ${enlace}`);
+          req: { protocol: 'https', get: () => '' }, votanteId: f.votante_id, canal: 'sms', destino: f.telefono, corto: true });
+        let firma = '';
+        try { firma = (await smsSvc.configCampana()).firma || ''; } catch (_) { /* sin firma conocida: se mide sin ella */ }
+        await smsSvc.enviarSMS(f.telefono, textoDeConfirmacion(f.nombre, enlace, firma));
         await cerrar('enviado', 'ok');
         enviados++;
       } catch (err) {
@@ -284,5 +322,6 @@ function iniciarCola() {
 
 module.exports = {
   inscribir, contarRecientes, anotarRechazo, procesarCola, iniciarCola, encolarSmsDeConfirmacion,
+  textoDeConfirmacion, primerNombreParaSms, MAX_LETRAS_NOMBRE,
   sha256, ultimos10, METODO,
 };

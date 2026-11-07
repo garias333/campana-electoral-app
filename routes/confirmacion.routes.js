@@ -19,11 +19,14 @@
 'use strict';
 
 const express = require('express');
-const { buscarVigente, confirmar } = require('../config/confirmacionConsentimiento');
+const { buscarVigente, buscarParaBaja, confirmar } = require('../config/confirmacionConsentimiento');
+const { aplicarBajaDeFicha } = require('../config/bajaContacto');
+const { confirmacionDeBaja, ANTES, LISTO } = require('../config/paginaBaja');
+const pool = require('../config/db');
 
 const router = express.Router();
 
-function pagina({ titulo, cuerpo, boton, ok }) {
+function pagina({ titulo, cuerpo, boton, ok, extra }) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -40,8 +43,9 @@ function pagina({ titulo, cuerpo, boton, ok }) {
            font-size: 1rem; font-weight: 700; padding: 13px 26px; cursor: pointer; width: 100%; }
   button:hover { background: #084298; }
   .ok { color: #1E6B44; font-weight: 600; }
+  a.baja { display: block; margin-top: 22px; color: #5B6472; font-size: 0.9rem; text-decoration: underline; padding: 8px; }
 </style></head><body><div class="caja">
-<h1>${titulo}</h1><p${ok ? ' class="ok"' : ''}>${cuerpo}</p>${boton || ''}
+<h1>${titulo}</h1><p${ok ? ' class="ok"' : ''}>${cuerpo}</p>${boton || ''}${extra || ''}
 </div></body></html>`;
 }
 
@@ -50,15 +54,36 @@ const NO_VALIDO = {
   cuerpo: 'Este enlace no es válido o ya venció. Si quiere confirmar su autorización, pídale a la campaña que le envíe uno nuevo.'
 };
 
+/* «NO QUIERO RECIBIR MÁS MENSAJES». El SMS de confirmación de la inscripción ya no lleva el «Baja: …»
+   automático (ocupaba 77 caracteres y lo empujaba a un segundo SMS): la baja vive AQUÍ, igual que en
+   /v. Es un enlace RELATIVO a la misma URL (`?baja=1`); como en /v, un GET solo MUESTRA la
+   confirmación y el botón es lo único que da la baja (los revisores de SMS abren los enlaces solos). */
+const ENLACE_BAJA = '<a class="baja" href="?baja=1">No quiero recibir más mensajes</a>';
+const BAJA_NO_VALIDA = {
+  titulo: 'Enlace no válido',
+  cuerpo: 'Este enlace no es válido. Si quiere dejar de recibir mensajes, escríbale a quien se lo envió.'
+};
+
 router.get('/:token', async (req, res) => {
   try {
+    if (req.query.baja !== undefined) {
+      // La baja no mira la caducidad: pedirla no puede depender de que la confirmación siga vigente.
+      const v = await buscarParaBaja(req.params.token);
+      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      return res.send(pagina({
+        titulo: ANTES.titulo,
+        cuerpo: ANTES.cuerpo,
+        extra: confirmacionDeBaja(`/c/${encodeURIComponent(req.params.token)}?baja=1`)
+      }));
+    }
     const fila = await buscarVigente(req.params.token);
     if (!fila) return res.status(404).send(pagina(NO_VALIDO));
     if (fila.confirmada_en) {
       return res.send(pagina({
         titulo: 'Ya estaba confirmado',
         cuerpo: 'Su autorización ya había quedado confirmada. No hace falta hacer nada más.',
-        ok: true
+        ok: true,
+        extra: ENLACE_BAJA
       }));
     }
     res.send(pagina({
@@ -66,7 +91,8 @@ router.get('/:token', async (req, res) => {
       cuerpo: 'Usted autorizó que la campaña guarde sus datos y le escriba. Confírmelo desde este dispositivo para que quede constancia.',
       boton: `<form method="POST" action="/c/${encodeURIComponent(req.params.token)}">
                 <button type="submit">Sí, lo confirmo</button>
-              </form>`
+              </form>`,
+      extra: ENLACE_BAJA
     }));
   } catch (err) {
     console.error(err);
@@ -76,6 +102,14 @@ router.get('/:token', async (req, res) => {
 
 router.post('/:token', async (req, res) => {
   try {
+    if (req.query.baja !== undefined) {
+      // La misma baja que /b y /v (`aplicarBajaDeFicha`): marca a la persona y a las fichas que
+      // comparten su teléfono o correo.
+      const v = await buscarParaBaja(req.params.token);
+      if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
+      await aplicarBajaDeFicha(pool, 'votantes', v.votante_id);
+      return res.send(pagina({ titulo: LISTO.titulo, cuerpo: LISTO.cuerpo, ok: true }));
+    }
     const fila = await buscarVigente(req.params.token);
     if (!fila) return res.status(404).send(pagina(NO_VALIDO));
     /* La IP y el navegador se guardan porque son lo que ata la confirmación a
@@ -85,7 +119,8 @@ router.post('/:token', async (req, res) => {
     res.send(pagina({
       titulo: 'Confirmado',
       cuerpo: 'Gracias. Su autorización quedó registrada con la fecha de hoy.',
-      ok: true
+      ok: true,
+      extra: ENLACE_BAJA
     }));
   } catch (err) {
     console.error(err);
