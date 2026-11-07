@@ -1051,8 +1051,10 @@ router.post('/:id/pedir-confirmacion', requireRole('admin', 'coordinador'), asyn
         null);
     } else {
       const { enviarSMS } = require('../config/sms');
-      // Corto a propósito: cada segmento de más es otro crédito, y config/sms.js
-      // ya le pega el enlace de baja al final cuando esa opción está encendida.
+      // Corto a propósito: cada segmento de más es otro crédito. Este mensaje sale DIRECTO por
+      // `enviarSMS`, que NO pega ningún «Baja: …»: ese pie lo agrega `agregarBajaSms`
+      // (routes/comunicaciones.routes.js) solo a los envíos de campaña. La salida de quien lo recibe
+      // es la página de /c («No quiero recibir más mensajes», `/c/<token>?baja=1`).
       await enviarSMS(destino, 'Confirme su autorizacion de datos: ' + enlace);
     }
     res.json({ ok: true, canal, destino });
