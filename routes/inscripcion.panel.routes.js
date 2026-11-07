@@ -53,6 +53,22 @@ router.get('/mi-enlace', async (req, res) => {
               COALESCE(SUM(v.consentimiento_confirmado_en IS NOT NULL), 0) AS confirmados
          FROM inscripcion_intentos i LEFT JOIN votantes v ON v.id = i.votante_id
         WHERE i.enlace_id = ? AND i.resultado = 'nuevo'`, [enlace.id]);
+    /* CÉDULAS QUE YA EXISTÍAN (orden 28). Alguien escribió por ESTE enlace una cédula que ya estaba en la campaña:
+       no se creó ficha y, si el celular no coincidía, no se tocó nada. El líder lo ve con la cédula ENMASCARADA
+       (solo los tres últimos dígitos, que es lo único que se guardó), la fecha y si el celular coincidía. En su
+       propio bloque: si la base aún no tiene las columnas nuevas (init-db sin correr), la pantalla sigue. */
+    let avisos = [];
+    try {
+      const [filas] = await pool.query(
+        `SELECT id, creado_en, cedula_fin, celular_coincide FROM inscripcion_intentos
+          WHERE enlace_id = ? AND motivo = 'cedula_existente' ORDER BY creado_en DESC, id DESC LIMIT 20`, [enlace.id]);
+      avisos = filas.map(f => ({
+        id: f.id, fecha: f.creado_en,
+        cedula: '***' + (f.cedula_fin || ''), celular_coincidia: f.celular_coincide === 1,
+      }));
+    } catch (err) {
+      if (err.code !== 'ER_BAD_FIELD_ERROR') console.error('inscripcion mi-enlace (avisos):', err.code || err.message);
+    }
     res.json({
       codigo: enlace.codigo,
       ruta: `/i/${enlace.codigo}`,
@@ -61,6 +77,7 @@ router.get('/mi-enlace', async (req, res) => {
       habilitado: !!ajustes.habilitado,
       total: Number(c.total), hoy: Number(c.hoy), confirmados: Number(c.confirmados),
       sin_confirmar: Number(c.total) - Number(c.confirmados),
+      avisos,
     });
   } catch (err) {
     console.error('inscripcion mi-enlace:', err.code || err.message);

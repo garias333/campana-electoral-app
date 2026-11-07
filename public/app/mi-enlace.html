@@ -26,6 +26,12 @@
   .cifras-enlace span { font-size: 0.72rem; color: var(--muted); }
   .cifras-enlace .aviso-cifra strong { color: #8A5A00; }
   .nota-enlace { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
+  .aviso-cedulas { background: #FFF8E6; border: 1px solid #E8C96A; border-radius: 12px; padding: 12px 14px; margin: 0 0 16px; }
+  .aviso-cedulas h3 { margin: 0 0 6px; font-size: 0.95rem; color: #6B4A00; }
+  .aviso-cedulas p { margin: 0 0 8px; font-size: 0.82rem; color: #5B4A1E; line-height: 1.45; }
+  .aviso-cedulas ul { list-style: none; margin: 0; padding: 0; }
+  .aviso-cedulas li { font-size: 0.84rem; line-height: 1.45; padding: 7px 0; border-top: 1px solid #EBD9A0; color: #3E3413; }
+  .aviso-cedulas .sin-coincidir { color: #8A1C13; font-weight: 600; }
   .peligro { background: #fff; color: #A93226; border: 1.5px solid #A93226; }
 </style>
 </head>
@@ -67,6 +73,13 @@
       «Sin confirmar» son personas que se inscribieron pero todavía no abren el mensaje que les llegó para confirmar su autorización.
       Mientras no confirmen, no reciben mensajes masivos de la campaña.
     </p>
+
+    <div class="aviso-cedulas" id="aviso-cedulas" style="display:none;" role="status">
+      <h3>Cédulas que ya estaban inscritas</h3>
+      <p>Por tu enlace se escribió una cédula que ya existía en la campaña. No se creó una ficha nueva. Si el celular no
+         coincidía, no se cambió nada de la ficha que ya estaba. Revísalo por si fue un error de digitación o un intento.</p>
+      <ul id="lista-cedulas"></ul>
+    </div>
 
     <button type="button" class="btn-app peligro" id="btn-rotar">Cambiar mi enlace</button>
     <p class="nota-enlace" style="margin-top:8px;">
@@ -143,14 +156,34 @@ function pintar(d, desdeCache) {
     document.getElementById('c-sin').textContent = d.sin_confirmar;
     document.getElementById('cifras').style.display = 'grid';
     document.getElementById('nota-confirmar').style.display = d.sin_confirmar ? 'block' : 'none';
+    pintarAvisos(d.avisos || []);
   }
+}
+
+// «2026-11-07 14:01:29» (o ISO) → «07/11/2026 14:01». Solo texto: sin zonas horarias que interpretar.
+function fechaCorta(f) {
+  const m = String(f || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : '';
+}
+function pintarAvisos(lista) {
+  const caja = document.getElementById('aviso-cedulas'), ul = document.getElementById('lista-cedulas');
+  ul.innerHTML = '';
+  caja.style.display = lista.length ? 'block' : 'none';
+  lista.forEach(a => {
+    const li = document.createElement('li');
+    // textContent: nada de lo que viene del servidor se interpreta como HTML.
+    li.textContent = `Cédula ${a.cedula} · ${fechaCorta(a.fecha)} · ` +
+      (a.celular_coincidia ? 'el celular coincidía (se completaron solo los campos vacíos).' : 'el celular NO coincidía (no se modificó nada).');
+    if (!a.celular_coincidia) li.className = 'sin-coincidir';
+    ul.appendChild(li);
+  });
 }
 
 async function cargar() {
   try {
     const d = await api('/inscripcion/mi-enlace');
     datos = d;
-    guardarCache(d);
+    guardarCache({ ...d, avisos: undefined });   // las cédulas enmascaradas no se guardan en el teléfono
     pintar(d, false);
   } catch (err) {
     if (err.esErrorDeRed) {

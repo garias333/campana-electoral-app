@@ -53,6 +53,7 @@ const { transliterarSms } = require('../lib/transliterarSms');
 const { analizarTexto } = require('../lib/sms');
 const geocoder = require('./geocoder');
 const { atribucionDe } = require('./inscripcionEnlace');
+const { normalizarCedula, sqlCedulaNormalizada, finDeCedula } = require('../lib/normalizarCedula');
 
 const sha256 = (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
 const ultimos10 = (t) => String(t || '').replace(/\D/g, '').slice(-10);
@@ -108,6 +109,31 @@ async function anotarRechazo({ enlaceId, motivo, telefonoHash = null, ip, navega
 }
 
 /**
+ * El id de la ficha que ya tiene esta cédula, o null. Dos pasos: el exacto (por el índice UNIQUE) y, si no hay,
+ * las variantes guardadas con puntos, espacios o ceros a la izquierda (sin índice: solo se paga cuando la cédula
+ * es nueva, y el prefiltro descarta de entrada las filas ya normalizadas). Sin FOR UPDATE a propósito: un
+ * barrido con bloqueo cerraría todas las filas que recorre; la ficha encontrada se bloquea aparte, por su id.
+ */
+async function buscarFichaPorCedula(cx, cedulaNormalizada) {
+  if (!cedulaNormalizada) return null;
+  const [[exacta]] = await cx.query('SELECT id FROM votantes WHERE cedula = ? LIMIT 1', [cedulaNormalizada]);
+  if (exacta) return exacta.id;
+  const [[variante]] = await cx.query(
+    `SELECT id FROM votantes
+      WHERE cedula REGEXP '[^0-9]|^0' AND ${sqlCedulaNormalizada('cedula')} = ? LIMIT 1`, [cedulaNormalizada]);
+  return variante ? variante.id : null;
+}
+
+async function leerFichaParaActualizar(cx, id) {
+  const [[f]] = await cx.query(
+    `SELECT id, cedula, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id,
+            email, direccion, departamento_residencia, ciudad_residencia,
+            comuna_corregimiento_residencia, barrio_residencia, latitud, longitud
+       FROM votantes WHERE id = ? FOR UPDATE`, [id]);
+  return f || null;
+}
+
+/**
  * @param {object} p
  * @param {object} p.enlace   fila de buscarEnlaceActivo
  * @param {object} p.datos    { nombre, cedula, telefono (10 dígitos), email|null, puesto|null, mesa|null,
@@ -117,8 +143,10 @@ async function anotarRechazo({ enlaceId, motivo, telefonoHash = null, ip, navega
  * @param {string|null} p.huellaPolitica  la versión de la política que se MOSTRÓ
  * @returns {Promise<{resultado, votanteId, otroLider, quiereSms, smsEncolado}>}
  */
-async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
+async function inscribir({ enlace, datos: datos0, ip, navegador, huellaPolitica }) {
   const cx = await pool.getConnection();
+  // La cédula se normaliza AQUÍ también (solo dígitos, sin ceros a la izquierda): este módulo no confía en quien lo llama.
+  const datos = { ...datos0, cedula: normalizarCedula(datos0.cedula) };
   const cedulaHash = sha256(datos.cedula);
   const telefonoHash = sha256(ultimos10(datos.telefono));
   const ipRec = (ip || '').slice(0, 45);
@@ -154,8 +182,13 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
     let otroLider = 0;
     let existente = null;
 
-    // ¿Ya existe? El INSERT decide (la cédula es UNIQUE): no hay carrera entre dos envíos a la vez.
-    try {
+    /* ¿YA EXISTE? Primero se mira, con la cédula NORMALIZADA y contra las variantes tecleadas («1.053.123.456»,
+       «01053123456»): el índice UNIQUE solo ve el texto idéntico, y el alta normal guarda la cédula como se
+       tecleó. Después, si no hay ficha, el INSERT sigue decidiendo (la cédula es UNIQUE): dos envíos a la
+       vez no crean dos fichas. */
+    const fichaId = await buscarFichaPorCedula(cx, datos.cedula);
+    if (fichaId) existente = await leerFichaParaActualizar(cx, fichaId);
+    if (!existente) try {
       const rama = await ramaDeVotante(cx, { cedula: datos.cedula, lider_id: atrib.lider_id, sublider_id: atrib.sublider_id });
       const [ins] = await cx.query(
         `INSERT INTO votantes
@@ -189,16 +222,14 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
         [votanteId, METODO, ipRec, navRec, enlace.enlace_id, huellaPolitica || null]);
     } catch (err) {
       if (err.code !== 'ER_DUP_ENTRY') throw err;
-      [[existente]] = await cx.query(
-        `SELECT id, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id,
-                email, direccion, departamento_residencia, ciudad_residencia,
-                comuna_corregimiento_residencia, barrio_residencia, latitud, longitud
-           FROM votantes WHERE cedula = ? FOR UPDATE`, [datos.cedula]);
+      const id = await buscarFichaPorCedula(cx, datos.cedula);
+      existente = id ? await leerFichaParaActualizar(cx, id) : null;
       if (!existente) throw err;   // choque por otra causa: que suba
     }
 
     let consentimientoCompletado = false;
     let camposCompletados = [];
+    let celularCoincide = false;
     if (existente) {
       votanteId = existente.id;
       const mismoLider = existente.lider_id === atrib.lider_id
@@ -208,6 +239,7 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
 
       // Solo quien aporta el celular que la ficha ya tenía puede modificarla (ver encabezado).
       const acreditado = ultimos10(existente.telefono) !== '' && ultimos10(existente.telefono) === ultimos10(datos.telefono);
+      celularCoincide = acreditado;
       if (acreditado) {
         if (!existente.consentimiento_autorizado) {
           await cx.query(
@@ -257,11 +289,17 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
       }
     }
 
+    /* LA BITÁCORA. Con cédula ya existente (cualquiera de los dos casos: el celular coincide o no) el intento
+       queda con motivo 'cedula_existente', los tres últimos dígitos y si el celular coincidía: es lo que
+       el líder dueño del enlace ve en «Mi enlace» para revisarlo. */
+    const existia = !!existente;
     await cx.query(
       `INSERT INTO inscripcion_intentos
-         (enlace_id, resultado, votante_id, cedula_hash, telefono_hash, otro_lider, ip, navegador)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [enlace.enlace_id, resultado, votanteId, cedulaHash, telefonoHash, otroLider, ipRec, navRec]);
+         (enlace_id, resultado, motivo, votante_id, cedula_hash, cedula_fin, celular_coincide, telefono_hash, otro_lider, ip, navegador)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [enlace.enlace_id, resultado, existia ? 'cedula_existente' : null, votanteId, cedulaHash,
+       existia ? finDeCedula(datos.cedula) : null, existia ? (celularCoincide ? 1 : 0) : null,
+       telefonoHash, otroLider, ipRec, navRec]);
     await cx.commit();
 
     const nuevo = resultado === 'nuevo';
@@ -451,5 +489,5 @@ function iniciarCola() {
 module.exports = {
   inscribir, contarRecientes, anotarRechazo, procesarCola, iniciarCola, encolarSmsDeConfirmacion,
   geocodificarVotante, textoDeConfirmacion, primerNombreParaSms, MAX_LETRAS_NOMBRE,
-  coordenadasValidas, sha256, ultimos10, METODO,
+  coordenadasValidas, buscarFichaPorCedula, sha256, ultimos10, METODO,
 };

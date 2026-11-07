@@ -564,7 +564,7 @@ const F = (codigo, huella, extra = {}) => ({
   const pos = (t) => fm.indexOf(t);
   const orden = ['Datos personales', 'name="cedula"', 'name="nombre"', 'Datos de contacto', 'id="btn-gps"', 'name="direccion"', 'name="departamento_residencia"',
     'name="ciudad_residencia"', 'name="comuna_corregimiento_residencia"', 'name="barrio_residencia"', 'name="telefono"', 'name="email"',
-    'Dónde votas', 'id="buscar-puesto"', 'name="puesto_id"', 'name="mesa"', 'Consultar mi puesto en la Registraduría',
+    'Dónde votas', 'Consultar mi lugar de votación', 'id="buscar-puesto"', 'name="puesto_id"', 'name="mesa"',
     'Tratamiento de datos personales', 'name="autoriza"', 'name="canal_sms"', 'name="canal_whatsapp"', 'name="canal_email"', 'id="btn"'];
   const idx = orden.map(pos);
   ok(idx.every(i => i >= 0) && idx.every((i, k) => k === 0 || i > idx[k - 1]), 'cédula → nombre; GPS → dirección → depto → ciudad → comuna → barrio → celular → correo; puesto → mesa; política → autorización → canales → botón',
@@ -579,8 +579,7 @@ const F = (codigo, huella, extra = {}) => ({
   ok(/text-transform:uppercase/.test(css) && /font-weight:700/.test(css) && /color:#0B5ED7/.test(css) && /border-bottom:1px solid/.test(css), 'títulos en mayúsculas, negrita, azul de la marca (#0B5ED7) y línea fina debajo', css);
   ok(/<a href="\/i\/[A-Z0-9]+\/politica" target="_blank"/.test(fm.slice(pos('Tratamiento de datos personales'))), 'enlace a la política vigente (otra pestaña) dentro de la sección 4');
   ok(fm.includes('<input type="search" id="buscar-puesto"') && /<select id="puesto" name="puesto_id"><option value="">No sé<\/option>/.test(fm) && /<select id="mesa" name="mesa"><option value="">No sé<\/option>/.test(fm), 'puesto con buscador, y «No sé» en puesto y en mesa');
-  const lr = fm.match(/<a href="(https:\/\/wsp\.registraduria\.gov\.co[^"]*)"([^>]*)>Consultar mi puesto en la Registraduría/);
-  ok(lr && lr[2].includes('target="_blank"') && lr[2].includes('noopener') && !/[?#=]/.test(lr[1]) && !/\d{6}/.test(lr[1]), 'enlace a la Registraduría en otra pestaña, sin cédula ni parámetros en la URL', lr && lr[1]);
+  // (la dirección y el botón de la Registraduría se prueban en la sección de la orden 28)
   ok(/<button type="button" class="gps" id="btn-gps">Usar mi ubicación \(GPS\)<\/button>/.test(fm), 'el botón GPS es type="button" (no envía el formulario)');
   const iClick = fm.indexOf("bGps.addEventListener('click'"), iUsar = fm.indexOf('ubicar({enableHighAccuracy');
   ok(iClick > 0 && iUsar > iClick && (fm.match(/getCurrentPosition/g) || []).length === 1, 'el navegador solo se consulta dentro del clic: getCurrentPosition aparece una vez y su primera llamada está en el manejador');
@@ -737,6 +736,138 @@ const F = (codigo, huella, extra = {}) => ({
   geocoder.geocodificarInversa = geocodificarInversaOriginal;
   geocoder.geocodificarDireccion = geocoderOriginal;
   } // fin del bloque de la orden 27
+
+  console.log('\n== Botón de consulta de puesto y control de cédulas duplicadas (orden 28)');
+  { // bloque propio
+  const geocoder = require('../config/geocoder');
+  geocoder.geocodificarDireccion = geocoderOriginal;   // sin geocodificar: esta sección no lo necesita
+  const { normalizarCedula, enmascararCedula } = require('../lib/normalizarCedula');
+  const fs = require('fs'), path = require('path');
+  const URL_NUEVA = 'https://consultacenso.registraduria.gov.co/';
+
+  console.log('  -- la URL de la Registraduría: la nueva, y la vieja ya no aparece en ningún archivo');
+  const raiz = path.join(__dirname, '..');
+  const viejas = [];
+  (function recorrer(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (/^(node_modules|\.git|parches|backups|legislacion|uploads|conversaciones)$/.test(e.name)) continue;
+      const ruta = path.join(dir, e.name);
+      if (e.isDirectory()) recorrer(ruta);
+      else if (/\.(js|html|css|json|sh)$/.test(e.name) && ruta !== __filename) {
+        if (fs.readFileSync(ruta, 'utf8').includes('wsp.registraduria.gov.co/censo/consultar')) viejas.push(path.relative(raiz, ruta));
+      }
+    }
+  })(raiz);
+  ok(viejas.length === 0, 'la dirección vieja (wsp.registraduria.gov.co/censo/consultar) ya no está en ningún .js, .html, .css, .json ni .sh del proyecto', viejas);
+  const fm = (await pedir('GET', `/i/${e3.codigo}`)).texto;
+  ok(fm.includes(`href="${URL_NUEVA}"`) && !fm.includes('wsp.registraduria'), 'la página /i trae la dirección nueva y ninguna vieja');
+  ok((fm.match(/registraduria\.gov\.co/g) || []).length === 1, 'la dirección está UNA sola vez en la página (una constante)');
+
+  console.log('  -- el botón dentro de DÓNDE VOTAS, antes de Puesto y Mesa');
+  const boton = fm.match(/<a class="btn-consulta" role="button" href="([^"]*)" target="_blank" rel="noopener noreferrer">Consultar mi lugar de votación<\/a>/);
+  ok(!!boton && boton[1] === URL_NUEVA, 'botón «Consultar mi lugar de votación», en otra pestaña con rel="noopener noreferrer"', boton && boton[1]);
+  ok(boton && !/[?#=]/.test(boton[1]) && !/\d{5}/.test(boton[1]), 'la cédula no viaja por la URL: sin parámetros ni dígitos');
+  const iDonde = fm.indexOf('Dónde votas</h2>'), iBoton = fm.indexOf('class="btn-consulta"'), iLinea = fm.indexOf('Consulta y vuelve aquí para elegir tu puesto y mesa'),
+        iCaja = fm.indexOf('id="caja-puesto"'), iPuesto = fm.indexOf('name="puesto_id"'), iMesa = fm.indexOf('name="mesa"');
+  ok(iDonde > 0 && iDonde < iBoton && iBoton < iLinea && iLinea < iCaja && iCaja < iPuesto && iPuesto < iMesa, 'orden: título → botón → «Consulta y vuelve aquí…» → Puesto → Mesa', [iDonde, iBoton, iLinea, iCaja, iPuesto, iMesa]);
+  ok(/<p class="ayuda">Consulta y vuelve aquí para elegir tu puesto y mesa<\/p>/.test(fm), 'la línea de ayuda debajo del botón dice exactamente lo pedido');
+  ok(/a\.btn-consulta\{display:block;[^}]*font-size:1rem[^}]*padding:13px/.test(fm), 'el botón ocupa todo el ancho y mide 1rem con 13 px de relleno (legible a 360 px)');
+  ok(!fm.includes('¿No sabes dónde votas?'), 'se quitó el enlace de texto que había debajo del selector');
+  ok(fm.includes('Consultar mi lugar de votación') && !fm.includes('Consultar mi puesto en la Registraduría'), 'ya no queda el texto del enlace anterior');
+
+  console.log('  -- la cédula repetida no crea una segunda ficha');
+  const cuentaFichas = async (digitos) => (await q(
+    "SELECT COUNT(*) c FROM votantes WHERE TRIM(LEADING '0' FROM REGEXP_REPLACE(cedula, '[^0-9]', '')) = ?", [digitos]))[0].c;
+  ok(normalizarCedula(' 1.053 123.456 ') === '1053123456' && normalizarCedula('0012345678') === '12345678' && normalizarCedula('abc') === '' && normalizarCedula(null) === '',
+    'normalizarCedula: solo dígitos y sin ceros a la izquierda');
+  ok(enmascararCedula('1.053.123.456') === '***456', 'enmascararCedula: los últimos tres');
+  // Fichas que el alta normal guardó TAL COMO se tecleó
+  const vPunt = await votante('1.053.999.111', 'Ficha Con Puntos', '3290000011', l1, { consent: true });
+  const vCero = await votante('0012345678', 'Ficha Con Ceros', '3290000021', l1, { consent: true });
+  const vLimpia = await votante('1053999333', 'Ficha Limpia', '3290000031', l1, { consent: true });
+  const vEsp = await votante(' 1 053 999 444 ', 'Ficha Con Espacios', '3290000041', l1, { consent: true });
+  const snap = async (id) => JSON.stringify((await q('SELECT nombre, cedula, telefono, email, direccion, ciudad_residencia, barrio_residencia, latitud, lider_id, rama_aspirante_id, consentimiento_autorizado, consentimiento_confirmado_en FROM votantes WHERE id = ?', [id]))[0]);
+  const fichasAntes = (await q('SELECT COUNT(*) c FROM votantes'))[0].c;
+
+  const r1 = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '1 053 999 111', telefono: '3290000011', nombre: 'Otro Nombre Cualquiera', email: 'nuevo1@correo.co' }) });
+  ok(r1.texto.includes('¡Listo!') && await cuentaFichas('1053999111') === 1, 'guardada «1.053.999.111» y escrita «1 053 999 111»: sigue habiendo UNA ficha');
+  const [p1] = await q('SELECT cedula, email, nombre FROM votantes WHERE id = ?', [vPunt]);
+  ok(p1.cedula === '1.053.999.111' && p1.email === 'nuevo1@correo.co' && p1.nombre === 'Ficha Con Puntos', 'celular coincide: se completa lo vacío (el correo), la cédula guardada NO se reescribe y el nombre no cambia', p1);
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '12.345.678', telefono: '3290000021', nombre: 'Ficha Con Ceros' }) });
+  ok(await cuentaFichas('12345678') === 1, 'guardada «0012345678» (ceros) y escrita «12.345.678»: UNA ficha');
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '1.053.999.333', telefono: '3290000031', nombre: 'Ficha Limpia' }) });
+  ok(await cuentaFichas('1053999333') === 1, 'guardada limpia y escrita con puntos: UNA ficha');
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '01053999444', telefono: '3290000041', nombre: 'Ficha Con Espacios' }) });
+  ok(await cuentaFichas('1053999444') === 1, 'guardada con espacios y escrita con un cero delante: UNA ficha');
+  ok((await q('SELECT COUNT(*) c FROM votantes'))[0].c === fichasAntes, 'en total, ninguna ficha nueva en las cuatro inscripciones');
+
+  console.log('  -- celular que NO coincide: no se modifica nada, y queda en el intento');
+  const antes = await snap(vLimpia);
+  const nIntentos0 = (await q("SELECT COUNT(*) c FROM inscripcion_intentos WHERE motivo = 'cedula_existente'"))[0].c;
+  const rN = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '1053999333', telefono: '3299999999', nombre: 'Intruso De Prueba',
+    email: 'intruso@correo.co', direccion: 'Calle Falsa 123', ciudad_residencia: 'Otra', barrio_residencia: 'Otro', gps_lat: '5.0689', gps_lon: '-75.5174', canal_sms: '1' }) });
+  ok(rN.texto.includes('¡Listo!') && await snap(vLimpia) === antes, 'otro celular: la ficha queda EXACTAMENTE igual (correo, dirección, ciudad, barrio, coordenadas, consentimiento, dueño)');
+  ok(await cuentaFichas('1053999333') === 1, '…y no se crea otra ficha');
+  const [iN] = await q("SELECT resultado, motivo, cedula_fin, celular_coincide, votante_id FROM inscripcion_intentos WHERE motivo = 'cedula_existente' ORDER BY id DESC LIMIT 1");
+  ok(iN && iN.motivo === 'cedula_existente' && iN.cedula_fin === '333' && iN.celular_coincide === 0 && iN.votante_id === vLimpia, 'queda en inscripcion_intentos: motivo «cedula_existente», últimos tres dígitos, celular_coincide = 0 y la ficha', iN);
+  ok((await q("SELECT COUNT(*) c FROM inscripcion_intentos WHERE motivo = 'cedula_existente'"))[0].c === nIntentos0 + 1, 'y exactamente un intento nuevo');
+  ok((await q('SELECT COUNT(*) c FROM inscripcion_sms_cola WHERE votante_id = ?', [vLimpia]))[0].c === 0, 'con otro celular no se encola ningún SMS a la ficha existente');
+  const rC = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '1.053.999.333', telefono: '3290000031', nombre: 'Ficha Limpia' }) });
+  const [iC] = await q("SELECT cedula_fin, celular_coincide FROM inscripcion_intentos WHERE motivo = 'cedula_existente' ORDER BY id DESC LIMIT 1");
+  ok(iC.cedula_fin === '333' && iC.celular_coincide === 1, 'con el celular que coincide el intento también queda como «cedula_existente», con celular_coincide = 1', iC);
+  const [iNuevo] = await q("SELECT motivo, cedula_fin, celular_coincide FROM inscripcion_intentos WHERE resultado = 'nuevo' ORDER BY id DESC LIMIT 1");
+  ok(iNuevo.motivo === null && iNuevo.cedula_fin === null && iNuevo.celular_coincide === null, 'una inscripción de cédula nueva NO lleva motivo ni cédula en el intento');
+
+  console.log('  -- el aviso al líder en «Mi enlace»');
+  const miL3 = await pedir('GET', '/api/inscripcion/mi-enlace', { usuario: U(l3, 'lider') });
+  const av = miL3.datos && miL3.datos.avisos;
+  ok(miL3.status === 200 && Array.isArray(av) && av.length >= 3, 'el líder dueño del enlace recibe la lista «avisos»', av && av.length);
+  ok(av.every(a => /^\*\*\*\d{3}$/.test(a.cedula)), 'cada cédula viene enmascarada: «***» y los tres últimos dígitos', av.map(a => a.cedula));
+  ok(!/1053999|12345678|9810000|98200000/.test(JSON.stringify(miL3.datos)), 'ninguna cédula completa viaja en la respuesta');
+  ok(av.some(a => a.cedula === '***333' && a.celular_coincidia === false) && av.some(a => a.cedula === '***333' && a.celular_coincidia === true), 'dice si el celular coincidía, en los dos casos');
+  ok(av.every(a => /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(String(a.fecha))), 'trae la fecha de cada intento', av[0] && av[0].fecha);
+  const miL1 = await pedir('GET', '/api/inscripcion/mi-enlace', { usuario: U(l1, 'lider') });
+  ok(Array.isArray(miL1.datos.avisos) && !miL1.datos.avisos.some(a => a.cedula === '***333'), 'otro líder NO ve los avisos de este enlace');
+  const pagina = fs.readFileSync(path.join(__dirname, '..', 'public/app/mi-enlace.html'), 'utf8');
+  ok(/id="aviso-cedulas"/.test(pagina) && /pintarAvisos\(d\.avisos/.test(pagina) && /avisos: undefined/.test(pagina), 'la pantalla «Mi enlace» tiene el bloque del aviso, lo pinta, y no guarda las cédulas enmascaradas en el teléfono');
+  ok(/li\.textContent/.test(pagina) && !/innerHTML\s*=\s*[^'"\s]*a\./.test(pagina), 'el texto del aviso se pone con textContent (nada del servidor se interpreta como HTML)');
+  ok(/estrategia-v156/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker subió a v156 (mi-enlace.html está en su precache)');
+
+  console.log('  -- la respuesta pública: idéntica para cédula nueva y existente');
+  const mismoCuerpo = (a, b) => a.status === b.status && a.texto === b.texto;
+  const base = (cedula, tel) => F(e3.codigo, HUELLA, { cedula, telefono: tel, nombre: 'Persona De Prueba Cuatro' });
+  const rNueva = await pedir('POST', `/i/${e3.codigo}`, { form: base('9810000011', '3300000011') });
+  const rExCoincide = await pedir('POST', `/i/${e3.codigo}`, { form: base('1053999111', '3290000011') });
+  const rExOtro = await pedir('POST', `/i/${e3.codigo}`, { form: base('1053999444', '3300000012') });
+  ok(rNueva.status === 200 && rNueva.texto.includes('¡Listo!'), 'cédula nueva: «¡Listo!»');
+  ok(mismoCuerpo(rNueva, rExCoincide) && mismoCuerpo(rNueva, rExOtro), 'la respuesta es la MISMA, byte a byte, para cédula nueva, existente con su celular y existente con otro celular');
+  ok(!/ya (est[aá]|existe|fue)|inscrit|registrad|duplicad/i.test(rExOtro.texto.replace('Gracias por inscribirte', '')), 'no dice «ya está inscrita» ni nada parecido');
+  const sms = { canal_sms: '1' };
+  const sN = await pedir('POST', `/i/${e3.codigo}`, { form: { ...base('9810000021', '3300000021'), ...sms } });
+  const sE = await pedir('POST', `/i/${e3.codigo}`, { form: { ...base('1053999444', '3300000022'), ...sms } });
+  ok(mismoCuerpo(sN, sE), 'con la casilla de SMS marcada la respuesta también es la misma (depende de lo que se marcó, no de lo que había)');
+
+  // El tiempo: la mediana de varias pruebas de cada tipo. Cédulas y celulares distintos cada vez (el tope es por celular).
+  const mediana = (v) => { const o = [...v].sort((x, y) => x - y); return o[Math.floor(o.length / 2)]; };
+  const T = { nueva: [], existeCoincide: [], existeOtro: [] };
+  for (let i = 0; i < 9; i++) {
+    const ced = `98200000${String(i).padStart(2, '0')}`, tel = `33100000${String(i).padStart(2, '0')}`;
+    let t0 = process.hrtime.bigint();
+    await pedir('POST', `/i/${e3.codigo}`, { form: base(ced, tel) });
+    T.nueva.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    t0 = process.hrtime.bigint();
+    await pedir('POST', `/i/${e3.codigo}`, { form: base(ced, tel) });
+    T.existeCoincide.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    t0 = process.hrtime.bigint();
+    await pedir('POST', `/i/${e3.codigo}`, { form: base(ced, `33200000${String(i).padStart(2, '0')}`) });
+    T.existeOtro.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  }
+  const med = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, Math.round(mediana(v))]));
+  console.log(`  (medianas de 9: nueva ${med.nueva} ms · existente con su celular ${med.existeCoincide} ms · existente con otro celular ${med.existeOtro} ms)`);
+  ok(Math.max(...Object.values(med)) - Math.min(...Object.values(med)) <= 60, 'el tiempo de respuesta es parecido: las tres medianas difieren en 60 ms o menos', med);
+
+  } // fin del bloque de la orden 28
+
 
 
   console.log('\n== «Mi enlace»: ver, rotar, el viejo deja de servir');

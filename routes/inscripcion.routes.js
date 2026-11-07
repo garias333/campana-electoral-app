@@ -25,6 +25,7 @@ const rateLimit = require('express-rate-limit');
 const pool = require('../config/db');
 const { aspiranteDe } = require('../lib/ramas');
 const { validarCedula } = require('../lib/validarCedula');
+const { normalizarCedula } = require('../lib/normalizarCedula');
 const { huellaDePolitica, archivarVersion } = require('../config/politicaVersiones');
 const {
   buscarEnlaceActivo, leerAjustes, emitirPase, verificarPase,
@@ -34,6 +35,14 @@ const { inscribir, contarRecientes, anotarRechazo, coordenadasValidas, sha256, u
 const geocoder = require('../config/geocoder');
 
 const router = express.Router();
+
+/* LA CONSULTA DE LUGAR DE VOTACIÓN DE LA REGISTRADURÍA, escrita UNA vez en esta página. La dirección anterior
+   (la del servidor «wsp») dejó de existir y los botones abrían un 404: nada falla del lado
+   de la aplicación, solo quien mira la ventana lo nota. Es la misma de `URL_CONSULTA_CENSO` en
+   public/js/common.js (aquello es del navegador y esto del servidor: no pueden compartir el archivo).
+   SIN CÉDULA EN LA URL: la Registraduría no documenta ningún parámetro para eso, y una cédula en una dirección
+   queda en el historial y en los registros de acceso. */
+const URL_CONSULTA_CENSO = 'https://consultacenso.registraduria.gov.co/';
 
 function esc(t) {
   return String(t == null ? '' : t)
@@ -100,6 +109,8 @@ const CSS = `
   h2.seccion.primero{margin-top:6px}
   button.gps{background:#fff;color:#0B5ED7;border:2px solid #0B5ED7;border-radius:12px;width:100%;font-size:1rem;font-weight:700;padding:12px;cursor:pointer;margin:8px 0 4px}
   button.gps:disabled{opacity:.6}
+  a.btn-consulta{display:block;text-align:center;text-decoration:none;background:#fff;color:#0B5ED7;border:2px solid #0B5ED7;border-radius:12px;font-size:1rem;font-weight:700;padding:13px 10px;margin:10px 0 4px;line-height:1.25}
+  a.btn-consulta:focus-visible{outline:2px solid #0B5ED7;outline-offset:2px}
   input[type=search]{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
   p.ayuda{font-size:.85rem;color:#6B7280;margin:0 0 4px;line-height:1.4}
   .pie{font-size:.78rem;color:#6B7280;margin-top:16px;text-align:center}
@@ -271,6 +282,8 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
   <input type="email" id="email" name="email" value="${val('email')}" autocomplete="email" maxlength="150">
 
   <h2 class="seccion">Dónde votas</h2>
+  <a class="btn-consulta" role="button" href="${URL_CONSULTA_CENSO}" target="_blank" rel="noopener noreferrer">Consultar mi lugar de votación</a>
+  <p class="ayuda">Consulta y vuelve aquí para elegir tu puesto y mesa</p>
   <div id="caja-puesto" style="display:none">
     <label for="buscar-puesto">Buscar tu puesto <small>(si lo sabes)</small></label>
     <input type="search" id="buscar-puesto" autocomplete="off" placeholder="Escribe parte del nombre">
@@ -279,9 +292,6 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
     <label for="mesa">Mesa</label>
     <select id="mesa" name="mesa"><option value="">No sé</option></select>
   </div>
-  <p class="ayuda" style="margin-top:12px">¿No sabes dónde votas?
-    <a href="https://wsp.registraduria.gov.co/censo/consultar/" target="_blank" rel="noopener noreferrer">Consultar mi puesto en la Registraduría</a>
-    (se abre en otra pestaña; la consulta se hace allá con tu cédula).</p>
 
   <h2 class="seccion">Tratamiento de datos personales</h2>
   <p class="ayuda">Lee cómo la campaña trata tus datos:
@@ -586,7 +596,7 @@ async function validar(cuerpo, enlace) {
     primerNombre: nombre.split(' ')[0] || '', primerApellido: nombre.split(' ').slice(-1)[0] || '',
   }, []);
   if (r.nivel === 'bloqueo' || !r.cedula) errores.push('El número de cédula no es válido. Revísalo.');
-  else cedula = String(r.cedula);
+  else cedula = normalizarCedula(r.cedula);   // solo dígitos, sin ceros a la izquierda: lo que se compara y se guarda
   if (!/^3\d{9}$/.test(telefono)) errores.push('Escribe tu celular de 10 dígitos (empieza por 3).');
   if (email && !RE_EMAIL.test(email)) errores.push('El correo no parece válido.');
   if (!valores.autoriza) errores.push('Para inscribirte debes aceptar el tratamiento de tus datos.');

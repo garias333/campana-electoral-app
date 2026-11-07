@@ -4,7 +4,7 @@
  * La consulta de lugar de votación de la Registraduría.
  *
  * VIVE EN UN SOLO SITIO A PROPÓSITO. La dirección anterior
- * —`wsp.registraduria.gov.co/censo/consultar/`— estaba escrita a mano en
+ * (la del servidor «wsp» de la Registraduría) estaba escrita a mano en
  * seis archivos, y cuando la Registraduría la movió, los seis botones
  * quedaron abriendo una ventana con un 404. Nada falla del lado de la
  * aplicación: el botón responde, la ventana se abre, y solo quien la mira

@@ -2766,7 +2766,9 @@ async function main() {
       cedula_hash CHAR(64) NULL,
       telefono_hash CHAR(64) NULL COMMENT 'SHA-256 de los últimos 10 dígitos: para el tope por teléfono',
       otro_lider TINYINT(1) NOT NULL DEFAULT 0,
-      motivo VARCHAR(40) NULL COMMENT 'Solo en rechazados: honeypot, muy_rapido, tope_telefono, tope_enlace',
+      motivo VARCHAR(40) NULL COMMENT 'En rechazados: honeypot, muy_rapido, tope_telefono, tope_enlace. En una cédula que ya existía: cedula_existente',
+      cedula_fin CHAR(3) NULL COMMENT 'Últimos 3 dígitos de la cédula, solo cuando ya existía (para el aviso al líder)',
+      celular_coincide TINYINT(1) NULL COMMENT 'Solo cuando la cédula ya existía: 1 si el celular escrito coincidía con el de la ficha',
       ip VARCHAR(45) NULL,
       navegador VARCHAR(255) NULL,
       KEY idx_insc_int_enlace (enlace_id, creado_en),
@@ -2774,6 +2776,36 @@ async function main() {
       KEY idx_insc_int_votante (votante_id),
       FOREIGN KEY (enlace_id) REFERENCES inscripcion_enlaces(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+
+  /* Las dos columnas de la orden 28 en una base que ya tenía la tabla (CREATE TABLE IF NOT EXISTS no las agrega). */
+  await agregarColumnaSiFalta(connection, 'inscripcion_intentos',
+    "cedula_fin CHAR(3) NULL COMMENT 'Últimos 3 dígitos de la cédula, solo cuando ya existía (para el aviso al líder)'", 'cedula_fin');
+  await agregarColumnaSiFalta(connection, 'inscripcion_intentos',
+    "celular_coincide TINYINT(1) NULL COMMENT 'Solo cuando la cédula ya existía: 1 si el celular escrito coincidía con el de la ficha'", 'celular_coincide');
+
+  /* UNA CÉDULA, UNA FICHA: el índice UNIQUE de votantes.cedula. Viene en db/schema.sql, así que toda campaña
+     creada con él lo tiene; esto cubre a la que no. CONDICIONAL: si ya hay cédulas repetidas NO se crea (fallaría
+     a la mitad, o peor, habría que borrar fichas de personas), se avisa por consola y se sigue. Es lo único que
+     hace con duplicados: contarlos y decirlo. Quitarlos es decisión de quien administra la campaña. */
+  {
+    const [[idx]] = await connection.query(
+      `SELECT COUNT(*) AS n FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'votantes' AND COLUMN_NAME = 'cedula'
+          AND NON_UNIQUE = 0 AND SEQ_IN_INDEX = 1`);
+    if (idx.n > 0) {
+      console.log('votantes.cedula ya tiene índice UNIQUE. Sin cambios.');
+    } else {
+      const [dups] = await connection.query(
+        `SELECT cedula, COUNT(*) AS n FROM votantes WHERE cedula IS NOT NULL GROUP BY cedula HAVING COUNT(*) > 1 LIMIT 5`);
+      if (dups.length) {
+        console.warn(`AVISO: votantes.cedula NO tiene índice UNIQUE y hay cédulas repetidas (p. ej. ${dups.map(d => d.cedula + ' ×' + d.n).join(', ')}).`);
+        console.warn('       No se creó el índice. Resuelva los duplicados y vuelva a correr init-db.');
+      } else {
+        await connection.query('ALTER TABLE votantes ADD UNIQUE KEY cedula (cedula)');
+        console.log('Índice UNIQUE de votantes.cedula creado.');
+      }
+    }
+  }
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS inscripcion_config (
