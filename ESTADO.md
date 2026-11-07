@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 279** (`parches/campana-parche279.zip`, 22.390 bytes,
-  sha256 `27ceca3c28a0a081866e18a50e50ddd0845c2b8f45610121e50f1e329ec1e0ee`, 3 archivos).
-  **Publicado** en la carpeta de licencias (`parche-279.zip`, mismo sha256, 0644) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`; nombre en el panel:
-  «Inscripción: formulario por secciones y GPS (Requiere el 278)». Es el formulario de inscripción por enlace en cuatro
-  secciones, con GPS (detalle abajo) y **requiere el 278**. El anterior, el 278 (`parches/campana-parche278.zip`, 18.199 bytes,
+- **Último parche generado: 280** (`parches/campana-parche280.zip`, 119.765 bytes,
+  sha256 `dd45aec9f83de9ec25e8d633657cf7106337fd372cec712f4516806ef9faa40a`, 9 archivos).
+  **Publicado** en la carpeta de licencias (`parche-280.zip`, mismo sha256, 0644) y
+  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
+  «Inscripción: botón consulta de puesto y control de cédulas (Requiere el 279)». Botón a la Registraduría y control de
+  cédulas duplicadas en la inscripción por enlace (detalle abajo) y **requiere el 279**. El anterior, el 279
+  (`parches/campana-parche279.zip`, 22.390 bytes, sha256 `27ceca3c28a0a081866e18a50e50ddd0845c2b8f45610121e50f1e329ec1e0ee`,
+  3 archivos, formulario por secciones y GPS, `toca_base_datos = false`, requiere el 278), sigue publicado e inactivo, igual que el 278 (`parches/campana-parche278.zip`, 18.199 bytes,
   sha256 `673b60c0f58bec76b55b688a9555c23f2194bb496dc407e425183e66ad6ee02b`, 3 archivos, datos de contacto completos,
   `toca_base_datos = false`, requiere el 277), sigue publicado e inactivo, igual que el 277 (`parches/campana-parche277.zip`,
   278.601 bytes, sha256 `c1804c429d701fbcb03890b892a089e0cb41be5d945a71563fbbe10178700fc4`, 22 archivos, inscripción
@@ -26,15 +28,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 279 (y del 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 280 (y del 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 279, `.version-parche` y `.version-base` = **279**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278 ni el 279 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 278 y el 279 no lo tocan; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 280, `.version-parche` y `.version-base` = **280**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279 ni el 280 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v156` en el código de la Base y dentro del 280 (el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -43,7 +45,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 279` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 280` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -56,6 +58,82 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 280 — inscripción por enlace: botón de consulta de puesto y control de cédulas (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 9 archivos: `config/inscripcionRegistro.js`, `db/init-db.js`, `lib/normalizarCedula.js` (**nuevo**),
+`public/app/mi-enlace.html`, `public/js/common.js` (solo un comentario), `public/service-worker.js` (**v156**),
+`routes/inscripcion.panel.routes.js`, `routes/inscripcion.routes.js` y `.version-base` (280).
+Commit que recoge: `539f7e3` (a partir de `bccb7e8`, el del 279). `scripts/probar-inscripcion-enlace.js` (ahora con 274
+comprobaciones) **no viaja**.
+
+- **La URL de la Registraduría estaba mal en `/i`** (la que puso el 279, `wsp.registraduria.gov.co/censo/consultar/`, ya no
+  existe). Ahora es `https://consultacenso.registraduria.gov.co/`, una constante (`URL_CONSULTA_CENSO`) en
+  `routes/inscripcion.routes.js`, igual a la de `public/js/common.js`. Se buscó en todo el repo: la dirección vieja ya no
+  está en ningún `.js`, `.html`, `.css`, `.json` ni `.sh` (la prueba lo comprueba); `consulta-censo.js`,
+  `app/registro-votante.html` y `app/puesto-votacion.html` ya llevaban la buena. Queda `SPEC-escaner-cedulas.md` con
+  `wapp.registraduria.gov.co`: es un documento de especificación de otro servidor, no se tocó.
+- **Botón en DÓNDE VOTAS:** «Consultar mi lugar de votación», a todo el ancho, justo bajo el título y antes de Puesto y
+  Mesa; abre la Registraduría en otra pestaña (`target="_blank" rel="noopener noreferrer"`), sin cédula en la URL, con la
+  línea «Consulta y vuelve aquí para elegir tu puesto y mesa». Es un `<a role="button">` con aspecto de botón (navega, no
+  ejecuta código, y no depende de JavaScript ni lo frena un bloqueador de ventanas). A 360 px el texto del botón baja a
+  dos líneas y se lee bien (captura revisada).
+- **Cédulas: lo que había.** `votantes.cedula` **ya era `UNIQUE`** (en `db/schema.sql`), pero ese índice solo ve el texto
+  idéntico y **el alta normal guarda la cédula como se tecleó** (sin normalizar: «1.053.123.456», «01053123456»). Una
+  ficha así no chocaba con «1053123456» y `/i` habría creado una **segunda ficha de la misma persona, sin error**. Con
+  cédula idéntica, `/i` ya hacía lo correcto (`ER_DUP_ENTRY` → completa solo si el celular coincide).
+- **Lo que hace ahora:** `lib/normalizarCedula.js` (solo dígitos, sin ceros a la izquierda; la misma regla de
+  `validarFormato`) se usa al guardar y al **buscar**: primero por el índice, y si no hay, contra las variantes guardadas
+  con signos o ceros (`REGEXP_REPLACE`, sin índice, solo cuando la cédula es nueva). **No se reescribe ninguna cédula ya
+  guardada** (otras pantallas cruzan `votantes.cedula` con `usuarios.numero_identificacion` por texto). Mismo
+  comportamiento de antes en los dos casos de cédula existente: **celular coincide → solo se completan los campos
+  vacíos; no coincide → no se modifica nada** (comprobado campo por campo, incluidas coordenadas y consentimiento).
+- **La bitácora y el aviso al líder:** en los dos casos el intento queda con `motivo = 'cedula_existente'`, `cedula_fin`
+  (últimos 3 dígitos) y `celular_coincide` (0/1). «Mi enlace» (`GET /api/inscripcion/mi-enlace` → `avisos`, los 20 más
+  recientes de ese enlace) muestra al líder dueño: «Cédula ***456 · 07/11/2026 14:01 · el celular coincidía (se
+  completaron solo los campos vacíos)» o «… NO coincidía (no se modificó nada)». Otro líder no los ve; la cédula
+  completa no viaja; no se guardan en el teléfono (caché sin conexión). Si la base aún no tiene las columnas, la pantalla
+  sigue funcionando sin avisos.
+- **Lo que ve la persona:** la misma página «¡Listo!» para cédula nueva, existente con su celular y existente con otro
+  celular (igual byte a byte, también con la casilla de SMS marcada; no dice «ya está inscrita»). **Tiempo medido:**
+  medianas de 9 en la prueba, 16 ms (nueva), 15 ms (existente con su celular) y 13 ms (existente con otro celular).
+  **Es un banco de pruebas con una base casi vacía:** con una campaña de cientos de miles de fichas el barrido por
+  variantes costará más, y lo pagan las cédulas nuevas. No se midió.
+- **TOCA LA BASE DE DATOS** (`toca_base_datos = true`, lo derivó el servidor de licencias porque el zip trae `db/`): el
+  actualizador corre `npm run init-db` en cada campaña. Agrega **dos columnas** a `inscripcion_intentos`
+  (`cedula_fin CHAR(3)`, `celular_coincide TINYINT(1)`, nulables; idempotente) y comprueba el índice de
+  `votantes.cedula`: **si ya es UNIQUE no hace nada** (lo esperable), si falta y no hay cédulas repetidas lo crea, y **si
+  hay repetidas NO lo crea: avisa por consola («AVISO: votantes.cedula NO tiene índice UNIQUE y hay cédulas repetidas…») y
+  sigue.** Probado a mano sobre una base de prueba: columnas ausentes → agregadas; sin UNIQUE y con duplicados → aviso y
+  sin índice; sin duplicados → índice creado. Y `probar-instalacion-limpia.js` pasó sobre una base vacía (58 tablas).
+- **Duplicados en la Base** (`electoraldb`, medido hoy con la cuenta de Electoral): índice `cedula` UNIQUE presente,
+  **0 filas** en `votantes` (es la plantilla), 0 duplicados exactos y 0 después de normalizar. **Las campañas NO se
+  pudieron medir** (esta cuenta no lee sus bases): hay que correr en cada una, antes de aplicar:
+  `SELECT cedula, COUNT(*) FROM votantes GROUP BY cedula HAVING COUNT(*)>1;` y, para los casi-duplicados,
+  `SELECT TRIM(LEADING '0' FROM REGEXP_REPLACE(cedula,'[^0-9]','')) c, COUNT(*) FROM votantes WHERE cedula IS NOT NULL AND cedula<>'' GROUP BY c HAVING COUNT(*)>1;`
+  (el segundo es el que el índice no ve).
+- **No cubierto, a propósito:** el **alta normal** (`routes/votantes.routes.js`) sigue sin normalizar la cédula ni
+  detectar variantes («1.053…» frente a «1053…»): el parche arregla el enlace de inscripción, no ese formulario. Si se
+  quiere, es otra orden (con cuidado por el cruce con `usuarios.numero_identificacion`).
+- **Verificado sobre el zip:** los 8 archivos de código coinciden por md5 con el commit `539f7e3`; `.version-base` = 280;
+  sin `.env`, `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/` ni `.sql`; `verificar-requires.js` revisó
+  29 `require` locales y todos resuelven **aplicando el zip sobre una copia del árbol del 279** (`bccb7e8`), con un
+  control negativo (sin `lib/validarCedula.js` falla, como debe).
+- **Probado:** 274 comprobaciones sobre una base simulada (la URL, el botón y su posición, cédula repetida con puntos,
+  espacios y ceros, otro celular sin cambios, respuesta idéntica y tiempos, el aviso al líder). **NO se probó:** la
+  pantalla «Mi enlace» en un navegador con sesión (solo se probó la respuesta del servidor, el texto del HTML y la
+  función de fecha), ni que la Registraduría abra bien desde un celular, ni una campaña real con muchas fichas.
+- **Cómo exige el 279.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 280 con el 279, el 278, el 277 y
+  el 276 y los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Antes, correr las dos consultas de duplicados** de arriba. Si salen filas, hablarlo antes de activar: el índice no
+   se crea con duplicados, y el control del enlace trata la primera coincidencia que encuentre.
+2. **Toca la base: marcar «toca base de datos»** (ya viene marcado en el registro). Al aplicarlo se corre `init-db`;
+   revisar su salida por si dice «AVISO: votantes.cedula…».
+3. **Service worker v156:** los teléfonos con la app instalada refrescan solos al tener señal.
+4. Aplicar después del 279, con la misma lista de campañas.
 
 ## Parche 279 — inscripción por enlace: formulario por secciones y GPS (7 de noviembre de 2026, INACTIVO)
 
@@ -87,9 +165,8 @@ comprobaciones) **no viaja**; el service worker no cambia (`/i` lo arma el servi
   sola wifi) comparte su cupo.
 - **Dónde votas.** El puesto sale del endpoint público de puestos de la campaña (sin cambios), con un buscador sin tildes
   ni mayúsculas; «No sé» en puesto y en mesa; la mesa va de 1 a `cantidad_mesas` del puesto (el servidor ya lo exigía).
-  «Consultar mi puesto en la Registraduría» (`https://wsp.registraduria.gov.co/censo/consultar/`) abre otra pestaña, sin la
-  cédula ni ningún parámetro en la URL. **Esa dirección NO se pudo verificar desde el servidor** (devolvió 403 a `curl`;
-  no se insistió): conviene abrirla a mano una vez.
+  un enlace a la Registraduría abre otra pestaña, sin la cédula ni ningún parámetro en la URL. **Esa dirección estaba
+  mal** (la del servidor «wsp» ya no existe): la corrige el 280, con `https://consultacenso.registraduria.gov.co/`.
 - **Verificado sobre el zip:** los 2 archivos de código coinciden por md5 con el commit `8456601`; no trae `.env`,
   `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/`, `db/` ni `.sql`; `verificar-requires.js` revisó 19
   `require` locales y todos resuelven **aplicando el zip sobre una copia del árbol del 278** (`2fa5ce1`), con un control
