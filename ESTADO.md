@@ -12,23 +12,25 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 276** (`parches/campana-parche276.zip`, 551.144 bytes,
-  sha256 `28471a84304ebc590121351690020621f2adb288a9b0783a2b9f5b1e1d46a40c`, 36 archivos).
-  **Publicado** en la carpeta de licencias (`parche-276.zip`, mismo sha256, 0644, empieza por `PK`) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true`. Es el **Día D fase 4**
-  (cobertura de testigos, check-in, alertas y avisos push; detalle abajo) y **requiere el 275**. Los
-  anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
+- **Último parche generado: 277** (`parches/campana-parche277.zip`, 278.601 bytes,
+  sha256 `c1804c429d701fbcb03890b892a089e0cb41be5d945a71563fbbe10178700fc4`, 22 archivos).
+  **Publicado** en la carpeta de licencias (`parche-277.zip`, mismo sha256, 0644) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true`; nombre en el panel:
+  «Inscripción por enlace/QR del líder (Requiere el 276)». Es la **inscripción por enlace/QR del líder**
+  (detalle abajo) y **requiere el 276**. El anterior, el 276 (551.144 bytes,
+  `28471a84304ebc590121351690020621f2adb288a9b0783a2b9f5b1e1d46a40c`, 36 archivos, Día D fase 4, requiere
+  el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 276 (y del 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 277 (y del 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
-  cinco**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
+  seis**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 276, `.version-parche` y `.version-base` = **276**. Ni el 272, ni el 273, ni el 274, ni el 275 ni el 276 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v154` en el código de la Base y dentro del 276 (el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 277, `.version-parche` y `.version-base` = **277**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276 ni el 277 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -37,7 +39,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 276` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 277` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -50,6 +52,77 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 277 — inscripción por enlace/QR del líder (7 de noviembre de 2026, INACTIVO)
+
+Zip de 22 archivos (+ `.version-base` = 277), cada uno con su motivo:
+`app.js` (monta `/i` **después** del candado de licencia, `/api/inscripcion` y el reloj de 60 s de la cola de SMS);
+`config/confirmacionConsentimiento.js` (token de `/c` de 22 caracteres y búsqueda sin caducidad para la baja);
+`config/inscripcionEnlace.js` y `config/inscripcionRegistro.js` (**nuevos**: el código del líder, el pase firmado
+del formulario, la inscripción en transacción y el SMS de confirmación); `db/init-db.js` y `db/schema.sql` (tablas
+y `origen`); `middleware/aspirante.js` (`/inscripcion` permitido al aspirante); `public/app/inicio.html` (entrada
+«Mi enlace de inscripción»); `public/app/mi-enlace.html` (**nuevo**, QR, copiar, WhatsApp, descargar PNG, cambiar
+enlace); `public/app/mis-registros.html` («Se inscribió solo · sin confirmar / confirmado» y «N por tu enlace»);
+`public/js/qrcode-generator.js` (**nuevo**, librería de QR `qrcode-generator` 1.4.4, **licencia MIT, Kazuhiko
+Arase**, con su cabecera de licencia intacta); `public/js/validacion-cedula-ui.js` (manda la cédula a
+`sumar-a-mi-rama`); `public/service-worker.js` (`v155`); `public/votantes.html` (filtros, etiqueta y pestaña
+«Inscripciones por enlace»); `routes/comunicaciones.routes.js` (los pendientes no entran en masivos);
+`routes/confirmacion.routes.js` (`/c` ofrece la baja); `routes/dashboard.routes.js` (`porEnlace`);
+`routes/inscripcion.routes.js` (**nuevo**, la página pública `/i/:codigo`) y `routes/inscripcion.panel.routes.js`
+(**nuevo**, «Mi enlace» y el cuadro del escritorio); `routes/rescateVotos.routes.js` (el «Ya voté» tampoco sale a
+un pendiente) y `routes/votantes.routes.js` (`sumar-a-mi-rama` acredita a la persona, filtros del listado y de la
+exportación, y un comentario corregido).
+Commits que recoge, en orden: `e2fd450` (`sumar-a-mi-rama`), `39842eb` (esquema), `9f65117` (librería de QR),
+`dcbc2ab` (página pública, API y cola de SMS), `379f355` (pendiente de confirmar), `1f73c93` (pantalla del celular),
+`8af7fb5` (escritorio) y `5c61a71` (SMS de 1 segmento y baja en `/c`), más `7bada64` (corrige el comentario falso
+de `votantes.routes.js`: `config/sms.js` NO pega el «Baja: …»; lo pega `agregarBajaSms`, solo a los envíos de campaña).
+`scripts/probar-inscripcion-enlace.js` y las pruebas **no viajan**.
+
+- **Verificado sobre el zip:** los 22 archivos coinciden por md5 con el disco; no trae `.env`, `.credenciales-*`,
+  `uploads/`, `legislacion/`, `backups/`, `scripts/` ni pruebas (el único `.sql` es `db/schema.sql`); sin secretos
+  en el texto; `CACHE_NAME = 'estrategia-v155'`; `verificar-requires.js` revisó 133 `require` locales y todos
+  resuelven **aplicando el zip sobre una copia del árbol del 276** (`40077aa`), y con un control negativo (sin
+  `config/paginaBaja.js` falla, como debe). El archivo publicado tiene el mismo sha256 que el local.
+- **Toca la base de datos (sí; lo marcó el servidor):** tablas `inscripcion_enlaces`, `inscripcion_intentos`,
+  `inscripcion_config` (una fila con los topes), `votante_consentimiento_evidencia` e `inscripcion_sms_cola`;
+  `votantes.origen` gana el valor `enlace_lider`. Todo idempotente (`init-db` dos veces seguidas, limpio, sobre una
+  base vacía) y `scripts/probar-instalacion-limpia.js` pasa (58 tablas).
+- **Probado solo con una base simulada** (un MySQL privado desechable): `scripts/probar-inscripcion-enlace.js`, 141
+  comprobaciones. **No** se probó: un SMS real por Onurix o Twilio, escanear el QR con un celular (el QR se dibuja
+  con la librería y se vio bien en una captura, pero ningún lector lo decodificó; intentar bajar un decodificador
+  fue bloqueado por el clasificador de permisos y no se esquivó), ni la pestaña de escritorio en un navegador con sesión.
+- **Cómo exige el 276.** El sistema no declara dependencias (ver «Cómo exige el 273», en el 274): **activar el 277
+  con el 276 y los anteriores y con la misma lista de campañas.** Sin el 274 le falta `config/paginaBaja.js` y
+  `/c` no arranca.
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Cada líder, sublíder y coordinador tiene su enlace y su QR** en el menú del celular, «Mi enlace de inscripción»
+   (el administrador no tiene: no está en la estructura). La gente lo escanea y se inscribe sola: nombre, cédula,
+   celular de 10 dígitos (empieza por 3), correo opcional, puesto y mesa opcionales (los del Día D de la campaña) y
+   la casilla de autorización. «Cambiar mi enlace» deja de servir el QR anterior: si ya lo imprimieron, hay que
+   volver a imprimirlo. El coordinador (y el administrador) puede desactivarlo o cambiarlo desde Votantes →
+   «Inscripciones por enlace»; el administrador además fija el interruptor general y los topes (200 por enlace al día,
+   3 por teléfono al día, 4 segundos mínimos).
+2. **Lo inscrito por enlace queda «sin confirmar» y no recibe masivos ni el enlace «Ya voté» hasta confirmar** por
+   el SMS (`/c`). Sale en cualquier canal: SMS, correo y push. Quien se inscribe solo con el correo y sin SMS no
+   puede confirmar solo: el coordinador le pide la confirmación por correo con el botón de la ficha.
+3. **Cada inscripción con el SMS marcado cuesta 1 SMS.** Es uno por persona en la vida y sale dentro de la franja
+   (08:00–20:00; fuera de ella queda para la apertura). Texto: «{primer_nombre}, confirma tu inscripcion aqui:
+   {enlace}»; con la firma de 30 caracteres mide 132, 147 y 151 con `electoral`, `campanadepruebamunicipal` y
+   `campanadepruebadepartamental`. **No lleva el «Baja: …»**: la baja está en la página de `/c` («No quiero recibir
+   más mensajes»). El token de `/c` de este SMS es de 22 caracteres; los enlaces de 64 que ya salieron siguen sirviendo.
+4. **Una ficha que ya existía solo se completa si el celular escrito coincide con el que tenía.** Si la cédula es de
+   otro líder, no cambia de dueño; el coordinador ve el intento (sin cédula) en la pestaña. La respuesta de la página
+   es siempre «¡Listo!»: nunca dice si la cédula ya estaba.
+5. **Requiere `LICENCIA_DOMINIO` en el `.env`** (todas las campañas ya la tienen, porque la licencia la exige). Sin
+   ella: la licencia no valida y el candado bloquea todo, `/i` incluido; y, si aun así corriera, el SMS de
+   confirmación **no sale** (queda `fallido` en `inscripcion_sms_cola` con el motivo, sin reintento) y el QR de
+   «Mi enlace» se arma con el dominio desde el que se abrió la pantalla.
+6. **`sumar-a-mi-rama` ya no acepta un id suelto:** exige que la ficha esté en el alcance de quien llama o que traiga
+   la cédula que coincide (el formulario ya la manda).
+7. **Aplicar después del 276, con la misma lista de campañas, y correr `npm run init-db`** (el actualizador lo hace
+   solo porque `toca_base_datos` es sí).
 
 ## Parche 276 — Día D fase 4: cobertura, check-in, alertas y avisos (7 de noviembre de 2026, INACTIVO)
 
@@ -789,3 +862,8 @@ Rama: auditoria-fable | Commit: 5f31a08 Parche 270: .version-base a 270 (Estruct
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-06 20:34 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 8dfca61 ESTADO.md: remoto en GitHub (privado, deploy key), verificación y quién empuja | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-07 12:52 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 40077aa Parche 276: .version-base a 276 y ESTADO.md (Día D fase 4: cobertura, check-in, alertas y avisos push; publicado y registrado INACTIVO) | Sin commitear: 3 archivo(s)
