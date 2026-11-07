@@ -1057,4 +1057,43 @@ CREATE TABLE IF NOT EXISTS dia_d_suplentes_testigo (
   FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- CHECK-IN DEL TESTIGO: la hora en que llegó a su puesto el día de la jornada. Una fila por persona y día (el
+-- reintento desde el celular sin señal no duplica: `cliente_uuid` y la clave única). La ubicación es un DATO, nunca
+-- un requisito: si la niegan o no hay, se guarda sin ella; y `distancia_m` (al puesto del catálogo) mayor a 500 m
+-- tampoco rechaza nada. `fecha` es la de HOY en hora de Colombia, también en «modo prueba».
+CREATE TABLE IF NOT EXISTS dia_d_checkin (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  usuario_id INT NOT NULL,
+  puesto_id INT NULL,
+  fecha DATE NOT NULL,
+  llegado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  latitud DECIMAL(10,7) NULL,
+  longitud DECIMAL(10,7) NULL,
+  distancia_m INT NULL COMMENT 'Metros entre donde se marcó y el puesto del catálogo; NULL si no se pudo calcular',
+  origen ENUM('testigo','coordinador') NOT NULL DEFAULT 'testigo',
+  marcado_por INT NULL COMMENT 'Quien la marcó a mano (origen coordinador)',
+  cliente_uuid VARCHAR(64) NULL,
+  UNIQUE KEY uq_checkin_dia (usuario_id, fecha),
+  INDEX idx_checkin_fecha (aspirante_id, fecha),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (marcado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ALERTAS ATENDIDAS del cuadro de alertas. `mesa` es 0 en las alertas de un puesto entero (baja votación), no NULL:
+-- una clave única con NULL no impide duplicados. Atender es por DÍA: mañana la misma alerta vuelve a salir.
+CREATE TABLE IF NOT EXISTS dia_d_alertas_atendidas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  tipo VARCHAR(30) NOT NULL,
+  puesto_id INT NOT NULL,
+  mesa INT NOT NULL DEFAULT 0,
+  fecha DATE NOT NULL,
+  atendida_por INT NULL,
+  atendida_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  nota VARCHAR(255) NULL,
+  UNIQUE KEY uq_alerta_atendida (aspirante_id, tipo, puesto_id, mesa, fecha),
+  FOREIGN KEY (atendida_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

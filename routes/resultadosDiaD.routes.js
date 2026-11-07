@@ -49,7 +49,9 @@ const HORAS_DE_VIDA_PAQUETE = 24;
 const TOPE_VOTOS = 10000000;
 
 /* ——— La jornada de esta campaña, ya cargada ——————————————————————————————— */
-async function cargarJornada(req) {
+/* `conVotos: false` se salta los votos de cada reporte (la consulta más pesada): lo usa el cuadro de alertas, que se
+   recalcula cada 30 segundos y sólo necesita QUÉ reportes hay, no cuántos votos trae cada uno. */
+async function cargarJornada(req, { conVotos = true } = {}) {
   const dueno = await diaD.duenoDeLaCampana(req);
   const aFuera = await diaD.acotaJornada(req, 'r.testigo_id');
   const [puestos] = await pool.query(
@@ -59,7 +61,8 @@ async function cargarJornada(req) {
   const municipios = await cargarMunicipios(pool, puestos);
   const [reportes] = await pool.query(
     `SELECT r.id, r.testigo_id, r.puesto_id, r.puesto_votacion, r.mesa_votacion AS mesa, r.alertas,
-            r.created_at, (r.foto_e14_url IS NOT NULL) AS tiene_foto, u.nombre AS testigo_nombre
+            r.created_at, (r.foto_e14_url IS NOT NULL) AS tiene_foto, u.nombre AS testigo_nombre,
+            u.telefono AS testigo_telefono
        FROM dia_d_reportes r JOIN usuarios u ON u.id = r.testigo_id
       ${aFuera ? 'WHERE ' + aFuera.sql : ''}
       ORDER BY r.id`, aFuera ? aFuera.valores : []);
@@ -78,7 +81,7 @@ async function cargarJornada(req) {
 
   // Los votos de los reportes vigentes, en pocas consultas.
   const votosPor = new Map();
-  const ids = [...vigentes.values()].map(r => r.id);
+  const ids = conVotos ? [...vigentes.values()].map(r => r.id) : [];
   for (let i = 0; i < ids.length; i += 1000) {
     const [filas] = await pool.query(
       `SELECT reporte_id, candidato_nombre, votos, grupo FROM dia_d_reporte_votos WHERE reporte_id IN (?)`,
@@ -761,3 +764,5 @@ module.exports = router;
 module.exports.iniciarMantenimiento = iniciarMantenimiento;
 module.exports.limpiarPaquetesVencidos = limpiarPaquetesVencidos;
 module.exports.construirConsolidado = construirConsolidado;
+module.exports.cargarJornada = cargarJornada;
+module.exports.calcularDiferencias = calcularDiferencias;

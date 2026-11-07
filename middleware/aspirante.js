@@ -46,7 +46,7 @@ const PERMITIDOS = [
    posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
    el filtro son el mismo cambio, y separarlos habría dejado una fuga con
    pinta de función nueva. */
-const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d'];
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d', 'alertas_dia_d'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -106,6 +106,8 @@ const HREFS_ASPIRANTE = [
   '/app/ranking-dia-d.html',
   '/dia-d.html#avance',
   '/dia-d.html#resultados',
+  '/dia-d.html#alertas',
+  '/app/alertas-dia-d.html',
 ];
 
 /*
@@ -149,6 +151,8 @@ const PERMISOS_ASPIRANTE = {
      Las rutas (routes/resultadosDiaD.routes.js) cuelgan de /dia-d y se acotan por la jornada
      de su rama (`acotaJornada`) y por su propia lista de puestos y candidatos. */
   resultados_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
+  /* Alertas del Día D: el cuadro en vivo de SU campaña (cobertura, llegadas, E-14, diferencias). Cuelga de /dia-d. */
+  alertas_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
 };
 
 /**

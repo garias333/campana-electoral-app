@@ -1569,6 +1569,24 @@ router.post('/reportes/eliminar-todo', requireRole('admin', 'aspirante'), async 
    Solo esta ruta lo necesita. Ponerlo en el `router.use` de arriba lo haria
    correr en las quince rutas del Dia D, incluidas las que los testigos golpean
    sin parar el dia de la eleccion, para que ninguna lo lea. */
+/** Le pone a cada mesa de `detalle` su estado en vivo (si se pidió). Sin `enVivo` devuelve el detalle tal cual. */
+function conEstadoEnVivo(puesto, detalle, enVivo) {
+  if (!enVivo) return detalle;
+  const { estadoDeMesa } = require('../lib/mesasEnVivo');
+  return {
+    ...detalle,
+    en_vivo: { modo_prueba: enVivo.modoPrueba, ahora: enVivo.ahora.texto },
+    mesas_detalle: detalle.mesas_detalle.map(m => {
+      const r = enVivo.vigentes.get(`p${puesto.id}|${m.mesa}`);
+      return { ...m, estado: estadoDeMesa({
+        testigo: m.testigo_id ? { id: m.testigo_id } : null,
+        llego: enVivo.llegaron.has(m.testigo_usuario_id), e14: !!(r && r.tiene_foto),
+        cfg: enVivo.cfg, ahora: enVivo.ahora,
+      }) };
+    }),
+  };
+}
+
 router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspirante'), calcularAlcance, async (req, res) => {
   try {
     // La lista se recorta al ámbito declarado en Configuración → Datos de
@@ -1674,6 +1692,21 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
     const detallada = req.query.cobertura === '1';
     const limiteMesas = detallada ? await leerLimiteDeMesas(pool) : 3;
     const ubicaciones = detallada ? await cargarUbicaciones(pool, puestos) : new Map();
+    /* `&vivo=1`: el ESTADO EN VIVO de cada mesa (sin testigo, asignada, llegó, E-14, tarde). Lo pide la pantalla el día de la
+       elección o cuando alguien enciende «En vivo» para ensayar. La regla es la de lib/mesasEnVivo.js, la misma del cuadro de alertas. */
+    let enVivo = null;
+    if (detallada && req.query.vivo === '1') {
+      const jornadaLib = require('../lib/jornadaDiaD');
+      const cfgJornada = await jornadaLib.leerJornada(pool);
+      const ahoraCo = jornadaLib.ahoraColombia();
+      const [llegadas] = await pool.query(
+        `SELECT usuario_id FROM dia_d_checkin WHERE aspirante_id = ? AND fecha = ?`, [dueno, ahoraCo.fecha]);
+      const jornadaReportes = await require('./resultadosDiaD.routes').cargarJornada(req, { conVotos: false });
+      enVivo = {
+        cfg: cfgJornada, ahora: ahoraCo, llegaron: new Set(llegadas.map(l => l.usuario_id)), vigentes: jornadaReportes.vigentes,
+        modoPrueba: jornadaLib.estadoDeLaJornada(cfgJornada, ahoraCo).modo_prueba,
+      };
+    }
     const filas = puestos.map(p => {
       const testigosDelPuesto = testigosPorPuesto.get(Number(p.id)) || [];
       const cubiertas = new Set();
@@ -1700,7 +1733,7 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
         mesas_faltantes_con_votantes: faltantesConVotantes,
         votantes_estimados: totalPorPuesto.get(p.nombre) || 0,
         ...(detallada ? {
-          ...armarDetallePuesto(p, testigosDelPuesto, votantesPorMesa.get(p.nombre), sinMesaPorPuesto.get(p.nombre), limiteMesas),
+          ...conEstadoEnVivo(p, armarDetallePuesto(p, testigosDelPuesto, votantesPorMesa.get(p.nombre), sinMesaPorPuesto.get(p.nombre), limiteMesas), enVivo),
           municipio_id: (ubicaciones.get(Number(p.id)) || {}).municipio_id || null,
           municipio: (ubicaciones.get(Number(p.id)) || {}).municipio || null,
           comuna: (ubicaciones.get(Number(p.id)) || {}).comuna || null,

@@ -251,6 +251,9 @@ app.use('/api/dia-d/resultados', resultadosDiaD);
 resultadosDiaD.iniciarMantenimiento();
 // Cobertura de testigos (asignar, suplentes, Excel, aviso). Antes de /api/dia-d, que si no la tomaría por suya.
 app.use('/api/dia-d/cobertura', require('./routes/coberturaTestigos.routes'));
+// Fase 4 del Día D: check-in del testigo («Llegué a mi puesto») y cuadro de alertas. Antes de /api/dia-d, por lo mismo.
+app.use('/api/dia-d/checkin', require('./routes/checkinDiaD.routes'));
+app.use('/api/dia-d/alertas', require('./routes/alertasDiaD.routes'));
 app.use('/api/dia-d', require('./routes/diaD.routes'));
 app.use('/api/catalogo', require('./routes/catalogo.routes'));
 app.use('/api/backup', require('./routes/backup.routes'));

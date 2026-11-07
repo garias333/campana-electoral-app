@@ -401,6 +401,10 @@ const PERMISOS_POR_DEFECTO = {
   // administrador y el coordinador de fábrica (el aspirante, por PERMISOS_ASPIRANTE); líder,
   // sublíder, testigo e invitado no. No existe un rol de «abogado» en la matriz.
   resultados_dia_d: ['admin', 'coordinador'],
+  // Alertas del Día D (fase 4): el cuadro en vivo de la coordinación. Administrador y coordinador de fábrica
+  // (el aspirante, por PERMISOS_ASPIRANTE); líder, sublíder, testigo e invitado no. El INSERT IGNORE de abajo no
+  // pisa lo que el administrador ya editó.
+  alertas_dia_d: ['admin', 'coordinador'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   crm: ['admin', 'coordinador', 'asistente_administrativo'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
@@ -874,7 +878,8 @@ async function main() {
   const [yaExistian] = await connection.query(
     `SELECT TABLE_NAME AS t FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens',
-       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes', 'dia_d_suplentes_testigo')`);
+       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes', 'dia_d_suplentes_testigo',
+       'dia_d_checkin', 'dia_d_alertas_atendidas')`);
   const tablasVotoQueExistian = new Set(yaExistian.map(r => r.t));
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await connection.query(schema);
@@ -2101,7 +2106,7 @@ async function main() {
   // estaban, según lo que había ANTES de aplicar el esquema (ver `tablasVotoQueExistian`).
   for (const tabla of ['votante_votos', 'votante_voto_tokens',
                        'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes',
-                       'dia_d_suplentes_testigo']) {
+                       'dia_d_suplentes_testigo', 'dia_d_checkin', 'dia_d_alertas_atendidas']) {
     const [[t]] = await connection.query(
       `SELECT 1 AS x FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
@@ -2116,6 +2121,23 @@ async function main() {
   // 3 de fábrica; se cambia en Configuración → Día D → Puestos de votación.
   await agregarColumnaSiFalta(connection, 'configuracion_campana',
     'max_mesas_por_testigo TINYINT UNSIGNED NOT NULL DEFAULT 3', 'max_mesas_por_testigo');
+
+  // --- Día D fase 4: la jornada (horarios y umbrales de las alertas) ---
+  // Todo es de la campaña y se edita en Configuración → Datos de la campaña, junto a la fecha de elección. Hora de
+  // Colombia. Los valores por omisión son los de una jornada corriente: urnas de 8:00 a 16:00.
+  for (const [definicion, nombre] of [
+    ["jornada_apertura TIME NOT NULL DEFAULT '08:00:00'", 'jornada_apertura'],
+    ["jornada_cierre TIME NOT NULL DEFAULT '16:00:00'", 'jornada_cierre'],
+    ['plazo_e14_min INT NOT NULL DEFAULT 120', 'plazo_e14_min'],
+    ['alerta_checkin_min INT NOT NULL DEFAULT 30', 'alerta_checkin_min'],
+    ['baja_votacion_pct INT NOT NULL DEFAULT 40', 'baja_votacion_pct'],
+    ["baja_votacion_desde TIME NOT NULL DEFAULT '12:00:00'", 'baja_votacion_desde'],
+  ]) {
+    await agregarColumnaSiFalta(connection, 'configuracion_campana', definicion, nombre);
+  }
+  // Quien necesita que lo lleven a votar. NULL = no se sabe; 1 = sí; 0 = no.
+  await agregarColumnaSiFalta(connection, 'votantes',
+    'necesita_transporte TINYINT NULL COMMENT "1 = necesita transporte el dia de la eleccion; NULL = no se sabe"', 'necesita_transporte');
 
   // --- Día D fase 3: el bloque de cada voto ---
   // `dia_d_reporte_votos` guardaba solo el NOMBRE del candidato; el bloque (candidato,

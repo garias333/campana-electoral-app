@@ -104,7 +104,7 @@ function canalesDelEnlace(f) {
    acotó al alcance de quien pregunta: nunca se pide un enlace de alguien que no se ve. */
 const TOPE_FALTANTES = 5000;
 router.get('/faltantes', async (req, res) => {
-  const filtro = ['todos', 'faltan', 'votaron', 'sin_telefono'].includes(req.query.filtro) ? req.query.filtro : 'faltan';
+  const filtro = ['todos', 'faltan', 'votaron', 'sin_telefono', 'transporte'].includes(req.query.filtro) ? req.query.filtro : 'faltan';
   const q = String(req.query.q || '').trim();
   try {
     const a = alcanceDe(req);
@@ -121,10 +121,12 @@ router.get('/faltantes', async (req, res) => {
     if (filtro === 'faltan') cond.push('vv.votante_id IS NULL');
     if (filtro === 'votaron') cond.push('vv.votante_id IS NOT NULL');
     if (filtro === 'sin_telefono') cond.push(`${SIN_TELEFONO} AND vv.votante_id IS NULL`);
+    // «Necesitan transporte»: los que faltan por votar y alguien marcó que necesitan que los lleven.
+    if (filtro === 'transporte') cond.push('v.necesita_transporte = 1 AND vv.votante_id IS NULL');
     if (q) { cond.push('v.nombre LIKE ?'); params.push(`%${q}%`); }
     const [filas] = await pool.query(
       `SELECT v.id, v.nombre, v.telefono, v.mesa_votacion, v.no_contactar,
-              v.consentimiento_sms, v.consentimiento_whatsapp,
+              v.consentimiento_sms, v.consentimiento_whatsapp, v.necesita_transporte,
               ${CLAVE_PUESTO} AS clave, vv.voto_en, vv.origen
          FROM votantes v LEFT JOIN votante_votos vv ON vv.votante_id = v.id
         WHERE ${a.sql} ${cond.length ? 'AND ' + cond.join(' AND ') : ''}
@@ -168,6 +170,7 @@ router.get('/faltantes', async (req, res) => {
       g.personas.push({
         id: f.id, nombre: f.nombre, telefono: f.telefono || '', mesa: f.mesa_votacion,
         no_contactar: !!f.no_contactar, voto_en: f.voto_en || null, origen: f.origen || null,
+        necesita_transporte: Number(f.necesita_transporte) === 1,
         enlace_ya_vote: url, enlace_wa: !!url && c.wa, enlace_sms: !!url && c.sms, sin_enlace: sinEnlace,
       });
     }
@@ -188,6 +191,25 @@ router.get('/faltantes', async (req, res) => {
   } catch (err) {
     console.error('rescate/faltantes:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo cargar la lista de votantes.' });
+  }
+});
+
+/* ——— POST /transporte ————————————————————————————————————————————
+   El interruptor «necesita transporte» de Faltantes. Idempotente (poner lo que ya estaba no cambia nada), así que es seguro
+   reintentarlo desde la cola sin señal. Con el MISMO alcance que marcar: sólo votantes que se ven; 403 y no 404 fuera de él. */
+router.post('/transporte', async (req, res) => {
+  const votanteId = Number(req.body && req.body.votante_id);
+  if (!Number.isInteger(votanteId) || votanteId < 1) return res.status(400).json({ error: 'Falta el votante.' });
+  const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : 0;
+  try {
+    const a = alcanceDe(req);
+    const [[v]] = await pool.query(`SELECT v.id FROM votantes v WHERE v.id = ? AND ${a.sql}`, [votanteId, ...a.valores]);
+    if (!v) return res.status(403).json({ error: 'Ese votante no está entre tus votantes.' });
+    await pool.query(`UPDATE votantes SET necesita_transporte = ? WHERE id = ?`, [necesita ? 1 : null, votanteId]);
+    res.json({ ok: true, necesita_transporte: !!necesita });
+  } catch (err) {
+    console.error('rescate/transporte:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo guardar. Intenta de nuevo.' });
   }
 });
 
@@ -250,6 +272,21 @@ router.delete('/marcar/:votanteId', async (req, res) => {
 });
 
 /* ——— GET /resumen ————————————————————————————————————————————————— */
+/** «Ya votó» por puesto, con el alcance de quien pregunta: [{ puesto (texto), total, votaron, pct }]. Lo usa también el cuadro de alertas. */
+async function resumenPorPuesto(req) {
+  const a = alcanceDe(req);
+  const [puestos] = await pool.query(
+    `SELECT ${CLAVE_PUESTO} AS clave, MAX(v.puesto_votacion) AS puesto,
+            COUNT(*) AS total, SUM(vv.votante_id IS NOT NULL) AS votaron
+       FROM votantes v LEFT JOIN votante_votos vv ON vv.votante_id = v.id
+      WHERE ${a.sql} GROUP BY clave`, a.valores);
+  return puestos.map(p => ({
+    puesto: (p.puesto || '').trim() || 'Sin puesto registrado',
+    total: Number(p.total), votaron: Number(p.votaron),
+    faltan: Number(p.total) - Number(p.votaron), pct: pct(Number(p.votaron), Number(p.total)),
+  }));
+}
+
 router.get('/resumen', async (req, res) => {
   try {
     const a = alcanceDe(req);
@@ -401,3 +438,4 @@ router.post('/vaciar', requireRole('admin', 'aspirante'), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.resumenPorPuesto = resumenPorPuesto;

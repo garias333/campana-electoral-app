@@ -1687,6 +1687,27 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   res.json({ ok: true, id: votanteId, geocodificado: geo.geocodificado, usuario_sublider: usuarioSublider, avisos: revision.avisos });
 });
 
+/**
+ * «Necesita transporte el día de la elección», desde la ficha del votante. Va aparte del PUT de la ficha: es una marca
+ * operativa que se enciende o se apaga sola, sin pedir la contraseña ni reenviar la ficha entera. Con el MISMO alcance
+ * que el resto de la ficha: quien no ve al votante, no lo marca (404).
+ */
+router.put('/:id/transporte', async (req, res) => {
+  const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : null;
+  try {
+    const params = [req.params.id];
+    let sql = `SELECT id FROM votantes WHERE id = ?`;
+    if (req.alcance) { sql += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
+    const [[v]] = await pool.query(sql, params);
+    if (!v) return res.status(404).json({ error: 'No encontrado.' });
+    await pool.query(`UPDATE votantes SET necesita_transporte = ? WHERE id = ?`, [necesita, v.id]);
+    res.json({ ok: true, necesita_transporte: necesita === 1 });
+  } catch (err) {
+    console.error('votantes/transporte:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo guardar.' });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO.
      No es la del administrador: un lider tiene derecho a corregir a su gente,
