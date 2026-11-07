@@ -653,6 +653,8 @@ function mostrarPestana(cual) {
     cargarAlertas().catch(err => alert(err.message || 'No se pudieron cargar las alertas.'));
     intervaloAlertas = setInterval(() => { if (!document.hidden) cargarAlertas().catch(() => {}); }, 30000);
   }
+  // history.replaceState no avisa: el menú lateral se entera por aquí de cuál es la vista de ahora.
+  if (window.actualizarMenuActivo) window.actualizarMenuActivo();
 }
 
 /* ——— ALERTAS ——— el cálculo es del servidor (routes/alertasDiaD.routes.js); aquí sólo se pinta y se filtra. */
@@ -732,6 +734,21 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
 
 /* ——— RESULTADOS (fase 3) ——— */
 let puedeResultados = false;
+// Qué pestañas puede abrir quien mira (se llenan al cargar la sesión). Las usa también el cambio de ancla (hashchange).
+let puedeAlertasDiaD = false, puedeTransporteDiaD = false;
+/* LAS VISTAS DE ESTA PÁGINA SE ELIGEN POR EL ANCLA DE LA URL (orden 34): #avance, #alertas, #transporte, #resultados; sin ancla
+   (o con una que quien mira no puede abrir) es «Reportes de mesas». El menú lateral enlaza a estas anclas, así que tocar otro
+   ítem estando ya aquí solo cambia el ancla: se escucha `hashchange` y se cambia de pestaña sin recargar. */
+window.paginaEscuchaHash = true;
+function pestanaDelAncla() {
+  const h = location.hash;
+  if (h === '#avance') return 'avance';
+  if (h === '#resultados' && puedeResultados) return 'resultados';
+  if (h === '#alertas' && puedeAlertasDiaD) return 'alertas';
+  if (h === '#transporte' && puedeTransporteDiaD) return 'transporte';
+  return 'reportes';
+}
+window.addEventListener('hashchange', () => { if (usuarioActual) mostrarPestana(pestanaDelAncla()); });
 const RES = '/dia-d/resultados';
 const fmtN = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-CO'));
 const fmtB = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
@@ -1007,17 +1024,19 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   // La pestaña «Alertas» solo con el módulo `alertas_dia_d` (el servidor lo vuelve a exigir). Sin datos de permisos, no se muestra.
   const permAl = usuarioActual.permisos && usuarioActual.permisos.alertas_dia_d;
   const puedeAlertas = !!(permAl && permAl.ver);
+  puedeAlertasDiaD = puedeAlertas;
   document.getElementById('pestana-alertas').style.display = puedeAlertas ? 'inline-flex' : 'none';
   if (puedeAlertas) cargarAlertas().catch(() => {});          // la insignia con el conteo, aunque no esté abierta
   // La pestaña «Transporte» y su contador solo con el módulo `transporte_dia_d` (el servidor lo vuelve a exigir).
   const permTr = usuarioActual.permisos && usuarioActual.permisos.transporte_dia_d;
   const puedeTransporte = !!(permTr && permTr.ver) && !!window.TransporteDiaD;
+  puedeTransporteDiaD = puedeTransporte;
   document.getElementById('pestana-transporte').style.display = puedeTransporte ? 'inline-flex' : 'none';
   if (puedeTransporte) window.TransporteDiaD.iniciarContador();
-  if (location.hash === '#avance') mostrarPestana('avance');
-  else if (location.hash === '#resultados' && puedeResultados) mostrarPestana('resultados');
-  else if (location.hash === '#alertas' && puedeAlertas) mostrarPestana('alertas');
-  else if (location.hash === '#transporte' && puedeTransporte) mostrarPestana('transporte');
+  // La vista de la carga: la del ancla de la URL (un enlace directo a dia-d.html#alertas abre Alertas).
+  const inicial = pestanaDelAncla();
+  if (inicial !== 'reportes') mostrarPestana(inicial);
+  else if (window.actualizarMenuActivo) window.actualizarMenuActivo();
   // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
   // en esta app, así que un refresco corto por sondeo es lo más simple y
   // suficiente para seguir el conteo el día de la jornada.

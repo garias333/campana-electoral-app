@@ -796,6 +796,8 @@ function cambiarPestana(pestana) {
   aplicarPresentacionPestana(pestana);
 
   history.replaceState(null, '', `#${pestana}`);
+  // replaceState no avisa: el menú lateral se entera por aquí de cuál es la vista de ahora (orden 34).
+  if (window.actualizarMenuActivo) window.actualizarMenuActivo();
   if (pestana === 'diad') { cargarPuestosVotacion(); cambiarSubPestanaDiaD('puestos'); }
   if (pestana === 'usuarios') cargarUsuarios();
   if (pestana === 'permisos') cargarMatrizPermisos();
@@ -915,6 +917,8 @@ function pestanasPermitidas() {
     : ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'];
 }
 
+// Esta página cambia de pestaña por el ancla: el menú lateral no recarga al tocar uno de sus ítems (common.js).
+window.paginaEscuchaHash = true;
 window.addEventListener('hashchange', () => {
   const pestana = window.location.hash.slice(1);
   if (pestanasPermitidas().includes(pestana)) cambiarPestana(pestana);

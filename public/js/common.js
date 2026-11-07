@@ -261,7 +261,7 @@ const NAV_ITEMS = [
   {
     grupo: 'Configuración', iconoGrupo: '⚙️',
     items: [
-      { href: '/configuracion.html#campana', texto: 'Datos de la campaña', modulo: 'configuracion', roles: ['admin'] },
+      { href: '/configuracion.html#campana', texto: 'Datos de la campaña', modulo: 'configuracion', roles: ['admin'], porDefecto: true },
       { href: '/configuracion.html#usuarios', texto: 'Usuarios', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#permisos', texto: 'Asignación de permisos', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#eliminar', texto: 'Eliminar información', modulo: 'configuracion', roles: ['admin'] },
@@ -1456,20 +1456,15 @@ async function inicializarLayout(paginaActiva) {
          (ver la nota en la definición del grupo), no porque haya una sola. */
       if (item.colapsarSiUno && hijosVisibles.length === 1) {
         const uno = hijosVisibles[0];
-        const unoBase = uno.href.split('#')[0];
-        const activoUno = unoBase === paginaBase
-          && (!uno.href.includes('#') || window.location.hash === '#' + uno.href.split('#')[1]);
-        return `<a href="${uno.href}" class="nav-link-principal ${activoUno ? 'activo' : ''}">
+        // El «activo» NO se decide aquí sino en marcarActivoMenu(), que corre al pintar y en cada cambio de vista.
+        return `<a href="${uno.href}" data-nav-href="${uno.href}"${uno.porDefecto ? ' data-nav-defecto="1"' : ''} class="nav-link-principal">
         <span class="icono">${item.iconoGrupo || '♜'}</span> ${item.grupo.toUpperCase()}
       </a>`;
       }
       const grupoId = `nav-grupo-${indice}`;
       const contieneActivo = hijosVisibles.some(sub => sub.href.split('#')[0] === paginaBase);
-      const subHtml = hijosVisibles.map(sub => {
-        const subBase = sub.href.split('#')[0];
-        const activo = subBase === paginaBase && (!sub.href.includes('#') || window.location.hash === '#' + sub.href.split('#')[1]);
-        return `<a href="${sub.href}" class="nav-sub-link ${activo ? 'activo' : ''}">${sub.texto}</a>`;
-      }).join('');
+      const subHtml = hijosVisibles.map(sub =>
+        `<a href="${sub.href}" data-nav-href="${sub.href}"${sub.porDefecto ? ' data-nav-defecto="1"' : ''} class="nav-sub-link">${sub.texto}</a>`).join('');
       return `
         <div class="nav-grupo-titulo ${contieneActivo ? 'grupo-abierto' : ''}" data-grupo="${grupoId}">
           <span class="icono">${item.iconoGrupo || '♜'}</span>
@@ -1483,7 +1478,7 @@ async function inicializarLayout(paginaActiva) {
     // Ítem de primer nivel, sin submenú: misma fuente y mayúsculas que los
     // títulos de grupo, para que todos los "menús principales" se vean igual.
     if (!itemVisible(item)) return '';
-    return `<a href="${item.href}" class="nav-link-principal ${item.href === paginaBase ? 'activo' : ''}">
+    return `<a href="${item.href}" data-nav-href="${item.href}" class="nav-link-principal">
         <span class="icono">${item.icono || '♜'}</span> ${item.texto.toUpperCase()}
       </a>`;
   }).join('');
@@ -1561,6 +1556,50 @@ async function inicializarLayout(paginaActiva) {
         titulo.classList.add('grupo-abierto');
       }
     });
+  });
+
+  /* QUÉ ÍTEM DEL MENÚ ESTÁ ACTIVO, Y CÓMO SE NAVEGA ENTRE VISTAS DE LA MISMA PÁGINA (orden 34).
+
+     Varios ítems apuntan a UNA sola página con otra ancla (Día D: Jornada, Avance, Alertas, Transporte y Resultados son
+     dia-d.html con #avance, #alertas…; Configuración: seis secciones de configuracion.html). Dos fallos juntos:
+       · «activo» se calculaba SOLO al pintar el menú y solo comparaba la ruta cuando el ítem no llevaba ancla: «Jornada
+         electoral» (sin ancla) quedaba activo en CUALQUIER vista de la página, y el que sí llevaba ancla se quedaba pegado
+         al de la carga aunque la vista cambiara. Por eso salían dos con la barra amarilla.
+       · estando ya en la página, tocar otro ítem solo cambia el ancla y la página no lo escuchaba (dia-d.html no tenía
+         `hashchange`): «no pasa nada».
+     La regla ahora, para los ítems de la página actual: gana el que coincide con el ancla de la URL; si ninguno, el que no
+     lleva ancla (la vista inicial) o, en su defecto, el marcado `porDefecto`. Solo uno queda activo. Se recalcula en cada
+     cambio de ancla y las páginas que cambian de vista por su cuenta (con history.replaceState, que no avisa) llaman a
+     window.actualizarMenuActivo(). */
+  function marcarActivoMenu() {
+    const hash = window.location.hash;
+    const enlaces = Array.from(sidebar.querySelectorAll('a[data-nav-href]'));
+    const deEstaPagina = enlaces.filter(a => a.dataset.navHref.split('#')[0] === paginaBase);
+    const ancla = (a) => (a.dataset.navHref.includes('#') ? '#' + a.dataset.navHref.split('#')[1] : '');
+    const elegido = (hash && deEstaPagina.find(a => ancla(a) === hash))
+      || deEstaPagina.find(a => ancla(a) === '')
+      || deEstaPagina.find(a => a.dataset.navDefecto === '1')
+      || null;
+    enlaces.forEach(a => a.classList.toggle('activo', a === elegido));
+  }
+  marcarActivoMenu();
+  window.addEventListener('hashchange', marcarActivoMenu);
+  window.addEventListener('popstate', marcarActivoMenu);
+  window.actualizarMenuActivo = marcarActivoMenu;
+  /* Las páginas que ESCUCHAN el cambio de ancla (dia-d.html y configuracion.html lo declaran con
+     `window.paginaEscuchaHash = true`) cambian de vista sin recargar. Un enlace del menú a la MISMA página se resuelve aquí:
+     se cambia la URL sin recargar y se avisa con `hashchange` (que el navegador no manda si la URL queda sin ancla). A las
+     demás páginas no se les toca el clic: un ítem hacia la misma página las sigue recargando, como siempre. */
+  sidebar.addEventListener('click', (e) => {
+    if (!window.paginaEscuchaHash || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest ? e.target.closest('a[data-nav-href]') : null;
+    if (!a || (a.target && a.target !== '_self')) return;
+    const destino = new URL(a.href, window.location.href);
+    if (destino.pathname !== window.location.pathname) return;
+    e.preventDefault();
+    if (destino.hash === window.location.hash) return;                 // ya está en esa vista
+    history.pushState(null, '', destino.pathname + destino.search + destino.hash);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
   });
 
   document.getElementById('chk-2fa').addEventListener('change', async (e) => {
