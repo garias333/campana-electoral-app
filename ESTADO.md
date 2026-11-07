@@ -12,27 +12,29 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 278** (`parches/campana-parche278.zip`, 18.199 bytes,
-  sha256 `673b60c0f58bec76b55b688a9555c23f2194bb496dc407e425183e66ad6ee02b`, 3 archivos).
-  **Publicado** en la carpeta de licencias (`parche-278.zip`, mismo sha256, 0644) y
+- **Último parche generado: 279** (`parches/campana-parche279.zip`, 22.390 bytes,
+  sha256 `27ceca3c28a0a081866e18a50e50ddd0845c2b8f45610121e50f1e329ec1e0ee`, 3 archivos).
+  **Publicado** en la carpeta de licencias (`parche-279.zip`, mismo sha256, 0644) y
   **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`; nombre en el panel:
-  «Inscripción: datos de contacto completos (Requiere el 277)». Es el formulario de inscripción por enlace con los
-  datos de contacto (detalle abajo) y **requiere el 277**. El anterior, el 277 (`parches/campana-parche277.zip`,
+  «Inscripción: formulario por secciones y GPS (Requiere el 278)». Es el formulario de inscripción por enlace en cuatro
+  secciones, con GPS (detalle abajo) y **requiere el 278**. El anterior, el 278 (`parches/campana-parche278.zip`, 18.199 bytes,
+  sha256 `673b60c0f58bec76b55b688a9555c23f2194bb496dc407e425183e66ad6ee02b`, 3 archivos, datos de contacto completos,
+  `toca_base_datos = false`, requiere el 277), sigue publicado e inactivo, igual que el 277 (`parches/campana-parche277.zip`,
   278.601 bytes, sha256 `c1804c429d701fbcb03890b892a089e0cb41be5d945a71563fbbe10178700fc4`, 22 archivos, inscripción
   por enlace/QR del líder, `toca_base_datos = true`, requiere el 276), sigue publicado e inactivo, igual que el 276 (551.144 bytes,
   `28471a84304ebc590121351690020621f2adb288a9b0783a2b9f5b1e1d46a40c`, 36 archivos, Día D fase 4, requiere
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 278 (y del 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 279 (y del 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 278, `.version-parche` y `.version-base` = **278**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277 ni el 278 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 278 no lo toca; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 279, `.version-parche` y `.version-base` = **279**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278 ni el 279 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 278 y el 279 no lo tocan; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -41,7 +43,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 278` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 279` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -54,6 +56,67 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 279 — inscripción por enlace: formulario por secciones y GPS (7 de noviembre de 2026, INACTIVO)
+
+Zip de 3 archivos: `config/inscripcionRegistro.js`, `routes/inscripcion.routes.js` y `.version-base` (279).
+Commit que recoge: `8456601` (a partir de `2fa5ce1`, el del 278). `scripts/probar-inscripcion-enlace.js` (ahora con 236
+comprobaciones) **no viaja**; el service worker no cambia (`/i` lo arma el servidor; no hay archivo estático nuevo).
+
+- **Qué cambia a la vista:** el formulario `/i/<código>` queda en cuatro secciones, con título en mayúsculas, negrita y
+  azul de la marca (`#0B5ED7`) y una línea fina debajo, como «DATOS DE CONTACTO» de la ficha: **DATOS PERSONALES**
+  (cédula, nombre), **DATOS DE CONTACTO** (botón GPS, dirección, departamento, ciudad, comuna/corregimiento,
+  barrio/vereda, celular, correo), **DÓNDE VOTAS** (puesto con buscador, mesa, enlace a la Registraduría) y
+  **TRATAMIENTO DE DATOS PERSONALES** (política vigente, autorización, canales sin marcar, «Inscribirme»). Obligatorios
+  con «(obligatorio)»: cédula, nombre, celular y la autorización (los mismos cuatro `required` de antes). Los nombres de
+  campo y las validaciones del servidor no cambian. Comuna y barrio siguen ocultos si la campaña no los usa.
+- **GPS.** «Usar mi ubicación (GPS)» solo consulta al navegador al tocarlo. Las coordenadas viajan en dos campos
+  ocultos (`gps_lat`, `gps_lon`) que **el servidor no da por buenos**: números, dentro de Colombia (caja
+  −4,3…13,5 / −82…−66,8, que incluye San Andrés y Providencia) y redondeadas a 7 decimales. Se guardan en
+  `votantes.latitud/longitud` con `geocodificado_en` y entonces **no se geocodifica por dirección**. Unas coordenadas
+  inválidas se **descartan sin error** (quien se inscribe no puede corregir un campo oculto) y la ficha se geocodifica
+  por su dirección como antes. En una ficha existente **solo si no tenía coordenadas** (o le faltaba una del par) y con
+  el celular que coincide.
+- **Geocodificación inversa: `POST /i/<código>/ubicacion`** (con la misma `GOOGLE_MAPS_API_KEY`, función
+  `geocodificarInversa` que ya existía). Propone dirección (solo la calle: lo anterior a la primera coma; un «plus code»
+  no se propone), barrio, ciudad y departamento; el navegador los pone **solo en un campo vacío o con el valor por defecto
+  de la campaña sin tocar**, nunca sobre lo que la persona escribió. Sin clave o ante cualquier fallo responde
+  `{disponible:false}` y solo quedan las coordenadas («Ubicación tomada»). **Cada toque del botón gasta una consulta de
+  Google.** Topes que cuentan TAMBIÉN las llamadas buenas: **20 por IP cada 15 minutos y 400 por enlace al día**, en
+  memoria (un reinicio los pone en cero); la 21.ª / 401.ª da 429 sin llegar a Google. Una IP compartida (un evento con una
+  sola wifi) comparte su cupo.
+- **Dónde votas.** El puesto sale del endpoint público de puestos de la campaña (sin cambios), con un buscador sin tildes
+  ni mayúsculas; «No sé» en puesto y en mesa; la mesa va de 1 a `cantidad_mesas` del puesto (el servidor ya lo exigía).
+  «Consultar mi puesto en la Registraduría» (`https://wsp.registraduria.gov.co/censo/consultar/`) abre otra pestaña, sin la
+  cédula ni ningún parámetro en la URL. **Esa dirección NO se pudo verificar desde el servidor** (devolvió 403 a `curl`;
+  no se insistió): conviene abrirla a mano una vez.
+- **Verificado sobre el zip:** los 2 archivos de código coinciden por md5 con el commit `8456601`; no trae `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/`, `backups/`, `scripts/`, `db/` ni `.sql`; `verificar-requires.js` revisó 19
+  `require` locales y todos resuelven **aplicando el zip sobre una copia del árbol del 278** (`2fa5ce1`), con un control
+  negativo (sin `config/geocoder.js` falla, como debe).
+- **NO toca la base de datos** (`toca_base_datos = false`): no hay cambios en `db/` y no hace falta `init-db`.
+- **Probado con una base simulada** (un MySQL privado desechable) y con Google **sustituido por funciones de prueba**:
+  236 comprobaciones (orden de las secciones, obligatorios, 12 clases de coordenadas inválidas, ficha existente con y sin
+  coordenadas, puesto y mesa, inversa con y sin clave, y los dos topes). Además, el botón se ejercitó en **Chromium sin
+  interfaz con un GPS falso**: llena los campos vacíos, **no pisa lo escrito** (ni una ciudad tecleada a mano) y con el
+  permiso negado avisa «Escribe tu dirección» sin llenar nada. Captura a 360 px: una columna, sin desborde horizontal.
+  **NO se probó:** Google Geocoding real (ni la inversa ni la directa), un GPS de verdad en un teléfono, ni las listas
+  con el catálogo nacional.
+- **Riesgo conocido, no resuelto:** quien toca el GPS estando en otro sitio (el trabajo) y después teclea su dirección de
+  casa queda con las coordenadas del trabajo y **sin** geocodificación por la dirección escrita. El texto del botón lo
+  advierte («Tócalo si estás en tu casa»), nada más. Si se quiere cerrar, la salida es descartar las coordenadas cuando la
+  dirección escrita difiere de la propuesta.
+- **Cómo exige el 278.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 279 con el 278, el 277, el 276 y
+  los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **La inversa solo funciona si la campaña tiene `GOOGLE_MAPS_API_KEY`** en su `.env` (con la Geocoding API activada).
+   Sin ella el botón igual guarda las coordenadas y dice «Ubicación tomada»; no propone dirección.
+2. **Gasto:** una consulta de Google por cada toque del botón, con tope de 20 por IP cada 15 minutos y 400 por enlace al
+   día. Más lo que ya costaba la geocodificación por dirección (que con GPS ya no se hace).
+3. Los topes viven en memoria: tras reiniciar PM2 el contador vuelve a cero.
+4. Aplicar después del 278, con la misma lista de campañas. No hace falta `init-db`.
 
 ## Parche 278 — inscripción por enlace: datos de contacto completos (7 de noviembre de 2026, INACTIVO)
 
