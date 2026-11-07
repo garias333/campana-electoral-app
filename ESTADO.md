@@ -56,13 +56,17 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 284` (y `--forzar`
-  si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
-  sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
-  secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
-  imprime la contraseña del admin y su LEEME no explica los dos archivos de credenciales):
-  hay que regenerarla con `--forzar` antes de usarla.
+- **Plantilla vigente: v286** (7 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v286.zip`,
+  1.952.383 bytes, **251 archivos**, sha256 `76abd37c3247ba48d9a59257024283e387137b5eadfef026b46f7b25bf6f963f`,
+  service worker `estrategia-v161`, `.version-parche` y `.version-base` = 286. Generada con
+  `node scripts/generar-plantilla.js --parche 286`; escaneo de secretos del generador sin hallazgos (y revisión aparte: sin `.env`,
+  `.licencia-cache.json`, `.credenciales-*` ni llaves privadas; la única `.pem` es la pública de los parches). Probada: `init-db.js`
+  desde la plantilla extraída sobre una base vacía deja 61 tablas, `sms_config.firma` en `varchar(80)` y `aviso_enviado_en`; y
+  `scripts/probar-instalacion-limpia.js` (que no viaja en la plantilla; se corrió con el código de la Base, idéntico por md5) pasa con 61 tablas.
+  Esa corrida obligó a marcar como «ejemplo» la contraseña inventada de `scripts/probar-inscripcion-enlace.js:1134` (commit `d913e62`):
+  el escáner la tomaba por una credencial literal. La v271 (`plantilla-nueva-campana-v271.zip`, 194 archivos) y las v261/v262 siguen en la
+  carpeta pero **ya no sirven** para una campaña nueva: usar la v286. Si después de ella se publica otro parche, hay que regenerarla
+  (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
