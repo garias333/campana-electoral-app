@@ -20,6 +20,13 @@
  *   d) el dueño del enlace cuelga de un aspirante y la ficha no está en su rama →
  *      se suma a `votante_ramas` (la persona sigue siendo una sola).
  *
+ * LOS DATOS DE CONTACTO (orden 26): correo, dirección, departamento, ciudad, comuna/corregimiento y
+ * barrio/vereda de RESIDENCIA —las mismas columnas que llena «Datos de contacto» en la ficha—. Una
+ * cédula nueva los guarda todos. Una ficha existente solo recibe los que tenía VACÍOS, y nunca se
+ * sobrescribe uno que ya tuviera dato: quien escribe aquí no es el dueño de la ficha, y una dirección
+ * corregida por el líder no puede borrarla un formulario público. Con dirección se geocodifica
+ * EN SEGUNDO PLANO (no se espera, y si el servicio no está configurado simplemente no se hace).
+ *
  * UNA SALVEDAD QUE LA ORDEN NO PEDÍA Y ES DE SEGURIDAD: en b, c y d solo se
  * MODIFICA una ficha existente (completar el consentimiento, sumarla a una rama)
  * si el celular que se escribió COINCIDE con el que la ficha ya tenía. La cédula
@@ -40,6 +47,7 @@ const { versionConocida } = require('./politicaVersiones');
 const { crearConfirmacion } = require('./confirmacionConsentimiento');
 const { transliterarSms } = require('../lib/transliterarSms');
 const { analizarTexto } = require('../lib/sms');
+const geocoder = require('./geocoder');
 const { atribucionDe } = require('./inscripcionEnlace');
 
 const sha256 = (t) => crypto.createHash('sha256').update(String(t), 'utf8').digest('hex');
@@ -78,6 +86,7 @@ async function anotarRechazo({ enlaceId, motivo, telefonoHash = null, ip, navega
  * @param {object} p
  * @param {object} p.enlace   fila de buscarEnlaceActivo
  * @param {object} p.datos    { nombre, cedula, telefono (10 dígitos), email|null, puesto|null, mesa|null,
+ *                              contacto: { direccion, departamento, ciudad, comuna, barrio } (todo opcional),
  *                              canales: { sms, whatsapp, email } }
  * @param {string|null} p.huellaPolitica  la versión de la política que se MOSTRÓ
  * @returns {Promise<{resultado, votanteId, otroLider, quiereSms, smsEncolado}>}
@@ -95,6 +104,14 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
     await cx.beginTransaction();
     const atrib = await atribucionDe(enlace, cx);
     const miRama = await aspiranteDe(cx, enlace.usuario_id);
+
+    // El contacto, ya saneado por la ruta (recortado y con vacío = null). Aquí solo se normaliza la forma.
+    const c0 = datos.contacto || {};
+    const contacto = {
+      direccion: c0.direccion || null, departamento: c0.departamento || null, ciudad: c0.ciudad || null,
+      comuna: c0.comuna || null, barrio: c0.barrio || null,
+    };
+    let aGeocodificar = false;
 
     const campos = {
       autorizado: 1,
@@ -119,8 +136,10 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
             consentimiento_autorizado, consentimiento_fecha, consentimiento_metodo,
             consentimiento_email, consentimiento_sms, consentimiento_whatsapp,
             consentimiento_version, consentimiento_version_ok,
-            origen, created_by, rama_aspirante_id)
-         VALUES ('votante', ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, ?, 'enlace_lider', NULL, ?)`,
+            origen, created_by, rama_aspirante_id,
+            direccion, departamento_residencia, ciudad_residencia,
+            comuna_corregimiento_residencia, barrio_residencia)
+         VALUES ('votante', ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, ?, 'enlace_lider', NULL, ?, ?, ?, ?, ?, ?)`,
         [datos.nombre, datos.cedula, datos.telefono, datos.email || null, atrib.lider_id, atrib.sublider_id,
          datos.puesto ? datos.puesto.departamento || null : null,
          datos.puesto ? datos.puesto.municipio || null : null,
@@ -128,8 +147,10 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
          datos.puesto ? datos.puesto.ctc_puesto_id || null : null,
          datos.puesto && datos.mesa ? datos.mesa : null,
          METODO, campos.email, campos.sms, campos.whatsapp,
-         huellaPolitica || null, versionOk, rama]);
+         huellaPolitica || null, versionOk, rama,
+         contacto.direccion, contacto.departamento, contacto.ciudad, contacto.comuna, contacto.barrio]);
       votanteId = ins.insertId;
+      aGeocodificar = !!contacto.direccion;
       await cx.query(
         `INSERT INTO votante_consentimiento_evidencia (votante_id, metodo, ip, navegador, enlace_id, politica_version)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -137,12 +158,15 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
     } catch (err) {
       if (err.code !== 'ER_DUP_ENTRY') throw err;
       [[existente]] = await cx.query(
-        `SELECT id, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id
+        `SELECT id, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id,
+                email, direccion, departamento_residencia, ciudad_residencia,
+                comuna_corregimiento_residencia, barrio_residencia, latitud
            FROM votantes WHERE cedula = ? FOR UPDATE`, [datos.cedula]);
       if (!existente) throw err;   // choque por otra causa: que suba
     }
 
     let consentimientoCompletado = false;
+    let camposCompletados = [];
     if (existente) {
       votanteId = existente.id;
       const mismoLider = existente.lider_id === atrib.lider_id
@@ -168,6 +192,21 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
           consentimientoCompletado = true;
           if (!otroLider) resultado = 'consentimiento_completado';
         }
+        /* LOS DATOS DE CONTACTO: SOLO LOS QUE LA FICHA TENÍA VACÍOS. Nunca se pisa uno con dato. */
+        const candidatos = [
+          ['email', datos.email], ['direccion', contacto.direccion],
+          ['departamento_residencia', contacto.departamento], ['ciudad_residencia', contacto.ciudad],
+          ['comuna_corregimiento_residencia', contacto.comuna], ['barrio_residencia', contacto.barrio],
+        ];
+        const vacios = candidatos.filter(([col, valor]) => valor && !String(existente[col] == null ? '' : existente[col]).trim());
+        if (vacios.length) {
+          await cx.query(
+            `UPDATE votantes SET ${vacios.map(([col]) => `${col} = ?`).join(', ')} WHERE id = ?`,
+            [...vacios.map(([, valor]) => valor), existente.id]);
+          camposCompletados = vacios.map(([col]) => col);
+          // Se geocodifica solo si la dirección se acaba de completar y todavía no tiene coordenadas.
+          if (camposCompletados.includes('direccion') && existente.latitud == null) aGeocodificar = true;
+        }
         if (miRama && existente.rama_aspirante_id !== miRama) {
           const [r] = await cx.query(
             `INSERT IGNORE INTO votante_ramas (votante_id, aspirante_id, registrado_por) VALUES (?, ?, ?)`,
@@ -185,13 +224,27 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
     await cx.commit();
 
     const nuevo = resultado === 'nuevo';
-    salida = { resultado, votanteId, otroLider: !!otroLider, nuevo, consentimientoCompletado };
+    // La dirección que se geocodifica es la de la ficha DESPUÉS de este guardado (la nueva, o la completada).
+    const dirGeo = aGeocodificar ? {
+      direccion: contacto.direccion,
+      barrio: contacto.barrio || (existente && existente.barrio_residencia) || null,
+      ciudad: contacto.ciudad || (existente && existente.ciudad_residencia) || null,
+      departamento: contacto.departamento || (existente && existente.departamento_residencia) || null,
+    } : null;
+    salida = { resultado, votanteId, otroLider: !!otroLider, nuevo, consentimientoCompletado, camposCompletados, dirGeo };
   } catch (err) {
     try { await cx.rollback(); } catch (_) { /* conexión ya cerrada */ }
     throw err;
   } finally {
     cx.release();
   }
+
+  /* LA GEOCODIFICACIÓN NO SE ESPERA. La respuesta a quien se inscribe no puede depender de Google, y
+     si el servicio no está configurado (sin GOOGLE_MAPS_API_KEY) simplemente no se hace: la ficha queda
+     sin coordenadas y «Re-geocodificar pendientes» (Votantes) la recoge después. `geocodificando` es la
+     promesa, para quien quiera esperarla (la prueba); la ruta la ignora. */
+  salida.geocodificando = salida.dirGeo ? geocodificarVotante(salida.votanteId, salida.dirGeo) : null;
+  delete salida.dirGeo;
 
   // El SMS va DESPUÉS de confirmar la transacción, y su fallo no deshace la inscripción.
   salida.smsEncolado = false;
@@ -200,6 +253,40 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
     catch (err) { console.error('Inscripción: no se pudo encolar el SMS de confirmación:', err.code || err.message); }
   }
   return salida;
+}
+
+// ---------------------------------------------------------------------------
+// Geocodificación en segundo plano
+// ---------------------------------------------------------------------------
+
+/**
+ * Pone latitud/longitud a la ficha desde su dirección. NUNCA lanza y nunca pisa unas coordenadas que ya
+ * existan (`AND latitud IS NULL`). Mismo criterio de ciudad que el alta normal: la de la persona y, si no
+ * tiene ni ciudad ni departamento, la de la campaña (Configuración); el barrio se suma a la calle.
+ */
+async function geocodificarVotante(votanteId, { direccion, barrio, ciudad, departamento }) {
+  try {
+    let c = ciudad || null, d = departamento || null;
+    if (!c && !d) {
+      const [[cfg]] = await pool.query(
+        'SELECT territorio_departamento, territorio_ciudad, departamento, ciudad FROM configuracion_campana WHERE id = 1');
+      if (cfg) { d = cfg.territorio_departamento || cfg.departamento || null; c = cfg.territorio_ciudad || cfg.ciudad || null; }
+    }
+    // Por el objeto `geocoder` y no desestructurado: así se puede sustituir en una prueba.
+    const r = await geocoder.geocodificarDireccion({
+      calle: [direccion, barrio].filter(Boolean).join(', '), ciudad: c, departamento: d });
+    if (!r) return false;
+    await pool.query(
+      'UPDATE votantes SET latitud = ?, longitud = ?, geocodificado_en = NOW() WHERE id = ? AND latitud IS NULL',
+      [r.latitud, r.longitud, votanteId]);
+    return true;
+  } catch (err) {
+    // Sin clave de Google es lo esperable en una campaña que no la tiene: no se anota cada vez.
+    if (!/GOOGLE_MAPS_API_KEY/.test(String(err && err.message))) {
+      console.warn(`Inscripción: no se geocodificó la dirección de la ficha ${votanteId}:`, String(err && err.message).slice(0, 120));
+    }
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +409,6 @@ function iniciarCola() {
 
 module.exports = {
   inscribir, contarRecientes, anotarRechazo, procesarCola, iniciarCola, encolarSmsDeConfirmacion,
-  textoDeConfirmacion, primerNombreParaSms, MAX_LETRAS_NOMBRE,
+  geocodificarVotante, textoDeConfirmacion, primerNombreParaSms, MAX_LETRAS_NOMBRE,
   sha256, ultimos10, METODO,
 };

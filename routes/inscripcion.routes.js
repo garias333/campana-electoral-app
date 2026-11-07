@@ -91,6 +91,8 @@ const CSS = `
   .error ul{margin:0;padding-left:18px}
   .ok{color:#1E6B44;font-weight:700}
   .trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  h2.seccion{font-size:1.02rem;color:#10233F;margin:24px 0 2px;padding-top:14px;border-top:1px solid #E5E9F0}
+  p.ayuda{font-size:.85rem;color:#6B7280;margin:0 0 4px;line-height:1.4}
   .pie{font-size:.78rem;color:#6B7280;margin-top:16px;text-align:center}
   .politica{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:#161B26}
 `;
@@ -149,17 +151,66 @@ async function politicaVigente() {
   return { titulo, contenido, huella };
 }
 
+/* LOS LARGOS SON LOS DE LAS COLUMNAS de `votantes` (direccion 255, departamento_residencia 100,
+   ciudad_residencia 100, comuna_corregimiento_residencia 120, barrio_residencia 120, email 150), que
+   es lo que el alta normal acaba respetando en la base. */
+const LIMITES = { email: 150, direccion: 255, departamento_residencia: 100, ciudad_residencia: 100,
+                  comuna_corregimiento_residencia: 120, barrio_residencia: 120 };
+
+/** Recorta, quita caracteres de control y colapsa espacios. Vacío → ''. */
+function sanear(texto, max) {
+  return String(texto == null ? '' : texto).replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** Todo lo que se repinta del cuerpo, ya saneado: la misma forma en cada vuelta al formulario. */
+function valoresCrudos(cuerpo) {
+  const v = {
+    nombre: sanear(cuerpo.nombre, 121),   // 121 y no 120: un nombre más largo se RECHAZA, no se recorta en silencio
+    cedula: String(cuerpo.cedula || '').replace(/[\s.\-]/g, '').slice(0, 15),
+    telefono: String(cuerpo.telefono || '').replace(/\D/g, '').slice(0, 14),
+    puesto_id: String(cuerpo.puesto_id || '').slice(0, 12), mesa: String(cuerpo.mesa || '').slice(0, 4),
+    autoriza: cuerpo.autoriza === '1', canal_sms: cuerpo.canal_sms === '1',
+    canal_whatsapp: cuerpo.canal_whatsapp === '1', canal_email: cuerpo.canal_email === '1',
+  };
+  for (const [k, max] of Object.entries(LIMITES)) v[k] = sanear(cuerpo[k], max);
+  return v;
+}
+
+/** Lo que la campaña tiene configurado para el territorio (departamento y ciudad por defecto, y si usa comunas y barrios). */
+async function configTerritorio() {
+  try {
+    const [[c]] = await pool.query(
+      `SELECT territorio_departamento, territorio_ciudad, departamento, ciudad, ciudad_tiene_comunas, usar_nombre_barrios
+         FROM configuracion_campana WHERE id = 1`);
+    if (!c) return { departamento: '', ciudad: '', usaComunas: true, usaBarrios: true };
+    return {
+      departamento: c.territorio_departamento || c.departamento || '',
+      ciudad: c.territorio_ciudad || c.ciudad || '',
+      // Como en el formulario del celular: en 0, ese campo deja de mostrarse.
+      usaComunas: c.ciudad_tiene_comunas !== 0, usaBarrios: c.usar_nombre_barrios !== 0,
+    };
+  } catch (_) {
+    return { departamento: '', ciudad: '', usaComunas: true, usaBarrios: true };
+  }
+}
+
 function nombreCorto(nombre) {
   return String(nombre || '').trim().split(/\s+/).slice(0, 3).join(' ').slice(0, 60);
 }
 
 /** El formulario. `v` son los valores a repintar tras un error; `errores` una lista de textos. */
-async function formulario(enlace, { v = {}, errores = [], aviso = '' } = {}) {
+async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {}) {
+  let v = v0;
   const ramaId = await aspiranteDe(pool, enlace.usuario_id).catch(() => null);
   const campana = await nombreDeLaCampana(ramaId);
   const pol = await politicaVigente();
   const pase = emitirPase(enlace.codigo, pol.huella);
   const quien = `Te inscribe <strong>${esc(nombreCorto(enlace.nombre))}</strong>${campana ? ` · ${esc(campana)}` : ''}`;
+  const terr = await configTerritorio();
+  // Primera carga (sin valores): departamento y ciudad de la campaña, editables. Al repintar tras un error
+  // se respeta lo que la persona dejó, aunque lo haya vaciado.
+  const primera = v.departamento_residencia === undefined;
+  if (primera) { v = { ...v, departamento_residencia: terr.departamento, ciudad_residencia: terr.ciudad }; }
   const val = (k) => esc(v[k] || '');
   const chk = (k) => (v[k] ? ' checked' : '');
   const cod = encodeURIComponent(enlace.codigo);
@@ -180,8 +231,27 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
   <input type="text" id="cedula" name="cedula" value="${val('cedula')}" inputmode="numeric" autocomplete="off" required maxlength="15">
   <label for="telefono">Celular</label>
   <input type="tel" id="telefono" name="telefono" value="${val('telefono')}" inputmode="numeric" autocomplete="tel-national" required maxlength="16" placeholder="3001234567">
-  <label for="email">Correo <small>(opcional)</small></label>
+
+  <h2 class="seccion">Datos de contacto</h2>
+  <p class="ayuda">Todo esto es opcional: le sirve a la campaña para ubicarte y escribirte mejor.</p>
+  <label for="email">Correo electrónico <small>(opcional)</small></label>
   <input type="email" id="email" name="email" value="${val('email')}" autocomplete="email" maxlength="150">
+  <label for="direccion">Dirección de residencia <small>(opcional)</small></label>
+  <input type="text" id="direccion" name="direccion" value="${val('direccion')}" autocomplete="street-address" maxlength="255" placeholder="Ej. Calle 10 #5-20">
+  <label for="departamento">Departamento <small>(opcional)</small></label>
+  <input type="text" id="departamento" name="departamento_residencia" value="${val('departamento_residencia')}" list="lista-departamentos" autocomplete="off" maxlength="100">
+  <datalist id="lista-departamentos"></datalist>
+  <label for="ciudad">Ciudad <small>(opcional)</small></label>
+  <input type="text" id="ciudad" name="ciudad_residencia" value="${val('ciudad_residencia')}" list="lista-ciudades" autocomplete="off" maxlength="100">
+  <datalist id="lista-ciudades"></datalist>
+  ${terr.usaComunas ? `<label for="comuna">Comuna / corregimiento <small>(opcional)</small></label>
+  <input type="text" id="comuna" name="comuna_corregimiento_residencia" value="${val('comuna_corregimiento_residencia')}" list="lista-comunas" autocomplete="off" maxlength="120" placeholder="Ej. Comuna 1 - Atardeceres">
+  <datalist id="lista-comunas"></datalist>` : ''}
+  ${terr.usaBarrios ? `<label for="barrio">Barrio / vereda <small>(opcional)</small></label>
+  <input type="text" id="barrio" name="barrio_residencia" value="${val('barrio_residencia')}" list="lista-barrios" autocomplete="off" maxlength="120" placeholder="Ej. Arenillo">
+  <datalist id="lista-barrios"></datalist>` : ''}
+
+  <h2 class="seccion">Dónde votas</h2>
 
   <div id="caja-puesto" style="display:none">
     <label for="puesto">Puesto de votación <small>(si lo sabes)</small></label>
@@ -228,6 +298,25 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
     document.getElementById('caja-puesto').style.display='block';
   }).catch(function(){});
   selP.addEventListener('change',mesas);
+
+  // Listas de la campaña para departamento, ciudad, comuna/corregimiento y barrio/vereda. Si no hay (o el
+  // servicio no responde) los campos siguen siendo texto libre.
+  var iDep=document.getElementById('departamento'), iCiu=document.getElementById('ciudad'),
+      iCom=document.getElementById('comuna'), iBar=document.getElementById('barrio');
+  function llenar(id,nombres){var d=document.getElementById(id);if(!d)return;d.innerHTML='';
+    (nombres||[]).forEach(function(n){var o=document.createElement('option');o.value=n;d.appendChild(o);});}
+  var t=null;
+  function listas(){
+    var q='?departamento='+encodeURIComponent(iDep?iDep.value:'')+'&ciudad='+encodeURIComponent(iCiu?iCiu.value:'')+
+          '&zona='+encodeURIComponent(iCom?iCom.value:'');
+    fetch('/i/'+encodeURIComponent(cod)+'/territorio'+q,{headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():null}).then(function(d){
+      if(!d)return; llenar('lista-departamentos',d.departamentos); llenar('lista-ciudades',d.municipios);
+      llenar('lista-comunas',d.zonas); llenar('lista-barrios',d.barrios);
+    }).catch(function(){});
+  }
+  function luego(){clearTimeout(t);t=setTimeout(listas,300);}
+  [iDep,iCiu,iCom].forEach(function(e){if(e)e.addEventListener('input',luego);});
+  listas();
   var f=document.getElementById('f'),b=document.getElementById('btn');
   f.addEventListener('submit',function(){b.disabled=true;b.textContent='Enviando…';});
   window.addEventListener('pageshow',function(){b.disabled=false;b.textContent='Inscribirme';});
@@ -267,6 +356,61 @@ router.get('/:codigo/puestos', async (req, res) => {
   }
 });
 
+/**
+ * Las listas de territorio de la CAMPAÑA para los desplegables del formulario: de solo lectura y acotadas
+ * por la propia vista `territorios` (que ya limita lo que ve esta campaña al ámbito que declaró). Mismo
+ * criterio que el formulario de la ficha: las comunas/corregimientos cuelgan del municipio; los barrios y
+ * veredas, de una comuna o corregimiento Y TAMBIÉN directo del municipio (así cuelgan las veredas del DANE).
+ *
+ * Sin código vivo devuelve vacío (y gasta cupo, como las demás). Nunca da error: sin listas, texto libre.
+ */
+router.get('/:codigo/territorio', async (req, res) => {
+  cabeceras(res);
+  const vacio = { departamentos: [], municipios: [], zonas: [], barrios: [] };
+  try {
+    const ajustes = await leerAjustes();
+    const enlace = ajustes.habilitado ? await buscarEnlaceActivo(req.params.codigo) : null;
+    if (!enlace) { res.locals.fallo = true; return res.json(vacio); }
+    const dep = sanear(req.query.departamento, 100), ciu = sanear(req.query.ciudad, 100), zona = sanear(req.query.zona, 120);
+    const nombres = (filas) => [...new Set(filas.map(f => f.nombre))];
+
+    const [deps] = await pool.query("SELECT nombre FROM territorios WHERE tipo = 'departamento' ORDER BY nombre LIMIT 100");
+    let depId = null;
+    if (dep) {
+      const [[d]] = await pool.query("SELECT id FROM territorios WHERE tipo = 'departamento' AND nombre = ? LIMIT 1", [dep]);
+      depId = d ? d.id : null;
+    }
+    const [munis] = await pool.query(
+      `SELECT nombre FROM territorios WHERE tipo = 'municipio' ${depId ? 'AND padre_id = ?' : ''} ORDER BY nombre LIMIT 1500`,
+      depId ? [depId] : []);
+
+    let zonas = [], barrios = [];
+    if (ciu) {
+      const [[m]] = await pool.query(
+        `SELECT id FROM territorios WHERE tipo = 'municipio' AND nombre = ? ${depId ? 'AND padre_id = ?' : ''} LIMIT 1`,
+        depId ? [ciu, depId] : [ciu]);
+      if (m) {
+        const [z] = await pool.query(
+          "SELECT id, nombre FROM territorios WHERE tipo IN ('comuna','corregimiento') AND padre_id = ? ORDER BY nombre LIMIT 500", [m.id]);
+        zonas = z;
+        const zonaElegida = zona ? z.find(x => x.nombre.toLowerCase() === zona.toLowerCase()) : null;
+        const [b] = zonaElegida
+          ? await pool.query("SELECT nombre FROM territorios WHERE tipo IN ('barrio','vereda') AND padre_id = ? ORDER BY nombre LIMIT 3000", [zonaElegida.id])
+          : await pool.query(
+              `SELECT nombre FROM territorios WHERE tipo IN ('barrio','vereda')
+                  AND (padre_id = ? OR padre_id IN (SELECT id FROM territorios WHERE tipo IN ('comuna','corregimiento') AND padre_id = ?))
+                ORDER BY nombre LIMIT 3000`, [m.id, m.id]);
+        barrios = b;
+      }
+    }
+    res.json({ departamentos: nombres(deps), municipios: nombres(munis), zonas: nombres(zonas), barrios: nombres(barrios) });
+  } catch (err) {
+    // Sin la tabla/vista de territorios (campaña sin catálogo) el formulario sigue con texto libre.
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('inscripcion territorio:', err.code || err.message);
+    res.json(vacio);
+  }
+});
+
 router.get('/:codigo/politica', async (req, res) => {
   cabeceras(res);
   try {
@@ -293,17 +437,11 @@ const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 /** Valida el cuerpo. Devuelve { datos, errores, valores } — `valores` es lo que se repinta. */
 async function validar(cuerpo, enlace) {
   const errores = [];
-  const nombre = String(cuerpo.nombre || '').replace(/\s+/g, ' ').trim();
-  const cedulaCruda = String(cuerpo.cedula || '').replace(/[\s.\-]/g, '');
-  let telefono = String(cuerpo.telefono || '').replace(/\D/g, '');
-  if (telefono.length === 12 && telefono.startsWith('57')) telefono = telefono.slice(2);
-  const email = String(cuerpo.email || '').trim().slice(0, 150);
-  const valores = {
-    nombre, cedula: cedulaCruda, telefono, email,
-    puesto_id: String(cuerpo.puesto_id || ''), mesa: String(cuerpo.mesa || ''),
-    autoriza: cuerpo.autoriza === '1', canal_sms: cuerpo.canal_sms === '1',
-    canal_whatsapp: cuerpo.canal_whatsapp === '1', canal_email: cuerpo.canal_email === '1',
-  };
+  const valores = valoresCrudos(cuerpo);
+  const { nombre, email } = valores;
+  const cedulaCruda = valores.cedula;
+  let telefono = valores.telefono;
+  if (telefono.length === 12 && telefono.startsWith('57')) { telefono = telefono.slice(2); valores.telefono = telefono; }
 
   if (nombre.length < 5 || nombre.length > 120 || nombre.split(' ').length < 2 || !RE_NOMBRE.test(nombre)) {
     errores.push('Escribe tu nombre completo (nombre y apellido).');
@@ -349,6 +487,12 @@ async function validar(cuerpo, enlace) {
     errores, valores,
     datos: errores.length ? null : {
       nombre, cedula, telefono, email: email || null, puesto, mesa,
+      // Recortado y saneado arriba (`sanear`); vacío → null, que es lo que significa «no lo dijo».
+      contacto: {
+        direccion: valores.direccion || null, departamento: valores.departamento_residencia || null,
+        ciudad: valores.ciudad_residencia || null, comuna: valores.comuna_corregimiento_residencia || null,
+        barrio: valores.barrio_residencia || null,
+      },
       canales: { sms: valores.canal_sms, whatsapp: valores.canal_whatsapp, email: valores.canal_email },
     },
   };
@@ -386,7 +530,7 @@ router.post('/:codigo', async (req, res) => {
     const pase = verificarPase(enlace.codigo, cuerpo.pase);
     if (!pase.ok) {
       return res.send(await formulario(enlace, {
-        v: { nombre: cuerpo.nombre, cedula: cuerpo.cedula, telefono: cuerpo.telefono, email: cuerpo.email },
+        v: valoresCrudos(cuerpo),
         aviso: 'La página caducó. Revisa tus datos y vuelve a enviar.',
       }));
     }
@@ -394,7 +538,7 @@ router.post('/:codigo', async (req, res) => {
       res.locals.fallo = true;
       await anotarRechazo({ enlaceId: enlace.enlace_id, motivo: 'muy_rapido', ip, navegador });
       return res.send(await formulario(enlace, {
-        v: { nombre: cuerpo.nombre, cedula: cuerpo.cedula, telefono: cuerpo.telefono, email: cuerpo.email },
+        v: valoresCrudos(cuerpo),
         aviso: 'Revisa tus datos y vuelve a enviar en unos segundos.',
       }));
     }

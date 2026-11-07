@@ -44,6 +44,7 @@ const dormir = (ms) => new Promise(r => setTimeout(r, ms));
 async function q(sql, p) { const [f] = await pool.query(sql, p); return f; }
 
 // ---- SMS fingido y franja controlable ------------------------------------
+const geocoderOriginal = require('../config/geocoder').geocodificarDireccion;
 const smsEnviados = [];
 let dentroDeFranja = true;
 smsSvc.enviarSMS = async (telefono, mensaje) => { smsEnviados.push({ telefono, mensaje }); return { sid: 'prueba' }; };
@@ -398,6 +399,153 @@ const F = (codigo, huella, extra = {}) => ({
   const tokViejo = (await confirm.crearConfirmacion({ req: { protocol: 'https', get: () => '' }, votanteId: vViejo, canal: 'sms', destino: '3220000003' })).token;
   ok(/^[0-9a-f]{64}$/.test(tokViejo) && (await pedir('GET', `/c/${tokViejo}`)).texto.includes('Sí, lo confirmo'), 'un enlace de 64 hexadecimales (el formato anterior) sigue confirmando');
   ok((await pedir('POST', `/c/${tokViejo}?baja=1`)).status === 200, '…y también ofrece la baja');
+
+  console.log('\n== Datos de contacto completos (orden 26)');
+  { // bloque propio: sus nombres (c1, t1…) no chocan con los de las secciones de arriba
+  // Territorio de la campaña: un departamento, un municipio, una comuna, un corregimiento, un barrio de la comuna y una vereda del municipio.
+  await pool.query("INSERT INTO territorios (tipo, nombre, padre_id) VALUES ('departamento', 'Caldas', NULL)");
+  const [{ id: depC }] = await q("SELECT id FROM territorios WHERE nombre = 'Caldas'");
+  await pool.query("INSERT INTO territorios (tipo, nombre, padre_id) VALUES ('municipio', 'Manizales', ?), ('municipio', 'Chinchina', ?)", [depC, depC]);
+  const [{ id: munM }] = await q("SELECT id FROM territorios WHERE nombre = 'Manizales'");
+  await pool.query("INSERT INTO territorios (tipo, nombre, padre_id) VALUES ('comuna', 'Comuna Uno', ?), ('corregimiento', 'Corregimiento Dos', ?), ('vereda', 'Vereda Directa', ?)", [munM, munM, munM]);
+  const [{ id: comU }] = await q("SELECT id FROM territorios WHERE nombre = 'Comuna Uno'");
+  await pool.query("INSERT INTO territorios (tipo, nombre, padre_id) VALUES ('barrio', 'Barrio Alfa', ?)", [comU]);
+  // Una base recién instalada no tiene fila de configuración hasta que el administrador guarda «Datos de la campaña».
+  const sinConfig = await pedir('GET', `/i/${e3.codigo}`);
+  ok(sinConfig.texto.includes('name="departamento_residencia" value=""') && sinConfig.texto.includes('name="comuna_corregimiento_residencia"'), 'sin configuración de territorio: campos vacíos y todos visibles (no falla)');
+  await pool.query("INSERT IGNORE INTO configuracion_campana (id) VALUES (1)");
+  await pool.query("UPDATE configuracion_campana SET territorio_departamento = 'Caldas', territorio_ciudad = 'Manizales', ciudad_tiene_comunas = 1, usar_nombre_barrios = 1 WHERE id = 1");
+
+  const form0 = await pedir('GET', `/i/${e3.codigo}`);
+  ok(form0.texto.includes('Datos de contacto') && form0.texto.includes('name="direccion"') && form0.texto.includes('name="departamento_residencia"')
+     && form0.texto.includes('name="ciudad_residencia"') && form0.texto.includes('name="comuna_corregimiento_residencia"') && form0.texto.includes('name="barrio_residencia"') && form0.texto.includes('name="email"'),
+    'el formulario trae la sección «Datos de contacto» con los seis campos y los nombres de la ficha');
+  ok(/name="departamento_residencia" value="Caldas"/.test(form0.texto) && /name="ciudad_residencia" value="Manizales"/.test(form0.texto), 'departamento y ciudad vienen prellenados con los de la campaña');
+  ok((form0.texto.match(/<small>\(opcional\)<\/small>/g) || []).length === 6, 'los seis de contacto dicen «(opcional)»');
+  ok(form0.texto.indexOf('name="telefono"') < form0.texto.indexOf('Datos de contacto') && form0.texto.indexOf('Datos de contacto') < form0.texto.indexOf('caja-puesto'), 'va DESPUÉS del celular y antes del puesto');
+  ok(!/required[^>]*name="(email|direccion|ciudad_residencia|barrio_residencia)"/.test(form0.texto) && (form0.texto.match(/\brequired\b/g) || []).length === 4, 'obligatorios: los mismos de siempre (nombre, cédula, celular y la autorización)', (form0.texto.match(/\brequired\b/g) || []).length);
+  await pool.query('UPDATE configuracion_campana SET ciudad_tiene_comunas = 0, usar_nombre_barrios = 0 WHERE id = 1');
+  const form1 = await pedir('GET', `/i/${e3.codigo}`);
+  ok(!form1.texto.includes('name="comuna_corregimiento_residencia"') && !form1.texto.includes('name="barrio_residencia"'), 'si la campaña no usa comunas ni barrios, esos campos no se muestran (como en el celular)');
+  await pool.query('UPDATE configuracion_campana SET ciudad_tiene_comunas = 1, usar_nombre_barrios = 1 WHERE id = 1');
+
+  console.log('  -- listas de la campaña (endpoint público de solo lectura)');
+  const t1 = await pedir('GET', `/i/${e3.codigo}/territorio?departamento=Caldas&ciudad=Manizales`);
+  ok(t1.datos && t1.datos.departamentos.includes('Caldas') && t1.datos.municipios.includes('Manizales') && t1.datos.municipios.includes('Chinchina'), 'departamentos y municipios de la campaña', t1.datos);
+  ok(t1.datos.zonas.length === 2 && t1.datos.zonas.includes('Comuna Uno') && t1.datos.zonas.includes('Corregimiento Dos'), 'comunas y corregimientos del municipio', t1.datos.zonas);
+  ok(t1.datos.barrios.includes('Barrio Alfa') && t1.datos.barrios.includes('Vereda Directa'), 'barrios de las comunas Y veredas que cuelgan directo del municipio', t1.datos.barrios);
+  const t2 = await pedir('GET', `/i/${e3.codigo}/territorio?departamento=Caldas&ciudad=Manizales&zona=Comuna%20Uno`);
+  ok(t2.datos.barrios.length === 1 && t2.datos.barrios[0] === 'Barrio Alfa', 'al elegir una comuna, solo sus barrios', t2.datos.barrios);
+  const t3 = await pedir('GET', '/i/ZZZZZZZZ/territorio?ciudad=Manizales');
+  ok(t3.datos && Object.values(t3.datos).every(l => l.length === 0), 'código inexistente → listas vacías');
+  const t4 = await pedir('GET', `/i/${e3.codigo}/territorio?ciudad=NoExiste`);
+  ok(t4.status === 200 && t4.datos.zonas.length === 0 && t4.datos.barrios.length === 0, 'una ciudad desconocida → sin comunas ni barrios (texto libre)');
+
+  console.log('  -- guardado');
+  const geoLlamadas = [];
+  const geocoder = require('../config/geocoder');
+  geocoder.geocodificarDireccion = async (e) => { geoLlamadas.push(e); return { latitud: 5.0703, longitud: -75.5138 }; };
+  const esperar = async (cond, ms = 3000) => { for (let i = 0; i < ms / 50; i++) { if (await cond()) return true; await dormir(50); } return false; };
+  const datosC = { email: 'maria@correo.co', direccion: 'Calle 10 #5-20', departamento_residencia: 'Caldas', ciudad_residencia: 'Manizales',
+                   comuna_corregimiento_residencia: 'Comuna Uno', barrio_residencia: 'Barrio Alfa' };
+
+  const todo = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000011', telefono: '3230000011', nombre: 'Contacto Completo Uno', ...datosC }) });
+  ok(todo.texto.includes('¡Listo!'), 'inscripción con todos los datos → «¡Listo!»');
+  const [c1] = await q("SELECT * FROM votantes WHERE cedula = '9400000011'");
+  ok(c1.email === 'maria@correo.co' && c1.direccion === 'Calle 10 #5-20' && c1.departamento_residencia === 'Caldas' && c1.ciudad_residencia === 'Manizales'
+     && c1.comuna_corregimiento_residencia === 'Comuna Uno' && c1.barrio_residencia === 'Barrio Alfa', 'cédula nueva: se guardan los seis datos de contacto', c1);
+  ok(c1.origen === 'enlace_lider' && c1.consentimiento_confirmado_en === null, '…y sigue «sin confirmar»');
+  ok(await esperar(async () => (await q("SELECT latitud FROM votantes WHERE cedula = '9400000011'"))[0].latitud !== null), 'con dirección: se geocodifica y quedan las coordenadas');
+  ok(geoLlamadas.length === 1 && geoLlamadas[0].calle === 'Calle 10 #5-20, Barrio Alfa' && geoLlamadas[0].ciudad === 'Manizales' && geoLlamadas[0].departamento === 'Caldas', 'se geocodificó la calle con el barrio, la ciudad y el departamento', geoLlamadas[0]);
+  const [g1] = await q("SELECT latitud, longitud, geocodificado_en FROM votantes WHERE cedula = '9400000011'");
+  ok(Number(g1.latitud) === 5.0703 && Number(g1.longitud) === -75.5138 && g1.geocodificado_en, 'latitud, longitud y la fecha de geocodificación');
+
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000021', telefono: '3230000021', nombre: 'Contacto Minimo Dos' }) });
+  const [c2] = await q("SELECT email, direccion, departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia, latitud FROM votantes WHERE cedula = '9400000021'");
+  ok(c2 && Object.values(c2).every(v => v === null), 'sin ningún dato opcional: se guarda igual, con todo NULL (nada de cadenas vacías)', c2);
+  await dormir(200);
+  ok(geoLlamadas.length === 0, 'sin dirección no se llama al geocodificador');
+
+  // Recorte y saneo, como el alta normal: espacios colapsados, sin caracteres de control, y al largo de la columna
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000031', telefono: '3230000031', nombre: 'Contacto Saneado Tres',
+    direccion: '   Carrera   7 \t# 8-9\n   ', departamento_residencia: 'D'.repeat(150), ciudad_residencia: '  Manizales  ',
+    comuna_corregimiento_residencia: 'C'.repeat(200), barrio_residencia: 'B'.repeat(300), email: '  PERSONA@Correo.Co ' }) });
+  const [c3] = await q("SELECT email, direccion, departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia FROM votantes WHERE cedula = '9400000031'");
+  ok(c3 && c3.direccion === 'Carrera 7 # 8-9', 'la dirección se recorta y se colapsan los espacios y saltos', c3 && c3.direccion);
+  ok(c3.departamento_residencia.length === 100 && c3.comuna_corregimiento_residencia.length === 120 && c3.barrio_residencia.length === 120, 'cada campo se corta al largo de su columna (100 / 120 / 120)');
+  ok(c3.ciudad_residencia === 'Manizales' && c3.email === 'PERSONA@Correo.Co', 'se recortan los espacios de los extremos');
+  const largoDir = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000041', telefono: '3230000041', nombre: 'Contacto Largo Cuatro', direccion: 'X'.repeat(400) }) });
+  ok((await q("SELECT direccion d FROM votantes WHERE cedula = '9400000041'"))[0].d.length === 255, 'una dirección de 400 caracteres queda en 255');
+  const mal = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000051', telefono: '3230000051', nombre: 'Contacto Correo Cinco', email: 'no-es-correo' }) });
+  ok(!mal.texto.includes('¡Listo!') && mal.texto.includes('value="no-es-correo"'), 'un correo mal escrito se rechaza y se repinta con lo que escribió');
+  const repintar = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '12', telefono: '3230000061', nombre: 'Contacto Repinta Seis', ...datosC, ciudad_residencia: '' }) });
+  ok(repintar.texto.includes('value="Calle 10 #5-20"') && repintar.texto.includes('name="ciudad_residencia" value=""') && repintar.texto.includes('value="Barrio Alfa"'),
+    'tras un error se repintan todos los datos de contacto, y una ciudad que la persona vació se respeta (no se vuelve a prellenar)');
+
+  console.log('  -- ficha existente: solo se completan los vacíos');
+  const vEx = await votante('9500000011', 'Ficha Con Datos', '3240000011', l1, { consent: true });
+  await pool.query("UPDATE votantes SET direccion = 'Cra 1 # 2-3', departamento_residencia = 'Antioquia', email = '', latitud = 4.5, longitud = -75.1 WHERE id = ?", [vEx]);
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9500000011', telefono: '3240000011', nombre: 'Otro Nombre Cualquiera', ...datosC, email: 'nuevo@correo.co' }) });
+  const [x1] = await q('SELECT * FROM votantes WHERE id = ?', [vEx]);
+  ok(x1.direccion === 'Cra 1 # 2-3' && x1.departamento_residencia === 'Antioquia', 'celular coincide: la dirección y el departamento que YA tenía NO se pisan', { d: x1.direccion, dep: x1.departamento_residencia });
+  ok(x1.ciudad_residencia === 'Manizales' && x1.comuna_corregimiento_residencia === 'Comuna Uno' && x1.barrio_residencia === 'Barrio Alfa', 'se completan los vacíos: ciudad, comuna y barrio');
+  ok(x1.email === 'nuevo@correo.co', 'un correo en cadena vacía cuenta como vacío y se completa');
+  ok(x1.nombre === 'Ficha Con Datos' && x1.lider_id === l1, 'ni el nombre ni el dueño cambian');
+  await dormir(250);
+  ok(geoLlamadas.length === 0 && Number(x1.latitud) === 4.5, 'la dirección ya existía: no se geocodifica ni se tocan sus coordenadas');
+
+  const vSinDir = await votante('9500000021', 'Ficha Sin Direccion', '3240000021', l1, { consent: true });
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9500000021', telefono: '3240000021', nombre: 'Ficha Sin Direccion', ...datosC }) });
+  ok((await q('SELECT direccion d FROM votantes WHERE id = ?', [vSinDir]))[0].d === 'Calle 10 #5-20', 'una ficha sin dirección la recibe');
+  ok(await esperar(async () => (await q('SELECT latitud l FROM votantes WHERE id = ?', [vSinDir]))[0].l !== null) && geoLlamadas.length === 1, '…y se geocodifica');
+
+  const vConCoord = await votante('9500000031', 'Ficha Con Coordenadas', '3240000031', l1, { consent: true });
+  await pool.query('UPDATE votantes SET latitud = 4.9, longitud = -75.9 WHERE id = ?', [vConCoord]);
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9500000031', telefono: '3240000031', nombre: 'Ficha Con Coordenadas', ...datosC }) });
+  await dormir(300);
+  const [x3] = await q('SELECT direccion, latitud FROM votantes WHERE id = ?', [vConCoord]);
+  ok(x3.direccion === 'Calle 10 #5-20' && Number(x3.latitud) === 4.9 && geoLlamadas.length === 0, 'una ficha con coordenadas recibe la dirección pero NO se geocodifica ni se pisan sus coordenadas', x3);
+
+  const vOtro = await votante('9500000041', 'Ficha De Otro Lider', '3240000041', l1, { consent: true });
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9500000041', telefono: '3240000041', nombre: 'Ficha De Otro Lider', ...datosC }) });
+  const [x4] = await q('SELECT lider_id, direccion, barrio_residencia FROM votantes WHERE id = ?', [vOtro]);
+  ok(x4.lider_id === l1 && x4.direccion === 'Calle 10 #5-20' && x4.barrio_residencia === 'Barrio Alfa', 'ficha de OTRO líder con el celular que coincide: se completan los vacíos y el dueño no cambia');
+
+  const vOtroCel = await votante('9500000051', 'Ficha Otro Celular', '3240000051', l1, { consent: true });
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9500000051', telefono: '3249999999', nombre: 'Ficha Otro Celular', ...datosC }) });
+  const [x5] = await q('SELECT direccion, email, ciudad_residencia FROM votantes WHERE id = ?', [vOtroCel]);
+  ok(x5.direccion === null && x5.email === null && x5.ciudad_residencia === null, 'con un celular que NO coincide: no se completa nada (la cédula sola no basta)');
+
+  console.log('  -- el geocodificador no está, falla o tarda');
+  geocoder.geocodificarDireccion = async () => { throw new Error('Falta GOOGLE_MAPS_API_KEY en el archivo .env. Crea una API Key…'); };
+  const avisos = []; const warnOriginal = console.warn; console.warn = (...a) => avisos.push(a.join(' '));
+  const sinClave = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9600000011', telefono: '3250000011', nombre: 'Sin Clave Geocodificador', ...datosC }) });
+  await dormir(300);
+  const [s1] = await q("SELECT direccion, latitud FROM votantes WHERE cedula = '9600000011'");
+  ok(sinClave.texto.includes('¡Listo!') && s1.direccion === 'Calle 10 #5-20' && s1.latitud === null, 'sin GOOGLE_MAPS_API_KEY: la inscripción responde «Listo», guarda todo y deja las coordenadas vacías');
+  ok(avisos.length === 0, 'y no ensucia el registro con una advertencia por cada inscripción', avisos);
+  geocoder.geocodificarDireccion = async () => { throw new Error('boom de red'); };
+  const conFallo = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9600000021', telefono: '3250000021', nombre: 'Con Fallo Geocodificador', ...datosC }) });
+  await dormir(300);
+  ok(conFallo.texto.includes('¡Listo!') && (await q("SELECT COUNT(*) c FROM votantes WHERE cedula = '9600000021'"))[0].c === 1, 'si el servicio falla por otra causa: igual se inscribe');
+  geocoder.geocodificarDireccion = async () => null;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9600000031', telefono: '3250000031', nombre: 'Sin Resultado Geocodificador', ...datosC }) });
+  await dormir(300);
+  ok((await q("SELECT latitud l FROM votantes WHERE cedula = '9600000031'"))[0].l === null, 'si no encuentra la dirección: sin coordenadas, sin error');
+  console.warn = warnOriginal;
+  geocoder.geocodificarDireccion = async () => { await dormir(1500); return { latitud: 5.1, longitud: -75.2 }; };
+  const t0 = Date.now();
+  const lento = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9600000041', telefono: '3250000041', nombre: 'Geocodificador Lento Cinco', ...datosC }) });
+  const ms = Date.now() - t0;
+  ok(lento.texto.includes('¡Listo!') && ms < 1000, `la respuesta NO espera al geocodificador (tardó ${ms} ms con un servicio de 1500 ms)`, ms);
+  ok(await esperar(async () => (await q("SELECT latitud l FROM votantes WHERE cedula = '9600000041'"))[0].l !== null, 4000), '…y las coordenadas llegan después');
+  geocoder.geocodificarDireccion = geocoderOriginal;
+
+  } // fin del bloque de la orden 26
 
   console.log('\n== «Mi enlace»: ver, rotar, el viejo deja de servir');
   const sinSesion = await pedir('GET', '/api/inscripcion/mi-enlace');
