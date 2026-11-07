@@ -13,10 +13,9 @@
  * quedaría dada de baja sin que nadie hiciera clic. El GET muestra un botón;
  * el POST es el que marca.
  *
- * Pero el botón no hace falta tocarlo: la página, ya abierta en un navegador de verdad,
- * envía ella misma el POST con JavaScript (config/paginaBaja.js, compartido con /v). Quien
- * precarga el enlace no ejecuta JavaScript y no da de baja a nadie; quien lo abre y se va
- * queda dado de baja, que es lo que quería.
+ * Y tampoco lo hace la propia página: la baja sale SÓLO al tocar el botón. Google revisa los
+ * enlaces de los SMS con un Chrome real, que ejecuta JavaScript; un envío automático daría de
+ * baja a quien nunca abrió el mensaje (ver config/paginaBaja.js, compartido con /v).
  *
  * SE MARCA A LA PERSONA, NO AL NÚMERO — igual que la baja del parche 14: un
  * teléfono se comparte en una familia, así que se marcan todas las fichas que
@@ -28,7 +27,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { verificar, aplicarBajaDeFicha } = require('../config/bajaContacto');
-const { confirmacionDeBaja, LISTO } = require('../config/paginaBaja');
+const { confirmacionDeBaja, ANTES, LISTO } = require('../config/paginaBaja');
 
 const router = express.Router();
 
@@ -66,10 +65,9 @@ router.get('/:codigo', (req, res) => {
   // pertenece a «Fulano de Tal» es más información de la que hace falta para
   // darse de baja.
   res.send(pagina({
-    titulo: 'No recibir más mensajes',
-    cuerpo: 'Si confirma, esta campaña dejará de enviarle mensajes de texto, correos y avisos.',
-    boton: confirmacionDeBaja(`/b/${encodeURIComponent(req.params.codigo)}`,
-      '<button type="submit">Confirmar mi baja</button>'),
+    titulo: ANTES.titulo,
+    cuerpo: ANTES.cuerpo,
+    boton: confirmacionDeBaja(`/b/${encodeURIComponent(req.params.codigo)}`),
   }));
 });
 

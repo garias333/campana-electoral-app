@@ -29,7 +29,7 @@ const rateLimit = require('express-rate-limit');
 const pool = require('../config/db');
 const { buscarEnlaceActivo, buscarVotantePorToken, registrarVoto } = require('../config/yaVotoEnlace');
 const { aplicarBajaDeFicha } = require('../config/bajaContacto');
-const { confirmacionDeBaja, LISTO } = require('../config/paginaBaja');
+const { confirmacionDeBaja, ANTES, LISTO } = require('../config/paginaBaja');
 
 const router = express.Router();
 
@@ -137,13 +137,11 @@ router.get('/:token', async (req, res) => {
       const v = await buscarVotantePorToken(req.params.token);
       if (!v) return res.status(404).send(pagina(BAJA_NO_VALIDA));
       return res.send(pagina({
-        titulo: 'No recibir más mensajes',
-        cuerpo: 'Si confirma, esta campaña dejará de enviarle mensajes de texto, correos y avisos.',
-        // La página envía sola el POST (config/paginaBaja.js, el mismo bloque que /b): el
-        // botón queda para quien no tiene JavaScript o si el envío falla. La URL es la
-        // misma de esta página, con el token, para que el POST llegue a este mismo router.
-        extra: confirmacionDeBaja(`/v/${encodeURIComponent(req.params.token)}?baja=1`,
-          '<button type="submit" class="grande" style="background:#10233F;">Confirmar mi baja</button>'),
+        titulo: ANTES.titulo,
+        cuerpo: ANTES.cuerpo,
+        // El botón (config/paginaBaja.js, el mismo bloque que /b) es lo único que da la baja:
+        // la página NO envía nada sola. La URL es la de esta página, con el token.
+        extra: confirmacionDeBaja(`/v/${encodeURIComponent(req.params.token)}?baja=1`),
       }));
     }
     const fila = await buscarEnlaceActivo(req.params.token);
