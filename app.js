@@ -193,6 +193,13 @@ const { iniciarValidacionPeriodica } = require('./config/licencia');
 app.use(middlewareLicencia);
 iniciarValidacionPeriodica();
 
+// Inscripción por enlace/QR del líder (/i/:codigo). A DIFERENCIA de /b, /c y /v va DESPUÉS del
+// candado de licencia: aquellas atienden a quien ya recibió un mensaje y no puede quedarse sin
+// salida porque la campaña no pagó; ésta capta datos nuevos, y con la licencia vencida no debe
+// seguir captando. Sin sesión y fuera de /api (sin CSRF): lo abre gente que no tiene cuenta. El
+// pase firmado del formulario hace de antiforgería. Ver routes/inscripcion.routes.js.
+app.use('/i', express.urlencoded({ extended: false }), require('./routes/inscripcion.routes'));
+
 // --- Rutas de API ---
 /* La marca de la campaña, SIN sesión: es lo que pinta la pantalla de ingreso.
    Se expone solo lo que ya se ve en esa pantalla —logo, nombre y eslogan—,
@@ -224,6 +231,7 @@ app.use('/api', cargarSublicencia, restringirAspirante);
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/territorial', require('./routes/territorial.routes'));
 app.use('/api/votantes', require('./routes/votantes.routes'));
+app.use('/api/inscripcion', require('./routes/inscripcion.panel.routes'));
 app.use('/api/votantes-dashboard', require('./routes/votantesDashboard.routes'));
 app.use('/api/finanzas', require('./routes/finanzas.routes'));
 app.use('/api/eventos', require('./routes/eventos.routes'));
@@ -281,6 +289,8 @@ require('./config/reconciliadorSms').iniciar();
 // Avisos push automáticos de las alertas del Día D (fase 4, parte 2): cada minuto, pero SOLO el día de la elección y dentro de
 // la ventana de la jornada; fuera de ella no consulta nada más que la configuración. Ver lib/avisosAlertas.js.
 require('./lib/avisosAlertas').iniciar();
+// El SMS de confirmación de quien se inscribió por enlace: sale dentro de la franja, uno por persona.
+require('./config/inscripcionRegistro').iniciarCola();
 
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---

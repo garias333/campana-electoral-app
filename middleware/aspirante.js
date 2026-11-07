@@ -37,6 +37,7 @@ const PERMITIDOS = [
   '/dia-d',          // Testigos electorales
   '/catalogo',       // la cascada de lugar de votación
   '/geo',            // geocodificación de direcciones
+  '/inscripcion',    // su enlace de inscripción y el cuadro de SU rama (acota la propia ruta, con subarbolSql)
 ];
 
 /** Los módulos que ve en el menú. Se corresponden uno a uno con sus pantallas. */
