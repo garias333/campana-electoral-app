@@ -78,10 +78,30 @@ function aHoraColombia(iso) {
   }).format(d);
 }
 
+/**
+ * Por qué canales puede un líder mandarle a esta persona su enlace «Ya voté» desde su celular.
+ *
+ * LA MISMA REGLA ESTRICTA DEL ENVÍO MASIVO (`aplicarReglaDelEnlace`, comunicaciones.routes.js) y
+ * del asistente de WhatsApp (POST /enlace, abajo): autorización EXPLÍCITA por ese canal
+ * (`consentimiento_whatsapp = 1` / `consentimiento_sms = 1`; NULL y 0 no cuentan) y sin
+ * `no_contactar`. Además, quien ya votó no necesita enlace, y sin teléfono no hay a quién enviarlo.
+ */
+function canalesDelEnlace(f) {
+  const sinTel = !String(f.telefono || '').replace(/\D/g, '');
+  if (f.voto_en || Number(f.no_contactar) === 1 || sinTel) return { wa: false, sms: false };
+  return { wa: Number(f.consentimiento_whatsapp) === 1, sms: Number(f.consentimiento_sms) === 1 };
+}
+
 /* ——— GET /faltantes ——————————————————————————————————————————————
    Los votantes del alcance, agrupados por puesto. Las cifras de cada grupo y
    las de arriba se calculan sobre TODO el alcance, no sobre lo filtrado: si el
-   chip «Faltan» recortara también el denominador, cada puesto saldría al 0 %. */
+   chip «Faltan» recortara también el denominador, cada puesto saldría al 0 %.
+
+   CADA PERSONA QUE AÚN NO HA VOTADO TRAE SU ENLACE «YA VOTÉ» (`enlace_ya_vote`), para que el
+   líder lo mande desde su celular. Sale de la MISMA función que el envío masivo
+   (`enlaces.asegurarEnlaces`): el mismo token HMAC, no una copia. Va en la lista —y por eso
+   queda en la copia sin señal del celular— y SOLO para los votantes que esta consulta ya
+   acotó al alcance de quien pregunta: nunca se pide un enlace de alguien que no se ve. */
 const TOPE_FALTANTES = 5000;
 router.get('/faltantes', async (req, res) => {
   const filtro = ['todos', 'faltan', 'votaron', 'sin_telefono'].includes(req.query.filtro) ? req.query.filtro : 'faltan';
@@ -104,6 +124,7 @@ router.get('/faltantes', async (req, res) => {
     if (q) { cond.push('v.nombre LIKE ?'); params.push(`%${q}%`); }
     const [filas] = await pool.query(
       `SELECT v.id, v.nombre, v.telefono, v.mesa_votacion, v.no_contactar,
+              v.consentimiento_sms, v.consentimiento_whatsapp,
               ${CLAVE_PUESTO} AS clave, vv.voto_en, vv.origen
          FROM votantes v LEFT JOIN votante_votos vv ON vv.votante_id = v.id
         WHERE ${a.sql} ${cond.length ? 'AND ' + cond.join(' AND ') : ''}
@@ -118,12 +139,36 @@ router.get('/faltantes', async (req, res) => {
       faltan: Number(g.total) - Number(g.votaron), pct: pct(Number(g.votaron), Number(g.total)),
       personas: [],
     }]));
+    const eleccion = await contextoDeElección();
+    // Los enlaces de toda la lista, en una sola pasada (crea o reutiliza; ver asegurarEnlaces).
+    const permitidos = new Map(filas.map(f => [f.id, canalesDelEnlace(f)]));
+    const conPermiso = [...permitidos].filter(([, c]) => c.wa || c.sms).map(([id]) => id);
+    let urls = new Map();
+    let falloEnlaces = false;
+    if (eleccion.fecha_eleccion && conPermiso.length) {
+      try { urls = await enlaces.asegurarEnlaces(conPermiso); }
+      catch (err) {
+        // La lista NO se cae por esto: sin enlaces el líder sigue pudiendo llamar y marcar.
+        falloEnlaces = true;
+        console.error('rescate/faltantes (enlaces):', err.codigo || err.code || err.message);
+      }
+    }
     for (const f of filas) {
       const g = porClave.get(f.clave);
       if (!g) continue;
+      const c = permitidos.get(f.id);
+      const url = urls.get(f.id) || null;
+      // Por qué NO hay enlace, en una palabra, para que la lista lo diga (null = no hace falta decirlo:
+      // ya votó, pidió no recibir mensajes o no tiene teléfono, y la fila ya lo muestra).
+      let sinEnlace = null;
+      if (!url && !f.voto_en && !Number(f.no_contactar) && String(f.telefono || '').trim()) {
+        if (!c.wa && !c.sms) sinEnlace = 'sin_autorizacion';
+        else sinEnlace = (!eleccion.fecha_eleccion) ? 'sin_fecha' : (falloEnlaces ? 'no_disponible' : null);
+      }
       g.personas.push({
         id: f.id, nombre: f.nombre, telefono: f.telefono || '', mesa: f.mesa_votacion,
         no_contactar: !!f.no_contactar, voto_en: f.voto_en || null, origen: f.origen || null,
+        enlace_ya_vote: url, enlace_wa: !!url && c.wa, enlace_sms: !!url && c.sms, sin_enlace: sinEnlace,
       });
     }
     // Los puestos con más gente por rescatar, primero; y los que no tienen
@@ -135,7 +180,7 @@ router.get('/faltantes', async (req, res) => {
     const total = grupos.reduce((s, g) => s + Number(g.total), 0);
     const votaron = grupos.reduce((s, g) => s + Number(g.votaron), 0);
     res.json({
-      ...(await contextoDeElección()),
+      ...eleccion,
       filtro, truncado,
       totales: { total, votaron, faltan: total - votaron, pct: pct(votaron, total) },
       puestos,

@@ -53,6 +53,9 @@
   }
   .accion.llamar { background: var(--navy); }
   .accion.wa { background: #1e7a3d; }
+  .accion.sms { background: #5b3f8c; }
+  .accion.copiar { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 6px 10px; font-size: 0.8rem; }
+  .sin-enlace { font-size: 0.76rem; color: var(--muted); margin: -4px 0 8px; }
   .accion.voto { background: #0B5ED7; }
   .accion.deshacer { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
   .accion:disabled { opacity: 0.5; }
@@ -111,6 +114,8 @@
 <script src="/js/offline-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
+<!-- Sólo por `transliterarSms`: el SMS del botón «SMS» sale sin tildes ni ñ, igual que el de Onurix. -->
+<script src="/js/segmentos-sms.js"></script>
 <script src="/app/app-comun.js"></script>
 <script>
 const STORE_MARCAS = 'marcas_voto_pendientes';
@@ -310,6 +315,20 @@ async function pintar() {
     </div>`).join('');
 }
 
+/* POR QUÉ NO HAY ENLACE, dicho en una línea discreta (el servidor manda la clave). */
+const MOTIVOS_SIN_ENLACE = {
+  sin_autorizacion: 'sin autorización registrada',
+  sin_fecha: 'sin fecha de elección',
+  no_disponible: 'enlace no disponible ahora',
+};
+
+/** `sms:` con el texto codificado. iPhone separa con «&» y Android con «?»: se elige por el aparato. */
+function hrefSms(telefono, texto) {
+  const esIphone = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return `sms:+${aInternacional(telefono)}${esIphone ? '&' : '?'}body=${encodeURIComponent(texto)}`;
+}
+
 function filaPersona(p, g) {
   const votado = !!p.voto_en;
   const tel = soloDigitos(p.telefono);
@@ -317,21 +336,48 @@ function filaPersona(p, g) {
   // El mensaje dice dónde le toca votar: ese dato es lo que el votante necesita. No se
   // ofrece si pidió no recibir mensajes (no_contactar), igual que en todo el módulo.
   const texto = `Hola ${primer}, ¿ya votaste? Tu puesto es ${g.puesto}` + (p.mesa ? `, mesa ${p.mesa}` : '') + '. ¡Tu voto cuenta!';
+  // Con enlace «Ya voté» (sólo si la persona autorizó ESE canal: lo decide el servidor), el mensaje
+  // pasa a llevarlo. El enlace viene en la lista, así que también funciona sin señal.
+  const textoConEnlace = p.enlace_ya_vote
+    ? `Hola ${primer}, hoy votas en ${g.puesto}` + (p.mesa ? `, mesa ${p.mesa}` : '')
+      + `. Cuando votes, avísanos aquí: ${p.enlace_ya_vote}`
+    : '';
+  const textoWa = (p.enlace_wa && textoConEnlace) ? textoConEnlace : texto;
   const wa = (tel && !p.no_contactar)
-    ? `<a class="accion wa" href="https://wa.me/${aInternacional(p.telefono)}?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">WhatsApp</a>` : '';
+    ? `<a class="accion wa" href="https://wa.me/${aInternacional(p.telefono)}?text=${encodeURIComponent(textoWa)}" target="_blank" rel="noopener">WhatsApp</a>` : '';
+  // El SMS sale del plan del celular del líder (no de Onurix): sin firma ni baja automática.
+  // Sólo se ofrece con enlace y con autorización de SMS; si no, no hay nada que enviar por ahí.
+  const sms = (tel && !p.no_contactar && p.enlace_sms && textoConEnlace)
+    ? `<a class="accion sms" href="${esc(hrefSms(p.telefono, window.transliterarSms(textoConEnlace)))}">SMS</a>` : '';
+  const copiar = (!votado && p.enlace_ya_vote)
+    ? `<button type="button" class="accion copiar" data-copiar="${esc(p.enlace_ya_vote)}">Copiar enlace</button>` : '';
   const llamar = tel ? `<a class="accion llamar" href="tel:${tel}">Llamar</a>` : '';
+  const sinEnlace = (!votado && !p.enlace_ya_vote && !p.no_contactar && p.sin_enlace && MOTIVOS_SIN_ENLACE[p.sin_enlace])
+    ? `<div class="sin-enlace">Sin enlace «Ya voté»: ${MOTIVOS_SIN_ENLACE[p.sin_enlace]}</div>` : '';
   return `
     <div class="persona ${votado ? 'voto' : ''}" data-id="${p.id}">
       <div class="quien"><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span></div>
       <div class="tel">${tel ? esc(p.telefono) : 'Sin teléfono'}${p.no_contactar ? ' · no desea mensajes' : ''}</div>
+      ${sinEnlace}
       ${votado ? `<div class="voto-hora">Votó a las ${horaDe(p.voto_en)}${p.origen === 'enlace' ? ' (avisó por su enlace)' : ''}</div>` : ''}
       <div class="acciones">
-        ${llamar}${wa}
+        ${llamar}${wa}${sms}${copiar}
         ${votado
           ? `<button type="button" class="accion deshacer" data-quitar="${p.id}" data-nombre="${esc(p.nombre)}">Deshacer</button>`
           : `<button type="button" class="accion voto" data-marcar="${p.id}" data-nombre="${esc(p.nombre)}">Ya votó</button>`}
       </div>
     </div>`;
+}
+
+/** Copia el enlace al portapapeles (si el navegador no deja, con el truco del campo oculto). */
+async function copiarTexto(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (_) { /* cae al respaldo */ }
+  try {
+    const a = document.createElement('textarea');
+    a.value = t; a.setAttribute('readonly', ''); a.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(a); a.select(); a.setSelectionRange(0, t.length);
+    const ok = document.execCommand('copy'); a.remove(); return ok;
+  } catch (_) { return false; }
 }
 
 /* ——— «Ya votó» y «Deshacer» ——— */
@@ -378,6 +424,13 @@ async function deshacer(id, nombre, clienteUuid) {
 }
 
 document.getElementById('lista').addEventListener('click', async (e) => {
+  const c = e.target.closest('[data-copiar]');
+  if (c) {
+    const original = c.textContent;
+    c.textContent = (await copiarTexto(c.dataset.copiar)) ? 'Copiado ✓' : 'No se pudo copiar';
+    setTimeout(() => { c.textContent = original; }, 1800);
+    return;
+  }
   const m = e.target.closest('[data-marcar]');
   const q = e.target.closest('[data-quitar]');
   if (m) { m.disabled = true; await marcar(Number(m.dataset.marcar), m.dataset.nombre); return; }
