@@ -278,6 +278,10 @@ setInterval(() => comunicacionesRouter.despacharCampanasProgramadas(), 60 * 1000
 // un minuto que sí tienen las campañas programadas.
 require('./config/reconciliadorSms').iniciar();
 
+// Avisos push automáticos de las alertas del Día D (fase 4, parte 2): cada minuto, pero SOLO el día de la elección y dentro de
+// la ventana de la jornada; fuera de ella no consulta nada más que la configuración. Ver lib/avisosAlertas.js.
+require('./lib/avisosAlertas').iniciar();
+
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
 /* LOS LOGOS DE LA MARCA SON PÚBLICOS, el resto de uploads no.

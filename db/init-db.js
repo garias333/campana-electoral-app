@@ -879,7 +879,7 @@ async function main() {
     `SELECT TABLE_NAME AS t FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens',
        'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes', 'dia_d_suplentes_testigo',
-       'dia_d_checkin', 'dia_d_alertas_atendidas')`);
+       'dia_d_checkin', 'dia_d_alertas_atendidas', 'dia_d_alertas_avisadas')`);
   const tablasVotoQueExistian = new Set(yaExistian.map(r => r.t));
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await connection.query(schema);
@@ -2106,7 +2106,8 @@ async function main() {
   // estaban, según lo que había ANTES de aplicar el esquema (ver `tablasVotoQueExistian`).
   for (const tabla of ['votante_votos', 'votante_voto_tokens',
                        'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes',
-                       'dia_d_suplentes_testigo', 'dia_d_checkin', 'dia_d_alertas_atendidas']) {
+                       'dia_d_suplentes_testigo', 'dia_d_checkin', 'dia_d_alertas_atendidas',
+                       'dia_d_alertas_avisadas']) {
     const [[t]] = await connection.query(
       `SELECT 1 AS x FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
@@ -2132,6 +2133,8 @@ async function main() {
     ['alerta_checkin_min INT NOT NULL DEFAULT 30', 'alerta_checkin_min'],
     ['baja_votacion_pct INT NOT NULL DEFAULT 40', 'baja_votacion_pct'],
     ["baja_votacion_desde TIME NOT NULL DEFAULT '12:00:00'", 'baja_votacion_desde'],
+    // El interruptor de los avisos push automáticos de las alertas (orden 20). Encendido por omisión.
+    ['avisos_alertas_push TINYINT NOT NULL DEFAULT 1', 'avisos_alertas_push'],
   ]) {
     await agregarColumnaSiFalta(connection, 'configuracion_campana', definicion, nombre);
   }

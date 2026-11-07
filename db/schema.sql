@@ -1096,4 +1096,19 @@ CREATE TABLE IF NOT EXISTS dia_d_alertas_atendidas (
   FOREIGN KEY (atendida_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- AVISOS PUSH YA ENVIADOS de las alertas del Día D: una fila por (persona, alerta, día). `clave` es «tipo|puesto|mesa|fecha».
+-- La clave única es lo que impide repetir un aviso —entre vueltas, tras un reinicio o con dos procesos—: se hace INSERT IGNORE
+-- ANTES de mandar el push y sólo se manda lo que de verdad se insertó. `avisada_en` también sirve para limitar a un push cada
+-- 5 minutos por persona (lib/avisosAlertas.js).
+CREATE TABLE IF NOT EXISTS dia_d_alertas_avisadas (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  usuario_id INT NOT NULL,
+  clave VARCHAR(80) NOT NULL,
+  avisada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_alerta_avisada (usuario_id, clave),
+  INDEX idx_avisada_usuario (usuario_id, avisada_en),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
