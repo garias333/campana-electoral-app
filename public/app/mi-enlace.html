@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Mi enlace · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .qr-caja { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 14px; }
+  #qr-lienzo { width: 100%; max-width: 320px; height: auto; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .qr-url { font-size: 0.9rem; word-break: break-all; color: var(--navy); margin: 12px 0 0; font-weight: 600; }
+  .qr-ayuda { font-size: 0.82rem; color: var(--muted); margin: 6px 0 0; line-height: 1.45; }
+  .fila-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .fila-botones .btn-app { margin: 0; text-align: center; text-decoration: none; box-sizing: border-box; }
+  .btn-wa { background: #1E8E4E; color: #fff; }
+  .cifras-enlace { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+  .cifras-enlace div { background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 12px 6px; text-align: center; }
+  .cifras-enlace strong { display: block; font-size: 1.5rem; color: var(--navy); }
+  .cifras-enlace span { font-size: 0.72rem; color: var(--muted); }
+  .cifras-enlace .aviso-cifra strong { color: #8A5A00; }
+  .nota-enlace { font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0 0 16px; }
+  .peligro { background: #fff; color: #A93226; border: 1.5px solid #A93226; }
+</style>
+</head>
+<body>
+<div class="app-barra" id="app-barra"></div>
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
+
+  <div id="contenido" style="display:none;">
+    <p class="nota-enlace" id="nota-intro">
+      Enséñale este código a quien quieras sumar: al escanearlo se inscribe solo desde su celular y queda en tu lista.
+      También puedes mandarle el enlace por WhatsApp.
+    </p>
+
+    <div class="qr-caja" id="caja-qr">
+      <canvas id="qr-lienzo" width="320" height="320" aria-label="Código QR de tu enlace de inscripción"></canvas>
+      <p class="qr-url" id="qr-url"></p>
+      <p class="qr-ayuda" id="qr-ayuda"></p>
+    </div>
+
+    <div id="acciones">
+      <div class="fila-botones">
+        <button type="button" class="btn-app btn-app-secundario" id="btn-copiar">Copiar enlace</button>
+        <a class="btn-app btn-wa" id="btn-whatsapp" href="#" target="_blank" rel="noopener">Por WhatsApp</a>
+      </div>
+      <div class="fila-botones">
+        <button type="button" class="btn-app btn-app-secundario" id="btn-compartir" style="display:none;">Compartir…</button>
+        <button type="button" class="btn-app btn-app-primario" id="btn-descargar">Descargar QR (PNG)</button>
+      </div>
+    </div>
+
+    <div class="cifras-enlace" id="cifras" style="display:none;">
+      <div><strong id="c-total">0</strong><span>por tu enlace</span></div>
+      <div><strong id="c-hoy">0</strong><span>hoy</span></div>
+      <div class="aviso-cifra"><strong id="c-sin">0</strong><span>sin confirmar</span></div>
+    </div>
+    <p class="nota-enlace" id="nota-confirmar" style="display:none;">
+      «Sin confirmar» son personas que se inscribieron pero todavía no abren el mensaje que les llegó para confirmar su autorización.
+      Mientras no confirmen, no reciben mensajes masivos de la campaña.
+    </p>
+
+    <button type="button" class="btn-app peligro" id="btn-rotar">Cambiar mi enlace</button>
+    <p class="nota-enlace" style="margin-top:8px;">
+      Si cambias tu enlace, el QR y el enlace anteriores dejan de funcionar. Úsalo solo si se difundió donde no debía.
+    </p>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/qrcode-generator.js"></script>
+<script>
+let datos = null;      // { codigo, url, activo, habilitado, total, hoy, sin_confirmar }
+let usuarioId = null;
+
+function aviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto;
+  el.className = 'aviso-app visible ' + (tipo || 'error');
+}
+
+/** El último enlace bueno, para poder ENSEÑAR el QR sin señal (en un mitin, en una vereda). Si no hay almacenamiento, se sigue sin él. */
+const CLAVE_CACHE = () => 'mi_enlace_' + usuarioId;
+function guardarCache(d) { try { localStorage.setItem(CLAVE_CACHE(), JSON.stringify(d)); } catch (e) { /* sin almacenamiento */ } }
+function leerCache() { try { return JSON.parse(localStorage.getItem(CLAVE_CACHE()) || 'null'); } catch (e) { return null; } }
+
+function urlCompleta(d) {
+  // Con LICENCIA_DOMINIO el servidor manda la base; si no, la de esta misma página (la que abrió quien tiene sesión).
+  return (d.base || window.location.origin).replace(/\/+$/, '') + d.ruta;
+}
+
+/** Dibuja el QR en un lienzo: `px` de lado total, con zona de silencio blanca de 4 módulos (lo que exigen los lectores). */
+function dibujarQR(lienzo, texto, px) {
+  const qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  const n = qr.getModuleCount();
+  const margen = 4;
+  const celda = Math.floor(px / (n + margen * 2));
+  const lado = celda * (n + margen * 2);
+  lienzo.width = lado; lienzo.height = lado;
+  const g = lienzo.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, lado, lado);
+  g.fillStyle = '#000000';
+  for (let f = 0; f < n; f++) for (let c = 0; c < n; c++) {
+    if (qr.isDark(f, c)) g.fillRect((c + margen) * celda, (f + margen) * celda, celda, celda);
+  }
+}
+
+function pintar(d, desdeCache) {
+  document.getElementById('pantalla-carga').style.display = 'none';
+  document.getElementById('contenido').style.display = 'block';
+  const url = urlCompleta(d);
+  const vivo = d.activo && d.habilitado;
+  document.getElementById('caja-qr').style.opacity = vivo ? '1' : '0.35';
+  document.getElementById('qr-url').textContent = url;
+  dibujarQR(document.getElementById('qr-lienzo'), url, 320);
+  const ayuda = document.getElementById('qr-ayuda');
+  if (!d.habilitado) ayuda.textContent = 'La inscripción por enlace está apagada en esta campaña. Tu QR no funciona por ahora.';
+  else if (!d.activo) ayuda.textContent = 'La coordinación desactivó tu enlace. Pídeles que lo reactiven.';
+  else if (desdeCache) ayuda.textContent = 'Sin conexión: este es tu último enlace guardado. El QR se puede mostrar igual.';
+  else ayuda.textContent = '';
+  ['btn-copiar', 'btn-descargar', 'btn-compartir', 'btn-rotar'].forEach(id => { document.getElementById(id).disabled = !vivo && id !== 'btn-copiar'; });
+  document.getElementById('btn-whatsapp').style.pointerEvents = vivo ? '' : 'none';
+  document.getElementById('btn-whatsapp').style.opacity = vivo ? '' : '0.45';
+  document.getElementById('btn-whatsapp').href = 'https://wa.me/?text=' + encodeURIComponent('Inscríbete con mi equipo aquí: ' + url);
+  if (navigator.share) document.getElementById('btn-compartir').style.display = '';
+  else document.getElementById('btn-descargar').style.gridColumn = '1 / -1';   // sin «Compartir», «Descargar» ocupa la fila
+  if (!desdeCache) {
+    document.getElementById('c-total').textContent = d.total;
+    document.getElementById('c-hoy').textContent = d.hoy;
+    document.getElementById('c-sin').textContent = d.sin_confirmar;
+    document.getElementById('cifras').style.display = 'grid';
+    document.getElementById('nota-confirmar').style.display = d.sin_confirmar ? 'block' : 'none';
+  }
+}
+
+async function cargar() {
+  try {
+    const d = await api('/inscripcion/mi-enlace');
+    datos = d;
+    guardarCache(d);
+    pintar(d, false);
+  } catch (err) {
+    if (err.esErrorDeRed) {
+      const c = leerCache();
+      if (c) { datos = c; pintar(c, true); return; }
+      document.getElementById('pantalla-carga').textContent = 'Sin conexión. Abre esta pantalla una vez con señal para guardar tu QR.';
+      return;
+    }
+    document.getElementById('pantalla-carga').style.display = 'none';
+    aviso(err.message || 'No se pudo cargar tu enlace.', 'error');
+  }
+}
+
+document.getElementById('btn-copiar').addEventListener('click', async () => {
+  const url = urlCompleta(datos);
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (e) {
+    const t = document.createElement('textarea');
+    t.value = url; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+    document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch (_) { /* nada más que hacer */ }
+    document.body.removeChild(t);
+  }
+  aviso('Enlace copiado.', 'exito');
+});
+
+document.getElementById('btn-compartir').addEventListener('click', async () => {
+  try { await navigator.share({ title: 'Inscríbete con mi equipo', text: 'Inscríbete con mi equipo aquí:', url: urlCompleta(datos) }); }
+  catch (e) { /* la persona cerró el menú de compartir */ }
+});
+
+/** PNG de buena resolución, con el enlace escrito debajo para quien lo imprima en un volante o un afiche. */
+document.getElementById('btn-descargar').addEventListener('click', () => {
+  const url = urlCompleta(datos);
+  const qrc = document.createElement('canvas');
+  dibujarQR(qrc, url, 900);
+  const alto = qrc.height + 90;
+  const out = document.createElement('canvas');
+  out.width = qrc.width; out.height = alto;
+  const g = out.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, out.width, alto);
+  g.drawImage(qrc, 0, 0);
+  g.fillStyle = '#142a3f'; g.textAlign = 'center';
+  g.font = 'bold 34px system-ui, sans-serif';
+  g.fillText(url.replace(/^https?:\/\//, ''), out.width / 2, qrc.height + 40, out.width - 40);
+  g.font = '26px system-ui, sans-serif';
+  g.fillText('Escanea para inscribirte', out.width / 2, qrc.height + 76);
+  out.toBlob((blob) => {
+    if (!blob) { aviso('No se pudo generar la imagen.', 'error'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mi-qr-inscripcion.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, 'image/png');
+});
+
+document.getElementById('btn-rotar').addEventListener('click', async () => {
+  if (!confirm('¿Cambiar tu enlace?\n\nEl QR y el enlace anteriores dejarán de funcionar. Si ya imprimiste o compartiste el QR, tendrás que usar el nuevo.')) return;
+  const boton = document.getElementById('btn-rotar');
+  boton.disabled = true;
+  try {
+    await api('/inscripcion/mi-enlace/rotar', { method: 'POST', body: {} });
+    aviso('Listo: tu enlace nuevo ya está activo.', 'exito');
+    await cargar();
+  } catch (err) {
+    aviso(err.message || 'No se pudo cambiar el enlace.', 'error');
+  } finally {
+    boton.disabled = false;
+  }
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  usuarioId = usuario.id;
+  pintarBarraApp('Mi enlace', 'Inscripción por QR', '/app/inicio.html');
+  cargar();
+})();
+</script>
+</body>
+</html>

@@ -94,6 +94,8 @@
     </div>
     <div class="barra-fondo"><div class="barra-relleno" id="progreso-barra" style="width:0%"></div></div>
     <p class="detalle" id="progreso-detalle" style="display:none;"></p>
+    <!-- «Por tu enlace»: de esos registros, los que se inscribieron solos por el QR (ver Mi enlace). -->
+    <p class="detalle" id="progreso-por-enlace" style="display:none;"></p>
     <a class="btn-app btn-app-secundario" id="progreso-enlace" href="/app/avance-lideres.html"
        style="display:none; margin-top:12px; text-decoration:none; box-sizing:border-box;">Avance de mis líderes →</a>
   </div>
@@ -101,6 +103,8 @@
   <button type="button" class="btn-app btn-app-primario" id="btn-nuevo-registro" style="margin-bottom:18px;">
     + Registrar una persona
   </button>
+  <a class="btn-app btn-app-secundario" href="/app/mi-enlace.html"
+     style="display:block; margin:-6px 0 18px; text-decoration:none; text-align:center; box-sizing:border-box;">Mi enlace de inscripción (QR)</a>
 
   <div class="buscador-app campo-app">
     <input type="search" id="buscador" placeholder="Buscar por nombre, cédula o teléfono" autocomplete="off">
@@ -163,6 +167,12 @@ async function cargarProgreso(usuario) {
     document.getElementById('progreso-meta').textContent = ` de ${p.meta} registros`;
     document.getElementById('progreso-pct').textContent = `${p.porcentaje}%`;
     document.getElementById('progreso-barra').style.width = `${p.porcentaje}%`;
+    if (p.porEnlace > 0) {
+      const sin = p.porEnlaceSinConfirmar > 0 ? ` (${p.porEnlaceSinConfirmar} sin confirmar)` : '';
+      const el = document.getElementById('progreso-por-enlace');
+      el.textContent = `${p.porEnlace} por tu enlace${sin}`;
+      el.style.display = 'block';
+    }
     document.getElementById('progreso-card').style.display = 'block';
   } catch (err) {
     // Sin progreso la pantalla sigue sirviendo: no vale la pena molestar.
@@ -239,6 +249,9 @@ function pintarVotantes(filas, reiniciar) {
       <div class="datos">
         <span class="nombre">${escaparAppHtml(v.nombre)}</span>
         <span class="tel">${v.telefono ? escaparAppHtml(formatoTelefonoColombia(v.telefono)) : 'Sin teléfono'}</span>
+        ${v.origen === 'enlace_lider'
+          ? `<span class="tel" style="color:${v.consentimiento_confirmado_en ? '#1E6B44' : '#8A5A00'}; font-weight:600;">Se inscribió solo · ${v.consentimiento_confirmado_en ? 'confirmado' : 'sin confirmar'}</span>`
+          : ''}
       </div>
       <span class="flecha" aria-hidden="true">›</span>
     </button>
