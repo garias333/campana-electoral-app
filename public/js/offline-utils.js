@@ -11,15 +11,19 @@
    un error de verdad del servidor (ver esErrorDeRed en api-core.js). */
 
 const OFFLINE_DB_NOMBRE = 'estrategia_offline';
-const OFFLINE_DB_VERSION = 3;
+const OFFLINE_DB_VERSION = 4;
 // Un "store" (cajón) por cada tipo de formulario que se pueda guardar sin
 // conexión. Agregar uno nuevo acá NO borra los que ya existían en el
 // dispositivo de nadie — IndexedDB solo agrega los que falten al subir de
 // versión, conserva intacto lo que ya estaba guardado.
 // `marcas_voto_pendientes`: las marcas «ya votó» hechas sin señal (Día D, fase 2).
 // `faltantes_cache`: la última lista de faltantes, para verla sin conexión.
+// `checkin_pendientes`: el «Llegué a mi puesto» del testigo marcado sin señal (Día D, fase 4).
+// `transporte_pendientes`: el interruptor «necesita transporte» de Faltantes, hecho sin señal.
+// `alertas_cache`: la última lista del cuadro de alertas, para verla sin conexión.
 const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reportes_diad_pendientes',
-                        'marcas_voto_pendientes', 'faltantes_cache'];
+                        'marcas_voto_pendientes', 'faltantes_cache',
+                        'checkin_pendientes', 'transporte_pendientes', 'alertas_cache'];
 
 function abrirBaseOffline() {
   return new Promise((resolve, reject) => {

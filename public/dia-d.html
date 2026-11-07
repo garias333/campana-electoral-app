@@ -42,6 +42,8 @@
       <button type="button" class="btn-secundario btn-sm" id="pestana-avance">Avance de votación</button>
       <!-- Solo con el módulo `resultados_dia_d` (se muestra al cargar, ver el final del script). -->
       <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;">Resultados</button>
+      <!-- Solo con el módulo `alertas_dia_d`. -->
+      <button type="button" class="btn-secundario btn-sm" id="pestana-alertas" style="display:none;">Alertas <span id="insignia-alertas" style="display:none; background:#A93226; color:#fff; border-radius:9px; padding:0 6px; font-size:0.72rem; margin-left:4px;"></span></button>
     </div>
 
     <div id="vista-reportes">
@@ -164,6 +166,15 @@
       </div>
     </div><!-- /vista-avance -->
 
+    <!-- ALERTAS (fase 4): lo que la coordinación tiene que atender ahora. Se recalcula cada 30 s. -->
+    <div id="vista-alertas" style="display:none;">
+      <div id="franja-alertas" style="display:none; background:#FDF3E0; color:#8A5A00; border-radius:8px; padding:6px 12px; font-size:0.85rem; margin-bottom:10px;"></div>
+      <div id="chips-alertas" class="al-chips"></div>
+      <div id="lista-alertas"></div>
+      <div id="vacio-alertas" class="vacio" style="display:none;"><div class="icono-vacio">✅</div>No hay alertas con este filtro.</div>
+      <small id="nota-alertas" style="color:var(--color-text-muted); display:block; margin-top:8px;"></small>
+    </div>
+
     <!-- RESULTADOS (fase 3): consolidado, resultado oficial y diferencias. En celular las rejillas se
          apilan y las tablas se desplazan de lado dentro de su contenedor. -->
     <div id="vista-resultados" style="display:none;">
@@ -274,6 +285,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/alertas-dia-d.js"></script>
 <script>
 let usuarioActual;
 let intervaloActualizacion = null;
@@ -597,7 +609,7 @@ async function cargarAvance() {
 
 let intervaloPaquetes = null;
 function mostrarPestana(cual) {
-  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados' };
+  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados', alertas: 'vista-alertas' };
   if (!vistas[cual]) cual = 'reportes';
   Object.entries(vistas).forEach(([k, id]) => { document.getElementById(id).style.display = k === cual ? 'block' : 'none'; });
   Object.keys(vistas).forEach((k) => {
@@ -606,16 +618,53 @@ function mostrarPestana(cual) {
   });
   const hash = cual === 'reportes' ? '' : '#' + cual;
   if (location.hash !== hash) history.replaceState(null, '', cual === 'reportes' ? location.pathname : hash);
-  clearInterval(intervaloAvance); clearInterval(intervaloPaquetes);
+  clearInterval(intervaloAvance); clearInterval(intervaloPaquetes); clearInterval(intervaloAlertas);
   if (cual === 'avance') {
     cargarAvance().catch(err => alert(err.message || 'No se pudo cargar el avance.'));
     intervaloAvance = setInterval(() => cargarAvance().catch(() => {}), 30000);
   }
   if (cual === 'resultados') abrirResultados();
+  if (cual === 'alertas') {
+    cargarAlertas().catch(err => alert(err.message || 'No se pudieron cargar las alertas.'));
+    intervaloAlertas = setInterval(() => { if (!document.hidden) cargarAlertas().catch(() => {}); }, 30000);
+  }
 }
+
+/* ——— ALERTAS ——— el cálculo es del servidor (routes/alertasDiaD.routes.js); aquí sólo se pinta y se filtra. */
+let intervaloAlertas = null, ultimasAlertas = null, filtroAlertas = '';
+async function cargarAlertas() {
+  ultimasAlertas = await api('/dia-d/alertas');
+  pintarAlertas();
+}
+function pintarAlertas() {
+  const r = ultimasAlertas;
+  if (!r) return;
+  AlertasDiaD.inyectarEstilo();
+  const franja = document.getElementById('franja-alertas');
+  franja.style.display = r.jornada.modo_prueba ? 'block' : 'none';
+  franja.textContent = `Modo prueba: hoy no es el día de la elección (${r.jornada.fecha_eleccion || 'sin fecha configurada'}). Las alertas se calculan igual, con la hora de ahora (${r.jornada.ahora.slice(11)}).`;
+  document.getElementById('chips-alertas').innerHTML = AlertasDiaD.chipsHtml(r, filtroAlertas);
+  const lista = r.alertas.filter(a => !filtroAlertas || a.tipo === filtroAlertas);
+  document.getElementById('lista-alertas').innerHTML = lista.map(AlertasDiaD.filaHtml).join('');
+  document.getElementById('vacio-alertas').style.display = lista.length ? 'none' : 'block';
+  const ins = document.getElementById('insignia-alertas');
+  ins.style.display = r.total_activas ? 'inline' : 'none'; ins.textContent = r.total_activas;
+  document.getElementById('nota-alertas').textContent =
+    `Apertura ${r.jornada.apertura}, cierre ${r.jornada.cierre}, E-14 hasta ${r.jornada.plazo_e14_min} min después del cierre. Se actualiza cada 30 segundos.`
+    + (r.sin_votantes_omitidas ? ` Hay ${r.sin_votantes_omitidas} mesas más sin testigo y sin votantes propios que no se listan (están en el conteo).` : '');
+}
+document.getElementById('chips-alertas').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-tipo]');
+  if (!c) return;
+  filtroAlertas = c.dataset.tipo; pintarAlertas();
+});
+document.getElementById('lista-alertas').addEventListener('click', (e) => {
+  AlertasDiaD.alTocar(e, { api, recargar: cargarAlertas });
+});
 document.getElementById('pestana-reportes').addEventListener('click', () => mostrarPestana('reportes'));
 document.getElementById('pestana-avance').addEventListener('click', () => mostrarPestana('avance'));
 document.getElementById('pestana-resultados').addEventListener('click', () => mostrarPestana('resultados'));
+document.getElementById('pestana-alertas').addEventListener('click', () => mostrarPestana('alertas'));
 document.querySelectorAll('[data-orden-ranking]').forEach(b => b.addEventListener('click', () => {
   ordenRanking = b.dataset.ordenRanking;
   document.querySelectorAll('[data-orden-ranking]').forEach(x => {
@@ -912,8 +961,14 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   const permRes = usuarioActual.permisos && usuarioActual.permisos.resultados_dia_d;
   puedeResultados = !!(permRes && permRes.ver);
   document.getElementById('pestana-resultados').style.display = puedeResultados ? 'inline-flex' : 'none';
+  // La pestaña «Alertas» solo con el módulo `alertas_dia_d` (el servidor lo vuelve a exigir). Sin datos de permisos, no se muestra.
+  const permAl = usuarioActual.permisos && usuarioActual.permisos.alertas_dia_d;
+  const puedeAlertas = !!(permAl && permAl.ver);
+  document.getElementById('pestana-alertas').style.display = puedeAlertas ? 'inline-flex' : 'none';
+  if (puedeAlertas) cargarAlertas().catch(() => {});          // la insignia con el conteo, aunque no esté abierta
   if (location.hash === '#avance') mostrarPestana('avance');
   else if (location.hash === '#resultados' && puedeResultados) mostrarPestana('resultados');
+  else if (location.hash === '#alertas' && puedeAlertas) mostrarPestana('alertas');
   // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
   // en esta app, así que un refresco corto por sondeo es lo más simple y
   // suficiente para seguir el conteo el día de la jornada.

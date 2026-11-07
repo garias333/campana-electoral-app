@@ -27,6 +27,23 @@
     return COLORES[0];
   }
 
+  var ESTADOS_VIVO = {
+    sin_testigo: { texto: 'Sin testigo' },
+    asignada: { texto: 'Testigo asignado, aún no marca su llegada' },
+    llego: { texto: 'El testigo ya llegó' },
+    e14: { texto: 'E-14 subido' },
+    tarde: { texto: 'El testigo llegó y pasó el plazo sin subir el E-14' },
+  };
+
+  /** La leyenda de colores del modo «En vivo». */
+  window.leyendaEnVivo = function () {
+    return '<span class="leyenda-vivo"><i class="chip-vivo-sin_testigo"></i>Sin testigo</span>' +
+      '<span class="leyenda-vivo"><i class="chip-vivo-asignada"></i>Asignado</span>' +
+      '<span class="leyenda-vivo"><i class="chip-vivo-llego"></i>Llegó</span>' +
+      '<span class="leyenda-vivo"><i class="chip-vivo-e14"></i>E-14 subido</span>' +
+      '<span class="leyenda-vivo"><i class="chip-vivo-tarde"></i>Llegó y pasó el plazo sin E-14</span>';
+  };
+
   /** Todas las mesas del puesto, una ficha cada una. Libre = rojo (más fuerte si ya hay votantes); cubierta = color del testigo. */
   window.celdaCoberturaMesas = function (p) {
     var mesas = p.mesas_detalle;
@@ -41,6 +58,13 @@
     var fichas = mesas.map(function (m) {
       var votos = m.votantes ? (m.votantes === 1 ? '1 votante registrado vota' : m.votantes + ' votantes registrados votan') + ' en esta mesa. ' : '';
       var base = 'data-puesto="' + p.id + '" data-mesa="' + m.mesa + '"';
+      // EN VIVO: el color es el ESTADO de la mesa (rojo sin testigo, gris asignada, azul llegó, verde E-14, ámbar tarde), no el del testigo.
+      if (m.estado) {
+        var tx = ESTADOS_VIVO[m.estado] || ESTADOS_VIVO.asignada;
+        var avisoV = tx.texto + (m.testigo ? ' — ' + m.testigo : '') + '. ' + votos + 'Toca para cambiarla.';
+        return '<span class="chip-mesa chip-mesa-tocable chip-vivo-' + m.estado + '" ' + base + ' data-aviso="' + esc(avisoV) + '">' +
+          m.mesa + (m.iniciales ? '<small>' + esc(m.iniciales) + '</small>' : '') + '</span>';
+      }
       if (m.testigo_id) {
         var t = (p.testigos_puesto || []).filter(function (x) { return x.estructura_id === m.testigo_id; })[0];
         var aviso = 'Testigo ' + (m.testigo || '') + ': mesa' + (t && t.mesas.length > 1 ? 's ' + t.mesas.join(', ') : ' ' + m.mesa) + '. ' + votos + 'Toca para cambiarla.';

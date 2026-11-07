@@ -2275,3 +2275,16 @@ table td .btn-primario:hover {
 .cov-acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 #cov-testigos, #cov-sugeridos, #cov-suplentes { max-height: 220px; overflow-y: auto; margin-top: 6px; }
 @media (max-width: 560px) { .cov-persona { flex-direction: column; align-items: stretch; } .cov-acciones { justify-content: flex-start; } }
+
+/* ---------------- Cobertura EN VIVO: el color de la ficha es el estado de la mesa ----------------
+   rojo = sin testigo · gris = asignado · azul = llegó · verde = E-14 subido · ámbar = llegó y pasó el plazo sin E-14. */
+.chip-mesa.chip-vivo-sin_testigo, i.chip-vivo-sin_testigo { background: #A93226; border-color: #8E2A20; color: #fff; }
+.chip-mesa.chip-vivo-asignada, i.chip-vivo-asignada { background: #8A94A6; border-color: #747E90; color: #fff; }
+.chip-mesa.chip-vivo-llego, i.chip-vivo-llego { background: #1B6CA8; border-color: #155985; color: #fff; }
+.chip-mesa.chip-vivo-e14, i.chip-vivo-e14 { background: #1E8A4F; border-color: #176F40; color: #fff; }
+.chip-mesa.chip-vivo-tarde, i.chip-vivo-tarde { background: #E09B1A; border-color: #B97F10; color: #2B1B00; }
+.chip-mesa[class*="chip-vivo-"] { flex-direction: column; line-height: 1; gap: 1px; }
+.chip-mesa[class*="chip-vivo-"] small { font-size: 0.56rem; font-weight: 700; opacity: 0.92; }
+.leyenda-vivo { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; margin-right: 12px; }
+.leyenda-vivo i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid transparent; }
+.barra-vivo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 10px; font-size: 0.85rem; }

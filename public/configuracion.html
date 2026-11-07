@@ -149,6 +149,30 @@
           </div>
         </div>
 
+        <!-- LA JORNADA DEL DÍA D. Horarios y umbrales del cuadro de alertas y del check-in del testigo. Hora de Colombia.
+             Sólo la campaña principal los define (es una fila única); el aspirante no los ve. -->
+        <div id="bloque-jornada" style="border:1px solid var(--color-border); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+          <div style="font-weight:700; margin-bottom:2px;">Jornada del Día D <small style="font-weight:400; color:var(--color-text-muted);">(hora de Colombia)</small></div>
+          <div class="fila">
+            <div class="campo"><label>Apertura de urnas</label><input type="time" id="jornada-apertura" value="08:00">
+              <small style="color:var(--color-text-muted);">Desde aquí se cuenta cuánto se espera a un testigo.</small></div>
+            <div class="campo"><label>Cierre de urnas</label><input type="time" id="jornada-cierre" value="16:00">
+              <small style="color:var(--color-text-muted);">Desde aquí se cuenta el plazo del E-14.</small></div>
+          </div>
+          <div class="fila">
+            <div class="campo"><label>Minutos para avisar que un testigo no llegó</label><input type="number" id="jornada-checkin-min" min="0" max="1440" value="30">
+              <small style="color:var(--color-text-muted);">Pasada la apertura más estos minutos, un testigo sin «Llegué» sale en Alertas.</small></div>
+            <div class="campo"><label>Plazo para subir el E-14 (minutos)</label><input type="number" id="jornada-plazo-e14" min="0" max="1440" value="120">
+              <small style="color:var(--color-text-muted);">Pasado el cierre más este plazo, una mesa sin E-14 sale en Alertas (y su ficha pasa a ámbar).</small></div>
+          </div>
+          <div class="fila">
+            <div class="campo"><label>Baja votación: porcentaje «ya votó»</label><input type="number" id="jornada-baja-pct" min="1" max="100" value="40">
+              <small style="color:var(--color-text-muted);">Un puesto con menos de este % de sus votantes marcados como «ya votó» sale en Alertas.</small></div>
+            <div class="campo"><label>Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
+              <small style="color:var(--color-text-muted);">Antes de esa hora la alerta aparece en gris, «pendiente».</small></div>
+          </div>
+        </div>
+
         <div class="fila">
           <div class="campo"><label>Slogan de la campaña</label><input name="slogan_campana" placeholder="Ej. Juntos por nuestra ciudad"></div>
           <div class="campo">
@@ -415,6 +439,9 @@
           <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
             <input type="checkbox" id="filtro-sin-cubrir" style="width:auto;"> Solo con votantes sin cubrir
           </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;" title="Colorea cada mesa por su estado: sin testigo, asignado, llegó, E-14. Se enciende solo el día de la elección; otro día sirve para ensayar.">
+            <input type="checkbox" id="chk-en-vivo" style="width:auto;"> En vivo
+          </label>
           <label id="caja-limite-mesas" style="display:none; align-items:center; gap:6px; font-size:0.85rem;">
             Máx. mesas por testigo
             <input type="number" id="input-limite-mesas" min="1" max="20" style="width:62px;">
@@ -424,6 +451,7 @@
           <button type="button" class="btn-secundario btn-sm" id="btn-avisar-todos">📣 Avisar a todos los asignados</button>
         </div>
         <div id="resumen-cobertura" class="resumen-cobertura" style="display:none;"></div>
+        <div id="leyenda-en-vivo" class="barra-vivo" style="display:none;"></div>
 
         <div id="panel-traer-catalogo" style="display:none; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -689,6 +717,36 @@
 <script src="/js/common.js"></script>
 <script src="/js/cobertura-testigos.js"></script>
 <script>
+/* LA JORNADA DEL DÍA D (horarios y umbrales). Se lee y se guarda por su propia ruta (/dia-d/alertas/config) y no por la
+   de «Datos de la campaña»: no comparte con ella ni permisos ni riesgos. Quien no es administrador de la campaña principal
+   (el aspirante) no ve el bloque. */
+async function cargarJornadaEnElFormulario() {
+  const bloque = document.getElementById('bloque-jornada');
+  if (!bloque) return;
+  if (usuarioActual && (usuarioActual.es_aspirante || usuarioActual.rol !== 'admin')) { bloque.style.display = 'none'; return; }
+  try {
+    const c = await api('/dia-d/alertas/config');
+    document.getElementById('jornada-apertura').value = c.jornada_apertura;
+    document.getElementById('jornada-cierre').value = c.jornada_cierre;
+    document.getElementById('jornada-checkin-min').value = c.alerta_checkin_min;
+    document.getElementById('jornada-plazo-e14').value = c.plazo_e14_min;
+    document.getElementById('jornada-baja-pct').value = c.baja_votacion_pct;
+    document.getElementById('jornada-baja-desde').value = c.baja_votacion_desde;
+  } catch (_) { bloque.style.display = 'none'; }
+}
+async function guardarJornadaDelFormulario() {
+  const bloque = document.getElementById('bloque-jornada');
+  if (!bloque || bloque.style.display === 'none') return;
+  await api('/dia-d/alertas/config', { method: 'PUT', body: {
+    jornada_apertura: document.getElementById('jornada-apertura').value,
+    jornada_cierre: document.getElementById('jornada-cierre').value,
+    alerta_checkin_min: document.getElementById('jornada-checkin-min').value,
+    plazo_e14_min: document.getElementById('jornada-plazo-e14').value,
+    baja_votacion_pct: document.getElementById('jornada-baja-pct').value,
+    baja_votacion_desde: document.getElementById('jornada-baja-desde').value,
+  } });
+}
+
 let fechaEleccionCargada = '';   // la fecha de elección tal como se cargó (ver el aviso de enlaces «Ya voté»)
 let usuarioActual;
 /* «Importar / Exportar» desde un common.js ANTIGUO. El navegador guarda los .js
@@ -753,6 +811,30 @@ document.getElementById('btn-avisar-todos').addEventListener('click', () => {
 });
 /* El límite de mesas por testigo: lo cambia el administrador (o el aspirante, en su campaña). Se lee cuando se
    pinta la cobertura y no al cargar el archivo: hasta entonces no se sabe quién es `usuarioActual`. */
+/* «EN VIVO»: se enciende SOLO el día de la elección (hoy = fecha_eleccion) y entonces se recarga cada minuto; otro día
+   queda apagado y quien quiera ensayar lo enciende a mano (modo prueba, sin recarga automática). */
+let enVivoPreparado = false, esElDiaD = false, temporizadorEnVivo = null;
+async function prepararEnVivo() {
+  if (enVivoPreparado) return;
+  enVivoPreparado = true;
+  try {
+    const c = await api('/dia-d/alertas/config');
+    esElDiaD = !c.modo_prueba;
+    document.getElementById('chk-en-vivo').checked = esElDiaD;
+  } catch (_) { /* sin dato: queda apagado */ }
+  document.getElementById('chk-en-vivo').addEventListener('change', () => { programarRecargaEnVivo(); cargarPuestosVotacion(); });
+  programarRecargaEnVivo();
+}
+function programarRecargaEnVivo() {
+  clearInterval(temporizadorEnVivo);
+  if (esElDiaD && document.getElementById('chk-en-vivo').checked) {
+    temporizadorEnVivo = setInterval(() => {
+      // Sin pisar la ventana de asignación abierta ni una pestaña que no se ve.
+      const v = document.getElementById('overlay-cobertura');
+      if (!document.hidden && !(v && v.classList.contains('abierto'))) cargarPuestosVotacion();
+    }, 60000);
+  }
+}
 let limiteMesasLeido = false;
 async function cargarLimiteDeMesas() {
   if (limiteMesasLeido) return;
@@ -1000,6 +1082,7 @@ async function cargarConfiguracionCampana() {
   form.meta_votos_campana.value = config.meta_votos_campana ?? '';
   form.fecha_eleccion.value = config.fecha_eleccion || '';
   fechaEleccionCargada = config.fecha_eleccion || '';   // para avisar si se cambia (enlaces «Ya voté»)
+  cargarJornadaEnElFormulario();
   form.direccion_sede.value = config.direccion_sede || '';
   form.telefono.value = formatoTelefonoColombia(config.telefono || '');
   form.email.value = config.email || '';
@@ -1123,6 +1206,7 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
 
   try {
     await api('/configuracion/campana', { method: 'PUT', body: datos });
+    await guardarJornadaDelFormulario();
     // Guardado el cambio, las contraseñas capturadas ya no sirven para nada
     // y no tienen por qué seguir en memoria hasta que se cierre la pestaña.
     NIVELES_TERRITORIO.forEach((nivel) => { passwordNivel[nivel.campo] = null; });
@@ -1955,8 +2039,13 @@ async function cargarPuestosVotacion() {
 
   cargarLimiteDeMesas();
   const municipioFiltro = document.getElementById('select-filtro-municipio').value;
-  const puestos = await api('/dia-d/config/puestos-votacion?cobertura=1' +
+  await prepararEnVivo();
+  const enVivo = document.getElementById('chk-en-vivo').checked;
+  const puestos = await api('/dia-d/config/puestos-votacion?cobertura=1' + (enVivo ? '&vivo=1' : '') +
     (municipioFiltro ? `&municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
+  const leyendaVivo = document.getElementById('leyenda-en-vivo');
+  leyendaVivo.style.display = enVivo ? 'flex' : 'none';
+  leyendaVivo.innerHTML = enVivo ? leyendaEnVivo() + (esElDiaD ? '<span style="color:var(--color-text-muted);">Se actualiza cada minuto.</span>' : '<span style="color:#8A5A00;">Modo prueba: hoy no es el día de la elección.</span>') : '';
   const tbody = document.getElementById('tbody-puestos-votacion');
   prepararFiltroComuna(puestos);
   const visibles = puestos.filter(cumpleFiltroCobertura).sort(compararCobertura);

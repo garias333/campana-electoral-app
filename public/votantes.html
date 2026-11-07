@@ -401,6 +401,14 @@
         <select name="sublider_id" id="select-sublider-votante"><option value="">Ninguno</option></select>
       </div>
       <div class="campo"><label>Observaciones</label><textarea name="observaciones" rows="2"></textarea></div>
+      <!-- «NECESITA TRANSPORTE» el día de la elección. Se guarda AL MARCAR (no con «Guardar»): es una marca operativa
+           que la coordinación ve en Faltantes y en Alertas. Sólo al editar: una ficha nueva todavía no tiene id. -->
+      <div class="campo" id="campo-transporte-votante" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+          <input type="checkbox" id="chk-transporte-votante" style="width:auto;"> 🚐 Necesita transporte el día de la elección
+        </label>
+        <small id="nota-transporte-votante" style="color:var(--color-text-muted);">Se guarda al marcarla, sin esperar a «Guardar».</small>
+      </div>
 
       <!-- La autorización es EVIDENCIA, no un campo editable: se muestra lo
            que la persona autorizó, cuándo y sobre qué texto. Poder cambiarla
@@ -2036,6 +2044,17 @@ function lineaBaja(v) {
   return '';
 }
 
+document.getElementById('chk-transporte-votante').addEventListener('change', async (e) => {
+  const chk = e.target;
+  try {
+    await api(`/votantes/${chk.dataset.id}/transporte`, { method: 'PUT', body: { necesita: chk.checked } });
+    document.getElementById('nota-transporte-votante').textContent = chk.checked ? 'Marcado: aparece en Faltantes y en Alertas.' : 'Desmarcado.';
+  } catch (err) {
+    chk.checked = !chk.checked;                 // lo que se ve es lo que hay en la base
+    alert(err.message || 'No se pudo guardar.');
+  }
+});
+
 function pintarConsentimiento(v) {
   const bloque = document.getElementById('bloque-consentimiento-votante');
   const caja = document.getElementById('detalle-consentimiento');
@@ -2233,6 +2252,9 @@ async function editarVotante(v) {
   poblarComunaResidenciaVotante();
   document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
   pintarConsentimiento(v);
+  document.getElementById('campo-transporte-votante').style.display = 'block';
+  document.getElementById('chk-transporte-votante').checked = Number(v.necesita_transporte) === 1;
+  document.getElementById('chk-transporte-votante').dataset.id = v.id;
   mostrarBloqueAutorizacionVotante(false);   // al editar no se vuelve a pedir: el servidor solo la exige al crear
   document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
   document.getElementById('categoria-votante-error').style.display = 'none';
@@ -2520,6 +2542,7 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
   cantidadMesasPuestoVotante = 0;
   document.getElementById('contador-mesas-votante').textContent = '';
   document.getElementById('titulo-modal').textContent = 'Nuevo votante o sublíder';
+  document.getElementById('campo-transporte-votante').style.display = 'none';   // todavía no hay ficha que marcar
   document.getElementById('form-error').classList.remove('visible');
   document.getElementById('territorio-votante-error').classList.remove('visible');
   document.getElementById('resultados-buscar-lider').innerHTML = '';

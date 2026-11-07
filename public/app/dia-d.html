@@ -117,6 +117,12 @@
   .doc-fila img { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; flex: 0 0 auto; }
   .doc-fila input { flex: 1; min-width: 0; font-size: 1rem; }
   .doc-quitar { background: none; border: 0; color: #A93226; font-size: 1.4rem; cursor: pointer; padding: 0 6px; }
+  .btn-llegue { display: block; width: 100%; border: 0; border-radius: 16px; background: #1B6CA8; color: #fff;
+                font-size: 1.5rem; font-weight: 800; padding: 22px 16px; cursor: pointer; }
+  .btn-llegue:active { background: #155985; }
+  .btn-llegue:disabled { background: #1E8A4F; opacity: 1; cursor: default; }
+  .estado-llegada { text-align: center; font-size: 0.92rem; color: #5B6472; margin-top: 8px; }
+  .estado-llegada.ok { color: #1E6B44; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -127,6 +133,17 @@
 
   <div id="pantalla-contenido" style="display:none;">
     <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
+
+    <!-- «LLEGUÉ A MI PUESTO» (fase 4). Arriba y grande: es lo primero que hace un testigo al llegar. Sólo aparece si la
+         persona tiene un puesto asignado como testigo. NUNCA bloquea: sin ubicación o sin señal, se guarda igual. -->
+    <div id="caja-llegada" style="display:none; margin-bottom:16px;">
+      <div id="franja-prueba-llegada" style="display:none; background:#FDF3E0; color:#8A5A00; border-radius:8px; padding:6px 10px; font-size:0.8rem; margin-bottom:8px; text-align:center;">
+        Modo prueba: hoy no es el día de la elección. Puedes ensayar el «Llegué».
+      </div>
+      <button type="button" id="btn-llegue" class="btn-llegue">Llegué a mi puesto</button>
+      <div id="estado-llegada" class="estado-llegada" role="status"></div>
+      <div id="cola-llegada" style="display:none; background:#FDF3E0; border-radius:10px; padding:10px 12px; margin-top:8px; font-size:0.85rem;"></div>
+    </div>
 
     <div class="aviso-app error" id="diad-error"></div>
     <div class="aviso-app exito" id="diad-ok"></div>
@@ -231,6 +248,7 @@
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/app/checkin.js"></script>
 <script>
 function escaparHtml(texto) {
   const div = document.createElement('div');
@@ -1208,6 +1226,7 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
   actualizarAvisoColaOfflineDiaD();
   sincronizarColaOfflineDiaD();
   window.addEventListener('online', () => sincronizarColaOfflineDiaD());
+  if (typeof iniciarCheckin === 'function') iniciarCheckin();     // «Llegué a mi puesto»
 
   await cargarCandidatosParaReporte();
   await cargarPuestosParaReporte();

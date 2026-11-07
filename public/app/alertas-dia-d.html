@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Alertas Día D · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* Día D — «Alertas» de la coordinación (celular). Las alertas y los chips los dibuja public/js/alertas-dia-d.js,
+     el mismo archivo de la pestaña de escritorio. */
+  .franja-prueba {
+    background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none;
+  }
+  .al-chips { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 4px; }
+  .al-chip { white-space: nowrap; flex: 0 0 auto; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+  .estado-red { font-size: 0.8rem; color: var(--muted); text-align: center; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<div class="app-contenido">
+  <div id="aviso" class="aviso-app"></div>
+  <div class="franja-prueba" id="franja-prueba">Modo prueba: hoy no es el día de la elección.</div>
+
+  <div class="al-chips" id="chips"></div>
+  <p class="estado-red" id="estado-red"></p>
+  <div id="lista"></div>
+  <div id="vacio" class="vacio-app" style="display:none;">✅ No hay alertas con este filtro.</div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/alertas-dia-d.js"></script>
+<script>
+const STORE_CACHE = 'alertas_cache';
+let filtro = '';
+let datos = null;          // lo último que dijo el servidor (o la copia guardada)
+let desdeCopia = null;
+let cargando = false;
+
+function aviso(texto) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto || '';
+  el.className = texto ? 'aviso-app visible error' : 'aviso-app';
+}
+
+/* Copia para ver las alertas sin señal (IndexedDB: cajón `alertas_cache`), igual que Faltantes. */
+async function guardarCopia(d) {
+  try { await guardarEnColaOffline(STORE_CACHE, { clienteUuid: 'alertas', datos: d, guardadoEn: Date.now() }); } catch (_) { /* sin copia */ }
+}
+async function leerCopia() {
+  try { return (await listarColaOffline(STORE_CACHE)).find(x => x.clienteUuid === 'alertas') || null; } catch (_) { return null; }
+}
+
+function pintar() {
+  if (!datos) return;
+  AlertasDiaD.inyectarEstilo();
+  document.getElementById('franja-prueba').style.display = datos.jornada.modo_prueba ? 'block' : 'none';
+  document.getElementById('estado-red').textContent = desdeCopia
+    ? `Sin señal: se muestra la última lista guardada (${new Date(desdeCopia.guardadoEn).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}).` : '';
+  document.getElementById('chips').innerHTML = AlertasDiaD.chipsHtml(datos, filtro);
+  const lista = datos.alertas.filter(a => !filtro || a.tipo === filtro);
+  document.getElementById('lista').innerHTML = lista.map(AlertasDiaD.filaHtml).join('');
+  document.getElementById('vacio').style.display = lista.length ? 'none' : 'block';
+}
+
+async function cargar() {
+  if (cargando) return;
+  cargando = true;
+  try {
+    try {
+      datos = await api('/dia-d/alertas');
+      desdeCopia = null;
+      await guardarCopia(datos);
+      aviso('');
+    } catch (err) {
+      if (!err.esErrorDeRed) throw err;
+      const copia = await leerCopia();
+      if (!copia) { aviso('Sin conexión y todavía no hay una lista guardada en este celular.'); return; }
+      datos = copia.datos; desdeCopia = copia;
+    }
+    pintar();
+  } catch (err) {
+    aviso(err.message || 'No se pudieron cargar las alertas.');
+  } finally {
+    cargando = false;
+  }
+}
+
+document.getElementById('chips').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-tipo]');
+  if (!c) return;
+  filtro = c.dataset.tipo;
+  pintar();
+});
+document.getElementById('lista').addEventListener('click', (e) => {
+  // Marcar una alerta atendida o una llegada necesita señal: sin ella, el aviso de siempre del servidor/red.
+  AlertasDiaD.alTocar(e, { api, recargar: cargar });
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  if (usuario.rol === 'testigo') { window.location.replace('/app/dia-d.html'); return; }
+  pintarBarraApp('Alertas Día D', null, '/app/inicio.html');
+  await cargar();
+  // Se recarga sola cada minuto, sin pisar una carga en curso ni con la pantalla escondida.
+  setInterval(() => { if (!document.hidden) cargar(); }, 60000);
+})();
+</script>
+</body>
+</html>
