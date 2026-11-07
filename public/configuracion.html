@@ -408,6 +408,23 @@
           <span id="conteo-cobertura" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
         </div>
 
+        <!-- COBERTURA, SEGUNDA FILA. Comuna sólo se ofrece si el catálogo la trae (la tabla de puestos del catálogo
+             no la garantiza); «sin cubrir» y el límite son los del punto 1 y 4 de la orden 18. -->
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+          <select id="filtro-comuna-puestos" data-sin-ordenar style="display:none; max-width:240px;"><option value="">Todas las comunas</option></select>
+          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+            <input type="checkbox" id="filtro-sin-cubrir" style="width:auto;"> Solo con votantes sin cubrir
+          </label>
+          <label id="caja-limite-mesas" style="display:none; align-items:center; gap:6px; font-size:0.85rem;">
+            Máx. mesas por testigo
+            <input type="number" id="input-limite-mesas" min="1" max="20" style="width:62px;">
+            <button type="button" class="btn-secundario btn-sm" id="btn-guardar-limite-mesas">Guardar</button>
+          </label>
+          <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="configuracion" id="btn-excel-acreditacion" href="/api/dia-d/cobertura/excel" target="_blank">⬇ Excel de acreditación</a>
+          <button type="button" class="btn-secundario btn-sm" id="btn-avisar-todos">📣 Avisar a todos los asignados</button>
+        </div>
+        <div id="resumen-cobertura" class="resumen-cobertura" style="display:none;"></div>
+
         <div id="panel-traer-catalogo" style="display:none; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <div style="font-size:0.85rem; font-weight:600; color:#1B4C9C;">Traer puestos del catálogo oficial</div>
@@ -433,6 +450,7 @@
               <th class="col-num">Votantes registrados</th>
               <th class="col-num">Cantidad de mesas</th>
               <th class="col-num">Mesas con testigos asignados</th>
+              <th class="col-num" data-orden="sin_cubrir" id="th-sin-cubrir" title="Votantes propios cuya mesa no tiene testigo. Toca para ordenar.">Votantes sin cubrir ▾</th>
               <th class="col-cobertura">Mesas por asignar testigo</th>
               <th></th>
             </tr></thead>
@@ -669,6 +687,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/cobertura-testigos.js"></script>
 <script>
 let fechaEleccionCargada = '';   // la fecha de elección tal como se cargó (ver el aviso de enlaces «Ya voté»)
 let usuarioActual;
@@ -717,6 +736,40 @@ function cambiarPestana(pestana) {
 }
 document.getElementById('btn-tab-campana').addEventListener('click', () => cambiarPestana('campana'));
 document.getElementById('filtro-cobertura-puestos').addEventListener('change', cargarPuestosVotacion);
+document.getElementById('filtro-comuna-puestos').addEventListener('change', cargarPuestosVotacion);
+document.getElementById('filtro-sin-cubrir').addEventListener('change', cargarPuestosVotacion);
+document.getElementById('th-sin-cubrir').addEventListener('click', () => {
+  ordenCobertura = ordenCobertura === 'sin_cubrir' ? 'nombre' : 'sin_cubrir';
+  document.getElementById('th-sin-cubrir').textContent = ordenCobertura === 'sin_cubrir' ? 'Votantes sin cubrir ▾' : 'Votantes sin cubrir';
+  cargarPuestosVotacion();
+});
+/* Tocar una ficha de mesa abre la ventana de asignación (public/js/cobertura-testigos.js). */
+document.getElementById('tbody-puestos-votacion').addEventListener('click', (e) => {
+  const ficha = e.target.closest('.chip-mesa[data-mesa]');
+  if (ficha) abrirVentanaCobertura(Number(ficha.dataset.puesto), Number(ficha.dataset.mesa));
+});
+document.getElementById('btn-avisar-todos').addEventListener('click', () => {
+  avisarATestigos(null).catch(err => alert(err.message));
+});
+/* El límite de mesas por testigo: lo cambia el administrador (o el aspirante, en su campaña). Se lee cuando se
+   pinta la cobertura y no al cargar el archivo: hasta entonces no se sabe quién es `usuarioActual`. */
+let limiteMesasLeido = false;
+async function cargarLimiteDeMesas() {
+  if (limiteMesasLeido) return;
+  try {
+    const c = await api('/dia-d/cobertura/config');
+    document.getElementById('input-limite-mesas').value = c.max_mesas_por_testigo;
+    if (usuarioActual && (usuarioActual.rol === 'admin' || usuarioActual.es_aspirante)) document.getElementById('caja-limite-mesas').style.display = 'flex';
+    limiteMesasLeido = true;
+  } catch (_) { /* sin límite visible */ }
+}
+document.getElementById('btn-guardar-limite-mesas').addEventListener('click', async () => {
+  try {
+    const r = await api('/dia-d/cobertura/config', { method: 'PUT', body: { max_mesas_por_testigo: Number(document.getElementById('input-limite-mesas').value) } });
+    alert(`Listo: cada testigo puede cubrir hasta ${r.max_mesas_por_testigo} mesa(s) sin que la pantalla avise.`);
+    cargarPuestosVotacion();
+  } catch (err) { alert(err.message); }
+});
 document.getElementById('btn-tab-diad').addEventListener('click', () => cambiarPestana('diad'));
 document.getElementById('btn-tab-usuarios').addEventListener('click', () => cambiarPestana('usuarios'));
 document.getElementById('btn-tab-permisos').addEventListener('click', () => cambiarPestana('permisos'));
@@ -1900,11 +1953,16 @@ async function cargarPuestosVotacion() {
     return;
   }
 
+  cargarLimiteDeMesas();
   const municipioFiltro = document.getElementById('select-filtro-municipio').value;
-  const puestos = await api('/dia-d/config/puestos-votacion' +
-    (municipioFiltro ? `?municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
+  const puestos = await api('/dia-d/config/puestos-votacion?cobertura=1' +
+    (municipioFiltro ? `&municipio_id=${encodeURIComponent(municipioFiltro)}` : ''));
   const tbody = document.getElementById('tbody-puestos-votacion');
-  const visibles = puestos.filter(cumpleFiltroCobertura);
+  prepararFiltroComuna(puestos);
+  const visibles = puestos.filter(cumpleFiltroCobertura).sort(compararCobertura);
+  const resumen = document.getElementById('resumen-cobertura');
+  resumen.style.display = puestos.length ? 'flex' : 'none';
+  resumen.innerHTML = puestos.length ? resumenCobertura(puestos) : '';
   /* La barra es proporcional AL MAYOR DE LA LISTA, no a un tope fijo: lo que
      se compara es entre puestos, y un maximo inventado achataria a todos. */
   const mayorVotantes = Math.max(1, ...puestos.map(p => p.votantes_estimados || 0));
@@ -1915,7 +1973,8 @@ async function cargarPuestosVotacion() {
       <td class="col-num">${celdaVotantes(p, mayorVotantes)}</td>
       <td class="mono col-num">${p.cantidad_mesas}</td>
       <td class="mono col-num${p.mesas_con_testigo ? '' : ' nadie'}">${p.mesas_con_testigo}</td>
-      <td class="col-cobertura">${celdaCobertura(p)}</td>
+      <td class="col-num"><span class="col-sin-cubrir${p.votantes_sin_cubrir ? '' : ' cero'}" title="${p.votantes_sin_mesa ? `Además ${p.votantes_sin_mesa} votante(s) sin mesa registrada: no se arreglan asignando un testigo.` : 'Votantes propios en mesas sin testigo'}">${p.votantes_sin_cubrir || 0}</span></td>
+      <td class="col-cobertura">${p.mesas_detalle ? celdaCoberturaMesas(p) + leyendaTestigosPuesto(p) : celdaCobertura(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
         <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
@@ -2009,16 +2068,39 @@ function ocultarGloboMesa() {
 /* Delegado en el cuerpo de la tabla: las casillas se repintan en cada filtrado
    y enganchar una a una obligaria a acordarse de hacerlo cada vez. */
 document.addEventListener('mouseover', (e) => {
-  const casilla = e.target.closest && e.target.closest('.chip-mesa-votos');
+  const casilla = e.target.closest && e.target.closest('.chip-mesa[data-aviso]');
   if (casilla) mostrarGloboMesa(casilla);
 });
 document.addEventListener('mouseout', (e) => {
-  if (e.target.closest && e.target.closest('.chip-mesa-votos')) ocultarGloboMesa();
+  if (e.target.closest && e.target.closest('.chip-mesa[data-aviso]')) ocultarGloboMesa();
 });
 /* Al desplazar, el globo se quedaria flotando donde ya no esta su casilla. */
 window.addEventListener('scroll', ocultarGloboMesa, true);
 
+/* LOS FILTROS NUEVOS Y EL ORDEN. Se filtra y se ordena en el navegador: la lista ya vino entera.
+   Por omisión el orden es el de la prioridad: primero los puestos con MÁS votantes propios sin cubrir. */
+let ordenCobertura = 'sin_cubrir';
+function compararCobertura(a, b) {
+  if (ordenCobertura === 'nombre') return String(a.nombre).localeCompare(String(b.nombre), 'es');
+  return (b.votantes_sin_cubrir || 0) - (a.votantes_sin_cubrir || 0)
+      || (b.mesas_por_asignar || 0) - (a.mesas_por_asignar || 0)
+      || String(a.nombre).localeCompare(String(b.nombre), 'es');
+}
+/** El filtro de comuna sólo aparece si algún puesto trae comuna del catálogo; conserva lo elegido al repintar. */
+function prepararFiltroComuna(puestos) {
+  const sel = document.getElementById('filtro-comuna-puestos');
+  const comunas = [...new Set(puestos.map(p => p.comuna).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  sel.style.display = comunas.length ? '' : 'none';
+  if (!comunas.length) { sel.value = ''; return; }
+  const elegida = sel.value;
+  sel.innerHTML = '<option value="">Todas las comunas</option>' + comunas.map(c => `<option value="${escaparHtmlDiaD(c)}">${escaparHtmlDiaD(c)}</option>`).join('');
+  sel.value = comunas.includes(elegida) ? elegida : '';
+}
+
 function cumpleFiltroCobertura(p) {
+  const comuna = document.getElementById('filtro-comuna-puestos').value;
+  if (comuna && p.comuna !== comuna) return false;
+  if (document.getElementById('filtro-sin-cubrir').checked && !(p.votantes_sin_cubrir > 0)) return false;
   const cual = document.getElementById('filtro-cobertura-puestos').value;
   if (!cual) return true;
   if (cual === 'incompletos') return p.mesas_por_asignar > 0;

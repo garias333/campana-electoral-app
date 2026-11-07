@@ -3383,6 +3383,63 @@ function pintarBajaManualEstructura(fila) {
   });
 }
 
+const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+/** Lee (y borra) lo que dejó la pantalla de cobertura. */
+function leerPrellenadoDeTestigo() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem('testigo_prellenado') || 'null');
+    sessionStorage.removeItem('testigo_prellenado');
+    return d && typeof d === 'object' ? d : null;
+  } catch (_) { return null; }
+}
+
+/** Pone puesto y mesa en el panel de testigo del formulario, esperando a que sus listas se llenen. */
+async function ponerPuestoYMesaDeTestigo(d) {
+  const sel = document.getElementById('input-puesto-testigo-persona');
+  if (!sel || !d.puesto) return;
+  fijarValorGuardadoEnSelect(sel, d.puesto);
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  await esperar(700);                           // consulta las mesas disponibles del puesto
+  const mesa = document.getElementById('input-mesa-testigo-persona');
+  if (mesa && d.mesa) { mesa.value = String(d.mesa); }
+}
+
+async function aplicarPrellenadoDeTestigo() {
+  const d = leerPrellenadoDeTestigo();
+  const hash = window.location.hash;
+  try {
+    if (hash === '#testigo-nuevo') {
+      const botonNuevo = document.getElementById('btn-nuevo');
+      if (!botonNuevo || botonNuevo.style.display === 'none') return;
+      botonNuevo.click();
+      await esperar(400);
+      const radio = document.querySelector('#chips-cargo-persona input[name="cargo_visual"][value="testigo"]');
+      if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
+      await esperar(300);
+      if (!d) return;
+      const form = document.getElementById('form-estructura');
+      if (d.nombre) form.nombre.value = d.nombre;
+      if (d.cedula) form.numero_identificacion.value = d.cedula;
+      if (d.telefono) form.telefono.value = formatoTelefonoColombia(d.telefono);
+      if (d.email) form.email.value = d.email;
+      await ponerPuestoYMesaDeTestigo(d);
+    } else {
+      const id = Number(/^#testigo-editar=(\d+)$/.exec(hash)[1]);
+      await abrirEdicion(id);                   // pide la contraseña propia, como siempre
+      await esperar(300);
+      const chk = document.getElementById('chk-asignar-testigo-persona');
+      if (!chk || chk.disabled || !d) return;
+      chk.checked = true;
+      chk.dispatchEvent(new Event('change', { bubbles: true }));
+      await esperar(400);
+      await ponerPuestoYMesaDeTestigo(d);
+    }
+  } catch (err) {
+    console.warn('No se pudo prellenar el formulario de testigo:', err && err.message);
+  }
+}
+
 async function abrirEdicion(id) {
   const fila = listaEstructura.find(f => f.id === id);
   if (!fila) return;
@@ -3889,6 +3946,15 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   if (window.location.hash === '#nuevo') {
     const botonNuevo = document.getElementById('btn-nuevo');
     if (botonNuevo && botonNuevo.style.display !== 'none') botonNuevo.click();
+  }
+  /* DESDE «COBERTURA DE TESTIGOS» (Configuración → Día D). Esa pantalla no crea cuentas ni cambia roles: abre ESTE
+     formulario, el de siempre, con lo que ya sabe de la persona, para que quien lo guarde lo confirme aquí.
+       #testigo-nuevo       alta de un testigo (votante o persona nueva): categoría Testigo, datos, puesto y mesa.
+       #testigo-editar=<id> abre la edición de alguien ya registrado (líder, sublíder…) con «Es también testigo»
+                            marcado y el puesto y la mesa puestos.
+     Los datos viajan por sessionStorage (llevan cédula y teléfono: no van en la dirección). */
+  if (window.location.hash === '#testigo-nuevo' || /^#testigo-editar=\d+$/.test(window.location.hash)) {
+    aplicarPrellenadoDeTestigo();
   }
   /* LOS ENLACES DE LA LISTA DE ESTRUCTURA DE LA APP (public/app/admin-estructura.html).
        #editar=<id>        abre la edición de esa persona (<id> es el id de la fila de estructura, el mismo

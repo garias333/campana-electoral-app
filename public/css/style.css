@@ -2230,3 +2230,48 @@ table td .btn-primario:hover {
    Va acotado por clase: `.grupo-pestanas` lo usan cuatro pantallas más. */
 .subtabs-diad { width: fit-content; margin: 22px 0; }
 .subtabs-diad > .btn-sm { font-size: 1.32rem; padding: 13px 26px; }
+
+/* ---------------- Cobertura de testigos: fichas por testigo y ventana de asignación ----------------
+   Una ficha por MESA. Libre = rojo (el de siempre; más fuerte si ya hay votantes). Cubierta = el color de su
+   testigo, con sus iniciales debajo del número, para que las mesas de un mismo testigo se lean juntas. Todas se
+   tocan: abren la ventana. Con más de `max_mesas_por_testigo` mesas la ficha lleva un contorno ámbar (avisa, no
+   bloquea). */
+.mesas-todas { max-width: none; }
+.chip-mesa-tocable, .chip-mesa-cubierta { cursor: pointer; }
+.chip-mesa-cubierta {
+  color: #FFFFFF; border-color: transparent;
+  flex-direction: column; line-height: 1; gap: 1px;
+}
+.chip-mesa-cubierta small { font-size: 0.56rem; font-weight: 700; letter-spacing: 0.02em; opacity: 0.92; }
+.chip-mesa-excede { outline: 2px solid #C77700; outline-offset: 1px; }
+.cobertura-testigos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-width: 420px; }
+.cobertura-testigo {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; padding: 1px 7px 1px 1px;
+  border: 1.5px solid #9AA6B8; border-radius: 12px; background: #fff; color: #1B2432;
+}
+.cobertura-testigo b { color: #fff; font-size: 0.66rem; border-radius: 10px; padding: 2px 6px; }
+.cobertura-testigo.excede { background: #FFF6E5; }
+.resumen-cobertura {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 12px; padding: 10px 14px;
+  background: #F4F7FC; border: 1px solid #D3E0F5; border-radius: 10px; font-size: 0.92rem;
+}
+.resumen-cobertura b { color: #1B4C9C; margin-right: 5px; }
+.tabla-cobertura th[data-orden] { cursor: pointer; user-select: none; }
+.col-sin-cubrir { font-family: var(--font-mono); font-weight: 700; font-size: 1.2rem; color: #A93226; }
+.col-sin-cubrir.cero { color: #B0B7C3; font-weight: 500; }
+
+.modal.cobertura-ventana { max-width: 680px; width: 96vw; max-height: 92vh; overflow-y: auto; }
+.cov-fila { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cov-fila select { max-width: 320px; }
+.cov-bloque { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.cov-titular { background: #F1F8F4; border-color: #BFE0CC; }
+.cov-libre { background: #FDEDEA; border-color: #F0C4BC; color: #A93226; }
+.cov-h { font-weight: 700; margin-bottom: 6px; }
+.cov-h small { font-weight: 400; color: var(--color-text-muted); }
+.cov-sub { font-size: 0.82rem; color: var(--color-text-muted); }
+.cov-botones { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.cov-persona { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--color-border); }
+.cov-persona:first-child { border-top: 0; }
+.cov-acciones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+#cov-testigos, #cov-sugeridos, #cov-suplentes { max-height: 220px; overflow-y: auto; margin-top: 6px; }
+@media (max-width: 560px) { .cov-persona { flex-direction: column; align-items: stretch; } .cov-acciones { justify-content: flex-start; } }

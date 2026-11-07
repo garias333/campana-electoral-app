@@ -11,6 +11,10 @@ const { uploadDiaD, uploadExcel, UPLOAD_DIR, UPLOAD_DIA_D_DIR } = require('../mi
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { subarbolSql, filtroTestigosMadre, duenoDeLaCampana: duenoDeLaCampanaRama } = require('../lib/ramas');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
+const {
+  cargarTestigos: cargarTestigosCobertura, repartirPorPuesto, armarDetallePuesto,
+  leerLimiteDeMesas, cargarUbicaciones,
+} = require('../lib/coberturaTestigos');
 const { filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 
 /**
@@ -1628,31 +1632,11 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
        por rama, asi que la columna "mesas con testigos asignados" de la
        principal sumaba tambien los testigos del aspirante — y al reves. Con
        las dos listas ya separadas, seguir contando en comun daria a las dos
-       campanas una mesa por cubierta que ninguna cubre. */
-    const acotaTestigos = dueno
-      ? subarbolSql(dueno, 'e.usuario_id')
-      : await filtroTestigosMadre(pool, 'e.usuario_id');
-    const [testigos] = await pool.query(`
-      SELECT COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto_votacion,
-             e.tipo_testigo,
-             COALESCE(e.mesa_votacion, u.mesa_votacion) AS mesa_votacion,
-             e.mesas_asignadas
-      FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-      WHERE e.cargo = 'testigo'
-        AND COALESCE(e.puesto_votacion, u.puesto_votacion) IS NOT NULL
-        AND COALESCE(e.puesto_votacion, u.puesto_votacion) != ''
-        ${acotaTestigos ? 'AND ' + acotaTestigos.sql : ''}
-    `, acotaTestigos ? acotaTestigos.valores : []);
-    const mesasPorPuesto = new Map();
-    for (const t of testigos) {
-      if (!mesasPorPuesto.has(t.puesto_votacion)) mesasPorPuesto.set(t.puesto_votacion, new Set());
-      const mesas = mesasPorPuesto.get(t.puesto_votacion);
-      if (t.tipo_testigo === 'puesto') {
-        (t.mesas_asignadas || []).forEach(m => mesas.add(Number(m)));
-      } else if (t.mesa_votacion) {
-        mesas.add(Number(t.mesa_votacion));
-      }
-    }
+       campanas una mesa por cubierta que ninguna cubre.
+       El calculo vive en lib/coberturaTestigos.js (lo comparte con la ventana de asignacion) y cruza
+       el puesto POR ID, con el texto como respaldo: antes era solo por texto. */
+    const testigosCampana = await cargarTestigosCobertura(pool, dueno);
+    const testigosPorPuesto = repartirPorPuesto(testigosCampana, puestos);
 
     /* QUE MESAS YA TIENEN GENTE QUE DICE VOTAR AHI.
        Una mesa sin testigo no es tan urgente como una mesa sin testigo DONDE LA
@@ -1670,6 +1654,7 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
        ademas a quien escribio una mesa fuera de rango o la dejo en blanco, que
        vota en el puesto igual. */
     let totalPorPuesto = new Map();
+    const sinMesaPorPuesto = new Map();
     try {
       const est = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), dueno);
       est.puestos.forEach((e) => {
@@ -1677,13 +1662,22 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
         (e.mesas || []).forEach((x) => { if (x.cantidad > 0) m.set(Number(x.mesa), x.cantidad); });
         if (m.size) votantesPorMesa.set(e.puesto, m);
         if (e.total > 0) totalPorPuesto.set(e.puesto, e.total);
+        if (e.sinMesaValida > 0) sinMesaPorPuesto.set(e.puesto, e.sinMesaValida);
       });
     } catch (err) {
       console.warn('No se pudo cruzar el estimado de votantes por mesa:', err.code || err.message);
     }
 
+    /* `?cobertura=1` es la pantalla de cobertura de Configuracion: trae ademas, por puesto, la mesa y su
+       testigo, los votantes sin cubrir y la ubicacion. La lista de a secas (la usan testigos.html y los
+       desplegables) no los carga: son un millar de objetos que esas pantallas no leen. */
+    const detallada = req.query.cobertura === '1';
+    const limiteMesas = detallada ? await leerLimiteDeMesas(pool) : 3;
+    const ubicaciones = detallada ? await cargarUbicaciones(pool, puestos) : new Map();
     const filas = puestos.map(p => {
-      const cubiertas = mesasPorPuesto.get(p.nombre) || new Set();
+      const testigosDelPuesto = testigosPorPuesto.get(Number(p.id)) || [];
+      const cubiertas = new Set();
+      testigosDelPuesto.forEach(t => t.mesas.forEach(m => cubiertas.add(m)));
       const conVotantes = votantesPorMesa.get(p.nombre) || new Map();
       /* QUE MESAS FALTAN, NO SOLO CUANTAS. La cifra decia «faltan 13» y ahi se
          acababa: para saber cuales habia que abrir el puesto y comparar a mano
@@ -1704,7 +1698,13 @@ router.get('/config/puestos-votacion', requireRole('admin', 'coordinador', 'aspi
         mesas_por_asignar: Math.max(p.cantidad_mesas - cubiertas.size, 0),
         mesas_faltantes: faltantes,
         mesas_faltantes_con_votantes: faltantesConVotantes,
-        votantes_estimados: totalPorPuesto.get(p.nombre) || 0
+        votantes_estimados: totalPorPuesto.get(p.nombre) || 0,
+        ...(detallada ? {
+          ...armarDetallePuesto(p, testigosDelPuesto, votantesPorMesa.get(p.nombre), sinMesaPorPuesto.get(p.nombre), limiteMesas),
+          municipio_id: (ubicaciones.get(Number(p.id)) || {}).municipio_id || null,
+          municipio: (ubicaciones.get(Number(p.id)) || {}).municipio || null,
+          comuna: (ubicaciones.get(Number(p.id)) || {}).comuna || null,
+        } : {})
       };
     });
     res.json(filas);

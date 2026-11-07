@@ -379,6 +379,9 @@ async function api(path, opciones = {}) {
     // de un fallo cualquiera sin comparar textos (ver dashboard.html).
     const errorHttp = new Error((data && data.error) || 'Error en la solicitud.');
     errorHttp.status = resp.status;
+    // El cuerpo entero de la respuesta, para quien necesite algo mas que el texto del error
+    // (por ejemplo un 409 que pide confirmar: viene con QUE hay que confirmar).
+    errorHttp.datos = data;
     throw errorHttp;
   }
   return data;

@@ -874,7 +874,7 @@ async function main() {
   const [yaExistian] = await connection.query(
     `SELECT TABLE_NAME AS t FROM INFORMATION_SCHEMA.TABLES
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('votante_votos', 'votante_voto_tokens',
-       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes')`);
+       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes', 'dia_d_suplentes_testigo')`);
   const tablasVotoQueExistian = new Set(yaExistian.map(r => r.t));
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await connection.query(schema);
@@ -1942,6 +1942,10 @@ async function main() {
      'Hola {nombre}, manana son las elecciones. Su puesto: {puesto}, mesa {mesa}. Las urnas abren a las 8 am.'],
     ['Invitacion a evento', 'sms', null,
      'Hola {nombre}, lo invitamos a nuestro encuentro. Lo esperamos. Para no recibir mas: {baja}'],
+    // Aviso al testigo desde Cobertura de testigos. Sin tildes (SMS); con la firma del operador y un puesto
+    // corto cabe en 1 segmento, con un puesto largo pasa a 2: ver la nota de ESTADO.md.
+    ['Testigo - aviso de asignacion', 'sms', null,
+     '{primer_nombre}, eres testigo en {puesto_testigo}, mesa {mesas_testigo}. Entra a la app: {enlace_app}'],
     ['Convocatoria a testigos', 'sms', null,
      'Hola {nombre}, usted es testigo en {puesto}, mesa {mesa}. Presentese a las 7 am con su cedula y credencial.'],
     ['Agradecimiento post jornada', 'sms', null,
@@ -2096,7 +2100,8 @@ async function main() {
   // principio de cada corrida). Aquí solo se COMPRUEBA que existan y se dice si ya
   // estaban, según lo que había ANTES de aplicar el esquema (ver `tablasVotoQueExistian`).
   for (const tabla of ['votante_votos', 'votante_voto_tokens',
-                       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes']) {
+                       'dia_d_resultado_oficial', 'dia_d_mesa_revision', 'dia_d_paquetes',
+                       'dia_d_suplentes_testigo']) {
     const [[t]] = await connection.query(
       `SELECT 1 AS x FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`, [tabla]);
@@ -2105,6 +2110,12 @@ async function main() {
       ? `La tabla ${tabla} ya existía. Sin cambios.`
       : `Tabla ${tabla} creada.`);
   }
+
+  // --- Cobertura de testigos: cuántas mesas puede cubrir un mismo testigo ---
+  // Pasarlo NO bloquea nada: la pantalla de cobertura avisa (un testigo con diez mesas no vigila ninguna).
+  // 3 de fábrica; se cambia en Configuración → Día D → Puestos de votación.
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    'max_mesas_por_testigo TINYINT UNSIGNED NOT NULL DEFAULT 3', 'max_mesas_por_testigo');
 
   // --- Día D fase 3: el bloque de cada voto ---
   // `dia_d_reporte_votos` guardaba solo el NOMBRE del candidato; el bloque (candidato,

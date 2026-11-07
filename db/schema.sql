@@ -1040,4 +1040,21 @@ CREATE TABLE IF NOT EXISTS dia_d_paquetes (
   FOREIGN KEY (pedido_por) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- SUPLENTES DE TESTIGO, por puesto. Una persona con cuenta (`usuarios`) que cubre el puesto si el titular
+-- de una mesa no llega; con un toque pasa a ser titular de una mesa (ver routes/coberturaTestigos.routes.js).
+-- `aspirante_id` 0 es la campaña principal, igual que en el resto del Día D. Va por `usuario_id` y no por
+-- fila de `estructura`: un suplente no tiene todavía puesto ni mesa de testigo.
+CREATE TABLE IF NOT EXISTS dia_d_suplentes_testigo (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  aspirante_id INT NOT NULL DEFAULT 0,
+  puesto_id INT NOT NULL,
+  usuario_id INT NOT NULL,
+  creado_por INT NULL,
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_suplente (aspirante_id, puesto_id, usuario_id),
+  INDEX idx_suplente_puesto (aspirante_id, puesto_id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
