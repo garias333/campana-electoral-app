@@ -180,6 +180,21 @@
           <button type="button" class="btn-acento btn-sm" id="btn-guardar-ajustes-insc">Guardar</button>
         </div>
         <p style="color:var(--color-text-muted); font-size:0.8rem; margin-bottom:0;">Apagarla hace que todos los enlaces digan «no activo». No borra a nadie.</p>
+
+        <h4 style="margin:18px 0 6px; font-size:0.95rem;">Mensaje de invitación</h4>
+        <p style="color:var(--color-text-muted); font-size:0.8rem; margin:0 0 6px;">Es lo que cada líder manda por WhatsApp, SMS o «Copiar» desde «Mi enlace de inscripción».
+          Variables: <code>{nombre_lider}</code> (su primer nombre), <code>{candidato}</code>, <code>{eslogan}</code> y <code>{enlace}</code> (obligatoria).
+          Si a una línea le falta un dato, esa línea se quita entera. No hay variable de cargo ni de tarjetón: es un mensaje de precampaña.</p>
+        <textarea id="aj-insc-plantilla" rows="8" maxlength="1000" style="width:100%; box-sizing:border-box; font:inherit; padding:8px;"></textarea>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <button type="button" class="btn-acento btn-sm" id="btn-guardar-plantilla-insc">Guardar mensaje</button>
+          <button type="button" class="btn-secundario btn-sm" id="btn-restaurar-plantilla-insc">Restaurar texto sugerido</button>
+        </div>
+        <p id="aviso-eslogan-insc" style="display:none; color:#8A5A00; font-size:0.82rem; margin:8px 0 0;">Esta campaña todavía no tiene eslogan: la línea del eslogan se quitará.
+          Llénalo en Configuración → Datos de la campaña (campo «Slogan de la campaña»).</p>
+        <p style="margin:10px 0 2px; font-size:0.8rem; color:var(--color-text-muted);">Así se vería (datos de ejemplo):</p>
+        <pre id="vista-plantilla-insc" style="white-space:pre-wrap; background:#F3F5F8; border-radius:8px; padding:10px; margin:0; font:inherit; font-size:0.85rem;"></pre>
+        <p id="vista-sms-insc" style="margin:6px 0 0; font-size:0.78rem; color:var(--color-text-muted);"></p>
       </div>
     </div>
 
@@ -3184,6 +3199,7 @@ async function cargarInscripciones() {
   document.getElementById('aj-insc-enlace').value = aj.limite_enlace_dia;
   document.getElementById('aj-insc-telefono').value = aj.limite_telefono_dia;
   document.getElementById('aj-insc-segundos').value = aj.segundos_minimos;
+  if (usuarioActual && usuarioActual.rol === 'admin') cargarPlantillaInsc();
 }
 
 async function cambiarActivoEnlace(usuarioId, activo, boton) {
@@ -3203,6 +3219,28 @@ async function rotarEnlaceDe(usuarioId, boton) {
     cargarInscripciones();
   } catch (err) { alert(err.message); boton.disabled = false; }
 }
+
+/* El mensaje de invitación (orden 29). Solo lo ve y lo guarda el administrador; el servidor valida. */
+function pintarPlantillaInsc(r) {
+  document.getElementById('aj-insc-plantilla').value = r.plantilla || '';
+  document.getElementById('vista-plantilla-insc').textContent = r.vista_previa || '';
+  const sms = r.vista_previa_sms;
+  document.getElementById('vista-sms-insc').textContent = sms
+    ? `Versión SMS automática: «${sms.texto}» — ${sms.caracteres} caracteres, ${sms.segmentos} SMS${sms.sinEslogan ? ' (sin el eslogan, porque no cabía)' : ''}.` : '';
+  document.getElementById('aviso-eslogan-insc').style.display = r.eslogan_configurado ? 'none' : 'block';
+}
+async function cargarPlantillaInsc() {
+  try { pintarPlantillaInsc(await api('/inscripcion/plantilla')); } catch (err) { /* sin permiso o sin la columna: el cuadro queda vacío */ }
+}
+document.getElementById('btn-guardar-plantilla-insc').addEventListener('click', async () => {
+  try { pintarPlantillaInsc(await api('/inscripcion/plantilla', { method: 'PUT', body: { plantilla: document.getElementById('aj-insc-plantilla').value } })); }
+  catch (err) { alert(err.message); }
+});
+document.getElementById('btn-restaurar-plantilla-insc').addEventListener('click', async () => {
+  if (!confirm('¿Volver al texto sugerido? Se pierde el mensaje que escribiste.')) return;
+  try { pintarPlantillaInsc(await api('/inscripcion/plantilla', { method: 'PUT', body: { plantilla: null } })); }
+  catch (err) { alert(err.message); }
+});
 
 document.getElementById('btn-guardar-ajustes-insc').addEventListener('click', async () => {
   try {

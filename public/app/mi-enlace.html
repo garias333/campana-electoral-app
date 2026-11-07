@@ -32,6 +32,13 @@
   .aviso-cedulas ul { list-style: none; margin: 0; padding: 0; }
   .aviso-cedulas li { font-size: 0.84rem; line-height: 1.45; padding: 7px 0; border-top: 1px solid #EBD9A0; color: #3E3413; }
   .aviso-cedulas .sin-coincidir { color: #8A1C13; font-weight: 600; }
+  .mensaje-caja { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .mensaje-caja label { display: block; font-weight: 700; font-size: 0.9rem; color: var(--navy); margin: 0 0 6px; }
+  .mensaje-caja label + textarea { margin-bottom: 6px; }
+  .mensaje-caja textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; line-height: 1.45; padding: 10px; border: 1px solid var(--linea); border-radius: 10px; resize: vertical; color: #161B26; }
+  .mensaje-caja .nota-enlace { margin: 0 0 12px; }
+  .enlace-texto { background: none; border: 0; padding: 0; color: #0B5ED7; text-decoration: underline; font: inherit; cursor: pointer; }
+  .fila-botones.una { grid-template-columns: 1fr; }
   .peligro { background: #fff; color: #A93226; border: 1.5px solid #A93226; }
 </style>
 </head>
@@ -53,15 +60,29 @@
       <p class="qr-ayuda" id="qr-ayuda"></p>
     </div>
 
+    <div class="mensaje-caja" id="caja-mensaje">
+      <label for="mensaje-texto">Mensaje que vas a mandar</label>
+      <textarea id="mensaje-texto" rows="12" maxlength="1500"></textarea>
+      <p class="nota-enlace">Puedes cambiarlo aquí solo para este envío: no cambia el mensaje de la campaña.
+        <button type="button" class="enlace-texto" id="btn-mensaje-original">Volver al texto original</button></p>
+      <label for="mensaje-sms">Para SMS (versión corta, sin emojis)</label>
+      <textarea id="mensaje-sms" rows="5" maxlength="320"></textarea>
+      <p class="nota-enlace" id="sms-contador"></p>
+    </div>
+
     <div id="acciones">
       <div class="fila-botones">
-        <button type="button" class="btn-app btn-app-secundario" id="btn-copiar">Copiar enlace</button>
         <a class="btn-app btn-wa" id="btn-whatsapp" href="#" target="_blank" rel="noopener">Por WhatsApp</a>
+        <a class="btn-app btn-app-secundario" id="btn-sms" href="#" style="text-decoration:none;">Por SMS</a>
       </div>
-      <div class="fila-botones">
+      <div class="fila-botones" id="fila-copiar">
+        <button type="button" class="btn-app btn-app-secundario" id="btn-copiar">Copiar mensaje</button>
         <button type="button" class="btn-app btn-app-secundario" id="btn-compartir" style="display:none;">Compartir…</button>
+      </div>
+      <div class="fila-botones una">
         <button type="button" class="btn-app btn-app-primario" id="btn-descargar">Descargar QR (PNG)</button>
       </div>
+      <p class="nota-enlace"><button type="button" class="enlace-texto" id="btn-copiar-enlace">Copiar solo el enlace</button></p>
     </div>
 
     <div class="cifras-enlace" id="cifras" style="display:none;">
@@ -96,6 +117,7 @@
 <script>
 let datos = null;      // { codigo, url, activo, habilitado, total, hoy, sin_confirmar }
 let usuarioId = null;
+let mensaje = null;    // { texto, sms: { texto, ... }, enlace } — lo arma el servidor con la plantilla de la campaña
 
 function aviso(texto, tipo) {
   const el = document.getElementById('aviso');
@@ -147,9 +169,11 @@ function pintar(d, desdeCache) {
   ['btn-copiar', 'btn-descargar', 'btn-compartir', 'btn-rotar'].forEach(id => { document.getElementById(id).disabled = !vivo && id !== 'btn-copiar'; });
   document.getElementById('btn-whatsapp').style.pointerEvents = vivo ? '' : 'none';
   document.getElementById('btn-whatsapp').style.opacity = vivo ? '' : '0.45';
-  document.getElementById('btn-whatsapp').href = 'https://wa.me/?text=' + encodeURIComponent('Inscríbete con mi equipo aquí: ' + url);
+  document.getElementById('btn-sms').style.pointerEvents = vivo ? '' : 'none';
+  document.getElementById('btn-sms').style.opacity = vivo ? '' : '0.45';
   if (navigator.share) document.getElementById('btn-compartir').style.display = '';
-  else document.getElementById('btn-descargar').style.gridColumn = '1 / -1';   // sin «Compartir», «Descargar» ocupa la fila
+  else document.getElementById('btn-copiar').style.gridColumn = '1 / -1';   // sin «Compartir», «Copiar mensaje» ocupa la fila
+  pintarMensaje();
   if (!desdeCache) {
     document.getElementById('c-total').textContent = d.total;
     document.getElementById('c-hoy').textContent = d.hoy;
@@ -183,12 +207,14 @@ async function cargar() {
   try {
     const d = await api('/inscripcion/mi-enlace');
     datos = d;
-    guardarCache({ ...d, avisos: undefined });   // las cédulas enmascaradas no se guardan en el teléfono
+    // El mensaje ya lleno (orden 29). Si falla, se sigue con el texto sencillo: el QR y el enlace no dependen de él.
+    try { mensaje = await api('/inscripcion/mi-mensaje'); } catch (e) { mensaje = null; }
+    guardarCache({ ...d, avisos: undefined, mensaje });   // las cédulas enmascaradas no se guardan en el teléfono
     pintar(d, false);
   } catch (err) {
     if (err.esErrorDeRed) {
       const c = leerCache();
-      if (c) { datos = c; pintar(c, true); return; }
+      if (c) { datos = c; mensaje = c.mensaje || null; pintar(c, true); return; }
       document.getElementById('pantalla-carga').textContent = 'Sin conexión. Abre esta pantalla una vez con señal para guardar tu QR.';
       return;
     }
@@ -197,22 +223,56 @@ async function cargar() {
   }
 }
 
-document.getElementById('btn-copiar').addEventListener('click', async () => {
-  const url = urlCompleta(datos);
+/* EL MENSAJE. Lo arma el servidor (config/inscripcionMensaje.js); aquí solo se muestra y se deja editar PARA ESTE
+   ENVÍO: lo que se escriba en los cuadros no se guarda en ninguna parte. Sin el mensaje del servidor (sin conexión,
+   o falló) se usa el texto sencillo de antes: mandar el enlace es lo que importa. */
+function mensajePorOmision() {
+  const u = urlCompleta(datos);
+  return { texto: 'Inscríbete con mi equipo aquí: ' + u, sms: { texto: 'Inscribete aqui: ' + u }, enlace: u };
+}
+const cajaTexto = () => document.getElementById('mensaje-texto');
+const cajaSms = () => document.getElementById('mensaje-sms');
+function textoDelMensaje() { return cajaTexto().value.trim() || (mensaje || mensajePorOmision()).texto; }
+function textoDelSms() { return cajaSms().value.trim() || (mensaje || mensajePorOmision()).sms.texto; }
+
+function actualizarEnvio() {
+  document.getElementById('btn-whatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(textoDelMensaje());
+  // «sms:?&body=» es la forma que abren a la vez iPhone y Android.
+  document.getElementById('btn-sms').href = 'sms:?&body=' + encodeURIComponent(textoDelSms());
+  const t = cajaSms().value, n = t.length;
+  const soloAscii = /^[\x20-\x7E\n]*$/.test(t);
+  document.getElementById('sms-contador').textContent = !soloAscii
+    ? 'Tiene tildes o emojis: puede contar como varios SMS.'
+    : (n <= 160 ? `${n} caracteres: cabe en 1 SMS.` : `${n} caracteres: serán ${Math.ceil(n / 153)} SMS.`);
+}
+function pintarMensaje() {
+  const m = mensaje || mensajePorOmision();
+  cajaTexto().value = m.texto;
+  cajaSms().value = m.sms.texto;
+  actualizarEnvio();
+}
+cajaTexto().addEventListener('input', actualizarEnvio);
+cajaSms().addEventListener('input', actualizarEnvio);
+document.getElementById('btn-mensaje-original').addEventListener('click', pintarMensaje);
+
+async function copiarTexto(texto, confirmacion) {
   try {
-    await navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(texto);
   } catch (e) {
     const t = document.createElement('textarea');
-    t.value = url; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+    t.value = texto; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
     document.body.appendChild(t); t.select();
     try { document.execCommand('copy'); } catch (_) { /* nada más que hacer */ }
     document.body.removeChild(t);
   }
-  aviso('Enlace copiado.', 'exito');
-});
+  aviso(confirmacion, 'exito');
+}
+document.getElementById('btn-copiar').addEventListener('click', () => copiarTexto(textoDelMensaje(), 'Mensaje copiado.'));
+document.getElementById('btn-copiar-enlace').addEventListener('click', () => copiarTexto(urlCompleta(datos), 'Enlace copiado.'));
 
 document.getElementById('btn-compartir').addEventListener('click', async () => {
-  try { await navigator.share({ title: 'Inscríbete con mi equipo', text: 'Inscríbete con mi equipo aquí:', url: urlCompleta(datos) }); }
+  // El enlace ya va dentro del texto: pasarlo también como `url` lo duplicaría en varias aplicaciones.
+  try { await navigator.share({ title: 'Inscríbete con mi equipo', text: textoDelMensaje() }); }
   catch (e) { /* la persona cerró el menú de compartir */ }
 });
 

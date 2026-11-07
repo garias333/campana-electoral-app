@@ -831,7 +831,7 @@ const F = (codigo, huella, extra = {}) => ({
   const pagina = fs.readFileSync(path.join(__dirname, '..', 'public/app/mi-enlace.html'), 'utf8');
   ok(/id="aviso-cedulas"/.test(pagina) && /pintarAvisos\(d\.avisos/.test(pagina) && /avisos: undefined/.test(pagina), 'la pantalla «Mi enlace» tiene el bloque del aviso, lo pinta, y no guarda las cédulas enmascaradas en el teléfono');
   ok(/li\.textContent/.test(pagina) && !/innerHTML\s*=\s*[^'"\s]*a\./.test(pagina), 'el texto del aviso se pone con textContent (nada del servidor se interpreta como HTML)');
-  ok(/estrategia-v156/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker subió a v156 (mi-enlace.html está en su precache)');
+  ok(/estrategia-v15[67]/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v156 o posterior (mi-enlace.html está en su precache)');
 
   console.log('  -- la respuesta pública: idéntica para cédula nueva y existente');
   const mismoCuerpo = (a, b) => a.status === b.status && a.texto === b.texto;
@@ -868,6 +868,215 @@ const F = (codigo, huella, extra = {}) => ({
 
   } // fin del bloque de la orden 28
 
+  console.log('\n== Mensaje de invitación con eslogan y vista previa del enlace (orden 29)');
+  { // bloque propio
+  const fs = require('fs'), path = require('path');
+  const M = require('../config/inscripcionMensaje');
+  const routerInsc = require('../routes/inscripcion.routes');
+  const sharp = require('sharp');
+  const V = { nombre_lider: 'Ana', candidato: 'María Gómez', eslogan: 'Juntos por Manizales', enlace: 'https://electoral.appestrategia.net/i/AB23CD45' };
+
+  console.log('  -- la plantilla y sus variables');
+  const completo = M.armarMensaje(M.PLANTILLA_SUGERIDA, V);
+  ok(completo === [
+    'Hola 👋, soy Ana.', '✨ Juntos por Manizales', 'Te invito a sumarte al equipo de María Gómez. Juntos vamos a lograrlo.',
+    '📝 Inscríbete en menos de 1 minuto, desde tu celular:', '👉 https://electoral.appestrategia.net/i/AB23CD45',
+    'Tus datos están protegidos y solo se usan para la campaña. ¡Cuento contigo!'].join('\n'), 'con todos los datos: el texto sugerido, tal cual y con las cuatro variables reemplazadas', completo);
+  ok(!/[{}]/.test(completo), 'no queda ninguna llave');
+  ok(!/cargo|elecci|\bvot|tarjet|alcald|concej|senado|c[aá]mara|gobern/i.test(M.PLANTILLA_SUGERIDA), 'el texto sugerido NO menciona cargo, elección, voto ni tarjetón (precampaña)');
+  ok(M.VARIABLES.join() === 'nombre_lider,candidato,eslogan,enlace', 'las únicas variables: nombre_lider, candidato, eslogan y enlace (sin cargo ni tarjetón)');
+  ok(M.primerNombre('GILDARDO ARIAS') === 'Gildardo' && M.primerNombre('  maría josé ') === 'María' && M.primerNombre('') === '', 'primerNombre: solo el primero y bien escrito');
+
+  console.log('  -- variable faltante: la línea completa se quita');
+  const sinEsl = M.armarMensaje(M.PLANTILLA_SUGERIDA, { ...V, eslogan: '' });
+  ok(!sinEsl.includes('✨') && sinEsl.split('\n').length === 5 && !/[{}]/.test(sinEsl), 'sin eslogan: se va la línea ✨ entera (5 líneas) y no queda «{eslogan}»', sinEsl);
+  ok(M.armarMensaje(M.PLANTILLA_SUGERIDA, { ...V, eslogan: '   ' }) === sinEsl, 'un eslogan de solo espacios cuenta como faltante');
+  const sinCand = M.armarMensaje(M.PLANTILLA_SUGERIDA, { ...V, candidato: '' });
+  ok(!/Te invito/.test(sinCand) && !/ de \./.test(sinCand) && sinCand.includes('✨ Juntos por Manizales'), 'sin candidato: se va «Te invito a sumarte…» entera, sin dejar «equipo de .»', sinCand);
+  const sinLider = M.armarMensaje(M.PLANTILLA_SUGERIDA, { ...V, nombre_lider: '' });
+  ok(!/Hola/.test(sinLider) && sinLider.startsWith('✨'), 'sin nombre del líder: se va el saludo');
+  const solo = M.armarMensaje(M.PLANTILLA_SUGERIDA, { enlace: V.enlace });
+  ok(solo === ['📝 Inscríbete en menos de 1 minuto, desde tu celular:', '👉 ' + V.enlace, 'Tus datos están protegidos y solo se usan para la campaña. ¡Cuento contigo!'].join('\n'), 'solo con el enlace: quedan las tres líneas que no dependen de nada', solo);
+  const conBlancos = M.armarMensaje('Hola\n\n{eslogan}\n\nTe invito\n\n\n{enlace}\n', { ...V, eslogan: '' });
+  ok(conBlancos === 'Hola\n\nTe invito\n\n' + V.enlace && !/\n\n\n/.test(conBlancos), 'nunca dos líneas en blanco seguidas, ni blancos al principio o al final', JSON.stringify(conBlancos));
+  ok(!/[{}]/.test(M.armarMensaje('Hola {cargo}\nVota {numero_tarjeton}\n{enlace}', V)) && M.armarMensaje('Hola {cargo}\n{enlace}', V) === V.enlace, 'una llave que no existe ({cargo}) no se muestra: su línea se quita');
+  ok(!/\{|\}/.test(M.armarMensaje('{candidato} {enlace}', { ...V, candidato: '{eslogan} {enlace}' })) , 'un dato que trae llaves no se vuelve a expandir');
+  console.log('  -- lo que el administrador puede guardar');
+  ok(M.validarPlantilla(M.PLANTILLA_SUGERIDA).ok, 'el texto sugerido es válido');
+  ok(!M.validarPlantilla('Hola {cargo} {enlace}').ok && /\{cargo\}/.test(M.validarPlantilla('Hola {cargo} {enlace}').error), '{cargo} se rechaza y el error lo nombra');
+  ok(!M.validarPlantilla('Hola {candidato}').ok && /enlace/.test(M.validarPlantilla('Hola {candidato}').error), 'sin {enlace} se rechaza');
+  ok(!M.validarPlantilla('   ').ok && !M.validarPlantilla('x {enlace}' + 'a'.repeat(1000)).ok && !M.validarPlantilla('Hola { {enlace}').ok, 'vacío, demasiado largo y llave suelta se rechazan');
+
+  console.log('  -- la versión SMS (1 segmento, con los tres dominios)');
+  const DOMS = ['electoral.appestrategia.net', 'campanadepruebamunicipal.appestrategia.net', 'campanadepruebadepartamental.appestrategia.net'];
+  const medidas = [];
+  for (const dom of DOMS) {
+    const enlaceSms = `https://${dom}/i/AB23CD45`;
+    const normal = M.armarSms({ nombre_lider: 'Ana', candidato: 'María Gómez', eslogan: 'Juntos por Manizales', enlace: enlaceSms });
+    const peor = M.armarSms({ nombre_lider: 'Bañuelitos', candidato: 'José Ángel Peñuela Rodríguez de la Vega', eslogan: 'Por una Caldas más justa, más segura y con más oportunidades para todos 🇨🇴', enlace: enlaceSms });
+    medidas.push({ dom, normal: normal.caracteres, peor: peor.caracteres });
+    ok(normal.texto === `Ana: Juntos por Manizales. Inscribete con Maria Gomez aqui: ${enlaceSms}` && normal.segmentos === 1 && !normal.sinEslogan, `${dom}: «Ana: Juntos por Manizales. Inscribete con Maria Gomez aqui: …» = ${normal.caracteres} caracteres, 1 SMS`, normal);
+    ok(/^[\x20-\x7E]+$/.test(normal.texto) && /^[\x20-\x7E]+$/.test(peor.texto), `${dom}: solo ASCII (sin emojis ni tildes)`);
+    ok(peor.segmentos === 1 && peor.sinEslogan === true && !/Caldas/.test(peor.texto) && peor.texto.includes(enlaceSms), `${dom}: el peor caso (eslogan largo, nombre largo) no cabe con eslogan → se quita y queda en 1 SMS (${peor.caracteres})`, peor);
+  }
+  console.log('  largos medidos (normal / peor caso):', JSON.stringify(medidas));
+  ok(M.armarSms({ nombre_lider: '', candidato: '', eslogan: '', enlace: 'https://x.co/i/AB23CD45' }).texto === 'Inscribete aqui: https://x.co/i/AB23CD45', 'sin ningún dato: «Inscribete aqui: <enlace>»');
+  ok(M.armarSms({ nombre_lider: 'Ana', candidato: 'Luis', eslogan: '¡Vamos!', enlace: 'https://x.co/i/A' }).texto === 'Ana: ¡Vamos!'.replace('¡', '') + ' Inscribete con Luis aqui: https://x.co/i/A', 'un eslogan que ya termina en signo no recibe otro punto');
+
+  console.log('  -- «Mi enlace»: el mensaje ya lleno');
+  await pool.query("INSERT IGNORE INTO configuracion_campana (id) VALUES (1)");
+  await pool.query("UPDATE configuracion_campana SET nombre_candidato = 'María Gómez', slogan_campana = 'Juntos por Manizales', marca_titulo = NULL, marca_subtitulo = NULL, marca_logo_url = NULL WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  const m1 = await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l1, 'lider') });
+  const cod1 = (await pedir('GET', '/api/inscripcion/mi-enlace', { usuario: U(l1, 'lider') })).datos.codigo;
+  ok(m1.status === 200 && m1.datos.texto.includes('Hola 👋, soy Lider.') && m1.datos.texto.includes('✨ Juntos por Manizales') && m1.datos.texto.includes('equipo de María Gómez')
+     && m1.datos.texto.includes(`👉 https://campana.prueba/i/${cod1}`) && !/[{}]/.test(m1.datos.texto), 'trae el primer nombre del líder, el eslogan, el candidato y SU enlace', m1.datos.texto);
+  ok(m1.datos.sms.segmentos === 1 && m1.datos.sms.texto.startsWith('Lider: Juntos por Manizales. Inscribete con Maria Gomez aqui: https://campana.prueba/i/'), 'y la versión SMS de 1 segmento', m1.datos.sms);
+  ok(m1.datos.falta_eslogan === false && m1.datos.enlace === `https://campana.prueba/i/${cod1}`, 'dice que sí hay eslogan y devuelve el enlace');
+  const m3 = await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l3, 'lider') });
+  ok(m3.status === 200 && m3.datos.texto.includes('equipo de Aspirante Prueba') && !m3.datos.texto.includes('María Gómez') && !m3.datos.texto.includes('✨') && m3.datos.falta_eslogan === true,
+     'un líder de un aspirante usa el candidato del ASPIRANTE (no el de la campaña madre) y, sin su eslogan, se quita esa línea', m3.datos && m3.datos.texto);
+  ok((await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(admin, 'admin') })).status === 403, 'quien no tiene enlace → 403');
+  ok((await pedir('GET', '/api/inscripcion/mi-mensaje')).status === 401, 'sin sesión → 401');
+  await pool.query("UPDATE configuracion_campana SET slogan_campana = NULL, marca_subtitulo = NULL WHERE id = 1");
+  const m1b = await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l1, 'lider') });
+  ok(!m1b.datos.texto.includes('✨') && m1b.datos.falta_eslogan === true && !/[{}]/.test(m1b.datos.texto) && !/\n\n/.test(m1b.datos.texto), 'sin eslogan en la campaña: la línea se quita, sin llaves ni líneas vacías');
+  await pool.query("UPDATE configuracion_campana SET slogan_campana = NULL, marca_subtitulo = 'Lema del encabezado' WHERE id = 1");
+  ok((await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l1, 'lider') })).datos.texto.includes('✨ Lema del encabezado'), 'si falta el eslogan pero hay subtítulo de marca, se usa ese');
+  await pool.query("UPDATE configuracion_campana SET slogan_campana = 'Juntos por Manizales', marca_subtitulo = NULL WHERE id = 1");
+
+  console.log('  -- la plantilla de la campaña: editar y restaurar (solo el administrador)');
+  const g0 = await pedir('GET', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin') });
+  ok(g0.status === 200 && g0.datos.personalizada === false && g0.datos.plantilla === M.PLANTILLA_SUGERIDA && g0.datos.sugerida === M.PLANTILLA_SUGERIDA && g0.datos.eslogan_configurado === true,
+     'el administrador ve la plantilla sugerida, sin personalizar', g0.datos && g0.datos.personalizada);
+  ok(/Hola 👋, soy Ana\./.test(g0.datos.vista_previa) && g0.datos.vista_previa_sms.segmentos === 1, 'con vista previa y la versión SMS de ejemplo');
+  ok((await pedir('GET', '/api/inscripcion/plantilla', { usuario: U(coord, 'coordinador') })).status === 403 && (await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(l1, 'lider'), json: { plantilla: 'x {enlace}' } })).status === 403,
+     'un coordinador no la lee y un líder no la guarda (403)');
+  const propia = 'Soy {nombre_lider} 🙌\n{eslogan}\nEntra aquí: {enlace}';
+  const p1 = await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: propia } });
+  ok(p1.status === 200 && p1.datos.personalizada === true && p1.datos.plantilla === propia, 'el administrador guarda su propio texto', p1.datos);
+  ok((await q('SELECT mensaje_plantilla t FROM inscripcion_config WHERE id = 1'))[0].t === propia, '…y queda en inscripcion_config.mensaje_plantilla');
+  const m1c = await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l1, 'lider') });
+  ok(m1c.datos.texto === `Soy Lider 🙌\nJuntos por Manizales\nEntra aquí: https://campana.prueba/i/${cod1}`, 'y «Mi enlace» ya usa ese texto', m1c.datos.texto);
+  const malo1 = await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: 'Vota por {candidato} para {cargo}: {enlace}' } });
+  ok(malo1.status === 400 && /\{cargo\}/.test(malo1.datos.error), 'una plantilla con {cargo} se rechaza (400) con el motivo', malo1.datos);
+  ok((await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: 'Entra: {candidato}' } })).status === 400, 'una sin {enlace} se rechaza (400)');
+  ok((await q('SELECT mensaje_plantilla t FROM inscripcion_config WHERE id = 1'))[0].t === propia, '…y lo rechazado no pisó lo guardado');
+  const r1 = await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: null } });
+  ok(r1.status === 200 && r1.datos.personalizada === false && r1.datos.plantilla === M.PLANTILLA_SUGERIDA && (await q('SELECT mensaje_plantilla t FROM inscripcion_config WHERE id = 1'))[0].t === null,
+     '«Restaurar texto sugerido» (plantilla null) vuelve al sugerido y deja la columna en NULL');
+  await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: propia } });
+  await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: M.PLANTILLA_SUGERIDA } });
+  ok((await q('SELECT mensaje_plantilla t FROM inscripcion_config WHERE id = 1'))[0].t === null, 'guardar un texto idéntico al sugerido lo deja en NULL (así recibe las mejoras futuras)');
+  ok((await q("SELECT COUNT(*) c FROM auditoria WHERE accion IN ('editar_mensaje_inscripcion','restaurar_mensaje_inscripcion')"))[0].c >= 3, 'cada cambio queda en la auditoría');
+
+  console.log('  -- una campaña que aún no corrió init-db (sin la columna) no se cae');
+  await pool.query('ALTER TABLE inscripcion_config DROP COLUMN mensaje_plantilla');
+  const msc = await pedir('GET', '/api/inscripcion/mi-mensaje', { usuario: U(l1, 'lider') });
+  ok(msc.status === 200 && msc.datos.texto.includes('Hola 👋, soy Lider.'), 'sin la columna, «Mi enlace» usa el texto sugerido');
+  ok((await pedir('GET', `/i/${e3.codigo}`)).texto.includes('Te inscribe'), 'y la página /i sigue sirviendo');
+  const psc = await pedir('PUT', '/api/inscripcion/plantilla', { usuario: U(admin, 'admin'), json: { plantilla: propia } });
+  ok(psc.status === 409 && /init-db/.test(psc.datos.error), 'guardar dice que falta actualizar la base (409), no un 500', psc.datos);
+  await pool.query("ALTER TABLE inscripcion_config ADD COLUMN mensaje_plantilla TEXT NULL");
+
+  console.log('  -- la vista previa del enlace (Open Graph)');
+  const og = (html) => (html.match(/<meta (?:property="og:[^"]+"|name="(?:description|twitter:card)")[^>]*>/g) || []).join('\n');
+  routerInsc.limpiarTarjeta();
+  const gv = await pedir('GET', `/i/${e3.codigo}`);
+  const ogv = og(gv.texto);
+  ok(ogv.includes('<meta property="og:title" content="María Gómez · Juntos por Manizales">'), 'og:title con eslogan: «María Gómez · Juntos por Manizales»', ogv);
+  ok(ogv.includes('<meta property="og:description" content="Súmate al equipo. Inscríbete en menos de 1 minuto.">'), 'og:description: «Súmate al equipo. Inscríbete en menos de 1 minuto.»');
+  ok(ogv.includes('<meta property="og:image" content="https://campana.prueba/img/inscripcion-og.png">') && ogv.includes('og:image:width" content="1200"') && ogv.includes('og:image:height" content="630"'), 'sin logo: og:image es la imagen genérica 1200 × 630, con URL absoluta del dominio de la licencia', ogv);
+  ok(/noindex/.test(gv.texto) && gv.texto.includes('<meta name="robots" content="noindex, nofollow">'), 'se mantiene noindex');
+  ok(!/Lider Uno|Lider Tres|Lider Dos/.test(ogv) && !ogv.includes(e3.codigo), 'la vista previa no lleva el nombre del líder ni el código');
+  await pool.query("UPDATE configuracion_campana SET slogan_campana = NULL, marca_subtitulo = NULL WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  const ogSin = og((await pedir('GET', `/i/${e3.codigo}`)).texto);
+  ok(ogSin.includes('<meta property="og:title" content="Inscríbete con María Gómez">') && !ogSin.includes('·'), 'og:title sin eslogan: «Inscríbete con María Gómez»', ogSin);
+  await pool.query("UPDATE configuracion_campana SET nombre_candidato = NULL, marca_titulo = NULL WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  ok(og((await pedir('GET', `/i/${e3.codigo}`)).texto).includes('content="Inscríbete con nuestro equipo"'), 'sin candidato ni eslogan: «Inscríbete con nuestro equipo»');
+  await pool.query("UPDATE configuracion_campana SET nombre_candidato = 'María <b>&\"Gómez', slogan_campana = 'Juntos por Manizales' WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  const ogEsc = og((await pedir('GET', `/i/${e3.codigo}`)).texto);
+  ok(!/<b>/.test(ogEsc) && ogEsc.includes('María &lt;b&gt;&amp;&quot;Gómez'), 'los datos de la campaña se escapan en las metas');
+  await pool.query("UPDATE configuracion_campana SET nombre_candidato = 'María Gómez', slogan_campana = 'Juntos por Manizales' WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+
+  // IDÉNTICO para código inválido
+  const ref = og((await pedir('GET', `/i/${e3.codigo}`)).texto);
+  await pool.query('UPDATE inscripcion_enlaces SET activo = 0 WHERE id = ?', [e2.id]);
+  const casos = { inexistente: await pedir('GET', '/i/ZZZZZZZZ'), 'mal formado': await pedir('GET', '/i/hola'), desactivado: await pedir('GET', `/i/${e2.codigo}`), 'con otro líder': await pedir('GET', `/i/${e1.codigo}`) };
+  await pool.query('UPDATE inscripcion_enlaces SET activo = 1 WHERE id = ?', [e2.id]);
+  for (const [k, r] of Object.entries(casos)) ok(og(r.texto) === ref && ref.length > 100, `la vista previa de un código ${k} es IDÉNTICA a la de uno válido`);
+  ok(casos.inexistente.texto.includes('Enlace no activo') && casos.inexistente.status === 200, '…y la página de un código inválido sigue diciendo «Enlace no activo»');
+  ok(casos.inexistente.texto === casos.desactivado.texto && casos.inexistente.texto === casos['mal formado'].texto, 'los códigos inválidos siguen respondiendo lo mismo, byte a byte');
+  const politica = await pedir('GET', `/i/${e3.codigo}/politica`);
+  ok(politica.status === 200, 'la política sigue abriendo');
+  const lic = process.env.LICENCIA_DOMINIO; process.env.LICENCIA_DOMINIO = '';
+  ok(!/og:image/.test((await pedir('GET', `/i/${e3.codigo}`)).texto) && /og:title/.test((await pedir('GET', `/i/${e3.codigo}`)).texto), 'sin dominio de licencia no se inventa una URL de imagen (igual que /v)');
+  process.env.LICENCIA_DOMINIO = lic;
+
+  console.log('  -- la imagen: el logo de la campaña, o la genérica');
+  const generica = await fetch(`${base}/i/og/imagen`);
+  const bufG = Buffer.from(await generica.arrayBuffer());
+  const metaG = await sharp(bufG).metadata();
+  ok(generica.status === 200 && /image\/png/.test(generica.headers.get('content-type')) && metaG.width === 1200 && metaG.height === 630 && bufG.length < 100 * 1024, `sin logo: /i/og/imagen sirve la genérica (PNG 1200×630, ${(bufG.length / 1024).toFixed(1)} KB)`);
+  ok(/public/.test(generica.headers.get('cache-control') || ''), 'se puede guardar en caché');
+  const carpeta = path.join(__dirname, '..', 'uploads', 'marca'); fs.mkdirSync(carpeta, { recursive: true });
+  const archivoLogo = path.join(carpeta, 'logo_prueba_orden29.png');
+  try {
+    // Un logo pesado a propósito: un PNG de ruido de 1400×1400 (varios MB), el peor caso de lo que una campaña sube.
+    const ruido = Buffer.alloc(1400 * 1400 * 3); for (let i = 0; i < ruido.length; i++) ruido[i] = (i * 2654435761 >>> 7) & 255;
+    await sharp(ruido, { raw: { width: 1400, height: 1400, channels: 3 } }).png({ compressionLevel: 1 }).toFile(archivoLogo);
+    const pesoOriginal = fs.statSync(archivoLogo).size;
+    await pool.query("UPDATE configuracion_campana SET marca_logo_url = '/uploads/marca/logo_prueba_orden29.png' WHERE id = 1");
+    routerInsc.limpiarTarjeta();
+    const conLogo = await pedir('GET', `/i/${e3.codigo}`);
+    ok(/<meta property="og:image" content="https:\/\/campana\.prueba\/i\/og\/imagen\?v=[0-9a-z]+">/.test(conLogo.texto), 'con logo: og:image apunta a /i/og/imagen (la copia ligera), con versión para refrescar la caché');
+    const rl = await fetch(`${base}/i/og/imagen`);
+    const bufL = Buffer.from(await rl.arrayBuffer());
+    const metaL = await sharp(bufL).metadata();
+    ok(rl.status === 200 && /image\/jpeg/.test(rl.headers.get('content-type')) && metaL.width === 1200 && metaL.height === 630 && bufL.length <= 400 * 1024,
+       `la copia del logo es JPEG 1200×630 de ${(bufL.length / 1024).toFixed(0)} KB (el original pesaba ${(pesoOriginal / 1048576).toFixed(1)} MB)`, { pesoOriginal, copia: bufL.length, ancho: metaL.width, alto: metaL.height, tipo: rl.headers.get('content-type'), estado: rl.status });
+    // Fondo según el logo: uno claro con transparencia (hecho para fondos oscuros) desaparecería sobre blanco.
+    const esquina = async () => { const { data } = await sharp(Buffer.from(await (await fetch(`${base}/i/og/imagen`)).arrayBuffer())).extract({ left: 5, top: 5, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true }); return [...data]; };
+    const cuadro = (color) => sharp({ create: { width: 400, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite([{ input: { create: { width: 300, height: 100, channels: 4, background: color } }, gravity: 'center' }]).png().toFile(archivoLogo);
+    await cuadro({ r: 255, g: 255, b: 255, alpha: 1 }); routerInsc.limpiarTarjeta();
+    const cClaro = await esquina();
+    ok(cClaro[0] < 60 && cClaro[2] < 90, 'un logo BLANCO con transparencia va sobre el azul de la app (no desaparece sobre blanco)', cClaro);
+    await cuadro({ r: 20, g: 40, b: 90, alpha: 1 }); routerInsc.limpiarTarjeta();
+    const cOscuro = await esquina();
+    ok(cOscuro.every(v => v > 245), 'un logo oscuro con transparencia va sobre blanco', cOscuro);
+    // Un logo que no es una imagen: no se cae, sale la genérica
+    fs.writeFileSync(archivoLogo, 'esto no es una imagen');
+    routerInsc.limpiarTarjeta();
+    const rr = await fetch(`${base}/i/og/imagen`);
+    ok(rr.status === 200 && /image\/png/.test(rr.headers.get('content-type')), 'un archivo de logo ilegible no tumba la tarjeta: sale la genérica');
+  } finally { try { fs.unlinkSync(archivoLogo); } catch (_) { /* ya no estaba */ } }
+  await pool.query("UPDATE configuracion_campana SET marca_logo_url = '/uploads/marca/../../package.json' WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  const rt = await fetch(`${base}/i/og/imagen`);
+  ok(rt.status === 200 && /image\/png/.test(rt.headers.get('content-type')), 'una ruta con «..» no sale de /uploads/marca: sale la genérica');
+  ok(/inscripcion-og\.png/.test((await pedir('GET', `/i/${e3.codigo}`)).texto), '…y la tarjeta apunta a la genérica');
+  await pool.query("UPDATE configuracion_campana SET marca_logo_url = NULL WHERE id = 1");
+  routerInsc.limpiarTarjeta();
+  ok(fs.existsSync(path.join(__dirname, '..', 'public/img/inscripcion-og.png')), 'public/img/inscripcion-og.png existe');
+
+  console.log('  -- la pantalla «Mi enlace» y el escritorio');
+  const pag = fs.readFileSync(path.join(__dirname, '..', 'public/app/mi-enlace.html'), 'utf8');
+  ok(/id="mensaje-texto"/.test(pag) && /id="mensaje-sms"/.test(pag) && /id="btn-sms"/.test(pag) && /id="btn-whatsapp"/.test(pag) && />Copiar mensaje</.test(pag), 'Mi enlace: cuadro del mensaje, cuadro del SMS y los botones WhatsApp, SMS y Copiar mensaje');
+  ok(/sms:\?&body=/.test(pag) && /wa\.me\/\?text=/.test(pag) && /\/inscripcion\/mi-mensaje/.test(pag), 'los botones usan el texto de los cuadros (WhatsApp con wa.me, SMS con sms:?&body=) y el mensaje viene del servidor');
+  ok(!/Inscríbete con mi equipo aquí: ' \+ url\)/.test(pag) && /mensajePorOmision/.test(pag), 'el texto sencillo de antes quedó solo como respaldo sin conexión');
+  ok(/Puedes cambiarlo aquí solo para este envío/.test(pag) && !/localStorage\.setItem\([^)]*mensaje-texto/.test(pag), 'se puede editar solo para ese envío (no se guarda)');
+  const esc = fs.readFileSync(path.join(__dirname, '..', 'public/votantes.html'), 'utf8');
+  ok(/id="aj-insc-plantilla"/.test(esc) && /Restaurar texto sugerido/.test(esc) && /\{nombre_lider\}/.test(esc) && /Slogan de la campaña/.test(fs.readFileSync(path.join(__dirname, '..', 'public/configuracion.html'), 'utf8')),
+     'el escritorio tiene el editor de la plantilla con «Restaurar texto sugerido»; el eslogan ya se llena en Configuración');
+  ok(/estrategia-v157/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker subió a v157');
+  } // fin del bloque de la orden 29
+
+
 
 
   console.log('\n== «Mi enlace»: ver, rotar, el viejo deja de servir');
@@ -883,7 +1092,7 @@ const F = (codigo, huella, extra = {}) => ({
   ok(rot.status === 200 && rot.datos.codigo && rot.datos.codigo !== e1.codigo, 'rotar da un código nuevo');
   const viejo = await pedir('GET', `/i/${e1.codigo}`);
   const nuevoPg = await pedir('GET', `/i/${rot.datos.codigo}`);
-  ok(viejo.texto === inex.texto, 'el código VIEJO ya no sirve (misma respuesta que uno inexistente)');
+  ok(viejo.texto === (await pedir('GET', '/i/ZZZZZZZZ')).texto, 'el código VIEJO ya no sirve (misma respuesta que uno inexistente, pedida ahora: la tarjeta cambia con la configuración)');
   ok(nuevoPg.texto.includes('Te inscribe'), 'el nuevo sí');
   const eAntes = e1.codigo; e1.codigo = rot.datos.codigo;
 
@@ -911,7 +1120,7 @@ const F = (codigo, huella, extra = {}) => ({
 
   const desact = await pedir('POST', `/api/inscripcion/enlaces/${l2}/activo`, { usuario: U(coord, 'coordinador'), json: { activo: 0 } });
   ok(desact.status === 200 && desact.datos.activo === false, 'el coordinador desactiva el enlace de su líder');
-  ok((await pedir('GET', `/i/${e2.codigo}`)).texto === inex.texto, '…y la página deja de servir');
+  ok((await pedir('GET', `/i/${e2.codigo}`)).texto === (await pedir('GET', '/i/ZZZZZZZZ')).texto, '…y la página deja de servir');
   const rotLider = await pedir('POST', '/api/inscripcion/mi-enlace/rotar', { usuario: U(l2, 'lider'), json: {} });
   ok(rotLider.status === 403, 'el líder NO puede reactivar su enlace rotándolo (403)');
   const fuera = await pedir('POST', `/api/inscripcion/enlaces/${l3}/activo`, { usuario: U(coord, 'coordinador'), json: { activo: 0 } });
@@ -926,7 +1135,7 @@ const F = (codigo, huella, extra = {}) => ({
   ok(ajCoord.status === 403, 'solo el administrador toca los ajustes (403 al coordinador)');
   const ajAdm = await pedir('PUT', '/api/inscripcion/ajustes', { usuario: U(admin, 'admin'), json: { habilitado: 0, limite_telefono_dia: 99999 } });
   ok(ajAdm.status === 200 && ajAdm.datos.ajustes.habilitado === 0 && ajAdm.datos.ajustes.limite_telefono_dia === 3, 'el administrador apaga la inscripción; un valor absurdo se ignora');
-  ok((await pedir('GET', `/i/${e1.codigo}`)).texto === inex.texto, 'apagada: todas las páginas dicen «no activo»');
+  ok((await pedir('GET', `/i/${e1.codigo}`)).texto === (await pedir('GET', '/i/ZZZZZZZZ')).texto, 'apagada: todas las páginas dicen «no activo»');
   await pedir('PUT', '/api/inscripcion/ajustes', { usuario: U(admin, 'admin'), json: { habilitado: 1 } });
 
   console.log('\n== Listado de votantes: filtros y progreso');

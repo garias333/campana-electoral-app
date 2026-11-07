@@ -2813,9 +2813,12 @@ async function main() {
       habilitado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Interruptor general de la inscripción por enlace',
       limite_enlace_dia INT NOT NULL DEFAULT 200,
       limite_telefono_dia INT NOT NULL DEFAULT 3,
-      segundos_minimos INT NOT NULL DEFAULT 4
+      segundos_minimos INT NOT NULL DEFAULT 4,
+      mensaje_plantilla TEXT NULL COMMENT 'Mensaje con que el líder invita (orden 29). NULL = el texto sugerido, que vive en config/inscripcionMensaje.js'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await connection.query(`INSERT IGNORE INTO inscripcion_config (id) VALUES (1)`);
+  await agregarColumnaSiFalta(connection, 'inscripcion_config',
+    "mensaje_plantilla TEXT NULL COMMENT 'Mensaje con que el líder invita (orden 29). NULL = el texto sugerido, que vive en config/inscripcionMensaje.js'", 'mensaje_plantilla');
 
   /* LA EVIDENCIA DE LA AUTORIZACIÓN, EN SU PROPIA TABLA (y no en dos columnas de
      `votantes`). `votantes` se devuelve entera con SELECT v.* en el listado y en

@@ -33,6 +33,7 @@ const {
 const { inscribir, contarRecientes, anotarRechazo, coordenadasValidas, sha256, ultimos10 } = require('../config/inscripcionRegistro');
 // Por el objeto y no desestructurado: así una prueba puede sustituir la inversa.
 const geocoder = require('../config/geocoder');
+const tarjeta = require('../config/inscripcionTarjeta');
 
 const router = express.Router();
 
@@ -117,11 +118,12 @@ const CSS = `
   .politica{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:#161B26}
 `;
 
-function pagina({ titulo, cuerpo, ok = false, extra = '' }) {
+function pagina({ titulo, cuerpo, ok = false, extra = '', head = '' }) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
+${head}
 <title>${esc(titulo)}</title>
 <style>${CSS}</style></head><body><div class="caja">
 <h1>${esc(titulo)}</h1><p${ok ? ' class="ok"' : ''}>${cuerpo}</p>${extra}
@@ -134,9 +136,15 @@ const NO_ACTIVO = {
   cuerpo: 'Este enlace no está activo. Si te lo dio alguien de la campaña, pídele que te envíe el actual.',
 };
 
-function responderNoActivo(res) {
+/* La tarjeta (vista previa) es la MISMA con o sin enlace vivo: ver config/inscripcionTarjeta.js. Si no se pudo
+   armar, sale sin ella, igual para todos. */
+async function metasDeTarjeta() {
+  try { return await tarjeta.metasDeLaTarjeta(); } catch (_) { return ''; }
+}
+
+async function responderNoActivo(res) {
   res.locals.fallo = true;
-  return res.status(200).send(pagina(NO_ACTIVO));
+  return res.status(200).send(pagina({ ...NO_ACTIVO, head: await metasDeTarjeta() }));
 }
 
 let marcaEnMemoria = { clave: null, texto: '', hasta: 0 };
@@ -235,6 +243,7 @@ async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {})
   // Esos dos vienen de la campaña, no de la persona: la propuesta del GPS puede reemplazarlos mientras no los toque.
   const autoDep = primera && v.departamento_residencia ? ' data-auto="1"' : '';
   const autoCiu = primera && v.ciudad_residencia ? ' data-auto="1"' : '';
+  const metas = await metasDeTarjeta();
   const val = (k) => esc(v[k] || '');
   const chk = (k) => (v[k] ? ' checked' : '');
   const cod = encodeURIComponent(enlace.codigo);
@@ -242,6 +251,7 @@ async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {})
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
+${metas}
 <title>Inscríbete</title>
 <style>${CSS}</style></head><body><div class="caja">
 <h1>Inscríbete</h1>
@@ -410,12 +420,27 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
 
 // ---------------------------------------------------------------------------
 
+/* LA IMAGEN DE LA TARJETA. Va ANTES de `/:codigo`. Pública y sin código: la ve el robot de WhatsApp. Con logo de
+   la campaña sirve una copia de 1200 × 630 en JPEG (ver config/inscripcionTarjeta.js); sin logo, o si no se puede
+   preparar, la imagen genérica. Se puede guardar una hora: lleva `?v=` que cambia cuando cambia el logo. */
+router.get('/og/imagen', async (req, res) => {
+  try {
+    const buffer = await tarjeta.imagenDelLogo();
+    res.set({ 'Cache-Control': 'public, max-age=3600', 'X-Robots-Tag': 'noindex' });
+    if (buffer) { res.type('image/jpeg'); return res.send(buffer); }
+    return res.type('image/png').sendFile(tarjeta.GENERICA);
+  } catch (err) {
+    console.error('inscripcion og imagen:', err.code || err.message);
+    return res.status(404).end();
+  }
+});
+
 router.get('/:codigo', async (req, res) => {
   cabeceras(res);
   try {
     const ajustes = await leerAjustes();
     const enlace = ajustes.habilitado ? await buscarEnlaceActivo(req.params.codigo) : null;
-    if (!enlace) return responderNoActivo(res);
+    if (!enlace) return await responderNoActivo(res);
     res.send(await formulario(enlace));
   } catch (err) {
     console.error('inscripcion GET:', err.code || err.message);
@@ -521,6 +546,7 @@ function gastarCupo(clave, { max, ventanaMs }) {
   return true;
 }
 router.reiniciarCupos = () => usosUbicacion.clear();   // para la prueba
+router.limpiarTarjeta = () => tarjeta.limpiarMemoria();  // para la prueba
 
 // Un «plus code» («RJ4X+9P Manizales») es lo que Google da en el campo; no sirve como dirección.
 const RE_PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{0,3}(\s|$)/i;
@@ -560,7 +586,7 @@ router.get('/:codigo/politica', async (req, res) => {
   try {
     const ajustes = await leerAjustes();
     const enlace = ajustes.habilitado ? await buscarEnlaceActivo(req.params.codigo) : null;
-    if (!enlace) return responderNoActivo(res);
+    if (!enlace) return await responderNoActivo(res);
     const pol = await politicaVigente();
     res.send(pagina({
       titulo: pol.titulo,
@@ -666,7 +692,7 @@ router.post('/:codigo', async (req, res) => {
   try {
     const ajustes = await leerAjustes();
     const enlace = ajustes.habilitado ? await buscarEnlaceActivo(req.params.codigo) : null;
-    if (!enlace) return responderNoActivo(res);
+    if (!enlace) return await responderNoActivo(res);
 
     const quiereSms = cuerpo.canal_sms === '1';
 

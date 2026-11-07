@@ -24,6 +24,7 @@ const { registrarAuditoria } = require('../config/auditoria');
 const {
   ROLES_CON_ENLACE, obtenerOCrearEnlace, rotarEnlace, puedeTenerEnlace, baseDelSitio, leerAjustes,
 } = require('../config/inscripcionEnlace');
+const mensajes = require('../config/inscripcionMensaje');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -82,6 +83,31 @@ router.get('/mi-enlace', async (req, res) => {
   } catch (err) {
     console.error('inscripcion mi-enlace:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo cargar tu enlace.' });
+  }
+});
+
+/**
+ * EL MENSAJE PARA COMPARTIR (orden 29): el texto largo (WhatsApp y Copiar) y el SMS corto, ya llenos con el nombre
+ * de quien comparte, el candidato, el eslogan y su enlace. El líder los puede editar en pantalla solo para ese
+ * envío; la plantilla de la campaña no se toca desde aquí.
+ */
+router.get('/mi-mensaje', async (req, res) => {
+  try {
+    const usuarioId = req.session.usuario.id;
+    if (!(await puedeTenerEnlace(usuarioId))) {
+      return res.status(403).json({ error: 'Tu cuenta no tiene enlace de inscripción.' });
+    }
+    const enlace = await obtenerOCrearEnlace(usuarioId);
+    // Con LICENCIA_DOMINIO el servidor sabe cuál es el sitio; si no, el de esta misma petición (la que abrió quien tiene sesión).
+    const base = (baseDelSitio() || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+    const [[u]] = await pool.query('SELECT nombre FROM usuarios WHERE id = ?', [usuarioId]);
+    const m = await mensajes.mensajeDelLider({
+      usuarioId, nombreLider: u && u.nombre, enlace: `${base}/i/${enlace.codigo}`,
+    });
+    res.json(m);
+  } catch (err) {
+    console.error('inscripcion mi-mensaje:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo preparar el mensaje.' });
   }
 });
 
@@ -224,6 +250,54 @@ router.post('/enlaces/:usuarioId/rotar', requireRole('admin', 'coordinador', 'as
 // ---------------------------------------------------------------------------
 // Ajustes
 // ---------------------------------------------------------------------------
+
+/* LA PLANTILLA DEL MENSAJE: solo el administrador. `plantilla: null` (o vacía, o igual a la sugerida) la restaura. */
+async function respuestaDePlantilla() {
+  const guardada = await mensajes.leerPlantilla();
+  const marca = await mensajes.marcaDelLider(0).catch(() => ({ candidato: '', eslogan: '' }));
+  const base = (baseDelSitio() || 'https://tu-campana.ejemplo').replace(/\/+$/, '');
+  const ejemplo = {
+    nombre_lider: 'Ana', candidato: marca.candidato || 'Nombre del candidato', eslogan: marca.eslogan,
+    enlace: `${base}/i/AB23CD45`,
+  };
+  const plantilla = guardada || mensajes.PLANTILLA_SUGERIDA;
+  return {
+    plantilla, personalizada: !!guardada, sugerida: mensajes.PLANTILLA_SUGERIDA,
+    variables: mensajes.VARIABLES, maximo: mensajes.MAX_PLANTILLA,
+    vista_previa: mensajes.armarMensaje(plantilla, ejemplo),
+    vista_previa_sms: mensajes.armarSms(ejemplo),
+    eslogan_configurado: !!marca.eslogan, candidato_configurado: !!marca.candidato,
+  };
+}
+
+router.get('/plantilla', requireRole('admin'), async (req, res) => {
+  try { res.json(await respuestaDePlantilla()); }
+  catch (err) {
+    console.error('inscripcion plantilla:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo leer el mensaje.' });
+  }
+});
+
+router.put('/plantilla', requireRole('admin'), async (req, res) => {
+  try {
+    const crudo = (req.body || {}).plantilla;
+    let guardar = null;
+    if (crudo != null && String(crudo).trim() !== '') {
+      const v = mensajes.validarPlantilla(crudo);
+      if (!v.ok) return res.status(400).json({ error: v.error });
+      guardar = v.plantilla === mensajes.PLANTILLA_SUGERIDA ? null : v.plantilla;
+    }
+    await mensajes.guardarPlantilla(guardar);
+    await registrarAuditoria(req.session.usuario.id, guardar === null ? 'restaurar_mensaje_inscripcion' : 'editar_mensaje_inscripcion',
+      'inscripcion_config', 1, guardar === null ? 'Volvió al texto sugerido.' : 'Cambió el mensaje de invitación.', req.ip);
+    res.json({ ok: true, ...(await respuestaDePlantilla()) });
+  } catch (err) {
+    // Sin la columna (init-db sin correr tras aplicar el parche) lo decimos tal cual, sin tumbar nada más.
+    if (err.code === 'ER_BAD_FIELD_ERROR') return res.status(409).json({ error: 'Falta actualizar la base de datos de esta campaña (init-db).' });
+    console.error('inscripcion plantilla (guardar):', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo guardar el mensaje.' });
+  }
+});
 
 router.put('/ajustes', requireRole('admin'), async (req, res) => {
   try {
