@@ -12,24 +12,25 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 273** (`parches/campana-parche273.zip`, 290.834 bytes,
-  sha256 `11b498b699f14b03ff995dfaed8be6f8cda978d2e13da037d12dbae96e93a0bb`, 22 archivos).
-  **Publicado** en la carpeta de licencias (`parche-273.zip`, mismo sha256, 0644, empieza por `PK`) y
-  **registrado y firmado, INACTIVO**, con `toca_base_datos = true` (lo marcó solo el servidor de
-  licencias: `{"ok":true,"numero_parche":273,…,"toca_base_datos":true}`). Es el **Día D fase 2**
-  (detalle abajo). El 272 (138.099 bytes, sha256 `f4333fcb…`, 11 archivos, Día D fase 1) también está
-  publicado e inactivo; el 273 asume que el 272 ya está aplicado (el 273 NO repite sus archivos
-  salvo los que volvió a tocar: `app.js`, `db/init-db.js`, `db/schema.sql`, `public/dia-d.html`,
-  `public/service-worker.js`). Los zip 265 a 271 también están publicados.
-  **Distribución del 273 (y del 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de activar.**
+- **Último parche generado: 274** (`parches/campana-parche274.zip`, 456.956 bytes,
+  sha256 `3c69dddbfc503878aa20bd3c53fbe7a3be8f8436d8bb41a69553132cabf1e7b8`, 30 archivos).
+  **Publicado** en la carpeta de licencias (`parche-274.zip`, mismo sha256, 0644, empieza por `PK`) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true` (lo derivó el servidor de
+  licencias). Reúne el SMS «Ya voté» de 1 segmento, el Día D fase 3, la baja a mano y el enlace desde
+  Faltantes (detalle abajo). **Asume que el 273 (y el 272) ya están aplicados**: ver «Cómo exige el 273».
+  El 273 (290.834 bytes, sha256 `11b498b6…`, 22 archivos, Día D fase 2) y el 272 (138.099 bytes,
+  sha256 `f4333fcb…`, 11 archivos, Día D fase 1) siguen publicados e inactivos; los zip 265 a 271
+  también están publicados.
+  **Distribución del 274 (y del 273 y el 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de activar.**
   `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
-  abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas.
+  abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
+  tres**—, nunca la Base.
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera). Ni el 272 ni el 273 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v147` en el código de la Base y dentro del 273 (el 272 lleva
-  `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
+  (la Base no recibe parches: los genera); desde el 274, `.version-parche` y `.version-base` = **274**. Ni el 272, ni el 273 ni el 274 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v150` en el código de la Base y dentro del 274 (el 273 lleva `v147`;
+  el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
   19:18:41, después de la última edición de código de ejecución (19:07:07). Su `.env` tiene
@@ -37,7 +38,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 273` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 274` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -50,6 +51,70 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 274 — SMS de 1 segmento, Día D fase 3, baja a mano y enlace desde Faltantes (7 de noviembre de 2026, INACTIVO)
+
+Zip de 30 archivos: `app.js`, `config/bajaContacto.js`, `config/paginaBaja.js` (nuevo), `config/sms.js`,
+`config/yaVotoEnlace.js`, `db/init-db.js`, `db/schema.sql`, `lib/puestosDiaD.js` (nuevo),
+`lib/transliterarSms.js` (nuevo), `middleware/aspirante.js`, `public/app/dia-d.html`,
+`public/app/faltantes.html`, `public/dia-d.html`, `public/enviar-sms.html`, `public/js/baja-manual.js`
+(nuevo), `public/js/common.js`, `public/js/segmentos-sms.js`, `public/no-contactar.html`,
+`public/service-worker.js` (`v150`), `public/territorial.html`, `public/votantes.html`,
+`routes/baja.routes.js`, `routes/comunicaciones.routes.js`, `routes/diaD.routes.js`,
+`routes/permisos.routes.js`, `routes/rescateVotos.routes.js`, `routes/resultadosDiaD.routes.js` (nuevo),
+`routes/territorial.routes.js`, `routes/yaVoto.routes.js` y `.version-base` (274).
+Commits que recoge, en orden: `2505f75` (SMS «Ya voté» en 1 segmento), `6fb6ebb` (Día D fase 3),
+`8523964` (baja a mano y confirmación), `e6a0e9c` (quita el envío automático de la baja) y `5a514fc`
+(enlace «Ya voté» desde Faltantes). `aa7804a` (ESTADO del 273) es el punto de partida y no viaja.
+
+- **Verificado sobre el zip:** los 30 archivos coinciden por md5 con el disco; no trae `.env`,
+  `.credenciales-*`, `uploads/`, `legislacion/` ni `backups/`; `CACHE_NAME = 'estrategia-v150'`;
+  `verificar-requires.js` revisó 119 `require` locales y todos resuelven, **también aplicando el zip
+  sobre una copia del árbol del 273** (`aa7804a`), que es el estado de una campaña con el 273 puesto.
+- **Toca la base de datos (sí; lo marcó el servidor):** columna `dia_d_reporte_votos.grupo`; tablas
+  `dia_d_resultado_oficial`, `dia_d_mesa_revision` y `dia_d_paquetes`; columnas `no_contactar_canal` y
+  `no_contactar_motivo` en `votantes` y `usuarios`; módulo de permisos `resultados_dia_d` (admin y
+  coordinador de fábrica); la plantilla de SMS «Dia D - aviso ya voto» pasa a la corta (o nace
+  «… (corto)» si el administrador la había editado) y la de correo «Bienvenida al equipo» deja de decir
+  «respóndanos y lo retiramos» (solo si seguía idéntica a la sembrada). Todo idempotente, con «ya existía».
+- **Probado solo con bases simuladas.** No se corrió `init-db` en MySQL, ni un SMS por Onurix, ni nada en
+  un celular real: según la orden 14, Gildardo probó en la Base las órdenes 9, 11, 12/12b y 13 antes de pedir este parche.
+
+**Cómo exige el 273 (y por qué no lo exige de verdad).** El sistema NO tiene una dependencia
+declarada entre parches. `GET /parches/disponibles` (licencias) devuelve **todos los activos con número
+mayor** que el de la campaña y que le correspondan por distribución, **en orden ascendente**; el
+actualizador los aplica uno tras otro y se detiene si uno falla. O sea: con el 273 y el 274 activos y
+en la lista de la campaña, el 273 va siempre primero. Pero **si el 273 queda inactivo, o la campaña no
+está en su lista, el 274 le llegaría solo**, sin `config/yaVotoEnlace.js` ni las tablas de la fase 2, y
+las pantallas nuevas fallarían. Por eso: **activar el 272, el 273 y el 274 juntos y con la misma
+lista de campañas**. El nombre del 274 en el panel dice «Requiere el 273».
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **El SMS «Ya voté» ya cabe en 1 mensaje.** El texto no lleva la baja: va en la página del enlace
+   («No quiero recibir más mensajes», `/v/<token>?baja=1`). La plantilla corta
+   («{primer_nombre}, hoy votamos. Cuando votes, avisanos aqui: {enlace_ya_vote}») mide menos de 160
+   con la firma del operador. Esta nota **reemplaza** a la del 273 que decía que ocupaba 2.
+2. **Todo SMS sale sin tildes ni ñ** (á→a, ñ→n, ¿ y ¡ se quitan), el de la campaña y el de Onurix.
+   WhatsApp y correo no se tocan. El contador de «Enviar SMS» lo dice.
+3. **El enlace «Ya voté» solo sale a votantes con consentimiento = 1 en ese canal.** Con el consentimiento
+   sin registrar (NULL) o en 0 no sale: ni por envío masivo ni desde Faltantes en el celular del líder.
+   Tampoco sale si `no_contactar = 1`, si no hay fecha de elección o si la persona no tiene teléfono.
+4. **La pestaña «Resultados» (Día D) la ven admin y coordinador** (módulo `resultados_dia_d`, activo
+   de fábrica solo para ellos; el aspirante la ve por su lista propia). No existe rol de abogado: para
+   uno, crear un usuario de rol *administrativo* y darle el módulo `resultados_dia_d` en Permisos.
+5. **Los paquetes del abogado se borran a las 24 horas** (al arrancar y cada hora). Si el servidor se
+   reinicia mientras arma uno, queda en «error» y hay que pedirlo de nuevo.
+6. **La baja se da SOLO al tocar el botón.** `/b` y `/v?baja=1` dicen «Aún no estás dado de baja» y
+   tienen un botón grande; no se envía nada al cargar la página (Google abre los enlaces con un Chrome
+   real). Quien abre el enlace y se va no queda de baja: para eso está **«Marcar como no contactar»**
+   en la ficha del votante y en «Editar persona» (admin y coordinador, con canal y motivo obligatorios;
+   queda en «Pidieron no recibir más» y en la auditoría).
+7. **En Faltantes, el líder manda el enlace desde su celular:** WhatsApp con enlace, botón «SMS» (sale
+   del plan del celular del líder, sin firma ni baja) y «Copiar enlace». Funciona sin señal porque el
+   enlace viaja en la lista. No se probó en un iPhone ni en un Android real: el separador de `sms:`
+   es `&` en iPhone y `?` en Android.
+8. **Correr `npm run init-db`** (el actualizador lo hace solo porque `toca_base_datos` es sí).
 
 ## Parche 273 — Día D fase 2: «ya votó» (6 de noviembre de 2026, INACTIVO)
 
@@ -87,15 +152,11 @@ ranking en el menú del aspirante) y `67a8a23` (init-db dice «ya existía» par
 2. **Cambiar la fecha invalida los enlaces ya enviados.** La fecha va dentro del token (HMAC de
    votante + fecha): hay que volver a mandarlos. Configuración lo avisa junto a la fecha y pide
    confirmación al guardar. Vale también para una segunda vuelta.
-3. **El SMS con el enlace y la baja ocupa 2 mensajes.** La plantilla sembrada (sin tildes) mide 133
-   caracteres con un puesto corto y 158 con uno de 41; el enlace `/v/…` mide 50 con el dominio de la
-   Base, y el sistema agrega solo « Baja: …» (+60). Con tildes pasa a UCS-2 y ocupa 4. El horario de SMS
-   (08:00–20:00) no cambió.
-4. **Correr `npm run init-db`** (el actualizador lo hace solo porque `toca_base_datos` es sí). La
+3. **Correr `npm run init-db`** (el actualizador lo hace solo porque `toca_base_datos` es sí). La
    aplicación no se rompe sin las tablas nuevas, pero las pantallas de rescate sí darían error.
-5. **Los votantes sin consentimiento de SMS registrado (NULL) NO reciben el enlace**: la regla estricta
+4. **Los votantes sin consentimiento de SMS registrado (NULL) NO reciben el enlace**: la regla estricta
    es solo para esos mensajes y no cambia la del resto del módulo.
-6. El token se deriva de `SESSION_SECRET`: rotarlo invalida también estos enlaces (y los de baja).
+5. El token se deriva de `SESSION_SECRET`: rotarlo invalida también estos enlaces (y los de baja).
 
 ## Parche 272 — Día D fase 1 (6 de noviembre de 2026, INACTIVO)
 
