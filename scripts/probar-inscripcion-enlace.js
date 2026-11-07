@@ -1131,7 +1131,7 @@ const F = (codigo, huella, extra = {}) => ({
   console.log('  -- edición');
   const vA = await votante('1053777020', 'Ficha Edicion A', '3310000020', l1, { consent: true });
   const vB = await votante('1.053.777.021', 'Ficha Edicion B', '3310000021', l1, { consent: true });
-  const editar = (id, cuerpo) => pedir('PUT', `/api/votantes/${id}`, { usuario: U(admin, 'admin'), json: { categoria: 'votante', nombre: 'Ficha Edicion', telefono: '3310000099', password: 'clave-prueba', ...cuerpo } });
+  const editar = (id, cuerpo) => pedir('PUT', `/api/votantes/${id}`, { usuario: U(admin, 'admin'), json: { categoria: 'votante', nombre: 'Ficha Edicion', telefono: '3310000099', password: 'clave-prueba', ...cuerpo } });   // contraseña de ejemplo, inventada para esta prueba (no es de nadie)
   const e1x = await editar(vB, { cedula: '1053777020' });
   ok(e1x.status === 400 && e1x.datos.error === 'Ya registrado por otro líder.' && (await q('SELECT cedula c FROM votantes WHERE id = ?', [vB]))[0].c === '1.053.777.021', 'cambiar B a la cédula de A se rechaza y B queda como estaba');
   const e2x = await editar(vB, { cedula: '01.053.777.020' });
