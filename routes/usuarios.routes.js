@@ -27,6 +27,8 @@ async function puedeAdministrar(req, usuarioId) {
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
+const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
+const { normalizarCedula, enmascararCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -103,17 +105,43 @@ router.use(requireAuth);
  * teléfono, nada de email ni rol) para no exponer de más a quien esté
  * pasando lista.
  */
-router.get('/buscar-por-cedula', async (req, res) => {
+/* LA MISMA REGLA QUE LA BÚSQUEDA DE VOTANTES (órdenes 31 y 33). Antes devolvía nombre y teléfono de la cuenta con esa
+   cédula a CUALQUIERA con sesión: bastaba teclear cédulas para averiguar quién tiene cuenta y cómo llamarlo.
+     · la cuenta está en su alcance (es él, está en su rama hacia abajo, o es alguien de quien él cuelga): responde como siempre;
+     · fuera de su alcance: SOLO { existe, fuera_de_alcance, iniciales };
+     · el administrador, sin sublicencia, ve todo.
+   Comparte el límite de 60 búsquedas cada 10 minutos con la búsqueda de votantes, y cada búsqueda que cae fuera de su
+   alcance queda en `auditoria` (accion «buscar_cedula_ajena», con los tres últimos dígitos). */
+router.get('/buscar-por-cedula', limiteBuscarCedula, async (req, res) => {
   const cedula = (req.query.cedula || '').trim();
   if (!cedula) return res.json(null);
   try {
     const ocultar = await filtroOcultar(req.session.usuario, 'usuarios');
-    const [[fila]] = await pool.query(
-      `SELECT id, nombre, telefono FROM usuarios
-        WHERE numero_identificacion = ? ${ocultar} LIMIT 1`,
-      [cedula]
-    );
-    res.json(fila || null);
+    const normalizada = normalizarCedula(cedula);
+    const hallada = await buscarUsuarioPorCedula(pool, normalizada);
+    if (!hallada) return res.json(null);
+    const [[fila]] = await pool.query(`SELECT id, nombre, telefono FROM usuarios WHERE id = ? ${ocultar}`, [hallada.id]);
+    if (!fila) return res.json(null);
+
+    const yo = req.session.usuario.id;
+    // El aspirante mira desde SU raíz (su rama), no desde la persona que abrió la sesión. (No se usa `alcanceCuentas`: esa es la
+    // regla de ADMINISTRAR cuentas —más estrecha, y nula sin cargo de la madre—; esto es solo saber si existen en su equipo.)
+    const raiz = req.sublicencia ? req.sublicencia.usuario_id : yo;
+    let enMiAlcance = fila.id === yo || fila.id === raiz || (req.session.usuario.rol === 'admin' && !req.sublicencia);
+    if (!enMiAlcance) {
+      // Hacia abajo (su rama) o hacia arriba (de quien cuelga): un supervisor no es «otro líder».
+      const abajo = subarbolSql(raiz, 'u.id');
+      const arriba = subarbolSql(fila.id, '?');
+      const [[ok]] = await pool.query(
+        `SELECT 1 AS ok FROM usuarios u WHERE u.id = ? AND (${abajo.sql} OR ${arriba.sql}) LIMIT 1`,
+        [fila.id, ...abajo.valores, raiz, ...arriba.valores]);
+      enMiAlcance = !!ok;
+    }
+    if (enMiAlcance) return res.json(fila);
+
+    await registrarAuditoria(yo, 'buscar_cedula_ajena', 'usuarios', null,
+      `Buscó la cédula de una cuenta fuera de su alcance (${enmascararCedula(normalizada)})`, req.ip);
+    res.json({ existe: true, fuera_de_alcance: true, iniciales: inicialesDe(fila.nombre) });
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
     res.status(500).json({ error: 'Error buscando por número de identificación.' });

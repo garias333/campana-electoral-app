@@ -200,6 +200,11 @@ iniciarValidacionPeriodica();
 // pase firmado del formulario hace de antiforgería. Ver routes/inscripcion.routes.js.
 app.use('/i', express.urlencoded({ extended: false }), require('./routes/inscripcion.routes'));
 
+// Transporte del Día D, la puerta del CONDUCTOR (/t/<código>, orden 33). Igual que /i: sin sesión, fuera de /api (sin CSRF)
+// y DESPUÉS del candado de licencia —guarda datos operativos y con la licencia vencida no debe seguir—. Solo sirve el día
+// de la elección. Ver routes/transporte.routes.js. La puerta de la coordinación es /api/dia-d/transporte (más abajo).
+app.use('/t', require('./routes/transporte.routes'));
+
 // --- Rutas de API ---
 /* La marca de la campaña, SIN sesión: es lo que pinta la pantalla de ingreso.
    Se expone solo lo que ya se ve en esa pantalla —logo, nombre y eslogan—,
@@ -262,6 +267,8 @@ app.use('/api/dia-d/cobertura', require('./routes/coberturaTestigos.routes'));
 // Fase 4 del Día D: check-in del testigo («Llegué a mi puesto») y cuadro de alertas. Antes de /api/dia-d, por lo mismo.
 app.use('/api/dia-d/checkin', require('./routes/checkinDiaD.routes'));
 app.use('/api/dia-d/alertas', require('./routes/alertasDiaD.routes'));
+// Transporte del Día D (vehículos, conductores, asignar). Antes de /api/dia-d, por lo mismo que las demás.
+app.use('/api/dia-d/transporte', require('./routes/transporteDiaD.routes'));
 app.use('/api/dia-d', require('./routes/diaD.routes'));
 app.use('/api/catalogo', require('./routes/catalogo.routes'));
 app.use('/api/backup', require('./routes/backup.routes'));

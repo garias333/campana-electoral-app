@@ -25,6 +25,7 @@ const MODULOS = [
   { clave: 'rescate_votos', etiqueta: 'Faltan por votar (Día D)' },
   { clave: 'resultados_dia_d', etiqueta: 'Resultados del Día D' },
   { clave: 'alertas_dia_d', etiqueta: 'Alertas del Día D' },
+  { clave: 'transporte_dia_d', etiqueta: 'Transporte del Día D' },
   { clave: 'social', etiqueta: 'Redes y Opinión' },
   { clave: 'crm', etiqueta: 'CRM y Mensajes' },
   { clave: 'enviar_email', etiqueta: 'Enviar E-mail' },

@@ -179,3 +179,5 @@ router.post('/manual', requireRole('admin', 'coordinador', 'aspirante'), async (
 module.exports = router;
 module.exports.horaDeMarca = horaDeMarca;
 module.exports.DISTANCIA_LEJOS_M = DISTANCIA_LEJOS_M;
+// El transporte del Día D (lib/transporteDiaD.js) usa las mismas coordenadas del catálogo para «Cómo llegar al puesto».
+module.exports.ubicacionDelPuesto = ubicacionDelPuesto;

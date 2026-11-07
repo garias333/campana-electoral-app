@@ -1,7 +1,7 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
-const rateLimit = require('express-rate-limit');
+const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
@@ -860,29 +860,8 @@ router.get('/verificar-identificacion', async (req, res) => {
  * por nombre, esto no expone el resto del libro de contactos de otro
  * líder: solo confirma quién es el dueño de ESA cédula puntual.
  */
-/* LÍMITE DE BÚSQUEDAS POR CÉDULA (orden 31): 60 por usuario cada 10 minutos. Esta ruta confirma que una cédula existe
-   y, para quien no la ve, de quién es; sin tope sirve para recorrer cédulas y averiguar quién está en la base. 60 es
-   holgado para quien registra (se busca una vez al salir del campo) y poco para quien barre. Cuenta por USUARIO y no
-   por IP (varios líderes comparten la wifi de un evento), y también a `sumar-por-cedula`, que es la misma pregunta.
-   Vive en memoria del proceso: un reinicio de PM2 lo pone en cero. */
-const limiteBuscarCedula = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => !String((req.query && req.query.cedula) || (req.body && req.body.cedula) || '').trim(),
-  keyGenerator: (req) => 'usuario:' + ((req.session && req.session.usuario && req.session.usuario.id) || 'sin-sesion'),
-  handler: (req, res) => res.status(429).json({ error: 'Demasiadas búsquedas, espera unos minutos' }),
-});
-const PARTICULAS_DE_NOMBRE = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'e', 'da', 'di', 'van', 'von']);
-
-/** «Pedro Gómez Ruiz» → «P. R.»; «María» → «M.». Primera y última palabra, sin partículas («de», «del»…): lo mínimo para reconocer a alguien sin decir quién es. */
-function inicialesDe(nombre) {
-  const palabras = String(nombre || '').trim().split(/\s+/).filter(w => w && !PARTICULAS_DE_NOMBRE.has(w.toLowerCase()));
-  if (!palabras.length) return '';
-  const ini = (w) => Array.from(w)[0].toLocaleUpperCase('es') + '.';
-  return palabras.length === 1 ? ini(palabras[0]) : `${ini(palabras[0])} ${ini(palabras[palabras.length - 1])}`;
-}
+/* El límite de búsquedas por cédula (60 por usuario cada 10 minutos) y las iniciales viven en lib/busquedaCedula.js: las comparte
+   la búsqueda de cuentas (routes/usuarios.routes.js), con el MISMO contador. */
 
 /**
  * LA FICHA, SEGÚN QUIÉN PREGUNTA (orden 31). Antes devolvía nombre, teléfono y cédula de la ficha dueña de esa cédula

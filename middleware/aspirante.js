@@ -47,7 +47,7 @@ const PERMITIDOS = [
    posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
    el filtro son el mismo cambio, y separarlos habría dejado una fuga con
    pinta de función nueva. */
-const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d', 'alertas_dia_d'];
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d', 'transporte_dia_d', 'alertas_dia_d'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -154,6 +154,9 @@ const PERMISOS_ASPIRANTE = {
   resultados_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
   /* Alertas del Día D: el cuadro en vivo de SU campaña (cobertura, llegadas, E-14, diferencias). Cuelga de /dia-d. */
   alertas_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
+  /* Transporte del Día D (orden 33): sus vehículos, sus conductores y a quién recoge cada uno. Cuelga de /dia-d y se
+     acota por su rama (`req.alcance`) y por su propio `aspirante_id`. */
+  transporte_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
 };
 
 /**

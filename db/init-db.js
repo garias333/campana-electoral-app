@@ -405,6 +405,9 @@ const PERMISOS_POR_DEFECTO = {
   // (el aspirante, por PERMISOS_ASPIRANTE); líder, sublíder, testigo e invitado no. El INSERT IGNORE de abajo no
   // pisa lo que el administrador ya editó.
   alertas_dia_d: ['admin', 'coordinador'],
+  // Transporte del Día D (orden 33): vehículos, conductores y a quién recoge cada uno. Administrador y coordinador de
+  // fábrica (el aspirante, por PERMISOS_ASPIRANTE). El líder sigue MARCANDO «necesita transporte» con `rescate_votos`.
+  transporte_dia_d: ['admin', 'coordinador'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   crm: ['admin', 'coordinador', 'asistente_administrativo'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
@@ -2141,6 +2144,70 @@ async function main() {
   // Quien necesita que lo lleven a votar. NULL = no se sabe; 1 = sí; 0 = no.
   await agregarColumnaSiFalta(connection, 'votantes',
     'necesita_transporte TINYINT NULL COMMENT "1 = necesita transporte el dia de la eleccion; NULL = no se sabe"', 'necesita_transporte');
+
+  /* --- Día D: TRANSPORTE, parte 1 (orden 33) ---
+     Vehículos, conductores y a quién recoge cada uno. TODAS con `aspirante_id` como dueño, igual que
+     `dia_d_puestos_votacion` (0 = la campaña madre). La demanda sigue siendo `votantes.necesita_transporte`;
+     aquí está lo que se hace con ella. «Llevado al puesto» NO es «ya votó»: no toca `votante_votos`.
+     Idempotente: CREATE TABLE IF NOT EXISTS, y la hora de la alerta con agregarColumnaSiFalta. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS transporte_vehiculos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      placa VARCHAR(12) NOT NULL,
+      tipo ENUM('carro','camioneta','van','bus','moto','otro') NOT NULL DEFAULT 'carro',
+      capacidad INT NOT NULL DEFAULT 4 COMMENT 'Personas que caben: la suma de «personas» de sus paradas se compara con esto (solo avisa)',
+      descripcion VARCHAR(150) NULL,
+      activo TINYINT(1) NOT NULL DEFAULT 1,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_transp_veh_placa (aspirante_id, placa)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS transporte_conductores (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      nombre VARCHAR(120) NOT NULL,
+      celular VARCHAR(20) NULL,
+      vehiculo_id INT NULL,
+      codigo CHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Entra a /t/<codigo> sin cuenta. Mismo alfabeto que /i (sin 0/O/1/I/L); en claro, rotable y revocable',
+      activo TINYINT(1) NOT NULL DEFAULT 1,
+      usuario_id INT NULL COMMENT 'Opcional: si el conductor además tiene cuenta',
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      rotado_en DATETIME NULL,
+      UNIQUE KEY uq_transp_cond_codigo (codigo),
+      KEY idx_transp_cond_dueno (aspirante_id, activo),
+      FOREIGN KEY (vehiculo_id) REFERENCES transporte_vehiculos(id) ON DELETE SET NULL,
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS transporte_asignaciones (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      votante_id INT NOT NULL,
+      conductor_id INT NOT NULL,
+      fecha DATE NOT NULL COMMENT 'El día de la elección al que corresponde la recogida',
+      orden INT NOT NULL DEFAULT 0 COMMENT 'Posición de la parada en la lista del conductor',
+      personas INT NOT NULL DEFAULT 1 COMMENT 'Cuántas personas recoge en esta parada (la persona y quienes van con ella)',
+      nota VARCHAR(255) NULL,
+      estado ENUM('asignado','recogido','en_puesto','no_estaba','cancelado') NOT NULL DEFAULT 'asignado',
+      recogido_en DATETIME NULL,
+      llevado_en DATETIME NULL,
+      latitud DECIMAL(10,7) NULL COMMENT 'Donde estaba el teléfono del conductor al tocar (opcional; la última marca)',
+      longitud DECIMAL(10,7) NULL,
+      cliente_uuid VARCHAR(64) NULL COMMENT 'La última marca aplicada: un reintento con el mismo uuid no cambia nada',
+      asignado_por INT NULL,
+      asignado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_transp_asig_votante_fecha (votante_id, fecha),
+      KEY idx_transp_asig_conductor (conductor_id, fecha, orden),
+      KEY idx_transp_asig_dueno (aspirante_id, fecha, estado),
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE,
+      FOREIGN KEY (conductor_id) REFERENCES transporte_conductores(id) ON DELETE CASCADE,
+      FOREIGN KEY (asignado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  // La hora desde la que «votantes con transporte sin recoger» será una alerta. Se usa en la parte 2; queda creada.
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "transporte_alerta_desde TIME NOT NULL DEFAULT '14:00:00'", 'transporte_alerta_desde');
+  console.log('Tablas del transporte del Día D listas.');
 
   // --- Día D fase 3: el bloque de cada voto ---
   // `dia_d_reporte_votos` guardaba solo el NOMBRE del candidato; el bloque (candidato,

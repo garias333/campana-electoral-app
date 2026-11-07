@@ -422,7 +422,10 @@ document.getElementById('input-buscar-votante').addEventListener('input', () => 
           api(`/votantes/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`),
           api(`/usuarios/buscar-por-cedula?cedula=${encodeURIComponent(texto)}`)
         ]);
-        if (votante && votante.de_otro_lider) {
+        if (!votante && usuario && usuario.fuera_de_alcance) {
+          // Cuenta fuera de su alcance (orden 33): el servidor solo dice que existe y las iniciales; no se puede agregar.
+          cont.innerHTML = `<div style="padding:8px 0; font-size:0.9rem;">Esa persona ya tiene cuenta en la campaña (${escaparHtml(usuario.iniciales || '')}) y no está en tu equipo, así que no se puede agregar desde aquí.</div>`;
+        } else if (votante && votante.de_otro_lider) {
           // Ficha de OTRO líder (orden 31): el servidor no manda nombre, teléfono ni id. Solo se dice que ya está inscrita y,
           // si se puede, se ofrece sumarla a la rama; ya sumada, la búsqueda la encuentra como propia y se puede agregar.
           cont.innerHTML = cajaPersonaDeOtroLider(votante, texto);
