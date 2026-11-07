@@ -204,11 +204,11 @@ const NAV_ITEMS = [
       // módulo para que la matriz de permisos pueda abrirlo o cerrarlo sin tocar la Jornada.
       { href: '/dia-d.html#avance', texto: 'Avance de votación', modulo: 'rescate_votos', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#alertas', texto: 'Alertas del Día D', modulo: 'alertas_dia_d', roles: ['admin', 'coordinador'] },
-      // Transporte: otra pestaña de la misma pantalla (hash #transporte), con su propio módulo (orden 33).
-      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#resultados', texto: 'Resultados y reclamaciones', modulo: 'resultados_dia_d', roles: ['admin', 'coordinador'] },
       { href: '/testigos.html', texto: 'Testigos electorales', modulo: 'testigos', roles: ['admin', 'coordinador'] },
       { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
+      // Transporte va al final del grupo (orden 35). Es otra pestaña de la misma pantalla (hash #transporte), con su propio módulo (orden 33).
+      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {
