@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 283** (`parches/campana-parche283.zip`, 110.782 bytes,
-  sha256 `60fecc764fba702e864f7dac158075c9e980ba185eebdd8a70a81e4dcd398f52`, 6 archivos).
-  **Publicado** en la carpeta de licencias (`parche-283.zip`, mismo sha256, 0644) y
+- **Último parche generado: 284** (`parches/campana-parche284.zip`, 282.785 bytes,
+  sha256 `00eacb9230ab661b1a9ffac49cd51b70151df4af91939ca70fc6104ab73c6333`, 28 archivos).
+  **Publicado** en la carpeta de licencias (`parche-284.zip`, mismo sha256, 0644) y
   **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
-  «Privacidad al buscar cédula y SMS al reinscribirse (Requiere el 282)» (detalle abajo); **requiere el 282**.
-  El anterior, el 282 (`parches/campana-parche282.zip`, 79.606 bytes,
+  «Día D: transporte, parte 1 (Requiere el 283)» (detalle abajo); **requiere el 283**.
+  El anterior, el 283 (`parches/campana-parche283.zip`, 110.782 bytes,
+  sha256 `60fecc764fba702e864f7dac158075c9e980ba185eebdd8a70a81e4dcd398f52`, 6 archivos, privacidad al buscar
+  cédula y SMS al reinscribirse, `toca_base_datos = true`, requiere el 282), sigue publicado e inactivo, igual que el 282 (`parches/campana-parche282.zip`, 79.606 bytes,
   sha256 `cfe2292831b80eb8246134fd7f1a478fc646b1bc91ebc73b5cb738a50ccca32c`, 9 archivos, cédulas sin duplicados,
   `toca_base_datos = false`, requiere el 281), sigue publicado e inactivo, igual que el 281 (`parches/campana-parche281.zip`, 152.925 bytes,
   sha256 `bb30c0ffcb0fd1327790009cd780b09a1fcb2373d900ef7e6d2d7ed7f22a7298`, 10 archivos, mensaje de invitación con
@@ -34,15 +36,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 283 (y del 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 284 (y del 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 283, `.version-parche` y `.version-base` = **283**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282 ni el 283 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v157` en el código de la Base y dentro del 281 (el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 284, `.version-parche` y `.version-base` = **284**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v158` en el código de la Base y dentro del 284 (el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -51,7 +53,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 283` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 284` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -64,6 +66,107 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 284 — Día D: transporte, parte 1 (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 28 archivos (+ `.version-base` = 284): `lib/transporteDiaD.js`, `lib/busquedaCedula.js`, `routes/transporte.routes.js` y
+`routes/transporteDiaD.routes.js` (**nuevos**); `public/js/transporte-conductor.js` y `public/js/transporte-dia-d.js`
+(**nuevos**); `public/vendor/leaflet/` (**nuevo**: Leaflet 1.9.4, su LICENSE BSD-2 y sus 5 imágenes); y los modificados `app.js`,
+`db/init-db.js`, `middleware/aspirante.js`, `public/app/inicio.html`, `public/asistentes-reuniones.html`, `public/dia-d.html`,
+`public/js/common.js`, `public/service-worker.js` (**v158**), `routes/checkinDiaD.routes.js`, `routes/permisos.routes.js`,
+`routes/usuarios.routes.js` y `routes/votantes.routes.js`. Commit que recoge: `98cf9b2` (a partir de `b0b2afb`).
+`scripts/probar-transporte-diad.js` (123 comprobaciones) y `scripts/probar-inscripcion-enlace.js` (465) **no viajan**.
+
+> **El enlace del conductor solo funciona el día de la elección** (la fecha de `configuracion_campana`, de 00:00 a 23:59 hora de
+> Colombia). Antes y después dice «Este enlace no está activo»: para ensayar, se cambia la fecha de elección.
+>
+> **Quien tenga el enlace ve las direcciones de su lista.** Si un conductor lo pierde o lo reenvía, **rotarlo** (botón «Rotar»: el
+> anterior deja de servir en el acto). Solo ve SUS paradas, solo ese día, y una parada cerrada ya no manda dirección ni teléfono.
+>
+> **El fondo del mapa es OpenStreetMap** (`tile.openstreetmap.org`, con su atribución): sin clave ni gasto, pero es un servicio
+> comunitario con política de uso justo; para mucho tráfico habría que pasar a otro proveedor o a Mapbox. Sin señal para las
+> teselas el mapa queda gris y la lista funciona igual.
+
+- **Lo que ya existía y se reutiliza:** la demanda es `votantes.necesita_transporte` (la marca el líder con `rescate_votos`, no
+  cambia); el código del conductor usa el alfabeto y las funciones de `/i` (`generarCodigo`, `normalizarCodigo`); el patrón de
+  página pública es el de `/i` (después del candado de licencia, `noindex`, límite de intentos FALLIDOS por IP); las coordenadas
+  del puesto salen de `ubicacionDelPuesto` (catálogo, `routes/checkinDiaD.routes.js`); la distancia, de `lib/jornadaDiaD.js`; la
+  cola sin señal sigue la idea del check-in (marca con `cliente_uuid`, idempotente en el servidor).
+- **Tablas** (`db/init-db.js`, `CREATE TABLE IF NOT EXISTS`, idempotente; todas con `aspirante_id` como dueño, 0 = la madre):
+  `transporte_vehiculos` (placa única por campaña, tipo, capacidad, descripción, activo), `transporte_conductores` (nombre,
+  celular, `vehiculo_id`, `codigo CHAR(8)` único, activo, `usuario_id` opcional) y `transporte_asignaciones` (`votante_id`,
+  `conductor_id`, `fecha`, `orden`, `personas`, `nota`, `estado` asignado/recogido/en_puesto/no_estaba/cancelado, `recogido_en`,
+  `llevado_en`, coordenadas del toque, `cliente_uuid`, `asignado_por`; **UNIQUE(votante_id, fecha)**). Y
+  `configuracion_campana.transporte_alerta_desde TIME DEFAULT '14:00:00'` (queda creada; **la usa la parte 2**). La prueba corre
+  `init-db` dos veces y comprueba las tres tablas, las columnas, el UNIQUE y la hora.
+- **Módulo `transporte_dia_d`**, declarado en los cinco sitios: `PERMISOS_POR_DEFECTO` (admin y coordinador), la matriz de
+  `routes/permisos.routes.js`, el menú de escritorio (`common.js`, «Transporte del Día D» → `/dia-d.html#transporte`),
+  `middleware/aspirante.js` (módulo y permisos del aspirante) y la tarjeta de `app/inicio.html`. Un líder sin el módulo recibe 403;
+  **seguirá marcando «necesita transporte»** con `rescate_votos`.
+- **Escritorio, pestaña «Transporte»** de `dia-d.html` (`public/js/transporte-dia-d.js`): demanda agrupada por puesto y barrio con
+  filtros (todos / sin asignar / asignados / por conductor, e «incluir a quienes ya votaron»), vehículos y conductores (crear,
+  editar, desactivar, asignar vehículo; el código se crea solo y se rota), asignar varios a un conductor con **aviso de capacidad
+  que no bloquea** (suma de «personas» contra la capacidad del vehículo), quitar, **«Ordenar por cercanía»** (vecino más cercano con
+  la distancia de `lib/jornadaDiaD.js`, sin API: desde la primera parada, desde mi ubicación, o desde un puesto con coordenadas en
+  el catálogo; las paradas sin coordenadas quedan al final), y **compartir** el enlace por WhatsApp (`wa.me`), SMS (`sms:`) o Copiar
+  con el texto «Hola {nombre}, esta es tu lista de recogida del día de elecciones: {enlace}», sin el pie «Baja». Personas y nota por
+  parada con el botón ✎.
+- **El contador** (`GET /api/dia-d/transporte/resumen`, seis tarjetas en el cuadro del Día D y en la pestaña), con el alcance de quien
+  pregunta: *necesitan* (marcados), *asignados* (con conductor, sin recoger), *recogidos*, *en el puesto*, *no estaban* y
+  *sin recoger* (marcados, sin «ya votó» y sin recoger: sin conductor o con conductor que no ha llegado). Las paradas son de UN día: con
+  otra fecha de elección el contador de asignaciones parte de cero.
+- **`/t/<código>`** (`routes/transporte.routes.js`, `public/js/transporte-conductor.js`): pública, **después del candado de licencia**
+  como `/i`, `noindex` y `no-store`. Inexistente, mal formado, desactivado, rotado (el código viejo) y fuera de la fecha de elección
+  reciben LA MISMA respuesta byte a byte («Este enlace no está activo»; en las rutas JSON `{"activo":false}`). El límite de
+  intentos fallidos es el de `/i` (40 cada 15 minutos por IP; las visitas buenas no gastan cupo). Cada parada trae **primer nombre e
+  inicial del apellido** (con tres palabras o más, el apellido es la PENÚLTIMA: «Ana María Pérez Gómez» → «Ana P.»), dirección,
+  barrio, personas, puesto, mesa; «Llamar» (`tel:`, el número no se escribe en pantalla), «Navegar» (Google Maps
+  `…/dir/?api=1&destination=lat,lon` o la dirección) y Waze (con coordenadas), y «Cómo llegar al puesto» con las coordenadas del
+  catálogo. **«Recogido», «Llevado al puesto» y «No estaba»** son idempotentes con `cliente_uuid`; la pantalla responde al
+  instante y la marca espera en una cola del teléfono (localStorage) que sube sola con señal; la hora que cuenta es la del toque; la
+  ubicación se pide **solo al tocar** y nunca bloquea. Después de «Llevado al puesto» o «No estaba» la parada se colapsa y el servidor
+  **ya no manda dirección, barrio, teléfono ni coordenadas**; lo mismo si el votante marca «Ya voté» por `/v` (o el equipo). Una marca
+  que no hace avanzar el estado (una repetida, o un «recogido» que llega tarde, después de «llevado») no cambia nada.
+- **«Llevado al puesto» NO es «ya votó»:** nunca se escribe en `votante_votos`.
+- **Mapa:** Leaflet 1.9.4 servido desde `public/vendor/leaflet/` (sin CDN; sha256 de `leaflet.js` `db49d009…641a` y `leaflet.css`
+  `a7837102…04c6`, copias sin cambios del paquete npm; ver `LEEME.txt`), pines numerados por parada pendiente con coordenadas y otro
+  por cada puesto de destino. La página manda `Referrer-Policy: origin` (OpenStreetMap lo pide para sus teselas).
+- **Punto 5 (pendiente de la orden 31): `GET /api/usuarios/buscar-por-cedula`.** Misma regla que votantes: la cuenta **propia, de su
+  rama (hacia abajo) o de quien cuelga (hacia arriba)** responde como siempre; **fuera de su alcance, solo
+  `{ existe, fuera_de_alcance, iniciales }`**; el administrador (sin sublicencia) ve todo; el aspirante mira desde su propia rama.
+  Comparte con la búsqueda de votantes **el MISMO contador de 60 cada 10 minutos** (`lib/busquedaCedula.js`, una sola instancia de
+  `express-rate-limit`) y lo ajeno queda en `auditoria` (`buscar_cedula_ajena`, entidad `usuarios`, tres últimos dígitos). Encuentra la
+  cédula escrita con puntos o ceros. La alta rápida de asistentes sigue ofreciendo «Agregar» a una cuenta de su alcance y avisa de la
+  que está fuera. **Consecuencia que conviene saber:** un líder ya no puede agregar como asistente la cuenta de OTRO líder (fuera de
+  su rama); la orden lo pide así.
+- **Verificado sobre el zip:** los 27 archivos de código coinciden por md5 con el commit `98cf9b2`; sin `.env`, `.credenciales-*`,
+  `uploads/`, `legislacion/`, `backups/`, `scripts/` ni `.sql`; `verificar-requires.js` revisó 118 `require` locales y todos
+  resuelven **aplicando el zip sobre una copia del árbol del 283** (`b0b2afb`), con un control negativo.
+- **Probado:** 123 comprobaciones del transporte y del punto 5 (init-db dos veces, permisos, asignar y desasignar, el aviso de
+  capacidad, el UNIQUE, ordenar por cercanía, `/t` con código vivo, inexistente, inactivo, rotado y fuera de fecha, el conductor que
+  no ve paradas de otro, marcar idempotente, la parada cerrada por «Ya voté», el contador por alcance); la suite de inscripción
+  (465) y `probar-instalacion-limpia.js` (61 tablas). En **Chromium sin interfaz**: `/t` a 360 px con mapa y OpenStreetMap, la cola sin
+  señal (con los POST caídos la marca queda en la cola, la parada cambia al instante y el aviso lo dice; al volver la señal sube sola
+  y la cola queda en cero), y la pestaña de escritorio con un arnés mínimo. **NO se probó:** el botón «Navegar» abriendo Google Maps
+  o Waze en un teléfono, el GPS real al tocar una marca, la pestaña dentro de `dia-d.html` con una sesión real (solo su JS con un
+  arnés y las rutas con la suite), los avisos al conductor por SMS/WhatsApp desde un teléfono, ni un día de elección con tráfico real
+  sobre las teselas de OpenStreetMap.
+- **Queda para la parte 2:** la alerta «votantes con transporte sin recoger a las 2 p. m.» (la hora ya está en
+  `transporte_alerta_desde`; falta calcularla en `lib/alertasDiaD.js`, también en `alertasParaUsuario`) y el SMS «tu transporte va en
+  camino» al votante.
+- **Cómo exige el 283.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 284 con el 283, el 282, el 281, el 280, el
+  279, el 278, el 277 y el 276 y los anteriores, con la misma lista de campañas.**
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Toca la base:** `init-db` crea tres tablas y una columna (ya viene marcado «toca base de datos»).
+2. **El enlace del conductor solo funciona el día de la elección.** Para ensayar antes, cambiar la fecha de elección en Configuración →
+   Datos de la campaña (y devolverla).
+3. **Quien tenga el enlace ve las direcciones de su lista: rotarlo si se pierde.**
+4. **El fondo del mapa es OpenStreetMap.**
+5. El coordinador y el administrador ven la pestaña «Transporte» de fábrica; otro rol, desde «Asignación de permisos».
+6. Los líderes dejarán de poder agregar como asistente la cuenta de otro líder fuera de su rama.
+7. Aplicar después del 283, con la misma lista de campañas.
 
 ## Parche 283 — privacidad al buscar cédula y SMS al reinscribirse (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
