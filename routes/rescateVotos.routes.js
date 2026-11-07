@@ -89,6 +89,8 @@ function aHoraColombia(iso) {
 function canalesDelEnlace(f) {
   const sinTel = !String(f.telefono || '').replace(/\D/g, '');
   if (f.voto_en || Number(f.no_contactar) === 1 || sinTel) return { wa: false, sms: false };
+  // Se inscribió solo por el enlace de un líder y aún no confirma por /c: no se le escribe (orden 23).
+  if (f.origen_votante === 'enlace_lider' && !f.consentimiento_confirmado_en) return { wa: false, sms: false };
   return { wa: Number(f.consentimiento_whatsapp) === 1, sms: Number(f.consentimiento_sms) === 1 };
 }
 
@@ -127,6 +129,7 @@ router.get('/faltantes', async (req, res) => {
     const [filas] = await pool.query(
       `SELECT v.id, v.nombre, v.telefono, v.mesa_votacion, v.no_contactar,
               v.consentimiento_sms, v.consentimiento_whatsapp, v.necesita_transporte,
+              v.origen AS origen_votante, v.consentimiento_confirmado_en,
               ${CLAVE_PUESTO} AS clave, vv.voto_en, vv.origen
          FROM votantes v LEFT JOIN votante_votos vv ON vv.votante_id = v.id
         WHERE ${a.sql} ${cond.length ? 'AND ' + cond.join(' AND ') : ''}
@@ -390,9 +393,13 @@ router.post('/enlace', async (req, res) => {
   try {
     const a = alcanceDe(req);
     const [[v]] = await pool.query(
-      `SELECT v.id, v.no_contactar, v.consentimiento_whatsapp FROM votantes v WHERE v.id = ? AND ${a.sql}`,
+      `SELECT v.id, v.no_contactar, v.consentimiento_whatsapp, v.origen, v.consentimiento_confirmado_en
+         FROM votantes v WHERE v.id = ? AND ${a.sql}`,
       [votanteId, ...a.valores]);
     if (!v) return res.status(403).json({ error: 'Ese votante no está entre tus votantes.' });
+    if (v.origen === 'enlace_lider' && !v.consentimiento_confirmado_en) {
+      return res.status(403).json({ error: 'Esta persona se inscribió por enlace y aún no confirma su autorización.' });
+    }
     if (Number(v.no_contactar) === 1 || Number(v.consentimiento_whatsapp) !== 1) {
       return res.status(403).json({ error: 'Esta persona no tiene autorización registrada para recibir este enlace por WhatsApp.' });
     }

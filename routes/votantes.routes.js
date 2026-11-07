@@ -218,7 +218,7 @@ const SQL_AREA_EFECTIVA = `COALESCE(
   v.area)`;
 
 router.get('/', async (req, res) => {
-  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, page = 1, limit = 50 } = req.query;
+  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const condiciones = [];
   const params = [];
@@ -247,6 +247,10 @@ router.get('/', async (req, res) => {
     condiciones.push(`${SQL_CARGO_ESTRUCTURA} IN ('coordinador', 'coordinador_organizaciones')`);
   } else if (tipo_votante) { condiciones.push(`${SQL_CARGO_ESTRUCTURA} = ?`); params.push(tipo_votante); }
   if (categoria) { condiciones.push(`v.categoria = ?`); params.push(categoria); }
+  // Inscripción por el enlace del líder: «se inscribió por enlace» y, dentro de eso, «sin confirmar»
+  // (todavía no abrió /c). Valores fijos del servidor: nunca se arma SQL con lo que llega.
+  if (origen === 'enlace_lider') condiciones.push(`v.origen = 'enlace_lider'`);
+  if (sin_confirmar === '1') condiciones.push(`(v.origen = 'enlace_lider' AND v.consentimiento_confirmado_en IS NULL)`);
   // Quien pidió no recibir mensajes. '1' = solo esos; '0' = solo a quienes sí
   // se les puede escribir. Se comparan como TEXTO porque así llegan en la URL
   // y `if (no_contactar)` dejaría fuera el '0' —es una cadena vacía de

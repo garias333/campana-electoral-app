@@ -500,6 +500,49 @@ async function alcanceSiHaceFalta(req, res, grupos) {
   return req.alcance || null;
 }
 
+/**
+ * «PENDIENTE DE CONFIRMAR»: quien se inscribió solo por el enlace de un líder
+ * (origen 'enlace_lider') y todavía no abrió /c para confirmar. Nadie comprobó que
+ * ese celular sea suyo ni que fuera ella quien aceptó, así que NO ENTRA EN ENVÍOS
+ * MASIVOS —de ningún canal— hasta que confirme. Es la regla de la orden 23.
+ *
+ * Se marca como `sin_autorizacion` (el mismo estado y el mismo conteo aparte que
+ * ya usan los demás sin autorización) y con `pendiente_confirmar` para quien
+ * quiera distinguirlo. Se aplica UNA vez, sobre la lista final, y no dentro de
+ * cada fuente: hay cuatro maneras de armar destinatarios (filtros, selección,
+ * escritos a mano y «mis votantes sin voto») y una regla repartida en cuatro
+ * sitios se pierde en el quinto.
+ *
+ * Solo toca a los que tienen origen 'enlace_lider': el resto de la base, con su
+ * NULL de «no consta», sigue recibiendo como siempre.
+ */
+async function marcarPendientesDeConfirmar(destinatarios) {
+  const ids = [...new Set(destinatarios.filter(d => d.tipo === 'votante' && d.id).map(d => Number(d.id)))];
+  if (!ids.length) return destinatarios;
+  const pendientes = new Set();
+  for (let i = 0; i < ids.length; i += 5000) {
+    const [filas] = await pool.query(
+      `SELECT id FROM votantes
+        WHERE id IN (?) AND origen = 'enlace_lider' AND consentimiento_confirmado_en IS NULL`,
+      [ids.slice(i, i + 5000)]);
+    filas.forEach(f => pendientes.add(f.id));
+  }
+  for (const d of destinatarios) {
+    if (d.tipo === 'votante' && d.id && pendientes.has(Number(d.id))) {
+      d.sin_autorizacion = true;
+      d.pendiente_confirmar = true;
+    }
+  }
+  return destinatarios;
+}
+
+async function esPendienteDeConfirmar(votanteId) {
+  const [[f]] = await pool.query(
+    `SELECT 1 AS p FROM votantes WHERE id = ? AND origen = 'enlace_lider' AND consentimiento_confirmado_en IS NULL`,
+    [votanteId]);
+  return !!f;
+}
+
 const MARCADOR_ENLACE = /\{enlace_ya_vote\}/i;
 
 /**
@@ -705,6 +748,7 @@ router.post('/destinatarios/preview', async (req, res) => {
     // Un mensaje con {enlace_ya_vote} se manda solo con consentimiento explícito.
     const conEnlace = MARCADOR_ENLACE.test(String(mensaje || ''));
     if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal || 'sms');
+    destinatarios = await marcarPendientesDeConfirmar(destinatarios);
     // Quien pidió la baja no cuenta como "con contacto": tiene teléfono o
     // correo, pero no se le va a escribir. Sumarlo ahí haría prometer más
     // envíos de los que van a ocurrir. Lo mismo con quien no autorizó ESTE
@@ -1305,6 +1349,16 @@ async function procesarEnvioCampana(campanaId) {
       return;
     }
 
+    /* ÚLTIMA GUARDA, la que no depende de cómo se armó la lista: una fila que quedó
+       'pendiente' (campaña programada, destinatario agregado después) de alguien que
+       se inscribió por enlace y no ha confirmado NO se envía. */
+    if (envio.destinatario_tipo === 'votante' && envio.destinatario_id && await esPendienteDeConfirmar(envio.destinatario_id)) {
+      await pool.query(
+        `UPDATE comunicaciones_envios SET estado = 'sin_autorizacion', error_mensaje = ? WHERE id = ?`,
+        ['Se inscribió por el enlace de un líder y aún no confirma su autorización: no recibe envíos masivos.', envio.id]);
+      continue;
+    }
+
     // Todo el procesamiento de ESTA fila queda protegido — un problema
     // puntual con un destinatario (incluso al guardar el resultado en la
     // base de datos) nunca debe tumbar el envío completo de la campaña.
@@ -1516,6 +1570,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     const alcance = await alcanceSiHaceFalta(req, res, filtros || {});
     let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal, alcance);
     if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal);
+    destinatarios = await marcarPendientesDeConfirmar(destinatarios);
     if (destinatarios.length === 0) {
       return res.status(400).json({ error: 'No hay destinatarios que coincidan con los filtros elegidos.' });
     }

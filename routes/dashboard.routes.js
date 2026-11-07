@@ -402,11 +402,35 @@ router.get('/mi-progreso', async (req, res) => {
                WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
              ))
             ${filtroVot}
-        ) AS enviados
+        ) AS enviados,
+        /* «POR TU ENLACE»: de esos mismos registros, los que se inscribieron solos por el enlace
+           de inscripción (origen 'enlace_lider'), y cuántos aún no confirman por /c. Es la MISMA
+           condición de arriba con una línea más: si fuera otra, el «N por tu enlace» no sería
+           parte de «enviados». */
+        (
+          SELECT COUNT(*) FROM votantes v
+          WHERE (v.lider_id = e.usuario_id
+             OR v.lider_id IN (
+               SELECT sub.usuario_id FROM estructura sub
+               WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
+             ))
+            AND v.origen = 'enlace_lider'
+            ${filtroVot}
+        ) AS por_enlace,
+        (
+          SELECT COUNT(*) FROM votantes v
+          WHERE (v.lider_id = e.usuario_id
+             OR v.lider_id IN (
+               SELECT sub.usuario_id FROM estructura sub
+               WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
+             ))
+            AND v.origen = 'enlace_lider' AND v.consentimiento_confirmado_en IS NULL
+            ${filtroVot}
+        ) AS por_enlace_sin_confirmar
        FROM estructura e
        WHERE e.usuario_id = ? AND e.activo = 1
        LIMIT 1`,
-      [...parVot, usuarioId]
+      [...parVot, ...parVot, ...parVot, usuarioId]
     );
 
     if (!fila) {
@@ -415,6 +439,8 @@ router.get('/mi-progreso', async (req, res) => {
 
     const meta = Number(fila.meta_votos) || 0;
     const enviados = fila.enviados || 0;
+    const porEnlace = Number(fila.por_enlace) || 0;
+    const porEnlaceSinConfirmar = Number(fila.por_enlace_sin_confirmar) || 0;
     const porcentaje = meta > 0 ? Math.min(100, Math.round((enviados / meta) * 100)) : 0;
 
     /* EL ASPIRANTE TIENE DOS METAS, Y SON DOS COSAS DISTINTAS.
@@ -429,7 +455,7 @@ router.get('/mi-progreso', async (req, res) => {
        Se devuelven las dos y la pantalla las pinta como dos barras. Enseñar
        una sola obligaría a elegir cuál, y las dos son ciertas. */
     if (!req.sublicencia) {
-      return res.json({ tieneMetaAsignada: true, meta, enviados, porcentaje });
+      return res.json({ tieneMetaAsignada: true, meta, enviados, porcentaje, porEnlace, porEnlaceSinConfirmar });
     }
 
     const cargo = req.sublicencia.cargo;
@@ -452,7 +478,7 @@ router.get('/mi-progreso', async (req, res) => {
     const pct = (a, m) => (m > 0 ? Math.min(100, Math.round((a / m) * 100)) : 0);
 
     return res.json({
-      tieneMetaAsignada: true, meta, enviados, porcentaje,
+      tieneMetaAsignada: true, meta, enviados, porcentaje, porEnlace, porEnlaceSinConfirmar,
       dosMetas: true,
       propia: { etiqueta: `Mi campaña (${cargo})`, meta: metaPropia, avance: avancePropio, porcentaje: pct(avancePropio, metaPropia) },
       madre:  { etiqueta: 'Comprometido con la campaña principal', meta, avance: avanceMadre, porcentaje: pct(avanceMadre, meta) },
