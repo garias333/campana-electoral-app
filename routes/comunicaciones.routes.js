@@ -15,6 +15,7 @@ const { armarWhereSql } = require('../config/filtros');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const { codigoDe: codigoDeBaja, urlDeBaja, aplicarBajaDeFicha, CANALES_BAJA_MANUAL } = require('../config/bajaContacto');
 const yaVoto = require('../config/yaVotoEnlace');
+const { mesasDeFila, listaEnPalabras } = require('../lib/coberturaTestigos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 
 const router = express.Router();
@@ -162,7 +163,7 @@ async function destinatariosDeSeleccion(seleccion, canal) {
   const contactosVotantes = new Map();
   if (idsVotantes.length) {
     const [filas] = await pool.query(
-      `SELECT id, nombre, email, telefono FROM votantes WHERE id IN (?)`, [idsVotantes]);
+      `SELECT id, nombre, email, telefono, no_contactar FROM votantes WHERE id IN (?)`, [idsVotantes]);
     filas.forEach(f => contactosVotantes.set(f.id, f));
   }
   const contactosEstructura = new Map();
@@ -172,7 +173,7 @@ async function destinatariosDeSeleccion(seleccion, canal) {
     // selección manual no encontraría el dispositivo de nadie y la campaña
     // saldría entera como "sin contacto", sin un solo error.
     const [filas] = await pool.query(
-      `SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono
+      `SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono, u.no_contactar
          FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id IN (?)`, [idsEstructura]);
     filas.forEach(f => contactosEstructura.set(f.id, f));
   }
@@ -185,6 +186,9 @@ async function destinatariosDeSeleccion(seleccion, canal) {
         tipo: d.tipo, id: Number(d.id), usuario_id: fila.usuario_id || null,
         nombre: fila.nombre.trim(),
         contacto: esCorreo ? (fila.email || null) : (fila.telefono || null),
+        // La baja manda sobre todo lo demas, tambien en lo que se elige uno por uno: sin esto, quien pidio no
+        // recibir mas y estaba entre los elegidos recibia el mensaje igual (la lista de seleccion nunca la miraba).
+        dado_de_baja: !!fila.no_contactar,
         detalle: d.detalle || ''
       });
     } else if (d.contacto) {
@@ -1034,6 +1038,22 @@ async function lugarDeVotacionDe(tipo, id) {
   return null;
 }
 
+const MARCADORES_TESTIGO = /\{(puesto_testigo|mesas_testigo)\}/i;
+
+/** Puesto y mesas donde VIGILA un testigo (fila de estructura), o null si no es testigo o no tiene mesa. */
+async function datosDeTestigo(tipo, id) {
+  if (tipo !== 'estructura' || !id) return null;
+  const [[e]] = await pool.query(
+    `SELECT e.tipo_testigo, e.mesas_asignadas, COALESCE(e.mesa_votacion, u.mesa_votacion) AS mesa_votacion,
+            COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto
+       FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
+      WHERE e.id = ? AND e.cargo = 'testigo'`, [id]);
+  if (!e) return null;
+  const mesas = mesasDeFila(e);
+  const puesto = String(e.puesto || '').trim();
+  return puesto && mesas.length ? { puesto, mesas } : null;
+}
+
 /**
  * Reemplaza los marcadores del mensaje con los datos de ESTE destinatario.
  *
@@ -1121,6 +1141,11 @@ function agregarBajaSms(texto, canal, mensajeOriginal, urlBaja, encendido) {
      («No quiero recibir más mensajes», /v/<token>?baja=1). Quien quiera el enlace de baja
      igual lo escribe a mano con {baja}, que ya se respetó arriba. */
   if (MARCADOR_ENLACE.test(String(mensajeOriginal || ''))) return texto;
+  /* EL AVISO AL TESTIGO TAMPOCO LLEVA «Baja: …». Es un aviso OPERATIVO a alguien del equipo («eres testigo en tal
+     puesto, mesa tal»), no un mensaje de campaña al electorado, y esos 78 caracteres lo llevaban siempre a 2 o 3 SMS:
+     con el dominio departamental y la firma, el texto solo ya ocupa 147 a 169. Quien quiera la baja ahí la escribe a
+     mano con {baja}, que ya se respeto arriba. La lista de «no contactar» SI se respeta (destinatariosDeSeleccion). */
+  if (/\{(puesto_testigo|mesas_testigo)\}/i.test(String(mensajeOriginal || ''))) return texto;
   return `${texto} Baja: ${urlBaja}`;
 }
 
@@ -1160,7 +1185,28 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
       return { texto: '', urlBaja, faltaEnlace: true, motivoEnlace: err.message };
     }
   }
+  /* {puesto_testigo}, {mesas_testigo} y {enlace_app}: el aviso al TESTIGO (Cobertura de testigos). Los datos son
+     los de su fila de estructura —el puesto donde VIGILA y sus mesas, no donde vota—. Quien no sea testigo con
+     mesa asignada no recibe el mensaje: se marca como fallido con el motivo, en vez de mandar «eres testigo
+     en , mesa » a alguien que no lo es. */
+  let puestoTestigo = '';
+  let mesasTestigo = '';
+  if (MARCADORES_TESTIGO.test(plantilla)) {
+    const t = await datosDeTestigo(envio.destinatario_tipo, envio.destinatario_id);
+    if (!t) {
+      return { texto: '', urlBaja, faltaEnlace: true,
+        motivoEnlace: 'Esta persona no es testigo con mesa asignada: el aviso de testigo no se le envia.' };
+    }
+    puestoTestigo = t.puesto;
+    mesasTestigo = listaEnPalabras(t.mesas);
+  }
+  if (/\{enlace_app\}/i.test(plantilla) && !baseEnlace) {
+    return { texto: '', urlBaja, faltaEnlace: true, motivoEnlace: 'No se pudo armar el enlace de la app: falta el dominio de la licencia.' };
+  }
   let texto = plantilla
+    .replace(/\{puesto_testigo\}/gi, puestoTestigo)
+    .replace(/\{mesas_testigo\}/gi, mesasTestigo)
+    .replace(/\{enlace_app\}/gi, baseEnlace || '')
     .replace(/\{nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
     .replace(/\{primer_nombre\}/gi, envio.destinatario_nombre.split(' ')[0])
     .replace(/\{enlace_ya_vote\}/gi, urlYaVote)

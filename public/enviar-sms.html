@@ -161,6 +161,8 @@
             <code>{municipio}</code>, <code>{departamento}</code>.
             A quien le falte el dato, el marcador le queda vacío.
             <br><code>{slogan}</code> pone el eslogan de Configuración → Datos de la campaña.
+            <br><code>{puesto_testigo}</code>, <code>{mesas_testigo}</code> y <code>{enlace_app}</code> son para avisarle a un <strong>testigo</strong>
+            dónde vigila (su puesto y sus mesas) y dónde entrar a la app; solo funcionan con personas que tengan mesa asignada como testigo.
             <br><code>{enlace_ya_vote}</code> pone el enlace personal donde cada votante avisa «ya voté» (solo el día de la elección).
             Se envía <strong>únicamente a quien autorizó SMS de forma expresa</strong>: quien no tiene autorización registrada queda fuera.
           </div>
@@ -528,6 +530,28 @@ document.addEventListener('click', (e) => {
   }
 });
 
+/* LA LISTA Y EL TEXTO QUE TRAE OTRA PANTALLA. «Cobertura de testigos» no manda nada por su cuenta: arma a
+   quién y qué, lo deja en sessionStorage (no en la dirección: lleva teléfonos) y abre ESTA pantalla, que es la
+   que ya sabe de horario, firma, bajas y segmentos. Se lee una sola vez y se borra. */
+function aplicarPreseleccion() {
+  let datos = null;
+  try { datos = JSON.parse(sessionStorage.getItem('sms_preseleccion') || 'null'); sessionStorage.removeItem('sms_preseleccion'); } catch (_) { datos = null; }
+  if (!datos || !Array.isArray(datos.destinatarios)) return;
+  const sinBaja = datos.destinatarios.filter(d => !d.dado_de_baja);
+  const dadosDeBaja = datos.destinatarios.length - sinBaja.length;
+  seleccionados = sinBaja.map(d => ({ tipo: d.tipo, id: d.id, nombre: d.nombre, contacto: d.contacto, detalle: d.detalle || '' }));
+  if (datos.mensaje) {
+    const cuadro = document.getElementById('input-mensaje');
+    cuadro.value = datos.mensaje;
+    cuadro.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  const sinTelefono = seleccionados.filter(d => !d.contacto).length;
+  const avisos = [];
+  if (dadosDeBaja) avisos.push(`${dadosDeBaja} persona(s) pidieron no recibir mensajes y no se incluyeron.`);
+  if (sinTelefono) avisos.push(`${sinTelefono} no tiene(n) teléfono registrado y quedarán como «sin contacto».`);
+  if (avisos.length) setTimeout(() => alert(avisos.join('\n')), 100);
+}
+
 (async () => {
   usuarioActual = await inicializarLayout('/enviar-sms.html');
 
@@ -544,6 +568,7 @@ document.addEventListener('click', (e) => {
     document.getElementById('btn-eliminar-todo-historial').style.display = 'inline-block';
   }
   territorios = await api('/territorial/territorios');
+  aplicarPreseleccion();
   renderizarSeleccionados();
   await cargarPlantillas();
   await cargarHistorial();

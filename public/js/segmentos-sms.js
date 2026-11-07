@@ -99,7 +99,8 @@
     // Un mensaje con {enlace_ya_vote} no lo lleva: la baja va en la página del enlace
     // (ver agregarBajaSms en routes/comunicaciones.routes.js), así que tampoco se cuenta.
     return window.bajaAutomaticaSms !== false && !/\{baja\}/i.test(String(texto || ''))
-      && !window.llevaEnlaceYaVote(texto);
+      && !window.llevaEnlaceYaVote(texto)
+      && !/\{(puesto_testigo|mesas_testigo)\}/i.test(String(texto || ''));   // el aviso al testigo tampoco la lleva
   };
 
   window.calcularSegmentosSms = function (texto) {
@@ -111,7 +112,16 @@
        entre 50 y 70: el contador diría «1 SMS» y saldrían dos. */
     const enlaceYaVote = (typeof location === 'undefined' ? '' : location.origin) + '/v/XXXXXXXXXXXX';
     // Se cuenta lo que va a SALIR: ya sin tildes ni ñ.
-    const t = window.transliterarSms(String(texto || '').replace(/\{enlace_ya_vote\}/gi, enlaceYaVote))
+    /* Los marcadores del aviso al testigo se cuentan con un largo REALISTA, no el del marcador: {enlace_app} es
+       el dominio de la instalacion; {mesas_testigo} una o dos mesas; {puesto_testigo} un puesto corriente
+       (los hay de 10 a 41 caracteres: se cuenta uno de 25, y por eso el contador de esos mensajes es una
+       estimacion). */
+    const origen = (typeof location === 'undefined' ? '' : location.origin);
+    const t = window.transliterarSms(String(texto || '')
+      .replace(/\{enlace_ya_vote\}/gi, enlaceYaVote)
+      .replace(/\{enlace_app\}/gi, origen)
+      .replace(/\{mesas_testigo\}/gi, '12')
+      .replace(/\{puesto_testigo\}/gi, 'X'.repeat(25)))
       + extra + String(window.firmaSms || '');
     let esGsm = true;
     let largo = 0;
