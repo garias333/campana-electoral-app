@@ -12,25 +12,27 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 277** (`parches/campana-parche277.zip`, 278.601 bytes,
-  sha256 `c1804c429d701fbcb03890b892a089e0cb41be5d945a71563fbbe10178700fc4`, 22 archivos).
-  **Publicado** en la carpeta de licencias (`parche-277.zip`, mismo sha256, 0644) y
-  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = true`; nombre en el panel:
-  «Inscripción por enlace/QR del líder (Requiere el 276)». Es la **inscripción por enlace/QR del líder**
-  (detalle abajo) y **requiere el 276**. El anterior, el 276 (551.144 bytes,
+- **Último parche generado: 278** (`parches/campana-parche278.zip`, 18.199 bytes,
+  sha256 `673b60c0f58bec76b55b688a9555c23f2194bb496dc407e425183e66ad6ee02b`, 3 archivos).
+  **Publicado** en la carpeta de licencias (`parche-278.zip`, mismo sha256, 0644) y
+  **registrado y firmado (Ed25519), INACTIVO**, con `toca_base_datos = false`; nombre en el panel:
+  «Inscripción: datos de contacto completos (Requiere el 277)». Es el formulario de inscripción por enlace con los
+  datos de contacto (detalle abajo) y **requiere el 277**. El anterior, el 277 (`parches/campana-parche277.zip`,
+  278.601 bytes, sha256 `c1804c429d701fbcb03890b892a089e0cb41be5d945a71563fbbe10178700fc4`, 22 archivos, inscripción
+  por enlace/QR del líder, `toca_base_datos = true`, requiere el 276), sigue publicado e inactivo, igual que el 276 (551.144 bytes,
   `28471a84304ebc590121351690020621f2adb288a9b0783a2b9f5b1e1d46a40c`, 36 archivos, Día D fase 4, requiere
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 277 (y del 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 278 (y del 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
-  seis**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
+  siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 277, `.version-parche` y `.version-base` = **277**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276 ni el 277 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 278, `.version-parche` y `.version-base` = **278**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277 ni el 278 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v155` en el código de la Base y dentro del 277 (el 278 no lo toca; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -39,7 +41,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
 - **Plantilla: sigue en v271 y NO lleva el Día D fase 1** (no se regeneró al armar el 272, por
-  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 277` (y `--forzar`
+  orden expresa). Para una campaña nueva hay que regenerarla con `--parche 278` (y `--forzar`
   si hace falta) antes de usarla. Del 271: `backups/plantillas/plantilla-nueva-campana-v271.zip`, 194 archivos,
   sha256 `c11c9904876be5bda0fcdf4542488cd4b667b6adbc68b83990b72fa85cec576d`, escaneo de
   secretos en 0. **Quedó desactualizada** por el commit `39b18eb` (su `init-db.js` todavía
@@ -52,6 +54,55 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 278 — inscripción por enlace: datos de contacto completos (7 de noviembre de 2026, INACTIVO)
+
+Zip de 3 archivos: `config/inscripcionRegistro.js`, `routes/inscripcion.routes.js` y `.version-base` (278).
+Commit que recoge: `6d7b514` (a partir de `a5a1f6a`, el del 277). `scripts/probar-inscripcion-enlace.js` (ahora con 184
+comprobaciones) **no viaja**; el service worker no cambia (el formulario `/i` lo arma el servidor, no hay archivo
+estático nuevo).
+
+- **Qué hace:** el formulario `/i/<código>` trae, después del celular, la sección «Datos de contacto»: correo,
+  dirección, departamento, ciudad, comuna/corregimiento y barrio/vereda, con los nombres de columna de la ficha
+  (`email`, `direccion`, `departamento_residencia`, `ciudad_residencia`, `comuna_corregimiento_residencia`,
+  `barrio_residencia`). **Todo es opcional**; los obligatorios siguen siendo nombre, cédula, celular y la
+  autorización. Recorte, espacios colapsados, sin caracteres de control y corte al largo de la columna (150, 255,
+  100, 100, 120, 120). Departamento y ciudad vienen prellenados con `territorio_departamento` y `territorio_ciudad` de
+  la campaña (o `departamento`/`ciudad` si no están) y se pueden editar. `GET /i/<código>/territorio` (solo lectura,
+  sin cédulas ni personas) ofrece las listas de la propia vista `territorios` —departamentos, municipios, comunas y
+  corregimientos, y barrios y veredas, **estas también cuando cuelgan directo del municipio**—; sin listas, texto libre.
+  Si la campaña tiene «¿Utilizar nombre de comunas?» o «de barrios?» en No, ese campo no se muestra, como en el celular.
+- **Guardado:** cédula nueva, todo. **Ficha existente con el celular que coincide: solo los campos que tenía vacíos**
+  (una cadena vacía cuenta como vacío); nunca se sobrescribe un dato, ni siquiera el de una ficha de otro líder, y
+  si el celular no coincide no se toca nada. **Con dirección se geocodifica en segundo plano** (no se espera, no pisa
+  unas coordenadas que ya existan, y sin `GOOGLE_MAPS_API_KEY` no falla ni escribe advertencias; «Re-geocodificar
+  pendientes» de Votantes recoge después las que quedaron sin coordenadas).
+- **Verificado sobre el zip:** los 3 archivos coinciden por md5 con el disco; no trae `.env`, `.credenciales-*`,
+  `uploads/`, `legislacion/`, `backups/`, `scripts/`, `db/` ni `.sql`; sin secretos en el texto;
+  `verificar-requires.js` revisó 18 `require` locales y todos resuelven **aplicando el zip sobre una copia del árbol
+  del 277** (`a5a1f6a`), con un control negativo (sin `config/geocoder.js` falla, como debe).
+- **NO toca la base de datos** (`toca_base_datos = false`): no hay cambios en `db/` y no hace falta `init-db`.
+- **Probado solo con una base simulada** (un MySQL privado desechable) y con el geocodificador **sustituido por una
+  función de prueba**: 184 comprobaciones (no falla sin clave, con error, sin resultado, ni cuando tarda 1,5 s: la
+  respuesta sale en menos de un segundo). **No** se probó Google Geocoding real, ni las listas con el catálogo
+  nacional (la prueba usó una tabla `territorios` de seis filas), ni el formulario en un celular real (sí se vio en
+  una captura de 360 px, en una columna).
+- **Cómo exige el 277.** Sin declarar dependencia (ver «Cómo exige el 273»): **activar el 278 con el 277 y el 276 y los
+  anteriores, con la misma lista de campañas.** Sin el 277 le faltan `config/inscripcionEnlace.js` y las tablas.
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+
+1. **Revisar «Datos de la campaña» → departamento y ciudad** antes de repartir QR: son lo que el formulario muestra
+   ya escrito. En una campaña departamental la ciudad queda vacía (cada persona pone la suya) y la lista de ciudades
+   sale de los municipios del ámbito.
+2. **Si la campaña no usa comunas o barrios** (los dos interruptores de Datos de la campaña), esos campos no aparecen
+   en el formulario público, igual que en el celular del líder.
+3. **Una ficha que ya tenía dirección no la cambia el formulario público:** quien quiera corregirla lo hace desde la
+   ficha. El formulario solo rellena lo que estaba en blanco, y solo si el celular escrito coincide con el de la ficha.
+4. **Cada dirección nueva cuesta una consulta a Google Geocoding** (si la campaña tiene la clave). Hasta 200 inscripciones
+   por enlace al día es el tope de la 277; si hace falta limitar el gasto, bajar ese tope en Votantes → «Inscripciones
+   por enlace» → Ajustes.
+5. **Aplicar después del 277, con la misma lista de campañas.** No hace falta `init-db`.
 
 ## Parche 277 — inscripción por enlace/QR del líder (7 de noviembre de 2026, INACTIVO)
 
