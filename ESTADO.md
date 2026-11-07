@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 284** (`parches/campana-parche284.zip`, 282.785 bytes,
-  sha256 `00eacb9230ab661b1a9ffac49cd51b70151df4af91939ca70fc6104ab73c6333`, 28 archivos).
-  **Publicado** en la carpeta de licencias (`parche-284.zip`, mismo sha256, 0644) y
-  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
-  «Día D: transporte, parte 1 (Requiere el 283)» (detalle abajo); **requiere el 283**.
-  El anterior, el 283 (`parches/campana-parche283.zip`, 110.782 bytes,
+- **Último parche generado: 285** (`parches/campana-parche285.zip`, 101.622 bytes,
+  sha256 `767fd7efbe66bb93d38e0fd8286b02ab3d96c992bd240f536be741c2a841cc93`, 5 archivos).
+  **Publicado** en la carpeta de licencias (`parche-285.zip`, misma huella) y
+  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**; nombre en el panel:
+  «Menú Día D: navegación entre pestañas (Requiere el 284)» (detalle abajo); **requiere el 284**.
+  El anterior, el 284 (`parches/campana-parche284.zip`, 282.785 bytes,
+  sha256 `00eacb9230ab661b1a9ffac49cd51b70151df4af91939ca70fc6104ab73c6333`, 28 archivos, transporte parte 1,
+  `toca_base_datos = true`, requiere el 283), sigue publicado e inactivo, igual que el 283 (`parches/campana-parche283.zip`, 110.782 bytes,
   sha256 `60fecc764fba702e864f7dac158075c9e980ba185eebdd8a70a81e4dcd398f52`, 6 archivos, privacidad al buscar
   cédula y SMS al reinscribirse, `toca_base_datos = true`, requiere el 282), sigue publicado e inactivo, igual que el 282 (`parches/campana-parche282.zip`, 79.606 bytes,
   sha256 `cfe2292831b80eb8246134fd7f1a478fc646b1bc91ebc73b5cb738a50ccca32c`, 9 archivos, cédulas sin duplicados,
@@ -36,15 +38,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 284 (y del 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 285 (y del 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 284, `.version-parche` y `.version-base` = **284**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v158` en el código de la Base y dentro del 284 (el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 285, `.version-parche` y `.version-base` = **285**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v159` en el código de la Base y dentro del 285 (el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -66,6 +68,47 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 285 — Menú Día D: navegación entre pestañas (7 de noviembre de 2026, INACTIVO, NO toca la base)
+
+Zip de 5 archivos: `public/js/common.js`, `public/dia-d.html`, `public/configuracion.html`, `public/service-worker.js` (**v159**) y
+`.version-base` (285). Commit que recoge: `10a79c7` (a partir de `9c3a846`, el del 284). Los cuatro archivos coinciden por md5 con
+el commit. **Requiere el 284** (el `common.js` y el `dia-d.html` que modifica son los del 284: sin él, el ítem «Transporte» y su
+pestaña no existen). Sin dependencia declarada (ver «Cómo exige el 273»): activarlo con el 284 y **la misma lista de campañas**.
+
+**Qué pasaba.** En el menú de escritorio, dentro de DÍA D, «Jornada electoral» y «Avance de votación» salían los dos activos y el
+segundo no respondía. Tres causas juntas en `common.js` y `dia-d.html`: (1) el activo se calculaba UNA vez al pintar el menú y para
+un ítem sin ancla comparaba solo la ruta, así que «Jornada electoral» (`/dia-d.html`) se marcaba aunque la vista fuera otra;
+(2) «Avance de votación» (`/dia-d.html#avance`) lleva a la MISMA página: el navegador solo cambia el `#` y no recarga, y `dia-d.html`
+solo leía el ancla al cargar, sin escuchar `hashchange`; (3) las pestañas de la página cambian la URL con `history.replaceState`,
+que no avisa a nadie, y por eso el menú nunca se enteraba. Las pestañas nuevas (Alertas, Transporte, Resultados) no rompieron
+nada: heredaron el mismo defecto.
+
+**Qué cambia.**
+- `common.js`: cada enlace del menú lleva `data-nav-href`; `marcarActivoMenu()` decide el activo por **ruta + ancla** (el ancla
+  que coincide exacta; si no hay, el ítem de esa ruta sin ancla; si no, el marcado `porDefecto`) y deja **uno solo**. Se recalcula
+  al cargar, en `hashchange`, en `popstate` y cuando la página lo pide (`window.actualizarMenuActivo`). Si la página declara
+  `window.paginaEscuchaHash = true`, el clic en un ítem de su misma ruta solo cambia el ancla (`pushState` + `hashchange`), **sin
+  recargar**; en cualquier otra página el clic navega como siempre. Con Ctrl/Cmd, botón central o `target`, no se intercepta.
+- `dia-d.html`: `pestanaDelAncla()` (`#avance`, `#alertas`, `#transporte`, `#resultados`; otro ancla o uno sin permiso → «Reportes
+  de mesas»), listener `hashchange`, y `mostrarPestana` avisa al menú. Los enlaces directos abren la pestaña correcta.
+- `configuracion.html`: ya escuchaba `hashchange`; ahora declara `paginaEscuchaHash` y avisa al menú al cambiar de pestaña. **Tenía
+  la mitad del problema** (la marca se quedaba pegada y sin ancla no había ítem por defecto): «Datos de la campaña» es ahora
+  `porDefecto`.
+- Los `href` del menú **no cambian** (el aspirante con sublicencia tiene su lista de `href` exactos). ELECTORAL, LOGÍSTICA, CRM y los
+  demás grupos tienen **una página por ítem** y no tenían el problema; en el celular no aplica (la navegación es otra).
+
+**Probado en Chromium** (sin interfaz, por CDP, sesión de administrador contra el código real con la API simulada): estando en
+`dia-d.html`, un clic tras otro en Jornada → Avance → Alertas → Transporte → Resultados → Jornada → Avance deja **un solo ítem
+activo** y la vista correspondiente, **sin recargar** (marca en `window` intacta); Atrás vuelve a la vista anterior; los botones
+de pestaña de la página actualizan el menú; los enlaces directos `#avance`, `#alertas`, `#transporte`, `#resultados`, sin ancla y
+con un ancla inventada abren la pestaña correcta; y **se abrieron las 33 direcciones del menú** (incluidos los cuatro `contenido.html?clave=…` y los seis de
+Configuración): en cada una queda exactamente un ítem activo y es el suyo. Suites: transporte 123/123, inscripción 465/465 (las
+dos aceptan ahora `v159`). **NO se probó:** el menú con un aspirante con sublicencia o un rol con permisos recortados (los `href`
+no cambian, pero no se recorrió), Safari/Firefox, ni el menú en un teléfono.
+
+**NOTAS PARA QUIEN LO APLIQUE:** no toca la base y no pide reiniciar nada más allá de lo habitual de un parche; el navegador
+recoge `common.js` nuevo al subir el service worker a `v159` (la primera carga puede pedir recargar una vez).
 
 ## Parche 284 — Día D: transporte, parte 1 (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
