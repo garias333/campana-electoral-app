@@ -305,7 +305,7 @@ CREATE TABLE IF NOT EXISTS votantes (
   consentimiento_confirmado_canal ENUM('sms','email') NULL,
   datos_verificados TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Marcado por Administrador o Asistente administrativo cuando ya revisaron/confirmaron la calidad de estos datos',
   cliente_uuid CHAR(36) NULL COMMENT 'Identificador generado en el celular al guardar el formulario (antes de enviarlo) — evita crear un duplicado si el mismo registro se reintenta más de una vez tras un corte de señal',
-  origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual',
+  origen ENUM('manual','importado','formulario_publico','estructura','enlace_lider') DEFAULT 'manual',
   created_by INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

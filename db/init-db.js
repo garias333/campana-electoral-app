@@ -1395,7 +1395,7 @@ async function main() {
   // al agregar a esa misma persona en Estructura territorial.
   await modificarColumna(
     connection, 'votantes',
-    `origen ENUM('manual','importado','formulario_publico','estructura') DEFAULT 'manual'`
+    `origen ENUM('manual','importado','formulario_publico','estructura','enlace_lider') DEFAULT 'manual'`
   );
 
   // Adjunto opcional de una campaña. Hoy NINGÚN canal lo admite: era
@@ -2726,6 +2726,99 @@ async function main() {
     ['aspirante_id', 'nombre']);
   await rehacerIndiceUnico(connection, 'dia_d_puestos_votacion', 'uq_dia_d_puestos_ctc',
     ['aspirante_id', 'ctc_puesto_id']);
+
+  /* ---------------------------------------------------------------------
+     INSCRIPCIÓN POR ENLACE / QR DEL LÍDER (/i/:codigo)
+
+     Cada líder, sublíder o coordinador tiene un enlace corto y un QR propios.
+     Quien lo abre se inscribe solo desde su celular y queda como votante de ese
+     líder con origen «enlace_lider», pendiente de confirmar por /c.
+
+     EL CÓDIGO SE GUARDA EN CLARO (no es un HMAC como el de /v) porque tiene que
+     poder ROTARSE por persona y revocarse sin tocar a nadie más. No identifica
+     a nadie por sí solo: el id del usuario no viaja en la URL.
+     --------------------------------------------------------------------- */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS inscripcion_enlaces (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      codigo CHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'Alfabeto sin 0/O/1/I/L; ver config/inscripcionEnlace.js',
+      activo TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 = lo desactivó un coordinador o el administrador: el líder no lo puede reactivar',
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      rotado_en DATETIME NULL,
+      UNIQUE KEY uq_insc_usuario (usuario_id),
+      UNIQUE KEY uq_insc_codigo (codigo),
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+
+  /* LA BITÁCORA. Una fila por intento que llegó a evaluarse (no por cada GET).
+     `cedula_hash` es el SHA-256 de la cédula: sirve para contar y cruzar
+     intentos sin guardar el número en una tabla que se lista. `otro_lider` es
+     aparte de `resultado` porque un mismo intento puede sumar a una rama Y
+     haber sido de otro líder, y el coordinador necesita ver lo segundo. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS inscripcion_intentos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      enlace_id INT NOT NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      resultado ENUM('nuevo','mismo_lider','otro_lider','rama_sumada','consentimiento_completado','rechazado') NOT NULL,
+      votante_id INT NULL,
+      cedula_hash CHAR(64) NULL,
+      telefono_hash CHAR(64) NULL COMMENT 'SHA-256 de los últimos 10 dígitos: para el tope por teléfono',
+      otro_lider TINYINT(1) NOT NULL DEFAULT 0,
+      motivo VARCHAR(40) NULL COMMENT 'Solo en rechazados: honeypot, muy_rapido, tope_telefono, tope_enlace',
+      ip VARCHAR(45) NULL,
+      navegador VARCHAR(255) NULL,
+      KEY idx_insc_int_enlace (enlace_id, creado_en),
+      KEY idx_insc_int_tel (telefono_hash, creado_en),
+      KEY idx_insc_int_votante (votante_id),
+      FOREIGN KEY (enlace_id) REFERENCES inscripcion_enlaces(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS inscripcion_config (
+      id TINYINT NOT NULL PRIMARY KEY,
+      habilitado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Interruptor general de la inscripción por enlace',
+      limite_enlace_dia INT NOT NULL DEFAULT 200,
+      limite_telefono_dia INT NOT NULL DEFAULT 3,
+      segundos_minimos INT NOT NULL DEFAULT 4
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await connection.query(`INSERT IGNORE INTO inscripcion_config (id) VALUES (1)`);
+
+  /* LA EVIDENCIA DE LA AUTORIZACIÓN, EN SU PROPIA TABLA (y no en dos columnas de
+     `votantes`). `votantes` se devuelve entera con SELECT v.* en el listado y en
+     la ficha; una IP y un navegador no tienen por qué viajar ahí. Es el mismo
+     criterio de `votante_firmas`. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS votante_consentimiento_evidencia (
+      votante_id INT NOT NULL PRIMARY KEY,
+      metodo VARCHAR(50) NOT NULL,
+      ip VARCHAR(45) NULL,
+      navegador VARCHAR(255) NULL,
+      enlace_id INT NULL,
+      politica_version VARCHAR(64) NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  /* LA COLA DEL SMS DE CONFIRMACIÓN. Un SMS por votante en la vida (UNIQUE): es
+     el «UN SMS» de la orden. No guarda el token —se crea al enviar, y de /c solo
+     se guarda el hash— sino a quién y desde cuándo. Fuera de la franja el envío
+     queda para la apertura (enviar_desde). */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS inscripcion_sms_cola (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      votante_id INT NOT NULL,
+      enviar_desde DATETIME NOT NULL,
+      estado ENUM('pendiente','enviado','omitido','fallido') NOT NULL DEFAULT 'pendiente',
+      detalle VARCHAR(200) NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      enviado_en DATETIME NULL,
+      UNIQUE KEY uq_insc_sms_votante (votante_id),
+      KEY idx_insc_sms_estado (estado, enviar_desde),
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  console.log('Tablas de la inscripción por enlace listas.');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
