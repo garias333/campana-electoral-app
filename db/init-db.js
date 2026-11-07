@@ -1839,6 +1839,14 @@ async function main() {
     // para demostrar ante una queja CÓMO se pidió, no solo que se pidió.
     await agregarColumnaSiFalta(connection, tabla,
       'no_contactar_origen VARCHAR(20) NULL AFTER no_contactar_fecha', 'no_contactar_origen');
+    // La baja anotada A MANO (origen `manual`): por qué canal la pidió la persona
+    // (SMS respondido, llamada, en persona…) y el motivo que escribió quien la
+    // registró. Es VARCHAR y no ENUM, como el origen: agregar un canal no exige
+    // tocar la base. Quedan NULL en las bajas por enlace o por respuesta.
+    await agregarColumnaSiFalta(connection, tabla,
+      'no_contactar_canal VARCHAR(20) NULL AFTER no_contactar_origen', 'no_contactar_canal');
+    await agregarColumnaSiFalta(connection, tabla,
+      'no_contactar_motivo VARCHAR(255) NULL AFTER no_contactar_canal', 'no_contactar_motivo');
   }
 
   // Respuestas entrantes. Hasta ahora Twilio solo avisaba el ESTADO de lo
@@ -1966,7 +1974,7 @@ async function main() {
      '{primer_nombre}, gracias por su apoyo en esta jornada. Cada voto fue trabajo de gente como usted. — {candidato}'],
 
     ['Bienvenida al equipo', 'email', 'Bienvenido a la campaña',
-     'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, respóndanos y lo retiramos de la lista.'],
+     'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, use el enlace para darse de baja que aparece al pie de este mensaje.'],
     ['Invitación a evento (correo)', 'email', 'Lo esperamos en nuestro próximo encuentro',
      'Hola {nombre},\n\nQueremos invitarlo a nuestro próximo encuentro. Su presencia es importante para nosotros.\n\nFecha: (completar)\nHora: (completar)\nLugar: (completar)\n\nConfirme su asistencia respondiendo este correo.\n\n{slogan}'],
     ['Su lugar de votación', 'email', 'Este es su lugar de votación',
@@ -2293,6 +2301,12 @@ async function main() {
      'Hola {nombre}, lo invitamos a nuestro encuentro. Confirme su asistencia respondiendo SI. Responda BAJA para no recibir mas mensajes.',
      'Hola {nombre}, lo invitamos a nuestro encuentro. Lo esperamos. Para no recibir mas: {baja}'],
   ];
+  // Lo mismo para el correo: «respóndanos y lo retiramos de la lista» promete una gestión
+  // manual que nadie hace —el correo sale de un buzón que no se lee— y el pie de baja
+  // automático (config/bajaContacto.js `pieDeBaja`) ya trae el enlace.
+  plantillasConBajaVieja.push(['Bienvenida al equipo',
+    'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, respóndanos y lo retiramos de la lista.',
+    'Hola {nombre},\n\nGracias por sumarse a nuestra campaña. Desde hoy hace parte del equipo que está construyendo esto en {municipio}.\n\nEn los próximos días le estaremos compartiendo información sobre encuentros y actividades.\n\n{slogan}\n\n---\nSi no desea seguir recibiendo estos correos, use el enlace para darse de baja que aparece al pie de este mensaje.']);
   for (const [nombre, textoViejo, textoNuevo] of plantillasConBajaVieja) {
     const [r] = await connection.query(
       `UPDATE comunicaciones_plantillas SET cuerpo = ? WHERE nombre = ? AND cuerpo = ?`,

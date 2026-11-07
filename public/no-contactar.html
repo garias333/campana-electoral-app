@@ -168,7 +168,7 @@ function agruparPorPersona(filas) {
     if (!mapa.has(llave)) {
       mapa.set(llave, {
         nombre: f.nombre || '', telefono: f.telefono || '', email: f.email || '',
-        fecha: f.fecha || null, origen: f.origen || null, origen_texto: f.origen_texto,
+        fecha: f.fecha || null, origen: f.origen || null, origen_texto: f.origen_texto, motivo: f.motivo || '',
         fichas: [], tipos: new Set(),
       });
     }
@@ -180,7 +180,7 @@ function agruparPorPersona(filas) {
     if (!p.email && f.email) p.email = f.email;
     // Se queda la fecha MÁS ANTIGUA: es cuando la persona lo pidió. La
     // segunda ficha se marcó sola, en la misma operación o después.
-    if (f.fecha && (!p.fecha || f.fecha < p.fecha)) { p.fecha = f.fecha; p.origen = f.origen; p.origen_texto = f.origen_texto; }
+    if (f.fecha && (!p.fecha || f.fecha < p.fecha)) { p.fecha = f.fecha; p.origen = f.origen; p.origen_texto = f.origen_texto; p.motivo = f.motivo || ''; }
   }
   return [...mapa.values()];
 }
@@ -282,7 +282,7 @@ function pintarTabla() {
       <td class="cuando">${p.fecha
         ? `<span class="relativo">${escaparHtml(haceCuanto(p.fecha))}</span><span class="exacto">${escaparHtml(formatoFecha(p.fecha, true))}</span>`
         : '<span style="color:var(--color-text-muted);">No quedó registrado</span>'}</td>
-      <td><span class="chip-origen">${escaparHtml(p.origen_texto)}</span></td>
+      <td><span class="chip-origen">${escaparHtml(p.origen_texto)}</span>${p.motivo ? `<div class="motivo-baja" style="margin-top:4px; font-size:.82rem; color:var(--color-text-muted);">${escaparHtml(p.motivo)}</div>` : ''}</td>
       <td class="col-acciones" style="white-space:nowrap;">${puedeReactivar
         ? `<button class="btn-secundario btn-sm" data-tipo="${tipoRuta}" data-id="${f.id}" data-nombre="${escaparHtml(p.nombre || '')}">Reactivar</button>`
         : ''}</td>

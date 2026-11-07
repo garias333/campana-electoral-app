@@ -13,6 +13,11 @@
  * quedaría dada de baja sin que nadie hiciera clic. El GET muestra un botón;
  * el POST es el que marca.
  *
+ * Pero el botón no hace falta tocarlo: la página, ya abierta en un navegador de verdad,
+ * envía ella misma el POST con JavaScript (config/paginaBaja.js, compartido con /v). Quien
+ * precarga el enlace no ejecuta JavaScript y no da de baja a nadie; quien lo abre y se va
+ * queda dado de baja, que es lo que quería.
+ *
  * SE MARCA A LA PERSONA, NO AL NÚMERO — igual que la baja del parche 14: un
  * teléfono se comparte en una familia, así que se marcan todas las fichas que
  * lo tengan. Hacerlo distinto aquí significaría que la misma persona sigue
@@ -23,6 +28,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { verificar, aplicarBajaDeFicha } = require('../config/bajaContacto');
+const { confirmacionDeBaja, LISTO } = require('../config/paginaBaja');
 
 const router = express.Router();
 
@@ -62,9 +68,8 @@ router.get('/:codigo', (req, res) => {
   res.send(pagina({
     titulo: 'No recibir más mensajes',
     cuerpo: 'Si confirma, esta campaña dejará de enviarle mensajes de texto, correos y avisos.',
-    boton: `<form method="POST" action="/b/${encodeURIComponent(req.params.codigo)}">
-              <button type="submit">Confirmar mi baja</button>
-            </form>`,
+    boton: confirmacionDeBaja(`/b/${encodeURIComponent(req.params.codigo)}`,
+      '<button type="submit">Confirmar mi baja</button>'),
   }));
 });
 
@@ -102,10 +107,7 @@ router.post('/:codigo', async (req, res) => {
       }));
     }
 
-    res.send(pagina({
-      titulo: 'Listo',
-      cuerpo: '<span class="ok">Su solicitud quedó registrada.</span><br>No volverá a recibir mensajes de esta campaña.',
-    }));
+    res.send(pagina({ titulo: LISTO.titulo, cuerpo: `<span class="ok">${LISTO.cuerpo}</span>` }));
   } catch (err) {
     console.error('Error registrando la baja:', err);
     res.status(500).send(pagina({

@@ -13,7 +13,7 @@ const pushSvc = require('../config/push');
 const { enviarCorreoMasivo: enviarCorreoPersonal } = require('../config/mailer');
 const { armarWhereSql } = require('../config/filtros');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
-const { codigoDe: codigoDeBaja, urlDeBaja } = require('../config/bajaContacto');
+const { codigoDe: codigoDeBaja, urlDeBaja, aplicarBajaDeFicha, CANALES_BAJA_MANUAL } = require('../config/bajaContacto');
 const yaVoto = require('../config/yaVotoEnlace');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 
@@ -1591,11 +1591,13 @@ async function despacharCampanasProgramadas() {
 /** Las dos tablas donde vive una baja, con la misma forma. */
 const SQL_BAJAS = `
   SELECT 'Votante' AS tipo, id, nombre, telefono, email,
-         no_contactar_fecha AS fecha, no_contactar_origen AS origen
+         no_contactar_fecha AS fecha, no_contactar_origen AS origen,
+         no_contactar_canal AS canal, no_contactar_motivo AS motivo
     FROM votantes  WHERE no_contactar = 1
   UNION ALL
   SELECT 'Equipo', id, nombre, telefono, email,
-         no_contactar_fecha, no_contactar_origen
+         no_contactar_fecha, no_contactar_origen,
+         no_contactar_canal, no_contactar_motivo
     FROM usuarios  WHERE no_contactar = 1
      AND es_superadmin = 0`;   // el superadministrador no sale en ninguna lista (config/superadmin.js)
 
@@ -1611,14 +1613,22 @@ const ORIGEN_BAJA = {
   enlace: 'Enlace del mensaje',
   sms: 'Respondio al SMS',
   whatsapp: 'Respondio por WhatsApp',
+  manual: 'Anotada a mano',
 };
+
+/** «Anotada a mano · Llamada»: para una baja manual se dice ademas por que canal la pidio. */
+function textoDeOrigen(f) {
+  const base = ORIGEN_BAJA[f.origen] || 'No quedo registrado';
+  return f.origen === 'manual' && CANALES_BAJA_MANUAL[f.canal]
+    ? `${base} · ${CANALES_BAJA_MANUAL[f.canal]}` : base;
+}
 
 router.get('/bajas', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
     const [filas] = await pool.query(`${SQL_BAJAS} ORDER BY fecha IS NULL, fecha DESC, nombre`);
     res.json(filas.map(f => ({
       ...f,
-      origen_texto: ORIGEN_BAJA[f.origen] || 'No quedo registrado',
+      origen_texto: textoDeOrigen(f),
     })));
   } catch (err) {
     console.error(err);
@@ -1630,14 +1640,15 @@ router.get('/bajas/exportar-excel', requireRole('admin', 'coordinador'), requier
   try {
     const XLSX = require('xlsx');
     const [filas] = await pool.query(`${SQL_BAJAS} ORDER BY fecha IS NULL, fecha DESC, nombre`);
-    const columnas = ['Tipo', 'Nombre', 'Telefono', 'Correo', 'Cuando lo pidio', 'Por donde'];
+    const columnas = ['Tipo', 'Nombre', 'Telefono', 'Correo', 'Cuando lo pidio', 'Por donde', 'Motivo'];
     const datos = filas.map(f => ({
       Tipo: f.tipo,
       Nombre: f.nombre || '',
       Telefono: f.telefono || '',
       Correo: f.email || '',
       'Cuando lo pidio': f.fecha || '',
-      'Por donde': ORIGEN_BAJA[f.origen] || 'No quedo registrado',
+      'Por donde': textoDeOrigen(f),
+      Motivo: f.motivo || '',
     }));
     // Con la lista vacia, json_to_sheet no escribe ni los encabezados y sale
     // un archivo en blanco que parece un error. Se arma la fila de titulos.
@@ -1653,6 +1664,63 @@ router.get('/bajas/exportar-excel', requireRole('admin', 'coordinador'), requier
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error exportando la lista de bajas.' });
+  }
+});
+
+/**
+ * ANOTAR A MANO que alguien pidio no recibir mas.
+ *
+ * Existe porque hay bajas que llegan por donde la app no las ve: el SMS sale por un codigo
+ * corto del operador y la respuesta («NO», «BAJA») no vuelve (medido: cero respuestas
+ * recibidas), o la persona lo pidio por telefono o en persona. Sin esto el equipo sabia
+ * que alguien se habia salido y no tenia donde anotarlo, que es peor que no saberlo: el
+ * siguiente envio le llegaba igual.
+ *
+ * Usa la MISMA funcion que la baja por enlace (`aplicarBajaDeFicha`), asi que marca a la
+ * persona y no solo a la ficha: todas las que compartan telefono o correo, y la ficha
+ * misma aunque no tenga ninguno. Con origen `manual`, el canal por el que lo pidio y el
+ * motivo, que quedan en la ficha y en la auditoria con el nombre de quien la anoto.
+ *
+ * Mismo permiso que ve «Bajas» (admin y coordinador). El motivo y el canal son
+ * obligatorios: es lo que, ante un reclamo, dice de donde salio esta baja.
+ */
+router.post('/bajas/manual', requireRole('admin', 'coordinador'), async (req, res) => {
+  const { tipo, id, canal, motivo } = req.body || {};
+  const tabla = tipo === 'votante' ? 'votantes' : tipo === 'usuario' ? 'usuarios' : null;
+  if (!tabla) return res.status(400).json({ error: 'Tipo no valido.' });
+  const idNum = Number(id);
+  if (!Number.isInteger(idNum) || idNum <= 0) return res.status(400).json({ error: 'Persona no valida.' });
+  const motivoLimpio = String(motivo == null ? '' : motivo).trim();
+  if (!motivoLimpio) {
+    return res.status(400).json({ error: 'Escriba el motivo: queda en la ficha y en la auditoria.' });
+  }
+  if (motivoLimpio.length > 255) {
+    return res.status(400).json({ error: 'El motivo es muy largo (maximo 255 caracteres).' });
+  }
+  if (!Object.prototype.hasOwnProperty.call(CANALES_BAJA_MANUAL, canal)) {
+    return res.status(400).json({ error: 'Elija por que canal lo pidio.' });
+  }
+
+  try {
+    // El superadministrador no existe para estas pantallas (config/superadmin.js): 404 como si no estuviera.
+    const [[fila]] = await pool.query(
+      `SELECT nombre FROM ${tabla} WHERE id = ?${tabla === 'usuarios' ? ' AND es_superadmin = 0' : ''}`, [idNum]);
+    if (!fila) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+
+    const r = await aplicarBajaDeFicha(pool, tabla, idNum, { origen: 'manual', canal, motivo: motivoLimpio });
+    if (!r) return res.status(404).json({ error: 'Esa persona ya no existe.' });
+
+    await registrarAuditoria(
+      req.session.usuario.id, 'marcar_no_contactar', tabla, idNum,
+      `Anoto a mano que ${fila.nombre || '(sin nombre)'} pidio no recibir mas mensajes `
+      + `(${r.fichas} ficha(s) marcada(s)${r.fichas === 0 ? ': ya estaba de baja, no se cambio nada' : ''}). `
+      + `Canal: ${CANALES_BAJA_MANUAL[canal]}. Motivo: ${motivoLimpio}`,
+      req.ip);
+
+    res.json({ ok: true, fichas: r.fichas, ya_estaba: r.fichas === 0 });
+  } catch (err) {
+    console.error('Error anotando la baja a mano:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo anotar la baja.' });
   }
 });
 
@@ -1689,11 +1757,13 @@ router.post('/bajas/:tipo/:id/reactivar', requireRole('admin'), async (req, res)
     for (const t of ['votantes', 'usuarios']) {
       const [r] = await pool.query(
         `UPDATE ${t}
-            SET no_contactar = 0, no_contactar_fecha = NULL, no_contactar_origen = NULL
+            SET no_contactar = 0, no_contactar_fecha = NULL, no_contactar_origen = NULL,
+                no_contactar_canal = NULL, no_contactar_motivo = NULL
           WHERE no_contactar = 1
             AND ((? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
-              OR (? IS NOT NULL AND email = ?))`,
-        [diez, diez, fila.email || null, fila.email || null]);
+              OR (? IS NOT NULL AND email = ?)
+              ${t === tabla ? 'OR id = ?' : ''})`,
+        [diez, diez, fila.email || null, fila.email || null, ...(t === tabla ? [req.params.id] : [])]);
       tocadas += r.affectedRows;
     }
 

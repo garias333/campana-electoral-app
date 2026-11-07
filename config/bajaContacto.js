@@ -144,29 +144,66 @@ function pieDeBaja(url) {
  * dejaría a la misma persona recibiendo por la otra.
  *
  * `origen = 'enlace'` es lo que distingue, en «Bajas», a quien se dio de baja por sí
- * mismo de quien lo pidió respondiendo al SMS.
+ * mismo de quien lo pidió respondiendo al SMS. `origen = 'manual'` es la que anotó una
+ * persona del equipo porque se la pidieron por otra vía (llamada, en persona, un SMS que
+ * el proveedor no entrega a la app…): ésa lleva además el canal y el motivo.
+ *
+ * LA FICHA QUE SE PIDE SE MARCA SIEMPRE, POR SU ID. Antes sólo se marcaba por teléfono o
+ * correo, y una ficha sin ninguno de los dos —que es lo normal en una captura a pie de
+ * calle sin datos de contacto— quedaba sin marcar: la función respondía «listo» y no había
+ * tocado nada. Sin dato de contacto no hay forma de extender la baja a otras fichas, pero
+ * la que se pidió sí se puede marcar.
+ *
+ * NO PISA UNA BAJA QUE YA EXISTE. Si la ficha ya estaba dada de baja, conserva su fecha,
+ * su origen y su motivo: lo que vale como evidencia es CUÁNDO y POR DÓNDE la pidió la
+ * persona la primera vez, y un segundo toque del mismo enlace (doble clic, reintento del
+ * celular) no debe reescribirlo. Por eso también es idempotente.
  *
  * @param {object} pool   el pool de mysql2 (este módulo no abre conexiones propias)
  * @param {'votantes'|'usuarios'} tabla
- * @returns {Promise<boolean>} false si la ficha ya no existe
+ * @param {number} id
+ * @param {{origen?: string, canal?: string|null, motivo?: string|null}} [opciones]
+ * @returns {Promise<false|{fichas:number}>} false si la ficha ya no existe; si no, cuántas
+ *          fichas se marcaron AHORA (0 = ya estaba de baja)
  */
-async function aplicarBajaDeFicha(pool, tabla, id) {
+async function aplicarBajaDeFicha(pool, tabla, id, opciones = {}) {
   if (!['votantes', 'usuarios'].includes(tabla)) throw new Error('Tabla no válida para la baja.');
+  const origen = opciones.origen || 'enlace';
+  const canal = opciones.canal || null;
+  const motivo = opciones.motivo ? String(opciones.motivo).trim().slice(0, 255) : null;
   const [[fila]] = await pool.query(`SELECT telefono, email FROM ${tabla} WHERE id = ?`, [id]);
   if (!fila) return false;
   const diez = String(fila.telefono || '').replace(/\D/g, '').slice(-10);
+  let fichas = 0;
   for (const t of ['votantes', 'usuarios']) {
-    await pool.query(
+    const [r] = await pool.query(
       `UPDATE ${t}
           SET no_contactar = 1,
               no_contactar_fecha = NOW(),
-              no_contactar_origen = 'enlace'
-        WHERE (? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
-           OR (? IS NOT NULL AND email = ?)`,
-      [diez, diez, fila.email || null, fila.email || null]
+              no_contactar_origen = ?,
+              no_contactar_canal = ?,
+              no_contactar_motivo = ?
+        WHERE (no_contactar = 0 OR no_contactar IS NULL)
+          AND ((? <> '' AND RIGHT(REGEXP_REPLACE(COALESCE(telefono,''), '[^0-9]', ''), 10) = ?)
+            OR (? IS NOT NULL AND email = ?)
+            ${t === tabla ? 'OR id = ?' : ''})`,
+      [origen, canal, motivo, diez, diez, fila.email || null, fila.email || null,
+        ...(t === tabla ? [id] : [])]
     );
+    fichas += r.affectedRows;
   }
-  return true;
+  return { fichas };
 }
 
-module.exports = { codigoDe, verificar, urlDeBaja, cabecerasDeBaja, pieDeBaja, aplicarBajaDeFicha };
+/** Los canales por los que alguien puede haber pedido la baja a mano. */
+const CANALES_BAJA_MANUAL = {
+  sms: 'SMS respondido',
+  llamada: 'Llamada',
+  en_persona: 'En persona',
+  whatsapp: 'WhatsApp',
+  otro: 'Otro',
+};
+
+module.exports = {
+  codigoDe, verificar, urlDeBaja, cabecerasDeBaja, pieDeBaja, aplicarBajaDeFicha, CANALES_BAJA_MANUAL,
+};

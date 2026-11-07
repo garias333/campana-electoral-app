@@ -544,6 +544,9 @@
           <input type="checkbox" name="activo" checked> Persona activa
         </label>
       </div>
+      <!-- «NO CONTACTAR», A MANO. Sólo al editar y sólo para quien ve «Pidieron no recibir más»:
+           una baja que la persona pidió por teléfono o en persona no tiene otro sitio donde anotarse. -->
+      <div class="campo" id="campo-baja-manual" style="display:none;"></div>
       <button type="submit" class="btn-primario" id="btn-guardar-estructura">Guardar</button>
     </form>
   </div>
@@ -660,6 +663,7 @@
 <script src="/js/consulta-censo.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
+<script src="/js/baja-manual.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -3272,6 +3276,7 @@ async function abrirCreacion() {
   document.getElementById('modal-form-titulo').textContent = 'Agregar a la estructura';
   document.getElementById('btn-guardar-estructura').textContent = 'Guardar';
   document.getElementById('campo-activo').style.display = 'none';
+  document.getElementById('campo-baja-manual').style.display = 'none';
   document.getElementById('campo-asignar-testigo').style.display = 'none';
   mesaActualTestigoPersona = null;
   mesasActualesTestigoPersona = [];
@@ -3352,6 +3357,32 @@ async function abrirCreacion() {
 let passwordEdicionEstructura = null;
 function olvidarPasswordEdicionEstructura() { passwordEdicionEstructura = null; }
 
+
+/* LA BAJA DE LA PERSONA, en su ficha. Se pide por `usuario_id`: la baja marca a la persona (todas
+   las fichas que comparten su teléfono o correo), no a esta fila de la estructura. */
+function pintarBajaManualEstructura(fila) {
+  const caja = document.getElementById('campo-baja-manual');
+  if (!caja) return;
+  const puede = typeof puedeMarcarBajaManual === 'function' && puedeMarcarBajaManual(usuarioActual);
+  if (!puede) { caja.style.display = 'none'; return; }
+  caja.style.display = 'block';
+  if (fila.no_contactar) {
+    const canales = { sms: 'SMS respondido', llamada: 'Llamada', en_persona: 'En persona', whatsapp: 'WhatsApp', otro: 'Otro' };
+    const detalle = fila.no_contactar_origen === 'manual'
+      ? ` Anotado a mano${canales[fila.no_contactar_canal] ? ' (' + canales[fila.no_contactar_canal] + ')' : ''}${fila.no_contactar_motivo ? ': ' + fila.no_contactar_motivo : ''}.`
+      : '';
+    caja.innerHTML = `<small style="color:var(--color-text-muted);">Pidió no recibir más mensajes.${escaparHtml(detalle)}</small>`;
+    return;
+  }
+  caja.innerHTML = '<button type="button" class="btn-secundario btn-sm" id="btn-baja-manual-estructura">Marcar como no contactar</button>';
+  document.getElementById('btn-baja-manual-estructura').addEventListener('click', () => {
+    abrirBajaManual({
+      tipo: 'usuario', id: fila.usuario_id, nombre: fila.nombre,
+      alListo: () => { fila.no_contactar = 1; fila.no_contactar_origen = 'manual'; pintarBajaManualEstructura(fila); cargarEstructura(); },
+    });
+  });
+}
+
 async function abrirEdicion(id) {
   const fila = listaEstructura.find(f => f.id === id);
   if (!fila) return;
@@ -3367,6 +3398,7 @@ async function abrirEdicion(id) {
   document.getElementById('modal-form-titulo').textContent = 'Editar persona';
   document.getElementById('btn-guardar-estructura').textContent = 'Guardar cambios';
   document.getElementById('campo-activo').style.display = 'block';
+  pintarBajaManualEstructura(fila);
   document.getElementById('form-ok').classList.remove('visible');
   document.getElementById('form-error').classList.remove('visible');
   document.getElementById('territorio-persona-error').classList.remove('visible');

@@ -460,6 +460,7 @@
 <script src="/js/consulta-censo.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
+<script src="/js/baja-manual.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -2016,6 +2017,25 @@ document.getElementById('btn-ver-politica-votante').addEventListener('click', as
   boton.textContent = 'Ocultar la política';
 });
 
+/* LA BAJA, en la ficha. Si ya está de baja, dice cómo se pidió (y, si se anotó a mano, por qué
+   canal y con qué motivo). Si no, quien puede ver «Pidieron no recibir más» tiene el botón para
+   anotarla: la persona pudo pedirlo por una vía que la app no ve (llamada, en persona, un SMS
+   respondido que el operador no entrega). */
+function lineaBaja(v) {
+  if (v.no_contactar) {
+    const manual = v.no_contactar_origen === 'manual';
+    const canales = { sms: 'SMS respondido', llamada: 'Llamada', en_persona: 'En persona', whatsapp: 'WhatsApp', otro: 'Otro' };
+    const detalle = manual
+      ? ` Anotado a mano${canales[v.no_contactar_canal] ? ' (' + canales[v.no_contactar_canal] + ')' : ''}${v.no_contactar_motivo ? ': ' + v.no_contactar_motivo : ''}.`
+      : '';
+    return `<div class="consent-linea consent-baja">Pidió no recibir más mensajes.${escaparHtml(detalle)}</div>`;
+  }
+  if (typeof puedeMarcarBajaManual === 'function' && puedeMarcarBajaManual(usuarioActual)) {
+    return `<div class="consent-linea"><button type="button" class="btn-evidencia" data-baja-manual="${v.id}">Marcar como no contactar</button></div>`;
+  }
+  return '';
+}
+
 function pintarConsentimiento(v) {
   const bloque = document.getElementById('bloque-consentimiento-votante');
   const caja = document.getElementById('detalle-consentimiento');
@@ -2049,7 +2069,7 @@ function pintarConsentimiento(v) {
     </div>
     <div class="consent-linea">${lineaConfirmacion(v)}</div>
     <div class="consent-linea" id="linea-firma-votante">${lineaFirma(v)}</div>
-    ${v.no_contactar ? '<div class="consent-linea consent-baja">Pidió no recibir más mensajes.</div>' : ''}`;
+    ${lineaBaja(v)}`;
 
   engancharBotonesEvidencia(v);
 }
@@ -2097,6 +2117,15 @@ function lineaFirma(v) {
 function engancharBotonesEvidencia(v) {
   const caja = document.getElementById('detalle-consentimiento');
   if (!caja) return;
+
+  const marcarBaja = caja.querySelector('[data-baja-manual]');
+  if (marcarBaja) marcarBaja.addEventListener('click', () => {
+    abrirBajaManual({
+      tipo: 'votante', id: Number(marcarBaja.dataset.bajaManual), nombre: v.nombre,
+      // La ficha abierta queda como está de verdad en la base, y el listado se vuelve a pedir.
+      alListo: () => { v.no_contactar = 1; v.no_contactar_origen = 'manual'; pintarConsentimiento(v); cargarVotantes(); },
+    });
+  });
 
   const verFirma = caja.querySelector('[data-firma]');
   if (verFirma) verFirma.addEventListener('click', async () => {
