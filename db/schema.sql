@@ -901,7 +901,7 @@ CREATE TABLE IF NOT EXISTS sms_exclusiones (
 -- del servidor (la cuenta maestra).
 CREATE TABLE IF NOT EXISTS sms_config (
   id TINYINT UNSIGNED PRIMARY KEY DEFAULT 1,
-  firma VARCHAR(40) NULL COMMENT 'La firma que el proveedor agrega a cada mensaje por exigencia de la CRC. NO la escribe esta aplicación: se guarda para poder CONTAR lo que ocupa, porque le resta caracteres al segmento',
+  firma VARCHAR(80) NULL COMMENT 'La firma que el proveedor agrega a cada mensaje por exigencia de la CRC. NO la escribe esta aplicación: se guarda para poder CONTAR lo que ocupa, porque le resta caracteres al segmento',
   firma_posicion ENUM('inicio','final') NOT NULL DEFAULT 'final',
   url_baja_base VARCHAR(255) NULL,
   forzar_gsm7 TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Quita tildes antes de enviar: una sola tilde baja el límite de 160 a 70 caracteres y puede triplicar el costo',

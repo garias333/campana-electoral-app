@@ -109,6 +109,10 @@ const HREFS_ASPIRANTE = [
   '/dia-d.html#resultados',
   '/dia-d.html#alertas',
   '/app/alertas-dia-d.html',
+  /* Transporte del Día D. El módulo `transporte_dia_d` ya era suyo (MODULOS_ASPIRANTE, PERMISOS_ASPIRANTE) y la API lo sirve, pero
+     el menú de escritorio manda esta lista de direcciones sobre la de módulos, y la entrada no estaba: la pestaña existía y el
+     menú no se la ofrecía. Se descubrió al revisar el orden del menú (orden 35). */
+  '/dia-d.html#transporte',
 ];
 
 /*

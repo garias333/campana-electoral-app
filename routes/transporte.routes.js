@@ -16,6 +16,9 @@
  * Nada más de la campaña. Las reglas viven en lib/transporteDiaD.js.
  *
  * LAS MARCAS SON IDEMPOTENTES (cliente_uuid) para que el teléfono pueda guardarlas sin señal y reintentarlas.
+ *
+ * «VOY EN CAMINO» (orden 35, POST /:codigo/avisar) sí NECESITA señal: manda un SMS desde el servidor, así que no entra en la cola.
+ * Sin señal el botón avisa que no pudo y se puede volver a tocar.
  */
 'use strict';
 
@@ -77,6 +80,10 @@ const CSS = `
   .acc,.marcas{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .acc a{flex:1 1 calc(50% - 8px);text-align:center;text-decoration:none;padding:11px 6px;border:1.5px solid #0B5ED7;color:#0B5ED7;border-radius:10px;font-weight:700;font-size:.9rem;background:#fff}
   .marcas button{flex:1 1 100%;border:0;border-radius:11px;padding:14px 8px;font-size:1rem;font-weight:800;color:#fff;cursor:pointer}
+  .marcas .cam{background:#0E7C66}
+  .parada .avisado{flex:1 1 100%;margin:0;font-size:.9rem;font-weight:700;color:#0A5348;background:#E6F4F1;border-radius:10px;padding:9px 12px;text-align:center}
+  .parada .avisado.no{color:#5B6472;background:#EEF1F5;font-weight:600}
+  .parada .avisado.mal{color:#A93226;background:#FDECEA}
   .marcas .rec{background:#0B5ED7}.marcas .lle{background:#1E6B44}.marcas .no{background:#fff;color:#A93226;border:1.5px solid #A93226;flex:1 1 100%;font-weight:700}
   .marcas button:disabled{opacity:.55}
   .cerrada{background:#EEF1F5;border-radius:10px;padding:9px 12px;margin:8px 0;color:#5B6472;font-size:.9rem}
@@ -168,6 +175,26 @@ router.post('/:codigo/marcar', async (req, res) => {
   } catch (err) {
     console.error('transporte /t marcar:', err.code || err.message);
     res.status(500).json({ ok: false, error: 'No se pudo guardar. Intenta de nuevo.' });
+  }
+});
+
+/** «Voy en camino»: le manda al votante de esa parada el SMS «tu transporte va en camino», UNA sola vez. Cuerpo: { parada_id }.
+ *  Responde { ok, aviso } con aviso = 'enviado' | 'no_recibe' | 'no_aplica' | 'fallo'; nunca dice POR QUÉ alguien no recibe SMS.
+ *  El fallo del proveedor responde 200 con ok:false (y no 5xx) para no gastar el cupo de intentos fallidos de un conductor en la calle. */
+router.post('/:codigo/avisar', async (req, res) => {
+  cabeceras(res);
+  try {
+    const c = await T.conductorVigente(req.params.codigo);
+    if (!c) { res.locals.fallo = true; return res.json({ activo: false }); }
+    const paradaId = Number((req.body || {}).parada_id);
+    if (!Number.isInteger(paradaId) || paradaId < 1) { res.locals.fallo = true; return res.status(400).json({ ok: false, error: 'Falta la parada.' }); }
+    const r = await T.avisarEnCamino(c, paradaId);
+    if (!r.encontrada) { res.locals.fallo = true; return res.status(404).json({ ok: false, error: 'No se encontró esa parada.' }); }
+    if (r.aviso === 'fallo') return res.json({ ok: false, aviso: 'fallo', error: 'No se pudo enviar el aviso. Intenta de nuevo.' });
+    res.json({ ok: true, aviso: r.aviso });
+  } catch (err) {
+    console.error('transporte /t avisar:', err.code || err.message);
+    res.status(500).json({ ok: false, error: 'No se pudo enviar el aviso. Intenta de nuevo.' });
   }
 });
 

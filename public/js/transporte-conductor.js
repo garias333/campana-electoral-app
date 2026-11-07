@@ -6,6 +6,10 @@
  * teléfono (localStorage): sube sola cuando hay señal y el servidor es idempotente, así que tocar dos veces o reintentar
  * no cambia nada. La hora que cuenta es la del TOQUE. La ubicación se pide SOLO al tocar una marca y nunca la bloquea.
  *
+ * «VOY EN CAMINO» (orden 35): en cada parada por recoger, un botón que le manda al votante un SMS «tu transporte va en camino», una
+ * sola vez. A diferencia de las marcas, NECESITA señal (lo manda el servidor) y no entra en la cola: sin señal avisa y se puede
+ * volver a tocar. Resultado: «Aviso enviado», o «Esta persona no recibe SMS» (nunca el motivo); el botón no se repite.
+ *
  * Una parada cerrada (llevado, no estaba, o el votante ya votó) se colapsa y el servidor ya no manda su dirección ni su
  * teléfono. El teléfono solo vive dentro del enlace «Llamar»: no se escribe en la pantalla.
  *
@@ -135,6 +139,10 @@
     if (p.puesto_latitud != null && p.puesto_longitud != null) h += '<a href="' + esc(enlaceGoogle(p.puesto_latitud, p.puesto_longitud)) + '" target="_blank" rel="noopener">Cómo llegar al puesto</a>';
     else if (p.puesto) h += '<a href="' + esc(enlaceGoogle(null, null, p.puesto)) + '" target="_blank" rel="noopener">Cómo llegar al puesto</a>';
     h += '</div><div class="marcas">';
+    if (p.aviso === 'enviado') h += '<p class="avisado">✓ Aviso enviado</p>';
+    else if (p.estado === 'asignado' && p.aviso === 'no_recibe') h += '<p class="avisado no">Esta persona no recibe SMS</p>';
+    else if (p.estado === 'asignado' && p.aviso === 'disponible') h += '<button type="button" class="cam" data-aviso="1">Voy en camino</button>';
+    if (p.avisoError) h += '<p class="avisado mal">' + esc(p.avisoError) + '</p>';
     if (p.estado === 'asignado') h += '<button type="button" class="rec" data-accion="recogido">Recogido</button>';
     h += '<button type="button" class="lle" data-accion="llevado">Llevado al puesto</button>';
     if (p.estado === 'asignado') h += '<button type="button" class="no" data-accion="no_estaba">No estaba</button>';
@@ -185,7 +193,26 @@
     avisoCola();
   }
 
+  // «Voy en camino»: el servidor manda el SMS (una sola vez) y responde qué ve el conductor.
+  function avisar(id, boton) {
+    var p = null; datos.paradas.forEach(function (x) { if (x.id === id) p = x; });
+    if (!p) return;
+    boton.disabled = true; boton.textContent = 'Avisando…';
+    fetch(BASE + '/avisar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parada_id: id }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        if (j && j.activo === false) { inactivo(); return; }
+        if (j && j.ok && (j.aviso === 'enviado' || j.aviso === 'no_recibe')) { p.aviso = j.aviso; delete p.avisoError; }
+        else if (j && j.ok) { p.aviso = null; delete p.avisoError; }                         // 'no_aplica': la parada ya avanzó
+        else p.avisoError = (j && j.error) || 'No se pudo enviar el aviso. Intenta de nuevo.';
+        guardar(CLAVE_LISTA, datos); pintar();
+      })
+      .catch(function () { p.avisoError = 'Sin señal: no se pudo enviar el aviso. Intenta de nuevo.'; pintar(); });
+  }
+
   $('lista').addEventListener('click', function (e) {
+    var av = e.target.closest ? e.target.closest('button[data-aviso]') : null;
+    if (av) { var a = av.closest('.parada'); if (a) avisar(parseInt(a.getAttribute('data-id'), 10), av); return; }
     var b = e.target.closest ? e.target.closest('button[data-accion]') : null;
     if (!b) return;
     var art = b.closest('.parada'); if (!art) return;

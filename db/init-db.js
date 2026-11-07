@@ -2204,9 +2204,24 @@ async function main() {
       FOREIGN KEY (conductor_id) REFERENCES transporte_conductores(id) ON DELETE CASCADE,
       FOREIGN KEY (asignado_por) REFERENCES usuarios(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  // La hora desde la que «votantes con transporte sin recoger» será una alerta. Se usa en la parte 2; queda creada.
+  // La hora desde la que «transporte sin recoger» es una alerta (la usa lib/alertasDiaD.js desde la orden 35).
   await agregarColumnaSiFalta(connection, 'configuracion_campana',
     "transporte_alerta_desde TIME NOT NULL DEFAULT '14:00:00'", 'transporte_alerta_desde');
+  // Orden 35: «Voy en camino» le manda UN SMS al votante. Esta marca es lo que impide mandarlo dos veces (se reclama con
+  // un UPDATE ... WHERE aviso_enviado_en IS NULL antes de enviar).
+  await agregarColumnaSiFalta(connection, 'transporte_asignaciones',
+    "aviso_enviado_en DATETIME NULL COMMENT 'Cuándo se le mandó al votante el SMS «tu transporte va en camino» (una sola vez por parada)'",
+    'aviso_enviado_en');
+  // Orden 35: la firma que el proveedor pega a cada SMS medía hasta 40 caracteres, y la de una campaña real mide ~50
+  // («Estrategia Marketing Politico - Campaña municipal»). Se ensancha; MODIFY no toca el contenido.
+  try {
+    await connection.query(
+      `ALTER TABLE sms_config MODIFY COLUMN firma VARCHAR(80) NULL
+         COMMENT 'La firma que el proveedor agrega a cada mensaje por exigencia de la CRC. NO la escribe esta aplicacion: se guarda para poder CONTAR lo que ocupa, porque le resta caracteres al segmento'`);
+    console.log('Columna sms_config.firma a VARCHAR(80).');
+  } catch (err) {
+    if (err.code !== 'ER_NO_SUCH_TABLE') throw err;
+  }
   console.log('Tablas del transporte del Día D listas.');
 
   // --- Día D fase 3: el bloque de cada voto ---

@@ -24,7 +24,7 @@
     '.al-chip.activo{background:#1B2432;color:#fff;border-color:#1B2432}.al-chip.activo b{color:#FFC300}' +
     '.al-fila{border:1px solid #DDE3EC;border-left:6px solid #A93226;border-radius:10px;background:#fff;padding:10px 12px;margin-bottom:8px}' +
     '.al-fila.g2{border-left-color:#C0560F}.al-fila.g3{border-left-color:#E09B1A}.al-fila.g4{border-left-color:#B8860B}' +
-    '.al-fila.g5{border-left-color:#7A4FB5}.al-fila.g6{border-left-color:#1B6CA8}.al-fila.g7{border-left-color:#8A94A6}' +
+    '.al-fila.g5{border-left-color:#7A4FB5}.al-fila.g6{border-left-color:#1B6CA8}.al-fila.g7{border-left-color:#0E7C66}.al-fila.g8{border-left-color:#8A94A6}' +
     '.al-fila.al-pendiente{border-left-color:#B8C0CC;background:#F4F6F9;color:#7A8497}.al-fila.al-atendida{opacity:.5}' +
     '.al-cab{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.al-tipo{font-weight:700;font-size:.9rem}' +
     '.al-donde{font-size:.92rem}.al-det{font-size:.88rem;margin-top:2px}.al-meta{font-size:.78rem;color:#6B7585;margin-top:3px}' +

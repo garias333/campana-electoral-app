@@ -831,7 +831,7 @@ const F = (codigo, huella, extra = {}) => ({
   const pagina = fs.readFileSync(path.join(__dirname, '..', 'public/app/mi-enlace.html'), 'utf8');
   ok(/id="aviso-cedulas"/.test(pagina) && /pintarAvisos\(d\.avisos/.test(pagina) && /avisos: undefined/.test(pagina), 'la pantalla «Mi enlace» tiene el bloque del aviso, lo pinta, y no guarda las cédulas enmascaradas en el teléfono');
   ok(/li\.textContent/.test(pagina) && !/innerHTML\s*=\s*[^'"\s]*a\./.test(pagina), 'el texto del aviso se pone con textContent (nada del servidor se interpreta como HTML)');
-  ok(/estrategia-v1(5[6789]|60)/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v156 o posterior (mi-enlace.html está en su precache)');
+  ok(/estrategia-v1(5[6789]|6[01])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v156 o posterior (mi-enlace.html está en su precache)');
 
   console.log('  -- la respuesta pública: idéntica para cédula nueva y existente');
   const mismoCuerpo = (a, b) => a.status === b.status && a.texto === b.texto;
@@ -1073,7 +1073,7 @@ const F = (codigo, huella, extra = {}) => ({
   const esc = fs.readFileSync(path.join(__dirname, '..', 'public/votantes.html'), 'utf8');
   ok(/id="aj-insc-plantilla"/.test(esc) && /Restaurar texto sugerido/.test(esc) && /\{nombre_lider\}/.test(esc) && /Slogan de la campaña/.test(fs.readFileSync(path.join(__dirname, '..', 'public/configuracion.html'), 'utf8')),
      'el escritorio tiene el editor de la plantilla con «Restaurar texto sugerido»; el eslogan ya se llena en Configuración');
-  ok(/estrategia-v1(5[789]|60)/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v157 o posterior');
+  ok(/estrategia-v1(5[789]|6[01])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v157 o posterior');
   } // fin del bloque de la orden 29
 
   console.log('\n== Cédulas sin duplicados en el alta, la edición, la importación y los cruces (orden 30)');

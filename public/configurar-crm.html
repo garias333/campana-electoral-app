@@ -343,6 +343,18 @@
 
           <div id="onurix-saldo" style="margin-top:8px; font-size:0.85rem; color:var(--color-text-muted);"></div>
 
+          <!-- LA FIRMA DEL SMS. La pega el proveedor (se registra en su cuenta); aquí se anota para poder CONTAR lo que ocupa. -->
+          <div class="campo" style="margin-top:12px;">
+            <label for="comunicaciones-firma-sms">Firma que el proveedor agrega a cada SMS</label>
+            <input id="comunicaciones-firma-sms" maxlength="80" autocomplete="off" placeholder="Tal como la registró el proveedor, p. ej.: Estrategia - Campaña municipal">
+            <small id="firma-sms-detalle" style="display:block; color:var(--color-text-muted); margin-top:3px;"></small>
+            <div id="firma-sms-aviso" role="alert" style="display:none; margin-top:6px; padding:8px 10px; border-radius:8px; background:#FFF4D6; border:1px solid #E8C96A; color:#6B4A00; font-size:0.88rem;"></div>
+            <small style="display:block; color:var(--color-text-muted); margin-top:4px;">
+              La firma <strong>no se escribe desde aquí</strong>: la agrega el proveedor a cada mensaje y se cambia en su cuenta. Anótela igual a como
+              la tiene registrada para que el contador de caracteres sea verdadero. Esta pantalla solo avisa: no la cambia por usted.
+            </small>
+          </div>
+
           <div class="campo interruptor-destacado">
             <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer;">
               <input type="checkbox" id="comunicaciones-baja-automatica" checked>
@@ -504,8 +516,20 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/firma-sms-aviso.js"></script>
 <script>
 let usuarioActual;
+
+
+/* Aviso EN VIVO de la firma del SMS: cuántos caracteres tiene y, si pasa de 30 o lleva tildes o ñ, la advertencia. No la cambia. */
+function avisarFirma() {
+  var a = window.avisoDeFirmaSms(document.getElementById('comunicaciones-firma-sms').value);
+  document.getElementById('firma-sms-detalle').textContent = a.detalle;
+  var caja = document.getElementById('firma-sms-aviso');
+  caja.style.display = a.advertencia ? 'block' : 'none';
+  caja.textContent = a.advertencia;
+}
+document.getElementById('comunicaciones-firma-sms').addEventListener('input', avisarFirma);
 
 async function cargarConfigComunicaciones() {
   const c = await api('/configuracion/comunicaciones');
@@ -523,6 +547,8 @@ async function cargarConfigComunicaciones() {
   document.getElementById('comunicaciones-onurix-key').dataset.mascara = c.onurix_key_mascara || '';
   // undefined = servidor viejo que todavia no manda el campo: encendido.
   document.getElementById('comunicaciones-baja-automatica').checked = c.baja_automatica !== false;
+  document.getElementById('comunicaciones-firma-sms').value = c.firma_sms || '';
+  avisarFirma();
   // Aqui el undefined significa lo contrario que arriba: apagada.
   document.getElementById('comunicaciones-bienvenida-automatica').checked = c.bienvenida_automatica === true;
   document.getElementById('comunicaciones-confirmacion-email-automatica').checked = c.confirmacion_email_automatica === true;
@@ -574,7 +600,8 @@ document.getElementById('form-comunicaciones').addEventListener('submit', async 
         onurix_key: valorSecretoOVacio('comunicaciones-onurix-key'),
         baja_automatica: document.getElementById('comunicaciones-baja-automatica').checked,
         bienvenida_automatica: document.getElementById('comunicaciones-bienvenida-automatica').checked,
-        confirmacion_email_automatica: document.getElementById('comunicaciones-confirmacion-email-automatica').checked
+        confirmacion_email_automatica: document.getElementById('comunicaciones-confirmacion-email-automatica').checked,
+        firma_sms: document.getElementById('comunicaciones-firma-sms').value
         // twilio_whatsapp_from no se manda: al no venir en el body, el
         // servidor conserva el valor que ya estuviera guardado.
       }

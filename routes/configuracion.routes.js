@@ -805,6 +805,14 @@ async function leerBajaAutomatica() {
   } catch (_) { return true; }
 }
 
+/** La firma que el proveedor pega a cada SMS (sms_config.firma). NO la escribe esta aplicación: se anota para CONTAR lo que ocupa. */
+async function leerFirmaSms() {
+  try {
+    const [[c]] = await pool.query('SELECT firma FROM sms_config WHERE id = 1');
+    return (c && c.firma) || '';
+  } catch (_) { return ''; }
+}
+
 /** La bienvenida automatica, en cambio, va APAGADA mientras nadie la encienda:
  *  gasta un credito por cada registro. Ver config/bienvenidaAutomatica.js. */
 async function leerBienvenidaAutomatica() {
@@ -847,6 +855,7 @@ router.get('/comunicaciones', requireRole('admin'), async (req, res) => {
       baja_automatica: await leerBajaAutomatica(),
       bienvenida_automatica: await leerBienvenidaAutomatica(),
       confirmacion_email_automatica: await leerConfirmacionEmailAutomatica(),
+      firma_sms: await leerFirmaSms(),
       // El saldo REAL de la cuenta de Onurix. Con el ledger de licencias
       // mandando (es la decision tomada), este numero es el que dice si Onurix
       // puede respaldar lo que el ledger promete: si el ledger reparte 600 y
@@ -877,8 +886,15 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
   const {
     sendgrid_api_key, sendgrid_from, sendgrid_from_name,
     twilio_account_sid, twilio_auth_token, twilio_sms_from,
-    onurix_client, onurix_key, baja_automatica, bienvenida_automatica, confirmacion_email_automatica
+    onurix_client, onurix_key, baja_automatica, bienvenida_automatica, confirmacion_email_automatica, firma_sms
   } = req.body;
+
+  // La firma del SMS se valida ANTES de guardar nada: un rechazo no debe dejar las credenciales a medio guardar.
+  const firma = firma_sms === undefined ? undefined
+    : String(firma_sms == null ? '' : firma_sms).normalize('NFC').replace(/[\u0000-\u001F\u007F]/g, ' ').trim();
+  if (firma !== undefined && Array.from(firma).length > 80) {
+    return res.status(400).json({ error: 'La firma del SMS no puede pasar de 80 caracteres.' });
+  }
 
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_comunicaciones WHERE id = 1`);
@@ -953,6 +969,17 @@ router.put('/comunicaciones', requireRole('admin'), async (req, res) => {
         `INSERT INTO sms_config (id, confirmacion_email_automatica) VALUES (1, ?)
          ON DUPLICATE KEY UPDATE confirmacion_email_automatica = VALUES(confirmacion_email_automatica)`,
         [confirmacion_email_automatica ? 1 : 0]);
+    }
+
+    /* LA FIRMA DEL SMS (orden 35). Misma guarda `!== undefined`: una pantalla vieja que no la conoce NO la borra. Se guarda TAL
+       COMO LLEGA (recortada y sin saltos de línea ni caracteres de control): NO se translitera ni se corrige, porque no es un
+       texto que esta aplicación envíe —lo pega el proveedor— sino lo que hay que medir. Cambiarla aquí no cambia lo que el
+       proveedor pega; solo hace verdadero el contador. */
+    if (firma !== undefined) {
+      await pool.query(
+        `INSERT INTO sms_config (id, firma) VALUES (1, ?)
+         ON DUPLICATE KEY UPDATE firma = VALUES(firma)`, [firma || null]);
+      invalidarCacheSms();
     }
 
     invalidarCacheComunicaciones();

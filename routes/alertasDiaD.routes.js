@@ -33,6 +33,7 @@ router.get('/config', requireRole('admin', 'coordinador', 'aspirante'), async (r
     fecha_eleccion: cfg.fecha_eleccion, jornada_apertura: cfg.jornada_apertura, jornada_cierre: cfg.jornada_cierre,
     plazo_e14_min: cfg.plazo_e14_min, alerta_checkin_min: cfg.alerta_checkin_min,
     baja_votacion_pct: cfg.baja_votacion_pct, baja_votacion_desde: cfg.baja_votacion_desde,
+    transporte_alerta_desde: cfg.transporte_alerta_desde,
     avisos_alertas_push: cfg.avisos_alertas_push,
   });
 });
@@ -47,18 +48,19 @@ router.put('/config', requireRole('admin'), async (req, res) => {
     await pool.query(
       `UPDATE configuracion_campana
           SET jornada_apertura = ?, jornada_cierre = ?, plazo_e14_min = ?, alerta_checkin_min = ?,
-              baja_votacion_pct = ?, baja_votacion_desde = ?, avisos_alertas_push = ?
+              baja_votacion_pct = ?, baja_votacion_desde = ?, avisos_alertas_push = ?,
+              transporte_alerta_desde = COALESCE(?, transporte_alerta_desde)
         WHERE id = 1`,
       [v.valores.jornada_apertura, v.valores.jornada_cierre, v.valores.plazo_e14_min, v.valores.alerta_checkin_min,
-       v.valores.baja_votacion_pct, v.valores.baja_votacion_desde, v.valores.avisos_alertas_push]);
+       v.valores.baja_votacion_pct, v.valores.baja_votacion_desde, v.valores.avisos_alertas_push, v.valores.transporte_alerta_desde]);
     const ahora = await jornada.leerJornada(pool);
     await registrarAuditoria(req.session.usuario.id, 'config_jornada_dia_d', 'configuracion_campana', 1,
       `Antes: apertura ${antes.jornada_apertura}, cierre ${antes.jornada_cierre}, E-14 ${antes.plazo_e14_min} min, `
       + `llegada ${antes.alerta_checkin_min} min, baja votación ${antes.baja_votacion_pct} % desde ${antes.baja_votacion_desde}, `
-      + `avisos push ${antes.avisos_alertas_push ? 'encendidos' : 'apagados'}. `
+      + `transporte sin recoger desde ${antes.transporte_alerta_desde}, avisos push ${antes.avisos_alertas_push ? 'encendidos' : 'apagados'}. `
       + `Ahora: apertura ${ahora.jornada_apertura}, cierre ${ahora.jornada_cierre}, E-14 ${ahora.plazo_e14_min} min, `
       + `llegada ${ahora.alerta_checkin_min} min, baja votación ${ahora.baja_votacion_pct} % desde ${ahora.baja_votacion_desde}, `
-      + `avisos push ${ahora.avisos_alertas_push ? 'encendidos' : 'apagados'}.`, req.ip);
+      + `transporte sin recoger desde ${ahora.transporte_alerta_desde}, avisos push ${ahora.avisos_alertas_push ? 'encendidos' : 'apagados'}.`, req.ip);
     res.json({ ok: true });
   } catch (err) {
     console.error('alertas/config:', err.code || err.message);

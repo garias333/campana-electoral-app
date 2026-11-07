@@ -28,6 +28,7 @@ const { requiereVerModulo } = require('../middleware/permisoModulo');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { verificarPasswordPropia } = require('../config/verificaciones');
+const { canalesDelEnlace } = require('../lib/canalesDelEnlace');   // la regla vive en lib/ (la comparte el aviso de transporte)
 const enlaces = require('../config/yaVotoEnlace');
 
 const router = express.Router();
@@ -76,22 +77,6 @@ function aHoraColombia(iso) {
     timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
   }).format(d);
-}
-
-/**
- * Por qué canales puede un líder mandarle a esta persona su enlace «Ya voté» desde su celular.
- *
- * LA MISMA REGLA ESTRICTA DEL ENVÍO MASIVO (`aplicarReglaDelEnlace`, comunicaciones.routes.js) y
- * del asistente de WhatsApp (POST /enlace, abajo): autorización EXPLÍCITA por ese canal
- * (`consentimiento_whatsapp = 1` / `consentimiento_sms = 1`; NULL y 0 no cuentan) y sin
- * `no_contactar`. Además, quien ya votó no necesita enlace, y sin teléfono no hay a quién enviarlo.
- */
-function canalesDelEnlace(f) {
-  const sinTel = !String(f.telefono || '').replace(/\D/g, '');
-  if (f.voto_en || Number(f.no_contactar) === 1 || sinTel) return { wa: false, sms: false };
-  // Se inscribió solo por el enlace de un líder y aún no confirma por /c: no se le escribe (orden 23).
-  if (f.origen_votante === 'enlace_lider' && !f.consentimiento_confirmado_en) return { wa: false, sms: false };
-  return { wa: Number(f.consentimiento_whatsapp) === 1, sms: Number(f.consentimiento_sms) === 1 };
 }
 
 /* ——— GET /faltantes ——————————————————————————————————————————————
