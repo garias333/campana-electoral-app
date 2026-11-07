@@ -45,6 +45,8 @@ async function q(sql, p) { const [f] = await pool.query(sql, p); return f; }
 
 // ---- SMS fingido y franja controlable ------------------------------------
 const geocoderOriginal = require('../config/geocoder').geocodificarDireccion;
+const geocodificarInversaOriginal = require('../config/geocoder').geocodificarInversa;
+const router_reiniciar = () => require('../routes/inscripcion.routes').reiniciarCupos();
 const smsEnviados = [];
 let dentroDeFranja = true;
 smsSvc.enviarSMS = async (telefono, mensaje) => { smsEnviados.push({ telefono, mensaje }); return { sid: 'prueba' }; };
@@ -422,7 +424,7 @@ const F = (codigo, huella, extra = {}) => ({
     'el formulario trae la sección «Datos de contacto» con los seis campos y los nombres de la ficha');
   ok(/name="departamento_residencia" value="Caldas"/.test(form0.texto) && /name="ciudad_residencia" value="Manizales"/.test(form0.texto), 'departamento y ciudad vienen prellenados con los de la campaña');
   ok((form0.texto.match(/<small>\(opcional\)<\/small>/g) || []).length === 6, 'los seis de contacto dicen «(opcional)»');
-  ok(form0.texto.indexOf('name="telefono"') < form0.texto.indexOf('Datos de contacto') && form0.texto.indexOf('Datos de contacto') < form0.texto.indexOf('caja-puesto'), 'va DESPUÉS del celular y antes del puesto');
+  ok(form0.texto.indexOf('name="cedula"') < form0.texto.indexOf('Datos de contacto') && form0.texto.indexOf('Datos de contacto') < form0.texto.indexOf('caja-puesto'), 'va DESPUÉS de los datos personales y antes del puesto (desde la orden 27 el celular es de esta sección)');
   ok(!/required[^>]*name="(email|direccion|ciudad_residencia|barrio_residencia)"/.test(form0.texto) && (form0.texto.match(/\brequired\b/g) || []).length === 4, 'obligatorios: los mismos de siempre (nombre, cédula, celular y la autorización)', (form0.texto.match(/\brequired\b/g) || []).length);
   await pool.query('UPDATE configuracion_campana SET ciudad_tiene_comunas = 0, usar_nombre_barrios = 0 WHERE id = 1');
   const form1 = await pedir('GET', `/i/${e3.codigo}`);
@@ -547,12 +549,203 @@ const F = (codigo, huella, extra = {}) => ({
 
   } // fin del bloque de la orden 26
 
+  console.log('\n== Formulario por secciones y GPS (orden 27)');
+  { // bloque propio
+  const geocoder = require('../config/geocoder');
+  const geoLlamadas = [];
+  geocoder.geocodificarDireccion = async (e) => { geoLlamadas.push(e); return { latitud: 5.0703, longitud: -75.5138 }; };
+  const esperar = async (cond, ms = 3000) => { for (let i = 0; i < ms / 50; i++) { if (await cond()) return true; await dormir(50); } return false; };
+  await pool.query("UPDATE configuracion_campana SET territorio_departamento = 'Caldas', territorio_ciudad = 'Manizales', ciudad_tiene_comunas = 1, usar_nombre_barrios = 1 WHERE id = 1");
+
+  console.log('  -- orden, estilo y obligatorios');
+  const fm = (await pedir('GET', `/i/${e3.codigo}`)).texto;
+  const titulos = [...fm.matchAll(/<h2 class="seccion[^"]*">([^<]+)<\/h2>/g)].map(m => m[1]);
+  ok(JSON.stringify(titulos) === JSON.stringify(['Datos personales', 'Datos de contacto', 'Dónde votas', 'Tratamiento de datos personales']), 'cuatro secciones, en el orden pedido', titulos);
+  const pos = (t) => fm.indexOf(t);
+  const orden = ['Datos personales', 'name="cedula"', 'name="nombre"', 'Datos de contacto', 'id="btn-gps"', 'name="direccion"', 'name="departamento_residencia"',
+    'name="ciudad_residencia"', 'name="comuna_corregimiento_residencia"', 'name="barrio_residencia"', 'name="telefono"', 'name="email"',
+    'Dónde votas', 'id="buscar-puesto"', 'name="puesto_id"', 'name="mesa"', 'Consultar mi puesto en la Registraduría',
+    'Tratamiento de datos personales', 'name="autoriza"', 'name="canal_sms"', 'name="canal_whatsapp"', 'name="canal_email"', 'id="btn"'];
+  const idx = orden.map(pos);
+  ok(idx.every(i => i >= 0) && idx.every((i, k) => k === 0 || i > idx[k - 1]), 'cédula → nombre; GPS → dirección → depto → ciudad → comuna → barrio → celular → correo; puesto → mesa; política → autorización → canales → botón',
+    orden.filter((t, k) => idx[k] < 0 || (k > 0 && idx[k] <= idx[k - 1])));
+  const etiqueta = (id) => (fm.match(new RegExp(`<label for="${id}">([^<]*(?:<small>[^<]*</small>)?)`)) || [])[1] || '';
+  ok(/obligatorio/.test(etiqueta('cedula')) && /obligatorio/.test(etiqueta('nombre')) && /obligatorio/.test(etiqueta('telefono')), 'cédula, nombre y celular dicen «(obligatorio)»', [etiqueta('cedula'), etiqueta('nombre'), etiqueta('telefono')]);
+  ok(/opcional/.test(etiqueta('email')) && fm.indexOf('name="email"') > fm.indexOf('name="telefono"'), 'el correo dice «(opcional)» y va después del celular');
+  ok(/obligatorio/.test(fm.slice(pos('name="autoriza"'), pos('name="canal_sms"'))), 'la casilla de autorización dice «(obligatorio)»');
+  ok((fm.match(/\brequired\b/g) || []).length === 4, 'campos required: cédula, nombre, celular y autorización (no se añadió ninguno)');
+  ok(!/name="canal_(sms|whatsapp|email)" value="1" checked/.test(fm) && !/name="autoriza" value="1" checked/.test(fm), 'las casillas de canal y la autorización salen SIN marcar');
+  const css = fm.match(/h2\.seccion\{[^}]*\}/)[0];
+  ok(/text-transform:uppercase/.test(css) && /font-weight:700/.test(css) && /color:#0B5ED7/.test(css) && /border-bottom:1px solid/.test(css), 'títulos en mayúsculas, negrita, azul de la marca (#0B5ED7) y línea fina debajo', css);
+  ok(/<a href="\/i\/[A-Z0-9]+\/politica" target="_blank"/.test(fm.slice(pos('Tratamiento de datos personales'))), 'enlace a la política vigente (otra pestaña) dentro de la sección 4');
+  ok(fm.includes('<input type="search" id="buscar-puesto"') && /<select id="puesto" name="puesto_id"><option value="">No sé<\/option>/.test(fm) && /<select id="mesa" name="mesa"><option value="">No sé<\/option>/.test(fm), 'puesto con buscador, y «No sé» en puesto y en mesa');
+  const lr = fm.match(/<a href="(https:\/\/wsp\.registraduria\.gov\.co[^"]*)"([^>]*)>Consultar mi puesto en la Registraduría/);
+  ok(lr && lr[2].includes('target="_blank"') && lr[2].includes('noopener') && !/[?#=]/.test(lr[1]) && !/\d{6}/.test(lr[1]), 'enlace a la Registraduría en otra pestaña, sin cédula ni parámetros en la URL', lr && lr[1]);
+  ok(/<button type="button" class="gps" id="btn-gps">Usar mi ubicación \(GPS\)<\/button>/.test(fm), 'el botón GPS es type="button" (no envía el formulario)');
+  const iClick = fm.indexOf("bGps.addEventListener('click'"), iUsar = fm.indexOf('ubicar({enableHighAccuracy');
+  ok(iClick > 0 && iUsar > iClick && (fm.match(/getCurrentPosition/g) || []).length === 1, 'el navegador solo se consulta dentro del clic: getCurrentPosition aparece una vez y su primera llamada está en el manejador');
+  ok(/id="gps_lat" value=""/.test(fm) && /id="gps_lon" value=""/.test(fm), 'dos campos ocultos para latitud y longitud, vacíos al abrir');
+  await pool.query('UPDATE configuracion_campana SET ciudad_tiene_comunas = 0, usar_nombre_barrios = 0 WHERE id = 1');
+  const fm0 = (await pedir('GET', `/i/${e3.codigo}`)).texto;
+  ok(!fm0.includes('name="comuna_corregimiento_residencia"') && !fm0.includes('name="barrio_residencia"'), 'comuna y barrio siguen ocultos si la campaña no los usa');
+  await pool.query('UPDATE configuracion_campana SET ciudad_tiene_comunas = 1, usar_nombre_barrios = 1 WHERE id = 1');
+
+  console.log('  -- coordenadas del GPS: validación y guardado');
+  const D = { direccion: 'Calle 10 #5-20' };
+  geoLlamadas.length = 0;
+  const g1 = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9700000011', telefono: '3260000011', nombre: 'Gps Valido Uno', ...D, gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  const [r1] = await q("SELECT latitud, longitud, geocodificado_en, direccion FROM votantes WHERE cedula = '9700000011'");
+  ok(g1.texto.includes('¡Listo!') && Number(r1.latitud) === 5.0689 && Number(r1.longitud) === -75.5174 && r1.geocodificado_en && r1.direccion === 'Calle 10 #5-20', 'coordenadas válidas: se guardan con la fecha, junto a la dirección escrita', r1);
+  await dormir(300);
+  ok(geoLlamadas.length === 0, 'con GPS NO se geocodifica por dirección (cero consultas)', geoLlamadas);
+  const gSan = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9700000012', telefono: '3260000012', nombre: 'Gps San Andres', gps_lat: '12.5847', gps_lon: '-81.7006' }) });
+  ok(gSan.texto.includes('¡Listo!') && Number((await q("SELECT latitud l FROM votantes WHERE cedula = '9700000012'"))[0].l) === 12.5847, 'San Andrés y Providencia también entran en el rango');
+  const gRed = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9700000013', telefono: '3260000013', nombre: 'Gps Redondeado Tres', gps_lat: '5.123456789012', gps_lon: '-75.987654321098' }) });
+  const [rRed] = await q("SELECT latitud, longitud FROM votantes WHERE cedula = '9700000013'");
+  ok(Number(rRed.latitud) === 5.1234568 && Number(rRed.longitud) === -75.9876543, 'se redondea a los 7 decimales de la columna', rRed);
+
+  const malos = [
+    ['texto', 'abc', 'def'], ['fuera de Colombia (Madrid)', '40.4168', '-3.7038'], ['longitud de otro continente', '5.07', '-100.2'],
+    ['(0, 0)', '0', '0'], ['NaN', 'NaN', 'NaN'], ['Infinity', 'Infinity', '-Infinity'], ['notación científica', '5e0', '-7.5e1'],
+    ['con inyección', "5.0; DROP TABLE votantes", '-75.5'], ['solo la latitud', '5.07', ''], ['solo la longitud', '', '-75.5'],
+    ['latitud 91', '91', '-75.5'], ['con coma decimal', '5,0689', '-75,5174'],
+  ];
+  let k = 0, malosBien = 0; const detalleMalos = [];
+  for (const [que, la, lo] of malos) {
+    k++;
+    const ced = `97000001${String(20 + k).padStart(2, '0')}`;
+    const r = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: ced, telefono: `32600002${String(k).padStart(2, '0')}`, nombre: 'Gps Invalido Prueba', gps_lat: la, gps_lon: lo }) });
+    const [fila] = await q('SELECT latitud, longitud, geocodificado_en FROM votantes WHERE cedula = ?', [ced]);
+    if (r.texto.includes('¡Listo!') && fila && fila.latitud === null && fila.longitud === null && fila.geocodificado_en === null) malosBien++;
+    else detalleMalos.push([que, r.status, fila]);
+  }
+  ok(malosBien === malos.length, `${malos.length} coordenadas inválidas: se descartan SIN error, la inscripción se guarda y la ficha queda sin coordenadas`, detalleMalos);
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9700000091', telefono: '3260000091', nombre: 'Gps Invalido Direccion', ...D, gps_lat: '40.4168', gps_lon: '-3.7038' }) });
+  ok(await esperar(async () => (await q("SELECT latitud l FROM votantes WHERE cedula = '9700000091'"))[0].l !== null) && geoLlamadas.length === 1, 'GPS inválido + dirección: se geocodifica por la dirección, como antes');
+  ok(Number((await q("SELECT latitud l FROM votantes WHERE cedula = '9700000091'"))[0].l) === 5.0703, '…y las coordenadas son las de la dirección, no las del GPS descartado');
+
+  const rep = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '12', telefono: '3260000099', nombre: 'Gps Repinta Prueba', gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  ok(/id="gps_lat" value="5.0689"/.test(rep.texto) && /id="gps_lon" value="-75.5174"/.test(rep.texto) && rep.texto.includes('Ubicación tomada.'), 'tras un error de validación las coordenadas tomadas se conservan (y el aviso lo dice)');
+  const rep2 = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '12', telefono: '3260000098', nombre: 'Gps Repinta Dos', gps_lat: '40.4', gps_lon: '-3.7' }) });
+  ok(/id="gps_lat" value=""/.test(rep2.texto), '…pero unas inválidas no se repintan');
+
+  console.log('  -- ficha existente: coordenadas solo si no tenía');
+  const vSin = await votante('9710000011', 'Ficha Sin Coordenadas', '3270000011', l1, { consent: true });
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9710000011', telefono: '3270000011', nombre: 'Ficha Sin Coordenadas', ...D, gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  await dormir(300);
+  const [e1r] = await q('SELECT latitud, longitud, geocodificado_en, direccion FROM votantes WHERE id = ?', [vSin]);
+  ok(Number(e1r.latitud) === 5.0689 && Number(e1r.longitud) === -75.5174 && e1r.geocodificado_en && e1r.direccion === 'Calle 10 #5-20' && geoLlamadas.length === 0,
+    'ficha sin coordenadas, celular coincide: recibe el GPS (y su dirección) y no se geocodifica por dirección', e1r);
+  const vCon = await votante('9710000021', 'Ficha Con Coordenadas Dos', '3270000021', l1, { consent: true });
+  await pool.query('UPDATE votantes SET latitud = 4.9, longitud = -75.9, geocodificado_en = ? WHERE id = ?', ['2026-01-02 03:04:05', vCon]);
+  geoLlamadas.length = 0;
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9710000021', telefono: '3270000021', nombre: 'Ficha Con Coordenadas Dos', ...D, gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  await dormir(300);
+  const [e2r] = await q('SELECT latitud, longitud, DATE_FORMAT(geocodificado_en, "%Y-%m-%d %H:%i:%s") g, direccion FROM votantes WHERE id = ?', [vCon]);
+  ok(Number(e2r.latitud) === 4.9 && Number(e2r.longitud) === -75.9 && e2r.g === '2026-01-02 03:04:05' && e2r.direccion === 'Calle 10 #5-20' && geoLlamadas.length === 0,
+    'ficha CON coordenadas: el GPS no las pisa (ni su fecha), la dirección sí se completa y no se geocodifica', e2r);
+  const vOtro = await votante('9710000031', 'Ficha Otro Celular Dos', '3270000031', l1, { consent: true });
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9710000031', telefono: '3279999999', nombre: 'Ficha Otro Celular Dos', gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  ok((await q('SELECT latitud l FROM votantes WHERE id = ?', [vOtro]))[0].l === null, 'con un celular que NO coincide: no se le pone nada (la cédula sola no basta)');
+  const vMitad = await votante('9710000041', 'Ficha Una Coordenada', '3270000041', l1, { consent: true });
+  await pool.query('UPDATE votantes SET latitud = 4.9 WHERE id = ?', [vMitad]);
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9710000041', telefono: '3270000041', nombre: 'Ficha Una Coordenada', gps_lat: '5.0689', gps_lon: '-75.5174' }) });
+  const [e4r] = await q('SELECT latitud, longitud FROM votantes WHERE id = ?', [vMitad]);
+  ok(Number(e4r.latitud) === 5.0689 && Number(e4r.longitud) === -75.5174, 'una ficha con la latitud sin la longitud cuenta como sin coordenadas y se completa el par', e4r);
+
+  console.log('  -- puesto y mesa');
+  const psE1 = (await pedir('GET', `/i/${e1.codigo}/puestos`)).datos;
+  const puestoUno = psE1.find(p => p.nombre === 'PUESTO UNO');
+  const psE3 = (await pedir('GET', `/i/${e3.codigo}/puestos`)).datos;
+  ok(psE1.length === 1 && puestoUno && puestoUno.cantidad_mesas === 10, 'el endpoint de puestos da id, nombre y cantidad de mesas del puesto de la campaña', puestoUno);
+  const p1 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000011', telefono: '3280000011', nombre: 'Puesto Mesa Diez', puesto_id: String(puestoUno.id), mesa: '10' }) });
+  const [pm1] = await q("SELECT puesto_votacion, mesa_votacion FROM votantes WHERE cedula = '9720000011'");
+  ok(p1.texto.includes('¡Listo!') && pm1.puesto_votacion === 'PUESTO UNO' && pm1.mesa_votacion === 10, 'puesto y mesa 10 (la última del puesto)', pm1);
+  const p2 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000021', telefono: '3280000021', nombre: 'Puesto Mesa Once', puesto_id: String(puestoUno.id), mesa: '11' }) });
+  ok(!p2.texto.includes('¡Listo!') && p2.texto.includes('Esa mesa no existe en el puesto.') && (await q("SELECT COUNT(*) c FROM votantes WHERE cedula = '9720000021'"))[0].c === 0, 'mesa 11 en un puesto de 10: se rechaza y no se crea la ficha');
+  const p3 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000031', telefono: '3280000031', nombre: 'Puesto Mesa Cero', puesto_id: String(puestoUno.id), mesa: '0' }) });
+  ok(!p3.texto.includes('¡Listo!') && p3.texto.includes('Esa mesa no existe'), 'mesa 0 se rechaza');
+  const p4 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000041', telefono: '3280000041', nombre: 'Puesto Sin Mesa', puesto_id: String(puestoUno.id), mesa: '' }) });
+  const [pm4] = await q("SELECT puesto_votacion, mesa_votacion FROM votantes WHERE cedula = '9720000041'");
+  ok(p4.texto.includes('¡Listo!') && pm4.puesto_votacion === 'PUESTO UNO' && pm4.mesa_votacion === null, 'puesto sin mesa («No sé» en mesa): se guarda el puesto y la mesa queda vacía', pm4);
+  const p5 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000051', telefono: '3280000051', nombre: 'Puesto No Se', puesto_id: '', mesa: '3' }) });
+  const [pm5] = await q("SELECT puesto_votacion, mesa_votacion FROM votantes WHERE cedula = '9720000051'");
+  ok(p5.texto.includes('¡Listo!') && pm5.puesto_votacion === null && pm5.mesa_votacion === null, '«No sé» en el puesto: ni puesto ni mesa (una mesa suelta no significa nada)', pm5);
+  const p6 = await pedir('POST', `/i/${e1.codigo}`, { form: F(e1.codigo, HUELLA, { cedula: '9720000061', telefono: '3280000061', nombre: 'Puesto Ajeno Prueba', puesto_id: String(psE3[0].id), mesa: '1' }) });
+  ok(!p6.texto.includes('¡Listo!') && p6.texto.includes('Elige un puesto de la lista'), 'un puesto de OTRA campaña (aspirante) con el enlace de este líder: se rechaza');
+
+  console.log('  -- geocodificación inversa: /i/<código>/ubicacion');
+  const inversaLlamadas = [];
+  const propuesta = { direccion: 'Cra. 23 #20-30, Manizales, Caldas, Colombia', detalle: { city: 'Manizales', state: 'Caldas', suburb: 'Palogrande', road: 'Carrera 23' } };
+  geocoder.geocodificarInversa = async (la, lo) => { inversaLlamadas.push([la, lo]); return propuesta; };
+  router_reiniciar();
+  const u1 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.0689', lon: '-75.5174' } });
+  ok(u1.status === 200 && u1.datos.disponible === true && u1.datos.direccion === 'Cra. 23 #20-30' && u1.datos.barrio === 'Palogrande' && u1.datos.ciudad === 'Manizales' && u1.datos.departamento === 'Caldas',
+    'con inversa: propone dirección (solo la calle), barrio, ciudad y departamento', u1.datos);
+  ok(inversaLlamadas.length === 1 && inversaLlamadas[0][0] === 5.0689 && inversaLlamadas[0][1] === -75.5174, 'llamó a Google con las coordenadas validadas', inversaLlamadas);
+  ok(Object.keys(u1.datos).sort().join() === 'barrio,ciudad,departamento,direccion,disponible', 'la respuesta trae solo esos cinco campos (nada de la respuesta cruda de Google)');
+  geocoder.geocodificarInversa = async () => ({ direccion: 'RJ4X+9P Manizales, Caldas, Colombia', detalle: { city: 'Manizales', state: 'Caldas' } });
+  const u2 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } });
+  ok(u2.datos.disponible === true && u2.datos.direccion === '' && u2.datos.ciudad === 'Manizales', 'un «plus code» no se propone como dirección; lo demás sí');
+  geocoder.geocodificarInversa = async () => ({ direccion: 'Colombia', detalle: {} });
+  const u2b = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } });
+  ok(u2b.datos.disponible === false && u2b.datos.direccion === '', 'si Google solo dice «Colombia» no hay nada útil que proponer → disponible:false', u2b.datos);
+
+  const errores = []; const errOriginal = console.error; console.error = (...a) => errores.push(a.join(' '));
+  geocoder.geocodificarInversa = async () => { throw new Error('Falta GOOGLE_MAPS_API_KEY en el archivo .env.'); };
+  const u3 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } });
+  ok(u3.status === 200 && u3.datos.disponible === false, 'sin clave de Google: {disponible:false} y sin error (solo se guardan las coordenadas)');
+  ok(errores.length === 0, '…y sin ensuciar el registro de errores', errores);
+  geocoder.geocodificarInversa = async () => { throw new Error('boom de red'); };
+  const u4 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } });
+  ok(u4.status === 200 && u4.datos.disponible === false && errores.length === 1, 'si Google falla por otra causa: {disponible:false} y UN aviso en el registro');
+  console.error = errOriginal;
+  geocoder.geocodificarInversa = async () => null;
+  ok((await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } })).datos.disponible === false, 'sin resultado → {disponible:false}');
+
+  inversaLlamadas.length = 0;
+  geocoder.geocodificarInversa = async (la, lo) => { inversaLlamadas.push([la, lo]); return propuesta; };
+  const u5 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '40.4', lon: '-3.7' } });
+  ok(u5.status === 400 && u5.datos.disponible === false && inversaLlamadas.length === 0, 'coordenadas fuera de Colombia → 400 y NO se consulta a Google');
+  const u6 = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: 'abc', lon: 'def' } });
+  ok(u6.status === 400 && inversaLlamadas.length === 0, 'coordenadas que no son números → 400 y NO se consulta a Google');
+  const u7 = await pedir('POST', '/i/ZZZZZZZZ/ubicacion', { form: { lat: '5.07', lon: '-75.52' } });
+  ok(u7.status === 200 && u7.datos.disponible === false && inversaLlamadas.length === 0, 'código inexistente → {disponible:false} y NO se consulta a Google');
+  const u8 = await pedir('GET', `/i/${e3.codigo}/ubicacion?lat=5.07&lon=-75.52`);
+  ok(u8.status === 404 && inversaLlamadas.length === 0, 'por GET no existe (las coordenadas no viajan en la URL ni quedan en los registros de acceso)', u8.status);
+
+  console.log('  -- topes de la inversa (cada llamada cuesta una consulta)');
+  router_reiniciar(); inversaLlamadas.length = 0;
+  const ipFija = '198.51.100.7';
+  let estados = [];
+  for (let i = 0; i < 22; i++) estados.push((await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' }, ip: ipFija })).status);
+  ok(estados.slice(0, 20).every(s => s === 200) && estados[20] === 429 && estados[21] === 429 && inversaLlamadas.length === 20, 'tope por IP: 20 llamadas, la 21 y la 22 dan 429 y no llegan a Google', { estados: estados.join(','), llamadas: inversaLlamadas.length });
+  const otraIp = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' }, ip: '198.51.100.8' });
+  ok(otraIp.status === 200 && otraIp.datos.disponible === true, 'otra IP no se ve afectada');
+  router_reiniciar(); inversaLlamadas.length = 0;
+  let cont200 = 0, primero429 = 0;
+  for (let i = 0; i < 405; i++) {
+    const r = await pedir('POST', `/i/${e1.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' }, ip: `10.${Math.floor(i / 250)}.${i % 250}.9` });
+    if (r.status === 200) cont200++; else if (!primero429) primero429 = i + 1;
+  }
+  ok(cont200 === 400 && primero429 === 401 && inversaLlamadas.length === 400, 'tope por enlace: 400 llamadas al día repartidas en muchas IP; la 401 da 429', { cont200, primero429, llamadas: inversaLlamadas.length });
+  const otroEnlace = await pedir('POST', `/i/${e3.codigo}/ubicacion`, { form: { lat: '5.07', lon: '-75.52' } });
+  ok(otroEnlace.status === 200, 'el tope de un enlace no afecta al de otro líder');
+  router_reiniciar();
+  geocoder.geocodificarInversa = geocodificarInversaOriginal;
+  geocoder.geocodificarDireccion = geocoderOriginal;
+  } // fin del bloque de la orden 27
+
+
   console.log('\n== «Mi enlace»: ver, rotar, el viejo deja de servir');
   const sinSesion = await pedir('GET', '/api/inscripcion/mi-enlace');
   ok(sinSesion.status === 401, 'sin sesión → 401');
+  // l1 lleva 5: 2 de las secciones de arriba y 3 del bloque de puesto y mesa de la orden 27.
   const mi = await pedir('GET', '/api/inscripcion/mi-enlace', { usuario: U(l1, 'lider') });
-  ok(mi.status === 200 && mi.datos.codigo === e1.codigo && mi.datos.total === 2 && mi.datos.hoy === 2 && mi.datos.ruta === `/i/${e1.codigo}`, 'el líder ve su código y su conteo', mi.datos);
-  ok(mi.datos.confirmados === 1 && mi.datos.sin_confirmar === 1, 'confirmados / sin confirmar', mi.datos);
+  ok(mi.status === 200 && mi.datos.codigo === e1.codigo && mi.datos.total === 5 && mi.datos.hoy === 5 && mi.datos.ruta === `/i/${e1.codigo}`, 'el líder ve su código y su conteo', mi.datos);
+  ok(mi.datos.confirmados === 1 && mi.datos.sin_confirmar === 4, 'confirmados / sin confirmar', mi.datos);
   const noPuede = await pedir('GET', '/api/inscripcion/mi-enlace', { usuario: U(admin, 'admin') });
   ok(noPuede.status === 403, 'un administrador sin estructura no tiene enlace (403)');
   const rot = await pedir('POST', '/api/inscripcion/mi-enlace/rotar', { usuario: U(l1, 'lider'), json: {} });
@@ -571,7 +764,7 @@ const F = (codigo, huella, extra = {}) => ({
   ok(rCoord.status === 200 && nombresC.includes('Lider Uno Prueba') && nombresC.includes('Lider Dos Prueba') && nombresC.includes('Sublider Prueba'), 'el coordinador ve a SU gente');
   ok(!nombresC.includes('Lider Tres Prueba'), 'y NO ve a la rama de otro (aspirante)');
   const f1 = rCoord.datos.lideres.find(x => x.nombre === 'Lider Uno Prueba');
-  ok(f1.total === 2 && f1.confirmados === 1 && f1.sin_confirmar === 1 && f1.hoy === 2, 'conteos por líder: total / hoy / confirmados / sin confirmar', f1);
+  ok(f1.total === 5 && f1.confirmados === 1 && f1.sin_confirmar === 4 && f1.hoy === 5, 'conteos por líder: total / hoy / confirmados / sin confirmar', f1);
   const f2 = rCoord.datos.lideres.find(x => x.nombre === 'Lider Dos Prueba');
   ok(f2.intentos_otro_lider >= 1, 'intentos con cédula de otro líder contados', f2);
   const crudo = JSON.stringify(rCoord.datos);

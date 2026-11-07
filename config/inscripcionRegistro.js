@@ -27,6 +27,10 @@
  * corregida por el líder no puede borrarla un formulario público. Con dirección se geocodifica
  * EN SEGUNDO PLANO (no se espera, y si el servicio no está configurado simplemente no se hace).
  *
+ * EL GPS (orden 27): si la persona tocó «Usar mi ubicación», las coordenadas del teléfono se guardan en
+ * latitud/longitud con `geocodificado_en`, y entonces NO se geocodifica por dirección (sería gastar una
+ * consulta de Google para obtener un punto peor). En una ficha existente solo se ponen si no tenía.
+ *
  * UNA SALVEDAD QUE LA ORDEN NO PEDÍA Y ES DE SEGURIDAD: en b, c y d solo se
  * MODIFICA una ficha existente (completar el consentimiento, sumarla a una rama)
  * si el celular que se escribió COINCIDE con el que la ficha ya tenía. La cédula
@@ -54,6 +58,27 @@ const sha256 = (t) => crypto.createHash('sha256').update(String(t), 'utf8').dige
 const ultimos10 = (t) => String(t || '').replace(/\D/g, '').slice(-10);
 
 const METODO = 'enlace_lider';
+
+/* Caja aproximada de Colombia para una coordenada de GPS. Más ancha que la del geocodificador por
+   dirección (config/geocoder.js, que sólo cubre la parte continental): aquí SÍ entran San Andrés y
+   Providencia, porque quien vota allí también puede tocar «Usar mi ubicación». */
+const GPS_LAT = [-4.3, 13.5];
+const GPS_LON = [-82.0, -66.8];
+
+/**
+ * Valida unas coordenadas que llegan de un formulario público. Acepta número o texto («5.0689»), exige
+ * que sean finitas y estén dentro de Colombia, y las redondea a 7 decimales (la precisión de la columna
+ * DECIMAL(10,7), unos 11 mm). Devuelve { latitud, longitud } o null. Nunca lanza.
+ */
+function coordenadasValidas(lat, lon) {
+  const num = (x) => (typeof x === 'number' ? x
+    : (typeof x === 'string' && /^-?\d{1,3}(\.\d{1,12})?$/.test(x.trim()) ? Number(x.trim()) : NaN));
+  const la = num(lat), lo = num(lon);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+  if (la < GPS_LAT[0] || la > GPS_LAT[1] || lo < GPS_LON[0] || lo > GPS_LON[1]) return null;
+  // (0, 0) y compañía caen fuera de la caja; no hace falta tratarlos aparte.
+  return { latitud: Number(la.toFixed(7)), longitud: Number(lo.toFixed(7)) };
+}
 
 /** Inscripciones que ya cuentan hoy (24 h móviles) para un enlace / un teléfono. Las rechazadas no gastan cupo. */
 async function contarRecientes({ enlaceId, telefonoHash }, conexion = pool) {
@@ -87,6 +112,7 @@ async function anotarRechazo({ enlaceId, motivo, telefonoHash = null, ip, navega
  * @param {object} p.enlace   fila de buscarEnlaceActivo
  * @param {object} p.datos    { nombre, cedula, telefono (10 dígitos), email|null, puesto|null, mesa|null,
  *                              contacto: { direccion, departamento, ciudad, comuna, barrio } (todo opcional),
+ *                              gps: { latitud, longitud } | null  (ya validado con coordenadasValidas),
  *                              canales: { sms, whatsapp, email } }
  * @param {string|null} p.huellaPolitica  la versión de la política que se MOSTRÓ
  * @returns {Promise<{resultado, votanteId, otroLider, quiereSms, smsEncolado}>}
@@ -111,6 +137,8 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
       direccion: c0.direccion || null, departamento: c0.departamento || null, ciudad: c0.ciudad || null,
       comuna: c0.comuna || null, barrio: c0.barrio || null,
     };
+    // Las del GPS del teléfono, si llegaron y son válidas. Se vuelven a validar aquí: este módulo no confía en quien lo llama.
+    const gps = datos.gps ? coordenadasValidas(datos.gps.latitud, datos.gps.longitud) : null;
     let aGeocodificar = false;
 
     const campos = {
@@ -138,8 +166,10 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
             consentimiento_version, consentimiento_version_ok,
             origen, created_by, rama_aspirante_id,
             direccion, departamento_residencia, ciudad_residencia,
-            comuna_corregimiento_residencia, barrio_residencia)
-         VALUES ('votante', ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, ?, 'enlace_lider', NULL, ?, ?, ?, ?, ?, ?)`,
+            comuna_corregimiento_residencia, barrio_residencia,
+            latitud, longitud, geocodificado_en)
+         VALUES ('votante', ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, ?, ?, ?, 'enlace_lider', NULL, ?, ?, ?, ?, ?, ?,
+                 ?, ?, IF(? IS NULL, NULL, NOW()))`,
         [datos.nombre, datos.cedula, datos.telefono, datos.email || null, atrib.lider_id, atrib.sublider_id,
          datos.puesto ? datos.puesto.departamento || null : null,
          datos.puesto ? datos.puesto.municipio || null : null,
@@ -148,9 +178,11 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
          datos.puesto && datos.mesa ? datos.mesa : null,
          METODO, campos.email, campos.sms, campos.whatsapp,
          huellaPolitica || null, versionOk, rama,
-         contacto.direccion, contacto.departamento, contacto.ciudad, contacto.comuna, contacto.barrio]);
+         contacto.direccion, contacto.departamento, contacto.ciudad, contacto.comuna, contacto.barrio,
+         gps ? gps.latitud : null, gps ? gps.longitud : null, gps ? gps.latitud : null]);
       votanteId = ins.insertId;
-      aGeocodificar = !!contacto.direccion;
+      // Con coordenadas del GPS no se geocodifica por dirección: el teléfono ya dijo dónde está.
+      aGeocodificar = !!contacto.direccion && !gps;
       await cx.query(
         `INSERT INTO votante_consentimiento_evidencia (votante_id, metodo, ip, navegador, enlace_id, politica_version)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -160,7 +192,7 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
       [[existente]] = await cx.query(
         `SELECT id, lider_id, sublider_id, telefono, consentimiento_autorizado, rama_aspirante_id,
                 email, direccion, departamento_residencia, ciudad_residencia,
-                comuna_corregimiento_residencia, barrio_residencia, latitud
+                comuna_corregimiento_residencia, barrio_residencia, latitud, longitud
            FROM votantes WHERE cedula = ? FOR UPDATE`, [datos.cedula]);
       if (!existente) throw err;   // choque por otra causa: que suba
     }
@@ -204,9 +236,18 @@ async function inscribir({ enlace, datos, ip, navegador, huellaPolitica }) {
             `UPDATE votantes SET ${vacios.map(([col]) => `${col} = ?`).join(', ')} WHERE id = ?`,
             [...vacios.map(([, valor]) => valor), existente.id]);
           camposCompletados = vacios.map(([col]) => col);
-          // Se geocodifica solo si la dirección se acaba de completar y todavía no tiene coordenadas.
-          if (camposCompletados.includes('direccion') && existente.latitud == null) aGeocodificar = true;
         }
+        // Coordenadas: solo si la ficha NO tenía. `AND latitud IS NULL` por si el líder las puso entre la lectura y aquí.
+        const sinCoordenadas = existente.latitud == null || existente.longitud == null;
+        if (gps && sinCoordenadas) {
+          const [g] = await cx.query(
+            `UPDATE votantes SET latitud = ?, longitud = ?, geocodificado_en = NOW()
+              WHERE id = ? AND (latitud IS NULL OR longitud IS NULL)`, [gps.latitud, gps.longitud, existente.id]);
+          if (g.affectedRows > 0) camposCompletados.push('latitud', 'longitud');
+        }
+        // Se geocodifica por dirección solo si la dirección se acaba de completar, la ficha no tenía coordenadas
+        // y el GPS no las aportó.
+        if (camposCompletados.includes('direccion') && sinCoordenadas && !gps) aGeocodificar = true;
         if (miRama && existente.rama_aspirante_id !== miRama) {
           const [r] = await cx.query(
             `INSERT IGNORE INTO votante_ramas (votante_id, aspirante_id, registrado_por) VALUES (?, ?, ?)`,
@@ -410,5 +451,5 @@ function iniciarCola() {
 module.exports = {
   inscribir, contarRecientes, anotarRechazo, procesarCola, iniciarCola, encolarSmsDeConfirmacion,
   geocodificarVotante, textoDeConfirmacion, primerNombreParaSms, MAX_LETRAS_NOMBRE,
-  sha256, ultimos10, METODO,
+  coordenadasValidas, sha256, ultimos10, METODO,
 };

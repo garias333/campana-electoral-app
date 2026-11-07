@@ -29,7 +29,9 @@ const { huellaDePolitica, archivarVersion } = require('../config/politicaVersion
 const {
   buscarEnlaceActivo, leerAjustes, emitirPase, verificarPase,
 } = require('../config/inscripcionEnlace');
-const { inscribir, contarRecientes, anotarRechazo, sha256, ultimos10 } = require('../config/inscripcionRegistro');
+const { inscribir, contarRecientes, anotarRechazo, coordenadasValidas, sha256, ultimos10 } = require('../config/inscripcionRegistro');
+// Por el objeto y no desestructurado: así una prueba puede sustituir la inversa.
+const geocoder = require('../config/geocoder');
 
 const router = express.Router();
 
@@ -76,7 +78,7 @@ const CSS = `
   label{display:block;font-weight:600;font-size:.9rem;margin:14px 0 5px;color:#10233F}
   label small{font-weight:400;color:#6B7280}
   input[type=text],input[type=tel],input[type=email],input[type=number],select{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
-  input:focus,select:focus{outline:2px solid #0B5ED7;outline-offset:1px}
+  input:focus,select:focus,button.gps:focus-visible{outline:2px solid #0B5ED7;outline-offset:1px}
   .fila{display:flex;gap:10px}.fila>div{flex:1}
   .acepto{display:flex;gap:10px;align-items:flex-start;margin:16px 0 4px;font-size:.92rem;line-height:1.4;color:#161B26;font-weight:400}
   .acepto input{margin-top:3px;width:20px;height:20px;flex:none}
@@ -91,7 +93,14 @@ const CSS = `
   .error ul{margin:0;padding-left:18px}
   .ok{color:#1E6B44;font-weight:700}
   .trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-  h2.seccion{font-size:1.02rem;color:#10233F;margin:24px 0 2px;padding-top:14px;border-top:1px solid #E5E9F0}
+  /* Título de sección: igual que «DATOS DE CONTACTO» de la ficha del votante (.encabezado-form): mayúsculas,
+     negrita, azul de la marca (#0B5ED7) y una línea fina debajo. */
+  h2.seccion{font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#0B5ED7;
+    border-bottom:1px solid #E2E5EA;padding-bottom:6px;margin:26px 0 4px}
+  h2.seccion.primero{margin-top:6px}
+  button.gps{background:#fff;color:#0B5ED7;border:2px solid #0B5ED7;border-radius:12px;width:100%;font-size:1rem;font-weight:700;padding:12px;cursor:pointer;margin:8px 0 4px}
+  button.gps:disabled{opacity:.6}
+  input[type=search]{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
   p.ayuda{font-size:.85rem;color:#6B7280;margin:0 0 4px;line-height:1.4}
   .pie{font-size:.78rem;color:#6B7280;margin-top:16px;text-align:center}
   .politica{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:#161B26}
@@ -169,6 +178,7 @@ function valoresCrudos(cuerpo) {
     cedula: String(cuerpo.cedula || '').replace(/[\s.\-]/g, '').slice(0, 15),
     telefono: String(cuerpo.telefono || '').replace(/\D/g, '').slice(0, 14),
     puesto_id: String(cuerpo.puesto_id || '').slice(0, 12), mesa: String(cuerpo.mesa || '').slice(0, 4),
+    gps_lat: String(cuerpo.gps_lat || '').trim().slice(0, 24), gps_lon: String(cuerpo.gps_lon || '').trim().slice(0, 24),
     autoriza: cuerpo.autoriza === '1', canal_sms: cuerpo.canal_sms === '1',
     canal_whatsapp: cuerpo.canal_whatsapp === '1', canal_email: cuerpo.canal_email === '1',
   };
@@ -211,6 +221,9 @@ async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {})
   // se respeta lo que la persona dejó, aunque lo haya vaciado.
   const primera = v.departamento_residencia === undefined;
   if (primera) { v = { ...v, departamento_residencia: terr.departamento, ciudad_residencia: terr.ciudad }; }
+  // Esos dos vienen de la campaña, no de la persona: la propuesta del GPS puede reemplazarlos mientras no los toque.
+  const autoDep = primera && v.departamento_residencia ? ' data-auto="1"' : '';
+  const autoCiu = primera && v.ciudad_residencia ? ' data-auto="1"' : '';
   const val = (k) => esc(v[k] || '');
   const chk = (k) => (v[k] ? ' checked' : '');
   const cod = encodeURIComponent(enlace.codigo);
@@ -225,24 +238,26 @@ async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {})
 ${errores.length ? `<div class="error"><ul>${errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
 ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
 <form method="post" action="/i/${cod}" autocomplete="on" id="f">
-  <label for="nombre">Nombre completo</label>
-  <input type="text" id="nombre" name="nombre" value="${val('nombre')}" autocomplete="name" required maxlength="120">
-  <label for="cedula">Número de cédula</label>
+
+  <h2 class="seccion primero">Datos personales</h2>
+  <label for="cedula">Número de cédula <small>(obligatorio)</small></label>
   <input type="text" id="cedula" name="cedula" value="${val('cedula')}" inputmode="numeric" autocomplete="off" required maxlength="15">
-  <label for="telefono">Celular</label>
-  <input type="tel" id="telefono" name="telefono" value="${val('telefono')}" inputmode="numeric" autocomplete="tel-national" required maxlength="16" placeholder="3001234567">
+  <label for="nombre">Nombre completo <small>(obligatorio)</small></label>
+  <input type="text" id="nombre" name="nombre" value="${val('nombre')}" autocomplete="name" required maxlength="120">
 
   <h2 class="seccion">Datos de contacto</h2>
-  <p class="ayuda">Todo esto es opcional: le sirve a la campaña para ubicarte y escribirte mejor.</p>
-  <label for="email">Correo electrónico <small>(opcional)</small></label>
-  <input type="email" id="email" name="email" value="${val('email')}" autocomplete="email" maxlength="150">
+  <p class="ayuda">Solo el celular es obligatorio. Lo demás le sirve a la campaña para ubicarte y escribirte mejor.</p>
+  <button type="button" class="gps" id="btn-gps">Usar mi ubicación (GPS)</button>
+  <p class="ayuda" id="estado-gps" role="status" aria-live="polite">${v.gps_lat ? 'Ubicación tomada.' : 'Tócalo si estás en tu casa; si no, escribe la dirección.'}</p>
+  <input type="hidden" name="gps_lat" id="gps_lat" value="${val('gps_lat')}">
+  <input type="hidden" name="gps_lon" id="gps_lon" value="${val('gps_lon')}">
   <label for="direccion">Dirección de residencia <small>(opcional)</small></label>
   <input type="text" id="direccion" name="direccion" value="${val('direccion')}" autocomplete="street-address" maxlength="255" placeholder="Ej. Calle 10 #5-20">
   <label for="departamento">Departamento <small>(opcional)</small></label>
-  <input type="text" id="departamento" name="departamento_residencia" value="${val('departamento_residencia')}" list="lista-departamentos" autocomplete="off" maxlength="100">
+  <input type="text" id="departamento" name="departamento_residencia" value="${val('departamento_residencia')}"${autoDep} list="lista-departamentos" autocomplete="off" maxlength="100">
   <datalist id="lista-departamentos"></datalist>
   <label for="ciudad">Ciudad <small>(opcional)</small></label>
-  <input type="text" id="ciudad" name="ciudad_residencia" value="${val('ciudad_residencia')}" list="lista-ciudades" autocomplete="off" maxlength="100">
+  <input type="text" id="ciudad" name="ciudad_residencia" value="${val('ciudad_residencia')}"${autoCiu} list="lista-ciudades" autocomplete="off" maxlength="100">
   <datalist id="lista-ciudades"></datalist>
   ${terr.usaComunas ? `<label for="comuna">Comuna / corregimiento <small>(opcional)</small></label>
   <input type="text" id="comuna" name="comuna_corregimiento_residencia" value="${val('comuna_corregimiento_residencia')}" list="lista-comunas" autocomplete="off" maxlength="120" placeholder="Ej. Comuna 1 - Atardeceres">
@@ -250,19 +265,29 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
   ${terr.usaBarrios ? `<label for="barrio">Barrio / vereda <small>(opcional)</small></label>
   <input type="text" id="barrio" name="barrio_residencia" value="${val('barrio_residencia')}" list="lista-barrios" autocomplete="off" maxlength="120" placeholder="Ej. Arenillo">
   <datalist id="lista-barrios"></datalist>` : ''}
+  <label for="telefono">Celular <small>(obligatorio)</small></label>
+  <input type="tel" id="telefono" name="telefono" value="${val('telefono')}" inputmode="numeric" autocomplete="tel-national" required maxlength="16" placeholder="3001234567">
+  <label for="email">Correo electrónico <small>(opcional)</small></label>
+  <input type="email" id="email" name="email" value="${val('email')}" autocomplete="email" maxlength="150">
 
   <h2 class="seccion">Dónde votas</h2>
-
   <div id="caja-puesto" style="display:none">
-    <label for="puesto">Puesto de votación <small>(si lo sabes)</small></label>
-    <select id="puesto" name="puesto_id"><option value="">No lo sé / lo completo después</option></select>
-    <label for="mesa">Mesa <small>(si la sabes)</small></label>
-    <select id="mesa" name="mesa"><option value="">—</option></select>
+    <label for="buscar-puesto">Buscar tu puesto <small>(si lo sabes)</small></label>
+    <input type="search" id="buscar-puesto" autocomplete="off" placeholder="Escribe parte del nombre">
+    <label for="puesto">Puesto de votación</label>
+    <select id="puesto" name="puesto_id"><option value="">No sé</option></select>
+    <label for="mesa">Mesa</label>
+    <select id="mesa" name="mesa"><option value="">No sé</option></select>
   </div>
+  <p class="ayuda" style="margin-top:12px">¿No sabes dónde votas?
+    <a href="https://wsp.registraduria.gov.co/censo/consultar/" target="_blank" rel="noopener noreferrer">Consultar mi puesto en la Registraduría</a>
+    (se abre en otra pestaña; la consulta se hace allá con tu cédula).</p>
 
+  <h2 class="seccion">Tratamiento de datos personales</h2>
+  <p class="ayuda">Lee cómo la campaña trata tus datos:
+    <a href="/i/${cod}/politica" target="_blank" rel="noopener">política de tratamiento de datos vigente</a>.</p>
   <label class="acepto"><input type="checkbox" name="autoriza" value="1"${chk('autoriza')} required>
-    <span>Autorizo que la campaña guarde y trate mis datos personales según la
-    <a href="/i/${cod}/politica" target="_blank" rel="noopener">política de tratamiento de datos</a>.</span></label>
+    <span><strong>(obligatorio)</strong> Autorizo que la campaña guarde y trate mis datos personales según esa política.</span></label>
   <div class="canales">
     <p class="tit">Y que me escriba por (puedes dejar vacío lo que no quieras):</p>
     <label><input type="checkbox" name="canal_sms" value="1"${chk('canal_sms')}> Mensaje de texto (SMS)</label>
@@ -280,28 +305,41 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
 <script>
 (function(){
   var cod=${JSON.stringify(enlace.codigo)};
-  var selP=document.getElementById('puesto'), selM=document.getElementById('mesa');
+  var selP=document.getElementById('puesto'), selM=document.getElementById('mesa'), bus=document.getElementById('buscar-puesto');
   var previoP=${JSON.stringify(v.puesto_id || '')}, previoM=${JSON.stringify(v.mesa || '')};
   var puestos=[];
+  // Sin tildes ni mayúsculas, para que «ESCUELA SAN JOSE» salga al escribir «san josé».
+  function plano(t){return String(t||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();}
+  function pintarPuestos(){
+    var q=plano(bus.value).trim(), actual=selP.value;
+    selP.innerHTML='<option value="">No sé</option>';
+    var n=0;
+    puestos.forEach(function(p){
+      if(q&&plano(p.nombre).indexOf(q)<0&&String(p.id)!==actual) return;
+      var o=document.createElement('option');o.value=p.id;o.textContent=p.nombre;selP.appendChild(o);n++;
+    });
+    if(q&&!n){var s=document.createElement('option');s.value='';s.disabled=true;s.textContent='Ningún puesto coincide';selP.appendChild(s);}
+    selP.value=actual;
+  }
   function mesas(){
     var p=puestos.filter(function(x){return String(x.id)===selP.value})[0];
-    selM.innerHTML='<option value="">—</option>';
+    selM.innerHTML='<option value="">No sé</option>';
     if(!p||!p.cantidad_mesas) return;
     for(var i=1;i<=p.cantidad_mesas;i++){var o=document.createElement('option');o.value=i;o.textContent='Mesa '+i;selM.appendChild(o);}
     if(previoM){selM.value=previoM;previoM='';}
   }
   fetch('/i/'+encodeURIComponent(cod)+'/puestos',{headers:{Accept:'application/json'}}).then(function(r){return r.ok?r.json():[]}).then(function(l){
     if(!Array.isArray(l)||!l.length) return;
-    puestos=l;
-    l.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.textContent=p.nombre;selP.appendChild(o);});
+    puestos=l; pintarPuestos();
     if(previoP){selP.value=previoP;previoP='';mesas();}
     document.getElementById('caja-puesto').style.display='block';
   }).catch(function(){});
   selP.addEventListener('change',mesas);
+  bus.addEventListener('input',pintarPuestos);
 
   // Listas de la campaña para departamento, ciudad, comuna/corregimiento y barrio/vereda. Si no hay (o el
   // servicio no responde) los campos siguen siendo texto libre.
-  var iDep=document.getElementById('departamento'), iCiu=document.getElementById('ciudad'),
+  var iDir=document.getElementById('direccion'), iDep=document.getElementById('departamento'), iCiu=document.getElementById('ciudad'),
       iCom=document.getElementById('comuna'), iBar=document.getElementById('barrio');
   function llenar(id,nombres){var d=document.getElementById(id);if(!d)return;d.innerHTML='';
     (nombres||[]).forEach(function(n){var o=document.createElement('option');o.value=n;d.appendChild(o);});}
@@ -316,7 +354,43 @@ ${aviso ? `<div class="error">${esc(aviso)}</div>` : ''}
   }
   function luego(){clearTimeout(t);t=setTimeout(listas,300);}
   [iDep,iCiu,iCom].forEach(function(e){if(e)e.addEventListener('input',luego);});
+  // Lo que la persona escribe deja de ser «valor por defecto» (departamento y ciudad de la campaña).
+  [iDir,iDep,iCiu,iCom,iBar].forEach(function(e){if(e)e.addEventListener('input',function(){e.removeAttribute('data-auto');});});
   listas();
+
+  // GPS: el navegador solo pregunta por la ubicación cuando se toca el botón, nunca al abrir la página.
+  var bGps=document.getElementById('btn-gps'), estado=document.getElementById('estado-gps');
+  var hLat=document.getElementById('gps_lat'), hLon=document.getElementById('gps_lon');
+  function aviso(txt){estado.textContent=txt;}
+  // Una propuesta no pisa lo escrito: solo entra en un campo vacío o con el valor por defecto sin tocar.
+  function proponer(el,valor){
+    if(!el||!valor) return;
+    if(el.value.trim()===''||el.getAttribute('data-auto')==='1'){el.value=valor;el.removeAttribute('data-auto');}
+  }
+  function ubicar(opc){return new Promise(function(ok,mal){navigator.geolocation.getCurrentPosition(ok,mal,opc);});}
+  bGps.addEventListener('click',function(){
+    if(!navigator.geolocation){aviso('Este teléfono o navegador no permite obtener la ubicación. Escribe tu dirección.');return;}
+    bGps.disabled=true; aviso('Buscando tu ubicación…');
+    ubicar({enableHighAccuracy:true,timeout:15000,maximumAge:60000}).catch(function(e){
+      if(e&&e.code===1) throw e;   // permiso negado: no tiene sentido reintentar
+      return ubicar({enableHighAccuracy:false,timeout:10000,maximumAge:120000});
+    }).then(function(pos){
+      var la=pos.coords.latitude, lo=pos.coords.longitude;
+      hLat.value=String(la); hLon.value=String(lo);
+      aviso('Ubicación tomada.');
+      var cuerpo=new URLSearchParams({lat:String(la),lon:String(lo)});
+      return fetch('/i/'+encodeURIComponent(cod)+'/ubicacion',{method:'POST',headers:{Accept:'application/json'},body:cuerpo})
+        .then(function(r){return r.ok?r.json():null}).then(function(d){
+          if(!d||!d.disponible) return;
+          proponer(iDir,d.direccion); proponer(iBar,d.barrio); proponer(iCiu,d.ciudad); proponer(iDep,d.departamento);
+          aviso('Ubicación tomada. Revisa lo que se llenó y corrígelo si hace falta.');
+          listas();
+        }).catch(function(){});
+    }).catch(function(e){
+      aviso(e&&e.code===1?'No diste permiso para usar tu ubicación. Escribe tu dirección.':'No se pudo obtener tu ubicación. Escribe tu dirección.');
+    }).then(function(){bGps.disabled=false;});
+  });
+
   var f=document.getElementById('f'),b=document.getElementById('btn');
   f.addEventListener('submit',function(){b.disabled=true;b.textContent='Enviando…';});
   window.addEventListener('pageshow',function(){b.disabled=false;b.textContent='Inscribirme';});
@@ -411,6 +485,66 @@ router.get('/:codigo/territorio', async (req, res) => {
   }
 });
 
+/* ---------------------------------------------------------------------------
+   /i/:codigo/ubicacion — de coordenadas a una dirección que PROPONER (geocodificación inversa).
+
+   CADA LLAMADA GASTA UNA CONSULTA DE GOOGLE, y la página es pública, así que tiene dos topes que cuentan
+   TODAS las llamadas (no solo las fallidas, como el limitador de arriba): por IP y por enlace. Viven en
+   memoria: un reinicio los pone en cero, que para un tope de gasto es aceptable. Una IP compartida (un
+   evento con una sola wifi) comparte su cupo; por eso es holgado.
+   Sin clave de Google, o ante cualquier fallo, responde {disponible:false}: el formulario ya guardó las
+   coordenadas en los campos ocultos y sigue su camino. */
+const TOPES_UBICACION = { ip: { max: 20, ventanaMs: 15 * 60 * 1000 }, enlace: { max: 400, ventanaMs: 24 * 60 * 60 * 1000 } };
+const usosUbicacion = new Map();
+
+function gastarCupo(clave, { max, ventanaMs }) {
+  const ahora = Date.now();
+  const marcas = (usosUbicacion.get(clave) || []).filter(t => ahora - t < ventanaMs);
+  if (marcas.length >= max) { usosUbicacion.set(clave, marcas); return false; }
+  marcas.push(ahora);
+  usosUbicacion.set(clave, marcas);
+  if (usosUbicacion.size > 2000) {   // barrido: las claves cuyas marcas ya vencieron
+    for (const [k, m] of usosUbicacion) {
+      if (!m.length || ahora - m[m.length - 1] > TOPES_UBICACION.enlace.ventanaMs) usosUbicacion.delete(k);
+    }
+  }
+  return true;
+}
+router.reiniciarCupos = () => usosUbicacion.clear();   // para la prueba
+
+// Un «plus code» («RJ4X+9P Manizales») es lo que Google da en el campo; no sirve como dirección.
+const RE_PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{0,3}(\s|$)/i;
+
+router.post('/:codigo/ubicacion', async (req, res) => {
+  cabeceras(res);
+  const nada = { disponible: false };
+  try {
+    const ajustes = await leerAjustes();
+    const enlace = ajustes.habilitado ? await buscarEnlaceActivo(req.params.codigo) : null;
+    if (!enlace) { res.locals.fallo = true; return res.json(nada); }
+    const c = coordenadasValidas((req.body || {}).lat, (req.body || {}).lon);
+    if (!c) { res.locals.fallo = true; return res.status(400).json(nada); }
+    if (!gastarCupo('ip:' + req.ip, TOPES_UBICACION.ip) || !gastarCupo('enlace:' + enlace.enlace_id, TOPES_UBICACION.enlace)) {
+      return res.status(429).json(nada);
+    }
+    const r = await geocoder.geocodificarInversa(c.latitud, c.longitud);
+    if (!r) return res.json(nada);
+    const d = r.detalle || {};
+    // De «Cra. 23 #20-30, Manizales, Caldas, Colombia» solo la primera parte: lo demás va en sus propios campos.
+    let direccion = String(r.direccion || '').split(',')[0].trim();
+    if (RE_PLUS_CODE.test(direccion) || /^colombia$/i.test(direccion)) direccion = '';
+    const salida = {
+      direccion: sanear(direccion, LIMITES.direccion), barrio: sanear(d.suburb, LIMITES.barrio_residencia),
+      ciudad: sanear(d.city, LIMITES.ciudad_residencia), departamento: sanear(d.state, LIMITES.departamento_residencia),
+    };
+    res.json({ disponible: !!(salida.direccion || salida.barrio || salida.ciudad || salida.departamento), ...salida });
+  } catch (err) {
+    // Sin clave de Google es lo esperable en una campaña que no la tiene: no se anota cada vez.
+    if (!/GOOGLE_MAPS_API_KEY/.test(String(err && err.message))) console.error('inscripcion ubicacion:', String(err && err.message).slice(0, 120));
+    res.json(nada);
+  }
+});
+
 router.get('/:codigo/politica', async (req, res) => {
   cabeceras(res);
   try {
@@ -457,6 +591,13 @@ async function validar(cuerpo, enlace) {
   if (email && !RE_EMAIL.test(email)) errores.push('El correo no parece válido.');
   if (!valores.autoriza) errores.push('Para inscribirte debes aceptar el tratamiento de tus datos.');
 
+  /* EL GPS. Dos campos ocultos que el servidor NO da por buenos: números, y dentro de Colombia. Unas
+     coordenadas que no pasan se descartan SIN error —quien se inscribe no puede corregir un campo oculto, y
+     perder la inscripción por eso sería peor— y la ficha se geocodifica por su dirección, como siempre. */
+  let gps = null;
+  if (valores.gps_lat || valores.gps_lon) gps = coordenadasValidas(valores.gps_lat, valores.gps_lon);
+  if (!gps) { valores.gps_lat = ''; valores.gps_lon = ''; }
+
   let puesto = null, mesa = null;
   if (valores.puesto_id) {
     const dueno = (await aspiranteDe(pool, enlace.usuario_id)) || 0;
@@ -486,7 +627,7 @@ async function validar(cuerpo, enlace) {
   return {
     errores, valores,
     datos: errores.length ? null : {
-      nombre, cedula, telefono, email: email || null, puesto, mesa,
+      nombre, cedula, telefono, email: email || null, puesto, mesa, gps,
       // Recortado y saneado arriba (`sanear`); vacío → null, que es lo que significa «no lo dijo».
       contacto: {
         direccion: valores.direccion || null, departamento: valores.departamento_residencia || null,
