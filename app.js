@@ -253,6 +253,8 @@ app.use('/api/configuracion', require('./routes/configuracion.routes'));
 app.use('/api/permisos', require('./routes/permisos.routes'));
 // Manuales de ayuda por rol: el contenido está en manuales/ (lib/manuales.js) y se filtra por los permisos de quien pregunta.
 app.use('/api/manuales', require('./routes/manuales.routes'));
+// Panel del líder en el celular (una llamada con meta, 7 días, pendientes, equipo, posición y Día D). Todo acotado con req.alcance.
+app.use('/api/panel-lider', require('./routes/panelLider.routes'));
 const comunicacionesRouter = require('./routes/comunicaciones.routes');
 app.use('/api/comunicaciones', comunicacionesRouter);
 app.use('/api/contenido', require('./routes/contenido.routes'));

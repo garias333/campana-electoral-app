@@ -15,6 +15,7 @@ const { condicionAlcanceVotantes, parametrosAlcanceVotantes,
         filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
+const rateLimit = require('express-rate-limit');
 const { validarCedula } = require('../lib/validarCedula');
 // UNA regla de «es la misma cédula» para todas las entradas (orden 30): ver lib/normalizarCedula.js.
 const { normalizarCedula, enmascararCedula, buscarFichaConCedula, buscarFichaPorCedula,
@@ -362,11 +363,16 @@ router.get('/', async (req, res) => {
 router.get('/resumen', async (req, res) => {
   try {
     // El desglose por intención de voto se fue con la propia intención.
+    /* CON EL ALCANCE DE QUIEN PREGUNTA, el mismo de la lista (orden del panel del líder). Sin esto, cualquier sesión recibía
+       los quince territorios con más votantes de TODA la campaña. El administrador (`cargo: 'madre'`) sigue viendo la campaña. */
+    const alc = req.alcance ? condicionAlcanceVotantes(req.alcance, 'v') : '1 = 1';
+    const par = req.alcance ? parametrosAlcanceVotantes(req.alcance) : [];
     const [porTerritorio] = await pool.query(`
       SELECT t.nombre, COUNT(v.id) AS total
       FROM votantes v JOIN territorios t ON t.id = v.territorio_id
+      WHERE ${alc}
       GROUP BY t.id ORDER BY total DESC LIMIT 15
-    `);
+    `, par);
     res.json({ porTerritorio });
   } catch (err) {
     console.error(err);
@@ -1810,6 +1816,93 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
  * operativa que se enciende o se apaga sola, sin pedir la contraseña ni reenviar la ficha entera. Con el MISMO alcance
  * que el resto de la ficha: quien no ve al votante, no lo marca (404).
  */
+/**
+ * COMPLETAR LOS DATOS BÁSICOS de una persona: teléfono, puesto y mesa, y NADA más (orden del panel del líder). Es lo que el
+ * líder hace desde el celular con las fichas que le faltan; la edición completa (`PUT /:id`) pide el cuerpo entero y su
+ * contraseña, y eso no cabe en «Completar».
+ *
+ *   · Con alcance: una ficha fuera del de quien pregunta responde 403 (y no 404: no se dice si existe).
+ *   · Teléfono: 10 dígitos, como en el resto de la aplicación.
+ *   · Puesto: tiene que ser uno de la lista de la campaña (`dia_d_puestos_votacion`, sembrada del catálogo oficial); se guarda su
+ *     nombre completo y su id del catálogo. Mesa: de 1 hasta la cantidad de mesas de ese puesto.
+ *   · No pide contraseña (completar no borra nada ni cambia a quién pertenece la ficha), pero queda en auditoría y tiene tope por
+ *     usuario.
+ */
+const limiteDatosBasicos = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Por USUARIO y no por IP: varios líderes comparten la wifi de un evento.
+  keyGenerator: (req) => 'datos-basicos:' + ((req.session && req.session.usuario && req.session.usuario.id) || 'sin-sesion'),
+  handler: (req, res) => res.status(429).json({ error: 'Demasiados cambios seguidos. Espera unos minutos.' }),
+});
+
+router.patch('/:id/datos-basicos', requireRole(...ROLES_QUE_REGISTRAN, 'aspirante'), limiteDatosBasicos, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Persona inválida.' });
+  const b = req.body || {};
+  const cambios = ['telefono', 'puesto_id', 'mesa'].filter((k) => b[k] !== undefined);
+  if (!cambios.length) return res.status(400).json({ error: 'No hay nada que completar: manda teléfono, puesto o mesa.' });
+  const extra = Object.keys(b).filter((k) => !['telefono', 'puesto_id', 'mesa'].includes(k));
+  if (extra.length) return res.status(400).json({ error: 'Solo se puede completar el teléfono, el puesto y la mesa.' });
+
+  try {
+    const alc = req.alcance ? condicionAlcanceVotantes(req.alcance, 'v') : '1 = 1';
+    const par = req.alcance ? parametrosAlcanceVotantes(req.alcance) : [];
+    const [[ficha]] = await pool.query(
+      `SELECT v.id, v.nombre, v.puesto_id, v.puesto_votacion FROM votantes v WHERE v.id = ? AND ${alc}`, [id, ...par]);
+    if (!ficha) return res.status(403).json({ error: 'Esa persona no está entre tus votantes.' });
+
+    const sets = []; const valores = []; const tocados = [];
+    if (b.telefono !== undefined) {
+      const digitos = String(b.telefono == null ? '' : b.telefono).replace(/\D/g, '');
+      if (digitos.length !== 10) return res.status(400).json({ error: 'El teléfono debe tener 10 dígitos.' });
+      sets.push('telefono = ?'); valores.push(digitos); tocados.push('teléfono');
+    }
+
+    let puestoDestino = null;           // la fila de la campaña de ese puesto, si lo hay
+    if (b.puesto_id !== undefined) {
+      const puestoId = Number(b.puesto_id);
+      if (!Number.isInteger(puestoId) || puestoId < 1) return res.status(400).json({ error: 'Elige un puesto de la lista.' });
+      const [[p]] = await pool.query(
+        'SELECT id, nombre, cantidad_mesas, ctc_puesto_id FROM dia_d_puestos_votacion WHERE id = ? AND aspirante_id = ?',
+        [puestoId, await duenoDeLaCampana(pool, req)]);
+      if (!p) return res.status(400).json({ error: 'Ese puesto no está en la lista de puestos de la campaña.' });
+      puestoDestino = p;
+      sets.push('puesto_votacion = ?', 'ctc_puesto_id = ?');
+      valores.push(p.nombre, p.ctc_puesto_id || null);
+      tocados.push('puesto');
+      // Cambiar de puesto sin elegir mesa deja la mesa anterior, que ya no corresponde.
+      if (b.mesa === undefined && Number(ficha.puesto_id) !== p.id) { sets.push('mesa_votacion = NULL'); }
+    }
+
+    if (b.mesa !== undefined) {
+      const mesa = Number(b.mesa);
+      if (!Number.isInteger(mesa) || mesa < 1) return res.status(400).json({ error: 'La mesa debe ser un número desde 1.' });
+      let destino = puestoDestino;
+      if (!destino && ficha.puesto_id) {
+        [[destino]] = await pool.query('SELECT id, nombre, cantidad_mesas FROM dia_d_puestos_votacion WHERE id = ?', [ficha.puesto_id]);
+      }
+      if (!destino) return res.status(400).json({ error: 'Para poner la mesa, elige primero el puesto.' });
+      if (destino.cantidad_mesas && mesa > destino.cantidad_mesas) {
+        return res.status(400).json({ error: `Ese puesto tiene ${destino.cantidad_mesas} mesas.` });
+      }
+      sets.push('mesa_votacion = ?'); valores.push(mesa); tocados.push('mesa');
+    }
+
+    await pool.query(`UPDATE votantes SET ${sets.join(', ')} WHERE id = ?`, [...valores, id]);
+    await registrarAuditoria(
+      req.session.usuario.id, 'completar_datos_basicos', 'votantes', id,
+      `Completó ${tocados.join(', ')} de ${ficha.nombre} (id ${id}).`, req.ip);
+    const [[nueva]] = await pool.query('SELECT id, puesto_id, puesto_votacion, mesa_votacion FROM votantes WHERE id = ?', [id]);
+    res.json({ ok: true, id, completado: tocados, puesto: nueva.puesto_votacion || '', mesa: nueva.mesa_votacion || null });
+  } catch (err) {
+    console.error('votantes/datos-basicos:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo guardar. Intenta de nuevo.' });
+  }
+});
+
 router.put('/:id/transporte', async (req, res) => {
   const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : null;
   try {

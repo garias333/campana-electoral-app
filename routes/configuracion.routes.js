@@ -314,6 +314,22 @@ async function hayDatosPorNivel() {
   };
 }
 
+/** Los roles que trabajan en la calle: no reciben las metas ni los datos internos de la campaña en `GET /campana`. */
+const ROLES_DE_CALLE = ['lider', 'sublider', 'testigo', 'usuario', 'invitado'];
+const CAMPOS_PUBLICOS = new Set([
+  'nombre_candidato', 'cargo_aspira', 'slogan_campana', 'partido_politico', 'departamento', 'ciudad',
+  'territorio_departamento', 'territorio_ciudad', 'ciudad_tiene_comunas', 'usar_nombre_barrios', 'usar_nombre_corregimientos',
+  'usar_nombre_veredas', 'fecha_eleccion',
+]);
+/** Una lista blanca: una columna nueva de la tabla NO sale a la calle hasta que se decida. */
+function soloCamposPublicos(cfg) {
+  const salida = {};
+  Object.keys(cfg).forEach((k) => {
+    if (CAMPOS_PUBLICOS.has(k) || /^(marca_|hay_datos_|apoyos_)/.test(k)) salida[k] = cfg[k];
+  });
+  return salida;
+}
+
 router.get('/campana', async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT * FROM configuracion_campana WHERE id = 1`);
@@ -474,6 +490,14 @@ router.get('/campana', async (req, res) => {
       cfg.hay_datos_barrio_texto = true;
     }
 
+    /* QUIEN TRABAJA EN LA CALLE NO RECIBE LA FILA ENTERA (orden del panel del líder). `SELECT *` llevaba a cualquier sesión la
+       meta de votos de la campaña, la dirección de la sede, el teléfono y el correo. Líder, sublíder, testigo, usuario e invitado
+       reciben solo lo que sus pantallas usan: la tarjeta de inicio (candidato, lema, partido, marca, fecha de elección) y lo que
+       arman sus formularios (departamento, ciudad, qué niveles territoriales se usan, apoyos). Administrador, coordinador,
+       aspirante y el personal administrativo siguen con la fila completa, como antes. */
+    if (!req.sublicencia && req.session && req.session.usuario && ROLES_DE_CALLE.includes(req.session.usuario.rol)) {
+      return res.json(soloCamposPublicos(cfg));
+    }
     res.json(cfg);
   } catch (err) {
     console.error(err);

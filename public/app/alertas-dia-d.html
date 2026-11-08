@@ -61,10 +61,10 @@ function aviso(texto) {
 
 /* Copia para ver las alertas sin señal (IndexedDB: cajón `alertas_cache`), igual que Faltantes. */
 async function guardarCopia(d) {
-  try { await guardarEnColaOffline(STORE_CACHE, { clienteUuid: 'alertas', datos: d, guardadoEn: Date.now() }); } catch (_) { /* sin copia */ }
+  try { await guardarCopiaOffline(STORE_CACHE, 'alertas', d); } catch (_) { /* sin copia */ }
 }
 async function leerCopia() {
-  try { return (await listarColaOffline(STORE_CACHE)).find(x => x.clienteUuid === 'alertas') || null; } catch (_) { return null; }
+  try { return await leerCopiaOffline(STORE_CACHE, 'alertas'); } catch (_) { return null; }
 }
 
 function pintar() {

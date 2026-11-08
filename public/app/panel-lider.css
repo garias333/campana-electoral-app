@@ -1,0 +1,60 @@
+/* Panel del líder (app/inicio.html). Usa las variables de estilos-app.css. */
+#panel-lider { margin: 0 0 18px; display: grid; gap: 12px; }
+#panel-lider[hidden] { display: none; }
+.pl-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; }
+.pl-titulo { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.pl-etiqueta { background: #FFF3CD; color: #7A5A00; border-radius: 999px; padding: 1px 8px; font-size: 0.66rem; letter-spacing: 0.04em; }
+.pl-cifra { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.pl-grande { font-size: 1.9rem; font-weight: 800; color: #0B5ED7; line-height: 1.1; }
+.pl-meta { font-size: 0.9rem; color: var(--muted); }
+.pl-pct { margin-left: auto; font-weight: 800; color: var(--navy); font-size: 1.1rem; }
+.pl-detalle { font-size: 0.82rem; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+.pl-vacio { font-size: 1rem; color: var(--navy); font-weight: 600; margin: 2px 0 8px; }
+.pl-barra { height: 10px; border-radius: 99px; background: #E9ECF1; overflow: hidden; margin-top: 10px; }
+.pl-barra-fina { height: 6px; margin-top: 5px; }
+.pl-barra-llena { height: 100%; background: #0B5ED7; border-radius: 99px; transition: width .4s; }
+.pl-barra-llena.verde { background: #1E7245; }
+.pl-barra-llena.supera { background: #1E7245; }
+.pl-posicion { display: flex; align-items: center; gap: 12px; font-size: 1rem; }
+.pl-medalla { width: 38px; height: 38px; border-radius: 50%; background: #FFC300; color: #1B2430; display: grid; place-items: center; font-weight: 800; flex: none; }
+.pl-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 120px; }
+.pl-dia { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; gap: 3px; min-width: 0; }
+.pl-dia-n { font-size: 0.72rem; font-weight: 700; color: var(--navy); min-height: 1em; }
+.pl-dia-barra { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.pl-dia-barra div { width: 100%; background: #9DBDF0; border-radius: 5px 5px 0 0; min-height: 2px; }
+.pl-dia.hoy .pl-dia-barra div { background: #0B5ED7; }
+.pl-dia-l { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+.pl-dia.hoy .pl-dia-l { color: #0B5ED7; }
+.pl-pends { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pl-pend { border: 1.5px solid var(--linea); background: #fff; border-radius: 12px; padding: 10px 6px; text-align: center; font: inherit; color: var(--navy); display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; min-height: 76px; justify-content: center; }
+button.pl-pend { cursor: pointer; border-color: #0B5ED7; background: #F3F8FF; }
+button.pl-pend:active { background: #E2EEFF; }
+.pl-pend-info { background: #F7F7F9; color: var(--muted); }
+.pl-pend-info.cero { opacity: 0.7; }
+.pl-pend-n { font-size: 1.4rem; font-weight: 800; line-height: 1.1; }
+.pl-pend-t { font-size: 0.72rem; line-height: 1.2; }
+.pl-pend-flecha { position: absolute; right: 6px; top: 4px; color: #0B5ED7; }
+.pl-miembro { padding: 7px 0; border-top: 1px solid var(--linea); }
+.pl-miembro:first-of-type { border-top: 0; }
+.pl-miembro-fila { display: flex; justify-content: space-between; gap: 10px; font-size: 0.92rem; }
+.pl-miembro-nombre { color: var(--navy); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pl-miembro-cifra { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pl-boton { display: block; text-align: center; text-decoration: none; margin-top: 12px; box-sizing: border-box; }
+.pl-pie, .pl-sin-senal { font-size: 0.78rem; color: var(--muted); text-align: right; }
+.pl-sin-senal { background: #FFF3CD; color: #6B4A00; border: 1px solid #E5C27A; border-radius: 10px; padding: 8px 12px; text-align: left; font-weight: 600; }
+
+/* Hoja inferior: lista de pendientes y formulario de «Completar» */
+.pl-hoja { position: fixed; inset: 0; background: rgba(10, 20, 35, 0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+.pl-hoja.abierta { display: flex; }
+.pl-hoja-caja { background: #fff; width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+.pl-hoja-caja h2 { margin: 0 0 12px; font-size: 1.15rem; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+.pl-contador { background: #0B5ED7; color: #fff; border-radius: 999px; padding: 1px 10px; font-size: 0.8rem; }
+.pl-fila { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--linea); }
+.pl-fila-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pl-fila-datos strong { color: var(--navy); overflow-wrap: anywhere; }
+.pl-fila-datos span { font-size: 0.8rem; color: var(--muted); }
+.pl-completar { flex: none; border: 0; background: #0B5ED7; color: #fff; font: inherit; font-weight: 700; border-radius: 10px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+.pl-quien { margin: 0 0 14px; color: var(--navy); } .pl-quien span { font-size: 0.82rem; color: var(--muted); }
+.pl-error { background: #FDEDEB; color: #A93226; border: 1px solid #F0B9B3; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.88rem; }
+.pl-hoja-caja .btn-app { margin-top: 10px; }
+body.pl-bloqueado { overflow: hidden; }

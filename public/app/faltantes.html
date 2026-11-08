@@ -154,14 +154,14 @@ function aInternacional(tel) {
 }
 
 /* ——— Copia para ver la lista sin señal (IndexedDB: cajón `faltantes_cache`) ——— */
+// La clave de cada copia lleva el id del usuario (offline-utils.js): en un celular compartido, otra cuenta nunca ve la lista de esta.
 async function guardarCopia(f, d) {
-  try { await guardarEnColaOffline(STORE_CACHE, { clienteUuid: 'lista:' + f, datos: d, guardadoEn: Date.now() }); } catch (_) { /* sin copia */ }
+  try { await guardarCopiaOffline(STORE_CACHE, 'lista:' + f, d); } catch (_) { /* sin copia */ }
 }
 async function leerCopia(f) {
   try {
-    const todo = await listarColaOffline(STORE_CACHE);
     // Con el filtro pedido; si no hay, con «faltan», que es la que siempre se abre.
-    return todo.find(x => x.clienteUuid === 'lista:' + f) || todo.find(x => x.clienteUuid === 'lista:faltan') || null;
+    return (await leerCopiaOffline(STORE_CACHE, 'lista:' + f)) || (await leerCopiaOffline(STORE_CACHE, 'lista:faltan')) || null;
   } catch (_) { return null; }
 }
 

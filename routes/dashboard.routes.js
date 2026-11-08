@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
+const panelLider = require('../lib/panelLider');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
 const { sqlMetaEfectiva } = require('../config/metasEstructura');
 const { PROFUNDIDAD_MAXIMA, filtroMetaMadreEstructura, sublicenciaSobre } = require('../lib/ramas');
@@ -459,115 +460,15 @@ router.get('/tendencia-registros', verPanelGeneral, async (req, res) => {
   }
 });
 
-// Progreso propio del líder/coordinador que inició sesión: formularios
-// enviados (votantes con lider_id = su propio id) vs. su meta de votos.
-// Para un Coordinador, la meta es la suma de las metas de todos los
-// Líderes de su Comuna/Corregimiento (su territorio_id ES esa Comuna/
-// Corregimiento desde este parche), no un número propio editable.
-router.get('/mi-progreso', async (req, res) => {
+// Progreso propio de quien inició sesión: su meta y sus inscritos.
+//
+// «INSCRITOS» ES LO QUE ÉL VE EN SU LISTA DE VOTANTES (orden del panel del líder): se cuenta con `req.alcance`, la misma condición
+// de `GET /votantes` (lib/alcanceVotantes.js). Antes esta ruta contaba otra cosa —`lider_id` suyo o de sus sublíderes de
+// estructura— y la barra de meta podía no cuadrar con la lista. Para un coordinador la meta sigue siendo la suma de las de sus
+// líderes (config/metasEstructura.js). La lógica vive en lib/panelLider.js porque el panel del celular usa la misma.
+router.get('/mi-progreso', calcularAlcance, async (req, res) => {
   try {
-    const usuarioId = req.session.usuario.id;
-    /* TAMBIÉN AQUÍ, aunque la fila ya sea suya por `e.usuario_id = ?`.
-       Sin esto, el aspirante veía dos cifras distintas para la MISMA persona
-       en la MISMA pantalla: «Mi meta de votos» contando todo lo que registró
-       —incluido lo que hizo para la madre— y su fila en «Progreso del equipo»
-       contando solo su rama. Dos números que no cuadran en un panel no se
-       leen como un matiz: se leen como que el panel está mal. */
-    const ambito = await ambitoDelPanel(req);
-    const filtroVot = ambito ? `AND ${ambito.votantesSql}` : '';
-    const parVot = ambito ? ambito.votantesPar : [];
-    const [[fila]] = await pool.query(
-      `SELECT
-        ${sqlMetaEfectiva('e')} AS meta_votos,
-        (
-          SELECT COUNT(*) FROM votantes v
-          WHERE (v.lider_id = e.usuario_id
-             OR v.lider_id IN (
-               SELECT sub.usuario_id FROM estructura sub
-               WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
-             ))
-            ${filtroVot}
-        ) AS enviados,
-        /* «POR TU ENLACE»: de esos mismos registros, los que se inscribieron solos por el enlace
-           de inscripción (origen 'enlace_lider'), y cuántos aún no confirman por /c. Es la MISMA
-           condición de arriba con una línea más: si fuera otra, el «N por tu enlace» no sería
-           parte de «enviados». */
-        (
-          SELECT COUNT(*) FROM votantes v
-          WHERE (v.lider_id = e.usuario_id
-             OR v.lider_id IN (
-               SELECT sub.usuario_id FROM estructura sub
-               WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
-             ))
-            AND v.origen = 'enlace_lider'
-            ${filtroVot}
-        ) AS por_enlace,
-        (
-          SELECT COUNT(*) FROM votantes v
-          WHERE (v.lider_id = e.usuario_id
-             OR v.lider_id IN (
-               SELECT sub.usuario_id FROM estructura sub
-               WHERE sub.supervisor_id = e.usuario_id AND sub.cargo = 'usuario' AND sub.activo = 1
-             ))
-            AND v.origen = 'enlace_lider' AND v.consentimiento_confirmado_en IS NULL
-            ${filtroVot}
-        ) AS por_enlace_sin_confirmar
-       FROM estructura e
-       WHERE e.usuario_id = ? AND e.activo = 1
-       LIMIT 1`,
-      [...parVot, ...parVot, ...parVot, usuarioId]
-    );
-
-    if (!fila) {
-      return res.json({ tieneMetaAsignada: false });
-    }
-
-    const meta = Number(fila.meta_votos) || 0;
-    const enviados = fila.enviados || 0;
-    const porEnlace = Number(fila.por_enlace) || 0;
-    const porEnlaceSinConfirmar = Number(fila.por_enlace_sin_confirmar) || 0;
-    const porcentaje = meta > 0 ? Math.min(100, Math.round((enviados / meta) * 100)) : 0;
-
-    /* EL ASPIRANTE TIENE DOS METAS, Y SON DOS COSAS DISTINTAS.
-         · La suya, al Concejo: la define él en Datos de la campaña, y avanza
-           con TODA su rama — todo el que registra su equipo lo apoya a él, que
-           es la razón de que lo estén registrando.
-         · La que le prometió a la Alcaldía al inscribirse allá: vive en
-           `estructura.meta_votos` y solo avanza con quienes marcan «alcaldía».
-       Quien marca las dos casillas suma en las dos; quien marca solo concejo,
-       solo en la suya. No es una regla nueva: es `apoya_a`, leída dos veces.
-
-       Se devuelven las dos y la pantalla las pinta como dos barras. Enseñar
-       una sola obligaría a elegir cuál, y las dos son ciertas. */
-    if (!req.sublicencia) {
-      return res.json({ tieneMetaAsignada: true, meta, enviados, porcentaje, porEnlace, porEnlaceSinConfirmar });
-    }
-
-    const cargo = req.sublicencia.cargo;
-    const contar = async (apoyo) => {
-      const [[r]] = await pool.query(
-        `SELECT COUNT(*) AS n FROM votantes v
-          WHERE ${ambito.votantesSql} AND JSON_CONTAINS(v.apoya_a, ?)`,
-        [...ambito.votantesPar, JSON.stringify(apoyo)]);
-      return Number(r.n) || 0;
-    };
-    let metaPropia = 0;
-    try {
-      const [[sl]] = await pool.query(
-        'SELECT meta_votos FROM sublicencias WHERE usuario_id = ? LIMIT 1', [req.sublicencia.usuario_id]);
-      metaPropia = sl ? Number(sl.meta_votos) || 0 : 0;
-    } catch (_) { /* sin la columna todavia: 0, y la barra no se pinta */ }
-
-    const avancePropio = await contar(cargo);
-    const avanceMadre = await contar(await cargoDeLaMadre());
-    const pct = (a, m) => (m > 0 ? Math.min(100, Math.round((a / m) * 100)) : 0);
-
-    return res.json({
-      tieneMetaAsignada: true, meta, enviados, porcentaje, porEnlace, porEnlaceSinConfirmar,
-      dosMetas: true,
-      propia: { etiqueta: `Mi campaña (${cargo})`, meta: metaPropia, avance: avancePropio, porcentaje: pct(avancePropio, metaPropia) },
-      madre:  { etiqueta: 'Comprometido con la campaña principal', meta, avance: avanceMadre, porcentaje: pct(avanceMadre, meta) },
-    });
+    res.json(await panelLider.progresoDelLider(req));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando el progreso de meta.' });
@@ -714,8 +615,16 @@ router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (re
  * cada sublíder registró con la suya — sin que el conteo de un líder se
  * infle con lo que sus sublíderes ya aportan por su lado.
  */
-router.get('/tabla-posiciones', verPanelGeneral, async (req, res) => {
+router.get('/tabla-posiciones', verPanelGeneral, calcularAlcance, async (req, res) => {
   try {
+    /* A UN LÍDER, UN SUBLÍDER, UN TESTIGO, UN USUARIO O UN INVITADO NO SE LE ENTREGA LA LISTA: solo su lugar y el total
+       («Vas en el lugar 3 de 12»), sin nombres ni cifras de nadie más. La lista completa llevaba el nombre y los registros de
+       hasta 50 personas de toda la campaña a cualquiera con el Panel encendido. Se cuenta con la misma definición de
+       inscritos que la lista de Votantes de cada quien (lib/panelLider.js). Administrador, coordinador, asistente,
+       administrativo y aspirante con sublicencia siguen recibiendo la lista, como antes. */
+    if (!req.sublicencia && ROLES_CON_ALCANCE_PROPIO.includes(req.session.usuario.rol)) {
+      return res.json(await panelLider.posicionPropia(req));
+    }
     const ambito = (await ambitoDelPanel(req)) || (await ambitoDelCoordinador(req));
     const filtroEst = ambito ? 'AND e.usuario_id IN (?)' : '';
     const parEst = ambito ? [ambito.ids] : [];

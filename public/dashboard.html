@@ -813,9 +813,16 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
 
   try {
     const posiciones = await api('/dashboard/tabla-posiciones');
-    if (posiciones.length) {
+    if (Array.isArray(posiciones)) {
+      if (posiciones.length) {
+        document.getElementById('bloque-tabla-posiciones').style.display = 'block';
+        dibujarTablaPosiciones(posiciones, usuario.id);
+      }
+    } else if (posiciones && posiciones.lugar && posiciones.de) {
+      // Líder y sublíder reciben solo su lugar, sin la lista de los demás (orden del panel del líder).
       document.getElementById('bloque-tabla-posiciones').style.display = 'block';
-      dibujarTablaPosiciones(posiciones, usuario.id);
+      document.getElementById('tabla-posiciones-lista').innerHTML =
+        '<p style="font-size:1.05rem; margin:6px 0;">Vas en el lugar <strong class="mono">' + posiciones.lugar + '</strong> de <strong class="mono">' + posiciones.de + '</strong>.</p>';
     }
   } catch (err) {
     console.error('Error cargando la tabla de posiciones:', err);

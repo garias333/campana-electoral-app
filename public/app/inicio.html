@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/panel-lider.css">
 </head>
 <body>
 <div class="app-barra" id="app-barra"></div>
@@ -43,6 +44,9 @@
     </div>
   </div>
 
+  <!-- PANEL DEL LÍDER (líder, sublíder y aspirante con rol líder): meta, 7 días, pendientes, equipo, lugar y Día D. Lo arma public/app/panel-lider.js. -->
+  <section id="panel-lider" aria-label="Mi panel" hidden></section>
+
   <nav class="menu-app" id="menu-app"></nav>
 
   <!-- Ofrecer la instalación también desde dentro: quien entró por el
@@ -53,9 +57,11 @@
 </main>
 
 <script src="/js/api-core.js"></script>
+<script src="/js/offline-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/avisos-push.js"></script>
 <script src="/app/app-comun.js"></script>
+<script src="/app/panel-lider.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/js/instalar-app.js"></script>
 <script>
@@ -234,6 +240,8 @@ function pintarCampana(campana, bio) {
   const modulosApp = await modulosPermitidosApp();
   pintarMenu(usuario.rol, modulosApp, !!usuario.es_aspirante);
   mostrarFranjaDeAvisos(modulosApp);
+  // El panel del líder va arriba del menú. Quien no es líder ni sublíder (ni aspirante, que entra con rol líder) no lo pide.
+  if (['lider', 'sublider'].includes(usuario.rol) && window.PanelLider) window.PanelLider.iniciar(usuario);
 
   try {
     const [campana, bio] = await Promise.all([

@@ -39,6 +39,7 @@ const PERMITIDOS = [
   '/geo',            // geocodificación de direcciones
   '/inscripcion',    // su enlace de inscripción y el cuadro de SU rama (acota la propia ruta, con subarbolSql)
   '/manuales',       // los manuales de ayuda: se arman con SUS permisos (PERMISOS_ASPIRANTE), no con los de la madre
+  '/panel-lider',    // su panel del celular: todo acotado con req.alcance (de rama)
 ];
 
 /** Los módulos que ve en el menú. Se corresponden uno a uno con sus pantallas. */

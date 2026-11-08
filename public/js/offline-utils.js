@@ -11,7 +11,7 @@
    un error de verdad del servidor (ver esErrorDeRed en api-core.js). */
 
 const OFFLINE_DB_NOMBRE = 'estrategia_offline';
-const OFFLINE_DB_VERSION = 5;
+const OFFLINE_DB_VERSION = 6;
 // Un "store" (cajón) por cada tipo de formulario que se pueda guardar sin
 // conexión. Agregar uno nuevo acá NO borra los que ya existían en el
 // dispositivo de nadie — IndexedDB solo agrega los que falten al subir de
@@ -22,9 +22,25 @@ const OFFLINE_DB_VERSION = 5;
 // `transporte_pendientes`: el interruptor «necesita transporte» de Faltantes, hecho sin señal.
 // `alertas_cache`: la última lista del cuadro de alertas, para verla sin conexión.
 // `logistica_pendientes`: las entregas de refrigerios/kits hechas sin señal por el coordinador de puesto (orden 39).
+// `panel_lider_cache`: la última copia del panel del líder en el celular (orden del panel del líder).
 const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reportes_diad_pendientes',
                         'marcas_voto_pendientes', 'faltantes_cache',
-                        'checkin_pendientes', 'transporte_pendientes', 'alertas_cache', 'logistica_pendientes'];
+                        'checkin_pendientes', 'transporte_pendientes', 'alertas_cache', 'logistica_pendientes',
+                        'panel_lider_cache'];
+
+/* DE QUIÉN ES CADA COSA GUARDADA EN EL CELULAR (orden del panel del líder).
+   Un celular se comparte, y lo que se guarda sin señal tiene dos naturalezas:
+     · COPIAS PARA LEER (la lista de faltantes, las alertas, el panel): llevan el id del usuario en su clave y SOLO se devuelven a
+       ese usuario. Al cerrar sesión o al entrar otra cuenta se BORRAN las del anterior (public/js/cuentas-dispositivo.js).
+     · COLAS DE LO PENDIENTE DE SUBIR (registros, marcas «ya votó», llegadas…): son trabajo de una persona que todavía no llegó al
+       servidor. Se marcan con su dueño y solo SU sesión las ve y las sube; NO se borran al cambiar de cuenta, porque borrarlas
+       sería perder datos. Lo anterior a este cambio no trae dueño y se le sigue mostrando a quien entre (como siempre).
+   El «usuario actual» es el que dejó `registrarUsuarioSinSenal` (cuentas-dispositivo.js) al abrir cada pantalla. */
+const OFFLINE_STORES_COPIA = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache'];
+
+function usuarioOffline() {
+  try { return localStorage.getItem('offline_usuario_id') || ''; } catch (err) { return ''; }
+}
 
 function abrirBaseOffline() {
   return new Promise((resolve, reject) => {
@@ -55,6 +71,7 @@ function abrirBaseOffline() {
 }
 
 async function guardarEnColaOffline(store, registro) {
+  if (registro && registro.usuarioId === undefined) registro.usuarioId = usuarioOffline();
   const db = await abrirBaseOffline();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
@@ -66,11 +83,28 @@ async function guardarEnColaOffline(store, registro) {
 
 async function listarColaOffline(store) {
   const db = await abrirBaseOffline();
-  return new Promise((resolve, reject) => {
+  const todo = await new Promise((resolve, reject) => {
     const req = db.transaction(store, 'readonly').objectStore(store).getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+  const yo = String(usuarioOffline());
+  if (OFFLINE_STORES_COPIA.includes(store)) return todo.filter((r) => r.usuarioId !== undefined && String(r.usuarioId) === yo);
+  // Una cola: lo mío, y lo que no trae dueño (guardado antes de este cambio).
+  return todo.filter((r) => r.usuarioId === undefined || r.usuarioId === '' || String(r.usuarioId) === yo || !yo);
+}
+
+/** Guarda la copia de LECTURA de este usuario (la clave lleva su id). */
+async function guardarCopiaOffline(store, clave, datos) {
+  const yo = usuarioOffline();
+  return guardarEnColaOffline(store, { clienteUuid: `u${yo}:${clave}`, clave, datos, guardadoEn: Date.now(), usuarioId: yo });
+}
+
+/** La copia de lectura de ESTE usuario, o null. Nunca la de otro. */
+async function leerCopiaOffline(store, clave) {
+  const yo = String(usuarioOffline());
+  const todo = await listarColaOffline(store);
+  return todo.find((r) => r.clienteUuid === `u${yo}:${clave}`) || null;
 }
 
 async function borrarDeColaOffline(store, clienteUuid) {
