@@ -14,7 +14,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 302** (`parches/campana-parche302.zip`, 96.635 bytes,
   sha256 `8029948a745d122d66c99df9e373dd2a4d026e9bd153014cd983c8d135299f1e`, 8 archivos): «Recordatorios: SMS de evento con enlace de baja (Requiere el 301)».
-  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 302` + `registrar-parche.js 302` los corre el usuario como root (comando en el informe de la sesión);
+  **Publicado y registrado el 8 de noviembre de 2026** (lo corrió el usuario como root): `parche-302.zip` en el servidor de licencias con huella igual a la local (`8029948a745d122d`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: pasa a la plantilla nueva las reglas de evento sin editar; repetible); **requiere el 301**. Service worker sin cambio (`v172`).
   El anterior, el 301 (`parches/campana-parche301.zip`, 193.492 bytes, sha256 `e0720f3235f8b30163644b0365d6811497c6d0287a182b4eca4fdb37a4598442`, 14 archivos):
   **publicado** (`parche-301.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
@@ -113,7 +113,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   6.498.551 bytes, sha256 `4cfecb117023cfff8ba0228edf895c50f4d35ab85fb1d99ea4e9dc1ab003645e`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 302.
   Generada con `node scripts/generar-plantilla.js --parche 302`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
   deja **67 tablas** y las reglas de evento con la plantilla nueva, igual en una segunda corrida; la migración respeta una regla editada; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
-  **OJO: dice 302 aunque el 302 aún no está publicado**; si sale con otro número, regenerarla.
+  (El 302 quedó registrado INACTIVO con ese número.)
 - **Plantilla v301 (reemplazada por la v302)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v301.zip`,
   6.493.944 bytes, sha256 `2ef0d29bf215d16ca5c9b938a2a67f408d7c0a9e4ce9136f8456606a4f139c8f`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 301.
   Generada con `node scripts/generar-plantilla.js --parche 301`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
@@ -214,7 +214,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 302 — SMS de evento con enlace de baja y meta de campaña solo para la dirección (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
+## Parche 302 — SMS de evento con enlace de baja y meta de campaña solo para la dirección (8 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 Orden: «SMS de recordatorio de evento con enlace de baja». **Requiere el 301.** **Toca la base** (`db/init-db.js` actualiza la plantilla de fábrica). **Service worker sigue en v172**: no cambió ningún archivo de la precarga.
 
