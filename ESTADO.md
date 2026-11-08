@@ -90,7 +90,18 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla v294 (ya atrás del 295; la vigente se declara arriba o en la entrada siguiente si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v294.zip`,
+- **Plantilla vigente: v295** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v295.zip`,
+  2.198.203 bytes, **443 archivos** (469 entradas con las carpetas), sha256 `d7907fca5844f91e6fe62cbf62d38083f6c90021a5c4b790ccb124187dc3e151`,
+  service worker `estrategia-v168`, `.version-parche` y `.version-base` = 295. Generada con
+  `node scripts/generar-plantilla.js --parche 295`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+  (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` (ahí quedaron los PDF y las capturas de la verificación) ni `parches/`; la única `.pem`
+  es la pública de los parches. El patrón de asignación de secretos coincide sólo en marcadores de ejemplo (`config/mailer.js` y los siete `scripts/probar-*.js`, con su `SESSION_SECRET` de reserva); `ayuda.html` dejó de coincidir porque el manual de instalación ya no vive ahí.
+  Trae 185 archivos más que la v294: los 177 de `manuales/` (161 bloques, 15 de instalación y `LEEME.md`), `lib/manuales.js`, `routes/manuales.routes.js`, `public/css/ayuda.css`, `public/js/ayuda.js`, `scripts/probar-manuales.js`, y los demás ya existentes cambian por dentro (los del parche 295).
+  Probada: extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas** y las 9 filas de `enviar_push` en `permisos_rol` (permitido para admin, asistente administrativo, coordinador y líder); una segunda corrida deja lo mismo;
+  `lib/manuales.js` cargado desde la plantilla da 161 bloques, 15 de instalación y **cero avisos**; y `scripts/probar-manuales.js` corrido desde la plantilla sobre esa base da **150 comprobaciones, todo bien**; `verificar-html.py` en `ayuda.html` e `inicio.html`.
+  **La v294 y las anteriores siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v295. Si después se publica otro parche, hay que regenerarla
+  (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
+- **Plantilla v294 (reemplazada por la v295)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v294.zip`,
   2.012.567 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `5b039a473a37814a44cff54d2ba3161cb994ae8e4b381c88561882b12a617528`,
   service worker `estrategia-v167`, `.version-parche` y `.version-base` = 294. Generada con
   `node scripts/generar-plantilla.js --parche 294`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
