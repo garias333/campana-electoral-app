@@ -422,10 +422,25 @@ a { color: var(--color-navy-lighter); }
   .grid-6, .grid-5, .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
+.menu-movil-barra { display: none; }
+html.modo-app .menu-movil-barra { display: none !important; }   /* territorial.html en modo app ya trae su propia barra */
+@media print { .menu-movil-barra { display: none !important; } }
 @media (max-width: 640px) {
   .grid-6, .grid-5, .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .app-shell { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: relative; }
+  /* Menú plegable en el celular (orden 41): cerrado de entrada, lo abre la barra «☰ Menú». */
+  .sidebar { display: none; }
+  .app-shell.menu-abierto .sidebar { display: flex; }
+  .menu-movil-barra {
+    display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50;
+    background: var(--color-navy); color: #fff; padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .menu-movil-btn {
+    background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+    padding: 10px 14px; min-height: 44px; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  .menu-movil-vista { font-size: 0.85rem; color: #DCE4F0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .main { padding: 20px; }
 }
 

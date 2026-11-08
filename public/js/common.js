@@ -1529,6 +1529,30 @@ async function inicializarLayout(paginaActiva) {
     </div>
   `;
   shell.prepend(sidebar);
+
+  /* MENÚ EN EL CELULAR (orden 41). Hasta 640 px el CSS apila todo en una columna: el menú quedaba ENTERO arriba (unos 880 px) y el contenido
+     debajo. Tocar un ítem de la misma página cambiaba la pestaña y el ancla, pero el menú seguía abierto y a la vista y la pestaña quedaba
+     fuera de pantalla: «el ítem se resalta y no pasa nada». Ahora, en pantalla angosta, el menú nace CERRADO detrás de una barra
+     «☰ Menú · <vista actual>», se abre con ella y se cierra solo al tocar cualquier ítem (o al cambiar el ancla, o con Escape). En pantalla
+     ancha la barra no se ve y nada cambia. Entrar desde OTRA página ya funcionaba igual: la página nueva carga con el menú cerrado y la vista
+     del ancla a la vista. */
+  const barraMenuMovil = document.createElement('div');
+  barraMenuMovil.className = 'menu-movil-barra';
+  barraMenuMovil.innerHTML = '<button type="button" class="menu-movil-btn" id="menu-movil-btn" aria-expanded="false" aria-controls="menu-movil-sidebar">' +
+    '<span class="menu-movil-ico" aria-hidden="true">☰</span> <span>Menú</span></button><span class="menu-movil-vista" id="menu-movil-vista"></span>';
+  sidebar.id = 'menu-movil-sidebar';
+  shell.prepend(barraMenuMovil);
+  const botonMenuMovil = barraMenuMovil.querySelector('#menu-movil-btn');
+  function ponerMenuMovil(abierto) {
+    shell.classList.toggle('menu-abierto', abierto);
+    botonMenuMovil.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  }
+  botonMenuMovil.addEventListener('click', () => ponerMenuMovil(!shell.classList.contains('menu-abierto')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ponerMenuMovil(false); });
+  // Cualquier ítem cierra el menú; los títulos de grupo (que solo despliegan su submenú) no son `a[data-nav-href]`.
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('a[data-nav-href]')) ponerMenuMovil(false);
+  });
   // Con lo guardado, antes de que responda el servidor: si hay número de la
   // vez anterior, el enlace está desde el primer instante.
   pintarSoporte(marcaInicial.telefono_soporte);
@@ -1583,9 +1607,11 @@ async function inicializarLayout(paginaActiva) {
       || deEstaPagina.find(a => a.dataset.navDefecto === '1')
       || null;
     enlaces.forEach(a => a.classList.toggle('activo', a === elegido));
+    const etiqueta = document.getElementById('menu-movil-vista');
+    if (etiqueta) etiqueta.textContent = elegido ? elegido.textContent.replace(/\s+/g, ' ').trim() : '';
   }
   marcarActivoMenu();
-  window.addEventListener('hashchange', marcarActivoMenu);
+  window.addEventListener('hashchange', () => { marcarActivoMenu(); ponerMenuMovil(false); });
   window.addEventListener('popstate', marcarActivoMenu);
   window.actualizarMenuActivo = marcarActivoMenu;
   /* Las páginas que ESCUCHAN el cambio de ancla (dia-d.html y configuracion.html lo declaran con
@@ -1602,6 +1628,7 @@ async function inicializarLayout(paginaActiva) {
     if (destino.hash === window.location.hash) return;                 // ya está en esa vista
     history.pushState(null, '', destino.pathname + destino.search + destino.hash);
     window.dispatchEvent(new HashChangeEvent('hashchange'));
+    window.scrollTo(0, 0);                                              // con el menú ya cerrado, la vista queda arriba y a la vista
   });
 
   document.getElementById('chk-2fa').addEventListener('change', async (e) => {
