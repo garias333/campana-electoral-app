@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 294** (`parches/campana-parche294.zip`, 261.170 bytes,
+- **Último parche generado: 295** (`parches/campana-parche295.zip`, 273.318 bytes,
+  sha256 `771998dbb049b2c7abfc7c7ea9f64ebaf815de6cf80254b1017db77832562342`, 190 archivos).
+  **Publicado** (`parche-295.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Manuales de ayuda nuevos por rol (Requiere el 294)» (detalle abajo); **requiere el 294**.
+  Service worker `v168`. El anterior, el 294 (`parches/campana-parche294.zip`, 261.170 bytes,
   sha256 `e10d16f80c27390cac2154603d182ccb6eaf14cf718678f1961f88827a4199f7`, 16 archivos).
   **Publicado** (`parche-294.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Escritorio: encabezados de las tablas alineados en Votantes, Estructura, Configuración y demás pantallas (Requiere el 293)» (detalle abajo); **requiere el 293**.
@@ -78,7 +82,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v167` en el código de la Base y dentro del 294; `v166` dentro del 293; `v165` dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v168` en el código de la Base y dentro del 295; `v167` dentro del 294; `v166` dentro del 293; `v165` dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -86,7 +90,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v294** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v294.zip`,
+- **Plantilla v294 (ya atrás del 295; la vigente se declara arriba o en la entrada siguiente si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v294.zip`,
   2.012.567 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `5b039a473a37814a44cff54d2ba3161cb994ae8e4b381c88561882b12a617528`,
   service worker `estrategia-v167`, `.version-parche` y `.version-base` = 294. Generada con
   `node scripts/generar-plantilla.js --parche 294`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
@@ -136,6 +140,46 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 295 — Manuales de ayuda nuevos por rol (8 de noviembre de 2026, INACTIVO, no toca la base)
+
+Zip de **190 archivos** (`.version-base` = 295): **177 de `manuales/`** (161 bloques, 15 de instalación y `LEEME.md`) y 13 de código: `lib/manuales.js` y `routes/manuales.routes.js` (nuevos), `app.js` (una línea), `routes/permisos.routes.js`, `middleware/aspirante.js`,
+`public/ayuda.html` (reescrita), `public/css/ayuda.css` y `public/js/ayuda.js` (nuevos), `public/css/style.css`, `public/app/inicio.html`, `public/app/dia-d.html`, `public/service-worker.js` (**v168**) y `.version-base`. Commit `95460c1`. **Requiere el 294.** Sin `db/`, sin dependencias nuevas.
+**Las capturas de pantalla NO van en este parche: vienen en el siguiente** (el campo `captura:` de cada bloque está vacío a propósito).
+
+**Qué cambió.** El manual de Ayuda estaba escrito dentro de `ayuda.html` (16 textos de módulo, 15 de los 26 módulos de la matriz con el relleno «Consulta con tu administrador») y, además, **solo funcionaba para el administrador**: pedía `/permisos/matriz`, que es de solo admin, así que cualquier otro rol veía «No se pudo generar el manual».
+Ahora el contenido está en archivos y el servidor arma el manual de cada persona con sus permisos reales.
+
+- **Contenido** (`manuales/bloques/<id>.md`, formato en `manuales/LEEME.md`): cabecera con `id`, `titulo`, `seccion` (basicos | antes | durante | dia-d | administracion | faq | glosario), `orden`, `icono`, `modulo` + `nivel` (ver | editar | agregar | importar) o `roles`, `ruta` (pasos del menú) y `captura`. Cuerpo en Markdown mínimo, con recuadros
+  (`::: consejo | importante | cuidado | listo`), botones `[[…]]` y referencias `{{id}}`. **91 guías** (8 básicas, 27 de módulo —uno por cada módulo de la matriz, ahora con `enviar_push`—, 56 tareas), **30 preguntas frecuentes** y **40 términos de glosario**, más **15 bloques del manual de instalación**
+  (`manuales/instalacion/`, solo administrador; cubre las 56 variables de `.env.example`, Node 22, parches desde el panel de licencias y `scripts/reiniciar-instancia.sh`).
+- **Convertidor propio** (`lib/manuales.js`, sin dependencias): escapa TODO el texto y solo genera las etiquetas que él mismo conoce. **Al arrancar valida** cada bloque —id repetido o distinto del nombre del archivo, `modulo` fuera de la matriz, `nivel` inválido, `importar` en un módulo sin importar/exportar, bloque sin módulo y sin roles, ícono desconocido, `ruta` cuyo último paso no sea una entrada real de menú
+  (se lee de `NAV_ITEMS` en `common.js` y de los menús de `app/inicio.html`, no de una copia) y referencias `{{id}}` rotas—; lo que falla se avisa en el log y se omite, la app sigue.
+- **Rutas** (`/api/manuales`): `GET /mio` (los permisos de quien pregunta, con la misma lógica de `/permisos/mios`, que se extrajo a `permisosDeSesion`: superadministrador, aspirante con sublicencia y fila de su rol; el administrador, como en el servidor, lo tiene todo), `GET /rol/:rol` (solo administrador; la fila del rol en `permisos_rol`) y `GET /instalacion` (solo administrador).
+  Devuelven las insignias por módulo (ver, editar, agregar, importar/exportar) y la fecha del contenido (la del último cambio de `manuales/`, no la del navegador). El administrador recibe además las tarjetas de los 11 manuales (10 roles, con aspirante, y la instalación).
+- **Quién ve qué.** Un bloque con módulo sale solo si la persona tiene «Ver» en ese módulo **y** el nivel que el bloque pide (sin «Ver» no sale nada de ese módulo, aunque las demás casillas estén encendidas); uno sin módulo, según `roles` (el aspirante cuenta como `aspirante` y como su rol de fila, `lider`).
+  **Guías / preguntas / términos que ve cada rol (de fábrica):** administrador 85/29/40 · coordinador 72/27/34 · líder 39/20/28 · sublíder 27/18/25 · testigo 30/15/24 · usuario 19/14/22 · asistente administrativo 29/16/25 · administrativo 12/8/19 · invitado 20/14/23 · aspirante 48/24/30.
+- **Pantalla** (`ayuda.html` + `ayuda.css` + `ayuda.js`, sin la paleta propia ni Fraunces; Space Grotesk, Inter y los colores corporativos): portada con las tarjetas para el administrador (puede abrir el manual de cualquier rol y el de instalación) y manual directo para los demás; chips, «Imprimir o guardar en PDF» (`window.print()` con `@media print` limpio: sin menú, barra, buscador ni índice, preguntas abiertas) y «Imprimir solo esta guía» en cada bloque;
+  buscador sin tildes que filtra y resalta; índice fijo en escritorio y arriba en celular; «Para qué sirve», ruta del menú, pasos numerados, recuadros, preguntas plegables y glosario; íconos en un sprite SVG en línea (sin librería ni emoji). El texto sale del servidor ya escapado.
+- **`--color-marca-oscuro: #084298`** en `style.css`, y el `#084298` suelto de la línea 367 (`.sec-hero`) usa las dos variables. Los demás `#084298` de la hoja siguen sueltos.
+- **Menú del celular:** «Ayuda» en `MENU_LIDER` (el coordinador lo hereda) y en `MENU_ADMIN`; el testigo, que no pasa por el menú, tiene el botón «Ayuda: mi manual» en `app/dia-d.html`. El aspirante puede usar `/api/manuales` y `/ayuda.html` (`middleware/aspirante.js`).
+  `ayuda.html`, `ayuda.css` y `ayuda.js` van en la precarga del service worker (el contenido viene de la API y no se guarda).
+- **Matriz de permisos:** `enviar_push` («Aviso en la app») entra en `MODULOS` de `routes/permisos.routes.js`. Ya estaba en la siembra de fábrica de `init-db.js` (`enviar_push`: admin, coordinador, líder y asistente administrativo), así que **no hay filas nuevas ni cambio de base**: nadie gana ni pierde acceso. Efecto colateral bueno: el menú del superadministrador se arma con esa lista y no mostraba «Aviso en la app».
+
+**Pruebas.** `scripts/probar-manuales.js` (no viaja): **150 comprobaciones sin fallos** —cero avisos al validar; un bloque por cada módulo; estructura de cada tarea (para qué sirve, pasos, «Así sabes que funcionó», consejo o cuidado) y de cada módulo; recuadros balanceados; **ningún cargo de elección en ningún archivo de `manuales/`, con y sin tildes**; sin teléfonos ni cédulas completos;
+escape de `<script>`; validación (ids repetidos, módulo, rol, ruta, importar) con un directorio de prueba; para cada uno de los 10 roles `/mio` responde 200 con EXACTAMENTE los bloques que sus permisos permiten (calculados aparte, desde la base y las cabeceras); quitar «Ver», Agregar, Editar o Importar/Exportar saca su bloque y devolverlo lo vuelve;
+403 en `/rol/:rol` e `/instalacion` a quien no es administrador (incluido el aspirante); la fecha es la de los archivos. Suites `probar-logistica`, `panel-alcance`, `comunas-dashboard`, `transporte-diad`, `transporte-parte2`, `inscripcion-enlace` e `instalacion-limpia` (64 tablas) sin fallos.
+**Chromium a 1280 y 390 px** con las rutas reales y la base simulada, como líder, coordinador, testigo, administrador (portada, manual de un rol y de instalación), aspirante, sublíder, usuario, asistente, administrativo e invitado: **sin scroll horizontal**, buscador (con y sin tildes) y resaltado funcionando, índice, insignias y recuadros. Se encontró y arregló un desborde a 390 px (botones `[[…]]` largos que no se partían).
+`page.pdf()` del manual del líder (54 páginas) y del testigo: sin menú, barra, buscador ni índice. Los PDF y las capturas quedaron en `backups/manuales-verificacion/` (ignorada por git; no viaja en el parche ni en la plantilla).
+
+**Decisiones y cosas que conviene saber.**
+- **No había muestra de diseño.** El encargo decía «te lo pego abajo o lo tienes en `manuales-disenos/manual-lider-muestra.html`», y ni estaba pegada ni existe ese archivo. La pantalla se construyó con la descripción de la orden (portada con el rol, chips, botón de impresión, buscador, índice, recuadros, preguntas plegables, glosario, colores corporativos). Si la muestra difiere, se ajusta `ayuda.css`/`ayuda.js`.
+- **La firma del SMS:** la orden pedía «≤30 caracteres y sin tildes». En la pantalla real eso **no se impone**: el límite duro del campo es 80 y solo avisa cuando pasa de 30 o lleva tildes o ñ; además la firma la agrega el proveedor. El texto (`t-mensajeria`) dice lo que hace el código.
+- **Mensajería:** la pantalla solo ofrece SendGrid para el correo (no hay SMTP ni correo personal ahí) y WhatsApp está apagado en el código; los bloques lo dicen así.
+- **Hallazgos de las pantallas que NO se tocaron:** etiqueta «Reptala» (debería ser «Repítela») en el cambio de clave de `app/app-comun.js`; la cola sin señal de IndexedDB no queda atada a un usuario (celular compartido); `public/social.html` («Redes y Opinión») no tiene entrada de menú; `t-testigo-agregar` describe que **no hay botón de crear** en «Testigos electorales» (se marca «Es también testigo electoral» en la ficha de Estructura, o se importa por Excel).
+- **`t-avance-ranking`** quedó con `modulo: rescate_votos` (como el menú «Avance de votación») y `t-cobertura` y `t-config-puestos` con `roles: admin`; no son los del catálogo inicial, que se corrigió al leer las rutas.
+- **Reinicio tras tocar el `.env`:** el manual de instalación manda el ciclo completo (`pm2 delete` + `start` + `save`) para cambios de `.env` y `scripts/reiniciar-instancia.sh` para reinicios tras parches; las dos fuentes del proyecto se contradicen un poco y no se pudo probar cuál manda.
+- **No probado:** un teléfono real; el menú de CloudPanel, el panel de licencias y las pantallas de Telegram/Onurix descritos en los bloques (se redactaron leyendo el código, no en navegador); los textos de los 161 bloques los revisó un script de estructura y de precampaña, no una persona; los PDF se miraron en dos páginas.
 
 ## Parche 294 — Escritorio: encabezados de las tablas alineados en Votantes, Estructura, Configuración y demás pantallas (8 de noviembre de 2026, INACTIVO, no toca la base)
 
