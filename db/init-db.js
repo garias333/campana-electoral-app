@@ -3235,6 +3235,10 @@ async function main() {
   // Cuántos meses después de la fecha de la elección se anonimizan las solicitudes (scripts/anonimizar-solicitudes.js).
   await agregarColumnaSiFalta(connection, 'configuracion_campana',
     "anonimizar_solicitudes_meses INT NOT NULL DEFAULT 6 COMMENT 'Meses después de la elección en que scripts/anonimizar-solicitudes.js borra nombre, teléfono y fotos de las solicitudes'", 'anonimizar_solicitudes_meses');
+  // Seguimiento (parche 304): a los cuántos días sin movimiento se avisa al responsable (el aviso lo manda el motor de recordatorios,
+  // con su regla APAGADA de fábrica; ver lib/recordatoriosSolicitudes.js).
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "solicitud_dias_sin_movimiento INT NOT NULL DEFAULT 15 COMMENT 'Días sin movimiento tras los cuales una solicitud con responsable genera el aviso de seguimiento'", 'solicitud_dias_sin_movimiento');
   // Las categorías de fábrica (el administrador las edita desde la pantalla; una que ya existe no se pisa).
   const categoriasDeFabrica = [
     ['vias', 'Vías', 10, null],
@@ -3251,6 +3255,16 @@ async function main() {
     await connection.query(
       `INSERT IGNORE INTO solicitud_categorias (clave, nombre, ayuda, orden) VALUES (?, ?, ?, ?)`, [clave, nombre, ayuda, orden]);
   }
+  /* LA REGLA DE SEGUIMIENTO, APAGADA. Una fila en recordatorio_reglas para el tipo `solicitud_sin_movimiento` (aviso en la app, solo al
+     responsable). Sigue los dos interruptores de siempre: el general de los recordatorios y el de la regla. Una regla que el administrador
+     editó no se pisa (se busca por nombre). El texto no habla de voto, elección ni cargo: vale también en precampaña. */
+  await connection.query(
+    `INSERT INTO recordatorio_reglas (tipo, nombre, canal, activo, plantilla, asunto, desfase_min, hora_dia, gracia_min)
+     SELECT 'solicitud_sin_movimiento', ?, 'push', 0, ?, ?, NULL, NULL, 1440 FROM DUAL
+      WHERE NOT EXISTS (SELECT 1 FROM recordatorio_reglas WHERE nombre = ?)`,
+    ['Solicitud ciudadana · sin movimiento · aviso en la app (responsable)',
+     '{nombre}, la solicitud de {categoria} en {barrio} lleva {dias} días sin movimiento.', 'Solicitud sin movimiento',
+     'Solicitud ciudadana · sin movimiento · aviso en la app (responsable)']);
   console.log('Tablas de las solicitudes ciudadanas listas (módulo apagado).');
 
   await sembrarPermisosPorDefecto(connection);

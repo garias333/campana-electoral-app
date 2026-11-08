@@ -1894,8 +1894,14 @@ function ordenarSelect(select) {
        seleccionado hace que algunos navegadores devuelvan el select a su
        primera opción; el usuario vería su elección cambiar sola mientras
        escribe en otro campo. */
-    const seleccionadas = Array.from(contenedor.querySelectorAll('option:checked')).map((o) => o.value);
-    const valorPrevio = select.value;
+    /* LA SELECCIÓN SE RESTAURA POR LA OPCIÓN, NO POR SU VALOR, Y TAMBIÉN CUANDO ES LA VACÍA.
+       La versión anterior solo restauraba si el valor previo no era '' — y justo ese es el caso que se rompía: un filtro con «Todas»
+       elegido cuyo desplegable se llena después de pintarse. Sacar del select la opción vacía (que es la seleccionada) hace que el
+       navegador marque la primera opción real; al volver a meter la vacía, que conserva su marca de «seleccionada», quedan dos marcadas y
+       gana la ÚLTIMA. Resultado: el filtro cambiaba solo a la primera categoría, y la lista salía filtrada sin que nadie lo hubiera pedido.
+       Se guarda el elemento <option> (no su texto ni su valor: dos opciones pueden compartirlos) y se vuelve a marcar. */
+    const seleccionadas = new Set(Array.from(select.options).filter((o) => o.selected));
+    const indicePrevio = select.selectedIndex;
 
     const trozo = document.createDocumentFragment();
     fijas.forEach((o) => trozo.appendChild(o));
@@ -1903,9 +1909,12 @@ function ordenarSelect(select) {
     contenedor.appendChild(trozo);
 
     if (select.multiple) {
-      Array.from(select.options).forEach((o) => { o.selected = seleccionadas.includes(o.value); });
-    } else if (valorPrevio !== '' && select.value !== valorPrevio) {
-      select.value = valorPrevio;
+      Array.from(select.options).forEach((o) => { o.selected = seleccionadas.has(o); });
+    } else if (seleccionadas.size) {
+      const opcion = Array.from(seleccionadas)[0];
+      if (!opcion.selected || select.selectedOptions[0] !== opcion) opcion.selected = true;
+    } else if (indicePrevio === -1) {
+      select.selectedIndex = -1;          // no había ninguna elegida: tampoco la hay ahora
     }
     cambio = true;
   }

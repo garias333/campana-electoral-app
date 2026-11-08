@@ -49,6 +49,19 @@
   .sol-admin { margin-top: 24px; border-top: 1px solid var(--color-border, #E2E5EA); padding-top: 16px; }
   .sol-cat { display: grid; grid-template-columns: 1.2fr 2fr 70px 90px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
   @media (max-width: 820px) { .sol-cat { grid-template-columns: 1fr; } .sol-tabla { display: block; overflow-x: auto; } }
+  /* Pestañas, panel y mapa (parche 304) */
+  .sol-pestanas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; border-bottom: 1px solid var(--color-border, #E2E5EA); }
+  .sol-pestanas button.pestana { background: none; border: 0; border-bottom: 3px solid transparent; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; color: var(--color-text-muted); }
+  .sol-pestanas button.pestana[aria-selected="true"] { color: var(--color-text, #1B2433); border-bottom-color: #4A78C2; }
+  .sol-barra { background: #EEF0F3; border-radius: 6px; height: 10px; overflow: hidden; min-width: 90px; }
+  .sol-barra i { display: block; height: 100%; background: #4A78C2; }
+  .sol-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 18px; margin-top: 14px; }
+  .sol-panel-grid h3 { margin: 0 0 8px; font-size: 1rem; }
+  .sol-panel-grid td.num, .sol-panel-grid th.num { text-align: right; white-space: nowrap; }
+  .sol-panel-grid .sol-tabla tbody tr { cursor: default; }
+  .sol-descargas { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; align-items: center; }
+  #mapa-sol { height: 480px; border-radius: 12px; border: 1px solid var(--color-border, #E2E5EA); background: #EEF0F3; }
+  .sol-nota { font-size: .84rem; color: var(--color-text-muted); margin: 8px 0 0; }
   #visor-foto { position: fixed; inset: 0; background: rgba(0,0,0,.82); display: none; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
   #visor-foto img { max-width: 94vw; max-height: 92vh; border-radius: 8px; }
 </style>
@@ -66,6 +79,13 @@
     <div id="sol-sin-permiso" class="sol-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="sol-contenido" style="display:none;">
+      <div class="sol-pestanas" role="tablist" aria-label="Vistas de las solicitudes">
+        <button type="button" class="pestana" role="tab" data-vista="lista" aria-selected="true">Lista</button>
+        <button type="button" class="pestana" role="tab" data-vista="panel" aria-selected="false">Panel</button>
+        <button type="button" class="pestana" role="tab" data-vista="mapa" aria-selected="false">Mapa</button>
+      </div>
+
+      <div id="vista-lista">
       <div class="sol-resumen" id="sol-resumen"></div>
       <div class="sol-filtros">
         <div class="campo"><label for="f-categoria">Categoría</label><select id="f-categoria" data-sin-ordenar><option value="">Todas</option></select></div>
@@ -88,6 +108,35 @@
       </div>
 
       <div id="sol-detalle"></div>
+      </div><!-- /vista-lista -->
+
+      <div id="vista-panel" style="display:none;">
+        <div class="sol-filtros">
+          <div class="campo"><label for="pn-desde">Registradas desde</label><input type="date" id="pn-desde"></div>
+          <div class="campo"><label for="pn-hasta">Hasta</label><input type="date" id="pn-hasta"></div>
+          <div><button type="button" class="btn-secundario btn-sm" id="pn-quitar">Quitar fechas</button></div>
+        </div>
+        <div class="sol-descargas">
+          <a class="btn-primario btn-sm" id="d-diagnostico" href="/api/solicitudes/exportar/diagnostico" download>Descargar el diagnóstico de necesidades (Excel)</a>
+          <a class="btn-secundario btn-sm" id="d-detalle" href="/api/solicitudes/exportar/detalle" download style="display:none;">Descargar el detalle (solo administrador)</a>
+        </div>
+        <p class="sol-nota" id="d-nota">El diagnóstico cuenta solicitudes por categoría, barrio o vereda y estado, sin nombres, teléfonos ni textos. Los estados cuentan el punto del seguimiento, no que el problema se haya arreglado.</p>
+        <div class="sol-resumen" id="pn-cifras" style="margin-top:14px"></div>
+        <div class="sol-panel-grid">
+          <div><h3>Por categoría</h3><div style="overflow-x:auto"><table class="sol-tabla" id="pn-cat"></table></div></div>
+          <div><h3>Por barrio o vereda</h3><div style="overflow-x:auto"><table class="sol-tabla" id="pn-zona"></table></div><p class="sol-nota" id="pn-zona-nota"></p></div>
+        </div>
+      </div>
+
+      <div id="vista-mapa" style="display:none;">
+        <div class="sol-filtros">
+          <div class="campo"><label for="mp-categoria">Categoría</label><select id="mp-categoria" data-sin-ordenar><option value="">Todas</option></select></div>
+          <div class="campo"><label for="mp-estado">Estado</label>
+            <select id="mp-estado" data-sin-ordenar><option value="">Todos</option><option value="registrada">Registrada</option><option value="en_revision">En revisión</option><option value="remitida">Remitida</option><option value="cerrada">Cerrada</option></select></div>
+        </div>
+        <div id="mapa-sol" role="img" aria-label="Mapa de zonas con solicitudes"></div>
+        <p class="sol-nota" id="mp-nota"></p>
+      </div>
 
       <div id="sol-admin" class="sol-admin" style="display:none;">
         <h3>Categorías</h3>
@@ -104,6 +153,14 @@
           <button type="button" class="btn-primario btn-sm" id="cfg-guardar">Guardar</button>
         </div>
         <div id="sol-msg-cfg" class="sol-msg"></div>
+
+        <h3 style="margin-top:22px">Seguimiento: solicitudes sin movimiento</h3>
+        <p style="font-size:.85rem; color:var(--color-text-muted)">Cuando una solicitud abierta, con responsable, lleva estos días sin cambios, el motor de recordatorios le avisa a esa persona por la app. Ese aviso nace <b>apagado</b>: se enciende en Configuración → Recordatorios.</p>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+          <label for="cfg-dias">Avisar a los</label><input type="number" id="cfg-dias" min="1" max="365" style="width:90px"><span>días sin movimiento</span>
+          <button type="button" class="btn-primario btn-sm" id="cfg-dias-guardar">Guardar</button>
+        </div>
+        <div id="sol-msg-dias" class="sol-msg"></div>
       </div>
     </div>
   </main>
@@ -209,7 +266,12 @@ function linea(h) {
 
 async function enviar(id, ruta, metodo, cuerpo, idMsg, okTexto) {
   msg(idMsg, 'Guardando…', '');
-  try { await api('/solicitudes/' + id + ruta, { method: metodo, body: cuerpo }); await cargarLista(); await abrir(id); msg(idMsg, okTexto, 'ok'); }
+  try {
+    const r = await api('/solicitudes/' + id + ruta, { method: metodo, body: cuerpo });
+    await cargarLista(); await abrir(id);
+    // Si el servidor trae un aviso (por ejemplo, que la persona asignada no tiene acceso al módulo), se dice junto al resultado.
+    msg(idMsg, r && r.aviso ? `${okTexto} ${r.aviso}` : okTexto, r && r.aviso ? 'error' : 'ok');
+  }
   catch (e) { msg(idMsg, e.message || 'No se pudo guardar.', 'error'); }
 }
 const cambiarEstado = (id) => enviar(id, '/estado', 'PUT', { estado: $('a-estado').value, entidad_remitida: $('a-entidad').value, nota: $('a-nota').value }, 'm-estado', 'Estado cambiado.');
@@ -226,7 +288,10 @@ async function anonimizar(id) {
 async function cargarCategorias() {
   const r = await api('/solicitudes/categorias');
   categorias = r.categorias;
-  $('f-categoria').innerHTML = '<option value="">Todas</option>' + categorias.filter((c) => c.activa || usuarioActual.rol === 'admin').map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}${c.activa ? '' : ' (desactivada)'}</option>`).join('');
+  const opcionesCategoria = '<option value="">Todas</option>' + categorias.filter((c) => c.activa || usuarioActual.rol === 'admin').map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}${c.activa ? '' : ' (desactivada)'}</option>`).join('');
+  const previoLista = $('f-categoria').value, previoMapa = $('mp-categoria').value;
+  $('f-categoria').innerHTML = opcionesCategoria; $('mp-categoria').innerHTML = opcionesCategoria;
+  $('f-categoria').value = previoLista; $('mp-categoria').value = previoMapa;
   if (usuarioActual.rol !== 'admin') return;
   $('sol-cats').innerHTML = categorias.map((c) => `<div class="sol-cat" data-id="${esc(c.id)}">
       <input type="text" value="${esc(c.nombre)}" maxlength="80" data-campo="nombre" aria-label="Nombre">
@@ -244,7 +309,91 @@ async function cargarCategorias() {
 async function cargarConfig() {
   const c = await api('/solicitudes/config');
   $('cfg-meses').value = c.anonimizar_meses;
+  $('cfg-dias').value = c.dias_sin_movimiento;
   $('cfg-fecha').textContent = c.fecha_eleccion ? `Esa fecha es ${c.fecha_eleccion}.` : 'Todavía no hay esa fecha en la configuración: no se anonimiza nada.';
+}
+
+/* ----- pestañas: panel y mapa (parche 304) ----- */
+const num = (n) => Number(n || 0).toLocaleString('es-CO');
+const diasTxt = (t) => (t.dias === null || t.dias === undefined ? 'Sin datos' : `${String(t.dias).replace('.', ',')} días`);
+
+function mostrarVista(v) {
+  ['lista', 'panel', 'mapa'].forEach((k) => { $('vista-' + k).style.display = k === v ? 'block' : 'none'; });
+  document.querySelectorAll('.sol-pestanas .pestana').forEach((b) => b.setAttribute('aria-selected', b.dataset.vista === v ? 'true' : 'false'));
+  if (v === 'panel') cargarPanel();
+  if (v === 'mapa') cargarMapa();
+}
+
+function paramsPanel() {
+  const p = new URLSearchParams();
+  if ($('pn-desde').value) p.set('desde', $('pn-desde').value);
+  if ($('pn-hasta').value) p.set('hasta', $('pn-hasta').value);
+  return p;
+}
+
+function tablaConteos(el, filas, vacio) {
+  const max = Math.max(1, ...filas.map((f) => f.total));
+  el.innerHTML = filas.length
+    ? `<thead><tr><th>${vacio.columna}</th><th></th><th class="num">Reg.</th><th class="num">Rev.</th><th class="num">Rem.</th><th class="num">Cer.</th><th class="num">Total</th></tr></thead><tbody>`
+      + filas.map((f) => `<tr><td>${esc(f.nombre)}</td><td style="width:26%"><div class="sol-barra"><i style="width:${Math.round(f.total / max * 100)}%"></i></div></td>
+        <td class="num">${num(f.registrada)}</td><td class="num">${num(f.en_revision)}</td><td class="num">${num(f.remitida)}</td><td class="num">${num(f.cerrada)}</td><td class="num"><b>${num(f.total)}</b></td></tr>`).join('') + '</tbody>'
+    : `<tbody><tr><td>${vacio.texto}</td></tr></tbody>`;
+}
+
+async function cargarPanel() {
+  const p = paramsPanel();
+  const q = p.toString() ? '?' + p.toString() : '';
+  $('d-diagnostico').href = '/api/solicitudes/exportar/diagnostico' + q;
+  $('d-detalle').href = '/api/solicitudes/exportar/detalle' + q;
+  try {
+    const r = await api('/solicitudes/panel' + q);
+    $('pn-cifras').innerHTML = `<div class="cifra"><b>${num(r.total)}</b><span>En total</span></div>`
+      + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${num(r.porEstado[k])}</b><span>${esc(ESTADOS[k])}</span></div>`).join('')
+      + `<div class="cifra"><b>${esc(diasTxt(r.tiempos.registrada_a_remitida))}</b><span>De registrada a remitida (${num(r.tiempos.registrada_a_remitida.n)})</span></div>`
+      + `<div class="cifra"><b>${esc(diasTxt(r.tiempos.registrada_a_cerrada))}</b><span>De registrada a cerrada (${num(r.tiempos.registrada_a_cerrada.n)})</span></div>`
+      + `<div class="cifra"><b>${num(r.sinMovimiento.n)}</b><span>Abiertas sin movimiento hace ${esc(r.sinMovimiento.dias)} días o más</span></div>`;
+    tablaConteos($('pn-cat'), r.porCategoria, { columna: 'Categoría', texto: 'Todavía no hay solicitudes.' });
+    tablaConteos($('pn-zona'), r.porZona, { columna: 'Barrio o vereda', texto: 'Todavía no hay solicitudes.' });
+    $('pn-zona-nota').textContent = r.zonasDistintas > r.zonasMostradas ? `Se muestran los ${r.zonasMostradas} lugares con más solicitudes, de ${r.zonasDistintas}.` : '';
+  } catch (e) { $('pn-cifras').innerHTML = `<div class="sol-aviso">${esc(e.message || 'No se pudo cargar el panel.')}</div>`; }
+}
+
+let mapaSol = null, capaZonas = null, leafletListo = null;
+function cargarLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletListo) return leafletListo;
+  leafletListo = new Promise((ok, mal) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+    const js = document.createElement('script'); js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; js.onload = ok; js.onerror = () => { leafletListo = null; mal(new Error('No se pudo cargar el mapa. Revisa la conexión.')); };
+    document.head.appendChild(js);
+  });
+  return leafletListo;
+}
+
+async function cargarMapa() {
+  const p = new URLSearchParams();
+  if ($('mp-categoria').value) p.set('categoria', $('mp-categoria').value);
+  if ($('mp-estado').value) p.set('estado', $('mp-estado').value);
+  try {
+    const [r] = await Promise.all([api('/solicitudes/mapa' + (p.toString() ? '?' + p.toString() : '')), cargarLeaflet()]);
+    if (!mapaSol) {
+      mapaSol = L.map('mapa-sol').setView([4.6, -74.1], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaSol);
+      capaZonas = L.layerGroup().addTo(mapaSol);
+    }
+    mapaSol.invalidateSize();
+    capaZonas.clearLayers();
+    // SOLO la zona: el centro de la celda, cuántas solicitudes hay y de qué categoría. Ningún nombre, teléfono, foto ni texto.
+    const max = Math.max(1, ...r.zonas.map((z) => z.n));
+    const puntos = r.zonas.map((z) => {
+      L.circleMarker([z.lat, z.lng], { radius: 9 + Math.round(22 * Math.sqrt(z.n / max)), color: '#2F5AA8', weight: 1.5, fillColor: '#4A78C2', fillOpacity: 0.45 })
+        .bindPopup(`<b>${esc(z.n)} solicitud(es) en esta zona</b><br>${z.categorias.map((c) => `${esc(c.nombre)}: ${esc(c.n)}`).join('<br>')}`).addTo(capaZonas);
+      return [z.lat, z.lng];
+    });
+    if (puntos.length) mapaSol.fitBounds(puntos, { padding: [40, 40], maxZoom: 15 });
+    $('mp-nota').textContent = r.total === 0 ? 'Todavía no hay solicitudes.'
+      : `${num(r.con_ubicacion)} de ${num(r.total)} solicitud(es) tienen ubicación y se agrupan en zonas de unos 500 metros; las otras ${num(r.sin_ubicacion)} no aparecen en el mapa. El círculo no marca una casa ni una persona.`;
+  } catch (e) { $('mp-nota').textContent = e.message || 'No se pudo cargar el mapa.'; }
 }
 
 (async () => {
@@ -259,6 +408,13 @@ async function cargarConfig() {
     await cargarLista();
     if (usuarioActual.rol === 'admin') { $('sol-admin').style.display = 'block'; await cargarConfig(); }
   } catch (e) { $('sol-sin-permiso').style.display = 'block'; $('sol-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
+  document.querySelectorAll('.sol-pestanas .pestana').forEach((b) => b.addEventListener('click', () => mostrarVista(b.dataset.vista)));
+  ['pn-desde', 'pn-hasta'].forEach((i) => $(i).addEventListener('change', cargarPanel));
+  $('pn-quitar').addEventListener('click', () => { $('pn-desde').value = ''; $('pn-hasta').value = ''; cargarPanel(); });
+  ['mp-categoria', 'mp-estado'].forEach((i) => $(i).addEventListener('change', cargarMapa));
+  // El diagnóstico lo ve quien tiene «Importar / Exportar» en este módulo; el detalle, solo el administrador.
+  $('d-diagnostico').style.display = puedeImportarExportar(usuarioActual, 'solicitudes') ? '' : 'none';
+  $('d-detalle').style.display = usuarioActual.rol_sesion === 'admin' ? '' : 'none';
   ['f-categoria', 'f-estado', 'f-responsable'].forEach((i) => $(i).addEventListener('change', () => { pagina = 1; cargarLista(); }));
   let t; $('f-barrio').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { pagina = 1; cargarLista(); }, 300); });
   $('f-quitar').addEventListener('click', () => { ['f-categoria', 'f-estado', 'f-barrio', 'f-responsable'].forEach((i) => { $(i).value = ''; }); pagina = 1; cargarLista(); });
@@ -268,6 +424,10 @@ async function cargarConfig() {
   $('nc-crear').addEventListener('click', async () => {
     try { await api('/solicitudes/categorias', { method: 'POST', body: { nombre: $('nc-nombre').value, ayuda: $('nc-ayuda').value } }); $('nc-nombre').value = ''; $('nc-ayuda').value = ''; await cargarCategorias(); msg('sol-msg-cats', 'Categoría agregada.', 'ok'); }
     catch (e) { msg('sol-msg-cats', e.message, 'error'); }
+  });
+  $('cfg-dias-guardar').addEventListener('click', async () => {
+    try { await api('/solicitudes/config', { method: 'PUT', body: { dias_sin_movimiento: Number($('cfg-dias').value) } }); msg('sol-msg-dias', 'Guardado.', 'ok'); }
+    catch (e) { msg('sol-msg-dias', e.message, 'error'); }
   });
   $('cfg-guardar').addEventListener('click', async () => {
     try { await api('/solicitudes/config', { method: 'PUT', body: { anonimizar_meses: Number($('cfg-meses').value) } }); msg('sol-msg-cfg', 'Guardado.', 'ok'); }

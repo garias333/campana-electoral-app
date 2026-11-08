@@ -95,12 +95,12 @@ async function configurar(o) {
   ok(/'enviando'/.test(colEnvios) && /'omitido'/.test(colEnvios), 'comunicaciones_envios.estado admite «enviando» y «omitido»', colEnvios);
   FABRICA = await q(`SELECT tipo, canal, plantilla, asunto, activo FROM recordatorio_reglas`);
   const sembradas = await q(`SELECT tipo, canal, activo, desfase_min, TIME_FORMAT(hora_dia,'%H:%i') h FROM recordatorio_reglas ORDER BY id`);
-  ok(sembradas.length === 7 && sembradas.every((r) => Number(r.activo) === 0), 'hay 7 reglas de fábrica y TODAS están apagadas', sembradas.length);
+  ok(sembradas.length === 8 && sembradas.every((r) => Number(r.activo) === 0), 'hay 8 reglas de fábrica (7 más la de solicitudes sin movimiento, del parche 304) y TODAS están apagadas', sembradas.length);
   ok(sembradas.filter((r) => r.tipo === 'evento').map((r) => r.desfase_min).sort((a, b) => a - b).join() === '-1440,-1440,-1440,-120,-120', 'las de evento son «24 h antes» y «2 h antes»');
   ok(sembradas.filter((r) => r.tipo === 'dia_d_ya_votaste').map((r) => r.h).join() === '14:00,15:00', 'las del Día D son a las 14:00 y a las 15:00 (la segunda, opcional)');
   const corrida2 = spawnSync(process.execPath, ['db/init-db.js'], { cwd: raiz, env: process.env, encoding: 'utf8' });
   for (const f of fs.readdirSync(raiz)) if (/^\.credenciales-.*\.txt$/.test(f)) fs.unlinkSync(path.join(raiz, f));
-  ok(corrida2.status === 0 && (await q(`SELECT COUNT(*) n FROM recordatorio_reglas`))[0].n === 7, 'otra corrida de init-db no duplica las reglas de fábrica');
+  ok(corrida2.status === 0 && (await q(`SELECT COUNT(*) n FROM recordatorio_reglas`))[0].n === 8, 'otra corrida de init-db no duplica las reglas de fábrica');
   ok((await q(`SELECT COUNT(*) n FROM permisos_rol WHERE modulo = 'recordatorios' AND rol = 'admin' AND permitido = 1`))[0].n === 1
     && (await q(`SELECT COUNT(*) n FROM permisos_rol WHERE modulo = 'recordatorios' AND rol <> 'admin' AND permitido = 1`))[0].n === 0, 'el módulo «recordatorios» está en la matriz y de fábrica solo lo ve el administrador');
 
@@ -945,7 +945,7 @@ async function configurar(o) {
     // Se vuelven a sembrar las reglas de fábrica con la misma consulta de init-db (borradas por las pruebas de arriba).
     const corridaR = spawnSync(process.execPath, ['db/init-db.js'], { cwd: raiz, env: process.env, encoding: 'utf8' });
     for (const f of fs.readdirSync(raiz)) if (/^\.credenciales-.*\.txt$/.test(f)) fs.unlinkSync(path.join(raiz, f));
-    ok(corridaR.status === 0 && (await q(`SELECT COUNT(*) n FROM recordatorio_reglas`))[0].n === 7, 'init-db vuelve a sembrar las 7 reglas de fábrica (apagadas)');
+    ok(corridaR.status === 0 && (await q(`SELECT COUNT(*) n FROM recordatorio_reglas`))[0].n === 8, 'init-db vuelve a sembrar las 8 reglas de fábrica (apagadas)');
     const app = express();
     app.use(express.json());
     app.use((req, res, next) => { const u = req.headers['x-test-user']; req.session = { usuario: u ? JSON.parse(u) : undefined }; req.sublicencia = null; next(); });
@@ -1004,7 +1004,8 @@ async function configurar(o) {
 
     // ---- reglas
     const lista = (await pedir('GET', '/reglas', { usuario: admin })).datos.reglas;
-    ok(lista.length === 7 && lista.every((r) => r.activo === 0), 'la lista trae las 7 reglas, apagadas');
+    ok(lista.length === 8 && lista.every((r) => r.activo === 0), 'la lista trae las 8 reglas, apagadas');
+    ok(lista[lista.length - 1].tipo === 'solicitud_sin_movimiento' && lista[lista.length - 1].tipo_etiqueta === 'Solicitud ciudadana sin movimiento', 'y la de solicitudes sin movimiento va al final, con su etiqueta');
     const rEv = lista.find((r) => r.tipo === 'evento' && r.canal === 'sms' && r.desfase_min === -1440), rYv = lista.find((r) => r.tipo === 'dia_d_ya_votaste' && r.hora_dia.startsWith('14'));
     const mala = await pedir('PUT', `/reglas/${rEv.id}`, { usuario: admin, json: { plantilla: 'Te esperamos para votar, {nombre}' } });
     ok(mala.status === 400 && /Antes de la fecha permitida|votar/.test(mala.datos.error) === false || mala.status === 200, 'con fecha permitida ya llegada, una plantilla con «votar» sí se acepta (se verifica abajo con la fecha vacía)');

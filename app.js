@@ -313,6 +313,10 @@ require('./config/inscripcionRegistro').iniciarCola();
 // si está en 0, sale. Ver lib/recordatorios.js: sin duplicados, con catch-up, silencio de 20:00 a 08:00 y consentimiento estricto.
 require('./lib/recordatorios').iniciar();
 
+// Solicitudes ciudadanas (parche 304): una vez al día, a partir de las 03:30 (Colombia), anonimiza lo que ya cumplió el plazo y lo deja en la
+// auditoría. No depende de ningún cron: viaja con la aplicación. Ver lib/solicitudesMantenimiento.js.
+require('./lib/solicitudesMantenimiento').iniciar();
+
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
 /* LOS LOGOS DE LA MARCA SON PÚBLICOS, el resto de uploads no.

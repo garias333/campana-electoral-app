@@ -8,6 +8,10 @@
  *   GET  /                      la lista, con filtros y dentro del alcance
  *   GET  /mias                  las que registré o me asignaron (la pantalla del celular)
  *   GET  /responsables          a quién se le puede asignar
+ *   GET  /panel                 conteos por categoría, barrio y estado, y tiempos promedio (con el mismo alcance que la lista)
+ *   GET  /mapa                  círculos por zona: solo el centro de la celda, la cuenta y las categorías (nada de personas)
+ *   GET  /exportar/diagnostico  Excel agregado categoría × barrio × estado, SIN datos personales (quien tenga «Importar / Exportar»)
+ *   GET  /exportar/detalle      Excel por solicitud, con teléfono enmascarado: SOLO el administrador, y queda en la auditoría
  *   GET  /:id                   el detalle, con historial (las notas internas solo las ven quienes pueden editar)
  *   GET  /:id/fotos/:fotoId     una foto, si la solicitud está dentro del alcance
  *   PUT  /:id/estado · PUT /:id/responsable · POST /:id/notas · POST /:id/anonimizar (admin)
@@ -28,6 +32,10 @@ const { requireAuth, calcularAlcance } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { alcanceSolicitudes, asignablesPara } = require('../lib/alcanceSolicitudes');
 const S = require('../lib/solicitudes');
+const Panel = require('../lib/solicitudesPanel');
+const Seg = require('../lib/solicitudesSeguimiento');
+const XLSX = require('xlsx');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 
 const router = express.Router();
 router.use(requireAuth, calcularAlcance);
@@ -120,20 +128,33 @@ router.put('/categorias/:id', exigir('editar'), soloAdmin, async (req, res) => {
 router.get('/config', exigir('ver'), soloAdmin, async (req, res) => {
   try {
     const [[c]] = await pool.query(`SELECT anonimizar_solicitudes_meses AS meses, DATE_FORMAT(fecha_eleccion, '%Y-%m-%d') AS eleccion FROM configuracion_campana WHERE id = 1`);
-    res.json({ anonimizar_meses: c ? Number(c.meses) : 6, fecha_eleccion: c ? c.eleccion : null });
+    res.json({ anonimizar_meses: c ? Number(c.meses) : 6, fecha_eleccion: c ? c.eleccion : null, dias_sin_movimiento: await Seg.diasSinMovimiento() });
   } catch (e) { responder(res, e); }
 });
 
 router.put('/config', exigir('editar'), soloAdmin, async (req, res) => {
   try {
-    const n = Number(req.body && req.body.anonimizar_meses);
-    if (!Number.isInteger(n) || n < 1 || n > 120) return res.status(400).json({ error: 'Los meses tienen que ser un número entero entre 1 y 120.' });
-    const [[antes]] = await pool.query('SELECT anonimizar_solicitudes_meses AS meses FROM configuracion_campana WHERE id = 1');
-    await pool.query('UPDATE configuracion_campana SET anonimizar_solicitudes_meses = ? WHERE id = 1', [n]);
-    if (!antes || Number(antes.meses) !== n) {
-      await registrarAuditoria(req.session.usuario.id, 'solicitud_config', 'configuracion_campana', 1, `Meses para anonimizar las solicitudes después de la elección: ${antes ? antes.meses : '—'} → ${n}.`, req.ip);
+    const b = req.body || {};
+    const cambios = [];
+    const sets = [], valores = [];
+    if (b.anonimizar_meses !== undefined) {
+      const n = Number(b.anonimizar_meses);
+      if (!Number.isInteger(n) || n < 1 || n > 120) return res.status(400).json({ error: 'Los meses tienen que ser un número entero entre 1 y 120.' });
+      const [[antes]] = await pool.query('SELECT anonimizar_solicitudes_meses AS meses FROM configuracion_campana WHERE id = 1');
+      sets.push('anonimizar_solicitudes_meses = ?'); valores.push(n);
+      if (!antes || Number(antes.meses) !== n) cambios.push(`Meses para anonimizar las solicitudes después de la elección: ${antes ? antes.meses : '—'} → ${n}.`);
     }
-    res.json({ ok: true, anonimizar_meses: n });
+    if (b.dias_sin_movimiento !== undefined) {
+      const d = Number(b.dias_sin_movimiento);
+      if (!Number.isInteger(d) || d < 1 || d > 365) return res.status(400).json({ error: 'Los días sin movimiento tienen que ser un número entero entre 1 y 365.' });
+      const antes = await Seg.diasSinMovimiento();
+      sets.push('solicitud_dias_sin_movimiento = ?'); valores.push(d);
+      if (antes !== d) cambios.push(`Días sin movimiento para avisar al responsable de una solicitud: ${antes} → ${d}.`);
+    }
+    if (!sets.length) return res.status(400).json({ error: 'No llegó nada que guardar.' });
+    await pool.query(`UPDATE configuracion_campana SET ${sets.join(', ')} WHERE id = 1`, valores);
+    for (const c of cambios) await registrarAuditoria(req.session.usuario.id, 'solicitud_config', 'configuracion_campana', 1, c, req.ip);
+    res.json({ ok: true, anonimizar_meses: b.anonimizar_meses !== undefined ? Number(b.anonimizar_meses) : undefined, dias_sin_movimiento: await Seg.diasSinMovimiento() });
   } catch (e) { responder(res, e); }
 });
 
@@ -230,6 +251,101 @@ router.get('/responsables', exigir('editar'), async (req, res) => {
   } catch (e) { responder(res, e); }
 });
 
+/* ------------------------------------------------------------------------------------------ PANEL, MAPA Y EXPORTACIÓN */
+
+const filtrosDe = (q) => ({ desde: q.desde, hasta: q.hasta, categoria: q.categoria, estado: q.estado });
+
+router.get('/panel', exigir('ver'), async (req, res) => {
+  try { res.json(await Panel.panel(req.alcance, filtrosDe(req.query))); } catch (e) { responder(res, e); }
+});
+
+router.get('/mapa', exigir('ver'), async (req, res) => {
+  try { res.json(await Panel.mapa(req.alcance, filtrosDe(req.query))); } catch (e) { responder(res, e); }
+});
+
+const ETIQUETAS_ESTADO = ['Registrada', 'En revisión', 'Remitida', 'Cerrada'];
+const hoyArchivo = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);   // hora de Colombia
+const enviarLibro = (res, libro, nombre) => {
+  const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+  res.send(buffer);
+};
+const textoFiltros = (f) => [f.desde ? `desde ${f.desde}` : null, f.hasta ? `hasta ${f.hasta}` : null, f.categoria ? `categoría ${Number(f.categoria)}` : null, f.estado ? `estado ${f.estado}` : null].filter(Boolean).join(', ') || 'sin filtros';
+
+/** «Diagnóstico de necesidades del territorio»: agregado, sin una sola persona. */
+router.get('/exportar/diagnostico', exigir('ver'), requiereImportarExportar('solicitudes'), async (req, res) => {
+  try {
+    const f = filtrosDe(req.query);
+    const filas = await Panel.diagnostico(req.alcance, f);
+    const resumen = await Panel.panel(req.alcance, f);
+    const hojaDiag = XLSX.utils.aoa_to_sheet([
+      ['Categoría', 'Barrio o vereda', ...ETIQUETAS_ESTADO, 'Total'],
+      ...filas.map((x) => [x.categoria, x.barrio, x.registrada, x.en_revision, x.remitida, x.cerrada, x.total]),
+    ]);
+    hojaDiag['!cols'] = [{ wch: 22 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+    const hojaCat = XLSX.utils.aoa_to_sheet([
+      ['Categoría', ...ETIQUETAS_ESTADO, 'Total'],
+      ...resumen.porCategoria.map((x) => [x.nombre, x.registrada, x.en_revision, x.remitida, x.cerrada, x.total]),
+      ['Todas', resumen.porEstado.registrada, resumen.porEstado.en_revision, resumen.porEstado.remitida, resumen.porEstado.cerrada, resumen.total],
+    ]);
+    hojaCat['!cols'] = [{ wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+    const t = resumen.tiempos;
+    const hojaNota = XLSX.utils.aoa_to_sheet([
+      ['Diagnóstico de necesidades del territorio'],
+      ['Generado el', hoyArchivo()],
+      ['Filtros', textoFiltros(f)],
+      ['Solicitudes contadas', resumen.total],
+      ['Días promedio de registrada a remitida', t.registrada_a_remitida.dias === null ? 'sin datos' : t.registrada_a_remitida.dias, `(${t.registrada_a_remitida.n} solicitud(es))`],
+      ['Días promedio de registrada a cerrada', t.registrada_a_cerrada.dias === null ? 'sin datos' : t.registrada_a_cerrada.dias, `(${t.registrada_a_cerrada.n} solicitud(es))`],
+      [],
+      ['Cómo leerlo'],
+      ['Este archivo cuenta solicitudes por categoría, barrio o vereda y estado. No lleva nombres, teléfonos, fotos ni el texto de ninguna solicitud.'],
+      ['Los estados cuentan el punto del seguimiento, no que el problema se haya arreglado. No es una respuesta oficial ni un compromiso con nadie.'],
+      ['El barrio o la vereda es el que escribió o eligió quien registró la solicitud; el mismo lugar escrito distinto puede aparecer en filas separadas.'],
+    ]);
+    hojaNota['!cols'] = [{ wch: 44 }, { wch: 16 }, { wch: 24 }];
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hojaDiag, 'Diagnóstico');
+    XLSX.utils.book_append_sheet(libro, hojaCat, 'Por categoría');
+    XLSX.utils.book_append_sheet(libro, hojaNota, 'Cómo leerlo');
+    await registrarAuditoria(req.session.usuario.id, 'exportar_excel', 'solicitudes', null,
+      `Exportó el diagnóstico de necesidades del territorio (${filas.length} fila(s), ${resumen.total} solicitud(es), ${textoFiltros(f)}; sin datos personales).`, req.ip);
+    enviarLibro(res, libro, `diagnostico-necesidades-territorio-${hoyArchivo()}.xlsx`);
+  } catch (e) { responder(res, e); }
+});
+
+/** El detalle, solicitud por solicitud: SOLO el administrador (aunque otro rol tenga la casilla), con el teléfono enmascarado. */
+router.get('/exportar/detalle', exigir('ver'), soloAdmin, requiereImportarExportar('solicitudes'), async (req, res) => {
+  try {
+    const f = filtrosDe(req.query);
+    const filas = await Panel.detalle(req.alcance, f);
+    const hoja = XLSX.utils.aoa_to_sheet([
+      ['N.º', 'Registrada', 'Categoría', 'Barrio o vereda', 'Estado', 'Lo que cuenta', 'Responsable', 'Entidad a la que se remitió', 'Remitida el', 'Cerrada el', 'Motivo del cierre',
+        'Registrada por', '¿Autorizó guardar sus datos?', 'Ciudadano', 'Teléfono (enmascarado)', 'Tiene ubicación', 'Fotos', 'Datos del ciudadano borrados'],
+      ...filas.map((x) => [x.id, x.creada_en, x.categoria, x.barrio, x.estado, x.descripcion, x.responsable, x.entidad_remitida, x.remitida_en, x.cerrada_en, x.motivo_cierre,
+        x.registrada_por, x.autoriza, x.ciudadano, x.telefono, x.con_ubicacion, x.fotos, x.datos_borrados]),
+    ]);
+    hoja['!cols'] = [{ wch: 7 }, { wch: 17 }, { wch: 16 }, { wch: 26 }, { wch: 12 }, { wch: 60 }, { wch: 22 }, { wch: 26 }, { wch: 17 }, { wch: 17 }, { wch: 28 }, { wch: 22 }, { wch: 12 }, { wch: 24 }, { wch: 18 }, { wch: 10 }, { wch: 7 }, { wch: 12 }];
+    const nota = XLSX.utils.aoa_to_sheet([
+      ['Detalle de solicitudes ciudadanas — solo para el administrador'],
+      ['Generado el', hoyArchivo()],
+      ['Filtros', textoFiltros(f)],
+      ['Filas', filas.length],
+      [],
+      ['Este archivo lleva el texto de cada solicitud y, cuando el ciudadano lo autorizó, su nombre. El teléfono sale enmascarado: solo se ve el final.'],
+      ['No lo reenvíes ni lo subas a un servicio de terceros. La descripción es texto libre y puede nombrar a alguien.'],
+    ]);
+    nota['!cols'] = [{ wch: 40 }, { wch: 24 }];
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Solicitudes');
+    XLSX.utils.book_append_sheet(libro, nota, 'Aviso');
+    await registrarAuditoria(req.session.usuario.id, 'exportar_excel_detalle', 'solicitudes', null,
+      `Exportó el detalle de solicitudes ciudadanas (${filas.length} fila(s), ${textoFiltros(f)}), con el teléfono enmascarado y el nombre del ciudadano solo donde autorizó.`, req.ip);
+    enviarLibro(res, libro, `detalle-solicitudes-${hoyArchivo()}.xlsx`);
+  } catch (e) { responder(res, e); }
+});
+
 /* ----------------------------------------------------------------------------------------------------------- DETALLE */
 
 router.get('/:id', exigir('ver'), async (req, res) => {
@@ -287,7 +403,11 @@ router.put('/:id/responsable', exigir('editar'), async (req, res) => {
     if (!f) return res.status(404).json({ error: 'Esa solicitud no existe o no es de tu equipo.' });
     const r = await S.asignarResponsable({ id: f.id, responsableId: req.body ? req.body.responsable_id : null, usuario: req.session.usuario, asignables: asignablesPara(req.alcance) });
     await registrarAuditoria(req.session.usuario.id, 'solicitud_responsable', 'solicitudes', f.id, r.responsable_id ? `Solicitud #${f.id}: se asignó a la persona #${r.responsable_id}.` : `Solicitud #${f.id}: se quitó el responsable.`, req.ip);
-    res.json({ ok: true, responsable_id: r.responsable_id });
+    // El aviso a quien recibe la solicitud. Nunca tumba la asignación (avisarAsignacion no lanza) y no lleva datos del ciudadano.
+    const aviso = await Seg.avisarAsignacion({ solicitudId: f.id, responsableId: r.responsable_id, asignadoPor: req.session.usuario });
+    const respuesta = { ok: true, responsable_id: r.responsable_id, aviso_enviado: aviso.enviado };
+    if (aviso.motivo === 'sin_acceso') respuesta.aviso = 'Esa persona no tiene acceso al módulo de solicitudes: no verá la solicitud ni le llegará el aviso. Dale el permiso en Asignación de permisos.';
+    res.json(respuesta);
   } catch (e) { responder(res, e); }
 });
 

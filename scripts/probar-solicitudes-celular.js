@@ -241,6 +241,31 @@ async function lider(nombre) {
     ok(imgs.length === 2 && imgs.every((i) => /^\/api\/solicitudes\/\d+\/fotos\/\d+$/.test(i.src) && i.ancho > 0), 'las dos fotos se ven y salen por la ruta protegida, no por /uploads', imgs);
     ok(!/Persona/.test(await texto('#sol-detalle') || ''), 'la anónima no muestra datos de ciudadano');
     ok(p.avisos.length === 0, 'sin errores de JavaScript en el escritorio', p.avisos);
+
+    /* =============================================================================================== 7. panel y mapa (parche 304) */
+    console.log('\n[7] El escritorio: pestañas Panel y Mapa');
+    ok(await p.ev(`document.getElementById('f-categoria').value`) === '' && await p.ev(`document.getElementById('f-estado').value`) === '', 'los filtros de la lista siguen en «Todas» y «Todos» después de cargar');
+    await q('UPDATE solicitudes SET latitud = 5.0711, longitud = -75.5120 WHERE id = (SELECT m FROM (SELECT MIN(id) m FROM solicitudes) x)');
+    await clic('.sol-pestanas .pestana[data-vista="panel"]');
+    await espera(1500);
+    ok(await visible('#vista-panel') && !(await visible('#vista-lista')), 'la pestaña Panel muestra el panel y esconde la lista');
+    ok(/2/.test(await texto('#pn-cifras') || '') && /En total/.test(await texto('#pn-cifras') || ''), 'el panel cuenta las 2 solicitudes', (await texto('#pn-cifras') || '').slice(0, 160));
+    ok((await p.ev(`document.querySelectorAll('#pn-cat tbody tr').length`)) >= 1 && (await p.ev(`document.querySelectorAll('#pn-zona tbody tr').length`)) >= 1, 'y las tablas por categoría y por barrio tienen filas');
+    ok(await visible('#d-diagnostico') && await visible('#d-detalle'), 'el administrador ve los dos botones de descarga (diagnóstico y detalle)');
+    ok(/^\/api\/solicitudes\/exportar\/diagnostico/.test(await p.ev(`document.getElementById('d-diagnostico').getAttribute('href')`)), 'el botón apunta a la ruta del diagnóstico');
+    await clic('.sol-pestanas .pestana[data-vista="mapa"]');
+    await espera(4500);
+    ok(await visible('#vista-mapa') && (await p.ev(`!!document.querySelector('#mapa-sol.leaflet-container')`)), 'la pestaña Mapa carga Leaflet y pinta el mapa');
+    ok((await p.ev(`document.querySelectorAll('#mapa-sol path.leaflet-interactive').length`)) === 1, 'hay UN círculo (la solicitud con ubicación)');
+    await p.ev(`document.querySelector('#mapa-sol path.leaflet-interactive').dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
+    await espera(600);
+    const popup = await texto('.leaflet-popup-content') || '';
+    ok(/1 solicitud\(es\) en esta zona/.test(popup) && !/Persona|3001234567|Ejemplo|foto/i.test(popup), 'al tocar el círculo solo dice cuántas hay y de qué categoría: ningún nombre, teléfono ni foto', popup);
+    ok(/1 de 2 solicitud\(es\) tienen ubicación/.test(await texto('#mp-nota') || ''), 'y la nota dice cuántas tienen ubicación', await texto('#mp-nota'));
+    await clic('.sol-pestanas .pestana[data-vista="lista"]');
+    await espera(300);
+    ok(await visible('#vista-lista') && !(await visible('#vista-mapa')), 'volver a Lista la muestra');
+    ok(p.avisos.length === 0, 'sin errores de JavaScript en el panel ni en el mapa', p.avisos);
   } catch (err) {
     fallos++;
     console.log('  FALLA la prueba se interrumpió: ' + (err && err.stack || err));

@@ -7,12 +7,13 @@
 //
 // Sin la fecha de elección en la configuración no hace nada.
 //
+// DESDE EL PARCHE 304 YA NO HACE FALTA NINGÚN CRON: la propia aplicación corre esta misma lógica una vez al día, a partir de las 03:30
+// (hora de Colombia), y deja en la auditoría cuántas solicitudes anonimizó (lib/solicitudesMantenimiento.js). Este script queda para
+// PROBAR y para quien quiera SIMULAR desde la consola. Si ya se había puesto en el cron, se puede quitar; dejarlo no hace daño (repetible).
+//
 // USO (desde la carpeta de la campaña):
 //   node scripts/anonimizar-solicitudes.js            SIMULA: dice cuántas vencen y no borra nada
 //   node scripts/anonimizar-solicitudes.js --aplicar  borra de verdad
-//
-// Pensado para el cron del servidor (como el usuario dueño de la app, una vez al día):
-//   30 3 * * * cd /ruta/a/la/campana && node scripts/anonimizar-solicitudes.js --aplicar >> logs/anonimizar-solicitudes.log 2>&1
 //
 // Repetible: una segunda corrida no encuentra nada que hacer. Sale con código 1 si algo falla.
 
