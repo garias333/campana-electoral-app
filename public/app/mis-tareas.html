@@ -119,6 +119,17 @@ function etiquetas(t) {
   return e.join('');
 }
 
+function avanceHtml(t) {
+  const a = t.avance;
+  if (!a) return t.tipo === 'reunion' ? '<div class="meta">El avance de la reunión no se muestra: no puedes ver ese evento.</div>' : '';
+  if (a.actual === null || a.actual === undefined) return '<div class="meta">Sin medir: tu cuenta no está activa.</div>';
+  const lleno = a.meta > 0 && a.actual >= a.meta;
+  const texto = t.tipo === 'reunion' ? `Asistieron ${esc(a.actual)} de ${esc(a.meta)} (${esc(a.pct)} %)${a.evento ? ' · ' + esc(a.evento.titulo) : ''}`
+    : `Llevas ${esc(a.actual)} de ${esc(a.meta)} registros (${esc(a.pct)} %)`;
+  return `<div style="margin:8px 0"><div style="background:#EEF0F3;border-radius:6px;height:10px;overflow:hidden"><div style="height:100%;width:${Math.min(100, a.pct || 0)}%;background:${lleno ? '#1e7b4f' : '#4A78C2'}"></div></div><div class="meta">${texto}</div>
+    ${t.tipo === 'meta_registros' ? '<div class="meta">Se cumple sola cuando llegas a la meta. No cuentan las personas que se anotaron por tu enlace y aún no confirman.</div>' : ''}</div>`;
+}
+
 function formularioTermine(t) {
   const conFoto = t.tipo !== 'libre' ? 'Foto' : 'Foto (opcional)';
   const pistas = { visita: 'Para terminar una visita hace falta una foto o la ubicación.', entrega: 'Para terminar una entrega hace falta la cantidad entregada y una foto.', libre: 'Puedes dejar una nota, fotos o la ubicación si quieres.' };
@@ -147,15 +158,18 @@ function cajaDe(t) {
     detalle = `<div class="detalle">
       ${t.descripcion ? `<div style="white-space:pre-wrap;">${esc(t.descripcion)}</div>` : '<div class="meta">Sin más detalle.</div>'}
       ${t.cantidad_prevista ? `<div class="meta">Cantidad prevista: ${esc(t.cantidad_prevista)}</div>` : ''}
+      ${avanceHtml(t)}
+      ${t.por_reasignar ? '<div class="nota-tar">Esta tarea está por reasignarse: quien te la asignó la va a revisar.</div>' : ''}
       ${t.devuelta_nota ? `<div class="nota-tar"><b>Te la devolvieron:</b> ${esc(t.devuelta_nota)}</div>` : ''}
       ${t.no_pudo_nota ? `<div class="nota-tar"><b>Tu último «no pude»:</b> ${esc(t.no_pudo_nota)}</div>` : ''}
       ${t.motivo_cancelacion ? `<div class="nota-tar"><b>Cancelada:</b> ${esc(t.motivo_cancelacion)}</div>` : ''}
-      ${t.estado === 'hecha' ? '<div class="meta">Ya la terminaste. Está esperando que quien te la asignó la verifique.</div>' : ''}
+      ${t.estado === 'hecha' && t.requiere_verificacion !== false ? '<div class="meta">Ya la terminaste. Está esperando que quien te la asignó la verifique.</div>' : ''}
+      ${t.estado === 'hecha' && t.requiere_verificacion === false ? '<div class="meta">Llegaste a la meta: la tarea quedó cumplida.</div>' : ''}
       ${enCola.length ? '<div class="meta">Tiene un cambio en este celular que todavía no se sube.</div>' : ''}
       ${edicion && edicion.tareaId === t.id ? (edicion.accion === 'termine' ? formularioTermine(t) : formularioNoPude()) : ''}
       ${puedeActuar ? `<div class="acciones">
         ${t.estado === 'pendiente' ? `<button type="button" class="btn-app btn-app-secundario" data-accion="empece" data-id="${esc(t.id)}">Empecé</button>` : ''}
-        <button type="button" class="btn-app btn-app-primario" data-accion="termine" data-id="${esc(t.id)}">Terminé</button>
+        ${t.requiere_verificacion === false ? '' : `<button type="button" class="btn-app btn-app-primario" data-accion="termine" data-id="${esc(t.id)}">Terminé</button>`}
         <button type="button" class="btn-app btn-app-secundario" data-accion="no_pude" data-id="${esc(t.id)}">No pude</button></div>` : ''}
     </div>`;
   }
@@ -185,8 +199,8 @@ function pintar() {
   pintarPendientes();
   const grupos = [
     ['Para hacer', tareas.filter((t) => ['pendiente', 'en_curso'].includes(t.estado))],
-    ['Esperando verificación', tareas.filter((t) => t.estado === 'hecha')],
-    ['Cerradas', tareas.filter((t) => ['verificada', 'cancelada'].includes(t.estado))],
+    ['Esperando verificación', tareas.filter((t) => t.estado === 'hecha' && t.requiere_verificacion !== false)],
+    ['Cerradas y cumplidas', tareas.filter((t) => ['verificada', 'cancelada'].includes(t.estado) || (t.estado === 'hecha' && t.requiere_verificacion === false))],
   ];
   const html = grupos.filter((g) => g[1].length).map((g) => `<p class="grupo-titulo">${g[0]}</p>${g[1].map(cajaDe).join('')}`).join('');
   $('lista-servidor').innerHTML = html || '<p class="vacio-app">No tienes tareas asignadas.</p>';

@@ -494,6 +494,8 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
         [telefono_soporte ? String(telefono_soporte).replace(/\D/g, '') : null, req.params.id]);
     }
     res.json({ ok: true });
+    // Desactivarla o cambiarle el rol puede dejar tareas por reasignar (parche 306): se revisan y se avisa a quien las asignó. Nada se reasigna solo.
+    require('../lib/tareasHuerfanas').revisarEnSegundoPlano('editar una cuenta');
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
     const msg = err.code === 'ER_DUP_ENTRY'
@@ -522,6 +524,8 @@ router.put('/:id/estado', requireRole('admin', 'aspirante'), async (req, res) =>
     if (!existe) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     await pool.query(`UPDATE usuarios SET activo = ? WHERE id = ?`, [activo ? 1 : 0, req.params.id]);
     res.json({ ok: true });
+    // Sus tareas abiertas quedan «por reasignar» y se le avisa a quien las asignó (parche 306). Nada se reasigna solo.
+    require('../lib/tareasHuerfanas').revisarEnSegundoPlano('cambiar el estado de una cuenta');
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
     res.status(500).json({ error: 'Error actualizando el estado del usuario.' });

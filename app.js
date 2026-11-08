@@ -319,6 +319,9 @@ require('./lib/recordatorios').iniciar();
 // auditoría. No depende de ningún cron: viaja con la aplicación. Ver lib/solicitudesMantenimiento.js.
 require('./lib/solicitudesMantenimiento').iniciar();
 
+// Tareas (parche 306): cada 5 minutos cierra las metas de registros alcanzadas y revisa las tareas por reasignar. Ver lib/tareasMantenimiento.js.
+require('./lib/tareasMantenimiento').iniciar();
+
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
 /* LOS LOGOS DE LA MARCA SON PÚBLICOS, el resto de uploads no.

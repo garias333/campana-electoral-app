@@ -3346,6 +3346,28 @@ async function main() {
       UNIQUE KEY uq_tarea_foto_orden (tarea_id, orden),
       FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  /* TAREAS, FASES 3 Y 4 (parche 306): los tipos que se MIDEN —«meta de registros» (con su zona opcional) y «reunión» enlazada a un evento—,
+     las tareas «por reasignar» (huérfanas) y la conservación de las fotos. Todo repetible.
+       · tipo ........... se amplía el ENUM con meta_registros y reunion.
+       · meta_n, desde .. la meta de registros y desde cuándo se cuenta (hasta = fecha_limite).
+       · evento_id ...... la reunión de la que sale el avance (sin FK: eventos puede borrarse y la tarea lo dice).
+       · huerfana_desde / huerfana_motivo ... la tarea abierta cuyo responsable ya no puede tenerla (cuenta inactiva, cambió de rama, ya no es
+                          asignable por quien la puso). NADA la reasigna sola: queda en la bandeja «Por reasignar».
+       · fotos_borradas_en ... cuándo se borraron sus fotos por vencer el plazo (el mismo de las solicitudes). */
+  const [[colTipo]] = await connection.query(`SELECT column_type AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'tareas' AND column_name = 'tipo'`);
+  if (colTipo && !/meta_registros/.test(colTipo.t)) {
+    await connection.query(`ALTER TABLE tareas MODIFY COLUMN tipo ENUM('libre','visita','entrega','meta_registros','reunion') NOT NULL DEFAULT 'libre'`);
+    console.log('El tipo de las tareas admite ahora meta_registros y reunion.');
+  }
+  await agregarColumnaSiFalta(connection, 'tareas', "meta_n INT NULL COMMENT 'Meta de registros: cuántos hay que lograr'", 'meta_n');
+  await agregarColumnaSiFalta(connection, 'tareas', "desde DATE NULL COMMENT 'Meta de registros: desde qué día se cuenta (hasta = fecha_limite)'", 'desde');
+  await agregarColumnaSiFalta(connection, 'tareas', "evento_id INT NULL COMMENT 'Reunión: el evento del que sale el avance (asistio contra meta_asistentes)'", 'evento_id');
+  await agregarColumnaSiFalta(connection, 'tareas', "huerfana_desde DATETIME NULL COMMENT 'Desde cuándo su responsable ya no puede tenerla; NULL = nada que reasignar'", 'huerfana_desde');
+  await agregarColumnaSiFalta(connection, 'tareas', "huerfana_motivo VARCHAR(30) NULL COMMENT 'cuenta_inactiva | fuera_de_rama | otra_campana'", 'huerfana_motivo');
+  await agregarColumnaSiFalta(connection, 'tareas', "fotos_borradas_en DATETIME NULL COMMENT 'Cuándo se borraron sus fotos por vencer el plazo de conservación'", 'fotos_borradas_en');
+  for (const [nombre, def] of [['idx_tarea_evento', '(evento_id)'], ['idx_tarea_huerfana', '(huerfana_desde)']]) {
+    try { await connection.query(`ALTER TABLE tareas ADD INDEX ${nombre} ${def}`); } catch (err) { if (err.code !== 'ER_DUP_KEYNAME') throw err; }
+  }
   /* LAS DOS REGLAS DE FÁBRICA DEL MOTOR DE RECORDATORIOS, APAGADAS: 3 días antes de la fecha límite y el día en que vence (tipo
      `tarea_vence`, aviso en la app al responsable). Máximo 3 avisos por tarea; ver lib/recordatoriosTareas.js. Una regla que el
      administrador editó no se pisa (se busca por nombre). */

@@ -16,11 +16,11 @@ Sirve para repartir un trabajo concreto en una zona: que alguien de tu equipo vi
 
 1. En el menú del computador, entra a Tareas.
 2. Toca [[+ Nueva tarea]].
-3. Elige el **tipo**: tarea libre, visita a un barrio o vereda, o entrega de material.
+3. Elige el **tipo**: tarea libre, visita a un barrio o vereda, entrega de material, meta de registros o reunión con asistentes.
 4. En **Se la asigno a** elige a la persona. Verás solo a quienes puedes asignarles: el líder se ve a sí mismo y a sus sublíderes; el coordinador, a su gente.
 5. Escribe el **título** con pocas palabras y, si quieres, el detalle.
 6. Elige el **barrio o la vereda** (obligatorio en una visita). Al escribir aparecen las zonas del catálogo; si tu campaña no tiene, escríbela a mano.
-7. Si quieres, pon la **fecha límite**. En una entrega puedes poner la cantidad prevista.
+7. Si quieres, pon la **fecha límite**. En una entrega puedes poner la cantidad prevista. En una **meta de registros** escribe la meta y la fecha límite (obligatoria), y si quieres desde qué día se cuenta. En una **reunión** elige el evento, que tiene que tener meta de asistentes.
 8. Toca [[Crear y asignar]].
 
 ::: listo

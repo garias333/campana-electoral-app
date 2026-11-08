@@ -293,6 +293,60 @@ async function tarea(o) {
     ok(nueva && nueva.tipo === 'visita' && nueva.zona_texto === 'Vereda El Retiro' && nueva.asignada_a === jefa && nueva.creada_por === admin && nueva.estado === 'pendiente', 'se crea y se asigna desde el escritorio', nueva);
     ok(/Tarea n\.º/.test(await texto('#tar-detalle') || ''), 'y se abre su detalle');
     ok(p.avisos.length === 0, 'sin errores de JavaScript en el escritorio', p.avisos);
+
+    /* =============================================================================================== 10. metas, bandeja, cumplimiento y mapa (parche 306) */
+    console.log('\n[10] Meta de registros, «Por reasignar», cumplimiento y mapa');
+    const finMeta = (await q(`SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL 5 DAY), '%Y-%m-%d') f`))[0].f;
+    const [rm] = await pool.query(`INSERT INTO tareas (tipo, titulo, estado, meta_n, desde, fecha_limite, creada_por, asignada_a) VALUES ('meta_registros', 'Meta de la semana', 'pendiente', 10, ?, ?, ?, ?)`, [hoy, finMeta, jefa, ana]);
+    const tMeta = rm.insertId;
+    for (let i = 0; i < 3; i++) await pool.query(`INSERT INTO votantes (nombre, cedula, categoria, lider_id, sublider_id) VALUES (?, ?, 'votante', ?, ?)`, [`Persona ${i}`, `2000000${i}`, jefa, ana]);
+    await p.cmd('Emulation.setDeviceMetricsOverride', { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
+    await entrarComo(ana);
+    await ir('/app/mis-tareas.html', 3000);
+    await abrirTarea(tMeta);
+    const cajaMeta = await texto(`[data-tarea="${tMeta}"]`) || '';
+    ok(/Llevas 3 de 10 registros \(30 %\)/.test(cajaMeta), 'la meta muestra su avance: «Llevas 3 de 10 registros (30 %)»', cajaMeta.slice(0, 200));
+    ok(!(await p.ev(`!!document.querySelector('[data-accion="termine"][data-id="${tMeta}"]')`)) && await p.ev(`!!document.querySelector('[data-accion="empece"][data-id="${tMeta}"]')`), 'y NO ofrece «Terminé» (se cumple sola), solo «Empecé» y «No pude»');
+    ok(/no cuentan las personas que se anotaron por tu enlace/i.test(cajaMeta), 'avisa que las fichas por enlace sin confirmar no cuentan');
+    for (let i = 3; i < 10; i++) await pool.query(`INSERT INTO votantes (nombre, cedula, categoria, lider_id, sublider_id) VALUES (?, ?, 'votante', ?, ?)`, [`Persona ${i}`, `2000000${i}`, jefa, ana]);
+    await ir('/app/mis-tareas.html', 3000);
+    ok(await estadoDe(tMeta) === 'hecha', 'al llegar a 10, abrir «Mis tareas» la deja hecha sin esperar al reloj');
+    ok(/Cerradas y cumplidas/.test(await texto('#lista-servidor') || '') && !/Esperando verificaci/i.test((await texto('#lista-servidor') || '').split('Cerradas y cumplidas')[0].split('Para hacer')[1] || ''), 'y aparece en «Cerradas y cumplidas», no en «Esperando verificación»');
+
+    await p.cmd('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    // Beto se desactiva: su tarea abierta queda por reasignar y se le avisa a quien la asignó (Lider Ejemplo). Nada cambia de dueño.
+    const avisosEnviados = [];
+    Avisos.deps.enviarPush = async (id, carga) => { avisosEnviados.push({ id, ...carga }); };
+    await pool.query('UPDATE usuarios SET activo = 0 WHERE id = ?', [beto]);
+    const rv = await require('../lib/tareasHuerfanas').revisar();
+    ok(rv.nuevas === 1 && avisosEnviados.length === 1 && avisosEnviados[0].id === jefa && /1 tarea /.test(avisosEnviados[0].cuerpo), 'al desactivar a Beto, su tarea queda por reasignar y a Lider Ejemplo le llega el aviso', [rv, avisosEnviados]);
+    await q('UPDATE tareas SET latitud = 5.0711, longitud = -75.5120 WHERE id = ?', [tVisita]);
+    await entrarComo(admin);
+    p.avisos.length = 0;
+    await ir('/tareas.html', 3000);
+    ok(/1/.test(await texto('#n-reasignar') || ''), 'la pestaña «Por reasignar» muestra el número (1)', await texto('#n-reasignar'));
+    await clic('.tar-pestanas .pestana[data-vista="reasignar"]');
+    await espera(1500);
+    ok(/Tarea de Beto/.test(await texto('#tar-reasignar') || '') && /inactiva/.test(await texto('#tar-reasignar') || ''), 'la bandeja lista la tarea y dice por qué', (await texto('#tar-reasignar') || '').slice(0, 160));
+    await p.ev(`(() => { const sel = document.querySelector('[data-sel]'); sel.value = ${JSON.stringify(String(ana))}; })()`);
+    await clic('[data-reasignar]');
+    await espera(2000);
+    const rea = (await q(`SELECT asignada_a, huerfana_desde FROM tareas WHERE titulo = 'Tarea de Beto'`))[0];
+    ok(rea.asignada_a === ana && rea.huerfana_desde === null, 'reasignarla desde la bandeja (una persona) la pasa a Ana y la saca de ahí', rea);
+    await clic('.tar-pestanas .pestana[data-vista="panel"]');
+    await espera(1800);
+    ok(await visible('#vista-panel') && (await p.ev(`document.querySelectorAll('#pn-zona tbody tr').length`)) >= 1 && (await p.ev(`document.querySelectorAll('#pn-persona tbody tr').length`)) >= 2, 'la pestaña de cumplimiento muestra tablas por zona y por persona');
+    ok(/Cumpl/.test(await texto('#pn-cifras') || '') && /%/.test(await texto('#pn-zona') || ''), 'con el porcentaje de cumplimiento');
+    ok(/^\/api\/tareas\/exportar\/cumplimiento/.test(await p.ev(`document.getElementById('d-cumplimiento').getAttribute('href')`)) && await visible('#d-cumplimiento'), 'y el botón del Excel (el administrador tiene la casilla)');
+    await clic('.tar-pestanas .pestana[data-vista="mapa"]');
+    await espera(4500);
+    ok(await visible('#vista-mapa') && (await p.ev(`!!document.querySelector('#mapa-tar.leaflet-container')`)), 'la pestaña del mapa carga Leaflet');
+    ok((await p.ev(`document.querySelectorAll('#mapa-tar path.leaflet-interactive').length`)) === 1, 'hay UN círculo (la visita con ubicación)');
+    await p.ev(`document.querySelector('#mapa-tar path.leaflet-interactive').dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
+    await espera(600);
+    const popup = await texto('.leaflet-popup-content') || '';
+    ok(/1 tarea\(s\) terminadas en esta zona/.test(popup) && !/Visitar|Ana|Beto|Lider|foto/i.test(popup), 'al tocarlo solo dice cuántas y de qué tipo: ningún nombre, título ni foto', popup);
+    ok(p.avisos.length === 0, 'sin errores de JavaScript en estas pestañas', p.avisos);
   } catch (err) {
     fallos++;
     console.log('  FALLA la prueba se interrumpió: ' + (err && err.stack || err));

@@ -51,6 +51,20 @@
   .tar-aviso { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 10px; padding: 10px 12px; font-size: .86rem; margin: 10px 0; }
   .tar-nota { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 8px; padding: 6px 10px; margin: 6px 0; font-size: .86rem; }
   @media (max-width: 820px) { .tar-tabla { display: block; overflow-x: auto; } }
+  /* Pestañas, avance, panel, mapa y bandeja (parche 306) */
+  .tar-pestanas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; border-bottom: 1px solid var(--color-border, #E2E5EA); }
+  .tar-pestanas button.pestana { background: none; border: 0; border-bottom: 3px solid transparent; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; color: var(--color-text-muted); }
+  .tar-pestanas button.pestana[aria-selected="true"] { color: var(--color-text, #1B2433); border-bottom-color: #4A78C2; }
+  .tar-barra { background: #EEF0F3; border-radius: 6px; height: 10px; overflow: hidden; min-width: 90px; }
+  .tar-barra i { display: block; height: 100%; background: #4A78C2; }
+  .tar-barra i.lleno { background: #1E7B4F; }
+  .tar-avance { font-size: .8rem; color: var(--color-text-muted); }
+  .tar-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; margin-top: 14px; }
+  .tar-panel-grid h3 { margin: 0 0 8px; font-size: 1rem; }
+  .tar-panel-grid td.num, .tar-panel-grid th.num { text-align: right; white-space: nowrap; }
+  .tar-panel-grid .tar-tabla tbody tr { cursor: default; }
+  #mapa-tar { height: 480px; border-radius: 12px; border: 1px solid var(--color-border, #E2E5EA); background: #EEF0F3; }
+  .tar-sub { font-size: .84rem; color: var(--color-text-muted); margin: 8px 0 0; }
   #visor-foto { position: fixed; inset: 0; background: rgba(0,0,0,.82); display: none; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
   #visor-foto img { max-width: 94vw; max-height: 92vh; border-radius: 8px; }
 </style>
@@ -68,6 +82,14 @@
     <div id="tar-sin-permiso" class="tar-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="tar-contenido" style="display:none;">
+      <div class="tar-pestanas" role="tablist" aria-label="Vistas de las tareas">
+        <button type="button" class="pestana" role="tab" data-vista="lista" aria-selected="true">Lista</button>
+        <button type="button" class="pestana" role="tab" data-vista="reasignar" aria-selected="false">Por reasignar <span id="n-reasignar"></span></button>
+        <button type="button" class="pestana" role="tab" data-vista="panel" aria-selected="false">Cumplimiento</button>
+        <button type="button" class="pestana" role="tab" data-vista="mapa" aria-selected="false">Mapa</button>
+      </div>
+
+      <div id="vista-lista">
       <div class="tar-resumen" id="tar-resumen"></div>
       <div style="margin-bottom:12px"><button type="button" class="btn-primario btn-sm" id="btn-nueva" style="display:none;">+ Nueva tarea</button></div>
 
@@ -98,6 +120,35 @@
       </div>
 
       <div id="tar-detalle"></div>
+      </div><!-- /vista-lista -->
+
+      <div id="vista-reasignar" style="display:none;">
+        <p class="tar-sub" style="margin-top:0">Son tareas abiertas cuyo responsable ya no puede tenerlas: su cuenta se desactivó, cambió de equipo o ya no es de tu rama. <b>Nada se reasigna solo</b>: tú eliges a quién pasarlas.</p>
+        <div style="overflow-x:auto"><table class="tar-tabla" id="tar-reasignar"></table></div>
+        <div id="m-reasignar" class="tar-msg"></div>
+      </div>
+
+      <div id="vista-panel" style="display:none;">
+        <div class="tar-filtros">
+          <div class="campo"><label for="pn-desde">Creadas desde</label><input type="date" id="pn-desde"></div>
+          <div class="campo"><label for="pn-hasta">Hasta</label><input type="date" id="pn-hasta"></div>
+          <div class="campo"><label for="pn-tipo">Tipo</label><select id="pn-tipo" data-sin-ordenar><option value="">Todos</option><option value="libre">Libre</option><option value="visita">Visita</option><option value="entrega">Entrega de material</option><option value="meta_registros">Meta de registros</option><option value="reunion">Reunión</option></select></div>
+          <div><button type="button" class="btn-secundario btn-sm" id="pn-quitar">Quitar filtros</button></div>
+        </div>
+        <div style="margin:4px 0 12px"><a class="btn-primario btn-sm" id="d-cumplimiento" href="/api/tareas/exportar/cumplimiento" download>Descargar el cumplimiento por zona (Excel)</a></div>
+        <p class="tar-sub" style="margin-top:0">Cumplimiento = (hechas + verificadas) sobre todas las tareas menos las canceladas. El Excel cuenta por zona y tipo, sin nombres de personas.</p>
+        <div class="tar-resumen" id="pn-cifras" style="margin-top:14px"></div>
+        <div class="tar-panel-grid">
+          <div><h3>Por zona</h3><div style="overflow-x:auto"><table class="tar-tabla" id="pn-zona"></table></div><p class="tar-sub" id="pn-zona-nota"></p></div>
+          <div><h3>Por persona</h3><div style="overflow-x:auto"><table class="tar-tabla" id="pn-persona"></table></div></div>
+        </div>
+      </div>
+
+      <div id="vista-mapa" style="display:none;">
+        <div class="tar-filtros"><div class="campo"><label for="mp-tipo">Tipo</label><select id="mp-tipo" data-sin-ordenar><option value="">Todos</option><option value="libre">Libre</option><option value="visita">Visita</option><option value="entrega">Entrega de material</option><option value="meta_registros">Meta de registros</option><option value="reunion">Reunión</option></select></div></div>
+        <div id="mapa-tar" role="img" aria-label="Mapa de zonas donde se terminaron tareas"></div>
+        <p class="tar-sub" id="mp-nota"></p>
+      </div>
     </div>
   </main>
 </div>
@@ -144,10 +195,11 @@ async function cargarLista() {
   puedeAsignar = !!r.puede_asignar;
   $('btn-nueva').style.display = puedeAsignar ? '' : 'none';
   $('tar-resumen').innerHTML = `<div class="cifra"><b>${esc(Object.values(r.porEstado).reduce((a, b) => a + b, 0))}</b><span>En total</span></div>`
-    + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${esc(r.porEstado[k] || 0)}</b><span>${esc(k === 'hecha' ? 'Por verificar' : ESTADOS[k])}</span></div>`).join('')
-    + `<div class="cifra"><b>${esc(r.vencidas)}</b><span>Vencidas</span></div><div class="cifra"><b>${esc(r.sin_responsable)}</b><span>Sin responsable activo</span></div>`;
+    + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${esc(k === 'hecha' ? (r.por_verificar || 0) : (r.porEstado[k] || 0))}</b><span>${esc(k === 'hecha' ? 'Por verificar' : ESTADOS[k])}</span></div>`).join('')
+    + `<div class="cifra"><b>${esc(r.vencidas)}</b><span>Vencidas</span></div><div class="cifra"><b>${esc(r.sin_responsable)}</b><span>Sin responsable activo</span></div><div class="cifra"><b>${esc(r.por_reasignar || 0)}</b><span>Por reasignar</span></div>`;
+  $('n-reasignar').textContent = r.por_reasignar ? `(${r.por_reasignar})` : '';
   $('tar-filas').innerHTML = r.tareas.map((t) => `<tr data-id="${t.id}" class="${abierta === t.id ? 'activa' : ''}">
-      <td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}</td><td>${esc(t.zona || '—')}</td><td>${esc(t.asignado || '—')}</td>
+      <td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}${t.avance ? `<div class="tar-avance">${avanceTexto(t)}</div>` : ''}</td><td>${esc(t.zona || '—')}</td><td>${esc(t.asignado || '—')}</td>
       <td>${esc(soloFecha(t.fecha_limite))}</td><td>${marcas(t)}</td><td>${t.fotos ? '📷 ' + esc(t.fotos) : ''}</td></tr>`).join('')
     || '<tr><td colspan="8">No hay tareas con esos filtros.</td></tr>';
   const paginas = Math.max(1, Math.ceil(r.total / r.limite));
@@ -156,25 +208,50 @@ async function cargarLista() {
   $('tar-filas').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => abrir(Number(tr.dataset.id))));
 }
 
+function avanceTexto(t) {
+  const a = t.avance;
+  if (!a) return '';
+  if (a.actual === null || a.actual === undefined) return 'Sin medir (la cuenta del responsable no está activa)';
+  const barra = a.meta > 0 ? `<div class="tar-barra" style="width:140px;display:inline-block;vertical-align:middle"><i class="${a.actual >= a.meta ? 'lleno' : ''}" style="width:${a.pct}%"></i></div> ` : '';
+  if (t.tipo === 'reunion') return `${barra}Asistieron ${a.actual} de ${a.meta} (${a.pct}%) · ${esc(a.evento ? a.evento.titulo : '')}`;
+  return `${barra}${a.actual} de ${a.meta} registros (${a.pct}%)`;
+}
+async function cargarEventos() {
+  try {
+    const r = await api('/tareas/eventos');
+    $('n-evento').innerHTML = r.eventos.length ? r.eventos.map((e) => `<option value="${esc(e.id)}">${esc(e.titulo)} · ${esc(soloFecha(e.fecha))} · meta ${esc(e.meta_asistentes)}</option>`).join('')
+      : '<option value="">No hay eventos con meta de asistentes que puedas ver</option>';
+  } catch (e) { $('n-evento').innerHTML = `<option value="">${esc(e.message || 'No se pudieron cargar los eventos')}</option>`; }
+}
+
 /* ----- crear y asignar ----- */
 let zonaElegida = null;      // { id, nombre } cuando el texto coincide con una zona del catálogo
 function formularioNueva() {
   $('tar-nueva').innerHTML = `<div class="tar-nueva"><h3>Nueva tarea</h3>
     <div class="tar-form">
-      <div><label for="n-tipo">Tipo</label><select id="n-tipo" data-sin-ordenar><option value="libre">Tarea libre</option><option value="visita">Visita a un barrio o vereda</option><option value="entrega">Entrega de material</option></select></div>
+      <div><label for="n-tipo">Tipo</label><select id="n-tipo" data-sin-ordenar><option value="libre">Tarea libre</option><option value="visita">Visita a un barrio o vereda</option><option value="entrega">Entrega de material</option><option value="meta_registros">Meta de registros</option><option value="reunion">Reunión con asistentes</option></select></div>
       <div><label for="n-asignada">Se la asigno a</label><select id="n-asignada" data-sin-ordenar>${responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}${u.id === usuarioActual.id ? ' (yo)' : ''} — ${esc(u.rol)}</option>`).join('')}</select></div>
       <div class="ancho"><label for="n-titulo">Título</label><input type="text" id="n-titulo" maxlength="150" placeholder="Qué hay que hacer, en pocas palabras"></div>
       <div class="ancho"><label for="n-descripcion">Detalle (opcional)</label><textarea id="n-descripcion" rows="3" maxlength="2000"></textarea></div>
       <div><label for="n-zona">Barrio o vereda <span id="n-zona-pista" style="font-weight:400"></span></label><input type="text" id="n-zona" list="n-zonas" maxlength="120" autocomplete="off"><datalist id="n-zonas"></datalist></div>
       <div><label for="n-fecha">Fecha límite (opcional)</label><input type="date" id="n-fecha"></div>
       <div id="n-bloque-cantidad" style="display:none;"><label for="n-cantidad">Cantidad prevista (opcional)</label><input type="number" id="n-cantidad" min="1"></div>
+      <div id="n-bloque-meta" style="display:none;"><label for="n-meta">Meta: cuántos registros</label><input type="number" id="n-meta" min="1">
+        <label for="n-desde" style="margin-top:8px">Se cuentan desde (opcional, por omisión hoy)</label><input type="date" id="n-desde">
+        <span class="tar-sub">Se cuentan los registros del responsable, sin las fichas por enlace que aún no confirman, hasta la fecha límite (obligatoria). En la zona, si eliges una del catálogo.</span></div>
+      <div id="n-bloque-evento" style="display:none;"><label for="n-evento">Evento</label><select id="n-evento" data-sin-ordenar></select>
+        <span class="tar-sub">El avance es cuántos asistieron frente a la meta de asistentes del evento.</span></div>
     </div>
     <div style="margin-top:12px; display:flex; gap:8px;"><button type="button" class="btn-primario btn-sm" id="n-guardar">Crear y asignar</button><button type="button" class="btn-secundario btn-sm" id="n-cancelar">Cancelar</button></div>
     <div id="n-msg" class="tar-msg"></div></div>`;
   zonaElegida = null;
   $('n-tipo').addEventListener('change', () => {
-    $('n-bloque-cantidad').style.display = $('n-tipo').value === 'entrega' ? '' : 'none';
-    $('n-zona-pista').textContent = $('n-tipo').value === 'visita' ? '(obligatorio en una visita)' : '(opcional)';
+    const tipo = $('n-tipo').value;
+    $('n-bloque-cantidad').style.display = tipo === 'entrega' ? '' : 'none';
+    $('n-bloque-meta').style.display = tipo === 'meta_registros' ? '' : 'none';
+    $('n-bloque-evento').style.display = tipo === 'reunion' ? '' : 'none';
+    $('n-zona-pista').textContent = tipo === 'visita' ? '(obligatorio en una visita)' : (tipo === 'meta_registros' ? '(opcional; elígela de la lista)' : '(opcional)');
+    if (tipo === 'reunion') cargarEventos();
   });
   $('n-zona-pista').textContent = '(opcional)';
   let temporizador;
@@ -182,7 +259,7 @@ function formularioNueva() {
     zonaElegida = null; clearTimeout(temporizador);
     temporizador = setTimeout(async () => {
       try {
-        const r = await api('/tareas/zonas?q=' + encodeURIComponent($('n-zona').value.trim()));
+        const r = await api('/tareas/zonas?q=' + encodeURIComponent($('n-zona').value.trim()) + ($('n-tipo').value === 'meta_registros' ? '&tipo=meta_registros' : ''));
         $('n-zonas').innerHTML = r.zonas.map((z) => `<option value="${esc(z.nombre)}">${esc(z.tipo)}${z.padre ? ' · ' + esc(z.padre) : ''}</option>`).join('');
         window.__zonas = r.zonas;
         const exacta = r.zonas.find((z) => z.nombre.toLowerCase() === $('n-zona').value.trim().toLowerCase());
@@ -197,6 +274,8 @@ function formularioNueva() {
     const cuerpo = {
       tipo: $('n-tipo').value, titulo: $('n-titulo').value, descripcion: $('n-descripcion').value, asignada_a: Number($('n-asignada').value),
       fecha_limite: $('n-fecha').value || '', cantidad_prevista: $('n-tipo').value === 'entrega' ? $('n-cantidad').value : '',
+      meta_n: $('n-tipo').value === 'meta_registros' ? $('n-meta').value : '', desde: $('n-tipo').value === 'meta_registros' ? $('n-desde').value : '',
+      evento_id: $('n-tipo').value === 'reunion' ? $('n-evento').value : '',
       territorio_id: zonaElegida ? zonaElegida.id : '', zona_texto: zonaElegida ? '' : texto,
     };
     try {
@@ -222,6 +301,9 @@ async function abrir(id) {
     <h3>Tarea n.º ${esc(d.id)} · ${esc(d.titulo)} ${marcas(d)}</h3>
     <div class="meta">${esc(d.tipo_etiqueta)}</div>
     ${d.descripcion ? `<p style="white-space:pre-wrap; margin:6px 0 0">${esc(d.descripcion)}</p>` : ''}
+    ${d.avance ? `<div class="tar-nota" style="background:#F4F8FF;border-color:#9DB7E8">${avanceTexto(d)}${d.tipo === 'meta_registros' && d.avance.desde ? `<br><small>Del ${esc(soloFecha(d.avance.desde))} al ${esc(soloFecha(d.avance.hasta))}${d.zona ? ' · ' + esc(d.zona) : ''}. Se cumple sola al llegar a la meta.</small>` : ''}</div>` : (d.tipo === 'reunion' ? '<div class="tar-nota">El avance de la reunión no se muestra: no puedes ver ese evento o ya no existe.</div>' : '')}
+    ${d.por_reasignar_texto ? `<div class="tar-nota" style="border-color:#C0392B"><b>Por reasignar:</b> ${esc(d.por_reasignar_texto)}</div>` : ''}
+    ${d.fotos_borradas_en ? '<div class="tar-sub">Las fotos de esta tarea se borraron por vencer el plazo de conservación.</div>' : ''}
     ${d.devuelta_nota && d.estado === 'en_curso' ? `<div class="tar-nota"><b>Se devolvió:</b> ${esc(d.devuelta_nota)}</div>` : ''}
     ${d.no_pudo_nota && ['pendiente', 'en_curso'].includes(d.estado) ? `<div class="tar-nota"><b>No pudo:</b> ${esc(d.no_pudo_nota)} <small>(${esc(fechaHora(d.no_pudo_en))})</small></div>` : ''}
     <dl class="tar-rejilla">
@@ -237,10 +319,11 @@ async function abrir(id) {
     </dl>
     ${d.fotos.length ? `<div class="tar-fotos">${d.fotos.map((f) => `<img src="/api/tareas/${esc(d.id)}/fotos/${esc(f.id)}" alt="Foto ${esc(f.orden)} de la evidencia" loading="lazy">`).join('')}</div>` : ''}
     ${d.puede_gestionar && !cerrada ? `<div class="tar-acciones">
-      ${d.estado === 'hecha' ? `<div class="caja"><b>Revisar lo que hizo</b>
+      ${d.estado === 'hecha' ? `<div class="caja"><b>${d.requiere_verificacion ? 'Revisar lo que hizo' : 'Cumplida sola'}</b>
+        ${d.requiere_verificacion ? '' : '<div class="tar-sub">Llegó a la meta por sí sola: verificarla es opcional.</div>'}
         <button type="button" class="btn-primario btn-sm" id="a-verificar" style="margin-top:6px">Verificar</button>
-        <label for="a-devolver-nota">Si falta algo, dile qué</label><textarea id="a-devolver-nota" rows="2" maxlength="500"></textarea>
-        <button type="button" class="btn-secundario btn-sm" id="a-devolver" style="margin-top:6px">Devolver</button><div id="m-estado" class="tar-msg"></div></div>` : '<div id="m-estado" class="tar-msg" style="display:none"></div>'}
+        ${d.requiere_verificacion ? `<label for="a-devolver-nota">Si falta algo, dile qué</label><textarea id="a-devolver-nota" rows="2" maxlength="500"></textarea>
+        <button type="button" class="btn-secundario btn-sm" id="a-devolver" style="margin-top:6px">Devolver</button>` : ''}<div id="m-estado" class="tar-msg"></div></div>` : '<div id="m-estado" class="tar-msg" style="display:none"></div>'}
       <div class="caja"><b>Cambiar</b>
         <label for="e-titulo">Título</label><input type="text" id="e-titulo" maxlength="150" value="${esc(d.titulo)}">
         <label for="e-fecha">Fecha límite</label><input type="date" id="e-fecha" value="${esc(d.fecha_limite || '')}">
@@ -293,6 +376,105 @@ async function editar(id) {
   } catch (e) { msg('m-editar', e.message || 'No se pudo guardar.', 'error'); }
 }
 
+/* ----- pestañas: por reasignar, cumplimiento y mapa (parche 306) ----- */
+const num = (n) => Number(n || 0).toLocaleString('es-CO');
+function mostrarVista(v) {
+  ['lista', 'reasignar', 'panel', 'mapa'].forEach((k) => { $('vista-' + k).style.display = k === v ? 'block' : 'none'; });
+  document.querySelectorAll('.tar-pestanas .pestana').forEach((b) => b.setAttribute('aria-selected', b.dataset.vista === v ? 'true' : 'false'));
+  if (v === 'reasignar') cargarReasignar();
+  if (v === 'panel') cargarPanel();
+  if (v === 'mapa') cargarMapa();
+}
+
+async function cargarReasignar() {
+  try {
+    const r = await api('/tareas/por-reasignar');
+    $('tar-reasignar').innerHTML = r.tareas.length
+      ? `<thead><tr><th>N.º</th><th>Tipo</th><th>Título</th><th>Zona</th><th>Responsable actual</th><th>Por qué</th><th>Pasarla a</th></tr></thead><tbody>`
+        + r.tareas.map((t) => `<tr data-id="${t.id}" style="cursor:default"><td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}<div class="tar-avance">${marcas(t)}</div></td><td>${esc(t.zona || '—')}</td>
+          <td>${esc(t.asignado || '—')}</td><td>${esc(t.motivo_texto || '')}</td>
+          <td>${r.puede_reasignar && t.estado !== 'hecha' ? `<select data-sin-ordenar data-sel="${esc(t.id)}">${responsables.filter((u) => u.id !== t.asignada_a).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</select>
+            <button type="button" class="btn-primario btn-sm" data-reasignar="${esc(t.id)}" style="margin-top:4px">Reasignar</button>`
+            : (t.estado === 'hecha' ? '<small>Ya está hecha: ábrela, verifícala o devuélvela primero.</small>' : '<small>No puedes reasignar.</small>')}
+            <button type="button" class="btn-secundario btn-sm" data-ver="${esc(t.id)}" style="margin-top:4px">Abrir</button></td></tr>`).join('') + '</tbody>'
+      : '<tbody><tr><td>No hay tareas por reasignar.</td></tr></tbody>';
+    $('tar-reasignar').querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', async () => { mostrarVista('lista'); await abrir(Number(b.dataset.ver)); }));
+    $('tar-reasignar').querySelectorAll('[data-reasignar]').forEach((b) => b.addEventListener('click', async () => {
+      const id = Number(b.dataset.reasignar), sel = $('tar-reasignar').querySelector(`[data-sel="${id}"]`);
+      msg('m-reasignar', 'Guardando…', '');
+      try {
+        const x = await api('/tareas/' + id, { method: 'PUT', body: { asignada_a: Number(sel.value) } });
+        msg('m-reasignar', x && x.aviso ? 'Reasignada. ' + x.aviso : 'Reasignada.', x && x.aviso ? 'error' : 'ok');
+        await cargarLista(); await cargarReasignar();
+      } catch (e) { msg('m-reasignar', e.message || 'No se pudo reasignar.', 'error'); }
+    }));
+  } catch (e) { $('tar-reasignar').innerHTML = `<tbody><tr><td>${esc(e.message || 'No se pudo cargar.')}</td></tr></tbody>`; }
+}
+
+function paramsPanel() {
+  const p = new URLSearchParams();
+  if ($('pn-desde').value) p.set('desde', $('pn-desde').value);
+  if ($('pn-hasta').value) p.set('hasta', $('pn-hasta').value);
+  if ($('pn-tipo').value) p.set('tipo', $('pn-tipo').value);
+  return p;
+}
+function tablaCumplimiento(el, filas, columna) {
+  el.innerHTML = filas.length
+    ? `<thead><tr><th>${columna}</th><th></th><th class="num">Cumpl.</th><th class="num">Total</th><th class="num">Abiertas</th><th class="num">Vencidas</th><th class="num">Por reasignar</th></tr></thead><tbody>`
+      + filas.map((f) => `<tr><td>${esc(f.nombre)}${f.activa === false ? ' <small>(inactiva)</small>' : ''}</td><td style="width:20%"><div class="tar-barra"><i class="${f.cumplimiento === 100 ? 'lleno' : ''}" style="width:${f.cumplimiento || 0}%"></i></div></td>
+        <td class="num"><b>${f.cumplimiento === null ? '—' : esc(f.cumplimiento) + ' %'}</b></td><td class="num">${num(f.total)}</td><td class="num">${num(f.abiertas)}</td><td class="num">${num(f.vencidas)}</td><td class="num">${num(f.por_reasignar)}</td></tr>`).join('') + '</tbody>'
+    : '<tbody><tr><td>Todavía no hay tareas.</td></tr></tbody>';
+}
+async function cargarPanel() {
+  const p = paramsPanel(), q = p.toString() ? '?' + p.toString() : '';
+  $('d-cumplimiento').href = '/api/tareas/exportar/cumplimiento' + q;
+  try {
+    const r = await api('/tareas/panel' + q);
+    const t = r.totales;
+    $('pn-cifras').innerHTML = `<div class="cifra"><b>${num(t.total)}</b><span>Tareas</span></div><div class="cifra"><b>${t.cumplimiento === null ? '—' : esc(t.cumplimiento) + ' %'}</b><span>Cumplimiento</span></div>`
+      + `<div class="cifra"><b>${num(t.abiertas)}</b><span>Abiertas</span></div><div class="cifra"><b>${num(t.vencidas)}</b><span>Vencidas</span></div><div class="cifra"><b>${num(t.por_reasignar)}</b><span>Por reasignar</span></div>`
+      + r.porTipo.map((x) => `<div class="cifra"><b>${x.cumplimiento === null ? '—' : esc(x.cumplimiento) + ' %'}</b><span>${esc(x.etiqueta)} (${num(x.total)})</span></div>`).join('');
+    tablaCumplimiento($('pn-zona'), r.porZona, 'Zona');
+    tablaCumplimiento($('pn-persona'), r.porPersona, 'Persona');
+    $('pn-zona-nota').textContent = r.zonasDistintas > r.zonasMostradas ? `Se muestran las ${r.zonasMostradas} zonas con más tareas, de ${r.zonasDistintas}.` : '';
+  } catch (e) { $('pn-cifras').innerHTML = `<div class="tar-aviso">${esc(e.message || 'No se pudo cargar.')}</div>`; }
+}
+
+let mapaTar = null, capaTar = null, leafletListo = null;
+function cargarLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletListo) return leafletListo;
+  leafletListo = new Promise((ok, mal) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+    const js = document.createElement('script'); js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; js.onload = ok; js.onerror = () => { leafletListo = null; mal(new Error('No se pudo cargar el mapa. Revisa la conexión.')); };
+    document.head.appendChild(js);
+  });
+  return leafletListo;
+}
+async function cargarMapa() {
+  const p = new URLSearchParams();
+  if ($('mp-tipo').value) p.set('tipo', $('mp-tipo').value);
+  try {
+    const [r] = await Promise.all([api('/tareas/mapa' + (p.toString() ? '?' + p.toString() : '')), cargarLeaflet()]);
+    if (!mapaTar) {
+      mapaTar = L.map('mapa-tar').setView([4.6, -74.1], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaTar);
+      capaTar = L.layerGroup().addTo(mapaTar);
+    }
+    mapaTar.invalidateSize(); capaTar.clearLayers();
+    // SOLO la zona: el centro de la celda, cuántas tareas y de qué tipo. Ningún nombre, foto, título ni punto exacto.
+    const max = Math.max(1, ...r.zonas.map((z) => z.n));
+    const puntos = r.zonas.map((z) => {
+      L.circleMarker([z.lat, z.lng], { radius: 9 + Math.round(22 * Math.sqrt(z.n / max)), color: '#2F5AA8', weight: 1.5, fillColor: '#4A78C2', fillOpacity: 0.45 })
+        .bindPopup(`<b>${esc(z.n)} tarea(s) terminadas en esta zona</b><br>${z.tipos.map((c) => `${esc(c.etiqueta)}: ${esc(c.n)}`).join('<br>')}`).addTo(capaTar);
+      return [z.lat, z.lng];
+    });
+    if (puntos.length) mapaTar.fitBounds(puntos, { padding: [40, 40], maxZoom: 15 });
+    $('mp-nota').textContent = r.total === 0 ? 'Todavía no hay tareas.'
+      : `${num(r.con_ubicacion)} de ${num(r.total)} tarea(s) tienen ubicación y se agrupan en zonas de unos 500 metros; las otras ${num(r.sin_ubicacion)} no aparecen. El círculo no marca una casa ni una persona.`;
+  } catch (e) { $('mp-nota').textContent = e.message || 'No se pudo cargar el mapa.'; }
+}
+
 (async () => {
   usuarioActual = await inicializarLayout('/tareas.html');
   if (!usuarioActual) return;
@@ -310,6 +492,11 @@ async function editar(id) {
   $('p-sig').addEventListener('click', () => { pagina += 1; cargarLista(); });
   $('visor-foto').addEventListener('click', () => { $('visor-foto').style.display = 'none'; });
   $('btn-nueva').addEventListener('click', formularioNueva);
+  document.querySelectorAll('.tar-pestanas .pestana').forEach((b) => b.addEventListener('click', () => mostrarVista(b.dataset.vista)));
+  ['pn-desde', 'pn-hasta', 'pn-tipo'].forEach((i) => $(i).addEventListener('change', cargarPanel));
+  $('pn-quitar').addEventListener('click', () => { ['pn-desde', 'pn-hasta', 'pn-tipo'].forEach((i) => { $(i).value = ''; }); cargarPanel(); });
+  $('mp-tipo').addEventListener('change', cargarMapa);
+  $('d-cumplimiento').style.display = puedeImportarExportar(usuarioActual, 'tareas') ? '' : 'none';
 })();
 </script>
 </body>

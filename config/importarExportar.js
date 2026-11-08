@@ -55,6 +55,8 @@ const IMPORTAR_EXPORTAR_POR_DEFECTO = {
   // Solicitudes ciudadanas (parche 304): el «Diagnóstico de necesidades del territorio» (Excel agregado, sin datos personales). El detalle
   // con nombres es solo del administrador, tenga o no esta casilla. No hay importación.
   solicitudes: ['admin'],
+  // Tareas (parche 306): el Excel agregado de cumplimiento por zona (sin nombres de nadie). No hay importación.
+  tareas: ['admin'],
 };
 
 const MODULOS_CON_IMPORTAR_EXPORTAR = Object.keys(IMPORTAR_EXPORTAR_POR_DEFECTO);

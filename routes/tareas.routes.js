@@ -6,6 +6,10 @@
  *   GET  /                      la lista, con filtros y dentro del alcance
  *   GET  /mias                  las que tengo asignadas (la pantalla del celular)
  *   GET  /resumen               mis cifras: pendientes, vencen hoy, vencidas (la tarjeta del panel)
+ *   GET  /eventos               los eventos que se pueden enlazar a una reunión (con el alcance de eventos del parche 305)
+ *   GET  /por-reasignar         la bandeja de las tareas cuyo responsable ya no puede tenerlas (nada se reasigna solo)
+ *   GET  /panel · /mapa         cumplimiento por zona y por persona; círculos por zona (sin nombres, fotos ni puntos exactos)
+ *   GET  /exportar/cumplimiento Excel agregado zona × tipo × estado, SIN nombres (quien tenga «Importar / Exportar»)
  *   POST /                      crear y asignar (multipart no: JSON)
  *   POST /accion                lo que hace el ASIGNADO: empecé, terminé (con evidencia y hasta 3 fotos) o no pude. Idempotente por cliente_uuid
  *   GET  /:id                   el detalle, con historial
@@ -29,6 +33,11 @@ const { registrarAuditoria } = require('../config/auditoria');
 const { alcanceTareas, gestionTareas, asignablesPara } = require('../lib/alcanceTareas');
 const T = require('../lib/tareas');
 const Avisos = require('../lib/tareasAvisos');
+const M = require('../lib/tareasMetas');
+const Panel = require('../lib/tareasPanel');
+const XLSX = require('xlsx');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { alcanceEventos, puedeVerEventos } = require('../lib/alcanceEventos');
 
 const router = express.Router();
 router.use(requireAuth, calcularAlcance);
@@ -71,10 +80,22 @@ async function puedeGestionar(req, t) {
   return !!x;
 }
 
+/** Agrega `avance` a las filas que se miden (meta de registros, reunión). El de la reunión solo si quien mira puede ver el evento. */
+async function conAvance(filas, publicas, req) {
+  for (let i = 0; i < filas.length; i++) {
+    const f = filas[i];
+    try {
+      if (f.tipo === 'meta_registros') publicas[i].avance = await M.avanceRegistros(f);
+      else if (f.tipo === 'reunion') publicas[i].avance = await M.avanceReunion(f, req.alcance);
+    } catch (e) { console.error('[tareas] No se pudo medir el avance:', e.code || e.message); }
+  }
+  return publicas;
+}
+
 /* ------------------------------------------------------------------------------------------------------------- APOYOS */
 
 router.get('/zonas', exigir('ver'), async (req, res) => {
-  try { res.json(await T.buscarZonas(req.query.q)); } catch (e) { responder(res, e); }
+  try { res.json(await T.buscarZonas(req.query.q, { conMunicipios: req.query.tipo === 'meta_registros' })); } catch (e) { responder(res, e); }
 });
 
 router.get('/responsables', exigir('agregar'), async (req, res) => {
@@ -86,6 +107,19 @@ router.get('/responsables', exigir('agregar'), async (req, res) => {
         WHERE u.activo = 1 AND r.nombre IN (?) AND ${as.sql} ORDER BY (u.id = ?) DESC, u.nombre LIMIT 500`, [T.ROLES_ASIGNABLES, ...as.valores, req.session.usuario.id]);
     // Solo de SU campaña: quien cuelga de un aspirante es de otra rama y asignarle desde aquí se rechaza (T.crear); no se ofrece.
     res.json({ responsables: await T.soloMismaRama(req.session.usuario.id, filas) });
+  } catch (e) { responder(res, e); }
+});
+
+/** Los eventos que se pueden enlazar a una reunión: los de su alcance (parche 305), próximos o recientes y con meta de asistentes. */
+router.get('/eventos', exigir('agregar'), async (req, res) => {
+  try {
+    if (!(await puedeVerEventos(req.session.usuario))) return res.json({ eventos: [] });
+    const a = alcanceEventos(req.alcance, 'e');
+    const [filas] = await pool.query(
+      `SELECT e.id, e.titulo, DATE_FORMAT(e.fecha_inicio, '%Y-%m-%d') AS fecha, e.meta_asistentes
+         FROM eventos e WHERE ${a.sql} AND e.estado <> 'cancelado' AND e.meta_asistentes > 0 AND e.fecha_inicio >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY e.fecha_inicio LIMIT 100`, a.valores);
+    res.json({ eventos: filas });
   } catch (e) { responder(res, e); }
 });
 
@@ -105,6 +139,7 @@ router.get('/', exigir('ver'), async (req, res) => {
     if (q.asignada_a) { cond.push('t.asignada_a = ?'); par.push(Number(q.asignada_a)); }
     if (q.vencidas === '1') cond.push(`t.estado IN ('pendiente','en_curso') AND t.fecha_limite IS NOT NULL AND t.fecha_limite < CURDATE()`);
     if (q.sin_responsable === '1') cond.push(`t.estado IN ('pendiente','en_curso','hecha') AND (ua.id IS NULL OR ua.activo = 0)`);
+    if (q.por_reasignar === '1') cond.push(`t.huerfana_desde IS NOT NULL AND t.estado IN ('pendiente','en_curso','hecha')`);
     if (q.zona) { cond.push('COALESCE(t.zona_texto, tz.nombre) LIKE ?'); par.push(`%${String(q.zona).replace(/[%_]/g, '').slice(0, 60)}%`); }
     if (q.texto) { cond.push('t.titulo LIKE ?'); par.push(`%${String(q.texto).replace(/[%_]/g, '').slice(0, 60)}%`); }
     const limite = Math.min(100, Math.max(1, Number(q.limite) || 25));
@@ -118,12 +153,14 @@ router.get('/', exigir('ver'), async (req, res) => {
     const [porEstado] = await pool.query(`SELECT t.estado, COUNT(*) AS n FROM tareas t WHERE ${a.sql} GROUP BY t.estado`, a.valores);
     const [[extra]] = await pool.query(
       `SELECT COALESCE(SUM(t.estado IN ('pendiente','en_curso') AND t.fecha_limite IS NOT NULL AND t.fecha_limite < CURDATE()), 0) AS vencidas,
+              COALESCE(SUM(t.estado = 'hecha' AND t.tipo <> 'meta_registros'), 0) AS por_verificar,
+              COALESCE(SUM(t.huerfana_desde IS NOT NULL AND t.estado IN ('pendiente','en_curso','hecha')), 0) AS por_reasignar,
               COALESCE(SUM(t.estado IN ('pendiente','en_curso','hecha') AND (ua.id IS NULL OR ua.activo = 0)), 0) AS sin_responsable
          FROM tareas t LEFT JOIN usuarios ua ON ua.id = t.asignada_a WHERE ${a.sql}`, a.valores);
     res.json({
-      tareas: filas.map(T.filaPublica), total: Number(tot.n), pagina, limite,
+      tareas: await conAvance(filas, filas.map(T.filaPublica), req), total: Number(tot.n), pagina, limite,
       porEstado: porEstado.reduce((o, x) => { o[x.estado] = Number(x.n); return o; }, {}),
-      vencidas: Number(extra.vencidas), sin_responsable: Number(extra.sin_responsable), permisos: req.permisos,
+      vencidas: Number(extra.vencidas), sin_responsable: Number(extra.sin_responsable), por_verificar: Number(extra.por_verificar), por_reasignar: Number(extra.por_reasignar), permisos: req.permisos,
       puede_asignar: !!asignablesPara(req.alcance) && req.permisos.agregar,
     });
   } catch (e) { responder(res, e); }
@@ -131,17 +168,18 @@ router.get('/', exigir('ver'), async (req, res) => {
 
 router.get('/mias', exigir('ver'), async (req, res) => {
   try {
+    await M.cerrarMetasAlcanzadas({ asignadaA: req.session.usuario.id }).catch(() => 0);     // si ya llegó a la meta, que lo vea hecho sin esperar el reloj
     const [filas] = await pool.query(
       `SELECT ${T.COLUMNAS} ${T.UNIONES}
         WHERE t.asignada_a = ? AND (t.estado IN ('pendiente','en_curso','hecha') OR (t.estado IN ('verificada','cancelada') AND t.actualizada_en >= DATE_SUB(NOW(), INTERVAL 30 DAY)))
         ORDER BY FIELD(t.estado, 'en_curso','pendiente','hecha','verificada','cancelada'), (t.fecha_limite IS NULL), t.fecha_limite, t.id DESC LIMIT 100`, [req.session.usuario.id]);
     // Para el asignado: lo que necesita para hacerla (descripción, lo que le devolvieron, su último «no pude») además de la fila corta.
     res.json({
-      tareas: filas.map((f) => ({
+      tareas: await conAvance(filas, filas.map((f) => ({
         ...T.filaPublica(f), descripcion: f.descripcion || null, cantidad_prevista: f.cantidad_prevista, devuelta_nota: f.estado === 'en_curso' ? f.devuelta_nota : null,
         no_pudo_nota: ['pendiente', 'en_curso'].includes(f.estado) ? f.no_pudo_nota : null, motivo_cancelacion: f.estado === 'cancelada' ? f.motivo_cancelacion : null,
         cantidad_entregada: f.cantidad_entregada,
-      })),
+      })), req),
       resumen: await T.resumenMisTareas(req.session.usuario.id), permisos: req.permisos,
     });
   } catch (e) { responder(res, e); }
@@ -155,7 +193,8 @@ router.post('/', exigir('agregar'), express.json(), async (req, res) => {
     const { errores, datos } = T.validarTarea(b, { hoyTexto: await T.hoy() });
     if (errores.length) return res.status(400).json({ error: errores.join(' '), errores });
     const u = req.session.usuario;
-    const r = await T.crear({ datos, asignadaA: b.asignada_a, usuario: u, asignables: asignablesPara(req.alcance) });
+    if (datos.tipo === 'reunion' && !(await puedeVerEventos(u))) return res.status(403).json({ error: 'Para enlazar una reunión hace falta poder ver los eventos. Pídele al administrador que te abra Eventos, Agenda o Asistentes a reuniones.' });
+    const r = await T.crear({ datos, asignadaA: b.asignada_a, usuario: u, asignables: asignablesPara(req.alcance), alcanceEventosCreador: req.alcance });
     await registrarAuditoria(u.id, 'tarea_crear', 'tareas', r.id, `Creó una tarea de ${T.TIPOS[datos.tipo].corta} y la asignó a la persona #${r.asignado.id}.`, req.ip);
     const aviso = await Avisos.avisar('asignada', { tipo: datos.tipo, zona_texto: datos.zona_texto || null }, r.asignado.id, u);
     const respuesta = { ok: true, id: r.id, aviso_enviado: aviso.enviado };
@@ -185,10 +224,69 @@ router.post('/accion', exigir('ver'), (req, res, next) => subida.array('fotos', 
   } catch (e) { responder(res, e); }
 });
 
+/* ------------------------------------------------------------------------------------- POR REASIGNAR, PANEL, MAPA Y EXCEL */
+
+/** La bandeja «Por reasignar»: lo que quien pregunta GESTIONA y cuyo responsable ya no puede tenerlo. Reasignar es decisión de una persona. */
+router.get('/por-reasignar', exigir('ver'), async (req, res) => {
+  try {
+    const g = gestionTareas(req.alcance, 't');
+    const [filas] = await pool.query(
+      `SELECT ${T.COLUMNAS} ${T.UNIONES} WHERE ${g.sql} AND t.huerfana_desde IS NOT NULL AND t.estado IN ('pendiente','en_curso','hecha') ORDER BY t.huerfana_desde, t.id LIMIT 200`, g.valores);
+    const motivos = require('../lib/tareasHuerfanas').MOTIVOS;
+    res.json({
+      tareas: filas.map((f) => ({ ...T.filaPublica(f), desde: f.huerfana_desde, motivo_texto: motivos[f.huerfana_motivo] || null })),
+      puede_reasignar: req.permisos.editar && !!asignablesPara(req.alcance),
+    });
+  } catch (e) { responder(res, e); }
+});
+
+const filtrosDe = (q) => ({ desde: q.desde, hasta: q.hasta, tipo: q.tipo });
+router.get('/panel', exigir('ver'), async (req, res) => {
+  try { res.json(await Panel.panel(req.alcance, filtrosDe(req.query))); } catch (e) { responder(res, e); }
+});
+router.get('/mapa', exigir('ver'), async (req, res) => {
+  try { res.json(await Panel.mapa(req.alcance, filtrosDe(req.query))); } catch (e) { responder(res, e); }
+});
+
+const hoyArchivo = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);   // hora de Colombia
+/** Excel agregado: zona × tipo, con el reparto por estado. SIN nombres de nadie. */
+router.get('/exportar/cumplimiento', exigir('ver'), requiereImportarExportar('tareas'), async (req, res) => {
+  try {
+    const f = filtrosDe(req.query);
+    const filas = await Panel.cumplimiento(req.alcance, f);
+    const resumen = await Panel.panel(req.alcance, f);
+    const cab = ['Zona', 'Tipo', 'Total', 'Abiertas', 'Hechas', 'Verificadas', 'Canceladas', 'Vencidas', 'Por reasignar', 'Cumplimiento (%)'];
+    const hoja = XLSX.utils.aoa_to_sheet([cab, ...filas.map((x) => [x.zona, x.tipo, x.total, x.abiertas, x.hechas, x.verificadas, x.canceladas, x.vencidas, x.por_reasignar, x.cumplimiento === null ? '' : x.cumplimiento])]);
+    hoja['!cols'] = [{ wch: 34 }, { wch: 28 }, ...cab.slice(2).map(() => ({ wch: 13 }))];
+    const t = resumen.totales;
+    const nota = XLSX.utils.aoa_to_sheet([
+      ['Cumplimiento de las tareas por zona'],
+      ['Generado el', hoyArchivo()],
+      ['Filtros', [f.desde ? `desde ${f.desde}` : null, f.hasta ? `hasta ${f.hasta}` : null, f.tipo ? `tipo ${f.tipo}` : null].filter(Boolean).join(', ') || 'sin filtros'],
+      ['Tareas contadas', t.total],
+      ['Cumplimiento general (%)', t.cumplimiento === null ? 'sin datos' : t.cumplimiento],
+      [],
+      ['Cómo leerlo'],
+      ['Cumplimiento = (hechas + verificadas) sobre todas las tareas menos las canceladas. «Hecha» incluye las que esperan verificación y las metas de registros que ya llegaron a su meta.'],
+      ['Este archivo cuenta tareas por zona y tipo. No lleva nombres de personas, títulos, fotos ni ubicaciones.'],
+    ]);
+    nota['!cols'] = [{ wch: 36 }, { wch: 24 }];
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, 'Cumplimiento');
+    XLSX.utils.book_append_sheet(libro, nota, 'Cómo leerlo');
+    await registrarAuditoria(req.session.usuario.id, 'exportar_excel', 'tareas', null, `Exportó el cumplimiento de las tareas por zona (${filas.length} fila(s), ${t.total} tarea(s); sin nombres de personas).`, req.ip);
+    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="cumplimiento-tareas-${hoyArchivo()}.xlsx"`);
+    res.send(buffer);
+  } catch (e) { responder(res, e); }
+});
+
 /* ------------------------------------------------------------------------------------------------------------ DETALLE */
 
 router.get('/:id', exigir('ver'), async (req, res) => {
   try {
+    await M.cerrarMetasAlcanzadas({ tareaId: req.params.id }).catch(() => 0);
     const f = await dentroDelAlcance(req, req.params.id);
     if (!f) return res.status(404).json({ error: 'Esa tarea no existe o no es de tu equipo.' });
     const u = req.session.usuario;
@@ -204,6 +302,9 @@ router.get('/:id', exigir('ver'), async (req, res) => {
       ...T.filaPublica(f), descripcion: f.descripcion, cantidad_prevista: f.cantidad_prevista, cantidad_entregada: f.cantidad_entregada, hecha_nota: f.hecha_nota,
       iniciada_en: f.iniciada_en, verificada_en: f.verificada_en, cancelada_en: f.cancelada_en, motivo_cancelacion: f.motivo_cancelacion,
       devuelta_nota: f.devuelta_nota, no_pudo_en: f.no_pudo_en, no_pudo_nota: f.no_pudo_nota,
+      avance: (await conAvance([f], [{}], req))[0].avance || null,
+      por_reasignar_texto: f.huerfana_desde ? (require('../lib/tareasHuerfanas').MOTIVOS[f.huerfana_motivo] || null) : null,
+      fotos_borradas_en: f.fotos_borradas_en || null,
       ubicacion: verPosicion && f.latitud !== null ? { latitud: Number(f.latitud), longitud: Number(f.longitud), precision_m: f.precision_m } : null,
       fotos: fotos.map((x) => ({ id: x.id, orden: x.orden })), historial: hist,
       puede_gestionar: gestiona, puede_ejecutar: esAsignado && T.ABIERTAS.includes(f.estado),
