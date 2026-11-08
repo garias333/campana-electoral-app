@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 292** (`parches/campana-parche292.zip`, 99.600 bytes,
+- **Último parche generado: 293** (`parches/campana-parche293.zip`, 116.813 bytes,
+  sha256 `c737ffffd2b5b257a9ceb41be91966d08754c869e00f7dfb2887b15b4eefe326`, 7 archivos).
+  **Publicado** (`parche-293.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Día D: encabezados de las tablas alineados con sus celdas (Requiere el 292)» (detalle abajo); **requiere el 292**.
+  Service worker `v166`. El anterior, el 292 (`parches/campana-parche292.zip`, 99.600 bytes,
   sha256 `7090310c92b53642e50c765b045a2603733324e198c1be75cfbb3d4631e19e69`, 6 archivos).
   **Publicado** (`parche-292.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Menú del celular y tablas de Logística alineadas (Requiere el 290; reemplaza al 291)» (detalle abajo); **requiere el 290**.
@@ -70,7 +74,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v165` en el código de la Base y dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v166` en el código de la Base y dentro del 293; `v165` dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -78,7 +82,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v292** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v292.zip`,
+- **Plantilla v292 (ya atrás del 293; ver la vigente arriba o abajo si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v292.zip`,
   2.011.889 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `37591043c93fe7d7b15ffb767458f2335ca33dcf0e1b60d9d8ec4af9f1c31a14`,
   service worker `estrategia-v165`, `.version-parche` y `.version-base` = 292. Generada con
   `node scripts/generar-plantilla.js --parche 292`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
@@ -105,6 +109,23 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 293 — Día D: encabezados de las tablas alineados con sus celdas (8 de noviembre de 2026, INACTIVO, no toca la base)
+
+Zip de 7 archivos (`.version-base` = 293): `public/dia-d.html`, `public/js/transporte-dia-d.js`, `public/testigos.html`, `public/configuracion.html`, `public/css/style.css`, `public/service-worker.js` (**v166**) y `.version-base`. Commit `e4a6035`. **Requiere el 292.** Sin `db/`: no toca la base.
+
+**Defecto (el mismo que tenía Logística):** la regla global `thead th { text-align: center }` centra todos los encabezados y las celdas quedaban a la izquierda; los números sin `col-num` quedaban pegados al borde bajo un rótulo centrado.
+
+**Cómo se midió.** Con un servidor de pruebas (sesión de admin y datos de ejemplo en cada pantalla) y Chromium a 1280 px, para **cada columna de cada tabla visible** se compara la alineación del `<th>` con la de sus `<td>` y se cuenta si cada fila cubre las columnas del encabezado. Antes: **toda** columna de texto de Transporte, Reportes, Avance, Resultados, Testigos y Puestos tenía el encabezado centrado sobre celdas a la izquierda,
+y las columnas de números sin `col-num` (Votos de candidatos, Mesa, Votos candidato, Total votos, E-14, Última marca, Foto, casilla de Diferencias, Pers., Carga, Capacidad, ID, Mesa y Activo de Testigos) igual. **Después: 0 columnas con encabezado y celdas en distinta alineación**, y 0 filas con cuenta de columnas que no cuadre.
+Tablas medidas: Transporte (personas, conductores, vehículos); Reportes (candidatos, mesas, historial); Avance (líderes, puestos); Resultados (consolidado, digitar oficial, diferencias, paquetes); Testigos; Puestos (configuración → Día D); y Logística, ya arreglada en el 292. **Alertas no tiene tablas** (son tarjetas), así que no hay nada que alinear.
+
+**Criterio:** número o dato corto (mesa, votos, hora de marca, casilla, foto, capacidad, personas, carga, ID, «Sí/No») → `col-num` en `<th>` y `<td>`, centrado en ambos. Texto (nombres, direcciones, novedad, alertas, hora larga, botones) → el encabezado va a la IZQUIERDA sobre sus celdas. Se hace con **una regla en `style.css`** acotada a `#vista-reportes`, `#vista-avance`, `#vista-resultados`, `#vista-transporte` y la clase nueva
+`.tabla-alineada` (puesta en la tabla de Testigos y en la de Puestos), no con estilos en cada `<th>`; así una columna nueva de texto nace alineada. **La regla global no se tocó**: otras pantallas tienen tablas de hasta catorce columnas donde un cambio general movería rótulos.
+
+**Lo que NO se tocó, a propósito:** la tabla de Logística (resuelta con estilos en línea en el 292); el encabezado vacío sobre los botones de acciones de Puestos (queda a la izquierda y las celdas a la derecha, pero no hay rótulo que desalinear); y las demás pantallas de la aplicación (Votantes, Estructura, Configuración, etc.), que tienen el mismo patrón pero **no se midieron**.
+El service worker sube a v166 porque `style.css` está en su precache. Suites `probar-logistica`, `panel-alcance`, `comunas-dashboard`, `transporte-diad`, `transporte-parte2` e `inscripcion-enlace` sin fallos (las que fijaban la versión del service worker aceptan v166); `verificar-html.py` en las tres páginas.
+**No probado:** un teléfono real; datos de una campaña de verdad (las tablas se vieron con 2 a 3 filas); la pestaña Alertas con datos (el simulador no la llenó); la tabla de Puestos con la cobertura «en vivo» ni el desplegado de mesas.
 
 ## Parche 292 — Menú del celular y tablas de Logística alineadas (8 de noviembre de 2026, INACTIVO, no toca la base; reemplaza al 291)
 
