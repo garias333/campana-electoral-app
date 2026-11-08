@@ -12,10 +12,12 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 299** (`parches/campana-parche299.zip`, 1.060.532 bytes,
-  sha256 `aed6980626137a65fad3dfbe303fb421637bd68d508f258c3a0aa2cbbd957cad`, 154 archivos): «Manuales: textos revisados (Requiere el 298)».
-  **NO PUBLICADO NI REGISTRADO**: por encargo, `publicar-parche.sh 299` + `registrar-parche.js 299` los corre el usuario como root (comando en el informe de la sesión);
-  no toca la base; **requiere el 298**. Service worker sin cambio (`v171`: no cambió ningún archivo de la precarga).
+- **Último parche generado: 300** (`parches/campana-parche300.zip`, 148.675 bytes,
+  sha256 `53b49e358ffd0eb6096aa6bb3f1543e71cfa42765fc73383ea61ab70fdadc8f9`, 10 archivos): «Recordatorios: Fases 0 y 1 (Requiere el 299)».
+  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 300` + `registrar-parche.js 300` los corre el usuario como root (comando en el informe de la sesión);
+  **TOCA LA BASE** (`db/init-db.js`: tres tablas y cinco columnas nuevas; repetible); **requiere el 299**. Service worker sin cambio (`v171`).
+  El anterior, el 299 (`parches/campana-parche299.zip`, 1.060.532 bytes, sha256 `aed6980626137a65fad3dfbe303fb421637bd68d508f258c3a0aa2cbbd957cad`, 154 archivos):
+  **publicado** (`parche-299.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
   El anterior, el 298 (`parches/campana-parche298.zip`, 4.002.523 bytes, sha256 `3f17c575d8737022682e033aaab75e3d008424b2936d12352e233a4430b5ccff`, 150 archivos):
   **publicado** (`parche-298.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el usuario dijo «Lo corro yo» para publicarlo y registrarlo;
   el registro y la activación no se pueden leer desde esta cuenta.
@@ -103,11 +105,16 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v299** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v299.zip`,
+- **Plantilla vigente: v300** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v300.zip`,
+  6.459.990 bytes, sha256 `f0c238761f6c184e5c3d147b0ace51442a3d0019e65d10e9dc1777845e34b60f`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 300.
+  Generada con `node scripts/generar-plantilla.js --parche 300`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
+  deja **67 tablas** (las 64 de antes + `recordatorio_reglas`, `recordatorio_envios`, `recordatorio_tope_diario`) y una segunda corrida deja lo mismo; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
+  **OJO: dice 300 aunque el 300 aún no está publicado**; si sale con otro número, regenerarla.
+- **Plantilla v299 (reemplazada por la v300)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v299.zip`,
   6.431.108 bytes, sha256 `e958e35f63966021f4d7eff41a094269125c0eda33f125aaf01aa77a1bbb5e77`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 299.
   Generada con `node scripts/generar-plantilla.js --parche 299`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
   deja **64 tablas** y una segunda corrida deja lo mismo; `lib/manuales.js` da 161 bloques y 15 de instalación sin avisos; 79 imágenes; `scripts/probar-manuales.js` desde la plantilla, todo bien.
-  **OJO: dice 299 aunque el 299 aún no está publicado**; si sale con otro número, regenerarla.
+  (El 299 ya está publicado.)
 - **Plantilla v298 (reemplazada por la v299)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v298.zip`,
   6.143.044 bytes, **558 entradas** (con las 76 capturas, `scripts/capturar-manuales.js` y `scripts/capturas/`), sha256 `044aa8eb63b0fc5188d6255019db273b68ed77101f696b57c0a25a105eea9053`,
   service worker `estrategia-v171`, `.version-parche` y `.version-base` = 298. Generada con `node scripts/generar-plantilla.js --parche 298`; escaneo de secretos sin hallazgos;
@@ -193,9 +200,58 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 299 — Manuales: textos revisados (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+## Parche 300 — Recordatorios automáticos, Fases 0 y 1 (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
 
-Zip de **154 archivos** (`.version-base` = 299): **137 guías** de `manuales/bloques/` corregidas, **15 capturas** rehechas y **3 nuevas** (`public/manuales/img/`), `manuales/LEEME.md` y `.version-base`. **Requiere el 298.** Sin `db/`, sin código de la app y sin service worker: no toca la base. Publicación y registro: **a cargo del usuario**.
+Orden: «Recordatorios automáticos, Fases 0 y 1 (sin pantalla ni envíos reales todavía)». **Requiere el 299.** **Toca la base** (`db/init-db.js`: el actualizador corre `init-db`; es repetible). No cambia ningún precargado del service worker: las únicas páginas tocadas (`crm.html`, `enviar-sms.html`, `enviar-email.html`, `enviar-push.html`) no están en la precarga, así que **SW sigue en v171**.
+
+**El motor viene APAGADO** (`configuracion_campana.recordatorios_activos = 0`, ninguna regla de fábrica) y **no hay todavía ninguna fuente real de candidatos** (los eventos y el «¿ya votaste?» son las fases siguientes), así que aunque alguien lo encendiera hoy no saldría nada. Sin pantalla. Probado con un script, sin mandar un solo mensaje real.
+
+### Fase 0 — cerrar duplicados y reevaluar al despachar (`routes/comunicaciones.routes.js`)
+
+1. **Cada fila se reclama antes de enviarse.** `UPDATE … SET estado = 'enviando', reclamado_en, proceso WHERE id = ? AND estado = 'pendiente'`: solo un ciclo gana. Además, una campaña que este proceso ya está enviando no arranca un segundo ciclo (`campanasEnProceso`).
+2. **«Reintentar fallidos»** (`reintentarFallidos`) reclama los fallidos con una marca de proceso y lanza UN ciclo. Un segundo clic con la campaña en marcha responde 409 («todavía se está enviando»); con una campaña ya reclamada devuelve 0. Antes los dos ciclos leían la misma lista de pendientes.
+3. **«enviando» ANTES de llamar al proveedor y se guarda su id** (`twilio_sid`, que desde siempre guarda el del proveedor). El SMS ahora lleva `loteId = crm-<campaña>` y `contactoId = <fila>`, que es lo que permite reconciliar. **Tras un reinicio, las «enviando» se reconcilian, no se reenvían** (`reconciliarEnviando`, al arrancar y cada minuto para las de más de 10 min): con rastro «aceptado/entregado» en `sms_envios` → `enviado` con su id; «fallido/rechazado» → `fallido` con el motivo del proveedor; **sin rastro** (y siempre en correo y push, que no tienen bitácora) → `fallido` con la advertencia «no se pudo confirmar si salió». Reintentarlo lo decide una persona.
+4. **Al despachar cada fila se vuelve a leer** (`releerAntesDeEnviar`): baja (`no_contactar`, también la de las personas del EQUIPO, que antes no se miraba en correo ni push masivos), autorización del canal (regla general: solo un 0 bloquea; con `{enlace_ya_vote}` por SMS, la estricta: solo un 1) y, si la campaña es de Día D (lleva `{enlace_ya_vote}` o su fuente es «mis votantes que aún no han votado»), si **ya votó**. Si ya no aplica, la fila queda **`omitido`** con su motivo. La baja por número que descubre el propio envío SMS (`DADO_DE_BAJA`) también queda `omitido`.
+5. **SMS fuera de franja ya no es «fallido»:** la fila vuelve a `pendiente`, la campaña pasa a `borrador` con `programado_para` = la apertura de la siguiente franja (`minutosHastaLaFranja`, la de las bienvenidas) y el ciclo se detiene; el despachador de cada minuto la retoma.
+- Migración: `comunicaciones_envios.estado` admite `enviando` y `omitido`; columnas `reclamado_en` y `proceso`. Las cuatro pantallas con `ETIQUETAS_ESTADO_ENVIO` traducen los estados nuevos (y los que se pintaban crudos: `dado_de_baja`, `sin_autorizacion`), y el resumen de `GET /campanas/:id` cuenta `sin_autorizacion`, `omitidos` y `enviando`.
+- **Esto arregla** la duda de fondo 1 del informe de textos (la baja del equipo en correo y push masivos). Las guías `f-mensaje-omitido`, `g-baja` y `t-no-contactar` dicen «por ningún canal»; con este parche es verdad también para el equipo.
+
+### Fase 1 — el motor (`lib/recordatorios.js`, arrancado desde `app.js`)
+
+**Tablas nuevas** (`db/init-db.js`, `CREATE TABLE IF NOT EXISTS`):
+| Tabla | Qué guarda |
+|---|---|
+| `recordatorio_reglas` | tipo, nombre, canal (`sms`/`push`/`email`), `activo` (0 de fábrica), plantilla, asunto, `desfase_min` (−1440 = un día antes) **o** `hora_dia`, `gracia_min` (180), filtros (JSON) |
+| `recordatorio_envios` | **una fila por (regla, destinatario, ocurrencia)** con clave única `uq_rec_envio`; estado (`reclamado`/`enviando`/`enviado`/`omitido`/`fallido`/`diferido`), motivo, intentos, segmentos, id del proveedor, `debe_salir_en`, `proximo_intento`, marcas de tiempo |
+| `recordatorio_tope_diario` | los segmentos de SMS automáticos gastados por día (la reserva) |
+
+**Configuración nueva en `configuracion_campana`:** `recordatorios_activos` (0), `fecha_permitida_propaganda` (vacía), `tope_diario_sms_automaticos` (200), `silencio_inicio` (20:00) y `silencio_fin` (08:00).
+
+**Cómo funciona.**
+- **Vuelta cada 60 s en este mismo proceso** (`setInterval(...).unref()`, como `avisosAlertas`). Apagado: solo lee la fila de configuración y sale. Una vuelta lenta no se pisa a sí misma.
+- **Sin duplicados:** `INSERT IGNORE` en `recordatorio_envios` ANTES de enviar; solo manda quien de verdad insertó. Tres vueltas a la vez mandan una vez.
+- **Catch-up sin reenviar:** manda lo que ya toca (`<= ahora`) dentro de `gracia_min`; lo que ya está registrado no se repite; lo que quedó más allá de su ventana se registra `omitido` («pasó su ventana») para no reevaluarlo. Una «enviando» huérfana se reconcilia como arriba; una «reclamado» abandonada antes de llamar al proveedor se libera y sale una vez.
+- **Silencio de 20:00 a 08:00 para push, correo y SMS:** nada sale ni se registra; lo que tocaba en ese rato sale a las 08:00 (la gracia se cuenta desde el fin del silencio).
+- **Tope diario de SMS automáticos con reserva previa** (`UPDATE … WHERE segmentos_usados + n <= tope`): nunca más que el `limite_diario` del libro central (`topeEfectivo`) ni más que el cupo de hoy; un envío que falla devuelve su cupo; lo que no cabe queda `diferido` para mañana a las 08:00.
+- **Reintentos:** a los 5 y a los 15 minutos; al tercero, `fallido`. «Fuera de la franja del proveedor» es `diferido` y no gasta un intento.
+- **Consentimiento estricto** (`puedeEscribirseEstricto`, en `lib/canalesDelEnlace.js`, junto a la regla del enlace «Ya voté»): ficha leída justo antes de enviar; **el NULL no autoriza**, la baja manda, la inscripción por enlace sin confirmar excluye, push solo al equipo, WhatsApp nunca. Lo de las personas del equipo por SMS o correo queda fuera (no tienen casilla de consentimiento): para ellas solo push.
+- **Precampaña:** antes de `fecha_permitida_propaganda` (vacía = nunca) la plantilla no puede decir voto/votar/votó/votación/votante, elección/electoral, elegir, urnas, tarjetón, cargo, ni el nombre de un cargo (alcaldía, concejo, gobernación, asamblea, senado, cámara de representantes, JAL, edil… y el cargo que la campaña tenga configurado). Lo rechaza `guardarRegla` al guardar **y se vuelve a comprobar con el texto ya armado al enviar** (por si la fecha se mueve). Una plantilla de «¿ya votaste?» no se puede guardar antes de esa fecha: es lo previsto.
+- **Plantillas por tipo, variables en lista cerrada:** base `{nombre}`, `{candidato}`, `{eslogan}`; `evento` suma `{titulo_evento}`, `{fecha_evento}`, `{hora_evento}`, `{lugar_evento}`; `ya_votaste` suma `{puesto}`, `{enlace_ya_vote}`. Una variable fuera de la lista se rechaza; si falta el dato de una variable al armar, no se manda a medias.
+- **Un solo segmento GSM-7:** el validador mide con el peor caso de cada variable, sin tildes, con la **firma del operador** y con el **enlace de baja de 78 caracteres** (el tipo de Día D no lo lleva), y rechaza lo que pase de 160; al enviar se vuelve a medir con los datos reales. Push: título ≤ 50 y texto ≤ 140. Correo: exige asunto.
+- **Fuentes de candidatos:** `registrarTipo(nombre, { candidatos })` — una por tipo, se escribe en las fases siguientes. Una regla activa sin fuente no hace nada (lo avisa una vez en el log).
+- `guardarRegla` (para la pantalla): valida y guarda; una regla **nueva nace apagada**.
+
+### Pruebas
+- **`scripts/probar-recordatorios.js` — 127 comprobaciones**, sobre una base nueva (se niega a correr si el nombre no empieza por `simulada` o `prueba`): migración repetible y valores de fábrica · Fase 0 (fila ajena no se toca, reintentar dos veces, «enviando» antes de llamar y su id, reconciliación con y sin rastro, relectura de baja/autorización/ya votó/equipo, regla estricta del enlace, fuera de franja → reprogramada y luego enviada) · apagado de fábrica · duplicados (tres vueltas simultáneas) · catch-up (de madrugada, el mismo día, vencido) · silencio (21:00, 20:00, 07:59, 08:00; push también) · tope (con dos vueltas a la vez; límite del libro central; devolución al fallar) · consentimiento (NULL, 0, baja, sin teléfono, enlace sin confirmar, push, «ya votó») · precampaña (14 textos prohibidos, el cargo configurado, el asunto, fecha futura/hoy/vacía, y otra vez al enviar) · un segmento (con firma y baja) · reintentos (5 y 15 min, fallido al tercero, fuera de franja) · «enviando» y «reclamado» abandonadas.
+- Las otras ocho suites, cada una sobre una base nueva, siguen bien: `probar-manuales`, `probar-comunas-dashboard`, `probar-inscripcion-enlace` (467), `probar-logistica`, `probar-panel-alcance`, `probar-panel-lider`, `probar-transporte-diad` (123) y `probar-transporte-parte2`.
+- **No se arrancó `app.js` entero** (escucha en el puerto de producción y valida la licencia): se comprobó su sintaxis y que `iniciar()` devuelve un temporizador que no retiene el proceso. Tras aplicar el parche en una campaña, mirar el registro de PM2 y que no salga ningún «Recordatorios:» de error.
+
+### Lo que NO está hecho (fases siguientes)
+Fuente de candidatos de **eventos** (aviso X horas antes, a asistentes con autorización y al equipo por push) · fuente del **«¿ya votaste?»** a la hora H (solo a quienes no han votado) · **pantalla** del administrador (activar, probar, ver lo enviado; `fecha_permitida_propaganda`, tope y silencio se editan hoy solo en la base) · plantillas guardadas por tipo · reporte de entrega.
+
+## Parche 299 — Manuales: textos revisados (8 de noviembre de 2026, publicado; registro y activación por el usuario)
+
+Zip de **154 archivos** (`.version-base` = 299): **137 guías** de `manuales/bloques/` corregidas, **15 capturas** rehechas y **3 nuevas** (`public/manuales/img/`), `manuales/LEEME.md` y `.version-base`. **Requiere el 298.** Sin `db/`, sin código de la app y sin service worker: no toca la base. Publicado (huella verificada); el registro y la activación los hizo el usuario.
 
 **Cómo se hizo (orden Manuales 5).** Los 161 bloques los habían escrito agentes leyendo el código, sin ver pantallas. Esta vez siete agentes (uno por área) abrieron cada pantalla en Chromium sobre la base desechable con datos inventados (`ver.js`: abre una ruta como un rol, hace los pasos y cuenta lo que se ve, con foto) y la compararon con la guía y con el código. Corrigieron directo los errores claros en SUS archivos y anotaron las dudas de fondo en un informe cada uno. Yo comprobé después una muestra contra el código (horas de las alertas, umbral de 5 votantes de «Baja votación») y unifiqué un término. **No se tocó la app.**
 

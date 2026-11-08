@@ -185,7 +185,7 @@ const ETIQUETAS_CANAL = { email: 'Email', email_personal: 'Email personal', sms:
 // el SERVIDOR, y el mensaje de error se muestra tal cual. No se duplica
 // aquí a propósito: una lista repetida en los dos lados se desincroniza,
 // y la que manda es la del servidor.
-const ETIQUETAS_ESTADO_ENVIO = { pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto', sin_lugar_votacion: 'Sin lugar de votación (no se envió)' };
+const ETIQUETAS_ESTADO_ENVIO = { enviando: 'Enviando…', omitido: 'Omitido (ya no aplicaba)', dado_de_baja: 'Dado de baja (no se envió)', sin_autorizacion: 'Sin autorización (no se envió)', pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto', sin_lugar_votacion: 'Sin lugar de votación (no se envió)' };
 
 /**
  * Escapa texto que va a entrar en un innerHTML.

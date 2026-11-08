@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { duenoDeLaCampana } = require('../lib/ramas');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
@@ -673,14 +674,9 @@ router.post('/respuestas/:id/leida', async (req, res) => {
  */
 router.post('/campanas/:id/reintentar-fallidos', async (req, res) => {
   try {
-    const [r] = await pool.query(
-      `UPDATE comunicaciones_envios
-          SET estado = 'pendiente', error_mensaje = NULL
-        WHERE campana_id = ? AND estado = 'fallido'`, [req.params.id]);
-    if (!r.affectedRows) return res.json({ ok: true, reintentados: 0 });
-    await pool.query(`UPDATE comunicaciones_campanas SET estado = 'enviando' WHERE id = ?`, [req.params.id]);
-    res.json({ ok: true, reintentados: r.affectedRows });
-    procesarEnvioCampana(Number(req.params.id));   // sigue después de responder
+    const r = await reintentarFallidos(Number(req.params.id));
+    if (r.enProceso) return res.status(409).json({ error: 'Esta campaña todavía se está enviando. Espera a que termine para reintentar los que fallaron.' });
+    res.json({ ok: true, reintentados: r.reintentados });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudieron reintentar los envíos fallidos.' });
@@ -997,7 +993,10 @@ router.get('/campanas/:id', async (req, res) => {
               SUM(estado = 'pendiente')           AS pendientes,
               SUM(estado = 'sin_contacto')        AS sin_contacto,
               SUM(estado = 'sin_lugar_votacion')  AS sin_lugar_votacion,
-              SUM(estado = 'dado_de_baja')        AS dados_de_baja
+              SUM(estado = 'dado_de_baja')        AS dados_de_baja,
+              SUM(estado = 'sin_autorizacion')    AS sin_autorizacion,
+              SUM(estado = 'omitido')             AS omitidos,
+              SUM(estado = 'enviando')            AS enviando
          FROM comunicaciones_envios WHERE campana_id = ?`, [req.params.id]);
     res.json({ campana, envios, resumen });
   } catch (err) {
@@ -1016,7 +1015,7 @@ router.get('/campanas/:id', async (req, res) => {
  * negocios (ver POST /campanas). El parámetro adjuntoUrl se conserva
  * porque era exclusivo de ese canal y hoy siempre llega en null.
  */
-async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCallbackUrl, urlBaja) {
+async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCallbackUrl, urlBaja, ctx = {}) {
   if (canal === 'email') {
     await sendgridSvc.enviarCorreoMasivo(contacto, asunto, mensaje, urlBaja);
     return null;
@@ -1027,7 +1026,9 @@ async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCal
     // statusCallbackUrl se sigue pasando pero HOY NO SE USA: Onurix no avisa
     // el cambio de estado como hacía Twilio. Hasta que exista el webhook
     // (punto 8), un SMS queda en 'aceptado' y no pasa a 'entregado'.
-    const { sid } = await smsSvc.enviarSMS(contacto, mensaje, statusCallbackUrl, { origen: 'crm' });
+    // `loteId` y `contactoId` dejan en la bitácora de SMS de QUÉ campaña y de QUÉ fila salió: con eso se reconcilia
+    // una fila que quedó en 'enviando' tras un reinicio (reconciliarEnviando).
+    const { sid } = await smsSvc.enviarSMS(contacto, mensaje, statusCallbackUrl, { origen: 'crm', loteId: ctx.loteId, contactoId: ctx.contactoId });
     return sid;
   } else if (canal === 'push') {
     // Aquí `contacto` es el usuario_id (ver obtenerDestinatarios). El
@@ -1307,7 +1308,171 @@ async function personalizarMensaje(mensaje, envio, slogan = '', urlBajaBase = nu
  * con el id de la campaña (ver reanudarCampanasPendientes, más abajo),
  * en vez de dejarla colgada en "Enviando..." para siempre.
  */
+const campanasEnProceso = new Set();   // UN proceso de Node por campaña: la misma campaña no se envía dos veces a la vez
+
+/* ------------------------------------------------------------------
+   QUIÉN ENVÍA, CUÁNTAS VECES Y QUÉ SE VUELVE A MIRAR (recordatorios, Fase 0)
+
+   Tres defectos que podían mandar un mensaje dos veces o mandarlo a quien ya no
+   debía recibirlo:
+
+   1. DOS CICLOS SOBRE LAS MISMAS FILAS. «Reintentar fallidos» pasaba las filas a
+      'pendiente' y lanzaba otro envío; si el primero seguía en marcha, los dos
+      leían la misma lista de pendientes. Ahora cada fila se RECLAMA antes de
+      enviarla (UPDATE ... WHERE estado = 'pendiente': solo uno gana) y, además, una
+      campaña que ya se está enviando en este proceso no arranca otro ciclo.
+
+   2. UN REINICIO ENTRE «EL PROVEEDOR LO ACEPTÓ» Y «LO ANOTÉ». La fila queda en
+      'enviando' antes de llamar al proveedor. Si el proceso muere ahí, al arrancar
+      se RECONCILIA con la bitácora de SMS (o se deja 'fallido' con la advertencia):
+      nunca se reenvía a ciegas. Reintentarlo es una decisión de una persona.
+
+   3. LA LISTA SE CONGELA AL CREAR LA CAMPAÑA. Una campaña programada para mañana
+      conservaba a quien hoy pidió la baja, retiró su autorización o ya votó. Ahora
+      cada fila se vuelve a leer justo antes de enviarse (releerAntesDeEnviar).
+   ------------------------------------------------------------------ */
+
+/** Reclama UNA fila: solo quien la pasa de 'pendiente' a 'enviando' puede mandarla. */
+async function reclamarFila(envioId, proceso) {
+  const [r] = await pool.query(
+    `UPDATE comunicaciones_envios SET estado = 'enviando', reclamado_en = NOW(), proceso = ?
+      WHERE id = ? AND estado = 'pendiente'`, [proceso, envioId]);
+  return r.affectedRows === 1;
+}
+
+/** ¿La campaña es de Día D? Lleva el enlace «Ya voté» o su fuente es «mis votantes que aún no han votado». */
+function esCampanaDeDiaD(campana) {
+  if (MARCADOR_ENLACE.test(campana.mensaje || '')) return true;
+  const f = typeof campana.filtros === 'string' ? campana.filtros : JSON.stringify(campana.filtros || {});
+  return f.includes('mis_votantes_sin_voto');
+}
+
+/**
+ * Lo que ya no aplica ENTRE crear la campaña y enviarla. Devuelve el motivo (texto) o null si se puede enviar.
+ * Vuelve a leer la ficha: baja, autorización del canal y, en Día D, si ya votó.
+ *   · Autorización: la regla general deja pasar el NULL («no consta») y solo bloquea un 0; con {enlace_ya_vote}
+ *     por SMS la regla es la estricta (solo un 1), la misma de aplicarReglaDelEnlace.
+ */
+async function releerAntesDeEnviar(envio, campana) {
+  const canal = campana.canal;
+  const diaD = esCampanaDeDiaD(campana);
+  const estricta = canal === 'sms' && MARCADOR_ENLACE.test(campana.mensaje || '');
+  if (envio.destinatario_tipo === 'votante' && envio.destinatario_id) {
+    const [[v]] = await pool.query(
+      `SELECT v.no_contactar, v.consentimiento_sms, v.consentimiento_email,
+              EXISTS(SELECT 1 FROM votante_votos vv WHERE vv.votante_id = v.id) AS ya_voto
+         FROM votantes v WHERE v.id = ?`, [envio.destinatario_id]);
+    if (!v) return 'La persona ya no está registrada.';
+    if (Number(v.no_contactar) === 1) return 'Pidió no recibir más mensajes: se respetó antes de enviar.';
+    const columna = canal === 'sms' ? 'consentimiento_sms' : esCanalDeCorreo(canal) ? 'consentimiento_email' : null;
+    if (columna) {
+      const valor = v[columna];
+      const autoriza = estricta ? Number(valor) === 1 : (valor === null || valor === undefined || Number(valor) === 1);
+      if (!autoriza) return estricta && (valor === null || valor === undefined)
+        ? 'No consta su autorización por este medio (el enlace «Ya voté» solo va a quien dijo que sí).'
+        : 'Retiró su autorización por este medio: se respetó antes de enviar.';
+    }
+    if (diaD && Number(v.ya_voto) === 1) return 'Ya votó: no hace falta escribirle.';
+  } else if (envio.destinatario_tipo === 'estructura' && envio.destinatario_id) {
+    const [[u]] = await pool.query(
+      `SELECT u.no_contactar FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id = ?`, [envio.destinatario_id]);
+    if (u && Number(u.no_contactar) === 1) return 'Pidió no recibir más mensajes: se respetó antes de enviar.';
+  }
+  return null;
+}
+
+/** Una campaña de SMS fuera de franja NO falla: se reprograma para la apertura de la siguiente. */
+async function reprogramarPorFranja(campanaId) {
+  let minutos = 60;
+  try {
+    const { minutosHastaLaFranja } = require('../config/bienvenidaAutomatica');
+    minutos = Math.max(1, minutosHastaLaFranja(await smsSvc.configCampana()));
+  } catch (_) { /* sin config: una hora, y se vuelve a mirar */ }
+  await pool.query(
+    `UPDATE comunicaciones_campanas SET estado = 'borrador', programado_para = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE id = ?`,
+    [minutos, campanaId]);
+  console.log(`Campaña ${campanaId}: fuera de la franja de SMS, se reprograma para dentro de ${minutos} min (la apertura).`);
+}
+
+/** Cierra la campaña si ya no queda ninguna fila por enviar ni en vuelo. */
+async function cerrarCampanaSiTermino(campanaId) {
+  try {
+    const [[campana]] = await pool.query(`SELECT total_destinatarios FROM comunicaciones_campanas WHERE id = ?`, [campanaId]);
+    if (!campana) return;
+    const [[totales]] = await pool.query(
+      `SELECT SUM(estado = 'enviado') AS enviados, SUM(estado = 'fallido') AS fallidos,
+              SUM(estado IN ('pendiente','enviando')) AS abiertas
+         FROM comunicaciones_envios WHERE campana_id = ?`, [campanaId]);
+    // Si sigue habiendo filas abiertas (el proceso se reinició en medio de este ciclo), no se cierra todavía:
+    // reanudarCampanasPendientes la retomará en el próximo arranque.
+    if (Number(totales.abiertas) > 0) return;
+    const fallidos = Number(totales.fallidos) || 0;
+    const enviados = Number(totales.enviados) || 0;
+    const estadoFinal = fallidos === campana.total_destinatarios && campana.total_destinatarios > 0 ? 'fallido' : 'enviado';
+    await pool.query(
+      `UPDATE comunicaciones_campanas SET estado = ?, enviados = ?, fallidos = ?, enviado_en = NOW() WHERE id = ?`,
+      [estadoFinal, enviados, fallidos, campanaId]);
+  } catch (errFinal) {
+    // Si esto falla (por ejemplo, porque la campaña se borró justo en el último instante), ya no hay nada más
+    // que actualizar — se deja constancia en los logs, sin lanzar el error hacia arriba.
+    console.error(`No se pudo guardar el estado final de la campaña ${campanaId}:`, errFinal);
+  }
+}
+
+/**
+ * Las filas que quedaron en 'enviando' (el proceso murió después de reclamarlas) se RECONCILIAN, no se reenvían.
+ *   · SMS: se busca en la bitácora (sms_envios, lote «crm-<campaña>», contacto = la fila). Si el proveedor lo aceptó →
+ *     'enviado'; si lo rechazó → 'fallido' con su motivo.
+ *   · Sin rastro (y para correo y push, que no tienen bitácora): 'fallido' con la advertencia de que NO se pudo
+ *     confirmar si salió. «Reintentar fallidos» lo mandaría otra vez, y eso lo decide una persona.
+ * `todas`: al arrancar, TODAS las 'enviando' son huérfanas (un solo proceso). Después, solo las de más de `minutos`
+ * y que no sean de una campaña que este proceso está enviando ahora mismo.
+ */
+async function reconciliarEnviando({ todas = false, minutos = 10 } = {}) {
+  const [filas] = await pool.query(
+    `SELECT e.id, e.campana_id, c.canal
+       FROM comunicaciones_envios e JOIN comunicaciones_campanas c ON c.id = e.campana_id
+      WHERE e.estado = 'enviando' AND (? OR e.reclamado_en IS NULL OR e.reclamado_en < NOW() - INTERVAL ? MINUTE)`,
+    [todas ? 1 : 0, minutos]);
+  const tocadas = new Set();
+  let n = 0;
+  for (const f of filas) {
+    if (!todas && campanasEnProceso.has(f.campana_id)) continue;
+    let estado = 'fallido';
+    let sid = null;
+    let motivo = 'Se interrumpió el envío y no se pudo confirmar si el mensaje salió. Revisa con la persona antes de reintentar.';
+    if (f.canal === 'sms') {
+      try {
+        const [[b]] = await pool.query(
+          `SELECT estado, proveedor_id, error_mensaje FROM sms_envios WHERE lote_id = ? AND contacto_id = ? ORDER BY id DESC LIMIT 1`,
+          [`crm-${f.campana_id}`, f.id]);
+        if (b && (b.estado === 'aceptado' || b.estado === 'entregado')) { estado = 'enviado'; sid = b.proveedor_id || null; motivo = null; }
+        else if (b && (b.estado === 'fallido' || b.estado === 'rechazado')) motivo = String(b.error_mensaje || 'El proveedor lo rechazó.').slice(0, 250);
+      } catch (_) { /* sin bitácora: queda la advertencia */ }
+    }
+    const [r] = await pool.query(
+      `UPDATE comunicaciones_envios SET estado = ?, twilio_sid = COALESCE(?, twilio_sid), error_mensaje = ?,
+              enviado_en = IF(? = 'enviado', NOW(), enviado_en)
+        WHERE id = ? AND estado = 'enviando'`, [estado, sid, motivo, estado, f.id]);
+    if (r.affectedRows) { n++; tocadas.add(f.campana_id); }
+  }
+  for (const id of tocadas) await cerrarCampanaSiTermino(id);
+  if (n) console.log(`Se reconciliaron ${n} envío(s) que quedaron en «enviando».`);
+  return n;
+}
+
+/** Envío por fila de una campaña. Ver el encabezado de arriba: reclamar, releer, enviar, anotar. */
 async function procesarEnvioCampana(campanaId) {
+  if (campanasEnProceso.has(campanaId)) {
+    console.log(`La campaña ${campanaId} ya se está enviando en este proceso: no se lanza otro ciclo.`);
+    return;
+  }
+  campanasEnProceso.add(campanaId);
+  try { await enviarFilasDeLaCampana(campanaId); }
+  finally { campanasEnProceso.delete(campanaId); }
+}
+
+async function enviarFilasDeLaCampana(campanaId) {
   const [[campana]] = await pool.query(`SELECT * FROM comunicaciones_campanas WHERE id = ?`, [campanaId]);
   if (!campana) {
     console.warn(`La campaña ${campanaId} ya no existe — no hay nada que procesar.`);
@@ -1336,6 +1501,8 @@ async function procesarEnvioCampana(campanaId) {
        FROM comunicaciones_envios WHERE campana_id = ? AND estado = 'pendiente' ORDER BY id`,
     [campanaId]
   );
+  const proceso = crypto.randomBytes(6).toString('hex');
+  let reprogramada = false;
 
   for (const envio of pendientes) {
     // Si en medio del envío alguien borró esta campaña (ej. con
@@ -1349,20 +1516,31 @@ async function procesarEnvioCampana(campanaId) {
       return;
     }
 
-    /* ÚLTIMA GUARDA, la que no depende de cómo se armó la lista: una fila que quedó
-       'pendiente' (campaña programada, destinatario agregado después) de alguien que
-       se inscribió por enlace y no ha confirmado NO se envía. */
-    if (envio.destinatario_tipo === 'votante' && envio.destinatario_id && await esPendienteDeConfirmar(envio.destinatario_id)) {
-      await pool.query(
-        `UPDATE comunicaciones_envios SET estado = 'sin_autorizacion', error_mensaje = ? WHERE id = ?`,
-        ['Se inscribió por el enlace de un líder y aún no confirma su autorización: no recibe envíos masivos.', envio.id]);
-      continue;
-    }
+    // La fila es de quien la reclama. Si otro ciclo se le adelantó, no se toca.
+    if (!(await reclamarFila(envio.id, proceso))) continue;
 
     // Todo el procesamiento de ESTA fila queda protegido — un problema
     // puntual con un destinatario (incluso al guardar el resultado en la
     // base de datos) nunca debe tumbar el envío completo de la campaña.
     try {
+      /* ÚLTIMA GUARDA, la que no depende de cómo se armó la lista: una fila que quedó
+         'pendiente' (campaña programada, destinatario agregado después) de alguien que
+         se inscribió por enlace y no ha confirmado NO se envía. */
+      if (envio.destinatario_tipo === 'votante' && envio.destinatario_id && await esPendienteDeConfirmar(envio.destinatario_id)) {
+        await pool.query(
+          `UPDATE comunicaciones_envios SET estado = 'sin_autorizacion', error_mensaje = ? WHERE id = ?`,
+          ['Se inscribió por el enlace de un líder y aún no confirma su autorización: no recibe envíos masivos.', envio.id]);
+        continue;
+      }
+
+      // Lo que cambió desde que se armó la lista: baja, autorización del canal y, en Día D, si ya votó.
+      const motivoOmitir = await releerAntesDeEnviar(envio, campana);
+      if (motivoOmitir) {
+        await pool.query(`UPDATE comunicaciones_envios SET estado = 'omitido', error_mensaje = ? WHERE id = ?`,
+          [motivoOmitir.slice(0, 250), envio.id]);
+        continue;
+      }
+
       const { texto: mensajePersonalizado, faltaLugar, urlBaja, faltaEnlace, motivoEnlace } = await personalizarMensaje(mensaje, envio, slogan, urlBajaBase, canal, baseEnlace);
       if (faltaEnlace) {
         await pool.query(
@@ -1381,12 +1559,27 @@ async function procesarEnvioCampana(campanaId) {
         continue;
       }
       try {
-        const sid = await enviarUno(canal, envio.destinatario_contacto, asunto, mensajePersonalizado, adjuntoUrl, statusCallbackUrl, urlBaja);
+        const sid = await enviarUno(canal, envio.destinatario_contacto, asunto, mensajePersonalizado, adjuntoUrl, statusCallbackUrl, urlBaja,
+          { loteId: `crm-${campanaId}`, contactoId: envio.id });
         await pool.query(
           `UPDATE comunicaciones_envios SET estado = 'enviado', twilio_sid = ?, enviado_en = NOW() WHERE id = ?`,
           [sid, envio.id]
         );
       } catch (err) {
+        if (err && err.codigo === 'FUERA_DE_FRANJA') {
+          // No es un fallo: es la hora. La fila vuelve a la cola y la campaña espera la apertura.
+          await pool.query(
+            `UPDATE comunicaciones_envios SET estado = 'pendiente', reclamado_en = NULL, proceso = NULL, error_mensaje = NULL WHERE id = ?`, [envio.id]);
+          await reprogramarPorFranja(campanaId);
+          reprogramada = true;
+          break;
+        }
+        if (err && err.codigo === 'DADO_DE_BAJA') {
+          // La baja por número (SMS) que se vuelve a mirar dentro del propio envío.
+          await pool.query(`UPDATE comunicaciones_envios SET estado = 'omitido', error_mensaje = ? WHERE id = ?`,
+            ['Ese número pidió no recibir más mensajes: se respetó antes de enviar.', envio.id]);
+          continue;
+        }
         await pool.query(
           `UPDATE comunicaciones_envios SET estado = 'fallido', error_mensaje = ? WHERE id = ?`,
           [String(err.message || err).slice(0, 250), envio.id]
@@ -1394,6 +1587,10 @@ async function procesarEnvioCampana(campanaId) {
       }
     } catch (errFila) {
       console.error(`Error registrando el resultado para ${envio.destinatario_nombre} en la campaña ${campanaId} (se sigue con el resto):`, errFila);
+      // La fila no se queda en 'enviando' para siempre ni vuelve a 'pendiente' (podría reenviarse a ciegas).
+      await pool.query(
+        `UPDATE comunicaciones_envios SET estado = 'fallido', error_mensaje = ? WHERE id = ? AND estado = 'enviando'`,
+        ['Error interno al registrar el resultado: no se pudo confirmar si salió. Revisa antes de reintentar.', envio.id]).catch(() => {});
     }
 
     // Pausa corta entre envíos — evita ráfagas que un proveedor pueda
@@ -1401,35 +1598,25 @@ async function procesarEnvioCampana(campanaId) {
     await new Promise(resolve => setTimeout(resolve, esCanalDeCorreo(canal) ? 300 : 600));
   }
 
-  try {
-    const [[totales]] = await pool.query(
-      `SELECT
-         SUM(estado = 'enviado') AS enviados,
-         SUM(estado = 'fallido') AS fallidos,
-         SUM(estado = 'sin_lugar_votacion') AS sin_lugar,
-         SUM(estado = 'dado_de_baja') AS dados_de_baja,
-         SUM(estado = 'pendiente') AS pendientes
-       FROM comunicaciones_envios WHERE campana_id = ?`,
-      [campanaId]
-    );
-    // Si sigue habiendo pendientes (ej. el proceso se reinició justo en
-    // medio de este mismo ciclo), no se marca la campaña como terminada
-    // todavía — reanudarCampanasPendientes la retomará en el próximo arranque.
-    if (Number(totales.pendientes) > 0) return;
+  if (reprogramada) return;   // espera su apertura: el despachador la retoma
+  await cerrarCampanaSiTermino(campanaId);
+}
 
-    const fallidos = Number(totales.fallidos) || 0;
-    const enviados = Number(totales.enviados) || 0;
-    const estadoFinal = fallidos === campana.total_destinatarios && campana.total_destinatarios > 0 ? 'fallido' : 'enviado';
-    await pool.query(
-      `UPDATE comunicaciones_campanas SET estado = ?, enviados = ?, fallidos = ?, enviado_en = NOW() WHERE id = ?`,
-      [estadoFinal, enviados, fallidos, campanaId]
-    );
-  } catch (errFinal) {
-    // Si esto falla (por ejemplo, porque la campaña se borró justo en el
-    // último instante), ya no hay nada más que actualizar — se deja
-    // constancia en los logs, sin lanzar el error hacia arriba.
-    console.error(`No se pudo guardar el estado final de la campaña ${campanaId}:`, errFinal);
-  }
+/**
+ * «Reintentar fallidos»: reclama las filas fallidas (UPDATE ... WHERE estado = 'fallido', con la marca de este proceso)
+ * y lanza UN ciclo. Un segundo clic no hace nada: si la campaña se está enviando se le dice que espere, y si ya no hay
+ * fallidos que reclamar devuelve 0. Devuelve { reintentados, enProceso }.
+ */
+async function reintentarFallidos(campanaId) {
+  if (campanasEnProceso.has(Number(campanaId))) return { reintentados: 0, enProceso: true };
+  const marca = crypto.randomBytes(6).toString('hex');
+  const [r] = await pool.query(
+    `UPDATE comunicaciones_envios SET estado = 'pendiente', error_mensaje = NULL, reclamado_en = NULL, proceso = ?
+      WHERE campana_id = ? AND estado = 'fallido'`, [marca, campanaId]);
+  if (!r.affectedRows) return { reintentados: 0, enProceso: false };
+  await pool.query(`UPDATE comunicaciones_campanas SET estado = 'enviando' WHERE id = ?`, [campanaId]);
+  procesarEnvioCampana(Number(campanaId)).catch(err => console.error(`Error reintentando la campaña ${campanaId}:`, err));
+  return { reintentados: r.affectedRows, enProceso: false };
 }
 
 /**
@@ -1437,10 +1624,11 @@ async function procesarEnvioCampana(campanaId) {
  * que quedaron en "enviando" — la única forma de que eso pase es que el
  * proceso de Node se haya reiniciado a la mitad de un envío — y retoma
  * cada una donde se quedó, en vez de dejarlas colgadas hasta que alguien
- * lo note.
+ * lo note. ANTES reconcilia las filas que quedaron en 'enviando' (no las reenvía).
  */
 async function reanudarCampanasPendientes() {
   try {
+    await reconciliarEnviando({ todas: true });
     const [campanas] = await pool.query(`SELECT id FROM comunicaciones_campanas WHERE estado = 'enviando'`);
     if (!campanas.length) return;
     console.log(`Reanudando ${campanas.length} campaña(s) que quedaron a medias en un reinicio anterior...`);
@@ -1658,6 +1846,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
  */
 async function despacharCampanasProgramadas() {
   try {
+    await reconciliarEnviando({ minutos: 10 });   // las que quedaron «enviando» hace rato y nadie está enviando
     const [pendientes] = await pool.query(
       `SELECT id FROM comunicaciones_campanas
         WHERE estado = 'borrador' AND programado_para IS NOT NULL AND programado_para <= NOW()`);
@@ -1884,3 +2073,8 @@ router.post('/bajas/:tipo/:id/reactivar', requireRole('admin'), async (req, res)
 module.exports = router;
 module.exports.reanudarCampanasPendientes = reanudarCampanasPendientes;
 module.exports.despacharCampanasProgramadas = despacharCampanasProgramadas;
+module.exports.procesarEnvioCampana = procesarEnvioCampana;
+module.exports.reintentarFallidos = reintentarFallidos;
+module.exports.reconciliarEnviando = reconciliarEnviando;
+module.exports.releerAntesDeEnviar = releerAntesDeEnviar;
+module.exports.campanasEnProceso = campanasEnProceso;

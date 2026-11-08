@@ -1507,8 +1507,13 @@ async function main() {
   // respetó y desde cuándo.
   await modificarColumna(
     connection, 'comunicaciones_envios',
-    "estado ENUM('pendiente','enviado','fallido','sin_contacto','sin_lugar_votacion','dado_de_baja','sin_autorizacion') NOT NULL DEFAULT 'pendiente'"
+    "estado ENUM('pendiente','enviando','enviado','fallido','sin_contacto','sin_lugar_votacion','dado_de_baja','sin_autorizacion','omitido') NOT NULL DEFAULT 'pendiente'"
   );
+  // Recordatorios, Fase 0: «enviando» (la fila está en manos de un ciclo, ya reclamada) y «omitido» (algo cambió entre armar la
+  // campaña y enviarla: baja, autorización retirada, ya votó…). `reclamado_en` y `proceso` dicen quién y desde cuándo la tiene,
+  // para reconciliar las que quedaron a medias tras un reinicio sin reenviarlas a ciegas.
+  await agregarColumnaSiFalta(connection, 'comunicaciones_envios', 'reclamado_en DATETIME NULL AFTER enviado_en', 'reclamado_en');
+  await agregarColumnaSiFalta(connection, 'comunicaciones_envios', 'proceso VARCHAR(16) NULL AFTER reclamado_en', 'proceso');
 
   // "Apoya a": a qué cargo(s) apoya esta persona — se guarda como una
   // lista en JSON (ej. ["alcaldia","concejo"]) porque alguien puede
@@ -3013,6 +3018,72 @@ async function main() {
       FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   console.log('Tablas de la inscripción por enlace listas.');
+
+  /* ------------------------------------------------------------------------------------------------------------
+     RECORDATORIOS AUTOMÁTICOS, FASE 1 (lib/recordatorios.js). Apagados de fábrica: sin reglas y con el interruptor en 0.
+       · recordatorio_reglas   QUÉ se manda, por qué canal, CUÁNDO (desfase respecto de algo, o una hora del día) y a quién (filtros).
+       · recordatorio_envios   UNA fila por (regla, destinatario, ocurrencia). La clave única es el candado contra los duplicados:
+                               se hace INSERT IGNORE ANTES de enviar y solo manda quien de verdad insertó (como lib/avisosAlertas.js).
+       · recordatorio_tope_diario  los segmentos de SMS automáticos gastados hoy, con reserva previa.
+     ------------------------------------------------------------------------------------------------------------ */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS recordatorio_reglas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tipo VARCHAR(40) NOT NULL COMMENT 'evento | ya_votaste | …: qué fuente de candidatos usa (lib/recordatorios.js)',
+      nombre VARCHAR(120) NOT NULL,
+      canal ENUM('sms','push','email') NOT NULL,
+      activo TINYINT(1) NOT NULL DEFAULT 0,
+      plantilla TEXT NOT NULL COMMENT 'Texto con variables de la lista cerrada de su tipo, p. ej. {nombre}',
+      asunto VARCHAR(150) NULL COMMENT 'Título del push o asunto del correo',
+      desfase_min INT NULL COMMENT 'Minutos respecto del hecho: -1440 = un día antes. NULL si se usa hora_dia',
+      hora_dia TIME NULL COMMENT 'Hora del día (Colombia) a la que toca, p. ej. el Día D',
+      gracia_min INT NOT NULL DEFAULT 180 COMMENT 'Pasado este tiempo desde que tocaba, ya no se manda (catch-up con tope)',
+      filtros JSON NULL,
+      creado_por INT NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_rec_regla_activa (activo, tipo)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS recordatorio_envios (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      regla_id INT NOT NULL,
+      destinatario_tipo ENUM('votante','usuario','manual') NOT NULL,
+      destinatario_id INT NOT NULL DEFAULT 0,
+      ocurrencia VARCHAR(80) NOT NULL COMMENT 'Qué hecho dispara este envío: evento:12:2026-11-20T10:00, dia:2026-11-08…',
+      canal ENUM('sms','push','email') NOT NULL,
+      estado ENUM('reclamado','enviando','enviado','omitido','fallido','diferido') NOT NULL DEFAULT 'reclamado',
+      motivo VARCHAR(250) NULL,
+      intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      segmentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      proveedor_id VARCHAR(128) NULL,
+      debe_salir_en DATETIME NOT NULL COMMENT 'Cuándo tocaba',
+      proximo_intento DATETIME NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      reclamado_en DATETIME NULL,
+      enviado_en DATETIME NULL,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_rec_envio (regla_id, destinatario_tipo, destinatario_id, ocurrencia),
+      KEY idx_rec_envio_estado (estado, proximo_intento),
+      KEY idx_rec_envio_dia (canal, estado, enviado_en)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS recordatorio_tope_diario (
+      fecha DATE NOT NULL PRIMARY KEY,
+      segmentos_usados INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  // Configuración de la campaña (una sola fila). Todo apagado o en su valor prudente de fábrica.
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "recordatorios_activos TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Interruptor general de los recordatorios automáticos (apagado de fábrica)'", 'recordatorios_activos');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "fecha_permitida_propaganda DATE NULL COMMENT 'Desde esta fecha los automáticos pueden hablar de voto, elección, urnas, tarjetón o cargo. Vacía = nunca (precampaña)'", 'fecha_permitida_propaganda');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "tope_diario_sms_automaticos INT NOT NULL DEFAULT 200 COMMENT 'Segmentos de SMS automáticos por día; nunca más que el límite del libro central'", 'tope_diario_sms_automaticos');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "silencio_inicio TIME NOT NULL DEFAULT '20:00:00' COMMENT 'Desde esta hora no sale ningún automático (push, correo ni SMS)'", 'silencio_inicio');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "silencio_fin TIME NOT NULL DEFAULT '08:00:00' COMMENT 'Hasta esta hora no sale ningún automático'", 'silencio_fin');
+  console.log('Tablas de los recordatorios automáticos listas (apagados).');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);

@@ -202,7 +202,7 @@ let puestosVotacionGrupo = [];
 let seleccionados = []; // { tipo, id, nombre, contacto, detalle }
 
 const ETIQUETAS_ESTADO_CAMPANA = { borrador: 'Borrador', enviando: 'Enviando…', enviado: 'Enviado', fallido: 'Fallido' };
-const ETIQUETAS_ESTADO_ENVIO = { pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto' };
+const ETIQUETAS_ESTADO_ENVIO = { enviando: 'Enviando…', omitido: 'Omitido (ya no aplicaba)', dado_de_baja: 'Dado de baja (no se envió)', sin_autorizacion: 'Sin autorización (no se envió)', pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto' };
 
 function claveContacto(d) { return `${d.tipo}:${d.id}`; }
 

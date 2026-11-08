@@ -305,6 +305,10 @@ require('./lib/avisosAlertas').iniciar();
 // El SMS de confirmación de quien se inscribió por enlace: sale dentro de la franja, uno por persona.
 require('./config/inscripcionRegistro').iniciarCola();
 
+// Recordatorios automáticos (Fase 1): APAGADOS de fábrica. Cada minuto, solo lee configuracion_campana.recordatorios_activos y,
+// si está en 0, sale. Ver lib/recordatorios.js: sin duplicados, con catch-up, silencio de 20:00 a 08:00 y consentimiento estricto.
+require('./lib/recordatorios').iniciar();
+
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
 /* LOS LOGOS DE LA MARCA SON PÚBLICOS, el resto de uploads no.
