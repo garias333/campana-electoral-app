@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 290** (`parches/campana-parche290.zip`, 24.454 bytes,
+- **Último parche generado: 291** (`parches/campana-parche291.zip`, 95.914 bytes,
+  sha256 `665a3fa0d08eac5a6c0d927a11f904dda06456a2954624560ce4a81c852ec396`, 5 archivos).
+  **Publicado** (`parche-291.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Menú del celular: se cierra al tocar un ítem y muestra la vista (Requiere el 290)» (detalle abajo); **requiere el 290**.
+  Service worker `v165`. El anterior, el 290 (`parches/campana-parche290.zip`, 24.454 bytes,
   sha256 `9aa6f863614e3fa5328f11f6ee15292b83e5a1fe7b0ced974f28e406ce0bc828`, 6 archivos).
   **Publicado** (`parche-290.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Páginas del celular: contenedor main.app-cuerpo y service worker v164 (Requiere el 289)» (detalle abajo); **requiere el 289**.
@@ -62,7 +66,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v164` en el código de la Base y dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v165` en el código de la Base y dentro del 291; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -70,7 +74,8 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v290** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v290.zip`,
+- **Plantilla vigente: v290, ya atrás del parche 291** (menú del celular; su `.version-base` es 290 y su service worker `v164`): **no regenerada, a pedido**; se regenerará con `--parche 291` (o el último) antes de crear una campaña nueva. Hasta entonces la campaña nueva recibe el 291 en su primer ciclo de actualización.
+- **Plantilla v290 (8 de noviembre de 2026)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v290.zip`,
   2.010.775 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `7fae8431d9546c8ddf4c8fc29ddf6880adc323a81b7068162654a45d28a73559`,
   service worker `estrategia-v164`, `.version-parche` y `.version-base` = 290. Generada con
   `node scripts/generar-plantilla.js --parche 290`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
@@ -96,6 +101,26 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 291 — Menú del celular: se cierra al tocar un ítem y muestra la vista (8 de noviembre de 2026, INACTIVO, no toca la base)
+
+Zip de 5 archivos (`.version-base` = 291): `public/js/common.js`, `public/css/style.css`, `public/votantes-dashboard.html`, `public/service-worker.js` (**v165**) y `.version-base`. Commit `2d5da70`. **Requiere el 290.** Sin `db/`: no toca la base.
+
+**Síntoma (PWA en el celular):** al tocar «Transporte del Día D» el ítem se resaltaba, el menú no se cerraba y no se veía la pestaña. Igual con Logística, Avance, Alertas y Resultados.
+
+**Causa (reproducida en Chromium a 390 px, con el menú de `dia-d.html`):** no fallaba el cambio de pestaña. El clic en un ítem de la misma página lo atiende `common.js` (`paginaEscuchaHash`): cambia la URL con `pushState` y despacha `hashchange`, y `dia-d.html` lo escucha y muestra la pestaña
+(`vista-transporte` pasaba a `display:block` y el ítem quedaba activo). Lo que no existía era un menú que cerrar: hasta 640 px el CSS apila el `.sidebar` como bloque estático **encima** del contenido (`.app-shell` en columna; **880 px de alto**) y siempre abierto. La pestaña quedaba a partir de
+y = 880, la pantalla seguía mostrando el menú (`scrollY` 188-227) y nada la llevaba al contenido. Entrar desde otra página tenía la misma forma: la página carga arriba, con el menú abierto y la vista debajo. Sirve igual para `configuracion.html`, que también escucha el ancla.
+
+**Arreglo:** en pantalla angosta el menú nace **cerrado** tras una barra pegajosa «☰ Menú · <vista actual>» (botón de 44 px, `aria-expanded`, la vista actual sale del ítem activo); se abre con el botón y se **cierra** al tocar cualquier ítem (`a[data-nav-href]`; los títulos de grupo no, que sólo despliegan su submenú), al cambiar el ancla (también con el botón «atrás»)
+y con Escape. Tras un cambio de vista en la misma página se hace `scrollTo(0, 0)`, de modo que la pestaña queda a la vista. Entrando desde otra página, la página nueva carga con el menú cerrado y la vista del ancla arriba. En pantalla ancha (>640 px) la barra no se ve y no cambia nada (comprobado a 1280 y 820 px: barra oculta, menú pegajoso, un ítem de la misma página cambia la pestaña).
+La barra se oculta también en `html.modo-app` (`territorial.html` ya trae su propia barra) y al imprimir (`votantes-dashboard.html`). Código: `common.js` (bloque «MENÚ EN EL CELULAR», `ponerMenuMovil`, `marcarActivoMenu`, los dos manejadores de clic y de `hashchange`) y `style.css` (dentro del `@media (max-width: 640px)` y reglas de la barra).
+
+**Decisión que conviene saber:** el menú plegado cambia **todas** las pantallas de escritorio vistas en un celular, no sólo el Día D: antes se veía abierto arriba en cada una y ahora hay que tocar «☰ Menú». Fue lo más simple que cumple «el menú se cierra»; si se prefiere dejarlo abierto en otras páginas, es acotar la regla CSS.
+
+Probado en Chromium (390 px, servidor de pruebas con la sesión y la API simuladas): carga con el menú cerrado y «Jornada electoral» en la barra; abrir; tocar Transporte, Logística, Avance, Alertas, Resultados y Jornada (sin ancla): en los seis el menú queda cerrado, el hash cambia, la vista correcta es la única visible y queda en pantalla;
+Escape lo cierra; la carga directa `dia-d.html#transporte` muestra Transporte con el menú cerrado. Suites `probar-logistica`, `panel-alcance`, `comunas-dashboard`, `transporte-diad`, `transporte-parte2` e `inscripcion-enlace` sin fallos; `verificar-html.py` en `dia-d.html` y `votantes-dashboard.html`.
+**No probado:** un teléfono real ni la PWA instalada (se emuló el tamaño y el toque en Chromium); los datos de Avance, Alertas y Resultados en el simulador son vacíos, así que no se comprobó que pinten bien; las otras pantallas de escritorio con el menú plegado sólo se miraron en `dia-d.html`.
 
 ## Parche 290 — Páginas del celular: contenedor main.app-cuerpo y service worker v164 (8 de noviembre de 2026, INACTIVO, no toca la base)
 
