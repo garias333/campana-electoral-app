@@ -8,7 +8,7 @@ modulo: finanzas
 nivel: agregar
 roles:
 ruta: Escritorio: Finanzas
-captura:
+captura: t-finanzas-agregar.webp
 ---
 Sirve para llevar la contabilidad de la campaña: cada ingreso o gasto con su categoría, su tercero y, si lo tienes, el comprobante.
 

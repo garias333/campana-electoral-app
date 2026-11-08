@@ -8,7 +8,7 @@ modulo: transporte_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Alertas del Día D | Celular: Alertas Día D
-captura:
+captura: t-transporte-alerta.webp
 ---
 La alerta «Transporte sin recoger» te avisa que en un puesto hay personas esperando que las recojan, para que actúes antes de que cierren las urnas.
 

@@ -8,7 +8,7 @@ modulo: votantes
 nivel: editar
 roles:
 ruta: Escritorio: Electoral > Votantes y sublíderes
-captura:
+captura: t-votante-editar.webp
 ---
 Sirve para arreglar un teléfono, un nombre o un lugar de votación mal escrito en la ficha de una persona. Por seguridad, la app te pide tu contraseña antes de abrirla.
 

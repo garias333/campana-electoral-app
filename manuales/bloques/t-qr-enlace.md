@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: lider,sublider,coordinador
 ruta: Celular: Mi enlace de inscripción
-captura:
+captura: t-qr-enlace-2.webp, t-qr-enlace.webp
 ---
 Cada líder, sublíder y coordinador tiene un enlace y un código QR propios. La persona lo escanea con su celular, se inscribe sola en una página de la campaña y queda en tu lista, sin que tengas que digitarla.
 

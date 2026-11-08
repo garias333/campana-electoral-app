@@ -8,7 +8,7 @@ modulo: configuracion
 nivel: editar
 roles:
 ruta: Escritorio: Configuración > Datos de la campaña
-captura:
+captura: t-campana-datos.webp
 ---
 Aquí defines quién es la campaña, cómo se ve en el menú y en qué zona trabaja. La zona decide qué puestos de votación aparecen en el Día D.
 

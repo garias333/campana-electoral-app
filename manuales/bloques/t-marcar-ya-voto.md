@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: editar
 roles:
 ruta: Celular: Faltan por votar
-captura:
+captura: t-marcar-ya-voto.webp
 ---
 Cuando una persona de tu lista te confirma que ya votó, la marcas para que deje de aparecer como pendiente y el avance de la campaña suba al instante.
 

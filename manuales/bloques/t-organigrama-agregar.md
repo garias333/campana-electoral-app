@@ -8,7 +8,7 @@ modulo: organigrama
 nivel: agregar
 roles:
 ruta: Escritorio: Electoral > Organigrama
-captura:
+captura: t-organigrama-agregar.webp
 ---
 Sirve para dejar escrito quién ocupa cada cargo de la campaña, de quién depende y qué funciones tiene. Lo que crees aquí lo ve todo el equipo en el organigrama.
 

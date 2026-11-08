@@ -8,7 +8,7 @@ modulo: territorial
 nivel: ver
 roles:
 ruta: Escritorio: Electoral > Estructura territorial | Celular: Estructura territorial
-captura:
+captura: mod-territorial.webp
 ---
 Aquí está el equipo de la campaña por territorio: quién coordina qué zona, de quién depende cada líder o sublíder y cuántos votantes lleva registrados frente a su meta.
 

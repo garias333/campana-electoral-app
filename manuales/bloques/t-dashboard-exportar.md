@@ -8,7 +8,7 @@ modulo: votantes_dashboard
 nivel: importar
 roles:
 ruta: Escritorio: Electoral > Dashboard de votantes | Celular: Dashboard de votantes
-captura:
+captura: t-dashboard-exportar.webp
 ---
 Sirve para llevarte las cifras del dashboard a un archivo: una hoja de Excel para trabajar los datos, un Word para un informe o un PDF para imprimir. Puedes exportar todo el dashboard o una sola sección.
 

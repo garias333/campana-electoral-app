@@ -8,7 +8,7 @@ modulo: resultados_dia_d
 nivel: editar
 roles:
 ruta: Escritorio: Día D > Resultados y reclamaciones
-captura:
+captura: t-resultados-oficial.webp
 ---
 Aquí digitas lo que dice el resultado oficial de cada mesa y la pantalla lo compara, al instante, con lo que reportó el testigo. Con esos datos se calculan las diferencias.
 

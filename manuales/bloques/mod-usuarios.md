@@ -8,7 +8,7 @@ modulo: usuarios
 nivel: ver
 roles:
 ruta: Escritorio: Configuración > Usuarios
-captura:
+captura: mod-usuarios.webp
 ---
 Aquí está la lista de todas las cuentas que pueden entrar a la aplicación de tu campaña. Sirve para saber quién tiene cuenta, con qué rol, y para arreglar accesos.
 

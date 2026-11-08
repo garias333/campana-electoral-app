@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Configuración > Eliminar información
-captura:
+captura: t-eliminar.webp
 ---
 Sirve para vaciar por completo la información que se ha ido cargando en un módulo, por ejemplo al terminar un ensayo y querer empezar limpio. Borra de verdad y no se puede deshacer.
 

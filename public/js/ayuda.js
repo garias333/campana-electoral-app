@@ -115,8 +115,26 @@
     primeros.forEach(function (n) { caja.appendChild(n); });
   }
 
+  /** La captura de pantalla de una guía: figura con borde suave, texto alternativo con el título, carga perezosa, y un toque la abre en grande. */
+  function capturaHtml(c, titulo) {
+    return '<figure class="captura ' + (c.celular ? 'cel' : 'pc') + '">' +
+      '<button type="button" class="captura-abrir" data-ampliar="' + esc(c.archivo) + '" data-ancho="' + c.ancho + '" data-celular="' + (c.celular ? 1 : 0) + '" aria-label="Ampliar la captura de «' + esc(titulo) + '»">' +
+      '<img src="/manuales/img/' + esc(c.archivo) + '" width="' + c.ancho + '" height="' + c.alto + '" alt="Pantalla de «' + esc(titulo) + '»" loading="lazy" decoding="async"></button>' +
+      '<figcaption>Pantalla de ejemplo, con datos inventados.<span class="ayuda-no-imprimir"> Toca para ampliarla.</span></figcaption></figure>';
+  }
+
+  /** Las capturas van debajo de los pasos (o, si la guía no tiene pasos, debajo del «Para qué sirve»). */
+  function insertarCapturas(articulo, capturas) {
+    if (!capturas || !capturas.length) return;
+    var cuerpo = articulo.querySelector('.bloque-cuerpo');
+    var html = capturas.map(function (c) { return capturaHtml(c, articulo.dataset.titulo || ''); }).join('');
+    var ancla = cuerpo.querySelector('ol.pasos') || cuerpo.querySelector('.para');
+    if (ancla) ancla.insertAdjacentHTML('afterend', html);
+    else cuerpo.insertAdjacentHTML('afterbegin', html);
+  }
+
   function bloqueHtml(b) {
-    return '<article class="sec bloque buscable' + (b.seccion === 'dia-d' ? ' dd' : '') + '" id="b-' + esc(b.id) + '" data-id="' + esc(b.id) + '">' +
+    return '<article class="sec bloque buscable' + (b.seccion === 'dia-d' ? ' dd' : '') + '" id="b-' + esc(b.id) + '" data-id="' + esc(b.id) + '" data-titulo="' + esc(b.titulo) + '">' +
       '<div class="bloque-cabecera"><span class="bloque-icono">' + icono(b.icono) + '</span>' +
       '<div class="bloque-titulos"><h2>' + esc(b.titulo) + '</h2>' + rutaHtml(b.ruta) + '</div>' +
       '<button type="button" class="btn-imprimir-bloque ayuda-no-imprimir" data-imprimir="' + esc(b.id) + '" title="Imprimir solo esta guía" aria-label="Imprimir solo esta guía">' + icono('imprimir') + '</button></div>' +
@@ -246,6 +264,12 @@
     }
 
     document.querySelectorAll('#contenido .bloque .bloque-cuerpo').forEach(envolverParaQueSirve);
+    (d.secciones || []).forEach(function (sec) {
+      sec.bloques.forEach(function (b) {
+        var art = document.getElementById('b-' + b.id);
+        if (art) insertarCapturas(art, b.capturas);
+      });
+    });
     pintarChips(d, ($('contenido').textContent.match(/\S+/g) || []).length);
 
     // El índice es un acordeón en pantallas angostas (ahí 40 enlaces tapan el manual); en el escritorio va fijo y abierto.
@@ -405,6 +429,41 @@
     if (item && window.matchMedia('(max-width: 1099px)').matches) $('indice-caja').open = false;
   });
   window.addEventListener('hashchange', abrirSegunAncla);
+
+  // -------------------------------------------------------------------------------------------------- captura en grande
+  var visorAbierto = null;
+  function cerrarVisor() {
+    if (!visorAbierto) return;
+    var v = visorAbierto;
+    visorAbierto = null;
+    document.body.classList.remove('visor-abierto');
+    v.nodo.remove();
+    if (v.volverA && v.volverA.focus) v.volverA.focus();
+  }
+  function abrirVisor(boton) {
+    var archivo = boton.dataset.ampliar;
+    var ancho = Number(boton.dataset.ancho) || 0;
+    var celular = boton.dataset.celular === '1';
+    var img = boton.querySelector('img');
+    var nodo = document.createElement('div');
+    nodo.className = 'visor ayuda-no-imprimir';
+    nodo.setAttribute('role', 'dialog');
+    nodo.setAttribute('aria-modal', 'true');
+    nodo.setAttribute('aria-label', img ? img.alt : 'Captura de pantalla');
+    // Tamaño real de la pantalla: en celular la imagen está al doble de resolución, así que su ancho en pantalla es la mitad.
+    nodo.innerHTML = '<div class="visor-caja"><img src="/manuales/img/' + esc(archivo) + '" alt="' + esc(img ? img.alt : '') + '" style="width:' + (celular ? Math.round(ancho / 2) : ancho) + 'px"></div>' +
+      '<button type="button" class="visor-cerrar" aria-label="Cerrar la captura">×</button>';
+    document.body.appendChild(nodo);
+    document.body.classList.add('visor-abierto');
+    visorAbierto = { nodo: nodo, volverA: boton };
+    nodo.querySelector('.visor-cerrar').focus();
+  }
+  document.addEventListener('click', function (ev) {
+    var boton = ev.target.closest && ev.target.closest('.captura-abrir');
+    if (boton) { abrirVisor(boton); return; }
+    if (visorAbierto && ev.target.closest && (ev.target.closest('.visor-cerrar') || ev.target === visorAbierto.nodo)) cerrarVisor();
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') cerrarVisor(); });
 
   // -------------------------------------------------------------------------------------------------- impresión
   var abiertasAntes = null;

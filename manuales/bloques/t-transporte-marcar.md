@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: editar
 roles:
 ruta: Celular: Faltan por votar | Escritorio: Electoral > Votantes y sublíderes
-captura:
+captura: t-transporte-marcar.webp
 ---
 Cuando una persona de tu lista no tiene cómo llegar a votar, la marcas como «necesita transporte». Así la coordinación la ve en su lista de recogidas y le asigna un conductor.
 

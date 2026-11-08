@@ -8,7 +8,7 @@ modulo: legislacion
 nivel: ver
 roles:
 ruta: Escritorio: Legislación | Celular: Legislación
-captura:
+captura: mod-legislacion-2.webp, mod-legislacion.webp
 ---
 Reúne el calendario electoral, un buscador dentro del texto de las normas y los PDF de las leyes, decretos y resoluciones. Es solo de consulta: no se sube ni se cambia nada.
 

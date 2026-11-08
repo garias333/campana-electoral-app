@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Día D > Puestos de votación y candidatos
-captura:
+captura: t-cobertura.webp
 ---
 Cada mesa debe tener un testigo. En la tabla de puestos ves qué mesas están libres y desde ahí asignas a quien las cubra. Esto lo hace el administrador.
 

@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Avance de votación | Celular: Ranking Día D
-captura:
+captura: t-avance-ranking.webp
 ---
 Te dice cuántos de los votantes de tu alcance ya votaron, a qué hora, en qué puestos y qué líderes están rezagados, para llamar a tiempo a quien lo necesita.
 

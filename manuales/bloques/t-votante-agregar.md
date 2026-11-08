@@ -8,7 +8,7 @@ modulo: votantes
 nivel: agregar
 roles:
 ruta: Escritorio: Electoral > Votantes y sublíderes | Celular: Registro de votantes y sublíderes
-captura:
+captura: t-votante-agregar.webp
 ---
 Sirve para dejar en la base a un votante o a un sublíder, con su lugar de votación y la autorización para tratar sus datos.
 

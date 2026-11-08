@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Configuración > Backup
-captura:
+captura: t-backup.webp
 ---
 Sirve para guardar una copia completa de la aplicación en tu computador y, si hace falta, volver a ese punto. Es lo primero que haces antes de borrar información o de un cambio grande.
 

@@ -8,7 +8,7 @@ modulo: finanzas
 nivel: ver
 roles:
 ruta: Escritorio: Finanzas
-captura:
+captura: mod-finanzas.webp
 ---
 Muestra lo que entra y lo que sale de la campaña, con un resumen arriba y el reporte de apoyo para diligenciar Cuentas Claras.
 

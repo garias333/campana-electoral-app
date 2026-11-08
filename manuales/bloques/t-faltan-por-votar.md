@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: ver
 roles:
 ruta: Celular: Faltan por votar
-captura:
+captura: t-faltan-por-votar.webp
 ---
 Muestra, puesto por puesto, a las personas de tu lista que todavía no han votado, con los botones para llamarlas o escribirles. La lista se actualiza sola cada minuto.
 

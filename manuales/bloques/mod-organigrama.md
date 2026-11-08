@@ -8,7 +8,7 @@ modulo: organigrama
 nivel: ver
 roles:
 ruta: Escritorio: Electoral > Organigrama
-captura:
+captura: mod-organigrama.webp
 ---
 Aquí ves los cargos de la campaña y de quién depende cada uno: gerencia, coordinaciones, asesores y demás. Sirve para que todo el equipo sepa quién responde por qué.
 

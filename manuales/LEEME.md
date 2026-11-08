@@ -19,7 +19,8 @@ persona con los bloques que sus permisos permiten (`lib/manuales.js`, `routes/ma
     roles:                         (solo si no hay módulo: `todos` o una lista; admin, coordinador, lider, sublider, testigo,
                                     usuario, asistente_administrativo, administrativo, invitado, aspirante)
     ruta: Escritorio: Electoral > Votantes y sublíderes | Celular: Registro de votantes y sublíderes
-    captura:                       (vacío; se llena cuando se agreguen las capturas)
+    captura: t-votante-agregar.webp   (la captura de pantalla de la guía, en public/manuales/img/; hasta dos, separadas por coma; la
+                                       segunda se llama <id>-2.webp. La llena scripts/capturar-manuales.js, no se escribe a mano)
     ---
 
 - Un bloque **con módulo** sale solo si la persona tiene «Ver» en ese módulo y además el nivel que pide el bloque.
@@ -46,3 +47,18 @@ Una tarea lleva: para qué sirve (sin subtítulo), `## Pasos`, un recuadro `list
 - **Nunca** el cargo al que aspira alguien (ni en ejemplos): «la campaña», «el candidato».
 - Sin datos personales; ejemplos inventados y enmascarados.
 - `node scripts/probar-manuales.js` (sobre una base `simulada…`) revisa todo esto.
+
+## Capturas de pantalla
+
+Cada guía que explica una pantalla lleva su captura, tomada con **datos inventados** (nunca de una campaña real) y sin ningún cargo de elección
+a la vista. Se guardan en `public/manuales/img/<id-de-la-guía>.webp` (WebP, menos de 150 KB cada una; celular a 390 px con escala 2,
+escritorio a 1280 px con escala 1).
+
+- **Rehacerlas todas** cuando cambie una pantalla: `scripts/capturar-manuales.js` (ver su cabecera). Siembra una base `simulada…` recién
+  inicializada, levanta las rutas reales de la aplicación, entra con cada rol, navega, dibuja el recuadro amarillo `#FFC300` donde se indique y
+  recorta. La lista de pantallas es `scripts/capturas/lista.js`; los datos, `scripts/capturas/semilla.js`.
+- El script **se niega a guardar** una captura cuyo texto visible nombre un cargo de elección, y a correr sobre una base que no empiece por
+  `simulada` o `prueba`.
+- `lib/manuales.js` valida cada `captura:` al cargar (que exista, que sea WebP y que no pase de 150 KB; si no, se avisa y esa imagen se omite) y manda al
+  navegador su ancho y su alto. `scripts/probar-manuales.js` además revisa que no sobre ningún archivo en la carpeta.
+- Las imágenes **no** van en la precarga del service worker: se guardan en caché al verse.

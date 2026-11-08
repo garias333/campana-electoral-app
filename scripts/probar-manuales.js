@@ -159,7 +159,7 @@ const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|go
   estado.bloques.concat(estado.instalacion).forEach((b) => {
     const c = b.cuerpo;
     if (/consulta con tu administrador/i.test(c)) malos.push(`${b.id}: «consulta con tu administrador»`);
-    if (b.captura) malos.push(`${b.id}: captura llena`);
+    // (Las capturas ya se llenan —orden Manuales 4—; su existencia, peso y nombre se revisan más abajo.)
     if (/<script|<\/?[a-z][^>]*>/i.test(c.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, ''))) malos.push(`${b.id}: HTML en el cuerpo`);
     if (b.seccion === 'faq' || b.seccion === 'glosario' || b.seccion === 'instalacion') return;
     if (b.id.startsWith('mod-')) {
@@ -175,7 +175,7 @@ const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|go
     if (!/^:::\s*(consejo|cuidado|importante)\s*$/m.test(c)) malos.push(`${b.id}: sin consejo ni cuidado`);
     if (!c.split(/\n## /)[0].replace(/^---[\s\S]*?\n---/, '').trim()) malos.push(`${b.id}: sin «para qué sirve»`);
   });
-  ok(malos.length === 0, 'cada tarea trae para qué sirve, pasos, «Así sabes que funcionó» y un consejo o cuidado (y cada módulo, sus tres apartados); sin HTML ni capturas', malos);
+  ok(malos.length === 0, 'cada tarea trae para qué sirve, pasos, «Así sabes que funcionó» y un consejo o cuidado (y cada módulo, sus tres apartados); sin HTML', malos);
 
   // Los recuadros abren y cierran.
   const desbalance = estado.bloques.concat(estado.instalacion).filter((b) => {
@@ -209,6 +209,31 @@ const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|go
     if (/\b\d{8,10}\b/.test(t.replace(/\b3\d{9}\b/g, ''))) personales.push(path.relative(manuales.RAIZ, f) + ': número largo (¿cédula?)');
   });
   ok(personales.length === 0, 'sin teléfonos ni cédulas completos', personales);
+
+  // Capturas de pantalla (orden Manuales 4): cada una referenciada existe, no sobra ningún archivo, ninguna pasa de 150 KB.
+  const todosLosBloques = estado.bloques.concat(estado.instalacion);
+  const referenciadas = new Map();   // archivo → id de la guía
+  const sinArchivo = [];
+  todosLosBloques.forEach((b) => {
+    String(b.captura || '').split(',').map((x) => x.trim()).filter(Boolean).forEach((f) => {
+      referenciadas.set(f, b.id);
+      if (!fs.existsSync(path.join(manuales.DIR_IMG, f))) sinArchivo.push(`${b.id}: ${f}`);
+    });
+  });
+  ok(sinArchivo.length === 0, 'cada captura referenciada en una guía existe en public/manuales/img/', sinArchivo);
+  const enDisco = fs.existsSync(manuales.DIR_IMG) ? fs.readdirSync(manuales.DIR_IMG) : [];
+  const sobran = enDisco.filter((f) => !referenciadas.has(f));
+  ok(sobran.length === 0, `no sobra ningún archivo en public/manuales/img/ (${enDisco.length} archivos, ${referenciadas.size} referenciados)`, sobran);
+  ok(enDisco.length >= 50, `hay unas 60 capturas (${enDisco.length})`);
+  const pesadas = enDisco.filter((f) => fs.statSync(path.join(manuales.DIR_IMG, f)).size > manuales.PESO_MAXIMO_CAPTURA);
+  ok(pesadas.length === 0, 'ninguna captura pesa más de 150 KB', pesadas);
+  const noWebp = enDisco.filter((f) => !/\.webp$/.test(f) || !manuales.medirWebp(fs.readFileSync(path.join(manuales.DIR_IMG, f))));
+  ok(noWebp.length === 0, 'todas las capturas son WebP legibles', noWebp);
+  const malNombradas = [...referenciadas].filter(([f, id]) => !(f === id + '.webp' || f === id + '-2.webp')).map(([f, id]) => `${id}: ${f}`);
+  ok(malNombradas.length === 0, 'cada captura se llama como su guía (<id>.webp o <id>-2.webp)', malNombradas);
+  const dePorMas = todosLosBloques.filter((b) => String(b.captura || '').split(',').filter((x) => x.trim()).length > 2).map((b) => b.id);
+  ok(dePorMas.length === 0, 'ninguna guía lleva más de dos capturas', dePorMas);
+  ok(todosLosBloques.every((b) => (b.capturas || []).length === String(b.captura || '').split(',').filter((x) => x.trim()).length), 'el servidor entiende todas las capturas declaradas');
 
   // ============================================================== 2. ESCAPE
   console.log('\n[2] Escape del HTML');
@@ -268,6 +293,10 @@ const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|go
     ok(res.datos.rol === rol && typeof res.datos.titulo === 'string' && res.datos.permisos && res.datos.permisos.votantes !== undefined, `${rol}: trae su título, su rol y los permisos por módulo para las insignias`);
     ok(/^\d{4}-\d{2}-\d{2}$/.test(res.datos.fecha_contenido || ''), `${rol}: trae la fecha del contenido (${res.datos.fecha_contenido})`);
     cuentas[rol] = res.datos.totales;
+    // Las capturas viajan con su tamaño (para reservar el espacio y saber si es de celular), nunca como ruta de archivo del servidor.
+    const conCaptura = res.datos.secciones.flatMap((sec) => sec.bloques).filter((b) => b.capturas && b.capturas.length);
+    ok(conCaptura.every((b) => b.capturas.every((c) => /^[a-z0-9][a-z0-9_-]*\.webp$/.test(c.archivo) && c.ancho > 0 && c.alto > 0 && typeof c.celular === 'boolean')),
+      `${rol}: sus capturas traen archivo, ancho, alto y si son de celular (${conCaptura.length} guías con captura)`);
     ok(res.datos.totales.bloques + res.datos.totales.faq + res.datos.totales.glosario === real.length, `${rol}: los totales cuadran con lo que trae`);
     // Las insignias dicen lo mismo que el filtro.
     const e = await permisosEsperados(rol);

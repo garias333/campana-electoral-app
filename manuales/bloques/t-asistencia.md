@@ -8,7 +8,7 @@ modulo: asistentes_reuniones
 nivel: agregar
 roles:
 ruta: Escritorio: Logística > Asistentes a reuniones
-captura:
+captura: t-asistencia.webp
 ---
 Sirve para dejar anotado quién fue a una reunión: una persona ya registrada, alguien de tu equipo o un invitado que aún no está en la base.
 

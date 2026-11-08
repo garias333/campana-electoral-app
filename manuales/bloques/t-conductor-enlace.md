@@ -8,7 +8,7 @@ modulo: transporte_dia_d
 nivel: editar
 roles:
 ruta: Escritorio: Día D > Transporte del Día D
-captura:
+captura: t-conductor-enlace.webp
 ---
 El conductor no necesita cuenta ni contraseña: abre un enlace propio y ve solo sus paradas. Tú se lo mandas desde la tabla **Conductores**.
 

@@ -8,7 +8,7 @@ modulo: alertas_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Alertas del Día D | Celular: Alertas Día D
-captura:
+captura: mod-alertas_dia_d-2.webp, mod-alertas_dia_d.webp
 ---
 Es el cuadro de lo que la coordinación debe atender ahora: testigos que no llegan, mesas sin E-14, puestos donde se vota poco. Se recalcula solo, cada 30 segundos en el escritorio y cada minuto en el celular.
 

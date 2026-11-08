@@ -8,7 +8,7 @@ modulo: logistica_dia_d
 nivel: editar
 roles:
 ruta: Escritorio: Día D > Logística del Día D
-captura:
+captura: t-logistica-plan.webp
 ---
 Define qué se entrega, a quién y a qué hora, corrige las cantidades de cada puesto y saca la lista de compras.
 

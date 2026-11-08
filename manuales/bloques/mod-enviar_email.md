@@ -8,7 +8,7 @@ modulo: enviar_email
 nivel: ver
 roles:
 ruta: Escritorio: CRM y mensajería > Enviar E-mail
-captura:
+captura: mod-enviar_email.webp
 ---
 Sirve para correos puntuales a una persona o a un grupo pequeño, mandados desde el correo de la campaña. Para envíos masivos usa CRM y Mensajes, que sale por un servicio de correo masivo.
 

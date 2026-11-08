@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Configuración > Asignación de permisos
-captura:
+captura: t-permisos-administrativo.webp
 ---
 El perfil **Administrativo** nace con lo mínimo: solo Panel general, Agenda, Información para compartir y Ayuda. Todo lo demás se lo das tú, módulo por módulo, desde la tabla de permisos.
 

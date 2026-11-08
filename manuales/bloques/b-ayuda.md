@@ -7,7 +7,7 @@ icono: ayuda
 modulo:
 roles: todos
 ruta: Escritorio: Ayuda | Celular: Ayuda
-captura:
+captura: b-ayuda.webp
 ---
 La ayuda reúne los pasos para hacer cada tarea de la aplicación. Muestra solo lo que tu cargo y tus permisos te dejan hacer, así no te pierdes entre cosas que no usas.
 

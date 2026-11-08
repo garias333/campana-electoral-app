@@ -8,7 +8,7 @@ modulo: logistica_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Logística del Día D | Celular: Logística Día D
-captura:
+captura: mod-logistica_dia_d-2.webp, mod-logistica_dia_d.webp
 ---
 Aquí planeas y controlas lo que necesitan tus testigos el día de la elección: kits, refrigerios y almuerzos. Sabes cuánto comprar, cuánto va a cada puesto y cuánto ya se entregó.
 

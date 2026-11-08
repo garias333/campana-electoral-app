@@ -8,7 +8,7 @@ modulo: resultados_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Resultados y reclamaciones
-captura:
+captura: mod-resultados_dia_d.webp
 ---
 Reúne lo que contaron los testigos, permite digitar el resultado oficial de cada mesa, detecta las diferencias entre ambos y arma el paquete de pruebas para el abogado. Es la pestaña «Resultados» de la pantalla de Día D.
 

@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: testigo
 ruta:
-captura:
+captura: t-testigo-llegue.webp
 ---
 Al llegar a tu puesto de votación avisas a la coordinación con un solo toque. Así saben que ya estás ahí y no te marcan como «testigo que no llegó».
 

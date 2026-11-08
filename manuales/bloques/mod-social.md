@@ -8,7 +8,7 @@ modulo: social
 nivel: ver
 roles:
 ruta:
-captura:
+captura: mod-social.webp
 ---
 Es el calendario de publicaciones de la campaña en redes y el registro de las menciones que se detectan, con el sentimiento de cada una.
 

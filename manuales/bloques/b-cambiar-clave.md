@@ -7,7 +7,7 @@ icono: candado
 modulo:
 roles: todos
 ruta:
-captura:
+captura: b-cambiar-clave.webp
 ---
 Hay dos casos: olvidaste tu contraseña, o es tu primer ingreso y el sistema te obliga a cambiar la temporal que te dieron. En los dos se resuelve en pocos pasos.
 

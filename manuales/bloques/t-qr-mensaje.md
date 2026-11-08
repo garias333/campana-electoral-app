@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: lider,sublider,coordinador
 ruta: Celular: Mi enlace de inscripción
-captura:
+captura: t-qr-mensaje.webp
 ---
 Sirve para invitar a alguien a inscribirse con tu enlace sin escribir el texto tú mismo. La app arma un mensaje listo con tu nombre, el de la campaña y tu enlace.
 

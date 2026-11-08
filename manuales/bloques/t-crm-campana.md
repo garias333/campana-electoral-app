@@ -8,7 +8,7 @@ modulo: crm
 nivel: agregar
 roles:
 ruta: Escritorio: CRM y mensajería > CRM y Mensajes
-captura:
+captura: t-crm-campana.webp
 ---
 Sirve para mandar un mismo mensaje a muchas personas por correo, SMS o aviso en la app, ahora o a una hora programada, y para revisar después a quién le llegó.
 

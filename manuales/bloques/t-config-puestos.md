@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Día D > Puestos de votación y candidatos
-captura:
+captura: t-config-puestos.webp
 ---
 Antes de la elección, la campaña debe tener sus puestos con el número de mesas y la lista de candidatos en el orden del tarjetón. De ahí salen los desplegables del testigo y todo el tablero. Esto lo hace el administrador.
 

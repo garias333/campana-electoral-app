@@ -8,7 +8,7 @@ modulo: configuracion
 nivel: ver
 roles:
 ruta: Escritorio: Configuración > Datos de la campaña
-captura:
+captura: mod-configuracion.webp
 ---
 Configuración reúne todo lo que el administrador arregla una sola vez o de vez en cuando: quién es la campaña, quién tiene cuenta, qué ve cada rol y las copias de seguridad. En el menú lateral es un grupo con cinco entradas.
 

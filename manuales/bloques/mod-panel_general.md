@@ -8,7 +8,7 @@ modulo: panel_general
 nivel: ver
 roles:
 ruta: Escritorio: Panel general | Celular: Panel general
-captura:
+captura: mod-panel_general.webp
 ---
 Es la pantalla de resumen de la campaña: cuánto falta para la elección, cuántas personas hay en la estructura y qué tan cerca está la meta de votos. Cada persona ve las cifras de su propio alcance.
 

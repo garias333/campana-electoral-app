@@ -8,7 +8,7 @@ modulo: resultados_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Resultados y reclamaciones
-captura:
+captura: t-resultados-diferencias.webp
 ---
 Lista las mesas donde lo que reportó el testigo no coincide con el resultado oficial. Desde aquí decides cuáles reclamar y dejas una nota para quien las revise.
 

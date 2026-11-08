@@ -8,7 +8,7 @@ modulo: territorial
 nivel: agregar
 roles:
 ruta: Escritorio: Electoral > Estructura territorial | Celular: Agregar coordinadores o líderes
-captura:
+captura: t-estructura-agregar-2.webp, t-estructura-agregar.webp
 ---
 Sirve para sumar una persona al equipo con su cargo, su territorio, su meta de votos y a quién le reporta. Al guardarla se le crea también su cuenta para entrar a la app.
 

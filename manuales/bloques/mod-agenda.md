@@ -8,7 +8,7 @@ modulo: agenda
 nivel: ver
 roles:
 ruta: Escritorio: Logística > Agenda
-captura:
+captura: mod-agenda.webp
 ---
 Es el calendario del mes con los eventos de la campaña en su día: reuniones, eventos públicos, movilización y capacitaciones. Sirve para saber qué viene y cuándo.
 

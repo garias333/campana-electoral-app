@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Avance de votación | Celular: Faltan por votar
-captura:
+captura: mod-rescate_votos-2.webp, mod-rescate_votos.webp
 ---
 El día de la elección sirve para saber quién de tus votantes ya votó y quién falta, y para ir a buscar a los que faltan. Lo usan los líderes y sublíderes desde el celular, y la coordinación desde el escritorio.
 

@@ -7,7 +7,7 @@ icono: ubicacion
 modulo:
 roles: todos
 ruta: Celular: Consultar puesto de votación
-captura:
+captura: t-registraduria.webp
 ---
 Sirve para saber dónde vota una persona: en qué puesto y en qué mesa. La consulta se hace en la página oficial de la Registraduría, y después el dato se anota en la ficha de la persona. Necesitas su número de cédula.
 

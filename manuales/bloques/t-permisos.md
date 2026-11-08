@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: admin
 ruta: Escritorio: Configuración > Asignación de permisos
-captura:
+captura: t-permisos.webp
 ---
 Sirve para decidir qué puede hacer cada tipo de usuario en cada módulo de la aplicación. Lo que marques aquí manda sobre el menú y los botones de todo el equipo.
 

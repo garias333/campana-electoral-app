@@ -8,7 +8,7 @@ modulo: votantes_dashboard
 nivel: ver
 roles:
 ruta: Escritorio: Electoral > Dashboard de votantes | Celular: Dashboard de votantes
-captura:
+captura: mod-votantes_dashboard.webp
 ---
 Muestra cómo va la base de votantes: cuánta gente hay, dónde está, quién la trajo y qué le falta a cada registro. Sirve para ver dónde hay huecos y a dónde mandar al equipo.
 

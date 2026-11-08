@@ -8,7 +8,7 @@ modulo: testigos
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Testigos electorales
-captura:
+captura: mod-testigos.webp
 ---
 Aquí ves quién cubre cada puesto y cada mesa el día de la elección y cómo contactarlo. La pantalla es para el administrador y el coordinador.
 

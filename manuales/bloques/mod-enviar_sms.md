@@ -8,7 +8,7 @@ modulo: enviar_sms
 nivel: ver
 roles:
 ruta: Escritorio: CRM y mensajería > Enviar SMS
-captura:
+captura: mod-enviar_sms.webp
 ---
 Sirve para avisos puntuales por mensaje de texto a una persona o a un grupo pequeño, como citar a una reunión. Para envíos masivos usa CRM y Mensajes.
 

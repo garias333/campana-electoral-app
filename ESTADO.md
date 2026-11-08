@@ -12,11 +12,13 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 297** (`parches/campana-parche297.zip`, 27.585 bytes,
-  sha256 `e57fe588a7b28a33d14f9a7dd2be65cf311ba67228204f3be77f698b9fef6ecc`, 6 archivos; comparados uno a uno con los de disco).
-  **NO PUBLICADO NI REGISTRADO**: el paso `publicar-parche.sh 297` + `registrar-parche.js 297` fue **denegado por el sistema de permisos de la sesión** («Production Deploy») y no se rodeó.
-  Falta correrlos por quien tenga la mano (nombre pensado: «Manuales: diseño final (Requiere el 296)»; no toca la base; **requiere el 296**, que sí está publicado y con la misma huella). Hasta entonces el 297 no existe para el panel ni para ninguna campaña.
-  Service worker `v170`. El anterior, el 296 (`parches/campana-parche296.zip`, 144.103 bytes,
+- **Último parche generado: 298** (`parches/campana-parche298.zip`, 4.002.523 bytes,
+  sha256 `3f17c575d8737022682e033aaab75e3d008424b2936d12352e233a4430b5ccff`, 150 archivos; comparados uno a uno con los de disco).
+  **NO PUBLICADO NI REGISTRADO**: por encargo, el paso `publicar-parche.sh 298` + `registrar-parche.js 298` lo corre el usuario como root (comando en el informe de la sesión);
+  nombre previsto: «Manuales: capturas de pantalla (Requiere el 297)»; no toca la base; **requiere el 297**. Service worker `v171`.
+  El anterior, el 297 (`parches/campana-parche297.zip`, 27.585 bytes, sha256 `e57fe588a7b28a33d14f9a7dd2be65cf311ba67228204f3be77f698b9fef6ecc`, 6 archivos).
+  **Publicado** (`parche-297.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026) y **activado por el usuario** ese día («Ya activé…»; el registro y la activación no se pueden leer desde esta cuenta).
+  «Manuales: diseño final (Requiere el 296)»; no toca la base; requiere el 296. Service worker `v170`. El anterior, el 296 (`parches/campana-parche296.zip`, 144.103 bytes,
   sha256 `f275335882197ff5d7f7068edb574d522dd43b9116ecbf050300850b2be83161`, 17 archivos).
   **Publicado** (`parche-296.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Panel del líder en el celular y cierre de fugas de alcance (Requiere el 295)» (detalle abajo); **requiere el 295** (la orden decía 294: ya estaba publicado el 295).
@@ -98,7 +100,13 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v297** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v297.zip`,
+- **Plantilla vigente: v298** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v298.zip`,
+  6.143.044 bytes, **558 entradas** (con las 76 capturas, `scripts/capturar-manuales.js` y `scripts/capturas/`), sha256 `044aa8eb63b0fc5188d6255019db273b68ed77101f696b57c0a25a105eea9053`,
+  service worker `estrategia-v171`, `.version-parche` y `.version-base` = 298. Generada con `node scripts/generar-plantilla.js --parche 298`; escaneo de secretos sin hallazgos;
+  sin `.env`, `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`.
+  Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas** y una segunda corrida deja lo mismo; `lib/manuales.js` da 161 bloques, 15 de instalación, **cero avisos** y 68 guías con captura; `scripts/probar-manuales.js` desde la plantilla, todo bien; `verificar-html.py` en `ayuda.html`.
+  **OJO: dice 298 aunque el 298 aún no está publicado**; si sale con otro número, regenerarla.
+- **Plantilla v297 (reemplazada por la v298)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v297.zip`,
   2.225.398 bytes, **474 entradas** (las mismas que la v296), sha256 `78e356bee07a6dd2a88d2834b5c14c4c91dd2adcca2945e3c66020d7bf4cff09`,
   service worker `estrategia-v170`, `.version-parche` y `.version-base` = 297. Generada con `node scripts/generar-plantilla.js --parche 297`; escaneo de secretos sin hallazgos;
   sin `.env`, `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/` (la única `.pem` es la pública de los parches).
@@ -177,10 +185,38 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 297 — Manuales: diseño final (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+## Parche 298 — Manuales: capturas de pantalla (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+
+Zip de **150 archivos** (`.version-base` = 298): **76 capturas** `public/manuales/img/*.webp`, **68 guías** con su `captura:` llena (`manuales/bloques/`), `manuales/LEEME.md`, `lib/manuales.js`, `public/js/ayuda.js`, `public/css/ayuda.css`, `public/service-worker.js` (**v171**) y `.version-base`. **Requiere el 297.** Sin `db/`: no toca la base. Pesan **3.544.480 bytes en total** (la mayor, 85 KB; el tope es 150).
+Publicación y registro: **a cargo del usuario**, no se corrieron aquí. `.version-base` y la plantilla ya dicen 298.
+
+- **De dónde salen.** `scripts/capturar-manuales.js` (con `scripts/capturas/{lista,semilla,servidor,navegador}.js`; no viaja en el parche, sí en la plantilla): siembra una base `simulada…` con datos **inventados**, monta las **rutas reales** de la aplicación, entra por cookie con cada rol (admin, coordinador, líder, testigo o sin sesión), navega, hace los pasos, dibuja el recuadro amarillo `#FFC300` de 3 px, recorta y guarda WebP (calidad 75, escala 2 en celular a 390 px y 1 en escritorio a 1280 px; si pasa de 150 KB baja la calidad). Se **niega a correr** si `DB_NAME` no empieza por `simulada`/`prueba`, y **se niega a guardar** una captura cuyo texto visible (dentro del recorte; no cuentan las opciones cerradas de un desplegable) nombre un cargo de elección. Campaña de prueba: «Campaña de ejemplo». Se rehacen todas con un comando; `--solo id1,id2` rehace unas.
+- **Precampaña, lo que apareció.** El guardia rechazó tres pantallas por **textos fijos del producto**, no por datos: la pantalla de ingreso del celular («Acceso a Aspirantes al Concejo»; se usó la de escritorio), el Panel general («A quién apoyan: Alcaldía» más abajo; se recortó arriba) y el formulario de «Agregar persona» (opciones de cargo; se muestra la pantalla con el botón resaltado, sin abrirlo). En la primera pasada, cuando miraba **todo** el texto de la página, rechazó otras cuatro por las opciones de desplegables cerrados (Estructura territorial, Votantes, Usuarios, Configuración); se afinó para mirar solo lo visible dentro del recorte. **Esos textos siguen en la aplicación**: si la regla de precampaña también cubre la interfaz, es trabajo aparte.
+- **Mostrarlas** (`ayuda.js`/`ayuda.css`): figura con borde suave y radio de 12 px debajo de los pasos (o del «Para qué sirve» si no los hay), texto alternativo «Pantalla de «título de la guía»», `loading="lazy"`, `width`/`height` reservados (el servidor los lee de la cabecera del WebP y los manda en `capturas`), **máximo 360 px las de celular y 100 % las de escritorio**; un toque la abre en grande (visor modal a tamaño real, con scroll; Esc o × la cierra y devuelve el foco). **Impresión:** salen en el PDF y ninguna se parte (el del líder: 36 imágenes y 36 apariciones en `pdfimages -list`; 87 páginas).
+- **Service worker:** v171 **solo porque cambiaron `ayuda.js` y `ayuda.css`** (están en la precarga). Las imágenes **no** están en la precarga: el `fetch` del service worker ya guarda en caché toda respuesta 2xx del mismo origen, así que se cachean al verse.
+- **`lib/manuales.js`:** valida cada `captura:` al cargar (nombre `.webp`, existe, ≤ 150 KB, es WebP; si no, aviso y se omite esa imagen), lee su ancho y alto, manda `capturas: [{archivo, ancho, alto, celular}]` y la firma de archivos cuenta también las imágenes (si se rehacen, el manual se recarga y su fecha se mueve).
+- **Hechos por el camino.** (1) Los **códigos de enlace y de conductor** usan un alfabeto sin I, L, O, 0 ni 1: `LAURA123` y `EJEMPLO1` salían como «Enlace no activo». (2) La semilla marca su final con el eslogan; antes usé `marca_subtitulo` y salía «Datos de ejemplo (listos)» en el menú de todas las capturas. (3) `texto:+ Nuevo evento` elegía el `div` contenedor (mismo texto que el botón) y no abría el modal: ahora se prefiere lo tocable y lo más profundo. (4) `probar-manuales.js` exigía `captura:` vacío; ahora comprueba lo contrario.
+
+### Guías sin captura (23 de 91; las 70 preguntas y términos no explican una pantalla)
+
+- **No es una pantalla de la app:** `b-instalar-app` (el menú del navegador).
+- **Llegan por correo, SMS o un enlace firmado y no se envió ninguno:** `b-codigo`, `b-sin-codigo`, `t-confirmacion`.
+- **Abren un selector de archivos o la cámara:** `t-estructura-importar`, `t-votantes-importar`, `t-testigos-importar`, `t-finanzas-importar`, `t-testigo-e14`, `t-resultados-paquete`.
+- **Su formulario muestra un cargo de elección en las opciones (regla de precampaña):** `t-testigo-agregar`.
+- **Viven dentro de la ficha de una persona (piden contraseña o abren un modal) y no las recorrí:** `t-cedula-privacidad`, `t-autorizaciones`, `t-baja-manual`.
+- **Pantalla protegida: solo se vería el candado de «Ingresar contraseña de administrador»:** `mod-configurar_crm`, `t-mensajeria`.
+- **Comparten pantalla con otra captura:** `t-push-avisos` (Alertas del Día D), `t-catalogo` (Puestos de votación y candidatos), `t-asignacion` y `t-conductor-imprimir` (la lista de conductores de Transporte, ya en `mod-transporte_dia_d`, `t-vehiculos` y `t-conductores`).
+- **Sin ruta de menú en la guía o no las intenté:** `t-telegram`, `t-legislacion-admin`, `t-logistica-puesto` (la del testigo necesita un puesto con estado).
+
+### Pruebas
+
+- `probar-manuales` **168 comprobaciones** (con las nuevas: cada captura referenciada existe, no sobra ningún archivo —atrapó mi `dep-evento.webp` de depuración—, ninguna pasa de 150 KB, todas son WebP legibles, cada una se llama como su guía, ninguna guía lleva más de dos, y `/mio` manda `archivo`, `ancho`, `alto` y `celular` a los diez roles), `probar-panel-lider` **87**, `probar-panel-alcance` **43**, `probar-comunas-dashboard` **73**, `probar-logistica` **114**, `probar-transporte-diad` **123**, `probar-transporte-parte2` **80**, `probar-inscripcion-enlace` **467**, cada una sobre su base nueva, todo bien.
+- **Chromium a 1280 y 390 px** como líder, testigo y administrador (viendo el manual del líder y el del testigo): sin scroll horizontal, las 36 (líder) y 23 (testigo) capturas cargan, todas con su texto alternativo y `loading="lazy"`, las de celular no pasan de 360 px y las de escritorio ocupan el 100 %, sin errores de JS; el visor abre y cierra con Esc y devuelve el foco. Revisión a ojo de casi todas las capturas en hojas de contacto (de baja resolución, así que lo fino lo cubre el guardia de texto y el hecho de que todo sale de la semilla): ninguna trae datos reales ni un cargo de elección (los textos de la pantalla de Legislación son el calendario electoral público del propio módulo).
+
+## Parche 297 — Manuales: diseño final (8 de noviembre de 2026, publicado; activado por el usuario)
 
 Zip de **6 archivos** (`.version-base` = 297): `public/ayuda.html`, `public/css/ayuda.css`, `public/js/ayuda.js`, `public/app/app-comun.js` (errata «Reptala» → «Repítela» en el cambio obligatorio de clave del celular), `public/service-worker.js` (**v170**) y `.version-base`. **Requiere el 296.** Sin `db/`, sin `lib/` ni `routes/`: el HTML de los manuales lo sigue armando `lib/manuales.js` y los recuadros se pintan solo con CSS.
-**Estado: el zip existe y se verificó contra el disco; la publicación y el registro NO se hicieron** (permiso denegado por el clasificador de la sesión). Para terminarlo: `bash scripts/publicar-parche.sh 297` y `node scripts/registrar-parche.js 297 "Manuales: diseño final (Requiere el 296)"`.
+**Estado:** publicado por el usuario (la sesión no pudo: el permiso de «despliegue a producción» se lo negó al clasificador); el zip del servidor tiene la misma huella que el local. El registro y la activación los hizo el usuario; no se pueden comprobar desde `gariasappelectoral`.
 
 La muestra (`manual-lider-muestra.html`, pegada al final de la orden) **no estaba en disco**; se guardó fuera del repo solo para comparar a 1280 y 390 px.
 

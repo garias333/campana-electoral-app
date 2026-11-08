@@ -183,6 +183,19 @@ ol.pasos li:last-child { padding-bottom: 4px; }
 a.tarj:hover { background: var(--ay-amarillo-suave); }
 .perm + .rejilla, .rejilla + .perm { margin-top: 14px; }
 
+/* Capturas de pantalla de las guías */
+.captura { margin: 16px 0; background: #fff; border: 1px solid var(--ay-linea); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(20,33,61,0.06); }
+.captura.cel { max-width: 360px; }
+.captura .captura-abrir { display: block; width: 100%; padding: 0; border: 0; background: var(--color-bg); cursor: zoom-in; }
+.captura .captura-abrir:focus-visible { outline: 3px solid var(--color-accent); outline-offset: -3px; }
+.captura img { display: block; width: 100%; height: auto; }
+.captura figcaption { font-size: 12px; line-height: 1.4; color: var(--ay-tinta-2); padding: 8px 12px; border-top: 1px solid var(--ay-linea); background: #fff; }
+.visor { position: fixed; inset: 0; z-index: 2000; background: rgba(10,20,40,0.84); display: flex; align-items: center; justify-content: center; padding: 56px 12px 12px; }
+.visor-caja { max-width: 100%; max-height: 100%; overflow: auto; border-radius: 10px; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.45); }
+.visor-caja img { display: block; max-width: none; height: auto; }
+.visor-cerrar { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--color-accent); color: var(--color-marca-oscuro); font-size: 28px; line-height: 1; cursor: pointer; }
+body.visor-abierto { overflow: hidden; }
+
 /* Preguntas frecuentes: plegables con «+» y «–» */
 .faq { border: 1px solid var(--ay-linea); border-radius: 10px; margin-bottom: 8px; background: #fff; scroll-margin-top: 16px; overflow-wrap: anywhere; }
 .faq summary { cursor: pointer; padding: 13px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 10px; min-height: 44px; align-items: center; }
@@ -250,7 +263,11 @@ mark.resaltar { background: var(--color-accent); color: var(--ay-tinta); border-
   .sec { border: 0; padding: 0 0 12px; margin-bottom: 8px; box-shadow: none; }
   .sec.corta { break-inside: avoid-page; page-break-inside: avoid; }
   .bloque-cabecera, .sec h2, .bloque-cuerpo h3, .bloque-cuerpo h4, .seccion-titulo { break-after: avoid; page-break-after: avoid; }
-  .llamado, ol.pasos li, .tabla-manual, pre.codigo, .para, .termino, .faq, .tarj { break-inside: avoid; page-break-inside: avoid; }
+  .llamado, ol.pasos li, .tabla-manual, pre.codigo, .para, .termino, .faq, .tarj, .captura { break-inside: avoid; page-break-inside: avoid; }
+  .captura { box-shadow: none; max-height: 235mm; }
+  .captura.cel { max-width: 62mm; }
+  .captura img { max-height: 215mm; object-fit: contain; }
+  .visor { display: none !important; }
   .faq { border: 0; }
   .faq .faq-cuerpo { display: block; }
   .faq summary::after { content: ''; }

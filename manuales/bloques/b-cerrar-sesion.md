@@ -7,7 +7,7 @@ icono: flecha
 modulo:
 roles: todos
 ruta:
-captura:
+captura: b-cerrar-sesion.webp
 ---
 Cerrar sesión evita que otra persona use tu cuenta. Hazlo siempre que prestes el celular, uses un computador que no es tuyo o termines tu jornada.
 

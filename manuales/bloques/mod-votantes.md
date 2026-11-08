@@ -8,7 +8,7 @@ modulo: votantes
 nivel: ver
 roles:
 ruta: Escritorio: Electoral > Votantes y sublíderes | Celular: Registro de votantes y sublíderes
-captura:
+captura: mod-votantes-2.webp, mod-votantes.webp
 ---
 Aquí está la base de personas que la campaña tiene registradas, con su lugar de votación y el líder que las trajo. En el celular es la pantalla donde cada líder ve su avance y registra gente nueva.
 

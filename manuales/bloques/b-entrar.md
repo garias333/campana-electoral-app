@@ -7,7 +7,7 @@ icono: llave
 modulo:
 roles: todos
 ruta:
-captura:
+captura: b-entrar.webp
 ---
 Para trabajar en la campaña primero tienes que identificarte. Hay dos puertas: una con tu número de identificación y tu clave, y otra con un código que te llega por correo o por mensaje de texto. Cuál usas depende de tu cargo.
 

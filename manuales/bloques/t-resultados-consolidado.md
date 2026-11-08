@@ -8,7 +8,7 @@ modulo: resultados_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Resultados y reclamaciones
-captura:
+captura: t-resultados-consolidado.webp
 ---
 Muestra, puesto por puesto, cuántos votos reportaron los testigos para tu candidato, para los dos rivales más votados y para el voto en blanco. Sirve para ver cómo va cada municipio y qué puestos traen alertas.
 

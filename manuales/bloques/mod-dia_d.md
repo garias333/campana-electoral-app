@@ -8,7 +8,7 @@ modulo: dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Jornada electoral
-captura:
+captura: mod-dia_d.webp
 ---
 Es el tablero del día de la elección: muestra lo que reportan los testigos desde cada puesto, mesa por mesa. Se actualiza solo cada 20 segundos y junto al título ves la hora de la última actualización.
 

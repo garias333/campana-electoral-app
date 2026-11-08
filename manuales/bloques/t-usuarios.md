@@ -8,7 +8,7 @@ modulo: usuarios
 nivel: agregar
 roles:
 ruta: Escritorio: Configuración > Usuarios
-captura:
+captura: t-usuarios.webp
 ---
 Sirve para darle acceso a alguien del equipo, escoger su rol y, cuando haga falta, cambiarle la clave o dejarlo sin acceso. Esto lo hace el administrador.
 

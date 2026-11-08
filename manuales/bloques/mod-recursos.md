@@ -8,7 +8,7 @@ modulo: recursos
 nivel: ver
 roles:
 ruta: Escritorio: Contenido para compartir > Información para compartir | Celular: Información para compartir
-captura:
+captura: mod-recursos-2.webp, mod-recursos.webp
 ---
 Es la biblioteca de la campaña: noticias, piezas para redes, videos, publicidad, jingles y fotos que el equipo puede descargar y difundir. La misma lista aparece en el computador y en el celular.
 

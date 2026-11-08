@@ -8,7 +8,7 @@ modulo: asistentes_reuniones
 nivel: ver
 roles:
 ruta: Escritorio: Logística > Asistentes a reuniones
-captura:
+captura: mod-asistentes_reuniones.webp
 ---
 Muestra quién fue a cada reunión y el acumulado de cada persona en todas ellas. Las reuniones se crean antes en **Eventos y GOTV**.
 

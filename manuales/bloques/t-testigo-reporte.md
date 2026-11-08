@@ -8,7 +8,7 @@ modulo:
 nivel:
 roles: testigo
 ruta:
-captura:
+captura: t-testigo-reporte.webp
 ---
 Cuando cierra la mesa, copias en la app lo que dice el E-14: los votos de cada candidato. La coordinación lo ve al momento en su tablero.
 

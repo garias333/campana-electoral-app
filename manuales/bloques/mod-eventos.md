@@ -8,7 +8,7 @@ modulo: eventos
 nivel: ver
 roles:
 ruta: Escritorio: Logística > Eventos y GOTV
-captura:
+captura: mod-eventos.webp
 ---
 Aquí ves los eventos de la campaña con su fecha, su lugar y quién responde por cada uno. Los que tienen dirección se ubican en el mapa.
 

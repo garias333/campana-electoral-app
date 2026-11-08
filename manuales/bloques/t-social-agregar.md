@@ -8,7 +8,7 @@ modulo: social
 nivel: agregar
 roles:
 ruta:
-captura:
+captura: t-social-agregar.webp
 ---
 Sirve para dejar en el calendario lo que se va a publicar y para guardar lo que dicen de la campaña en medios y redes. Solo administrador y coordinador ven los botones para crear.
 

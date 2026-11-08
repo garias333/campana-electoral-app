@@ -8,7 +8,7 @@ modulo: eventos
 nivel: agregar
 roles:
 ruta: Escritorio: Logística > Eventos y GOTV
-captura:
+captura: t-evento-agregar.webp
 ---
 Sirve para programar una reunión, una capacitación o una jornada de movilización, dejar quién responde y cuántas personas esperas. Si pones la dirección, el evento queda ubicado en el mapa.
 

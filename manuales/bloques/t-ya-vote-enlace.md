@@ -8,7 +8,7 @@ modulo: rescate_votos
 nivel: editar
 roles:
 ruta: Celular: Faltan por votar
-captura:
+captura: t-ya-vote-enlace.webp
 ---
 Cada votante pendiente puede recibir un enlace personal para avisar él mismo que ya votó, con un solo toque y sin necesidad de abrir sesión. Tú se lo mandas desde la lista de «Faltan por votar».
 

@@ -8,7 +8,7 @@ modulo: mapa
 nivel: ver
 roles:
 ruta: Escritorio: Electoral > Mapa territorial | Celular: Mapa territorial
-captura:
+captura: mod-mapa.webp
 ---
 Muestra en un mapa dónde está cada persona de la estructura, cada votante con dirección ubicada y los eventos con lugar. Sirve para ver dónde hay presencia y dónde no.
 

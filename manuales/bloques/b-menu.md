@@ -7,7 +7,7 @@ icono: lista
 modulo:
 roles: todos
 ruta:
-captura:
+captura: b-menu.webp
 ---
 El menú es la lista de pantallas a las que puedes ir. Cada persona ve solo lo que su permiso le deja usar, así que dos compañeros pueden ver menús distintos.
 
