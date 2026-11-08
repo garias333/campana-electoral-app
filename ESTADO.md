@@ -14,7 +14,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 306** (`parches/campana-parche306.zip`, 168.452 bytes,
   sha256 `0f80b27e7b9fada7879f17cdc7c4f30e60fabbd42c1138b9c67abc2d161cbe5c`, 24 archivos): «Tareas, Fases 3 y 4: metas medibles, reuniones, por reasignar, cumplimiento y conservación de fotos (Requiere el 305)».
-  **Generado el 8 de noviembre de 2026, SIN publicar ni registrar** (lo corre el usuario con `publicar-parche.sh 306` y `registrar-parche.js`; debe quedar INACTIVO).
+  **Publicado y registrado el 8 de noviembre de 2026** (lo corrió el usuario como root): `parche-306.zip` en el servidor de licencias con huella igual a la local (`0f80b27e7b9fada7`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: amplía el ENUM de `tareas.tipo` y agrega 6 columnas; repetible; **probado sobre una base creada con la plantilla del 305**). **Requiere el 305** (las tablas de tareas). Service worker `v176`. Detalle en «Parche 306».
   El anterior, el 305 (`parches/campana-parche305.zip`, 217.708 bytes,
   sha256 `68485c5b1f60fe90ee4770d73524f5dbc339589f782745f41598bff07e3c68ad`, 25 archivos): «Eventos con permiso y alcance + Tareas, Fases 1 y 2 (Requiere el 304)».
@@ -250,7 +250,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 306 — Tareas, Fases 3 y 4 (8 de noviembre de 2026, generado, SIN publicar, TOCA LA BASE)
+## Parche 306 — Tareas, Fases 3 y 4 (8 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 **Requiere el 305.** Service worker `v176`. Todo vive dentro del módulo `tareas`, que sigue **apagado de fábrica**; los avisos y recordatorios nuevos solo llegan a quien tenga ese módulo.
 
