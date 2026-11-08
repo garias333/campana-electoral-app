@@ -408,6 +408,9 @@ const PERMISOS_POR_DEFECTO = {
   // Transporte del Día D (orden 33): vehículos, conductores y a quién recoge cada uno. Administrador y coordinador de
   // fábrica (el aspirante, por PERMISOS_ASPIRANTE). El líder sigue MARCANDO «necesita transporte» con `rescate_votos`.
   transporte_dia_d: ['admin', 'coordinador'],
+  // Logística del día D (orden 39): refrigerios, almuerzos y kits. Administrador y coordinador de fábrica (el aspirante, por
+  // PERMISOS_ASPIRANTE). La pantalla del coordinador de puesto NO va por esta casilla sino por su fila de testigo tipo «puesto».
+  logistica_dia_d: ['admin', 'coordinador'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
   crm: ['admin', 'coordinador', 'asistente_administrativo'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
@@ -2223,6 +2226,75 @@ async function main() {
     if (err.code !== 'ER_NO_SUCH_TABLE') throw err;
   }
   console.log('Tablas del transporte del Día D listas.');
+
+  // --- Logística del día D (orden 39): refrigerios, almuerzos, kits ---
+  // `aspirante_id` es el dueño (0 = la campaña madre), como en el resto del Día D. Los ítems no se borran (una entrega apunta a
+  // su ítem): se desactivan. `logistica_plan` guarda SÓLO lo que alguien corrigió a mano; sin fila, la cantidad es la sugerida
+  // (los testigos del puesto). La clave única de `logistica_entregas` es lo que impide entregar dos veces lo mismo a la misma
+  // persona el mismo día —el doble toque, o el reintento de la cola sin señal—.
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS logistica_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      nombre VARCHAR(80) NOT NULL,
+      destinatario ENUM('testigos','conductores') NOT NULL DEFAULT 'testigos',
+      hora_limite TIME NULL COMMENT 'Hasta cuándo debe estar entregado; desde ahí cuenta la alerta «sin entregar»',
+      incluir_suplentes TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Si el sugerido del plan suma también a los suplentes del puesto',
+      activo TINYINT(1) NOT NULL DEFAULT 1,
+      orden INT NOT NULL DEFAULT 0,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_logi_item (aspirante_id, nombre)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS logistica_plan (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      item_id INT NOT NULL,
+      puesto_id INT NOT NULL,
+      cantidad INT NOT NULL COMMENT 'Corrección a mano de la cantidad sugerida; sin fila, manda la sugerida',
+      actualizado_por INT NULL,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_logi_plan (item_id, puesto_id),
+      FOREIGN KEY (item_id) REFERENCES logistica_items(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS logistica_entregas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      item_id INT NOT NULL,
+      puesto_id INT NOT NULL,
+      receptor_usuario_id INT NOT NULL COMMENT 'El testigo que recibió',
+      fecha DATE NOT NULL,
+      estado ENUM('entregado','anulado') NOT NULL DEFAULT 'entregado',
+      entregado_por INT NULL,
+      entregado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'La hora del TOQUE (no la de la subida, si se hizo sin señal)',
+      nota VARCHAR(255) NULL,
+      foto_url VARCHAR(255) NULL COMMENT 'Archivo en uploads/dia-d/ (carpeta protegida); sale sólo por GET /entregas/:id/foto',
+      cliente_uuid VARCHAR(64) NULL,
+      anulado_por INT NULL,
+      anulado_en DATETIME NULL,
+      UNIQUE KEY uq_logi_entrega (item_id, receptor_usuario_id, fecha),
+      KEY idx_logi_entrega_puesto (aspirante_id, fecha, puesto_id),
+      FOREIGN KEY (item_id) REFERENCES logistica_items(id) ON DELETE CASCADE,
+      FOREIGN KEY (receptor_usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+      FOREIGN KEY (entregado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+      FOREIGN KEY (anulado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  // Los tres ítems de fábrica, UNA vez: sólo si la campaña madre no tiene ninguno. Si el administrador renombró o desactivó uno,
+  // volver a correr init-db no lo recrea. (Un aspirante recibe los suyos la primera vez que abre el módulo.)
+  {
+    const { ITEMS_DE_FABRICA } = require('../lib/logisticaItems');
+    const [[{ n }]] = await connection.query('SELECT COUNT(*) AS n FROM logistica_items WHERE aspirante_id = 0');
+    if (Number(n) === 0) {
+      for (const it of ITEMS_DE_FABRICA) {
+        await connection.query(
+          'INSERT INTO logistica_items (aspirante_id, nombre, destinatario, hora_limite, orden) VALUES (0, ?, ?, ?, ?)',
+          [it.nombre, it.destinatario, it.hora, it.orden]);
+      }
+      console.log('Ítems de logística sembrados: ' + ITEMS_DE_FABRICA.map(i => i.nombre).join(', ') + '.');
+    }
+  }
+  console.log('Tablas de la logística del Día D listas.');
 
   // --- Día D fase 3: el bloque de cada voto ---
   // `dia_d_reporte_votos` guardaba solo el NOMBRE del candidato; el bloque (candidato,

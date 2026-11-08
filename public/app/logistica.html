@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Logística del puesto · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* Logística del Día D (orden 39): el coordinador de puesto marca qué recibió cada testigo. Pensada a 360 px. */
+  .franja-prueba { background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none; }
+  .cola { background: #fdf3e0; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; display: none; }
+  .resumen { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .resumen .cifra { flex: 1 1 90px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .resumen .cifra .n { font-size: 1.25rem; font-weight: 800; color: var(--navy); }
+  .resumen .cifra .e { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+  .testigo { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  .testigo .cab { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .testigo .ini { flex: 0 0 38px; height: 38px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+  .testigo .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; line-height: 1.2; }
+  .testigo .sub { font-size: 0.76rem; color: var(--muted); }
+  .etq { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-right: 4px; background: #e8eef5; color: var(--navy); }
+  .etq.llego { background: #e7f4ea; color: var(--exito); } .etq.nollego { background: #fbe9e7; color: var(--error); }
+  .item { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--linea); padding: 8px 0 0; margin-top: 8px; }
+  .item .nom { flex: 1 1 auto; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+  .item .nom small { display: block; font-weight: 400; color: var(--muted); font-size: 0.74rem; }
+  .item button { font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; }
+  .item .entregar { background: var(--copper); color: #fff; border: none; padding: 11px 12px; min-width: 104px; font-size: 0.9rem; }
+  .item .foto { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 9px 10px; font-size: 1rem; }
+  .item .hecho { color: var(--exito); font-weight: 800; font-size: 0.9rem; text-align: right; }
+  .item .hecho button { background: none; border: none; color: var(--muted); font-size: 0.74rem; text-decoration: underline; padding: 2px 0 0; font-weight: 400; display: block; margin-left: auto; }
+  .item .pendiente { color: #8a5a00; font-weight: 700; font-size: 0.82rem; text-align: right; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+  select.puesto { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid var(--linea); font-size: 1rem; margin-bottom: 12px; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div class="franja-prueba" id="franja-prueba">Modo prueba: hoy no es el día de la elección. Puedes ensayar las entregas.</div>
+  <div class="cola" id="cola"></div>
+  <select class="puesto" id="selector-puesto" style="display:none;" aria-label="Puesto"></select>
+  <div class="resumen" id="resumen" style="display:none;"></div>
+  <p class="estado-red" id="estado-red" style="font-size:0.8rem; color:var(--muted); text-align:center; margin:0 0 10px;"></p>
+  <div id="lista"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+  <input type="file" id="archivo-foto" accept="image/*" capture="environment" hidden>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE = 'logistica_pendientes';
+const CACHE = 'logistica_mi_puesto_v1';
+const esc = (t) => escaparAppHtml(t);
+let vista = null;              // lo último que mandó el servidor (o la caché)
+let puestoElegido = null;      // sólo para la coordinación
+let pendientes = [];           // entregas hechas sin señal, aún sin subir
+let fotoPara = null;           // { item, receptor } esperando la foto
+
+function aviso(texto, tipo) {
+  const el = document.getElementById('aviso');
+  el.textContent = texto || '';
+  el.className = texto ? 'aviso-app visible ' + (tipo || 'error') : 'aviso-app';
+}
+
+const clavePend = (itemId, receptor) => itemId + '|' + receptor;
+const estaPendiente = (itemId, receptor) => pendientes.some(p => clavePend(p.payload.item_id, p.payload.receptor_usuario_id) === clavePend(itemId, receptor));
+
+async function leerPendientes() {
+  try { pendientes = (await listarColaOffline(STORE)).filter(r => r.estado !== 'fallido'); } catch (_) { pendientes = []; }
+  const caja = document.getElementById('cola');
+  if (pendientes.length) {
+    caja.style.display = 'block';
+    caja.textContent = pendientes.length === 1
+      ? '1 entrega guardada en tu celular: se sube sola cuando vuelva la señal.'
+      : pendientes.length + ' entregas guardadas en tu celular: se suben solas cuando vuelva la señal.';
+  } else caja.style.display = 'none';
+}
+
+function construirFormData(registro) {
+  const p = registro.payload;
+  const fd = new FormData();
+  fd.append('item_id', p.item_id); fd.append('receptor_usuario_id', p.receptor_usuario_id); fd.append('puesto_id', p.puesto_id);
+  fd.append('cliente_uuid', registro.clienteUuid); fd.append('marcado_en', p.marcado_en);
+  if (p.foto) fd.append('foto', p.foto, 'foto.jpg');
+  return fd;
+}
+
+async function subirPendientes() {
+  try { await sincronizarCola(STORE, '/dia-d/logistica/entregar', construirFormData); } catch (_) { /* sin señal: se reintenta */ }
+  await leerPendientes();
+}
+
+function pintar() {
+  if (!vista) return;
+  document.getElementById('franja-prueba').style.display = 'none';
+  const total = vista.testigos.length;
+  let entregadas = 0, posibles = 0;
+  vista.testigos.forEach(t => vista.items.forEach(i => { posibles++; if (t.entregas[i.id]) entregadas++; }));
+  const r = document.getElementById('resumen');
+  r.style.display = 'flex';
+  r.innerHTML = `<div class="cifra"><div class="n">${total}</div><div class="e">Testigos</div></div>`
+    + `<div class="cifra"><div class="n">${vista.testigos.filter(t => t.llego).length}</div><div class="e">Ya llegaron</div></div>`
+    + `<div class="cifra"><div class="n">${entregadas}/${posibles}</div><div class="e">Entregas</div></div>`;
+  const vacio = document.getElementById('vacio');
+  if (!total) { document.getElementById('lista').innerHTML = ''; vacio.style.display = 'block'; vacio.textContent = 'Este puesto todavía no tiene testigos asignados.'; return; }
+  if (!vista.items.length) { document.getElementById('lista').innerHTML = ''; vacio.style.display = 'block'; vacio.textContent = 'No hay nada por entregar: la coordinación no ha activado ítems.'; return; }
+  vacio.style.display = 'none';
+  document.getElementById('lista').innerHTML = vista.testigos.map(t => `
+    <div class="testigo">
+      <div class="cab">
+        <div class="ini">${esc(t.iniciales)}</div>
+        <div>
+          <div class="nombre">${esc(t.nombre)}</div>
+          <div class="sub">${t.coordinador_de_puesto ? '<span class="etq">Coordinador de puesto</span>' : ''}${t.llego ? '<span class="etq llego">Ya llegó</span>' : '<span class="etq nollego">No ha llegado</span>'}</div>
+        </div>
+      </div>
+      ${vista.items.map(i => {
+        const e = t.entregas[i.id];
+        const pend = !e && estaPendiente(i.id, t.usuario_id);
+        let lado;
+        if (e) lado = `<div class="hecho">✓ Entregado ${esc(e.hora)}${e.con_foto ? ' 📷' : ''}<button type="button" data-anular="${e.id}">Deshacer</button></div>`;
+        else if (pend) lado = '<div class="pendiente">⏳ Guardado, sin subir</div>';
+        else lado = `<button type="button" class="foto" data-foto="${i.id}|${t.usuario_id}" aria-label="Entregar con foto">📷</button><button type="button" class="entregar" data-entregar="${i.id}|${t.usuario_id}">Entregado</button>`;
+        return `<div class="item"><div class="nom">${esc(i.nombre)}${i.hora_limite ? `<small>hasta las ${esc(i.hora_limite)}</small>` : ''}</div>${lado}</div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+function guardarCache() { try { localStorage.setItem(CACHE, JSON.stringify({ vista, cuando: Date.now() })); } catch (_) { /* sin almacenamiento */ } }
+function leerCache() { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); return c && c.vista ? c : null; } catch (_) { return null; } }
+
+async function cargar() {
+  const q = puestoElegido ? `?puesto_id=${puestoElegido}` : '';
+  try {
+    const d = await api('/dia-d/logistica/mi-puesto' + q);
+    vista = d;
+    guardarCache();
+    document.getElementById('estado-red').textContent = '';
+    aviso('');
+    document.getElementById('franja-prueba').style.display = 'none';
+  } catch (err) {
+    if (err && err.esErrorDeRed) {
+      const c = leerCache();
+      if (c) { vista = c.vista; document.getElementById('estado-red').textContent = 'Sin señal: se muestra la última lista que se cargó. Las entregas que marques se guardan y suben solas.'; }
+      else { aviso('Sin señal y sin una lista guardada en este celular.'); return; }
+    } else { aviso(err.message || 'No se pudo cargar tu puesto.'); return; }
+  }
+  await leerPendientes();
+  pintar();
+}
+
+async function entregar(itemId, receptor, foto) {
+  const clienteUuid = generarUuid();
+  const marcado = new Date().toISOString();
+  const fd = new FormData();
+  fd.append('item_id', itemId); fd.append('receptor_usuario_id', receptor); fd.append('puesto_id', vista.puesto.id);
+  fd.append('cliente_uuid', clienteUuid); fd.append('marcado_en', marcado);
+  if (foto) fd.append('foto', foto, 'foto.jpg');
+  try {
+    const r = await api('/dia-d/logistica/entregar', { method: 'POST', body: fd });
+    if (r && r.foto_recibida && !r.foto) aviso('Se registró la entrega, pero la foto no se pudo guardar.');
+    await cargar();
+  } catch (err) {
+    if (err && err.esErrorDeRed) {
+      // Sin señal: queda en el celular con SU identificador y la hora del toque; al subir, el servidor no la duplica.
+      await guardarEnColaOffline(STORE, { clienteUuid, estado: 'pendiente', creadoEn: Date.now(),
+        payload: { item_id: itemId, receptor_usuario_id: receptor, puesto_id: vista.puesto.id, marcado_en: marcado, foto: foto || null } });
+      await leerPendientes();
+      pintar();
+    } else aviso(err.message || 'No se pudo registrar la entrega.');
+  }
+}
+
+document.getElementById('lista').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.entregar) {
+    const [i, r] = b.dataset.entregar.split('|').map(Number);
+    b.disabled = true;                                   // un doble toque no manda dos (y si mandara, el servidor no lo duplica)
+    await entregar(i, r, null);
+  } else if (b.dataset.foto) {
+    const [i, r] = b.dataset.foto.split('|').map(Number);
+    fotoPara = { item: i, receptor: r };
+    document.getElementById('archivo-foto').click();
+  } else if (b.dataset.anular) {
+    if (!confirm('¿Deshacer esta entrega? Solo si fue un error.')) return;
+    try { await api('/dia-d/logistica/anular', { method: 'POST', body: { entrega_id: Number(b.dataset.anular) } }); await cargar(); }
+    catch (err) { aviso(err.message || 'No se pudo deshacer.'); }
+  }
+});
+
+document.getElementById('archivo-foto').addEventListener('change', async (ev) => {
+  const archivo = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!archivo || !fotoPara) return;
+  const { item, receptor } = fotoPara; fotoPara = null;
+  await entregar(item, receptor, archivo);               // el servidor reduce la foto; aquí se manda tal cual
+});
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Logística del puesto', 'Refrigerios, almuerzos y kits', '/app/inicio.html');
+  window.addEventListener('online', async () => { await subirPendientes(); await cargar(); });
+  await subirPendientes();
+  // La coordinación elige el puesto; el coordinador de puesto entra directo al suyo.
+  try {
+    const plan = await api('/dia-d/logistica/plan');
+    const sel = document.getElementById('selector-puesto');
+    sel.innerHTML = '<option value="">Elige un puesto…</option>' + plan.puestos.map(p => `<option value="${p.puesto_id}">${esc(p.puesto)} (${p.testigos})</option>`).join('');
+    sel.style.display = 'block';
+    sel.addEventListener('change', () => { puestoElegido = sel.value ? Number(sel.value) : null; if (puestoElegido) cargar(); else { document.getElementById('lista').innerHTML = ''; document.getElementById('resumen').style.display = 'none'; } });
+    return;                                              // la coordinación espera a que elija
+  } catch (_) { /* no es de la coordinación: es el coordinador de puesto */ }
+  await cargar();
+})();
+</script>
+</body>
+</html>

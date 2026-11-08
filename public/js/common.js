@@ -209,6 +209,8 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
       // Transporte va al final del grupo (orden 35). Es otra pestaña de la misma pantalla (hash #transporte), con su propio módulo (orden 33).
       { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
+      // Logística va después de Transporte (orden 39): otra pestaña de la misma pantalla.
+      { href: '/dia-d.html#logistica', texto: 'Logística del Día D', modulo: 'logistica_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {

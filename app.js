@@ -269,6 +269,8 @@ app.use('/api/dia-d/checkin', require('./routes/checkinDiaD.routes'));
 app.use('/api/dia-d/alertas', require('./routes/alertasDiaD.routes'));
 // Transporte del Día D (vehículos, conductores, asignar). Antes de /api/dia-d, por lo mismo que las demás.
 app.use('/api/dia-d/transporte', require('./routes/transporteDiaD.routes'));
+// Logística del Día D (refrigerios, almuerzos, kits; orden 39). Antes de /api/dia-d, por lo mismo.
+app.use('/api/dia-d/logistica', require('./routes/logisticaDiaD.routes'));
 app.use('/api/dia-d', require('./routes/diaD.routes'));
 app.use('/api/catalogo', require('./routes/catalogo.routes'));
 app.use('/api/backup', require('./routes/backup.routes'));

@@ -145,6 +145,8 @@
       <div id="cola-llegada" style="display:none; background:#FDF3E0; border-radius:10px; padding:10px 12px; margin-top:8px; font-size:0.85rem;"></div>
     </div>
 
+    <!-- Orden 39: sólo el coordinador de puesto (testigo tipo «puesto»). Se muestra si el servidor le abre su puesto. -->
+    <a id="enlace-logistica" class="btn-app btn-app-secundario" href="/app/logistica.html" style="display:none; margin-bottom:16px;">🥪 Logística de mi puesto (refrigerios y kits)</a>
     <div class="aviso-app error" id="diad-error"></div>
     <div class="aviso-app exito" id="diad-ok"></div>
 
@@ -1227,6 +1229,8 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
   sincronizarColaOfflineDiaD();
   window.addEventListener('online', () => sincronizarColaOfflineDiaD());
   if (typeof iniciarCheckin === 'function') iniciarCheckin();     // «Llegué a mi puesto»
+  // Orden 39: el coordinador de puesto ve el acceso a la logística de su puesto (la ruta responde 403 a los demás testigos).
+  api('/dia-d/logistica/mi-puesto').then(() => { document.getElementById('enlace-logistica').style.display = 'block'; }).catch(() => {});
 
   await cargarCandidatosParaReporte();
   await cargarPuestosParaReporte();

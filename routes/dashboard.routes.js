@@ -131,25 +131,30 @@ async function ambitoDelCoordinador(req) {
  *   · coordinador: él, sus líderes y los sublíderes de éstos (`ambitoDelCoordinador`);
  *   · líder y sublíder: él y quienes le reportan directo (sus sublíderes), y los votantes con la MISMA condición de la lista
  *     de Votantes: un líder ve lo que él registró y lo de sus sublíderes (llevan su `lider_id`); un sublíder, lo suyo.
+ *   · testigo, usuario e invitado (orden 39): sólo lo suyo, igual que el sublíder. Ceros si no registran nada.
  *
- * NO SE TOCAN los demás roles (asistente administrativo, testigo, usuario, invitado): la orden no los nombra, y a un asistente
- * administrativo dejarlo en cero le quitaría el Panel. Quedan con la campaña entera, como hoy; ver ESTADO.md.
+ * NO SE TOCAN el asistente administrativo y el administrativo: siguen viendo la campaña entera, sin finanzas (dejarlos en
+ * cero les quitaría el Panel, que es su trabajo).
  * `tabla-posiciones` NO usa esta función: su ranking de líderes es a propósito visible para todos (ver su nota).
  */
+const ROLES_CON_ALCANCE_PROPIO = ['lider', 'sublider', 'testigo', 'usuario', 'invitado'];
+
 async function ambitoDeResumen(req) {
   const aspirante = await ambitoDelPanel(req);
   if (aspirante) return { ...aspirante, esAspirante: true };
   const coordinador = await ambitoDelCoordinador(req);
   if (coordinador) return coordinador;
   const u = req.session && req.session.usuario;
-  if (!u || !['lider', 'sublider'].includes(u.rol)) return null;
+  if (!u || !ROLES_CON_ALCANCE_PROPIO.includes(u.rol)) return null;
   const [filas] = await pool.query(
     `SELECT ? AS usuario_id
      UNION
      SELECT e.usuario_id FROM estructura e WHERE e.activo = 1 AND e.supervisor_id = ?`,
     [u.id, u.id]
   );
-  const alcance = { cargo: u.rol, usuarioId: u.id };
+  /* Sólo el líder mide como líder (también ve lo que registran sus sublíderes). Sublíder, testigo, usuario e invitado
+     miden como sublíder: lo que ellos registraron. Si eso da cero, está bien: un testigo que no registra votantes ve ceros. */
+  const alcance = { cargo: u.rol === 'lider' ? 'lider' : 'sublider', usuarioId: u.id };
   return {
     aspiranteId: null,
     ids: filas.map(f => f.usuario_id),

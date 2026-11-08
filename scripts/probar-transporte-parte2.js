@@ -125,8 +125,10 @@ const ayudaRelojEn = (iso) => { jornada.reloj = () => new Date(iso); };
   const iDia = nav.indexOf("grupo: 'Día D'");
   const bloqueDiaD = nav.slice(iDia, nav.indexOf("grupo: 'Logística'"));
   const orden = [...bloqueDiaD.matchAll(/texto: '([^']+)'/g)].map(m => m[1]);
-  ok(orden[orden.length - 1] === 'Transporte del Día D' && orden[orden.length - 2] === 'Puestos de votación y candidatos',
-    'escritorio: «Transporte del Día D» va último, después de «Puestos de votación y candidatos»', orden);
+  // Orden 39: «Logística del Día D» pasó a ir DESPUÉS de Transporte; Transporte sigue justo detrás de «Puestos de votación y candidatos».
+  const iT = orden.indexOf('Transporte del Día D');
+  ok(iT > 0 && orden[iT - 1] === 'Puestos de votación y candidatos' && orden[iT + 1] === 'Logística del Día D',
+    'escritorio: «Transporte del Día D» va después de «Puestos de votación y candidatos» (y ahora lo sigue «Logística del Día D»)', orden);
   const inicio = leer('public/app/inicio.html');
   const menus = ['MENU_COORDINADOR', 'MENU_ADMIN'].map(nom => {
     const cuerpo = inicio.slice(inicio.indexOf(`const ${nom} = [`));
@@ -135,7 +137,7 @@ const ayudaRelojEn = (iso) => { jornada.reloj = () => new Date(iso); };
   ok(menus.every(m => m.indexOf("titulo: 'Ranking Día D'") !== -1 && m.indexOf("titulo: 'Transporte Día D'") > m.indexOf("titulo: 'Ranking Día D'")),
     'celular (coordinador y administrador): la tarjeta «Transporte Día D» va después de «Ranking Día D»');
   const pestanas = [...leer('public/dia-d.html').matchAll(/id="pestana-(\w+)"/g)].map(m => m[1]);
-  ok(pestanas[pestanas.length - 1] === 'transporte', 'las pestañas de dia-d.html: Transporte es la última', pestanas);
+  ok(pestanas[pestanas.length - 2] === 'transporte' && pestanas[pestanas.length - 1] === 'logistica', 'las pestañas de dia-d.html: Transporte, y después (orden 39) Logística', pestanas);
   const { HREFS_ASPIRANTE } = require('../middleware/aspirante');
   ok(HREFS_ASPIRANTE.includes('/dia-d.html#transporte') && HREFS_ASPIRANTE.includes('/dia-d.html#alertas'),
     'el aspirante con sublicencia: su lista de direcciones incluye /dia-d.html#transporte (antes faltaba) y no perdió las otras');

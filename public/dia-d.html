@@ -46,6 +46,8 @@
       <button type="button" class="btn-secundario btn-sm" id="pestana-alertas" style="display:none;">Alertas <span id="insignia-alertas" style="display:none; background:#A93226; color:#fff; border-radius:9px; padding:0 6px; font-size:0.72rem; margin-left:4px;"></span></button>
           <!-- Solo con el módulo `transporte_dia_d`. -->
       <button type="button" class="btn-secundario btn-sm" id="pestana-transporte" style="display:none;">Transporte</button>
+      <!-- Solo con el módulo `logistica_dia_d` (orden 39). Va al final, después de Transporte. -->
+      <button type="button" class="btn-secundario btn-sm" id="pestana-logistica" style="display:none;">Logística</button>
     </div>
 
     <div id="vista-reportes">
@@ -82,6 +84,11 @@
         <div class="card stat-card"><div class="label">No estaban</div><div class="valor" id="stat-tr-no_estaban">—</div></div>
         <div class="card stat-card"><div class="label">Sin recoger</div><div class="valor" id="stat-tr-sin_recoger" style="color:var(--color-no-apoya);">—</div></div>
       </div>
+    </div>
+
+    <!-- El contador de LOGÍSTICA (orden 39): «Refrigerio: 38 de 52». Solo con el módulo `logistica_dia_d`. -->
+    <div id="fila-logistica" style="display:none; margin-bottom:18px;">
+      <div class="grid grid-6" id="logi-contador"></div>
     </div>
 
     <div class="card" style="margin-bottom:18px;">
@@ -182,6 +189,7 @@
 
     <!-- ALERTAS (fase 4): lo que la coordinación tiene que atender ahora. Se recalcula cada 30 s. -->
     <div id="vista-transporte" style="display:none;"></div><!-- /vista-transporte: se arma en js/transporte-dia-d.js -->
+    <div id="vista-logistica" style="display:none;"></div><!-- /vista-logistica: se arma en js/logistica-dia-d.js -->
 
     <div id="vista-alertas" style="display:none;">
       <div id="franja-alertas" style="display:none; background:#FDF3E0; color:#8A5A00; border-radius:8px; padding:6px 12px; font-size:0.85rem; margin-bottom:10px;"></div>
@@ -309,6 +317,7 @@
 <script src="/js/common.js"></script>
 <script src="/js/alertas-dia-d.js"></script>
 <script src="/js/transporte-dia-d.js"></script>
+<script src="/js/logistica-dia-d.js"></script>
 <script>
 let usuarioActual;
 let intervaloActualizacion = null;
@@ -632,7 +641,7 @@ async function cargarAvance() {
 
 let intervaloPaquetes = null;
 function mostrarPestana(cual) {
-  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte' };
+  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte', logistica: 'vista-logistica' };
   if (!vistas[cual]) cual = 'reportes';
   Object.entries(vistas).forEach(([k, id]) => { document.getElementById(id).style.display = k === cual ? 'block' : 'none'; });
   Object.keys(vistas).forEach((k) => {
@@ -648,6 +657,7 @@ function mostrarPestana(cual) {
   }
   if (cual === 'resultados') abrirResultados();
   if (cual === 'transporte' && window.TransporteDiaD) window.TransporteDiaD.abrir();
+  if (cual === 'logistica' && window.LogisticaDiaD) window.LogisticaDiaD.abrir();
   if (cual === 'alertas') {
     cargarAvisos();
     cargarAlertas().catch(err => alert(err.message || 'No se pudieron cargar las alertas.'));
@@ -710,6 +720,7 @@ document.getElementById('pestana-avance').addEventListener('click', () => mostra
 document.getElementById('pestana-resultados').addEventListener('click', () => mostrarPestana('resultados'));
 document.getElementById('pestana-alertas').addEventListener('click', () => mostrarPestana('alertas'));
 document.getElementById('pestana-transporte').addEventListener('click', () => mostrarPestana('transporte'));
+document.getElementById('pestana-logistica').addEventListener('click', () => mostrarPestana('logistica'));
 document.querySelectorAll('[data-orden-ranking]').forEach(b => b.addEventListener('click', () => {
   ordenRanking = b.dataset.ordenRanking;
   document.querySelectorAll('[data-orden-ranking]').forEach(x => {
@@ -735,8 +746,8 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
 /* ——— RESULTADOS (fase 3) ——— */
 let puedeResultados = false;
 // Qué pestañas puede abrir quien mira (se llenan al cargar la sesión). Las usa también el cambio de ancla (hashchange).
-let puedeAlertasDiaD = false, puedeTransporteDiaD = false;
-/* LAS VISTAS DE ESTA PÁGINA SE ELIGEN POR EL ANCLA DE LA URL (orden 34): #avance, #alertas, #transporte, #resultados; sin ancla
+let puedeAlertasDiaD = false, puedeTransporteDiaD = false, puedeLogisticaDiaD = false;
+/* LAS VISTAS DE ESTA PÁGINA SE ELIGEN POR EL ANCLA DE LA URL (orden 34): #avance, #alertas, #transporte, #logistica, #resultados; sin ancla
    (o con una que quien mira no puede abrir) es «Reportes de mesas». El menú lateral enlaza a estas anclas, así que tocar otro
    ítem estando ya aquí solo cambia el ancla: se escucha `hashchange` y se cambia de pestaña sin recargar. */
 window.paginaEscuchaHash = true;
@@ -746,6 +757,7 @@ function pestanaDelAncla() {
   if (h === '#resultados' && puedeResultados) return 'resultados';
   if (h === '#alertas' && puedeAlertasDiaD) return 'alertas';
   if (h === '#transporte' && puedeTransporteDiaD) return 'transporte';
+  if (h === '#logistica' && puedeLogisticaDiaD) return 'logistica';
   return 'reportes';
 }
 window.addEventListener('hashchange', () => { if (usuarioActual) mostrarPestana(pestanaDelAncla()); });
@@ -1033,6 +1045,12 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   puedeTransporteDiaD = puedeTransporte;
   document.getElementById('pestana-transporte').style.display = puedeTransporte ? 'inline-flex' : 'none';
   if (puedeTransporte) window.TransporteDiaD.iniciarContador();
+  // La pestaña «Logística» y su contador solo con el módulo `logistica_dia_d` (el servidor lo vuelve a exigir).
+  const permLg = usuarioActual.permisos && usuarioActual.permisos.logistica_dia_d;
+  const puedeLogistica = !!(permLg && permLg.ver) && !!window.LogisticaDiaD;
+  puedeLogisticaDiaD = puedeLogistica;
+  document.getElementById('pestana-logistica').style.display = puedeLogistica ? 'inline-flex' : 'none';
+  if (puedeLogistica) window.LogisticaDiaD.iniciarContador();
   // La vista de la carga: la del ancla de la URL (un enlace directo a dia-d.html#alertas abre Alertas).
   const inicial = pestanaDelAncla();
   if (inicial !== 'reportes') mostrarPestana(inicial);

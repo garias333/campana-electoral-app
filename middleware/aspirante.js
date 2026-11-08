@@ -47,7 +47,7 @@ const PERMITIDOS = [
    posiciones—. Se acotaron a la rama antes de abrir esta puerta: el módulo y
    el filtro son el mismo cambio, y separarlos habría dejado una fuga con
    pinta de función nueva. */
-const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d', 'transporte_dia_d', 'alertas_dia_d'];
+const MODULOS_ASPIRANTE = ['panel_general', 'configuracion', 'usuarios', 'territorial', 'mapa', 'votantes', 'testigos', 'rescate_votos', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'alertas_dia_d'];
 
 /**
  * Qué puede HACER en cada uno de sus cuatro módulos.
@@ -113,6 +113,8 @@ const HREFS_ASPIRANTE = [
      el menú de escritorio manda esta lista de direcciones sobre la de módulos, y la entrada no estaba: la pestaña existía y el
      menú no se la ofrecía. Se descubrió al revisar el orden del menú (orden 35). */
   '/dia-d.html#transporte',
+  // Logística del Día D (orden 39): otra pestaña de la misma pantalla, y su entrada de menú tiene que estar aquí o el menú no se la ofrece.
+  '/dia-d.html#logistica',
 ];
 
 /*
@@ -161,6 +163,9 @@ const PERMISOS_ASPIRANTE = {
   /* Transporte del Día D (orden 33): sus vehículos, sus conductores y a quién recoge cada uno. Cuelga de /dia-d y se
      acota por su rama (`req.alcance`) y por su propio `aspirante_id`. */
   transporte_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: false },
+  /* Logística del Día D (orden 39): los refrigerios, almuerzos y kits de SUS testigos. Cuelga de /dia-d y se acota por su
+     propio `aspirante_id` (los testigos de su rama). Exportar el Excel de compras es suyo: es su lista, no la de la madre. */
+  logistica_dia_d: { ver: true, editar: true, agregar: false, importar_exportar: true },
 };
 
 /**

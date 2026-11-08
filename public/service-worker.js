@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v162';
+const CACHE_NAME = 'estrategia-v163';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -57,6 +57,7 @@ const ARCHIVOS_CASCARON = [
   '/app/ranking-dia-d.html',
   // Día D, fase 4: el cuadro de alertas (con copia sin señal), el «Llegué a mi puesto» del testigo y lo que dibuja las alertas.
   '/app/alertas-dia-d.html',
+  '/app/logistica.html',   // orden 39: el coordinador de puesto la usa sin señal
   '/app/checkin.js',
   '/js/alertas-dia-d.js',
   // Pantallas de ADMINISTRADOR del celular (+ su barra inferior). Leaflet NO va: viene de

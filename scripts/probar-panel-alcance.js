@@ -104,6 +104,10 @@ const sumaTend = (d) => (d || []).reduce((a, f) => a + f.total, 0);
   const lB = await usuario('Lider de B', 'lider');
   const sA = await usuario('Sublider de A', 'sublider');
   const asistente = await usuario('Asistente Admin', 'asistente_administrativo');
+  const administrativo = await usuario('Administrativo Prueba', 'administrativo');
+  const testigo = await usuario('Testigo Prueba', 'testigo');
+  const usuarioRaso = await usuario('Usuario Raso', 'usuario');
+  const invitado = await usuario('Invitado Prueba', 'invitado');
   await estructura(cA.id, 'coordinador', null, 0);
   await estructura(cB.id, 'coordinador', null, 0);
   await estructura(lA.id, 'lider', cA.id, 100);
@@ -117,7 +121,9 @@ const sumaTend = (d) => (d || []).reduce((a, f) => a + f.total, 0);
   await ficha(lA2.id, null, 2);
   for (let i = 0; i < 4; i++) await ficha(lB.id, null, 3);
   await ficha(null, null, 4);
-  const TOTAL = 11, DE_A = 6, DE_LA = 5, DE_LA2 = 1, DE_SA = 2, DE_B = 4;
+  await ficha(testigo.id, null, 1);                       // el testigo registró UNA persona
+  await ficha(usuarioRaso.id, null, 1); await ficha(usuarioRaso.id, null, 2);       // el usuario, dos
+  const TOTAL = 14, DE_A = 6, DE_LA = 5, DE_LA2 = 1, DE_SA = 2, DE_B = 4;
 
   await evento('Evento de A', { coordinador: cA.id });
   await evento('Evento del lider A', { lider: lA.id });
@@ -183,9 +189,28 @@ const sumaTend = (d) => (d || []).reduce((a, f) => a + f.total, 0);
   ok(sumaTend(tS.datos) === DE_SA, `tendencia (sublíder): ${DE_SA}`, tS.datos);
 
   // ============================================================== otros roles
-  console.log('\n== Otros roles (sin cambios, por no estar en la orden)');
+  console.log('\n== Asistente administrativo (sin cambios)');
   const rAsis = await pedir('/api/dashboard/resumen', asistente);
   ok(rAsis.status === 200 && rAsis.datos.votantes.total === TOTAL && !('finanzas' in rAsis.datos), 'asistente administrativo: sigue viendo la campaña entera, y sin finanzas', [rAsis.status, rAsis.datos && rAsis.datos.votantes]);
+
+  // ============================================================== testigo, usuario e invitado (orden 39)
+  console.log('\n== Testigo, usuario e invitado: sólo lo suyo (igual que el sublíder)');
+  const rT = await pedir('/api/dashboard/resumen', testigo);
+  ok(rT.status === 200 && rT.datos.votantes.total === 1, 'testigo: 1 votante (el que él registró), no 14', [rT.status, rT.datos && rT.datos.votantes]);
+  ok(!('finanzas' in rT.datos) && rT.datos.menciones.length === 0 && rT.datos.proximosEventos.length === 0 && rT.datos.estructura.coordinadores === 0, 'sin finanzas, menciones, eventos ni coordinadores de la campaña', rT.datos.estructura);
+  const rU = await pedir('/api/dashboard/resumen', usuarioRaso);
+  ok(rU.datos.votantes.total === 2 && !('finanzas' in rU.datos), 'usuario: sus 2 votantes', rU.datos.votantes);
+  const rI = await pedir('/api/dashboard/resumen', invitado);
+  ok(rI.status === 200 && rI.datos.votantes.total === 0 && rI.datos.avanceRegistrosLideres === 0 && !('finanzas' in rI.datos), 'invitado: ceros (no registra nada) y sin finanzas — si eso da ceros, está bien', rI.datos.votantes);
+  const tI = await pedir('/api/dashboard/tendencia-registros', invitado);
+  ok(tI.status === 200 && sumaTend(tI.datos) === 0, 'tendencia del invitado: ceros');
+  const tT = await pedir('/api/dashboard/tendencia-registros', testigo);
+  ok(sumaTend(tT.datos) === 1, 'tendencia del testigo: 1');
+  console.log('\n== Asistente administrativo y administrativo: toda la campaña, sin finanzas');
+  const rAdm = await pedir('/api/dashboard/resumen', administrativo);
+  ok(rAdm.status === 200 && rAdm.datos.votantes.total === TOTAL && !('finanzas' in rAdm.datos), `administrativo: los ${TOTAL}, sin finanzas`, [rAdm.status, rAdm.datos && rAdm.datos.votantes]);
+  const rAs2 = await pedir('/api/dashboard/resumen', asistente);
+  ok(rAs2.datos.votantes.total === TOTAL && !('finanzas' in rAs2.datos), `asistente administrativo: los ${TOTAL}, sin finanzas`, rAs2.datos.votantes);
 
   // ============================================================== aspirante (lo que ya había)
   console.log('\n== Aspirante: su rama (no cambia)');

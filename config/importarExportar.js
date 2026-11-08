@@ -49,6 +49,8 @@ const IMPORTAR_EXPORTAR_POR_DEFECTO = {
   asistentes_reuniones: ['admin', 'coordinador'],
   crm: ['admin', 'coordinador'],
   organigrama: ['admin', 'coordinador'],
+  // Logística del día D (orden 39): la lista de compras y la lista por puesto en Excel.
+  logistica_dia_d: ['admin', 'coordinador'],
   configuracion: ['admin'],
 };
 
