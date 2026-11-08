@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 289** (`parches/campana-parche289.zip`, 210.581 bytes,
+- **Último parche generado: 290** (`parches/campana-parche290.zip`, 24.454 bytes,
+  sha256 `9aa6f863614e3fa5328f11f6ee15292b83e5a1fe7b0ced974f28e406ce0bc828`, 6 archivos).
+  **Publicado** (`parche-290.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Páginas del celular: contenedor main.app-cuerpo y service worker v164 (Requiere el 289)» (detalle abajo); **requiere el 289**.
+  Service worker `v164`. El anterior, el 289 (`parches/campana-parche289.zip`, 210.581 bytes,
   sha256 `33dee58cfeed248031c944ed91202e65d849ffb876eeb8411028f07cbf0ab6c7`, 21 archivos).
   **Publicado** (`parche-289.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**;
   nombre en el panel: «Día D: logística (refrigerios y kits) y Panel por rol (Requiere el 288)» (detalle abajo); **requiere el 288**.
@@ -58,7 +62,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v164` en el código de la Base (commit `d48db1d`, **todavía sin parche**: lo llevará el próximo que toque archivos servidos); `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v164` en el código de la Base y dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -79,12 +83,12 @@ limpio») estaban obsoletas y se reemplazaron.*
   **La v286 (`plantilla-nueva-campana-v286.zip`, 251 archivos), la v271 (194) y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña
   nueva: usar la v289. Si después se publica otro parche, hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
   **El `.version-base` de la plantilla (289) es el del último parche, pero su service worker (v164) y las dos páginas de Ranking y Alertas ya llevan el
-  cambio del commit `d48db1d`, que ningún parche ha entregado aún**: una campaña nueva nace con él, y las que siguen en el 289 lo recibirán con el parche siguiente.
+  cambio del commit `d48db1d`, que la v289 trae y el parche 290 entrega a las campañas existentes**. La plantilla **no** trae `faltantes.html` ni `mis-registros.html` arreglados (`75076e3` es posterior): una campaña nueva los recibe con el 290 al primer ciclo de actualización, o se regenera la plantilla con `--parche 290`.
 - **Ranking y Alertas del Día D, contenedor** (commit `d48db1d`, 8 de noviembre de 2026): `public/app/ranking-dia-d.html` y `public/app/alertas-dia-d.html`
   envolvían todo en `<div class="app-contenido">`, una clase que **no existe** en `estilos-app.css` (no faltaba en el HTML: faltaba el CSS), así que las
   tarjetas salían pegadas a los bordes. Pasan a `<main class="app-cuerpo">`, la de `dia-d.html`, `inicio.html` y `logistica.html`. Service worker `v164`; las
   pruebas que fijaban la versión (`probar-inscripcion-enlace`, `probar-transporte-diad`, `probar-logistica`) aceptan v164. **Mismo defecto sin tocar** en
-  `app/faltantes.html` y `app/mis-registros.html`: no son del Día D y no se pidieron. Sin parche todavía.
+  `app/faltantes.html` y `app/mis-registros.html`; se arreglaron después (commit `75076e3`) y viajan juntos en el parche 290.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
@@ -92,6 +96,17 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 290 — Páginas del celular: contenedor main.app-cuerpo y service worker v164 (8 de noviembre de 2026, INACTIVO, no toca la base)
+
+Zip de 6 archivos (`.version-base` = 290): `public/app/alertas-dia-d.html`, `public/app/ranking-dia-d.html`, `public/app/faltantes.html`, `public/app/mis-registros.html`,
+`public/service-worker.js` (**v164**) y `.version-base`. Commits `d48db1d` (Ranking y Alertas + SW) y `75076e3` (Faltantes y Mis registros). **Requiere el 289.** Sin `db/`: no toca la base.
+
+Las cuatro pantallas envolvían todo en `<div class="app-contenido">`, una clase que no existe en `estilos-app.css`; las tarjetas salían pegadas a los bordes. Pasan a
+`<main class="app-cuerpo">` (padding de 18 px y ancho máximo de 560 px), la de `dia-d.html`, `inicio.html` y `logistica.html`. El service worker sube a v164 una sola vez para los cuatro archivos
+(estaban en su precache y v164 no se había entregado antes). Ya no queda ningún `app-contenido` en `public/`.
+Probado: `verificar-html.py` (etiquetas balanceadas y JS válido) en las cuatro páginas, y las suites `probar-logistica`, `panel-alcance`, `comunas-dashboard`, `transporte-diad`, `transporte-parte2` e `inscripcion-enlace`
+sin fallos (las tres que fijaban la versión del service worker ahora aceptan v164). **No probado:** el aspecto en un celular real o en un navegador; ninguna suite toca estas páginas.
 
 ## Parche 289 — Día D: logística (refrigerios y kits) y Panel por rol (8 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
