@@ -7,12 +7,11 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
-const { armarWhereSql } = require('../config/filtros');
 const { calcularEstimadoPorPuesto } = require('../config/estimadoPuestos');
 const { duenoDeLaCampana } = require('../lib/ramas');
-const { filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
+const { condicionAlcanceVotantes, parametrosAlcanceVotantes, filtroAlcanceEstimado } = require('../lib/alcanceVotantes');
 /* «TIENE LÍDER» / «TIENE COORDINADOR» MIRA TODOS LOS TERRITORIOS DE LA PERSONA.
    Un líder con tres barrios cubre los tres; uno con dos municipios, los dos. La
    regla de siempre se mantiene: quien está asignado a un MUNICIPIO no cubre por
@@ -24,10 +23,113 @@ const { COLOR_MARCA, formatoMillaresServidor } = require('../config/graficosServ
 const router = express.Router();
 router.use(requireAuth);
 router.use(requireRole('admin', 'coordinador'));
+router.use(calcularAlcance);
+
+/* A QUÉ VOTANTES LLEGA CADA QUIEN EN ESTE DASHBOARD (orden 36).
+   Hasta hoy el router no llamaba a `calcularAlcance` y ninguna consulta de votantes llevaba condición: un
+   coordinador veía —y exportaba— las cifras de TODA la campaña, aunque en la lista de Votantes sólo ve su rama.
+
+   · Administrador (`cargo: 'madre'`): sin condición, como siempre. Es lo que se pidió («toda la campaña»), y NO se
+     le aplica la regla de la madre que esconde las ramas de los aspirantes: eso cambiaría lo que el administrador
+     ya ve aquí, y no era el encargo.
+   · Coordinador: su rama (él, sus líderes y los sublíderes de éstos), la misma condición que la lista de Votantes.
+   · Aspirante: lo suyo, por `rama_aspirante_id` / `votante_ramas`. (Hoy el router exige rol admin o coordinador,
+     así que un aspirante no entra; si algún día entra, ya viene acotado.)
+   La condición va en TODA consulta que lee `votantes`. Las de cobertura leen la estructura de territorios, no
+   votantes, y quedan como están. */
+function alcanceDash(req) {
+  const a = req.alcance;
+  if (!a || a.cargo === 'madre') return { sql: '1 = 1', par: [] };
+  return { sql: condicionAlcanceVotantes(a, 'v'), par: parametrosAlcanceVotantes(a) };
+}
+
+/** El mismo alcance en la forma que espera el estimado por puesto; null (sin filtro) para el administrador. */
+function alcanceEstimadoDash(req) {
+  const a = req.alcance;
+  if (!a || a.cargo === 'madre') return null;
+  return filtroAlcanceEstimado(req);
+}
+
+/* LA ZONA DE UNA FICHA ES SU COMUNA O CORREGIMIENTO, Y SI NO TIENE, «SIN COMUNA».
+   Antes «Por Comuna/Corregimiento» agrupaba por el PADRE del territorio de la ficha, sea cual sea. Las veredas del
+   DANE cuelgan del MUNICIPIO (31.927 de 32.016) y una ficha asignada «a todo el municipio» cuelga del DEPARTAMENTO:
+   así aparecían «MANIZALES» (6), «Caldas» (2) o «Antioquia» como si fueran comunas. El dato no estaba mal guardado;
+   lo mostraba así el dashboard.
+   Ahora la zona es el propio territorio si es comuna o corregimiento, o su padre si lo es; si no, no hay zona. */
+const UNION_ZONA = `
+      LEFT JOIN territorios padre ON padre.id = t.padre_id
+      LEFT JOIN territorios z ON z.id = CASE
+            WHEN t.tipo IN ('comuna','corregimiento') THEN t.id
+            WHEN padre.tipo IN ('comuna','corregimiento') THEN padre.id END`;
+const SIN_COMUNA = 'Sin comuna';
+
+async function totalVotantes(A) {
+  const [[r]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE ${A.sql}`, A.par);
+  return r.total;
+}
+
+async function votantesPorZona(A) {
+  const [filas] = await pool.query(`
+      SELECT COALESCE(z.id, 0) AS zona_id, COALESCE(z.nombre, '${SIN_COMUNA}') AS zona_nombre,
+             COALESCE(z.tipo, 'sin_zona') AS zona_tipo, COUNT(*) AS total
+      FROM votantes v
+      JOIN territorios t ON t.id = v.territorio_id ${UNION_ZONA}
+      WHERE ${A.sql}
+      GROUP BY COALESCE(z.id, 0), COALESCE(z.nombre, '${SIN_COMUNA}'), COALESCE(z.tipo, 'sin_zona')
+      ORDER BY total DESC`, A.par);
+  return filas;
+}
+
+/** zonaId: undefined/'' = todas; 0 = las que no tienen comuna; otro = esa comuna o corregimiento. */
+async function votantesPorBarrio(A, zonaId) {
+  const condiciones = [A.sql];
+  const params = [...A.par];
+  if (zonaId !== undefined && zonaId !== null && zonaId !== '') {
+    if (String(zonaId) === '0') condiciones.push('z.id IS NULL');
+    else { condiciones.push('z.id = ?'); params.push(zonaId); }
+  }
+  const [filas] = await pool.query(`
+      SELECT t.id AS barrio_id, t.nombre AS barrio_nombre, t.tipo AS barrio_tipo,
+             COALESCE(z.nombre, '${SIN_COMUNA}') AS zona_nombre, COUNT(*) AS total
+      FROM votantes v
+      JOIN territorios t ON t.id = v.territorio_id ${UNION_ZONA}
+      WHERE ${condiciones.join(' AND ')}
+      GROUP BY t.id, COALESCE(z.nombre, '${SIN_COMUNA}')
+      ORDER BY total DESC`, params);
+  return filas;
+}
+
+async function votantesPorLider(A) {
+  const [lideres] = await pool.query(`
+      SELECT u.id AS lider_id, u.nombre AS lider_nombre, COUNT(*) AS total
+      FROM votantes v
+      JOIN usuarios u ON u.id = v.lider_id
+      WHERE v.lider_id IS NOT NULL AND ${A.sql}
+      GROUP BY u.id
+      ORDER BY total DESC`, A.par);
+  const [[sinLider]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE v.lider_id IS NULL AND ${A.sql}`, A.par);
+  return { lideres, sinLider: sinLider.total };
+}
+
+async function votantesPorPuestoYMesa(A) {
+  const [filas] = await pool.query(`
+      SELECT v.puesto_votacion AS puesto, v.mesa_votacion AS mesa, COUNT(*) AS total
+      FROM votantes v
+      WHERE v.puesto_votacion IS NOT NULL AND TRIM(v.puesto_votacion) <> '' AND ${A.sql}
+      GROUP BY v.puesto_votacion, v.mesa_votacion
+      ORDER BY v.puesto_votacion, v.mesa_votacion + 0`, A.par);
+  return filas;
+}
+
+/** Lo que se escribe en la columna «Tipo» de los informes: sin zona no es ni urbano ni rural. */
+function etiquetaTipoZona(tipo) {
+  return tipo === 'comuna' ? 'Urbano' : (tipo === 'corregimiento' ? 'Rural' : '—');
+}
 
 router.get('/resumen', async (req, res) => {
   try {
-    const [[totales]] = await pool.query('SELECT COUNT(*) AS total FROM votantes');
+    const total = await totalVotantes(alcanceDash(req));
+    const totales = { total };
     res.json({ total: totales.total });
   } catch (err) {
     console.error(err);
@@ -289,15 +391,7 @@ router.get('/cobertura-detalle/exportar-word', requiereImportarExportar('votante
 
 router.get('/por-comuna', async (req, res) => {
   try {
-    const [filas] = await pool.query(`
-      SELECT padre.id AS zona_id, padre.nombre AS zona_nombre, padre.tipo AS zona_tipo, COUNT(*) AS total
-      FROM votantes v
-      JOIN territorios t ON t.id = v.territorio_id
-      JOIN territorios padre ON padre.id = t.padre_id
-      GROUP BY padre.id
-      ORDER BY total DESC
-    `);
-    res.json(filas);
+    res.json(await votantesPorZona(alcanceDash(req)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando votantes por comuna/corregimiento.' });
@@ -306,20 +400,7 @@ router.get('/por-comuna', async (req, res) => {
 
 router.get('/por-barrio', async (req, res) => {
   try {
-    const condiciones = [];
-    const params = [];
-    if (req.query.zona_id) { condiciones.push('t.padre_id = ?'); params.push(req.query.zona_id); }
-    const whereSql = armarWhereSql(condiciones, 'AND');
-    const [filas] = await pool.query(`
-      SELECT t.id AS barrio_id, t.nombre AS barrio_nombre, t.tipo AS barrio_tipo, padre.nombre AS zona_nombre, COUNT(*) AS total
-      FROM votantes v
-      JOIN territorios t ON t.id = v.territorio_id
-      LEFT JOIN territorios padre ON padre.id = t.padre_id
-      WHERE 1=1 ${whereSql}
-      GROUP BY t.id
-      ORDER BY total DESC
-    `, params);
-    res.json(filas);
+    res.json(await votantesPorBarrio(alcanceDash(req), req.query.zona_id));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando votantes por barrio/vereda.' });
@@ -328,18 +409,7 @@ router.get('/por-barrio', async (req, res) => {
 
 router.get('/por-lider', async (req, res) => {
   try {
-    const [filas] = await pool.query(`
-      SELECT u.id AS lider_id, u.nombre AS lider_nombre, COUNT(*) AS total
-      FROM votantes v
-      JOIN usuarios u ON u.id = v.lider_id
-      WHERE v.lider_id IS NOT NULL
-      GROUP BY u.id
-      ORDER BY total DESC
-    `);
-
-    const [[sinLider]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE v.lider_id IS NULL`);
-
-    res.json({ lideres: filas, sinLider: sinLider.total });
+    res.json(await votantesPorLider(alcanceDash(req)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error calculando votantes por líder.' });
@@ -362,6 +432,7 @@ router.get('/exportar-excel', requiereImportarExportar('votantes_dashboard'), as
   try {
     const puente = await territoriosPersona.hayPuente();
     const libro = XLSX.utils.book_new();
+    const A = alcanceDash(req);
 
     // --- Exportación de UNA sola sección (botones "⬇ Excel" de cada tarjeta) ---
     if (seccion === 'cobertura') {
@@ -398,90 +469,50 @@ router.get('/exportar-excel', requiereImportarExportar('votantes_dashboard'), as
       ];
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Cobertura');
     } else if (seccion === 'comuna') {
-      const [comunas] = await pool.query(`
-        SELECT padre.nombre AS zona, padre.tipo AS tipo, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY padre.id ORDER BY total DESC
-      `);
+      const comunas = await votantesPorZona(A);
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
-        comunas.map(f => ({ 'Comuna/Corregimiento': f.zona, 'Tipo': f.tipo === 'comuna' ? 'Urbano' : 'Rural', 'Total votantes': f.total }))
+        comunas.map(f => ({ 'Comuna/Corregimiento': f.zona_nombre, 'Tipo': etiquetaTipoZona(f.zona_tipo), 'Total votantes': f.total }))
       ), 'Por comuna');
     } else if (seccion === 'barrio') {
-      const [barrios] = await pool.query(`
-        SELECT t.nombre AS barrio, padre.nombre AS zona, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id LEFT JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY t.id ORDER BY total DESC
-      `);
+      const barrios = await votantesPorBarrio(A);
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
-        barrios.map(f => ({ 'Barrio/Vereda': f.barrio, 'Comuna/Corregimiento': f.zona || '—', 'Total votantes': f.total }))
+        barrios.map(f => ({ 'Barrio/Vereda': f.barrio_nombre, 'Comuna/Corregimiento': f.zona_nombre, 'Total votantes': f.total }))
       ), 'Por barrio');
     } else if (seccion === 'lider') {
-      const [lideres] = await pool.query(`
-        SELECT u.nombre AS lider, COUNT(*) AS total
-        FROM votantes v JOIN usuarios u ON u.id = v.lider_id
-        WHERE v.lider_id IS NOT NULL GROUP BY u.id ORDER BY total DESC
-      `);
-      const [[sinLider]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE v.lider_id IS NULL`);
-      const filas = lideres.map(f => ({ 'Líder': f.lider, 'Total votantes': f.total }));
-      if (sinLider.total) filas.push({ 'Líder': 'Sin líder asignado', 'Total votantes': sinLider.total });
+      const { lideres, sinLider } = await votantesPorLider(A);
+      const filas = lideres.map(f => ({ 'Líder': f.lider_nombre, 'Total votantes': f.total }));
+      if (sinLider) filas.push({ 'Líder': 'Sin líder asignado', 'Total votantes': sinLider });
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Por líder');
     } else if (seccion === 'puesto') {
       // Mismo cálculo que ve la pantalla (catálogo de Día D + estimado por
       // mesa), no el groupby crudo — para que el número exportado sea
       // idéntico al que se ve en "Por Puesto de votación".
-      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
+      const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const filas = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total)
         .map(p => ({ 'Puesto de votación': p.puesto, 'Mesas configuradas': p.cantidadMesas, 'Votantes estimados': p.total }));
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Por puesto');
     } else if (seccion === 'mesa') {
       if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
-      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
+      const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });
       const filas = encontrado.mesas.map(m => ({ 'Mesa': m.mesa, 'Votantes estimados': m.cantidad }));
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Por mesa');
     } else {
       // --- Exportación completa (botón "⬇ Exportar a Excel" del encabezado) ---
-      const [comunas] = await pool.query(`
-        SELECT padre.nombre AS zona, padre.tipo AS tipo, COUNT(*) AS total
-        FROM votantes v
-        JOIN territorios t ON t.id = v.territorio_id
-        JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY padre.id ORDER BY total DESC
-      `);
-
-      const [barrios] = await pool.query(`
-        SELECT t.nombre AS barrio, padre.nombre AS zona, COUNT(*) AS total
-        FROM votantes v
-        JOIN territorios t ON t.id = v.territorio_id
-        LEFT JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY t.id ORDER BY total DESC
-      `);
-
-      const [lideres] = await pool.query(`
-        SELECT u.nombre AS lider, COUNT(*) AS total
-        FROM votantes v
-        JOIN usuarios u ON u.id = v.lider_id
-        WHERE v.lider_id IS NOT NULL
-        GROUP BY u.id ORDER BY total DESC
-      `);
-
-      const [puestosCrudo] = await pool.query(`
-        SELECT v.puesto_votacion AS puesto, v.mesa_votacion AS mesa, COUNT(*) AS total
-        FROM votantes v
-        WHERE v.puesto_votacion IS NOT NULL AND TRIM(v.puesto_votacion) <> ''
-        GROUP BY v.puesto_votacion, v.mesa_votacion
-        ORDER BY v.puesto_votacion, v.mesa_votacion + 0
-      `);
+      const comunas = await votantesPorZona(A);
+      const barrios = await votantesPorBarrio(A);
+      const { lideres } = await votantesPorLider(A);
+      const puestosCrudo = await votantesPorPuestoYMesa(A);
 
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
-        comunas.map(f => ({ 'Comuna/Corregimiento': f.zona, 'Tipo': f.tipo === 'comuna' ? 'Urbano' : 'Rural', 'Total votantes': f.total }))
+        comunas.map(f => ({ 'Comuna/Corregimiento': f.zona_nombre, 'Tipo': etiquetaTipoZona(f.zona_tipo), 'Total votantes': f.total }))
       ), 'Por comuna');
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
-        barrios.map(f => ({ 'Barrio/Vereda': f.barrio, 'Comuna/Corregimiento': f.zona || '—', 'Total votantes': f.total }))
+        barrios.map(f => ({ 'Barrio/Vereda': f.barrio_nombre, 'Comuna/Corregimiento': f.zona_nombre, 'Total votantes': f.total }))
       ), 'Por barrio');
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
-        lideres.map(f => ({ 'Líder': f.lider, 'Total votantes': f.total }))
+        lideres.map(f => ({ 'Líder': f.lider_nombre, 'Total votantes': f.total }))
       ), 'Por líder');
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(
         puestosCrudo.map(f => ({ 'Puesto de votación': f.puesto, 'Mesa': f.mesa || 'Sin mesa', 'Total votantes': f.total }))
@@ -514,6 +545,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
   const tipoGraficoSeccionUnica = req.query.tipo_grafico === 'dona' ? 'dona' : 'barra';
   try {
     const puente = await territoriosPersona.hayPuente();
+    const A = alcanceDash(req);
     let titulo = 'Dashboard de votantes';
     const secciones = [];
 
@@ -555,41 +587,28 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       }));
       titulo = 'Cobertura territorial';
     } else if (seccion === 'comuna') {
-      const [comunas] = await pool.query(`
-        SELECT padre.nombre AS zona, padre.tipo AS tipo, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY padre.id ORDER BY total DESC
-      `);
+      const comunas = await votantesPorZona(A);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Comuna/Corregimiento', subtitulo: '¿Dónde están concentrados los posibles votantes?',
-        tipoGrafico: tipoGraficoSeccionUnica, datosGrafico: comunas.map(f => ({ etiqueta: f.zona, total: f.total })), colorBarra: COLOR_MARCA,
+        tipoGrafico: tipoGraficoSeccionUnica, datosGrafico: comunas.map(f => ({ etiqueta: f.zona_nombre, total: f.total })), colorBarra: COLOR_MARCA,
         columnas: ['Comuna/Corregimiento', 'Tipo', 'Total votantes'],
-        filas: comunas.map(f => [f.zona, f.tipo === 'comuna' ? 'Urbano' : 'Rural', f.total])
+        filas: comunas.map(f => [f.zona_nombre, etiquetaTipoZona(f.zona_tipo), f.total])
       }));
       titulo = 'Por Comuna/Corregimiento';
     } else if (seccion === 'barrio') {
-      const [barrios] = await pool.query(`
-        SELECT t.nombre AS barrio, padre.nombre AS zona, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id LEFT JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY t.id ORDER BY total DESC
-      `);
+      const barrios = await votantesPorBarrio(A);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Barrio/Vereda', subtitulo: 'Detalle dentro de una Comuna/Corregimiento, o de toda la base.',
-        tipoGrafico: tipoGraficoSeccionUnica, datosGrafico: barrios.map(f => ({ etiqueta: f.barrio, total: f.total })), colorBarra: COLOR_MARCA,
+        tipoGrafico: tipoGraficoSeccionUnica, datosGrafico: barrios.map(f => ({ etiqueta: f.barrio_nombre, total: f.total })), colorBarra: COLOR_MARCA,
         columnas: ['Barrio/Vereda', 'Comuna/Corregimiento', 'Total votantes'],
-        filas: barrios.map(f => [f.barrio, f.zona || '—', f.total])
+        filas: barrios.map(f => [f.barrio_nombre, f.zona_nombre, f.total])
       }));
       titulo = 'Por Barrio/Vereda';
     } else if (seccion === 'lider') {
-      const [lideres] = await pool.query(`
-        SELECT u.nombre AS lider, COUNT(*) AS total
-        FROM votantes v JOIN usuarios u ON u.id = v.lider_id
-        WHERE v.lider_id IS NOT NULL GROUP BY u.id ORDER BY total DESC
-      `);
-      const [[sinLider]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE v.lider_id IS NULL`);
-      const datosGrafico = lideres.map(f => ({ etiqueta: f.lider, total: f.total }));
-      const filas = lideres.map(f => [f.lider, f.total]);
-      if (sinLider.total) { datosGrafico.push({ etiqueta: 'Sin líder asignado', total: sinLider.total }); filas.push(['Sin líder asignado', sinLider.total]); }
+      const { lideres, sinLider } = await votantesPorLider(A);
+      const datosGrafico = lideres.map(f => ({ etiqueta: f.lider_nombre, total: f.total }));
+      const filas = lideres.map(f => [f.lider_nombre, f.total]);
+      if (sinLider) { datosGrafico.push({ etiqueta: 'Sin líder asignado', total: sinLider }); filas.push(['Sin líder asignado', sinLider]); }
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Líder', subtitulo: '¿Quién ha referido más posibles votantes?',
         tipoGrafico: tipoGraficoSeccionUnica, datosGrafico, colorBarra: COLOR_MARCA,
@@ -597,7 +616,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       }));
       titulo = 'Por Líder';
     } else if (seccion === 'puesto') {
-      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
+      const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const filtrados = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Puesto de votación', subtitulo: 'Estimado de cuántos votarían en cada puesto, según lo que cada persona escribió en "Lugar de votación".',
@@ -608,7 +627,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       titulo = 'Por Puesto de votación';
     } else if (seccion === 'mesa') {
       if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
-      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
+      const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });
       secciones.push(await construirBloqueSeccion({
@@ -619,7 +638,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       titulo = `Por Mesa — ${puesto}`;
     } else {
       // --- Documento completo (botón "Word" del encabezado) ---
-      const [[totalRow]] = await pool.query('SELECT COUNT(*) AS total FROM votantes');
+      const totalRow = { total: await totalVotantes(A) };
       const [[config]] = await pool.query('SELECT fecha_eleccion FROM configuracion_campana WHERE id = 1');
       secciones.push(await construirBloqueSeccion({
         titulo: 'Resumen', tipoGrafico: null,
@@ -665,41 +684,28 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
         ]
       }));
 
-      const [comunas] = await pool.query(`
-        SELECT padre.nombre AS zona, padre.tipo AS tipo, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY padre.id ORDER BY total DESC
-      `);
+      const comunas = await votantesPorZona(A);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Comuna/Corregimiento', subtitulo: '¿Dónde están concentrados los posibles votantes?',
         tipoGrafico: req.query.tipo_grafico_comuna === 'dona' ? 'dona' : 'barra',
-        datosGrafico: comunas.map(f => ({ etiqueta: f.zona, total: f.total })), colorBarra: COLOR_MARCA,
+        datosGrafico: comunas.map(f => ({ etiqueta: f.zona_nombre, total: f.total })), colorBarra: COLOR_MARCA,
         columnas: ['Comuna/Corregimiento', 'Tipo', 'Total votantes'],
-        filas: comunas.map(f => [f.zona, f.tipo === 'comuna' ? 'Urbano' : 'Rural', f.total])
+        filas: comunas.map(f => [f.zona_nombre, etiquetaTipoZona(f.zona_tipo), f.total])
       }));
 
-      const [barrios] = await pool.query(`
-        SELECT t.nombre AS barrio, padre.nombre AS zona, COUNT(*) AS total
-        FROM votantes v JOIN territorios t ON t.id = v.territorio_id LEFT JOIN territorios padre ON padre.id = t.padre_id
-        GROUP BY t.id ORDER BY total DESC
-      `);
+      const barrios = await votantesPorBarrio(A);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Barrio/Vereda', subtitulo: 'Detalle dentro de una Comuna/Corregimiento, o de toda la base.',
         tipoGrafico: req.query.tipo_grafico_barrio === 'dona' ? 'dona' : 'barra',
-        datosGrafico: barrios.map(f => ({ etiqueta: f.barrio, total: f.total })), colorBarra: COLOR_MARCA,
+        datosGrafico: barrios.map(f => ({ etiqueta: f.barrio_nombre, total: f.total })), colorBarra: COLOR_MARCA,
         columnas: ['Barrio/Vereda', 'Comuna/Corregimiento', 'Total votantes'],
-        filas: barrios.map(f => [f.barrio, f.zona || '—', f.total])
+        filas: barrios.map(f => [f.barrio_nombre, f.zona_nombre, f.total])
       }));
 
-      const [lideres] = await pool.query(`
-        SELECT u.nombre AS lider, COUNT(*) AS total
-        FROM votantes v JOIN usuarios u ON u.id = v.lider_id
-        WHERE v.lider_id IS NOT NULL GROUP BY u.id ORDER BY total DESC
-      `);
-      const [[sinLider]] = await pool.query(`SELECT COUNT(*) AS total FROM votantes v WHERE v.lider_id IS NULL`);
-      const datosGraficoLider = lideres.map(f => ({ etiqueta: f.lider, total: f.total }));
-      const filasLider = lideres.map(f => [f.lider, f.total]);
-      if (sinLider.total) { datosGraficoLider.push({ etiqueta: 'Sin líder asignado', total: sinLider.total }); filasLider.push(['Sin líder asignado', sinLider.total]); }
+      const { lideres, sinLider } = await votantesPorLider(A);
+      const datosGraficoLider = lideres.map(f => ({ etiqueta: f.lider_nombre, total: f.total }));
+      const filasLider = lideres.map(f => [f.lider_nombre, f.total]);
+      if (sinLider) { datosGraficoLider.push({ etiqueta: 'Sin líder asignado', total: sinLider }); filasLider.push(['Sin líder asignado', sinLider]); }
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Líder', subtitulo: '¿Quién ha referido más posibles votantes?',
         tipoGrafico: req.query.tipo_grafico_lider === 'dona' ? 'dona' : 'barra',
@@ -707,7 +713,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
         columnas: ['Líder', 'Total votantes'], filas: filasLider
       }));
 
-      const { puestos } = await calcularEstimadoPorPuesto(pool, filtroAlcanceEstimado(req), await duenoDeLaCampana(pool, req));
+      const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const filtrados = puestos.filter(p => p.total > 0).sort((a, b) => b.total - a.total);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Puesto de votación', subtitulo: 'Estimado de cuántos votarían en cada puesto, según lo que cada persona escribió en "Lugar de votación".',
@@ -717,13 +723,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
         filas: filtrados.map(p => [p.puesto, p.cantidadMesas, p.total])
       }));
 
-      const [puestosCrudo] = await pool.query(`
-        SELECT v.puesto_votacion AS puesto, v.mesa_votacion AS mesa, COUNT(*) AS total
-        FROM votantes v
-        WHERE v.puesto_votacion IS NOT NULL AND TRIM(v.puesto_votacion) <> ''
-        GROUP BY v.puesto_votacion, v.mesa_votacion
-        ORDER BY v.puesto_votacion, v.mesa_votacion + 0
-      `);
+      const puestosCrudo = await votantesPorPuestoYMesa(A);
       secciones.push(await construirBloqueSeccion({
         titulo: 'Por Puesto y Mesa', tipoGrafico: null,
         columnas: ['Puesto de votación', 'Mesa', 'Total votantes'],

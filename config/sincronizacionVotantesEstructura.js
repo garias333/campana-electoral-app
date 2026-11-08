@@ -26,6 +26,7 @@
  */
 const { ramaDeVotante } = require('../lib/ramas');
 const { normalizarCedula, sqlCedulaNormalizada, buscarFichaConCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
+const { comunaValida } = require('../lib/comunasDeLaCampana');
 
 /**
  * Busca la ficha de Votante de ESTA MISMA persona cuando la cédula no
@@ -125,6 +126,12 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
        miente es el territorio: si es un barrio o una comuna es urbano, y si es
        una vereda o un corregimiento es rural. Nadie escribe «Vereda La Cabaña»
        queriendo decir que es urbano. */
+    /* LA COMUNA, SOLO SI ES DE LA CAMPAÑA (orden 36). Esta copia tomaba tal cual el texto libre de
+       `usuarios.comuna_corregimiento_residencia`; si la campaña tiene lista de comunas y el texto no está en ella
+       (por ejemplo, la ciudad), en Votantes queda vacío. La ficha de Estructura NO se toca. */
+    const comunaRevisada = await comunaValida(pool, datos.comuna_corregimiento_residencia);
+    datos.comuna_corregimiento_residencia = comunaRevisada.valor;
+
     let areaDeducida = null;
     if (datos.territorio_id) {
       try {

@@ -34,6 +34,7 @@ const { inscribir, contarRecientes, anotarRechazo, coordenadasValidas, sha256, u
 // Por el objeto y no desestructurado: así una prueba puede sustituir la inversa.
 const geocoder = require('../config/geocoder');
 const tarjeta = require('../config/inscripcionTarjeta');
+const { comunaValida } = require('../lib/comunasDeLaCampana');
 
 const router = express.Router();
 
@@ -633,6 +634,15 @@ async function validar(cuerpo, enlace) {
   let gps = null;
   if (valores.gps_lat || valores.gps_lon) gps = coordenadasValidas(valores.gps_lat, valores.gps_lon);
   if (!gps) { valores.gps_lat = ''; valores.gps_lon = ''; }
+
+  /* LA COMUNA, SOLO SI ES DE LA CAMPAÑA (orden 36). La lista del formulario es una sugerencia (<datalist>): la
+     persona podía escribir «Manizales» o «Caldas» y quedaba guardado como comuna. Con la campaña teniendo lista,
+     lo que no está en ella se guarda vacío; sin error ni mensaje —quien se inscribe no puede arreglarlo y perder
+     la inscripción por esto sería peor— y sin lista el texto sigue libre. */
+  if (valores.comuna_corregimiento_residencia) {
+    const rc = await comunaValida(pool, valores.comuna_corregimiento_residencia);
+    if (rc.descartada) valores.comuna_corregimiento_residencia = '';
+  }
 
   let puesto = null, mesa = null;
   if (valores.puesto_id) {

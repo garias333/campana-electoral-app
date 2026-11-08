@@ -30,6 +30,7 @@ const { versionConocida } = require('../config/politicaVersiones');
 const { guardarFirma } = require('../config/firmaConsentimiento');
 const { crearConfirmacion } = require('../config/confirmacionConsentimiento');
 const { pedirConfirmacionSiProcede } = require('../config/confirmacionAutomatica');
+const { comunaValida, listaDeComunas, revisarComuna } = require('../lib/comunasDeLaCampana');
 const router = express.Router();
 
 /**
@@ -629,6 +630,9 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
     let actualizados = 0;
     const errores = [];
     const posiblesDuplicados = [];
+    // Orden 36: la comuna/corregimiento de cada fila se comprueba contra la lista de la campaña (una sola lectura).
+    const avisos = [];
+    const listaComunasImport = await listaDeComunas(pool);
 
     /* LA RAMA DE CADA LIDER, PREGUNTADA UNA SOLA VEZ.
        Un Excel trae muchas filas y pocos lideres distintos, y averiguar la rama
@@ -709,10 +713,21 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       const puestoVotacion = String(fila.Puesto || fila['Puesto de votación'] || fila.puesto_votacion || '').trim() || null;
       const mesaVotacion = String(fila.Mesa || fila['Mesa de votación'] || fila.mesa_votacion || '').trim() || null;
       const area = String(fila.Área || fila.Area || fila.area || '').trim();
-      const comuna = String(fila.Comuna || fila.comuna || '').trim();
+      let comuna = String(fila.Comuna || fila.comuna || '').trim();
       const barrio = String(fila.Barrio || fila.barrio || '').trim();
-      const corregimiento = String(fila.Corregimiento || fila.corregimiento || '').trim();
+      let corregimiento = String(fila.Corregimiento || fila.corregimiento || '').trim();
       const vereda = String(fila.Vereda || fila.vereda || '').trim();
+      /* LA CIUDAD O EL DEPARTAMENTO EN LA COLUMNA «COMUNA» (orden 36). Con la campaña teniendo lista de comunas, lo que no
+         está en ella se IGNORA y se avisa en el resumen: antes la fila se perdía entera («Falta el Barrio…»), o peor,
+         el barrio se buscaba dentro de una comuna que no existe. Sin lista (campaña sin comunas) no se toca nada. */
+      for (const [campo, etiqueta] of [['comuna', 'comuna'], ['corregimiento', 'corregimiento']]) {
+        const valor = campo === 'comuna' ? comuna : corregimiento;
+        const rev = revisarComuna(valor, listaComunasImport);
+        if (rev.descartada) {
+          avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: ${etiqueta} "${rev.descartada}" no existe en la campaña; quedó vacía.` });
+          if (campo === 'comuna') comuna = ''; else corregimiento = '';
+        }
+      }
       const direccion = String(fila['Dirección de Residencia'] || fila.Dirección || fila.Direccion || fila.direccion || '').trim() || null;
       const departamentoResidenciaImport = String(fila['Departamento de residencia'] || fila.departamento_residencia || '').trim() || null;
       const ciudadResidenciaImport = String(fila['Ciudad de residencia'] || fila.ciudad_residencia || '').trim() || null;
@@ -728,6 +743,17 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
 
       let territorioId = null;
       if (tocarTerritorio) {
+        /* Si la comuna se ignoró y la fila trae barrio, el barrio ya no tiene comuna que lo desempate: si el
+           nombre existe en varias comunas se rechaza la fila en vez de adivinar cuál (mismo criterio de siempre:
+           un barrio en el sitio equivocado no da error, sólo cuentas malas). */
+        if (barrio && !comuna && avisos.some(x => x.fila === i + 2)) {
+          const [[rep]] = await pool.query(
+            `SELECT COUNT(*) AS n FROM territorios WHERE tipo = 'barrio' AND LOWER(nombre) COLLATE utf8mb4_unicode_ci = LOWER(?) COLLATE utf8mb4_unicode_ci`, [barrio]);
+          if (Number(rep.n) > 1) {
+            errores.push({ fila: i + 2, error: `Barrio "${barrio}" existe en varias comunas y la comuna de la fila no es válida. Indique una comuna de la lista.` });
+            continue;
+          }
+        }
         const resuelto = await resolverTerritorioDesdeNombres(pool, { area, comuna, barrio, corregimiento, vereda });
         if (resuelto.error) { errores.push({ fila: i + 2, error: resuelto.error }); continue; }
         territorioId = resuelto.territorioId;
@@ -827,7 +853,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       }
     }
 
-    res.json({ ok: true, insertados, actualizados, errores, posiblesDuplicados, cedulasRepetidas });
+    res.json({ ok: true, insertados, actualizados, errores, avisos, posiblesDuplicados, cedulasRepetidas });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
@@ -1607,6 +1633,12 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   const rechazo = await resolverAtribucion(req, b, null);
   if (rechazo) return res.status(rechazo.status).json({ error: rechazo.error });
 
+  /* LA COMUNA SOLO SE GUARDA SI ES UNA DE LA CAMPAÑA (orden 36). «MANIZALES» o «Caldas» —la ciudad o el
+     departamento— no son una comuna: con la campaña teniendo lista, se guarda vacío y se avisa. Sin lista
+     (campaña sin comunas) el texto sigue libre. La ficha se guarda igual. */
+  const comunaRevisada = await comunaValida(pool, b.comuna_corregimiento_residencia);
+  b.comuna_corregimiento_residencia = comunaRevisada.valor;
+
   let votanteId;
   try {
     const [result] = await pool.query(
@@ -1770,7 +1802,7 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
     direccion: b.direccion
   });
 
-  res.json({ ok: true, id: votanteId, geocodificado: geo.geocodificado, usuario_sublider: usuarioSublider, avisos: revision.avisos });
+  res.json({ ok: true, id: votanteId, geocodificado: geo.geocodificado, usuario_sublider: usuarioSublider, avisos: revision.avisos, comuna_descartada: comunaRevisada.descartada });
 });
 
 /**
@@ -1849,6 +1881,10 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Ya registrado por otro líder.' });
     }
 
+    // La misma regla que al crear (orden 36): una comuna que no es de la campaña se guarda vacía.
+    const comunaRevisada = await comunaValida(pool, b.comuna_corregimiento_residencia);
+    b.comuna_corregimiento_residencia = comunaRevisada.valor;
+
     await pool.query(
       `UPDATE votantes SET categoria=?, nombre=?, cedula=?, telefono=?, email=?, genero=?, edad=?,
        fecha_nacimiento=?, territorio_id=?, tipo_area_influencia=?, organizacion=?, direccion=?,
@@ -1921,7 +1957,7 @@ router.put('/:id', async (req, res) => {
       direccion: b.direccion
     });
 
-    res.json({ ok: true, usuario_sublider: usuarioSublider, avisos: revision.avisos });
+    res.json({ ok: true, usuario_sublider: usuarioSublider, avisos: revision.avisos, comuna_descartada: comunaRevisada.descartada });
   } catch (err) {
     console.error(err);
     const msg = err.code === 'ER_DUP_ENTRY' ? 'Ya registrado por otro líder.' : 'Error actualizando el registro.';

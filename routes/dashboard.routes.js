@@ -87,6 +87,40 @@ async function ambitoDelPanel(req) {
   };
 }
 
+/**
+ * LA RAMA DE UN COORDINADOR en «Progreso del equipo» y en la tabla de posiciones (orden 36).
+ *
+ * Las dos rutas devolvían a TODOS los coordinadores y líderes de la campaña a quien las pidiera sin ser aspirante:
+ * `ambitoDelPanel` es null salvo para el aspirante, así que un coordinador veía la nómina entera —con metas— y los
+ * conteos de líderes de otras ramas. Aquí se le acota a lo suyo: él, sus líderes (`supervisor_id` = él) y los
+ * sublíderes de esos líderes; y los votantes con la MISMA condición que la lista de Votantes
+ * (`condicionAlcanceVotantes`, cargo 'coordinador'), para que la tabla cuadre con lo que él ve allí.
+ *
+ * Administrador y aspirante NO pasan por aquí: el primero sigue viendo todo y el segundo tiene su propio ámbito.
+ * Devuelve null para ellos. No se usa en `/resumen` ni en `/tendencia-registros`, que no se pidieron.
+ */
+async function ambitoDelCoordinador(req) {
+  if (req.sublicencia || !req.session.usuario || req.session.usuario.rol !== 'coordinador') return null;
+  const yo = req.session.usuario.id;
+  const [filas] = await pool.query(
+    `SELECT ? AS usuario_id
+     UNION
+     SELECT el.usuario_id FROM estructura el WHERE el.activo = 1 AND el.supervisor_id = ?
+     UNION
+     SELECT es.usuario_id FROM estructura es
+       JOIN estructura el2 ON el2.usuario_id = es.supervisor_id
+      WHERE es.activo = 1 AND el2.activo = 1 AND el2.supervisor_id = ?`,
+    [yo, yo, yo]
+  );
+  const alcance = { cargo: 'coordinador', usuarioId: yo };   // sin cargoMadre: aquí se cuenta lo que hizo cada quien
+  return {
+    aspiranteId: null,   // no hay «cabeza» que excluir de la lista, como sí pasa con el aspirante
+    ids: filas.map(f => f.usuario_id),
+    votantesSql: condicionAlcanceVotantes(alcance, 'v'),
+    votantesPar: parametrosAlcanceVotantes(alcance),
+  };
+}
+
 router.get('/resumen', verPanelGeneral, async (req, res) => {
   try {
     const ambito = await ambitoDelPanel(req);
@@ -501,7 +535,7 @@ router.get('/progreso-equipo', async (req, res) => {
     return res.status(403).json({ error: 'No tiene permisos para ver esta información.' });
   }
   try {
-    const ambito = await ambitoDelPanel(req);
+    const ambito = (await ambitoDelPanel(req)) || (await ambitoDelCoordinador(req));
     const filtroEst = ambito ? 'AND e.usuario_id IN (?)' : '';
     const parEst = ambito ? [ambito.ids] : [];
     /* ACOTAR LAS FILAS NO ACOTA LOS NÚMEROS DE CADA FILA.
@@ -538,9 +572,9 @@ router.get('/progreso-equipo', async (req, res) => {
       -- Alcaldía, que no tienen nada que ver con su campaña al Concejo. Mismo
       -- motivo que en /resumen; ver la nota larga de allí.
       WHERE e.activo = 1 AND e.cargo IN ('coordinador','lider') ${filtroEst}
-        ${ambito ? 'AND e.usuario_id <> ?' : ''}
+        ${ambito && ambito.aspiranteId ? 'AND e.usuario_id <> ?' : ''}
       ORDER BY e.cargo, u.nombre
-    `, [...parVot, ...parEst, ...(ambito ? [ambito.aspiranteId] : [])]);
+    `, [...parVot, ...parEst, ...(ambito && ambito.aspiranteId ? [ambito.aspiranteId] : [])]);
 
     const conPorcentaje = filas.map(f => ({
       ...f,
@@ -631,7 +665,7 @@ router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (re
  */
 router.get('/tabla-posiciones', verPanelGeneral, async (req, res) => {
   try {
-    const ambito = await ambitoDelPanel(req);
+    const ambito = (await ambitoDelPanel(req)) || (await ambitoDelCoordinador(req));
     const filtroEst = ambito ? 'AND e.usuario_id IN (?)' : '';
     const parEst = ambito ? [ambito.ids] : [];
     // Misma corrección que en /progreso-equipo: las filas iban acotadas y los

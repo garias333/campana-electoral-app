@@ -2946,6 +2946,11 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     olvidarPasswordEdicionVotante();
     cargarVotantes();
 
+    // Orden 36: la comuna escrita no está en la lista de la campaña; la ficha se guardó, la comuna quedó vacía.
+    if (respuesta.comuna_descartada) {
+      alert(`La comuna «${respuesta.comuna_descartada}» no está en la lista de comunas y corregimientos de la campaña, así que se guardó vacía. Elíjala de la lista que ofrece el campo.`);
+    }
+
     if (datos.categoria === 'sublider' && respuesta.usuario_sublider) {
       // La palabra la pone el SERVIDOR, que es quien decidió el escalón: un
       // Aspirante al Concejo crea líderes y un líder crea sublíderes. Si el
@@ -3014,6 +3019,10 @@ document.getElementById('input-importar-votantes').addEventListener('change', as
     let mensaje = `Importación completada: ${r.insertados} contacto(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    // Orden 36: comunas que no son de la campaña y quedaron vacías (la fila se importó igual).
+    if (r.avisos && r.avisos.length) {
+      mensaje += ` ${r.avisos.length} aviso(s) de comuna (ej. ${r.avisos[0].aviso})`;
     }
     alert(mensaje);
     cargarVotantes();

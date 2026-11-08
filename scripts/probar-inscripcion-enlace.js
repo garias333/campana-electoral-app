@@ -475,7 +475,14 @@ const F = (codigo, huella, extra = {}) => ({
     comuna_corregimiento_residencia: 'C'.repeat(200), barrio_residencia: 'B'.repeat(300), email: '  PERSONA@Correo.Co ' }) });
   const [c3] = await q("SELECT email, direccion, departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia FROM votantes WHERE cedula = '9400000031'");
   ok(c3 && c3.direccion === 'Carrera 7 # 8-9', 'la dirección se recorta y se colapsan los espacios y saltos', c3 && c3.direccion);
-  ok(c3.departamento_residencia.length === 100 && c3.comuna_corregimiento_residencia.length === 120 && c3.barrio_residencia.length === 120, 'cada campo se corta al largo de su columna (100 / 120 / 120)');
+  /* Orden 36: la campaña de esta prueba SÍ tiene lista de comunas (sembrada arriba), así que un texto largo que no es una de
+     ellas ya no se corta a 120: se descarta entero. El largo de la comuna sin lista queda cubierto por el límite de columna. */
+  ok(c3.departamento_residencia.length === 100 && c3.barrio_residencia.length === 120, 'departamento y barrio se cortan al largo de su columna (100 / 120)');
+  ok(c3.comuna_corregimiento_residencia === null, 'una «comuna» que no es de la lista de la campaña (200 letras C) no se guarda: queda vacía');
+  await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000051', telefono: '3230000051', nombre: 'Contacto Comuna Ciudad',
+    ciudad_residencia: 'Manizales', comuna_corregimiento_residencia: 'Manizales' }) });
+  const [c5] = await q("SELECT comuna_corregimiento_residencia c FROM votantes WHERE cedula = '9400000051'");
+  ok(c5 && c5.c === null, '/i: la ciudad escrita como comuna («Manizales») no se guarda como comuna, y la inscripción sí se hace');
   ok(c3.ciudad_residencia === 'Manizales' && c3.email === 'PERSONA@Correo.Co', 'se recortan los espacios de los extremos');
   const largoDir = await pedir('POST', `/i/${e3.codigo}`, { form: F(e3.codigo, HUELLA, { cedula: '9400000041', telefono: '3230000041', nombre: 'Contacto Largo Cuatro', direccion: 'X'.repeat(400) }) });
   ok((await q("SELECT direccion d FROM votantes WHERE cedula = '9400000041'"))[0].d.length === 255, 'una dirección de 400 caracteres queda en 255');
@@ -831,7 +838,7 @@ const F = (codigo, huella, extra = {}) => ({
   const pagina = fs.readFileSync(path.join(__dirname, '..', 'public/app/mi-enlace.html'), 'utf8');
   ok(/id="aviso-cedulas"/.test(pagina) && /pintarAvisos\(d\.avisos/.test(pagina) && /avisos: undefined/.test(pagina), 'la pantalla «Mi enlace» tiene el bloque del aviso, lo pinta, y no guarda las cédulas enmascaradas en el teléfono');
   ok(/li\.textContent/.test(pagina) && !/innerHTML\s*=\s*[^'"\s]*a\./.test(pagina), 'el texto del aviso se pone con textContent (nada del servidor se interpreta como HTML)');
-  ok(/estrategia-v1(5[6789]|6[01])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v156 o posterior (mi-enlace.html está en su precache)');
+  ok(/estrategia-v1(5[6789]|6[012])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v156 o posterior (mi-enlace.html está en su precache)');
 
   console.log('  -- la respuesta pública: idéntica para cédula nueva y existente');
   const mismoCuerpo = (a, b) => a.status === b.status && a.texto === b.texto;
@@ -1073,7 +1080,7 @@ const F = (codigo, huella, extra = {}) => ({
   const esc = fs.readFileSync(path.join(__dirname, '..', 'public/votantes.html'), 'utf8');
   ok(/id="aj-insc-plantilla"/.test(esc) && /Restaurar texto sugerido/.test(esc) && /\{nombre_lider\}/.test(esc) && /Slogan de la campaña/.test(fs.readFileSync(path.join(__dirname, '..', 'public/configuracion.html'), 'utf8')),
      'el escritorio tiene el editor de la plantilla con «Restaurar texto sugerido»; el eslogan ya se llena en Configuración');
-  ok(/estrategia-v1(5[789]|6[01])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v157 o posterior');
+  ok(/estrategia-v1(5[789]|6[012])/.test(fs.readFileSync(path.join(__dirname, '..', 'public/service-worker.js'), 'utf8')), 'el service worker está en v157 o posterior');
   } // fin del bloque de la orden 29
 
   console.log('\n== Cédulas sin duplicados en el alta, la edición, la importación y los cruces (orden 30)');
