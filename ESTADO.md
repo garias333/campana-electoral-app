@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 288** (`parches/campana-parche288.zip`, 12.664 bytes,
+- **Último parche generado: 289** (`parches/campana-parche289.zip`, 210.581 bytes,
+  sha256 `33dee58cfeed248031c944ed91202e65d849ffb876eeb8411028f07cbf0ab6c7`, 21 archivos).
+  **Publicado** (`parche-289.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**;
+  nombre en el panel: «Día D: logística (refrigerios y kits) y Panel por rol (Requiere el 288)» (detalle abajo); **requiere el 288**.
+  Service worker `v163`. El anterior, el 288 (`parches/campana-parche288.zip`, 12.664 bytes,
   sha256 `ad6c6bf1a07c7825e04484a4d54cec833787fd6dcf1a9858e6bc34f4544961fa`, 2 archivos: `routes/dashboard.routes.js` y `.version-base`).
   **Publicado** (`parche-288.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, `toca_base_datos = false`; nombre en el panel:
   «Panel general por alcance (Requiere el 287)» (detalle abajo); **requiere el 287**. No cambia el service worker (sigue `v162`).
@@ -46,15 +50,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 288 (y del 287, 286, 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 289 (y del 288, 287, 286, 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 288, `.version-parche` y `.version-base` = **288**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v162` en el código de la Base y dentro del 287 (el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v163` en el código de la Base y dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -73,7 +77,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   el escáner la tomaba por una credencial literal. La v271 (`plantilla-nueva-campana-v271.zip`, 194 archivos) y las v261/v262 siguen en la
   carpeta pero **ya no sirven** para una campaña nueva: usar la v286. Si después de ella se publica otro parche, hay que regenerarla
   (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
-  **Ya está atrás: el 287 y el 288 (7-8 de noviembre) son posteriores y la v286 no los trae** (`.version-base` = 286, service worker `v161`). Se regenerará con `--parche N` (el último que haya) **al final del lote de órdenes**, como se pidió; hasta entonces no crear campañas nuevas con ella.
+  **Ya está atrás: el 287, el 288 y el 289 (7-8 de noviembre) son posteriores y la v286 no los trae** (`.version-base` = 286, service worker `v161`). Se regenerará con `--parche N` (el último que haya) **al final del lote de órdenes**, como se pidió; hasta entonces no crear campañas nuevas con ella.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
@@ -81,6 +85,73 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 289 — Día D: logística (refrigerios y kits) y Panel por rol (8 de noviembre de 2026, INACTIVO, TOCA LA BASE)
+
+Zip de 21 archivos (`.version-base` = 289). **Nuevos:** `lib/logisticaDiaD.js`, `lib/logisticaItems.js`, `routes/logisticaDiaD.routes.js`, `public/js/logistica-dia-d.js`, `public/app/logistica.html`.
+**Modificados:** `app.js`, `config/importarExportar.js`, `db/init-db.js`, `lib/alertasDiaD.js`, `lib/avisosAlertas.js`, `middleware/aspirante.js`, `public/app/dia-d.html`, `public/app/inicio.html`, `public/dia-d.html`,
+`public/js/alertas-dia-d.js`, `public/js/common.js`, `public/js/offline-utils.js`, `public/service-worker.js` (**v163**), `routes/dashboard.routes.js` y `routes/permisos.routes.js`. Commit `caf7d42`.
+`scripts/probar-logistica.js` (114), `probar-panel-alcance.js` (43) y las suites tocadas **no viajan**. **Requiere el 288.** **Toca la base** (`init-db` crea 3 tablas y siembra 3 ítems: marcar «toca base de datos», ya viene marcado).
+
+### Parte A — Panel de los demás roles
+
+`ambitoDeResumen` (`routes/dashboard.routes.js`): **testigo, usuario e invitado ven sólo lo suyo**, igual que el sublíder (lo que ellos registraron; ceros si no registran). **Asistente administrativo y administrativo siguen viendo toda la
+campaña, sin finanzas.** El mapa del Panel y la tabla de posiciones **no cambian**. Probado en `probar-panel-alcance.js` (testigo 1, usuario 2, invitado 0, administrativo y asistente 14 de 14, ninguno con `finanzas`).
+
+### Parte B — Logística del día D
+
+**Tablas** (`db/init-db.js`, idempotente; `aspirante_id` = dueño, 0 = la madre):
+- `logistica_items` — `nombre, destinatario ENUM('testigos','conductores'), hora_limite TIME, incluir_suplentes, activo, orden`; `UNIQUE(aspirante_id, nombre)`. **Se desactivan, no se borran** (una entrega apunta a su ítem).
+- `logistica_plan` — sólo las **correcciones a mano** (`item_id, puesto_id, cantidad`); `UNIQUE(item_id, puesto_id)`. Sin fila, manda la sugerida. Borrar la fila = volver a la sugerida.
+- `logistica_entregas` — `item_id, puesto_id, receptor_usuario_id, fecha, estado (entregado/anulado), entregado_por, entregado_en` (la hora del TOQUE), `nota, foto_url, cliente_uuid, anulado_por/en`; **`UNIQUE(item_id, receptor_usuario_id, fecha)`**.
+- **Ítems de fábrica** (sólo si la madre no tiene ninguno, así volver a correr `init-db` no recrea lo que el administrador renombró o desactivó; un aspirante recibe los suyos al abrir el módulo por primera vez): Kit de testigo 07:00, Refrigerio 12:00, Almuerzo 14:00, todos a testigos y con suplentes apagado.
+
+**Plan** (`lib/logisticaDiaD.js`): sugerido = testigos **activos** asignados al puesto (incluidos los «coordinadores de puesto»), por `cargarTestigos`/`repartirPorPuesto` (id del puesto o texto normalizado); `+ suplentes` sólo si el ítem lo pide (los suplentes que ya son testigos
+de ese puesto no se cuentan dos veces). Los **conductores** van en una fila «Transporte» aparte (conductores activos de la campaña) y su total entra en la lista de compras.
+
+**Pantallas**
+- *Escritorio:* pestaña **«Logística»** en `dia-d.html` (después de «Transporte», también en el submenú DÍA D): total para comprar, plan por puesto editable (naranja = corregido a mano, ↺ vuelve a la sugerida), fila de conductores, alta y edición de ítems, y **Excel**
+  (hojas «Lista de compras», «Por puesto» y «Testigos», con **la cédula enmascarada** `***992`).
+- *Celular:* `app/logistica.html`, **a 360 px sin desborde**: por testigo, un botón «Entregado» por ítem y 📷 para entregar con foto; «Deshacer» para un error. El coordinador de puesto llega por un acceso en su pantalla del Día D (`app/dia-d.html`); la coordinación, por una tarjeta del menú (`inicio.html`) con selector de puesto.
+  **Sin señal:** la entrega queda en el celular (cajón nuevo `logistica_pendientes`, `offline-utils` versión 5) con su `cliente_uuid` y la hora del toque, y se sube sola al volver la señal; la última lista se guarda para verla sin conexión.
+- **Contador** en el cuadro del Día D: «Refrigerio: 38 de 52» por ítem (los de conductores dicen «N por comprar»).
+
+**Permisos y módulo `logistica_dia_d`** — declarado en: `db/init-db.js` (de fábrica **admin y coordinador**), `routes/permisos.routes.js` (la matriz), `config/importarExportar.js` (Excel: admin y coordinador), `middleware/aspirante.js` (`MODULOS_ASPIRANTE`, `PERMISOS_ASPIRANTE` con exportar
+encendido, y `HREFS_ASPIRANTE` con `/dia-d.html#logistica`) y `public/js/common.js` (menú). **La pantalla del coordinador de puesto NO va por rol ni por la casilla**: va por su fila de testigo `tipo_testigo = 'puesto'`; ve y entrega **sólo en su puesto** (un `puesto_id` ajeno se ignora). La coordinación con el módulo entra a cualquier puesto de su campaña.
+Un líder sin el módulo recibe **403**.
+
+**Alerta `logistica_sin_entregar`** (gravedad **8**; **«mesa sin testigo» pasó a 9** y su chip a gris `.g9`; la logística es ámbar): por puesto y por ítem, **sólo el día de la elección**, «pendiente» antes de la hora del ítem y «activa» después; cuenta **testigos que YA hicieron check-in y no tienen ese ítem hoy**.
+Texto: «Puesto X: N testigos sin refrigerio a las 12 m.» («1 testigo» en singular; «7 a. m.», «2 p. m.»). Va en el cuadro (`calcularAlertas`), en `alertasParaUsuario` (pasa igual para el coordinador: no depende de los votantes de quien pregunta) y en `TIPOS_AVISADOS`/`FRASES` del push.
+**El campo `mesa` de esta alerta lleva el id del ítem** (así «atendida» y el aviso push funcionan por ítem sin tablas nuevas); el cuadro dejó de escribir «· Mesa N» para este tipo.
+
+### Decisiones mías (2e, «la opción más simple que funcione el día D»)
+
+1. **Los suplentes no reciben desde la pantalla**: no son testigos asignados. Sólo cuentan en el plan si el ítem lo pide. Si un suplente reemplaza a alguien, la coordinación lo asigna como testigo del puesto y desde ese momento recibe.
+2. **Sin firma, foto opcional** (8 MB máximo; se reduce a 1.280 px y JPEG calidad 72, se gira por EXIF y se quitan los metadatos). Un archivo que no es imagen no tumba la entrega: queda registrada y la respuesta dice que la foto no se guardó.
+3. **Sólo cantidades, sin costo ni pesos.**
+4. **A los conductores se les planea y se les compra, pero no se registra su entrega** (no cuelgan de un puesto y el celular del coordinador de puesto no los ve). Si hace falta, otra orden.
+5. **Compra y reparto entre puestos: la coordinación, con el Excel.** No hay un rol de «coordinador de zona».
+6. **El contador es de la campaña (por dueño), no de la rama del coordinador**: así son los testigos y sus alertas en todo el Día D. Un aspirante ve el suyo.
+7. **Entregas del día = hoy en Colombia**, también fuera de `fecha_eleccion` (como el check-in), para poder ensayar; la alerta sí exige que hoy sea el día de la elección.
+8. **«Anular»** (Deshacer) existe, y el coordinador de puesto sólo anula las de su puesto; volver a entregar lo anulado lo reactiva.
+9. Un **testigo inactivo** no cuenta ni puede recibir.
+
+**Lo que choca con el código (la orden pedía avisar):** nada impedía las decisiones, pero hay dos efectos que conviene saber: (a) para meter la alerta hubo que **renumerar «mesa sin testigo» a gravedad 9** (cambia el color de su franja); (b) el cuadro de alertas
+no tenía dónde distinguir «por ítem», y se usó la columna `mesa` (ver arriba).
+
+**Una observación aparte, sin tocar:** `app/ranking-dia-d.html` y `app/alertas-dia-d.html` envuelven su contenido en `<div class="app-contenido">`, una clase que **no existe** en `estilos-app.css` (la buena es `main.app-cuerpo`); por eso sus tarjetas salen pegadas a los bordes. La pantalla nueva sí usa `main.app-cuerpo`.
+
+### Verificación
+
+`scripts/probar-logistica.js` (**114 comprobaciones**, base privada): tablas y clave única; ítems de fábrica; **`init-db` dos veces** (sin recrear lo renombrado); plan sin y con suplentes, corrección a mano y su vuelta, rechazos (negativos, decimales, ítem de conductores); fila de conductores (2 activos de 3); **permisos** (líder 403 en plan, ítems,
+celular y Excel; coordinador sí; sin sesión 401; coordinador de puesto 403 en el escritorio y sólo ve su puesto; testigo común 403); **entrega idempotente** (segundo toque, el mismo identificador, **tres toques simultáneos → una sola entrega**, testigo de otro puesto, inactivo, ítem desactivado o de conductores, hora del toque de hace 2 h, hora futura descartada, reintento de la cola, anular/reactivar);
+**la foto** (reducida a 1.280×960 y 7 KB desde 44 KB, en `uploads/dia-d/`, visible sólo para su puesto y la coordinación, un segundo toque no deja archivos, un archivo que no es imagen no tumba la entrega); el contador y por dueño (un aspirante ve el suyo en cero); **la alerta** a las 06:00 (pendiente), 08:00 y 13:00, al entregar, atendida por ítem, con la elección mañana y sin fecha, con el ítem desactivado o sin hora; `alertasParaUsuario`; el push; el Excel (3 hojas, cédula enmascarada, sin cédula completa); y las declaraciones del módulo y las pantallas.
+**En Chromium sin interfaz** (a 360×740): la pantalla del celular —sin desborde horizontal—, tocar «Entregado» con señal (queda «✓ Entregado 19:52 / Deshacer»), **sin señal** (queda «⏳ Guardado, sin subir» y el aviso «1 entrega guardada en tu celular…») y **al volver la señal** (se sube sola y quedan 2 marcados, sin pendientes);
+y la pestaña de escritorio (contador, plan, total, ítems, menú activo «Logística del Día D»), sin errores de consola. Suites: comunas 73/73, inscripción 467/467, transporte 123/123 y 80/80 (se ajustaron dos comprobaciones: Transporte ya no es lo último del submenú, lo es Logística), panel 43/43; `probar-instalacion-limpia.js` **64 tablas**.
+**NO se probó:** un teléfono real (la cámara, la señal intermitente de un puesto), el push llegando a un dispositivo, una foto grande en un celular de gama baja, ni el día de la elección con tráfico real; tampoco la tarjeta del menú para un aspirante en un navegador (sí la declaración).
+
+**NOTAS PARA QUIEN LO APLIQUE:** (1) **toca la base**: `init-db` crea las tres tablas y siembra los tres ítems; aplicar después del 288 con la misma lista de campañas. (2) El administrador y el coordinador tendrán el módulo «Logística del Día D» de fábrica; lo ve el aspirante. Los **coordinadores de puesto ya existentes** reciben el acceso sin tocar nada (el servidor lo reconoce por su fila de testigo).
+(3) Revisar las horas (07:00, 12:00, 14:00) y los ítems en la pestaña antes del día. (4) Es **visible** para testigo, usuario e invitado: su Panel deja de mostrar la campaña entera.
 
 ## Parche 288 — Panel general por alcance (8 de noviembre de 2026, INACTIVO, NO toca la base)
 
@@ -133,7 +204,7 @@ sobre el zip: «TODO RESUELVE». **NO se probó:** un navegador (la pantalla del
 **NOTAS PARA QUIEN LO APLIQUE:** (1) no toca la base; aplicar después del 287 con la misma lista de campañas. (2) Es **visible**: un líder o un sublíder que hoy ve «Votantes: 3.200» pasará a ver sólo lo suyo; y un coordinador
 deja de ver los eventos que no tienen a nadie de su rama.
 
-### Propuesta (SIN IMPLEMENTAR): refrigerios, almuerzos y kits del día D
+### Propuesta (IMPLEMENTADA en el parche 289, con las decisiones de allá): refrigerios, almuerzos y kits del día D
 
 **Qué hay hoy: nada.** Ni tablas, ni columnas, ni pantallas, ni rutas (`grep -rniE "refrigerio|almuerzo|kit|material|entrega"`): sólo dos rastros de **dinero**, no de logística —la categoría de gasto
 «Producción de material impreso» (`db/schema.sql:389`) y el texto de ejemplo «Refrigerios para voluntarios» en `public/finanzas.html:67`—, y «Compartir contenido» (materiales de **comunicación**, no físicos).
