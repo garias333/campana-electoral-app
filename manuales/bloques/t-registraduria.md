@@ -19,7 +19,7 @@ Sirve para saber dónde vota una persona: en qué puesto y en qué mesa. La cons
 4. Lee el resultado y apunta el departamento, el municipio, el puesto y la mesa.
 5. Vuelve a la aplicación con [[Volver al menú]].
 6. Para anotarlo, abre el formulario de registro de la persona. En «Lugar de votación» escribe el **Número de identificación** y toca [[Consultar lugar de votación]]: la cédula queda copiada, y en la Registraduría basta mantener presionado el campo y tocar Pegar.
-7. Completa **Departamento**, **Municipio**, **Puesto** y **Mesa**. Puesto y Mesa se eligen de una lista.
+7. Completa **Departamento**, **Municipio**, **Puesto** y **Mesa**. En el celular, Puesto y Mesa se eligen de una lista: la del Puesto es la de los puestos que la campaña tiene cargados. En el computador, [[Consultar lugar de votación]] sale al escribir la cédula y abre la Registraduría en una ventana aparte.
 
 ::: listo
 Quedó anotado cuando Departamento, Municipio, Puesto y Mesa aparecen llenos en la ficha, y la persona se guarda sin errores.
@@ -34,5 +34,5 @@ Verifica que el puesto coincida con el de la Registraduría antes de guardar. Un
 :::
 
 ::: consejo
-Si el puesto no está en la lista, revisa que el Municipio esté bien escrito.
+Si el puesto no está en la lista del celular, es que la campaña no lo tiene cargado entre sus puestos: avísale al administrador. En el computador, la lista del Puesto depende del Municipio; revisa que esté bien escrito.
 :::

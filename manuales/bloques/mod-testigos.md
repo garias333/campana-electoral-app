@@ -24,8 +24,8 @@ Aquí ves quién cubre cada puesto y cada mesa el día de la elección y cómo c
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar la tabla y filtrarla.
-- **Editar**: cambiar el puesto, la mesa, el tipo o el estado de un testigo con [[Editar]]. Antes de abrir la ficha te pide tu contraseña.
-- **Agregar**: dar de alta a un testigo ({{t-testigo-agregar}}).
+- **Editar**: cambiar los datos, el puesto, la mesa, el tipo o el estado (casilla «Persona activa») de un testigo con [[Editar]]. Antes de abrir la ficha te pide tu contraseña.
+- **Agregar**: aquí no hay botón para crear testigos. El alta se hace desde la ficha de la persona en Estructura territorial ({{t-testigo-agregar}}), o cargando un Excel.
 - **Importar / Exportar**: cargar o bajar la lista con Excel ({{t-testigos-importar}}).
 
 ## Tareas frecuentes
@@ -33,6 +33,7 @@ Aquí ves quién cubre cada puesto y cada mesa el día de la elección y cómo c
 - Asignar a una persona como testigo: {{t-testigo-agregar}}.
 - Cargar muchos testigos de una vez: {{t-testigos-importar}}.
 - Ver quién no tiene mesa: filtra por puesto y revisa la columna Mesa.
+- Ver qué mesas siguen sin testigo: el administrador lo ve en la ventana de cobertura de **Día D > Puestos de votación y candidatos**.
 
 ::: cuidado
 [[Eliminar]] y [[Eliminar todos]] borran al testigo y su cuenta, piden la contraseña del administrador y no se pueden deshacer.

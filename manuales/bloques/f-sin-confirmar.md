@@ -10,4 +10,4 @@ roles:
 ruta:
 captura:
 ---
-Quiere decir que la persona se inscribió sola con el enlace o el QR de un líder, pero todavía no abre el mensaje que le llegó para confirmar su autorización. Mientras no confirme, no recibe los mensajes masivos de la campaña. En la lista la etiqueta dice «Se inscribió solo · sin confirmar», y pasa a «confirmado» cuando la persona toca el botón del mensaje. En el celular, la cifra «sin confirmar» de Mi enlace de inscripción cuenta a estas personas. Ver {{t-confirmacion}}.
+Quiere decir que la persona se inscribió sola con el enlace o el QR de un líder, pero todavía no confirma su autorización: o no ha abierto el mensaje que le llegó, o no marcó SMS y no le llegó ninguno. Mientras no confirme, no recibe los mensajes masivos de la campaña. En la lista la etiqueta dice «Se inscribió solo · sin confirmar», y pasa a «confirmado» cuando la persona toca el botón del mensaje. En el celular, la cifra «sin confirmar» de Mi enlace de inscripción cuenta a estas personas. Ver {{t-confirmacion}}.

@@ -4,9 +4,9 @@ titulo: Anotar a mano que alguien pidió no recibir más
 seccion: durante
 orden: 267
 icono: candado
-modulo: votantes
-nivel: editar
-roles:
+modulo:
+nivel:
+roles: admin, coordinador
 ruta:
 captura:
 ---
@@ -14,14 +14,14 @@ Sirve cuando una persona te pide por teléfono, en persona o por una respuesta q
 
 ## Pasos
 
-1. Abre la ficha de la persona: en **Electoral > Votantes y sublíderes** pulsa [[Editar]] en su fila; para alguien del equipo, en **Electoral > Estructura territorial** abre su ficha para editarla.
-2. Busca el botón [[Marcar como no contactar]]. En Votantes está dentro de **Autorización de tratamiento de datos**. Solo lo ven administrador y coordinador.
-3. En **¿Por dónde lo pidió?** elige SMS respondido, Llamada, En persona, WhatsApp u Otro.
+1. Abre la ficha de la persona: en **Electoral > Votantes y sublíderes** pulsa [[Editar]] en su fila; para alguien del equipo, en **Electoral > Estructura territorial** pulsa [[Editar]] en su fila. La app te pide tu propia contraseña: escríbela y pulsa [[Confirmar]].
+2. Busca el botón [[Marcar como no contactar]]. En Votantes está dentro de **Autorización de tratamiento de datos**; en Estructura territorial, abajo del formulario, antes de [[Guardar cambios]]. Solo lo ven administrador y coordinador.
+3. En la ventana que se abre, en **¿Por dónde lo pidió?** elige SMS respondido, Llamada, En persona, WhatsApp u Otro.
 4. Escribe el **Motivo** (hasta 255 caracteres). Es obligatorio y queda en la ficha y en la auditoría.
-5. Pulsa [[Marcar como no contactar]] otra vez para guardar.
+5. Pulsa [[Marcar como no contactar]] otra vez, el botón de la ventana, para guardar. [[Cancelar]] la cierra sin cambiar nada.
 
 ::: listo
-Sale el aviso "Quedó fuera de los envíos", la ficha dice "Pidió no recibir más mensajes. Anotado a mano" y en Votantes la columna **Recibe mensajes** pasa a No.
+Sale el aviso «Listo. Quedó fuera de los envíos (N ficha(s) marcada(s))», la ficha dice "Pidió no recibir más mensajes. Anotado a mano" y en Votantes la columna **Recibe mensajes** pasa a No.
 :::
 
 ::: importante

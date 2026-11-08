@@ -9,4 +9,4 @@ roles: admin, coordinador
 ruta:
 captura:
 ---
-Abre la ficha de la persona en Electoral > Votantes y sublíderes con [[Editar]] y pulsa [[Marcar como no contactar]]. Elige por dónde lo pidió (llamada, en persona, WhatsApp u otro) y escribe el motivo, que es obligatorio. Desde ese momento no recibe nada por ningún canal. Anótala solo si ella lo pidió: devolverla a los envíos lo hace el administrador desde Pidieron no recibir más. Ver {{t-baja-manual}}.
+Abre la ficha de la persona en Electoral > Votantes y sublíderes con [[Editar]] (la app te pide tu contraseña) y pulsa [[Marcar como no contactar]]; para alguien del equipo, hazlo en Electoral > Estructura territorial. Elige por dónde lo pidió (SMS respondido, llamada, en persona, WhatsApp u otro) y escribe el motivo, que es obligatorio. Desde ese momento no recibe nada por ningún canal. Anótala solo si ella lo pidió: devolverla a los envíos lo hace el administrador desde Pidieron no recibir más. Ver {{t-baja-manual}}.

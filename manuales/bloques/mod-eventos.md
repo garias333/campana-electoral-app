@@ -27,7 +27,7 @@ Aquí ves los eventos de la campaña con su fecha, su lugar y quién responde po
 - **Ver**: consultar la tabla. Los testigos e invitados solo pueden mirar.
 - **Editar**: cambiar un evento con [[Editar]] (administrador, coordinador y líder).
 - **Agregar**: crear eventos con [[+ Nuevo evento]] (administrador, coordinador y líder).
-- **Eliminar**: solo el administrador y el coordinador. Al borrar un evento se borran también sus asistentes registrados.
+- **Eliminar**: solo el administrador y el coordinador. La app pregunta «¿Eliminar este evento?»; al confirmar con [[Sí, eliminar]] se borran también sus asistentes registrados y no se puede deshacer.
 
 ## Tareas frecuentes
 

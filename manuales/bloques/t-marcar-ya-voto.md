@@ -18,7 +18,7 @@ Cuando una persona de tu lista te confirma que ya votó, la marcas para que deje
 2. Busca a la persona por puesto o con el buscador.
 3. Toca [[Ya votó]] en su tarjeta. Sale de la lista de pendientes y abajo aparece el aviso «Marcado: Ana Pérez».
 4. Si te equivocaste, toca [[Deshacer]] en ese aviso. Tienes 10 segundos; después el aviso desaparece.
-5. Pasado ese tiempo, ve al filtro [[Ya votaron]], busca a la persona (dice «Votó a las 10:42») y toca [[Deshacer]] en su tarjeta. Confirma la pregunta «¿Quitar la marca de «ya votó»?».
+5. Pasado ese tiempo, ve al filtro [[Ya votaron]], busca a la persona (dice «Votó a las 10:42») y toca [[Deshacer]] en su tarjeta. Confirma la pregunta «¿Quitar la marca de «ya votó» de Ana Pérez?» (con el nombre de la persona).
 
 ::: listo
 La persona queda con una palomita y el texto «Votó a las» seguido de la hora, y el porcentaje de la tarjeta de arriba sube.
@@ -29,7 +29,7 @@ Marcar es seguro de repetir: si la misma persona ya estaba marcada, no cambia la
 :::
 
 ::: cuidado
-Deshacer una marca ya subida necesita señal. Y no cualquiera puede deshacerla: solo quien la puso o la coordinación. Si la persona avisó por su propio enlace «Ya voté», la marca dice «avisó por su enlace» y solo la coordinación puede quitarla.
+Deshacer una marca ya subida necesita señal. Y no cualquiera puede deshacerla: solo quien la puso o la coordinación; a los demás la app les responde «Solo quien lo marcó, o la coordinación, puede deshacer esta marca.» Si la persona avisó por su propio enlace «Ya voté», la marca dice «avisó por su enlace» y solo la coordinación puede quitarla.
 :::
 
 Para entender el enlace: {{t-ya-vote-enlace}}.

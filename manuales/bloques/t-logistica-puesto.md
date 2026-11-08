@@ -15,11 +15,11 @@ Si eres coordinador de puesto (un testigo de tipo «puesto»), aquí marcas qué
 ## Pasos
 
 1. Inicia sesión en la app. En tu pantalla del Día D aparece el botón [[Logística de mi puesto (refrigerios y kits)]]. Solo lo ves si eres coordinador de puesto.
-2. Arriba ves tres cifras: *Testigos*, *Ya llegaron* y *Entregas*.
-3. Cada testigo muestra si «Ya llegó» o «No ha llegado», y debajo cada ítem con su hora límite («hasta las…»).
+2. Entras a «Logística del puesto» y solo ves tu puesto. Arriba hay tres cifras: *Testigos*, *Ya llegaron* y *Entregas* (por ejemplo «2/9»: entregas hechas sobre las posibles).
+3. Cada testigo muestra si «Ya llegó» o «No ha llegado», y debajo cada ítem con su hora límite («hasta las…»). Solo salen los ítems para testigos que la coordinación tenga activos.
 4. Cuando entregues algo, toca [[Entregado]] junto a ese ítem y ese testigo.
 5. Si quieres dejar prueba, toca primero 📷, toma la foto y la entrega se guarda con ella. La foto es opcional.
-6. Si te equivocaste, toca [[Deshacer]] y confirma. Úsalo solo si fue un error.
+6. Si te equivocaste, toca [[Deshacer]] (aparece junto a «✓ Entregado») y confirma. Úsalo solo si fue un error.
 
 Puedes entregar a un testigo aunque aún no haya marcado su llegada.
 

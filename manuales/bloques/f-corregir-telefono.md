@@ -16,4 +16,4 @@ Hazlo desde el computador, en Electoral > Votantes y sublíderes.
 2. Escribe tu propia contraseña cuando la app la pida.
 3. Corrige el **Teléfono** (10 dígitos) y pulsa [[Guardar]].
 
-Solo puedes abrir las fichas de las personas que tú registraste. Desde el celular las fichas no se editan: ahí solo se consulta y se llama. Más en {{t-votante-editar}}.
+Solo puedes abrir las fichas que ves en tu lista (las que tú registraste y, si eres líder, las de tus sublíderes). Desde el celular no se abre la ficha para editarla: ahí solo se consulta y se llama. La única excepción es el teléfono de quien no tiene ninguno: en la pantalla de inicio, en «Por completar», toca «sin teléfono» y luego [[Completar]]. Más en {{t-votante-editar}}.

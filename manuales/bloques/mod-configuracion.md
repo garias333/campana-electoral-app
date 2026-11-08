@@ -16,20 +16,20 @@ Configuración reúne todo lo que el administrador arregla una sola vez o de vez
 
 | Entrada del menú | Para qué sirve |
 |---|---|
-| Datos de la campaña | Nombre del candidato, logo y nombre de la marca, zona (departamento y ciudad), fecha de elección, meta de votos y contacto. |
-| Usuarios | Las cuentas del equipo: crear, editar, restablecer clave. |
+| Datos de la campaña | Nombre del candidato, fecha de elecciones, jornada del Día D (horas de urnas y alertas), meta de votos, contacto, logo y nombre de la campaña en el menú, y zona (departamento y ciudad). |
+| Usuarios | Las cuentas del equipo: crear, editar, restablecer clave y eliminar. |
 | Asignación de permisos | Una tabla donde marcas qué puede hacer cada rol en cada módulo. |
-| Eliminar información | Borra de una vez todos los registros de un módulo. Pide contraseña. |
-| Backup | Descarga una copia completa o restaura una anterior. |
+| Eliminar información | Borra de una vez todos los registros de un módulo. Pide tu contraseña dos veces. |
+| Backup | Descarga una copia completa de la aplicación o restaura una anterior. |
 
 Los puestos de votación y los candidatos del Día D se configuran desde otra entrada, **Día D > Puestos de votación y candidatos**, que usa la misma página.
 
 ## Qué puedes hacer según tu permiso
 
-- **Ver**: abrir las secciones. Hoy estas pantallas son del administrador; quien no lo sea ve el aviso «Solo un administrador puede ver y editar la Configuración».
+- **Ver**: abrir las secciones. Hoy estas pantallas son del administrador; quien no lo sea ve el aviso «Solo un administrador puede ver y editar la Configuración». Le pasa, de fábrica, al Asistente administrativo: el menú le muestra Configuración, pero al abrirla solo ve ese aviso.
 - **Editar**: cambiar los datos de la campaña, guardar permisos, restablecer claves y descargar o restaurar copias.
 - **Agregar**: crear usuarios y, en el Día D, puestos y candidatos.
-- **Importar / Exportar**: lo tiene siempre el administrador.
+- **Importar / Exportar**: lo tiene siempre el administrador (aquí sirve para los puestos y los candidatos del Día D, por Excel).
 
 ## Tareas frecuentes
 

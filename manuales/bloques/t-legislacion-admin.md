@@ -10,7 +10,7 @@ roles: admin
 ruta: Escritorio: Legislación
 captura:
 ---
-La pantalla **Legislación** muestra el calendario electoral, un buscador dentro del texto de las normas y los PDF de leyes, decretos y resoluciones. La aplicación solo los lee: no hay botón para subirlos. Las normas las deja en el servidor quien lo administra.
+La pantalla **Legislación** tiene tres pestañas: «Calendario electoral», «Buscar norma» y «Leyes, decretos y resoluciones» (los PDF). La aplicación solo los lee: ni el administrador ve un botón para subirlos o borrarlos. Las normas las deja en el servidor quien lo administra.
 
 ## Pasos (quien administra el servidor)
 
@@ -21,7 +21,7 @@ La pantalla **Legislación** muestra el calendario electoral, un buscador dentro
 5. Abre **Legislación** y recarga la página.
 
 ::: listo
-La norma nueva aparece como tarjeta en «Leyes, decretos y resoluciones» y se puede abrir, descargar y encontrar en «Buscar norma».
+La norma nueva aparece como tarjeta en «Leyes, decretos y resoluciones», con los botones [[Ver]] y [[Descargar]], y se puede encontrar en «Buscar norma».
 :::
 
 ## Quién la ve
@@ -29,5 +29,5 @@ La norma nueva aparece como tarjeta en «Leyes, decretos y resoluciones» y se p
 El permiso es el módulo **Legislación**, en {{t-permisos}}. De fábrica la ven el administrador y el coordinador; los demás roles solo si les marcas **V**. Editar y Agregar no aplican: nadie cambia las normas desde la pantalla.
 
 ::: importante
-La primera búsqueda después de agregar un PDF puede tardar unos segundos mientras se prepara el índice. Si `indice.json` o `calendario.json` quedan mal escritos, la aplicación los ignora y usa los nombres de archivo.
+La primera búsqueda después de agregar un PDF puede tardar unos segundos mientras se prepara el índice. Si `indice.json` queda mal escrito, la aplicación lo ignora y pone los títulos según el nombre de cada archivo. Si `calendario.json` queda mal escrito o falta, la pestaña «Calendario electoral» sale vacía.
 :::

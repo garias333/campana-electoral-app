@@ -8,16 +8,16 @@ modulo: alertas_dia_d
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Alertas del Día D | Celular: Alertas Día D
-captura: mod-alertas_dia_d-2.webp, mod-alertas_dia_d.webp
+captura: mod-alertas_dia_d.webp, mod-alertas_dia_d-2.webp
 ---
 Es el cuadro de lo que la coordinación debe atender ahora: testigos que no llegan, mesas sin E-14, puestos donde se vota poco. Se recalcula solo, cada 30 segundos en el escritorio y cada minuto en el celular.
 
 ## Qué encuentras
 
 - **Chips de tipos**: «Todas» y uno por cada tipo, con su conteo en rojo. Tócalos para filtrar. Lo que aún no toca aparece como «+N pend.».
-- **Lista de alertas**: cada una con tipo, puesto y mesa, detalle, desde cuándo, responsable y botones [[Llamar]] y [[WhatsApp]].
+- **Lista de alertas**: cada una con tipo, puesto y mesa, detalle, desde cuándo y responsable. Si el responsable tiene teléfono, salen los botones [[Llamar]] y [[WhatsApp]].
 - **Insignia roja** en la pestaña «Alertas» del escritorio, con el total de activas.
-- **Franja «Modo prueba»** si hoy no es el día de la elección; las alertas se calculan igual.
+- **Franja «Modo prueba»** si hoy no es el día de la elección. Las alertas se calculan igual, con la hora de ahora, salvo «Transporte sin recoger» y «Logística sin entregar», que solo existen el día de la elección.
 
 Estos son los tipos, de más a menos grave: Mesa sin testigo (con votantes), Testigo que no llegó, Mesa sin E-14, Reporte con alertas, Diferencia con el oficial, Baja votación, Transporte sin recoger, Logística sin entregar y Mesa sin testigo (sin votantes).
 
@@ -26,7 +26,7 @@ Las que dependen de la hora salen en gris, «Pendiente: se activa a las…», ha
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el cuadro y contactar al responsable.
-- **Editar**: marcar una alerta como [[Atendida]] (con una nota opcional), quitarla con [[Quitar atendida]], o [[Marcar llegada]] de un testigo (sale en «Testigo que no llegó»).
+- **Editar**: marcar una alerta como [[Atendida]] (con una nota opcional), quitarla con [[Quitar atendida]], o [[Marcar llegada]] de un testigo (sale en «Testigo que no llegó», cuando la alerta ya está activa; la marca queda a tu nombre). Hoy la pantalla no revisa este permiso aparte: quien tiene «Ver» también puede hacerlo. La marca de atendida vale solo por ese día.
 - **Agregar**: no aplica.
 
 ## Tareas frecuentes

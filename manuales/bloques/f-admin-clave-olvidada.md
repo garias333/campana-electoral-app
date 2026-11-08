@@ -10,4 +10,4 @@ roles:
 ruta:
 captura:
 ---
-En Configuración > Usuarios pulsa [[Restablecer clave]] en la fila de la persona y escribe tu propia contraseña. La app muestra una clave temporal: es su número de identificación, o un código de 4 dígitos si no tiene. Vence en 48 horas, la persona debe cambiarla al entrar, y el restablecimiento también desbloquea su cuenta. Si tiene correo, también puede usar «¿Olvidaste tu contraseña?» en la pantalla de ingreso. Ver {{t-usuarios}}.
+En Configuración > Usuarios pulsa [[Restablecer clave]] en la fila de la persona, confirma y escribe tu propia contraseña. La app muestra una clave temporal: es su número de identificación, o un código de 4 dígitos si no tiene. Vence en 48 horas, la persona debe cambiarla al entrar, y el restablecimiento también desbloquea su cuenta. Si tiene correo, también puede usar «¿Olvidaste tu contraseña?» en la pantalla de ingreso: le llega un enlace que dura 1 hora. Ver {{t-usuarios}}.

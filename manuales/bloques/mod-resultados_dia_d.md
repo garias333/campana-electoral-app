@@ -16,16 +16,15 @@ Reúne lo que contaron los testigos, permite digitar el resultado oficial de cad
 
 Tres subpestañas:
 
-- [[Consolidado]]: el resultado por puesto, con tarjetas de totales arriba (Mesas reportadas, tu candidato y los dos rivales, Voto en blanco, Mesas con alertas). Ver {{t-resultados-consolidado}}.
+- [[Consolidado]]: el resultado por puesto, con tarjetas de totales arriba (Mesas reportadas, tu candidato y los dos rivales con su nombre, Voto en blanco, Mesas con alertas). Ver {{t-resultados-consolidado}}.
 - [[Resultado oficial]]: el formulario para digitar, mesa por mesa, lo que dice el resultado oficial y compararlo con el testigo. Ver {{t-resultados-oficial}}.
-- [[Diferencias]]: las mesas donde el testigo y el oficial no coinciden, con su estado y nota, y abajo la tarjeta «Paquete para el abogado». El número entre paréntesis cuenta las mesas con diferencia. Ver {{t-resultados-diferencias}} y {{t-resultados-paquete}}.
+- [[Diferencias]]: las mesas donde el testigo y el oficial no coinciden, con su estado y nota, y abajo la tarjeta «Paquete para el abogado». El número entre paréntesis cuenta las mesas que muestra el filtro elegido (al abrir, las de «Pierde el propio»). Ver {{t-resultados-diferencias}} y {{t-resultados-paquete}}.
 
 ## Qué puedes hacer según tu permiso
 
-- **Ver**: consultar el consolidado y las diferencias, abrir la foto del E-14 y descargar el consolidado en Excel.
+- **Ver**: consultar el consolidado y las diferencias, abrir la foto del E-14 y descargar el consolidado en Excel con [[Exportar a Excel]].
 - **Editar**: digitar el resultado oficial, y marcar una mesa «Para reclamar» o «Revisada» con su nota.
 - **Agregar**: pedir un paquete para el abogado con [[Armar paquete (N marcadas)]].
-- **Importar / Exportar**: el Excel del consolidado sale con [[Exportar a Excel]].
 
 ## Tareas frecuentes
 
@@ -35,5 +34,5 @@ Tres subpestañas:
 - Entregar las pruebas al abogado: {{t-resultados-paquete}}.
 
 ::: consejo
-Esta pestaña solo aparece si tu usuario tiene el módulo de resultados. Las diferencias se calculan solas en cuanto hay un resultado oficial cargado; sin él, la pestaña Diferencias te lo avisa.
+Esta pestaña solo aparece si tu usuario tiene el módulo de resultados. Las diferencias se calculan solas cuando una mesa tiene resultado oficial cargado y reporte del testigo; sin resultado oficial, la subpestaña Diferencias te lo avisa.
 :::

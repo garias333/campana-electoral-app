@@ -17,10 +17,10 @@ Cada mesa debe tener un testigo. En la tabla de puestos ves qué mesas están li
 1. Entra a **Día D > Puestos de votación y candidatos**, pestaña [[Puestos de votación]].
 2. Para ver dónde hace falta gente, usa el filtro «Cobertura de testigos»: «Con mesas por asignar», «Sin ningún testigo», «Empezados, pero incompletos» o «Cubiertos del todo».
 3. En la columna «Mesas por asignar testigo», cada mesa es una ficha. Las rojas no tienen testigo (con más fuerza si ya hay votantes tuyos allí); las de color tienen testigo, con sus iniciales.
-4. Toca la ficha de una mesa. Se abre una ventana con el puesto y la mesa.
-5. Busca a la persona por nombre o teléfono y toca [[Asignar]]. Sirve para quien ya tiene cuenta; para alguien nuevo usa [[+ Nuevo testigo]], o [[Proponer como testigo]] en «Votan en este puesto».
+4. Toca la ficha de una mesa. Se abre una ventana con el puesto y la mesa; arriba puedes cambiar de mesa con la lista «Mesa».
+5. En «Asignar a la mesa…» busca a la persona por nombre o teléfono y toca [[Asignar]]. Sirve para quien ya es testigo; para alguien nuevo usa [[+ Nuevo testigo]], o [[Proponer como testigo]] en «Votan en este puesto» (ambos te llevan al formulario de la Estructura territorial, con el puesto y la mesa ya puestos).
 6. Si la mesa ya tenía otro testigo, o la persona cubría otro puesto, la app te pide confirmar.
-7. Para varias mesas, repite con la misma persona. [[Suplente]] la deja como reemplazo del puesto; después puedes volverla titular de una mesa.
+7. Para varias mesas, repite con la misma persona. [[Suplente]] la deja como reemplazo del puesto; después puedes volverla titular con [[Titular de la mesa…]] en «Suplentes del puesto».
 8. Para liberar una mesa, ábrela y toca [[Quitar de esta mesa]].
 
 ::: listo
@@ -32,5 +32,5 @@ Si un testigo pasa el límite («Máx. mesas por testigo»), la app avisa pero d
 :::
 
 ::: consejo
-[[Avisar a todos los asignados]] no envía nada: abre Enviar SMS con la lista y el texto listos para que los revises. Con «En vivo», las fichas cambian de color según el estado del día de la elección.
+[[Avisar a todos los asignados]] no envía nada: abre Enviar SMS con la lista de testigos con mesa y el texto listos para que los revises; al enviarlo desde allí, cada mensaje gasta crédito de SMS. «En vivo» se enciende solo el día de la elección (otro día puedes encenderlo para ensayar): las fichas cambian de color según el estado de la mesa (sin testigo, asignado, llegó, E-14 subido).
 :::

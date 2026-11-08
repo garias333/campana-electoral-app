@@ -8,13 +8,13 @@ modulo: recursos
 nivel: ver
 roles:
 ruta: Escritorio: Contenido para compartir > Información para compartir | Celular: Información para compartir
-captura: mod-recursos-2.webp, mod-recursos.webp
+captura: mod-recursos.webp, mod-recursos-2.webp
 ---
-Es la biblioteca de la campaña: noticias, piezas para redes, videos, publicidad, jingles y fotos que el equipo puede descargar y difundir. La misma lista aparece en el computador y en el celular.
+Es la biblioteca de la campaña: noticias, piezas para redes, videos, publicidad, jingles y fotos que el equipo puede descargar y difundir. La misma lista aparece en el computador y en el celular. En el celular del administrador se abre desde **Compartir contenido**, que además deja subir material.
 
 ## Qué encuentras
 
-- **Filtros por tipo**: Todos los tipos, Noticias, Post para redes sociales, Videos, Publicidad digital, Publicidad impresa, Próximas reuniones, Jingles y Fotos de la campaña.
+- **Filtros por tipo** (botones): Todos los tipos, Noticias, Post para redes sociales, Videos, Publicidad digital, Publicidad impresa, Próximas reuniones, Jingles y Fotos de la campaña. En el celular se llaman Todos, Noticias, Post para redes, Videos, etc.
 - **Tarjetas**: cada una trae su vista previa, el título, la descripción, quién la subió y la fecha. Las reuniones traen además su fecha.
 - **Botones de la tarjeta**: [[Descargar]] si hay un archivo y [[Abrir enlace]] si es un enlace externo, como un video. En el celular, las imágenes, videos y audios se abren tocándolos.
 

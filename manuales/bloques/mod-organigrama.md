@@ -24,14 +24,14 @@ Aquí ves los cargos de la campaña y de quién depende cada uno: gerencia, coor
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: mirar el organigrama en cualquiera de las tres vistas.
-- **Editar**: cambiar o borrar un cargo con [[Editar]] y [[Eliminar]]. Esto lo hacen el administrador y el coordinador.
-- **Agregar**: crear cargos con [[+ Agregar cargo raíz]], [[+ Subordinado]] o [[+ Asesor]]. También lo hacen el administrador y el coordinador.
-- **Importar / Exportar**: sacar la ficha de un cargo en Word o PDF, o la de todos con [[Todo a Word]] y [[Todo a PDF]] (una ficha por hoja).
+- **Editar**: cambiar o borrar un cargo. Esto lo hacen el administrador y el coordinador; los demás roles solo miran. En **Lista** y **Tabla** los botones se llaman [[Editar]] y [[Eliminar]]; en **Diagrama** son los íconos de lápiz y de papelera de cada tarjeta.
+- **Agregar**: crear cargos con [[+ Agregar cargo raíz]] (arriba) y, en cada cargo, [[+ Subordinado]] o [[+ Asesor]] (en **Diagrama** se leen [[+ Sub.]] y [[+ Ases.]]). También lo hacen el administrador y el coordinador.
+- **Importar / Exportar**: sacar la ficha de un cargo en Word o PDF (en Lista, [[Word]] y [[PDF]]; en Diagrama, el ícono de impresora de la tarjeta), o la de todos con [[Todo a Word]] y [[Todo a PDF]] (una ficha por hoja). Estos botones salen con el permiso Importar / Exportar.
 
 ## Tareas frecuentes
 
 - Crear o cambiar un cargo: {{t-organigrama-agregar}}.
-- Imprimir la ficha de un cargo: pulsa el ícono de impresora de su tarjeta o, en la Lista, [[PDF]].
+- Imprimir la ficha de un cargo: pulsa el ícono de impresora de su tarjeta (Diagrama) o, en la Lista, [[PDF]] (o [[Word]] para bajarla en Word).
 - Ver el organigrama completo en una hoja: elige **Diagrama** y pulsa [[Ajustar]].
 
 ::: cuidado

@@ -10,14 +10,14 @@ roles:
 ruta:
 captura: mod-social.webp
 ---
-Es el calendario de publicaciones de la campaña en redes y el registro de las menciones que se detectan, con el sentimiento de cada una.
+Es el calendario de publicaciones de la campaña en redes y el registro de las menciones que alguien del equipo anota a mano, con el sentimiento de cada una. La app no busca menciones por su cuenta.
 
 **Cómo se llega:** esta pantalla no tiene ítem en el menú lateral ni en el celular. Se abre escribiendo en el navegador la dirección de tu campaña seguida de `/social.html`. En la matriz de permisos aparece como "Redes y Opinión".
 
 ## Qué encuentras
 
-- **Calendario de publicaciones**: tabla con Título, Red, Programada, Estado y Alcance. Las redes son Facebook, Instagram, TikTok, WhatsApp, X y YouTube; los estados, Borrador, Programado y Publicado.
-- **Monitoreo de menciones**: tabla con Fuente, Texto, Sentimiento (positivo, neutro o negativo) y Fecha. Si la mención trae enlace, sale una flecha para abrirlo.
+- **Calendario de publicaciones**: tabla con Título, Red, Programada, Estado y Alcance. Las redes son Facebook, Instagram, TikTok, WhatsApp, X y YouTube; los estados, Borrador, Programado y Publicado. El Alcance no se puede escribir desde esta pantalla.
+- **Monitoreo de menciones**: tabla con Fuente, Texto, Sentimiento (positivo, neutro o negativo) y Fecha. La Fecha es el día y la hora en que se registró la mención. Si trae enlace, sale una flecha ↗ para abrirlo.
 - Los botones [[+ Nueva publicación]] y [[+ Registrar mención]].
 
 ## Qué puedes hacer según tu permiso

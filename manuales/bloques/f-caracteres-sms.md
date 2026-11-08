@@ -10,4 +10,4 @@ roles:
 ruta:
 captura:
 ---
-Sin tildes, un SMS tiene 160 caracteres; con una tilde, una ñ o un emoji el segmento baja a 70, así que el mismo texto puede pasar de 1 mensaje a 3. La app quita las tildes y la ñ al enviar para que no pase. A tu texto se le suman la firma del operador y el enlace de baja (unos 78 caracteres): el contador bajo el mensaje ya los cuenta y te dice cuántos SMS se facturan. Mira {{mod-enviar_sms}}.
+Un SMS cabe en 160 caracteres. Si el mensaje es más largo se parte en trozos de 153 y se cobra cada trozo (un crédito por trozo). Las tildes y la ñ no cuestan nada: la app las quita sola al enviar. Un emoji o unas comillas curvas sí bajan el límite a 70. Ojo: de esos 160 también salen la firma del operador y el enlace de baja (unos 78 caracteres; el administrador puede apagarlo), que se pegan solos, así que para tu texto puede quedar menos de la mitad. El contador bajo el mensaje los suma y te dice cuántos SMS son; si pasa de 1 SMS, lo avisa en rojo porque el mensaje puede NO llegar. Mira {{mod-enviar_sms}}.

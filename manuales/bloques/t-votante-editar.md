@@ -30,11 +30,11 @@ La ventana se cierra y la tabla muestra los datos nuevos. Si marcaste la verific
 :::
 
 ::: cuidado
-Si cambias la cédula por una que ya tiene otra ficha, la app responde "Ya registrado por otro líder" y no guarda. Un líder o sublíder solo puede abrir las fichas de las personas que él registró.
+Si cambias la cédula por una que ya tiene otra ficha, la app responde "Ya registrado por otro líder" y no guarda. Solo puedes abrir las fichas que ves en tu lista: el sublíder, las que él registró; el líder, las suyas y las de sus sublíderes.
 :::
 
 ::: consejo
-Si escribes una comuna que no está en la lista de la campaña, la ficha se guarda con la comuna vacía y la app te avisa para que la elijas de la lista. Desde el celular no se editan fichas: ahí solo se consulta y se contacta.
+Si escribes una comuna que no está en la lista de la campaña, la ficha se guarda con la comuna vacía y la app te avisa para que la elijas de la lista. Desde el celular no se abre la ficha para editarla: ahí solo se consulta y se contacta, y en la pantalla de inicio, en «Por completar», se completan el teléfono, el puesto y la mesa de quien no los tiene.
 :::
 
 Relacionado: {{mod-votantes}}.

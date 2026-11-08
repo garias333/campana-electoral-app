@@ -19,11 +19,11 @@ Cuando el superadministrador pide un código para entrar, la aplicación se lo m
 
 ## Pasos (quien administra el servidor)
 
-1. Crea un bot con @BotFather y guarda el token que te entrega.
+1. Crea un bot con @BotFather y guarda el token (la clave larga) que te entrega.
 2. Desde la cuenta de Telegram del superadministrador, escríbele `/start` al bot. Sin ese primer mensaje, el bot no puede escribirle.
 3. Obtén el identificador del chat del superadministrador.
-4. En el archivo `.env` de la instalación, escribe el token en `TELEGRAM_BOT_TOKEN` y el identificador en `TELEGRAM_SUPERADMIN_CHAT_ID`.
-5. Reinicia la aplicación para que lea el `.env`.
+4. En el archivo `.env` de la instalación (el de los ajustes del servidor), escribe el token en `TELEGRAM_BOT_TOKEN` y el identificador en `TELEGRAM_SUPERADMIN_CHAT_ID`. Si prefieres no dejar esos valores en el historial de la terminal, corre como administrador del servidor `bash scripts/poner-telegram-env.sh <ruta del .env>`: te los pide sin mostrarlos.
+5. Reinicia la aplicación para que lea el `.env`: con `bash scripts/reiniciar-instancia.sh <usuario>` (mira el manual de instalación, «Arrancar con PM2 y reiniciar sin riesgos»). Un reinicio simple no relee el `.env`.
 
 ::: listo
 La próxima vez que el superadministrador pida un código de ingreso, le llega también un mensaje de Telegram con ese código.

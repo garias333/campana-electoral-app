@@ -20,14 +20,14 @@ Sirve para vaciar por completo la información que se ha ido cargando en un mód
 4. Busca el módulo en la lista. Las áreas son: Estructura territorial, Votantes y sublíderes, Organigrama, Eventos y agenda, Finanzas (movimientos registrados), Redes y Opinión (publicaciones y menciones), Información para compartir (Recursos) y CRM y mensajería (historial de campañas y envíos).
 5. Pulsa [[Eliminar todo]] en esa fila.
 6. Lee la pregunta «¿Eliminar TODA la información de…?» y confirma con [[Eliminar todo]].
-7. Escribe otra vez tu contraseña de administrador.
+7. Escribe otra vez tu contraseña de administrador (el candado de arriba no basta: la pide en cada borrado).
 
 ::: listo
 Sale en verde «Se eliminaron N registro(s) de…» con la cantidad borrada.
 :::
 
 ::: cuidado
-No hay papelera: lo borrado solo se recupera restaurando un backup anterior. Cada botón vacía **todo** el módulo, no una parte. Además de la contraseña, la acción queda registrada en la auditoría con la cantidad de filas que se llevó.
+No hay papelera: lo borrado solo se recupera restaurando un backup anterior. Cada botón vacía **todo** el módulo, no una parte. Al borrar **Votantes y sublíderes** también se van los datos que cuelgan de cada persona, como la evidencia de su autorización de datos. Además de la contraseña, la acción queda registrada en la auditoría con la cantidad de filas que se llevó.
 :::
 
 ::: importante

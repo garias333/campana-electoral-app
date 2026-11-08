@@ -10,4 +10,4 @@ roles: todos
 ruta:
 captura:
 ---
-Cantidad de votos que se quiere lograr. La **meta de la campaña** la fija el administrador en **Configuración > Datos de la campaña**; la meta de cada líder es lo que se comprometió a traer, y su avance se ve en **Estructura territorial** como «registros de meta». Una cifra no es la suma de la otra.
+Cantidad de votos que se quiere lograr. La **meta de la campaña** la fija el administrador en **Configuración > Datos de la campaña**; la meta de cada líder es lo que se comprometió a traer, y su avance se ve en **Estructura territorial** como una cifra del tipo «25 de 120», con la leyenda «meta propia · registros suyos y de su equipo». En el celular, el líder lo ve en **Mi meta** de la pantalla de inicio. Una cifra no es la suma de la otra.

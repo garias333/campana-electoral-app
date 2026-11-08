@@ -10,24 +10,24 @@ roles:
 ruta: Escritorio: Electoral > Dashboard de votantes | Celular: Dashboard de votantes
 captura: mod-votantes_dashboard.webp
 ---
-Muestra cómo va la base de votantes: cuánta gente hay, dónde está, quién la trajo y qué le falta a cada registro. Sirve para ver dónde hay huecos y a dónde mandar al equipo.
+Muestra cómo va la base de votantes: cuánta gente hay, dónde está, quién la trajo y qué le falta a cada registro. Sirve para ver dónde hay huecos y a dónde mandar al equipo. Lo ven el administrador y el coordinador.
 
 ## Qué encuentras
 
-- **Lo que dicen estos datos**: una franja con lo más importante, como cuántas personas no tienen territorio o líder. Debajo, **Cuenta regresiva** y **Total registros**.
-- **Cobertura territorial**: tarjetas de comunas y corregimientos (Cubiertas, Cubrimiento parcial, Sin cubrimiento) y de barrios y veredas cubiertos. Cada una tiene un botón Informe.
-- **Por Comuna/Corregimiento**, **Por Barrio/Vereda**, **Por Líder** y **Por Puesto de votación**: una gráfica y una tabla con Total y porcentaje. Se cambia entre Barras y Dona. En Barrio/Vereda hay un filtro «Filtrar por Comuna/Corregimiento».
+- **Lo que dicen estos datos**: una franja con lo más importante, como cuántas personas no tienen territorio o líder, o qué líder concentra más registros. Si no hay nada que destacar, la franja no aparece. Debajo, **Cuenta regresiva** y **Total registros**.
+- **Cobertura territorial**: tarjetas de comunas y corregimientos (Cubiertas, Cubrimiento parcial, Sin cubrimiento) y de barrios y veredas cubiertos. Cada una tiene un botón [[Informe]].
+- **Por Comuna/Corregimiento**, **Por Barrio/Vereda**, **Por Líder** y **Por Puesto de votación**: una gráfica y una tabla (Total y porcentaje; en Puesto, las mesas y el total). Se cambia entre Barras y Dona. En Barrio/Vereda hay un filtro «Filtrar por Comuna/Corregimiento». Si la campaña no usa comunas, barrios, corregimientos o veredas (se apagan en **Configuración > Datos de la campaña**), esas tarjetas desaparecen.
 - **Por Mesa**: eliges un Puesto de votación y ves cómo se reparten sus mesas.
 
 Los grupos marcados como «sin territorio», «sin barrio» o «sin líder» se resaltan en otro color: son los huecos.
 
-En el celular es lo mismo en tarjetas, con fichas de zona arriba («Todas las zonas») y «Ver todas» en cada lista.
+En el celular (solo el administrador lo tiene en el menú de inicio) es lo mismo en tarjetas, con fichas de zona arriba («Todas las zonas») y «Ver todas» en cada lista.
 
 ## Qué puedes hacer según tu permiso
 
-- **Ver**: consultar todo lo anterior, con las personas que tu cargo puede ver, y abrir el Informe de cobertura en pantalla.
+- **Ver**: consultar todo lo anterior, con las personas que tu rol puede ver, y abrir el Informe de cobertura en pantalla.
 - **Editar y agregar**: aquí no se editan personas. Para eso está Votantes y sublíderes.
-- **Importar / Exportar**: sacar los datos a Excel, Word o PDF. Mira {{t-dashboard-exportar}}.
+- **Importar / Exportar**: sacar los datos a Excel, Word o PDF (botones [[Excel]], [[Word]] y [[PDF]]; en cada tarjeta, [[Exportar]]). Mira {{t-dashboard-exportar}}.
 
 ## Tareas frecuentes
 

@@ -16,7 +16,7 @@ El perfil **Administrativo** nace con lo mínimo: solo Panel general, Agenda, In
 
 1. Entra a **Configuración > Asignación de permisos**.
 2. Ubica la fila **Administrativo**.
-3. Recorre las columnas y, en cada módulo que esa persona debe usar, marca **V** (Ver).
+3. Recorre las columnas (desplaza la tabla hacia la derecha) y, en cada módulo que esa persona debe usar, marca **V** (Ver).
 4. Si además debe poder cambiar o crear registros en ese módulo, marca **E** (Editar) y **A** (Agregar nuevo). Si debe importar o exportar archivos, marca **I/E**.
 5. Pulsa [[Guardar cambios]].
 6. Pídele a la persona que cargue otra página (o que vuelva a entrar) para ver el menú nuevo.
@@ -30,5 +30,5 @@ Da solo lo que su trabajo necesita. Una persona administrativa no suele necesita
 :::
 
 ::: importante
-Para que la persona tenga cuenta con este perfil, créala en {{t-usuarios}} y elige el rol Administrativo. Cómo funciona la tabla completa está en {{t-permisos}}.
+Para que la persona tenga cuenta con este perfil, créala en {{t-usuarios}} y elige el rol Administrativo. Marcar V abre solo lo que esa pantalla permite a ese rol: Configuración, por ejemplo, sigue siendo solo del administrador aunque la marques. Cómo funciona la tabla completa está en {{t-permisos}}.
 :::

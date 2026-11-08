@@ -16,12 +16,12 @@ Instalada, la aplicación queda como un ícono más en tu celular, se abre a pan
 ### En Android (Chrome)
 
 1. Abre en Chrome el enlace de la campaña, hasta ver la pantalla de ingreso.
-2. Toca [[Instalar la aplicación en este celular]] y acepta lo que pregunte el navegador.
-3. Si el botón no aparece, toca el menú ⋮ de Chrome y elige «Instalar aplicación» o «Añadir a pantalla de inicio».
+2. Toca [[📲 Instalar la aplicación en este celular]], que sale arriba de los botones de ingreso, y acepta lo que pregunte el navegador.
+3. Si el botón no aparece, en su lugar la pantalla te dice cómo hacerlo a mano: toca el menú ⋮ de Chrome y elige «Instalar aplicación» o «Añadir a pantalla de inicio».
 
 ### En iPhone (Safari)
 
-1. Abre el enlace de la campaña en Safari. En el iPhone esto no funciona desde otro navegador.
+1. Abre el enlace de la campaña en Safari, el navegador del iPhone.
 2. Toca **Compartir** (el cuadro con la flecha hacia arriba).
 3. Baja en la lista y toca «Añadir a pantalla de inicio». En algunas versiones se llama «Agregar a inicio».
 4. Confirma el nombre «Estrategia» y toca **Añadir**.
@@ -36,7 +36,7 @@ Quedó instalada cuando aparece el ícono «Estrategia» entre tus aplicaciones 
 :::
 
 ::: consejo
-El botón de instalar solo se ofrece en el celular y mientras la aplicación no esté instalada. Si lo desinstalaste hace poco, Chrome puede tardar en volver a ofrecerlo: usa entonces el menú ⋮.
+El botón de instalar solo se ofrece en el celular, en la pantalla de ingreso y en el menú de inicio, y mientras la aplicación no esté instalada. Si lo desinstalaste hace poco, Chrome puede tardar en volver a ofrecerlo: usa entonces el menú ⋮.
 :::
 
 ::: cuidado

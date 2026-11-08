@@ -14,16 +14,16 @@ Es el tablero del día de la elección: muestra lo que reportan los testigos des
 
 ## Qué encuentras
 
-Arriba hay pestañas: [[Reportes de mesas]] (la que abre primero), [[Avance de votación]], [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]]. Cada una aparece solo si tu permiso incluye ese módulo.
+Arriba hay pestañas: [[Reportes de mesas]] (la que abre primero), [[Avance de votación]], [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]]. Las dos primeras salen siempre; [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]] aparecen solo si tu permiso incluye ese módulo.
 
 En [[Reportes de mesas]] ves:
 
-- **Tarjetas de cifras**: Cuenta regresiva, Total mesas, Mesas reportadas (con porcentaje), Votos para el candidato, Total votantes reportados y Mesas con novedad.
+- **Tarjetas de cifras**: Cuenta regresiva, Total mesas, Mesas reportadas (con porcentaje), Votos para el candidato, Total votantes reportados y Mesas con novedad. Si tienes los módulos de Transporte y Logística, también ves sus contadores (por ejemplo «Necesitan transporte» o «Kit de testigo»).
 - **Votos por candidato**: barras con su tabla. Con [[Verticales]] y [[Horizontales]] cambias la forma; la estrella marca a tu candidato.
 - **Último reporte por mesa**: puesto, mesa, votos, testigo, hora, novedad, alertas, E-14 y otros documentos. La casilla «Solo con alertas» deja las mesas con aviso.
 - **Historial completo**: todos los reportes.
 
-Las filas con novedad salen en rosado. En Alertas, cada reporte puede traer «Suma ≠ votantes», «Fuera de lista», «Lo envió la coordinación» o «Puesto sin mesas configuradas»; pasa el cursor para leer su significado.
+Las filas con novedad salen en rosado. En la columna «Alertas» de cada reporte puede aparecer «Suma ≠ votantes», «Fuera de lista», «Lo envió la coordinación» o «Puesto sin mesas configuradas»; pasa el cursor para leer su significado.
 
 ## Qué puedes hacer según tu permiso
 

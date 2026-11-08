@@ -4,9 +4,9 @@ titulo: Crear o editar un cargo del organigrama
 seccion: antes
 orden: 101
 icono: persona
-modulo: organigrama
-nivel: agregar
-roles:
+modulo:
+nivel:
+roles: admin, coordinador
 ruta: Escritorio: Electoral > Organigrama
 captura: t-organigrama-agregar.webp
 ---
@@ -15,20 +15,20 @@ Sirve para dejar escrito quién ocupa cada cargo de la campaña, de quién depen
 ## Pasos
 
 1. Entra a **Electoral > Organigrama**.
-2. Para un cargo de primer nivel pulsa [[+ Agregar cargo raíz]]. Para colgar uno de otro cargo, pulsa [[+ Subordinado]] o [[+ Asesor]] en la tarjeta de ese cargo. Para cambiar uno existente, pulsa [[Editar]].
+2. Para un cargo de primer nivel pulsa [[+ Agregar cargo raíz]]. Para colgar uno de otro cargo, pulsa [[+ Subordinado]] o [[+ Asesor]] en ese cargo (en la vista **Diagrama** los botones se leen [[+ Sub.]] y [[+ Ases.]]). Para cambiar uno existente, pulsa [[Editar]] (en el Diagrama, el ícono del lápiz). La ventana se titula «Agregar cargo raíz», «Agregar subordinado», «Agregar asesor» o «Editar cargo».
 3. Escribe el **Cargo** (por ejemplo, GERENTE DE CAMPAÑA). La app lo pone en mayúsculas.
 4. Si ya tienes a la persona, llena **Nombres**, **Apellidos**, **Teléfono** (10 dígitos) y **E-mail**.
 5. Elige el **Nivel**: de Nivel 1 a Nivel 6, o Asesores. Define el color con que se pinta.
-6. En **Es subordinado de (opcional)** elige el cargo del que depende. Si lo dejas en "Ninguno — cargo raíz", queda arriba del todo.
+6. En **Es subordinado de (opcional)** elige el cargo del que depende. Si lo dejas en "Ninguno — cargo raíz", queda arriba del todo. Para un cargo raíz, revisa que diga justo eso: a veces la ventana abre con otro cargo ya elegido, y entonces el cargo nuevo quedaría debajo de él.
 7. Si elegiste un cargo superior, aparece **Tipo de relación**: **Subordinado (línea jerárquica)** o **Asesor / Staff (horizontal, junto al cargo)**.
 8. Describe las **Funciones del cargo** y pulsa [[Guardar]].
 
 ::: listo
-El cargo aparece en el organigrama, debajo del cargo que elegiste, con el color de su nivel.
+La ventana se cierra y el cargo aparece en el organigrama, debajo del cargo que elegiste, con el color de su nivel.
 :::
 
 ::: importante
-Solo el **Cargo** es obligatorio. Crear, editar y eliminar cargos lo hacen el administrador y el coordinador.
+Solo el **Cargo** es obligatorio. Crear, editar y eliminar cargos lo hacen el administrador y el coordinador; los demás roles solo ven el organigrama, sin estos botones. Si escribes teléfono, debe tener 10 dígitos.
 :::
 
 ::: cuidado

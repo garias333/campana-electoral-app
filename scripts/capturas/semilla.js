@@ -27,7 +27,7 @@ async function sembrar(pool) {
     meta_votos_campana = 2400, partido_politico = NULL, departamento = 'Departamento de ejemplo', ciudad = 'Ciudad de ejemplo',
     ciudad_tiene_comunas = 1, usar_nombre_barrios = 1, fecha_eleccion = CURDATE(), direccion_sede = 'Calle 1 # 2-3, sede de ejemplo',
     telefono = '3000000000', email = 'sede@ejemplo.co', marca_titulo = 'Campaña de ejemplo', marca_subtitulo = '',
-    jornada_apertura = '00:00', jornada_cierre = '23:59' WHERE id = 1`);
+    jornada_apertura = '00:00', jornada_cierre = '23:59', transporte_alerta_desde = '00:00:00' WHERE id = 1`);
   await q("UPDATE usuarios SET nombre = 'Admin Ejemplo', email = 'admin@ejemplo.co', nombre_usuario = 'admin.ejemplo', numero_identificacion = '9000000001' WHERE id = 1");
   // (Los códigos de enlace y de conductor usan el alfabeto del sistema: sin I, L, O, 0 ni 1.)
   // El superadministrador de la plantilla no debe verse en los listados.
@@ -116,6 +116,9 @@ async function sembrar(pool) {
   // Algunos ya votaron y algunos necesitan transporte (el mismo día).
   for (const i of [0, 3, 6, 9, 12]) await q("INSERT INTO votante_votos (votante_id, voto_en, origen) VALUES (?, NOW(), 'equipo')", [votantes[i]]);
   await q('UPDATE votantes SET necesita_transporte = 1 WHERE id IN (?, ?, ?)', [votantes[1], votantes[4], votantes[7]]).catch(() => {});
+  // Dos personas que pidieron no recibir más mensajes (una por SMS, otra anotada a mano), para la pantalla «No contactar».
+  await q("UPDATE votantes SET no_contactar = 1, no_contactar_fecha = DATE_SUB(NOW(), INTERVAL 2 DAY), no_contactar_origen = 'sms' WHERE id = ?", [votantes[10]]);
+  await q("UPDATE votantes SET no_contactar = 1, no_contactar_fecha = DATE_SUB(NOW(), INTERVAL 1 DAY), no_contactar_origen = 'manual', no_contactar_canal = 'llamada', no_contactar_motivo = 'Pidió no recibir más mensajes' WHERE id = ?", [votantes[11]]);
 
   // ------------------------------------------------------------------------------------------------ transporte, logística y enlace
   const veh = [];

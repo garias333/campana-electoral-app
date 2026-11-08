@@ -19,7 +19,7 @@ Sirve para dejar en el calendario lo que se va a publicar y para guardar lo que 
 3. Elige el **Estado** (Borrador, Programado o Publicado) y, si ya lo sabes, la **Fecha programada**.
 4. Escribe el texto en **Contenido / copy** y pulsa [[Guardar]].
 5. Para una mención, pulsa [[+ Registrar mención]]. Escribe la **Fuente (medio, red, portal)** y el **Texto / resumen de la mención**.
-6. Elige el **Sentimiento** (Positivo, Neutro o Negativo). El **Enlace (opcional)** sirve para volver a la nota. Pulsa [[Guardar]].
+6. Elige el **Sentimiento** (Positivo, Neutro o Negativo; sale Neutro si no cambias nada). El **Enlace (opcional)** sirve para volver a la nota. Pulsa [[Guardar]]. La fecha de la mención la pone la app: es el momento en que la registras.
 
 ::: listo
 La publicación aparece en el **Calendario de publicaciones** y la mención en **Monitoreo de menciones**, con su estado o sentimiento.

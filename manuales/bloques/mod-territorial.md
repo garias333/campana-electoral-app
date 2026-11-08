@@ -10,22 +10,22 @@ roles:
 ruta: Escritorio: Electoral > Estructura territorial | Celular: Estructura territorial
 captura: mod-territorial.webp
 ---
-Aquí está el equipo de la campaña por territorio: quién coordina qué zona, de quién depende cada líder o sublíder y cuántos votantes lleva registrados frente a su meta.
+Aquí está el equipo de la campaña por territorio: quién coordina qué zona, de quién depende cada líder o sublíder y cuántos votantes lleva registrados frente a su meta. En la pantalla el título dice «Coordinadores y líderes».
 
 ## Qué encuentras
 
-- **Una ficha por persona**, con su cargo (Coordinador, Coordinador de organizaciones, Líder o Sublíder), el área (Urbano o Rural), el territorio, "Le reporta a", su avance "registros de meta" con una barra, y si está Activo o Inactivo.
+- **Una ficha por persona**, con su cargo (Coordinador, Coord. organizaciones, Aspirante, Líder o Sublíder), el área (Urbano o Rural), el territorio, "Le reporta a", su avance en la forma «31 de 210» (registros de su meta) con una barra, y si está Activo o Inactivo.
 - El símbolo **Σ** avisa que la cifra incluye a su equipo. El pin indica que tiene coordenadas en el mapa. "Falta lugar de votación" sale solo si le falta el departamento, el municipio, el puesto o la mesa.
 - Un riel azul marca a quién le reporta cada ficha; con el botón de la flecha plegas o abres el equipo de una persona.
-- **Filtros**: búsqueda por nombre, correo o cédula, cargo, área, y comuna/corregimiento y barrio/vereda (en una campaña de varios municipios, el municipio). [[Quitar filtros]] los borra.
-- **Botones del escritorio**: [[+ Agregar persona]], [[Escribir por WhatsApp]], [[Exportar a Excel]], [[Importar desde Excel]], [[Gestionar territorios]], [[Re-geocodificar pendientes]], [[Corregir ubicaciones existentes]] y [[Eliminar registros]].
-- **En el celular**: chips por cargo, buscador, el botón [[Filtros]], el botón flotante "+" y el menú de tres puntos con Exportar, Importar, Gestionar territorios y Eliminar registros.
+- **Filtros**: búsqueda por nombre, correo o cédula, cargo, área, y comuna/corregimiento y barrio/vereda (en una campaña de varios municipios, el municipio). [[Quitar filtros]] los borra. Si la campaña no usa comunas, barrios, corregimientos o veredas, esa división no aparece en los filtros ni en los formularios (el administrador la apaga en **Configuración > Datos de la campaña**).
+- **Botones del escritorio**: [[+ Agregar persona]], [[Escribir por WhatsApp]], [[Exportar a Excel]], [[Importar desde Excel]], [[Gestionar territorios]], [[Re-geocodificar pendientes]] y [[Corregir ubicaciones existentes]] (vuelven a ubicar en el mapa a quienes tienen dirección; solo funcionan con la cuenta de administrador) y [[Eliminar registros]].
+- **En el celular** (solo el administrador tiene esta pantalla en el menú de inicio; el coordinador la usa desde el computador): chips por cargo (Todos, Coordinadores, Coord. organizaciones, Aspirantes, Líderes, Sublíderes), buscador, el botón [[Filtros]], el botón flotante "+" y el menú de tres puntos con Exportar a Excel, Importar desde Excel, Gestionar territorios y Eliminar registros (los tres últimos abren la pantalla de escritorio).
 
 ## Qué puedes hacer según tu permiso
 
-- **Ver**: consultar la lista, filtrar y escribir por WhatsApp a quien tenga teléfono.
-- **Editar**: cambiar una ficha con [[Editar]]; pide tu contraseña al abrirla. Solo el administrador puede [[Eliminar]] una persona.
-- **Agregar**: crear coordinadores, líderes y sublíderes ({{t-estructura-agregar}}).
+- **Ver**: consultar la lista, filtrar y escribir por WhatsApp a quien tenga teléfono. El administrador y el coordinador ven la estructura de su campaña; un líder ve solo su ficha y las de quienes le reportan.
+- **Editar**: cambiar una ficha con [[Editar]] (administrador y coordinador); pide tu contraseña al abrirla. Solo el administrador ve el botón [[Eliminar]] en cada ficha.
+- **Agregar**: crear coordinadores, líderes y sublíderes ({{t-estructura-agregar}}). Lo hacen el administrador y el coordinador.
 - **Importar / Exportar**: pasar la estructura a Excel y volver a cargarla ({{t-estructura-importar}}).
 
 ## Tareas frecuentes
@@ -35,5 +35,5 @@ Aquí está el equipo de la campaña por territorio: quién coordina qué zona, 
 - Ver quién no tiene jefe: busca la ficha que dice "sin quién lo coordine".
 
 ::: cuidado
-[[Eliminar registros]] borra personas y sus cuentas de acceso para siempre, y pide la contraseña del administrador. Úsalo solo con intención.
+[[Eliminar registros]] abre tres opciones (Eliminar coordinadores, Eliminar líderes y Eliminar todo) que borran personas y sus cuentas de acceso para siempre, y piden la contraseña de un administrador. Úsalo solo con intención.
 :::

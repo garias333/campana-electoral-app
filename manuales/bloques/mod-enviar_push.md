@@ -22,11 +22,11 @@ Manda una notificación a la aplicación del celular: citar a una reunión, avis
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el historial y el detalle.
-- **Agregar**: enviar avisos (administrador, coordinador y líder).
+- **Agregar**: enviar avisos (administrador, coordinador, líder y asistente administrativo). Al pulsar [[Enviar aviso]], la app pregunta «Vas a enviar este aviso a N persona(s). ¿Confirmas?».
 
 ## Cómo se activa en cada celular
 
-Cada persona lo hace en su teléfono: abre la app, va a **Inicio** y marca **Recibir avisos en este dispositivo**. En iPhone primero debe agregar la app a la pantalla de inicio. Si bloqueó las notificaciones en el navegador, debe permitirlas de nuevo.
+Cada persona lo hace en su teléfono: abre la app, va a **Inicio**, baja hasta el final y marca **Recibir avisos en este dispositivo**. En iPhone primero debe agregar la app a la pantalla de inicio. Si bloqueó las notificaciones en el navegador, debe permitirlas de nuevo.
 
 ## Tareas frecuentes
 
@@ -34,5 +34,5 @@ Cada persona lo hace en su teléfono: abre la app, va a **Inicio** y marca **Rec
 - Ver quién no lo recibió: [[Ver detalle]]; aparece sin dato de contacto quien no activó los avisos.
 
 ::: consejo
-Si muchas personas salen sin contacto, pídeles que activen los avisos y vuelve a enviar. También puedes usar {{t-crm-campana}}.
+Si muchas personas salen sin contacto, pídeles que activen los avisos y vuelve a enviar. También puedes usar CRM y Mensajes, con Fuente **Solo Estructura** o **Testigos y Coordinadores de puesto** (administración y coordinación). {{t-crm-campana}}
 :::

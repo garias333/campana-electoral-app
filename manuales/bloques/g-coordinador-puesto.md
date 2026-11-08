@@ -10,4 +10,4 @@ roles: todos
 ruta:
 captura:
 ---
-Testigo que atiende varias mesas de un mismo puesto de votación, en vez de una sola. Se elige al registrar al testigo: «Coordinador de puesto (varias mesas)» frente a «Testigo electoral (una sola mesa)». También entrega los refrigerios o kits en la pantalla Logística Día D.
+Testigo que atiende varias mesas de un mismo puesto de votación, en vez de una sola. Se elige al registrar al testigo: «Coordinador de puesto (varias mesas)» frente a «Testigo electoral (una sola mesa)». También entrega los refrigerios o kits desde su celular, con el botón «Logística de mi puesto». No es lo mismo que el rol «Coordinador» de la estructura.

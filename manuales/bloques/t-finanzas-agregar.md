@@ -16,10 +16,10 @@ Sirve para llevar la contabilidad de la campaña: cada ingreso o gasto con su ca
 
 1. Entra a **Finanzas** y pulsa [[+ Registrar movimiento]].
 2. Elige el **Tipo** (Ingreso o Gasto) y la **Fecha**.
-3. Elige la **Categoría**. Si no está, escoge "Otro (escribir una nueva categoría)..." y escribe el nombre; queda disponible para los siguientes movimientos.
-4. Escribe el **Monto (COP)**. El campo trabaja en múltiplos de 1.000.
+3. Elige la **Categoría** (la lista cambia según elijas Ingreso o Gasto). Si no está, escoge «Otro (escribir una nueva categoría)...» y escribe el nombre en el campo que aparece; queda disponible para los siguientes movimientos.
+4. Escribe el **Monto (COP)**. El campo sube de mil en mil y solo acepta valores en múltiplos de 1.000 (por ejemplo 95.000).
 5. Completa la **Descripción**, el **Tercero (donante / proveedor)** y el **Documento del tercero**.
-6. Si tienes el soporte, adjúntalo en **Comprobante (opcional)**. Se aceptan imágenes (jpg, png, webp, gif), pdf, documentos de Word y PowerPoint, y audio o video (mp3, mp4, mov, avi), de hasta 50 MB.
+6. Si tienes el soporte, adjúntalo en **Comprobante (opcional)**. Se aceptan imágenes (jpg, png, webp, gif), pdf, documentos de Word y PowerPoint, y audio o video (mp3, mp4, mov, avi), de hasta 50 MB. No se aceptan hojas de Excel.
 7. Pulsa [[Guardar movimiento]].
 
 ::: listo

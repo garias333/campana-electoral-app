@@ -10,4 +10,4 @@ roles:
 ruta:
 captura:
 ---
-Persona que lleva a los votantes al puesto el día de la elección. No necesita cuenta: recibe un enlace propio y desde su celular marca cada parada ([[Voy en camino]], [[Recogido]], [[Llevado al puesto]] o [[No estaba]]). Ver {{t-conductor-enlace}}.
+Persona que lleva a los votantes al puesto el día de la elección. No necesita cuenta: recibe un enlace propio y desde su celular marca cada parada ([[Recogido]], [[Llevado al puesto]] o [[No estaba]]) y, con [[Voy en camino]], avisa por mensaje a la persona. Ver {{t-conductor-enlace}}.

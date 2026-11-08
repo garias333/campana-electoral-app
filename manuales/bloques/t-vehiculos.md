@@ -16,11 +16,11 @@ Registra los carros, vans, buses o motos que van a recoger gente el día de la e
 
 1. Abre **Día D > Transporte del Día D** y baja hasta la tarjeta **Vehículos**.
 2. Toca [[+ Nuevo vehículo]].
-3. Escribe la **Placa**: de 3 a 12 letras o números. Se guarda en mayúsculas.
-4. Elige el **Tipo**: carro, camioneta, van, bus, moto u otro.
-5. Escribe la **Capacidad (personas)**, un número de 1 a 80.
+3. Escribe la **Placa**: de 3 a 12 letras o números (también se acepta el guion). Se guarda en mayúsculas y sin espacios.
+4. Elige el **Tipo**: carro (viene elegido), camioneta, van, bus, moto u otro.
+5. Escribe la **Capacidad (personas)**, un número entero de 1 a 80 (viene en 4).
 6. Si quieres, agrega una **Descripción** de hasta 150 caracteres, por ejemplo el color.
-7. Toca [[Guardar]].
+7. Toca [[Guardar]]. El formulario se abre arriba de la tabla; [[Cancelar]] lo cierra sin guardar.
 
 Para corregir un dato, toca [[Editar]] en la fila del vehículo. Para dejar de usarlo, toca [[Desactivar]]; la fila se ve atenuada y ya no se ofrece al crear conductores. [[Activar]] lo devuelve.
 

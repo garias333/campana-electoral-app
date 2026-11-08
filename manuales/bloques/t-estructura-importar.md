@@ -14,19 +14,23 @@ Sirve para sacar el equipo a un archivo de Excel, corregirlo o ampliarlo allí y
 
 ## Pasos
 
-1. Entra a **Electoral > Estructura territorial**. En el celular, abre el menú de tres puntos de la pantalla y elige **Exportar a Excel**; la importación se hace desde el computador.
-2. Pulsa [[Exportar a Excel]]. Se descarga el archivo `estructura.xlsx`, con una fila por persona.
+1. Entra a **Electoral > Estructura territorial**. En el celular (solo el administrador), abre el menú de tres puntos de la pantalla y elige **Exportar a Excel**; **Importar desde Excel** abre la pantalla de escritorio, y ahí se hace.
+2. Pulsa [[Exportar a Excel]]. Se descarga el archivo `estructura.xlsx`, con una fila por persona (los testigos no vienen en este archivo; tienen el suyo en {{t-testigos-importar}}).
 3. Ábrelo y haz tus cambios. Para **actualizar** a alguien, deja su columna **ID** intacta. Para **crear** a alguien, deja el **ID** vacío.
-4. En cada fila nueva llena como mínimo **Nombre** y **Cargo** (Coordinador, Líder, Sublíder o Coordinador Organizaciones), y el territorio: **Área** más Comuna y Barrio, o Corregimiento y Vereda. A un Coordinador le basta la Comuna o el Corregimiento.
-5. En **Reporta a** escribe el correo de su jefe, que ya debe estar registrado.
+4. En cada fila nueva llena como mínimo **Nombre** y **Cargo** (Coordinador, Líder, Sublíder o Coordinador Organizaciones), el **Número de identificación** y el territorio: **Área** más Comuna y Barrio, o Corregimiento y Vereda. A un Coordinador le basta la Comuna o el Corregimiento, y a un Coordinador Organizaciones no le hace falta territorio.
+5. En **Reporta a** escribe el correo de su jefe, que ya debe estar registrado. Si ese correo no existe, no se asigna jefe y no sale ningún aviso.
 6. Guarda el archivo y pulsa [[Importar desde Excel]]. Elige tu archivo (.xlsx o .xls, hasta 10 MB).
 
 ::: listo
-Sale un aviso "Importación completada" con cuántas personas se agregaron y cuántas se actualizaron. Si hubo errores, indica cuántas filas fallaron y el motivo de la primera.
+Sale una ventana de aviso del navegador: «Importación completada: X persona(s) agregada(s), Y actualizada(s)». Si hubo errores, añade cuántas filas fallaron y el motivo de la primera.
 :::
 
 ::: importante
-Actualizar por Excel nunca cambia la contraseña ni el usuario de nadie. Una fila con un ID que no existe, o una persona que ya tiene ese cargo, se rechaza con su motivo. El teléfono que no tenga 10 dígitos se ignora, pero la persona sí se importa.
+Actualizar por Excel nunca cambia la contraseña ni el usuario de nadie. Una fila con un ID que no existe, o una persona que ya tiene ese cargo, se rechaza con su motivo. El teléfono que no tenga 10 dígitos se ignora, pero la persona sí se importa. Una persona nueva entra con su número de identificación como usuario y contraseña inicial; si la dejas vacía, la cuenta se crea con una clave al azar que nadie ve.
+:::
+
+::: cuidado
+En una fila que **actualiza**, lo que dejes vacío se borra de la ficha: el teléfono, el correo, la dirección y la meta. Por eso exporta primero y no borres celdas de las personas que ya existen.
 :::
 
 ::: consejo

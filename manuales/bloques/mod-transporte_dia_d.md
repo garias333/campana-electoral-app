@@ -16,8 +16,8 @@ Aquí la coordinación organiza cómo llegan al puesto las personas que no tiene
 
 La pantalla es la pestaña [[Transporte]] de la jornada electoral y tiene cuatro partes:
 
-- **Tarjetas de arriba**: *Necesitan*, *Asignados*, *Recogidos*, *En el puesto*, *No estaban* y *Sin recoger*. Se actualizan solas cada 30 segundos. Las mismas seis aparecen en el cuadro de la Jornada electoral. Junto al título ves «Día de la elección» con la fecha.
-- **Quienes necesitan transporte**: la lista de personas que el líder marcó, agrupada por puesto y barrio. Tiene filtros (*Todos*, *Sin asignar*, *Asignados*), un filtro por conductor y la casilla «Incluir a quienes ya votaron». Columnas: Persona, Dirección, Pers., Estado y Conductor.
+- **Tarjetas de arriba**: *Necesitan*, *Asignados*, *Recogidos*, *En el puesto*, *No estaban* y *Sin recoger*. Se actualizan solas cada 30 segundos. Las mismas seis aparecen en la pestaña «Reportes de mesas» de la Jornada electoral. Junto al título ves «Día de la elección» con la fecha.
+- **Quienes necesitan transporte**: la lista de personas que el líder marcó, agrupada por puesto y barrio. Tiene filtros (*Todos*, *Sin asignar*, *Asignados*), un filtro por conductor y la casilla «Incluir a quienes ya votaron». Columnas: Persona, Dirección, Pers., Estado y Conductor (más un botón ✎ en las personas ya asignadas).
 - **Conductores**: tabla con Conductor, Vehículo, Carga, Enlace para el conductor y Ordenar paradas. Tiene el botón [[+ Nuevo conductor]].
 - **Vehículos**: tabla con Placa, Tipo, Capacidad y Descripción. Tiene el botón [[+ Nuevo vehículo]].
 
@@ -39,5 +39,5 @@ La pantalla es la pestaña [[Transporte]] de la jornada electoral y tiene cuatro
 - Saber cuándo salta la alerta: {{t-transporte-alerta}}
 
 ::: consejo
-Prepara vehículos, conductores y asignaciones antes del día de la elección. El enlace de cada conductor solo funciona ese día.
+Prepara vehículos, conductores y asignaciones antes del día de la elección. El enlace de cada conductor solo funciona ese día. En el celular, la entrada «Transporte Día D» del menú abre esta misma pantalla de escritorio.
 :::

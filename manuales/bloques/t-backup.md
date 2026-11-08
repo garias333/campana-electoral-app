@@ -19,7 +19,7 @@ Sirve para guardar una copia completa de la aplicación en tu computador y, si h
 3. Escribe tu contraseña de administrador. La pide porque el archivo trae todo, incluidos datos personales.
 4. Espera: el botón dice «Generando backup… puede tardar un momento». El navegador descarga un archivo `backup-estrategia-AAAA-MM-DD.zip`.
 
-El .zip trae la base de datos completa (`database.sql`), todos los archivos subidos (fotos, documentos, comprobantes E-14) y un `LEEME.txt` con los pasos para instalar la aplicación desde cero en otro servidor. No queda copia guardada en el servidor: el archivo es tuyo, guárdalo en un lugar seguro.
+El .zip trae la base de datos completa (`database.sql`: usuarios, contraseñas cifradas, votantes, configuración, todo), todos los archivos subidos (fotos, documentos, comprobantes E-14) y un `LEEME.txt` con los pasos para instalar la aplicación desde cero en otro servidor. No queda copia guardada en el servidor: el archivo es tuyo, guárdalo en un lugar seguro.
 
 ## Restaurar un backup
 
@@ -32,7 +32,7 @@ Al descargar, el navegador guarda el .zip. Al restaurar, sale «Backup restaurad
 :::
 
 ::: cuidado
-Restaurar reemplaza **toda** la información actual por la del archivo y no se puede deshacer; antes de hacerlo, el servidor guarda lo que había en su carpeta `backups/`. Probablemente tendrás que volver a iniciar sesión.
+Restaurar reemplaza **toda** la información actual por la del archivo y no se puede deshacer; antes de hacerlo, el servidor guarda lo que había en su carpeta `backups/`. Probablemente tú y todos los conectados tendrán que volver a iniciar sesión. Ese respaldo previo queda dentro del servidor, no se descarga: para recuperarlo hay que pedírselo a quien lo administra.
 :::
 
 ::: consejo

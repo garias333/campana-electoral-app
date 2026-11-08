@@ -21,14 +21,14 @@ Sirve para correos puntuales a una persona o a un grupo pequeño, mandados desde
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el historial y el detalle.
-- **Agregar**: escribir y enviar correos (administrador, coordinador y líder).
+- **Agregar**: escribir y enviar correos (administrador, coordinador, líder y asistente administrativo). Al pulsar [[Enviar E-mail]], la app pregunta «Vas a enviar este correo a N persona(s). ¿Confirmas?» y, al confirmar, avisa «Enviando a N persona(s)».
 - El botón **Eliminar todas** del historial lo ve solo el administrador.
 
 ## Tareas frecuentes
 
 - Mandar un correo a un grupo pequeño: elige personas, escribe el asunto y el mensaje, y pulsa [[Enviar E-mail]].
 - Ver quién se omitió: abre [[Ver detalle]] y mira la columna Estado.
-- Un envío grande o programado: usa {{t-crm-campana}}.
+- Un envío grande o programado: usa CRM y Mensajes, que tienen administración y coordinación. {{t-crm-campana}}
 
 ::: cuidado
 Se omite a quien pidió no recibir más, a quien no autorizó el correo, a quien no tiene correo registrado y a quien se inscribió por enlace y no ha confirmado. La columna **Omitidos** los cuenta.

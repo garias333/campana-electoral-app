@@ -10,7 +10,7 @@ roles:
 ruta: Escritorio: Electoral > Mapa territorial | Celular: Mapa territorial
 captura: mod-mapa.webp
 ---
-Muestra en un mapa dónde está cada persona de la estructura, cada votante con dirección ubicada y los eventos con lugar. Sirve para ver dónde hay presencia y dónde no.
+Muestra en un mapa dónde está cada persona de la estructura, cada votante con dirección ubicada y los eventos con lugar. Sirve para ver dónde hay presencia y dónde no. Lo ven el administrador y el coordinador.
 
 ## Qué encuentras
 
@@ -19,9 +19,9 @@ En el computador, la pantalla «Mapa de estructura y votantes» trae dos filas d
 - **Capa**: Todas las capas, Ninguna capa, Solo Estructura, Solo Votantes y Solo Eventos. [[Quitar filtros]] los deja como al comienzo.
 - **Cargo (Estructura)**: Todos, Ninguno, Coordinador, Líder, Sublíder, Testigo y Votante.
 
-Un contador indica cuántos pines se muestran. Cada color es un cargo (la leyenda está sobre el mapa); los eventos llevan un pin amarillo. Toca un pin para ver el nombre, la zona y, en votantes, la dirección. El control de la derecha cambia el fondo del mapa, y [[Pantalla completa]] lo agranda (Esc para salir).
+Un contador indica cuántos pines se muestran. Cada color es un cargo (la leyenda está sobre el mapa); los eventos llevan un pin amarillo. Toca un pin para ver el nombre, la zona y la dirección (en los eventos, el título, la fecha y el lugar). El control de la derecha cambia el fondo del mapa, y [[Pantalla completa]] lo agranda (Esc para salir).
 
-En el celular hay botones de capa (Todo, Equipo, Votantes, Eventos), un selector «Todos los territorios» y el botón de ubicación para ir a donde estás. Al tocar un pin, su ficha ofrece Llamar y Cómo llegar.
+En el celular (solo el administrador tiene esta pantalla en el menú de inicio) hay botones de capa (Todo, Equipo, Votantes, Eventos), un selector «Todos los territorios» (aparece cuando hay dos o más zonas) y el botón de ubicación para ir a donde estás. Al tocar un pin, su ficha ofrece Llamar y Cómo llegar.
 
 ## Qué puedes hacer según tu permiso
 

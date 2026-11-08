@@ -16,10 +16,10 @@ Muestra, puesto por puesto, a las personas de tu lista que todavía no han votad
 
 1. En el menú de inicio de la app, toca **Faltan por votar**.
 2. Mira la tarjeta de arriba: el porcentaje de avance, cuántos faltan y «N de M ya votaron». La barra va en rojo bajo 50 %, ámbar bajo 75 % y verde desde ahí.
-3. Elige un filtro: [[Faltan]], [[Ya votaron]], [[Sin teléfono]] o [[Necesitan transporte]].
+3. Elige un filtro: [[Faltan]], [[Ya votaron]], [[Sin teléfono]] o [[Necesitan transporte]]. Los filtros se deslizan de lado: el último queda fuera de la vista hasta que los muevas.
 4. Si buscas a alguien, escribe su nombre en «Buscar por nombre».
 5. Busca tu puesto en la lista. Los puestos con más personas por rescatar salen primero. Cada persona muestra su mesa y su teléfono.
-6. Toca [[Llamar]] para marcarle. [[WhatsApp]] abre el chat con un mensaje que dice dónde le toca votar. [[SMS]] y [[Copiar enlace]] aparecen cuando la persona autorizó ese canal (ver {{t-ya-vote-enlace}}).
+6. Toca [[Llamar]] para marcarle. [[WhatsApp]] abre el chat con un mensaje que dice dónde le toca votar. [[SMS]] aparece si la persona autorizó los mensajes de texto, y [[Copiar enlace]] si autorizó WhatsApp o SMS (ver {{t-ya-vote-enlace}}).
 7. Si alguien necesita que lo lleven, toca [[Necesita transporte]]; el botón queda marcado con ✓.
 
 ::: listo

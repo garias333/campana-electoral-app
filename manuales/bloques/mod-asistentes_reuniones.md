@@ -23,7 +23,7 @@ Muestra quién fue a cada reunión y el acumulado de cada persona en todas ellas
 
 - **Ver**: consultar las dos pestañas y la lista de cada reunión.
 - **Agregar**: registrar asistentes y quitarlos (administrador, coordinador y líder).
-- **Importar / Exportar**: bajar el consolidado en Excel. Si no tienes ese permiso, el botón no aparece.
+- **Importar / Exportar**: bajar el consolidado en Excel. De fábrica lo tienen el administrador y el coordinador; si no tienes ese permiso, el botón no aparece.
 
 ## Tareas frecuentes
 

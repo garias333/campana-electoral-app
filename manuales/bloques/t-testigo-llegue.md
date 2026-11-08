@@ -35,7 +35,7 @@ Si no hay señal, no pasa nada: sale «Sin señal: tu llegada quedó guardada y 
 :::
 
 ::: consejo
-Si olvidaste marcarla, tu coordinador puede hacerlo por ti; entonces dirá «la marcó tu coordinador». Antes del día de la elección verás «Modo prueba»: puedes ensayar el botón.
+Si olvidaste marcarla, tu coordinador puede hacerlo por ti; entonces dirá «la marcó tu coordinador». Si hoy no es el día de la elección verás «Modo prueba»: puedes ensayar el botón.
 :::
 
 Lo siguiente es reportar el conteo: {{t-testigo-reporte}}.

@@ -202,7 +202,7 @@ function escribirCapturas(hechas) {
     const archivo = path.join(BLOQUES, guia + '.md');
     if (!fs.existsSync(archivo)) { console.log(`  (sin guía ${guia}.md: no se escribió captura:)`); return; }
     const texto = fs.readFileSync(archivo, 'utf8');
-    const nuevo = texto.replace(/^captura:.*$/m, 'captura: ' + porGuia[guia].sort().join(', '));
+    const nuevo = texto.replace(/^captura:.*$/m, 'captura: ' + porGuia[guia].sort((a, b) => a.replace(/\.webp$/, '').localeCompare(b.replace(/\.webp$/, ''))).join(', '));
     if (nuevo !== texto) fs.writeFileSync(archivo, nuevo);
   });
 }

@@ -12,10 +12,13 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 298** (`parches/campana-parche298.zip`, 4.002.523 bytes,
-  sha256 `3f17c575d8737022682e033aaab75e3d008424b2936d12352e233a4430b5ccff`, 150 archivos; comparados uno a uno con los de disco).
-  **NO PUBLICADO NI REGISTRADO**: por encargo, el paso `publicar-parche.sh 298` + `registrar-parche.js 298` lo corre el usuario como root (comando en el informe de la sesión);
-  nombre previsto: «Manuales: capturas de pantalla (Requiere el 297)»; no toca la base; **requiere el 297**. Service worker `v171`.
+- **Último parche generado: 299** (`parches/campana-parche299.zip`, 1.060.532 bytes,
+  sha256 `aed6980626137a65fad3dfbe303fb421637bd68d508f258c3a0aa2cbbd957cad`, 154 archivos): «Manuales: textos revisados (Requiere el 298)».
+  **NO PUBLICADO NI REGISTRADO**: por encargo, `publicar-parche.sh 299` + `registrar-parche.js 299` los corre el usuario como root (comando en el informe de la sesión);
+  no toca la base; **requiere el 298**. Service worker sin cambio (`v171`: no cambió ningún archivo de la precarga).
+  El anterior, el 298 (`parches/campana-parche298.zip`, 4.002.523 bytes, sha256 `3f17c575d8737022682e033aaab75e3d008424b2936d12352e233a4430b5ccff`, 150 archivos):
+  **publicado** (`parche-298.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el usuario dijo «Lo corro yo» para publicarlo y registrarlo;
+  el registro y la activación no se pueden leer desde esta cuenta.
   El anterior, el 297 (`parches/campana-parche297.zip`, 27.585 bytes, sha256 `e57fe588a7b28a33d14f9a7dd2be65cf311ba67228204f3be77f698b9fef6ecc`, 6 archivos).
   **Publicado** (`parche-297.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026) y **activado por el usuario** ese día («Ya activé…»; el registro y la activación no se pueden leer desde esta cuenta).
   «Manuales: diseño final (Requiere el 296)»; no toca la base; requiere el 296. Service worker `v170`. El anterior, el 296 (`parches/campana-parche296.zip`, 144.103 bytes,
@@ -100,12 +103,17 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v298** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v298.zip`,
+- **Plantilla vigente: v299** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v299.zip`,
+  6.431.108 bytes, sha256 `e958e35f63966021f4d7eff41a094269125c0eda33f125aaf01aa77a1bbb5e77`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 299.
+  Generada con `node scripts/generar-plantilla.js --parche 299`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
+  deja **64 tablas** y una segunda corrida deja lo mismo; `lib/manuales.js` da 161 bloques y 15 de instalación sin avisos; 79 imágenes; `scripts/probar-manuales.js` desde la plantilla, todo bien.
+  **OJO: dice 299 aunque el 299 aún no está publicado**; si sale con otro número, regenerarla.
+- **Plantilla v298 (reemplazada por la v299)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v298.zip`,
   6.143.044 bytes, **558 entradas** (con las 76 capturas, `scripts/capturar-manuales.js` y `scripts/capturas/`), sha256 `044aa8eb63b0fc5188d6255019db273b68ed77101f696b57c0a25a105eea9053`,
   service worker `estrategia-v171`, `.version-parche` y `.version-base` = 298. Generada con `node scripts/generar-plantilla.js --parche 298`; escaneo de secretos sin hallazgos;
   sin `.env`, `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`.
   Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas** y una segunda corrida deja lo mismo; `lib/manuales.js` da 161 bloques, 15 de instalación, **cero avisos** y 68 guías con captura; `scripts/probar-manuales.js` desde la plantilla, todo bien; `verificar-html.py` en `ayuda.html`.
-  **OJO: dice 298 aunque el 298 aún no está publicado**; si sale con otro número, regenerarla.
+  (El 298 ya está publicado.)
 - **Plantilla v297 (reemplazada por la v298)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v297.zip`,
   2.225.398 bytes, **474 entradas** (las mismas que la v296), sha256 `78e356bee07a6dd2a88d2834b5c14c4c91dd2adcca2945e3c66020d7bf4cff09`,
   service worker `estrategia-v170`, `.version-parche` y `.version-base` = 297. Generada con `node scripts/generar-plantilla.js --parche 297`; escaneo de secretos sin hallazgos;
@@ -185,10 +193,88 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 298 — Manuales: capturas de pantalla (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+## Parche 299 — Manuales: textos revisados (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+
+Zip de **154 archivos** (`.version-base` = 299): **137 guías** de `manuales/bloques/` corregidas, **15 capturas** rehechas y **3 nuevas** (`public/manuales/img/`), `manuales/LEEME.md` y `.version-base`. **Requiere el 298.** Sin `db/`, sin código de la app y sin service worker: no toca la base. Publicación y registro: **a cargo del usuario**.
+
+**Cómo se hizo (orden Manuales 5).** Los 161 bloques los habían escrito agentes leyendo el código, sin ver pantallas. Esta vez siete agentes (uno por área) abrieron cada pantalla en Chromium sobre la base desechable con datos inventados (`ver.js`: abre una ruta como un rol, hace los pasos y cuenta lo que se ve, con foto) y la compararon con la guía y con el código. Corrigieron directo los errores claros en SUS archivos y anotaron las dudas de fondo en un informe cada uno. Yo comprobé después una muestra contra el código (horas de las alertas, umbral de 5 votantes de «Baja votación») y unifiqué un término. **No se tocó la app.**
+
+| Área | Guías revisadas | Corregidas |
+|---|---|---|
+| Básicos (ingreso, menú, ayuda, instalación) | 20 | 15 |
+| Votantes (registro, autorizaciones, enlace y QR) | 23 | 19 |
+| Estructura (territorial, organigrama, testigos, mapa, dashboard) | 21 | 17 |
+| Comunicaciones (CRM, SMS, correo, avisos, agenda, eventos, finanzas…) | 27 | 25 |
+| Día D, campo (faltan por votar, alertas, testigo) | 27 | 20 |
+| Día D, gestión (resultados, logística, transporte, cobertura) | 26 | 24 |
+| Administración (configuración, usuarios, permisos, copia, mensajería) | 17 | 17 |
+| **Total** | **161** | **137** |
+
+(Cuenta de archivos con cambios en `git`; cada agente informó cifras algo distintas porque contó guías con varios arreglos o cambios de un solo término.)
+
+**Lo más grave que estaba mal en las guías:** el contador «Diferencias (N)» de Resultados (cuenta el filtro, no todas las mesas; no hay umbral: basta 1 voto) y un permiso «Importar / Exportar» que ese módulo no tiene · el enlace del conductor solo abre el día de «Fecha de elecciones» · «Voy en camino» manda un SMS que gasta crédito y solo si la persona aceptó · las horas de las alertas (testigo que no llegó a las 8:30, mesa sin E-14 a las 6:00 p. m., baja votación solo con 5 votantes o más; transporte y logística no existen fuera del día) · «Editar» no se exige en Faltan por votar (con «Ver» basta) · A los líderes no se les abre portada con tarjetas (solo al administrador) y el administrador no tiene «Panel completo» en el celular · `g-aspirante`: con identificación entra como líder, el aspirante solo entra por la puerta del código · «Cuentas guardadas» no se crea desde la puerta de líderes · una celda vacía al **importar por Excel** borra el dato de la ficha · el paso 2 de `t-crm-campana` (la pantalla abre sin grupos; un grupo sin filtros es toda la base) · de los 160 caracteres de un SMS salen la firma y el enlace de baja (~78) · `g-apoya-a` decía Dashboard de votantes y es el Panel general.
+
+**Metadatos cambiados (quién ve qué):**
+- `f-compartir-qr`: de módulo `votantes` a `roles: lider,sublider,coordinador` (admin, asistente y testigo no tienen enlace y la veían).
+- `t-organigrama-agregar`: `roles: admin, coordinador` (líder y testigo la recibían sin poder crear cargos; la matriz da «Agregar» pero rutas y botones lo reservan).
+- `t-baja-manual`: `roles: admin, coordinador` (antes módulo `votantes` nivel `editar`).
+- `t-no-contactar`: `roles: admin, coordinador` (antes módulo `crm`; la ruta es solo de ellos).
+- `g-firma-sms`: módulo `enviar_sms` (antes `configurar_crm`, que solo ve el administrador).
+- `t-votantes-importar`: se quitó la `ruta:` (el botón de importar no está en el menú).
+- Coherencia (mío): donde «cargo» significa el **rol** de la persona (b-ayuda, b-cerrar-sesion, b-entrar, b-menu, b-sin-codigo, f-no-veo-menu, mod-votantes_dashboard, t-dashboard-exportar) pasó a «rol», como `g-rol` y la pantalla de permisos («tipo de usuario»). «Cargo» se conserva donde es el nombre en pantalla (Estructura, organigrama, mapa, filtros de mensajes).
+
+**Capturas** (rehechas con `scripts/capturar-manuales.js --solo …`): `b-menu` (no mostraba ningún botón del menú), `mod-usuarios` (1600 px para que se vean Editar / Restablecer clave / Eliminar), `mod-configuracion` (grupo Configuración abierto con sus cinco entradas), `t-permisos-administrativo` (resalta la fila Administrativo), `t-transporte-alerta` (la alerta de verdad, no la de «mesa sin testigo»), `t-organigrama-agregar` (muestra «Ninguno — cargo raíz»), `t-testigo-reporte` (resalta «Enviar reporte»), `t-asistencia`, `t-no-contactar` (antes salía vacía), `mod-enviar_sms` (con el contador de caracteres), `t-crm-campana` (el grupo) y las **nuevas** `t-crm-campana-2` (Enviar campaña), `t-finanzas-importar` (Cuentas Claras) y `t-conductor-enlace` (la columna «Enlace para el conductor»; la pantalla del conductor pasó a `t-conductor-enlace-2`).
+- **Semilla** (`scripts/capturas/semilla.js`): dos personas con baja (una por SMS, otra anotada a mano) y `transporte_alerta_desde = 00:00` para que la alerta de transporte se vea activa.
+- **Orden de las imágenes de una guía:** antes se ordenaban con `sort()` plano y el `-2` quedaba **antes** que la imagen base (`t-qr-enlace` mostraba primero la página pública que ve la persona). Ahora van por nombre de archivo sin extensión: base y luego `-2`. Se reordenó el `captura:` de 8 guías (mod-legislacion, mod-votantes, mod-recursos, mod-logistica_dia_d, mod-alertas_dia_d, mod-rescate_votos, t-qr-enlace, t-estructura-agregar). Con `--solo`, si se rehace una imagen de una guía con dos, hay que rehacer las dos (`LEEME.md` lo dice).
+- Sin recapturar, aunque los agentes lo sugirieron (mejoras, no errores): `t-votante-agregar-2` (paso 4 con la firma), `t-dashboard-exportar`, `t-estructura-agregar-2`, `t-baja-manual`, `t-push-avisos`, `t-resultados-diferencias` y `t-resultados-oficial` (tablas vacías: hace falta sembrar reportes de mesa), `t-cobertura`/`t-config-puestos` (la tabla de puestos necesita el catálogo, que la prueba no tiene) y `mod-alertas_dia_d` (muestra «00:30» porque la jornada de la base de prueba es 00:00–23:59).
+
+### Dudas de fondo para que decida el dueño del producto (la app NO se tocó)
+
+*Seguridad y datos*
+1. **La baja del equipo no se respeta en correo ni aviso masivos** (`comunicaciones.routes.js`, `obtenerDestinatarios`, ramas estructura/testigos/ambos no leen `no_contactar`). En SMS sí se cumple, pero sale «fallido» y no «omitido». Las guías dicen «por ningún canal»: hoy es verdad para votantes, no para el equipo. Es lo más serio.
+2. **Un líder ve y puede borrar el historial de TODAS las campañas de mensajes** (`GET /comunicaciones/campanas` no filtra por autor; «Eliminar» sin contraseña), y el **consolidado de asistentes** entrega cédula y teléfono de todos a cualquier líder.
+3. **Importar por Excel (votantes, estructura, testigos):** una celda vacía borra el dato de la ficha. Además importar sin cédula crea una cuenta con clave aleatoria que nadie ve, y el aviso de teléfono inválido no coincide con lo que se guarda.
+4. **Cerrar sesión sin señal** no cierra la sesión del servidor (la cookie vive hasta 8 h): en un celular compartido, la siguiente persona entra como la anterior.
+5. **El permiso «Editar»/«Agregar» de la matriz no se hace cumplir** en Faltan por votar, Alertas, Resultados, Transporte ni Logística (solo «Ver»); tampoco en Estructura territorial ni Organigrama (rol fijo), aunque la nota de la pantalla de permisos lo promete. Opciones: exigirlo en el servidor o corregir la nota y bajar las guías a `nivel: ver`.
+6. **Columna «Usuarios» de la matriz sin filas en una instalación nueva:** si el administrador pulsa «Guardar cambios» sin marcarla, se escribe `permitido=0` y se le oculta la pestaña Usuarios (leído en código, no ejecutado).
+7. **«Rol / Perfil» al crear usuario nace en «Admin»** y muestra los roles crudos (`Lider`, `Asistente_administrativo`).
+
+*Precampaña (cargos de elección que siguen en la PANTALLA, no en las guías)*
+8. «Cargo al que aspira» (Senado, Cámara, Gobernación, Asamblea, Alcaldía, Concejo, JAL), «Activar apoyos»/«Apoya a» (formularios, filtro, columna, Panel general «A quién apoyan», Excel), «Acceso a Aspirantes al Concejo» en el ingreso del celular, el rol interno `aspirante_concejo`, y las tarjetas de campaña de `/app/inicio.html`. Si la regla de precampaña también cubre la interfaz, es trabajo de la app.
+
+*Quién ve qué*
+9. **El asistente administrativo** tiene de fábrica «Ver» en Configuración, Finanzas y CRM y ve esas entradas en el menú, pero las pantallas le responden «Solo un administrador…» / «No tiene permisos» (403); además su alcance de Votantes es «lo que yo registré» (ve 0) aunque la guía dice que marca «Datos verificados».
+10. **El testigo y el asistente** reciben las guías de registrar y la pantalla les ofrece «+ Nuevo votante o sublíder», pero el servidor les niega el alta. El líder ve «Eliminar registros» y «Re-geocodificar» aunque la ruta es de admin/coordinador.
+11. **Ranking:** `t-avance-ranking` y `g-sin-movimiento` las reciben líderes y sublíderes (módulo `rescate_votos`), que no pueden abrir el ranking.
+12. **El administrador en celular** aterriza en Panel general, que no tiene Ayuda ni Cerrar sesión en su barra inferior; el celular no tiene versión de Transporte (abre la de escritorio).
+
+*Textos de la app*
+13. **«Fecha de elecciones» dice «Informativa»** pero gobierna Modo prueba, el enlace «Ya voté», el enlace del conductor y las alertas de transporte, logística y push.
+14. El **ingreso de líderes** (`pattern="[0-9]*"`) rechaza contraseñas con letras, que el correo de recuperación sí permite crear; el bloqueo de 15 min no reinicia el contador (un solo error más bloquea otros 15); «Cuentas guardadas» y «Mantener sesión» no se alcanzan desde la puerta de líderes.
+15. Erratas y crudos en pantalla: «Respondio…», «No quedo registrado», «Entro con su numero de identificacion», el rol en crudo en el pie del menú, estados `dado_de_baja` y `sin_autorizacion` sin traducir en «Ver detalle», nota del SMS que dice «Twilio» siendo Onurix, «Eventos y movilización» vs «Eventos y GOTV», mezcla de «usted» y «tú».
+16. **Agenda:** el encabezado promete «Pulse un día para ver lo que hay en él» y no hace nada; editar un evento desde la Agenda borra su Departamento y Ciudad; abre «Editar evento» a quien no puede guardar.
+17. **SMS:** `forzar_gsm7` borra tildes y emojis antes de enviar (el contador avisa «caben 70»); con la firma y el enlace de baja a un SMS le quedan ~50 caracteres; programar fuera de horario no se rechaza al programar, falla en el envío. El tope legal del reporte de Cuentas Claras sale siempre «Sin tope registrado».
+18. **Mensaje rojo «Ya registrado por otro líder»** sale también cuando la ficha es tuya; quien se inscribe por enlace sin marcar SMS queda «sin confirmar» para siempre; un sublíder sin cédula se guarda desde el celular sin cuenta y sin aviso.
+19. «Sin movimiento» y «Última marca» del ranking cuentan marcas de cualquier día; el candidato propio se reconoce por nombre exacto (si no coincide, el consolidado muestra 0 sin avisar); desmarcar «Para reclamar» borra la nota.
+
+### Fallos de la app al seguir los pasos
+- **Organigrama (admin, coordinador), «+ Agregar cargo raíz»:** «Es subordinado de» abre con otro cargo elegido en vez de «Ninguno — cargo raíz»; guardado así, el «raíz» cuelga de él (probable causa: el reordenado alfabético de selects de `common.js`).
+- **`/territorial.html#testigo-nuevo` (admin), «+ Nuevo testigo» de la cobertura:** abre el formulario con la categoría «Líder»; si se guarda, crea un líder.
+- **Celular, «Falta la firma de la persona»:** lleva al paso 3 y marca el Teléfono, en vez del paso 4 (la palabra «teléfono» del aviso confunde a `destinoDelError`).
+- **Celular, ingreso de líderes:** una contraseña con letras no se puede enviar y no sale ningún mensaje de la app.
+- **Agenda:** editar un evento borra Departamento y Ciudad (leído en código).
+- Sin catálogo, la prueba da 503 en `/api/catalogo/*` y 500 en `/api/dia-d/config/puestos-votacion?cobertura=1`: es limitación del entorno. El testigo sin logística recibe 403 en `/api/dia-d/logistica/mi-puesto` en cada carga (esperado).
+
+### Pruebas
+- `probar-manuales`, `probar-comunas-dashboard`, `probar-inscripcion-enlace` (467), `probar-logistica`, `probar-panel-alcance`, `probar-panel-lider`, `probar-transporte-diad` (123) y `probar-transporte-parte2`: **todas bien, cada una sobre una base nueva**.
+- **Chromium a 390 px** como líder, testigo, coordinador y sublíder viendo `/ayuda.html`: sin scroll horizontal en los cuatro; de las imágenes se comprobó que responden (200) las 67 del coordinador; las del líder y el testigo no se comprobaron una por una.
+- Plantilla v299 probada sobre base vacía (arriba).
+- **Los informes completos de los siete agentes** (tabla de correcciones por guía, antes/ahora) están en el scratchpad de la sesión y NO se guardaron en el repositorio: el detalle está en el historial de `git` de `manuales/bloques/`.
+
+## Parche 298 — Manuales: capturas de pantalla (8 de noviembre de 2026, publicado; registro y activación por el usuario)
 
 Zip de **150 archivos** (`.version-base` = 298): **76 capturas** `public/manuales/img/*.webp`, **68 guías** con su `captura:` llena (`manuales/bloques/`), `manuales/LEEME.md`, `lib/manuales.js`, `public/js/ayuda.js`, `public/css/ayuda.css`, `public/service-worker.js` (**v171**) y `.version-base`. **Requiere el 297.** Sin `db/`: no toca la base. Pesan **3.544.480 bytes en total** (la mayor, 85 KB; el tope es 150).
-Publicación y registro: **a cargo del usuario**, no se corrieron aquí. `.version-base` y la plantilla ya dicen 298.
+Publicado (huella verificada); el registro y la activación los hizo el usuario.
 
 - **De dónde salen.** `scripts/capturar-manuales.js` (con `scripts/capturas/{lista,semilla,servidor,navegador}.js`; no viaja en el parche, sí en la plantilla): siembra una base `simulada…` con datos **inventados**, monta las **rutas reales** de la aplicación, entra por cookie con cada rol (admin, coordinador, líder, testigo o sin sesión), navega, hace los pasos, dibuja el recuadro amarillo `#FFC300` de 3 px, recorta y guarda WebP (calidad 75, escala 2 en celular a 390 px y 1 en escritorio a 1280 px; si pasa de 150 KB baja la calidad). Se **niega a correr** si `DB_NAME` no empieza por `simulada`/`prueba`, y **se niega a guardar** una captura cuyo texto visible (dentro del recorte; no cuentan las opciones cerradas de un desplegable) nombre un cargo de elección. Campaña de prueba: «Campaña de ejemplo». Se rehacen todas con un comando; `--solo id1,id2` rehace unas.
 - **Precampaña, lo que apareció.** El guardia rechazó tres pantallas por **textos fijos del producto**, no por datos: la pantalla de ingreso del celular («Acceso a Aspirantes al Concejo»; se usó la de escritorio), el Panel general («A quién apoyan: Alcaldía» más abajo; se recortó arriba) y el formulario de «Agregar persona» (opciones de cargo; se muestra la pantalla con el botón resaltado, sin abrirlo). En la primera pasada, cuando miraba **todo** el texto de la página, rechazó otras cuatro por las opciones de desplegables cerrados (Estructura territorial, Votantes, Usuarios, Configuración); se afinó para mirar solo lo visible dentro del recorte. **Esos textos siguen en la aplicación**: si la regla de precampaña también cubre la interfaz, es trabajo aparte.

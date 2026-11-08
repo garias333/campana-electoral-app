@@ -13,6 +13,8 @@
  *   subir     cuántos niveles sube el recorte desde el elemento hallado (el título de una tarjeta → la tarjeta)
  *   alto      altura de la ventana si no es la de siempre
  *
+ * Orden en la guía: el de los nombres de archivo, con la imagen sin sufijo antes que la «-2» (scripts/capturar-manuales.js).
+ *
  * Reglas del encargo: datos inventados (scripts/capturas/semilla.js) y ningún cargo de elección en lo que se ve (el script se niega).
  */
 const cel = (id, rol, url, o) => ({ id, rol, ancho: 'cel', url, ...(o || {}) });
@@ -22,7 +24,7 @@ module.exports = [
   // ------------------------------------------------------------------------------------------------ primeros pasos
   pc('b-entrar', null, '/login.html'),
   cel('b-cambiar-clave', null, '/forgot-password.html', { resaltar: ['texto:Enviar enlace de recuperación'] }),
-  cel('b-menu', 'lider', '/app/inicio.html'),
+  cel('b-menu', 'lider', '/app/inicio.html', { antes: (p) => p.desplazar('a[href="/ayuda.html"]'), resaltar: ['a[href="/ayuda.html"]'] }),
   cel('b-cerrar-sesion', 'lider', '/app/inicio.html', { antes: (p) => p.desplazar('texto:Cerrar sesión'), resaltar: ['texto:Cerrar sesión'] }),
   cel('b-ayuda', 'lider', '/ayuda.html'),
 
@@ -42,11 +44,11 @@ module.exports = [
   cel('t-transporte-marcar', 'lider', '/app/faltantes.html', { antes: (p) => p.desplazar('texto:Necesita transporte'), resaltar: ['texto:Necesita transporte'] }),
   cel('t-avance-ranking', 'coordinador', '/app/ranking-dia-d.html'),
   cel('mod-alertas_dia_d', 'coordinador', '/app/alertas-dia-d.html'),
-  cel('t-transporte-alerta', 'coordinador', '/app/alertas-dia-d.html', { resaltar: ['texto:3 faltantes necesitan transporte'] }),
+  cel('t-transporte-alerta', 'coordinador', '/app/alertas-dia-d.html', { antes: (p) => p.clic('texto:Transporte sin recoger'), resaltar: ['texto:personas con transporte sin recoger'] }),
   cel('mod-logistica_dia_d', 'coordinador', '/app/logistica.html', { antes: (p) => p.elegir('select', 'Ejemplo Norte') }),
   cel('t-testigo-llegue', 'testigo', '/app/dia-d.html', { resaltar: ['texto:Llegué a mi puesto'] }),
-  cel('t-testigo-reporte', 'testigo', '/app/dia-d.html', { antes: (p) => p.desplazar('texto:Reportar conteo de mi mesa'), resaltar: ['texto:Reportar conteo de mi mesa'] }),
-  cel('t-conductor-enlace', null, '/t/CAMPANA2'),
+  cel('t-testigo-reporte', 'testigo', '/app/dia-d.html', { antes: (p) => p.desplazar('texto:Enviar reporte'), resaltar: ['texto:Enviar reporte'] }),
+  cel('t-conductor-enlace-2', null, '/t/CAMPANA2'),
 
   // ------------------------------------------------------------------------------------------------ celular: otras pantallas
   cel('mod-legislacion', 'admin', '/app/legislacion.html'),
@@ -56,7 +58,7 @@ module.exports = [
   // ------------------------------------------------------------------------------------------------ escritorio: antes
   pc('mod-panel_general', 'admin', '/dashboard.html', { alto: 640 }),
   pc('mod-organigrama', 'admin', '/organigrama.html'),
-  pc('t-organigrama-agregar', 'admin', '/organigrama.html', { antes: (p) => p.clic('texto:+ Agregar cargo raíz'), resaltar: ['texto:Guardar'] }),
+  pc('t-organigrama-agregar', 'admin', '/organigrama.html', { antes: async (p) => { await p.clic('texto:+ Agregar cargo raíz'); await p.elegir('#org-form-padre', 'Ninguno'); }, resaltar: ['texto:Guardar'] }),
   pc('mod-territorial', 'admin', '/territorial.html'),
   // (El formulario de «Agregar persona» lista un cargo de elección en sus opciones: se muestra el botón, no el formulario.)
   pc('t-estructura-agregar', 'admin', '/territorial.html', { resaltar: ['texto:+ Agregar persona'] }),
@@ -72,17 +74,19 @@ module.exports = [
   pc('mod-eventos', 'admin', '/eventos.html'),
   pc('t-evento-agregar', 'admin', '/eventos.html', { antes: (p) => p.clic('texto:+ Nuevo evento'), resaltar: ['texto:Guardar evento'] }),
   pc('mod-asistentes_reuniones', 'admin', '/asistentes-reuniones.html'),
-  pc('t-asistencia', 'admin', '/asistentes-reuniones.html', { antes: (p) => p.clic('texto:Registrar asistencia'), resaltar: ['texto:+ Agregar'] }),
+  pc('t-asistencia', 'admin', '/asistentes-reuniones.html', { antes: (p) => p.clic('texto:Registrar asistencia'), resaltar: ['texto:Agregar asistente ya registrado'] }),
   pc('mod-social', 'admin', '/social.html'),
   pc('t-social-agregar', 'admin', '/social.html', { antes: (p) => p.clic('texto:+ Nueva publicación'), resaltar: ['texto:Guardar'] }),
   pc('mod-finanzas', 'admin', '/finanzas.html'),
+  pc('t-finanzas-importar', 'admin', '/finanzas.html', { resaltar: ['texto:Cuentas Claras'] }),
   pc('t-finanzas-agregar', 'admin', '/finanzas.html', { antes: (p) => p.clic('texto:+ Registrar movimiento'), resaltar: ['texto:Guardar movimiento'] }),
   pc('mod-crm', 'admin', '/crm.html'),
-  pc('t-crm-campana', 'admin', '/crm.html', { antes: (p) => p.desplazar('texto:Enviar campaña'), resaltar: ['texto:Enviar campaña'] }),
+  pc('t-crm-campana', 'admin', '/crm.html', { antes: (p) => p.clic('texto:+ Agregar grupo'), resaltar: ['texto:+ Agregar grupo', 'texto:Ver cuántos van a recibir el mensaje'] }),
+  pc('t-crm-campana-2', 'admin', '/crm.html', { antes: (p) => p.desplazar('texto:Enviar campaña'), resaltar: ['texto:Enviar campaña'] }),
   pc('mod-enviar_email', 'admin', '/enviar-email.html'),
-  pc('mod-enviar_sms', 'admin', '/enviar-sms.html'),
+  pc('mod-enviar_sms', 'admin', '/enviar-sms.html', { antes: async (p) => { await p.escribir('#input-mensaje', 'Hola, te esperamos el sábado en la reunión del barrio. Cuenta con nosotros.'); await p.desplazar('#input-mensaje'); }, resaltar: ['#input-mensaje'] }),
   pc('mod-enviar_push', 'admin', '/enviar-push.html'),
-  pc('t-no-contactar', 'admin', '/no-contactar.html'),
+  pc('t-no-contactar', 'admin', '/no-contactar.html', { resaltar: ['texto:Reactivar'] }),
   pc('mod-recursos-2', 'admin', '/recursos.html'),
   pc('mod-legislacion-2', 'admin', '/legislacion.html'),
 
@@ -97,17 +101,18 @@ module.exports = [
   pc('mod-transporte_dia_d', 'admin', '/dia-d.html#transporte'),
   pc('mod-logistica_dia_d-2', 'admin', '/dia-d.html#logistica'),
   pc('t-vehiculos', 'admin', '/dia-d.html#transporte', { antes: (p) => p.desplazar('texto:+ Nuevo vehículo'), resaltar: ['texto:+ Nuevo vehículo'] }),
+  pc('t-conductor-enlace', 'admin', '/dia-d.html#transporte', { antes: (p) => p.desplazar('texto:Enlace para el conductor'), resaltar: ['texto:Enlace para el conductor'] }),
   pc('t-conductores', 'admin', '/dia-d.html#transporte', { antes: (p) => p.desplazar('texto:+ Nuevo conductor'), resaltar: ['texto:+ Nuevo conductor'] }),
   pc('t-logistica-plan', 'admin', '/dia-d.html#logistica', { antes: (p) => p.desplazar('texto:Agregar ítem'), resaltar: ['texto:Agregar ítem'] }),
   pc('t-config-puestos', 'admin', '/configuracion.html#diad'),
   pc('t-cobertura', 'admin', '/configuracion.html#diad', { antes: (p) => p.desplazar('texto:Avisar a todos'), resaltar: ['texto:Avisar a todos'] }),
 
   // ------------------------------------------------------------------------------------------------ escritorio: administración
-  pc('mod-usuarios', 'admin', '/configuracion.html#usuarios'),
+  pc('mod-usuarios', 'admin', '/configuracion.html#usuarios', { ancho: 1600, alto: 900, resaltar: ['texto:Editar', 'texto:Restablecer clave', 'texto:Eliminar'] }),
   pc('t-usuarios', 'admin', '/configuracion.html#usuarios', { resaltar: ['texto:+ Crear usuario'] }),
-  pc('mod-configuracion', 'admin', '/configuracion.html#campana', { alto: 700 }),
+  pc('mod-configuracion', 'admin', '/configuracion.html#campana', { alto: 860, antes: async (p) => { await p.clic('texto:⚙️ Configuración'); await p.clic('texto:⚙️ Configuración'); }, resaltar: ['texto:⚙️ Configuración'] }),
   pc('t-permisos', 'admin', '/configuracion.html#permisos'),
-  pc('t-permisos-administrativo', 'admin', '/configuracion.html#permisos', { resaltar: ['texto:Guardar cambios'] }),
+  pc('t-permisos-administrativo', 'admin', '/configuracion.html#permisos', { resaltar: ['texto:Administrativo'] }),
   pc('t-campana-datos', 'admin', '/configuracion.html#campana', { antes: (p) => p.desplazar('texto:Guardar'), resaltar: ['texto:Guardar'] }),
   pc('t-eliminar', 'admin', '/configuracion.html#eliminar'),
   pc('t-backup', 'admin', '/configuracion.html#backup'),

@@ -8,9 +8,9 @@ modulo: rescate_votos
 nivel: ver
 roles:
 ruta: Escritorio: Día D > Avance de votación | Celular: Faltan por votar
-captura: mod-rescate_votos-2.webp, mod-rescate_votos.webp
+captura: mod-rescate_votos.webp, mod-rescate_votos-2.webp
 ---
-El día de la elección sirve para saber quién de tus votantes ya votó y quién falta, y para ir a buscar a los que faltan. Lo usan los líderes y sublíderes desde el celular, y la coordinación desde el escritorio.
+El día de la elección sirve para saber quién de tus votantes ya votó y quién falta, y para ir a buscar a los que faltan. Lo usan los líderes y sublíderes desde el celular; la coordinación y la administración, desde el escritorio (también pueden abrirlo en el celular).
 
 ## Qué encuentras
 
@@ -18,12 +18,12 @@ El día de la elección sirve para saber quién de tus votantes ya votó y quié
 
 **En el escritorio, pestaña «Avance de votación»**: cifras del total, cuántos votaron y cuántos faltan, votos por hora, ranking de líderes y avance por puesto. Está explicado en {{t-avance-ranking}}.
 
-Si hoy no es la fecha de elección que configuró el administrador, verás la franja «Modo prueba». Todo funciona igual, para ensayar.
+Si hoy no es la «Fecha de elecciones» que configuró el administrador (o todavía no hay fecha), verás la franja «Modo prueba». Todo funciona igual, para ensayar; lo único que no abre antes del día es el enlace «Ya voté» que reciben los votantes.
 
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: abrir la pantalla y consultar tu lista. Cada rol ve solo a sus votantes: el líder, los suyos y los de sus sublíderes; el sublíder, los que él registró; el coordinador, los de su rama; el administrador, los de toda la campaña.
-- **Editar**: marcar «Ya votó», deshacer una marca y marcar quién necesita transporte. Ver {{t-marcar-ya-voto}}.
+- **Editar**: marcar «Ya votó», deshacer una marca y marcar quién necesita transporte, siempre sobre las personas de tu lista. Hoy la pantalla no revisa este permiso aparte: quien tiene «Ver» también puede marcar. Ver {{t-marcar-ya-voto}}.
 - **Agregar**: no aplica; las personas se registran en Votantes.
 - **Administrador**: en el escritorio ve [[Vaciar marcas (simulacro)]], que borra las marcas y los enlaces de su alcance tras un ensayo; pide su contraseña.
 

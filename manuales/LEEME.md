@@ -61,4 +61,5 @@ escritorio a 1280 px con escala 1).
   `simulada` o `prueba`.
 - `lib/manuales.js` valida cada `captura:` al cargar (que exista, que sea WebP y que no pase de 150 KB; si no, se avisa y esa imagen se omite) y manda al
   navegador su ancho y su alto. `scripts/probar-manuales.js` además revisa que no sobre ningún archivo en la carpeta.
+- **Orden en la guía:** primero la imagen sin sufijo y después la «-2» (se ordenan por el nombre del archivo). Con `--solo`, si rehaces una imagen de una guía que lleva dos, rehaz las dos: `captura:` se escribe con las que se hicieron en esa corrida.
 - Las imágenes **no** van en la precarga del service worker: se guardan en caché al verse.

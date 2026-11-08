@@ -25,7 +25,7 @@ Por cada puesto suma dos grupos de personas que **no han votado**:
 - las que tienen conductor y siguen en estado «Asignado» (aún no las recogen);
 - las marcadas «necesita transporte» que no tienen conductor.
 
-El texto dice, por ejemplo, «Puesto Escuela Central: 3 personas con transporte sin recoger (1 sin conductor)».
+Se cuentan personas (una por cada votante), no los acompañantes de cada parada. El texto dice, por ejemplo, «Puesto Escuela Central: 3 personas con transporte sin recoger (1 sin conductor)». Quien ya fue recogido (está en el vehículo) deja de contar.
 
 ## Pasos
 
@@ -40,5 +40,5 @@ La alerta se ve atenuada con «Atendida por…» y su nota. Si todas las persona
 :::
 
 ::: consejo
-Con los avisos por notificación encendidos, la coordinación también recibe un aviso en el celular, como máximo uno cada 5 minutos. Si eres coordinador con una rama, ves solo las personas de tu alcance.
+Con los avisos por notificación encendidos, la coordinación también recibe un aviso en el celular, como máximo uno cada 5 minutos. Si eres coordinador con una rama, ves solo las personas de tu alcance. No la confundas con la línea «🚐 N faltantes necesitan transporte en este puesto» que sale dentro de otras alertas: es solo un dato de apoyo.
 :::

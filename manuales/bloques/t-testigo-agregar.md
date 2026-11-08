@@ -18,7 +18,7 @@ Sirve para dejar a alguien cubriendo una mesa, o varias mesas de un mismo puesto
 2. Busca a la persona, pulsa [[Editar]] y escribe tu contraseña.
 3. Marca **Es también testigo electoral**.
 4. Elige el tipo: **Testigo electoral (una sola mesa)** o **Coordinador de puesto (varias mesas)**.
-5. En **Puesto de votación** elige el puesto donde vigila. Puede ser distinto de donde vota.
+5. En **Puesto de votación** elige el puesto donde vigila. Puede ser distinto de donde vota. La lista trae los puestos que el administrador tiene cargados en **Día D > Puestos de votación y candidatos**; si está vacía, pídele al administrador que los cargue.
 6. Elige la **Mesa** libre, o marca las **Mesas que cubre** si es coordinador de puesto.
 7. Pulsa [[Guardar cambios]].
 
@@ -27,7 +27,7 @@ Sale "Registro actualizado correctamente. Se le asignó también la capacidad de
 :::
 
 ::: importante
-La persona entra a la app con la misma cuenta que ya tiene. Si es nueva y la crea el administrador desde **Votantes y sublíderes** con la misma casilla, necesita número de identificación: ese número es su usuario y su contraseña inicial, que debe cambiar al entrar.
+La persona entra a la app con la misma cuenta que ya tiene. También el administrador o el asistente administrativo pueden marcar la misma casilla al editar a alguien en **Votantes y sublíderes**; ahí la persona necesita número de identificación: ese número es su usuario y su contraseña inicial, que debe cambiar al entrar.
 :::
 
 ::: cuidado
@@ -35,7 +35,7 @@ Una mesa solo puede tener un testigo. Si eliges una ocupada, la app responde "La
 :::
 
 ::: consejo
-Para cargar muchos testigos de una vez usa Excel ({{t-testigos-importar}}). Los suplentes de un puesto se manejan en la ventana de cobertura de testigos de Configuración, no en esta pantalla.
+Para cargar muchos testigos de una vez usa Excel ({{t-testigos-importar}}). Los suplentes de un puesto se manejan en la ventana de cobertura de testigos (**Día D > Puestos de votación y candidatos**, solo para el administrador), no en esta pantalla.
 :::
 
 Relacionado: {{mod-testigos}}.
