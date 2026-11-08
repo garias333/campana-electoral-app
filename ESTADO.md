@@ -14,7 +14,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 304** (`parches/campana-parche304.zip`, 176.354 bytes,
   sha256 `fd64378af9e3c17219e361b22b59636583a15f3cfeceb40903b43c7c7774ecfc`, 18 archivos): «Solicitudes ciudadanas, Fases 3 a 5 (Requiere el 303)».
-  **Generado el 8 de noviembre de 2026, SIN publicar ni registrar** (lo corre el usuario con `publicar-parche.sh 304` y `registrar-parche.js`; debe quedar INACTIVO).
+  **Publicado y registrado el 8 de noviembre de 2026** (lo corrió el usuario como root): `parche-304.zip` en el servidor de licencias con huella igual a la local (`fd64378af9e3c172`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: columna `configuracion_campana.solicitud_dias_sin_movimiento` = 15 y la regla de fábrica `solicitud_sin_movimiento`, APAGADA; repetible). **Requiere el 303** (las tablas `solicitud*`). Service worker `v174`. Detalle en «Parche 304».
   **La anonimización YA NO necesita cron**: corre sola dentro del proceso, una vez al día (ver «Parche 304»). El crontab que se pensó para el 303 no hace falta.
   El anterior, el 303 (`parches/campana-parche303.zip`, 159.399 bytes,
@@ -232,7 +232,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 304 — Solicitudes ciudadanas, Fases 3 a 5 (8 de noviembre de 2026, generado, SIN publicar, TOCA LA BASE)
+## Parche 304 — Solicitudes ciudadanas, Fases 3 a 5 (8 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 Orden: anonimización automática, seguimiento, panel y mapa, exportación y arreglo del ordenador de desplegables. **Requiere el 303.** Service worker `v174`. Las pantallas de escritorio y los avisos siguen **apagados de fábrica** (el módulo `solicitudes` es solo del administrador; la regla de seguimiento nace apagada).
 
