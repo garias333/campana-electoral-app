@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 287** (`parches/campana-parche287.zip`, 138.322 bytes,
+- **Último parche generado: 288** (`parches/campana-parche288.zip`, 12.664 bytes,
+  sha256 `ad6c6bf1a07c7825e04484a4d54cec833787fd6dcf1a9858e6bc34f4544961fa`, 2 archivos: `routes/dashboard.routes.js` y `.version-base`).
+  **Publicado** (`parche-288.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, `toca_base_datos = false`; nombre en el panel:
+  «Panel general por alcance (Requiere el 287)» (detalle abajo); **requiere el 287**. No cambia el service worker (sigue `v162`).
+  El anterior, el 287 (`parches/campana-parche287.zip`, 138.322 bytes,
   sha256 `1af4844083ce9152529bfd336ff820e4b7022f6aff97da792ba8119b9bbafbad`, 9 archivos).
   **Publicado** en la carpeta de licencias (`parche-287.zip`, misma huella) y
   **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**; nombre en el panel:
@@ -42,14 +46,14 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 287 (y del 286, 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 288 (y del 287, 286, 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 287, `.version-parche` y `.version-base` = **287**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+  (la Base no recibe parches: los genera); desde el 288, `.version-parche` y `.version-base` = **288**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
 - **Service worker:** `estrategia-v162` en el código de la Base y dentro del 287 (el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
@@ -69,7 +73,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   el escáner la tomaba por una credencial literal. La v271 (`plantilla-nueva-campana-v271.zip`, 194 archivos) y las v261/v262 siguen en la
   carpeta pero **ya no sirven** para una campaña nueva: usar la v286. Si después de ella se publica otro parche, hay que regenerarla
   (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
-  **Ya está atrás: el 287 (7-8 de noviembre) es posterior y la v286 no lo trae** (`.version-base` = 286, service worker `v161`). Regenerarla con `--parche 287` antes de crear la próxima campaña.
+  **Ya está atrás: el 287 y el 288 (7-8 de noviembre) son posteriores y la v286 no los trae** (`.version-base` = 286, service worker `v161`). Se regenerará con `--parche N` (el último que haya) **al final del lote de órdenes**, como se pidió; hasta entonces no crear campañas nuevas con ella.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
@@ -77,6 +81,97 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 288 — Panel general por alcance (8 de noviembre de 2026, INACTIVO, NO toca la base)
+
+Zip de 2 archivos: `routes/dashboard.routes.js` y `.version-base` = 288. Commit `6c4927f`. **Requiere el 287** (el 287 puso el ámbito del coordinador que éste reutiliza).
+`scripts/probar-panel-alcance.js` (35 comprobaciones) **no viaja**. Ninguna pantalla cambia: no hay service worker nuevo.
+
+**Lo que había:** `/api/dashboard/resumen` y `/tendencia-registros` contaban la campaña entera para cualquiera con el Panel encendido que no fuera aspirante: un líder veía el
+total de votantes, los coordinadores y líderes de toda la campaña, la meta, los eventos y las menciones.
+
+**Lo que hace ahora** (`ambitoDeResumen`, `routes/dashboard.routes.js`; `/resumen` y `/tendencia-registros` lo usan):
+
+| Quien mira | Qué cuenta |
+|---|---|
+| Administrador | toda la campaña (sin cambios) |
+| Coordinador | él, sus líderes y los sublíderes de éstos (el ámbito del 287); votantes con la misma condición de la lista de Votantes |
+| Líder | él y quienes le reportan directo (sus sublíderes); votantes con `lider_id` = él (incluye lo que registran sus sublíderes) |
+| Sublíder | sus votantes (`lider_id` o `sublider_id` = él) |
+| Aspirante | su rama, como antes |
+
+- **Eventos:** el coordinador, el líder y el sublíder ven los eventos donde ellos o su equipo figuran como responsable, coordinador o líder (`responsable_id`, `coordinador_id`, `lider_id`).
+  **Un evento sin ninguna de esas personas sólo lo ve el administrador.** (Comportamiento nuevo para el coordinador: antes veía todos.)
+- **Menciones** (monitoreo de redes): no cuelgan de nadie y no se pueden acotar; **sólo el administrador las recibe**. El panel no las pinta, pero el JSON las traía enteras.
+- **Finanzas:** igual que en el 268 — sólo administrador, coordinador y aspirante; para el líder la clave `finanzas` no viaja (la prueba lo comprueba, y que el monto no aparezca en ningún lado de la respuesta).
+  El coordinador sigue viendo el balance de **toda** la campaña (no se acota: es dinero de la campaña, no de una rama).
+- **La meta de la madre** (`filtroMetaMadreEstructura`) ahora también se resta dentro de la rama de un coordinador, no sólo para el administrador.
+
+**Qué cambió de lugar:** `filtroEquipo` ya no excluye siempre «a la cabeza»: sólo lo hace con el aspirante (`ambito.esAspirante`); y las finanzas en cero son sólo del aspirante, no de cualquiera con ámbito.
+
+### Otras tarjetas del Panel (`dashboard.html` y `app/admin-panel.html`)
+
+| Ruta | Quién | Alcance |
+|---|---|---|
+| `/dashboard/resumen`, `/tendencia-registros` | todos con el Panel | **acotado desde el 288** (tabla de arriba) |
+| `/dashboard/progreso-equipo` | admin, coordinador, aspirante | acotado desde el 287 |
+| `/dashboard/mi-progreso` | el propio usuario | lo suyo, siempre |
+| `/dashboard/avance-mis-lideres` | admin, coordinador | el coordinador ve los suyos; el admin elige |
+| **`/dashboard/tabla-posiciones`** | todos con el Panel | **toda la campaña para líder, sublíder y demás roles — A PROPÓSITO**: es un ranking de motivación (sólo nombres y cantidades, 50 filas) y su nota dice que el propio líder tiene que verse en él. El coordinador sí ve sólo su rama (287). Decisión de Gildardo si algún día se acota. |
+| `dashboard.html` → `/territorial/mapa-personas` | admin, coordinador, aspirante | **no es de `/api/dashboard`** y no se tocó: el mapa del Panel sigue mostrando a todos los georreferenciados al coordinador |
+| Cobertura territorial («Informe») | admin, coordinador | toda la campaña, como se decidió en el 287 |
+
+**Roles que NO se tocaron** (la orden no los nombra): asistente administrativo, testigo, usuario, invitado. Todos tienen `panel_general` por defecto (`db/init-db.js`) y siguen viendo la campaña entera
+en `/resumen` y `/tendencia-registros` (sin finanzas). A un asistente administrativo acotarlo lo dejaría en cero; a un testigo o invitado probablemente conviene acotarlo o quitarle el Panel.
+**Pendiente a decidir.**
+
+**Probado** (`scripts/probar-panel-alcance.js`, 35 comprobaciones, base privada): administrador (11 votantes, 2 coordinadores, 3 líderes, 4 eventos, menciones, finanzas); coordinador A (6, él y sus 2 líderes, meta 150,
+2 eventos, sin menciones, con finanzas) y B; líder (5: los suyos y los de su sublíder; 1 evento; sin finanzas ni su monto); otros dos líderes; sublíder (2); asistente administrativo (sin cambios); aspirante (sin eventos,
+finanzas en cero, como antes); y la tendencia de cada uno. **Con el código anterior falla 20.** Suites: comunas-dashboard 73/73, inscripción 467/467, transporte 123/123 y 80/80. `node --check` y `verificar-requires.js`
+sobre el zip: «TODO RESUELVE». **NO se probó:** un navegador (la pantalla del Panel con un líder), ni datos reales de ninguna campaña.
+
+**NOTAS PARA QUIEN LO APLIQUE:** (1) no toca la base; aplicar después del 287 con la misma lista de campañas. (2) Es **visible**: un líder o un sublíder que hoy ve «Votantes: 3.200» pasará a ver sólo lo suyo; y un coordinador
+deja de ver los eventos que no tienen a nadie de su rama.
+
+### Propuesta (SIN IMPLEMENTAR): refrigerios, almuerzos y kits del día D
+
+**Qué hay hoy: nada.** Ni tablas, ni columnas, ni pantallas, ni rutas (`grep -rniE "refrigerio|almuerzo|kit|material|entrega"`): sólo dos rastros de **dinero**, no de logística —la categoría de gasto
+«Producción de material impreso» (`db/schema.sql:389`) y el texto de ejemplo «Refrigerios para voluntarios» en `public/finanzas.html:67`—, y «Compartir contenido» (materiales de **comunicación**, no físicos).
+
+**De dónde saldría la cantidad por puesto**
+- **Testigos asignados:** `estructura` con `cargo = 'testigo'` (`tipo_testigo` 'mesa' o 'puesto', `mesa_votacion`, `mesas_asignadas`, `puesto_id`); `lib/coberturaTestigos.js` ya los reparte por puesto (`cargarTestigos`, `repartirPorPuesto`,
+  por id si es de la campaña y, si no, por el texto normalizado). La unidad es la **persona**, no la mesa: un coordinador de puesto cubre varias mesas y come una vez. `dia_d_puestos_votacion.cantidad_mesas` da el tope de mesas.
+- **Suplentes:** `dia_d_suplentes_testigo (aspirante_id, puesto_id, usuario_id)`. Convendría un interruptor por tipo de entrega: «incluir suplentes» (sí para refrigerio, tal vez no para chaleco).
+- **Coordinadores de puesto:** no son un rol aparte: son testigos con `tipo_testigo = 'puesto'` (así se llaman en `testigos.html`). Ya salen en el reparto; sólo hay que distinguirlos para el kit.
+- **Conductores:** `transporte_conductores`, pero **no cuelgan de un puesto** (un conductor recorre varios). Su cantidad iría en una fila «Transporte» (puesto vacío) y no en la suma de los puestos.
+- **Presencia real:** `dia_d_checkin` (quién llegó). Para *comprar*, sirve lo asignado; para *alertar*, lo que cuenta es quién llegó y aún no recibió.
+
+**Tablas (esbozo)**
+- `logistica_items` — qué se entrega: `id, aspirante_id, nombre, tipo` (refrigerio, almuerzo, kit_testigo, chaleco, otro)`, destinatario` (testigo, coordinador_puesto, suplente, conductor)`, incluir_suplentes, hora_limite TIME NULL` (para la alerta; 12:00 en el refrigerio), `costo_unitario NULL, activo`.
+- `logistica_plan` — `item_id, puesto_id, cantidad_planeada, manual` (1 si alguien la ajustó a mano); `UNIQUE(item_id, puesto_id)`. Se **sugiere** desde los testigos del puesto y se puede corregir.
+- `logistica_entregas` — `id, aspirante_id, item_id, puesto_id, fecha, receptor_usuario_id NULL, cantidad DEFAULT 1, entregado_por, entregado_en, nota, foto_url NULL, firma_url NULL, cliente_uuid, estado` (entregado/anulado)`;
+  UNIQUE(item_id, receptor_usuario_id, fecha)` para que el doble toque o el reintento no entregue dos veces. La foto/firma reutilizaría el manejo de archivos de `dia_d_reporte_documentos` (E-14).
+
+**Pantallas**
+- *Escritorio* — pestaña **«Logística»** en `dia-d.html` (como Transporte, al final del submenú): catálogo de items; tabla «planear por puesto» con la cantidad sugerida y editable, y **el total para comprar por item** (suma + margen %
+  configurable); botón de Excel (con el permiso de importar/exportar).
+- *Celular* — `app/logistica.html` para el **coordinador de puesto** (un testigo `tipo_testigo = 'puesto'`): ve la lista de testigos de SU puesto (de `cargarTestigos`), toca «Entregado» por persona e item; el servidor sólo deja
+  marcar en su puesto. Funciona sin señal.
+
+**Contador y alerta**
+- Contador en el cuadro del Día D: «Refrigerios: 38 de 52» (por puesto y total), con el alcance de quien pregunta, igual que el de transporte.
+- Alerta nueva `logistica_sin_entregar` (mismo molde que `transporte_sin_recoger` en `lib/alertasDiaD.js`): por puesto, **sólo el día de la elección**, «pendiente» antes de `hora_limite` y «activa» después —«Puesto X: N testigos sin refrigerio
+  a las 12 m.»—; cuenta testigos que **ya hicieron check-in** y no tienen entrega de ese item. Entra a `TIPOS_AVISADOS` y `FRASES` de `lib/avisosAlertas.js` para el aviso push.
+
+**Permisos y módulo:** módulo nuevo `logistica_dia_d` (por defecto admin y coordinador en `db/init-db.js`; en `MODULOS_ASPIRANTE` / `PERMISOS_ASPIRANTE` y `HREFS_ASPIRANTE` para el aspirante), con el ítem de menú y la tarjeta del celular
+(como se hizo con Transporte). La pantalla del coordinador de puesto **no** va por rol sino por tener esa fila de estructura (como el check-in).
+
+**Qué se reutiliza:** del **check-in**, el molde de ruta (idempotente por `cliente_uuid`, `marcado_por`/origen, auditoría, fecha de hoy en Colombia); de **transporte**, la pestaña con contador en `dia-d.html`, `alertasDeTransporte`, el
+reclamo atómico (`UPDATE … WHERE … IS NULL`) para no entregar dos veces y el registro del módulo; de la **cola sin señal**, `guardarEnColaOffline` (`public/js/offline-utils.js`) con un cajón `logistica`, la hora del TOQUE (no la de la
+subida) y el vaciado al volver la señal. Es un parche **con base de datos** (tres tablas) y con service worker nuevo; no se estimó el tamaño.
+
+**Dudas a resolver antes de construir:** ¿se entrega a *todo* testigo asignado o sólo al que hizo check-in?; ¿el suplente que reemplaza cuenta aparte?; ¿foto, firma o ninguna (la foto cuesta almacenamiento y tiempo en el puesto)?;
+¿lleva costo y total en pesos o sólo cantidades?; ¿quién compra y reparte entre puestos —un coordinador de zona—?
 
 ## Parche 287 — Comunas validadas y dashboard por zona (8 de noviembre de 2026, INACTIVO, NO toca la base)
 
