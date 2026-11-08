@@ -281,6 +281,8 @@ app.use('/api/backup', require('./routes/backup.routes'));
 // Push: va con requireAuth y sin restricción de rol — los avisos los
 // reciben sobre todo testigos y sublíderes (ver routes/push.routes.js).
 app.use('/api/push', require('./routes/push.routes'));
+// Solicitudes ciudadanas (parche 303): módulo apagado de fábrica (solo el administrador). Un aspirante con sublicencia no pasa: no está en PERMITIDOS.
+app.use('/api/solicitudes', require('./routes/solicitudes.routes'));
 // Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (solo con el módulo `recordatorios`).
 app.use('/api/recordatorios', require('./routes/recordatorios.routes'));
 
@@ -333,7 +335,13 @@ app.use('/uploads/marca', express.static(path.join(__dirname, 'uploads', 'marca'
        niega el archivo que figure en un reporte del Día D.
    Las subcarpetas contenido/ y marca/ no pasan por el filtro de la raíz. */
 const SUBCARPETA_PRIVADA_DIA_D = 'dia-d';
+const { carpetaPrivadaDe } = require('./lib/carpetasPrivadas');
 async function cerrarFotosDelDiaD(req, res, next) {
+  // Las fotos de las solicitudes ciudadanas (parche 303) tampoco se sirven por aquí: salen por /api/solicitudes/:id/fotos/:fotoId.
+  // La lista de subcarpetas privadas es la de lib/carpetasPrivadas.js (la misma que prueba scripts/probar-solicitudes.js).
+  if (carpetaPrivadaDe(req.path) === 'solicitudes') {
+    return res.status(403).json({ error: 'Esta foto se abre desde la pantalla de Solicitudes ciudadanas.' });
+  }
   let relativa;
   try {
     // Misma normalización que hará express.static: así `//archivo`,
@@ -347,6 +355,7 @@ async function cerrarFotosDelDiaD(req, res, next) {
   if (partes[0].toLowerCase() === SUBCARPETA_PRIVADA_DIA_D) {
     return res.status(403).json({ error: 'Esta foto se abre desde el tablero del Día D.' });
   }
+
   // Solo los archivos sueltos de la raíz. Las demás subcarpetas siguen igual.
   if (partes.length > 1) return next();
   try {

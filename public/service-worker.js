@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v172';
+const CACHE_NAME = 'estrategia-v173';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -46,6 +46,9 @@ const ARCHIVOS_CASCARON = [
   '/app/apple-touch-icon.png',
   '/js/api-core.js',
   '/app/mis-registros.html',
+  // Solicitudes ciudadanas (parche 303): se registran y se consultan sin señal (la cola vive en IndexedDB).
+  '/app/solicitud-nueva.html',
+  '/app/mis-solicitudes.html',
   // «Mi enlace de inscripción»: el QR se dibuja en el teléfono y se puede ENSEÑAR sin señal (el último enlace queda guardado).
   '/app/mi-enlace.html',
   '/js/qrcode-generator.js',

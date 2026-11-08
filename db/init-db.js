@@ -424,6 +424,8 @@ const PERMISOS_POR_DEFECTO = {
   // Recordatorios automáticos (Configuración → Recordatorios): solo el administrador de fábrica. Sin esta línea la entrada del menú no le
   // aparece a nadie (common.js oculta todo ítem cuyo módulo no esté en los permisos del usuario).
   recordatorios: ['admin'],
+  // Solicitudes ciudadanas (parche 303): apagado de fábrica, solo el administrador. Se le abre a líderes y coordinadores desde Asignación de permisos.
+  solicitudes: ['admin'],
   biografia_candidato: ROLES_PERMISOS,
   politica_privacidad: ROLES_PERMISOS,
   recursos: ROLES_PERMISOS,
@@ -562,6 +564,30 @@ Esta política se elabora conforme a: el artículo 15 de la Constitución Polít
  * llave primaria `clave`), para no pisar el contenido si el admin ya lo
  * editó desde la aplicación.
  */
+/* Agrega a la política de privacidad la finalidad de las solicitudes ciudadanas (parche 303) y archiva la versión nueva. Va DESPUÉS de sembrar la
+   política por defecto: en una base nueva la fila no existe antes de ese paso. Repetible: si el texto ya trae la frase, no hace nada. */
+async function agregarFinalidadSolicitudes(connection) {
+  /* LA POLÍTICA DE PRIVACIDAD GANA UNA FINALIDAD: «registrar y remitir necesidades del territorio». Se agrega UNA vez (si el texto ya
+     la trae, no se toca) al final de la sección 2 y se ARCHIVA la versión nueva con su huella, igual que cuando el administrador
+     edita la política desde la pantalla (config/politicaVersiones.js): la autorización de cada ciudadano guarda esa huella. */
+  const FRASE_SOLICITUDES = 'registrar y remitir necesidades del territorio';
+  const [[politicaActual]] = await connection.query(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
+  if (politicaActual && politicaActual.contenido && !politicaActual.contenido.includes(FRASE_SOLICITUDES)) {
+    const parrafo = '\n\nSi usted nos cuenta una necesidad de su barrio o vereda y autoriza que guardemos su nombre y su teléfono, los usaremos únicamente para '
+      + FRASE_SOLICITUDES + ': anotarla, hacerle seguimiento y remitirla a la entidad que corresponda. Si no lo autoriza, la necesidad se registra sin sus datos. '
+      + 'No pedimos su cédula. Puede pedir en cualquier momento que borremos sus datos de esa solicitud, y los borramos de todos modos pasado el plazo que fije la campaña.';
+    const texto = politicaActual.contenido;
+    const corte = texto.search(/\n## 3\./);
+    const nuevo = corte === -1 ? texto.replace(/\s+$/, '') + parrafo : texto.slice(0, corte).replace(/\s+$/, '') + parrafo + '\n' + texto.slice(corte);
+    await connection.query(`UPDATE contenido_paginas SET contenido = ? WHERE clave = 'politica_privacidad'`, [nuevo]);
+    const huella = require('crypto').createHash('sha256').update(nuevo, 'utf8').digest('hex').slice(0, 16);
+    await connection.query(
+      `INSERT IGNORE INTO politica_versiones (huella, clave, titulo, contenido, archivada_por, archivada_por_nombre) VALUES (?, 'politica_privacidad', 'Política de privacidad', ?, NULL, 'Actualización automática (solicitudes ciudadanas)')`,
+      [huella, nuevo]);
+    console.log(`Política de privacidad: se agregó la finalidad de las solicitudes ciudadanas y se archivó la versión ${huella}.`);
+  }
+}
+
 async function sembrarPoliticaPrivacidadPorDefecto(connection) {
   await connection.query(
     `INSERT IGNORE INTO contenido_paginas (clave, titulo, contenido) VALUES (?, ?, ?)`,
@@ -3113,8 +3139,123 @@ async function main() {
     ['{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.']);
   console.log('Tablas de los recordatorios automáticos listas (apagados).');
 
+  /* ------------------------------------------------------------------------------------------------------------
+     SOLICITUDES CIUDADANAS (parche 303). Necesidades del barrio o la vereda que los líderes registran en campo y la campaña sigue hasta
+     cerrarlas. Apagado de fábrica: el módulo `solicitudes` solo lo ve el administrador.
+       · solicitud_categorias  catálogo editable por el administrador.
+       · solicitudes           UNA fila por necesidad. SIN vínculo a votantes: no hay votante_id, ni apoya_a, ni intención de voto.
+                               El ciudadano es opcional y su nombre y teléfono solo se guardan si marcó la autorización.
+       · solicitud_fotos       hasta 3 por solicitud; los archivos viven en uploads/solicitudes/ (que /uploads no sirve).
+       · solicitud_historial   cada cambio de estado, de responsable o nota interna, con quién y cuándo.
+     ------------------------------------------------------------------------------------------------------------ */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS solicitud_categorias (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      clave VARCHAR(40) NOT NULL,
+      nombre VARCHAR(80) NOT NULL,
+      ayuda VARCHAR(255) NULL COMMENT 'Lo que se le dice a quien registra (p. ej. «cuenta la necesidad, no diagnósticos»)',
+      orden SMALLINT NOT NULL DEFAULT 100,
+      activa TINYINT(1) NOT NULL DEFAULT 1,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_solicitud_categoria_clave (clave)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS solicitudes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_uuid CHAR(36) NOT NULL COMMENT 'Lo genera el celular al guardar (también sin señal): un reintento no duplica',
+      categoria_id INT NOT NULL,
+      descripcion TEXT NOT NULL,
+      estado ENUM('registrada','en_revision','remitida','cerrada') NOT NULL DEFAULT 'registrada',
+      territorio_id INT NULL COMMENT 'Barrio o vereda de la vista territorios; sin FK (en campañas ligadas al catálogo es una vista)',
+      barrio_texto VARCHAR(120) NULL COMMENT 'Barrio o vereda tal como lo escribió quien registra',
+      latitud DECIMAL(10,7) NULL,
+      longitud DECIMAL(10,7) NULL,
+      precision_m INT NULL,
+      ciudadano_nombre VARCHAR(150) NULL,
+      ciudadano_telefono VARCHAR(20) NULL,
+      autoriza_datos TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Sin autorización NO se guarda nombre ni teléfono: la solicitud es anónima',
+      autoriza_fecha DATETIME NULL,
+      politica_version CHAR(16) NULL COMMENT 'Huella de la política que se le mostró (politica_versiones)',
+      responsable_id INT NULL,
+      entidad_remitida VARCHAR(150) NULL,
+      remitida_en DATETIME NULL,
+      cerrada_en DATETIME NULL,
+      motivo_cierre VARCHAR(255) NULL,
+      registrado_por INT NULL,
+      lider_id INT NULL COMMENT 'Para el alcance: igual que votantes.lider_id',
+      sublider_id INT NULL,
+      rama_aspirante_id INT NULL,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      anonimizada_en DATETIME NULL,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_solicitud_cliente_uuid (cliente_uuid),
+      KEY idx_solicitud_estado (estado, creada_en),
+      KEY idx_solicitud_categoria (categoria_id),
+      KEY idx_solicitud_territorio (territorio_id),
+      KEY idx_solicitud_responsable (responsable_id),
+      KEY idx_solicitud_lider (lider_id),
+      KEY idx_solicitud_rama (rama_aspirante_id),
+      FOREIGN KEY (categoria_id) REFERENCES solicitud_categorias(id),
+      FOREIGN KEY (responsable_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+      FOREIGN KEY (registrado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+      FOREIGN KEY (lider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+      FOREIGN KEY (sublider_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS solicitud_fotos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      solicitud_id INT NOT NULL,
+      orden TINYINT UNSIGNED NOT NULL,
+      archivo VARCHAR(80) NOT NULL COMMENT 'Solo el nombre: el archivo vive en uploads/solicitudes/',
+      ancho INT NULL,
+      alto INT NULL,
+      bytes INT NULL,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_solicitud_foto_orden (solicitud_id, orden),
+      FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS solicitud_historial (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      solicitud_id INT NOT NULL,
+      tipo ENUM('registro','estado','responsable','nota','categoria','anonimizada') NOT NULL,
+      estado_antes VARCHAR(20) NULL,
+      estado_despues VARCHAR(20) NULL,
+      responsable_antes INT NULL,
+      responsable_despues INT NULL,
+      entidad VARCHAR(150) NULL,
+      nota VARCHAR(1000) NULL,
+      usuario_id INT NULL,
+      usuario_nombre VARCHAR(150) NULL COMMENT 'Copia del nombre: sobrevive al borrado de la cuenta',
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_solicitud_hist (solicitud_id, creado_en),
+      FOREIGN KEY (solicitud_id) REFERENCES solicitudes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  // Cuántos meses después de la fecha de la elección se anonimizan las solicitudes (scripts/anonimizar-solicitudes.js).
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "anonimizar_solicitudes_meses INT NOT NULL DEFAULT 6 COMMENT 'Meses después de la elección en que scripts/anonimizar-solicitudes.js borra nombre, teléfono y fotos de las solicitudes'", 'anonimizar_solicitudes_meses');
+  // Las categorías de fábrica (el administrador las edita desde la pantalla; una que ya existe no se pisa).
+  const categoriasDeFabrica = [
+    ['vias', 'Vías', 10, null],
+    ['agua', 'Agua', 20, null],
+    ['luz', 'Luz', 30, null],
+    ['empleo', 'Empleo', 40, null],
+    ['salud', 'Salud', 50, 'Cuenta la necesidad (por ejemplo, «no hay un puesto de salud cerca»). No escribas diagnósticos ni nombres de personas.'],
+    ['educacion', 'Educación', 60, null],
+    ['seguridad', 'Seguridad', 70, 'Cuenta la necesidad del barrio (por ejemplo, «falta iluminación en la cancha»). No escribas denuncias con nombres ni datos de nadie.'],
+    ['medio_ambiente', 'Medio ambiente', 80, null],
+    ['otras', 'Otras', 90, null],
+  ];
+  for (const [clave, nombre, orden, ayuda] of categoriasDeFabrica) {
+    await connection.query(
+      `INSERT IGNORE INTO solicitud_categorias (clave, nombre, ayuda, orden) VALUES (?, ?, ?, ?)`, [clave, nombre, ayuda, orden]);
+  }
+  console.log('Tablas de las solicitudes ciudadanas listas (módulo apagado).');
+
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
+  await agregarFinalidadSolicitudes(connection);
 
   await connection.end();
   console.log('Listo.');

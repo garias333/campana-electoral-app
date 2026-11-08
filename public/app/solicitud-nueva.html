@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Nueva solicitud · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* SOLICITUDES CIUDADANAS, el registro (parche 303): cuatro pasos, también sin señal. Pensada a 360 px. */
+  .progreso { font-size: 0.8rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 4px; }
+  .barra-progreso { height: 6px; background: var(--linea); border-radius: 99px; margin-bottom: 18px; overflow: hidden; }
+  .barra-progreso > i { display: block; height: 100%; background: var(--copper); width: 25%; transition: width .2s; }
+  .paso { display: none; }
+  .paso.activo { display: block; }
+  .paso h2 { font-size: 1.15rem; margin: 0 0 12px; color: var(--navy); }
+  .categorias { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .categorias button { font-family: inherit; font-size: 0.95rem; font-weight: 700; padding: 13px 8px; border-radius: 12px; border: 1.5px solid var(--linea); background: #fff; color: var(--navy); cursor: pointer; }
+  .categorias button.elegida { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .ayuda-categoria { background: #fdf3e0; border-radius: 10px; padding: 10px 12px; font-size: 0.85rem; margin: 0 0 12px; display: none; }
+  .fotos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .fotos .foto { position: relative; width: 96px; height: 96px; border-radius: 12px; overflow: hidden; border: 1px solid var(--linea); background: #eee; }
+  .fotos .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .fotos .foto button { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0,0,0,.65); color: #fff; font-size: 1rem; line-height: 1; cursor: pointer; }
+  .estado-ubicacion { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; }
+  .autoriza { display: flex; gap: 10px; align-items: flex-start; background: #fff; border: 1.5px solid var(--linea); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .autoriza input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; }
+  .autoriza label { font-weight: 600; font-size: 0.92rem; color: var(--navy); line-height: 1.35; }
+  .datos-ciudadano { display: none; }
+  details.politica { margin: 0 0 14px; font-size: 0.85rem; }
+  details.politica summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+  details.politica .texto { white-space: pre-wrap; max-height: 260px; overflow: auto; background: #fff; border: 1px solid var(--linea); border-radius: 10px; padding: 10px; margin-top: 8px; }
+  .navegacion { display: flex; gap: 10px; margin-top: 20px; }
+  .navegacion .btn-app { margin: 0; }
+  .hecho-app { text-align: center; padding: 26px 8px; }
+  .hecho-app .grande { font-size: 2.6rem; }
+  .hecho-app h2 { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+
+  <div id="formulario">
+    <p class="progreso" id="progreso">Paso 1 de 4</p>
+    <div class="barra-progreso"><i id="barra-progreso"></i></div>
+
+    <section class="paso activo" data-paso="1">
+      <h2>¿Qué necesita el barrio?</h2>
+      <div class="categorias" id="categorias"></div>
+      <p class="ayuda-categoria" id="ayuda-categoria"></p>
+      <div class="campo-app">
+        <label for="f-descripcion">Cuenta la necesidad</label>
+        <textarea id="f-descripcion" rows="5" maxlength="2000" placeholder="Por ejemplo: hay un hueco grande frente a la escuela y los niños pasan por ahí."></textarea>
+        <small>Cuenta qué pasa y dónde, con tus palabras. No escribas datos de nadie aquí.</small>
+      </div>
+    </section>
+
+    <section class="paso" data-paso="2">
+      <h2>Fotos y ubicación</h2>
+      <div class="fotos" id="fotos"></div>
+      <button type="button" class="btn-app btn-app-secundario" id="btn-foto">📷 Agregar una foto</button>
+      <small style="display:block; margin:6px 0 16px; color:var(--muted)">Hasta 3 fotos. Son opcionales. Evita que salgan rostros de niños o placas de vehículos.</small>
+      <input type="file" id="archivo-foto" accept="image/*" hidden>
+      <button type="button" class="btn-app btn-app-secundario" id="btn-ubicacion">📍 Usar mi ubicación</button>
+      <p class="estado-ubicacion" id="estado-ubicacion">La ubicación es opcional. Si no la compartes o no hay señal, la solicitud se guarda igual.</p>
+    </section>
+
+    <section class="paso" data-paso="3">
+      <h2>¿En qué barrio o vereda?</h2>
+      <div class="campo-app">
+        <label for="f-barrio">Barrio o vereda</label>
+        <input type="text" id="f-barrio" list="lista-barrios" maxlength="120" autocomplete="off" placeholder="Escribe o elige de la lista">
+        <datalist id="lista-barrios"></datalist>
+        <small>Si no aparece en la lista, escríbelo tal como lo conoce la gente.</small>
+      </div>
+    </section>
+
+    <section class="paso" data-paso="4">
+      <h2>¿Quién la cuenta? (opcional)</h2>
+      <div class="autoriza">
+        <input type="checkbox" id="f-autoriza">
+        <label for="f-autoriza">El ciudadano autoriza que guardemos su nombre y su teléfono para registrar y remitir esta necesidad del territorio.</label>
+      </div>
+      <details class="politica">
+        <summary>Leer la política de tratamiento de datos</summary>
+        <div class="texto" id="texto-politica">Cargando…</div>
+      </details>
+      <div class="datos-ciudadano" id="datos-ciudadano">
+        <div class="campo-app"><label for="f-nombre">Nombre</label><input type="text" id="f-nombre" maxlength="150" autocomplete="off"></div>
+        <div class="campo-app"><label for="f-telefono">Teléfono celular</label><input type="tel" id="f-telefono" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="300 123 4567"></div>
+      </div>
+      <p style="font-size:0.85rem; color:var(--muted)">Si no lo autoriza, la necesidad se guarda sin sus datos, solo con el barrio. Nunca pedimos la cédula.</p>
+    </section>
+
+    <div class="navegacion">
+      <button type="button" class="btn-app btn-app-secundario" id="btn-atras" style="display:none;">← Atrás</button>
+      <button type="button" class="btn-app btn-app-primario" id="btn-siguiente">Siguiente →</button>
+    </div>
+  </div>
+
+  <div id="hecho" class="hecho-app" style="display:none;">
+    <div class="grande" id="hecho-icono">✅</div>
+    <h2 id="hecho-titulo">Solicitud registrada</h2>
+    <p id="hecho-texto" style="color:var(--muted)"></p>
+    <button type="button" class="btn-app btn-app-primario" id="btn-otra" style="margin-bottom:10px;">Registrar otra</button>
+    <button type="button" class="btn-app btn-app-secundario" id="btn-ver">Ver mis solicitudes</button>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE = 'solicitudes_pendientes';
+const MAX_FOTOS = 3;
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+let categorias = [];
+let territorios = [];
+let categoriaElegida = null;
+let fotos = [];            // [{ blob, url }]
+let ubicacion = null;      // { latitud, longitud, precision_m } o null
+let politica = { version: '', texto: '' };
+let paso = 1;
+
+function aviso(texto, tipo) {
+  const el = $('aviso');
+  el.textContent = texto || '';
+  el.className = texto ? 'aviso-app visible ' + (tipo || 'error') : 'aviso-app';
+}
+
+/* ----- los pasos ----- */
+function mostrarPaso(n) {
+  paso = n;
+  document.querySelectorAll('.paso').forEach((s) => s.classList.toggle('activo', Number(s.dataset.paso) === n));
+  $('progreso').textContent = `Paso ${n} de 4`;
+  $('barra-progreso').style.width = (n * 25) + '%';
+  $('btn-atras').style.display = n > 1 ? 'block' : 'none';
+  $('btn-siguiente').textContent = n === 4 ? 'Guardar solicitud' : 'Siguiente →';
+  aviso('');
+  window.scrollTo(0, 0);
+}
+
+function validarPaso(n) {
+  if (n === 1) {
+    if (!categoriaElegida) return 'Elige una categoría.';
+    if ($('f-descripcion').value.trim().length < 10) return 'Cuenta la necesidad en al menos 10 letras.';
+  }
+  if (n === 3 && !$('f-barrio').value.trim()) return 'Escribe el barrio o la vereda.';
+  if (n === 4 && $('f-autoriza').checked) {
+    const nombre = $('f-nombre').value.trim(), tel = $('f-telefono').value.replace(/\D/g, '');
+    if (!nombre && !tel) return 'Si el ciudadano autoriza, escribe su nombre o su teléfono.';
+    if (tel && !/^(57)?3\d{9}$/.test(tel)) return 'El teléfono tiene que ser un celular de 10 dígitos.';
+  }
+  return '';
+}
+
+/* ----- categorías ----- */
+function pintarCategorias() {
+  $('categorias').innerHTML = categorias.map((c) => `<button type="button" data-id="${esc(c.id)}">${esc(c.nombre)}</button>`).join('');
+  $('categorias').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    categoriaElegida = categorias.find((c) => String(c.id) === b.dataset.id);
+    $('categorias').querySelectorAll('button').forEach((x) => x.classList.toggle('elegida', x === b));
+    const a = $('ayuda-categoria');
+    a.style.display = categoriaElegida && categoriaElegida.ayuda ? 'block' : 'none';
+    a.textContent = categoriaElegida && categoriaElegida.ayuda ? categoriaElegida.ayuda : '';
+  }));
+}
+
+/* ----- fotos: se reducen aquí (1.280 px, JPEG) para que quepan en la cola del celular; el servidor las vuelve a reducir y quita el EXIF ----- */
+async function reducir(archivo) {
+  try {
+    const bmp = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
+    const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob((b) => ok(b || archivo), 'image/jpeg', 0.72));
+  } catch (_) { return archivo; }
+}
+
+function pintarFotos() {
+  $('fotos').innerHTML = fotos.map((f, i) => `<div class="foto"><img src="${f.url}" alt="Foto ${i + 1}"><button type="button" data-quitar="${i}" aria-label="Quitar la foto ${i + 1}">×</button></div>`).join('');
+  $('fotos').querySelectorAll('button[data-quitar]').forEach((b) => b.addEventListener('click', () => {
+    const [f] = fotos.splice(Number(b.dataset.quitar), 1);
+    if (f) URL.revokeObjectURL(f.url);
+    pintarFotos();
+  }));
+  $('btn-foto').style.display = fotos.length >= MAX_FOTOS ? 'none' : 'block';
+}
+
+/* ----- ubicación: opcional, con tiempo límite, NUNCA bloquea ----- */
+function pedirUbicacion() {
+  return new Promise((resolver) => {
+    if (!navigator.geolocation) return resolver(null);
+    let hecho = false;
+    const fin = (v) => { if (!hecho) { hecho = true; resolver(v); } };
+    setTimeout(() => fin(null), 9000);
+    navigator.geolocation.getCurrentPosition(
+      (p) => fin({ latitud: p.coords.latitude, longitud: p.coords.longitude, precision_m: Math.round(p.coords.accuracy) }),
+      () => fin(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+  });
+}
+
+/* ----- guardar: primero en la cola del celular (con las fotos como Blob), después se intenta subir ----- */
+function construirFormData(registro) {
+  const p = registro.payload;
+  const fd = new FormData();
+  Object.keys(p).forEach((k) => { if (p[k] !== null && p[k] !== undefined && p[k] !== '') fd.append(k, p[k]); });
+  fd.append('cliente_uuid', registro.clienteUuid);
+  (registro.fotos || []).forEach((b, i) => fd.append('fotos', b, `foto${i + 1}.jpg`));
+  return fd;
+}
+
+async function guardar() {
+  const boton = $('btn-siguiente');
+  boton.disabled = true;
+  const autoriza = $('f-autoriza').checked;
+  const barrio = $('f-barrio').value.trim();
+  const coincide = territorios.find((t) => t.nombre.toLowerCase() === barrio.toLowerCase());
+  const registro = {
+    clienteUuid: generarUuid(),
+    creadoEn: Date.now(),
+    fotos: fotos.map((f) => f.blob),
+    payload: {
+      categoria_id: categoriaElegida.id, categoria_nombre: categoriaElegida.nombre,
+      descripcion: $('f-descripcion').value.trim(), barrio_texto: barrio, territorio_id: coincide ? coincide.id : '',
+      latitud: ubicacion ? ubicacion.latitud : '', longitud: ubicacion ? ubicacion.longitud : '', precision_m: ubicacion ? ubicacion.precision_m : '',
+      autoriza_datos: autoriza ? 1 : 0,
+      ciudadano_nombre: autoriza ? $('f-nombre').value.trim() : '', ciudadano_telefono: autoriza ? $('f-telefono').value : '',
+      politica_version: autoriza ? politica.version : '',
+    },
+  };
+  try {
+    await guardarEnColaOffline(STORE, registro);              // lo primero: que no se pierda aunque se cierre la app
+  } catch (e) {
+    aviso('No se pudo guardar en este celular. Revisa el espacio disponible e inténtalo de nuevo.');
+    boton.disabled = false;
+    return;
+  }
+  let subido = false, rechazo = null;
+  try { await sincronizarCola(STORE, '/solicitudes', construirFormData); } catch (_) { /* sin señal: queda en la cola */ }
+  try {
+    const resto = (await listarColaOffline(STORE)).find((r) => r.clienteUuid === registro.clienteUuid);
+    if (!resto) subido = true;
+    else if (resto.estado === 'fallido') { rechazo = resto.error || 'No se pudo registrar.'; await borrarDeColaOffline(STORE, registro.clienteUuid); }
+  } catch (_) { /* se queda como pendiente */ }
+  boton.disabled = false;
+  if (rechazo) { aviso(rechazo); return; }
+  $('formulario').style.display = 'none';
+  $('hecho').style.display = 'block';
+  $('hecho-icono').textContent = subido ? '✅' : '📥';
+  $('hecho-titulo').textContent = subido ? 'Solicitud registrada' : 'Guardada en tu celular';
+  $('hecho-texto').textContent = subido ? 'Quedó anotada y el equipo le hará seguimiento.' : 'No hay señal en este momento: la solicitud se sube sola cuando vuelva la conexión. Puedes verla en «Mis solicitudes».';
+}
+
+function reiniciar() {
+  fotos.forEach((f) => URL.revokeObjectURL(f.url));
+  fotos = []; ubicacion = null; categoriaElegida = null;
+  ['f-descripcion', 'f-barrio', 'f-nombre', 'f-telefono'].forEach((i) => { $(i).value = ''; });
+  $('f-autoriza').checked = false; $('datos-ciudadano').style.display = 'none';
+  $('categorias').querySelectorAll('button').forEach((x) => x.classList.remove('elegida'));
+  $('ayuda-categoria').style.display = 'none';
+  $('estado-ubicacion').textContent = 'La ubicación es opcional. Si no la compartes o no hay señal, la solicitud se guarda igual.';
+  pintarFotos();
+  $('hecho').style.display = 'none'; $('formulario').style.display = 'block';
+  mostrarPaso(1);
+}
+
+async function cargarReferencias() {
+  try {
+    const r = await obtenerConCacheReferencia('solicitud_categorias', () => api('/solicitudes/categorias'));
+    categorias = (r && r.categorias) || [];
+  } catch (e) { categorias = []; }
+  pintarCategorias();
+  if (!categorias.length) aviso('No se pudieron cargar las categorías. Con señal se cargan solas; vuelve a abrir esta pantalla.', 'error');
+  try {
+    const t = await obtenerConCacheReferencia('territorios', () => api('/territorial/territorios'));
+    territorios = (Array.isArray(t) ? t : (t && t.territorios) || []).filter((x) => ['barrio', 'vereda'].includes(x.tipo));
+    $('lista-barrios').innerHTML = [...new Set(territorios.map((x) => x.nombre))].sort().map((n) => `<option value="${esc(n)}">`).join('');
+  } catch (_) { territorios = []; }
+  try {
+    const p = await obtenerConCacheReferencia('politica_privacidad', () => api('/contenido/politica_privacidad'));
+    politica = { version: (p && p.version) || '', texto: (p && p.contenido) || '' };
+  } catch (_) { /* sin copia: el texto lo dice abajo */ }
+  $('texto-politica').textContent = politica.texto || 'No se pudo cargar el texto. Con señal se carga solo.';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Nueva solicitud', 'Una necesidad del barrio o la vereda', '/app/mis-solicitudes.html');
+  await cargarReferencias();
+  window.addEventListener('online', () => { sincronizarCola(STORE, '/solicitudes', construirFormData).catch(() => {}); });
+  $('btn-foto').addEventListener('click', () => $('archivo-foto').click());
+  $('archivo-foto').addEventListener('change', async (e) => {
+    const archivo = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!archivo || fotos.length >= MAX_FOTOS) return;
+    const blob = await reducir(archivo);
+    fotos.push({ blob, url: URL.createObjectURL(blob) });
+    pintarFotos();
+  });
+  $('btn-ubicacion').addEventListener('click', async () => {
+    $('estado-ubicacion').textContent = 'Buscando tu ubicación…';
+    ubicacion = await pedirUbicacion();
+    $('estado-ubicacion').textContent = ubicacion ? `Ubicación guardada (±${ubicacion.precision_m} m).` : 'No se pudo obtener la ubicación. No pasa nada: la solicitud se guarda igual.';
+  });
+  $('f-autoriza').addEventListener('change', () => { $('datos-ciudadano').style.display = $('f-autoriza').checked ? 'block' : 'none'; });
+  $('btn-atras').addEventListener('click', () => mostrarPaso(Math.max(1, paso - 1)));
+  $('btn-siguiente').addEventListener('click', () => {
+    const problema = validarPaso(paso);
+    if (problema) { aviso(problema); return; }
+    if (paso < 4) mostrarPaso(paso + 1); else guardar();
+  });
+  $('btn-otra').addEventListener('click', reiniciar);
+  $('btn-ver').addEventListener('click', () => { window.location.href = '/app/mis-solicitudes.html'; });
+  pintarFotos();
+})();
+</script>
+</body>
+</html>

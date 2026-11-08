@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solicitudes ciudadanas · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
+<style>
+  /* SOLICITUDES CIUDADANAS (parche 303): la lista y el detalle. El registro se hace desde el celular (/app/solicitud-nueva.html). */
+  .sol-resumen { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+  .sol-resumen .cifra { background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 10px 16px; min-width: 120px; }
+  .sol-resumen .cifra b { display: block; font-size: 1.3rem; }
+  .sol-resumen .cifra span { font-size: .78rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .sol-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .sol-filtros .campo { min-width: 150px; flex: 1 1 150px; }
+  .sol-filtros label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
+  .sol-filtros select, .sol-filtros input { width: 100%; box-sizing: border-box; }
+  .sol-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .sol-tabla th, .sol-tabla td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
+  .sol-tabla th { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .sol-tabla tbody tr { cursor: pointer; }
+  .sol-tabla tbody tr:hover { background: #F4F6FA; }
+  .sol-tabla tbody tr.activa { background: #EAF1FF; }
+  .sol-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
+  .sol-estado.en_revision { background: #FDF3E0; color: #9A6200; }
+  .sol-estado.remitida { background: #E6EEFB; color: #1F4E9A; }
+  .sol-estado.cerrada { background: #E7F6EE; color: #1E7B4F; }
+  .sol-detalle { border: 1px solid #9DB7E8; border-radius: 12px; padding: 18px; background: #fff; margin-top: 16px; }
+  .sol-detalle h3 { margin: 0 0 6px; }
+  .sol-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 22px; margin: 12px 0; }
+  .sol-rejilla dt { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .sol-rejilla dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .sol-fotos { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .sol-fotos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; border: 1px solid var(--color-border, #E2E5EA); cursor: zoom-in; background: #EEF0F3; }
+  .sol-historial { list-style: none; margin: 8px 0 0; padding: 0; }
+  .sol-historial li { border-left: 3px solid #C9D3E6; padding: 4px 0 8px 12px; font-size: .86rem; }
+  .sol-historial li.nota { border-left-color: #E5C27A; background: #FFFBF0; }
+  .sol-historial small { color: var(--color-text-muted); }
+  .sol-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; }
+  .sol-acciones .caja { border: 1px solid var(--color-border, #E2E5EA); border-radius: 10px; padding: 12px; }
+  .sol-acciones label { display: block; font-size: .8rem; font-weight: 600; margin: 6px 0 3px; }
+  .sol-acciones select, .sol-acciones input, .sol-acciones textarea { width: 100%; box-sizing: border-box; }
+  .sol-msg { font-size: .86rem; margin-top: 6px; }
+  .sol-msg.ok { color: #1E7B4F; } .sol-msg.error { color: #A93226; }
+  .sol-aviso { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 10px; padding: 10px 12px; font-size: .86rem; margin: 10px 0; }
+  .sol-admin { margin-top: 24px; border-top: 1px solid var(--color-border, #E2E5EA); padding-top: 16px; }
+  .sol-cat { display: grid; grid-template-columns: 1.2fr 2fr 70px 90px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+  @media (max-width: 820px) { .sol-cat { grid-template-columns: 1fr; } .sol-tabla { display: block; overflow-x: auto; } }
+  #visor-foto { position: fixed; inset: 0; background: rgba(0,0,0,.82); display: none; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
+  #visor-foto img { max-width: 94vw; max-height: 92vh; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="crm-hero">
+      <div class="eyebrow">Territorio</div>
+      <h1>Solicitudes ciudadanas</h1>
+      <p>Necesidades del barrio o la vereda que el equipo registra en campo y que la campaña sigue hasta cerrarlas. Esta pantalla es un registro de lo que la gente cuenta:
+         no es una respuesta oficial ni un compromiso con nadie. El registro se hace desde el celular.</p>
+    </div>
+
+    <div id="sol-sin-permiso" class="sol-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
+
+    <div id="sol-contenido" style="display:none;">
+      <div class="sol-resumen" id="sol-resumen"></div>
+      <div class="sol-filtros">
+        <div class="campo"><label for="f-categoria">Categoría</label><select id="f-categoria" data-sin-ordenar><option value="">Todas</option></select></div>
+        <div class="campo"><label for="f-estado">Estado</label>
+          <select id="f-estado" data-sin-ordenar><option value="">Todos</option><option value="registrada">Registrada</option><option value="en_revision">En revisión</option><option value="remitida">Remitida</option><option value="cerrada">Cerrada</option></select></div>
+        <div class="campo"><label for="f-barrio">Barrio o vereda</label><input type="search" id="f-barrio" placeholder="Parte del nombre"></div>
+        <div class="campo"><label for="f-responsable">Responsable</label><select id="f-responsable" data-sin-ordenar><option value="">Todos</option><option value="sin">Sin responsable</option></select></div>
+        <div><button type="button" class="btn-secundario btn-sm" id="f-quitar">Quitar filtros</button></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="sol-tabla" id="sol-tabla">
+          <thead><tr><th>N.º</th><th>Fecha</th><th>Categoría</th><th>Barrio o vereda</th><th>Lo que cuenta</th><th>Estado</th><th>Responsable</th><th>Fotos</th></tr></thead>
+          <tbody id="sol-filas"><tr><td colspan="8">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
+        <button type="button" class="btn-secundario btn-sm" id="p-ant">← Anterior</button>
+        <span id="p-info" style="font-size:.84rem; color:var(--color-text-muted)"></span>
+        <button type="button" class="btn-secundario btn-sm" id="p-sig">Siguiente →</button>
+      </div>
+
+      <div id="sol-detalle"></div>
+
+      <div id="sol-admin" class="sol-admin" style="display:none;">
+        <h3>Categorías</h3>
+        <p style="font-size:.85rem; color:var(--color-text-muted)">Las que ve quien registra desde el celular. Una categoría desactivada deja de ofrecerse, pero sus solicitudes se conservan.</p>
+        <div id="sol-cats"></div>
+        <div class="sol-cat" style="margin-top:10px"><input type="text" id="nc-nombre" placeholder="Nueva categoría" maxlength="80"><input type="text" id="nc-ayuda" placeholder="Texto de ayuda (opcional)" maxlength="255"><span></span><span></span><button type="button" class="btn-primario btn-sm" id="nc-crear">Agregar</button></div>
+        <div id="sol-msg-cats" class="sol-msg"></div>
+
+        <h3 style="margin-top:22px">Privacidad: cuánto se guardan los datos del ciudadano</h3>
+        <p style="font-size:.85rem; color:var(--color-text-muted)">Pasado este plazo, un proceso del servidor borra el nombre, el teléfono y las fotos de todas las solicitudes. La categoría, el barrio y el estado se conservan.</p>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+          <label for="cfg-meses">Anonimizar</label><input type="number" id="cfg-meses" min="1" max="120" style="width:90px">
+          <span>meses después de la fecha principal de la campaña (la de Configuración → Datos de la campaña)</span><span id="cfg-fecha" style="color:var(--color-text-muted); font-size:.84rem"></span>
+          <button type="button" class="btn-primario btn-sm" id="cfg-guardar">Guardar</button>
+        </div>
+        <div id="sol-msg-cfg" class="sol-msg"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="visor-foto"><img alt="Foto de la solicitud"></div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual = null;
+let permisos = { ver: false, editar: false, agregar: false };
+let categorias = [];
+let responsables = [];
+let pagina = 1;
+let abierta = null;
+const ESTADOS = { registrada: 'Registrada', en_revision: 'En revisión', remitida: 'Remitida', cerrada: 'Cerrada' };
+const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
+const $ = (id) => document.getElementById(id);
+const fecha = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(t || '')); return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : ''; };
+const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'sol-msg ' + (tipo || ''); e.textContent = texto || ''; } };
+
+async function cargarLista() {
+  const p = new URLSearchParams();
+  if ($('f-categoria').value) p.set('categoria', $('f-categoria').value);
+  if ($('f-estado').value) p.set('estado', $('f-estado').value);
+  if ($('f-barrio').value.trim()) p.set('barrio', $('f-barrio').value.trim());
+  if ($('f-responsable').value) p.set('responsable', $('f-responsable').value);
+  p.set('pagina', pagina); p.set('limite', 25);
+  const r = await api('/solicitudes?' + p.toString());
+  permisos = r.permisos || permisos;
+  $('sol-resumen').innerHTML = `<div class="cifra"><b>${esc(Object.values(r.porEstado).reduce((a, b) => a + b, 0))}</b><span>En total</span></div>`
+    + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${esc(r.porEstado[k] || 0)}</b><span>${esc(ESTADOS[k])}</span></div>`).join('');
+  $('sol-filas').innerHTML = r.solicitudes.map((s) => `<tr data-id="${s.id}" class="${abierta === s.id ? 'activa' : ''}">
+      <td>${esc(s.id)}</td><td>${esc(fecha(s.creada_en))}</td><td>${esc(s.categoria)}</td><td>${esc(s.barrio || '—')}</td>
+      <td>${esc(s.resumen)}${s.resumen && s.resumen.length >= 140 ? '…' : ''}</td>
+      <td><span class="sol-estado ${esc(s.estado)}">${esc(s.estado_etiqueta)}</span></td><td>${esc(s.responsable || '—')}</td><td>${s.fotos ? '📷 ' + esc(s.fotos) : ''}</td></tr>`).join('')
+    || '<tr><td colspan="8">No hay solicitudes con esos filtros.</td></tr>';
+  const paginas = Math.max(1, Math.ceil(r.total / r.limite));
+  $('p-info').textContent = `Página ${r.pagina} de ${paginas} · ${r.total} solicitud(es)`;
+  $('p-ant').disabled = r.pagina <= 1; $('p-sig').disabled = r.pagina >= paginas;
+  $('sol-filas').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => abrir(Number(tr.dataset.id))));
+}
+
+async function abrir(id) {
+  abierta = id;
+  $('sol-filas').querySelectorAll('tr').forEach((tr) => tr.classList.toggle('activa', Number(tr.dataset.id) === id));
+  const d = await api('/solicitudes/' + id);
+  const cuidado = d.ciudadano;
+  const ubic = d.latitud !== null && d.latitud !== undefined
+    ? `<a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.latitud)}&mlon=${encodeURIComponent(d.longitud)}#map=17/${encodeURIComponent(d.latitud)}/${encodeURIComponent(d.longitud)}" target="_blank" rel="noopener">${esc(Number(d.latitud).toFixed(5))}, ${esc(Number(d.longitud).toFixed(5))}</a>${d.precision_m ? ` (±${esc(d.precision_m)} m)` : ''}` : 'Sin ubicación';
+  const ciudadano = cuidado.nombre || cuidado.tiene_telefono
+    ? `${esc(cuidado.nombre || 'Sin nombre')}<br>${cuidado.telefono ? 'Teléfono: ' + esc(cuidado.telefono) : (cuidado.tiene_telefono ? '<small style="color:var(--color-text-muted)">Tiene teléfono: solo lo ven el administrador y quien tiene la solicitud asignada.</small>' : '')}`
+    : '<small style="color:var(--color-text-muted)">Anónima: el ciudadano no autorizó guardar sus datos.</small>';
+  const veAsignar = d.puede_asignar && responsables.length;
+  $('sol-detalle').innerHTML = `<div class="sol-detalle">
+    <h3>Solicitud n.º ${esc(d.id)} · ${esc(d.categoria)} <span class="sol-estado ${esc(d.estado)}">${esc(d.estado_etiqueta)}</span></h3>
+    <p style="white-space:pre-wrap; margin:6px 0 0">${esc(d.descripcion)}</p>
+    <dl class="sol-rejilla">
+      <div><dt>Barrio o vereda</dt><dd>${esc(d.barrio || '—')}</dd></div>
+      <div><dt>Ubicación</dt><dd>${ubic}</dd></div>
+      <div><dt>Ciudadano</dt><dd>${ciudadano}</dd></div>
+      <div><dt>Registrada por</dt><dd>${esc(d.registrada_por || '—')}<br><small>${esc(fecha(d.creada_en))}</small></dd></div>
+      <div><dt>Responsable</dt><dd>${esc(d.responsable || 'Sin responsable')}</dd></div>
+      <div><dt>Entidad a la que se remitió</dt><dd>${esc(d.entidad_remitida || '—')}${d.remitida_en ? `<br><small>${esc(fecha(d.remitida_en))}</small>` : ''}</dd></div>
+      ${d.motivo_cierre ? `<div><dt>Motivo del cierre</dt><dd>${esc(d.motivo_cierre)}</dd></div>` : ''}
+    </dl>
+    ${d.fotos.length ? `<div class="sol-fotos">${d.fotos.map((f) => `<img src="/api/solicitudes/${esc(d.id)}/fotos/${esc(f.id)}" alt="Foto ${esc(f.orden)} de la solicitud" loading="lazy">`).join('')}</div>` : ''}
+    ${d.puede_editar ? `<div class="sol-acciones">
+      <div class="caja"><b>Cambiar el estado</b>
+        <label for="a-estado">Nuevo estado</label>
+        <select id="a-estado">${Object.keys(ESTADOS).filter((k) => k !== d.estado).map((k) => `<option value="${k}">${esc(ESTADOS[k])}</option>`).join('')}</select>
+        <label for="a-entidad">Entidad (si la remites)</label><input type="text" id="a-entidad" maxlength="150" placeholder="A qué entidad se remitió">
+        <label for="a-nota">Nota (el motivo, si la cierras)</label><textarea id="a-nota" rows="2" maxlength="1000"></textarea>
+        <button type="button" class="btn-primario btn-sm" id="a-guardar-estado" style="margin-top:8px">Cambiar estado</button><div id="m-estado" class="sol-msg"></div></div>
+      ${veAsignar ? `<div class="caja"><b>Responsable</b>
+        <label for="a-resp">Quién le hace seguimiento</label>
+        <select id="a-resp"><option value="">Sin responsable</option>${responsables.map((u) => `<option value="${esc(u.id)}" ${Number(d.responsable_id) === Number(u.id) ? 'selected' : ''}>${esc(u.nombre)} (${esc(u.rol)})</option>`).join('')}</select>
+        <button type="button" class="btn-secundario btn-sm" id="a-guardar-resp" style="margin-top:8px">Asignar</button><div id="m-resp" class="sol-msg"></div></div>` : ''}
+      <div class="caja"><b>Nota interna</b><label for="a-nueva-nota">Solo la ve quien puede editar</label><textarea id="a-nueva-nota" rows="3" maxlength="1000"></textarea>
+        <button type="button" class="btn-secundario btn-sm" id="a-guardar-nota" style="margin-top:8px">Agregar nota</button><div id="m-nota" class="sol-msg"></div></div>
+    </div>` : ''}
+    <h4 style="margin:16px 0 0">Historial</h4>
+    <ul class="sol-historial">${d.historial.map((h) => `<li class="${h.tipo === 'nota' ? 'nota' : ''}">${linea(h)}<br><small>${esc(fecha(h.creado_en))}${h.usuario_nombre ? ' · ' + esc(h.usuario_nombre) : ''}</small></li>`).join('')}</ul>
+    ${usuarioActual.rol === 'admin' && !d.anonimizada_en && (cuidado.nombre || cuidado.tiene_telefono || d.fotos.length)
+      ? `<div style="margin-top:14px"><button type="button" class="btn-peligro btn-sm" id="a-anon">Borrar los datos del ciudadano y las fotos</button><div id="m-anon" class="sol-msg"></div></div>` : ''}
+  </div>`;
+  const on = (i, f) => { const e = $(i); if (e) e.addEventListener('click', f); };
+  on('a-guardar-estado', () => cambiarEstado(id));
+  on('a-guardar-resp', () => asignar(id));
+  on('a-guardar-nota', () => nota(id));
+  on('a-anon', () => anonimizar(id));
+  $('sol-detalle').querySelectorAll('.sol-fotos img').forEach((im) => im.addEventListener('click', () => { $('visor-foto').querySelector('img').src = im.src; $('visor-foto').style.display = 'flex'; }));
+  $('sol-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function linea(h) {
+  if (h.tipo === 'registro') return 'Se registró la solicitud.';
+  if (h.tipo === 'estado') return `Estado: ${esc(ESTADOS[h.estado_antes] || h.estado_antes)} → <b>${esc(ESTADOS[h.estado_despues] || h.estado_despues)}</b>${h.entidad ? ` (${esc(h.entidad)})` : ''}${h.nota ? `<br>${esc(h.nota)}` : ''}`;
+  if (h.tipo === 'responsable') return `Responsable: ${esc(h.responsable_antes_nombre || 'ninguno')} → <b>${esc(h.responsable_despues_nombre || 'ninguno')}</b>`;
+  if (h.tipo === 'nota') return `📝 ${esc(h.nota)}`;
+  if (h.tipo === 'anonimizada') return `Se borraron los datos del ciudadano. ${esc(h.nota || '')}`;
+  return esc(h.tipo);
+}
+
+async function enviar(id, ruta, metodo, cuerpo, idMsg, okTexto) {
+  msg(idMsg, 'Guardando…', '');
+  try { await api('/solicitudes/' + id + ruta, { method: metodo, body: cuerpo }); await cargarLista(); await abrir(id); msg(idMsg, okTexto, 'ok'); }
+  catch (e) { msg(idMsg, e.message || 'No se pudo guardar.', 'error'); }
+}
+const cambiarEstado = (id) => enviar(id, '/estado', 'PUT', { estado: $('a-estado').value, entidad_remitida: $('a-entidad').value, nota: $('a-nota').value }, 'm-estado', 'Estado cambiado.');
+const asignar = (id) => enviar(id, '/responsable', 'PUT', { responsable_id: $('a-resp').value || null }, 'm-resp', 'Responsable actualizado.');
+const nota = (id) => enviar(id, '/notas', 'POST', { nota: $('a-nueva-nota').value }, 'm-nota', 'Nota agregada.');
+async function anonimizar(id) {
+  if (!confirm('Se borrarán el nombre y el teléfono del ciudadano y las fotos de esta solicitud. No se puede deshacer.\n\n¿Continuar?')) return;
+  msg('m-anon', 'Borrando…', '');
+  try { const r = await api('/solicitudes/' + id + '/anonimizar', { method: 'POST' }); await cargarLista(); await abrir(id); msg('m-anon', `Listo: se borraron los datos y ${r.fotos} foto(s).`, 'ok'); }
+  catch (e) { msg('m-anon', e.message || 'No se pudo borrar.', 'error'); }
+}
+
+/* ----- administración: categorías y plazo de anonimización ----- */
+async function cargarCategorias() {
+  const r = await api('/solicitudes/categorias');
+  categorias = r.categorias;
+  $('f-categoria').innerHTML = '<option value="">Todas</option>' + categorias.filter((c) => c.activa || usuarioActual.rol === 'admin').map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}${c.activa ? '' : ' (desactivada)'}</option>`).join('');
+  if (usuarioActual.rol !== 'admin') return;
+  $('sol-cats').innerHTML = categorias.map((c) => `<div class="sol-cat" data-id="${esc(c.id)}">
+      <input type="text" value="${esc(c.nombre)}" maxlength="80" data-campo="nombre" aria-label="Nombre">
+      <input type="text" value="${esc(c.ayuda || '')}" maxlength="255" data-campo="ayuda" aria-label="Texto de ayuda" placeholder="Texto de ayuda">
+      <input type="number" value="${esc(c.orden)}" data-campo="orden" aria-label="Orden">
+      <label><input type="checkbox" data-campo="activa" ${c.activa ? 'checked' : ''}> Activa</label>
+      <button type="button" class="btn-secundario btn-sm" data-guardar="${esc(c.id)}">Guardar</button></div>`).join('');
+  $('sol-cats').querySelectorAll('button[data-guardar]').forEach((b) => b.addEventListener('click', async () => {
+    const fila = b.closest('.sol-cat');
+    const v = (n) => fila.querySelector(`[data-campo=${n}]`);
+    try { await api('/solicitudes/categorias/' + b.dataset.guardar, { method: 'PUT', body: { nombre: v('nombre').value, ayuda: v('ayuda').value, orden: Number(v('orden').value), activa: v('activa').checked } }); await cargarCategorias(); msg('sol-msg-cats', 'Categoría guardada.', 'ok'); }
+    catch (e) { msg('sol-msg-cats', e.message, 'error'); }
+  }));
+}
+async function cargarConfig() {
+  const c = await api('/solicitudes/config');
+  $('cfg-meses').value = c.anonimizar_meses;
+  $('cfg-fecha').textContent = c.fecha_eleccion ? `Esa fecha es ${c.fecha_eleccion}.` : 'Todavía no hay esa fecha en la configuración: no se anonimiza nada.';
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/solicitudes.html');
+  if (!usuarioActual) return;
+  if (!puedeVer(usuarioActual, 'solicitudes')) { $('sol-sin-permiso').style.display = 'block'; return; }
+  try {
+    await cargarCategorias();
+    try { responsables = (await api('/solicitudes/responsables')).responsables; } catch (_) { responsables = []; }
+    $('f-responsable').innerHTML += responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('');
+    $('sol-contenido').style.display = 'block';
+    await cargarLista();
+    if (usuarioActual.rol === 'admin') { $('sol-admin').style.display = 'block'; await cargarConfig(); }
+  } catch (e) { $('sol-sin-permiso').style.display = 'block'; $('sol-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
+  ['f-categoria', 'f-estado', 'f-responsable'].forEach((i) => $(i).addEventListener('change', () => { pagina = 1; cargarLista(); }));
+  let t; $('f-barrio').addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { pagina = 1; cargarLista(); }, 300); });
+  $('f-quitar').addEventListener('click', () => { ['f-categoria', 'f-estado', 'f-barrio', 'f-responsable'].forEach((i) => { $(i).value = ''; }); pagina = 1; cargarLista(); });
+  $('p-ant').addEventListener('click', () => { pagina = Math.max(1, pagina - 1); cargarLista(); });
+  $('p-sig').addEventListener('click', () => { pagina += 1; cargarLista(); });
+  $('visor-foto').addEventListener('click', () => { $('visor-foto').style.display = 'none'; });
+  $('nc-crear').addEventListener('click', async () => {
+    try { await api('/solicitudes/categorias', { method: 'POST', body: { nombre: $('nc-nombre').value, ayuda: $('nc-ayuda').value } }); $('nc-nombre').value = ''; $('nc-ayuda').value = ''; await cargarCategorias(); msg('sol-msg-cats', 'Categoría agregada.', 'ok'); }
+    catch (e) { msg('sol-msg-cats', e.message, 'error'); }
+  });
+  $('cfg-guardar').addEventListener('click', async () => {
+    try { await api('/solicitudes/config', { method: 'PUT', body: { anonimizar_meses: Number($('cfg-meses').value) } }); msg('sol-msg-cfg', 'Guardado.', 'ok'); }
+    catch (e) { msg('sol-msg-cfg', e.message, 'error'); }
+  });
+})();
+</script>
+</body>
+</html>

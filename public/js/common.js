@@ -194,6 +194,8 @@ const NAV_ITEMS = [
       { href: '/votantes.html', texto: 'Votantes y sublíderes', modulo: 'votantes', roles: null },
       { href: '/votantes-dashboard.html', texto: 'Dashboard de votantes', modulo: 'votantes_dashboard', roles: ['admin', 'coordinador'] },
       { href: '/mapa.html', texto: 'Mapa territorial', modulo: 'mapa', roles: ['admin', 'coordinador'] },
+      // Solicitudes ciudadanas (parche 303). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `solicitudes`.
+      { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
     ]
   },
   {

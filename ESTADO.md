@@ -12,7 +12,12 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 302** (`parches/campana-parche302.zip`, 96.635 bytes,
+- **Último parche generado: 303** (`parches/campana-parche303.zip`, 159.399 bytes,
+  sha256 `3a5d903b4909a7421173d0c588b1639e72a8ed97d211d7230da556e537b301cd`, 18 archivos): «Solicitudes ciudadanas, Fases 1 y 2 (Requiere el 302)».
+  **Generado el 8 de noviembre de 2026, SIN publicar ni registrar** (lo corre el usuario con `publicar-parche.sh 303` y `registrar-parche.js`; debe quedar INACTIVO).
+  **TOCA LA BASE** (`db/init-db.js`: 4 tablas `solicitud*`, columna `configuracion_campana.anonimizar_solicitudes_meses`, 9 categorías, módulo `solicitudes` solo para el administrador, y el párrafo de finalidad en la política de privacidad con su versión archivada; repetible). Service worker `v173`. Cola sin señal: `OFFLINE_DB_VERSION = 7`.
+  `scripts/anonimizar-solicitudes.js` **no corre solo**: hay que ponerlo en el crontab (`--aplicar`; sin la bandera solo simula). Sin fecha principal de campaña no anonimiza nada.
+  El anterior, el 302 (`parches/campana-parche302.zip`, 96.635 bytes,
   sha256 `8029948a745d122d66c99df9e373dd2a4d026e9bd153014cd983c8d135299f1e`, 8 archivos): «Recordatorios: SMS de evento con enlace de baja (Requiere el 301)».
   **Publicado y registrado el 8 de noviembre de 2026** (lo corrió el usuario como root): `parche-302.zip` en el servidor de licencias con huella igual a la local (`8029948a745d122d`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: pasa a la plantilla nueva las reglas de evento sin editar; repetible); **requiere el 301**. Service worker sin cambio (`v172`).
@@ -109,7 +114,11 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v302** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v302.zip`,
+- **Plantilla vigente: v303** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v303.zip`,
+  6.559.658 bytes, sha256 `4768f7da6c65a9ee50506cabfc6b0b7e016cab278c7886d8b3fa243e1cae742a`, service worker `estrategia-v173`, `.version-base` y `.version-parche` = 303.
+  Generada con `node scripts/generar-plantilla.js --parche 303`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado), dos veces,
+  deja **71 tablas**, 9 categorías, el módulo `solicitudes` solo para el administrador y una sola versión de política archivada; `scripts/probar-solicitudes.js` desde la plantilla, todo bien.
+- **Plantilla v302 (reemplazada por la v303)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v302.zip`,
   6.498.551 bytes, sha256 `4cfecb117023cfff8ba0228edf895c50f4d35ab85fb1d99ea4e9dc1ab003645e`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 302.
   Generada con `node scripts/generar-plantilla.js --parche 302`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
   deja **67 tablas** y las reglas de evento con la plantilla nueva, igual en una segunda corrida; la migración respeta una regla editada; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
@@ -213,6 +222,23 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 303 — Solicitudes ciudadanas, Fases 1 y 2 (8 de noviembre de 2026, generado, SIN publicar, TOCA LA BASE)
+
+Módulo nuevo `solicitudes`: las necesidades que la gente cuenta en su barrio o vereda. **Apagado de fábrica** (solo el administrador, con Ver; el servidor exige Agregar y Editar).
+- **Sin vínculo con votantes**: ni `votante_id`, ni cédula, ni `apoya_a`, ni intención de voto; no se muestran junto a fichas. Estados `registrada, en_revision, remitida, cerrada` (nunca «resuelta»/«cumplida»); remitir exige la entidad y cerrar, el motivo.
+- **Datos del ciudadano** (nombre, teléfono): solo con `autoriza_datos` (con fecha y versión de la política); sin autorización queda solo el barrio/vereda. Nunca cédula. El teléfono lo ven solo el administrador y el responsable asignado; la lista y la respuesta de registrar no lo traen.
+- **Alcance** en `lib/alcanceSolicitudes.js` (madre/coordinador/líder/sublíder/aspirante, más «me la asignaron»); fuera de alcance responde igual que inexistente.
+  **El aspirante (sublicencia) NO tiene acceso todavía** (la lista blanca de `middleware/aspirante.js` no incluye solicitudes, a propósito); el alcance de su rama existe en SQL y está probado.
+- **Fotos**: máximo 3, 1.280 px, JPEG, sin EXIF, en `uploads/solicitudes/` (cerrada a `/uploads` por `lib/carpetasPrivadas.js`); se sirven por `/api/solicitudes/:id/fotos/:fotoId` comprobando alcance.
+- **Retención**: `anonimizar_solicitudes_meses` (6 de fábrica) después de la fecha principal de la campaña; `scripts/anonimizar-solicitudes.js --aplicar` borra nombre, teléfono y fotos. **Falta ponerlo en el cron.**
+- **Celular**: `app/solicitud-nueva.html` (4 pasos, ubicación opcional que nunca bloquea, hasta 3 fotos, casilla de autorización) y `app/mis-solicitudes.html`; cola `solicitudes_pendientes` con dueño (otra cuenta del mismo celular no la ve ni la sube) y fotos como Blob. Tarjetas en `inicio.html` y entrada en el menú de escritorio.
+- **Escritorio**: `solicitudes.html` (lista con filtros, detalle, historial, estado, responsable, notas internas, categorías y plazo para el administrador).
+- **Política de privacidad**: párrafo con la finalidad «registrar y remitir necesidades del territorio», versión nueva archivada con su huella.
+- Guías: `mod-solicitudes`, `t-solicitud-registrar`.
+- **Pruebas** (bases desechables nuevas): `probar-solicitudes` (backend, todo bien), `probar-solicitudes-celular` (Chromium real: pasos, sin señal, cola por dueño, sincronización idempotente, fotos sin EXIF, escritorio; 3 corridas seguidas, todo bien), más manuales, comunas-dashboard, inscripcion-enlace (467/467), panel-alcance, panel-lider, recordatorios, transporte-diad (123/123), transporte-parte2 y logística. `probar-logistica` exigía `OFFLINE_DB_VERSION` 5 o 6: se aflojó a 5–9. `probar-instalacion-limpia` no se corrió (pide base y usuario de CloudPanel).
+- **Tropiezo**: el ordenador automático de desplegables de `common.js` a veces deja el filtro en la primera opción real en vez de «Todas»; se esquivó con `data-sin-ordenar` en los tres filtros. No se tocó `common.js`; conviene revisarlo.
+- **Siguiente orden**: panel, mapa y exportación (con el teléfono enmascarado), y el acceso del aspirante.
 
 ## Parche 302 — SMS de evento con enlace de baja y meta de campaña solo para la dirección (8 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 

@@ -87,6 +87,9 @@ const MENU_LIDER = [
   // Tu enlace y tu QR de inscripción: la gente se inscribe sola desde su celular y queda en tu lista.
   // MENU_COORDINADOR hereda esta entrada (se arma con ...MENU_LIDER); el administrador no tiene enlace propio.
   { href: '/app/mi-enlace.html', icono: '🔗', titulo: 'Mi enlace de inscripción', subtitulo: 'Tu QR para que la gente se inscriba sola' },
+  // Solicitudes ciudadanas (parche 303): las necesidades del territorio que la gente cuenta. Apagado de fábrica: solo con «Ver» en el módulo `solicitudes`.
+  { href: '/app/solicitud-nueva.html', icono: '📣', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes' },
+  { href: '/app/mis-solicitudes.html', icono: '📋', titulo: 'Mis solicitudes', subtitulo: 'Las que registraste y las que te asignaron', modulo: 'solicitudes' },
   // Día D: quién de los míos ya votó y quién falta. Solo con «Ver» en el módulo `rescate_votos`.
   { href: '/app/faltantes.html', icono: '🗳️', titulo: 'Faltan por votar', subtitulo: 'Tus votantes del día de la elección', modulo: 'rescate_votos' },
   // El aspirante (rol «lider» con sublicencia) también ve el ranking de SU rama. Un líder
@@ -141,6 +144,8 @@ const MENU_ADMIN = [
   { href: '/app/admin-mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Equipo, votantes y eventos en el mapa' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
   { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
+  { href: '/solicitudes.html', icono: '📣', titulo: 'Solicitudes ciudadanas', subtitulo: 'Las necesidades del territorio: ver, asignar y remitir', modulo: 'solicitudes' },
+  { href: '/app/solicitud-nueva.html', icono: '📝', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes' },
   { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
   // Día D (fase 2): van DESPUÉS de las nueve del orden pedido.
   { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d' },

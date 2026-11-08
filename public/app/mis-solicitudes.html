@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Mis solicitudes · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* SOLICITUDES CIUDADANAS, «Mis solicitudes» (parche 303): lo que sigue en el celular sin subir, y lo que ya está en el servidor. */
+  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  .caja-sol { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
+  .caja-sol .arriba { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .caja-sol .cat { font-weight: 700; color: var(--navy); }
+  .caja-sol .resumen { font-size: 0.9rem; margin: 6px 0; line-height: 1.35; }
+  .caja-sol .meta { font-size: 0.78rem; color: var(--muted); }
+  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); }
+  .etiqueta.pendiente { background: #fdf3e0; border-color: #ecd3a4; }
+  .etiqueta.fallida { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
+  .caja-sol .acciones { margin-top: 10px; display: flex; gap: 8px; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <button type="button" class="btn-app btn-app-primario" id="btn-nueva">+ Registrar una solicitud</button>
+
+  <div id="bloque-pendientes" style="display:none;">
+    <p class="grupo-titulo">En este celular, sin subir</p>
+    <div id="lista-pendientes"></div>
+  </div>
+
+  <p class="grupo-titulo">Registradas</p>
+  <div id="lista-servidor"><p class="vacio-app">Cargando…</p></div>
+  <p id="nota-copia" class="meta" style="display:none; font-size:0.78rem; color:var(--muted);"></p>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE = 'solicitudes_pendientes';
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+const ETIQUETA = { registrada: 'Registrada', en_revision: 'En revisión', remitida: 'Remitida', cerrada: 'Cerrada' };
+
+function fechaCorta(v) {
+  if (!v) return '';
+  const d = typeof v === 'number' ? new Date(v) : new Date(String(v).replace(' ', 'T'));
+  return isNaN(d) ? String(v).slice(0, 10) : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function construirFormData(registro) {
+  const p = registro.payload;
+  const fd = new FormData();
+  Object.keys(p).forEach((k) => { if (p[k] !== null && p[k] !== undefined && p[k] !== '') fd.append(k, p[k]); });
+  fd.append('cliente_uuid', registro.clienteUuid);
+  (registro.fotos || []).forEach((b, i) => fd.append('fotos', b, `foto${i + 1}.jpg`));
+  return fd;
+}
+
+async function pintarPendientes() {
+  let cola = [];
+  try { cola = await listarColaOffline(STORE); } catch (_) { cola = []; }
+  $('bloque-pendientes').style.display = cola.length ? 'block' : 'none';
+  $('lista-pendientes').innerHTML = cola.sort((a, b) => (b.creadoEn || 0) - (a.creadoEn || 0)).map((r) => {
+    const p = r.payload || {};
+    const fallida = r.estado === 'fallido';
+    return `<div class="caja-sol">
+      <div class="arriba"><span class="cat">${esc(p.categoria_nombre || 'Solicitud')}</span>
+        <span class="etiqueta ${fallida ? 'fallida' : 'pendiente'}">${fallida ? 'No se pudo subir' : 'Esperando señal'}</span></div>
+      <div class="resumen">${esc((p.descripcion || '').slice(0, 140))}</div>
+      <div class="meta">${esc(p.barrio_texto || '')} · ${esc(fechaCorta(r.creadoEn))} · ${(r.fotos || []).length} foto(s)</div>
+      ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;">${esc(r.error || '')}</div>` : ''}
+      ${fallida ? `<div class="acciones"><button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}
+    </div>`;
+  }).join('');
+  $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('¿Descartar esta solicitud? No se subirá.')) return;
+    await borrarDeColaOffline(STORE, b.dataset.descartar);
+    pintarPendientes();
+  }));
+  return cola.length;
+}
+
+async function pintarServidor() {
+  let datos = null, copia = false;
+  try {
+    datos = await api('/solicitudes/mias');
+    if (datos) guardarCacheReferencia('mis_solicitudes', datos);
+  } catch (e) {
+    if (e && e.status === 403) { $('lista-servidor').innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitadas las solicitudes. Pídeselo al administrador de la campaña.</p>'; return; }
+    datos = leerCacheReferencia('mis_solicitudes'); copia = !!datos;
+  }
+  if (!datos) { $('lista-servidor').innerHTML = '<p class="vacio-app">No se pudo cargar la lista. Con señal se carga sola.</p>'; return; }
+  const filas = datos.solicitudes || [];
+  $('nota-copia').style.display = copia ? 'block' : 'none';
+  if (copia) $('nota-copia').textContent = 'Sin señal: se muestra la última lista que se guardó en este celular.';
+  $('lista-servidor').innerHTML = filas.length ? filas.map((s) => `<div class="caja-sol">
+      <div class="arriba"><span class="cat">${esc(s.categoria)}</span><span class="etiqueta">${esc(ETIQUETA[s.estado] || s.estado)}</span></div>
+      <div class="resumen">${esc(s.resumen || '')}</div>
+      <div class="meta">${esc(s.barrio || '')} · ${esc(fechaCorta(s.creada_en))}${s.fotos ? ` · ${esc(s.fotos)} foto(s)` : ''}${s.responsable ? ` · Responsable: ${esc(s.responsable)}` : ''}</div>
+    </div>`).join('') : '<p class="vacio-app">Todavía no hay solicitudes registradas.</p>';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Mis solicitudes', 'Necesidades del territorio', '/app/inicio.html');
+  $('btn-nueva').addEventListener('click', () => { window.location.href = '/app/solicitud-nueva.html'; });
+  const hayCola = await pintarPendientes();
+  if (hayCola) {
+    try { await sincronizarCola(STORE, '/solicitudes', construirFormData); } catch (_) { /* sin señal */ }
+    await pintarPendientes();
+  }
+  await pintarServidor();
+  window.addEventListener('online', async () => {
+    try { await sincronizarCola(STORE, '/solicitudes', construirFormData); } catch (_) {}
+    await pintarPendientes(); await pintarServidor();
+  });
+})();
+</script>
+</body>
+</html>
