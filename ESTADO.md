@@ -94,7 +94,17 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla v295 (ya atrás del 296; la vigente se declara arriba o en la entrada siguiente si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v295.zip`,
+- **Plantilla vigente: v296** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v296.zip`,
+  2.222.304 bytes, **448 archivos** (474 entradas con las carpetas), sha256 `dd408606fc7a262a5731191d3742d62ec7ca9234f01ef8fb229910c8fbcd045e`,
+  service worker `estrategia-v169`, `.version-parche` y `.version-base` = 296. Generada con
+  `node scripts/generar-plantilla.js --parche 296`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+  (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` (ahí quedan los PDF y las capturas de verificación) ni `parches/`; la única `.pem` es la pública de los parches.
+  El patrón de asignación de secretos coincide sólo en marcadores de ejemplo (`config/mailer.js` y los ocho `scripts/probar-*.js`, con su `SESSION_SECRET` de reserva).
+  Trae 5 archivos más que la v295 (`lib/panelLider.js`, `routes/panelLider.routes.js`, `public/app/panel-lider.js`, `public/app/panel-lider.css` y `scripts/probar-panel-lider.js`); los demás del parche 296 cambian por dentro.
+  Probada: extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas** y una segunda corrida deja lo mismo; `scripts/probar-panel-lider.js` corrido desde la plantilla da **87 comprobaciones, todo bien**; `scripts/probar-manuales.js`, todo bien (161 bloques, 0 avisos); `verificar-html.py` en `inicio.html` y `node --check` en `panel-lider.js`.
+  **La v295 y las anteriores siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v296. Si después se publica otro parche, hay que regenerarla
+  (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
+- **Plantilla v295 (reemplazada por la v296)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v295.zip`,
   2.198.203 bytes, **443 archivos** (469 entradas con las carpetas), sha256 `d7907fca5844f91e6fe62cbf62d38083f6c90021a5c4b790ccb124187dc3e151`,
   service worker `estrategia-v168`, `.version-parche` y `.version-base` = 295. Generada con
   `node scripts/generar-plantilla.js --parche 295`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
