@@ -70,20 +70,20 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v289** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v289.zip`,
-  2.010.760 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `51d2b1e6b17df86ca4de80af66a41f25297eb0ec1c14b427e017959cd74e6621`,
-  service worker `estrategia-v164`, `.version-parche` y `.version-base` = 289. Generada con
-  `node scripts/generar-plantilla.js --parche 289`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+- **Plantilla vigente: v290** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v290.zip`,
+  2.010.775 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `7fae8431d9546c8ddf4c8fc29ddf6880adc323a81b7068162654a45d28a73559`,
+  service worker `estrategia-v164`, `.version-parche` y `.version-base` = 290. Generada con
+  `node scripts/generar-plantilla.js --parche 290`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
   (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`; la única `.pem`
-  es la pública de los parches (`BEGIN PUBLIC KEY`). Un patrón de asignación de secretos sí coincide en nueve archivos, y todos son marcadores:
-  los `SESSION_SECRET` de reserva de los seis `scripts/probar-*.js` (son de pruebas), `public/ayuda.html` (`DB_PASSWORD=tu_clave`) y el comentario de `config/mailer.js`.
-  Probada: la plantilla extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas**, con `logistica_items/plan/entregas`,
-  los tres ítems de fábrica (Kit de testigo 07:00, Refrigerio 12:00, Almuerzo 14:00) y el módulo `logistica_dia_d` sembrado (admin y coordinador en 1);
-  una segunda corrida no duplica nada (siguen 3 ítems). Qué trae de más que la v286: los parches 287, 288 y 289 y el service worker v164.
-  **La v286 (`plantilla-nueva-campana-v286.zip`, 251 archivos), la v271 (194) y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña
-  nueva: usar la v289. Si después se publica otro parche, hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
-  **El `.version-base` de la plantilla (289) es el del último parche, pero su service worker (v164) y las dos páginas de Ranking y Alertas ya llevan el
-  cambio del commit `d48db1d`, que la v289 trae y el parche 290 entrega a las campañas existentes**. La plantilla **no** trae `faltantes.html` ni `mis-registros.html` arreglados (`75076e3` es posterior): una campaña nueva los recibe con el 290 al primer ciclo de actualización, o se regenera la plantilla con `--parche 290`.
+  es la pública de los parches (`BEGIN PUBLIC KEY`). El patrón de asignación de secretos coincide en ocho archivos, todos marcadores de ejemplo (los mismos que en la v289):
+  los `SESSION_SECRET` de reserva de los seis `scripts/probar-*.js`, `public/ayuda.html` (`DB_PASSWORD=tu_clave`) y el comentario de `config/mailer.js`.
+  Mismos archivos que la v289; cambian cuatro por dentro (`faltantes.html` y `mis-registros.html` ya con `<main class="app-cuerpo">`, y `.version-base` y `.version-parche`):
+  no queda ningún `app-contenido` en todo el zip.
+  Probada: la plantilla extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas**, con los tres ítems de fábrica de logística
+  (Kit de testigo 07:00, Refrigerio 12:00, Almuerzo 14:00) y `logistica_dia_d` sembrado para admin y coordinador; una segunda corrida deja 3 ítems y 64 tablas;
+  `verificar-html.py` da etiquetas balanceadas y JS válido en las cuatro páginas del celular tocadas. Esta plantilla ya trae lo que entrega el parche 290.
+  **La v289, la v286, la v271 y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v290. Si después se publica otro parche,
+  hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
 - **Ranking y Alertas del Día D, contenedor** (commit `d48db1d`, 8 de noviembre de 2026): `public/app/ranking-dia-d.html` y `public/app/alertas-dia-d.html`
   envolvían todo en `<div class="app-contenido">`, una clase que **no existe** en `estilos-app.css` (no faltaba en el HTML: faltaba el CSS), así que las
   tarjetas salían pegadas a los bordes. Pasan a `<main class="app-cuerpo">`, la de `dia-d.html`, `inicio.html` y `logistica.html`. Service worker `v164`; las
