@@ -84,6 +84,19 @@
       '<div class="pl-detalle">«Sin verificar» es solo para que lo sepas: lo marca la administración.</div></div>';
   }
 
+  // «Mis tareas» (parche 305): solo cifras de lo que tiene ASIGNADO; ningún título. Llega solo si tiene «Ver» en el módulo `tareas`.
+  function tarjetaTareas(d) {
+    var t = d.tareas;
+    if (!t) return '';
+    var ficha = function (n, texto, alerta) {
+      return '<div class="pl-pend pl-pend-info' + (n === 0 ? ' cero' : '') + '"' + (alerta && n > 0 ? ' style="border-color:#C0392B;color:#C0392B;"' : '') + '><span class="pl-pend-n">' + numero(n) + '</span><span class="pl-pend-t">' + texto + '</span></div>';
+    };
+    return '<div class="pl-tarjeta" id="pl-tareas"><div class="pl-titulo">Mis tareas</div><div class="pl-pends">' +
+      ficha(t.pendientes, 'pendientes', false) + ficha(t.vencen_hoy, 'vencen hoy', false) + ficha(t.vencidas, 'vencidas', true) + '</div>' +
+      (t.devueltas > 0 ? '<div class="pl-detalle">' + numero(t.devueltas) + (t.devueltas === 1 ? ' te la devolvieron' : ' te las devolvieron') + ' para completar.</div>' : '') +
+      (estado.sinSenal ? '' : '<div class="pl-detalle"><a href="/app/mis-tareas.html">Abrir mis tareas ›</a></div>') + '</div>';
+  }
+
   function tarjetaEquipo(d) {
     var e = d.equipo || [];
     if (!e.length) return '';
@@ -112,7 +125,7 @@
     var pie = estado.sinSenal
       ? '<div class="pl-sin-senal">Sin señal: esta es la copia de las ' + hora(estado.guardadoEn) + '. Solo puedes mirarla.</div>'
       : '<div class="pl-pie">Actualizado a las ' + hora(estado.guardadoEn) + '</div>';
-    cont.innerHTML = pie + tarjetaDiaD(d) + tarjetaMeta(d) + tarjetaPosicion(d) + tarjetaSieteDias(d) + tarjetaPendientes(d) + tarjetaEquipo(d);
+    cont.innerHTML = pie + tarjetaDiaD(d) + tarjetaTareas(d) + tarjetaMeta(d) + tarjetaPosicion(d) + tarjetaSieteDias(d) + tarjetaPendientes(d) + tarjetaEquipo(d);
     cont.hidden = false;
   }
 

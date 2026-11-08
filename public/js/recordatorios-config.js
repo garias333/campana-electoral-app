@@ -95,6 +95,7 @@
   function cuando(r) {
     if (r.tipo === 'dia_d_ya_votaste') return `El día de la elección, a las ${String(r.hora_dia || '').slice(0, 5)}`;
     if (r.tipo === 'solicitud_sin_movimiento') return 'Cuando una solicitud con responsable lleva días sin movimiento';
+    if (r.tipo === 'tarea_vence') return Number(r.desfase_min) === 0 ? 'A las 8 a. m. del día en que vence la tarea' : `A las 8 a. m., ${Math.abs(Number(r.desfase_min)) / 1440} días antes de que venza la tarea`;
     const min = Math.abs(Number(r.desfase_min));
     if (!Number.isFinite(min)) return '—';
     return min % 60 === 0 ? `${min / 60} h antes del evento` : `${min} min antes del evento`;
@@ -253,7 +254,9 @@
         <p class="rec-ayuda">${esc(r.tipo_etiqueta)} · ${esc(ETIQUETA_CANAL[r.canal] || r.canal)}. El tipo y el canal no se cambian: para otro, se usa otra regla.</p>
         <div class="rec-cuadricula">
           <div class="rec-campo"><label for="rec-e-nombre">Nombre de la regla</label><input type="text" id="rec-e-nombre" maxlength="120" value="${esc(r.nombre)}" ${cambiar ? '' : 'disabled'}></div>
-          ${r.tipo === 'solicitud_sin_movimiento' ? `<div class="rec-campo"><label>Cuándo sale</label>
+          ${r.tipo === 'tarea_vence' ? `<div class="rec-campo"><label>Cuándo sale</label>
+            <span class="rec-pie">${esc(cuando(r))}, al responsable de una tarea abierta con fecha límite. Máximo 3 avisos por tarea.</span></div>`
+            : r.tipo === 'solicitud_sin_movimiento' ? `<div class="rec-campo"><label>Cuándo sale</label>
             <span class="rec-pie">Al responsable de una solicitud abierta que lleva varios días sin cambios. Los días se fijan en Solicitudes ciudadanas, al final de la pantalla.</span></div>`
             : esEvento ? `<div class="rec-campo"><label for="rec-e-horas">Horas antes del evento</label>
             <input type="number" id="rec-e-horas" min="0.5" max="168" step="0.5" value="${esc(horas)}" ${cambiar ? '' : 'disabled'}>

@@ -31,6 +31,7 @@ router.get('/', async (req, res) => {
     const tieneMeta = !!progreso.tieneMetaAsignada && meta > 0;
 
     let diaD = null;
+    let tareas = null;
     try {
       const { permisos } = await permisosDeSesion(req);
       // «Si tiene rescate_votos y (es el día de la elección o modo prueba)»: fuera del día la pantalla trabaja en modo
@@ -38,6 +39,15 @@ router.get('/', async (req, res) => {
       if (permisos && permisos.rescate_votos && permisos.rescate_votos.ver) diaD = await panel.diaD(req);
     } catch (err) {
       console.error('panel-lider (Día D):', err.code || err.message);
+    }
+
+    // La tarjeta «mis tareas» (parche 305): solo con «Ver» en tareas. Cuenta lo que tiene ASIGNADO; sin títulos ni nombres. Va en su propio try:
+    // una campaña que aplicó el parche sin la migración (sin la tabla `tareas`) no puede perder por eso el resto del panel.
+    try {
+      const { permisos } = await permisosDeSesion(req);
+      if (permisos && permisos.tareas && permisos.tareas.ver && !req.sublicencia) tareas = await require('../lib/tareas').resumenMisTareas(req.session.usuario.id);
+    } catch (err) {
+      console.error('panel-lider (tareas):', err.code || err.message);
     }
 
     res.json({
@@ -53,6 +63,7 @@ router.get('/', async (req, res) => {
       equipo,
       posicion,
       dia_d: diaD,
+      tareas,
     });
   } catch (err) {
     console.error('panel-lider:', err.code || err.message);

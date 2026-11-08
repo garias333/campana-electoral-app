@@ -426,6 +426,8 @@ const PERMISOS_POR_DEFECTO = {
   recordatorios: ['admin'],
   // Solicitudes ciudadanas (parche 303): apagado de fábrica, solo el administrador. Se le abre a líderes y coordinadores desde Asignación de permisos.
   solicitudes: ['admin'],
+  // Tareas (parche 305): apagado de fábrica, solo el administrador. Se abre a coordinadores y líderes desde Asignación de permisos.
+  tareas: ['admin'],
   biografia_candidato: ROLES_PERMISOS,
   politica_privacidad: ROLES_PERMISOS,
   recursos: ROLES_PERMISOS,
@@ -3266,6 +3268,97 @@ async function main() {
      '{nombre}, la solicitud de {categoria} en {barrio} lleva {dias} días sin movimiento.', 'Solicitud sin movimiento',
      'Solicitud ciudadana · sin movimiento · aviso en la app (responsable)']);
   console.log('Tablas de las solicitudes ciudadanas listas (módulo apagado).');
+
+  /* ------------------------------------------------------------------------------------------------------------
+     TAREAS (parche 305). Apagado de fábrica: el módulo `tareas` solo lo ve el administrador.
+       · tareas           UNA fila por tarea: quién la creó, a quién se asignó, de qué tipo (libre, visita, entrega), en qué zona, para cuándo.
+       · tarea_historial  cada cambio (creada, empezada, hecha, devuelta, verificada, cancelada, reasignada, no pude), con quién y cuándo.
+                          `cliente_uuid` + (tarea_id) únicos: lo que sube la cola sin señal no se duplica.
+       · tarea_fotos      hasta 3 por tarea; los archivos viven en uploads/tareas/ (que /uploads no sirve).
+     «Vencida» y «sin responsable activo» NO se guardan: se calculan al leer (una tarea abierta con fecha límite pasada; una abierta cuyo
+     responsable ya no tiene la cuenta activa). Así no hay un proceso que deba cambiar filas ni un dato viejo que corregir.
+     ------------------------------------------------------------------------------------------------------------ */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS tareas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tipo ENUM('libre','visita','entrega') NOT NULL DEFAULT 'libre',
+      titulo VARCHAR(150) NOT NULL,
+      descripcion TEXT NULL,
+      estado ENUM('pendiente','en_curso','hecha','verificada','cancelada') NOT NULL DEFAULT 'pendiente',
+      territorio_id INT NULL COMMENT 'Barrio, vereda, comuna o corregimiento de la vista territorios; sin FK (en campañas ligadas al catálogo es una vista)',
+      zona_texto VARCHAR(120) NULL COMMENT 'La zona tal como se escribió; es la única cuando la campaña no tiene barrios ni veredas en el catálogo',
+      fecha_limite DATE NULL,
+      cantidad_prevista INT NULL COMMENT 'Entrega de material: cuánto se espera entregar (opcional)',
+      creada_por INT NOT NULL,
+      asignada_a INT NOT NULL,
+      rama_aspirante_id INT NULL,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      iniciada_en DATETIME NULL,
+      hecha_en DATETIME NULL COMMENT 'La hora del TOQUE de «terminé» (no la de la subida, si se hizo sin señal)',
+      hecha_nota VARCHAR(500) NULL,
+      cantidad_entregada INT NULL,
+      latitud DECIMAL(10,7) NULL COMMENT 'UNA sola posición, la de «terminé». Nunca recorridos.',
+      longitud DECIMAL(10,7) NULL,
+      precision_m INT NULL,
+      no_pudo_en DATETIME NULL,
+      no_pudo_nota VARCHAR(255) NULL,
+      devuelta_nota VARCHAR(500) NULL COMMENT 'Lo que le faltaba, escrito por quien la devolvió',
+      verificada_en DATETIME NULL,
+      verificada_por INT NULL,
+      cancelada_en DATETIME NULL,
+      motivo_cancelacion VARCHAR(255) NULL,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_tarea_asignada (asignada_a, estado),
+      KEY idx_tarea_creada (creada_por),
+      KEY idx_tarea_estado_fecha (estado, fecha_limite),
+      KEY idx_tarea_territorio (territorio_id),
+      KEY idx_tarea_rama (rama_aspirante_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS tarea_historial (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tarea_id INT NOT NULL,
+      tipo VARCHAR(20) NOT NULL COMMENT 'creada | empezada | hecha | no_pudo | devuelta | verificada | cancelada | reasignada | editada',
+      estado_antes VARCHAR(20) NULL,
+      estado_despues VARCHAR(20) NULL,
+      asignada_antes INT NULL,
+      asignada_despues INT NULL,
+      nota VARCHAR(1000) NULL,
+      usuario_id INT NULL,
+      usuario_nombre VARCHAR(150) NULL,
+      cliente_uuid CHAR(36) NULL COMMENT 'Lo que sube la cola sin señal: un reintento no duplica',
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_tarea_hist (tarea_id, creado_en),
+      UNIQUE KEY uq_tarea_hist_uuid (tarea_id, cliente_uuid),
+      FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS tarea_fotos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tarea_id INT NOT NULL,
+      orden TINYINT NOT NULL,
+      archivo VARCHAR(80) NOT NULL COMMENT 'Solo el nombre: el archivo vive en uploads/tareas/',
+      ancho INT NULL,
+      alto INT NULL,
+      bytes INT NULL,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_tarea_foto_orden (tarea_id, orden),
+      FOREIGN KEY (tarea_id) REFERENCES tareas(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  /* LAS DOS REGLAS DE FÁBRICA DEL MOTOR DE RECORDATORIOS, APAGADAS: 3 días antes de la fecha límite y el día en que vence (tipo
+     `tarea_vence`, aviso en la app al responsable). Máximo 3 avisos por tarea; ver lib/recordatoriosTareas.js. Una regla que el
+     administrador editó no se pisa (se busca por nombre). */
+  for (const [nombre, plantilla, asunto, desfase] of [
+    ['Tarea · 3 días antes · aviso en la app', '{nombre}, tu tarea ({tipo}) en {zona} vence en 3 días.', 'Tarea por vencer', -4320],
+    ['Tarea · el día que vence · aviso en la app', '{nombre}, tu tarea ({tipo}) en {zona} vence hoy.', 'Tarea que vence hoy', 0],
+  ]) {
+    await connection.query(
+      `INSERT INTO recordatorio_reglas (tipo, nombre, canal, activo, plantilla, asunto, desfase_min, hora_dia, gracia_min)
+       SELECT 'tarea_vence', ?, 'push', 0, ?, ?, ?, NULL, 1440 FROM DUAL
+        WHERE NOT EXISTS (SELECT 1 FROM recordatorio_reglas WHERE nombre = ?)`, [nombre, plantilla, asunto, desfase, nombre]);
+  }
+  console.log('Tablas de las tareas listas (módulo apagado; reglas de recordatorio apagadas).');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);

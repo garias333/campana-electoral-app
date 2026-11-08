@@ -39,6 +39,8 @@ const MODULOS = [
   { clave: 'recordatorios', etiqueta: 'Recordatorios automáticos' },
   // Solicitudes ciudadanas: necesidades del barrio que los líderes registran en campo y la campaña sigue hasta cerrarlas.
   { clave: 'solicitudes', etiqueta: 'Solicitudes ciudadanas' },
+  // Tareas y metas por zona: lo que la coordinación le asigna a su equipo (visita, entrega de material, libre) y el seguimiento hasta verificarlo.
+  { clave: 'tareas', etiqueta: 'Tareas' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
   // Normas en PDF que el equipo técnico deja en la carpeta `legislacion/` de la
   // instalación; la aplicación solo las lista y las sirve (routes/legislacion.routes.js).

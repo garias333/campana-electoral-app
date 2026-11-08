@@ -196,6 +196,8 @@ const NAV_ITEMS = [
       { href: '/mapa.html', texto: 'Mapa territorial', modulo: 'mapa', roles: ['admin', 'coordinador'] },
       // Solicitudes ciudadanas (parche 303). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `solicitudes`.
       { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
+      // Tareas (parche 305). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `tareas`.
+      { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
     ]
   },
   {

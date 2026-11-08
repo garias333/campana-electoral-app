@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Mis tareas · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* TAREAS, «Mis tareas» (parche 305): lo que tengo asignado, lo que sigue en el celular sin subir y lo que ya está hecho. */
+  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  .caja-tar { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
+  .caja-tar.abierta { border-color: #9DB7E8; }
+  .caja-tar .arriba { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; cursor: pointer; }
+  .caja-tar .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .caja-tar .meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+  .caja-tar .detalle { margin-top: 10px; border-top: 1px solid var(--linea); padding-top: 10px; font-size: 0.9rem; line-height: 1.4; }
+  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); margin-left: 4px; }
+  .etiqueta.roja { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
+  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
+  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
+  .nota-tar { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-size: 0.86rem; }
+  .acciones { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .acciones .btn-app { flex: 1 1 120px; }
+  .form-tar label { display: block; font-size: 0.8rem; font-weight: 600; margin: 10px 0 4px; }
+  .form-tar input[type=number], .form-tar textarea { width: 100%; box-sizing: border-box; }
+  .fotos-tar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .fotos-tar .foto { position: relative; width: 84px; height: 84px; }
+  .fotos-tar img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 1px solid var(--linea); }
+  .fotos-tar button { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: #142a3f; color: #fff; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+  .resumen-tar { display: flex; gap: 8px; margin: 10px 0 0; }
+  .resumen-tar div { flex: 1; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 8px; text-align: center; }
+  .resumen-tar b { display: block; font-size: 1.2rem; color: var(--navy); }
+  .resumen-tar span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div class="resumen-tar" id="resumen" style="display:none;"></div>
+
+  <div id="bloque-pendientes" style="display:none;">
+    <p class="grupo-titulo">En este celular, sin subir</p>
+    <div id="lista-pendientes"></div>
+  </div>
+
+  <div id="lista-servidor"><p class="vacio-app">Cargando…</p></div>
+  <p id="nota-copia" class="meta" style="display:none; font-size:0.78rem; color:var(--muted);"></p>
+</main>
+
+<input type="file" id="archivo-foto" accept="image/*" capture="environment" style="display:none;">
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE = 'tareas_pendientes';
+const MAX_FOTOS = 3;
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+const ESTADO = { pendiente: 'Pendiente', en_curso: 'En curso', hecha: 'Hecha', verificada: 'Verificada', cancelada: 'Cancelada' };
+const ACCION_TXT = { empece: 'Empecé', termine: 'Terminé', no_pude: 'No pude' };
+
+let tareas = [];            // lo último que dijo el servidor (o la copia)
+let abierta = null;         // id de la tarea desplegada
+let edicion = null;         // { tareaId, accion, fotos: [{blob,url}], ubicacion }
+let cola = [];
+
+function fecha(v) {
+  if (!v) return '';
+  const d = new Date(String(v).slice(0, 10) + 'T12:00:00');
+  return isNaN(d) ? String(v).slice(0, 10) : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function aviso(texto, tipo) {
+  const a = $('aviso');
+  a.textContent = texto || '';
+  a.className = 'aviso-app' + (texto ? ' visible ' + (tipo || 'error') : '');
+}
+
+/* ----- la cola: cada acción se guarda primero en el celular, con su identificador, y después se intenta subir ----- */
+function construirFormData(registro) {
+  const p = registro.payload || {};
+  const fd = new FormData();
+  fd.append('tarea_id', registro.tareaId); fd.append('accion', registro.accion); fd.append('cliente_uuid', registro.clienteUuid);
+  Object.keys(p).forEach((k) => { if (p[k] !== null && p[k] !== undefined && p[k] !== '') fd.append(k, p[k]); });
+  (registro.fotos || []).forEach((b, i) => fd.append('fotos', b, `foto${i + 1}.jpg`));
+  return fd;
+}
+async function leerCola() { try { cola = await listarColaOffline(STORE); } catch (_) { cola = []; } return cola; }
+
+async function subirCola() {
+  const antes = (await leerCola()).filter((r) => r.estado !== 'fallido').length;
+  if (!antes) return;
+  try { await sincronizarCola(STORE, '/tareas/accion', construirFormData); } catch (_) { /* sin señal */ }
+}
+
+/* ----- el dibujo ----- */
+function etiquetas(t) {
+  const e = [];
+  if (t.sin_responsable_activo) e.push('<span class="etiqueta roja">Sin responsable activo</span>');
+  if (t.vencida) e.push('<span class="etiqueta roja">Vencida</span>');
+  else if (t.vence_hoy) e.push('<span class="etiqueta ambar">Vence hoy</span>');
+  if (t.devuelta) e.push('<span class="etiqueta ambar">Devuelta</span>');
+  if (t.no_pudo) e.push('<span class="etiqueta ambar">No pude</span>');
+  e.push(`<span class="etiqueta ${t.estado === 'verificada' ? 'verde' : ''}">${esc(ESTADO[t.estado] || t.estado)}</span>`);
+  return e.join('');
+}
+
+function formularioTermine(t) {
+  const conFoto = t.tipo !== 'libre' ? 'Foto' : 'Foto (opcional)';
+  const pistas = { visita: 'Para terminar una visita hace falta una foto o la ubicación.', entrega: 'Para terminar una entrega hace falta la cantidad entregada y una foto.', libre: 'Puedes dejar una nota, fotos o la ubicación si quieres.' };
+  return `<div class="form-tar" id="form-tar">
+    <p class="meta">${esc(pistas[t.tipo] || '')}</p>
+    ${t.tipo === 'entrega' ? `<label for="f-cantidad">Cantidad entregada${t.cantidad_prevista ? ` (se esperaban ${esc(t.cantidad_prevista)})` : ''}</label><input type="number" id="f-cantidad" min="1" inputmode="numeric">` : ''}
+    <label>${conFoto}</label>
+    <div class="fotos-tar" id="fotos-tar"></div>
+    <button type="button" class="btn-app btn-app-secundario" id="btn-foto">📷 Agregar una foto</button>
+    ${t.tipo !== 'entrega' ? `<button type="button" class="btn-app btn-app-secundario" id="btn-ubicacion" style="margin-top:8px;">📍 Usar mi ubicación</button><p class="meta" id="estado-ubicacion"></p>` : ''}
+    <label for="f-nota">Nota (opcional)</label><textarea id="f-nota" rows="2" maxlength="500"></textarea>
+    <div class="acciones"><button type="button" class="btn-app btn-app-primario" id="btn-guardar-termine">Guardar</button><button type="button" class="btn-app btn-app-secundario" id="btn-cancelar-form">Cancelar</button></div>
+  </div>`;
+}
+function formularioNoPude() {
+  return `<div class="form-tar" id="form-tar"><label for="f-nota">¿Por qué no pudiste?</label><textarea id="f-nota" rows="3" maxlength="255"></textarea>
+    <div class="acciones"><button type="button" class="btn-app btn-app-primario" id="btn-guardar-nopude">Guardar</button><button type="button" class="btn-app btn-app-secundario" id="btn-cancelar-form">Cancelar</button></div></div>`;
+}
+
+function cajaDe(t) {
+  const enCola = cola.filter((r) => String(r.tareaId) === String(t.id));
+  const abiertaEsta = abierta === t.id;
+  const puedeActuar = ['pendiente', 'en_curso'].includes(t.estado) && !enCola.length && !(edicion && edicion.tareaId === t.id);
+  let detalle = '';
+  if (abiertaEsta) {
+    detalle = `<div class="detalle">
+      ${t.descripcion ? `<div style="white-space:pre-wrap;">${esc(t.descripcion)}</div>` : '<div class="meta">Sin más detalle.</div>'}
+      ${t.cantidad_prevista ? `<div class="meta">Cantidad prevista: ${esc(t.cantidad_prevista)}</div>` : ''}
+      ${t.devuelta_nota ? `<div class="nota-tar"><b>Te la devolvieron:</b> ${esc(t.devuelta_nota)}</div>` : ''}
+      ${t.no_pudo_nota ? `<div class="nota-tar"><b>Tu último «no pude»:</b> ${esc(t.no_pudo_nota)}</div>` : ''}
+      ${t.motivo_cancelacion ? `<div class="nota-tar"><b>Cancelada:</b> ${esc(t.motivo_cancelacion)}</div>` : ''}
+      ${t.estado === 'hecha' ? '<div class="meta">Ya la terminaste. Está esperando que quien te la asignó la verifique.</div>' : ''}
+      ${enCola.length ? '<div class="meta">Tiene un cambio en este celular que todavía no se sube.</div>' : ''}
+      ${edicion && edicion.tareaId === t.id ? (edicion.accion === 'termine' ? formularioTermine(t) : formularioNoPude()) : ''}
+      ${puedeActuar ? `<div class="acciones">
+        ${t.estado === 'pendiente' ? `<button type="button" class="btn-app btn-app-secundario" data-accion="empece" data-id="${esc(t.id)}">Empecé</button>` : ''}
+        <button type="button" class="btn-app btn-app-primario" data-accion="termine" data-id="${esc(t.id)}">Terminé</button>
+        <button type="button" class="btn-app btn-app-secundario" data-accion="no_pude" data-id="${esc(t.id)}">No pude</button></div>` : ''}
+    </div>`;
+  }
+  return `<div class="caja-tar ${abiertaEsta ? 'abierta' : ''}" data-tarea="${esc(t.id)}">
+    <div class="arriba" data-abrir="${esc(t.id)}"><span class="nombre">${esc(t.titulo)}</span><span style="text-align:right;">${etiquetas(t)}</span></div>
+    <div class="meta">${esc(t.tipo_etiqueta)}${t.zona ? ' · ' + esc(t.zona) : ''}${t.fecha_limite ? ' · Para el ' + esc(fecha(t.fecha_limite)) : ''}${t.creador ? ' · Te la asignó ' + esc(t.creador) : ''}</div>
+    ${detalle}</div>`;
+}
+
+function pintarPendientes() {
+  $('bloque-pendientes').style.display = cola.length ? 'block' : 'none';
+  $('lista-pendientes').innerHTML = cola.slice().sort((a, b) => (b.creadoEn || 0) - (a.creadoEn || 0)).map((r) => {
+    const fallida = r.estado === 'fallido';
+    return `<div class="caja-tar"><div class="arriba"><span class="nombre">${esc(r.tareaTitulo || 'Tarea')}</span>
+      <span class="etiqueta ${fallida ? 'roja' : 'ambar'}">${fallida ? 'No se pudo subir' : 'Esperando señal'}</span></div>
+      <div class="meta">${esc(ACCION_TXT[r.accion] || r.accion)} · ${(r.fotos || []).length} foto(s)</div>
+      ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;">${esc(r.error || '')}</div><div class="acciones"><button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}</div>`;
+  }).join('');
+  $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('¿Descartar este cambio? No se subirá.')) return;
+    await borrarDeColaOffline(STORE, b.dataset.descartar);
+    await refrescar(false);
+  }));
+}
+
+function pintar() {
+  pintarPendientes();
+  const grupos = [
+    ['Para hacer', tareas.filter((t) => ['pendiente', 'en_curso'].includes(t.estado))],
+    ['Esperando verificación', tareas.filter((t) => t.estado === 'hecha')],
+    ['Cerradas', tareas.filter((t) => ['verificada', 'cancelada'].includes(t.estado))],
+  ];
+  const html = grupos.filter((g) => g[1].length).map((g) => `<p class="grupo-titulo">${g[0]}</p>${g[1].map(cajaDe).join('')}`).join('');
+  $('lista-servidor').innerHTML = html || '<p class="vacio-app">No tienes tareas asignadas.</p>';
+  const L = $('lista-servidor');
+  L.querySelectorAll('[data-abrir]').forEach((el) => el.addEventListener('click', () => { abierta = abierta === Number(el.dataset.abrir) ? null : Number(el.dataset.abrir); if (edicion && edicion.tareaId !== abierta) liberarEdicion(); pintar(); }));
+  L.querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => accionar(Number(b.dataset.id), b.dataset.accion)));
+  const t = edicion && tareas.find((x) => x.id === edicion.tareaId);
+  if (edicion) {
+    pintarFotosForm();
+    const bf = $('btn-foto'); if (bf) bf.addEventListener('click', () => $('archivo-foto').click());
+    const bu = $('btn-ubicacion'); if (bu) bu.addEventListener('click', tomarUbicacion);
+    const bc = $('btn-cancelar-form'); if (bc) bc.addEventListener('click', () => { liberarEdicion(); pintar(); });
+    const bg = $('btn-guardar-termine'); if (bg) bg.addEventListener('click', () => guardarTermine(t));
+    const bn = $('btn-guardar-nopude'); if (bn) bn.addEventListener('click', () => guardarNoPude(t));
+    if (edicion.ubicacion) mostrarUbicacion();
+  }
+}
+
+/* ----- empecé / terminé / no pude ----- */
+async function encolar(t, accion, payload, fotosBlob) {
+  const registro = { clienteUuid: generarUuid(), creadoEn: Date.now(), tareaId: t.id, tareaTitulo: t.titulo, accion, payload: Object.assign({ marcado_en: new Date().toISOString() }, payload || {}), fotos: fotosBlob || [] };
+  try { await guardarEnColaOffline(STORE, registro); }                    // lo primero: que no se pierda aunque se cierre la app
+  catch (e) { aviso('No se pudo guardar en este celular. Revisa el espacio disponible e inténtalo de nuevo.'); return false; }
+  liberarEdicion();
+  await subirCola();
+  await refrescar(true);
+  const resto = (await leerCola()).find((r) => r.clienteUuid === registro.clienteUuid);
+  if (resto && resto.estado === 'fallido') { aviso(resto.error || 'No se pudo registrar.'); await borrarDeColaOffline(STORE, registro.clienteUuid); await refrescar(false); return false; }
+  aviso(resto ? 'Guardado en tu celular. Se sube solo cuando haya señal.' : 'Listo.', 'exito');
+  return true;
+}
+
+function accionar(id, accion) {
+  const t = tareas.find((x) => x.id === id);
+  if (!t) return;
+  aviso('');
+  if (accion === 'empece') return encolar(t, 'empece');
+  liberarEdicion();
+  edicion = { tareaId: id, accion, fotos: [], ubicacion: null };
+  abierta = id;
+  pintar();
+}
+async function guardarNoPude(t) {
+  const nota = $('f-nota').value.trim();
+  if (nota.length < 3) return aviso('Cuenta por qué no pudiste (al menos 3 letras).');
+  await encolar(t, 'no_pude', { nota });
+}
+async function guardarTermine(t) {
+  const nota = $('f-nota').value.trim();
+  const cantidad = $('f-cantidad') ? Number($('f-cantidad').value) : '';
+  const hayFoto = edicion.fotos.length > 0;
+  const previas = t.fotos || 0;
+  if (t.tipo === 'visita' && !hayFoto && !previas && !edicion.ubicacion) return aviso('Una visita se termina con una foto o con la ubicación.');
+  if (t.tipo === 'entrega') {
+    if (!Number.isInteger(cantidad) || cantidad < 1) return aviso('Escribe la cantidad que entregaste.');
+    if (!hayFoto && !previas) return aviso('Una entrega se termina con una foto.');
+  }
+  const u = edicion.ubicacion;
+  await encolar(t, 'termine', { nota, cantidad, latitud: u ? u.latitud : '', longitud: u ? u.longitud : '', precision_m: u ? u.precision_m : '' }, edicion.fotos.map((f) => f.blob));
+}
+
+/* ----- fotos: se reducen aquí (1.280 px, JPEG); el servidor las vuelve a reducir y quita el EXIF ----- */
+async function reducir(archivo) {
+  try {
+    const bmp = await createImageBitmap(archivo, { imageOrientation: 'from-image' });
+    const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob((b) => ok(b || archivo), 'image/jpeg', 0.72));
+  } catch (_) { return archivo; }
+}
+function liberarEdicion() { if (edicion) edicion.fotos.forEach((f) => URL.revokeObjectURL(f.url)); edicion = null; }
+function pintarFotosForm() {
+  const cont = $('fotos-tar');
+  if (!cont || !edicion) return;
+  cont.innerHTML = edicion.fotos.map((f, i) => `<div class="foto"><img src="${f.url}" alt="Foto ${i + 1}"><button type="button" data-quitar="${i}" aria-label="Quitar la foto ${i + 1}">×</button></div>`).join('');
+  cont.querySelectorAll('button[data-quitar]').forEach((b) => b.addEventListener('click', () => { const [f] = edicion.fotos.splice(Number(b.dataset.quitar), 1); if (f) URL.revokeObjectURL(f.url); pintarFotosForm(); }));
+  const t = tareas.find((x) => x.id === edicion.tareaId);
+  const bf = $('btn-foto');
+  if (bf) bf.style.display = edicion.fotos.length + (t ? t.fotos || 0 : 0) >= MAX_FOTOS ? 'none' : 'block';
+}
+
+/* ----- ubicación: opcional, con tiempo límite, NUNCA bloquea; una sola posición ----- */
+function mostrarUbicacion() {
+  const e = $('estado-ubicacion');
+  if (e) e.textContent = edicion && edicion.ubicacion ? 'Ubicación guardada.' : 'No se pudo obtener la ubicación. Puedes seguir sin ella.';
+}
+function pedirUbicacion() {
+  return new Promise((resolver) => {
+    if (!navigator.geolocation) return resolver(null);
+    let hecho = false;
+    const fin = (v) => { if (!hecho) { hecho = true; resolver(v); } };
+    setTimeout(() => fin(null), 9000);
+    navigator.geolocation.getCurrentPosition(
+      (p) => fin({ latitud: p.coords.latitude, longitud: p.coords.longitude, precision_m: Math.round(p.coords.accuracy) }),
+      () => fin(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+  });
+}
+async function tomarUbicacion() {
+  const e = $('estado-ubicacion');
+  if (e) e.textContent = 'Buscando tu ubicación…';
+  const u = await pedirUbicacion();
+  if (edicion) { edicion.ubicacion = u; mostrarUbicacion(); }
+}
+
+/* ----- carga ----- */
+async function cargarServidor() {
+  let datos = null, copia = false;
+  try { datos = await api('/tareas/mias'); if (datos) guardarCacheReferencia('mis_tareas', datos); }
+  catch (e) {
+    if (e && e.status === 403) { $('lista-servidor').innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitadas las tareas. Pídeselo al administrador de la campaña.</p>'; tareas = []; return false; }
+    datos = leerCacheReferencia('mis_tareas'); copia = !!datos;
+  }
+  if (!datos) { $('lista-servidor').innerHTML = '<p class="vacio-app">No se pudo cargar la lista. Con señal se carga sola.</p>'; return false; }
+  tareas = datos.tareas || [];
+  $('nota-copia').style.display = copia ? 'block' : 'none';
+  if (copia) $('nota-copia').textContent = 'Sin señal: se muestra la última lista que se guardó en este celular.';
+  const r = datos.resumen;
+  $('resumen').style.display = r ? 'flex' : 'none';
+  if (r) $('resumen').innerHTML = `<div><b>${esc(r.pendientes)}</b><span>Pendientes</span></div><div><b>${esc(r.vencen_hoy)}</b><span>Vencen hoy</span></div><div><b>${esc(r.vencidas)}</b><span>Vencidas</span></div>`;
+  return true;
+}
+async function refrescar(conSubida) {
+  await leerCola();
+  await cargarServidor();
+  await leerCola();
+  pintar();
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Mis tareas', 'Lo que tienes por hacer', '/app/inicio.html');
+  $('archivo-foto').addEventListener('change', async (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f || !edicion) return;
+    const t = tareas.find((x) => x.id === edicion.tareaId);
+    if (edicion.fotos.length + (t ? t.fotos || 0 : 0) >= MAX_FOTOS) return aviso(`Máximo ${MAX_FOTOS} fotos por tarea.`);
+    const blob = await reducir(f);
+    edicion.fotos.push({ blob, url: URL.createObjectURL(blob) });
+    pintarFotosForm();
+  });
+  await leerCola();
+  if (cola.length) await subirCola();
+  await refrescar(false);
+  window.addEventListener('online', async () => { await subirCola(); await refrescar(false); });
+})();
+</script>
+</body>
+</html>

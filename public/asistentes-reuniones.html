@@ -189,6 +189,7 @@
         <tbody id="tbody-asistentes"></tbody>
       </table>
     </div>
+    <p id="nota-contactos" style="display:none; font-size:0.85rem; color:var(--color-text-muted); margin:8px 0 0;">El teléfono y la cédula de los asistentes solo los ve el administrador y el responsable del evento.</p>
     <div id="vacio-asistentes" class="vacio" style="display:none; padding:20px 0;">Todavía no hay asistentes registrados para este evento.</div>
   </div>
 </div>
@@ -361,6 +362,7 @@ async function cargarAsistentesEvento() {
   const filas = await api(`/eventos/${eventoActualId}/asistentes`);
   const tbody = document.getElementById('tbody-asistentes');
   document.getElementById('vacio-asistentes').style.display = filas.length ? 'none' : 'block';
+  document.getElementById('nota-contactos').style.display = filas.length && filas.some(a => a.contactos_visibles === false) ? 'block' : 'none';
   tbody.innerHTML = filas.map(a => `
     <tr>
       <td>${escaparHtml(a.nombre_resuelto || '—')}</td>

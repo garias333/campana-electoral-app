@@ -283,6 +283,8 @@ app.use('/api/backup', require('./routes/backup.routes'));
 app.use('/api/push', require('./routes/push.routes'));
 // Solicitudes ciudadanas (parche 303): módulo apagado de fábrica (solo el administrador). Un aspirante con sublicencia no pasa: no está en PERMITIDOS.
 app.use('/api/solicitudes', require('./routes/solicitudes.routes'));
+// Tareas (parche 305): módulo apagado de fábrica (solo el administrador). Un aspirante con sublicencia no pasa: no está en PERMITIDOS.
+app.use('/api/tareas', require('./routes/tareas.routes'));
 // Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (solo con el módulo `recordatorios`).
 app.use('/api/recordatorios', require('./routes/recordatorios.routes'));
 
@@ -345,6 +347,10 @@ async function cerrarFotosDelDiaD(req, res, next) {
   // La lista de subcarpetas privadas es la de lib/carpetasPrivadas.js (la misma que prueba scripts/probar-solicitudes.js).
   if (carpetaPrivadaDe(req.path) === 'solicitudes') {
     return res.status(403).json({ error: 'Esta foto se abre desde la pantalla de Solicitudes ciudadanas.' });
+  }
+  // Y las de la evidencia de las tareas (parche 305): salen por /api/tareas/:id/fotos/:fotoId.
+  if (carpetaPrivadaDe(req.path) === 'tareas') {
+    return res.status(403).json({ error: 'Esta foto se abre desde la pantalla de Tareas.' });
   }
   let relativa;
   try {

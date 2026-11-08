@@ -1,7 +1,9 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
+const { esSuperadmin } = require('../config/superadmin');
+const { alcanceEventos, veContactos } = require('../lib/alcanceEventos');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const { geocodificarConTerritorio } = require('../config/geoTerritorio');
 const { armarWhereSql } = require('../config/filtros');
@@ -9,7 +11,49 @@ const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditori
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 
 const router = express.Router();
-router.use(requireAuth);
+router.use(requireAuth, calcularAlcance);
+
+/* EL PERMISO DEL MÓDULO, EN EL SERVIDOR, Y EL ALCANCE (parche 305). Hasta el 304 este archivo solo pedía sesión: cualquier rol con cuenta
+   listaba todos los eventos y leía nombre, teléfono y cédula de todos los asistentes. Ahora:
+     · hace falta «Ver» en alguno de los módulos cuyas pantallas llaman a esta API (eventos, agenda y asistentes_reuniones); el
+       administrador y el superadministrador pasan siempre. Falla CERRADO.
+     · cada ruta acota con lib/alcanceEventos.js; un evento fuera del alcance responde igual que uno que no existe (404).
+     · el teléfono y la cédula de los asistentes solo los ve el administrador y el responsable del evento. */
+const MODULOS_DE_EVENTOS = ['eventos', 'agenda', 'asistentes_reuniones'];
+function permisoVer(modulos) {
+  return async (req, res, next) => {
+    const u = req.session.usuario;
+    try {
+      if (u.rol === 'admin' || await esSuperadmin(u)) return next();
+      const [filas] = await pool.query('SELECT 1 FROM permisos_rol WHERE rol = ? AND modulo IN (?) AND permitido = 1 LIMIT 1', [u.rol, modulos]);
+      if (filas.length) return next();
+      return res.status(403).json({ error: 'Su tipo de usuario no tiene acceso a esta sección. Si lo necesita, pídaselo al administrador de la campaña.' });
+    } catch (err) {
+      console.error('[eventos] No se pudo comprobar el permiso:', err.code || err.message);
+      return res.status(403).json({ error: 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.' });
+    }
+  };
+}
+router.use(permisoVer(MODULOS_DE_EVENTOS));
+const verAsistentes = permisoVer(['eventos', 'asistentes_reuniones']);
+const verConsolidado = permisoVer(['asistentes_reuniones']);
+
+/** El evento SI está en el alcance de quien pregunta (`soloGestion`: para escribir, sin los eventos a los que solo está invitado). */
+async function eventoEnAlcance(req, id, soloGestion = false) {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n < 1) return null;
+  const a = alcanceEventos(req.alcance, 'e', soloGestion);
+  const [[fila]] = await pool.query(`SELECT e.* FROM eventos e WHERE e.id = ? AND ${a.sql}`, [n, ...a.valores]);
+  return fila || null;
+}
+/** La fila de asistente cuyo evento puede GESTIONAR quien pregunta, o null. */
+async function asistenteGestionable(req, asistenteId) {
+  const n = Number(asistenteId);
+  if (!Number.isInteger(n) || n < 1) return null;
+  const [[a]] = await pool.query('SELECT evento_id FROM evento_asistentes WHERE id = ?', [n]);
+  return a ? eventoEnAlcance(req, a.evento_id, true) : null;
+}
+const NO_ES_SUYO = { error: 'Ese evento no existe o no es de su equipo.' };
 
 router.get('/', async (req, res) => {
   const { desde, hasta, tipo, territorio_id } = req.query;
@@ -19,6 +63,8 @@ router.get('/', async (req, res) => {
   if (hasta) { condiciones.push('e.fecha_inicio <= ?'); params.push(hasta); }
   if (tipo) { condiciones.push('e.tipo = ?'); params.push(tipo); }
   if (territorio_id) { condiciones.push('e.territorio_id = ?'); params.push(territorio_id); }
+  const alcanceE = alcanceEventos(req.alcance, 'e');
+  condiciones.push(alcanceE.sql); params.push(...alcanceE.valores);
   const whereSql = armarWhereSql(condiciones);
 
   try {
@@ -43,8 +89,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id/asistentes', async (req, res) => {
+router.get('/:id/asistentes', verAsistentes, async (req, res) => {
   try {
+    const evento = await eventoEnAlcance(req, req.params.id);
+    if (!evento) return res.status(404).json(NO_ES_SUYO);
     // Un asistente puede venir de tres fuentes: un votante registrado, un
     // usuario del sistema (líder, coordinador...) sin fila propia en
     // Votantes, o un invitado escrito a mano — se resuelve un solo
@@ -61,9 +109,11 @@ router.get('/:id/asistentes', async (req, res) => {
        LEFT JOIN votantes v ON v.id = ea.votante_id
        LEFT JOIN usuarios u ON u.id = ea.usuario_id
        LEFT JOIN territorios tv ON tv.id = v.territorio_id
-       WHERE ea.evento_id = ?`, [req.params.id]
+       WHERE ea.evento_id = ?`, [evento.id]
     );
-    res.json(rows);
+    // El teléfono y la cédula: solo el administrador y el responsable del evento. Los demás reciben nombre, barrio y asistencia.
+    const contactos = veContactos(req.alcance, evento);
+    res.json(rows.map((r) => (contactos ? { ...r, contactos_visibles: true } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los asistentes del evento.' });
@@ -80,9 +130,11 @@ router.get('/:id/asistentes', async (req, res) => {
  * casos, así que dos invitados con el mismo nombre pueden aparecer juntos
  * aunque en la vida real sean personas distintas.
  */
-async function obtenerConsolidadoAsistentes() {
+async function obtenerConsolidadoAsistentes(alcance) {
+  const a = alcanceEventos(alcance, 'e');
   const [filas] = await pool.query(
     `SELECT e.id AS evento_id, e.titulo AS evento_titulo, e.fecha_inicio AS evento_fecha,
+            e.responsable_id AS evento_responsable_id,
             COALESCE(v.cedula, u.numero_identificacion) AS identidad_resuelta,
             COALESCE(v.nombre, u.nombre, ea.nombre_invitado) AS nombre_resuelto,
             COALESCE(v.telefono, u.telefono) AS telefono_resuelto,
@@ -92,7 +144,8 @@ async function obtenerConsolidadoAsistentes() {
      LEFT JOIN votantes v ON v.id = ea.votante_id
      LEFT JOIN usuarios u ON u.id = ea.usuario_id
      LEFT JOIN territorios tv ON tv.id = v.territorio_id
-     ORDER BY e.fecha_inicio ASC`
+     WHERE ${a.sql}
+     ORDER BY e.fecha_inicio ASC`, a.valores
   );
 
   const grupos = new Map();
@@ -101,29 +154,31 @@ async function obtenerConsolidadoAsistentes() {
     if (!grupos.has(clave)) {
       grupos.set(clave, {
         nombre: f.nombre_resuelto, identidad: f.identidad_resuelta,
-        telefono: f.telefono_resuelto, barrio: f.barrio_resuelto, reuniones: []
+        telefono: f.telefono_resuelto, barrio: f.barrio_resuelto, reuniones: [], contactos: false
       });
     }
+    // Teléfono y cédula de ESTA persona: solo si quien pregunta es administrador o responsable de alguno de los eventos a los que fue.
+    if (veContactos(alcance, { responsable_id: f.evento_responsable_id })) grupos.get(clave).contactos = true;
     grupos.get(clave).reuniones.push({ evento_id: f.evento_id, titulo: f.evento_titulo, fecha: f.evento_fecha });
   }
 
   return [...grupos.values()]
-    .map(g => ({ ...g, total_reuniones: g.reuniones.length }))
+    .map(({ contactos, ...g }) => ({ ...g, ...(contactos ? {} : { identidad: null, telefono: null }), total_reuniones: g.reuniones.length }))
     .sort((a, b) => b.total_reuniones - a.total_reuniones || (a.nombre || '').localeCompare(b.nombre || ''));
 }
 
-router.get('/asistentes-consolidado', async (req, res) => {
+router.get('/asistentes-consolidado', verConsolidado, async (req, res) => {
   try {
-    res.json(await obtenerConsolidadoAsistentes());
+    res.json(await obtenerConsolidadoAsistentes(req.alcance));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consolidando los asistentes.' });
   }
 });
 
-router.get('/asistentes-consolidado/exportar-excel', requiereImportarExportar('asistentes_reuniones'), async (req, res) => {
+router.get('/asistentes-consolidado/exportar-excel', verConsolidado, requiereImportarExportar('asistentes_reuniones'), async (req, res) => {
   try {
-    const consolidado = await obtenerConsolidadoAsistentes();
+    const consolidado = await obtenerConsolidadoAsistentes(req.alcance);
     const columnas = ['Nombre', 'Identidad', 'Teléfono', 'Barrio', 'Total de reuniones', 'Reuniones (fecha - título)'];
     const datos = consolidado.map(p => ({
       'Nombre': p.nombre || '',
@@ -151,6 +206,25 @@ router.get('/asistentes-consolidado/exportar-excel', requiereImportarExportar('a
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error exportando el consolidado de asistentes.' });
+  }
+});
+
+/** Un evento, con su responsable y sus cifras. Fuera del alcance responde igual que uno que no existe. */
+router.get('/:id', async (req, res) => {
+  try {
+    const evento = await eventoEnAlcance(req, req.params.id);
+    if (!evento) return res.status(404).json(NO_ES_SUYO);
+    const [[fila]] = await pool.query(
+      `SELECT e.*, t.nombre AS territorio_nombre, u.nombre AS responsable_nombre, coord.nombre AS coordinador_nombre, lid.nombre AS lider_nombre,
+              (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id) AS total_invitados,
+              (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id AND ea.asistio = 1) AS total_asistio
+         FROM eventos e LEFT JOIN territorios t ON t.id = e.territorio_id LEFT JOIN usuarios u ON u.id = e.responsable_id
+         LEFT JOIN usuarios coord ON coord.id = e.coordinador_id LEFT JOIN usuarios lid ON lid.id = e.lider_id
+        WHERE e.id = ?`, [evento.id]);
+    res.json({ ...fila, puede_ver_contactos: veContactos(req.alcance, evento) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error consultando el evento.' });
   }
 });
 
@@ -198,6 +272,7 @@ router.put('/:id', requireRole('admin', 'coordinador', 'lider'), async (req, res
     return res.status(400).json({ error: 'Título y fecha de inicio son obligatorios.' });
   }
   try {
+    if (!(await eventoEnAlcance(req, req.params.id, true))) return res.status(404).json(NO_ES_SUYO);
     const [[anterior]] = await pool.query(
       `SELECT lugar, territorio_id FROM eventos WHERE id = ?`, [req.params.id]
     );
@@ -257,6 +332,7 @@ router.delete('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
      500 legible; había que conservarlo. */
   let conexion;
   try {
+    if (!(await eventoEnAlcance(req, req.params.id, true))) return res.status(404).json(NO_ES_SUYO);
     conexion = await pool.getConnection();
     await conexion.beginTransaction();
     const [[ev]] = await conexion.query(
@@ -320,6 +396,7 @@ router.post('/:id/asistentes', requireRole('admin', 'coordinador', 'lider'), asy
     return res.status(400).json({ error: 'Debe indicar un votante existente, un usuario del sistema o el nombre del invitado.' });
   }
   try {
+    if (!(await eventoEnAlcance(req, req.params.id, true))) return res.status(404).json(NO_ES_SUYO);
     const [result] = await pool.query(
       `INSERT INTO evento_asistentes (evento_id, votante_id, usuario_id, nombre_invitado) VALUES (?,?,?,?)`,
       [req.params.id, votante_id || null, usuario_id || null, nombre_invitado || null]
@@ -334,6 +411,7 @@ router.post('/:id/asistentes', requireRole('admin', 'coordinador', 'lider'), asy
 router.put('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'lider'), async (req, res) => {
   const { confirmado, asistio } = req.body;
   try {
+    if (!(await asistenteGestionable(req, req.params.asistenteId))) return res.status(404).json(NO_ES_SUYO);
     await pool.query(
       `UPDATE evento_asistentes SET confirmado = ?, asistio = ? WHERE id = ?`,
       [confirmado ? 1 : 0, asistio ? 1 : 0, req.params.asistenteId]
@@ -347,6 +425,7 @@ router.put('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'lide
 
 router.delete('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'lider'), async (req, res) => {
   try {
+    if (!(await asistenteGestionable(req, req.params.asistenteId))) return res.status(404).json(NO_ES_SUYO);
     await pool.query(`DELETE FROM evento_asistentes WHERE id = ?`, [req.params.asistenteId]);
     res.json({ ok: true });
   } catch (err) {

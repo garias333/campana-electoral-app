@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tareas · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
+<style>
+  /* TAREAS (parche 305): la lista, el detalle y el formulario para crear y asignar. Lo hace el equipo desde el celular (/app/mis-tareas.html). */
+  .tar-resumen { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+  .tar-resumen .cifra { background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 10px 16px; min-width: 120px; }
+  .tar-resumen .cifra b { display: block; font-size: 1.3rem; }
+  .tar-resumen .cifra span { font-size: .78rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .tar-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .tar-filtros .campo { min-width: 150px; flex: 1 1 150px; }
+  .tar-filtros label, .tar-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
+  .tar-filtros select, .tar-filtros input[type=search], .tar-form select, .tar-form input, .tar-form textarea { width: 100%; box-sizing: border-box; }
+  .tar-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .tar-tabla th, .tar-tabla td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
+  .tar-tabla th { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .tar-tabla tbody tr { cursor: pointer; }
+  .tar-tabla tbody tr:hover { background: #F4F6FA; }
+  .tar-tabla tbody tr.activa { background: #EAF1FF; }
+  .tar-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; margin: 1px 2px 1px 0; }
+  .tar-estado.en_curso { background: #FDF3E0; color: #9A6200; }
+  .tar-estado.hecha { background: #E6EEFB; color: #1F4E9A; }
+  .tar-estado.verificada { background: #E7F6EE; color: #1E7B4F; }
+  .tar-estado.cancelada { background: #F3E6E4; color: #8A3B30; }
+  .tar-estado.alerta { background: #FBE9E7; color: #A93226; }
+  .tar-detalle, .tar-nueva { border: 1px solid #9DB7E8; border-radius: 12px; padding: 18px; background: #fff; margin-top: 16px; }
+  .tar-detalle h3, .tar-nueva h3 { margin: 0 0 6px; }
+  .tar-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 22px; margin: 12px 0; }
+  .tar-rejilla dt { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .tar-rejilla dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .tar-fotos { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .tar-fotos img { width: 150px; height: 112px; object-fit: cover; border-radius: 10px; border: 1px solid var(--color-border, #E2E5EA); cursor: zoom-in; background: #EEF0F3; }
+  .tar-historial { list-style: none; margin: 8px 0 0; padding: 0; }
+  .tar-historial li { border-left: 3px solid #C9D3E6; padding: 4px 0 8px 12px; font-size: .86rem; }
+  .tar-historial small { color: var(--color-text-muted); }
+  .tar-acciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; }
+  .tar-acciones .caja { border: 1px solid var(--color-border, #E2E5EA); border-radius: 10px; padding: 12px; }
+  .tar-acciones label { display: block; font-size: .8rem; font-weight: 600; margin: 6px 0 3px; }
+  .tar-acciones select, .tar-acciones input, .tar-acciones textarea { width: 100%; box-sizing: border-box; }
+  .tar-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 18px; margin-top: 10px; }
+  .tar-form .ancho { grid-column: 1 / -1; }
+  .tar-msg { font-size: .86rem; margin-top: 6px; }
+  .tar-msg.ok { color: #1E7B4F; } .tar-msg.error { color: #A93226; }
+  .tar-aviso { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 10px; padding: 10px 12px; font-size: .86rem; margin: 10px 0; }
+  .tar-nota { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 8px; padding: 6px 10px; margin: 6px 0; font-size: .86rem; }
+  @media (max-width: 820px) { .tar-tabla { display: block; overflow-x: auto; } }
+  #visor-foto { position: fixed; inset: 0; background: rgba(0,0,0,.82); display: none; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
+  #visor-foto img { max-width: 94vw; max-height: 92vh; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="crm-hero">
+      <div class="eyebrow">Territorio</div>
+      <h1>Tareas</h1>
+      <p>Lo que se le asigna al equipo para hacer en una zona: una visita, una entrega de material o una tarea libre. Quien la recibe la trabaja desde el celular,
+         la termina con su evidencia y quien la asignó la verifica o la devuelve. Aquí se crean, se asignan y se les hace seguimiento.</p>
+    </div>
+
+    <div id="tar-sin-permiso" class="tar-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
+
+    <div id="tar-contenido" style="display:none;">
+      <div class="tar-resumen" id="tar-resumen"></div>
+      <div style="margin-bottom:12px"><button type="button" class="btn-primario btn-sm" id="btn-nueva" style="display:none;">+ Nueva tarea</button></div>
+
+      <div id="tar-nueva"></div>
+
+      <div class="tar-filtros">
+        <div class="campo"><label for="f-estado">Estado</label>
+          <select id="f-estado" data-sin-ordenar><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_curso">En curso</option><option value="hecha">Hecha (por verificar)</option><option value="verificada">Verificada</option><option value="cancelada">Cancelada</option></select></div>
+        <div class="campo"><label for="f-tipo">Tipo</label>
+          <select id="f-tipo" data-sin-ordenar><option value="">Todos</option><option value="libre">Libre</option><option value="visita">Visita</option><option value="entrega">Entrega de material</option></select></div>
+        <div class="campo"><label for="f-responsable">Responsable</label><select id="f-responsable" data-sin-ordenar><option value="">Todos</option></select></div>
+        <div class="campo"><label for="f-zona">Zona</label><input type="search" id="f-zona" placeholder="Parte del nombre"></div>
+        <div class="campo"><label for="f-texto">Título</label><input type="search" id="f-texto" placeholder="Parte del título"></div>
+        <div class="campo"><label for="f-especial">Mostrar</label>
+          <select id="f-especial" data-sin-ordenar><option value="">Todas</option><option value="vencidas">Solo vencidas</option><option value="sin_responsable">Sin responsable activo</option></select></div>
+        <div><button type="button" class="btn-secundario btn-sm" id="f-quitar">Quitar filtros</button></div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="tar-tabla" id="tar-tabla">
+          <thead><tr><th>N.º</th><th>Tipo</th><th>Título</th><th>Zona</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th><th>Fotos</th></tr></thead>
+          <tbody id="tar-filas"><tr><td colspan="8">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
+        <button type="button" class="btn-secundario btn-sm" id="p-ant">← Anterior</button>
+        <span id="p-info" style="font-size:.84rem; color:var(--color-text-muted)"></span>
+        <button type="button" class="btn-secundario btn-sm" id="p-sig">Siguiente →</button>
+      </div>
+
+      <div id="tar-detalle"></div>
+    </div>
+  </main>
+</div>
+<div id="visor-foto"><img alt="Foto de la tarea"></div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual = null;
+let permisos = { ver: false, editar: false, agregar: false };
+let puedeAsignar = false;
+let responsables = [];
+let pagina = 1;
+let abierta = null;
+const ESTADOS = { pendiente: 'Pendiente', en_curso: 'En curso', hecha: 'Hecha', verificada: 'Verificada', cancelada: 'Cancelada' };
+const TIPOS = { libre: 'Tarea libre', visita: 'Visita a un barrio o vereda', entrega: 'Entrega de material' };
+const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
+const $ = (id) => document.getElementById(id);
+const fechaHora = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(t || '')); return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : ''; };
+const soloFecha = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
+const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'tar-msg ' + (tipo || ''); e.textContent = texto || ''; } };
+
+function marcas(t) {
+  const m = [`<span class="tar-estado ${esc(t.estado)}">${esc(t.estado_etiqueta)}</span>`];
+  if (t.vencida) m.push('<span class="tar-estado alerta">Vencida</span>');
+  else if (t.vence_hoy) m.push('<span class="tar-estado en_curso">Vence hoy</span>');
+  if (t.sin_responsable_activo) m.push('<span class="tar-estado alerta">Sin responsable activo</span>');
+  if (t.devuelta) m.push('<span class="tar-estado en_curso">Devuelta</span>');
+  if (t.no_pudo) m.push('<span class="tar-estado en_curso">No pudo</span>');
+  return m.join('');
+}
+
+async function cargarLista() {
+  const p = new URLSearchParams();
+  if ($('f-estado').value) p.set('estado', $('f-estado').value);
+  if ($('f-tipo').value) p.set('tipo', $('f-tipo').value);
+  if ($('f-responsable').value) p.set('asignada_a', $('f-responsable').value);
+  if ($('f-zona').value.trim()) p.set('zona', $('f-zona').value.trim());
+  if ($('f-texto').value.trim()) p.set('texto', $('f-texto').value.trim());
+  if ($('f-especial').value === 'vencidas') p.set('vencidas', '1');
+  if ($('f-especial').value === 'sin_responsable') p.set('sin_responsable', '1');
+  p.set('pagina', pagina); p.set('limite', 25);
+  const r = await api('/tareas?' + p.toString());
+  permisos = r.permisos || permisos;
+  puedeAsignar = !!r.puede_asignar;
+  $('btn-nueva').style.display = puedeAsignar ? '' : 'none';
+  $('tar-resumen').innerHTML = `<div class="cifra"><b>${esc(Object.values(r.porEstado).reduce((a, b) => a + b, 0))}</b><span>En total</span></div>`
+    + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${esc(r.porEstado[k] || 0)}</b><span>${esc(k === 'hecha' ? 'Por verificar' : ESTADOS[k])}</span></div>`).join('')
+    + `<div class="cifra"><b>${esc(r.vencidas)}</b><span>Vencidas</span></div><div class="cifra"><b>${esc(r.sin_responsable)}</b><span>Sin responsable activo</span></div>`;
+  $('tar-filas').innerHTML = r.tareas.map((t) => `<tr data-id="${t.id}" class="${abierta === t.id ? 'activa' : ''}">
+      <td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}</td><td>${esc(t.zona || '—')}</td><td>${esc(t.asignado || '—')}</td>
+      <td>${esc(soloFecha(t.fecha_limite))}</td><td>${marcas(t)}</td><td>${t.fotos ? '📷 ' + esc(t.fotos) : ''}</td></tr>`).join('')
+    || '<tr><td colspan="8">No hay tareas con esos filtros.</td></tr>';
+  const paginas = Math.max(1, Math.ceil(r.total / r.limite));
+  $('p-info').textContent = `Página ${r.pagina} de ${paginas} · ${r.total} tarea(s)`;
+  $('p-ant').disabled = r.pagina <= 1; $('p-sig').disabled = r.pagina >= paginas;
+  $('tar-filas').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => abrir(Number(tr.dataset.id))));
+}
+
+/* ----- crear y asignar ----- */
+let zonaElegida = null;      // { id, nombre } cuando el texto coincide con una zona del catálogo
+function formularioNueva() {
+  $('tar-nueva').innerHTML = `<div class="tar-nueva"><h3>Nueva tarea</h3>
+    <div class="tar-form">
+      <div><label for="n-tipo">Tipo</label><select id="n-tipo" data-sin-ordenar><option value="libre">Tarea libre</option><option value="visita">Visita a un barrio o vereda</option><option value="entrega">Entrega de material</option></select></div>
+      <div><label for="n-asignada">Se la asigno a</label><select id="n-asignada" data-sin-ordenar>${responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}${u.id === usuarioActual.id ? ' (yo)' : ''} — ${esc(u.rol)}</option>`).join('')}</select></div>
+      <div class="ancho"><label for="n-titulo">Título</label><input type="text" id="n-titulo" maxlength="150" placeholder="Qué hay que hacer, en pocas palabras"></div>
+      <div class="ancho"><label for="n-descripcion">Detalle (opcional)</label><textarea id="n-descripcion" rows="3" maxlength="2000"></textarea></div>
+      <div><label for="n-zona">Barrio o vereda <span id="n-zona-pista" style="font-weight:400"></span></label><input type="text" id="n-zona" list="n-zonas" maxlength="120" autocomplete="off"><datalist id="n-zonas"></datalist></div>
+      <div><label for="n-fecha">Fecha límite (opcional)</label><input type="date" id="n-fecha"></div>
+      <div id="n-bloque-cantidad" style="display:none;"><label for="n-cantidad">Cantidad prevista (opcional)</label><input type="number" id="n-cantidad" min="1"></div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;"><button type="button" class="btn-primario btn-sm" id="n-guardar">Crear y asignar</button><button type="button" class="btn-secundario btn-sm" id="n-cancelar">Cancelar</button></div>
+    <div id="n-msg" class="tar-msg"></div></div>`;
+  zonaElegida = null;
+  $('n-tipo').addEventListener('change', () => {
+    $('n-bloque-cantidad').style.display = $('n-tipo').value === 'entrega' ? '' : 'none';
+    $('n-zona-pista').textContent = $('n-tipo').value === 'visita' ? '(obligatorio en una visita)' : '(opcional)';
+  });
+  $('n-zona-pista').textContent = '(opcional)';
+  let temporizador;
+  $('n-zona').addEventListener('input', () => {
+    zonaElegida = null; clearTimeout(temporizador);
+    temporizador = setTimeout(async () => {
+      try {
+        const r = await api('/tareas/zonas?q=' + encodeURIComponent($('n-zona').value.trim()));
+        $('n-zonas').innerHTML = r.zonas.map((z) => `<option value="${esc(z.nombre)}">${esc(z.tipo)}${z.padre ? ' · ' + esc(z.padre) : ''}</option>`).join('');
+        window.__zonas = r.zonas;
+        const exacta = r.zonas.find((z) => z.nombre.toLowerCase() === $('n-zona').value.trim().toLowerCase());
+        zonaElegida = exacta ? { id: exacta.id, nombre: exacta.nombre } : null;
+      } catch (_) { /* sin lista: se escribe a mano */ }
+    }, 250);
+  });
+  $('n-cancelar').addEventListener('click', () => { $('tar-nueva').innerHTML = ''; });
+  $('n-guardar').addEventListener('click', async () => {
+    msg('n-msg', 'Guardando…', '');
+    const texto = $('n-zona').value.trim();
+    const cuerpo = {
+      tipo: $('n-tipo').value, titulo: $('n-titulo').value, descripcion: $('n-descripcion').value, asignada_a: Number($('n-asignada').value),
+      fecha_limite: $('n-fecha').value || '', cantidad_prevista: $('n-tipo').value === 'entrega' ? $('n-cantidad').value : '',
+      territorio_id: zonaElegida ? zonaElegida.id : '', zona_texto: zonaElegida ? '' : texto,
+    };
+    try {
+      const r = await api('/tareas', { method: 'POST', body: cuerpo });
+      $('tar-nueva').innerHTML = '';
+      await cargarLista(); await abrir(r.id);
+      if (r.aviso) msg('m-estado', r.aviso, 'error');
+    } catch (e) { msg('n-msg', e.message || 'No se pudo crear.', 'error'); }
+  });
+  $('n-titulo').focus();
+}
+
+/* ----- el detalle ----- */
+async function abrir(id) {
+  abierta = id;
+  $('tar-filas').querySelectorAll('tr').forEach((tr) => tr.classList.toggle('activa', Number(tr.dataset.id) === id));
+  const d = await api('/tareas/' + id);
+  const ubic = d.ubicacion
+    ? `<a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.ubicacion.latitud)}&mlon=${encodeURIComponent(d.ubicacion.longitud)}#map=17/${encodeURIComponent(d.ubicacion.latitud)}/${encodeURIComponent(d.ubicacion.longitud)}" target="_blank" rel="noopener">${esc(Number(d.ubicacion.latitud).toFixed(5))}, ${esc(Number(d.ubicacion.longitud).toFixed(5))}</a>${d.ubicacion.precision_m ? ` (±${esc(d.ubicacion.precision_m)} m)` : ''}`
+    : (d.con_ubicacion ? 'Hay una ubicación guardada; la ven quien la asignó y quien la hizo.' : 'Sin ubicación');
+  const cerrada = ['verificada', 'cancelada'].includes(d.estado);
+  $('tar-detalle').innerHTML = `<div class="tar-detalle">
+    <h3>Tarea n.º ${esc(d.id)} · ${esc(d.titulo)} ${marcas(d)}</h3>
+    <div class="meta">${esc(d.tipo_etiqueta)}</div>
+    ${d.descripcion ? `<p style="white-space:pre-wrap; margin:6px 0 0">${esc(d.descripcion)}</p>` : ''}
+    ${d.devuelta_nota && d.estado === 'en_curso' ? `<div class="tar-nota"><b>Se devolvió:</b> ${esc(d.devuelta_nota)}</div>` : ''}
+    ${d.no_pudo_nota && ['pendiente', 'en_curso'].includes(d.estado) ? `<div class="tar-nota"><b>No pudo:</b> ${esc(d.no_pudo_nota)} <small>(${esc(fechaHora(d.no_pudo_en))})</small></div>` : ''}
+    <dl class="tar-rejilla">
+      <div><dt>Responsable</dt><dd>${esc(d.asignado || '—')}</dd></div>
+      <div><dt>La asignó</dt><dd>${esc(d.creador || '—')}<br><small>${esc(fechaHora(d.creada_en))}</small></dd></div>
+      <div><dt>Zona</dt><dd>${esc(d.zona || '—')}</dd></div>
+      <div><dt>Fecha límite</dt><dd>${esc(soloFecha(d.fecha_limite))}</dd></div>
+      ${d.tipo === 'entrega' ? `<div><dt>Cantidad</dt><dd>${d.cantidad_entregada !== null && d.cantidad_entregada !== undefined ? esc(d.cantidad_entregada) + ' entregadas' : '—'}${d.cantidad_prevista ? ` · prevista ${esc(d.cantidad_prevista)}` : ''}</dd></div>` : ''}
+      ${d.hecha_en ? `<div><dt>La terminó</dt><dd>${esc(fechaHora(d.hecha_en))}${d.hecha_nota ? `<br>${esc(d.hecha_nota)}` : ''}</dd></div>` : ''}
+      <div><dt>Ubicación al terminar</dt><dd>${ubic}</dd></div>
+      ${d.verificada_en ? `<div><dt>Verificada</dt><dd>${esc(fechaHora(d.verificada_en))}</dd></div>` : ''}
+      ${d.motivo_cancelacion ? `<div><dt>Motivo de la cancelación</dt><dd>${esc(d.motivo_cancelacion)}</dd></div>` : ''}
+    </dl>
+    ${d.fotos.length ? `<div class="tar-fotos">${d.fotos.map((f) => `<img src="/api/tareas/${esc(d.id)}/fotos/${esc(f.id)}" alt="Foto ${esc(f.orden)} de la evidencia" loading="lazy">`).join('')}</div>` : ''}
+    ${d.puede_gestionar && !cerrada ? `<div class="tar-acciones">
+      ${d.estado === 'hecha' ? `<div class="caja"><b>Revisar lo que hizo</b>
+        <button type="button" class="btn-primario btn-sm" id="a-verificar" style="margin-top:6px">Verificar</button>
+        <label for="a-devolver-nota">Si falta algo, dile qué</label><textarea id="a-devolver-nota" rows="2" maxlength="500"></textarea>
+        <button type="button" class="btn-secundario btn-sm" id="a-devolver" style="margin-top:6px">Devolver</button><div id="m-estado" class="tar-msg"></div></div>` : '<div id="m-estado" class="tar-msg" style="display:none"></div>'}
+      <div class="caja"><b>Cambiar</b>
+        <label for="e-titulo">Título</label><input type="text" id="e-titulo" maxlength="150" value="${esc(d.titulo)}">
+        <label for="e-fecha">Fecha límite</label><input type="date" id="e-fecha" value="${esc(d.fecha_limite || '')}">
+        ${d.puede_asignar && ['pendiente', 'en_curso'].includes(d.estado) ? `<label for="e-asignada">Responsable</label><select id="e-asignada" data-sin-ordenar>${responsables.map((u) => `<option value="${esc(u.id)}" ${u.id === d.asignada_a ? 'selected' : ''}>${esc(u.nombre)} — ${esc(u.rol)}</option>`).join('')}${responsables.some((u) => u.id === d.asignada_a) ? '' : `<option value="${esc(d.asignada_a)}" selected>${esc(d.asignado || 'Actual')}</option>`}</select>` : ''}
+        <button type="button" class="btn-secundario btn-sm" id="e-guardar" style="margin-top:8px">Guardar los cambios</button><div id="m-editar" class="tar-msg"></div></div>
+      <div class="caja"><b>Cancelar la tarea</b><label for="a-cancelar-nota">Motivo</label><textarea id="a-cancelar-nota" rows="2" maxlength="255"></textarea>
+        <button type="button" class="btn-peligro btn-sm" id="a-cancelar" style="margin-top:8px">Cancelar la tarea</button><div id="m-cancelar" class="tar-msg"></div></div>
+    </div>` : '<div id="m-estado" class="tar-msg"></div>'}
+    <h4 style="margin:16px 0 0">Historial</h4>
+    <ul class="tar-historial">${d.historial.map((h) => `<li>${linea(h)}<br><small>${esc(fechaHora(h.creado_en))}${h.usuario_nombre ? ' · ' + esc(h.usuario_nombre) : ''}</small></li>`).join('')}</ul>
+  </div>`;
+  const on = (i, f) => { const e = $(i); if (e) e.addEventListener('click', f); };
+  on('a-verificar', () => cambiar(id, 'verificar', {}, 'm-estado', 'Verificada.'));
+  on('a-devolver', () => cambiar(id, 'devolver', { nota: $('a-devolver-nota').value }, 'm-estado', 'Devuelta.'));
+  on('a-cancelar', () => { if (confirm('¿Cancelar esta tarea?')) cambiar(id, 'cancelar', { nota: $('a-cancelar-nota').value }, 'm-cancelar', 'Cancelada.'); });
+  on('e-guardar', () => editar(id));
+  $('tar-detalle').querySelectorAll('.tar-fotos img').forEach((im) => im.addEventListener('click', () => { $('visor-foto').querySelector('img').src = im.src; $('visor-foto').style.display = 'flex'; }));
+  $('tar-detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function linea(h) {
+  const e = (k) => ESTADOS[k] || k;
+  switch (h.tipo) {
+    case 'creada': return 'Se creó y se asignó.';
+    case 'empezada': return 'Empezó.';
+    case 'hecha': return `La terminó.${h.nota ? '<br>' + esc(h.nota) : ''}`;
+    case 'no_pudo': return `No pudo: ${esc(h.nota || '')}`;
+    case 'devuelta': return `Se devolvió: ${esc(h.nota || '')}`;
+    case 'verificada': return `Se verificó.${h.nota ? '<br>' + esc(h.nota) : ''}`;
+    case 'cancelada': return `Se canceló: ${esc(h.nota || '')}`;
+    case 'reasignada': return `Responsable: ${esc(h.asignada_antes_nombre || 'ninguno')} → <b>${esc(h.asignada_despues_nombre || 'ninguno')}</b>`;
+    case 'editada': return esc(h.nota || 'Se editó.');
+    default: return esc(h.tipo) + (h.estado_despues ? ' → ' + esc(e(h.estado_despues)) : '');
+  }
+}
+
+async function cambiar(id, accion, cuerpo, idMsg, ok) {
+  msg(idMsg, 'Guardando…', '');
+  try { await api(`/tareas/${id}/${accion}`, { method: 'POST', body: cuerpo }); await cargarLista(); await abrir(id); msg('m-estado', ok, 'ok'); }
+  catch (e) { msg(idMsg, e.message || 'No se pudo guardar.', 'error'); }
+}
+async function editar(id) {
+  msg('m-editar', 'Guardando…', '');
+  const cuerpo = { titulo: $('e-titulo').value, fecha_limite: $('e-fecha').value || '' };
+  if ($('e-asignada')) cuerpo.asignada_a = Number($('e-asignada').value);
+  try {
+    const r = await api('/tareas/' + id, { method: 'PUT', body: cuerpo });
+    await cargarLista(); await abrir(id);
+    msg('m-editar', r && r.aviso ? 'Guardado. ' + r.aviso : 'Guardado.', r && r.aviso ? 'error' : 'ok');
+  } catch (e) { msg('m-editar', e.message || 'No se pudo guardar.', 'error'); }
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/tareas.html');
+  if (!usuarioActual) return;
+  if (!puedeVer(usuarioActual, 'tareas')) { $('tar-sin-permiso').style.display = 'block'; return; }
+  try {
+    try { responsables = (await api('/tareas/responsables')).responsables; } catch (_) { responsables = []; }
+    $('f-responsable').innerHTML = '<option value="">Todos</option>' + responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('');
+    $('tar-contenido').style.display = 'block';
+    await cargarLista();
+  } catch (e) { $('tar-sin-permiso').style.display = 'block'; $('tar-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
+  ['f-estado', 'f-tipo', 'f-responsable', 'f-especial'].forEach((i) => $(i).addEventListener('change', () => { pagina = 1; cargarLista(); }));
+  let t; ['f-zona', 'f-texto'].forEach((i) => $(i).addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { pagina = 1; cargarLista(); }, 300); }));
+  $('f-quitar').addEventListener('click', () => { ['f-estado', 'f-tipo', 'f-responsable', 'f-zona', 'f-texto', 'f-especial'].forEach((i) => { $(i).value = ''; }); pagina = 1; cargarLista(); });
+  $('p-ant').addEventListener('click', () => { pagina = Math.max(1, pagina - 1); cargarLista(); });
+  $('p-sig').addEventListener('click', () => { pagina += 1; cargarLista(); });
+  $('visor-foto').addEventListener('click', () => { $('visor-foto').style.display = 'none'; });
+  $('btn-nueva').addEventListener('click', formularioNueva);
+})();
+</script>
+</body>
+</html>
