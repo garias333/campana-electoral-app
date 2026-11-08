@@ -14,7 +14,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 305** (`parches/campana-parche305.zip`, 217.708 bytes,
   sha256 `68485c5b1f60fe90ee4770d73524f5dbc339589f782745f41598bff07e3c68ad`, 25 archivos): «Eventos con permiso y alcance + Tareas, Fases 1 y 2 (Requiere el 304)».
-  **Generado el 8 de noviembre de 2026, SIN publicar ni registrar** (lo corre el usuario con `publicar-parche.sh 305` y `registrar-parche.js`; debe quedar INACTIVO).
+  **Publicado y registrado el 8 de noviembre de 2026** (lo corrió el usuario como root): `parche-305.zip` en el servidor de licencias con huella igual a la local (`68485c5b1f60fe90`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: tablas `tareas`, `tarea_historial`, `tarea_fotos`, módulo `tareas` solo para el administrador y 2 reglas de recordatorio `tarea_vence` apagadas; repetible). **Requiere el 304** (`lib/recordatorios.js` carga `recordatoriosSolicitudes`). Service worker `v175`. Cola sin señal: `OFFLINE_DB_VERSION = 8`. Detalle en «Parche 305».
   **Ojo: la Parte A (eventos) CIERRA UNA FUGA Y CAMBIA LO QUE VE CADA ROL apenas se aplique** (no depende de ningún interruptor): ver «Parche 305».
   El anterior, el 304 (`parches/campana-parche304.zip`, 176.354 bytes,
@@ -242,7 +242,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 305 — Eventos con permiso y alcance + Tareas, Fases 1 y 2 (8 de noviembre de 2026, generado, SIN publicar, TOCA LA BASE)
+## Parche 305 — Eventos con permiso y alcance + Tareas, Fases 1 y 2 (8 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 **Requiere el 304.** Service worker `v175`. Dos cosas con riesgo muy distinto: la Parte A es un **cierre de seguridad que rige apenas se aplica**; las Partes B y C son un módulo nuevo **apagado de fábrica**.
 
