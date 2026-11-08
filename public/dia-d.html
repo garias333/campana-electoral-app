@@ -103,7 +103,7 @@
         <div id="grafico-candidatos-contenedor" style="flex:1; min-width:280px;"></div>
         <div class="tabla-contenedor" style="flex:0 0 auto; min-width:240px;">
           <table>
-            <thead><tr><th>Candidato</th><th>Votos</th></tr></thead>
+            <thead><tr><th>Candidato</th><th class="col-num">Votos</th></tr></thead>
             <tbody id="tbody-candidatos-votos"></tbody>
           </table>
         </div>
@@ -121,7 +121,7 @@
       </div>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>Alertas</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
+          <thead><tr><th>Puesto</th><th class="col-num">Mesa</th><th class="col-num">Votos candidato</th><th class="col-num">Total votos en la mesa</th><th>Testigo</th><th>Hora</th><th>Novedad</th><th>Alertas</th><th class="col-num">E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-mesas"></tbody>
         </table>
       </div>
@@ -132,7 +132,7 @@
       <h3 style="margin-top:0;">Historial completo</h3>
       <div class="tabla-contenedor">
         <table>
-          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th>Mesa</th><th>Votos candidato</th><th>Novedad</th><th>Alertas</th><th>E-14</th><th>Otros documentos</th><th></th></tr></thead>
+          <thead><tr><th>Hora</th><th>Testigo</th><th>Puesto</th><th class="col-num">Mesa</th><th class="col-num">Votos candidato</th><th>Novedad</th><th>Alertas</th><th class="col-num">E-14</th><th>Otros documentos</th><th></th></tr></thead>
           <tbody id="tbody-historial"></tbody>
         </table>
       </div>
@@ -169,7 +169,7 @@
         </div>
         <div class="tabla-contenedor">
           <table>
-            <thead><tr><th>Líder</th><th class="col-num">Votantes</th><th class="col-num">Votaron</th><th class="col-num">Faltan</th><th class="col-num">%</th><th>Última marca</th><th>Teléfono</th></tr></thead>
+            <thead><tr><th>Líder</th><th class="col-num">Votantes</th><th class="col-num">Votaron</th><th class="col-num">Faltan</th><th class="col-num">%</th><th class="col-num">Última marca</th><th>Teléfono</th></tr></thead>
             <tbody id="tbody-ranking"></tbody>
           </table>
         </div>
@@ -279,7 +279,7 @@
             </div>
           </div>
           <div class="tabla-contenedor"><table>
-            <thead><tr><th style="width:34px;"></th><th>Puesto · Mesa</th><th>Testigo</th><th>Oficial</th><th class="col-num">Δ propio</th><th>Foto</th><th>Estado</th></tr></thead>
+            <thead><tr><th class="col-num" style="width:34px;"></th><th>Puesto · Mesa</th><th>Testigo</th><th>Oficial</th><th class="col-num">Δ propio</th><th class="col-num">Foto</th><th>Estado</th></tr></thead>
             <tbody id="tbody-dif"></tbody>
           </table></div>
           <div id="dif-vacio" class="vacio" style="display:none;"><div class="icono-vacio">✅</div>No hay mesas con ese filtro.</div>
@@ -506,7 +506,7 @@ async function cargarResumenCandidatos() {
   document.getElementById('tbody-candidatos-votos').innerHTML = filas.map(f => `
     <tr>
       <td>${escaparHtml(f.nombre)}${f.esPropio ? ' ★' : ''}</td>
-      <td class="mono">${formatoMillares(f.votos)}</td>
+      <td class="mono col-num">${formatoMillares(f.votos)}</td>
     </tr>
   `).join('');
   dibujarGraficoCandidatos(filas);
@@ -530,14 +530,14 @@ function pintarTablasDeReportes() {
   tbodyMesas.innerHTML = mesas.map(f => `
     <tr class="${f.novedad ? 'novedad-fila' : ''}">
       <td>${escaparHtml(f.puesto_votacion)}</td>
-      <td>${escaparHtml(f.mesa_votacion)}</td>
-      <td class="mono">${f.votos_candidato ?? '—'}</td>
-      <td class="mono">${f.total_votos_mesa ?? '—'}</td>
+      <td class="col-num">${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono col-num">${f.votos_candidato ?? '—'}</td>
+      <td class="mono col-num">${f.total_votos_mesa ?? '—'}</td>
       <td>${escaparHtml(f.testigo_nombre)}</td>
       <td>${formatoFecha(f.created_at, true)}</td>
       <td>${escaparHtml(f.novedad || '')}</td>
       <td>${celdaAlertas(f.alertas)}</td>
-      <td>${celdaFotoE14(f.id, f.foto_e14_url)}</td>
+      <td class="col-num">${celdaFotoE14(f.id, f.foto_e14_url)}</td>
       <td>${celdaDocumentos(f.id, f.documentos)}</td>
       <td>${celdaEliminarReporte(f.id)}</td>
     </tr>
@@ -548,11 +548,11 @@ function pintarTablasDeReportes() {
       <td>${formatoFecha(f.created_at, true)}</td>
       <td>${escaparHtml(f.testigo_nombre)}</td>
       <td>${escaparHtml(f.puesto_votacion)}</td>
-      <td>${escaparHtml(f.mesa_votacion)}</td>
-      <td class="mono">${f.votos_candidato ?? '—'}</td>
+      <td class="col-num">${escaparHtml(f.mesa_votacion)}</td>
+      <td class="mono col-num">${f.votos_candidato ?? '—'}</td>
       <td>${escaparHtml(f.novedad || '')}</td>
       <td>${celdaAlertas(f.alertas)}</td>
-      <td>${celdaFotoE14(f.id, f.foto_e14_url)}</td>
+      <td class="col-num">${celdaFotoE14(f.id, f.foto_e14_url)}</td>
       <td>${celdaDocumentos(f.id, f.documentos)}</td>
       <td>${celdaEliminarReporte(f.id)}</td>
     </tr>
@@ -633,7 +633,7 @@ async function cargarAvance() {
       <tr class="${l.sin_movimiento ? 'novedad-fila' : ''}">
         <td>${escaparHtml(l.nombre)}</td><td class="mono col-num">${l.total}</td><td class="mono col-num">${l.votaron}</td>
         <td class="mono col-num">${l.faltan}</td><td class="mono col-num">${fmtP(l.pct)}</td>
-        <td>${l.ultima_marca ? String(l.ultima_marca).slice(11, 16) : '<span style="color:var(--color-no-apoya);">sin marcas</span>'}${l.sin_movimiento ? ' ⚠' : ''}</td>
+        <td class="col-num">${l.ultima_marca ? String(l.ultima_marca).slice(11, 16) : '<span style="color:var(--color-no-apoya);">sin marcas</span>'}${l.sin_movimiento ? ' ⚠' : ''}</td>
         <td>${l.telefono ? `<a href="tel:${escaparHtml(l.telefono)}">${escaparHtml(l.telefono)}</a>` : '—'}</td>
       </tr>`).join('');
   }
@@ -936,11 +936,11 @@ async function cargarDiferencias(soloContador) {
     const resumen = f.diferencias.length ? f.diferencias.map(d => `${escaparHtml(d.candidato)} ${d.oficial} (${d.delta > 0 ? '+' : ''}${d.delta})`).join(' · ') : 'Coincide';
     const dp = f.delta_propio;
     return `<tr data-i="${i}" style="cursor:pointer;">
-      <td><input type="checkbox" class="dif-marca" data-i="${i}" ${f.estado === 'para_reclamar' ? 'checked' : ''} style="width:auto;"></td>
+      <td class="col-num"><input type="checkbox" class="dif-marca" data-i="${i}" ${f.estado === 'para_reclamar' ? 'checked' : ''} style="width:auto;"></td>
       <td>${escaparHtml(f.puesto)} · Mesa ${f.mesa}<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(f.municipio)} · ${f.fuente}</div></td>
       <td>${escaparHtml(f.testigo)}</td><td style="font-size:0.82rem;">${resumen}</td>
       <td class="mono col-num" style="${dp !== null && dp < 0 ? 'color:var(--color-no-apoya,#A93226); font-weight:700;' : (dp === 0 ? 'color:var(--color-confirmado,#1E7245);' : '')}">${dp === null ? '—' : (dp > 0 ? '+' : '') + dp}${propio ? '' : ''}</td>
-      <td>${f.tiene_foto ? `<a href="/api/dia-d/reportes/${f.reporte_id}/foto" target="_blank" rel="noopener" onclick="event.stopPropagation()">📷</a>` : '—'}</td>
+      <td class="col-num">${f.tiene_foto ? `<a href="/api/dia-d/reportes/${f.reporte_id}/foto" target="_blank" rel="noopener" onclick="event.stopPropagation()">📷</a>` : '—'}</td>
       <td>${f.estado ? ETQ[f.estado] : '—'}${f.nota ? `<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(String(f.nota).slice(0, 60))}</div>` : ''}</td></tr>`;
   }).join('');
 }

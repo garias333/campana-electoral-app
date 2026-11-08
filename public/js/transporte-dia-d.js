@@ -56,14 +56,14 @@
         '<strong id="tr-n-sel">0 seleccionados</strong><select id="tr-asignar-a"></select>' +
         '<button type="button" class="btn-acento btn-sm" id="tr-btn-asignar">Asignar</button>' +
         '<button type="button" class="btn-secundario btn-sm" id="tr-btn-quitar">Quitar de su conductor</button></div>' +
-      '<div class="tabla-contenedor"><table><thead><tr><th style="width:28px;"><input type="checkbox" id="tr-todos" style="width:auto;" title="Elegir todos los que se ven"></th><th>Persona</th><th>Dirección</th><th>Pers.</th><th>Estado</th><th>Conductor</th><th></th></tr></thead><tbody id="tr-tbody-demanda"></tbody></table></div>' +
+      '<div class="tabla-contenedor"><table><thead><tr><th class="col-num" style="width:28px;"><input type="checkbox" id="tr-todos" style="width:auto;" title="Elegir todos los que se ven"></th><th>Persona</th><th>Dirección</th><th class="col-num">Pers.</th><th>Estado</th><th>Conductor</th><th></th></tr></thead><tbody id="tr-tbody-demanda"></tbody></table></div>' +
       '<div class="vacio" id="tr-vacio-demanda" style="display:none;"><div class="icono-vacio">🚐</div>Nadie en esta lista. Los líderes marcan «necesita transporte» en Faltan por votar o en la ficha de la persona.</div></div>' +
 
       '<div class="card" style="margin-bottom:18px;"><div class="toolbar"><h3 style="margin:0;">Conductores</h3><button type="button" class="btn-acento btn-sm" id="tr-btn-nuevo-cond">+ Nuevo conductor</button></div>' +
       '<form id="tr-form-cond" style="display:none; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">' +
         '<label>Nombre<br><input id="tr-c-nombre" maxlength="120" required></label><label>Celular<br><input id="tr-c-celular" inputmode="numeric" maxlength="12" placeholder="3001234567"></label>' +
         '<label>Vehículo<br><select id="tr-c-veh"></select></label><button type="submit" class="btn-acento btn-sm" id="tr-c-guardar">Guardar</button><button type="button" class="btn-secundario btn-sm" id="tr-c-cancelar">Cancelar</button></form>' +
-      '<div class="tabla-contenedor"><table><thead><tr><th>Conductor</th><th>Vehículo</th><th>Carga</th><th>Enlace para el conductor</th><th>Ordenar paradas</th><th></th></tr></thead><tbody id="tr-tbody-cond"></tbody></table></div>' +
+      '<div class="tabla-contenedor"><table><thead><tr><th>Conductor</th><th>Vehículo</th><th class="col-num">Carga</th><th>Enlace para el conductor</th><th>Ordenar paradas</th><th></th></tr></thead><tbody id="tr-tbody-cond"></tbody></table></div>' +
       '<div class="vacio" id="tr-vacio-cond" style="display:none;">Todavía no hay conductores.</div></div>' +
 
       '<div class="card"><div class="toolbar"><h3 style="margin:0;">Vehículos</h3><button type="button" class="btn-acento btn-sm" id="tr-btn-nuevo-veh">+ Nuevo vehículo</button></div>' +
@@ -71,7 +71,7 @@
         '<label>Placa<br><input id="tr-v-placa" maxlength="12" required style="text-transform:uppercase;"></label><label>Tipo<br><select id="tr-v-tipo"></select></label>' +
         '<label>Capacidad (personas)<br><input id="tr-v-cap" type="number" min="1" max="80" value="4" style="width:90px;"></label><label>Descripción<br><input id="tr-v-desc" maxlength="150"></label>' +
         '<button type="submit" class="btn-acento btn-sm">Guardar</button><button type="button" class="btn-secundario btn-sm" id="tr-v-cancelar">Cancelar</button></form>' +
-      '<div class="tabla-contenedor"><table><thead><tr><th>Placa</th><th>Tipo</th><th>Capacidad</th><th>Descripción</th><th></th></tr></thead><tbody id="tr-tbody-veh"></tbody></table></div>' +
+      '<div class="tabla-contenedor"><table><thead><tr><th>Placa</th><th>Tipo</th><th class="col-num">Capacidad</th><th>Descripción</th><th></th></tr></thead><tbody id="tr-tbody-veh"></tbody></table></div>' +
       '<div class="vacio" id="tr-vacio-veh" style="display:none;">Todavía no hay vehículos.</div></div>';
 
     $('tr-filtro').addEventListener('change', function (e) { estado.filtro = e.target.value; recargarDemanda(); });
@@ -120,10 +120,10 @@
       var b = v.barrio || 'Sin barrio';
       if (b !== barrio) { barrio = b; cuerpo += '<tr><td colspan="7" style="background:#F7F9FC; color:var(--color-text-muted); padding-left:24px;">' + esc(b) + '</td></tr>'; }
       var chip = v.ya_voto ? '<span style="color:#0A5348;">Ya votó</span>' : (v.estado ? esc(ESTADOS[v.estado] || v.estado) : '<span style="color:#8A5A00;">Sin asignar</span>');
-      cuerpo += '<tr><td><input type="checkbox" data-sel="' + v.id + '" style="width:auto;"' + (estado.sel[v.id] ? ' checked' : '') + (v.ya_voto ? ' disabled' : '') + '></td>' +
+      cuerpo += '<tr><td class="col-num"><input type="checkbox" data-sel="' + v.id + '" style="width:auto;"' + (estado.sel[v.id] ? ' checked' : '') + (v.ya_voto ? ' disabled' : '') + '></td>' +
         '<td>' + esc(v.nombre) + (v.mesa ? ' <small style="color:var(--color-text-muted);">Mesa ' + esc(v.mesa) + '</small>' : '') + '</td>' +
         '<td>' + esc(v.direccion || '—') + (v.latitud == null ? ' <small title="Sin coordenadas: no entra en «ordenar por cercanía»" style="color:#8A5A00;">📍?</small>' : '') + '</td>' +
-        '<td>' + (v.personas || 1) + '</td><td>' + chip + '</td>' +
+        '<td class="col-num">' + (v.personas || 1) + '</td><td>' + chip + '</td>' +
         '<td>' + (v.conductor ? esc(v.conductor) + (v.orden ? ' <small>#' + v.orden + '</small>' : '') : '—') + '</td>' +
         '<td>' + (v.asignacion_id ? '<button type="button" class="btn-secundario btn-sm" data-detalle="' + v.id + '" title="Personas y nota para el conductor">✎</button>' : '') + '</td></tr>';
     });
@@ -188,7 +188,7 @@
       return '<tr' + (c.activo ? '' : ' style="opacity:.55;"') + '><td><strong>' + esc(c.nombre) + '</strong><br><small>' + esc(c.celular || 'sin celular') + (c.activo ? '' : ' · desactivado') + '</small></td>' +
         '<td><select data-veh="' + c.id + '"><option value="">Sin vehículo</option>' + estado.vehiculos.filter(function (v) { return v.activo || v.id === c.vehiculo_id; }).map(function (v) {
           return '<option value="' + v.id + '"' + (v.id === c.vehiculo_id ? ' selected' : '') + '>' + esc(v.placa) + '</option>'; }).join('') + '</select></td>' +
-        '<td><span' + (c.excede ? ' style="color:#A93226; font-weight:700;" title="Pasa de la capacidad del vehículo"' : '') + '>' + carga + (c.excede ? ' ⚠' : '') + '</span><br><small>' + c.paradas + ' paradas</small></td>' +
+        '<td class="col-num"><span' + (c.excede ? ' style="color:#A93226; font-weight:700;" title="Pasa de la capacidad del vehículo"' : '') + '>' + carga + (c.excede ? ' ⚠' : '') + '</span><br><small>' + c.paradas + ' paradas</small></td>' +
         '<td><div style="display:flex; gap:6px; flex-wrap:wrap;">' +
           '<a class="btn-secundario btn-sm" href="' + esc(wa) + '" target="_blank" rel="noopener">WhatsApp</a><a class="btn-secundario btn-sm" href="' + esc(sms) + '">SMS</a>' +
           '<button type="button" class="btn-secundario btn-sm" data-copiar="' + c.id + '">Copiar</button><button type="button" class="btn-secundario btn-sm" data-rotar="' + c.id + '" title="El enlace anterior deja de servir">Rotar</button></div></td>' +
@@ -249,7 +249,7 @@
   // ---------------------------------------------------------------- vehículos
   function pintarVehiculos() {
     $('tr-tbody-veh').innerHTML = estado.vehiculos.map(function (v) {
-      return '<tr' + (v.activo ? '' : ' style="opacity:.55;"') + '><td><strong>' + esc(v.placa) + '</strong></td><td>' + esc(v.tipo) + '</td><td>' + v.capacidad + '</td><td>' + esc(v.descripcion || '') + '</td>' +
+      return '<tr' + (v.activo ? '' : ' style="opacity:.55;"') + '><td><strong>' + esc(v.placa) + '</strong></td><td>' + esc(v.tipo) + '</td><td class="col-num">' + v.capacidad + '</td><td>' + esc(v.descripcion || '') + '</td>' +
         '<td><button type="button" class="btn-secundario btn-sm" data-editar-veh="' + v.id + '">Editar</button> <button type="button" class="btn-secundario btn-sm" data-activo-veh="' + v.id + '">' + (v.activo ? 'Desactivar' : 'Activar') + '</button></td></tr>';
     }).join('');
     $('tr-vacio-veh').style.display = estado.vehiculos.length ? 'none' : 'block';

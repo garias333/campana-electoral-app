@@ -53,8 +53,8 @@
         <div class="mono" id="contador-testigos" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
       </div>
       <div class="tabla-contenedor">
-        <table>
-          <thead><tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Número de identificación</th><th>Teléfono</th><th>Puesto de votación</th><th>Mesa</th><th>Activo</th><th></th></tr></thead>
+        <table class="tabla-alineada">
+          <thead><tr><th class="col-num">ID</th><th>Nombre</th><th>Tipo</th><th>Número de identificación</th><th>Teléfono</th><th>Puesto de votación</th><th class="col-num">Mesa</th><th class="col-num">Activo</th><th></th></tr></thead>
           <tbody id="tbody-testigos"></tbody>
         </table>
       </div>
@@ -310,14 +310,14 @@ function renderizarTestigos() {
   document.getElementById('vacio-testigos').style.display = filas.length ? 'none' : 'block';
   document.getElementById('tbody-testigos').innerHTML = filas.map((f, i) => `
     <tr>
-      <td class="mono">${i + 1}</td>
+      <td class="mono col-num">${i + 1}</td>
       <td>${escaparHtml(f.nombre)}</td>
       <td>${f.tipo_testigo === 'puesto' ? 'Coordinador de puesto' : 'Testigo electoral'}</td>
       <td>${escaparHtml(f.numero_identificacion || '—')}</td>
       <td>${celdaTelefonoWhatsApp(f.telefono)}</td>
       <td>${escaparHtml(f.puesto_votacion || '—')}</td>
-      <td>${f.tipo_testigo === 'puesto' ? '<span style="color:var(--color-text-muted);">Varias</span>' : escaparHtml(f.mesa_votacion || '—')}</td>
-      <td>${f.activo ? 'Sí' : 'No'}</td>
+      <td class="col-num">${f.tipo_testigo === 'puesto' ? '<span style="color:var(--color-text-muted);">Varias</span>' : escaparHtml(f.mesa_votacion || '—')}</td>
+      <td class="col-num">${f.activo ? 'Sí' : 'No'}</td>
       <td>
         <button class="btn-secundario btn-sm" onclick="abrirEdicionTestigo(${f.id})">Editar</button>
         ${esAdmin ? `<button class="btn-secundario btn-sm"  onclick="eliminarTestigo(${f.id})">Eliminar</button>` : ''}
