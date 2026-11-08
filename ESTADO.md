@@ -12,10 +12,12 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 300** (`parches/campana-parche300.zip`, 148.675 bytes,
-  sha256 `53b49e358ffd0eb6096aa6bb3f1543e71cfa42765fc73383ea61ab70fdadc8f9`, 10 archivos): «Recordatorios: Fases 0 y 1 (Requiere el 299)».
-  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 300` + `registrar-parche.js 300` los corre el usuario como root (comando en el informe de la sesión);
-  **TOCA LA BASE** (`db/init-db.js`: tres tablas y cinco columnas nuevas; repetible); **requiere el 299**. Service worker sin cambio (`v171`).
+- **Último parche generado: 301** (`parches/campana-parche301.zip`, 193.492 bytes,
+  sha256 `e0720f3235f8b30163644b0365d6811497c6d0287a182b4eca4fdb37a4598442`, 14 archivos): «Recordatorios: Fases 2, 3 y 4 (Requiere el 300)».
+  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 301` + `registrar-parche.js 301` los corre el usuario como root (comando en el informe de la sesión);
+  **TOCA LA BASE** (`db/init-db.js`: siembra siete reglas apagadas y el módulo `recordatorios` en la matriz; repetible); **requiere el 300**. **Service worker `v172`** (cambió `common.js`, que está en la precarga).
+  El anterior, el 300 (`parches/campana-parche300.zip`, 148.675 bytes, sha256 `53b49e358ffd0eb6096aa6bb3f1543e71cfa42765fc73383ea61ab70fdadc8f9`, 10 archivos):
+  **publicado** (`parche-300.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
   El anterior, el 299 (`parches/campana-parche299.zip`, 1.060.532 bytes, sha256 `aed6980626137a65fad3dfbe303fb421637bd68d508f258c3a0aa2cbbd957cad`, 154 archivos):
   **publicado** (`parche-299.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
   El anterior, el 298 (`parches/campana-parche298.zip`, 4.002.523 bytes, sha256 `3f17c575d8737022682e033aaab75e3d008424b2936d12352e233a4430b5ccff`, 150 archivos):
@@ -105,11 +107,16 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v300** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v300.zip`,
+- **Plantilla vigente: v301** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v301.zip`,
+  6.493.944 bytes, sha256 `2ef0d29bf215d16ca5c9b938a2a67f408d7c0a9e4ce9136f8456606a4f139c8f`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 301.
+  Generada con `node scripts/generar-plantilla.js --parche 301`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
+  deja **67 tablas** y **7 reglas de fábrica apagadas** y el módulo `recordatorios` solo para el administrador, igual en una segunda corrida; `lib/manuales.js` da 163 bloques sin avisos; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
+  **OJO: dice 301 aunque el 301 aún no está publicado**; si sale con otro número, regenerarla.
+- **Plantilla v300 (reemplazada por la v301)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v300.zip`,
   6.459.990 bytes, sha256 `f0c238761f6c184e5c3d147b0ace51442a3d0019e65d10e9dc1777845e34b60f`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 300.
   Generada con `node scripts/generar-plantilla.js --parche 300`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
   deja **67 tablas** (las 64 de antes + `recordatorio_reglas`, `recordatorio_envios`, `recordatorio_tope_diario`) y una segunda corrida deja lo mismo; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
-  **OJO: dice 300 aunque el 300 aún no está publicado**; si sale con otro número, regenerarla.
+  (El 300 ya está publicado.)
 - **Plantilla v299 (reemplazada por la v300)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v299.zip`,
   6.431.108 bytes, sha256 `e958e35f63966021f4d7eff41a094269125c0eda33f125aaf01aa77a1bbb5e77`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 299.
   Generada con `node scripts/generar-plantilla.js --parche 299`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
@@ -200,7 +207,45 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 300 — Recordatorios automáticos, Fases 0 y 1 (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
+## Parche 301 — Recordatorios automáticos, Fases 2, 3 y 4 (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
+
+Orden: «Recordatorios, Fases 2, 3 y 4». **Requiere el 300.** **Toca la base** (siembra, no cambia el esquema de las tablas de la Fase 1). **Service worker v172**: la entrada «Recordatorios» del menú está en `common.js`, que va en la precarga. Sigue **apagado de fábrica**: `recordatorios_activos = 0`, las siete reglas nacen apagadas y el módulo solo lo ve el administrador.
+
+**Decisiones tomadas (de la orden):** el **equipo recibe recordatorios solo por push** (no se le pide consentimiento de SMS ni correo por ahora); un recordatorio de evento **diferido por el tope o por el silencio sale mientras el evento no haya empezado; si ya empezó, se descarta con motivo**.
+
+### Fase 2 — eventos (`lib/recordatoriosFuentes.js`, tipo `evento`)
+- Reglas «X horas antes»: `desfase_min` negativo (24 h = −1440, 2 h = −120). Siembra de fábrica, todas apagadas: SMS 24 h y 2 h, aviso en la app (equipo) 24 h y 2 h, y correo 24 h.
+- **Destinatarios:** `evento_asistentes`. Por **push**, las cuentas del equipo (`usuario_id`). Por **SMS o correo**, los asistentes con ficha de votante, con ese medio autorizado (el motor vuelve a exigir el consentimiento estricto al enviar: el NULL no autoriza) y sin baja. Un «invitado» con solo nombre no tiene dónde recibir nada. Solo eventos en estado `programado`.
+- **Plantilla de fábrica** (sin cargo ni voto): «{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.» Variables nuevas: `{evento}`, `{fecha}` («vie 20 nov»), `{hora}` («10:30 am») y `{lugar}`. Validada a **un solo segmento** con los datos más largos (124 caracteres) y también **antes** de la fecha permitida. Si al evento le falta el lugar, el mensaje no se manda a medias (queda `omitido`).
+- **Cambios del evento:** la ocurrencia lleva la fecha de inicio (`evento:<id>:<fecha>`). Si el evento **se mueve**, lo pendiente (en cola o diferido) de la fecha vieja se cancela («cambió de fecha») y la fecha nueva genera su propio recordatorio. Si se **cancela** o se marca realizado, o se **borra**, lo pendiente se cancela. `routes/eventos.routes.js` lo avisa al motor al editar o borrar (no espera la vuelta de 60 s), y la vuelta lo revisa siempre, también en silencio.
+- **Vence cuando empieza el evento** (`vence_en`): un recordatorio diferido por el tope o por el silencio sale mientras el evento no haya empezado; si ya empezó, queda `omitido` con «El evento ya empezó». Se miran los eventos de las últimas 12 h para que ese motivo quede escrito en vez de que el recordatorio simplemente no aparezca.
+- Un evento **creado después** de la hora del recordatorio no recibe uno tardío (un evento creado 1 h antes no recibe el «24 h antes»).
+- **Sin enlace de baja al final del SMS de evento** (`conBaja: false`): es un recordatorio operativo de algo a lo que la persona fue invitada y con el enlace de 78 caracteres el texto de fábrica no cabe en un segmento (igual que el aviso al testigo y el enlace «Ya voté»). La baja se respeta igual. **Es una decisión de producto que conviene confirmar**: para volver a ponerlo, `conBaja: true` en `lib/recordatorios.js` y acortar la plantilla.
+
+### Fase 3 — «¿ya votaste?» (tipo `dia_d_ya_votaste`)
+- **Solo la fecha de elección** (`configuracion_campana.fecha_eleccion` = hoy), **a la hora H de la regla** (14:00 por defecto) y hasta el cierre de la jornada. Dos reglas de fábrica: **1.ª ronda (14:00)** y **2.ª ronda (15:00, opcional)**; ambas apagadas. (La 1.ª también nace apagada: no se puede activar sin la fecha permitida, y encender algo de campo por defecto sería sorprendente.)
+- **Destinatarios:** votantes que **no han votado al momento de enviar** (se relee ficha por ficha), con `consentimiento_sms = 1` estricto, sin baja ni `no_contactar`, con teléfono. Lleva `{enlace_ya_vote}` (el enlace propio de cada persona, `config/yaVotoEnlace.js`); si no se puede armar, la fila queda `omitido` con el motivo y no sale un SMS con el enlace en blanco.
+- **Una sola ronda por persona y regla** (la clave única lleva `dia:<fecha>`). Lo que quede esperando al cerrar la jornada se descarta con motivo.
+- **No se puede activar** si `fecha_permitida_propaganda` está vacía o es futura (`activarRegla`); vaciar o mover esa fecha **apaga** esas reglas y lo dice. El texto «¿ya votaste?» se puede **guardar apagado** antes de la fecha (la pantalla avisa en vez de rechazar), pero el motor lo vuelve a comprobar al enviar.
+- **Una vuelta procesa a lo sumo 100 candidatos** (`MAX_POR_VUELTA`): una lista grande se reparte entre varias vueltas de 60 s. Si el tope de SMS se agota, el resto de esa vuelta ni se intenta (`sinCupo`).
+
+### Fase 4 — la pantalla (Configuración → Recordatorios)
+- **Módulo `recordatorios`** en la matriz de permisos (`routes/permisos.routes.js`) y en la siembra (`db/init-db.js`): **solo el administrador** de fábrica. «Ver» abre la pantalla; para **escribir** el servidor exige además «Editar» (el administrador y el superadministrador pasan siempre). Entrada de menú «Recordatorios» (`common.js`) y pestaña en `configuracion.html`.
+- **`routes/recordatorios.routes.js`** (`/api/recordatorios`): `GET /estado`, `PUT /config`, `GET /reglas`, `PUT /reglas/:id`, `POST /reglas/:id/activar`, `POST /validar`, `POST /reglas/:id/probar`, `GET /envios`.
+- **Pantalla** (`public/js/recordatorios-config.js`, un archivo que dibuja todo dentro de la pestaña): interruptor general; **fecha permitida de propaganda**; **tope diario de SMS** con el saldo, el límite diario y lo gastado hoy del libro central a la vista (y el `max` del campo es ese límite; el servidor lo vuelve a exigir); **horas de silencio**; lista de **reglas** con Activar/Apagar, **Editar** (nombre, horas antes o hora del día, título o asunto, mensaje) con el **validador en vivo del servidor** (variables permitidas, precampaña, caracteres y segmentos, botones para insertar variables) y **«Enviarme una prueba»**; **historial** con filtros por estado, motivo de omisión y regla, con paginación.
+- **«Enviarme una prueba»** manda la regla a quien la pide, con datos inventados (SMS a su teléfono, correo a su correo, aviso a su cuenta). **No** se registra en `recordatorio_envios`, **no** cuenta en el tope diario y no pasa por consentimiento ni silencio; el SMS sí gasta un crédito del libro central y el proveedor puede rechazarlo fuera de su franja (se dice tal cual, 502). Su teléfono sale enmascarado en la respuesta.
+- **Auditoría** (`auditoria`): `recordatorios_configuracion` (cada campo con su antes y después, y si se apagaron reglas), `recordatorios_regla_editar` (qué campos cambiaron), `recordatorios_regla_activar` / `_apagar` y `recordatorios_prueba`. Guardar lo mismo no ensucia la auditoría.
+- **Manual:** guías `mod-recordatorios` y `t-recordatorios-activar` (163 guías; `probar-manuales` exige una por módulo de la matriz).
+
+### Pruebas
+- **`scripts/probar-recordatorios.js` — 225 comprobaciones**, sobre una base nueva. Además de lo de las Fases 0 y 1: reglas de fábrica (7, apagadas, sin duplicar) y módulo en la matriz · **eventos** (24 h y 2 h antes, equipo por push y votantes por SMS/correo con consentimiento, texto exacto, movido, cancelado, borrado, diferido por el tope, diferido por el silencio, evento ya empezado, evento creado tarde) · **«¿ya votaste?»** (antes de la hora, a la hora, votó antes, sin consentimiento NULL y 0, con baja, sin teléfono, una ronda por persona, segunda ronda apagada y luego activada, otro día, tras el cierre, enlace que no se puede armar, 130 personas repartidas en vueltas) · **activación** (fecha vacía, futura y de hoy; vaciarla apaga las reglas) · **la pantalla** (permisos: sin sesión, sin módulo, solo «Ver», con «Editar»; estado con el libro central; tope sobre el límite central; fechas y horas inválidas; auditoría de cada cambio; validador en vivo; prueba a sí mismo sin tope ni fila; historial y sus tres filtros).
+- Las otras ocho suites, cada una sobre una base nueva, siguen bien (467 y 123 comprobaciones en inscripción por enlace y transporte).
+- **Chromium** (base de prueba con la ruta real montada): la pestaña carga, el validador en vivo reacciona al escribir (variable inexistente y «votar» antes de la fecha → error y «Guardar regla» desactivado; plantilla de fábrica → «1 SMS, 124 caracteres») y la entrada «Recordatorios» sale en el menú de Configuración. **No se probó** contra un proveedor real de SMS ni de push.
+
+### Lo que NO está hecho
+Más fuentes de candidatos (otras que eventos y «¿ya votaste?») · crear reglas nuevas desde la pantalla (hoy se editan y activan las siete de fábrica) · reporte de entrega del SMS (`entregado`) en el historial · consentimiento del equipo por SMS o correo · capturas de pantalla para las guías nuevas.
+
+## Parche 300 — Recordatorios automáticos, Fases 0 y 1 (8 de noviembre de 2026, publicado; registro y activación por el usuario; TOCA LA BASE)
 
 Orden: «Recordatorios automáticos, Fases 0 y 1 (sin pantalla ni envíos reales todavía)». **Requiere el 299.** **Toca la base** (`db/init-db.js`: el actualizador corre `init-db`; es repetible). No cambia ningún precargado del service worker: las únicas páginas tocadas (`crm.html`, `enviar-sms.html`, `enviar-email.html`, `enviar-push.html`) no están en la precarga, así que **SW sigue en v171**.
 
@@ -2314,3 +2359,8 @@ Rama: auditoria-fable | Commit: 8dfca61 ESTADO.md: remoto en GitHub (privado, de
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-07 12:52 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 40077aa Parche 276: .version-base a 276 y ESTADO.md (Día D fase 4: cobertura, check-in, alertas y avisos push; publicado y registrado INACTIVO) | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-08 18:28 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 61590c3 Recordatorios automáticos, Fases 0 y 1: sin duplicados, relectura al despachar y motor apagado (parche 300 generado, sin publicar) | Sin commitear: 18 archivo(s)

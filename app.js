@@ -281,6 +281,8 @@ app.use('/api/backup', require('./routes/backup.routes'));
 // Push: va con requireAuth y sin restricción de rol — los avisos los
 // reciben sobre todo testigos y sublíderes (ver routes/push.routes.js).
 app.use('/api/push', require('./routes/push.routes'));
+// Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (solo con el módulo `recordatorios`).
+app.use('/api/recordatorios', require('./routes/recordatorios.routes'));
 
 // Retoma cualquier campaña de Email/SMS que haya quedado a medias
 // si el proceso se reinició en medio de un envío grande (ver

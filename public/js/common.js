@@ -268,6 +268,8 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#permisos', texto: 'Asignación de permisos', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#eliminar', texto: 'Eliminar información', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#backup', texto: 'Backup', modulo: 'configuracion', roles: ['admin'] },
+      // Recordatorios automáticos: módulo propio en la matriz (de fábrica, solo el administrador). Sin su fila en permisos_rol la entrada no sale.
+      { href: '/configuracion.html#recordatorios', texto: 'Recordatorios', modulo: 'recordatorios', roles: ['admin'] },
     ]
   },
   /* LEGISLACIÓN, JUSTO ANTES DE AYUDA. Lleva `modulo`: se oculta a quien no

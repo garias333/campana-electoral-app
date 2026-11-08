@@ -48,6 +48,7 @@
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos">Asignación de permisos</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar">🗑️ Eliminar información</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup">💾 Backup</button>
+        <button type="button" class="btn-secundario btn-sm" id="btn-tab-recordatorios">⏰ Recordatorios</button>
       </div>
     </div>
 
@@ -601,6 +602,11 @@
       </div>
     </div>
 
+    <!-- RECORDATORIOS AUTOMÁTICOS: se dibuja entero desde /js/recordatorios-config.js al abrir la pestaña. -->
+    <div class="card" id="seccion-recordatorios" style="display:none;">
+      <div id="rec-contenido"><p style="color:var(--color-text-muted)">Cargando…</p></div>
+    </div>
+
     <div class="card" id="seccion-backup" style="display:none;">
       <h3 style="margin-top:0;">Crear backup</h3>
       <p style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:14px;">
@@ -783,6 +789,8 @@ function cambiarPestana(pestana) {
   document.getElementById('seccion-permisos').style.display = pestana === 'permisos' ? 'block' : 'none';
   document.getElementById('seccion-eliminar').style.display = pestana === 'eliminar' ? 'block' : 'none';
   document.getElementById('seccion-backup').style.display = pestana === 'backup' ? 'block' : 'none';
+  document.getElementById('seccion-recordatorios').style.display =
+    (pestana === 'recordatorios' && puedeVer(usuarioActual, 'recordatorios')) ? 'block' : 'none';
   document.getElementById('btn-tab-campana').classList.toggle('btn-acento', pestana === 'campana');
   document.getElementById('btn-tab-campana').classList.toggle('btn-secundario', pestana !== 'campana');
   document.getElementById('btn-tab-diad').classList.toggle('btn-acento', pestana === 'diad');
@@ -795,6 +803,8 @@ function cambiarPestana(pestana) {
   document.getElementById('btn-tab-eliminar').classList.toggle('btn-secundario', pestana !== 'eliminar');
   document.getElementById('btn-tab-backup').classList.toggle('btn-acento', pestana === 'backup');
   document.getElementById('btn-tab-backup').classList.toggle('btn-secundario', pestana !== 'backup');
+  document.getElementById('btn-tab-recordatorios').classList.toggle('btn-acento', pestana === 'recordatorios');
+  document.getElementById('btn-tab-recordatorios').classList.toggle('btn-secundario', pestana !== 'recordatorios');
   // "Puestos de votación y candidatos" llega desde el menú de Día D, no
   // desde Configuración: se presenta como su propia pantalla, con su
   // nombre y sin la barra de pestañas administrativas (Usuarios, Backup,
@@ -807,6 +817,7 @@ function cambiarPestana(pestana) {
   if (pestana === 'diad') { cargarPuestosVotacion(); cambiarSubPestanaDiaD('puestos'); }
   if (pestana === 'usuarios') cargarUsuarios();
   if (pestana === 'permisos') cargarMatrizPermisos();
+  if (pestana === 'recordatorios' && puedeVer(usuarioActual, 'recordatorios') && typeof cargarRecordatorios === 'function') cargarRecordatorios(usuarioActual);
 }
 document.getElementById('btn-tab-campana').addEventListener('click', () => cambiarPestana('campana'));
 document.getElementById('filtro-cobertura-puestos').addEventListener('change', cargarPuestosVotacion);
@@ -873,6 +884,7 @@ document.getElementById('btn-tab-usuarios').addEventListener('click', () => camb
 document.getElementById('btn-tab-permisos').addEventListener('click', () => cambiarPestana('permisos'));
 document.getElementById('btn-tab-eliminar').addEventListener('click', () => cambiarPestana('eliminar'));
 document.getElementById('btn-tab-backup').addEventListener('click', () => cambiarPestana('backup'));
+document.getElementById('btn-tab-recordatorios').addEventListener('click', () => cambiarPestana('recordatorios'));
 
 const SUBTABS_DIAD = ['puestos', 'candidatos'];
 
@@ -920,7 +932,7 @@ SUBTABS_DIAD.forEach((x) =>
 function pestanasPermitidas() {
   return (usuarioActual && usuarioActual.es_aspirante)
     ? ['campana', 'diad', 'usuarios']
-    : ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup'];
+    : ['campana', 'diad', 'usuarios', 'permisos', 'eliminar', 'backup', 'recordatorios'];
 }
 
 // Esta página cambia de pestaña por el ancla: el menú lateral no recarga al tocar uno de sus ítems (common.js).
@@ -2809,6 +2821,10 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
   if (!puedeVer(usuarioActual, 'usuarios')) {
     document.getElementById('btn-tab-usuarios').style.display = 'none';
   }
+  // Igual con «Recordatorios»: se esconde el botón Y su contenido (cambiarPestana lo vuelve a comprobar).
+  if (!puedeVer(usuarioActual, 'recordatorios')) {
+    document.getElementById('btn-tab-recordatorios').style.display = 'none';
+  }
   /* EL ASPIRANTE ENTRA, CON DOS PESTAÑAS DE SEIS.
      Este corte miraba solo el rol, y el suyo es «lider»: tenía la entrada de
      menú a Datos de la campaña y al llegar leía «sin permiso». Se le deja
@@ -2825,7 +2841,7 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
     return;
   }
   if (soyAspirante) {
-    ['btn-tab-permisos', 'btn-tab-eliminar', 'btn-tab-backup'].forEach(id => {
+    ['btn-tab-permisos', 'btn-tab-eliminar', 'btn-tab-backup', 'btn-tab-recordatorios'].forEach(id => {
       const b = document.getElementById(id);
       if (b) b.style.display = 'none';
     });
@@ -2859,7 +2875,7 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
      Fuera quedan Asignación de permisos, Eliminar información y Backup, que sí
      son de la campaña madre y le responderían 403. */
   if (usuarioActual && usuarioActual.es_aspirante) {
-    ['permisos', 'eliminar', 'backup'].forEach((t) => {
+    ['permisos', 'eliminar', 'backup', 'recordatorios'].forEach((t) => {
       const b = document.getElementById('btn-tab-' + t);
       if (b) b.style.display = 'none';
     });
@@ -2874,5 +2890,6 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
 })();
 </script>
   <script src="/js/listas-desplegables.js"></script>
+  <script src="/js/recordatorios-config.js"></script>
 </body>
 </html>

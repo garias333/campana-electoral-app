@@ -76,6 +76,7 @@ function crear(pool) {
   montar('/api/catalogo', 'catalogo.routes');
   montar('/api/backup', 'backup.routes');
   montar('/api/push', 'push.routes');
+  montar('/api/recordatorios', 'recordatorios.routes');
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de capturas' }));
 
   app.get('/js/validarCedula.js', (req, res) => { res.type('application/javascript'); res.sendFile(path.join(RAIZ, 'lib', 'validarCedula.js')); });

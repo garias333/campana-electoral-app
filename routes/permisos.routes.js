@@ -35,6 +35,8 @@ const MODULOS = [
   // gobernar desde la matriz, y al superadministrador —cuyo menú se arma con ESTA lista— no le aparecía la entrada.
   { clave: 'enviar_push', etiqueta: 'Aviso en la app' },
   { clave: 'configurar_crm', etiqueta: 'Configurar CRM' },
+  // Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (interruptor, fecha permitida, tope de SMS, silencio, reglas e historial).
+  { clave: 'recordatorios', etiqueta: 'Recordatorios automáticos' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
   // Normas en PDF que el equipo técnico deja en la carpeta `legislacion/` de la
   // instalación; la aplicación solo las lista y las sirve (routes/legislacion.routes.js).

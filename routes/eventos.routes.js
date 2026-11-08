@@ -213,6 +213,9 @@ router.put('/:id', requireRole('admin', 'coordinador', 'lider'), async (req, res
        b.lider_id || null, b.meta_asistentes || 0, b.estado || 'programado', req.params.id]
     );
 
+    // Un evento movido o cancelado: sus recordatorios pendientes se cancelan (el de la fecha nueva sale con su propia hora).
+    require('../lib/recordatorios').limpiarRecordatoriosDeEvento(Number(req.params.id)).catch((e) => console.error('Recordatorios (evento editado):', e.message));
+
     const cambioUbicacion = anterior && (
       (b.lugar || '') !== (anterior.lugar || '') ||
       Number(b.territorio_id || 0) !== Number(anterior.territorio_id || 0)
@@ -296,6 +299,8 @@ router.delete('/:id', requireRole('admin', 'coordinador'), async (req, res) => {
       return res.status(404).json({ error: 'Ese evento ya no existe.' });
     }
     await conexion.commit();
+    // Sus recordatorios pendientes ya no deben salir.
+    require('../lib/recordatorios').limpiarRecordatoriosDeEvento(Number(req.params.id)).catch((e) => console.error('Recordatorios (evento borrado):', e.message));
     res.json({ ok: true });
   } catch (err) {
     /* El rollback va protegido: si lo que falló fue la conexión misma —MySQL

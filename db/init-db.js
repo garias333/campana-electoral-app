@@ -421,6 +421,9 @@ const PERMISOS_POR_DEFECTO = {
   // sabiendo por qué.
   enviar_push: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
   configurar_crm: ['admin'],
+  // Recordatorios automáticos (Configuración → Recordatorios): solo el administrador de fábrica. Sin esta línea la entrada del menú no le
+  // aparece a nadie (common.js oculta todo ítem cuyo módulo no esté en los permisos del usuario).
+  recordatorios: ['admin'],
   biografia_candidato: ROLES_PERMISOS,
   politica_privacidad: ROLES_PERMISOS,
   recursos: ROLES_PERMISOS,
@@ -3083,6 +3086,26 @@ async function main() {
     "silencio_inicio TIME NOT NULL DEFAULT '20:00:00' COMMENT 'Desde esta hora no sale ningún automático (push, correo ni SMS)'", 'silencio_inicio');
   await agregarColumnaSiFalta(connection, 'configuracion_campana',
     "silencio_fin TIME NOT NULL DEFAULT '08:00:00' COMMENT 'Hasta esta hora no sale ningún automático'", 'silencio_fin');
+  /* LAS REGLAS DE FÁBRICA, TODAS APAGADAS. «X horas antes» para eventos (24 h y 2 h, por aviso en la app para el equipo y por SMS o
+     correo para los votantes asistentes) y las dos rondas del «¿ya votaste?» del Día D (14:00; la segunda es opcional). Se siembran
+     con INSERT directo, sin pasar por el validador: el «¿ya votaste?» habla de voto por naturaleza y solo se puede ACTIVAR cuando
+     `fecha_permitida_propaganda` ya llegó. Una regla que el administrador editó no se pisa (se busca por nombre). */
+  const reglasDeFabrica = [
+    ['evento', 'Evento · 24 h antes · SMS', 'sms', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', null, -1440, null, 180],
+    ['evento', 'Evento · 2 h antes · SMS', 'sms', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', null, -120, null, 180],
+    ['evento', 'Evento · 24 h antes · aviso en la app (equipo)', 'push', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio de evento', -1440, null, 180],
+    ['evento', 'Evento · 2 h antes · aviso en la app (equipo)', 'push', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio de evento', -120, null, 180],
+    ['evento', 'Evento · 24 h antes · correo', 'email', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio: {evento}', -1440, null, 180],
+    ['dia_d_ya_votaste', 'Día D · ¿ya votaste? · 1.ª ronda (14:00)', 'sms', '{nombre}, ¿ya votaste? Si ya lo hiciste, avísanos aquí: {enlace_ya_vote}', null, null, '14:00:00', 60],
+    ['dia_d_ya_votaste', 'Día D · ¿ya votaste? · 2.ª ronda (15:00, opcional)', 'sms', '{nombre}, ¿ya votaste? Si ya lo hiciste, avísanos aquí: {enlace_ya_vote}', null, null, '15:00:00', 60],
+  ];
+  for (const [tipo, nombre, canal, plantilla, asunto, desfase, hora, gracia] of reglasDeFabrica) {
+    await connection.query(
+      `INSERT INTO recordatorio_reglas (tipo, nombre, canal, activo, plantilla, asunto, desfase_min, hora_dia, gracia_min)
+       SELECT ?, ?, ?, 0, ?, ?, ?, ?, ? FROM DUAL
+        WHERE NOT EXISTS (SELECT 1 FROM recordatorio_reglas WHERE nombre = ?)`,
+      [tipo, nombre, canal, plantilla, asunto, desfase, hora, gracia, nombre]);
+  }
   console.log('Tablas de los recordatorios automáticos listas (apagados).');
 
   await sembrarPermisosPorDefecto(connection);
