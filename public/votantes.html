@@ -116,8 +116,8 @@
         </div>
       </div>
       <div class="tabla-contenedor tabla-contenedor-votantes">
-      <table>
-        <thead><tr><th>ID</th><th>Lugar de votación</th><th>Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th style="text-align:center;" title="Quien pidió no recibir más mensajes. A esas personas no se les envía nada, en ningún canal.">Recibe mensajes</th><th>Área</th><th class="col-ciudad">Ciudad</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
+      <table class="tabla-alineada">
+        <thead><tr><th class="col-num">ID</th><th class="col-num">Lugar de votación</th><th class="col-num">Datos verificados</th><th>Nombre</th><th>Género</th><th>Categoría</th><th>Contacto</th><th style="text-align:center;" title="Quien pidió no recibir más mensajes. A esas personas no se les envía nada, en ningún canal.">Recibe mensajes</th><th>Área</th><th class="col-ciudad">Ciudad</th><th class="col-comuna-correg" data-columna="comuna-corregimiento">Comuna/Corregimiento</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio/Vereda</th><th title="El líder que registró a esta persona. NO es lo mismo que el «Reporta a» de Estructura territorial: allí se ve a quién reporta jerárquicamente —un líder a su coordinador, un sublíder a su líder—, y aquí quién la registró.">Líder que registró</th><th title="El sublíder que registró a esta persona, si la registró uno.">Sublíder que registró</th><th class="col-apoya-a" style="position:relative;">
           <div class="mini-torta-apoya-a" id="grafico-apoya-a-mini" style="display:none;">
             <div class="circulo" id="circulo-apoya-a-mini"></div>
             <div class="mini-torta-apoya-a-info">
@@ -148,7 +148,7 @@
           No se muestra ninguna cédula.
         </p>
         <div class="tabla-contenedor">
-          <table>
+          <table class="tabla-alineada">
             <thead><tr>
               <th>Líder</th><th>Cargo</th>
               <th class="col-num">Hoy</th><th class="col-num">Total</th>
@@ -164,7 +164,7 @@
       <div class="card" style="margin-bottom:16px;">
         <h3 style="margin-top:0; font-size:1rem;">Intentos con la cédula de otro líder (últimos 50)</h3>
         <div class="tabla-contenedor">
-          <table>
+          <table class="tabla-alineada">
             <thead><tr><th>Cuándo</th><th>Por el enlace de</th><th>La persona ya era de</th></tr></thead>
             <tbody id="tbody-intentos-otro-lider"></tbody>
           </table>
@@ -205,7 +205,7 @@
         </p>
         <div class="mono" id="resumen-estimado-puestos" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:12px;"></div>
         <div class="tabla-contenedor">
-          <table>
+          <table class="tabla-alineada">
             <thead><tr>
               <th class="th-ordenable" data-orden-estimado="puesto">Puesto de votación</th>
               <th class="th-ordenable" data-orden-estimado="municipio">Ciudad</th>
@@ -222,7 +222,7 @@
         <h4 style="margin-top:0;">Puestos escritos que no coinciden con el catálogo</h4>
         <p style="color:var(--color-text-muted); font-size:0.85rem;">Estos nombres de Puesto aparecen en "Lugar de votación" de algunos registros, pero no coinciden con ninguno de los configurados en Configuración → Día D → Puestos de votación (puede ser un texto libre de antes de existir el catálogo, o una diferencia de escritura).</p>
         <div class="tabla-contenedor">
-          <table>
+          <table class="tabla-alineada">
             <thead><tr><th>Puesto (como quedó escrito)</th><th class="col-num">Votantes</th></tr></thead>
             <tbody id="tbody-puestos-no-configurados"></tbody>
           </table>
@@ -1242,7 +1242,7 @@ async function cargarVotantes() {
     // escaparHtml() está en public/js/common.js.
     return `
     <tr>
-      <td class="mono">${numeroFila}</td>
+      <td class="mono col-num">${numeroFila}</td>
       <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
       <td style="text-align:center;"><input type="checkbox" class="chk-datos-verificados" data-id="${v.id}" ${v.datos_verificados ? 'checked' : ''} ${puedeVerificarDatos() ? '' : 'disabled'} title="${v.datos_verificados ? 'Datos verificados' : 'Sin verificar'}"></td>
       <td><strong>${escaparHtml(v.nombre)}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + escaparHtml(v.cedula) + '</span>' : ''}</td>

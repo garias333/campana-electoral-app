@@ -42,8 +42,8 @@
         <div class="mono" id="contador-eventos-asistentes" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
       </div>
       <div class="tabla-contenedor">
-        <table>
-          <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th>Asistencia</th><th></th></tr></thead>
+        <table class="tabla-alineada">
+          <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th class="col-num">Asistencia</th><th></th></tr></thead>
           <tbody id="tbody-eventos-asistentes"></tbody>
         </table>
       </div>
@@ -69,8 +69,8 @@
         </div>
         <div class="mono" id="contador-consolidado" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:10px;"></div>
         <div class="tabla-contenedor">
-          <table>
-            <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th>Reuniones</th><th></th></tr></thead>
+          <table class="tabla-alineada">
+            <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th class="col-num">Reuniones</th><th></th></tr></thead>
             <tbody id="tbody-consolidado"></tbody>
           </table>
         </div>
@@ -184,7 +184,7 @@
     </div>
 
     <div class="tabla-contenedor" style="margin-top:10px;">
-      <table>
+      <table class="tabla-alineada">
         <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th></th></tr></thead>
         <tbody id="tbody-asistentes"></tbody>
       </table>
@@ -251,7 +251,7 @@ function renderizarEventosAsistentes() {
       <td><span class="tag-tipo">${etiquetasTipoEventoAsistentes[ev.tipo] || ev.tipo}</span></td>
       <td>${formatoFecha(ev.fecha_inicio, true)}</td>
       <td>${escaparHtml(ev.lugar || '—')}</td>
-      <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
       <td style="white-space:nowrap;">
         <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "agregar")'>Registrar asistencia</button>
         <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "ver")'>Ver asistentes</button>
@@ -306,7 +306,7 @@ function renderizarConsolidadoAsistentes() {
       <td class="mono">${escaparHtml(p.identidad || '—')}</td>
       <td>${celdaTelefonoWhatsApp(p.telefono)}</td>
       <td class="col-barrio-vereda">${escaparHtml(nombreLugar(p.barrio) || '—')}</td>
-      <td class="mono">${p.total_reuniones}</td>
+      <td class="mono col-num">${p.total_reuniones}</td>
       <td><button type="button" class="btn-sec-neutro" onclick="alternarReunionesConsolidado(${i})">Ver reuniones</button></td>
     </tr>
     <tr id="fila-reuniones-consolidado-${i}" style="display:none;">

@@ -549,7 +549,7 @@
       </div>
       <div class="mono" id="contador-usuarios" style="color:var(--color-text-muted); font-size:0.85rem; margin-bottom:8px;"></div>
       <div class="tabla-contenedor">
-      <table>
+      <table class="tabla-alineada">
         <thead><tr><th>Nombre</th><th>Número de identificación</th><th>Email</th><th>Teléfono</th><th class="col-num">Credenciales enviadas</th><th>Rol</th><th>Territorio</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbody-usuarios"></tbody>
       </table>
@@ -570,7 +570,7 @@
       <div id="permisos-error" class="mensaje-error"></div>
       <div id="permisos-ok" class="mensaje-ok"></div>
       <div style="overflow-x:auto;">
-        <table id="tabla-permisos">
+        <table id="tabla-permisos" class="tabla-alineada">
           <thead><tr id="permisos-encabezado"><th class="col-rol-fija">Rol</th></tr></thead>
           <tbody id="tbody-permisos"></tbody>
         </table>
@@ -2645,7 +2645,7 @@ async function cargarCandidatos() {
       <button type="button" class="btn-acento btn-sm" onclick="abrirCreacionCandidato('${grupo}')">+ Agregar ${b.singular}</button>`;
 
     const cuerpo = filas.length
-      ? `<div class="tabla-contenedor"><table>
+      ? `<div class="tabla-contenedor"><table class="tabla-alineada">
            <thead><tr>${cfg.numerado ? '<th class="col-num">#</th>' : ''}<th>${escaparHtmlDiaD(b.columna)}</th><th></th></tr></thead>
            <tbody>${filas.map((c, i) => `
              <tr>

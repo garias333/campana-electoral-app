@@ -40,8 +40,8 @@
     </div>
     <div class="card">
       <div class="tabla-contenedor">
-      <table>
-        <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th>Responsable</th><th>Coordinador</th><th>Líder</th><th>Asistencia</th><th>Estado</th><th></th></tr></thead>
+      <table class="tabla-alineada">
+        <thead><tr><th>Evento</th><th>Tipo</th><th>Fecha</th><th>Lugar</th><th>Responsable</th><th>Coordinador</th><th>Líder</th><th class="col-num">Asistencia</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbody-eventos"></tbody>
       </table>
       </div>
@@ -242,7 +242,7 @@ async function cargarEventos() {
       <td>${ev.responsable_nombre || '—'}</td>
       <td>${ev.coordinador_nombre || '—'}</td>
       <td>${ev.lider_nombre || '—'}</td>
-      <td class="mono">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
       <td>${etiquetasEstado[ev.estado] || ev.estado}</td>
       <td style="white-space:nowrap;">
         ${['admin', 'coordinador', 'lider'].includes(usuarioActual.rol) ? `<button class="btn-sec-neutro" onclick='abrirEdicion(${JSON.stringify(ev).replace(/'/g, "&apos;")})'>Editar</button>` : ''}

@@ -739,7 +739,7 @@ function renderizarTablaPorCargo() {
   const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
   document.getElementById('org-tabla-grupos').innerHTML = `
     <div class="tabla-contenedor">
-    <table>
+    <table class="tabla-alineada">
       <thead>
         <tr>
           <th>Cargo</th><th>Nombres</th><th>Apellidos</th><th>Teléfono</th><th>E-mail</th><th>Nivel</th><th>Subordinado de</th><th>Funciones</th><th></th>

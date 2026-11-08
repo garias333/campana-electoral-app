@@ -144,8 +144,8 @@
         </div>
       </div>
       <div class="tabla-contenedor">
-      <table>
-        <thead><tr><th>Nombre</th><th>Canal</th><th>Estado</th><th>Destinatarios</th><th>Enviados</th><th>Fallidos</th><th>Omitidos</th><th>Fecha</th><th></th></tr></thead>
+      <table class="tabla-alineada">
+        <thead><tr><th>Nombre</th><th>Canal</th><th>Estado</th><th class="col-num">Destinatarios</th><th class="col-num">Enviados</th><th class="col-num">Fallidos</th><th class="col-num">Omitidos</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-campanas"></tbody>
       </table>
       </div>
@@ -160,7 +160,7 @@
     <div id="detalle-campana-resumen" style="margin-bottom:12px; font-size:0.88rem; color:var(--color-text-muted);"></div>
     <div style="max-height:400px; overflow-y:auto;">
       <div class="tabla-contenedor">
-      <table>
+      <table class="tabla-alineada">
         <thead><tr><th>Nombre</th><th>Contacto</th><th>Estado</th><th>Detalle</th></tr></thead>
         <tbody id="tbody-detalle-envios"></tbody>
       </table>
@@ -531,10 +531,10 @@ async function cargarCampanas() {
       <td><strong>${c.nombre}</strong></td>
       <td>${ETIQUETAS_CANAL[c.canal] || c.canal}</td>
       <td><span class="badge-campana ${resultadoEnvio(c).clase}">${resultadoEnvio(c).texto}</span></td>
-      <td class="mono">${formatoMillares(c.total_destinatarios)}</td>
-      <td class="mono">${formatoMillares(c.enviados)}</td>
-      <td class="mono">${formatoMillares(c.fallidos)}</td>
-      <td class="mono">${formatoMillares(c.omitidos || 0)}</td>
+      <td class="mono col-num">${formatoMillares(c.total_destinatarios)}</td>
+      <td class="mono col-num">${formatoMillares(c.enviados)}</td>
+      <td class="mono col-num">${formatoMillares(c.fallidos)}</td>
+      <td class="mono col-num">${formatoMillares(c.omitidos || 0)}</td>
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>

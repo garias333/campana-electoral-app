@@ -24,8 +24,8 @@
     <div class="card" style="margin-bottom:18px;">
       <h3 style="margin-bottom:14px;">Calendario de publicaciones</h3>
       <div class="tabla-contenedor">
-      <table>
-        <thead><tr><th>Título</th><th>Red</th><th>Programada</th><th>Estado</th><th>Alcance</th><th></th></tr></thead>
+      <table class="tabla-alineada">
+        <thead><tr><th>Título</th><th>Red</th><th>Programada</th><th>Estado</th><th class="col-num">Alcance</th><th></th></tr></thead>
         <tbody id="tbody-publicaciones"></tbody>
       </table>
       </div>
@@ -35,7 +35,7 @@
     <div class="card">
       <div class="toolbar"><h3 style="margin:0;">Monitoreo de menciones</h3><button class="btn-secundario btn-sm" id="btn-nueva-mencion">+ Registrar mención</button></div>
       <div class="tabla-contenedor">
-      <table>
+      <table class="tabla-alineada">
         <thead><tr><th>Fuente</th><th>Texto</th><th>Sentimiento</th><th>Fecha</th><th></th></tr></thead>
         <tbody id="tbody-menciones"></tbody>
       </table>
@@ -102,7 +102,7 @@ async function cargarPublicaciones() {
       <td><span class="tag-tipo">${p.red_social}</span></td>
       <td>${p.fecha_programada ? formatoFecha(p.fecha_programada, true) : '—'}</td>
       <td>${etiquetasEstadoPub[p.estado]}</td>
-      <td class="mono">${p.metricas_alcance || 0}</td>
+      <td class="mono col-num">${p.metricas_alcance || 0}</td>
       <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarPub(${p.id})">Eliminar</button>` : ''}</td>
     </tr>
   `).join('');

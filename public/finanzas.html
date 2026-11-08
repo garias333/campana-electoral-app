@@ -39,8 +39,8 @@
     <div class="card">
       <h3 style="margin-bottom:14px;">Movimientos</h3>
       <div class="tabla-contenedor">
-      <table>
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción / Tercero</th><th>Monto</th><th>Comprobante</th><th></th></tr></thead>
+      <table class="tabla-alineada">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción / Tercero</th><th class="col-num">Monto</th><th>Comprobante</th><th></th></tr></thead>
         <tbody id="tbody-finanzas"></tbody>
       </table>
       </div>
@@ -121,7 +121,7 @@ async function cargarMovimientos() {
       <td><span class="tag-tipo" style="${f.tipo === 'gasto' ? 'color:#A93226;' : 'color:#1E7245;'}">${f.tipo}</span></td>
       <td>${f.categoria_nombre}</td>
       <td>${f.descripcion || ''} ${f.tercero ? '· ' + f.tercero : ''}</td>
-      <td class="mono">${formatoMoneda(f.monto)}</td>
+      <td class="mono col-num">${formatoMoneda(f.monto)}</td>
       <td>${f.comprobante_url ? `<a href="${f.comprobante_url}" target="_blank">Ver</a>` : '—'}</td>
       <td>${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarMovimiento(${f.id})">Eliminar</button>` : ''}</td>
     </tr>
