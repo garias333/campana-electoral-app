@@ -3091,11 +3091,11 @@ async function main() {
      con INSERT directo, sin pasar por el validador: el «¿ya votaste?» habla de voto por naturaleza y solo se puede ACTIVAR cuando
      `fecha_permitida_propaganda` ya llegó. Una regla que el administrador editó no se pisa (se busca por nombre). */
   const reglasDeFabrica = [
-    ['evento', 'Evento · 24 h antes · SMS', 'sms', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', null, -1440, null, 180],
-    ['evento', 'Evento · 2 h antes · SMS', 'sms', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', null, -120, null, 180],
-    ['evento', 'Evento · 24 h antes · aviso en la app (equipo)', 'push', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio de evento', -1440, null, 180],
-    ['evento', 'Evento · 2 h antes · aviso en la app (equipo)', 'push', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio de evento', -120, null, 180],
-    ['evento', 'Evento · 24 h antes · correo', 'email', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.', 'Recordatorio: {evento}', -1440, null, 180],
+    ['evento', 'Evento · 24 h antes · SMS', 'sms', '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', null, -1440, null, 180],
+    ['evento', 'Evento · 2 h antes · SMS', 'sms', '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', null, -120, null, 180],
+    ['evento', 'Evento · 24 h antes · aviso en la app (equipo)', 'push', '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', 'Recordatorio de evento', -1440, null, 180],
+    ['evento', 'Evento · 2 h antes · aviso en la app (equipo)', 'push', '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', 'Recordatorio de evento', -120, null, 180],
+    ['evento', 'Evento · 24 h antes · correo', 'email', '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', 'Recordatorio: {evento}', -1440, null, 180],
     ['dia_d_ya_votaste', 'Día D · ¿ya votaste? · 1.ª ronda (14:00)', 'sms', '{nombre}, ¿ya votaste? Si ya lo hiciste, avísanos aquí: {enlace_ya_vote}', null, null, '14:00:00', 60],
     ['dia_d_ya_votaste', 'Día D · ¿ya votaste? · 2.ª ronda (15:00, opcional)', 'sms', '{nombre}, ¿ya votaste? Si ya lo hiciste, avísanos aquí: {enlace_ya_vote}', null, null, '15:00:00', 60],
   ];
@@ -3106,6 +3106,11 @@ async function main() {
         WHERE NOT EXISTS (SELECT 1 FROM recordatorio_reglas WHERE nombre = ?)`,
       [tipo, nombre, canal, plantilla, asunto, desfase, hora, gracia, nombre]);
   }
+  // El SMS de evento lleva ahora el enlace de baja (parche 302): la plantilla de fábrica se acortó. Las reglas que el administrador NO
+  // editó (texto idéntico al de fábrica anterior) pasan al texto nuevo; las que editó no se tocan.
+  await connection.query(
+    `UPDATE recordatorio_reglas SET plantilla = ? WHERE tipo = 'evento' AND plantilla = ?`,
+    ['{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.', '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.']);
   console.log('Tablas de los recordatorios automáticos listas (apagados).');
 
   await sembrarPermisosPorDefecto(connection);

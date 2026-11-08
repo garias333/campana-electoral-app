@@ -17,7 +17,7 @@ Sirve para que, antes de cada evento, el equipo y los asistentes reciban su reco
 1. Entra a **Configuración > Recordatorios**.
 2. En **Tope diario de SMS automáticos** revisa el número. Cada SMS gasta un crédito del libro central; la pantalla te muestra cuánto queda.
 3. En **Horas de silencio** deja el rato en que no quieres que salga nada (de fábrica, de 20:00 a 08:00).
-4. En **Reglas**, elige la que quieres, por ejemplo «Evento · 24 h antes · SMS», y pulsa [[Editar]] si quieres cambiar las horas o el texto. Mientras escribes, la pantalla te dice si el mensaje cabe en un SMS y si hay algo que corregir. Pulsa [[Guardar regla]].
+4. En **Reglas**, elige la que quieres, por ejemplo «Evento · 24 h antes · SMS», y pulsa [[Editar]] si quieres cambiar las horas o el texto. Mientras escribes, la pantalla te dice cuántos caracteres lleva (contando el enlace de baja del SMS), si cabe en un solo mensaje y si hay algo que corregir. Pulsa [[Guardar regla]].
 5. Pulsa [[Enviarme una prueba]]. Llega a tu propio teléfono o cuenta, con datos inventados, y no cuenta en el tope.
 6. Si la prueba se ve bien, pulsa [[Activar]] en esa regla.
 7. Arriba, enciende **Recordatorios automáticos encendidos** y pulsa [[Guardar configuración]].

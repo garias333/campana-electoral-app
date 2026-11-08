@@ -29,6 +29,7 @@ process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 
 const fs = require('fs');
 const express = require('express');
+const analizarLargo = (t) => require('../lib/sms').analizarTexto(t).caracteres;
 const http = require('http');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -282,7 +283,8 @@ async function configurar(o) {
   };
   let central = null;
   R.deps.cuotaCentral = async () => central;
-  R.deps.configSms = async () => ({ firma: '', bajaAutomatica: true });
+  R.deps.configSms = async () => ({ firma: '', bajaAutomatica: true, urlBajaBase: null });
+  R.deps.urlBaja = async (tipo, id) => `https://campana.prueba/b/${tipo[0]}${id}-ABCDEFGHIJ`;   // el enlace de baja, firmado a mano para la prueba
   let CANDIDATOS = [];
   // Fuentes FALSAS (las de las Fases 0 y 1): sin la limpieza de eventos, que busca eventos reales. Más abajo se restauran las verdaderas.
   R.registrarTipo('evento', { candidatos: async () => CANDIDATOS, limpiar: undefined });
@@ -521,18 +523,21 @@ async function configurar(o) {
     // El enlace de baja cuenta en los tipos que lo llevan (aquí uno de prueba): lo que cabe sin él, con él ya no.
     R.registrarTipo('con_baja', { variables: ['nombre', 'candidato', 'eslogan'], conBaja: true });
     const vb = (o) => R.validarPlantilla({ tipo: 'con_baja', canal: 'sms', ...o }, { cfg, sms, ahora: AHORA });
-    const justo = 'x'.repeat(160 - R.LARGO_BAJA_SMS);
-    ok(vb({ plantilla: justo }).ok && !vb({ plantilla: justo + 'xy' }).ok, `con el enlace de baja (${R.LARGO_BAJA_SMS}) caben ${160 - R.LARGO_BAJA_SMS} caracteres y uno más no`);
-    // El recordatorio de evento NO lleva el enlace de baja al final (es operativo): caben los 160 enteros.
-    ok(v({ plantilla: 'x'.repeat(160) }).ok && !v({ plantilla: 'x'.repeat(161) }).ok, 'el tipo «evento» no lleva enlace de baja: caben 160 caracteres y 161 no');
+    const baja = R.largoDeLaBaja({});
+    const justo = 'x'.repeat(160 - baja);
+    ok(vb({ plantilla: justo }).ok && !vb({ plantilla: justo + 'xy' }).ok, `con el enlace de baja (${baja} caracteres en esta campaña) caben ${160 - baja} y dos más no`);
+    ok(R.largoDeLaBaja({ urlBajaBase: 'https://campanadepruebamunicipal.appestrategia.net/' }) === 78, 'el largo del enlace de baja sale del dominio de la campaña (con uno largo, 78)');
+    // El «¿ya votaste?» NO lleva el enlace de baja al final (lleva su enlace «Ya voté»): caben los 160 enteros.
+    const vd = (o) => R.validarPlantilla({ tipo: 'dia_d_ya_votaste', canal: 'sms', ...o }, { cfg, sms, ahora: AHORA });
+    ok(vd({ plantilla: 'x'.repeat(160) }).ok && !vd({ plantilla: 'x'.repeat(161) }).ok, 'el tipo de Día D no lleva enlace de baja: caben 160 caracteres y 161 no');
     // La firma del operador también cuenta.
-    const conFirma = R.validarPlantilla({ tipo: 'evento', canal: 'sms', plantilla: 'x'.repeat(150) }, { cfg, sms: { firma: ' Equipo Prueba', bajaAutomatica: true }, ahora: AHORA });
+    const conFirma = R.validarPlantilla({ tipo: 'dia_d_ya_votaste', canal: 'sms', plantilla: 'x'.repeat(150) }, { cfg, sms: { firma: ' Equipo Prueba', bajaAutomatica: true }, ahora: AHORA });
     ok(!conFirma.ok, 'la firma del operador se suma al largo');
     // El texto de fábrica de los eventos y el del «¿ya votaste?» caben en UN segmento con los datos más largos.
     const fabrica = FABRICA;   // las que sembró init-db, leídas antes de que las pruebas borren las reglas
     ok(fabrica.length > 0 && fabrica.every((r) => R.validarPlantilla(r, { cfg: { ...cfg, fecha_permitida_propaganda: '2020-01-01' }, sms: { firma: '', bajaAutomatica: true }, ahora: AHORA }).ok), 'las 7 plantillas de fábrica pasan el validador (un segmento, variables permitidas) una vez permitida la propaganda', fabrica.length);
-    const sinFecha = R.validarPlantilla({ tipo: 'evento', canal: 'sms', plantilla: fabrica.find((r) => r.tipo === 'evento').plantilla }, { cfg: { ...cfg, fecha_permitida_propaganda: null }, sms, ahora: AHORA });
-    ok(sinFecha.ok, 'la plantilla de fábrica de eventos NO nombra ni cargo ni voto: pasa también ANTES de la fecha permitida', sinFecha.errores);
+    const sinFecha = R.validarPlantilla({ tipo: 'evento', canal: 'sms', plantilla: fabrica.find((r) => r.tipo === 'evento').plantilla }, { cfg: { ...cfg, fecha_permitida_propaganda: null }, sms: { firma: '', bajaAutomatica: true, urlBajaBase: 'https://campanadepruebamunicipal.appestrategia.net' }, ahora: AHORA });
+    ok(sinFecha.ok && sinFecha.segmentos === 1 && sinFecha.bajaCaracteres === 78, 'la plantilla de fábrica de eventos NO nombra ni cargo ni voto, pasa ANTES de la fecha permitida y cabe en un segmento con el enlace de baja más largo (dominio de 42 letras)', sinFecha);
     const yv = fabrica.find((r) => r.tipo === 'dia_d_ya_votaste');
     const yvAntes = R.validarPlantilla({ ...yv, activo: 0 }, { cfg: { ...cfg, fecha_permitida_propaganda: null }, sms, ahora: AHORA });
     ok(yvAntes.ok && yvAntes.avisos.length === 1, 'la del «¿ya votaste?» se puede guardar apagada antes de la fecha (con aviso)', yvAntes);
@@ -651,7 +656,7 @@ async function configurar(o) {
     return r.insertId;
   }
   const asistente = (evId, o) => q(`INSERT INTO evento_asistentes (evento_id, votante_id, usuario_id, nombre_invitado) VALUES (?,?,?,?)`, [evId, o.votante || null, o.usuario || null, o.invitado || null]);
-  const PLANTILLA_EVENTO = '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.';
+  const PLANTILLA_EVENTO = '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.';
   async function reglaEvento(canal, desfase, asunto) {
     const id = await regla({ tipo: 'evento', canal, plantilla: PLANTILLA_EVENTO, asunto: asunto || (canal === 'push' ? 'Recordatorio de evento' : canal === 'email' ? 'Recordatorio: {evento}' : null), nombre: `Evento ${canal} ${desfase}` });
     await q(`UPDATE recordatorio_reglas SET desfase_min = ? WHERE id = ?`, [desfase, id]);
@@ -677,7 +682,7 @@ async function configurar(o) {
     const sms = enviados.filter((e) => e.canal === 'sms'), cor = enviados.filter((e) => e.canal === 'email');
     ok(sms.length === 2 && sms.map((e) => e.ficha).sort().join() === [A, Dv].sort().join(), 'a las 10:05 (24 h antes) el SMS sale a los votantes asistentes con SMS autorizado (A y D), no a B (NULL) ni a C (baja)', sms.map((e) => e.ficha));
     ok(cor.length === 2 && cor.map((e) => e.ficha).sort().join() === [A, B].sort().join(), 'el correo, a quienes autorizaron correo (A y B); D no, y C tiene baja', cor.map((e) => e.ficha));
-    ok(sms.find((e) => e.ficha === A).texto === 'Ana, te esperamos en Reunion del sector el lun 9 nov a las 10:00 am en Salon comunal.', 'el texto de fábrica se arma con su fecha y hora, sin tildes', sms[0].texto);
+    ok(sms.find((e) => e.ficha === A).texto === `Ana: te esperamos en Reunion del sector, 9 nov 10:00am, Salon comunal. Baja: https://campana.prueba/b/v${A}-ABCDEFGHIJ`, 'el texto de fábrica se arma con su fecha y hora, sin tildes y CON el enlace de baja al final', sms[0].texto);
     ok(cor[0].asunto === 'Recordatorio: Reunión del sector', 'el asunto del correo lleva el evento (con tildes: es correo)', cor[0].asunto);
     ok(!enviados.some((e) => e.canal === 'push') && !enviados.some((e) => [U1, U2].includes(e.ficha) && e.canal !== 'push'), 'el equipo NO recibe SMS ni correo');
     const rp = await R.vuelta({ ahora: D(2026, 11, 9, 8, 5) });
@@ -710,7 +715,7 @@ async function configurar(o) {
     const r = await R.vuelta({ ahora: D(2026, 11, 11, 8, 5) });
     f = await envios();
     ok(r.enviados === 1 && f.length === 2 && f[1].estado === 'enviado' && /2026-11-11T10:00/.test(f[1].ocurrencia), 'a las 2 h de la fecha NUEVA sale el recordatorio nuevo (otra ocurrencia)', f.map((x) => x.ocurrencia));
-    ok(/el mar 11 nov a las 10:00 am/.test(enviados[enviados.length - 1].texto) || /mie 11 nov/.test(enviados[enviados.length - 1].texto), 'y dice la fecha nueva', enviados[enviados.length - 1].texto);
+    ok(/11 nov 10:00am/.test(enviados[enviados.length - 1].texto), 'y dice la fecha nueva', enviados[enviados.length - 1].texto);
     // Cancelado: lo pendiente se cancela (también al llamarlo desde la ruta de eventos, sin esperar a la vuelta).
     await configurar({ tope_diario_sms_automaticos: 0 });
     const ev2 = await evento({ inicio: D(2026, 11, 12, 10, 0) });
@@ -768,6 +773,73 @@ async function configurar(o) {
     await asistente(evL, { votante: e });
     const rl = await R.vuelta({ ahora: D(2026, 11, 16, 9, 30) });
     ok(rl.candidatos === 0 && enviados.length === 0, 'un evento creado 1 h antes no recibe un «24 h antes» ni un «2 h antes» tardíos');
+  }
+
+  console.log('\n[19b] SMS de evento con enlace de baja: un segmento, recorta {lugar} y luego {evento} con «...», nunca el enlace');
+  {
+    await limpiar();
+    await configurar({ recordatorios_activos: 1, tope_diario_sms_automaticos: 200 });
+    const rId = await reglaEvento('sms', -120);
+    const mk = async (titulo, lugar, nombre) => {
+      const v = await votante({ nombre: nombre || 'Beatriz Prueba' });
+      const ev = await evento({ inicio: D(2026, 11, 20, 10, 0), titulo, lugar });
+      await asistente(ev, { votante: v });
+      return v;
+    };
+    const enlace = (v) => ` Baja: https://campana.prueba/b/v${v}-ABCDEFGHIJ`;
+    const ultimoDe = (v) => enviados.filter((e) => e.ficha === v).pop();
+    const vOk = await mk('Reunión de líderes', 'Salón comunal');
+    const vLugar = await mk('Reunión del comité', 'Salón comunal del barrio La Esperanza, segundo piso, torre norte, entrada principal');
+    const vAmbos = await mk('Encuentro de líderes y lideresas de toda la comuna norte de la ciudad', 'Salón comunal del barrio La Esperanza, segundo piso, torre norte, entrada principal de visitantes');
+    await R.vuelta({ ahora: D(2026, 11, 20, 8, 5) });
+    const fOk = ultimoDe(vOk), fLugar = ultimoDe(vLugar), fAmbos = ultimoDe(vAmbos);
+    ok(fOk.texto === `Beatriz: te esperamos en Reunion de lideres, 20 nov 10:00am, Salon comunal.${enlace(vOk)}`, 'con datos normales no se recorta nada', fOk.texto);
+    ok(fLugar.texto.includes('Reunion del comite, 20 nov 10:00am, Salon comunal del barrio') && fLugar.texto.includes('...') && !fLugar.texto.includes('torre norte, entrada principal'), 'con un lugar larguísimo se recorta SOLO {lugar}; el evento queda entero', fLugar.texto);
+    ok(fLugar.texto.endsWith(enlace(vLugar)), 'y el enlace de baja queda completo al final', fLugar.texto);
+    const ai = fAmbos.texto.indexOf(' Baja:');
+    ok(fAmbos.texto.endsWith(enlace(vAmbos)) && fAmbos.texto.slice(0, ai).endsWith('...'), 'con evento y lugar larguísimos se recorta el lugar y luego el evento, y el enlace sigue completo', fAmbos.texto);
+    ok(fAmbos.texto.slice(0, ai).split('...').length - 1 === 2, 'quedan DOS «...» (uno en el evento y otro en el lugar)', fAmbos.texto);
+    ok(/Encuentro/.test(fAmbos.texto) && /Salon/.test(fAmbos.texto), 'lo que queda sigue siendo legible (empieza igual que el original)', fAmbos.texto);
+    for (const f of [fOk, fLugar, fAmbos]) {
+      ok(f.texto.length <= 160 && !f.texto.includes('…') && /^[\x20-\x7E]*$/.test(f.texto), 'un solo segmento GSM-7: ≤ 160 y sin tildes ni «…»', f.texto.length);
+    }
+    const filas = await envios();
+    const notaLugar = filas.find((x) => x.destinatario_id === vLugar), notaAmbos = filas.find((x) => x.destinatario_id === vAmbos), notaOk = filas.find((x) => x.destinatario_id === vOk);
+    ok(notaLugar.estado === 'enviado' && /Se recortó \{lugar\}/.test(notaLugar.motivo) && !/evento/.test(notaLugar.motivo), 'el historial dice qué se recortó: solo {lugar}', notaLugar.motivo);
+    ok(/\{lugar\} y \{evento\}/.test(notaAmbos.motivo) && notaOk.motivo === null, '…o {lugar} y {evento}; y nada cuando no hubo recorte', [notaAmbos.motivo, notaOk.motivo]);
+    ok(Number(notaLugar.segmentos) === 1 && Number(notaAmbos.segmentos) === 1, 'cada envío gastó UN segmento');
+
+    // Con la firma del operador (más larga) también cabe: la firma cuenta.
+    await q(`DELETE FROM recordatorio_envios`); enviados.length = 0;
+    R.deps.configSms = async () => ({ firma: ' Equipo La Esperanza 2026', bajaAutomatica: true, urlBajaBase: null });
+    await R.vuelta({ ahora: D(2026, 11, 20, 8, 6) });
+    const conFirma = ultimoDe(vAmbos);
+    ok(analizarLargo(conFirma.texto + ' Equipo La Esperanza 2026') <= 160 && conFirma.texto.endsWith(enlace(vAmbos)), 'con una firma de operador de 25 caracteres sigue cabiendo, recortando más', conFirma.texto.length);
+    // Si ni recortando al mínimo cabe, se omite con su motivo (no pasa a 2 segmentos).
+    await q(`DELETE FROM recordatorio_envios`); enviados.length = 0;
+    R.deps.configSms = async () => ({ firma: ' '.padEnd(95, 'F'), bajaAutomatica: true, urlBajaBase: null });
+    await R.vuelta({ ahora: D(2026, 11, 20, 8, 7) });
+    const imposible = (await envios()).find((x) => x.destinatario_id === vAmbos);
+    ok(enviados.length === 0 && imposible.estado === 'omitido' && /aun recortando/.test(imposible.motivo), 'si ni recortando cabe, queda «omitido» con su motivo y no sale en 2 segmentos', imposible);
+    // Sin enlace de baja (campaña que lo apagó): no se agrega y no cuenta.
+    await q(`DELETE FROM recordatorio_envios`); enviados.length = 0;
+    R.deps.configSms = async () => ({ firma: '', bajaAutomatica: false, urlBajaBase: null });
+    await R.vuelta({ ahora: D(2026, 11, 20, 8, 8) });
+    ok(!/Baja:/.test(ultimoDe(vOk).texto) && ultimoDe(vOk).texto === 'Beatriz: te esperamos en Reunion de lideres, 20 nov 10:00am, Salon comunal.', 'con el enlace de baja apagado en la campaña, el SMS sale sin él');
+    ok(R.validarPlantilla({ tipo: 'evento', canal: 'sms', plantilla: 'x'.repeat(160) }, { cfg: {}, sms: { firma: '', bajaAutomatica: false }, ahora: AHORA }).ok, 'y el validador tampoco lo cuenta');
+    // Sin llave para firmar el enlace (sin SESSION_SECRET): sale sin él, como en el CRM, y no falla.
+    await q(`DELETE FROM recordatorio_envios`); enviados.length = 0;
+    R.deps.configSms = async () => ({ firma: '', bajaAutomatica: true, urlBajaBase: null });
+    R.deps.urlBaja = async () => '';
+    await R.vuelta({ ahora: D(2026, 11, 20, 8, 9) });
+    ok(enviados.length === 3 && !/Baja:/.test(ultimoDe(vOk).texto), 'si no hay con qué firmar el enlace, sale igual sin él');
+    R.deps.urlBaja = async (tipo, id) => `https://campana.prueba/b/${tipo[0]}${id}-ABCDEFGHIJ`;
+    R.deps.configSms = async () => ({ firma: '', bajaAutomatica: true, urlBajaBase: null });
+    // ajustarSms por sí sola: nunca toca el sufijo, y el orden es el de `recortables`.
+    const aj = R.ajustarSms({ plantilla: '{nombre}: {evento}, {lugar}.', valores: { nombre: 'Ana', evento: 'E'.repeat(120), lugar: 'L'.repeat(70) }, recortables: ['lugar', 'evento'], sufijo: ' Baja: ' + 'u'.repeat(40), firma: '' });
+    ok(aj && aj.recortado.join() === 'lugar,evento' && aj.texto.length + 47 <= 160 && !aj.texto.includes('…'), 'ajustarSms: recorta primero el lugar y después el evento, con tres puntos ASCII', aj);
+    const aj2 = R.ajustarSms({ plantilla: '{nombre}: {evento}, {lugar}.', valores: { nombre: 'Ana', evento: 'E'.repeat(20), lugar: 'L'.repeat(100) }, recortables: ['lugar', 'evento'], sufijo: ' Baja: ' + 'u'.repeat(40), firma: '' });
+    ok(aj2 && aj2.recortado.join() === 'lugar' && aj2.texto.includes('E'.repeat(20)), 'ajustarSms: si basta con el lugar, el evento queda entero', aj2);
   }
 
   console.log('\n[20] Fase 3 · «¿ya votaste?»: solo la fecha de elección, a la hora H, a quien no ha votado y con SMS estricto');
@@ -942,7 +1014,7 @@ async function configurar(o) {
     const variable = await pedir('PUT', `/reglas/${rEv.id}`, { usuario: admin, json: { plantilla: 'Hola {nombre} {secreto}' } });
     ok(variable.status === 400 && /secreto/.test(variable.datos.error), 'ni usar una variable que no existe');
     const antesR = (await auditoria('recordatorios_regla_editar')).length;
-    const edit = await pedir('PUT', `/reglas/${rEv.id}`, { usuario: admin, json: { plantilla: '{nombre}, te esperamos en {evento} el {fecha} a las {hora}.', desfase_min: -300 } });
+    const edit = await pedir('PUT', `/reglas/${rEv.id}`, { usuario: admin, json: { plantilla: '{nombre}: te esperamos en {evento}, {fecha} {hora}.', desfase_min: -300 } });
     const aud2 = await auditoria('recordatorios_regla_editar');
     ok(edit.status === 200 && edit.datos.regla.desfase_min === -300 && aud2.length === antesR + 1 && /plantilla/.test(aud2[0].detalle) && /desfase_min: «-1440» → «-300»/.test(aud2[0].detalle), 'editar una regla la guarda y deja su apunte (qué campo cambió)', aud2[0] && aud2[0].detalle);
     const act = await pedir('POST', `/reglas/${rYv.id}/activar`, { usuario: admin, json: { activo: true } });
@@ -957,10 +1029,10 @@ async function configurar(o) {
     ok(apaga.datos.reglasApagadas === 1 && /Se apagaron 1 regla/.test((await auditoria('recordatorios_configuracion'))[0].detalle), 'vaciar la fecha permitida apaga esa regla y lo dice en la auditoría');
 
     // ---- validador en vivo
-    const v1 = (await pedir('POST', '/validar', { usuario: admin, json: { tipo: 'evento', canal: 'sms', plantilla: '{nombre}, te esperamos en {evento} el {fecha} a las {hora} en {lugar}.' } })).datos;
-    ok(v1.ok && v1.segmentos === 1 && v1.caracteres > 60 && v1.caracteres <= 160, 'el validador en vivo da el visto bueno y cuenta los segmentos y caracteres de la plantilla de fábrica', v1);
+    const v1 = (await pedir('POST', '/validar', { usuario: admin, json: { tipo: 'evento', canal: 'sms', plantilla: '{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.' } })).datos;
+    ok(v1.ok && v1.segmentos === 1 && v1.caracteres > 60 && v1.caracteres <= 160 && v1.bajaCaracteres === R.largoDeLaBaja({}) && v1.recortables.join() === 'lugar,evento', 'el validador en vivo cuenta los caracteres y segmentos CON el enlace de baja, y dice qué se recorta (lugar y luego evento)', v1);
     const v2 = (await pedir('POST', '/validar', { usuario: admin, json: { tipo: 'evento', canal: 'sms', plantilla: 'x'.repeat(170) } })).datos;
-    ok(!v2.ok && v2.segmentos === 2 && /pasa de un SMS/.test(v2.errores.join(' ')), 'una plantilla larga: 2 segmentos y el error', v2);
+    ok(!v2.ok && v2.segmentos === 2 && /pasa de un SMS/.test(v2.errores.join(' ')) && /enlace de baja/.test(v2.errores.join(' ')), 'una plantilla larga: 2 segmentos y el error nombra el enlace de baja', v2);
     const v3 = (await pedir('POST', '/validar', { usuario: admin, json: { tipo: 'evento', canal: 'sms', plantilla: 'Vota por {candidato}' } })).datos;
     ok(!v3.ok && /Antes de la fecha permitida/.test(v3.errores[0]) && v3.propagandaPermitida === false, 'y avisa de la precampaña mientras se escribe', v3);
     const v4 = (await pedir('POST', '/validar', { usuario: admin, json: { tipo: 'dia_d_ya_votaste', canal: 'sms', plantilla: '{nombre}, ¿ya votaste? {enlace_ya_vote}' } })).datos;
@@ -972,7 +1044,7 @@ async function configurar(o) {
     const prueba = await pedir('POST', `/reglas/${rEv.id}/probar`, { usuario: admin });
     const ultimo = enviados[enviados.length - 1];
     ok(prueba.status === 200 && enviados.length === antesEnv + 1 && ultimo.prueba === true && ultimo.ficha === 1 && ultimo.telefono === '3001234567', 'la prueba sale al teléfono del propio administrador', prueba.datos);
-    ok(prueba.datos.destino === '*** 4567' && /Reunion de ejemplo/.test(prueba.datos.texto), 'responde a dónde fue (enmascarado) y qué texto salió', prueba.datos);
+    ok(prueba.datos.destino === '*** 4567' && /Reunion de ejemplo/.test(prueba.datos.texto) && /Baja: https:\/\/campana.prueba\/b\/u1-ABCDEFGHIJ$/.test(prueba.datos.texto), 'responde a dónde fue (enmascarado) y qué texto salió, con el enlace de baja al final', prueba.datos);
     ok(Number((await q(`SELECT COALESCE(SUM(segmentos_usados),0) n FROM recordatorio_tope_diario`))[0].n) === Number(antesTope) && (await envios()).length === antesFilas, 'la prueba NO cuenta en el tope diario ni deja una fila en el historial');
     ok((await auditoria('recordatorios_prueba')).length === 1, 'pero sí queda en auditoría');
     await q(`UPDATE usuarios SET telefono = NULL WHERE id = 1`);

@@ -212,12 +212,30 @@ const sumaTend = (d) => (d || []).reduce((a, f) => a + f.total, 0);
   const rAs2 = await pedir('/api/dashboard/resumen', asistente);
   ok(rAs2.datos.votantes.total === TOTAL && !('finanzas' in rAs2.datos), `asistente administrativo: los ${TOTAL}, sin finanzas`, rAs2.datos.votantes);
 
+  // ============================================================== la meta de la campaña no es para quien trabaja en calle
+  console.log('\n== metaVotosCampana: la reciben la dirección y el apoyo, no líder, sublíder, testigo, usuario ni invitado');
+  await pool.query('INSERT IGNORE INTO configuracion_campana (id) VALUES (1)');
+  await pool.query('UPDATE configuracion_campana SET meta_votos_campana = 4000 WHERE id = 1');
+  for (const [nombre, u] of [['administrador', admin], ['coordinador', cA], ['asistente administrativo', asistente], ['administrativo', administrativo]]) {
+    const r = await pedir('/api/dashboard/resumen', u);
+    ok(r.status === 200 && r.datos.metaVotosCampana === 4000, `${nombre}: SÍ recibe metaVotosCampana (4000)`, r.datos && r.datos.metaVotosCampana);
+  }
+  for (const [nombre, u] of [['líder', lA], ['sublíder', sA], ['testigo', testigo], ['usuario', usuarioRaso], ['invitado', invitado]]) {
+    const r = await pedir('/api/dashboard/resumen', u);
+    ok(r.status === 200 && !('metaVotosCampana' in r.datos), `${nombre}: la llave metaVotosCampana NO viaja`, Object.keys(r.datos || {}));
+    ok(!r.texto.includes('4000'), `${nombre}: y la cifra no aparece en ninguna parte de la respuesta`);
+  }
+  const rLider = await pedir('/api/dashboard/resumen', lA);
+  ok(rLider.datos.metaVotosLideres === 100 && rLider.datos.votantes.total === DE_LA, 'y el resto del tablero del líder sigue igual (su meta, sus votantes)');
+  await pedir('/api/dashboard/resumen', lA, true);
+
   // ============================================================== aspirante (lo que ya había)
   console.log('\n== Aspirante: su rama (no cambia)');
   sublicencia = { usuario_id: lA.id, cargo: 'concejo' };
   const rAsp = await pedir('/api/dashboard/resumen', lA, true);
   ok(rAsp.status === 200 && rAsp.datos.eventos.proximos === 0 && rAsp.datos.proximosEventos.length === 0 && rAsp.datos.menciones.length === 0,
     'sin eventos ni menciones de la madre, como antes', [rAsp.status, rAsp.datos && rAsp.datos.eventos]);
+  ok('metaVotosCampana' in rAsp.datos, 'el aspirante SÍ recibe metaVotosCampana (la de su propia campaña) aunque su rol de fila sea «lider»', Object.keys(rAsp.datos));
   ok(rAsp.datos.finanzas && rAsp.datos.finanzas.ingresos === 0, 'finanzas del aspirante en cero (no ve el dinero de la madre), como antes', rAsp.datos.finanzas);
   ok(rAsp.datos.estructura.lideres === 1 || rAsp.datos.estructura.lideres === 0, 'la estructura es la de su rama, sin él', rAsp.datos.estructura);
 

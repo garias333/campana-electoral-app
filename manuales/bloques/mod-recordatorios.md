@@ -38,5 +38,5 @@ Los recordatorios de un evento le llegan al **equipo** solo como aviso en la app
 :::
 
 ::: consejo
-El recordatorio de un evento por SMS no lleva el enlace de baja al final, porque con él no cabría en un solo mensaje. Aun así, quien pidió la baja nunca lo recibe.
+El recordatorio de un evento por SMS lleva al final el enlace de baja y tiene que caber en un solo mensaje. Por eso el texto de fábrica es corto, y si el lugar o el nombre del evento son muy largos, se acortan con «...» (primero el lugar, después el evento). El enlace de baja nunca se acorta. Mientras escribes una regla, la pantalla cuenta los caracteres con ese enlace incluido.
 :::

@@ -28,6 +28,8 @@ router.use(requireAuth);
    error al leer, niega. NO se aplica a `/mi-progreso`, `/progreso-equipo` ni
    `/avance-mis-lideres`: cada una tiene su propia regla. */
 const verPanelGeneral = requiereVerModulo('panel_general', { aspirante: true });
+/** Los roles de calle, a los que `/resumen` no manda `metaVotosCampana`. */
+const ROLES_SIN_META_DE_CAMPANA = ['lider', 'sublider', 'testigo', 'usuario', 'invitado'];
 
 /* ---------------------------------------------------------------------------
    EL PANEL DEL ASPIRANTE ES EL MISMO, CON SUS NÚMEROS
@@ -411,10 +413,15 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
       apoyosActivos = [];
     }
 
+    /* LA META DE LA CAMPAÑA NO ES PARA QUIEN TRABAJA EN CALLE. Es lo que la dirección se fijó («necesito 4.000 votos»): líder, sublíder,
+       testigo, usuario e invitado ven su avance y el de su rama, no esa cifra. Se omite la LLAVE (no se manda en cero: un cero
+       diría «no hay meta»). El aspirante con sublicencia sí la recibe —es la de su propia campaña— aunque su rol de fila sea «lider».
+       Lo que pinta el tablero con la llave ausente ya está cubierto: `metaVotosCampana > 0 ? … : '—'`. */
+    const sinMetaDeCampana = !req.sublicencia && ROLES_SIN_META_DE_CAMPANA.includes(req.session.usuario.rol);
     res.json({
       estructura,
       votantes,
-      metaVotosCampana,
+      ...(sinMetaDeCampana ? {} : { metaVotosCampana }),
       metaVotosLideres: Number(metaYAvanceLideres.meta_votos_lideres),
       avanceRegistrosLideres: Number(metaYAvanceLideres.avance_registros_lideres),
       ...(verFinanzas ? { finanzas: {

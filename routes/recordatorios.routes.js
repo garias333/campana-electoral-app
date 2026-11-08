@@ -121,7 +121,7 @@ router.post('/validar', async (req, res) => {
     const regla = b.regla_id ? (await R.listarReglas()).find((r) => r.id === Number(b.regla_id)) : null;
     const def = { tipo: b.tipo || (regla && regla.tipo), canal: b.canal || (regla && regla.canal), plantilla: b.plantilla, asunto: b.asunto, activo: regla ? regla.activo : 0 };
     const v = R.validarPlantilla(def, { cfg: cf || {}, sms: await R.deps.configSms(), ahora: R.deps.reloj() });
-    res.json({ ok: v.ok, errores: v.errores, avisos: v.avisos, segmentos: v.segmentos, caracteres: v.caracteres, propagandaPermitida: cfg.propagandaPermitida });
+    res.json({ ok: v.ok, errores: v.errores, avisos: v.avisos, segmentos: v.segmentos, caracteres: v.caracteres, bajaCaracteres: v.bajaCaracteres, recortables: v.recortables, propagandaPermitida: cfg.propagandaPermitida });
   } catch (err) { errorDe(res, err); }
 });
 

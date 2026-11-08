@@ -303,14 +303,16 @@
         } });
         const partes = [];
         if (editando.canal === 'sms' && v.segmentos !== null && v.segmentos !== undefined) {
-          partes.push(`<b>${esc(v.caracteres)}</b> caracteres con los datos más largos · <b>${esc(v.segmentos)}</b> SMS ${v.segmentos > 1 ? '(máximo 1)' : '(cabe en uno)'}`);
+          partes.push(`<b>${esc(v.caracteres)}</b> caracteres con datos típicos${v.bajaCaracteres ? `, contando el enlace de baja (${esc(v.bajaCaracteres)})` : ''} · <b>${esc(v.segmentos)}</b> SMS ${v.segmentos > 1 ? '(máximo 1)' : '(cabe en uno)'}`);
         } else if (editando.canal === 'push') {
           partes.push(`<b>${$('rec-e-plantilla').value.length}</b> de 140 caracteres`);
         }
         const errores = (v.errores || []).map((x) => `<li>${esc(x)}</li>`).join('');
         const avisos = (v.avisos || []).map((x) => `<li>${esc(x)}</li>`).join('');
+        const recorte = (v.recortables || []).length
+          ? `<div style="margin-top:6px">Si con datos largos no cabe en un SMS, se recorta ${v.recortables.map((x) => '{' + esc(x) + '}').join(' y luego ')} con «...». El enlace de baja nunca se recorta.</div>` : '';
         caja.className = 'rec-validador ' + (v.ok ? 'bien' : 'mal');
-        caja.innerHTML = `${v.ok ? '✔ La plantilla es válida.' : '✖ Hay que corregir:'} ${partes.join(' ')}
+        caja.innerHTML = `${v.ok ? '✔ La plantilla es válida.' : '✖ Hay que corregir:'} ${partes.join(' ')}${recorte}
           ${errores ? `<ul>${errores}</ul>` : ''}${avisos ? `<div style="margin-top:6px">Aviso:<ul>${avisos}</ul></div>` : ''}`;
         const g = $('rec-e-guardar');
         if (g) g.disabled = !v.ok;

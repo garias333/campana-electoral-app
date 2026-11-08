@@ -12,10 +12,12 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 301** (`parches/campana-parche301.zip`, 193.492 bytes,
-  sha256 `e0720f3235f8b30163644b0365d6811497c6d0287a182b4eca4fdb37a4598442`, 14 archivos): «Recordatorios: Fases 2, 3 y 4 (Requiere el 300)».
-  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 301` + `registrar-parche.js 301` los corre el usuario como root (comando en el informe de la sesión);
-  **TOCA LA BASE** (`db/init-db.js`: siembra siete reglas apagadas y el módulo `recordatorios` en la matriz; repetible); **requiere el 300**. **Service worker `v172`** (cambió `common.js`, que está en la precarga).
+- **Último parche generado: 302** (`parches/campana-parche302.zip`, 96.635 bytes,
+  sha256 `8029948a745d122d66c99df9e373dd2a4d026e9bd153014cd983c8d135299f1e`, 8 archivos): «Recordatorios: SMS de evento con enlace de baja (Requiere el 301)».
+  **NO PUBLICADO NI REGISTRADO**: `publicar-parche.sh 302` + `registrar-parche.js 302` los corre el usuario como root (comando en el informe de la sesión);
+  **TOCA LA BASE** (`db/init-db.js`: pasa a la plantilla nueva las reglas de evento sin editar; repetible); **requiere el 301**. Service worker sin cambio (`v172`).
+  El anterior, el 301 (`parches/campana-parche301.zip`, 193.492 bytes, sha256 `e0720f3235f8b30163644b0365d6811497c6d0287a182b4eca4fdb37a4598442`, 14 archivos):
+  **publicado** (`parche-301.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
   El anterior, el 300 (`parches/campana-parche300.zip`, 148.675 bytes, sha256 `53b49e358ffd0eb6096aa6bb3f1543e71cfa42765fc73383ea61ab70fdadc8f9`, 10 archivos):
   **publicado** (`parche-300.zip` en el servidor de licencias, misma huella, comprobado el 8 de noviembre de 2026); el registro y la activación los hizo el usuario («Lo corro yo»), no verificables desde esta cuenta.
   El anterior, el 299 (`parches/campana-parche299.zip`, 1.060.532 bytes, sha256 `aed6980626137a65fad3dfbe303fb421637bd68d508f258c3a0aa2cbbd957cad`, 154 archivos):
@@ -107,11 +109,16 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v301** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v301.zip`,
+- **Plantilla vigente: v302** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v302.zip`,
+  6.498.551 bytes, sha256 `4cfecb117023cfff8ba0228edf895c50f4d35ab85fb1d99ea4e9dc1ab003645e`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 302.
+  Generada con `node scripts/generar-plantilla.js --parche 302`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
+  deja **67 tablas** y las reglas de evento con la plantilla nueva, igual en una segunda corrida; la migración respeta una regla editada; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
+  **OJO: dice 302 aunque el 302 aún no está publicado**; si sale con otro número, regenerarla.
+- **Plantilla v301 (reemplazada por la v302)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v301.zip`,
   6.493.944 bytes, sha256 `2ef0d29bf215d16ca5c9b938a2a67f408d7c0a9e4ce9136f8456606a4f139c8f`, service worker `estrategia-v172`, `.version-base` y `.version-parche` = 301.
   Generada con `node scripts/generar-plantilla.js --parche 301`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
   deja **67 tablas** y **7 reglas de fábrica apagadas** y el módulo `recordatorios` solo para el administrador, igual en una segunda corrida; `lib/manuales.js` da 163 bloques sin avisos; `scripts/probar-recordatorios.js` desde la plantilla, todo bien.
-  **OJO: dice 301 aunque el 301 aún no está publicado**; si sale con otro número, regenerarla.
+  (El 301 ya está publicado.)
 - **Plantilla v300 (reemplazada por la v301)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v300.zip`,
   6.459.990 bytes, sha256 `f0c238761f6c184e5c3d147b0ace51442a3d0019e65d10e9dc1777845e34b60f`, service worker `estrategia-v171`, `.version-base` y `.version-parche` = 300.
   Generada con `node scripts/generar-plantilla.js --parche 300`; escaneo de secretos sin hallazgos. Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado)
@@ -207,7 +214,30 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 301 — Recordatorios automáticos, Fases 2, 3 y 4 (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
+## Parche 302 — SMS de evento con enlace de baja y meta de campaña solo para la dirección (8 de noviembre de 2026, GENERADO, sin publicar ni registrar, TOCA LA BASE)
+
+Orden: «SMS de recordatorio de evento con enlace de baja». **Requiere el 301.** **Toca la base** (`db/init-db.js` actualiza la plantilla de fábrica). **Service worker sigue en v172**: no cambió ningún archivo de la precarga.
+
+**1. El SMS de recordatorio de evento lleva el enlace de baja** (`conBaja: true` en `lib/recordatorios.js`; deja sin efecto lo decidido en el parche 301).
+- **Antes el motor solo CONTABA el enlace** y nunca lo agregaba (ningún tipo lo llevaba). Ahora lo agrega de verdad: « Baja: <enlace>» al final, con el enlace firmado de ESA persona (`config/bajaContacto.js`, base `sms_config.url_baja_base` o el dominio de la licencia). Sin llave para firmar (sin `SESSION_SECRET`) sale sin él, como en el CRM. Si la campaña apagó «Agregar el enlace de baja a cada SMS», no se agrega ni se cuenta.
+- **Plantilla de fábrica nueva:** «{nombre}: te esperamos en {evento}, {fecha} {hora}, {lugar}.» (las cinco reglas de evento). Para ganar sitio, `{fecha}` pasó a «20 nov» y `{hora}` a «10:30am» (antes «vie 20 nov» y «10:30 am»). Con datos típicos ocupa 157 caracteres **con el enlace de baja más largo (dominio de 42 letras, 78 caracteres)**: cabe en un segmento GSM-7.
+- **Migración:** las reglas de evento cuyo texto sigue siendo EXACTAMENTE el de fábrica anterior pasan al nuevo; **una que el administrador editó no se toca** (probado).
+- **Recorte (`ajustarSms`):** si con los datos de ese evento el SMS no cabe en un segmento, se acorta `{lugar}` y, si hace falta, después `{evento}`, de un carácter en un carácter hasta un mínimo de 6 letras más «...». **Tres puntos ASCII y no «…»**: ese carácter no es GSM-7 y mandaría el mensaje a 70. **El enlace de baja NUNCA se toca.** Si ni así cabe (por ejemplo, una firma de operador muy larga), la fila queda `omitido` («aun recortando lo posible») y no sale en dos segmentos. El historial deja escrito qué se recortó («Se recortó {lugar} y {evento} con «...» para caber en un SMS»). «Enviarme una prueba» usa el mismo armado, con el enlace de baja de quien la pide.
+- Las variables que se pueden recortar son una propiedad del tipo (`recortables: ['lugar', 'evento']`).
+
+**2. El validador en vivo cuenta el enlace de baja en las reglas SMS.** `validarPlantilla` mide con la firma del operador y con el largo REAL del enlace de ESTA campaña (`largoDeLaBaja`: base + «/b/» + hasta 18 de código; antes era una constante de 78). Valida el peor caso razonable: lo recortable, al mínimo (9 caracteres); lo demás, al máximo; si ni así cabe, rechaza («incluso recortando {lugar} y {evento}…»). Los números que muestra la pantalla son con datos **típicos** y dice cuánto ocupa el enlace de baja («contando el enlace de baja (N)») y qué se recorta si hace falta (`bajaCaracteres` y `recortables` en la respuesta de `POST /validar`).
+
+**3. `GET /api/dashboard/resumen` ya no manda `metaVotosCampana`** a líder, sublíder, testigo, usuario ni invitado (se omite la **llave**; un cero diría «no hay meta»). La reciben el administrador, el coordinador, el asistente administrativo y el administrativo, y **el aspirante con sublicencia** (es la meta de su propia campaña, aunque su rol de fila sea «lider»). `dashboard.html` y `admin-panel.html` ya toleraban la llave ausente (`metaVotosCampana > 0 ? … : '—'`). La cifra tampoco aparece en ninguna otra parte de la respuesta.
+
+### Pruebas
+- **`probar-recordatorios.js` — 245 comprobaciones** (de 225): el texto exacto con la baja y los formatos nuevos; recorte de solo el lugar, de lugar y evento, con firma de 25 caracteres, imposible (omitido), sin baja (apagada) y sin llave; todo en un segmento GSM-7, sin tildes ni «…»; el enlace de baja siempre completo al final; el historial dice qué se recortó; la plantilla de fábrica cabe con el dominio de 42 letras (157 caracteres, baja de 78); el largo del enlace sale del dominio; el validador en vivo cuenta la baja y dice qué se recorta; la prueba a uno mismo lleva su enlace.
+- **`probar-panel-alcance.js` — 59 comprobaciones** (de 47): `metaVotosCampana` SÍ llega a administrador, coordinador, asistente administrativo y administrativo (4000) y NO viaja —ni la cifra— a líder, sublíder, testigo, usuario ni invitado; el resto del tablero del líder sigue igual; el aspirante SÍ la recibe.
+- Las otras siete suites, cada una sobre una base nueva, siguen bien (467 y 123 comprobaciones en inscripción por enlace y transporte).
+- Migración probada sobre la plantilla extraída: 67 tablas en dos corridas; una regla sin editar con el texto anterior pasa al nuevo y una editada se conserva.
+- **Sin probar:** contra un proveedor real de SMS (no hay canal en el entorno de prueba): el enlace de baja real, `url_baja_base` y el límite de 160 del operador se verificaron con el contador propio del repositorio.
+
+
+## Parche 301 — Recordatorios automáticos, Fases 2, 3 y 4 (8 de noviembre de 2026, publicado; registro y activación por el usuario; TOCA LA BASE)
 
 Orden: «Recordatorios, Fases 2, 3 y 4». **Requiere el 300.** **Toca la base** (siembra, no cambia el esquema de las tablas de la Fase 1). **Service worker v172**: la entrada «Recordatorios» del menú está en `common.js`, que va en la precarga. Sigue **apagado de fábrica**: `recordatorios_activos = 0`, las siete reglas nacen apagadas y el módulo solo lo ve el administrador.
 
@@ -220,7 +250,7 @@ Orden: «Recordatorios, Fases 2, 3 y 4». **Requiere el 300.** **Toca la base** 
 - **Cambios del evento:** la ocurrencia lleva la fecha de inicio (`evento:<id>:<fecha>`). Si el evento **se mueve**, lo pendiente (en cola o diferido) de la fecha vieja se cancela («cambió de fecha») y la fecha nueva genera su propio recordatorio. Si se **cancela** o se marca realizado, o se **borra**, lo pendiente se cancela. `routes/eventos.routes.js` lo avisa al motor al editar o borrar (no espera la vuelta de 60 s), y la vuelta lo revisa siempre, también en silencio.
 - **Vence cuando empieza el evento** (`vence_en`): un recordatorio diferido por el tope o por el silencio sale mientras el evento no haya empezado; si ya empezó, queda `omitido` con «El evento ya empezó». Se miran los eventos de las últimas 12 h para que ese motivo quede escrito en vez de que el recordatorio simplemente no aparezca.
 - Un evento **creado después** de la hora del recordatorio no recibe uno tardío (un evento creado 1 h antes no recibe el «24 h antes»).
-- **Sin enlace de baja al final del SMS de evento** (`conBaja: false`): es un recordatorio operativo de algo a lo que la persona fue invitada y con el enlace de 78 caracteres el texto de fábrica no cabe en un segmento (igual que el aviso al testigo y el enlace «Ya voté»). La baja se respeta igual. **Es una decisión de producto que conviene confirmar**: para volver a ponerlo, `conBaja: true` en `lib/recordatorios.js` y acortar la plantilla.
+- **(Reemplazado por el parche 302: ahora SÍ lleva el enlace de baja.)** Sin enlace de baja al final del SMS de evento (`conBaja: false`): es un recordatorio operativo de algo a lo que la persona fue invitada y con el enlace de 78 caracteres el texto de fábrica no cabe en un segmento (igual que el aviso al testigo y el enlace «Ya voté»). La baja se respeta igual. **Es una decisión de producto que conviene confirmar**: para volver a ponerlo, `conBaja: true` en `lib/recordatorios.js` y acortar la plantilla.
 
 ### Fase 3 — «¿ya votaste?» (tipo `dia_d_ya_votaste`)
 - **Solo la fecha de elección** (`configuracion_campana.fecha_eleccion` = hoy), **a la hora H de la regla** (14:00 por defecto) y hasta el cierre de la jornada. Dos reglas de fábrica: **1.ª ronda (14:00)** y **2.ª ronda (15:00, opcional)**; ambas apagadas. (La 1.ª también nace apagada: no se puede activar sin la fecha permitida, y encender algo de campo por defecto sería sorprendente.)
