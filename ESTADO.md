@@ -58,7 +58,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v163` en el código de la Base y dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v164` en el código de la Base (commit `d48db1d`, **todavía sin parche**: lo llevará el próximo que toque archivos servidos); `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -66,18 +66,25 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v286** (7 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v286.zip`,
-  1.952.383 bytes, **251 archivos**, sha256 `76abd37c3247ba48d9a59257024283e387137b5eadfef026b46f7b25bf6f963f`,
-  service worker `estrategia-v161`, `.version-parche` y `.version-base` = 286. Generada con
-  `node scripts/generar-plantilla.js --parche 286`; escaneo de secretos del generador sin hallazgos (y revisión aparte: sin `.env`,
-  `.licencia-cache.json`, `.credenciales-*` ni llaves privadas; la única `.pem` es la pública de los parches). Probada: `init-db.js`
-  desde la plantilla extraída sobre una base vacía deja 61 tablas, `sms_config.firma` en `varchar(80)` y `aviso_enviado_en`; y
-  `scripts/probar-instalacion-limpia.js` (que no viaja en la plantilla; se corrió con el código de la Base, idéntico por md5) pasa con 61 tablas.
-  Esa corrida obligó a marcar como «ejemplo» la contraseña inventada de `scripts/probar-inscripcion-enlace.js:1134` (commit `d913e62`):
-  el escáner la tomaba por una credencial literal. La v271 (`plantilla-nueva-campana-v271.zip`, 194 archivos) y las v261/v262 siguen en la
-  carpeta pero **ya no sirven** para una campaña nueva: usar la v286. Si después de ella se publica otro parche, hay que regenerarla
-  (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
-  **Ya está atrás: el 287, el 288 y el 289 (7-8 de noviembre) son posteriores y la v286 no los trae** (`.version-base` = 286, service worker `v161`). Se regenerará con `--parche N` (el último que haya) **al final del lote de órdenes**, como se pidió; hasta entonces no crear campañas nuevas con ella.
+- **Plantilla vigente: v289** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v289.zip`,
+  2.010.760 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `51d2b1e6b17df86ca4de80af66a41f25297eb0ec1c14b427e017959cd74e6621`,
+  service worker `estrategia-v164`, `.version-parche` y `.version-base` = 289. Generada con
+  `node scripts/generar-plantilla.js --parche 289`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+  (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`; la única `.pem`
+  es la pública de los parches (`BEGIN PUBLIC KEY`). Un patrón de asignación de secretos sí coincide en nueve archivos, y todos son marcadores:
+  los `SESSION_SECRET` de reserva de los seis `scripts/probar-*.js` (son de pruebas), `public/ayuda.html` (`DB_PASSWORD=tu_clave`) y el comentario de `config/mailer.js`.
+  Probada: la plantilla extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas**, con `logistica_items/plan/entregas`,
+  los tres ítems de fábrica (Kit de testigo 07:00, Refrigerio 12:00, Almuerzo 14:00) y el módulo `logistica_dia_d` sembrado (admin y coordinador en 1);
+  una segunda corrida no duplica nada (siguen 3 ítems). Qué trae de más que la v286: los parches 287, 288 y 289 y el service worker v164.
+  **La v286 (`plantilla-nueva-campana-v286.zip`, 251 archivos), la v271 (194) y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña
+  nueva: usar la v289. Si después se publica otro parche, hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
+  **El `.version-base` de la plantilla (289) es el del último parche, pero su service worker (v164) y las dos páginas de Ranking y Alertas ya llevan el
+  cambio del commit `d48db1d`, que ningún parche ha entregado aún**: una campaña nueva nace con él, y las que siguen en el 289 lo recibirán con el parche siguiente.
+- **Ranking y Alertas del Día D, contenedor** (commit `d48db1d`, 8 de noviembre de 2026): `public/app/ranking-dia-d.html` y `public/app/alertas-dia-d.html`
+  envolvían todo en `<div class="app-contenido">`, una clase que **no existe** en `estilos-app.css` (no faltaba en el HTML: faltaba el CSS), así que las
+  tarjetas salían pegadas a los bordes. Pasan a `<main class="app-cuerpo">`, la de `dia-d.html`, `inicio.html` y `logistica.html`. Service worker `v164`; las
+  pruebas que fijaban la versión (`probar-inscripcion-enlace`, `probar-transporte-diad`, `probar-logistica`) aceptan v164. **Mismo defecto sin tocar** en
+  `app/faltantes.html` y `app/mis-registros.html`: no son del Día D y no se pidieron. Sin parche todavía.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
