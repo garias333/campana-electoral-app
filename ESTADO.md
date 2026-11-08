@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 295** (`parches/campana-parche295.zip`, 273.318 bytes,
+- **Último parche generado: 296** (`parches/campana-parche296.zip`, 144.103 bytes,
+  sha256 `f275335882197ff5d7f7068edb574d522dd43b9116ecbf050300850b2be83161`, 17 archivos).
+  **Publicado** (`parche-296.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Panel del líder en el celular y cierre de fugas de alcance (Requiere el 295)» (detalle abajo); **requiere el 295** (la orden decía 294: ya estaba publicado el 295).
+  Service worker `v169`. El anterior, el 295 (`parches/campana-parche295.zip`, 273.318 bytes,
   sha256 `771998dbb049b2c7abfc7c7ea9f64ebaf815de6cf80254b1017db77832562342`, 190 archivos).
   **Publicado** (`parche-295.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Manuales de ayuda nuevos por rol (Requiere el 294)» (detalle abajo); **requiere el 294**.
@@ -82,7 +86,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v168` en el código de la Base y dentro del 295; `v167` dentro del 294; `v166` dentro del 293; `v165` dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v169` en el código de la Base y dentro del 296; `v168` dentro del 295; `v167` dentro del 294; `v166` dentro del 293; `v165` dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -90,7 +94,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v295** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v295.zip`,
+- **Plantilla v295 (ya atrás del 296; la vigente se declara arriba o en la entrada siguiente si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v295.zip`,
   2.198.203 bytes, **443 archivos** (469 entradas con las carpetas), sha256 `d7907fca5844f91e6fe62cbf62d38083f6c90021a5c4b790ccb124187dc3e151`,
   service worker `estrategia-v168`, `.version-parche` y `.version-base` = 295. Generada con
   `node scripts/generar-plantilla.js --parche 295`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
@@ -151,6 +155,42 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 296 — Panel del líder en el celular y cierre de fugas de alcance (8 de noviembre de 2026, INACTIVO, no toca la base)
+
+Zip de **17 archivos** (`.version-base` = 296): `lib/panelLider.js` y `routes/panelLider.routes.js` (nuevos), `public/app/panel-lider.js` y `public/app/panel-lider.css` (nuevos), `app.js` (una línea), `middleware/aspirante.js`, `routes/dashboard.routes.js`, `routes/votantes.routes.js`, `routes/configuracion.routes.js`,
+`public/app/inicio.html`, `public/app/faltantes.html`, `public/app/alertas-dia-d.html`, `public/dashboard.html`, `public/js/offline-utils.js`, `public/js/cuentas-dispositivo.js`, `public/service-worker.js` (**v169**) y `.version-base`. Commit `1b45bd5`. **Requiere el 295.** Sin `db/`: no toca la base (el `PATCH` usa columnas y el disparador de `puesto_id` que ya existían).
+
+### Parte A — cinco fugas de alcance (lo que se midió en la lectura anterior)
+
+1. **`GET /dashboard/tabla-posiciones`.** A un líder sin sublicencia le devolvía el nombre y los registros de hasta 50 personas de **toda** la campaña (y contados sin acotar). Ahora **líder, sublíder, testigo, usuario e invitado** reciben solo **`{ lugar, de }`** (testigo, usuario e invitado, `lugar: null`): el líder se mide contra los líderes activos y el sublíder contra los sublíderes, cada uno con la definición de inscritos
+   de SU lista (líder: `lider_id`; sublíder: `sublider_id` o `lider_id`); los empates comparten lugar. Administrador, coordinador, asistente, administrativo y aspirante con sublicencia **siguen recibiendo la lista**, como antes. `dashboard.html` pinta «Vas en el lugar X de N». *La orden nombraba solo líder y sublíder; se extendió a testigo, usuario e invitado porque tienen el mismo alcance propio y la misma fuga.*
+2. **`GET /votantes/resumen`.** Sin alcance ni guarda: los 15 territorios con más votantes de toda la campaña a cualquier sesión. Ahora lleva `condicionAlcanceVotantes` (el administrador, que tiene alcance `madre`, sigue viendo todo).
+3. **`GET /configuracion/campana`.** Devolvía la fila entera (`SELECT *`): meta de votos de la campaña, dirección de la sede, teléfono y correo. Líder, sublíder, testigo, usuario e invitado reciben ahora una **lista blanca**: candidato, cargo, lema, partido, departamento y ciudad, los niveles territoriales que se usan, `fecha_eleccion` y todo lo que empiece por `marca_`, `hay_datos_` o `apoyos_` (lo que arman sus formularios y la tarjeta de inicio). Una columna nueva de la tabla no sale a la calle hasta que se decida.
+   Administrador, coordinador, aspirante y el personal administrativo siguen con la fila completa (el administrativo ve las metas en el Panel de todos modos; recortarlo habría dejado en blanco la pantalla de Configuración que esos roles abren). *Pendiente que NO se tocó:* `GET /dashboard/resumen` sigue enviando `metaVotosCampana` a líder y sublíder.
+4. **Copia sin señal (IndexedDB y localStorage).** Las copias de LECTURA (`faltantes_cache`, `alertas_cache` y el nuevo `panel_lider_cache`) llevan el id del usuario en su clave (`u<id>:…`) y `leerCopiaOffline` solo devuelve la de quien está en la sesión; **se borran al cerrar sesión (`desactivarCuentaDispositivo`) y cuando entra una cuenta distinta a la anterior** (`registrarUsuarioSinSenal`,
+   que llama `actualizarPerfilCuentaDispositivo` en cada pantalla de la app), junto con los `cache_ref_*` de localStorage. **Las COLAS de lo pendiente de subir (registros, marcas «ya votó», llegadas, transporte, logística…) NO se borran:** son trabajo sin enviar y borrarlas sería perderlo. Se les asigna dueño (`usuarioId`) y solo la sesión de su dueño las ve y las sube; lo guardado antes de este cambio no trae dueño y se le sigue mostrando a quien entre.
+   `OFFLINE_DB_VERSION` pasa a 6 (cajón `panel_lider_cache`).
+5. **Una sola definición de «inscritos»:** la de la lista (`condicionAlcanceVotantes` con `req.alcance`), en `lib/panelLider.js`. `/dashboard/mi-progreso` la usa (antes contaba `lider_id` suyo o de sus sublíderes de estructura y la barra podía no cuadrar con la lista). Para el aspirante con rol `lider` se cuenta con su alcance de rama y la meta sale de su fila de estructura (`req.alcance.usuarioId`), nunca de `req.session.usuario.id` a secas.
+
+### Parte B — el panel
+
+- **`GET /api/panel-lider`** (solo líder, sublíder y aspirante; el coordinador tiene «Avance de mis líderes»; sin parámetros: quién es sale de la sesión, y mandar el id de otro líder en la URL no cambia nada): `meta` (`tieneMeta`, `meta`, `inscritos`, `porcentaje`, por tu enlace y sin confirmar; con meta 0 o sin fila de estructura, `tieneMeta: false`), `ultimos_7_dias` (por día, hora de Colombia, ceros rellenos, hoy al final),
+  `pendientes` (sin teléfono, sin puesto —sin `puesto_id` y sin texto— y sin verificar, este último solo informativo), `equipo` (por sublíder, **solo nombre, registros y meta**), `posicion` (`{lugar, de}`, sin nombres) y `dia_d` (total, votaron, faltan y porcentaje, con `modo_prueba` y `fecha_eleccion`) **solo si tiene «Ver» en `rescate_votos`** (fuera del día de la elección la pantalla trabaja en modo prueba: quien tiene el módulo lo ve siempre, con su etiqueta).
+  El aspirante: sus inscritos son los de su rama; su barra se mide contra la meta de SU campaña (`sublicencias.meta_votos`), sin ella «Aún no tienes meta asignada»; sin «lugar»; su equipo son quienes le reportan directo.
+- **`GET /api/panel-lider/pendientes?tipo=sin_telefono|sin_puesto&page=`**: 20 por página; solo id, nombre, barrio y lo que falta (sin cédula, teléfono ni correo); con alcance; tipo inválido, 400.
+- **`PATCH /api/votantes/:id/datos-basicos`**: solo `telefono`, `puesto_id` y `mesa` (otro campo, 400); 403 fuera del alcance (y para una ficha que no existe, para no decir si existe); roles que registran (admin, coordinador, líder, sublíder, usuario, asistente) y aspirante; teléfono de 10 dígitos; el puesto debe ser de la lista de la campaña (`dia_d_puestos_votacion`, sembrada del catálogo oficial) y se guarda con su nombre completo y su id del catálogo (el disparador resuelve `puesto_id`);
+  mesa de 1 hasta las del puesto (cambiar de puesto sin elegir mesa vacía la anterior); **sin contraseña**; auditoría (`completar_datos_basicos`, sin el teléfono completo) y **tope de 120 cambios cada 10 minutos por usuario** (429).
+- **`app/inicio.html`** (líder, sublíder y aspirante con rol líder; arriba del menú; `panel-lider.js` y `.css`, en la precarga del service worker): tarjeta «Día D» con «Faltan N por votar» y botón a Faltantes (con «Modo prueba» si no es el día), «Mi meta» con barra (o «Aún no tienes meta asignada» con el conteo), «Vas en el lugar X de N», barras de 7 días, «Por completar» (las de teléfono y puesto abren una hoja con la lista y «Completar», un formulario corto de teléfono, puesto y mesa;
+  «sin verificar» solo informa), «Mi equipo». **Sin señal:** la última copia del usuario con su hora («Sin señal: esta es la copia de las 04:03 a. m. Solo puedes mirarla») y **sin acciones**.
+
+### Pruebas
+- `scripts/probar-panel-lider.js` (no viaja): **87 comprobaciones sin fallos**, con un líder, su sublíder, otro líder, un aspirante con rol líder, un coordinador, un testigo y el administrador: tabla de posiciones (lugares calculados aparte; la lista sigue para quien debe), `votantes/resumen` por alcance, campos de `configuracion/campana` por rol, `mi-progreso` = total de la lista para líder, sublíder y aspirante, el panel entero (7 días por día, pendientes contados aparte, equipo con solo tres claves, posición, Día D con y sin modo prueba, sin Día D si se apaga el módulo),
+  que ningún nombre, teléfono ni cédula de otra persona aparece en ninguna respuesta, que el id de la URL se ignora, `pendientes` con alcance, y el `PATCH` (validaciones, 403 fuera de alcance para líder, sublíder, aspirante y testigo, auditoría sin teléfono, tope por usuario).
+- Suites `probar-panel-alcance`, `comunas-dashboard`, `logistica` (su comprobación de la versión de IndexedDB acepta la 6), `transporte-diad`, `transporte-parte2`, `inscripcion-enlace` y `probar-manuales`, sin fallos.
+- **Chromium a 390 px** con las rutas reales y datos de ejemplo (líder, sublíder, aspirante, coordinador, otro líder y un 1280 px): el panel se ve arriba del menú y sin scroll horizontal; completar un teléfono y un puesto saca a la persona de la lista (3 → 2) y baja la tarjeta; **sin señal** muestra la copia con su hora y sin botones; **al entrar otro líder se borran las copias del anterior** (panel y faltantes), el nuevo no puede leerlas, y cerrar sesión las borra;
+  una marca sin subir de un usuario no la ve ni la sube otro y NO se pierde al cambiar de cuenta; el coordinador no ve el panel. Capturas en `backups/panel-lider-verificacion/` (ignorada por git; no viaja).
+- **No probado:** un teléfono real; el service worker instalado (se probó la lógica de copias con IndexedDB real de Chromium, no la PWA instalada); el catálogo territorial real (`territoriosdb` no existe en la base de pruebas: el puesto se valida contra la lista de la campaña y el disparador resuelve el id por nombre); datos de una campaña real (hasta 10 votantes por prueba).
 
 ## Parche 295 — Manuales de ayuda nuevos por rol (8 de noviembre de 2026, INACTIVO, no toca la base)
 
