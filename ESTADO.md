@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 296** (`parches/campana-parche296.zip`, 144.103 bytes,
+- **Último parche generado: 297** (`parches/campana-parche297.zip`, 27.585 bytes,
+  sha256 `e57fe588a7b28a33d14f9a7dd2be65cf311ba67228204f3be77f698b9fef6ecc`, 6 archivos; comparados uno a uno con los de disco).
+  **NO PUBLICADO NI REGISTRADO**: el paso `publicar-parche.sh 297` + `registrar-parche.js 297` fue **denegado por el sistema de permisos de la sesión** («Production Deploy») y no se rodeó.
+  Falta correrlos por quien tenga la mano (nombre pensado: «Manuales: diseño final (Requiere el 296)»; no toca la base; **requiere el 296**, que sí está publicado y con la misma huella). Hasta entonces el 297 no existe para el panel ni para ninguna campaña.
+  Service worker `v170`. El anterior, el 296 (`parches/campana-parche296.zip`, 144.103 bytes,
   sha256 `f275335882197ff5d7f7068edb574d522dd43b9116ecbf050300850b2be83161`, 17 archivos).
   **Publicado** (`parche-296.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Panel del líder en el celular y cierre de fugas de alcance (Requiere el 295)» (detalle abajo); **requiere el 295** (la orden decía 294: ya estaba publicado el 295).
@@ -94,7 +98,14 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v296** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v296.zip`,
+- **Plantilla vigente: v297** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v297.zip`,
+  2.225.398 bytes, **474 entradas** (las mismas que la v296), sha256 `78e356bee07a6dd2a88d2834b5c14c4c91dd2adcca2945e3c66020d7bf4cff09`,
+  service worker `estrategia-v170`, `.version-parche` y `.version-base` = 297. Generada con `node scripts/generar-plantilla.js --parche 297`; escaneo de secretos sin hallazgos;
+  sin `.env`, `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/` (la única `.pem` es la pública de los parches).
+  Probada: extraída aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas** y una segunda corrida deja lo mismo; `lib/manuales.js` da 161 bloques y 15 de instalación; `scripts/probar-manuales.js` desde la plantilla, todo bien; `verificar-html.py` en `ayuda.html`.
+  **OJO: la plantilla dice 297 aunque el 297 aún no está publicado.** Una campaña nacida de ella no recibirá el 297 por el panel (ya lo trae); si finalmente se publica con otro número, hay que regenerarla.
+  **La v296 y las anteriores siguen en la carpeta pero ya no sirven** para una campaña nueva. Si después se publica otro parche, hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe).
+- **Plantilla v296 (reemplazada por la v297)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v296.zip`,
   2.222.304 bytes, **448 archivos** (474 entradas con las carpetas), sha256 `dd408606fc7a262a5731191d3742d62ec7ca9234f01ef8fb229910c8fbcd045e`,
   service worker `estrategia-v169`, `.version-parche` y `.version-base` = 296. Generada con
   `node scripts/generar-plantilla.js --parche 296`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
@@ -165,6 +176,38 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 297 — Manuales: diseño final (8 de noviembre de 2026, GENERADO, sin publicar ni registrar)
+
+Zip de **6 archivos** (`.version-base` = 297): `public/ayuda.html`, `public/css/ayuda.css`, `public/js/ayuda.js`, `public/app/app-comun.js` (errata «Reptala» → «Repítela» en el cambio obligatorio de clave del celular), `public/service-worker.js` (**v170**) y `.version-base`. **Requiere el 296.** Sin `db/`, sin `lib/` ni `routes/`: el HTML de los manuales lo sigue armando `lib/manuales.js` y los recuadros se pintan solo con CSS.
+**Estado: el zip existe y se verificó contra el disco; la publicación y el registro NO se hicieron** (permiso denegado por el clasificador de la sesión). Para terminarlo: `bash scripts/publicar-parche.sh 297` y `node scripts/registrar-parche.js 297 "Manuales: diseño final (Requiere el 296)"`.
+
+La muestra (`manual-lider-muestra.html`, pegada al final de la orden) **no estaba en disco**; se guardó fuera del repo solo para comparar a 1280 y 390 px.
+
+### Qué difería de la muestra y qué se ajustó
+
+- **Portada:** era una tarjeta redondeada de borde amarillo abajo; ahora ocupa todo el ancho de la columna, con degradado `--color-marca-oscuro` → `--color-marca`, etiqueta amarilla «Centro de ayuda · Manual de uso», «Manual del **Líder**» con el rol en amarillo, **chips** (Tu rol · Se arma con tus permisos de hoy · **Lectura calculada**: palabras del manual ÷ 200 por minuto · fecha del contenido), botones «Imprimir o guardar en PDF» (amarillo) y «Preguntas frecuentes» (blanco), franja amarilla de 6 px y aro decorativo. Los chips de «N guías / preguntas / términos» se quitaron (el índice ya las cuenta).
+- **Buscador:** estaba debajo de la portada y pegajoso; ahora va montado sobre la franja, borde azul de 2 px, sombra, lupa SVG, texto de sugerencias, y el mensaje de la muestra cuando no hay resultados. El resaltado sigue en amarillo. Dejó de ser pegajoso (en el celular chocaba con la barra «☰ Menú»).
+- **Índice:** numerado con cuadritos azul claro, fijo en escritorio, arriba en celular. Se mantienen los grupos («Primeros pasos», «Antes»…) como rótulos sin número.
+- **Guías:** tarjeta blanca de 16 px de radio, ícono 48 px en cuadro azul (**amarillo en las del Día D**), título 23 px en `--color-marca-oscuro`, ruta del menú en **pastillas**, recuadro azul claro «**Para qué sirve:**» en línea, **pasos con círculo amarillo y línea gris**, insignias de permisos **verdes** y las que no tiene **grises y tachadas**.
+- **Recuadros:** con borde izquierdo de 5 px, y los colores **estaban cambiados**: «Consejo» era azul y «Importante» amarillo; ahora Consejo = amarillo, Importante = azul, Cuidado = rojo, «Así sabes que funcionó» = verde. El ícono (💡 📌 ⚠️ ✅) sale del CSS (`::before`), así que no hubo que tocar `lib/manuales.js`.
+- **Guía del rol (nueva):** cada manual abre con «Tu rol en la campaña» (o «El rol en la campaña» cuando el administrador mira el de otro rol), armada en el navegador con los datos reales: la descripción del rol, la **rejilla Antes / Durante / Día D** (cuántas guías tiene esa fase para esos permisos y las primeras tres; la de Día D con borde amarillo; cada tarjeta lleva a su sección) y los módulos que puede ver, en verde. No aparece en el manual de instalación.
+- **Preguntas frecuentes** y **glosario:** cada uno en su tarjeta con ícono; preguntas plegables con «+» y «–»; glosario en dos columnas (término | definición) que pasa a una en el celular (≤ 820 px).
+- **`@media print`:** como el de la muestra (sin buscador, botones, índice ni menú; portada con color exacto; preguntas desplegadas).
+
+### Dónde NO se siguió la muestra al pie de la letra, y por qué
+
+1. **Índice plegado en el celular.** La muestra lo trae abierto porque tiene 8 entradas; aquí hay de 12 a 75 (el coordinador), y abierto taparía el manual entero. En ≤ 1099 px arranca cerrado, con «▾», y se pliega solo al elegir; en escritorio va abierto y fijo. El corte pasó de 1000 a **1100 px**: con el menú lateral de 248 px, a 1000 px el contenido quedaba en 470 px.
+2. **Impresión: `break-inside: avoid-page` solo en guías cortas.** Puesto en todas, como en la muestra, el PDF del líder pasó de **54 a 89 páginas** (las guías largas saltaban a hoja nueva y dejaban media página en blanco). Ahora el JS marca `.corta` (< 420 px de alto) al imprimir y solo esas no se parten: **60 páginas** el del líder, 47 el del testigo.
+3. **Pasos sin título en negrita:** la muestra tiene «**Abre el enlace**» + una línea; los textos de `manuales/bloques/` son una frase por paso. No se inventaron títulos.
+4. **Títulos de sección** («Primeros pasos», «Antes: preparar la campaña»…) se conservan sobre las tarjetas: con 39 a 85 guías el orden por fases sí hace falta; la muestra, con 6, no lo necesita.
+
+### Pruebas (sobre mysqld privado, bases `simulada…`)
+
+- **Chromium a 1280 y 390 px** con los diez roles, contra el servidor real de `routes/manuales.routes.js` y la base inicializada: **sin scroll horizontal, sin errores de consola, un elemento del índice por tarjeta**, y la portada del administrador con sus 11 tarjetas. Búsqueda («QR» → 11 resultados con 25 resaltados; «cedula» encuentra «cédula»; una palabra inexistente muestra el mensaje y esconde las dos cajas; borrar restaura todo), el botón «Preguntas frecuentes» baja hasta ellas incluso con la búsqueda vacía de resultados, el administrador ve el del testigo con «← Todos los manuales», y el de instalación sin guía del rol.
+- **PDF** del líder (60 páginas) y del testigo (47): sin menú, índice, buscador ni botones. Capturas y PDF en `backups/manuales-verificacion/orden3/` (ignorada por git; no viaja).
+- **Suites:** `probar-manuales` **150**, `probar-panel-lider` **87**, `probar-panel-alcance` **43**, `probar-comunas-dashboard` **73**, `probar-logistica` **114**, `probar-transporte-diad` **123**, `probar-transporte-parte2` **80**, `probar-inscripcion-enlace` **467**, todo bien.
+  **Dos trampas que aparecieron:** (a) tres suites (`logistica`, `transporte-diad`, `inscripcion-enlace`) comprobaban el service worker con una expresión que llegaba **hasta la v169**: subir a v170 las rompía. Se abrieron hacia arriba (`v1xx` y `v2xx`) para no tener que editarlas en cada subida; viajan solo en la plantilla. (b) Corridas seguidas sobre una misma base dan fallos falsos (`Duplicate entry '0-PUESTO A'`, conteos de otras suites): **cada suite sobre su base nueva** (`fresca.sh`).
 
 ## Parche 296 — Panel del líder en el celular y cierre de fugas de alcance (8 de noviembre de 2026, INACTIVO, no toca la base)
 

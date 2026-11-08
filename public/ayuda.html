@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ayuda · Manuales</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/ayuda.css">
 </head>
@@ -67,44 +67,53 @@
 
     <!-- PORTADA: solo el administrador. Una tarjeta por manual. -->
     <section id="vista-portada" hidden>
-      <header class="manual-portada">
-        <p class="manual-eyebrow">Centro de ayuda</p>
-        <h1>Manuales de uso</h1>
-        <p class="manual-descripcion">Elige el manual que quieres leer. Cada uno muestra solo lo que ese rol puede hacer hoy, según la Asignación de permisos.</p>
+      <header class="portada">
+        <div class="in">
+          <span class="eti">Centro de ayuda</span>
+          <h1>Manuales de <span>uso</span></h1>
+          <p>Elige el manual que quieres leer. Cada uno muestra solo lo que ese rol puede hacer hoy, según la Asignación de permisos.</p>
+        </div>
+        <div class="franja"></div>
       </header>
-      <div class="tarjetas" id="tarjetas"></div>
+      <div class="cont">
+        <div class="tarjetas" id="tarjetas"></div>
+      </div>
     </section>
 
     <!-- UN MANUAL -->
     <section id="vista-manual" hidden>
-      <header class="manual-portada" id="manual-portada">
-        <p class="manual-eyebrow" id="manual-eyebrow">Manual de uso</p>
-        <h1 id="manual-titulo"></h1>
-        <p class="manual-descripcion" id="manual-descripcion"></p>
-        <ul class="chips" id="manual-chips"></ul>
-        <div class="manual-acciones ayuda-no-imprimir">
-          <button type="button" class="btn-acento" id="btn-imprimir"><svg class="ico" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir o guardar en PDF</button>
-          <a class="btn-volver" id="btn-todos" href="/ayuda.html" hidden>← Todos los manuales</a>
-          <a class="btn-volver" id="btn-app" href="/app/inicio.html" hidden>← Volver a la app</a>
+      <header class="portada" id="manual-portada">
+        <div class="in">
+          <span class="eti" id="manual-eyebrow">Centro de ayuda · Manual de uso</span>
+          <h1 id="manual-titulo"></h1>
+          <p id="manual-descripcion"></p>
+          <div class="datos" id="manual-chips"></div>
+          <div class="barra-acc ayuda-no-imprimir">
+            <button type="button" class="btn btn-am" id="btn-imprimir"><svg class="ico" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir o guardar en PDF</button>
+            <a class="btn btn-bl" id="btn-faq" href="#s-faq" hidden>Preguntas frecuentes</a>
+            <a class="btn btn-borde" id="btn-todos" href="/ayuda.html" hidden>← Todos los manuales</a>
+            <a class="btn btn-borde" id="btn-app" href="/app/inicio.html" hidden>← Volver a la app</a>
+          </div>
         </div>
+        <div class="franja"></div>
       </header>
 
-      <div class="buscador ayuda-no-imprimir" role="search">
-        <svg class="ico" aria-hidden="true"><use href="#i-buscar"/></svg>
-        <input type="search" id="buscador" placeholder="Buscar en el manual (no importan las tildes)" autocomplete="off" aria-label="Buscar en el manual">
-        <span class="buscador-conteo" id="buscador-conteo" aria-live="polite"></span>
+      <div class="buscar ayuda-no-imprimir" role="search">
+        <input type="search" id="buscador" placeholder="Busca una tarea: «QR», «ya votó», «transporte», «cédula»…" autocomplete="off" aria-label="Buscar en el manual">
+        <span class="buscar-conteo" id="buscador-conteo" aria-live="polite"></span>
       </div>
+      <p class="sin-res ayuda-no-imprimir" id="sin-resultados" hidden>No encontramos nada con esa palabra. Prueba con otra o revisa el glosario.</p>
 
-      <div class="manual-cuerpo">
+      <div class="cuerpo">
         <details class="indice ayuda-no-imprimir" id="indice-caja" open>
-          <summary>Índice</summary>
-          <nav id="indice" aria-label="Índice del manual"></nav>
+          <summary>Contenido</summary>
+          <nav aria-label="Índice del manual"><ol id="indice"></ol></nav>
         </details>
         <div class="contenido" id="contenido"></div>
       </div>
     </section>
 
-    <div class="manual-vacio" id="estado" hidden></div>
+    <div class="cont"><div class="manual-vacio" id="estado" hidden></div></div>
   </main>
 </div>
 

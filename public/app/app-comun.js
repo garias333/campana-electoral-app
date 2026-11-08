@@ -183,7 +183,7 @@ function pedirCambioClaveApp() {
                  maxlength="6" required autocomplete="new-password" placeholder="6 cifras">
         </div>
         <div class="campo-app">
-          <label>Reptala</label>
+          <label>Repítela</label>
           <input type="password" name="repetir" inputmode="numeric" pattern="[0-9]{6}"
                  maxlength="6" required autocomplete="new-password" placeholder="6 cifras">
         </div>
