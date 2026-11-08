@@ -16,7 +16,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   sha256 `7090310c92b53642e50c765b045a2603733324e198c1be75cfbb3d4631e19e69`, 6 archivos).
   **Publicado** (`parche-292.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Menú del celular y tablas de Logística alineadas (Requiere el 290; reemplaza al 291)» (detalle abajo); **requiere el 290**.
-  Service worker `v165`. **Reemplaza al 291, que NO debe aplicarse** (sigue registrado e inactivo; trae lo mismo menos la alineación de las tablas). El anterior, el 291 (`parches/campana-parche291.zip`, 95.914 bytes,
+  Service worker `v165`. **Aplicado en las tres campañas** (confirmado por el usuario el 8 de noviembre de 2026; no medido desde aquí). **Reemplaza al 291, que NUNCA se instaló** (confirmado por el usuario): sigue registrado e inactivo, y así debe quedar; trae lo mismo menos la alineación de las tablas. El anterior, el 291 (`parches/campana-parche291.zip`, 95.914 bytes,
   sha256 `665a3fa0d08eac5a6c0d927a11f904dda06456a2954624560ce4a81c852ec396`, 5 archivos).
   **Publicado** (`parche-291.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Menú del celular: se cierra al tocar un ítem y muestra la vista (Requiere el 290)» (detalle abajo); **requiere el 290**.
@@ -78,20 +78,20 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v290, ya atrás del parche 292** (menú del celular y tablas de Logística; su `.version-base` es 290 y su service worker `v164`): **no regenerada, a pedido**; se regenerará con `--parche 292` (o el último) antes de crear una campaña nueva. Hasta entonces la campaña nueva recibe el 292 en su primer ciclo de actualización.
-- **Plantilla v290 (8 de noviembre de 2026)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v290.zip`,
-  2.010.775 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `7fae8431d9546c8ddf4c8fc29ddf6880adc323a81b7068162654a45d28a73559`,
-  service worker `estrategia-v164`, `.version-parche` y `.version-base` = 290. Generada con
-  `node scripts/generar-plantilla.js --parche 290`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+- **Plantilla vigente: v292** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v292.zip`,
+  2.011.889 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `37591043c93fe7d7b15ffb767458f2335ca33dcf0e1b60d9d8ec4af9f1c31a14`,
+  service worker `estrategia-v165`, `.version-parche` y `.version-base` = 292. Generada con
+  `node scripts/generar-plantilla.js --parche 292`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
   (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`; la única `.pem`
-  es la pública de los parches (`BEGIN PUBLIC KEY`). El patrón de asignación de secretos coincide en ocho archivos, todos marcadores de ejemplo (los mismos que en la v289):
-  los `SESSION_SECRET` de reserva de los seis `scripts/probar-*.js`, `public/ayuda.html` (`DB_PASSWORD=tu_clave`) y el comentario de `config/mailer.js`.
-  Mismos archivos que la v289; cambian cuatro por dentro (`faltantes.html` y `mis-registros.html` ya con `<main class="app-cuerpo">`, y `.version-base` y `.version-parche`):
-  no queda ningún `app-contenido` en todo el zip.
+  es la pública de los parches (`BEGIN PUBLIC KEY`). El patrón de asignación de secretos coincide en los mismos ocho archivos de la v289 y la v290, todos marcadores de ejemplo
+  (los `SESSION_SECRET` de reserva de los seis `scripts/probar-*.js`, `public/ayuda.html` con `DB_PASSWORD=tu_clave` y el comentario de `config/mailer.js`).
+  Mismos 261 archivos que la v290; cambian por dentro los del parche 292: `public/js/common.js` y `public/css/style.css` (menú plegable en el celular), `public/js/logistica-dia-d.js`
+  (tablas alineadas), `public/votantes-dashboard.html`, `public/service-worker.js` (v165), `.version-base` y `.version-parche`. Comprobado en el zip: la barra `menu-movil-barra` está en `common.js` y en `style.css`
+  y ya no queda `class="num"` en la pestaña Logística.
   Probada: la plantilla extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas**, con los tres ítems de fábrica de logística
   (Kit de testigo 07:00, Refrigerio 12:00, Almuerzo 14:00) y `logistica_dia_d` sembrado para admin y coordinador; una segunda corrida deja 3 ítems y 64 tablas;
-  `verificar-html.py` da etiquetas balanceadas y JS válido en las cuatro páginas del celular tocadas. Esta plantilla ya trae lo que entrega el parche 290.
-  **La v289, la v286, la v271 y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v290. Si después se publica otro parche,
+  `verificar-html.py` da etiquetas balanceadas y JS válido en las seis páginas tocadas desde la v289 y `node --check` pasa en `common.js` y `logistica-dia-d.js`.
+  **La v290, la v289, la v286, la v271 y las v261/v262 siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v292. Si después se publica otro parche,
   hay que regenerarla (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
 - **Ranking y Alertas del Día D, contenedor** (commit `d48db1d`, 8 de noviembre de 2026): `public/app/ranking-dia-d.html` y `public/app/alertas-dia-d.html`
   envolvían todo en `<div class="app-contenido">`, una clase que **no existe** en `estilos-app.css` (no faltaba en el HTML: faltaba el CSS), así que las
@@ -114,7 +114,7 @@ Lleva todo lo del 291 (descrito en su sección, más abajo) **más la alineació
 **Por qué es el 292 y no el 291.** Se pidió meter las tablas «en el mismo parche», y el 291 ya estaba publicado y registrado. Se intentó: se republicó el zip con `publicar-parche.sh 291 --forzar` y se volvió a registrar, y **el Servidor de Licencias contestó 409**
 («El parche #291 ya está registrado. Un número publicado no se reutiliza.»). Eso dejó, por unos segundos, un `parche-291.zip` publicado (sha256 `c745bbd4…`) que no coincidía con la huella y la firma registradas (`665a3fa0…`): de haberse activado, el actualizador lo habría rechazado.
 Se restauró enseguida el zip original (copia previa; huellas de origen y destino `665a3fa0…`, verificadas) y los cambios salieron como 292. **Regla para la próxima:** `--forzar` sólo reemplaza el ARCHIVO; la fila registrada (huella y firma) no se puede cambiar, así que un parche ya registrado no admite cambios aunque esté inactivo. Hay que sacar el número siguiente.
-**Acción para quien lo active:** activar y aplicar el **292**; dejar el 291 sin aplicar (si se aplicara antes, el 292 lo sobreescribe con los mismos archivos más el de las tablas).
+**Estado:** el 292 ya está aplicado en las tres campañas y el 291 nunca se instaló (confirmado por el usuario el 8 de noviembre de 2026); el 291 debe quedar sin aplicar. (Si algún día se aplicara por error, el 292 ya aplicado no se vuelve a ofrecer y el 291 lo pisaría con archivos viejos: no activarlo.)
 
 **Las tablas de la pestaña Logística (`public/js/logistica-dia-d.js`).** Reproducido en Chromium (1280 px) midiendo, columna por columna, el centro del encabezado contra el del dato: «Total a comprar» salía 89 px a la izquierda de su encabezado; el plan por puesto, de 7 a 30 px en las columnas de ítems.
 - **Causa:** la regla global `thead th { text-align: center }` centra todos los encabezados, y las celdas numéricas llevaban `class="num"`, una clase **que no existe** en `style.css` (la del proyecto para columnas de números es `col-num`). Los números quedaban a la izquierda de la celda bajo un encabezado centrado. La cuenta de `<th>` y `<td>` **sí coincidía** en todas las filas medidas.
