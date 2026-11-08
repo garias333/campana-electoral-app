@@ -58,6 +58,7 @@
   --color-accent: #FFC300;
   --color-accent-dark: #8C5E17;
   --color-marca: #0B5ED7;
+  --color-marca-oscuro: #084298;   /* tercer color corporativo: degradados y pasos de hover sobre --color-marca */
   --color-text: #161B26;
   --color-text-muted: #5B6472;
   --color-border: #E2E5EA;
@@ -364,7 +365,7 @@ a { color: var(--color-navy-lighter); }
 
    CONTRASTES MEDIDOS con la fórmula WCAG 2.1, anotados al lado. */
 .sec-hero, .crm-hero {
-  background: linear-gradient(135deg, #084298 0%, #0B5ED7 100%);
+  background: linear-gradient(135deg, var(--color-marca-oscuro) 0%, var(--color-marca) 100%);
   border-radius: 12px;
   padding: 24px 28px 22px;
   margin-bottom: 20px;

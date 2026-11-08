@@ -22,11 +22,15 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v167';
+const CACHE_NAME = 'estrategia-v168';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
   '/css/style.css',
+  // Ayuda · Manuales (orden Manuales 2): la pantalla y sus dos archivos propios. El contenido viene de /api/manuales y no se guarda.
+  '/ayuda.html',
+  '/css/ayuda.css',
+  '/js/ayuda.js',
   '/js/common.js',
   '/js/cuentas-dispositivo.js',
   '/data/colombia.json',

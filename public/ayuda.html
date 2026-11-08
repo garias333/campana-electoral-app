@@ -3,340 +3,113 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ayuda · Administración de Campaña</title>
+<title>Ayuda · Manuales</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
-<style>
-  :root {
-    --ayuda-navy: #142a3f; --ayuda-navy-2: #204264; --ayuda-cream: #f8f3e9;
-    --ayuda-copper: #bf5e1f; --ayuda-line: #e4ddd0; --ayuda-ink: #1c1c1c; --ayuda-muted: #6b6b6b;
-  }
-  .ayuda-hero {
-    background: #0E2841;
-    color: #fdfaf3; border-radius: 16px; padding: 34px 38px; margin-bottom: 26px;
-  }
-  .ayuda-hero .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(253,250,243,0.92); margin: 0 0 8px; }
-  .ayuda-hero h1 { font-family: 'Fraunces', serif; font-weight: 700; font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 8px; color: #FFC300; }
-  .ayuda-hero p { color: rgba(253,250,243,0.92); margin: 0; max-width: 640px; line-height: 1.55; font-size: 0.94rem; }
-
-  /* --- Grilla de tarjetas (portada) --- */
-  .grilla-manuales { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-  .tarjeta-manual {
-    background: #fff; border: 1px solid var(--ayuda-line); border-radius: 14px; padding: 22px;
-    text-decoration: none; color: var(--ayuda-ink); transition: transform 0.1s, box-shadow 0.1s;
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  .tarjeta-manual:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(20,42,63,0.1); border-color: var(--ayuda-copper); }
-  .tarjeta-manual .icono { font-size: 1.9rem; }
-  .tarjeta-manual h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.02rem; margin: 0; color: var(--ayuda-navy); }
-  .tarjeta-manual p { font-size: 0.85rem; color: var(--ayuda-muted); margin: 0; line-height: 1.4; }
-
-  /* --- Vista de un manual --- */
-  .manual-barra-superior { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-  .manual-actualizado { font-size: 0.78rem; color: var(--ayuda-muted); }
-  .manual-seccion { background: #fff; border: 1px solid var(--ayuda-line); border-radius: 14px; padding: 24px 26px; margin-bottom: 18px; }
-  .manual-seccion h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.15rem; color: var(--ayuda-navy); margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
-  .manual-seccion .icono-seccion { font-size: 1.3rem; }
-  .manual-seccion .descripcion-modulo { color: var(--ayuda-ink); font-size: 0.94rem; line-height: 1.65; margin: 10px 0 14px; }
-  .badges-permiso { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-  .badge-permiso { font-size: 0.72rem; font-weight: 700; padding: 4px 11px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
-  .badge-ver { background: #e2ecf5; color: var(--ayuda-navy-2); }
-  .badge-editar { background: #fbeadb; color: var(--ayuda-copper); }
-  .badge-agregar { background: #e7f4ea; color: #1e7a3d; }
-  .manual-pasos { margin: 0; padding-left: 20px; }
-  .manual-pasos li { margin-bottom: 6px; font-size: 0.9rem; line-height: 1.55; color: var(--ayuda-ink); }
-  .manual-vacio { text-align: center; padding: 50px 20px; color: var(--ayuda-muted); }
-
-  /* --- Manual de instalación (documento técnico) --- */
-  .doc-instalacion h2 { font-family: 'Fraunces', serif; color: var(--ayuda-navy); font-size: 1.1rem; margin: 28px 0 10px; }
-  .doc-instalacion h2:first-child { margin-top: 0; }
-  .doc-instalacion p, .doc-instalacion li { font-size: 0.92rem; line-height: 1.65; color: var(--ayuda-ink); }
-  .doc-instalacion pre {
-    background: var(--ayuda-navy); color: #e9f0f7; padding: 14px 16px; border-radius: 10px;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; overflow-x: auto; margin: 10px 0 16px; line-height: 1.6;
-  }
-  .doc-instalacion .aviso {
-    background: #fbf1e4; border: 1px solid var(--ayuda-copper); border-left: 4px solid var(--ayuda-copper);
-    border-radius: 8px; padding: 12px 16px; font-size: 0.88rem; margin: 14px 0;
-  }
-
-  @media (max-width: 640px) {
-    .ayuda-hero { padding: 26px 22px; }
-    .manual-seccion { padding: 20px; }
-  }
-</style>
+<link rel="stylesheet" href="/css/ayuda.css">
 </head>
 <body>
+<!-- Íconos de los manuales: un sprite pequeño, sin librería. Los nombres son los del campo `icono` de cada bloque
+     (lib/manuales.js → ICONOS): si se agrega uno aquí, se agrega allí. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-inicio" viewBox="0 0 24 24"><path d="M3 11 12 3l9 8M5 10v10h14V10M10 20v-6h4v6"/></symbol>
+    <symbol id="i-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol>
+    <symbol id="i-personas" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c3 0 5 1.8 5 4.5"/></symbol>
+    <symbol id="i-organigrama" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></symbol>
+    <symbol id="i-mapa" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></symbol>
+    <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-grafico" viewBox="0 0 24 24"><path d="M4 4v16h16M8 16v-4M12 16V8M16 16v-7"/></symbol>
+    <symbol id="i-mensaje" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.5 7.2L3 21l1.8-5.5A8 8 0 1 1 21 12z"/></symbol>
+    <symbol id="i-correo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="i-sms" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4zM8 9.5h8M8 12.5h5"/></symbol>
+    <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 17v-6a6 6 0 1 1 12 0v6l2 2H4zM10 21h4"/></symbol>
+    <symbol id="i-moneda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5C14 8.5 13 8 11.8 8 10.3 8 9.3 8.8 9.3 10c0 3 5.4 1.3 5.4 4.2 0 1.2-1.100 2-2.700 2-1.300 0-2.400-.6-2.900-1.700M12 6v2M12 16v2"/></symbol>
+    <symbol id="i-documento" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></symbol>
+    <symbol id="i-carpeta" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-llave" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3M14 9l2 2"/></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6zM9 12l2 2 4-4"/></symbol>
+    <symbol id="i-candado" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-engranaje" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.400 15a1.700 1.700 0 0 0 .3 1.800l.1.100a2 2 0 1 1-2.800 2.800l-.1-.1a1.700 1.700 0 0 0-1.800-.3 1.700 1.700 0 0 0-1 1.500V21a2 2 0 1 1-4 0v-.1a1.700 1.700 0 0 0-1.100-1.500 1.700 1.700 0 0 0-1.800.3l-.1.100a2 2 0 1 1-2.800-2.800l.1-.1a1.700 1.700 0 0 0 .3-1.800 1.700 1.700 0 0 0-1.500-1H3a2 2 0 1 1 0-4h.1a1.700 1.700 0 0 0 1.500-1.100 1.700 1.700 0 0 0-.3-1.800l-.1-.1a2 2 0 1 1 2.800-2.800l.1.100a1.700 1.700 0 0 0 1.800.3H9a1.700 1.700 0 0 0 1-1.500V3a2 2 0 1 1 4 0v.1a1.700 1.700 0 0 0 1 1.500 1.700 1.700 0 0 0 1.800-.3l.1-.1a2 2 0 1 1 2.800 2.800l-.1.100a1.700 1.700 0 0 0-.3 1.800V9a1.700 1.700 0 0 0 1.500 1H21a2 2 0 1 1 0 4h-.1a1.700 1.700 0 0 0-1.500 1z"/></symbol>
+    <symbol id="i-urna" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="m8 10-1-5h10l-1 5M9 14h6"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 10v5M12 18v.5"/></symbol>
+    <symbol id="i-camion" viewBox="0 0 24 24"><path d="M2 6h11v10H2zM13 9h4l3 3v4h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+    <symbol id="i-comida" viewBox="0 0 24 24"><path d="M5 3v7a2 2 0 0 0 2 2v9M9 3v7a2 2 0 0 1-2 2M17 3c-2 1-3 4-3 8h3v10"/></symbol>
+    <symbol id="i-ubicacion" viewBox="0 0 24 24"><path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.500"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3M21 14v3M14 21h3M21 20v1"/></symbol>
+    <symbol id="i-enlace" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.700 0l3-3a4 4 0 0 0-5.700-5.700l-1 1M14 10a4 4 0 0 0-5.700 0l-3 3a4 4 0 0 0 5.700 5.700l1-1"/></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.500 3 3 5-6"/></symbol>
+    <symbol id="i-ayuda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.500 9a2.500 2.500 0 1 1 3.500 2.300c-.7.400-1 1-1 1.700M12 17v.5"/></symbol>
+    <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-imprimir" viewBox="0 0 24 24"><path d="M7 9V3h10v6M6 17H4v-6h16v6h-2M7 14h10v7H7z"/></symbol>
+    <symbol id="i-celular" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-pc" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="i-descargar" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></symbol>
+    <symbol id="i-subir" viewBox="0 0 24 24"><path d="M12 17V5M7 9l5-5 5 5M4 20h16"/></symbol>
+    <symbol id="i-estrella" viewBox="0 0 24 24"><path d="m12 3 2.800 5.700 6.200.9-4.500 4.400 1.100 6.200L12 17.300l-5.600 2.900 1.100-6.200L3 9.600l6.200-.9z"/></symbol>
+    <symbol id="i-libro" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h7"/></symbol>
+    <symbol id="i-balanza" viewBox="0 0 24 24"><path d="M12 3v18M6 21h12M5 8h14M5 8l-3 7a3 3 0 0 0 6 0zM19 8l-3 7a3 3 0 0 0 6 0z"/></symbol>
+    <symbol id="i-bandera" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></symbol>
+    <symbol id="i-telefono" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-foto" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.500"/><path d="m8 6 1.500-2h5L16 6"/></symbol>
+    <symbol id="i-lista" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-basura" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-respaldo" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.700 3.600 3 8 3s8-1.300 8-3V6M4 12v6c0 1.700 3.600 3 8 3s8-1.300 8-3v-6"/></symbol>
+    <symbol id="i-megafono" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l8 4V6L6 10H4a1 1 0 0 0-1 1zM18 9a4 4 0 0 1 0 6"/></symbol>
+  </defs>
+</svg>
+
 <div class="app-shell" id="app-shell">
-  <main class="main">
-    <div class="sec-hero">
-      <div class="eyebrow">Ayuda</div>
-      <h1 id="titulo-pagina">Manuales</h1>
-      <p>Los manuales de cada módulo, con los pasos de las tareas más frecuentes.
-         Se muestran los del tipo de usuario con el que entró.</p>
-    </div>
-    <div class="topbar" style="margin-bottom:0;">
-      <a href="/ayuda.html" class="btn-secundario btn-sm" id="btn-volver-portada" style="display:none; text-decoration:none; margin-bottom:18px;">← Todos los manuales</a>
-    </div>
+  <main class="main ayuda">
 
-    <!-- Portada: grilla de los 9 manuales -->
-    <div id="vista-portada">
-      <div class="ayuda-hero">
-        <p class="eyebrow">Centro de ayuda</p>
+    <!-- PORTADA: solo el administrador. Una tarjeta por manual. -->
+    <section id="vista-portada" hidden>
+      <header class="manual-portada">
+        <p class="manual-eyebrow">Centro de ayuda</p>
         <h1>Manuales de uso</h1>
-        <p>Cada manual se genera automáticamente según lo que tu rol puede ver, editar y agregar en este momento — si un administrador cambia los permisos o el sistema se actualiza, el contenido se ajusta solo.</p>
-      </div>
-      <div class="grilla-manuales" id="grilla-manuales"></div>
-    </div>
+        <p class="manual-descripcion">Elige el manual que quieres leer. Cada uno muestra solo lo que ese rol puede hacer hoy, según la Asignación de permisos.</p>
+      </header>
+      <div class="tarjetas" id="tarjetas"></div>
+    </section>
 
-    <!-- Vista de un manual específico -->
-    <div id="vista-manual" style="display:none;">
-      <div class="ayuda-hero" id="manual-hero">
-        <p class="eyebrow" id="manual-eyebrow">Manual</p>
+    <!-- UN MANUAL -->
+    <section id="vista-manual" hidden>
+      <header class="manual-portada" id="manual-portada">
+        <p class="manual-eyebrow" id="manual-eyebrow">Manual de uso</p>
         <h1 id="manual-titulo"></h1>
-        <p id="manual-intro"></p>
+        <p class="manual-descripcion" id="manual-descripcion"></p>
+        <ul class="chips" id="manual-chips"></ul>
+        <div class="manual-acciones ayuda-no-imprimir">
+          <button type="button" class="btn-acento" id="btn-imprimir"><svg class="ico" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir o guardar en PDF</button>
+          <a class="btn-volver" id="btn-todos" href="/ayuda.html" hidden>← Todos los manuales</a>
+          <a class="btn-volver" id="btn-app" href="/app/inicio.html" hidden>← Volver a la app</a>
+        </div>
+      </header>
+
+      <div class="buscador ayuda-no-imprimir" role="search">
+        <svg class="ico" aria-hidden="true"><use href="#i-buscar"/></svg>
+        <input type="search" id="buscador" placeholder="Buscar en el manual (no importan las tildes)" autocomplete="off" aria-label="Buscar en el manual">
+        <span class="buscador-conteo" id="buscador-conteo" aria-live="polite"></span>
       </div>
-      <div class="manual-barra-superior">
-        <span class="manual-actualizado" id="manual-actualizado"></span>
-        <button class="btn-secundario btn-sm" id="btn-actualizar-manuales">🔄 Actualizar manuales</button>
+
+      <div class="manual-cuerpo">
+        <details class="indice ayuda-no-imprimir" id="indice-caja" open>
+          <summary>Índice</summary>
+          <nav id="indice" aria-label="Índice del manual"></nav>
+        </details>
+        <div class="contenido" id="contenido"></div>
       </div>
-      <div id="manual-contenido"></div>
-    </div>
+    </section>
+
+    <div class="manual-vacio" id="estado" hidden></div>
   </main>
 </div>
 
 <script src="/js/common.js"></script>
-<script>
-const ICONOS_MANUAL = {
-  instalacion: '🛠️', admin: '👑', coordinador: '🧭', lider: '🚩', sublider: '🤝',
-  testigo: '📋', usuario: '🤝', asistente_administrativo: '🗂️', administrativo: '🏢', invitado: '👀'
-};
-const TITULOS_MANUAL = {
-  instalacion: 'Manual de instalación', admin: 'Manual del administrador', coordinador: 'Manual del Coordinador',
-  lider: 'Manual del Líder', sublider: 'Manual del Sublíder', testigo: 'Manual del Testigo',
-  usuario: 'Manual del Usuario', asistente_administrativo: 'Manual del Asistente administrativo', administrativo: 'Manual del perfil Administrativo', invitado: 'Manual del Invitado'
-};
-const DESCRIPCIONES_MANUAL = {
-  instalacion: 'Cómo instalar y mantener el servidor de la aplicación (solo para administradores técnicos).',
-  admin: 'Control total: usuarios, permisos, configuración de la campaña, y todos los módulos.',
-  coordinador: 'Supervisión de zonas y equipos — territorio, votantes, y comunicación con líderes.',
-  lider: 'Registro y seguimiento del equipo de campo en tu territorio asignado.',
-  sublider: 'Registro de votantes referidos por tu líder.',
-  testigo: 'Consulta de información el día de las elecciones y previo a ellas.',
-  usuario: 'Acceso operativo básico dentro de la estructura de campaña.',
-  asistente_administrativo: 'Apoyo administrativo — gestión de datos sin acceso a configuración sensible.',
-  administrativo: 'Perfil administrativo — ve los módulos que le asigne el administrador en Asignación de permisos.',
-  invitado: 'Acceso de solo consulta a información pública de la campaña.'
-};
-
-/**
- * Descripción larga y consejos de uso por módulo — el nombre corto
- * (etiqueta) siempre viene en vivo desde /permisos/matriz; este
- * diccionario solo complementa con un texto explicativo y pasos, y si
- * aparece un módulo que no está aquí, se muestra igual con un texto
- * genérico (para que nunca falte información aunque se agregue un
- * módulo nuevo en el futuro).
- */
-const INFO_MODULOS = {
-  panel_general: { icono: '📊', texto: 'Vista general de la campaña: métricas de avance del equipo, resumen de votantes registrados y progreso frente a las metas.', pasos: ['Revisa el resumen general al iniciar sesión.', 'Usa los filtros de "Progreso del equipo" para ver quién va bien y quién necesita apoyo.'] },
-  territorial: { icono: '🗺️', texto: 'Estructura territorial: Coordinadores, Líderes, Testigos y Coordinadores de Organizaciones, organizados por zona geográfica.', pasos: ['Usa "+ Nuevo" para agregar una persona a la estructura.', 'Completa el Territorio (Comuna/Barrio o Corregimiento/Vereda) según corresponda.', 'Revisa "Reporta a" para mantener la jerarquía correcta.'] },
-  votantes: { icono: '📝', texto: 'Base de votantes y sublíderes referidos por el equipo — el corazón del trabajo de campo.', pasos: ['Usa "+ Nuevo votante o sublíder" para registrar un contacto.', 'Marca la categoría correcta (Votante o Sublíder).', 'La Intención de voto solo se registra con autorización de la persona.'] },
-  organigrama: { icono: '🗂️', texto: 'Jerarquía interna de cargos de campaña (distinta de la estructura territorial) — quién ocupa cada cargo y a quién reporta.', pasos: ['Elige entre las vistas Diagrama, Lista o Tabla según lo que necesites ver.', 'Usa el botón de imprimir en cada cargo para exportar su ficha.'] },
-  configuracion: { icono: '⚙️', texto: 'Datos generales de la campaña, usuarios del sistema, y la matriz de permisos que controla qué puede hacer cada rol.', pasos: ['Mantén actualizado el "Cargo al que aspira" — varias pantallas de la app lo usan para autocompletar datos.', 'Revisa la Asignación de permisos cada vez que cambie el equipo.'] },
-  configurar_crm: { icono: '📧', texto: 'Credenciales de SendGrid (correo) y Twilio (SMS) que usa el módulo de CRM y mensajería.', pasos: ['Solo se configura una vez, al inicio de la campaña.'] },
-  comunicaciones: { icono: '💬', texto: 'Envío de mensajes masivos o individuales por Email y SMS a votantes, estructura o el organigrama.', pasos: ['Arma grupos combinables por Territorio, Intención de voto, Categoría, etc.', 'Revisa el historial antes de reenviar, para no duplicar mensajes.'] },
-  recursos: { icono: '📚', texto: 'Material de apoyo para compartir — imágenes, documentos, videos y piezas de publicidad de la campaña.', pasos: ['Descarga el material que necesites para compartir en redes o en persona.'] },
-  biografia_candidato: { icono: '👤', texto: 'Biografía pública del candidato — trayectoria, foto y video de presentación.', pasos: [] },
-  politica_privacidad: { icono: '🔒', texto: 'Política de privacidad de la campaña, conforme a la ley de protección de datos personales de Colombia.', pasos: [] },
-  agenda: { icono: '📅', texto: 'Calendario de eventos y reuniones de la campaña.', pasos: ['Revisa la agenda del mes para conocer los próximos eventos.'] },
-  finanzas: { icono: '💰', texto: 'Registro de ingresos y gastos de la campaña.', pasos: ['Cada movimiento debe quedar clasificado por categoría, con su comprobante si aplica.'] },
-  eventos: { icono: '🎪', texto: 'Planeación y seguimiento de eventos de campaña (marchas, reuniones, actos públicos).', pasos: [] },
-  social: { icono: '📱', texto: 'Monitoreo de redes sociales y opinión pública sobre la campaña.', pasos: [] },
-  geo: { icono: '📍', texto: 'Mapa con la ubicación de estructura, votantes y eventos.', pasos: ['Usa los filtros para ver solo lo que te interesa en el mapa (por ejemplo, "Ninguno" en un campo para ocultarlo).'] },
-  dashboard: { icono: '📊', texto: 'Panel general de métricas de la campaña.', pasos: [] }
-};
-
-async function cargarPortada(usuarioActual) {
-  const todos = [
-    { clave: 'instalacion' },
-    { clave: 'admin' }, { clave: 'coordinador' }, { clave: 'lider' }, { clave: 'sublider' },
-    { clave: 'testigo' }, { clave: 'usuario' }, { clave: 'asistente_administrativo' },
-    { clave: 'administrativo' }, { clave: 'invitado' }
-  ];
-  // El administrador ve los 9 manuales; cualquier otro rol solo ve el
-  // suyo propio (nunca el de instalación, que es documentación de
-  // servidor exclusiva para administradores).
-  const grupos = usuarioActual.rol === 'admin' ? todos : todos.filter(g => g.clave === usuarioActual.rol);
-
-  document.getElementById('grilla-manuales').innerHTML = grupos.map(g => `
-    <a class="tarjeta-manual" href="/ayuda.html?manual=${g.clave}">
-      <div class="icono">${ICONOS_MANUAL[g.clave]}</div>
-      <h3>${TITULOS_MANUAL[g.clave]}</h3>
-      <p>${DESCRIPCIONES_MANUAL[g.clave]}</p>
-    </a>
-  `).join('');
-}
-
-function textoDocumentoInstalacion() {
-  return `
-    <h2>1. Requisitos del servidor</h2>
-    <p>VPS con Ubuntu 24.04, MySQL 8.4+, Node.js 18 o más nuevo, y CloudPanel para administrar sitios, bases de datos y certificados SSL.</p>
-
-    <h2>2. Crear el sitio y la base de datos</h2>
-    <p>En CloudPanel: crea un sitio Node.js nuevo con su propio dominio/subdominio, y una base de datos MySQL nueva con su usuario dedicado.</p>
-
-    <h2>3. Subir el proyecto y configurar el <code>.env</code></h2>
-    <pre>cd ~/htdocs/tu-dominio.com
-npm install
-cp .env.example .env
-nano .env</pre>
-    <p>Estas son <strong>todas</strong> las variables que el programa lee, con lo que hace cada una:</p>
-    <pre># --- Base de datos ---
-DB_HOST=127.0.0.1          # NO uses "localhost": obliga a conectar por socket y falla
-DB_USER=tu_usuario
-DB_PASSWORD=tu_clave
-DB_NAME=tu_base
-DB_PORT=3306               # opcional; si falta se usa 3306
-
-# --- Servidor ---
-PORT=3002                  # el puerto interno al que apunta el proxy de CloudPanel
-SESSION_SECRET=cadena_larga_y_distinta_en_cada_instalacion
-NODE_ENV=production        # sin esto la cookie de sesion viaja SIN la marca de segura
-
-# --- Licencia (sin esto la aplicacion no abre ni recibe actualizaciones) ---
-LICENCIA_SERVIDOR_URL=https://licencias.appestrategia.net
-LICENCIA_DOMINIO=tu-dominio.com
-LICENCIA_CLAVE=XXXX-XXXX-XXXX-XXXX
-LICENCIA_API_SECRET=el_mismo_que_tiene_el_servidor_de_licencias
-
-# --- Geocodificacion de direcciones ---
-GOOGLE_MAPS_API_KEY=...    # Google Cloud, con la "Geocoding API" activada
-
-# --- Correo saliente (recuperar contrasena y avisos) ---
-SMTP_HOST=...
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=...           # con esta cuenta se autentica
-SMTP_PASSWORD=...
-SMTP_FROM_NAME=Nombre de la campana   # SOLO el nombre, sin el correo
-SMTP_FROM=...           # opcional: direccion que ve quien recibe (por omision, SMTP_USER)
-
-# --- Opcionales ---
-MAPBOX_ACCESS_TOKEN=...    # mapa con mas detalle; sin esto usa el mapa libre
-CATALOGO_DB=territoriosdb  # base del Catalogo Territorial; este es el valor por omision
-PM2_NOMBRE_PROCESO=...     # solo si el proceso de PM2 no se detecta solo
-ADMIN_EMAIL=...            # solo la PRIMERA vez, al crear el administrador
-ADMIN_PASSWORD=...         # idem; ver el aviso del paso 4</pre>
-    <div class="aviso">⚠️ Las contraseñas del <code>.env</code> que contengan el símbolo <code>#</code> deben ir entre comillas — si no, MySQL las interpreta como el inicio de un comentario y falla la conexión. Y si el valor trae comillas dobles <em>y</em> apóstrofes, no hay forma de escribirlo: hay que cambiarlo en el proveedor.</div>
-    <div class="aviso">⚠️ El <code>SESSION_SECRET</code> se <strong>genera</strong> para cada instalación, nunca se copia de otra: compartirlo haría que una sesión abierta en una campaña valiera en la otra.</div>
-    <div class="aviso">⚠️ Si una variable aparece <strong>dos veces</strong> en el archivo, manda la última y la primera queda muerta sin dar ningún error. Para comprobarlo: <code>grep -c '^CLAVE=' .env</code></div>
-    <p><strong>Las llaves de Twilio y SendGrid no van aquí.</strong> Se configuran dentro de la aplicación, en <em>Configuración → Configurar CRM</em>, y ahí quedan guardadas en la base. El programa solo mira el <code>.env</code> si en esa pantalla no hay nada.</p>
-    <div class="aviso">⚠️ Después de tocar el <code>.env</code>, <code>pm2 restart</code> <strong>no</strong> lo vuelve a leer. Hay que hacer el ciclo completo: <code>pm2 delete &lt;proceso&gt; &amp;&amp; pm2 start app.js --name &lt;proceso&gt; &amp;&amp; pm2 save</code></div>
-
-    <h2>4. Inicializar la base de datos</h2>
-    <pre>npm run init-db</pre>
-    <p>Aplica el esquema completo y, si todavía no hay ningún administrador, crea uno.</p>
-    <div class="aviso">⚠️ <strong>No pregunta nada: usa valores por omisión.</strong> Sin <code>ADMIN_EMAIL</code> y <code>ADMIN_PASSWORD</code> en el <code>.env</code>, el usuario queda como <code>admin@campana.local</code> con una contraseña por defecto que está escrita en el código y es igual en todas las instalaciones. Queda marcado para cambiarla en el primer ingreso, pero hasta que alguien entre, esa clave sirve. Lo correcto es poner las dos variables antes de correr este paso, o entrar de inmediato a cambiarla.</div>
-
-    <h2>5. Arrancar con PM2</h2>
-    <pre>pm2 start app.js --name campana-app
-pm2 save
-pm2 logs campana-app --lines 20 --nostream</pre>
-    <div class="aviso">PM2 se instala por separado para cada usuario de sitio en CloudPanel (no es compartido con root) — si el comando <code>pm2</code> no se reconoce, corre <code>npm install -g pm2</code> primero con ese mismo usuario.</div>
-
-    <h2>6. Conectar el dominio y el SSL</h2>
-    <p>En CloudPanel, configura el proxy inverso (Nginx) apuntando al puerto del <code>.env</code>, y genera el certificado Let's Encrypt — si falla por "DNS problem: NXDOMAIN", falta agregar el registro <strong>A</strong> del subdominio en el proveedor de DNS, apuntando a la IP del VPS.</p>
-
-    <h2>7. Aplicar parches (actualizaciones)</h2>
-    <pre>cd ~/htdocs/tu-dominio.com
-tar -czf ../backup-antes-parcheXX.tar.gz .   # si el parche toca la base de datos
-unzip -o campana-parcheXX.zip -d .
-npm run init-db    # SOLO si el parche incluye carpeta db/
-pm2 restart campana-app</pre>
-    <p>Los parches son acumulativos: deben aplicarse en orden, uno detrás de otro, nunca saltando números.</p>
-
-    <h2>8. Problemas frecuentes</h2>
-    <p><strong>La página no carga después de un parche:</strong> revisa <code>pm2 logs campana-app --lines 30 --nostream</code> — casi siempre es una dependencia nueva sin instalar (<code>npm install</code>) o un error de sintaxis.</p>
-    <p><strong>"Access denied" al conectar a MySQL:</strong> la base de datos o el usuario no existen todavía, o la contraseña del <code>.env</code> no coincide exactamente con la de MySQL.</p>
-    <p><strong>Un script de terminal se queda colgado sin terminar:</strong> prueba <code>Ctrl+C</code> para cancelarlo y vuelve a intentar.</p>
-  `;
-}
-
-async function cargarManual(clave) {
-  document.getElementById('vista-portada').style.display = 'none';
-  document.getElementById('vista-manual').style.display = 'block';
-  document.getElementById('btn-volver-portada').style.display = 'inline-block';
-  document.getElementById('titulo-pagina').textContent = TITULOS_MANUAL[clave] || 'Manual';
-  document.getElementById('manual-eyebrow').textContent = clave === 'instalacion' ? 'Documentación técnica' : 'Manual de uso';
-  document.getElementById('manual-titulo').textContent = TITULOS_MANUAL[clave] || 'Manual';
-  document.getElementById('manual-intro').textContent = DESCRIPCIONES_MANUAL[clave] || '';
-  document.getElementById('manual-actualizado').textContent = `Generado: ${new Date().toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}`;
-
-  const contenedor = document.getElementById('manual-contenido');
-
-  if (clave === 'instalacion') {
-    contenedor.innerHTML = `<div class="manual-seccion doc-instalacion">${textoDocumentoInstalacion()}</div>`;
-    return;
-  }
-
-  contenedor.innerHTML = `<div class="manual-vacio">Generando el manual según tus permisos actuales…</div>`;
-  try {
-    const { modulos, permisos } = await api('/permisos/matriz');
-    const modulosConAcceso = modulos.filter(m => {
-      const celda = permisos[`${clave}:${m.clave}`];
-      return celda && (celda.ver || celda.editar || celda.agregar);
-    });
-
-    if (!modulosConAcceso.length) {
-      contenedor.innerHTML = `<div class="manual-vacio">Este rol todavía no tiene ningún módulo habilitado en la Asignación de permisos.</div>`;
-      return;
-    }
-
-    contenedor.innerHTML = modulosConAcceso.map(m => {
-      const celda = permisos[`${clave}:${m.clave}`];
-      const info = INFO_MODULOS[m.clave] || { icono: '📄', texto: 'Consulta con tu administrador sobre el uso de este módulo.', pasos: [] };
-      return `
-        <div class="manual-seccion">
-          <h2><span class="icono-seccion">${info.icono}</span> ${m.etiqueta}</h2>
-          <div class="badges-permiso">
-            ${celda.ver ? '<span class="badge-permiso badge-ver">Puede ver</span>' : ''}
-            ${celda.editar ? '<span class="badge-permiso badge-editar">Puede editar</span>' : ''}
-            ${celda.agregar ? '<span class="badge-permiso badge-agregar">Puede agregar</span>' : ''}
-          </div>
-          <p class="descripcion-modulo">${info.texto}</p>
-          ${info.pasos.length ? `<ul class="manual-pasos">${info.pasos.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
-        </div>
-      `;
-    }).join('');
-  } catch (err) {
-    contenedor.innerHTML = `<div class="manual-vacio">No se pudo generar el manual en este momento. Intenta de nuevo, o usa "Actualizar manuales".</div>`;
-  }
-}
-
-document.getElementById('btn-actualizar-manuales').addEventListener('click', () => {
-  const params = new URLSearchParams(window.location.search);
-  const manual = params.get('manual');
-  if (manual) cargarManual(manual);
-});
-
-(async () => {
-  const usuarioActual = await inicializarLayout('/ayuda.html');
-  if (!usuarioActual) return;
-
-  const params = new URLSearchParams(window.location.search);
-  const manual = params.get('manual');
-
-  if (manual && TITULOS_MANUAL[manual]) {
-    if (manual === 'instalacion' && usuarioActual.rol !== 'admin') {
-      window.location.href = '/ayuda.html';
-      return;
-    }
-    await cargarManual(manual);
-  } else {
-    await cargarPortada(usuarioActual);
-  }
-})();
-</script>
+<script src="/js/es-celular.js"></script>
+<script src="/js/ayuda.js"></script>
 </body>
 </html>

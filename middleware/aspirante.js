@@ -38,6 +38,7 @@ const PERMITIDOS = [
   '/catalogo',       // la cascada de lugar de votación
   '/geo',            // geocodificación de direcciones
   '/inscripcion',    // su enlace de inscripción y el cuadro de SU rama (acota la propia ruta, con subarbolSql)
+  '/manuales',       // los manuales de ayuda: se arman con SUS permisos (PERMISOS_ASPIRANTE), no con los de la madre
 ];
 
 /** Los módulos que ve en el menú. Se corresponden uno a uno con sus pantallas. */
@@ -115,6 +116,8 @@ const HREFS_ASPIRANTE = [
   '/dia-d.html#transporte',
   // Logística del Día D (orden 39): otra pestaña de la misma pantalla, y su entrada de menú tiene que estar aquí o el menú no se la ofrece.
   '/dia-d.html#logistica',
+  // Ayuda (orden Manuales 2): su manual se arma con SUS permisos. Sin esta línea el menú de escritorio no se la ofrece.
+  '/ayuda.html',
 ];
 
 /*

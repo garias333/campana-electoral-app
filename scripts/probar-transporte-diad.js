@@ -410,7 +410,7 @@ const CODIGO = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
   ok((leer('public/app/inicio.html').match(/modulo: 'transporte_dia_d'/g) || []).length === 2, 'sitio 5: public/app/inicio.html (la tarjeta del celular)');
   const dd = leer('public/dia-d.html');
   ok(/id="pestana-transporte"/.test(dd) && /id="vista-transporte"/.test(dd) && /id="fila-transporte"/.test(dd) && /transporte-dia-d\.js/.test(dd) && ['necesitan', 'asignados', 'recogidos', 'en_puesto', 'no_estaban', 'sin_recoger'].every(k => dd.includes('stat-tr-' + k)), 'dia-d.html: pestaña «Transporte», su vista y las seis tarjetas del contador');
-  ok(/estrategia-v1(5[89]|6[01234567])/.test(leer('public/service-worker.js')), 'el service worker subió a v158 o posterior (app/inicio.html está en su precache)');
+  ok(/estrategia-v1(5[89]|6[012345678])/.test(leer('public/service-worker.js')), 'el service worker subió a v158 o posterior (app/inicio.html está en su precache)');
   const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(path.join(raiz, f))).digest('hex');
   ok(sha('public/vendor/leaflet/leaflet.js') === 'db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a' && sha('public/vendor/leaflet/leaflet.css') === 'a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6', 'Leaflet 1.9.4 en public/vendor/leaflet, sin cambios (sha256 del paquete oficial)');
   ok(/BSD 2-Clause License/.test(leer('public/vendor/leaflet/LICENSE')) && fs.existsSync(path.join(raiz, 'public/vendor/leaflet/images/marker-icon.png')), 'con su licencia BSD-2 y sus imágenes');

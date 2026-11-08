@@ -31,6 +31,9 @@ const MODULOS = [
   { clave: 'crm', etiqueta: 'CRM y Mensajes' },
   { clave: 'enviar_email', etiqueta: 'Enviar E-mail' },
   { clave: 'enviar_sms', etiqueta: 'Enviar SMS' },
+  // «Aviso en la app» (push). Existía en el menú y en la siembra de fábrica (init-db.js) pero NO en este catálogo: no se podía
+  // gobernar desde la matriz, y al superadministrador —cuyo menú se arma con ESTA lista— no le aparecía la entrada.
+  { clave: 'enviar_push', etiqueta: 'Aviso en la app' },
   { clave: 'configurar_crm', etiqueta: 'Configurar CRM' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
   // Normas en PDF que el equipo técnico deja en la carpeta `legislacion/` de la
@@ -181,8 +184,13 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
 // individuales para mostrar/ocultar sus botones de Editar/Agregar nuevo.
 // Cualquier usuario autenticado puede consultar esto (solo ve sus propios
 // permisos, no los de otros roles).
-router.get('/mios', async (req, res) => {
-  try {
+/**
+ * LOS PERMISOS DE QUIEN PREGUNTA, en una función para que los comparta quien los necesite (los manuales de ayuda,
+ * routes/manuales.routes.js) sin copiar la regla: superadministrador, aspirante con sublicencia y fila del rol.
+ * Devuelve `{ modulos, permisos, hrefs }`, igual que `GET /mios`.
+ */
+async function permisosDeSesion(req) {
+  {
     /*
      * LA MATRIZ NO SE LE APLICA AL SUPERADMINISTRADOR.
      *
@@ -200,7 +208,7 @@ router.get('/mios', async (req, res) => {
     if (await esSuperadmin(req.session.usuario)) {
       const permisos = {};
       MODULOS.forEach(m => { permisos[m.clave] = { ver: true, editar: true, agregar: true, importar_exportar: true }; });
-      return res.json({ modulos: MODULOS.map(m => m.clave), permisos });
+      return { modulos: MODULOS.map(m => m.clave), permisos, hrefs: null };
     }
     let filas;
     try {
@@ -269,17 +277,24 @@ router.get('/mios', async (req, res) => {
       hrefs = HREFS_ASPIRANTE.slice();
     }
 
-    res.json({
-      // Se mantiene "modulos" (lista simple de módulos visibles) por
-      // compatibilidad con lo que ya usa common.js para armar el menú.
-      modulos,
-      permisos,
-      hrefs
-    });
+    // Se mantiene "modulos" (lista simple de módulos visibles) por
+    // compatibilidad con lo que ya usa common.js para armar el menú.
+    return { modulos, permisos, hrefs };
+  }
+}
+
+router.get('/mios', async (req, res) => {
+  try {
+    res.json(await permisosDeSesion(req));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error obteniendo los permisos del usuario.' });
   }
 });
 
+
 module.exports = router;
+// Para quien necesite lo mismo que `/mios` o la lista de módulos sin pasar por HTTP (manuales de ayuda).
+module.exports.permisosDeSesion = permisosDeSesion;
+module.exports.MODULOS = MODULOS;
+module.exports.ROLES = ROLES;

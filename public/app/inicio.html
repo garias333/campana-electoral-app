@@ -93,6 +93,8 @@ const MENU_LIDER = [
   // `modulo`: la entrada solo se pinta si el rol tiene «Ver» en ese módulo de
   // Asignación de permisos (ver pintarMenu). Sin `modulo`, siempre se pinta.
   { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
+  // Ayuda (orden Manuales 2): tu manual, con lo que tus permisos de hoy te dejan hacer. Sin `modulo`: la ven todos. El coordinador la hereda.
+  { href: '/ayuda.html', icono: '❔', titulo: 'Ayuda', subtitulo: 'Tu manual: pasos, preguntas y glosario' },
 ];
 
 // Menú de coordinador. Lo de siempre del líder —registrar, biografía, material,
@@ -140,6 +142,7 @@ const MENU_ADMIN = [
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
   { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d' },
   { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d' },
+  { href: '/ayuda.html', icono: '❔', titulo: 'Ayuda', subtitulo: 'Los manuales de cada rol, y el de instalación' },
   // Después de las nueve. Solo aparece si el administrador eligió «Ver versión de
   // escritorio» en el Panel: volver a la del celular borra esa preferencia (la recoge
   // admin-panel.html).
