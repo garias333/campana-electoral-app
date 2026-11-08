@@ -86,7 +86,18 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla v293 (ya atrás del 294; la vigente se declara arriba o en la entrada siguiente si ya se regeneró)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v293.zip`,
+- **Plantilla vigente: v294** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v294.zip`,
+  2.012.567 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `5b039a473a37814a44cff54d2ba3161cb994ae8e4b381c88561882b12a617528`,
+  service worker `estrategia-v167`, `.version-parche` y `.version-base` = 294. Generada con
+  `node scripts/generar-plantilla.js --parche 294`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
+  (sólo `.env.example`, con los secretos vacíos), `.licencia-cache.json`, `.credenciales-*`, `node_modules`, `backups/` ni `parches/`; la única `.pem`
+  es la pública de los parches. El patrón de asignación de secretos coincide en los mismos ocho archivos de siempre, todos marcadores de ejemplo.
+  Mismos 261 archivos que la v293; cambian por dentro los 16 del parche 294 (las 14 pantallas con `tabla-alineada`, `public/service-worker.js` y las dos versiones).
+  Probada: extraída en una carpeta aparte, `init-db.js` sobre una base vacía (mysqld privado) deja **64 tablas**, con los tres ítems de fábrica de logística y `logistica_dia_d`
+  sembrado para admin y coordinador; una segunda corrida deja 3 ítems y 64 tablas; `verificar-html.py` en seis de las páginas tocadas y `node --check` en `common.js` y `transporte-dia-d.js`.
+  **La v293 y las anteriores siguen en la carpeta pero ya no sirven** para una campaña nueva: usar la v294. Si después se publica otro parche, hay que regenerarla
+  (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
+- **Plantilla v293 (reemplazada por la v294)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v293.zip`,
   2.012.338 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `a4a112fea478b9a64d2c96333489e7f16bcf820f39cd8e741191d7cc38b87dc7`,
   service worker `estrategia-v166`, `.version-parche` y `.version-base` = 293. Generada con
   `node scripts/generar-plantilla.js --parche 293`; escaneo de secretos del generador sin hallazgos. Revisión aparte sobre el zip: sin `.env`
