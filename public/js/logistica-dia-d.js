@@ -46,7 +46,7 @@
       '<div id="lg-aviso" style="display:none; padding:9px 12px; border-radius:8px; background:#F3F5F8; margin-bottom:12px; font-size:0.9rem;"></div>' +
       '<div class="card" style="margin-bottom:18px;"><div class="toolbar"><h3 style="margin:0;">Total para comprar</h3>' +
         '<button type="button" class="btn-acento btn-sm" id="lg-excel">⬇ Exportar a Excel</button></div>' +
-        '<div class="tabla-contenedor"><table><thead><tr><th>Ítem</th><th>Para</th><th>Hasta</th><th class="num">Total a comprar</th><th class="num">Entregados hoy</th></tr></thead>' +
+        '<div class="tabla-contenedor"><table><thead><tr><th style="text-align:left">Ítem</th><th style="text-align:left">Para</th><th style="text-align:left">Hasta</th><th class="col-num">Total a comprar</th><th class="col-num">Entregados hoy</th></tr></thead>' +
         '<tbody id="lg-totales"></tbody></table></div>' +
         '<p style="font-size:0.82rem; color:var(--color-text-muted); margin:8px 0 0;">La cantidad por puesto es la <strong>sugerida</strong> (los testigos asignados, con los coordinadores de puesto' +
         '; los suplentes sólo si el ítem lo pide) y se puede corregir. Los conductores van en su propia fila.</p></div>' +
@@ -54,7 +54,7 @@
         '<div class="tabla-contenedor"><table><thead id="lg-cab"></thead><tbody id="lg-puestos"></tbody></table></div>' +
         '<div class="vacio" id="lg-vacio" style="display:none;"><div class="icono-vacio">🥪</div>No hay puestos en la campaña todavía.</div></div>' +
       '<div class="card"><div class="toolbar"><h3 style="margin:0;">Ítems</h3></div>' +
-        '<div class="tabla-contenedor"><table><thead><tr><th>Nombre</th><th>Para</th><th>Hasta</th><th>Incluir suplentes</th><th>Activo</th><th></th></tr></thead>' +
+        '<div class="tabla-contenedor"><table><thead><tr><th style="text-align:left">Nombre</th><th style="text-align:left">Para</th><th style="text-align:left">Hasta</th><th class="col-num">Incluir suplentes</th><th class="col-num">Activo</th><th></th></tr></thead>' +
         '<tbody id="lg-items"></tbody></table></div>' +
         '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px;">' +
           '<input id="lg-nuevo-nombre" maxlength="80" placeholder="Nuevo ítem (ej. Chaleco)" style="max-width:240px;">' +
@@ -73,24 +73,27 @@
     var deTestigos = p.items.filter(function (i) { return i.destinatario === 'testigos'; });
     $('lg-totales').innerHTML = p.totales.map(function (t) {
       return '<tr><td>' + esc(t.nombre) + '</td><td>' + (t.destinatario === 'conductores' ? 'Conductores' : 'Testigos') + '</td><td>' + esc(t.hora_limite || '—') +
-        '</td><td class="num"><strong>' + esc(t.total) + '</strong></td><td class="num">' + (t.entregados === null ? '—' : esc(t.entregados)) + '</td></tr>';
+        '</td><td class="col-num"><strong>' + esc(t.total) + '</strong></td><td class="col-num">' + (t.entregados === null ? '—' : esc(t.entregados)) + '</td></tr>';
     }).join('') || '<tr><td colspan="5" style="color:var(--color-text-muted);">No hay ítems activos.</td></tr>';
-    $('lg-cab').innerHTML = '<tr><th>Puesto</th><th class="num">Testigos</th><th class="num">Suplentes</th>' +
-      deTestigos.map(function (i) { return '<th class="num">' + esc(i.nombre) + '</th>'; }).join('') + '</tr>';
+    $('lg-cab').innerHTML = '<tr><th ' + 'style="text-align:left"' + '>Puesto</th><th class="col-num">Testigos</th><th class="col-num">Suplentes</th>' +
+      deTestigos.map(function (i) { return '<th class="col-num">' + esc(i.nombre) + '</th>'; }).join('') + '</tr>';
     var filas = p.puestos.map(function (f) {
-      return '<tr><td>' + esc(f.puesto) + '</td><td class="num">' + f.testigos + '</td><td class="num">' + f.suplentes + '</td>' +
+      return '<tr><td>' + esc(f.puesto) + '</td><td class="col-num">' + f.testigos + '</td><td class="col-num">' + f.suplentes + '</td>' +
         f.items.map(function (c) {
-          return '<td class="num"><input type="number" min="0" max="9999" style="width:76px;' + (c.manual ? 'border-color:#B7791F;' : '') + '" value="' + c.cantidad + '" data-item="' + c.item_id +
-            '" data-puesto="' + f.puesto_id + '" data-sugerido="' + c.sugerido + '" title="Sugerido: ' + c.sugerido + '"> ' +
-            (c.manual ? '<button type="button" class="btn-secundario btn-sm" data-volver="1" data-item="' + c.item_id + '" data-puesto="' + f.puesto_id + '" title="Volver a la sugerida (' + c.sugerido + ')">↺</button>' : '') +
-            '<div style="font-size:0.72rem; color:var(--color-text-muted);">entregados ' + c.entregados + '</div></td>';
+          return '<td class="col-num"><input type="number" min="0" max="9999" style="width:76px;' + (c.manual ? 'border-color:#B7791F;' : '') + '" value="' + c.cantidad + '" data-item="' + c.item_id +
+            '" data-puesto="' + f.puesto_id + '" data-sugerido="' + c.sugerido + '" title="Sugerido: ' + c.sugerido + '">' +
+            '<div style="font-size:0.72rem; color:var(--color-text-muted);">entregados ' + c.entregados + ' ' +
+            (c.manual ? '<button type="button" class="btn-secundario btn-sm" data-volver="1" data-item="' + c.item_id + '" data-puesto="' + f.puesto_id + '" title="Volver a la sugerida (' + c.sugerido + ')">↺</button>' : '') + '</div></td>';
         }).join('') + '</tr>';
     });
     if (p.transporte && p.transporte.items.length) {
-      filas.push('<tr style="background:#F3F5F8;"><td><strong>Transporte (conductores)</strong></td><td class="num">—</td><td class="num">—</td>' +
-        deTestigos.map(function () { return '<td class="num">—</td>'; }).join('') + '</tr>');
+      filas.push('<tr style="background:#F3F5F8;"><td><strong>Transporte (conductores)</strong></td><td class="col-num">—</td><td class="col-num">—</td>' +
+        deTestigos.map(function () { return '<td class="col-num">—</td>'; }).join('') + '</tr>');
       p.transporte.items.forEach(function (i) {
-        filas.push('<tr style="background:#F3F5F8;"><td>&nbsp;&nbsp;' + esc(i.nombre) + ' · ' + p.transporte.conductores + ' conductores activos</td><td></td><td></td><td class="num" colspan="' + Math.max(1, deTestigos.length) + '"><strong>' + esc(i.cantidad) + '</strong></td></tr>');
+        // Debe cubrir EXACTAMENTE las columnas del encabezado: Puesto + Testigos + Suplentes + un ítem por columna. Sin ítems de testigos son sólo 3.
+        var cant = '<strong>' + esc(i.cantidad) + '</strong>';
+        filas.push('<tr style="background:#F3F5F8;"><td>&nbsp;&nbsp;' + esc(i.nombre) + ' · ' + p.transporte.conductores + ' conductores activos</td><td></td>' +
+          (deTestigos.length ? '<td></td><td class="col-num" colspan="' + deTestigos.length + '">' + cant + '</td>' : '<td class="col-num">' + cant + '</td>') + '</tr>');
       });
     }
     $('lg-puestos').innerHTML = filas.join('');
@@ -99,8 +102,8 @@
       return '<tr data-id="' + i.id + '"><td><input data-campo="nombre" maxlength="80" value="' + esc(i.nombre) + '"></td>' +
         '<td><select data-campo="destinatario"><option value="testigos"' + (i.destinatario === 'testigos' ? ' selected' : '') + '>Testigos</option><option value="conductores"' + (i.destinatario === 'conductores' ? ' selected' : '') + '>Conductores</option></select></td>' +
         '<td><input data-campo="hora_limite" type="time" value="' + esc(i.hora_limite || '') + '"></td>' +
-        '<td><input data-campo="incluir_suplentes" type="checkbox" style="width:auto;"' + (i.incluir_suplentes ? ' checked' : '') + '></td>' +
-        '<td><input data-campo="activo" type="checkbox" style="width:auto;"' + (i.activo ? ' checked' : '') + '></td>' +
+        '<td class="col-num"><input data-campo="incluir_suplentes" type="checkbox" style="width:auto;"' + (i.incluir_suplentes ? ' checked' : '') + '></td>' +
+        '<td class="col-num"><input data-campo="activo" type="checkbox" style="width:auto;"' + (i.activo ? ' checked' : '') + '></td>' +
         '<td><button type="button" class="btn-secundario btn-sm" data-guardar="1">Guardar</button></td></tr>';
     }).join('');
   }
