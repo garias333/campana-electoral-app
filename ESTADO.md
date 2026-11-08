@@ -12,7 +12,11 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 291** (`parches/campana-parche291.zip`, 95.914 bytes,
+- **Último parche generado: 292** (`parches/campana-parche292.zip`, 99.600 bytes,
+  sha256 `7090310c92b53642e50c765b045a2603733324e198c1be75cfbb3d4631e19e69`, 6 archivos).
+  **Publicado** (`parche-292.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
+  nombre en el panel: «Menú del celular y tablas de Logística alineadas (Requiere el 290; reemplaza al 291)» (detalle abajo); **requiere el 290**.
+  Service worker `v165`. **Reemplaza al 291, que NO debe aplicarse** (sigue registrado e inactivo; trae lo mismo menos la alineación de las tablas). El anterior, el 291 (`parches/campana-parche291.zip`, 95.914 bytes,
   sha256 `665a3fa0d08eac5a6c0d927a11f904dda06456a2954624560ce4a81c852ec396`, 5 archivos).
   **Publicado** (`parche-291.zip`, misma huella) y **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**;
   nombre en el panel: «Menú del celular: se cierra al tocar un ítem y muestra la vista (Requiere el 290)» (detalle abajo); **requiere el 290**.
@@ -66,7 +70,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
   (la Base no recibe parches: los genera); desde el 289, `.version-parche` y `.version-base` = **289**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v165` en el código de la Base y dentro del 291; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+- **Service worker:** `estrategia-v165` en el código de la Base y dentro del 291 y del 292; `v164` dentro del 290; `v163` dentro del 289 (el 288 no lo toca; el 287 lleva `v162`; el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -74,7 +78,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `TELEGRAM_BOT_TOKEN` y `TELEGRAM_SUPERADMIN_CHAT_ID` con valor (solo se comprobó que no
   estén vacías) y **no** tiene `APP_NOMBRE`: el mensaje dice «Estrategia | App electoral». El
   registro de PM2 muestra **un** «Telegram OK» y ningún «Telegram falló».
-- **Plantilla vigente: v290, ya atrás del parche 291** (menú del celular; su `.version-base` es 290 y su service worker `v164`): **no regenerada, a pedido**; se regenerará con `--parche 291` (o el último) antes de crear una campaña nueva. Hasta entonces la campaña nueva recibe el 291 en su primer ciclo de actualización.
+- **Plantilla vigente: v290, ya atrás del parche 292** (menú del celular y tablas de Logística; su `.version-base` es 290 y su service worker `v164`): **no regenerada, a pedido**; se regenerará con `--parche 292` (o el último) antes de crear una campaña nueva. Hasta entonces la campaña nueva recibe el 292 en su primer ciclo de actualización.
 - **Plantilla v290 (8 de noviembre de 2026)** (8 de noviembre de 2026): `backups/plantillas/plantilla-nueva-campana-v290.zip`,
   2.010.775 bytes, **261 archivos** (284 entradas con las carpetas), sha256 `7fae8431d9546c8ddf4c8fc29ddf6880adc323a81b7068162654a45d28a73559`,
   service worker `estrategia-v164`, `.version-parche` y `.version-base` = 290. Generada con
@@ -102,7 +106,24 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 291 — Menú del celular: se cierra al tocar un ítem y muestra la vista (8 de noviembre de 2026, INACTIVO, no toca la base)
+## Parche 292 — Menú del celular y tablas de Logística alineadas (8 de noviembre de 2026, INACTIVO, no toca la base; reemplaza al 291)
+
+Zip de 6 archivos (`.version-base` = 292): `public/js/common.js`, `public/css/style.css`, `public/votantes-dashboard.html`, `public/service-worker.js` (**v165**), `public/js/logistica-dia-d.js` y `.version-base`. Commits `2d5da70` (menú), `e8a1b77` (tablas) y el de `.version-base` y ESTADO.md. **Requiere el 290.** Sin `db/`: no toca la base.
+Lleva todo lo del 291 (descrito en su sección, más abajo) **más la alineación de las tablas**.
+
+**Por qué es el 292 y no el 291.** Se pidió meter las tablas «en el mismo parche», y el 291 ya estaba publicado y registrado. Se intentó: se republicó el zip con `publicar-parche.sh 291 --forzar` y se volvió a registrar, y **el Servidor de Licencias contestó 409**
+(«El parche #291 ya está registrado. Un número publicado no se reutiliza.»). Eso dejó, por unos segundos, un `parche-291.zip` publicado (sha256 `c745bbd4…`) que no coincidía con la huella y la firma registradas (`665a3fa0…`): de haberse activado, el actualizador lo habría rechazado.
+Se restauró enseguida el zip original (copia previa; huellas de origen y destino `665a3fa0…`, verificadas) y los cambios salieron como 292. **Regla para la próxima:** `--forzar` sólo reemplaza el ARCHIVO; la fila registrada (huella y firma) no se puede cambiar, así que un parche ya registrado no admite cambios aunque esté inactivo. Hay que sacar el número siguiente.
+**Acción para quien lo active:** activar y aplicar el **292**; dejar el 291 sin aplicar (si se aplicara antes, el 292 lo sobreescribe con los mismos archivos más el de las tablas).
+
+**Las tablas de la pestaña Logística (`public/js/logistica-dia-d.js`).** Reproducido en Chromium (1280 px) midiendo, columna por columna, el centro del encabezado contra el del dato: «Total a comprar» salía 89 px a la izquierda de su encabezado; el plan por puesto, de 7 a 30 px en las columnas de ítems.
+- **Causa:** la regla global `thead th { text-align: center }` centra todos los encabezados, y las celdas numéricas llevaban `class="num"`, una clase **que no existe** en `style.css` (la del proyecto para columnas de números es `col-num`). Los números quedaban a la izquierda de la celda bajo un encabezado centrado. La cuenta de `<th>` y `<td>` **sí coincidía** en todas las filas medidas.
+- **Arreglo:** números (y casillas) con `col-num` en `th` y `td`, centrados como su encabezado; los encabezados de texto (Ítem, Para, Hasta, Puesto, Nombre) con `text-align:left` sobre datos a la izquierda. Pasa en las tres tablas: «Total para comprar», «Plan por puesto» e «Ítems» (la tercera tenía lo mismo, con las casillas «Incluir suplentes» y «Activo»). El botón ↺ de «volver a la sugerida» pasó a la línea de «entregados» para que el campo numérico quede centrado bajo su encabezado.
+- **Una fila que no cuadraba:** cada ítem de conductores bajo «Transporte» llevaba una celda con `colspan = max(1, ítems de testigos)` después de tres celdas: con cero ítems de testigos daba cuatro columnas bajo tres encabezados. Ahora cubre siempre las del encabezado (`3 + N`, o 3 si N = 0).
+Medido otra vez después: todas las celdas numéricas a 0 px de su encabezado; las de texto quedan a la izquierda a propósito. Suites `probar-logistica` y `probar-transporte-parte2` sin fallos.
+**No probado:** un teléfono real ni la tabla con datos de una campaña de verdad (el simulador trae 2 puestos y 4 ítems); el caso sin ítems de testigos se comprobó por lectura, no en pantalla.
+
+## Parche 291 — Menú del celular: se cierra al tocar un ítem y muestra la vista (8 de noviembre de 2026, INACTIVO, no toca la base; REEMPLAZADO POR EL 292: NO APLICAR)
 
 Zip de 5 archivos (`.version-base` = 291): `public/js/common.js`, `public/css/style.css`, `public/votantes-dashboard.html`, `public/service-worker.js` (**v165**) y `.version-base`. Commit `2d5da70`. **Requiere el 290.** Sin `db/`: no toca la base.
 
