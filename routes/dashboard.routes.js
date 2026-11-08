@@ -121,9 +121,46 @@ async function ambitoDelCoordinador(req) {
   };
 }
 
+/**
+ * EL ÁMBITO DE `/resumen` Y `/tendencia-registros` (orden 38).
+ *
+ * Las dos rutas contaban la campaña entera para cualquiera con el Panel encendido que no fuera aspirante: un líder veía el
+ * total de votantes de la campaña, sus coordinadores y líderes, la meta y los eventos. Ahora:
+ *   · administrador (y cualquier rol que no esté en esta lista): null, toda la campaña, como siempre;
+ *   · aspirante con sublicencia: su rama (`ambitoDelPanel`), con `esAspirante`;
+ *   · coordinador: él, sus líderes y los sublíderes de éstos (`ambitoDelCoordinador`);
+ *   · líder y sublíder: él y quienes le reportan directo (sus sublíderes), y los votantes con la MISMA condición de la lista
+ *     de Votantes: un líder ve lo que él registró y lo de sus sublíderes (llevan su `lider_id`); un sublíder, lo suyo.
+ *
+ * NO SE TOCAN los demás roles (asistente administrativo, testigo, usuario, invitado): la orden no los nombra, y a un asistente
+ * administrativo dejarlo en cero le quitaría el Panel. Quedan con la campaña entera, como hoy; ver ESTADO.md.
+ * `tabla-posiciones` NO usa esta función: su ranking de líderes es a propósito visible para todos (ver su nota).
+ */
+async function ambitoDeResumen(req) {
+  const aspirante = await ambitoDelPanel(req);
+  if (aspirante) return { ...aspirante, esAspirante: true };
+  const coordinador = await ambitoDelCoordinador(req);
+  if (coordinador) return coordinador;
+  const u = req.session && req.session.usuario;
+  if (!u || !['lider', 'sublider'].includes(u.rol)) return null;
+  const [filas] = await pool.query(
+    `SELECT ? AS usuario_id
+     UNION
+     SELECT e.usuario_id FROM estructura e WHERE e.activo = 1 AND e.supervisor_id = ?`,
+    [u.id, u.id]
+  );
+  const alcance = { cargo: u.rol, usuarioId: u.id };
+  return {
+    aspiranteId: null,
+    ids: filas.map(f => f.usuario_id),
+    votantesSql: condicionAlcanceVotantes(alcance, 'v'),
+    votantesPar: parametrosAlcanceVotantes(alcance),
+  };
+}
+
 router.get('/resumen', verPanelGeneral, async (req, res) => {
   try {
-    const ambito = await ambitoDelPanel(req);
+    const ambito = await ambitoDeResumen(req);
     // Cada trozo se arma una vez y se pega donde toca. Con `ambito` nulo todos
     // quedan en cadena vacía y la consulta es LA MISMA de siempre, letra por
     // letra: la campaña madre no cambia de comportamiento por este parche.
@@ -169,8 +206,8 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
        SOLO SE APLICA A LO QUE ES «SU EQUIPO». Los votantes que él registre en
        persona siguen contando en el avance: ahí lo que manda es quién registró
        la ficha, no de quién cuelga. Por eso hay dos filtros y no uno. */
-    const filtroEquipo = ambito ? `${filtroEst} AND e.usuario_id <> ?` : '';
-    const parEquipo = ambito ? [...parEst, ambito.aspiranteId] : [];
+    const filtroEquipo = ambito ? `${filtroEst}${ambito.esAspirante ? ' AND e.usuario_id <> ?' : ''}` : '';
+    const parEquipo = ambito ? [...parEst, ...(ambito.esAspirante ? [ambito.aspiranteId] : [])] : [];
 
     /* LA META QUE LA CAMPAÑA SE FIJÓ, que es otra cosa que la suma de las
        metas de sus líderes. Una la decide quien dirige —«necesito 4.000 votos
@@ -199,7 +236,8 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
       }
     } catch (_) { metaVotosCampana = 0; }
 
-    const soloMadre = ambito ? null : await filtroMetaMadreEstructura(pool);
+    // Para el aspirante la meta de la madre no se resta (es justo lo que él suma); para los demás sí, también dentro de su rama.
+    const soloMadre = (ambito && ambito.esAspirante) ? null : await filtroMetaMadreEstructura(pool);
     const filtroMeta = soloMadre ? `AND ${soloMadre.sql}` : '';
     const parMeta = soloMadre ? soloMadre.valores : [];
 
@@ -259,24 +297,32 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
        nada. Sin la clave `finanzas`, dashboard.html esconde la tarjeta. */
     const verFinanzas = !!req.sublicencia
       || ['admin', 'coordinador'].includes(req.session.usuario.rol);
-    const [[finanzas]] = !verFinanzas ? [[null]] : ambito ? [[{ ingresos: 0, gastos: 0 }]] : await pool.query(`
+    const [[finanzas]] = !verFinanzas ? [[null]] : (ambito && ambito.esAspirante) ? [[{ ingresos: 0, gastos: 0 }]] : await pool.query(`
       SELECT
         COALESCE(SUM(CASE WHEN tipo='ingreso' THEN monto END),0) AS ingresos,
         COALESCE(SUM(CASE WHEN tipo='gasto' THEN monto END),0) AS gastos
       FROM finanzas_movimientos
     `);
-    const [[eventos]] = ambito ? [[{ proximos: 0, realizados: 0 }]] : await pool.query(`
+    /* EVENTOS Y MENCIONES (orden 38). El aspirante no los ve (como antes). Coordinador, líder y sublíder ven los eventos donde
+       ellos o su equipo son el responsable, el coordinador o el líder (`responsable_id`, `coordinador_id`, `lider_id`): un
+       evento sin ninguna de esas personas sólo lo ve el administrador. Las MENCIONES (monitoreo de redes) no cuelgan de nadie y
+       no se pueden acotar: sólo las recibe el administrador; el panel no las pinta, pero el navegador recibe el JSON entero. */
+    const sinAmbito = !ambito;
+    const soloEquipo = ambito && !ambito.esAspirante;
+    const filtroEv = soloEquipo ? 'AND (responsable_id IN (?) OR coordinador_id IN (?) OR lider_id IN (?))' : '';
+    const parEv = soloEquipo ? [ambito.ids, ambito.ids, ambito.ids] : [];
+    const [[eventos]] = (ambito && ambito.esAspirante) ? [[{ proximos: 0, realizados: 0 }]] : await pool.query(`
       SELECT
         COUNT(CASE WHEN fecha_inicio >= NOW() AND estado='programado' THEN 1 END) AS proximos,
         COUNT(CASE WHEN estado='realizado' THEN 1 END) AS realizados
-      FROM eventos
-    `);
-    const [proximosEventos] = ambito ? [[]] : await pool.query(`
+      FROM eventos WHERE 1 = 1 ${filtroEv}
+    `, parEv);
+    const [proximosEventos] = (ambito && ambito.esAspirante) ? [[]] : await pool.query(`
       SELECT id, titulo, tipo, fecha_inicio, lugar FROM eventos
-      WHERE fecha_inicio >= NOW() AND estado = 'programado'
+      WHERE fecha_inicio >= NOW() AND estado = 'programado' ${filtroEv}
       ORDER BY fecha_inicio ASC LIMIT 5
-    `);
-    const [menciones] = ambito ? [[]] : await pool.query(`
+    `, parEv);
+    const [menciones] = !sinAmbito ? [[]] : await pool.query(`
       SELECT sentimiento, COUNT(*) AS total FROM monitoreo_menciones GROUP BY sentimiento
     `);
 
@@ -389,7 +435,7 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
 // que empieza la semana en domingo).
 router.get('/tendencia-registros', verPanelGeneral, async (req, res) => {
   try {
-    const ambito = await ambitoDelPanel(req);
+    const ambito = await ambitoDeResumen(req);
     const filtroVot = ambito ? `AND ${ambito.votantesSql}` : '';
     const [filas] = await pool.query(`
       SELECT
