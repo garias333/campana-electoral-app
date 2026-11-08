@@ -12,12 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 286** (`parches/campana-parche286.zip`, 244.821 bytes,
-  sha256 `edac98f0d40f3229aa4370deb1fb9a90f1e0d40435f3cffd27adba8bffda54c2`, 21 archivos).
-  **Publicado** en la carpeta de licencias (`parche-286.zip`, misma huella) y
-  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = true`**; nombre en el panel:
-  «Día D: transporte, parte 2 y orden del menú (Requiere el 285)» (detalle abajo); **requiere el 285**.
-  El anterior, el 285 (`parches/campana-parche285.zip`, 101.622 bytes,
+- **Último parche generado: 287** (`parches/campana-parche287.zip`, 138.322 bytes,
+  sha256 `1af4844083ce9152529bfd336ff820e4b7022f6aff97da792ba8119b9bbafbad`, 9 archivos).
+  **Publicado** en la carpeta de licencias (`parche-287.zip`, misma huella) y
+  **registrado y firmado (Ed25519), INACTIVO**, con **`toca_base_datos = false`**; nombre en el panel:
+  «Comunas validadas y dashboard por zona (Requiere el 286)» (detalle abajo); **requiere el 286**.
+  El anterior, el 286 (`parches/campana-parche286.zip`, 244.821 bytes,
+  sha256 `edac98f0d40f3229aa4370deb1fb9a90f1e0d40435f3cffd27adba8bffda54c2`, 21 archivos, transporte parte 2,
+  `toca_base_datos = true`, requiere el 285), sigue publicado e inactivo, igual que el 285 (`parches/campana-parche285.zip`, 101.622 bytes,
   sha256 `767fd7efbe66bb93d38e0fd8286b02ab3d96c992bd240f536be741c2a841cc93`, 5 archivos, menú de Día D,
   `toca_base_datos = false`, requiere el 284), sigue publicado e inactivo, igual que el 284 (`parches/campana-parche284.zip`, 282.785 bytes,
   sha256 `00eacb9230ab661b1a9ffac49cd51b70151df4af91939ca70fc6104ab73c6333`, 28 archivos, transporte parte 1,
@@ -40,15 +42,15 @@ limpio») estaban obsoletas y se reemplazaron.*
   el 275), sigue publicado e inactivo, igual que los anteriores —275 (33.002 bytes, `da76d397…`, 5 archivos, tarjeta «Ya voté»), 274 (456.956 bytes,
   `3c69dddb…`, 30), 273 (`11b498b6…`, 22) y 272 (`f4333fcb…`, 11)— siguen publicados e inactivos; los zip
   265 a 271 también están publicados.
-  **Distribución del 286 (y del 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
+  **Distribución del 287 (y del 286, 285, 284, 283, 282, 281, 280, 279, 278, 277, 276, 275, 274, 273 y 272): NO MEDIDA, y la fija Gildardo en el panel ANTES de
   activar.** `registrar-parche.js` no manda `modo_distribucion` y la columna nace en «todos» (pendiente 9 de
   abajo): hay que ponerlo en «seleccionadas» y marcar solo las campañas elegidas —**las mismas en los
   siete**—, nunca la Base. El sistema no declara dependencias entre parches (ver «Cómo exige el 273», en el 274).
 - **Registrado / activo / aplicado en las campañas: NO MEDIDO.** Hay que mirar
   `.version-parche` y `logs/actualizaciones.log` de municipal, departamental y c001-2027
   (bloque d) del traspaso, abajo). En la Base, `.version-parche` y `.version-base` = **273**
-  (la Base no recibe parches: los genera); desde el 286, `.version-parche` y `.version-base` = **286**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
-- **Service worker:** `estrategia-v161` en el código de la Base y dentro del 286 (el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
+  (la Base no recibe parches: los genera); desde el 287, `.version-parche` y `.version-base` = **287**. Ni el 272, ni el 273, ni el 274, ni el 275, ni el 276, ni el 277, ni el 278, ni el 279, ni el 280, ni el 281, ni el 282, ni el 283 ni el 284 se han activado ni aplicado a ninguna campaña.
+- **Service worker:** `estrategia-v162` en el código de la Base y dentro del 287 (el 286 lleva `v161`; el 285 lleva `v159`; el 284 lleva `v158`; el 281 lleva `v157`; el 282 y el 283 no lo tocan; el 280 lleva `v156`; el 278 y el 279 no lo tocan; el 277 lleva `v155`; el 276 lleva `v154`; el 275 lleva `v151`; el 274, `v150`; el 273 lleva `v147`;
   el 272, `v146`; el 271, `v145`). Cada campaña lo tendrá cuando reciba el 273. Las páginas nuevas
   `app/faltantes.html` y `app/ranking-dia-d.html` van en su precache.
 - **La Base corre el código del 271.** Su proceso (`app.js`, pid 2883929) arrancó a las
@@ -67,6 +69,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   el escáner la tomaba por una credencial literal. La v271 (`plantilla-nueva-campana-v271.zip`, 194 archivos) y las v261/v262 siguen en la
   carpeta pero **ya no sirven** para una campaña nueva: usar la v286. Si después de ella se publica otro parche, hay que regenerarla
   (`--parche N`, y `--forzar` si el nombre ya existe) antes de crear una campaña.
+  **Ya está atrás: el 287 (7-8 de noviembre) es posterior y la v286 no lo trae** (`.version-base` = 286, service worker `v161`). Regenerarla con `--parche 287` antes de crear la próxima campaña.
 - **`scripts/comparar-instancias.js`** (medido el 31 de agosto, NO re-medido): 137 archivos,
   1 sola diferencia en cada campaña — `scripts/calibrar_cohortes.js`, que existe solo allí;
   el sistema de parches no sabe borrar (`unzip -o`).
@@ -74,6 +77,94 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 287 — Comunas validadas y dashboard por zona (8 de noviembre de 2026, INACTIVO, NO toca la base)
+
+Zip de 9 archivos (`.version-base` = 287): `lib/comunasDeLaCampana.js` (**nuevo**) y los modificados `config/sincronizacionVotantesEstructura.js`,
+`public/service-worker.js` (**v162**), `public/votantes.html`, `routes/dashboard.routes.js`, `routes/inscripcion.routes.js`, `routes/votantes.routes.js`
+y `routes/votantesDashboard.routes.js`. Commit que recoge: `0ecef11`. `scripts/probar-comunas-dashboard.js` (73 comprobaciones) y `scripts/reporte-comunas.js`
+**no viajan**. **Requiere el 286** (sin dependencia declarada; las mismas campañas). **No hay `init-db`: no toca la base.**
+
+### La causa: el dato no estaba mal guardado, lo mostraba así el dashboard
+
+«Por Comuna / Corregimiento» **no lee la columna de comuna**. Agrupaba por el **padre del `territorio_id` de la ficha**, sea del tipo que sea. Las veredas del
+DANE cuelgan del **municipio** (31.927 de 32.016; ver CLAUDE.md del catálogo) y una ficha asignada «a todo el municipio» cuelga del **departamento**; así que:
+
+| Salía | Qué eran en realidad |
+|---|---|
+| «MANIZALES» (6) | fichas en veredas/barrios que cuelgan directo del municipio Manizales |
+| «Caldas» (2) | fichas asignadas al propio municipio (su padre es el departamento) |
+| «Antioquia» (c001) | lo mismo, en un municipio de Antioquia |
+
+La orden suponía que la ciudad o el departamento «cayeron» en el campo de comuna; **no se pudo comprobar con los datos reales** (la Base está vacía y no se puede leer la
+municipal ni c001), pero la causa de arriba se reprodujo en la prueba con el código anterior (salen exactamente «MANIZALES» y «Caldas») y explica los tres casos sin
+necesidad de que nadie haya escrito nada mal. **Eso cambió el arreglo:** el dashboard ahora dice «Sin comuna» donde antes decía el padre; y, aparte, el texto de comuna también se valida.
+
+### Quién escribe `votantes.comuna_corregimiento_residencia` (y si validaba)
+
+| Entrada | Archivo | ¿Validaba contra la lista? |
+|---|---|---|
+| Alta (escritorio y celular, mismo `POST /api/votantes`) | `routes/votantes.routes.js` | No: texto libre (el desplegable es sólo sugerencia) |
+| Edición `PUT /api/votantes/:id` | `routes/votantes.routes.js` | No |
+| Excel `/importar-excel` | `routes/votantes.routes.js` | **No escribe la columna**; usa la columna «Comuna» sólo como filtro para hallar el barrio, y una comuna que no existe rechazaba la fila entera |
+| `/importar` (arreglo ya leído) | `routes/votantes.routes.js` | No escribe la columna |
+| `/i/<código>` (alta y «completar vacíos») | `routes/inscripcion.routes.js` + `config/inscripcionRegistro.js` | No: sólo saneaba y cortaba a 120 |
+| Copia Estructura → Votantes | `config/sincronizacionVotantesEstructura.js` | No: copia el texto libre de `usuarios` |
+| **Estructura** (`usuarios.comuna_corregimiento_residencia`: alta, edición e importación en `routes/territorial.routes.js`) | — | **No, y este parche NO lo toca** (fuente del texto que la copia lleva a Votantes) |
+
+### Qué cambió
+
+- **Dashboard** (`routes/votantesDashboard.routes.js`): la zona de una ficha es su territorio si es comuna o corregimiento, o su padre si lo es; si no, **«Sin comuna»**
+  (`zona_id = 0`; el filtro de Barrio/Vereda lo entiende). Una ficha asignada **directo a una comuna** ahora cuenta en ella (antes contaba en el municipio). La columna
+  «Comuna/Corregimiento» de «Por barrio» dice «Sin comuna» y no la ciudad; «Tipo» sale «—» si no hay zona. Las fichas **sin territorio** siguen sin contarse (como siempre).
+- **Validación** (`lib/comunasDeLaCampana.js`): con la campaña **teniendo comunas o corregimientos** en `territorios`, un valor que no está en la lista (sin mirar mayúsculas,
+  tildes ni espacios dobles) **se guarda vacío**; la ficha se guarda igual. Sin ninguna comuna en la campaña (Quindío: cero) el texto sigue libre. Aviso al usuario: el alta y
+  la edición responden `comuna_descartada` y `votantes.html` lo muestra; el Excel devuelve `avisos` («fila N: comuna "MANIZALES" no existe en la campaña; quedó vacía») y la pantalla
+  cuenta cuántos. En el Excel la fila **ya no se pierde** por una comuna falsa: se ignora la comuna, y si trae barrio que existe en **varias** comunas se rechaza esa fila (no se adivina).
+  En `/i` se descarta sin mensaje (quien se inscribe no puede arreglarlo). El desplegable de comunas ya existía en `votantes.html`, `territorial.html` y `/i`.
+- **Alcance** (`routes/votantesDashboard.routes.js`): `calcularAlcance` y `condicionAlcanceVotantes` / `parametrosAlcanceVotantes` en **todas** las consultas que leen `votantes`:
+  resumen, por comuna, por barrio, por líder (y «sin líder»), Excel y Word (por sección y completos) y el estimado por puesto/mesa. Coordinador = su rama (la misma regla que
+  la lista de Votantes). **Administrador = toda la campaña, sin tocar**: no se le aplicó la regla de la madre que esconde las ramas de aspirantes (cambiaría lo que ve; no se pidió).
+- **Panel general** (`routes/dashboard.routes.js`): **`/progreso-equipo` y `/tabla-posiciones` devolvían a TODOS los coordinadores y líderes de la campaña** a un coordinador
+  (`ambitoDelPanel` sólo acotaba al aspirante). Ahora el coordinador ve él, sus líderes y los sublíderes de éstos, y los conteos de cada fila llevan la misma condición de Votantes.
+  El administrador y el aspirante no cambian.
+
+**Lo que NO se acotó, a propósito, y conviene saber:**
+- **Cobertura territorial** (`/cobertura`, `/cobertura-detalle` y sus Excel/Word, que son el botón «Informe»): leen la estructura de territorios, no `votantes`. Un coordinador sigue
+  viendo la cobertura de **toda** la campaña, con los nombres de los líderes que cubren cada barrio. Acotarlo falsearía «cubierto / sin cubrir». Decisión pendiente de Gildardo.
+- **`/api/dashboard/resumen` y `/tendencia-registros`** (el resto del Panel) siguen sin acotar para el coordinador: la orden nombraba sólo la tabla de posiciones y el progreso del equipo.
+- **Estructura** (`usuarios.comuna_corregimiento_residencia`) sigue siendo texto libre (ver tabla).
+- **No se reescribió ninguna ficha existente.**
+
+### Cómo correr `scripts/reporte-comunas.js` (solo lectura; no viaja)
+
+```bash
+cp /home/appestrategia-electoral/htdocs/electoral.appestrategia.net/scripts/reporte-comunas.js <carpeta-de-la-campaña>/scripts/
+cd <carpeta-de-la-campaña> && node scripts/reporte-comunas.js          # 100 valores por lista; --todos o --json
+```
+Con el node de la cuenta de esa campaña y su `.env`. Se puede correr **antes** de aplicar el 287 (si `lib/comunasDeLaCampana.js` aún no existe usa una copia idéntica de la comparación). Dice:
+(a) cuántas comunas y corregimientos tiene la campaña (sin ninguna, el texto es libre); (b) cada valor de `votantes.comuna_corregimiento_residencia` fuera de la lista, con su cantidad y si
+coincide con la **ciudad** o el **departamento** (sin lista, sólo señala los que son una ciudad o un departamento); (c) lo mismo para Estructura; y (d) **cuántas fichas el dashboard
+agrupa en «Sin comuna»**, por tipo de territorio y de su padre (es lo que confirma la causa de arriba). Sale con código **2** si hay fichas con comuna ajena, 0 si no, 1 si falla. No modifica nada.
+**Sobre la Base** (electoraldb: 0 fichas, 0 comunas) dio: «ninguna ficha con una comuna que no sea de la campaña». No se pudo correr en municipal, departamental ni c001.
+
+### Verificación
+
+`scripts/probar-comunas-dashboard.js` (**73 comprobaciones**, base privada): la regla pura; alta y edición con «MANIZALES», «Caldas», «Antioquia» y una comuna buena; Excel con la ciudad, el departamento
+y un corregimiento falso en su columna (resumen de avisos, barrio único, barrio en varias comunas); la copia desde Estructura; una campaña sin comunas; el dashboard con «Sin comuna» y sus filtros; el
+administrador viendo 15 de 15; dos coordinadores viendo cada uno sólo lo suyo en resumen, por comuna, por barrio, por líder, Excel completo y por sección, Word completo y por sección; progreso del equipo y
+tabla de posiciones; y el reporte sobre datos sembrados (10 fichas ajenas, «MANIZALES» = ciudad, «Caldas» = departamento). **Con el código anterior del dashboard la misma prueba falla 21 comprobaciones**
+(salen «MANIZALES» y «Caldas», y el coordinador ve 15 de 15), así que la prueba sí detecta el problema. Más: `probar-inscripcion-enlace.js` **467/467** (se ajustó la de «cada campo se corta a su largo» y se
+sumó /i con la ciudad como comuna), `probar-transporte-diad.js` 123/123, `probar-transporte-parte2.js` 80/80 y `probar-instalacion-limpia.js` (61 tablas). `node --check` en todo lo tocado y
+`verificar-requires.js` sobre el zip: «TODO RESUELVE».
+**NO se probó:** nada con datos reales de la municipal, la departamental ni c001 (no se pueden leer); el dashboard en un navegador (sólo la API y los archivos exportados); un Excel de miles de filas
+(la comuna se comprueba contra una lista leída una sola vez); ni qué fichas reales quedarán en «Sin comuna» en cada campaña (para eso, el reporte).
+
+**NOTAS PARA QUIEN LO APLIQUE (cada campaña):**
+1. **No toca la base.** Aplicar después del 286, con la misma lista de campañas.
+2. **Antes y después**, correr `reporte-comunas.js` en cada campaña. Después de aplicar, «Por Comuna» muestra «Sin comuna» en vez de la ciudad o el departamento; los números por comuna pueden subir (las fichas asignadas directo a una comuna ya cuentan en ella).
+3. **Un coordinador deja de ver cifras de otras ramas** en el dashboard de votantes, sus exportaciones, el progreso del equipo y la tabla de posiciones. Es el propósito, pero se va a notar.
+4. Las fichas que ya tienen una comuna ajena **no se limpian solas**: el reporte las lista y su limpieza se decide aparte.
 
 ## Parche 286 — Día D: transporte, parte 2 y orden del menú (7 de noviembre de 2026, INACTIVO, TOCA LA BASE)
 
