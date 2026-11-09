@@ -274,6 +274,34 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
     await espera(800);
     ok((await idb('puerta_cache')).length === 0, 'al cambiar de cuenta (purgarCopiasSinSenal) la copia con nombres y direcciones se borra');
     ok((await idb('puerta_pendientes')).length === 1, 'y lo pendiente de subir NO (es trabajo sin enviar)');
+
+    /* ============================================================ 12. «Volver a permitir visitas» en la ficha */
+    console.log('\n[12] «Volver a permitir visitas»: el botón solo para el administrador, el diálogo y el efecto');
+    const coord = await persona('Coord Ejemplo', 'coordinador', 'coordinador');
+    const vN = await votante('Nelly NoVisitar', lid, 'Calle 9 # 9-9', 5.074, -75.514);
+    await q('UPDATE votantes SET no_visitar = 1, no_visitar_fecha = ?, no_contactar = 1, no_contactar_canal = ? WHERE id = ?', [ayer, 'sms', vN]);
+    await entrarComo(coord);
+    await ir('/votantes.html', 3500);
+    ok(await p.ev(`typeof lineaNoVisitar === 'function' && !/data-permitir-visitas/.test(lineaNoVisitar({ id: ${vN}, no_visitar: 1, no_visitar_fecha: '${ayer}' }))`), 'el coordinador ve la ficha dicha «pidió no recibir más visitas» pero SIN el botón');
+    await entrarComo(admin);
+    await ir('/votantes.html', 3500);
+    const linea = await p.ev(`lineaNoVisitar({ id: ${vN}, no_visitar: 1, no_visitar_fecha: '${ayer}' })`);
+    ok(/Pidió no recibir más visitas \(desde el /.test(linea) && linea.includes(`data-permitir-visitas="${vN}"`) && /Volver a permitir visitas/.test(linea), 'el administrador sí ve el botón «Volver a permitir visitas»', linea);
+    ok(await p.ev(`lineaNoVisitar({ id: 1, no_visitar: 0 })`) === '', 'y una ficha sin la marca no muestra nada');
+    await p.ev(`abrirPermitirVisitas({ id: ${vN}, nombre: 'Nelly', alListo: () => { window.__listo = true; } })`);
+    await espera(300);
+    ok(await p.ev(`!!document.querySelector('#pv-motivo') && document.querySelector('#pv-fecha').max === document.querySelector('#pv-fecha').value`), 'se abre el diálogo, con la fecha de hoy y sin permitir fechas futuras');
+    await clic('#pv-guardar');
+    await espera(500);
+    ok(/motivo/i.test(await texto('#pv-error') || '') && Number((await q('SELECT no_visitar n FROM votantes WHERE id = ?', [vN]))[0].n) === 1, 'sin motivo no se envía nada', await texto('#pv-error'));
+    await p.ev(`document.querySelector('#pv-motivo').value = 'el ciudadano lo pidió en la sede'`);
+    await clic('#pv-guardar');
+    await espera(1800);
+    const fn = (await q('SELECT no_visitar, no_visitar_fecha, no_contactar, no_contactar_canal FROM votantes WHERE id = ?', [vN]))[0];
+    ok(Number(fn.no_visitar) === 0 && fn.no_visitar_fecha === null && Number(fn.no_contactar) === 1 && fn.no_contactar_canal === 'sms', 'quita la marca de visitas y NO toca la de mensajes', fn);
+    ok(await p.ev('window.__listo === true') && !(await p.ev(`!!document.querySelector('#overlay-permitir-visitas')`)), 'avisa a la pantalla y cierra el diálogo');
+    ok((await q(`SELECT COUNT(*) n FROM auditoria WHERE accion = 'votante_permitir_visitas' AND detalle LIKE '%el ciudadano lo pidió en la sede%'`))[0].n === 1, 'y queda en la auditoría con el motivo');
+
     ok(!p.avisos.length, 'ninguna excepción de JavaScript en la pantalla', p.avisos);
   } catch (e) {
     fallos++;

@@ -537,6 +537,7 @@
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
 <script src="/js/baja-manual.js"></script>
+<script src="/js/permitir-visitas.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
@@ -2117,6 +2118,16 @@ function lineaBaja(v) {
   return '';
 }
 
+/* «PIDIÓ NO VOLVER» (puerta a puerta, parche 309): otra marca, aparte de la de los mensajes. Si la tiene, la ficha lo dice y SOLO el administrador ve el botón
+   para quitarla (motivo y fecha obligatorios, queda en la auditoría; no toca los mensajes). */
+function lineaNoVisitar(v) {
+  if (!Number(v.no_visitar)) return '';
+  const desde = v.no_visitar_fecha ? ` (desde el ${String(v.no_visitar_fecha).slice(0, 10)})` : '';
+  const boton = (typeof puedePermitirVisitas === 'function' && puedePermitirVisitas(usuarioActual))
+    ? ` <button type="button" class="btn-evidencia" data-permitir-visitas="${v.id}">Volver a permitir visitas</button>` : '';
+  return `<div class="consent-linea consent-baja">Pidió no recibir más visitas${escaparHtml(desde)}.${boton}</div>`;
+}
+
 document.getElementById('chk-transporte-votante').addEventListener('change', async (e) => {
   const chk = e.target;
   try {
@@ -2161,7 +2172,8 @@ function pintarConsentimiento(v) {
     </div>
     <div class="consent-linea">${lineaConfirmacion(v)}</div>
     <div class="consent-linea" id="linea-firma-votante">${lineaFirma(v)}</div>
-    ${lineaBaja(v)}`;
+    ${lineaBaja(v)}
+    ${lineaNoVisitar(v)}`;
 
   engancharBotonesEvidencia(v);
 }
@@ -2216,6 +2228,14 @@ function engancharBotonesEvidencia(v) {
       tipo: 'votante', id: Number(marcarBaja.dataset.bajaManual), nombre: v.nombre,
       // La ficha abierta queda como está de verdad en la base, y el listado se vuelve a pedir.
       alListo: () => { v.no_contactar = 1; v.no_contactar_origen = 'manual'; pintarConsentimiento(v); cargarVotantes(); },
+    });
+  });
+
+  const permitirVisitas = caja.querySelector('[data-permitir-visitas]');
+  if (permitirVisitas) permitirVisitas.addEventListener('click', () => {
+    abrirPermitirVisitas({
+      id: Number(permitirVisitas.dataset.permitirVisitas), nombre: v.nombre,
+      alListo: () => { v.no_visitar = 0; v.no_visitar_fecha = null; pintarConsentimiento(v); cargarVotantes(); },
     });
   });
 

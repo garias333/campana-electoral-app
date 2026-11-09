@@ -620,6 +620,39 @@ async function agregarFinalidadEncuestas(connection) {
   }
 }
 
+/* Agrega a la política de privacidad la finalidad de las VISITAS (parche 309). A diferencia de las de solicitudes y encuestas, ésta NO pisa una política
+   que el administrador ya editó: `contenido_paginas.actualizado_por` solo se llena cuando alguien guarda desde la pantalla (la siembra y las finalidades
+   automáticas lo dejan en NULL). Con política editada no se toca nada: la pantalla de Administración muestra un aviso con el párrafo para que el
+   administrador lo agregue a mano (GET /api/puerta-a-puerta/politica). Con política sin editar se archiva la versión ANTERIOR, se agrega el párrafo al
+   final de la sección 2 y se archiva la nueva, con su huella. Repetible: si el texto ya trae la frase, no hace nada. */
+async function agregarFinalidadVisitas(connection) {
+  const { FRASE_POLITICA_VISITAS, PARRAFO_POLITICA_VISITAS } = require('../config/politicaVisitas');
+  const [[politicaActual]] = await connection.query(`SELECT titulo, contenido, actualizado_por FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
+  if (!politicaActual || !politicaActual.contenido) return;
+  if (politicaActual.contenido.includes(FRASE_POLITICA_VISITAS)) return;
+  if (politicaActual.actualizado_por !== null && politicaActual.actualizado_por !== undefined) {
+    console.log('Política de privacidad: la editó el administrador, así que NO se agregó la finalidad de las visitas. '
+      + 'Administración muestra un aviso con el párrafo para que el administrador lo agregue.');
+    return;
+  }
+  const crypto = require('crypto');
+  const huellaDe = (t) => crypto.createHash('sha256').update(t, 'utf8').digest('hex').slice(0, 16);
+  const texto = politicaActual.contenido;
+  const huellaAntes = huellaDe(texto);
+  await connection.query(
+    `INSERT IGNORE INTO politica_versiones (huella, clave, titulo, contenido, archivada_por, archivada_por_nombre) VALUES (?, 'politica_privacidad', 'Política de privacidad', ?, NULL, 'Antes de agregar la finalidad de las visitas (actualización automática)')`,
+    [huellaAntes, texto]);
+  const parrafo = '\n\n' + PARRAFO_POLITICA_VISITAS;
+  const corte = texto.search(/\n## 3\./);
+  const nuevo = corte === -1 ? texto.replace(/\s+$/, '') + parrafo : texto.slice(0, corte).replace(/\s+$/, '') + parrafo + '\n' + texto.slice(corte);
+  await connection.query(`UPDATE contenido_paginas SET contenido = ? WHERE clave = 'politica_privacidad'`, [nuevo]);
+  const huella = huellaDe(nuevo);
+  await connection.query(
+    `INSERT IGNORE INTO politica_versiones (huella, clave, titulo, contenido, archivada_por, archivada_por_nombre) VALUES (?, 'politica_privacidad', 'Política de privacidad', ?, NULL, 'Actualización automática (visitas del puerta a puerta)')`,
+    [huella, nuevo]);
+  console.log(`Política de privacidad: se archivó la versión anterior (${huellaAntes}), se agregó la finalidad de las visitas y se archivó la versión ${huella}.`);
+}
+
 async function sembrarPoliticaPrivacidadPorDefecto(connection) {
   await connection.query(
     `INSERT IGNORE INTO contenido_paginas (clave, titulo, contenido) VALUES (?, ?, ?)`,
@@ -3617,6 +3650,7 @@ async function main() {
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
   await agregarFinalidadEncuestas(connection);
+  await agregarFinalidadVisitas(connection);
 
   await connection.end();
   console.log('Listo.');

@@ -14,6 +14,8 @@
  *   GET  /listas               las listas que quien pregunta puede ver, SOLO con conteos                               [puerta_listas · Ver]
  *   POST /listas               armar y asignar una lista; filtra con el alcance de quien VISITA; auditado             [puerta_listas · Agregar]
  *   POST /listas/:id/cerrar · /cancelar                                                                              [puerta_listas · Editar]
+ *   GET  /politica             ¿la política ya menciona la visita domiciliaria? Solo el administrador                       [administrador]
+ *   POST /votantes/:id/permitir-visitas   «Volver a permitir visitas»: motivo y fecha obligatorios, auditado, sin tocar no_contactar   [administrador]
  *   GET  /mias                 MI lista, mínima, para el celular. Sin señal, el día de la elección: sin listas; auditada  [puerta_visitas · Ver]
  *   POST /visitas              el resultado de UNA puerta. Idempotente por cliente_uuid                               [puerta_visitas · Agregar]
  *
@@ -123,6 +125,23 @@ for (const [accion, estado, verbo] of [['cerrar', 'cerrada', 'Cerró'], ['cancel
     } catch (e) { responder(res, e); }
   });
 }
+
+/* ------------------------------------------------------------------------------------------ SOLO EL ADMINISTRADOR */
+
+/** ¿La política ya menciona la visita domiciliaria? Para el aviso de Administración y de esta pantalla. No pide el módulo: es del administrador. */
+router.get('/politica', soloAdmin, async (req, res) => {
+  try { res.json(await P.estadoPolitica()); } catch (e) { responder(res, e); }
+});
+
+/** «Volver a permitir visitas» en la ficha del votante. Motivo y fecha obligatorios, auditado, y no toca `no_contactar`. */
+router.post('/votantes/:id/permitir-visitas', soloAdmin, json, async (req, res) => {
+  try {
+    const r = await P.permitirVisitas({ votanteId: req.params.id, datos: req.body, alcance: req.alcance });
+    await registrarAuditoria(req.session.usuario.id, 'votante_permitir_visitas', 'votantes', Number(req.params.id),
+      `Volvió a permitir visitas a la ficha n.º ${Number(req.params.id)} (había pedido no volver${r.desde ? ' el ' + r.desde : ''}). El ciudadano lo pidió el ${r.fecha_pedido}. Motivo: ${r.motivo}`, req.ip);
+    res.json({ ok: true });
+  } catch (e) { responder(res, e); }
+});
 
 /* ---------------------------------------------------------------------------------------------------- QUIEN VISITA */
 

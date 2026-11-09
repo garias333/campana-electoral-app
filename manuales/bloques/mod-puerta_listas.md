@@ -34,6 +34,8 @@ Una persona que pidió no volver no entra en ninguna lista nueva. Una lista tien
 - **Agregar**: armar y asignar listas. El administrador puede asignar a cualquier líder o sublíder; el coordinador, a los de su equipo.
 - **Editar**: **cerrar** una lista (quien la tiene deja de recibirla; lo que ya visitó se conserva) o **cancelarla**. El horario solo lo cambia el administrador.
 
+- **Solo el administrador**, en la ficha del votante: si alguien pidió no volver y luego pide que sí lo visiten, el botón **Volver a permitir visitas** quita esa marca. Pide el día en que lo pidió y un motivo, y queda en la auditoría. No cambia los mensajes: eso es aparte.
+
 De fábrica este módulo está **apagado**: solo el administrador lo ve. Para abrirlo al equipo, el administrador lo hace en Asignación de permisos.
 
 ## Tareas frecuentes
@@ -49,5 +51,5 @@ De fábrica este módulo está **apagado**: solo el administrador lo ve. Para ab
 - Seis meses después de la elección se corta el vínculo entre cada visita y la persona visitada; quedan solo las cifras.
 
 ::: importante
-Antes de encender este módulo para el equipo, la **política de privacidad** debe mencionar la visita domiciliaria de la campaña. Pide al administrador que la revise.
+Antes de encender este módulo para el equipo, la **política de privacidad** debe mencionar la visita domiciliaria de la campaña. Si el administrador no ha editado la política, el sistema agrega ese párrafo solo; si ya la editó, Configuración → Política de privacidad muestra un aviso con el párrafo para que lo agregue a mano.
 :::

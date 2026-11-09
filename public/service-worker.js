@@ -109,6 +109,7 @@ const ARCHIVOS_CASCARON = [
   '/js/instalar-app.js',
   '/js/mesas-testigo.js',
   '/js/baja-manual.js',
+  '/js/permitir-visitas.js',
   // Va en la coraza porque la app del celular lo usa SIN CONEXIÓN: sin él,
   // los campos con lista se quedan con el comportamiento del navegador y
   // hay que borrarlos a mano para volver a ver la lista.

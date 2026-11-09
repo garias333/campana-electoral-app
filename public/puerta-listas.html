@@ -41,6 +41,7 @@
     <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="pp-contenido" style="display:none;">
+      <div class="pp-aviso" id="pp-politica" style="display:none; background:#FBE9E7; border-color:#F2B8B3;"></div>
       <div class="pp-aviso"><b>Antes de encender esto para el equipo:</b> la política de privacidad tiene que mencionar la visita domiciliaria de la campaña.
         Solo entran a una lista las personas que dieron su autorización, tienen dirección y no pidieron que no las visiten. Una persona que dijo «no estoy interesado»
         o que ya se visitó no vuelve a entrar en una lista antes de <span id="pp-dias">60</span> días.</div>
@@ -165,6 +166,16 @@ async function cargarHorario() {
     $('pp-contenido').style.display = 'block';
     await cargarListas();
   } catch (e) { $('pp-contenido').style.display = 'none'; $('pp-sin-permiso').style.display = 'block'; $('pp-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
+  if (usuarioActual.rol === 'admin') {
+    try {
+      const e = await api('/puerta-a-puerta/politica');
+      if (!e.incluye && e.existe) {
+        $('pp-politica').innerHTML = '<b>La política de privacidad todavía no menciona la visita domiciliaria.</b> ' + (e.editada ? 'Como la editaste, no se agregó sola. ' : '') +
+          'Agrégala antes de encender esto para el equipo: <a href="/contenido.html?clave=politica_privacidad">Configuración → Política de privacidad</a> te muestra el párrafo.';
+        $('pp-politica').style.display = 'block';
+      }
+    } catch (_) { /* sin aviso */ }
+  }
   if (permisos.agregar) {
     $('pp-armar').style.display = 'block';
     try {

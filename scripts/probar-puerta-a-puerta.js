@@ -137,8 +137,15 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const cfg0 = await q(`SELECT puerta_franja_desde d, puerta_franja_hasta h FROM configuracion_campana WHERE id = 1`);
   ok(cfg0[0] && cfg0[0].d === '08:00' && cfg0[0].h === '18:00', 'la franja de fábrica es 08:00 a 18:00', cfg0);
   ok(leer('routes/permisos.routes.js').includes("'puerta_listas'") && leer('routes/permisos.routes.js').includes("'puerta_visitas'"), 'los dos módulos están en la matriz de permisos (Asignación de permisos)');
-  const politica = await q(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
-  ok(politica.length && !/visita domiciliaria/i.test(politica[0].contenido), 'la política de privacidad NO se tocó: la finalidad nueva espera el visto bueno del dueño');
+  const { FRASE_POLITICA_VISITAS, PARRAFO_POLITICA_VISITAS } = require('../config/politicaVisitas');
+  const { huellaDePolitica } = require('../config/politicaVersiones');
+  const politica = await q(`SELECT contenido, actualizado_por FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
+  ok(politica.length && politica[0].contenido.split(FRASE_POLITICA_VISITAS).length === 2 && politica[0].actualizado_por === null, 'la política sin editar trae la finalidad de las visitas UNA vez (init-db la agregó)');
+  ok(/si fue en la mañana o en la tarde/.test(PARRAFO_POLITICA_VISITAS) && !/la tarde o la noche/.test(PARRAFO_POLITICA_VISITAS) && /nunca el día de la elección/.test(PARRAFO_POLITICA_VISITAS), 'con el texto aprobado: «en la mañana o en la tarde» (sin «la noche»)');
+  ok(politica[0].contenido.indexOf(FRASE_POLITICA_VISITAS) < politica[0].contenido.search(/\n## 3\./), 'y al final de la sección 2, antes de la 3');
+  const versiones0 = await q(`SELECT huella, archivada_por_nombre n FROM politica_versiones WHERE clave = 'politica_privacidad'`);
+  const anterior0 = politica[0].contenido.replace('\n\n' + PARRAFO_POLITICA_VISITAS, '');
+  ok(versiones0.some((x) => x.huella === huellaDePolitica(politica[0].contenido) && /visitas del puerta a puerta/.test(x.n)) && versiones0.some((x) => x.huella === huellaDePolitica(anterior0)), 'archivó la versión nueva y la ANTERIOR (que ya estaba archivada por la de encuestas: la misma huella, no se duplica), cada una con su huella', versiones0.map((x) => x.n));
 
   /* ====================================================================== 2. la lista cerrada de columnas */
   console.log('\n[2] Lista cerrada de columnas: sin hora exacta, sin ubicación de quien visita, sin datos de la persona');
@@ -425,6 +432,29 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const sol = await visita(lid2, iJ, 'solicitud', inst(1, '10:00'));
   ok(qr.status === 201 && sol.status === 201 && qr.datos.estado === 'cerrada' && sol.datos.estado === 'cerrada', '«quiere registrarse» y «solicitud» cierran la puerta');
 
+  /* ===================================================================== 13b. «Volver a permitir visitas» */
+  console.log('\n[13b] «Volver a permitir visitas»: solo el administrador, con motivo y fecha, auditado, sin tocar no_contactar');
+  const permitir = (id, json, usr = admin) => pedir('POST', `/votantes/${id}/permitir-visitas`, { usuario: usr, json });
+  ok((await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: hoyCol() }, coord)).status === 403 && (await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: hoyCol() }, lid2)).status === 403, 'el coordinador y el líder NO pueden (403)');
+  ok((await permitir(vG.id, { fecha_pedido: hoyCol() })).status === 400 && (await permitir(vG.id, { motivo: 'ok', fecha_pedido: hoyCol() })).status === 400 && (await permitir(vG.id, { motivo: '        ', fecha_pedido: hoyCol() })).status === 400, 'sin motivo, con uno demasiado corto o en blanco: 400');
+  ok((await permitir(vG.id, { motivo: 'el ciudadano lo pidió' })).status === 400 && (await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: 'ayer' })).status === 400 && (await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: R.sumarDias(hoyCol(), 3) })).status === 400, 'sin fecha, con una fecha ilegible o futura: 400');
+  ok((await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: R.sumarDias(hoyCol(), -5) })).status === 400, 'una fecha anterior a cuando pidió no volver: 400');
+  ok((await permitir(vA.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: hoyCol() })).status === 409 && (await permitir(99999999, { motivo: 'el ciudadano lo pidió', fecha_pedido: hoyCol() })).status === 404, 'una ficha sin la marca: 409; una que no existe: 404');
+  const antesG = (await q('SELECT no_visitar, no_contactar, no_contactar_canal, no_contactar_origen FROM votantes WHERE id = ?', [vG.id]))[0];
+  const hecho = await permitir(vG.id, { motivo: 'el ciudadano lo pidió por teléfono', fecha_pedido: hoyCol() });
+  const despuesG = (await q('SELECT no_visitar, no_visitar_fecha, no_contactar, no_contactar_canal, no_contactar_origen FROM votantes WHERE id = ?', [vG.id]))[0];
+  ok(hecho.status === 200 && Number(despuesG.no_visitar) === 0 && despuesG.no_visitar_fecha === null, 'el administrador quita la marca no_visitar y su fecha', despuesG);
+  ok(Number(despuesG.no_contactar) === 1 && despuesG.no_contactar_canal === antesG.no_contactar_canal && despuesG.no_contactar_origen === antesG.no_contactar_origen, 'y NO toca no_contactar (los mensajes siguen apagados)', [antesG, despuesG]);
+  const audP = (await q(`SELECT usuario_id, detalle FROM auditoria WHERE accion = 'votante_permitir_visitas' ORDER BY id DESC LIMIT 1`))[0];
+  ok(audP && audP.usuario_id === admin.id && audP.detalle.includes('el ciudadano lo pidió por teléfono') && audP.detalle.includes(hoyCol()) && audP.detalle.includes(String(vG.id)) && !/Gloria/.test(audP.detalle), 'queda en la auditoría con quién, el motivo y la fecha (sin el nombre)', audP);
+  ok((await permitir(vG.id, { motivo: 'el ciudadano lo pidió', fecha_pedido: hoyCol() })).status === 409, 'quitarla dos veces: 409');
+  ok(Number((await q('SELECT no_contactar n FROM votantes WHERE id = ?', [vH.id]))[0].n) === 0 && Number((await q('SELECT no_visitar n FROM votantes WHERE id = ?', [vH.id]))[0].n) === 1, 'y no afecta a las otras fichas');
+  await q("UPDATE puerta_items SET ultima_fecha = DATE_SUB(CURDATE(), INTERVAL 61 DAY) WHERE votante_id = ?", [vG.id]);
+  const vuelve = await pedir('POST', '/listas', { usuario: admin, json: { nombre: 'Gloria vuelve a entrar', asignada_a: lid2.id } });
+  ok(vuelve.status === 201 && Number((await q('SELECT COUNT(*) n FROM puerta_items WHERE lista_id = ? AND votante_id = ?', [vuelve.datos.id, vG.id]))[0].n) === 1, 'y la persona vuelve a poder entrar en una lista nueva (pasados los 60 días de su última puerta)', vuelve.datos);
+  const pol = await pedir('GET', '/politica', { usuario: admin });
+  ok(pol.status === 200 && pol.datos.incluye === true && pol.datos.parrafo === PARRAFO_POLITICA_VISITAS && (await pedir('GET', '/politica', { usuario: coord })).status === 403, 'GET /politica: el administrador ve si la política ya trae la finalidad; los demás, 403');
+
   /* ==================================================== 14. 60 días, otras listas, cierre y cancelación */
   console.log('\n[14] 60 días sin volver a asignar; cerrar y cancelar listas');
   const lid4 = await usuario('Líder Cuatro', 'lider'); await estructura(lid4, 'lider', coord);
@@ -538,6 +568,11 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const html = leer('public/puerta-listas.html');
   ok(!/cedula|telefono|latitud|longitud|\.direccion|\.nombre_votante/i.test(html), 'la pantalla de armar no maneja datos de las personas');
   ok(/app\.use\('\/api\/puerta-a-puerta'/.test(leer('app.js')), 'la ruta está montada en app.js');
+  const vot = leer('public/votantes.html');
+  ok(vot.includes('/js/permitir-visitas.js') && /data-permitir-visitas/.test(vot) && /puedePermitirVisitas\(usuarioActual\)/.test(vot) && /Volver a permitir visitas/.test(vot), 'la ficha del votante trae el botón «Volver a permitir visitas», solo si es administrador');
+  const pv = leer('public/js/permitir-visitas.js');
+  ok(/usuario\.rol === 'admin'/.test(pv) && /puerta-a-puerta\/votantes\//.test(pv) && /fecha_pedido/.test(pv) && /motivo/.test(pv) && sw.includes("'/js/permitir-visitas.js'"), 'el diálogo pide fecha y motivo, llama al servidor y está en la coraza del service worker');
+  ok(/mostrarAvisoVisitas/.test(leer('public/contenido.html')) && /pp-politica/.test(leer('public/puerta-listas.html')), 'el aviso de la política está en Configuración → Política de privacidad y en la pantalla de listas');
 
   /* ======================================================================================== 19. repetible */
   console.log('\n[19] Otra corrida de init-db no duplica ni rompe nada');
@@ -552,8 +587,35 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(tablasDespues === tablasAntes, 'mismas tablas', { tablasAntes, tablasDespues });
   ok(mismo(editadoAntes, editadoDespues) && editadoAntes.length >= 4, 'los permisos que el administrador abrió NO se pisan (init-db solo siembra los que faltan)', { editadoAntes, editadoDespues });
   ok(filasPuerta === 18, 'y quedan las 18 filas de fábrica (2 módulos × 9 roles), las que faltaban cerradas', filasPuerta);
-  const pol2 = await q(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
-  ok(!/visita domiciliaria/i.test(pol2[0].contenido), 'y la política sigue sin la finalidad nueva');
+  // (a) Política SIN editar y sin la finalidad: la corrida la agrega, archivando la versión anterior.
+  const polHoy = (await q(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`))[0].contenido;
+  const sinParrafo = polHoy.replace('\n\n' + PARRAFO_POLITICA_VISITAS, '');
+  ok(sinParrafo !== polHoy && !sinParrafo.includes(FRASE_POLITICA_VISITAS), 'preparo una política sin la finalidad y sin editar');
+  await q(`UPDATE contenido_paginas SET contenido = ?, actualizado_por = NULL WHERE clave = 'politica_privacidad'`, [sinParrafo]);
+  const corr2 = spawnSync(process.execPath, [path.join(raiz, 'db/init-db.js')], { env: process.env, encoding: 'utf8', timeout: 240000 });
+  const pA = (await q(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`))[0].contenido;
+  const vA2 = await q(`SELECT huella, archivada_por_nombre n FROM politica_versiones WHERE clave = 'politica_privacidad'`);
+  ok(corr2.status === 0 && pA.split(FRASE_POLITICA_VISITAS).length === 2, 'sin editar: init-db agrega la finalidad (una vez)', (corr2.stderr || '').slice(-200));
+  ok(vA2.some((x) => x.huella === huellaDePolitica(sinParrafo)) && vA2.some((x) => x.huella === huellaDePolitica(pA) && /visitas del puerta a puerta/.test(x.n)), 'y deja archivadas la versión anterior y la nueva');
+  // Una política anterior que NO estaba archivada (otro texto) se archiva con el nombre «Antes de agregar…».
+  const rara = sinParrafo + '\n\nOtra versión que nadie había archivado.';
+  await q(`UPDATE contenido_paginas SET contenido = ?, actualizado_por = NULL WHERE clave = 'politica_privacidad'`, [rara]);
+  spawnSync(process.execPath, [path.join(raiz, 'db/init-db.js')], { env: process.env, encoding: 'utf8', timeout: 240000 });
+  const vRara = await q(`SELECT archivada_por_nombre n FROM politica_versiones WHERE huella = ?`, [huellaDePolitica(rara)]);
+  ok(vRara.length === 1 && /^Antes de agregar la finalidad de las visitas/.test(vRara[0].n), 'una versión anterior que nadie había archivado queda archivada antes de tocarla', vRara);
+  await q(`UPDATE contenido_paginas SET contenido = ?, actualizado_por = NULL WHERE clave = 'politica_privacidad'`, [pA]);
+  // (b) Política EDITADA por el administrador y sin la finalidad: no se toca, y la pantalla avisa.
+  const editada = sinParrafo + '\n\nUn párrafo que escribió el administrador.';
+  await q(`UPDATE contenido_paginas SET contenido = ?, actualizado_por = ? WHERE clave = 'politica_privacidad'`, [editada, admin.id]);
+  const nVersiones = Number((await q(`SELECT COUNT(*) n FROM politica_versiones WHERE clave = 'politica_privacidad'`))[0].n);
+  const corr3 = spawnSync(process.execPath, [path.join(raiz, 'db/init-db.js')], { env: process.env, encoding: 'utf8', timeout: 240000 });
+  const pB = (await q(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`))[0].contenido;
+  ok(corr3.status === 0 && pB === editada && Number((await q(`SELECT COUNT(*) n FROM politica_versiones WHERE clave = 'politica_privacidad'`))[0].n) === nVersiones, 'editada por el administrador: init-db NO la toca y no archiva nada', (corr3.stderr || '').slice(-200));
+  ok(/la editó el administrador, así que NO se agregó/.test(corr3.stdout || ''), 'y lo dice en su salida');
+  const avisoPol = await pedir('GET', '/politica', { usuario: admin });
+  ok(avisoPol.datos.incluye === false && avisoPol.datos.editada === true && avisoPol.datos.parrafo === PARRAFO_POLITICA_VISITAS, 'Administración recibe el aviso: la política no trae la finalidad, está editada, y trae el párrafo para pegar', avisoPol.datos && { incluye: avisoPol.datos.incluye, editada: avisoPol.datos.editada });
+  await q(`UPDATE contenido_paginas SET contenido = ? WHERE clave = 'politica_privacidad'`, [editada + '\n\n' + PARRAFO_POLITICA_VISITAS]);
+  ok((await pedir('GET', '/politica', { usuario: admin })).datos.incluye === true, 'cuando el administrador la agrega a mano, el aviso se va');
   for (const f of ['.credenciales-admin.txt', '.credenciales-superadmin.txt']) { try { if (fs.statSync(path.join(raiz, f)).mtimeMs > Date.now() - 600000) fs.unlinkSync(path.join(raiz, f)); } catch (_) { /* no existe */ } }
 
   servidor.close();

@@ -202,6 +202,10 @@
       <button type="button" class="btn-secundario btn-sm" id="btn-editar-contenido" style="display:none; margin-bottom:18px;">✎ Editar</button>
     </div>
 
+    <!-- AVISO PARA EL ADMINISTRADOR (puerta a puerta, parche 309): la política que él editó no se toca sola, así que si no menciona la visita
+         domiciliaria se lo decimos aquí, con el párrafo para que lo pegue. Solo en la política y solo para admin; se esconde en cuanto la política lo trae. -->
+    <div class="card" id="aviso-visitas-politica" style="display:none; border-left:4px solid #C98A00; background:#FDF3E0; margin-bottom:14px;"></div>
+
     <div class="card" id="card-vista">
       <img id="foto-vista" style="display:none;" alt="Foto">
       <video id="video-vista" style="display:none;" controls></video>
@@ -661,7 +665,20 @@ document.getElementById('btn-guardar-contenido').addEventListener('click', async
      GET /contenido/politica/versiones es requireRole('admin'): ofrecérselo al
      coordinador repetiría el desajuste que ya existe con el botón de editar,
      que él ve y al guardar le devuelve un 403. */
-  if (ES_POLITICA && usuarioActual.rol === 'admin') await cargarVersionesPolitica();
+  if (ES_POLITICA && usuarioActual.rol === 'admin') { await cargarVersionesPolitica(); await mostrarAvisoVisitas(); }
+/** ¿La política menciona la visita domiciliaria? Si no, avisa y ofrece el párrafo para pegarlo al final de la sección 2. */
+async function mostrarAvisoVisitas() {
+  const caja = document.getElementById('aviso-visitas-politica');
+  try {
+    const e = await api('/puerta-a-puerta/politica');
+    if (e.incluye || !e.existe) { caja.style.display = 'none'; return; }
+    caja.innerHTML = `<strong>Falta la finalidad de las visitas.</strong> Esta política no menciona la <em>visita domiciliaria de la campaña</em> (el puerta a puerta).
+      ${e.editada ? 'Como ya la editaste, no se agregó sola.' : ''} Antes de encender el puerta a puerta para el equipo, agrega este párrafo al final de la sección 2 y guarda:
+      <textarea readonly rows="9" style="width:100%; box-sizing:border-box; margin-top:8px;">${escaparHtml(e.parrafo)}</textarea>`;
+    caja.style.display = 'block';
+  } catch (err) { caja.style.display = 'none'; }
+}
+
 /** El archivo de versiones de la política: la evidencia que se puede exhibir. */
 async function cargarVersionesPolitica() {
   const caja = document.getElementById('archivo-politica');
