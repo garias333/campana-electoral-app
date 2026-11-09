@@ -49,6 +49,17 @@
   .pin-pp.sel { background: #C98A00; transform: scale(1.25); }
   .caja-pp.sel { border-color: #C98A00; box-shadow: 0 0 0 2px rgba(201,138,0,.35); }
   .caja-pp .num { cursor: pointer; }
+  /* EL GUION (parche 312): plegado arriba de la ficha de cada puerta. */
+  .guion-pp { margin: 0 0 10px; background: var(--cream); border: 1px solid var(--linea); border-radius: 10px; padding: 6px 10px; font-size: 0.86rem; }
+  .guion-pp summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+  .guion-pp ol { margin: 8px 0 4px; padding-left: 20px; }
+  .guion-pp li { margin: 0 0 6px; overflow-wrap: anywhere; }
+  /* Después de «Alguien quiere registrarse»: abrir el registro, o mostrar el QR para que la persona se inscriba sola. */
+  .velo-pp { position: fixed; inset: 0; background: rgba(16,35,63,.6); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .velo-pp .hoja { background: #fff; border-radius: 16px; padding: 18px; max-width: 380px; width: 100%; max-height: 92vh; overflow: auto; text-align: center; }
+  .velo-pp h3 { margin: 0 0 6px; color: var(--navy); }
+  .velo-pp .qr-url { font-size: 0.82rem; word-break: break-all; color: var(--navy); font-weight: 600; margin: 8px 0 0; }
+  .velo-pp canvas { width: 100%; max-width: 300px; height: auto; image-rendering: pixelated; }
   /* Sin imprimir: la lista lleva nombres y direcciones y no sale del celular. */
   @media print { body { display: none !important; } }
 </style>
@@ -82,6 +93,7 @@
 <script src="/js/es-celular.js"></script>
 <script src="/vendor/leaflet/leaflet.js"></script>
 <script src="/js/puerta-reglas.js"></script>
+<script src="/js/qrcode-generator.js"></script>
 <script src="/app/app-comun.js"></script>
 <script>
 const STORE_COLA = 'puerta_pendientes';
@@ -102,6 +114,7 @@ let copiaDesde = null;     // cuándo se guardó la copia que se está mostrando
 let sinAcceso = false;
 let bloqueo = null;
 let abierto = null;        // item con el panel de «pidió no volver» desplegado
+const guionesAbiertos = new Set();   // las puertas cuyo «Ver guion» está desplegado (para que no se pliegue al repintar)
 let inicioGps = null;      // { lat, lon } SOLO en memoria: sirve para ordenar y no se guarda ni se manda a ningún lado
 
 function aviso(texto, tipo) {
@@ -136,7 +149,7 @@ function motivoParaNoVisitar(item, ahora) {
 async function leerCola() { try { cola = await listarColaOffline(STORE_COLA); } catch (_) { cola = []; } return cola; }
 function cuerpoDeVisita(r) {
   const p = r.payload || {};
-  return { cliente_uuid: r.clienteUuid, item_id: r.itemId, resultado: r.resultado, marcado_en: p.marcado_en, tampoco_mensajes: p.tampoco_mensajes ? 1 : 0 };
+  return { cliente_uuid: r.clienteUuid, item_id: r.itemId, resultado: r.resultado, marcado_en: p.marcado_en, tampoco_mensajes: p.tampoco_mensajes ? 1 : 0, guion_huella: p.guion_huella || null };
 }
 /* DE A UNA: el aviso de «volvió la señal» y el toque de un resultado pueden pedir subir al mismo tiempo. Las subidas se ponen en fila (la segunda ya no
    encuentra nada que subir), y así un mismo registro no viaja dos veces a la vez. */
@@ -191,7 +204,9 @@ function cajaDe(it, n) {
       <label><input type="checkbox" id="chk-mensajes"> <span>Tampoco quiere mensajes (SMS, correo ni WhatsApp)</span></label>
       <div class="acciones"><button type="button" class="btn-app btn-app-primario" data-confirmar-no-volver="${esc(it.id)}">Confirmar</button>
       <button type="button" class="btn-app btn-app-secundario" data-cancelar-no-volver>Cancelar</button></div></div>` : '';
-  return `<div class="caja-pp" data-item="${esc(it.id)}"><div class="fila"><span class="num" data-ver-en-mapa="${esc(it.id)}" title="Ver en el mapa">${n}</span><div style="flex:1;min-width:0;">
+  const g = vista && vista.guion && Array.isArray(vista.guion.pasos) && vista.guion.pasos.length ? vista.guion : null;
+  const guion = g ? `<details class="guion-pp" data-guion="${esc(it.id)}"${guionesAbiertos.has(it.id) ? ' open' : ''}><summary>Ver guion</summary><ol>${g.pasos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></details>` : '';
+  return `<div class="caja-pp" data-item="${esc(it.id)}">${guion}<div class="fila"><span class="num" data-ver-en-mapa="${esc(it.id)}" title="Ver en el mapa">${n}</span><div style="flex:1;min-width:0;">
     <div class="nombre">${esc(it.nombre || '(sin nombre)')} ${etiquetasDe(it)}</div>
     <div class="dir">${esc(it.direccion || '')}</div>
     ${it.latitud === null || it.latitud === undefined ? '<div class="meta">Sin ubicación en el mapa: va al final de la ruta.</div>' : ''}
@@ -271,6 +286,7 @@ function pintar() {
   aplicarSeleccion();
 
   const lista = $('lista-servidor');
+  lista.querySelectorAll('details[data-guion]').forEach((d) => d.addEventListener('toggle', () => { const id = Number(d.dataset.guion); if (d.open) guionesAbiertos.add(id); else guionesAbiertos.delete(id); }));
   lista.querySelectorAll('[data-ver-en-mapa]').forEach((b) => b.addEventListener('click', () => seleccionar(Number(b.dataset.verEnMapa), false)));
   lista.querySelectorAll('[data-resultado]').forEach((b) => b.addEventListener('click', () => registrar(Number(b.dataset.id), b.dataset.resultado)));
   lista.querySelectorAll('[data-pedir-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = Number(b.dataset.pedirNoVolver); pintar(); }));
@@ -311,6 +327,7 @@ function asegurarMapa() {
   L.control.attribution({ prefix: false }).addTo(mapa);
   capaLinea = L.layerGroup().addTo(mapa);
   capaPines = L.layerGroup().addTo(mapa);
+  mapa.on('zoomend', separarPines);
   return mapa;
 }
 /** El fondo, solo con señal. Primero se averigua si hay token (una vez); sin señal se quita y queda el fondo liso. */
@@ -331,6 +348,31 @@ async function ponerTeselas() {
   capaTeselas.on('tileerror', () => { /* una tesela que no llega deja el fondo liso: no es un error de la lista */ });
   capaTeselas.addTo(mapa);
   capaTeselas.bringToBack();
+}
+/* PINES ENCIMA UNO DE OTRO (parche 312). Dos puertas casi en el mismo punto (el mismo edificio, dos casas pegadas) dibujaban un pin sobre otro y uno quedaba
+   escondido. Al DIBUJAR —nunca en los datos— los pines que quedan a menos de un pin de distancia en la pantalla se abren en círculo alrededor de su centro,
+   cada uno con su número. Las coordenadas guardadas no cambian (`pinesPorId[].ll` y la copia del celular siguen iguales). Se recalcula al hacer zoom: al acercarse
+   se separan solos y vuelven a su sitio. */
+const DISTANCIA_PIN = 30;       // píxeles: el pin mide 28
+function separarPines() {
+  if (!mapa || !pinesPorId.size) return;
+  const lista = Array.from(pinesPorId.values()).sort((a, b) => a.n - b.n);
+  const xy = lista.map((p) => mapa.latLngToLayerPoint(p.ll));
+  const hecho = new Set();
+  window.__ppMapa.separados = [];
+  lista.forEach((p, i) => {
+    if (hecho.has(i)) return;
+    const grupo = [i]; hecho.add(i);
+    for (let j = i + 1; j < lista.length; j++) if (!hecho.has(j) && grupo.some((g) => xy[g].distanceTo(xy[j]) < DISTANCIA_PIN)) { grupo.push(j); hecho.add(j); }
+    if (grupo.length === 1) { lista[i].m.setLatLng(lista[i].ll); return; }
+    const cx = grupo.reduce((t, g) => t + xy[g].x, 0) / grupo.length, cy = grupo.reduce((t, g) => t + xy[g].y, 0) / grupo.length;
+    const r = Math.max(17, DISTANCIA_PIN / (2 * Math.sin(Math.PI / grupo.length)));
+    grupo.forEach((g, k) => {
+      const ang = -Math.PI / 2 + (2 * Math.PI * k) / grupo.length;
+      lista[g].m.setLatLng(mapa.layerPointToLatLng(L.point(cx + r * Math.cos(ang), cy + r * Math.sin(ang))));
+    });
+    window.__ppMapa.separados.push(grupo.map((g) => lista[g].n));
+  });
 }
 /** `ruta`: las puertas en el orden de la ruta (las que no tienen coordenadas no tienen pin, pero conservan su número en la lista). */
 function dibujarMapa(ruta) {
@@ -358,6 +400,7 @@ function dibujarMapa(ruta) {
     firmaRuta = firma;
     mapa.fitBounds(puntos, { padding: [30, 30], maxZoom: 17 });
   }
+  separarPines();
   ponerTeselas();
 }
 /** Resalta la ficha y el pin de una puerta. Al tocar el pin, la lista se desplaza hasta su ficha (la MISMA ficha de la lista, con sus botones). */
@@ -388,7 +431,7 @@ async function registrar(itemId, resultado, extra) {
   if (cola.some((r) => r.itemId === itemId && r.estado !== 'fallido')) return aviso('Esa puerta ya tiene un resultado esperando señal.');
   const registro = {
     clienteUuid: generarUuid(), creadoEn: Date.now(), itemId, resultado,
-    payload: { marcado_en: ahora.toISOString(), tampoco_mensajes: !!(extra && extra.tampoco_mensajes) },
+    payload: { marcado_en: ahora.toISOString(), tampoco_mensajes: !!(extra && extra.tampoco_mensajes), guion_huella: base && base.guion ? base.guion.huella : null },
   };
   try { await guardarEnColaOffline(STORE_COLA, registro); }              // lo primero: que no se pierda aunque se cierre la app
   catch (e) { return aviso('No se pudo guardar en este celular. Revisa el espacio disponible e inténtalo de nuevo.'); }
@@ -402,11 +445,50 @@ async function registrar(itemId, resultado, extra) {
   pintar();
   const destino = resultado === 'quiere_registrarse' ? '/app/registro-votante.html' : (resultado === 'solicitud' ? '/app/solicitud-nueva.html' : null);
   await subirCola();
-  if (destino) { location.href = destino; return; }                     // abre la pantalla normal; NO se guarda de cuál visita vino
+  if (destino) {
+    if (resultado === 'quiere_registrarse' && vista && vista.inscripcion) { ofrecerRegistro(destino, vista.inscripcion); return; }   // con enlace propio: también el QR
+    location.href = destino; return;                                    // abre la pantalla normal; NO se guarda de cuál visita vino
+  }
   await refrescar();
   const resto = cola.find((r) => r.clienteUuid === registro.clienteUuid);
   if (resto && resto.estado === 'fallido') return aviso(`${resto.error || 'No se pudo registrar.'} Quedó guardado en este celular: puedes reintentarlo o descartarlo.`);
   aviso(resto ? 'Guardado en tu celular. Se sube solo cuando haya señal.' : 'Listo.', 'exito');
+}
+
+/* ----- «Alguien quiere registrarse»: el registro normal, o el QR del enlace de inscripción de quien visita (parche 312) -----
+   El QR es SU enlace de siempre (el de «Mi enlace de inscripción»): la persona se inscribe sola desde su celular y queda como votante de quien visita, pendiente
+   de confirmar. Viaja con la lista (sin señal se usa la copia). Sin enlace (rol, inscripción apagada o enlace desactivado) esto no se ofrece: se abre el registro. */
+function dibujarQR(lienzo, texto, px) {
+  const qr = qrcode(0, 'M');
+  qr.addData(texto);
+  qr.make();
+  const n = qr.getModuleCount(), margen = 4, celda = Math.floor(px / (n + margen * 2)), lado = celda * (n + margen * 2);
+  lienzo.width = lado; lienzo.height = lado;
+  const g = lienzo.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, lado, lado);
+  g.fillStyle = '#000000';
+  for (let f = 0; f < n; f++) for (let c = 0; c < n; c++) if (qr.isDark(f, c)) g.fillRect((c + margen) * celda, (f + margen) * celda, celda, celda);
+}
+function ofrecerRegistro(destino, insc) {
+  const previo = $('velo-registro'); if (previo) previo.remove();
+  const url = String(insc.base || window.location.origin).replace(/\/+$/, '') + insc.ruta;
+  const v = document.createElement('div');
+  v.id = 'velo-registro'; v.className = 'velo-pp';
+  v.innerHTML = `<div class="hoja" role="dialog" aria-labelledby="vr-titulo"><h3 id="vr-titulo">Alguien quiere registrarse</h3>
+    <p class="meta" style="font-size:.86rem;color:var(--muted);">El resultado ya quedó guardado. Registra a la persona tú mismo, o muéstrale el código para que se inscriba desde su celular.</p>
+    <div id="vr-qr" style="display:none;"><canvas id="vr-lienzo" width="300" height="300" aria-label="Código QR de tu enlace de inscripción"></canvas>
+      <p class="qr-url" id="vr-url"></p><p class="meta" style="font-size:.8rem;color:var(--muted);">Que lo escanee con la cámara de su celular. Quedará registrada como tu contacto, pendiente de confirmar.</p></div>
+    <div class="acciones" style="flex-direction:column;"><button type="button" class="btn-app btn-app-primario" id="vr-qr-btn">Mostrar código QR</button>
+      <button type="button" class="btn-app btn-app-secundario" id="vr-abrir">Abrir el registro</button>
+      <button type="button" class="btn-app btn-app-secundario" id="vr-cerrar">Listo</button></div></div>`;
+  document.body.appendChild(v);
+  $('vr-qr-btn').addEventListener('click', () => {
+    $('vr-qr').style.display = 'block'; $('vr-url').textContent = url;
+    dibujarQR($('vr-lienzo'), url, 300);
+    $('vr-qr-btn').style.display = 'none';
+  });
+  $('vr-abrir').addEventListener('click', () => { location.href = destino; });
+  $('vr-cerrar').addEventListener('click', async () => { v.remove(); await refrescar(); aviso('Listo.', 'exito'); });
 }
 
 /* ----- ubicación: opcional, una sola lectura, SOLO en memoria ----- */

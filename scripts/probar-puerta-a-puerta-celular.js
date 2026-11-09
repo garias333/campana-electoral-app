@@ -229,6 +229,10 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
     console.log('\n[8] «Alguien quiere registrarse» abre el registro normal');
     await ir('/app/puerta-a-puerta.html');
     await clic(`[data-resultado="quiere_registrarse"][data-id="${items.F}"]`);
+    await espera(2500);
+    // Desde el parche 312, quien tiene enlace de inscripción ve primero el cuadro con «Abrir el registro» y «Mostrar código QR» (lo prueba probar-puerta-fases-3-4.js).
+    ok(await p.ev(`!!document.getElementById('velo-registro')`), 'quien tiene enlace propio ve el cuadro de «Alguien quiere registrarse» (el resultado ya quedó guardado)');
+    await clic('#vr-abrir');
     await espera(3000);
     const ruta = await p.ev('location.pathname');
     ok(ruta === '/app/registro-votante.html', 'abre /app/registro-votante.html', ruta);

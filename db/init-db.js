@@ -3648,6 +3648,20 @@ async function main() {
   // conserva todo. Sin esta columna una lista con visitas se quedaría en la pantalla para siempre.
   await agregarColumnaSiFalta(connection, 'puerta_listas',
     "oculta TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador la ocultó de la tabla (con visitas no se puede borrar). Nada se pierde'", 'oculta');
+  // Parche 312 (Fase 3): el guion de la visita. Cada cambio es una versión nueva con su huella (sha256 de los pasos); la vigente es la última. Cada visita guarda
+  // SOLO la huella de la versión que se le mostró al visitante, nunca el texto.
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS puerta_guiones (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      huella CHAR(16) NOT NULL COMMENT 'sha256 de los pasos, 16 hex. La misma que se anota en cada visita',
+      pasos JSON NOT NULL COMMENT 'De 3 a 5 pasos cortos de lectura (lista de textos)',
+      creado_por INT NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_puerta_guion_huella (huella),
+      FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await agregarColumnaSiFalta(connection, 'puerta_visitas',
+    "guion_huella CHAR(16) NULL COMMENT 'La huella de la versión del guion que se le mostró al visitante (nunca el texto)'", 'guion_huella');
   console.log('Tablas del puerta a puerta listas (módulos apagados).');
 
   await sembrarPermisosPorDefecto(connection);

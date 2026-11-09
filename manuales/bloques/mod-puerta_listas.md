@@ -16,6 +16,8 @@ Aquí armas la lista de visitas de un líder o de un sublíder con personas que 
 
 - **Armar una lista**: el nombre, quién va a visitar, una **zona** (opcional, se elige de un desplegable: barrios, veredas, comunas…) y el máximo de personas. La lista se arma con las personas que ESE líder o sublíder puede ver, no con las tuyas.
 - **Las listas**: cada una con su estado (*Activa*, *Cerrada* o *Cancelada*), cuántas personas tiene, cuántas faltan, cuántas se cerraron y cuántas quedaron sin respuesta tras tres intentos.
+- **El guion de la visita**: de 3 a 5 pasos cortos que el visitante lee en su celular. Solo el administrador lo edita; cada cambio es una versión nueva con su huella, y cada visita guarda la huella de la versión que se mostró, nunca el texto. Si la campaña no ha escrito uno, rige uno neutro (saludo, presentación del equipo, escuchar las necesidades del barrio y despedida).
+- **El panel** (menú **Puerta a puerta · panel**): la cobertura por zona y el avance por visitante. Ver abajo.
 - **El horario de las visitas** (solo el administrador): por omisión de 8:00 a 18:00, hora de Colombia; se puede mover entre las 7:00 y las 19:00.
 
 ## Quién entra en una lista
@@ -38,6 +40,24 @@ Una persona que pidió no volver no entra en ninguna lista nueva. Una lista tien
 - **Solo el administrador**, en la ficha del votante: si alguien pidió no volver y luego pide que sí lo visiten, el botón **Volver a permitir visitas** quita esa marca. Pide el día en que lo pidió y un motivo, y queda en la auditoría. No cambia los mensajes: eso es aparte.
 
 De fábrica este módulo está **apagado**: solo el administrador lo ve. Para abrirlo al equipo, el administrador lo hace en Asignación de permisos.
+
+## El guion de la visita
+
+En esta pantalla, sección **Guion de la visita**, el administrador escribe los pasos (de 3 a 5, cada uno corto: se leen de pie, en la puerta). **Poner el guion por defecto** deja el neutro para editarlo.
+
+- **Antes de la fecha permitida de propaganda** el guion no puede hablar de voto, elección, cargo, candidato, partido, apoyo, favorabilidad ni imagen (ni nombrar al candidato): si lo hace, no se guarda y el mensaje dice qué palabra y en qué paso.
+- **Una versión que ya no pasa esa revisión** (por ejemplo, se guardó cuando sí se podía y la fecha cambió) no llega a los celulares: ellos reciben el guion por defecto y aquí un aviso lo explica.
+- El coordinador ve el guion pero no lo cambia.
+
+## El panel
+
+Menú **Puerta a puerta · panel**. Lo ven el administrador y el coordinador (el coordinador, solo lo de su equipo). Son **solo cifras**: nunca una lista de casas ni de personas.
+
+- **Cobertura por zona**: listas, puertas asignadas, puertas visitadas, visitas y el resultado de cada una (no abrió, no interesado, interesado, quiere registrarse, dejó una solicitud, pidió no volver).
+- **Mínimo de 5 visitas por celda** (el mismo de las encuestas). Una zona con menos no se muestra con su nombre: se suma en **Otras zonas**, y si el grupo tampoco llega, se le suma la zona visible más pequeña. Con muy pocas visitas en total, no se muestra ninguna zona.
+- **Avance por visitante**: sus listas, puertas asignadas, visitadas, por visitar, cerradas y sin respuesta, y sus visitas. «Por visitar», «Cerradas» y «Sin respuesta» son el estado de hoy.
+- **Filtro** por fechas (desde, hasta) y por franja del día (mañana, tarde o noche). No hay un detalle más fino que la franja.
+- **Descargar en Excel**: lo mismo que ves, con la marca «Uso interno – no publicable». Lo puede descargar el administrador y quien tenga la casilla «Importar / Exportar» de este módulo.
 
 ## Editar y reactivar una lista
 

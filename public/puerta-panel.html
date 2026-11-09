@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Puerta a puerta · panel · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
+<style>
+  /* PUERTA A PUERTA, el panel (parche 312). Solo CONTEOS: ni nombres de votantes ni direcciones. */
+  .pp-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 0 0 14px; }
+  .pp-filtros label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
+  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .pp-tabla th, .pp-tabla td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
+  .pp-tabla th { font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .pp-tabla td.num, .pp-tabla th.num { text-align: right; white-space: nowrap; }
+  .pp-tabla tr.pp-total td { font-weight: 700; border-top: 2px solid var(--color-border, #E2E5EA); }
+  .pp-tabla tr.pp-otras td { font-style: italic; }
+  .pp-aviso { background: #FDF3E0; border: 1px solid #ECD3A4; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; font-size: .88rem; max-width: 900px; }
+  .pp-msg { font-size: .88rem; margin-top: 8px; } .pp-msg.error { color: #B3261E; }
+  .pp-seccion { margin: 0 0 28px; }
+  .pp-seccion h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .pp-marca { display: inline-block; font-size: .74rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #EEF0F3; color: #5B6472; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="crm-hero">
+      <div class="eyebrow">Territorio</div>
+      <h1>Puerta a puerta · panel</h1>
+      <p>Cuánto se ha recorrido, por zona y por visitante. <span class="pp-marca">Uso interno – no publicable</span> Solo cifras: nunca una lista de casas ni de personas.
+         <a href="/puerta-listas.html">← Armar listas</a></p>
+    </div>
+
+    <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
+
+    <div id="pp-contenido" style="display:none;">
+      <div class="pp-filtros">
+        <div><label for="f-desde">Desde</label><input type="date" id="f-desde"></div>
+        <div><label for="f-hasta">Hasta</label><input type="date" id="f-hasta"></div>
+        <div><label for="f-franja">Franja del día</label>
+          <select id="f-franja" data-sin-ordenar><option value="">Todo el día</option><option value="manana">Mañana</option><option value="tarde">Tarde</option><option value="noche">Noche</option></select></div>
+        <div><button type="button" class="btn-primario" id="f-ver">Ver</button></div>
+        <div id="f-excel-caja" style="display:none;"><a class="btn-secundario" id="f-excel" href="#" download>Descargar en Excel</a></div>
+      </div>
+      <div class="pp-msg error" id="p-msg"></div>
+
+      <div class="pp-seccion">
+        <h2>Cobertura por zona</h2>
+        <p class="pp-sub" id="z-nota" style="font-size:.84rem;margin:0 0 8px;color:var(--color-text-muted);"></p>
+        <div style="overflow-x:auto"><table class="pp-tabla"><thead id="z-cab"></thead><tbody id="z-cuerpo"><tr><td>Cargando…</td></tr></tbody></table></div>
+      </div>
+
+      <div class="pp-seccion">
+        <h2>Avance por visitante</h2>
+        <p class="pp-sub" style="font-size:.84rem;margin:0 0 8px;color:var(--color-text-muted);">«Por visitar», «Cerradas» y «Sin respuesta» son el estado de hoy; «Visitas» y «Puertas visitadas» siguen el filtro.</p>
+        <div style="overflow-x:auto"><table class="pp-tabla"><thead><tr><th>Visitante</th><th class="num">Listas</th><th class="num">Puertas asignadas</th><th class="num">Puertas visitadas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th class="num">Visitas</th></tr></thead>
+          <tbody id="v-cuerpo"><tr><td colspan="8">Cargando…</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual = null;
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
+const TIPOS = [['no_abrio', 'No abrió'], ['no_interesado', 'No interesado'], ['interesado', 'Interesado'], ['quiere_registrarse', 'Quiere registrarse'], ['solicitud', 'Dejó una solicitud'], ['no_volver', 'Pidió no volver']];
+
+function consulta() {
+  const q = new URLSearchParams();
+  if ($('f-desde').value) q.set('desde', $('f-desde').value);
+  if ($('f-hasta').value) q.set('hasta', $('f-hasta').value);
+  if ($('f-franja').value) q.set('franja', $('f-franja').value);
+  return q.toString();
+}
+const fila = (z, clase) => `<tr class="${clase || ''}"><td>${esc(z.zona)}</td><td class="num">${esc(z.listas)}</td><td class="num">${esc(z.asignadas)}</td><td class="num">${esc(z.visitadas)}</td><td class="num">${esc(z.visitas)}</td>${TIPOS.map(([k]) => `<td class="num">${esc(z[k])}</td>`).join('')}</tr>`;
+
+async function cargar() {
+  $('p-msg').textContent = '';
+  const q = consulta();
+  $('f-excel').href = '/api/puerta-a-puerta/panel/exportar' + (q ? '?' + q : '');
+  try {
+    const p = await api('/puerta-a-puerta/panel' + (q ? '?' + q : ''));
+    $('z-cab').innerHTML = `<tr><th>Zona</th><th class="num">Listas</th><th class="num">Puertas asignadas</th><th class="num">Puertas visitadas</th><th class="num">Visitas</th>${TIPOS.map(([, t]) => `<th class="num">${esc(t)}</th>`).join('')}</tr>`;
+    $('z-nota').textContent = `Una zona solo se muestra con al menos ${p.minimo} visitas; las demás se suman en «Otras zonas». La zona de una puerta es la de su última visita.`;
+    if (p.oculto) {
+      $('z-cuerpo').innerHTML = `<tr><td colspan="11">Todavía hay menos de ${esc(p.minimo)} visitas en este período: no se muestra ninguna zona.</td></tr>`;
+    } else {
+      $('z-cuerpo').innerHTML = p.zonas.map((z) => fila(z)).join('') + (p.otras ? fila(p.otras, 'pp-otras') : '') + (p.total ? fila(p.total, 'pp-total') : '');
+    }
+    $('v-cuerpo').innerHTML = p.visitantes.length
+      ? p.visitantes.map((v) => `<tr><td>${esc(v.visitante)}</td><td class="num">${esc(v.listas)}</td><td class="num">${esc(v.asignadas)}</td><td class="num">${esc(v.visitadas)}</td><td class="num">${esc(v.por_visitar)}</td><td class="num">${esc(v.cerradas)}</td><td class="num">${esc(v.sin_respuesta)}</td><td class="num">${esc(v.visitas)}</td></tr>`).join('')
+      : '<tr><td colspan="8">Todavía no hay listas.</td></tr>';
+  } catch (e) { $('p-msg').textContent = e.message || 'No se pudo cargar el panel.'; }
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/puerta-panel.html');
+  if (!usuarioActual) return;
+  if (!puedeVer(usuarioActual, 'puerta_listas')) { $('pp-sin-permiso').style.display = 'block'; return; }
+  $('pp-contenido').style.display = 'block';
+  if (puedeImportarExportar(usuarioActual, 'puerta_listas')) $('f-excel-caja').style.display = 'block';
+  $('f-ver').addEventListener('click', cargar);
+  await cargar();
+})();
+</script>
+</body>
+</html>

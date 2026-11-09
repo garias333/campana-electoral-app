@@ -16,10 +16,11 @@ Sirve para visitar, una por una, a las personas de tu lista y dejar anotado cóm
 
 1. En el inicio de la app toca **Puerta a puerta**. La primera vez hazlo con señal, para que la lista se guarde en tu celular.
 2. Mira el mapa: cada número es una puerta, en el orden de la ruta. Si quieres la ruta desde donde estás, toca [[Mi ubicación]].
-3. Ve a la primera puerta de la ruta y saluda.
+3. Ve a la primera puerta de la ruta y saluda. Si quieres repasar qué decir, toca [[Ver guion]] arriba de la ficha.
 4. Cuando termines, toca el resultado: [[No abrió]], [[No interesado]], [[Interesado]], [[Alguien quiere registrarse]], [[Dejó una solicitud]] o [[Pidió no volver]].
-5. Si tocaste **Pidió no volver** y la persona tampoco quiere mensajes, marca esa casilla y toca [[Confirmar]].
-6. Sigue con la siguiente puerta de la ruta.
+5. Si tocaste **Alguien quiere registrarse** y tienes enlace de inscripción, puedes tocar [[Mostrar código QR]] para que la persona se inscriba sola desde su celular.
+6. Si tocaste **Pidió no volver** y la persona tampoco quiere mensajes, marca esa casilla y toca [[Confirmar]].
+7. Sigue con la siguiente puerta de la ruta.
 
 ::: listo
 La puerta sale de la ruta. Si no había señal, aparece en «En este celular, sin subir» y desaparece de ahí cuando se sube.

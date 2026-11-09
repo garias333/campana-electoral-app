@@ -202,6 +202,8 @@ const NAV_ITEMS = [
       { href: '/encuestas.html', texto: 'Encuestas internas', modulo: 'encuestas', roles: ['admin', 'coordinador'] },
       // Puerta a puerta (parche 309). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `puerta_listas`. Recorrer la lista es del celular (/app/puerta-a-puerta.html).
       { href: '/puerta-listas.html', texto: 'Puerta a puerta', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
+      // El panel del puerta a puerta (parche 312): cobertura por zona y avance por visitante, solo conteos. Mismo módulo que armar las listas.
+      { href: '/puerta-panel.html', texto: 'Puerta a puerta · panel', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
     ]
   },
   {

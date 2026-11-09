@@ -18,6 +18,10 @@
  *   POST /listas/:id/reactivar vuelve a «activa» con las mismas reglas de al armarla; auditado                           [puerta_listas · Editar]
  *   DELETE /listas/:id         borrar una lista cerrada o cancelada SIN visitas (y sus puertas); auditado                     [administrador]
  *   POST /listas/:id/ocultar · /mostrar   quitarla de la tabla conservando sus visitas (o devolverla); auditado             [administrador]
+ *   GET  /guion                el guion de la visita: el vigente, el de por defecto, los límites y el historial de versiones   [puerta_listas · Ver]
+ *   PUT  /guion                guardar una versión nueva del guion (3 a 5 pasos; en precampaña, sin palabras prohibidas). Solo el administrador; auditado   [puerta_listas · Editar]
+ *   GET  /panel                cobertura por zona (mínimo por celda) y avance por visitante; filtro por fechas y franja; solo conteos        [puerta_listas · Ver]
+ *   GET  /panel/exportar       el mismo panel en Excel (agregado: nunca una lista de casas ni de personas)                                   [puerta_listas · Ver + Exportar]
  *   GET  /politica             ¿la política ya menciona la visita domiciliaria? Solo el administrador                       [administrador]
  *   POST /votantes/:id/permitir-visitas   «Volver a permitir visitas»: motivo y fecha obligatorios, auditado, sin tocar no_contactar   [administrador]
  *   GET  /mapa-config          la fuente del fondo del mapa (token público de Mapbox, o null = OpenStreetMap)                [puerta_visitas · Ver]
@@ -37,6 +41,10 @@ const { alcanceTareas, asignablesPara } = require('../lib/alcanceTareas');
 const P = require('../lib/puertaAPuerta');
 const R = require('../public/js/puerta-reglas');
 const Z = require('../lib/zonas');
+const G = require('../lib/puertaGuion');
+const Panel = require('../lib/puertaPanel');
+const XLSX = require('xlsx');
+const { requiereImportarExportar } = require('../middleware/permisoModulo');
 
 const router = express.Router();
 router.use(requireAuth, calcularAlcance);
@@ -174,6 +182,64 @@ for (const [accion, ocultar, verbo] of [['ocultar', true, 'Ocultó'], ['mostrar'
     } catch (e) { responder(res, e); }
   });
 }
+
+/* -------------------------------------------------------------------------------------------- EL GUION (parche 312) */
+
+/** El guion: lo que rige hoy, lo de por defecto y las versiones. Lo ve quien ve las listas; solo el administrador lo cambia. */
+router.get('/guion', exigir('puerta_listas', 'ver'), async (req, res) => {
+  try {
+    const [vigente, v, historial] = await Promise.all([G.paraMostrar(), G.versionVigente().catch(() => null), G.historial().catch(() => [])]);
+    res.json({
+      rige: { huella: vigente.huella, pasos: vigente.pasos, por_defecto: !!vigente.por_defecto, sustituido: !!vigente.sustituido, motivo: vigente.motivo },
+      guardado: v && v.pasos ? { huella: v.huella, pasos: v.pasos, creado_en: v.creado_en, por: v.creado_por_nombre } : null,
+      por_defecto: { huella: G.HUELLA_POR_DEFECTO, pasos: G.PASOS_POR_DEFECTO },
+      limites: { min_pasos: G.MIN_PASOS, max_pasos: G.MAX_PASOS, min_largo: G.MIN_LARGO, max_largo: G.MAX_LARGO },
+      historial,
+    });
+  } catch (e) { responder(res, e); }
+});
+
+router.put('/guion', exigir('puerta_listas', 'editar'), soloAdmin, json, async (req, res) => {
+  try {
+    const r = await G.guardar({ pasos: req.body && req.body.pasos, usuario: req.session.usuario });
+    if (!r.sin_cambio) {
+      await registrarAuditoria(req.session.usuario.id, 'puerta_guion_guardar', 'puerta_guiones', r.version_id,
+        `Guardó una versión nueva del guion de las visitas (huella ${r.huella}).`, req.ip);
+    }
+    res.json({ ok: true, huella: r.huella, sin_cambio: r.sin_cambio });
+  } catch (e) { responder(res, e); }
+});
+
+/* ----------------------------------------------------------------------------------------- EL PANEL (parche 312) */
+
+router.get('/panel', exigir('puerta_listas', 'ver'), async (req, res) => {
+  try { res.json(await Panel.panel({ alcance: req.alcance, filtro: Panel.filtroDe(req.query) })); } catch (e) { responder(res, e); }
+});
+
+const hoyArchivo = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);       // hora de Colombia
+
+router.get('/panel/exportar', exigir('puerta_listas', 'ver'), requiereImportarExportar('puerta_listas'), async (req, res) => {
+  try {
+    const p = await Panel.panel({ alcance: req.alcance, filtro: Panel.filtroDe(req.query) });
+    const hojas = Panel.hojasDeExcel(p, { fecha: hoyArchivo(), generador: 'Estrategia · Puerta a puerta',
+      alcanceTexto: req.session.usuario.rol === 'admin' ? 'toda la campaña' : 'solo las listas de su equipo' });
+    const libro = XLSX.utils.book_new();
+    const anchos = { Notas: [{ wch: 52 }, { wch: 40 }], 'Cobertura por zona': [{ wch: 34 }, ...Array(10).fill({ wch: 16 })], 'Avance por visitante': [{ wch: 34 }, ...Array(7).fill({ wch: 16 })] };
+    for (const nombre of ['Notas', 'Cobertura por zona', 'Avance por visitante']) {
+      const hoja = XLSX.utils.aoa_to_sheet(hojas[nombre]);
+      hoja['!cols'] = anchos[nombre];
+      XLSX.utils.book_append_sheet(libro, hoja, nombre);
+    }
+    libro.Props = { Title: `${Panel.MARCA} — Puerta a puerta`, Subject: Panel.MARCA, Author: 'Estrategia' };
+    await registrarAuditoria(req.session.usuario.id, 'exportar_excel', 'puerta_listas', null,
+      `Exportó el panel agregado del puerta a puerta (mínimo ${p.minimo} por celda; sin listas de casas ni de personas).`, req.ip);
+    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="puerta-a-puerta-${hoyArchivo()}.xlsx"`);
+    res.send(buffer);
+  } catch (e) { responder(res, e); }
+});
+
 
 /* ------------------------------------------------------------------------------------------ SOLO EL ADMINISTRADOR */
 

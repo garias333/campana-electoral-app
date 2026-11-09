@@ -32,6 +32,11 @@
   .pp-msg.ok { color: #1E7B4F; } .pp-msg.error { color: #B3261E; }
   .pp-seccion { margin: 0 0 26px; }
   .pp-seccion h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  .pp-paso { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 8px; max-width: 760px; }
+  .pp-paso textarea { flex: 1; box-sizing: border-box; min-height: 56px; resize: vertical; }
+  .pp-paso b { min-width: 58px; font-size: .8rem; padding-top: 8px; }
+  .pp-guion-lectura { max-width: 760px; font-size: .9rem; padding-left: 20px; margin: 0 0 8px; }
+  .pp-versiones { font-size: .8rem; color: var(--color-text-muted); margin: 10px 0 0; }
 </style>
 </head>
 <body>
@@ -41,7 +46,8 @@
       <div class="eyebrow">Territorio</div>
       <h1>Puerta a puerta</h1>
       <p>Arma la lista de visitas de un líder o de un sublíder con personas que YA están registradas en su equipo. Él la recibe en el celular, la recorre
-         (también sin señal) y anota el resultado de cada puerta. Aquí solo ves cuántas personas hay, cuántas quedan y cuántas se cerraron: nunca nombres ni direcciones.</p>
+         (también sin señal) y anota el resultado de cada puerta. Aquí solo ves cuántas personas hay, cuántas quedan y cuántas se cerraron: nunca nombres ni direcciones.
+         <a href="/puerta-panel.html">Ver el panel de cobertura →</a></p>
     </div>
 
     <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
@@ -72,6 +78,23 @@
             <tbody id="pp-listas"><tr><td colspan="9">Cargando…</td></tr></tbody></table>
         </div>
         <div class="pp-msg" id="l-msg"></div>
+      </div>
+
+      <div class="pp-seccion" id="pp-guion">
+        <h2>Guion de la visita</h2>
+        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;max-width:760px;">De 3 a 5 pasos cortos que el visitante lee en el celular («Ver guion», arriba de cada puerta; también sin señal). Cada cambio es una versión nueva con su huella, y cada visita guarda la huella de la versión que se mostró, nunca el texto.</p>
+        <div class="pp-aviso" id="g-aviso" style="display:none;background:#FBE9E7;border-color:#F2B8B3;"></div>
+        <div id="g-lectura"></div>
+        <div id="g-edicion" style="display:none;">
+          <div id="g-pasos"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+            <button type="button" class="btn-secundario" id="g-agregar">Agregar un paso</button>
+            <button type="button" class="btn-secundario" id="g-defecto">Poner el guion por defecto</button>
+            <button type="button" class="btn-primario" id="g-guardar">Guardar el guion</button>
+          </div>
+        </div>
+        <div class="pp-msg" id="g-msg"></div>
+        <div class="pp-versiones" id="g-versiones"></div>
       </div>
 
       <div class="pp-seccion" id="pp-horario" style="display:none;">
@@ -245,6 +268,36 @@ async function armar() {
   } finally { $('a-armar').disabled = false; }
 }
 
+/* ----- El guion de la visita (parche 312) ----- */
+let guionInfo = null;
+function pintarPasosEditables(pasos) {
+  const max = guionInfo.limites.max_pasos, min = guionInfo.limites.min_pasos;
+  $('g-pasos').innerHTML = pasos.map((t, i) => `<div class="pp-paso"><b>Paso ${i + 1}</b><textarea maxlength="${esc(guionInfo.limites.max_largo)}" data-paso="${i}">${esc(t)}</textarea>
+      <button type="button" class="btn-secundario btn-sm" data-quitar="${i}" ${pasos.length <= min ? 'disabled' : ''}>Quitar</button></div>`).join('');
+  $('g-agregar').disabled = pasos.length >= max;
+  $('g-pasos').querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', () => { const v = pasosEscritos(); v.splice(Number(b.dataset.quitar), 1); pintarPasosEditables(v); }));
+}
+const pasosEscritos = () => Array.from($('g-pasos').querySelectorAll('textarea')).map((t) => t.value);
+
+async function cargarGuion() {
+  guionInfo = await api('/puerta-a-puerta/guion');
+  const rige = guionInfo.rige;
+  $('g-lectura').innerHTML = `<ol class="pp-guion-lectura">${rige.pasos.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
+    <div class="pp-versiones">Rige: ${rige.por_defecto ? 'el guion por defecto' : 'el guion de la campaña'} · huella <code>${esc(rige.huella)}</code></div>`;
+  if (rige.sustituido) {
+    $('g-aviso').innerHTML = `<b>El celular está mostrando el guion por defecto.</b> ${esc(rige.motivo || '')} Cambia la redacción y guárdalo de nuevo.`;
+    $('g-aviso').style.display = 'block';
+  } else $('g-aviso').style.display = 'none';
+  $('g-versiones').innerHTML = guionInfo.historial.length
+    ? 'Versiones guardadas: ' + guionInfo.historial.map((h) => `${esc(h.creado_en)}${h.por ? ' · ' + esc(h.por) : ''} · <code>${esc(h.huella)}</code> (${esc(h.visitas)} visita${h.visitas === 1 ? '' : 's'})`).join(' &nbsp;|&nbsp; ')
+    : 'La campaña todavía no ha guardado un guion propio.';
+  if (usuarioActual.rol === 'admin' && permisos.editar) {
+    $('g-edicion').style.display = 'block';
+    $('g-lectura').style.display = 'none';
+    pintarPasosEditables((guionInfo.guardado || guionInfo.por_defecto).pasos);
+  }
+}
+
 async function cargarHorario() {
   const c = await api('/puerta-a-puerta/config');
   $('h-desde').value = c.franja_desde; $('h-hasta').value = c.franja_hasta;
@@ -291,6 +344,21 @@ async function cargarHorario() {
   if (usuarioActual.rol === 'admin') {
     $('l-ocultas-etiqueta').style.display = 'inline-flex';
     $('l-ocultas').addEventListener('change', () => cargarListas().catch((e) => msg('l-msg', e.message || 'No se pudo cargar.', 'error')));
+  }
+  try { await cargarGuion(); } catch (e) { $('g-msg').className = 'pp-msg error'; $('g-msg').textContent = e.message || 'No se pudo cargar el guion.'; }
+  if (usuarioActual.rol === 'admin' && permisos.editar) {
+    $('g-agregar').addEventListener('click', () => { const v = pasosEscritos(); if (v.length < guionInfo.limites.max_pasos) { v.push(''); pintarPasosEditables(v); } });
+    $('g-defecto').addEventListener('click', () => pintarPasosEditables(guionInfo.por_defecto.pasos.slice()));
+    $('g-guardar').addEventListener('click', async () => {
+      msg('g-msg', '');
+      $('g-guardar').disabled = true;
+      try {
+        const r = await api('/puerta-a-puerta/guion', { method: 'PUT', body: { pasos: pasosEscritos() } });
+        msg('g-msg', r.sin_cambio ? 'Ese guion ya era el vigente: no se creó una versión nueva.' : `Guion guardado (versión ${r.huella}). Los celulares lo reciben al bajar su lista.`, 'ok');
+        await cargarGuion();
+      } catch (e) { msg('g-msg', e.message || 'No se pudo guardar el guion.', 'error'); }
+      finally { $('g-guardar').disabled = false; }
+    });
   }
   if (usuarioActual.rol === 'admin' && permisos.editar) {
     $('pp-horario').style.display = 'block';
