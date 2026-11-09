@@ -14,9 +14,9 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 312** (`parches/campana-parche312.zip`, 167.401 bytes,
   sha256 `c3d601a9a8076749ab03d7aa9da601b96c4bd784eee67629f62b220d6bcdd46b`, 14 archivos): «Puerta a puerta, Fases 3 y 4: guion de la visita con versiones, QR de inscripción, panel de cobertura con Excel agregado y pines separados en el mapa (Requiere el 311)».
-  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 14 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (32 requires locales); nada de `.env`, credenciales ni `.sql`.
+  **GENERADO el 9 de noviembre de 2026, PUBLICADO Y REGISTRADO ESE MISMO DÍA (INACTIVO: falta activarlo y aplicarlo desde el panel, y probarlo en municipal antes).** Lo corrió el usuario como root con `su - gariasappelectoral` (salida pegada): `parche-312.zip` en el servidor de licencias con huella igual a la local (`c3d601a9a8076749`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`**, estado INACTIVO. Los 14 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (32 requires locales); nada de `.env`, credenciales ni `.sql`.
   **TOCA LA BASE** (`db/init-db.js`: tabla `puerta_guiones` y columna `puerta_visitas.guion_huella`; repetible; al registrarlo el script marca `toca_base_datos` solo). **Requiere el 311** (y por él el 309 y el 308: `lib/puertaPanel.js` reutiliza `lib/encuestasResultados.js`). Service worker **`v182`**. `OFFLINE_DB_VERSION` sigue en 10. Detalle en «Parche 312».
-  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 312'` y luego `scripts/registrar-parche.js 312 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO).
+  Ya está publicado y registrado; falta activarlo en el panel de licencias.
 - **El anterior, el 311** (`parches/campana-parche311.zip`, 176.420 bytes,
   sha256 `874817043e135839b7eae4e685e720dc3d19796646d5dd39ad354a22442f16cd`, 14 archivos; incluía el 310): **PUBLICADO Y APLICADO** (lo dijo el usuario el 9 de noviembre de 2026; **la prueba en municipal salió bien: mapa, cola sin señal y botones**. No se pudo comprobar desde esta cuenta, que no lee el servidor de licencias ni las otras instalaciones; el 310 nunca se publicó por separado: lo llevó el 311). Detalle en «Parche 311».
 - **Antes, el 310** (`parches/campana-parche310.zip`, 54.660 bytes,
@@ -283,7 +283,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 312 — Puerta a puerta, Fases 3 y 4 (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+## Parche 312 — Puerta a puerta, Fases 3 y 4 (9 de noviembre de 2026, PUBLICADO Y REGISTRADO, INACTIVO, TOCA LA BASE)
 
 **Requiere el 311.** Service worker `v182`. `OFFLINE_DB_VERSION = 10`. **Toca la base:** `puerta_guiones` (tabla: `id, huella CHAR(16), pasos JSON, creado_por, creado_en`) y `puerta_visitas.guion_huella CHAR(16) NULL`; repetible. **Hay que correr `init-db` y reiniciar** en cada campaña.
 
@@ -312,8 +312,11 @@ limpio») estaban obsoletas y se reemplazaron.*
 - **Regresión, 25 suites sobre bases clonadas nuevas:** 24 bien. `probar-puerta-a-puerta-celular` falló UNA vez en la corrida en paralelo («el servidor guardó el resultado…», un tiempo bajo carga) y **pasa sola** (82 de 82).
 - **Una prueba sin sentido que me encontré al escribir la mía:** sin señal NO se recarga la página (pide la sesión): se repinta con `refrescar()` desde la copia, como hace la prueba del celular de siempre.
 
-### En la Base
-Los archivos ya están en disco. **Faltan dos pasos de root:** `init-db` (crea `puerta_guiones` y `guion_huella`) y reiniciar (rutas y lib nuevas). Primero `init-db`: sin la columna `INSERT INTO puerta_visitas` falla. **No se ejecutó nada contra la base real.**
+### En la Base (aplicado el 9 de noviembre de 2026, por el usuario, como root; salida pegada)
+- **`init-db`** corrió sin error: «Columna guion_huella agregada a puerta_visitas» y «Tablas del puerta a puerta listas»; `puerta_listas.oculta` ya existía (el 311 ya estaba aplicado). La tabla `puerta_guiones` se crea con `CREATE TABLE IF NOT EXISTS` y no deja renglón propio en la salida.
+- **Reinicio:** «OK: pid 3737583 -> 3783232 y el puerto 3002 responde».
+- **La política de la Base sigue SIN el párrafo de las visitas:** «la editó el administrador, así que NO se agregó la finalidad de las visitas». Sigue pendiente que el administrador lo pegue (Configuración → Política de privacidad) antes de encender el puerta a puerta para el equipo.
+- **No se probó la pantalla nueva con un navegador real contra la Base** (solo en bases desechables).
 
 ### Pendientes / a tener en cuenta
 - El guion aún no pasa por la política de privacidad ni por el abogado: es texto de la campaña. La finalidad de las visitas ya lo cubre en lo general.
