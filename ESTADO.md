@@ -14,9 +14,9 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 308** (`parches/campana-parche308.zip`, 129.197 bytes,
   sha256 `c016133c24f235728cab40cd537823907b6380afab101950c2dcc7812eeda297`, 17 archivos): «Encuestas internas, Fases 3 y 4: resultados con mínimo por celda, calidad y arreglos de las colas sin señal (Requiere el 307)».
-  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR**: el comando lo corre el usuario (ver «Parche 308», abajo). Hasta que pegue su salida, no consta HTTP, firma ni estado.
+  **Publicado y registrado el 9 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-308.zip` en el servidor de licencias con huella igual a la local (`c016133c24f23572`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: `configuracion_campana.encuesta_min_celda`, 5 columnas de revisión en `encuesta_respuestas`, `texto_revisado`, la tabla `encuesta_cuotas` y la finalidad de las encuestas en la política de privacidad con su versión archivada; repetible; **probado sobre una base creada con la plantilla del 307**). **Requiere el 307.** Service worker `v178`. Cola sin señal: sigue `OFFLINE_DB_VERSION = 9`. Detalle en «Parche 308».
-  **El 307 NO consta como publicado** (su comando también lo corría el usuario y no se pegó la salida): si el 307 no está publicado, hay que publicarlo ANTES que el 308.
+  **El 307 sigue sin constar como publicado** (no se pegó la salida de su comando): si no está publicado, hay que publicarlo y activarlo ANTES que el 308.
   El anterior, el 307 (`parches/campana-parche307.zip`, 195.819 bytes,
   sha256 `e06ac395d77e9146d4adb5d607e698566c01f888c494a4f15841b6045dc1b274`, 26 archivos): «Encuestas internas, Fases 1 y 2: constructor y campo sin señal (Requiere el 306)».
   **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR**: el comando lo corre el usuario como root (ver «Parche 307», abajo). Hasta que pegue su salida, no consta HTTP, firma ni estado.
@@ -267,11 +267,11 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 308 — Encuestas internas, Fases 3 y 4 + arreglos de las colas sin señal (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+## Parche 308 — Encuestas internas, Fases 3 y 4 + arreglos de las colas sin señal (9 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 **Requiere el 307.** Service worker `v178`. Sigue todo **apagado de fábrica**: los resultados son del módulo `encuestas`; Calidad, Textos libres y el mínimo por celda son solo del administrador.
 
-**Para publicarlo.** Esta vez con `su - gariasappelectoral`, como se pidió (dos comandos cortos, de a uno; el segundo registra INACTIVO y firma):
+**Cómo se publicó** (ya hecho). Con `su - gariasappelectoral`, como se pidió (dos comandos cortos, de a uno; el segundo registra INACTIVO y firma):
 
 ```
 su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 308'
