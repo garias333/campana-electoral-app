@@ -308,9 +308,18 @@ limpio») estaban obsoletas y se reemplazaron.*
 - `votantes.updated_at` no se mueve cuando una visita marca `no_visitar` (`updated_at = updated_at`), para que la ficha no guarde la hora exacta de la visita. `aplicarBajaDeFicha` sí escribe `no_contactar_fecha` con la hora (evidencia de la baja; es existente).
 - **No hay pantalla para quitar `no_visitar`**: si alguien cambia de opinión, hoy es un `UPDATE` a mano.
 
-### Conteos de coordenadas (solo números)
-- **La Base (`electoraldb`), medido el 9 de noviembre de 2026: 0 fichas** en `votantes` (por tanto 0 con y 0 sin coordenadas).
-- **Las campañas: NO MEDIDO.** Esta cuenta no puede leer sus `.env` ni sus bases. Se dejó `scripts/contar-coordenadas-votantes.sh` (como root, de a una instalación; pide la clave con `read -rs`; solo `SELECT COUNT/SUM`; usa solo columnas que existen desde las primeras versiones, no `no_visitar`). **No se ejecutó** (no es root). La tabla `votantes` **no tiene columna de activo/inactivo**: «activos» = todas las fichas.
+### Conteos de coordenadas (solo números; medidos el 9 de noviembre de 2026 con `scripts/contar-coordenadas-votantes.sh`, corrido por el usuario como root)
+La tabla `votantes` no tiene columna de activo/inactivo: «activos» = todas las fichas.
+
+| Instalación | Fichas | Con coordenadas | Sin coordenadas | Sin coord. pero con dirección | Sin dirección | Con autorización | Autorizadas con dirección |
+|---|---|---|---|---|---|---|---|
+| Base (`electoraldb`) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Municipal | 116 | 113 | 3 | 1 | 2 | 116 | 114 |
+| Departamental | 81 | 81 | 0 | 0 | 0 | 81 | 81 |
+| c001 (`c00-2027db`) | 17 | 11 | 6 | 5 | 1 | 17 | 16 |
+| **Total campañas** | **214** | **205 (96 %)** | **9** | **6** | **3** | **214** | **211** |
+
+Lectura: de 214 fichas, 211 tienen autorización y dirección (la base visitable antes de los demás filtros) y 205 tienen coordenadas, o sea que se pueden ordenar por cercanía; **9 quedan al final de la ruta, 6 de ellas con dirección que «Re-geocodificar pendientes» (Votantes) podría resolver** (5 en c001). Las fichas de las campañas de prueba son pocas: en una campaña real la proporción dependerá de cuántas se registren con dirección y de la precisión de la geocodificación de Google, que **no se guarda** (solo si hay coordenadas). Sigue sin medirse qué tan exactas son.
 
 ### Política de privacidad — la finalidad de las visitas (aprobada, viaja en el 309)
 - **Texto** en `config/politicaVisitas.js` (un solo sitio: lo usan `init-db`, la pantalla y las pruebas). Es el propuesto el 9 de noviembre de 2026 y aprobado por el dueño con **un** cambio: «…el día, si fue en la mañana o en la tarde, y el resultado…» (antes: «en la mañana, la tarde o la noche»). Frase de control: `visita domiciliaria de la campaña`.
@@ -332,7 +341,8 @@ limpio») estaban obsoletas y se reemplazaron.*
 - **Regresión, 22 suites, todas bien, DOS veces** (la primera con el zip de 19 archivos; la segunda tras la segunda orden). `probar-manuales` falló a la primera por los bloques de manual que faltaban; ya están y pasa. No se corrió `probar-instalacion-limpia` (pide base y usuario de CloudPanel).
 
 ### Lo que NO se hizo
-- **Base:** el usuario aplicó el PRIMER 309 el 9 de noviembre de 2026 (`init-db` en «Listo» y `reiniciar-instancia.sh`: «pid 2967153 -> 3628150»); verificado desde esta cuenta: 3 tablas `puerta_*`, 9 filas de permiso por módulo con solo el administrador abierto, franja 08:00–18:00. Esa corrida fue la primera que veía la Base desde antes del 303 y también creó lo de los parches 303 a 308 y **agregó a su política las finalidades de solicitudes (`36000dd9d4356c93`) y encuestas (`f0e96722ddabfdda`)**. **El 309 regenerado (con la finalidad de visitas, el botón y los avisos) NO está aplicado todavía en la Base**: falta `init-db` (agrega el párrafo de visitas; la política de la Base no la editó nadie) y el reinicio. Comandos en el informe de la sesión.
+- **Base: el 309 regenerado YA está aplicado** (9 de noviembre de 2026, el usuario como root; salida pegada). `init-db` terminó en «Listo» con todo «ya existía» (repetible, comprobado en vivo) y `reiniciar-instancia.sh` dio «OK: pid 3628150 -> 3643873 y el puerto 3002 responde»; desde esta cuenta, el proceso tiene minutos de vida. La primera corrida (la del primer 309) había creado lo de los parches 303 a 308 y agregado a la política de la Base las finalidades de solicitudes (`36000dd9d4356c93`) y de encuestas (`f0e96722ddabfdda`).
+  **La finalidad de las visitas NO quedó en la política de la Base, y es el comportamiento diseñado:** `init-db` dijo «la editó el administrador, así que NO se agregó». Medido en la Base: `actualizado_por` no es NULL (alguien guardó la política desde la pantalla; última vez el 8 de noviembre de 2026 a las 21:11), no trae la frase `visita domiciliaria de la campaña`, y **conserva 9 marcadores entre corchetes sin llenar** (nombre del responsable, NIT, correo, teléfono, fecha…). **Pendiente del administrador de la Base:** abrir Configuración → Política de privacidad —debe mostrar el recuadro ámbar con el párrafo— y pegarlo al final de la sección 2. Esto es lo que el aviso nuevo está hecho para cubrir; no se comprobó con un navegador contra la Base.
 - No se generó la plantilla v309 (la vigente sigue siendo la v308).
 - Sin precampaña nueva ni guion (Fase 3), sin mapa (Fase 2), sin panel de cobertura (Fase 4).
 
