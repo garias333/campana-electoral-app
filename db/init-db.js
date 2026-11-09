@@ -432,6 +432,10 @@ const PERMISOS_POR_DEFECTO = {
   // ve los resultados); `encuestas_campo` aplica en el celular. Se abren desde Asignación de permisos.
   encuestas: ['admin'],
   encuestas_campo: ['admin'],
+  // Puerta a puerta (parche 309): DOS módulos, ambos apagados de fábrica (solo el administrador). `puerta_listas` arma las listas de visitas
+  // (administrador y coordinador, cuando se les abra); `puerta_visitas` las recorre en el celular (líder y sublíder). Se abren desde Asignación de permisos.
+  puerta_listas: ['admin'],
+  puerta_visitas: ['admin'],
   biografia_candidato: ROLES_PERMISOS,
   politica_privacidad: ROLES_PERMISOS,
   recursos: ROLES_PERMISOS,
@@ -3530,6 +3534,84 @@ async function main() {
       FOREIGN KEY (encuesta_id) REFERENCES encuestas(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
   console.log('Tablas de las encuestas internas listas (módulos apagados).');
+
+  /* ------------------------------------------------------------------------------------------------------------
+     PUERTA A PUERTA (parche 309, Fases 0 y 1). Apagado de fábrica: los módulos `puerta_listas` (armar) y `puerta_visitas` (visitar) solo
+     los ve el administrador. SOLO el modo (a): visitas a votantes YA REGISTRADOS, dentro del alcance de quien visita.
+       · puerta_listas    la lista de UNA persona del equipo (líder o sublíder): quién la armó, a quién se asignó y en qué zona.
+       · puerta_items     una fila por votante de la lista. `votante_id` es NULL-able a propósito: al vencer la retención (6 meses después de la
+                          elección) se pone en NULL y las visitas quedan sin persona. La FK es ON DELETE SET NULL, no CASCADE: si la ficha se borra
+                          (el derecho a la supresión, o «Eliminar información»), el ítem sigue vivo pero ya sin nadie. NO guarda nombre, dirección ni teléfono: se leen de la ficha cada vez que se descarga la lista.
+       · puerta_visitas   una fila por visita, idempotente por `cliente_uuid`. Guarda FECHA y FRANJA del día (mañana, tarde, noche), NUNCA la hora
+                          exacta, y nunca la ubicación de quien visita. `territorio_id` es el barrio de la ficha en ese momento: sirve al panel agregado
+                          cuando ya no hay persona detrás.
+       · votantes.no_visitar   «pidió no volver». Separada de `no_contactar` (mensajes): una persona puede no querer visitas y sí querer el SMS.
+       · configuracion_campana.puerta_franja_*   franja horaria permitida (8:00 a 18:00 de fábrica; el administrador la mueve entre 7:00 y 19:00).
+     Ninguna columna de estas tablas lleva un instante (DATETIME/TIMESTAMP) del momento de la visita: scripts/probar-puerta-a-puerta.js lo comprueba.
+     ------------------------------------------------------------------------------------------------------------ */
+  await agregarColumnaSiFalta(connection, 'votantes',
+    "no_visitar TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Pidió no volver a recibir visitas. NO es no_contactar (mensajes): son dos marcas distintas'", 'no_visitar');
+  await agregarColumnaSiFalta(connection, 'votantes',
+    "no_visitar_fecha DATE NULL COMMENT 'El día en que pidió no volver a recibir visitas (solo la fecha)'", 'no_visitar_fecha');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "puerta_franja_desde VARCHAR(5) NOT NULL DEFAULT '08:00' COMMENT 'Puerta a puerta: hora desde la que se puede visitar (hora de Colombia, HH:MM; entre 07:00 y 19:00)'", 'puerta_franja_desde');
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "puerta_franja_hasta VARCHAR(5) NOT NULL DEFAULT '18:00' COMMENT 'Puerta a puerta: hora hasta la que se puede visitar (hora de Colombia, HH:MM; entre 07:00 y 19:00)'", 'puerta_franja_hasta');
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS puerta_listas (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      cliente_uuid CHAR(36) NULL COMMENT 'Lo genera la pantalla de quien arma la lista: un doble clic no crea dos',
+      nombre VARCHAR(120) NOT NULL,
+      territorio_id INT NULL COMMENT 'La zona con la que se armó (barrio, vereda, comuna, corregimiento o municipio); sin FK (en campañas ligadas al catálogo territorios es una vista)',
+      zona_texto VARCHAR(120) NULL COMMENT 'La zona tal como se escribió o su nombre',
+      asignada_a INT NOT NULL COMMENT 'Quien visita: un líder o un sublíder de la campaña madre',
+      creada_por INT NOT NULL,
+      estado ENUM('activa','cerrada','cancelada') NOT NULL DEFAULT 'activa',
+      rama_aspirante_id INT NULL,
+      aspirante_id INT NOT NULL DEFAULT 0,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      cerrada_en DATETIME NULL,
+      UNIQUE KEY uq_puerta_lista_uuid (cliente_uuid),
+      KEY idx_puerta_lista_asignada (asignada_a, estado),
+      KEY idx_puerta_lista_creada (creada_por),
+      KEY idx_puerta_lista_rama (rama_aspirante_id),
+      KEY idx_puerta_lista_territorio (territorio_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS puerta_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      lista_id INT NOT NULL,
+      votante_id INT NULL COMMENT 'La ficha visitada. NULL cuando ya venció la retención o la ficha se borró',
+      estado ENUM('pendiente','cerrada','agotada') NOT NULL DEFAULT 'pendiente' COMMENT 'cerrada = tiene un resultado final; agotada = tres veces sin que abrieran',
+      intentos TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Cuántas veces nadie abrió (máximo 3)',
+      ultimo_resultado ENUM('no_abrio','no_interesado','interesado','quiere_registrarse','solicitud','no_volver') NULL,
+      ultima_fecha DATE NULL,
+      ultima_franja ENUM('manana','tarde','noche') NULL,
+      anonimizado_en DATETIME NULL COMMENT 'Cuándo se cortó el vínculo con la persona por vencer el plazo de conservación',
+      UNIQUE KEY uq_puerta_item (lista_id, votante_id),
+      KEY idx_puerta_item_votante (votante_id),
+      FOREIGN KEY (lista_id) REFERENCES puerta_listas(id) ON DELETE CASCADE,
+      FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS puerta_visitas (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      cliente_uuid CHAR(36) NOT NULL COMMENT 'Lo genera el celular al guardar (también sin señal): un reintento no duplica',
+      item_id INT NOT NULL,
+      lista_id INT NOT NULL,
+      resultado ENUM('no_abrio','no_interesado','interesado','quiere_registrarse','solicitud','no_volver') NOT NULL,
+      fecha DATE NOT NULL COMMENT 'El día de la visita, en hora de Colombia. Nunca la hora',
+      franja ENUM('manana','tarde','noche') NOT NULL COMMENT 'manana antes de las 12:00, tarde de 12:00 a 16:59, noche desde las 17:00',
+      territorio_id INT NULL COMMENT 'El barrio o vereda de la ficha al momento de la visita; sin FK',
+      registrada_por INT NULL COMMENT 'La cuenta del EQUIPO que visitó (no la persona visitada)',
+      UNIQUE KEY uq_puerta_visita_uuid (cliente_uuid),
+      KEY idx_puerta_visita_item (item_id),
+      KEY idx_puerta_visita_lista (lista_id, fecha),
+      KEY idx_puerta_visita_zona (territorio_id, fecha),
+      FOREIGN KEY (item_id) REFERENCES puerta_items(id) ON DELETE CASCADE,
+      FOREIGN KEY (registrada_por) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  console.log('Tablas del puerta a puerta listas (módulos apagados).');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);

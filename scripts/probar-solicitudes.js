@@ -442,7 +442,7 @@ const idsDe = (r) => (r.datos && r.datos.solicitudes ? r.datos.solicitudes.map((
   /* ====================================================================================== 12. sin señal */
   console.log('\n[11] Sin señal: la cola de la PWA (el comportamiento real lo prueba probar-solicitudes-celular.js)');
   const off = leer('public/js/offline-utils.js');
-  ok(/OFFLINE_DB_VERSION = [789];/.test(off) && /'solicitudes_pendientes'/.test(off), 'offline-utils.js: base en versión 7 (8 desde el parche 305, 9 desde el 307) y cajón «solicitudes_pendientes»');
+  ok(/OFFLINE_DB_VERSION = (?:[789]|10);/.test(off) && /'solicitudes_pendientes'/.test(off), 'offline-utils.js: base en versión 7 (8 desde el parche 305, 9 desde el 307) y cajón «solicitudes_pendientes»');
   ok(!/OFFLINE_STORES_COPIA = \[[^\]]*solicitudes_pendientes/.test(off), 'es una COLA (de lo pendiente de subir), no una copia de lectura: no se borra al cambiar de cuenta');
   const sw = leer('public/service-worker.js');
   ok(/estrategia-v17[3-9]|estrategia-v1[89]\d/.test(sw) && sw.includes('/app/solicitud-nueva.html') && sw.includes('/app/mis-solicitudes.html'), 'el service worker precarga las dos pantallas nuevas y subió de versión');

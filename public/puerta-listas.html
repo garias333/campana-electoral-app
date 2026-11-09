@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Puerta a puerta · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/crm.css">
+<style>
+  /* PUERTA A PUERTA, armar las listas (parche 309). Aquí solo hay CONTEOS: los nombres y las direcciones viajan únicamente al celular de quien visita. */
+  .pp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; max-width: 900px; }
+  .pp-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
+  .pp-form select, .pp-form input { width: 100%; box-sizing: border-box; }
+  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .pp-tabla th, .pp-tabla td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
+  .pp-tabla th { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .pp-tabla td.num, .pp-tabla th.num { text-align: right; white-space: nowrap; }
+  .pp-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
+  .pp-estado.activa { background: #E7F6EE; color: #1E7B4F; }
+  .pp-estado.cancelada { background: #FBE9E7; color: #B3261E; }
+  .pp-aviso { background: #FDF3E0; border: 1px solid #ECD3A4; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; font-size: .88rem; max-width: 900px; }
+  .pp-msg { font-size: .88rem; margin-top: 8px; }
+  .pp-msg.ok { color: #1E7B4F; } .pp-msg.error { color: #B3261E; }
+  .pp-seccion { margin: 0 0 26px; }
+  .pp-seccion h2 { font-size: 1.05rem; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="crm-hero">
+      <div class="eyebrow">Territorio</div>
+      <h1>Puerta a puerta</h1>
+      <p>Arma la lista de visitas de un líder o de un sublíder con personas que YA están registradas en su equipo. Él la recibe en el celular, la recorre
+         (también sin señal) y anota el resultado de cada puerta. Aquí solo ves cuántas personas hay, cuántas quedan y cuántas se cerraron: nunca nombres ni direcciones.</p>
+    </div>
+
+    <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
+
+    <div id="pp-contenido" style="display:none;">
+      <div class="pp-aviso"><b>Antes de encender esto para el equipo:</b> la política de privacidad tiene que mencionar la visita domiciliaria de la campaña.
+        Solo entran a una lista las personas que dieron su autorización, tienen dirección y no pidieron que no las visiten. Una persona que dijo «no estoy interesado»
+        o que ya se visitó no vuelve a entrar en una lista antes de <span id="pp-dias">60</span> días.</div>
+
+      <div class="pp-seccion" id="pp-armar" style="display:none;">
+        <h2>Armar una lista</h2>
+        <div class="pp-form">
+          <div><label for="a-nombre">Nombre de la lista</label><input id="a-nombre" maxlength="120" placeholder="Por ejemplo: Barrio La Enea, sábado"></div>
+          <div><label for="a-quien">Quién va a visitar</label><select id="a-quien" data-sin-ordenar><option value="">Elige…</option></select></div>
+          <div><label for="a-zona" id="a-zona-etiqueta">Zona (opcional)</label><input id="a-zona" list="a-zonas" placeholder="Todas sus personas" autocomplete="off"><datalist id="a-zonas"></datalist></div>
+          <div><label for="a-max">Máximo de personas</label><input id="a-max" type="number" min="1" inputmode="numeric"></div>
+          <div><button type="button" class="btn-primario" id="a-armar">Armar y asignar</button></div>
+        </div>
+        <div class="pp-msg" id="a-msg"></div>
+      </div>
+
+      <div class="pp-seccion">
+        <h2>Listas</h2>
+        <div style="overflow-x:auto">
+          <table class="pp-tabla"><thead><tr><th>Lista</th><th>Quién visita</th><th>Zona</th><th>Estado</th><th class="num">Personas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th></th></tr></thead>
+            <tbody id="pp-listas"><tr><td colspan="9">Cargando…</td></tr></tbody></table>
+        </div>
+        <div class="pp-msg" id="l-msg"></div>
+      </div>
+
+      <div class="pp-seccion" id="pp-horario" style="display:none;">
+        <h2>Horario de las visitas</h2>
+        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;">Fuera de esta franja (hora de Colombia) el celular no guarda ninguna visita, y el servidor tampoco. Puede ir de las <span id="h-min">07:00</span> a las <span id="h-max">19:00</span>.</p>
+        <div class="pp-form" style="max-width:520px;">
+          <div><label for="h-desde">Desde</label><input id="h-desde" type="time"></div>
+          <div><label for="h-hasta">Hasta</label><input id="h-hasta" type="time"></div>
+          <div><button type="button" class="btn-secundario" id="h-guardar">Guardar el horario</button></div>
+        </div>
+        <div class="pp-msg" id="h-msg"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/common.js"></script>
+<script>
+let usuarioActual = null;
+let permisos = { ver: false, editar: false, agregar: false };
+let zonas = [];
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
+const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'pp-msg ' + (tipo || ''); e.textContent = texto || ''; } };
+const ETIQUETA = { activa: 'Activa', cerrada: 'Cerrada', cancelada: 'Cancelada' };
+const nuevoUuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16); }));
+let uuidDeLaLista = nuevoUuid();      // un doble clic en «Armar» no crea dos listas: el servidor responde con la misma
+
+async function cargarListas() {
+  const r = await api('/puerta-a-puerta/listas');
+  const filas = r.listas || [];
+  $('pp-listas').innerHTML = filas.length ? filas.map((l) => `<tr>
+      <td>${esc(l.nombre)}<div style="font-size:.76rem;color:var(--color-text-muted)">n.º ${esc(l.id)} · ${esc(l.creada)}</div></td><td>${esc(l.asignada_nombre)}</td><td>${esc(l.zona || '—')}</td>
+      <td><span class="pp-estado ${esc(l.estado)}">${esc(ETIQUETA[l.estado] || l.estado)}</span></td>
+      <td class="num">${esc(l.total)}</td><td class="num">${esc(l.pendientes)}</td><td class="num">${esc(l.cerradas)}</td><td class="num">${esc(l.agotadas)}</td>
+      <td style="white-space:nowrap">${l.estado === 'activa' && permisos.editar
+        ? `<button type="button" class="btn-secundario btn-sm" data-accion="cerrar" data-id="${esc(l.id)}">Cerrar</button> <button type="button" class="btn-secundario btn-sm" data-accion="cancelar" data-id="${esc(l.id)}">Cancelar</button>` : ''}</td></tr>`).join('')
+    : '<tr><td colspan="9">Todavía no hay listas.</td></tr>';
+  $('pp-listas').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', async () => {
+    const cancelar = b.dataset.accion === 'cancelar';
+    if (!confirm(cancelar ? '¿Cancelar esta lista? Quien la tiene deja de recibirla.' : '¿Cerrar esta lista? Quien la tiene deja de recibirla; lo que ya visitó se conserva.')) return;
+    try { await api(`/puerta-a-puerta/listas/${b.dataset.id}/${b.dataset.accion}`, { method: 'POST', body: {} }); msg('l-msg', cancelar ? 'Lista cancelada.' : 'Lista cerrada.', 'ok'); await cargarListas(); }
+    catch (e) { msg('l-msg', e.message || 'No se pudo cambiar la lista.', 'error'); }
+  }));
+}
+
+function etiquetaDeZona(z, cuenta) { return cuenta[z.nombre.toLowerCase()] > 1 ? `${z.nombre} · ${z.padre || z.tipo}` : z.nombre; }
+
+async function armar() {
+  msg('a-msg', '');
+  const nombre = $('a-nombre').value.trim(), quien = Number($('a-quien').value);
+  if (nombre.length < 3) return msg('a-msg', 'Ponle un nombre a la lista (al menos 3 letras).', 'error');
+  if (!quien) return msg('a-msg', 'Elige quién va a visitar.', 'error');
+  const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignada_a: quien };
+  const texto = $('a-zona').value.trim().toLowerCase();
+  if (texto) {
+    const cuenta = {}; zonas.forEach((z) => { const k = z.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
+    const z = zonas.find((x) => etiquetaDeZona(x, cuenta).toLowerCase() === texto);
+    if (!z) return msg('a-msg', 'Elige la zona de la lista, o déjala vacía para armar con todas sus personas.', 'error');
+    cuerpo.territorio_id = z.id;
+  }
+  if ($('a-max').value) cuerpo.max = Number($('a-max').value);
+  $('a-armar').disabled = true;
+  try {
+    const r = await api('/puerta-a-puerta/listas', { method: 'POST', body: cuerpo });
+    const o = r.omitidas || {};
+    const fuera = [];
+    if (o.sin_autorizacion) fuera.push(`${o.sin_autorizacion} sin autorización`);
+    if (o.pidio_no_volver) fuera.push(`${o.pidio_no_volver} pidieron no volver`);
+    if (o.sin_direccion) fuera.push(`${o.sin_direccion} sin dirección`);
+    if (o.en_otra_lista) fuera.push(`${o.en_otra_lista} ya están en otra lista`);
+    if (o.visitada_hace_poco) fuera.push(`${o.visitada_hace_poco} se visitaron hace poco`);
+    if (r.sin_cupo) fuera.push(`${r.sin_cupo} no caben en la lista`);
+    msg('a-msg', r.duplicado ? 'Esa lista ya estaba armada.' : `Lista armada con ${r.personas} persona(s).${fuera.length ? ' Quedaron fuera: ' + fuera.join(', ') + '.' : ''}`, 'ok');
+    uuidDeLaLista = nuevoUuid();
+    $('a-nombre').value = '';
+    await cargarListas();
+  } catch (e) {
+    const o = e.datos && e.datos.omitidas;
+    msg('a-msg', (e.message || 'No se pudo armar la lista.') + (o ? ` (Sin autorización: ${o.sin_autorizacion}; pidieron no volver: ${o.pidio_no_volver}; sin dirección: ${o.sin_direccion}; en otra lista: ${o.en_otra_lista}; visitadas hace poco: ${o.visitada_hace_poco}.)` : ''), 'error');
+  } finally { $('a-armar').disabled = false; }
+}
+
+async function cargarHorario() {
+  const c = await api('/puerta-a-puerta/config');
+  $('h-desde').value = c.franja_desde; $('h-hasta').value = c.franja_hasta;
+  $('h-desde').min = c.minimo; $('h-desde').max = c.maximo; $('h-hasta').min = c.minimo; $('h-hasta').max = c.maximo;
+  $('h-min').textContent = c.minimo; $('h-max').textContent = c.maximo; $('pp-dias').textContent = c.dias_sin_reasignar;
+  $('a-max').value = c.max_personas; $('a-max').max = c.max_personas;
+}
+
+(async () => {
+  usuarioActual = await inicializarLayout('/puerta-listas.html');
+  if (!usuarioActual) return;
+  if (!puedeVer(usuarioActual, 'puerta_listas')) { $('pp-sin-permiso').style.display = 'block'; return; }
+  permisos = { ver: true, editar: puedeEditar(usuarioActual, 'puerta_listas'), agregar: puedeAgregar(usuarioActual, 'puerta_listas') };
+  try {
+    await cargarHorario();
+    $('pp-contenido').style.display = 'block';
+    await cargarListas();
+  } catch (e) { $('pp-contenido').style.display = 'none'; $('pp-sin-permiso').style.display = 'block'; $('pp-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
+  if (permisos.agregar) {
+    $('pp-armar').style.display = 'block';
+    try {
+      const rs = await api('/puerta-a-puerta/responsables');
+      $('a-quien').innerHTML = '<option value="">Elige…</option>' + (rs.responsables || []).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)} (${esc(u.rol === 'sublider' ? 'sublíder' : 'líder')})</option>`).join('');
+    } catch (_) { /* sin lista de responsables no se puede armar: el servidor lo dirá */ }
+    try {
+      const z = await api('/puerta-a-puerta/zonas');
+      zonas = z.nivel === 'texto' ? [] : (z.zonas || []);
+      const cuenta = {}; zonas.forEach((x) => { const k = x.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
+      $('a-zonas').innerHTML = zonas.map((x) => `<option value="${esc(etiquetaDeZona(x, cuenta))}"></option>`).join('');
+      if (z.nivel === 'texto') { $('a-zona').disabled = true; $('a-zona').placeholder = 'Esta campaña no tiene barrios ni veredas en el catálogo'; }
+    } catch (_) { zonas = []; }
+    $('a-armar').addEventListener('click', armar);
+  }
+  if (usuarioActual.rol === 'admin' && permisos.editar) {
+    $('pp-horario').style.display = 'block';
+    $('h-guardar').addEventListener('click', async () => {
+      msg('h-msg', '');
+      try { const r = await api('/puerta-a-puerta/config', { method: 'PUT', body: { franja_desde: $('h-desde').value, franja_hasta: $('h-hasta').value } }); msg('h-msg', `Horario guardado: de ${r.franja_desde} a ${r.franja_hasta}.`, 'ok'); }
+      catch (e) { msg('h-msg', e.message || 'No se pudo guardar el horario.', 'error'); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

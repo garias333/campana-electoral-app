@@ -80,6 +80,7 @@ function crear(pool) {
   montar('/api/solicitudes', 'solicitudes.routes');
   montar('/api/tareas', 'tareas.routes');
   montar('/api/encuestas', 'encuestas.routes');
+  montar('/api/puerta-a-puerta', 'puertaAPuerta.routes');
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de capturas' }));
 
   app.get('/js/validarCedula.js', (req, res) => { res.type('application/javascript'); res.sendFile(path.join(RAIZ, 'lib', 'validarCedula.js')); });

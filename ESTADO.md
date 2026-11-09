@@ -12,14 +12,19 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 308** (`parches/campana-parche308.zip`, 129.197 bytes,
+- **Último parche generado: 309** (`parches/campana-parche309.zip`, 171.700 bytes,
+  sha256 `2d1bce860c0d6346f01c8dfa1df0b2f31a99fe173d454f8cdd05bf4cceb6a093`, 19 archivos): «Puerta a puerta, Fases 0 y 1: listas de visitas a votantes registrados, recorrido en el celular sin señal (Requiere el 308)».
+  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR** (no se pidió). Los 19 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; ningún `.env`, credencial ni `.sql`.
+  **TOCA LA BASE** (`db/init-db.js`: 3 tablas `puerta_*`, `votantes.no_visitar` y `no_visitar_fecha`, la franja en `configuracion_campana` y los módulos `puerta_listas` y `puerta_visitas`, ambos APAGADOS de fábrica; repetible; **probado sobre una base creada con la plantilla del 308**). **Requiere el 308.** Service worker `v179`. Cola sin señal: **`OFFLINE_DB_VERSION = 10`**. **No cambia la política de privacidad** (ver «Parche 309»). Detalle en «Parche 309».
+  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 309'` y luego `scripts/registrar-parche.js 309 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO; marcar `toca_base_datos`).
+  El anterior, el 308 (`parches/campana-parche308.zip`, 129.197 bytes,
   sha256 `c016133c24f235728cab40cd537823907b6380afab101950c2dcc7812eeda297`, 17 archivos): «Encuestas internas, Fases 3 y 4: resultados con mínimo por celda, calidad y arreglos de las colas sin señal (Requiere el 307)».
   **Publicado y registrado el 9 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-308.zip` en el servidor de licencias con huella igual a la local (`c016133c24f23572`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
   **TOCA LA BASE** (`db/init-db.js`: `configuracion_campana.encuesta_min_celda`, 5 columnas de revisión en `encuesta_respuestas`, `texto_revisado`, la tabla `encuesta_cuotas` y la finalidad de las encuestas en la política de privacidad con su versión archivada; repetible; **probado sobre una base creada con la plantilla del 307**). **Requiere el 307.** Service worker `v178`. Cola sin señal: sigue `OFFLINE_DB_VERSION = 9`. Detalle en «Parche 308».
-  **El 307 sigue sin constar como publicado** (no se pegó la salida de su comando): si no está publicado, hay que publicarlo y activarlo ANTES que el 308.
+  **El 307 también está publicado y registrado INACTIVO** (lo dijo el usuario el 9 de noviembre de 2026 al pedir el 309; la salida de sus comandos no se vio desde esta cuenta, así que la huella, el HTTP y la firma no constan aquí): hay que activarlo ANTES que el 308, y los dos antes que el 309.
   El anterior, el 307 (`parches/campana-parche307.zip`, 195.819 bytes,
   sha256 `e06ac395d77e9146d4adb5d607e698566c01f888c494a4f15841b6045dc1b274`, 26 archivos): «Encuestas internas, Fases 1 y 2: constructor y campo sin señal (Requiere el 306)».
-  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR**: el comando lo corre el usuario como root (ver «Parche 307», abajo). Hasta que pegue su salida, no consta HTTP, firma ni estado.
+  Generado el 9 de noviembre de 2026; **publicado y registrado INACTIVO** según el usuario (9 de noviembre de 2026; sin la salida de su comando no constan desde aquí la huella, el HTTP ni la firma).
   **TOCA LA BASE** (`db/init-db.js`: 4 tablas `encuesta*` y los módulos `encuestas` y `encuestas_campo`, ambos APAGADOS de fábrica; repetible; **probado sobre una base creada con la plantilla del 306**). **Requiere el 306** (`lib/zonas.js` y la vuelta diaria de `solicitudesMantenimiento`). Service worker `v177`. Cola sin señal: **`OFFLINE_DB_VERSION = 9`**. Detalle en «Parche 307».
   El anterior, el 306 (`parches/campana-parche306.zip`, 168.452 bytes,
   sha256 `0f80b27e7b9fada7879f17cdc7c4f30e60fabbd42c1138b9c67abc2d161cbe5c`, 24 archivos): «Tareas, Fases 3 y 4: metas medibles, reuniones, por reasignar, cumplimiento y conservación de fotos (Requiere el 305)».
@@ -267,6 +272,64 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
+## Parche 309 — Puerta a puerta, Fases 0 y 1 (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+
+**Requiere el 308.** Service worker `v179`; `OFFLINE_DB_VERSION = 10`. Todo **apagado de fábrica**: los módulos `puerta_listas` (armar) y `puerta_visitas` (visitar) solo los ve el administrador. **Solo el modo (a)**: visitas a votantes YA REGISTRADOS. El modo (b) no se construye.
+
+**ANTES DE ENCENDERLO PARA EL EQUIPO: la política de privacidad tiene que mencionar la visita domiciliaria.** El parche NO la toca (orden expresa: el texto espera el visto bueno del dueño). Texto propuesto abajo.
+
+### Fase 0 — decisiones del dueño, tal como se aplicaron
+1. «Pidió no volver» = `votantes.no_visitar` (+ `no_visitar_fecha`, solo la fecha), **separada de `no_contactar`**. Casilla aparte «tampoco quiere mensajes» → `aplicarBajaDeFicha` con canal `en_persona` y origen `puerta_a_puerta`; se aplica **antes** de guardar la visita (si algo falla después, la persona ya quedó protegida). Lo hereda lo que ya hacía esa función: la baja se extiende a otras fichas con el mismo teléfono o correo.
+2. Copia local de la lista: por usuario (`puerta_cache`), **caduca a las 48 horas**, se borra al cerrar sesión o cambiar de cuenta (`COPIAS_SIN_SENAL`, en `cuentas-dispositivo.js`, y `OFFLINE_STORES_COPIA`, en `offline-utils.js`: la lista está duplicada a propósito). Sin cédula, teléfono, correo, `apoya_a`, observaciones ni consentimiento.
+3. Franja horaria **08:00–18:00** (hora de Colombia), configurable por el administrador entre 07:00 y 19:00 y de al menos una hora (`configuracion_campana.puerta_franja_desde/hasta`; `PUT /api/puerta-a-puerta/config`, auditado). Fuera de la franja **no se guarda** ni en el celular ni en el servidor. Se juzga con la hora de CAPTURA.
+4. «No abrió»: máximo 3 intentos con al menos 24 h entre uno y otro. «No interesado»: no se vuelve a asignar en 60 días.
+5. El día de la elección el módulo queda bloqueado (fecha de captura, también sin señal: el celular lee `fecha_eleccion` de su copia). **Los días previos no se bloquearon**: los consulta el abogado.
+6. Las visitas guardan **fecha y franja** (mañana < 12:00, tarde < 17:00, noche), nunca la hora. Ninguna columna de `puerta_visitas` lleva hora ni ubicación. La ubicación del líder, si la da, vive solo en memoria de la pantalla (nunca en IndexedDB ni en una petición).
+7. Retención: 6 meses después de la elección (`anonimizar_solicitudes_meses`), la vuelta diaria de `lib/solicitudesMantenimiento.js` pone `puerta_items.votante_id = NULL`; las visitas quedan con resultado, fecha, franja y barrio, sin persona.
+8. Política: **no publicada** (ver abajo).
+
+### Lo que se construyó
+- **Esquema** (`db/init-db.js`): `puerta_listas`, `puerta_items` (`votante_id` NULL-able, FK `ON DELETE SET NULL`), `puerta_visitas` (idempotente por `cliente_uuid`; copia el `territorio_id` de la ficha para el panel futuro), `votantes.no_visitar`, `votantes.no_visitar_fecha`, franja, y los dos módulos en `PERMISOS_POR_DEFECTO` y en la matriz (`routes/permisos.routes.js`).
+- **`public/js/puerta-reglas.js`**: UN archivo, en el servidor y en el celular, con franja, tope de intentos, las 24 horas, caducidad de la copia y el **puerto de `ordenarPorCercania`/`distanciaMetros`** (la prueba lo compara con el original del servidor sobre 3.000 casos al azar: idéntico). Las 24 horas se cuentan desde el FINAL de la franja del intento (no hay hora exacta que contar): es una cota prudente de 24 a 31 horas.
+- **`lib/puertaAPuerta.js`** y **`routes/puertaAPuerta.routes.js`** (`/api/puerta-a-puerta`): `GET/PUT /config`, `GET /zonas`, `GET /responsables`, `GET/POST /listas`, `POST /listas/:id/cerrar|cancelar`, `GET /mias`, `POST /visitas`. Quien arma ve **solo conteos**.
+- **Alcance de quien NO es quien arma** (`alcanceDeUsuario`): `{ usuarioId, cargo: rol, cargoMadre: null }`. Para líder y sublíder, `condicionAlcanceVotantes` solo mira `cargo` y `usuarioId`, así que es exactamente lo que `calcularAlcance` produciría si esa persona abriera la sesión (la prueba lo compara contra el middleware real). Al ARMAR se aplican **las dos** condiciones (la del que va a visitar y la de quien arma) más `rama_aspirante_id IS NULL`; al LEER se vuelve a aplicar la del visitante. Se le puede asignar solo a líder o sublíder activo de la campaña madre y dentro de `asignablesPara`.
+- **Aspirante con sublicencia: fuera.** La ruta no está en `PERMITIDOS` de `middleware/aspirante.js` y el router además la cierra con 403 por si alguien la agregara a esa lista.
+- **`GET /mias`**: respuesta `{ bloqueo, listas, config }` con `Cache-Control: no-store`. Por puerta, **exactamente**: `id, nombre, direccion, latitud, longitud, estado, intentos, ultimo_resultado, ultima_fecha, ultima_franja, reintento_desde` (lista cerrada comprobada por prueba). De una puerta **cerrada o agotada no viaja ni nombre, ni dirección, ni coordenadas**. Auditado cada vez que baja una lista (`puerta_lista_descarga`, con cuántas listas y personas, nunca quiénes); cada lista armada, cerrada y cancelada también.
+- **`public/app/puerta-a-puerta.html`**: ruta ordenada por cercanía en el celular, GPS opcional de una lectura solo en memoria, los seis resultados, cola `puerta_pendientes` (sin nombre ni dirección: solo la puerta, el resultado y el instante del toque, que se borra al subirse) con `sincronizarCola` (solo borra lo que el servidor confirmó), copia `puerta_cache`. Sin Google Maps, sin compartir, sin imprimir (la página sale en blanco), sin llamar, sin mapa. «Alguien quiere registrarse» abre `/app/registro-votante.html` y «Dejó una solicitud» abre `/app/solicitud-nueva.html`; **no se guarda de cuál visita vino** (no existe columna de enlace).
+- **`public/puerta-listas.html`** (escritorio, menú «Puerta a puerta»): armar, ver conteos, cerrar/cancelar y —solo el administrador— la franja. No estaba en la orden pero sin ella nadie podía armar una lista.
+- **Manuales**: `mod-puerta_listas`, `mod-puerta_visitas`, `t-puerta-armar`, `t-puerta-recorrer` (la prueba de manuales exige un bloque por módulo de la matriz).
+
+### Decisiones mías que conviene revisar
+- **Los 60 días se aplican a TODA puerta cerrada o agotada**, no solo a «no interesado»: de lo contrario, quien dijo «interesado» entraba en la lista siguiente al día siguiente (visitas repetidas). Es una constante (`DIAS_SIN_REASIGNAR`).
+- **Tope de 300 personas por lista** (`MAX_ITEMS_LISTA`), y una persona ya pendiente en otra lista activa no entra en una nueva.
+- **«Quiere registrarse» en el modo (a)**: la persona visitada ya está registrada, así que el botón se rotuló «Alguien quiere registrarse» (otra persona de la casa).
+- Una lista cerrada acepta lo capturado **antes** del cierre; una cancelada no acepta nada.
+- Al cortar el vínculo (retención) se pierde también la memoria de «60 días»: solo ocurre 6 meses después de la elección.
+- `votantes.updated_at` no se mueve cuando una visita marca `no_visitar` (`updated_at = updated_at`), para que la ficha no guarde la hora exacta de la visita. `aplicarBajaDeFicha` sí escribe `no_contactar_fecha` con la hora (evidencia de la baja; es existente).
+- **No hay pantalla para quitar `no_visitar`**: si alguien cambia de opinión, hoy es un `UPDATE` a mano.
+
+### Conteos de coordenadas (solo números)
+- **La Base (`electoraldb`), medido el 9 de noviembre de 2026: 0 fichas** en `votantes` (por tanto 0 con y 0 sin coordenadas).
+- **Las campañas: NO MEDIDO.** Esta cuenta no puede leer sus `.env` ni sus bases. Se dejó `scripts/contar-coordenadas-votantes.sh` (como root, de a una instalación; pide la clave con `read -rs`; solo `SELECT COUNT/SUM`; usa solo columnas que existen desde las primeras versiones, no `no_visitar`). **No se ejecutó** (no es root). La tabla `votantes` **no tiene columna de activo/inactivo**: «activos» = todas las fichas.
+
+### Política de privacidad — finalidad propuesta (NO publicada)
+Texto vigente de la Base (sembrado por defecto; las campañas pueden haberlo editado): la sección 2 lista los fines (organizar el trabajo, invitar a eventos, comunicarse, planear estrategias) y no menciona la visita domiciliaria. Las finalidades de solicitudes (303) y encuestas (308) se agregan al final de la sección 2 con `init-db`; la de visitas iría igual, como `agregarFinalidadVisitas` (frase de control `visita domiciliaria de la campaña`), **que NO existe todavía en el código**. Propuesta:
+
+> Si usted está registrado como votante de esta campaña, una persona del equipo —su líder o un sublíder— puede hacerle una **visita domiciliaria de la campaña** en la dirección que usted nos dio: saludarlo, presentarle la campaña y anotar cómo fue la visita (si nadie abrió, si no le interesó, si le interesó, si quiere registrar a otra persona de su casa, si nos dejó una necesidad de su barrio o si pidió que no volvamos). Para organizar las visitas, esa persona recibe en su celular una lista con su nombre, su dirección y una ubicación aproximada, que se guarda allí como máximo 48 horas. De cada visita guardamos solamente el día, si fue en la mañana, la tarde o la noche, y el resultado: no guardamos la hora exacta ni el lugar donde estaba quien lo visitó. «Le interesó» se refiere a su interés en conversar con la campaña; no registramos por quién va a votar ni lo escribimos en su ficha. Las visitas se hacen de día, nunca el día de la elección, y si nadie abre no volvemos más de tres veces. Usted puede pedirnos en cualquier momento que no lo visitemos más —a quien lo visite o por los canales de esta política— y lo respetamos sin ninguna consecuencia para usted; aparte, también puede pedirnos que no le escribamos. Pasado el plazo que fije la campaña después de la elección, separamos cada visita de su nombre y dejamos solo cifras por zona.
+
+**Para el abogado:** (1) quienes ya autorizaron antes de que exista esta finalidad no la conocían: `votantes.consentimiento_version` guarda la huella de la política que se les mostró, así que se podría exigir que solo entren en una lista las fichas cuya versión ya mencione la visita (dejaría la lista vacía hasta renovar autorizaciones). **No se implementó.** (2) «Interesado» bordea la opinión política (dato sensible, Ley 1581 art. 5) aunque no se escriba en la ficha. (3) Los días previos a la elección no se bloquearon.
+
+### Pruebas (cada suite sobre una base desechable nueva; mysqld privado, ya apagado y borrado)
+- **`probar-puerta-a-puerta.js` (nueva, 162):** migración y módulos apagados; lista cerrada de columnas de las tres tablas (sin hora, sin ubicación, sin identidad); reglas puras (franja con bordes, las 24 horas, caducidad, elección) y el puerto de `ordenarPorCercania` contra el original en 3.000 casos; permisos en los dos módulos y cada nivel; aspirante fuera; `alcanceDeUsuario` contra `calcularAlcance`; armar (sublíder solo lo suyo, omitidas por motivo, visitas repetidas, zona, tope); la lista mínima (columnas cerradas, sin secretos, cerradas sin persona); re-validación al leer; franja 08:00 incluida / 18:00 excluida y configurable; 3 intentos con 24 h; idempotencia (también en carrera); `no_visitar` no toca `no_contactar` y la casilla sí; 60 días; cerrar/cancelar; día de la elección por fecha de captura; auditoría; retención; código del celular; segunda corrida de init-db.
+- **`probar-puerta-a-puerta-celular.js` (nueva, 48, Chromium real, hora fija):** ruta por cercanía, GPS solo en memoria (ninguna petición lo lleva), copia sin secretos y con dueño, cola sin nombre ni dirección, subida única, rechazo que queda «fallido» (Reintentar/Descartar), «pidió no volver» con y sin mensajes, fuera de franja y elección también sin señal, caducidad 47/49 h, cambio de cuenta.
+- **Ajustadas** (fijaban la versión): `probar-encuestas` (IndexedDB 9 o 10; service worker v177–v179), `probar-solicitudes` y `probar-logistica`; `scripts/capturas/servidor.js` monta la ruta nueva.
+- **Regresión, 22 suites, todas bien** (`probar-manuales` falló a la primera por los bloques de manual que faltaban; ya están y pasa). No se corrió `probar-instalacion-limpia` (pide base y usuario de CloudPanel).
+
+### Lo que NO se hizo
+- **No se probó en la Base ni se reinició**: `init-db` contra `electoraldb` y `scripts/reiniciar-instancia.sh` son del usuario como root (con `electoraluser` `init-db` muere por `ER_BINLOG_CREATE_ROUTINE_NEED_SUPER`). Comandos, de a uno, **en el servidor, como root**: `cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && "$(ls -d /home/appestrategia-electoral/.nvm/versions/node/*/bin/node | sort -V | tail -1)" db/init-db.js` y después `bash scripts/reiniciar-instancia.sh appestrategia-electoral` (la prueba es que el PID cambió). La Base corre todavía el código anterior.
+- No se generó la plantilla v309 (la vigente sigue siendo la v308).
+- Sin precampaña nueva ni guion (Fase 3), sin mapa (Fase 2), sin panel de cobertura (Fase 4).
+
 ## Parche 308 — Encuestas internas, Fases 3 y 4 + arreglos de las colas sin señal (9 de noviembre de 2026, publicado y registrado INACTIVO, TOCA LA BASE)
 
 **Requiere el 307.** Service worker `v178`. Sigue todo **apagado de fábrica**: los resultados son del módulo `encuestas`; Calidad, Textos libres y el mínimo por celda son solo del administrador.
@@ -323,7 +386,7 @@ El guion de publicar debe terminar con la misma huella que la local (`c016133c24
 - La retención de textos y celdas usa el plazo de **solicitudes** (`anonimizar_solicitudes_meses`); confirmado que se **borran textos y celdas y se conservan las cifras**.
 - **Fuera de alcance, sin tocar:** `faltantes.html` y `dia-d.html` tienen sus propios botones para descartar de la cola (acciones de la persona, no borrados automáticos): no cambian.
 
-## Parche 307 — Encuestas internas, Fases 1 y 2 (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+## Parche 307 — Encuestas internas, Fases 1 y 2 (9 de noviembre de 2026, publicado y registrado INACTIVO según el usuario, TOCA LA BASE)
 
 **Requiere el 306.** Service worker `v177`. Cola sin señal: `OFFLINE_DB_VERSION = 9`. Todo vive en **dos módulos nuevos de la matriz, APAGADOS de fábrica** (solo el administrador): `encuestas` (construir) y `encuestas_campo` (aplicar en el celular). Quien aplica no ve resultados; los resultados son la Fase 3.
 Más dos arreglos de Solicitudes que se pidieron aparte (abajo, «Solicitudes»).
@@ -2680,3 +2743,8 @@ Rama: auditoria-fable | Commit: 61590c3 Recordatorios automáticos, Fases 0 y 1:
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-08 23:49 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 6fc68ec ESTADO.md: parche 306 publicado y registrado INACTIVO (toca la base, firmado) | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-09 01:26 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 781e570 ESTADO.md: parche 308 publicado y registrado INACTIVO (toca la base, firmado) | Sin commitear: 3 archivo(s)

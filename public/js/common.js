@@ -200,6 +200,8 @@ const NAV_ITEMS = [
       { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
       // Encuestas internas (parche 307). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `encuestas`. Aplicarlas es del celular (/app/encuestas-campo.html).
       { href: '/encuestas.html', texto: 'Encuestas internas', modulo: 'encuestas', roles: ['admin', 'coordinador'] },
+      // Puerta a puerta (parche 309). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `puerta_listas`. Recorrer la lista es del celular (/app/puerta-a-puerta.html).
+      { href: '/puerta-listas.html', texto: 'Puerta a puerta', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
     ]
   },
   {

@@ -44,6 +44,9 @@ const MODULOS = [
   // Encuestas internas: formularios cortos anónimos que el equipo aplica en campo, también sin señal. Dos módulos, para que quien aplica no vea resultados.
   { clave: 'encuestas', etiqueta: 'Encuestas internas (construir)' },
   { clave: 'encuestas_campo', etiqueta: 'Encuestas internas (aplicar en campo)' },
+  // Puerta a puerta: visitas a votantes ya registrados. Dos módulos, para que quien arma las listas no sea quien las recorre.
+  { clave: 'puerta_listas', etiqueta: 'Puerta a puerta (armar listas)' },
+  { clave: 'puerta_visitas', etiqueta: 'Puerta a puerta (visitar en campo)' },
   { clave: 'recursos', etiqueta: 'Información para compartir' },
   // Normas en PDF que el equipo técnico deja en la carpeta `legislacion/` de la
   // instalación; la aplicación solo las lista y las sirve (routes/legislacion.routes.js).

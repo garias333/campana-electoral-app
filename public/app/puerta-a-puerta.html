@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<meta name="robots" content="noindex, nofollow">
+<title>Puerta a puerta · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* PUERTA A PUERTA (parche 309): mi lista de visitas, ordenada por cercanía en el celular. */
+  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  .caja-pp { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px;  -webkit-user-select: none; user-select: none; }
+  .caja-pp .fila { display: flex; gap: 10px; align-items: flex-start; }
+  .caja-pp .num { flex: 0 0 auto; min-width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .caja-pp .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .caja-pp .dir { font-size: 0.9rem; margin-top: 2px; overflow-wrap: anywhere; }
+  .caja-pp .meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); margin-left: 4px; }
+  .etiqueta.roja { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
+  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
+  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
+  .resultados { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .resultados .btn-app { width: 100%; }
+  .resultados .ancho { grid-column: 1 / -1; }
+  .panel-volver { margin-top: 10px; background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 10px; font-size: 0.88rem; }
+  .panel-volver label { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+  .acciones { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .acciones .btn-app { flex: 1 1 120px; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+  .resumen-pp { display: flex; gap: 8px; margin: 10px 0 0; }
+  .resumen-pp div { flex: 1; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 8px; text-align: center; }
+  .resumen-pp b { display: block; font-size: 1.2rem; color: var(--navy); }
+  .resumen-pp span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+  .nota-pp { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
+  /* Sin imprimir: la lista lleva nombres y direcciones y no sale del celular. */
+  @media print { body { display: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div id="bloque-estado"></div>
+  <div class="resumen-pp" id="resumen" style="display:none;"></div>
+
+  <div id="bloque-pendientes" style="display:none;">
+    <p class="grupo-titulo">En este celular, sin subir</p>
+    <div id="lista-pendientes"></div>
+  </div>
+
+  <div id="lista-servidor"><p class="vacio-app">Cargando…</p></div>
+  <p id="nota-copia" class="meta" style="display:none; font-size:0.78rem; color:var(--muted);"></p>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/js/puerta-reglas.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE_COLA = 'puerta_pendientes';
+const STORE_COPIA = 'puerta_cache';
+const CLAVE_COPIA = 'mia';
+const R = PuertaReglas;
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+const RESULTADO_TXT = {
+  no_abrio: 'No abrió', no_interesado: 'No interesado', interesado: 'Interesado',
+  quiere_registrarse: 'Alguien quiere registrarse', solicitud: 'Dejó una solicitud', no_volver: 'Pidió no volver',
+};
+
+let base = null;           // lo último que dijo el servidor (o la copia de este celular), SIN lo que está en la cola
+let vista = null;          // base + lo que está en la cola (lo que se ve)
+let cola = [];
+let copiaDesde = null;     // cuándo se guardó la copia que se está mostrando (null = es del servidor ahora)
+let sinAcceso = false;
+let bloqueo = null;
+let abierto = null;        // item con el panel de «pidió no volver» desplegado
+let inicioGps = null;      // { lat, lon } SOLO en memoria: sirve para ordenar y no se guarda ni se manda a ningún lado
+
+function aviso(texto, tipo) {
+  const a = $('aviso');
+  a.textContent = texto || '';
+  a.className = 'aviso-app' + (texto ? ' visible ' + (tipo || 'error') : '');
+}
+function fechaCorta(texto) {                                 // 'YYYY-MM-DD HH:MM' → «12 nov, 12:00 p. m.»
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(texto || '');
+  if (!m) return texto || '';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const h = Number(m[4]);
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) + ', ' + ((h % 12) || 12) + ':' + m[5] + (h >= 12 ? ' p. m.' : ' a. m.');
+}
+
+/* ----- la franja y los topes, juzgados AQUÍ también: sin señal el celular tiene que negarse solo ----- */
+function franjaVigente() {
+  const c = base && base.config ? base.config : {};
+  const v = R.validarFranja(c.franja_desde || R.FRANJA_DESDE_DEFECTO, c.franja_hasta || R.FRANJA_HASTA_DEFECTO);
+  return v.ok ? v : R.validarFranja(R.FRANJA_DESDE_DEFECTO, R.FRANJA_HASTA_DEFECTO);
+}
+function motivoParaNoVisitar(item, ahora) {
+  const c = R.colombiaDe(ahora);
+  if (base && base.config && R.esDiaDeLaEleccion(base.config.fecha_eleccion, ahora)) return 'Hoy es el día de la elección: ese día no se hacen visitas.';
+  const f = franjaVigente();
+  if (!R.enFranja(c.minutos, f.desde, f.hasta)) return `Fuera del horario permitido (de ${f.desdeTexto} a ${f.hastaTexto}). Esta visita no se guarda.`;
+  if (item.ultima_fecha && !R.puedeReintentar(item.ultima_fecha, item.ultima_franja, ahora)) return `A esta puerta se puede volver desde el ${fechaCorta(R.reintentoDesde(item.ultima_fecha, item.ultima_franja))}.`;
+  return null;
+}
+
+/* ----- la cola: cada resultado se guarda primero en el celular, SIN nombre ni dirección (solo la puerta y el resultado) ----- */
+async function leerCola() { try { cola = await listarColaOffline(STORE_COLA); } catch (_) { cola = []; } return cola; }
+function cuerpoDeVisita(r) {
+  const p = r.payload || {};
+  return { cliente_uuid: r.clienteUuid, item_id: r.itemId, resultado: r.resultado, marcado_en: p.marcado_en, tampoco_mensajes: p.tampoco_mensajes ? 1 : 0 };
+}
+async function subirCola() {
+  const hay = (await leerCola()).filter((r) => r.estado !== 'fallido').length;
+  if (!hay) return;
+  try { await sincronizarCola(STORE_COLA, '/puerta-a-puerta/visitas', cuerpoDeVisita); } catch (_) { /* sin señal */ }
+}
+
+/* ----- lo que se ve: la base más lo que está en la cola ----- */
+function recontar(l) {
+  l.total = l.items.length;
+  l.pendientes = l.items.filter((i) => i.estado === 'pendiente').length;
+  l.cerradas = l.items.filter((i) => i.estado === 'cerrada').length;
+  l.agotadas = l.items.filter((i) => i.estado === 'agotada').length;
+}
+function aplicarLocal(datos, itemId, resultado, instante) {
+  const c = R.colombiaDe(instante), franja = R.franjaDe(c.minutos);
+  for (const l of datos.listas) {
+    for (const it of l.items) {
+      if (it.id !== itemId) continue;
+      it.ultimo_resultado = resultado; it.ultima_fecha = c.fecha; it.ultima_franja = franja;
+      if (resultado === 'no_abrio') {
+        it.intentos = Number(it.intentos) + 1;
+        it.estado = it.intentos >= R.MAX_INTENTOS ? 'agotada' : 'pendiente';
+        it.reintento_desde = it.estado === 'pendiente' ? R.reintentoDesde(c.fecha, franja) : null;
+      } else { it.estado = 'cerrada'; it.reintento_desde = null; }
+      if (it.estado !== 'pendiente') { it.nombre = null; it.direccion = null; it.latitud = null; it.longitud = null; }
+      recontar(l);
+    }
+  }
+}
+function armarVista() {
+  vista = base ? JSON.parse(JSON.stringify(base)) : null;
+  if (!vista) return;
+  cola.filter((r) => r.estado !== 'fallido').slice().sort((a, b) => (a.creadoEn || 0) - (b.creadoEn || 0))
+    .forEach((r) => aplicarLocal(vista, r.itemId, r.resultado, new Date((r.payload || {}).marcado_en)));
+}
+function itemsDeLaVista() { return vista ? vista.listas.reduce((t, l) => t.concat(l.items), []) : []; }
+
+/* ----- el dibujo ----- */
+function etiquetasDe(it) {
+  const e = [];
+  if (it.intentos > 0) e.push(`<span class="etiqueta ambar">Intento ${esc(it.intentos)} de ${esc(R.MAX_INTENTOS)}</span>`);
+  if (cola.some((r) => r.itemId === it.id && r.estado !== 'fallido')) e.push('<span class="etiqueta ambar">Esperando señal</span>');
+  return e.join('');
+}
+function cajaDe(it, n) {
+  const panel = abierto === it.id ? `<div class="panel-volver"><b>Pidió no volver.</b> No se le va a visitar más.
+      <label><input type="checkbox" id="chk-mensajes"> <span>Tampoco quiere mensajes (SMS, correo ni WhatsApp)</span></label>
+      <div class="acciones"><button type="button" class="btn-app btn-app-primario" data-confirmar-no-volver="${esc(it.id)}">Confirmar</button>
+      <button type="button" class="btn-app btn-app-secundario" data-cancelar-no-volver>Cancelar</button></div></div>` : '';
+  return `<div class="caja-pp" data-item="${esc(it.id)}"><div class="fila"><span class="num">${n}</span><div style="flex:1;min-width:0;">
+    <div class="nombre">${esc(it.nombre || '(sin nombre)')} ${etiquetasDe(it)}</div>
+    <div class="dir">${esc(it.direccion || '')}</div>
+    ${it.latitud === null || it.latitud === undefined ? '<div class="meta">Sin ubicación guardada: va al final de la ruta.</div>' : ''}
+    <div class="resultados">
+      <button type="button" class="btn-app btn-app-secundario" data-resultado="no_abrio" data-id="${esc(it.id)}">No abrió</button>
+      <button type="button" class="btn-app btn-app-secundario" data-resultado="no_interesado" data-id="${esc(it.id)}">No interesado</button>
+      <button type="button" class="btn-app btn-app-primario" data-resultado="interesado" data-id="${esc(it.id)}">Interesado</button>
+      <button type="button" class="btn-app btn-app-secundario" data-resultado="quiere_registrarse" data-id="${esc(it.id)}">Alguien quiere registrarse</button>
+      <button type="button" class="btn-app btn-app-secundario" data-resultado="solicitud" data-id="${esc(it.id)}">Dejó una solicitud</button>
+      <button type="button" class="btn-app btn-app-secundario" data-pedir-no-volver="${esc(it.id)}">Pidió no volver</button>
+    </div>${panel}</div></div></div>`;
+}
+function esperaDe(it) {
+  return `<div class="caja-pp"><div class="nombre">${esc(it.nombre || '')} ${etiquetasDe(it)}</div><div class="dir">${esc(it.direccion || '')}</div>
+    <div class="meta">Ya la tocaste. Se puede volver a tocar desde el ${esc(fechaCorta(it.reintento_desde))}.</div></div>`;
+}
+
+function pintarPendientes() {
+  $('bloque-pendientes').style.display = cola.length ? 'block' : 'none';
+  $('lista-pendientes').innerHTML = cola.slice().sort((a, b) => (b.creadoEn || 0) - (a.creadoEn || 0)).map((r) => {
+    const fallida = r.estado === 'fallido';
+    return `<div class="caja-pp"><div class="nombre">Una puerta <span class="etiqueta ${fallida ? 'roja' : 'ambar'}">${fallida ? 'No se pudo subir' : 'Esperando señal'}</span></div>
+      <div class="meta">${esc(RESULTADO_TXT[r.resultado] || r.resultado)}</div>
+      ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;">${esc(r.error || '')}</div><div class="acciones"><button type="button" class="btn-app btn-app-primario" data-reintentar="${esc(r.clienteUuid)}">Reintentar</button>
+        <button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}</div>`;
+  }).join('');
+  $('lista-pendientes').querySelectorAll('[data-reintentar]').forEach((b) => b.addEventListener('click', async () => {
+    const r = cola.find((x) => x.clienteUuid === b.dataset.reintentar);
+    if (!r) return;
+    delete r.estado; delete r.error;
+    await guardarEnColaOffline(STORE_COLA, r);
+    await subirCola();
+    await refrescar();
+  }));
+  $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('¿Descartar este resultado? No se subirá.')) return;
+    await borrarDeColaOffline(STORE_COLA, b.dataset.descartar);
+    await refrescar();
+  }));
+}
+
+function pintar() {
+  pintarPendientes();
+  const estado = $('bloque-estado');
+  estado.innerHTML = '';
+  $('resumen').style.display = 'none';
+  if (sinAcceso) { $('lista-servidor').innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitado el puerta a puerta. Pídeselo al administrador de la campaña.</p>'; return; }
+  if (bloqueo) { $('lista-servidor').innerHTML = `<p class="vacio-app">${esc(bloqueo)}</p>`; return; }
+  if (!vista) { $('lista-servidor').innerHTML = '<p class="vacio-app">No se pudo cargar la lista. Con señal se baja sola.</p>'; return; }
+  armarVista();
+  const todos = itemsDeLaVista();
+  if (!todos.length) { $('lista-servidor').innerHTML = '<p class="vacio-app">No tienes una lista de visitas asignada.</p>'; return; }
+
+  const ahora = new Date();
+  const f = franjaVigente();
+  estado.innerHTML = `<div class="nota-pp">Horario de visitas: de ${esc(f.desdeTexto)} a ${esc(f.hastaTexto)}. ${R.enFranja(R.colombiaDe(ahora).minutos, f.desde, f.hasta) ? '' : '<b>Ahora estás fuera del horario: no se guarda ninguna visita.</b>'}
+    <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-gps">📍 Ordenar desde donde estoy</button></div>
+    <div class="meta" id="estado-gps">${inicioGps ? 'Ordenada desde tu ubicación. Tu ubicación no se guarda ni se envía.' : 'Ordenada desde la primera puerta. Si quieres, ordénala desde donde estás: tu ubicación no se guarda ni se envía.'}</div></div>`;
+  $('btn-gps').addEventListener('click', tomarUbicacion);
+
+  const pend = todos.filter((i) => i.estado === 'pendiente');
+  const cerradas = todos.filter((i) => i.estado !== 'pendiente').length;
+  $('resumen').style.display = 'flex';
+  $('resumen').innerHTML = `<div><b>${esc(pend.length)}</b><span>Por visitar</span></div><div><b>${esc(todos.filter((i) => i.estado === 'cerrada').length)}</b><span>Cerradas</span></div><div><b>${esc(todos.filter((i) => i.estado === 'agotada').length)}</b><span>Sin respuesta</span></div>`;
+
+  // Las que ya se tocaron y todavía no se pueden volver a tocar, aparte; el resto, en la ruta.
+  const esperando = pend.filter((i) => i.ultima_fecha && !R.puedeReintentar(i.ultima_fecha, i.ultima_franja, ahora));
+  const enRuta = pend.filter((i) => !esperando.includes(i));
+  const orden = R.ordenarPorCercania(enRuta.map((i, k) => ({ id: i.id, orden: k, lat: i.latitud, lon: i.longitud })), inicioGps);
+  const porId = new Map(enRuta.map((i) => [i.id, i]));
+  let html = orden.length ? `<p class="grupo-titulo">Ruta sugerida (${orden.length})</p>${orden.map((id, k) => cajaDe(porId.get(id), k + 1)).join('')}` : '';
+  if (esperando.length) html += `<p class="grupo-titulo">Para volver más tarde (${esperando.length})</p>${esperando.map(esperaDe).join('')}`;
+  if (!pend.length) html += `<p class="vacio-app">No te quedan puertas por visitar. ${cerradas ? `Cerraste ${esc(cerradas)}.` : ''}</p>`;
+  $('lista-servidor').innerHTML = html;
+
+  const L = $('lista-servidor');
+  L.querySelectorAll('[data-resultado]').forEach((b) => b.addEventListener('click', () => registrar(Number(b.dataset.id), b.dataset.resultado)));
+  L.querySelectorAll('[data-pedir-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = Number(b.dataset.pedirNoVolver); pintar(); }));
+  L.querySelectorAll('[data-cancelar-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = null; pintar(); }));
+  L.querySelectorAll('[data-confirmar-no-volver]').forEach((b) => b.addEventListener('click', () => {
+    const tampoco = !!($('chk-mensajes') && $('chk-mensajes').checked);
+    registrar(Number(b.dataset.confirmarNoVolver), 'no_volver', { tampoco_mensajes: tampoco });
+  }));
+}
+
+/* ----- registrar el resultado de una puerta ----- */
+async function registrar(itemId, resultado, extra) {
+  aviso('');
+  const it = itemsDeLaVista().find((x) => x.id === itemId);
+  if (!it || it.estado !== 'pendiente') return aviso('Esa puerta ya no está por visitar.');
+  const ahora = new Date();
+  const motivo = motivoParaNoVisitar(it, ahora);
+  if (motivo) return aviso(motivo);                                    // fuera de la franja, ese día o antes de tiempo: NO se guarda, ni en el celular
+  if (cola.some((r) => r.itemId === itemId && r.estado !== 'fallido')) return aviso('Esa puerta ya tiene un resultado esperando señal.');
+  const registro = {
+    clienteUuid: generarUuid(), creadoEn: Date.now(), itemId, resultado,
+    payload: { marcado_en: ahora.toISOString(), tampoco_mensajes: !!(extra && extra.tampoco_mensajes) },
+  };
+  try { await guardarEnColaOffline(STORE_COLA, registro); }              // lo primero: que no se pierda aunque se cierre la app
+  catch (e) { return aviso('No se pudo guardar en este celular. Revisa el espacio disponible e inténtalo de nuevo.'); }
+  abierto = null;
+  // Una puerta con resultado final deja de necesitar nombre y dirección: se quitan también de la copia guardada.
+  if (resultado !== 'no_abrio' && base) {
+    base.listas.forEach((l) => l.items.forEach((x) => { if (x.id === itemId) { x.nombre = null; x.direccion = null; x.latitud = null; x.longitud = null; } }));
+    guardarCopiaOffline(STORE_COPIA, CLAVE_COPIA, base).catch(() => {});
+  }
+  await leerCola();
+  pintar();
+  const destino = resultado === 'quiere_registrarse' ? '/app/registro-votante.html' : (resultado === 'solicitud' ? '/app/solicitud-nueva.html' : null);
+  await subirCola();
+  if (destino) { location.href = destino; return; }                     // abre la pantalla normal; NO se guarda de cuál visita vino
+  await refrescar();
+  const resto = cola.find((r) => r.clienteUuid === registro.clienteUuid);
+  if (resto && resto.estado === 'fallido') return aviso(`${resto.error || 'No se pudo registrar.'} Quedó guardado en este celular: puedes reintentarlo o descartarlo.`);
+  aviso(resto ? 'Guardado en tu celular. Se sube solo cuando haya señal.' : 'Listo.', 'exito');
+}
+
+/* ----- ubicación: opcional, una sola lectura, SOLO en memoria ----- */
+function pedirUbicacion() {
+  return new Promise((resolver) => {
+    if (!navigator.geolocation) return resolver(null);
+    let hecho = false;
+    const fin = (v) => { if (!hecho) { hecho = true; resolver(v); } };
+    setTimeout(() => fin(null), 9000);
+    navigator.geolocation.getCurrentPosition((p) => fin({ lat: p.coords.latitude, lon: p.coords.longitude }), () => fin(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+  });
+}
+async function tomarUbicacion() {
+  $('estado-gps').textContent = 'Buscando tu ubicación…';
+  const u = await pedirUbicacion();
+  if (!u) { $('estado-gps').textContent = 'No se pudo obtener tu ubicación. Puedes seguir sin ella.'; return; }
+  inicioGps = u;
+  pintar();
+}
+
+/* ----- carga: la del servidor o, sin señal, la copia de ESTE usuario si no ha caducado ----- */
+async function cargarServidor() {
+  sinAcceso = false; bloqueo = null; copiaDesde = null;
+  let datos = null;
+  try {
+    datos = await api('/puerta-a-puerta/mias');
+    if (datos === undefined) datos = null;
+  } catch (e) {
+    if (e && e.status === 403) { sinAcceso = true; base = null; return false; }
+    datos = null;
+    if (e && e.status && !e.esErrorDeRed) { $('lista-servidor').innerHTML = '<p class="vacio-app">No se pudo cargar la lista. Inténtalo de nuevo en un momento.</p>'; }
+  }
+  if (datos) {
+    if (datos.bloqueo) {                                                // el día de la elección: no hay lista y la copia guardada se borra
+      bloqueo = datos.bloqueo.mensaje; base = null;
+      await borrarCopia();
+      return true;
+    }
+    base = datos;
+    if (datos.listas && datos.listas.length) await guardarCopiaOffline(STORE_COPIA, CLAVE_COPIA, datos).catch(() => {});
+    else await borrarCopia();
+    return true;
+  }
+  // Sin señal: la copia de ESTE usuario, mientras no haya caducado.
+  let copia = null;
+  try { copia = await leerCopiaOffline(STORE_COPIA, CLAVE_COPIA); } catch (_) { copia = null; }
+  if (!copia) { base = null; return false; }
+  if (R.caducoLaCopia(copia.guardadoEn)) {
+    await borrarCopia();
+    base = null;
+    bloqueo = 'La lista que tenías guardada en este celular caducó (dura 48 horas). Con señal se baja otra.';
+    return false;
+  }
+  if (copia.datos && copia.datos.config && R.esDiaDeLaEleccion(copia.datos.config.fecha_eleccion, new Date())) {
+    await borrarCopia();
+    base = null;
+    bloqueo = 'Hoy es el día de la elección y ese día no se hacen visitas.';
+    return false;
+  }
+  base = copia.datos; copiaDesde = copia.guardadoEn;
+  return true;
+}
+async function borrarCopia() {
+  try { const c = await leerCopiaOffline(STORE_COPIA, CLAVE_COPIA); if (c) await borrarDeColaOffline(STORE_COPIA, c.clienteUuid); } catch (_) { /* nada que borrar */ }
+}
+async function refrescar() {
+  await leerCola();
+  await cargarServidor();
+  await leerCola();
+  vista = base;
+  pintar();
+  const nota = $('nota-copia');
+  if (copiaDesde) {
+    nota.style.display = 'block';
+    nota.textContent = `Sin señal: se muestra la lista guardada en este celular. Caduca el ${new Date(copiaDesde + R.HORAS_COPIA * 3600 * 1000).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}.`;
+  } else if (base && base.config) {
+    nota.style.display = 'block';
+    nota.textContent = `Esta lista queda guardada en tu celular por ${R.HORAS_COPIA} horas, o hasta que cierres sesión.`;
+  } else nota.style.display = 'none';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Puerta a puerta', 'Tu lista de visitas', '/app/inicio.html');
+  await leerCola();
+  if (cola.length) await subirCola();
+  await refrescar();
+  window.addEventListener('online', async () => { await subirCola(); await refrescar(); });
+})();
+</script>
+</body>
+</html>
