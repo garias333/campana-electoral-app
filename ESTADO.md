@@ -296,6 +296,9 @@ limpio») estaban obsoletas y se reemplazaron.*
 - `scripts/capturas/navegador.js` ahora registra la URL de cada petición de la página (`peticiones`), para poder comprobar a dónde NO llama.
 - Las pruebas se aíslan del `.env`: borran `MAPBOX_ACCESS_TOKEN` (la Base tiene uno real) antes de correr.
 
+### Base
+El usuario reinició la Base el 9 de noviembre de 2026 (como root; salida pegada): «OK: pid 3643873 -> 3653820 y el puerto 3002 responde». Verificado desde esta cuenta: el proceso tiene minutos de vida. No hizo falta `init-db` (el 310 no toca la base). Los archivos de `public/` ya se servían desde el disco; el reinicio cargó `GET /mapa-config` y el arreglo de la carrera. **No se probó la pantalla con un navegador real contra la Base** (solo en bases desechables).
+
 ### Pruebas (cada suite sobre una base desechable nueva; mysqld privado, ya apagado y borrado)
 - **`probar-puerta-a-puerta-celular.js` (81, Chromium real):** la sección [13] nueva: Leaflet 1.9.4 de `/vendor/leaflet`; **cero peticiones a unpkg ni a Google**; pines numerados en el mismo orden que `ordenarPorCercania` (calculado en Node con las coordenadas de la base); línea en orden; ficha sin coordenadas al final; tocar un pin/un número; lo único que sale a la red son teselas `zoom/x/y`; «Mi ubicación» (reorden, línea desde el punto, **ni en un cuerpo ni en una URL**, ni guardada); **con la red cortada (CDP offline)** los 4 pines y la línea siguen, sin teselas, sobre fondo liso, y la lista opera y sube al volver; con token el fondo es Mapbox; `/tareas.html` y `/solicitudes.html` abren su mapa con el Leaflet local.
 - **`probar-puerta-a-puerta.js` (194):** `GET /mapa-config`, service worker `v180` con Leaflet en la coraza, sin unpkg en las tres pantallas, referrer, y la carrera.
