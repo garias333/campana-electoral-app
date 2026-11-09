@@ -561,7 +561,7 @@ const politica = (extra = {}) => Object.assign({
   /* ====================================================================================== 11. el código del celular */
   console.log('\n[11] El código del celular: versión 9, cola, service worker, solicitudes');
   const off = leer('public/js/offline-utils.js');
-  ok(/OFFLINE_DB_VERSION = (?:9|10);/.test(off), 'OFFLINE_DB_VERSION = 9 (10 desde el parche 309)');
+  ok(/OFFLINE_DB_VERSION = (?:9|1[01]);/.test(off), 'OFFLINE_DB_VERSION = 9 (10 desde el parche 309)');
   const stores = /const OFFLINE_STORES = \[([\s\S]*?)\];/.exec(off)[1];
   ok(/'encuestas_pendientes'/.test(stores) && /'encuestas_cache'/.test(stores) && /'solicitudes_pendientes'/.test(stores) && /'tareas_pendientes'/.test(stores), 'los cajones nuevos están y los anteriores siguen (IndexedDB solo agrega los que faltan)');
   ok(/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_cache'[^\]]*\]/.test(off) && !/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_pendientes'/.test(off), 'encuestas_cache es una COPIA (por usuario) y encuestas_pendientes es una COLA (con dueño, no se borra al cambiar de cuenta)');

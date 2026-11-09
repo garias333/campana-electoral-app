@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v182';
+const CACHE_NAME = 'estrategia-v183';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -59,6 +59,8 @@ const ARCHIVOS_CASCARON = [
   '/js/encuestas-cola.js',
   // Puerta a puerta (parche 309): la lista se trabaja sin señal (la copia —con caducidad de 48 horas— y la cola viven en IndexedDB). Las reglas son el mismo archivo
   // que usa el servidor.
+  // Eventos en el celular (parche 313): mis eventos y la asistencia se trabajan sin señal (la copia —48 horas— y la cola de marcas viven en IndexedDB).
+  '/app/eventos.html',
   '/app/puerta-a-puerta.html',
   '/js/puerta-reglas.js',
   // El mapa de Puerta a puerta (parche 310): Leaflet es de esta app (nunca de un CDN) para que dibuje los pines y la línea SIN señal. Las TESELAS del fondo no se

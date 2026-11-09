@@ -242,7 +242,7 @@ async function cargarEventos() {
       <td>${ev.responsable_nombre || '—'}</td>
       <td>${ev.coordinador_nombre || '—'}</td>
       <td>${ev.lider_nombre || '—'}</td>
-      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}<div style="font-size:.74rem;color:var(--color-text-muted);">asistieron ${Number(ev.total_asistio) || 0}</div></td>
       <td>${etiquetasEstado[ev.estado] || ev.estado}</td>
       <td style="white-space:nowrap;">
         ${['admin', 'coordinador', 'lider'].includes(usuarioActual.rol) ? `<button class="btn-sec-neutro" onclick='abrirEdicion(${JSON.stringify(ev).replace(/'/g, "&apos;")})'>Editar</button>` : ''}

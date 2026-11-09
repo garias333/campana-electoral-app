@@ -557,12 +557,12 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   /* ============================================================ 18. el código del celular y del escritorio */
   console.log('\n[18] El código del celular: copia de 48 horas por usuario, cola, service worker, sin mapas ni compartir');
   const pag = leer('public/app/puerta-a-puerta.html'), off = leer('public/js/offline-utils.js'), cuentas = leer('public/js/cuentas-dispositivo.js'), sw = leer('public/service-worker.js');
-  ok(/OFFLINE_DB_VERSION = 10;/.test(off), 'OFFLINE_DB_VERSION = 10');
+  ok(/OFFLINE_DB_VERSION = (?:10|11);/.test(off), 'OFFLINE_DB_VERSION = 10 (11 desde el parche 313)');
   const stores = /const OFFLINE_STORES = \[([\s\S]*?)\];/.exec(off)[1];
   ok(/'puerta_pendientes'/.test(stores) && /'puerta_cache'/.test(stores) && /'encuestas_cache'/.test(stores) && /'tareas_pendientes'/.test(stores), 'los cajones nuevos están y los anteriores siguen');
   ok(/OFFLINE_STORES_COPIA = \[[^\]]*'puerta_cache'[^\]]*\]/.test(off) && !/OFFLINE_STORES_COPIA = \[[^\]]*'puerta_pendientes'/.test(off), 'puerta_cache es una COPIA (por usuario) y puerta_pendientes es una COLA (con dueño)');
   ok(/COPIAS_SIN_SENAL = \[[^\]]*'puerta_cache'[^\]]*\]/.test(cuentas), 'cuentas-dispositivo.js borra la copia al cerrar sesión o cambiar de cuenta (lista duplicada a propósito)');
-  ok(/estrategia-v182/.test(sw) && ["'/app/puerta-a-puerta.html'", "'/js/puerta-reglas.js'", "'/vendor/leaflet/leaflet.js'", "'/vendor/leaflet/leaflet.css'"].every((u) => sw.includes(u)), 'service worker v182 con la pantalla, las reglas y el Leaflet local en la coraza (el mapa dibuja sin señal)');
+  ok(/estrategia-v183/.test(sw) && ["'/app/puerta-a-puerta.html'", "'/js/puerta-reglas.js'", "'/vendor/leaflet/leaflet.js'", "'/vendor/leaflet/leaflet.css'"].every((u) => sw.includes(u)), 'service worker v183 con la pantalla, las reglas y el Leaflet local en la coraza (el mapa dibuja sin señal)');
   ok(/if \(url\.origin !== self\.location\.origin\) return;/.test(sw), 'y sigue sin tocar recursos de otro origen: las teselas del fondo no se guardan');
   ok(/respuesta === undefined\) break;/.test(off), 'sincronizarCola solo borra lo que el servidor confirmó (un 401 devuelve undefined y no se borra nada)');
   ok(/sincronizarCola\(STORE_COLA, '\/puerta-a-puerta\/visitas'/.test(pag) && /caducoLaCopia\(copia\.guardadoEn\)/.test(pag) && /guardarCopiaOffline\(STORE_COPIA/.test(pag), 'la pantalla usa la cola, la copia por usuario y la caducidad de 48 horas');

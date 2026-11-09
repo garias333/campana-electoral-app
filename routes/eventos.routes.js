@@ -9,9 +9,14 @@ const { geocodificarConTerritorio } = require('../config/geoTerritorio');
 const { armarWhereSql } = require('../config/filtros');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { verificarPasswordAdmin } = require('../config/verificaciones');
+const Asis = require('../lib/asistenciaEventos');
+const { limiteBuscarCedula } = require('../lib/busquedaCedula');
+const { normalizarCedula, buscarFichaPorCedula } = require('../lib/normalizarCedula');
+const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 
 const router = express.Router();
 router.use(requireAuth, calcularAlcance);
+const json = express.json({ limit: '20kb' });
 
 /* EL PERMISO DEL MÓDULO, EN EL SERVIDOR, Y EL ALCANCE (parche 305). Hasta el 304 este archivo solo pedía sesión: cualquier rol con cuenta
    listaba todos los eventos y leía nombre, teléfono y cédula de todos los asistentes. Ahora:
@@ -89,6 +94,50 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * LOS EVENTOS DEL CELULAR (parche 313): los de hoy, los próximos y los de los últimos 7 días, dentro del MISMO alcance que `GET /` (lib/alcanceEventos.js), con sus
+ * invitados reducidos a lo que el celular necesita: id, NOMBRE, BARRIO y si asistió. Nunca teléfono ni cédula —ni siquiera para el administrador o el responsable: la pantalla
+ * del celular no los necesita y la copia que queda en el teléfono no debe llevarlos—, ni el correo, ni el vínculo con la ficha del votante.
+ * `puede_marcar` y `puede_agregar` dicen qué botones ofrecer en cada evento (el servidor vuelve a exigirlo al recibir cada marca).
+ */
+const MAX_EVENTOS_MOVIL = 60, MAX_ASISTENTES_MOVIL = 600, HORAS_COPIA_EVENTOS = 48;
+router.get('/movil', async (req, res) => {
+  try {
+    const a = alcanceEventos(req.alcance, 'e');
+    const [eventos] = await pool.query(
+      `SELECT e.id, e.titulo, e.tipo, DATE_FORMAT(e.fecha_inicio, '%Y-%m-%d %H:%i') AS fecha_inicio, DATE_FORMAT(e.fecha_fin, '%Y-%m-%d %H:%i') AS fecha_fin, e.lugar, e.meta_asistentes,
+              (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id) AS total_invitados,
+              (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id AND ea.asistio = 1) AS total_asistio
+         FROM eventos e WHERE ${a.sql} AND e.fecha_inicio >= DATE_SUB(CURDATE(), INTERVAL ${Number(Asis.VENTANA_DIAS)} DAY)
+        ORDER BY e.fecha_inicio ASC, e.id ASC LIMIT ${MAX_EVENTOS_MOVIL}`, a.valores);
+    const ids = eventos.map((e) => e.id);
+    let marcables = new Set(), asistentes = [];
+    if (ids.length) {
+      const sc = Asis.alcanceMarcar(req.alcance, req.session.usuario.rol, 'e');
+      const [m] = await pool.query(`SELECT e.id FROM eventos e WHERE e.id IN (?) AND ${sc.sql}`, [ids, ...sc.valores]);
+      marcables = new Set(m.map((f) => Number(f.id)));
+      [asistentes] = await pool.query(
+        `SELECT ea.id, ea.evento_id, ea.asistio, COALESCE(v.nombre, u.nombre, ea.nombre_invitado) AS nombre, COALESCE(tv.nombre, u.barrio_residencia) AS barrio
+           FROM evento_asistentes ea LEFT JOIN votantes v ON v.id = ea.votante_id LEFT JOIN usuarios u ON u.id = ea.usuario_id LEFT JOIN territorios tv ON tv.id = v.territorio_id
+          WHERE ea.evento_id IN (?) ORDER BY nombre ASC, ea.id ASC LIMIT ${MAX_ASISTENTES_MOVIL * MAX_EVENTOS_MOVIL}`, [ids]);
+    }
+    const porEvento = new Map(ids.map((id) => [id, []]));
+    asistentes.forEach((f) => { const l = porEvento.get(f.evento_id); if (l && l.length < MAX_ASISTENTES_MOVIL) l.push({ id: f.id, nombre: f.nombre || '(sin nombre)', barrio: f.barrio || null, asistio: Number(f.asistio) === 1 }); });
+    const agrega = Asis.ROLES_QUE_AGREGAN.includes(req.session.usuario.rol);
+    res.json({
+      eventos: eventos.map((e) => ({
+        id: e.id, titulo: e.titulo, tipo: e.tipo, fecha_inicio: e.fecha_inicio, fecha_fin: e.fecha_fin, lugar: e.lugar, meta_asistentes: Number(e.meta_asistentes) || 0,
+        total_invitados: Number(e.total_invitados), total_asistio: Number(e.total_asistio),
+        puede_marcar: marcables.has(Number(e.id)), puede_agregar: agrega && marcables.has(Number(e.id)), asistentes: porEvento.get(e.id),
+      })),
+      config: { horas_copia: HORAS_COPIA_EVENTOS, caduca_en: new Date(Date.now() + HORAS_COPIA_EVENTOS * 3600 * 1000).toISOString() },
+    });
+  } catch (err) {
+    console.error('[eventos] movil:', err.code || err.message);
+    res.status(500).json({ error: 'Error consultando tus eventos.' });
+  }
+});
+
 router.get('/:id/asistentes', verAsistentes, async (req, res) => {
   try {
     const evento = await eventoEnAlcance(req, req.params.id);
@@ -113,7 +162,11 @@ router.get('/:id/asistentes', verAsistentes, async (req, res) => {
     );
     // El teléfono y la cédula: solo el administrador y el responsable del evento. Los demás reciben nombre, barrio y asistencia.
     const contactos = veContactos(req.alcance, evento);
-    res.json(rows.map((r) => (contactos ? { ...r, contactos_visibles: true } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false })));
+    // ¿Quien mira puede marcar «asistió» en ESTE evento? (parche 313: el escritorio muestra el botón solo si sí). Un sublíder: solo si es responsable o está invitado.
+    const sc = Asis.alcanceMarcar(req.alcance, req.session.usuario.rol, 'e');
+    const [[pm]] = await pool.query(`SELECT COUNT(*) AS n FROM eventos e WHERE e.id = ? AND ${sc.sql}`, [evento.id, ...sc.valores]);
+    const puedeMarcar = Number(pm.n) > 0;
+    res.json(rows.map((r) => (contactos ? { ...r, contactos_visibles: true, puede_marcar: puedeMarcar } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false, puede_marcar: puedeMarcar })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los asistentes del evento.' });
@@ -408,18 +461,85 @@ router.post('/:id/asistentes', requireRole('admin', 'coordinador', 'lider'), asy
   }
 });
 
-router.put('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'lider'), async (req, res) => {
-  const { confirmado, asistio } = req.body;
+/**
+ * Marca la asistencia (y, solo quien gestiona el evento, la confirmación). Cuerpo: { asistio?, confirmado?, marcado_en? }. SOLO cambia lo que llega: antes (hasta el 312)
+ * este PUT escribía las dos columnas siempre, y mandar solo `asistio` habría borrado la confirmación. El sublíder solo puede marcar `asistio`.
+ */
+router.put('/asistentes/:asistenteId', requireRole('admin', 'coordinador', 'lider', 'sublider'), json, async (req, res) => {
   try {
-    if (!(await asistenteGestionable(req, req.params.asistenteId))) return res.status(404).json(NO_ES_SUYO);
-    await pool.query(
-      `UPDATE evento_asistentes SET confirmado = ?, asistio = ? WHERE id = ?`,
-      [confirmado ? 1 : 0, asistio ? 1 : 0, req.params.asistenteId]
-    );
-    res.json({ ok: true });
+    const usuario = req.session.usuario;
+    const asistio = Asis.aBooleano(req.body && req.body.asistio), confirmado = Asis.aBooleano(req.body && req.body.confirmado);
+    if (asistio === undefined && confirmado === undefined) return res.status(400).json({ error: 'Indica si asistió (asistio) o si confirmó (confirmado).' });
+    if (usuario.rol === 'sublider' && confirmado !== undefined) return res.status(403).json({ error: 'Tu tipo de usuario solo puede marcar si la persona asistió.' });
+    let r = null;
+    if (asistio !== undefined) {
+      r = await Asis.marcarAsistencia({ asistenteId: req.params.asistenteId, asistio, marcadoMs: Asis.capturaMs(req.body.marcado_en), usuario, alcance: req.alcance });
+      if (!r) return res.status(404).json(NO_ES_SUYO);
+    }
+    if (confirmado !== undefined) {
+      if (!(await asistenteGestionable(req, req.params.asistenteId))) return res.status(404).json(NO_ES_SUYO);
+      await pool.query('UPDATE evento_asistentes SET confirmado = ? WHERE id = ?', [confirmado ? 1 : 0, req.params.asistenteId]);
+    }
+    if (r && !r.ignorada) {
+      await registrarAuditoria(usuario.id, 'evento_asistencia', 'evento_asistentes', r.id, `Marcó ${r.asistio ? '«asistió»' : '«no asistió»'} en el evento n.º ${r.evento_id}.`, req.ip);
+    }
+    res.json({ ok: true, ...(r ? { asistio: r.asistio, ignorada: r.ignorada, total_invitados: r.total_invitados, total_asistio: r.total_asistio } : {}) });
   } catch (err) {
+    if (err && err.estado) return res.status(err.estado).json({ error: err.mensaje });
     console.error(err);
     res.status(500).json({ error: 'Error actualizando el asistente.' });
+  }
+});
+
+/**
+ * La marca del CELULAR (lo que su cola sin señal sube): la misma regla que el PUT, en POST porque la cola de offline-utils.js sube con POST. Cuerpo:
+ * { cliente_uuid, asistente_id, asistio, marcado_en }. Es idempotente por ser un ESTADO con el instante de captura: subirla dos veces, o fuera de orden, deja lo mismo.
+ */
+router.post('/asistencias', requireRole('admin', 'coordinador', 'lider', 'sublider'), json, async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (!Asis.UUID.test(String(b.cliente_uuid || '').trim())) return res.status(400).json({ error: 'Falta el identificador del registro (cliente_uuid).' });
+    const asistio = Asis.aBooleano(b.asistio);
+    if (asistio === undefined) return res.status(400).json({ error: 'Indica si asistió (asistio).' });
+    if (b.marcado_en === undefined || b.marcado_en === null || b.marcado_en === '') return res.status(400).json({ error: 'Falta la hora en que se hizo la marca (marcado_en).' });
+    const marcadoMs = Asis.capturaMs(b.marcado_en);
+    const usuario = req.session.usuario;
+    const r = await Asis.marcarAsistencia({ asistenteId: b.asistente_id, asistio, marcadoMs, usuario, alcance: req.alcance });
+    if (!r) return res.status(404).json({ error: 'Esa persona ya no está en ese evento, o el evento no es de tu equipo.' });
+    if (!r.ignorada) await registrarAuditoria(usuario.id, 'evento_asistencia', 'evento_asistentes', r.id, `Marcó ${r.asistio ? '«asistió»' : '«no asistió»'} en el evento n.º ${r.evento_id} (desde el celular).`, req.ip);
+    res.json({ ok: true, asistio: r.asistio, ignorada: r.ignorada, total_invitados: r.total_invitados, total_asistio: r.total_asistio });
+  } catch (err) {
+    if (err && err.estado) return res.status(err.estado).json({ error: err.mensaje });
+    console.error('[eventos] asistencias:', err.code || err.message);
+    res.status(500).json({ error: 'Error guardando la asistencia.' });
+  }
+});
+
+/**
+ * «Agregar asistente» por cédula, desde el celular: la persona tiene que ser un votante del equipo de quien pregunta (la misma regla de alcance que su lista de votantes).
+ * Si no hay nadie con esa cédula en su equipo responde lo mismo que si no existiera —no dice si existe fuera de su alcance—. Si ya está en el evento, devuelve la misma fila.
+ * Devuelve solo { id, nombre, barrio, asistio }: nunca el teléfono ni la cédula. Solo administrador, coordinador y líder, y solo en eventos que gestionan.
+ */
+router.post('/:id/asistentes-por-cedula', requireRole('admin', 'coordinador', 'lider'), limiteBuscarCedula, json, async (req, res) => {
+  try {
+    const evento = await eventoEnAlcance(req, req.params.id, true);
+    if (!evento) return res.status(404).json(NO_ES_SUYO);
+    const cedula = normalizarCedula(req.body && req.body.cedula);
+    if (!cedula || String(cedula).length < 5) return res.status(400).json({ error: 'Escribe el número de cédula (al menos 5 dígitos).' });
+    const NO_ESTA = { error: 'No encontré a nadie con esa cédula en tu equipo. Si es una persona nueva, pídele a quien coordina que la registre.' };
+    const hallada = await buscarFichaPorCedula(pool, cedula);
+    if (!hallada) return res.status(404).json(NO_ESTA);
+    const [[v]] = await pool.query(
+      `SELECT v.id, v.nombre, tv.nombre AS barrio FROM votantes v LEFT JOIN territorios tv ON tv.id = v.territorio_id WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')}`,
+      [hallada, ...parametrosAlcanceVotantes(req.alcance)]);
+    if (!v) return res.status(404).json(NO_ESTA);
+    const [[ya]] = await pool.query('SELECT id, asistio FROM evento_asistentes WHERE evento_id = ? AND votante_id = ? LIMIT 1', [evento.id, v.id]);
+    if (ya) return res.json({ ok: true, duplicado: true, asistente: { id: ya.id, nombre: v.nombre, barrio: v.barrio || null, asistio: Number(ya.asistio) === 1 } });
+    const [r] = await pool.query('INSERT INTO evento_asistentes (evento_id, votante_id) VALUES (?, ?)', [evento.id, v.id]);
+    res.json({ ok: true, duplicado: false, asistente: { id: r.insertId, nombre: v.nombre, barrio: v.barrio || null, asistio: false } });
+  } catch (err) {
+    console.error('[eventos] asistente por cédula:', err.code || err.message);
+    res.status(500).json({ error: 'Error agregando el asistente.' });
   }
 });
 

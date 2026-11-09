@@ -185,7 +185,7 @@
 
     <div class="tabla-contenedor" style="margin-top:10px;">
       <table class="tabla-alineada">
-        <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Identidad</th><th>Teléfono</th><th class="col-barrio-vereda" data-columna="barrio-vereda">Barrio</th><th>Asistencia</th><th></th></tr></thead>
         <tbody id="tbody-asistentes"></tbody>
       </table>
     </div>
@@ -252,7 +252,7 @@ function renderizarEventosAsistentes() {
       <td><span class="tag-tipo">${etiquetasTipoEventoAsistentes[ev.tipo] || ev.tipo}</span></td>
       <td>${formatoFecha(ev.fecha_inicio, true)}</td>
       <td>${escaparHtml(ev.lugar || '—')}</td>
-      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}</td>
+      <td class="mono col-num">${ev.total_invitados}${ev.meta_asistentes ? '/' + ev.meta_asistentes : ''}<div style="font-size:.74rem;color:var(--color-text-muted);">asistieron ${Number(ev.total_asistio) || 0}</div></td>
       <td style="white-space:nowrap;">
         <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "agregar")'>Registrar asistencia</button>
         <button class="btn-sec-neutro" onclick='abrirAsistentes(${JSON.stringify({ id: ev.id, titulo: ev.titulo }).replace(/'/g, "&apos;")}, "ver")'>Ver asistentes</button>
@@ -334,8 +334,10 @@ document.getElementById('filtro-repetidos-consolidado').addEventListener('change
  * sin el buscador de por medio — con un botón "+ Agregar asistente" por
  * si de una vez quiere agregar a alguien más.
  */
+let tituloEventoActual = '';
 async function abrirAsistentes(ev, modo) {
   eventoActualId = ev.id;
+  tituloEventoActual = ev.titulo;
   document.getElementById('titulo-modal-asistentes').textContent = `Asistentes — ${ev.titulo}`;
   document.getElementById('asistentes-error').classList.remove('visible');
   document.getElementById('input-buscar-votante').value = '';
@@ -360,6 +362,8 @@ document.getElementById('btn-mostrar-agregar-asistente').addEventListener('click
 
 async function cargarAsistentesEvento() {
   const filas = await api(`/eventos/${eventoActualId}/asistentes`);
+  const asistieron = filas.filter((a) => Number(a.asistio) === 1).length;
+  document.getElementById('titulo-modal-asistentes').textContent = `Asistentes — ${tituloEventoActual} · asistieron ${asistieron} de ${filas.length}`;
   const tbody = document.getElementById('tbody-asistentes');
   document.getElementById('vacio-asistentes').style.display = filas.length ? 'none' : 'block';
   document.getElementById('nota-contactos').style.display = filas.length && filas.some(a => a.contactos_visibles === false) ? 'block' : 'none';
@@ -369,9 +373,28 @@ async function cargarAsistentesEvento() {
       <td class="mono">${escaparHtml(a.identidad_resuelta || '—')}</td>
       <td>${celdaTelefonoWhatsApp(a.telefono_resuelto)}</td>
       <td class="col-barrio-vereda">${escaparHtml(nombreLugar(a.barrio_resuelto) || '—')}</td>
+      <td style="white-space:nowrap;">${celdaAsistencia(a)}</td>
       <td><button type="button" class="btn-sec-neutro btn-sec-peligro" onclick="quitarAsistente(${a.id})">Quitar</button></td>
     </tr>
   `).join('');
+}
+
+/** La celda «Asistencia» de un asistente (parche 313): su estado y el botón para cambiarlo. Sin permiso para marcar en este evento, solo el estado. */
+function celdaAsistencia(a) {
+  const asistio = Number(a.asistio) === 1;
+  const estado = asistio ? '<strong style="color:#1E7B4F;">Asistió</strong>' : '<span style="color:var(--color-text-muted);">Sin marcar</span>';
+  if (!a.puede_marcar) return estado;
+  return `${estado} <button type="button" class="btn-sec-neutro" data-asistencia="${a.id}" onclick="marcarAsistenciaDe(${a.id}, ${asistio ? 'false' : 'true'})">${asistio ? 'No asistió' : 'Asistió'}</button>`;
+}
+
+async function marcarAsistenciaDe(id, valor) {
+  try {
+    await api(`/eventos/asistentes/${id}`, { method: 'PUT', body: { asistio: valor } });
+    await cargarAsistentesEvento();
+    await cargarEventosAsistentes();          // el contador «asistieron» de la tabla de eventos
+  } catch (err) {
+    alert(err.message || 'No se pudo guardar la asistencia.');
+  }
 }
 
 async function quitarAsistente(id) {

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<meta name="robots" content="noindex, nofollow">
+<title>Eventos · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* EVENTOS EN EL CELULAR (parche 313): mis eventos y la asistencia, también sin señal. Los invitados se ven solo con nombre y barrio: nunca teléfono ni cédula. */
+  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
+  .caja-ev { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; cursor: pointer; }
+  .caja-ev .titulo { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .caja-ev .meta { font-size: 0.84rem; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
+  .caja-ev .cifras { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .etiqueta { display: inline-block; font-size: 0.74rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); border: 1px solid var(--linea); }
+  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
+  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
+  .cab-ev { margin: 0 0 12px; }
+  .cab-ev h2 { margin: 6px 0 2px; font-size: 1.1rem; color: var(--navy); overflow-wrap: anywhere; }
+  .fila-asis { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
+  .fila-asis .quien { flex: 1; min-width: 0; }
+  .fila-asis .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .fila-asis .barrio { font-size: 0.82rem; color: var(--muted); }
+  .fila-asis .btn-app { flex: 0 0 auto; min-width: 118px; min-height: 52px; font-size: 1rem; }
+  .fila-asis.marcada { background: #f1faf5; border-color: #b7e0c8; }
+  .btn-asistio.marcado { background: #1e7b4f; color: #fff; border-color: #1e7b4f; }
+  .bloque-agregar { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; }
+  .bloque-agregar input, .buscador input { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 12px; border: 1px solid var(--linea); border-radius: 10px; }
+  .acciones { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+  .nota-ev { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
+  @media print { body { display: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div id="bloque-pendientes" style="display:none;"><p class="grupo-titulo">En este celular, sin subir</p><div id="lista-pendientes"></div></div>
+  <div id="vista"><p class="vacio-app">Cargando…</p></div>
+  <p id="nota-copia" class="meta" style="display:none; font-size:0.78rem; color:var(--muted);"></p>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE_COLA = 'eventos_pendientes';
+const STORE_COPIA = 'eventos_cache';
+const CLAVE_COPIA = 'mia';
+const HORAS_COPIA = 48;
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+
+let base = null;            // lo último que dijo el servidor (o la copia de este celular), SIN lo que está en la cola
+let vista = null;           // base + lo que está en la cola (lo que se ve)
+let cola = [];
+let copiaDesde = null;      // cuándo se guardó la copia que se muestra (null = es del servidor ahora)
+let sinAcceso = false;
+let abierto = null;         // id del evento abierto (null = la lista de eventos)
+let buscar = '';            // texto del buscador de invitados
+
+const hoyColombia = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function fechaLinda(f) {                       // 'YYYY-MM-DD HH:MM' → «mar 12 nov · 3:00 p. m.»
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(f || '');
+  if (!m) return '';
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
+  return new Intl.DateTimeFormat('es-CO', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(d);
+}
+
+/* ----- la cola de marcas ----- */
+async function leerCola() { try { cola = await listarColaOffline(STORE_COLA); } catch (_) { cola = []; } return cola; }
+function cuerpoDeMarca(r) {
+  const p = r.payload || {};
+  return { cliente_uuid: r.clienteUuid, asistente_id: r.asistenteId, asistio: p.asistio ? 1 : 0, marcado_en: p.marcado_en };
+}
+/* DE A UNA: las subidas se ponen en fila para que el mismo registro no viaje dos veces a la vez. */
+let subiendo = Promise.resolve();
+async function subirColaUnaVez() {
+  const hay = (await leerCola()).filter((r) => r.estado !== 'fallido').length;
+  if (!hay) return;
+  try { await sincronizarCola(STORE_COLA, '/eventos/asistencias', cuerpoDeMarca); } catch (_) { /* sin señal */ }
+}
+function subirCola() { subiendo = subiendo.then(subirColaUnaVez, subirColaUnaVez); return subiendo; }
+
+/* ----- lo que se ve: la base más lo que está en la cola (las marcas se aplican en el orden en que se hicieron) ----- */
+function recontar(ev) {
+  ev.total_invitados = ev.asistentes.length;
+  ev.total_asistio = ev.asistentes.filter((a) => a.asistio).length;
+}
+function armarVista() {
+  vista = base ? JSON.parse(JSON.stringify(base)) : null;
+  if (!vista) return;
+  cola.filter((r) => r.estado !== 'fallido').slice().sort((a, b) => (a.creadoEn || 0) - (b.creadoEn || 0)).forEach((r) => {
+    for (const ev of vista.eventos) for (const a of ev.asistentes) if (a.id === r.asistenteId) { a.asistio = !!(r.payload || {}).asistio; recontar(ev); }
+  });
+}
+
+/* ----- el dibujo ----- */
+function tarjeta(ev) {
+  const cifras = `<span class="etiqueta">${esc(ev.total_invitados)}${ev.meta_asistentes ? ' / ' + esc(ev.meta_asistentes) : ''} invitados</span><span class="etiqueta ${ev.total_asistio ? 'verde' : ''}">asistieron ${esc(ev.total_asistio)}</span>`;
+  return `<div class="caja-ev" data-evento="${esc(ev.id)}" role="button" tabindex="0"><div class="titulo">${esc(ev.titulo)}</div>
+    <div class="meta">${esc(fechaLinda(ev.fecha_inicio))}${ev.lugar ? ' · ' + esc(ev.lugar) : ''}</div><div class="cifras">${cifras}</div></div>`;
+}
+function pintarLista() {
+  const hoy = hoyColombia();
+  const evs = vista.eventos;
+  const dia = (e) => String(e.fecha_inicio).slice(0, 10);
+  const deHoy = evs.filter((e) => dia(e) === hoy);
+  const proximos = evs.filter((e) => dia(e) > hoy);
+  const anteriores = evs.filter((e) => dia(e) < hoy).reverse();
+  if (!evs.length) return '<p class="vacio-app">No tienes eventos de hoy ni próximos.</p>';
+  let h = '';
+  if (deHoy.length) h += `<p class="grupo-titulo">Hoy (${deHoy.length})</p>${deHoy.map(tarjeta).join('')}`;
+  if (proximos.length) h += `<p class="grupo-titulo">Próximos (${proximos.length})</p>${proximos.map(tarjeta).join('')}`;
+  if (!deHoy.length && !proximos.length) h += '<p class="vacio-app">No tienes eventos de hoy ni próximos.</p>';
+  if (anteriores.length) h += `<p class="grupo-titulo">Anteriores, últimos 7 días (${anteriores.length})</p>${anteriores.map(tarjeta).join('')}`;
+  return h;
+}
+function filaAsistente(ev, a) {
+  const pendiente = cola.some((r) => r.asistenteId === a.id && r.estado !== 'fallido');
+  const boton = ev.puede_marcar
+    ? `<button type="button" class="btn-app ${a.asistio ? 'btn-asistio marcado' : 'btn-app-primario btn-asistio'}" data-marcar="${esc(a.id)}" data-valor="${a.asistio ? 0 : 1}" aria-pressed="${a.asistio}">${a.asistio ? '✔ Asistió' : 'Asistió'}</button>`
+    : (a.asistio ? '<span class="etiqueta verde">Asistió</span>' : '');
+  return `<div class="fila-asis ${a.asistio ? 'marcada' : ''}" data-asistente="${esc(a.id)}"><div class="quien"><div class="nombre">${esc(a.nombre)}</div>
+    <div class="barrio">${esc(a.barrio || 'Sin barrio')}${pendiente ? ' · <span class="etiqueta ambar">Esperando señal</span>' : ''}</div></div>${boton}</div>`;
+}
+function pintarEvento(ev) {
+  const q = sinTildes(buscar);
+  const lista = ev.asistentes.filter((a) => !q || sinTildes(a.nombre).includes(q));
+  const agregar = ev.puede_agregar
+    ? `<div class="bloque-agregar"><label for="ced" style="font-size:.8rem;font-weight:700;">Agregar asistente por cédula</label>
+        <input id="ced" inputmode="numeric" autocomplete="off" placeholder="Número de cédula" maxlength="15">
+        <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-agregar">Agregar</button></div>
+        <div class="meta" style="font-size:.78rem;color:var(--muted);margin-top:6px;">Tiene que ser una persona de tu equipo. Necesitas señal.</div></div>` : '';
+  return `<div class="cab-ev"><button type="button" class="btn-app btn-app-secundario" id="btn-volver">← Mis eventos</button><h2>${esc(ev.titulo)}</h2>
+      <div class="meta" style="font-size:.84rem;color:var(--muted);">${esc(fechaLinda(ev.fecha_inicio))}${ev.lugar ? ' · ' + esc(ev.lugar) : ''}</div>
+      <div class="cifras" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;"><span class="etiqueta">${esc(ev.total_invitados)}${ev.meta_asistentes ? ' / ' + esc(ev.meta_asistentes) : ''} invitados</span><span class="etiqueta ${ev.total_asistio ? 'verde' : ''}">asistieron ${esc(ev.total_asistio)}</span></div></div>
+    ${ev.puede_marcar ? '' : '<div class="nota-ev">En este evento solo puedes ver la lista.</div>'}
+    ${agregar}
+    <div class="buscador" style="margin:0 0 10px;"><input id="buscar" type="search" placeholder="Buscar por nombre" value="${esc(buscar)}" autocomplete="off"></div>
+    <div id="lista-asistentes">${lista.length ? lista.map((a) => filaAsistente(ev, a)).join('') : `<p class="vacio-app">${ev.asistentes.length ? 'Nadie coincide con esa búsqueda.' : 'Este evento todavía no tiene invitados.'}</p>`}</div>`;
+}
+function pintarPendientes() {
+  const pend = cola.filter((r) => r.estado === 'fallido');
+  $('bloque-pendientes').style.display = pend.length ? 'block' : 'none';
+  $('lista-pendientes').innerHTML = pend.map((r) => `<div class="nota-ev"><b>No se pudo subir una marca.</b> ${esc(r.error || '')}
+    <div class="acciones"><button type="button" class="btn-app btn-app-secundario" data-reintentar="${esc(r.clienteUuid)}">Reintentar</button><button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div></div>`).join('');
+  $('lista-pendientes').querySelectorAll('[data-reintentar]').forEach((b) => b.addEventListener('click', async () => {
+    const r = cola.find((x) => x.clienteUuid === b.dataset.reintentar); if (!r) return;
+    r.estado = 'pendiente'; r.error = ''; await guardarEnColaOffline(STORE_COLA, r); await subirCola(); await refrescar();
+  }));
+  $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => { await borrarDeColaOffline(STORE_COLA, b.dataset.descartar); await refrescar(); }));
+}
+function aviso(texto, tipo) { const e = $('aviso'); e.textContent = texto || ''; e.className = 'aviso-app' + (texto ? ' visible ' + (tipo || 'error') : ''); }
+
+function pintar() {
+  pintarPendientes();
+  const v = $('vista');
+  if (sinAcceso) { v.innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitados los eventos. Pídeselo al administrador de la campaña.</p>'; return; }
+  if (!base) { v.innerHTML = '<p class="vacio-app">No se pudieron cargar tus eventos. Con señal se bajan solos.</p>'; return; }
+  armarVista();
+  const ev = abierto !== null ? vista.eventos.find((e) => e.id === abierto) : null;
+  if (abierto !== null && !ev) abierto = null;
+  const enfocado = document.activeElement && document.activeElement.id === 'buscar';
+  v.innerHTML = ev ? pintarEvento(ev) : pintarLista();
+  if (ev) {
+    $('btn-volver').addEventListener('click', () => { abierto = null; buscar = ''; pintar(); });
+    $('buscar').addEventListener('input', (e) => { buscar = e.target.value; const pos = e.target.selectionStart; pintar(); const n = $('buscar'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} });
+    if (enfocado) { const n = $('buscar'); n.focus(); }
+    v.querySelectorAll('[data-marcar]').forEach((b) => b.addEventListener('click', () => marcar(ev, Number(b.dataset.marcar), b.dataset.valor === '1')));
+    if ($('btn-agregar')) $('btn-agregar').addEventListener('click', () => agregar(ev));
+  } else {
+    v.querySelectorAll('[data-evento]').forEach((c) => {
+      const abrir = () => { abierto = Number(c.dataset.evento); buscar = ''; pintar(); window.scrollTo(0, 0); };
+      c.addEventListener('click', abrir); c.addEventListener('keydown', (e) => { if (e.key === 'Enter') abrir(); });
+    });
+  }
+}
+
+/* ----- marcar «asistió»: primero en el celular, luego sube ----- */
+async function marcar(ev, asistenteId, valor) {
+  aviso('');
+  if (!ev.puede_marcar) return;
+  // Una marca nueva de la misma persona reemplaza a la que todavía no subió: lo último que se tocó es lo que vale.
+  for (const r of cola.filter((x) => x.asistenteId === asistenteId && x.estado !== 'fallido')) await borrarDeColaOffline(STORE_COLA, r.clienteUuid);
+  const registro = { clienteUuid: generarUuid(), creadoEn: Date.now(), asistenteId, eventoId: ev.id, payload: { asistio: valor, marcado_en: new Date().toISOString() } };
+  try { await guardarEnColaOffline(STORE_COLA, registro); }
+  catch (e) { return aviso('No se pudo guardar en este celular. Revisa el espacio disponible e inténtalo de nuevo.'); }
+  await leerCola();
+  pintar();
+  await subirCola();
+  await refrescar();
+  const resto = cola.find((r) => r.clienteUuid === registro.clienteUuid);
+  if (resto && resto.estado === 'fallido') return aviso(`${resto.error || 'No se pudo guardar.'} Quedó en este celular: puedes reintentarlo o descartarlo.`);
+  if (resto) aviso('Guardado en tu celular. Se sube solo cuando haya señal.', 'exito');
+}
+
+/* ----- agregar un asistente por cédula: necesita señal (hay que buscarlo en el equipo) ----- */
+async function agregar(ev) {
+  aviso('');
+  const cedula = ($('ced').value || '').replace(/\D/g, '');
+  if (cedula.length < 5) return aviso('Escribe el número de cédula (al menos 5 dígitos).');
+  $('btn-agregar').disabled = true;
+  try {
+    const r = await api(`/eventos/${ev.id}/asistentes-por-cedula`, { method: 'POST', body: { cedula } });
+    if (r === undefined) return;
+    aviso(r.duplicado ? `${r.asistente.nombre} ya estaba en la lista.` : `Se agregó a ${r.asistente.nombre}.`, 'exito');
+    $('ced').value = '';
+    await refrescar();
+  } catch (e) {
+    aviso(e && e.esErrorDeRed ? 'Para agregar a alguien necesitas señal.' : ((e && e.message) || 'No se pudo agregar.'));
+  } finally { const b = $('btn-agregar'); if (b) b.disabled = false; }
+}
+
+/* ----- carga: la del servidor o, sin señal, la copia de ESTE usuario si no ha caducado ----- */
+const caducoLaCopia = (guardadoEn) => !Number.isFinite(Number(guardadoEn)) || Date.now() - Number(guardadoEn) >= HORAS_COPIA * 3600 * 1000;
+async function cargarServidor() {
+  sinAcceso = false; copiaDesde = null;
+  let datos = null;
+  try {
+    datos = await api('/eventos/movil');
+    if (datos === undefined) datos = null;
+  } catch (e) {
+    if (e && e.status === 403) { sinAcceso = true; base = null; return false; }
+    datos = null;
+  }
+  if (datos) {
+    base = datos;
+    await guardarCopiaOffline(STORE_COPIA, CLAVE_COPIA, datos).catch(() => {});
+    return true;
+  }
+  let copia = null;
+  try { copia = await leerCopiaOffline(STORE_COPIA, CLAVE_COPIA); } catch (_) { copia = null; }
+  if (!copia) { base = null; return false; }
+  if (caducoLaCopia(copia.guardadoEn)) {
+    try { await borrarDeColaOffline(STORE_COPIA, copia.clienteUuid); } catch (_) { /* ya no está */ }
+    base = null;
+    aviso('Los eventos que tenías guardados en este celular caducaron (duran 48 horas). Con señal se bajan otra vez.');
+    return false;
+  }
+  base = copia.datos; copiaDesde = copia.guardadoEn;
+  return true;
+}
+async function refrescar() {
+  await leerCola();
+  await cargarServidor();
+  await leerCola();
+  pintar();
+  const nota = $('nota-copia');
+  if (copiaDesde) {
+    nota.style.display = 'block';
+    nota.textContent = `Sin señal: se muestra la copia guardada en este celular. Caduca el ${new Date(copiaDesde + HORAS_COPIA * 3600 * 1000).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}.`;
+  } else if (base) {
+    nota.style.display = 'block';
+    nota.textContent = `Tus eventos quedan guardados en este celular por ${HORAS_COPIA} horas, o hasta que cierres sesión.`;
+  } else nota.style.display = 'none';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Eventos', 'Tus eventos y la asistencia', '/app/inicio.html');
+  await leerCola();
+  if (cola.length) await subirCola();
+  await refrescar();
+  window.addEventListener('online', async () => { await subirCola(); await refrescar(); });
+})();
+</script>
+</body>
+</html>

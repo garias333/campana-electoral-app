@@ -12,11 +12,12 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 312** (`parches/campana-parche312.zip`, 167.401 bytes,
-  sha256 `c3d601a9a8076749ab03d7aa9da601b96c4bd784eee67629f62b220d6bcdd46b`, 14 archivos): «Puerta a puerta, Fases 3 y 4: guion de la visita con versiones, QR de inscripción, panel de cobertura con Excel agregado y pines separados en el mapa (Requiere el 311)».
-  **GENERADO el 9 de noviembre de 2026, PUBLICADO Y REGISTRADO ESE MISMO DÍA (INACTIVO: falta activarlo y aplicarlo desde el panel, y probarlo en municipal antes).** Lo corrió el usuario como root con `su - gariasappelectoral` (salida pegada): `parche-312.zip` en el servidor de licencias con huella igual a la local (`c3d601a9a8076749`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`**, estado INACTIVO. Los 14 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (32 requires locales); nada de `.env`, credenciales ni `.sql`.
-  **TOCA LA BASE** (`db/init-db.js`: tabla `puerta_guiones` y columna `puerta_visitas.guion_huella`; repetible; al registrarlo el script marca `toca_base_datos` solo). **Requiere el 311** (y por él el 309 y el 308: `lib/puertaPanel.js` reutiliza `lib/encuestasResultados.js`). Service worker **`v182`**. `OFFLINE_DB_VERSION` sigue en 10. Detalle en «Parche 312».
-  Ya está publicado y registrado; falta activarlo en el panel de licencias.
+- **Último parche generado: 313** (`parches/campana-parche313.zip`, 124.600 bytes,
+  sha256 `2bdacd3a60892459ea35f77fc815a6899a21973f361502ca81dabe6536788370`, 13 archivos): «Eventos en el celular y marcar asistencia (escritorio y celular, también sin señal) (Requiere el 312)».
+  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 13 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales); nada de `.env`, credenciales ni `.sql`.
+  **TOCA LA BASE** (`db/init-db.js`: `evento_asistentes.asistio_ms` y `asistio_por`; repetible; al registrarlo el script marca `toca_base_datos` solo). **Requiere el 312.** Service worker **`v183`**. **`OFFLINE_DB_VERSION = 11`** (cola `eventos_pendientes` y copia `eventos_cache`). Detalle en «Parche 313».
+  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 313'` y luego `scripts/registrar-parche.js 313 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO).
+- **El anterior, el 312** (`parches/campana-parche312.zip`, 167.401 bytes, sha256 `c3d601a9a8076749ab03d7aa9da601b96c4bd784eee67629f62b220d6bcdd46b`, 14 archivos): **PUBLICADO Y REGISTRADO el 9 de noviembre de 2026, INACTIVO** (el usuario aplicó `init-db` y el reinicio en la Base; falta activarlo en el panel). Detalle en «Parche 312».
 - **El anterior, el 311** (`parches/campana-parche311.zip`, 176.420 bytes,
   sha256 `874817043e135839b7eae4e685e720dc3d19796646d5dd39ad354a22442f16cd`, 14 archivos; incluía el 310): **PUBLICADO Y APLICADO** (lo dijo el usuario el 9 de noviembre de 2026; **la prueba en municipal salió bien: mapa, cola sin señal y botones**. No se pudo comprobar desde esta cuenta, que no lee el servidor de licencias ni las otras instalaciones; el 310 nunca se publicó por separado: lo llevó el 311). Detalle en «Parche 311».
 - **Antes, el 310** (`parches/campana-parche310.zip`, 54.660 bytes,
@@ -282,6 +283,47 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 313 — Eventos en el celular y marcar asistencia (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+
+**Requiere el 312.** Service worker `v183`. **`OFFLINE_DB_VERSION = 11`.** **Toca la base:** `evento_asistentes.asistio_ms BIGINT UNSIGNED NULL` (instante en ms de la última marca) y `asistio_por INT NULL`; repetible. **Hay que correr `init-db` y reiniciar** (rutas y lib nuevas).
+
+**Contexto (investigado antes, solo lectura):** `/app/inicio.html` NUNCA tuvo un acceso a Eventos o Agenda (la búsqueda `git log -S` solo halla el commit `48f0429`, que puso «eventos» en un texto del menú del administrador); el 305 no quitó nada: solo cerró la API (`lib/alcanceEventos.js`). Y la API aceptaba `asistio` desde siempre pero **ninguna pantalla la llamaba**: el contador «asistieron» solo valía lo que alguien escribiera en la base.
+
+### Servidor (`lib/asistenciaEventos.js`, `routes/eventos.routes.js`)
+- **`PUT /api/eventos/asistentes/:id`** ahora acepta `asistio` y/o `confirmado` y **solo cambia lo que llega** (antes escribía las DOS columnas siempre: mandar solo `asistio` habría borrado la confirmación). Admite `marcado_en` opcional.
+- **`POST /api/eventos/asistencias`** `{ cliente_uuid, asistente_id, asistio, marcado_en }`: la misma regla, en POST porque la cola de `offline-utils.js` sube con POST. **Idempotente y en orden:** la marca es un ESTADO con el instante de su captura; una marca más vieja que la guardada se IGNORA (`ignorada: true`), así lo marcado sin señal el martes no pisa lo del miércoles, y subir dos veces lo mismo no cuenta doble. Se acepta hasta 7 días de antigüedad (422 después), nada en el futuro (400). Auditoría `evento_asistencia` (solo si algo cambió).
+- **Quién marca:** administrador, coordinador y líder en los eventos que **gestionan** (`alcanceEventos(…, soloGestion)`); **sublíder** solo `asistio`, y solo en eventos donde es el **responsable** o está **invitado** (si manda `confirmado`, 403). No agrega ni quita asistentes, ni edita ni borra el evento. Testigo, invitado y demás: 403. Un líder que solo está invitado a un evento ve la lista y NO marca.
+- **`GET /api/eventos/movil`:** los eventos de hoy, próximos y de los últimos 7 días (hasta 60) dentro del **mismo alcance** que `GET /`, con `puede_marcar` / `puede_agregar` y los invitados reducidos a `{ id, nombre, barrio, asistio }`. **Nunca teléfono ni cédula, ni al administrador ni al responsable** (la copia que queda en el teléfono no debe llevarlos). Pide «Ver» en `eventos`, `agenda` o `asistentes_reuniones` (la puerta de siempre).
+- **`POST /api/eventos/:id/asistentes-por-cedula`** (administrador, coordinador, líder; solo eventos que gestionan; límite de 60 búsquedas por 10 minutos como el resto): resuelve la cédula **solo entre los votantes de su alcance**; una cédula ajena responde EXACTAMENTE lo mismo que una que no existe; si ya está en el evento devuelve la misma fila. Responde solo `{ id, nombre, barrio, asistio }`.
+- `GET /:id/asistentes` agrega `puede_marcar` por fila (el escritorio ofrece el botón solo a quien puede).
+
+### Escritorio
+En «Asistentes a reuniones»: la ventana de asistentes trae la columna **Asistencia** con **«Asistió» / «No asistió»** por persona y el título dice «asistieron N de M»; la tabla de reuniones y la de «Eventos y GOTV» muestran **«asistieron N»** bajo los invitados, al día tras cada marca. **No existe una pantalla de «detalle del evento»** en el escritorio: la ventana de asistentes es el detalle; `eventos.html` solo tiene el contador.
+
+### Celular (`/app/eventos.html`)
+- **Mis eventos:** Hoy, Próximos y «Anteriores, últimos 7 días» (decisión mía: se marca al día siguiente), cada tarjeta con fecha, lugar y «N / meta invitados» y «asistieron N».
+- **Al abrir un evento:** invitados con nombre y barrio, botón grande **«Asistió»** (se vuelve «✔ Asistió»; tocarlo otra vez la desmarca), buscador por nombre (sin tildes ni mayúsculas), y «Agregar asistente por cédula» solo si `puede_agregar` (necesita señal: lo dice).
+- **Sin señal:** copia `eventos_cache` de 48 horas con dueño (se borra al cerrar sesión o cambiar de cuenta: está en las dos listas, `OFFLINE_STORES_COPIA` y `COPIAS_SIN_SENAL`) y cola `eventos_pendientes` con dueño, que **no lleva nombres** (solo `asistenteId`, el valor y el instante); varias marcas a la misma persona sin señal se **funden en la última**; las subidas van en fila; un rechazo del servidor queda «fallido» con el motivo y Reintentar / Descartar. Contadores locales = copia + cola.
+- **Menú:** «Eventos» en `/app/inicio.html` (`MENU_LIDER`, que hereda el coordinador, y `MENU_ADMIN`) con `modulos: ['eventos', 'agenda', 'asistentes_reuniones']`: aparece con «Ver» en **cualquiera** de los tres (`pintarMenu` aprendió la clave `modulos`). El sublíder lo ve de fábrica (tiene `agenda`).
+
+### Decisiones y cosas que conviene saber
+- **Sublíder (decisión del dueño):** «solo marca asistencia». La orden decía además «y agregar asistentes»; el mensaje posterior dijo «solo marca asistencia, que es lo que ya trae la orden». **Lo leí de forma estricta: el sublíder NO agrega.** Ensancharlo es cambiar `ROLES_QUE_AGREGAN` en `lib/asistenciaEventos.js` y quitar el `requireRole` de la ruta por cédula (2 líneas) — y avisar antes de generar.
+- **El sublíder no abre la lista del escritorio** (de fábrica solo tiene `agenda`, y esa ruta pide `eventos` o `asistentes_reuniones`): su camino es el celular.
+- **Día de la elección:** no se mezcla con el check-in del Día D (tablas, rutas y pantallas distintas) y tampoco se bloquea esta marca ese día.
+- El menú del celular del coordinador hereda el de líder, así que lo ve.
+
+### Pruebas
+- **`scripts/probar-eventos-asistencia.js` (nueva, 118; API + Chromium real):** alcance de líder, sublíder (invitado/responsable), coordinador, administrador y líder de otra rama; claves exactas y **ni un teléfono, cédula, correo ni dirección** en `GET /movil` (tampoco al administrador); permisos (403/404) en todas las rutas, incluido que el sublíder no confirma, no agrega, no quita y no edita; marca repetida sin doble conteo; el PUT ya no borra la confirmación; marca vieja ignorada y cuatro marcas desordenadas; validaciones (futuro, 7 días, uuid, valor); agregar por cédula (duplicada, ajena = no existe, corta, sublíder); escritorio; menú según permiso (con uno de los tres basta, con ninguno no aparece; sublíder); en el celular: grupos, tarjetas, buscador, botón de 48 px, cola sin señal con dueño y sin nombres, fusión de marcas, subida al volver la señal, copia que caduca (47 h sí, 49 h no) y se borra al cambiar de cuenta, marca rechazada «fallido».
+- Ajustadas por la versión nueva de la base del celular (acepta 11): `probar-puerta-a-puerta`, `probar-encuestas`, `probar-logistica`, `probar-solicitudes`.
+- **Regresión, 26 suites sobre bases clonadas nuevas: todas bien** (a la primera esta vez).
+
+### En la Base
+Los archivos ya están en disco. **Faltan dos pasos de root:** `init-db` (crea `asistio_ms` y `asistio_por`) y reiniciar. Primero `init-db`: sin las columnas, marcar falla. **No se ejecutó nada contra la base real.**
+
+### Pendientes
+- Guion y panel del 312 siguen sin probarse en navegador real contra la Base; el 312 está inactivo.
+- «Marcar asistencia» no tiene todavía reporte (p. ej. asistencia por barrio): el contador por evento es lo único que hay.
 
 ## Parche 312 — Puerta a puerta, Fases 3 y 4 (9 de noviembre de 2026, PUBLICADO Y REGISTRADO, INACTIVO, TOCA LA BASE)
 

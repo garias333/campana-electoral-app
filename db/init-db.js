@@ -3648,6 +3648,12 @@ async function main() {
   // conserva todo. Sin esta columna una lista con visitas se quedaría en la pantalla para siempre.
   await agregarColumnaSiFalta(connection, 'puerta_listas',
     "oculta TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador la ocultó de la tabla (con visitas no se puede borrar). Nada se pierde'", 'oculta');
+  // Parche 313: la asistencia a los eventos se marca desde el escritorio y el celular. `asistio_ms` guarda el instante (ms) en que se hizo la marca —el del toque, aunque se
+  // suba días después— para que una marca vieja no pise a una nueva; `asistio_por`, quién la hizo.
+  await agregarColumnaSiFalta(connection, 'evento_asistentes',
+    "asistio_ms BIGINT UNSIGNED NULL COMMENT 'Instante (ms desde 1970) de la última marca de asistencia: una marca más vieja no la pisa'", 'asistio_ms');
+  await agregarColumnaSiFalta(connection, 'evento_asistentes',
+    "asistio_por INT NULL COMMENT 'Quién hizo la última marca de asistencia'", 'asistio_por');
   // Parche 312 (Fase 3): el guion de la visita. Cada cambio es una versión nueva con su huella (sha256 de los pasos); la vigente es la última. Cada visita guarda
   // SOLO la huella de la versión que se le mostró al visitante, nunca el texto.
   await connection.query(`

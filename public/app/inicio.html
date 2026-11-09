@@ -94,6 +94,8 @@ const MENU_LIDER = [
   { href: '/app/mis-tareas.html', icono: '✅', titulo: 'Mis tareas', subtitulo: 'Lo que tienes por hacer, también sin señal', modulo: 'tareas' },
   // Encuestas internas (parche 307): aplicar una encuesta anónima, también sin señal. Apagado de fábrica: solo con «Ver» en el módulo `encuestas_campo`.
   { href: '/app/encuestas-campo.html', icono: '📊', titulo: 'Aplicar una encuesta', subtitulo: 'Encuestas internas anónimas, también sin señal', modulo: 'encuestas_campo' },
+  // Eventos (parche 313): tus eventos y marcar quién asistió, también sin señal. Se ve con «Ver» en cualquiera de los módulos de eventos (`eventos`, `agenda` o `asistentes_reuniones`).
+  { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   // Puerta a puerta (parche 309): tu lista de visitas, ordenada por cercanía y también sin señal. Apagado de fábrica: solo con «Ver» en el módulo `puerta_visitas`.
   { href: '/app/puerta-a-puerta.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Tu lista de visitas, también sin señal', modulo: 'puerta_visitas' },
   // Día D: quién de los míos ya votó y quién falta. Solo con «Ver» en el módulo `rescate_votos`.
@@ -156,6 +158,7 @@ const MENU_ADMIN = [
   { href: '/encuestas.html', icono: '📊', titulo: 'Encuestas internas', subtitulo: 'Construir, publicar y cerrar encuestas anónimas', modulo: 'encuestas' },
   { href: '/app/encuestas-campo.html', icono: '📋', titulo: 'Aplicar una encuesta', subtitulo: 'Encuestas internas anónimas, también sin señal', modulo: 'encuestas_campo' },
   { href: '/puerta-listas.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Armar y asignar listas de visitas', modulo: 'puerta_listas' },
+  { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
   { href: '/contenido.html?clave=politica_privacidad', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Editarla y ver qué le falta' },
   // Día D (fase 2): van DESPUÉS de las nueve del orden pedido.
@@ -193,6 +196,7 @@ function pintarMenu(rol, modulosPermitidos, esAspirante) {
   let prefiereEscritorio = false;
   try { prefiereEscritorio = localStorage.getItem('admin_preferir_escritorio') === '1'; } catch (e) { /* sin almacenamiento */ }
   const items = base.filter(it => (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
+                              && (!it.modulos || it.modulos.some(m => (modulosPermitidos || []).includes(m)))
                               && (!it.soloSiEscritorio || prefiereEscritorio)
                               && (!it.soloAspirante || esAspirante));
   document.getElementById('menu-app').innerHTML = items.map(it => `

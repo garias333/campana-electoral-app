@@ -11,7 +11,7 @@
    un error de verdad del servidor (ver esErrorDeRed en api-core.js). */
 
 const OFFLINE_DB_NOMBRE = 'estrategia_offline';
-const OFFLINE_DB_VERSION = 10;
+const OFFLINE_DB_VERSION = 11;
 // Un "store" (cajón) por cada tipo de formulario que se pueda guardar sin
 // conexión. Agregar uno nuevo acá NO borra los que ya existían en el
 // dispositivo de nadie — IndexedDB solo agrega los que falten al subir de
@@ -31,11 +31,16 @@ const OFFLINE_DB_VERSION = 10;
 //   (solo el id de la puerta, el resultado y el instante del toque, que se borra al subirse).
 // `puerta_cache`: la lista de visitas del líder, con nombres y direcciones (parche 309). Es una COPIA de lectura: lleva dueño, CADUCA A LAS 48 HORAS y se borra
 //   al cerrar sesión o cambiar de cuenta.
+// `eventos_pendientes`: las marcas «asistió / no asistió» hechas sin señal en Eventos (parche 313). Es una COLA: lleva dueño y NO lleva nombre de nadie (solo el id del asistente,
+//   el valor y el instante del toque).
+// `eventos_cache`: los eventos del líder con sus invitados (solo nombre y barrio: nunca teléfono ni cédula) (parche 313). Es una COPIA de lectura: lleva dueño, CADUCA A LAS 48 HORAS
+//   y se borra al cerrar sesión o cambiar de cuenta.
 const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reportes_diad_pendientes',
                         'marcas_voto_pendientes', 'faltantes_cache',
                         'checkin_pendientes', 'transporte_pendientes', 'alertas_cache', 'logistica_pendientes',
                         'panel_lider_cache', 'solicitudes_pendientes', 'tareas_pendientes',
-                        'encuestas_pendientes', 'encuestas_cache', 'puerta_pendientes', 'puerta_cache'];
+                        'encuestas_pendientes', 'encuestas_cache', 'puerta_pendientes', 'puerta_cache',
+                        'eventos_pendientes', 'eventos_cache'];
 
 /* DE QUIÉN ES CADA COSA GUARDADA EN EL CELULAR (orden del panel del líder).
    Un celular se comparte, y lo que se guarda sin señal tiene dos naturalezas:
@@ -45,7 +50,7 @@ const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reporte
        servidor. Se marcan con su dueño y solo SU sesión las ve y las sube; NO se borran al cambiar de cuenta, porque borrarlas
        sería perder datos. Lo anterior a este cambio no trae dueño y se le sigue mostrando a quien entre (como siempre).
    El «usuario actual» es el que dejó `registrarUsuarioSinSenal` (cuentas-dispositivo.js) al abrir cada pantalla. */
-const OFFLINE_STORES_COPIA = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache', 'encuestas_cache', 'puerta_cache'];
+const OFFLINE_STORES_COPIA = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache', 'encuestas_cache', 'puerta_cache', 'eventos_cache'];
 
 function usuarioOffline() {
   try { return localStorage.getItem('offline_usuario_id') || ''; } catch (err) { return ''; }
