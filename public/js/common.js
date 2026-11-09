@@ -274,6 +274,12 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#campana', texto: 'Datos de la campaña', modulo: 'configuracion', roles: ['admin'], porDefecto: true },
       { href: '/configuracion.html#usuarios', texto: 'Usuarios', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#permisos', texto: 'Asignación de permisos', modulo: 'configuracion', roles: ['admin'] },
+      /* LA POLÍTICA DE PRIVACIDAD TAMBIÉN AQUÍ (parche 311). Ya estaba en «Contenido para compartir», pero ESE ítem no le sale al superadministrador:
+         su menú se arma con el catálogo MODULOS (routes/permisos.routes.js), que no trae `politica_privacidad`, y el grupo se le encoge a «Información
+         para compartir». Aquí el módulo es `configuracion` (que sí está en el catálogo) y el rol es el administrador: es donde se busca un ajuste de la
+         campaña, y es la pantalla donde se agrega la finalidad de las visitas cuando la política ya la editó el administrador. Misma pantalla y misma
+         dirección que la otra entrada: al administrador que ve las dos le llevan al mismo sitio. */
+      { href: '/contenido.html?clave=politica_privacidad', texto: 'Política de privacidad', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#eliminar', texto: 'Eliminar información', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#backup', texto: 'Backup', modulo: 'configuracion', roles: ['admin'] },
       // Recordatorios automáticos: módulo propio en la matriz (de fábrica, solo el administrador). Sin su fila en permisos_rol la entrada no sale.

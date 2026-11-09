@@ -12,6 +12,7 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
+- **Próximo parche, el 311: EN PREPARACIÓN, NADA GENERADO** (orden del dueño: no generar uno solo para esto). Hasta ahora lleva `public/js/common.js` (entrada «Política de privacidad» en Configuración); ver «Parche 311». Acumula aquí lo que siga.
 - **Último parche generado: 310** (`parches/campana-parche310.zip`, 54.660 bytes,
   sha256 `4c3ab964ea00b1da1351d21831ac9123ca353412914bee4544370fe89c9aa1c4`, 9 archivos): «Puerta a puerta, Fase 2: mapa y ruta, Leaflet local también en Tareas y Solicitudes (Requiere el 309)».
   **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 9 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; nada de `db/`, `.env`, credenciales ni `.sql`.
@@ -276,6 +277,18 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 311 — EN PREPARACIÓN (nada generado): entrada «Política de privacidad» en Configuración
+
+**Archivos que lleva hasta ahora:** `public/js/common.js` (+ las pruebas, que no viajan). No toca la base. Se genera con el próximo lote, junto con lo que se acumule; **no se generó un parche solo para esto**.
+
+**La pantalla ya existía y estaba en el menú — pero no para el superadministrador.** Dirección exacta: **`/contenido.html?clave=politica_privacidad`** (en el servidor de cada campaña: `https://<dominio>/contenido.html?clave=politica_privacidad`). Es la pantalla donde se edita (botón «✎ Editar», admin y coordinador; el servidor solo deja guardar al administrador, ver `routes/contenido.routes.js`) y donde sale el recuadro ámbar «Falta la finalidad de las visitas» (solo admin). Se llegaba desde el menú lateral → **«Contenido para compartir» → «Política de privacidad»**, y desde el enlace del formulario de registro de votantes. **Causa de que el dueño no la viera:** el menú del superadministrador se arma con el catálogo `MODULOS` (`routes/permisos.routes.js`), que no trae `politica_privacidad` ni `biografia_candidato`; el grupo «Contenido para compartir» se le encoge a un solo enlace («Información para compartir»). Medido con un Chromium: el superadministrador de la base de prueba solo veía ese enlace.
+
+**Arreglo:** una entrada nueva en el grupo «Configuración» del menú de escritorio: **«Política de privacidad»**, `modulo: 'configuracion'`, `roles: ['admin']` (misma regla que sus hermanas: aparece al administrador y al superadministrador; el coordinador no ve Configuración). Misma dirección que la otra: al administrador que ve las dos le llevan al mismo sitio (en el menú queda marcada la primera, la de «Contenido para compartir»). **No se tocó el menú del celular** (`/app/inicio.html` no tiene un enlace a la política para el administrador; «Compartir contenido» lleva a `admin-contenido.html`).
+
+**Prueba:** `scripts/probar-menu-politica.js` (Chromium real, 13 comprobaciones): superadministrador, administrador y coordinador ven lo que deben; la entrada abre la pantalla; el recuadro ámbar aparece (con el párrafo exacto) para el superadministrador y el administrador cuando la política editada no trae la finalidad, no aparece para el coordinador y se va cuando la política la trae. **Sin el arreglo, la prueba falla** (comprobado). Con él: `probar-manuales`, `probar-ordenar-select`, `probar-puerta-a-puerta-celular` y `probar-tareas-celular` siguen bien. Primera vez que el recuadro ámbar se prueba en un navegador (el parche 309 lo probó solo por la API).
+
+**Aplicado en la Base:** los archivos ya están en disco (la entrada es un `.js` estático; no hace falta reiniciar, solo recargar la página con Ctrl+Shift+R por la caché del service worker `v180`... **ojo:** el service worker de la Base todavía es el del 310 y `common.js` es network-first, así que debería verse al recargar).
 
 ## Parche 310 — Puerta a puerta, Fase 2: mapa y ruta (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, NO TOCA LA BASE)
 
