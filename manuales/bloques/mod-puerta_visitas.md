@@ -14,7 +14,8 @@ Aquí recorres, desde tu celular, la lista de visitas que te asignó la coordina
 
 ## Qué encuentras
 
-- **La ruta sugerida**: tus puertas ordenadas de la más cercana a la siguiente. Si quieres, toca **Ordenar desde donde estoy**: tu ubicación se usa solo para ordenar, **no se guarda ni se envía**. Las personas sin ubicación en el mapa van al final.
+- **El mapa y la ruta sugerida**: tus puertas en un mapa, con un número en cada pin, ordenadas de la más cercana a la siguiente. La línea solo une los puntos en orden: **no es una ruta por calles**. Toca un número del mapa y se resalta su ficha en la lista (y al revés: toca el número de una ficha y el mapa se centra en su pin). Si quieres, toca **Mi ubicación**: se lee una sola vez, se usa solo para ordenar la ruta, **no se guarda ni se envía**. Las personas «sin ubicación en el mapa» van al final de la lista.
+- **Sin señal** el mapa sigue dibujando los pines y la línea, sobre un fondo liso: el fondo con calles solo aparece con señal y solo muestra la zona que miras, nunca direcciones ni nombres.
 - **Para volver más tarde**: las puertas donde nadie abrió y todavía no pasan 24 horas.
 - **En este celular, sin subir**: los resultados que aún no llegaron al servidor. Si el servidor rechaza uno, queda marcado **«No se pudo subir»**, con el motivo, y tú decides si lo reintentas o lo descartas. Nada se borra solo.
 
@@ -36,7 +37,7 @@ Aquí recorres, desde tu celular, la lista de visitas que te asignó la coordina
 - Solo puedes visitar **dentro del horario** que fijó la campaña (por omisión, de 8:00 a 18:00). Fuera de él, el celular no guarda la visita. El **día de la elección** el módulo no funciona.
 - La lista queda guardada en tu celular **48 horas**, y se borra al cerrar sesión o cambiar de cuenta. Con señal se baja otra.
 - De cada visita se guarda solo el día, la franja (mañana, tarde o noche) y el resultado.
-- No hay botón para compartir, imprimir ni abrir mapas externos: la lista tiene nombres y direcciones y no sale de tu celular.
+- No hay botón para compartir, imprimir ni abrir otras aplicaciones de mapas o de navegación: la lista tiene nombres y direcciones y no sale de tu celular.
 
 ## Qué puedes hacer según tu permiso
 

@@ -25,6 +25,7 @@ if (!/^(simulada|prueba)/i.test(nombreBase)) {
   process.exit(2);
 }
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'secreto-de-prueba';
+delete process.env.MAPBOX_ACCESS_TOKEN;      // aislada del .env de esta instalación
 process.env.LICENCIA_DOMINIO = 'campana.prueba';
 process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 
@@ -390,6 +391,16 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(Number((await q('SELECT COUNT(*) n FROM puerta_visitas WHERE cliente_uuid = ?', [u1]))[0].n) === 1, 'y no duplica la fila');
   const carrera = await Promise.all([1, 2, 3].map(() => pedir('POST', '/visitas', { usuario: lid1, json: { cliente_uuid: u1, item_id: iF.id, resultado: 'no_interesado', marcado_en: inst(1, '10:00') } })));
   ok(carrera.every((r) => [200, 201].includes(r.status)) && Number((await q('SELECT COUNT(*) n FROM puerta_visitas WHERE cliente_uuid = ?', [u1]))[0].n) === 1, 'tres reintentos a la vez tampoco duplican');
+  // La carrera sobre una puerta que sigue PENDIENTE (no_abrio): el segundo envío del mismo registro no puede salir rechazado por lo que el primero acaba de hacer.
+  const lid6 = await usuario('Líder Seis', 'lider'); await estructura(lid6, 'lider', coord);
+  await votante({ nombre: 'Carrera Uno', lider: lid6, zona: b1.id });
+  const lcarrera = await pedir('POST', '/listas', { usuario: admin, json: { nombre: 'Carrera', asignada_a: lid6.id } });
+  const iCarrera = (await pedir('GET', '/mias', { usuario: lid6 })).datos.listas[0].items[0];
+  const uCarrera = uuid();
+  const cuerpoC = { cliente_uuid: uCarrera, item_id: iCarrera.id, resultado: 'no_abrio', marcado_en: inst(1, '10:00') };
+  const carreraC = await Promise.all([1, 2, 3, 4].map(() => pedir('POST', '/visitas', { usuario: lid6, json: cuerpoC })));
+  ok(lcarrera.status === 201 && carreraC.every((r) => [200, 201].includes(r.status)) && Number((await q('SELECT COUNT(*) n FROM puerta_visitas WHERE cliente_uuid = ?', [uCarrera]))[0].n) === 1
+    && Number((await q('SELECT intentos FROM puerta_items WHERE id = ?', [iCarrera.id]))[0].intentos) === 1, 'cuatro envíos a la vez del MISMO registro sobre una puerta pendiente: todos reciben éxito, una sola visita y un solo intento', carreraC.map((r) => [r.status, r.datos && r.datos.error]));
   const otraVez = await visita(lid1, iF, 'interesado', inst(1, '11:00'));
   ok(otraVez.status === 409, 'una puerta con resultado final no admite otro', otraVez.datos);
   ok((await visita(lid1, iF, 'invento', inst(1, '10:00'))).status === 400 && (await pedir('POST', '/visitas', { usuario: lid1, json: { cliente_uuid: 'no-es-uuid', item_id: iF.id, resultado: 'no_abrio', marcado_en: inst(1, '10:00') } })).status === 400, 'un resultado que no existe o un identificador mal formado se rechazan');
@@ -551,7 +562,8 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(/'puerta_pendientes'/.test(stores) && /'puerta_cache'/.test(stores) && /'encuestas_cache'/.test(stores) && /'tareas_pendientes'/.test(stores), 'los cajones nuevos están y los anteriores siguen');
   ok(/OFFLINE_STORES_COPIA = \[[^\]]*'puerta_cache'[^\]]*\]/.test(off) && !/OFFLINE_STORES_COPIA = \[[^\]]*'puerta_pendientes'/.test(off), 'puerta_cache es una COPIA (por usuario) y puerta_pendientes es una COLA (con dueño)');
   ok(/COPIAS_SIN_SENAL = \[[^\]]*'puerta_cache'[^\]]*\]/.test(cuentas), 'cuentas-dispositivo.js borra la copia al cerrar sesión o cambiar de cuenta (lista duplicada a propósito)');
-  ok(/estrategia-v179/.test(sw) && ["'/app/puerta-a-puerta.html'", "'/js/puerta-reglas.js'"].every((u) => sw.includes(u)), 'service worker v179 con la pantalla y las reglas en la coraza');
+  ok(/estrategia-v180/.test(sw) && ["'/app/puerta-a-puerta.html'", "'/js/puerta-reglas.js'", "'/vendor/leaflet/leaflet.js'", "'/vendor/leaflet/leaflet.css'"].every((u) => sw.includes(u)), 'service worker v180 con la pantalla, las reglas y el Leaflet local en la coraza (el mapa dibuja sin señal)');
+  ok(/if \(url\.origin !== self\.location\.origin\) return;/.test(sw), 'y sigue sin tocar recursos de otro origen: las teselas del fondo no se guardan');
   ok(/respuesta === undefined\) break;/.test(off), 'sincronizarCola solo borra lo que el servidor confirmó (un 401 devuelve undefined y no se borra nada)');
   ok(/sincronizarCola\(STORE_COLA, '\/puerta-a-puerta\/visitas'/.test(pag) && /caducoLaCopia\(copia\.guardadoEn\)/.test(pag) && /guardarCopiaOffline\(STORE_COPIA/.test(pag), 'la pantalla usa la cola, la copia por usuario y la caducidad de 48 horas');
   ok(/R\.esDiaDeLaEleccion/.test(pag) && /R\.enFranja\(/.test(pag) && /R\.puedeReintentar\(/.test(pag) && /fuera del horario|Fuera del horario/.test(pag), 'el celular se niega solo: día de la elección, fuera de la franja y antes de las 24 horas');
@@ -560,7 +572,10 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(['cliente_uuid', 'item_id', 'resultado', 'marcado_en', 'tampoco_mensajes'].every((k) => cuerpo.includes(k)) && !/lat|lon|ubic|nombre|direccion/i.test(cuerpo), 'lo que sube a la red: el identificador, la puerta, el resultado, el instante del toque y la casilla; ninguna ubicación');
   const reg = /const registro = \{([\s\S]*?)\n  \};/.exec(pag)[1];
   ok(!/nombre|direccion|latitud|longitud|telefono|cedula/i.test(reg.replace(/payload|clienteUuid/g, '')), 'el registro de la cola no lleva nombre ni dirección de nadie');
-  ok(!/google\.com\/maps|maps\.google|geo:|navigator\.share|window\.print|tel:|mailto:|wa\.me|createObjectURL|download=|\.csv|XLSX|leaflet/i.test(pag), 'sin botón de Google Maps, sin compartir, sin imprimir, sin exportar, sin llamar, sin mapa');
+  ok(!/google\.com\/maps|maps\.google|geo:|navigator\.share|window\.print|tel:|mailto:|wa\.me|createObjectURL|download=|\.csv|XLSX|waze|maps\.apple|unpkg/i.test(pag), 'sin botón de Google Maps ni de otra navegación, sin compartir, sin imprimir, sin exportar, sin llamar');
+  ok(/\/vendor\/leaflet\/leaflet\.js/.test(pag) && /\/vendor\/leaflet\/leaflet\.css/.test(pag) && ['public/tareas.html', 'public/solicitudes.html', 'public/app/puerta-a-puerta.html'].every((f) => !/unpkg\.com/.test(leer(f)) && /\/vendor\/leaflet\/leaflet\.js/.test(leer(f))), 'Leaflet siempre del /vendor/leaflet de la app: ni Puerta a puerta ni Tareas ni Solicitudes lo piden a unpkg');
+  ok(/<meta name="referrer" content="origin">/.test(pag) && /referrerPolicy: 'origin'/.test(pag) && !/new Image\(|prefetch|fetch\(['"`]https?:/.test(pag), 'a los servidores de teselas solo llega el dominio (referrer), y no se precargan teselas');
+  ok(/Mi ubicación/.test(pag) && /Sin ubicación en el mapa/.test(pag) && /bringToBack/.test(pag) && /navigator\.onLine === false/.test(pag), '«Mi ubicación», «Sin ubicación en el mapa» y el fondo solo con señal');
   ok(/@media print \{ body \{ display: none !important; \} \}/.test(pag), 'y al imprimir la página sale en blanco');
   ok(/robots/.test(pag) && /puerta-reglas\.js/.test(pag), 'noindex y las reglas compartidas');
   ok(!/api\(['"`]\/puerta-a-puerta\/listas/.test(pag), 'el celular de quien visita no pide las listas de quien arma');
@@ -568,6 +583,14 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const html = leer('public/puerta-listas.html');
   ok(!/cedula|telefono|latitud|longitud|\.direccion|\.nombre_votante/i.test(html), 'la pantalla de armar no maneja datos de las personas');
   ok(/app\.use\('\/api\/puerta-a-puerta'/.test(leer('app.js')), 'la ruta está montada en app.js');
+  // El fondo del mapa: GET /mapa-config.
+  delete process.env.MAPBOX_ACCESS_TOKEN;
+  const mc0 = await pedir('GET', '/mapa-config', { usuario: lid1 });
+  process.env.MAPBOX_ACCESS_TOKEN = 'pk.prueba123';
+  const mc1 = await pedir('GET', '/mapa-config', { usuario: lid1 });
+  delete process.env.MAPBOX_ACCESS_TOKEN;
+  ok(mc0.status === 200 && mc0.datos.mapbox_token === null && mc1.datos.mapbox_token === 'pk.prueba123' && mismo(Object.keys(mc1.datos), ['mapbox_token']), 'GET /mapa-config: el token público de Mapbox, o null (OpenStreetMap); nada más');
+  ok((await pedir('GET', '/mapa-config', { usuario: test1 })).status === 403 && (await pedir('GET', '/mapa-config', { usuario: lid1, aspirante: lid1.id })).status === 403, 'y se exige el módulo (y el aspirante no llega)');
   const vot = leer('public/votantes.html');
   ok(vot.includes('/js/permitir-visitas.js') && /data-permitir-visitas/.test(vot) && /puedePermitirVisitas\(usuarioActual\)/.test(vot) && /Volver a permitir visitas/.test(vot), 'la ficha del votante trae el botón «Volver a permitir visitas», solo si es administrador');
   const pv = leer('public/js/permitir-visitas.js');

@@ -567,7 +567,7 @@ const politica = (extra = {}) => Object.assign({
   ok(/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_cache'[^\]]*\]/.test(off) && !/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_pendientes'/.test(off), 'encuestas_cache es una COPIA (por usuario) y encuestas_pendientes es una COLA (con dueño, no se borra al cambiar de cuenta)');
   ok(/COPIAS_SIN_SENAL = \[[^\]]*'encuestas_cache'[^\]]*\]/.test(leer('public/js/cuentas-dispositivo.js')), 'cuentas-dispositivo.js también borra la copia al cambiar de cuenta (la lista está duplicada a propósito)');
   const sw = leer('public/service-worker.js');
-  ok(/estrategia-v17[789]/.test(sw) && ['/app/encuestas-campo.html', '/app/encuesta-aplicar.html', '/js/zona-campo.js', '/js/encuestas-cola.js'].every((u) => sw.includes(`'${u}'`)), 'service worker v177 (v178 desde el 308, v179 desde el 309) con las páginas y los scripts nuevos en la coraza');
+  ok(/estrategia-v1(?:7[789]|80)/.test(sw) && ['/app/encuestas-campo.html', '/app/encuesta-aplicar.html', '/js/zona-campo.js', '/js/encuestas-cola.js'].every((u) => sw.includes(`'${u}'`)), 'service worker v177 (v178 desde el 308, v179 desde el 309) con las páginas y los scripts nuevos en la coraza');
   const cola = leer('public/js/encuestas-cola.js');
   ok(!/sincronizarCola\(/.test(cola.replace(/\/\*[\s\S]*?\*\//g, '')), 'la cola de encuestas NO usa sincronizarCola (que toma por éxito el undefined de un 401 y borra el registro)');
   ok(/res\.ok !== true/.test(cola) && /estado = 'fallido'/.test(cola) && !/borrarDeColaOffline\([^)]*\)[^;]*fallido/.test(cola), 'solo se borra lo que el servidor confirmó con ok:true; un rechazo queda «fallido»');

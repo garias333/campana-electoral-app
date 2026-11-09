@@ -15,7 +15,7 @@ Sirve para visitar, una por una, a las personas de tu lista y dejar anotado cóm
 ## Pasos
 
 1. En el inicio de la app toca **Puerta a puerta**. La primera vez hazlo con señal, para que la lista se guarde en tu celular.
-2. Si quieres la ruta desde donde estás, toca [[Ordenar desde donde estoy]].
+2. Mira el mapa: cada número es una puerta, en el orden de la ruta. Si quieres la ruta desde donde estás, toca [[Mi ubicación]].
 3. Ve a la primera puerta de la ruta y saluda.
 4. Cuando termines, toca el resultado: [[No abrió]], [[No interesado]], [[Interesado]], [[Alguien quiere registrarse]], [[Dejó una solicitud]] o [[Pidió no volver]].
 5. Si tocaste **Pidió no volver** y la persona tampoco quiere mensajes, marca esa casilla y toca [[Confirmar]].

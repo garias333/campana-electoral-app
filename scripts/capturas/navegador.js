@@ -45,9 +45,10 @@ async function lanzar() {
       const t = await pedir('PUT', `http://127.0.0.1:${puerto}/json/new?${encodeURIComponent(url || 'about:blank')}`);
       const ws = new WebSocket(t.webSocketDebuggerUrl);
       await new Promise((r) => ws.addEventListener('open', r));
-      let n = 0; const pend = new Map(); const avisos = [];
+      let n = 0; const pend = new Map(); const avisos = []; const peticiones = [];   // `peticiones`: la URL de cada petición que hizo la página (para comprobar a dónde NO llama)
       ws.addEventListener('message', (m) => {
         const o = JSON.parse(m.data);
+        if (o.method === 'Network.requestWillBeSent') peticiones.push(o.params.request.url);
         if (o.method === 'Runtime.exceptionThrown') avisos.push('EXC ' + JSON.stringify(o.params.exceptionDetails).slice(0, 200));
         if (o.method === 'Page.javascriptDialogOpening') ws.send(JSON.stringify({ id: ++n, method: 'Page.handleJavaScriptDialog', params: { accept: true } }));
         if (o.id && pend.has(o.id)) { pend.get(o.id)(o); pend.delete(o.id); }
@@ -60,7 +61,7 @@ async function lanzar() {
       };
       await cmd('Page.enable'); await cmd('Runtime.enable'); await cmd('Network.enable');
       await cmd('Network.setBypassServiceWorker', { bypass: true });
-      return { cmd, ev, avisos, cerrar: () => { try { ws.close(); } catch (_) { /* ya cerrado */ } pedir('GET', `http://127.0.0.1:${puerto}/json/close/${t.id}`).catch(() => {}); } };
+      return { cmd, ev, avisos, peticiones, cerrar: () => { try { ws.close(); } catch (_) { /* ya cerrado */ } pedir('GET', `http://127.0.0.1:${puerto}/json/close/${t.id}`).catch(() => {}); } };
     },
     cerrar() { try { proc.kill('SIGKILL'); } catch (_) { /* ya cerrado */ } fs.rmSync(perfil, { recursive: true, force: true }); },
   };

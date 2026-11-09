@@ -12,19 +12,24 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 309** (`parches/campana-parche309.zip`, 240.347 bytes,
+- **Último parche generado: 310** (`parches/campana-parche310.zip`, 54.660 bytes,
+  sha256 `4c3ab964ea00b1da1351d21831ac9123ca353412914bee4544370fe89c9aa1c4`, 9 archivos): «Puerta a puerta, Fase 2: mapa y ruta, Leaflet local también en Tareas y Solicitudes (Requiere el 309)».
+  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 9 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; nada de `db/`, `.env`, credenciales ni `.sql`.
+  **NO TOCA LA BASE** (`toca_base_datos = false`: no hay cambios en `db/`). **Requiere el 309.** Service worker **`v180`**. `OFFLINE_DB_VERSION` sigue en 10. Detalle en «Parche 310».
+  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 310'` y luego `scripts/registrar-parche.js 310 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO; **sin** marcar `toca_base_datos`).
+  El anterior, el 309 (`parches/campana-parche309.zip`, 240.347 bytes,
   sha256 `7383d456e37283d2a413d75ced71e06492e634e4f86d5bbe014a3d00b25b8fec`, 23 archivos): «Puerta a puerta, Fases 0 y 1: listas de visitas a votantes registrados, recorrido en el celular sin señal (Requiere el 308)».
-  **REGENERADO el 9 de noviembre de 2026 (segunda orden), SIN PUBLICAR NI REGISTRAR** (no se pidió; el primer zip, de 171.700 bytes y 19 archivos, queda sustituido: nunca se publicó). Los 23 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; ningún `.env`, credencial ni `.sql`.
+  **REGENERADO el 9 de noviembre de 2026 (segunda orden) y luego PUBLICADO, ACTIVADO Y APLICADO en municipal, departamental y c001** (el usuario lo confirmó en el panel al pedir el 310; no se pudo comprobar desde esta cuenta, que no lee el servidor de licencias ni esas instalaciones). El primer zip, de 171.700 bytes y 19 archivos, quedó sustituido y nunca se publicó. Los 23 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; ningún `.env`, credencial ni `.sql`.
   **TOCA LA BASE** (`db/init-db.js`: 3 tablas `puerta_*`, `votantes.no_visitar` y `no_visitar_fecha`, la franja en `configuracion_campana`, los módulos `puerta_listas` y `puerta_visitas` —ambos APAGADOS de fábrica— **y la finalidad de las visitas en la política de privacidad**; repetible; **probado sobre una base creada con la plantilla del 308**). **Requiere el 308.** Service worker `v179`. Cola sin señal: **`OFFLINE_DB_VERSION = 10`**. Detalle en «Parche 309».
-  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 309'` y luego `scripts/registrar-parche.js 309 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO; marcar `toca_base_datos`).
+  **Ya está en las tres campañas** (ver arriba). Cada campaña corrió `init-db` al aplicarlo: en las que tienen la política SIN editar, se agregó el párrafo de las visitas; en las que la editaron, no (el aviso de Configuración → Política de privacidad lo cubre). **Qué pasó en cada una: NO MEDIDO**; se mira en el `logs/actualizaciones.log` de cada instalación, como root.
   El anterior, el 308 (`parches/campana-parche308.zip`, 129.197 bytes,
   sha256 `c016133c24f235728cab40cd537823907b6380afab101950c2dcc7812eeda297`, 17 archivos): «Encuestas internas, Fases 3 y 4: resultados con mínimo por celda, calidad y arreglos de las colas sin señal (Requiere el 307)».
-  **Publicado y registrado el 9 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-308.zip` en el servidor de licencias con huella igual a la local (`c016133c24f23572`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`** y **estado INACTIVO**: ninguna instalación lo descarga hasta que se active en el panel.
+  **Publicado y registrado el 9 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-308.zip` en el servidor de licencias con huella igual a la local (`c016133c24f23572`), **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`**. **Activado y aplicado en municipal, departamental y c001** (confirmado por el usuario en el panel, 9 de noviembre de 2026).
   **TOCA LA BASE** (`db/init-db.js`: `configuracion_campana.encuesta_min_celda`, 5 columnas de revisión en `encuesta_respuestas`, `texto_revisado`, la tabla `encuesta_cuotas` y la finalidad de las encuestas en la política de privacidad con su versión archivada; repetible; **probado sobre una base creada con la plantilla del 307**). **Requiere el 307.** Service worker `v178`. Cola sin señal: sigue `OFFLINE_DB_VERSION = 9`. Detalle en «Parche 308».
-  **El 307 también está publicado y registrado INACTIVO** (lo dijo el usuario el 9 de noviembre de 2026 al pedir el 309; la salida de sus comandos no se vio desde esta cuenta, así que la huella, el HTTP y la firma no constan aquí): hay que activarlo ANTES que el 308, y los dos antes que el 309.
+  **El 307 también está publicado, activado y aplicado en las tres campañas** (lo dijo el usuario; la salida de sus comandos no se vio desde esta cuenta, así que la huella, el HTTP y la firma no constan aquí).
   El anterior, el 307 (`parches/campana-parche307.zip`, 195.819 bytes,
   sha256 `e06ac395d77e9146d4adb5d607e698566c01f888c494a4f15841b6045dc1b274`, 26 archivos): «Encuestas internas, Fases 1 y 2: constructor y campo sin señal (Requiere el 306)».
-  Generado el 9 de noviembre de 2026; **publicado y registrado INACTIVO** según el usuario (9 de noviembre de 2026; sin la salida de su comando no constan desde aquí la huella, el HTTP ni la firma).
+  Generado el 9 de noviembre de 2026; **publicado, activado y aplicado en municipal, departamental y c001** según el usuario (confirmado en el panel; sin la salida de su comando no constan desde aquí la huella, el HTTP ni la firma).
   **TOCA LA BASE** (`db/init-db.js`: 4 tablas `encuesta*` y los módulos `encuestas` y `encuestas_campo`, ambos APAGADOS de fábrica; repetible; **probado sobre una base creada con la plantilla del 306**). **Requiere el 306** (`lib/zonas.js` y la vuelta diaria de `solicitudesMantenimiento`). Service worker `v177`. Cola sin señal: **`OFFLINE_DB_VERSION = 9`**. Detalle en «Parche 307».
   El anterior, el 306 (`parches/campana-parche306.zip`, 168.452 bytes,
   sha256 `0f80b27e7b9fada7879f17cdc7c4f30e60fabbd42c1138b9c67abc2d161cbe5c`, 24 archivos): «Tareas, Fases 3 y 4: metas medibles, reuniones, por reasignar, cumplimiento y conservación de fotos (Requiere el 305)».
@@ -272,7 +277,37 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 309 — Puerta a puerta, Fases 0 y 1 (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+## Parche 310 — Puerta a puerta, Fase 2: mapa y ruta (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, NO TOCA LA BASE)
+
+**Requiere el 309** (el 307, el 308 y el 309 están publicados y aplicados en municipal, departamental y c001, según el usuario). Service worker `v180`. **No hay migración**: `init-db` no hace falta; sí hace falta **reiniciar** la Base (hay una ruta nueva y un arreglo en el servidor).
+
+### Lo que se construyó (`public/app/puerta-a-puerta.html`)
+1. **Mapa con el Leaflet local** (`/vendor/leaflet/leaflet.js` y `.css`, 1.9.4), nunca de unpkg. Pines **numerados en el orden de la ruta** (los mismos números de la lista). Tocar un pin resalta **la misma ficha de la lista** (con sus botones de resultado) y se desplaza hasta ella; tocar el número de una ficha resalta su pin y centra el mapa.
+2. **Línea simple** que une los pines en orden (discontinua, solo guía; la pantalla dice «no es una ruta por calles»).
+3. **«Mi ubicación»** (antes «Ordenar desde donde estoy»): una sola lectura, **solo en memoria**; reordena la ruta desde ahí, dibuja el punto de partida y la línea sale de él. La prueba revisa todas las peticiones: la ubicación no llega al servidor.
+4. **Fichas sin coordenadas**: al final de la lista, con «Sin ubicación en el mapa».
+5. **Sin señal**: los pines y la línea se dibujan igual sobre un **fondo liso** (`#E6ECF3`) y la lista sigue operando. **No se descargan teselas por adelantado y no se guardan** (no hay `fetch`/`Image` a teselas; el service worker no toca recursos de otro origen, comprobado por prueba). Las teselas se piden **solo con señal** (`navigator.onLine`): al cortarse se quita la capa, al volver se pone.
+6. **El fondo usa la misma fuente que el mapa territorial**: Mapbox Calles (`streets-v12`) si hay `MAPBOX_ACCESS_TOKEN`, OpenStreetMap si no. Los líderes y sublíderes no pueden llamar a `/territorial/mapbox-token` (es de admin, coordinador y aspirante), así que hay una ruta nueva **`GET /api/puerta-a-puerta/mapa-config`** (módulo `puerta_visitas`, «Ver») que devuelve `{ mapbox_token }`: el token es PÚBLICO por diseño de Mapbox (se restringe por dominio en su panel). Una tesela pide solo `zoom/x/y` de la zona que se mira; la prueba verifica que **toda petición externa es una tesela con ese formato** y que ninguna lleva un nombre ni una dirección. `<meta name="referrer" content="origin">` y `referrerPolicy: 'origin'` en las teselas: al servidor de teselas solo llega el dominio de la app.
+7. **Sin botón de Google Maps ni de otra app de navegación** (comprobado en el HTML y en las peticiones).
+
+### Corregido de paso
+- **`tareas.html` y `solicitudes.html`** cargaban Leaflet de unpkg: pasan al `/vendor/leaflet` local. **Quedan en unpkg, sin tocar** (no estaban en la orden): `mapa.html`, `dashboard.html` y `app/admin-mapa.html`.
+- **Una carrera real, encontrada por la prueba nueva:** si el aviso «volvió la señal» y el toque de un resultado subían la cola a la vez, el mismo registro viajaba dos veces; el servidor guardaba el primero y al segundo le contestaba **409 «Todavía no / ya tiene un resultado»**, así que el celular dejaba «fallido» algo que SÍ se había guardado. Dos arreglos: (a) el servidor, al entrar en la transacción de la puerta, mira si ya existe una visita con ese `cliente_uuid` y la devuelve como duplicada; (b) la pantalla pone las subidas **en fila** (la segunda ya no encuentra nada que subir). Probado con cuatro envíos simultáneos del mismo registro sobre una puerta pendiente: todos reciben éxito, una visita, un intento. **Ojo:** `mis-tareas.html` y `mis-solicitudes.html` suben con `sincronizarCola` sin fila; el servidor de Tareas/Solicitudes puede tener la misma carrera. No se tocó (no estaba en la orden).
+- `scripts/capturas/navegador.js` ahora registra la URL de cada petición de la página (`peticiones`), para poder comprobar a dónde NO llama.
+- Las pruebas se aíslan del `.env`: borran `MAPBOX_ACCESS_TOKEN` (la Base tiene uno real) antes de correr.
+
+### Pruebas (cada suite sobre una base desechable nueva; mysqld privado, ya apagado y borrado)
+- **`probar-puerta-a-puerta-celular.js` (81, Chromium real):** la sección [13] nueva: Leaflet 1.9.4 de `/vendor/leaflet`; **cero peticiones a unpkg ni a Google**; pines numerados en el mismo orden que `ordenarPorCercania` (calculado en Node con las coordenadas de la base); línea en orden; ficha sin coordenadas al final; tocar un pin/un número; lo único que sale a la red son teselas `zoom/x/y`; «Mi ubicación» (reorden, línea desde el punto, **ni en un cuerpo ni en una URL**, ni guardada); **con la red cortada (CDP offline)** los 4 pines y la línea siguen, sin teselas, sobre fondo liso, y la lista opera y sube al volver; con token el fondo es Mapbox; `/tareas.html` y `/solicitudes.html` abren su mapa con el Leaflet local.
+- **`probar-puerta-a-puerta.js` (194):** `GET /mapa-config`, service worker `v180` con Leaflet en la coraza, sin unpkg en las tres pantallas, referrer, y la carrera.
+- **Regresión, 22 suites:** todas bien salvo `probar-recordatorios` en la corrida paralela («la campaña terminó en enviado → enviando»), **el fallo de tiempo bajo carga que ya estaba documentado**; corrida sola, **pasa 2 de 2**.
+
+### Pendientes / a tener en cuenta
+- **Sin precalentar el mapa:** el fondo con calles solo aparece con señal y solo en la zona que se mira. En campo sin señal el mapa es un esquema de pines y línea.
+- La línea une los pines en orden de cercanía (vecino más cercano): no es la ruta óptima ni por calles.
+- La puerta que ya se tocó y espera sus 24 horas («Para volver más tarde») no tiene pin: no está en la ruta.
+- Fase 3 (guion y derivaciones) y Fase 4 (panel de cobertura) siguen sin hacerse.
+
+## Parche 309 — Puerta a puerta, Fases 0 y 1 (9 de noviembre de 2026, publicado, activado y aplicado en las tres campañas según el usuario, TOCA LA BASE)
 
 **Requiere el 308.** Service worker `v179`; `OFFLINE_DB_VERSION = 10`. Todo **apagado de fábrica**: los módulos `puerta_listas` (armar) y `puerta_visitas` (visitar) solo los ve el administrador. **Solo el modo (a)**: visitas a votantes YA REGISTRADOS. El modo (b) no se construye.
 

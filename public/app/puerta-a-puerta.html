@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#142a3f">
 <meta name="robots" content="noindex, nofollow">
+<!-- A los servidores de teselas del mapa solo llega el DOMINIO de esta app (nunca la ruta de la página): lo justo para que Mapbox verifique la restricción de URL de su token. -->
+<meta name="referrer" content="origin">
 <title>Puerta a puerta · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -13,6 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
   /* PUERTA A PUERTA (parche 309): mi lista de visitas, ordenada por cercanía en el celular. */
   .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
@@ -39,6 +42,13 @@
   .resumen-pp b { display: block; font-size: 1.2rem; color: var(--navy); }
   .resumen-pp span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
   .nota-pp { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
+  /* EL MAPA (parche 310): pines numerados en el orden de la ruta y una línea guía. Sin señal el fondo es liso: los pines y la línea se dibujan igual. */
+  .mapa-pp { height: 270px; border-radius: 14px; border: 1px solid var(--linea); background: #E6ECF3; overflow: hidden; margin-top: 10px; }
+  .mapa-pp.leaflet-container { font: inherit; }
+  .pin-pp { width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .pin-pp.sel { background: #C98A00; transform: scale(1.25); }
+  .caja-pp.sel { border-color: #C98A00; box-shadow: 0 0 0 2px rgba(201,138,0,.35); }
+  .caja-pp .num { cursor: pointer; }
   /* Sin imprimir: la lista lleva nombres y direcciones y no sale del celular. */
   @media print { body { display: none !important; } }
 </style>
@@ -50,6 +60,10 @@
 <main class="app-cuerpo">
   <div id="aviso" class="aviso-app"></div>
   <div id="bloque-estado"></div>
+  <div id="bloque-mapa" style="display:none;">
+    <div id="mapa-pp" class="mapa-pp" role="img" aria-label="Mapa con las puertas de la ruta, numeradas"></div>
+    <p class="meta" id="nota-mapa">Los números son el orden de la ruta. La línea solo une los puntos en orden: no es una ruta por calles. Toca un número para ir a su ficha.</p>
+  </div>
   <div class="resumen-pp" id="resumen" style="display:none;"></div>
 
   <div id="bloque-pendientes" style="display:none;">
@@ -66,6 +80,7 @@
 <script src="/js/offline-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
+<script src="/vendor/leaflet/leaflet.js"></script>
 <script src="/js/puerta-reglas.js"></script>
 <script src="/app/app-comun.js"></script>
 <script>
@@ -123,11 +138,15 @@ function cuerpoDeVisita(r) {
   const p = r.payload || {};
   return { cliente_uuid: r.clienteUuid, item_id: r.itemId, resultado: r.resultado, marcado_en: p.marcado_en, tampoco_mensajes: p.tampoco_mensajes ? 1 : 0 };
 }
-async function subirCola() {
+/* DE A UNA: el aviso de «volvió la señal» y el toque de un resultado pueden pedir subir al mismo tiempo. Las subidas se ponen en fila (la segunda ya no
+   encuentra nada que subir), y así un mismo registro no viaja dos veces a la vez. */
+let subiendo = Promise.resolve();
+async function subirColaUnaVez() {
   const hay = (await leerCola()).filter((r) => r.estado !== 'fallido').length;
   if (!hay) return;
   try { await sincronizarCola(STORE_COLA, '/puerta-a-puerta/visitas', cuerpoDeVisita); } catch (_) { /* sin señal */ }
 }
+function subirCola() { subiendo = subiendo.then(subirColaUnaVez, subirColaUnaVez); return subiendo; }
 
 /* ----- lo que se ve: la base más lo que está en la cola ----- */
 function recontar(l) {
@@ -172,10 +191,10 @@ function cajaDe(it, n) {
       <label><input type="checkbox" id="chk-mensajes"> <span>Tampoco quiere mensajes (SMS, correo ni WhatsApp)</span></label>
       <div class="acciones"><button type="button" class="btn-app btn-app-primario" data-confirmar-no-volver="${esc(it.id)}">Confirmar</button>
       <button type="button" class="btn-app btn-app-secundario" data-cancelar-no-volver>Cancelar</button></div></div>` : '';
-  return `<div class="caja-pp" data-item="${esc(it.id)}"><div class="fila"><span class="num">${n}</span><div style="flex:1;min-width:0;">
+  return `<div class="caja-pp" data-item="${esc(it.id)}"><div class="fila"><span class="num" data-ver-en-mapa="${esc(it.id)}" title="Ver en el mapa">${n}</span><div style="flex:1;min-width:0;">
     <div class="nombre">${esc(it.nombre || '(sin nombre)')} ${etiquetasDe(it)}</div>
     <div class="dir">${esc(it.direccion || '')}</div>
-    ${it.latitud === null || it.latitud === undefined ? '<div class="meta">Sin ubicación guardada: va al final de la ruta.</div>' : ''}
+    ${it.latitud === null || it.latitud === undefined ? '<div class="meta">Sin ubicación en el mapa: va al final de la ruta.</div>' : ''}
     <div class="resultados">
       <button type="button" class="btn-app btn-app-secundario" data-resultado="no_abrio" data-id="${esc(it.id)}">No abrió</button>
       <button type="button" class="btn-app btn-app-secundario" data-resultado="no_interesado" data-id="${esc(it.id)}">No interesado</button>
@@ -216,6 +235,7 @@ function pintarPendientes() {
 
 function pintar() {
   pintarPendientes();
+  limpiarMapa();
   const estado = $('bloque-estado');
   estado.innerHTML = '';
   $('resumen').style.display = 'none';
@@ -229,8 +249,8 @@ function pintar() {
   const ahora = new Date();
   const f = franjaVigente();
   estado.innerHTML = `<div class="nota-pp">Horario de visitas: de ${esc(f.desdeTexto)} a ${esc(f.hastaTexto)}. ${R.enFranja(R.colombiaDe(ahora).minutos, f.desde, f.hasta) ? '' : '<b>Ahora estás fuera del horario: no se guarda ninguna visita.</b>'}
-    <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-gps">📍 Ordenar desde donde estoy</button></div>
-    <div class="meta" id="estado-gps">${inicioGps ? 'Ordenada desde tu ubicación. Tu ubicación no se guarda ni se envía.' : 'Ordenada desde la primera puerta. Si quieres, ordénala desde donde estás: tu ubicación no se guarda ni se envía.'}</div></div>`;
+    <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-gps">📍 Mi ubicación</button></div>
+    <div class="meta" id="estado-gps">${inicioGps ? 'Ruta ordenada desde tu ubicación. Tu ubicación no se guarda ni se envía.' : 'Ruta ordenada desde la primera puerta. Si quieres, toca «Mi ubicación» para ordenarla desde donde estás: se lee una sola vez, no se guarda ni se envía.'}</div></div>`;
   $('btn-gps').addEventListener('click', tomarUbicacion);
 
   const pend = todos.filter((i) => i.estado === 'pendiente');
@@ -247,16 +267,115 @@ function pintar() {
   if (esperando.length) html += `<p class="grupo-titulo">Para volver más tarde (${esperando.length})</p>${esperando.map(esperaDe).join('')}`;
   if (!pend.length) html += `<p class="vacio-app">No te quedan puertas por visitar. ${cerradas ? `Cerraste ${esc(cerradas)}.` : ''}</p>`;
   $('lista-servidor').innerHTML = html;
+  dibujarMapa(orden.map((id) => porId.get(id)));
+  aplicarSeleccion();
 
-  const L = $('lista-servidor');
-  L.querySelectorAll('[data-resultado]').forEach((b) => b.addEventListener('click', () => registrar(Number(b.dataset.id), b.dataset.resultado)));
-  L.querySelectorAll('[data-pedir-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = Number(b.dataset.pedirNoVolver); pintar(); }));
-  L.querySelectorAll('[data-cancelar-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = null; pintar(); }));
-  L.querySelectorAll('[data-confirmar-no-volver]').forEach((b) => b.addEventListener('click', () => {
+  const lista = $('lista-servidor');
+  lista.querySelectorAll('[data-ver-en-mapa]').forEach((b) => b.addEventListener('click', () => seleccionar(Number(b.dataset.verEnMapa), false)));
+  lista.querySelectorAll('[data-resultado]').forEach((b) => b.addEventListener('click', () => registrar(Number(b.dataset.id), b.dataset.resultado)));
+  lista.querySelectorAll('[data-pedir-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = Number(b.dataset.pedirNoVolver); pintar(); }));
+  lista.querySelectorAll('[data-cancelar-no-volver]').forEach((b) => b.addEventListener('click', () => { abierto = null; pintar(); }));
+  lista.querySelectorAll('[data-confirmar-no-volver]').forEach((b) => b.addEventListener('click', () => {
     const tampoco = !!($('chk-mensajes') && $('chk-mensajes').checked);
     registrar(Number(b.dataset.confirmarNoVolver), 'no_volver', { tampoco_mensajes: tampoco });
   }));
 }
+
+/* ----- el mapa (parche 310) -----
+   · Leaflet viene de /vendor/leaflet (de esta app), NUNCA de un CDN: dibuja los pines y la línea SIN señal.
+   · Los números de los pines son los de la lista, en el orden de la ruta. La línea los une en ese orden: es solo una guía, no una ruta por calles.
+   · El FONDO (las teselas) es lo único que sale a la red, y solo con señal: Mapbox si la campaña tiene token y OpenStreetMap si no (la misma fuente que el
+     mapa territorial). Una tesela pide únicamente «zoom/x/y» de la zona que se mira: ninguna dirección, nombre ni dato de la lista viaja a ese servidor.
+     Las teselas NO se descargan por adelantado ni se guardan (el service worker no toca recursos de otro origen). Sin señal el fondo es liso.
+   · «Mi ubicación» (inicioGps) se usa aquí solo para dibujar el punto de partida y la línea; sigue sin guardarse ni enviarse. */
+let mapa = null, capaPines = null, capaLinea = null, capaInicio = null, capaTeselas = null;
+let tokenMapa;                          // undefined = todavía no se sabe; null = sin token (OpenStreetMap); texto = token público de Mapbox
+let firmaRuta = '';
+let seleccionado = null;                // id de la puerta cuya ficha está resaltada
+const pinesPorId = new Map();
+
+function iconoPin(n, sel) {
+  return L.divIcon({ className: '', html: `<div class="pin-pp${sel ? ' sel' : ''}">${n}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
+}
+function limpiarMapa() {
+  $('bloque-mapa').style.display = 'none';
+  if (capaPines) capaPines.clearLayers();
+  if (capaLinea) capaLinea.clearLayers();
+  if (capaInicio && mapa) { mapa.removeLayer(capaInicio); capaInicio = null; }
+  pinesPorId.clear();
+  window.__ppMapa = { pines: [], linea: [] };
+}
+function asegurarMapa() {
+  if (mapa || typeof L === 'undefined') return mapa;
+  mapa = L.map('mapa-pp', { attributionControl: false }).setView([4.6, -74.1], 6);
+  L.control.attribution({ prefix: false }).addTo(mapa);
+  capaLinea = L.layerGroup().addTo(mapa);
+  capaPines = L.layerGroup().addTo(mapa);
+  return mapa;
+}
+/** El fondo, solo con señal. Primero se averigua si hay token (una vez); sin señal se quita y queda el fondo liso. */
+async function ponerTeselas() {
+  if (!mapa) return;
+  if (navigator.onLine === false) { if (capaTeselas) { mapa.removeLayer(capaTeselas); capaTeselas = null; } return; }
+  if (capaTeselas) return;
+  if (tokenMapa === undefined) {
+    try { const r = await api('/puerta-a-puerta/mapa-config'); tokenMapa = (r && r.mapbox_token) || null; }
+    catch (_) { return; }                                                // sin respuesta: se vuelve a intentar al volver la señal; mientras tanto, fondo liso
+    if (navigator.onLine === false || capaTeselas) return;
+  }
+  const opciones = { referrerPolicy: 'origin' };
+  capaTeselas = tokenMapa
+    ? L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${tokenMapa}`,
+        Object.assign({ tileSize: 512, zoomOffset: -1, maxZoom: 22, attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>' }, opciones))
+    : L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', Object.assign({ maxZoom: 19, attribution: '&copy; colaboradores de <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }, opciones));
+  capaTeselas.on('tileerror', () => { /* una tesela que no llega deja el fondo liso: no es un error de la lista */ });
+  capaTeselas.addTo(mapa);
+  capaTeselas.bringToBack();
+}
+/** `ruta`: las puertas en el orden de la ruta (las que no tienen coordenadas no tienen pin, pero conservan su número en la lista). */
+function dibujarMapa(ruta) {
+  const conPunto = ruta.map((it, k) => ({ it, n: k + 1 })).filter((x) => x.it.latitud !== null && x.it.latitud !== undefined && Number.isFinite(Number(x.it.latitud)) && Number.isFinite(Number(x.it.longitud)));
+  if (!conPunto.length || typeof L === 'undefined') return;
+  $('bloque-mapa').style.display = 'block';
+  asegurarMapa();
+  const puntos = [];
+  if (inicioGps) {
+    puntos.push([inicioGps.lat, inicioGps.lon]);
+    capaInicio = L.circleMarker([inicioGps.lat, inicioGps.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#1B6EF3', fillOpacity: 1, interactive: false }).addTo(mapa);
+  }
+  conPunto.forEach(({ it, n }) => {
+    const ll = [Number(it.latitud), Number(it.longitud)];
+    puntos.push(ll);
+    const m = L.marker(ll, { icon: iconoPin(n, it.id === seleccionado), title: 'Puerta ' + n }).on('click', () => seleccionar(it.id, true)).addTo(capaPines);
+    pinesPorId.set(it.id, { m, n, ll });
+    window.__ppMapa.pines.push({ id: it.id, n, lat: ll[0], lon: ll[1] });
+  });
+  if (puntos.length > 1) L.polyline(puntos, { color: '#142a3f', weight: 3, opacity: 0.7, dashArray: '6 6', interactive: false }).addTo(capaLinea);
+  window.__ppMapa.linea = puntos;
+  mapa.invalidateSize();
+  const firma = conPunto.map((x) => x.it.id).join(',') + '|' + (inicioGps ? inicioGps.lat + ',' + inicioGps.lon : '');
+  if (firma !== firmaRuta) {                                            // solo se reencuadra cuando la ruta cambia: no salta mientras la persona mueve el mapa
+    firmaRuta = firma;
+    mapa.fitBounds(puntos, { padding: [30, 30], maxZoom: 17 });
+  }
+  ponerTeselas();
+}
+/** Resalta la ficha y el pin de una puerta. Al tocar el pin, la lista se desplaza hasta su ficha (la MISMA ficha de la lista, con sus botones). */
+function seleccionar(id, desdePin) {
+  seleccionado = id;
+  aplicarSeleccion();
+  const ficha = document.querySelector(`#lista-servidor .caja-pp[data-item="${id}"]`);
+  if (desdePin && ficha) ficha.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!desdePin && mapa && pinesPorId.has(id)) mapa.panTo(pinesPorId.get(id).ll);
+}
+function aplicarSeleccion() {
+  document.querySelectorAll('#lista-servidor .caja-pp.sel').forEach((e) => e.classList.remove('sel'));
+  const ficha = seleccionado === null ? null : document.querySelector(`#lista-servidor .caja-pp[data-item="${seleccionado}"]`);
+  if (ficha) ficha.classList.add('sel'); else seleccionado = null;
+  pinesPorId.forEach((p, pid) => p.m.setIcon(iconoPin(p.n, pid === seleccionado)));
+}
+window.addEventListener('offline', () => { ponerTeselas(); });
+window.addEventListener('online', () => { ponerTeselas(); });
 
 /* ----- registrar el resultado de una puerta ----- */
 async function registrar(itemId, resultado, extra) {

@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v179';
+const CACHE_NAME = 'estrategia-v180';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -61,6 +61,10 @@ const ARCHIVOS_CASCARON = [
   // que usa el servidor.
   '/app/puerta-a-puerta.html',
   '/js/puerta-reglas.js',
+  // El mapa de Puerta a puerta (parche 310): Leaflet es de esta app (nunca de un CDN) para que dibuje los pines y la línea SIN señal. Las TESELAS del fondo no se
+  // guardan: son de otro origen y este service worker no las toca (ver más abajo), y no se descargan por adelantado.
+  '/vendor/leaflet/leaflet.js',
+  '/vendor/leaflet/leaflet.css',
   // «Mi enlace de inscripción»: el QR se dibuja en el teléfono y se puede ENSEÑAR sin señal (el último enlace queda guardado).
   '/app/mi-enlace.html',
   '/js/qrcode-generator.js',

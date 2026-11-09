@@ -445,8 +445,8 @@ function cargarLeaflet() {
   if (window.L) return Promise.resolve();
   if (leafletListo) return leafletListo;
   leafletListo = new Promise((ok, mal) => {
-    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
-    const js = document.createElement('script'); js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; js.onload = ok; js.onerror = () => { leafletListo = null; mal(new Error('No se pudo cargar el mapa. Revisa la conexión.')); };
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/vendor/leaflet/leaflet.css'; document.head.appendChild(css);
+    const js = document.createElement('script'); js.src = '/vendor/leaflet/leaflet.js'; js.onload = ok; js.onerror = () => { leafletListo = null; mal(new Error('No se pudo cargar el mapa. Revisa la conexión.')); };
     document.head.appendChild(js);
   });
   return leafletListo;

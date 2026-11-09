@@ -16,6 +16,7 @@
  *   POST /listas/:id/cerrar · /cancelar                                                                              [puerta_listas · Editar]
  *   GET  /politica             ¿la política ya menciona la visita domiciliaria? Solo el administrador                       [administrador]
  *   POST /votantes/:id/permitir-visitas   «Volver a permitir visitas»: motivo y fecha obligatorios, auditado, sin tocar no_contactar   [administrador]
+ *   GET  /mapa-config          la fuente del fondo del mapa (token público de Mapbox, o null = OpenStreetMap)                [puerta_visitas · Ver]
  *   GET  /mias                 MI lista, mínima, para el celular. Sin señal, el día de la elección: sin listas; auditada  [puerta_visitas · Ver]
  *   POST /visitas              el resultado de UNA puerta. Idempotente por cliente_uuid                               [puerta_visitas · Agregar]
  *
@@ -144,6 +145,12 @@ router.post('/votantes/:id/permitir-visitas', soloAdmin, json, async (req, res) 
 });
 
 /* ---------------------------------------------------------------------------------------------------- QUIEN VISITA */
+
+/** La fuente del fondo del mapa: el token PÚBLICO de Mapbox (el mismo del mapa territorial), o null y entonces OpenStreetMap. Es público por diseño de Mapbox
+    —se restringe por dominio en su panel—, no un secreto. Es lo único que el mapa de la lista le pide al servidor además de la lista misma. */
+router.get('/mapa-config', exigir('puerta_visitas', 'ver'), (req, res) => {
+  res.json({ mapbox_token: process.env.MAPBOX_ACCESS_TOKEN || null });
+});
 
 router.get('/mias', exigir('puerta_visitas', 'ver'), async (req, res) => {
   try {

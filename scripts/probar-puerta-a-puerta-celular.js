@@ -23,6 +23,8 @@ if (!/^(simulada|prueba)/i.test(nombreBase)) {
   process.exit(2);
 }
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'secreto-de-prueba';
+// Aislada del .env de esta instalación: la prueba decide sola si hay token de Mapbox (nunca el real).
+delete process.env.MAPBOX_ACCESS_TOKEN;
 process.env.LICENCIA_DOMINIO = 'campana.prueba';
 process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 
@@ -40,6 +42,7 @@ function ok(cond, texto, extra) {
   else { fallos++; console.log('  FALLA ' + texto + (extra !== undefined ? '  → ' + JSON.stringify(extra).slice(0, 400) : '')); }
 }
 async function q(sql, p) { const [f] = await pool.query(sql, p); return f; }
+const mismo = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const sello = String(Date.now()).slice(-7);
 let n = 0;
 async function persona(nombre, rol, cargo, supervisor) {
@@ -301,6 +304,107 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
     ok(Number(fn.no_visitar) === 0 && fn.no_visitar_fecha === null && Number(fn.no_contactar) === 1 && fn.no_contactar_canal === 'sms', 'quita la marca de visitas y NO toca la de mensajes', fn);
     ok(await p.ev('window.__listo === true') && !(await p.ev(`!!document.querySelector('#overlay-permitir-visitas')`)), 'avisa a la pantalla y cierra el diálogo');
     ok((await q(`SELECT COUNT(*) n FROM auditoria WHERE accion = 'votante_permitir_visitas' AND detalle LIKE '%el ciudadano lo pidió en la sede%'`))[0].n === 1, 'y queda en la auditoría con el motivo');
+
+
+    /* ======================================================================================== 13. el mapa y la ruta */
+    console.log('\n[13] El mapa: Leaflet local, pines numerados en el orden de la ruta, línea guía, sin señal sobre fondo liso');
+    const lid5 = await persona('Lider Mapa', 'lider', 'lider');
+    const pts = [['Pía Uno', 5.0700, -75.5100], ['Pablo Dos', 5.0710, -75.5110], ['Paula Tres', 5.0800, -75.5200], ['Pedro Cuatro', 5.0720, -75.5120], ['Pilar SinMapa', null, null]];
+    const vM = [];
+    for (const [nom, la, lo] of pts) vM.push(await votante(nom, lid5, 'Calle ' + nom.split(' ')[0] + ' # 1-1', la, lo));
+    const lmapa = await P.armarLista({ datos: { nombre: 'Lista del mapa', asignada_a: lid5, cliente_uuid: require('crypto').randomUUID() },
+      usuario: { id: admin, rol: 'admin' }, alcanceQuienArma: { cargo: 'madre', cargoMadre: null }, asignables: { sql: '1 = 1', valores: [] } });
+    const itM = []; for (const v of vM) itM.push((await q('SELECT id FROM puerta_items WHERE lista_id = ? AND votante_id = ?', [lmapa.id, v]))[0].id);
+    const esperada = (inicio) => R.ordenarPorCercania(itM.map((id, k) => ({ id, orden: k, lat: pts[k][1], lon: pts[k][2] })), inicio);
+    const pinesEsperados = (inicio) => esperada(inicio).map((id, k) => ({ id, n: k + 1 })).filter((x) => pts[itM.indexOf(x.id)][1] !== null);
+    const tesela = /^https:\/\/((a|b|c)\.)?tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png$|^https:\/\/api\.mapbox\.com\/styles\/v1\/mapbox\/streets-v12\/tiles\/\d+\/\d+\/\d+\?access_token=[\w.-]+$/;
+    const externas = (desde) => p.peticiones.slice(desde).filter((u) => !/^(http:\/\/127\.0\.0\.1|data:|blob:|about:)/.test(u));
+    delete process.env.MAPBOX_ACCESS_TOKEN;
+    await entrarComo(lid5);
+    const desde0 = p.peticiones.length;
+    await ir('/app/puerta-a-puerta.html', 3500);
+    ok(await p.ev(`typeof L === 'object' && L.version === '1.9.4'`) && p.peticiones.slice(desde0).some((u) => u.endsWith('/vendor/leaflet/leaflet.js')), 'Leaflet 1.9.4 se carga de /vendor/leaflet (de esta app)');
+    ok(!p.peticiones.slice(desde0).some((u) => /unpkg\.com|google/i.test(u)), 'sin ninguna petición a unpkg ni a Google', p.peticiones.slice(desde0).filter((u) => /unpkg|google/i.test(u)));
+    ok(await p.ev(`getComputedStyle(document.querySelector('#bloque-mapa')).display !== 'none' && !!document.querySelector('#mapa-pp.leaflet-container')`), 'el mapa se dibuja');
+    let dm = await p.ev('window.__ppMapa');
+    ok(mismo(dm.pines.map((x) => [x.id, x.n]), pinesEsperados(null).map((x) => [x.id, x.n])), 'los pines están numerados en el MISMO orden que ordenarPorCercania (la puerta sin coordenadas no tiene pin)', dm.pines.map((x) => [x.id, x.n]));
+    ok(mismo(await p.ev(`Array.from(document.querySelectorAll('.pin-pp')).map((e) => e.textContent.trim())`), pinesEsperados(null).map((x) => String(x.n))), 'y los números dibujados son 1, 2, 3, 4');
+    ok(mismo(await p.ev(`Array.from(document.querySelectorAll('#lista-servidor .caja-pp[data-item]')).map((e) => Number(e.dataset.item))`), esperada(null)), 'la lista está en el mismo orden que la ruta');
+    ok(dm.linea.length === 4 && mismo(dm.linea, dm.pines.map((x) => [x.lat, x.lon])) && await p.ev(`document.querySelectorAll('#mapa-pp .leaflet-overlay-pane path').length >= 1`), 'la línea une los pines en orden (solo guía: sin calles)');
+    ok(/Sin ubicación en el mapa/.test(await texto(`[data-item="${itM[4]}"]`) || '') && (await nombresEnPantalla()).pop().startsWith('Pilar'), 'la ficha sin coordenadas va al final de la lista con «Sin ubicación en el mapa»');
+    // Un pin abre la MISMA ficha de la lista.
+    const pin3 = dm.pines[2];
+    await p.ev(`Array.from(document.querySelectorAll('.pin-pp')).find((e) => e.textContent.trim() === '3').click()`);
+    await espera(500);
+    ok(await p.ev(`(() => { const f = document.querySelector('#lista-servidor .caja-pp.sel'); return !!f && Number(f.dataset.item) === ${pin3.id} && !!f.querySelector('[data-resultado="no_abrio"]'); })()`), 'tocar un pin resalta su ficha en la lista (la misma, con sus botones de resultado)');
+    await p.ev(`document.querySelector('#lista-servidor .caja-pp[data-item="${dm.pines[0].id}"] [data-ver-en-mapa]').click()`);
+    await espera(300);
+    ok(await p.ev(`document.querySelector('#lista-servidor .caja-pp.sel').dataset.item === '${dm.pines[0].id}' && document.querySelectorAll('.pin-pp.sel').length === 1 && document.querySelector('.pin-pp.sel').textContent.trim() === '1'`), 'y tocar el número de una ficha resalta su pin');
+    ok(!(await p.ev(`document.documentElement.innerHTML`)).match(/google\.com\/maps|maps\.google|waze|geo:|maps\.apple/i) && (await p.ev(`document.querySelectorAll('a[href*="google"], a[href*="waze"], a[href^="geo:"], a[href*="maps.apple"]').length`)) === 0, 'sin botón de Google Maps ni de otra aplicación de navegación');
+    // Las peticiones externas: solo teselas de «zoom/x/y».
+    await espera(800);
+    const ext1 = externas(desde0);
+    ok(ext1.every((u) => tesela.test(u)), 'lo único que sale a la red son teselas (zoom/x/y): nada de la lista viaja al servidor de teselas', ext1.filter((u) => !tesela.test(u)));
+    ok(!ext1.some((u) => /Calle|Pía|Pablo|Paula|Pedro|Pilar|%20/.test(u)), 'ni un nombre ni una dirección en ninguna petición externa');
+
+    // «Mi ubicación».
+    await p.cmd('Browser.grantPermissions', { permissions: ['geolocation'], origin: base });
+    await p.cmd('Emulation.setGeolocationOverride', { latitude: 5.0801, longitude: -75.5201, accuracy: 20 });
+    const n0 = p.peticiones.length;
+    await clic('#btn-gps');
+    await espera(1500);
+    dm = await p.ev('window.__ppMapa');
+    const inicio = { lat: 5.0801, lon: -75.5201 };
+    ok(mismo(dm.pines.map((x) => [x.id, x.n]), pinesEsperados(inicio).map((x) => [x.id, x.n])) && dm.pines[0].id === itM[2], '«Mi ubicación» reordena la ruta desde ahí (la primera puerta es la más cercana) y los pines se renumeran', dm.pines.map((x) => x.id));
+    ok(dm.linea.length === 5 && dm.linea[0][0] === 5.0801 && dm.linea[0][1] === -75.5201 && await p.ev(`!!document.querySelector('.leaflet-overlay-pane path.leaflet-interactive') || document.querySelectorAll('.leaflet-overlay-pane path').length >= 2`), 'la línea sale del punto de partida');
+    const cuerpos2 = await p.ev('window.__cuerpos');
+    ok(!cuerpos2.some((c) => /5\.080|75\.520/.test(c)) && !p.peticiones.slice(n0).some((u) => /5\.0801|75\.5201/.test(u)), 'la ubicación NO llegó al servidor: ni en un cuerpo de petición ni en ninguna URL');
+    ok(!/5\.0801|75\.5201/.test(JSON.stringify(await idb('puerta_cache'))) && !/5\.0801|75\.5201/.test(await p.ev(`JSON.stringify(Object.assign({}, localStorage))`)), 'y no quedó guardada en el celular');
+
+    // Sin señal: los pines y la línea se dibujan sobre un fondo liso y la lista sigue operando.
+    await p.cmd('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    await sinSenal(true);
+    await espera(400);
+    const sinTeselas = await p.ev(`document.querySelectorAll('#mapa-pp .leaflet-tile-pane img.leaflet-tile').length`);
+    const nOff = p.peticiones.length;
+    await p.ev('refrescar()');
+    await espera(1200);
+    dm = await p.ev('window.__ppMapa');
+    ok(dm.pines.length === 4 && dm.linea.length === 5 && sinTeselas === 0, 'con la red cortada el mapa conserva los 4 pines numerados y la línea, y no tiene teselas', { pines: dm.pines.length, linea: dm.linea.length, sinTeselas });
+    ok(await p.ev(`getComputedStyle(document.querySelector('#mapa-pp')).backgroundColor`) === 'rgb(230, 236, 243)', 'sobre un fondo liso');
+    ok(!p.peticiones.slice(nOff).some((u) => tesela.test(u)), 'sin señal no se piden teselas');
+    const primero = dm.pines[0].id;
+    await clic(`[data-resultado="no_abrio"][data-id="${primero}"]`);
+    await espera(1500);
+    const colaOff = await idb('puerta_pendientes');
+    dm = await p.ev('window.__ppMapa');
+    ok(colaOff.some((r) => r.itemId === primero && String(r.usuarioId) === String(lid5)) && dm.pines.length === 3 && !dm.pines.some((x) => x.id === primero), 'y la lista sigue operando: el resultado queda en la cola y esa puerta sale de la ruta y del mapa');
+    await p.cmd('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    await sinSenal(false);
+    await p.ev(`window.dispatchEvent(new Event('online'))`);
+    await espera(2500);
+    const colaVuelta = (await idb('puerta_pendientes')).filter((r) => r.itemId === primero);
+    ok(colaVuelta.length === 0 && (await visitasDe(primero)).length === 1, 'al volver la señal sube sola', { colaVuelta, visitas: await visitasDe(primero) });
+
+    // Mapbox cuando hay token.
+    process.env.MAPBOX_ACCESS_TOKEN = 'pk.prueba123';
+    const desde2 = p.peticiones.length;
+    await ir('/app/puerta-a-puerta.html', 3500);
+    await espera(800);
+    const ext2 = externas(desde2);
+    ok(ext2.length > 0 && ext2.every((u) => tesela.test(u)) && ext2.some((u) => u.startsWith('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/')) && !ext2.some((u) => /tile\.openstreetmap\.org/.test(u)), 'con token, el fondo es Mapbox (la misma fuente del mapa territorial) y solo se piden teselas', ext2.slice(0, 3));
+    delete process.env.MAPBOX_ACCESS_TOKEN;
+
+    // Tareas y Solicitudes: el mismo Leaflet local.
+    await entrarComo(admin);
+    for (const [ruta, sel] of [['/tareas.html', '#mapa-tar'], ['/solicitudes.html', '#mapa-sol']]) {
+      const d = p.peticiones.length;
+      await ir(ruta, 3000);
+      await clic('[data-vista="mapa"]');
+      await espera(2500);
+      const usadas = p.peticiones.slice(d);
+      ok(await p.ev(`typeof L === 'object' && L.version === '1.9.4' && !!document.querySelector('${sel}.leaflet-container')`) && usadas.some((u) => u.endsWith('/vendor/leaflet/leaflet.js')) && !usadas.some((u) => /unpkg\.com/.test(u)), `${ruta}: el mapa carga el Leaflet local y no llama a unpkg`, usadas.filter((u) => /unpkg|leaflet/.test(u)));
+    }
 
     ok(!p.avisos.length, 'ninguna excepción de JavaScript en la pantalla', p.avisos);
   } catch (e) {
