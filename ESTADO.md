@@ -14,9 +14,9 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 313** (`parches/campana-parche313.zip`, 124.600 bytes,
   sha256 `2bdacd3a60892459ea35f77fc815a6899a21973f361502ca81dabe6536788370`, 13 archivos): «Eventos en el celular y marcar asistencia (escritorio y celular, también sin señal) (Requiere el 312)».
-  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 13 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales); nada de `.env`, credenciales ni `.sql`.
+  **GENERADO el 9 de noviembre de 2026, PUBLICADO Y REGISTRADO ESE MISMO DÍA (INACTIVO: falta activarlo y aplicarlo desde el panel, y probarlo antes).** Lo corrió el usuario como root con `su - gariasappelectoral` (salida pegada): `parche-313.zip` en el servidor de licencias con huella igual a la local (`2bdacd3a60892459`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`**, estado INACTIVO. Los 13 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales); nada de `.env`, credenciales ni `.sql`.
   **TOCA LA BASE** (`db/init-db.js`: `evento_asistentes.asistio_ms` y `asistio_por`; repetible; al registrarlo el script marca `toca_base_datos` solo). **Requiere el 312.** Service worker **`v183`**. **`OFFLINE_DB_VERSION = 11`** (cola `eventos_pendientes` y copia `eventos_cache`). Detalle en «Parche 313».
-  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 313'` y luego `scripts/registrar-parche.js 313 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO).
+  Ya está publicado y registrado; falta activarlo en el panel de licencias.
 - **El anterior, el 312** (`parches/campana-parche312.zip`, 167.401 bytes, sha256 `c3d601a9a8076749ab03d7aa9da601b96c4bd784eee67629f62b220d6bcdd46b`, 14 archivos): **PUBLICADO Y REGISTRADO el 9 de noviembre de 2026, INACTIVO** (el usuario aplicó `init-db` y el reinicio en la Base; falta activarlo en el panel). Detalle en «Parche 312».
 - **El anterior, el 311** (`parches/campana-parche311.zip`, 176.420 bytes,
   sha256 `874817043e135839b7eae4e685e720dc3d19796646d5dd39ad354a22442f16cd`, 14 archivos; incluía el 310): **PUBLICADO Y APLICADO** (lo dijo el usuario el 9 de noviembre de 2026; **la prueba en municipal salió bien: mapa, cola sin señal y botones**. No se pudo comprobar desde esta cuenta, que no lee el servidor de licencias ni las otras instalaciones; el 310 nunca se publicó por separado: lo llevó el 311). Detalle en «Parche 311».
@@ -284,7 +284,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 313 — Eventos en el celular y marcar asistencia (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE)
+## Parche 313 — Eventos en el celular y marcar asistencia (9 de noviembre de 2026, PUBLICADO Y REGISTRADO, INACTIVO, TOCA LA BASE)
 
 **Requiere el 312.** Service worker `v183`. **`OFFLINE_DB_VERSION = 11`.** **Toca la base:** `evento_asistentes.asistio_ms BIGINT UNSIGNED NULL` (instante en ms de la última marca) y `asistio_por INT NULL`; repetible. **Hay que correr `init-db` y reiniciar** (rutas y lib nuevas).
 
@@ -318,8 +318,11 @@ En «Asistentes a reuniones»: la ventana de asistentes trae la columna **Asiste
 - Ajustadas por la versión nueva de la base del celular (acepta 11): `probar-puerta-a-puerta`, `probar-encuestas`, `probar-logistica`, `probar-solicitudes`.
 - **Regresión, 26 suites sobre bases clonadas nuevas: todas bien** (a la primera esta vez).
 
-### En la Base
-Los archivos ya están en disco. **Faltan dos pasos de root:** `init-db` (crea `asistio_ms` y `asistio_por`) y reiniciar. Primero `init-db`: sin las columnas, marcar falla. **No se ejecutó nada contra la base real.**
+### En la Base (aplicado el 9 de noviembre de 2026, por el usuario, como root; salida pegada)
+- **`init-db`** corrió sin error: «Columna asistio_ms agregada a evento_asistentes» y «Columna asistio_por agregada a evento_asistentes» (`guion_huella` ya existía: el 312 estaba aplicado).
+- **Reinicio:** «OK: pid 3783232 -> 3796873 y el puerto 3002 responde».
+- **La política de la Base sigue SIN el párrafo de las visitas** (la editó el administrador): pendiente que lo pegue antes de encender el puerta a puerta para el equipo.
+- **No se probó la pantalla `/app/eventos.html` con un navegador real contra la Base** (solo en bases desechables). El 312 y el 313 siguen inactivos en el servidor de licencias.
 
 ### Pendientes
 - Guion y panel del 312 siguen sin probarse en navegador real contra la Base; el 312 está inactivo.
