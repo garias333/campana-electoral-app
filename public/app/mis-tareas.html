@@ -78,6 +78,7 @@ let tareas = [];            // lo último que dijo el servidor (o la copia)
 let abierta = null;         // id de la tarea desplegada
 let edicion = null;         // { tareaId, accion, fotos: [{blob,url}], ubicacion }
 let cola = [];
+let sinAcceso = false;      // el servidor dijo 403: este tipo de usuario no tiene habilitadas las tareas
 
 function fecha(v) {
   if (!v) return '';
@@ -186,8 +187,19 @@ function pintarPendientes() {
     return `<div class="caja-tar"><div class="arriba"><span class="nombre">${esc(r.tareaTitulo || 'Tarea')}</span>
       <span class="etiqueta ${fallida ? 'roja' : 'ambar'}">${fallida ? 'No se pudo subir' : 'Esperando señal'}</span></div>
       <div class="meta">${esc(ACCION_TXT[r.accion] || r.accion)} · ${(r.fotos || []).length} foto(s)</div>
-      ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;">${esc(r.error || '')}</div><div class="acciones"><button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}</div>`;
+      ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;" data-error>${esc(r.error || '')}</div><div class="acciones"><button type="button" class="btn-app btn-app-primario" data-reintentar="${esc(r.clienteUuid)}">Reintentar</button>
+        <button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}</div>`;
   }).join('');
+  // «Reintentar» (parche 308): un rechazo puede ser un corte del servidor y no un error de lo que se hizo. Vuelve a ponerlo en espera y lo sube
+  // otra vez; si el servidor lo rechaza de nuevo, queda aquí con su motivo. Nada se borra solo.
+  $('lista-pendientes').querySelectorAll('[data-reintentar]').forEach((b) => b.addEventListener('click', async () => {
+    const r = cola.find((x) => x.clienteUuid === b.dataset.reintentar);
+    if (!r) return;
+    delete r.estado; delete r.error;
+    await guardarEnColaOffline(STORE, r);
+    await subirCola();
+    await refrescar(false);
+  }));
   $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('¿Descartar este cambio? No se subirá.')) return;
     await borrarDeColaOffline(STORE, b.dataset.descartar);
@@ -197,6 +209,11 @@ function pintarPendientes() {
 
 function pintar() {
   pintarPendientes();
+  if (sinAcceso) {
+    $('resumen').style.display = 'none';
+    $('lista-servidor').innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitadas las tareas. Pídeselo al administrador de la campaña.</p>';
+    return;
+  }
   const grupos = [
     ['Para hacer', tareas.filter((t) => ['pendiente', 'en_curso'].includes(t.estado))],
     ['Esperando verificación', tareas.filter((t) => t.estado === 'hecha' && t.requiere_verificacion !== false)],
@@ -228,7 +245,8 @@ async function encolar(t, accion, payload, fotosBlob) {
   await subirCola();
   await refrescar(true);
   const resto = (await leerCola()).find((r) => r.clienteUuid === registro.clienteUuid);
-  if (resto && resto.estado === 'fallido') { aviso(resto.error || 'No se pudo registrar.'); await borrarDeColaOffline(STORE, registro.clienteUuid); await refrescar(false); return false; }
+  // Un rechazo del servidor NO se borra (parche 308): queda «fallido» en «En este celular, sin subir», con su motivo, Reintentar y Descartar.
+  if (resto && resto.estado === 'fallido') { aviso(`${resto.error || 'No se pudo registrar.'} Quedó guardado en este celular: puedes reintentarlo o descartarlo.`); await refrescar(false); return false; }
   aviso(resto ? 'Guardado en tu celular. Se sube solo cuando haya señal.' : 'Listo.', 'exito');
   return true;
 }
@@ -312,10 +330,13 @@ async function cargarServidor() {
   let datos = null, copia = false;
   try { datos = await api('/tareas/mias'); if (datos) guardarCacheReferencia('mis_tareas', datos); }
   catch (e) {
-    if (e && e.status === 403) { $('lista-servidor').innerHTML = '<p class="vacio-app">Tu tipo de usuario no tiene habilitadas las tareas. Pídeselo al administrador de la campaña.</p>'; tareas = []; return false; }
+    // (parche 308) Esta rama nunca se ejecutaba: api() no ponía `error.status`. Y al ponerlo, pintar() la tapaba con «No tienes tareas asignadas»:
+    // por eso se recuerda en `sinAcceso` y pintar() lo respeta.
+    if (e && e.status === 403) { sinAcceso = true; tareas = []; return false; }
     datos = leerCacheReferencia('mis_tareas'); copia = !!datos;
   }
   if (!datos) { $('lista-servidor').innerHTML = '<p class="vacio-app">No se pudo cargar la lista. Con señal se carga sola.</p>'; return false; }
+  sinAcceso = false;
   tareas = datos.tareas || [];
   $('nota-copia').style.display = copia ? 'block' : 'none';
   if (copia) $('nota-copia').textContent = 'Sin señal: se muestra la última lista que se guardó en este celular.';

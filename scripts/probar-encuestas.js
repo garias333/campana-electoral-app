@@ -145,7 +145,7 @@ const politica = (extra = {}) => Object.assign({
   /* ====================================================================================== 1. migración */
   console.log('[1] Migración: tablas y módulos apagados de fábrica');
   const tablas = (await q(`SELECT table_name t FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE 'encuesta%'`)).map((f) => f.t).sort();
-  ok(tablas.join(',') === 'encuesta_preguntas,encuesta_respuesta_items,encuesta_respuestas,encuestas', 'las cuatro tablas existen', tablas);
+  ok(tablas.join(',') === 'encuesta_cuotas,encuesta_preguntas,encuesta_respuesta_items,encuesta_respuestas,encuestas', 'las cinco tablas existen (cuatro del 307 y las cuotas del 308)', tablas);
   for (const m of ['encuestas', 'encuestas_campo']) {
     const abiertos = (await q(`SELECT rol FROM permisos_rol WHERE modulo = ? AND permitido = 1`, [m])).map((f) => f.rol);
     ok(abiertos.length === 1 && abiertos[0] === 'admin', `el módulo ${m} viene apagado de fábrica: solo el administrador`, abiertos);
@@ -159,8 +159,9 @@ const politica = (extra = {}) => Object.assign({
   const permitidas = {
     encuestas: 'id,titulo,descripcion,estado,pide_ubicacion,sensible,huella,copia_de,creada_por,publicada_en,publicada_por,cerrada_en,cerrada_por,creada_en,actualizada_en',
     encuesta_preguntas: 'id,encuesta_id,orden,tipo,enunciado,obligatoria,sensible,opciones,num_min,num_max',
-    encuesta_respuestas: 'id,cliente_uuid,encuesta_id,huella,territorio_id,zona_texto,celda_lat,celda_lng,respondida_en,recibida_en,duracion_seg,aplicada_por,lider_id,sublider_id,rama_aspirante_id,aspirante_id,anonimizada_en',
-    encuesta_respuesta_items: 'id,respuesta_id,pregunta_id,opcion_id,valor_num,valor_texto,nsnr',
+    encuesta_respuestas: 'id,cliente_uuid,encuesta_id,huella,territorio_id,zona_texto,celda_lat,celda_lng,respondida_en,recibida_en,duracion_seg,aplicada_por,lider_id,sublider_id,rama_aspirante_id,aspirante_id,anonimizada_en,revision,senales,vector_hash,revisada_por,revisada_en',
+    encuesta_respuesta_items: 'id,respuesta_id,pregunta_id,opcion_id,valor_num,valor_texto,nsnr,texto_revisado',
+    encuesta_cuotas: 'encuesta_id,territorio_id,meta,actualizada_en',
   };
   for (const [t, lista] of Object.entries(permitidas)) {
     const reales = await columnas(t);
@@ -566,7 +567,7 @@ const politica = (extra = {}) => Object.assign({
   ok(/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_cache'[^\]]*\]/.test(off) && !/OFFLINE_STORES_COPIA = \[[^\]]*'encuestas_pendientes'/.test(off), 'encuestas_cache es una COPIA (por usuario) y encuestas_pendientes es una COLA (con dueño, no se borra al cambiar de cuenta)');
   ok(/COPIAS_SIN_SENAL = \[[^\]]*'encuestas_cache'[^\]]*\]/.test(leer('public/js/cuentas-dispositivo.js')), 'cuentas-dispositivo.js también borra la copia al cambiar de cuenta (la lista está duplicada a propósito)');
   const sw = leer('public/service-worker.js');
-  ok(/estrategia-v177/.test(sw) && ['/app/encuestas-campo.html', '/app/encuesta-aplicar.html', '/js/zona-campo.js', '/js/encuestas-cola.js'].every((u) => sw.includes(`'${u}'`)), 'service worker v177 con las páginas y los scripts nuevos en la coraza');
+  ok(/estrategia-v17[78]/.test(sw) && ['/app/encuestas-campo.html', '/app/encuesta-aplicar.html', '/js/zona-campo.js', '/js/encuestas-cola.js'].every((u) => sw.includes(`'${u}'`)), 'service worker v177 (v178 desde el 308) con las páginas y los scripts nuevos en la coraza');
   const cola = leer('public/js/encuestas-cola.js');
   ok(!/sincronizarCola\(/.test(cola.replace(/\/\*[\s\S]*?\*\//g, '')), 'la cola de encuestas NO usa sincronizarCola (que toma por éxito el undefined de un 401 y borra el registro)');
   ok(/res\.ok !== true/.test(cola) && /estado = 'fallido'/.test(cola) && !/borrarDeColaOffline\([^)]*\)[^;]*fallido/.test(cola), 'solo se borra lo que el servidor confirmó con ok:true; un rechazo queda «fallido»');

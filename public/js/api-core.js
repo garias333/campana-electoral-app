@@ -99,9 +99,17 @@ async function api(path, opciones = {}) {
         window.location.href = '/login.html';
         return;
       }
-      throw new Error((data && data.error) || 'No autenticado.');
+      const e401 = new Error((data && data.error) || 'No autenticado.');
+      e401.status = 401;
+      throw e401;
     }
-    throw new Error((data && data.error) || 'Error en la solicitud.');
+    // `status` (parche 308): sin él ninguna pantalla podía distinguir «no tiene acceso» (403) de un fallo cualquiera, y las ramas
+    // `e.status === 403` de «Mis tareas» y «Mis solicitudes» nunca se ejecutaban. Igual que la api() de common.js (que ya lo ponía).
+    const errorHttp = new Error((data && data.error) || 'Error en la solicitud.');
+    errorHttp.status = resp.status;
+    // El cuerpo entero de la respuesta, por si una pantalla necesita más que el texto del error.
+    errorHttp.datos = data;
+    throw errorHttp;
   }
   return data;
 }

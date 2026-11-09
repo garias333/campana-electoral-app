@@ -38,6 +38,23 @@
   .enc-sub { font-size: .84rem; color: var(--color-text-muted); margin: 6px 0 0; }
   .enc-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   @media (max-width: 820px) { .enc-tabla { display: block; overflow-x: auto; } }
+  /* Resultados y calidad (parche 308) */
+  .enc-tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--color-border, #E2E5EA); margin-bottom: 14px; }
+  .enc-tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; color: var(--color-text-muted); }
+  .enc-tab[aria-selected="true"] { color: var(--color-text, #1B2433); border-bottom-color: #4A78C2; }
+  .enc-controles { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 12px; }
+  .enc-controles label { font-size: .78rem; font-weight: 600; display: block; margin-bottom: 3px; }
+  .enc-cifras { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+  .enc-cifras .cifra { background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 8px 14px; min-width: 120px; }
+  .enc-cifras .cifra b { display: block; font-size: 1.2rem; }
+  .enc-cifras .cifra span { font-size: .76rem; color: var(--color-text-muted); text-transform: uppercase; }
+  .enc-res { border: 1px solid var(--color-border, #E2E5EA); border-radius: 10px; padding: 12px; margin-top: 12px; background: #FAFBFD; }
+  .enc-res h4 { margin: 0 0 8px; font-size: .98rem; }
+  .enc-res td.num, .enc-res th.num { text-align: right; white-space: nowrap; }
+  .enc-res tr.total td { font-weight: 700; background: #F1F4FA; }
+  .enc-res tr.otras td { color: var(--color-text-muted); font-style: italic; }
+  .enc-sesgo-sobre { color: #A93226; font-weight: 700; } .enc-sesgo-sub { color: #9A6200; font-weight: 700; }
+  .enc-senal { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .74rem; background: #FDF3E0; color: #7A4B00; margin: 1px 2px 1px 0; }
 </style>
 </head>
 <body>
@@ -62,6 +79,7 @@
         </table>
       </div>
       <div id="enc-editor"></div>
+      <div id="enc-panel"></div>
     </div>
   </main>
 </div>
@@ -125,7 +143,7 @@ function pintarPregunta(p, i) {
 }
 
 function pintarEditor() {
-  if (!ed) { $('enc-editor').innerHTML = ''; return; }
+  if (!ed) { $('enc-editor').innerHTML = ''; pintarPaneles(); return; }
   const ro = !ed.editable;
   const aviso = ed.problemas && ed.problemas.length
     ? `<div class="enc-aviso" id="ed-problemas"><b>Para poder publicarla falta corregir:</b><ul>${ed.problemas.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '';
@@ -152,6 +170,7 @@ function pintarEditor() {
     </div>
     <div id="ed-msg" class="enc-msg"></div></div>`;
   enlazar();
+  pintarPaneles();
 }
 
 function leerCampos() {
@@ -243,6 +262,169 @@ async function duplicar() {
 async function eliminar() {
   if (!confirm('¿Eliminar este borrador? No se puede deshacer.')) return;
   try { await api('/encuestas/' + ed.id, { method: 'DELETE' }); ed = null; pintarEditor(); await cargarLista(); } catch (e) { msg(e.message, 'error'); }
+}
+
+/* ===================================================================================================== RESULTADOS Y CALIDAD (308) */
+let vistaPanel = 'resultados';
+let agruparPor = 'zona';
+const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-CO'));
+const esAdmin = () => !!usuarioActual && usuarioActual.rol === 'admin';
+const pm = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'enc-msg ' + (tipo || ''); e.textContent = texto || ''; } };
+
+function pintarPaneles() {
+  const c = $('enc-panel');
+  if (!ed || !ed.id || ed.estado === 'borrador') { c.innerHTML = ''; return; }
+  const tabs = [['resultados', 'Resultados'], ['cuotas', 'Cuotas por zona']].concat(esAdmin() ? [['calidad', 'Calidad'], ['textos', 'Textos libres']] : []);
+  if (!tabs.some((t) => t[0] === vistaPanel)) vistaPanel = 'resultados';
+  c.innerHTML = `<div class="enc-editor"><div class="enc-tabs" role="tablist">${tabs.map(([k, t]) => `<button type="button" class="enc-tab" role="tab" data-vista="${k}" aria-selected="${k === vistaPanel}">${t}</button>`).join('')}</div><div id="enc-vista">Cargando…</div></div>`;
+  c.querySelectorAll('.enc-tab').forEach((b) => b.addEventListener('click', () => { vistaPanel = b.dataset.vista; pintarPaneles(); }));
+  ({ resultados: vistaResultados, cuotas: vistaCuotas, calidad: vistaCalidad, textos: vistaTextos })[vistaPanel]().catch((e) => { $('enc-vista').innerHTML = `<div class="enc-aviso">${esc(e.message || 'No se pudo cargar.')}</div>`; });
+}
+
+function tablaDePregunta(p, min) {
+  if (p.sin_agregado) return '<p class="enc-sub">Pregunta de texto corto: no tiene agregado. Los textos se revisan, uno por uno, en la pestaña «Textos libres» (solo el administrador).</p>';
+  if (p.oculta) return `<div class="enc-aviso">Sin cifras: entre todas las zonas no se llega al mínimo de ${esc(min)} respuestas a esta pregunta.</div>`;
+  const filas = [['Todas las zonas', p.total, 'total']].concat(p.celdas.map((c) => [c.zona, c, '']), p.otras ? [[`Otras zonas (${p.otras.zonas} agrupadas)`, p.otras, 'otras']] : []);
+  let cab, celda;
+  if (p.tipo === 'unica' || p.tipo === 'multiple') {
+    const ops = p.total.opciones;
+    cab = ops.map((o) => `<th class="num">${esc(o.texto)}</th>`).join('');
+    celda = (c) => c.opciones.map((o) => `<td class="num">${esc(o.n)} (${esc(o.pct)} %)</td>`).join('');
+  } else if (p.tipo === 'escala') {
+    cab = [1, 2, 3, 4, 5].map((v) => `<th class="num">${v}</th>`).join('') + '<th class="num">Promedio</th>';
+    celda = (c) => c.distribucion.map((d) => `<td class="num">${esc(d.n)}</td>`).join('') + `<td class="num">${esc(c.promedio === null ? '—' : c.promedio)}</td>`;
+  } else {
+    cab = '<th class="num">Promedio</th><th class="num">Mediana</th>';
+    celda = (c) => `<td class="num">${esc(c.promedio === null ? '—' : c.promedio)}</td><td class="num">${esc(c.mediana === null ? '—' : c.mediana)}</td>`;
+  }
+  return `<div style="overflow-x:auto"><table class="enc-tabla"><thead><tr><th>Zona</th><th class="num">Personas</th>${cab}<th class="num">No sabe / No responde</th></tr></thead><tbody>${
+    filas.map(([z, c, clase]) => `<tr class="${clase}"><td>${esc(z)}</td><td class="num">${esc(c.n)}</td>${celda(c)}<td class="num">${esc(c.nsnr)} (${esc(c.pct_nsnr)} %)</td></tr>`).join('')}</tbody></table></div>${
+    p.celdas_omitidas ? `<p class="enc-sub">${esc(p.celdas_omitidas)} celda(s) con menos de ${esc(min)} respuestas se agruparon en «Otras zonas» para que ninguna cifra señale a una sola persona.</p>` : ''}`;
+}
+
+async function vistaResultados() {
+  const id = ed.id;
+  const [r, cfg] = await Promise.all([api(`/encuestas/${id}/resultados?agrupar=${agruparPor}`), api('/encuestas/config')]);
+  const excel = puedeImportarExportar(usuarioActual, 'encuestas');
+  const sesgo = { sobre: '<span class="enc-sesgo-sobre">Sobrerrepresentada</span>', sub: '<span class="enc-sesgo-sub">Subrepresentada</span>', parejo: 'Pareja' };
+  const cobFila = (z, otras) => `<tr class="${otras ? 'otras' : ''}"><td>${esc(otras ? `Otras zonas (${z.zonas} agrupadas)` : z.zona)}</td><td class="num">${esc(z.respuestas)}</td><td class="num">${num(z.votantes)}</td>
+    <td class="num">${esc(z.pct_muestra)} %</td><td class="num">${z.pct_votantes === null ? '—' : esc(z.pct_votantes) + ' %'}</td><td class="num">${z.por_100 === null ? '—' : esc(z.por_100)}</td><td>${sesgo[z.sesgo] || ''}</td></tr>`;
+  $('enc-vista').innerHTML = `
+    <p class="enc-uso">${esc(r.marca)}. Cifras agregadas: nunca una respuesta suelta ni un texto libre.</p>
+    <div class="enc-controles">
+      <div><label for="rs-agrupar">Agrupar por</label><select id="rs-agrupar"><option value="zona" ${r.agrupar === 'zona' ? 'selected' : ''}>La zona de cada respuesta</option><option value="padre" ${r.agrupar === 'padre' ? 'selected' : ''}>La zona que la contiene (juntar barrios en su comuna)</option></select></div>
+      <div><label for="rs-min">Mínimo de respuestas por celda</label><input type="number" id="rs-min" min="${esc(cfg.piso)}" max="${esc(cfg.tope)}" value="${esc(cfg.min_celda)}" style="width:90px" ${esAdmin() ? '' : 'disabled'}></div>
+      ${esAdmin() ? '<div><button type="button" class="btn-secundario btn-sm" id="rs-guardar-min">Guardar el mínimo</button></div>' : ''}
+      ${excel ? `<div><a class="btn-primario btn-sm" id="rs-excel" href="/api/encuestas/${esc(id)}/exportar?agrupar=${esc(r.agrupar)}" download>Descargar en Excel</a></div>` : ''}
+    </div>
+    <div id="rs-msg" class="enc-msg"></div>
+    <p class="enc-sub" style="margin-top:0">El mínimo se puede subir pero no bajar de ${esc(cfg.piso)}, y vale igual para el administrador. Con menos respuestas que ese mínimo en una celda, la cifra no se muestra.</p>
+    <div class="enc-cifras">
+      <div class="cifra"><b>${r.respuestas === null ? `menos de ${esc(r.menos_de)}` : num(r.respuestas)}</b><span>Respuestas contadas</span></div>
+      <div class="cifra"><b>${num(r.fuera_por_revision)}</b><span>Fuera por revisión</span></div>
+      <div class="cifra"><b>${esc(r.minimo)}</b><span>Mínimo por celda</span></div>
+    </div>
+    ${r.fuera_por_revision ? '<p class="enc-sub">Hay respuestas fuera de los resultados porque saltó alguna señal de calidad o se excluyeron; el administrador las revisa en «Calidad».</p>' : ''}
+    ${r.preguntas.map((p) => `<div class="enc-res"><h4>${esc(p.orden)}. ${esc(p.enunciado)}${p.sensible ? ' <span class="enc-senal">sensible</span>' : ''}</h4>${tablaDePregunta(p, r.minimo)}</div>`).join('')}
+    <div class="enc-res"><h4>Cobertura: las respuestas frente a los votantes registrados en cada zona</h4>
+      ${r.cobertura.oculto ? `<div class="enc-aviso">Todavía no hay ${esc(r.minimo)} respuestas: no se muestra la cobertura.</div>` : `<div style="overflow-x:auto"><table class="enc-tabla"><thead><tr><th>Zona</th><th class="num">Respuestas</th><th class="num">Votantes registrados</th><th class="num">% de las respuestas</th><th class="num">% de los votantes</th><th class="num">Respuestas por 100 votantes</th><th>Lectura</th></tr></thead><tbody>${
+        r.cobertura.zonas.map((z) => cobFila(z, false)).join('')}${r.cobertura.otras ? cobFila(r.cobertura.otras, true) : ''}</tbody></table></div>
+        <p class="enc-sub">Una zona «sobrerrepresentada» aporta mucho más de la muestra de lo que pesa entre los votantes: sus respuestas pesan de más. Es una muestra de conveniencia: no se corrige ni se pondera.</p>`}
+    </div>
+    ${r.cuotas.length ? `<div class="enc-res"><h4>Cuotas por zona</h4><table class="enc-tabla"><thead><tr><th>Zona</th><th class="num">Meta</th><th class="num">Avance</th><th></th></tr></thead><tbody>${
+      r.cuotas.map((c) => `<tr><td>${esc(c.zona)}</td><td class="num">${esc(c.meta)}</td><td class="num">${c.avance === null ? `menos de ${esc(c.menos_de)}` : esc(c.avance) + ' (' + esc(c.pct) + ' %)'}</td><td>${c.completa ? 'Completa' : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+  $('rs-agrupar').addEventListener('change', () => { agruparPor = $('rs-agrupar').value; vistaResultados().catch((e) => pm('rs-msg', e.message, 'error')); });
+  const g = $('rs-guardar-min');
+  if (g) g.addEventListener('click', async () => {
+    try { await api('/encuestas/config', { method: 'PUT', body: { min_celda: Number($('rs-min').value) } }); await vistaResultados(); pm('rs-msg', 'Mínimo guardado.', 'ok'); }
+    catch (e) { pm('rs-msg', e.message || 'No se pudo guardar.', 'error'); }
+  });
+}
+
+/* ----- cuotas ----- */
+let cuotasEd = [];
+async function vistaCuotas() {
+  const id = ed.id;
+  const c = await api(`/encuestas/${id}/cuotas`);
+  cuotasEd = c.cuotas.map((x) => ({ ...x }));
+  const puedeEditar = permisos.editar;
+  const pintar = () => {
+    $('enc-vista').innerHTML = `
+      <p class="enc-sub" style="margin-top:0">Las cuotas son metas opcionales de respuestas por zona, para ver dónde falta. No son parte de la versión congelada de la encuesta: se pueden cambiar siempre. La meta mínima es ${esc(c.minimo)} (el mínimo por celda).</p>
+      ${c.nivel === 'texto' ? '<div class="enc-aviso">Esta campaña no tiene catálogo de zonas: las cuotas necesitan zonas del catálogo.</div>' : `
+      <table class="enc-tabla"><thead><tr><th>Zona</th><th class="num">Meta</th><th></th></tr></thead><tbody>${
+        cuotasEd.map((x, i) => `<tr><td>${esc(x.zona)}</td><td class="num">${esc(x.meta)}</td><td>${puedeEditar ? `<button type="button" class="btn-secundario btn-sm" data-quitar="${i}">Quitar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="3">Todavía no hay cuotas.</td></tr>'}</tbody></table>
+      ${puedeEditar ? `<div class="enc-controles" style="margin-top:12px">
+        <div><label for="cu-zona">Zona</label><input type="text" id="cu-zona" list="cu-zonas" maxlength="120" autocomplete="off"><datalist id="cu-zonas">${c.zonas.map((z) => `<option value="${esc(z.nombre)}${c.zonas.filter((o) => o.nombre === z.nombre).length > 1 ? ' · ' + esc(z.padre || z.tipo) : ''}">`).join('')}</datalist></div>
+        <div><label for="cu-meta">Meta</label><input type="number" id="cu-meta" min="${esc(c.minimo)}" value="${esc(Math.max(c.minimo, 30))}" style="width:90px"></div>
+        <div><button type="button" class="btn-secundario btn-sm" id="cu-agregar">Agregar</button> <button type="button" class="btn-primario btn-sm" id="cu-guardar">Guardar las cuotas</button></div></div>
+      <div id="cu-msg" class="enc-msg"></div>` : ''}`}`;
+    $('enc-vista').querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', () => { cuotasEd.splice(Number(b.dataset.quitar), 1); pintar(); }));
+    const ag = $('cu-agregar');
+    if (ag) ag.addEventListener('click', () => {
+      const txt = $('cu-zona').value.trim().toLowerCase();
+      const z = c.zonas.find((o) => o.nombre.toLowerCase() === txt || `${o.nombre} · ${o.padre || o.tipo}`.toLowerCase() === txt);
+      if (!z) return pm('cu-msg', 'Elige una zona de la lista.', 'error');
+      if (cuotasEd.some((x) => x.territorio_id === z.id)) return pm('cu-msg', 'Esa zona ya tiene cuota.', 'error');
+      cuotasEd.push({ territorio_id: z.id, zona: z.nombre, meta: Number($('cu-meta').value) });
+      pintar();
+    });
+    const gu = $('cu-guardar');
+    if (gu) gu.addEventListener('click', async () => {
+      try { await api(`/encuestas/${id}/cuotas`, { method: 'PUT', body: { cuotas: cuotasEd.map((x) => ({ territorio_id: x.territorio_id, meta: x.meta })) } }); pm('cu-msg', 'Cuotas guardadas.', 'ok'); }
+      catch (e) { pm('cu-msg', e.message || 'No se pudieron guardar.', 'error'); }
+    });
+  };
+  pintar();
+}
+
+/* ----- calidad (administrador) ----- */
+let verCalidad = 'sospechosa';
+async function vistaCalidad() {
+  const id = ed.id;
+  const d = await api(`/encuestas/${id}/calidad?ver=${verCalidad}`);
+  const reglas = Object.values(d.reglas).map((t) => `<li>${esc(t)}</li>`).join('');
+  $('enc-vista').innerHTML = `
+    <p class="enc-uso">${esc(d.marca)}. Esta pantalla no muestra lo que se respondió: solo cómo se aplicó.</p>
+    <p class="enc-sub" style="margin-top:0">Las respuestas son anónimas, así que la única forma de ver si alguien las inventó es mirar CÓMO se llenaron. Una señal no prueba nada: la respuesta se guarda, pero queda fuera de los resultados hasta que la revises. Todo es reversible y queda en la auditoría.</p>
+    <details class="enc-sub"><summary>Qué señales se miran</summary><ul>${reglas}<li>Se llenó demasiado rápido · la misma opción en todas las preguntas · zona fuera del territorio de quien la aplicó.</li></ul></details>
+    <div class="enc-res"><h4>Por aplicador</h4>
+      <div style="overflow-x:auto"><table class="enc-tabla"><thead><tr><th>Aplicador</th><th class="num">Respuestas</th><th class="num">Sospechosas</th><th class="num">Excluidas</th><th class="num">% fuera</th><th class="num">Mediana (seg)</th><th>Señales</th><th>Entre</th></tr></thead><tbody>${
+        d.aplicadores.map((a) => `<tr><td>${esc(a.aplicador)}</td><td class="num">${esc(a.total)}</td><td class="num">${esc(a.sospechosas)}</td><td class="num">${esc(a.excluidas)}</td><td class="num">${esc(a.pct_sospechosas)} %</td><td class="num">${a.mediana_seg === null ? '—' : esc(a.mediana_seg)}</td>
+        <td>${a.senales.map((s) => `<span class="enc-senal">${esc(s.texto)} · ${esc(s.n)}</span>`).join('') || '—'}</td><td>${esc(a.primera)} a ${esc(a.ultima)}</td></tr>`).join('') || '<tr><td colspan="8">Todavía no hay respuestas.</td></tr>'}</tbody></table></div></div>
+    <div class="enc-res"><h4>Respuestas por revisar</h4>
+      <div class="enc-controles"><div><label for="ca-ver">Ver</label><select id="ca-ver"><option value="sospechosa" ${d.ver === 'sospechosa' ? 'selected' : ''}>Sospechosas (fuera de los resultados)</option><option value="excluida" ${d.ver === 'excluida' ? 'selected' : ''}>Excluidas</option><option value="aprobada" ${d.ver === 'aprobada' ? 'selected' : ''}>Aprobadas por mí</option></select></div></div>
+      <div style="overflow-x:auto"><table class="enc-tabla"><thead><tr><th></th><th>N.º</th><th>Aplicador</th><th>Zona</th><th>Hora de captura</th><th class="num">Seg</th><th>Señales</th></tr></thead><tbody>${
+        d.respuestas.map((r) => `<tr><td><input type="checkbox" data-id="${esc(r.id)}"></td><td>${esc(r.id)}</td><td>${esc(r.aplicador)}</td><td>${esc(r.zona || '—')}</td><td>${esc(fechaHora(r.respondida_en))}</td><td class="num">${r.duracion_seg === null ? '—' : esc(r.duracion_seg)}</td>
+        <td>${r.senales.map((s) => `<span class="enc-senal">${esc(s.texto)}</span>`).join('')}</td></tr>`).join('') || '<tr><td colspan="7">Nada por revisar aquí.</td></tr>'}</tbody></table></div>
+      ${d.respuestas.length ? `<div class="enc-acciones">${d.ver === 'sospechosa' ? '<button type="button" class="btn-primario btn-sm" data-accion="aprobar">Aprobar (entran en los resultados)</button><button type="button" class="btn-secundario btn-sm" data-accion="excluir">Excluir</button>'
+        : '<button type="button" class="btn-secundario btn-sm" data-accion="restaurar">Devolver a revisión</button>'}</div>` : ''}
+      <div id="ca-msg" class="enc-msg"></div></div>`;
+  $('ca-ver').addEventListener('change', () => { verCalidad = $('ca-ver').value; vistaCalidad().catch((e) => pm('ca-msg', e.message, 'error')); });
+  $('enc-vista').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', async () => {
+    const ids = [...$('enc-vista').querySelectorAll('input[data-id]:checked')].map((x) => Number(x.dataset.id));
+    if (!ids.length) return pm('ca-msg', 'Marca al menos una respuesta.', 'error');
+    try { const r = await api(`/encuestas/${id}/calidad/revisar`, { method: 'POST', body: { ids, accion: b.dataset.accion } }); await vistaCalidad(); pm('ca-msg', `${r.cambiadas} respuesta(s) actualizada(s).`, 'ok'); }
+    catch (e) { pm('ca-msg', e.message || 'No se pudo.', 'error'); }
+  }));
+}
+
+/* ----- textos libres (administrador) ----- */
+async function vistaTextos() {
+  const id = ed.id;
+  const d = await api(`/encuestas/${id}/textos`);
+  $('enc-vista').innerHTML = `
+    <p class="enc-uso">${esc(d.marca)}. Los textos libres NO entran en los resultados ni en el Excel: solo se ven aquí.</p>
+    <p class="enc-sub" style="margin-top:0">Lee cada texto y bórralo si trae un nombre, un teléfono o cualquier cosa que señale a alguien. «Conservar» lo marca como visto. Un texto borrado no vuelve. No se muestra quién aplicó la encuesta.</p>
+    <div style="overflow-x:auto"><table class="enc-tabla"><thead><tr><th>Pregunta</th><th>Zona</th><th>Día</th><th>Texto</th><th></th></tr></thead><tbody>${
+      d.textos.map((t) => `<tr><td>${esc(t.pregunta)}. ${esc(t.enunciado)}</td><td>${esc(t.zona || '—')}</td><td>${esc(t.dia)}</td><td>${esc(t.texto)}</td>
+      <td><button type="button" class="btn-secundario btn-sm" data-texto="${esc(t.id)}" data-accion="conservar">Conservar</button> <button type="button" class="btn-secundario btn-sm" data-texto="${esc(t.id)}" data-accion="borrar">Borrar</button></td></tr>`).join('') || '<tr><td colspan="5">No hay textos por revisar.</td></tr>'}</tbody></table></div>
+    <div id="tx-msg" class="enc-msg"></div>`;
+  $('enc-vista').querySelectorAll('[data-texto]').forEach((b) => b.addEventListener('click', async () => {
+    if (b.dataset.accion === 'borrar' && !confirm('¿Borrar este texto? No se puede deshacer.')) return;
+    try { await api(`/encuestas/${id}/textos/${b.dataset.texto}`, { method: 'POST', body: { accion: b.dataset.accion } }); await vistaTextos(); }
+    catch (e) { pm('tx-msg', e.message || 'No se pudo.', 'error'); }
+  }));
 }
 
 (async () => {

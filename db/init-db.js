@@ -594,6 +594,28 @@ async function agregarFinalidadSolicitudes(connection) {
   }
 }
 
+/* Agrega a la política de privacidad la finalidad de las encuestas internas (parche 308) y archiva la versión nueva con su huella. Mismo mecanismo que
+   la de las solicitudes: va DESPUÉS de ella, se agrega una sola vez al final de la sección 2 y es repetible (si el texto ya la trae, no hace nada). */
+async function agregarFinalidadEncuestas(connection) {
+  const FRASE_ENCUESTAS = 'encuestas internas que aplica el equipo';
+  const [[politicaActual]] = await connection.query(`SELECT contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'`);
+  if (politicaActual && politicaActual.contenido && !politicaActual.contenido.includes(FRASE_ENCUESTAS)) {
+    const parrafo = '\n\nLas ' + FRASE_ENCUESTAS + ' de la campaña son anónimas y voluntarias: no le pedimos ni guardamos su nombre, su cédula, su teléfono ni ningún dato '
+      + 'que permita identificarlo, y usted puede no contestar cualquier pregunta. Las usamos únicamente para conocer, de manera agregada, lo que piensan las distintas zonas '
+      + 'del territorio; no se publican ni se entregan a terceros. Solo guardamos la zona donde se aplicó y, si el equipo la comparte, una ubicación aproximada de unos 500 metros; '
+      + 'los textos que se hayan escrito y esa ubicación se borran pasado el plazo que fije la campaña después de la elección.';
+    const texto = politicaActual.contenido;
+    const corte = texto.search(/\n## 3\./);
+    const nuevo = corte === -1 ? texto.replace(/\s+$/, '') + parrafo : texto.slice(0, corte).replace(/\s+$/, '') + parrafo + '\n' + texto.slice(corte);
+    await connection.query(`UPDATE contenido_paginas SET contenido = ? WHERE clave = 'politica_privacidad'`, [nuevo]);
+    const huella = require('crypto').createHash('sha256').update(nuevo, 'utf8').digest('hex').slice(0, 16);
+    await connection.query(
+      `INSERT IGNORE INTO politica_versiones (huella, clave, titulo, contenido, archivada_por, archivada_por_nombre) VALUES (?, 'politica_privacidad', 'Política de privacidad', ?, NULL, 'Actualización automática (encuestas internas)')`,
+      [huella, nuevo]);
+    console.log(`Política de privacidad: se agregó la finalidad de las encuestas internas y se archivó la versión ${huella}.`);
+  }
+}
+
 async function sembrarPoliticaPrivacidadPorDefecto(connection) {
   await connection.query(
     `INSERT IGNORE INTO contenido_paginas (clave, titulo, contenido) VALUES (?, ?, ?)`,
@@ -3477,11 +3499,42 @@ async function main() {
       FOREIGN KEY (respuesta_id) REFERENCES encuesta_respuestas(id) ON DELETE CASCADE,
       FOREIGN KEY (pregunta_id) REFERENCES encuesta_preguntas(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  /* ENCUESTAS, FASES 3 Y 4 (parche 308): resultados y control de calidad. Todo repetible.
+       · configuracion_campana.encuesta_min_celda ... el mínimo de respuestas por celda para mostrar una cifra. 5 de fábrica; el servidor NO deja
+                                  bajarlo de 5 (solo subirlo), igual para el administrador.
+       · encuesta_respuestas.revision ... 'ok' entra en los resultados; 'sospechosa' (alguna señal de calidad) y 'excluida' NO, hasta que el
+                                  administrador la revise (aprobar la devuelve a 'ok'; todo es reversible y queda en la auditoría).
+       · senales / vector_hash ... qué señales saltaron (códigos separados por coma) y la huella del conjunto de respuestas (para detectar vectores repetidos).
+       · revisada_por / revisada_en ... quién del EQUIPO (el administrador) la revisó y cuándo. Nunca el encuestado.
+       · encuesta_respuesta_items.texto_revisado ... el texto libre que el administrador ya vio en la cola de revisión.
+       · encuesta_cuotas ... metas OPCIONALES de respuestas por zona del catálogo (no son parte de la versión congelada: se pueden cambiar siempre). */
+  await agregarColumnaSiFalta(connection, 'configuracion_campana',
+    "encuesta_min_celda INT NOT NULL DEFAULT 5 COMMENT 'Mínimo de respuestas por celda para mostrar una cifra de una encuesta. Nunca menos de 5'", 'encuesta_min_celda');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuestas',
+    "revision ENUM('ok','sospechosa','excluida') NOT NULL DEFAULT 'ok' COMMENT 'Solo las ok entran en los resultados'", 'revision');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "senales VARCHAR(120) NULL COMMENT 'Señales de calidad que saltaron, separadas por coma'", 'senales');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "vector_hash CHAR(16) NULL COMMENT 'Huella del conjunto de respuestas (sin textos): para ver vectores repetidos'", 'vector_hash');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "revisada_por INT NULL COMMENT 'El administrador que la revisó (nunca el encuestado)'", 'revisada_por');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "revisada_en DATETIME NULL", 'revisada_en');
+  await agregarColumnaSiFalta(connection, 'encuesta_respuesta_items', "texto_revisado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador ya vio este texto libre'", 'texto_revisado');
+  for (const [nombre, def] of [['idx_encuesta_respuesta_revision', '(encuesta_id, revision)'], ['idx_encuesta_respuesta_vector', '(aplicada_por, encuesta_id, vector_hash)']]) {
+    try { await connection.query(`ALTER TABLE encuesta_respuestas ADD INDEX ${nombre} ${def}`); } catch (err) { if (err.code !== 'ER_DUP_KEYNAME') throw err; }
+  }
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS encuesta_cuotas (
+      encuesta_id INT NOT NULL,
+      territorio_id INT NOT NULL COMMENT 'La zona del catálogo (sin FK: en campañas ligadas al catálogo territorios es una vista)',
+      meta INT NOT NULL COMMENT 'Cuántas respuestas se quieren de esta zona (nunca menos que el mínimo por celda)',
+      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (encuesta_id, territorio_id),
+      FOREIGN KEY (encuesta_id) REFERENCES encuestas(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
   console.log('Tablas de las encuestas internas listas (módulos apagados).');
 
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
+  await agregarFinalidadEncuestas(connection);
 
   await connection.end();
   console.log('Listo.');

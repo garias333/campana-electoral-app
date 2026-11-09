@@ -10,7 +10,10 @@
 //   · UN RECHAZO DEL SERVIDOR NO SE BORRA: queda «fallido», visible, con su motivo y con Reintentar y Descartar;
 //   · el día de la elección: la lista dice por qué no hay encuestas (del servidor y, sin señal, con la fecha guardada en el celular);
 //   · Solicitudes: la lista de zonas con la misma degradación (comunas y corregimientos, no solo barrios y veredas) y un rechazo que no se borra;
-//   · el constructor del escritorio: crear, la palabra que impide publicar, sensible ⇒ no obligatoria, publicar (queda congelada), duplicar.
+//   · el constructor del escritorio: crear, la palabra que impide publicar, sensible ⇒ no obligatoria, publicar (queda congelada), duplicar;
+//   · (parche 308) las COLAS: `sincronizarCola` no borra ante un 401 (undefined) ni ante un error de red ni ante 429/503; `api()` pone `error.status`;
+//     «Mis tareas» deja lo rechazado «fallido» con Reintentar y Descartar; y «Mis tareas» / «Mis solicitudes» dicen que no hay permiso ante un 403;
+//   · (parche 308) la pantalla de resultados del escritorio: tablas, cobertura, Excel solo con la casilla, Calidad y Textos libres solo del administrador, cuotas.
 //
 // USO (sobre una base desechable ya inicializada con init-db; hace falta Chromium, ver scripts/capturas/navegador.js):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada307 node scripts/probar-encuestas-celular.js
@@ -28,6 +31,7 @@ process.env.LICENCIA_DOMINIO = 'campana.prueba';
 process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 
 const http = require('http');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const { lanzar, espera } = require('./capturas/navegador');
@@ -67,6 +71,8 @@ async function config(c) {
     for (const t of ['encuesta_respuesta_items', 'encuesta_respuestas', 'encuesta_preguntas', 'encuestas', 'solicitudes']) await q(`DELETE FROM ${t}`);
     await q(`INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ('lider', 'encuestas_campo', 1, 0, 1) ON DUPLICATE KEY UPDATE permitido = 1, editar = 0, agregar = 1`);
     await q(`INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ('lider', 'solicitudes', 1, 0, 1) ON DUPLICATE KEY UPDATE permitido = 1, editar = 0, agregar = 1`);
+    await q(`INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ('lider', 'tareas', 1, 0, 0) ON DUPLICATE KEY UPDATE permitido = 1, editar = 0, agregar = 0`);
+    await q(`INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar, importar_exportar) VALUES ('coordinador', 'encuestas', 1, 0, 0, 0) ON DUPLICATE KEY UPDATE permitido = 1, editar = 0, agregar = 0, importar_exportar = 0`);
     const admin = 1;
     const jefa = await persona('Coordinadora Ejemplo', 'coordinador', 'coordinador');
     const ana = await persona('Ana Lider Ejemplo', 'lider', 'lider', jefa);
@@ -363,6 +369,111 @@ async function config(c) {
     await espera(1500);
     ok((await q('SELECT 1 FROM encuestas WHERE id = ?', [copia.id])).length === 0, 'y un borrador se elimina');
     ok(p.avisos.length === 0, 'sin errores de JavaScript en el constructor', p.avisos);
+
+    /* =============================================================================================== 10. las colas (parche 308) */
+    console.log('\n[10] Las colas sin señal: nada se borra sin que el servidor lo confirme');
+    await p.cmd('Emulation.setDeviceMetricsOverride', { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
+    await entrarComo(ana);
+    await ir('/app/mis-solicitudes.html', 2500);
+    const casos = await p.ev(`(async () => {
+      const original = api;
+      const S = 'solicitudes_pendientes';
+      const caso = async (id, stub) => {
+        await guardarEnColaOffline(S, { clienteUuid: id, creadoEn: Date.now(), payload: {} });
+        api = stub;
+        try { await sincronizarCola(S, '/x', (r) => r.payload); } finally { api = original; }
+        const r = (await listarColaOffline(S)).find((x) => x.clienteUuid === id);
+        const salida = r ? (r.estado || 'pendiente') : 'borrado';
+        if (r) await borrarDeColaOffline(S, id);
+        return salida;
+      };
+      const falla = (extra) => async () => { const e = new Error('x'); Object.assign(e, extra); throw e; };
+      return {
+        sesionVencida: await caso('k1', async () => undefined),
+        sinRed: await caso('k2', falla({ esErrorDeRed: true })),
+        s429: await caso('k3', falla({ status: 429 })),
+        s503: await caso('k4', falla({ status: 503 })),
+        s400: await caso('k5', falla({ status: 400 })),
+        s500: await caso('k6', falla({ status: 500 })),
+        exito: await caso('k7', async () => ({ ok: true })),
+        exitoSinCuerpo: await caso('k8', async () => null),
+      };
+    })()`);
+    ok(casos.sesionVencida === 'pendiente', 'un 401 (api() devuelve undefined tras redirigir al login) NO borra el registro: queda pendiente', casos);
+    ok(casos.sinRed === 'pendiente' && casos.s429 === 'pendiente' && casos.s503 === 'pendiente', 'ni un error de red, ni 429 ni 503: quedan pendientes para la siguiente subida (no «fallidos»)', casos);
+    ok(casos.s400 === 'fallido' && casos.s500 === 'fallido', 'un rechazo real (400, 500) queda «fallido» y NO se borra', casos);
+    ok(casos.exito === 'borrado' && casos.exitoSinCuerpo === 'borrado', 'solo lo que el servidor confirmó se borra (con cuerpo o sin él)', casos);
+    // api(): el error trae `status` y `datos`
+    const e403 = await p.ev(`(async () => { try { await api('/encuestas'); return null; } catch (e) { return { status: e.status, tieneDatos: !!e.datos, mensaje: e.message }; } })()`);
+    ok(e403 && e403.status === 403 && e403.tieneDatos && /acceso/i.test(e403.mensaje), 'api() pone error.status (403) y error.datos en los errores del servidor', e403);
+    // El 403 en las dos pantallas del celular
+    const sinPermiso = await persona('Invitado Sin Permisos', 'invitado');
+    await entrarComo(sinPermiso);
+    await ir('/app/mis-tareas.html', 3000);
+    ok(/no tiene habilitadas las tareas/i.test(await texto('#lista-servidor') || ''), '«Mis tareas»: ante un 403 dice que su tipo de usuario no tiene habilitadas las tareas (esa rama nunca se ejecutaba)', await texto('#lista-servidor'));
+    await ir('/app/mis-solicitudes.html', 3000);
+    ok(/no tiene habilitadas las solicitudes/i.test(await texto('#lista-servidor') || ''), '«Mis solicitudes»: lo mismo');
+    // «Mis tareas»: un rechazo queda fallido, visible, con Reintentar y Descartar
+    await entrarComo(ana);
+    const [rt] = await pool.query(`INSERT INTO tareas (tipo, titulo, estado, zona_texto, creada_por, asignada_a) VALUES ('libre', 'Tarea que se cancela', 'pendiente', 'La Esperanza', ?, ?)`, [jefa, ana]);
+    await ir('/app/mis-tareas.html', 3000);
+    await clic(`[data-abrir="${rt.insertId}"]`);
+    await sinSenal(true);
+    await clic(`[data-accion="empece"][data-id="${rt.insertId}"]`);
+    await espera(1200);
+    await sinSenal(false);
+    await q(`UPDATE tareas SET estado = 'cancelada', cancelada_en = NOW(), motivo_cancelacion = 'Ya no hace falta' WHERE id = ?`, [rt.insertId]);
+    await ir('/app/mis-tareas.html', 4500);
+    const colaT = await p.ev(`(async () => { const t = await listarColaOffline('tareas_pendientes'); return t.map((r) => ({ estado: r.estado || '', error: r.error || '' })); })()`);
+    ok(colaT.length === 1 && colaT[0].estado === 'fallido' && colaT[0].error, '«Mis tareas»: la acción que el servidor rechazó SIGUE EN LA COLA, «fallido» y con su motivo', colaT);
+    ok(await visible('#bloque-pendientes') && /No se pudo subir/.test(await texto('#lista-pendientes') || '') && !!(await p.ev(`!!document.querySelector('#lista-pendientes [data-reintentar]') && !!document.querySelector('#lista-pendientes [data-descartar]')`)), 'y la pantalla lo muestra con Reintentar y Descartar');
+    await clic('#lista-pendientes [data-reintentar]');
+    await espera(2500);
+    ok((await p.ev(`(async () => (await listarColaOffline('tareas_pendientes')).map((r) => r.estado || ''))()`)).join() === 'fallido', 'Reintentar lo vuelve a intentar y, si el servidor lo rechaza otra vez, sigue ahí (nada se borra solo)');
+    await clic('#lista-pendientes [data-descartar]');
+    await espera(1500);
+    ok((await p.ev(`(async () => (await listarColaOffline('tareas_pendientes')).length)()`)) === 0, 'Descartar lo quita (solo cuando la persona lo decide)');
+    await q('DELETE FROM tareas WHERE id = ?', [rt.insertId]);
+
+    /* =============================================================================================== 11. los resultados en el escritorio (parche 308) */
+    console.log('\n[11] Resultados, calidad y cuotas en el escritorio');
+    const apx = await persona('Aplicador Resultados', 'lider', 'lider', jefa);
+    for (let i = 0; i < 8; i++) {
+      await E.registrarRespuesta({ usuario: { id: apx, rol: 'lider', nombre: 'Aplicador Resultados' }, body: {
+        cliente_uuid: crypto.randomUUID(), encuesta_id: ez.id, huella: ez.huella, respondida_en: new Date(Date.now() - (i + 10) * 180000).toISOString(), iniciada_en: new Date(Date.now() - (i + 10) * 180000 - 60000).toISOString(),
+        territorio_id: 9103, respuestas: [{ pregunta_id: ez.preguntas[0].id, opcion: 'o' + (1 + (i % 3)) }, { pregunta_id: ez.preguntas[3].id, valor: 1 + i }, { pregunta_id: ez.preguntas[4].id, texto: 'Texto de revisión ' + i }] } });
+    }
+    await p.cmd('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+    await entrarComo(admin);
+    p.avisos.length = 0;
+    await ir('/encuestas.html', 3000);
+    await clic(`#enc-filas tr[data-id="${ez.id}"]`);
+    await espera(3500);
+    ok((await p.ev(`document.querySelectorAll('#enc-vista .enc-res').length`)) >= 5, 'al abrir una encuesta publicada aparece la pestaña «Resultados» con una tabla por pregunta', await p.ev(`document.querySelectorAll('#enc-vista .enc-res').length`));
+    const vista = await texto('#enc-vista') || '';
+    ok(/Uso interno – no publicable/.test(vista) && /Todas las zonas/.test(vista) && /Cobertura/.test(vista) && /Mínimo de respuestas por celda/.test(vista), 'con la franja «Uso interno – no publicable», el total, la cobertura y el mínimo por celda');
+    ok(/Sin agregado|no tiene agregado/.test(vista) && !/Texto de revisión/.test(vista), 'la pregunta de texto no tiene agregado y ningún texto libre aparece en los resultados');
+    ok(!!(await p.ev(`!!document.querySelector('#rs-excel') && document.querySelector('#rs-excel').getAttribute('href').includes('/api/encuestas/${ez.id}/exportar')`)), 'el administrador ve el botón del Excel');
+    ok((await p.ev(`document.querySelectorAll('.enc-tab').length`)) === 4, 'y ve cuatro pestañas: Resultados, Cuotas por zona, Calidad y Textos libres');
+    await clic('.enc-tab[data-vista="calidad"]'); await espera(2500);
+    ok(/Por aplicador/.test(await texto('#enc-vista') || '') && /Aplicador Resultados/.test(await texto('#enc-vista') || '') && !/Texto de revisión|Arreglar la calle/.test(await texto('#enc-vista') || ''), 'Calidad: el panel por aplicador, sin una sola respuesta');
+    await clic('.enc-tab[data-vista="textos"]'); await espera(2500);
+    ok(/Texto de revisión/.test(await texto('#enc-vista') || '') && !!(await p.ev(`!!document.querySelector('[data-texto][data-accion="borrar"]')`)), 'Textos libres: ahí SÍ se ven, con Conservar y Borrar');
+    await clic('[data-texto][data-accion="borrar"]'); await espera(1500);
+    ok((await q('SELECT COUNT(*) n FROM encuesta_respuesta_items WHERE valor_texto IS NULL AND texto_revisado = 1'))[0].n >= 1, 'Borrar desde la pantalla borra el texto');
+    await clic('.enc-tab[data-vista="cuotas"]'); await espera(2500);
+    await escribir('#cu-zona', 'El Carmen'); await escribir('#cu-meta', '12'); await clic('#cu-agregar'); await clic('#cu-guardar'); await espera(1500);
+    ok((await q('SELECT meta FROM encuesta_cuotas WHERE encuesta_id = ? AND territorio_id = 9103', [ez.id]))[0].meta === 12, 'Cuotas: se agrega la zona con su meta y se guarda');
+    await clic('.enc-tab[data-vista="resultados"]'); await espera(2500);
+    ok(/Cuotas por zona/.test(await texto('#enc-vista') || '') && /El Carmen/.test(await texto('#enc-vista') || ''), 'y el avance de la cuota aparece en los resultados');
+    ok(p.avisos.length === 0, 'sin errores de JavaScript en los resultados', p.avisos);
+    // quien tiene «Ver» pero no es administrador ni tiene la casilla de Exportar
+    await entrarComo(jefa);
+    await ir('/encuestas.html', 3000);
+    await clic(`#enc-filas tr[data-id="${ez.id}"]`);
+    await espera(3500);
+    ok((await p.ev(`document.querySelectorAll('.enc-tab').length`)) === 2 && !(await p.ev(`!!document.querySelector('.enc-tab[data-vista="calidad"]')`)), 'la coordinadora con «Ver» ve solo Resultados y Cuotas: no Calidad ni Textos libres');
+    ok(!(await p.ev(`!!document.querySelector('#rs-excel')`)) && (await p.ev(`document.getElementById('rs-min').disabled`)), 'sin la casilla de Exportar no hay botón de Excel, y el mínimo por celda no es editable');
   } catch (err) {
     fallos++;
     console.log('  FALLA la prueba se interrumpió: ' + (err && err.stack || err));

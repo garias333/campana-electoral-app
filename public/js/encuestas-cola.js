@@ -37,6 +37,7 @@ async function sincronizarEncuestas() {
         subidos++;
       } catch (err) {
         if (err && err.esErrorDeRed) break;
+        if (err && err.status && ESTADOS_TRANSITORIOS.includes(err.status)) break;     // servidor ocupado o caído: se reintenta solo
         r.estado = 'fallido';
         r.error = (err && err.message) || 'No se pudo guardar.';
         await guardarEnColaOffline(ENCUESTAS_STORE, r);

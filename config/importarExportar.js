@@ -57,6 +57,9 @@ const IMPORTAR_EXPORTAR_POR_DEFECTO = {
   solicitudes: ['admin'],
   // Tareas (parche 306): el Excel agregado de cumplimiento por zona (sin nombres de nadie). No hay importación.
   tareas: ['admin'],
+  // Encuestas internas (parche 308): el Excel agregado de resultados (por zona y pregunta, con el mínimo por celda y la marca «Uso interno – no publicable»).
+  // Sin respuestas sueltas, sin textos libres. No hay importación.
+  encuestas: ['admin'],
 };
 
 const MODULOS_CON_IMPORTAR_EXPORTAR = Object.keys(IMPORTAR_EXPORTAR_POR_DEFECTO);

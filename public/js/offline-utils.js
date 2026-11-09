@@ -130,6 +130,9 @@ function generarUuid() {
   });
 }
 
+/** Respuestas HTTP que dicen «ahora no», no «este registro está mal»: 408, 429 (demasiadas solicitudes), 502, 503 y 504. */
+const ESTADOS_TRANSITORIOS = [408, 429, 502, 503, 504];
+
 /**
  * Reintenta subir todo lo pendiente de un "store". `obtenerBody(registro)`
  * arma lo que se manda a api() (un objeto plano para JSON, o un FormData
@@ -151,11 +154,18 @@ async function sincronizarCola(store, endpoint, obtenerBody) {
   for (const registro of pendientes) {
     try {
       const body = obtenerBody(registro);
-      await api(endpoint, { method: 'POST', body });
+      const respuesta = await api(endpoint, { method: 'POST', body });
+      /* SOLO SE BORRA LO QUE EL SERVIDOR CONFIRMÓ (parche 308). Cuando la sesión venció, api() redirige al login y DEVUELVE undefined
+         en vez de lanzar: antes se tomaba por éxito y el registro —trabajo de campo sin subir— se borraba sin que llegara a ninguna
+         parte. Un éxito real siempre trae algo (el objeto de la respuesta, o null si no hay cuerpo): undefined es «no se confirmó nada». */
+      if (respuesta === undefined) break;
       await borrarDeColaOffline(store, registro.clienteUuid);
       subidos++;
     } catch (err) {
       if (err && err.esErrorDeRed) break;
+      // Un fallo del camino (servidor ocupado o caído, límite de solicitudes) no es un rechazo del registro: se deja en espera y se
+      // reintenta en la siguiente subida, en vez de marcarlo «fallido» y obligar a la persona a reintentarlo a mano.
+      if (err && err.status && ESTADOS_TRANSITORIOS.includes(err.status)) break;
       registro.estado = 'fallido';
       registro.error = (err && err.message) || 'No se pudo guardar.';
       await guardarEnColaOffline(store, registro);
