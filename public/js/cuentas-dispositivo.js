@@ -61,7 +61,8 @@ function establecerCuentaActiva(usuarioId) {
    sin enviar, y se les asigna dueño para que solo su sesión las suba. Se hace con IndexedDB «a mano» porque esta pantalla puede
    cargarse sin offline-utils.js. */
 const OFFLINE_USUARIO_CLAVE = 'offline_usuario_id';
-const COPIAS_SIN_SENAL = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache'];
+// OJO: esta lista y OFFLINE_STORES_COPIA de offline-utils.js son LA MISMA (esta pantalla puede cargarse sin aquel archivo): al agregar una copia, en las dos.
+const COPIAS_SIN_SENAL = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache', 'encuestas_cache'];
 
 function purgarCopiasSinSenal(usuarioId) {
   try {

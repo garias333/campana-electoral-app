@@ -198,6 +198,8 @@ const NAV_ITEMS = [
       { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
       // Tareas (parche 305). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `tareas`.
       { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
+      // Encuestas internas (parche 307). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `encuestas`. Aplicarlas es del celular (/app/encuestas-campo.html).
+      { href: '/encuestas.html', texto: 'Encuestas internas', modulo: 'encuestas', roles: ['admin', 'coordinador'] },
     ]
   },
   {

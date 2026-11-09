@@ -285,6 +285,8 @@ app.use('/api/push', require('./routes/push.routes'));
 app.use('/api/solicitudes', require('./routes/solicitudes.routes'));
 // Tareas (parche 305): módulo apagado de fábrica (solo el administrador). Un aspirante con sublicencia no pasa: no está en PERMITIDOS.
 app.use('/api/tareas', require('./routes/tareas.routes'));
+// Encuestas internas (parche 307): dos módulos apagados de fábrica (solo el administrador). Un aspirante con sublicencia no pasa: no está en PERMITIDOS.
+app.use('/api/encuestas', require('./routes/encuestas.routes'));
 // Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (solo con el módulo `recordatorios`).
 app.use('/api/recordatorios', require('./routes/recordatorios.routes'));
 

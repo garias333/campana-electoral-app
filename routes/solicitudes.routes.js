@@ -70,6 +70,18 @@ async function dentroDelAlcance(req, id) {
   return fila || null;
 }
 
+/* ----------------------------------------------------------------------------------------------------------- ZONAS */
+
+/**
+ * Las zonas para elegir en «Registrar una solicitud» (parche 307), con la MISMA degradación que Tareas y Encuestas (lib/zonas.js): barrios,
+ * veredas, comunas y corregimientos; si no hay ninguno, municipios; si no hay catálogo, `nivel: 'texto'` y se escribe a mano. Antes la pantalla
+ * pedía todo `/territorial/territorios` y se quedaba solo con barrios y veredas: una campaña con comunas y sin barrios veía la lista vacía.
+ * Va ANTES de `/:id`, que no es una zona.
+ */
+router.get('/zonas-lista', exigir('ver'), async (req, res) => {
+  try { res.json(await require('../lib/zonas').listaDeZonas()); } catch (e) { responder(res, e); }
+});
+
 /* -------------------------------------------------------------------------------------------------------- CATEGORÍAS */
 
 router.get('/categorias', exigir('ver'), async (req, res) => {

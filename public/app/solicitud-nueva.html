@@ -78,7 +78,7 @@
     <section class="paso" data-paso="3">
       <h2>¿En qué barrio o vereda?</h2>
       <div class="campo-app">
-        <label for="f-barrio">Barrio o vereda</label>
+        <label for="f-barrio" id="etiqueta-barrio">Barrio o vereda</label>
         <input type="text" id="f-barrio" list="lista-barrios" maxlength="120" autocomplete="off" placeholder="Escribe o elige de la lista">
         <datalist id="lista-barrios"></datalist>
         <small>Si no aparece en la lista, escríbelo tal como lo conoce la gente.</small>
@@ -122,6 +122,7 @@
 <script src="/js/offline-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/js/es-celular.js"></script>
+<script src="/js/zona-campo.js"></script>
 <script src="/app/app-comun.js"></script>
 <script>
 const STORE = 'solicitudes_pendientes';
@@ -129,7 +130,7 @@ const MAX_FOTOS = 3;
 const $ = (id) => document.getElementById(id);
 const esc = (t) => escaparAppHtml(t);
 let categorias = [];
-let territorios = [];
+let selectorZona = null;   // el campo de la zona (public/js/zona-campo.js)
 let categoriaElegida = null;
 let fotos = [];            // [{ blob, url }]
 let ubicacion = null;      // { latitud, longitud, precision_m } o null
@@ -230,14 +231,14 @@ async function guardar() {
   boton.disabled = true;
   const autoriza = $('f-autoriza').checked;
   const barrio = $('f-barrio').value.trim();
-  const coincide = territorios.find((t) => t.nombre.toLowerCase() === barrio.toLowerCase());
+  const coincide = selectorZona ? selectorZona.elegida() : null;
   const registro = {
     clienteUuid: generarUuid(),
     creadoEn: Date.now(),
     fotos: fotos.map((f) => f.blob),
     payload: {
       categoria_id: categoriaElegida.id, categoria_nombre: categoriaElegida.nombre,
-      descripcion: $('f-descripcion').value.trim(), barrio_texto: barrio, territorio_id: coincide ? coincide.id : '',
+      descripcion: $('f-descripcion').value.trim(), barrio_texto: coincide ? coincide.nombre : barrio, territorio_id: coincide ? coincide.id : '',
       latitud: ubicacion ? ubicacion.latitud : '', longitud: ubicacion ? ubicacion.longitud : '', precision_m: ubicacion ? ubicacion.precision_m : '',
       autoriza_datos: autoriza ? 1 : 0,
       ciudadano_nombre: autoriza ? $('f-nombre').value.trim() : '', ciudadano_telefono: autoriza ? $('f-telefono').value : '',
@@ -256,15 +257,18 @@ async function guardar() {
   try {
     const resto = (await listarColaOffline(STORE)).find((r) => r.clienteUuid === registro.clienteUuid);
     if (!resto) subido = true;
-    else if (resto.estado === 'fallido') { rechazo = resto.error || 'No se pudo registrar.'; await borrarDeColaOffline(STORE, registro.clienteUuid); }
+    // Un rechazo del servidor NO se borra de la cola (parche 307): queda «fallido», visible en «Mis solicitudes», con su motivo y los botones
+    // «Reintentar» y «Descartar». Antes se borraba aquí mismo y, si la persona cerraba el aviso, el registro y todo su trabajo se perdían sin rastro.
+    else if (resto.estado === 'fallido') { rechazo = resto.error || 'No se pudo registrar.'; }
   } catch (_) { /* se queda como pendiente */ }
   boton.disabled = false;
-  if (rechazo) { aviso(rechazo); return; }
   $('formulario').style.display = 'none';
   $('hecho').style.display = 'block';
-  $('hecho-icono').textContent = subido ? '✅' : '📥';
-  $('hecho-titulo').textContent = subido ? 'Solicitud registrada' : 'Guardada en tu celular';
-  $('hecho-texto').textContent = subido ? 'Quedó anotada y el equipo le hará seguimiento.' : 'No hay señal en este momento: la solicitud se sube sola cuando vuelva la conexión. Puedes verla en «Mis solicitudes».';
+  $('hecho-icono').textContent = rechazo ? '⚠️' : (subido ? '✅' : '📥');
+  $('hecho-titulo').textContent = rechazo ? 'No se pudo registrar' : (subido ? 'Solicitud registrada' : 'Guardada en tu celular');
+  $('hecho-texto').textContent = rechazo
+    ? `${rechazo} Quedó guardada en este celular: en «Mis solicitudes» puedes reintentarla o descartarla.`
+    : (subido ? 'Quedó anotada y el equipo le hará seguimiento.' : 'No hay señal en este momento: la solicitud se sube sola cuando vuelva la conexión. Puedes verla en «Mis solicitudes».');
 }
 
 function reiniciar() {
@@ -287,11 +291,12 @@ async function cargarReferencias() {
   } catch (e) { categorias = []; }
   pintarCategorias();
   if (!categorias.length) aviso('No se pudieron cargar las categorías. Con señal se cargan solas; vuelve a abrir esta pantalla.', 'error');
-  try {
-    const t = await obtenerConCacheReferencia('territorios', () => api('/territorial/territorios'));
-    territorios = (Array.isArray(t) ? t : (t && t.territorios) || []).filter((x) => ['barrio', 'vereda'].includes(x.tipo));
-    $('lista-barrios').innerHTML = [...new Set(territorios.map((x) => x.nombre))].sort().map((n) => `<option value="${esc(n)}">`).join('');
-  } catch (_) { territorios = []; }
+  // La zona, con la MISMA degradación que Tareas y Encuestas (lib/zonas.js, parche 307): barrios, veredas, comunas y corregimientos; si no hay
+  // ninguno, municipios; si no hay catálogo, se escribe a mano. Antes solo se ofrecían barrios y veredas: una campaña con comunas y sin barrios
+  // veía la lista vacía.
+  const listaZonas = await cargarZonasDeCampo('/solicitudes/zonas-lista');
+  selectorZona = armarSelectorDeZona({ input: $('f-barrio'), datalist: $('lista-barrios'), lista: listaZonas });
+  $('etiqueta-barrio').textContent = etiquetaDeZona(listaZonas.nivel);
   try {
     const p = await obtenerConCacheReferencia('politica_privacidad', () => api('/contenido/politica_privacidad'));
     politica = { version: (p && p.version) || '', texto: (p && p.contenido) || '' };

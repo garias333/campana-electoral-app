@@ -85,9 +85,20 @@ async function pintarPendientes() {
       <div class="resumen">${esc((p.descripcion || '').slice(0, 140))}</div>
       <div class="meta">${esc(p.barrio_texto || '')} · ${esc(fechaCorta(r.creadoEn))} · ${(r.fotos || []).length} foto(s)</div>
       ${fallida ? `<div class="meta" style="color:var(--error); margin-top:6px;">${esc(r.error || '')}</div>` : ''}
-      ${fallida ? `<div class="acciones"><button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}
+      ${fallida ? `<div class="acciones"><button type="button" class="btn-app btn-app-primario" data-reintentar="${esc(r.clienteUuid)}">Reintentar</button>
+        <button type="button" class="btn-app btn-app-secundario" data-descartar="${esc(r.clienteUuid)}">Descartar</button></div>` : ''}
     </div>`;
   }).join('');
+  // «Reintentar»: un rechazo puede ser un corte del servidor y no un error de la solicitud. Vuelve a ponerla en espera y la sube otra vez
+  // (si el servidor la rechaza de nuevo, vuelve a quedar aquí con su motivo; nada se borra solo).
+  $('lista-pendientes').querySelectorAll('[data-reintentar]').forEach((b) => b.addEventListener('click', async () => {
+    const r = cola.find((x) => x.clienteUuid === b.dataset.reintentar);
+    if (!r) return;
+    delete r.estado; delete r.error;
+    await guardarEnColaOffline(STORE, r);
+    try { await sincronizarCola(STORE, '/solicitudes', construirFormData); } catch (_) { /* sin señal */ }
+    pintarPendientes();
+  }));
   $('lista-pendientes').querySelectorAll('[data-descartar]').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('¿Descartar esta solicitud? No se subirá.')) return;
     await borrarDeColaOffline(STORE, b.dataset.descartar);

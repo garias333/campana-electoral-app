@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v176';
+const CACHE_NAME = 'estrategia-v177';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -51,6 +51,12 @@ const ARCHIVOS_CASCARON = [
   '/app/mis-solicitudes.html',
   // Tareas (parche 305): se consultan y se trabajan sin señal (la cola vive en IndexedDB).
   '/app/mis-tareas.html',
+  // Encuestas internas (parche 307): se aplican sin señal (la cola y la copia viven en IndexedDB). La encuesta a aplicar viaja por sessionStorage, no por la
+  // dirección: la caché distingue por dirección COMPLETA y una consulta (?id=3) no estaría guardada.
+  '/app/encuestas-campo.html',
+  '/app/encuesta-aplicar.html',
+  '/js/zona-campo.js',
+  '/js/encuestas-cola.js',
   // «Mi enlace de inscripción»: el QR se dibuja en el teléfono y se puede ENSEÑAR sin señal (el último enlace queda guardado).
   '/app/mi-enlace.html',
   '/js/qrcode-generator.js',
