@@ -391,6 +391,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/js/common.js"></script>
+<script src="/js/mapa-fondo.js"></script>
 <script>
 let progresoEquipoCache = [];
 let filtroProgresoActivo = 'todos';
@@ -470,19 +471,9 @@ async function cargarMapaDashboard() {
 
      El `catch` cubre que la consulta del token falle: ahí también queda
      OpenStreetMap, que no necesita ninguna. */
-  let token = null;
-  try { ({ token } = await api('/territorial/mapbox-token')); } catch (err) { token = null; }
+  const token = await obtenerTokenMapa();   // null ante cualquier fallo: entonces solo OpenStreetMap (ver /js/mapa-fondo.js)
 
-  const fondos = {};
-  fondos['OpenStreetMap'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 });
-  if (token) {
-    const comun = { attribution: '© Mapbox © OpenStreetMap', tileSize: 512, zoomOffset: -1, maxZoom: 19 };
-    fondos['Mapbox Calles'] = L.tileLayer(
-      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
-    fondos['Mapbox Satélite'] = L.tileLayer(
-      `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
-  }
+  const fondos = fondosMapa(token);   // los mismos tres fondos, en /js/mapa-fondo.js (con Referer hacia OpenStreetMap)
   (fondos['Mapbox Calles'] || fondos['OpenStreetMap']).addTo(mapaDashboard);
   L.control.layers(fondos, {}, { position: 'topright', collapsed: true }).addTo(mapaDashboard);
 

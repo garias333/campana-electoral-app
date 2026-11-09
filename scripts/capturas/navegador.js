@@ -45,10 +45,14 @@ async function lanzar() {
       const t = await pedir('PUT', `http://127.0.0.1:${puerto}/json/new?${encodeURIComponent(url || 'about:blank')}`);
       const ws = new WebSocket(t.webSocketDebuggerUrl);
       await new Promise((r) => ws.addEventListener('open', r));
-      let n = 0; const pend = new Map(); const avisos = []; const peticiones = [];   // `peticiones`: la URL de cada petición que hizo la página (para comprobar a dónde NO llama)
+      let n = 0; const pend = new Map(); const avisos = []; const peticiones = []; const respuestas = []; const detalle = [];   // `peticiones`: la URL de cada petición que hizo la página (para comprobar a dónde NO llama)
       ws.addEventListener('message', (m) => {
         const o = JSON.parse(m.data);
         if (o.method === 'Network.requestWillBeSent') peticiones.push(o.params.request.url);
+        // Para comprobar QUÉ cabecera Referer salió y CON QUÉ código respondió cada petición (scripts/probar-mapa-fondo.js).
+        if (o.method === 'Network.requestWillBeSent') detalle.push({ id: o.params.requestId, url: o.params.request.url, referer: o.params.request.headers.Referer || o.params.request.headers.referer || null });
+        if (o.method === 'Network.responseReceived') respuestas.push({ url: o.params.response.url, status: o.params.response.status });
+        if (o.method === 'Network.loadingFailed') respuestas.push({ url: (detalle.find((d) => d.id === o.params.requestId) || {}).url || '', status: 0, error: o.params.errorText });
         if (o.method === 'Runtime.exceptionThrown') avisos.push('EXC ' + JSON.stringify(o.params.exceptionDetails).slice(0, 200));
         if (o.method === 'Page.javascriptDialogOpening') ws.send(JSON.stringify({ id: ++n, method: 'Page.handleJavaScriptDialog', params: { accept: true } }));
         if (o.id && pend.has(o.id)) { pend.get(o.id)(o); pend.delete(o.id); }
@@ -61,7 +65,7 @@ async function lanzar() {
       };
       await cmd('Page.enable'); await cmd('Runtime.enable'); await cmd('Network.enable');
       await cmd('Network.setBypassServiceWorker', { bypass: true });
-      return { cmd, ev, avisos, peticiones, cerrar: () => { try { ws.close(); } catch (_) { /* ya cerrado */ } pedir('GET', `http://127.0.0.1:${puerto}/json/close/${t.id}`).catch(() => {}); } };
+      return { cmd, ev, avisos, peticiones, respuestas, detalle, cerrar: () => { try { ws.close(); } catch (_) { /* ya cerrado */ } pedir('GET', `http://127.0.0.1:${puerto}/json/close/${t.id}`).catch(() => {}); } };
     },
     cerrar() { try { proc.kill('SIGKILL'); } catch (_) { /* ya cerrado */ } fs.rmSync(perfil, { recursive: true, force: true }); },
   };

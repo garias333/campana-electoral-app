@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v183';
+const CACHE_NAME = 'estrategia-v184';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -93,6 +93,7 @@ const ARCHIVOS_CASCARON = [
   '/app/admin-panel.html',
   '/app/admin-votantes.html',
   '/app/admin-mapa.html',
+  '/js/mapa-fondo.js',   // parche 314: el fondo del mapa (token de Mapbox u OpenStreetMap con Referer) es de esta app
   '/app/admin-contenido.html',
   '/app/admin-estructura.html',
   '/app/ayudas-estructura.js',

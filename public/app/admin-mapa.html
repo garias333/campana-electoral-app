@@ -82,6 +82,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/js/api-core.js"></script>
+<script src="/js/mapa-fondo.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/js/es-celular.js"></script>
@@ -251,8 +252,7 @@ function llenarTerritorios() {
 }
 
 async function crearMapa() {
-  let token = null;
-  try { const r = await api('/territorial/mapbox-token'); token = r && r.token; } catch (e) { token = null; }
+  const token = await obtenerTokenMapa();   // null ante cualquier fallo: entonces solo OpenStreetMap (ver /js/mapa-fondo.js)
 
   mapa = L.map('mapa', { zoomControl: false, preferCanvas: true, attributionControl: true }).setView([4.6, -74.1], 6);
   mapa.attributionControl.setPrefix(false);
@@ -260,18 +260,7 @@ async function crearMapa() {
 
   /* Mismos fondos que mapa.html. Sin token solo OpenStreetMap: ofrecer un Mapbox que
      pintaría mosaicos en blanco se lee como aplicación rota. */
-  const fondos = {};
-  fondos['OpenStreetMap'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19
-  });
-  if (token) {
-    const comun = {
-      attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      tileSize: 512, zoomOffset: -1, maxZoom: 22
-    };
-    fondos['Mapbox Calles'] = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
-    fondos['Mapbox Satélite'] = L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`, comun);
-  }
+  const fondos = fondosMapa(token);   // los mismos fondos que mapa.html, en /js/mapa-fondo.js (con Referer hacia OpenStreetMap)
   (fondos['Mapbox Calles'] || fondos['OpenStreetMap']).addTo(mapa);
   L.control.layers(fondos, null, { position: 'topright', collapsed: true }).addTo(mapa);
 

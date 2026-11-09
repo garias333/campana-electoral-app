@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Solicitudes ciudadanas · Administración de Campaña</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -168,6 +169,7 @@
 <div id="visor-foto"><img alt="Foto de la solicitud"></div>
 
 <script src="/js/common.js"></script>
+<script src="/js/mapa-fondo.js"></script>
 <script>
 let usuarioActual = null;
 let permisos = { ver: false, editar: false, agregar: false };
@@ -376,9 +378,12 @@ async function cargarMapa() {
   if ($('mp-estado').value) p.set('estado', $('mp-estado').value);
   try {
     const [r] = await Promise.all([api('/solicitudes/mapa' + (p.toString() ? '?' + p.toString() : '')), cargarLeaflet()]);
+    // El token se pide ANTES de crear el mapa: si se esperara después, otra llamada (un cambio de filtro) vería el mapa a medias.
+    const tokenMapa = mapaSol ? null : await obtenerTokenMapa({ rol: usuarioActual && usuarioActual.rol });
     if (!mapaSol) {
       mapaSol = L.map('mapa-sol').setView([4.6, -74.1], 6);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; colaboradores de OpenStreetMap', maxZoom: 19 }).addTo(mapaSol);
+      // Mapbox si la campaña tiene token y este rol puede leerlo; si no, OpenStreetMap CON Referer (ver /js/mapa-fondo.js).
+      fondoMapa(mapaSol, { token: tokenMapa });
       capaZonas = L.layerGroup().addTo(mapaSol);
     }
     mapaSol.invalidateSize();

@@ -12,7 +12,10 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 313** (`parches/campana-parche313.zip`, 124.600 bytes,
+- **Último parche generado: 314** (`parches/campana-parche314.zip`, 59.442 bytes,
+  sha256 `651aeb542812d3358cb24497726fc1186d94163f733d0ca00112dee36c05e332`, 8 archivos): «Fondo de mapa común: arregla el mapa bloqueado en Solicitudes y Tareas». **GENERADO el 9 de noviembre de 2026; los 7 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **Requiere el 313** (el service worker `v184` lleva las entradas del 313). Detalle en «Parche 314».
+  Estado de publicación: ver «Parche 314».
+- **El anterior, el 313** (`parches/campana-parche313.zip`, 124.600 bytes,
   sha256 `2bdacd3a60892459ea35f77fc815a6899a21973f361502ca81dabe6536788370`, 13 archivos): «Eventos en el celular y marcar asistencia (escritorio y celular, también sin señal) (Requiere el 312)».
   **GENERADO el 9 de noviembre de 2026, PUBLICADO Y REGISTRADO ESE MISMO DÍA (INACTIVO: falta activarlo y aplicarlo desde el panel, y probarlo antes).** Lo corrió el usuario como root con `su - gariasappelectoral` (salida pegada): `parche-313.zip` en el servidor de licencias con huella igual a la local (`2bdacd3a60892459`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = true`**, estado INACTIVO. Los 13 archivos del zip son idénticos a los del disco (md5, uno a uno); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales); nada de `.env`, credenciales ni `.sql`.
   **TOCA LA BASE** (`db/init-db.js`: `evento_asistentes.asistio_ms` y `asistio_por`; repetible; al registrarlo el script marca `toca_base_datos` solo). **Requiere el 312.** Service worker **`v183`**. **`OFFLINE_DB_VERSION = 11`** (cola `eventos_pendientes` y copia `eventos_cache`). Detalle en «Parche 313».
@@ -283,6 +286,36 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 314 — Fondo de mapa común (9 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
+
+**El síntoma.** En Solicitudes ciudadanas (y en Tareas) el fondo del mapa salía lleno de cuadros amarillos «Access blocked — App is not following the tile usage policy of OpenStreetMap's volunteer-run servers» (403). Los controles y el círculo de la zona sí aparecían: lo roto eran las teselas.
+
+**La causa (medida, no supuesta).** Las dos pantallas pedían SIEMPRE `tile.openstreetmap.org`, sin mirar si había token de Mapbox, y no tenían `<meta name="referrer">`. A `/`, a `/solicitudes.html` y a todo lo estático le llegan **dos** `Referrer-Policy`: la de helmet (`strict-origin-when-cross-origin`, `app.js:88`) y una **`same-origin` que no sale del código Node** (`curl -sI https://electoral.appestrategia.net/` la muestra; `/api/*` trae solo una). El navegador junta las dos y se queda con la última: `same-origin` = ningún Referer hacia otro dominio. OSM exige Referer y responde 403. helmet NO era el culpable. Las demás pantallas con mapa se salvaban porque llevan su `<meta name="referrer">` (que gana a la cabecera).
+
+**Qué cambió.**
+- `public/js/mapa-fondo.js` (nuevo): `obtenerTokenMapa({rol})` (token público o `null` ante cualquier fallo, sin avisos), `fondosMapa(token)` (los tres fondos de siempre: OpenStreetMap, Mapbox Calles, Mapbox Satélite) y `fondoMapa(mapa,{token,estilo})`. Cada capa lleva `referrerPolicy: 'origin'` (solo el dominio, nunca la ruta), así que el fondo **ya no depende de lo que mande nginx**. Sin token, o si Mapbox no entrega ninguna tesela (4 errores seguidos, o Leaflet avisa con `load` que terminó sin una sola cargada), cae a OSM. No escribe nada en la consola; el token no entra en la atribución.
+- `solicitudes.html` y `tareas.html`: `<meta name="referrer" content="strict-origin-when-cross-origin">` y `fondoMapa(...)`. **Ahora usan Mapbox si la campaña tiene token** (antes eran solo OSM).
+- `mapa.html`, `dashboard.html`, `admin-mapa.html`: su bloque de `L.tileLayer` pasó a `fondosMapa(token)`, con el selector de fondos como estaba. Diferencias mínimas: el Dashboard ahora trae la atribución con enlaces y `maxZoom` 22 en Mapbox (antes 19 y sin enlaces).
+- `service-worker.js`: `/js/mapa-fondo.js` en la coraza; caché **`v184`**.
+- NO se tocó `puerta-a-puerta.html` ni `transporte-conductor.js` (ya mandaban Referer), ni helmet, ni nginx.
+
+**Roles y token.** La ruta `/api/territorial/mapbox-token` sigue **solo para admin, coordinador y aspirante** (no se amplió). Solicitudes y Tareas las ve quien tenga «Ver» en la matriz (de fábrica el menú las ofrece a admin, coordinador y líder; el módulo viene apagado): **el líder (y el sublíder) NO puede leer el token → cae a OpenStreetMap, ahora con Referer.** `obtenerTokenMapa({rol})` ni siquiera pregunta si el rol no está en esa lista, para no dejar un 403 en la red; el servidor sigue siendo quien decide.
+
+**Un defecto que la prueba destapó y se corrigió antes de empaquetar.** La primera versión abandonaba Mapbox tras 4 `tileerror`; el mapa del Dashboard y el del celular muestran 2 o 3 teselas y nunca llegaban a 4. Ahora también se mira el evento `load`. Y el cambio de capa se pospone un instante (`setTimeout 0`): hecho dentro del propio evento, Leaflet lanzaba `Cannot read properties of null (reading '_fadeAnimated')`.
+
+### Pruebas (Chromium real, base simulada, `scripts/probar-mapa-fondo.js`: TODO BIEN)
+- **Control negativo:** la pantalla de Solicitudes del commit anterior, con las dos cabeceras, pide las teselas de OSM **sin Referer**. (OSM respondió 200 desde este servidor a esa petición sin Referer: **el 403 no se reprodujo aquí**, solo la causa —el Referer ausente—. El bloqueo de OSM depende de su lado y de la IP.)
+- Solicitudes y Tareas, administrador y líder, sin token y con un token que Mapbox rechaza: teselas de OSM 200, todas con Referer = el dominio solo; con token falso Mapbox falla (`net::ERR_BLOCKED_BY_ORB`) y cae a OSM; el líder no pide el token (ningún 403 en la red).
+- Mapa territorial, Dashboard y Admin móvil: igual que antes (selector de fondos intacto), sin excepciones.
+- `obtenerTokenMapa()` ante 403, sin red y con rol sin acceso: `null`, sin lanzar.
+- Las dos pruebas que fijaban `estrategia-v183` (`probar-puerta-a-puerta.js`, `probar-eventos-asistencia.js`) ahora aceptan cualquier versión; ambas pasan.
+- `scripts/capturas/navegador.js` ahora también guarda `respuestas` (URL y código) y `detalle` (URL y Referer) de cada petición.
+
+### Pendientes
+- **nginx (root):** la cabecera `Referrer-Policy: same-origin` duplicada sigue ahí. No se tocó. Para ubicarla (como root, en el servidor): `grep -rn -i "referrer" /etc/nginx/ /home/clp 2>/dev/null`. En CloudPanel suele estar en el vhost de cada sitio (Vhost editor). Quitarla deja una sola cabecera (la de helmet) y los enlaces externos mandan el origen, no la ruta. Con este parche los mapas ya no dependen de ello.
+- **Token por campaña:** cuántas campañas tienen `MAPBOX_ACCESS_TOKEN` en su `.env` no se pudo medir desde esta cuenta (solo se lee la de la Base: tiene token).
+- Puerta a puerta y Transporte siguen con su capa de OSM propia (funcionan); pueden pasar a `fondoMapa` cuando se quiera unificar.
 
 ## Parche 313 — Eventos en el celular y marcar asistencia (9 de noviembre de 2026, PUBLICADO Y REGISTRADO, INACTIVO, TOCA LA BASE)
 
@@ -2950,3 +2983,8 @@ Rama: auditoria-fable | Commit: 6fc68ec ESTADO.md: parche 306 publicado y regist
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-09 01:26 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 781e570 ESTADO.md: parche 308 publicado y registrado INACTIVO (toca la base, firmado) | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-09 22:20 UTC desde srv1807015
+Rama: auditoria-fable | Commit: e349e9b ESTADO.md: 313 publicado y registrado (inactivo); init-db y reinicio hechos en la Base | Sin commitear: 3 archivo(s)

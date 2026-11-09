@@ -282,7 +282,7 @@ const asistieron = async (ev) => Number((await q('SELECT COUNT(*) c FROM evento_
     ok(/OFFLINE_DB_VERSION = 11;/.test(off) && /'eventos_pendientes'/.test(off) && /'eventos_cache'/.test(off), 'OFFLINE_DB_VERSION = 11, con la cola eventos_pendientes y la copia eventos_cache');
     ok(/OFFLINE_STORES_COPIA = \[[^\]]*'eventos_cache'[^\]]*\]/.test(off) && /COPIAS_SIN_SENAL = \[[^\]]*'eventos_cache'[^\]]*\]/.test(leer('public/js/cuentas-dispositivo.js')), 'la copia se borra al cerrar sesión o cambiar de cuenta (las dos listas, que deben ser la misma)');
     const sw = leer('public/service-worker.js');
-    ok(/estrategia-v183/.test(sw) && sw.includes("'/app/eventos.html'"), 'service worker v183 con /app/eventos.html en la coraza');
+    ok(/estrategia-v\d+/.test(sw) && sw.includes("'/app/eventos.html'"), 'service worker con /app/eventos.html en la coraza');
     ok(!/\.telefono|\.cedula|\.identidad|telefono_resuelto|identidad_resuelta/.test(leer('public/app/eventos.html')), 'estático: la pantalla del celular no lee teléfono ni cédula de nada');
 
     /* ================================================================= 7. el celular, en Chromium */
