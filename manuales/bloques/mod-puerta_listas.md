@@ -14,7 +14,7 @@ Aquí armas la lista de visitas de un líder o de un sublíder con personas que 
 
 ## Qué encuentras
 
-- **Armar una lista**: el nombre, quién va a visitar, una zona (opcional) y el máximo de personas. La lista se arma con las personas que ESE líder o sublíder puede ver, no con las tuyas.
+- **Armar una lista**: el nombre, quién va a visitar, una **zona** (opcional, se elige de un desplegable: barrios, veredas, comunas…) y el máximo de personas. La lista se arma con las personas que ESE líder o sublíder puede ver, no con las tuyas.
 - **Las listas**: cada una con su estado (*Activa*, *Cerrada* o *Cancelada*), cuántas personas tiene, cuántas faltan, cuántas se cerraron y cuántas quedaron sin respuesta tras tres intentos.
 - **El horario de las visitas** (solo el administrador): por omisión de 8:00 a 18:00, hora de Colombia; se puede mover entre las 7:00 y las 19:00.
 
@@ -32,11 +32,20 @@ Una persona que pidió no volver no entra en ninguna lista nueva. Una lista tien
 
 - **Ver**: abrir la pantalla y ver las listas con sus conteos.
 - **Agregar**: armar y asignar listas. El administrador puede asignar a cualquier líder o sublíder; el coordinador, a los de su equipo.
-- **Editar**: **cerrar** una lista (quien la tiene deja de recibirla; lo que ya visitó se conserva) o **cancelarla**. El horario solo lo cambia el administrador.
+- **Editar**: **cerrar** una lista (quien la tiene deja de recibirla; lo que ya visitó se conserva) o **cancelarla**. Una lista cerrada o cancelada también se puede **Editar** (el nombre, quién visita y el máximo de personas) y **Reactivar**. El horario solo lo cambia el administrador.
 
+- **Solo el administrador**, en la tabla de listas: **Eliminar** una lista cerrada o cancelada que nunca tuvo una visita, u **Ocultar** una que sí las tiene (sale de la tabla, las visitas se conservan; con «Ver ocultas» la ves y puedes **Mostrar de nuevo**). Todo queda en la auditoría.
 - **Solo el administrador**, en la ficha del votante: si alguien pidió no volver y luego pide que sí lo visiten, el botón **Volver a permitir visitas** quita esa marca. Pide el día en que lo pidió y un motivo, y queda en la auditoría. No cambia los mensajes: eso es aparte.
 
 De fábrica este módulo está **apagado**: solo el administrador lo ve. Para abrirlo al equipo, el administrador lo hace en Asignación de permisos.
+
+## Editar y reactivar una lista
+
+Una lista **activa** no se edita: primero se cierra o se cancela, porque quien la recorre tiene una copia en su celular. Con la lista cerrada o cancelada, toca **Editar**:
+
+- **Cambiar quién visita**: se vuelve a mirar el alcance de la persona nueva y salen de la lista las personas que ella no puede ver. Si una puerta ya tenía visitas, no se borra: queda como «sin respuesta» y sus visitas se conservan.
+- **Subir el máximo** trae más personas de la misma zona (con las mismas reglas de siempre); **bajarlo** saca primero las últimas que faltaban por visitar. No se puede bajar por debajo de las que ya tienen un resultado.
+- **Reactivar** la deja otra vez *Activa* para quien la tenía. Se vuelven a revisar las reglas: salen las personas que hoy no las cumplen (sin autorización, sin dirección, que pidieron no volver, que ya están en otra lista activa o que se visitaron hace menos de 60 días). Si ninguna las cumple, no se reactiva.
 
 ## Tareas frecuentes
 

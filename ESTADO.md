@@ -12,10 +12,14 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Próximo parche, el 311: EN PREPARACIÓN, NADA GENERADO** (orden del dueño: no generar uno solo para esto). Hasta ahora lleva `public/js/common.js` (entrada «Política de privacidad» en Configuración); ver «Parche 311». Acumula aquí lo que siga.
-- **Último parche generado: 310** (`parches/campana-parche310.zip`, 54.660 bytes,
+- **Último parche generado: 311** (`parches/campana-parche311.zip`, 176.420 bytes,
+  sha256 `874817043e135839b7eae4e685e720dc3d19796646d5dd39ad354a22442f16cd`, 14 archivos): «Puerta a puerta: editar, reactivar, eliminar y ocultar listas; zona en desplegable; mensaje de lista vacía; enlace a la política en el celular; mapa y ruta (incluye el 310). Requiere el 309».
+  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 14 archivos del zip son idénticos a los del disco (comparados uno a uno con md5); `verificar-requires.js`: «TODO RESUELVE» (21 requires locales); nada de `.env`, credenciales ni `.sql`.
+  **INCLUYE EL 310** (el 310 nunca se publicó: lleva sus 8 archivos más los de este lote). **TOCA LA BASE** (`db/init-db.js`: columna `puerta_listas.oculta`; al registrarlo, marcar `toca_base_datos`). **Requiere el 309.** Service worker **`v181`**. `OFFLINE_DB_VERSION` sigue en 10. Detalle en «Parche 311».
+  Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 311'` y luego `scripts/registrar-parche.js 311 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO; **con** `toca_base_datos`, que el script marca solo al ver `db/`). **El 310 ya no hace falta publicarlo.**
+- **El anterior, el 310** (`parches/campana-parche310.zip`, 54.660 bytes,
   sha256 `4c3ab964ea00b1da1351d21831ac9123ca353412914bee4544370fe89c9aa1c4`, 9 archivos): «Puerta a puerta, Fase 2: mapa y ruta, Leaflet local también en Tareas y Solicitudes (Requiere el 309)».
-  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR.** Los 9 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; nada de `db/`, `.env`, credenciales ni `.sql`.
+  **GENERADO el 9 de noviembre de 2026, SIN PUBLICAR NI REGISTRAR; SUSTITUIDO POR EL 311, que lo incluye.** Los 9 archivos del zip son idénticos a los del disco (comparados uno a uno); `verificar-requires.js`: «TODO RESUELVE»; nada de `db/`, `.env`, credenciales ni `.sql`.
   **NO TOCA LA BASE** (`toca_base_datos = false`: no hay cambios en `db/`). **Requiere el 309.** Service worker **`v180`**. `OFFLINE_DB_VERSION` sigue en 10. Detalle en «Parche 310».
   Para publicarlo, el usuario corre (como root, de a un comando): `su - gariasappelectoral -c 'cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 310'` y luego `scripts/registrar-parche.js 310 "<nombre>" "<descripción>"` con el `node` de esa cuenta (nace INACTIVO; **sin** marcar `toca_base_datos`).
   El anterior, el 309 (`parches/campana-parche309.zip`, 240.347 bytes,
@@ -278,17 +282,61 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 311 — EN PREPARACIÓN (nada generado): entrada «Política de privacidad» en Configuración
+## Parche 311 — Puerta a puerta: ajustes (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, TOCA LA BASE: una columna)
 
-**Archivos que lleva hasta ahora:** `public/js/common.js` (+ las pruebas, que no viajan). No toca la base. Se genera con el próximo lote, junto con lo que se acumule; **no se generó un parche solo para esto**.
+Orden del dueño: cinco ajustes del puerta a puerta, sumados a la entrada «Política de privacidad» (`0a340e2`). **Como el 310 no se ha publicado, el 311 lo INCLUYE** (lleva los 8 archivos del 310 más los de este lote) y por tanto **requiere el 309**, no el 310. **Si el 310 se publica antes, el 311 sigue sirviendo** (los archivos son los mismos más lo nuevo); no hace falta publicar el 310.
+
+**Toca la base:** `db/init-db.js` agrega `puerta_listas.oculta` (TINYINT, 0 por omisión) con `agregarColumnaSiFalta`; repetible. **Hay que correr `init-db` y reiniciar** en cada campaña (la lista de la pantalla consulta esa columna: sin ella, «Listas» no carga).
+
+### 0. Entrada «Política de privacidad» en Configuración (commit `0a340e2` / `35a3373`, `public/js/common.js`)
 
 **La pantalla ya existía y estaba en el menú — pero no para el superadministrador.** Dirección exacta: **`/contenido.html?clave=politica_privacidad`** (en el servidor de cada campaña: `https://<dominio>/contenido.html?clave=politica_privacidad`). Es la pantalla donde se edita (botón «✎ Editar», admin y coordinador; el servidor solo deja guardar al administrador, ver `routes/contenido.routes.js`) y donde sale el recuadro ámbar «Falta la finalidad de las visitas» (solo admin). Se llegaba desde el menú lateral → **«Contenido para compartir» → «Política de privacidad»**, y desde el enlace del formulario de registro de votantes. **Causa de que el dueño no la viera:** el menú del superadministrador se arma con el catálogo `MODULOS` (`routes/permisos.routes.js`), que no trae `politica_privacidad` ni `biografia_candidato`; el grupo «Contenido para compartir» se le encoge a un solo enlace («Información para compartir»). Medido con un Chromium: el superadministrador de la base de prueba solo veía ese enlace.
 
-**Arreglo:** una entrada nueva en el grupo «Configuración» del menú de escritorio: **«Política de privacidad»**, `modulo: 'configuracion'`, `roles: ['admin']` (misma regla que sus hermanas: aparece al administrador y al superadministrador; el coordinador no ve Configuración). Misma dirección que la otra: al administrador que ve las dos le llevan al mismo sitio (en el menú queda marcada la primera, la de «Contenido para compartir»). **No se tocó el menú del celular** (`/app/inicio.html` no tiene un enlace a la política para el administrador; «Compartir contenido» lleva a `admin-contenido.html`).
+**Arreglo:** una entrada nueva en el grupo «Configuración» del menú de escritorio: **«Política de privacidad»**, `modulo: 'configuracion'`, `roles: ['admin']` (misma regla que sus hermanas: aparece al administrador y al superadministrador; el coordinador no ve Configuración). Misma dirección que la otra: al administrador que ve las dos le llevan al mismo sitio (en el menú queda marcada la primera, la de «Contenido para compartir»). **El menú del celular se resuelve en el punto 5 de abajo.**
 
 **Prueba:** `scripts/probar-menu-politica.js` (Chromium real, 13 comprobaciones): superadministrador, administrador y coordinador ven lo que deben; la entrada abre la pantalla; el recuadro ámbar aparece (con el párrafo exacto) para el superadministrador y el administrador cuando la política editada no trae la finalidad, no aparece para el coordinador y se va cuando la política la trae. **Sin el arreglo, la prueba falla** (comprobado). Con él: `probar-manuales`, `probar-ordenar-select`, `probar-puerta-a-puerta-celular` y `probar-tareas-celular` siguen bien. Primera vez que el recuadro ámbar se prueba en un navegador (el parche 309 lo probó solo por la API).
 
 **En la Base:** el cambio ya está en disco (`common.js` es un archivo estático: no hace falta reiniciar). Para verlo, recargar la página (Ctrl+Shift+R): el service worker sirve la red primero. En las campañas llegará con el 311.
+
+### 1. Editar y reactivar listas cerradas o canceladas
+- `PUT /api/puerta-a-puerta/listas/:id` (nombre, quién visita, máximo de personas; módulo `puerta_listas` · Editar) y `POST …/reactivar`. Una lista **activa no se edita** (el celular tiene una copia): se cierra o cancela primero. Una oculta tampoco.
+- **Cambiar quién visita** vuelve a juzgar el alcance del NUEVO visitante: salen de la lista las puertas «pendientes» que él no ve. Las que ya tienen resultado se conservan (son historia). Una puerta pendiente **con visitas** no se borra —borrarla se llevaría las visitas por la cascada—: se suelta de la persona (`votante_id = NULL`) y queda «agotada» (sin respuesta); al soltarla queda libre para otra lista.
+- **Máximo:** si baja, salen las últimas pendientes (id más alto); si sube, entran más personas de la **misma zona** con las reglas de armar (`candidatos()`, compartido con armar); si lo que sobra ya tiene resultado, 422 y no se cambia nada.
+- **Reactivar** vuelve a «activa» con las mismas reglas: quien visita sigue siendo asignable; de las pendientes salen las que hoy están fuera de alcance, sin autorización, sin dirección, con `no_visitar`, **ya en otra lista activa** (una lista activa por persona) o **visitadas en otra lista hace menos de 60 días**. Si ninguna cumple, 422 y nada cambia. `cerrada_en` vuelve a NULL.
+- Auditoría: `puerta_lista_editar`, `puerta_lista_reactivar`.
+
+### 2. Eliminar u ocultar (solo administrador)
+- `DELETE …/listas/:id`: solo cerrada o cancelada **sin ninguna visita**; borra la lista y sus puertas. `POST …/ocultar` y `…/mostrar`: la lista sale de la tabla (filtro «Ver ocultas», solo para el administrador) y **se conserva todo**. Auditoría: `puerta_lista_eliminar`, `_ocultar`, `_mostrar`.
+- La pantalla ofrece «Eliminar» si se puede y «Ocultar» si no (`eliminable` viene de `GET /listas`).
+- **Decisión mía, no pedida, que hay que saber:** una lista **cerrada hace menos de 7 días** no se puede eliminar aunque no tenga visitas (se oculta), porque un celular todavía puede subir visitas anotadas antes del cierre (la ventana de captura es de 7 días, `VENTANA_CAPTURA_DIAS`) y borrarla las perdería en silencio. Una **cancelada** sí se elimina de inmediato (el servidor ya rechaza sus visitas). Pasados los 7 días, se elimina.
+- También agregué «Mostrar de nuevo» (no estaba en la orden): una lista oculta sin forma de volver sería una trampa.
+
+### 3. La zona al armar es un desplegable
+`<select id="a-zona">` agrupado por tipo (Barrios, Veredas, Comunas, Corregimientos, Municipios) con la opción «Todas sus personas»; si dos del mismo tipo y nombre chocan, lleva «· <padre>». Ya no se escribe: el `<datalist>` exigía coincidir con la etiqueta exacta. **No pude reproducir cómo terminaba «La Enea» en «—»** (la versión de hoy rechazaba con un mensaje si no coincidía); el desplegable cierra el camino de todos modos. En la prueba, «La Enea» existe como barrio Y como vereda (como en Manizales): aparece en los dos grupos y la lista armada muestra «La Enea» en la tabla.
+
+### 4. Mensaje de lista vacía
+Sin NADIE de partida: «Este líder no tiene votantes en su alcance.» (con zona: «…para esa zona.»), **sin** `omitidas` ni desglose. Con personas pero ninguna visitable: «Hay N persona(s) en su alcance, pero ninguna se puede visitar: 1 sin autorización, …» con **solo los motivos distintos de cero**. Se acabó la frase «todas están sin autorización, sin dirección…». La pantalla ya no repite el paréntesis de cifras.
+
+### 5. Menú del celular
+`public/app/inicio.html`, `MENU_ADMIN`: «Política de privacidad» (🔒) → `/contenido.html?clave=politica_privacidad`. Solo administrador (el coordinador y el líder ya tienen la lectura, `/app/politica-privacidad.html`). **Esa pantalla es la de escritorio** (como Solicitudes o Tareas): en el celular se ve, no es una versión móvil.
+
+### Y de paso
+- Service worker **`v181`**. Manuales: `mod-puerta_listas` (sección «Editar y reactivar una lista») y `t-puerta-armar`.
+- `GET /listas` devuelve ahora `oculta`, `visitas`, `eliminable` (conteos y marcas; nunca nombres). La prueba que fija la lista cerrada de claves se actualizó.
+
+### Pruebas
+- **`scripts/probar-puerta-ajustes-311.js` (nueva, 87 comprobaciones; API + Chromium real):** los cinco puntos, incluida la pantalla (desplegable, cuadro «Editar la lista», Reactivar, Eliminar, Ocultar, «Ver ocultas», «Mostrar de nuevo», el coordinador sin Eliminar/Ocultar) y el menú del celular para administrador, coordinador y líder. **La prueba encontró un fallo real mío**: al sacar a quien no es del alcance del nuevo visitante usé `NOT (condición)`, que con `NULL` (un votante sin sublíder) no devuelve la fila: «sacó 0» en vez de 5. Corregido con `COALESCE`.
+- `probar-puerta-a-puerta.js` (194): actualizadas la lista cerrada de columnas de `puerta_listas` (+`oculta`), la de claves de `GET /listas` y `v181`.
+- **Regresión, 25 suites (cada una sobre una base clonada nueva; mysqld privado, ya apagado):** 22 bien a la primera. Tres fallaron y se miraron una por una: `probar-inscripcion-enlace` («persona nueva: recibe su SMS de confirmación») y `probar-recordatorios` («enviado → enviando») **pasan solas** — el fallo de tiempo bajo carga, ya documentado; y **`probar-encuestas` era un fallo real de la prueba, no del código**: fijaba el service worker en `v177–v180` y con `v181` fallaba; ahora acepta «v177 o posterior» (como ya hacían las de logística, solicitudes y transporte). Con eso pasa.
+- **`probar-instalacion-limpia.js`** (la clave de una base vacía creada con un usuario sin SUPER; hizo falta `log_bin_trust_function_creators`): crea las 82 tablas y todo pasa **salvo una comprobación que ya estaba desactualizada**: «`territorio_id` indexado en las 6 tablas» cuenta 12 (hay 10 tablas distintas: se sumaron solicitudes, tareas y `puerta_*` en los parches 303–309). No es de este lote (no agregué ningún índice); **la cifra de la prueba (6) debería ser 10 tablas / 12 índices**, pendiente de confirmar con el dueño qué se quiso comprobar.
+
+### En la Base (esta instalación)
+Los archivos ya están en disco (las pantallas estáticas se sirven al recargar). **Faltan dos pasos de root**, porque el servidor carga `lib/` y `routes/` al arrancar y la columna `oculta` no existe todavía: (1) `init-db` (agrega la columna) y (2) reiniciar la Base. **No se ejecutó nada contra la base real** (`electoraldb`); todo se probó en bases desechables. Orden: primero `init-db`, después el reinicio (al revés, `GET /listas` fallaría por la columna).
+
+### Pendientes / a tener en cuenta
+- Las listas **editadas o reactivadas** no avisan al celular de quien las recorre: la copia de 48 horas sigue siendo la vieja hasta que baje la lista otra vez (por eso una lista activa no se edita: se cierra o cancela primero). Una visita capturada sin señal mientras la lista estuvo cerrada, subida después de reactivarla, se acepta (la lista ya está activa); una anterior al cierre también.
+- Al sacar una puerta con visitas de una lista (cambio de visitante o máximo menor) se suelta de la persona: su cuenta de intentos queda en esa puerta «sin respuesta», y la persona queda libre para otra lista (la regla de los 60 días mira las puertas ligadas a ella).
+- Sigue pendiente: Leaflet de unpkg en `mapa.html`, `dashboard.html` y `app/admin-mapa.html`; Fases 3 (guion) y 4 (panel) sin construir; la carrera de doble envío de las colas de Tareas y Solicitudes.
 
 ## Parche 310 — Puerta a puerta, Fase 2: mapa y ruta (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, NO TOCA LA BASE)
 

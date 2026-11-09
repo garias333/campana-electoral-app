@@ -14,6 +14,10 @@
  *   GET  /listas               las listas que quien pregunta puede ver, SOLO con conteos                               [puerta_listas · Ver]
  *   POST /listas               armar y asignar una lista; filtra con el alcance de quien VISITA; auditado             [puerta_listas · Agregar]
  *   POST /listas/:id/cerrar · /cancelar                                                                              [puerta_listas · Editar]
+ *   PUT  /listas/:id           editar una lista CERRADA o CANCELADA: nombre, quién visita, máximo de personas; auditado    [puerta_listas · Editar]
+ *   POST /listas/:id/reactivar vuelve a «activa» con las mismas reglas de al armarla; auditado                           [puerta_listas · Editar]
+ *   DELETE /listas/:id         borrar una lista cerrada o cancelada SIN visitas (y sus puertas); auditado                     [administrador]
+ *   POST /listas/:id/ocultar · /mostrar   quitarla de la tabla conservando sus visitas (o devolverla); auditado             [administrador]
  *   GET  /politica             ¿la política ya menciona la visita domiciliaria? Solo el administrador                       [administrador]
  *   POST /votantes/:id/permitir-visitas   «Volver a permitir visitas»: motivo y fecha obligatorios, auditado, sin tocar no_contactar   [administrador]
  *   GET  /mapa-config          la fuente del fondo del mapa (token público de Mapbox, o null = OpenStreetMap)                [puerta_visitas · Ver]
@@ -101,7 +105,7 @@ router.get('/responsables', exigir('puerta_listas', 'agregar'), async (req, res)
 });
 
 router.get('/listas', exigir('puerta_listas', 'ver'), async (req, res) => {
-  try { res.json({ listas: await P.listasDe(alcanceTareas(req.alcance, 'l')) }); } catch (e) { responder(res, e); }
+  try { res.json({ listas: await P.listasDe(alcanceTareas(req.alcance, 'l'), { ocultas: req.query.ocultas === '1' }) }); } catch (e) { responder(res, e); }
 });
 
 router.post('/listas', exigir('puerta_listas', 'agregar'), json, async (req, res) => {
@@ -122,6 +126,50 @@ for (const [accion, estado, verbo] of [['cerrar', 'cerrada', 'Cerró'], ['cancel
       const l = await P.cambiarEstadoLista(req.params.id, estado, alcanceTareas(req.alcance, 'l'));
       if (!l) return res.status(404).json({ error: 'Esa lista no existe o no es de tu equipo.' });
       await registrarAuditoria(req.session.usuario.id, `puerta_lista_${accion}`, 'puerta_listas', l.id, `${verbo} la lista n.º ${l.id}.`, req.ip);
+      res.json({ ok: true });
+    } catch (e) { responder(res, e); }
+  });
+}
+
+const NO_ES_SUYA = 'Esa lista no existe o no es de tu equipo.';
+
+router.put('/listas/:id', exigir('puerta_listas', 'editar'), json, async (req, res) => {
+  try {
+    const r = await P.editarLista({ id: req.params.id, datos: req.body, condicion: alcanceTareas(req.alcance, 'l'), asignables: asignablesPara(req.alcance), alcanceQuienArma: req.alcance });
+    if (!r) return res.status(404).json({ error: NO_ES_SUYA });
+    await registrarAuditoria(req.session.usuario.id, 'puerta_lista_editar', 'puerta_listas', r.id,
+      `Editó la lista n.º ${r.id} (${r.cambios.join('; ')}). Salieron ${r.retiradas} persona(s) y entraron ${r.agregadas}; quedan ${r.personas}.`, req.ip);
+    res.json({ ok: true, retiradas: r.retiradas, agregadas: r.agregadas, personas: r.personas });
+  } catch (e) { responder(res, e); }
+});
+
+router.post('/listas/:id/reactivar', exigir('puerta_listas', 'editar'), async (req, res) => {
+  try {
+    const r = await P.reactivarLista({ id: req.params.id, condicion: alcanceTareas(req.alcance, 'l'), asignables: asignablesPara(req.alcance) });
+    if (!r) return res.status(404).json({ error: NO_ES_SUYA });
+    await registrarAuditoria(req.session.usuario.id, 'puerta_lista_reactivar', 'puerta_listas', r.id,
+      `Reactivó la lista n.º ${r.id} (estaba ${r.estaba}): ${r.pendientes} persona(s) por visitar; salieron ${r.retiradas} que hoy no cumplen las reglas.`, req.ip);
+    res.json({ ok: true, pendientes: r.pendientes, retiradas: r.retiradas });
+  } catch (e) { responder(res, e); }
+});
+
+/** Eliminar y ocultar: solo el administrador. */
+router.delete('/listas/:id', exigir('puerta_listas', 'editar'), soloAdmin, async (req, res) => {
+  try {
+    const r = await P.eliminarLista({ id: req.params.id, condicion: alcanceTareas(req.alcance, 'l') });
+    if (!r) return res.status(404).json({ error: NO_ES_SUYA });
+    await registrarAuditoria(req.session.usuario.id, 'puerta_lista_eliminar', 'puerta_listas', r.id,
+      `Eliminó la lista n.º ${r.id} («${r.nombre}») con ${r.personas} persona(s) y ninguna visita.`, req.ip);
+    res.json({ ok: true });
+  } catch (e) { responder(res, e); }
+});
+
+for (const [accion, ocultar, verbo] of [['ocultar', true, 'Ocultó'], ['mostrar', false, 'Volvió a mostrar']]) {
+  router.post(`/listas/:id/${accion}`, exigir('puerta_listas', 'editar'), soloAdmin, async (req, res) => {
+    try {
+      const l = await P.ocultarLista({ id: req.params.id, condicion: alcanceTareas(req.alcance, 'l'), ocultar });
+      if (!l) return res.status(404).json({ error: NO_ES_SUYA });
+      await registrarAuditoria(req.session.usuario.id, `puerta_lista_${accion}`, 'puerta_listas', l.id, `${verbo} la lista n.º ${l.id} («${l.nombre}»).`, req.ip);
       res.json({ ok: true });
     } catch (e) { responder(res, e); }
   });

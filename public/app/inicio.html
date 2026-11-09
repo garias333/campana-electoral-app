@@ -139,8 +139,8 @@ const MENU_COORDINADOR = [
 // formulario de escritorio (territorial.html) con `?app=1` —en modo app: sin menú lateral,
 // con «← Volver a la app» y el formulario por pasos— y #nuevo, que lo abre de una vez (ver
 // la cabecera y el final de territorial.html); el `?app=1` no interfiere: el #nuevo es el hash.
-// No incluye Biografía del candidato ni Política de privacidad: el administrador las
-// edita desde Compartir contenido.
+// No incluye Biografía del candidato (el administrador la edita desde Compartir contenido). La Política de privacidad SÍ (parche 311): sin ella, desde el
+// celular no había cómo llegar a la pantalla donde se edita y donde el recuadro ámbar muestra el párrafo de las visitas.
 const MENU_ADMIN = [
   { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
   { href: '/app/admin-estructura.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
@@ -157,6 +157,7 @@ const MENU_ADMIN = [
   { href: '/app/encuestas-campo.html', icono: '📋', titulo: 'Aplicar una encuesta', subtitulo: 'Encuestas internas anónimas, también sin señal', modulo: 'encuestas_campo' },
   { href: '/puerta-listas.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Armar y asignar listas de visitas', modulo: 'puerta_listas' },
   { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
+  { href: '/contenido.html?clave=politica_privacidad', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Editarla y ver qué le falta' },
   // Día D (fase 2): van DESPUÉS de las nueve del orden pedido.
   { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d' },
   { href: '/app/faltantes.html', icono: '🗳️', titulo: 'Faltan por votar', subtitulo: 'Los votantes que aún no han votado', modulo: 'rescate_votos' },

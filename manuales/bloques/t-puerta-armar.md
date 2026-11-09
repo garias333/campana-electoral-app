@@ -17,7 +17,7 @@ Sirve para darle a un líder o a un sublíder la lista de personas de su equipo 
 1. En el menú de escritorio abre **Puerta a puerta**.
 2. Escribe el **nombre de la lista** (por ejemplo, el barrio y el día).
 3. En **Quién va a visitar** elige al líder o sublíder.
-4. Si quieres, elige una **zona**; si la dejas vacía, entran todas sus personas visitables.
+4. Si quieres, elige una **zona** del desplegable (están agrupadas en barrios, veredas, comunas…); si la dejas en «Todas sus personas», entran todas las visitables.
 5. Si quieres una lista más corta, cambia el **máximo de personas**.
 6. Toca [[Armar y asignar]].
 
@@ -27,9 +27,9 @@ Ves «Lista armada con N persona(s)» y, si alguien quedó fuera, cuántas y por
 
 ## Si algo sale mal
 
-1. Si dice que no hay personas para visitar, mira los motivos que enumera: sin autorización, sin dirección, ya en otra lista o visitadas hace poco.
+1. Si dice «Este líder no tiene votantes en su alcance», esa persona no tiene a nadie registrado (o nadie en esa zona): prueba sin zona o con otra persona. Si dice que hay personas pero ninguna se puede visitar, mira los motivos que enumera: sin autorización, sin dirección, ya en otra lista o visitadas hace poco.
 2. Si no encuentras a la persona en **Quién va a visitar**, no es de tu equipo o no es líder ni sublíder activo.
-3. Para dejar de usar una lista, toca [[Cerrar]] (se conserva lo visitado) o [[Cancelar]].
+3. Para dejar de usar una lista, toca [[Cerrar]] (se conserva lo visitado) o [[Cancelar]]. Una lista cerrada o cancelada se puede [[Editar]] o [[Reactivar]].
 
 ::: cuidado
 Antes de encender este módulo para el equipo, la política de privacidad tiene que mencionar la visita domiciliaria de la campaña.

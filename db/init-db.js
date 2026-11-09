@@ -3644,6 +3644,10 @@ async function main() {
       FOREIGN KEY (item_id) REFERENCES puerta_items(id) ON DELETE CASCADE,
       FOREIGN KEY (registrada_por) REFERENCES usuarios(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  // Parche 311: el administrador puede OCULTAR una lista cerrada o cancelada que ya tiene visitas (no se puede borrar sin perderlas): sale de la tabla y se
+  // conserva todo. Sin esta columna una lista con visitas se quedaría en la pantalla para siempre.
+  await agregarColumnaSiFalta(connection, 'puerta_listas',
+    "oculta TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador la ocultó de la tabla (con visitas no se puede borrar). Nada se pierde'", 'oculta');
   console.log('Tablas del puerta a puerta listas (módulos apagados).');
 
   await sembrarPermisosPorDefecto(connection);

@@ -21,6 +21,12 @@
   .pp-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
   .pp-estado.activa { background: #E7F6EE; color: #1E7B4F; }
   .pp-estado.cancelada { background: #FBE9E7; color: #B3261E; }
+  .pp-oculta { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
+  tr.pp-es-oculta td { opacity: .62; }
+  .pp-acciones { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pp-barra { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 10px; }
+  .pp-barra h2 { margin: 0; }
+  .pp-barra label { font-size: .86rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
   .pp-aviso { background: #FDF3E0; border: 1px solid #ECD3A4; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; font-size: .88rem; max-width: 900px; }
   .pp-msg { font-size: .88rem; margin-top: 8px; }
   .pp-msg.ok { color: #1E7B4F; } .pp-msg.error { color: #B3261E; }
@@ -51,7 +57,7 @@
         <div class="pp-form">
           <div><label for="a-nombre">Nombre de la lista</label><input id="a-nombre" maxlength="120" placeholder="Por ejemplo: Barrio La Enea, sábado"></div>
           <div><label for="a-quien">Quién va a visitar</label><select id="a-quien" data-sin-ordenar><option value="">Elige…</option></select></div>
-          <div><label for="a-zona" id="a-zona-etiqueta">Zona (opcional)</label><input id="a-zona" list="a-zonas" placeholder="Todas sus personas" autocomplete="off"><datalist id="a-zonas"></datalist></div>
+          <div><label for="a-zona" id="a-zona-etiqueta">Zona (opcional)</label><select id="a-zona" data-sin-ordenar><option value="">Todas sus personas</option></select></div>
           <div><label for="a-max">Máximo de personas</label><input id="a-max" type="number" min="1" inputmode="numeric"></div>
           <div><button type="button" class="btn-primario" id="a-armar">Armar y asignar</button></div>
         </div>
@@ -59,7 +65,8 @@
       </div>
 
       <div class="pp-seccion">
-        <h2>Listas</h2>
+        <div class="pp-barra"><h2>Listas</h2>
+          <label id="l-ocultas-etiqueta" style="display:none;"><input type="checkbox" id="l-ocultas"> Ver ocultas</label></div>
         <div style="overflow-x:auto">
           <table class="pp-tabla"><thead><tr><th>Lista</th><th>Quién visita</th><th>Zona</th><th>Estado</th><th class="num">Personas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th></th></tr></thead>
             <tbody id="pp-listas"><tr><td colspan="9">Cargando…</td></tr></tbody></table>
@@ -86,6 +93,7 @@
 let usuarioActual = null;
 let permisos = { ver: false, editar: false, agregar: false };
 let zonas = [];
+let maximoPersonas = 300;
 const $ = (id) => document.getElementById(id);
 const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
 const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'pp-msg ' + (tipo || ''); e.textContent = texto || ''; } };
@@ -93,25 +101,121 @@ const ETIQUETA = { activa: 'Activa', cerrada: 'Cerrada', cancelada: 'Cancelada' 
 const nuevoUuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16); }));
 let uuidDeLaLista = nuevoUuid();      // un doble clic en «Armar» no crea dos listas: el servidor responde con la misma
 
-async function cargarListas() {
-  const r = await api('/puerta-a-puerta/listas');
-  const filas = r.listas || [];
-  $('pp-listas').innerHTML = filas.length ? filas.map((l) => `<tr>
-      <td>${esc(l.nombre)}<div style="font-size:.76rem;color:var(--color-text-muted)">n.º ${esc(l.id)} · ${esc(l.creada)}</div></td><td>${esc(l.asignada_nombre)}</td><td>${esc(l.zona || '—')}</td>
-      <td><span class="pp-estado ${esc(l.estado)}">${esc(ETIQUETA[l.estado] || l.estado)}</span></td>
-      <td class="num">${esc(l.total)}</td><td class="num">${esc(l.pendientes)}</td><td class="num">${esc(l.cerradas)}</td><td class="num">${esc(l.agotadas)}</td>
-      <td style="white-space:nowrap">${l.estado === 'activa' && permisos.editar
-        ? `<button type="button" class="btn-secundario btn-sm" data-accion="cerrar" data-id="${esc(l.id)}">Cerrar</button> <button type="button" class="btn-secundario btn-sm" data-accion="cancelar" data-id="${esc(l.id)}">Cancelar</button>` : ''}</td></tr>`).join('')
-    : '<tr><td colspan="9">Todavía no hay listas.</td></tr>';
-  $('pp-listas').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', async () => {
-    const cancelar = b.dataset.accion === 'cancelar';
-    if (!confirm(cancelar ? '¿Cancelar esta lista? Quien la tiene deja de recibirla.' : '¿Cerrar esta lista? Quien la tiene deja de recibirla; lo que ya visitó se conserva.')) return;
-    try { await api(`/puerta-a-puerta/listas/${b.dataset.id}/${b.dataset.accion}`, { method: 'POST', body: {} }); msg('l-msg', cancelar ? 'Lista cancelada.' : 'Lista cerrada.', 'ok'); await cargarListas(); }
-    catch (e) { msg('l-msg', e.message || 'No se pudo cambiar la lista.', 'error'); }
-  }));
+let responsables = [];
+let listasActuales = [];
+
+function botonesDe(l) {
+  const b = (accion, texto) => `<button type="button" class="btn-secundario btn-sm" data-accion="${accion}" data-id="${esc(l.id)}">${texto}</button>`;
+  if (!permisos.editar) return '';
+  const esAdmin = usuarioActual.rol === 'admin';
+  if (l.oculta) return esAdmin ? b('mostrar', 'Mostrar de nuevo') : '';
+  if (l.estado === 'activa') return b('cerrar', 'Cerrar') + b('cancelar', 'Cancelar');
+  return b('editar', 'Editar') + b('reactivar', 'Reactivar') + (esAdmin ? (l.eliminable ? b('eliminar', 'Eliminar') : b('ocultar', 'Ocultar')) : '');
 }
 
-function etiquetaDeZona(z, cuenta) { return cuenta[z.nombre.toLowerCase()] > 1 ? `${z.nombre} · ${z.padre || z.tipo}` : z.nombre; }
+async function cargarListas() {
+  const ver = $('l-ocultas') && $('l-ocultas').checked;
+  const r = await api('/puerta-a-puerta/listas' + (ver ? '?ocultas=1' : ''));
+  const filas = listasActuales = r.listas || [];
+  $('pp-listas').innerHTML = filas.length ? filas.map((l) => `<tr class="${l.oculta ? 'pp-es-oculta' : ''}">
+      <td>${esc(l.nombre)}<div style="font-size:.76rem;color:var(--color-text-muted)">n.º ${esc(l.id)} · ${esc(l.creada)}</div></td><td>${esc(l.asignada_nombre)}</td><td>${esc(l.zona || '—')}</td>
+      <td><span class="pp-estado ${esc(l.estado)}">${esc(ETIQUETA[l.estado] || l.estado)}</span>${l.oculta ? '<span class="pp-oculta">Oculta</span>' : ''}</td>
+      <td class="num">${esc(l.total)}</td><td class="num">${esc(l.pendientes)}</td><td class="num">${esc(l.cerradas)}</td><td class="num">${esc(l.agotadas)}</td>
+      <td><div class="pp-acciones">${botonesDe(l)}</div></td></tr>`).join('')
+    : '<tr><td colspan="9">Todavía no hay listas.</td></tr>';
+  $('pp-listas').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => accionDeLista(b.dataset.accion, Number(b.dataset.id))));
+}
+
+const PREGUNTAS = {
+  cerrar: () => '¿Cerrar esta lista? Quien la tiene deja de recibirla; lo que ya visitó se conserva.',
+  cancelar: () => '¿Cancelar esta lista? Quien la tiene deja de recibirla.',
+  reactivar: (l) => `¿Reactivar «${l.nombre}»? Vuelve a quien la tiene. Las personas que hoy no cumplan las reglas (sin autorización, sin dirección, ya en otra lista o visitadas hace poco) salen de ella.`,
+  eliminar: (l) => `¿Eliminar «${l.nombre}»? Se borra con sus ${l.total} persona(s). No tiene ninguna visita, y esto no se puede deshacer.`,
+  ocultar: (l) => `¿Ocultar «${l.nombre}»? Sale de la tabla; ${l.visitas ? 'sus ' + l.visitas + ' visita(s) se conservan' : 'no se borra nada'}. La verás con «Ver ocultas».`,
+};
+const LISTO = { cerrar: 'Lista cerrada.', cancelar: 'Lista cancelada.', eliminar: 'Lista eliminada.', ocultar: 'Lista oculta. Para verla, marca «Ver ocultas».', mostrar: 'La lista se muestra de nuevo.' };
+
+async function accionDeLista(accion, id) {
+  const l = listasActuales.find((x) => x.id === id);
+  if (!l) return;
+  msg('l-msg', '');
+  if (accion === 'editar') return abrirEditar(l);
+  if (PREGUNTAS[accion] && !confirm(PREGUNTAS[accion](l))) return;
+  try {
+    const r = accion === 'eliminar'
+      ? await api(`/puerta-a-puerta/listas/${id}`, { method: 'DELETE' })
+      : await api(`/puerta-a-puerta/listas/${id}/${accion}`, { method: 'POST', body: {} });
+    msg('l-msg', accion === 'reactivar'
+      ? `Lista reactivada: ${r.pendientes} persona(s) por visitar${r.retiradas ? `; salieron ${r.retiradas} que hoy no cumplen las reglas` : ''}.` : LISTO[accion], 'ok');
+    await cargarListas();
+  } catch (e) { msg('l-msg', e.message || 'No se pudo cambiar la lista.', 'error'); }
+}
+
+/** El cuadro de «Editar»: nombre, quién visita y máximo de personas, de una lista cerrada o cancelada. Solo manda lo que cambió. */
+function abrirEditar(l) {
+  const previo = $('pp-editar'); if (previo) previo.remove();
+  const ov = document.createElement('div');
+  ov.id = 'pp-editar';
+  ov.style.cssText = 'display:flex; align-items:center; justify-content:center; position:fixed; inset:0; background:rgba(16,35,63,.55); z-index:9999; padding:16px;';
+  const hayResponsables = responsables.length > 0;
+  const opciones = (hayResponsables ? responsables : []).map((u) => `<option value="${esc(u.id)}"${Number(u.id) === Number(l.asignada_a) ? ' selected' : ''}>${esc(u.nombre)} (${esc(u.rol === 'sublider' ? 'sublíder' : 'líder')})</option>`).join('');
+  const actualAparte = hayResponsables && !responsables.some((u) => Number(u.id) === Number(l.asignada_a))
+    ? `<option value="${esc(l.asignada_a)}" selected>${esc(l.asignada_nombre)} (actual)</option>` : '';
+  ov.innerHTML = `<div style="background:var(--color-surface,#fff); border-radius:12px; padding:20px; max-width:460px; width:100%; max-height:92vh; overflow:auto;" role="dialog" aria-labelledby="pe-titulo">
+      <h3 id="pe-titulo" style="margin:0 0 4px;">Editar la lista</h3>
+      <p style="margin:0 0 14px; font-size:.86rem; color:var(--color-text-muted,#5B6472);">n.º ${esc(l.id)} · ${esc(ETIQUETA[l.estado] || l.estado)}. Cambiar quién visita saca de la lista a quien no esté en el alcance del nuevo visitante.</p>
+      <div class="campo"><label for="pe-nombre">Nombre de la lista</label><input id="pe-nombre" maxlength="120" value="${esc(l.nombre)}" style="width:100%;box-sizing:border-box;"></div>
+      <div class="campo"><label for="pe-quien">Quién va a visitar</label>${hayResponsables
+        ? `<select id="pe-quien" data-sin-ordenar style="width:100%;">${actualAparte}${opciones}</select>`
+        : `<input id="pe-quien-fijo" value="${esc(l.asignada_nombre)}" disabled style="width:100%;box-sizing:border-box;">`}</div>
+      <div class="campo"><label for="pe-max">Máximo de personas</label><input id="pe-max" type="number" min="1" max="${esc(maximoPersonas)}" inputmode="numeric" value="${esc(l.total || 1)}" style="width:100%;box-sizing:border-box;">
+        <small style="color:var(--color-text-muted,#5B6472);">Hoy tiene ${esc(l.total)}. Si lo bajas, salen primero las que no se han visitado; si lo subes, entran más de la misma zona.</small></div>
+      <div id="pe-error" class="pp-msg error" style="display:none;"></div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+        <button type="button" class="btn-secundario" id="pe-cancelar">Cancelar</button>
+        <button type="button" class="btn-primario" id="pe-guardar">Guardar los cambios</button>
+      </div></div>`;
+  document.body.appendChild(ov);
+  const cerrar = () => ov.remove();
+  const falla = (t) => { const e = ov.querySelector('#pe-error'); e.textContent = t; e.style.display = 'block'; };
+  ov.querySelector('#pe-cancelar').addEventListener('click', cerrar);
+  ov.addEventListener('click', (e) => { if (e.target === ov) cerrar(); });
+  ov.querySelector('#pe-guardar').addEventListener('click', async (ev) => {
+    const cuerpo = {};
+    const nombre = ov.querySelector('#pe-nombre').value.trim();
+    if (nombre.length < 3) return falla('Ponle un nombre a la lista (al menos 3 letras).');
+    if (nombre !== l.nombre) cuerpo.nombre = nombre;
+    const quien = ov.querySelector('#pe-quien');
+    if (quien && Number(quien.value) !== Number(l.asignada_a)) cuerpo.asignada_a = Number(quien.value);
+    const max = Number(ov.querySelector('#pe-max').value);
+    if (!Number.isInteger(max) || max < 1) return falla('El máximo de personas tiene que ser un número de 1 en adelante.');
+    if (max !== l.total) cuerpo.max = max;
+    if (!Object.keys(cuerpo).length) return cerrar();
+    ev.target.disabled = true;
+    try {
+      const r = await api(`/puerta-a-puerta/listas/${l.id}`, { method: 'PUT', body: cuerpo });
+      cerrar();
+      msg('l-msg', `Lista actualizada: quedan ${r.personas} persona(s)${r.retiradas ? `; salieron ${r.retiradas}` : ''}${r.agregadas ? `; entraron ${r.agregadas}` : ''}.`, 'ok');
+      await cargarListas();
+    } catch (e) { ev.target.disabled = false; falla(e.message || 'No se pudo editar la lista.'); }
+  });
+  ov.querySelector('#pe-nombre').focus();
+}
+
+const GRUPOS_ZONA = [['barrio', 'Barrios'], ['vereda', 'Veredas'], ['comuna', 'Comunas'], ['corregimiento', 'Corregimientos'], ['municipio', 'Municipios']];
+
+/** Las zonas del catálogo, en un desplegable agrupado por tipo. Dos del mismo tipo con el mismo nombre se distinguen por lo que las contiene. */
+function pintarZonas() {
+  const sel = $('a-zona');
+  const html = ['<option value="">Todas sus personas</option>'];
+  for (const [tipo, titulo] of GRUPOS_ZONA) {
+    const del = zonas.filter((z) => z.tipo === tipo);
+    if (!del.length) continue;
+    const cuenta = {}; del.forEach((z) => { const k = z.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
+    html.push(`<optgroup label="${esc(titulo)}">` + del.map((z) => `<option value="${esc(z.id)}">${esc(cuenta[z.nombre.toLowerCase()] > 1 && z.padre ? `${z.nombre} · ${z.padre}` : z.nombre)}</option>`).join('') + '</optgroup>');
+  }
+  sel.innerHTML = html.join('');
+}
 
 async function armar() {
   msg('a-msg', '');
@@ -119,13 +223,7 @@ async function armar() {
   if (nombre.length < 3) return msg('a-msg', 'Ponle un nombre a la lista (al menos 3 letras).', 'error');
   if (!quien) return msg('a-msg', 'Elige quién va a visitar.', 'error');
   const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignada_a: quien };
-  const texto = $('a-zona').value.trim().toLowerCase();
-  if (texto) {
-    const cuenta = {}; zonas.forEach((z) => { const k = z.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
-    const z = zonas.find((x) => etiquetaDeZona(x, cuenta).toLowerCase() === texto);
-    if (!z) return msg('a-msg', 'Elige la zona de la lista, o déjala vacía para armar con todas sus personas.', 'error');
-    cuerpo.territorio_id = z.id;
-  }
+  if ($('a-zona').value) cuerpo.territorio_id = Number($('a-zona').value);
   if ($('a-max').value) cuerpo.max = Number($('a-max').value);
   $('a-armar').disabled = true;
   try {
@@ -143,8 +241,7 @@ async function armar() {
     $('a-nombre').value = '';
     await cargarListas();
   } catch (e) {
-    const o = e.datos && e.datos.omitidas;
-    msg('a-msg', (e.message || 'No se pudo armar la lista.') + (o ? ` (Sin autorización: ${o.sin_autorizacion}; pidieron no volver: ${o.pidio_no_volver}; sin dirección: ${o.sin_direccion}; en otra lista: ${o.en_otra_lista}; visitadas hace poco: ${o.visitada_hace_poco}.)` : ''), 'error');
+    msg('a-msg', e.message || 'No se pudo armar la lista.', 'error');       // el servidor ya trae el desglose cuando sí había personas excluidas
   } finally { $('a-armar').disabled = false; }
 }
 
@@ -153,7 +250,7 @@ async function cargarHorario() {
   $('h-desde').value = c.franja_desde; $('h-hasta').value = c.franja_hasta;
   $('h-desde').min = c.minimo; $('h-desde').max = c.maximo; $('h-hasta').min = c.minimo; $('h-hasta').max = c.maximo;
   $('h-min').textContent = c.minimo; $('h-max').textContent = c.maximo; $('pp-dias').textContent = c.dias_sin_reasignar;
-  $('a-max').value = c.max_personas; $('a-max').max = c.max_personas;
+  $('a-max').value = c.max_personas; $('a-max').max = c.max_personas; maximoPersonas = c.max_personas;
 }
 
 (async () => {
@@ -180,16 +277,20 @@ async function cargarHorario() {
     $('pp-armar').style.display = 'block';
     try {
       const rs = await api('/puerta-a-puerta/responsables');
+      responsables = rs.responsables || [];
       $('a-quien').innerHTML = '<option value="">Elige…</option>' + (rs.responsables || []).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)} (${esc(u.rol === 'sublider' ? 'sublíder' : 'líder')})</option>`).join('');
     } catch (_) { /* sin lista de responsables no se puede armar: el servidor lo dirá */ }
     try {
       const z = await api('/puerta-a-puerta/zonas');
       zonas = z.nivel === 'texto' ? [] : (z.zonas || []);
-      const cuenta = {}; zonas.forEach((x) => { const k = x.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
-      $('a-zonas').innerHTML = zonas.map((x) => `<option value="${esc(etiquetaDeZona(x, cuenta))}"></option>`).join('');
-      if (z.nivel === 'texto') { $('a-zona').disabled = true; $('a-zona').placeholder = 'Esta campaña no tiene barrios ni veredas en el catálogo'; }
+      pintarZonas();
+      if (z.nivel === 'texto') { $('a-zona').innerHTML = '<option value="">Esta campaña no tiene barrios ni veredas en el catálogo</option>'; $('a-zona').disabled = true; }
     } catch (_) { zonas = []; }
     $('a-armar').addEventListener('click', armar);
+  }
+  if (usuarioActual.rol === 'admin') {
+    $('l-ocultas-etiqueta').style.display = 'inline-flex';
+    $('l-ocultas').addEventListener('change', () => cargarListas().catch((e) => msg('l-msg', e.message || 'No se pudo cargar.', 'error')));
   }
   if (usuarioActual.rol === 'admin' && permisos.editar) {
     $('pp-horario').style.display = 'block';
