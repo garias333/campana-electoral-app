@@ -288,7 +288,7 @@ limpio») estaban obsoletas y se reemplazaron.*
 
 **Prueba:** `scripts/probar-menu-politica.js` (Chromium real, 13 comprobaciones): superadministrador, administrador y coordinador ven lo que deben; la entrada abre la pantalla; el recuadro ámbar aparece (con el párrafo exacto) para el superadministrador y el administrador cuando la política editada no trae la finalidad, no aparece para el coordinador y se va cuando la política la trae. **Sin el arreglo, la prueba falla** (comprobado). Con él: `probar-manuales`, `probar-ordenar-select`, `probar-puerta-a-puerta-celular` y `probar-tareas-celular` siguen bien. Primera vez que el recuadro ámbar se prueba en un navegador (el parche 309 lo probó solo por la API).
 
-**Aplicado en la Base:** los archivos ya están en disco (la entrada es un `.js` estático; no hace falta reiniciar, solo recargar la página con Ctrl+Shift+R por la caché del service worker `v180`... **ojo:** el service worker de la Base todavía es el del 310 y `common.js` es network-first, así que debería verse al recargar).
+**En la Base:** el cambio ya está en disco (`common.js` es un archivo estático: no hace falta reiniciar). Para verlo, recargar la página (Ctrl+Shift+R): el service worker sirve la red primero. En las campañas llegará con el 311.
 
 ## Parche 310 — Puerta a puerta, Fase 2: mapa y ruta (9 de noviembre de 2026, GENERADO, SIN PUBLICAR, NO TOCA LA BASE)
 
