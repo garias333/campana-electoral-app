@@ -6,6 +6,7 @@ orden: 361
 icono: camion
 modulo: rescate_votos
 nivel: editar
+complemento: transporte_dia_d
 roles:
 ruta: Celular: Faltan por votar | Escritorio: Electoral > Votantes y sublíderes
 captura: t-transporte-marcar.webp

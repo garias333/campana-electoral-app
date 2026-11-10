@@ -115,6 +115,8 @@ async function asignar(votanteId, conductorId, fecha, estado = 'asignado') {
 const ayudaRelojEn = (iso) => { jornada.reloj = () => new Date(iso); };
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['transporte_dia_d', 'alertas_dia_d']);
   const servidor = http.createServer(app);
   await new Promise(r => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

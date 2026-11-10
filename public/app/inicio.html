@@ -90,14 +90,14 @@ const MENU_LIDER = [
   // MENU_COORDINADOR hereda esta entrada (se arma con ...MENU_LIDER); el administrador no tiene enlace propio.
   { href: '/app/mi-enlace.html', icono: '🔗', titulo: 'Mi enlace de inscripción', subtitulo: 'Tu QR para que la gente se inscriba sola' },
   // Solicitudes ciudadanas (parche 303): las necesidades del territorio que la gente cuenta. Apagado de fábrica: solo con «Ver» en el módulo `solicitudes`.
-  { href: '/app/solicitud-nueva.html', icono: '📣', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes' },
-  { href: '/app/mis-solicitudes.html', icono: '📋', titulo: 'Mis solicitudes', subtitulo: 'Las que registraste y las que te asignaron', modulo: 'solicitudes' },
+  { href: '/app/solicitud-nueva.html', icono: '📣', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes', complemento: 'solicitudes' },
+  { href: '/app/mis-solicitudes.html', icono: '📋', titulo: 'Mis solicitudes', subtitulo: 'Las que registraste y las que te asignaron', modulo: 'solicitudes', complemento: 'solicitudes' },
   // Tareas (parche 305): lo que te asignaron para hacer en una zona. Apagado de fábrica: solo con «Ver» en el módulo `tareas`.
-  { href: '/app/mis-tareas.html', icono: '✅', titulo: 'Mis tareas', subtitulo: 'Lo que tienes por hacer, también sin señal', modulo: 'tareas' },
+  { href: '/app/mis-tareas.html', icono: '✅', titulo: 'Mis tareas', subtitulo: 'Lo que tienes por hacer, también sin señal', modulo: 'tareas', complemento: 'tareas' },
   // Eventos (parche 313): tus eventos y marcar quién asistió, también sin señal. Se ve con «Ver» en cualquiera de los módulos de eventos (`eventos`, `agenda` o `asistentes_reuniones`).
   { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   // Puerta a puerta (parche 309): tu lista de visitas, ordenada por cercanía y también sin señal. Apagado de fábrica: solo con «Ver» en el módulo `puerta_visitas`.
-  { href: '/app/puerta-a-puerta.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Tu lista de visitas, también sin señal', modulo: 'puerta_visitas' },
+  { href: '/app/puerta-a-puerta.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Tu lista de visitas, también sin señal', modulo: 'puerta_visitas', complemento: 'puerta_a_puerta' },
   // Día D: quién de los míos ya votó y quién falta. Solo con «Ver» en el módulo `rescate_votos`.
   { href: '/app/faltantes.html', icono: '🗳️', titulo: 'Faltan por votar', subtitulo: 'Tus votantes del día de la elección', modulo: 'rescate_votos' },
   // El aspirante (rol «lider» con sublicencia) también ve el ranking de SU rama. Un líder
@@ -124,10 +124,10 @@ const MENU_LIDER = [
 // que entra desde el celular antes caía directamente en él sin otra opción.
 const MENU_COORDINADOR = [
   { href: '/app/avance-lideres.html', icono: '📊', titulo: 'Avance de mis líderes', subtitulo: 'Cuánto lleva cada líder frente a su meta' },
-  { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d' },
+  { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d' },
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
-  { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d' },
-  { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d' },
+  { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d', complemento: 'transporte_dia_d' },
+  { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d', complemento: 'logistica_dia_d' },
   ...MENU_LIDER,
   { href: '/dashboard.html', icono: '🖥️', titulo: 'Panel completo', subtitulo: 'Abrir el panel de escritorio' },
 ];
@@ -153,19 +153,19 @@ const MENU_ADMIN = [
   { href: '/app/admin-mapa.html', icono: '🗺️', titulo: 'Mapa territorial', subtitulo: 'Equipo, votantes y eventos en el mapa' },
   { href: '/app/puesto-votacion.html', icono: '🗳️', titulo: 'Consultar puesto de votación', subtitulo: 'Página oficial de la Registraduría' },
   { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
-  { href: '/solicitudes.html', icono: '📣', titulo: 'Solicitudes ciudadanas', subtitulo: 'Las necesidades del territorio: ver, asignar y remitir', modulo: 'solicitudes' },
-  { href: '/app/solicitud-nueva.html', icono: '📝', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes' },
-  { href: '/tareas.html', icono: '✅', titulo: 'Tareas', subtitulo: 'Crear, asignar y verificar lo que hace el equipo', modulo: 'tareas' },
-  { href: '/puerta-listas.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Armar y asignar listas de visitas', modulo: 'puerta_listas' },
+  { href: '/solicitudes.html', icono: '📣', titulo: 'Solicitudes ciudadanas', subtitulo: 'Las necesidades del territorio: ver, asignar y remitir', modulo: 'solicitudes', complemento: 'solicitudes' },
+  { href: '/app/solicitud-nueva.html', icono: '📝', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes', complemento: 'solicitudes' },
+  { href: '/tareas.html', icono: '✅', titulo: 'Tareas', subtitulo: 'Crear, asignar y verificar lo que hace el equipo', modulo: 'tareas', complemento: 'tareas' },
+  { href: '/puerta-listas.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Armar y asignar listas de visitas', modulo: 'puerta_listas', complemento: 'puerta_a_puerta' },
   { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
   { href: '/contenido.html?clave=politica_privacidad', icono: '🔒', titulo: 'Política de privacidad', subtitulo: 'Editarla y ver qué le falta' },
   // Día D (fase 2): van DESPUÉS de las nueve del orden pedido.
-  { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d' },
+  { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d' },
   { href: '/app/faltantes.html', icono: '🗳️', titulo: 'Faltan por votar', subtitulo: 'Los votantes que aún no han votado', modulo: 'rescate_votos' },
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
-  { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d' },
-  { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d' },
+  { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d', complemento: 'transporte_dia_d' },
+  { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d', complemento: 'logistica_dia_d' },
   { href: '/ayuda.html', icono: '❔', titulo: 'Ayuda', subtitulo: 'Los manuales de cada rol, y el de instalación' },
   // Después de las nueve. Solo aparece si el administrador eligió «Ver versión de
   // escritorio» en el Panel: volver a la del celular borra esa preferencia (la recoge
@@ -184,9 +184,13 @@ async function modulosPermitidosApp() {
       api('/permisos/mios'),
       new Promise((_, rechazar) => setTimeout(() => rechazar(new Error('tarda')), 2500))
     ]);
-    return (permisos && permisos.modulos) || [];
+    /* Activar complementos (parche 318): `complementos` es { clave: true|false }. Se guarda lo último que dijo el servidor para las pantallas que se usan
+       sin señal (Faltantes). Sin respuesta, {}: las entradas de un complemento NO se pintan (falla cerrado). */
+    const complementos = (permisos && permisos.complementos) || {};
+    try { localStorage.setItem('complementos_conocidos', JSON.stringify(complementos)); } catch (e) { /* sin almacenamiento */ }
+    return { modulos: (permisos && permisos.modulos) || [], complementos };
   } catch (err) {
-    return [];
+    return { modulos: [], complementos: {} };
   }
 }
 
@@ -260,11 +264,12 @@ function tarjetaMenuApp(it) {
     </a>`;
 }
 
-function pintarMenu(rol, modulosPermitidos, esAspirante) {
+function pintarMenu(rol, modulosPermitidos, esAspirante, complementos) {
   const base = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
   let prefiereEscritorio = false;
   try { prefiereEscritorio = localStorage.getItem('admin_preferir_escritorio') === '1'; } catch (e) { /* sin almacenamiento */ }
-  const items = base.filter(it => (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
+  const items = base.filter(it => (!it.complemento || (complementos || {})[it.complemento] === true)   // un complemento apagado no se pinta para NADIE
+                              && (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
                               && (!it.modulos || it.modulos.some(m => (modulosPermitidos || []).includes(m)))
                               && (!it.soloSiEscritorio || prefiereEscritorio)
                               && (!it.soloAspirante || esAspirante));
@@ -337,9 +342,9 @@ function pintarCampana(campana, bio) {
 
   pintarBarraApp('Estrategia', null, null);
   document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
-  const modulosApp = await modulosPermitidosApp();
-  pintarMenu(usuario.rol, modulosApp, !!usuario.es_aspirante);
-  mostrarFranjaDeAvisos(modulosApp);
+  const { modulos: modulosApp, complementos: complementosApp } = await modulosPermitidosApp();
+  pintarMenu(usuario.rol, modulosApp, !!usuario.es_aspirante, complementosApp);
+  mostrarFranjaDeAvisos(modulosApp, complementosApp);
   // El panel del líder va arriba del menú. Quien no es líder ni sublíder (ni aspirante, que entra con rol líder) no lo pide.
   if (['lider', 'sublider'].includes(usuario.rol) && window.PanelLider) window.PanelLider.iniciar(usuario);
 
@@ -368,8 +373,9 @@ document.getElementById('btn-cerrar-sesion').addEventListener('click', async () 
 
 /* La franja «Activa los avisos». Sólo si la persona tiene el módulo de alertas y NINGÚN dispositivo suscrito; la ruta
    /dia-d/alertas/mis-avisos responde 403 a quien no tiene el módulo, y entonces no se ofrece. Se puede cerrar. */
-async function mostrarFranjaDeAvisos(modulos) {
+async function mostrarFranjaDeAvisos(modulos, complementos) {
   try {
+    if ((complementos || {}).alertas_dia_d !== true) return;          // Activar complementos (parche 318): sin Alertas encendido no se ofrece
     if (!(modulos || []).includes('alertas_dia_d')) return;
     if (localStorage.getItem('franja_avisos_alertas_cerrada') === '1') return;
     const r = await api('/dia-d/alertas/mis-avisos');

@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v188';
+const CACHE_NAME = 'estrategia-v189';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -49,18 +49,12 @@ const ARCHIVOS_CASCARON = [
   // Mis avisos (parche 316): la pantalla que abre una notificación del CRM. La dirección lleva ?id=: la caché distingue por dirección completa, así que sin señal
   // solo se abre la pantalla sin id (la lista no se guarda: viene de /api/).
   '/app/mis-avisos.html',
-  // Solicitudes ciudadanas (parche 303): se registran y se consultan sin señal (la cola vive en IndexedDB).
-  '/app/solicitud-nueva.html',
-  '/app/mis-solicitudes.html',
-  // Tareas (parche 305): se consultan y se trabajan sin señal (la cola vive en IndexedDB).
-  '/app/mis-tareas.html',
+  // (Las pantallas de Solicitudes, Tareas, Puerta a puerta, Alertas y Logística —complementos que pueden estar apagados— van aparte: ver PANTALLAS_DE_COMPLEMENTOS.)
   // La zona de los formularios de campo (la usa «Registrar una solicitud»). Antes la compartía con «Aplicar una encuesta», que se eliminó (Orden menús 3).
   '/js/zona-campo.js',
-  // Puerta a puerta (parche 309): la lista se trabaja sin señal (la copia —con caducidad de 48 horas— y la cola viven en IndexedDB). Las reglas son el mismo archivo
-  // que usa el servidor.
+  // Puerta a puerta (parche 309): las reglas son el mismo archivo que usa el servidor (la pantalla va en PANTALLAS_DE_COMPLEMENTOS).
   // Eventos en el celular (parche 313): mis eventos y la asistencia se trabajan sin señal (la copia —48 horas— y la cola de marcas viven en IndexedDB).
   '/app/eventos.html',
-  '/app/puerta-a-puerta.html',
   '/js/puerta-reglas.js',
   // El mapa de Puerta a puerta (parche 310): Leaflet es de esta app (nunca de un CDN) para que dibuje los pines y la línea SIN señal. Las TESELAS del fondo no se
   // guardan: son de otro origen y este service worker no las toca (ver más abajo), y no se descargan por adelantado.
@@ -82,8 +76,6 @@ const ARCHIVOS_CASCARON = [
   '/js/segmentos-sms.js',
   '/app/ranking-dia-d.html',
   // Día D, fase 4: el cuadro de alertas (con copia sin señal), el «Llegué a mi puesto» del testigo y lo que dibuja las alertas.
-  '/app/alertas-dia-d.html',
-  '/app/logistica.html',   // orden 39: el coordinador de puesto la usa sin señal
   '/app/checkin.js',
   '/js/alertas-dia-d.js',
   // Pantallas de ADMINISTRADOR del celular (+ su barra inferior). Leaflet NO va: viene de
@@ -136,9 +128,30 @@ const ARCHIVOS_CASCARON = [
   '/testigos.html'
 ];
 
+/* LAS PANTALLAS DE LOS COMPLEMENTOS (parche 318, «Activar complementos»). Cuando un complemento está APAGADO el servidor responde 403 a su pantalla
+   (middleware/complemento.js), y `cache.addAll` falla ENTERA si una sola respuesta no es 2xx: con las pantallas dentro de ARCHIVOS_CASCARON, el service
+   worker NO se instalaría en ninguna campaña que tenga uno apagado —es decir, en todas de fábrica— y se perdería la coraza sin señal de lo demás.
+   Por eso van aparte y una por una: la que está encendida se guarda, la apagada se salta sin hacer ruido. (Si el complemento se enciende después, la pantalla
+   se guarda la primera vez que se abre con señal, como cualquier otra: la estrategia «red primero» de más abajo guarda toda respuesta 2xx.) */
+const PANTALLAS_DE_COMPLEMENTOS = [
+  // Solicitudes ciudadanas (parche 303): se registran y se consultan sin señal (la cola vive en IndexedDB).
+  '/app/solicitud-nueva.html',
+  '/app/mis-solicitudes.html',
+  // Tareas (parche 305): se consultan y se trabajan sin señal (la cola vive en IndexedDB).
+  '/app/mis-tareas.html',
+  // Puerta a puerta (parche 309): la lista se trabaja sin señal (la copia —con caducidad de 48 horas— y la cola viven en IndexedDB).
+  '/app/puerta-a-puerta.html',
+  // Día D, fase 4: el cuadro de alertas (con copia sin señal) y la logística de puesto (orden 39: el coordinador de puesto la usa sin señal).
+  '/app/alertas-dia-d.html',
+  '/app/logistica.html',
+];
+
 self.addEventListener('install', (evento) => {
   evento.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ARCHIVOS_CASCARON))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(ARCHIVOS_CASCARON);
+      await Promise.all(PANTALLAS_DE_COMPLEMENTOS.map((url) => cache.add(url).catch(() => { /* complemento apagado: 403, no se guarda */ })));
+    })
   );
   self.skipWaiting();
 });

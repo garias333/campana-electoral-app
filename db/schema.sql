@@ -1111,4 +1111,17 @@ CREATE TABLE IF NOT EXISTS dia_d_alertas_avisadas (
   FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- ACTIVAR COMPLEMENTOS (parche 318): el interruptor general por campaña de nueve complementos (lib/complementos.js). Todos nacen apagados
+-- (INSERT IGNORE con activo = 0 en db/init-db.js). Apagado = apagado para TODOS los roles, administrador incluido.
+CREATE TABLE IF NOT EXISTS complementos_campana (
+  clave VARCHAR(40) NOT NULL PRIMARY KEY,
+  activo TINYINT NOT NULL DEFAULT 0,
+  actualizado_por INT NULL,
+  actualizado_en DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT IGNORE INTO complementos_campana (clave, activo) VALUES
+  ('solicitudes', 0), ('tareas', 0), ('puerta_a_puerta', 0), ('puerta_panel', 0), ('alertas_dia_d', 0),
+  ('resultados_dia_d', 0), ('transporte_dia_d', 0), ('logistica_dia_d', 0), ('finanzas', 0);
+
 SET FOREIGN_KEY_CHECKS = 1;

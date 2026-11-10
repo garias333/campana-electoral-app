@@ -4,11 +4,15 @@ const pool = require('../config/db');
 const { registrarAuditoriaEn } = require('../config/auditoria');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { upload } = require('../middleware/upload');
 const { armarWhereSql } = require('../config/filtros');
 
 const router = express.Router();
 router.use(requireAuth);
+
+// Activar complementos (parche 318): además del rol, la ruta exige que Finanzas esté encendido para la campaña (apagado = para TODOS).
+router.use(requiereComplemento('finanzas'));
 
 // Solo admin y coordinador pueden ver y gestionar finanzas
 router.use(requireRole('admin', 'coordinador'));

@@ -10,9 +10,9 @@
 (function () {
   'use strict';
 
-  /** Solo el administrador. */
+  /** Solo el administrador, y solo con «Puerta a puerta» encendido (Activar complementos, parche 318): apagado, el botón no se ofrece. La ruta del servidor no cambia. */
   window.puedePermitirVisitas = function (usuario) {
-    return !!usuario && usuario.rol === 'admin';
+    return !!usuario && usuario.rol === 'admin' && typeof complementoActivo === 'function' && complementoActivo(usuario, 'puerta_a_puerta');
   };
 
   function hoyEnColombia() {

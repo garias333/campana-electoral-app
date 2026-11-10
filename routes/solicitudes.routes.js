@@ -36,9 +36,11 @@ const Panel = require('../lib/solicitudesPanel');
 const Seg = require('../lib/solicitudesSeguimiento');
 const XLSX = require('xlsx');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 
 const router = express.Router();
-router.use(requireAuth, calcularAlcance);
+// Activar complementos (parche 318): apagado para TODOS los roles, el administrador incluido. Va antes que la matriz de permisos.
+router.use(requireAuth, requiereComplemento('solicitudes'), calcularAlcance);
 
 const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: S.TAMANO_MAXIMO_FOTO, files: S.MAX_FOTOS, fields: 40 } });
 

@@ -32,13 +32,14 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { UPLOAD_DIA_D_DIR } = require('../middleware/upload');
 const diaD = require('./diaD.routes').compartido;
 const { crearResolutorDePuestos, cargarMunicipios, normalizar } = require('../lib/puestosDiaD');
 
 const router = express.Router();
-router.use(requireAuth, requiereVerModulo('resultados_dia_d', { aspirante: true }));
+router.use(requireAuth, requiereComplemento('resultados_dia_d'), requiereVerModulo('resultados_dia_d', { aspirante: true }));
 
 const FUENTES = ['preconteo', 'escrutinio'];
 const ESTADOS = ['para_reclamar', 'revisada'];

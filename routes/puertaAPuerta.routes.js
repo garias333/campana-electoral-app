@@ -45,9 +45,19 @@ const G = require('../lib/puertaGuion');
 const Panel = require('../lib/puertaPanel');
 const XLSX = require('xlsx');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 
 const router = express.Router();
 router.use(requireAuth, calcularAlcance);
+/* Activar complementos (parche 318): apagado para TODOS los roles, el administrador incluido. Va antes que la matriz de permisos.
+   DOS RUTAS QUEDAN FUERA, a propósito: `GET /politica` y `POST /votantes/:id/permitir-visitas`. Son de PRIVACIDAD (el texto de la finalidad y
+   quitar la marca «pidió no volver» de un ciudadano), no del complemento: apagarlo no puede dejar a alguien sin poder atender esa petición.
+   (La pantalla sí esconde el botón.) El panel (`/panel`, `/panel/exportar`) lleva además su propio complemento, `puerta_panel`. */
+const puertaComplemento = requiereComplemento('puerta_a_puerta');
+const esDePrivacidad = (req) => (req.method === 'GET' && req.path === '/politica')
+  || (req.method === 'POST' && /^\/votantes\/\d+\/permitir-visitas\/?$/.test(req.path));
+router.use((req, res, next) => (esDePrivacidad(req) ? next() : puertaComplemento(req, res, next)));
+const panelComplemento = requiereComplemento('puerta_panel');
 router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 router.use((req, res, next) => {
   if (req.sublicencia) return res.status(403).json({ error: 'El puerta a puerta todavía no está disponible para las campañas de un aspirante.' });
@@ -212,13 +222,13 @@ router.put('/guion', exigir('puerta_listas', 'editar'), soloAdmin, json, async (
 
 /* ----------------------------------------------------------------------------------------- EL PANEL (parche 312) */
 
-router.get('/panel', exigir('puerta_listas', 'ver'), async (req, res) => {
+router.get('/panel', panelComplemento, exigir('puerta_listas', 'ver'), async (req, res) => {
   try { res.json(await Panel.panel({ alcance: req.alcance, filtro: Panel.filtroDe(req.query) })); } catch (e) { responder(res, e); }
 });
 
 const hoyArchivo = () => new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);       // hora de Colombia
 
-router.get('/panel/exportar', exigir('puerta_listas', 'ver'), requiereImportarExportar('puerta_listas'), async (req, res) => {
+router.get('/panel/exportar', panelComplemento, exigir('puerta_listas', 'ver'), requiereImportarExportar('puerta_listas'), async (req, res) => {
   try {
     const p = await Panel.panel({ alcance: req.alcance, filtro: Panel.filtroDe(req.query) });
     const hojas = Panel.hojasDeExcel(p, { fecha: hoyArchivo(), generador: 'Estrategia · Puerta a puerta',

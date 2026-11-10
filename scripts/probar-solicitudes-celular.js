@@ -54,6 +54,8 @@ async function lider(nombre) {
 }
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes']);
   let servidor; let navegador; // Las fotos de prueba van en una carpeta NO oculta del hogar: el Chromium de snap no puede leer archivos de carpetas ocultas (.cache) y se cuelga al guardarlos.
   const tmp = fs.mkdtempSync(path.join(os.homedir(), 'sol-cel-'));
   const archivosCreados = [];

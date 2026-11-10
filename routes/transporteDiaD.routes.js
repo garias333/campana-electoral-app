@@ -15,6 +15,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { calcularAlcance, requireAuth } = require('../middleware/auth');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria } = require('../config/auditoria');
 const { duenoDeLaCampana } = require('../lib/ramas');
 const { baseDelSitio } = require('../config/inscripcionEnlace');
@@ -22,7 +23,7 @@ const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/
 const T = require('../lib/transporteDiaD');
 
 const router = express.Router();
-router.use(requireAuth, calcularAlcance, requiereVerModulo('transporte_dia_d', { aspirante: true }));
+router.use(requireAuth, requiereComplemento('transporte_dia_d'), calcularAlcance, requiereVerModulo('transporte_dia_d', { aspirante: true }));
 
 const TOPE_ASIGNAR = 200;
 

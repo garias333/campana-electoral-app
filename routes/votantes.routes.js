@@ -5,6 +5,7 @@ const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { encolarBienvenida } = require('../config/bienvenidaAutomatica');
 const { recalcularRamaEnSegundoPlano, duenoDeLaCampana } = require('../lib/ramas');
 const { geocodificarDireccion } = require('../config/geocoder');
@@ -1903,7 +1904,8 @@ router.patch('/:id/datos-basicos', requireRole(...ROLES_QUE_REGISTRAN, 'aspirant
   }
 });
 
-router.put('/:id/transporte', async (req, res) => {
+// Activar complementos (parche 318): «necesita transporte» es de Transporte; apagado, esta ruta responde 403 (la columna no se toca).
+router.put('/:id/transporte', requiereComplemento('transporte_dia_d'), async (req, res) => {
   const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : null;
   try {
     const params = [req.params.id];

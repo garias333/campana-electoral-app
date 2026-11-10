@@ -1031,23 +1031,24 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   // La pestaña «Resultados» solo existe con el módulo `resultados_dia_d` (el servidor lo vuelve a exigir
   // en cada ruta: esto solo evita ofrecer un botón que daría 403). Sin datos de permisos NO se muestra.
   const permRes = usuarioActual.permisos && usuarioActual.permisos.resultados_dia_d;
-  puedeResultados = !!(permRes && permRes.ver);
+  // Activar complementos (parche 318): además del permiso, el complemento tiene que estar ENCENDIDO (sin dato, no se muestra).
+  puedeResultados = !!(permRes && permRes.ver) && complementoActivo(usuarioActual, 'resultados_dia_d');
   document.getElementById('pestana-resultados').style.display = puedeResultados ? 'inline-flex' : 'none';
   // La pestaña «Alertas» solo con el módulo `alertas_dia_d` (el servidor lo vuelve a exigir). Sin datos de permisos, no se muestra.
   const permAl = usuarioActual.permisos && usuarioActual.permisos.alertas_dia_d;
-  const puedeAlertas = !!(permAl && permAl.ver);
+  const puedeAlertas = !!(permAl && permAl.ver) && complementoActivo(usuarioActual, 'alertas_dia_d');
   puedeAlertasDiaD = puedeAlertas;
   document.getElementById('pestana-alertas').style.display = puedeAlertas ? 'inline-flex' : 'none';
   if (puedeAlertas) cargarAlertas().catch(() => {});          // la insignia con el conteo, aunque no esté abierta
   // La pestaña «Transporte» y su contador solo con el módulo `transporte_dia_d` (el servidor lo vuelve a exigir).
   const permTr = usuarioActual.permisos && usuarioActual.permisos.transporte_dia_d;
-  const puedeTransporte = !!(permTr && permTr.ver) && !!window.TransporteDiaD;
+  const puedeTransporte = !!(permTr && permTr.ver) && complementoActivo(usuarioActual, 'transporte_dia_d') && !!window.TransporteDiaD;
   puedeTransporteDiaD = puedeTransporte;
   document.getElementById('pestana-transporte').style.display = puedeTransporte ? 'inline-flex' : 'none';
   if (puedeTransporte) window.TransporteDiaD.iniciarContador();
   // La pestaña «Logística» y su contador solo con el módulo `logistica_dia_d` (el servidor lo vuelve a exigir).
   const permLg = usuarioActual.permisos && usuarioActual.permisos.logistica_dia_d;
-  const puedeLogistica = !!(permLg && permLg.ver) && !!window.LogisticaDiaD;
+  const puedeLogistica = !!(permLg && permLg.ver) && complementoActivo(usuarioActual, 'logistica_dia_d') && !!window.LogisticaDiaD;
   puedeLogisticaDiaD = puedeLogistica;
   document.getElementById('pestana-logistica').style.display = puedeLogistica ? 'inline-flex' : 'none';
   if (puedeLogistica) window.LogisticaDiaD.iniciarContador();

@@ -6,6 +6,7 @@ orden: 372
 icono: comida
 modulo:
 nivel:
+complemento: logistica_dia_d
 roles: testigo
 ruta:
 captura:

@@ -119,6 +119,8 @@ const inst = (dias, hhmm) => new Date(`${R.sumarDias(hoyCol(), -dias)}T${hhmm}:0
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['puerta_a_puerta', 'puerta_panel']);
   const servidor = http.createServer(app);
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

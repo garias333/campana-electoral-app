@@ -215,7 +215,7 @@ function cajaDe(it, n) {
       <button type="button" class="btn-app btn-app-secundario" data-resultado="no_interesado" data-id="${esc(it.id)}">No interesado</button>
       <button type="button" class="btn-app btn-app-primario" data-resultado="interesado" data-id="${esc(it.id)}">Interesado</button>
       <button type="button" class="btn-app btn-app-secundario" data-resultado="quiere_registrarse" data-id="${esc(it.id)}">Alguien quiere registrarse</button>
-      <button type="button" class="btn-app btn-app-secundario" data-resultado="solicitud" data-id="${esc(it.id)}">Dejó una solicitud</button>
+      ${solicitudesActivas ? `<button type="button" class="btn-app btn-app-secundario" data-resultado="solicitud" data-id="${esc(it.id)}">Dejó una solicitud</button>` : ''}
       <button type="button" class="btn-app btn-app-secundario" data-pedir-no-volver="${esc(it.id)}">Pidió no volver</button>
     </div>${panel}</div></div></div>`;
 }
@@ -443,7 +443,7 @@ async function registrar(itemId, resultado, extra) {
   }
   await leerCola();
   pintar();
-  const destino = resultado === 'quiere_registrarse' ? '/app/registro-votante.html' : (resultado === 'solicitud' ? '/app/solicitud-nueva.html' : null);
+  const destino = resultado === 'quiere_registrarse' ? '/app/registro-votante.html' : (resultado === 'solicitud' && solicitudesActivas ? '/app/solicitud-nueva.html' : null);
   await subirCola();
   if (destino) {
     if (resultado === 'quiere_registrarse' && vista && vista.inscripcion) { ofrecerRegistro(destino, vista.inscripcion); return; }   // con enlace propio: también el QR
@@ -570,10 +570,24 @@ async function refrescar() {
   } else nota.style.display = 'none';
 }
 
+/* ACTIVAR COMPLEMENTOS (parche 318): el resultado «Dejó una solicitud» lleva a Solicitudes ciudadanas, así que solo se ofrece con ese complemento encendido.
+   Sin señal se usa lo último que dijo el servidor en este celular; sin nada guardado, apagado (falla cerrado). */
+let solicitudesActivas = false;
+async function saberSiHaySolicitudes() {
+  try {
+    const r = await api('/permisos/mios');
+    solicitudesActivas = !!(r && r.complementos && r.complementos.solicitudes === true);
+    try { localStorage.setItem('complementos_conocidos', JSON.stringify((r && r.complementos) || {})); } catch (e) { /* sin almacenamiento */ }
+  } catch (e) {
+    try { solicitudesActivas = (JSON.parse(localStorage.getItem('complementos_conocidos') || '{}')).solicitudes === true; } catch (e2) { solicitudesActivas = false; }
+  }
+}
+
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
   pintarBarraApp('Puerta a puerta', 'Tu lista de visitas', '/app/inicio.html');
+  await saberSiHaySolicitudes();
   await leerCola();
   if (cola.length) await subirCola();
   await refrescar();

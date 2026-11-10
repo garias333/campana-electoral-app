@@ -303,8 +303,11 @@ router.get('/resumen', verPanelGeneral, async (req, res) => {
        consulta ni se le envía: se quita del JSON, no solo de la pantalla, porque
        el navegador recibe la respuesta entera y esconder una tarjeta no oculta
        nada. Sin la clave `finanzas`, dashboard.html esconde la tarjeta. */
-    const verFinanzas = !!req.sublicencia
-      || ['admin', 'coordinador'].includes(req.session.usuario.rol);
+    /* ACTIVAR COMPLEMENTOS (parche 318): con «Finanzas» apagado la clave `finanzas` NO viaja en el JSON (se quita, no solo se esconde la tarjeta):
+       ni siquiera se consulta la tabla. dashboard.html ya esconde la tarjeta cuando la clave falta. */
+    const verFinanzas = (!!req.sublicencia
+      || ['admin', 'coordinador'].includes(req.session.usuario.rol))
+      && await require('../lib/complementos').complementoActivo('finanzas');
     const [[finanzas]] = !verFinanzas ? [[null]] : (ambito && ambito.esAspirante) ? [[{ ingresos: 0, gastos: 0 }]] : await pool.query(`
       SELECT
         COALESCE(SUM(CASE WHEN tipo='ingreso' THEN monto END),0) AS ingresos,

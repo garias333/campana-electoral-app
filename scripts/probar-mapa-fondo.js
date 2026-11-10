@@ -48,6 +48,8 @@ const esOsm = (u) => /^https:\/\/[abc]\.tile\.openstreetmap\.org\/\d+\/\d+\/\d+\
 const esMapbox = (u) => /^https:\/\/api\.mapbox\.com\/styles\//.test(u);
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta']);
   let servidor; let navegador;
   try {
     /* ---------- 1. Estático ---------- */

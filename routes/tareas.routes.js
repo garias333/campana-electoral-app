@@ -37,10 +37,12 @@ const M = require('../lib/tareasMetas');
 const Panel = require('../lib/tareasPanel');
 const XLSX = require('xlsx');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { alcanceEventos, puedeVerEventos } = require('../lib/alcanceEventos');
 
 const router = express.Router();
-router.use(requireAuth, calcularAlcance);
+// Activar complementos (parche 318): apagado para TODOS los roles, el administrador incluido. Va antes que la matriz de permisos.
+router.use(requireAuth, requiereComplemento('tareas'), calcularAlcance);
 router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: T.TAMANO_MAXIMO_FOTO, files: T.MAX_FOTOS, fields: 30 } });

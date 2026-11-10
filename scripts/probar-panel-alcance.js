@@ -84,6 +84,8 @@ async function evento(titulo, { responsable, coordinador, lider } = {}) {
 const sumaTend = (d) => (d || []).reduce((a, f) => a + f.total, 0);
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['finanzas']);
   const servidor = http.createServer(app);
   await new Promise(r => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

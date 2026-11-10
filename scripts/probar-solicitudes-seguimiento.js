@@ -107,6 +107,8 @@ const filasDe = (wb, hoja) => XLSX.utils.sheet_to_json(wb.Sheets[hoja], { header
 const todoElTexto = (wb) => wb.SheetNames.map((h) => JSON.stringify(filasDe(wb, h))).join(' ');
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes']);
   const servidor = http.createServer(app);
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

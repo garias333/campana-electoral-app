@@ -20,6 +20,7 @@ const { moduloTieneImportarExportar } = require('../config/importarExportar');
 const { PERMISOS_ASPIRANTE, MODULOS_ASPIRANTE } = require('../middleware/aspirante');
 const permisosRoutes = require('./permisos.routes');
 const manuales = require('../lib/manuales');
+const complementosLib = require('../lib/complementos');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -86,6 +87,20 @@ function permisosParaInsignias(permisos) {
   return salida;
 }
 
+/**
+ * ACTIVAR COMPLEMENTOS (parche 318): al perfil se le agrega qué complementos están encendidos (los bloques de un complemento apagado no salen, para
+ * NADIE) y se le quitan los permisos de sus módulos (las insignias de la pantalla no prometen lo que no hay).
+ */
+async function conComplementos(perfil) {
+  const complementos = await complementosLib.complementosActivos();
+  const permisos = {};
+  Object.entries(perfil.permisos || {}).forEach(([m, p]) => {
+    const dueno = complementosLib.complementoDelModulo(m);
+    permisos[m] = dueno && !complementos[dueno] ? { ...p, ver: false, editar: false, agregar: false, importar_exportar: false } : p;
+  });
+  return { ...perfil, permisos, complementos };
+}
+
 function respuesta(rol, modo, perfil, extras) {
   const titulos = manuales.MANUALES_POR_ROL[rol];
   const manual = manuales.armarManual(perfil, titulos);
@@ -102,11 +117,12 @@ async function tarjetasParaAdministrador() {
   const porRol = {};
   filas.forEach((f) => { (porRol[f.rol] = porRol[f.rol] || []).push(f); });
   const est = manuales.cargar({ silencioso: true });
+  const activosC = await complementosLib.complementosActivos();          // Activar complementos (parche 318)
   const tarjetas = Object.keys(manuales.MANUALES_POR_ROL).map((clave) => {
     const permisos = clave === 'admin' ? permisosDelAdministrador()
       : clave === 'aspirante' ? permisosDelAspirante() : permisosDesdeFilas(porRol[clave] || []);
     const roles = new Set(clave === 'aspirante' ? ['aspirante', 'lider'] : [clave]);
-    const visibles = manuales.bloquesVisibles(est.bloques, { permisos, roles });
+    const visibles = manuales.bloquesVisibles(est.bloques, { permisos, roles, complementos: activosC });
     const n = visibles.filter((b) => b.seccion !== 'faq' && b.seccion !== 'glosario').length;
     return { clave, ...manuales.MANUALES_POR_ROL[clave], bloques: n };
   });
@@ -125,7 +141,7 @@ router.get('/mio', async (req, res) => {
     const clave = esAspirante ? 'aspirante' : (manuales.MANUALES_POR_ROL[sesion.rol] ? sesion.rol : 'usuario');
     const extras = {};
     if (sesion.rol === 'admin' && !esAspirante) extras.tarjetas = await tarjetasParaAdministrador();
-    res.json(respuesta(clave, 'mio', { permisos, roles }, extras));
+    res.json(respuesta(clave, 'mio', await conComplementos({ permisos, roles }), extras));
   } catch (err) {
     console.error('manuales/mio:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo armar el manual.' });
@@ -138,7 +154,7 @@ router.get('/rol/:rol', requireRole('admin'), async (req, res) => {
   try {
     const permisos = await permisosDeRol(rol);
     const roles = new Set(rol === 'aspirante' ? ['aspirante', 'lider'] : [rol]);
-    res.json(respuesta(rol, 'rol', { permisos, roles }));
+    res.json(respuesta(rol, 'rol', await conComplementos({ permisos, roles })));
   } catch (err) {
     console.error('manuales/rol:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo armar el manual.' });

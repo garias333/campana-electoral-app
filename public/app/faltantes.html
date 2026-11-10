@@ -128,6 +128,22 @@ const STORE_TRANSP = 'transporte_pendientes';   // el interruptor «necesita tra
 const MS_DESHACER = 10000;
 
 let filtro = 'faltan';
+/* ACTIVAR COMPLEMENTOS (parche 318): el «Necesita transporte» (chip e interruptor) es de Transporte. Con ese complemento apagado no se ofrece, y el servidor
+   responde 403 `complemento_inactivo` si se pide. Se pregunta al arrancar; sin señal se usa lo último que dijo el servidor en este celular, y sin nada
+   guardado, apagado (falla cerrado). */
+let transporteActivo = false;
+async function saberSiHayTransporte() {
+  try {
+    const r = await api('/permisos/mios');
+    transporteActivo = !!(r && r.complementos && r.complementos.transporte_dia_d === true);
+    try { localStorage.setItem('complementos_conocidos', JSON.stringify((r && r.complementos) || {})); } catch (e) { /* sin almacenamiento */ }
+  } catch (e) {
+    try { transporteActivo = (JSON.parse(localStorage.getItem('complementos_conocidos') || '{}')).transporte_dia_d === true; } catch (e2) { transporteActivo = false; }
+  }
+  const chip = document.querySelector('.chip[data-filtro="transporte"]');
+  if (chip) chip.style.display = transporteActivo ? '' : 'none';
+  if (!transporteActivo && filtro === 'transporte') filtro = 'faltan';
+}
 let busqueda = '';
 let datos = null;            // lo último que dijo el servidor (o la copia guardada)
 let desdeCopia = false;      // ¿lo que se ve es la copia guardada, no el servidor?
@@ -391,7 +407,7 @@ function filaPersona(p, g) {
     ? `<button type="button" class="accion copiar" data-copiar="${esc(p.enlace_ya_vote)}">Copiar enlace</button>` : '';
   const llamar = tel ? `<a class="accion llamar" href="tel:${tel}">Llamar</a>` : '';
   // «Necesita transporte»: sólo para quien aún no vota. El interruptor funciona sin señal (cola de este celular).
-  const transp = !votado
+  const transp = (!votado && transporteActivo)
     ? `<button type="button" class="accion transp${p.necesita_transporte ? ' si' : ''}" data-transp="${p.id}" data-valor="${p.necesita_transporte ? 0 : 1}">🚐 ${p.necesita_transporte ? 'Necesita transporte ✓' : 'Necesita transporte'}</button>` : '';
   const sinEnlace = (!votado && !p.enlace_ya_vote && !p.no_contactar && p.sin_enlace && MOTIVOS_SIN_ENLACE[p.sin_enlace])
     ? `<div class="sin-enlace">Sin enlace «Ya voté»: ${MOTIVOS_SIN_ENLACE[p.sin_enlace]}</div>` : '';
@@ -502,11 +518,12 @@ document.getElementById('buscador').addEventListener('input', (e) => {
   if (!usuario) return;
   if (usuario.rol === 'testigo') { window.location.replace('/app/dia-d.html'); return; }
   pintarBarraApp('Faltan por votar', null, '/app/inicio.html');
+  await saberSiHayTransporte();
   await pintarAvisoCola();
   await subirCola();      // lo que quedó pendiente de una vez anterior
-  await subirTransporte();
+  if (transporteActivo) await subirTransporte();      // apagado, lo del interruptor se queda en este celular hasta que se encienda
   await cargar();
-  window.addEventListener('online', () => { subirCola(); subirTransporte(); });
+  window.addEventListener('online', () => { subirCola(); if (transporteActivo) subirTransporte(); });
   // Se recarga sola cada minuto —los demás van marcando—, sin pisar una carga en curso.
   setInterval(() => { if (!document.hidden) { subirCola().then(() => cargar(true)); } }, 60000);
 })();

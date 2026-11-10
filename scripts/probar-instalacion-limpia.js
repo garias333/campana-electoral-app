@@ -165,6 +165,13 @@ const COMPROBACIONES = [
 
   ['La política de privacidad quedó sembrada',
    `SELECT COUNT(*) n FROM contenido_paginas WHERE clave='politica_privacidad'`, 1],
+
+  // Activar complementos (parche 318): nueve filas y TODAS apagadas de fábrica (db/init-db.js).
+  ['Los nueve complementos están sembrados',
+   `SELECT COUNT(*) n FROM complementos_campana`, 9],
+
+  ['...y ninguno nace encendido',
+   `SELECT COUNT(*) n FROM complementos_campana WHERE activo <> 0`, 0],
 ];
 
 async function main() {

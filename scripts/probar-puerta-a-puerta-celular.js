@@ -64,6 +64,8 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
 }
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['puerta_a_puerta', 'puerta_panel', 'solicitudes', 'tareas']);
   let servidor; let navegador;
   try {
     await q('INSERT IGNORE INTO configuracion_campana (id) VALUES (1)');

@@ -47,7 +47,7 @@
       <h1>Puerta a puerta</h1>
       <p>Arma la lista de visitas de un líder o de un sublíder con personas que YA están registradas en su equipo. Él la recibe en el celular, la recorre
          (también sin señal) y anota el resultado de cada puerta. Aquí solo ves cuántas personas hay, cuántas quedan y cuántas se cerraron: nunca nombres ni direcciones.
-         <a href="/puerta-panel.html">Ver el panel de cobertura →</a></p>
+         <a href="/puerta-panel.html" id="pp-enlace-panel">Ver el panel de cobertura →</a></p>
     </div>
 
     <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
@@ -309,6 +309,8 @@ async function cargarHorario() {
 (async () => {
   usuarioActual = await inicializarLayout('/puerta-listas.html');
   if (!usuarioActual) return;
+  // Activar complementos (parche 318): el enlace al panel solo con «Puerta a puerta panel» encendido.
+  if (!complementoActivo(usuarioActual, 'puerta_panel')) $('pp-enlace-panel').style.display = 'none';
   if (!puedeVer(usuarioActual, 'puerta_listas')) { $('pp-sin-permiso').style.display = 'block'; return; }
   permisos = { ver: true, editar: puedeEditar(usuarioActual, 'puerta_listas'), agregar: puedeAgregar(usuarioActual, 'puerta_listas') };
   try {

@@ -129,6 +129,8 @@ function idsDeRespuesta(d) {
 const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|gobernacion|gobernador(a)?|asamblea|diputad[oa]s?|jal|edil(es)?|senad(o|or|ora)|camara de representantes|presidencia)\b/i;
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'finanzas']);
   const servidor = http.createServer(app);
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

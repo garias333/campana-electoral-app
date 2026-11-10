@@ -17,6 +17,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria } = require('../config/auditoria');
 const diaD = require('./diaD.routes').compartido;
 const { TIPOS, GRAVEDAD, TOPE_SIN_VOTANTES, MIN_VOTANTES_BAJA, calcularAlertas } = require('../lib/alertasDiaD');
@@ -68,7 +69,13 @@ router.put('/config', requireRole('admin'), async (req, res) => {
   }
 });
 
-router.use(requiereVerModulo('alertas_dia_d', { aspirante: true }), calcularAlcance);
+/* Activar complementos (parche 318): apagado para TODOS los roles, el administrador incluido. Va antes que la matriz de permisos.
+   `GET` y `PUT /config` (arriba) quedan FUERA de esta puerta a propósito: son la jornada del Día D (apertura, cierre, plazo del E-14, llegada),
+   que NO es solo de las alertas — la leen también Logística (lib/logisticaDiaD.js), los recordatorios de «ya votaste»
+   (lib/recordatoriosFuentes.js), el check-in del testigo (routes/checkinDiaD.routes.js) y el «en vivo» de la cobertura de testigos
+   (public/configuracion.html lee `modo_prueba` de aquí). Cerrarla con Alertas apagado dejaría esos horarios sin poder cambiarse. Para cerrarla
+   también, basta mover esta línea antes de `router.get('/config'`. */
+router.use(requiereComplemento('alertas_dia_d'), requiereVerModulo('alertas_dia_d', { aspirante: true }), calcularAlcance);
 
 /* ——— los avisos push: diagnóstico ——————————————————————————————————————
    «N coordinadores sin avisos activados»: quienes TIENEN el módulo y NO tienen ningún dispositivo suscrito, de ESTA campaña.

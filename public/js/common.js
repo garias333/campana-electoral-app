@@ -189,6 +189,9 @@ if (document.readyState === 'loading') {
    Día D · Logística · Mensajería · Finanzas · Contenido para compartir · Configuración · Legislación · Ayuda. No hay sección «Otros»: toda entrada que
    existía quedó en uno de esos grupos (salvo «Encuestas internas», que se retiró del menú a propósito y se elimina del todo en la Orden menús 3).
    Un grupo sin ninguna entrada visible para el rol no se pinta, ni su título. */
+/* `complemento` (parche 318, «Activar complementos»): la clave del complemento de esa entrada. Si el complemento está APAGADO la entrada no se pinta
+   PARA NADIE (ni el administrador ni el superadministrador), y si `/permisos/mios` falla tampoco: estas entradas fallan CERRADO, aunque el resto del
+   menú siga cayendo a los roles de cada ítem (ver `itemVisible`). */
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {
@@ -200,13 +203,13 @@ const NAV_ITEMS = [
       { href: '/votantes-dashboard.html', texto: 'Dashboard de votantes', modulo: 'votantes_dashboard', roles: ['admin', 'coordinador'] },
       { href: '/mapa.html', texto: 'Mapa territorial', modulo: 'mapa', roles: ['admin', 'coordinador'] },
       // Solicitudes ciudadanas (parche 303). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `solicitudes`.
-      { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
+      { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', complemento: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
       // Tareas (parche 305). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `tareas`.
-      { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
+      { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', complemento: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
       // Puerta a puerta (parche 309). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `puerta_listas`. Recorrer la lista es del celular (/app/puerta-a-puerta.html).
-      { href: '/puerta-listas.html', texto: 'Puerta a puerta', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
+      { href: '/puerta-listas.html', texto: 'Puerta a puerta', modulo: 'puerta_listas', complemento: 'puerta_a_puerta', roles: ['admin', 'coordinador'] },
       // El panel del puerta a puerta (parche 312): cobertura por zona y avance por visitante, solo conteos. Mismo módulo que armar las listas.
-      { href: '/puerta-panel.html', texto: 'Puerta a puerta panel', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
+      { href: '/puerta-panel.html', texto: 'Puerta a puerta panel', modulo: 'puerta_listas', complemento: 'puerta_panel', roles: ['admin', 'coordinador'] },
       // «Encuestas internas» (parche 307, /encuestas.html) salió del menú en la Orden menús 2; la página y su módulo siguen hasta la Orden menús 3.
     ]
   },
@@ -219,8 +222,8 @@ const NAV_ITEMS = [
       // Avance de votación: es una pestaña de la misma pantalla (hash #avance). Lleva su propio
       // módulo para que la matriz de permisos pueda abrirlo o cerrarlo sin tocar la Jornada.
       { href: '/dia-d.html#avance', texto: 'Avance de votación', modulo: 'rescate_votos', roles: ['admin', 'coordinador'] },
-      { href: '/dia-d.html#alertas', texto: 'Alertas del Día D', modulo: 'alertas_dia_d', roles: ['admin', 'coordinador'] },
-      { href: '/dia-d.html#resultados', texto: 'Resultados y reclamaciones', modulo: 'resultados_dia_d', roles: ['admin', 'coordinador'] },
+      { href: '/dia-d.html#alertas', texto: 'Alertas del Día D', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d', roles: ['admin', 'coordinador'] },
+      { href: '/dia-d.html#resultados', texto: 'Resultados y reclamaciones', modulo: 'resultados_dia_d', complemento: 'resultados_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {
@@ -230,8 +233,8 @@ const NAV_ITEMS = [
       { href: '/eventos.html', texto: 'Eventos y GOTV', modulo: 'eventos', roles: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'] },
       { href: '/asistentes-reuniones.html', texto: 'Asistentes a reuniones', modulo: 'asistentes_reuniones', roles: ['admin', 'coordinador', 'lider'] },
       // Transporte y Logística del Día D vivían en el grupo «Día D»; ahora van aquí. Siguen siendo pestañas de dia-d.html (hash #transporte / #logistica) y cada una con su propio módulo.
-      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
-      { href: '/dia-d.html#logistica', texto: 'Logística del Día D', modulo: 'logistica_dia_d', roles: ['admin', 'coordinador'] },
+      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', complemento: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
+      { href: '/dia-d.html#logistica', texto: 'Logística del Día D', modulo: 'logistica_dia_d', complemento: 'logistica_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {
@@ -258,7 +261,7 @@ const NAV_ITEMS = [
       { href: '/configurar-crm.html', texto: 'Configurar mensajería', modulo: 'configurar_crm', roles: ['admin'] },
     ]
   },
-  { href: '/finanzas.html', icono: '💰', texto: 'Finanzas', modulo: 'finanzas', roles: ['admin', 'coordinador'] },
+  { href: '/finanzas.html', icono: '💰', texto: 'Finanzas', modulo: 'finanzas', complemento: 'finanzas', roles: ['admin', 'coordinador'] },
   /* CONTENIDO PARA COMPARTIR — antes «Comunicaciones», y antes de Finanzas.
      Son tres pantallas, no una: la de recursos y las dos de `contenido.html`.
      Al superadministrador le aparece UNA sola porque `biografia_candidato` y
@@ -281,6 +284,8 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#campana', texto: 'Datos de la campaña', modulo: 'configuracion', roles: ['admin'], porDefecto: true },
       { href: '/configuracion.html#usuarios', texto: 'Usuarios', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#permisos', texto: 'Asignación de permisos', modulo: 'configuracion', roles: ['admin'] },
+      // Activar complementos (parche 318): el interruptor general por campaña de nueve complementos. Solo el administrador (y el superadministrador, que conserva ese rol).
+      { href: '/configuracion.html#complementos', texto: 'Activar complementos', modulo: 'configuracion', roles: ['admin'] },
       // Recordatorios automáticos: módulo propio en la matriz (de fábrica, solo el administrador). Sin su fila en permisos_rol la entrada no sale.
       { href: '/configuracion.html#recordatorios', texto: 'Recordatorios', modulo: 'recordatorios', roles: ['admin'] },
       /* LA POLÍTICA DE PRIVACIDAD TAMBIÉN AQUÍ (parche 311). Ya estaba en «Contenido para compartir», pero ESE ítem no le sale al superadministrador:
@@ -1087,6 +1092,26 @@ function puedeVer(usuario, modulo) {
 }
 
 /**
+ * «ACTIVAR COMPLEMENTOS» (parche 318): ¿el complemento está encendido para esta campaña?
+ *
+ * FALLA CERRADO, al revés de `puedeVer`: sin datos (la consulta falló, o la pantalla no es de las que cargan `inicializarLayout`) dice que NO. Un
+ * complemento apagado no se ve para ningún rol, y mostrarlo «por si acaso» sería enseñar algo que la campaña no tiene. El servidor lo exige igual
+ * (middleware/complemento.js): esto solo evita ofrecer lo que va a responder 403 `complemento_inactivo`.
+ *
+ * Claves: solicitudes, tareas, puerta_a_puerta, puerta_panel, alertas_dia_d, resultados_dia_d, transporte_dia_d, logistica_dia_d, finanzas.
+ */
+function complementoActivo(usuario, clave) {
+  return !!(usuario && usuario.complementos && usuario.complementos[clave] === true);
+}
+
+/* Lo último que dijo el servidor, para las pantallas del celular que se usan SIN señal (Faltantes) y no pueden preguntar. Es de la CAMPAÑA y no de la
+   persona, así que no depende de quién entre. Sin dato guardado, todo apagado. */
+const CLAVE_COMPLEMENTOS_CONOCIDOS = 'complementos_conocidos';
+function guardarComplementosConocidos(mapa) {
+  try { localStorage.setItem(CLAVE_COMPLEMENTOS_CONOCIDOS, JSON.stringify(mapa || {})); } catch (e) { /* sin almacenamiento */ }
+}
+
+/**
  * El cuarto permiso, «Importar / Exportar»: los botones de importar, exportar e
  * imprimir a PDF de un módulo.
  *
@@ -1424,8 +1449,11 @@ async function inicializarLayout(paginaActiva) {
   // respaldo — así nadie se queda sin menú por un problema de permisos.
   let modulosPermitidos = null;
   let hrefsPermitidos = null;
+  let complementosActivos = {};      // { clave: true|false }; vacío = ninguno (falla cerrado)
   try {
     const permisos = await api('/permisos/mios');
+    complementosActivos = permisos.complementos || {};
+    guardarComplementosConocidos(complementosActivos);
     modulosPermitidos = permisos.modulos;
     // Sólo el aspirante con sublicencia recibe esta lista, y recorta entrada por
     // entrada: «configuracion» son seis pantallas y a él le toca una.
@@ -1439,8 +1467,13 @@ async function inicializarLayout(paginaActiva) {
     modulosPermitidos = null;
     hrefsPermitidos = null;
     usuario.permisos = {};
+    complementosActivos = {};
   }
+  // Para que cada pantalla pregunte «¿está encendido?» con `complementoActivo(usuarioActual, clave)`.
+  usuario.complementos = complementosActivos;
   function itemVisible(item) {
+    // Un complemento apagado no se ve para nadie, y sin respuesta del servidor tampoco: aquí no se «muestra ante la duda».
+    if (item.complemento && complementosActivos[item.complemento] !== true) return false;
     // La lista de direcciones manda sobre la de módulos cuando llega: es más
     // fina. El servidor sólo la envía a quien la necesita.
     if (hrefsPermitidos) return hrefsPermitidos.includes(item.href);

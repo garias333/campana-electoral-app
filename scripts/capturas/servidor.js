@@ -40,7 +40,9 @@ function crear(pool) {
   app.use('/c', require(path.join(RAIZ, 'routes/confirmacion.routes')));
   app.use('/v', require(path.join(RAIZ, 'routes/yaVoto.routes')));
   app.use('/i', require(path.join(RAIZ, 'routes/inscripcion.routes')));
-  app.use('/t', require(path.join(RAIZ, 'routes/transporte.routes')));
+  // Activar complementos (parche 318): las mismas puertas que app.js (el enlace del conductor y las pantallas de un complemento apagado).
+  const { requiereComplementoPublico, paginasDeComplementos } = require(path.join(RAIZ, 'middleware/complemento'));
+  app.use('/t', requiereComplementoPublico('transporte_dia_d'), require(path.join(RAIZ, 'routes/transporte.routes')));
 
   const { cargarSublicencia, restringirAspirante } = require(path.join(RAIZ, 'middleware/aspirante'));
   app.use('/api', cargarSublicencia, restringirAspirante);
@@ -61,6 +63,7 @@ function crear(pool) {
   montar('/api/organigrama', 'organigrama.routes');
   montar('/api/configuracion', 'configuracion.routes');
   montar('/api/permisos', 'permisos.routes');
+  montar('/api/complementos', 'complementos.routes');
   montar('/api/manuales', 'manuales.routes');
   montar('/api/panel-lider', 'panelLider.routes');
   montar('/api/comunicaciones', 'comunicaciones.routes');
@@ -83,6 +86,7 @@ function crear(pool) {
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de capturas' }));
 
   app.get('/js/validarCedula.js', (req, res) => { res.type('application/javascript'); res.sendFile(path.join(RAIZ, 'lib', 'validarCedula.js')); });
+  app.use(paginasDeComplementos);
   app.use(express.static(path.join(RAIZ, 'public'), { etag: false, lastModified: false, setHeaders: (r) => r.setHeader('Cache-Control', 'no-store') }));
   return app;
 }

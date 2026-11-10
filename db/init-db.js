@@ -3552,6 +3552,21 @@ async function main() {
     "guion_huella CHAR(16) NULL COMMENT 'La huella de la versión del guion que se le mostró al visitante (nunca el texto)'", 'guion_huella');
   console.log('Tablas del puerta a puerta listas (módulos apagados).');
 
+  /* ACTIVAR COMPLEMENTOS (parche 318). El interruptor GENERAL por campaña de nueve complementos (lib/complementos.js). TODOS NACEN APAGADOS —en una
+     campaña nueva y en las que ya existen—: el administrador los enciende a mano en Configuración → Activar complementos. INSERT IGNORE: correr
+     esto otra vez NO apaga lo que ya se encendió ni cambia quién lo encendió. Los datos de un complemento apagado no se tocan. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS complementos_campana (
+      clave VARCHAR(40) NOT NULL PRIMARY KEY COMMENT 'solicitudes, tareas, puerta_a_puerta, puerta_panel, alertas_dia_d, resultados_dia_d, transporte_dia_d, logistica_dia_d, finanzas',
+      activo TINYINT NOT NULL DEFAULT 0 COMMENT '1 = encendido para toda la campaña; 0 = apagado para TODOS los roles (también administrador y superadministrador)',
+      actualizado_por INT NULL COMMENT 'Quién lo encendió o lo apagó por última vez',
+      actualizado_en DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  for (const clave of ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'finanzas']) {
+    await connection.query('INSERT IGNORE INTO complementos_campana (clave, activo) VALUES (?, 0)', [clave]);
+  }
+  console.log('Tabla de los complementos lista (los nueve apagados de fábrica; no se pisa lo que ya se encendió).');
+
   await sembrarPermisosPorDefecto(connection);
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);

@@ -115,8 +115,13 @@ router.get('/matriz', requireRole('admin'), async (req, res) => {
        sepa en qué filas ofrecer la cuarta casilla sin llevar su propia copia de
        la lista: una casilla en un módulo que no tiene nada que importar ni
        exportar no hace nada, y una que miente es peor que ninguna. */
+    // Activar complementos (parche 318): los módulos de un complemento apagado se siguen mostrando, pero en gris y con la nota.
+    const C = require('../lib/complementos');
+    const activosC = await C.complementosActivos();
+    const complementos_apagados = {};
+    C.CATALOGO.forEach((c) => { if (!activosC[c.clave]) c.modulos.forEach((m) => { complementos_apagados[m] = c.nombre; }); });
     res.json({
-      modulos: MODULOS, roles: ROLES, permisos,
+      modulos: MODULOS, roles: ROLES, permisos, complementos_apagados,
       // Sin la columna no se ofrece la casilla: dibujarla y que no guarde nada
       // sería una casilla que miente.
       modulos_con_importar_exportar: columnaExiste ? MODULOS_CON_IMPORTAR_EXPORTAR : []
@@ -199,6 +204,46 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
  * Devuelve `{ modulos, permisos, hrefs }`, igual que `GET /mios`.
  */
 async function permisosDeSesion(req) {
+  const r = await permisosDeSesionSinComplementos(req);
+  return aplicarComplementos(r);
+}
+
+/**
+ * ACTIVAR COMPLEMENTOS (parche 318). Lo último que se le hace a lo que devuelve `/mios`, para TODOS (superadministrador y aspirante incluidos,
+ * que tienen listas fijas): los módulos de un complemento apagado salen de `modulos`, su casilla queda en false (NO se borra: `puedeVer` del
+ * navegador, ante una casilla que falta, dice que sí), las direcciones fijas del aspirante pierden las de ese complemento, y se agrega
+ * `complementos: { clave: true|false }` para que el navegador esconda pestañas, tarjetas y botones sin otra llamada.
+ * Si el estado no se puede leer, `complementosActivos` devuelve todo en false (falla cerrado).
+ */
+const HREF_DE_COMPLEMENTO = {
+  '/dia-d.html#alertas': 'alertas_dia_d', '/app/alertas-dia-d.html': 'alertas_dia_d',
+  '/dia-d.html#resultados': 'resultados_dia_d',
+  '/dia-d.html#transporte': 'transporte_dia_d',
+  '/dia-d.html#logistica': 'logistica_dia_d', '/app/logistica.html': 'logistica_dia_d',
+};
+async function aplicarComplementos({ modulos, permisos, hrefs }) {
+  const C = require('../lib/complementos');
+  const activos = await C.complementosActivos();
+  const apagado = (m) => { const d = C.complementoDelModulo(m); return !!d && !activos[d]; };
+  const permisosFiltrados = {};
+  Object.keys(permisos).forEach((m) => {
+    permisosFiltrados[m] = apagado(m)
+      ? { ...permisos[m], ver: false, editar: false, agregar: false, importar_exportar: false }
+      : permisos[m];
+  });
+  // Un módulo de un complemento apagado que no figuraba (p. ej. el superadministrador lo tiene todo) también se declara en false.
+  C.CATALOGO.forEach((c) => c.modulos.forEach((m) => {
+    if (!activos[c.clave] && !permisosFiltrados[m]) permisosFiltrados[m] = { ver: false, editar: false, agregar: false, importar_exportar: false };
+  }));
+  return {
+    modulos: (modulos || []).filter((m) => !apagado(m)),
+    permisos: permisosFiltrados,
+    hrefs: hrefs ? hrefs.filter((h) => !HREF_DE_COMPLEMENTO[h] || activos[HREF_DE_COMPLEMENTO[h]]) : hrefs,
+    complementos: activos,
+  };
+}
+
+async function permisosDeSesionSinComplementos(req) {
   {
     /*
      * LA MATRIZ NO SE LE APLICA AL SUPERADMINISTRADOR.

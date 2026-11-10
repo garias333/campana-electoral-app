@@ -45,6 +45,8 @@ const MOTIVO_CUENTA = 'No tiene cuenta en la aplicación. Los votantes no recibe
 const MOTIVO_DISPOSITIVO = 'Tiene cuenta pero no ha activado los avisos en su celular (Inicio → Avisos).';
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['alertas_dia_d']);
   let servidor; let navegador;
   try {
     /* ---------- 1. Estático ---------- */

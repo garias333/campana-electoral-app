@@ -25,6 +25,8 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
+const complementos = require('../lib/complementos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { verificarPasswordPropia } = require('../config/verificaciones');
@@ -94,6 +96,12 @@ router.get('/faltantes', async (req, res) => {
   const filtro = ['todos', 'faltan', 'votaron', 'sin_telefono', 'transporte'].includes(req.query.filtro) ? req.query.filtro : 'faltan';
   const q = String(req.query.q || '').trim();
   try {
+    /* ACTIVAR COMPLEMENTOS (parche 318): el «Necesita transporte» es de Transporte. Con ese complemento apagado el filtro responde 403 y la
+       marca no se manda (la columna `votantes.necesita_transporte` no se toca). El resto de Faltantes sigue igual. */
+    const transporteActivo = await complementos.complementoActivo('transporte_dia_d');
+    if (filtro === 'transporte' && !transporteActivo) {
+      return res.status(403).json({ error: complementos.MENSAJE_INACTIVO, motivo: complementos.MOTIVO, complemento: 'transporte_dia_d' });
+    }
     const a = alcanceDe(req);
     const [grupos] = await pool.query(
       `SELECT ${CLAVE_PUESTO} AS clave,
@@ -158,7 +166,7 @@ router.get('/faltantes', async (req, res) => {
       g.personas.push({
         id: f.id, nombre: f.nombre, telefono: f.telefono || '', mesa: f.mesa_votacion,
         no_contactar: !!f.no_contactar, voto_en: f.voto_en || null, origen: f.origen || null,
-        necesita_transporte: Number(f.necesita_transporte) === 1,
+        necesita_transporte: transporteActivo && Number(f.necesita_transporte) === 1,
         enlace_ya_vote: url, enlace_wa: !!url && c.wa, enlace_sms: !!url && c.sms, sin_enlace: sinEnlace,
       });
     }
@@ -185,7 +193,7 @@ router.get('/faltantes', async (req, res) => {
 /* ——— POST /transporte ————————————————————————————————————————————
    El interruptor «necesita transporte» de Faltantes. Idempotente (poner lo que ya estaba no cambia nada), así que es seguro
    reintentarlo desde la cola sin señal. Con el MISMO alcance que marcar: sólo votantes que se ven; 403 y no 404 fuera de él. */
-router.post('/transporte', async (req, res) => {
+router.post('/transporte', requiereComplemento('transporte_dia_d'), async (req, res) => {
   const votanteId = Number(req.body && req.body.votante_id);
   if (!Number.isInteger(votanteId) || votanteId < 1) return res.status(400).json({ error: 'Falta el votante.' });
   const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : 0;

@@ -21,13 +21,15 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, calcularAlcance } = require('../middleware/auth');
 const { requiereVerModulo, requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereComplemento } = require('../middleware/complemento');
 const { UPLOAD_DIA_D_DIR } = require('../middleware/upload');
 const { registrarAuditoria } = require('../config/auditoria');
 const { duenoDeLaCampana } = require('../lib/ramas');
 const L = require('../lib/logisticaDiaD');
 
 const router = express.Router();
-router.use(requireAuth, calcularAlcance);
+// Activar complementos (parche 318): cierra TODO el router, también la pantalla del coordinador de puesto (`puertaDelPuesto`), que no pasa por el módulo.
+router.use(requireAuth, requiereComplemento('logistica_dia_d'), calcularAlcance);
 
 const entero = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
 const falla = (res, ruta, err, mensaje) => {

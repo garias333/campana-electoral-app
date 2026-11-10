@@ -6,6 +6,7 @@ orden: 620
 icono: camion
 modulo: rescate_votos
 nivel: ver
+complemento: transporte_dia_d
 roles:
 ruta:
 captura:

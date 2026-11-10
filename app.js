@@ -203,7 +203,7 @@ app.use('/i', express.urlencoded({ extended: false }), require('./routes/inscrip
 // Transporte del Día D, la puerta del CONDUCTOR (/t/<código>, orden 33). Igual que /i: sin sesión, fuera de /api (sin CSRF)
 // y DESPUÉS del candado de licencia —guarda datos operativos y con la licencia vencida no debe seguir—. Solo sirve el día
 // de la elección. Ver routes/transporte.routes.js. La puerta de la coordinación es /api/dia-d/transporte (más abajo).
-app.use('/t', require('./routes/transporte.routes'));
+app.use('/t', require('./middleware/complemento').requiereComplementoPublico('transporte_dia_d'), require('./routes/transporte.routes'));
 
 // --- Rutas de API ---
 /* La marca de la campaña, SIN sesión: es lo que pinta la pantalla de ingreso.
@@ -251,6 +251,8 @@ app.use('/api/geo', require('./routes/geo.routes'));
 app.use('/api/organigrama', require('./routes/organigrama.routes'));
 app.use('/api/configuracion', require('./routes/configuracion.routes'));
 app.use('/api/permisos', require('./routes/permisos.routes'));
+// Activar complementos (parche 318): el interruptor general por campaña de nueve complementos. Solo administrador y superadministrador.
+app.use('/api/complementos', require('./routes/complementos.routes'));
 // Manuales de ayuda por rol: el contenido está en manuales/ (lib/manuales.js) y se filtra por los permisos de quien pregunta.
 app.use('/api/manuales', require('./routes/manuales.routes'));
 // Panel del líder en el celular (una llamada con meta, 7 días, pendientes, equipo, posición y Día D). Todo acotado con req.alcance.
@@ -413,6 +415,9 @@ app.get('/service-worker.js', (req, res) => {
 // que expire. 10 minutos evita la revalidación en cada navegación dentro
 // de una misma sesión de uso (lo más común), sin arriesgar que un cambio
 // publicado tarde horas o días en llegarle a alguien.
+// Activar complementos (parche 318): el enlace directo a la pantalla de un complemento apagado muestra «Este complemento no está activo». Va ANTES del
+// express.static, que serviría el archivo sin preguntar (ver middleware/complemento.js).
+app.use(require('./middleware/complemento').paginasDeComplementos);
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '10m' }));
 
 // El validador de cédulas vive en lib/ —fuera de public/— porque lo usa

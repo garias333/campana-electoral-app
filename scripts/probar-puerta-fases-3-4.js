@@ -135,6 +135,8 @@ async function sembrar(lider, puertas, { nombre = 'Lista sembrada', hace = 10 } 
 }
 
 (async () => {
+  // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
+  await require('./fixtures/encender-complementos')(pool, ['puerta_a_puerta', 'puerta_panel']);
   let servidor, servidorWeb, navegador;
   try {
     servidor = http.createServer(app);
