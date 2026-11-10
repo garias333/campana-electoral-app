@@ -13,7 +13,7 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 315** (`parches/campana-parche315.zip`, 50.649 bytes,
-  sha256 `f476c7cee4a6eae8845db8652f3636646d795af5ef16374a62d6455f726022ea`, 5 archivos): «Aviso en la app: cruce por teléfono con la cuenta y motivo claro cuando no llega». **GENERADO el 10 de noviembre de 2026; los 4 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (18 requires locales).** **NO TOCA LA BASE.** **Requiere el 314** (el service worker `v185` lleva `/js/mapa-fondo.js`, que el 314 trae). Detalle en «Parche 315». Estado de publicación: ver «Parche 315».
+  sha256 `f476c7cee4a6eae8845db8652f3636646d795af5ef16374a62d6455f726022ea`, 5 archivos): «Aviso en la app: cruce por teléfono con la cuenta y motivo claro cuando no llega». **GENERADO el 10 de noviembre de 2026; los 4 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (18 requires locales).** **NO TOCA LA BASE.** **Requiere el 314** (el service worker `v185` lleva `/js/mapa-fondo.js`, que el 314 trae). **PUBLICADO Y REGISTRADO el 10 de noviembre de 2026 (INACTIVO: falta cambiar la distribución a «seleccionadas» —municipal, departamental y c001, nunca la Base—, activarlo y aplicarlo desde el panel).** Detalle en «Parche 315».
 - **El anterior, el 314** (`parches/campana-parche314.zip`, 59.442 bytes,
   sha256 `651aeb542812d3358cb24497726fc1186d94163f733d0ca00112dee36c05e332`, 8 archivos): «Fondo de mapa común: arregla el mapa bloqueado en Solicitudes y Tareas». **GENERADO el 9 de noviembre de 2026; los 7 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **Requiere el 313** (el service worker `v184` lleva las entradas del 313). Detalle en «Parche 314».
   Estado de publicación: ver «Parche 314».
@@ -289,7 +289,9 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 315 — «Aviso en la app» llega al número tecleado y dice por qué no llega (10 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
+## Parche 315 — «Aviso en la app» llega al número tecleado y dice por qué no llega (10 de noviembre de 2026, publicado y registrado INACTIVO; NO TOCA LA BASE)
+
+**Publicado y registrado el 10 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-315.zip` en el servidor de licencias con huella igual a la local (`f476c7cee4a6eae8`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = false`**, estado INACTIVO. Falta: distribución «seleccionadas» (municipal, departamental, c001; NUNCA la Base), activarlo y aplicarlo desde el panel. No requiere `init-db`; sí reinicio de las campañas (la ruta de comunicaciones cambia en el servidor).
 
 **El síntoma** (campaña de Manizales, 9 de noviembre, orden 41). Gildardo tecleó su propio celular en CRM y Mensajería → «Aviso en la app». El historial dijo «No se envió» (1 omitido); el detalle, «Estado: Enviado · 0 enviados» y, en la fila, «Sin dato de contacto» con el contacto en «–». Ese celular tenía los avisos activados.
 
