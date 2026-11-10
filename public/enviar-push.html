@@ -202,7 +202,7 @@ let puestosVotacionGrupo = [];
 let seleccionados = []; // { tipo, id, nombre, contacto, detalle }
 
 const ETIQUETAS_ESTADO_CAMPANA = { borrador: 'Borrador', enviando: 'Enviando…', enviado: 'Enviado', fallido: 'Fallido' };
-const ETIQUETAS_ESTADO_ENVIO = { enviando: 'Enviando…', omitido: 'Omitido (ya no aplicaba)', dado_de_baja: 'Dado de baja (no se envió)', sin_autorizacion: 'Sin autorización (no se envió)', pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin dato de contacto', sin_lugar_votacion: 'Sin lugar de votación (no se envió)' };
+const ETIQUETAS_ESTADO_ENVIO = { enviando: 'Enviando…', omitido: 'Omitido (ya no aplicaba)', dado_de_baja: 'Dado de baja (no se envió)', sin_autorizacion: 'Sin autorización (no se envió)', pendiente: 'Pendiente', enviado: 'Enviado', fallido: 'Fallido', sin_contacto: 'Sin avisos activados', sin_lugar_votacion: 'Sin lugar de votación (no se envió)' };
 
 function claveContacto(d) { return `${d.tipo}:${d.id}`; }
 
@@ -376,7 +376,20 @@ document.getElementById('btn-enviar').addEventListener('click', async () => {
     errorBox.classList.add('visible');
     return;
   }
-  if (!confirm(`Vas a enviar este aviso a ${seleccionados.length} persona(s). ¿Confirmas?`)) return;
+  // ANTES de enviar: quién NO va a recibirlo y por qué. El servidor es quien sabe (cuenta, avisos activados, varias cuentas
+  // con el mismo número); si esta consulta falla, se sigue como antes y el historial dirá el motivo.
+  let textoSinAvisos = '';
+  try {
+    const seleccionPrevia = seleccionados.map(d => ({ tipo: d.tipo, id: d.id, nombre: d.nombre, contacto: d.contacto }));
+    const previa = await api('/comunicaciones/destinatarios/preview', {
+      method: 'POST', body: { filtros: { fuente: 'seleccion', seleccion: seleccionPrevia }, canal: CANAL }
+    });
+    if (previa && previa.sinAvisos > 0) {
+      const lista = (previa.sinAvisosDetalle || []).map(x => `• ${x.nombre}: ${x.motivo || 'sin avisos activados'}`).join('\n');
+      textoSinAvisos = `\n\nOJO: ${previa.sinAvisos} de ${previa.total} NO lo recibirá(n):\n${lista}`;
+    }
+  } catch (err) { /* se envía igual: el servidor vuelve a calcularlo y lo deja escrito en el historial */ }
+  if (!confirm(`Vas a enviar este aviso a ${seleccionados.length} persona(s).${textoSinAvisos}\n\n¿Confirmas?`)) return;
   if (!confirmarFaltantesDeLugar(seleccionados)) return;
 
   const boton = document.getElementById('btn-enviar');
@@ -392,8 +405,17 @@ document.getElementById('btn-enviar').addEventListener('click', async () => {
       method: 'POST',
       body: { nombre: nombreCampana, canal: CANAL, asunto: (document.getElementById('input-titulo').value.trim() || 'Aviso de la campaña'), mensaje, filtros: { fuente: 'seleccion', seleccion } }
     });
-    okBox.textContent = `Enviando a ${formatoMillares(r.total_destinatarios)} persona(s). Revisa el historial de abajo para ver el resultado.`;
-    okBox.classList.add('visible');
+    if (r.con_envio === 0) {
+      // Nadie tenía a dónde llegar: no se anuncia un envío que no ocurre. El motivo de cada uno queda en el historial.
+      errorBox.textContent = `El aviso NO se envió: ${r.total_destinatarios === 1 ? 'la persona no puede recibirlo' : 'ninguna de las ' + formatoMillares(r.total_destinatarios) + ' personas puede recibirlo'} (sin cuenta, sin avisos activados en la aplicación o dada de baja). Abre «Ver detalle» en el historial para ver el motivo de cada una.`;
+      errorBox.classList.add('visible');
+    } else {
+      const sinLlegar = Number(r.sin_contacto) || 0;
+      okBox.textContent = `Enviando a ${formatoMillares(r.con_envio !== undefined ? r.con_envio : r.total_destinatarios)} persona(s).` +
+        (sinLlegar ? ` ${formatoMillares(sinLlegar)} no lo recibirá(n): ver el motivo en el historial.` : '') +
+        ' Revisa el historial de abajo para ver el resultado.';
+      okBox.classList.add('visible');
+    }
     seleccionados = [];
     renderizarSeleccionados();
     document.getElementById('input-mensaje').value = '';
@@ -475,7 +497,7 @@ async function verDetalle(id) {
   const { campana, envios } = await api(`/comunicaciones/campanas/${id}`);
   document.getElementById('detalle-titulo').textContent = campana.nombre;
   document.getElementById('detalle-resumen').textContent =
-    `Estado: ${ETIQUETAS_ESTADO_CAMPANA[campana.estado]} · ${campana.enviados} enviados, ${campana.fallidos} fallidos${textoSinLugar(envios)}, de ${campana.total_destinatarios} en total.`;
+    `Resultado: ${resultadoEnvio({ ...campana, omitidos: envios.filter(e => !['enviado', 'fallido', 'pendiente'].includes(e.estado)).length }).texto} · ${campana.enviados} enviados, ${campana.fallidos} fallidos${textoSinLugar(envios)}, de ${campana.total_destinatarios} en total.`;
   document.getElementById('tbody-detalle-envios').innerHTML = envios.map(e => `
     <tr>
       <td>${e.destinatario_nombre || '—'}</td>

@@ -12,7 +12,9 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 314** (`parches/campana-parche314.zip`, 59.442 bytes,
+- **Último parche generado: 315** (`parches/campana-parche315.zip`, 50.649 bytes,
+  sha256 `f476c7cee4a6eae8845db8652f3636646d795af5ef16374a62d6455f726022ea`, 5 archivos): «Aviso en la app: cruce por teléfono con la cuenta y motivo claro cuando no llega». **GENERADO el 10 de noviembre de 2026; los 4 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (18 requires locales).** **NO TOCA LA BASE.** **Requiere el 314** (el service worker `v185` lleva `/js/mapa-fondo.js`, que el 314 trae). Detalle en «Parche 315». Estado de publicación: ver «Parche 315».
+- **El anterior, el 314** (`parches/campana-parche314.zip`, 59.442 bytes,
   sha256 `651aeb542812d3358cb24497726fc1186d94163f733d0ca00112dee36c05e332`, 8 archivos): «Fondo de mapa común: arregla el mapa bloqueado en Solicitudes y Tareas». **GENERADO el 9 de noviembre de 2026; los 7 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **Requiere el 313** (el service worker `v184` lleva las entradas del 313). Detalle en «Parche 314».
   Estado de publicación: ver «Parche 314».
 - **El anterior, el 313** (`parches/campana-parche313.zip`, 124.600 bytes,
@@ -286,6 +288,28 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 315 — «Aviso en la app» llega al número tecleado y dice por qué no llega (10 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
+
+**El síntoma** (campaña de Manizales, 9 de noviembre, orden 41). Gildardo tecleó su propio celular en CRM y Mensajería → «Aviso en la app». El historial dijo «No se envió» (1 omitido); el detalle, «Estado: Enviado · 0 enviados» y, en la fila, «Sin dato de contacto» con el contacto en «–». Ese celular tenía los avisos activados.
+
+**La causa (leída en el código y reproducida en la prueba; la base de Manizales no es legible desde esta cuenta, ver pendientes).** Un número tecleado se cruzaba con **Votantes primero** y esa ficha pisaba a la de estructura (`resolverManualesContraLaBase`). Un votante no tiene cuenta, así que el destinatario nacía **sin `usuario_id`**; el aviso va a la cuenta (`push_suscripciones.usuario_id`), no al teléfono; el contacto quedaba nulo y la fila `sin_contacto`, **con el motivo en blanco**. Además: (1) la comparación era de texto exacto («+57 310…» no iguala a «310…»); (2) solo se buscaba en usuarios que estuvieran en `estructura`, y un admin no tiene esa fila; (3) el detalle imprimía el estado del PROCESO (`enviado` aunque todos se omitan) y el listado el resultado real, así que decían cosas distintas del mismo envío. El cambio que lo destapó fue `36a09f7` (28 de agosto): desde entonces lo tecleado se cruza con la base y cae en la ficha de votante; antes quedaba manual puro y tampoco llegaba (el aviso del 22 de agosto salió, con toda probabilidad, elegido desde la lista).
+
+**Qué cambió.**
+- `lib/telefono.js` (nuevo): `ultimos10()` y `sqlUltimos10()` (los últimos 10 dígitos; quita espacios, guiones, `+57` y `57` pegado). Para comparar, no para validar.
+- `routes/comunicaciones.routes.js`: **`resolverManualesPush`**, solo para canal push y solo para lo TECLEADO. Busca en `votantes` y en `usuarios` activos **directamente** (con o sin fila en estructura), por los últimos 10 dígitos en los dos lados. Si la misma persona es votante y usuario, conserva **nombre e id del votante** y le agrega el `usuario_id` (si cualquiera de las dos fichas pidió la baja, se respeta). Si el número está en **varias cuentas** no se adivina. SMS y correo no se tocaron (la prueba lo comprueba).
+  Motivos en `error_mensaje` (columna que ya existía; sin migración): **«No tiene cuenta en la aplicación. Los votantes no reciben avisos: use Enviar SMS.»**, **«Tiene cuenta pero no ha activado los avisos en su celular (Inicio → Avisos).»**, **«Ese número está en varias cuentas…»** y, añadido por mí, **«Lo escrito no es un celular de 10 dígitos…»** (la orden no lo pedía; sin él quedaba un caso con motivo vacío). El bloque de push de `obtenerDestinatarios` pone los dos primeros también a lo elegido de la lista y a los grupos.
+  `POST /campanas` responde además `con_envio` y `sin_contacto`; `/destinatarios/preview` responde, **solo en push**, `sinAvisos` y `sinAvisosDetalle` (hasta 15 con su motivo).
+- `public/enviar-push.html`: `sin_contacto` se rotula **«Sin avisos activados»** en esta pantalla; antes de enviar, el `confirm` lista quién NO lo recibirá y por qué; si nadie puede recibirlo sale un mensaje **ROJO** («El aviso NO se envió…») en vez del verde «Enviando a 1 persona(s)»; el detalle dice **«Resultado: …»** con la misma función que el listado (`resultadoEnvio`), no «Estado: Enviado» con 0 enviados.
+- `service-worker.js`: caché **`v185`**.
+
+**Lo que NO cambió, a propósito.** Quién aparece en el buscador de la lista de selección (el admin sin estructura sigue sin aparecer: la orden pidió cambiar solo lo tecleado). Permisos: nadie recibe nada que no estuviera ya escrito.
+
+**Una cuenta sin fila en estructura** (un admin) se guarda con `destinatario_tipo = 'manual'` y `destinatario_id = NULL` (el enum no tiene valor para «cuenta»), pero con su nombre. No se ve el cargo; sí el nombre. Y la baja de esa cuenta se mira al armar la lista, no de nuevo al enviar (como cualquier manual).
+
+**Pruebas** (`scripts/probar-aviso-app-destinatario.js`, 41 comprobaciones; base desechable, push SIMULADO —anota a qué cuenta iba y no sale a ningún proveedor—, Chromium real; repetible, corrida dos veces: «TODO BIEN» las dos). Con la ruta del commit anterior la misma prueba **reproduce el defecto** (admin tecleándose en los tres formatos → `sin_contacto`, motivo `NULL`; 24 de 41 fallan). También pasan sin cambios `probar-inscripcion-enlace.js` (467) y `probar-recordatorios.js` (246).
+
+**Pendientes.** (1) **Publicar y registrar el 315** (ver el comando en el informe; distribución «seleccionadas» con municipal, departamental y c001, nunca la Base). (2) **No medido en Manizales**: esta cuenta no lee esa base; las consultas para confirmar que Gildardo es votante 228 y usuario con el mismo teléfono están en el informe de la orden 41. (3) Si un admin sin estructura debe poder **elegirse en la lista** (no solo teclearse), hay que decidirlo: hoy no.
 
 ## Parche 314 — Fondo de mapa común (9 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
 

@@ -66,7 +66,7 @@ const esMapbox = (u) => /^https:\/\/api\.mapbox\.com\/styles\//.test(u);
     }
     ok(/tile\.openstreetmap/.test(leer('public/app/puerta-a-puerta.html')) && /tile\.openstreetmap/.test(leer('public/js/transporte-conductor.js')), 'Puerta a puerta y Transporte NO se tocaron (siguen con su capa propia)');
     const sw = leer('public/service-worker.js');
-    ok(/CACHE_NAME = 'estrategia-v184'/.test(sw) && sw.includes("'/js/mapa-fondo.js'"), 'service worker: caché v184 y /js/mapa-fondo.js en la coraza');
+    ok(/CACHE_NAME = 'estrategia-v\d+'/.test(sw) && sw.includes("'/js/mapa-fondo.js'"), 'service worker: caché versionada y /js/mapa-fondo.js en la coraza');
 
     /* ---------- 2. Base y usuarios ---------- */
     const [[admin]] = await pool.query("SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'admin' ORDER BY u.id LIMIT 1");

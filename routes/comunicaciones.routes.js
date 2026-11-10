@@ -18,6 +18,14 @@ const { codigoDe: codigoDeBaja, urlDeBaja, aplicarBajaDeFicha, CANALES_BAJA_MANU
 const yaVoto = require('../config/yaVotoEnlace');
 const { mesasDeFila, listaEnPalabras } = require('../lib/coberturaTestigos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
+const { ultimos10, sqlUltimos10 } = require('../lib/telefono');
+
+/* Lo que se le dice a quien envía cuando un aviso en la app no tiene a dónde llegar. Son tres cosas distintas y se
+   arreglan distinto: por eso no es un solo «Sin dato de contacto». */
+const MOTIVO_PUSH_SIN_CUENTA = 'No tiene cuenta en la aplicación. Los votantes no reciben avisos: use Enviar SMS.';
+const MOTIVO_PUSH_SIN_DISPOSITIVO = 'Tiene cuenta pero no ha activado los avisos en su celular (Inicio → Avisos).';
+const MOTIVO_PUSH_VARIAS_CUENTAS = 'Ese número está en varias cuentas: no se adivina a cuál mandarlo. Elija a la persona en la lista.';
+const MOTIVO_PUSH_NO_ES_CELULAR = 'Lo escrito no es un celular de 10 dígitos: no se pudo buscar a la persona.';
 
 const router = express.Router();
 
@@ -108,6 +116,7 @@ function parsearDestinatariosManuales(texto) {
  */
 async function resolverManualesContraLaBase(manuales, canal) {
   if (!manuales.length) return [];
+  if (canal === 'push') return resolverManualesPush(manuales);
   const columna = esCanalDeCorreo(canal) ? 'email' : 'telefono';
   const contactos = manuales.map(m => m.contacto);
 
@@ -136,6 +145,95 @@ async function resolverManualesContraLaBase(manuales, canal) {
       detalle: v.puesto_votacion ? `Votante · Puesto: ${v.puesto_votacion}${v.mesa_votacion ? ' · Mesa ' + v.mesa_votacion : ''}` : 'Votante' }));
 
   return manuales.map(m => porContacto.get(String(m.contacto).trim().toLowerCase()) || m);
+}
+
+/**
+ * LO TECLEADO EN «AVISO EN LA APP» (parche 315). Mismo propósito que resolverManualesContraLaBase, pero el aviso no va a un
+ * teléfono: va a la CUENTA. Por eso aquí lo importante no es la ficha de votante sino el `usuarios.id` de quien tiene ese número.
+ *
+ * LO QUE PASABA. Un número tecleado se cruzaba con Votantes primero, y esa ficha PISABA a la de estructura. Un votante no
+ * tiene cuenta, así que el destinatario nacía sin `usuario_id`, sin contacto y con el motivo en blanco —un admin que se escribía
+ * a sí mismo, con los avisos activados, leía «Sin dato de contacto»—. Además la comparación era de texto exacto: «+57 310…»
+ * no iguala a «310…».
+ *
+ * AHORA.
+ *   · Se compara por los últimos 10 dígitos, en los dos lados (lib/telefono.js).
+ *   · Se busca también en `usuarios` activos DIRECTAMENTE, tengan o no fila en estructura (un admin no la tiene).
+ *   · Si la misma persona es votante y usuario, se conserva el nombre y el id del VOTANTE y se le agrega el `usuario_id`.
+ *     No se envía a nadie nuevo ni se amplían permisos: es la misma persona que ya estaba escrita.
+ *   · Si el número está en MÁS de una cuenta no se adivina: queda sin contacto, con su motivo.
+ * Solo se llama para canal push y solo con lo TECLEADO: quién aparece en la lista de selección no cambia.
+ *
+ * El motivo cuando no hay cuenta o no hay dispositivo lo pone el bloque de push de obtenerDestinatarios, que es quien sabe
+ * quién tiene dispositivo. Aquí solo se marca lo que sólo se sabe aquí: varias cuentas, o que lo escrito no es un celular.
+ */
+async function resolverManualesPush(manuales) {
+  const claves = manuales.map(m => ultimos10(m.contacto));
+  const unicas = [...new Set(claves.filter(Boolean))];
+  if (!unicas.length) {
+    manuales.forEach(m => { m.motivo_sin_contacto = MOTIVO_PUSH_NO_ES_CELULAR; });
+    return manuales;
+  }
+
+  const [votantes] = await pool.query(
+    `SELECT id, nombre, puesto_votacion, mesa_votacion, no_contactar, ${sqlUltimos10('telefono')} AS clave
+       FROM votantes WHERE ${sqlUltimos10('telefono')} IN (?) ORDER BY id DESC`, [unicas]);
+  const [cuentas] = await pool.query(
+    `SELECT id, nombre, no_contactar, ${sqlUltimos10('telefono')} AS clave
+       FROM usuarios WHERE activo = 1 AND ${sqlUltimos10('telefono')} IN (?) ORDER BY id`, [unicas]);
+
+  const votantePorClave = new Map();
+  votantes.forEach(v => { if (!votantePorClave.has(v.clave)) votantePorClave.set(v.clave, v); });   // la más reciente
+  const cuentasPorClave = new Map();
+  cuentas.forEach(u => { cuentasPorClave.set(u.clave, [...(cuentasPorClave.get(u.clave) || []), u]); });
+
+  // Si la cuenta tiene fila activa en estructura, se conserva ese tipo y su cargo (así el historial dice lo de siempre).
+  const estructuraPorUsuario = new Map();
+  if (cuentas.length) {
+    const [filas] = await pool.query(
+      `SELECT id, usuario_id, cargo FROM estructura WHERE activo = 1 AND usuario_id IN (?) ORDER BY id DESC`,
+      [cuentas.map(u => u.id)]);
+    filas.forEach(e => { if (!estructuraPorUsuario.has(e.usuario_id)) estructuraPorUsuario.set(e.usuario_id, e); });
+  }
+
+  return manuales.map((m, i) => {
+    const clave = claves[i];
+    if (!clave) { m.motivo_sin_contacto = MOTIVO_PUSH_NO_ES_CELULAR; return m; }
+    const votante = votantePorClave.get(clave) || null;
+    const delNumero = cuentasPorClave.get(clave) || [];
+
+    const comoVotante = () => ({
+      tipo: 'votante', id: votante.id, nombre: String(votante.nombre).trim(), contacto: m.contacto,
+      sin_lugar_votacion: !(votante.puesto_votacion && String(votante.puesto_votacion).trim()),
+      dado_de_baja: !!votante.no_contactar,
+      detalle: votante.puesto_votacion ? `Votante · Puesto: ${votante.puesto_votacion}${votante.mesa_votacion ? ' · Mesa ' + votante.mesa_votacion : ''}` : 'Votante'
+    });
+
+    if (delNumero.length > 1) {
+      const d = votante ? comoVotante() : m;
+      d.motivo_sin_contacto = MOTIVO_PUSH_VARIAS_CUENTAS;
+      return d;
+    }
+    if (delNumero.length === 1) {
+      const u = delNumero[0];
+      if (votante) {
+        const d = comoVotante();
+        d.usuario_id = u.id;
+        d.dado_de_baja = d.dado_de_baja || !!u.no_contactar;   // si cualquiera de las dos fichas pidió la baja, se respeta
+        return d;
+      }
+      const e = estructuraPorUsuario.get(u.id);
+      if (e) {
+        return { tipo: 'estructura', id: e.id, usuario_id: u.id, nombre: String(u.nombre).trim(), contacto: m.contacto,
+          dado_de_baja: !!u.no_contactar, detalle: `Estructura · ${e.cargo}` };
+      }
+      // Una cuenta sin fila en estructura (un admin, por ejemplo). destinatario_tipo no tiene un valor para «cuenta»: se
+      // guarda como manual, pero ya con su nombre y su usuario_id (el aviso va a la cuenta, no al texto que se tecleó).
+      return { tipo: 'manual', id: null, usuario_id: u.id, nombre: String(u.nombre).trim(), contacto: m.contacto,
+        dado_de_baja: !!u.no_contactar, detalle: 'Cuenta de la aplicación' };
+    }
+    return votante ? comoVotante() : m;   // sin cuenta: el motivo lo pone el bloque de push
+  });
 }
 
 /**
@@ -461,6 +559,11 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
     const conDispositivo = await pushSvc.usuariosConDispositivo(resultados.map(d => d.usuario_id));
     resultados.forEach(d => {
       d.contacto = (d.usuario_id && conDispositivo.has(d.usuario_id)) ? String(d.usuario_id) : null;
+      // Sin contacto hay TRES causas distintas y se dicen: sin cuenta (un votante), cuenta sin avisos activados, y las que
+      // ya marcó la resolución de lo tecleado (varias cuentas, o no era un celular). No se pisa un motivo ya puesto.
+      if (!d.contacto && !d.motivo_sin_contacto) {
+        d.motivo_sin_contacto = d.usuario_id ? MOTIVO_PUSH_SIN_DISPOSITIVO : MOTIVO_PUSH_SIN_CUENTA;
+      }
     });
   }
 
@@ -757,6 +860,12 @@ router.post('/destinatarios/preview', async (req, res) => {
       total: destinatarios.length,
       conContacto: conContacto.length,
       sinContacto: destinatarios.filter(d => !d.contacto).length,
+      // Solo el aviso en la app: quiénes no lo recibirán por no tener cuenta o avisos activados, y por qué. Los dados de
+      // baja y sin autorización ya tienen su propio conteo. Para los demás canales la respuesta es la de siempre.
+      ...(canal === 'push' ? (() => {
+        const sin = destinatarios.filter(d => !d.contacto && !d.dado_de_baja && !d.sin_autorizacion);
+        return { sinAvisos: sin.length, sinAvisosDetalle: sin.slice(0, 15).map(d => ({ nombre: d.nombre, motivo: d.motivo_sin_contacto || null })) };
+      })() : {}),
       dadosDeBaja,
       sinAutorizacion,
       // Solo con {enlace_ya_vote}: quienes quedan fuera por NO TENER registrada su
@@ -1811,15 +1920,20 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
       // saber a quién tiene sentido volver a preguntarle.
       d.dado_de_baja ? 'dado_de_baja'
         : d.sin_autorizacion ? 'sin_autorizacion'
-        : (d.contacto ? 'pendiente' : 'sin_contacto')
+        : (d.contacto ? 'pendiente' : 'sin_contacto'),
+      // El motivo de «sin contacto» (hoy solo lo trae el aviso en la app). SMS y correo: NULL, como siempre.
+      (!d.dado_de_baja && !d.sin_autorizacion && !d.contacto && d.motivo_sin_contacto) ? String(d.motivo_sin_contacto).slice(0, 250) : null
     ]);
     await pool.query(
-      `INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto, estado) VALUES ?`,
+      `INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_id, destinatario_nombre, destinatario_contacto, estado, error_mensaje) VALUES ?`,
       [valoresEnvios]
     );
 
     res.json({
       ok: true, campana_id: campanaId, total_destinatarios: destinatarios.length,
+      // Cuántos tienen a dónde llegar (la pantalla lo usa para no anunciar un envío que no ocurrirá).
+      con_envio: valoresEnvios.filter(v => v[5] === 'pendiente').length,
+      sin_contacto: valoresEnvios.filter(v => v[5] === 'sin_contacto').length,
       programada: esProgramada ? programado.toISOString() : null,
     });
 
