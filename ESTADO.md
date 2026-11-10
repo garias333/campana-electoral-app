@@ -291,6 +291,19 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
+## c001: base y usuario renombrados (10 de noviembre de 2026, HECHO Y VERIFICADO; NO ES UN PARCHE)
+
+- **Qué cambió:** base `c00-2027db` → **`c001-2027db`** y usuario MySQL `c00-2027user` → **`c001-2027user`** (host `%`). Sitio `c001-2027.appestrategia.net`, cuenta `appestrategia-c001-2027`, puerto 3201, PM2 `c001-2027`.
+  Lo corrió el usuario como root, con la salida pegada en la sesión. Base y usuario nuevos con `clpctl db:add`; volcado de la vieja con `mysqldump --single-transaction --routines --triggers --events`; importación como root con el `DEFINER` reemplazado por `sed` (`c00-2027user` → `c001-2027user`); `.env` cambiado (sin imprimir la clave); `npm run init-db` como la cuenta de c001; `pm2 restart c001-2027`.
+- **Verificado:** 84 tablas, 6 disparadores, 0 vistas/rutinas/eventos, misma colación (`utf8mb4_general_ci`); filas idénticas en 81 tablas y solo **más** en la nueva en `auditoria` (+2), `sessions` (+4) y `two_factor_codes` (+1), que son inicios de sesión posteriores al arranque (cero tablas con más filas en la vieja). Los 6 disparadores quedaron a nombre de `c001-2027user`. Procesos de MySQL: solo `c001-2027user` sobre `c001-2027db`. `init-db` sin el aviso «Catálogo no accesible». El usuario probó en el navegador (ingreso, Votantes, Territorial, Puestos de Día D, `/api/catalogo/salud` y un votante de prueba) y dijo «está bien».
+- **GRANT de catálogo del usuario nuevo** (los mismos tres que tenía el viejo): `SELECT` sobre `territoriosdb`.`ctc_territorios`, `ctc_puestos_votacion` y `ctc_alias`. Nunca `territoriosdb.*`.
+- **Borrado:** `clpctl db:delete --databaseName=c00-2027db` borró **también el usuario** `c00-2027user` (comprobado en `mysql.user`). No hizo falta tocar CloudPanel a mano.
+- **Respaldos** (en `/root/respaldos-c001-renombrar/`, modo 600, con aviso «borrar después del 2026-12-10»; llevan datos personales de votantes): el original, el volcado final, el volcado con el `DEFINER` nuevo y una línea base con el nombre nuevo (84 tablas, cero `DEFINER` del usuario viejo). Copia del panel de la app descargada por el usuario a su PC (`backup-estrategia-2026-11-10.zip`).
+- **A tener en cuenta:** las copias de `backups/` y del panel hechas **antes** del cambio traen ``DEFINER=`c00-2027user` `` y no se restauran limpias con el panel (`restaurarBaseDatos` no quita el `DEFINER` y `mysql` se detiene en el primer error). Para restaurar una, pasarla antes por ``sed 's/DEFINER=`c00-2027user`@`%`/DEFINER=`c001-2027user`@`%`/g'``.
+- **Cosas que no se midieron:** el servidor de licencias (carpeta ilegible desde esta cuenta); el `grep` como root no encontró el nombre viejo allí. Lo que la instalación le envía (`clave_licencia`, `dominio`, `fingerprint`, `version_actual`) no incluye la base ni el usuario.
+- **Se arrancó sola antes de tiempo:** en la sesión c001 salió `online` antes del `pm2 restart` que se pidió, estando detenida; no se supo por qué y no dejó huella en los conteos.
+- **Cambios de código de esta sesión** (commiteados en `auditoria-fable`, sin push; **no van en ningún parche**; `scripts/` no viaja salvo que se empaquete): `scripts/reiniciar-instancia.sh` ahora elige el node **más nuevo que tenga pm2** (con la instancia caída tomaba v24.21.0 sin pm2 y moría con «No hay pm2 ejecutable»; probado con un árbol de nvm simulado) y arma el `PATH` sin dejar `$PATH` literal; `scripts/probar-instalacion-limpia.js` agrega `c001-2027db` y `c00-2027db` a `BASES_PROHIBIDAS`.
+
 ## Parche 316 — «Mis avisos»: tocar un aviso abre el mensaje completo (10 de noviembre de 2026, publicado y registrado INACTIVO; NO TOCA LA BASE)
 
 **Publicado y registrado el 10 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-316.zip` en el servidor de licencias con huella igual a la local (`21d55b3b720b55ac`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = false`**, estado INACTIVO. Falta: distribución «seleccionadas» (municipal, departamental, c001; NUNCA la Base), activarlo y aplicarlo desde el panel (requiere el 315 aplicado; reiniciar las campañas, sin `init-db`).
@@ -589,7 +602,7 @@ La tabla `votantes` no tiene columna de activo/inactivo: «activos» = todas las
 | Base (`electoraldb`) | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | Municipal | 116 | 113 | 3 | 1 | 2 | 116 | 114 |
 | Departamental | 81 | 81 | 0 | 0 | 0 | 81 | 81 |
-| c001 (`c00-2027db`) | 17 | 11 | 6 | 5 | 1 | 17 | 16 |
+| c001 (`c00-2027db`; desde el 10 de noviembre de 2026 es `c001-2027db`) | 17 | 11 | 6 | 5 | 1 | 17 | 16 |
 | **Total campañas** | **214** | **205 (96 %)** | **9** | **6** | **3** | **214** | **211** |
 
 Lectura: de 214 fichas, 211 tienen autorización y dirección (la base visitable antes de los demás filtros) y 205 tienen coordenadas, o sea que se pueden ordenar por cercanía; **9 quedan al final de la ruta, 6 de ellas con dirección que «Re-geocodificar pendientes» (Votantes) podría resolver** (5 en c001). Las fichas de las campañas de prueba son pocas: en una campaña real la proporción dependerá de cuántas se registren con dirección y de la precisión de la geocodificación de Google, que **no se guarda** (solo si hay coordenadas). Sigue sin medirse qué tan exactas son.

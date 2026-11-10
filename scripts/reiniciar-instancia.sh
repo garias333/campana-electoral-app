@@ -111,7 +111,19 @@ if [ -n "$PID_ANTES" ]; then
 fi
 if [ -z "$NODEBIN" ]; then
   # `sort -V` ordena por versión, no alfabéticamente: sin él v9 ganaría a v22.
-  CAND="$(ls -d /home/"$USUARIO"/.nvm/versions/node/*/bin/node 2>/dev/null | sort -V | tail -1)"
+  #
+  # SE ELIGE LA MÁS NUEVA QUE TENGA pm2, NO LA MÁS NUEVA A SECAS. Una cuenta puede
+  # tener dos versiones de node en su nvm y pm2 instalado solo en una. Medido el
+  # 10 de noviembre de 2026 en c001-2027 (v22.23.1 con pm2, v24.21.0 sin él): con la
+  # instancia detenida —sin proceso vivo del que copiar el intérprete— esta rama
+  # tomaba v24.21.0 y el guion moría con «No hay pm2 ejecutable», justo cuando
+  # había que levantarla. Si ninguna tiene pm2 se cae a la más nueva y el aviso de
+  # más abajo dice lo que falta.
+  CAND=""
+  for C in $(ls -d /home/"$USUARIO"/.nvm/versions/node/*/bin/node 2>/dev/null | sort -V -r); do
+    if [ -x "$C" ] && [ -x "$(dirname "$C")/pm2" ]; then CAND="$C"; break; fi
+  done
+  [ -n "$CAND" ] || CAND="$(ls -d /home/"$USUARIO"/.nvm/versions/node/*/bin/node 2>/dev/null | sort -V | tail -1)"
   [ -n "$CAND" ] && [ -x "$CAND" ] && { NODEBIN="$CAND"; ORIGEN="del nvm de la cuenta"; }
 fi
 if [ -z "$NODEBIN" ]; then
@@ -127,7 +139,12 @@ echo "node: $NODEBIN ($ORIGEN)"
 # pueda encontrar node al arrancar el proceso hijo.
 PM2BIN="$BIN/pm2"
 [ -x "$PM2BIN" ] || { echo "No hay pm2 ejecutable en $BIN. ¿Está PM2 instalado en ese nvm?"; exit 1; }
-como_usuario() { su -s /bin/bash - "$USUARIO" -c "export PATH='$BIN:\$PATH'; cd '$DIR' && $*" 2>&1; }
+# EL PATH VA CON LA PARTE VARIABLE FUERA DE LAS COMILLAS SIMPLES. Con
+# `'$BIN:\$PATH'` entero entre comillas simples, el shell de la cuenta recibía el
+# texto literal «$PATH» y se quedaba sin /usr/bin: cualquier cosa que lance `sh`
+# (npm, por ejemplo) muere con «spawn sh ENOENT». pm2 y node no lo necesitan, por
+# eso este guion no lo notaba.
+como_usuario() { su -s /bin/bash - "$USUARIO" -c "export PATH='$BIN':\$PATH; cd '$DIR' && $*" 2>&1; }
 
 echo "Reiniciando…"
 como_usuario "'$PM2BIN' restart all" | tail -3

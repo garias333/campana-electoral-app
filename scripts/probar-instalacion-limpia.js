@@ -44,8 +44,11 @@ const ARCHIVO_SUPERADMIN = path.join(PROYECTO, '.credenciales-superadmin.txt');
 const ARCHIVO_ADMIN = path.join(PROYECTO, '.credenciales-admin.txt');
 
 // Nunca, bajo ninguna circunstancia, contra estas.
+// c001-2027db es la campaña real c001 (antes c00-2027db, renombrada el 10 de noviembre
+// de 2026); la vieja se conserva en la lista por si alguien recrea una con ese nombre.
 const BASES_PROHIBIDAS = [
   'electoraldb', 'campanadepruebamunicipal', 'campanadepruebadepartamental',
+  'c001-2027db', 'c00-2027db',
   'territoriosdb', 'mysql', 'information_schema', 'performance_schema', 'sys',
 ];
 
