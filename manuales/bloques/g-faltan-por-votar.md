@@ -6,6 +6,7 @@ orden: 705
 icono: urna
 modulo: rescate_votos
 nivel: ver
+complemento: faltan_por_votar
 roles:
 ruta:
 captura:

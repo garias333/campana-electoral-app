@@ -10,7 +10,7 @@ roles: admin
 ruta: Escritorio: Configuración > Activar complementos
 captura:
 ---
-Un complemento es una parte de la aplicación que la campaña puede usar o no: Solicitudes ciudadanas, Tareas, Puerta a puerta, Puerta a puerta panel, Alertas del día D, Resultados y reclamaciones, Transporte del día D, Logística del día D y Finanzas. Aquí decides, **para toda la campaña**, cuáles existen.
+Un complemento es una parte de la aplicación que la campaña puede usar o no: Solicitudes ciudadanas, Tareas, Puerta a puerta, Puerta a puerta panel, Alertas del día D, Resultados y reclamaciones, Transporte del día D, Logística del día D, Faltan por votar y Finanzas. Aquí decides, **para toda la campaña**, cuáles existen.
 
 ## Pasos
 

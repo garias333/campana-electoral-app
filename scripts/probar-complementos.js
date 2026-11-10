@@ -2,9 +2,9 @@
 // scripts/probar-complementos.js
 //
 // Prueba de ACTIVAR COMPLEMENTOS (parche 318), del lado del servidor y sobre las rutas REALES (scripts/capturas/servidor.js las monta):
-//   · la tabla `complementos_campana`: nueve filas, TODAS apagadas de fábrica; correr `init-db` otra vez no apaga lo que se encendió;
+//   · la tabla `complementos_campana`: diez filas, TODAS apagadas de fábrica; correr `init-db` otra vez no apaga lo que se encendió;
 //   · apagado = apagado para TODOS: administrador, superadministrador y coordinador reciben 403 { motivo: 'complemento_inactivo' } en los
-//     nueve complementos (la ruta de cada uno), y sin sesión sigue siendo 401;
+//     diez complementos (la ruta de cada uno), y sin sesión sigue siendo 401;
 //   · encendido = cada rol según `permisos_rol`, como siempre (el interruptor no la toca);
 //   · la dependencia: «Puerta a puerta panel» no se enciende sin «Puerta a puerta», y al apagar éste se apaga aquél;
 //   · GET/PUT /api/complementos: solo administrador y superadministrador, validaciones, auditoría;
@@ -104,16 +104,17 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       resultados_dia_d: ['GET', '/api/dia-d/resultados/pendientes'],
       transporte_dia_d: ['GET', '/api/dia-d/transporte/contexto'],
       logistica_dia_d: ['GET', '/api/dia-d/logistica/contexto'],
+      faltan_por_votar: ['GET', '/api/dia-d/rescate/faltantes'],
       finanzas: ['GET', '/api/finanzas/categorias'],
     };
 
     /* ------------------------------------------------------------------------------------------------------------------------ 1 */
-    console.log('[1] La tabla: nueve filas, todas apagadas de fábrica');
+    console.log('[1] La tabla: diez filas, todas apagadas de fábrica');
     await apagarTodas();
     const filas = await q('SELECT clave, activo FROM complementos_campana ORDER BY clave');
-    ok(filas.length === 9 && TODAS.every((c) => filas.some((f) => f.clave === c)), 'hay una fila por complemento (nueve)', filas.map((f) => f.clave));
+    ok(filas.length === 10 && TODAS.every((c) => filas.some((f) => f.clave === c)), 'hay una fila por complemento (diez, con faltan_por_votar)', filas.map((f) => f.clave));
     ok(filas.every((f) => Number(f.activo) === 0), 'todas apagadas');
-    ok(JSON.stringify(Object.values(await C.complementosActivos()).filter(Boolean)) === '[]', 'complementosActivos() dice false en los nueve');
+    ok(JSON.stringify(Object.values(await C.complementosActivos()).filter(Boolean)) === '[]', 'complementosActivos() dice false en los diez');
     ok(!(await C.complementoActivo('no_existe')), 'una clave que no existe cuenta como apagada (y no rompe)');
 
     // init-db otra vez NO apaga lo encendido. Se borran las credenciales que el propio init-db deja, SOLO si son de hoy.
@@ -125,7 +126,16 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     const despues = await q("SELECT activo, actualizado_por FROM complementos_campana WHERE clave = 'tareas'");
     ok(corrida.status === 0, 'init-db corre otra vez sin error', (corrida.stderr || '').slice(-200));
     ok(Number(despues[0].activo) === 1 && despues[0].actualizado_por === admin, 'init-db NO apagó lo que estaba encendido ni cambió quién lo encendió');
-    ok((await q('SELECT COUNT(*) AS n FROM complementos_campana'))[0].n === 9, 'y sigue habiendo nueve filas');
+    ok((await q('SELECT COUNT(*) AS n FROM complementos_campana'))[0].n === 10, 'y sigue habiendo diez filas');
+    // Una campaña que ya tenía las NUEVE del 318 (sin faltan_por_votar) recibe la décima APAGADA con init-db, sin tocar lo encendido.
+    await q("DELETE FROM complementos_campana WHERE clave = 'faltan_por_votar'");
+    await q("UPDATE complementos_campana SET activo = 1 WHERE clave = 'finanzas'");
+    credenciales.forEach((f) => { try { if (Date.now() - fs.statSync(f).mtimeMs < 12 * 3600 * 1000) fs.unlinkSync(f); } catch (_) { /* no existe */ } });
+    const corrida2 = spawnSync(process.execPath, ['db/init-db.js'], { cwd: raiz, env: process.env, encoding: 'utf8' });
+    credenciales.forEach((f) => { try { fs.unlinkSync(f); } catch (_) { /* no se creó */ } });
+    const fv = await q("SELECT activo FROM complementos_campana WHERE clave = 'faltan_por_votar'");
+    ok(corrida2.status === 0 && fv.length === 1 && Number(fv[0].activo) === 0, 'una campaña con las nueve filas del 318 recibe «faltan_por_votar» APAGADA al correr init-db', { fv, err: (corrida2.stderr || '').slice(-150) });
+    ok(Number((await q("SELECT activo FROM complementos_campana WHERE clave = 'finanzas'"))[0].activo) === 1, '...y lo que ya estaba encendido (Finanzas) sigue encendido');
     await apagarTodas();
 
     /* ------------------------------------------------------------------------------------------------------------------------ 2 */
@@ -204,7 +214,11 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     /* ------------------------------------------------------------------------------------------------------------------------ 5 */
     console.log('\n[5] GET/PUT /api/complementos');
     const g = await pedir('GET', '/api/complementos', { quien: admin });
-    ok(g.status === 200 && g.json.complementos.length === 9, 'el administrador lista los nueve', g.status);
+    ok(g.status === 200 && g.json.complementos.length === 10, 'el administrador lista los diez', g.status);
+    const ordenClaves = g.json.complementos.map((c) => c.clave);
+    ok(ordenClaves.indexOf('faltan_por_votar') === ordenClaves.indexOf('logistica_dia_d') + 1 && ordenClaves.indexOf('finanzas') === ordenClaves.indexOf('faltan_por_votar') + 1, '«Faltan por votar» va después de Logística del día D y antes de Finanzas', ordenClaves);
+    const fpv = g.json.complementos.find((c) => c.clave === 'faltan_por_votar');
+    ok(fpv && fpv.nombre === 'Faltan por votar' && fpv.descripcion === 'El día de la elección: a quién le falta votar en tu equipo, con enlace “Ya voté” y avisos.', 'con su nombre y su descripción', fpv);
     ok(g.json.complementos.every((c) => c.nombre && c.descripcion && c.activo === false && c.efectivo === false), 'cada uno con nombre, descripción y estado apagado');
     const pp = g.json.complementos.find((c) => c.clave === 'puerta_panel');
     ok(pp.depende === 'puerta_a_puerta', 'el panel declara de quién depende', pp);
@@ -243,7 +257,14 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       const r = await pedir('GET', '/api/permisos/mios', { quien: id });
       ok(r.status === 200 && MODS.every((m) => !r.json.modulos.includes(m)), `${quien}: ninguno de los 9 módulos en «modulos»`, r.json && r.json.modulos);
       ok(MODS.every((m) => !r.json.permisos[m] || r.json.permisos[m].ver === false), `${quien}: la casilla «ver» de esos módulos es false (no falta: puedeVer() diría que sí)`, r.json.permisos);
-      ok(r.json.complementos && TODAS.every((c) => r.json.complementos[c] === false), `${quien}: trae «complementos» con los nueve en false`, r.json.complementos);
+      ok(r.json.complementos && TODAS.every((c) => r.json.complementos[c] === false), `${quien}: trae «complementos» con los diez en false`, r.json.complementos);
+    }
+    {
+      // «Faltan por votar» NO tiene módulo propio: `rescate_votos` también es del Avance de votación y del Ranking, y se queda.
+      for (const [quien, id] of [['administrador', admin], ['superadministrador', superadmin], ['coordinador', coord], ['líder', lider]]) {
+        const r = await pedir('GET', '/api/permisos/mios', { quien: id });
+        ok(r.json.modulos.includes('rescate_votos') && r.json.permisos.rescate_votos.ver === true, `${quien}: con Faltan por votar apagado el módulo rescate_votos SIGUE en su menú (es también del Avance y el Ranking)`, r.json.modulos);
+      }
     }
     {
       const r = await pedir('GET', '/api/permisos/mios', { quien: superadmin });
@@ -270,10 +291,13 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       ok(DIAD.every((m) => !off.modulos.includes(m)), 'ASPIRANTE con los complementos apagados: sin los cuatro módulos del Día D', off.modulos);
       ok(!off.hrefs.some((h) => /alertas|#resultados|#transporte|#logistica/.test(h)), 'y su lista de direcciones pierde sus pestañas', off.hrefs);
       ok(off.hrefs.includes('/dia-d.html') && off.hrefs.includes('/dia-d.html#avance'), 'pero conserva la Jornada y el Avance (no son complementos)');
+      ok(!off.hrefs.includes('/app/faltantes.html') && off.hrefs.includes('/app/ranking-dia-d.html') && off.modulos.includes('rescate_votos'), 'ASPIRANTE con Faltan por votar apagado: sin /app/faltantes.html, pero conserva el Ranking y el módulo rescate_votos', off.hrefs);
       await encender('alertas_dia_d', 'transporte_dia_d');
       const on = await permisosDeSesion(req);
       ok(on.modulos.includes('alertas_dia_d') && on.modulos.includes('transporte_dia_d') && !on.modulos.includes('resultados_dia_d'), 'encendidos Alertas y Transporte, el aspirante los recupera');
       ok(on.hrefs.includes('/dia-d.html#alertas') && on.hrefs.includes('/dia-d.html#transporte') && !on.hrefs.includes('/dia-d.html#resultados'), 'y sus direcciones');
+      await encender('faltan_por_votar');
+      ok((await permisosDeSesion(req)).hrefs.includes('/app/faltantes.html'), 'encendido Faltan por votar, el aspirante recupera /app/faltantes.html');
     }
     await apagarTodas();
 
@@ -281,7 +305,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     console.log('\n[7] Las pantallas y el enlace del conductor');
     const PAGINAS = [['/solicitudes.html', 'solicitudes'], ['/app/solicitud-nueva.html', 'solicitudes'], ['/app/mis-solicitudes.html', 'solicitudes'],
       ['/tareas.html', 'tareas'], ['/app/mis-tareas.html', 'tareas'], ['/puerta-listas.html', 'puerta_a_puerta'], ['/app/puerta-a-puerta.html', 'puerta_a_puerta'],
-      ['/puerta-panel.html', 'puerta_panel'], ['/app/alertas-dia-d.html', 'alertas_dia_d'], ['/app/logistica.html', 'logistica_dia_d'], ['/finanzas.html', 'finanzas']];
+      ['/puerta-panel.html', 'puerta_panel'], ['/app/alertas-dia-d.html', 'alertas_dia_d'], ['/app/logistica.html', 'logistica_dia_d'], ['/app/faltantes.html', 'faltan_por_votar'], ['/finanzas.html', 'finanzas']];
     for (const [ruta] of PAGINAS) {
       const r = await pedir('GET', ruta, { quien: admin });
       ok(r.status === 403 && /Este complemento no está activo/.test(r.texto) && /text\/html/.test(r.cabeceras['content-type']), `${ruta} (administrador): «Este complemento no está activo»`, { status: r.status });
@@ -370,12 +394,15 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       let est = await R.estado();
       ok(!est.tipos.some((t) => t.clave === 'solicitud_sin_movimiento') && !est.tipos.some((t) => t.clave === 'tarea_vence'), 'Recordatorios: los tipos de Solicitudes y Tareas no se ofrecen con los complementos apagados', est.tipos.map((t) => t.clave));
       ok(est.tipos.some((t) => t.clave === 'evento'), 'los demás tipos (evento…) siguen');
+      ok(!est.tipos.some((t) => t.clave === 'dia_d_ya_votaste'), 'y el «¿ya votaste?» (Faltan por votar) tampoco se ofrece apagado');
+      const c3 = await R.TIPOS.dia_d_ya_votaste.candidatos({ regla: { canal: 'sms', id: 0, hora_dia: '10:00' }, ahora: new Date() });
+      ok(Array.isArray(c3) && c3.length === 0, 'y su fuente de candidatos no genera nada');
       const c1 = await R.TIPOS.solicitud_sin_movimiento.candidatos({ regla: { canal: 'push', id: 0 }, ahora: new Date() });
       const c2 = await R.TIPOS.tarea_vence.candidatos({ regla: { canal: 'push', id: 0, desfase_min: -60 }, ahora: new Date() });
       ok(Array.isArray(c1) && c1.length === 0 && Array.isArray(c2) && c2.length === 0, 'y sus fuentes de candidatos no generan nada');
-      await encender('solicitudes', 'tareas');
+      await encender('solicitudes', 'tareas', 'faltan_por_votar');
       est = await R.estado();
-      ok(est.tipos.some((t) => t.clave === 'solicitud_sin_movimiento') && est.tipos.some((t) => t.clave === 'tarea_vence'), 'encendidos, vuelven a ofrecerse');
+      ok(est.tipos.some((t) => t.clave === 'solicitud_sin_movimiento') && est.tipos.some((t) => t.clave === 'tarea_vence') && est.tipos.some((t) => t.clave === 'dia_d_ya_votaste'), 'encendidos, vuelven a ofrecerse (también el «¿ya votaste?»)');
       await apagarTodas();
     }
 
@@ -401,7 +428,39 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       await q("UPDATE permisos_rol SET permitido = 0 WHERE rol = 'lider' AND modulo = 'tareas'");
       await apagarTodas();
 
+      // «Faltan por votar» (parche 319)
+      for (const [quien, id] of [['administrador', admin], ['superadministrador', superadmin], ['coordinador', coord], ['líder', lider], ['sublíder', sublider]]) {
+        const a = await pedir('GET', '/api/dia-d/rescate/faltantes', { quien: id });
+        const b = await pedir('POST', '/api/dia-d/rescate/marcar', { quien: id, json: { votante_id: 1 } });
+        const c = await pedir('DELETE', '/api/dia-d/rescate/marcar/1', { quien: id });
+        ok(cerrada(a) && cerrada(b) && cerrada(c) && a.json.complemento === 'faltan_por_votar', `Faltan por votar apagado · ${quien}: /faltantes, POST /marcar y DELETE /marcar/:id responden 403 complemento_inactivo`, { a: a.status, b: b.status, c: c.status });
+      }
+      const sinc = await pedir('GET', '/api/dia-d/rescate/faltantes');
+      ok(sinc.status === 401, 'sin sesión sigue siendo 401');
+      // Lo que NO es de «Faltan por votar» sigue abierto: Avance de votación, Ranking y el asistente de WhatsApp (Votantes y Estructura).
+      const resu = await pedir('GET', '/api/dia-d/rescate/resumen', { quien: admin });
+      const rank = await pedir('GET', '/api/dia-d/rescate/ranking', { quien: admin });
+      const enl = await pedir('POST', '/api/dia-d/rescate/enlace', { quien: admin, json: {} });
+      ok(resu.status === 200 && rank.status === 200 && !cerrada(enl) && enl.status === 400, '/resumen, /ranking y /enlace NO se cierran (son del Avance, el Ranking y el asistente de WhatsApp)', { resu: resu.status, rank: rank.status, enl: enl.status });
+      await encender('faltan_por_votar');
+      const on = await pedir('GET', '/api/dia-d/rescate/faltantes', { quien: admin });
+      const onL = await pedir('GET', '/api/dia-d/rescate/faltantes', { quien: coord });
+      ok(on.status === 200 && onL.status === 200, 'encendido: /faltantes abre para quien la matriz deja (administrador y coordinador, 200)', { admin: on.status, coord: onL.status });
+      const onS = await pedir('GET', '/api/dia-d/rescate/faltantes', { quien: sublider });
+      ok(onS.status === 200 || (onS.status === 403 && !cerrada(onS)), 'y un sublíder responde según la matriz, no por el complemento', onS.status);
+      await apagarTodas();
+
+      // La tarjeta «Día D · Faltan por votar» del inicio del celular
+      await q("INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar) VALUES ('lider', 'rescate_votos', 1, 1, 0) ON DUPLICATE KEY UPDATE permitido = 1");
+      const pd0 = await pedir('GET', '/api/panel-lider', { quien: lider });
+      ok(pd0.status === 200 && (pd0.json.dia_d === null || pd0.json.dia_d === undefined), 'panel del líder: la tarjeta del Día D NO se manda con Faltan por votar apagado (ni en modo prueba), aunque la matriz le dé rescate_votos', pd0.json && pd0.json.dia_d);
+      await encender('faltan_por_votar');
+      const pd1 = await pedir('GET', '/api/panel-lider', { quien: lider });
+      ok(pd1.status === 200 && pd1.json.dia_d && pd1.json.dia_d.modo_prueba === true && typeof pd1.json.dia_d.faltan === 'number', 'encendido, la tarjeta viene (en modo prueba, sin fecha de elección)', pd1.json && pd1.json.dia_d);
+      await apagarTodas();
+
       // «Necesita transporte»
+      await encender('faltan_por_votar');
       const f0 = await pedir('GET', '/api/dia-d/rescate/faltantes?filtro=transporte', { quien: admin });
       ok(cerrada(f0) && f0.json.complemento === 'transporte_dia_d', 'Faltantes: el filtro «Necesitan transporte» responde 403 con Transporte apagado', { status: f0.status, json: f0.json });
       const f0b = await pedir('GET', '/api/dia-d/rescate/faltantes?filtro=faltan', { quien: admin });
@@ -428,11 +487,14 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       };
       let man = await ids(admin);
       const DE_COMPLEMENTOS = ['mod-solicitudes', 'mod-tareas', 'mod-puerta_listas', 'mod-puerta_visitas', 'mod-alertas_dia_d', 'mod-resultados_dia_d', 'mod-transporte_dia_d', 'mod-logistica_dia_d', 'mod-finanzas',
+        't-marcar-ya-voto', 't-faltan-por-votar', 't-ya-vote-enlace', 'f-marcar-ya-voto', 'f-error-marca-voto', 'g-faltan-por-votar',
         't-transporte-marcar', 'f-necesita-transporte', 't-solicitud-registrar', 't-finanzas-agregar', 't-puerta-armar', 'g-alerta-dia-d', 't-resultados-paquete', 't-logistica-plan', 't-tarea-asignar'];
       ok(man.r.status === 200 && DE_COMPLEMENTOS.every((b) => !man.bloques.includes(b)), 'Manuales (administrador): ningún bloque de un complemento apagado', DE_COMPLEMENTOS.filter((b) => man.bloques.includes(b)));
       ok(man.bloques.includes('t-activar-complementos') && man.bloques.includes('mod-votantes'), 'y siguen los demás, con el de «Activar complementos»', man.bloques.length);
-      await encender('transporte_dia_d', 'finanzas', 'solicitudes');
+      ok(man.bloques.includes('mod-rescate_votos') && man.bloques.includes('t-avance-ranking') && man.bloques.includes('g-enlace-ya-voto'), 'y los del Avance de votación y el Ranking (rescate_votos) y el glosario del enlace «Ya voté» siguen aunque Faltan por votar esté apagado');
+      await encender('transporte_dia_d', 'finanzas', 'solicitudes', 'faltan_por_votar');
       man = await ids(admin);
+      ok(['t-marcar-ya-voto', 't-faltan-por-votar', 't-ya-vote-enlace', 'f-marcar-ya-voto', 'g-faltan-por-votar'].every((b) => man.bloques.includes(b)), 'encendido Faltan por votar, sus bloques vuelven');
       ok(['mod-transporte_dia_d', 't-transporte-marcar', 'f-necesita-transporte', 'mod-finanzas', 'mod-solicitudes'].every((b) => man.bloques.includes(b)), 'encendidos Transporte, Finanzas y Solicitudes: sus bloques vuelven (también los que van por otro módulo y declaran `complemento:`)');
       ok(!man.bloques.includes('mod-tareas') && !man.bloques.includes('mod-logistica_dia_d'), 'y los de los que siguen apagados no');
       await apagarTodas();

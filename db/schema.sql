@@ -1122,6 +1122,6 @@ CREATE TABLE IF NOT EXISTS complementos_campana (
 
 INSERT IGNORE INTO complementos_campana (clave, activo) VALUES
   ('solicitudes', 0), ('tareas', 0), ('puerta_a_puerta', 0), ('puerta_panel', 0), ('alertas_dia_d', 0),
-  ('resultados_dia_d', 0), ('transporte_dia_d', 0), ('logistica_dia_d', 0), ('finanzas', 0);
+  ('resultados_dia_d', 0), ('transporte_dia_d', 0), ('logistica_dia_d', 0), ('faltan_por_votar', 0), ('finanzas', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

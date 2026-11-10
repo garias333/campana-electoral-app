@@ -76,6 +76,7 @@ const PAGINAS = {
   '/puerta-panel.html': 'puerta_panel',
   '/app/alertas-dia-d.html': 'alertas_dia_d',
   '/app/logistica.html': 'logistica_dia_d',
+  '/app/faltantes.html': 'faltan_por_votar',
   '/finanzas.html': 'finanzas',
 };
 Object.values(PAGINAS).forEach((c) => exigirClaveConocida(c, 'PAGINAS'));

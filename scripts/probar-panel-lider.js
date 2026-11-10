@@ -95,7 +95,7 @@ const pideNombre = (texto, nombre) => texto.includes(nombre);
 
 (async () => {
   // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
-  await require('./fixtures/encender-complementos')(pool, ['tareas']);
+  await require('./fixtures/encender-complementos')(pool, ['tareas', 'faltan_por_votar']);
   const servidor = http.createServer(app);
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

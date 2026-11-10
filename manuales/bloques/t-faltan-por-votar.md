@@ -6,6 +6,7 @@ orden: 311
 icono: lista
 modulo: rescate_votos
 nivel: ver
+complemento: faltan_por_votar
 roles:
 ruta: Celular: Faltan por votar
 captura: t-faltan-por-votar.webp

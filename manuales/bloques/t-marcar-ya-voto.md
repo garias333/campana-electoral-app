@@ -6,6 +6,7 @@ orden: 312
 icono: check
 modulo: rescate_votos
 nivel: editar
+complemento: faltan_por_votar
 roles:
 ruta: Celular: Faltan por votar
 captura: t-marcar-ya-voto.webp

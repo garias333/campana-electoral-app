@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v189';
+const CACHE_NAME = 'estrategia-v190';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -70,8 +70,7 @@ const ARCHIVOS_CASCARON = [
   '/app/pasos-formulario.js',
   '/app/pasos-formulario.css',
   '/app/dia-d.html',
-  // Día D, fase 2: «Faltan por votar» (se usa sin señal: lista guardada y marcas en cola) y el ranking.
-  '/app/faltantes.html',
+  // Día D, fase 2: el ranking. («Faltan por votar» es un complemento que puede estar apagado: va en PANTALLAS_DE_COMPLEMENTOS.)
   // Lo usa Faltantes para quitarle las tildes al SMS del botón «SMS» (se usa sin señal).
   '/js/segmentos-sms.js',
   '/app/ranking-dia-d.html',
@@ -144,6 +143,8 @@ const PANTALLAS_DE_COMPLEMENTOS = [
   // Día D, fase 4: el cuadro de alertas (con copia sin señal) y la logística de puesto (orden 39: el coordinador de puesto la usa sin señal).
   '/app/alertas-dia-d.html',
   '/app/logistica.html',
+  // «Faltan por votar» (parche 319): se usa sin señal (lista guardada y marcas en cola).
+  '/app/faltantes.html',
 ];
 
 self.addEventListener('install', (evento) => {

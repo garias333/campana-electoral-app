@@ -99,7 +99,7 @@ const CODIGO = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
 
 (async () => {
   // Activar complementos (parche 318): los complementos nacen APAGADOS; esta prueba enciende los que necesita.
-  await require('./fixtures/encender-complementos')(pool, ['transporte_dia_d', 'alertas_dia_d', 'logistica_dia_d', 'resultados_dia_d']);
+  await require('./fixtures/encender-complementos')(pool, ['transporte_dia_d', 'alertas_dia_d', 'logistica_dia_d', 'resultados_dia_d', 'faltan_por_votar']);
   const servidor = http.createServer(app);
   await new Promise(r => servidor.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${servidor.address().port}`;

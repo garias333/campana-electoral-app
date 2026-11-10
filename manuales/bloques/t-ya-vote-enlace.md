@@ -6,6 +6,7 @@ orden: 313
 icono: enlace
 modulo: rescate_votos
 nivel: editar
+complemento: faltan_por_votar
 roles:
 ruta: Celular: Faltan por votar
 captura: t-ya-vote-enlace.webp

@@ -6,6 +6,7 @@ orden: 590
 icono: flecha
 modulo: rescate_votos
 nivel: ver
+complemento: faltan_por_votar
 roles:
 ruta:
 captura:

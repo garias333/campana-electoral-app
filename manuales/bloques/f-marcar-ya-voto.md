@@ -6,6 +6,7 @@ orden: 585
 icono: check
 modulo: rescate_votos
 nivel: ver
+complemento: faltan_por_votar
 roles:
 ruta:
 captura:

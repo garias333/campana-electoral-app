@@ -220,6 +220,7 @@ const HREF_DE_COMPLEMENTO = {
   '/dia-d.html#resultados': 'resultados_dia_d',
   '/dia-d.html#transporte': 'transporte_dia_d',
   '/dia-d.html#logistica': 'logistica_dia_d', '/app/logistica.html': 'logistica_dia_d',
+  '/app/faltantes.html': 'faltan_por_votar',
 };
 async function aplicarComplementos({ modulos, permisos, hrefs }) {
   const C = require('../lib/complementos');

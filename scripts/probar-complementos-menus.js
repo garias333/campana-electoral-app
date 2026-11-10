@@ -7,7 +7,7 @@
 //   · con los nueve encendidos, cada rol los ve según la matriz (los que la matriz abre) y «Activar complementos» solo lo ven el administrador
 //     y el superadministrador;
 //   · encendidos solo Tareas y Finanzas con la matriz de FÁBRICA: aparecen solo para quien la matriz deja;
-//   · la pestaña «Activar complementos» (390 px, sin desborde horizontal): nueve tarjetas, encender sin preguntar, apagar CON el aviso de las
+//   · la pestaña «Activar complementos» (390 px, sin desborde horizontal): diez tarjetas, encender sin preguntar, apagar CON el aviso de las
 //     personas que trabajan sin señal, el de Transporte (enlaces de conductores y asignaciones de hoy), el panel deshabilitado sin Puerta a puerta;
 //   · las pestañas Alertas/Resultados/Transporte/Logística de la Jornada electoral, el chip «Necesitan transporte» de Faltantes, el balance del Panel,
 //     el enlace al panel de Puerta a puerta, la tarjeta «mis tareas», la franja de avisos y el botón «Volver a permitir visitas»;
@@ -56,8 +56,8 @@ async function persona(nombre, rol) {
 
 // Los textos del menú del computador y del celular de cada complemento (los de common.js e inicio.html).
 const PC = ['Solicitudes ciudadanas', 'Tareas', 'Puerta a puerta', 'Puerta a puerta panel', 'Alertas del Día D', 'Resultados y reclamaciones', 'Transporte del Día D', 'Logística del Día D', 'FINANZAS'];
-const CEL = ['Registrar una solicitud', 'Mis solicitudes', 'Solicitudes ciudadanas', 'Mis tareas', 'Tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D'];
-const MODULOS = ['solicitudes', 'tareas', 'puerta_listas', 'puerta_visitas', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'finanzas'];
+const CEL = ['Registrar una solicitud', 'Mis solicitudes', 'Solicitudes ciudadanas', 'Mis tareas', 'Tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D', 'Faltan por votar'];
+const MODULOS = ['solicitudes', 'tareas', 'puerta_listas', 'puerta_visitas', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'rescate_votos', 'finanzas'];
 const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
 
 (async () => {
@@ -113,6 +113,7 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
       await ir('/votantes.html');
       const pc = await menuPC();
       ok(pc.length > 0 && !PC.some((t) => pc.includes(t)), `${quien} · computador: ninguna de las 9 entradas`, pc.filter((t) => PC.includes(t)));
+      if (['administrador', 'superadministrador', 'coordinador'].includes(quien)) ok(pc.includes('Avance de votación'), `${quien} · computador: «Avance de votación» SIGUE (no es de Faltan por votar)`, pc);
       const tieneActivar = pc.includes('Activar complementos');
       ok(tieneActivar === (quien === 'administrador' || quien === 'superadministrador'), `${quien} · «Activar complementos» ${(quien === 'administrador' || quien === 'superadministrador') ? 'SÍ' : 'no'} aparece`, pc);
       const grupos = await p.ev(`Array.from(document.querySelectorAll('.nav-grupo-texto')).map((e) => e.textContent.trim())`);
@@ -126,6 +127,13 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
         ok(await sinSeparadoresDobles(), `${quien} · celular: sin separadores dobles ni al principio ni al final`);
         ok(!(await visible('#franja-avisos-alertas')), `${quien} · celular: sin la franja «Activa los avisos»`);
         ok(!(await p.ev(`!!document.querySelector('.pl-tarjeta .pl-titulo') && Array.from(document.querySelectorAll('.pl-titulo')).some((e) => /tareas/i.test(e.textContent))`)), `${quien} · celular: sin la tarjeta «mis tareas»`);
+        // La tarjeta «DÍA D · MODO PRUEBA — Faltan N por votar» con su botón «Ir a Faltan por votar» (parche 319): ni en modo prueba.
+        if (quien === 'líder' || quien === 'sublíder') {
+          ok(!(await p.ev(`!!document.querySelector('.pl-dia-d') || /Ir a Faltan por votar/.test(document.body.innerText)`)), `${quien} · celular: sin la tarjeta del Día D (ni «Modo prueba») y sin el botón «Ir a Faltan por votar»`);
+        }
+        if (quien === 'coordinador' || quien === 'administrador') {
+          ok(cel.includes('Ranking Día D'), `${quien} · celular: «Ranking Día D» SIGUE (no es de Faltan por votar)`, cel);
+        }
       }
     }
 
@@ -153,12 +161,16 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
         await entrarComo(gente[quien]);
         await ir('/app/inicio.html', 3500);
         const cel = await menuCel();
-        const esperado = quien === 'administrador' ? ['Solicitudes ciudadanas', 'Registrar una solicitud', 'Tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D']
-          : quien === 'coordinador' ? ['Registrar una solicitud', 'Mis solicitudes', 'Mis tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D']
-            : ['Registrar una solicitud', 'Mis solicitudes', 'Mis tareas', 'Puerta a puerta'];
+        const esperado = quien === 'administrador' ? ['Solicitudes ciudadanas', 'Registrar una solicitud', 'Tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D', 'Faltan por votar']
+          : quien === 'coordinador' ? ['Registrar una solicitud', 'Mis solicitudes', 'Mis tareas', 'Puerta a puerta', 'Alertas Día D', 'Transporte Día D', 'Logística Día D', 'Faltan por votar']
+            : ['Registrar una solicitud', 'Mis solicitudes', 'Mis tareas', 'Puerta a puerta', 'Faltan por votar'];
         ok(esperado.every((t) => cel.includes(t)), `${quien} · celular: ${esperado.length} entradas de complementos (según la matriz abierta)`, esperado.filter((t) => !cel.includes(t)));
         ok(await sinSeparadoresDobles(), `${quien} · celular: sin separadores dobles`);
         if (quien === 'líder') ok(!cel.includes('Alertas Día D') && !cel.includes('Transporte Día D'), 'líder · celular: no ve las de coordinación (no están en su menú)');
+        if (quien === 'líder' || quien === 'sublíder') {
+          const tarjeta = await p.ev(`(() => { const e = document.querySelector('.pl-dia-d'); return e ? e.innerText : null; })()`);
+          ok(tarjeta && /Modo prueba/i.test(tarjeta) && /Faltan/.test(tarjeta) && /Ir a Faltan por votar/.test(tarjeta), `${quien} · celular: encendido, vuelve la tarjeta «Día D · Modo prueba — Faltan N por votar» con su botón`, tarjeta);
+        }
       }
     }
 
@@ -195,6 +207,12 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
       const t = await p.ev(`document.body.innerText`);
       ok(/Este complemento no está activo/.test(t) && /Activar complementos/.test(t), `${ruta}: «Este complemento no está activo» (con el enlace para el administrador)`, t.slice(0, 120));
     }
+    await celular();
+    await entrarComo(gente.líder);
+    await ir('/app/faltantes.html', 1200);
+    ok(/Este complemento no está activo/.test(await p.ev(`document.body.innerText`)), '/app/faltantes.html (líder): «Este complemento no está activo»');
+    await escritorio();
+    await entrarComo(gente.administrador);
     await ir('/finanzas.html', 1200);
     await p.ev(`Array.from(document.querySelectorAll('a')).find((a) => /Activar complementos/.test(a.textContent)).click()`);
     await espera(2500);
@@ -213,7 +231,7 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
     await ir('/configuracion.html#complementos', 3500);
     const tarjetas = () => p.ev(`Array.from(document.querySelectorAll('.comp-card')).map((c) => ({ clave: c.dataset.clave, nombre: c.querySelector('strong').textContent, desc: c.querySelector('.comp-desc').textContent, encendido: c.querySelector('input').checked, deshabilitado: c.querySelector('input').disabled, nota: (c.querySelector('.comp-nota') || {}).textContent || '' }))`);
     let t = await tarjetas();
-    ok(t.length === 9 && t.every((c) => c.nombre && c.desc.length > 20 && c.desc.length < 140), 'nueve tarjetas, cada una con nombre y descripción de una línea', t.map((c) => c.nombre));
+    ok(t.length === 10 && t.every((c) => c.nombre && c.desc.length > 20 && c.desc.length < 140), 'diez tarjetas, cada una con nombre y descripción de una línea', t.map((c) => c.nombre));
     ok(t.every((c) => !c.encendido), 'todas apagadas de fábrica');
     const panel = t.find((c) => c.clave === 'puerta_panel');
     ok(panel.deshabilitado && /Requiere «Puerta a puerta»/.test(panel.nota), '«Puerta a puerta panel» se ve deshabilitado con la nota «Requiere Puerta a puerta»', panel);
@@ -338,6 +356,10 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
     await entrarComo(gente.líder);
     await q("UPDATE permisos_rol SET permitido = 1 WHERE modulo = 'rescate_votos' AND rol IN ('lider')");
     await apagarTodas();
+    await ir('/app/faltantes.html', 1500);
+    const apag = await p.ev(`document.body.innerText`);
+    ok(/Este complemento no está activo/.test(apag) && !(await visible('.chip[data-filtro="faltan"]')), '/app/faltantes.html con Faltan por votar apagado: «Este complemento no está activo» (líder)', apag.slice(0, 100));
+    await q("UPDATE complementos_campana SET activo = 1 WHERE clave = 'faltan_por_votar'"); C.invalidar();
     await ir('/app/faltantes.html', 3500);
     ok(!(await visible('.chip[data-filtro="transporte"]')) && await visible('.chip[data-filtro="faltan"]'), 'Faltantes con Transporte apagado: sin el chip «Necesitan transporte» (los demás siguen)');
     await q("UPDATE complementos_campana SET activo = 1 WHERE clave = 'transporte_dia_d'"); C.invalidar();

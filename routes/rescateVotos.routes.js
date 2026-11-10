@@ -34,7 +34,15 @@ const { canalesDelEnlace } = require('../lib/canalesDelEnlace');   // la regla v
 const enlaces = require('../config/yaVotoEnlace');
 
 const router = express.Router();
-router.use(requireAuth, calcularAlcance, requiereVerModulo('rescate_votos', { aspirante: true }));
+/* ACTIVAR COMPLEMENTOS (parche 319): «Faltan por votar» es un complemento, pero este router NO es solo suyo: `/resumen`, `/ranking` y `/vaciar` son del «Avance de
+   votación» y del «Ranking Día D» de la coordinación, y `/enlace` lo usa el asistente de WhatsApp de Votantes y Estructura (el botón «Escribir por WhatsApp»).
+   Esas cuatro NO se cierran con el complemento. Solo se cierra lo que es de la pantalla «Faltan por votar» del líder: `/faltantes`, `/marcar` (poner y quitar) y
+   `/transporte`. La puerta va ANTES de `requiereVerModulo` (que deja pasar al administrador sin mirar nada): apagado es para TODOS los roles. */
+const faltanPorVotarActivo = requiereComplemento('faltan_por_votar');
+const esDeFaltanPorVotar = (req) => req.path === '/faltantes' || req.path === '/transporte' || req.path === '/marcar' || req.path.startsWith('/marcar/');
+router.use(requireAuth, calcularAlcance,
+  (req, res, next) => (esDeFaltanPorVotar(req) ? faltanPorVotarActivo(req, res, next) : next()),
+  requiereVerModulo('rescate_votos', { aspirante: true }));
 
 /** La condición de alcance sobre la tabla `votantes v`, con sus parámetros EN ORDEN. */
 function alcanceDe(req) {

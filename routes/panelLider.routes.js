@@ -36,7 +36,8 @@ router.get('/', async (req, res) => {
       const { permisos } = await permisosDeSesion(req);
       // «Si tiene rescate_votos y (es el día de la elección o modo prueba)»: fuera del día la pantalla trabaja en modo
       // prueba, así que quien tiene el módulo ve el contador siempre, con su etiqueta.
-      if (permisos && permisos.rescate_votos && permisos.rescate_votos.ver) diaD = await panel.diaD(req);
+      // Activar complementos (parche 319): la tarjeta «Día D · Faltan por votar» es del complemento «Faltan por votar»; apagado, NO se manda (ni en modo prueba).
+      if (permisos && permisos.rescate_votos && permisos.rescate_votos.ver && await require('../lib/complementos').complementoActivo('faltan_por_votar')) diaD = await panel.diaD(req);
     } catch (err) {
       console.error('panel-lider (Día D):', err.code || err.message);
     }
