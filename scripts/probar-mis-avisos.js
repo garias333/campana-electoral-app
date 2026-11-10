@@ -58,7 +58,7 @@ function ok(cond, texto, extra) {
     /* ---------- 1. Estático ---------- */
     console.log('\n1. Estático');
     const sw = fs.readFileSync(path.join(RAIZ, 'public/service-worker.js'), 'utf8');
-    ok(/CACHE_NAME = 'estrategia-v186'/.test(sw) && sw.includes("'/app/mis-avisos.html'"), 'service worker: caché v186 y /app/mis-avisos.html en la coraza');
+    ok(/CACHE_NAME = 'estrategia-v\d+'/.test(sw) && sw.includes("'/app/mis-avisos.html'"), 'service worker: caché versionada y /app/mis-avisos.html en la coraza');
     ok(fs.existsSync(path.join(RAIZ, 'public/app/mis-avisos.html')), 'existe public/app/mis-avisos.html');
     const inicio = fs.readFileSync(path.join(RAIZ, 'public/app/inicio.html'), 'utf8');
     ok((inicio.match(/href: '\/app\/mis-avisos\.html'/g) || []).length === 2, 'Inicio ofrece «Mis avisos» al líder (y, por herencia, al coordinador) y al administrador');

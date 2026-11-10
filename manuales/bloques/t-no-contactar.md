@@ -7,7 +7,7 @@ icono: candado
 modulo:
 nivel:
 roles: admin, coordinador
-ruta: Escritorio: CRM y mensajería > Pidieron no recibir más
+ruta: Escritorio: Mensajería > Pidieron no recibir más
 captura: t-no-contactar.webp
 ---
 Es la lista de personas que se salieron de los envíos. A ellas no se les manda nada, por ningún canal, y la app lo respeta sola en cada envío.

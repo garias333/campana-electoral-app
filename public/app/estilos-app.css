@@ -124,6 +124,8 @@ main.app-cuerpo {
   min-height: 64px;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
+/* Línea entre los grupos del menú (inicio.html, Orden menús 2): sin título, solo separa. */
+.menu-separador { height: 1px; background: var(--linea); margin: 2px 8px; flex: none; }
 .menu-boton:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(20,42,63,0.08); }
 .menu-boton .icono {
   width: 46px; height: 46px; border-radius: 12px;

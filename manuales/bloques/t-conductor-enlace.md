@@ -7,7 +7,7 @@ icono: celular
 modulo: transporte_dia_d
 nivel: editar
 roles:
-ruta: Escritorio: Día D > Transporte del Día D
+ruta: Escritorio: Logística > Transporte del Día D
 captura: t-conductor-enlace.webp, t-conductor-enlace-2.webp
 ---
 El conductor no necesita cuenta ni contraseña: abre un enlace propio y ve solo sus paradas. Tú se lo mandas desde la tabla **Conductores**.

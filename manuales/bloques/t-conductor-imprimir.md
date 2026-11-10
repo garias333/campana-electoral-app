@@ -7,7 +7,7 @@ icono: imprimir
 modulo: transporte_dia_d
 nivel: ver
 roles:
-ruta: Escritorio: Día D > Transporte del Día D
+ruta: Escritorio: Logística > Transporte del Día D
 captura:
 ---
 Esta hoja es para ti, conductor. Te explica cómo usar la lista de recogida que te mandó tu coordinador el día de la elección, paso a paso.

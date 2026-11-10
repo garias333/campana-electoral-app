@@ -7,7 +7,7 @@ icono: campana
 modulo: enviar_push
 nivel: ver
 roles:
-ruta: Escritorio: CRM y mensajería > Aviso en la app
+ruta: Escritorio: Mensajería > Avisos en la app
 captura: mod-enviar_push.webp
 ---
 Manda una notificación a la aplicación del celular: citar a una reunión, avisar un cambio de última hora o recordarle algo al equipo del Día D.

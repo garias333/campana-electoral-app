@@ -7,7 +7,7 @@ icono: mensaje
 modulo: crm
 nivel: agregar
 roles:
-ruta: Escritorio: CRM y mensajería > CRM y Mensajes
+ruta: Escritorio: Mensajería > Mensajería masiva
 captura: t-crm-campana.webp, t-crm-campana-2.webp
 ---
 Sirve para mandar un mismo mensaje a muchas personas por correo, SMS o aviso en la app, ahora o a una hora programada, y para revisar después a quién le llegó.

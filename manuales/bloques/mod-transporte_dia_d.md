@@ -7,7 +7,7 @@ icono: camion
 modulo: transporte_dia_d
 nivel: ver
 roles:
-ruta: Escritorio: Día D > Transporte del Día D | Celular: Transporte Día D
+ruta: Escritorio: Logística > Transporte del Día D | Celular: Transporte Día D
 captura: mod-transporte_dia_d.webp
 ---
 Aquí la coordinación organiza cómo llegan al puesto las personas que no tienen cómo ir a votar. Ves a quién hay que recoger, qué vehículos y conductores tienes, y cómo va cada recogida durante el día de la elección.

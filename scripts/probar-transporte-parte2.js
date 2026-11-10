@@ -120,15 +120,15 @@ const ayudaRelojEn = (iso) => { jornada.reloj = () => new Date(iso); };
   base = `http://127.0.0.1:${servidor.address().port}`;
 
   // ============================================================== 1. el orden del menú
-  console.log('\n== El orden del menú (Transporte al final de DÍA D)');
+  console.log('\n== El orden del menú (Transporte y Logística del Día D, al final de LOGÍSTICA)');
   const nav = leer('public/js/common.js');
-  const iDia = nav.indexOf("grupo: 'Día D'");
-  const bloqueDiaD = nav.slice(iDia, nav.indexOf("grupo: 'Logística'"));
+  const iDia = nav.indexOf("grupo: 'Logística'");
+  const bloqueDiaD = nav.slice(iDia, nav.indexOf("grupo: 'Mensajería'"));
   const orden = [...bloqueDiaD.matchAll(/texto: '([^']+)'/g)].map(m => m[1]);
-  // Orden 39: «Logística del Día D» pasó a ir DESPUÉS de Transporte; Transporte sigue justo detrás de «Puestos de votación y candidatos».
+  // Orden 39: «Logística del Día D» va DESPUÉS de Transporte. Orden menús 2: ambos viven ahora en el grupo «Logística», justo detrás de «Asistentes a reuniones».
   const iT = orden.indexOf('Transporte del Día D');
-  ok(iT > 0 && orden[iT - 1] === 'Puestos de votación y candidatos' && orden[iT + 1] === 'Logística del Día D',
-    'escritorio: «Transporte del Día D» va después de «Puestos de votación y candidatos» (y ahora lo sigue «Logística del Día D»)', orden);
+  ok(iT > 0 && orden[iT - 1] === 'Asistentes a reuniones' && orden[iT + 1] === 'Logística del Día D',
+    'escritorio: «Transporte del Día D» va después de «Asistentes a reuniones», en el grupo Logística (y lo sigue «Logística del Día D»)', orden);
   const inicio = leer('public/app/inicio.html');
   const menus = ['MENU_COORDINADOR', 'MENU_ADMIN'].map(nom => {
     const cuerpo = inicio.slice(inicio.indexOf(`const ${nom} = [`));

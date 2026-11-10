@@ -184,6 +184,11 @@ if (document.readyState === 'loading') {
   activarAvisoBotonesGuardar();
 }
 
+/* EL MENÚ DE COMPUTADOR — ORDEN MENÚS 2. Solo cambió el ORDEN, la agrupación y los textos visibles: cada entrada conserva su href, su `modulo` y sus
+   `roles`, es decir, se muestra u oculta con la misma condición de antes (ver `itemVisible` más abajo). Orden de los grupos: Panel general · Electoral ·
+   Día D · Logística · Mensajería · Finanzas · Contenido para compartir · Configuración · Legislación · Ayuda. No hay sección «Otros»: toda entrada que
+   existía quedó en uno de esos grupos (salvo «Encuestas internas», que se retiró del menú a propósito y se elimina del todo en la Orden menús 3).
+   Un grupo sin ninguna entrada visible para el rol no se pinta, ni su título. */
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
   {
@@ -198,29 +203,24 @@ const NAV_ITEMS = [
       { href: '/solicitudes.html', texto: 'Solicitudes ciudadanas', modulo: 'solicitudes', roles: ['admin', 'coordinador', 'lider'] },
       // Tareas (parche 305). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `tareas`.
       { href: '/tareas.html', texto: 'Tareas', modulo: 'tareas', roles: ['admin', 'coordinador', 'lider'] },
-      // Encuestas internas (parche 307). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `encuestas`. Aplicarlas es del celular (/app/encuestas-campo.html).
-      { href: '/encuestas.html', texto: 'Encuestas internas', modulo: 'encuestas', roles: ['admin', 'coordinador'] },
       // Puerta a puerta (parche 309). Apagado de fábrica: solo aparece a quien la matriz le dé «Ver» en `puerta_listas`. Recorrer la lista es del celular (/app/puerta-a-puerta.html).
       { href: '/puerta-listas.html', texto: 'Puerta a puerta', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
       // El panel del puerta a puerta (parche 312): cobertura por zona y avance por visitante, solo conteos. Mismo módulo que armar las listas.
-      { href: '/puerta-panel.html', texto: 'Puerta a puerta · panel', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
+      { href: '/puerta-panel.html', texto: 'Puerta a puerta panel', modulo: 'puerta_listas', roles: ['admin', 'coordinador'] },
+      // «Encuestas internas» (parche 307, /encuestas.html) salió del menú en la Orden menús 2; la página y su módulo siguen hasta la Orden menús 3.
     ]
   },
   {
     grupo: 'Día D', iconoGrupo: '⏱️',
     items: [
+      { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
+      { href: '/testigos.html', texto: 'Testigos electorales', modulo: 'testigos', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html', texto: 'Jornada electoral', modulo: 'dia_d', roles: ['admin', 'coordinador'] },
       // Avance de votación: es una pestaña de la misma pantalla (hash #avance). Lleva su propio
       // módulo para que la matriz de permisos pueda abrirlo o cerrarlo sin tocar la Jornada.
       { href: '/dia-d.html#avance', texto: 'Avance de votación', modulo: 'rescate_votos', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#alertas', texto: 'Alertas del Día D', modulo: 'alertas_dia_d', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#resultados', texto: 'Resultados y reclamaciones', modulo: 'resultados_dia_d', roles: ['admin', 'coordinador'] },
-      { href: '/testigos.html', texto: 'Testigos electorales', modulo: 'testigos', roles: ['admin', 'coordinador'] },
-      { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
-      // Transporte va al final del grupo (orden 35). Es otra pestaña de la misma pantalla (hash #transporte), con su propio módulo (orden 33).
-      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
-      // Logística va después de Transporte (orden 39): otra pestaña de la misma pantalla.
-      { href: '/dia-d.html#logistica', texto: 'Logística del Día D', modulo: 'logistica_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {
@@ -229,14 +229,20 @@ const NAV_ITEMS = [
       { href: '/agenda.html', texto: 'Agenda', modulo: 'agenda', roles: null },
       { href: '/eventos.html', texto: 'Eventos y GOTV', modulo: 'eventos', roles: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'] },
       { href: '/asistentes-reuniones.html', texto: 'Asistentes a reuniones', modulo: 'asistentes_reuniones', roles: ['admin', 'coordinador', 'lider'] },
+      // Transporte y Logística del Día D vivían en el grupo «Día D»; ahora van aquí. Siguen siendo pestañas de dia-d.html (hash #transporte / #logistica) y cada una con su propio módulo.
+      { href: '/dia-d.html#transporte', texto: 'Transporte del Día D', modulo: 'transporte_dia_d', roles: ['admin', 'coordinador'] },
+      { href: '/dia-d.html#logistica', texto: 'Logística del Día D', modulo: 'logistica_dia_d', roles: ['admin', 'coordinador'] },
     ]
   },
   {
-    grupo: 'CRM y mensajería', iconoGrupo: '💬',
+    grupo: 'Mensajería', iconoGrupo: '💬',
     items: [
-      { href: '/crm.html', texto: 'CRM y Mensajes', modulo: 'crm', roles: ['admin', 'coordinador'] },
-      { href: '/enviar-email.html', texto: 'Enviar E-mail', modulo: 'enviar_email', roles: ['admin', 'coordinador', 'lider'] },
+      // Antes «CRM y Mensajes». El módulo sigue siendo 'crm' y el archivo crm.html: solo cambia el texto visible.
+      { href: '/crm.html', texto: 'Mensajería masiva', modulo: 'crm', roles: ['admin', 'coordinador'] },
+      { href: '/enviar-email.html', texto: 'Enviar e-mail', modulo: 'enviar_email', roles: ['admin', 'coordinador', 'lider'] },
       { href: '/enviar-sms.html', texto: 'Enviar SMS', modulo: 'enviar_sms', roles: ['admin', 'coordinador', 'lider'] },
+      // Antes «Aviso en la app».
+      { href: '/enviar-push.html', texto: 'Avisos en la app', modulo: 'enviar_push', roles: ['admin', 'coordinador', 'lider'] },
       /* Vivía como una tarjeta dentro de CRM y Mensajes, empujando hacia abajo
          los tres pasos del envío. Es una lista que se consulta y se exporta,
          no un paso para mandar un mensaje: tiene su propia pantalla.
@@ -246,7 +252,6 @@ const NAV_ITEMS = [
          `modulosPermitidos.includes` más abajo). Comparte pantalla de permisos
          con CRM, que es de donde salió. */
       { href: '/no-contactar.html', texto: 'Pidieron no recibir más', modulo: 'crm', roles: ['admin', 'coordinador'] },
-      { href: '/enviar-push.html', texto: 'Aviso en la app', modulo: 'enviar_push', roles: ['admin', 'coordinador', 'lider'] },
       // El módulo sigue siendo 'configurar_crm' (gobierna permisos) y el
       // archivo conserva su nombre: solo cambia el texto visible, porque
       // la pantalla configura mensajería, no el CRM.
@@ -276,16 +281,16 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#campana', texto: 'Datos de la campaña', modulo: 'configuracion', roles: ['admin'], porDefecto: true },
       { href: '/configuracion.html#usuarios', texto: 'Usuarios', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#permisos', texto: 'Asignación de permisos', modulo: 'configuracion', roles: ['admin'] },
+      // Recordatorios automáticos: módulo propio en la matriz (de fábrica, solo el administrador). Sin su fila en permisos_rol la entrada no sale.
+      { href: '/configuracion.html#recordatorios', texto: 'Recordatorios', modulo: 'recordatorios', roles: ['admin'] },
       /* LA POLÍTICA DE PRIVACIDAD TAMBIÉN AQUÍ (parche 311). Ya estaba en «Contenido para compartir», pero ESE ítem no le sale al superadministrador:
          su menú se arma con el catálogo MODULOS (routes/permisos.routes.js), que no trae `politica_privacidad`, y el grupo se le encoge a «Información
          para compartir». Aquí el módulo es `configuracion` (que sí está en el catálogo) y el rol es el administrador: es donde se busca un ajuste de la
          campaña, y es la pantalla donde se agrega la finalidad de las visitas cuando la política ya la editó el administrador. Misma pantalla y misma
          dirección que la otra entrada: al administrador que ve las dos le llevan al mismo sitio. */
       { href: '/contenido.html?clave=politica_privacidad', texto: 'Política de privacidad', modulo: 'configuracion', roles: ['admin'] },
-      { href: '/configuracion.html#eliminar', texto: 'Eliminar información', modulo: 'configuracion', roles: ['admin'] },
       { href: '/configuracion.html#backup', texto: 'Backup', modulo: 'configuracion', roles: ['admin'] },
-      // Recordatorios automáticos: módulo propio en la matriz (de fábrica, solo el administrador). Sin su fila en permisos_rol la entrada no sale.
-      { href: '/configuracion.html#recordatorios', texto: 'Recordatorios', modulo: 'recordatorios', roles: ['admin'] },
+      { href: '/configuracion.html#eliminar', texto: 'Eliminar información', modulo: 'configuracion', roles: ['admin'] },
     ]
   },
   /* LEGISLACIÓN, JUSTO ANTES DE AYUDA. Lleva `modulo`: se oculta a quien no
@@ -1443,6 +1448,19 @@ async function inicializarLayout(paginaActiva) {
     return !item.roles || item.roles.includes(usuario.rol);
   }
 
+  /* QUÉ GRUPO NACE ABIERTO. Antes bastaba con que un hijo apuntara a la misma PÁGINA. Desde la Orden menús 2 «Transporte» y «Logística» (pestañas de
+     dia-d.html) viven en el grupo «Logística» y las demás pestañas de esa pantalla en «Día D»: por página, los dos grupos habrían nacido abiertos. Se
+     elige el ítem activo con la MISMA regla de marcarActivoMenu() (gana el ancla de la URL; si no, el que no lleva ancla; si no, el `porDefecto`) y
+     nace abierto solo el grupo que lo contiene. Si no hay ninguno elegido se conserva la regla de siempre (la página). */
+  const hijosDeEstaPagina = [];
+  NAV_ITEMS.forEach(it => { if (it.items) it.items.filter(itemVisible).forEach(h => { if (h.href.split('#')[0] === paginaBase) hijosDeEstaPagina.push(h); }); });
+  const anclaDe = (h) => (h.href.includes('#') ? '#' + h.href.split('#')[1] : '');
+  const hashInicial = window.location.hash;
+  const hijoElegido = (hashInicial && hijosDeEstaPagina.find(h => anclaDe(h) === hashInicial))
+    || hijosDeEstaPagina.find(h => anclaDe(h) === '')
+    || hijosDeEstaPagina.find(h => h.porDefecto)
+    || null;
+
   const navHtml = NAV_ITEMS.map((item, indice) => {
     if (item.items) {
       // Menú principal con submenú: se muestra si al menos un hijo es visible
@@ -1461,11 +1479,11 @@ async function inicializarLayout(paginaActiva) {
          medir. Aplicándola a todos, con la matriz de permisos de hoy:
 
            asistente_administrativo   «DÍA D»            -> Jornada electoral
-           líder                      «CRM Y MENSAJERÍA» -> Aviso en la app
+           líder                      «MENSAJERÍA»       -> Avisos en la app
            testigo                    «LOGÍSTICA»        -> Eventos y GOTV
 
          Ese segundo caso es un rótulo que miente sobre su destino: quien lee
-         «CRM y mensajería» no espera aterrizar en «Aviso en la app». En
+         «Mensajería» no espera aterrizar en «Avisos en la app». En
          «Contenido para compartir» no pasa, porque el nombre del grupo y el
          de la pantalla dicen lo mismo. De ahí la bandera: se activa donde el
          nombre del grupo sirve de rótulo, no en todas partes por simetría.
@@ -1482,7 +1500,7 @@ async function inicializarLayout(paginaActiva) {
       </a>`;
       }
       const grupoId = `nav-grupo-${indice}`;
-      const contieneActivo = hijosVisibles.some(sub => sub.href.split('#')[0] === paginaBase);
+      const contieneActivo = hijoElegido ? hijosVisibles.includes(hijoElegido) : hijosVisibles.some(sub => sub.href.split('#')[0] === paginaBase);
       const subHtml = hijosVisibles.map(sub =>
         `<a href="${sub.href}" data-nav-href="${sub.href}"${sub.porDefecto ? ' data-nav-defecto="1"' : ''} class="nav-sub-link">${sub.texto}</a>`).join('');
       return `

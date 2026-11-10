@@ -7,7 +7,7 @@ icono: lista
 modulo: transporte_dia_d
 nivel: editar
 roles:
-ruta: Escritorio: Día D > Transporte del Día D
+ruta: Escritorio: Logística > Transporte del Día D
 captura:
 ---
 Aquí decides qué conductor recoge a cada persona y en qué orden. Solo se pueden asignar personas que un líder marcó como «necesita transporte» y que todavía no han votado.

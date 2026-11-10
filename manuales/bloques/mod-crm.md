@@ -7,7 +7,7 @@ icono: mensaje
 modulo: crm
 nivel: ver
 roles:
-ruta: Escritorio: CRM y mensajería > CRM y Mensajes
+ruta: Escritorio: Mensajería > Mensajería masiva
 captura: mod-crm.webp
 ---
 Es la pantalla para armar envíos masivos por correo, SMS o aviso en la app, y para ver cómo le fue a cada campaña de mensajes. Quien pidió no recibir más queda fuera solo.

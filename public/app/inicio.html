@@ -194,6 +194,60 @@ async function modulosPermitidosApp() {
   }
 }
 
+/* EL ORDEN DEL MENÚ (Orden menús 2). Una sola lista ordenada para todos los roles, en cinco grupos separados por una línea (sin títulos):
+     1. Registro · Mi enlace de inscripción · Consultar puesto de votación
+     2. Registrar una solicitud · Mis solicitudes
+     3. Puerta a puerta · Eventos · Faltan por votar
+     4. Biografía · Información para compartir
+     5. Mis avisos · Política de privacidad · Ayuda
+   y, ENTRE el 4 y el 5, un grupo propio (45) con lo que el celular ya tenía y no está en esa lista (tareas, encuestas, Legislación, Día D, accesos del
+   administrador, versión de escritorio…): nada se quitó. Cada entrada se sigue pintando con la MISMA condición de antes (`modulo`, `modulos`,
+   `soloAspirante`, `soloSiEscritorio` en MENU_LIDER / MENU_COORDINADOR / MENU_ADMIN); aquí solo se decide el lugar. El administrador no tiene las mismas
+   pantallas que el líder: sus equivalentes ocupan el mismo lugar («Registro de votantes» junto a «Registro de votantes y sublíderes», «Compartir
+   contenido» junto a «Información para compartir», el «Puerta a puerta» que arma listas junto al que las recorre).
+   Clave: el href de la entrada → [grupo, lugar dentro del grupo]. Lo que no figura va al grupo 45, en el orden que ya traía su lista. */
+const ORDEN_MENU_APP = {
+  '/app/mis-registros.html': [1, 1], '/app/registro-votante.html': [1, 1],
+  '/app/mi-enlace.html': [1, 2],
+  '/app/puesto-votacion.html': [1, 3],
+  '/app/solicitud-nueva.html': [2, 1],
+  '/app/mis-solicitudes.html': [2, 2],
+  '/app/puerta-a-puerta.html': [3, 1], '/puerta-listas.html': [3, 1],
+  '/app/eventos.html': [3, 2],
+  '/app/faltantes.html': [3, 3],
+  '/app/biografia.html': [4, 1],
+  '/app/informacion.html?modo=informacion': [4, 2], '/app/admin-contenido.html': [4, 2],
+  '/app/mis-avisos.html': [5, 1],
+  '/app/politica-privacidad.html': [5, 2], '/contenido.html?clave=politica_privacidad': [5, 2],
+  '/ayuda.html': [5, 3]
+};
+const GRUPO_APP_SIN_LUGAR = 45;
+
+/** Ordena las entradas ya filtradas y las parte en grupos. Un grupo vacío para este rol no existe: no deja línea doble ni al principio ni al final. */
+function agruparMenuApp(items) {
+  const conLugar = items.map((it, i) => {
+    const lugar = ORDEN_MENU_APP[it.href];
+    return { it, i, g: lugar ? lugar[0] : GRUPO_APP_SIN_LUGAR, o: lugar ? lugar[1] : 0 };
+  });
+  conLugar.sort((a, b) => (a.g - b.g) || (a.o - b.o) || (a.i - b.i));
+  const grupos = [];
+  conLugar.forEach(x => {
+    if (!grupos.length || grupos[grupos.length - 1].g !== x.g) grupos.push({ g: x.g, items: [] });
+    grupos[grupos.length - 1].items.push(x.it);
+  });
+  return grupos.map(g => g.items);
+}
+
+function tarjetaMenuApp(it) {
+  return `
+    <a class="menu-boton" href="${it.href}">
+      <div class="icono" aria-hidden="true">${it.icono}</div>
+      <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
+      ${it.insigniaAvisos ? '<span id="insignia-avisos" hidden style="background:#C62828; color:#fff; border-radius:99px; font-size:0.74rem; font-weight:700; padding:2px 8px; margin-right:6px;"></span>' : ''}
+      <div class="flecha" aria-hidden="true">›</div>
+    </a>`;
+}
+
 function pintarMenu(rol, modulosPermitidos, esAspirante) {
   const base = rol === 'admin' ? MENU_ADMIN : (rol === 'coordinador' ? MENU_COORDINADOR : MENU_LIDER);
   let prefiereEscritorio = false;
@@ -202,13 +256,9 @@ function pintarMenu(rol, modulosPermitidos, esAspirante) {
                               && (!it.modulos || it.modulos.some(m => (modulosPermitidos || []).includes(m)))
                               && (!it.soloSiEscritorio || prefiereEscritorio)
                               && (!it.soloAspirante || esAspirante));
-  document.getElementById('menu-app').innerHTML = items.map(it => `
-    <a class="menu-boton" href="${it.href}">
-      <div class="icono" aria-hidden="true">${it.icono}</div>
-      <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
-      ${it.insigniaAvisos ? '<span id="insignia-avisos" hidden style="background:#C62828; color:#fff; border-radius:99px; font-size:0.74rem; font-weight:700; padding:2px 8px; margin-right:6px;"></span>' : ''}
-      <div class="flecha" aria-hidden="true">›</div>
-    </a>`).join('');
+  document.getElementById('menu-app').innerHTML = agruparMenuApp(items)
+    .map(grupo => grupo.map(tarjetaMenuApp).join(''))
+    .join('<div class="menu-separador" role="separator" aria-hidden="true"></div>');
   pintarInsigniaAvisos();
 }
 

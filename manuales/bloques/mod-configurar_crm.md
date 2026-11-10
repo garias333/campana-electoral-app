@@ -7,7 +7,7 @@ icono: mensaje
 modulo: configurar_crm
 nivel: ver
 roles:
-ruta: Escritorio: CRM y mensajería > Configurar mensajería
+ruta: Escritorio: Mensajería > Configurar mensajería
 captura:
 ---
 Esta pantalla guarda las llaves de correo y SMS de tu campaña, muestra si cada canal está listo y permite hacer un envío de prueba. Sin esto configurado, las pantallas de envío no pueden mandar nada.

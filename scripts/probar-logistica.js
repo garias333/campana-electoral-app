@@ -375,9 +375,10 @@ const entregasDe = async (itemId) => q("SELECT * FROM logistica_entregas WHERE i
   ok(/logistica_dia_d:\s*\['admin', 'coordinador'\]/.test(leer('db/init-db.js')), 'init-db: de fábrica admin y coordinador');
   ok(leer('routes/permisos.routes.js').includes("clave: 'logistica_dia_d'") && leer('config/importarExportar.js').includes('logistica_dia_d'), 'la matriz de permisos y el Importar/Exportar de fábrica');
   const nav = leer('public/js/common.js');
-  const bloque = nav.slice(nav.indexOf("grupo: 'Día D'"), nav.indexOf("grupo: 'Logística'") > 0 ? nav.indexOf("grupo: 'Logística'") : undefined);
+  // Orden menús 2: Transporte y Logística del Día D pasaron del grupo «Día D» al grupo «Logística» (el último de ese grupo).
+  const bloque = nav.slice(nav.indexOf("grupo: 'Logística'"), nav.indexOf("grupo: 'Mensajería'"));
   const orden = [...bloque.matchAll(/texto: '([^']+)'/g)].map(m => m[1]);
-  ok(orden[orden.length - 1] === 'Logística del Día D' && orden[orden.length - 2] === 'Transporte del Día D', 'submenú DÍA D: «Logística del Día D» va al final, después de «Transporte del Día D»', orden.slice(-3));
+  ok(orden[orden.length - 1] === 'Logística del Día D' && orden[orden.length - 2] === 'Transporte del Día D', 'submenú LOGÍSTICA: «Logística del Día D» va al final, después de «Transporte del Día D»', orden.slice(-3));
   const diad = leer('public/dia-d.html');
   const pestanas = [...diad.matchAll(/id="pestana-(\w+)"/g)].map(m => m[1]);
   ok(pestanas[pestanas.length - 1] === 'logistica' && pestanas[pestanas.length - 2] === 'transporte', 'pestañas de dia-d.html: Logística al final, después de Transporte', pestanas);

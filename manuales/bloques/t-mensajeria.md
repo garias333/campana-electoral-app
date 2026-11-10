@@ -7,7 +7,7 @@ icono: mensaje
 modulo: configurar_crm
 nivel: editar
 roles:
-ruta: Escritorio: CRM y mensajería > Configurar mensajería
+ruta: Escritorio: Mensajería > Configurar mensajería
 captura:
 ---
 Sirve para dejar listos el correo y los SMS de la campaña y comprobar con una prueba que de verdad salen. Esto lo hace el administrador.

@@ -7,7 +7,7 @@ icono: camion
 modulo: transporte_dia_d
 nivel: agregar
 roles:
-ruta: Escritorio: Día D > Transporte del Día D
+ruta: Escritorio: Logística > Transporte del Día D
 captura: t-vehiculos.webp
 ---
 Registra los carros, vans, buses o motos que van a recoger gente el día de la elección. La capacidad te avisa cuando a un conductor le asignas más personas de las que caben.

@@ -7,7 +7,7 @@ icono: persona
 modulo: transporte_dia_d
 nivel: agregar
 roles:
-ruta: Escritorio: Día D > Transporte del Día D
+ruta: Escritorio: Logística > Transporte del Día D
 captura: t-conductores.webp
 ---
 Cada persona que conduce el día de la elección es un conductor. Al crearlo, el sistema le genera un enlace propio con su lista de recogida.
