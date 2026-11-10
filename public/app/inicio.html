@@ -94,8 +94,6 @@ const MENU_LIDER = [
   { href: '/app/mis-solicitudes.html', icono: '📋', titulo: 'Mis solicitudes', subtitulo: 'Las que registraste y las que te asignaron', modulo: 'solicitudes' },
   // Tareas (parche 305): lo que te asignaron para hacer en una zona. Apagado de fábrica: solo con «Ver» en el módulo `tareas`.
   { href: '/app/mis-tareas.html', icono: '✅', titulo: 'Mis tareas', subtitulo: 'Lo que tienes por hacer, también sin señal', modulo: 'tareas' },
-  // Encuestas internas (parche 307): aplicar una encuesta anónima, también sin señal. Apagado de fábrica: solo con «Ver» en el módulo `encuestas_campo`.
-  { href: '/app/encuestas-campo.html', icono: '📊', titulo: 'Aplicar una encuesta', subtitulo: 'Encuestas internas anónimas, también sin señal', modulo: 'encuestas_campo' },
   // Eventos (parche 313): tus eventos y marcar quién asistió, también sin señal. Se ve con «Ver» en cualquiera de los módulos de eventos (`eventos`, `agenda` o `asistentes_reuniones`).
   { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   // Puerta a puerta (parche 309): tu lista de visitas, ordenada por cercanía y también sin señal. Apagado de fábrica: solo con «Ver» en el módulo `puerta_visitas`.
@@ -158,8 +156,6 @@ const MENU_ADMIN = [
   { href: '/solicitudes.html', icono: '📣', titulo: 'Solicitudes ciudadanas', subtitulo: 'Las necesidades del territorio: ver, asignar y remitir', modulo: 'solicitudes' },
   { href: '/app/solicitud-nueva.html', icono: '📝', titulo: 'Registrar una solicitud', subtitulo: 'Una necesidad del barrio o la vereda, también sin señal', modulo: 'solicitudes' },
   { href: '/tareas.html', icono: '✅', titulo: 'Tareas', subtitulo: 'Crear, asignar y verificar lo que hace el equipo', modulo: 'tareas' },
-  { href: '/encuestas.html', icono: '📊', titulo: 'Encuestas internas', subtitulo: 'Construir, publicar y cerrar encuestas anónimas', modulo: 'encuestas' },
-  { href: '/app/encuestas-campo.html', icono: '📋', titulo: 'Aplicar una encuesta', subtitulo: 'Encuestas internas anónimas, también sin señal', modulo: 'encuestas_campo' },
   { href: '/puerta-listas.html', icono: '🚪', titulo: 'Puerta a puerta', subtitulo: 'Armar y asignar listas de visitas', modulo: 'puerta_listas' },
   { href: '/app/eventos.html', icono: '📅', titulo: 'Eventos', subtitulo: 'Tus eventos y la asistencia, también sin señal', modulos: ['eventos', 'agenda', 'asistentes_reuniones'] },
   { href: '/app/admin-contenido.html', icono: '📣', titulo: 'Compartir contenido', subtitulo: 'Subir, compartir y administrar materiales' },
@@ -194,32 +190,48 @@ async function modulosPermitidosApp() {
   }
 }
 
-/* EL ORDEN DEL MENÚ (Orden menús 2). Una sola lista ordenada para todos los roles, en cinco grupos separados por una línea (sin títulos):
-     1. Registro · Mi enlace de inscripción · Consultar puesto de votación
-     2. Registrar una solicitud · Mis solicitudes
-     3. Puerta a puerta · Eventos · Faltan por votar
-     4. Biografía · Información para compartir
-     5. Mis avisos · Política de privacidad · Ayuda
-   y, ENTRE el 4 y el 5, un grupo propio (45) con lo que el celular ya tenía y no está en esa lista (tareas, encuestas, Legislación, Día D, accesos del
-   administrador, versión de escritorio…): nada se quitó. Cada entrada se sigue pintando con la MISMA condición de antes (`modulo`, `modulos`,
-   `soloAspirante`, `soloSiEscritorio` en MENU_LIDER / MENU_COORDINADOR / MENU_ADMIN); aquí solo se decide el lugar. El administrador no tiene las mismas
-   pantallas que el líder: sus equivalentes ocupan el mismo lugar («Registro de votantes» junto a «Registro de votantes y sublíderes», «Compartir
-   contenido» junto a «Información para compartir», el «Puerta a puerta» que arma listas junto al que las recorre).
-   Clave: el href de la entrada → [grupo, lugar dentro del grupo]. Lo que no figura va al grupo 45, en el orden que ya traía su lista. */
+/* EL ORDEN DEL MENÚ (Órdenes menús 2 y 3). Una sola lista ordenada para todos los roles, en grupos separados por una línea (sin títulos):
+     0. Panel general (o Panel completo) · Dashboard de votantes · Mapa territorial
+     1. Registro de votantes y sublíderes · Mi enlace de inscripción · Consultar puesto de votación · Estructura territorial · Agregar coordinadores o líderes
+     2. Registrar una solicitud · Mis solicitudes · Mis tareas · Tareas · Solicitudes ciudadanas
+     3. Puerta a puerta · Eventos · Faltan por votar · Avance de mis líderes · Alertas Día D · Transporte Día D · Logística Día D · Ranking Día D
+     4. Biografía del candidato · Información para compartir
+     5. Mis avisos · Política de privacidad · Legislación · Ayuda · «Usar la versión de celular» (de último)
+   Cada rol ve SOLO lo que ya veía: cada entrada se sigue pintando con la MISMA condición de antes (`modulo`, `modulos`, `soloAspirante`,
+   `soloSiEscritorio` en MENU_LIDER / MENU_COORDINADOR / MENU_ADMIN); aquí solo se decide el lugar. El administrador no tiene las mismas pantallas que
+   el líder: sus equivalentes ocupan el mismo lugar («Registro de votantes» junto a «Registro de votantes y sublíderes», «Compartir contenido» junto a
+   «Información para compartir», el «Puerta a puerta» que arma listas junto al que las recorre).
+   Clave: el href de la entrada → [grupo, lugar dentro del grupo]. Lo que NO figura aquí va a un grupo aparte (45) entre el 4 y el 5, en el orden que ya
+   traía su lista: hoy no queda nada ahí, y es donde caería una entrada nueva a la que todavía no se le dio lugar. */
 const ORDEN_MENU_APP = {
+  '/app/admin-panel.html': [0, 1], '/dashboard.html': [0, 1],
+  '/app/admin-votantes.html': [0, 2],
+  '/app/admin-mapa.html': [0, 3],
   '/app/mis-registros.html': [1, 1], '/app/registro-votante.html': [1, 1],
   '/app/mi-enlace.html': [1, 2],
   '/app/puesto-votacion.html': [1, 3],
+  '/app/admin-estructura.html': [1, 4],
+  '/territorial.html?app=1#nuevo': [1, 5],
   '/app/solicitud-nueva.html': [2, 1],
   '/app/mis-solicitudes.html': [2, 2],
+  '/app/mis-tareas.html': [2, 3],
+  '/tareas.html': [2, 4],
+  '/solicitudes.html': [2, 5],
   '/app/puerta-a-puerta.html': [3, 1], '/puerta-listas.html': [3, 1],
   '/app/eventos.html': [3, 2],
   '/app/faltantes.html': [3, 3],
+  '/app/avance-lideres.html': [3, 4],
+  '/app/alertas-dia-d.html': [3, 5],
+  '/dia-d.html#transporte': [3, 6],
+  '/app/logistica.html': [3, 7],
+  '/app/ranking-dia-d.html': [3, 8],
   '/app/biografia.html': [4, 1],
   '/app/informacion.html?modo=informacion': [4, 2], '/app/admin-contenido.html': [4, 2],
   '/app/mis-avisos.html': [5, 1],
   '/app/politica-privacidad.html': [5, 2], '/contenido.html?clave=politica_privacidad': [5, 2],
-  '/ayuda.html': [5, 3]
+  '/app/legislacion.html': [5, 3],
+  '/ayuda.html': [5, 4],
+  '/app/admin-panel.html?celular=1': [5, 5]
 };
 const GRUPO_APP_SIN_LUGAR = 45;
 

@@ -428,10 +428,6 @@ const PERMISOS_POR_DEFECTO = {
   solicitudes: ['admin'],
   // Tareas (parche 305): apagado de fábrica, solo el administrador. Se abre a coordinadores y líderes desde Asignación de permisos.
   tareas: ['admin'],
-  // Encuestas internas (parche 307): DOS módulos, ambos apagados de fábrica (solo el administrador). `encuestas` construye (y, más adelante,
-  // ve los resultados); `encuestas_campo` aplica en el celular. Se abren desde Asignación de permisos.
-  encuestas: ['admin'],
-  encuestas_campo: ['admin'],
   // Puerta a puerta (parche 309): DOS módulos, ambos apagados de fábrica (solo el administrador). `puerta_listas` arma las listas de visitas
   // (administrador y coordinador, cuando se les abra); `puerta_visitas` las recorre en el celular (líder y sublíder). Se abren desde Asignación de permisos.
   puerta_listas: ['admin'],
@@ -3446,127 +3442,13 @@ async function main() {
   console.log('Tablas de las tareas listas (módulo apagado; reglas de recordatorio apagadas).');
 
   /* ------------------------------------------------------------------------------------------------------------
-     ENCUESTAS INTERNAS (parche 307, Fases 1 y 2). Apagado de fábrica: los módulos `encuestas` (construir) y `encuestas_campo` (aplicar)
-     solo los ve el administrador.
-       · encuestas                 el borrador, la publicada y la cerrada. Al publicar se calcula `huella` (sha256 del contenido) y esa versión
-                                   queda congelada: nada la edita (lib/encuestas.js) y las preguntas con respuestas no se pueden borrar (RESTRICT).
-       · encuesta_preguntas        las preguntas de cada encuesta, en orden: opción única o múltiple, escala 1-5, número y texto corto.
-       · encuesta_respuestas       UNA fila por encuesta aplicada. ANÓNIMA POR CONSTRUCCIÓN: ni nombre, ni cédula, ni teléfono, ni votante_id, ni IP.
-                                   Lo único «de alguien» es `aplicada_por` (la cuenta del EQUIPO que la aplicó, para el alcance y el control de
-                                   calidad), nunca el encuestado. La ubicación es SOLO la celda de 0,005°, nunca el GPS crudo.
-       · encuesta_respuesta_items  una fila por respuesta a una pregunta (o por opción elegida): opción, número, texto corto o «no sabe / no responde».
-     scripts/probar-encuestas.js compara estas columnas con una lista cerrada: agregar una columna de identidad a mano rompe esa prueba.
-     ------------------------------------------------------------------------------------------------------------ */
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS encuestas (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      titulo VARCHAR(150) NOT NULL,
-      descripcion VARCHAR(500) NULL,
-      estado ENUM('borrador','publicada','cerrada') NOT NULL DEFAULT 'borrador',
-      pide_ubicacion TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Si la encuesta pide la ubicación (opcional para quien la aplica): solo se guarda la celda de 0,005 grados',
-      sensible TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Derivado: alguna pregunta es sensible (opinión política). Una encuesta sensible no lleva texto libre',
-      huella CHAR(16) NULL COMMENT 'sha256 del contenido al publicar: identifica la versión congelada',
-      copia_de INT NULL COMMENT 'La encuesta de la que se duplicó (sin FK: informativa)',
-      creada_por INT NULL,
-      publicada_en DATETIME NULL,
-      publicada_por INT NULL,
-      cerrada_en DATETIME NULL,
-      cerrada_por INT NULL,
-      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      KEY idx_encuesta_estado (estado),
-      FOREIGN KEY (creada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-      FOREIGN KEY (publicada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-      FOREIGN KEY (cerrada_por) REFERENCES usuarios(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS encuesta_preguntas (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      encuesta_id INT NOT NULL,
-      orden SMALLINT NOT NULL,
-      tipo ENUM('unica','multiple','escala','numero','texto') NOT NULL,
-      enunciado VARCHAR(300) NOT NULL,
-      obligatoria TINYINT(1) NOT NULL DEFAULT 0,
-      sensible TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Opinión política u otro dato sensible: nunca obligatoria',
-      opciones JSON NULL COMMENT '[{"id":"o1","texto":"..."}]; «No sabe / No responde» no se guarda: se agrega sola',
-      num_min DECIMAL(14,2) NULL,
-      num_max DECIMAL(14,2) NULL,
-      UNIQUE KEY uq_encuesta_pregunta_orden (encuesta_id, orden),
-      FOREIGN KEY (encuesta_id) REFERENCES encuestas(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS encuesta_respuestas (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      cliente_uuid CHAR(36) NOT NULL COMMENT 'Lo genera el celular al guardar (también sin señal): un reintento no duplica',
-      encuesta_id INT NOT NULL,
-      huella CHAR(16) NOT NULL COMMENT 'La versión congelada que se aplicó',
-      territorio_id INT NULL COMMENT 'La zona del catálogo (barrio, vereda, comuna, corregimiento o municipio); sin FK (en campañas ligadas al catálogo es una vista)',
-      zona_texto VARCHAR(120) NULL COMMENT 'La zona tal como se escribió o su nombre; la única cuando la campaña no tiene catálogo',
-      celda_lat DECIMAL(8,4) NULL COMMENT 'Centro de la celda de 0,005 grados (~550 m). NUNCA el GPS crudo',
-      celda_lng DECIMAL(8,4) NULL,
-      respondida_en DATETIME NOT NULL COMMENT 'La hora del TOQUE en el celular (no la de la subida, si se hizo sin señal)',
-      recibida_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      duracion_seg INT NULL COMMENT 'Cuánto tardó en llenarse; para el control de calidad',
-      aplicada_por INT NULL COMMENT 'La cuenta del EQUIPO que aplicó la encuesta (no el encuestado)',
-      lider_id INT NULL COMMENT 'Para el alcance: igual que votantes.lider_id',
-      sublider_id INT NULL,
-      rama_aspirante_id INT NULL,
-      aspirante_id INT NOT NULL DEFAULT 0,
-      anonimizada_en DATETIME NULL COMMENT 'Cuándo se borraron sus textos libres y su celda por vencer el plazo',
-      UNIQUE KEY uq_encuesta_respuesta_uuid (cliente_uuid),
-      KEY idx_encuesta_respuesta_zona (encuesta_id, territorio_id),
-      KEY idx_encuesta_respuesta_aplicada (aplicada_por, respondida_en),
-      KEY idx_encuesta_respuesta_rama (rama_aspirante_id),
-      FOREIGN KEY (encuesta_id) REFERENCES encuestas(id) ON DELETE RESTRICT,
-      FOREIGN KEY (aplicada_por) REFERENCES usuarios(id) ON DELETE SET NULL,
-      FOREIGN KEY (lider_id) REFERENCES usuarios(id) ON DELETE SET NULL,
-      FOREIGN KEY (sublider_id) REFERENCES usuarios(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS encuesta_respuesta_items (
-      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      respuesta_id BIGINT UNSIGNED NOT NULL,
-      pregunta_id INT NOT NULL,
-      opcion_id VARCHAR(10) NULL COMMENT 'Opción única o múltiple: una fila por opción elegida',
-      valor_num DECIMAL(14,2) NULL COMMENT 'Escala o número',
-      valor_texto VARCHAR(80) NULL COMMENT 'Texto corto; se borra al vencer el plazo de conservación',
-      nsnr TINYINT(1) NOT NULL DEFAULT 0 COMMENT '«No sabe / No responde»',
-      KEY idx_encuesta_item_respuesta (respuesta_id),
-      KEY idx_encuesta_item_pregunta (pregunta_id, opcion_id),
-      FOREIGN KEY (respuesta_id) REFERENCES encuesta_respuestas(id) ON DELETE CASCADE,
-      FOREIGN KEY (pregunta_id) REFERENCES encuesta_preguntas(id) ON DELETE RESTRICT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  /* ENCUESTAS, FASES 3 Y 4 (parche 308): resultados y control de calidad. Todo repetible.
-       · configuracion_campana.encuesta_min_celda ... el mínimo de respuestas por celda para mostrar una cifra. 5 de fábrica; el servidor NO deja
-                                  bajarlo de 5 (solo subirlo), igual para el administrador.
-       · encuesta_respuestas.revision ... 'ok' entra en los resultados; 'sospechosa' (alguna señal de calidad) y 'excluida' NO, hasta que el
-                                  administrador la revise (aprobar la devuelve a 'ok'; todo es reversible y queda en la auditoría).
-       · senales / vector_hash ... qué señales saltaron (códigos separados por coma) y la huella del conjunto de respuestas (para detectar vectores repetidos).
-       · revisada_por / revisada_en ... quién del EQUIPO (el administrador) la revisó y cuándo. Nunca el encuestado.
-       · encuesta_respuesta_items.texto_revisado ... el texto libre que el administrador ya vio en la cola de revisión.
-       · encuesta_cuotas ... metas OPCIONALES de respuestas por zona del catálogo (no son parte de la versión congelada: se pueden cambiar siempre). */
+     ENCUESTAS INTERNAS — MÓDULO ELIMINADO (Orden menús 3). Esta instalación YA NO CREA las tablas `encuestas`, `encuesta_preguntas`,
+     `encuesta_respuestas`, `encuesta_respuesta_items` ni `encuesta_cuotas`; las instalaciones donde ya existen las CONSERVAN, quietas y sin
+     tocar (nada las borra: si algún día se quieren borrar, será una orden aparte, con respaldo).
+     SE CONSERVA UNA COLUMNA, porque la usa el Puerta a puerta: `configuracion_campana.encuesta_min_celda`, el mínimo de visitas por celda para
+     mostrar una cifra (5 de fábrica; el servidor NO deja bajarlo de 5, solo subirlo). Ver lib/minimoPorCelda.js. */
   await agregarColumnaSiFalta(connection, 'configuracion_campana',
-    "encuesta_min_celda INT NOT NULL DEFAULT 5 COMMENT 'Mínimo de respuestas por celda para mostrar una cifra de una encuesta. Nunca menos de 5'", 'encuesta_min_celda');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuestas',
-    "revision ENUM('ok','sospechosa','excluida') NOT NULL DEFAULT 'ok' COMMENT 'Solo las ok entran en los resultados'", 'revision');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "senales VARCHAR(120) NULL COMMENT 'Señales de calidad que saltaron, separadas por coma'", 'senales');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "vector_hash CHAR(16) NULL COMMENT 'Huella del conjunto de respuestas (sin textos): para ver vectores repetidos'", 'vector_hash');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "revisada_por INT NULL COMMENT 'El administrador que la revisó (nunca el encuestado)'", 'revisada_por');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuestas', "revisada_en DATETIME NULL", 'revisada_en');
-  await agregarColumnaSiFalta(connection, 'encuesta_respuesta_items', "texto_revisado TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador ya vio este texto libre'", 'texto_revisado');
-  for (const [nombre, def] of [['idx_encuesta_respuesta_revision', '(encuesta_id, revision)'], ['idx_encuesta_respuesta_vector', '(aplicada_por, encuesta_id, vector_hash)']]) {
-    try { await connection.query(`ALTER TABLE encuesta_respuestas ADD INDEX ${nombre} ${def}`); } catch (err) { if (err.code !== 'ER_DUP_KEYNAME') throw err; }
-  }
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS encuesta_cuotas (
-      encuesta_id INT NOT NULL,
-      territorio_id INT NOT NULL COMMENT 'La zona del catálogo (sin FK: en campañas ligadas al catálogo territorios es una vista)',
-      meta INT NOT NULL COMMENT 'Cuántas respuestas se quieren de esta zona (nunca menos que el mínimo por celda)',
-      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (encuesta_id, territorio_id),
-      FOREIGN KEY (encuesta_id) REFERENCES encuestas(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  console.log('Tablas de las encuestas internas listas (módulos apagados).');
+    "encuesta_min_celda INT NOT NULL DEFAULT 5 COMMENT 'Mínimo de respuestas (o visitas) por celda para mostrar una cifra. Nunca menos de 5'", 'encuesta_min_celda');
 
   /* ------------------------------------------------------------------------------------------------------------
      PUERTA A PUERTA (parche 309, Fases 0 y 1). Apagado de fábrica: los módulos `puerta_listas` (armar) y `puerta_visitas` (visitar) solo

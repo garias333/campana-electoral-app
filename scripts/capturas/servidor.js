@@ -79,7 +79,6 @@ function crear(pool) {
   montar('/api/recordatorios', 'recordatorios.routes');
   montar('/api/solicitudes', 'solicitudes.routes');
   montar('/api/tareas', 'tareas.routes');
-  montar('/api/encuestas', 'encuestas.routes');
   montar('/api/puerta-a-puerta', 'puertaAPuerta.routes');
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de capturas' }));
 

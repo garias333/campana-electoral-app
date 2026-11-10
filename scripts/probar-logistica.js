@@ -386,7 +386,7 @@ const entregasDe = async (itemId) => q("SELECT * FROM logistica_entregas WHERE i
   const sw = leer('public/service-worker.js');
   ok(/estrategia-v(1(6[3-9]|[7-9]\d)|[2-9]\d\d)/.test(sw) && sw.includes("'/app/logistica.html'"), 'service worker v163 o posterior con la pantalla del celular en su precache');
   ok(/OFFLINE_DB_VERSION = (?:[5-9]|1[01])/.test(leer('public/js/offline-utils.js')) && leer('public/js/offline-utils.js').includes("'logistica_pendientes'"), 'la cola sin señal tiene su cajón nuevo (versión 5 o posterior)');
-  ok(leer('public/app/inicio.html').split('/app/logistica.html').length === 3 && leer('public/app/dia-d.html').includes('id="enlace-logistica"'), 'tarjetas del celular (coordinador y administrador) y el acceso del coordinador de puesto');
+  ok(leer('public/app/inicio.html').split("href: '/app/logistica.html'").length === 3 && leer('public/app/dia-d.html').includes('id="enlace-logistica"'), 'tarjetas del celular (coordinador y administrador) y el acceso del coordinador de puesto');
 
   servidor.close();
   await pool.end();

@@ -41,9 +41,6 @@ const MODULOS = [
   { clave: 'solicitudes', etiqueta: 'Solicitudes ciudadanas' },
   // Tareas y metas por zona: lo que la coordinación le asigna a su equipo (visita, entrega de material, libre) y el seguimiento hasta verificarlo.
   { clave: 'tareas', etiqueta: 'Tareas' },
-  // Encuestas internas: formularios cortos anónimos que el equipo aplica en campo, también sin señal. Dos módulos, para que quien aplica no vea resultados.
-  { clave: 'encuestas', etiqueta: 'Encuestas internas (construir)' },
-  { clave: 'encuestas_campo', etiqueta: 'Encuestas internas (aplicar en campo)' },
   // Puerta a puerta: visitas a votantes ya registrados. Dos módulos, para que quien arma las listas no sea quien las recorre.
   { clave: 'puerta_listas', etiqueta: 'Puerta a puerta (armar listas)' },
   { clave: 'puerta_visitas', etiqueta: 'Puerta a puerta (visitar en campo)' },

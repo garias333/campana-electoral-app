@@ -57,9 +57,6 @@ const IMPORTAR_EXPORTAR_POR_DEFECTO = {
   solicitudes: ['admin'],
   // Tareas (parche 306): el Excel agregado de cumplimiento por zona (sin nombres de nadie). No hay importación.
   tareas: ['admin'],
-  // Encuestas internas (parche 308): el Excel agregado de resultados (por zona y pregunta, con el mínimo por celda y la marca «Uso interno – no publicable»).
-  // Sin respuestas sueltas, sin textos libres. No hay importación.
-  encuestas: ['admin'],
   // Puerta a puerta (parche 312): el Excel agregado de cobertura y avance (por zona y por visitante, con el mínimo por celda; nunca una lista de casas ni de personas).
   puerta_listas: ['admin', 'coordinador'],
 };

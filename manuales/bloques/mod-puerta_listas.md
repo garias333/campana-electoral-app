@@ -54,7 +54,7 @@ En esta pantalla, sección **Guion de la visita**, el administrador escribe los 
 Menú **Puerta a puerta · panel**. Lo ven el administrador y el coordinador (el coordinador, solo lo de su equipo). Son **solo cifras**: nunca una lista de casas ni de personas.
 
 - **Cobertura por zona**: listas, puertas asignadas, puertas visitadas, visitas y el resultado de cada una (no abrió, no interesado, interesado, quiere registrarse, dejó una solicitud, pidió no volver).
-- **Mínimo de 5 visitas por celda** (el mismo de las encuestas). Una zona con menos no se muestra con su nombre: se suma en **Otras zonas**, y si el grupo tampoco llega, se le suma la zona visible más pequeña. Con muy pocas visitas en total, no se muestra ninguna zona.
+- **Mínimo de 5 visitas por celda** (el mismo mínimo que usa el panel en todas sus cifras). Una zona con menos no se muestra con su nombre: se suma en **Otras zonas**, y si el grupo tampoco llega, se le suma la zona visible más pequeña. Con muy pocas visitas en total, no se muestra ninguna zona.
 - **Avance por visitante**: sus listas, puertas asignadas, visitadas, por visitar, cerradas y sin respuesta, y sus visitas. «Por visitar», «Cerradas» y «Sin respuesta» son el estado de hoy.
 - **Filtro** por fechas (desde, hasta) y por franja del día (mañana, tarde o noche). No hay un detalle más fino que la franja.
 - **Descargar en Excel**: lo mismo que ves, con la marca «Uso interno – no publicable». Lo puede descargar el administrador y quien tenga la casilla «Importar / Exportar» de este módulo.

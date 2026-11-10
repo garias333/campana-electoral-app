@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v187';
+const CACHE_NAME = 'estrategia-v188';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -54,12 +54,8 @@ const ARCHIVOS_CASCARON = [
   '/app/mis-solicitudes.html',
   // Tareas (parche 305): se consultan y se trabajan sin señal (la cola vive en IndexedDB).
   '/app/mis-tareas.html',
-  // Encuestas internas (parche 307): se aplican sin señal (la cola y la copia viven en IndexedDB). La encuesta a aplicar viaja por sessionStorage, no por la
-  // dirección: la caché distingue por dirección COMPLETA y una consulta (?id=3) no estaría guardada.
-  '/app/encuestas-campo.html',
-  '/app/encuesta-aplicar.html',
+  // La zona de los formularios de campo (la usa «Registrar una solicitud»). Antes la compartía con «Aplicar una encuesta», que se eliminó (Orden menús 3).
   '/js/zona-campo.js',
-  '/js/encuestas-cola.js',
   // Puerta a puerta (parche 309): la lista se trabaja sin señal (la copia —con caducidad de 48 horas— y la cola viven en IndexedDB). Las reglas son el mismo archivo
   // que usa el servidor.
   // Eventos en el celular (parche 313): mis eventos y la asistencia se trabajan sin señal (la copia —48 horas— y la cola de marcas viven en IndexedDB).
