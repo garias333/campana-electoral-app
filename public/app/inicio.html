@@ -83,6 +83,8 @@ function limpiarNombreCandidato(nombre) {
 
 // Menú de líder y sublíder.
 const MENU_LIDER = [
+  // Mis avisos (parche 316): los avisos en la app que mandó la campaña, con el mensaje completo. Sin `modulo`: lo ven todos. Lleva la insignia de «nuevos».
+  { href: '/app/mis-avisos.html', icono: '🔔', titulo: 'Mis avisos', subtitulo: 'Lo que te mandó la campaña, completo', insigniaAvisos: true },
   { href: '/app/mis-registros.html', icono: '📝', titulo: 'Registro de votantes y sublíderes', subtitulo: 'Ver tu avance y agregar contactos' },
   // Tu enlace y tu QR de inscripción: la gente se inscribe sola desde su celular y queda en tu lista.
   // MENU_COORDINADOR hereda esta entrada (se arma con ...MENU_LIDER); el administrador no tiene enlace propio.
@@ -145,6 +147,7 @@ const MENU_COORDINADOR = [
 // celular no había cómo llegar a la pantalla donde se edita y donde el recuadro ámbar muestra el párrafo de las visitas.
 const MENU_ADMIN = [
   { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
+  { href: '/app/mis-avisos.html', icono: '🔔', titulo: 'Mis avisos', subtitulo: 'Lo que te mandó la campaña, completo', insigniaAvisos: true },
   { href: '/app/admin-estructura.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
   { href: '/territorial.html?app=1#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
   { href: '/app/admin-votantes.html', icono: '📈', titulo: 'Dashboard de votantes', subtitulo: 'Cobertura y votantes por zona, líder y puesto' },
@@ -203,8 +206,23 @@ function pintarMenu(rol, modulosPermitidos, esAspirante) {
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>
       <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
+      ${it.insigniaAvisos ? '<span id="insignia-avisos" hidden style="background:#C62828; color:#fff; border-radius:99px; font-size:0.74rem; font-weight:700; padding:2px 8px; margin-right:6px;"></span>' : ''}
       <div class="flecha" aria-hidden="true">›</div>
     </a>`).join('');
+  pintarInsigniaAvisos();
+}
+
+/* La insignia «N nuevos» de Mis avisos. «Nuevo» = más reciente que lo último que se abrió EN ESTE CELULAR (localStorage): no hay «leído» en
+   el servidor todavía (pediría una columna nueva). Solo cuenta los de los últimos 7 días. Si falla (sin señal), la insignia no se pinta. */
+async function pintarInsigniaAvisos() {
+  const el = document.getElementById('insignia-avisos');
+  if (!el) return;
+  try {
+    let visto = 0;
+    try { visto = parseInt(localStorage.getItem('avisos_ultimo_visto'), 10) || 0; } catch (_) { /* sin almacenamiento */ }
+    const r = await api('/push/mis-avisos/contar?desde=' + visto);
+    if (r && r.nuevos > 0) { el.textContent = r.nuevos > 9 ? '9+' : String(r.nuevos); el.hidden = false; }
+  } catch (_) { /* sin señal: sin insignia */ }
 }
 
 function pintarCampana(campana, bio) {

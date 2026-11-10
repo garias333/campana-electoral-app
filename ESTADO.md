@@ -12,7 +12,9 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 315** (`parches/campana-parche315.zip`, 50.649 bytes,
+- **Último parche generado: 316** (`parches/campana-parche316.zip`, 57.028 bytes,
+  sha256 `21d55b3b720b55ace20e1a732fe2fcbe4b8aacab438d33bd43b96a96b02ee8a1`, 7 archivos): «Mis avisos: al tocar un aviso en la app se abre el mensaje completo». **GENERADO el 10 de noviembre de 2026; los 6 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales).** **NO TOCA LA BASE.** **Requiere el 315** (y por tanto el 314). Service worker `v186`. Detalle en «Parche 316». Estado de publicación: ver «Parche 316».
+- **El anterior, el 315** (`parches/campana-parche315.zip`, 50.649 bytes,
   sha256 `f476c7cee4a6eae8845db8652f3636646d795af5ef16374a62d6455f726022ea`, 5 archivos): «Aviso en la app: cruce por teléfono con la cuenta y motivo claro cuando no llega». **GENERADO el 10 de noviembre de 2026; los 4 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (18 requires locales).** **NO TOCA LA BASE.** **Requiere el 314** (el service worker `v185` lleva `/js/mapa-fondo.js`, que el 314 trae). **PUBLICADO Y REGISTRADO el 10 de noviembre de 2026 (INACTIVO: falta cambiar la distribución a «seleccionadas» —municipal, departamental y c001, nunca la Base—, activarlo y aplicarlo desde el panel).** Detalle en «Parche 315».
 - **El anterior, el 314** (`parches/campana-parche314.zip`, 59.442 bytes,
   sha256 `651aeb542812d3358cb24497726fc1186d94163f733d0ca00112dee36c05e332`, 8 archivos): «Fondo de mapa común: arregla el mapa bloqueado en Solicitudes y Tareas». **GENERADO el 9 de noviembre de 2026; los 7 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **Requiere el 313** (el service worker `v184` lleva las entradas del 313). Detalle en «Parche 314».
@@ -288,6 +290,30 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 316 — «Mis avisos»: tocar un aviso abre el mensaje completo (10 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
+
+**El síntoma** (orden 43, Manizales, con el 315 aplicado). El aviso ya llega al celular, pero el teléfono recorta el texto y, al tocarlo, la app abría Inicio: el mensaje completo no se podía leer. Además, un envío de las 7:23 p. m. quedó en «Enviando…» con 1 destinatario, 0 enviados, 0 fallidos y 1 omitido.
+
+**Lo que había** (leído en el código). El push del CRM mandaba `{titulo, cuerpo, url}` sin `url` propia (caía en `/app/inicio.html`) y sin `tag` (todo bajo «estrategia-general»: un aviso REEMPLAZA al anterior en la bandeja). `notificationclick` del service worker ya enfocaba una ventana abierta y navegaba a `data.url`, o abría esa dirección: **no hizo falta tocarlo**. No existía ninguna pantalla con los avisos recibidos. Y el título que se escribía en la pantalla de envío NO se guardaba para push (`asunto` solo se guardaba en los canales de correo): siempre salía «Aviso de la campaña». Se corrigió de paso.
+
+**Por qué quedó en «Enviando…» (causa probable; no medido en Manizales, esta cuenta no lee esa base).** Tres mecanismos, los tres corregidos:
+1. `web-push` no tenía tiempo máximo: si el servicio de push no respondía, la petición se quedaba colgada, la fila en `enviando` y la campaña en «Enviando…» (el reconciliador no toca campañas que ESTE proceso cree estar enviando). Ahora `timeout` de 20 s: vence como un error cualquiera, la fila queda `fallida` con su motivo y la campaña se cierra.
+2. El listado contaba una fila `enviando` como «omitida» (`estado NOT IN ('enviado','fallido','pendiente')`): por eso decía «1 omitido» sin que nadie hubiera omitido nada. Ahora `enviando` también queda fuera de esa cuenta.
+3. Una campaña sin filas por enviar se cierra al terminar el ciclo (`cerrarCampanaSiTermino`), pero si ese cierre se perdía (reinicio entre crear las filas y cerrar) nadie volvía a mirarla: el reconciliador solo mira FILAS, no campañas. Nueva `cerrarCampanasSinFilasAbiertas`, en el ciclo de cada minuto, cierra las campañas `enviando` que no tienen filas abiertas y que este proceso no está enviando. Un envío con todos omitidos o sin contacto queda cerrado y el listado dice «No se envió».
+
+**Qué cambió.**
+- `public/app/mis-avisos.html` (nueva): bandeja del celular, los más nuevos arriba; cada aviso con título, fecha y vista previa; al tocarlo (o al llegar por la notificación, `?id=`) se abre el mensaje COMPLETO. Si el id no es de la persona o no existe: «Ese aviso no está disponible» (y su propia lista se ve normal).
+- `routes/push.routes.js`: `GET /api/push/mis-avisos`, `/mis-avisos/contar?desde=` y `/mis-avisos/:id`. **Solo filas push `enviado` cuyo `destinatario_contacto` es el usuario de la SESIÓN** (filtro en la consulta, no un dato del navegador); otra persona recibe **404** —el mismo que un aviso que no existe—. Pide solo sesión (como el resto del archivo): un testigo o un sublíder tienen que poder leer lo que reciben. El texto se arma igual que al enviar (`textoDeAvisoRecibido`, exportada de `comunicaciones.routes.js`), porque el envío no guarda el texto ya personalizado.
+- `routes/comunicaciones.routes.js` + `config/push.js`: el aviso del CRM lleva `url = /app/mis-avisos.html?id=<fila>` y `tag = aviso-<fila>`; título guardado para push; `omitidos` sin `enviando`; `cerrarCampanasSinFilasAbiertas`; `timeout` de 20 s. **Los otros llamadores de push no cambian**: las alertas del Día D siguen con `/app/alertas-dia-d.html`; recordatorios, tareas y solicitudes siguen abriendo Inicio.
+- `public/app/inicio.html`: «Mis avisos» 🔔 en el menú del líder (el coordinador lo hereda) y del administrador, con una insignia «N» de nuevos.
+- `public/service-worker.js`: `/app/mis-avisos.html` en la coraza; caché **`v186`**.
+
+**Lo que NO se hizo, a propósito.** No hay «leído» en el servidor (pediría una columna: migración). La insignia cuenta los avisos de los últimos 7 días con id mayor que el último que se abrió **en ese celular** (`localStorage`): en otro dispositivo vuelve a contar. El **testigo** no ve Inicio (va directo a su pantalla del Día D), así que no tiene el acceso; sí le funciona la dirección de la notificación. El **aspirante con sublicencia** no alcanza `/api/push` (no está en `PERMITIDOS` de `middleware/aspirante.js`, ni lo estaba para suscribirse): no se amplió.
+
+**Pruebas** (`scripts/probar-mis-avisos.js`, 40 comprobaciones; base desechable; `web-push` SIMULADO —captura carga y opciones—, service worker REAL cargado en un entorno de pruebas, Chromium real; corrida varias veces: «TODO BIEN»). Regresión en verde sobre la misma base: `probar-aviso-app-destinatario.js` (41), `probar-recordatorios.js` (246) y `probar-inscripcion-enlace.js` (467).
+
+**Pendientes.** (1) **Publicar y registrar el 316** (distribución «seleccionadas» con municipal, departamental y c001; nunca la Base; requiere el 315 aplicado; sí reinicio de las campañas, no `init-db`). (2) La causa exacta del «Enviando…» de las 7:23 no se pudo medir; si vuelve a pasar, mirar `comunicaciones_envios` de esa campaña (¿una fila `enviando`?). (3) «Leído» en el servidor, si se quiere que el contador no dependa del celular.
 
 ## Parche 315 — «Aviso en la app» llega al número tecleado y dice por qué no llega (10 de noviembre de 2026, publicado y registrado INACTIVO; NO TOCA LA BASE)
 

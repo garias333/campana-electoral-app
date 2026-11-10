@@ -25,6 +25,8 @@
  */
 const pool = require('./db');
 
+const TIEMPO_MAXIMO_ENVIO_MS = 20000;
+
 let webpush = null;
 let configurado = false;
 
@@ -88,7 +90,7 @@ async function usuariosConDispositivo(usuarioIds) {
  *
  * @returns {Promise<{entregados:number, eliminados:number}>}
  */
-async function enviarAUsuario(usuarioId, { titulo, cuerpo, url }) {
+async function enviarAUsuario(usuarioId, { titulo, cuerpo, url, tag }) {
   const wp = obtenerWebPush();
   if (!wp) throw new Error('El canal de notificaciones no está configurado en el servidor.');
 
@@ -98,14 +100,19 @@ async function enviarAUsuario(usuarioId, { titulo, cuerpo, url }) {
     throw new Error('Esta persona no tiene ningún dispositivo registrado para avisos.');
   }
 
-  const carga = JSON.stringify({ titulo, cuerpo, url: url || '/app/inicio.html' });
+  // `tag` (opcional): sin él, el service worker agrupa todo bajo «estrategia-general» y un aviso REEMPLAZA al anterior. Los avisos del CRM
+  // llevan el suyo (aviso-<fila>) para que ninguno borre a otro: cada uno tiene su lugar en «Mis avisos». Los demás llamadores no lo mandan.
+  const carga = JSON.stringify({ titulo, cuerpo, url: url || '/app/inicio.html', ...(tag ? { tag } : {}) });
   let entregados = 0, eliminados = 0;
   let ultimoError = null;
 
   for (const d of dispositivos) {
     try {
+      // `timeout`: sin él, un servicio de push que no responde deja la petición colgada INDEFINIDAMENTE, y con ella la fila del envío en
+      // «enviando» y la campaña en «Enviando…» (el reconciliador no toca campañas que este proceso cree estar enviando). Pasado el
+      // límite es un error como cualquier otro: la fila queda «fallida» con su motivo y la campaña se cierra.
       await wp.sendNotification(
-        { endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, carga);
+        { endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, carga, { timeout: TIEMPO_MAXIMO_ENVIO_MS });
       entregados++;
       await pool.query(`UPDATE push_suscripciones SET ultimo_envio = NOW() WHERE id = ?`, [d.id]);
     } catch (err) {

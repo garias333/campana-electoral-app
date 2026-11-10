@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v185';
+const CACHE_NAME = 'estrategia-v186';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -46,6 +46,9 @@ const ARCHIVOS_CASCARON = [
   '/app/apple-touch-icon.png',
   '/js/api-core.js',
   '/app/mis-registros.html',
+  // Mis avisos (parche 316): la pantalla que abre una notificación del CRM. La dirección lleva ?id=: la caché distingue por dirección completa, así que sin señal
+  // solo se abre la pantalla sin id (la lista no se guarda: viene de /api/).
+  '/app/mis-avisos.html',
   // Solicitudes ciudadanas (parche 303): se registran y se consultan sin señal (la cola vive en IndexedDB).
   '/app/solicitud-nueva.html',
   '/app/mis-solicitudes.html',

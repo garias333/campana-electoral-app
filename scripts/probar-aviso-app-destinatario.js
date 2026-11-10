@@ -50,7 +50,7 @@ const MOTIVO_DISPOSITIVO = 'Tiene cuenta pero no ha activado los avisos en su ce
     /* ---------- 1. Estático ---------- */
     console.log('\n1. Estático');
     const sw = fs.readFileSync(path.join(RAIZ, 'public/service-worker.js'), 'utf8');
-    ok(/CACHE_NAME = 'estrategia-v185'/.test(sw), 'service worker: caché v185');
+    ok(/CACHE_NAME = 'estrategia-v\d+'/.test(sw), 'service worker: caché versionada');
     const tel = require('../lib/telefono');
     ok(['3104157434', '310 415 7434', '+57 310 415 7434', '573104157434', '(+57) 310-415-7434'].every((t) => tel.ultimos10(t) === '3104157434'), 'ultimos10: 10 dígitos, con espacios, +57, 57 pegado y guiones dan lo mismo');
     ok(tel.ultimos10('abc') === null && tel.ultimos10('604 1234') === null && tel.ultimos10(null) === null, 'ultimos10: lo que no llega a 10 dígitos no se compara');

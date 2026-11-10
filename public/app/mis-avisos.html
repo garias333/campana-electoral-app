@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#142a3f">
+<title>Mis avisos · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  /* «MIS AVISOS» (parche 316): los avisos en la app que mandó la campaña, con su mensaje COMPLETO (la notificación del teléfono lo recorta). */
+  .aviso-caja { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
+  .aviso-caja.abierto { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(20, 42, 63, .12); }
+  .aviso-caja .arriba { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .aviso-caja .titulo { font-weight: 700; color: var(--navy); }
+  .aviso-caja .fecha { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
+  .aviso-caja .texto { margin: 8px 0 0; font-size: 0.95rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .aviso-caja .vista-previa { color: var(--muted); }
+  .aviso-caja button.abrir { all: unset; cursor: pointer; display: block; width: 100%; }
+  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div id="lista-avisos"><p class="vacio-app">Cargando…</p></div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+const CLAVE_VISTO = 'avisos_ultimo_visto';
+let avisos = [];
+let abiertoId = null;
+
+function fechaLarga(v) {
+  if (!v) return '';
+  const d = new Date(String(v).replace(' ', 'T'));
+  return isNaN(d) ? String(v).slice(0, 16) : d.toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+function pintar() {
+  if (!avisos.length) { $('lista-avisos').innerHTML = '<p class="vacio-app">Todavía no has recibido avisos de la campaña.</p>'; return; }
+  $('lista-avisos').innerHTML = avisos.map((a) => {
+    const abierto = a.id === abiertoId;
+    // Cerrado: solo un pedazo del mensaje. Abierto (tocado, o el que abrió la notificación): el mensaje COMPLETO.
+    const texto = abierto ? esc(a.mensaje) : esc(a.mensaje.length > 110 ? a.mensaje.slice(0, 110).trimEnd() + '…' : a.mensaje);
+    return `<div class="aviso-caja ${abierto ? 'abierto' : ''}" id="aviso-${a.id}">
+      <button type="button" class="abrir" data-id="${a.id}" aria-expanded="${abierto}">
+        <div class="arriba"><span class="titulo">${esc(a.titulo)}</span><span class="fecha">${esc(fechaLarga(a.fecha))}</span></div>
+        <p class="texto ${abierto ? '' : 'vista-previa'}">${texto}</p>
+      </button></div>`;
+  }).join('');
+  $('lista-avisos').querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', () => {
+    const id = Number(b.dataset.id);
+    abiertoId = abiertoId === id ? null : id;
+    pintar();
+  }));
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Mis avisos', 'Lo que te mandó la campaña', '/app/inicio.html');
+
+  const pedido = parseInt(new URLSearchParams(location.search).get('id'), 10);
+  try {
+    const r = await api('/push/mis-avisos');
+    avisos = r.avisos || [];
+  } catch (e) {
+    $('lista-avisos').innerHTML = '<p class="vacio-app">No se pudieron cargar los avisos. Con señal se cargan solos.</p>';
+    return;
+  }
+
+  // Lo que se vio hasta aquí queda marcado en ESTE celular (alimenta la insignia de Inicio).
+  try { if (avisos.length) localStorage.setItem(CLAVE_VISTO, String(Math.max(...avisos.map((a) => a.id)))); } catch (_) { /* sin almacenamiento */ }
+
+  if (pedido) {
+    if (avisos.some((a) => a.id === pedido)) {
+      abiertoId = pedido;
+    } else {
+      // Puede ser un aviso viejo que ya no cabe en la lista, o uno que NO es de esta persona: el servidor responde igual (404) en los dos casos.
+      try {
+        const uno = await api('/push/mis-avisos/' + pedido);
+        avisos = [uno, ...avisos];
+        abiertoId = uno.id;
+      } catch (e) {
+        const a = $('aviso'); a.textContent = 'Ese aviso no está disponible.'; a.className = 'aviso-app visible error';
+      }
+    }
+  }
+  pintar();
+  if (abiertoId) { const el = $('aviso-' + abiertoId); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' }); }
+})();
+</script>
+</body>
+</html>

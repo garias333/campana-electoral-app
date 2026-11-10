@@ -92,4 +92,79 @@ router.get('/mis-dispositivos', async (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------------------------------------------------------------------------
+   «MIS AVISOS» (parche 316): los avisos en la app que RECIBIÓ quien inició sesión.
+
+   POR QUÉ. El teléfono recorta el texto de una notificación y, al tocarla, la app abría Inicio: el mensaje completo se perdía. Ahora la
+   notificación abre /app/mis-avisos.html?id=<fila> y ahí se lee entero.
+
+   DE DÓNDE SALE. De comunicaciones_envios (la fila de cada destinatario) unida a su campaña: solo las campañas de canal push y solo las
+   filas 'enviado'. En un aviso push, `destinatario_contacto` es el usuario_id de la CUENTA a la que se mandó (ver obtenerDestinatarios).
+   El texto no está guardado ya personalizado: se arma igual que al enviar (textoDeAvisoRecibido).
+
+   QUIÉN VE QUÉ. SIEMPRE se filtra por el usuario de la SESIÓN, en la consulta, nunca por un dato que mande el navegador: otra persona que
+   abra la misma dirección recibe 404 (el mismo que un aviso que no existe: no se revela cuál es de quién). Esta ruta pide solo sesión,
+   como el resto de este archivo: un testigo o un sublíder reciben avisos y tienen que poder leerlos.
+
+   LO QUE NO HAY: «leído» en el servidor. Marcarlo pide una columna nueva (migración); el contador de «nuevos» de Inicio se lleva en cada
+   celular (localStorage). Está en el pendiente del ESTADO.md.
+   ------------------------------------------------------------------------------------------------------------------------------------ */
+const DESDE_AVISOS_SQL = `
+  FROM comunicaciones_envios e JOIN comunicaciones_campanas c ON c.id = e.campana_id
+ WHERE c.canal = 'push' AND e.estado = 'enviado' AND e.destinatario_contacto = ?`;
+
+async function armarAviso(fila) {
+  const { textoDeAvisoRecibido } = require('./comunicaciones.routes');   // al llamar, no al cargar: este archivo no depende del orden de app.js
+  return {
+    id: fila.id,
+    titulo: fila.asunto || 'Aviso de la campaña',
+    mensaje: await textoDeAvisoRecibido(fila, fila.mensaje),
+    fecha: fila.enviado_en,
+  };
+}
+
+/** Los más nuevos primero. `?limite=` (máx. 100). */
+router.get('/mis-avisos', async (req, res) => {
+  try {
+    const limite = Math.min(100, Math.max(1, parseInt(req.query.limite, 10) || 50));
+    const [filas] = await pool.query(
+      `SELECT e.id, e.destinatario_tipo, e.destinatario_id, e.destinatario_nombre, e.enviado_en, c.asunto, c.mensaje ${DESDE_AVISOS_SQL}
+        ORDER BY e.id DESC LIMIT ?`, [String(req.session.usuario.id), limite]);
+    res.json({ avisos: await Promise.all(filas.map(armarAviso)) });
+  } catch (err) {
+    console.error('Error listando mis avisos:', err);
+    res.status(500).json({ error: 'No se pudieron cargar los avisos.' });
+  }
+});
+
+/** Cuántos avisos nuevos hay (los de los últimos 7 días con id mayor que `?desde=`), para la insignia de Inicio. */
+router.get('/mis-avisos/contar', async (req, res) => {
+  try {
+    const desde = Math.max(0, parseInt(req.query.desde, 10) || 0);
+    const [[r]] = await pool.query(
+      `SELECT COUNT(*) AS nuevos, COALESCE(MAX(e.id), 0) AS ultimo_id ${DESDE_AVISOS_SQL}
+          AND e.id > ? AND e.enviado_en >= NOW() - INTERVAL 7 DAY`, [String(req.session.usuario.id), desde]);
+    res.json({ nuevos: Number(r.nuevos) || 0, ultimo_id: Number(r.ultimo_id) || 0 });
+  } catch (err) {
+    console.error('Error contando mis avisos:', err);
+    res.status(500).json({ error: 'No se pudo contar los avisos.' });
+  }
+});
+
+/** Un aviso completo. 404 si no existe o NO es de quien pregunta. */
+router.get('/mis-avisos/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Ese aviso no está disponible.' });
+  try {
+    const [[fila]] = await pool.query(
+      `SELECT e.id, e.destinatario_tipo, e.destinatario_id, e.destinatario_nombre, e.enviado_en, c.asunto, c.mensaje ${DESDE_AVISOS_SQL} AND e.id = ?`,
+      [String(req.session.usuario.id), id]);
+    if (!fila) return res.status(404).json({ error: 'Ese aviso no está disponible.' });
+    res.json(await armarAviso(fila));
+  } catch (err) {
+    console.error('Error leyendo un aviso:', err);
+    res.status(500).json({ error: 'No se pudo cargar el aviso.' });
+  }
+});
+
 module.exports = router;

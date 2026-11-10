@@ -926,12 +926,13 @@ router.get('/campanas', async (req, res) => {
     //
     // Se cuenta por descarte y no con una lista de estados omitidos, para
     // que un estado nuevo entre solo en vez de quedarse invisible como
-    // estos. 'pendiente' queda fuera: ese todavía va en camino.
+    // estos. 'pendiente' y 'enviando' quedan fuera: esos todavía van en camino (una fila «enviando» se contaba como omitida y la
+    // campaña parecía «Enviando… · 1 omitido» aunque nadie la hubiera omitido).
     const [filas] = await pool.query(`
       SELECT c.*, u.nombre AS creado_por_nombre,
              (SELECT COUNT(*) FROM comunicaciones_envios e
                WHERE e.campana_id = c.id
-                 AND e.estado NOT IN ('enviado', 'fallido', 'pendiente')) AS omitidos
+                 AND e.estado NOT IN ('enviado', 'fallido', 'pendiente', 'enviando')) AS omitidos
       FROM comunicaciones_campanas c
       LEFT JOIN usuarios u ON u.id = c.created_by
       ORDER BY c.created_at DESC
@@ -1143,9 +1144,12 @@ async function enviarUno(canal, contacto, asunto, mensaje, adjuntoUrl, statusCal
     // Aquí `contacto` es el usuario_id (ver obtenerDestinatarios). El
     // asunto hace de título del aviso: en push el título se ve siempre,
     // el cuerpo puede quedar recortado por el sistema.
+    // Al tocarlo, el aviso abre SU mensaje completo en «Mis avisos» (el teléfono recorta el texto de la notificación). `ctx.contactoId` es
+    // la fila del envío: la misma que lee GET /api/push/mis-avisos/:id.
     const { entregados } = await pushSvc.enviarAUsuario(Number(contacto), {
       titulo: asunto || 'Aviso de la campaña',
-      cuerpo: mensaje
+      cuerpo: mensaje,
+      ...(ctx.contactoId ? { url: `/app/mis-avisos.html?id=${ctx.contactoId}`, tag: `aviso-${ctx.contactoId}` } : {})
     });
     // No hay SID: se deja constancia de en cuántos dispositivos entró.
     return `push:${entregados}`;
@@ -1529,6 +1533,44 @@ async function cerrarCampanaSiTermino(campanaId) {
 }
 
 /**
+ * CAMPAÑAS «ENVIANDO…» SIN NADA QUE ENVIAR (parche 316). Una campaña en la que ningún destinatario se pudo enviar (todos sin contacto,
+ * dados de baja u omitidos) no tiene filas abiertas: cerrarCampanaSiTermino la cierra al terminar el ciclo. Pero si ese cierre se perdió
+ * —el proceso se reinició entre crear las filas y cerrar, o una fila quedó colgada y se reconcilió después—, la campaña se quedaba en
+ * «Enviando…» para siempre: nadie volvía a mirarla (el reconciliador solo mira FILAS en 'enviando', no campañas). Cada minuto se cierran las que
+ * no tienen filas abiertas y que este proceso no está enviando. Devuelve cuántas cerró.
+ */
+async function cerrarCampanasSinFilasAbiertas() {
+  const [campanas] = await pool.query(
+    `SELECT c.id FROM comunicaciones_campanas c
+      WHERE c.estado = 'enviando'
+        AND NOT EXISTS (SELECT 1 FROM comunicaciones_envios e WHERE e.campana_id = c.id AND e.estado IN ('pendiente', 'enviando'))`);
+  let n = 0;
+  for (const c of campanas) {
+    if (campanasEnProceso.has(c.id)) continue;
+    await cerrarCampanaSiTermino(c.id);
+    n++;
+  }
+  if (n) console.log(`Se cerraron ${n} campaña(s) que quedaron en «Enviando…» sin filas por enviar.`);
+  return n;
+}
+
+/**
+ * El texto de un aviso en la app TAL COMO LE LLEGÓ a su destinatario, para «Mis avisos». Se arma igual que al enviar
+ * (personalizarMensaje), porque el envío no guarda el texto ya personalizado. Si algo falla se devuelve el mensaje de la campaña tal cual: es
+ * mejor que la persona lea «Hola {nombre}…» a que no pueda leer el aviso.
+ */
+async function textoDeAvisoRecibido(envio, mensajeCampana) {
+  try {
+    const [[cfg]] = await pool.query(`SELECT slogan_campana FROM configuracion_campana WHERE id = 1`);
+    const slogan = (cfg && cfg.slogan_campana ? cfg.slogan_campana : '').trim();
+    const r = await personalizarMensaje(mensajeCampana, envio, slogan, null, 'push', yaVoto.baseDelSitio() || '');
+    return (r && r.texto) ? r.texto : mensajeCampana;
+  } catch (_) {
+    return mensajeCampana;
+  }
+}
+
+/**
  * Las filas que quedaron en 'enviando' (el proceso murió después de reclamarlas) se RECONCILIAN, no se reenvían.
  *   · SMS: se busca en la bitácora (sms_envios, lote «crm-<campaña>», contacto = la fila). Si el proveedor lo aceptó →
  *     'enviado'; si lo rechazó → 'fallido' con su motivo.
@@ -1896,7 +1938,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO comunicaciones_campanas (nombre, canal, asunto, mensaje, filtros, adjunto_nombre, adjunto_url, status_callback_url, estado, total_destinatarios, created_by, programado_para)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, canal, esCanalDeCorreo(canal) ? asunto : null, mensaje, JSON.stringify(filtros || {}),
+      [nombre, canal, (esCanalDeCorreo(canal) || canal === 'push') ? asunto : null, mensaje, JSON.stringify(filtros || {}),
        adjuntoNombre, adjuntoUrl, statusCallbackUrl,
        esProgramada ? 'borrador' : 'enviando',
        destinatarios.length, req.session.usuario.id,
@@ -1961,6 +2003,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
 async function despacharCampanasProgramadas() {
   try {
     await reconciliarEnviando({ minutos: 10 });   // las que quedaron «enviando» hace rato y nadie está enviando
+    await cerrarCampanasSinFilasAbiertas();         // y las campañas «Enviando…» a las que no les queda nada por enviar
     const [pendientes] = await pool.query(
       `SELECT id FROM comunicaciones_campanas
         WHERE estado = 'borrador' AND programado_para IS NOT NULL AND programado_para <= NOW()`);
@@ -2190,5 +2233,7 @@ module.exports.despacharCampanasProgramadas = despacharCampanasProgramadas;
 module.exports.procesarEnvioCampana = procesarEnvioCampana;
 module.exports.reintentarFallidos = reintentarFallidos;
 module.exports.reconciliarEnviando = reconciliarEnviando;
+module.exports.cerrarCampanasSinFilasAbiertas = cerrarCampanasSinFilasAbiertas;
+module.exports.textoDeAvisoRecibido = textoDeAvisoRecibido;
 module.exports.releerAntesDeEnviar = releerAntesDeEnviar;
 module.exports.campanasEnProceso = campanasEnProceso;
