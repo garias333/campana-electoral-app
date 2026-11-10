@@ -13,7 +13,7 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Último parche generado: 316** (`parches/campana-parche316.zip`, 57.028 bytes,
-  sha256 `21d55b3b720b55ace20e1a732fe2fcbe4b8aacab438d33bd43b96a96b02ee8a1`, 7 archivos): «Mis avisos: al tocar un aviso en la app se abre el mensaje completo». **GENERADO el 10 de noviembre de 2026; los 6 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales).** **NO TOCA LA BASE.** **Requiere el 315** (y por tanto el 314). Service worker `v186`. Detalle en «Parche 316». Estado de publicación: ver «Parche 316».
+  sha256 `21d55b3b720b55ace20e1a732fe2fcbe4b8aacab438d33bd43b96a96b02ee8a1`, 7 archivos): «Mis avisos: al tocar un aviso en la app se abre el mensaje completo». **GENERADO el 10 de noviembre de 2026; los 6 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (22 requires locales).** **NO TOCA LA BASE.** **Requiere el 315** (y por tanto el 314). Service worker `v186`. **PUBLICADO Y REGISTRADO el 10 de noviembre de 2026 (INACTIVO: falta cambiar la distribución a «seleccionadas» —municipal, departamental y c001, nunca la Base—, activarlo y aplicarlo desde el panel).** Detalle en «Parche 316».
 - **El anterior, el 315** (`parches/campana-parche315.zip`, 50.649 bytes,
   sha256 `f476c7cee4a6eae8845db8652f3636646d795af5ef16374a62d6455f726022ea`, 5 archivos): «Aviso en la app: cruce por teléfono con la cuenta y motivo claro cuando no llega». **GENERADO el 10 de noviembre de 2026; los 4 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (18 requires locales).** **NO TOCA LA BASE.** **Requiere el 314** (el service worker `v185` lleva `/js/mapa-fondo.js`, que el 314 trae). **PUBLICADO Y REGISTRADO el 10 de noviembre de 2026 (INACTIVO: falta cambiar la distribución a «seleccionadas» —municipal, departamental y c001, nunca la Base—, activarlo y aplicarlo desde el panel).** Detalle en «Parche 315».
 - **El anterior, el 314** (`parches/campana-parche314.zip`, 59.442 bytes,
@@ -291,7 +291,9 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 316 — «Mis avisos»: tocar un aviso abre el mensaje completo (10 de noviembre de 2026, GENERADO; NO TOCA LA BASE)
+## Parche 316 — «Mis avisos»: tocar un aviso abre el mensaje completo (10 de noviembre de 2026, publicado y registrado INACTIVO; NO TOCA LA BASE)
+
+**Publicado y registrado el 10 de noviembre de 2026** (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `parche-316.zip` en el servidor de licencias con huella igual a la local (`21d55b3b720b55ac`), registro **HTTP 200**, firmado (Ed25519), **`toca_base_datos = false`**, estado INACTIVO. Falta: distribución «seleccionadas» (municipal, departamental, c001; NUNCA la Base), activarlo y aplicarlo desde el panel (requiere el 315 aplicado; reiniciar las campañas, sin `init-db`).
 
 **El síntoma** (orden 43, Manizales, con el 315 aplicado). El aviso ya llega al celular, pero el teléfono recorta el texto y, al tocarlo, la app abría Inicio: el mensaje completo no se podía leer. Además, un envío de las 7:23 p. m. quedó en «Enviando…» con 1 destinatario, 0 enviados, 0 fallidos y 1 omitido.
 
