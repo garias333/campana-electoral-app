@@ -339,9 +339,9 @@
    ========================================================================== */
 .btn-neutro {
   display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
-  padding: 9px 14px; border-radius: 9px; cursor: pointer; text-decoration: none;
-  background: #fff; color: #084298;
-  border: 1.5px solid var(--fi-borde-fuerte);
+  padding: 9px 14px; border-radius: 999px; cursor: pointer; text-decoration: none;
+  background: #fff; color: var(--marca-azul-osc);
+  border: 1.5px solid var(--borde);
   font-weight: 600; font-size: .86rem; line-height: 1.2;
   transition: background .12s ease, border-color .12s ease;
 }
@@ -367,12 +367,13 @@
 
 /* «+ Agregar persona»: amarillo con letra navy (10,15) y borde dorado, que es
    lo que lo separa del fondo claro sin ensuciar el amarillo. */
+/* FASE 2 (parche 323): el mismo primario de style.css (`.btn-primario`): amarillo de marca, letra #1b2333, píldora de 44px. */
 .btn-principal-fichas {
-  background: #FFC300; color: #131F3B; border: 1.5px solid #8C5E17;
-  font-size: .95rem; padding: 12px 20px; border-radius: 9px; font-weight: 700;
-  cursor: pointer; box-shadow: 0 2px 0 rgba(140,94,23,.35);
+  background: var(--marca-amarillo); color: var(--texto); border: 1.5px solid transparent;
+  font-size: .95rem; padding: 11px 20px; min-height: 44px; border-radius: 999px; font-weight: 700;
+  cursor: pointer;
 }
-.btn-principal-fichas:hover { background: #E8B200; }
+.btn-principal-fichas:hover { background: #E6AF00; }
 
 /* LA LISTA NO VA DENTRO DE UNA TARJETA BLANCA. Cada ficha YA es una tarjeta;
    meterlas todas dentro de otra las hacía desaparecer sobre el mismo blanco y

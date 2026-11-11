@@ -11,7 +11,7 @@
 <style>
   .calendario-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));   /* minmax(0,…): con 1fr a secas el contenido nowrap de un chip ensanchaba la columna y la página se desbordaba a 390px */
     border-top: 1px solid var(--color-border, #e2e2e2);
     border-left: 1px solid var(--color-border, #e2e2e2);
   }
@@ -132,10 +132,10 @@
     <div id="agenda-form-error" class="mensaje-error"></div>
     <form id="form-editar-agenda">
       <input type="hidden" id="agenda-form-id">
-      <div class="campo"><label>Título</label><input id="agenda-form-titulo" required></div>
+      <div class="campo"><label for="agenda-form-titulo">Título</label><input id="agenda-form-titulo" required></div>
       <div class="fila">
         <div class="campo">
-          <label>Tipo</label>
+          <label for="agenda-form-tipo">Tipo</label>
           <select id="agenda-form-tipo">
             <option value="reunion">Reunión</option>
             <option value="evento_publico">Evento público</option>
@@ -145,7 +145,7 @@
           </select>
         </div>
         <div class="campo">
-          <label>Estado</label>
+          <label for="agenda-form-estado">Estado</label>
           <select id="agenda-form-estado">
             <option value="programado">Programado</option>
             <option value="realizado">Realizado</option>
@@ -154,12 +154,12 @@
         </div>
       </div>
       <div class="fila">
-        <div class="campo"><label>Fecha y hora de inicio</label><input type="datetime-local" id="agenda-form-fecha-inicio" required></div>
-        <div class="campo"><label>Fecha y hora de fin</label><input type="datetime-local" id="agenda-form-fecha-fin"></div>
+        <div class="campo"><label for="agenda-form-fecha-inicio">Fecha y hora de inicio</label><input type="datetime-local" id="agenda-form-fecha-inicio" required></div>
+        <div class="campo"><label for="agenda-form-fecha-fin">Fecha y hora de fin</label><input type="datetime-local" id="agenda-form-fecha-fin"></div>
       </div>
-      <div class="campo"><label>Lugar</label><input id="agenda-form-lugar"></div>
-      <div class="campo"><label>Meta de asistentes</label><input type="number" id="agenda-form-meta-asistentes" value="0"></div>
-      <div class="campo"><label>Descripción</label><textarea id="agenda-form-descripcion" rows="2"></textarea></div>
+      <div class="campo"><label for="agenda-form-lugar">Lugar</label><input id="agenda-form-lugar"></div>
+      <div class="campo"><label for="agenda-form-meta-asistentes">Meta de asistentes</label><input type="number" id="agenda-form-meta-asistentes" value="0"></div>
+      <div class="campo"><label for="agenda-form-descripcion">Descripción</label><textarea id="agenda-form-descripcion" rows="2"></textarea></div>
       <button type="submit" class="btn-primario">Guardar cambios</button>
     </form>
   </div>

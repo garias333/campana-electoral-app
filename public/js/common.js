@@ -2054,3 +2054,292 @@ function vigilarDesplegables() {
 document.addEventListener('DOMContentLoaded', () => {
   vigilarDesplegables();
 });
+
+
+/* ======================================================================
+   REDISEÑO FASE 2 (orden 6, parche 323): ERRORES JUNTO AL CAMPO, AVISO FLOTANTE
+   Y MODAL LARGO.
+
+   mostrarErrorCampo / limpiarErrores / mostrarToast son los MISMOS de
+   public/app/app-comun.js (el celular), COPIADOS y no compartidos: aquel archivo
+   es de la app de campo y carga sus propias cosas (barra fija, teclado); este
+   es el JS común de las pantallas de computador. La única diferencia es dónde
+   se escribe el texto: aquí el contenedor del campo es `.campo` (o `.campo-app`).
+     · mostrarErrorCampo(campo, mensaje) — el error es de UN campo: se marca (borde y fondo
+       rojos, aria-invalid="true"), se escribe debajo con «⚠ » y se lleva el foco hasta él.
+       Si el campo no existe, sale como aviso flotante.
+     · limpiarErrores(form)              — quita todas las marcas y los textos de ese formulario.
+     · mostrarToast(texto, tipo)         — error general o del servidor, o un «Guardado»:
+       aviso flotante de 3 s. tipo: 'ok' | 'error' | (nada = neutro).
+   El texto va como ÚLTIMO hijo del contenedor del campo: no cambia el orden de lo que ya hay.
+   ====================================================================== */
+function limpiarErrorCampo(campo) {
+  if (!campo || !campo.removeAttribute) return;
+  campo.removeAttribute('aria-invalid');
+  campo.classList.remove('campo-error', 'pf-error');
+  const id = campo.dataset ? campo.dataset.errorId : null;
+  if (id) {
+    const msg = document.getElementById(id);
+    if (msg) msg.remove();
+    delete campo.dataset.errorId;
+    campo.removeAttribute('aria-describedby');
+  }
+}
+
+function limpiarErrores(form) {
+  const raiz = form || document;
+  raiz.querySelectorAll('[aria-invalid="true"], .campo-error, .pf-error').forEach(limpiarErrorCampo);
+  raiz.querySelectorAll('.error-campo').forEach((m) => m.remove());
+}
+
+/* UN ERROR TERMINA EL «GUARDANDO…». activarAvisoBotonesGuardar() pone el botón en «Guardando…» (y lo desactiva) al enviar, y solo lo
+   devuelve cuando aparece un .mensaje-ok/.mensaje-error o se cierra la ventana. Un error junto al campo o en un aviso flotante no es
+   ninguna de las dos cosas: sin esto el botón se quedaría muerto hasta el plazo de seguridad (12 s) y no se podría corregir y reenviar. */
+function soltarBotonesGuardando() {
+  document.querySelectorAll('button[data-guardando="si"]').forEach(restaurarBotonGuardar);
+}
+
+function mostrarErrorCampo(campo, mensaje) {
+  soltarBotonesGuardando();
+  if (typeof campo === 'string') campo = document.getElementById(campo);
+  if (!campo) { mostrarToast(mensaje, 'error'); return; }
+  limpiarErrorCampo(campo);
+  const esControl = /^(INPUT|SELECT|TEXTAREA|CANVAS)$/.test(campo.tagName);
+  if (esControl) { campo.setAttribute('aria-invalid', 'true'); campo.classList.add('campo-error'); }
+  const envoltura = campo.closest('label');
+  const contenedor = campo.closest('.campo-app, .campo') || (envoltura && envoltura.parentElement) || campo.parentElement;
+  const msg = document.createElement('div');
+  msg.className = 'error-campo';
+  msg.id = 'err-' + Math.random().toString(36).slice(2, 9);
+  msg.setAttribute('aria-live', 'polite');
+  msg.textContent = '⚠ ' + mensaje;
+  if (contenedor) contenedor.appendChild(msg); else campo.insertAdjacentElement('afterend', msg);
+  campo.dataset.errorId = msg.id;
+  if (esControl) campo.setAttribute('aria-describedby', msg.id);
+  try { (envoltura || campo).scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* navegador viejo */ }
+  if (typeof campo.focus === 'function' && campo.tagName !== 'CANVAS') campo.focus({ preventScroll: true });
+}
+
+/* Al corregir un campo se le quita el error, sin esperar a que se vuelva a enviar. */
+['input', 'change'].forEach((ev) => document.addEventListener(ev, (e) => {
+  const c = e.target;
+  if (c && c.dataset && c.dataset.errorId) limpiarErrorCampo(c);
+}, true));
+
+/* DIFERENCIA CON EL DEL CELULAR: allá todo dura 3 s; aquí un texto largo (el resumen de una importación, «se creó la
+   cuenta de acceso…») dura más —unos 55 ms por letra, entre 3 y 15 s— porque con alert() esperaba a que lo leyeran. */
+function mostrarToast(texto, tipo) {
+  if (tipo === 'error') soltarBotonesGuardando();
+  const viejo = document.getElementById('toast-app');
+  if (viejo) viejo.remove();
+  texto = String(texto == null ? '' : texto);
+  const el = document.createElement('div');
+  el.id = 'toast-app';
+  el.className = 'toast-app' + (tipo === 'ok' ? ' ok' : (tipo === 'error' ? ' error' : ''));
+  el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+  el.textContent = texto;
+  el.title = 'Clic para cerrar';
+  el.addEventListener('click', () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, Math.min(15000, Math.max(3000, texto.length * 55)));
+}
+
+/* Un error que viene del servidor (o de una resolución con varios campos posibles): si el texto nombra un campo que
+   está a la vista, el error sale JUNTO a ese campo; si no, sale como aviso flotante. `reglas` es una lista de
+   [expresión regular, selector del campo] y gana la primera cuyo campo existe y se ve. */
+function mostrarErrorSegunMensaje(mensaje, reglas) {
+  for (const [patron, selector] of (reglas || [])) {
+    if (!patron.test(mensaje)) continue;
+    const campo = document.querySelector(selector);
+    if (campo && campo.offsetParent !== null) { mostrarErrorCampo(campo, mensaje); return; }
+  }
+  mostrarToast(mensaje, 'error');
+}
+
+/* ----------------------------------------------------------------------
+   MODAL LARGO (votantes.html y territorial.html: formularios de 66 a 76 campos).
+
+   armarModalLargo({ overlay, form, cerrar, guardar, secciones }) CONVIERTE el modal de
+   siempre SIN tocar un solo campo: los nodos existentes se MUEVEN (appendChild conserva el
+   nodo, su id, su name y sus manejadores) y nada se reordena. Lo que hace:
+     · Envuelve en <section class="form-seccion"> los GRUPOS CONTIGUOS de hijos del <form>
+       que arrancan en cada `secciones[i].desde` (un selector de un campo de esa sección).
+       Lo que haya antes de la primera sección se une a ella.
+     · Pone el cuerpo (todas las secciones) en un contenedor con desplazamiento propio, y
+       deja FIJOS el encabezado (arriba) y el pie (abajo) con «Cancelar» y «Guardar».
+       `guardar` es el MISMO botón submit de siempre (se mueve al pie, no se copia).
+       `desde` es un selector de un campo del apartado o «texto:…» (el título de apartado que empieza así);
+       con `encabezado: true` se le pone un título al apartado que no lo traía.
+     · Una barra de pestañas con anclas (solo ≥ 900px, lo decide el CSS) que lleva con
+       desplazamiento suave a cada sección y marca la que se está viendo.
+     · «Cancelar», la «×» y Esc cierran con la MISMA función de siempre (hacen clic en `cerrar`);
+       si hay cambios sin guardar, preguntan antes con confirm(). Un cambio es una pulsación,
+       un `input` o un `change` hecho por la PERSONA (isTrusted): lo que rellena el código al
+       abrir una ficha no cuenta.
+     · Al abrir (la clase `abierto` del overlay) se empieza arriba y el foco va al primer campo.
+   Devuelve true si armó el modal; si algo no existe lo deja como estaba y devuelve false.
+   ---------------------------------------------------------------------- */
+function armarModalLargo(op) {
+  const overlay = typeof op.overlay === 'string' ? document.getElementById(op.overlay) : op.overlay;
+  const form = typeof op.form === 'string' ? document.getElementById(op.form) : op.form;
+  const cerrarBtn = typeof op.cerrar === 'string' ? document.getElementById(op.cerrar) : op.cerrar;
+  const guardar = typeof op.guardar === 'string' ? document.getElementById(op.guardar) : op.guardar;
+  const modal = form && form.closest('.modal');
+  if (!overlay || !form || !cerrarBtn || !guardar || !modal || modal.classList.contains('modal-largo')) return false;
+
+  const hijos = Array.from(form.children).filter((n) => n !== guardar && !n.contains(guardar));
+  /* El hijo DIRECTO del formulario que contiene a este elemento (o -1). */
+  const indiceDe = (sel) => {
+    let el;
+    if (sel.indexOf('texto:') === 0) {                // «texto:Datos de contacto»: el título de apartado (.encabezado-form) que empieza así
+      const t = sel.slice(6).toLowerCase();
+      el = hijos.find((n) => n.classList.contains('encabezado-form') && n.textContent.trim().toLowerCase().indexOf(t) === 0);
+    } else {
+      el = form.querySelector(sel);
+      while (el && el.parentElement !== form) el = el.parentElement;
+    }
+    return el ? hijos.indexOf(el) : -1;
+  };
+  const inicios = [];
+  (op.secciones || []).forEach((s) => {
+    const i = indiceDe(s.desde);
+    if (i >= 0 && (!inicios.length || i > inicios[inicios.length - 1].i)) inicios.push({ i, titulo: s.titulo, encabezado: !!s.encabezado });
+  });
+  if (!inicios.length) return false;
+  inicios[0].i = 0;                                   // lo que haya antes de la primera sección se une a ella
+
+  const cuerpo = document.createElement('div');
+  cuerpo.className = 'modal-cuerpo';
+  const secciones = inicios.map((ini, k) => {
+    const sec = document.createElement('section');
+    sec.className = 'form-seccion';
+    sec.id = 'sec-' + (form.id || 'form') + '-' + (k + 1);
+    sec.dataset.titulo = ini.titulo;
+    const hasta = k + 1 < inicios.length ? inicios[k + 1].i : hijos.length;
+    hijos.slice(ini.i, hasta).forEach((n) => sec.appendChild(n));
+    if (ini.encabezado) {                              // apartado que no traía título propio: se le pone uno (un nodo nuevo, no un campo)
+      const enc = document.createElement('div');
+      enc.className = 'campo encabezado-form';
+      enc.textContent = ini.titulo;
+      sec.insertBefore(enc, sec.firstChild);
+    }
+    cuerpo.appendChild(sec);
+    return sec;
+  });
+  /* Lo que haya quedado suelto (un hijo cuyo ancla no se halló) va al final del cuerpo: mejor un campo en
+     un sitio raro que un campo que desaparece. */
+  Array.from(form.children).forEach((n) => { if (n !== guardar && !n.contains(guardar)) cuerpo.appendChild(n); });
+
+  const indice = document.createElement('nav');
+  indice.className = 'modal-indice';
+  indice.setAttribute('aria-label', 'Secciones del formulario');
+  secciones.forEach((sec) => {
+    const a = document.createElement('a');
+    a.href = '#' + sec.id;
+    a.textContent = sec.dataset.titulo;
+    a.dataset.sec = sec.id;
+    indice.appendChild(a);
+  });
+
+  const pie = document.createElement('div');
+  pie.className = 'modal-pie';
+  const btnCancelar = document.createElement('button');
+  btnCancelar.type = 'button';
+  btnCancelar.className = 'btn-secundario';
+  btnCancelar.textContent = 'Cancelar';
+  if (!guardar.classList.contains('btn-primario')) guardar.classList.add('btn-primario');
+  pie.append(btnCancelar, guardar);                   // el submit de siempre, ahora siempre visible
+
+  form.append(indice, cuerpo, pie);
+  modal.classList.add('modal-largo');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  const titulo = modal.querySelector('.modal-header h3');
+  if (titulo) {
+    if (!titulo.id) titulo.id = 'titulo-' + (form.id || 'modal');
+    modal.setAttribute('aria-labelledby', titulo.id);
+  }
+  cerrarBtn.setAttribute('aria-label', 'Cerrar');
+
+  /* ---- cambios sin guardar ---- */
+  let sucio = false;
+  const marcar = (e) => { if (e.isTrusted) sucio = true; };
+  form.addEventListener('input', marcar, true);
+  form.addEventListener('change', marcar, true);
+  form.addEventListener('reset', () => { sucio = false; });   // «Guardado, y a empezar otro» (form.reset()): ya no hay nada sin guardar
+  form.addEventListener('click', (e) => {
+    if (e.isTrusted && e.target.closest && e.target.closest('[id^="btn-agregar-"], .ficha-territorio-quitar')) sucio = true;
+  }, true);
+  /* Va en captura sobre el overlay: corre ANTES que el manejador de la «×» y puede frenarlo. */
+  overlay.addEventListener('click', (e) => {
+    if (!e.target.closest || e.target.closest('#' + cerrarBtn.id) !== cerrarBtn) return;
+    if (sucio && !window.confirm('Hay cambios sin guardar. ¿Cerrar de todos modos?')) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+  btnCancelar.addEventListener('click', () => cerrarBtn.click());
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || !overlay.classList.contains('abierto')) return;
+    const abiertos = document.querySelectorAll('.overlay.abierto');
+    if (abiertos[abiertos.length - 1] !== overlay) return;   // hay otra ventana encima (contraseña, confirmación): es de ella
+    cerrarBtn.click();
+  });
+
+  /* ---- índice: anclas con desplazamiento suave y sección activa ---- */
+  const saltar = (sec) => {
+    const y = sec.getBoundingClientRect().top - cuerpo.getBoundingClientRect().top + cuerpo.scrollTop;
+    cuerpo.scrollTo({ top: Math.max(0, y - 4), behavior: 'smooth' });
+  };
+  indice.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-sec]');
+    if (!a) return;
+    e.preventDefault();
+    const sec = document.getElementById(a.dataset.sec);
+    if (sec) saltar(sec);
+  });
+  let pendiente = false;
+  const actualizarIndice = () => {
+    pendiente = false;
+    const tope = cuerpo.getBoundingClientRect().top;
+    let activa = null;
+    secciones.forEach((sec) => {
+      const a = indice.querySelector('a[data-sec="' + sec.id + '"]');
+      const visible = sec.offsetHeight > 0;          // una sección cuyo contenido está oculto no tiene pestaña
+      if (a) a.style.display = visible ? '' : 'none';
+      if (visible && sec.getBoundingClientRect().top - tope <= cuerpo.clientHeight * 0.35) activa = sec;   // la que ocupa el tercio de arriba
+    });
+    if (cuerpo.scrollTop + cuerpo.clientHeight >= cuerpo.scrollHeight - 2 && cuerpo.scrollTop > 0) {
+      const visibles = secciones.filter((s) => s.offsetHeight > 0);
+      activa = visibles[visibles.length - 1] || activa;
+    }
+    indice.querySelectorAll('a').forEach((a) => a.classList.toggle('activa', !!activa && a.dataset.sec === activa.id));
+  };
+  const programar = () => { if (!pendiente) { pendiente = true; requestAnimationFrame(actualizarIndice); } };
+  cuerpo.addEventListener('scroll', programar, { passive: true });
+  form.addEventListener('change', () => setTimeout(programar, 50));
+
+  /* ---- al abrir: se empieza arriba y el foco va al primer campo ---- */
+  const alAbrir = () => {
+    sucio = false;
+    cuerpo.style.scrollBehavior = 'auto';
+    cuerpo.scrollTop = 0;
+    cuerpo.style.scrollBehavior = '';
+    programar();
+    setTimeout(() => {
+      if (!overlay.classList.contains('abierto')) return;
+      const primero = Array.from(form.querySelectorAll('input, select, textarea')).find((c) =>
+        !c.disabled && !c.readOnly && c.offsetParent !== null && !/^(hidden|checkbox|radio|file|button|submit)$/.test(c.type));
+      if (primero) primero.focus({ preventScroll: true });
+      programar();
+    }, 80);
+  };
+  let abierto = overlay.classList.contains('abierto');
+  new MutationObserver(() => {
+    const ahora = overlay.classList.contains('abierto');
+    if (ahora && !abierto) alAbrir();
+    if (!ahora) sucio = false;
+    abierto = ahora;
+  }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  return true;
+}

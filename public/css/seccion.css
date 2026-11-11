@@ -57,8 +57,8 @@
    que WCAG 1.4.11 pide a un control. */
 .btn-sec-neutro {
   display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
-  padding: 9px 14px; border-radius: 9px; cursor: pointer; text-decoration: none;
-  background: #fff; color: #084298; border: 1.5px solid #7F8794;
+  padding: 9px 14px; border-radius: 999px; cursor: pointer; text-decoration: none;
+  background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--borde);
   font-weight: 600; font-size: .86rem; line-height: 1.2;
   transition: background .12s ease, border-color .12s ease;
 }
@@ -67,12 +67,14 @@
 /* La acción principal, en el amarillo de la marca con letra navy: 10,15. El
    amarillo con letra blanca daría 1,7 y sería ilegible. Es el ÚNICO amarillo
    de cada pantalla — si hubiera dos, ninguno significaría nada. */
+/* FASE 2 (parche 323): es el MISMO primario que `.btn-primario` de style.css —amarillo de marca, letra #1b2333, píldora de 44px,
+   sin borde dorado ni sombra—; se conserva el nombre porque lo escriben las pantallas. */
 .btn-sec-principal {
-  background: #FFC300; color: #131F3B; border: 1.5px solid #8C5E17;
-  font-size: .95rem; padding: 12px 22px; border-radius: 9px; font-weight: 700;
-  cursor: pointer; box-shadow: 0 2px 0 rgba(140,94,23,.35);
+  background: var(--marca-amarillo); color: var(--texto); border: 1.5px solid transparent;
+  font-size: .95rem; padding: 11px 22px; min-height: 44px; border-radius: 999px; font-weight: 700;
+  cursor: pointer;
 }
-.btn-sec-principal:hover { background: #E8B200; }
+.btn-sec-principal:hover { background: #E6AF00; }
 
 /* Excel, en el verde de WhatsApp al 20% (#D3F6E0, la mezcla real con blanco):
    se emparenta con lo que ya usa ese verde en otras pantallas. El texto sigue

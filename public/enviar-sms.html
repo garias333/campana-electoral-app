@@ -51,14 +51,14 @@
         </div>
       </div>
       <div class="campo">
-        <label>Busca por nombre, cargo o nivel (Votantes, Estructura, Organigrama)</label>
+        <label for="input-buscar-contacto">Busca por nombre, cargo o nivel (Votantes, Estructura, Organigrama)</label>
         <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
         <div id="resultados-busqueda" style="border:1px solid var(--color-border, #e2e2e2); border-radius:6px; margin-top:6px; max-height:220px; overflow-y:auto; display:none;"></div>
       </div>
       <div class="campo" style="margin-top:12px;">
         <label>O agrega manualmente (uno o varios, separados por coma, punto y coma, o cada uno en su línea)</label>
         <div style="display:flex; gap:8px; align-items:flex-start;">
-          <textarea id="input-manual" rows="2" style="flex:1;" placeholder="Ej: 3001234567, 3109876543"></textarea>
+          <textarea aria-label="Ej: 3001234567, 3109876543" id="input-manual" rows="2" style="flex:1;" placeholder="Ej: 3001234567, 3109876543"></textarea>
           <button type="button" class="btn-secundario btn-sm" id="btn-agregar-manual">Agregar</button>
         </div>
       </div>
@@ -67,7 +67,7 @@
         <div id="panel-agregar-grupo" style="display:none; border:1px solid var(--color-border, #e2e2e2); border-radius:8px; padding:14px; margin-top:10px;">
           <div class="fila">
             <div class="campo">
-              <label>Fuente</label>
+              <label for="grupo-fuente">Fuente</label>
               <select id="grupo-fuente" onchange="actualizarVisibilidadFiltrosGrupo()">
                 <option value="ambos" selected>Votantes, Estructura y Organigrama</option>
                 <option value="votantes">Solo Votantes y sublíderes</option>
@@ -78,13 +78,13 @@
               </select>
             </div>
             <div class="campo" id="grupo-campo-territorio">
-              <label>Territorio (Comuna/Corregimiento)</label>
+              <label for="grupo-territorio">Territorio (Comuna/Corregimiento)</label>
               <select id="grupo-territorio"><option value="">Todos los territorios</option></select>
             </div>
           </div>
           <div class="fila">
             <div class="campo" id="grupo-campo-categoria">
-              <label>Categoría (solo Votantes)</label>
+              <label for="grupo-categoria">Categoría (solo Votantes)</label>
               <select id="grupo-categoria">
                 <option value="">Todas</option>
                 <option value="votante">Votante</option>
@@ -92,7 +92,7 @@
               </select>
             </div>
             <div class="campo" id="grupo-campo-cargo">
-              <label>Cargo (solo Estructura)</label>
+              <label for="grupo-cargo">Cargo (solo Estructura)</label>
               <select id="grupo-cargo">
                 <option value="">Todos</option>
                 <option value="coordinador">Coordinador</option>
@@ -103,15 +103,15 @@
               </select>
             </div>
             <div class="campo" id="grupo-campo-puesto-votacion" style="display:none;">
-              <label>Puesto de votación</label>
+              <label for="grupo-puesto-votacion">Puesto de votación</label>
               <select id="grupo-puesto-votacion"><option value="">Todos los puestos</option></select>
             </div>
           </div>
           <div class="fila" id="grupo-fila-organigrama" style="display:none;">
-            <div class="campo"><label>Cargo (Organigrama)</label><input id="grupo-organigrama-cargo" placeholder="Ej. GERENTE DE CAMPAÑA"></div>
-            <div class="campo"><label>Nombre (Organigrama)</label><input id="grupo-organigrama-nombre" placeholder="Busca por nombre o apellido"></div>
+            <div class="campo"><label for="grupo-organigrama-cargo">Cargo (Organigrama)</label><input id="grupo-organigrama-cargo" placeholder="Ej. GERENTE DE CAMPAÑA"></div>
+            <div class="campo"><label for="grupo-organigrama-nombre">Nombre (Organigrama)</label><input id="grupo-organigrama-nombre" placeholder="Busca por nombre o apellido"></div>
             <div class="campo">
-              <label>Nivel (Organigrama)</label>
+              <label for="grupo-organigrama-nivel">Nivel (Organigrama)</label>
               <select id="grupo-organigrama-nivel">
                 <option value="">Todos</option>
                 <option value="nivel_1">Nivel 1</option>
@@ -148,7 +148,7 @@
           <select id="select-plantilla" style="max-width:280px;"><option value="">Plantillas guardadas…</option></select>
           <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
         </div>
-        <textarea id="input-mensaje" rows="5" placeholder="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien."></textarea>
+        <textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien" id="input-mensaje" rows="5" placeholder="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien."></textarea>
         <!-- Cuántos SMS es de verdad: el precio se cobra por segmento, y una
              tilde parte el mensaje en tres. Ver public/js/segmentos-sms.js -->
         <div id="contador-sms" style="font-size:0.88rem; margin-top:6px;"></div>
@@ -489,7 +489,7 @@ async function eliminarEnvio(id, nombre) {
     await api(`/comunicaciones/campanas/${id}`, { method: 'DELETE' });
     await cargarHistorial();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -499,10 +499,10 @@ document.getElementById('btn-eliminar-todo-historial').addEventListener('click',
   if (!password) return;
   try {
     const r = await api('/comunicaciones/campanas', { method: 'DELETE', body: { password, canal: CANAL } });
-    alert(`Se eliminaron ${r.eliminadas} envío(s).`);
+    mostrarToast(`Se eliminaron ${r.eliminadas} envío(s).`, 'ok');
     await cargarHistorial();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 
@@ -549,7 +549,7 @@ function aplicarPreseleccion() {
   const avisos = [];
   if (dadosDeBaja) avisos.push(`${dadosDeBaja} persona(s) pidieron no recibir mensajes y no se incluyeron.`);
   if (sinTelefono) avisos.push(`${sinTelefono} no tiene(n) teléfono registrado y quedarán como «sin contacto».`);
-  if (avisos.length) setTimeout(() => alert(avisos.join('\n')), 100);
+  if (avisos.length) setTimeout(() => mostrarToast(avisos.join('\n'), 'ok'), 100);
 }
 
 (async () => {
@@ -631,15 +631,15 @@ document.getElementById('select-plantilla').addEventListener('change', (e) => {
 
 document.getElementById('btn-guardar-plantilla').addEventListener('click', async () => {
   const cuerpo = document.getElementById('input-mensaje').value.trim();
-  if (!cuerpo) return alert('Escribe primero el mensaje que quieres guardar.');
+  if (!cuerpo) return mostrarErrorCampo('input-mensaje', 'Escribe primero el mensaje que quieres guardar.');
   const nombre = prompt('¿Con qué nombre guardas esta plantilla?');
   if (!nombre || !nombre.trim()) return;
   try {
     await api('/comunicaciones/plantillas', { method: 'POST', body: { nombre: nombre.trim(), canal: CANAL, cuerpo } });
     await cargarPlantillas();
-    alert('Plantilla guardada.');
+    mostrarToast('Plantilla guardada.', 'ok');
   } catch (err) {
-    alert(err.message || 'No se pudo guardar la plantilla.');
+    mostrarToast(err.message || 'No se pudo guardar la plantilla.', 'error');
   }
 });
 

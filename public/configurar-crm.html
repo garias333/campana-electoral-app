@@ -299,16 +299,16 @@
           </div>
           <div class="fila">
             <div class="campo">
-              <label>API Key</label>
+              <label for="comunicaciones-sendgrid-api-key">API Key</label>
               <input id="comunicaciones-sendgrid-api-key" placeholder="SG.xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
             </div>
             <div class="campo">
-              <label>Correo remitente (verificado en SendGrid)</label>
+              <label for="comunicaciones-sendgrid-from">Correo remitente (verificado en SendGrid)</label>
               <input id="comunicaciones-sendgrid-from" type="email" placeholder="campana@tudominio.com">
             </div>
           </div>
           <div class="campo">
-            <label>Nombre del remitente</label>
+            <label for="comunicaciones-sendgrid-from-name">Nombre del remitente</label>
             <input id="comunicaciones-sendgrid-from-name" placeholder="Estrategia - Campaña">
           </div>
         </div>
@@ -332,11 +332,11 @@
           </p>
           <div class="fila">
             <div class="campo">
-              <label>Número de cliente</label>
+              <label for="comunicaciones-onurix-client">Número de cliente</label>
               <input id="comunicaciones-onurix-client" placeholder="Vacío = cuenta del proveedor" autocomplete="off">
             </div>
             <div class="campo">
-              <label>Llave (key)</label>
+              <label for="comunicaciones-onurix-key">Llave (key)</label>
               <input id="comunicaciones-onurix-key" placeholder="Tu llave de Onurix" autocomplete="off">
             </div>
           </div>
@@ -421,11 +421,11 @@
           </div>
           <div class="fila">
             <div class="campo">
-              <label>Account SID</label>
+              <label for="comunicaciones-twilio-sid">Account SID</label>
               <input id="comunicaciones-twilio-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
             </div>
             <div class="campo">
-              <label>Auth Token</label>
+              <label for="comunicaciones-twilio-token">Auth Token</label>
               <input id="comunicaciones-twilio-token" placeholder="Tu Auth Token de Twilio" autocomplete="off">
             </div>
           </div>
@@ -433,7 +433,7 @@
                políticas en su API de negocios. La columna twilio_whatsapp_from
                sigue en la base y el backend conserva su valor. -->
           <div class="campo">
-            <label>Número para SMS</label>
+            <label for="comunicaciones-twilio-sms">Número para SMS</label>
             <input id="comunicaciones-twilio-sms" placeholder="+573000000000">
             <!-- Twilio exige E.164 y rechaza espacios o guiones. Antes eso
                  solo se notaba cuando una campaña entera no llegaba. -->
@@ -497,7 +497,7 @@
         <div class="msj-prueba">
           <h5><span class="msj-punto" style="--msj-color: var(--color-marca);"></span> Correo</h5>
           <div class="campo">
-            <label>Correo de prueba</label>
+            <label for="prueba-email-destino">Correo de prueba</label>
             <input id="prueba-email-destino" type="email" placeholder="tucorreo@dominio.com">
           </div>
           <button type="button" class="btn-secundario" id="btn-probar-email">Enviar correo de prueba</button>
@@ -505,7 +505,7 @@
         <div class="msj-prueba">
           <h5><span class="msj-punto" style="--msj-color: #2484C3;"></span> SMS</h5>
           <div class="campo">
-            <label>Teléfono móvil de prueba</label>
+            <label for="prueba-sms-destino">Teléfono móvil de prueba</label>
             <input id="prueba-sms-destino" type="tel" inputmode="tel" placeholder="+573000000000">
           </div>
           <button type="button" class="btn-secundario" id="btn-probar-sms">Enviar SMS de prueba</button>
@@ -774,7 +774,7 @@ document.getElementById('btn-desbloquear-crm').addEventListener('click', async (
     await cargarConfigComunicaciones();
     await cargarEstadoCanales();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 

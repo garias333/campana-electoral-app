@@ -5,7 +5,7 @@
    ============================================================ */
 
 :root {
-  --color-bg: #F3F5F8;
+  --color-bg: var(--fondo);
   --color-surface: #FFFFFF;
   /* CROMO AZUL COMPARTIDO CON LAS DEMÁS APLICACIONES DE ESTRATEGIA.
      Estos cinco son los mismos valores que usa App Territorios, con los
@@ -55,13 +55,13 @@
 
      login.html redefine esta variable dentro de .login-card y no la alcanza
      este cambio; allí es un fondo de hover sobre azul, no texto. */
-  --color-accent: #FFC300;
+  --color-accent: var(--marca-amarillo);
   --color-accent-dark: #8C5E17;
-  --color-marca: #0B5ED7;
-  --color-marca-oscuro: #084298;   /* tercer color corporativo: degradados y pasos de hover sobre --color-marca */
-  --color-text: #161B26;
-  --color-text-muted: #5B6472;
-  --color-border: #E2E5EA;
+  --color-marca: var(--marca-azul);
+  --color-marca-oscuro: var(--marca-azul-osc);   /* tercer color corporativo: degradados y pasos de hover sobre --color-marca */
+  --color-text: var(--texto);
+  --color-text-muted: var(--texto-2);
+  --color-border: var(--borde);
 
   /* Semáforo de intención de voto / estado */
   --color-confirmado: #2F9E63;
@@ -73,6 +73,34 @@
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* REDISEÑO FASE 2 (orden 6, parche 323): LAS VARIABLES DE MARCA DE LA APP DEL
+     CELULAR (public/app/estilos-app.css), con los MISMOS nombres y valores. Así un
+     campo, un botón o un error se ve igual en el celular y en el computador, y
+     el día que cambie un color cambia en un solo sitio. REGLA: #FFC300
+     (--marca-amarillo) va SOLO de fondo; como texto sobre claro da 1,61:1. */
+  --marca-amarillo: #FFC300;
+  --marca-azul: #0B5ED7;
+  --marca-azul-osc: #084298;
+  --degradado: linear-gradient(135deg, #0B5ED7, #084298);
+  --fondo: #f4f6fb;
+  --tarjeta: #fff;
+  --texto: #1b2333;
+  --texto-2: #6a7590;
+  --borde: #d5dcea;
+  --campo: #f1f4fa;
+  --foco-halo: rgba(11, 94, 215, .12);
+  --error: #c62828;
+  --error-borde: #e04848;
+  --error-fondo: #fff5f5;
+  --ok: #1e6b2e;
+  --ok-fondo: #e5f4e8;
+  --aviso: #7a5a00;
+  --aviso-fondo: #fff4cc;
+  --sombra: 0 4px 14px rgba(8, 66, 152, .07);
+  --sombra-flot: 0 8px 24px rgba(8, 66, 152, .13);
+  --radio: 18px;
+  --radio-campo: 14px;
 
   --radius: 10px;
   --shadow-card: 0 1px 2px rgba(16, 35, 63, 0.06), 0 4px 16px rgba(16, 35, 63, 0.05);
@@ -1172,7 +1200,7 @@ tbody tr:hover { background: #FAFBFC; }
 .overlay.abierto { display: flex; }
 .modal {
   background: #fff; border-radius: var(--radius); padding: 24px;
-  width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+  width: 100%; max-width: 520px; max-height: 90vh; max-height: 90dvh; overflow-y: auto;
   box-shadow: 0 20px 60px rgba(16,35,63,0.25);
 }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -1212,12 +1240,12 @@ tbody tr:hover { background: #FAFBFC; }
 .encabezado-form {
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-size: 1rem;
-  color: var(--color-marca);
-  border-bottom: 1px solid var(--color-border);
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  color: var(--marca-azul);
+  border-bottom: 1px solid var(--borde);
   padding-bottom: 6px;
-  margin-top: 18px;
+  margin-top: 22px;
   margin-bottom: 2px;
 }
 .encabezado-form.primero { margin-top: 0; }
@@ -1240,7 +1268,8 @@ tbody tr:hover { background: #FAFBFC; }
    desde el 27 de agosto de 2026 es #8C5E17: 5,63 sobre blanco y 5,09 sobre
    el crema de este modal. Está reservado justo para esto: amarillo que hace
    de TEXTO en vez de fondo.                                             */
-.encabezado-form.acento { color: #FFC300; }
+/* FASE 2: ya NO va en #FFC300 (1,61:1 como texto sobre claro): el título de apartado es azul de marca en todos. */
+.encabezado-form.acento { color: var(--marca-azul); }
 
 /* ------------------------------------------------------------------
    Selectores en forma de botón (Categoría en Votantes, Cargo en
@@ -1367,12 +1396,7 @@ tbody tr:hover { background: #FAFBFC; }
    que coincidan con los de la app móvil. Acotado a esos dos formularios
    con una clase: la regla general de `input` la comparten TODAS las
    pantallas y cambiarla movería medio sistema. */
-form.form-amplio input,
-form.form-amplio select,
-form.form-amplio textarea {
-  border-radius: 10px;
-  padding: 11px 12px;
-}
+/* (Los campos de estos formularios toman ahora la regla general de campos, al final de esta hoja.) */
 
 /* Fondo crema en los formularios de personas, el mismo del diseño de la
    app móvil (#F8F3E9). Va en el modal, no en el <form>, para que la
@@ -1388,7 +1412,7 @@ form.form-amplio textarea {
    Solo lo llevan los dos formularios de personas (Estructura y Votantes);
    ningún otro modal cambia. En el teléfono no cambia nada: `.modal` es
    `width:100%` y manda el ancho de la pantalla, no este máximo. */
-.modal.modal-amplio { background: #F8F3E9; max-width: 660px; }
+.modal.modal-amplio { background: #fff; max-width: 660px; }
 form.form-amplio .chip-form input { padding: 0; }
 
 .tag-tipo {
@@ -2316,3 +2340,187 @@ table td .btn-primario:hover {
 .leyenda-vivo { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; margin-right: 12px; }
 .leyenda-vivo i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid transparent; }
 .barra-vivo { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 10px; font-size: 0.85rem; }
+
+
+/* ======================================================================
+   REDISEÑO FASE 2 — PANTALLAS DE COMPUTADOR (orden 6, parche 323)
+   Mismos campos, botones y errores que la app del celular
+   (public/app/estilos-app.css). VA AL FINAL A PROPÓSITO: las reglas de arriba
+   tienen la misma especificidad y decide el orden. Todo funciona también a
+   360 px: los administradores abren estas pantallas desde el celular.
+   ====================================================================== */
+
+/* --- Etiqueta ARRIBA del campo: 15px, 700; «(opcional)» en la misma línea, más pequeño y suave --- */
+label { font-size: 15px; font-weight: 700; line-height: 1.3; margin: 0 0 7px; color: var(--texto); }
+label small, label .opc { display: inline; margin: 0 0 0 4px; font-size: 13px; font-weight: 500; color: var(--texto-2); }
+.campo:focus-within > label, .campo-app:focus-within > label { color: var(--marca-azul); }
+
+/* --- Campo: 52px por debajo de 768px, 48px desde 768px; fondo --campo; borde 1.5px transparente; letra 16px --- */
+input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"], [type="submit"], [type="button"], [type="reset"], [type="image"])),
+select, textarea {
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radio-campo);
+  background-color: var(--campo);
+  color: var(--texto);
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"], [type="submit"], [type="button"], [type="reset"], [type="image"])),
+  select, textarea { min-height: 48px; }
+}
+textarea { min-height: 96px; padding: 12px 14px; resize: vertical; field-sizing: content; }
+input::placeholder, textarea::placeholder { color: var(--texto-2); opacity: .8; }
+select:not([multiple]):not([size]) {
+  padding: 0 42px 0 14px;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 14px 9px;
+}
+select[multiple], select[size] { padding: 8px 10px; }
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"] { text-align: left; }
+input[readonly]:where(:not([type="checkbox"], [type="radio"])) { color: var(--texto-2); }
+/* Foco: fondo blanco, borde azul de marca y halo de 4px. */
+input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"], [type="submit"], [type="button"], [type="reset"], [type="image"])):focus,
+select:focus, textarea:focus {
+  outline: none; background-color: #fff; border-color: var(--marca-azul); box-shadow: 0 0 0 4px var(--foco-halo);
+}
+input[type="checkbox"], input[type="radio"] { accent-color: var(--marca-azul); }
+/* Dentro de una tabla el campo es más compacto (una celda con un campo de 48px deforma la fila). */
+td input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"], [type="color"])),
+td select, td textarea, th input:where(:not([type="checkbox"], [type="radio"])), th select {
+  min-height: 38px; padding: 0 10px; font-size: 14px; border-radius: 10px;
+}
+td select:not([multiple]):not([size]), th select:not([multiple]):not([size]) { padding-right: 34px; background-position: right 12px center; }
+
+/* --- UN CAMPO CON ERROR (lo marca mostrarErrorCampo() de common.js y lo desmarca limpiarErrores()) --- */
+input[aria-invalid="true"]:where(:not([type="checkbox"], [type="radio"])), select[aria-invalid="true"], textarea[aria-invalid="true"],
+.campo-error:where(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  border-color: var(--error-borde) !important; background-color: var(--error-fondo) !important;
+}
+input[type="checkbox"][aria-invalid="true"], input[type="radio"][aria-invalid="true"] { outline: 2px solid var(--error-borde); outline-offset: 2px; }
+.error-campo { margin: 6px 2px 0; font-size: 12.5px; line-height: 1.35; color: var(--error); font-weight: 600; }
+
+/* --- Aviso flotante (lo pinta mostrarToast() de common.js; mismas clases que en la app del celular) --- */
+.toast-app {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 200;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 32px); width: max-content;
+  background: var(--texto); color: #fff; padding: 12px 18px; border-radius: 14px;
+  font-size: 14px; line-height: 1.4; text-align: center; box-shadow: var(--sombra-flot);
+}
+.toast-app.ok { background: var(--ok); }
+.toast-app.error { background: var(--texto); border-left: 5px solid var(--error-borde); }
+
+/* --- Formularios en varias columnas: se mantienen en pantallas anchas y pasan a UNA por debajo de 640px --- */
+@media (max-width: 639px) {
+  form .fila, .modal .fila { flex-direction: column; gap: 0; }
+}
+
+/* --- Botones. Primario: amarillo de marca, letra #1b2333 (jamás blanca sobre amarillo), píldora de 44px (48px en el celular).
+       Secundario: blanco con borde y letra azul oscura. Peligro: rojo con letra blanca.
+       `.btn-acento` era otra variante del primario (mismo azul): se unifica con él. --- */
+.btn-primario, .btn-acento { background: var(--marca-amarillo); color: var(--texto); border-color: transparent; font-weight: 700; border-radius: 999px; }
+.btn-primario:hover, .btn-acento:hover { background: #E6AF00; color: var(--texto); }
+.btn-acento { font-size: 0.98rem; }
+.btn-secundario { background: #fff; border: 1.5px solid var(--borde); color: var(--marca-azul-osc); font-weight: 700; border-radius: 999px; }
+.btn-secundario:hover { background: var(--campo); border-color: var(--marca-azul-osc); color: var(--marca-azul-osc); }
+.btn-peligro { background: var(--error); border-color: var(--error); color: #fff; font-weight: 700; border-radius: 999px; }
+.btn-peligro:hover { background: #a82020; border-color: #a82020; color: #fff; }
+:where(.btn-primario, .btn-acento, .btn-secundario, .btn-peligro):not(.btn-sm) { min-height: 44px; }
+.btn-primario:disabled, .btn-acento:disabled { opacity: .6; cursor: not-allowed; }
+.btn-secundario:disabled, .btn-peligro:disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 640px) {
+  :where(.btn-primario, .btn-acento, .btn-secundario, .btn-peligro):not(.btn-sm) { min-height: 48px; }
+}
+button:focus-visible, .btn:focus-visible, a.btn-primario:focus-visible, a.btn-secundario:focus-visible { outline: 3px solid var(--foco-halo); outline-offset: 2px; box-shadow: 0 0 0 2px var(--marca-azul); }
+/* Las barras de pestañas / vistas conservan su aspecto de siempre (azul con letra blanca; la pestaña abierta, más oscura). */
+.barra-unida > .btn-secundario, .barra-unida > .btn-primario { background: var(--marca-azul); color: #fff; }
+.barra-unida > .btn-acento { background: var(--marca-azul-osc); color: #fff; }
+.barra-unida > .btn-secundario:hover, .barra-unida > .btn-primario:hover { background: var(--marca-azul-osc); color: #fff; }
+.barra-unida > .btn-acento:hover { background: #063172; color: #fff; }
+/* En una fila de tabla, los botones siguen chicos (los pinta aparte la regla `table td .btn-…` de arriba). */
+table td .btn-secundario, table td .btn-primario, table td .btn-peligro, table td .btn-acento { min-height: 0; }
+
+/* --- Tablas: encabezado claro (el que ya usaban) sobre --campo, letra --texto; filas con borde suave;
+       por debajo de 640px la tabla se desplaza dentro de su contenedor, no la página --- */
+thead th { background: var(--campo); color: var(--texto); border-bottom: 1px solid var(--borde); }
+tbody td { border-bottom: 1px solid var(--borde); }
+.tabla-contenedor { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+@media (max-width: 639px) {
+  .card:has(> table), .modal:has(> table) { overflow-x: auto; }
+}
+
+/* --- Modal LARGO (votantes, estructura territorial): encabezado y pie FIJOS, cuerpo con su propio desplazamiento.
+       Lo arma armarModalLargo() de common.js. En el celular (< 640px) ocupa toda la pantalla. --- */
+.modal.modal-largo {
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  max-width: 760px; max-height: 90vh; max-height: 90dvh;
+}
+.modal-largo > .modal-header { flex: none; margin: 0; padding: 16px 24px 12px; border-bottom: 1px solid var(--borde); }
+.modal-largo > .modal-header h3 { margin: 0; }
+.modal-largo > .mensaje-error, .modal-largo > .mensaje-ok { flex: none; margin: 10px 24px 0; }
+.modal-largo > form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0; }
+.modal-largo .modal-cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px 18px; overscroll-behavior: contain; scroll-behavior: smooth; }
+.modal-largo .modal-pie {
+  flex: none; display: flex; justify-content: flex-end; gap: 10px;
+  padding: 12px 24px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--borde); background: #fff;
+}
+.modal-largo .modal-pie > button { margin: 0; }
+.modal-largo .modal-pie > button[type="submit"] { min-width: 150px; }
+.form-seccion { scroll-margin-top: 6px; }
+.form-seccion + .form-seccion { margin-top: 6px; }
+/* Índice de secciones: una barra de pestañas con anclas, solo en pantallas anchas (≥ 900px). */
+.modal-indice {
+  display: none; flex: none; gap: 4px; padding: 8px 24px 0; overflow-x: auto; white-space: nowrap;
+  border-bottom: 1px solid var(--borde); background: #fff;
+}
+@media (min-width: 900px) { .modal-indice { display: flex; } }
+.modal-indice a {
+  padding: 8px 12px; font-size: 13px; font-weight: 700; text-decoration: none; color: var(--texto-2);
+  border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.modal-indice a:hover { color: var(--marca-azul); }
+.modal-indice a.activa { color: var(--marca-azul); border-bottom-color: var(--marca-amarillo); }
+@media (max-width: 639px) {
+  .overlay:has(> .modal-largo) { padding: 0; align-items: stretch; }
+  .modal.modal-largo { max-width: none; width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; }
+  .modal-largo > .modal-header, .modal-largo .modal-cuerpo, .modal-largo .modal-pie { padding-left: 16px; padding-right: 16px; }
+  .modal-largo > .mensaje-error, .modal-largo > .mensaje-ok { margin-left: 16px; margin-right: 16px; }
+  .modal-largo .modal-pie > button { flex: 1; }
+}
+
+/* --- Páginas sueltas (recuperar y restablecer contraseña): tarjeta centrada sobre --fondo, con la barra superior en --degradado.
+       Los campos y el botón son los de siempre (reglas de arriba). --- */
+body.pagina-suelta {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--fondo); padding: 104px 16px 32px;
+}
+body.pagina-suelta::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 72px; background: var(--degradado); }
+.tarjeta-suelta {
+  width: 100%; max-width: 420px; position: relative;
+  background: var(--tarjeta); border-radius: var(--radio); padding: 32px 28px; box-shadow: var(--sombra-flot);
+}
+.suelta-eyebrow { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); margin-bottom: 6px; }
+.tarjeta-suelta h1 { font-size: 1.3rem; margin-bottom: 12px; color: var(--marca-azul-osc); }
+.suelta-descripcion { font-size: 0.9rem; color: var(--texto-2); margin: 0 0 22px; }
+.tarjeta-suelta form button[type="submit"] { width: 100%; margin-top: 6px; }
+.suelta-pie { text-align: center; margin-top: 18px; font-size: 0.85rem; }
+.suelta-pie a { color: var(--marca-azul-osc); font-weight: 600; }
+.tarjeta-suelta .mensaje-ok { display: block; }
+
+/* Avisos en línea con los colores de estado de la marca. */
+.mensaje-error { background: var(--error-fondo); color: var(--error); border-color: var(--error-borde); }
+.mensaje-ok { background: var(--ok-fondo); color: var(--ok); border-color: #b6ddc0; }
+/* El «Error de digitación» del teléfono (form-utils) y el error de campo de arriba dicen lo mismo: se deja el de arriba. */
+.campo:has(.error-campo) .error-telefono { display: none !important; }
+
+/* Campo de archivo: mismo trato que un campo (el botón nativo se queda, pero el recuadro es el de la marca). */
+input[type="file"] {
+  min-height: 48px; padding: 8px 12px; border: 1.5px dashed var(--borde); border-radius: var(--radio-campo);
+  background: var(--campo); color: var(--texto-2); font-size: 14px;
+}
+
+/* Las columnas de una fila de formulario se pueden encoger (un datetime-local o un campo largo ensanchaba la suya y se salía del modal). */
+.fila > *, .fila-territorio > * { min-width: 0; }

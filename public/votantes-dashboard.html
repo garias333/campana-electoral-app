@@ -69,8 +69,9 @@
     .oculto-en-esta-impresion { display: none !important; }
   }
 
-  .grafico-cuerpo { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; align-items: start; }
-  @media (max-width: 900px) { .grafico-cuerpo { grid-template-columns: 1fr; } }
+  .grafico-cuerpo { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+  .grafico-cuerpo > * { min-width: 0; }   /* sin esto la tabla/gráfico ensanchaba la columna y la página se desbordaba a 390px */
+  @media (max-width: 900px) { .grafico-cuerpo { grid-template-columns: minmax(0, 1fr); } }
   .grafico-viz { min-height: 60px; }
   .grafico-nota-truncado { font-size: 0.76rem; color: var(--color-text-muted); margin-top: 8px; }
 
@@ -1287,7 +1288,7 @@ function exportarSeccionExcel(seccion, params) {
 function exportarSeccionMesaExcel() {
   const puesto = document.getElementById('select-puesto-mesa').value;
   if (!puesto) {
-    alert('Elija primero un Puesto de votación arriba para exportar su detalle por mesa.');
+    mostrarErrorCampo('select-puesto-mesa', 'Elija primero un Puesto de votación para exportar su detalle por mesa.');
     return;
   }
   exportarSeccionExcel('mesa', { puesto });
@@ -1309,7 +1310,7 @@ function exportarSeccionWord(seccion, params) {
 function exportarSeccionMesaWord() {
   const puesto = document.getElementById('select-puesto-mesa').value;
   if (!puesto) {
-    alert('Elija primero un Puesto de votación arriba para exportar su detalle por mesa.');
+    mostrarErrorCampo('select-puesto-mesa', 'Elija primero un Puesto de votación para exportar su detalle por mesa.');
     return;
   }
   exportarSeccionWord('mesa', { puesto });

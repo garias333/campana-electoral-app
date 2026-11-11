@@ -55,24 +55,24 @@
     <div id="form-error" class="mensaje-error"></div>
     <form id="form-movimiento" enctype="multipart/form-data">
       <div class="fila">
-        <div class="campo"><label>Tipo</label><select name="tipo" id="select-tipo" required><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select></div>
-        <div class="campo"><label>Fecha</label><input type="date" name="fecha" required></div>
+        <div class="campo"><label for="select-tipo">Tipo</label><select name="tipo" id="select-tipo" required><option value="ingreso">Ingreso</option><option value="gasto">Gasto</option></select></div>
+        <div class="campo"><label for="campo-fecha">Fecha</label><input id="campo-fecha" type="date" name="fecha" required></div>
       </div>
       <div class="campo">
-        <label>Categoría</label>
+        <label for="select-categoria">Categoría</label>
         <select id="select-categoria" required></select>
       </div>
       <div class="campo" id="campo-categoria-nueva" style="display:none;">
-        <label>Nombre de la nueva categoría</label>
+        <label for="input-categoria-nueva">Nombre de la nueva categoría</label>
         <input id="input-categoria-nueva" placeholder="Ej. Refrigerios para voluntarios">
       </div>
-      <div class="campo"><label>Monto (COP)</label><input type="number" name="monto" min="0" step="1000" required></div>
-      <div class="campo"><label>Descripción</label><input name="descripcion"></div>
+      <div class="campo"><label for="campo-monto">Monto (COP)</label><input id="campo-monto" type="number" name="monto" min="0" step="1000" required></div>
+      <div class="campo"><label for="campo-descripcion">Descripción</label><input id="campo-descripcion" name="descripcion"></div>
       <div class="fila">
-        <div class="campo"><label>Tercero (donante / proveedor)</label><input name="tercero"></div>
-        <div class="campo"><label>Documento del tercero</label><input name="documento_tercero"></div>
+        <div class="campo"><label for="campo-tercero">Tercero (donante / proveedor)</label><input id="campo-tercero" name="tercero"></div>
+        <div class="campo"><label for="campo-documento-tercero">Documento del tercero</label><input id="campo-documento-tercero" name="documento_tercero"></div>
       </div>
-      <div class="campo"><label>Comprobante (opcional)</label><input type="file" name="comprobante"></div>
+      <div class="campo"><label for="campo-comprobante">Comprobante (opcional)</label><input id="campo-comprobante" type="file" name="comprobante"></div>
       <button type="submit" class="btn-primario">Guardar movimiento</button>
     </form>
   </div>
@@ -137,7 +137,7 @@ async function eliminarMovimiento(id) {
   try {
     await api(`/finanzas/movimientos/${id}`, { method: 'DELETE' });
   } catch (err) {
-    alert(err.message || 'No se pudo eliminar el movimiento.');
+    mostrarToast(err.message || 'No se pudo eliminar el movimiento.', 'error');
   }
   cargarMovimientos(); cargarResumen();
 }

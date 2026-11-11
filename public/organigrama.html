@@ -418,7 +418,7 @@
 
     <div class="card" id="card-org">
       <div class="campo" id="campo-filtro-org-cargo" style="display:none; max-width:520px;">
-        <label>Filtrar por Cargo (muestra a quien lo encabeza y sus subordinados)</label>
+        <label for="filtro-org-cargo">Filtrar por Cargo (muestra a quien lo encabeza y sus subordinados)</label>
         <!-- Los cargos salen ya agrupados por nivel del organigrama; el alfabeto los mezclaria. -->
         <select id="filtro-org-cargo" data-sin-ordenar>
           <option value="">Todos los cargos</option>
@@ -466,17 +466,17 @@
     <div id="org-form-error" class="mensaje-error"></div>
     <form id="form-org">
       <input type="hidden" id="org-form-id">
-      <div class="campo"><label>Cargo</label><input id="org-form-cargo" placeholder="Ej. GERENTE DE CAMPAÑA" required></div>
+      <div class="campo"><label for="org-form-cargo">Cargo</label><input id="org-form-cargo" placeholder="Ej. GERENTE DE CAMPAÑA" required></div>
       <div class="fila">
-        <div class="campo"><label>Nombres</label><input id="org-form-nombres" placeholder="Ej. Luis Eduardo"></div>
-        <div class="campo"><label>Apellidos</label><input id="org-form-apellidos" placeholder="Ej. Arias Vargas"></div>
+        <div class="campo"><label for="org-form-nombres">Nombres</label><input id="org-form-nombres" placeholder="Ej. Luis Eduardo"></div>
+        <div class="campo"><label for="org-form-apellidos">Apellidos</label><input id="org-form-apellidos" placeholder="Ej. Arias Vargas"></div>
       </div>
       <div class="fila">
-        <div class="campo"><label>Teléfono</label><input id="org-form-telefono" placeholder="300 123 4567"></div>
-        <div class="campo"><label>E-mail</label><input type="email" id="org-form-email" placeholder="correo@ejemplo.com"></div>
+        <div class="campo"><label for="org-form-telefono">Teléfono</label><input type="tel" id="org-form-telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+        <div class="campo"><label for="org-form-email">E-mail</label><input type="email" id="org-form-email" placeholder="correo@ejemplo.com"></div>
       </div>
       <div class="campo">
-        <label>Nivel</label>
+        <label for="org-form-nivel">Nivel</label>
         <select id="org-form-nivel">
           <option value="">Sin especificar</option>
           <option value="nivel_1">Nivel 1</option>
@@ -489,18 +489,18 @@
         </select>
       </div>
       <div class="campo">
-        <label>Es subordinado de (opcional)</label>
+        <label for="org-form-padre">Es subordinado de (opcional)</label>
         <select id="org-form-padre"><option value="">Ninguno — cargo raíz</option></select>
       </div>
       <div class="campo" id="campo-org-tipo-relacion" style="display:none;">
-        <label>Tipo de relación</label>
+        <label for="org-form-tipo-relacion">Tipo de relación</label>
         <select id="org-form-tipo-relacion">
           <option value="subordinado">Subordinado (línea jerárquica)</option>
           <option value="asesor">Asesor / Staff (horizontal, junto al cargo)</option>
         </select>
       </div>
       <div class="campo">
-        <label>Funciones del cargo</label>
+        <label for="org-form-funciones">Funciones del cargo</label>
         <textarea id="org-form-funciones" rows="4" placeholder="Describe las responsabilidades de este cargo..."></textarea>
       </div>
       <button type="submit" class="btn-primario">Guardar</button>
@@ -1160,7 +1160,7 @@ function imprimirCargo(id) {
   const nodo = nodos.find(n => n.id === id);
   if (!nodo) return;
   const ventana = window.open('', '_blank', 'width=680,height=820');
-  if (!ventana) { alert('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.'); return; }
+  if (!ventana) { mostrarToast('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.', 'error'); return; }
   ventana.document.write(`
     <!DOCTYPE html>
     <html lang="es">
@@ -1218,7 +1218,7 @@ function fichaCargoHtml(nodo) {
  * nivel, alfabético por Cargo.
  */
 function imprimirTodoOrganigrama() {
-  if (!nodos.length) { alert('Todavía no hay cargos en el organigrama para imprimir.'); return; }
+  if (!nodos.length) { mostrarToast('Todavía no hay cargos en el organigrama para imprimir.', 'error'); return; }
   const ORDEN_NIVEL = { nivel_1: 0, nivel_2: 1, nivel_3: 2, nivel_4: 3, nivel_5: 4, nivel_6: 5, asesores: 6 };
   const ordenados = nodos.slice().sort((a, b) => {
     const ordenA = a.nivel ? (ORDEN_NIVEL[a.nivel] ?? 7) : 7;
@@ -1228,7 +1228,7 @@ function imprimirTodoOrganigrama() {
   });
 
   const ventana = window.open('', '_blank', 'width=680,height=820');
-  if (!ventana) { alert('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.'); return; }
+  if (!ventana) { mostrarToast('El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes para este sitio.', 'error'); return; }
   ventana.document.write(`
     <!DOCTYPE html>
     <html lang="es">
@@ -1260,7 +1260,7 @@ function imprimirTodoOrganigrama() {
 }
 document.getElementById('btn-imprimir-todo').addEventListener('click', imprimirTodoOrganigrama);
 document.getElementById('btn-todo-word').addEventListener('click', () => {
-  if (!nodos.length) { alert('Todavía no hay cargos en el organigrama para exportar.'); return; }
+  if (!nodos.length) { mostrarToast('Todavía no hay cargos en el organigrama para exportar.', 'error'); return; }
   window.open('/api/organigrama/exportar-word', '_blank');
 });
 
@@ -1287,7 +1287,7 @@ async function eliminarNodo(id) {
     await api(`/organigrama/${id}`, { method: 'DELETE' });
     await cargarOrganigrama();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 

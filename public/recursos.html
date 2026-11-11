@@ -97,10 +97,10 @@
     <div id="form-error" class="mensaje-error"></div>
     <form id="form-recurso" enctype="multipart/form-data">
       <input type="hidden" name="id">
-      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="campo"><label for="campo-titulo">Título</label><input id="campo-titulo" name="titulo" required></div>
       <div class="campo">
-        <label>Tipo de recurso</label>
-        <select name="tipo" required>
+        <label for="campo-tipo">Tipo de recurso</label>
+        <select id="campo-tipo" name="tipo" required>
           <option value="foto_campana">Foto de la campaña</option>
           <option value="jingle">Jingle</option>
           <option value="noticia">Noticia</option>
@@ -111,14 +111,14 @@
           <option value="video">Video</option>
         </select>
       </div>
-      <div class="campo"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+      <div class="campo"><label for="campo-descripcion">Descripción</label><textarea id="campo-descripcion" name="descripcion" rows="2"></textarea></div>
       <div class="campo">
-        <label>Archivo (imagen, PDF, video, etc.)</label>
-        <input type="file" name="archivo">
+        <label for="campo-archivo">Archivo (imagen, PDF, video, etc.)</label>
+        <input id="campo-archivo" type="file" name="archivo">
         <small id="nota-archivo-actual" style="display:none; color:var(--color-text-muted); font-size:0.78rem;"></small>
       </div>
-      <div class="campo"><label>O enlace externo (p. ej. video de YouTube)</label><input name="enlace_externo" placeholder="https://..."></div>
-      <div class="campo" id="campo-fecha-evento" style="display:none;"><label>Fecha de la reunión</label><input type="datetime-local" name="fecha_evento"></div>
+      <div class="campo"><label for="campo-enlace-externo">O enlace externo (p. ej. video de YouTube)</label><input id="campo-enlace-externo" name="enlace_externo" placeholder="https://..."></div>
+      <div class="campo" id="campo-fecha-evento" style="display:none;"><label for="campo-fecha-evento-2">Fecha de la reunión</label><input id="campo-fecha-evento-2" type="datetime-local" name="fecha_evento"></div>
       <button type="submit" class="btn-primario" id="btn-guardar-recurso">Publicar recurso</button>
     </form>
   </div>

@@ -28,7 +28,7 @@
     <div class="card">
       <div class="toolbar">
         <div class="toolbar-filtros">
-          <input type="text" id="filtro-busqueda-evento" placeholder="Buscar por título del evento...">
+          <input aria-label="Buscar por título del evento" type="text" id="filtro-busqueda-evento" placeholder="Buscar por título del evento...">
           <select id="filtro-tipo-evento">
             <option value="">Todos los tipos</option>
             <option value="reunion">Reunión</option>
@@ -60,7 +60,7 @@
         </p>
         <div class="toolbar">
           <div class="toolbar-filtros">
-            <input type="text" id="filtro-busqueda-consolidado" placeholder="Buscar por nombre o identidad...">
+            <input aria-label="Buscar por nombre o identidad" type="text" id="filtro-busqueda-consolidado" placeholder="Buscar por nombre o identidad...">
             <label style="display:flex; align-items:center; gap:6px; font-weight:400; white-space:nowrap;">
               <input type="checkbox" id="filtro-repetidos-consolidado"> Solo asistentes a más de una reunión
             </label>
@@ -91,7 +91,7 @@
 
     <div id="seccion-agregar-asistente">
     <div class="campo">
-      <label>Agregar asistente ya registrado</label>
+      <label for="input-buscar-votante">Agregar asistente ya registrado</label>
       <input type="text" id="input-buscar-votante" placeholder="Buscar por nombre, cédula o teléfono..." autocomplete="off">
       <div id="resultados-buscar-votante" style="margin-top:4px;"></div>
       <div id="aviso-cedula-no-registrada" style="display:none; margin-top:6px; padding:10px 12px; background:#FDF3E0; border-radius:8px; font-size:0.85rem;">
@@ -103,14 +103,14 @@
     <div class="card" id="panel-nuevo-votante-asistente" style="display:none; margin-top:10px; padding:14px; background:var(--color-bg-suave, #F7F8FA);">
       <div style="font-weight:700; text-transform:uppercase; letter-spacing:0.03em; font-size:0.78rem; color:var(--color-text-muted); margin-bottom:8px;">Registrar nuevo votante</div>
       <div id="nuevo-votante-error" class="mensaje-error"></div>
-      <div class="campo"><label>Número de identificación</label><input type="text" id="nv-cedula" autocomplete="off"></div>
-      <div class="campo"><label>Nombres y apellidos</label><input type="text" id="nv-nombre" required></div>
+      <div class="campo"><label for="nv-cedula">Número de identificación</label><input type="text" id="nv-cedula" autocomplete="off" inputmode="numeric"></div>
+      <div class="campo"><label for="nv-nombre">Nombres y apellidos</label><input type="text" id="nv-nombre" required></div>
       <div class="fila">
-        <div class="campo"><label>Teléfono</label><input type="text" id="nv-telefono" placeholder="300 123 4567"></div>
-        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" id="nv-email"></div>
+        <div class="campo"><label for="nv-telefono">Teléfono</label><input type="tel" id="nv-telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+        <div class="campo"><label for="nv-email">Correo electrónico (opcional)</label><input type="email" id="nv-email"></div>
       </div>
       <div class="campo">
-        <label>Género</label>
+        <label for="nv-genero">Género</label>
         <select id="nv-genero">
           <option value="mujer">Mujer</option>
           <option value="hombre">Hombre</option>
@@ -120,18 +120,18 @@
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="nv-departamento">Departamento</label>
           <input type="text" id="nv-departamento" list="nv-lista-departamentos" autocomplete="off">
           <datalist id="nv-lista-departamentos"></datalist>
         </div>
         <div class="campo">
-          <label>Ciudad</label>
+          <label for="nv-ciudad">Ciudad</label>
           <input type="text" id="nv-ciudad" list="nv-lista-ciudades" autocomplete="off">
           <datalist id="nv-lista-ciudades"></datalist>
         </div>
       </div>
       <div class="campo">
-        <label>Área</label>
+        <label for="nv-area">Área</label>
         <select id="nv-area">
           <option value="">Seleccione (opcional)...</option>
           <option value="urbano">Urbano</option>
@@ -140,24 +140,24 @@
       </div>
       <div class="fila" id="nv-fila-urbano" data-fila="urbano" style="display:none;">
         <div class="campo" id="nv-campo-comuna" data-campo="comuna">
-          <label>Comuna</label>
+          <label for="nv-comuna">Comuna</label>
           <input type="text" id="nv-comuna" list="nv-lista-comunas" autocomplete="off">
           <datalist id="nv-lista-comunas"></datalist>
         </div>
         <div class="campo" id="nv-campo-barrio" data-campo="barrio">
-          <label>Barrio</label>
+          <label for="nv-barrio">Barrio</label>
           <input type="text" id="nv-barrio" list="nv-lista-barrios" autocomplete="off">
           <datalist id="nv-lista-barrios"></datalist>
         </div>
       </div>
       <div class="fila" id="nv-fila-rural" data-fila="rural" style="display:none;">
         <div class="campo" data-campo="corregimiento">
-          <label>Corregimiento</label>
+          <label for="nv-corregimiento">Corregimiento</label>
           <input type="text" id="nv-corregimiento" list="nv-lista-corregimientos" autocomplete="off">
           <datalist id="nv-lista-corregimientos"></datalist>
         </div>
         <div class="campo" data-campo="vereda">
-          <label>Vereda</label>
+          <label for="nv-vereda">Vereda</label>
           <input type="text" id="nv-vereda" list="nv-lista-veredas" autocomplete="off">
           <datalist id="nv-lista-veredas"></datalist>
         </div>
@@ -176,7 +176,7 @@
 
     <div class="fila">
       <div class="campo" style="flex:1;">
-        <label>O agregar a alguien que no está registrado</label>
+        <label for="input-nombre-invitado">O agregar a alguien que no está registrado</label>
         <input type="text" id="input-nombre-invitado" placeholder="Nombre completo">
       </div>
       <button type="button" class="btn-sec-neutro" id="btn-agregar-invitado" style="align-self:flex-end; margin-bottom:14px; white-space:nowrap;">+ Agregar</button>
@@ -393,7 +393,7 @@ async function marcarAsistenciaDe(id, valor) {
     await cargarAsistentesEvento();
     await cargarEventosAsistentes();          // el contador «asistieron» de la tabla de eventos
   } catch (err) {
-    alert(err.message || 'No se pudo guardar la asistencia.');
+    mostrarToast(err.message || 'No se pudo guardar la asistencia.', 'error');
   }
 }
 
@@ -404,7 +404,7 @@ async function quitarAsistente(id) {
     await cargarAsistentesEvento();
     await cargarEventosAsistentes();
   } catch (err) {
-    alert(err.message || 'No se pudo quitar el asistente.');
+    mostrarToast(err.message || 'No se pudo quitar el asistente.', 'error');
   }
 }
 

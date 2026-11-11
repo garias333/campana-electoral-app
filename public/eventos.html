@@ -58,10 +58,10 @@
       <input type="hidden" name="id" id="input-id-evento">
 
       <div class="campo encabezado-form primero">Datos del evento</div>
-      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="campo"><label for="campo-titulo">Título</label><input id="campo-titulo" name="titulo" required></div>
       <div class="fila">
-        <div class="campo"><label>Tipo</label>
-          <select name="tipo">
+        <div class="campo"><label for="campo-tipo">Tipo</label>
+          <select id="campo-tipo" name="tipo">
             <option value="reunion">Reunión</option>
             <option value="evento_publico">Evento público</option>
             <option value="gotv">Movilización (GOTV)</option>
@@ -69,11 +69,11 @@
             <option value="otro">Otro</option>
           </select>
         </div>
-        <div class="campo"><label>Meta de asistentes</label><input type="number" name="meta_asistentes" value="0"></div>
+        <div class="campo"><label for="campo-meta-asistentes">Meta de asistentes</label><input id="campo-meta-asistentes" type="number" name="meta_asistentes" value="0"></div>
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Estado</label>
+          <label for="select-estado-evento">Estado</label>
           <select name="estado" id="select-estado-evento">
             <option value="programado">Programado</option>
             <option value="realizado">Realizado</option>
@@ -82,31 +82,31 @@
         </div>
       </div>
       <div class="fila">
-        <div class="campo"><label>Fecha y hora de inicio</label><input type="datetime-local" name="fecha_inicio" required></div>
-        <div class="campo"><label>Fecha y hora de fin</label><input type="datetime-local" name="fecha_fin"></div>
+        <div class="campo"><label for="campo-fecha-inicio">Fecha y hora de inicio</label><input id="campo-fecha-inicio" type="datetime-local" name="fecha_inicio" required></div>
+        <div class="campo"><label for="campo-fecha-fin">Fecha y hora de fin</label><input id="campo-fecha-fin" type="datetime-local" name="fecha_fin"></div>
       </div>
-      <div class="campo"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+      <div class="campo"><label for="campo-descripcion">Descripción</label><textarea id="campo-descripcion" name="descripcion" rows="2"></textarea></div>
 
       <div class="campo encabezado-form">Lugar del evento</div>
       <div class="campo">
-        <label>Dirección del evento</label>
+        <label for="input-lugar-evento">Dirección del evento</label>
         <input name="lugar" id="input-lugar-evento" placeholder="Ej. Salón comunal, Calle 10 #5-20">
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-evento">Departamento</label>
           <input name="departamento" id="input-departamento-evento" list="lista-departamentos-evento" autocomplete="off">
           <datalist id="lista-departamentos-evento"></datalist>
         </div>
         <div class="campo">
-          <label>Ciudad</label>
+          <label for="input-ciudad-evento">Ciudad</label>
           <input name="ciudad" id="input-ciudad-evento" list="lista-ciudades-evento" autocomplete="off">
           <datalist id="lista-ciudades-evento"></datalist>
         </div>
       </div>
 
       <div class="campo">
-        <label>Área</label>
+        <label for="select-area-evento">Área</label>
         <select id="select-area-evento">
           <option value="">Seleccione (opcional)...</option>
           <option value="urbano">Urbano</option>
@@ -115,12 +115,12 @@
       </div>
       <div class="fila" id="fila-urbano-evento" data-fila="urbano" style="display:none;">
         <div class="campo" id="campo-comuna-evento" data-campo="comuna">
-          <label>Comuna</label>
+          <label for="input-comuna-evento">Comuna</label>
           <input id="input-comuna-evento" list="lista-comunas-evento" autocomplete="off">
           <datalist id="lista-comunas-evento"></datalist>
         </div>
         <div class="campo" id="campo-barrio-evento" data-campo="barrio">
-          <label>Barrio</label>
+          <label for="input-barrio-evento">Barrio</label>
           <input id="input-barrio-evento" list="lista-barrios-evento" autocomplete="off">
           <datalist id="lista-barrios-evento"></datalist>
           <small id="contador-barrios-evento" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -128,12 +128,12 @@
       </div>
       <div class="fila" id="fila-rural-evento" data-fila="rural" style="display:none;">
         <div class="campo" data-campo="corregimiento">
-          <label>Corregimiento</label>
+          <label for="input-corregimiento-evento">Corregimiento</label>
           <input id="input-corregimiento-evento" list="lista-corregimientos-evento" autocomplete="off">
           <datalist id="lista-corregimientos-evento"></datalist>
         </div>
         <div class="campo" data-campo="vereda">
-          <label>Vereda</label>
+          <label for="input-vereda-evento">Vereda</label>
           <input id="input-vereda-evento" list="lista-veredas-evento" autocomplete="off">
           <datalist id="lista-veredas-evento"></datalist>
           <small id="contador-veredas-evento" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -144,18 +144,18 @@
       <div class="campo encabezado-form">Responsables del evento</div>
       <div class="fila">
         <div class="campo">
-          <label>Coordinador</label>
+          <label for="select-coordinador-evento">Coordinador</label>
           <!-- La lista viene ya ordenada del servidor; el alfabeto la desharia. -->
           <select name="coordinador_id" id="select-coordinador-evento" data-sin-ordenar><option value="">Sin especificar</option></select>
         </div>
         <div class="campo">
-          <label>Líder</label>
+          <label for="select-lider-evento">Líder</label>
           <select name="lider_id" id="select-lider-evento"><option value="">Sin especificar</option></select>
         </div>
       </div>
 
       <div class="campo">
-        <label>Responsable de la reunión</label>
+        <label for="select-responsable-evento">Responsable de la reunión</label>
         <select name="responsable_id" id="select-responsable-evento"><option value="">Yo mismo</option></select>
       </div>
 
@@ -273,7 +273,7 @@ async function eliminarEvento(id) {
   try {
     await api(`/eventos/${id}`, { method: 'DELETE' });
   } catch (err) {
-    alert(err.message || 'No se pudo eliminar el evento.');
+    mostrarToast(err.message || 'No se pudo eliminar el evento.', 'error');
   }
   cargarEventos();
 }
@@ -601,11 +601,11 @@ async function recorrerRegeocodificacionEventos(boton, todos, password) {
       cursor = r.cursorSiguiente;
       if (r.procesados === 0) break;
     }
-    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} evento(s) quedaron ubicados en el mapa.` +
-      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes corregirlas a mano o volver a intentar más tarde.` : ''));
+    mostrarToast(`Listo: ${totalGeocodificados} de ${totalProcesados} evento(s) quedaron ubicados en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes corregirlas a mano o volver a intentar más tarde.` : ''), 'ok');
     await cargarEventos();
   } catch (err) {
-    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`);
+    mostrarToast(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;

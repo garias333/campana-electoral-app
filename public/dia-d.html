@@ -243,10 +243,10 @@
       <div id="sub-oficial" style="display:none;">
         <div class="card" style="margin-bottom:14px;">
           <div class="fila" style="gap:12px; flex-wrap:wrap;">
-            <div class="campo" style="flex:2; min-width:220px;"><label>Puesto</label><select id="of-puesto"></select>
-              <input id="of-puesto-texto" placeholder="Escriba el puesto (fuera de lista)" style="display:none; margin-top:6px;"></div>
-            <div class="campo" style="flex:1; min-width:110px;"><label>Mesa</label><select id="of-mesa"></select></div>
-            <div class="campo" style="flex:1; min-width:150px;"><label>Fuente</label>
+            <div class="campo" style="flex:2; min-width:220px;"><label for="of-puesto">Puesto</label><select id="of-puesto"></select>
+              <input aria-label="Escriba el puesto (fuera de lista)" id="of-puesto-texto" placeholder="Escriba el puesto (fuera de lista)" style="display:none; margin-top:6px;"></div>
+            <div class="campo" style="flex:1; min-width:110px;"><label for="of-mesa">Mesa</label><select id="of-mesa"></select></div>
+            <div class="campo" style="flex:1; min-width:150px;"><label for="of-fuente">Fuente</label>
               <select id="of-fuente"><option value="preconteo">Preconteo</option><option value="escrutinio">Escrutinio</option></select></div>
           </div>
           <div id="of-info" style="font-size:0.85rem; color:var(--color-text-muted); margin:6px 0;"></div>
@@ -304,9 +304,9 @@
     <div id="modal-revision" class="overlay" style="display:none;">
       <div class="modal" style="max-width:460px;">
         <div class="modal-header"><h3 id="rev-titulo">Mesa</h3><button class="modal-cerrar" id="rev-cerrar">&times;</button></div>
-        <div class="campo"><label>Estado</label>
+        <div class="campo"><label for="rev-estado">Estado</label>
           <select id="rev-estado"><option value="para_reclamar">Para reclamar</option><option value="revisada">Revisada (sin reclamo)</option><option value="ninguno">Sin revisión</option></select></div>
-        <div class="campo"><label>Nota</label><textarea id="rev-nota" rows="4" placeholder="Ej. el acta tiene un tachón en la fila del candidato"></textarea></div>
+        <div class="campo"><label for="rev-nota">Nota</label><textarea id="rev-nota" rows="4" placeholder="Ej. el acta tiene un tachón en la fila del candidato"></textarea></div>
         <div id="rev-error" class="error-msg"></div>
         <button type="button" class="btn-primario" id="rev-guardar">Guardar</button>
       </div>
@@ -380,7 +380,7 @@ async function eliminarReporte(id) {
     await api(`/dia-d/reportes/${id}`, { method: 'DELETE', body: { password } });
     await cargarVistaCampana();
   } catch (err) {
-    alert(err.message || 'No se pudo eliminar el reporte.');
+    mostrarToast(err.message || 'No se pudo eliminar el reporte.', 'error');
   }
 }
 
@@ -393,7 +393,7 @@ async function eliminarTodosLosReportes() {
     await api('/dia-d/reportes/eliminar-todo', { method: 'POST', body: { password } });
     await cargarVistaCampana();
   } catch (err) {
-    alert(err.message || 'No se pudieron eliminar los reportes.');
+    mostrarToast(err.message || 'No se pudieron eliminar los reportes.', 'error');
   }
 }
 document.getElementById('btn-eliminar-todos-reportes').addEventListener('click', eliminarTodosLosReportes);
@@ -652,7 +652,7 @@ function mostrarPestana(cual) {
   if (location.hash !== hash) history.replaceState(null, '', cual === 'reportes' ? location.pathname : hash);
   clearInterval(intervaloAvance); clearInterval(intervaloPaquetes); clearInterval(intervaloAlertas);
   if (cual === 'avance') {
-    cargarAvance().catch(err => alert(err.message || 'No se pudo cargar el avance.'));
+    cargarAvance().catch(err => mostrarToast(err.message || 'No se pudo cargar el avance.', 'error'));
     intervaloAvance = setInterval(() => cargarAvance().catch(() => {}), 30000);
   }
   if (cual === 'resultados') abrirResultados();
@@ -660,7 +660,7 @@ function mostrarPestana(cual) {
   if (cual === 'logistica' && window.LogisticaDiaD) window.LogisticaDiaD.abrir();
   if (cual === 'alertas') {
     cargarAvisos();
-    cargarAlertas().catch(err => alert(err.message || 'No se pudieron cargar las alertas.'));
+    cargarAlertas().catch(err => mostrarToast(err.message || 'No se pudieron cargar las alertas.', 'error'));
     intervaloAlertas = setInterval(() => { if (!document.hidden) cargarAlertas().catch(() => {}); }, 30000);
   }
   // history.replaceState no avisa: el menú lateral se entera por aquí de cuál es la vista de ahora.
@@ -726,7 +726,7 @@ document.querySelectorAll('[data-orden-ranking]').forEach(b => b.addEventListene
   document.querySelectorAll('[data-orden-ranking]').forEach(x => {
     x.classList.toggle('btn-acento', x === b); x.classList.toggle('btn-secundario', x !== b);
   });
-  cargarAvance().catch(err => alert(err.message));
+  cargarAvance().catch(err => mostrarToast(err.message, 'error'));
 }));
 
 /** Vacía las marcas «ya votó» y los enlaces de SU alcance (simulacro). Pide SU contraseña. */
@@ -736,10 +736,10 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
   if (password === null) return;
   try {
     const r = await api('/dia-d/rescate/vaciar', { method: 'POST', body: { password } });
-    alert(`Listo: ${r.marcas} marcas y ${r.enlaces} enlaces borrados.`);
+    mostrarToast(`Listo: ${r.marcas} marcas y ${r.enlaces} enlaces borrados.`, 'ok');
     await cargarAvance();
   } catch (err) {
-    alert(err.message || 'No se pudieron vaciar las marcas.');
+    mostrarToast(err.message || 'No se pudieron vaciar las marcas.', 'error');
   }
 });
 
@@ -770,9 +770,9 @@ let puestosOficial = [], mesaOficial = null, filtroDif = 'perdida', ultimasDif =
 function subResultados(cual) {
   ['consolidado', 'oficial', 'diferencias'].forEach(k => { document.getElementById('sub-' + k).style.display = k === cual ? 'block' : 'none'; });
   document.querySelectorAll('[data-sub]').forEach(b => { b.classList.toggle('btn-acento', b.dataset.sub === cual); b.classList.toggle('btn-secundario', b.dataset.sub !== cual); });
-  if (cual === 'consolidado') cargarConsolidado().catch(err => alert(err.message));
-  if (cual === 'oficial') prepararOficial().catch(err => alert(err.message));
-  if (cual === 'diferencias') { cargarDiferencias().catch(err => alert(err.message)); cargarPaquetes().catch(() => {}); }
+  if (cual === 'consolidado') cargarConsolidado().catch(err => mostrarToast(err.message, 'error'));
+  if (cual === 'oficial') prepararOficial().catch(err => mostrarToast(err.message, 'error'));
+  if (cual === 'diferencias') { cargarDiferencias().catch(err => mostrarToast(err.message, 'error')); cargarPaquetes().catch(() => {}); }
 }
 document.querySelectorAll('[data-sub]').forEach(b => b.addEventListener('click', () => subResultados(b.dataset.sub)));
 function abrirResultados() { subResultados('consolidado'); cargarDiferencias(true).catch(() => {}); }
@@ -821,8 +821,8 @@ function pintarConsolidado() {
     + (c.fuera_de_lista ? fila(c.fuera_de_lista, ' style="background:#FAF6EC;"') : '');
   document.getElementById('res-vacio').style.display = (filas.length || c.fuera_de_lista) ? 'none' : 'block';
 }
-function elegirMunicipio(m) { resMunicipio = m; resSoloAlertas = false; cargarConsolidado().catch(e => alert(e.message)); }
-function alternarSoloAlertas() { resSoloAlertas = !resSoloAlertas; if (resSoloAlertas) resMunicipio = ''; cargarConsolidado().catch(e => alert(e.message)); }
+function elegirMunicipio(m) { resMunicipio = m; resSoloAlertas = false; cargarConsolidado().catch(e => mostrarToast(e.message, 'error')); }
+function alternarSoloAlertas() { resSoloAlertas = !resSoloAlertas; if (resSoloAlertas) resMunicipio = ''; cargarConsolidado().catch(e => mostrarToast(e.message, 'error')); }
 document.querySelectorAll('#tabla-consolidado [data-ord]').forEach(th => th.addEventListener('click', () => {
   resOrden = { campo: th.dataset.ord, asc: resOrden.campo === th.dataset.ord ? !resOrden.asc : th.dataset.ord === 'puesto' };
   pintarConsolidado();
@@ -944,8 +944,8 @@ async function cargarDiferencias(soloContador) {
       <td>${f.estado ? ETQ[f.estado] : '—'}${f.nota ? `<div style="font-size:0.72rem; color:var(--color-text-muted);">${escaparHtml(String(f.nota).slice(0, 60))}</div>` : ''}</td></tr>`;
   }).join('');
 }
-document.querySelectorAll('[data-filtro-dif]').forEach(b => b.addEventListener('click', () => { filtroDif = b.dataset.filtroDif; cargarDiferencias().catch(e => alert(e.message)); }));
-document.getElementById('dif-fuente').addEventListener('change', () => cargarDiferencias().catch(e => alert(e.message)));
+document.querySelectorAll('[data-filtro-dif]').forEach(b => b.addEventListener('click', () => { filtroDif = b.dataset.filtroDif; cargarDiferencias().catch(e => mostrarToast(e.message, 'error')); }));
+document.getElementById('dif-fuente').addEventListener('change', () => cargarDiferencias().catch(e => mostrarToast(e.message, 'error')));
 document.getElementById('tbody-dif').addEventListener('click', async (e) => {
   const fila = e.target.closest('tr[data-i]'); if (!fila) return;
   const f = ultimasDif.filas[Number(fila.dataset.i)];
@@ -953,7 +953,7 @@ document.getElementById('tbody-dif').addEventListener('click', async (e) => {
     try {
       await api(`${RES}/revision`, { method: 'PUT', body: { puesto_id: f.puesto_id || undefined, puesto_texto: f.puesto_id ? undefined : f.puesto_texto, mesa: f.mesa, estado: e.target.checked ? 'para_reclamar' : 'ninguno', nota: f.nota } });
       await cargarDiferencias();
-    } catch (err) { e.target.checked = !e.target.checked; alert(err.message); }
+    } catch (err) { e.target.checked = !e.target.checked; mostrarToast(err.message, 'error'); }
     return;
   }
   if (e.target.closest('a')) return;
@@ -993,7 +993,7 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   const b = document.getElementById('btn-paquete'); b.disabled = true;
   try {
     await api(`${RES}/paquete`, { method: 'POST', body: {} });
-  } catch (err) { alert(err.message); }
+  } catch (err) { mostrarToast(err.message, 'error'); }
   await cargarPaquetes().catch(() => {});
   await cargarDiferencias().catch(() => {});
 });

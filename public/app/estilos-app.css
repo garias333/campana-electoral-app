@@ -319,47 +319,35 @@ body.inicio-con-cifras #panel-lider > .pl-tarjeta:first-child {
    sea cual sea. */
 .campo-con-dictado { display: flex; gap: 8px; align-items: stretch; }
 .campo-con-dictado input { flex: 1; min-width: 0; }
-/* En relieve, y que el relieve se hunda al pulsar: la tecla se dibuja con un canto
-   inferior solido (3px), una sombra difusa y un brillo arriba; al pulsar baja los
-   mismos 3px y el canto desaparece. */
+/* PLANO (parche 323): sin borde azul ni sombra ni relieve. Mismo fondo que el campo (--campo), mismo radio, la misma altura
+   (52px, que es la del campo; `align-items: stretch` de arriba lo mantiene igual si el campo creciera), el ícono centrado y,
+   con el foco, el mismo halo azul de 4px que un campo. */
 .btn-dictado {
   flex: none;
   width: 52px;
-  border: 1.5px solid var(--marca-azul-osc);
+  min-height: 52px;
+  padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid transparent;
   border-radius: var(--radio-campo);
-  background: linear-gradient(180deg, #ffffff 0%, var(--campo) 100%);
-  box-shadow: 0 3px 0 var(--marca-azul-osc),
-              0 5px 9px rgba(8, 66, 152, 0.22),
-              inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: var(--campo);
+  box-shadow: none;
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
   font-family: inherit;
-  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
   -webkit-tap-highlight-color: transparent;
 }
-.btn-dictado:active {
-  transform: translateY(3px);
-  background: linear-gradient(180deg, #e3e9f5 0%, var(--campo) 100%);
-  box-shadow: 0 0 0 var(--marca-azul-osc),
-              0 1px 2px rgba(8, 66, 152, 0.2),
-              inset 0 2px 5px rgba(8, 66, 152, 0.2);
-}
-/* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: el latido dice «te estoy oyendo». Va en ROJO (grabando). */
+.btn-dictado:active { background: #e3e9f5; }
+.btn-dictado:focus-visible { outline: none; background: #fff; border-color: var(--marca-azul); box-shadow: 0 0 0 4px var(--foco-halo); }
+/* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: el latido dice «te estoy oyendo». Va en ROJO (grabando), también plano. */
 .btn-dictado.oyendo {
-  background: linear-gradient(180deg, #e85a5a 0%, var(--error) 60%, #a31f1f 100%);
-  border-color: #8f1b1b;
-  box-shadow: 0 3px 0 #7a1717,
-              0 5px 10px rgba(198, 40, 40, 0.38),
-              inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--error);
+  border-color: transparent;
+  box-shadow: none;
   animation: dictado-latido 1s ease-in-out infinite;
 }
-/* Pulsar mientras escucha es como se DETIENE el dictado: sin esta regla el canto quedaria levantado y el boton flotaria. */
-.btn-dictado.oyendo:active {
-  box-shadow: 0 0 0 #7a1717,
-              0 1px 2px rgba(198, 40, 40, 0.30),
-              inset 0 2px 5px rgba(60, 5, 5, 0.34);
-}
+.btn-dictado.oyendo:active { background: #a82020; }
 @keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .btn-dictado.oyendo { animation: none; } }
 

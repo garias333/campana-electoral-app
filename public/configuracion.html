@@ -153,10 +153,10 @@
           </small>
 
         <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:200px;"><label>Nombre del candidato</label><input name="nombre_candidato"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-nombre-candidato">Nombre del candidato</label><input id="campo-nombre-candidato" name="nombre_candidato"></div>
           <div class="campo" style="flex:1; min-width:200px;">
-            <label>Cargo al que aspira</label>
-            <select name="cargo_aspira">
+            <label for="campo-cargo-aspira">Cargo al que aspira</label>
+            <select id="campo-cargo-aspira" name="cargo_aspira">
               <option value="">Seleccione...</option>
               <option value="senado">Senado</option>
               <option value="camara_representantes">Cámara de Representantes</option>
@@ -168,8 +168,8 @@
             </select>
           </div>
           <div class="campo" style="flex:1; min-width:200px;">
-            <label>Fecha de elecciones</label>
-            <input type="date" name="fecha_eleccion">
+            <label for="campo-fecha-eleccion">Fecha de elecciones</label>
+            <input id="campo-fecha-eleccion" type="date" name="fecha_eleccion">
             <small style="color:var(--color-text-muted);">Informativa: los testigos siempre entran directo al formulario de Día D al iniciar sesión, sin importar esta fecha.</small>
             <small style="color:#8A5A00; display:block; margin-top:4px;">⚠ Los enlaces «Ya voté» que se envían a los votantes son <strong>de esta fecha</strong>: sirven solo ese día. Si la cambia —por una segunda vuelta o una elección nueva—, <strong>los enlaces ya enviados dejan de funcionar</strong> y hay que volver a mandarlos.</small>
           </div>
@@ -180,25 +180,25 @@
         <div id="bloque-jornada" style="border:1px solid var(--color-border); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
           <div style="font-weight:700; margin-bottom:2px;">Jornada del Día D <small style="font-weight:400; color:var(--color-text-muted);">(hora de Colombia)</small></div>
           <div class="fila">
-            <div class="campo"><label>Apertura de urnas</label><input type="time" id="jornada-apertura" value="08:00">
+            <div class="campo"><label for="jornada-apertura">Apertura de urnas</label><input type="time" id="jornada-apertura" value="08:00">
               <small style="color:var(--color-text-muted);">Desde aquí se cuenta cuánto se espera a un testigo.</small></div>
-            <div class="campo"><label>Cierre de urnas</label><input type="time" id="jornada-cierre" value="16:00">
+            <div class="campo"><label for="jornada-cierre">Cierre de urnas</label><input type="time" id="jornada-cierre" value="16:00">
               <small style="color:var(--color-text-muted);">Desde aquí se cuenta el plazo del E-14.</small></div>
           </div>
           <div class="fila">
-            <div class="campo"><label>Minutos para avisar que un testigo no llegó</label><input type="number" id="jornada-checkin-min" min="0" max="1440" value="30">
+            <div class="campo"><label for="jornada-checkin-min">Minutos para avisar que un testigo no llegó</label><input type="number" id="jornada-checkin-min" min="0" max="1440" value="30">
               <small style="color:var(--color-text-muted);">Pasada la apertura más estos minutos, un testigo sin «Llegué» sale en Alertas.</small></div>
-            <div class="campo"><label>Plazo para subir el E-14 (minutos)</label><input type="number" id="jornada-plazo-e14" min="0" max="1440" value="120">
+            <div class="campo"><label for="jornada-plazo-e14">Plazo para subir el E-14 (minutos)</label><input type="number" id="jornada-plazo-e14" min="0" max="1440" value="120">
               <small style="color:var(--color-text-muted);">Pasado el cierre más este plazo, una mesa sin E-14 sale en Alertas (y su ficha pasa a ámbar).</small></div>
           </div>
           <div class="fila">
-            <div class="campo"><label>Baja votación: porcentaje «ya votó»</label><input type="number" id="jornada-baja-pct" min="1" max="100" value="40">
+            <div class="campo"><label for="jornada-baja-pct">Baja votación: porcentaje «ya votó»</label><input type="number" id="jornada-baja-pct" min="1" max="100" value="40">
               <small style="color:var(--color-text-muted);">Un puesto con menos de este % de sus votantes marcados como «ya votó» sale en Alertas.</small></div>
-            <div class="campo"><label>Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
+            <div class="campo"><label for="jornada-baja-desde">Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
               <small style="color:var(--color-text-muted);">Antes de esa hora la alerta aparece en gris, «pendiente».</small></div>
           </div>
           <div class="fila">
-            <div class="campo"><label>Transporte sin recoger: avisar desde las</label><input type="time" id="jornada-transporte-desde" value="14:00">
+            <div class="campo"><label for="jornada-transporte-desde">Transporte sin recoger: avisar desde las</label><input type="time" id="jornada-transporte-desde" value="14:00">
               <small style="color:var(--color-text-muted);">Desde esa hora, el día de la elección, un puesto con personas que esperan transporte sin que las recojan sale en Alertas. Antes aparece en gris, «pendiente».</small></div>
           </div>
           <div class="fila">
@@ -210,23 +210,23 @@
         </div>
 
         <div class="fila">
-          <div class="campo"><label>Slogan de la campaña</label><input name="slogan_campana" placeholder="Ej. Juntos por nuestra ciudad"></div>
+          <div class="campo"><label for="campo-slogan-campana">Slogan de la campaña</label><input id="campo-slogan-campana" name="slogan_campana" placeholder="Ej. Juntos por nuestra ciudad"></div>
           <div class="campo">
-            <label>Partido político</label>
+            <label for="select-partido-politico">Partido político</label>
             <select id="select-partido-politico">
               <option value="">Seleccione...</option>
             </select>
           </div>
         </div>
         <div class="campo" id="campo-partido-otro" style="display:none;">
-          <label>Nombre del partido/movimiento</label>
+          <label for="input-partido-otro">Nombre del partido/movimiento</label>
           <input id="input-partido-otro" placeholder="Escriba el nombre completo">
         </div>
 
         <div class="fila" id="campo-meta-campana">
           <div class="campo">
-            <label>Meta de votos de su campaña</label>
-            <input type="number" name="meta_votos_campana" min="0" step="1" placeholder="Ej. 20000">
+            <label for="campo-meta-votos-campana">Meta de votos de su campaña</label>
+            <input id="campo-meta-votos-campana" type="number" name="meta_votos_campana" min="0" step="1" placeholder="Ej. 20000">
             <small style="color:var(--color-text-muted);">
               Los votos que la campaña necesita para ganar. La fija usted: no
               es la suma de las metas de los líderes, que es otra cifra —lo que
@@ -236,9 +236,9 @@
         </div>
 
         <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:200px;"><label>Dirección sede campaña</label><input name="direccion_sede"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label>Correo electrónico</label><input type="email" name="email"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-direccion-sede">Dirección sede campaña</label><input id="campo-direccion-sede" name="direccion_sede"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-telefono-2">Teléfono</label><input type="tel" id="campo-telefono-2" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-email">Correo electrónico</label><input id="campo-email" type="email" name="email"></div>
         </div>
         </div>
 
@@ -269,19 +269,19 @@
             </div>
             <div style="flex:1; min-width:240px;">
               <div class="campo">
-                <label>Nombre de la campaña</label>
-                <input name="marca_titulo" maxlength="120" placeholder="Ej.: Nombre de la campaña">
+                <label for="campo-marca-titulo">Nombre de la campaña</label>
+                <input id="campo-marca-titulo" name="marca_titulo" maxlength="120" placeholder="Ej.: Nombre de la campaña">
               </div>
               <div class="campo">
-                <label>Eslogan</label>
-                <input name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
+                <label for="campo-marca-subtitulo">Eslogan</label>
+                <input id="campo-marca-subtitulo" name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
 
       <!-- SOLO PARA EL ASPIRANTE. Es la meta de SU campaña, la que él se pone.
            La otra —cuántos votos le prometió a la campaña principal— se la
            ponen al inscribirlo allá, y aquí se muestra sin poder tocarla:
            es un pacto con la otra campaña, no una decisión suya. -->
       <div class="campo" id="campo-meta-sublicencia" style="display:none;">
-        <label>Meta de votos de su campaña</label>
+        <label for="input-meta-sublicencia">Meta de votos de su campaña</label>
         <input type="number" name="meta_votos" id="input-meta-sublicencia" min="0" step="1" placeholder="Ej. 1200">
         <small style="color:var(--color-text-muted);">
           Avanza con todo el que registre su equipo. Quien además marque
@@ -289,7 +289,7 @@
         </small>
       </div>
       <div class="campo" id="campo-meta-madre" style="display:none;">
-        <label>Comprometido con la campaña principal</label>
+        <label for="input-meta-madre">Comprometido con la campaña principal</label>
         <input type="text" id="input-meta-madre" disabled>
         <small style="color:var(--color-text-muted);">
           Se pactó al inscribirlo en la campaña principal; se cambia allá.
@@ -319,12 +319,12 @@
 
           <div class="fila" style="flex-wrap:wrap;">
             <div class="campo" style="flex:1; min-width:180px;">
-              <label>Departamento</label>
+              <label for="input-departamento-campana">Departamento</label>
               <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
               <datalist id="lista-departamentos-campana"></datalist>
             </div>
             <div class="campo" style="flex:1; min-width:180px;">
-              <label>Ciudad</label>
+              <label for="input-ciudad-campana">Ciudad</label>
               <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
               <datalist id="lista-ciudades-campana"></datalist>
             </div>
@@ -333,15 +333,15 @@
           <div class="subtitulo-apartado">Divisiones urbanas</div>
           <div class="fila" style="flex-wrap:wrap;">
             <div class="campo" style="flex:1; min-width:220px;">
-              <label>¿Utilizar nombre de comunas?</label>
-              <select name="ciudad_tiene_comunas">
+              <label for="campo-ciudad-tiene-comunas">¿Utilizar nombre de comunas?</label>
+              <select id="campo-ciudad-tiene-comunas" name="ciudad_tiene_comunas">
                 <option value="1">Sí</option>
                 <option value="0">No</option>
               </select>
             </div>
             <div class="campo" style="flex:1; min-width:220px;">
-              <label>¿Utilizar nombre de barrios?</label>
-              <select name="usar_nombre_barrios">
+              <label for="campo-usar-nombre-barrios">¿Utilizar nombre de barrios?</label>
+              <select id="campo-usar-nombre-barrios" name="usar_nombre_barrios">
                 <option value="1">Sí</option>
                 <option value="0">No</option>
               </select>
@@ -351,15 +351,15 @@
           <div class="subtitulo-apartado">Divisiones rurales</div>
           <div class="fila" style="flex-wrap:wrap;">
             <div class="campo" style="flex:1; min-width:220px;">
-              <label>¿Utilizar nombre de corregimientos?</label>
-              <select name="usar_nombre_corregimientos">
+              <label for="campo-usar-nombre-corregimientos">¿Utilizar nombre de corregimientos?</label>
+              <select id="campo-usar-nombre-corregimientos" name="usar_nombre_corregimientos">
                 <option value="1">Sí</option>
                 <option value="0">No</option>
               </select>
             </div>
             <div class="campo" style="flex:1; min-width:220px;">
-              <label>¿Utilizar nombre de veredas?</label>
-              <select name="usar_nombre_veredas">
+              <label for="campo-usar-nombre-veredas">¿Utilizar nombre de veredas?</label>
+              <select id="campo-usar-nombre-veredas" name="usar_nombre_veredas">
                 <option value="1">Sí</option>
                 <option value="0">No</option>
               </select>
@@ -499,7 +499,7 @@
           </p>
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <div class="campo" style="flex:1; min-width:200px; margin:0;">
-              <label style="font-size:0.8rem;">Municipio</label>
+              <label for="select-municipio-traer" style="font-size:0.8rem;">Municipio</label>
               <select id="select-municipio-traer"><option value="">Seleccione...</option></select>
             </div>
             <button type="button" class="btn-secundario btn-sm sin-importar-exportar" data-ie="configuracion" id="btn-traer-municipio">📥 Traer los de este municipio</button>
@@ -558,7 +558,7 @@
         </div>
       </div>
       <div class="toolbar-filtros" style="margin-bottom:14px;">
-        <input type="text" id="filtro-usuarios-busqueda" placeholder="Buscar por nombre, número de identificación, email o teléfono...">
+        <input aria-label="Buscar por nombre, número de identificación, email o teléfono" type="text" id="filtro-usuarios-busqueda" placeholder="Buscar por nombre, número de identificación, email o teléfono...">
         <!-- Los roles salen en orden de mando, no alfabetico. -->
         <select id="filtro-usuarios-rol" data-sin-ordenar>
           <option value="">Todos los roles</option>
@@ -662,9 +662,9 @@
       </p>
       <div id="backup-restaurar-error" class="mensaje-error"></div>
       <div id="backup-restaurar-ok" class="mensaje-ok"></div>
-      <div class="campo"><label>Archivo de backup (.zip)</label><input type="file" id="input-restaurar-backup" accept=".zip"></div>
+      <div class="campo"><label for="input-restaurar-backup">Archivo de backup (.zip)</label><input type="file" id="input-restaurar-backup" accept=".zip"></div>
       <div class="campo">
-        <label>Escribe RESTAURAR para confirmar</label>
+        <label for="input-confirmar-restaurar">Escribe RESTAURAR para confirmar</label>
         <input type="text" id="input-confirmar-restaurar" placeholder="RESTAURAR" autocomplete="off">
       </div>
       <button type="button" class="btn-peligro" id="btn-restaurar-backup">Restaurar backup (reemplaza todo)</button>
@@ -679,34 +679,34 @@
     <div id="usuario-form-ok" class="mensaje-ok"></div>
     <form id="form-usuario">
       <input type="hidden" id="usuario-form-id">
-      <div class="campo"><label>Nombre completo</label><input id="usuario-form-nombre" required></div>
+      <div class="campo"><label for="usuario-form-nombre">Nombre completo</label><input id="usuario-form-nombre" required></div>
       <div class="fila">
-        <div class="campo"><label>Número de identificación</label><input id="usuario-form-identificacion"></div>
-        <div class="campo"><label>Teléfono</label><input id="usuario-form-telefono" placeholder="300 123 4567"></div>
+        <div class="campo"><label for="usuario-form-identificacion">Número de identificación</label><input id="usuario-form-identificacion" inputmode="numeric"></div>
+        <div class="campo"><label for="usuario-form-telefono">Teléfono</label><input type="tel" id="usuario-form-telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
       </div>
       <!-- SOLO PARA EL ADMINISTRADOR DE LA APLICACIÓN. Es el WhatsApp al que
            escribe cualquier usuario de cualquier campaña cuando algo falla, así
            que no vive en Datos de la campaña: ahí lo podría cambiar cada admin
            y estaría desviando a su gente. -->
       <div class="campo" id="campo-telefono-soporte" style="display:none;">
-        <label>Teléfono de soporte</label>
-        <input id="usuario-form-telefono-soporte" placeholder="300 123 4567">
+        <label for="usuario-form-telefono-soporte">Teléfono de soporte</label>
+        <input type="tel" id="usuario-form-telefono-soporte" placeholder="300 123 4567" inputmode="tel" autocomplete="off">
         <small style="color:var(--color-text-muted); font-size:0.8rem;">
           Aparece en el menú de todos los usuarios, debajo de Ayuda, con enlace directo a WhatsApp.
           Déjelo vacío para no mostrarlo.
         </small>
       </div>
       <div class="fila">
-        <div class="campo"><label>Nombre de usuario</label><input id="usuario-form-nombre-usuario" placeholder="Se autocompleta con el Número de identificación" autocomplete="off"></div>
+        <div class="campo"><label for="usuario-form-nombre-usuario">Nombre de usuario</label><input id="usuario-form-nombre-usuario" placeholder="Se autocompleta con el Número de identificación" autocomplete="off"></div>
         <div class="campo" id="campo-usuario-password">
-          <label>Contraseña (opcional)</label>
+          <label for="usuario-form-password">Contraseña (opcional)</label>
           <input type="password" id="usuario-form-password" autocomplete="new-password" minlength="8" placeholder="Se autocompleta con el Número de identificación">
         </div>
       </div>
       <small style="color:var(--color-text-muted); font-size:0.75rem; display:block; margin-top:-8px; margin-bottom:12px;" id="nota-password-usuario">Contraseña: mínimo 8 caracteres, se autocompleta con el Número de identificación (puedes cambiarla). En cualquier caso, la persona deberá cambiarla obligatoriamente en su primer inicio de sesión.</small>
-      <div class="campo"><label>Correo electrónico</label><input type="email" id="usuario-form-email" required></div>
+      <div class="campo"><label for="usuario-form-email">Correo electrónico</label><input type="email" id="usuario-form-email" required></div>
       <div class="campo">
-        <label>Rol / Perfil</label>
+        <label for="usuario-form-rol">Rol / Perfil</label>
         <!-- El orden es la cadena de mando, no el alfabeto: lo arma el JS por rango. -->
         <select id="usuario-form-rol" data-sin-ordenar required></select>
       </div>
@@ -729,26 +729,26 @@
       <input type="hidden" id="puesto-form-ctc-puesto-id">
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="puesto-form-departamento">Departamento</label>
           <select id="puesto-form-departamento"><option value="">Seleccione...</option></select>
         </div>
         <div class="campo">
-          <label>Municipio</label>
+          <label for="puesto-form-municipio">Municipio</label>
           <select id="puesto-form-municipio"><option value="">Elija primero el departamento...</option></select>
         </div>
       </div>
       <div class="campo">
-        <label>Puesto de votación</label>
+        <label for="puesto-form-puesto">Puesto de votación</label>
         <select id="puesto-form-puesto"><option value="">Elija primero el municipio...</option></select>
         <small style="color:var(--color-text-muted); font-size:0.78rem;">Del catálogo oficial de la Registraduría.</small>
       </div>
       <div class="campo">
-        <label>Nombre del puesto</label>
+        <label for="puesto-form-nombre">Nombre del puesto</label>
         <input id="puesto-form-nombre" required>
         <small style="color:var(--color-text-muted); font-size:0.78rem;">Se llena solo al elegirlo arriba. Se puede corregir a mano.</small>
       </div>
       <div class="campo">
-        <label>Cantidad de mesas</label>
+        <label for="puesto-form-cantidad-mesas">Cantidad de mesas</label>
         <input type="number" id="puesto-form-cantidad-mesas" min="1" step="1" required>
         <small style="color:var(--color-text-muted); font-size:0.78rem;">Viene del catálogo. Cámbiala si en la práctica es otra.</small>
       </div>
@@ -763,7 +763,7 @@
     <div id="candidato-form-error" class="mensaje-error"></div>
     <form id="form-candidato">
       <input type="hidden" id="candidato-form-id">
-      <div class="campo"><label>Nombre del candidato</label><input id="candidato-form-nombre" required></div>
+      <div class="campo"><label for="candidato-form-nombre">Nombre del candidato</label><input id="candidato-form-nombre" required></div>
       <button type="submit" class="btn-primario">Guardar</button>
     </form>
   </div>
@@ -877,7 +877,7 @@ document.getElementById('tbody-puestos-votacion').addEventListener('click', (e) 
   if (ficha) abrirVentanaCobertura(Number(ficha.dataset.puesto), Number(ficha.dataset.mesa));
 });
 document.getElementById('btn-avisar-todos').addEventListener('click', () => {
-  avisarATestigos(null).catch(err => alert(err.message));
+  avisarATestigos(null).catch(err => mostrarToast(err.message, 'error'));
 });
 /* El límite de mesas por testigo: lo cambia el administrador (o el aspirante, en su campaña). Se lee cuando se
    pinta la cobertura y no al cargar el archivo: hasta entonces no se sabe quién es `usuarioActual`. */
@@ -918,9 +918,9 @@ async function cargarLimiteDeMesas() {
 document.getElementById('btn-guardar-limite-mesas').addEventListener('click', async () => {
   try {
     const r = await api('/dia-d/cobertura/config', { method: 'PUT', body: { max_mesas_por_testigo: Number(document.getElementById('input-limite-mesas').value) } });
-    alert(`Listo: cada testigo puede cubrir hasta ${r.max_mesas_por_testigo} mesa(s) sin que la pantalla avise.`);
+    mostrarToast(`Listo: cada testigo puede cubrir hasta ${r.max_mesas_por_testigo} mesa(s) sin que la pantalla avise.`, 'ok');
     cargarPuestosVotacion();
-  } catch (err) { alert(err.message); }
+  } catch (err) { mostrarToast(err.message, 'error'); }
 });
 document.getElementById('btn-tab-diad').addEventListener('click', () => cambiarPestana('diad'));
 document.getElementById('btn-tab-usuarios').addEventListener('click', () => cambiarPestana('usuarios'));
@@ -1480,7 +1480,7 @@ async function enviarCredencialesWhatsApp(id) {
   const u = listaUsuarios.find(x => x.id === id);
   if (!u) return;
   const digitos = String(u.telefono || '').replace(/\D/g, '');
-  if (!digitos) { alert('Esta persona no tiene teléfono registrado.'); return; }
+  if (!digitos) { mostrarToast('Esta persona no tiene teléfono registrado.', 'error'); return; }
 
   const yaEnviadas = !!u.credenciales_enviadas;
   const aviso = yaEnviadas
@@ -1559,11 +1559,11 @@ async function enviarCredencialesWhatsApp(id) {
     } else {
       // Bloqueada pese a todo: la contraseña YA cambió, así que no se puede
       // callar. Se muestra para que el envío se pueda completar a mano.
-      alert(`No se pudo abrir WhatsApp.\n\n`
+      mostrarToast(`No se pudo abrir WhatsApp.\n\n`
         + (r.es_cedula
             ? `La contraseña de ${u.nombre} es su número de cédula, y vence en ${horas} horas.`
             : `La contraseña nueva de ${u.nombre} es: ${r.password_temporal}\n\nAnótela y envíesela, porque no se vuelve a mostrar.`)
-        + `\n\nEl enlace de la aplicación es: ${enlace}`);
+        + `\n\nEl enlace de la aplicación es: ${enlace}`, 'error');
     }
 
     // SI EL SMS NO SALIÓ HAY QUE DECIRLO, y decir el código. La contraseña YA
@@ -1577,16 +1577,16 @@ async function enviarCredencialesWhatsApp(id) {
        mandar. Solo interesa cuando la persona no tiene cédula y ese código de
        cuatro dígitos es su única forma de entrar. */
     if (!r.es_cedula && r.sms && !r.sms.enviado) {
-      alert(`La contraseña NO se pudo enviar por mensaje de texto${r.sms.motivo ? ' (' + r.sms.motivo + ')' : ''}.\n\n`
+      mostrarToast(`La contraseña NO se pudo enviar por mensaje de texto${r.sms.motivo ? ' (' + r.sms.motivo + ')' : ''}.\n\n`
         + `${u.nombre} no tiene cédula registrada, así que su contraseña es un código: ${r.password_temporal}\n\n`
-        + `Anótelo y désela usted, porque no se vuelve a mostrar.`);
+        + `Anótelo y désela usted, porque no se vuelve a mostrar.`, 'error');
     }
 
     await api(`/usuarios/${id}/credenciales-enviadas`, { method: 'POST' });
     await cargarUsuarios();
   } catch (err) {
     if (ventana) ventana.close();
-    alert(err.message || 'No se pudieron enviar las credenciales.');
+    mostrarToast(err.message || 'No se pudieron enviar las credenciales.', 'error');
   }
 }
 
@@ -1679,7 +1679,7 @@ async function abrirEdicionUsuario(u) {
   try {
     await api('/auth/verificar-password', { method: 'POST', body: { password: clave } });
   } catch (err) {
-    alert(err.message || 'Contraseña incorrecta.');
+    mostrarToast(err.message || 'Contraseña incorrecta.', 'error');
     return;
   }
   passwordEdicionConfirmada = clave;
@@ -1734,12 +1734,12 @@ async function desactivar2faUsuario(id) {
   if (!password_confirmacion) return;
   try {
     const r = await api(`/usuarios/${id}/desactivar-2fa`, { method: 'POST', body: { password_confirmacion } });
-    alert(r.ya_estaba
+    mostrarToast(r.ya_estaba
       ? `${r.nombre} no tenía la verificación en dos pasos activada.`
-      : `Listo: ${r.nombre} ya puede entrar solo con su contraseña.`);
+      : `Listo: ${r.nombre} ya puede entrar solo con su contraseña.`, 'ok');
     await cargarUsuarios();
   } catch (err) {
-    alert(err.message || 'No se pudo desactivar.');
+    mostrarToast(err.message || 'No se pudo desactivar.', 'error');
   }
 }
 
@@ -1752,9 +1752,9 @@ async function restablecerPasswordUsuario(id) {
   if (!password_confirmacion) return;
   try {
     const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password_confirmacion } });
-    alert(`Contraseña temporal nueva: ${r.password_temporal}\n\nVence en ${r.horas_vigencia || 48} horas y el usuario deberá cambiarla al entrar.`);
+    mostrarToast(`Contraseña temporal nueva: ${r.password_temporal}\n\nVence en ${r.horas_vigencia || 48} horas y el usuario deberá cambiarla al entrar.`, 'ok');
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -1770,7 +1770,7 @@ async function eliminarUsuario(id) {
     await api(`/usuarios/${id}`, { method: 'DELETE', body: { password_confirmacion } });
     await cargarUsuarios();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -1790,11 +1790,11 @@ document.getElementById('btn-sincronizar-identificacion').addEventListener('clic
 
   try {
     const r = await api('/usuarios/sincronizar-con-identificacion', { method: 'POST', body: { password } });
-    alert(`Listo: ${r.actualizados} de ${r.total} usuario(s) con Número de identificación quedaron con ese número como Nombre de usuario y contraseña (deberán cambiarla en su próximo ingreso).` +
-      (r.fallidos ? ` ${r.fallidos} no se pudieron actualizar (posible conflicto con otro usuario que ya tenía ese mismo Nombre de usuario).` : ''));
+    mostrarToast(`Listo: ${r.actualizados} de ${r.total} usuario(s) con Número de identificación quedaron con ese número como Nombre de usuario y contraseña (deberán cambiarla en su próximo ingreso).` +
+      (r.fallidos ? ` ${r.fallidos} no se pudieron actualizar (posible conflicto con otro usuario que ya tenía ese mismo Nombre de usuario).` : ''), 'ok');
     await cargarUsuarios();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 document.getElementById('cerrar-usuario-form').addEventListener('click', () => {
@@ -2060,7 +2060,7 @@ document.getElementById('btn-desbloquear-eliminar').addEventListener('click', as
     document.getElementById('eliminar-contenido').style.display = 'block';
     await cargarAreasEliminables();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 
@@ -2556,12 +2556,12 @@ async function traerPuestosDelCatalogo(boton, cuerpo, descripcion) {
   boton.textContent = 'Trayendo...';
   try {
     const r = await api('/dia-d/config/puestos-votacion/importar-catalogo', { method: 'POST', body: cuerpo });
-    alert(r.agregados > 0
+    mostrarToast(r.agregados > 0
       ? `Listo: ${r.agregados} puesto(s) agregado(s) de ${descripcion}. Ahora la campaña tiene ${r.total}.`
-      : `Ya estaban los ${r.enCatalogo} puestos de ${descripcion}: no había ninguno nuevo que agregar.`);
+      : `Ya estaban los ${r.enCatalogo} puestos de ${descripcion}: no había ninguno nuevo que agregar.`, 'ok');
     await cargarPuestosVotacion();
   } catch (err) {
-    alert('No se pudieron traer los puestos: ' + err.message);
+    mostrarToast('No se pudieron traer los puestos: ' + err.message, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;
@@ -2675,7 +2675,7 @@ document.getElementById('cerrar-puesto-form').addEventListener('click', () =>
 
 document.getElementById('btn-traer-municipio').addEventListener('click', (e) => {
   const sel = document.getElementById('select-municipio-traer');
-  if (!sel.value) { alert('Elige primero un municipio.'); return; }
+  if (!sel.value) { mostrarErrorCampo(sel, 'Elige primero un municipio.'); return; }
   const nombre = sel.selectedOptions[0].textContent;
   traerPuestosDelCatalogo(e.currentTarget, { municipio_id: Number(sel.value) }, nombre);
 });
@@ -2720,7 +2720,7 @@ async function eliminarPuesto(id) {
     await api(`/dia-d/config/puestos-votacion/${id}`, { method: 'DELETE' });
     await cargarPuestosVotacion();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -2735,10 +2735,10 @@ document.getElementById('input-importar-puestos').addEventListener('change', asy
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
     }
-    alert(mensaje);
+    mostrarToast(mensaje, 'ok');
     await cargarPuestosVotacion();
   } catch (err) {
-    alert('Error importando el archivo: ' + err.message);
+    mostrarToast('Error importando el archivo: ' + err.message, 'error');
   } finally {
     e.target.value = '';
   }
@@ -2836,7 +2836,7 @@ async function guardarNumeracion(grupo, numerado, inicio) {
     });
     await cargarCandidatos();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
     await cargarCandidatos();   // se repinta para que la casilla vuelva a lo guardado
   }
 }
@@ -2846,7 +2846,7 @@ async function moverBloque(grupo, direccion) {
     await api(`/dia-d/config/bloques/${grupo}/mover`, { method: 'POST', body: { direccion } });
     await cargarCandidatos();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -2913,7 +2913,7 @@ async function moverCandidato(id, direccion) {
     await api(`/dia-d/config/candidatos/${id}/mover`, { method: 'POST', body: { direccion } });
     await cargarCandidatos();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -2925,7 +2925,7 @@ async function eliminarCandidato(id, grupo) {
     await api(`/dia-d/config/candidatos/${id}`, { method: 'DELETE' });
     await cargarCandidatos();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -2941,10 +2941,10 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
     }
-    alert(mensaje);
+    mostrarToast(mensaje, 'ok');
     await cargarCandidatos();
   } catch (err) {
-    alert('Error importando el archivo: ' + err.message);
+    mostrarToast('Error importando el archivo: ' + err.message, 'error');
   } finally {
     e.target.value = '';
   }

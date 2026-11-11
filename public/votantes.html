@@ -48,7 +48,7 @@
       <div class="toolbar">
         <div class="toolbar-filtros">
           <div class="mono tarjeta-contador" id="contador-resultados"></div>
-          <input type="text" id="filtro-busqueda" placeholder="Buscar por nombre, cédula o teléfono...">
+          <input aria-label="Buscar por nombre, cédula o teléfono" type="text" id="filtro-busqueda" placeholder="Buscar por nombre, cédula o teléfono...">
           <select id="filtro-categoria">
             <option value="">Votantes y sublíderes</option>
             <option value="votante">Solo votantes</option>
@@ -73,7 +73,7 @@
                un <select> porque un departamento puede tener 120 municipios
                y ahí escribir las tres primeras letras es más rápido que
                buscar en una lista; la flecha sigue mostrándola entera. -->
-          <input type="text" id="filtro-municipio" list="lista-filtro-municipios" autocomplete="off"
+          <input aria-label="Todos los municipios" type="text" id="filtro-municipio" list="lista-filtro-municipios" autocomplete="off"
                  placeholder="Todos los municipios" style="display:none;">
           <datalist id="lista-filtro-municipios"></datalist>
           <select id="filtro-zona">
@@ -257,8 +257,8 @@
       </div>
       <div class="campo encabezado-form primero">Datos personales</div>
       <div class="campo">
-        <label>Número de identificación</label>
-        <input name="cedula" id="input-numero-votante" autocomplete="off">
+        <label for="input-numero-votante">Número de identificación</label>
+        <input name="cedula" id="input-numero-votante" autocomplete="off" inputmode="numeric">
         <small id="numero-votante-estado" style="font-size:0.75rem;"></small>
         <button type="button" class="btn-secundario btn-sm" id="btn-lugar-votacion-votante" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-votante" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio, Puesto y Mesa.</small>
@@ -268,42 +268,42 @@
       <div class="campo encabezado-form acento">Lugar de votación</div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-votacion-votante">Departamento</label>
           <input name="departamento_votacion" id="input-departamento-votacion-votante" list="lista-departamentos-votacion-votante" autocomplete="off">
           <datalist id="lista-departamentos-votacion-votante"></datalist>
         </div>
         <div class="campo">
-          <label>Municipio</label>
+          <label for="input-municipio-votacion-votante">Municipio</label>
           <input name="municipio_votacion" id="input-municipio-votacion-votante" list="lista-municipios-votacion-votante" autocomplete="off">
           <datalist id="lista-municipios-votacion-votante"></datalist>
         </div>
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Puesto</label>
+          <label for="input-puesto-votacion-votante">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-votante">
             <option value="">Seleccione...</option>
           </select>
         </div>
         <div class="campo">
-          <label>Mesa</label>
+          <label for="input-mesa-votacion-votante">Mesa</label>
           <input name="mesa_votacion" id="input-mesa-votacion-votante" inputmode="numeric" autocomplete="off">
           <small id="contador-mesas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
-      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
+      <div class="campo"><label for="campo-nombre">Nombres y apellidos</label><input id="campo-nombre" name="nombre" required></div>
       <small id="duplicado-votante-estado" style="display:block; font-size:0.75rem; color:var(--color-no-apoya, #A93226); margin:-6px 0 8px;"></small>
       <div class="fila">
         <div class="campo">
-          <label>Género</label>
-          <select name="genero">
+          <label for="campo-genero">Género</label>
+          <select id="campo-genero" name="genero">
             <option value="mujer">Mujer</option>
             <option value="hombre">Hombre</option>
             <option value="no_binario">No binario</option>
             <option value="prefiero_no_responder" selected>Prefiero no responder</option>
           </select>
         </div>
-        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
+        <div class="campo"><label for="campo-edad">Edad</label><input id="campo-edad" type="number" name="edad" min="0" max="120"></div>
       </div>
 
 
@@ -324,20 +324,20 @@
             </label>
           </div>
           <div class="campo" style="margin-top:8px;">
-            <label>Puesto de votación</label>
+            <label for="input-puesto-testigo-votante">Puesto de votación</label>
             <select id="input-puesto-testigo-votante">
               <option value="">Seleccione...</option>
             </select>
           </div>
           <div id="campo-mesa-testigo-votante" style="margin-top:8px;">
-            <label>Mesa</label>
+            <label for="input-mesa-testigo-votante">Mesa</label>
             <select id="input-mesa-testigo-votante">
               <option value="">Seleccione un puesto primero...</option>
             </select>
           </div>
           <div id="campo-mesas-multiples-testigo-votante" style="display:none; margin-top:8px;">
-            <label>Mesas que cubre</label>
-            <div id="casillas-mesas-testigo-votante" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+            <label id="et-casillas-mesas-testigo-votante">Mesas que cubre</label>
+            <div id="casillas-mesas-testigo-votante" role="group" aria-labelledby="et-casillas-mesas-testigo-votante" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
           </div>
         </div>
       </div>
@@ -354,21 +354,21 @@
 
       <div class="campo encabezado-form">Datos de contacto</div>
       <div class="fila">
-        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
-        <div class="campo"><label>Correo electrónico</label><input type="email" name="email"></div>
+        <div class="campo"><label for="campo-telefono">Teléfono</label><input type="tel" id="campo-telefono" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+        <div class="campo"><label for="campo-email">Correo electrónico</label><input id="campo-email" type="email" name="email"></div>
       </div>
       <div class="campo">
-        <label>Dirección de Residencia</label>
+        <label for="input-direccion-votante">Dirección de Residencia</label>
         <input name="direccion" id="input-direccion-votante" placeholder="Ej. Calle 10 #5-20">
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-residencia-votante">Departamento</label>
           <input name="departamento_residencia" id="input-departamento-residencia-votante" list="lista-departamentos-residencia-votante" autocomplete="off">
           <datalist id="lista-departamentos-residencia-votante"></datalist>
         </div>
         <div class="campo">
-          <label>Ciudad</label>
+          <label for="input-ciudad-residencia-votante">Ciudad</label>
           <input name="ciudad_residencia" id="input-ciudad-residencia-votante" list="lista-ciudades-residencia-votante" autocomplete="off">
           <datalist id="lista-ciudades-residencia-votante"></datalist>
         </div>
@@ -380,12 +380,12 @@
            acababa enseñando su territorio en las columnas de residencia. -->
       <div class="fila">
         <div class="campo">
-          <label>Comuna / Corregimiento</label>
+          <label for="input-comuna-residencia-votante">Comuna / Corregimiento</label>
           <input name="comuna_corregimiento_residencia" id="input-comuna-residencia-votante" list="lista-comuna-residencia-votante" autocomplete="off" placeholder="Ej. Comuna 1 - Atardeceres">
           <datalist id="lista-comuna-residencia-votante"></datalist>
         </div>
         <div class="campo">
-          <label>Barrio / Vereda</label>
+          <label for="input-barrio-residencia-votante">Barrio / Vereda</label>
           <input name="barrio_residencia" id="input-barrio-residencia-votante" list="lista-barrio-residencia-votante" autocomplete="off" placeholder="Ej. Arenillo">
           <datalist id="lista-barrio-residencia-votante"></datalist>
         </div>
@@ -402,17 +402,17 @@
         </div>
       </div>
       <div class="campo" id="campo-organizacion-votante" style="display:none;">
-        <label>Nombre de la organización</label>
+        <label for="input-organizacion-votante">Nombre de la organización</label>
         <input id="input-organizacion-votante" placeholder="Ej. Asociación de trabajadores informales del sur">
       </div>
       <div class="campo" id="campo-municipio-influencia-votante" style="display:none;">
-        <label>Municipio</label>
+        <label for="input-municipio-influencia-votante">Municipio</label>
         <input id="input-municipio-influencia-votante" list="lista-municipios-influencia-votante" autocomplete="off" placeholder="Municipio donde tiene influencia">
         <datalist id="lista-municipios-influencia-votante"></datalist>
         <small id="contador-municipios-influencia-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
       </div>
       <div class="campo" id="campo-area-votante-normal">
-        <label id="etiqueta-area-votante">Área</label>
+        <label for="select-area-votante" id="etiqueta-area-votante">Área</label>
         <select id="select-area-votante">
           <option value="">Seleccione (opcional)...</option>
           <option value="urbano">Urbano</option>
@@ -421,12 +421,12 @@
       </div>
       <div class="fila fila-territorio" id="fila-urbano-votante" data-fila="urbano" style="display:none;">
         <div class="campo" id="campo-comuna-votante" data-campo="comuna">
-          <label>Comuna</label>
+          <label for="input-comuna-votante">Comuna</label>
           <input id="input-comuna-votante" list="lista-comunas-votante" autocomplete="off">
           <datalist id="lista-comunas-votante"></datalist>
         </div>
         <div class="campo" id="campo-barrio-votante" data-campo="barrio">
-          <label>Barrio</label>
+          <label for="input-barrio-votante">Barrio</label>
           <input id="input-barrio-votante" list="lista-barrios-votante" autocomplete="off">
           <datalist id="lista-barrios-votante"></datalist>
           <small id="contador-barrios-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -434,12 +434,12 @@
       </div>
       <div class="fila fila-territorio" id="fila-rural-votante" data-fila="rural" style="display:none;">
         <div class="campo" data-campo="corregimiento">
-          <label>Corregimiento</label>
+          <label for="input-corregimiento-votante">Corregimiento</label>
           <input id="input-corregimiento-votante" list="lista-corregimientos-votante" autocomplete="off">
           <datalist id="lista-corregimientos-votante"></datalist>
         </div>
         <div class="campo" data-campo="vereda">
-          <label>Vereda</label>
+          <label for="input-vereda-votante">Vereda</label>
           <input id="input-vereda-votante" list="lista-veredas-votante" autocomplete="off">
           <datalist id="lista-veredas-votante"></datalist>
           <small id="contador-veredas-votante" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -457,7 +457,7 @@
 
       <div class="campo encabezado-form">Referido por</div>
       <div class="campo">
-        <label>Líder o coordinador que lo refirió</label>
+        <label for="input-buscar-lider">Líder o coordinador que lo refirió</label>
         <small style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;">La lista de abajo trae los líderes y coordinadores del territorio elegido arriba, con los del Área elegida de primeros — si necesitas a otra persona, búscala por nombre aquí.</small>
         <input type="text" id="input-buscar-lider" placeholder="Buscar otro líder o coordinador por nombre..." autocomplete="off" style="margin-bottom:4px;">
         <div id="resultados-buscar-lider" style="margin-bottom:6px;"></div>
@@ -465,10 +465,10 @@
         <select name="lider_id" id="select-lider" data-sin-ordenar><option value="">Yo mismo / no aplica</option></select>
       </div>
       <div class="campo">
-        <label>Sublíder</label>
+        <label for="select-sublider-votante">Sublíder</label>
         <select name="sublider_id" id="select-sublider-votante"><option value="">Ninguno</option></select>
       </div>
-      <div class="campo"><label>Observaciones</label><textarea name="observaciones" rows="2"></textarea></div>
+      <div class="campo"><label for="campo-observaciones">Observaciones</label><textarea id="campo-observaciones" name="observaciones" rows="2"></textarea></div>
       <!-- «NECESITA TRANSPORTE» el día de la elección. Se guarda AL MARCAR (no con «Guardar»): es una marca operativa
            que la coordinación ve en Faltantes y en Alertas. Sólo al editar: una ficha nueva todavía no tiene id. -->
       <div class="campo" id="campo-transporte-votante" style="display:none;">
@@ -1195,8 +1195,8 @@ document.getElementById('btn-whatsapp-lote').addEventListener('click', () => {
       params.set('limit', TOPE_WHATSAPP_LOTE);
       const r = await api(`/votantes?${params.toString()}`);
       if (r.total > TOPE_WHATSAPP_LOTE) {
-        alert(`El filtro tiene ${r.total} personas y el asistente trabaja con ${TOPE_WHATSAPP_LOTE} a la vez.\n\n`
-          + 'Afine el filtro (por líder, zona o intención de voto) y repita: así también sabe a quién le escribió.');
+        mostrarToast(`El filtro tiene ${r.total} personas y el asistente trabaja con ${TOPE_WHATSAPP_LOTE} a la vez.\n\n`
+          + 'Afine el filtro (por líder, zona o intención de voto) y repita: así también sabe a quién le escribió.', 'ok');
       }
       return (r.data || []).map(v => ({
         nombre: v.nombre, telefono: v.telefono, no_contactar: v.no_contactar,
@@ -2135,7 +2135,7 @@ document.getElementById('chk-transporte-votante').addEventListener('change', asy
     document.getElementById('nota-transporte-votante').textContent = chk.checked ? 'Marcado: aparece en Faltantes y en Alertas.' : 'Desmarcado.';
   } catch (err) {
     chk.checked = !chk.checked;                 // lo que se ve es lo que hay en la base
-    alert(err.message || 'No se pudo guardar.');
+    mostrarToast(err.message || 'No se pudo guardar.', 'error');
   }
 });
 
@@ -2248,7 +2248,7 @@ function engancharBotonesEvidencia(v) {
         `Firma de la persona:<br><img src="${d.firma}" alt="Firma" class="firma-vista">`;
     } catch (err) {
       verFirma.disabled = false;
-      alert(err.message);
+      mostrarToast(err.message, 'error');
     }
   });
 
@@ -2263,7 +2263,7 @@ function engancharBotonesEvidencia(v) {
         boton.textContent = r.yaConfirmado ? 'Ya estaba confirmado' : 'Enviado';
       } catch (err) {
         boton.disabled = false; boton.textContent = antes;
-        alert(err.message);
+        mostrarToast(err.message, 'error');
       }
     });
   });
@@ -2449,7 +2449,7 @@ async function eliminarVotante(id) {
     await api(`/votantes/${id}`, { method: 'DELETE', body: { password } });
     cargarVotantes();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -2498,7 +2498,7 @@ document.getElementById('tbody-votantes').addEventListener('change', async (e) =
     casilla.title = marcar ? 'Datos verificados' : 'Sin verificar';
   } catch (err) {
     casilla.checked = !marcar; // se devuelve a como estaba
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   } finally {
     casilla.disabled = !puedeVerificarDatos();
   }
@@ -2866,6 +2866,23 @@ async function sincronizarColaOfflineVotantes() {
   await cargarVotantes();
 }
 
+/* REDISEÑO FASE 2: los errores de este formulario salen JUNTO AL CAMPO (mostrarErrorCampo, de common.js: marca el campo,
+   escribe el texto debajo y lleva el foco) o, si no son de un campo, como aviso flotante. Ya no hay ventanas de alerta ni cajas arriba.
+   Los ids de los campos NO cambian; este es el único sitio que dice a cuál va cada mensaje del servidor. */
+const REGLAS_ERROR_VOTANTE = [
+  [/organizaci[oó]n/i, '#input-organizacion-votante'],
+  [/municipio/i, '#input-municipio-influencia-votante'],
+  [/comuna/i, '#input-comuna-votante'],
+  [/corregimiento/i, '#input-corregimiento-votante'],
+  [/barrio/i, '#input-barrio-votante'],
+  [/vereda/i, '#input-vereda-votante'],
+  [/identificaci[oó]n|c[eé]dula|ya registrado/i, '#input-numero-votante'],
+  [/e-?mail|correo/i, '#campo-email'],
+  [/tel[eé]fono|d[ií]gitos/i, '#campo-telefono'],
+  [/puesto|mesa|testigo/i, '#input-puesto-testigo-votante'],
+  [/nombre/i, '#form-votante [name="nombre"]']
+];
+
 document.getElementById('form-votante').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorBox = document.getElementById('form-error');
@@ -2874,31 +2891,28 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
   errorBox.classList.remove('visible');
   territorioErrorBox.classList.remove('visible');
   categoriaErrorBox.style.display = 'none';
+  limpiarErrores(e.target);
 
   if (!validarTelefonosFormulario('#form-votante [name="telefono"]')) {
-    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
-    errorBox.classList.add('visible');
+    mostrarErrorCampo(document.getElementById('campo-telefono'), 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).');
     return;
   }
 
   const esVotante = document.getElementById('chk-categoria-votante').checked;
   const esSublider = document.getElementById('chk-categoria-sublider').checked;
   if (!esVotante && !esSublider) {
-    categoriaErrorBox.style.display = 'block';
-    document.getElementById('campo-categoria-votante').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    mostrarErrorCampo(document.getElementById('chk-categoria-votante'), 'Debe elegir una de las dos opciones.');
     return;
   }
 
   const resuelto = resolverTerritorioVotante();
   if (resuelto.error) {
-    territorioErrorBox.textContent = resuelto.error;
-    territorioErrorBox.classList.add('visible');
+    mostrarErrorSegunMensaje(resuelto.error, REGLAS_ERROR_VOTANTE);
     return;
   }
 
   if (!identificacionVotanteDisponible) {
-    errorBox.textContent = 'Ya registrado por otro líder.';
-    errorBox.classList.add('visible');
+    mostrarErrorCampo(document.getElementById('input-numero-votante'), 'Ya registrado por otro líder.');
     return;
   }
 
@@ -2910,9 +2924,7 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
      es el servidor: lo que compruebe el navegador no autoriza nada. */
   if (!id && exigeAutorizacionVotante()) {
     if (!document.getElementById('chk-consentimiento-votante').checked) {
-      errorBox.textContent = 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.';
-      errorBox.classList.add('visible');
-      document.getElementById('bloque-autorizacion-votante').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      mostrarErrorCampo(document.getElementById('chk-consentimiento-votante'), 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.');
       return;
     }
     datos.consentimiento_autorizado = true;
@@ -2966,9 +2978,11 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     olvidarPasswordEdicionVotante();
     cargarVotantes();
 
+    // Los avisos de después de guardar se juntan y salen en UN solo aviso flotante (un toast reemplaza al anterior).
+    const avisosGuardado = [];
     // Orden 36: la comuna escrita no está en la lista de la campaña; la ficha se guardó, la comuna quedó vacía.
     if (respuesta.comuna_descartada) {
-      alert(`La comuna «${respuesta.comuna_descartada}» no está en la lista de comunas y corregimientos de la campaña, así que se guardó vacía. Elíjala de la lista que ofrece el campo.`);
+      avisosGuardado.push(`La comuna «${respuesta.comuna_descartada}» no está en la lista de comunas y corregimientos de la campaña, así que se guardó vacía. Elíjala de la lista que ofrece el campo.`);
     }
 
     if (datos.categoria === 'sublider' && respuesta.usuario_sublider) {
@@ -2978,9 +2992,9 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
       // dirían cosas distintas sobre la misma fila.
       const quien = respuesta.usuario_sublider.etiqueta || 'sublíder';
       if (respuesta.usuario_sublider.creado) {
-        alert(`Se creó la cuenta de acceso del ${quien}: su Nombre de usuario y contraseña son su Número de identificación. Deberá cambiarla en su primer inicio de sesión.`);
+        avisosGuardado.push(`Se creó la cuenta de acceso del ${quien}: su Nombre de usuario y contraseña son su Número de identificación. Deberá cambiarla en su primer inicio de sesión.`);
       } else if (respuesta.usuario_sublider.motivo) {
-        alert(`Se guardó, pero no se pudo crear la cuenta de acceso del ${quien}: ${respuesta.usuario_sublider.motivo}`);
+        avisosGuardado.push(`Se guardó, pero no se pudo crear la cuenta de acceso del ${quien}: ${respuesta.usuario_sublider.motivo}`);
       }
     }
 
@@ -3003,15 +3017,16 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
             mesas_asignadas: leerMesasMarcadas(document.getElementById('casillas-mesas-testigo-votante'))
           }
         });
-        alert(rTestigo.cuenta_creada
+        avisosGuardado.push(rTestigo.cuenta_creada
           ? 'Se le asignó la capacidad de testigo electoral. Se creó su cuenta de acceso: su Nombre de usuario y contraseña son su Número de identificación.'
           : chkTestigo.disabled
             ? 'Se actualizó su asignación como testigo electoral.'
             : 'Se le asignó la capacidad de testigo electoral.');
       } catch (errTestigo) {
-        alert(`No se pudo asignar como testigo electoral: ${errTestigo.message}`);
+        avisosGuardado.push(`No se pudo asignar como testigo electoral: ${errTestigo.message}`);
       }
     }
+    if (avisosGuardado.length) mostrarToast(avisosGuardado.join(' '), 'ok');
   } catch (err) {
     if (!id && err && err.esErrorDeRed) {
       // Captura sin conexión: se guarda en este computador y se sube solo
@@ -3021,11 +3036,10 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
       });
       await actualizarAvisoColaOfflineVotantes();
       document.getElementById('overlay-form').classList.remove('abierto');
-      alert('No hay señal en este momento. El registro quedó guardado en este computador y se subirá solo apenas vuelva la conexión.');
+      mostrarToast('No hay señal en este momento. El registro quedó guardado en este computador y se subirá solo apenas vuelva la conexión.', 'ok');
       return;
     }
-    errorBox.textContent = err.message;
-    errorBox.classList.add('visible');
+    mostrarErrorSegunMensaje(err.message, REGLAS_ERROR_VOTANTE);   // junto al campo si el mensaje lo nombra; si no, aviso flotante
   }
 });
 
@@ -3044,10 +3058,10 @@ document.getElementById('input-importar-votantes').addEventListener('change', as
     if (r.avisos && r.avisos.length) {
       mensaje += ` ${r.avisos.length} aviso(s) de comuna (ej. ${r.avisos[0].aviso})`;
     }
-    alert(mensaje);
+    mostrarToast(mensaje, 'ok');
     cargarVotantes();
   } catch (err) {
-    alert('Error importando el archivo: ' + err.message);
+    mostrarToast('Error importando el archivo: ' + err.message, 'error');
   } finally {
     e.target.value = '';
   }
@@ -3086,11 +3100,11 @@ document.getElementById('btn-regeocodificar-votantes').addEventListener('click',
       if (r.procesados === 0) break;
     }
 
-    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} registro(s) quedaron ubicados en el mapa.` +
-      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''));
+    mostrarToast(`Listo: ${totalGeocodificados} de ${totalProcesados} registro(s) quedaron ubicados en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o el servicio de mapas siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''), 'ok');
     await cargarVotantes();
   } catch (err) {
-    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`);
+    mostrarToast(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con los que faltan).`, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;
@@ -3139,11 +3153,11 @@ document.getElementById('btn-regeocodificar-votantes-todos').addEventListener('c
       if (r.procesados === 0) break;
     }
 
-    alert(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} registro(s).` +
-      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''));
+    mostrarToast(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} registro(s).` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''), 'ok');
     await cargarVotantes();
   } catch (err) {
-    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`);
+    mostrarToast(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;
@@ -3156,10 +3170,10 @@ document.getElementById('btn-eliminar-votantes').addEventListener('click', async
   if (!password) return;
   try {
     const r = await api('/votantes/eliminar-todo', { method: 'POST', body: { password } });
-    alert(`Se eliminaron ${r.eliminados} registro(s).`);
+    mostrarToast(`Se eliminaron ${r.eliminados} registro(s).`, 'ok');
     cargarVotantes();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 
@@ -3237,7 +3251,7 @@ async function cambiarActivoEnlace(usuarioId, activo, boton) {
   try {
     await api(`/inscripcion/enlaces/${usuarioId}/activo`, { method: 'POST', body: { activo } });
     cargarInscripciones();
-  } catch (err) { alert(err.message); boton.disabled = false; }
+  } catch (err) { mostrarToast(err.message, 'error'); boton.disabled = false; }
 }
 
 async function rotarEnlaceDe(usuarioId, boton) {
@@ -3246,7 +3260,7 @@ async function rotarEnlaceDe(usuarioId, boton) {
   try {
     await api(`/inscripcion/enlaces/${usuarioId}/rotar`, { method: 'POST', body: {} });
     cargarInscripciones();
-  } catch (err) { alert(err.message); boton.disabled = false; }
+  } catch (err) { mostrarToast(err.message, 'error'); boton.disabled = false; }
 }
 
 /* El mensaje de invitación (orden 29). Solo lo ve y lo guarda el administrador; el servidor valida. */
@@ -3263,12 +3277,12 @@ async function cargarPlantillaInsc() {
 }
 document.getElementById('btn-guardar-plantilla-insc').addEventListener('click', async () => {
   try { pintarPlantillaInsc(await api('/inscripcion/plantilla', { method: 'PUT', body: { plantilla: document.getElementById('aj-insc-plantilla').value } })); }
-  catch (err) { alert(err.message); }
+  catch (err) { mostrarToast(err.message, 'error'); }
 });
 document.getElementById('btn-restaurar-plantilla-insc').addEventListener('click', async () => {
   if (!confirm('¿Volver al texto sugerido? Se pierde el mensaje que escribiste.')) return;
   try { pintarPlantillaInsc(await api('/inscripcion/plantilla', { method: 'PUT', body: { plantilla: null } })); }
-  catch (err) { alert(err.message); }
+  catch (err) { mostrarToast(err.message, 'error'); }
 });
 
 document.getElementById('btn-guardar-ajustes-insc').addEventListener('click', async () => {
@@ -3280,7 +3294,7 @@ document.getElementById('btn-guardar-ajustes-insc').addEventListener('click', as
       segundos_minimos: Number(document.getElementById('aj-insc-segundos').value),
     } });
     cargarInscripciones();
-  } catch (err) { alert(err.message); }
+  } catch (err) { mostrarToast(err.message, 'error'); }
 });
 
 async function cargarEstimadoPuestos() {
@@ -3556,5 +3570,22 @@ function alternarMesasEstimadoPuesto(i) {
 </script>
   <script src="/js/lugar-votacion-catalogo.js"></script>
   <script src="/js/listas-desplegables.js"></script>
+<script>
+/* REDISEÑO FASE 2 (parche 323): modal con encabezado y pie fijos, secciones con índice, «Cancelar», Esc y aviso de cambios sin guardar.
+   Mueve los nodos del formulario a secciones contiguas SIN cambiar su orden ni sus ids (ver armarModalLargo en js/common.js). */
+armarModalLargo({
+  overlay: 'overlay-form', form: 'form-votante', cerrar: 'cerrar-modal',
+  guardar: document.querySelector('#form-votante button[type="submit"]'),
+  secciones: [
+    { titulo: 'Datos personales', desde: '#campo-categoria-votante' },
+    { titulo: 'Lugar de votación', desde: 'texto:Lugar de votación' },
+    { titulo: 'Nombre y perfil', desde: '[name="nombre"]', encabezado: true },
+    { titulo: 'Contacto', desde: 'texto:Datos de contacto' },
+    { titulo: 'Territorio', desde: 'texto:Territorio o área de influencia' },
+    { titulo: 'Referido por', desde: 'texto:Referido por' },
+    { titulo: 'Observaciones', desde: '[name="observaciones"]', encabezado: true }
+  ]
+});
+</script>
 </body>
 </html>

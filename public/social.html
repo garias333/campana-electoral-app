@@ -50,21 +50,21 @@
     <div class="modal-header"><h3>Nueva publicación</h3><button class="modal-cerrar" data-cerrar="overlay-pub">×</button></div>
     <div id="pub-error" class="mensaje-error"></div>
     <form id="form-pub">
-      <div class="campo"><label>Título</label><input name="titulo" required></div>
+      <div class="campo"><label for="campo-titulo">Título</label><input id="campo-titulo" name="titulo" required></div>
       <div class="fila">
-        <div class="campo"><label>Red social</label>
-          <select name="red_social" required>
+        <div class="campo"><label for="campo-red-social">Red social</label>
+          <select id="campo-red-social" name="red_social" required>
             <option value="facebook">Facebook</option><option value="instagram">Instagram</option>
             <option value="tiktok">TikTok</option><option value="whatsapp">WhatsApp</option>
             <option value="x">X</option><option value="youtube">YouTube</option>
           </select>
         </div>
-        <div class="campo"><label>Estado</label>
-          <select name="estado"><option value="borrador">Borrador</option><option value="programado">Programado</option><option value="publicado">Publicado</option></select>
+        <div class="campo"><label for="campo-estado">Estado</label>
+          <select id="campo-estado" name="estado"><option value="borrador">Borrador</option><option value="programado">Programado</option><option value="publicado">Publicado</option></select>
         </div>
       </div>
-      <div class="campo"><label>Fecha programada</label><input type="datetime-local" name="fecha_programada"></div>
-      <div class="campo"><label>Contenido / copy</label><textarea name="contenido" rows="3"></textarea></div>
+      <div class="campo"><label for="campo-fecha-programada">Fecha programada</label><input id="campo-fecha-programada" type="datetime-local" name="fecha_programada"></div>
+      <div class="campo"><label for="campo-contenido">Contenido / copy</label><textarea id="campo-contenido" name="contenido" rows="3"></textarea></div>
       <button type="submit" class="btn-primario">Guardar</button>
     </form>
   </div>
@@ -75,13 +75,13 @@
     <div class="modal-header"><h3>Registrar mención</h3><button class="modal-cerrar" data-cerrar="overlay-mencion">×</button></div>
     <div id="mencion-error" class="mensaje-error"></div>
     <form id="form-mencion">
-      <div class="campo"><label>Fuente (medio, red, portal)</label><input name="fuente" required></div>
-      <div class="campo"><label>Texto / resumen de la mención</label><textarea name="texto" rows="3" required></textarea></div>
+      <div class="campo"><label for="campo-fuente">Fuente (medio, red, portal)</label><input id="campo-fuente" name="fuente" required></div>
+      <div class="campo"><label for="campo-texto">Texto / resumen de la mención</label><textarea id="campo-texto" name="texto" rows="3" required></textarea></div>
       <div class="fila">
-        <div class="campo"><label>Sentimiento</label>
-          <select name="sentimiento"><option value="positivo">Positivo</option><option value="neutro" selected>Neutro</option><option value="negativo">Negativo</option></select>
+        <div class="campo"><label for="campo-sentimiento">Sentimiento</label>
+          <select id="campo-sentimiento" name="sentimiento"><option value="positivo">Positivo</option><option value="neutro" selected>Neutro</option><option value="negativo">Negativo</option></select>
         </div>
-        <div class="campo"><label>Enlace (opcional)</label><input name="url"></div>
+        <div class="campo"><label for="campo-url">Enlace (opcional)</label><input id="campo-url" name="url"></div>
       </div>
       <button type="submit" class="btn-primario">Guardar</button>
     </form>

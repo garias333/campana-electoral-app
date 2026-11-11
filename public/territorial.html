@@ -83,17 +83,18 @@
   html.modo-app .campo-con-dictado > input { flex: 1; min-width: 0; }
   /* Lo que otros scripts insertan después del campo (avisos de teléfono, de cédula) baja a su propia línea. */
   html.modo-app .campo-con-dictado > :not(.btn-dictado):not(input) { flex: 0 0 100%; }
+  /* Plano (parche 323), igual que en la app: mismo fondo que el campo, sin borde azul ni sombra, ícono centrado. */
   html.modo-app .btn-dictado {
-    flex: none; width: 48px; min-height: 0; padding: 0; margin: 0;
-    border: 1.5px solid #142a3f; border-radius: 12px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8f3e9 58%, #ece3d3 100%);
-    box-shadow: 0 3px 0 #142a3f, 0 5px 9px rgba(20, 42, 63, .26), inset 0 1px 0 rgba(255, 255, 255, .95);
-    font-size: 1.2rem; line-height: 1; cursor: pointer; transition: transform .06s ease-out, box-shadow .06s ease-out;
+    flex: none; width: 52px; min-height: 52px; padding: 0; margin: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid transparent; border-radius: var(--radio-campo);
+    background: var(--campo); box-shadow: none;
+    font-size: 1.2rem; line-height: 1; cursor: pointer;
   }
-  html.modo-app .btn-dictado:active { transform: translateY(3px); box-shadow: 0 0 0 #142a3f, 0 1px 2px rgba(20, 42, 63, .22), inset 0 2px 5px rgba(20, 42, 63, .2); }
+  html.modo-app .btn-dictado:active { background: #e3e9f5; }
+  html.modo-app .btn-dictado:focus-visible { outline: none; background: #fff; border-color: var(--marca-azul); box-shadow: 0 0 0 4px var(--foco-halo); }
   html.modo-app .btn-dictado.oyendo {
-    background: linear-gradient(180deg, #d8752f 0%, #bf5e1f 60%, #a54e18 100%); border-color: #8f4413;
-    box-shadow: 0 3px 0 #7a3a10, 0 5px 10px rgba(143, 68, 19, .38), inset 0 1px 0 rgba(255, 255, 255, .45);
+    background: var(--error); border-color: transparent; box-shadow: none;
     animation: dictado-latido 1s ease-in-out infinite;
   }
   @keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
@@ -182,7 +183,7 @@
     <div class="card" style="margin-bottom:16px;">
       <div class="toolbar">
         <div class="toolbar-filtros">
-          <input type="text" id="filtro-estructura-busqueda" placeholder="Buscar por nombre, email o número de identificación...">
+          <input aria-label="Buscar por nombre, email o número de identificación" type="text" id="filtro-estructura-busqueda" placeholder="Buscar por nombre, email o número de identificación...">
           <select id="filtro-estructura-cargo">
             <option value="">Todos los cargos</option>
             <option value="coordinador">Coordinador</option>
@@ -202,7 +203,7 @@
           <!-- Solo en campaña departamental. Mismo criterio que en Votantes:
                un <input> con datalist, porque un departamento puede tener 120
                municipios y escribir tres letras es más rápido que buscarlos. -->
-          <input type="text" id="filtro-estructura-municipio" list="lista-filtro-municipios-estructura"
+          <input aria-label="Todos los municipios" type="text" id="filtro-estructura-municipio" list="lista-filtro-municipios-estructura"
                  autocomplete="off" placeholder="Todos los municipios" style="display:none;">
           <datalist id="lista-filtro-municipios-estructura"></datalist>
           <select id="filtro-estructura-zona">
@@ -278,7 +279,7 @@
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Tipo (opcional)</label>
+          <label for="select-tipo-cargo-persona">Tipo (opcional)</label>
           <select name="tipo_cargo" id="select-tipo-cargo-persona">
             <option value="">Sin especificar</option>
             <option value="concejal">Concejal</option>
@@ -313,7 +314,7 @@
           </select>
         </div>
         <div class="campo">
-      <label>Meta de votos</label>
+      <label for="input-meta-votos-persona">Meta de votos</label>
       <input type="number" name="meta_votos" id="input-meta-votos-persona" value="0">
       <small id="meta-votos-nota-coordinador" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Se calcula automáticamente sumando las metas de sus líderes.</small>
       <small id="meta-votos-nota-coordinador-org" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Se calcula automáticamente sumando las metas de sus gremiales (Presidente de gremio/asociación, Organizaciones sociales/religiosas).</small>
@@ -322,8 +323,8 @@
 
       <div class="campo encabezado-form primero">Datos personales</div>
       <div class="campo">
-        <label>Número de identificación</label>
-        <input name="numero_identificacion" id="input-numero-persona" autocomplete="off">
+        <label for="input-numero-persona">Número de identificación</label>
+        <input name="numero_identificacion" id="input-numero-persona" autocomplete="off" inputmode="numeric">
         <small id="numero-persona-estado" style="font-size:0.75rem;"></small>
         <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-persona" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio, Puesto y Mesa.</small>
@@ -333,41 +334,41 @@
       <div class="campo encabezado-form acento">Lugar de Votación</div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-votacion-persona">Departamento</label>
           <input name="departamento_votacion" id="input-departamento-votacion-persona" list="lista-departamentos-votacion-persona" autocomplete="off">
           <datalist id="lista-departamentos-votacion-persona"></datalist>
         </div>
         <div class="campo">
-          <label>Municipio</label>
+          <label for="input-municipio-votacion-persona">Municipio</label>
           <input name="municipio_votacion" id="input-municipio-votacion-persona" list="lista-municipios-votacion-persona" autocomplete="off">
           <datalist id="lista-municipios-votacion-persona"></datalist>
         </div>
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Puesto</label>
+          <label for="input-puesto-votacion-persona">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-persona">
             <option value="">Seleccione...</option>
           </select>
         </div>
         <div class="campo">
-          <label>Mesa</label>
+          <label for="input-mesa-votacion-persona">Mesa</label>
           <input name="mesa_votacion" id="input-mesa-votacion-persona" inputmode="numeric" autocomplete="off">
           <small id="contador-mesas-persona" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
         </div>
       </div>
-      <div class="campo"><label>Nombres y apellidos</label><input name="nombre" required></div>
+      <div class="campo"><label for="campo-nombre">Nombres y apellidos</label><input id="campo-nombre" name="nombre" required></div>
       <div class="fila">
         <div class="campo">
-          <label>Género</label>
-          <select name="genero">
+          <label for="campo-genero">Género</label>
+          <select id="campo-genero" name="genero">
             <option value="mujer">Mujer</option>
             <option value="hombre">Hombre</option>
             <option value="no_binario">No binario</option>
             <option value="prefiero_no_responder" selected>Prefiero no responder</option>
           </select>
         </div>
-        <div class="campo"><label>Edad</label><input type="number" name="edad" min="0" max="120"></div>
+        <div class="campo"><label for="campo-edad">Edad</label><input id="campo-edad" type="number" name="edad" min="0" max="120"></div>
       </div>
 
 
@@ -388,20 +389,20 @@
             </label>
           </div>
           <div class="campo" style="margin-top:8px;">
-            <label>Puesto de votación</label>
+            <label for="input-puesto-testigo-persona">Puesto de votación</label>
             <select id="input-puesto-testigo-persona">
               <option value="">Seleccione...</option>
             </select>
           </div>
           <div id="campo-mesa-testigo-persona" style="margin-top:8px;">
-            <label>Mesa</label>
+            <label for="input-mesa-testigo-persona">Mesa</label>
             <select id="input-mesa-testigo-persona">
               <option value="">Seleccione un puesto primero...</option>
             </select>
           </div>
           <div id="campo-mesas-multiples-testigo-persona" style="display:none; margin-top:8px;">
-            <label>Mesas que cubre</label>
-            <div id="casillas-mesas-testigo-persona" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+            <label id="et-casillas-mesas-testigo-persona">Mesas que cubre</label>
+            <div id="casillas-mesas-testigo-persona" role="group" aria-labelledby="et-casillas-mesas-testigo-persona" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
           </div>
         </div>
       </div>
@@ -418,21 +419,21 @@
 
       <div class="campo encabezado-form">Datos de contacto</div>
       <div class="fila">
-        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
-        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" name="email"></div>
+        <div class="campo"><label for="campo-telefono">Teléfono</label><input type="tel" id="campo-telefono" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+        <div class="campo"><label for="campo-email">Correo electrónico (opcional)</label><input id="campo-email" type="email" name="email"></div>
       </div>
       <div class="campo">
-        <label>Dirección de residencia</label>
+        <label for="input-direccion-persona">Dirección de residencia</label>
         <input name="direccion" id="input-direccion-persona" placeholder="Ej. Calle 10 #5-20">
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-residencia-persona">Departamento</label>
           <input name="departamento_residencia" id="input-departamento-residencia-persona" list="lista-departamentos-residencia-persona" autocomplete="off">
           <datalist id="lista-departamentos-residencia-persona"></datalist>
         </div>
         <div class="campo">
-          <label>Ciudad</label>
+          <label for="input-ciudad-residencia-persona">Ciudad</label>
           <input name="ciudad_residencia" id="input-ciudad-residencia-persona" list="lista-ciudades-residencia-persona" autocomplete="off">
           <datalist id="lista-ciudades-residencia-persona"></datalist>
         </div>
@@ -444,12 +445,12 @@
            La regla está en style.css, junto a las de los demás campos
            territoriales. -->
       <div class="campo" data-campo="residencia-comuna">
-        <label id="label-comuna-corregimiento-residencia">Comuna / Corregimiento</label>
+        <label for="input-comuna-corregimiento-residencia-persona" id="label-comuna-corregimiento-residencia">Comuna / Corregimiento</label>
         <input name="comuna_corregimiento_residencia" id="input-comuna-corregimiento-residencia-persona" list="lista-comuna-corregimiento-residencia-persona" autocomplete="off" placeholder="Ej. Comuna 1 - Atardeceres">
         <datalist id="lista-comuna-corregimiento-residencia-persona"></datalist>
       </div>
       <div class="campo" data-campo="residencia-barrio">
-        <label id="label-barrio-vereda-residencia">Barrio / Vereda</label>
+        <label for="input-barrio-vereda-residencia-persona" id="label-barrio-vereda-residencia">Barrio / Vereda</label>
         <input name="barrio_residencia" id="input-barrio-vereda-residencia-persona" list="lista-barrio-vereda-residencia-persona" autocomplete="off" placeholder="Ej. Arenillo">
         <datalist id="lista-barrio-vereda-residencia-persona"></datalist>
       </div>
@@ -469,12 +470,12 @@
         </div>
       </div>
       <div class="campo" id="campo-organizacion-persona" style="display:none;">
-        <label>Nombre de la organización</label>
+        <label for="input-organizacion-persona">Nombre de la organización</label>
         <input id="input-organizacion-persona" placeholder="Ej. Asociación de trabajadores informales del sur">
       </div>
       <div id="bloque-territorio-geografico-persona">
         <div class="campo" id="campo-municipio-influencia-persona" style="display:none;">
-          <label>Municipio</label>
+          <label for="input-municipio-influencia-persona">Municipio</label>
           <input id="input-municipio-influencia-persona" list="lista-municipios-influencia-persona" autocomplete="off" placeholder="Municipio donde tiene influencia">
           <datalist id="lista-municipios-influencia-persona"></datalist>
           <small id="contador-municipios-influencia" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -484,7 +485,7 @@
              campaña departamental hace falta para elegir cuál municipio. -->
         <div id="bloque-area-detalle-persona">
         <div class="campo">
-          <label>Área</label>
+          <label for="select-area-persona">Área</label>
           <select name="areaPersona" id="select-area-persona">
             <option value="">Seleccione...</option>
             <option value="urbano">Urbano</option>
@@ -493,12 +494,12 @@
         </div>
         <div class="fila fila-territorio" id="fila-urbano-persona" data-fila="urbano" style="display:none;">
           <div class="campo" id="campo-comuna-persona" data-campo="comuna">
-            <label>Comuna</label>
+            <label for="input-comuna-persona">Comuna</label>
             <input id="input-comuna-persona" list="lista-comunas-persona" autocomplete="off">
             <datalist id="lista-comunas-persona"></datalist>
           </div>
           <div class="campo" id="campo-barrio-persona" data-campo="barrio">
-            <label>Barrio</label>
+            <label for="input-barrio-persona">Barrio</label>
             <input id="input-barrio-persona" list="lista-barrios-persona" autocomplete="off">
             <datalist id="lista-barrios-persona"></datalist>
             <small id="contador-barrios" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -506,12 +507,12 @@
         </div>
         <div class="fila fila-territorio" id="fila-rural-persona" data-fila="rural" style="display:none;">
           <div class="campo" data-campo="corregimiento">
-            <label>Corregimiento</label>
+            <label for="input-corregimiento-persona">Corregimiento</label>
             <input id="input-corregimiento-persona" list="lista-corregimientos-persona" autocomplete="off">
             <datalist id="lista-corregimientos-persona"></datalist>
           </div>
           <div class="campo" id="campo-vereda-persona" data-campo="vereda">
-            <label>Vereda</label>
+            <label for="input-vereda-persona">Vereda</label>
             <input id="input-vereda-persona" list="lista-veredas-persona" autocomplete="off">
             <datalist id="lista-veredas-persona"></datalist>
             <small id="contador-veredas" style="color:var(--color-text-muted); font-size:0.75rem;"></small>
@@ -529,7 +530,7 @@
       </div>
       <div id="territorio-persona-error" class="mensaje-error"></div>
       <div class="campo">
-        <label>Reporta a (opcional)</label>
+        <label for="select-supervisor">Reporta a <span class="opc">(opcional)</span></label>
         <div id="busqueda-supervisor-persona" style="display:none;">
           <small id="nota-busqueda-supervisor" style="color:var(--color-text-muted); font-size:0.78rem; display:block; margin-bottom:4px;"></small>
           <input type="text" id="input-buscar-supervisor-persona" autocomplete="off" style="margin-bottom:4px;">
@@ -566,19 +567,19 @@
     <form id="form-territorio" style="margin-bottom:18px;">
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento">Departamento</label>
           <input name="departamento" id="input-departamento" list="lista-departamentos" autocomplete="off" required>
           <datalist id="lista-departamentos"></datalist>
         </div>
         <div class="campo">
-          <label>Municipio / Ciudad</label>
+          <label for="input-municipio">Municipio / Ciudad</label>
           <input name="municipio" id="input-municipio" list="lista-municipios" autocomplete="off" required>
           <datalist id="lista-municipios"></datalist>
         </div>
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Área</label>
+          <label for="select-area">Área</label>
           <select name="area" id="select-area" required>
             <option value="">Seleccione...</option>
             <option value="urbano">Urbano</option>
@@ -586,7 +587,7 @@
           </select>
         </div>
         <div class="campo">
-          <label>Tipo de zona</label>
+          <label for="select-tipo-zona">Tipo de zona</label>
           <!-- Urbano antes que rural: la misma convencion que el ENUM de la base. -->
           <select name="tipoZona" id="select-tipo-zona" data-sin-ordenar required disabled>
             <option value="">Elija primero el área</option>
@@ -594,15 +595,15 @@
         </div>
       </div>
       <div class="campo" id="campo-comuna-padre" data-campo="comuna" style="display:none;">
-        <label>Comuna a la que pertenece</label>
+        <label for="select-comuna-padre">Comuna a la que pertenece</label>
         <select name="comunaPadre" id="select-comuna-padre"><option value="">Sin comuna específica</option></select>
       </div>
       <div class="campo" id="campo-corregimiento-padre" data-campo="corregimiento" style="display:none;">
-        <label>Corregimiento al que pertenece</label>
+        <label for="select-corregimiento-padre">Corregimiento al que pertenece</label>
         <select name="corregimientoPadre" id="select-corregimiento-padre"><option value="">Sin corregimiento específico</option></select>
       </div>
       <div class="campo">
-        <label id="label-nombre-zona">Nombre de la zona</label>
+        <label for="input-nombre-zona" id="label-nombre-zona">Nombre de la zona</label>
         <input name="nombreZona" id="input-nombre-zona" required>
       </div>
       <button type="submit" class="btn-primario">Agregar</button>
@@ -636,10 +637,10 @@
     <div id="editar-territorio-ok" class="mensaje-ok"></div>
     <form id="form-editar-territorio">
       <input type="hidden" id="editar-territorio-id">
-      <div class="campo"><label>Tipo</label><input id="editar-territorio-tipo" disabled></div>
-      <div class="campo"><label>Nombre</label><input id="editar-territorio-nombre" required></div>
+      <div class="campo"><label for="editar-territorio-tipo">Tipo</label><input id="editar-territorio-tipo" disabled></div>
+      <div class="campo"><label for="editar-territorio-nombre">Nombre</label><input id="editar-territorio-nombre" required></div>
       <div class="campo" id="campo-editar-territorio-padre" style="display:none;">
-        <label id="label-editar-territorio-padre">Pertenece a</label>
+        <label for="editar-territorio-padre" id="label-editar-territorio-padre">Pertenece a</label>
         <select id="editar-territorio-padre"></select>
       </div>
       <button type="submit" class="btn-primario">Guardar cambios</button>
@@ -832,7 +833,7 @@ async function eliminarTerritorio(id) {
     await cargarSelects();
     renderTablaTerritorios();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -973,11 +974,11 @@ document.getElementById('btn-regeocodificar').addEventListener('click', async ()
       if (r.procesados === 0) break; // nada que procesar, evita bucle infinito
     }
 
-    alert(`Listo: ${totalGeocodificados} de ${totalProcesados} persona(s) quedaron ubicadas en el mapa.` +
-      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o Nominatim siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''));
+    mostrarToast(`Listo: ${totalGeocodificados} de ${totalProcesados} persona(s) quedaron ubicadas en el mapa.` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar (la dirección puede estar incompleta, no encontrarse en el mapa, o Nominatim siguió limitando las solicitudes) — puedes editarlas manualmente o volver a intentar más tarde.` : ''), 'ok');
     await cargarEstructura();
   } catch (err) {
-    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con las que faltan).`);
+    mostrarToast(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar con las que faltan).`, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;
@@ -1019,11 +1020,11 @@ document.getElementById('btn-regeocodificar-todos').addEventListener('click', as
       if (r.procesados === 0) break;
     }
 
-    alert(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} persona(s).` +
-      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''));
+    mostrarToast(`Listo: se recalculó la ubicación de ${totalGeocodificados} de ${totalProcesados} persona(s).` +
+      (totalFallidos ? ` ${totalFallidos} no se pudieron ubicar.` : ''), 'ok');
     await cargarEstructura();
   } catch (err) {
-    alert(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`);
+    mostrarToast(`${err.message} (se alcanzaron a procesar ${totalProcesados} antes del error; puedes volver a hacer clic para continuar).`, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = textoOriginal;
@@ -1042,12 +1043,12 @@ async function ejecutarEliminacionMasivaEstructura(tipo, etiqueta) {
   if (!password) return;
   try {
     const r = await api('/territorial/estructura/eliminar-masivo', { method: 'POST', body: { tipo, password } });
-    alert(`Se eliminaron ${r.eliminados} registro(s).`);
+    mostrarToast(`Se eliminaron ${r.eliminados} registro(s).`, 'ok');
     document.getElementById('overlay-eliminar-estructura').classList.remove('abierto');
     await cargarSelects();
     await cargarEstructura();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -1069,11 +1070,11 @@ document.getElementById('btn-eliminar-territorios').addEventListener('click', as
   if (!password) return;
   try {
     await api('/territorial/territorios/eliminar-todo', { method: 'POST', body: { password } });
-    alert('Todos los territorios fueron eliminados.');
+    mostrarToast('Todos los territorios fueron eliminados.', 'ok');
     await cargarSelects();
     renderTablaTerritorios();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 });
 
@@ -3619,7 +3620,7 @@ async function quitarDeMiEquipo(id) {
     await api(`/territorial/estructura/${id}`, { method: 'DELETE' });
     cargarEstructura();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -3642,7 +3643,7 @@ async function eliminarEstructura(id) {
     await api(`/territorial/estructura/${id}`, { method: 'DELETE', body: { password } });
     cargarEstructura();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -3694,6 +3695,35 @@ async function sincronizarColaOfflineEstructura() {
   await cargarEstructura();
 }
 
+/* REDISEÑO FASE 2: en el computador los errores de este formulario salen JUNTO AL CAMPO (mostrarErrorCampo, de common.js) o,
+   si no son de un campo, como aviso flotante. EN MODO APP (instalada en pantalla chica, o ?app=1) se queda la caja de
+   siempre: el paso a paso del final de este archivo la OBSERVA para llevar a la persona al paso donde está el problema.
+   Los ids de los campos NO cambian; este es el único sitio que dice a cuál va cada mensaje. */
+const REGLAS_ERROR_ESTRUCTURA = [
+  [/organizaci[oó]n/i, '#input-organizacion-persona'],
+  [/municipio/i, '#input-municipio-influencia-persona'],
+  [/comuna/i, '#input-comuna-persona'],
+  [/corregimiento/i, '#input-corregimiento-persona'],
+  [/barrio/i, '#input-barrio-persona'],
+  [/vereda/i, '#input-vereda-persona'],
+  [/contrase/i, '#input-numero-persona'],
+  [/nombre de usuario|identificaci[oó]n|c[eé]dula|ya registrado/i, '#input-numero-persona'],
+  [/e-?mail|correo/i, '#campo-email'],
+  [/tel[eé]fono|d[ií]gitos/i, '#campo-telefono'],
+  [/puesto|mesa|testigo/i, '#input-puesto-testigo-persona'],
+  [/nombre/i, '#form-estructura [name="nombre"]']
+];
+function reportarErrorEstructura(mensaje, campo, cajaModoApp) {
+  if (document.documentElement.classList.contains('modo-app')) {
+    cajaModoApp.textContent = mensaje;
+    cajaModoApp.classList.add('visible');
+  } else if (campo) {
+    mostrarErrorCampo(campo, mensaje);
+  } else {
+    mostrarErrorSegunMensaje(mensaje, REGLAS_ERROR_ESTRUCTURA);
+  }
+}
+
 document.getElementById('form-estructura').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorBox = document.getElementById('form-error');
@@ -3701,10 +3731,10 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
   const territorioErrorBox = document.getElementById('territorio-persona-error');
   errorBox.classList.remove('visible'); okBox.classList.remove('visible'); territorioErrorBox.classList.remove('visible');
   const form = e.target;
+  limpiarErrores(form);
 
   if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
-    errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
-    errorBox.classList.add('visible');
+    reportarErrorEstructura('Error de digitación: revisa el teléfono (debe tener 10 dígitos).', document.getElementById('campo-telefono'), errorBox);
     return;
   }
 
@@ -3720,8 +3750,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     ? { territorioId: null }
     : resolverTerritorioPersona();
   if (resuelto.error) {
-    territorioErrorBox.textContent = resuelto.error;
-    territorioErrorBox.classList.add('visible');
+    reportarErrorEstructura(resuelto.error, null, territorioErrorBox);
     return;
   }
   // El primero es el principal. Sin fichas es [el territorio de siempre] o [].
@@ -3730,8 +3759,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     : (resuelto.territorioId ? [resuelto.territorioId] : []);
 
   if (!identificacionPersonaDisponible) {
-    errorBox.textContent = 'Ya registrado por otro líder.';
-    errorBox.classList.add('visible');
+    reportarErrorEstructura('Ya registrado por otro líder.', document.getElementById('input-numero-persona'), errorBox);
     return;
   }
 
@@ -3845,8 +3873,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
       document.getElementById('fila-rural-persona').style.display = 'none';
       return;
     }
-    errorBox.textContent = err.message;
-    errorBox.classList.add('visible');
+    reportarErrorEstructura(err.message, null, errorBox);
   }
 });
 
@@ -3861,11 +3888,11 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
     }
-    alert(mensaje);
+    mostrarToast(mensaje, 'ok');
     await cargarSelects();
     await cargarEstructura();
   } catch (err) {
-    alert('Error importando el archivo: ' + err.message);
+    mostrarToast('Error importando el archivo: ' + err.message, 'error');
   } finally {
     e.target.value = '';
   }
@@ -4267,6 +4294,25 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
 
   irAPaso(1);
 })();
+</script>
+<script>
+/* REDISEÑO FASE 2 (parche 323): modal con encabezado y pie fijos, secciones con índice, «Cancelar», Esc y aviso de cambios sin guardar.
+   En MODO APP (instalada en pantalla chica, o ?app=1) NO se arma: allí el formulario va por pasos (script de arriba) y mueve los
+   mismos nodos; los dos esquemas no pueden convivir. */
+if (!document.documentElement.classList.contains('modo-app')) {
+  armarModalLargo({
+    overlay: 'overlay-form', form: 'form-estructura', cerrar: 'cerrar-modal', guardar: 'btn-guardar-estructura',
+    secciones: [
+      { titulo: 'Categoría', desde: 'texto:Categoría' },
+      { titulo: 'Datos personales', desde: 'texto:Datos personales' },
+      { titulo: 'Lugar de votación', desde: 'texto:Lugar de Votación' },
+      { titulo: 'Nombre y perfil', desde: '[name="nombre"]', encabezado: true },
+      { titulo: 'Contacto', desde: 'texto:Datos de contacto' },
+      { titulo: 'Territorio', desde: 'texto:Territorio o área de influencia' },
+      { titulo: 'Reporta a', desde: '#select-supervisor', encabezado: true }
+    ]
+  });
+}
 </script>
 </body>
 </html>

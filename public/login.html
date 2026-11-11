@@ -477,8 +477,8 @@
       <div class="campo">
         <!-- UN SOLO CAMPO Y UN SOLO BOTÓN: el canal se deduce de lo que se escriba
              (con arroba, correo; sin ella, celular), en vez de pedir que lo elijan. -->
-        <label id="etiqueta-identificador">Correo electrónico o número de celular</label>
-        <input type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com o 3001234567">
+        <label for="campo-identificador" id="etiqueta-identificador">Correo electrónico o número de celular</label>
+        <input id="campo-identificador" type="text" name="identificador" required autocomplete="username" inputmode="email" placeholder="tucorreo@dominio.com o 3001234567">
       </div>
       <small id="pista-canal" style="display:block; margin:-2px 0 14px; font-size:.8rem; color:var(--color-text-muted);">
         Si escribes un correo, el código te llega ahí. Si escribes un celular, por mensaje de texto.
@@ -494,15 +494,15 @@
 
     <form id="form-login" style="display:none;">
       <div class="campo">
-        <label>Correo electrónico o número de identificación</label>
-        <input type="text" name="email" required autocomplete="username" inputmode="email">
+        <label for="campo-email">Correo electrónico o número de identificación</label>
+        <input id="campo-email" type="text" name="email" required autocomplete="username" inputmode="email">
         <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
           Para quien ya tenga una contraseña asignada. Si no la tiene o no la recuerda, vuelva atrás y pida un código: llega a su correo o a su celular.
         </small>
       </div>
       <div class="campo">
-        <label>Contraseña</label>
-        <input type="password" name="password" required>
+        <label for="campo-password">Contraseña</label>
+        <input id="campo-password" type="password" name="password" required>
       </div>
       <div class="campo" id="campo-recordar-login" style="margin-bottom: 6px;">
         <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
@@ -522,11 +522,11 @@
         Te enviamos un código de 6 dígitos por correo. Ingrésalo para completar el inicio de sesión.
       </p>
       <div class="campo">
-        <label>Código de verificación</label>
+        <label for="campo-codigo-2">Código de verificación</label>
         <!-- autocomplete="one-time-code": el teléfono ofrece el código del
              SMS encima del teclado y se llena de un toque, sin copiar y
              pegar. Es lo que el navegador espera de un campo así. -->
-        <input type="text" name="codigo" inputmode="numeric" maxlength="6" required autofocus
+        <input id="campo-codigo-2" type="text" name="codigo" inputmode="numeric" maxlength="6" required autofocus
                autocomplete="one-time-code" placeholder="000000" class="campo-codigo">
       </div>
       <button type="submit" class="btn-primario">Verificar</button>

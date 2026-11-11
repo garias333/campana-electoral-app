@@ -34,7 +34,7 @@
     <div class="card">
       <div class="toolbar">
         <div class="toolbar-filtros">
-          <input type="text" id="filtro-busqueda-testigo" placeholder="Buscar por nombre, cédula o teléfono...">
+          <input aria-label="Buscar por nombre, cédula o teléfono" type="text" id="filtro-busqueda-testigo" placeholder="Buscar por nombre, cédula o teléfono...">
           <select id="filtro-puesto-testigo">
             <option value="">Todos los puestos</option>
           </select>
@@ -70,17 +70,17 @@
     <div id="form-testigo-ok" class="mensaje-ok"></div>
     <form id="form-testigo">
       <div class="campo">
-        <label>Número de identificación</label>
-        <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off">
+        <label for="input-numero-testigo">Número de identificación</label>
+        <input name="numero_identificacion" id="input-numero-testigo" autocomplete="off" inputmode="numeric">
         <small id="numero-testigo-estado" style="font-size:0.75rem;"></small>
         <button type="button" class="btn-secundario btn-sm" id="btn-consultar-lugar-votacion-testigo" style="display:none; white-space:nowrap; margin-top:6px;">🗳️ Consultar lugar de votación</button>
         <small id="nota-copiar-lugar-votacion-testigo" style="display:none; color:var(--color-text-muted); font-size:0.75rem;">Tu cédula queda copiada: pégala en la Registraduría y luego copia acá Departamento, Municipio y Mesa. El Puesto lo seleccionas de la lista (compáralo con el nombre y la dirección que te muestre la ventana).</small>
         <small id="aviso-consulta-lugar-votacion-testigo" role="status" style="display:none;"></small>
       </div>
-      <div class="campo"><label>Nombre completo</label><input name="nombre" required></div>
+      <div class="campo"><label for="campo-nombre">Nombre completo</label><input id="campo-nombre" name="nombre" required></div>
       <div class="fila">
-        <div class="campo"><label>Teléfono</label><input name="telefono" placeholder="300 123 4567"></div>
-        <div class="campo"><label>Correo electrónico (opcional)</label><input type="email" name="email"></div>
+        <div class="campo"><label for="campo-telefono">Teléfono</label><input type="tel" id="campo-telefono" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+        <div class="campo"><label for="campo-email">Correo electrónico (opcional)</label><input id="campo-email" type="email" name="email"></div>
       </div>
 
       <div class="campo encabezado-form">Tipo</div>
@@ -100,33 +100,33 @@
       <p style="color:var(--color-text-muted); font-size:0.82rem; margin:-2px 0 10px;">El propio testigo también puede completar o corregir esto el día de elecciones, desde Día D.</p>
       <div class="fila">
         <div class="campo">
-          <label>Departamento</label>
+          <label for="input-departamento-votacion-testigo">Departamento</label>
           <input name="departamento_votacion" id="input-departamento-votacion-testigo" list="lista-departamentos-votacion-testigo" autocomplete="off">
           <datalist id="lista-departamentos-votacion-testigo"></datalist>
         </div>
         <div class="campo">
-          <label>Municipio</label>
+          <label for="input-municipio-votacion-testigo">Municipio</label>
           <input name="municipio_votacion" id="input-municipio-votacion-testigo" list="lista-municipios-votacion-testigo" autocomplete="off">
           <datalist id="lista-municipios-votacion-testigo"></datalist>
         </div>
       </div>
       <div class="fila">
         <div class="campo">
-          <label>Puesto</label>
+          <label for="input-puesto-votacion-testigo">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-testigo">
             <option value="">Seleccione...</option>
           </select>
         </div>
         <div class="campo" id="campo-mesa-testigo">
-          <label>Mesa</label>
+          <label for="input-mesa-votacion-testigo">Mesa</label>
           <select name="mesa_votacion" id="input-mesa-votacion-testigo">
             <option value="">Seleccione un puesto primero...</option>
           </select>
         </div>
       </div>
       <div class="campo" id="campo-mesas-multiples-testigo" style="display:none;">
-        <label>Mesas que cubre</label>
-        <div id="casillas-mesas-testigo" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
+        <label id="et-casillas-mesas-testigo">Mesas que cubre</label>
+        <div id="casillas-mesas-testigo" role="group" aria-labelledby="et-casillas-mesas-testigo" style="display:flex; flex-wrap:wrap; margin-top:4px;"></div>
       </div>
 
       <div class="campo" id="campo-activo-testigo" style="display:none;">
@@ -347,7 +347,7 @@ async function eliminarTestigo(id) {
     await api(`/territorial/testigos/${id}`, { method: 'DELETE', body: { password } });
     await cargarTestigos();
   } catch (err) {
-    alert(err.message || 'No se pudo eliminar el testigo.');
+    mostrarToast(err.message || 'No se pudo eliminar el testigo.', 'error');
   }
 }
 
@@ -360,7 +360,7 @@ async function eliminarTodosLosTestigos() {
     await api('/territorial/testigos/eliminar-todo', { method: 'POST', body: { password } });
     await cargarTestigos();
   } catch (err) {
-    alert(err.message || 'No se pudieron eliminar los testigos.');
+    mostrarToast(err.message || 'No se pudieron eliminar los testigos.', 'error');
   }
 }
 document.getElementById('btn-eliminar-todos-testigos').addEventListener('click', eliminarTodosLosTestigos);
@@ -521,10 +521,10 @@ document.getElementById('input-importar-testigos').addEventListener('change', as
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
     }
-    alert(mensaje);
+    mostrarToast(mensaje, 'ok');
     await cargarTestigos();
   } catch (err) {
-    alert('Error importando el archivo: ' + err.message);
+    mostrarToast('Error importando el archivo: ' + err.message, 'error');
   } finally {
     e.target.value = '';
   }

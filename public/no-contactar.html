@@ -101,7 +101,7 @@
 
     <div class="card paso crm-historial">
       <div class="barra-filtros">
-        <input type="search" id="filtro-texto" placeholder="Buscar por nombre, teléfono o correo…">
+        <input aria-label="Buscar por nombre, teléfono o correo" type="search" id="filtro-texto" placeholder="Buscar por nombre, teléfono o correo…">
         <select id="filtro-tipo">
           <option value="">Votantes y equipo</option>
           <option value="Votante">Solo votantes</option>
@@ -305,15 +305,15 @@ async function reactivar(tipo, id, nombre) {
     + 'autorizado va contra la ley de datos personales.\n\n¿Continuar?')) return;
   const motivo = prompt('¿Por qué se reactiva? (queda en la auditoría, con su nombre)');
   if (motivo === null) return;
-  if (!motivo.trim()) { alert('Hay que escribir el motivo.'); return; }
+  if (!motivo.trim()) { mostrarToast('Hay que escribir el motivo.', 'error'); return; }
   try {
     const r = await api(`/comunicaciones/bajas/${tipo}/${id}/reactivar`, {
       method: 'POST', body: { motivo },
     });
-    alert(`Listo. Se reactivaron ${r.fichas} ficha(s) de esta persona.`);
+    mostrarToast(`Listo. Se reactivaron ${r.fichas} ficha(s) de esta persona.`, 'ok');
     await cargar();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 

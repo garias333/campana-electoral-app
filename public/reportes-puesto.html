@@ -114,7 +114,7 @@ async function rpConsultar() {
     rpDatos = await api(`/dia-d/rendimiento-candidato?candidato=${encodeURIComponent(nombre)}`);
   } catch (err) {
     rpDatos = null;
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
   rpPintar();
 }

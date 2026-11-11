@@ -79,7 +79,7 @@
       </div>
       <div id="grupos-destinatarios"></div>
       <div class="campo">
-        <label>O agrega destinatarios manualmente (opcional)</label>
+        <label for="input-destinatarios-manuales">O agrega destinatarios manualmente (opcional)</label>
         <textarea id="input-destinatarios-manuales" rows="3" placeholder="Escribe uno o varios números de teléfono o correos electrónicos, separados por coma, punto y coma, o cada uno en su propia línea.&#10;Ej: 3001234567, 3109876543&#10;o: correo1@ejemplo.com&#10;correo2@ejemplo.com"></textarea>
         <small>Estos se suman a los que traigan los grupos de arriba. Si escribes un teléfono para una campaña de correo (o viceversa), no va a llegar — usa el formato que corresponda al canal elegido arriba.</small>
       </div>
@@ -98,8 +98,8 @@
           <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. Puede guardarlo como plantilla para reusarlo.</p>
         </div>
       </div>
-      <div class="campo"><label>Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
-      <div class="campo" id="campo-asunto"><label>Asunto (solo Email)</label><input id="input-asunto-campana"></div>
+      <div class="campo"><label for="input-nombre-campana">Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
+      <div class="campo" id="campo-asunto"><label for="input-asunto-campana">Asunto (solo Email)</label><input id="input-asunto-campana"></div>
       <div class="campo">
         <label>Mensaje</label>
                 <!-- Plantillas: cargar una ya escrita o guardar la de ahora. -->
@@ -108,7 +108,7 @@
           <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
           <button type="button" class="btn-secundario btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
         </div>
-<textarea id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
+<textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio" id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
         <div id="contador-sms-campana" style="font-size:0.88rem; margin-top:6px;"></div>
         <div class="caja-diad">
           <div class="titulo">Día D — decirle a cada quien dónde vota</div>
@@ -126,7 +126,7 @@
       <div id="crm-form-ok" class="mensaje-ok"></div>
       <!-- Programación. Vacío = sale ya, que es lo de siempre. -->
       <div class="campo" style="max-width:280px;">
-        <label>Programar el envío (opcional)</label>
+        <label for="input-programado-para">Programar el envío (opcional)</label>
         <input type="datetime-local" id="input-programado-para">
         <small>Si lo deja vacío, sale de inmediato. La hora es la de su equipo.</small>
       </div>
@@ -423,7 +423,7 @@ document.getElementById('btn-ver-destinatarios').addEventListener('click', async
       </div>
     `).join('') + (r.total > r.muestra.length ? `<p style="color:var(--color-text-muted); font-size:0.9rem; margin-top:8px;">… y ${formatoMillares(r.total - r.muestra.length)} más.</p>` : '');
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   } finally {
     boton.disabled = false;
     boton.textContent = 'Ver cuántos van a recibir el mensaje';
@@ -550,7 +550,7 @@ async function eliminarCampana(id, nombre) {
     await api(`/comunicaciones/campanas/${id}`, { method: 'DELETE' });
     await cargarCampanas();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -597,9 +597,9 @@ async function verDetalleCampana(id) {
 async function reintentarFallidos(id) {
   if (!confirm('Se volverá a intentar el envío únicamente con los que fallaron. ¿Continuar?')) return;
   const r = await api(`/comunicaciones/campanas/${id}/reintentar-fallidos`, { method: 'POST' });
-  alert(r.reintentados
+  mostrarToast(r.reintentados
     ? `Se reintentaron ${r.reintentados} envío(s). El resultado aparece en unos segundos.`
-    : 'No quedaba ningún envío fallido por reintentar.');
+    : 'No quedaba ningún envío fallido por reintentar.', 'ok');
   verDetalleCampana(id);
   cargarCampanas();
 }
@@ -617,10 +617,10 @@ async function eliminarCampanasPorCanal(canal, etiqueta) {
   if (!password) return;
   try {
     const r = await api('/comunicaciones/campanas', { method: 'DELETE', body: { password, canal: canal || undefined } });
-    alert(`Se eliminaron ${r.eliminadas} campaña(s).`);
+    mostrarToast(`Se eliminaron ${r.eliminadas} campaña(s).`, 'ok');
     await cargarCampanas();
   } catch (err) {
-    alert(err.message);
+    mostrarToast(err.message, 'error');
   }
 }
 
@@ -831,7 +831,7 @@ document.getElementById('select-plantilla').addEventListener('change', (e) => {
 
 document.getElementById('btn-guardar-plantilla').addEventListener('click', async () => {
   const cuerpo = document.getElementById('input-mensaje-campana').value.trim();
-  if (!cuerpo) { alert('Escribe primero el mensaje que quieres guardar.'); return; }
+  if (!cuerpo) { mostrarErrorCampo('input-mensaje-campana', 'Escribe primero el mensaje que quieres guardar.'); return; }
   const nombre = prompt('¿Con qué nombre guardas esta plantilla?');
   if (!nombre) return;
   try {
@@ -839,8 +839,8 @@ document.getElementById('btn-guardar-plantilla').addEventListener('click', async
       nombre, canal: typeof canalElegido !== 'undefined' ? canalElegido : 'cualquiera',
       asunto: document.getElementById('input-asunto-campana').value || null, cuerpo } });
     await cargarPlantillas();
-    alert('Plantilla guardada.');
-  } catch (e) { alert(e.message); }
+    mostrarToast('Plantilla guardada.', 'ok');
+  } catch (e) { mostrarToast(e.message, 'error'); }
 });
 
 document.getElementById('btn-borrar-plantilla').addEventListener('click', async () => {
