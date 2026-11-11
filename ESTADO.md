@@ -13,6 +13,8 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Push del 11 de noviembre de 2026 (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `a4c38f1..16f93fe  auditoria-fable -> auditoria-fable`** (incluye los commits del 320 y del 321). Los parches 320 y 321 siguen INACTIVOS en el panel de licencias; falta ponerlos en «seleccionadas» con solo la municipal (nunca la Base), activarlos y aplicarlos (el 320 antes que el 321; ambos requieren los anteriores ya aplicados en esa campaña).
+- **Último parche generado: 326** (`parches/campana-parche326.zip`, 46.825 bytes,
+  sha256 `a96a0275c513049f1769ae055f7da5d9490a32b838b7dc62f0efb8bb5d8fb4ea`, 3 archivos): «Pestañas con franja corchete y colores de botones en los modales de votantes y estructura (Requiere el 325)». **GENERADO el 11 de noviembre de 2026 sobre `947afc9`; los 3 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE. NO LLEVA CÓDIGO DE SERVIDOR**: `public/css/style.css`, `public/service-worker.js` (**v197**) y `.version-base`. **SIN PUBLICAR NI REGISTRAR** (comandos entregados a Gildardo). Falta: publicar y registrar (INACTIVO), «seleccionadas» solo municipal (NUNCA la Base), activar y aplicar.
 - **Último parche generado: 325** (`parches/campana-parche325.zip`, 437.849 bytes,
   sha256 `561fa45bd1bbbc4947cab3b8235877cf46121cbc15ccb0ec727635756b09d0de`, 19 archivos): «Pestañas en 4 y autorización de datos por enlace de WhatsApp (Requiere el 324)». **GENERADO el 12 de noviembre de 2026 sobre `2c60324`; los 19 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **TOCA LA BASE** (`db/init-db.js`: tabla nueva `autorizaciones_datos`; marca «toca base de datos»). **LLEVA CÓDIGO DE SERVIDOR** (`app.js`, `config/`, `lib/`, `routes/`): las instancias necesitan `init-db` y REINICIO. **PUBLICADO Y REGISTRADO INACTIVO el 11 de noviembre de 2026** (salida pegada por Gildardo: huella `561fa45bd1bbbc49`; «HTTP 200 … toca_base_datos:true»; firmado Ed25519; INACTIVO). **En la Base: `init-db` corrido (Listo) y instancia reiniciada: «OK: pid 142200 -> 305136 y el puerto 3002 responde».** **Push hecho: `a502eb4..ee69f98`.** Falta (panel): «seleccionadas» solo municipal (NUNCA la Base), activar y aplicar (cada campaña: init-db + reinicio); luego departamental y c001.
 - **Último parche generado: 324** (`parches/campana-parche324.zip`, 356.717 bytes,
@@ -308,6 +310,19 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 326 — Pestañas con franja «corchete» y colores de botones en los modales de votantes y estructura (11 de noviembre de 2026, GENERADO, SIN PUBLICAR; NO TOCA LA BASE; NO LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 325)
+
+*Orden «Rediseño 10». Gildardo eligió el «Diseño 2 · Corchete» para «Nuevo votante o sublíder» y «Agregar a la estructura». SOLO ESTILOS: no cambia lógica, ids, name, orden de campos ni validaciones. Commit `947afc9`.*
+
+- **Pestañas** (≥ 900 px; `.modal-indice a` al final de `css/style.css`): activa 17.5px / 800 / `#084298`, inactivas 16px / 600 / `#6a7590`, relleno `12px 12px 16px`. Se quitó el subrayado recto del 324 y la franja amarilla «corchete» (el SVG pedido, trazo `#FFC300` de 4.5 con `vector-effect: non-scaling-stroke`) va en `::before` como data-URI, de ancho «pestaña − 12 px» (6 a cada lado) y 14 px de alto; `::after` sigue siendo el punto rojo de «con error». Barra sin scroll, como estaba.
+- **Categoría** (`.modal-largo .chips-form .chip-form`: Votante/Sublíder en votantes y las cinco de la estructura; son los únicos grupos de botones de selección de los dos modales, Urbano/Rural y Género son `<select>`): activo `#0B5ED7` con texto blanco, 700; inactivo `#0B5ED7` al 20 % (`rgba(11,94,215,.2)`) con texto `#084298`, 700, sin borde; radio 12, alto **mínimo** 48 (no fijo: «Coordinador de organizaciones» puede ocupar dos renglones). La estructura conserva su ✓ delante del activo (así no depende solo del color). También en `html.modo-app #chips-cargo-persona` (los mismos botones dentro del asistente por pasos).
+- **Pie del modal** (`.modal-largo .modal-pie`): «← Anterior» `#0B5ED7`/blanco; «Siguiente →» `#FFC300`/`#1b2333`; «Cancelar» `#FFC300` al 20 %/`#1b2333` sin borde; «Guardar» `#084298`/blanco. Todos 46 px, píldora, 700, 15.5 px. Se eligen por posición (`.pie-nav > :first-child/:last-child`, `.pie-acciones > [type=button]/[type=submit]`): no se tocó `common.js` ni ningún HTML. Foco de teclado: anillo sólido `#0B5ED7` de 3 px a 2 px de separación más un halo de 7 px al 18 %.
+- **Celular (< 900 px)**: los mismos colores de categoría y de «Cancelar»/«Guardar»; las pestañas no se pintan ahí y siguen como estaban. El asistente por pasos (`?app=1`, botones `.wz-atras/.wz-sig`) **no se tocó** salvo los botones de categoría.
+- **Service worker `v197`.**
+- **Pruebas** (arnés `~/pruebas-rediseno/`, `funcional326.sh antes|despues`; mysqld privado en el 33099, apagado al terminar; la base simulada se recreó con `init-db` desde una copia del árbol del 325 porque había quedado a medias): **79/79** — medidas de estilo (tipografía, relleno, corchete SVG, categoría activa/inactiva, cuatro botones del pie, orden, foco) en votantes y estructura; votante y persona de estructura de prueba creados **y editados** recorriendo las 4 pestañas con admin y con coordinador (borrados: 0 restos); 390 px sin pestañas y con los colores nuevos; `?app=1` sigue por pasos; «+ Nuevo votante» (fuera del modal) sigue amarillo; **desborde 0 y errores de consola 0** en las 16 cargas (2 modales × 2 roles × 1366×768 y 390×844) antes y después. Capturas: `~/pruebas-rediseno/capturas/{antes-326,despues-326}`.
+- **Contrastes** (WCAG): blanco/`#0B5ED7` **5.84:1**; blanco/`#084298` **9.36:1**; `#084298` sobre `#0B5ED7` al 20 % (`#cedff7`) **6.92:1**; `#1b2333`/`#FFC300` 9.78:1; `#1b2333` sobre `#FFC300` al 20 % 14.19:1; `#084298`/blanco 9.36:1; `#6a7590`/blanco (pestañas inactivas) **4.61:1** (justo sobre el mínimo de 4.5). La franja `#FFC300` sobre blanco da 1.61:1 pero es decorativa: la pestaña activa se distingue por tamaño, peso y color del texto.
+- **NO probado**: un celular o navegador real de Gildardo (solo Chromium sin cabeza), Safari ni Firefox. El corchete usa `vector-effect: non-scaling-stroke` dentro de una imagen de fondo SVG: en Chromium se ve como en la muestra; en Safari/Firefox hay que mirarlo.
 
 ## Parche 325 — Pestañas en 4 y autorización de datos firmada por enlace de WhatsApp (12 de noviembre de 2026, PUBLICADO Y REGISTRADO INACTIVO; APLICADO EN LA BASE; PUSH HECHO; TOCA LA BASE: una tabla; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 324)
 
@@ -3278,3 +3293,8 @@ Rama: auditoria-fable | Commit: c1bcef0 ESTADO.md: 319 publicado y registrado (i
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-11 13:46 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 1aee4c0 ESTADO.md: 322 publicado y registrado (inactivo) | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-11 22:41 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 6555c4b ESTADO.md: 325 publicado y registrado (inactivo); aplicado en la Base; push hecho | Sin commitear: 3 archivo(s)
