@@ -35,18 +35,20 @@ function pagina({ titulo, cuerpo, boton }) {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${titulo}</title>
+<link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-         background: #F3F5F8; color: #161B26; margin: 0;
+         background: var(--fondo, #f4f6fb); color: var(--texto, #1b2333); margin: 0;
          display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-  .caja { background: #fff; border-radius: 14px; padding: 30px 26px; max-width: 420px; width: 100%;
-          box-shadow: 0 10px 34px rgba(16,35,63,.12); text-align: center; }
-  h1 { font-size: 1.25rem; color: #10233F; margin: 0 0 12px; }
-  p { font-size: 1rem; line-height: 1.55; color: #5B6472; margin: 0 0 18px; }
-  button { background: #0B5ED7; color: #fff; border: 0; border-radius: 9px;
-           font-size: 1rem; font-weight: 700; padding: 13px 26px; cursor: pointer; width: 100%; }
-  button:hover { background: #084298; }
-  .ok { color: #1E6B44; font-weight: 600; }
+  .caja { background: #fff; border-radius: var(--radio, 18px); padding: 30px 26px; max-width: 420px; width: 100%;
+          box-shadow: var(--sombra-flot, 0 8px 24px rgba(8,66,152,.13)); text-align: center; }
+  h1 { font-size: 1.25rem; color: var(--marca-azul-osc, #084298); font-weight: 800; margin: 0 0 12px; }
+  p { font-size: 1rem; line-height: 1.55; color: var(--texto-2, #6a7590); margin: 0 0 18px; }
+  button { display: flex; align-items: center; justify-content: center; background: var(--marca-amarillo, #FFC300); color: #1b2333; border: 0; border-radius: 999px;
+           font-size: 16.5px; font-weight: 800; min-height: 54px; padding: 12px 26px; cursor: pointer; width: 100%;
+           box-shadow: 0 8px 20px rgba(255,195,0,.4); font-family: inherit; }
+  button:disabled { opacity: .6; box-shadow: none; }
+  .ok { color: var(--ok, #1e6b2e); font-weight: 700; }
 </style></head><body><div class="caja">
 <h1>${titulo}</h1><p>${cuerpo}</p>${boton || ''}
 </div></body></html>`;

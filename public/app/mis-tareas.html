@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Mis tareas · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -14,29 +14,35 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* TAREAS, «Mis tareas» (parche 305): lo que tengo asignado, lo que sigue en el celular sin subir y lo que ya está hecho. */
-  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
-  .caja-tar { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
-  .caja-tar.abierta { border-color: #9DB7E8; }
+  .grupo-titulo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); margin: 18px 0 8px; }
+  .caja-tar { background: #fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px; margin-bottom: 12px; }
+  .caja-tar.abierta { box-shadow: 0 0 0 2px var(--marca-azul), var(--sombra); }
   .caja-tar .arriba { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; cursor: pointer; }
   .caja-tar .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
   .caja-tar .meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
   .caja-tar .detalle { margin-top: 10px; border-top: 1px solid var(--linea); padding-top: 10px; font-size: 0.9rem; line-height: 1.4; }
-  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); margin-left: 4px; }
-  .etiqueta.roja { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
-  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
-  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
-  .nota-tar { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 8px 0; font-size: 0.86rem; }
+  .etiqueta { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--campo); color: var(--texto-2); white-space: nowrap; border: 0; margin-left: 4px; }
+  .etiqueta.roja { background: var(--error-fondo); color: var(--error); }
+  .etiqueta.ambar { background: var(--aviso-fondo); color: var(--aviso); }
+  .etiqueta.verde { background: var(--ok-fondo); color: var(--ok); }
+  .nota-tar { background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); border-radius: 14px; padding: 8px 10px; margin: 8px 0; font-size: 0.86rem; }
   .acciones { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
   .acciones .btn-app { flex: 1 1 120px; }
-  .form-tar label { display: block; font-size: 0.8rem; font-weight: 600; margin: 10px 0 4px; }
-  .form-tar input[type=number], .form-tar textarea { width: 100%; box-sizing: border-box; }
+  /* Los campos del formulario son .campo-app (estilos-app.css). Guardar / Cancelar van en la BARRA FIJA de abajo, como en el
+     registro de votante: con el formulario abierto siempre están a la vista y suben con el teclado (--teclado). */
+  .form-tar { margin-top: 10px; }
+  .form-tar .acciones {
+    position: fixed; left: 0; right: 0; bottom: var(--teclado, 0px); z-index: 30; margin: 0; flex-wrap: nowrap;
+    background: var(--fondo); padding: 10px max(14px, calc((100% - 532px) / 2)) calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .form-tar .acciones .btn-app { flex: 1 1 0; min-width: 0; }
+  .form-tar > label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
   .fotos-tar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
   .fotos-tar .foto { position: relative; width: 84px; height: 84px; }
   .fotos-tar img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 1px solid var(--linea); }
   .fotos-tar button { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: #142a3f; color: #fff; }
-  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
   .resumen-tar { display: flex; gap: 8px; margin: 10px 0 0; }
-  .resumen-tar div { flex: 1; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 8px; text-align: center; }
+  .resumen-tar div { flex: 1; background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 8px; text-align: center; }
   .resumen-tar b { display: block; font-size: 1.2rem; color: var(--navy); }
   .resumen-tar span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
 </style>
@@ -85,10 +91,12 @@ function fecha(v) {
   const d = new Date(String(v).slice(0, 10) + 'T12:00:00');
   return isNaN(d) ? String(v).slice(0, 10) : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+/* Los avisos generales van en el aviso flotante (app-comun.js), que se ve aunque el formulario esté abajo; los de un campo van
+   debajo del campo (mostrarErrorCampo). El recuadro de arriba ya no se usa. */
 function aviso(texto, tipo) {
   const a = $('aviso');
-  a.textContent = texto || '';
-  a.className = 'aviso-app' + (texto ? ' visible ' + (tipo || 'error') : '');
+  a.className = 'aviso-app';
+  if (texto) mostrarToast(texto, tipo === 'exito' ? 'ok' : 'error');
 }
 
 /* ----- la cola: cada acción se guarda primero en el celular, con su identificador, y después se intenta subir ----- */
@@ -136,17 +144,17 @@ function formularioTermine(t) {
   const pistas = { visita: 'Para terminar una visita hace falta una foto o la ubicación.', entrega: 'Para terminar una entrega hace falta la cantidad entregada y una foto.', libre: 'Puedes dejar una nota, fotos o la ubicación si quieres.' };
   return `<div class="form-tar" id="form-tar">
     <p class="meta">${esc(pistas[t.tipo] || '')}</p>
-    ${t.tipo === 'entrega' ? `<label for="f-cantidad">Cantidad entregada${t.cantidad_prevista ? ` (se esperaban ${esc(t.cantidad_prevista)})` : ''}</label><input type="number" id="f-cantidad" min="1" inputmode="numeric">` : ''}
+    ${t.tipo === 'entrega' ? `<div class="campo-app"><label for="f-cantidad">Cantidad entregada${t.cantidad_prevista ? ` (se esperaban ${esc(t.cantidad_prevista)})` : ''}</label><input type="number" id="f-cantidad" min="1" inputmode="numeric"></div>` : ''}
     <label>${conFoto}</label>
     <div class="fotos-tar" id="fotos-tar"></div>
     <button type="button" class="btn-app btn-app-secundario" id="btn-foto">📷 Agregar una foto</button>
     ${t.tipo !== 'entrega' ? `<button type="button" class="btn-app btn-app-secundario" id="btn-ubicacion" style="margin-top:8px;">📍 Usar mi ubicación</button><p class="meta" id="estado-ubicacion"></p>` : ''}
-    <label for="f-nota">Nota (opcional)</label><textarea id="f-nota" rows="2" maxlength="500"></textarea>
+    <div class="campo-app"><label for="f-nota">Nota (opcional)</label><textarea id="f-nota" rows="2" maxlength="500"></textarea></div>
     <div class="acciones"><button type="button" class="btn-app btn-app-primario" id="btn-guardar-termine">Guardar</button><button type="button" class="btn-app btn-app-secundario" id="btn-cancelar-form">Cancelar</button></div>
   </div>`;
 }
 function formularioNoPude() {
-  return `<div class="form-tar" id="form-tar"><label for="f-nota">¿Por qué no pudiste?</label><textarea id="f-nota" rows="3" maxlength="255"></textarea>
+  return `<div class="form-tar" id="form-tar"><div class="campo-app"><label for="f-nota">¿Por qué no pudiste?</label><textarea id="f-nota" rows="3" maxlength="255"></textarea></div>
     <div class="acciones"><button type="button" class="btn-app btn-app-primario" id="btn-guardar-nopude">Guardar</button><button type="button" class="btn-app btn-app-secundario" id="btn-cancelar-form">Cancelar</button></div></div>`;
 }
 
@@ -225,6 +233,7 @@ function pintar() {
   L.querySelectorAll('[data-abrir]').forEach((el) => el.addEventListener('click', () => { abierta = abierta === Number(el.dataset.abrir) ? null : Number(el.dataset.abrir); if (edicion && edicion.tareaId !== abierta) liberarEdicion(); pintar(); }));
   L.querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => accionar(Number(b.dataset.id), b.dataset.accion)));
   const t = edicion && tareas.find((x) => x.id === edicion.tareaId);
+  document.body.classList.toggle('con-barra-fija', !!edicion);      // con el formulario abierto hay barra fija: deja sitio abajo
   if (edicion) {
     pintarFotosForm();
     const bf = $('btn-foto'); if (bf) bf.addEventListener('click', () => $('archivo-foto').click());
@@ -263,7 +272,8 @@ function accionar(id, accion) {
 }
 async function guardarNoPude(t) {
   const nota = $('f-nota').value.trim();
-  if (nota.length < 3) return aviso('Cuenta por qué no pudiste (al menos 3 letras).');
+  limpiarErrores($('form-tar'));
+  if (nota.length < 3) return mostrarErrorCampo($('f-nota'), 'Cuenta por qué no pudiste (al menos 3 letras).');
   await encolar(t, 'no_pude', { nota });
 }
 async function guardarTermine(t) {
@@ -271,10 +281,11 @@ async function guardarTermine(t) {
   const cantidad = $('f-cantidad') ? Number($('f-cantidad').value) : '';
   const hayFoto = edicion.fotos.length > 0;
   const previas = t.fotos || 0;
-  if (t.tipo === 'visita' && !hayFoto && !previas && !edicion.ubicacion) return aviso('Una visita se termina con una foto o con la ubicación.');
+  limpiarErrores($('form-tar'));
+  if (t.tipo === 'visita' && !hayFoto && !previas && !edicion.ubicacion) return mostrarErrorCampo($('btn-foto'), 'Una visita se termina con una foto o con la ubicación.');
   if (t.tipo === 'entrega') {
-    if (!Number.isInteger(cantidad) || cantidad < 1) return aviso('Escribe la cantidad que entregaste.');
-    if (!hayFoto && !previas) return aviso('Una entrega se termina con una foto.');
+    if (!Number.isInteger(cantidad) || cantidad < 1) return mostrarErrorCampo($('f-cantidad'), 'Escribe la cantidad que entregaste.');
+    if (!hayFoto && !previas) return mostrarErrorCampo($('btn-foto'), 'Una entrega se termina con una foto.');
   }
   const u = edicion.ubicacion;
   await encolar(t, 'termine', { nota, cantidad, latitud: u ? u.latitud : '', longitud: u ? u.longitud : '', precision_m: u ? u.precision_m : '' }, edicion.fotos.map((f) => f.blob));

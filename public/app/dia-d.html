@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Día D · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
-  .reporte-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+  .reporte-tarjeta { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
   .reporte-tarjeta.con-novedad { border-color: #e0b3b0; background: #FBF3F2; }
   .reporte-tarjeta .fila-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
   .reporte-tarjeta .mesa { font-weight: 700; color: var(--navy); }
@@ -90,7 +90,7 @@
   }
   /* El primero no necesita el aire de arriba: no separa de nada. */
   .tabla-votos-candidatos tr.fila-bloque-e14:first-child td { padding-top: 4px; }
-  .tabla-votos-candidatos input { width: 100%; box-sizing: border-box; }
+  .tabla-votos-candidatos input { width: 100%; box-sizing: border-box; min-height: 48px; padding: 8px 10px; text-align: right; }
 
   /* Cámara propia para la Foto del E-14 (ver más abajo por qué no se usa el input nativo) */
   #camara-e14-overlay {
@@ -122,27 +122,27 @@
   .btn-llegue:active { background: #155985; }
   .btn-llegue:disabled { background: #1E8A4F; opacity: 1; cursor: default; }
   .estado-llegada { text-align: center; font-size: 0.92rem; color: #5B6472; margin-top: 8px; }
-  .estado-llegada.ok { color: #1E6B44; font-weight: 700; }
+  .estado-llegada.ok { color: var(--ok); font-weight: 700; }
 </style>
 </head>
-<body>
+<body class="con-barra-fija">
 <div class="app-barra" id="app-barra"></div>
 <main class="app-cuerpo">
 
   <div id="pantalla-carga" class="pantalla-carga">Cargando…</div>
 
   <div id="pantalla-contenido" style="display:none;">
-    <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
+    <div id="aviso-cola-offline" style="display:none; background:var(--aviso-fondo); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
 
     <!-- «LLEGUÉ A MI PUESTO» (fase 4). Arriba y grande: es lo primero que hace un testigo al llegar. Sólo aparece si la
          persona tiene un puesto asignado como testigo. NUNCA bloquea: sin ubicación o sin señal, se guarda igual. -->
     <div id="caja-llegada" style="display:none; margin-bottom:16px;">
-      <div id="franja-prueba-llegada" style="display:none; background:#FDF3E0; color:#8A5A00; border-radius:8px; padding:6px 10px; font-size:0.8rem; margin-bottom:8px; text-align:center;">
+      <div id="franja-prueba-llegada" style="display:none; background:var(--aviso-fondo); color:#8A5A00; border-radius:8px; padding:6px 10px; font-size:0.8rem; margin-bottom:8px; text-align:center;">
         Modo prueba: hoy no es el día de la elección. Puedes ensayar el «Llegué».
       </div>
       <button type="button" id="btn-llegue" class="btn-llegue">Llegué a mi puesto</button>
       <div id="estado-llegada" class="estado-llegada" role="status"></div>
-      <div id="cola-llegada" style="display:none; background:#FDF3E0; border-radius:10px; padding:10px 12px; margin-top:8px; font-size:0.85rem;"></div>
+      <div id="cola-llegada" style="display:none; background:var(--aviso-fondo); border-radius:10px; padding:10px 12px; margin-top:8px; font-size:0.85rem;"></div>
     </div>
 
     <!-- Orden 39: sólo el coordinador de puesto (testigo tipo «puesto»). Se muestra si el servidor le abre su puesto. -->
@@ -213,7 +213,10 @@
         <input type="file" id="archivo-foto-documento" accept="image/*" capture="environment" hidden>
         <small>Obligatoria — es el respaldo del conteo que reportas. Se toma en blanco y negro y se optimiza el contraste para que se lea bien.</small>
       </div>
-      <button type="submit" class="btn-app btn-app-primario" id="btn-enviar-reporte">Enviar reporte</button>
+      <!-- La barra fija de abajo (como la del registro de votante): el botón de enviar siempre a la vista, sobre el teclado. -->
+      <div class="barra-fija-app"><div class="barra-fija-in">
+        <button type="submit" class="btn-app btn-app-primario" id="btn-enviar-reporte">Enviar reporte</button>
+      </div></div>
     </form>
 
     <div class="seccion-titulo" style="margin-top:24px;">Mis reportes de hoy</div>
@@ -376,7 +379,7 @@ async function actualizarAvisoColaOfflineDiaD() {
     ${fallidos.length ? `<div style="color:#A93226; margin-top:${pendientes.length ? '8px' : '0'};">
       ⚠ ${fallidos.length === 1 ? '1 reporte no se pudo subir' : fallidos.length + ' reportes no se pudieron subir'}:
       ${fallidos.map(f => `
-        <div style="margin-top:8px; padding-top:8px; border-top:1px solid #E5C27A;">
+        <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--marca-amarillo);">
           <strong>${escaparHtml(f.payload.campos.puesto_votacion || 'Puesto')} · Mesa ${escaparHtml(f.payload.campos.mesa_votacion)}</strong><br>
           <span>${escaparHtml(f.error || 'error desconocido')}</span>
           <div style="display:flex; gap:8px; margin-top:6px;">
@@ -865,7 +868,7 @@ async function usarArchivoComoFoto(archivo, modo) {
     modoCamara = modo;
     await usarFotoProcesada();
   } catch (err) {
-    alert(err.message || 'No se pudo usar esa imagen. Prueba con otra foto.');
+    mostrarToast(err.message || 'No se pudo usar esa imagen. Prueba con otra foto.', 'error');
   }
 }
 document.getElementById('archivo-foto-e14').addEventListener('change', async (e) => {
@@ -913,7 +916,7 @@ async function alternarFlashE14() {
     await trackVideoE14.applyConstraints({ advanced: [{ torch: nuevoEstado }] });
     flashActivadoE14 = nuevoEstado;
   } catch (err) {
-    alert('No se pudo controlar el flash en este dispositivo.');
+    mostrarToast('No se pudo controlar el flash en este dispositivo.', 'error');
   }
   actualizarBotonFlashE14();
 }
@@ -1047,7 +1050,7 @@ async function usarFotoProcesada() {
 
   if (modoCamara === 'documento') {
     if (documentosAdjuntos.length >= 8) {
-      alert('Máximo 8 documentos por reporte.');
+      mostrarToast('Máximo 8 documentos por reporte.', 'error');
       document.getElementById('camara-e14-overlay').style.display = 'none';
       return;
     }
@@ -1087,15 +1090,18 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
   const okBox = document.getElementById('diad-ok');
   errorBox.classList.remove('visible');
   okBox.classList.remove('visible');
+  limpiarErrores(e.target);
+  // Un error de UN campo se escribe debajo de ese campo (mostrarErrorCampo); uno general o del servidor, en un aviso flotante.
+  const deCampo = (mensaje, campo) => Object.assign(new Error(mensaje), { campo });
   const btn = document.getElementById('btn-enviar-reporte');
   btn.disabled = true;
   btn.textContent = 'Enviando…';
   try {
     if (document.getElementById('campo-mesas-coordinador').style.display !== 'none' && !document.getElementById('f-mesa').value) {
-      throw new Error('Selecciona de cuál mesa vas a reportar.');
+      throw deCampo('Selecciona de cuál mesa vas a reportar.', document.getElementById('f-mesa'));
     }
     if (!archivoFotoE14) {
-      throw new Error('Toma la foto del E-14 antes de enviar el reporte.');
+      throw deCampo('Toma la foto del E-14 antes de enviar el reporte.', document.getElementById('btn-abrir-camara-e14'));
     }
     // Los votos por candidato no viajan como inputs con "name" (para que
     // FormData no los mezcle sueltos) — se arman acá como un solo campo
@@ -1109,7 +1115,8 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
     }));
     const faltante = votos.find(v => v.votos === null || Number.isNaN(v.votos));
     if (faltante) {
-      throw new Error(`Falta el número de votos de "${faltante.nombre}".`);
+      throw deCampo(`Falta el número de votos de "${faltante.nombre}".`,
+        [...document.querySelectorAll('#tbody-votos-candidatos input[data-candidato]')].find(inp => inp.dataset.candidato === faltante.nombre));
     }
 
     // Si el total de votantes que llegaron a la mesa no coincide con la
@@ -1174,8 +1181,7 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
       await api('/dia-d/reportes', { method: 'POST', body: fd });
       e.target.reset();
       limpiarFotoE14();
-      okBox.textContent = 'Reporte enviado correctamente.';
-      okBox.classList.add('visible');
+      mostrarToast('Reporte enviado correctamente.', 'ok');
       await precargarLugarDeVotacion();
       await cargarMisReportes();
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1209,8 +1215,8 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   } catch (err) {
-    errorBox.textContent = err.message || 'No se pudo enviar el reporte. Intenta de nuevo.';
-    errorBox.classList.add('visible');
+    if (err && err.campo) mostrarErrorCampo(err.campo, err.message);
+    else mostrarToast((err && err.message) || 'No se pudo enviar el reporte. Intenta de nuevo.', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Enviar reporte';

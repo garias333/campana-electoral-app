@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <meta name="robots" content="noindex, nofollow">
 <title>Eventos · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
@@ -15,28 +15,28 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* EVENTOS EN EL CELULAR (parche 313): mis eventos y la asistencia, también sin señal. Los invitados se ven solo con nombre y barrio: nunca teléfono ni cédula. */
-  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
-  .caja-ev { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; cursor: pointer; }
+  .grupo-titulo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); margin: 18px 0 8px; }
+  .caja-ev { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 13px 14px; margin-bottom: 10px; cursor: pointer; }
   .caja-ev .titulo { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
   .caja-ev .meta { font-size: 0.84rem; color: var(--muted); margin-top: 3px; overflow-wrap: anywhere; }
   .caja-ev .cifras { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .etiqueta { display: inline-block; font-size: 0.74rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); border: 1px solid var(--linea); }
-  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
-  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
+  .etiqueta { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--campo); color: var(--texto-2); border: 0; }
+  .etiqueta.verde { background: var(--ok-fondo); color: var(--ok); }
+  .etiqueta.ambar { background: var(--aviso-fondo); color: var(--aviso); }
   .cab-ev { margin: 0 0 12px; }
   .cab-ev h2 { margin: 6px 0 2px; font-size: 1.1rem; color: var(--navy); overflow-wrap: anywhere; }
-  .fila-asis { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
+  .fila-asis { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px 14px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
   .fila-asis .quien { flex: 1; min-width: 0; }
-  .fila-asis .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
+  .fila-asis .avatar-lista { flex: none; }
+  .fila-asis .nombre { font-weight: 700; font-size: 14.5px; color: var(--texto); overflow-wrap: anywhere; }
   .fila-asis .barrio { font-size: 0.82rem; color: var(--muted); }
   .fila-asis .btn-app { flex: 0 0 auto; min-width: 118px; min-height: 52px; font-size: 1rem; }
-  .fila-asis.marcada { background: #f1faf5; border-color: #b7e0c8; }
-  .btn-asistio.marcado { background: #1e7b4f; color: #fff; border-color: #1e7b4f; }
-  .bloque-agregar { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; }
-  .bloque-agregar input, .buscador input { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 12px; border: 1px solid var(--linea); border-radius: 10px; }
+  .fila-asis.marcada { background: #f3faf5; }
+  .btn-asistio.marcado { background: var(--ok); color: #fff; }
+  .bloque-agregar { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px 14px; margin: 0 0 12px; }
   .acciones { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
   .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
-  .nota-ev { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
+  .nota-ev { background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); border-radius: 14px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
   @media print { body { display: none !important; } }
 </style>
 </head>
@@ -136,15 +136,15 @@ function filaAsistente(ev, a) {
   const boton = ev.puede_marcar
     ? `<button type="button" class="btn-app ${a.asistio ? 'btn-asistio marcado' : 'btn-app-primario btn-asistio'}" data-marcar="${esc(a.id)}" data-valor="${a.asistio ? 0 : 1}" aria-pressed="${a.asistio}">${a.asistio ? '✔ Asistió' : 'Asistió'}</button>`
     : (a.asistio ? '<span class="etiqueta verde">Asistió</span>' : '');
-  return `<div class="fila-asis ${a.asistio ? 'marcada' : ''}" data-asistente="${esc(a.id)}"><div class="quien"><div class="nombre">${esc(a.nombre)}</div>
+  return `<div class="fila-asis ${a.asistio ? 'marcada' : ''}" data-asistente="${esc(a.id)}"><span class="avatar-lista" aria-hidden="true">${esc(inicialesDe(a.nombre))}</span><div class="quien"><div class="nombre">${esc(a.nombre)}</div>
     <div class="barrio">${esc(a.barrio || 'Sin barrio')}${pendiente ? ' · <span class="etiqueta ambar">Esperando señal</span>' : ''}</div></div>${boton}</div>`;
 }
 function pintarEvento(ev) {
   const q = sinTildes(buscar);
   const lista = ev.asistentes.filter((a) => !q || sinTildes(a.nombre).includes(q));
   const agregar = ev.puede_agregar
-    ? `<div class="bloque-agregar"><label for="ced" style="font-size:.8rem;font-weight:700;">Agregar asistente por cédula</label>
-        <input id="ced" inputmode="numeric" autocomplete="off" placeholder="Número de cédula" maxlength="15">
+    ? `<div class="bloque-agregar"><div class="campo-app" style="margin-bottom:0;"><label for="ced">Agregar asistente por cédula</label>
+        <input id="ced" inputmode="numeric" autocomplete="off" placeholder="Número de cédula" maxlength="15"></div>
         <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-agregar">Agregar</button></div>
         <div class="meta" style="font-size:.78rem;color:var(--muted);margin-top:6px;">Tiene que ser una persona de tu equipo. Necesitas señal.</div></div>` : '';
   return `<div class="cab-ev"><button type="button" class="btn-app btn-app-secundario" id="btn-volver">← Mis eventos</button><h2>${esc(ev.titulo)}</h2>
@@ -152,7 +152,7 @@ function pintarEvento(ev) {
       <div class="cifras" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;"><span class="etiqueta">${esc(ev.total_invitados)}${ev.meta_asistentes ? ' / ' + esc(ev.meta_asistentes) : ''} invitados</span><span class="etiqueta ${ev.total_asistio ? 'verde' : ''}">asistieron ${esc(ev.total_asistio)}</span></div></div>
     ${ev.puede_marcar ? '' : '<div class="nota-ev">En este evento solo puedes ver la lista.</div>'}
     ${agregar}
-    <div class="buscador" style="margin:0 0 10px;"><input id="buscar" type="search" placeholder="Buscar por nombre" value="${esc(buscar)}" autocomplete="off"></div>
+    <div class="buscador-app"><input id="buscar" type="search" placeholder="Buscar por nombre" value="${esc(buscar)}" autocomplete="off" aria-label="Buscar por nombre"></div>
     <div id="lista-asistentes">${lista.length ? lista.map((a) => filaAsistente(ev, a)).join('') : `<p class="vacio-app">${ev.asistentes.length ? 'Nadie coincide con esa búsqueda.' : 'Este evento todavía no tiene invitados.'}</p>`}</div>`;
 }
 function pintarPendientes() {

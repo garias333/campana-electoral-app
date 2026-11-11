@@ -155,8 +155,9 @@
     border: 1px solid #E4D9C2;
     color: var(--color-text);
     font-size: 1.08rem;
+    min-height: 56px;
     padding: 15px 16px;
-    border-radius: 10px;
+    border-radius: 14px;
   }
   .login-card input::placeholder { color: #9A8F7C; }
 
@@ -187,8 +188,10 @@
     letter-spacing: .12em;
     text-transform: uppercase;
     padding: 18px 18px;
-    border-radius: 10px;
+    min-height: 54px;
+    border-radius: 999px;
     margin-top: 12px;
+    box-shadow: 0 8px 20px rgba(255,195,0,.35);
   }
   /* LOS TRES DE LA ELECCIÓN SON HERMANOS, NO TRES LLAMADAS A LA ACCIÓN.
      El botón amarillo grande está pensado para cuando hay UN camino ofrecido;
@@ -205,6 +208,7 @@
     letter-spacing: .02em;
     text-transform: none;
     padding: 14px 14px;
+    min-height: 54px;
     margin-top: 10px;
   }
   /* La segunda vía de acceso: MISMA FORMA que «Enviar código» —para que se
@@ -222,6 +226,8 @@
     letter-spacing: .02em;
     text-transform: none;
     padding: 14px 18px;
+    min-height: 54px;
+    border-radius: 999px;
     margin-top: 10px;
   }
   .login-card button.btn-alterno:hover {
@@ -232,7 +238,7 @@
 
   /* El texto del botón se queda NAVY también al pasar por encima: antes
      era blanco, y blanco sobre el amarillo del acento no se lee. */
-  .login-card button.btn-primario:hover { background: var(--color-accent-dark); color: #10233F; }
+  .login-card button.btn-primario:hover { background: #E6AF00; color: #10233F; }
 
   /* Las dos opciones de canal: recuadros grandes, y el elegido en amarillo.
      :has() permite marcar el recuadro sin JavaScript; donde no exista, se

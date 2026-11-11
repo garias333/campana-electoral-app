@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Nueva solicitud · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -14,36 +14,43 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* SOLICITUDES CIUDADANAS, el registro (parche 303): cuatro pasos, también sin señal. Pensada a 360 px. */
-  .progreso { font-size: 0.8rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 4px; }
-  .barra-progreso { height: 6px; background: var(--linea); border-radius: 99px; margin-bottom: 18px; overflow: hidden; }
-  .barra-progreso > i { display: block; height: 100%; background: var(--copper); width: 25%; transition: width .2s; }
+  .progreso { font-size: 0.8rem; color: var(--texto-2); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 4px; }
+  .barra-progreso { height: 7px; background: var(--borde); border-radius: 99px; margin-bottom: 18px; overflow: hidden; }
+  .barra-progreso > i { display: block; height: 100%; background: var(--marca-amarillo); width: 25%; transition: width .2s; }
   .paso { display: none; }
-  .paso.activo { display: block; }
-  .paso h2 { font-size: 1.15rem; margin: 0 0 12px; color: var(--navy); }
+  /* Cada paso es una tarjeta blanca; Atrás / Siguiente van en la barra fija de abajo. */
+  .paso.activo { display: block; background: #fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px; }
+  .paso h2 { font-size: 1.1rem; font-weight: 800; margin: 0 0 12px; color: var(--marca-azul-osc); }
   .categorias { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-  .categorias button { font-family: inherit; font-size: 0.95rem; font-weight: 700; padding: 13px 8px; border-radius: 12px; border: 1.5px solid var(--linea); background: #fff; color: var(--navy); cursor: pointer; }
-  .categorias button.elegida { background: var(--navy); color: #fff; border-color: var(--navy); }
-  .ayuda-categoria { background: #fdf3e0; border-radius: 10px; padding: 10px 12px; font-size: 0.85rem; margin: 0 0 12px; display: none; }
+  .categorias button { font-family: inherit; font-size: 14px; font-weight: 600; padding: 13px 8px; min-height: 48px; border-radius: 999px; border: 1.5px solid transparent; background: var(--campo); color: var(--texto); cursor: pointer; }
+  .categorias button.elegida { background: var(--marca-azul-osc); color: #fff; border-color: var(--marca-azul-osc); }
+  .ayuda-categoria { background: var(--aviso-fondo); border-radius: 14px; padding: 10px 12px; font-size: 0.85rem; margin: 0 0 12px; display: none; }
   .fotos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  .fotos .foto { position: relative; width: 96px; height: 96px; border-radius: 12px; overflow: hidden; border: 1px solid var(--linea); background: #eee; }
+  .fotos .foto { position: relative; width: 96px; height: 96px; border-radius: 12px; overflow: hidden; border: 0; box-shadow: var(--sombra); background: #eee; }
   .fotos .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .fotos .foto button { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0,0,0,.65); color: #fff; font-size: 1rem; line-height: 1; cursor: pointer; }
-  .estado-ubicacion { font-size: 0.85rem; color: var(--muted); margin: 6px 0 0; }
-  .autoriza { display: flex; gap: 10px; align-items: flex-start; background: #fff; border: 1.5px solid var(--linea); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .estado-ubicacion { font-size: 0.85rem; color: var(--texto-2); margin: 6px 0 0; }
+  .autoriza { display: flex; gap: 10px; align-items: flex-start; background: var(--campo); border: 0; border-radius: var(--radio-campo); padding: 12px; margin-bottom: 14px; }
   .autoriza input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 2px; }
-  .autoriza label { font-weight: 600; font-size: 0.92rem; color: var(--navy); line-height: 1.35; }
+  .autoriza label { font-weight: 600; font-size: 0.92rem; color: var(--texto); line-height: 1.35; margin: 0; }
   .datos-ciudadano { display: none; }
   details.politica { margin: 0 0 14px; font-size: 0.85rem; }
-  details.politica summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+  details.politica summary { cursor: pointer; font-weight: 700; color: var(--marca-azul-osc); }
   details.politica .texto { white-space: pre-wrap; max-height: 260px; overflow: auto; background: #fff; border: 1px solid var(--linea); border-radius: 10px; padding: 10px; margin-top: 8px; }
-  .navegacion { display: flex; gap: 10px; margin-top: 20px; }
-  .navegacion .btn-app { margin: 0; }
+  /* La barra fija de abajo (igual a la del registro de votante): zona segura del iPhone y sube con el teclado (--teclado). */
+  body.con-barra-fija main.app-cuerpo { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+  .navegacion {
+    position: fixed; left: 0; right: 0; bottom: var(--teclado, 0px); z-index: 30; display: flex; gap: 10px;
+    background: var(--fondo); padding: 10px max(14px, calc((100% - 532px) / 2)) calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .navegacion .btn-app { margin: 0; flex: 1 1 0; min-width: 0; }
+  .navegacion #btn-atras { flex: 0 0 34%; }
   .hecho-app { text-align: center; padding: 26px 8px; }
   .hecho-app .grande { font-size: 2.6rem; }
-  .hecho-app h2 { color: var(--navy); }
+  .hecho-app h2 { color: var(--marca-azul-osc); }
 </style>
 </head>
-<body>
+<body class="con-barra-fija">
 
 <div class="app-barra" id="app-barra"></div>
 
@@ -97,7 +104,7 @@
       </details>
       <div class="datos-ciudadano" id="datos-ciudadano">
         <div class="campo-app"><label for="f-nombre">Nombre</label><input type="text" id="f-nombre" maxlength="150" autocomplete="off"></div>
-        <div class="campo-app"><label for="f-telefono">Teléfono celular</label><input type="tel" id="f-telefono" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="300 123 4567"></div>
+        <div class="campo-app"><label for="f-telefono">Teléfono celular</label><input type="tel" id="f-telefono" inputmode="tel" maxlength="14" autocomplete="off" placeholder="300 123 4567"></div>
       </div>
       <p style="font-size:0.85rem; color:var(--muted)">Si no lo autoriza, la necesidad se guarda sin sus datos, solo con el barrio. Nunca pedimos la cédula.</p>
     </section>
@@ -137,10 +144,19 @@ let ubicacion = null;      // { latitud, longitud, precision_m } o null
 let politica = { version: '', texto: '' };
 let paso = 1;
 
+/* Los avisos generales van en el aviso flotante; los de un campo, debajo del campo (mostrarErrorCampo, app-comun.js). */
 function aviso(texto, tipo) {
-  const el = $('aviso');
-  el.textContent = texto || '';
-  el.className = texto ? 'aviso-app visible ' + (tipo || 'error') : 'aviso-app';
+  $('aviso').className = 'aviso-app';
+  if (texto) mostrarToast(texto, tipo === 'exito' ? 'ok' : 'error');
+}
+/* El campo al que se refiere cada problema de validarPaso(). */
+function campoDelProblema(texto) {
+  if (/categor/i.test(texto)) return $('categorias');
+  if (/necesidad/i.test(texto)) return $('f-descripcion');
+  if (/barrio|vereda/i.test(texto)) return $('f-barrio');
+  if (/celular de 10/i.test(texto)) return $('f-telefono');
+  if (/nombre o su tel/i.test(texto)) return $('f-nombre');
+  return null;
 }
 
 /* ----- los pasos ----- */
@@ -152,6 +168,7 @@ function mostrarPaso(n) {
   $('btn-atras').style.display = n > 1 ? 'block' : 'none';
   $('btn-siguiente').textContent = n === 4 ? 'Guardar solicitud' : 'Siguiente →';
   aviso('');
+  limpiarErrores(document.getElementById('formulario'));
   window.scrollTo(0, 0);
 }
 
@@ -328,7 +345,8 @@ async function cargarReferencias() {
   $('btn-atras').addEventListener('click', () => mostrarPaso(Math.max(1, paso - 1)));
   $('btn-siguiente').addEventListener('click', () => {
     const problema = validarPaso(paso);
-    if (problema) { aviso(problema); return; }
+    limpiarErrores(document.getElementById('formulario'));
+    if (problema) { const campo = campoDelProblema(problema); if (campo) mostrarErrorCampo(campo, problema); else aviso(problema); return; }
     if (paso < 4) mostrarPaso(paso + 1); else guardar();
   });
   $('btn-otra').addEventListener('click', reiniciar);

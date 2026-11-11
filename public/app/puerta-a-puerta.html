@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <meta name="robots" content="noindex, nofollow">
 <!-- A los servidores de teselas del mapa solo llega el DOMINIO de esta app (nunca la ruta de la página): lo justo para que Mapbox verifique la restricción de URL de su token. -->
 <meta name="referrer" content="origin">
@@ -18,36 +18,36 @@
 <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
 <style>
   /* PUERTA A PUERTA (parche 309): mi lista de visitas, ordenada por cercanía en el celular. */
-  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
-  .caja-pp { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px;  -webkit-user-select: none; user-select: none; }
+  .grupo-titulo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); margin: 18px 0 8px; }
+  .caja-pp { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 13px 14px; margin-bottom: 10px;  -webkit-user-select: none; user-select: none; }
   .caja-pp .fila { display: flex; gap: 10px; align-items: flex-start; }
   .caja-pp .num { flex: 0 0 auto; min-width: 26px; height: 26px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
   .caja-pp .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
   .caja-pp .dir { font-size: 0.9rem; margin-top: 2px; overflow-wrap: anywhere; }
   .caja-pp .meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
-  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); margin-left: 4px; }
-  .etiqueta.roja { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
-  .etiqueta.ambar { background: #fdf3e0; border-color: #ecd3a4; }
-  .etiqueta.verde { background: #e7f6ee; border-color: #b7e0c8; color: #1e7b4f; }
+  .etiqueta { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--campo); color: var(--texto-2); white-space: nowrap; border: 0; margin-left: 4px; }
+  .etiqueta.roja { background: var(--error-fondo); color: var(--error); }
+  .etiqueta.ambar { background: var(--aviso-fondo); color: var(--aviso); }
+  .etiqueta.verde { background: var(--ok-fondo); color: var(--ok); }
   .resultados { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .resultados .btn-app { width: 100%; }
   .resultados .ancho { grid-column: 1 / -1; }
-  .panel-volver { margin-top: 10px; background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 10px; font-size: 0.88rem; }
+  .panel-volver { margin-top: 10px; background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); border-radius: 14px; padding: 10px; font-size: 0.88rem; }
   .panel-volver label { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
   .acciones { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
   .acciones .btn-app { flex: 1 1 120px; }
-  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+  .vacio-app { text-align: center; color: var(--texto-2); padding: 26px 8px; }
   .resumen-pp { display: flex; gap: 8px; margin: 10px 0 0; }
-  .resumen-pp div { flex: 1; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 8px; text-align: center; }
+  .resumen-pp div { flex: 1; background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 8px; text-align: center; }
   .resumen-pp b { display: block; font-size: 1.2rem; color: var(--navy); }
   .resumen-pp span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
-  .nota-pp { background: #fdf3e0; border: 1px solid #ecd3a4; border-radius: 10px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
+  .nota-pp { background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); border-radius: 14px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
   /* EL MAPA (parche 310): pines numerados en el orden de la ruta y una línea guía. Sin señal el fondo es liso: los pines y la línea se dibujan igual. */
-  .mapa-pp { height: 270px; border-radius: 14px; border: 1px solid var(--linea); background: #E6ECF3; overflow: hidden; margin-top: 10px; }
+  .mapa-pp { height: 270px; border-radius: 16px; border: 0; box-shadow: var(--sombra); background: #E6ECF3; overflow: hidden; margin-top: 10px; }
   .mapa-pp.leaflet-container { font: inherit; }
   .pin-pp { width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-  .pin-pp.sel { background: #C98A00; transform: scale(1.25); }
-  .caja-pp.sel { border-color: #C98A00; box-shadow: 0 0 0 2px rgba(201,138,0,.35); }
+  .pin-pp.sel { background: var(--marca-amarillo); color: #1b2333; transform: scale(1.25); }
+  .caja-pp.sel { box-shadow: 0 0 0 3px var(--marca-amarillo), var(--sombra); }
   .caja-pp .num { cursor: pointer; }
   /* EL GUION (parche 312): plegado arriba de la ficha de cada puerta. */
   .guion-pp { margin: 0 0 10px; background: var(--cream); border: 1px solid var(--linea); border-radius: 10px; padding: 6px 10px; font-size: 0.86rem; }
@@ -56,7 +56,7 @@
   .guion-pp li { margin: 0 0 6px; overflow-wrap: anywhere; }
   /* Después de «Alguien quiere registrarse»: abrir el registro, o mostrar el QR para que la persona se inscriba sola. */
   .velo-pp { position: fixed; inset: 0; background: rgba(16,35,63,.6); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .velo-pp .hoja { background: #fff; border-radius: 16px; padding: 18px; max-width: 380px; width: 100%; max-height: 92vh; overflow: auto; text-align: center; }
+  .velo-pp .hoja { background: #fff; border-radius: 16px; padding: 18px; max-width: 380px; width: 100%; max-height: 92vh; max-height: 92dvh; overflow: auto; text-align: center; }
   .velo-pp h3 { margin: 0 0 6px; color: var(--navy); }
   .velo-pp .qr-url { font-size: 0.82rem; word-break: break-all; color: var(--navy); font-weight: 600; margin: 8px 0 0; }
   .velo-pp canvas { width: 100%; max-width: 300px; height: auto; image-rendering: pixelated; }
@@ -392,7 +392,7 @@ function dibujarMapa(ruta) {
     pinesPorId.set(it.id, { m, n, ll });
     window.__ppMapa.pines.push({ id: it.id, n, lat: ll[0], lon: ll[1] });
   });
-  if (puntos.length > 1) L.polyline(puntos, { color: '#142a3f', weight: 3, opacity: 0.7, dashArray: '6 6', interactive: false }).addTo(capaLinea);
+  if (puntos.length > 1) L.polyline(puntos, { color: '#0B5ED7', weight: 3, opacity: 0.7, dashArray: '6 6', interactive: false }).addTo(capaLinea);
   window.__ppMapa.linea = puntos;
   mapa.invalidateSize();
   const firma = conPunto.map((x) => x.it.id).join(',') + '|' + (inicioGps ? inicioGps.lat + ',' + inicioGps.lon : '');

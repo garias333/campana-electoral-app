@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Compartir · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -15,25 +15,25 @@
 <style>
   html, body { overflow-x: hidden; }
   .enlaces-fijos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-  .enlaces-fijos a { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 12px; text-decoration: none; color: var(--navy); font-weight: 700; font-size: .84rem; min-width: 0; }
+  .enlaces-fijos a { display: flex; align-items: center; gap: 8px; background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px; text-decoration: none; color: var(--navy); font-weight: 700; font-size: .84rem; min-width: 0; }
   .enlaces-fijos a span.i { font-size: 1.3rem; flex: none; }
 
   .rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .rc { background: #fff; border: 1px solid var(--linea); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .rc { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
   .rc-media { position: relative; aspect-ratio: 1 / 1; background: var(--cream); display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; border: 0; width: 100%; padding: 0; font-family: inherit; }
   .rc-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .rc-media .icono { font-size: 2.6rem; }
   .rc-media .pie { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(20,42,63,.72); color: #fff; font-size: .68rem; padding: 4px 6px; text-align: center; }
   .rc-cuerpo { padding: 9px 10px 4px; min-width: 0; flex: 1; }
-  .rc-tipo { display: block; font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: var(--copper); font-weight: 800; }
+  .rc-tipo { display: block; font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: var(--marca-azul); font-weight: 800; }
   .rc-cuerpo h3 { margin: 2px 0 2px; font-size: .86rem; color: var(--navy); line-height: 1.25; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .rc-meta { font-size: .7rem; color: var(--muted); }
   .rc-acciones { display: flex; gap: 6px; padding: 6px 8px 9px; }
-  .rc-acciones .comp { flex: 1; min-width: 0; padding: 9px 4px; border-radius: 9px; border: 0; background: var(--copper); color: #fff; font-weight: 700; font-size: .78rem; font-family: inherit; cursor: pointer; }
-  .rc-acciones .comp:disabled { background: #d8b79c; }
+  .rc-acciones .comp { flex: 1; min-width: 0; padding: 9px 4px; border-radius: 9px; border: 0; background: var(--marca-amarillo); color: #1b2333; font-weight: 800; font-size: .78rem; font-family: inherit; cursor: pointer; }
+  .rc-acciones .comp:disabled { opacity: .6; }
   .rc-acciones .mas { flex: none; width: 40px; border-radius: 9px; border: 1.5px solid var(--linea); background: #fff; font-size: 1.1rem; cursor: pointer; font-family: inherit; }
 
-  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--copper); color: #fff; font-size: 2rem; line-height: 1; box-shadow: 0 6px 16px rgba(20,42,63,.35); cursor: pointer; }
+  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--marca-amarillo); color: #1b2333; font-size: 28px; font-weight: 700; line-height: 1; box-shadow: 0 8px 20px rgba(255,195,0,.5); cursor: pointer; }
 
   /* Hojas inferiores (subir, editar, menú) y visor */
   .capa { position: fixed; inset: 0; z-index: 90; background: rgba(10,25,45,.55); display: none; align-items: flex-end; justify-content: center; }
@@ -43,8 +43,8 @@
   .hoja .btn-app + .btn-app { margin-top: 10px; }
   .opcion-menu { display: block; width: 100%; text-align: left; padding: 14px 4px; background: none; border: 0; border-bottom: 1px solid var(--linea); font-size: 1rem; font-family: inherit; cursor: pointer; color: var(--ink); }
   .opcion-menu.peligro { color: var(--error); }
-  .progreso { height: 10px; background: #efe9dc; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; display: none; }
-  .progreso > i { display: block; height: 100%; width: 0; background: var(--copper); transition: width .15s; }
+  .progreso { height: 10px; background: #e6ebf5; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; display: none; }
+  .progreso > i { display: block; height: 100%; width: 0; background: var(--marca-amarillo); transition: width .15s; }
   .archivo-elegido { font-size: .84rem; color: var(--navy); background: var(--cream); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
   .fila-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
 

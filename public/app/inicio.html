@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Estrategia · Captura de Campo</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -15,8 +15,11 @@
 <link rel="stylesheet" href="/app/panel-lider.css">
 </head>
 <body>
-<div class="app-barra" id="app-barra"></div>
-<main class="app-cuerpo">
+<!-- EL HERO: la barra de siempre, el saludo y la tarjeta de la campaña sobre el degradado. En líder y sublíder, la
+     primera tarjeta del panel (su meta) sube 38px y se monta sobre el borde (ver estilos-app.css). -->
+<header class="hero-inicio">
+  <div class="app-barra" id="app-barra"></div>
+  <div id="saludo" class="saludo-app"></div>
 
   <div class="campana-card" id="campana-card" style="display:none;">
     <div class="campana-avatar" id="campana-avatar">
@@ -30,17 +33,17 @@
       <p class="campana-slogan" id="campana-slogan" style="display:none;"></p>
     </div>
   </div>
-
-  <div id="saludo" class="saludo-app"></div>
+</header>
+<main class="cuerpo-inicio">
 
   <!-- AVISOS DE ALERTAS (Día D). Sólo para quien tiene el módulo «Alertas del Día D» y todavía no activó los avisos en este
        celular. Se puede cerrar (se recuerda en este dispositivo). Lleva a la casilla de avisos, abajo en esta misma pantalla. -->
-  <div id="franja-avisos-alertas" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#6B4A00; border-radius:12px; padding:12px 14px; margin:0 0 14px; font-size:0.9rem;">
+  <div id="franja-avisos-alertas" style="display:none; background:var(--aviso-fondo); border:1px solid var(--marca-amarillo); color:var(--aviso); border-radius:var(--radio); padding:12px 14px; margin:0 0 14px; font-size:0.9rem;">
     <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
       <div><strong>Activa los avisos para el día de la elección.</strong><br>
         Así te llega una notificación cuando hay una alerta (un testigo que no llega, una mesa sin E-14…), aunque no tengas la app abierta.
-        <br><a href="#caja-avisos-push" id="enlace-activar-avisos" style="font-weight:700; color:#6B4A00;">Activar los avisos →</a></div>
-      <button type="button" id="cerrar-franja-avisos" aria-label="Cerrar" style="border:0; background:transparent; font-size:1.3rem; line-height:1; cursor:pointer; color:#6B4A00;">×</button>
+        <br><a href="#caja-avisos-push" id="enlace-activar-avisos" style="font-weight:700; color:var(--aviso);">Activar los avisos →</a></div>
+      <button type="button" id="cerrar-franja-avisos" aria-label="Cerrar" style="border:0; background:transparent; font-size:1.3rem; line-height:1; cursor:pointer; color:var(--aviso);">×</button>
     </div>
   </div>
 
@@ -251,15 +254,24 @@ function agruparMenuApp(items) {
     if (!grupos.length || grupos[grupos.length - 1].g !== x.g) grupos.push({ g: x.g, items: [] });
     grupos[grupos.length - 1].items.push(x.it);
   });
-  return grupos.map(g => g.items);
+  return grupos;      // [{ g: número de grupo, items: [entradas] }]
 }
+
+/* El título de cada grupo del menú. Se agregaron con el rediseño del celular (hasta entonces los grupos solo iban
+   separados por una línea): son nombres neutros, ajustables aquí sin tocar nada más. El 45 es el grupo de lo que no
+   tiene lugar todavía. */
+const TITULOS_GRUPO_APP = {
+  0: 'Resumen', 1: 'Registro', 2: 'Solicitudes y tareas', 3: 'Trabajo de campo y Día D',
+  4: 'Material de apoyo', 45: 'Más', 5: 'Mi cuenta y ayuda'
+};
+function tituloGrupoMenuApp(g) { return TITULOS_GRUPO_APP[g] || 'Más'; }
 
 function tarjetaMenuApp(it) {
   return `
     <a class="menu-boton" href="${it.href}">
       <div class="icono" aria-hidden="true">${it.icono}</div>
       <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
-      ${it.insigniaAvisos ? '<span id="insignia-avisos" hidden style="background:#C62828; color:#fff; border-radius:99px; font-size:0.74rem; font-weight:700; padding:2px 8px; margin-right:6px;"></span>' : ''}
+      ${it.insigniaAvisos ? '<span id="insignia-avisos" class="insignia-menu" hidden></span>' : ''}
       <div class="flecha" aria-hidden="true">›</div>
     </a>`;
 }
@@ -274,8 +286,9 @@ function pintarMenu(rol, modulosPermitidos, esAspirante, complementos) {
                               && (!it.soloSiEscritorio || prefiereEscritorio)
                               && (!it.soloAspirante || esAspirante));
   document.getElementById('menu-app').innerHTML = agruparMenuApp(items)
-    .map(grupo => grupo.map(tarjetaMenuApp).join(''))
-    .join('<div class="menu-separador" role="separator" aria-hidden="true"></div>');
+    .map(grupo => `<section class="menu-grupo"><h2 class="menu-grupo-titulo">${tituloGrupoMenuApp(grupo.g)}</h2>`
+      + `<div class="menu-grid">${grupo.items.map(tarjetaMenuApp).join('')}</div></section>`)
+    .join('');
   pintarInsigniaAvisos();
 }
 
@@ -341,12 +354,20 @@ function pintarCampana(campana, bio) {
   }
 
   pintarBarraApp('Estrategia', null, null);
-  document.getElementById('saludo').textContent = `Hola, ${usuario.nombre}`;
+  // Saludo pequeño y el nombre grande (textContent: el nombre es dato de la persona, nunca HTML).
+  const saludo = document.getElementById('saludo');
+  saludo.textContent = '';
+  const hs = document.createElement('span'); hs.className = 'hero-saludo'; hs.textContent = 'Hola,';
+  const hn = document.createElement('span'); hn.className = 'hero-nombre'; hn.textContent = usuario.nombre || '';
+  saludo.append(hs, hn);
   const { modulos: modulosApp, complementos: complementosApp } = await modulosPermitidosApp();
   pintarMenu(usuario.rol, modulosApp, !!usuario.es_aspirante, complementosApp);
   mostrarFranjaDeAvisos(modulosApp, complementosApp);
   // El panel del líder va arriba del menú. Quien no es líder ni sublíder (ni aspirante, que entra con rol líder) no lo pide.
-  if (['lider', 'sublider'].includes(usuario.rol) && window.PanelLider) window.PanelLider.iniciar(usuario);
+  if (['lider', 'sublider'].includes(usuario.rol) && window.PanelLider) {
+    document.body.classList.add('inicio-con-cifras');      // el hero deja sitio a la tarjeta de cifras que sube sobre él
+    window.PanelLider.iniciar(usuario);
+  }
 
   try {
     const [campana, bio] = await Promise.all([
@@ -394,7 +415,7 @@ document.getElementById('cerrar-franja-avisos').addEventListener('click', () => 
 (function(){
   const caja=document.createElement('div');
   caja.id='caja-avisos-push';
-  caja.style.cssText='margin:14px 0; padding:12px; border:1px solid var(--linea,#e2ddd0); border-radius:10px; background:#fff;';
+  caja.style.cssText='margin:14px 0; padding:14px; border-radius:var(--radio); box-shadow:var(--sombra); background:#fff;';
   const main=document.querySelector('main')||document.body;
   main.appendChild(caja);
   if (typeof montarAvisosPush==='function') montarAvisosPush(caja);

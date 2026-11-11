@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Ranking Día D · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -15,19 +15,20 @@
 <style>
   /* Día D — «Ranking de líderes» (diseño C): quién lleva cuánto, y a quién llamar. */
   .franja-prueba {
-    background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px;
+    background: var(--aviso-fondo); color: #8a5a00; border: 1px solid var(--marca-amarillo); border-radius: 10px;
     padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none;
   }
   .cifras-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-  .cifra { background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .cifra { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px 8px; text-align: center; }
   .cifra .n { font-size: 1.5rem; font-weight: 800; color: var(--navy); }
   .cifra .e { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
   .cifra.faltan .n { color: #a93226; } .cifra.ok .n { color: var(--exito); }
-  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
-  .chip { flex: 1 0 auto; border: 1.5px solid var(--navy); background: #fff; color: var(--navy); border-radius: 999px;
-          padding: 9px 14px; font-size: 0.86rem; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; }
-  .chip.activo { background: var(--navy); color: #fff; }
-  .lider { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; border: 0; background: #fff; color: var(--texto); box-shadow: 0 1px 4px rgba(8,66,152,.1); border-radius: 999px;
+          padding: 9px 14px; min-height: 40px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .chip.activo { background: var(--marca-amarillo); color: #1b2333; font-weight: 700; box-shadow: none; }
+  .lider { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
   .lider .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .lider .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
   .lider .pct { font-weight: 800; font-size: 1.1rem; }

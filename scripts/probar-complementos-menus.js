@@ -100,7 +100,9 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
     // El icono (emoji) de las entradas de primer nivel va delante del texto: se le quita para comparar.
     const menuPC = () => p.ev(`Array.from(document.querySelectorAll('.nav-submenu a.nav-sub-link, a.nav-link-principal')).map((a) => a.textContent.replace(/\\s+/g, ' ').trim().replace(/^[^A-Za-zÁÉÍÓÚÑ]+/, ''))`);
     const menuCel = () => p.ev(`Array.from(document.querySelectorAll('#menu-app .menu-boton strong')).map((e) => e.textContent.trim())`);
-    const sinSeparadoresDobles = () => p.ev(`(() => { const h = Array.from(document.querySelectorAll('#menu-app > *')); return h.every((e, i) => !(e.classList.contains('menu-separador') && (i === 0 || i === h.length - 1 || h[i - 1].classList.contains('menu-separador')))); })()`);
+    // Rediseño del celular: los grupos ya no van separados por una línea sino en secciones con título (.menu-grupo). Lo que se comprueba es lo mismo:
+    // que un rol sin entradas en un grupo no deje un grupo VACÍO (título suelto sin nada debajo) ni ningún hijo del menú que no sea un grupo.
+    const sinSeparadoresDobles = () => p.ev(`(() => { const h = Array.from(document.querySelectorAll('#menu-app > *')); return h.every((g) => g.classList.contains('menu-grupo') && g.querySelectorAll('a.menu-boton').length > 0); })()`);
     const visible = (sel) => p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return !!e && getComputedStyle(e).display !== 'none' && e.offsetParent !== null; })()`);
 
     /* ------------------------------------------------------------------------------------------------------------------------ 1 */

@@ -1,33 +1,71 @@
 /* Estilos compartidos de la app de captura de campo — pensada para uso
    en la calle, con una mano, muchas veces con sol de frente: botones
-   grandes, alto contraste, texto legible sin necesidad de hacer zoom. */
+   grandes, alto contraste, texto legible sin necesidad de hacer zoom.
+
+   REDISEÑO «MODERNA CON DEGRADADO» (orden Rediseño celular 2, fase 1).
+   Los colores de marca son #FFC300 (amarillo), #0B5ED7 (azul) y #084298
+   (azul oscuro). REGLA: el amarillo va SOLO de fondo (botones, barras,
+   insignias, acentos); como color de texto sobre claro da 1,61:1. El texto
+   que va encima del amarillo es #1b2333. */
 
 :root {
-  --navy: #142a3f;
-  --navy-2: #204264;
-  --cream: #f8f3e9;
-  --copper: #bf5e1f;
-  --ink: #1c1c1c;
-  --muted: #6b6b6b;
-  --linea: #e4ddd0;
-  --exito: #1e7a3d;
-  --error: #b3261e;
+  /* Marca */
+  --marca-amarillo: #FFC300;
+  --marca-azul: #0B5ED7;
+  --marca-azul-osc: #084298;
+  --degradado: linear-gradient(135deg, #0B5ED7, #084298);
+  /* Superficies y texto */
+  --fondo: #f4f6fb;
+  --tarjeta: #fff;
+  --texto: #1b2333;
+  --texto-2: #6a7590;
+  --borde: #d5dcea;
+  --campo: #f1f4fa;
+  --foco-halo: rgba(11, 94, 215, .12);
+  /* Estados */
+  --error: #c62828;
+  --error-borde: #e04848;
+  --error-fondo: #fff5f5;
+  --ok: #1e6b2e;
+  --ok-fondo: #e5f4e8;
+  --aviso: #7a5a00;
+  --aviso-fondo: #fff4cc;
+  /* Forma */
+  --sombra: 0 4px 14px rgba(8, 66, 152, .07);
+  --sombra-flot: 0 8px 24px rgba(8, 66, 152, .13);
+  --radio: 18px;
+  --radio-campo: 14px;
+  /* Tanto de pantalla que el teclado le quita a las barras fijas (lo mide app-comun.js con visualViewport). */
+  --teclado: 0px;
+
+  /* NOMBRES DE ANTES. Las 26 pantallas y sus <style> propios siguen escribiendo
+     var(--navy), var(--cream), var(--muted), var(--linea), var(--ink) y
+     var(--exito). Se dejan como ALIAS de la paleta nueva para que todas se
+     vean igual sin reescribir cada regla; el cobre (--copper) ya no existe. */
+  --navy: var(--marca-azul-osc);
+  --navy-2: var(--marca-azul);
+  --cream: var(--fondo);
+  --muted: var(--texto-2);
+  --linea: var(--borde);
+  --ink: var(--texto);
+  --exito: var(--ok);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--cream);
-  color: var(--ink);
+  background: var(--fondo);
+  color: var(--texto);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* --- Barra superior de cada pantalla --- */
 .app-barra {
-  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%);
+  background: var(--degradado);
   color: #fff;
-  padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 18px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -36,56 +74,79 @@ body {
   z-index: 10;
 }
 .app-barra .volver {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.18);
   border: none;
   color: #fff;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  font-size: 1.1rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0 0 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
+  font-family: inherit;
 }
 .app-barra h1 {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
   margin: 0;
   line-height: 1.25;
 }
 .app-barra .subt {
   font-size: 0.78rem;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255,255,255,0.8);
   margin: 2px 0 0;
 }
 
 main.app-cuerpo {
-  padding: 20px 18px calc(40px + env(safe-area-inset-bottom, 0px));
+  padding: 14px 14px calc(40px + env(safe-area-inset-bottom, 0px));
   max-width: 560px;
   margin: 0 auto;
 }
 
-.saludo-app { margin-bottom: 18px; color: var(--muted); font-size: 0.9rem; }
+.saludo-app { margin-bottom: 18px; color: var(--texto-2); font-size: 0.9rem; }
 .btn-app-espaciado { margin-top: 28px; }
 
-/* --- Tarjeta de identidad de campaña (inicio.html) --- */
-.campana-card {
-  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-2) 100%);
+/* --- Inicio: encabezado «hero» con degradado, y la tarjeta de cifras montada encima --- */
+.hero-inicio {
+  background: var(--degradado);
   color: #fff;
-  border-radius: 18px;
-  padding: 22px 20px;
+  border-radius: 0 0 28px 28px;
+  padding: 0 18px 24px;
+}
+/* La barra de siempre vive DENTRO del hero: sin fondo propio ni pegado arriba. */
+.hero-inicio .app-barra { background: transparent; position: static; padding-left: 0; padding-right: 0; }
+.hero-inicio .saludo-app { margin: 0 0 14px; color: #fff; }
+.hero-saludo { display: block; font-size: 13px; opacity: .85; }
+.hero-nombre { display: block; font-size: 22px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+/* Con la tarjeta de cifras (líder y sublíder): el hero crece 32px y la tarjeta sube 38px sobre él. */
+body.inicio-con-cifras .hero-inicio { padding-bottom: 56px; }
+body.inicio-con-cifras #panel-lider > .pl-tarjeta:first-child {
+  margin-top: -38px; position: relative; z-index: 2;
+  border-radius: var(--radio); box-shadow: var(--sombra-flot); border-color: transparent;
+}
+.cuerpo-inicio { padding: 16px 14px calc(40px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; }
+
+/* --- Tarjeta de identidad de campaña (inicio.html), dentro del hero --- */
+.campana-card {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #fff;
+  border-radius: var(--radio);
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-  box-shadow: 0 6px 18px rgba(20,42,63,0.22);
+  gap: 14px;
+  margin-bottom: 0;
 }
 .campana-avatar {
   width: 58px; height: 58px; border-radius: 50%;
-  background: rgba(255,255,255,0.14);
-  border: 1.5px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.18);
+  border: 1.5px solid rgba(255,255,255,0.4);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.25rem; font-weight: 700; flex-shrink: 0;
   color: #fff;
@@ -94,68 +155,141 @@ main.app-cuerpo {
 .campana-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .campana-info { flex: 1; min-width: 0; }
 .campana-info h1 {
-  margin: 0; font-size: 1.15rem; font-weight: 700; line-height: 1.25;
+  margin: 0; font-size: 1.1rem; font-weight: 800; line-height: 1.25;
 }
 .campana-meta {
-  margin: 5px 0 0; font-size: 0.74rem; color: rgba(255,255,255,0.72);
+  margin: 5px 0 0; font-size: 0.74rem; color: rgba(255,255,255,0.85);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .campana-partido {
-  margin: 3px 0 0; font-size: 0.82rem; color: rgba(255,255,255,0.9); font-weight: 600;
+  margin: 3px 0 0; font-size: 0.82rem; color: #fff; font-weight: 600;
 }
 .campana-slogan {
-  margin: 10px 0 0; font-size: 0.9rem; font-style: italic; color: var(--cream);
-  border-left: 2.5px solid var(--copper); padding-left: 10px;
+  margin: 10px 0 0; font-size: 0.9rem; font-style: italic; color: #fff;
+  border-left: 4px solid var(--marca-amarillo); padding-left: 10px;
 }
 
-/* --- Menú principal: botones grandes tipo tarjeta --- */
-.menu-app { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+/* --- Menú principal: grupos con título y mosaicos de tres columnas --- */
+.menu-app { margin-top: 6px; }
+.menu-grupo { margin: 0 0 18px; }
+.menu-grupo-titulo {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 10px; font-size: 15px; font-weight: 800; color: var(--texto); line-height: 1.2;
+}
+.menu-grupo-titulo::before {
+  content: ''; flex: none; width: 5px; height: 16px; border-radius: 3px; background: var(--marca-amarillo);
+}
+.menu-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 339px) { .menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .menu-boton {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: #fff;
-  border: 1px solid var(--linea);
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 8px; text-align: center;
+  background: var(--tarjeta);
   border-radius: 16px;
-  padding: 18px 18px;
+  padding: 12px 6px 10px;
   text-decoration: none;
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(20,42,63,0.06);
-  min-height: 64px;
+  color: var(--texto);
+  box-shadow: var(--sombra);
+  min-height: 104px;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
-/* Línea entre los grupos del menú (inicio.html, Orden menús 2): sin título, solo separa. */
-.menu-separador { height: 1px; background: var(--linea); margin: 2px 8px; flex: none; }
-.menu-boton:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(20,42,63,0.08); }
+.menu-boton:active { transform: scale(0.97); box-shadow: 0 1px 2px rgba(8,66,152,.1); }
 .menu-boton .icono {
-  width: 46px; height: 46px; border-radius: 12px;
-  background: var(--cream); display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 13px;
+  background: linear-gradient(135deg, #e7f0ff, #d5e4ff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
 }
-.menu-boton .texto { flex: 1; }
-.menu-boton .texto strong { display: block; font-size: 1rem; }
-.menu-boton .texto span { display: block; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-.menu-boton .flecha { color: var(--copper); font-size: 1.2rem; }
+.menu-boton .texto { width: 100%; min-width: 0; }
+.menu-boton .texto strong { display: block; font-size: 12px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+/* El subtítulo largo no cabe en un mosaico: queda en el HTML (lector de pantalla) pero no se ve. */
+.menu-boton .texto span {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.menu-boton .flecha { display: none; }
+/* Contadores que ya existían (Mis avisos): círculo amarillo en la esquina del mosaico. */
+.menu-boton .insignia-menu {
+  position: absolute; top: 6px; right: 6px;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  background: var(--marca-amarillo); color: #1b2333; font-size: 12px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.menu-boton .insignia-menu[hidden] { display: none; }
+/* Línea entre grupos: ya no hace falta (cada grupo lleva su título), se deja por si una pantalla vieja la pinta. */
+.menu-separador { height: 1px; background: var(--borde); margin: 2px 8px; flex: none; }
 
 /* --- Formularios --- */
-.campo-app { margin-bottom: 16px; }
-.campo-app label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--navy); }
-.campo-app input, .campo-app select, .campo-app textarea {
+/* Tarjeta blanca: cada bloque de un formulario (cada paso del registro, cada sección). */
+.tarjeta-app,
+.pf-paso {
+  background: var(--tarjeta); border-radius: var(--radio); box-shadow: var(--sombra);
+  padding: 14px; margin: 12px 0;
+}
+.pf-paso { margin-top: 0; }
+
+/* Por omisión la etiqueta va ARRIBA (13px, 700): así se ve también en un navegador viejo. */
+.campo-app { margin-bottom: 16px; position: relative; }
+.campo-app label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 6px; color: var(--texto); }
+.campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])), .campo-app select, .campo-app textarea {
+  display: block;
   width: 100%;
-  padding: 13px 14px;
-  border: 1.5px solid var(--linea);
-  border-radius: 10px;
-  font-size: 1rem;
-  background: #fff;
-  color: var(--ink);
+  min-height: 56px;
+  padding: 14px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radio-campo);
+  font-size: 16px;
+  background: var(--campo);
+  color: var(--texto);
   font-family: inherit;
+  -webkit-appearance: none; appearance: none;
 }
-.campo-app input:focus, .campo-app select:focus, .campo-app textarea:focus {
-  outline: none; border-color: var(--navy-2);
+.campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]))::placeholder, .campo-app textarea::placeholder { color: var(--texto-2); opacity: .8; }
+.campo-app textarea { min-height: 96px; resize: vertical; field-sizing: content; }
+.campo-app select {
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 14px 9px;
 }
-.campo-app input[readonly] { background: var(--cream); color: var(--muted); }
-.campo-app small { display: block; margin-top: 5px; font-size: 0.76rem; color: var(--muted); }
+.campo-app input[type="date"], .campo-app input[type="time"] { text-align: left; }
+.campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])):focus, .campo-app select:focus, .campo-app textarea:focus {
+  outline: none; background-color: #fff; border-color: var(--marca-azul); box-shadow: 0 0 0 4px var(--foco-halo);
+}
+.campo-app:focus-within > label { color: var(--marca-azul); }
+.campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]))[readonly] { background: var(--campo); color: var(--texto-2); }
+.btn-app + .campo-app, .btn-mini + .campo-app { margin-top: 14px; }
+.campo-app small { display: block; margin-top: 5px; font-size: 0.76rem; color: var(--texto-2); }
 .campo-app .error { color: var(--error); }
+
+/* ETIQUETA DENTRO DEL RECUADRO. Sin mover nada en el DOM: solo donde la etiqueta es el primer hijo del contenedor y
+   el campo va justo detrás (o la caja del micrófono que lo envuelve). Las etiquetas de casillas, las de chips y las
+   que van sueltas se quedan arriba. Necesita :has(); un navegador que no lo entienda se queda con la etiqueta arriba. */
+@supports selector(:has(*)) {
+  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)) > label {
+    position: absolute; top: 8px; left: 14px; z-index: 1;
+    margin: 0; font-size: 11.5px; font-weight: 600; color: var(--texto-2); line-height: 1.2;
+    pointer-events: none; max-width: calc(100% - 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)) :is(input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])), select, textarea) {
+    padding-top: 24px; padding-bottom: 8px;
+  }
+  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)):focus-within > label { color: var(--marca-azul); }
+  /* El micrófono del dictado va A LA IZQUIERDA del campo (52 px + 8 de hueco): la etiqueta se corre para no quedar encima de él. */
+  .campo-app:has(> label:first-child + .campo-con-dictado) > label { left: 74px !important; max-width: calc(100% - 90px) !important; }
+}
+
+/* Casillas: no llevan etiqueta dentro; algo más grandes y azules. */
+.app-cuerpo input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--marca-azul); flex: none; }
+
+/* UN CAMPO CON ERROR. Lo marca mostrarErrorCampo() (app-comun.js) y lo desmarca limpiarErrores() o el propio teclear.
+   .pf-error es la marca de antes del paso a paso; se ve igual. */
+.campo-app input[aria-invalid="true"]:where(:not([type="checkbox"])), .campo-app select[aria-invalid="true"], .campo-app textarea[aria-invalid="true"],
+.campo-error, .pf-paso input.pf-error, .pf-paso select.pf-error, .pf-paso textarea.pf-error {
+  border-color: var(--error-borde) !important; background-color: var(--error-fondo) !important;
+}
+.campo-app .error-telefono { display: none !important; }   /* el «Error de digitación» de form-utils: aquí el aviso va con «⚠», junto al campo */
+.error-campo { margin: 6px 2px 0; font-size: 12.5px; line-height: 1.35; color: var(--error); font-weight: 600; }
 
 /* UN BOTON QUE ACOMPAÑA AL CAMPO DE ARRIBA, no al de abajo.
 
@@ -165,86 +299,51 @@ main.app-cuerpo {
    como un boton suelto entre dos campos. */
 .boton-bajo-campo { margin: -8px 0 16px; }
 
+/* Dos columnas, y UNA sola por debajo de 480px (a 360px dos campos con lista quedaban de ~150px). */
 .fila-app { display: flex; gap: 12px; }
-.fila-app .campo-app { flex: 1; }
+.fila-app .campo-app { flex: 1; min-width: 0; }
+@media (max-width: 479px) {
+  .fila-app { flex-direction: column; gap: 0; }
+}
 
-/* Título de apartado de la app.
-   Los seis del registro de votantes y los dos de Día D — la misma pieza en
-   los dos formularios, así que el grosor va aquí y no en cada pantalla.
-
-   POR QUÉ NO BASTA CON font-weight. La clase ya estaba en 700, que ES
-   negrilla, y subirla a 800 NO SE VE EN BUENA PARTE DE LOS ANDROID: la app
-   usa la tipografía del sistema, y la familia `Roboto` que Android le ofrece
-   al navegador suele traer solo Regular, Medium y Bold. Los pesos por encima
-   viven en familias aparte («Roboto Black») que el emparejado de CSS no
-   alcanza, así que pedir 800 devuelve Bold — el mismo 700 y ni un píxel de
-   diferencia. En iPhone sí funciona, porque San Francisco tiene Heavy: el
-   mismo CSS se veía distinto según el teléfono.
-
-   Por eso el trazo se engorda con -webkit-text-stroke, que no depende de qué
-   pesos tenga instalados el aparato: dibuja el borde de cada letra con su
-   mismo color. 0,4px es donde se nota sin que se cierren los huecos de las
-   letras. Anda en Safari de iPhone, Chrome de Android, Samsung Internet y
-   Firefox.
-
-   El 800 se queda igual: donde SÍ hay un peso más grueso —iPhone, Windows—
-   es mejor una letra diseñada para ser gruesa que una engordada a la fuerza,
-   y las dos cosas se suman sin estorbarse.
-
-   `currentColor` hace que cada título se engorde con SU color: el azul de
-   los apartados normales y el amarillo del destacado. Con un color fijo, uno
-   de los dos quedaría perfilado del color del otro.                       */
+/* Título de apartado dentro de la tarjeta: 13px, 700, mayúsculas, azul.
+   (Ya no se engorda con -webkit-text-stroke: el 700 se ve igual en iPhone y en Android.) */
 .seccion-titulo {
-  font-weight: 800;
-  -webkit-text-stroke: 0.4px currentColor;
-  text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.88rem;
-  color: #0B5ED7; border-bottom: 1px solid var(--linea); padding-bottom: 6px;
+  font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 13px;
+  color: var(--marca-azul); border-bottom: 1px solid var(--borde); padding-bottom: 6px;
   margin: 22px 0 14px;
 }
 .seccion-titulo:first-of-type { margin-top: 0; }
 
-/* Apartado destacado — "Lugar de votación", el único que se llena copiando
-   de la ventana de la Registraduría. Mismo color que en el panel de
-   escritorio (.encabezado-form.acento en style.css) para que las dos
-   pantallas del mismo formulario se vean iguales.
+/* Apartado destacado — "Lugar de votación", el que se llena copiando de la
+   ventana de la Registraduría. El amarillo NO puede ser el color del texto
+   (1,61:1 sobre blanco): el destaque va como BARRA amarilla a la izquierda y el
+   título se queda en el azul oscuro.                                       */
+.seccion-titulo.acento {
+  color: var(--marca-azul-osc);
+  border-left: 5px solid var(--marca-amarillo); padding-left: 10px; border-radius: 2px;
+}
 
-   Ya solo cambia el COLOR: desde que los ocho títulos van igual de gruesos,
-   es el color lo que distingue a este, y repetir aquí el grosor haría creer
-   que es suyo y no de todos.
-
-   Medido: #FFC300 sobre el blanco de la tarjeta da 1,61:1 de contraste, por
-   debajo del 3:1 recomendado para texto grande o en negrita. Va así porque
-   es un color pedido; el amarillo legible sobre claro de la paleta es
-   --color-accent-dark, que el 27 de agosto de 2026 pasó de #A66F1F (4,27,
-   por debajo del 4,5 de AA) a #8C5E17 (5,63). Este comentario se actualiza
-   con el de style.css a propósito: si las dos hojas cuentan versiones
-   distintas de la misma paleta, la que se lea primero decide mal.       */
-.seccion-titulo.acento { color: #FFC300; }
 /* DICTADO POR VOZ — el microfono que va pegado al campo.
 
    El boton NO es un `.btn-mini` reciclado: aquel es ancho y con texto, y aqui
    hace falta un cuadrado que no le robe sitio al campo en una pantalla de
-   360px. Mismo borde y mismo azul, para que se lean como de la misma familia.
-
-   `align-items: stretch` en la caja: el boton crece hasta la altura del input,
-   sea cual sea. Con una altura fija se descuadra en cuanto el navegador cambia
-   el tamaño de letra por accesibilidad. */
+   360px. `align-items: stretch`: el boton crece hasta la altura del input,
+   sea cual sea. */
 .campo-con-dictado { display: flex; gap: 8px; align-items: stretch; }
 .campo-con-dictado input { flex: 1; min-width: 0; }
-/* EN RELIEVE, Y QUE EL RELIEVE SE HUNDA AL PULSAR. La tecla se dibuja con tres
-   sombras: el canto inferior solido —el grosor del boton—, una sombra ambiental
-   difusa que lo despega del papel, y un brillo interior arriba que hace de luz.
-   Al pulsar, el boton baja los mismos 3px que mide su canto y el canto
-   desaparece: el dedo lo aplasta contra la pagina. Sin ese hundido el relieve es
-   un adorno; con el, la pantalla responde como responderia una tecla. */
+/* En relieve, y que el relieve se hunda al pulsar: la tecla se dibuja con un canto
+   inferior solido (3px), una sombra difusa y un brillo arriba; al pulsar baja los
+   mismos 3px y el canto desaparece. */
 .btn-dictado {
   flex: none;
-  width: 48px;
-  border: 1.5px solid var(--navy);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, var(--cream) 58%, #ece3d3 100%);
-  box-shadow: 0 3px 0 var(--navy),
-              0 5px 9px rgba(20, 42, 63, 0.26),
+  width: 52px;
+  border: 1.5px solid var(--marca-azul-osc);
+  border-radius: var(--radio-campo);
+  background: linear-gradient(180deg, #ffffff 0%, var(--campo) 100%);
+  box-shadow: 0 3px 0 var(--marca-azul-osc),
+              0 5px 9px rgba(8, 66, 152, 0.22),
               inset 0 1px 0 rgba(255, 255, 255, 0.95);
   font-size: 1.2rem;
   line-height: 1;
@@ -255,42 +354,35 @@ main.app-cuerpo {
 }
 .btn-dictado:active {
   transform: translateY(3px);
-  background: linear-gradient(180deg, #ece3d3 0%, var(--cream) 100%);
-  box-shadow: 0 0 0 var(--navy),
-              0 1px 2px rgba(20, 42, 63, 0.22),
-              inset 0 2px 5px rgba(20, 42, 63, 0.20);
+  background: linear-gradient(180deg, #e3e9f5 0%, var(--campo) 100%);
+  box-shadow: 0 0 0 var(--marca-azul-osc),
+              0 1px 2px rgba(8, 66, 152, 0.2),
+              inset 0 2px 5px rgba(8, 66, 152, 0.2);
 }
-/* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: en la calle, con sol,
-   un cambio de tono no se distingue. El latido dice «te estoy oyendo» sin
-   depender de la pantalla ni de la vista de quien la mira. */
+/* MIENTRAS ESCUCHA TIENE QUE VERSE, y no solo con color: el latido dice «te estoy oyendo». Va en ROJO (grabando). */
 .btn-dictado.oyendo {
-  background: linear-gradient(180deg, #d8752f 0%, var(--copper) 60%, #a54e18 100%);
-  border-color: #8f4413;
-  box-shadow: 0 3px 0 #7a3a10,
-              0 5px 10px rgba(143, 68, 19, 0.38),
+  background: linear-gradient(180deg, #e85a5a 0%, var(--error) 60%, #a31f1f 100%);
+  border-color: #8f1b1b;
+  box-shadow: 0 3px 0 #7a1717,
+              0 5px 10px rgba(198, 40, 40, 0.38),
               inset 0 1px 0 rgba(255, 255, 255, 0.45);
   animation: dictado-latido 1s ease-in-out infinite;
 }
-/* Pulsar mientras escucha es como se DETIENE el dictado, y esa pulsacion pasa
-   siempre. Sin esta regla, `.oyendo` (que va despues) le devolveria el canto
-   levantado y el boton bajaria 3px sin hundirse: se veria flotando. */
+/* Pulsar mientras escucha es como se DETIENE el dictado: sin esta regla el canto quedaria levantado y el boton flotaria. */
 .btn-dictado.oyendo:active {
-  box-shadow: 0 0 0 #7a3a10,
-              0 1px 2px rgba(143, 68, 19, 0.30),
-              inset 0 2px 5px rgba(60, 25, 5, 0.34);
+  box-shadow: 0 0 0 #7a1717,
+              0 1px 2px rgba(198, 40, 40, 0.30),
+              inset 0 2px 5px rgba(60, 5, 5, 0.34);
 }
 @keyframes dictado-latido { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-/* Quien haya pedido menos animacion en su sistema no la recibe: el color y el
-   borde ya distinguen el estado. */
 @media (prefers-reduced-motion: reduce) { .btn-dictado.oyendo { animation: none; } }
 
 /* EL LIENZO DE LA FIRMA.
    `touch-action: none` no es cosmético: sin él, el primer trazo que baje o
-   suba desplaza la página en vez de dibujar, y la firma sale partida. Es el
-   error clásico de un canvas de dibujo en un teléfono. */
+   suba desplaza la página en vez de dibujar, y la firma sale partida. */
 .lienzo-firma {
   display: block; width: 100%; height: 150px;
-  border: 1.5px dashed var(--navy); border-radius: 10px;
+  border: 1.5px dashed var(--marca-azul-osc); border-radius: var(--radio-campo);
   background: #fff; touch-action: none; cursor: crosshair;
 }
 .lienzo-firma.firmado { border-style: solid; }
@@ -298,61 +390,133 @@ main.app-cuerpo {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; margin: 8px 0 4px;
 }
-#firma-estado { font-size: 0.78rem; color: var(--muted); }
-#firma-estado.lista { color: var(--copper); font-weight: 600; }
+#firma-estado { font-size: 0.78rem; color: var(--texto-2); }
+#firma-estado.lista { color: var(--ok); font-weight: 600; }
 
-.dictado-aviso { display: block; margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
-.dictado-aviso.malo { color: #A93226; }
+.dictado-aviso { display: block; margin: 4px 0 0; font-size: 0.78rem; color: var(--texto-2); }
+.dictado-aviso.malo { color: var(--error); }
 
-/* `inline-flex`, NO inline. Este selector lo llevan un <a> («Lugar de votacion»)
-   y dos <button> (GPS, Subir ahora). Un <button> ya es inline-block y reserva su
-   alto; un <a> es inline puro, y el padding vertical de un inline NO empuja a
-   nadie: se desborda y se pinta ENCIMA del campo de arriba. Mientras el enlace
-   vivio dentro de un `display:flex` no se vio, porque ser hijo de un flex lo
-   convertia en bloque. Al sacarlo de ahi reaparecio. */
+/* `inline-flex`, NO inline: lo llevan un <a> («Lugar de votacion») y dos <button> (GPS, Subir ahora). El padding
+   vertical de un <a> inline NO empuja a nadie y se pinta ENCIMA del campo de arriba. */
 .btn-mini {
-  display: inline-flex; align-items: center; gap: 6px;
-  white-space: nowrap; padding: 13px 12px; font-size: 0.82rem;
-  border-radius: 10px; border: 1.5px solid var(--navy);
-  background: #fff; color: var(--navy); font-weight: 600;
-  text-decoration: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap; padding: 12px 14px; min-height: 44px; font-size: 0.9rem;
+  border-radius: 12px; border: 1.5px solid var(--borde);
+  background: #fff; color: var(--marca-azul-osc); font-weight: 700;
+  text-decoration: none; cursor: pointer; font-family: inherit;
 }
 
+/* Chips: opciones de a una (Votante/Sublíder, Urbano/Rural…) en píldora. Marcada = azul oscuro con letra blanca. */
 .chips-app { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip-app {
-  flex: 1; min-width: 120px; text-align: center; padding: 13px 10px;
-  border: 1.5px solid var(--linea); border-radius: 10px; background: #fff;
-  font-weight: 600; font-size: 0.9rem; cursor: pointer; color: var(--muted);
+  flex: 1; min-width: 120px; text-align: center; padding: 14px 14px; min-height: 48px;
+  border: 1.5px solid transparent; border-radius: 999px; background: var(--campo);
+  font-weight: 600; font-size: 14px; cursor: pointer; color: var(--texto);
   font-family: inherit;
 }
-.chip-app.activo { border-color: var(--navy); background: var(--navy); color: #fff; }
+.chip-app.activo { border-color: var(--marca-azul-osc); background: var(--marca-azul-osc); color: #fff; }
 
+/* BOTONES. Primario: amarillo, letra #1b2333 (jamás blanca sobre amarillo), píldora de 54px. */
 .btn-app {
-  display: block; width: 100%; text-align: center;
-  padding: 15px 18px; border-radius: 12px; border: none;
-  font-size: 1rem; font-weight: 700; cursor: pointer;
-  font-family: inherit;
+  display: flex; align-items: center; justify-content: center; width: 100%; text-align: center;
+  min-height: 54px; padding: 12px 20px; border-radius: 999px; border: none;
+  font-size: 16.5px; font-weight: 800; cursor: pointer; line-height: 1.2;
+  font-family: inherit; text-decoration: none;
 }
-.btn-app-primario { background: var(--copper); color: #fff; }
-.btn-app-primario:disabled { background: #d8b79c; }
-.btn-app-secundario { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
+.btn-app-primario { background: var(--marca-amarillo); color: #1b2333; box-shadow: 0 8px 20px rgba(255, 195, 0, .4); }
+.btn-app-primario:disabled, .btn-app-primario[disabled] { opacity: .6; box-shadow: none; cursor: not-allowed; }
+.btn-app-secundario { background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--borde); }
+.btn-app-secundario:disabled { opacity: .6; }
+.btn-app-peligro { background: var(--error); color: #fff; }
+.btn-app-peligro:disabled { opacity: .6; }
+/* El «fantasma» del registro (Leer la política) es un botón de texto sobre la tarjeta. */
+.btn-app-fantasma { background: transparent; color: var(--marca-azul-osc); border: 1.5px solid var(--borde); font-weight: 700; }
 
+/* BARRA FIJA INFERIOR. La del paso a paso (.pf-pie, pasos-formulario.css) y la de los formularios de una sola pantalla
+   (E-14, Tareas): fondo de la página, zona segura del iPhone, y se sube lo que el teclado le quite (--teclado). */
+.barra-fija-app {
+  position: fixed; left: 0; right: 0; bottom: var(--teclado, 0px); z-index: 30;
+  background: var(--fondo);
+  padding: 10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+}
+.barra-fija-app > .barra-fija-in { display: flex; gap: 10px; max-width: 560px; margin: 0 auto; }
+.barra-fija-app .btn-app { flex: 1; min-width: 0; margin: 0; }
+body.con-barra-fija main.app-cuerpo { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+
+/* AVISOS. En línea (.aviso-app) y flotante (.toast-app, lo pinta mostrarToast() de app-comun.js). */
 .aviso-app {
-  padding: 12px 14px; border-radius: 10px; font-size: 0.88rem; margin-bottom: 16px; display: none;
+  padding: 12px 14px; border-radius: 14px; font-size: 0.88rem; margin-bottom: 16px; display: none;
 }
 .aviso-app.visible { display: block; }
-.aviso-app.error { background: #fbe9e7; color: var(--error); border: 1px solid #f2b8b3; }
-.aviso-app.exito { background: #e7f4ea; color: var(--exito); border: 1px solid #b6ddc0; }
+.aviso-app.error { background: var(--error-fondo); color: var(--error); border: 1px solid var(--error-borde); }
+.aviso-app.exito { background: var(--ok-fondo); color: var(--ok); border: 1px solid #b6ddc0; }
+.toast-app {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 90;
+  bottom: calc(var(--teclado, 0px) + 24px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 32px); width: max-content;
+  background: var(--texto); color: #fff; padding: 12px 18px; border-radius: 14px;
+  font-size: 14px; line-height: 1.4; text-align: center; box-shadow: var(--sombra-flot);
+}
+.toast-app.ok { background: var(--ok); }
+.toast-app.error { background: var(--texto); }
+body.con-barra-fija .toast-app, body.pf-activo .toast-app { bottom: calc(var(--teclado, 0px) + 96px + env(safe-area-inset-bottom, 0px)); }
 
 .referido-caja {
-  background: var(--cream); border: 1px dashed var(--copper); border-radius: 10px;
-  padding: 12px 14px; margin-bottom: 18px; font-size: 0.88rem;
+  background: var(--aviso-fondo); border: 1px dashed var(--marca-amarillo); border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 18px; font-size: 0.88rem; color: var(--texto);
 }
-.referido-caja strong { color: var(--navy); }
+.referido-caja strong { color: var(--marca-azul-osc); }
 
-.pantalla-carga { text-align: center; padding: 60px 20px; color: var(--muted); }
+.pantalla-carga { text-align: center; padding: 60px 20px; color: var(--texto-2); }
 .pantalla-exito { text-align: center; padding: 30px 10px; }
-.pantalla-exito .marca { font-size: 3rem; color: var(--exito); margin-bottom: 12px; }
+.pantalla-exito .marca { font-size: 3rem; color: var(--ok); margin-bottom: 12px; }
+
+/* ------------------------------------------------------------------
+   LISTAS Y BÚSQUEDA (piezas comunes; cada pantalla las usa donde ya tiene lista).
+   ------------------------------------------------------------------ */
+.buscador-app { position: relative; margin: 0 0 12px; }
+.buscador-app input, input.buscador-app {
+  display: block; width: 100%; height: 52px; padding: 0 18px 0 46px; border: 0; border-radius: 999px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236a7590' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 17px center;
+  box-shadow: var(--sombra-flot); font-size: 16px; color: var(--texto); font-family: inherit; -webkit-appearance: none; appearance: none; min-height: 52px;
+}
+.buscador-app input:focus { outline: none; box-shadow: 0 0 0 4px var(--foco-halo), var(--sombra-flot); }
+
+.chips-filtro { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; margin: 0 -2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.chips-filtro::-webkit-scrollbar { display: none; }
+.chip-filtro {
+  flex: 0 0 auto; border: 0; border-radius: 999px; background: #fff; box-shadow: 0 1px 4px rgba(8,66,152,.1);
+  padding: 9px 14px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--texto); font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.chip-filtro.activo { background: var(--marca-amarillo); color: #1b2333; font-weight: 700; }
+
+.fila-lista {
+  display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; box-shadow: var(--sombra);
+  padding: 12px; margin: 0 0 10px; text-decoration: none; color: var(--texto); border: 0; width: 100%; text-align: left; font-family: inherit;
+}
+.avatar-lista {
+  flex: none; width: 44px; height: 44px; border-radius: 14px; background: var(--degradado); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; letter-spacing: .02em;
+}
+.fila-lista .datos { flex: 1; min-width: 0; }
+.fila-lista .nombre { display: block; font-size: 14.5px; font-weight: 700; color: var(--texto); overflow-wrap: anywhere; }
+.fila-lista .dato { display: block; font-size: 12.5px; color: var(--texto-2); margin-top: 2px; overflow-wrap: anywhere; }
+.pildora { flex: none; display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.pildora.ok { background: var(--ok-fondo); color: var(--ok); }
+.pildora.aviso { background: var(--aviso-fondo); color: var(--aviso); }
+.pildora.error { background: var(--error-fondo); color: var(--error); }
+.pildora.neutra { background: var(--campo); color: var(--texto-2); }
+
+.vacio-app { text-align: center; color: var(--texto-2); padding: 34px 16px; font-size: 14px; line-height: 1.5; }
+.vacio-app .ico { display: block; font-size: 2rem; margin-bottom: 8px; }
+
+/* Botón flotante «Agregar / Nuevo»: círculo amarillo de 58px, abajo a la derecha sobre la zona segura. */
+.fab-app {
+  position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 40;
+  width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--marca-amarillo); color: #1b2333;
+  font-size: 28px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 20px rgba(255,195,0,.5); cursor: pointer; text-decoration: none; font-family: inherit;
+}
 
 /* ------------------------------------------------------------------
    Comunas y barrios apagados desde Configuración → Datos de la campaña.
@@ -384,17 +548,16 @@ body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !importa
    pantalla: quien registra tiene que poder enseñarle el celular a la persona
    sin perder lo que ya escribió. */
 .bloque-consentimiento {
-  border: 1px solid var(--linea, #E2E5EA);
-  border-radius: 12px; padding: 14px; background: #FBFCFD;
+  border: 1px solid var(--borde); border-radius: 14px; padding: 14px; background: var(--campo);
 }
 .titulo-consentimiento { margin: 0 0 10px; font-size: 1rem; }
 .texto-politica {
   max-height: 230px; overflow-y: auto; font-size: 0.85rem; line-height: 1.5;
-  border: 1px solid var(--linea, #E2E5EA); border-radius: 10px;
+  border: 1px solid var(--borde); border-radius: 12px;
   padding: 12px; margin-top: 10px; background: #fff; white-space: pre-wrap;
 }
 .ayuda-canales { margin: 14px 0 6px; font-weight: 600; font-size: 0.9rem; }
-.ayuda-canales-nota { margin: 8px 0 0; font-size: 0.8rem; color: #5B6472; line-height: 1.45; }
+.ayuda-canales-nota { margin: 8px 0 0; font-size: 0.8rem; color: var(--texto-2); line-height: 1.45; }
 
 /* ==================================================================
    PANTALLAS DE ADMINISTRADOR (admin-*.html) — barra inferior y piezas comunes
@@ -404,9 +567,9 @@ body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !importa
    iPhone (requiere viewport-fit=cover, que ya llevan las páginas de /app/). */
 .nav-admin {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-  display: flex; background: #fff; border-top: 1px solid var(--linea);
+  display: flex; background: #fff; border-top: 1px solid var(--borde);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-shadow: 0 -2px 10px rgba(20,42,63,0.08);
+  box-shadow: 0 -2px 10px rgba(8,66,152,0.08);
 }
 .nav-admin a {
   flex: 1 1 0; min-width: 0; min-height: 56px; padding: 7px 2px 6px;
@@ -415,7 +578,7 @@ body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !importa
 }
 .nav-admin a .ico { font-size: 1.3rem; line-height: 1; }
 .nav-admin a .txt { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-admin a.activo { color: var(--copper); }
+.nav-admin a.activo { color: var(--marca-azul); }
 .nav-admin a.activo .ico { transform: translateY(-1px); }
 body.con-nav-admin main.app-cuerpo { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
 
@@ -423,14 +586,15 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(86px + env(safe-area-i
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 80;
   bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   max-width: calc(100% - 32px); width: max-content;
-  background: var(--navy); color: #fff; padding: 11px 16px; border-radius: 12px;
-  font-size: 0.86rem; line-height: 1.4; text-align: center; box-shadow: 0 6px 18px rgba(20,42,63,0.3);
+  background: var(--texto); color: #fff; padding: 12px 18px; border-radius: 14px;
+  font-size: 14px; line-height: 1.4; text-align: center; box-shadow: var(--sombra-flot);
 }
 .aviso-pasajero.error { background: var(--error); }
+.aviso-pasajero:not(.error) { background: var(--ok); }
 
 /* Piezas comunes */
-.adm-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-.adm-tarjeta h2 { margin: 0 0 10px; font-size: 0.95rem; color: var(--navy); }
+.adm-tarjeta { background: #fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 14px; margin-bottom: 12px; }
+.adm-tarjeta h2 { margin: 0 0 10px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); }
 .adm-nota { font-size: 0.76rem; color: var(--muted); line-height: 1.45; margin: 8px 0 0; }
 .adm-vacio { color: var(--muted); font-size: 0.86rem; padding: 14px 4px; text-align: center; }
 .adm-carga { color: var(--muted); font-size: 0.86rem; padding: 18px 4px; text-align: center; }
@@ -440,13 +604,13 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(86px + env(safe-area-i
 .barra-h .cab { display: flex; justify-content: space-between; gap: 10px; font-size: 0.86rem; }
 .barra-h .cab .nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .barra-h .cab .val { flex: none; font-variant-numeric: tabular-nums; color: var(--navy); font-weight: 700; }
-.barra-h .pista { height: 9px; background: #efe9dc; border-radius: 6px; margin-top: 5px; overflow: hidden; }
-.barra-h .pista > i { display: block; height: 100%; background: var(--navy-2); border-radius: 6px; }
+.barra-h .pista { height: 9px; background: #e6ebf5; border-radius: 6px; margin-top: 5px; overflow: hidden; }
+.barra-h .pista > i { display: block; height: 100%; background: var(--marca-azul); border-radius: 6px; }
 .barra-h .sub { font-size: 0.74rem; color: var(--muted); margin-top: 3px; }
-.btn-ver-todas { margin-top: 12px; width: 100%; padding: 11px; background: transparent; border: 1.5px solid var(--linea); border-radius: 10px; color: var(--navy); font-weight: 700; font-size: 0.86rem; font-family: inherit; cursor: pointer; }
+.btn-ver-todas { margin-top: 12px; width: 100%; padding: 11px; background: transparent; border: 1.5px solid var(--borde); border-radius: 999px; color: var(--navy); font-weight: 700; font-size: 0.86rem; font-family: inherit; cursor: pointer; }
 
 /* Barra apilada + leyenda */
-.apilada { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: #efe9dc; }
+.apilada { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: #e6ebf5; }
 .apilada > i { display: block; height: 100%; min-width: 0; }
 .leyenda-ap { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 0.8rem; }
 .leyenda-ap span { display: inline-flex; align-items: center; gap: 6px; }
@@ -455,6 +619,7 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(86px + env(safe-area-i
 /* Chips con desplazamiento propio (solo la tira se desliza, no la página) */
 .tira-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .tira-chips::-webkit-scrollbar { display: none; }
-.tira-chips .chip-app { flex: 0 0 auto; min-width: 0; padding: 10px 14px; font-size: 0.84rem; white-space: nowrap; }
+.tira-chips .chip-app { flex: 0 0 auto; min-width: 0; padding: 10px 14px; min-height: 40px; font-size: 13px; white-space: nowrap; background: #fff; box-shadow: 0 1px 4px rgba(8,66,152,.1); }
+.tira-chips .chip-app.activo { background: var(--marca-amarillo); border-color: var(--marca-amarillo); color: #1b2333; font-weight: 700; box-shadow: none; }
 
 .enlace-discreto { display: block; text-align: center; margin: 18px 0 4px; color: var(--navy-2); font-size: 0.84rem; background: none; border: 0; font-family: inherit; text-decoration: underline; cursor: pointer; width: 100%; }

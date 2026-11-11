@@ -97,22 +97,23 @@ function pagina({ titulo, cuerpo, extra = '', ok = false, head = '', tituloPesta
 <meta name="referrer" content="no-referrer">
 <title>${esc(tituloPestana || titulo)}</title>
 ${head}
+<link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-         background: #F3F5F8; color: #161B26; margin: 0;
+         background: var(--fondo, #f4f6fb); color: var(--texto, #1b2333); margin: 0;
          display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-  .caja { background: #fff; border-radius: 16px; padding: 30px 24px; max-width: 420px; width: 100%;
-          box-shadow: 0 10px 34px rgba(16,35,63,.12); text-align: center; }
-  h1 { font-size: 1.45rem; color: #10233F; margin: 0 0 10px; }
-  p { font-size: 1.02rem; line-height: 1.55; color: #5B6472; margin: 0 0 16px; }
-  .lugar { background: #F3F5F8; border-radius: 12px; padding: 14px; margin: 0 0 20px; color: #10233F; }
+  .caja { background: #fff; border-radius: var(--radio, 18px); padding: 30px 24px; max-width: 420px; width: 100%;
+          box-shadow: var(--sombra-flot, 0 8px 24px rgba(8,66,152,.13)); text-align: center; }
+  h1 { font-size: 1.45rem; font-weight: 800; color: var(--marca-azul-osc, #084298); margin: 0 0 10px; }
+  p { font-size: 1.02rem; line-height: 1.55; color: var(--texto-2, #6a7590); margin: 0 0 16px; }
+  .lugar { background: var(--campo, #f1f4fa); border-radius: var(--radio-campo, 14px); padding: 14px; margin: 0 0 20px; color: var(--marca-azul-osc, #084298); }
   .lugar strong { display: block; font-size: 1.1rem; }
-  button.grande { background: #1E6B44; color: #fff; border: 0; border-radius: 14px; width: 100%;
-                  font-size: 1.35rem; font-weight: 800; padding: 20px 16px; cursor: pointer; }
-  button.grande:active { background: #155233; }
-  a.baja { display: block; margin-top: 22px; color: #5B6472; font-size: 0.9rem; text-decoration: underline; padding: 8px; }
-  a.mapa { display: block; margin-top: 16px; color: #0B5ED7; font-weight: 700; text-decoration: none; padding: 10px; }
-  .ok { color: #1E6B44; font-weight: 700; }
+  button.grande { background: var(--marca-amarillo, #FFC300); color: #1b2333; border: 0; border-radius: 999px; width: 100%;
+                  font-size: 1.35rem; font-weight: 800; padding: 20px 16px; cursor: pointer; box-shadow: 0 8px 20px rgba(255,195,0,.4); font-family: inherit; }
+  button.grande:active { filter: brightness(.94); }
+  a.baja { display: block; margin-top: 22px; color: var(--texto-2, #6a7590); font-size: 0.9rem; text-decoration: underline; padding: 8px; }
+  a.mapa { display: block; margin-top: 16px; color: var(--marca-azul, #0B5ED7); font-weight: 700; text-decoration: none; padding: 10px; }
+  .ok { color: var(--ok, #1e6b2e); font-weight: 700; }
 </style></head><body><div class="caja">
 <h1>${esc(titulo)}</h1><p${ok ? ' class="ok"' : ''}>${cuerpo}</p>${extra}
 </div></body></html>`;

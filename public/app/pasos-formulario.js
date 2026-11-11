@@ -111,6 +111,8 @@
     /* Marca un campo con borde rojo. null = quitar las marcas. */
     function marcar(campo) {
       form.querySelectorAll('.pf-error').forEach((c) => c.classList.remove('pf-error'));
+      // Los errores escritos junto al campo (mostrarErrorCampo, app-comun.js) se quitan con las marcas.
+      if (typeof limpiarErrores === 'function') limpiarErrores(form);
       if (campo) campo.classList.add('pf-error');
     }
 
@@ -120,6 +122,14 @@
       irAPaso(n);
       if (cajaError) pasos[n - 1].insertBefore(cajaError, pasos[n - 1].firstChild);
       if (campo !== undefined) marcar(campo);
+      /* Con campo conocido, el aviso va DEBAJO DEL CAMPO (mostrarErrorCampo) y no en la caja de arriba: el error se lee
+         junto a lo que hay que corregir. Sin campo —un error general— se queda en la caja, como siempre. */
+      if (campo && campo.tagName && cajaError && cajaError.classList.contains('visible') && cajaError.textContent
+          && typeof mostrarErrorCampo === 'function') {
+        mostrarErrorCampo(campo, cajaError.textContent);
+        cajaError.classList.remove('visible');
+        return;
+      }
       const objetivo = campo || cajaError;
       if (objetivo && objetivo.scrollIntoView) objetivo.scrollIntoView({ block: 'center' });
       if (campo && typeof campo.focus === 'function') campo.focus({ preventScroll: true });

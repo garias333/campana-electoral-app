@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Estructura · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -17,9 +17,11 @@
   .app-barra .mas-barra { margin-left: auto; flex: none; width: 40px; height: 38px; border: 0; border-radius: 10px; background: rgba(255,255,255,.14); color: #fff; font-size: 1.4rem; line-height: 1; cursor: pointer; }
 
   .busqueda { display: flex; gap: 8px; margin-bottom: 10px; }
-  .busqueda input { flex: 1; min-width: 0; padding: 12px 14px; border: 1.5px solid var(--linea); border-radius: 12px; font-size: 16px; font-family: inherit; background: #fff; }
-  .btn-filtros { flex: none; position: relative; padding: 0 14px; border: 1.5px solid var(--navy); border-radius: 12px; background: #fff; color: var(--navy); font-weight: 700; font-size: .86rem; font-family: inherit; cursor: pointer; }
-  .btn-filtros .n { position: absolute; top: -7px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--copper); color: #fff; font-size: .72rem; display: none; align-items: center; justify-content: center; padding: 0 5px; }
+  .busqueda input { flex: 1; min-width: 0; height: 52px; padding: 0 18px 0 46px; border: 0; border-radius: 999px; font-size: 16px; font-family: inherit; color: var(--texto); box-shadow: var(--sombra-flot); -webkit-appearance: none; appearance: none;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236a7590' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 17px center; }
+  .busqueda input:focus { outline: none; box-shadow: 0 0 0 4px var(--foco-halo), var(--sombra-flot); }
+  .btn-filtros { flex: none; position: relative; padding: 0 16px; min-height: 52px; border: 0; box-shadow: var(--sombra-flot); border-radius: 999px; background: #fff; color: var(--marca-azul-osc); font-weight: 700; font-size: .86rem; font-family: inherit; cursor: pointer; }
+  .btn-filtros .n { position: absolute; top: -7px; right: -6px; min-width: 20px; height: 20px; border-radius: 10px; background: var(--marca-amarillo); color: #1b2333; font-weight: 800; font-size: .72rem; display: none; align-items: center; justify-content: center; padding: 0 5px; }
   .btn-filtros.con .n { display: flex; }
   .chip-n { margin-left: 5px; font-weight: 800; opacity: .75; font-variant-numeric: tabular-nums; }
 
@@ -28,41 +30,41 @@
 
   /* La ficha. El riel azul y la sangría marcan a quién le reporta (hasta tres niveles: más
      adentro no queda ancho en 390 px). */
-  .fi { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px 12px 10px; margin-bottom: 10px; min-width: 0; }
+  .fi { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px 12px 10px; margin-bottom: 10px; min-width: 0; }
   .fi[data-n="1"] { margin-left: 10px; }
   .fi[data-n="2"] { margin-left: 20px; }
   .fi[data-n="3"] { margin-left: 30px; }
-  .fi:not([data-n="0"]) { border-left: 4px solid #0B5ED7; }
+  .fi:not([data-n="0"]) { border-left: 4px solid var(--marca-azul); }
   .fi[data-inactivo="1"] { opacity: .78; }
   .fi-sup { display: flex; gap: 10px; align-items: flex-start; }
   .plegar { flex: none; width: 28px; height: 28px; border: 1px solid var(--linea); border-radius: 8px; background: #fff; color: var(--navy); font-size: .8rem; cursor: pointer; padding: 0; }
   .hueco { flex: none; width: 0; }
-  .av { flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--navy-2); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; }
+  .av { flex: none; width: 44px; height: 44px; border-radius: 14px; background: var(--degradado); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; }
   .fi-nom { min-width: 0; flex: 1; }
   .fi-nom h3 { margin: 0 0 5px; font-size: .98rem; color: var(--navy); overflow-wrap: anywhere; line-height: 1.25; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .ch { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; background: #eee; color: #333; }
   .ch.coord { background: var(--navy); color: #fff; }
   .ch.org { background: #7b5ea7; color: #fff; }
-  .ch.asp { background: var(--copper); color: #fff; }
+  .ch.asp { background: var(--marca-amarillo); color: #1b2333; }
   .ch.lid { background: #1e7a3d; color: #fff; }
-  .ch.sub { background: #6b6b6b; color: #fff; }
+  .ch.sub { background: var(--texto-2); color: #fff; }
   .ch.urb { background: #e3ecf9; color: #174a9b; }
   .ch.rur { background: #e4f3e6; color: #1b6a2f; }
   .ch.falta { background: #fdf0d8; color: #8a5a00; border: 1px solid #ecc67a; }
   .ch.act { background: #e7f4ea; color: var(--exito); }
-  .ch.ina { background: #fbe9e7; color: var(--error); }
+  .ch.ina { background: var(--error-fondo); color: var(--error); }
   .fi-zona { margin: 9px 0 2px; font-size: .84rem; color: var(--ink); overflow-wrap: anywhere; }
   .fi-zona .fl { color: var(--muted); margin: 0 3px; }
-  .fi-zona .mas { background: var(--cream); color: var(--copper); font-weight: 800; font-size: .7rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+  .fi-zona .mas { background: var(--campo); color: var(--marca-azul); font-weight: 800; font-size: .7rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
   .fi-jefe { margin: 2px 0 8px; font-size: .78rem; color: var(--muted); }
   .fi-jefe b { color: var(--navy); }
   .fi-jefe i { font-style: normal; color: var(--muted); }
   .fi-jefe .nadie { color: var(--error); }
   .fi-avance { margin: 0 0 9px; }
   .fi-avance .txt { display: flex; justify-content: space-between; font-size: .78rem; color: var(--navy); font-weight: 700; margin-bottom: 4px; }
-  .fi-avance .sig { color: var(--copper); }
-  .fi-avance .pista { height: 8px; background: #efe9dc; border-radius: 5px; overflow: hidden; }
+  .fi-avance .sig { color: var(--marca-azul); }
+  .fi-avance .pista { height: 8px; background: #e6ebf5; border-radius: 5px; overflow: hidden; }
   .fi-avance .pista > i { display: block; height: 100%; background: var(--navy-2); border-radius: 5px; }
   .fi-avance .pista > i.ok { background: var(--exito); }
   .fi-acc { display: flex; gap: 8px; }
@@ -70,14 +72,13 @@
   .fi-acc a.wa { background: #25d366; border-color: #1fae54; color: #0b2a17; flex: 1.6; }
   .fi-acc button.del { flex: 0 0 46px; border-color: #e6b3ae; color: var(--error); }
 
-  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--copper); color: #fff; font-size: 2rem; line-height: 56px; text-align: center; text-decoration: none; box-shadow: 0 6px 16px rgba(20,42,63,.35); }
+  .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--marca-amarillo); color: #1b2333; font-size: 28px; font-weight: 700; line-height: 58px; text-align: center; text-decoration: none; box-shadow: 0 8px 20px rgba(255,195,0,.5); }
 
   .capa { position: fixed; inset: 0; z-index: 90; background: rgba(10,25,45,.55); display: none; align-items: flex-end; justify-content: center; }
   .capa.abierta { display: flex; }
   .hoja { background: #fff; width: 100%; max-width: 560px; border-radius: 18px 18px 0 0; padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)); max-height: 92vh; max-height: 92dvh; overflow-y: auto; }
   .hoja h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--navy); overflow-wrap: anywhere; }
   .hoja .btn-app + .btn-app { margin-top: 10px; }
-  .hoja select, .hoja input[type=text], .hoja input[type=password] { width: 100%; padding: 12px; border: 1.5px solid var(--linea); border-radius: 10px; font-size: 16px; background: #fff; font-family: inherit; }
   .opcion-menu { display: block; width: 100%; text-align: left; padding: 14px 4px; background: none; border: 0; border-bottom: 1px solid var(--linea); font-size: 1rem; font-family: inherit; cursor: pointer; color: var(--ink); }
   .opcion-menu.peligro { color: var(--error); }
   .opcion-menu small { display: block; color: var(--muted); font-size: .76rem; margin-top: 2px; }

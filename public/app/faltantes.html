@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Faltan por votar · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -15,66 +15,66 @@
 <style>
   /* Día D — «Faltan por votar» (diseño B): la lista de los míos, por puesto. */
   .franja-prueba {
-    background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px;
+    background: var(--aviso-fondo); color: var(--aviso); border: 1px solid var(--marca-amarillo); border-radius: 14px;
     padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none;
   }
-  .avance-card { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .avance-card { background: #fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 16px; margin-bottom: 14px; }
   .avance-card .cifras { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-  .avance-card .grande { font-size: 2rem; font-weight: 800; color: #0B5ED7; }
-  .avance-card .faltan { font-size: 1rem; font-weight: 700; color: #a93226; }
-  .barra-fondo { height: 12px; background: var(--cream); border: 1px solid var(--linea); border-radius: 999px; overflow: hidden; }
+  .avance-card .grande { font-size: 2rem; font-weight: 800; color: var(--marca-azul); }
+  .avance-card .faltan { font-size: 1rem; font-weight: 700; color: var(--error); }
+  .barra-fondo { height: 12px; background: #e6ebf5; border-radius: 999px; overflow: hidden; }
   .barra-relleno { height: 100%; border-radius: 999px; transition: width .3s ease; }
-  .rojo { background: #c0392b; } .ambar { background: #d68910; } .verde { background: var(--exito); }
+  .rojo { background: var(--error); } .ambar { background: var(--marca-amarillo); } .verde { background: var(--ok); }
 
-  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+  /* Filtros: píldoras blancas con sombra suave; el activo va en amarillo. Se desplazan de lado, sin barra visible. */
+  .chips { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
   .chip {
-    flex: 1 0 auto; border: 1.5px solid var(--navy); background: #fff; color: var(--navy);
-    border-radius: 999px; padding: 9px 14px; font-size: 0.88rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    flex: 0 0 auto; border: 0; background: #fff; color: var(--texto); box-shadow: 0 1px 4px rgba(8,66,152,.1);
+    border-radius: 999px; padding: 9px 14px; min-height: 40px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
     white-space: nowrap;
   }
-  .chip.activo { background: var(--navy); color: #fff; }
+  .chip.activo { background: var(--marca-amarillo); color: #1b2333; font-weight: 700; box-shadow: none; }
 
-  .buscador-app { margin-bottom: 12px; }
-  .buscador-app input { width: 100%; }
-
-  .puesto-grupo { background: #fff; border: 1px solid var(--linea); border-radius: 14px; margin-bottom: 14px; overflow: hidden; }
+  .puesto-grupo { background: #fff; border-radius: var(--radio); box-shadow: var(--sombra); margin-bottom: 14px; overflow: hidden; }
   .puesto-cabeza { padding: 13px 14px 10px; }
   .puesto-cabeza .nombre { font-size: 1rem; font-weight: 700; color: var(--navy); overflow-wrap: anywhere; }
   .puesto-cabeza .cuenta { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin: 3px 0 8px; }
   .persona { border-top: 1px solid var(--linea); padding: 12px 14px; }
-  .persona .quien { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-  .persona .nombre { font-weight: 600; font-size: 0.97rem; overflow-wrap: anywhere; }
+  .persona .quien { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+  .persona .quien .avatar-lista { width: 40px; height: 40px; border-radius: 13px; font-size: 14px; }
+  .persona .quien .nombre { flex: 1; min-width: 0; }
+  .persona .nombre { font-weight: 700; font-size: 14.5px; overflow-wrap: anywhere; }
   .persona .mesa { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
   .persona .tel { font-size: 0.84rem; color: var(--muted); margin: 2px 0 8px; }
   .persona .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
   .accion {
-    flex: 1 1 0; min-width: 84px; text-align: center; text-decoration: none; border: 0; border-radius: 10px;
-    padding: 11px 8px; font-size: 0.86rem; font-weight: 700; font-family: inherit; cursor: pointer; color: #fff;
+    flex: 1 1 0; min-width: 84px; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; border: 0; border-radius: 999px;
+    padding: 10px 8px; font-size: 0.86rem; font-weight: 700; font-family: inherit; cursor: pointer; color: #fff;
   }
   .accion.llamar { background: var(--navy); }
   .accion.wa { background: #1e7a3d; }
-  .accion.sms { background: #5b3f8c; }
-  .accion.transp { background: #fff; color: #1B6CA8; border: 1.5px solid #1B6CA8; }
-  .accion.transp.si { background: #1B6CA8; color: #fff; }
-  .tag-transp { font-size: 0.78rem; color: #1B6CA8; font-weight: 700; margin-bottom: 6px; }
+  .accion.sms { background: var(--marca-azul-osc); }
+  .accion.transp { background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--borde); }
+  .accion.transp.si { background: var(--marca-azul-osc); color: #fff; border-color: var(--marca-azul-osc); }
+  .tag-transp { font-size: 0.78rem; color: var(--marca-azul-osc); font-weight: 700; margin-bottom: 6px; }
   .accion.copiar { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 6px 10px; font-size: 0.8rem; }
   .sin-enlace { font-size: 0.76rem; color: var(--muted); margin: -4px 0 8px; }
-  .accion.voto { background: #0B5ED7; }
-  .accion.deshacer { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); }
+  .accion.voto { background: var(--marca-amarillo); color: #1b2333; font-weight: 800; box-shadow: 0 6px 14px rgba(255,195,0,.4); }
+  .accion.deshacer { background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--borde); }
   .accion:disabled { opacity: 0.5; }
-  .persona.voto .nombre::before { content: '✓ '; color: var(--exito); }
   .voto-hora { font-size: 0.8rem; color: var(--exito); font-weight: 600; margin-bottom: 6px; }
 
-  .vacio-app { text-align: center; color: var(--muted); padding: 30px 16px; font-size: 0.9rem; }
+  .vacio-app { text-align: center; color: var(--texto-2); padding: 30px 16px; font-size: 14px; }
   .estado-red { font-size: 0.8rem; color: var(--muted); text-align: center; margin: 0 0 10px; }
 
   #toast-deshacer {
     position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 950;
-    background: var(--navy); color: #fff; border-radius: 12px; padding: 12px 14px; display: none;
+    background: var(--texto); color: #fff; border-radius: 14px; padding: 12px 14px; display: none;
     align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem;
   }
-  #toast-deshacer button { background: #fff; color: var(--navy); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-family: inherit; }
-  #aviso-cola { display: none; background: #fdf3e0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 0.85rem; }
+  #toast-deshacer button { background: var(--marca-amarillo); color: #1b2333; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-family: inherit; }
+  #aviso-cola { display: none; background: var(--aviso-fondo); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -103,7 +103,7 @@
   </div>
 
   <div class="buscador-app campo-app">
-    <input type="search" id="buscador" placeholder="Buscar por nombre" autocomplete="off">
+    <input type="search" id="buscador" placeholder="Buscar por nombre" autocomplete="off" aria-label="Buscar por nombre">
   </div>
 
   <p class="estado-red" id="estado-red"></p>
@@ -256,7 +256,7 @@ async function pintarAvisoCola() {
     ${fall.length ? `<div style="color:#A93226; margin-top:${pend.length ? '8px' : '0'};">
       ⚠ ${fall.length === 1 ? '1 marca no se pudo subir' : fall.length + ' marcas no se pudieron subir'}:
       ${fall.map(f => `
-        <div style="margin-top:8px; padding-top:8px; border-top:1px solid #E5C27A;">
+        <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--marca-amarillo);">
           <strong>${esc(f.nombre || 'Votante ' + f.payload.votante_id)}</strong><br><span>${esc(f.error || 'error desconocido')}</span>
           <div style="display:flex; gap:8px; margin-top:6px;">
             <button type="button" class="btn-mini" data-reintentar="${esc(f.clienteUuid)}">Reintentar</button>
@@ -413,7 +413,7 @@ function filaPersona(p, g) {
     ? `<div class="sin-enlace">Sin enlace «Ya voté»: ${MOTIVOS_SIN_ENLACE[p.sin_enlace]}</div>` : '';
   return `
     <div class="persona ${votado ? 'voto' : ''}" data-id="${p.id}">
-      <div class="quien"><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span></div>
+      <div class="quien"><span class="avatar-lista" aria-hidden="true">${esc(inicialesDe(p.nombre))}</span><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span><span class="pildora ${votado ? 'ok' : 'aviso'}">${votado ? 'Votó' : 'Falta'}</span></div>
       <div class="tel">${tel ? esc(p.telefono) : 'Sin teléfono'}${p.no_contactar ? ' · no desea mensajes' : ''}</div>
       ${sinEnlace}
       ${votado ? `<div class="voto-hora">Votó a las ${horaDe(p.voto_en)}${p.origen === 'enlace' ? ' (avisó por su enlace)' : ''}</div>` : ''}
@@ -476,7 +476,7 @@ async function deshacer(id, nombre, clienteUuid) {
     await pintarAvisoCola();
     await cargar(true);
   } catch (err) {
-    alert(err.esErrorDeRed ? 'Sin señal: no se pudo deshacer ahora. Inténtalo de nuevo con conexión.' : (err.message || 'No se pudo deshacer.'));
+    mostrarToast(err.esErrorDeRed ? 'Sin señal: no se pudo deshacer ahora. Inténtalo de nuevo con conexión.' : (err.message || 'No se pudo deshacer.'), 'error');
   }
 }
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Mis solicitudes · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -14,17 +14,17 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* SOLICITUDES CIUDADANAS, «Mis solicitudes» (parche 303): lo que sigue en el celular sin subir, y lo que ya está en el servidor. */
-  .grupo-titulo { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 8px; }
-  .caja-sol { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; }
+  .grupo-titulo { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--marca-azul); margin: 18px 0 8px; }
+  .caja-sol { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 13px 14px; margin-bottom: 10px; }
   .caja-sol .arriba { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
   .caja-sol .cat { font-weight: 700; color: var(--navy); }
   .caja-sol .resumen { font-size: 0.9rem; margin: 6px 0; line-height: 1.35; }
   .caja-sol .meta { font-size: 0.78rem; color: var(--muted); }
-  .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: var(--cream); color: var(--navy); white-space: nowrap; border: 1px solid var(--linea); }
-  .etiqueta.pendiente { background: #fdf3e0; border-color: #ecd3a4; }
-  .etiqueta.fallida { background: #fbe9e7; border-color: #f2b8b3; color: var(--error); }
+  .etiqueta { display: inline-block; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--campo); color: var(--texto-2); white-space: nowrap; border: 0; }
+  .etiqueta.pendiente { background: var(--aviso-fondo); color: var(--aviso); }
+  .etiqueta.fallida { background: var(--error-fondo); color: var(--error); }
   .caja-sol .acciones { margin-top: 10px; display: flex; gap: 8px; }
-  .vacio-app { text-align: center; color: var(--muted); padding: 26px 8px; }
+  main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 </style>
 </head>
 <body>
@@ -33,7 +33,8 @@
 
 <main class="app-cuerpo">
   <div id="aviso" class="aviso-app"></div>
-  <button type="button" class="btn-app btn-app-primario" id="btn-nueva">+ Registrar una solicitud</button>
+  <!-- «Registrar una solicitud»: botón flotante. El id y el clic son los de siempre. -->
+  <button type="button" class="fab-app" id="btn-nueva" aria-label="Registrar una solicitud" title="Registrar una solicitud">+</button>
 
   <div id="bloque-pendientes" style="display:none;">
     <p class="grupo-titulo">En este celular, sin subir</p>

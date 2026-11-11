@@ -218,7 +218,7 @@
     var ops = '<option value="">Sin cambiar</option>' + puestos.map(function (p) { return '<option value="' + p.id + '" data-mesas="' + (p.cantidad_mesas || 0) + '">' + esc(p.nombre) + '</option>'; }).join('');
     hoja('<h2>Completar</h2><p class="pl-quien"><strong>' + esc(persona.nombre) + '</strong><br><span>' + esc(persona.barrio || 'Sin barrio') + ' · ' + faltaTexto(persona.falta) + '</span></p>' +
       '<div id="pl-error" class="pl-error" hidden></div>' +
-      '<div class="campo-app"><label for="pl-tel">Teléfono (10 dígitos)</label><input id="pl-tel" type="tel" inputmode="numeric" maxlength="14" autocomplete="off" placeholder="3001234567"></div>' +
+      '<div class="campo-app"><label for="pl-tel">Teléfono (10 dígitos)</label><input id="pl-tel" type="tel" inputmode="tel" maxlength="14" autocomplete="off" placeholder="3001234567"></div>' +
       '<div class="campo-app"><label for="pl-puesto">Puesto de votación</label><select id="pl-puesto">' + ops + '</select></div>' +
       '<div class="campo-app"><label for="pl-mesa">Mesa</label><select id="pl-mesa"><option value="">Sin cambiar</option></select><small>Elige primero el puesto.</small></div>' +
       '<button type="button" class="btn-app btn-app-primario" data-guardar-datos>Guardar</button>' +

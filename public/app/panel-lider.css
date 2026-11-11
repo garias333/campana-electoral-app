@@ -1,7 +1,7 @@
 /* Panel del líder (app/inicio.html). Usa las variables de estilos-app.css. */
 #panel-lider { margin: 0 0 18px; display: grid; gap: 12px; }
 #panel-lider[hidden] { display: none; }
-.pl-tarjeta { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; }
+.pl-tarjeta { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: var(--radio); padding: 14px 16px; }
 .pl-titulo { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .pl-etiqueta { background: #FFF3CD; color: #7A5A00; border-radius: 999px; padding: 1px 8px; font-size: 0.66rem; letter-spacing: 0.04em; }
 .pl-cifra { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
@@ -41,7 +41,7 @@ button.pl-pend:active { background: #E2EEFF; }
 .pl-miembro-cifra { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pl-boton { display: block; text-align: center; text-decoration: none; margin-top: 12px; box-sizing: border-box; }
 .pl-pie, .pl-sin-senal { font-size: 0.78rem; color: var(--muted); text-align: right; }
-.pl-sin-senal { background: #FFF3CD; color: #6B4A00; border: 1px solid #E5C27A; border-radius: 10px; padding: 8px 12px; text-align: left; font-weight: 600; }
+.pl-sin-senal { background: #FFF3CD; color: var(--aviso); border: 1px solid var(--marca-amarillo); border-radius: 10px; padding: 8px 12px; text-align: left; font-weight: 600; }
 
 /* Hoja inferior: lista de pendientes y formulario de «Completar» */
 .pl-hoja { position: fixed; inset: 0; background: rgba(10, 20, 35, 0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }

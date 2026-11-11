@@ -225,12 +225,104 @@ function pedirCambioClaveApp() {
 /** Arma la barra superior con botón de volver y título — igual en toda la app. */
 function pintarBarraApp(titulo, subtitulo, destinoVolver) {
   document.getElementById('app-barra').innerHTML = `
-    ${destinoVolver ? `<button class="volver" onclick="window.location.href='${destinoVolver}'">←</button>` : ''}
+    ${destinoVolver ? `<button class="volver" onclick="window.location.href='${destinoVolver}'" aria-label="Volver">‹</button>` : ''}
     <div>
       <h1>${titulo}</h1>
       ${subtitulo ? `<p class="subt">${subtitulo}</p>` : ''}
     </div>
   `;
+}
+
+/* ------------------------------------------------------------------
+   ERRORES JUNTO AL CAMPO Y AVISO FLOTANTE (rediseño del celular).
+
+   Reemplazan a alert() en los formularios de /app:
+     · mostrarErrorCampo(campo, mensaje)  — el error es de UN campo: se marca (borde y fondo rojos,
+       aria-invalid="true"), se escribe debajo con «⚠ » (aria-live="polite") y se lleva el foco y la
+       pantalla hasta el primero.
+     · limpiarErrores(form)               — quita todas las marcas y los textos de ese formulario.
+     · mostrarToast(texto, tipo)          — el error es general, o viene del servidor, o es un «Guardado»:
+       un aviso flotante de 3 s sobre la barra fija de abajo.
+   El texto del error se pone como ÚLTIMO hijo del contenedor del campo (.campo-app, o el mismo padre):
+   no cambia el orden de lo que ya hay, que es lo que miran pasos-formulario.js y las demás pantallas.
+   ------------------------------------------------------------------ */
+function limpiarErrorCampo(campo) {
+  if (!campo || !campo.removeAttribute) return;
+  campo.removeAttribute('aria-invalid');
+  campo.classList.remove('campo-error', 'pf-error');
+  const id = campo.dataset ? campo.dataset.errorId : null;
+  if (id) {
+    const msg = document.getElementById(id);
+    if (msg) msg.remove();
+    delete campo.dataset.errorId;
+  }
+}
+
+function limpiarErrores(form) {
+  const raiz = form || document;
+  raiz.querySelectorAll('[aria-invalid="true"], .campo-error, .pf-error').forEach(limpiarErrorCampo);
+  raiz.querySelectorAll('.error-campo').forEach((m) => m.remove());
+}
+
+function mostrarErrorCampo(campo, mensaje) {
+  if (typeof campo === 'string') campo = document.getElementById(campo);
+  if (!campo) { mostrarToast(mensaje, 'error'); return; }
+  limpiarErrorCampo(campo);
+  const esControl = /^(INPUT|SELECT|TEXTAREA|CANVAS)$/.test(campo.tagName);
+  if (esControl) { campo.setAttribute('aria-invalid', 'true'); campo.classList.add('campo-error'); }
+  /* Donde va el texto: tras la etiqueta que envuelve la casilla, o dentro del contenedor del campo. */
+  const envoltura = campo.closest('label');
+  const contenedor = campo.closest('.campo-app') || (envoltura && envoltura.parentElement) || campo.parentElement;
+  const msg = document.createElement('div');
+  msg.className = 'error-campo';
+  msg.id = 'err-' + Math.random().toString(36).slice(2, 9);
+  msg.setAttribute('aria-live', 'polite');
+  msg.textContent = '⚠ ' + mensaje;
+  if (contenedor) contenedor.appendChild(msg); else campo.insertAdjacentElement('afterend', msg);
+  campo.dataset.errorId = msg.id;
+  if (esControl) campo.setAttribute('aria-describedby', msg.id);
+  try { (envoltura || campo).scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* navegador viejo */ }
+  if (typeof campo.focus === 'function' && campo.tagName !== 'CANVAS') campo.focus({ preventScroll: true });
+}
+
+/* Al corregir un campo se le quita el error, sin esperar a que se vuelva a enviar. */
+['input', 'change'].forEach((ev) => document.addEventListener(ev, (e) => {
+  const c = e.target;
+  if (c && c.dataset && c.dataset.errorId) limpiarErrorCampo(c);
+}, true));
+
+function mostrarToast(texto, tipo) {
+  const viejo = document.getElementById('toast-app');
+  if (viejo) viejo.remove();
+  const el = document.createElement('div');
+  el.id = 'toast-app';
+  el.className = 'toast-app' + (tipo === 'ok' ? ' ok' : (tipo === 'error' ? ' error' : ''));
+  el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+  el.textContent = texto;
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 3000);
+}
+
+/* EL TECLADO Y LAS BARRAS FIJAS. En Chrome de Android el teclado achica la página y una barra fija sube sola; en
+   Safari de iPhone no: la barra se queda donde estaba, detrás del teclado. visualViewport sí dice cuánto se comió el
+   teclado, y las barras fijas lo suman a su `bottom` (variable --teclado de estilos-app.css). Sin visualViewport,
+   la variable queda en 0 y todo funciona como antes. */
+(function ajustarBarrasPorTeclado() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const medir = () => {
+    const tapado = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    document.documentElement.style.setProperty('--teclado', (tapado > 80 ? tapado : 0) + 'px');
+  };
+  vv.addEventListener('resize', medir);
+  vv.addEventListener('scroll', medir);
+  medir();
+})();
+
+/** Las iniciales (hasta 2) para el avatar de una fila de lista. */
+function inicialesDe(nombre) {
+  const partes = String(nombre || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  return partes.map((p) => p[0].toUpperCase()).join('') || '—';
 }
 
 /** Escapa texto antes de insertarlo como HTML (mismo criterio que el resto de la app). */

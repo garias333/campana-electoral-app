@@ -59,7 +59,7 @@ const LISTO = {
 function confirmacionDeBaja(accion) {
   return `<style>
   .caja h1 { font-size: 1.7rem; line-height: 1.2; }
-  #baja-boton { display: block; width: 100%; background: #10233F; color: #fff; border: 0; border-radius: 14px;
+  #baja-boton { display: block; width: 100%; background: var(--texto, #1b2333); color: #fff; border: 0; border-radius: 999px;
                 font-size: 1.2rem; font-weight: 800; line-height: 1.25; padding: 20px 16px; cursor: pointer; }
   #baja-boton:disabled { opacity: .65; cursor: default; }
 </style>

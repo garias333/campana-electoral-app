@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Registrar contacto · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -29,7 +29,7 @@
     <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion-exito">Cerrar sesión</button>
   </div>
 
-  <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
+  <div id="aviso-cola-offline" style="display:none; background:var(--aviso-fondo); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:0.85rem;"></div>
 
   <form id="form-registro" style="display:none;">
     <div class="aviso-app error" id="aviso-error"></div>
@@ -121,7 +121,7 @@
     <!-- Uno debajo del otro y no en dos columnas: con el micrófono delante, cada
          campo pierde 48px, y a media pantalla un correo se queda sin sitio para
          verse entero mientras se dicta. -->
-    <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" placeholder="300 123 4567" inputmode="numeric"></div>
+    <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" type="tel" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
     <div class="campo-app"><label for="f-email">Correo (opcional)</label><input id="f-email" type="email" autocomplete="off"></div>
     <div class="campo-app">
       <label for="f-direccion">Dirección de residencia</label>

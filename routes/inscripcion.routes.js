@@ -80,43 +80,45 @@ router.use(rateLimit({
 }));
 
 const CSS = `
+  /* Variables y piezas de /app/estilos-app.css (se carga antes, ver pagina()). Aquí solo lo propio de esta página. */
   *{box-sizing:border-box}
-  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#F3F5F8;color:#161B26;margin:0;padding:18px 14px 40px}
-  .caja{background:#fff;border-radius:16px;padding:24px 20px;max-width:460px;margin:0 auto;box-shadow:0 10px 34px rgba(16,35,63,.12)}
-  h1{font-size:1.3rem;color:#10233F;margin:0 0 6px}
-  .quien{color:#5B6472;font-size:.95rem;margin:0 0 18px;line-height:1.4}
-  p{font-size:1rem;line-height:1.55;color:#5B6472;margin:0 0 14px}
-  label{display:block;font-weight:600;font-size:.9rem;margin:14px 0 5px;color:#10233F}
-  label small{font-weight:400;color:#6B7280}
-  input[type=text],input[type=tel],input[type=email],input[type=number],select{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
-  input:focus,select:focus,button.gps:focus-visible{outline:2px solid #0B5ED7;outline-offset:1px}
-  .fila{display:flex;gap:10px}.fila>div{flex:1}
-  .acepto{display:flex;gap:10px;align-items:flex-start;margin:16px 0 4px;font-size:.92rem;line-height:1.4;color:#161B26;font-weight:400}
-  .acepto input{margin-top:3px;width:20px;height:20px;flex:none}
-  .canales{background:#F3F5F8;border-radius:10px;padding:10px 12px;margin:10px 0}
-  .canales .tit{font-size:.85rem;color:#5B6472;margin:0 0 6px}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--fondo,#f4f6fb);color:var(--texto,#1b2333);margin:0;padding:18px 14px 40px}
+  .caja{background:#fff;border-radius:var(--radio,18px);padding:24px 20px;max-width:460px;margin:0 auto;box-shadow:var(--sombra-flot,0 8px 24px rgba(8,66,152,.13))}
+  h1{font-size:1.3rem;font-weight:800;color:var(--marca-azul-osc,#084298);margin:0 0 6px}
+  .quien{color:var(--texto-2,#6a7590);font-size:.95rem;margin:0 0 18px;line-height:1.4}
+  p{font-size:1rem;line-height:1.55;color:var(--texto-2,#6a7590);margin:0 0 14px}
+  label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px;color:var(--texto,#1b2333)}
+  label small{font-weight:400;color:var(--texto-2,#6a7590)}
+  input[type=text],input[type=tel],input[type=email],input[type=number],input[type=search],select{display:block;width:100%;min-height:56px;font-size:16px;padding:14px;border:1.5px solid transparent;border-radius:var(--radio-campo,14px);background:var(--campo,#f1f4fa);color:var(--texto,#1b2333);font-family:inherit;-webkit-appearance:none;appearance:none}
+  select{padding-right:42px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;background-size:14px 9px}
+  input::placeholder{color:var(--texto-2,#6a7590);opacity:.8}
+  input:focus,select:focus{outline:none;background-color:#fff;border-color:var(--marca-azul,#0B5ED7);box-shadow:0 0 0 4px var(--foco-halo,rgba(11,94,215,.12))}
+  button.gps:focus-visible,a.btn-consulta:focus-visible{outline:3px solid var(--marca-azul,#0B5ED7);outline-offset:2px}
+  .fila{display:flex;gap:10px}.fila>div{flex:1;min-width:0}
+  @media (max-width:479px){.fila{flex-direction:column;gap:0}}
+  .acepto{display:flex;gap:10px;align-items:flex-start;margin:16px 0 4px;font-size:.92rem;line-height:1.4;color:var(--texto,#1b2333);font-weight:400}
+  .acepto input{margin-top:3px;width:22px;height:22px;min-height:0;flex:none;accent-color:var(--marca-azul,#0B5ED7)}
+  .canales{background:var(--campo,#f1f4fa);border-radius:var(--radio-campo,14px);padding:10px 12px;margin:10px 0}
+  .canales .tit{font-size:.85rem;color:var(--texto-2,#6a7590);margin:0 0 6px}
   .canales label{display:flex;gap:8px;align-items:center;font-weight:400;margin:6px 0;font-size:.92rem}
-  .canales input{width:18px;height:18px}
-  button.enviar{background:#1E6B44;color:#fff;border:0;border-radius:12px;width:100%;font-size:1.1rem;font-weight:800;padding:16px;cursor:pointer;margin-top:18px}
-  button.enviar:disabled{background:#8AA896}
-  a{color:#0B5ED7}
-  .error{background:#FDECEA;border:1px solid #E5A5A0;color:#8A1C13;border-radius:10px;padding:10px 12px;margin:0 0 14px;font-size:.92rem}
+  .canales input{width:20px;height:20px;min-height:0;accent-color:var(--marca-azul,#0B5ED7)}
+  button.enviar{display:flex;align-items:center;justify-content:center;background:var(--marca-amarillo,#FFC300);color:#1b2333;border:0;border-radius:999px;width:100%;min-height:54px;font-size:16.5px;font-weight:800;padding:12px 20px;cursor:pointer;margin-top:18px;box-shadow:0 8px 20px rgba(255,195,0,.4);font-family:inherit}
+  button.enviar:disabled{opacity:.6;box-shadow:none;cursor:not-allowed}
+  a{color:var(--marca-azul,#0B5ED7)}
+  .error{background:var(--error-fondo,#fff5f5);border:1px solid var(--error-borde,#e04848);color:var(--error,#c62828);border-radius:var(--radio-campo,14px);padding:10px 12px;margin:0 0 14px;font-size:.92rem}
   .error ul{margin:0;padding-left:18px}
-  .ok{color:#1E6B44;font-weight:700}
+  .ok{color:var(--ok,#1e6b2e);font-weight:700}
   .trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-  /* Título de sección: igual que «DATOS DE CONTACTO» de la ficha del votante (.encabezado-form): mayúsculas,
-     negrita, azul de la marca (#0B5ED7) y una línea fina debajo. */
-  h2.seccion{font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#0B5ED7;
-    border-bottom:1px solid #E2E5EA;padding-bottom:6px;margin:26px 0 4px}
+  /* Título de sección: 13px, 700, mayúsculas, azul de la marca y una línea fina debajo (igual que la app). */
+  h2.seccion{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--marca-azul,#0B5ED7);
+    border-bottom:1px solid var(--borde,#d5dcea);padding-bottom:6px;margin:26px 0 4px}
   h2.seccion.primero{margin-top:6px}
-  button.gps{background:#fff;color:#0B5ED7;border:2px solid #0B5ED7;border-radius:12px;width:100%;font-size:1rem;font-weight:700;padding:12px;cursor:pointer;margin:8px 0 4px}
+  button.gps{display:flex;align-items:center;justify-content:center;background:#fff;color:var(--marca-azul-osc,#084298);border:1.5px solid var(--borde,#d5dcea);border-radius:999px;width:100%;min-height:48px;font-size:1rem;font-weight:700;padding:12px;cursor:pointer;margin:8px 0 4px;font-family:inherit}
   button.gps:disabled{opacity:.6}
-  a.btn-consulta{display:block;text-align:center;text-decoration:none;background:#fff;color:#0B5ED7;border:2px solid #0B5ED7;border-radius:12px;font-size:1rem;font-weight:700;padding:13px 10px;margin:10px 0 4px;line-height:1.25}
-  a.btn-consulta:focus-visible{outline:2px solid #0B5ED7;outline-offset:2px}
-  input[type=search]{width:100%;font-size:16px;padding:12px;border:1px solid #C9D1DC;border-radius:10px;background:#fff;color:#161B26}
-  p.ayuda{font-size:.85rem;color:#6B7280;margin:0 0 4px;line-height:1.4}
-  .pie{font-size:.78rem;color:#6B7280;margin-top:16px;text-align:center}
-  .politica{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:#161B26}
+  a.btn-consulta{display:block;text-align:center;text-decoration:none;background:#fff;color:var(--marca-azul-osc,#084298);border:1.5px solid var(--borde,#d5dcea);border-radius:999px;font-size:1rem;font-weight:700;padding:13px 10px;margin:10px 0 4px;line-height:1.25}
+  p.ayuda{font-size:.85rem;color:var(--texto-2,#6a7590);margin:0 0 4px;line-height:1.4}
+  .pie{font-size:.78rem;color:var(--texto-2,#6a7590);margin-top:16px;text-align:center}
+  .politica{white-space:pre-wrap;font-size:.95rem;line-height:1.55;color:var(--texto,#1b2333)}
 `;
 
 function pagina({ titulo, cuerpo, ok = false, extra = '', head = '' }) {
@@ -126,6 +128,7 @@ function pagina({ titulo, cuerpo, ok = false, extra = '', head = '' }) {
 <meta name="referrer" content="no-referrer">
 ${head}
 <title>${esc(titulo)}</title>
+<link rel="stylesheet" href="/app/estilos-app.css">
 <style>${CSS}</style></head><body><div class="caja">
 <h1>${esc(titulo)}</h1><p${ok ? ' class="ok"' : ''}>${cuerpo}</p>${extra}
 </div></body></html>`;
@@ -254,6 +257,7 @@ async function formulario(enlace, { v: v0 = {}, errores = [], aviso = '' } = {})
 <meta name="referrer" content="no-referrer">
 ${metas}
 <title>Inscríbete</title>
+<link rel="stylesheet" href="/app/estilos-app.css">
 <style>${CSS}</style></head><body><div class="caja">
 <h1>Inscríbete</h1>
 <p class="quien">${quien}</p>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#142a3f">
+<meta name="theme-color" content="#0B5ED7">
 <title>Logística del puesto · Estrategia</title>
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
@@ -14,24 +14,24 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <style>
   /* Logística del Día D (orden 39): el coordinador de puesto marca qué recibió cada testigo. Pensada a 360 px. */
-  .franja-prueba { background: #fdf3e0; color: #8a5a00; border: 1px solid #e5c27a; border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none; }
-  .cola { background: #fdf3e0; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; display: none; }
+  .franja-prueba { background: var(--aviso-fondo); color: #8a5a00; border: 1px solid var(--marca-amarillo); border-radius: 10px; padding: 9px 12px; margin-bottom: 12px; font-size: 0.84rem; font-weight: 600; display: none; }
+  .cola { background: var(--aviso-fondo); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; display: none; }
   .resumen { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-  .resumen .cifra { flex: 1 1 90px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .resumen .cifra { flex: 1 1 90px; background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 10px 8px; text-align: center; }
   .resumen .cifra .n { font-size: 1.25rem; font-weight: 800; color: var(--navy); }
   .resumen .cifra .e { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
-  .testigo { background: #fff; border: 1px solid var(--linea); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  .testigo { background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 12px; margin-bottom: 12px; }
   .testigo .cab { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .testigo .ini { flex: 0 0 38px; height: 38px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
   .testigo .nombre { font-weight: 700; color: var(--navy); overflow-wrap: anywhere; line-height: 1.2; }
   .testigo .sub { font-size: 0.76rem; color: var(--muted); }
   .etq { display: inline-block; font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-right: 4px; background: #e8eef5; color: var(--navy); }
-  .etq.llego { background: #e7f4ea; color: var(--exito); } .etq.nollego { background: #fbe9e7; color: var(--error); }
+  .etq.llego { background: #e7f4ea; color: var(--exito); } .etq.nollego { background: var(--error-fondo); color: var(--error); }
   .item { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--linea); padding: 8px 0 0; margin-top: 8px; }
   .item .nom { flex: 1 1 auto; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
   .item .nom small { display: block; font-weight: 400; color: var(--muted); font-size: 0.74rem; }
   .item button { font-family: inherit; border-radius: 10px; font-weight: 700; cursor: pointer; }
-  .item .entregar { background: var(--copper); color: #fff; border: none; padding: 11px 12px; min-width: 104px; font-size: 0.9rem; }
+  .item .entregar { background: var(--marca-amarillo); color: #1b2333; font-weight: 800; border-radius: 999px; border: none; padding: 11px 12px; min-width: 104px; font-size: 0.9rem; }
   .item .foto { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 9px 10px; font-size: 1rem; }
   .item .hecho { color: var(--exito); font-weight: 800; font-size: 0.9rem; text-align: right; }
   .item .hecho button { background: none; border: none; color: var(--muted); font-size: 0.74rem; text-decoration: underline; padding: 2px 0 0; font-weight: 400; display: block; margin-left: auto; }
