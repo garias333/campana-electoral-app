@@ -36,7 +36,7 @@
     background: var(--fondo); padding: 10px max(14px, calc((100% - 532px) / 2)) calc(14px + env(safe-area-inset-bottom, 0px));
   }
   .form-tar .acciones .btn-app { flex: 1 1 0; min-width: 0; }
-  .form-tar > label { display: block; font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
+  .form-tar > label { display: block; font-size: 15px; font-weight: 700; line-height: 1.3; margin: 12px 0 7px; color: var(--texto); }
   .fotos-tar { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
   .fotos-tar .foto { position: relative; width: 84px; height: 84px; }
   .fotos-tar img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; border: 1px solid var(--linea); }
@@ -149,7 +149,7 @@ function formularioTermine(t) {
     <div class="fotos-tar" id="fotos-tar"></div>
     <button type="button" class="btn-app btn-app-secundario" id="btn-foto">📷 Agregar una foto</button>
     ${t.tipo !== 'entrega' ? `<button type="button" class="btn-app btn-app-secundario" id="btn-ubicacion" style="margin-top:8px;">📍 Usar mi ubicación</button><p class="meta" id="estado-ubicacion"></p>` : ''}
-    <div class="campo-app"><label for="f-nota">Nota (opcional)</label><textarea id="f-nota" rows="2" maxlength="500"></textarea></div>
+    <div class="campo-app"><label for="f-nota">Nota <span class="opc">(opcional)</span></label><textarea id="f-nota" rows="2" maxlength="500"></textarea></div>
     <div class="acciones"><button type="button" class="btn-app btn-app-primario" id="btn-guardar-termine">Guardar</button><button type="button" class="btn-app btn-app-secundario" id="btn-cancelar-form">Cancelar</button></div>
   </div>`;
 }

@@ -56,7 +56,7 @@
     <div class="seccion-titulo acento">Lugar de votación</div>
     <div class="campo-app">
       <label for="f-cedula">Número de identificación</label>
-      <input id="f-cedula" inputmode="numeric" autocomplete="off">
+      <input id="f-cedula" inputmode="numeric" autocomplete="off" placeholder="Solo números">
       <small id="cedula-estado" style="font-size:0.75rem;"></small>
     </div>
     <div id="bloque-consulta-lugar" class="boton-bajo-campo" style="margin:0 0 16px;">
@@ -72,7 +72,7 @@
       </div>
       <div class="campo-app">
         <label for="f-municipio-votacion">Municipio</label>
-        <input id="f-municipio-votacion" list="lista-municipios-votacion" autocomplete="off">
+        <input id="f-municipio-votacion" list="lista-municipios-votacion" autocomplete="off" placeholder="Escriba o elija el municipio">
         <datalist id="lista-municipios-votacion"></datalist>
       </div>
     </div>
@@ -92,7 +92,7 @@
     </div>
 
     <div class="seccion-titulo">Datos personales</div>
-    <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off"></div>
+    <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off" placeholder="Escriba nombres y apellidos"></div>
     <small id="duplicado-estado" style="display:block; margin:-10px 0 14px; color:#A93226;"></small>
     <div class="fila-app">
       <div class="campo-app">
@@ -122,7 +122,7 @@
          campo pierde 48px, y a media pantalla un correo se queda sin sitio para
          verse entero mientras se dicta. -->
     <div class="campo-app"><label for="f-telefono">Teléfono</label><input id="f-telefono" type="tel" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
-    <div class="campo-app"><label for="f-email">Correo (opcional)</label><input id="f-email" type="email" autocomplete="off"></div>
+    <div class="campo-app"><label for="f-email">Correo <span class="opc">(opcional)</span></label><input id="f-email" type="email" autocomplete="off"></div>
     <div class="campo-app">
       <label for="f-direccion">Dirección de residencia</label>
       <input id="f-direccion" placeholder="Ej. Calle 10 #5-20" autocomplete="off">
@@ -156,7 +156,7 @@
     </div>
 
     <div class="campo-app" id="campo-area">
-      <label>Área <small style="font-weight:400;">(opcional)</small></label>
+      <label>Área <span class="opc">(opcional)</span></label>
       <div class="chips-app" role="group" aria-label="Área">
         <button type="button" class="chip-app" id="chip-urbano" aria-pressed="false" onclick="elegirArea(areaActual === 'urbano' ? '' : 'urbano')">Urbano</button>
         <button type="button" class="chip-app" id="chip-rural" aria-pressed="false" onclick="elegirArea(areaActual === 'rural' ? '' : 'rural')">Rural</button>
@@ -166,31 +166,31 @@
     <div class="fila-app" id="fila-urbano" data-fila="urbano" style="display:none;">
       <div class="campo-app" id="campo-comuna-app" data-campo="comuna">
         <label for="f-comuna">Comuna</label>
-        <input id="f-comuna" list="lista-comunas" autocomplete="off">
+        <input id="f-comuna" list="lista-comunas" autocomplete="off" placeholder="Escriba o elija la comuna">
         <datalist id="lista-comunas"></datalist>
       </div>
       <div class="campo-app" id="campo-barrio-app" data-campo="barrio">
         <label for="f-barrio">Barrio</label>
-        <input id="f-barrio" list="lista-barrios" autocomplete="off">
+        <input id="f-barrio" list="lista-barrios" autocomplete="off" placeholder="Escriba o elija el barrio">
         <datalist id="lista-barrios"></datalist>
       </div>
     </div>
     <div class="fila-app" id="fila-rural" data-fila="rural" style="display:none;">
       <div class="campo-app" data-campo="corregimiento">
         <label for="f-corregimiento">Corregimiento</label>
-        <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off">
+        <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off" placeholder="Escriba o elija el corregimiento">
         <datalist id="lista-corregimientos"></datalist>
       </div>
       <div class="campo-app" data-campo="vereda">
         <label for="f-vereda">Vereda</label>
-        <input id="f-vereda" list="lista-veredas" autocomplete="off">
+        <input id="f-vereda" list="lista-veredas" autocomplete="off" placeholder="Escriba o elija la vereda">
         <datalist id="lista-veredas"></datalist>
       </div>
     </div>
 
     <div class="seccion-titulo">Referido y observaciones</div>
     <div class="campo-app">
-      <label for="f-observaciones">Observaciones (opcional)</label>
+      <label for="f-observaciones">Observaciones <span class="opc">(opcional)</span></label>
       <textarea id="f-observaciones" rows="3"></textarea>
     </div>
 

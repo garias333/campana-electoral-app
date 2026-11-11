@@ -229,14 +229,17 @@ body.inicio-con-cifras #panel-lider > .pl-tarjeta:first-child {
 }
 .pf-paso { margin-top: 0; }
 
-/* Por omisión la etiqueta va ARRIBA (13px, 700): así se ve también en un navegador viejo. */
+/* LA ETIQUETA VA SIEMPRE ARRIBA DEL CAMPO, grande y oscura (15px, 700, #1b2333). En el 320 se probó «dentro del recuadro»
+   (11,5 px, gris) y a Gildardo le quedó muy pequeña y desigual entre pantallas: se abandonó, y con ella todo lo de :has(). */
 .campo-app { margin-bottom: 16px; position: relative; }
-.campo-app label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 6px; color: var(--texto); }
+.campo-app label { display: block; position: static; font-size: 15px; font-weight: 700; line-height: 1.3; margin: 0 0 7px; color: var(--texto); }
+/* «(opcional)» y la ayuda corta dentro de la etiqueta: en la MISMA línea, más pequeños y más suaves. */
+.campo-app label small, label .opc { display: inline; margin: 0 0 0 4px; font-size: 13px; font-weight: 500; color: var(--texto-2); }
 .campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])), .campo-app select, .campo-app textarea {
   display: block;
   width: 100%;
-  min-height: 56px;
-  padding: 14px;
+  min-height: 52px;
+  padding: 0 14px;
   border: 1.5px solid transparent;
   border-radius: var(--radio-campo);
   font-size: 16px;
@@ -246,9 +249,9 @@ body.inicio-con-cifras #panel-lider > .pl-tarjeta:first-child {
   -webkit-appearance: none; appearance: none;
 }
 .campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]))::placeholder, .campo-app textarea::placeholder { color: var(--texto-2); opacity: .8; }
-.campo-app textarea { min-height: 96px; resize: vertical; field-sizing: content; }
+.campo-app textarea { min-height: 96px; padding: 12px 14px; resize: vertical; field-sizing: content; }
 .campo-app select {
-  padding-right: 42px;
+  padding: 0 42px 0 14px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 16px center; background-size: 14px 9px;
 }
@@ -262,24 +265,7 @@ body.inicio-con-cifras #panel-lider > .pl-tarjeta:first-child {
 .campo-app small { display: block; margin-top: 5px; font-size: 0.76rem; color: var(--texto-2); }
 .campo-app .error { color: var(--error); }
 
-/* ETIQUETA DENTRO DEL RECUADRO. Sin mover nada en el DOM: solo donde la etiqueta es el primer hijo del contenedor y
-   el campo va justo detrás (o la caja del micrófono que lo envuelve). Las etiquetas de casillas, las de chips y las
-   que van sueltas se quedan arriba. Necesita :has(); un navegador que no lo entienda se queda con la etiqueta arriba. */
-@supports selector(:has(*)) {
-  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)) > label {
-    position: absolute; top: 8px; left: 14px; z-index: 1;
-    margin: 0; font-size: 11.5px; font-weight: 600; color: var(--texto-2); line-height: 1.2;
-    pointer-events: none; max-width: calc(100% - 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)) :is(input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])), select, textarea) {
-    padding-top: 24px; padding-bottom: 8px;
-  }
-  .campo-app:has(> label:first-child + :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]), select, textarea, .campo-con-dictado)):focus-within > label { color: var(--marca-azul); }
-  /* El micrófono del dictado va A LA IZQUIERDA del campo (52 px + 8 de hueco): la etiqueta se corre para no quedar encima de él. */
-  .campo-app:has(> label:first-child + .campo-con-dictado) > label { left: 74px !important; max-width: calc(100% - 90px) !important; }
-}
-
-/* Casillas: no llevan etiqueta dentro; algo más grandes y azules. */
+/* Casillas: algo más grandes y azules. */
 .app-cuerpo input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--marca-azul); flex: none; }
 
 /* UN CAMPO CON ERROR. Lo marca mostrarErrorCampo() (app-comun.js) y lo desmarca limpiarErrores() o el propio teclear.

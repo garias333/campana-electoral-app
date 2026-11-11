@@ -87,10 +87,10 @@ const CSS = `
   h1{font-size:1.3rem;font-weight:800;color:var(--marca-azul-osc,#084298);margin:0 0 6px}
   .quien{color:var(--texto-2,#6a7590);font-size:.95rem;margin:0 0 18px;line-height:1.4}
   p{font-size:1rem;line-height:1.55;color:var(--texto-2,#6a7590);margin:0 0 14px}
-  label{display:block;font-weight:700;font-size:13px;margin:14px 0 6px;color:var(--texto,#1b2333)}
-  label small{font-weight:400;color:var(--texto-2,#6a7590)}
-  input[type=text],input[type=tel],input[type=email],input[type=number],input[type=search],select{display:block;width:100%;min-height:56px;font-size:16px;padding:14px;border:1.5px solid transparent;border-radius:var(--radio-campo,14px);background:var(--campo,#f1f4fa);color:var(--texto,#1b2333);font-family:inherit;-webkit-appearance:none;appearance:none}
-  select{padding-right:42px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;background-size:14px 9px}
+  label{display:block;font-weight:700;font-size:15px;line-height:1.3;margin:16px 0 7px;color:var(--texto,#1b2333)}
+  label small{display:inline;margin-left:4px;font-size:13px;font-weight:500;color:var(--texto-2,#6a7590)}
+  input[type=text],input[type=tel],input[type=email],input[type=number],input[type=search],select{display:block;width:100%;min-height:52px;font-size:16px;padding:0 14px;border:1.5px solid transparent;border-radius:var(--radio-campo,14px);background:var(--campo,#f1f4fa);color:var(--texto,#1b2333);font-family:inherit;-webkit-appearance:none;appearance:none}
+  select{padding:0 42px 0 14px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1.5l6 6 6-6' fill='none' stroke='%236a7590' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;background-size:14px 9px}
   input::placeholder{color:var(--texto-2,#6a7590);opacity:.8}
   input:focus,select:focus{outline:none;background-color:#fff;border-color:var(--marca-azul,#0B5ED7);box-shadow:0 0 0 4px var(--foco-halo,rgba(11,94,215,.12))}
   button.gps:focus-visible,a.btn-consulta:focus-visible{outline:3px solid var(--marca-azul,#0B5ED7);outline-offset:2px}
