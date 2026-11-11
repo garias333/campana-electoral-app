@@ -13,6 +13,8 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Push del 11 de noviembre de 2026 (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `a4c38f1..16f93fe  auditoria-fable -> auditoria-fable`** (incluye los commits del 320 y del 321). Los parches 320 y 321 siguen INACTIVOS en el panel de licencias; falta ponerlos en «seleccionadas» con solo la municipal (nunca la Base), activarlos y aplicarlos (el 320 antes que el 321; ambos requieren los anteriores ya aplicados en esa campaña).
+- **Último parche generado: 322** (`parches/campana-parche322.zip`, 94.247 bytes,
+  sha256 `657680e1beae5f21860d0cfd0774bf47d71c55a86b71bdd2ce03847058fdfcf3`, 9 archivos): «Etiquetas de los campos arriba y más grandes en la app del celular (Requiere el 321)». **GENERADO el 11 de noviembre de 2026 sobre `6d43caa`; los 9 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **LLEVA UN ARCHIVO DE SERVIDOR** (`routes/inscripcion.routes.js`, el CSS de `/i`): el aplicador reinicia la instancia siempre, así que no hace falta nada a mano. **Requiere el 321.** Service worker **`v193`**. Detalle en «Parche 322».
 - **Último parche generado: 321** (`parches/campana-parche321.zip`, 50.260 bytes,
   sha256 `b6c90e716205cb5a6b582fd0e4e58c12de02a0416a3a089b2170b24283d978ea`, 7 archivos): «Mis registros: botón Inscribir votante o sublíder y ajustes de las listas (Requiere el 320)». **GENERADO el 11 de noviembre de 2026 sobre `3a0bc1c`; los 7 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE».** **NO TOCA LA BASE.** **Solo estáticos** (`public/app/{mis-registros,faltantes,admin-estructura,admin-contenido}.html`, `estilos-app.css`, `service-worker.js` y `.version-base`): sin código de servidor (el aplicador reinicia igual, como siempre). **Requiere el 320.** Service worker **`v192`**. **PUBLICADO Y REGISTRADO el 11 de noviembre de 2026 desde esta cuenta (HTTP 200, firmado Ed25519, `toca_base_datos = false`, huella destino igual `b6c90e716205cb5a`): INACTIVO, distribución «todos» (la que nace por omisión): falta ponerlo en «seleccionadas» solo con la municipal, activarlo y aplicarlo.** Detalle en «Parche 321».
 - **El anterior, el 320** (`parches/campana-parche320.zip`, 268.025 bytes,
@@ -300,6 +302,19 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 322 — Etiquetas de los campos arriba y más grandes (11 de noviembre de 2026, GENERADO; NO TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR: `routes/inscripcion.routes.js`)
+
+*Orden «Rediseño celular 5». Gildardo, con el 320 en el celular: «El título de los campos es muy pequeño: Comuna, Barrio, etc.», y en el mismo paso «Área (opcional)» iba arriba y grande mientras Comuna/Barrio iban dentro y pequeñas.*
+
+- **Decisión: se abandona la etiqueta «dentro del recuadro» del 320** (11,5 px, gris; necesitaba `:has()`). TODAS las etiquetas de `/app` y de `/i` van ARRIBA del campo: **15 px, 700, `#1b2333`, margen 0 0 7 px, interlineado 1,3**; la del campo enfocado pasa a azul `#0B5ED7`. Se borró todo el bloque `@supports selector(:has(*))` y el corrimiento para el micrófono del dictado (ya no hace falta: el micrófono queda a la izquierda del campo y la etiqueta está encima).
+- **Campo**: 52 px de alto, relleno 0 14 px (sin el de 22 px arriba), letra 16 px; textarea relleno 12 14 y mínimo 96 px; select con flecha. Entre un campo y la etiqueta siguiente, 16 px.
+- **«(opcional)» y la ayuda corta**: en la MISMA línea, 13 px, peso 500, gris (`.opc` y `label small`). En `registro-votante.html`, `dia-d.html`, `mis-tareas.html` y `admin-contenido.html` el texto «(opcional)» pasó a `<span class="opc">`; en «Área» se quitó el `<small style="…">` que lo mandaba a otra línea. Sin tocar ids, `name` ni el orden del DOM.
+- **Placeholders cortos** (`registro-votante.html`) donde el campo quedaba vacío: Comuna, Barrio, Corregimiento, Vereda («Escriba o elija …»), Municipio de votación, Cédula («Solo números»), Nombre. **NO** se puso en Departamento de votación, Departamento de residencia ni Ciudad de residencia: la campaña les pone valor por defecto.
+- **`/i`** (inscripción por QR): mismas etiquetas (15 px, 700) y campos de 52 px. `/c`, `/v`, `/b` y `/t` no tienen campos.
+- Además: la etiqueta de «Foto» en Tareas y las de los mensajes en Mi enlace pasaron a 15 px.
+- **Service worker `v193`.**
+- **Pruebas** (arnés fuera del repo; mysqld privado): registro en 4 pasos con error de celular que sigue saliendo debajo del campo, con su votante de prueba borrado; Nueva solicitud, E-14, Tareas y filtros de administrador con todas las etiquetas arriba, 15 px, 700; «Área (opcional)» en una sola línea; pasada completa de 124 cargas sin desborde ni errores de consola. Capturas antes (321) en `capturas/321/` y `capturas/funcional-321/`; después en `capturas/despues/` y `capturas/funcional/`.
 
 ## Parche 321 — «Mis registros»: botón «Inscribir votante o sublíder» y dos ajustes de lista (11 de noviembre de 2026, PUBLICADO Y REGISTRADO INACTIVO; NO TOCA LA BASE; SOLO ESTÁTICOS; REQUIERE EL 320)
 
