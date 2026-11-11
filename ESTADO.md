@@ -12,7 +12,9 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
-- **Último parche generado: 319** (`parches/campana-parche319.zip`, 212.501 bytes,
+- **Último parche generado: 320** (`parches/campana-parche320.zip`, 268.025 bytes,
+  sha256 `2a97254695267e5118915011386cdb11409e3bbabc59eb44513caf1dc514a1f0`, 42 archivos): «Rediseño de la app del celular: colores de marca, inicio en mosaicos, campos y botones nuevos, errores junto al campo» (fase 1). **GENERADO el 11 de noviembre de 2026 sobre `dd7b5a5`; los 42 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (26 requires locales); sin arnés de pruebas, capturas, `.env` ni credenciales.** **NO TOCA LA BASE** (nada en `db/`). **Lleva código de servidor** (`routes/{inscripcion,confirmacion,yaVoto,transporte,baja}.routes.js`, `config/paginaBaja.js`): el aplicador (`scripts/actualizar-automatico.js`) hace `pm2 restart` SIEMPRE al terminar de aplicar cualquier parche, así que cada campaña se reinicia sola; comprobar después que el PID cambió. Es acumulativo sobre el 319 (el inicio usa los complementos del 318/319). Service worker **`v191`**. Detalle en «Parche 320, fase 1».
+- **El anterior, el 319** (`parches/campana-parche319.zip`, 212.501 bytes,
   sha256 `996b1d5cbcb5a596292ed63ddf3b0c0c08d44cfba676e4855e99c69a98e89bc3`, 25 archivos): «Faltan por votar como décimo complemento (Requiere el 318)». **GENERADO el 10 de noviembre de 2026; los 25 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (81 requires locales).** **TOCA LA BASE** (`db/init-db.js` y `db/schema.sql`: el `INSERT IGNORE` de la clave `faltan_por_votar` con `activo = 0`). **Requiere el 318.** Service worker **`v190`**. **PUBLICADO Y REGISTRADO el 10 de noviembre de 2026 (INACTIVO: falta distribución «seleccionadas», activarlo y aplicarlo desde el panel).** Detalle en «Parche 319».
 - **El anterior, el 318** (`parches/campana-parche318.zip`, 727.580 bytes,
   sha256 `d9925bf9963ad57ea1867731b1af370de38bfc92f9cfeea80ba848b5a65dca4f`, 68 archivos): «Activar complementos: interruptor general por campaña de nueve complementos (Requiere el 317)». **GENERADO el 10 de noviembre de 2026; los 68 archivos son idénticos a los del disco (cmp); `verificar-requires.js`: «TODO RESUELVE» (462 requires locales).** **TOCA LA BASE** (`db/init-db.js` y `db/schema.sql`: tabla `complementos_campana`, los nueve APAGADOS de fábrica; repetible y no pisa lo encendido). **Requiere el 317.** Service worker **`v189`**. **NO SE HA PUBLICADO NI REGISTRADO** (lo hace el usuario como root). Detalle y comandos en «Parche 318».
@@ -296,7 +298,7 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
-## Parche 320, fase 1 — Rediseño de la app del celular, propuesta 2 «Moderna con degradado» (11 de noviembre de 2026, COMMIT LOCAL, SIN EMPAQUETAR NI REGISTRAR; NO TOCA LA BASE)
+## Parche 320, fase 1 — Rediseño de la app del celular, propuesta 2 «Moderna con degradado» (11 de noviembre de 2026, GENERADO; NO TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR)
 
 *Orden «Rediseño celular 2». Solo la app `/app` (las 26 pantallas que cargan `estilos-app.css`) y las páginas públicas que se abren en el celular. El computador (`style.css`) va en otra orden. Gildardo lo revisa primero en su celular en la Base.*
 
