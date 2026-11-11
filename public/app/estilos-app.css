@@ -580,7 +580,7 @@ body.sin-corregimientos.sin-veredas [data-fila="rural"] { display: none !importa
 .nav-admin a .txt { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-admin a.activo { color: var(--marca-azul); }
 .nav-admin a.activo .ico { transform: translateY(-1px); }
-body.con-nav-admin main.app-cuerpo { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+body.con-nav-admin main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 .aviso-pasajero {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 80;

@@ -33,7 +33,6 @@
   .barra-relleno.supera { background: var(--exito); }
 
   /* El buscador (píldora con lupa) es la pieza común .buscador-app de estilos-app.css. */
-  main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   /* Cada persona registrada. Botón, no <div>: se toca, y el teclado lo alcanza. */
   .votante-item {
@@ -45,8 +44,9 @@
   .votante-item .datos { flex: 1; min-width: 0; }
   .votante-item .nombre {
     display: block; font-size: 14.5px; font-weight: 700; color: var(--texto);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    overflow-wrap: anywhere;    /* el nombre se parte en dos líneas en vez de cortarse con «…» */
   }
+  .votante-item .estado { display: block; margin-top: 5px; }
   .votante-item .tel { display: block; font-size: 12.5px; color: var(--texto-2); margin-top: 2px; }
   .votante-item .flecha { color: var(--marca-azul); font-size: 1.2rem; }
 
@@ -100,13 +100,13 @@
        style="display:none; margin-top:12px; text-decoration:none; box-sizing:border-box;">Avance de mis líderes →</a>
   </div>
 
-  <!-- «Registrar una persona»: botón flotante (círculo amarillo con «+», abajo a la derecha). El id y el clic son los de siempre. -->
-  <button type="button" class="fab-app" id="btn-nuevo-registro" aria-label="Registrar una persona" title="Registrar una persona">+</button>
-  <a class="btn-app btn-app-secundario" href="/app/mi-enlace.html"
-     style="display:block; margin:-6px 0 18px; text-decoration:none; text-align:center; box-sizing:border-box;">Mi enlace de inscripción (QR)</a>
+  <!-- «Inscribir votante o sublíder»: lleva al formulario de registro, que es UNO SOLO con el selector Votante/Sublíder
+       (registro-votante.html). El texto se ajusta a lo que ese formulario le deja elegir a cada quien (ver el final del script).
+       Reemplaza al botón flotante «+» y al enlace «Mi enlace de inscripción (QR)», que sigue en el inicio. -->
+  <a class="btn-app btn-app-primario" id="btn-inscribir" href="/app/registro-votante.html" style="margin:0 0 18px; text-decoration:none; box-sizing:border-box;"><span aria-hidden="true">➕</span>&nbsp;<span id="texto-inscribir">Inscribir votante o sublíder</span></a>
 
   <div class="buscador-app">
-    <input type="search" id="buscador" placeholder="Buscar por nombre, cédula o teléfono" autocomplete="off" aria-label="Buscar por nombre, cédula o teléfono">
+    <input type="search" id="buscador" placeholder="Nombre, cédula o teléfono" autocomplete="off" aria-label="Buscar por nombre, cédula o teléfono">
   </div>
 
   <div id="lista-votantes"></div>
@@ -249,10 +249,11 @@ function pintarVotantes(filas, reiniciar) {
       <div class="datos">
         <span class="nombre">${escaparAppHtml(v.nombre)}</span>
         <span class="tel">${v.telefono ? escaparAppHtml(formatoTelefonoColombia(v.telefono)) : 'Sin teléfono'}</span>
+        ${v.origen === 'enlace_lider'
+          ? `<span class="estado"><span class="pildora ${v.consentimiento_confirmado_en ? 'ok' : 'aviso'}">Por enlace · ${v.consentimiento_confirmado_en ? 'confirmado' : 'sin confirmar'}</span></span>`
+          : ''}
       </div>
-      ${v.origen === 'enlace_lider'
-        ? `<span class="pildora ${v.consentimiento_confirmado_en ? 'ok' : 'aviso'}">Por enlace · ${v.consentimiento_confirmado_en ? 'confirmado' : 'sin confirmar'}</span>`
-        : '<span class="flecha" aria-hidden="true">›</span>'}
+      <span class="flecha" aria-hidden="true">›</span>
     </button>
   `).join(''));
 
@@ -308,10 +309,6 @@ document.getElementById('btn-cargar-mas').addEventListener('click', () => {
   cargarVotantes(false);
 });
 
-document.getElementById('btn-nuevo-registro').addEventListener('click', () => {
-  window.location.href = '/app/registro-votante.html';
-});
-
 // Se espera a que deje de escribir: si no, cada letra dispara una consulta.
 let temporizadorBusqueda = null;
 document.getElementById('buscador').addEventListener('input', (e) => {
@@ -333,6 +330,12 @@ document.getElementById('buscador').addEventListener('input', (e) => {
     window.location.href = '/login.html';
   });
   pintarBarraApp('Mis registros', 'Personas que has registrado', '/app/inicio.html');
+  /* EL TEXTO DEL BOTÓN SIGUE LA MISMA REGLA DEL FORMULARIO (registro-votante.html): un sublíder no crea sublíderes, así que para él
+     es «Inscribir votante»; un aspirante registra Líderes (el formulario rotula la opción «Líder»); el resto, votante o sublíder.
+     No se amplía ni se quita nada: solo se dice lo mismo que el formulario va a ofrecer. */
+  const textoInscribir = document.getElementById('texto-inscribir');
+  if (usuario.rol === 'sublider') textoInscribir.textContent = 'Inscribir votante';
+  else if (usuario.es_aspirante_concejo || usuario.es_aspirante) textoInscribir.textContent = 'Inscribir votante o líder';
   await cargarProgreso(usuario);
   await cargarVotantes(true);
 })();

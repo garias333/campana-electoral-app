@@ -46,7 +46,8 @@
   .persona .quien .nombre { flex: 1; min-width: 0; }
   .persona .nombre { font-weight: 700; font-size: 14.5px; overflow-wrap: anywhere; }
   .persona .mesa { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
-  .persona .tel { font-size: 0.84rem; color: var(--muted); margin: 2px 0 8px; }
+  .persona .tel { font-size: 0.84rem; color: var(--muted); margin: 2px 0 4px; }
+  .persona .estado-persona { margin: 0 0 8px; }   /* la píldora va DEBAJO del teléfono: el nombre usa todo el ancho */
   .persona .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
   .accion {
     flex: 1 1 0; min-width: 84px; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; border: 0; border-radius: 999px;
@@ -413,8 +414,9 @@ function filaPersona(p, g) {
     ? `<div class="sin-enlace">Sin enlace «Ya voté»: ${MOTIVOS_SIN_ENLACE[p.sin_enlace]}</div>` : '';
   return `
     <div class="persona ${votado ? 'voto' : ''}" data-id="${p.id}">
-      <div class="quien"><span class="avatar-lista" aria-hidden="true">${esc(inicialesDe(p.nombre))}</span><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span><span class="pildora ${votado ? 'ok' : 'aviso'}">${votado ? 'Votó' : 'Falta'}</span></div>
+      <div class="quien"><span class="avatar-lista" aria-hidden="true">${esc(inicialesDe(p.nombre))}</span><span class="nombre">${esc(p.nombre)}</span><span class="mesa">${p.mesa ? 'Mesa ' + esc(p.mesa) : ''}</span></div>
       <div class="tel">${tel ? esc(p.telefono) : 'Sin teléfono'}${p.no_contactar ? ' · no desea mensajes' : ''}</div>
+      <div class="estado-persona"><span class="pildora ${votado ? 'ok' : 'aviso'}">${votado ? 'Votó' : 'Falta'}</span></div>
       ${sinEnlace}
       ${votado ? `<div class="voto-hora">Votó a las ${horaDe(p.voto_en)}${p.origen === 'enlace' ? ' (avisó por su enlace)' : ''}</div>` : ''}
       <div class="acciones">

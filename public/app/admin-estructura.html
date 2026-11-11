@@ -72,6 +72,8 @@
   .fi-acc a.wa { background: #25d366; border-color: #1fae54; color: #0b2a17; flex: 1.6; }
   .fi-acc button.del { flex: 0 0 46px; border-color: #e6b3ae; color: var(--error); }
 
+  /* Con el botón flotante «+» sobre la barra de abajo, la última fila no puede quedar debajo de él: 56 de la barra + 58 del botón + aire. */
+  body.con-nav-admin main.app-cuerpo { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--marca-amarillo); color: #1b2333; font-size: 28px; font-weight: 700; line-height: 58px; text-align: center; text-decoration: none; box-shadow: 0 8px 20px rgba(255,195,0,.5); }
 
   .capa { position: fixed; inset: 0; z-index: 90; background: rgba(10,25,45,.55); display: none; align-items: flex-end; justify-content: center; }

@@ -33,6 +33,8 @@
   .rc-acciones .comp:disabled { opacity: .6; }
   .rc-acciones .mas { flex: none; width: 40px; border-radius: 9px; border: 1.5px solid var(--linea); background: #fff; font-size: 1.1rem; cursor: pointer; font-family: inherit; }
 
+  /* Con el botón flotante «+» sobre la barra de abajo, la última fila no puede quedar debajo de él: 56 de la barra + 58 del botón + aire. */
+  body.con-nav-admin main.app-cuerpo { padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
   .fab { position: fixed; right: 16px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--marca-amarillo); color: #1b2333; font-size: 28px; font-weight: 700; line-height: 1; box-shadow: 0 8px 20px rgba(255,195,0,.5); cursor: pointer; }
 
   /* Hojas inferiores (subir, editar, menú) y visor */
