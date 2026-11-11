@@ -24,7 +24,7 @@
          diligenciar Cuentas Claras.</p>
     </div>
     <div class="topbar">
-      <div class="barra-unida">
+      <div class="barra-acciones">
         <a class="btn-secundario btn-sm sin-importar-exportar" data-ie="finanzas" href="/api/finanzas/exportar-cuentas-claras" target="_blank" title="Reporte de apoyo para diligenciar Cuentas Claras — no se sube directo al portal, hay que confirmar ahí los códigos vigentes.">⬇ Cuentas Claras</a>
         <button class="btn-acento" id="btn-nuevo">+ Registrar movimiento</button>
       </div>
@@ -123,7 +123,7 @@ async function cargarMovimientos() {
       <td>${f.descripcion || ''} ${f.tercero ? '· ' + f.tercero : ''}</td>
       <td class="mono col-num">${formatoMoneda(f.monto)}</td>
       <td>${f.comprobante_url ? `<a href="${f.comprobante_url}" target="_blank">Ver</a>` : '—'}</td>
-      <td>${usuarioActual.rol === 'admin' ? `<button class="btn-secundario btn-sm" onclick="eliminarMovimiento(${f.id})">Eliminar</button>` : ''}</td>
+      <td>${usuarioActual.rol === 'admin' ? `<button class="btn-peligro btn-sm" onclick="eliminarMovimiento(${f.id})">Eliminar</button>` : ''}</td>
     </tr>
   `).join('');
 }

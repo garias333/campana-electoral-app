@@ -18,7 +18,7 @@
          y quién las trajo.</p>
     </div>
     <div class="topbar">
-      <div class="barra-unida">
+      <div class="barra-acciones">
         <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes" id="btn-exportar-excel-votantes" href="/api/votantes/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
         <label class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes"
                title="Para actualizar contactos ya existentes: exporta, edita en Excel SIN borrar la columna ID, y vuelve a importar ese mismo archivo. Si borras el ID de una fila (o la dejas vacía), esa fila crea un contacto nuevo.">
@@ -27,7 +27,7 @@
         </label>
         <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
         <button class="btn-secundario btn-sm" id="btn-regeocodificar-votantes-todos"  title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
-        <button class="btn-secundario btn-sm" id="btn-eliminar-votantes">🗑 Eliminar registros</button>
+        <button class="btn-peligro btn-sm" id="btn-eliminar-votantes">🗑 Eliminar registros</button>
         <button class="btn-secundario btn-sm" id="btn-whatsapp-lote"
                 title="Abre el chat de cada persona del filtro con el mensaje ya escrito">💬 Escribir por WhatsApp</button>
         <button class="btn-acento" id="btn-nuevo">+ Nuevo votante o sublíder</button>
@@ -1294,7 +1294,7 @@ async function cargarVotantes() {
       <td class="col-acciones">
         ${puedeEditar(usuarioActual, 'votantes') ? `
         <button class="btn-secundario btn-sm" onclick='editarVotante(${JSON.stringify(v).replace(/'/g, "&apos;")})'>Editar</button>
-        <button class="btn-secundario btn-sm" onclick="eliminarVotante(${v.id})">Eliminar</button>` : ''}
+        <button class="btn-peligro btn-sm" onclick="eliminarVotante(${v.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `;

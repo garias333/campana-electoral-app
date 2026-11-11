@@ -57,7 +57,7 @@
          admin— el otro pasa solo a la primera columna: la rejilla no deja el
          hueco, porque un elemento oculto no ocupa celda. -->
     <div class="grid grid-6" style="margin-bottom:18px;">
-      <button class="btn-secundario btn-accion-diad" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
+      <button class="btn-peligro btn-accion-diad" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
       <a class="btn-acento btn-accion-diad" href="/reportes-puesto.html">📍 Reportes por puesto de votación</a>
     </div>
 
@@ -368,7 +368,7 @@ function celdaAlertas(alertas) {
 
 /** Botón "Eliminar" por fila — solo se pinta si es admin (mismo criterio que el botón de "eliminar todos"). */
 function celdaEliminarReporte(id) {
-  return esAdmin ? `<button class="btn-secundario btn-sm"  onclick="eliminarReporte(${id})">Eliminar</button>` : '';
+  return esAdmin ? `<button class="btn-peligro btn-sm"  onclick="eliminarReporte(${id})">Eliminar</button>` : '';
 }
 
 /** Borra un solo reporte — pide la contraseña de un administrador, igual que cualquier borrado en esta app. */

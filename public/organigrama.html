@@ -399,7 +399,7 @@
          diagrama, como lista o como tabla, y sale a Word o a PDF.</p>
     </div>
     <div class="topbar">
-      <div class="barra-unida">
+      <div class="barra-acciones">
         <div class="grupo-pestanas">
           <button type="button" class="btn-secundario btn-sm" id="btn-vista-diagrama">🗂️ Diagrama</button>
           <button type="button" class="btn-secundario btn-sm" id="btn-vista-lista">☰ Lista</button>
@@ -760,7 +760,7 @@ function renderizarTablaPorCargo() {
               <button class="btn-secundario btn-sm ${claseIE('organigrama')}" data-ie="organigrama" onclick="imprimirCargo(${n.id})" title="Imprimir ficha de este cargo">🖨️</button>
               ${puedeEditar ? `
                 <button class="btn-secundario btn-sm" onclick="editarNodo(${n.id})">Editar</button>
-                <button class="btn-secundario btn-sm" onclick="eliminarNodo(${n.id})">Eliminar</button>
+                <button class="btn-peligro btn-sm" onclick="eliminarNodo(${n.id})">Eliminar</button>
               ` : ''}
             </td>
           </tr>
@@ -888,7 +888,7 @@ function renderizarNodoLista(nodo) {
             <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'subordinado')">+ Subordinado</button>
             <button class="btn-secundario btn-sm" onclick="abrirFormOrg(null, ${nodo.id}, '${cargoEscapado}', 'asesor')">+ Asesor</button>
             <button class="btn-secundario btn-sm" onclick="editarNodo(${nodo.id})">Editar</button>
-            <button class="btn-secundario btn-sm" onclick="eliminarNodo(${nodo.id})">Eliminar</button>` : ''}
+            <button class="btn-peligro btn-sm" onclick="eliminarNodo(${nodo.id})">Eliminar</button>` : ''}
             ${botonWhatsAppOrg(nodo)}
           </div>` : ''}
       </div>

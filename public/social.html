@@ -103,7 +103,7 @@ async function cargarPublicaciones() {
       <td>${p.fecha_programada ? formatoFecha(p.fecha_programada, true) : '—'}</td>
       <td>${etiquetasEstadoPub[p.estado]}</td>
       <td class="mono col-num">${p.metricas_alcance || 0}</td>
-      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarPub(${p.id})">Eliminar</button>` : ''}</td>
+      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-peligro btn-sm" onclick="eliminarPub(${p.id})">Eliminar</button>` : ''}</td>
     </tr>
   `).join('');
 }
@@ -120,7 +120,7 @@ async function cargarMenciones() {
       <td style="max-width:360px;">${m.texto}${m.url ? ` <a href="${m.url}" target="_blank">↗</a>` : ''}</td>
       <td><span class="badge badge-${estiloSentimiento[m.sentimiento]}"><span class="punto"></span>${m.sentimiento}</span></td>
       <td>${formatoFecha(m.fecha_deteccion, true)}</td>
-      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-secundario btn-sm" onclick="eliminarMencion(${m.id})">Eliminar</button>` : ''}</td>
+      <td>${['admin', 'coordinador'].includes(usuarioActual.rol) ? `<button class="btn-peligro btn-sm" onclick="eliminarMencion(${m.id})">Eliminar</button>` : ''}</td>
     </tr>
   `).join('');
 }

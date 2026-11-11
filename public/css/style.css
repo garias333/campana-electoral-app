@@ -667,6 +667,7 @@ button, .btn, .btn-primario, .btn-secundario, .btn-acento, .btn-peligro {
   line-height: 1.3;
   text-align: center;
   padding: 14px 16px;
+  border-radius: 18px;   /* parche 324: con la píldora de 999px un texto de 3 líneas quedaba como una mancha redonda */
 }
 
 /* EL CONTROL DE NUMERACION DE CADA BLOQUE, en su cabecera.
@@ -1911,39 +1912,29 @@ body.sin-columna-ciudad .col-ciudad { display: none; }
 }
 
 
-/* Botones de acción DENTRO de una fila de tabla: Editar, Eliminar, Ver…
-   Van en el amarillo de la marca, no en el azul de la barra de arriba, y la
-   diferencia no es capricho: los de arriba actúan sobre la pantalla entera
-   —exportar, re-geocodificar— y estos sobre UNA fila. Que se distingan de un
-   vistazo evita el clic equivocado.
-
-   Letra y borde en #084298 y no en blanco: sobre este amarillo el blanco da
-   1,6:1 y es ilegible; el azul da 5,8:1.
-
-   El ancla es "dentro de una celda", no una clase: solo dos pantallas usan
-   .col-acciones, pero estos botones aparecen en Votantes, Estructura,
-   Configuración, Eventos, Recursos y varias más. Lo que tienen en común es
-   estar en una fila. */
+/* Botones de acción DENTRO de una fila de tabla: Editar, Ver…
+   PARCHE 324: secundario pequeño —blanco, borde --borde, letra azul oscura—, no el amarillo con borde negro de antes. El amarillo
+   queda para la acción principal de la pantalla; estos actúan sobre UNA fila y se repiten en cada una. «Eliminar» va aparte, en
+   rojo (`.btn-peligro`, abajo). El ancla es "dentro de una celda", no una clase: estos botones aparecen en Votantes, Testigos,
+   Configuración, Eventos, Recursos y varias más. Cualquier variante (primario, acento) dentro de una celda se ve igual. */
 table td .btn-secundario,
-table td .btn-primario {
-  background: var(--color-accent);
-  /* Letra y borde negros: sobre el amarillo dan 13,6:1, el mayor contraste
-     de toda la aplicación, y en un botón pequeño eso es lo que decide si se
-     alcanza a leer. El borde va fino y explícito —el `border` base es de
-     1px pero en color transparente— para que el botón no engorde. */
-  border: 1px solid #000;
-  color: #000;
-  /* Más chicos que los de la barra de arriba: son acciones sobre UNA fila y
-     se repiten en cada una, así que ocupan menos y dejan respirar la tabla. */
-  padding: 5px 12px;
+table td .btn-primario,
+table td .btn-acento {
+  background: #fff;
+  border: 1.5px solid var(--borde);
+  color: var(--marca-azul-osc);
+  font-weight: 700;
+  padding: 4px 12px;
   font-size: 0.8rem;
 }
 table td .btn-secundario:hover,
-table td .btn-primario:hover {
-  background: #E6AF00;
-  border-color: #000;
-  color: #000;
+table td .btn-primario:hover,
+table td .btn-acento:hover {
+  background: var(--campo);
+  border-color: var(--marca-azul-osc);
+  color: var(--marca-azul-osc);
 }
+table td .btn-peligro { padding: 4px 12px; font-size: 0.8rem; }
 
 
 /* --- Autorización de tratamiento de datos, como evidencia ----------------
@@ -2453,7 +2444,8 @@ tbody td { border-bottom: 1px solid var(--borde); }
 }
 
 /* --- Modal LARGO (votantes, estructura territorial): encabezado y pie FIJOS, cuerpo con su propio desplazamiento.
-       Lo arma armarModalLargo() de common.js. En el celular (< 640px) ocupa toda la pantalla. --- */
+       Lo arma armarModalLargo() de common.js. Desde 900px es de PESTAÑAS (una sección a la vez); por debajo, secciones seguidas
+       y, desde 640px, una ventana; en el celular (< 640px) ocupa toda la pantalla. --- */
 .modal.modal-largo {
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
   max-width: 760px; max-height: 90vh; max-height: 90dvh;
@@ -2464,31 +2456,48 @@ tbody td { border-bottom: 1px solid var(--borde); }
 .modal-largo > form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin: 0; }
 .modal-largo .modal-cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px 18px; overscroll-behavior: contain; scroll-behavior: smooth; }
 .modal-largo .modal-pie {
-  flex: none; display: flex; justify-content: flex-end; gap: 10px;
+  flex: none; display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 12px 24px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--borde); background: #fff;
 }
-.modal-largo .modal-pie > button { margin: 0; }
-.modal-largo .modal-pie > button[type="submit"] { min-width: 150px; }
+.modal-largo .pie-acciones { display: flex; gap: 10px; margin-left: auto; }
+.modal-largo .pie-nav { display: none; gap: 10px; }
+.modal-largo .modal-pie button { margin: 0; }
+.modal-largo .modal-pie button[type="submit"] { min-width: 150px; }
 .form-seccion { scroll-margin-top: 6px; }
 .form-seccion + .form-seccion { margin-top: 6px; }
-/* Índice de secciones: una barra de pestañas con anclas, solo en pantallas anchas (≥ 900px). */
+/* Barra de secciones: solo en pantallas anchas (≥ 900px). Sin barra de desplazamiento ni flechas: si las pestañas no caben pasan a otra fila. */
 .modal-indice {
-  display: none; flex: none; gap: 4px; padding: 8px 24px 0; overflow-x: auto; white-space: nowrap;
+  display: none; flex: none; flex-wrap: wrap; gap: 2px; padding: 6px 24px 0;
   border-bottom: 1px solid var(--borde); background: #fff;
+  overflow: hidden; scrollbar-width: none; -ms-overflow-style: none;
 }
+.modal-indice::-webkit-scrollbar { display: none; }
 @media (min-width: 900px) { .modal-indice { display: flex; } }
 .modal-indice a {
-  padding: 8px 12px; font-size: 13px; font-weight: 700; text-decoration: none; color: var(--texto-2);
-  border-bottom: 3px solid transparent; margin-bottom: -1px;
+  padding: 9px 14px; font-size: 13.5px; font-weight: 600; text-decoration: none; color: var(--texto-2);
+  border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap;
 }
-.modal-indice a:hover { color: var(--marca-azul); }
-.modal-indice a.activa { color: var(--marca-azul); border-bottom-color: var(--marca-amarillo); }
+.modal-indice a:hover { color: var(--marca-azul-osc); }
+.modal-indice a.activa { color: var(--marca-azul-osc); font-weight: 700; border-bottom-color: var(--marca-amarillo); }
+/* Una pestaña con un error lleva un punto rojo. */
+.modal-indice a.con-error::after {
+  content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%;
+  background: var(--error); vertical-align: middle; position: relative; top: -1px;
+}
+/* CON PESTAÑAS: una sola sección a la vista y un tamaño que no salta de una pestaña a otra. */
+@media (min-width: 900px) {
+  .modal.modal-largo.modal-con-pestanas { max-width: 880px; height: 90vh; height: min(90dvh, 740px); }
+  .modal-con-pestanas .pie-nav { display: flex; }
+  /* El título de apartado que abre cada sección repite el nombre de su pestaña: se oculta (!important: algunos los muestra y oculta el JS de la página). */
+  .modal-con-pestanas .form-seccion > .encabezado-form:first-child { display: none !important; }
+}
 @media (max-width: 639px) {
   .overlay:has(> .modal-largo) { padding: 0; align-items: stretch; }
   .modal.modal-largo { max-width: none; width: 100%; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; }
   .modal-largo > .modal-header, .modal-largo .modal-cuerpo, .modal-largo .modal-pie { padding-left: 16px; padding-right: 16px; }
   .modal-largo > .mensaje-error, .modal-largo > .mensaje-ok { margin-left: 16px; margin-right: 16px; }
-  .modal-largo .modal-pie > button { flex: 1; }
+  .modal-largo .pie-acciones { flex: 1; }
+  .modal-largo .pie-acciones > button { flex: 1; }
 }
 
 /* --- Páginas sueltas (recuperar y restablecer contraseña): tarjeta centrada sobre --fondo, con la barra superior en --degradado.
@@ -2524,3 +2533,9 @@ input[type="file"] {
 
 /* Las columnas de una fila de formulario se pueden encoger (un datetime-local o un campo largo ensanchaba la suya y se salía del modal). */
 .fila > *, .fila-territorio > * { min-width: 0; }
+
+/* --- BARRA DE ACCIONES (parche 324): reemplaza a `.barra-unida` en las barras de arriba de Votantes, Testigos, Finanzas y Organigrama.
+       Los botones van sueltos y con su estilo: la acción principal amarilla (`.btn-acento`), las demás blancas con borde (`.btn-secundario`)
+       y las destructivas en rojo (`.btn-peligro`). `.barra-unida` sigue existiendo para los filtros en cápsula del Mapa y de Recursos. --- */
+.barra-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.btn-accion-crm { border-radius: 999px; }

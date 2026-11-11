@@ -2073,6 +2073,12 @@ document.addEventListener('DOMContentLoaded', () => {
        aviso flotante de 3 s. tipo: 'ok' | 'error' | (nada = neutro).
    El texto va como ÚLTIMO hijo del contenedor del campo: no cambia el orden de lo que ya hay.
    ====================================================================== */
+/* Los modales largos con pestañas (armarModalLargo) se anotan aquí para que un error en una pestaña que no se ve
+   pueda llevar a esa pestaña (`revelar`) y para que cada pestaña con errores lleve su punto rojo (`refrescar`). */
+const MODALES_LARGOS = [];
+function revelarCampoEnModales(campo) { MODALES_LARGOS.forEach((m) => m.revelar(campo)); }
+function refrescarModalesLargos() { MODALES_LARGOS.forEach((m) => m.refrescar()); }
+
 function limpiarErrorCampo(campo) {
   if (!campo || !campo.removeAttribute) return;
   campo.removeAttribute('aria-invalid');
@@ -2084,12 +2090,15 @@ function limpiarErrorCampo(campo) {
     delete campo.dataset.errorId;
     campo.removeAttribute('aria-describedby');
   }
+  if (campo.dataset) delete campo.dataset.pestanaInvalida;
+  refrescarModalesLargos();
 }
 
 function limpiarErrores(form) {
   const raiz = form || document;
   raiz.querySelectorAll('[aria-invalid="true"], .campo-error, .pf-error').forEach(limpiarErrorCampo);
   raiz.querySelectorAll('.error-campo').forEach((m) => m.remove());
+  refrescarModalesLargos();
 }
 
 /* UN ERROR TERMINA EL «GUARDANDO…». activarAvisoBotonesGuardar() pone el botón en «Guardando…» (y lo desactiva) al enviar, y solo lo
@@ -2116,6 +2125,8 @@ function mostrarErrorCampo(campo, mensaje) {
   if (contenedor) contenedor.appendChild(msg); else campo.insertAdjacentElement('afterend', msg);
   campo.dataset.errorId = msg.id;
   if (esControl) campo.setAttribute('aria-describedby', msg.id);
+  revelarCampoEnModales(campo);                  // si está en una pestaña que no se ve, se cambia a ella ANTES de enfocar
+  refrescarModalesLargos();
   try { (envoltura || campo).scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* navegador viejo */ }
   if (typeof campo.focus === 'function' && campo.tagName !== 'CANVAS') campo.focus({ preventScroll: true });
 }
@@ -2147,11 +2158,23 @@ function mostrarToast(texto, tipo) {
 /* Un error que viene del servidor (o de una resolución con varios campos posibles): si el texto nombra un campo que
    está a la vista, el error sale JUNTO a ese campo; si no, sale como aviso flotante. `reglas` es una lista de
    [expresión regular, selector del campo] y gana la primera cuyo campo existe y se ve. */
+/* ¿El campo se vería si su pestaña estuviera abierta? Un campo en una pestaña que no es la actual cuenta como a la vista;
+   uno dentro de un bloque oculto (display:none) no. */
+function campoALaVista(campo) {
+  if (campo.offsetParent !== null) return true;
+  const seccion = campo.closest('.form-seccion[hidden]');
+  if (!seccion) return false;
+  for (let n = campo; n && n !== seccion; n = n.parentElement) {
+    if (getComputedStyle(n).display === 'none') return false;
+  }
+  return true;
+}
+
 function mostrarErrorSegunMensaje(mensaje, reglas) {
   for (const [patron, selector] of (reglas || [])) {
     if (!patron.test(mensaje)) continue;
     const campo = document.querySelector(selector);
-    if (campo && campo.offsetParent !== null) { mostrarErrorCampo(campo, mensaje); return; }
+    if (campo && campoALaVista(campo)) { mostrarErrorCampo(campo, mensaje); return; }
   }
   mostrarToast(mensaje, 'error');
 }
@@ -2165,18 +2188,21 @@ function mostrarErrorSegunMensaje(mensaje, reglas) {
      · Envuelve en <section class="form-seccion"> los GRUPOS CONTIGUOS de hijos del <form>
        que arrancan en cada `secciones[i].desde` (un selector de un campo de esa sección).
        Lo que haya antes de la primera sección se une a ella.
+       `desde` es un selector de un campo del apartado o «texto:…» (el título de apartado que empieza así);
+       con `encabezado: true` se le pone un título al apartado que no lo traía.
      · Pone el cuerpo (todas las secciones) en un contenedor con desplazamiento propio, y
        deja FIJOS el encabezado (arriba) y el pie (abajo) con «Cancelar» y «Guardar».
        `guardar` es el MISMO botón submit de siempre (se mueve al pie, no se copia).
-       `desde` es un selector de un campo del apartado o «texto:…» (el título de apartado que empieza así);
-       con `encabezado: true` se le pone un título al apartado que no lo traía.
-     · Una barra de pestañas con anclas (solo ≥ 900px, lo decide el CSS) que lleva con
-       desplazamiento suave a cada sección y marca la que se está viendo.
+     · PESTAÑAS DE VERDAD (parche 324), en pantallas de 900 px o más: una barra de pestañas muestra UNA sección a la vez; las
+       demás quedan con `hidden` DENTRO del <form> (siguen enviándose al guardar). El pie suma «← Anterior» y «Siguiente →».
+       Por debajo de 900 px las secciones van una debajo de otra, como en el 323.
+     · Un error en una pestaña que no se ve: el `invalid` nativo y mostrarErrorCampo() (que llama a `revelar`) cambian a esa
+       pestaña ANTES de enfocar el campo, y cada pestaña con errores lleva un punto rojo (`refrescar`).
      · «Cancelar», la «×» y Esc cierran con la MISMA función de siempre (hacen clic en `cerrar`);
        si hay cambios sin guardar, preguntan antes con confirm(). Un cambio es una pulsación,
        un `input` o un `change` hecho por la PERSONA (isTrusted): lo que rellena el código al
        abrir una ficha no cuenta.
-     · Al abrir (la clase `abierto` del overlay) se empieza arriba y el foco va al primer campo.
+     · Al abrir (la clase `abierto` del overlay) se empieza en la primera pestaña y el foco va al primer campo.
    Devuelve true si armó el modal; si algo no existe lo deja como estaba y devuelve false.
    ---------------------------------------------------------------------- */
 function armarModalLargo(op) {
@@ -2232,6 +2258,7 @@ function armarModalLargo(op) {
 
   const indice = document.createElement('nav');
   indice.className = 'modal-indice';
+  indice.setAttribute('role', 'tablist');
   indice.setAttribute('aria-label', 'Secciones del formulario');
   secciones.forEach((sec) => {
     const a = document.createElement('a');
@@ -2243,12 +2270,22 @@ function armarModalLargo(op) {
 
   const pie = document.createElement('div');
   pie.className = 'modal-pie';
+  const nav = document.createElement('div');
+  nav.className = 'pie-nav';
+  const btnAnterior = document.createElement('button');
+  btnAnterior.type = 'button'; btnAnterior.className = 'btn-secundario'; btnAnterior.textContent = '← Anterior';
+  const btnSiguiente = document.createElement('button');
+  btnSiguiente.type = 'button'; btnSiguiente.className = 'btn-secundario'; btnSiguiente.textContent = 'Siguiente →';
+  nav.append(btnAnterior, btnSiguiente);
+  const acciones = document.createElement('div');
+  acciones.className = 'pie-acciones';
   const btnCancelar = document.createElement('button');
   btnCancelar.type = 'button';
   btnCancelar.className = 'btn-secundario';
   btnCancelar.textContent = 'Cancelar';
   if (!guardar.classList.contains('btn-primario')) guardar.classList.add('btn-primario');
-  pie.append(btnCancelar, guardar);                   // el submit de siempre, ahora siempre visible
+  acciones.append(btnCancelar, guardar);              // el submit de siempre, ahora siempre visible
+  pie.append(nav, acciones);
 
   form.append(indice, cuerpo, pie);
   modal.classList.add('modal-largo');
@@ -2263,7 +2300,10 @@ function armarModalLargo(op) {
 
   /* ---- cambios sin guardar ---- */
   let sucio = false;
-  const marcar = (e) => { if (e.isTrusted) sucio = true; };
+  const marcar = (e) => {
+    if (e.isTrusted) sucio = true;
+    if (e.target && e.target.dataset && e.target.dataset.pestanaInvalida) { delete e.target.dataset.pestanaInvalida; refrescar(); }
+  };
   form.addEventListener('input', marcar, true);
   form.addEventListener('change', marcar, true);
   form.addEventListener('reset', () => { sucio = false; });   // «Guardado, y a empezar otro» (form.reset()): ya no hay nada sin guardar
@@ -2286,8 +2326,52 @@ function armarModalLargo(op) {
     cerrarBtn.click();
   });
 
-  /* ---- índice: anclas con desplazamiento suave y sección activa ---- */
-  const saltar = (sec) => {
+  /* ---- pestañas (≥ 900 px) o secciones seguidas con índice de anclas (< 900 px) ---- */
+  const mq = window.matchMedia('(min-width: 900px)');
+  let conPestanas = false;
+  let actual = 0;                                      // índice de la pestaña abierta
+  /* Una sección «tiene contenido» si algún hijo suyo no está en display:none (lo que se oculta con la propia sección no cuenta). */
+  const tieneContenido = (sec) => Array.from(sec.children).some((c) => getComputedStyle(c).display !== 'none');
+  const disponibles = () => secciones.map((s, k) => k).filter((k) => tieneContenido(secciones[k]));
+  const enlace = (k) => indice.querySelector('a[data-sec="' + secciones[k].id + '"]');
+
+  const refrescar = () => {
+    secciones.forEach((sec, k) => {
+      const a = enlace(k);
+      if (!a) return;
+      const hay = tieneContenido(sec);
+      a.style.display = hay ? '' : 'none';
+      const conError = !!sec.querySelector('[aria-invalid="true"], [data-pestana-invalida], .error-campo');
+      a.classList.toggle('con-error', conError);
+      a.title = conError ? 'Esta sección tiene un error' : '';
+      a.classList.toggle('activa', conPestanas && k === actual);
+      if (conPestanas) a.setAttribute('aria-selected', k === actual ? 'true' : 'false');
+    });
+    if (conPestanas) {
+      const lista = disponibles();
+      btnAnterior.style.display = lista.length && lista[0] !== actual ? '' : 'none';
+      btnSiguiente.style.display = lista.length && lista[lista.length - 1] !== actual ? '' : 'none';
+    }
+  };
+  const irA = (k, opciones) => {
+    if (k < 0 || k >= secciones.length) return;
+    actual = k;
+    if (conPestanas) {
+      secciones.forEach((sec, j) => { sec.hidden = j !== k; });
+      cuerpo.style.scrollBehavior = 'auto'; cuerpo.scrollTop = 0; cuerpo.style.scrollBehavior = '';
+    }
+    refrescar();
+    if (opciones && opciones.enfocar) enfocarPrimero();
+  };
+  const vecina = (paso) => {
+    const lista = disponibles();
+    const i = lista.indexOf(actual);
+    return lista[i + paso];
+  };
+  btnAnterior.addEventListener('click', () => { const k = vecina(-1); if (k !== undefined) irA(k, { enfocar: true }); });
+  btnSiguiente.addEventListener('click', () => { const k = vecina(1); if (k !== undefined) irA(k, { enfocar: true }); });
+
+  const saltar = (sec) => {                            // solo sin pestañas: desplazamiento suave a la sección
     const y = sec.getBoundingClientRect().top - cuerpo.getBoundingClientRect().top + cuerpo.scrollTop;
     cuerpo.scrollTo({ top: Math.max(0, y - 4), behavior: 'smooth' });
   };
@@ -2295,42 +2379,89 @@ function armarModalLargo(op) {
     const a = e.target.closest('a[data-sec]');
     if (!a) return;
     e.preventDefault();
-    const sec = document.getElementById(a.dataset.sec);
-    if (sec) saltar(sec);
+    const k = secciones.findIndex((s) => s.id === a.dataset.sec);
+    if (conPestanas) irA(k); else if (k >= 0) saltar(secciones[k]);
   });
+
+  const aplicarModo = () => {
+    conPestanas = mq.matches;
+    modal.classList.toggle('modal-con-pestanas', conPestanas);
+    indice.setAttribute('role', conPestanas ? 'tablist' : 'navigation');
+    if (conPestanas) {
+      const lista = disponibles();
+      if (lista.length && lista.indexOf(actual) < 0) actual = lista[0];
+      irA(actual);
+    } else {
+      secciones.forEach((sec) => { sec.hidden = false; });
+      programar();
+    }
+  };
+  if (mq.addEventListener) mq.addEventListener('change', aplicarModo); else if (mq.addListener) mq.addListener(aplicarModo);
+
+  /* Sin pestañas: la pestaña «activa» sigue a lo que se ve (la sección que ocupa el tercio de arriba). */
   let pendiente = false;
-  const actualizarIndice = () => {
+  function actualizarIndice() {
     pendiente = false;
+    if (conPestanas) { refrescar(); return; }
     const tope = cuerpo.getBoundingClientRect().top;
     let activa = null;
     secciones.forEach((sec) => {
-      const a = indice.querySelector('a[data-sec="' + sec.id + '"]');
-      const visible = sec.offsetHeight > 0;          // una sección cuyo contenido está oculto no tiene pestaña
-      if (a) a.style.display = visible ? '' : 'none';
-      if (visible && sec.getBoundingClientRect().top - tope <= cuerpo.clientHeight * 0.35) activa = sec;   // la que ocupa el tercio de arriba
+      if (tieneContenido(sec) && sec.getBoundingClientRect().top - tope <= cuerpo.clientHeight * 0.35) activa = sec;
     });
     if (cuerpo.scrollTop + cuerpo.clientHeight >= cuerpo.scrollHeight - 2 && cuerpo.scrollTop > 0) {
-      const visibles = secciones.filter((s) => s.offsetHeight > 0);
+      const visibles = secciones.filter(tieneContenido);
       activa = visibles[visibles.length - 1] || activa;
     }
+    refrescar();
     indice.querySelectorAll('a').forEach((a) => a.classList.toggle('activa', !!activa && a.dataset.sec === activa.id));
-  };
-  const programar = () => { if (!pendiente) { pendiente = true; requestAnimationFrame(actualizarIndice); } };
+  }
+  function programar() { if (!pendiente) { pendiente = true; requestAnimationFrame(actualizarIndice); } }
   cuerpo.addEventListener('scroll', programar, { passive: true });
   form.addEventListener('change', () => setTimeout(programar, 50));
 
-  /* ---- al abrir: se empieza arriba y el foco va al primer campo ---- */
+  /* ---- errores en una pestaña que no se ve ---- */
+  const revelar = (campo) => {
+    if (!conPestanas || !campo || !campo.closest) return;
+    const sec = campo.closest('.form-seccion');
+    const k = secciones.indexOf(sec);
+    if (k >= 0 && sec.hidden) irA(k);
+  };
+  /* La validación nativa (required, minlength…) enfoca el primer campo inválido: si está en una pestaña oculta no puede, y
+     el envío se queda mudo. El evento `invalid` llega ANTES de ese intento, así que aquí se abre la pestaña. */
+  let abriendo = false;
+  form.addEventListener('invalid', (e) => {
+    const campo = e.target;
+    if (campo.dataset) campo.dataset.pestanaInvalida = '1';
+    if (conPestanas && !abriendo) {
+      const k = secciones.indexOf(campo.closest('.form-seccion'));
+      if (k >= 0 && secciones[k].hidden) { abriendo = true; irA(k); setTimeout(() => { abriendo = false; }, 0); }
+    }
+    refrescar();
+  }, true);
+  MODALES_LARGOS.push({ revelar, refrescar });
+
+  /* ---- al abrir: primera pestaña, sin errores viejos, y el foco en el primer campo ---- */
+  function enfocarPrimero() {
+    const primero = Array.from(form.querySelectorAll('input, select, textarea')).find((c) =>
+      !c.disabled && !c.readOnly && c.offsetParent !== null && !/^(hidden|checkbox|radio|file|button|submit)$/.test(c.type));
+    if (primero) primero.focus({ preventScroll: true });
+  }
   const alAbrir = () => {
     sucio = false;
+    limpiarErrores(form);                              // los errores de la vez anterior no se arrastran
+    form.querySelectorAll('[data-pestana-invalida]').forEach((c) => { delete c.dataset.pestanaInvalida; });
+    const lista = disponibles();
+    actual = lista.length ? lista[0] : 0;
     cuerpo.style.scrollBehavior = 'auto';
     cuerpo.scrollTop = 0;
     cuerpo.style.scrollBehavior = '';
-    programar();
+    aplicarModo();
     setTimeout(() => {
       if (!overlay.classList.contains('abierto')) return;
-      const primero = Array.from(form.querySelectorAll('input, select, textarea')).find((c) =>
-        !c.disabled && !c.readOnly && c.offsetParent !== null && !/^(hidden|checkbox|radio|file|button|submit)$/.test(c.type));
-      if (primero) primero.focus({ preventScroll: true });
+      aplicarModo();                                   // el contenido de las secciones pudo cambiar al llenarse la ficha
+      const l2 = disponibles();
+      if (conPestanas && l2.length && l2.indexOf(actual) < 0) irA(l2[0]);
+      enfocarPrimero();
       programar();
     }, 80);
   };
@@ -2341,5 +2472,6 @@ function armarModalLargo(op) {
     if (!ahora) sucio = false;
     abierto = ahora;
   }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  aplicarModo();
   return true;
 }

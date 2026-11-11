@@ -615,7 +615,7 @@
         ⬆ Importar desde Excel
         <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
       </label>
-      <button class="btn-secundario btn-sm" id="btn-eliminar-territorios">🗑 Eliminar todos los territorios</button>
+      <button class="btn-peligro btn-sm" id="btn-eliminar-territorios">🗑 Eliminar todos los territorios</button>
     </div>
     <div id="importar-resultado" class="mensaje-ok" style="display:none;"></div>
 
@@ -653,9 +653,9 @@
     <div class="modal-header"><h3>Eliminar registros de la estructura</h3><button class="modal-cerrar" id="cerrar-modal-eliminar-estructura">×</button></div>
     <p style="color:var(--color-text-muted); font-size:0.85rem;">Estas acciones eliminan a las personas (y sus cuentas de usuario) de forma permanente. Se pedirá la contraseña de un administrador antes de continuar.</p>
     <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
-      <button class="btn-secundario" id="btn-eliminar-coordinadores">Eliminar coordinadores</button>
-      <button class="btn-secundario" id="btn-eliminar-lideres">Eliminar líderes</button>
-      <button class="btn-secundario" id="btn-eliminar-todo-estructura">Eliminar todo (coordinadores, líderes, usuarios y testigos)</button>
+      <button class="btn-peligro" id="btn-eliminar-coordinadores">Eliminar coordinadores</button>
+      <button class="btn-peligro" id="btn-eliminar-lideres">Eliminar líderes</button>
+      <button class="btn-peligro" id="btn-eliminar-todo-estructura">Eliminar todo (coordinadores, líderes, usuarios y testigos)</button>
     </div>
   </div>
 </div>
@@ -820,7 +820,7 @@ function renderTablaTerritorios() {
       <td style="white-space:nowrap;">
         ${territoriosEditables && ['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
           ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
-        ${territoriosEditables && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-secundario btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
+        ${territoriosEditables && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-peligro btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');

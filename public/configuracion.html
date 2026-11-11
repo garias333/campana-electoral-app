@@ -71,7 +71,7 @@
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-usuarios">Usuarios</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-permisos">Asignación de permisos</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-complementos">Activar complementos</button>
-        <button type="button" class="btn-secundario btn-sm" id="btn-tab-eliminar">🗑️ Eliminar información</button>
+        <button type="button" class="btn-peligro btn-sm" id="btn-tab-eliminar">🗑️ Eliminar información</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-backup">💾 Backup</button>
         <button type="button" class="btn-secundario btn-sm" id="btn-tab-recordatorios">⏰ Recordatorios</button>
       </div>
@@ -1450,7 +1450,7 @@ function renderizarUsuarios() {
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
         <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
         ${(u.two_factor_enabled && !u.es_superadmin) ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
-        ${u.es_superadmin ? '' : `<button class="btn-secundario btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>`}
+        ${u.es_superadmin ? '' : `<button class="btn-peligro btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>`}
       </td>
     </tr>
   `).join('');
@@ -2072,7 +2072,7 @@ async function cargarAreasEliminables() {
   contenedor.innerHTML = areasEliminablesCache.map(area => `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; border:1px solid var(--color-border, #dfe3e8); border-radius:8px; padding:12px 16px;">
       <span>${area.etiqueta}</span>
-      <button type="button" class="btn-secundario btn-sm"  onclick="eliminarInformacionArea('${area.clave}', '${area.etiqueta.replace(/'/g, "\\'")}')">Eliminar todo</button>
+      <button type="button" class="btn-peligro btn-sm"  onclick="eliminarInformacionArea('${area.clave}', '${area.etiqueta.replace(/'/g, "\\'")}')">Eliminar todo</button>
     </div>
   `).join('');
 }
@@ -2234,7 +2234,7 @@ async function cargarPuestosVotacion() {
       <td class="col-cobertura">${p.mesas_detalle ? celdaCoberturaMesas(p) + leyendaTestigosPuesto(p) : celdaCobertura(p)}</td>
       <td style="text-align:right; white-space:nowrap;">
         <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionPuesto(${JSON.stringify(p).replace(/'/g, "&apos;")})'>Editar</button>
-        <button type="button" class="btn-secundario btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
+        <button type="button" class="btn-peligro btn-sm"  onclick="eliminarPuesto(${p.id})">Eliminar</button>
       </td>
     </tr>
   `).join('');
@@ -2807,7 +2807,7 @@ async function cargarCandidatos() {
                  <button type="button" class="btn-secundario btn-sm btn-mover" title="Bajar un puesto"
                          onclick="moverCandidato(${c.id}, 'abajo')" ${i === filas.length - 1 ? 'disabled' : ''}>&#9660;</button>
                  <button type="button" class="btn-secundario btn-sm" onclick='abrirEdicionCandidato(${JSON.stringify(c).replace(/'/g, "&apos;")})'>Editar</button>
-                 <button type="button" class="btn-secundario btn-sm" onclick="eliminarCandidato(${c.id}, '${grupo}')">Eliminar</button>
+                 <button type="button" class="btn-peligro btn-sm" onclick="eliminarCandidato(${c.id}, '${grupo}')">Eliminar</button>
                </td>
              </tr>`).join('')}</tbody>
          </table></div>`

@@ -106,7 +106,7 @@
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
           <select id="select-plantilla" style="max-width:280px;"><option value="">Plantillas guardadas…</option></select>
           <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
+          <button type="button" class="btn-peligro btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
         </div>
 <textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio" id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
         <div id="contador-sms-campana" style="font-size:0.88rem; margin-top:6px;"></div>
@@ -137,10 +137,10 @@
       <div class="topbar" style="margin-bottom:10px; flex-wrap:wrap; gap:8px;">
         <h3 style="margin:0; font-size:1.3rem;">Historial de campañas</h3>
         <div id="botones-eliminar-por-canal" style="display:none; gap:6px; flex-wrap:wrap;">
-          <button type="button" class="btn-secundario btn-sm" data-canal="email">Eliminar todas (Email)</button>
-          <button type="button" class="btn-secundario btn-sm" data-canal="email_personal">Eliminar todas (Email personal)</button>
-          <button type="button" class="btn-secundario btn-sm" data-canal="sms">Eliminar todas (SMS)</button>
-          <button type="button" class="btn-secundario btn-sm" id="btn-eliminar-todas-campanas" style="font-weight:700;">Eliminar TODAS las campañas</button>
+          <button type="button" class="btn-peligro btn-sm" data-canal="email">Eliminar todas (Email)</button>
+          <button type="button" class="btn-peligro btn-sm" data-canal="email_personal">Eliminar todas (Email personal)</button>
+          <button type="button" class="btn-peligro btn-sm" data-canal="sms">Eliminar todas (SMS)</button>
+          <button type="button" class="btn-peligro btn-sm" id="btn-eliminar-todas-campanas" style="font-weight:700;">Eliminar TODAS las campañas</button>
         </div>
       </div>
       <div class="tabla-contenedor">
@@ -538,7 +538,7 @@ async function cargarCampanas() {
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>
-        <button class="btn-secundario btn-sm"  onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+        <button class="btn-peligro btn-sm"  onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
       </td>
     </tr>
   `).join('');
