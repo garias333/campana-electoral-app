@@ -2488,8 +2488,6 @@ tbody td { border-bottom: 1px solid var(--borde); }
 @media (min-width: 900px) {
   .modal.modal-largo.modal-con-pestanas { max-width: 880px; height: 90vh; height: min(90dvh, 740px); }
   .modal-con-pestanas .pie-nav { display: flex; }
-  /* El título de apartado que abre cada sección repite el nombre de su pestaña: se oculta (!important: algunos los muestra y oculta el JS de la página). */
-  .modal-con-pestanas .form-seccion > .encabezado-form:first-child { display: none !important; }
 }
 @media (max-width: 639px) {
   .overlay:has(> .modal-largo) { padding: 0; align-items: stretch; }
@@ -2539,3 +2537,19 @@ input[type="file"] {
        y las destructivas en rojo (`.btn-peligro`). `.barra-unida` sigue existiendo para los filtros en cápsula del Mapa y de Recursos. --- */
 .barra-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .btn-accion-crm { border-radius: 999px; }
+
+/* --- Autorización de datos por enlace de WhatsApp (parche 325): insignia de estado, pestaña «Autorización de datos» --- */
+.aut-pill {
+  display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+  background: var(--campo); color: var(--texto-2);
+}
+.aut-pill.aut-firmada { background: var(--ok-fondo); color: var(--ok); }
+.aut-pill.aut-pendiente { background: var(--aviso-fondo); color: var(--aviso); }
+.aut-pill.aut-vencida { background: var(--error-fondo); color: var(--error); }
+.aut-pill.aut-verbal { background: var(--campo); color: var(--texto-2); }
+.aut-pill.aut-sin { background: var(--campo); color: var(--texto-2); }
+.aut-estado { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--radio-campo); background: var(--campo); margin: 6px 0 12px; }
+.aut-estado .aut-pill { font-size: 0.8rem; padding: 3px 11px; }
+.aut-texto { font-size: 0.92rem; color: var(--texto); }
+.aut-botones { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; }
+.aut-ayuda { display: block; color: var(--texto-2); line-height: 1.45; }

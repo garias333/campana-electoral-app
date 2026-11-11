@@ -4,6 +4,8 @@ const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
+const sqlAut = require('../lib/sqlAutorizacion');
+const { montarRutasAutorizacion } = require('../lib/rutasAutorizacion');
 const { subarbolSql, filtroMadreEstructura, filtroTestigosMadre, recalcularRamaEnSegundoPlano } = require('../lib/ramas');
 /* EL CARGO DE LA MADRE SE PIDE AQUÍ, NO SE LEE DE `req.alcance`.
    Este router monta `requireAuth` y nada más: `calcularAlcance` solo se aplica
@@ -951,6 +953,8 @@ router.get('/estructura', async (req, res) => {
              u.tipo_cargo, u.email, u.telefono, u.activo, u.apoya_a, u.no_contactar, u.no_contactar_origen, u.no_contactar_canal, u.no_contactar_motivo,
              t.nombre AS territorio_nombre, t.tipo AS territorio_tipo,
              sup.nombre AS supervisor_nombre,
+             ${sqlAut.estadoEstructura('e')} AS autorizacion_estado,
+             ${sqlAut.fechaFirmaEstructura('e')} AS autorizacion_firmada_en,
              ${conExcl ? `(SELECT GROUP_CONCAT(ua.nombre ORDER BY ua.nombre SEPARATOR ', ')
                              FROM estructura_exclusiones ee
                              JOIN usuarios ua ON ua.id = ee.aspirante_id
@@ -2020,7 +2024,9 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
              padre.nombre AS pertenece,
              e.meta_votos, e.meta_votos_base, e.activo,
              ${sqlMetaEfectiva('e')} AS meta_votos_equipo,
-             sup.email AS reporta_a_email
+             sup.email AS reporta_a_email,
+             ${sqlAut.estadoEstructura('e')} AS autorizacion_estado,
+             ${sqlAut.fechaFirmaEstructura('e')} AS autorizacion_firmada_en
       FROM estructura e
       JOIN usuarios u ON u.id = e.usuario_id
       LEFT JOIN territorios t ON t.id = e.territorio_id
@@ -2049,7 +2055,8 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
       'Departamento de residencia', 'Ciudad de residencia',
       'Dirección de residencia', 'Comuna o Corregimiento (residencia)', 'Barrio o Vereda (residencia)',
       'Cargo', 'Tipo', 'Área', 'Comuna', 'Barrio', 'Corregimiento', 'Vereda', 'Otros territorios', 'Organización',
-      'Meta votos', 'Meta de votos (total con gremiales)', 'Reporta a', 'Activo'
+      'Meta votos', 'Meta de votos (total con gremiales)', 'Reporta a', 'Activo',
+      'Autorización de datos', 'Fecha de firma'
     ];
 
     const datos = filas.map(f => {
@@ -2105,7 +2112,9 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
         // no tiene efecto.
         'Meta de votos (total del equipo)': CARGOS_CON_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : '',
         'Reporta a': f.reporta_a_email || '',
-        'Activo': f.activo ? 'Sí' : 'No'
+        'Activo': f.activo ? 'Sí' : 'No',
+        'Autorización de datos': sqlAut.ETIQUETAS[f.autorizacion_estado] || '',
+        'Fecha de firma': f.autorizacion_firmada_en ? String(f.autorizacion_firmada_en).slice(0, 16) : ''
       };
     });
 
@@ -3258,6 +3267,22 @@ router.post('/testigos/eliminar-todo', requireRole('admin'), async (req, res) =>
   } finally {
     if (conexion) conexion.release();
   }
+});
+
+/* AUTORIZACIÓN DE DATOS POR ENLACE (parche 325): estado, enlace y constancia de UNA persona de la estructura. Quien edita la estructura
+   (admin, coordinador, aspirante) lo ve; un aspirante solo dentro de su rama (la misma guarda de `PUT /estructura/:id`). */
+montarRutasAutorizacion(router, {
+  tipo: 'estructura', prefijo: '/estructura', roles: ['admin', 'coordinador', 'aspirante'], requireRole,
+  buscarPersona: async (req, id) => {
+    if (req.sublicencia) {
+      const dentro = subarbolSql(req.sublicencia.usuario_id, 'e.usuario_id');
+      const [[suya]] = await pool.query(`SELECT 1 AS ok FROM estructura e WHERE e.id = ? AND ${dentro.sql} LIMIT 1`, [id, ...dentro.valores]);
+      if (!suya) return null;
+    }
+    const [[f]] = await pool.query(
+      `SELECT e.id, u.nombre, NULL AS rama FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id = ?`, [id]);
+    return f || null;
+  },
 });
 
 module.exports = router;

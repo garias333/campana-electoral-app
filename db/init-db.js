@@ -3090,6 +3090,42 @@ async function main() {
       FOREIGN KEY (votante_id) REFERENCES votantes(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
+  /* LA AUTORIZACIÓN DE DATOS POR ENLACE (parche 325). Una fila por enlace generado para UNA persona —un votante o una persona de la
+     estructura— y por eso sin clave foránea (apunta a dos tablas); los listados la cruzan por (persona_tipo, persona_id).
+       · token_hash   el sha256 del token del enlace /a/<token>. EL TOKEN NO SE GUARDA, como en consentimiento_confirmaciones: quien lea
+                      la tabla no puede firmar en nombre de nadie. Un solo uso: `estado` pasa de 'pendiente' a 'firmada' con un UPDATE
+                      condicionado, así que dos firmas a la vez no pueden ganar las dos.
+       · estado       'vencida' NO se guarda: es 'pendiente' con `expira_en` en el pasado. 'anulada' es la que reemplazó un «Reenviar».
+       · enviada_en / enviado_por   quién generó el enlace y lo ofreció para enviar (la app no manda nada por su cuenta: lo envía la
+                      persona desde su propio WhatsApp).
+       · firma_*      la evidencia de la firma: fecha, IP, navegador, huella de la política que se mostró, las tres casillas de canal y la
+                      firma dibujada (PNG en data URL). Para un votante se copia además a las columnas `consentimiento_*` de `votantes`. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS autorizaciones_datos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      persona_tipo ENUM('votante','estructura') NOT NULL,
+      persona_id INT NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      estado ENUM('pendiente','firmada','anulada') NOT NULL DEFAULT 'pendiente',
+      canal_envio ENUM('whatsapp','copiado') NOT NULL DEFAULT 'whatsapp',
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expira_en DATETIME NOT NULL,
+      enviada_en DATETIME NULL,
+      enviado_por INT NULL,
+      enviado_por_nombre VARCHAR(150) NULL,
+      firmada_en DATETIME NULL,
+      firma_ip VARCHAR(45) NULL,
+      firma_agente VARCHAR(255) NULL,
+      politica_version VARCHAR(64) NULL,
+      politica_version_ok TINYINT(1) NULL,
+      autoriza_whatsapp TINYINT(1) NULL,
+      autoriza_sms TINYINT(1) NULL,
+      autoriza_email TINYINT(1) NULL,
+      firma_png MEDIUMTEXT NULL,
+      UNIQUE KEY uq_autdat_token (token_hash),
+      KEY idx_autdat_persona (persona_tipo, persona_id, estado)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
   /* LA COLA DEL SMS DE CONFIRMACIÓN. Un SMS por votante en la vida (UNIQUE): es
      el «UN SMS» de la orden. No guarda el token —se crea al enviar, y de /c solo
      se guarda el hash— sino a quién y desde cuándo. Fuera de la franja el envío

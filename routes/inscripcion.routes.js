@@ -26,7 +26,7 @@ const pool = require('../config/db');
 const { aspiranteDe } = require('../lib/ramas');
 const { validarCedula } = require('../lib/validarCedula');
 const { normalizarCedula } = require('../lib/normalizarCedula');
-const { huellaDePolitica, archivarVersion } = require('../config/politicaVersiones');
+const { nombreDeLaCampana, politicaVigente } = require('../config/politicaPublica');
 const {
   buscarEnlaceActivo, leerAjustes, emitirPase, verificarPase,
 } = require('../config/inscripcionEnlace');
@@ -151,37 +151,7 @@ async function responderNoActivo(res) {
   return res.status(200).send(pagina({ ...NO_ACTIVO, head: await metasDeTarjeta() }));
 }
 
-let marcaEnMemoria = { clave: null, texto: '', hasta: 0 };
-/** El nombre de la campaña —o del aspirante, si el líder cuelga de uno— con memoria de 5 minutos por rama. */
-async function nombreDeLaCampana(ramaId) {
-  const clave = String(ramaId || 0);
-  if (marcaEnMemoria.clave === clave && Date.now() < marcaEnMemoria.hasta) return marcaEnMemoria.texto;
-  let texto = '';
-  try {
-    if (ramaId) {
-      const [[s]] = await pool.query('SELECT nombre FROM sublicencias WHERE usuario_id = ? AND activa = 1', [ramaId]);
-      texto = String((s && s.nombre) || '').trim();
-    }
-    if (!texto) {
-      const [[c]] = await pool.query('SELECT marca_titulo FROM configuracion_campana WHERE id = 1');
-      texto = String((c && c.marca_titulo) || '').trim();
-    }
-  } catch (_) { /* sin nombre: la página sale igual */ }
-  marcaEnMemoria = { clave, texto, hasta: Date.now() + 5 * 60 * 1000 };
-  return texto;
-}
-
-/** La política vigente y su huella. Se archiva al mostrarla (igual que /api/contenido): es la evidencia. */
-async function politicaVigente() {
-  let titulo = 'Política de tratamiento de datos', contenido = '';
-  try {
-    const [[f]] = await pool.query("SELECT titulo, contenido FROM contenido_paginas WHERE clave = 'politica_privacidad'");
-    if (f) { titulo = f.titulo || titulo; contenido = f.contenido || ''; }
-  } catch (_) { /* sin tabla: sin política */ }
-  const huella = contenido.trim() ? huellaDePolitica(contenido) : null;
-  if (huella) archivarVersion({ clave: 'politica_privacidad', titulo, contenido, usuarioId: null, usuarioNombre: 'archivado al entregarse' });
-  return { titulo, contenido, huella };
-}
+/* nombreDeLaCampana() y politicaVigente() viven ahora en config/politicaPublica.js (las comparte la autorización de datos por enlace). */
 
 /* LOS LARGOS SON LOS DE LAS COLUMNAS de `votantes` (direccion 255, departamento_residencia 100,
    ciudad_residencia 100, comuna_corregimiento_residencia 120, barrio_residencia 120, email 150), que

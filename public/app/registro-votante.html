@@ -24,6 +24,7 @@
     <div class="marca" id="exito-icono">✔</div>
     <h2 style="margin:0 0 6px;" id="exito-titulo">Registro guardado</h2>
     <p style="color:var(--muted); margin:0 0 26px;" id="exito-detalle">El contacto quedó guardado correctamente.</p>
+    <a class="btn-app btn-app-secundario" id="exito-wa" style="display:none; margin-bottom:10px;" target="_blank" rel="noopener">💬 Abrir WhatsApp de nuevo</a>
     <button class="btn-app btn-app-primario" id="btn-registrar-otro">Registrar otro contacto</button>
     <button class="btn-app btn-app-secundario" style="margin-top:10px;" onclick="window.location.href='/app/mis-registros.html'">Ver mis registros</button>
     <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion-exito">Cerrar sesión</button>
@@ -197,6 +198,15 @@
     <div class="campo-app bloque-consentimiento">
       <h3 class="titulo-consentimiento">Autorización de la persona</h3>
 
+      <!-- PARCHE 325: DOS FORMAS DE AUTORIZAR. «Firmar aquí ahora» es la de siempre (la persona lee y firma en ESTE teléfono).
+           «Enviar autorización por WhatsApp» registra a la persona SIN autorización y le abre WhatsApp con un enlace donde ella lee la
+           política y firma en el suyo; hasta que firme no se le puede escribir. -->
+      <div class="aut-modo" role="group" aria-label="Cómo autoriza la persona">
+        <button type="button" class="btn-app btn-app-primario" id="aut-modo-aqui" aria-pressed="true">Firmar aquí ahora</button>
+        <button type="button" class="btn-app btn-app-secundario" id="aut-modo-wa" aria-pressed="false">💬 Enviar autorización por WhatsApp</button>
+      </div>
+      <div id="aut-bloque-aqui">
+
       <!-- MOSTRARLE EL TEXTO ES LO QUE HACE QUE EL CONSENTIMIENTO SEA
            "INFORMADO". Antes solo había una casilla que marcaba quien
            registraba; ahora la política se abre aquí mismo y se le puede
@@ -239,6 +249,15 @@
           <span id="firma-estado">Pásele el teléfono para que firme con el dedo.</span>
           <button type="button" class="btn-mini" id="btn-borrar-firma">Borrar</button>
         </div>
+      </div>
+      </div>
+
+      <div id="aut-bloque-wa" style="display:none;">
+        <p class="ayuda-canales-nota" style="margin-top:0;">
+          Al guardar, se abre su WhatsApp con un mensaje para la persona y un enlace donde ella lee la política de tratamiento de datos, marca
+          lo que autoriza y firma con el dedo en su propio teléfono. Necesita el <strong>celular de 10 dígitos</strong> (en «Datos de contacto»).
+          Queda registrada <strong>sin autorización</strong> y no se le puede escribir hasta que firme. El enlace sirve una sola vez y vence en 7 días.
+        </p>
       </div>
     </div>
 
@@ -772,15 +791,34 @@ document.getElementById('btn-ver-politica').addEventListener('click', () => {
   document.getElementById('btn-ver-politica').textContent = 'Ocultar la política';
 });
 
+/* PARCHE 325 — la forma de autorizar: 'aqui' (la de siempre, con firma en este teléfono) o 'whatsapp' (enlace que firma la persona). */
+let modoAutorizacion = 'aqui';
+function elegirModoAutorizacion(modo) {
+  modoAutorizacion = modo;
+  const aqui = modo === 'aqui';
+  document.getElementById('aut-bloque-aqui').style.display = aqui ? '' : 'none';
+  document.getElementById('aut-bloque-wa').style.display = aqui ? 'none' : '';
+  document.getElementById('f-consentimiento').required = aqui;        // sin la casilla, el navegador no puede exigirla
+  [['aut-modo-aqui', aqui], ['aut-modo-wa', !aqui]].forEach(([id, activo]) => {
+    const b = document.getElementById(id);
+    b.className = 'btn-app ' + (activo ? 'btn-app-primario' : 'btn-app-secundario');
+    b.setAttribute('aria-pressed', activo ? 'true' : 'false');
+  });
+  if (aqui) mostrarCajaFirma();
+}
+document.getElementById('aut-modo-aqui').addEventListener('click', () => elegirModoAutorizacion('aqui'));
+document.getElementById('aut-modo-wa').addEventListener('click', () => elegirModoAutorizacion('whatsapp'));
+
 document.getElementById('form-registro').addEventListener('submit', async (e) => {
   e.preventDefault();
   document.getElementById('aviso-error').classList.remove('visible');
+  const porWhatsapp = modoAutorizacion === 'whatsapp';
 
   if (!identificacionVotanteDisponible) {
     mostrarError('Ya registrado por otro líder.');
     return;
   }
-  if (!document.getElementById('f-consentimiento').checked) {
+  if (!porWhatsapp && !document.getElementById('f-consentimiento').checked) {
     mostrarError('Debes confirmar que la persona autorizó el uso de sus datos.');
     return;
   }
@@ -789,7 +827,7 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
      evidencia que enseñar — que es justo lo que se quería resolver.
      Se exige solo si el módulo cargó: en un teléfono al que la actualización
      llegó a medias, es preferible registrar sin firma que no poder registrar. */
-  if (firmaLienzo && !firmaLienzo.hayFirma()) {
+  if (!porWhatsapp && firmaLienzo && !firmaLienzo.hayFirma()) {
     mostrarError('Falta la firma de la persona. Pásele el teléfono para que firme.');
     document.getElementById('lienzo-firma').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
@@ -798,11 +836,18 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
     mostrarError('Error de digitación: el teléfono debe tener 10 dígitos.');
     return;
   }
+  const celularWa = document.getElementById('f-telefono').value.replace(/\D/g, '');
+  if (porWhatsapp && !/^\d{10}$/.test(celularWa)) {
+    mostrarError('Para enviar la autorización por WhatsApp escriba el celular de 10 dígitos de la persona.');
+    return;
+  }
   const resuelto = resolverTerritorio();
   if (resuelto.error) {
     mostrarError(resuelto.error);
     return;
   }
+  /* La ventana de WhatsApp se abre YA, dentro del toque (el navegador solo lo permite mientras dura): guardar y pedir el enlace tarda. */
+  const ventanaWa = porWhatsapp ? window.open('', '_blank') : null;
 
   const btn = document.getElementById('btn-guardar');
   btn.disabled = true;
@@ -829,17 +874,19 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
     organizacion: document.getElementById('f-organizacion').value.trim(),
     apoya_a: Array.from(document.querySelectorAll('#form-registro input[name="apoya_a"]:checked')).map(c => c.value),
     observaciones: document.getElementById('f-observaciones').value.trim(),
-    consentimiento_autorizado: document.getElementById('f-consentimiento').checked,
+    consentimiento_autorizado: !porWhatsapp && document.getElementById('f-consentimiento').checked,
+    // Registrada SIN autorización, a la espera de que la persona firme el enlace de WhatsApp: el servidor no le da permiso de contacto.
+    autorizacion_pendiente_enlace: porWhatsapp,
     /* EL MÉTODO DICE DE DÓNDE SALE LA PRUEBA, y por eso ya no es una
        constante: 'firma_en_pantalla' cuando la persona firmó, y el valor de
        siempre cuando no. Sin esta distinción, dentro de un año no se sabría
        cuáles fichas tienen firma sin ir a buscarlas una por una. */
-    consentimiento_metodo: (firmaLienzo && firmaLienzo.hayFirma())
+    consentimiento_metodo: (!porWhatsapp && firmaLienzo && firmaLienzo.hayFirma())
       ? 'firma_en_pantalla' : 'verbal_formulario_campo',
-    consentimiento_firma: firmaLienzo ? firmaLienzo.comoPNG() : '',
-    consentimiento_email: document.getElementById('f-consentimiento-email').checked,
-    consentimiento_sms: document.getElementById('f-consentimiento-sms').checked,
-    consentimiento_whatsapp: document.getElementById('f-consentimiento-whatsapp').checked,
+    consentimiento_firma: (!porWhatsapp && firmaLienzo) ? firmaLienzo.comoPNG() : '',
+    consentimiento_email: !porWhatsapp && document.getElementById('f-consentimiento-email').checked,
+    consentimiento_sms: !porWhatsapp && document.getElementById('f-consentimiento-sms').checked,
+    consentimiento_whatsapp: !porWhatsapp && document.getElementById('f-consentimiento-whatsapp').checked,
     // La huella del texto que se le mostró. Va vacía si la política no se
     // pudo cargar —sin señal, por ejemplo—: es preferible registrar la
     // autorización sin la versión que perder el registro entero.
@@ -851,14 +898,33 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
   };
 
   try {
-    await api('/votantes', { method: 'POST', body: datosRegistro });
+    const guardado = await api('/votantes', { method: 'POST', body: datosRegistro });
     document.getElementById('exito-icono').textContent = '✔';
     document.getElementById('exito-titulo').textContent = 'Registro guardado';
     document.getElementById('exito-detalle').textContent = 'El contacto quedó guardado correctamente.';
+    document.getElementById('exito-wa').style.display = 'none';
+    if (porWhatsapp) {
+      /* Ya está guardada: se le pide al servidor el enlace de un solo uso y se abre WhatsApp con el mensaje. Si esto falla, la ficha
+         queda guardada SIN autorización y se puede reenviar desde Votantes (pestaña «Autorización de datos»). */
+      try {
+        const enlace = await api('/votantes/' + guardado.id + '/autorizacion/enlace', { method: 'POST', body: { canal: 'whatsapp' } });
+        const url = 'https://wa.me/57' + celularWa + '?text=' + encodeURIComponent(enlace.mensaje);
+        if (ventanaWa && ventanaWa.location) ventanaWa.location.href = url; else window.open(url, '_blank');
+        const a = document.getElementById('exito-wa'); a.href = url; a.style.display = 'flex';
+        document.getElementById('exito-detalle').textContent = 'Se abrió WhatsApp con el enlace. Envíelo: la persona queda con la autorización pendiente hasta que firme.';
+      } catch (errEnlace) {
+        if (ventanaWa && ventanaWa.close) ventanaWa.close();
+        document.getElementById('exito-detalle').textContent = 'El contacto quedó guardado SIN autorización, pero no se pudo crear el enlace: ' + (errEnlace.message || 'intente de nuevo') + '. Puede reenviarlo desde Votantes.';
+      }
+    }
     document.getElementById('form-registro').style.display = 'none';
     document.getElementById('pantalla-exito').style.display = 'block';
   } catch (err) {
-    if (err && err.esErrorDeRed) {
+    if (ventanaWa && ventanaWa.close && !(document.getElementById('pantalla-exito').style.display === 'block')) ventanaWa.close();
+    if (porWhatsapp && err && err.esErrorDeRed) {
+      // El enlace de WhatsApp necesita señal: NO se encola (quedaría una persona sin autorización y sin enlace). Se ofrece la otra forma.
+      mostrarError('No hay señal. Para enviar la autorización por WhatsApp hace falta conexión: use «Firmar aquí ahora» o intente de nuevo.');
+    } else if (err && err.esErrorDeRed) {
       try {
         await guardarEnColaOffline(OFFLINE_STORE, { clienteUuid: datosRegistro.cliente_uuid, payload: datosRegistro, creadoEn: Date.now(), estado: 'pendiente' });
         await actualizarAvisoColaOffline();

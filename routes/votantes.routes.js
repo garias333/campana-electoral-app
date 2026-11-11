@@ -30,6 +30,8 @@ const { verificarPasswordAdmin, validarTelefono10Digitos, verificarPasswordPropi
 
 const { versionConocida } = require('../config/politicaVersiones');
 const { guardarFirma } = require('../config/firmaConsentimiento');
+const sqlAut = require('../lib/sqlAutorizacion');
+const { montarRutasAutorizacion } = require('../lib/rutasAutorizacion');
 const { crearConfirmacion } = require('../config/confirmacionConsentimiento');
 const { pedirConfirmacionSiProcede } = require('../config/confirmacionAutomatica');
 const { comunaValida, listaDeComunas, revisarComuna } = require('../lib/comunasDeLaCampana');
@@ -237,7 +239,7 @@ const SQL_AREA_EFECTIVA = `COALESCE(
   v.area)`;
 
 router.get('/', async (req, res) => {
-  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar, page = 1, limit = 50 } = req.query;
+  const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar, autorizacion, page = 1, limit = 50 } = req.query;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const condiciones = [];
   const params = [];
@@ -276,6 +278,9 @@ router.get('/', async (req, res) => {
   // significado pero no de valor—, que es justo la mitad útil del filtro.
   if (no_contactar === '1') condiciones.push(`v.no_contactar = 1`);
   if (no_contactar === '0') condiciones.push(`(v.no_contactar = 0 OR v.no_contactar IS NULL)`);
+  // Estado de la autorización de datos (parche 325): firmada | pendiente | vencida | verbal | sin. Solo esos cinco valores entran al SQL.
+  const condAut = sqlAut.condicionFiltro(autorizacion, sqlAut.estadoVotante('v'));
+  if (condAut) condiciones.push(condAut);
   if (req.alcance) { condiciones.push(condicionAlcanceVotantes(req.alcance)); params.push(...parametrosAlcanceVotantes(req.alcance)); }
 
   const whereSql = armarWhereSql(condiciones);
@@ -284,6 +289,8 @@ router.get('/', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT v.*, t.nombre AS territorio_nombre, padre.nombre AS zona_nombre, u.nombre AS lider_nombre,
               sub.nombre AS sublider_nombre,
+              ${sqlAut.estadoVotante('v')} AS autorizacion_estado,
+              ${sqlAut.fechaFirmaVotante('v')} AS autorizacion_firmada_en,
               -- El cargo que esta MISMA persona tiene en la Estructura, si
               -- lo tiene: es lo que convierte «Votante» en «Votante-COO»,
               -- «-LID» o «-SUB». Se cruza por cédula, igual que la fila de
@@ -493,7 +500,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin', 'aspirante'), asy
    la campaña madre. Comprobado antes de abrirla. */
 router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), requiereImportarExportar('votantes'), async (req, res) => {
   try {
-    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar } = req.query;
+    const { q, territorio_id, apoya_a, lider_id, area, zona_id, municipio_id, tipo_votante, categoria, no_contactar, origen, sin_confirmar, autorizacion } = req.query;
     const condiciones = [];
     const params = [];
     if (q) {
@@ -527,10 +534,14 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
     // Los mismos dos filtros que el listado: «Exportar (filtrados)» tiene que exportar lo que se ve.
     if (origen === 'enlace_lider') condiciones.push(`v.origen = 'enlace_lider'`);
     if (sin_confirmar === '1') condiciones.push(`(v.origen = 'enlace_lider' AND v.consentimiento_confirmado_en IS NULL)`);
+    // También el filtro de autorización de datos (parche 325): lo que se exporta es lo que se ve.
+    const condAut = sqlAut.condicionFiltro(autorizacion, sqlAut.estadoVotante('v'));
+    if (condAut) condiciones.push(condAut);
     const whereSql = armarWhereSql(condiciones);
 
     const [filas] = await pool.query(`
-      SELECT v.id, v.categoria, v.nombre, v.cedula, v.telefono, v.email, v.genero, v.edad, v.fecha_nacimiento,
+      SELECT ${sqlAut.estadoVotante('v')} AS autorizacion_estado, ${sqlAut.fechaFirmaVotante('v')} AS autorizacion_firmada_en,
+             v.id, v.categoria, v.nombre, v.cedula, v.telefono, v.email, v.genero, v.edad, v.fecha_nacimiento,
              v.departamento_votacion, v.municipio_votacion, v.puesto_votacion, v.mesa_votacion,
              ${SQL_AREA_EFECTIVA} AS area,
              v.direccion, v.departamento_residencia, v.ciudad_residencia, v.apoya_a, v.observaciones,
@@ -560,7 +571,8 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       'Departamento votación', 'Municipio votación', 'Puesto', 'Mesa',
       'Teléfono', 'Email', 'Departamento de residencia', 'Ciudad de residencia', 'Dirección de Residencia',
       'Área', 'Comuna', 'Barrio', 'Corregimiento', 'Vereda', 'Organización',
-      'Líder o coordinador', 'Intención de voto', 'Apoya a', 'Observaciones'
+      'Líder o coordinador', 'Intención de voto', 'Apoya a', 'Observaciones',
+      'Autorización de datos', 'Fecha de firma'
     ];
 
     const datos = filas.map(f => ({
@@ -589,7 +601,9 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       'Organización': f.tipo_area_influencia === 'organizacion' ? (f.organizacion || '') : '',
       'Líder o coordinador': f.lider_email || '',
       'Apoya a': (Array.isArray(f.apoya_a) ? f.apoya_a : []).map(v => ETIQUETAS_APOYA_A[v] || v).join(', '),
-      'Observaciones': f.observaciones || ''
+      'Observaciones': f.observaciones || '',
+      'Autorización de datos': sqlAut.ETIQUETAS[f.autorizacion_estado] || '',
+      'Fecha de firma': f.autorizacion_firmada_en ? String(f.autorizacion_firmada_en).slice(0, 16) : ''
     }));
 
     // Si no hay registros, igual se exporta la hoja con los encabezados.
@@ -1627,7 +1641,11 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
      Asistentes a reuniones-, verificado antes de apretar la regla.
      Y va en el servidor y no solo en la pantalla porque lo que compruebe el
      navegador no autoriza nada. */
-  if (!b.consentimiento_autorizado) {
+  /* PARCHE 325 — LA ÚNICA EXCEPCIÓN: `autorizacion_pendiente_enlace === true`. La manda SOLO el botón «Enviar autorización por WhatsApp»
+     (computador y celular): la persona se registra SIN autorización y queda con `consentimiento_autorizado = 0` y los tres canales en 0, o sea
+     que NO se le puede escribir hasta que firme el enlace que se le manda (/a/<token>). Sin esa bandera la regla de arriba sigue igual. */
+  const pendientePorEnlace = b.autorizacion_pendiente_enlace === true && !b.consentimiento_autorizado;
+  if (!b.consentimiento_autorizado && !pendientePorEnlace) {
     return res.status(400).json({ error: 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.' });
   }
 
@@ -2499,6 +2517,18 @@ router.post('/sumar-por-cedula', limiteBuscarCedula, async (req, res) => {
     console.error(err.code || err.message);
     res.status(500).json({ error: 'No se pudo agregar a su estructura.' });
   }
+});
+
+/* AUTORIZACIÓN DE DATOS POR ENLACE (parche 325): estado, enlace y constancia de UN votante. Lo ve y lo envía quien lo tiene en su alcance. */
+montarRutasAutorizacion(router, {
+  tipo: 'votante', roles: [...ROLES_QUE_REGISTRAN, 'aspirante'], requireRole,
+  buscarPersona: async (req, id) => {
+    let sql = 'SELECT id, nombre, rama_aspirante_id AS rama FROM votantes WHERE id = ?';
+    const params = [id];
+    if (req.alcance) { sql += ` AND ${condicionAlcanceVotantes(req.alcance, '')}`; params.push(...parametrosAlcanceVotantes(req.alcance)); }
+    const [[f]] = await pool.query(sql, params);
+    return f || null;
+  },
 });
 
 module.exports = router;

@@ -29,6 +29,8 @@
 </script>
 <style>
   #barra-volver-app { display: none; }
+  /* Parche 325: la pestaña de autorización no existe en el formulario por pasos del modo app. */
+  html.modo-app #titulo-autorizacion-datos-persona, html.modo-app #bloque-autorizacion-datos-persona { display: none !important; }
   html.modo-app .sidebar { display: none !important; }
   html.modo-app #barra-volver-app {
     display: flex; align-items: center; gap: 8px;
@@ -211,6 +213,14 @@
           </select>
           <select id="filtro-estructura-territorio">
             <option value="">Todo barrio/vereda</option>
+          </select>
+          <!-- Estado de la autorización de datos (parche 325). -->
+          <select id="filtro-estructura-autorizacion" aria-label="Autorización de datos">
+            <option value="">Autorización: todas</option>
+            <option value="firmada">Firmada</option>
+            <option value="pendiente">Pendiente de firma</option>
+            <option value="vencida">Enlace vencido</option>
+            <option value="sin">Sin autorización</option>
           </select>
           <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-estructura">Quitar filtros</button>
         </div>
@@ -548,6 +558,10 @@
       <!-- «NO CONTACTAR», A MANO. Sólo al editar y sólo para quien ve «Pidieron no recibir más»:
            una baja que la persona pidió por teléfono o en persona no tiene otro sitio donde anotarse. -->
       <div class="campo" id="campo-baja-manual" style="display:none;"></div>
+      <!-- PESTAÑA «AUTORIZACIÓN DE DATOS» (parche 325): estado del enlace y envío por WhatsApp (js/autorizacion-datos.js). En MODO APP no se
+           muestra (ver el CSS de arriba): ahí manda el formulario por pasos y no cambia. -->
+      <div class="campo encabezado-form" id="titulo-autorizacion-datos-persona">Autorización de datos</div>
+      <div class="campo" id="bloque-autorizacion-datos-persona"></div>
       <button type="submit" class="btn-primario" id="btn-guardar-estructura">Guardar</button>
     </form>
   </div>
@@ -661,6 +675,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/autorizacion-datos.js"></script>
 <script src="/js/consulta-censo.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
@@ -2782,8 +2797,10 @@ function renderizarEstructura() {
   const zonaId = document.getElementById('filtro-estructura-zona').value;
   const territorioId = document.getElementById('filtro-estructura-territorio').value;
   const municipioId = idDelMunicipioFiltradoEstructura();
+  const autorizacion = document.getElementById('filtro-estructura-autorizacion').value;
 
   function cumpleFiltrosBase(f) {
+    if (autorizacion && (f.autorizacion_estado || 'sin') !== autorizacion) return false;
     if (busqueda) {
       const coincideTexto = normalizarTexto(f.nombre).includes(busqueda)
         || normalizarTexto(f.email).includes(busqueda)
@@ -3141,6 +3158,7 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
             </div>
             <span class="correo-p">${f.email || 'Sin correo'}<span class="sep">·</span>${ETIQUETAS_GENERO[f.genero] || 'Sin género'}</span>
             ${pildoraWhatsApp(f.telefono, f.nombre)}
+            <div style="margin-top:4px;">${typeof AutorizacionDatos !== 'undefined' ? AutorizacionDatos.pildora(f.autorizacion_estado) : ''}</div>
           </div>
         </div>
 
@@ -3184,6 +3202,7 @@ document.getElementById('filtro-estructura-zona').addEventListener('change', () 
   renderizarEstructura();
 });
 document.getElementById('filtro-estructura-territorio').addEventListener('change', renderizarEstructura);
+document.getElementById('filtro-estructura-autorizacion').addEventListener('change', renderizarEstructura);
 let _tiempoMunicipioEstructura;
 document.getElementById('filtro-estructura-municipio').addEventListener('input', () => {
   clearTimeout(_tiempoMunicipioEstructura);
@@ -3198,6 +3217,7 @@ document.getElementById('btn-quitar-filtros-estructura').addEventListener('click
   actualizarFiltroEstructuraTerritorio();
   document.getElementById('filtro-estructura-territorio').value = '';
   document.getElementById('filtro-estructura-municipio').value = '';
+  document.getElementById('filtro-estructura-autorizacion').value = '';
   renderizarEstructura();
 });
 
@@ -3724,7 +3744,21 @@ function reportarErrorEstructura(mensaje, campo, cajaModoApp) {
   }
 }
 
-document.getElementById('form-estructura').addEventListener('submit', async (e) => {
+/* PARCHE 325 — «Enviar autorización por WhatsApp» con una persona NUEVA: el botón la guarda primero y espera su id con
+   `guardarEstructuraParaAutorizar()` (la estructura no tiene casilla de autorización que saltarse). */
+let guardarEstructuraParaEnlace = false;
+let idEstructuraGuardada = null;
+let resolverGuardadoEstructura = null;
+function guardarEstructuraParaAutorizar() {
+  return new Promise((resolver) => {
+    resolverGuardadoEstructura = resolver;
+    guardarEstructuraParaEnlace = true;
+    idEstructuraGuardada = null;
+    document.getElementById('form-estructura').requestSubmit();
+  });
+}
+
+async function enviarFormularioEstructura(e) {
   e.preventDefault();
   const errorBox = document.getElementById('form-error');
   const okBox = document.getElementById('form-ok');
@@ -3815,6 +3849,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
   try {
     if (edicionId) {
       await api(`/territorial/estructura/${edicionId}`, { method: 'PUT', body: datos });
+      idEstructuraGuardada = edicionId;
       let mensajeTestigo = '';
       const chkTestigo = document.getElementById('chk-asignar-testigo-persona');
       // Se envía también cuando la casilla está deshabilitada (o sea,
@@ -3848,6 +3883,7 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
       setTimeout(() => document.getElementById('overlay-form').classList.remove('abierto'), 900);
     } else {
       const r = await api('/territorial/estructura', { method: 'POST', body: datos });
+      idEstructuraGuardada = r.estructura_id || r.id || null;
       okBox.textContent = (r.password_temporal
           ? `Registro creado. Contraseña temporal: ${r.password_temporal}`
           : 'Registro creado. Su usuario y contraseña inicial son su Número de identificación (deberá cambiarla en su primer ingreso).') +
@@ -3875,6 +3911,11 @@ document.getElementById('form-estructura').addEventListener('submit', async (e) 
     }
     reportarErrorEstructura(err.message, null, errorBox);
   }
+}
+document.getElementById('form-estructura').addEventListener('submit', async (e) => {
+  guardarEstructuraParaEnlace = false;
+  await enviarFormularioEstructura(e);
+  if (resolverGuardadoEstructura) { const r = resolverGuardadoEstructura; resolverGuardadoEstructura = null; r(idEstructuraGuardada); }
 });
 
 document.getElementById('input-importar-estructura').addEventListener('change', async (e) => {
@@ -4303,15 +4344,25 @@ if (!document.documentElement.classList.contains('modo-app')) {
   armarModalLargo({
     overlay: 'overlay-form', form: 'form-estructura', cerrar: 'cerrar-modal', guardar: 'btn-guardar-estructura',
     secciones: [
-      { titulo: 'Categoría', desde: 'texto:Categoría' },
-      { titulo: 'Datos personales', desde: 'texto:Datos personales' },
-      { titulo: 'Lugar de votación', desde: 'texto:Lugar de Votación' },
-      { titulo: 'Nombre y perfil', desde: '[name="nombre"]', encabezado: true },
-      { titulo: 'Contacto', desde: 'texto:Datos de contacto' },
+      // Los títulos de cada bloque (Categoría, Datos personales, Lugar de votación, Datos de contacto…) se quedan como subtítulos de su pestaña.
+      { titulo: 'Identificación y votación', desde: 'texto:Categoría' },
+      { titulo: 'Perfil y contacto', desde: '[name="nombre"]', encabezado: true, tituloEncabezado: 'Nombre y perfil' },
       { titulo: 'Territorio', desde: 'texto:Territorio o área de influencia' },
-      { titulo: 'Reporta a', desde: '#select-supervisor', encabezado: true }
+      { titulo: 'Autorización de datos', desde: 'texto:Autorización de datos' }
     ]
   });
+  /* La pestaña «Autorización de datos»: estado del enlace y botones (js/autorizacion-datos.js). */
+  const autorizacionPersona = typeof montarAutorizacionDatos !== 'function' ? null : montarAutorizacionDatos({
+    tipo: 'estructura', contenedor: document.getElementById('bloque-autorizacion-datos-persona'), ruta: '/territorial/estructura',
+    obtenerId: () => (typeof edicionId !== 'undefined' && edicionId) ? edicionId : null,
+    obtenerCelular: () => document.getElementById('campo-telefono').value,
+    campoCelular: () => document.getElementById('campo-telefono'),
+    guardarSiNuevo: guardarEstructuraParaAutorizar,
+    puedeConstancia: () => !!(usuarioActual && ['admin', 'coordinador'].includes(usuarioActual.rol))
+  });
+  new MutationObserver(() => {
+    if (document.getElementById('overlay-form').classList.contains('abierto') && autorizacionPersona) setTimeout(() => autorizacionPersona.actualizar(), 250);
+  }).observe(document.getElementById('overlay-form'), { attributes: true, attributeFilter: ['class'] });
 }
 </script>
 </body>

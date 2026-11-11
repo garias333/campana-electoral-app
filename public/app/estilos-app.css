@@ -597,3 +597,7 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-i
 .tira-chips .chip-app.activo { background: var(--marca-amarillo); border-color: var(--marca-amarillo); color: #1b2333; font-weight: 700; box-shadow: none; }
 
 .enlace-discreto { display: block; text-align: center; margin: 18px 0 4px; color: var(--navy-2); font-size: 0.84rem; background: none; border: 0; font-family: inherit; text-decoration: underline; cursor: pointer; width: 100%; }
+
+/* --- Autorización de la persona: «Firmar aquí ahora» o «Enviar autorización por WhatsApp» (parche 325) --- */
+.aut-modo { display: flex; gap: 8px; margin: 0 0 12px; }
+.aut-modo .btn-app { min-height: 48px; font-size: 14.5px; padding: 8px 10px; flex: 1; box-shadow: none; }

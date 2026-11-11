@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v195';
+const CACHE_NAME = 'estrategia-v196';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -116,6 +116,8 @@ const ARCHIVOS_CASCARON = [
   // dos pantallas sin conexión se quedarían en un solo territorio (no se rompen:
   // revisan que exista antes de usarlo).
   '/js/territorios-multiples.js',
+  // La pestaña «Autorización de datos» de Votantes y de Estructura (parche 325). Sin él, esas pantallas sin conexión darían un error al abrirse.
+  '/js/autorizacion-datos.js',
   // Formularios de crear (escritorio)
   '/votantes.html',
   '/territorial.html',

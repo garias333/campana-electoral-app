@@ -2189,7 +2189,8 @@ function mostrarErrorSegunMensaje(mensaje, reglas) {
        que arrancan en cada `secciones[i].desde` (un selector de un campo de esa sección).
        Lo que haya antes de la primera sección se une a ella.
        `desde` es un selector de un campo del apartado o «texto:…» (el título de apartado que empieza así);
-       con `encabezado: true` se le pone un título al apartado que no lo traía.
+       con `encabezado: true` se le pone un título al apartado que no lo traía (el de la pestaña, o `tituloEncabezado` si es otro).
+       Una pestaña puede juntar VARIOS bloques contiguos: cada uno conserva su título de apartado como subtítulo.
      · Pone el cuerpo (todas las secciones) en un contenedor con desplazamiento propio, y
        deja FIJOS el encabezado (arriba) y el pie (abajo) con «Cancelar» y «Guardar».
        `guardar` es el MISMO botón submit de siempre (se mueve al pie, no se copia).
@@ -2229,7 +2230,7 @@ function armarModalLargo(op) {
   const inicios = [];
   (op.secciones || []).forEach((s) => {
     const i = indiceDe(s.desde);
-    if (i >= 0 && (!inicios.length || i > inicios[inicios.length - 1].i)) inicios.push({ i, titulo: s.titulo, encabezado: !!s.encabezado });
+    if (i >= 0 && (!inicios.length || i > inicios[inicios.length - 1].i)) inicios.push({ i, titulo: s.titulo, encabezado: !!s.encabezado, tituloEncabezado: s.tituloEncabezado });
   });
   if (!inicios.length) return false;
   inicios[0].i = 0;                                   // lo que haya antes de la primera sección se une a ella
@@ -2246,7 +2247,7 @@ function armarModalLargo(op) {
     if (ini.encabezado) {                              // apartado que no traía título propio: se le pone uno (un nodo nuevo, no un campo)
       const enc = document.createElement('div');
       enc.className = 'campo encabezado-form';
-      enc.textContent = ini.titulo;
+      enc.textContent = ini.tituloEncabezado || ini.titulo;
       sec.insertBefore(enc, sec.firstChild);
     }
     cuerpo.appendChild(sec);

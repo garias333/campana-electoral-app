@@ -183,6 +183,11 @@ app.use('/c', express.urlencoded({ extended: false }), require('./routes/confirm
 // candado de licencia y fuera de /api (sin CSRF). Ver routes/yaVoto.routes.js.
 app.use('/v', express.urlencoded({ extended: false }), require('./routes/yaVoto.routes'));
 
+// Autorización de datos por enlace de WhatsApp (parche 325): la persona lee la política, marca lo que autoriza y firma con el dedo. Junto a
+// /b, /c y /v y por lo mismo: sin sesión, antes del candado de licencia y fuera de /api (el token del enlace es la credencial). Ver
+// routes/autorizacion.routes.js. El cuerpo JSON (la firma en PNG) lo lee el express.json de arriba.
+app.use('/a', require('./routes/autorizacion.routes'));
+
 // --- Candado de licencia: bloquea TODO lo de abajo (rutas de API y
 // frontend) si esta instalación no tiene una licencia vigente. Va antes
 // de montar cualquier ruta real, para que nada funcione sin pasar por

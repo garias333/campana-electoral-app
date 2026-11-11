@@ -39,6 +39,7 @@ function crear(pool) {
   app.use('/b', require(path.join(RAIZ, 'routes/baja.routes')));
   app.use('/c', require(path.join(RAIZ, 'routes/confirmacion.routes')));
   app.use('/v', require(path.join(RAIZ, 'routes/yaVoto.routes')));
+  app.use('/a', require(path.join(RAIZ, 'routes/autorizacion.routes')));
   app.use('/i', require(path.join(RAIZ, 'routes/inscripcion.routes')));
   // Activar complementos (parche 318): las mismas puertas que app.js (el enlace del conductor y las pantallas de un complemento apagado).
   const { requiereComplementoPublico, paginasDeComplementos } = require(path.join(RAIZ, 'middleware/complemento'));

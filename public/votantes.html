@@ -111,6 +111,15 @@
             <option value="enlace">Se inscribió por enlace</option>
             <option value="sin_confirmar">Por enlace · sin confirmar</option>
           </select>
+          <!-- Estado de la autorización de datos (parche 325). -->
+          <select id="filtro-autorizacion" aria-label="Autorización de datos">
+            <option value="">Autorización: todas</option>
+            <option value="firmada">Firmada</option>
+            <option value="pendiente">Pendiente de firma</option>
+            <option value="vencida">Enlace vencido</option>
+            <option value="verbal">Verbal (sin firma)</option>
+            <option value="sin">Sin autorización</option>
+          </select>
           <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-votantes">Quitar filtros</button>
           <button type="button" class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="votantes" id="btn-exportar-filtrados-votantes">⬇ Exportar a Excel (filtrados)</button>
         </div>
@@ -478,6 +487,11 @@
         <small id="nota-transporte-votante" style="color:var(--color-text-muted);">Se guarda al marcarla, sin esperar a «Guardar».</small>
       </div>
 
+      <!-- PESTAÑA «AUTORIZACIÓN DE DATOS» (parche 325): el estado y el envío del enlace por WhatsApp (js/autorizacion-datos.js). Abajo van la
+           evidencia de lo ya autorizado y la casilla de siempre para quien la marca en persona. -->
+      <div class="campo encabezado-form" id="titulo-autorizacion-datos-votante">Autorización de datos</div>
+      <div class="campo" id="bloque-autorizacion-datos-votante"></div>
+
       <!-- La autorización es EVIDENCIA, no un campo editable: se muestra lo
            que la persona autorizó, cuándo y sobre qué texto. Poder cambiarla
            desde aquí la volvería inútil como prueba — para revocarla está la
@@ -533,6 +547,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/autorizacion-datos.js"></script>
 <script src="/js/consulta-censo.js"></script>
 <script src="/js/apoyos.js"></script>
 <script src="/js/whatsapp-lote.js"></script>
@@ -1105,7 +1120,8 @@ function leerFiltrosVotantes() {
     no_contactar: document.getElementById('filtro-no-contactar').value,
     // «Se inscribió por enlace» y «Por enlace · sin confirmar» son dos filtros del servidor, no uno.
     origen: ['enlace', 'sin_confirmar'].includes(document.getElementById('filtro-inscripcion').value) ? 'enlace_lider' : '',
-    sin_confirmar: document.getElementById('filtro-inscripcion').value === 'sin_confirmar' ? '1' : ''
+    sin_confirmar: document.getElementById('filtro-inscripcion').value === 'sin_confirmar' ? '1' : '',
+    autorizacion: document.getElementById('filtro-autorizacion').value
   };
 }
 
@@ -1246,7 +1262,7 @@ async function cargarVotantes() {
       <td class="mono col-num">${numeroFila}</td>
       <td style="text-align:center;"><input type="checkbox" class="chk-lugar-votacion" disabled ${tieneLugarVotacion ? 'checked' : ''} title="${tieneLugarVotacion ? 'Lugar de votación diligenciado' : 'Falta diligenciar el lugar de votación (Departamento, Municipio, Puesto y Mesa)'}"></td>
       <td style="text-align:center;"><input type="checkbox" class="chk-datos-verificados" data-id="${v.id}" ${v.datos_verificados ? 'checked' : ''} ${puedeVerificarDatos() ? '' : 'disabled'} title="${v.datos_verificados ? 'Datos verificados' : 'Sin verificar'}"></td>
-      <td><strong>${escaparHtml(v.nombre)}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + escaparHtml(v.cedula) + '</span>' : ''}</td>
+      <td><strong>${escaparHtml(v.nombre)}</strong>${v.cedula ? '<br><span style="color:var(--color-text-muted); font-size:0.78rem;">CC ' + escaparHtml(v.cedula) + '</span>' : ''}<br>${typeof AutorizacionDatos !== 'undefined' ? AutorizacionDatos.pildora(v.autorizacion_estado) : ''}</td>
       <td>${ETIQUETAS_GENERO[v.genero] || '—'}</td>
       <td>${etiquetaCategoriaVotante(v)}</td>
       <td>${celdaTelefonoWhatsApp(v.telefono)}</td>
@@ -1420,6 +1436,7 @@ document.getElementById('filtro-lider').addEventListener('change', refiltrarVota
 document.getElementById('filtro-categoria').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-no-contactar').addEventListener('change', refiltrarVotantes);
 document.getElementById('filtro-inscripcion').addEventListener('change', refiltrarVotantes);
+document.getElementById('filtro-autorizacion').addEventListener('change', refiltrarVotantes);
 
 document.getElementById('btn-quitar-filtros-votantes').addEventListener('click', () => {
   document.getElementById('filtro-busqueda').value = '';
@@ -1434,6 +1451,7 @@ document.getElementById('btn-quitar-filtros-votantes').addEventListener('click',
   document.getElementById('filtro-apoya-a').value = '';
   document.getElementById('filtro-no-contactar').value = '';
   document.getElementById('filtro-inscripcion').value = '';
+  document.getElementById('filtro-autorizacion').value = '';
   refiltrarVotantes();
 });
 
@@ -2883,8 +2901,24 @@ const REGLAS_ERROR_VOTANTE = [
   [/nombre/i, '#form-votante [name="nombre"]']
 ];
 
-document.getElementById('form-votante').addEventListener('submit', async (e) => {
+/* PARCHE 325 — «Enviar autorización por WhatsApp» con una persona NUEVA: el botón guarda primero (con la bandera `paraAutorizar`, que deja
+   registrar sin la casilla de autorización: la persona firmará el enlace) y espera el id con `guardarVotanteParaAutorizar()`. */
+let guardarParaAutorizar = false;
+let idVotanteGuardado = null;
+let resolverGuardadoVotante = null;
+function guardarVotanteParaAutorizar() {
+  return new Promise((resolver) => {
+    resolverGuardadoVotante = resolver;
+    guardarParaAutorizar = true;
+    idVotanteGuardado = null;
+    document.getElementById('form-votante').requestSubmit();
+  });
+}
+
+async function enviarFormularioVotante(e) {
   e.preventDefault();
+  const paraAutorizar = guardarParaAutorizar;
+  guardarParaAutorizar = false;
   const errorBox = document.getElementById('form-error');
   const territorioErrorBox = document.getElementById('territorio-votante-error');
   const categoriaErrorBox = document.getElementById('categoria-votante-error');
@@ -2922,7 +2956,8 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
 
   /* SE COMPRUEBA AQUI PARA DAR EL MENSAJE JUNTO A LA CASILLA, pero quien manda
      es el servidor: lo que compruebe el navegador no autoriza nada. */
-  if (!id && exigeAutorizacionVotante()) {
+  const conBanderaDeEnlace = !id && paraAutorizar && !document.getElementById('chk-consentimiento-votante').checked;
+  if (!id && exigeAutorizacionVotante() && !conBanderaDeEnlace) {
     if (!document.getElementById('chk-consentimiento-votante').checked) {
       mostrarErrorCampo(document.getElementById('chk-consentimiento-votante'), 'Debes confirmar que la persona autorizó el uso de sus datos antes de guardar el registro.');
       return;
@@ -2934,6 +2969,8 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     datos.consentimiento_whatsapp = document.getElementById('chk-consentimiento-whatsapp-votante').checked;
     datos.consentimiento_version = versionPoliticaVotante || '';
   }
+  // Registrada SIN autorización, a la espera de que la persona firme el enlace: el servidor la deja sin permiso de contacto.
+  if (conBanderaDeEnlace) datos.autorizacion_pendiente_enlace = true;
   datos.categoria = esVotante ? 'votante' : 'sublider';
   datos.telefono = (datos.telefono || '').replace(/\D/g, '');
   /* El sublíder puede traer VARIOS territorios: las fichas más lo pendiente en
@@ -2974,6 +3011,7 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     let respuesta;
     if (id) respuesta = await api(`/votantes/${id}`, { method: 'PUT', body: datos });
     else respuesta = await api('/votantes', { method: 'POST', body: datos });
+    idVotanteGuardado = id || respuesta.id;
     document.getElementById('overlay-form').classList.remove('abierto');
     olvidarPasswordEdicionVotante();
     cargarVotantes();
@@ -3041,6 +3079,10 @@ document.getElementById('form-votante').addEventListener('submit', async (e) => 
     }
     mostrarErrorSegunMensaje(err.message, REGLAS_ERROR_VOTANTE);   // junto al campo si el mensaje lo nombra; si no, aviso flotante
   }
+}
+document.getElementById('form-votante').addEventListener('submit', async (e) => {
+  await enviarFormularioVotante(e);
+  if (resolverGuardadoVotante) { const r = resolverGuardadoVotante; resolverGuardadoVotante = null; r(idVotanteGuardado); }
 });
 
 document.getElementById('input-importar-votantes').addEventListener('change', async (e) => {
@@ -3577,15 +3619,25 @@ armarModalLargo({
   overlay: 'overlay-form', form: 'form-votante', cerrar: 'cerrar-modal',
   guardar: document.querySelector('#form-votante button[type="submit"]'),
   secciones: [
-    { titulo: 'Datos personales', desde: '#campo-categoria-votante' },
-    { titulo: 'Lugar de votación', desde: 'texto:Lugar de votación' },
-    { titulo: 'Nombre y perfil', desde: '[name="nombre"]', encabezado: true },
-    { titulo: 'Contacto', desde: 'texto:Datos de contacto' },
+    // Los títulos de cada bloque (Datos personales, Lugar de votación, Datos de contacto…) se quedan como subtítulos dentro de su pestaña.
+    { titulo: 'Identificación y votación', desde: '#campo-categoria-votante' },
+    { titulo: 'Perfil y contacto', desde: '[name="nombre"]', encabezado: true, tituloEncabezado: 'Nombre y perfil' },
     { titulo: 'Territorio', desde: 'texto:Territorio o área de influencia' },
-    { titulo: 'Referido por', desde: 'texto:Referido por' },
-    { titulo: 'Observaciones', desde: '[name="observaciones"]', encabezado: true }
+    { titulo: 'Autorización de datos', desde: 'texto:Autorización de datos' }
   ]
 });
+/* La pestaña «Autorización de datos»: estado del enlace y botones (js/autorizacion-datos.js). */
+const autorizacionVotante = typeof montarAutorizacionDatos !== 'function' ? null : montarAutorizacionDatos({
+  tipo: 'votante', contenedor: document.getElementById('bloque-autorizacion-datos-votante'), ruta: '/votantes',
+  obtenerId: () => document.getElementById('form-votante').id.value || null,
+  obtenerCelular: () => document.getElementById('campo-telefono').value,
+  campoCelular: () => document.getElementById('campo-telefono'),
+  guardarSiNuevo: guardarVotanteParaAutorizar,
+  puedeConstancia: () => !!(usuarioActual && ['admin', 'coordinador'].includes(usuarioActual.rol))
+});
+new MutationObserver(() => {
+  if (document.getElementById('overlay-form').classList.contains('abierto') && autorizacionVotante) setTimeout(() => autorizacionVotante.actualizar(), 250);
+}).observe(document.getElementById('overlay-form'), { attributes: true, attributeFilter: ['class'] });
 </script>
 </body>
 </html>
