@@ -104,6 +104,12 @@ const EXCLUIR = [
   /^scripts\/paleta-navy-instrucciones\.md$/,
   /^scripts\/diagnosticar-aspirante\.js$/,
   /^scripts\/verificar-requires\.js$/,
+  // Orden 46: el procedimiento de emergencia lo corre root en ESTE servidor (lleva su ruta dentro), y la
+  // prueba de los requisitos arma copias del código con git; ninguna de las dos tiene nada que hacer en una campaña.
+  /^scripts\/rescate-parches\.sh$/,
+  /^scripts\/probar-requisitos-parches\.js$/,
+  // Estado de cada instalación (qué parches tiene): una plantilla no lo lleva, lo siembra el actualizador.
+  /^\.parches-aplicados$/,
   /^scripts\/probar-instalacion-limpia\.js$/,
   /^README\.md$/, // habla de otros despliegues (Hostinger/Passenger) y de otros proyectos
   // La fuente del LEEME-INSTALACION.md: no viaja como archivo suelto, se
@@ -127,6 +133,7 @@ const OBLIGATORIOS = [
   'db/init-db.js',
   'db/schema.sql',
   'scripts/actualizar-automatico.js',
+  'config/parchesAplicados.js',   // el actualizador lo importa (Orden 46): sin él muere antes de mirar un parche
   'config/verificarFirmaParche.js',
   'config/licencia.js',
 ];

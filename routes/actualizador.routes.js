@@ -28,6 +28,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const { leerAplicados, compactar } = require('../config/parchesAplicados');
 
 const router = express.Router();
 
@@ -163,7 +164,11 @@ router.get('/estado', exigirSecreto, (req, res) => {
   try {
     version = parseInt(fs.readFileSync(path.join(PROYECTO, '.version-parche'), 'utf8').trim()) || 0;
   } catch (err) { /* Sin archivo todavía: nunca se ha aplicado un parche por este medio. */ }
-  res.json({ ok: true, version_actual: version, actualizacion_en_curso: hayActualizacionEnCurso() });
+  // Los parches que tiene puestos, compactados («1-333»): el panel de licencias
+  // los usa para marcar «falta el N» en vez de dejar aplicar un parche sin su requisito.
+  let aplicados = '';
+  try { aplicados = compactar(leerAplicados(PROYECTO, version)); } catch (err) { /* sin lista: el panel usa la versión */ }
+  res.json({ ok: true, version_actual: version, parches_aplicados: aplicados, actualizacion_en_curso: hayActualizacionEnCurso() });
 });
 
 /**

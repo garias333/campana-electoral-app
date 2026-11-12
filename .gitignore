@@ -22,6 +22,8 @@ Thumbs.db
 .claude/settings.local.json
 .licencia-cache.json
 .version-parche
+# Qué parches tiene ESTA instalación (Orden 46): estado de cada una, nunca viaja ni se versiona.
+.parches-aplicados
 
 # Contraseñas iniciales del superadministrador y del administrador: las deja
 # db/init-db.js (modo 0600) en una instalación nueva, para leerlas con cat y

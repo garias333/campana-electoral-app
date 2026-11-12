@@ -100,11 +100,22 @@ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: electoral.appestrategia.net' 
 ## 3. Cómo viajan las actualizaciones
 
 ```
-1. node scripts/generar-parche.js N archivo1 archivo2 ...     (en electoral)
-2. cp parches/campana-parcheN.zip  <licencias>/parches/parche-N.zip
-3. INSERT en parches_disponibles  (marcar toca_base_datos si hay algo de db/)
+1. node scripts/generar-parche.js N --requiere R archivo1 archivo2 ...   (en electoral)
+2. bash scripts/publicar-parche.sh N        (copia el zip al servidor de licencias)
+3. node scripts/registrar-parche.js N "Título (Requiere el R)"   (nace INACTIVO y en «seleccionadas», sin campañas)
 4. Panel de licencias → "Aplicar actualizaciones" → elegir campañas → Aplicar
 ```
+
+**Cada parche dice sobre cuál se apoya (Orden 46, 12 de noviembre de 2026).** `--requiere R`
+(o «Requiere el R» en `--titulo`) escribe `.parche-requiere` DENTRO del zip; sin él el script
+se niega, salvo `--sin-requisito`. Antes de generar prueba «base anterior + zip» con
+`verificar-requires.js` (que ahora comprueba también cada nombre importado con llaves). Cada
+campaña lleva `.parches-aplicados` (un número por línea; no viaja nunca en un parche) y su
+actualizador **no descomprime ni reinicia** si el R no está ahí; un zip viejo sin
+`.parche-requiere` solo se aplica si es `.version-parche + 1`. Antes de reiniciar prueba que
+`app.js` carga y, si no, restaura lo que sobrescribió. El Servidor de Licencias guarda el
+requisito, no ofrece el parche a quien no reporte tenerlo y el panel marca «falta el R».
+**Emergencia (una campaña caída o atrasada):** `bash scripts/rescate-parches.sh USUARIO zip1 [zip2 …]`, como root.
 
 La orden llega **al instante** por `POST /actualizador/ejecutar` a cada
 campaña; el cron de las 3 a.m. es el respaldo.

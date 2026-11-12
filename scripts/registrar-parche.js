@@ -31,12 +31,26 @@
  * llave privada es el propio Servidor de Licencias — la llave nunca sale
  * de ahí.
  *
+ * EL REQUISITO (Orden 46). El zip trae `.parche-requiere` (lo escribe
+ * generar-parche.js). Aquí se lee del zip local, se compara con el «Requiere el
+ * N» del título y se manda al servidor, que lo vuelve a leer de SU copia del zip
+ * (la que de verdad se va a servir) y lo guarda: no ofrecerá el parche a una
+ * campaña que no reporte tenerlo, y el panel marcará «falta el N».
+ *
+ * LA DISTRIBUCIÓN NACE EN «seleccionadas», SIN NINGUNA CAMPAÑA MARCADA, nunca en
+ * «Todos» (lo hace el servidor al registrar). Así un parche recién registrado no
+ * le llega a nadie aunque alguien lo active por descuido; hay que elegir a
+ * quién en el panel (o con «Aplicar ahora», que agrega a la elegida).
+ *
  * `publicar-parche.sh` SIGUE IGUAL: el .zip se sigue copiando por el mismo
  * canal de archivos de siempre. Lo único que cambia es quién y cómo
  * registra la fila.
  * ------------------------------------------------------------------------
  */
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
 const SERVIDOR_LICENCIAS = process.env.LICENCIA_SERVIDOR_URL;
 const SECRETO_PUBLICADOR = process.env.PARCHES_PUBLICADOR_SECRET;
@@ -59,7 +73,31 @@ if (!SERVIDOR_LICENCIAS || !SECRETO_PUBLICADOR) {
   process.exit(1);
 }
 
+/** El requisito que lleva el zip local (parches/campana-parche<N>.zip), o null. */
+function requisitoDelZipLocal(n) {
+  const zip = path.join(__dirname, '..', 'parches', `campana-parche${n}.zip`);
+  if (!fs.existsSync(zip)) return { zip, requisito: null, existe: false };
+  try {
+    const t = execFileSync('unzip', ['-p', zip, '.parche-requiere'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return { zip, requisito: /^\d+$/.test(t) ? Number(t) : null, existe: true };
+  } catch (err) {
+    return { zip, requisito: null, existe: true };   // unzip sale con error si el archivo no existe dentro del zip
+  }
+}
+
 (async () => {
+  const local = requisitoDelZipLocal(numero);
+  const delTitulo = (/\brequiere\s+(?:el\s+)?#?(\d+)\b/i.exec(nombre) || [])[1];
+  if (local.existe) {
+    if (local.requisito === null) {
+      console.warn('AVISO: el zip local NO trae .parche-requiere (formato anterior a la Orden 46): el actualizador solo lo aplicará si es el siguiente al .version-parche.');
+    } else {
+      console.log(`Requisito del zip: #${local.requisito}.`);
+      if (delTitulo && Number(delTitulo) !== local.requisito) {
+        console.warn(`AVISO: el título dice «Requiere el ${delTitulo}» pero el zip requiere el ${local.requisito}. Vale el del zip; corrige el título.`);
+      }
+    }
+  }
   console.log(`Pidiéndole al Servidor de Licencias que registre y firme el parche #${numero}...`);
 
   const resp = await fetch(`${SERVIDOR_LICENCIAS}/parches/registrar-y-firmar`, {
@@ -68,7 +106,7 @@ if (!SERVIDOR_LICENCIAS || !SECRETO_PUBLICADOR) {
       'Content-Type': 'application/json',
       'X-Publicador-Secret': SECRETO_PUBLICADOR,
     },
-    body: JSON.stringify({ numero_parche: numero, nombre, descripcion }),
+    body: JSON.stringify({ numero_parche: numero, nombre, descripcion, requiere_parche: local.requisito }),
   });
 
   const datos = await resp.json().catch(() => ({}));
@@ -88,11 +126,13 @@ if (!SERVIDOR_LICENCIAS || !SECRETO_PUBLICADOR) {
   console.log(`Registrado el parche #${numero}: «${nombre}»`);
   console.log(`  toca base datos : ${datos.toca_base_datos ? 'SÍ (trae archivos de db/)' : 'no'}`);
   console.log(`  sha256          : ${datos.sha256 || '(no informado)'}`);
+  console.log(`  requiere        : ${datos.requiere_parche ? '#' + datos.requiere_parche : '(ninguno declarado: solo se aplica si es el siguiente)'}`);
   console.log('  firmado         : sí (Ed25519, llave del Servidor de Licencias)');
   console.log('  estado          : INACTIVO');
+  console.log(`  distribución    : ${datos.modo_distribucion || 'seleccionadas'} — sin ninguna campaña marcada`);
   console.log('');
-  console.log('Inactivo a propósito: ninguna instalación lo va a descargar sola.');
-  console.log('Actívalo y aplícalo desde el panel cuando lo hayas probado.');
+  console.log('Inactivo y sin campañas a propósito: ninguna instalación lo va a descargar sola.');
+  console.log('Elige a quién en el panel (Parches → Distribución, o «Aplicar actualizaciones») y actívalo cuando lo hayas probado.');
 })().catch((err) => {
   console.error('No se pudo registrar:', err.message);
   process.exit(1);
