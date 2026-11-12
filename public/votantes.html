@@ -291,7 +291,7 @@
         <div class="campo">
           <label for="input-puesto-votacion-votante">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-votante">
-            <option value="">Seleccione...</option>
+            <option value="">Selecciona...</option>
           </select>
         </div>
         <div class="campo">
@@ -335,13 +335,13 @@
           <div class="campo" style="margin-top:8px;">
             <label for="input-puesto-testigo-votante">Puesto de votación</label>
             <select id="input-puesto-testigo-votante">
-              <option value="">Seleccione...</option>
+              <option value="">Selecciona...</option>
             </select>
           </div>
           <div id="campo-mesa-testigo-votante" style="margin-top:8px;">
             <label for="input-mesa-testigo-votante">Mesa</label>
             <select id="input-mesa-testigo-votante">
-              <option value="">Seleccione un puesto primero...</option>
+              <option value="">Selecciona un puesto primero...</option>
             </select>
           </div>
           <div id="campo-mesas-multiples-testigo-votante" style="display:none; margin-top:8px;">
@@ -423,7 +423,7 @@
       <div class="campo" id="campo-area-votante-normal">
         <label for="select-area-votante" id="etiqueta-area-votante">Área</label>
         <select id="select-area-votante">
-          <option value="">Seleccione (opcional)...</option>
+          <option value="">Selecciona (opcional)...</option>
           <option value="urbano">Urbano</option>
           <option value="rural">Rural</option>
         </select>
@@ -459,7 +459,7 @@
       <div id="bloque-fichas-territorio-votante" class="bloque-fichas-territorio" style="display:none;">
         <div id="fichas-territorio-votante" class="fichas-territorio" role="list" aria-live="polite" style="display:none;"></div>
         <button type="button" class="btn-secundario btn-sm" id="btn-agregar-territorio-votante">+ Agregar otro territorio</button>
-        <small class="ayuda-fichas">Elija el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
+        <small class="ayuda-fichas">Elige el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
         <small class="ayuda-fichas" id="ayuda-municipio-completo-votante" style="display:none;">Para sumar un municipio completo: escríbalo en Municipio, deje el Área sin especificar y pulse el botón.</small>
       </div>
       <div id="territorio-votante-error" class="mensaje-error"></div>
@@ -800,7 +800,7 @@ function aplicarApoyosATablaVotantes(activos, posibles, conservarEleccion) {
 async function cargarPuestosVotacionParaSelectVotante() {
   if (puestosVotacionCacheVotante) return;
   puestosVotacionCacheVotante = await obtenerConCacheReferencia('diad_puestos', () => api('/dia-d/puestos-para-reporte'));
-  const opciones = '<option value="">Seleccione...</option>' +
+  const opciones = '<option value="">Selecciona...</option>' +
     puestosVotacionCacheVotante.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('input-puesto-votacion-votante').innerHTML = opciones;
   document.getElementById('input-puesto-testigo-votante').innerHTML = opciones;
@@ -1052,7 +1052,7 @@ async function pintarReferentesDelMunicipio(select, area, preservarId, preservar
     }
   }
   select.innerHTML = '<option value="">Yo mismo / no aplica</option>' +
-    '<option value="" disabled>Escriba primero la Ciudad de residencia</option>' +
+    '<option value="" disabled>Escribe primero la Ciudad de residencia</option>' +
     (preservarId ? `<option value="${preservarId}">${preservarNombre || 'Asignado actualmente'}</option>` : '');
   select.value = preservarId || '';
   actualizarSublideresPorLider();
@@ -1753,7 +1753,7 @@ function resolverTerritorioVotante() {
   const esOrganizacion = esSublider && document.getElementById('chk-area-influencia-votante-organizacion').checked;
   if (esOrganizacion) {
     const nombreOrg = document.getElementById('input-organizacion-votante').value.trim();
-    if (!nombreOrg) return { error: 'Escriba el nombre de la organización.' };
+    if (!nombreOrg) return { error: 'Escribe el nombre de la organización.' };
     return { territorioId: null, area: null };
   }
 
@@ -1762,7 +1762,7 @@ function resolverTerritorioVotante() {
      hacer que el GUARDADO dependa de que ese puente haya corrido es frágil, y
      falló: rellenar la ficha desde código —al editar— no dispara eventos, así
      que los campos ocultos quedaban vacíos y el formulario respondía
-     «Seleccione un barrio de la lista» teniendo el barrio escrito arriba, a la
+     «Selecciona un barrio de la lista» teniendo el barrio escrito arriba, a la
      vista. Imposible de entender para quien lo lee.
 
      Leyendo la residencia directamente, el guardado no depende de que nada se
@@ -1792,7 +1792,7 @@ function resolverTerritorioVotante() {
   // En campaña departamental el Municipio ancla todo lo de abajo.
   const disp = disponiblesEnMunicipioVotante();
   if (ambitoDepartamental && !disp.municipio) {
-    return { error: 'Seleccione el municipio del área de influencia, o deje el área sin especificar.' };
+    return { error: 'Selecciona el municipio del área de influencia, o deje el área sin especificar.' };
   }
   // Territorio con el que se guarda cuando el nivel pedido no existe en ese
   // municipio: se sube al que sí exista y, en último caso, al municipio.
@@ -1806,7 +1806,7 @@ function resolverTerritorioVotante() {
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-votante').value);
       const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
       if (!comuna) {
-        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Seleccione una comuna de la lista, o deje el área sin especificar.' };
+        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Selecciona una comuna de la lista, o deje el área sin especificar.' };
         return territorioMasFino();
       }
       return { territorioId: comuna.id, area };
@@ -1818,12 +1818,12 @@ function resolverTerritorioVotante() {
          ES una comuna: las de los coordinadores que llegan sincronizados desde
          la Estructura, donde un Coordinador se asigna a la comuna entera. Al
          editarlas, el formulario exigía un barrio que esa ficha nunca tuvo, y
-         el mensaje —«Seleccione un barrio de la lista»— no daba ninguna pista
+         el mensaje —«Selecciona un barrio de la lista»— no daba ninguna pista
          de por qué. */
       const nombreComunaSola = normalizarTexto(document.getElementById('input-comuna-votante').value);
       const comunaSola = nombreComunaSola ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComunaSola) : null;
       if (comunaSola) return { territorioId: comunaSola.id, area };
-      if (disp.barrios.length) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
+      if (disp.barrios.length) return { error: 'Selecciona un barrio de la lista, o deje el área sin especificar.' };
       // Sin barrios creados en ese municipio se baja al mayor detalle que
       // sí exista: la comuna escrita, si la hay, y si no el municipio.
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-votante').value);
@@ -1843,7 +1843,7 @@ function resolverTerritorioVotante() {
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
       const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       if (!corregimiento) {
-        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista, o deje el área sin especificar.' };
+        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Selecciona un corregimiento de la lista, o deje el área sin especificar.' };
         return territorioMasFino();
       }
       return { territorioId: corregimiento.id, area };
@@ -1854,7 +1854,7 @@ function resolverTerritorioVotante() {
       const nombreCorrSolo = normalizarTexto(document.getElementById('input-corregimiento-votante').value);
       const corrSolo = nombreCorrSolo ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorrSolo) : null;
       if (corrSolo) return { territorioId: corrSolo.id, area };
-      if (disp.veredas.length) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
+      if (disp.veredas.length) return { error: 'Selecciona una vereda de la lista, o deje el área sin especificar.' };
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-votante').value) : '';
       const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       return corregimiento ? { territorioId: corregimiento.id, area } : territorioMasFino();
@@ -2345,7 +2345,7 @@ function olvidarPasswordEdicionVotante() { passwordEdicionVotante = null; }
 async function editarVotante(v) {
   const clave = await confirmarConPasswordPropia(
     'Editar a ' + (v.nombre || 'esta persona'),
-    'Escriba SU contraseña para abrir esta ficha.');
+    'Escribe TU contraseña para abrir esta ficha.');
   if (!clave) return;
   passwordEdicionVotante = clave;
 
@@ -2461,8 +2461,8 @@ async function eliminarVotante(id) {
   const password = await solicitarPasswordPropia(
     soyAspirante ? '¿Quitar a esta persona de su estructura?' : '¿Eliminar este contacto?',
     soyAspirante
-      ? 'La ficha NO se borra: sigue en la campaña principal. Solo deja de aparecer en su base. Escriba su propia contraseña para confirmar.'
-      : 'Eliminar un contacto no se puede deshacer. Escriba su propia contraseña para confirmar.');
+      ? 'La ficha NO se borra: sigue en la campaña principal. Solo deja de aparecer en su base. Escribe tu propia contraseña para confirmar.'
+      : 'Eliminar un contacto no se puede deshacer. Escribe tu propia contraseña para confirmar.');
   if (!password) return;
   try {
     await api(`/votantes/${id}`, { method: 'DELETE', body: { password } });
@@ -2600,7 +2600,7 @@ async function filtrarPuestosTestigoPorMunicipioVotante() {
       return; // se queda con lo que ya había
     }
   }
-  select.innerHTML = '<option value="">Seleccione...</option>' +
+  select.innerHTML = '<option value="">Selecciona...</option>' +
     nombres.map(p => `<option value="${p}">${p}</option>`).join('');
   // El puesto que ya tenía se conserva aunque no esté en el municipio nuevo:
   // borrarlo en silencio le cambiaría el puesto a un testigo ya asignado.
@@ -3168,8 +3168,8 @@ document.getElementById('btn-regeocodificar-votantes-todos').addEventListener('c
       : 'Esto vuelve a calcular la ubicación de TODOS los votantes/colaboradores que tienen Dirección, incluso quienes ya tenían coordenadas — les PISA la ubicación anterior con la nueva. Útil si notaste pines fuera de lugar. Se procesa de a pocos por vez y puede tardar varios minutos (no cierres esta pestaña). ¿Continuar?')) return;
   // Al aspirante se le pide LA SUYA: la del administrador no la tiene.
   const password = soyAspiranteGeo
-    ? await solicitarPasswordPropia('Confirme la corrección',
-        'Esto pisa las coordenadas que ya tenían. Escriba su propia contraseña para confirmar.')
+    ? await solicitarPasswordPropia('Confirma la corrección',
+        'Esto pisa las coordenadas que ya tenían. Escribe tu propia contraseña para confirmar.')
     : await solicitarPasswordAdmin('Confirmar corrección de ubicaciones existentes');
   if (!password) return;
 
@@ -3571,8 +3571,20 @@ function alternarMesasEstimadoPuesto(i) {
      el servidor luego rechazaba con un 403: la persona no concluye «no tengo
      permiso», concluye «esto está roto». Cada quien registra; no cada quien
      importa un archivo entero. */
-  if (!puedeAgregar(usuarioActual, 'votantes')) {
+  /* «+ NUEVO VOTANTE O SUBLÍDER» SOLO A QUIEN EL SERVIDOR DEJA REGISTRAR (parche 330). El testigo (y el invitado) lo veían y el alta respondía 403. La lista
+     es la de POST /votantes (`ROLES_QUE_REGISTRAN`); el aspirante entra con rol «admin» en el navegador. */
+  const ROLES_QUE_REGISTRAN_VOTANTES = ['admin', 'coordinador', 'lider', 'sublider', 'usuario', 'asistente_administrativo'];
+  if (!puedeAgregar(usuarioActual, 'votantes') || !ROLES_QUE_REGISTRAN_VOTANTES.includes(usuarioActual.rol)) {
     document.getElementById('btn-nuevo').style.display = 'none';
+  }
+  /* AL LÍDER (Y A QUIEN NO ES ADMINISTRADOR) NO SE LE MUESTRAN LOS BOTONES QUE LE RESPONDEN 403 (parche 330): «Re-geocodificar» es de administrador
+     (y del aspirante, que entra como «admin») y «Eliminar registros» de administrador y coordinador. */
+  if (usuarioActual.rol !== 'admin') {
+    ['btn-regeocodificar-votantes', 'btn-regeocodificar-votantes-todos'].forEach((id) => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+  }
+  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+    const b = document.getElementById('btn-eliminar-votantes');
+    if (b) b.style.display = 'none';
   }
   aplicarFormatoTelefono('#form-votante [name="telefono"]');
   aplicarFormatoNombrePropio('#form-votante [name="nombre"]');
@@ -3621,6 +3633,48 @@ function alternarMesasEstimadoPuesto(i) {
   <script src="/js/lugar-votacion-catalogo.js"></script>
   <script src="/js/listas-desplegables.js"></script>
 <script>
+/* «+ NUEVO TESTIGO» DE LA COBERTURA (parche 330). Antes abría el formulario de Estructura con «Líder» marcado y, si se guardaba, creaba un líder. Ahora
+   llega aquí (#testigo-nuevo) y abre el formulario de siempre con «Es también testigo electoral» marcado y lo que ya se sabe (nombre, cédula, teléfono,
+   puesto y mesa; los datos viajan por sessionStorage porque llevan cédula y teléfono). Si la persona ya es un votante, abre su ficha en vez de crear otra. */
+(async () => {
+  if (window.location.hash !== '#testigo-nuevo') return;
+  const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  let d = null;
+  try { d = JSON.parse(sessionStorage.getItem('testigo_prellenado') || 'null'); sessionStorage.removeItem('testigo_prellenado'); } catch (_) { d = null; }
+  for (let i = 0; i < 40 && !(typeof usuarioActual !== 'undefined' && usuarioActual); i++) await dormir(250);
+  try {
+    const boton = document.getElementById('btn-nuevo');
+    if (!boton || boton.style.display === 'none') return;
+    let abierta = false;
+    if (d && d.votante_id) {
+      try { await editarVotante(await api('/votantes/' + d.votante_id)); abierta = true; } catch (_) { abierta = false; }
+    }
+    if (!abierta) { boton.click(); await dormir(700); }
+    const chk = document.getElementById('chk-asignar-testigo-votante');
+    if (!chk || chk.disabled) return;
+    chk.checked = true;
+    chk.dispatchEvent(new Event('change', { bubbles: true }));
+    await dormir(500);
+    if (!d) return;
+    const form = document.getElementById('form-votante');
+    if (!abierta) {
+      if (d.nombre) form.nombre.value = d.nombre;
+      if (d.cedula) form.cedula.value = d.cedula;
+      if (d.telefono && form.telefono) form.telefono.value = formatoTelefonoColombia(d.telefono);
+      if (d.email && form.email) form.email.value = d.email;
+    }
+    const puesto = document.getElementById('input-puesto-testigo-votante');
+    if (puesto && d.puesto) {
+      fijarValorGuardadoEnSelect(puesto, d.puesto);
+      puesto.dispatchEvent(new Event('change', { bubbles: true }));
+      await dormir(700);                                  // consulta las mesas disponibles del puesto
+      const mesa = document.getElementById('input-mesa-testigo-votante');
+      if (mesa && d.mesa) mesa.value = String(d.mesa);
+    }
+  } catch (err) {
+    console.warn('No se pudo prellenar el formulario de testigo:', err && err.message);
+  }
+})();
 /* REDISEÑO FASE 2 (parche 323): modal con encabezado y pie fijos, secciones con índice, «Cancelar», Esc y aviso de cambios sin guardar.
    Mueve los nodos del formulario a secciones contiguas SIN cambiar su orden ni sus ids (ver armarModalLargo en js/common.js). */
 armarModalLargo({

@@ -160,7 +160,7 @@ document.getElementById('form-movimiento').addEventListener('submit', async (e) 
     if (categoriaId === OPCION_OTRO) {
       const nombreNueva = document.getElementById('input-categoria-nueva').value.trim();
       if (!nombreNueva) {
-        errorBox.textContent = 'Escriba el nombre de la nueva categoría.';
+        errorBox.textContent = 'Escribe el nombre de la nueva categoría.';
         errorBox.classList.add('visible');
         return;
       }
@@ -189,7 +189,7 @@ document.getElementById('form-movimiento').addEventListener('submit', async (e) 
   usuarioActual = await inicializarLayout('/finanzas.html');
   if (!usuarioActual) return;
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
-    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tienes permisos para ver esta sección.</div>';
     return;
   }
   categorias = await api('/finanzas/categorias');

@@ -51,9 +51,9 @@ const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: T.T
 const exigir = (nivel) => async (req, res, next) => {
   const p = await T.permisosDe(req.session.usuario);
   req.permisos = p;
-  if (!p.ver) return res.status(403).json({ error: 'Su tipo de usuario no tiene acceso a las tareas. Si lo necesita, pídaselo al administrador de la campaña.' });
-  if (nivel === 'agregar' && !p.agregar) return res.status(403).json({ error: 'Su tipo de usuario puede ver las tareas pero no crearlas.' });
-  if (nivel === 'editar' && !p.editar) return res.status(403).json({ error: 'Su tipo de usuario puede ver las tareas pero no cambiarlas.' });
+  if (!p.ver) return res.status(403).json({ error: 'Tu tipo de usuario no tiene acceso a las tareas. Si lo necesitas, pídeselo al administrador de la campaña.' });
+  if (nivel === 'agregar' && !p.agregar) return res.status(403).json({ error: 'Tu tipo de usuario puede ver las tareas pero no crearlas.' });
+  if (nivel === 'editar' && !p.editar) return res.status(403).json({ error: 'Tu tipo de usuario puede ver las tareas pero no cambiarlas.' });
   next();
 };
 

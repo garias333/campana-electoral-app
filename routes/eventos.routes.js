@@ -34,10 +34,10 @@ function permisoVer(modulos) {
       if (u.rol === 'admin' || await esSuperadmin(u)) return next();
       const [filas] = await pool.query('SELECT 1 FROM permisos_rol WHERE rol = ? AND modulo IN (?) AND permitido = 1 LIMIT 1', [u.rol, modulos]);
       if (filas.length) return next();
-      return res.status(403).json({ error: 'Su tipo de usuario no tiene acceso a esta sección. Si lo necesita, pídaselo al administrador de la campaña.' });
+      return res.status(403).json({ error: 'Tu tipo de usuario no tiene acceso a esta sección. Si lo necesitas, pídeselo al administrador de la campaña.' });
     } catch (err) {
       console.error('[eventos] No se pudo comprobar el permiso:', err.code || err.message);
-      return res.status(403).json({ error: 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.' });
+      return res.status(403).json({ error: 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelve a intentarlo.' });
     }
   };
 }
@@ -73,10 +73,14 @@ router.get('/', async (req, res) => {
   const alcanceE = alcanceEventos(req.alcance, 'e');
   condiciones.push(alcanceE.sql); params.push(...alcanceE.valores);
   const whereSql = armarWhereSql(condiciones);
+  /* ¿QUIÉN PUEDE GUARDAR CADA EVENTO? (parche 330). La Agenda abría «Editar evento» a cualquiera que viera el evento, también a quien solo está invitado
+     o es sublíder, y el servidor le negaba el guardado al final. `puede_gestionar` es la misma regla del PUT (`soloGestion`) y solo la tienen los roles
+     que pueden escribir eventos. */
+  const gestion = alcanceEventos(req.alcance, 'e', true);
 
   try {
     const [rows] = await pool.query(
-      `SELECT e.*, t.nombre AS territorio_nombre, u.nombre AS responsable_nombre,
+      `SELECT e.*, (${gestion.sql}) AS puede_gestionar_sql, t.nombre AS territorio_nombre, u.nombre AS responsable_nombre,
               coord.nombre AS coordinador_nombre, lid.nombre AS lider_nombre,
               (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id) AS total_invitados,
               (SELECT COUNT(*) FROM evento_asistentes ea WHERE ea.evento_id = e.id AND ea.asistio = 1) AS total_asistio
@@ -87,9 +91,10 @@ router.get('/', async (req, res) => {
        LEFT JOIN usuarios lid ON lid.id = e.lider_id
        ${whereSql}
        ORDER BY ABS(TIMESTAMPDIFF(SECOND, NOW(), e.fecha_inicio)) ASC`,
-      params
+      [...gestion.valores, ...params]
     );
-    res.json(rows);
+    const rolEscribe = ['admin', 'coordinador', 'lider'].includes(req.session.usuario.rol);
+    res.json(rows.map(({ puede_gestionar_sql, ...e }) => ({ ...e, puede_gestionar: rolEscribe && Number(puede_gestionar_sql) === 1 })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando eventos.' });
@@ -334,12 +339,15 @@ router.put('/:id', requireRole('admin', 'coordinador', 'lider'), async (req, res
     );
 
     await pool.query(
+      /* DEPARTAMENTO Y CIUDAD NO SE BORRAN SI NO LLEGAN (parche 330). Editar un evento desde la Agenda los dejaba en NULL: esa pantalla no los mandaba y
+         el PUT escribía `b.departamento || null`. Ahora, si el cuerpo no trae la clave, se conserva lo que había (COALESCE); si trae una cadena vacía,
+         sí se borra (la pantalla de Eventos lo usa para quitar la ciudad). */
       `UPDATE eventos SET titulo=?, descripcion=?, tipo=?, fecha_inicio=?, fecha_fin=?, lugar=?,
-       departamento=?, ciudad=?, territorio_id=?, area=?, responsable_id=?, coordinador_id=?, lider_id=?,
+       departamento=IF(?, ?, departamento), ciudad=IF(?, ?, ciudad), territorio_id=?, area=?, responsable_id=?, coordinador_id=?, lider_id=?,
        meta_asistentes=?, estado=?
        WHERE id=?`,
       [b.titulo, b.descripcion || null, b.tipo, b.fecha_inicio, b.fecha_fin || null, b.lugar || null,
-       b.departamento || null, b.ciudad || null,
+       b.departamento !== undefined ? 1 : 0, b.departamento || null, b.ciudad !== undefined ? 1 : 0, b.ciudad || null,
        b.territorio_id || null, b.area || null, b.responsable_id || null, b.coordinador_id || null,
        b.lider_id || null, b.meta_asistentes || 0, b.estado || 'programado', req.params.id]
     );

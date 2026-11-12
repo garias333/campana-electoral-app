@@ -109,7 +109,11 @@ async function tarea(o) {
     const ir = async (ruta, ms = 2200) => { await p.cmd('Page.navigate', { url: base + ruta }); await espera(ms); };
     const clic = (sel) => p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.click(); return true; })()`);
     const escribir = (sel, v) => p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', {bubbles:true})); e.dispatchEvent(new Event('change', {bubbles:true})); return true; })()`);
-    const texto = (sel) => p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return e ? e.textContent.trim() : null; })()`);
+    /* Desde el rediseño del celular (parche 320) los avisos ya no van en #aviso: los generales salen en el aviso flotante (#toast-app) y los de un campo
+       debajo del campo (.error-campo). `texto('#aviso')` junta las tres fuentes para que la prueba lea lo que la persona ve. */
+    const texto = (sel) => p.ev(sel === '#aviso'
+      ? `(() => { const t = [document.querySelector('#aviso'), document.querySelector('#toast-app'), ...document.querySelectorAll('.error-campo')].filter(Boolean).map(e => e.textContent.trim()).filter(Boolean).join(' | '); return t; })()`
+      : `(() => { const e = document.querySelector(${JSON.stringify(sel)}); return e ? e.textContent.trim() : null; })()`);
     const visible = (sel) => p.ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return !!e && getComputedStyle(e).display !== 'none'; })()`);
     const abrirTarea = async (id) => { await p.ev(`document.querySelector('[data-abrir="${id}"]').click()`); await espera(400); };
     const accion = async (id, a) => { await p.ev(`document.querySelector('[data-accion="${a}"][data-id="${id}"]').click()`); await espera(500); };

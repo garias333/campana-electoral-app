@@ -494,7 +494,7 @@ router.get('/progreso-equipo', async (req, res) => {
      acotado abajo — dejarlo entrar sin acotar le habría dado la nómina de
      coordinadores de la alcaldía con sus metas. */
   if (!req.sublicencia && !['admin', 'coordinador'].includes(req.session.usuario.rol)) {
-    return res.status(403).json({ error: 'No tiene permisos para ver esta información.' });
+    return res.status(403).json({ error: 'No tienes permisos para ver esta información.' });
   }
   try {
     const ambito = (await ambitoDelPanel(req)) || (await ambitoDelCoordinador(req));
@@ -579,7 +579,7 @@ router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (re
       const pedido = Number(req.query.coordinador_id);
       if (!Number.isInteger(pedido) || pedido <= 0) {
         return res.status(400).json({
-          error: 'Indique de qué coordinador quiere ver el avance (coordinador_id).'
+          error: 'Indica de qué coordinador quiere ver el avance (coordinador_id).'
         });
       }
       /* Se comprueba que SEA un coordinador de esta campaña, activo, y se le

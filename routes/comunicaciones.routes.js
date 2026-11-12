@@ -28,7 +28,7 @@ const { contactosDeBaja } = require('../lib/baja');
    arreglan distinto: por eso no es un solo «Sin dato de contacto». */
 const MOTIVO_PUSH_SIN_CUENTA = 'No tiene cuenta en la aplicación. Los votantes no reciben avisos: use Enviar SMS.';
 const MOTIVO_PUSH_SIN_DISPOSITIVO = 'Tiene cuenta pero no ha activado los avisos en su celular (Inicio → Avisos).';
-const MOTIVO_PUSH_VARIAS_CUENTAS = 'Ese número está en varias cuentas: no se adivina a cuál mandarlo. Elija a la persona en la lista.';
+const MOTIVO_PUSH_VARIAS_CUENTAS = 'Ese número está en varias cuentas: no se adivina a cuál mandarlo. Elige a la persona en la lista.';
 const MOTIVO_PUSH_NO_ES_CELULAR = 'Lo escrito no es un celular de 10 dígitos: no se pudo buscar a la persona.';
 
 const router = express.Router();
@@ -1850,7 +1850,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     const validos = ['estructura', 'testigos', 'seleccion'];
     if (!origenes.every(o => validos.includes(o))) {
       return res.status(400).json({
-        error: 'Los avisos push solo llegan a quien tiene cuenta en la aplicación. Elija "Estructura" o "Testigos" como origen — los votantes y el organigrama no pueden recibirlos.'
+        error: 'Los avisos push solo llegan a quien tiene cuenta en la aplicación. Elige "Estructura" o "Testigos" como origen — los votantes y el organigrama no pueden recibirlos.'
       });
     }
   }
@@ -1874,11 +1874,27 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
     // el proveedor rechaza la mensajería promocional fuera de 08:00-20:00, y
     // enterarse en el envío número 1 de 300 deja la campaña a medias, con la
     // mitad de la gente sin mensaje y el reporte lleno de fallidos.
-    if (!estado.enFranja && !req.body.programado_para) {
+    const progSms = req.body.programado_para ? new Date(req.body.programado_para) : null;
+    const progFutura = !!progSms && !isNaN(progSms) && progSms.getTime() > Date.now();
+    if (!estado.enFranja && !progFutura) {
       return res.status(400).json({
         error: `Fuera del horario permitido para SMS (${estado.franja.inicio}:00 a ${estado.franja.fin}:00, hora de Colombia). `
-             + 'Puede programar el envío para mañana dentro de ese rango.'
+             + 'Puedes programar el envío para mañana dentro de ese rango.'
       });
+    }
+    /* UN SMS PROGRAMADO FUERA DE HORARIO SE RECHAZA AL PROGRAMAR (parche 330). Antes se aceptaba y, a la hora programada, el envío se aplazaba solo a la
+       apertura de la siguiente franja: quien lo programó a las 9 p. m. creía que saldría a las 9 p. m. y salía al día siguiente, sin enterarse. La franja se
+       mira con la HORA PROGRAMADA (en hora de Colombia), no con la de ahora. */
+    if (progFutura && estado.franja) {   // `franja` es null con el respaldo de Twilio: esa regla es de Onurix y no se le inventa
+      const cfgSms = await smsSvc.configCampana();
+      if (!smsSvc.dentroDeFranja(cfgSms, progSms)) {
+        const col = new Date(progSms.getTime() - 5 * 60 * 60 * 1000);
+        const hora = `${String(col.getUTCHours()).padStart(2, '0')}:${String(col.getUTCMinutes()).padStart(2, '0')}`;
+        return res.status(400).json({
+          error: `Programaste el SMS para las ${hora} (hora de Colombia), fuera del horario permitido (${cfgSms.horarioInicio}:00 a ${cfgSms.horarioFin}:00). `
+               + 'Elige una hora dentro de ese rango.'
+        });
+      }
     }
   }
   if (canal === 'email') {
@@ -2061,14 +2077,14 @@ const SQL_BAJAS = `
  */
 const ORIGEN_BAJA = {
   enlace: 'Enlace del mensaje',
-  sms: 'Respondio al SMS',
-  whatsapp: 'Respondio por WhatsApp',
+  sms: 'Respondió al SMS',
+  whatsapp: 'Respondió por WhatsApp',
   manual: 'Anotada a mano',
 };
 
 /** «Anotada a mano · Llamada»: para una baja manual se dice ademas por que canal la pidio. */
 function textoDeOrigen(f) {
-  const base = ORIGEN_BAJA[f.origen] || 'No quedo registrado';
+  const base = ORIGEN_BAJA[f.origen] || 'No quedó registrado';
   return f.origen === 'manual' && CANALES_BAJA_MANUAL[f.canal]
     ? `${base} · ${CANALES_BAJA_MANUAL[f.canal]}` : base;
 }
@@ -2142,13 +2158,13 @@ router.post('/bajas/manual', requireRole('admin', 'coordinador'), async (req, re
   if (!Number.isInteger(idNum) || idNum <= 0) return res.status(400).json({ error: 'Persona no valida.' });
   const motivoLimpio = String(motivo == null ? '' : motivo).trim();
   if (!motivoLimpio) {
-    return res.status(400).json({ error: 'Escriba el motivo: queda en la ficha y en la auditoria.' });
+    return res.status(400).json({ error: 'Escribe el motivo: queda en la ficha y en la auditoria.' });
   }
   if (motivoLimpio.length > 255) {
     return res.status(400).json({ error: 'El motivo es muy largo (maximo 255 caracteres).' });
   }
   if (!Object.prototype.hasOwnProperty.call(CANALES_BAJA_MANUAL, canal)) {
-    return res.status(400).json({ error: 'Elija por que canal lo pidio.' });
+    return res.status(400).json({ error: 'Elige por que canal lo pidio.' });
   }
 
   try {
@@ -2191,7 +2207,7 @@ router.post('/bajas/manual', requireRole('admin', 'coordinador'), async (req, re
 router.post('/bajas/:tipo/:id/reactivar', requireRole('admin'), async (req, res) => {
   const { motivo } = req.body || {};
   if (!motivo || !String(motivo).trim()) {
-    return res.status(400).json({ error: 'Escriba por que se reactiva: queda en la auditoria.' });
+    return res.status(400).json({ error: 'Escribe por que se reactiva: queda en la auditoria.' });
   }
   const tabla = req.params.tipo === 'votante' ? 'votantes'
               : req.params.tipo === 'usuario' ? 'usuarios' : null;

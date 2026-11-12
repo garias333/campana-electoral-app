@@ -32,7 +32,7 @@ Debajo del formulario sale «Usuario creado. Contraseña temporal: …» (o «Us
 :::
 
 ::: cuidado
-El desplegable **Rol / Perfil** nace con «Admin» elegido: si no lo cambias, la persona queda con control total. Elige siempre el rol a propósito. Y si usas el número de identificación como clave, ten en cuenta que debe tener 8 o más caracteres: con una cédula más corta se rechaza la clave: escribe otra o borra el campo para que se genere una temporal.
+El desplegable **Rol / Perfil** nace vacío («Elige un rol…») y es obligatorio: tienes que elegir el rol a propósito, porque «Admin» da control total. Los roles salen con su nombre de pantalla (Líder, Asistente administrativo…). Y si usas el número de identificación como clave, ten en cuenta que debe tener 8 o más caracteres: con una cédula más corta se rechaza la clave: escribe otra o borra el campo para que se genere una temporal.
 :::
 
 ::: importante

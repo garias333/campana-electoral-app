@@ -624,7 +624,7 @@ router.post('/territorios/crear-zona', requireRole('admin', 'coordinador'), asyn
   } catch (err) {
     await conexion.rollback();
     console.error(err);
-    res.status(400).json({ error: 'No se pudo crear la zona. Revise los datos e inténtelo de nuevo.' });
+    res.status(400).json({ error: 'No se pudo crear la zona. Revisa los datos e inténtelo de nuevo.' });
   } finally {
     conexion.release();
   }
@@ -837,7 +837,7 @@ router.post('/territorios/importar-excel', requireRole('admin'), requiereImporta
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
+    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifica que el formato de las columnas sea correcto.' });
   }
 });
 
@@ -1376,7 +1376,7 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
      aparece un tercer llamador y no la manda, se enterara aqui con un 403
      legible y no editando a medias. */
   if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
-    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   }
   const {
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
@@ -1735,7 +1735,7 @@ router.delete('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'
      Va ANTES de abrir la transaccion: comprobar despues de haber tocado la
      fila no confirma nada. */
   if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
-    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   }
   /* QUEDA CONSTANCIA, PORQUE DESPUÉS DE ESTO NO HAY DÓNDE MIRAR.
      Hasta el 29 de agosto de 2026 este endpoint no registraba nada. El
@@ -2565,7 +2565,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
     res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
+    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifica que el formato de las columnas sea correcto.' });
   }
 });
 
@@ -3293,7 +3293,7 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
     res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
+    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifica que el formato de las columnas sea correcto.' });
   }
 });
 

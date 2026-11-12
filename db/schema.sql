@@ -1013,7 +1013,7 @@ CREATE TABLE IF NOT EXISTS dia_d_mesa_revision (
   aspirante_id INT NOT NULL DEFAULT 0,
   puesto_texto VARCHAR(200) NOT NULL,
   mesa INT NOT NULL,
-  estado ENUM('para_reclamar','revisada') NOT NULL,
+  estado ENUM('para_reclamar','revisada','sin_revision') NOT NULL,
   nota TEXT NULL,
   marcado_por INT NULL,
   marcado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

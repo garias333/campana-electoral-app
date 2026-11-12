@@ -14,7 +14,7 @@
   <main class="main">
     <div class="sec-hero">
       <div class="eyebrow">Logística</div>
-      <h1>Eventos y movilización</h1>
+      <h1>Eventos y GOTV</h1>
       <p>Los eventos de la campaña con su lugar y su hora. Los que tengan dirección
          se ubican en el mapa; los asistentes se registran desde
          <a href="/asistentes-reuniones.html" style="color:#fff;">Asistentes a reuniones</a>.</p>
@@ -108,7 +108,7 @@
       <div class="campo">
         <label for="select-area-evento">Área</label>
         <select id="select-area-evento">
-          <option value="">Seleccione (opcional)...</option>
+          <option value="">Selecciona (opcional)...</option>
           <option value="urbano">Urbano</option>
           <option value="rural">Rural</option>
         </select>
@@ -383,13 +383,13 @@ function resolverTerritorioEvento() {
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-evento').value);
       const comuna = nombreComuna ? territorios.find(t => t.tipo === 'comuna' && normalizarTexto(t.nombre) === nombreComuna) : null;
       if (!comuna) {
-        if (ciudadTieneComunas) return { error: 'Seleccione una comuna de la lista, o deje el área sin especificar.' };
+        if (ciudadTieneComunas) return { error: 'Selecciona una comuna de la lista, o deje el área sin especificar.' };
         return { territorioId: null, area };
       }
       return { territorioId: comuna.id, area };
     }
     const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-evento').value);
-    if (!nombreBarrio) return { error: 'Seleccione un barrio de la lista, o deje el área sin especificar.' };
+    if (!nombreBarrio) return { error: 'Selecciona un barrio de la lista, o deje el área sin especificar.' };
     const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
     if (!barrio) return { error: 'Ese barrio no existe aún. Créelo primero en "Estructura territorial > Gestionar territorios".' };
     return { territorioId: barrio.id, area };
@@ -401,13 +401,13 @@ function resolverTerritorioEvento() {
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-evento').value) : '';
       const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       if (!corregimiento) {
-        if (usarNombreCorregimientos) return { error: 'Seleccione un corregimiento de la lista, o deje el área sin especificar.' };
+        if (usarNombreCorregimientos) return { error: 'Selecciona un corregimiento de la lista, o deje el área sin especificar.' };
         return { territorioId: null, area };
       }
       return { territorioId: corregimiento.id, area };
     }
     const nombreVereda = normalizarTexto(document.getElementById('input-vereda-evento').value);
-    if (!nombreVereda) return { error: 'Seleccione una vereda de la lista, o deje el área sin especificar.' };
+    if (!nombreVereda) return { error: 'Selecciona una vereda de la lista, o deje el área sin especificar.' };
     const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
     if (!vereda) return { error: 'Esa vereda no existe aún. Créela primero en "Estructura territorial > Gestionar territorios".' };
     return { territorioId: vereda.id, area };

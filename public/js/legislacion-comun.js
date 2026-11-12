@@ -221,7 +221,7 @@
 
     raiz.classList.add('leg');
     raiz.innerHTML = `
-      <p class="leg-aviso">Consulte siempre la versión vigente en la fuente oficial.</p>
+      <p class="leg-aviso">Consulta siempre la versión vigente en la fuente oficial.</p>
       <div class="leg-error" id="leg-error" role="alert" hidden></div>
       <div class="leg-tabs" role="tablist" aria-label="Secciones de legislación">
         ${TABS.map((t) => `<button type="button" class="leg-tab" role="tab" id="leg-t-${t.id}" data-tab="${t.id}" aria-controls="leg-p-${t.id}" aria-label="${esc(t.texto)}" aria-selected="false" tabindex="-1"><span class="leg-tab-largo">${esc(t.texto)}</span><span class="leg-tab-corto">${esc(t.corto)}</span></button>`).join('')}
@@ -403,7 +403,7 @@
       const texto = q.trim();
       const estado = $('leg-busq-estado');
       if (texto.length < 2 || texto.length > 100) {
-        estado.innerHTML = '<p class="leg-vacio">Escriba entre 2 y 100 caracteres para buscar.</p>';
+        estado.innerHTML = '<p class="leg-vacio">Escribe entre 2 y 100 caracteres para buscar.</p>';
         $('leg-busq').hidden = true;
         return;
       }

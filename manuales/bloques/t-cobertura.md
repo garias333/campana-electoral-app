@@ -18,7 +18,7 @@ Cada mesa debe tener un testigo. En la tabla de puestos ves qué mesas están li
 2. Para ver dónde hace falta gente, usa el filtro «Cobertura de testigos»: «Con mesas por asignar», «Sin ningún testigo», «Empezados, pero incompletos» o «Cubiertos del todo».
 3. En la columna «Mesas por asignar testigo», cada mesa es una ficha. Las rojas no tienen testigo (con más fuerza si ya hay votantes tuyos allí); las de color tienen testigo, con sus iniciales.
 4. Toca la ficha de una mesa. Se abre una ventana con el puesto y la mesa; arriba puedes cambiar de mesa con la lista «Mesa».
-5. En «Asignar a la mesa…» busca a la persona por nombre o teléfono y toca [[Asignar]]. Sirve para quien ya es testigo; para alguien nuevo usa [[+ Nuevo testigo]], o [[Proponer como testigo]] en «Votan en este puesto» (ambos te llevan al formulario de la Estructura territorial, con el puesto y la mesa ya puestos).
+5. En «Asignar a la mesa…» busca a la persona por nombre o teléfono y toca [[Asignar]]. Sirve para quien ya es testigo; para alguien nuevo usa [[+ Nuevo testigo]], o [[Proponer como testigo]] en «Votan en este puesto» (ambos te llevan a **Votantes y sublíderes**, con «Es también testigo electoral» marcada y el puesto y la mesa ya puestos; el alta de un testigo nunca se hace como líder).
 6. Si la mesa ya tenía otro testigo, o la persona cubría otro puesto, la app te pide confirmar.
 7. Para varias mesas, repite con la misma persona. [[Suplente]] la deja como reemplazo del puesto; después puedes volverla titular con [[Titular de la mesa…]] en «Suplentes del puesto».
 8. Para liberar una mesa, ábrela y toca [[Quitar de esta mesa]].

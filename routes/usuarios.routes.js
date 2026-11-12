@@ -316,7 +316,7 @@ router.get('/roles', requireRole('admin', 'aspirante'), async (req, res) => {
  */
 async function confirmarConSuPassword(req, res) {
   if (await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password_confirmacion)) return false;
-  res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   return true;
 }
 

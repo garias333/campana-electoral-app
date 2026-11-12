@@ -29,7 +29,7 @@ router.post('/inverso', async (req, res) => {
     res.json({ direccion: resultado.direccion, detalle: resultado.detalle });
   } catch (err) {
     console.error('Error en geocodificación inversa:', err);
-    res.status(502).json({ error: 'Error consultando el servicio de geocodificación. Intente de nuevo.' });
+    res.status(502).json({ error: 'Error consultando el servicio de geocodificación. Intenta de nuevo.' });
   }
 });
 

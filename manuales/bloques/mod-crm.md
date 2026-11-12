@@ -21,7 +21,7 @@ Es la pantalla para armar envíos masivos por correo, SMS o aviso en la app, y p
 
 ## Qué puedes hacer según tu permiso
 
-Esta pantalla es de administrador y coordinador; el asistente administrativo también la tiene de fábrica, menos la lista de bajas.
+Esta pantalla es de administrador y coordinador. El asistente administrativo ya no la trae de fábrica (las bajas y varios de sus botones son de administrador y coordinador); si lo necesita, el administrador puede dársela en {{t-permisos}}.
 
 - **Ver**: consultar el historial, el detalle y las respuestas.
 - **Agregar**: armar y enviar campañas, y guardar plantillas.

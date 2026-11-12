@@ -165,7 +165,7 @@ async function cargar() {
     document.getElementById('cargando').style.display = 'none';
     // Sin señal no es un error de la persona ni del servidor: se le dice tal cual.
     mostrarAviso(err.esErrorDeRed
-      ? 'Sin conexión: no se pudo cargar el avance. Intente de nuevo cuando tenga señal.'
+      ? 'Sin conexión: no se pudo cargar el avance. Intenta de nuevo cuando tenga señal.'
       : (err.message || 'No se pudo cargar el avance.'));
   }
 }

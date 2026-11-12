@@ -35,7 +35,7 @@ function csrfProtegido(req, res, next) {
 
   if (!tokenSesion || !tokenCliente || tokenSesion !== tokenCliente) {
     return res.status(403).json({
-      error: 'Token de seguridad inválido o expirado. Recargue la página e intente de nuevo.'
+      error: 'Token de seguridad inválido o expirado. Recarga la página e intente de nuevo.'
     });
   }
   next();

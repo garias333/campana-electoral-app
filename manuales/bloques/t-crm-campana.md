@@ -38,7 +38,7 @@ Sale el aviso «Campaña creada — se están enviando N mensajes en segundo pla
 :::
 
 ::: cuidado
-Un grupo sin filtros es TODA la base: mira siempre el conteo del paso 3 antes de enviar. El aviso en la app solo llega a Estructura o Testigos con cuenta: elige **Solo Estructura** o **Testigos y Coordinadores de puesto**. Un SMS se rechaza fuera del horario permitido (por defecto, de 8:00 a 20:00, hora de Colombia); prográmalo para una hora dentro de ese rango.
+Un grupo sin filtros es TODA la base: mira siempre el conteo del paso 3 antes de enviar. El aviso en la app solo llega a Estructura o Testigos con cuenta: elige **Solo Estructura** o **Testigos y Coordinadores de puesto**. Un SMS se rechaza fuera del horario permitido (por defecto, de 8:00 a 20:00, hora de Colombia), y también si lo programas para una hora fuera de ese rango: la app te lo dice al programar («Programaste el SMS para las 21:30…») y no queda nada guardado. Elige una hora dentro del rango.
 :::
 
 Relacionado: {{t-autorizaciones}}, {{t-no-contactar}}.

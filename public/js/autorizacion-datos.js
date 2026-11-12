@@ -94,7 +94,7 @@
     function celularValido() {
       const c = String(op.obtenerCelular() || '').replace(/\D/g, '');
       if (/^\d{10}$/.test(c)) return c;
-      mostrarErrorCampo(op.campoCelular(), 'Escriba el celular de 10 dígitos de la persona (en Contacto) para enviarle el enlace por WhatsApp.');
+      mostrarErrorCampo(op.campoCelular(), 'Escribe el celular de 10 dígitos de la persona (en Contacto) para enviarle el enlace por WhatsApp.');
       return null;
     }
 

@@ -349,7 +349,7 @@ router.get('/calendario', (req, res) => {
 router.get('/buscar', async (req, res) => {
   const q = req.query.q;
   if (typeof q !== 'string' || q.trim().length < 2 || q.trim().length > 100) {
-    return res.status(400).json({ error: 'Escriba entre 2 y 100 caracteres para buscar.' });
+    return res.status(400).json({ error: 'Escribe entre 2 y 100 caracteres para buscar.' });
   }
   try {
     res.set('Cache-Control', 'no-store');

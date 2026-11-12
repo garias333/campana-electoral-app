@@ -63,7 +63,7 @@ async function requireAuth(req, res, next) {
   const usuario = await resolverUsuario(req);
   if (!usuario) {
     if (req.originalUrl.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+      return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
     }
     return res.redirect('/login.html');
   }
@@ -74,7 +74,7 @@ function requireRole(...rolesPermitidos) {
   return async (req, res, next) => {
     const usuario = await resolverUsuario(req);
     if (!usuario) {
-      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+      return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
     }
     /* 'aspirante' NO ES UN ROL DE LA TABLA: es el sombrero de una sublicencia.
        Se escribe en la lista de la ruta, igual que los demás, para que leyendo
@@ -86,7 +86,7 @@ function requireRole(...rolesPermitidos) {
        campaña entera. Va comprobado en cada una de las que lo llevan. */
     const esAspirante = rolesPermitidos.includes('aspirante') && !!req.sublicencia;
     if (!esAspirante && !rolesPermitidos.includes(usuario.rol)) {
-      return res.status(403).json({ error: 'No tiene permisos para realizar esta acción.' });
+      return res.status(403).json({ error: 'No tienes permisos para realizar esta acción.' });
     }
     next();
   };

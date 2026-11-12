@@ -128,7 +128,7 @@
    * final en vez de perderse.
    */
   function pintarPuestos(c, lista, valorPrevio, aviso) {
-    const opciones = ['<option value="">' + escapar(aviso || 'Seleccione...') + '</option>'];
+    const opciones = ['<option value="">' + escapar(aviso || 'Selecciona...') + '</option>'];
     let encontrado = false;
     for (const p of lista) {
       const nombre = typeof p === 'string' ? p : p.nombre;
@@ -192,7 +192,7 @@
 
     const nombreMuni = c.muni.value.trim();
     if (!nombreMuni) {
-      pintarPuestos(c, [], valorPrevio, 'Elija primero el municipio…');
+      pintarPuestos(c, [], valorPrevio, 'Elige primero el municipio…');
       e.municipioDeLaLista = null;
       actualizarLimiteMesa(c);
       return;
@@ -225,7 +225,7 @@
     try {
       e.puestos = await traerPuestos(m.id);
       pintarPuestos(c, e.puestos, valorPrevio,
-        e.puestos.length ? 'Seleccione…' : 'Este municipio no tiene puestos registrados');
+        e.puestos.length ? 'Selecciona…' : 'Este municipio no tiene puestos registrados');
       e.municipioDeLaLista = normalizar(nombreMuni);
     } catch (err) {
       console.warn('[lugar-votacion] puestos:', err.message);

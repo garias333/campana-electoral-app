@@ -28,7 +28,7 @@ function poblarSelectMesaTestigo(selectEl, disponibilidad, mesaActual) {
     selectEl.innerHTML = '<option value="">No hay mesas disponibles en este puesto</option>';
     return;
   }
-  selectEl.innerHTML = '<option value="">Seleccione...</option>' +
+  selectEl.innerHTML = '<option value="">Selecciona...</option>' +
     lista.map(m => `<option value="${m}">${m}</option>`).join('');
   if (mesaActual) selectEl.value = String(mesaActual);
 }

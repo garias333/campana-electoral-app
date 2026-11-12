@@ -358,7 +358,7 @@
         <div class="campo">
           <label for="input-puesto-votacion-persona">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-persona">
-            <option value="">Seleccione...</option>
+            <option value="">Selecciona...</option>
           </select>
         </div>
         <div class="campo">
@@ -401,13 +401,13 @@
           <div class="campo" style="margin-top:8px;">
             <label for="input-puesto-testigo-persona">Puesto de votación</label>
             <select id="input-puesto-testigo-persona">
-              <option value="">Seleccione...</option>
+              <option value="">Selecciona...</option>
             </select>
           </div>
           <div id="campo-mesa-testigo-persona" style="margin-top:8px;">
             <label for="input-mesa-testigo-persona">Mesa</label>
             <select id="input-mesa-testigo-persona">
-              <option value="">Seleccione un puesto primero...</option>
+              <option value="">Selecciona un puesto primero...</option>
             </select>
           </div>
           <div id="campo-mesas-multiples-testigo-persona" style="display:none; margin-top:8px;">
@@ -497,7 +497,7 @@
         <div class="campo">
           <label for="select-area-persona">Área</label>
           <select name="areaPersona" id="select-area-persona">
-            <option value="">Seleccione...</option>
+            <option value="">Selecciona...</option>
             <option value="urbano">Urbano</option>
             <option value="rural">Rural</option>
           </select>
@@ -536,7 +536,7 @@
       <div id="bloque-fichas-territorio-persona" class="bloque-fichas-territorio">
         <div id="fichas-territorio-persona" class="fichas-territorio" role="list" aria-live="polite" style="display:none;"></div>
         <button type="button" class="btn-secundario btn-sm" id="btn-agregar-territorio-persona">+ Agregar otro territorio</button>
-        <small class="ayuda-fichas">Elija el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
+        <small class="ayuda-fichas">Elige el territorio arriba y pulse el botón para sumarlo a la lista. El primero de la lista es el principal.</small>
       </div>
       <div id="territorio-persona-error" class="mensaje-error"></div>
       <div class="campo">
@@ -595,7 +595,7 @@
         <div class="campo">
           <label for="select-area">Área</label>
           <select name="area" id="select-area" required>
-            <option value="">Seleccione...</option>
+            <option value="">Selecciona...</option>
             <option value="urbano">Urbano</option>
             <option value="rural">Rural</option>
           </select>
@@ -604,7 +604,7 @@
           <label for="select-tipo-zona">Tipo de zona</label>
           <!-- Urbano antes que rural: la misma convencion que el ENUM de la base. -->
           <select name="tipoZona" id="select-tipo-zona" data-sin-ordenar required disabled>
-            <option value="">Elija primero el área</option>
+            <option value="">Elige primero el área</option>
           </select>
         </div>
       </div>
@@ -1141,7 +1141,7 @@ let puestosVotacionCache = null;
 async function cargarPuestosVotacionParaSelect() {
   if (puestosVotacionCache) return;
   puestosVotacionCache = await obtenerConCacheReferencia('diad_puestos', () => api('/dia-d/puestos-para-reporte'));
-  const opciones = '<option value="">Seleccione...</option>' +
+  const opciones = '<option value="">Selecciona...</option>' +
     puestosVotacionCache.map(p => `<option value="${p}">${p}</option>`).join('');
   document.getElementById('input-puesto-votacion-persona').innerHTML = opciones;
   document.getElementById('input-puesto-testigo-persona').innerHTML = opciones;
@@ -1214,7 +1214,7 @@ document.getElementById('select-area').addEventListener('change', (e) => {
       : (usarNombreCorregimientos ? 'Nombre del corregimiento' : 'Nombre de la vereda');
   } else {
     selectTipo.disabled = true;
-    selectTipo.innerHTML = `<option value="">Elija primero el área</option>`;
+    selectTipo.innerHTML = `<option value="">Elige primero el área</option>`;
     labelNombre.textContent = 'Nombre de la zona';
   }
   actualizarCamposPadreZona();
@@ -2303,7 +2303,7 @@ async function filtrarPuestosTestigoPorMunicipioPersona() {
       return; // se queda con lo que ya había
     }
   }
-  select.innerHTML = '<option value="">Seleccione...</option>' +
+  select.innerHTML = '<option value="">Selecciona...</option>' +
     nombres.map(p => `<option value="${p}">${p}</option>`).join('');
   // El puesto que ya tenía se conserva aunque no esté en el municipio nuevo:
   // borrarlo en silencio le cambiaría el puesto a un testigo ya asignado.
@@ -2461,7 +2461,7 @@ function resolverTerritorioPersona() {
     // blanco. Es la misma regla por la otra puerta.
     if (!nombreOrg) {
       if (territorioEsOpcional()) return { territorioId: null };
-      return { error: 'Escriba el nombre de la organización.' };
+      return { error: 'Escribe el nombre de la organización.' };
     }
     return { territorioId: null };
   }
@@ -2473,7 +2473,7 @@ function resolverTerritorioPersona() {
   // sin él no hay a qué territorio asignar a la persona.
   const disp = disponiblesEnMunicipioPersona();
   if (ambitoDepartamental && area && !disp.municipio) {
-    return { error: 'Seleccione el municipio del área de influencia.' };
+    return { error: 'Selecciona el municipio del área de influencia.' };
   }
 
   // Territorio con el que se guarda cuando el nivel de detalle pedido no
@@ -2493,7 +2493,7 @@ function resolverTerritorioPersona() {
       if (!comuna) {
         // Si la campaña no usa comunas, o no hay ninguna creada en este
         // municipio, el campo no da nada que elegir: no se exige.
-        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Seleccione una comuna de la lista.' };
+        if (ciudadTieneComunas && disp.comunas.length) return { error: 'Selecciona una comuna de la lista.' };
         return territorioMasFino();
       }
       return { territorioId: comuna.id };
@@ -2501,7 +2501,7 @@ function resolverTerritorioPersona() {
     const nombreBarrio = normalizarTexto(document.getElementById('input-barrio-persona').value);
     if (!nombreBarrio) {
       // Vacío y obligatorio -> se pide. Vacío y opcional -> se cae a la comuna.
-      if (disp.barrios.length && !barrioEsOpcional()) return { error: 'Seleccione un barrio de la lista.' };
+      if (disp.barrios.length && !barrioEsOpcional()) return { error: 'Selecciona un barrio de la lista.' };
       // Sin barrios creados se baja al mayor detalle disponible: la comuna
       // escrita, si la hay, y si no el municipio.
       const nombreComuna = normalizarTexto(document.getElementById('input-comuna-persona').value);
@@ -2521,7 +2521,7 @@ function resolverTerritorioPersona() {
     if (!usarNombreVeredas) {
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       if (!nombreCorregimiento) {
-        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Seleccione un corregimiento de la lista.' };
+        if (usarNombreCorregimientos && disp.corregimientos.length) return { error: 'Selecciona un corregimiento de la lista.' };
         return territorioMasFino();
       }
       const corregimiento = listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento);
@@ -2532,7 +2532,7 @@ function resolverTerritorioPersona() {
     if (!nombreVereda) {
       // Igual que el barrio arriba: obligatoria salvo para los cargos a los
       // que se les deja elegir entre la zona entera y un punto concreto.
-      if (disp.veredas.length && !barrioEsOpcional()) return { error: 'Seleccione una vereda de la lista.' };
+      if (disp.veredas.length && !barrioEsOpcional()) return { error: 'Selecciona una vereda de la lista.' };
       const nombreCorregimiento = usarNombreCorregimientos ? normalizarTexto(document.getElementById('input-corregimiento-persona').value) : '';
       const corregimiento = nombreCorregimiento ? listaTerritorios.find(t => t.tipo === 'corregimiento' && normalizarTexto(t.nombre) === nombreCorregimiento) : null;
       return corregimiento ? { territorioId: corregimiento.id } : territorioMasFino();
@@ -2545,7 +2545,7 @@ function resolverTerritorioPersona() {
      geográfico, que es lo que de verdad describe su campaña. Para todos los
      demás sigue siendo un error, porque su trabajo se define por dónde. */
   if (territorioEsOpcional()) return { territorioId: null };
-  return { error: 'Seleccione el área (Urbano o Rural).' };
+  return { error: 'Selecciona el área (Urbano o Rural).' };
 }
 
 /** Precarga Área/Comuna/Barrio o Corregimiento/Vereda a partir de un territorio_id existente (modo edición). */
@@ -3428,25 +3428,14 @@ async function ponerPuestoYMesaDeTestigo(d) {
 }
 
 async function aplicarPrellenadoDeTestigo() {
-  const d = leerPrellenadoDeTestigo();
   const hash = window.location.hash;
+  /* «+ NUEVO TESTIGO» YA NO ABRE ESTE FORMULARIO (parche 330). Buscaba la categoría «Testigo», que ya no existe en Estructura, no encontraba nada y
+     el formulario se quedaba con «Líder» marcado: quien lo guardaba creaba un LÍDER. El alta de un testigo se hace en Votantes, con «Es también
+     testigo electoral»; los datos de sessionStorage no se tocan para que ese formulario los lea. */
+  if (hash === '#testigo-nuevo') { window.location.replace('/votantes.html#testigo-nuevo'); return; }
+  const d = leerPrellenadoDeTestigo();
   try {
-    if (hash === '#testigo-nuevo') {
-      const botonNuevo = document.getElementById('btn-nuevo');
-      if (!botonNuevo || botonNuevo.style.display === 'none') return;
-      botonNuevo.click();
-      await esperar(400);
-      const radio = document.querySelector('#chips-cargo-persona input[name="cargo_visual"][value="testigo"]');
-      if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); }
-      await esperar(300);
-      if (!d) return;
-      const form = document.getElementById('form-estructura');
-      if (d.nombre) form.nombre.value = d.nombre;
-      if (d.cedula) form.numero_identificacion.value = d.cedula;
-      if (d.telefono) form.telefono.value = formatoTelefonoColombia(d.telefono);
-      if (d.email) form.email.value = d.email;
-      await ponerPuestoYMesaDeTestigo(d);
-    } else {
+    {
       const id = Number(/^#testigo-editar=(\d+)$/.exec(hash)[1]);
       await abrirEdicion(id);                   // pide la contraseña propia, como siempre
       await esperar(300);
@@ -3468,7 +3457,7 @@ async function abrirEdicion(id) {
 
   const clave = await confirmarConPasswordPropia(
     'Editar a ' + fila.nombre,
-    'Escriba SU contraseña para abrir esta ficha.');
+    'Escribe TU contraseña para abrir esta ficha.');
   if (!clave) return;
   passwordEdicionEstructura = clave;
 
@@ -3657,8 +3646,8 @@ async function eliminarEstructura(id) {
      al editar sí se adelanta, porque allí lo que se evita es llenar un
      formulario entero para que lo rechacen al final. */
   const password = await solicitarPasswordPropia(
-    fila ? 'Confirme para eliminar a ' + fila.nombre : 'Confirme para eliminar',
-    'Eliminar este registro borra también su cuenta de acceso y no se puede deshacer. Escriba su propia contraseña para confirmar.');
+    fila ? 'Confirma para eliminar a ' + fila.nombre : 'Confirma para eliminar',
+    'Eliminar este registro borra también su cuenta de acceso y no se puede deshacer. Escribe tu propia contraseña para confirmar.');
   if (!password) return;
   try {
     await api(`/territorial/estructura/${id}`, { method: 'DELETE', body: { password } });
@@ -4217,7 +4206,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     }
     if (n === 3) {
       const nombre = form.querySelector('[name="nombre"]');
-      if (!nombre.value.trim()) { senalar(3, 'Escriba los nombres y apellidos.', nombre); return false; }
+      if (!nombre.value.trim()) { senalar(3, 'Escribe los nombres y apellidos.', nombre); return false; }
       // La misma comprobación del envío: 10 dígitos, o vacío.
       if (!validarTelefonosFormulario('#form-estructura [name="telefono"]')) {
         senalar(3, 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).', form.querySelector('[name="telefono"]'));

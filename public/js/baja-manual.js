@@ -50,7 +50,7 @@
           '<strong>' + escaparHtml(o.nombre || 'Esta persona') + '</strong> quedará fuera de todos los envíos, por cualquier canal, ' +
           'junto con las fichas que compartan su teléfono o correo. Anótelo sólo si <strong>ella</strong> lo pidió.</p>' +
         '<div class="campo"><label for="bm-canal">¿Por dónde lo pidió?</label>' +
-          '<select id="bm-canal"><option value="">Elija…</option>' +
+          '<select id="bm-canal"><option value="">Elige…</option>' +
           CANALES.map(function (c) { return '<option value="' + c[0] + '">' + escaparHtml(c[1]) + '</option>'; }).join('') +
           '</select></div>' +
         '<div class="campo"><label for="bm-motivo">Motivo <small style="font-weight:400;">(queda en la ficha y en la auditoría)</small></label>' +
@@ -75,8 +75,8 @@
 
     guardar.addEventListener('click', async function () {
       error.style.display = 'none';
-      if (!canal.value) return falla('Elija por dónde lo pidió.');
-      if (!motivo.value.trim()) return falla('Escriba el motivo.');
+      if (!canal.value) return falla('Elige por dónde lo pidió.');
+      if (!motivo.value.trim()) return falla('Escribe el motivo.');
       guardar.disabled = true;
       try {
         var r = await api('/comunicaciones/bajas/manual', {

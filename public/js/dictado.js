@@ -147,7 +147,7 @@
       if (reconociendo) { reconociendo.stop(); return; }
 
       if (navigator.onLine === false) {
-        decir('Sin señal no se puede dictar. Escríbalo a mano.', 'malo');
+        decir('Sin señal no se puede dictar. Escríbelo a mano.', 'malo');
         return;
       }
 
@@ -179,7 +179,7 @@
           'service-not-allowed': 'El navegador no permite el dictado en esta página.',
           'no-speech': 'No se oyó nada. Inténtelo otra vez, más cerca del micrófono.',
           'audio-capture': 'No se encontró micrófono en este aparato.',
-          'network': 'No se pudo conectar para reconocer la voz. Revise la señal.'
+          'network': 'No se pudo conectar para reconocer la voz. Revisa la señal.'
         }[evento.error] || 'No se pudo dictar en este momento.';
         decir(razon, 'malo');
       };

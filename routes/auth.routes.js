@@ -88,7 +88,7 @@ const limitadorCodigo = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiadas solicitudes de código. Espere unos minutos antes de volver a intentar.' }
+  message: { error: 'Demasiadas solicitudes de código. Espera unos minutos antes de volver a intentar.' }
 });
 
 async function registrarAuditoria(usuarioId, accion, detalle, ip) {
@@ -334,7 +334,7 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
     const salioAlguno = resCorreo.status === 'fulfilled'
       || (resTelegram && resTelegram.status === 'fulfilled' && resTelegram.value === true);
     if (!salioAlguno) {
-      res.status(500).json({ error: 'No se pudo enviar el código de verificación. Intente de nuevo en unos minutos.' });
+      res.status(500).json({ error: 'No se pudo enviar el código de verificación. Intenta de nuevo en unos minutos.' });
       return;
     }
 
@@ -386,12 +386,20 @@ router.post('/login', async (req, res) => {
 
     if (usuario.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
       return res.status(423).json({
-        error: `Cuenta bloqueada temporalmente por intentos fallidos. Intente de nuevo después de ${new Date(usuario.bloqueado_hasta).toLocaleTimeString('es-CO')}.`
+        error: `Cuenta bloqueada temporalmente por intentos fallidos. Intenta de nuevo después de ${new Date(usuario.bloqueado_hasta).toLocaleTimeString('es-CO')}.`
       });
     }
 
+    /* CUMPLIDO EL BLOQUEO, EL CONTADOR VUELVE A CERO (parche 330). Antes `intentos_fallidos` se quedaba en 5 al vencer los 15 minutos: UN solo error
+       más sumaba 6 (≥ 5) y bloqueaba otros 15 minutos. Ahora, si el bloqueo ya pasó, se limpia antes de contar: la persona vuelve a tener sus 5 intentos. */
+    if (usuario.bloqueado_hasta && new Date(usuario.bloqueado_hasta) <= new Date()) {
+      await pool.query('UPDATE usuarios SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = ?', [usuario.id]);
+      usuario.intentos_fallidos = 0;
+      usuario.bloqueado_hasta = null;
+    }
+
     if (!usuario.activo) {
-      return res.status(403).json({ error: 'Su cuenta se encuentra inactiva. Contacte al administrador.' });
+      return res.status(403).json({ error: 'Su cuenta se encuentra inactiva. Contacta al administrador.' });
     }
 
     const passwordValido = await bcrypt.compare(password, usuario.password_hash);
@@ -438,7 +446,7 @@ router.post('/login', async (req, res) => {
       await registrarAuditoria(usuario.id, 'codigo_vencido',
         'Intento de entrar con un código de acceso ya vencido.', req.ip);
       return res.status(401).json({
-        error: 'Ese código de acceso ya venció. Pídale al administrador de la campaña que se lo envíe de nuevo.'
+        error: 'Ese código de acceso ya venció. Pídele al administrador de la campaña que se lo envíe de nuevo.'
       });
     }
 
@@ -522,7 +530,7 @@ router.post('/elegir-rol', async (req, res) => {
   const { entrarComo } = req.body;
 
   if (!pendiente) {
-    return res.status(400).json({ error: 'No hay una elección de ingreso en curso. Inicie sesión de nuevo.' });
+    return res.status(400).json({ error: 'No hay una elección de ingreso en curso. Inicia sesión de nuevo.' });
   }
   if (!['principal', 'testigo', 'aspirante'].includes(entrarComo)) {
     return res.status(400).json({ error: 'Elección inválida.' });
@@ -537,7 +545,7 @@ router.post('/elegir-rol', async (req, res) => {
     delete req.session.pendienteEleccionRol;
 
     if (!usuario || !usuario.activo) {
-      return res.status(401).json({ error: 'La cuenta ya no está disponible. Inicie sesión de nuevo.' });
+      return res.status(401).json({ error: 'La cuenta ya no está disponible. Inicia sesión de nuevo.' });
     }
 
     // Se revalida la doble condición en el servidor: no basta con lo que
@@ -589,8 +597,8 @@ router.post('/solicitar-codigo', limitadorCodigo, async (req, res) => {
   if (!identificador || !String(identificador).trim()) {
     return res.status(400).json({
       error: via === 'sms'
-        ? 'Escriba su teléfono móvil.'
-        : 'Escriba su correo o nombre de usuario.'
+        ? 'Escribe tu teléfono móvil.'
+        : 'Escribe tu correo o nombre de usuario.'
     });
   }
 
@@ -736,10 +744,10 @@ router.post('/verificar-2fa', async (req, res) => {
   const pendiente = req.session.pendiente2fa;
 
   if (!pendiente) {
-    return res.status(400).json({ error: 'No hay una verificación en curso. Inicie sesión de nuevo.' });
+    return res.status(400).json({ error: 'No hay una verificación en curso. Inicia sesión de nuevo.' });
   }
   if (!codigo) {
-    return res.status(400).json({ error: 'Ingrese el código recibido por correo.' });
+    return res.status(400).json({ error: 'Ingresa el código recibido por correo.' });
   }
 
   try {
@@ -752,14 +760,14 @@ router.post('/verificar-2fa', async (req, res) => {
 
     if (rows.length === 0) {
       delete req.session.pendiente2fa;
-      return res.status(400).json({ error: 'El código expiró. Inicie sesión de nuevo para recibir uno nuevo.' });
+      return res.status(400).json({ error: 'El código expiró. Inicia sesión de nuevo para recibir uno nuevo.' });
     }
 
     const registro = rows[0];
 
     if (registro.intentos >= MAX_INTENTOS_2FA) {
       delete req.session.pendiente2fa;
-      return res.status(429).json({ error: 'Demasiados intentos. Inicie sesión de nuevo para recibir un código nuevo.' });
+      return res.status(429).json({ error: 'Demasiados intentos. Inicia sesión de nuevo para recibir un código nuevo.' });
     }
 
     const codigoHash = crypto.createHash('sha256').update(String(codigo).trim()).digest('hex');
@@ -940,12 +948,12 @@ const limitadorVerificarPassword = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiados intentos. Espere unos minutos antes de volver a intentar.' }
+  message: { error: 'Demasiados intentos. Espera unos minutos antes de volver a intentar.' }
 });
 
 router.post('/verificar-password', requireAuth, limitadorVerificarPassword, async (req, res) => {
   const ok = await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password);
-  if (!ok) return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+  if (!ok) return res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   res.json({ ok: true });
 });
 
@@ -1056,7 +1064,7 @@ router.post('/cambiar-password', requireAuth, async (req, res) => {
   }
   // 123456 y 000000 son las dos primeras que prueba cualquiera.
   if (esSeisCifras && (/^(\d)\1{5}$/.test(nueva) || nueva === '123456' || nueva === '654321')) {
-    return res.status(400).json({ error: 'Ese número es demasiado fácil de adivinar. Elija otro de 6 cifras.' });
+    return res.status(400).json({ error: 'Ese número es demasiado fácil de adivinar. Elige otro de 6 cifras.' });
   }
   try {
     const [rows] = await pool.query(`SELECT password_hash FROM usuarios WHERE id = ?`, [req.session.usuario.id]);

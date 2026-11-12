@@ -114,13 +114,13 @@
         <div class="campo">
           <label for="input-puesto-votacion-testigo">Puesto</label>
           <select name="puesto_votacion" id="input-puesto-votacion-testigo">
-            <option value="">Seleccione...</option>
+            <option value="">Selecciona...</option>
           </select>
         </div>
         <div class="campo" id="campo-mesa-testigo">
           <label for="input-mesa-votacion-testigo">Mesa</label>
           <select name="mesa_votacion" id="input-mesa-votacion-testigo">
-            <option value="">Seleccione un puesto primero...</option>
+            <option value="">Selecciona un puesto primero...</option>
           </select>
         </div>
       </div>
@@ -176,7 +176,7 @@ async function cargarPuestosVotacionParaSelect() {
   if (puestosVotacionCache) return;
   puestosVotacionCache = await obtenerConCacheReferencia('diad_puestos_admin', () => api('/dia-d/config/puestos-votacion'));
   const select = document.getElementById('input-puesto-votacion-testigo');
-  select.innerHTML = '<option value="">Seleccione...</option>' +
+  select.innerHTML = '<option value="">Selecciona...</option>' +
     puestosVotacionCache.map(p => `<option value="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`).join('');
 }
 function actualizarMunicipiosVotacionTestigo() {
@@ -383,7 +383,7 @@ async function abrirEdicionTestigo(id) {
 
   const clave = await confirmarConPasswordPropia(
     'Editar a ' + fila.nombre,
-    'Escriba SU contraseña para abrir esta ficha.');
+    'Escribe TU contraseña para abrir esta ficha.');
   if (!clave) return;
   passwordEdicionTestigo = clave;
 
@@ -540,7 +540,7 @@ document.getElementById('input-importar-testigos').addEventListener('change', as
   usuarioActual = await inicializarLayout('/testigos.html');
   if (!usuarioActual) return;
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
-    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tienes permisos para ver esta sección.</div>';
     return;
   }
 

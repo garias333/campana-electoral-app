@@ -73,7 +73,7 @@
       </div>
       <div class="campo-app">
         <label for="f-municipio-votacion">Municipio</label>
-        <input id="f-municipio-votacion" list="lista-municipios-votacion" autocomplete="off" placeholder="Escriba o elija el municipio">
+        <input id="f-municipio-votacion" list="lista-municipios-votacion" autocomplete="off" placeholder="Escribe o elija el municipio">
         <datalist id="lista-municipios-votacion"></datalist>
       </div>
     </div>
@@ -81,19 +81,19 @@
       <div class="campo-app">
         <label for="f-puesto-votacion">Puesto</label>
         <select id="f-puesto-votacion">
-          <option value="">Seleccione...</option>
+          <option value="">Selecciona...</option>
         </select>
       </div>
       <div class="campo-app">
         <label for="f-mesa-votacion">Mesa</label>
         <select id="f-mesa-votacion">
-          <option value="">Seleccione un puesto primero...</option>
+          <option value="">Selecciona un puesto primero...</option>
         </select>
       </div>
     </div>
 
     <div class="seccion-titulo">Datos personales</div>
-    <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off" placeholder="Escriba nombres y apellidos"></div>
+    <div class="campo-app"><label for="f-nombre">Nombres y apellidos</label><input id="f-nombre" required autocomplete="off" placeholder="Escribe nombres y apellidos"></div>
     <small id="duplicado-estado" style="display:block; margin:-10px 0 14px; color:#A93226;"></small>
     <div class="fila-app">
       <div class="campo-app">
@@ -167,24 +167,24 @@
     <div class="fila-app" id="fila-urbano" data-fila="urbano" style="display:none;">
       <div class="campo-app" id="campo-comuna-app" data-campo="comuna">
         <label for="f-comuna">Comuna</label>
-        <input id="f-comuna" list="lista-comunas" autocomplete="off" placeholder="Escriba o elija la comuna">
+        <input id="f-comuna" list="lista-comunas" autocomplete="off" placeholder="Escribe o elija la comuna">
         <datalist id="lista-comunas"></datalist>
       </div>
       <div class="campo-app" id="campo-barrio-app" data-campo="barrio">
         <label for="f-barrio">Barrio</label>
-        <input id="f-barrio" list="lista-barrios" autocomplete="off" placeholder="Escriba o elija el barrio">
+        <input id="f-barrio" list="lista-barrios" autocomplete="off" placeholder="Escribe o elija el barrio">
         <datalist id="lista-barrios"></datalist>
       </div>
     </div>
     <div class="fila-app" id="fila-rural" data-fila="rural" style="display:none;">
       <div class="campo-app" data-campo="corregimiento">
         <label for="f-corregimiento">Corregimiento</label>
-        <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off" placeholder="Escriba o elija el corregimiento">
+        <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off" placeholder="Escribe o elija el corregimiento">
         <datalist id="lista-corregimientos"></datalist>
       </div>
       <div class="campo-app" data-campo="vereda">
         <label for="f-vereda">Vereda</label>
-        <input id="f-vereda" list="lista-veredas" autocomplete="off" placeholder="Escriba o elija la vereda">
+        <input id="f-vereda" list="lista-veredas" autocomplete="off" placeholder="Escribe o elija la vereda">
         <datalist id="lista-veredas"></datalist>
       </div>
     </div>
@@ -522,12 +522,12 @@ document.getElementById('f-puesto-votacion').addEventListener('change', (e) => {
   const selectMesa = document.getElementById('f-mesa-votacion');
   const configPuesto = puestosVotacionApp.find(p => p.nombre === puesto);
   if (!puesto || !configPuesto || !configPuesto.cantidad_mesas) {
-    selectMesa.innerHTML = '<option value="">Seleccione un puesto primero...</option>';
+    selectMesa.innerHTML = '<option value="">Selecciona un puesto primero...</option>';
     return;
   }
   const opciones = Array.from({ length: configPuesto.cantidad_mesas }, (_, i) => i + 1)
     .map(m => `<option value="${m}">${m}</option>`).join('');
-  selectMesa.innerHTML = '<option value="">Seleccione...</option>' + opciones;
+  selectMesa.innerHTML = '<option value="">Selecciona...</option>' + opciones;
 });
 document.getElementById('f-ciudad-residencia').addEventListener('input', () => {
   // Al elegir la Ciudad de residencia, se refiltran las opciones de
@@ -645,7 +645,7 @@ function limpiarFormulario() {
   document.getElementById('aviso-error').classList.remove('visible');
   document.getElementById('duplicado-estado').textContent = '';
   document.getElementById('cedula-estado').textContent = '';
-  document.getElementById('f-mesa-votacion').innerHTML = '<option value="">Seleccione un puesto primero...</option>';
+  document.getElementById('f-mesa-votacion').innerHTML = '<option value="">Selecciona un puesto primero...</option>';
 }
 
 document.getElementById('f-telefono').addEventListener('input', (e) => {
@@ -1054,7 +1054,7 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
     aplicarVisibilidadComunaApp();
     poblarListasTerritorio();
     poblarDepartamentos();
-    document.getElementById('f-puesto-votacion').innerHTML = '<option value="">Seleccione...</option>' +
+    document.getElementById('f-puesto-votacion').innerHTML = '<option value="">Selecciona...</option>' +
       puestosVotacionApp.map(p => `<option value="${escaparAppHtml(p.nombre)}">${escaparAppHtml(p.nombre)}</option>`).join('');
 
     // Auto-llena Departamento/Ciudad de residencia y de Lugar de votación
@@ -1152,12 +1152,15 @@ document.getElementById('btn-consultar-lugar').addEventListener('click', () => {
   const campo = (id) => document.getElementById(id);
   function destinoDelError(texto) {
     const m = String(texto || '').toLowerCase();
+    /* LA FIRMA Y LA AUTORIZACIÓN VAN PRIMERO (parche 330). «Falta la firma de la persona. Pásele el teléfono para que firme» nombra el teléfono, y la
+       regla de abajo —evaluada antes— lo llevaba al paso 3 y marcaba el Teléfono en vez del lienzo de la firma (paso 4). El orden importa: la
+       palabra «teléfono» no debe ganarle a «firma». */
+    if (/firma/.test(m)) return { paso: 4, campo: campo('lienzo-firma') };
+    if (/autoriz/.test(m)) return { paso: 4, campo: campo('f-consentimiento') };
     if (/ya registrado|c[eé]dula|identificaci/.test(m)) return { paso: 2, campo: campo('f-cedula') };
     if (/tel[eé]fono|d[ií]gitos/.test(m)) return { paso: 3, campo: campo('f-telefono') };
     if (/nombres y apellidos/.test(m)) return { paso: 3, campo: campo('f-nombre') };
     if (/votante o subl/.test(m)) return { paso: 1 };
-    if (/firma/.test(m)) return { paso: 4, campo: campo('lienzo-firma') };
-    if (/autoriz/.test(m)) return { paso: 4, campo: campo('f-consentimiento') };
     if (/organizaci|barrio|comuna|vereda|corregimiento|[aá]rea|territorio/.test(m)) return { paso: 4 };
     return undefined;     // cualquier otro (p. ej. «no hay señal y no se pudo guardar»): donde esté la persona
   }

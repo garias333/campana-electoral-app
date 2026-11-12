@@ -23,7 +23,7 @@ Sirve para arreglar un teléfono, un nombre o un lugar de votación mal escrito 
 
 ## Marcar "Datos verificados"
 
-Esto lo hace el administrador o el asistente administrativo. En la columna **Datos verificados** marca la casilla de la fila y confirma "¿Datos verificados correctamente?". Para quitar la marca se pide la contraseña de un administrador.
+Esto lo hace el administrador (en cualquier ficha) o el asistente administrativo (solo en las fichas que él mismo registró, que son las que ve en su lista). En la columna **Datos verificados** marca la casilla de la fila y confirma "¿Datos verificados correctamente?". Para quitar la marca se pide la contraseña de un administrador.
 
 ::: listo
 La ventana se cierra y la tabla muestra los datos nuevos. Si marcaste la verificación, la casilla de esa fila queda marcada.

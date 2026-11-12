@@ -90,7 +90,7 @@
         const resuelto = typeof o.resolver === 'function' ? o.resolver() : { territorioId: null };
         const falla = (texto) => { if (typeof o.mostrarError === 'function') o.mostrarError(texto); };
         if (resuelto.error) { falla(resuelto.error); return; }
-        if (!resuelto.territorioId) { falla('Elija primero el territorio que quiere agregar.'); return; }
+        if (!resuelto.territorioId) { falla('Elige primero el territorio que quiere agregar.'); return; }
         if (ids.includes(resuelto.territorioId)) { falla('Ese territorio ya está en la lista.'); return; }
         const principalAntes = ids.length ? ids[0] : null;
         ids.push(resuelto.territorioId);

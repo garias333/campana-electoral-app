@@ -432,7 +432,7 @@ router.post('/regeocodificar-pendientes', requireRole('admin', 'aspirante'), asy
     if (!autorizado) {
       return res.status(403).json({
         error: req.sublicencia
-          ? 'Contraseña incorrecta. Escriba la suya para confirmar.'
+          ? 'Contraseña incorrecta. Escribe la suya para confirmar.'
           : 'Contraseña de administrador incorrecta.',
       });
     }
@@ -807,7 +807,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
           const [[rep]] = await pool.query(
             `SELECT COUNT(*) AS n FROM territorios WHERE tipo = 'barrio' AND LOWER(nombre) COLLATE utf8mb4_unicode_ci = LOWER(?) COLLATE utf8mb4_unicode_ci`, [barrio]);
           if (Number(rep.n) > 1) {
-            errores.push({ fila: i + 2, error: `Barrio "${barrio}" existe en varias comunas y la comuna de la fila no es válida. Indique una comuna de la lista.` });
+            errores.push({ fila: i + 2, error: `Barrio "${barrio}" existe en varias comunas y la comuna de la fila no es válida. Indica una comuna de la lista.` });
             continue;
           }
         }
@@ -931,7 +931,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
     res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos, posiblesDuplicados, cedulasRepetidas });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
+    res.status(500).json({ error: 'Error procesando el archivo Excel. Verifica que el formato de las columnas sea correcto.' });
   }
 });
 
@@ -1692,7 +1692,7 @@ router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   }
   const esOrganizacion = b.categoria === 'sublider' && b.tipo_area_influencia === 'organizacion';
   if (esOrganizacion && !(b.organizacion || '').trim()) {
-    return res.status(400).json({ error: 'Escriba el nombre de la organización.' });
+    return res.status(400).json({ error: 'Escribe el nombre de la organización.' });
   }
   if (!validarTelefono10Digitos(b.telefono)) {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
@@ -2023,7 +2023,7 @@ router.put('/:id', async (req, res) => {
      Va ANTES de cualquier validacion o escritura: comprobar despues de haber
      tocado la fila no confirma nada. */
   if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
-    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   }
   const b = req.body;
   if (!b.nombre) {
@@ -2037,7 +2037,7 @@ router.put('/:id', async (req, res) => {
   normalizarCedulaDelCuerpo(b);
   const esOrganizacion = b.categoria === 'sublider' && b.tipo_area_influencia === 'organizacion';
   if (esOrganizacion && !(b.organizacion || '').trim()) {
-    return res.status(400).json({ error: 'Escriba el nombre de la organización.' });
+    return res.status(400).json({ error: 'Escribe el nombre de la organización.' });
   }
   if (!validarTelefono10Digitos(b.telefono)) {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
@@ -2227,9 +2227,12 @@ router.put('/:id/verificar', requireRole('admin', 'asistente_administrativo'), a
     }
   }
   try {
+    /* DENTRO DE SU ALCANCE (parche 330). El asistente administrativo ve en Votantes solo lo que él registró; verificar una ficha ajena tecleando el id
+       saltaba eso. El administrador ve toda la campaña (su alcance es el de la madre). Lo que está fuera responde 404, como una ficha que no existe. */
+    const acota = req.alcance ? ` AND ${condicionAlcanceVotantes(req.alcance, '')}` : '';
     const [resultado] = await pool.query(
-      `UPDATE votantes SET datos_verificados = ? WHERE id = ?`,
-      [verificado, req.params.id]
+      `UPDATE votantes SET datos_verificados = ? WHERE id = ?${acota}`,
+      [verificado, req.params.id, ...(req.alcance ? parametrosAlcanceVotantes(req.alcance) : [])]
     );
     if (!resultado.affectedRows) return res.status(404).json({ error: 'No encontrado.' });
     res.json({ ok: true });
@@ -2307,7 +2310,7 @@ router.delete('/:id', async (req, res) => {
      Va ANTES de cualquier validacion o escritura: comprobar despues de haber
      tocado la fila no confirma nada. */
   if (!(await verificarPasswordPropia(req.session.usuario.id, req.body && req.body.password))) {
-    return res.status(403).json({ error: 'Contraseña incorrecta. Escriba la suya para confirmar.' });
+    return res.status(403).json({ error: 'Contraseña incorrecta. Escribe la suya para confirmar.' });
   }
   try {
     /* UN ASPIRANTE NO BORRA LA FICHA: LA QUITA DE SU VISTA.
@@ -2535,7 +2538,7 @@ async function sumarARama(req, res, votanteId, cedulaCruda) {
   try {
     const miRama = await aspiranteDe(pool, req.session.usuario.id);
     if (!miRama) {
-      return res.status(403).json({ error: 'Usted no pertenece a la estructura de ningun aspirante con licencia propia.' });
+      return res.status(403).json({ error: 'No perteneces a la estructura de ningún aspirante con licencia propia.' });
     }
     const [[v]] = await pool.query('SELECT id, cedula FROM votantes WHERE id = ?', [votanteId]);
     if (!v) return res.status(404).json({ error: 'Esa persona ya no existe.' });

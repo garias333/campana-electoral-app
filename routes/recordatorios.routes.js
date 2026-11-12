@@ -32,17 +32,17 @@ router.use(requireAuth, requiereVerModulo('recordatorios'));
 /** Escribir exige «Editar» en la matriz (el administrador y el superadministrador pasan siempre). Falla cerrado. */
 async function requiereEditar(req, res, next) {
   const usuario = req.session && req.session.usuario;
-  if (!usuario) return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+  if (!usuario) return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
   try {
     if (usuario.rol === 'admin') return next();
     const [[u]] = await pool.query('SELECT es_superadmin FROM usuarios WHERE id = ?', [usuario.id]);
     if (u && Number(u.es_superadmin) === 1) return next();
     const [filas] = await pool.query('SELECT editar FROM permisos_rol WHERE rol = ? AND modulo = ? LIMIT 1', [usuario.rol, 'recordatorios']);
     if (filas.length && Number(filas[0].editar) === 1) return next();
-    return res.status(403).json({ error: 'Su tipo de usuario puede ver los recordatorios pero no cambiarlos. Pídaselo al administrador de la campaña.' });
+    return res.status(403).json({ error: 'Tu tipo de usuario puede ver los recordatorios pero no cambiarlos. Pídeselo al administrador de la campaña.' });
   } catch (err) {
     console.error('[editar recordatorios] No se pudo comprobar el permiso:', err.code || err.message);
-    return res.status(403).json({ error: 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.' });
+    return res.status(403).json({ error: 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelve a intentarlo.' });
   }
 }
 

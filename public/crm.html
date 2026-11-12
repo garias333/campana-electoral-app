@@ -95,7 +95,7 @@
         <div class="paso-num">3</div>
         <div>
           <h3>Escribe el mensaje</h3>
-          <p class="paso-sub">Escriba <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. Puede guardarlo como plantilla para reusarlo.</p>
+          <p class="paso-sub">Escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. Puede guardarlo como plantilla para reusarlo.</p>
         </div>
       </div>
       <div class="campo"><label for="input-nombre-campana">Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
@@ -366,8 +366,8 @@ function actualizarNotaCanal() {
     nota.textContent = canalElegido === 'email'
       ? 'Este canal ya está configurado con SendGrid.'
       : canalElegido === 'push'
-        ? 'Llega como notificación a la aplicación del celular. Solo la reciben quienes tienen cuenta y activaron los avisos: elija "Estructura" o "Testigos" como origen.'
-        : `Este canal ya está configurado con Twilio.`;
+        ? 'Llega como notificación a la aplicación del celular. Solo la reciben quienes tienen cuenta y activaron los avisos: elige "Estructura" o "Testigos" como origen.'
+        : `Este canal ya está configurado con Onurix.`;
     nota.style.color = 'var(--color-text-muted)';
   } else {
     nota.textContent = (estado && estado.motivo) || 'Este canal todavía no está configurado.';

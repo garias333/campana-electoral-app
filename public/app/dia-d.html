@@ -665,7 +665,7 @@ async function cargarPuestosParaReporte() {
     .filter(p => p && typeof p === 'object' && p.id)
     .map(p => `<option value="${p.id}" data-nombre="${escaparHtml(p.nombre)}">${escaparHtml(p.nombre)}</option>`);
 
-  select.innerHTML = '<option value="">Seleccione...</option>' + opciones.join('')
+  select.innerHTML = '<option value="">Selecciona...</option>' + opciones.join('')
     + `<option value="${PUESTO_OTRO}">Mi puesto no aparece en la lista</option>`;
 
   // Sin lista con ids no hay nada que elegir: se abre el texto de una vez.

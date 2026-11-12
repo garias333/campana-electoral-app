@@ -492,7 +492,7 @@ router.get('/exportar-excel', requiereImportarExportar('votantes_dashboard'), as
         .map(p => ({ 'Puesto de votación': p.puesto, 'Mesas configuradas': p.cantidadMesas, 'Votantes estimados': p.total }));
       XLSX.utils.book_append_sheet(libro, XLSX.utils.json_to_sheet(filas), 'Por puesto');
     } else if (seccion === 'mesa') {
-      if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
+      if (!puesto) return res.status(400).json({ error: 'Elige un puesto de votación para exportar su detalle por mesa.' });
       const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });
@@ -626,7 +626,7 @@ router.get('/exportar-word', requiereImportarExportar('votantes_dashboard'), asy
       }));
       titulo = 'Por Puesto de votación';
     } else if (seccion === 'mesa') {
-      if (!puesto) return res.status(400).json({ error: 'Elija un puesto de votación para exportar su detalle por mesa.' });
+      if (!puesto) return res.status(400).json({ error: 'Elige un puesto de votación para exportar su detalle por mesa.' });
       const { puestos } = await calcularEstimadoPorPuesto(pool, alcanceEstimadoDash(req), await duenoDeLaCampana(pool, req));
       const encontrado = puestos.find(p => p.puesto === puesto);
       if (!encontrado) return res.status(404).json({ error: 'Ese puesto de votación no existe en el catálogo de Día D.' });

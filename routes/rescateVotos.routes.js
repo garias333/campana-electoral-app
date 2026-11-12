@@ -334,6 +334,9 @@ router.get('/resumen', async (req, res) => {
    cuánto lleva el de al lado. El agrupamiento es por `lider_id` (el líder de la
    ficha); lo que registró un sublíder cuenta para SU líder. */
 const MIN_SIN_MOVIMIENTO = 60;
+/* «SIN MOVIMIENTO» Y «ÚLTIMA MARCA» CUENTAN SOLO LAS MARCAS DEL DÍA DE LA ELECCIÓN (parche 330). Con el Modo prueba, una marca de ensayo de hace tres días hacía
+   que un líder pareciera «activo» (o, al revés, que uno sin ninguna marca de hoy se viera con una «última marca» vieja). Se cuenta el día de la elección
+   si ya llegó (o pasó) y, mientras tanto —Modo prueba—, el día actual. «Votaron» y los porcentajes siguen contando todas las marcas. */
 router.get('/ranking', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   const orden = ['faltantes', 'pct', 'sin_movimiento'].includes(req.query.orden) ? req.query.orden : 'faltantes';
   try {
@@ -341,13 +344,15 @@ router.get('/ranking', requireRole('admin', 'coordinador', 'aspirante'), async (
     const [filas] = await pool.query(
       `SELECT v.lider_id, u.nombre AS lider_nombre, u.telefono AS lider_telefono,
               COUNT(*) AS total, SUM(vv.votante_id IS NOT NULL) AS votaron,
-              MAX(vv.voto_en) AS ultima,
-              TIMESTAMPDIFF(MINUTE, MAX(vv.voto_en), NOW()) AS min_sin_marca
+              MAX(CASE WHEN DATE(vv.voto_en) = dia.d THEN vv.voto_en END) AS ultima,
+              TIMESTAMPDIFF(MINUTE, MAX(CASE WHEN DATE(vv.voto_en) = dia.d THEN vv.voto_en END), NOW()) AS min_sin_marca
          FROM votantes v
+         CROSS JOIN (SELECT COALESCE((SELECT IF(fecha_eleccion IS NOT NULL AND fecha_eleccion <= CURDATE(), fecha_eleccion, CURDATE())
+                                        FROM configuracion_campana WHERE id = 1), CURDATE()) AS d) dia
          LEFT JOIN votante_votos vv ON vv.votante_id = v.id
          LEFT JOIN usuarios u ON u.id = v.lider_id
         WHERE ${a.sql}
-        GROUP BY v.lider_id, u.nombre, u.telefono`, a.valores);
+        GROUP BY v.lider_id, u.nombre, u.telefono, dia.d`, a.valores);
     // Las cifras de arriba son de TODO el alcance: se calculan ANTES de filtrar, porque
     // con «Sin movimiento 1 h» la lista se recorta y las cifras no deben encogerse con ella.
     const total = filas.reduce((s, f) => s + Number(f.total), 0);

@@ -126,10 +126,10 @@ function pieDeBaja(url) {
   return {
     html: `<div style="margin-top:22px; padding-top:14px; border-top:1px solid #E3E8EF;
                  font-size:12px; line-height:1.5; color:#8A94A6;">
-        Si no quiere recibir mas mensajes,
-        <a href="${url}" style="color:#5B6472;">haga clic aqui para darse de baja</a>.
+        Si no quiere recibir más mensajes,
+        <a href="${url}" style="color:#5B6472;">haga clic aquí para darse de baja</a>.
       </div>`,
-    texto: `\n\n---\nSi no quiere recibir mas mensajes, dese de baja aqui: ${url}`,
+    texto: `\n\n---\nSi no quiere recibir más mensajes, dese de baja aquí: ${url}`,
   };
 }
 

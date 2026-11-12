@@ -160,8 +160,8 @@ async function requerirSesionApp() {
       + 'align-items:center; justify-content:center; text-align:center; gap:14px;';
     aviso.innerHTML = '<strong style="font-size:1.05rem;">No se pudo abrir esta pantalla</strong>'
       + '<p style="margin:0; font-size:.92rem; color:#5B6472; max-width:320px; line-height:1.5;">'
-      + 'Su sesion esta activa, pero esta seccion fallo al cargar. Avise a soporte y, '
-      + 'mientras tanto, vuelva al inicio.</p>'
+      + 'Tu sesión está activa, pero esta sección falló al cargar. Avisa a soporte y, '
+      + 'mientras tanto, vuelve al inicio.</p>'
       + '<a href="/app/inicio.html" style="background:#0B5ED7; color:#fff; text-decoration:none;'
       + 'padding:11px 18px; border-radius:9px; font-weight:600;">Volver al inicio</a>';
     document.body.appendChild(aviso);
@@ -193,16 +193,16 @@ function pedirCambioClaveApp() {
     + 'display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;';
   capa.innerHTML = `
     <div style="background:#fff; border-radius:14px; padding:22px 20px; max-width:360px; width:100%;">
-      <h2 style="margin:0 0 6px; font-size:1.15rem; color:#10233F;">Cambie su clave</h2>
+      <h2 style="margin:0 0 6px; font-size:1.15rem; color:#10233F;">Cambia tu clave</h2>
       <p style="font-size:.9rem; color:#5B6472; line-height:1.5; margin:0 0 16px;">
-        Entro con su numero de identificacion, que no es un secreto.
-        Elija una clave de <strong>6 cifras</strong> que solo usted sepa.
+        Entraste con tu número de identificación, que no es un secreto.
+        Elige una clave de <strong>6 cifras</strong> que solo tú sepas.
       </p>
       <div id="error-cambio-clave" style="display:none; background:#FBEAEA; color:#A93226;
            padding:9px 12px; border-radius:8px; font-size:.86rem; margin-bottom:12px;"></div>
       <form id="form-cambio-clave-app">
         <div class="campo-app">
-          <label>Clave actual (su numero de identificacion)</label>
+          <label>Clave actual (tu número de identificación)</label>
           <input type="password" name="passwordActual" inputmode="numeric" required autocomplete="current-password">
         </div>
         <div class="campo-app">
@@ -230,7 +230,7 @@ function pedirCambioClaveApp() {
     // Se comprueba aqui ADEMAS del servidor: en un celular, enterarse de que
     // las dos claves no coinciden despues de un viaje de red es peor.
     if (nueva !== String(f.get('repetir') || '')) return mostrar('Las dos claves nuevas no son iguales.');
-    if (!/^\d{6}$/.test(nueva)) return mostrar('La clave nueva debe ser un numero de 6 cifras.');
+    if (!/^\d{6}$/.test(nueva)) return mostrar('La clave nueva debe ser un número de 6 cifras.');
     const boton = e.target.querySelector('button[type="submit"]');
     boton.disabled = true;
     const antes = boton.textContent;

@@ -263,12 +263,12 @@ const textoDelPuesto = (g) => (g.puesto ? g.puesto.nombre : g.nombre);
 router.get('/mesa', async (req, res) => {
   const mesa = Number(req.query.mesa);
   const fuente = String(req.query.fuente || '');
-  if (!FUENTES.includes(fuente)) return res.status(400).json({ error: 'Elija la fuente: preconteo o escrutinio.' });
-  if (!Number.isInteger(mesa) || mesa < 1) return res.status(400).json({ error: 'Indique la mesa.' });
+  if (!FUENTES.includes(fuente)) return res.status(400).json({ error: 'Elige la fuente: preconteo o escrutinio.' });
+  if (!Number.isInteger(mesa) || mesa < 1) return res.status(400).json({ error: 'Indica la mesa.' });
   try {
     const j = await cargarJornada(req);
     const g = puestoPedido(j, req.query);
-    if (!g) return res.status(400).json({ error: 'Indique un puesto de la lista de la campaña.' });
+    if (!g) return res.status(400).json({ error: 'Indica un puesto de la lista de la campaña.' });
     const testigo = j.vigentes.get(`${g.clave}|${mesa}`) || null;
     const votosTestigo = new Map((testigo ? j.votosPor.get(testigo.id) || [] : []).map(v => [v.norm, v]));
     const oficial = (await cargarOficial(j, fuente)).filter(f => f.g.clave === g.clave && f.mesa === mesa);
@@ -314,7 +314,7 @@ router.get('/mesa', async (req, res) => {
 /** Las mesas de un puesto de la lista que todavía no tienen oficial en esa fuente. */
 router.get('/pendientes', async (req, res) => {
   const fuente = String(req.query.fuente || '');
-  if (!FUENTES.includes(fuente)) return res.status(400).json({ error: 'Elija la fuente: preconteo o escrutinio.' });
+  if (!FUENTES.includes(fuente)) return res.status(400).json({ error: 'Elige la fuente: preconteo o escrutinio.' });
   try {
     const j = await cargarJornada(req);
     const g = puestoPedido(j, req.query);
@@ -335,7 +335,7 @@ router.get('/pendientes', async (req, res) => {
 router.put('/mesa', editarResultados, async (req, res) => {
   const b = req.body || {};
   const mesa = Number(b.mesa);
-  if (!FUENTES.includes(b.fuente)) return res.status(400).json({ error: 'Elija la fuente: preconteo o escrutinio.' });
+  if (!FUENTES.includes(b.fuente)) return res.status(400).json({ error: 'Elige la fuente: preconteo o escrutinio.' });
   if (!Number.isInteger(mesa) || mesa < 1 || mesa > 999999) return res.status(400).json({ error: 'La mesa debe ser un número entero mayor que 0.' });
   if (!Array.isArray(b.votos) || !b.votos.length) return res.status(400).json({ error: 'Falta el resultado de al menos un candidato.' });
 
@@ -343,7 +343,7 @@ router.put('/mesa', editarResultados, async (req, res) => {
   try {
     const j = await cargarJornada(req);
     const g = puestoPedido(j, b);
-    if (!g) return res.status(400).json({ error: 'Indique el puesto.' });
+    if (!g) return res.status(400).json({ error: 'Indica el puesto.' });
     if (g.puesto && Number(g.puesto.cantidad_mesas) > 0 && mesa > Number(g.puesto.cantidad_mesas)) {
       return res.status(400).json({ error: `La mesa ${mesa} no existe en este puesto: tiene ${g.puesto.cantidad_mesas} mesas.` });
     }
@@ -465,7 +465,7 @@ async function calcularDiferencias(j, { filtro = 'perdida', fuente = 'todas' } =
       fuera_de_lista: gr.g.fuera, municipio: m.municipio, mesa: gr.mesa, fuente: gr.fuente,
       testigo: testigo.testigo_nombre, reporte_id: testigo.id, hora_reporte: testigo.created_at,
       tiene_foto: !!testigo.tiene_foto, delta_propio: deltaPropio, diferencias,
-      estado: rev ? rev.estado : null, nota: rev ? rev.nota : null,
+      estado: rev && rev.estado !== 'sin_revision' ? rev.estado : null, nota: rev ? rev.nota : null,   // «sin_revision» = desmarcada con nota: sin estado
     });
   }
   // Las que más le cuestan al propio, primero; sin dato del propio, al final.
@@ -496,24 +496,33 @@ router.put('/revision', editarResultados, async (req, res) => {
   const mesa = Number(b.mesa);
   const estado = String(b.estado || '');
   if (![...ESTADOS, 'ninguno'].includes(estado)) return res.status(400).json({ error: 'Estado no válido.' });
-  if (!Number.isInteger(mesa) || mesa < 1) return res.status(400).json({ error: 'Indique la mesa.' });
+  if (!Number.isInteger(mesa) || mesa < 1) return res.status(400).json({ error: 'Indica la mesa.' });
   const nota = b.nota === undefined || b.nota === null ? null : String(b.nota).trim().slice(0, 2000) || null;
   try {
     const j = await cargarJornada(req);
     const g = puestoPedido(j, b);
-    if (!g) return res.status(400).json({ error: 'Indique el puesto.' });
+    if (!g) return res.status(400).json({ error: 'Indica el puesto.' });
     const puestoTexto = textoDelPuesto(g);
     const [[antes]] = await pool.query(
       `SELECT estado, nota FROM dia_d_mesa_revision WHERE aspirante_id = ? AND puesto_texto = ? AND mesa = ?`,
       [j.dueno, puestoTexto, mesa]);
-    if (estado === 'ninguno') {
+    /* «Sin revisión» = quitar la marca, NO la nota. Si hay nota (la que llega o la que ya estaba), la fila se queda como «sin_revision»; solo se borra
+       cuando no hay nada que conservar. Desmarcar «Para reclamar» ya no se lleva el texto del aspirante. */
+    const notaFinal = b.nota === undefined ? (antes ? antes.nota : null) : nota;
+    if (estado === 'ninguno' && !notaFinal) {
       await pool.query(`DELETE FROM dia_d_mesa_revision WHERE aspirante_id = ? AND puesto_texto = ? AND mesa = ?`, [j.dueno, puestoTexto, mesa]);
+    } else if (estado === 'ninguno') {
+      await pool.query(
+        `INSERT INTO dia_d_mesa_revision (aspirante_id, puesto_texto, mesa, estado, nota, marcado_por)
+         VALUES (?, ?, ?, 'sin_revision', ?, ?)
+         ON DUPLICATE KEY UPDATE estado = 'sin_revision', nota = VALUES(nota), marcado_por = VALUES(marcado_por), marcado_en = NOW()`,
+        [j.dueno, puestoTexto, mesa, notaFinal, req.session.usuario.id]);
     } else {
       await pool.query(
         `INSERT INTO dia_d_mesa_revision (aspirante_id, puesto_texto, mesa, estado, nota, marcado_por)
          VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE estado = VALUES(estado), nota = VALUES(nota), marcado_por = VALUES(marcado_por), marcado_en = NOW()`,
-        [j.dueno, puestoTexto, mesa, estado, nota, req.session.usuario.id]);
+        [j.dueno, puestoTexto, mesa, estado, notaFinal, req.session.usuario.id]);
     }
     await registrarAuditoria(req.session.usuario.id, 'revision_mesa_dia_d', 'dia_d_mesa_revision', null,
       `Mesa ${mesa} del puesto ${puestoTexto}: ${antes ? `antes «${antes.estado}»${antes.nota ? ` («${String(antes.nota).slice(0, 120)}»)` : ''}` : 'antes sin revisión'}; `
@@ -660,7 +669,7 @@ router.post('/paquete', editarResultados, async (req, res) => {
     conexion = await pool.getConnection();
     const clave = `diad_paquete_${j.dueno}`;
     const [[bloqueo]] = await conexion.query('SELECT GET_LOCK(?, 5) AS tomado', [clave]);
-    if (Number(bloqueo.tomado) !== 1) return res.status(503).json({ error: 'Intente de nuevo en unos segundos.' });
+    if (Number(bloqueo.tomado) !== 1) return res.status(503).json({ error: 'Intenta de nuevo en unos segundos.' });
     try {
       const [[enCurso]] = await conexion.query(
         `SELECT id, estado FROM dia_d_paquetes WHERE aspirante_id = ? AND estado IN ('en_cola','armando') LIMIT 1`, [j.dueno]);

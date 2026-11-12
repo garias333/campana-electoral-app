@@ -51,12 +51,12 @@ const { moduloTieneImportarExportar } = require('../config/importarExportar');
 const { PERMISOS_ASPIRANTE, MODULOS_ASPIRANTE } = require('./aspirante');
 
 const MENSAJE_NEGADO =
-  'Su tipo de usuario no tiene permiso para importar ni exportar datos en este módulo. '
-  + 'Si lo necesita, pídaselo al administrador de la campaña.';
+  'Tu tipo de usuario no tiene permiso para importar ni exportar datos en este módulo. '
+  + 'Si lo necesitas, pídeselo al administrador de la campaña.';
 
 const MENSAJE_SIN_VERIFICAR =
   'No se pudo comprobar su permiso para importar o exportar, y por seguridad se negó. '
-  + 'Vuelva a intentarlo; si el problema sigue, avise al administrador.';
+  + 'Vuelve a intentarlo; si el problema sigue, avise al administrador.';
 
 /**
  * @param {string} modulo  Una clave del catálogo de módulos que tenga rutas de
@@ -76,7 +76,7 @@ function requiereImportarExportar(modulo) {
   return async function permisoImportarExportar(req, res, next) {
     const usuario = req.session && req.session.usuario;
     if (!usuario) {
-      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+      return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
     }
 
     try {
@@ -135,7 +135,7 @@ function requiereVerModulo(modulo, opciones = {}) {
   return async function permisoVerModulo(req, res, next) {
     const usuario = req.session && req.session.usuario;
     if (!usuario) {
-      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+      return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
     }
     const negado = (mensaje) => res.status(403).json({ error: mensaje });
     try {
@@ -150,11 +150,11 @@ function requiereVerModulo(modulo, opciones = {}) {
         [usuario.rol, modulo]
       );
       if (filas.length && Number(filas[0].permitido) === 1) return next();
-      return negado('Su tipo de usuario no tiene acceso a esta sección. '
-        + 'Si lo necesita, pídaselo al administrador de la campaña.');
+      return negado('Tu tipo de usuario no tiene acceso a esta sección. '
+        + 'Si lo necesitas, pídeselo al administrador de la campaña.');
     } catch (err) {
       console.error(`[ver ${modulo}] No se pudo comprobar el permiso:`, err.code || err.message);
-      return negado('No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.');
+      return negado('No se pudo comprobar su permiso, y por seguridad se negó. Vuelve a intentarlo.');
     }
   };
 }
@@ -183,7 +183,7 @@ function requiereEditarModulo(modulo, opciones = {}) {
   return async function permisoEditarModulo(req, res, next) {
     const usuario = req.session && req.session.usuario;
     if (!usuario) {
-      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+      return res.status(401).json({ error: 'Debes iniciar sesión para continuar.' });
     }
     const negado = (mensaje) => res.status(403).json({ error: mensaje });
     try {
@@ -199,11 +199,11 @@ function requiereEditarModulo(modulo, opciones = {}) {
         [usuario.rol, modulo]
       );
       if (filas.length && Number(filas[0].editar) === 1) return next();
-      return negado('Su tipo de usuario puede ver esta sección pero no cambiar nada en ella. '
-        + 'Si lo necesita, pídale al administrador de la campaña el permiso «Editar».');
+      return negado('Tu tipo de usuario puede ver esta sección pero no cambiar nada en ella. '
+        + 'Si lo necesitas, pídele al administrador de la campaña el permiso «Editar».');
     } catch (err) {
       console.error(`[editar ${modulo}] No se pudo comprobar el permiso:`, err.code || err.message);
-      return negado('No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.');
+      return negado('No se pudo comprobar su permiso, y por seguridad se negó. Vuelve a intentarlo.');
     }
   };
 }

@@ -497,7 +497,7 @@
         <label for="campo-email">Correo electrónico o número de identificación</label>
         <input id="campo-email" type="text" name="email" required autocomplete="username" inputmode="email">
         <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
-          Para quien ya tenga una contraseña asignada. Si no la tiene o no la recuerda, vuelva atrás y pida un código: llega a su correo o a su celular.
+          Para quien ya tenga una contraseña asignada. Si no la tienes o no la recuerdas, vuelve atrás y pide un código: llega a tu correo o a tu celular.
         </small>
       </div>
       <div class="campo">
@@ -990,7 +990,7 @@ function renderizarSelectorCuentas() {
     <div class="fila-cuenta-dispositivo">
       <button type="button" class="btn-cuenta-dispositivo" data-id="${id}" data-accion="entrar">
         <span class="nombre">${cuentas[id].usuario.nombre}</span>
-        <span class="rol">${cuentas[id].usuario.rol}</span>
+        <span class="rol">${rolEnPantalla(cuentas[id].usuario.rol)}</span>
       </button>
       <button type="button" class="btn-olvidar-cuenta" data-id="${id}" data-accion="olvidar" title="Olvidar esta cuenta en este dispositivo">✕</button>
     </div>
@@ -1087,18 +1087,23 @@ function ponerModoLider() {
 
   const usuario = document.querySelector('#form-login [name="email"]');
   const clave = document.querySelector('#form-login [name="password"]');
-  for (const campo of [usuario, clave]) {
-    if (!campo) continue;
-    campo.setAttribute('inputmode', 'numeric');
+  /* SOLO EL USUARIO (la cédula) ES NUMÉRICO (parche 330). `pattern="[0-9]*"` se aplicaba también a la CLAVE: el navegador bloqueaba el envío de una
+     clave con letras —que el correo de recuperación sí permite crear— sin que la app dijera nada. La clave queda con teclado normal. */
+  if (usuario) {
+    usuario.setAttribute('inputmode', 'numeric');
     // `pattern` hace que algunos teclados de Android muestren solo cifras;
     // `inputmode` solo no siempre alcanza.
-    campo.setAttribute('pattern', '[0-9]*');
+    usuario.setAttribute('pattern', '[0-9]*');
+  }
+  if (clave) {
+    clave.removeAttribute('pattern');
+    clave.removeAttribute('inputmode');
   }
   if (usuario) {
-    usuario.setAttribute('placeholder', 'Su número de identificación');
+    usuario.setAttribute('placeholder', 'Tu número de identificación');
     usuario.focus();
   }
-  if (clave) clave.setAttribute('placeholder', 'Su clave de acceso');
+  if (clave) clave.setAttribute('placeholder', 'Tu clave de acceso');
 
   // Etiquetas en los terminos de quien las va a leer: «correo o numero de
   // identificacion» no le dice nada a alguien que solo tiene lo segundo.

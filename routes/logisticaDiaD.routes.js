@@ -59,9 +59,9 @@ async function puertaDelPuesto(req, res, next) {
     if (await pasaLaCoordinacion(req)) { req.esCoordinacion = true; return next(); }
     const mio = await L.puestoDeTestigo(pool, req.dueno, req.session.usuario.id);
     if (mio && mio.puesto && mio.testigo.tipo_testigo === 'puesto') { req.miPuesto = mio.puesto; return next(); }
-    return res.status(403).json({ error: 'Esta pantalla es para el coordinador de puesto. Si lo necesita, pídaselo al administrador de la campaña.' });
+    return res.status(403).json({ error: 'Esta pantalla es para el coordinador de puesto. Si lo necesitas, pídeselo al administrador de la campaña.' });
   } catch (err) {
-    return falla(res, 'puerta', err, 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.');
+    return falla(res, 'puerta', err, 'No se pudo comprobar su permiso, y por seguridad se negó. Vuelve a intentarlo.');
   }
 }
 
@@ -83,7 +83,7 @@ const conFoto = (req, res, next) => subirFoto(req, res, (err) => {
 router.get('/mi-puesto', puertaDelPuesto, async (req, res) => {
   try {
     const puestoId = puestoDe(req, req.query.puesto_id);
-    if (!puestoId) return res.status(400).json({ error: 'Indique el puesto.' });
+    if (!puestoId) return res.status(400).json({ error: 'Indica el puesto.' });
     const vista = await L.vistaDelPuesto(pool, req.dueno, puestoId, L.hoy());
     if (!vista) return res.status(404).json({ error: 'Ese puesto no es de esta campaña.' });
     res.json({ ...vista, es_coordinacion: !!req.esCoordinacion });
@@ -99,9 +99,9 @@ router.post('/entregar', puertaDelPuesto, conFoto, async (req, res) => {
   try {
     const b = req.body || {};
     const itemId = entero(b.item_id), receptorId = entero(b.receptor_usuario_id);
-    if (!itemId || !receptorId) return res.status(400).json({ error: 'Indique el ítem y el testigo.' });
+    if (!itemId || !receptorId) return res.status(400).json({ error: 'Indica el ítem y el testigo.' });
     const puestoId = puestoDe(req, b.puesto_id);
-    if (!puestoId) return res.status(400).json({ error: 'Indique el puesto.' });
+    if (!puestoId) return res.status(400).json({ error: 'Indica el puesto.' });
     const horaDeMarca = require('./checkinDiaD.routes').horaDeMarca;
     const marcadoEn = b.marcado_en ? horaDeMarca(b.marcado_en) : null;
     let r;
@@ -133,7 +133,7 @@ router.post('/entregar', puertaDelPuesto, conFoto, async (req, res) => {
 router.post('/anular', puertaDelPuesto, async (req, res) => {
   try {
     const entregaId = entero((req.body || {}).entrega_id);
-    if (!entregaId) return res.status(400).json({ error: 'Indique la entrega.' });
+    if (!entregaId) return res.status(400).json({ error: 'Indica la entrega.' });
     const ok = await L.anular(pool, { dueno: req.dueno, entregaId, usuarioId: req.session.usuario.id, puestoId: req.miPuesto ? req.miPuesto.id : null });
     if (!ok) return res.status(404).json({ error: 'Esa entrega no existe, ya estaba anulada o no es de su puesto.' });
     await registrarAuditoria(req.session.usuario.id, 'anular_entrega_logistica', 'logistica_entregas', entregaId, 'Anuló una entrega de logística del Día D.', req.ip);
@@ -225,7 +225,7 @@ coordinacion.put('/plan', editarLogistica, async (req, res) => {
   try {
     const b = req.body || {};
     const itemId = entero(b.item_id), puestoId = entero(b.puesto_id);
-    if (!itemId || !puestoId) return res.status(400).json({ error: 'Indique el ítem y el puesto.' });
+    if (!itemId || !puestoId) return res.status(400).json({ error: 'Indica el ítem y el puesto.' });
     let cantidad = null;
     if (b.cantidad !== null && b.cantidad !== undefined && b.cantidad !== '') {
       cantidad = Number(b.cantidad);

@@ -82,9 +82,9 @@
     <div class="sec-hero">
       <div class="eyebrow">Logística</div>
       <h1>Agenda</h1>
-      <p>El mes completo, con los eventos de la campaña en su día. Pulse un día para
+      <p>El mes completo, con los eventos de la campaña en su día. Pulsa un día para
          ver lo que hay en él; los eventos se crean y se editan desde
-         <a href="/eventos.html" style="color:#fff;">Eventos y movilización</a>.</p>
+         <a href="/eventos.html" style="color:#fff;">Eventos y GOTV</a>.</p>
     </div>
 
     <!-- LA NAVEGACIÓN DEL MES Y EL FILTRO, SEPARADOS Y ROTULADOS. Antes eran
@@ -128,7 +128,7 @@
 
 <div class="overlay" id="overlay-editar-agenda">
   <div class="modal">
-    <div class="modal-header"><h3>Editar evento</h3><button class="modal-cerrar" id="cerrar-modal-agenda">×</button></div>
+    <div class="modal-header"><h3 id="agenda-form-titulo-modal">Editar evento</h3><button class="modal-cerrar" id="cerrar-modal-agenda">×</button></div>
     <div id="agenda-form-error" class="mensaje-error"></div>
     <form id="form-editar-agenda">
       <input type="hidden" id="agenda-form-id">
@@ -254,15 +254,15 @@ async function cargarCalendario() {
 
     const chips = eventosDia.slice(0, MAX_CHIPS_POR_CELDA).map(ev => {
       const color = COLOR_TIPO[ev.tipo] || '#64748b';
-      return `<span class="calendario-evento-chip" style="background:${color};" title="${ev.titulo} — ${formatoHora(ev.fecha_inicio)}" onclick="abrirEdicionAgenda(${ev.id})">${formatoHora(ev.fecha_inicio)} ${ev.titulo}</span>`;
+      return `<span class="calendario-evento-chip" style="background:${color};" title="${ev.titulo} — ${formatoHora(ev.fecha_inicio)}" onclick="event.stopPropagation(); abrirEdicionAgenda(${ev.id})">${formatoHora(ev.fecha_inicio)} ${ev.titulo}</span>`;
     }).join('');
     const restantes = eventosDia.length - MAX_CHIPS_POR_CELDA;
     const masChip = restantes > 0
-      ? `<span class="calendario-mas-eventos" onclick="verTodosDelDia('${clave}')">+${restantes} más</span>`
+      ? `<span class="calendario-mas-eventos" onclick="event.stopPropagation(); verTodosDelDia('${clave}')">+${restantes} más</span>`
       : '';
 
     return `
-      <div class="calendario-celda${fueraDeMes ? ' fuera-de-mes' : ''}${esHoy ? ' es-hoy' : ''}">
+      <div class="calendario-celda${fueraDeMes ? ' fuera-de-mes' : ''}${esHoy ? ' es-hoy' : ''}" style="cursor:pointer;" onclick="verTodosDelDia('${clave}')" title="Ver lo que hay este día">
         <span class="calendario-numero">${d.getDate()}</span>
         ${chips}${masChip}
       </div>`;
@@ -278,7 +278,9 @@ function verTodosDelDia(clave) {
   const fecha = new Date(clave + 'T00:00:00');
   const texto = fecha.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   document.getElementById('dia-agenda-titulo').textContent = texto.charAt(0).toUpperCase() + texto.slice(1);
-  document.getElementById('dia-agenda-lista').innerHTML = eventosDia.map(ev => `
+  document.getElementById('dia-agenda-lista').innerHTML = !eventosDia.length
+    ? '<p style="color:var(--color-text-muted); margin:6px 0;">No hay eventos este día.</p>'
+    : eventosDia.map(ev => `
     <div style="display:flex; gap:12px; padding:8px 0; border-bottom:1px solid var(--color-border, #f0f0f0); align-items:center; cursor:pointer;" onclick="cerrarModalDia(); abrirEdicionAgenda(${ev.id})">
       <div class="mono" style="min-width:56px; color:var(--color-text-muted); font-size:0.85rem;">${formatoHora(ev.fecha_inicio)}</div>
       <div style="flex:1;">
@@ -313,6 +315,13 @@ document.getElementById('btn-mes-hoy').addEventListener('click', () => {
 function abrirEdicionAgenda(id) {
   const ev = eventosCache.find(e => e.id === id);
   if (!ev) return;
+  /* «EDITAR EVENTO» SOLO PARA QUIEN PUEDE GUARDAR (parche 330). El servidor manda `puede_gestionar` (la misma regla del guardado). Sin ella la ventana
+     se abre en lectura: título «Evento», campos bloqueados y sin botón de guardar (antes se abría igual y el guardado fallaba al final). */
+  const puede = ev.puede_gestionar === true;
+  document.getElementById('agenda-form-titulo-modal').textContent = puede ? 'Editar evento' : 'Evento';
+  document.querySelectorAll('#form-editar-agenda input, #form-editar-agenda select, #form-editar-agenda textarea').forEach((c) => { if (c.type !== 'hidden') c.disabled = !puede; });
+  const guardar = document.querySelector('#form-editar-agenda [type="submit"]');
+  if (guardar) guardar.style.display = puede ? '' : 'none';
 
   document.getElementById('agenda-form-error').classList.remove('visible');
   document.getElementById('agenda-form-id').value = ev.id;
@@ -359,6 +368,9 @@ document.getElementById('form-editar-agenda').addEventListener('submit', async (
     lugar: document.getElementById('agenda-form-lugar').value,
     meta_asistentes: document.getElementById('agenda-form-meta-asistentes').value,
     descripcion: document.getElementById('agenda-form-descripcion').value,
+    // Parche 330: Departamento y Ciudad ORIGINALES (antes no se mandaban y el guardado los dejaba en blanco).
+    departamento: (original && original.departamento) || '',
+    ciudad: (original && original.ciudad) || '',
     territorio_id: (original && original.territorio_id) || '',
     area: (original && original.area) || '',
     responsable_id: (original && original.responsable_id) || '',

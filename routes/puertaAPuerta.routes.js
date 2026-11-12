@@ -70,9 +70,9 @@ const NOMBRE_MODULO = { puerta_listas: 'armar listas de puerta a puerta', puerta
 const exigir = (modulo, nivel) => async (req, res, next) => {
   const p = await P.permisosDe(req.session.usuario, modulo);
   req.permisos = p;
-  if (!p.ver) return res.status(403).json({ error: `Su tipo de usuario no tiene acceso a ${NOMBRE_MODULO[modulo]}. Si lo necesita, pídaselo al administrador de la campaña.` });
-  if (nivel === 'agregar' && !p.agregar) return res.status(403).json({ error: `Su tipo de usuario puede ver ${NOMBRE_MODULO[modulo]} pero no agregar.` });
-  if (nivel === 'editar' && !p.editar) return res.status(403).json({ error: `Su tipo de usuario puede ver ${NOMBRE_MODULO[modulo]} pero no cambiarlas.` });
+  if (!p.ver) return res.status(403).json({ error: `Tu tipo de usuario no tiene acceso a ${NOMBRE_MODULO[modulo]}. Si lo necesitas, pídeselo al administrador de la campaña.` });
+  if (nivel === 'agregar' && !p.agregar) return res.status(403).json({ error: `Tu tipo de usuario puede ver ${NOMBRE_MODULO[modulo]} pero no agregar.` });
+  if (nivel === 'editar' && !p.editar) return res.status(403).json({ error: `Tu tipo de usuario puede ver ${NOMBRE_MODULO[modulo]} pero no cambiarlas.` });
   next();
 };
 const soloAdmin = (req, res, next) => (req.session.usuario.rol === 'admin' ? next() : res.status(403).json({ error: 'Esto es solo del administrador.' }));

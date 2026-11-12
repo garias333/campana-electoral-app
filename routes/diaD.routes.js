@@ -1202,7 +1202,7 @@ router.get('/resumen-candidatos', requireRole('admin', 'coordinador', 'aspirante
  */
 router.get('/rendimiento-candidato', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   const candidato = String(req.query.candidato || '').trim();
-  if (!candidato) return res.status(400).json({ error: 'Indique el candidato.' });
+  if (!candidato) return res.status(400).json({ error: 'Indica el candidato.' });
   try {
     const aDentro = await acotaJornada(req, 'testigo_id');
     const aFuera  = await acotaJornada(req, 'r.testigo_id');
@@ -1281,7 +1281,7 @@ async function reporteVisiblePara(req, reporteId) {
   const u = req.session.usuario;
   if (rep.testigo_id === u.id) return { rep };
   const esEquipo = ['admin', 'coordinador'].includes(u.rol) || !!req.sublicencia;
-  if (!esEquipo) return { estado: 403, error: 'No tiene permisos para ver este archivo.' };
+  if (!esEquipo) return { estado: 403, error: 'No tienes permisos para ver este archivo.' };
   const aFuera = await acotaJornada(req, 'r.testigo_id');
   const [[dentro]] = await pool.query(
     `SELECT r.id FROM dia_d_reportes r WHERE r.id = ? ${aFuera ? 'AND ' + aFuera.sql : ''}`,
@@ -2097,7 +2097,7 @@ router.delete('/config/candidatos/:id', requireRole('admin', 'aspirante'), async
 router.post('/config/candidatos/:id/mover', requireRole('admin', 'aspirante'), async (req, res) => {
   const direccion = String(req.body && req.body.direccion || '').toLowerCase();
   if (direccion !== 'arriba' && direccion !== 'abajo') {
-    return res.status(400).json({ error: 'Indique si el candidato sube o baja.' });
+    return res.status(400).json({ error: 'Indica si el candidato sube o baja.' });
   }
   let conexion;
   try {
@@ -2164,7 +2164,7 @@ router.post('/config/bloques/:grupo/mover', requireRole('admin', 'aspirante'), a
   const direccion = String(req.body && req.body.direccion || '').toLowerCase();
   if (!grupo) return res.status(400).json({ error: 'Bloque inválido.' });
   if (direccion !== 'arriba' && direccion !== 'abajo') {
-    return res.status(400).json({ error: 'Indique si el bloque sube o baja.' });
+    return res.status(400).json({ error: 'Indica si el bloque sube o baja.' });
   }
   let conexion;
   try {

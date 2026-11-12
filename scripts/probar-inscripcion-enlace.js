@@ -583,7 +583,7 @@ const F = (codigo, huella, extra = {}) => ({
   ok((fm.match(/\brequired\b/g) || []).length === 4, 'campos required: cédula, nombre, celular y autorización (no se añadió ninguno)');
   ok(!/name="canal_(sms|whatsapp|email)" value="1" checked/.test(fm) && !/name="autoriza" value="1" checked/.test(fm), 'las casillas de canal y la autorización salen SIN marcar');
   const css = fm.match(/h2\.seccion\{[^}]*\}/)[0];
-  ok(/text-transform:uppercase/.test(css) && /font-weight:700/.test(css) && /color:#0B5ED7/.test(css) && /border-bottom:1px solid/.test(css), 'títulos en mayúsculas, negrita, azul de la marca (#0B5ED7) y línea fina debajo', css);
+  ok(/text-transform:uppercase/.test(css) && /font-weight:700/.test(css) && /color:(var\(--marca-azul,)?#0B5ED7/.test(css) && /border-bottom:1px solid/.test(css), 'títulos en mayúsculas, negrita, azul de la marca (#0B5ED7) y línea fina debajo', css);
   ok(/<a href="\/i\/[A-Z0-9]+\/politica" target="_blank"/.test(fm.slice(pos('Tratamiento de datos personales'))), 'enlace a la política vigente (otra pestaña) dentro de la sección 4');
   ok(fm.includes('<input type="search" id="buscar-puesto"') && /<select id="puesto" name="puesto_id"><option value="">No sé<\/option>/.test(fm) && /<select id="mesa" name="mesa"><option value="">No sé<\/option>/.test(fm), 'puesto con buscador, y «No sé» en puesto y en mesa');
   // (la dirección y el botón de la Registraduría se prueban en la sección de la orden 28)

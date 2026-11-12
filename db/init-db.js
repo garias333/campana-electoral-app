@@ -412,7 +412,8 @@ const PERMISOS_POR_DEFECTO = {
   // PERMISOS_ASPIRANTE). La pantalla del coordinador de puesto NO va por esta casilla sino por su fila de testigo tipo «puesto».
   logistica_dia_d: ['admin', 'coordinador'],
   social: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
-  crm: ['admin', 'coordinador', 'asistente_administrativo'],
+  // Parche 330: el asistente administrativo ya NO lo trae de fábrica (veía la entrada del menú y las pantallas le respondían 403).
+  crm: ['admin', 'coordinador'],
   enviar_email: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
   enviar_sms: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
   // "Aviso en la app" (push). Sin esta línea la entrada del menú NO le
@@ -443,8 +444,8 @@ const PERMISOS_POR_DEFECTO = {
   // línea la entrada del menú no le aparece a nadie (common.js oculta todo
   // ítem cuyo módulo no esté en los permisos del usuario).
   legislacion: ['admin', 'coordinador'],
-  finanzas: ['admin', 'coordinador', 'asistente_administrativo'],
-  configuracion: ['admin', 'asistente_administrativo'],
+  finanzas: ['admin', 'coordinador'],
+  configuracion: ['admin'],
   // El menú "Ayuda" en sí es visible para todos los roles (cada quien ve
   // su propio manual) — el Manual de instalación, dentro de esa misma
   // pantalla, ya está restringido aparte a solo admin en el frontend.
@@ -2221,6 +2222,15 @@ async function main() {
       : `Tabla ${tabla} creada.`);
   }
 
+  /* DESMARCAR «PARA RECLAMAR» NO BORRA LA NOTA (parche 330). Antes, desmarcar la mesa borraba la fila entera y con ella la nota que el aspirante había
+     escrito (por qué la iba a reclamar, qué vio en el E-14). Ahora una mesa desmarcada con nota queda en «sin_revision»: no cuenta como marcada, no sale en el
+     paquete del abogado, pero conserva su texto. Se amplía el ENUM de forma repetible. */
+  const [[colRev]] = await connection.query(`SELECT column_type AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'dia_d_mesa_revision' AND column_name = 'estado'`);
+  if (colRev && !/sin_revision/.test(colRev.t)) {
+    await connection.query(`ALTER TABLE dia_d_mesa_revision MODIFY COLUMN estado ENUM('para_reclamar','revisada','sin_revision') NOT NULL`);
+    console.log('La revisión de mesas admite ahora «sin_revision» (desmarcar conserva la nota).');
+  }
+
   // --- Cobertura de testigos: cuántas mesas puede cubrir un mismo testigo ---
   // Pasarlo NO bloquea nada: la pantalla de cobertura avisa (un testigo con diez mesas no vigila ninguna).
   // 3 de fábrica; se cambia en Configuración → Día D → Puestos de votación.
@@ -3642,6 +3652,24 @@ async function main() {
       INDEX idx_sesiones_cierre_creado (creado_en)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
   console.log('Tabla sesiones_cierre lista (token de cierre de sesión pendiente, solo su hash).');
+
+  /* EL ASISTENTE ADMINISTRATIVO YA NO VE CONFIGURACIÓN, FINANZAS NI CRM (parche 330). De fábrica tenía «Ver» en esos tres módulos y veía sus entradas en
+     el menú, pero las rutas y pantallas le responden «Solo un administrador…» / 403 (finanzas y configuración son de administrador y coordinador; las
+     bajas del CRM, de administrador y coordinador). Se quitó de la siembra de arriba; aquí se corrigen las instalaciones que ya la traían.
+
+     UNA SOLA VEZ: la marca es la columna `configuracion_campana.permisos_asistente_sembrado` (`agregarColumnaSiFalta` devuelve true solo en la corrida
+     que la crea), así una segunda corrida NO vuelve a quitar lo que el administrador le vuelva a dar a mano desde Asignación de permisos. */
+  const asistenteRecienCorregido = await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "permisos_asistente_sembrado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Marca (parche 330): ya se quitó Configuración, Finanzas y CRM al asistente administrativo de fábrica. No es una opción.'",
+    'permisos_asistente_sembrado'
+  );
+  if (asistenteRecienCorregido) {
+    const [quitado] = await connection.query(
+      `UPDATE permisos_rol SET permitido = 0, editar = 0, agregar = 0, importar_exportar = 0
+        WHERE rol = 'asistente_administrativo' AND modulo IN ('configuracion', 'finanzas', 'crm') AND permitido = 1`);
+    console.log(`Asistente administrativo: se le quitó Configuración, Finanzas y CRM (${quitado.affectedRows} fila(s)); una sola vez.`);
+  }
 
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);

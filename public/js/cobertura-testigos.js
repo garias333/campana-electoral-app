@@ -285,10 +285,10 @@
         if (r2 && r2.aviso) alert(r2.aviso);
         if (r2) await refrescar();
       } else if (acc === 'nuevo') {
-        guardarPrellenado({ puesto: estado.puesto.nombre, mesa: mesaActual }, '/territorial.html#testigo-nuevo');
+        guardarPrellenado({ puesto: estado.puesto.nombre, mesa: mesaActual }, '/votantes.html#testigo-nuevo');   // parche 330: el formulario de Votantes (con «Es también testigo electoral»); el de Estructura ya no tiene categoría Testigo
       } else if (acc === 'proponer-votante') {
         var s = estado.sugeridos.filter(function (x) { return x.tipo === 'votante' && String(x.votante_id) === b.dataset.vid; })[0];
-        guardarPrellenado({ puesto: estado.puesto.nombre, mesa: mesaActual, nombre: s.nombre, cedula: s.cedula, telefono: s.telefono, email: s.email }, '/territorial.html#testigo-nuevo');
+        guardarPrellenado({ puesto: estado.puesto.nombre, mesa: mesaActual, nombre: s.nombre, cedula: s.cedula, telefono: s.telefono, email: s.email, votante_id: s.votante_id }, '/votantes.html#testigo-nuevo');
       } else if (acc === 'proponer-usuario') {
         var u = estado.sugeridos.filter(function (x) { return x.tipo === 'usuario' && String(x.usuario_id) === b.dataset.uid; })[0];
         guardarPrellenado({ puesto: estado.puesto.nombre, mesa: mesaActual }, '/territorial.html#testigo-editar=' + u.estructura_id);

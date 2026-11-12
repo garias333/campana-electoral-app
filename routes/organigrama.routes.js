@@ -140,7 +140,7 @@ router.post('/', requireRole('admin', 'coordinador'), async (req, res) => {
     res.json({ ok: true, id: result.insertId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error creando el cargo. Verifique que el cargo superior exista.' });
+    res.status(500).json({ error: 'Error creando el cargo. Verifica que el cargo superior exista.' });
   }
 });
 

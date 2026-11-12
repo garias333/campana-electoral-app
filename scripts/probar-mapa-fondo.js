@@ -91,9 +91,10 @@ const esMapbox = (u) => /^https:\/\/api\.mapbox\.com\/styles\//.test(u);
       res.append('Referrer-Policy', 'same-origin');
       next();
     });
-    // El control negativo: la pantalla de Solicitudes tal como estaba en el commit anterior (se lee de git).
-    const viejo = spawnSync('git', ['show', 'HEAD:public/solicitudes.html'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 20e6 });
-    ok(viejo.status === 0 && /tile\.openstreetmap/.test(viejo.stdout) && !/mapa-fondo/.test(viejo.stdout), 'control: el HEAD trae la pantalla vieja (capa de OSM propia, sin mapa-fondo.js)');
+    // El control negativo: la pantalla de Solicitudes tal como estaba ANTES del parche 314 (commit a95af46, que trajo mapa-fondo.js; se lee de git).
+    // Antes decía HEAD, y el control dejó de servir en cuanto el arreglo quedó commiteado: HEAD ya es la pantalla nueva.
+    const viejo = spawnSync('git', ['show', 'a95af46^:public/solicitudes.html'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 20e6 });
+    ok(viejo.status === 0 && /tile\.openstreetmap/.test(viejo.stdout) && !/mapa-fondo/.test(viejo.stdout), 'control: la versión anterior al parche 314 trae la pantalla vieja (capa de OSM propia, sin mapa-fondo.js)');
     envoltorio.get('/viejo/solicitudes.html', (req, res) => res.type('html').send(viejo.stdout));
     envoltorio.use(app);
     servidor = http.createServer(envoltorio);

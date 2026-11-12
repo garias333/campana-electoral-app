@@ -157,7 +157,7 @@
           <div class="campo" style="flex:1; min-width:200px;">
             <label for="campo-cargo-aspira">Cargo al que aspira</label>
             <select id="campo-cargo-aspira" name="cargo_aspira">
-              <option value="">Seleccione...</option>
+              <option value="">Selecciona...</option>
               <option value="senado">Senado</option>
               <option value="camara_representantes">Cámara de Representantes</option>
               <option value="gobernacion">Gobernación</option>
@@ -170,7 +170,7 @@
           <div class="campo" style="flex:1; min-width:200px;">
             <label for="campo-fecha-eleccion">Fecha de elecciones</label>
             <input id="campo-fecha-eleccion" type="date" name="fecha_eleccion">
-            <small style="color:var(--color-text-muted);">Informativa: los testigos siempre entran directo al formulario de Día D al iniciar sesión, sin importar esta fecha.</small>
+            <small style="color:var(--color-text-muted);">De esta fecha dependen el Modo prueba, el enlace «Ya voté», el enlace del conductor y las alertas del Día D (transporte, logística y avisos push). Los testigos siempre entran directo al formulario de Día D, sin importar la fecha.</small>
             <small style="color:#8A5A00; display:block; margin-top:4px;">⚠ Los enlaces «Ya voté» que se envían a los votantes son <strong>de esta fecha</strong>: sirven solo ese día. Si la cambia —por una segunda vuelta o una elección nueva—, <strong>los enlaces ya enviados dejan de funcionar</strong> y hay que volver a mandarlos.</small>
           </div>
         </div>
@@ -214,13 +214,13 @@
           <div class="campo">
             <label for="select-partido-politico">Partido político</label>
             <select id="select-partido-politico">
-              <option value="">Seleccione...</option>
+              <option value="">Selecciona...</option>
             </select>
           </div>
         </div>
         <div class="campo" id="campo-partido-otro" style="display:none;">
           <label for="input-partido-otro">Nombre del partido/movimiento</label>
-          <input id="input-partido-otro" placeholder="Escriba el nombre completo">
+          <input id="input-partido-otro" placeholder="Escribe el nombre completo">
         </div>
 
         <div class="fila" id="campo-meta-campana">
@@ -500,7 +500,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <div class="campo" style="flex:1; min-width:200px; margin:0;">
               <label for="select-municipio-traer" style="font-size:0.8rem;">Municipio</label>
-              <select id="select-municipio-traer"><option value="">Seleccione...</option></select>
+              <select id="select-municipio-traer"><option value="">Selecciona...</option></select>
             </div>
             <button type="button" class="btn-secundario btn-sm sin-importar-exportar" data-ie="configuracion" id="btn-traer-municipio">📥 Traer los de este municipio</button>
             <button type="button" class="btn-secundario btn-sm sin-importar-exportar" data-ie="configuracion" id="btn-traer-departamento">📥 Traer todo el departamento</button>
@@ -730,16 +730,16 @@
       <div class="fila">
         <div class="campo">
           <label for="puesto-form-departamento">Departamento</label>
-          <select id="puesto-form-departamento"><option value="">Seleccione...</option></select>
+          <select id="puesto-form-departamento"><option value="">Selecciona...</option></select>
         </div>
         <div class="campo">
           <label for="puesto-form-municipio">Municipio</label>
-          <select id="puesto-form-municipio"><option value="">Elija primero el departamento...</option></select>
+          <select id="puesto-form-municipio"><option value="">Elige primero el departamento...</option></select>
         </div>
       </div>
       <div class="campo">
         <label for="puesto-form-puesto">Puesto de votación</label>
-        <select id="puesto-form-puesto"><option value="">Elija primero el municipio...</option></select>
+        <select id="puesto-form-puesto"><option value="">Elige primero el municipio...</option></select>
         <small style="color:var(--color-text-muted); font-size:0.78rem;">Del catálogo oficial de la Registraduría.</small>
       </div>
       <div class="campo">
@@ -1062,7 +1062,7 @@ async function cargarPartidos() {
   const datos = await resp.json();
   partidosCatalogo = datos.partidos || [];
   const select = document.getElementById('select-partido-politico');
-  select.innerHTML = '<option value="">Seleccione...</option>' +
+  select.innerHTML = '<option value="">Selecciona...</option>' +
     partidosCatalogo.map(p => `<option value="${p}">${p}</option>`).join('');
 }
 document.getElementById('select-partido-politico').addEventListener('change', (e) => {
@@ -1376,12 +1376,17 @@ document.getElementById('btn-quitar-logo').addEventListener('click', async () =>
 });
 
 // --- Usuarios ---
+/** El nombre de un rol como se lee en pantalla («Líder», «Asistente administrativo»), no el crudo de la base. */
+function nombreRol(n) { return ETIQUETAS_ROL[n] || (String(n).charAt(0).toUpperCase() + String(n).slice(1).replace(/_/g, ' ')); }
 async function cargarRoles() {
   roles = await api('/usuarios/roles');
-  document.getElementById('usuario-form-rol').innerHTML =
-    roles.map(r => `<option value="${r.nombre}">${r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1)}${r.descripcion ? ' — ' + r.descripcion : ''}</option>`).join('');
+  /* NOMBRES BONITOS Y SIN ROL POR DEFECTO (parche 330). El desplegable mostraba el nombre crudo de la base («Lider», «Asistente_administrativo») y el
+     alta nacía en el primero de la lista —«Admin»—: quien no lo tocaba creaba un administrador sin querer. Ahora hay que ELEGIR el rol (la primera
+     opción es un aviso y el campo es obligatorio) y los nombres son los de la pantalla de permisos. */
+  document.getElementById('usuario-form-rol').innerHTML = '<option value="">Elige un rol…</option>' +
+    roles.map(r => `<option value="${r.nombre}">${nombreRol(r.nombre)}${r.descripcion ? ' — ' + r.descripcion : ''}</option>`).join('');
   document.getElementById('filtro-usuarios-rol').innerHTML = '<option value="">Todos los roles</option>' +
-    roles.map(r => `<option value="${r.nombre}">${r.nombre.charAt(0).toUpperCase() + r.nombre.slice(1)}</option>`).join('');
+    roles.map(r => `<option value="${r.nombre}">${nombreRol(r.nombre)}</option>`).join('');
 }
 
 let listaUsuarios = [];
@@ -1443,7 +1448,7 @@ function renderizarUsuarios() {
       </td>
       <td>${u.es_superadmin
         ? '<span class="tag-tipo" title="Única cuenta con control total. Solo usted la ve.">Superadministrador</span>'
-        : '<span class="tag-tipo">' + escaparHtml(u.rol) + '</span>'}</td>
+        : '<span class="tag-tipo">' + escaparHtml(nombreRol(u.rol)) + '</span>'}</td>
       <td>${escaparHtml(nombreLugar(u.territorio_nombre) || '—')}</td>
       <td>${u.activo ? '<span class="badge badge-confirmado"><span class="punto"></span>Activo</span>' : '<span class="badge badge-desconocido"><span class="punto"></span>Inactivo</span>'}</td>
       <td style="white-space:nowrap;">
@@ -1496,7 +1501,7 @@ async function enviarCredencialesWhatsApp(id) {
      Este botón llama al mismo `restablecer-password` que el de la lista, y
      ese endpoint exige la contraseña de quien lo hace. El botón de la lista
      ya la pedía; éste no, así que el servidor lo rechazaba con «Contraseña
-     incorrecta. Escriba la suya para confirmar.» — un mensaje desconcertante,
+     incorrecta. Escribe la suya para confirmar.» — un mensaje desconcertante,
      porque nadie había escrito ninguna contraseña.
 
      El orden importa: el diálogo es asíncrono y rompe la cadena del clic, así
@@ -1505,7 +1510,7 @@ async function enviarCredencialesWhatsApp(id) {
      cierra sin haber tocado nada — la contraseña de la persona solo cambia
      cuando el servidor responde. */
   const password_confirmacion = await solicitarPasswordPropia(
-    'Confirme con su contraseña',
+    'Confirma con tu contraseña',
     `Se le va a asignar una contraseña nueva a ${u.nombre} y se le enviará por WhatsApp.`);
   if (!password_confirmacion) { if (ventana) ventana.close(); return; }
 
@@ -1674,7 +1679,7 @@ function olvidarPasswordEdicion() { passwordEdicionConfirmada = null; }
 async function abrirEdicionUsuario(u) {
   const clave = await solicitarPasswordPropia(
     'Editar la cuenta de ' + u.nombre,
-    'Escriba SU contraseña para abrir los datos de esta cuenta.');
+    'Escribe TU contraseña para abrir los datos de esta cuenta.');
   if (!clave) return;
   try {
     await api('/auth/verificar-password', { method: 'POST', body: { password: clave } });
@@ -1730,7 +1735,7 @@ async function desactivar2faUsuario(id) {
         'Quitar el segundo factor'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Quitar la verificación en dos pasos',
-    `Escriba SU contraseña para confirmar que le quita el segundo factor a ${u.nombre}.`);
+    `Escribe TU contraseña para confirmar que le quita el segundo factor a ${u.nombre}.`);
   if (!password_confirmacion) return;
   try {
     const r = await api(`/usuarios/${id}/desactivar-2fa`, { method: 'POST', body: { password_confirmacion } });
@@ -1748,7 +1753,7 @@ async function restablecerPasswordUsuario(id) {
         'Se generará una contraseña temporal nueva y la actual dejará de funcionar.', 'Restablecer'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Restablecer la contraseña',
-    'Escriba SU contraseña para confirmar. La clave que esta persona tenga dejará de funcionar.');
+    'Escribe TU contraseña para confirmar. La clave que esta persona tenga dejará de funcionar.');
   if (!password_confirmacion) return;
   try {
     const r = await api(`/usuarios/${id}/restablecer-password`, { method: 'POST', body: { password_confirmacion } });
@@ -1764,7 +1769,7 @@ async function eliminarUsuario(id) {
         'Eliminar'))) return;
   const password_confirmacion = await solicitarPasswordPropia(
     'Eliminar el usuario',
-    'Escriba SU contraseña para confirmar. Esta acción no se puede deshacer.');
+    'Escribe TU contraseña para confirmar. Esta acción no se puede deshacer.');
   if (!password_confirmacion) return;
   try {
     await api(`/usuarios/${id}`, { method: 'DELETE', body: { password_confirmacion } });
@@ -1843,7 +1848,7 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
     // confirmación y volvería un 403 sin explicar por qué.
     datos.password_confirmacion = passwordEdicionConfirmada
       || await solicitarPasswordPropia('Guardar los cambios',
-           'Escriba SU contraseña para confirmar los cambios en esta cuenta.');
+           'Escribe TU contraseña para confirmar los cambios en esta cuenta.');
     if (!datos.password_confirmacion) return;
   }
 
@@ -2524,7 +2529,7 @@ async function mostrarAvisoAmbitoPuestos() {
   nota.textContent = 'Como la campaña abarca varios municipios, al nombre de cada puesto se le agrega el municipio entre paréntesis — así no se confunden los que se llaman igual (p. ej. "PUESTO CABECERA MUNICIPAL" existe en decenas de municipios). Se puede repetir sin duplicar.';
   try {
     const municipios = await api(`/catalogo/municipios?departamento_id=${ambitoCampanaCache.departamento.id}`);
-    await llenarSelect(selMuni, municipios, 'Seleccione...');
+    await llenarSelect(selMuni, municipios, 'Selecciona...');
     // El filtro de la tabla usa la misma lista. Se conserva lo que ya
     // estuviera elegido: esta función se vuelve a llamar en cada recarga
     // y si no, el filtro se borraría solo al aplicarlo.
@@ -2578,29 +2583,29 @@ async function llenarSelect(select, filas, textoVacio) {
 
 async function cargarDeptosCatalogo() {
   if (!deptosCatalogoCache) deptosCatalogoCache = await api('/catalogo/departamentos');
-  await llenarSelect(document.getElementById('puesto-form-departamento'), deptosCatalogoCache, 'Seleccione...');
+  await llenarSelect(document.getElementById('puesto-form-departamento'), deptosCatalogoCache, 'Selecciona...');
 }
 
 document.getElementById('puesto-form-departamento').addEventListener('change', async (e) => {
   const selMuni = document.getElementById('puesto-form-municipio');
   const selPuesto = document.getElementById('puesto-form-puesto');
-  selPuesto.innerHTML = '<option value="">Elija primero el municipio...</option>';
+  selPuesto.innerHTML = '<option value="">Elige primero el municipio...</option>';
   if (!e.target.value) {
-    selMuni.innerHTML = '<option value="">Elija primero el departamento...</option>';
+    selMuni.innerHTML = '<option value="">Elige primero el departamento...</option>';
     return;
   }
   const municipios = await api(`/catalogo/municipios?departamento_id=${e.target.value}`);
-  await llenarSelect(selMuni, municipios, 'Seleccione...');
+  await llenarSelect(selMuni, municipios, 'Selecciona...');
 });
 
 document.getElementById('puesto-form-municipio').addEventListener('change', async (e) => {
   const selPuesto = document.getElementById('puesto-form-puesto');
   if (!e.target.value) {
-    selPuesto.innerHTML = '<option value="">Elija primero el municipio...</option>';
+    selPuesto.innerHTML = '<option value="">Elige primero el municipio...</option>';
     return;
   }
   const puestos = await api(`/catalogo/puestos?municipio_id=${e.target.value}`);
-  selPuesto.innerHTML = '<option value="">Seleccione...</option>' +
+  selPuesto.innerHTML = '<option value="">Selecciona...</option>' +
     puestos.map(p => `<option value="${p.id}" data-mesas="${p.total_mesas}">${escaparHtmlDiaD(p.nombre)}</option>`).join('');
 });
 
@@ -2629,7 +2634,7 @@ async function preseleccionarAmbitoEnModal() {
   if (!eq.municipio) return;
   // El 'change' de arriba trae los municipios; hay que esperarlo.
   const municipios = await api(`/catalogo/municipios?departamento_id=${eq.departamento.id}`);
-  await llenarSelect(document.getElementById('puesto-form-municipio'), municipios, 'Seleccione...');
+  await llenarSelect(document.getElementById('puesto-form-municipio'), municipios, 'Selecciona...');
   const selMuni = document.getElementById('puesto-form-municipio');
   selMuni.value = String(eq.municipio.id);
   selMuni.dispatchEvent(new Event('change'));
@@ -2754,10 +2759,10 @@ async function cargarCandidatos() {
   document.getElementById('ayuda-hoja-diad').textContent = variosBloques
     ? 'Los bloques del E-14, en el mismo orden en que el testigo los ve al transcribirlo. Las '
       + 'flechas de cada fila la mueven dentro de su bloque; las de la cabecera mueven el bloque '
-      + 'entero. Agregue también a su propio candidato: ya no se pone solo, porque en el E-14 no '
+      + 'entero. Agrega también a tu propio candidato: ya no se pone solo, porque en el E-14 no '
       + 'siempre va de primero.'
     : 'Este es el orden en que el testigo los ve al transcribir el E-14, así que debe ser el del '
-      + 'tarjetón. Use ▲ y ▼ para moverlos. Agregue también a su propio candidato: ya no se pone '
+      + 'tarjetón. Usa ▲ y ▼ para moverlos. Agrega también a tu propio candidato: ya no se pone '
       + 'solo, porque en el E-14 no siempre va de primero.';
 
   cont.innerHTML = hoja.bloques.map((cfg, iBloque) => {

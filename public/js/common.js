@@ -1239,8 +1239,8 @@ function solicitarPasswordPropia(titulo, explicacion) {
     overlay.className = 'overlay abierto';
     overlay.innerHTML = `
       <div class="modal" style="max-width:400px;">
-        <div class="modal-header"><h3>${escaparHtml(titulo || 'Confirme con su contraseña')}</h3></div>
-        <p style="color:var(--color-text-muted); font-size:0.85rem;">${escaparHtml(explicacion || 'Escriba su propia contraseña para confirmar.')}</p>
+        <div class="modal-header"><h3>${escaparHtml(titulo || 'Confirma con tu contraseña')}</h3></div>
+        <p style="color:var(--color-text-muted); font-size:0.85rem;">${escaparHtml(explicacion || 'Escribe tu propia contraseña para confirmar.')}</p>
         <div class="mensaje-error" id="error-password-propia"></div>
         <form id="form-password-propia">
           <div class="campo"><label>Su contraseña</label>
@@ -1317,6 +1317,17 @@ const NOMBRE_DEL_ROL = {
 };
 function etiquetaRol(rol) { return NOMBRE_DEL_ROL[rol] || rol; }
 
+/* EL ROL COMO SE LEE EN PANTALLA (parche 330). El pie del menú y la lista de cuentas guardadas mostraban el nombre crudo de la base («lider»,
+   «asistente_administrativo»). Es otro nombre que `etiquetaRol` a propósito: aquel va en minúscula dentro de frases; este va solo, con mayúscula. */
+const ROL_EN_PANTALLA = {
+  admin: 'Administrador', coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder', usuario: 'Sublíder', testigo: 'Testigo',
+  asistente_administrativo: 'Asistente administrativo', administrativo: 'Administrativo', invitado: 'Invitado', aspirante_concejo: 'Aspirante al Concejo',
+};
+function rolEnPantalla(rol) {
+  const r = String(rol || '');
+  return ROL_EN_PANTALLA[r] || (r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g, ' '));
+}
+
 async function confirmarConPasswordPropia(titulo, explicacion) {
   const clave = await solicitarPasswordPropia(titulo, explicacion);
   if (!clave) return null;
@@ -1338,7 +1349,7 @@ function solicitarPasswordAdmin(titulo) {
     overlay.innerHTML = `
       <div class="modal" style="max-width:400px;">
         <div class="modal-header"><h3>${titulo || 'Confirmar con contraseña de administrador'}</h3><button class="modal-cerrar" id="cerrar-modal-password-admin">×</button></div>
-        <p style="color:var(--color-text-muted); font-size:0.85rem;">Esta acción no se puede deshacer. Ingrese la contraseña de un administrador para continuar.</p>
+        <p style="color:var(--color-text-muted); font-size:0.85rem;">Esta acción no se puede deshacer. Ingresa la contraseña de un administrador para continuar.</p>
         <div id="password-admin-error" class="mensaje-error"></div>
         <form id="form-password-admin">
           <div class="campo"><label>Contraseña de administrador</label><input type="password" name="password" required></div>
@@ -1436,7 +1447,7 @@ async function inicializarLayout(paginaActiva) {
      decidir si dibujar el boton de crear o el de editar.
 
      Con el rol crudo, DOS pantallas que ya tenian sus rutas abiertas y acotadas
-     —Testigos electorales y Mapa territorial— le respondian «No tiene permisos
+     —Testigos electorales y Mapa territorial— le respondian «No tienes permisos
      para ver esta seccion» y se quedaban en blanco. El servidor decia que si y
      el navegador que no.
 
@@ -1629,7 +1640,7 @@ async function inicializarLayout(paginaActiva) {
     <a class="nav-soporte" id="nav-soporte" target="whatsappWeb" rel="noopener" style="display:none;"></a>
     <div class="usuario-box">
       <div class="nombre">${usuario.nombre}</div>
-      <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : usuario.rol}</div>
+      <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : rolEnPantalla(usuario.rol)}</div>
       <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;"${usuario.es_superadmin ? ' title="El código de ingreso es obligatorio para esta cuenta."' : ''}>
         <input type="checkbox" id="chk-2fa" style="width:auto;" ${(usuario.two_factor_enabled || usuario.es_superadmin) ? 'checked' : ''}${usuario.es_superadmin ? ' disabled' : ''}>
         Verificación en dos pasos por correo
@@ -1812,7 +1823,7 @@ function mostrarAvisoCambioPassword() {
   overlay.className = 'overlay abierto';
   overlay.innerHTML = `
     <div class="modal">
-      <div class="modal-header"><h3>Actualice su contraseña</h3></div>
+      <div class="modal-header"><h3>Actualiza tu contraseña</h3></div>
       <p style="color:var(--color-text-muted); font-size:0.88rem;">Por seguridad, debe establecer una nueva contraseña antes de continuar.</p>
       <div id="cambio-password-error" class="mensaje-error"></div>
       <form id="form-cambio-password">
@@ -1947,7 +1958,7 @@ document.addEventListener('DOMContentLoaded', () => activarVerContrasena());
 
    LO QUE NO SE ORDENA, Y POR QUÉ:
 
-   · La opción vacía se queda arriba. «Seleccione...», «Ninguno», «Todos los
+   · La opción vacía se queda arriba. «Selecciona...», «Ninguno», «Todos los
      cargos», «Toda comuna/corregimiento» son la etiqueta del campo, no un
      valor entre los demás; ordenarlas las mandaría al medio de la lista.
    · Dentro de cada `<optgroup>` por separado. Los grupos son una

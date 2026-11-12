@@ -475,7 +475,7 @@ document.getElementById('btn-quitar-filtros-mapa').addEventListener('click', () 
   const usuarioActual = await inicializarLayout('/mapa.html');
   if (!usuarioActual) return;
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
-    document.querySelector('.main').innerHTML = '<div class="card">No tiene permisos para ver el mapa territorial.</div>';
+    document.querySelector('.main').innerHTML = '<div class="card">No tienes permisos para ver el mapa territorial.</div>';
     return;
   }
   await inicializarMapa();

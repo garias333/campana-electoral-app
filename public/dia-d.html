@@ -244,7 +244,7 @@
         <div class="card" style="margin-bottom:14px;">
           <div class="fila" style="gap:12px; flex-wrap:wrap;">
             <div class="campo" style="flex:2; min-width:220px;"><label for="of-puesto">Puesto</label><select id="of-puesto"></select>
-              <input aria-label="Escriba el puesto (fuera de lista)" id="of-puesto-texto" placeholder="Escriba el puesto (fuera de lista)" style="display:none; margin-top:6px;"></div>
+              <input aria-label="Escribe el puesto (fuera de lista)" id="of-puesto-texto" placeholder="Escribe el puesto (fuera de lista)" style="display:none; margin-top:6px;"></div>
             <div class="campo" style="flex:1; min-width:110px;"><label for="of-mesa">Mesa</label><select id="of-mesa"></select></div>
             <div class="campo" style="flex:1; min-width:150px;"><label for="of-fuente">Fuente</label>
               <select id="of-fuente"><option value="preconteo">Preconteo</option><option value="escrutinio">Escrutinio</option></select></div>
@@ -897,7 +897,7 @@ document.getElementById('of-guardar').addEventListener('click', async () => {
   const err = document.getElementById('of-error'); err.textContent = '';
   const votos = [...document.querySelectorAll('.of-voto')].filter(i => i.value !== '').map(i => ({
     candidato_nombre: mesaOficial.candidatos[Number(i.dataset.i)].nombre, grupo: mesaOficial.candidatos[Number(i.dataset.i)].grupo, votos: i.value }));
-  if (!votos.length) { err.textContent = 'Digite al menos el resultado de un candidato.'; return; }
+  if (!votos.length) { err.textContent = 'Digita al menos el resultado de un candidato.'; return; }
   const boton = document.getElementById('of-guardar'); boton.disabled = true;
   try {
     const r = await api(`${RES}/mesa`, { method: 'PUT', body: { ...consultaPuesto(), mesa: Number(document.getElementById('of-mesa').value), fuente: document.getElementById('of-fuente').value, votos } });
@@ -959,7 +959,7 @@ document.getElementById('tbody-dif').addEventListener('click', async (e) => {
   if (e.target.closest('a')) return;
   revisionAbierta = f;
   document.getElementById('rev-titulo').textContent = `${f.puesto} · Mesa ${f.mesa}`;
-  document.getElementById('rev-estado').value = f.estado || 'para_reclamar';
+  document.getElementById('rev-estado').value = f.estado || (f.nota ? 'ninguno' : 'para_reclamar');   // desmarcada con nota: «Sin revisión», no «Para reclamar»
   document.getElementById('rev-nota').value = f.nota || '';
   document.getElementById('rev-error').textContent = '';
   document.getElementById('modal-revision').style.display = 'flex';
@@ -1002,7 +1002,7 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   if (!usuarioActual) return;
 
   if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
-    document.querySelector('.main').innerHTML = '<div class="vacio">No tiene permisos para ver esta sección.</div>';
+    document.querySelector('.main').innerHTML = '<div class="vacio">No tienes permisos para ver esta sección.</div>';
     return;
   }
 

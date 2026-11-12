@@ -15,7 +15,11 @@
     { id: 'votantes',  href: '/app/admin-votantes.html',  icono: '👥', texto: 'Votantes' },
     { id: 'mapa',      href: '/app/admin-mapa.html',      icono: '🗺️', texto: 'Mapa' },
     { id: 'compartir', href: '/app/admin-contenido.html', icono: '📣', texto: 'Compartir' },
-    { id: 'ley',       href: '/app/legislacion.html',     icono: '⚖️', texto: 'Ley' }
+    { id: 'ley',       href: '/app/legislacion.html',     icono: '⚖️', texto: 'Ley' },
+    /* PARCHE 330: el administrador en el celular no tenía cómo pedir Ayuda ni cerrar sesión (esa barra no las traía y Panel general no tiene botones
+       propios). `salir` no es un enlace: cierra la sesión AL INSTANTE aunque no haya señal (public/js/cerrar-sesion.js). */
+    { id: 'ayuda',     href: '/ayuda.html',               icono: '❔', texto: 'Ayuda' },
+    { id: 'salir',     href: '#',                         icono: '🚪', texto: 'Salir', accion: 'salir' }
   ];
 
   /** Preferencia «Ver versión de escritorio». Con try/catch: el almacenamiento puede no existir. */
@@ -38,10 +42,18 @@
     nav.setAttribute('aria-label', 'Secciones de administrador');
     nav.innerHTML = ITEMS.map(function (it) {
       var on = it.id === activo;
-      return '<a href="' + it.href + '"' + (on ? ' class="activo" aria-current="page"' : '') + '>'
+      return '<a href="' + it.href + '"' + (on ? ' class="activo" aria-current="page"' : '') + (it.accion ? ' data-accion="' + it.accion + '" role="button"' : '') + '>'
         + '<span class="ico" aria-hidden="true">' + it.icono + '</span>'
         + '<span class="txt">' + it.texto + '</span></a>';
     }).join('');
+    nav.addEventListener('click', async function (ev) {
+      var a = ev.target.closest ? ev.target.closest('a[data-accion="salir"]') : null;
+      if (!a) return;
+      ev.preventDefault();
+      if (typeof cargarCerrarSesionApp === 'function') await cargarCerrarSesionApp();
+      if (typeof cerrarSesionLocal === 'function') await cerrarSesionLocal();
+      else window.location.href = '/login.html';
+    });
     document.body.appendChild(nav);
     document.body.classList.add('con-nav-admin');
   };

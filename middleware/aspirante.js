@@ -230,7 +230,7 @@ function restringirAspirante(req, res, next) {
      intentarlo en vez de creer que le quitaron el acceso. */
   if (req.sublicenciaIlegible) {
     return res.status(503).json({
-      error: 'No se pudo verificar su acceso en este momento. Vuelva a intentarlo en unos segundos.',
+      error: 'No se pudo verificar su acceso en este momento. Vuelve a intentarlo en unos segundos.',
     });
   }
   if (!req.sublicencia) return next();

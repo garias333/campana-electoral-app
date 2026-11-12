@@ -58,7 +58,7 @@ function paginaInactiva({ nombre, esAdmin, inicio }) {
   @media (prefers-color-scheme: dark){body{background:#10141C;color:#E6EAF2}.caja{background:#181E29;border-color:#2C3547}p{color:#A9B3C5}.boton.sec{background:transparent;color:#7FB0FF;border-color:#7FB0FF}}
 </style></head><body><div class="caja">
 <h1>Este complemento no está activo</h1>
-<p>«${esc(nombre)}» no está activo en esta campaña. Si lo necesita, pídale al administrador de la campaña que lo active.</p>
+<p>«${esc(nombre)}» no está activo en esta campaña. Si lo necesitas, pídele al administrador de la campaña que lo active.</p>
 ${enlaceAdmin}
 ${inicio ? `<a class="boton sec" href="${esc(inicio)}">Volver al inicio</a>` : ''}
 </div></body></html>`;
