@@ -36,9 +36,10 @@ function obtenerTokenDispositivoActivo() {
 }
 
 async function api(path, opciones = {}) {
+  // Las cabeceras que pida quien llama (p. ej. `X-Cola-Usuario` de sincronizarCola) se SUMAN a las de siempre: antes reemplazaban a `Content-Type`.
   const config = {
-    headers: { 'Content-Type': 'application/json' },
-    ...opciones
+    ...opciones,
+    headers: { 'Content-Type': 'application/json', ...(opciones.headers || {}) }
   };
   if (opciones.body && !(opciones.body instanceof FormData)) {
     config.body = JSON.stringify(opciones.body);

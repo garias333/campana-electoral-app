@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v199';
+const CACHE_NAME = 'estrategia-v200';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -33,6 +33,7 @@ const ARCHIVOS_CASCARON = [
   '/js/ayuda.js',
   '/js/common.js',
   '/js/cuentas-dispositivo.js',
+  '/js/cerrar-sesion.js',                       // cerrar sesión sin señal (parche 329): sin él, cerrar sesión sin conexión no tendría con qué avisar al volver
   '/data/colombia.json',
   // App de captura (celular)
   '/app/inicio.html',

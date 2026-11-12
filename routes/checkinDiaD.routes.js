@@ -24,6 +24,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
+const { requiereEditarModulo } = require('../middleware/permisoModulo');
 const diaD = require('./diaD.routes').compartido;
 const jornada = require('../lib/jornadaDiaD');
 const { cargarTestigos, repartirPorPuesto } = require('../lib/coberturaTestigos');
@@ -150,7 +151,7 @@ router.post('/', async (req, res) => {
 });
 
 /* ——— POST /manual: la coordinación marca la llegada de un testigo ———————————— */
-router.post('/manual', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+router.post('/manual', requireRole('admin', 'coordinador', 'aspirante'), requiereEditarModulo('alertas_dia_d', { aspirante: true }), async (req, res) => {   // «Editar» de Alertas exigido en el servidor (parche 329)
   const usuarioId = Number(req.body && req.body.usuario_id);
   if (!Number.isInteger(usuarioId) || usuarioId < 1) return res.status(400).json({ error: 'Falta el testigo.' });
   try {

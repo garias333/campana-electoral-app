@@ -253,6 +253,7 @@
 <script src="/js/form-utils.js"></script>
 <script src="/js/offline-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/cerrar-sesion.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/app/checkin.js"></script>
@@ -1250,15 +1251,8 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
 })();
 
 document.getElementById('btn-cerrar-sesion').addEventListener('click', async () => {
-  // Avisar al servidor es "mejor esfuerzo": sin conexión esa llamada
-  // fallaría y antes se quedaba pegada el botón. Cerrar sesión en este
-  // celular no puede depender de tener señal en ese momento.
-  try { await api('/auth/logout', { method: 'POST' }); } catch (err) {}
-  // Deja de haber una cuenta ACTIVA, pero no se "olvida" — sigue
-  // apareciendo en el selector de /login.html para que otra persona (o la
-  // misma más tarde) pueda volver a entrar sin escribir la contraseña.
-  desactivarCuentaDispositivo();
-  window.location.href = '/login.html';
+  // Parche 329: cierre local inmediato + aviso al servidor como «mejor esfuerzo» (ver /js/cerrar-sesion.js).
+  await cerrarSesionLocal();
 });
 </script>
   <script src="/js/listas-desplegables.js"></script>

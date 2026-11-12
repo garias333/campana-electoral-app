@@ -97,6 +97,8 @@ function registrarUsuarioSinSenal(usuarioId) {
     if (anterior && String(anterior) !== String(usuarioId)) purgarCopiasSinSenal(anterior);
     localStorage.setItem(OFFLINE_USUARIO_CLAVE, String(usuarioId));
   } catch (err) {}
+  // Ya se sabe quién usa el celular: si hay pendientes sin dueño (anteriores al parche 329), se avisa (public/js/offline-utils.js).
+  if (typeof revisarPendientesSinDueno === 'function') setTimeout(revisarPendientesSinDueno, 500);
 }
 
 /** Cierra sesión sin "olvidar" la cuenta: deja de haber una cuenta activa, pero sigue disponible en el selector para volver a entrar sin escribir la contraseña de nuevo. */

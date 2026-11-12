@@ -3628,6 +3628,21 @@ async function main() {
     console.log(`«Editar» del Día D: se puso editar = 1 donde ya había permitido = 1 en rescate_votos, alertas_dia_d, resultados_dia_d, transporte_dia_d y logistica_dia_d (${sembrado.affectedRows} fila(s)); una sola vez.`);
   }
 
+  /* CERRAR SESIÓN SIN SEÑAL (parche 329, orden 43). Al iniciar sesión el servidor entrega un `tokenCierre` aleatorio ligado a ESA sesión; aquí se
+     guarda SOLO su hash (nunca el token) junto con el id de la sesión. Si alguien cierra sesión en un celular sin señal, el navegador lo recuerda
+     (`logout_pendiente`) y, al volver la señal, pide POST /api/auth/cerrar-pendiente con el token: el servidor busca el hash, destruye esa sesión y
+     borra la fila. Es repetible (CREATE TABLE IF NOT EXISTS). `session_id` va en utf8mb4_bin como en `sessions`: los ids distinguen mayúsculas. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS sesiones_cierre (
+      token_hash CHAR(64) NOT NULL PRIMARY KEY,
+      session_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+      usuario_id INT NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sesiones_cierre_sesion (session_id),
+      INDEX idx_sesiones_cierre_creado (creado_en)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  console.log('Tabla sesiones_cierre lista (token de cierre de sesión pendiente, solo su hash).');
+
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
   await agregarFinalidadEncuestas(connection);

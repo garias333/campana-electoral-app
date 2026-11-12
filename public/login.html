@@ -562,6 +562,7 @@
 
 <script src="/js/common.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/cerrar-sesion.js"></script>
 <script src="/js/instalar-app.js"></script>
 <script>
   // EL SERVICE WORKER TAMBIÉN AQUÍ. Sin uno registrado, el navegador no
@@ -706,6 +707,9 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     recordar: form.recordar.checked
   };
   try {
+    // Parche 329: si quedó un cierre de sesión pendiente (se cerró sin señal), se presenta ANTES de entrar: la cookie vieja es de la persona
+    // anterior y el servidor la reemplaza con esta sesión nueva (sin esto, el token viejo seguiría apuntando a una sesión que ya no es suya).
+    if (window.CerrarSesion) await window.CerrarSesion.resolver(4000);
     const r = await api('/auth/login', { method: 'POST', body: datos });
     if (r.requiereEleccionRol) {
       form.style.display = 'none';
@@ -724,6 +728,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     // incluso sin conexión, y para poder cambiar entre varias cuentas si
     // el dispositivo es compartido.
     if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+    if (window.CerrarSesion) window.CerrarSesion.guardarTokenCierre(r.tokenCierre);   // parche 329
     irDondeCorresponde(r.usuario);
   } catch (err) {
     errorBox.textContent = err.message;
@@ -772,6 +777,7 @@ document.getElementById('botones-elegir-rol').addEventListener('click', async (e
         return;
       }
       if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+      if (window.CerrarSesion) window.CerrarSesion.guardarTokenCierre(r.tokenCierre);   // parche 329
       irDondeCorresponde(r.usuario);
     } catch (err) {
       errorBox.textContent = err.message;
@@ -870,6 +876,7 @@ document.getElementById('form-2fa').addEventListener('submit', async (e) => {
   try {
     const r = await api('/auth/verificar-2fa', { method: 'POST', body: datos });
     if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+    if (window.CerrarSesion) window.CerrarSesion.guardarTokenCierre(r.tokenCierre);   // parche 329
     irDondeCorresponde(r.usuario);
   } catch (err) {
     errorBox.textContent = err.message;
@@ -1014,6 +1021,12 @@ function renderizarSelectorCuentas() {
  */
 (async () => {
   renderizarSelectorCuentas();
+  /* PARCHE 329: con un cierre de sesión pendiente (se cerró sin señal) NO se entra por la cookie vieja: se muestra el login. Se intenta cerrar
+     la sesión vieja en el servidor y, si hay otra cuenta activa de dispositivo, la entrada sigue su curso. */
+  if (window.CerrarSesion && window.CerrarSesion.hayLogoutPendiente()) {
+    if (window.CerrarSesion.entradaBloqueada()) { window.CerrarSesion.resolver(0); return; }
+    window.CerrarSesion.resolver(0);
+  }
   try {
     const sesion = await api('/auth/me');
     actualizarPerfilCuentaDispositivo(sesion.usuario);

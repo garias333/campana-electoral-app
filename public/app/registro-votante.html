@@ -272,6 +272,7 @@
 <script src="/js/validarCedula.js"></script>
 <script src="/js/validacion-cedula-ui.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/cerrar-sesion.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/js/consulta-censo.js"></script>
@@ -1009,9 +1010,7 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
   // para que otra persona, o la misma más tarde, entre sin volver a escribir
   // la contraseña.
   const cerrarSesionApp = async () => {
-    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
-    desactivarCuentaDispositivo();
-    window.location.href = '/login.html';
+    await cerrarSesionLocal();      // parche 329: cierre local inmediato + aviso al servidor como «mejor esfuerzo» (/js/cerrar-sesion.js)
   };
   ['btn-cerrar-sesion', 'btn-cerrar-sesion-exito'].forEach((id) => {
     const b = document.getElementById(id);

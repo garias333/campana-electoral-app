@@ -152,4 +152,22 @@ async function calcularAlcance(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireRole, calcularAlcance };
+/**
+ * LAS PENDIENTES DE LA COLA SIN SEÑAL SON DE UNA CUENTA (parche 329, orden 43). Un celular se comparte: lo que alguien dejó sin enviar es SUYO y solo
+ * su sesión debe subirlo. El navegador manda `X-Cola-Usuario` con el dueño de cada pendiente cuando la sube (public/js/offline-utils.js,
+ * `sincronizarCola`); si no coincide con la cuenta de quien la presenta, se rechaza con 409 y el cliente la deja guardada, intacta.
+ * Sin ese encabezado no hace nada (una petición normal, no de la cola). Va antes de las rutas, así que vale para TODAS las que reciben pendientes
+ * (las que llevan `cliente_uuid`) sin tocarlas una por una.
+ */
+async function verificarDuenoDeCola(req, res, next) {
+  const declarado = req.headers['x-cola-usuario'];
+  if (declarado === undefined) return next();
+  const usuario = await resolverUsuario(req);
+  if (!usuario) return next();                       // sin sesión: la ruta responde 401 como siempre
+  if (String(declarado).trim() !== String(usuario.id)) {
+    return res.status(409).json({ error: 'Esta pendiente es de otra cuenta.', codigo: 'cola_de_otra_cuenta' });
+  }
+  next();
+}
+
+module.exports = { requireAuth, requireRole, calcularAlcance, verificarDuenoDeCola };

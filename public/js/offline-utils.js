@@ -48,12 +48,41 @@ const OFFLINE_STORES = ['votantes_pendientes', 'estructura_pendientes', 'reporte
        ese usuario. Al cerrar sesión o al entrar otra cuenta se BORRAN las del anterior (public/js/cuentas-dispositivo.js).
      · COLAS DE LO PENDIENTE DE SUBIR (registros, marcas «ya votó», llegadas…): son trabajo de una persona que todavía no llegó al
        servidor. Se marcan con su dueño y solo SU sesión las ve y las sube; NO se borran al cambiar de cuenta, porque borrarlas
-       sería perder datos. Lo anterior a este cambio no trae dueño y se le sigue mostrando a quien entre (como siempre).
+       sería perder datos. DESDE EL PARCHE 329 NUNCA SE GUARDA UNA PENDIENTE SIN DUEÑO, y lo que ya estaba guardado sin dueño (anterior a este cambio)
+       NO se envía ni se le muestra a nadie como propio: se avisa como «pendientes sin dueño» y la persona puede descartarlas (`revisarPendientesSinDueno`).
+       El servidor lo comprueba también: cada pendiente sube con `X-Cola-Usuario` y, si no es la cuenta de la sesión, responde 409 (middleware/auth.js).
    El «usuario actual» es el que dejó `registrarUsuarioSinSenal` (cuentas-dispositivo.js) al abrir cada pantalla. */
 const OFFLINE_STORES_COPIA = ['faltantes_cache', 'alertas_cache', 'panel_lider_cache', 'encuestas_cache', 'puerta_cache', 'eventos_cache'];
 
 function usuarioOffline() {
   try { return localStorage.getItem('offline_usuario_id') || ''; } catch (err) { return ''; }
+}
+
+/** El dueño con que se guarda una pendiente: el usuario de este celular, y si falta, la identidad verificada o la cuenta activa. '' si NO se sabe. */
+function duenoConocido() {
+  const yo = usuarioOffline();
+  if (yo) return yo;
+  try {
+    const verificado = JSON.parse(localStorage.getItem('app_usuario_verificado') || 'null');
+    if (verificado && verificado.id !== undefined && verificado.id !== null) return String(verificado.id);
+  } catch (err) { /* sin identidad en caché */ }
+  try { return localStorage.getItem('app_cuenta_activa_id') || ''; } catch (err) { return ''; }
+}
+
+const MENSAJE_SIN_DUENO = 'No se pudo guardar sin señal porque no se sabe quién eres en este celular. Conéctate a internet, inicia sesión de nuevo y vuelve a intentarlo.';
+let _avisoSinDuenoEn = 0;
+function avisarSinDueno() {
+  if (Date.now() - _avisoSinDuenoEn < 3000) return;      // una sola vez por intento (los llamadores también muestran el error)
+  _avisoSinDuenoEn = Date.now();
+  try {
+    if (typeof mostrarToast === 'function') mostrarToast(MENSAJE_SIN_DUENO, 'error');
+    else window.alert(MENSAJE_SIN_DUENO);
+  } catch (err) { /* el error lanzado llega igual a quien llamó */ }
+}
+
+/** ¿El registro trae dueño? (un id; '' o ausente es «sin dueño»). */
+function tieneDueno(registro) {
+  return !!registro && registro.usuarioId !== undefined && registro.usuarioId !== null && String(registro.usuarioId) !== '';
 }
 
 function abrirBaseOffline() {
@@ -85,7 +114,15 @@ function abrirBaseOffline() {
 }
 
 async function guardarEnColaOffline(store, registro) {
-  if (registro && registro.usuarioId === undefined) registro.usuarioId = usuarioOffline();
+  if (registro && !tieneDueno(registro)) registro.usuarioId = duenoConocido();
+  /* NUNCA SE GUARDA UNA PENDIENTE SIN DUEÑO (parche 329): sin saber de quién es, nadie podría enviarla con seguridad (la podría subir otra
+     cuenta del mismo celular). No se encola y se avisa. Las copias de lectura tampoco: sin dueño no sirven a nadie. */
+  if (!tieneDueno(registro)) {
+    avisarSinDueno();
+    const err = new Error(MENSAJE_SIN_DUENO);
+    err.codigo = 'SIN_DUENO';
+    throw err;
+  }
   const db = await abrirBaseOffline();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
@@ -103,14 +140,74 @@ async function listarColaOffline(store) {
     req.onerror = () => reject(req.error);
   });
   const yo = String(usuarioOffline());
-  if (OFFLINE_STORES_COPIA.includes(store)) return todo.filter((r) => r.usuarioId !== undefined && String(r.usuarioId) === yo);
-  // Una cola: lo mío, y lo que no trae dueño (guardado antes de este cambio).
-  return todo.filter((r) => r.usuarioId === undefined || r.usuarioId === '' || String(r.usuarioId) === yo || !yo);
+  /* SOLO LO MÍO (parche 329). Antes una cola dejaba pasar lo que no traía dueño y TODO si no había usuario registrado (`|| !yo`): en un celular
+     compartido, cualquiera que abriera la app subía lo de otro. Ahora, sin usuario conocido no se ve nada, y lo que no trae dueño no se envía:
+     se cuenta aparte (`listarSinDueno`) para avisarlo y poder descartarlo. */
+  if (!yo) return [];
+  return todo.filter((r) => tieneDueno(r) && String(r.usuarioId) === yo);
+}
+
+/** Lo que quedó guardado SIN DUEÑO en una cola (anterior al parche 329). No se envía a nadie. */
+async function listarSinDueno(store) {
+  if (OFFLINE_STORES_COPIA.includes(store)) return [];
+  const db = await abrirBaseOffline();
+  const todo = await new Promise((resolve, reject) => {
+    const req = db.transaction(store, 'readonly').objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return todo.filter((r) => !tieneDueno(r));
+}
+
+/**
+ * «PENDIENTES SIN DUEÑO»: si hay en este celular, se avisa arriba de la pantalla con la opción de descartarlas. Solo se muestra cuando se sabe
+ * quién usa el celular (se vuelve a llamar al registrar el usuario) y lo ve cualquier persona con sesión: el administrador o quien sea, porque no
+ * hay forma de saber de quién eran. Descartar las BORRA (con confirmación): no se pueden enviar sin saber de quién son.
+ */
+async function revisarPendientesSinDueno() {
+  try {
+    if (!usuarioOffline() || !document.body) return;
+    const huerfanas = [];
+    for (const store of OFFLINE_STORES) {
+      if (OFFLINE_STORES_COPIA.includes(store)) continue;
+      (await listarSinDueno(store)).forEach((r) => huerfanas.push({ store, clienteUuid: r.clienteUuid }));
+    }
+    let barra = document.getElementById('aviso-pendientes-sin-dueno');
+    if (!huerfanas.length) { if (barra) barra.remove(); return; }
+    if (!barra) {
+      barra = document.createElement('div');
+      barra.id = 'aviso-pendientes-sin-dueno';
+      barra.setAttribute('role', 'alert');
+      barra.style.cssText = 'position:fixed; left:0; right:0; bottom:0; z-index:9998; background:#FDF3E0; color:#5C3B00; border-top:2px solid #B7791F;'
+        + 'padding:10px 14px; font-size:.88rem; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;';
+      document.body.appendChild(barra);
+    }
+    barra.innerHTML = '';
+    const texto = document.createElement('span');
+    texto.textContent = 'Hay ' + huerfanas.length + ' pendiente' + (huerfanas.length === 1 ? '' : 's')
+      + ' sin dueño en este celular (guardadas antes de esta versión). No se envían, porque no se sabe de quién son.';
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.textContent = 'Descartarlas';
+    boton.style.cssText = 'border:0; border-radius:8px; padding:7px 12px; font-weight:700; background:#B7791F; color:#fff; cursor:pointer;';
+    boton.addEventListener('click', async () => {
+      if (!window.confirm('¿Descartar ' + huerfanas.length + ' pendiente' + (huerfanas.length === 1 ? '' : 's')
+        + ' sin dueño? Se borran de este celular y no se pueden recuperar.')) return;
+      for (const h of huerfanas) { try { await borrarDeColaOffline(h.store, h.clienteUuid); } catch (err) { /* se intenta con las demás */ } }
+      revisarPendientesSinDueno();
+    });
+    barra.appendChild(texto);
+    barra.appendChild(boton);
+  } catch (err) { /* sin IndexedDB o sin cuerpo todavía: no se avisa */ }
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(revisarPendientesSinDueno, 1500));
 }
 
 /** Guarda la copia de LECTURA de este usuario (la clave lleva su id). */
 async function guardarCopiaOffline(store, clave, datos) {
   const yo = usuarioOffline();
+  if (!yo) return;                       // sin dueño no se guarda copia (parche 329)
   return guardarEnColaOffline(store, { clienteUuid: `u${yo}:${clave}`, clave, datos, guardadoEn: Date.now(), usuarioId: yo });
 }
 
@@ -163,7 +260,8 @@ async function sincronizarCola(store, endpoint, obtenerBody) {
   for (const registro of pendientes) {
     try {
       const body = obtenerBody(registro);
-      const respuesta = await api(endpoint, { method: 'POST', body });
+      // `X-Cola-Usuario`: el DUEÑO de esta pendiente. El servidor rechaza con 409 si no es la cuenta de la sesión (middleware/auth.js).
+      const respuesta = await api(endpoint, { method: 'POST', body, headers: { 'X-Cola-Usuario': String(registro.usuarioId) } });
       /* SOLO SE BORRA LO QUE EL SERVIDOR CONFIRMÓ (parche 308). Cuando la sesión venció, api() redirige al login y DEVUELVE undefined
          en vez de lanzar: antes se tomaba por éxito y el registro —trabajo de campo sin subir— se borraba sin que llegara a ninguna
          parte. Un éxito real siempre trae algo (el objeto de la respuesta, o null si no hay cuerpo): undefined es «no se confirmó nada». */
@@ -175,6 +273,8 @@ async function sincronizarCola(store, endpoint, obtenerBody) {
       // Un fallo del camino (servidor ocupado o caído, límite de solicitudes) no es un rechazo del registro: se deja en espera y se
       // reintenta en la siguiente subida, en vez de marcarlo «fallido» y obligar a la persona a reintentarlo a mano.
       if (err && err.status && ESTADOS_TRANSITORIOS.includes(err.status)) break;
+      // «Esta pendiente es de otra cuenta» (409): NO está mal, solo no es de quien la presenta. Se deja guardada, intacta (ni «fallido» ni borrada).
+      if (err && err.status === 409 && err.datos && err.datos.codigo === 'cola_de_otra_cuenta') continue;
       registro.estado = 'fallido';
       registro.error = (err && err.message) || 'No se pudo guardar.';
       await guardarEnColaOffline(store, registro);

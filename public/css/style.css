@@ -2632,8 +2632,8 @@ html[data-sin-editar~="logistica_dia_d"] #lg-nuevo-nombre, html[data-sin-editar~
 html[data-sin-editar~="logistica_dia_d"] #lg-nuevo-hora, html[data-sin-editar~="logistica_dia_d"] #lg-crear,
 html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-guardar], html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-volver] { display: none !important; }
 html[data-sin-editar~="logistica_dia_d"] #vista-logistica input[data-item], html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-campo] { pointer-events: none; opacity: .65; }
-/* Alertas: «Atendida» y «Quitar atendida». */
-html[data-sin-editar~="alertas_dia_d"] [data-acc="atendida"] { display: none !important; }
+/* Alertas: «Atendida», «Quitar atendida» y «Marcar llegada» (esta última se exige en el servidor desde el parche 329). */
+html[data-sin-editar~="alertas_dia_d"] [data-acc="atendida"], html[data-sin-editar~="alertas_dia_d"] [data-acc="llegada"] { display: none !important; }
 /* Resultados: digitar el resultado oficial, marcar «para reclamar»/revisar y armar el paquete. */
 html[data-sin-editar~="resultados_dia_d"] #of-guardar, html[data-sin-editar~="resultados_dia_d"] #btn-paquete,
 html[data-sin-editar~="resultados_dia_d"] #rev-guardar, html[data-sin-editar~="resultados_dia_d"] #tbody-dif .dif-marca { display: none !important; }

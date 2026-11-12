@@ -26,6 +26,10 @@ function csrfProtegido(req, res, next) {
   const metodosSeguros = ['GET', 'HEAD', 'OPTIONS'];
   if (metodosSeguros.includes(req.method)) return next();
 
+  /* EXENTA (parche 329): «cerrar la sesión que quedó pendiente». La pide un celular que cerró sesión SIN señal y ya no tiene una sesión válida de la
+     que sacar un token CSRF; lo que la autoriza es el token de cierre (solo su hash vive en el servidor). Es la única excepción, y solo para esa ruta. */
+  if (req.method === 'POST' && String(req.originalUrl || '').split('?')[0] === '/api/auth/cerrar-pendiente') return next();
+
   const tokenSesion = req.session && req.session.csrfToken;
   const tokenCliente = req.headers['x-csrf-token'] || (req.body && req.body._csrf);
 

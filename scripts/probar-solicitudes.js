@@ -447,7 +447,7 @@ const idsDe = (r) => (r.datos && r.datos.solicitudes ? r.datos.solicitudes.map((
   ok(/OFFLINE_DB_VERSION = (?:[789]|1[01]);/.test(off) && /'solicitudes_pendientes'/.test(off), 'offline-utils.js: base en versión 7 (8 desde el parche 305, 9 desde el 307) y cajón «solicitudes_pendientes»');
   ok(!/OFFLINE_STORES_COPIA = \[[^\]]*solicitudes_pendientes/.test(off), 'es una COLA (de lo pendiente de subir), no una copia de lectura: no se borra al cambiar de cuenta');
   const sw = leer('public/service-worker.js');
-  ok(/estrategia-v17[3-9]|estrategia-v1[89]\d/.test(sw) && sw.includes('/app/solicitud-nueva.html') && sw.includes('/app/mis-solicitudes.html'), 'el service worker precarga las dos pantallas nuevas y subió de versión');
+  ok(/estrategia-v(?:17[3-9]|1[89]\d|[2-9]\d\d)\b/.test(sw) && sw.includes('/app/solicitud-nueva.html') && sw.includes('/app/mis-solicitudes.html'), 'el service worker precarga las dos pantallas nuevas y subió de versión');
   const nueva2 = leer('public/app/solicitud-nueva.html');
   ok(/guardarEnColaOffline\(/.test(nueva2) && /sincronizarCola\(/.test(nueva2) && /cliente_uuid/.test(nueva2) && /Blob|toBlob/.test(nueva2), 'el formulario guarda primero en la cola, con su identificador y las fotos como Blob, y sincroniza');
   ok(/navigator\.geolocation/.test(nueva2) && /(timeout|maximumAge)/.test(nueva2), 'la ubicación es opcional y con tiempo límite');

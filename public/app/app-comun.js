@@ -37,7 +37,35 @@ if ('serviceWorker' in navigator) {
  * Un 401 real (sesión vencida o cerrada, confirmado por el servidor)
  * sigue mandando siempre a iniciar sesión de nuevo.
  */
+/** Carga /js/cerrar-sesion.js una sola vez (no todas las pantallas de /app/ lo traen). true si quedó disponible (parche 329). */
+let _cerrarSesionAppPromesa = null;
+function cargarCerrarSesionApp() {
+  if (window.CerrarSesion) return Promise.resolve(true);
+  if (!_cerrarSesionAppPromesa) {
+    _cerrarSesionAppPromesa = new Promise((ok) => {
+      const s = document.createElement('script');
+      s.src = '/js/cerrar-sesion.js';
+      s.onload = () => ok(!!window.CerrarSesion);
+      s.onerror = () => ok(false);
+      document.head.appendChild(s);
+    });
+  }
+  return _cerrarSesionAppPromesa;
+}
+
 async function requerirSesionApp() {
+  /* NO SE ENTRA POR LA COOKIE VIEJA (parche 329, orden 43). Si alguien cerró sesión SIN señal, `logout_pendiente` sigue puesto y la cookie del
+     servidor todavía vale: entrar por ella sería entrar COMO la persona anterior, con sus datos. Mientras eso dure —y no haya otra cuenta activa
+     de dispositivo— se muestra el login (después de intentar cerrar la sesión vieja en el servidor). Con otra cuenta activa la entrada sigue y el
+     cierre pendiente se presenta en segundo plano. */
+  if (await cargarCerrarSesionApp() && window.CerrarSesion.hayLogoutPendiente()) {
+    if (window.CerrarSesion.entradaBloqueada()) {
+      await window.CerrarSesion.resolver(2500);
+      window.location.href = '/login.html';
+      return null;
+    }
+    window.CerrarSesion.resolver(0);
+  }
   const intentosRed = 3;
   let ultimoError = null;
   for (let intento = 1; intento <= intentosRed; intento++) {

@@ -133,6 +133,7 @@
 <script src="/js/api-core.js"></script>
 <script src="/js/form-utils.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/cerrar-sesion.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/app/avance-resumen.js"></script>
@@ -325,9 +326,7 @@ document.getElementById('buscador').addEventListener('input', (e) => {
   // esfuerzo» —sin señal no puede impedir salir— y la cuenta se desactiva
   // pero no se olvida, para poder volver a entrar sin teclear la contraseña.
   document.getElementById('btn-cerrar-sesion').addEventListener('click', async () => {
-    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
-    desactivarCuentaDispositivo();
-    window.location.href = '/login.html';
+    await cerrarSesionLocal();      // parche 329: cierre local inmediato + aviso al servidor como «mejor esfuerzo» (/js/cerrar-sesion.js)
   });
   pintarBarraApp('Mis registros', 'Personas que has registrado', '/app/inicio.html');
   /* EL TEXTO DEL BOTÓN SIGUE LA MISMA REGLA DEL FORMULARIO (registro-votante.html): un sublíder no crea sublíderes, así que para él

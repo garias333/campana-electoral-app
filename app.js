@@ -142,6 +142,8 @@ app.get('/api/csrf-token', (req, res) => {
   res.json({ csrfToken: req.session.csrfToken });
 });
 app.use('/api', csrfProtegido);
+// Las pendientes de la cola sin señal solo las sube su dueño (parche 329): 409 si el encabezado X-Cola-Usuario no es la cuenta de la sesión.
+app.use('/api', require('./middleware/auth').verificarDuenoDeCola);
 
 // --- Webhooks de proveedores externos (Twilio, etc.) — deliberadamente
 // fuera de /api (sin CSRF) y antes del candado de licencia, para que

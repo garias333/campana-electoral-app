@@ -111,6 +111,30 @@ async function registrarAuditoria(usuarioId, accion, detalle, ip) {
  * conexión. Devuelve ese token (o null si no se pidió "recordar") para
  * que la ruta que llama lo incluya en la respuesta.
  */
+/**
+ * EL TOKEN DE CIERRE (parche 329, orden 43). Cerrar sesión en un celular SIN SEÑAL no podía destruir la sesión en el servidor: la cookie
+ * (httpOnly, el navegador no puede borrarla) seguía viva 8 horas —o 7 días con «Recordar sesión»— y la siguiente persona que abría la app
+ * entraba como la anterior. Ahora, al iniciar sesión, el servidor entrega un token aleatorio de 32 bytes LIGADO A ESTA SESIÓN y guarda solo su
+ * hash (tabla `sesiones_cierre`). El navegador lo recuerda; si se cierra sesión sin señal, al volver la señal lo presenta en
+ * POST /api/auth/cerrar-pendiente y el servidor destruye esa sesión.
+ *
+ * Se borran antes los tokens que ya apuntaban a ESTA misma sesión: si otra persona inicia sesión sobre una cookie vieja, la sesión se REEMPLAZA y el
+ * token del anterior no debe poder destruir la sesión de la persona nueva. También se purgan los de más de 8 días (la cookie más larga dura 7).
+ * Devuelve el token, o null si la tabla todavía no existe (el parche llegó antes que `init-db`): iniciar sesión nunca falla por esto.
+ */
+async function crearTokenCierre(req, usuarioId) {
+  try {
+    const token = crypto.randomBytes(32).toString('base64url');
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    await pool.query('DELETE FROM sesiones_cierre WHERE session_id = ? OR creado_en < NOW() - INTERVAL 8 DAY', [req.sessionID]);
+    await pool.query('INSERT INTO sesiones_cierre (token_hash, session_id, usuario_id) VALUES (?, ?, ?)', [hash, req.sessionID, usuarioId]);
+    return token;
+  } catch (err) {
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('No se pudo crear el token de cierre de sesión:', err.code || err.message);
+    return null;
+  }
+}
+
 async function completarSesion(req, usuario, recordar, entrarComo) {
   /* EL SOMBRERO DE TESTIGO SE COMPRUEBA, NO SE CREE.
      `POST /login` acepta `entrarComo` en el cuerpo y, cuando viene, se SALTA
@@ -188,6 +212,7 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
     two_factor_enabled: !!usuario.two_factor_enabled,
     es_aspirante: esAspirante
   };
+  req.tokenCierreNuevo = await crearTokenCierre(req, usuario.id);   // lo devuelven las dos respuestas de ingreso (login y verificar-2fa)
   if (recordar) {
     req.session.cookie.maxAge = SIETE_DIAS_MS;
     return firmarTokenDispositivo(usuario.id, entrarComo);
@@ -324,7 +349,7 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
     `Inicio de sesión: ${usuario.email}` + (entrarComo === 'testigo' ? ' (como testigo electoral)' : ''),
     req.ip
   );
-  res.json({ ok: true, usuario: req.session.usuario, dispositivoToken });
+  res.json({ ok: true, usuario: req.session.usuario, dispositivoToken, tokenCierre: req.tokenCierreNuevo || null });
 }
 
 router.post('/login', async (req, res) => {
@@ -779,7 +804,7 @@ router.post('/verificar-2fa', async (req, res) => {
       req.ip
     );
 
-    res.json({ ok: true, usuario: req.session.usuario, dispositivoToken });
+    res.json({ ok: true, usuario: req.session.usuario, dispositivoToken, tokenCierre: req.tokenCierreNuevo || null });
   } catch (err) {
     console.error('Error verificando 2FA:', err);
     res.status(500).json({ error: 'Error interno al verificar el código.' });
@@ -826,9 +851,47 @@ router.put('/2fa', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * CERRAR LA SESIÓN QUE QUEDÓ PENDIENTE (parche 329). PÚBLICA a propósito y EXENTA de CSRF (middleware/csrf.js): quien la llama es un celular que
+ * cerró sesión sin señal y ya no tiene una sesión válida con qué pedirlo; lo que lo autoriza es el token de cierre, que solo conoce ese navegador
+ * y del que el servidor guarda únicamente el hash. Tiene LÍMITE de consultas por IP (adivinar un token de 32 bytes no es posible, pero esta ruta
+ * no debe servir para martillar la base). Y RESPONDE IGUAL exista o no el token: no dice si adivinaste.
+ */
+const limiteCerrarPendiente = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).json({ ok: false, error: 'Demasiados intentos. Espera unos minutos.' }),
+});
+router.post('/cerrar-pendiente', limiteCerrarPendiente, async (req, res) => {
+  const token = String((req.body && req.body.tokenCierre) || '');
+  try {
+    if (/^[A-Za-z0-9_-]{20,128}$/.test(token)) {
+      const hash = crypto.createHash('sha256').update(token).digest('hex');
+      const [[fila]] = await pool.query('SELECT session_id FROM sesiones_cierre WHERE token_hash = ?', [hash]);
+      if (fila) {
+        await pool.query('DELETE FROM sesiones_cierre WHERE token_hash = ?', [hash]);
+        if (req.sessionID === fila.session_id) {
+          // Es la propia cookie de esta petición: se destruye y se pide al navegador que la suelte.
+          await new Promise((ok) => req.session.destroy(() => ok()));
+          res.clearCookie('campana_sid');
+        } else {
+          await new Promise((ok) => req.sessionStore.destroy(fila.session_id, () => ok()));
+        }
+      }
+    }
+  } catch (err) {
+    if (err.code !== 'ER_NO_SUCH_TABLE') console.error('cerrar-pendiente:', err.code || err.message);
+  }
+  res.json({ ok: true });
+});
+
 router.post('/logout', requireAuth, async (req, res) => {
   const usuarioId = req.session.usuario.id;
   await registrarAuditoria(usuarioId, 'logout', 'Cierre de sesión.', req.ip);
+  // El token de cierre de esta sesión ya no hace falta (se cierra ahora mismo).
+  try { await pool.query('DELETE FROM sesiones_cierre WHERE session_id = ?', [req.sessionID]); } catch (_) { /* tabla aún sin crear */ }
   req.session.destroy(() => {
     res.clearCookie('campana_sid');
     res.json({ ok: true });

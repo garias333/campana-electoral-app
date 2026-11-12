@@ -33,7 +33,7 @@ Una cuenta guardada se abre con un toque, sin contraseña. En un celular compart
 :::
 
 ::: importante
-Sin señal, [[Cerrar sesión]] funciona igual: cierra en tu celular aunque el servidor no se entere. Por eso, si puedes, ciérrala con señal: así también se cierra en el servidor. Los registros guardados sin señal no se borran al salir; se quedan en el celular hasta que se suban con conexión.
+Sin señal, [[Cerrar sesión]] funciona igual y cierra AL INSTANTE en tu celular: la persona que abra la app después verá la pantalla de ingreso y no podrá entrar como tú. El celular se acuerda de que falta avisarle al servidor y lo hace solo cuando vuelve la señal, y se cierra tu sesión allá. Si tienes registros sin enviar, la app te avisa antes («Tienes N registros sin enviar. Si cierras sesión, se enviarán cuando vuelvas a entrar en este celular.»). Esos registros NO se borran: quedan guardados a tu nombre y solo se envían cuando tú vuelves a entrar en ese celular; otra cuenta que entre en el mismo celular no los ve ni los envía.
 :::
 
 ::: consejo

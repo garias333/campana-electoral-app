@@ -340,9 +340,10 @@ function obtenerTokenDispositivoActivo() {
 }
 
 async function api(path, opciones = {}) {
+  // Las cabeceras que pida quien llama (p. ej. `X-Cola-Usuario` de sincronizarCola) se SUMAN a las de siempre: antes reemplazaban a `Content-Type`.
   const config = {
-    headers: { 'Content-Type': 'application/json' },
-    ...opciones
+    ...opciones,
+    headers: { 'Content-Type': 'application/json', ...(opciones.headers || {}) }
   };
   if (opciones.body && !(opciones.body instanceof FormData)) {
     config.body = JSON.stringify(opciones.body);
@@ -1364,6 +1365,22 @@ function solicitarPasswordAdmin(titulo) {
   });
 }
 
+/** Carga /js/cerrar-sesion.js una sola vez (las pantallas de escritorio no lo traen en su HTML). Devuelve true si quedó disponible (parche 329). */
+let _cerrarSesionPromesa = null;
+function cargarCerrarSesion() {
+  if (window.CerrarSesion) return Promise.resolve(true);
+  if (!_cerrarSesionPromesa) {
+    _cerrarSesionPromesa = new Promise((ok) => {
+      const s = document.createElement('script');
+      s.src = '/js/cerrar-sesion.js';
+      s.onload = () => ok(!!window.CerrarSesion);
+      s.onerror = () => ok(false);
+      document.head.appendChild(s);
+    });
+  }
+  return _cerrarSesionPromesa;
+}
+
 async function inicializarLayout(paginaActiva) {
   // El favicon se agrega acá (en vez de en el <head> de cada página) para
   // no tener que editar decenas de archivos HTML cada vez que cambie.
@@ -1372,6 +1389,18 @@ async function inicializarLayout(paginaActiva) {
       '<link rel="icon" type="image/x-icon" href="/favicon.ico">' +
       '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'
     );
+  }
+
+  /* NO SE ENTRA POR LA COOKIE VIEJA (parche 329). Si alguien cerró sesión sin señal, `logout_pendiente` sigue puesto y la cookie del servidor
+     todavía vale: entrar por ella sería entrar COMO la persona anterior. Mientras eso dure (y no haya otra cuenta activa de dispositivo), se muestra el
+     login, y se intenta cerrar la sesión vieja en el servidor. */
+  if (await cargarCerrarSesion() && window.CerrarSesion.hayLogoutPendiente()) {
+    if (window.CerrarSesion.entradaBloqueada()) {
+      await window.CerrarSesion.resolver(2500);
+      window.location.href = '/login.html';
+      return null;
+    }
+    window.CerrarSesion.resolver(0);      // hay otra cuenta activa: la entrada sigue, y el cierre pendiente se presenta en segundo plano
   }
 
   // Si falla por falta de señal (no un 401 real), se usa la última sesión
@@ -1397,6 +1426,8 @@ async function inicializarLayout(paginaActiva) {
     }
   }
   const usuario = sesion.usuario;
+  // De quién son las pendientes sin señal que esta pantalla guarde (parche 329): antes solo lo anotaban las pantallas de la app.
+  if (typeof registrarUsuarioSinSenal === 'function' && usuario && usuario.id !== undefined) registrarUsuarioSinSenal(usuario.id);
 
   /* EN SU PROPIA CAMPAÑA, EL ASPIRANTE ES EL ADMINISTRADOR.
      En la estructura de la campaña madre es un lider, y ese es su rol de
@@ -1729,14 +1760,15 @@ async function inicializarLayout(paginaActiva) {
   });
 
   document.getElementById('btn-logout').addEventListener('click', async () => {
-    // Si la solicitud falla (sin señal, servidor caído), igual hay que
-    // cerrar del lado del navegador: quedarse dentro porque no hubo red es
-    // lo contrario de lo que la persona pidió.
+    /* PARCHE 329: UN SOLO CIERRE PARA TODA LA APP (public/js/cerrar-sesion.js). Cierra AL INSTANTE en este navegador (cuenta de dispositivo,
+       identidad en caché, copias de lectura), avisa al servidor como «mejor esfuerzo» (4 s) y deja `logout_pendiente` si no hubo señal; siempre
+       redirige a /login.html. Antes aquí se esperaba a /auth/logout sin timeout y, sin señal, la cookie de sesión seguía viva. */
+    if (await cargarCerrarSesion() && typeof cerrarSesionLocal === 'function') {
+      await cerrarSesionLocal();
+      return;
+    }
+    // Si cerrar-sesion.js no se pudo cargar (sin señal y sin caché), el cierre de siempre.
     try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
-
-    // Si no se borra, un cierre de sesión sin conexión justo después
-    // dejaría una identidad vieja en caché que podría reabrir la sesión
-    // sola la próxima vez que la pantalla se cargue sin señal.
     try { localStorage.removeItem('app_usuario_verificado'); } catch (e) {}
 
     // Y HAY QUE DEJAR DE TENER UNA CUENTA ACTIVA DE DISPOSITIVO.
