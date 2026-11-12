@@ -151,11 +151,12 @@ async function votante(nombre, liderId) {
   ok(cAdmin.login.status === 200, 'el administrador de prueba entra', cAdmin.login.texto);
 
   // ====================================================================================== 3. BLOQUEO DE 15 MINUTOS
+  const CLAVE_ERRADA = 'clave-equivocada';
   console.log('\nPunto 3. Bloqueo de 15 minutos: vencido, el contador vuelve a cero');
   const bloq = await usuario('Bloqueado Vencido', 'lider');
   await q(`UPDATE usuarios SET intentos_fallidos = 5, bloqueado_hasta = ? WHERE id = ?`, [new Date(Date.now() - 60000), bloq.id]);
   let c = cliente();
-  let r = await c.pedir('POST', '/auth/login', { json: { email: bloq.cedula, password: 'clave-equivocada', recordar: false } });
+  let r = await c.pedir('POST', '/auth/login', { json: { email: bloq.cedula, password: CLAVE_ERRADA, recordar: false } });
   let f = await uno('SELECT intentos_fallidos AS i, bloqueado_hasta AS b FROM usuarios WHERE id = ?', [bloq.id]);
   ok(r.status === 401, 'vencido el bloqueo, una clave mala responde «incorrecta» (401), no «cuenta bloqueada»', { status: r.status, texto: r.texto });
   ok(f.i === 1 && f.b === null, 'y el contador arranca de cero: queda en 1 intento (no en 6) y sin fecha de bloqueo', f);

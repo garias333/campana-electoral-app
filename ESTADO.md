@@ -13,7 +13,9 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Push del 11 de noviembre de 2026 (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `a4c38f1..16f93fe  auditoria-fable -> auditoria-fable`** (incluye los commits del 320 y del 321). Los parches 320 y 321 siguen INACTIVOS en el panel de licencias; falta ponerlos en «seleccionadas» con solo la municipal (nunca la Base), activarlos y aplicarlos (el 320 antes que el 321; ambos requieren los anteriores ya aplicados en esa campaña).
-- **Último parche generado: 329** (`parches/campana-parche329.zip`, 429.622 bytes,
+- **Último parche generado: 330** (`parches/campana-parche330.zip`, 1.326.599 bytes,
+  sha256 `014457cad2b9ad97b16e9aa97c75813961aaf3a629d493181fd8d73ac26de0a8`, 79 archivos): «Fallos menores y guías corregidas (Requiere el 329)». **GENERADO el 12 de noviembre de 2026 sobre `28aba6b`; los 79 archivos son idénticos a los del disco (cmp), y también contra un árbol «329 + zip» (`verificar-requires.js`: «TODO RESUELVE», 241 requires; la migración 329→330 y la prueba nueva pasan desde ese árbol).** **TOCA LA BASE** (`db/init-db.js` y `db/schema.sql`: el ENUM de `dia_d_mesa_revision.estado` suma `sin_revision`; repetible). **LLEVA CÓDIGO DE SERVIDOR**: las instancias necesitan `init-db` y REINICIO (el aplicador lo hace). Service worker **`v201`**. **NO PUBLICADO NI REGISTRADO**: lo hace el usuario (comando en «Parche 330»). Plantilla `backups/plantillas/plantilla-nueva-campana-v330.zip` (7.083.999 bytes, sha256 `c9849a273501d43c881e1bbb368cd6879edd96feb11793074dcc480adb1a77f0`).
+- **Parche 329 (anterior):** (`parches/campana-parche329.zip`, 429.622 bytes,
   sha256 `71229a1dd7edc99b1280cf9ff52ef24cb7f16849f851f5f137e6ae8f35dab3d6`, 28 archivos): «Cerrar sesión sin señal y pendientes por usuario (Requiere el 328)». **GENERADO el 12 de noviembre de 2026 sobre `75e70ce`; los 28 archivos son idénticos a los del disco (cmp), y también contra un árbol «328 + zip» (`verificar-requires.js`: «TODO RESUELVE», 86 requires; la prueba nueva pasa desde ese árbol).** **TOCA LA BASE** (`db/init-db.js`: tabla nueva `sesiones_cierre`; repetible). **LLEVA CÓDIGO DE SERVIDOR** (`app.js`, `middleware/`, `routes/auth.routes.js`, `routes/checkinDiaD.routes.js`): las instancias necesitan `init-db` y REINICIO (el aplicador lo hace). Service worker **`v200`**. **NO PUBLICADO NI REGISTRADO**: lo hace el usuario (comando en «Parche 329»). Plantilla `backups/plantillas/plantilla-nueva-campana-v329.zip` (7.074.970 bytes, sha256 `1c9bc1c46dea6cacec3481f4e9287ef440038bc3e4457e0a727d18a26cf5a53e`).
 - **El anterior, el 328** (`parches/campana-parche328.zip`, 514.065 bytes,
   sha256 `2305c504dd982f2fe791b5dfb22a926acd6ad002d1cac135b458a8cfb01a113e`, 29 archivos): «Excel que no borra y permiso Editar en el Día D (Requiere el 327)». **GENERADO el 12 de noviembre de 2026 sobre `d97b3a5`; los 29 archivos son idénticos a los del disco (cmp), y también contra un árbol «327 + zip» (`verificar-requires.js`: «TODO RESUELVE», 141 requires; la prueba nueva pasa desde ese árbol).** **TOCA LA BASE** (`db/init-db.js`: una columna marca en `configuracion_campana`, una sola siembra de `editar` y la fila `usuarios`; repetible). **LLEVA CÓDIGO DE SERVIDOR**: las instancias necesitan `init-db` y REINICIO (el aplicador lo hace). Service worker **`v199`**. **NO PUBLICADO NI REGISTRADO**: lo hace el usuario (comando en «Parche 328»). Plantilla `backups/plantillas/plantilla-nueva-campana-v328.zip` (7.056.685 bytes, sha256 `4345ab4051b01ec5ae63e9b9b0df054bc510ced10f6b786c16815636adc53bba`).
@@ -316,6 +318,41 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Parche 330 — Fallos menores y guías corregidas (12 de noviembre de 2026, GENERADO, SIN PUBLICAR; TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 329)
+
+*Puntos A1–A9, B10–B14 y C15 de la orden del parche 330. Commit `28aba6b`; `.version-base` = 330 en el commit siguiente. Sin push.*
+
+**Hecho y verificado**
+- **B12:** el SMS programado fuera de horario se rechaza **solo con el proveedor Onurix** (se condiciona a `estado.franja`, coherente con la nota que ya existía).
+- **B13:** «Sin movimiento» y «Última marca» cuentan solo las marcas del **día de la elección**, o las de **hoy** con el Modo prueba.
+- **B14:** al desmarcar «Para reclamar» se **conserva la nota**. Para eso el ENUM de `dia_d_mesa_revision.estado` suma `sin_revision` (migración en `db/init-db.js`, repetible; probada desde el esquema del 329).
+- **Punto 4:** el `PUT` de eventos usa `IF` con una marca y no un `COALESCE` a secas, para que una Ciudad enviada vacía siga pudiendo borrarse.
+- **Punto 5:** NO se amplió el alcance del asistente administrativo en Votantes. El servidor responde **404** si intenta verificar una ficha fuera de su alcance (más conservador en privacidad: verifica solo lo que él registró). Guías `g-datos-verificados` y `t-votante-editar` corregidas.
+- **Configuración > Usuarios** mostraba el rol en crudo; ahora usa el mismo nombre de pantalla que el selector.
+- **C15:** las cuatro suites que fallaban (`inscripcion-enlace`, `mapa-fondo`, `solicitudes-celular`, `tareas-celular`) tenían **expectativas viejas**, no eran fallos de la app; actualizadas y en verde.
+- **Guías y capturas:** 11 guías de `manuales/bloques/` corregidas y 10 capturas rehechas (incluidas `mod-usuarios` y `t-usuarios`, rehechas después de corregir la columna de rol). Service worker `estrategia-v201`.
+
+**Un error que se atrapó antes de empaquetar (y por qué importa).** Una pasada anterior había cambiado la cabecera de **tres guías** (`t-votante-agregar`, `t-avance-ranking`, `g-sin-movimiento`): quitó `modulo`/`nivel` y puso `roles` fijos (y `complemento: faltan_por_votar` en las dos del Día D). Eso las sacaba del filtro por la matriz de permisos y, con «Faltan por votar» apagado, escondía el Avance y el Ranking, que NO son de ese complemento. Lo delataron `probar-complementos` (1 fallo) y `probar-manuales` (2). **Se restauró la cabecera de HEAD** y se dejó solo el cambio de texto del cuerpo; `t-votante-agregar` quedó idéntica a HEAD.
+
+**Pruebas** (mysqld privado en el 33099, cada suite sobre una base nueva clonada)
+- **`scripts/probar-fallos-menores.js` (nuevo)** cubre los puntos 1, 2, 3, 4, 5, 8, 9, 12, 13 y 14 con Chromium a 390 px: **pasa completa**, también desde el árbol «329 + zip» y desde la plantilla v330. (El escáner de secretos de la plantilla marcó `password: 'clave-equivocada'`; se pasó a una constante `CLAVE_ERRADA`. No era un secreto.)
+- Regresión completa (backend en paralelo, Chromium en cadena): **todas en verde** tras corregir las tres guías.
+- `probar-instalacion-limpia`: **pasa completa** (81 tablas).
+- Plantilla v330 extraída aparte: `init-db` sobre una base vacía **dos veces: 81 tablas las dos veces**, ENUM con `sin_revision`.
+- **NO probado:** un celular real; el envío real de SMS por Onurix (B12 no se ejercitó contra el proveedor real).
+
+**PENDIENTE DE COMPLETAR (dudas del 299).** La orden pedía dejar aquí cuáles dudas del 299 quedaron resueltas y cuáles abiertas. **La relación punto a punto no consta en el repositorio** (viene en el texto de la orden, que esta sesión no tiene), y no se reconstruye de memoria: consta que las 6 y 18 del 299 se resolvieron antes (ver «Matriz, columna Usuarios» y «verificar-identificacion»). **Decisión abierta para el usuario:** el punto 5 se resolvió por la vía conservadora (el asistente verifica solo lo que registró); si la intención era ampliarle el alcance, es un cambio aparte.
+
+**Para publicar** (una sola línea, como root; la sesión NO publica ni registra):
+
+```
+su - gariasappelectoral -c 'export PATH="$(dirname "$(ls -d /home/appestrategia-electoral/.nvm/versions/node/v22*/bin/node | sort -V | tail -1)"):$PATH" && cd /home/appestrategia-electoral/htdocs/electoral.appestrategia.net && bash scripts/publicar-parche.sh 330 && node scripts/registrar-parche.js 330 "Fallos menores y guías corregidas (Requiere el 329)" "Correcciones menores: el SMS programado fuera de horario se rechaza cuando el proveedor es Onurix; Sin movimiento y Última marca cuentan solo las marcas del día de la elección (o las de hoy en Modo prueba); al desmarcar Para reclamar se conserva la nota; el asistente administrativo solo verifica fichas de su alcance y el servidor responde 404 en las ajenas; la tabla de usuarios de Configuración muestra el rol con su nombre; el evento conserva el borrado de la ciudad. Guías y capturas corregidas. Toca la base de datos (nuevo valor del estado de revisión de mesas)."'
+```
+
+Nace INACTIVO. Falta ponerlo en «seleccionadas» con solo la municipal (nunca la Base), activarlo y aplicarlo; **requiere el 329 ya aplicado** en esa campaña.
+
+---
 
 ## Parche 329 — Cerrar sesión sin señal y pendientes por usuario (12 de noviembre de 2026, GENERADO, SIN PUBLICAR; TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 328)
 
@@ -3444,3 +3481,18 @@ Rama: auditoria-fable | Commit: 1aee4c0 ESTADO.md: 322 publicado y registrado (i
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-11 22:41 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 6555c4b ESTADO.md: 325 publicado y registrado (inactivo); aplicado en la Base; push hecho | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-11 23:29 UTC desde srv1807015
+Rama: auditoria-fable | Commit: f8600e1 ESTADO.md: 326 publicado y registrado (inactivo); push hecho | Sin commitear: 3 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-12 03:25 UTC desde srv1807015
+Rama: auditoria-fable | Commit: db1565c 329: marca la versión base; ESTADO.md (cerrar sesión sin señal y pendientes por usuario, parche 329 generado) | Sin commitear: 88 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-12 03:25 UTC desde srv1807015
+Rama: auditoria-fable | Commit: db1565c 329: marca la versión base; ESTADO.md (cerrar sesión sin señal y pendientes por usuario, parche 329 generado) | Sin commitear: 88 archivo(s)
