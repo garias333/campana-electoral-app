@@ -13,6 +13,7 @@ dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, �
 limpio») estaban obsoletas y se reemplazaron.*
 
 - **Push del 11 de noviembre de 2026 (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `a4c38f1..16f93fe  auditoria-fable -> auditoria-fable`** (incluye los commits del 320 y del 321). Los parches 320 y 321 siguen INACTIVOS en el panel de licencias; falta ponerlos en «seleccionadas» con solo la municipal (nunca la Base), activarlos y aplicarlos (el 320 antes que el 321; ambos requieren los anteriores ya aplicados en esa campaña).
+- **INCIDENTE DEL 12 DE NOVIEMBRE DE 2026 (orden 45): las tres campañas caídas por aplicar el 329 SIN el 328.** El **328 suelto NO debe aplicarse en NINGUNA campaña**: lo reemplaza el **Combinado 331** (`parches/campana-parche331.zip`, 655.138 bytes, sha256 `6ceff35909c53122d44b66253e89ca478ee4c27793189c5edeff08bd8fc1aa10`, 48 archivos, **GENERADO, SIN PUBLICAR**; ver «Orden 45»). **Pendiente de coordinar: el 330 (sin publicar) es MENOR que el 331 y pisaría el avance de versión; hay que regenerarlo como 332 «Requiere el 331» antes de publicar nada.**
 - **Último parche generado: 330** (`parches/campana-parche330.zip`, 1.326.599 bytes,
   sha256 `014457cad2b9ad97b16e9aa97c75813961aaf3a629d493181fd8d73ac26de0a8`, 79 archivos): «Fallos menores y guías corregidas (Requiere el 329)». **GENERADO el 12 de noviembre de 2026 sobre `28aba6b`; los 79 archivos son idénticos a los del disco (cmp), y también contra un árbol «329 + zip» (`verificar-requires.js`: «TODO RESUELVE», 241 requires; la migración 329→330 y la prueba nueva pasan desde ese árbol).** **TOCA LA BASE** (`db/init-db.js` y `db/schema.sql`: el ENUM de `dia_d_mesa_revision.estado` suma `sin_revision`; repetible). **LLEVA CÓDIGO DE SERVIDOR**: las instancias necesitan `init-db` y REINICIO (el aplicador lo hace). Service worker **`v201`**. **NO PUBLICADO NI REGISTRADO**: lo hace el usuario (comando en «Parche 330»). Plantilla `backups/plantillas/plantilla-nueva-campana-v330.zip` (7.083.999 bytes, sha256 `c9849a273501d43c881e1bbb368cd6879edd96feb11793074dcc480adb1a77f0`).
 - **Parche 329 (anterior):** (`parches/campana-parche329.zip`, 429.622 bytes,
@@ -319,6 +320,29 @@ limpio») estaban obsoletas y se reemplazaron.*
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
 
+## Orden 45 — Las tres campañas caídas: el 329 se aplicó sin el 328 (12 de noviembre de 2026; arreglo manual + Combinado 331 GENERADO, SIN PUBLICAR)
+
+**Qué pasó.** Municipal, departamental y c001 tenían el 327 y recibieron el 329 desde el panel **sin el 328**. Departamental y c001 dieron 502; la municipal cargaba el HTML sin datos. La Base estaba bien (tiene todo).
+
+**Causa (reproducida, no supuesta).** `routes/checkinDiaD.routes.js` (viaja en el 329) hace `const { requiereEditarModulo } = require('../middleware/permisoModulo')` y **llama a `requiereEditarModulo(...)` al cargar el módulo**. Esa función solo existe en el `permisoModulo.js` del 328; el del 327 exporta `requiereImportarExportar, requiereVerModulo, MENSAJE_NEGADO, MENSAJE_SIN_VERIFICAR`. `app.js` (línea 281) carga ese router → `TypeError: requiereEditarModulo is not a function` → PM2 la apaga y reinicia en bucle. Árbol 327 + zip 329: `require('./routes/checkinDiaD.routes')` da ese error; con el 328 en medio carga bien.
+**Era el único nombre que faltaba**: se revisaron las importaciones con nombre de los 5 archivos de servidor del 329 (`app.js`, `middleware/{auth,csrf}.js`, `routes/{auth,checkinDiaD}.routes.js`) contra 327+329 y contra 327+328+329.
+
+**Por qué nadie lo vio.** `scripts/verificar-requires.js` solo comprueba que el ARCHIVO de cada `require()` exista; no mira los nombres de `const { x } = require(...)`. Corrido sobre el 329 contra un árbol 327 dice «TODO RESUELVE». Y el actualizador no comprueba «Requiere el N» (ver más abajo).
+
+**`db/init-db.js` del 329 = el del 328 + la tabla `sesiones_cierre`** (diferencia de 15 líneas, solo agrega). La siembra de `editar` del 328 (marca `configuracion_campana.permisos_editar_dia_d_sembrado`, una sola vez) está dentro. Es idempotente: probado 326 → 327 → 329 → 331 → 331 de nuevo sobre una base nueva, `init-db` sin error en las cinco corridas, 81 tablas, `sesiones_cierre` creada, `editar` sembrado.
+
+**Arreglo de las campañas** (lo corre el usuario como root; no se puede leer esas carpetas desde esta cuenta): `scripts/rescate-parche-328-329.sh [--verificar] USUARIO` — respaldo (tar sin node_modules ni backups + mysqldump comprobado por contenido), 328 y DESPUÉS 329 encima como el usuario de la campaña, comparación archivo por archivo contra el zip que gana, `init-db`, `reiniciar-instancia.sh` (prueba que el PID cambia), `pm2 save`, curl a 200. Usuarios deducidos (no medidos): `campanadepruebamunicipal`, `campanadepruebadepartamental`, `appestrategia-c001-2027` (carpeta `c001-2027.appestrategia.net`, puerto 3201, PM2 `c001-2027`). **No probado contra las carpetas reales**: sí la sintaxis y la lógica de comparación sobre una copia.
+
+**Combinado 331** — «Combinado 328 + 329: Excel, Editar y cierre de sesión (Requiere el 327)». 48 archivos = unión de los zips 328 y 329 **en su versión de `db1565c`** (generado con `generar-parche.js` desde un `git archive db1565c` en el scratchpad, para que no entren los cambios del 330 que hay en el disco de la Base). Los 29+28 archivos de los zips 328/329 coinciden uno a uno con git. **Toca la base y lleva código de servidor** (init-db y reinicio).
+Prueba: 326 (`50bb388`) + zip 327 + zip 329 + zip 331 sobre mysqld privado en el 33099 (`simulada_c45`): árbol final **idéntico a `db1565c`** salvo `.version-base` (331); `init-db` sin errores; `app.js` arranca y escucha (sin Servidor de Licencias responde 302/403, es el bloqueo de licencia); **`probar-datos-personales.js` 94 ok, `probar-excel-y-editar.js` 89 ok, `probar-cerrar-sesion.js` 55 ok, 0 fallas.** `verificar-requires.js` del 331 contra 327+329: «TODO RESUELVE» (222 requires).
+**`.version-base` de la Base sigue en 330** (el 331 se generó fuera del repo a propósito).
+
+**Cuidado con el orden de los números.** El avance de versión es una marca de agua: el actualizador pide «mayores que `.version-parche`». El 330 (sin publicar) es menor que el 331: si se publica y aplica antes, el 331 le pisa 21 archivos con la versión de `db1565c`; y si se aplica el 331 primero, el 330 ya no se ofrece nunca. Solución propuesta (no hecha): regenerar el 330 como **332** con «Requiere el 331» y su plantilla v332.
+
+**Qué NO hacer:** aplicar el 328 suelto en ninguna campaña (el combinado lo reemplaza; el 328 pisaría los archivos del 329 con versiones más viejas, p. ej. `init-db.js`, `common.js`, `votantes.html`). Y no usar «Aplicar actualización» con un parche cuyo título diga «Requiere el N» sin confirmar que el N está puesto.
+
+**Propuesta para que no vuelva a pasar (sin implementar):** (1) el actualizador no comprueba nada: `aplicarParche` descarga y descomprime lo que el servidor le liste (`scripts/actualizar-automatico.js`); «Requiere el N» es solo texto del título. (2) Que `generar-parche.js --requiere N` escriba `.parche-requiere` dentro del zip y que el actualizador lo lea con `unzip -p` ANTES de descomprimir, comparándolo con un `.parches-aplicados` (lista, no marca de agua: 329 aplicado sin 328 dejó `.version-parche` en 329 y nada delata el hueco); si falta, se niega, reporta «fallido» con el motivo y no reinicia. (3) Lo mismo del lado del Servidor de Licencias: columna `requiere` y que `/parches/disponibles` no ofrezca el parche si la campaña no tiene el requisito. (4) Ampliar `verificar-requires.js` para que compruebe también los NOMBRES importados con llaves y que `generar-parche.js` lo corra contra «versión anterior + zip» antes de armar el zip.
+
 ## Parche 330 — Fallos menores y guías corregidas (12 de noviembre de 2026, GENERADO, SIN PUBLICAR; TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 329)
 
 *Puntos A1–A9, B10–B14 y C15 de la orden del parche 330. Commit `28aba6b`; `.version-base` = 330 en el commit siguiente. Sin push.*
@@ -397,7 +421,7 @@ su - gariasappelectoral -c 'export PATH="$(dirname "$(ls -d /home/appestrategia-
 
 El guion de publicar debe terminar con la huella `71229a1dd7edc99b`; el registro nace INACTIVO y **`toca_base_datos = true`** (lleva `db/init-db.js`). Después falta ponerlo en «seleccionadas» (solo campañas, nunca la Base), activarlo y aplicarlo.
 
-## Parche 328 — Excel que no borra y permiso Editar exigido en el Día D (12 de noviembre de 2026, GENERADO, SIN PUBLICAR; TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 327)
+## Parche 328 — Excel que no borra y permiso Editar exigido en el Día D (12 de noviembre de 2026, **NO APLICAR SUELTO: lo reemplaza el Combinado 331 (orden 45)**; GENERADO, SIN PUBLICAR; TOCA LA BASE; LLEVA CÓDIGO DE SERVIDOR; REQUIERE EL 327)
 
 *Orden 42 (parche 2 de 4 del plan de la orden 40: Parte B, puntos 4 y 5). Commit `d97b3a5`; `.version-base` = 328 en el commit siguiente. Sin push.*
 
