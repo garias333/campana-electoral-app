@@ -196,7 +196,8 @@ const orden = (...x) => x.sort((a, b) => a - b);
   const pAdmin = cAdmin.datos.find((x) => x.nombre === 'Votante Secreto');
   ok(pAdmin && pAdmin.telefono === '3105550101' && pAdmin.identidad === '1053111222' && pAdmin.total_reuniones === 2, 'ADMINISTRADOR: ve la persona con sus 2 reuniones y sus contactos', pAdmin);
   const cL1 = await cons(l1), pL1 = cL1.datos.find((x) => x.nombre === 'Votante Secreto');
-  ok(pL1 && pL1.total_reuniones === 1 && pL1.telefono === '3105550101' && pL1.identidad === '1053111222', 'LÍDER 1 (responsable de una de sus reuniones): solo la reunión suya, y sus contactos', pL1);
+  // Parche 327: el responsable que no es administrador ni coordinador ve el teléfono, pero la CÉDULA tapada (***222).
+  ok(pL1 && pL1.total_reuniones === 1 && pL1.telefono === '3105550101' && pL1.identidad === '***222', 'LÍDER 1 (responsable de una de sus reuniones): solo la reunión suya, su teléfono y la cédula TAPADA', pL1);
   const cC1 = await cons(c1), pC1 = cC1.datos.find((x) => x.nombre === 'Votante Secreto');
   ok(pC1 && pC1.telefono === null && pC1.identidad === null && !cC1.texto.includes('3105550101') && !cC1.texto.includes('1053111222'), 'COORDINADORA: la ve en su rama, pero sin teléfono ni cédula', pC1);
   const cL2 = await cons(l2);

@@ -224,26 +224,10 @@ function invalidarCache() {
  * todas las fichas que compartan el número.
  */
 async function estaDadoDeBaja(telefonoNormalizado) {
-  // El número llega como 573001234567; en la base está como lo escribió
-  // quien lo capturó. Se comparan los últimos 10 dígitos, que es la parte
-  // que identifica al celular en Colombia.
-  const diez = telefonoNormalizado.slice(-10);
-  // El filtro que decide es `no_contactar = 1`, y por eso lleva índice: los
-  // dados de baja son pocos, así que MySQL recorre solo esas filas. Un índice
-  // sobre `telefono` NO serviría aquí — la columna va envuelta en
-  // REGEXP_REPLACE y ningún índice se puede usar sobre una expresión.
-  const [[fila]] = await pool.query(
-    `SELECT
-       EXISTS(SELECT 1 FROM votantes
-               WHERE no_contactar = 1
-                 AND RIGHT(REGEXP_REPLACE(telefono, '[^0-9]', ''), 10) = ?)
-       OR
-       EXISTS(SELECT 1 FROM usuarios
-               WHERE no_contactar = 1
-                 AND RIGHT(REGEXP_REPLACE(telefono, '[^0-9]', ''), 10) = ?) AS baja`,
-    [diez, diez]
-  );
-  return Boolean(fila.baja);
+  // La consulta vive ahora en lib/baja.js (parche 327), compartida con el correo. Aquí solo se
+  // conserva el nombre y la forma de llamarla: el número llega como 573001234567 y lib/baja.js
+  // compara los últimos 10 dígitos, que es la parte que identifica al celular en Colombia.
+  return require('../lib/baja').estaDadoDeBaja({ telefono: telefonoNormalizado });
 }
 
 // ---------------------------------------------------------------------------
@@ -330,9 +314,7 @@ async function enviarSMS(telefono, mensaje, statusCallbackUrl, opciones = {}) {
   // por Twilio: quien pidió no recibir mensajes no los recibe, por el camino
   // que sea. Es lo único de este archivo que aplica también al respaldo.
   if (!opciones.operativo && await estaDadoDeBaja(destino)) {
-    const err = new Error('Esta persona pidió no recibir más mensajes.');
-    err.codigo = 'DADO_DE_BAJA';
-    throw err;
+    throw require('../lib/baja').errorDeBaja('sms');
   }
 
   const falta = loQueFalta();

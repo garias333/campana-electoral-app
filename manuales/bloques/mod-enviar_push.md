@@ -17,7 +17,7 @@ Manda una notificación a la aplicación del celular: citar a una reunión, avis
 - **Quién recibe**: solo quien tiene cuenta en la aplicación **y** activó los avisos en su teléfono. Un votante sin cuenta no puede recibirlos; para esos están Enviar SMS y Enviar E-mail.
 - **Paso 1, a quién**: buscador, cuadro para agregar a mano y [[+ Agregar grupo o subgrupo]]. Los elegidos quedan en **Seleccionados**.
 - **Paso 2, el mensaje**: **Título del aviso** (hasta 60 caracteres, es lo único que el teléfono muestra siempre), **Mensaje** con `{nombre}`, plantillas y [[Insertar mensaje de Día D]]. El botón es [[Enviar aviso]].
-- **Historial de envíos**, con Omitidos y [[Ver detalle]].
+- **Historial de envíos**, con Omitidos y [[Ver detalle]]. Cada quien ve solo sus avisos y los de su equipo (el asistente administrativo, solo los suyos); borrarlos es solo del administrador.
 
 ## Qué puedes hacer según tu permiso
 

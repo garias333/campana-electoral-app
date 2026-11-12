@@ -25,7 +25,7 @@ Aquí está la base de personas que la campaña tiene registradas, con su lugar 
 - **Ver**: consultar la lista. El sublíder ve solo a las personas que él registró; el líder, las que registró él y las de sus sublíderes; el coordinador, las de su equipo; el administrador ve todas.
 - **Editar**: corregir una ficha con [[Editar]] ({{t-votante-editar}}).
 - **Agregar**: registrar con [[+ Nuevo votante o sublíder]] en el computador o con [[+ Registrar una persona]] en el celular ({{t-votante-agregar}}).
-- **Importar / Exportar**: [[Exportar a Excel]] e [[Importar desde Excel]] ({{t-votantes-importar}}); solo administrador y coordinador.
+- **Importar / Exportar**: [[Exportar a Excel]] e [[Importar desde Excel]] ({{t-votantes-importar}}); solo administrador y coordinador. El Excel trae lo mismo que ves en la lista: el coordinador exporta su equipo, no toda la campaña.
 
 ## Tareas frecuentes
 

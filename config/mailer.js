@@ -143,7 +143,13 @@ async function enviarCodigo2FA(destinatario, codigo, nombreApp) {
  * respetando los saltos de línea, dentro de una plantilla simple. Usa el
  * mismo remitente/transportador que el resto del sistema.
  */
-async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja) {
+async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja, opciones = {}) {
+  // LA LISTA DE BAJA SE RESPETA EN LA SALIDA, igual que en el SMS (config/sms.js): quien pidió no
+  // recibir mensajes no los recibe por el camino que sea. `operativo: true` la salta (prueba de
+  // configuración). El código de acceso y la recuperación de clave no pasan por esta función.
+  if (!opciones.operativo && await require('../lib/baja').estaDadoDeBaja({ email: destinatario })) {
+    throw require('../lib/baja').errorDeBaja('correo');
+  }
   const mensajeHtml = String(mensaje || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\n/g, '<br>');

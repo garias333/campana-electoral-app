@@ -2763,6 +2763,8 @@ document.getElementById('filtro-apoya-a').addEventListener('change', refiltrarVo
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
 let identificacionVotanteDisponible = true;
+// Parche 327: si la cédula ya existe y la ficha es de quien está registrando, el aviso no es «de otro líder».
+let identificacionEsMia = false;
 
 document.getElementById('input-numero-votante').addEventListener('input', () => {
   const numero = document.getElementById('input-numero-votante').value.trim();
@@ -2806,8 +2808,9 @@ document.getElementById('input-numero-votante').addEventListener('input', deboun
     if (idActual) params.set('excluir_id', idActual);
     const r = await api(`/votantes/verificar-identificacion?${params.toString()}`);
     identificacionVotanteDisponible = r.disponible;
-    estadoEl.style.color = r.disponible ? 'var(--color-confirmado, #1E7245)' : 'var(--color-no-apoya, #A93226)';
-    estadoEl.textContent = r.disponible ? '' : 'Ya registrado por otro líder.';
+    identificacionEsMia = !r.disponible && !!r.mia;
+    estadoEl.style.color = r.disponible ? 'var(--color-confirmado, #1E7245)' : (identificacionEsMia ? 'var(--color-text-muted)' : 'var(--color-no-apoya, #A93226)');
+    estadoEl.textContent = r.disponible ? '' : (identificacionEsMia ? 'Esta persona ya está en su lista: búsquela y ábrala para editarla.' : 'Ya registrado por otro líder.');
   } catch (err) {
     identificacionVotanteDisponible = true;
     estadoEl.textContent = '';
@@ -2831,10 +2834,12 @@ document.querySelectorAll('#form-votante [name="nombre"], #form-votante [name="t
       if (idActual) params.set('excluir_id', idActual);
       const r = await api(`/votantes/verificar-duplicado?${params.toString()}`);
       if (r.coincidencias && r.coincidencias.length) {
+        // Parche 327: el servidor ya no manda el nombre ni el teléfono, solo las iniciales y quién lo registró.
         const c = r.coincidencias[0];
+        const quien = c.mia ? 'registrado por usted' : (c.registrado_por ? `registrado por ${c.registrado_por}` : 'de otro registro');
         estadoEl.textContent = c.porTelefono
-          ? `⚠ Ya existe un registro con ese mismo teléfono: ${c.nombreCompleto}.`
-          : `⚠ Ya existe un registro con un nombre parecido: ${c.nombreCompleto}.`;
+          ? `⚠ Ya existe un registro con ese mismo teléfono (${c.iniciales}, ${quien}).`
+          : `⚠ Ya existe un registro con un nombre parecido (${c.iniciales}, ${quien}).`;
       } else {
         estadoEl.textContent = '';
       }
@@ -2946,7 +2951,7 @@ async function enviarFormularioVotante(e) {
   }
 
   if (!identificacionVotanteDisponible) {
-    mostrarErrorCampo(document.getElementById('input-numero-votante'), 'Ya registrado por otro líder.');
+    mostrarErrorCampo(document.getElementById('input-numero-votante'), identificacionEsMia ? 'Esta persona ya está en su lista: búsquela y ábrala para editarla.' : 'Ya registrado por otro líder.');
     return;
   }
 

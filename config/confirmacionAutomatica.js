@@ -43,6 +43,8 @@ async function pedirConfirmacionSiProcede(req, votanteId, datos) {
     // que el endpoint manual — si divergen, un camino mandaría correos que el
     // otro considera prohibidos.
     if (datos.consentimiento_email === 0) return { pedida: false, motivo: 'no autorizó el correo' };
+    // La baja manda sobre todo (parche 327): quien pidió no recibir mensajes tampoco recibe esta confirmación.
+    if (await require('../lib/baja').estaDadoDeBaja({ email: datos.email })) return { pedida: false, motivo: 'pidió la baja' };
 
     const { enlace } = await crearConfirmacion({ req, votanteId, canal: 'email', destino: datos.email });
     const { enviarCorreoMasivo } = require('./mailer');

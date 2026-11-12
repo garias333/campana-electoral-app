@@ -1,7 +1,8 @@
 const express = require('express');
 const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
-const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
+const { limiteBuscarCedula, limiteVerificarDuplicado, inicialesDe } = require('../lib/busquedaCedula');
+const { cedulaPara } = require('../lib/enmascarar');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
@@ -537,6 +538,11 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
     // También el filtro de autorización de datos (parche 325): lo que se exporta es lo que se ve.
     const condAut = sqlAut.condicionFiltro(autorizacion, sqlAut.estadoVotante('v'));
     if (condAut) condiciones.push(condAut);
+    /* EL ALCANCE, DE VERDAD (parche 327). El comentario de arriba decía que esta consulta ya aplicaba `req.alcance` y NO
+       lo hacía: el coordinador exportaba toda la base (fuera de su rama y de la regla de la madre) y el aspirante toda la
+       campaña, no su rama. Es la misma condición del listado: el administrador, toda la campaña (menos lo que le quita la
+       regla de la madre); el coordinador, su rama; el aspirante, lo suyo. */
+    if (req.alcance) { condiciones.push(condicionAlcanceVotantes(req.alcance)); params.push(...parametrosAlcanceVotantes(req.alcance)); }
     const whereSql = armarWhereSql(condiciones);
 
     const [filas] = await pool.query(`
@@ -579,7 +585,8 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       'ID': f.id,
       'Categoría': f.categoria === 'sublider' ? 'Sublíder' : 'Votante',
       'Nombres y apellidos': f.nombre,
-      'Número de identificación': f.cedula || '',
+      // Quien no es administrador ni coordinador (el aspirante) recibe la cédula tapada (***456): decisión de la orden 41.
+      'Número de identificación': cedulaPara(req.session.usuario, f.cedula) || '',
       'Género': ETIQUETAS_GENERO[f.genero] || '',
       'Edad': f.edad || '',
       'Fecha nacimiento': f.fecha_nacimiento || '',
@@ -890,7 +897,13 @@ router.get('/verificar-identificacion', async (req, res) => {
   try {
     // Normalizado y con las variantes guardadas («1.053…», ceros): lo mismo que comprueba el guardado.
     const hay = await buscarFichaPorCedula(pool, normalizarCedula(numero), excluir_id || null);
-    res.json({ disponible: !hay });
+    if (!hay) return res.json({ disponible: true });
+    /* ¿LA FICHA ES DE QUIEN PREGUNTA? (parche 327, duda 18 del 299). El aviso rojo «Ya registrado por otro líder» salía
+       también cuando la persona ya era suya, y no era cierto. Se dice aparte (`mia`) para que la pantalla muestre otro
+       texto; sigue sin dar un solo dato de la ficha. */
+    const [[f]] = await pool.query('SELECT lider_id, sublider_id FROM votantes WHERE id = ?', [hay]);
+    const miId = req.session.usuario.id;
+    res.json({ disponible: false, mia: !!f && (f.lider_id === miId || f.sublider_id === miId) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error verificando el número de identificación.' });
@@ -999,7 +1012,7 @@ router.get('/buscar-por-cedula', limiteBuscarCedula, async (req, res) => {
  * compartir nombre, así que la decisión final queda en quien registra —
  * esto solo le muestra la coincidencia para que la revise.
  */
-router.get('/verificar-duplicado', async (req, res) => {
+router.get('/verificar-duplicado', limiteVerificarDuplicado, async (req, res) => {
   const { nombre, telefono, excluir_id } = req.query;
   if (!nombre || !nombre.trim()) return res.json({ coincidencias: [] });
 
@@ -1008,7 +1021,7 @@ router.get('/verificar-duplicado', async (req, res) => {
   const params = [];
 
   if (telefonoLimpio) {
-    condiciones.push(`telefono = ?`);
+    condiciones.push(`v.telefono = ?`);
     params.push(telefonoLimpio);
   }
   // SOUNDEX en vez de un buscador de texto libre (MATCH...AGAINST): en la
@@ -1016,23 +1029,33 @@ router.get('/verificar-duplicado', async (req, res) => {
   // todo el que lo comparta, aunque el resto del nombre no se pareciera en
   // nada. No atrapa errores de digitación en la primera letra (limitación
   // conocida del algoritmo).
-  condiciones.push(`SOUNDEX(nombre) = SOUNDEX(?)`);
+  condiciones.push(`SOUNDEX(v.nombre) = SOUNDEX(?)`);
   params.push(nombre.trim());
 
-  let query = `SELECT id, nombre, telefono, cedula FROM votantes WHERE (${condiciones.join(' OR ')})`;
-  if (excluir_id) { query += ` AND id != ?`; params.push(excluir_id); }
+  /* LO MÍNIMO PARA AVISAR (parche 327). Antes devolvía nombre, teléfono y CÉDULA COMPLETA de hasta cinco fichas a
+     cualquier sesión (un testigo, un invitado), sin límite y sin alcance: bastaba teclear un teléfono para averiguar
+     de quién era y su cédula. Ahora responde como `buscar-por-cedula` con una ficha ajena: que existe, las iniciales y
+     quién la registró. Ni teléfono, ni cédula, ni nombre completo. Lleva límite de consultas por usuario. */
+  let query = `SELECT v.id, v.nombre, v.telefono, v.lider_id, v.sublider_id, ul.nombre AS lider_nombre
+                 FROM votantes v LEFT JOIN usuarios ul ON ul.id = v.lider_id
+                WHERE (${condiciones.join(' OR ')})`;
+  if (excluir_id) { query += ` AND v.id != ?`; params.push(excluir_id); }
   query += ` LIMIT 5`;
 
   try {
     const [rows] = await pool.query(query, params);
     res.json({
-      coincidencias: rows.map(r => ({
-        id: r.id,
-        nombreCompleto: r.nombre,
-        telefono: r.telefono,
-        cedula: r.cedula,
-        porTelefono: !!(telefonoLimpio && r.telefono === telefonoLimpio)
-      }))
+      coincidencias: rows.map(r => {
+        const mia = r.lider_id === req.session.usuario.id || r.sublider_id === req.session.usuario.id;
+        return {
+          existe: true,
+          iniciales: inicialesDe(r.nombre),
+          mia,
+          // Quién la registró: «usted» si es suya; si no, el nombre de su líder (solo el nombre, nada más).
+          registrado_por: mia ? 'usted' : (r.lider_nombre || null),
+          porTelefono: !!(telefonoLimpio && r.telefono === telefonoLimpio)
+        };
+      })
     });
   } catch (err) {
     console.error(err);
@@ -1109,7 +1132,7 @@ router.post('/:id/pedir-confirmacion', requireRole('admin', 'coordinador'), asyn
        crédito real de SMS de la campaña. Sin el filtro, un coordinador podía
        disparar mensajes contra toda la base, no solo contra su gente. */
     let sqlV = `SELECT id, nombre, telefono, email, consentimiento_autorizado,
-                       consentimiento_sms, consentimiento_email, consentimiento_confirmado_en
+                       consentimiento_sms, consentimiento_email, consentimiento_confirmado_en, no_contactar
                   FROM votantes WHERE id = ?`;
     const paramsV = [req.params.id];
     if (req.alcance) {
@@ -1120,6 +1143,11 @@ router.post('/:id/pedir-confirmacion', requireRole('admin', 'coordinador'), asyn
     if (!v) return res.status(404).json({ error: 'Esa persona no existe.' });
     if (!v.consentimiento_autorizado) {
       return res.status(400).json({ error: 'Esa persona no tiene autorización registrada.' });
+    }
+    /* QUIEN PIDIÓ LA BAJA NO RECIBE NI SIQUIERA ESTA CONFIRMACIÓN (parche 327). Es un mensaje más: pedirle que
+       confirme lo que autorizó, después de que pidió no recibir nada, es justo lo que la baja prohíbe. */
+    if (Number(v.no_contactar) === 1) {
+      return res.status(400).json({ error: 'Esa persona pidió no recibir más mensajes: no se le puede escribir.' });
     }
     if (v.consentimiento_confirmado_en) {
       return res.json({ ok: true, yaConfirmado: true, en: v.consentimiento_confirmado_en });

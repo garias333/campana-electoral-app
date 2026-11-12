@@ -1057,7 +1057,9 @@ router.post('/comunicaciones/probar', requireRole('admin'), async (req, res) => 
         String(destino).trim(),
         'Prueba de configuración — Mensajería',
         `Este es un mensaje de prueba enviado desde Configurar mensajería el ${cuando}.\n\n`
-        + 'Si lo estás leyendo, las credenciales de SendGrid y el remitente quedaron bien configurados.'
+        + 'Si lo estás leyendo, las credenciales de SendGrid y el remitente quedaron bien configurados.',
+        null,
+        { operativo: true }   // es una prueba que el administrador se manda a sí mismo: la baja no aplica
       );
     } else {
       // `operativo: true`: es una prueba que un administrador se manda a sí

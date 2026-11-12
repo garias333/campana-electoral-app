@@ -28,8 +28,13 @@ async function estadoCanal() {
 /**
  * @param urlBaja  El enlace personal de baja de ESTE destinatario. Si viene,
  *                 se agregan las cabeceras List-Unsubscribe y el pie visible.
+ * @param opciones { operativo }  `operativo: true` salta la lista de baja (prueba de configuración).
  */
-async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja) {
+async function enviarCorreoMasivo(destinatario, asunto, mensaje, urlBaja, opciones = {}) {
+  // LA LISTA DE BAJA SE RESPETA EN LA SALIDA, igual que en el SMS (config/sms.js).
+  if (!opciones.operativo && await require('../lib/baja').estaDadoDeBaja({ email: destinatario })) {
+    throw require('../lib/baja').errorDeBaja('correo');
+  }
   const cred = await obtenerCredenciales();
   if (!cred.sendgridApiKey || !cred.sendgridFrom) {
     throw new Error('SendGrid no está configurado (Configuración → Comunicaciones).');

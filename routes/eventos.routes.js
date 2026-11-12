@@ -11,6 +11,8 @@ const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditori
 const { verificarPasswordAdmin } = require('../config/verificaciones');
 const Asis = require('../lib/asistenciaEventos');
 const { limiteBuscarCedula } = require('../lib/busquedaCedula');
+const { idsDeMiRama } = require('../lib/alcanceCampanas');
+const { cedulaPara } = require('../lib/enmascarar');
 const { normalizarCedula, buscarFichaPorCedula } = require('../lib/normalizarCedula');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 
@@ -166,7 +168,8 @@ router.get('/:id/asistentes', verAsistentes, async (req, res) => {
     const sc = Asis.alcanceMarcar(req.alcance, req.session.usuario.rol, 'e');
     const [[pm]] = await pool.query(`SELECT COUNT(*) AS n FROM eventos e WHERE e.id = ? AND ${sc.sql}`, [evento.id, ...sc.valores]);
     const puedeMarcar = Number(pm.n) > 0;
-    res.json(rows.map((r) => (contactos ? { ...r, contactos_visibles: true, puede_marcar: puedeMarcar } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false, puede_marcar: puedeMarcar })));
+    // La CÉDULA completa solo la ve el administrador o el coordinador (parche 327): un líder que es responsable ve el teléfono, pero la cédula sale tapada (***456).
+    res.json(rows.map((r) => (contactos ? { ...r, identidad_resuelta: cedulaPara(req.session.usuario, r.identidad_resuelta), contactos_visibles: true, puede_marcar: puedeMarcar } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false, puede_marcar: puedeMarcar })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los asistentes del evento.' });
@@ -183,7 +186,7 @@ router.get('/:id/asistentes', verAsistentes, async (req, res) => {
  * casos, así que dos invitados con el mismo nombre pueden aparecer juntos
  * aunque en la vida real sean personas distintas.
  */
-async function obtenerConsolidadoAsistentes(alcance) {
+async function obtenerConsolidadoAsistentes(alcance, usuario = null) {
   const a = alcanceEventos(alcance, 'e');
   const [filas] = await pool.query(
     `SELECT e.id AS evento_id, e.titulo AS evento_titulo, e.fecha_inicio AS evento_fecha,
@@ -216,13 +219,13 @@ async function obtenerConsolidadoAsistentes(alcance) {
   }
 
   return [...grupos.values()]
-    .map(({ contactos, ...g }) => ({ ...g, ...(contactos ? {} : { identidad: null, telefono: null }), total_reuniones: g.reuniones.length }))
+    .map(({ contactos, ...g }) => ({ ...g, ...(contactos ? { identidad: cedulaPara(usuario, g.identidad) } : { identidad: null, telefono: null }), total_reuniones: g.reuniones.length }))
     .sort((a, b) => b.total_reuniones - a.total_reuniones || (a.nombre || '').localeCompare(b.nombre || ''));
 }
 
 router.get('/asistentes-consolidado', verConsolidado, async (req, res) => {
   try {
-    res.json(await obtenerConsolidadoAsistentes(req.alcance));
+    res.json(await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consolidando los asistentes.' });
@@ -231,7 +234,7 @@ router.get('/asistentes-consolidado', verConsolidado, async (req, res) => {
 
 router.get('/asistentes-consolidado/exportar-excel', verConsolidado, requiereImportarExportar('asistentes_reuniones'), async (req, res) => {
   try {
-    const consolidado = await obtenerConsolidadoAsistentes(req.alcance);
+    const consolidado = await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario);
     const columnas = ['Nombre', 'Identidad', 'Teléfono', 'Barrio', 'Total de reuniones', 'Reuniones (fecha - título)'];
     const datos = consolidado.map(p => ({
       'Nombre': p.nombre || '',
@@ -450,6 +453,21 @@ router.post('/:id/asistentes', requireRole('admin', 'coordinador', 'lider'), asy
   }
   try {
     if (!(await eventoEnAlcance(req, req.params.id, true))) return res.status(404).json(NO_ES_SUYO);
+    /* LA PERSONA QUE SE AGREGA TAMBIÉN TIENE QUE ESTAR EN EL ALCANCE DE QUIEN LA AGREGA (parche 327). El parche 305
+       acotó el EVENTO, pero esta ruta metía a cualquier votante o usuario por id sin mirarlo: un líder creaba su evento
+       (y quedaba de responsable), agregaba ids ajenos y leía su cédula y teléfono en el listado de asistentes y en el
+       consolidado, que sí los muestran al responsable. Se responde igual que una persona que no existe (404). */
+    const NO_ES_DE_SU_EQUIPO = { error: 'No encontré a esa persona en su equipo. Solo puede agregar a quienes están en su alcance.' };
+    if (votante_id) {
+      const [[ok]] = await pool.query(
+        `SELECT 1 AS ok FROM votantes v WHERE v.id = ? AND ${condicionAlcanceVotantes(req.alcance, 'v')}`,
+        [Number(votante_id) || 0, ...parametrosAlcanceVotantes(req.alcance)]);
+      if (!ok) return res.status(404).json(NO_ES_DE_SU_EQUIPO);
+    }
+    if (usuario_id) {
+      const ids = await idsDeMiRama(req);            // null = el administrador: cualquiera
+      if (ids && !ids.includes(Number(usuario_id))) return res.status(404).json(NO_ES_DE_SU_EQUIPO);
+    }
     const [result] = await pool.query(
       `INSERT INTO evento_asistentes (evento_id, votante_id, usuario_id, nombre_invitado) VALUES (?,?,?,?)`,
       [req.params.id, votante_id || null, usuario_id || null, nombre_invitado || null]

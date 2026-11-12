@@ -16,13 +16,13 @@ Sirve para correos puntuales a una persona o a un grupo pequeño, mandados desde
 
 - **Paso 1, a quién**: un buscador por nombre, cargo o nivel (Votantes, Estructura, Organigrama), un cuadro para pegar correos a mano con [[Agregar]], y [[+ Agregar grupo o subgrupo]] para sumar un grupo por territorio, cargo o nivel. Quienes eliges quedan en **Seleccionados**, con una equis para quitarlos.
 - **Paso 2, el mensaje**: **Asunto**, **Mensaje** con `{nombre}` y plantillas guardadas. El botón [[Enviar E-mail]] manda el correo.
-- **Historial de envíos**: Nombre, Estado, Destinatarios, Enviados, Fallidos, Omitidos y Fecha, con [[Ver detalle]] y [[Eliminar]].
+- **Historial de envíos**: Nombre, Estado, Destinatarios, Enviados, Fallidos, Omitidos y Fecha, con [[Ver detalle]] y, solo para el administrador, [[Eliminar]]. Cada quien ve solo sus envíos y los de su equipo (el asistente administrativo, solo los suyos).
 
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el historial y el detalle.
 - **Agregar**: escribir y enviar correos (administrador, coordinador, líder y asistente administrativo). Al pulsar [[Enviar E-mail]], la app pregunta «Vas a enviar este correo a N persona(s). ¿Confirmas?» y, al confirmar, avisa «Enviando a N persona(s)».
-- El botón **Eliminar todas** del historial lo ve solo el administrador.
+- Borrar envíos (cada uno o **Eliminar todas**) es solo del administrador. Si eres líder o asistente administrativo, solo puedes escribirle a tu propia gente.
 
 ## Tareas frecuentes
 

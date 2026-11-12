@@ -15,7 +15,7 @@ Muestra quién fue a cada reunión y el acumulado de cada persona en todas ellas
 ## Qué encuentras
 
 - Pestaña [[Reuniones]]: la lista de eventos con Evento, Tipo, Fecha, Lugar y Asistencia (invitados, la meta y «asistieron N»). Puedes buscar por título, filtrar por tipo y quitar los filtros con [[Quitar filtros]]. En cada fila hay dos botones: [[Registrar asistencia]] y [[Ver asistentes]].
-- Pestaña [[Consolidado de asistentes]]: cada persona aparece una sola vez, con su Nombre, Identidad, Teléfono, Barrio (o Vereda) y cuántas Reuniones ha tenido. El botón [[Ver reuniones]] despliega a cuáles fue.
+- Pestaña [[Consolidado de asistentes]]: cada persona aparece una sola vez, con su Nombre, Identidad, Teléfono, Barrio (o Vereda) y cuántas Reuniones ha tenido. Solo ves la Identidad y el Teléfono de quienes fueron a reuniones tuyas, y la cédula completa solo la ven el administrador y el coordinador: un líder la ve tapada (por ejemplo ***456). El botón [[Ver reuniones]] despliega a cuáles fue.
 - Un buscador por nombre o identidad y la casilla **Solo asistentes a más de una reunión**, para ver quién repite.
 - El botón [[Exportar a Excel]], que baja el consolidado.
 

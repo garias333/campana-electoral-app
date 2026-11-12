@@ -19,6 +19,10 @@ const yaVoto = require('../config/yaVotoEnlace');
 const { mesasDeFila, listaEnPalabras } = require('../lib/coberturaTestigos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
 const { ultimos10, sqlUltimos10 } = require('../lib/telefono');
+// Movidas a lib/ en el parche 327 (sin cambiar su lógica); la ruta las sigue exportando abajo.
+const { releerAntesDeEnviar, esCanalDeCorreo, MARCADOR_ENLACE } = require('../lib/releerAntesDeEnviar');
+const { debeAcotarEnvio, sqlDeMiRama, condicionCampanas, campanaEnAlcance } = require('../lib/alcanceCampanas');
+const { contactosDeBaja } = require('../lib/baja');
 
 /* Lo que se le dice a quien envía cuando un aviso en la app no tiene a dónde llegar. Son tres cosas distintas y se
    arreglan distinto: por eso no es un solo «Sin dato de contacto». */
@@ -114,19 +118,24 @@ function parsearDestinatariosManuales(texto) {
  * registrada dos veces con cédulas distintas), se toma UNA sola —la más
  * reciente— en vez de mandar el mensaje repetido.
  */
-async function resolverManualesContraLaBase(manuales, canal) {
+async function resolverManualesContraLaBase(manuales, canal, acotarA = null) {
   if (!manuales.length) return [];
-  if (canal === 'push') return resolverManualesPush(manuales);
+  if (canal === 'push') return resolverManualesPush(manuales, acotarA);
   const columna = esCanalDeCorreo(canal) ? 'email' : 'telefono';
   const contactos = manuales.map(m => m.contacto);
 
+  /* QUIEN ESTÁ ACOTADO (líder, asistente: parche 327) SOLO RECONOCE A SU GENTE. Un número tecleado que es de alguien
+     fuera de su alcance se queda como lo tecleó —«manual», sin nombre—: devolverle el nombre de una ficha ajena a
+     cambio de adivinar un teléfono era otra forma de leer la base. */
+  const vA = acotarA ? { sql: ` AND ${condicionAlcanceVotantes(acotarA, '')}`, params: parametrosAlcanceVotantes(acotarA) } : { sql: '', params: [] };
+  const eA = acotarA ? (() => { const r = sqlDeMiRama('u.id', acotarA.usuarioId); return { sql: ` AND ${r.sql}`, params: r.params }; })() : { sql: '', params: [] };
   const [votantes] = await pool.query(
     `SELECT id, nombre, ${columna} AS contacto, puesto_votacion, mesa_votacion, no_contactar
-       FROM votantes WHERE ${columna} IN (?) ORDER BY id DESC`, [contactos]);
+       FROM votantes WHERE ${columna} IN (?)${vA.sql} ORDER BY id DESC`, [contactos, ...vA.params]);
   const [gente] = await pool.query(
     `SELECT e.id, e.usuario_id, u.nombre, u.${columna} AS contacto, e.cargo, u.no_contactar
        FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-      WHERE u.${columna} IN (?) AND e.activo = 1 ORDER BY e.id DESC`, [contactos]);
+      WHERE u.${columna} IN (?) AND e.activo = 1${eA.sql} ORDER BY e.id DESC`, [contactos, ...eA.params]);
 
   const porContacto = new Map();
   // La Estructura se indexa primero y los Votantes después, así que si
@@ -167,7 +176,7 @@ async function resolverManualesContraLaBase(manuales, canal) {
  * El motivo cuando no hay cuenta o no hay dispositivo lo pone el bloque de push de obtenerDestinatarios, que es quien sabe
  * quién tiene dispositivo. Aquí solo se marca lo que sólo se sabe aquí: varias cuentas, o que lo escrito no es un celular.
  */
-async function resolverManualesPush(manuales) {
+async function resolverManualesPush(manuales, acotarA = null) {
   const claves = manuales.map(m => ultimos10(m.contacto));
   const unicas = [...new Set(claves.filter(Boolean))];
   if (!unicas.length) {
@@ -175,12 +184,14 @@ async function resolverManualesPush(manuales) {
     return manuales;
   }
 
+  const vA = acotarA ? { sql: ` AND ${condicionAlcanceVotantes(acotarA, '')}`, params: parametrosAlcanceVotantes(acotarA) } : { sql: '', params: [] };
+  const cA = acotarA ? (() => { const r = sqlDeMiRama('id', acotarA.usuarioId); return { sql: ` AND ${r.sql}`, params: r.params }; })() : { sql: '', params: [] };
   const [votantes] = await pool.query(
     `SELECT id, nombre, puesto_votacion, mesa_votacion, no_contactar, ${sqlUltimos10('telefono')} AS clave
-       FROM votantes WHERE ${sqlUltimos10('telefono')} IN (?) ORDER BY id DESC`, [unicas]);
+       FROM votantes WHERE ${sqlUltimos10('telefono')} IN (?)${vA.sql} ORDER BY id DESC`, [unicas, ...vA.params]);
   const [cuentas] = await pool.query(
     `SELECT id, nombre, no_contactar, ${sqlUltimos10('telefono')} AS clave
-       FROM usuarios WHERE activo = 1 AND ${sqlUltimos10('telefono')} IN (?) ORDER BY id`, [unicas]);
+       FROM usuarios WHERE activo = 1 AND ${sqlUltimos10('telefono')} IN (?)${cA.sql} ORDER BY id`, [unicas, ...cA.params]);
 
   const votantePorClave = new Map();
   votantes.forEach(v => { if (!votantePorClave.has(v.clave)) votantePorClave.set(v.clave, v); });   // la más reciente
@@ -252,7 +263,7 @@ async function resolverManualesPush(manuales) {
  * votación de esa persona, y así solo puede llegar a su propio teléfono o
  * correo. Los escritos a mano siguen tal cual, que para eso están.
  */
-async function destinatariosDeSeleccion(seleccion, canal) {
+async function destinatariosDeSeleccion(seleccion, canal, acotarA = null) {
   if (!Array.isArray(seleccion) || !seleccion.length) return [];
   const esCorreo = esCanalDeCorreo(canal);
   const salida = [];
@@ -261,8 +272,12 @@ async function destinatariosDeSeleccion(seleccion, canal) {
 
   const contactosVotantes = new Map();
   if (idsVotantes.length) {
+    /* Quien está acotado (parche 327) no puede traer por id a alguien fuera de su alcance: la lista de selección
+       llega del navegador, y un id cualquiera devolvía nombre y contacto de esa persona. */
     const [filas] = await pool.query(
-      `SELECT id, nombre, email, telefono, no_contactar FROM votantes WHERE id IN (?)`, [idsVotantes]);
+      `SELECT id, nombre, email, telefono, no_contactar FROM votantes WHERE id IN (?)`
+      + (acotarA ? ` AND ${condicionAlcanceVotantes(acotarA, '')}` : ''),
+      [idsVotantes, ...(acotarA ? parametrosAlcanceVotantes(acotarA) : [])]);
     filas.forEach(f => contactosVotantes.set(f.id, f));
   }
   const contactosEstructura = new Map();
@@ -273,7 +288,9 @@ async function destinatariosDeSeleccion(seleccion, canal) {
     // saldría entera como "sin contacto", sin un solo error.
     const [filas] = await pool.query(
       `SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono, u.no_contactar
-         FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id IN (?)`, [idsEstructura]);
+         FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id IN (?)`
+      + (acotarA ? ` AND ${sqlDeMiRama('u.id', acotarA.usuarioId).sql}` : ''),
+      [idsEstructura, ...(acotarA ? sqlDeMiRama('u.id', acotarA.usuarioId).params : [])]);
     filas.forEach(f => contactosEstructura.set(f.id, f));
   }
 
@@ -318,15 +335,10 @@ async function destinatariosDeSeleccion(seleccion, canal) {
      alterar el orden que eligio quien escribe. */
   const tecleados = salida.filter(d => d.tipo === 'manual');
   if (tecleados.length) {
-    const resueltos = await resolverManualesContraLaBase(tecleados, canal);
+    const resueltos = await resolverManualesContraLaBase(tecleados, canal, acotarA);
     tecleados.forEach((m, i) => { if (resueltos[i] !== m) Object.assign(m, resueltos[i]); });
   }
   return salida;
-}
-
-/** "email" (SendGrid, CRM masivo) y "email_personal" (Hostinger, grupos pequeños) usan el mismo dato de contacto: el correo. */
-function esCanalDeCorreo(canal) {
-  return canal === 'email' || canal === 'email_personal';
 }
 
 /**
@@ -358,7 +370,12 @@ function autorizaCanal(fila, canal) {
   return fila[columna] === null || fila[columna] === undefined || Number(fila[columna]) === 1;
 }
 
-async function obtenerDestinatarios(filtros, canal, alcance = null) {
+async function obtenerDestinatarios(filtros, canal, alcance = null, acotar = false) {
+  /* QUIEN ESTÁ ACOTADO (líder y asistente administrativo, parche 327) SOLO RECIBE SU ALCANCE, en TODAS las fuentes:
+     votantes, estructura, testigos, selección y escritos a mano. Sin `alcance` no devuelve a nadie: acotar a nadie
+     es el error seguro. El organigrama no tiene dueño —son los cargos de la dirección— y no se le ofrece. */
+  if (acotar && !alcance) return [];
+  const acotarA = acotar ? alcance : null;
   // "seleccion" y "manual" traen la lista ya hecha: no se consulta nada
   // masivo, o se agregarían destinatarios que nadie pidió.
   const fuente = filtros.fuente || 'ambos';
@@ -408,6 +425,10 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
     if (filtros.puesto_votacion) {
       condiciones.push('v.puesto_votacion = ?');
       params.push(filtros.puesto_votacion);
+    }
+    if (acotarA) {
+      condiciones.push(condicionAlcanceVotantes(acotarA, 'v'));
+      params.push(...parametrosAlcanceVotantes(acotarA));
     }
     const whereSql = armarWhereSql(condiciones, 'AND');
     const [filas] = await pool.query(`
@@ -485,9 +506,14 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
       params.push(pf ? pf.id : 0);
     }
     condiciones.push('e.activo = 1');
+    if (acotarA) {
+      const rama = sqlDeMiRama('e.usuario_id', acotarA.usuarioId);
+      condiciones.push(rama.sql);
+      params.push(...rama.params);
+    }
     const whereSql = armarWhereSql(condiciones, 'AND');
     const [filas] = await pool.query(`
-      SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono, e.cargo, e.tipo_testigo,
+      SELECT e.id, e.usuario_id, u.nombre, u.email, u.telefono, u.no_contactar, e.cargo, e.tipo_testigo,
              COALESCE(e.puesto_votacion, u.puesto_votacion) AS puesto_votacion,
              t.nombre AS territorio_nombre
       FROM estructura e
@@ -506,6 +532,9 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
         // de id se solapan, así que el error no fallaría, acertaría mal.
         tipo: 'estructura', id: f.id, usuario_id: f.usuario_id, nombre: f.nombre,
         contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+        // La baja de la persona del EQUIPO también se informa aquí (parche 327): antes solo la miraba el envío, y la
+        // vista previa la contaba como «con contacto» y prometía más mensajes de los que iban a salir.
+        dado_de_baja: !!f.no_contactar,
         detalle: [etiquetaCargo, f.puesto_votacion || f.territorio_nombre].filter(Boolean).join(' · ')
       });
     });
@@ -515,7 +544,7 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
   // pueden usar como destinatarios — sea filtrando explícitamente por
   // "Solo Organigrama", o dentro de "Votantes y Estructura" (que en
   // realidad busca entre las tres fuentes a la vez).
-  if (fuente === 'organigrama' || fuente === 'ambos') {
+  if (!acotarA && (fuente === 'organigrama' || fuente === 'ambos')) {
     const condicionesOrg = [];
     const paramsOrg = [];
     if (filtros.organigrama_cargo) {
@@ -535,6 +564,10 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
     const [filasOrg] = await pool.query(`
       SELECT id, cargo, nombre, nombres, apellidos, telefono, email, nivel FROM organigrama_nodos ${whereOrg}
     `, paramsOrg);
+    /* LA BAJA DE UN CARGO DEL ORGANIGRAMA. Los nodos no tienen columna `no_contactar`, pero su teléfono o su correo
+       pueden ser los de una persona dada de baja en Votantes o en la Estructura (la baja es de la persona, no de la
+       ficha). Se busca en un solo lote. */
+    const bajasOrg = await contactosDeBaja({ telefonos: filasOrg.map(f => f.telefono), correos: filasOrg.map(f => f.email) });
     filasOrg.forEach(f => {
       const nombreCompleto = (f.nombres || f.apellidos)
         ? [f.nombres, f.apellidos].filter(Boolean).join(' ')
@@ -542,13 +575,15 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
       resultados.push({
         tipo: 'organigrama', id: f.id, nombre: nombreCompleto,
         contacto: esCanalDeCorreo(canal) ? (f.email || null) : (f.telefono || null),
+        dado_de_baja: esCanalDeCorreo(canal) ? bajasOrg.correos.has(String(f.email || '').trim().toLowerCase())
+          : bajasOrg.telefonos.has(String(f.telefono || '').replace(/\D/g, '').slice(-10)) && !!String(f.telefono || '').replace(/\D/g, ''),
         detalle: [f.cargo, ETIQUETAS_NIVEL[f.nivel]].filter(Boolean).join(' · ')
       });
     });
   }
 
-  resultados.push(...await destinatariosDeSeleccion(filtros.seleccion, canal));
-  resultados.push(...await resolverManualesContraLaBase(parsearDestinatariosManuales(filtros.manual), canal));
+  resultados.push(...await destinatariosDeSeleccion(filtros.seleccion, canal, acotarA));
+  resultados.push(...await resolverManualesContraLaBase(parsearDestinatariosManuales(filtros.manual), canal, acotarA));
 
   // PUSH: el "contacto" no es un correo ni un teléfono, es la cuenta.
   // Solo tiene contacto quien haya registrado al menos un dispositivo, y
@@ -597,7 +632,8 @@ async function obtenerDestinatarios(filtros, canal, alcance = null) {
  */
 async function alcanceSiHaceFalta(req, res, grupos) {
   const lista = Array.isArray(grupos) ? grupos : [grupos];
-  if (!lista.some(g => g && g.fuente === 'mis_votantes_sin_voto')) return null;
+  // También para quien está acotado (líder, asistente: parche 327): su alcance decide a quién puede escribirle.
+  if (!debeAcotarEnvio(req) && !lista.some(g => g && g.fuente === 'mis_votantes_sin_voto')) return null;
   if (!req.alcance) {
     await new Promise((ok, no) => calcularAlcance(req, res, (e) => (e ? no(e) : ok())));
   }
@@ -647,7 +683,6 @@ async function esPendienteDeConfirmar(votanteId) {
   return !!f;
 }
 
-const MARCADOR_ENLACE = /\{enlace_ya_vote\}/i;
 
 /**
  * LA REGLA ESTRICTA DEL ENLACE «YA VOTÉ». Solo se aplica a un mensaje que lleva
@@ -686,11 +721,11 @@ async function aplicarReglaDelEnlace(destinatarios, canal) {
   return destinatarios;
 }
 
-async function obtenerDestinatariosDeGrupos(grupos, canal, alcance = null) {
+async function obtenerDestinatariosDeGrupos(grupos, canal, alcance = null, acotar = false) {
   if (!Array.isArray(grupos)) grupos = [grupos]; // compatibilidad: también acepta un solo grupo suelto
   const resultados = [];
   for (const grupo of grupos) {
-    resultados.push(...await obtenerDestinatarios(grupo || {}, canal, alcance));
+    resultados.push(...await obtenerDestinatarios(grupo || {}, canal, alcance, acotar));
   }
   const vistos = new Set();
   return resultados.filter(d => {
@@ -735,7 +770,7 @@ router.get('/estado-canales', async (req, res) => {
    Aquí solo se lee. Sin esta pantalla, las respuestas quedarían guardadas
    e invisibles, que es casi lo mismo que no tenerlas.
    ------------------------------------------------------------------ */
-router.get('/respuestas', async (req, res) => {
+router.get('/respuestas', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
     const soloNuevas = req.query.no_leidas === '1';
     const [filas] = await pool.query(
@@ -755,7 +790,7 @@ router.get('/respuestas', async (req, res) => {
   }
 });
 
-router.post('/respuestas/:id/leida', async (req, res) => {
+router.post('/respuestas/:id/leida', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
     await pool.query(`UPDATE comunicaciones_respuestas SET leida = 1 WHERE id = ?`, [req.params.id]);
     res.json({ ok: true });
@@ -777,6 +812,7 @@ router.post('/respuestas/:id/leida', async (req, res) => {
  */
 router.post('/campanas/:id/reintentar-fallidos', async (req, res) => {
   try {
+    if (!(await campanaEnAlcance(req, req.params.id))) return res.status(404).json({ error: 'Campaña no encontrada.' });
     const r = await reintentarFallidos(Number(req.params.id));
     if (r.enProceso) return res.status(409).json({ error: 'Esta campaña todavía se está enviando. Espera a que termine para reintentar los que fallaron.' });
     res.json({ ok: true, reintentados: r.reintentados });
@@ -843,7 +879,7 @@ router.post('/destinatarios/preview', async (req, res) => {
   try {
     const { filtros, canal, completo, mensaje } = req.body;
     const alcance = await alcanceSiHaceFalta(req, res, filtros || {});
-    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email', alcance);
+    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal || 'email', alcance, debeAcotarEnvio(req));
     // Un mensaje con {enlace_ya_vote} se manda solo con consentimiento explícito.
     const conEnlace = MARCADOR_ENLACE.test(String(mensaje || ''));
     if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal || 'sms');
@@ -899,7 +935,7 @@ router.get('/destinatarios/buscar', async (req, res) => {
     const texto = String(req.query.q || '').trim().toLowerCase();
     if (texto.length < 2) return res.json([]);
 
-    const todos = await obtenerDestinatarios({ fuente: 'ambos' }, canal);
+    const todos = await obtenerDestinatarios({ fuente: 'ambos' }, canal, await alcanceSiHaceFalta(req, res, {}), debeAcotarEnvio(req));
     // Se busca tanto en el nombre como en el "detalle" (que para Organigrama
     // trae el Cargo y el Nivel, y para Estructura trae el Cargo y el
     // Territorio) — así, escribir un cargo o un nivel también encuentra a
@@ -928,6 +964,9 @@ router.get('/campanas', async (req, res) => {
     // que un estado nuevo entre solo en vez de quedarse invisible como
     // estos. 'pendiente' y 'enviando' quedan fuera: esos todavía van en camino (una fila «enviando» se contaba como omitida y la
     // campaña parecía «Enviando… · 1 omitido» aunque nadie la hubiera omitido).
+    /* EL HISTORIAL SE ACOTA POR AUTOR (parche 327): el administrador ve todo, el coordinador lo suyo y su rama, el
+       líder lo suyo y lo de su equipo, el asistente administrativo solo lo suyo (lib/alcanceCampanas.js). */
+    const alcanceHistorial = condicionCampanas(req);
     const [filas] = await pool.query(`
       SELECT c.*, u.nombre AS creado_por_nombre,
              (SELECT COUNT(*) FROM comunicaciones_envios e
@@ -935,9 +974,10 @@ router.get('/campanas', async (req, res) => {
                  AND e.estado NOT IN ('enviado', 'fallido', 'pendiente', 'enviando')) AS omitidos
       FROM comunicaciones_campanas c
       LEFT JOIN usuarios u ON u.id = c.created_by
+      WHERE ${alcanceHistorial.sql}
       ORDER BY c.created_at DESC
       LIMIT 100
-    `);
+    `, alcanceHistorial.params);
     res.json(filas);
   } catch (err) {
     console.error(err);
@@ -1011,9 +1051,10 @@ router.delete('/campanas', requireRole('admin'), async (req, res) => {
   }
 });
 
-// Elimina UNA sola campaña puntual (y sus envíos, en cascada). Disponible
-// para los mismos roles que ya pueden usar este módulo — al ser un solo
-// registro (no un borrado masivo), no pide contraseña de administrador.
+// Elimina UNA sola campaña puntual (y sus envíos, en cascada). SOLO EL ADMINISTRADOR (parche 327):
+// hasta el 326 la podía borrar cualquier rol del módulo —incluido un líder, con la campaña de otro—, y lo
+// que se pierde es la constancia de a quién se le escribió. Al ser un solo registro (no un borrado
+// masivo), no pide contraseña de administrador.
 /* QUEDA CONSTANCIA, Y LO QUE SE PIERDE ES LA PRUEBA DE ENVÍO.
  *
  * Borrar una campaña se lleva en cascada sus `comunicaciones_envios`: a quién
@@ -1025,7 +1066,7 @@ router.delete('/campanas', requireRole('admin'), async (req, res) => {
  * Esta ruta NO pide contraseña, a diferencia del borrado de todas: es una sola
  * fila y así estaba decidido. El apunte no cambia esa decisión — la
  * complementa, que es lo que faltaba. */
-router.delete('/campanas/:id', async (req, res) => {
+router.delete('/campanas/:id', requireRole('admin'), async (req, res) => {
   /* LA CONEXIÓN SE PIDE DENTRO DEL `try`. Fuera, si el pool está agotado o
      MySQL no responde, la promesa se rechaza donde no la ve ningún `catch`:
      Express 4 no envuelve los manejadores `async`, así que muere en el
@@ -1085,6 +1126,8 @@ router.delete('/campanas/:id', async (req, res) => {
 // Detalle de una campaña: quién recibió el mensaje y con qué resultado.
 router.get('/campanas/:id', async (req, res) => {
   try {
+    // Fuera de su alcance responde igual que una campaña que no existe (404): un 403 confirmaría que existe.
+    if (!(await campanaEnAlcance(req, req.params.id))) return res.status(404).json({ error: 'Campaña no encontrada.' });
     const [[campana]] = await pool.query(`SELECT * FROM comunicaciones_campanas WHERE id = ?`, [req.params.id]);
     if (!campana) return res.status(404).json({ error: 'Campaña no encontrada.' });
     const [envios] = await pool.query(
@@ -1453,47 +1496,6 @@ async function reclamarFila(envioId, proceso) {
   return r.affectedRows === 1;
 }
 
-/** ¿La campaña es de Día D? Lleva el enlace «Ya voté» o su fuente es «mis votantes que aún no han votado». */
-function esCampanaDeDiaD(campana) {
-  if (MARCADOR_ENLACE.test(campana.mensaje || '')) return true;
-  const f = typeof campana.filtros === 'string' ? campana.filtros : JSON.stringify(campana.filtros || {});
-  return f.includes('mis_votantes_sin_voto');
-}
-
-/**
- * Lo que ya no aplica ENTRE crear la campaña y enviarla. Devuelve el motivo (texto) o null si se puede enviar.
- * Vuelve a leer la ficha: baja, autorización del canal y, en Día D, si ya votó.
- *   · Autorización: la regla general deja pasar el NULL («no consta») y solo bloquea un 0; con {enlace_ya_vote}
- *     por SMS la regla es la estricta (solo un 1), la misma de aplicarReglaDelEnlace.
- */
-async function releerAntesDeEnviar(envio, campana) {
-  const canal = campana.canal;
-  const diaD = esCampanaDeDiaD(campana);
-  const estricta = canal === 'sms' && MARCADOR_ENLACE.test(campana.mensaje || '');
-  if (envio.destinatario_tipo === 'votante' && envio.destinatario_id) {
-    const [[v]] = await pool.query(
-      `SELECT v.no_contactar, v.consentimiento_sms, v.consentimiento_email,
-              EXISTS(SELECT 1 FROM votante_votos vv WHERE vv.votante_id = v.id) AS ya_voto
-         FROM votantes v WHERE v.id = ?`, [envio.destinatario_id]);
-    if (!v) return 'La persona ya no está registrada.';
-    if (Number(v.no_contactar) === 1) return 'Pidió no recibir más mensajes: se respetó antes de enviar.';
-    const columna = canal === 'sms' ? 'consentimiento_sms' : esCanalDeCorreo(canal) ? 'consentimiento_email' : null;
-    if (columna) {
-      const valor = v[columna];
-      const autoriza = estricta ? Number(valor) === 1 : (valor === null || valor === undefined || Number(valor) === 1);
-      if (!autoriza) return estricta && (valor === null || valor === undefined)
-        ? 'No consta su autorización por este medio (el enlace «Ya voté» solo va a quien dijo que sí).'
-        : 'Retiró su autorización por este medio: se respetó antes de enviar.';
-    }
-    if (diaD && Number(v.ya_voto) === 1) return 'Ya votó: no hace falta escribirle.';
-  } else if (envio.destinatario_tipo === 'estructura' && envio.destinatario_id) {
-    const [[u]] = await pool.query(
-      `SELECT u.no_contactar FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id = ?`, [envio.destinatario_id]);
-    if (u && Number(u.no_contactar) === 1) return 'Pidió no recibir más mensajes: se respetó antes de enviar.';
-  }
-  return null;
-}
-
 /** Una campaña de SMS fuera de franja NO falla: se reprograma para la apertura de la siguiente. */
 async function reprogramarPorFranja(campanaId) {
   let minutos = 60;
@@ -1726,9 +1728,10 @@ async function enviarFilasDeLaCampana(campanaId) {
           break;
         }
         if (err && err.codigo === 'DADO_DE_BAJA') {
-          // La baja por número (SMS) que se vuelve a mirar dentro del propio envío.
+          // La baja por número (SMS) o por correo que se vuelve a mirar dentro de la propia salida: 'omitido', nunca 'fallido'.
           await pool.query(`UPDATE comunicaciones_envios SET estado = 'omitido', error_mensaje = ? WHERE id = ?`,
-            ['Ese número pidió no recibir más mensajes: se respetó antes de enviar.', envio.id]);
+            [esCanalDeCorreo(canal) ? 'Ese correo pidió no recibir más mensajes: se respetó antes de enviar.'
+              : 'Ese número pidió no recibir más mensajes: se respetó antes de enviar.', envio.id]);
           continue;
         }
         await pool.query(
@@ -1907,7 +1910,7 @@ router.post('/campanas', upload.single('archivo'), async (req, res) => {
 
   try {
     const alcance = await alcanceSiHaceFalta(req, res, filtros || {});
-    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal, alcance);
+    let destinatarios = await obtenerDestinatariosDeGrupos(filtros || {}, canal, alcance, debeAcotarEnvio(req));
     if (conEnlace) destinatarios = await aplicarReglaDelEnlace(destinatarios, canal);
     destinatarios = await marcarPendientesDeConfirmar(destinatarios);
     if (destinatarios.length === 0) {

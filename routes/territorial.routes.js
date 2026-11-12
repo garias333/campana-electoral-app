@@ -61,6 +61,7 @@ const {
   referenciasDe, referenciasGlobales, describirReferencias, limpiarNombre, abreviar
 } = require('../config/territoriosValidacion');
 
+const { sqlDeMiRama } = require('../lib/alcanceCampanas');
 const router = express.Router();
 
 /**
@@ -1009,7 +1010,15 @@ router.get('/estructura', async (req, res) => {
                                        WHERE ee.estructura_id = e.id AND ee.aspirante_id = ?)`);
         params.push(req.sublicencia.usuario_id);
       }
-    } else if (!['admin', 'coordinador'].includes(usuario.rol)) {
+    } else if (usuario.rol === 'coordinador') {
+      /* EL COORDINADOR VE SU RAMA, NO TODA LA ESTRUCTURA (parche 327). Hasta el 326 recibía el nombre, la cédula, el
+         correo y el teléfono de TODAS las personas de la campaña, aunque su pantalla de Votantes sí estuviera acotada a
+         su rama. Es la misma condición de lib/alcanceVotantes.js: él, sus líderes y los sublíderes de esos líderes.
+         El administrador sigue viendo todo. */
+      const rama = sqlDeMiRama('e.usuario_id', usuario.id);
+      condiciones.push(rama.sql);
+      params.push(...rama.params);
+    } else if (usuario.rol !== 'admin') {
       condiciones.push('(e.supervisor_id = ? OR e.usuario_id = ?)');
       params.push(usuario.id, usuario.id);
     }
@@ -2015,6 +2024,8 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
        de esconder. Una lista que se ve y otra que se descarga, distintas, es
        peor que no filtrar — nadie sospecha de un archivo. */
     const deLaMadre = await filtroMadreEstructura(pool, await cargoDeLaMadre());
+    /* Y SOLO SU RAMA, igual que en la pantalla (parche 327): el coordinador exportaba la estructura entera. */
+    const ramaCoord = req.session.usuario.rol === 'coordinador' ? sqlDeMiRama('e.usuario_id', req.session.usuario.id) : null;
     const [filas] = await pool.query(`
       SELECT e.id AS estructura_id, u.nombre, u.numero_identificacion, u.email, u.telefono, u.genero, u.edad,
              u.departamento_residencia, u.ciudad_residencia,
@@ -2034,8 +2045,9 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
       LEFT JOIN usuarios sup ON sup.id = e.supervisor_id
       WHERE e.cargo != 'testigo'
       ${deLaMadre ? 'AND ' + deLaMadre.sql : ''}
+      ${ramaCoord ? 'AND ' + ramaCoord.sql : ''}
       ORDER BY e.cargo, u.nombre
-    `, deLaMadre ? deLaMadre.valores : []);
+    `, [...(deLaMadre ? deLaMadre.valores : []), ...(ramaCoord ? ramaCoord.params : [])]);
 
     const ETIQUETAS_GENERO = {
       mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder'

@@ -17,12 +17,12 @@ Sirve para avisos puntuales por mensaje de texto a una persona o a un grupo pequ
 - **Paso 1, a quién**: buscador por nombre, cargo o nivel, cuadro para pegar números a mano, y [[+ Agregar grupo o subgrupo]]. Los elegidos quedan en **Seleccionados**.
 - **Paso 2, el mensaje**: el cuadro **Mensaje** con `{nombre}`, plantillas, [[Insertar mensaje de Día D]] y el botón [[Enviar SMS]].
 - **Contador** bajo el mensaje: «N caracteres · N SMS», cuánto suman la **firma** del operador y el **enlace de baja** que se pega solo al final, salvo que el administrador lo apague (unos 78 caracteres según el dominio de tu campaña; escribe `{baja}` para ponerlo en otro sitio) y, con destinatarios elegidos, cuántos «mensajes facturados» son. Cada SMS (segmento) gasta un crédito de la campaña; el saldo lo ve el administrador en Configurar mensajería.
-- **Historial de envíos**: Nombre, Estado, Destinatarios, Enviados, Fallidos, Omitidos y Fecha.
+- **Historial de envíos**: Nombre, Estado, Destinatarios, Enviados, Fallidos, Omitidos y Fecha. Cada quien ve solo sus envíos y los de su equipo (el administrador, todos; el asistente administrativo, solo los suyos); borrarlos es solo del administrador.
 
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el historial y el detalle.
-- **Agregar**: escribir y enviar SMS (administrador, coordinador, líder y asistente administrativo). Al pulsar [[Enviar SMS]], la app pregunta «Vas a enviar este SMS a N persona(s). ¿Confirmas?».
+- **Agregar**: escribir y enviar SMS (administrador, coordinador, líder y asistente administrativo). Si eres líder o asistente administrativo, el buscador y los grupos solo muestran a tu propia gente. Al pulsar [[Enviar SMS]], la app pregunta «Vas a enviar este SMS a N persona(s). ¿Confirmas?».
 
 ## Tareas frecuentes
 

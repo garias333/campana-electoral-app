@@ -464,7 +464,7 @@ async function cargarHistorial() {
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalle(${c.id})">Ver detalle</button>
-        <button class="btn-peligro btn-sm"  onclick="eliminarEnvio(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+        ${usuarioActual && usuarioActual.rol === 'admin' ? `<button class="btn-peligro btn-sm"  onclick="eliminarEnvio(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');

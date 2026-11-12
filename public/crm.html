@@ -538,7 +538,7 @@ async function cargarCampanas() {
       <td>${formatoFecha(c.created_at, true)}</td>
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick="verDetalleCampana(${c.id})">Ver detalle</button>
-        <button class="btn-peligro btn-sm"  onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>
+        ${usuarioActual && usuarioActual.rol === 'admin' ? `<button class="btn-peligro btn-sm"  onclick="eliminarCampana(${c.id}, '${c.nombre.replace(/'/g, "&apos;")}')">Eliminar</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -644,6 +644,8 @@ document.querySelectorAll('#botones-eliminar-por-canal [data-canal]').forEach(bo
   // despues de este await. Llamandola afuera corria antes, veia undefined y
   // se saltaba el boton — sin dar ningun error.
   await cargarBajas();
+  // Las respuestas recibidas son de administrador y coordinador (parche 327): a los demás ni se les pide.
+  if (['admin', 'coordinador'].includes(usuarioActual.rol)) cargarRespuestas();
 })();
 /**
  * Deja escrito un mensaje de Día D listo para enviar. No pisa lo que ya
@@ -779,7 +781,7 @@ document.getElementById('btn-ver-todas-respuestas').addEventListener('click', (e
   e.target.textContent = respuestasTodas ? 'Ver solo sin leer' : 'Ver todas';
   cargarRespuestas();
 });
-cargarRespuestas();
+// (se llama dentro de la carga inicial, cuando ya se sabe quién es: las respuestas son solo del administrador y el coordinador)
 
 /* Contador de SMS en el envío por campaña. Solo tiene sentido en SMS:
    en correo no hay segmentos que contar. */

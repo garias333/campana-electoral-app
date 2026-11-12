@@ -23,7 +23,7 @@ Aquí está el equipo de la campaña por territorio: quién coordina qué zona, 
 
 ## Qué puedes hacer según tu permiso
 
-- **Ver**: consultar la lista, filtrar y escribir por WhatsApp a quien tenga teléfono. El administrador y el coordinador ven la estructura de su campaña; un líder ve solo su ficha y las de quienes le reportan.
+- **Ver**: consultar la lista, filtrar y escribir por WhatsApp a quien tenga teléfono. El administrador ve la estructura de toda la campaña; el coordinador, la suya (él, sus líderes y los sublíderes de esos líderes), y lo mismo se baja en Excel; un líder ve solo su ficha y las de quienes le reportan.
 - **Editar**: cambiar una ficha con [[Editar]] (administrador y coordinador); pide tu contraseña al abrirla. Solo el administrador ve el botón [[Eliminar]] en cada ficha.
 - **Agregar**: crear coordinadores, líderes y sublíderes ({{t-estructura-agregar}}). Lo hacen el administrador y el coordinador.
 - **Importar / Exportar**: pasar la estructura a Excel y volver a cargarla ({{t-estructura-importar}}).
