@@ -23,7 +23,7 @@ Si hoy no es la «Fecha de elecciones» que configuró el administrador (o todav
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: abrir la pantalla y consultar tu lista. Cada rol ve solo a sus votantes: el líder, los suyos y los de sus sublíderes; el sublíder, los que él registró; el coordinador, los de su rama; el administrador, los de toda la campaña.
-- **Editar**: marcar «Ya votó», deshacer una marca y marcar quién necesita transporte, siempre sobre las personas de tu lista. Hoy la pantalla no revisa este permiso aparte: quien tiene «Ver» también puede marcar. Ver {{t-marcar-ya-voto}}.
+- **Editar**: marcar «Ya votó», deshacer una marca y marcar quién necesita transporte, siempre sobre las personas de tu lista. El servidor exige este permiso: quien tiene «Ver» y no «Editar» puede mirar la lista pero no marcar nada (de fábrica lo tienen quienes ya tenían «Ver»). Ver {{t-marcar-ya-voto}}.
 - **Agregar**: no aplica; las personas se registran en Votantes.
 - **Administrador**: en el escritorio ve [[Vaciar marcas (simulacro)]], que borra las marcas y los enlaces de su alcance tras un ensayo; pide su contraseña.
 

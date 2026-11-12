@@ -2612,3 +2612,29 @@ html.modo-app #chips-cargo-persona .chip-form:has(:focus-visible) { outline: 3px
 .modal-largo .modal-pie button:disabled { opacity: .6; cursor: not-allowed; }
 /* Foco de teclado visible (halo azul) en todos: anillo azul separado del botón por un espacio, más un halo suave. */
 .modal-largo .modal-pie button:focus-visible { outline: 3px solid #0B5ED7; outline-offset: 2px; box-shadow: 0 0 0 7px rgba(11, 94, 215, .18); }
+
+/* ============================================================
+   «EDITAR» EN EL DÍA D (parche 328, orden 42)
+   common.js pone en <html> data-sin-editar="<módulos sin editar>". Estas reglas esconden los controles que ESCRIBEN en cada módulo; el servidor
+   responde 403 igual (middleware/permisoModulo.js, requiereEditarModulo). Lo que solo mira (listas, contadores, Excel) queda a la vista.
+   ============================================================ */
+/* Transporte: asignar, quitar, editar paradas, conductores y vehículos. */
+html[data-sin-editar~="transporte_dia_d"] #tr-btn-asignar, html[data-sin-editar~="transporte_dia_d"] #tr-btn-quitar,
+html[data-sin-editar~="transporte_dia_d"] #tr-asignar-a, html[data-sin-editar~="transporte_dia_d"] #tr-btn-nuevo-cond,
+html[data-sin-editar~="transporte_dia_d"] #tr-btn-nuevo-veh, html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-detalle],
+html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-rotar], html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-ordenar],
+html[data-sin-editar~="transporte_dia_d"] #vista-transporte select[data-origen], html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-editar-cond],
+html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-activo-cond], html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-editar-veh],
+html[data-sin-editar~="transporte_dia_d"] #vista-transporte [data-activo-veh], html[data-sin-editar~="transporte_dia_d"] #vista-transporte input[data-sel] { display: none !important; }
+html[data-sin-editar~="transporte_dia_d"] #vista-transporte select[data-veh] { pointer-events: none; opacity: .6; }
+/* Logística: crear y guardar ítems y cambiar el plan por puesto. */
+html[data-sin-editar~="logistica_dia_d"] #lg-nuevo-nombre, html[data-sin-editar~="logistica_dia_d"] #lg-nuevo-para,
+html[data-sin-editar~="logistica_dia_d"] #lg-nuevo-hora, html[data-sin-editar~="logistica_dia_d"] #lg-crear,
+html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-guardar], html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-volver] { display: none !important; }
+html[data-sin-editar~="logistica_dia_d"] #vista-logistica input[data-item], html[data-sin-editar~="logistica_dia_d"] #vista-logistica [data-campo] { pointer-events: none; opacity: .65; }
+/* Alertas: «Atendida» y «Quitar atendida». */
+html[data-sin-editar~="alertas_dia_d"] [data-acc="atendida"] { display: none !important; }
+/* Resultados: digitar el resultado oficial, marcar «para reclamar»/revisar y armar el paquete. */
+html[data-sin-editar~="resultados_dia_d"] #of-guardar, html[data-sin-editar~="resultados_dia_d"] #btn-paquete,
+html[data-sin-editar~="resultados_dia_d"] #rev-guardar, html[data-sin-editar~="resultados_dia_d"] #tbody-dif .dif-marca { display: none !important; }
+html[data-sin-editar~="resultados_dia_d"] #modal-revision select, html[data-sin-editar~="resultados_dia_d"] #modal-revision textarea { pointer-events: none; opacity: .65; }

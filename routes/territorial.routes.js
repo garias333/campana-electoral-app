@@ -62,6 +62,7 @@ const {
 } = require('../config/territoriosValidacion');
 
 const { sqlDeMiRama } = require('../lib/alcanceCampanas');
+const IC = require('../lib/importarCeldas');
 const router = express.Router();
 
 /**
@@ -2182,15 +2183,20 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
       return resultado;
     }
 
+    let camposBorrados = 0;          // celdas con «-» que borraron un dato a propósito (orden 42)
+    const avisos = [];
+
     for (const [i, fila] of filas.entries()) {
       const idFila = String(fila['ID'] || fila.id || '').trim() || null;
-      const nombre = String(fila.Nombre || fila.nombre || '').trim();
-      const email = String(fila.Email || fila.email || '').trim().toLowerCase();
-      // Tolerante: si el teléfono de la fila no tiene 10 dígitos, se
-      // importa la persona igual, solo que sin teléfono (no se rechaza la
-      // fila completa por ese único campo).
-      const telefono = normalizarTelefonoImportado(fila.Teléfono || fila.Telefono || fila.telefono || '');
-      let cargo = String(fila.Cargo || fila.cargo || '').trim().toLowerCase();
+      const avisoFila = (texto) => avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: ${texto}` });
+      /* LAS CELDAS SE LEEN CRUDAS (orden 42, lib/importarCeldas.js): vacía = no toca el dato, «-» = lo borra (solo en las
+         columnas opcionales), otra cosa = el valor. Hasta el 327 lo vacío pisaba la ficha con NULL y con valores por defecto
+         (género, metas 0), y además se copiaba a Votantes. */
+      const nombreCrudo = IC.crudoDe(fila, 'Nombre', 'nombre');
+      const nombre = IC.texto(nombreCrudo);
+      const cedulaCrudaE = IC.crudoDe(fila, 'Número de identificación', 'numero_identificacion');
+      const cargoCrudo = IC.crudoDe(fila, 'Cargo', 'cargo');
+      let cargo = IC.texto(cargoCrudo).toLowerCase();
       if (cargo === 'coordinador organizaciones') cargo = 'coordinador_organizaciones';
       if (cargo === 'sublíder' || cargo === 'sublider') cargo = 'usuario';
       const area = String(fila.Área || fila.Area || fila.area || '').trim();
@@ -2198,37 +2204,79 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
       const barrio = String(fila.Barrio || fila.barrio || '').trim();
       const corregimiento = String(fila.Corregimiento || fila.corregimiento || '').trim();
       const vereda = String(fila.Vereda || fila.vereda || '').trim();
-      const metaVotos = fila['Meta votos'] || fila.meta_votos || 0;
-      const direccion = String(fila['Dirección de residencia'] || fila.Dirección || fila.Direccion || fila.direccion || '').trim() || null;
       const reportaEmail = String(fila['Reporta a'] || fila.reporta_a || '').trim().toLowerCase();
-      const numeroIdentificacion = String(fila['Número de identificación'] || fila.numero_identificacion || '').trim() || null;
-      const comunaCorregimientoResidencia = String(fila['Comuna o Corregimiento (residencia)'] || fila.comuna_corregimiento_residencia || '').trim() || null;
-      const barrioVeredaResidencia = String(fila['Barrio o Vereda (residencia)'] || '').trim() || null;
-      const departamentoResidenciaImport = String(fila['Departamento de residencia'] || fila.departamento_residencia || '').trim() || null;
-      const ciudadResidenciaImport = String(fila['Ciudad de residencia'] || fila.ciudad_residencia || '').trim() || null;
       const tipoCargoTexto = String(fila.Tipo || fila.tipo_cargo || '').trim();
-      const tipoCargoNormalizado = tipoCargoTexto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const tipoCargo = CLAVES_TIPO_CARGO[tipoCargoNormalizado] || null;
       const generoTexto = String(fila.Género || fila.Genero || fila.genero || '').trim().toLowerCase();
+      const organizacionCruda = IC.crudoDe(fila, 'Organización', 'organizacion');
+      const metaCruda = IC.crudoDe(fila, 'Meta votos', 'meta_votos');
+
+      // El «-» no borra en nombre, cédula, cargo, territorio, supervisor, metas ni en lo demás que no es opcional.
+      const errorMarca = IC.marcaEnColumnaNoBorrable([
+        ['Nombre', nombreCrudo], ['Número de identificación', cedulaCrudaE], ['Cargo', cargoCrudo],
+        ['Área', area], ['Comuna', comuna], ['Barrio', barrio], ['Corregimiento', corregimiento], ['Vereda', vereda],
+        ['Meta votos', metaCruda], ['Reporta a', reportaEmail], ['Tipo', tipoCargoTexto], ['Género', generoTexto],
+        ['Organización', organizacionCruda],
+      ]);
+      if (errorMarca) { errores.push({ fila: i + 2, error: errorMarca }); continue; }
+
+      const crudo = {
+        email: IC.crudoDe(fila, 'Email', 'email'),
+        telefono: IC.crudoDe(fila, 'Teléfono', 'Telefono', 'telefono'),
+        edad: IC.crudoDe(fila, 'Edad', 'edad'),
+        direccion: IC.crudoDe(fila, 'Dirección de residencia', 'Dirección', 'Direccion', 'direccion'),
+        comunaResidencia: IC.crudoDe(fila, 'Comuna o Corregimiento (residencia)', 'comuna_corregimiento_residencia'),
+        barrioResidencia: IC.crudoDe(fila, 'Barrio o Vereda (residencia)'),
+        departamentoResidencia: IC.crudoDe(fila, 'Departamento de residencia', 'departamento_residencia'),
+        ciudadResidencia: IC.crudoDe(fila, 'Ciudad de residencia', 'ciudad_residencia'),
+      };
+      const convertirEmail = (t) => (String(t).includes('@') ? String(t).toLowerCase() : undefined);
+      const convertirMeta = (t) => IC.enteroNoNegativo(String(t).replace(/[.,\s]/g, ''));
+      const tipoCargoNormalizado = tipoCargoTexto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const tipoCargo = CLAVES_TIPO_CARGO[tipoCargoNormalizado] || null;
       const MAPA_GENERO_IMPORT_ESTRUCTURA = {
         'mujer': 'mujer', 'f': 'mujer', 'femenino': 'mujer',
         'hombre': 'hombre', 'm': 'hombre', 'masculino': 'hombre',
         'no binario': 'no_binario', 'no_binario': 'no_binario', 'otro': 'no_binario',
         'prefiero no responder': 'prefiero_no_responder', 'prefiero_no_responder': 'prefiero_no_responder', 'no informa': 'prefiero_no_responder'
       };
+      // Con valor y sin reconocer queda «prefiero no responder», como siempre; VACÍO no toca (en una fila nueva, ese es el valor).
       const genero = MAPA_GENERO_IMPORT_ESTRUCTURA[generoTexto] || 'prefiero_no_responder';
-      const edad = parseInt(fila.Edad || fila.edad) || null;
-      const organizacionImport = String(fila['Organización'] || fila.organizacion || '').trim() || null;
-      // Un Coordinador Organizaciones no tiene territorio geográfico ni una
-      // única organización obligatoria — igual que en el formulario de una
-      // sola persona (ver parche 105).
-      const esCoordinadorOrganizacionesImport = cargo === 'coordinador_organizaciones';
-      const tipoAreaInfluenciaImport = organizacionImport ? 'organizacion' : 'territorio';
+      const generoDado = !IC.esVacia(generoTexto);
+      const organizacionImport = IC.texto(organizacionCruda) || null;
 
-      if (!nombre || !cargosValidos.includes(cargo)) {
+      /* La fila a ACTUALIZAR se lee ANTES: sin cargo, sin tipo o sin territorio en la celda, se conserva lo que ya tenía. */
+      let existenteFila = null;
+      if (idFila) {
+        const [[ex]] = await pool.query(
+          `SELECT e.usuario_id, e.supervisor_id, e.cargo, u.tipo_cargo, u.numero_identificacion
+             FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id = ?`, [idFila]);
+        if (!ex) {
+          errores.push({ fila: i + 2, error: `No existe un registro de Estructura con ID ${idFila} — no se puede actualizar. Borra la columna ID en esta fila si quieres crear uno nuevo.` });
+          continue;
+        }
+        existenteFila = ex;
+      }
+      if (cargo && !cargosValidos.includes(cargo)) {
+        errores.push({ fila: i + 2, error: 'Cargo no válido (Coordinador/Líder/Usuario/Testigo).' });
+        continue;
+      }
+      if (!existenteFila && (!nombre || !cargo)) {
         errores.push({ fila: i + 2, error: 'Nombre y Cargo (Coordinador/Líder/Usuario/Testigo) son obligatorios.' });
         continue;
       }
+      // Una fila NUEVA sin cédula ni correo es, sin duda, una cuenta nueva sin cédula: se dice ya, antes de revisar el territorio.
+      if (!existenteFila && IC.esVacia(cedulaCrudaE) && (IC.esVacia(crudo.email) || IC.esMarcaBorrar(crudo.email))) {
+        errores.push({ fila: i + 2, error: 'Falta la cédula para crear la cuenta.' });
+        continue;
+      }
+      const cargoEfectivo = cargo || (existenteFila && existenteFila.cargo);
+      const tipoCargoEfectivo = tipoCargo || (existenteFila && existenteFila.tipo_cargo) || null;
+      if (tipoCargoTexto && !tipoCargo) avisoFila('el Tipo no se reconoce, se dejó el que tenía.');
+      // Un Coordinador Organizaciones no tiene territorio geográfico ni una
+      // única organización obligatoria — igual que en el formulario de una
+      // sola persona (ver parche 105).
+      const esCoordinadorOrganizacionesImport = cargoEfectivo === 'coordinador_organizaciones';
+      const hayTerritorioEnFila = !!(comuna || barrio || corregimiento || vereda);
 
       /* Un Coordinador se asigna directamente a la Comuna o Corregimiento
          (permitirSoloZona), sin necesidad de Barrio/Vereda. Un Coordinador
@@ -2243,15 +2291,17 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
          un aspirante que se puede crear a mano sin barrio fallaría al
          importarlo por Excel. */
       let territorioIdImport = null;
-      if (!esCoordinadorOrganizacionesImport) {
-        const soloZonaImport = cargo === 'coordinador'
-          || (cargo === 'lider' && tipoCargo === 'aspirante_concejo');
+      if (existenteFila && !hayTerritorioEnFila && !area) {
+        // Al ACTUALIZAR sin ninguna celda de territorio: no se toca el territorio (antes era un error «Debe indicar Área…»).
+      } else if (!esCoordinadorOrganizacionesImport) {
+        const soloZonaImport = cargoEfectivo === 'coordinador'
+          || (cargoEfectivo === 'lider' && tipoCargoEfectivo === 'aspirante_concejo');
         const resuelto = await resolverTerritorioConCache({
           area, comuna, barrio, corregimiento, vereda, permitirSoloZona: soloZonaImport
         });
         if (resuelto.error) { errores.push({ fila: i + 2, error: resuelto.error }); continue; }
         if (!resuelto.territorioId) {
-          errores.push({ fila: i + 2, error: cargo === 'coordinador'
+          errores.push({ fila: i + 2, error: cargoEfectivo === 'coordinador'
             ? 'Debe indicar Área + Comuna (o Corregimiento).'
             : 'Debe indicar Área + (Comuna y Barrio) o (Corregimiento y Vereda).' });
           continue;
@@ -2274,19 +2324,49 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
       }
       const tocarSupervisor = !!reportaEmail;
 
+      // Los valores para una fila NUEVA. Al ACTUALIZAR se arma `cambios` más abajo.
+      const nTel = IC.valorNuevo(crudo.telefono, normalizarTelefonoImportado);
+      const nEdad = IC.valorNuevo(crudo.edad, IC.enteroPositivo);
+      const nMeta = IC.valorNuevo(metaCruda, convertirMeta);
+      const nEmail = IC.valorNuevo(crudo.email, convertirEmail);
+      const telefono = nTel.valor;
+      const email = nEmail.valor || '';
+      const edad = nEdad.valor;
+      const metaVotos = nMeta.valor || 0;                 // una fila NUEVA sin meta nace en 0; al actualizar vacío no toca
+      const direccion = IC.valorNuevo(crudo.direccion).valor;
+      const numeroIdentificacion = IC.texto(cedulaCrudaE) || null;
+      const comunaCorregimientoResidencia = IC.valorNuevo(crudo.comunaResidencia).valor;
+      const barrioVeredaResidencia = IC.valorNuevo(crudo.barrioResidencia).valor;
+      const departamentoResidenciaImport = IC.valorNuevo(crudo.departamentoResidencia).valor;
+      const ciudadResidenciaImport = IC.valorNuevo(crudo.ciudadResidencia).valor;
+      const tipoAreaInfluenciaImport = organizacionImport ? 'organizacion' : 'territorio';
+
+      /* LO QUE SE COPIA A VOTANTES (orden 42): solo lo que la fila trae. `conservar_vacios` hace que lo que no viene (o que
+         se borró con «-» en Estructura) NO pise la ficha de Votantes: un Excel de estructura no puede borrar datos de ahí. */
+      const sincronizarConVotantes = async (cedulaFicha, nombreFicha) => {
+        const votanteActual = await traerVotanteActualPorCedula(pool, cedulaFicha);
+        await sincronizarVotanteDesdeEstructura(pool, {
+          nombre: nombreFicha, numero_identificacion: cedulaFicha, telefono, email, genero, genero_dado: generoDado, edad,
+          apoya_a: votanteActual ? votanteActual.apoya_a : [],
+          departamento_votacion: votanteActual ? votanteActual.departamento_votacion : null,
+          municipio_votacion: votanteActual ? votanteActual.municipio_votacion : null,
+          puesto_votacion: votanteActual ? votanteActual.puesto_votacion : null,
+          mesa_votacion: votanteActual ? votanteActual.mesa_votacion : null,
+          departamento_residencia: departamentoResidenciaImport, ciudad_residencia: ciudadResidenciaImport,
+          comuna_corregimiento_residencia: comunaCorregimientoResidencia, barrio_residencia: barrioVeredaResidencia,
+          direccion, territorio_id: territorioIdImport, creado_por: req.session.usuario.id,
+          conservar_vacios: true
+        });
+      };
+
       if (idFila) {
         // --- Modo actualizar: la fila trae un ID de Estructura existente.
         // No se toca nombre_usuario, password_hash ni debe_cambiar_password
         // — actualizar datos por Excel nunca debe resetear el acceso de
         // nadie a la aplicación. ---
         try {
-          const [[existente]] = await pool.query(`SELECT usuario_id, supervisor_id FROM estructura WHERE id = ?`, [idFila]);
-          if (!existente) {
-            errores.push({ fila: i + 2, error: `No existe un registro de Estructura con ID ${idFila} — no se puede actualizar. Borra la columna ID en esta fila si quieres crear uno nuevo.` });
-            continue;
-          }
-          const usuarioId = existente.usuario_id;
-          const supervisorIdAnteriorFila = existente.supervisor_id;
+          const usuarioId = existenteFila.usuario_id;
+          const supervisorIdAnteriorFila = existenteFila.supervisor_id;
           if (numeroIdentificacion) {
             const [dupeCed] = await pool.query(`SELECT id FROM usuarios WHERE numero_identificacion = ? AND id != ?`, [numeroIdentificacion, usuarioId]);
             if (dupeCed.length) { errores.push({ fila: i + 2, error: 'Número de identificación duplicado (pertenece a otro usuario).' }); continue; }
@@ -2296,27 +2376,47 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
             if (dupeEmail.length) { errores.push({ fila: i + 2, error: 'Ese email ya pertenece a otro usuario.' }); continue; }
           }
 
+          // SOLO LAS COLUMNAS DE LAS CELDAS QUE TRAEN ALGO.
+          const cambiosU = new IC.Cambios();
+          if (nombre) cambiosU.poner('nombre', nombre);
+          if (numeroIdentificacion) cambiosU.poner('numero_identificacion', numeroIdentificacion);
+          IC.aplicarOpcional(cambiosU, 'comuna_corregimiento_residencia', crudo.comunaResidencia);
+          IC.aplicarOpcional(cambiosU, 'barrio_residencia', crudo.barrioResidencia);
+          IC.aplicarOpcional(cambiosU, 'departamento_residencia', crudo.departamentoResidencia);
+          IC.aplicarOpcional(cambiosU, 'ciudad_residencia', crudo.ciudadResidencia);
+          if (tipoCargo) cambiosU.poner('tipo_cargo', tipoCargo);
+          if (IC.aplicarOpcional(cambiosU, 'email', crudo.email, convertirEmail) === 'invalido') avisoFila('correo inválido, se dejó el que tenía.');
+          if (IC.aplicarOpcional(cambiosU, 'telefono', crudo.telefono, normalizarTelefonoImportado) === 'invalido') avisoFila('teléfono inválido, se dejó el que tenía.');
+          if (generoDado) cambiosU.poner('genero', genero);
+          if (IC.aplicarOpcional(cambiosU, 'edad', crudo.edad, IC.enteroPositivo) === 'invalido') avisoFila('edad inválida, se dejó la que tenía.');
+
+          const cambiosE = new IC.Cambios();
+          if (cargo) cambiosE.poner('cargo', cargo);
+          if (tocarSupervisor && supervisorId) cambiosE.poner('supervisor_id', supervisorId);
+          if (!IC.esVacia(metaCruda)) {
+            if (nMeta.invalido) avisoFila('la meta de votos no es un número, se dejó la que tenía.');
+            else { cambiosE.poner('meta_votos', metaVotos); cambiosE.poner('meta_votos_base', metaVotos); }
+          }
+          IC.aplicarOpcional(cambiosE, 'direccion', crudo.direccion);
+          if (organizacionImport) { cambiosE.poner('tipo_area_influencia', 'organizacion'); cambiosE.poner('organizacion', organizacionImport); }
+
+          if (!cambiosU.hay && !cambiosE.hay && !territorioIdImport) {
+            avisoFila('no trae ningún dato para cambiar (las celdas vacías no tocan la ficha).');
+            continue;
+          }
+
           const conexion = await pool.getConnection();
           try {
             await conexion.beginTransaction();
-            await conexion.query(
-              `UPDATE usuarios SET nombre = ?, numero_identificacion = ?, comuna_corregimiento_residencia = ?, barrio_residencia = ?,
-               departamento_residencia = ?, ciudad_residencia = ?, tipo_cargo = ?, email = ?, telefono = ?, genero = ?, edad = ? WHERE id = ?`,
-              [nombre, numeroIdentificacion, comunaCorregimientoResidencia, barrioVeredaResidencia,
-               departamentoResidenciaImport, ciudadResidenciaImport, tipoCargo, email || null, telefono, genero, edad, usuarioId]
-            );
-            await conexion.query(
-              `UPDATE estructura SET cargo = ?, supervisor_id = COALESCE(?, supervisor_id), meta_votos = ?, meta_votos_base = ?, direccion = ?,
-               tipo_area_influencia = ?, organizacion = ? WHERE id = ?`,
-              [cargo, tocarSupervisor ? supervisorId : null, metaVotos || 0, metaVotos || 0, direccion,
-               tipoAreaInfluenciaImport, organizacionImport, idFila]
-            );
-            await territoriosPersona.guardar(conexion, idFila, listaImport, { conservarExtras: true });
+            if (cambiosU.hay) await conexion.query(`UPDATE usuarios SET ${cambiosU.sql()} WHERE id = ?`, [...cambiosU.valores, usuarioId]);
+            if (cambiosE.hay) await conexion.query(`UPDATE estructura SET ${cambiosE.sql()} WHERE id = ?`, [...cambiosE.valores, idFila]);
+            if (territorioIdImport) await territoriosPersona.guardar(conexion, idFila, listaImport, { conservarExtras: true });
             await conexion.commit();
             // Igual que en el PUT: la importación también puede mover a alguien
             // de supervisor, y entonces sus votantes cambian de rama.
-            if (tocarSupervisor) recalcularRamaEnSegundoPlano(pool, usuarioId, 'importar estructura por Excel');
+            if (tocarSupervisor && supervisorId) recalcularRamaEnSegundoPlano(pool, usuarioId, 'importar estructura por Excel');
             actualizados++;
+            camposBorrados += cambiosU.borrados + cambiosE.borrados;
           } catch (err) {
             await conexion.rollback();
             throw err;
@@ -2324,32 +2424,32 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
             conexion.release();
           }
 
-          const supervisorIdFinalFila = tocarSupervisor ? supervisorId : supervisorIdAnteriorFila;
+          const supervisorIdFinalFila = (tocarSupervisor && supervisorId) ? supervisorId : supervisorIdAnteriorFila;
           await recalcularMetaVotosCoordinadorOrganizaciones(pool, usuarioId);
           await recalcularMetaVotosCoordinadorOrganizaciones(pool, supervisorIdAnteriorFila);
           if (supervisorIdFinalFila && supervisorIdFinalFila !== supervisorIdAnteriorFila) {
             await recalcularMetaVotosCoordinadorOrganizaciones(pool, supervisorIdFinalFila);
           }
 
-          geocodificarResidenciaYGuardar(idFila, direccion, comunaCorregimientoResidencia, barrioVeredaResidencia, departamentoResidenciaImport, ciudadResidenciaImport)
-            .catch(err => console.error(`Error geocodificando la fila actualizada (estructura id ${idFila}):`, err));
+          if (direccion) {
+            geocodificarResidenciaYGuardar(idFila, direccion, comunaCorregimientoResidencia, barrioVeredaResidencia, departamentoResidenciaImport, ciudadResidenciaImport)
+              .catch(err => console.error(`Error geocodificando la fila actualizada (estructura id ${idFila}):`, err));
+          }
 
-          const votanteActualImport = await traerVotanteActualPorCedula(pool, numeroIdentificacion);
-          await sincronizarVotanteDesdeEstructura(pool, {
-            nombre, numero_identificacion: numeroIdentificacion, telefono, email, genero, edad,
-            apoya_a: votanteActualImport ? votanteActualImport.apoya_a : [],
-            departamento_votacion: votanteActualImport ? votanteActualImport.departamento_votacion : null,
-            municipio_votacion: votanteActualImport ? votanteActualImport.municipio_votacion : null,
-            puesto_votacion: votanteActualImport ? votanteActualImport.puesto_votacion : null,
-            mesa_votacion: votanteActualImport ? votanteActualImport.mesa_votacion : null,
-            departamento_residencia: departamentoResidenciaImport, ciudad_residencia: ciudadResidenciaImport,
-            direccion, territorio_id: territorioIdImport, creado_por: req.session.usuario.id
-          });
+          // La cédula y el nombre de la persona DESPUÉS del cambio (la fila puede no traerlos).
+          const [[personaFinal]] = await pool.query(`SELECT nombre, numero_identificacion FROM usuarios WHERE id = ?`, [usuarioId]);
+          await sincronizarConVotantes(personaFinal.numero_identificacion, personaFinal.nombre);
         } catch (err) {
           errores.push({ fila: i + 2, error: err.code === 'ER_DUP_ENTRY' ? 'Ya existe un usuario con ese email o número de identificación.' : 'Error al actualizar esta fila.' });
         }
         continue;
       }
+
+      // --- Modo agregar: la fila no trae ID. Los avisos de lo que no se pudo entender ---
+      if (nTel.invalido) avisoFila('teléfono inválido, se importó sin teléfono.');
+      if (nEdad.invalido) avisoFila('edad inválida, se importó sin edad.');
+      if (nEmail.invalido) avisoFila('correo inválido, se importó sin correo.');
+      if (nMeta.invalido) avisoFila('la meta de votos no es un número, quedó en 0.');
 
       // Antes de crear una cuenta nueva, se busca si esta cédula/email ya
       // pertenece a alguien (ej. ya es Líder y esta fila lo está importando
@@ -2385,7 +2485,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
             const [resultCargo] = await conexionCargo.query(
               `INSERT INTO estructura (usuario_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [usuarioIdExistenteImport, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
+              [usuarioIdExistenteImport, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos, metaVotos, direccion]
             );
             await territoriosPersona.guardar(conexionCargo, resultCargo.insertId, listaImport);
             await conexionCargo.commit();
@@ -2399,20 +2499,18 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
           await recalcularMetaVotosCoordinadorOrganizaciones(pool, usuarioIdExistenteImport);
           insertados++;
 
-          const votanteActualImportCargo = await traerVotanteActualPorCedula(pool, numeroIdentificacion);
-          await sincronizarVotanteDesdeEstructura(pool, {
-            nombre, numero_identificacion: numeroIdentificacion, telefono, email, genero, edad,
-            apoya_a: votanteActualImportCargo ? votanteActualImportCargo.apoya_a : [],
-            departamento_votacion: votanteActualImportCargo ? votanteActualImportCargo.departamento_votacion : null,
-            municipio_votacion: votanteActualImportCargo ? votanteActualImportCargo.municipio_votacion : null,
-            puesto_votacion: votanteActualImportCargo ? votanteActualImportCargo.puesto_votacion : null,
-            mesa_votacion: votanteActualImportCargo ? votanteActualImportCargo.mesa_votacion : null,
-            departamento_residencia: departamentoResidenciaImport, ciudad_residencia: ciudadResidenciaImport,
-            direccion, territorio_id: territorioIdImport, creado_por: req.session.usuario.id
-          });
+          const [[personaExistente]] = await pool.query(`SELECT nombre, numero_identificacion FROM usuarios WHERE id = ?`, [usuarioIdExistenteImport]);
+          await sincronizarConVotantes(personaExistente.numero_identificacion, nombre || personaExistente.nombre);
         } catch (err) {
           errores.push({ fila: i + 2, error: 'Error al agregar el cargo nuevo a la cuenta ya existente.' });
         }
+        continue;
+      }
+
+      /* SIN CÉDULA NO SE CREA LA CUENTA (orden 42). Antes se creaba con una clave aleatoria que nadie veía: una cuenta a la
+         que no entraba nadie. La cédula es el usuario y la clave inicial. */
+      if (!numeroIdentificacion) {
+        errores.push({ fila: i + 2, error: 'Falta la cédula para crear la cuenta.' });
         continue;
       }
 
@@ -2422,16 +2520,9 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
         await conexion.beginTransaction();
         const nombreRolLogin = rolDeLaCategoria(cargo, tipoCargo);
         const [[rol]] = await conexion.query(`SELECT id FROM roles WHERE nombre = ?`, [nombreRolLogin]);
-        // El correo es opcional: si no viene en el Excel, se usa el Número
-        // de identificación como Nombre de usuario y contraseña inicial.
-        let nombreUsuarioImport = null;
-        let passwordImport;
-        if (numeroIdentificacion) {
-          nombreUsuarioImport = numeroIdentificacion;
-          passwordImport = numeroIdentificacion;
-        } else {
-          passwordImport = Math.random().toString(36).slice(-10);
-        }
+        // El correo es opcional; el Número de identificación es el Nombre de usuario y la contraseña inicial.
+        const nombreUsuarioImport = numeroIdentificacion;
+        const passwordImport = numeroIdentificacion;
         const hash = await bcrypt.hash(passwordImport, 12);
         const [resultUsuario] = await conexion.query(
           `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, comuna_corregimiento_residencia, barrio_residencia,
@@ -2446,7 +2537,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
         const [resultEstructura] = await conexion.query(
           `INSERT INTO estructura (usuario_id, cargo, tipo_area_influencia, organizacion, supervisor_id, meta_votos, meta_votos_base, direccion)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [resultUsuario.insertId, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos || 0, metaVotos || 0, direccion]
+          [resultUsuario.insertId, cargo, tipoAreaInfluenciaImport, organizacionImport, supervisorId, metaVotos, metaVotos, direccion]
         );
         estructuraId = resultEstructura.insertId;
         await territoriosPersona.guardar(conexion, estructuraId, listaImport);
@@ -2468,20 +2559,10 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
       }
       await recalcularMetaVotosCoordinadorOrganizaciones(pool, usuarioIdImport);
 
-      const votanteActualImportNuevo = await traerVotanteActualPorCedula(pool, numeroIdentificacion);
-      await sincronizarVotanteDesdeEstructura(pool, {
-        nombre, numero_identificacion: numeroIdentificacion, telefono, email, genero, edad,
-        apoya_a: votanteActualImportNuevo ? votanteActualImportNuevo.apoya_a : [],
-        departamento_votacion: votanteActualImportNuevo ? votanteActualImportNuevo.departamento_votacion : null,
-        municipio_votacion: votanteActualImportNuevo ? votanteActualImportNuevo.municipio_votacion : null,
-        puesto_votacion: votanteActualImportNuevo ? votanteActualImportNuevo.puesto_votacion : null,
-        mesa_votacion: votanteActualImportNuevo ? votanteActualImportNuevo.mesa_votacion : null,
-        departamento_residencia: departamentoResidenciaImport, ciudad_residencia: ciudadResidenciaImport,
-        direccion, territorio_id: territorioIdImport, creado_por: req.session.usuario.id
-      });
+      await sincronizarConVotantes(numeroIdentificacion, nombre);
     }
 
-    res.json({ ok: true, insertados, actualizados, errores });
+    res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });
@@ -3011,44 +3092,52 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
     let actualizados = 0;
     const errores = [];
 
+    let camposBorrados = 0;          // celdas con «-» que borraron un dato a propósito (orden 42)
+    const avisos = [];
+    const convertirEmail = (t) => (String(t).includes('@') ? String(t).toLowerCase() : undefined);
+
     for (const [i, fila] of filas.entries()) {
       const idFila = String(fila['ID'] || fila.id || '').trim() || null;
-      const nombre = String(fila.Nombre || fila.nombre || '').trim();
-      if (!nombre) {
+      const avisoFila = (texto) => avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: ${texto}` });
+      /* LAS CELDAS SE LEEN CRUDAS (orden 42, lib/importarCeldas.js): vacía = no toca el dato, «-» = lo borra (solo en puesto,
+         mesa, correo, teléfono y lugar de votación), otra cosa = el valor. Sin la columna Tipo NO se cambia el tipo de testigo
+         ni sus mesas asignadas (antes un coordinador de puesto volvía a testigo de mesa y perdía sus mesas). */
+      const nombreCrudo = IC.crudoDe(fila, 'Nombre', 'nombre');
+      const nombre = IC.texto(nombreCrudo);
+      const cedulaCrudaT = IC.crudoDe(fila, 'Número de identificación', 'Cédula', 'Cedula', 'cedula');
+      const tipoCrudo = IC.crudoDe(fila, 'Tipo', 'tipo');
+      const errorMarca = IC.marcaEnColumnaNoBorrable([
+        ['Nombre', nombreCrudo], ['Número de identificación', cedulaCrudaT], ['Tipo', tipoCrudo],
+      ]);
+      if (errorMarca) { errores.push({ fila: i + 2, error: errorMarca }); continue; }
+      if (!nombre && !idFila) {
         errores.push({ fila: i + 2, error: 'Nombre es obligatorio.' });
         continue;
       }
-      const cedula = String(fila['Número de identificación'] || fila.Cédula || fila.Cedula || fila.cedula || '').trim() || null;
-      const telefono = String(fila.Teléfono || fila.Telefono || fila.telefono || '').replace(/\D/g, '') || null;
-      if (telefono && telefono.length !== 10) {
-        errores.push({ fila: i + 2, error: 'El teléfono debe tener 10 dígitos — se importó sin teléfono.' });
-      }
-      const email = String(fila.Email || fila.email || '').trim().toLowerCase() || null;
-      const departamentoVotacion = String(fila['Departamento votación'] || fila.departamento_votacion || '').trim() || null;
-      const municipioVotacion = String(fila['Municipio votación'] || fila.municipio_votacion || '').trim() || null;
-      const puestoVotacion = String(fila.Puesto || fila.puesto_votacion || '').trim() || null;
+      const cedula = IC.texto(cedulaCrudaT) || null;
+      const crudo = {
+        telefono: IC.crudoDe(fila, 'Teléfono', 'Telefono', 'telefono'),
+        email: IC.crudoDe(fila, 'Email', 'email'),
+        departamentoVotacion: IC.crudoDe(fila, 'Departamento votación', 'departamento_votacion'),
+        municipioVotacion: IC.crudoDe(fila, 'Municipio votación', 'municipio_votacion'),
+        puestoVotacion: IC.crudoDe(fila, 'Puesto', 'puesto_votacion'),
+        mesa: IC.crudoDe(fila, 'Mesa', 'mesa_votacion'),
+      };
       // "Coordinador de puesto" cubre varias mesas del mismo puesto — no una
       // fija: la columna "Mesa" se interpreta como una lista separada por
       // comas ("3, 7, 9") en vez de un solo número.
-      const tipoTestigoTexto = String(fila.Tipo || fila.tipo || '').trim().toLowerCase();
-      const tipoTestigo = tipoTestigoTexto.includes('coordinador') ? 'puesto' : 'mesa';
-      const mesaTexto = String(fila.Mesa || fila.mesa_votacion || '').trim();
-      const mesaVotacion = tipoTestigo === 'puesto' ? null : (mesaTexto || null);
-      const mesasAsignadas = tipoTestigo === 'puesto'
-        ? mesaTexto.split(',').map(m => Number(m.trim())).filter(m => Number.isInteger(m) && m > 0)
-        : [];
-
-      const mesasSolicitadas = tipoTestigo === 'puesto' ? mesasAsignadas : (mesaVotacion ? [mesaVotacion] : []);
-      const conflicto = await verificarMesasDisponibles(pool, puestoVotacion, mesasSolicitadas, idFila || 0);
-      if (conflicto.length) {
-        errores.push({ fila: i + 2, error: `La(s) mesa(s) ${conflicto.join(', ')} ya están asignadas a otro testigo de ese puesto.` });
-        continue;
-      }
+      const tipoDado = !IC.esVacia(tipoCrudo);
+      const tipoDeLaFila = IC.texto(tipoCrudo).toLowerCase().includes('coordinador') ? 'puesto' : 'mesa';
+      const listaDeMesas = (t) => {
+        const l = String(t).split(',').map(m => Number(m.trim())).filter(m => Number.isInteger(m) && m > 0);
+        return l.length ? l : undefined;
+      };
 
       try {
         if (idFila) {
           const [[existente]] = await pool.query(
-            `SELECT e.usuario_id FROM estructura e WHERE e.id = ? AND e.cargo = 'testigo'`,
+            `SELECT e.usuario_id, e.tipo_testigo, u.departamento_votacion, u.municipio_votacion, u.puesto_votacion
+               FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE e.id = ? AND e.cargo = 'testigo'`,
             [idFila]
           );
           if (!existente) {
@@ -3059,20 +3148,87 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
             const [dupe] = await pool.query(`SELECT id FROM usuarios WHERE numero_identificacion = ? AND id != ?`, [cedula, existente.usuario_id]);
             if (dupe.length) { errores.push({ fila: i + 2, error: 'Número de identificación duplicado (pertenece a otra persona).' }); continue; }
           }
-          await pool.query(
-            `UPDATE usuarios SET nombre = ?, numero_identificacion = ?, telefono = ?, email = ?,
-               departamento_votacion = ?, municipio_votacion = ?, puesto_votacion = ?, mesa_votacion = ?
-             WHERE id = ?`,
-            [nombre, cedula, telefono ? telefono.slice(0, 10) : null, email,
-             departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion, existente.usuario_id]
-          );
-          await pool.query(
-            `UPDATE estructura SET tipo_testigo = ?, mesas_asignadas = ? WHERE id = ?`,
-            [tipoTestigo, tipoTestigo === 'puesto' ? JSON.stringify(mesasAsignadas) : null, idFila]
-          );
-          await geocodificarTestigoPorPuestoYGuardar(pool, idFila, puestoVotacion, municipioVotacion, departamentoVotacion);
+
+          const tipoEfectivo = tipoDado ? tipoDeLaFila : (existente.tipo_testigo || 'mesa');
+          const cambiosU = new IC.Cambios();
+          const cambiosE = new IC.Cambios();
+          if (nombre) cambiosU.poner('nombre', nombre);
+          if (cedula) cambiosU.poner('numero_identificacion', cedula);
+          if (IC.aplicarOpcional(cambiosU, 'telefono', crudo.telefono, normalizarTelefonoImportado) === 'invalido') avisoFila('teléfono inválido, se dejó el que tenía.');
+          if (IC.aplicarOpcional(cambiosU, 'email', crudo.email, convertirEmail) === 'invalido') avisoFila('correo inválido, se dejó el que tenía.');
+          IC.aplicarOpcional(cambiosU, 'departamento_votacion', crudo.departamentoVotacion);
+          IC.aplicarOpcional(cambiosU, 'municipio_votacion', crudo.municipioVotacion);
+          IC.aplicarOpcional(cambiosU, 'puesto_votacion', crudo.puestoVotacion);
+
+          // El lugar de votación DESPUÉS del cambio (para revisar las mesas y para ubicar el puesto).
+          const efectivo = (cruda, actual) => (IC.esVacia(cruda) ? actual : (IC.esMarcaBorrar(cruda) ? null : IC.texto(cruda)));
+          const puestoEf = efectivo(crudo.puestoVotacion, existente.puesto_votacion);
+          const municipioEf = efectivo(crudo.municipioVotacion, existente.municipio_votacion);
+          const departamentoEf = efectivo(crudo.departamentoVotacion, existente.departamento_votacion);
+
+          // El tipo: solo si la fila trae la columna Tipo con algo. Pasar a «mesa» suelta las mesas asignadas.
+          if (tipoDado) {
+            cambiosE.poner('tipo_testigo', tipoDeLaFila);
+            if (tipoDeLaFila === 'mesa') cambiosE.poner('mesas_asignadas', null);
+          }
+          // La mesa: vacía no toca; «-» la borra (y las mesas asignadas); con valor depende del tipo.
+          let mesasSolicitadas = [];
+          if (IC.esMarcaBorrar(crudo.mesa)) {
+            cambiosU.borrar('mesa_votacion');
+            cambiosE.poner('mesas_asignadas', null);
+          } else if (!IC.esVacia(crudo.mesa)) {
+            if (tipoEfectivo === 'puesto') {
+              const lista = listaDeMesas(crudo.mesa);
+              if (!lista) avisoFila('las mesas no son números separados por comas, se dejaron las que tenía.');
+              else { mesasSolicitadas = lista; cambiosE.poner('mesas_asignadas', JSON.stringify(lista)); cambiosU.poner('mesa_votacion', null); }
+            } else {
+              mesasSolicitadas = [IC.texto(crudo.mesa)];
+              cambiosU.poner('mesa_votacion', IC.texto(crudo.mesa));
+            }
+          }
+          if (mesasSolicitadas.length) {
+            const conflicto = await verificarMesasDisponibles(pool, puestoEf, mesasSolicitadas, idFila);
+            if (conflicto.length) {
+              errores.push({ fila: i + 2, error: `La(s) mesa(s) ${conflicto.join(', ')} ya están asignadas a otro testigo de ese puesto.` });
+              continue;
+            }
+          }
+
+          if (!cambiosU.hay && !cambiosE.hay) {
+            avisoFila('no trae ningún dato para cambiar (las celdas vacías no tocan la ficha).');
+            continue;
+          }
+          if (cambiosU.hay) await pool.query(`UPDATE usuarios SET ${cambiosU.sql()} WHERE id = ?`, [...cambiosU.valores, existente.usuario_id]);
+          if (cambiosE.hay) await pool.query(`UPDATE estructura SET ${cambiosE.sql()} WHERE id = ?`, [...cambiosE.valores, idFila]);
+          // Solo se vuelve a ubicar el puesto si la fila tocó el puesto, el municipio o el departamento.
+          if (!IC.esVacia(crudo.puestoVotacion) || !IC.esVacia(crudo.municipioVotacion) || !IC.esVacia(crudo.departamentoVotacion)) {
+            await geocodificarTestigoPorPuestoYGuardar(pool, idFila, puestoEf, municipioEf, departamentoEf);
+          }
           actualizados++;
+          camposBorrados += cambiosU.borrados + cambiosE.borrados;
         } else {
+          // --- Fila nueva. Vacía y «-» valen null; la mesa y el tipo siguen la regla de siempre. ---
+          const nTel = IC.valorNuevo(crudo.telefono, normalizarTelefonoImportado);
+          const nEmail = IC.valorNuevo(crudo.email, convertirEmail);
+          if (nTel.invalido) avisoFila('teléfono inválido, se importó sin teléfono.');
+          if (nEmail.invalido) avisoFila('correo inválido, se importó sin correo.');
+          const telefono = nTel.valor;
+          const email = nEmail.valor;
+          const departamentoVotacion = IC.valorNuevo(crudo.departamentoVotacion).valor;
+          const municipioVotacion = IC.valorNuevo(crudo.municipioVotacion).valor;
+          const puestoVotacion = IC.valorNuevo(crudo.puestoVotacion).valor;
+          const tipoTestigo = tipoDeLaFila;
+          const mesaTexto = IC.esMarcaBorrar(crudo.mesa) ? '' : IC.texto(crudo.mesa);
+          const mesaVotacion = tipoTestigo === 'puesto' ? null : (mesaTexto || null);
+          const mesasAsignadas = tipoTestigo === 'puesto' ? (listaDeMesas(mesaTexto) || []) : [];
+
+          const mesasSolicitadas = tipoTestigo === 'puesto' ? mesasAsignadas : (mesaVotacion ? [mesaVotacion] : []);
+          const conflicto = await verificarMesasDisponibles(pool, puestoVotacion, mesasSolicitadas, 0);
+          if (conflicto.length) {
+            errores.push({ fila: i + 2, error: `La(s) mesa(s) ${conflicto.join(', ')} ya están asignadas a otro testigo de ese puesto.` });
+            continue;
+          }
+
           // Antes de crear una cuenta nueva, se busca si esta cédula/email ya
           // pertenece a alguien (ej. ya es Líder, Coordinador o Sublíder) —
           // si no se hacía esta búsqueda, importar un Excel de jurados con
@@ -3106,9 +3262,12 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
             continue;
           }
 
-          const numeroIdentificacionLimpio = cedula || '';
-          const passwordFinal = numeroIdentificacionLimpio || Math.random().toString(36).slice(-10);
-          const hash = await bcrypt.hash(passwordFinal, 12);
+          /* SIN CÉDULA NO SE CREA LA CUENTA (orden 42). Antes se creaba con una clave aleatoria que nadie veía. */
+          if (!cedula) {
+            errores.push({ fila: i + 2, error: 'Falta la cédula para crear la cuenta.' });
+            continue;
+          }
+          const hash = await bcrypt.hash(cedula, 12);
           const [[rolTestigo]] = await pool.query(`SELECT id FROM roles WHERE nombre = 'testigo'`);
           if (!rolTestigo) { errores.push({ fila: i + 2, error: 'El rol "testigo" no está configurado.' }); continue; }
 
@@ -3116,7 +3275,7 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
             `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, telefono, email,
                departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion, password_hash, rol_id, debe_cambiar_password)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [nombre, numeroIdentificacionLimpio || null, numeroIdentificacionLimpio || null, telefono, email,
+            [nombre, cedula, cedula, telefono, email,
              departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion, hash, rolTestigo.id]
           );
           const [resultEstructuraTestigo] = await pool.query(
@@ -3131,7 +3290,7 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
       }
     }
 
-    res.json({ ok: true, insertados, actualizados, errores });
+    res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });

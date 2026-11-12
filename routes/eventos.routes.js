@@ -168,8 +168,8 @@ router.get('/:id/asistentes', verAsistentes, async (req, res) => {
     const sc = Asis.alcanceMarcar(req.alcance, req.session.usuario.rol, 'e');
     const [[pm]] = await pool.query(`SELECT COUNT(*) AS n FROM eventos e WHERE e.id = ? AND ${sc.sql}`, [evento.id, ...sc.valores]);
     const puedeMarcar = Number(pm.n) > 0;
-    // La CÉDULA completa solo la ve el administrador o el coordinador (parche 327): un líder que es responsable ve el teléfono, pero la cédula sale tapada (***456).
-    res.json(rows.map((r) => (contactos ? { ...r, identidad_resuelta: cedulaPara(req.session.usuario, r.identidad_resuelta), contactos_visibles: true, puede_marcar: puedeMarcar } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false, puede_marcar: puedeMarcar })));
+    // La CÉDULA completa solo la ve el administrador, el coordinador o el aspirante (parche 327, ajustado en el 328): un líder que es responsable ve el teléfono, pero la cédula sale tapada (***456).
+    res.json(rows.map((r) => (contactos ? { ...r, identidad_resuelta: cedulaPara(req.session.usuario, r.identidad_resuelta, req.sublicencia), contactos_visibles: true, puede_marcar: puedeMarcar } : { ...r, telefono_resuelto: null, identidad_resuelta: null, contactos_visibles: false, puede_marcar: puedeMarcar })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consultando los asistentes del evento.' });
@@ -186,7 +186,7 @@ router.get('/:id/asistentes', verAsistentes, async (req, res) => {
  * casos, así que dos invitados con el mismo nombre pueden aparecer juntos
  * aunque en la vida real sean personas distintas.
  */
-async function obtenerConsolidadoAsistentes(alcance, usuario = null) {
+async function obtenerConsolidadoAsistentes(alcance, usuario = null, sublicencia = null) {
   const a = alcanceEventos(alcance, 'e');
   const [filas] = await pool.query(
     `SELECT e.id AS evento_id, e.titulo AS evento_titulo, e.fecha_inicio AS evento_fecha,
@@ -219,13 +219,13 @@ async function obtenerConsolidadoAsistentes(alcance, usuario = null) {
   }
 
   return [...grupos.values()]
-    .map(({ contactos, ...g }) => ({ ...g, ...(contactos ? { identidad: cedulaPara(usuario, g.identidad) } : { identidad: null, telefono: null }), total_reuniones: g.reuniones.length }))
+    .map(({ contactos, ...g }) => ({ ...g, ...(contactos ? { identidad: cedulaPara(usuario, g.identidad, sublicencia) } : { identidad: null, telefono: null }), total_reuniones: g.reuniones.length }))
     .sort((a, b) => b.total_reuniones - a.total_reuniones || (a.nombre || '').localeCompare(b.nombre || ''));
 }
 
 router.get('/asistentes-consolidado', verConsolidado, async (req, res) => {
   try {
-    res.json(await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario));
+    res.json(await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario, req.sublicencia));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error consolidando los asistentes.' });
@@ -234,7 +234,7 @@ router.get('/asistentes-consolidado', verConsolidado, async (req, res) => {
 
 router.get('/asistentes-consolidado/exportar-excel', verConsolidado, requiereImportarExportar('asistentes_reuniones'), async (req, res) => {
   try {
-    const consolidado = await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario);
+    const consolidado = await obtenerConsolidadoAsistentes(req.alcance, req.session.usuario, req.sublicencia);
     const columnas = ['Nombre', 'Identidad', 'Teléfono', 'Barrio', 'Total de reuniones', 'Reuniones (fecha - título)'];
     const datos = consolidado.map(p => ({
       'Nombre': p.nombre || '',

@@ -421,6 +421,9 @@ const PERMISOS_POR_DEFECTO = {
   // sabiendo por qué.
   enviar_push: ['admin', 'coordinador', 'lider', 'asistente_administrativo'],
   configurar_crm: ['admin'],
+  // «Usuarios» (pestaña de Configuración): sembrada desde el parche 328. Sin su fila, guardar la matriz de permisos sin ella escribía permitido = 0 al
+  // administrador y le ocultaba la pestaña (duda 6 del parche 299); INSERT IGNORE, así que no pisa lo que ya haya.
+  usuarios: ['admin'],
   // Recordatorios automáticos (Configuración → Recordatorios): solo el administrador de fábrica. Sin esta línea la entrada del menú no le
   // aparece a nadie (common.js oculta todo ítem cuyo módulo no esté en los permisos del usuario).
   recordatorios: ['admin'],
@@ -3605,6 +3608,26 @@ async function main() {
   console.log('Tabla de los complementos lista (los diez apagados de fábrica; no se pisa lo que ya se encendió).');
 
   await sembrarPermisosPorDefecto(connection);
+
+  /* «EDITAR» EN EL SERVIDOR PARA EL DÍA D (parche 328, orden 42). Desde este parche las rutas de Faltan por votar, Alertas, Resultados,
+     Transporte y Logística exigen `permisos_rol.editar = 1` (middleware/permisoModulo.js, `requiereEditarModulo`); hasta el 327 solo pedían «Ver».
+     Para que NADIE pierda hoy lo que hace el Día D, en estos cinco módulos se pone editar = 1 donde ya hay permitido = 1.
+
+     UNA SOLA VEZ: la marca es la columna `configuracion_campana.permisos_editar_dia_d_sembrado`; `agregarColumnaSiFalta` devuelve true solo en la corrida
+     en que la crea. Así una segunda corrida NO vuelve a encender lo que el administrador apague después a mano desde Asignación de permisos. */
+  const editarDiaDRecienSembrado = await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "permisos_editar_dia_d_sembrado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Marca (parche 328): ya se sembró editar = 1 donde había permitido = 1 en los cinco módulos del Día D. No es una opción.'",
+    'permisos_editar_dia_d_sembrado'
+  );
+  if (editarDiaDRecienSembrado) {
+    const [sembrado] = await connection.query(
+      `UPDATE permisos_rol SET editar = 1
+        WHERE modulo IN ('rescate_votos', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d')
+          AND permitido = 1 AND editar = 0`);
+    console.log(`«Editar» del Día D: se puso editar = 1 donde ya había permitido = 1 en rescate_votos, alertas_dia_d, resultados_dia_d, transporte_dia_d y logistica_dia_d (${sembrado.affectedRows} fila(s)); una sola vez.`);
+  }
+
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
   await agregarFinalidadEncuestas(connection);

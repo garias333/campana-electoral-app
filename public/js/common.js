@@ -1471,6 +1471,15 @@ async function inicializarLayout(paginaActiva) {
   }
   // Para que cada pantalla pregunte «¿está encendido?» con `complementoActivo(usuarioActual, clave)`.
   usuario.complementos = complementosActivos;
+  /* «EDITAR» EN EL DÍA D (parche 328). El servidor exige `editar` en estas rutas (middleware/permisoModulo.js, `requiereEditarModulo`); aquí se
+     esconden los botones de quien no lo tiene: <html data-sin-editar="transporte_dia_d …"> y las reglas de css/style.css hacen el resto. Sin datos
+     de permisos NO se esconde nada (puedeEditar asume que sí): el servidor es el que decide de verdad. */
+  try {
+    const sinEditar = ['rescate_votos', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d']
+      .filter((m) => !puedeEditar(usuario, m));
+    if (sinEditar.length) document.documentElement.setAttribute('data-sin-editar', sinEditar.join(' '));
+    else document.documentElement.removeAttribute('data-sin-editar');
+  } catch (e) { /* sin esto la pantalla funciona igual */ }
   function itemVisible(item) {
     // Un complemento apagado no se ve para nadie, y sin respuesta del servidor tampoco: aquí no se «muestra ante la duda».
     if (item.complemento && complementosActivos[item.complemento] !== true) return false;

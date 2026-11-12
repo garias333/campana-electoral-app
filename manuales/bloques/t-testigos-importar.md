@@ -21,15 +21,19 @@ Sirve para bajar la lista de testigos a Excel, corregirla y volverla a subir, o 
 5. Guarda el archivo y pulsa [[Importar desde Excel]]. Elige el .xlsx o .xls (hasta 10 MB).
 
 ::: listo
-Sale una ventana de aviso: «Importación completada: X testigo(s) agregado(s), Y actualizado(s)», y la tabla se recarga con ellos. Si hubo errores, el aviso añade cuántas filas fallaron y el motivo de la primera.
+Sale una ventana de aviso: «Importación completada: X testigo(s) creado(s), Y actualizado(s)», con cuántos campos se borraron con «-» (si hubo), cuántas filas fallaron y el motivo de la primera, y cuántos avisos hubo; la tabla se recarga con ellos.
 :::
 
 ::: importante
-Si la cédula de una fila ya pertenece a alguien con cuenta (por ejemplo, un líder), no se crea una cuenta repetida: se le agrega la función de testigo. Una persona nueva con cédula entra con ella como usuario y contraseña inicial; sin cédula la cuenta se crea con una clave al azar que nadie ve, así que no podrá entrar. Si ya era testigo, la fila da error.
+Si la cédula de una fila ya pertenece a alguien con cuenta (por ejemplo, un líder), no se crea una cuenta repetida: se le agrega la función de testigo. Una persona nueva con cédula entra con ella como usuario y contraseña inicial; **sin cédula no se crea la cuenta** y la fila da el error «Falta la cédula para crear la cuenta». Si ya era testigo, la fila da error.
 :::
 
 ::: cuidado
-Una mesa que ya tiene otro testigo en ese puesto se rechaza ("La(s) mesa(s) … ya están asignadas a otro testigo"). Un ID que no existe, o una cédula que es de otra persona, también dan error, con el número de fila. En una fila que actualiza, lo que dejes vacío (teléfono, correo, lugar de votación) se borra de la ficha. Un teléfono que no tenga 10 dígitos aparece entre los errores del aviso. Importar y exportar lo hacen el administrador y el coordinador.
+Una mesa que ya tiene otro testigo en ese puesto se rechaza ("La(s) mesa(s) … ya están asignadas a otro testigo"). Un ID que no existe, o una cédula que es de otra persona, también dan error, con el número de fila. Importar y exportar lo hacen el administrador y el coordinador.
+:::
+
+::: importante
+**Una celda vacía no cambia nada.** En una fila que actualiza, lo que dejes vacío (teléfono, correo, lugar de votación, mesa) se queda como estaba, y si no traes la columna **Tipo** no cambia el tipo de testigo ni las mesas del coordinador de puesto. Para **borrar un dato a propósito**, escribe **-** (un guion solo): solo funciona en teléfono, correo, departamento, municipio, puesto y mesa. En nombre, cédula y tipo el «-» no borra: la fila da error. Un teléfono que no tenga 10 dígitos no se guarda: en una persona nueva se importa sin teléfono y en una que ya existe se deja el que tenía, y sale un aviso.
 :::
 
 Relacionado: {{mod-testigos}}, {{t-testigo-agregar}}.

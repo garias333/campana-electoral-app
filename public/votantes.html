@@ -3097,13 +3097,15 @@ document.getElementById('input-importar-votantes').addEventListener('change', as
   fd.append('archivo', archivo);
   try {
     const r = await api('/votantes/importar-excel', { method: 'POST', body: fd });
-    let mensaje = `Importación completada: ${r.insertados} contacto(s) agregado(s), ${r.actualizados || 0} actualizado(s).`;
+    let mensaje = `Importación completada: ${r.insertados} contacto(s) creado(s), ${r.actualizados || 0} actualizado(s).`;
+    // Orden 42: «-» borra a propósito (se cuenta), los avisos dicen lo que se dejó como estaba.
+    if (r.camposBorrados) mensaje += ` ${r.camposBorrados} campo(s) borrado(s) con «-».`;
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
     }
-    // Orden 36: comunas que no son de la campaña y quedaron vacías (la fila se importó igual).
+    // Avisos: comunas que no son de la campaña (orden 36), teléfonos o edades inválidos que se dejaron como estaban (orden 42).
     if (r.avisos && r.avisos.length) {
-      mensaje += ` ${r.avisos.length} aviso(s) de comuna (ej. ${r.avisos[0].aviso})`;
+      mensaje += ` ${r.avisos.length} aviso(s) (ej. ${r.avisos[0].aviso})`;
     }
     mostrarToast(mensaje, 'ok');
     cargarVotantes();

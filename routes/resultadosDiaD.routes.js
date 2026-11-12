@@ -31,7 +31,8 @@ const { execFile } = require('child_process');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
-const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereVerModulo, requiereEditarModulo } = require('../middleware/permisoModulo');
+const editarResultados = requiereEditarModulo('resultados_dia_d', { aspirante: true });   // «Editar» exigido en el servidor (parche 328)
 const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditoria');
 const { UPLOAD_DIA_D_DIR } = require('../middleware/upload');
@@ -331,7 +332,7 @@ router.get('/pendientes', async (req, res) => {
   }
 });
 
-router.put('/mesa', async (req, res) => {
+router.put('/mesa', editarResultados, async (req, res) => {
   const b = req.body || {};
   const mesa = Number(b.mesa);
   if (!FUENTES.includes(b.fuente)) return res.status(400).json({ error: 'Elija la fuente: preconteo o escrutinio.' });
@@ -490,7 +491,7 @@ router.get('/diferencias', async (req, res) => {
   }
 });
 
-router.put('/revision', async (req, res) => {
+router.put('/revision', editarResultados, async (req, res) => {
   const b = req.body || {};
   const mesa = Number(b.mesa);
   const estado = String(b.estado || '');
@@ -650,7 +651,7 @@ async function armarPaquete(paqueteId, plan, aspiranteId) {
   }
 }
 
-router.post('/paquete', async (req, res) => {
+router.post('/paquete', editarResultados, async (req, res) => {
   let conexion;
   try {
     const j = await cargarJornada(req);

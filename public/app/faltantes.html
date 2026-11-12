@@ -61,6 +61,8 @@
   .tag-transp { font-size: 0.78rem; color: var(--marca-azul-osc); font-weight: 700; margin-bottom: 6px; }
   .accion.copiar { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 6px 10px; font-size: 0.8rem; }
   .sin-enlace { font-size: 0.76rem; color: var(--muted); margin: -4px 0 8px; }
+  /* Parche 328: quien no tiene «Editar» en Faltan por votar solo mira la lista. */
+  .sin-editar-rescate [data-marcar], .sin-editar-rescate [data-quitar], .sin-editar-rescate [data-transp] { display: none !important; }
   .accion.voto { background: var(--marca-amarillo); color: #1b2333; font-weight: 800; box-shadow: 0 6px 14px rgba(255,195,0,.4); }
   .accion.deshacer { background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--borde); }
   .accion:disabled { opacity: 0.5; }
@@ -136,6 +138,10 @@ let transporteActivo = false;
 async function saberSiHayTransporte() {
   try {
     const r = await api('/permisos/mios');
+    /* «EDITAR» EN EL SERVIDOR (parche 328): sin el permiso Editar de «Faltan por votar» el servidor responde 403 a marcar, deshacer y «necesita
+       transporte». Aquí se esconden esos botones; sin datos de permisos no se esconde nada (el servidor decide). */
+    const pr = r && r.permisos && r.permisos.rescate_votos;
+    document.body.classList.toggle('sin-editar-rescate', !!pr && !pr.editar);
     transporteActivo = !!(r && r.complementos && r.complementos.transporte_dia_d === true);
     try { localStorage.setItem('complementos_conocidos', JSON.stringify((r && r.complementos) || {})); } catch (e) { /* sin almacenamiento */ }
   } catch (e) {

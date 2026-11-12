@@ -26,7 +26,7 @@ Las que dependen de la hora salen en gris, «Pendiente: se activa a las…», ha
 ## Qué puedes hacer según tu permiso
 
 - **Ver**: consultar el cuadro y contactar al responsable.
-- **Editar**: marcar una alerta como [[Atendida]] (con una nota opcional), quitarla con [[Quitar atendida]], o [[Marcar llegada]] de un testigo (sale en «Testigo que no llegó», cuando la alerta ya está activa; la marca queda a tu nombre). Hoy la pantalla no revisa este permiso aparte: quien tiene «Ver» también puede hacerlo. La marca de atendida vale solo por ese día.
+- **Editar**: marcar una alerta como [[Atendida]] (con una nota opcional), quitarla con [[Quitar atendida]], o [[Marcar llegada]] de un testigo (sale en «Testigo que no llegó», cuando la alerta ya está activa; la marca queda a tu nombre). El servidor exige este permiso para marcar y quitar «Atendida»; **[[Marcar llegada]] va por otra ruta (la del registro de llegadas) y esta versión no le pide «Editar»**. La marca de atendida vale solo por ese día.
 - **Agregar**: no aplica.
 
 ## Tareas frecuentes

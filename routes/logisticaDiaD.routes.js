@@ -20,7 +20,8 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { requireAuth, calcularAlcance } = require('../middleware/auth');
-const { requiereVerModulo, requiereImportarExportar } = require('../middleware/permisoModulo');
+const { requiereVerModulo, requiereImportarExportar, requiereEditarModulo } = require('../middleware/permisoModulo');
+const editarLogistica = requiereEditarModulo('logistica_dia_d', { aspirante: true });   // «Editar» exigido en el servidor (parche 328)
 const { requiereComplemento } = require('../middleware/complemento');
 const { UPLOAD_DIA_D_DIR } = require('../middleware/upload');
 const { registrarAuditoria } = require('../config/auditoria');
@@ -174,7 +175,7 @@ coordinacion.get('/items', async (req, res) => {
   try { res.json({ items: await L.listarItems(pool, req.dueno) }); } catch (err) { falla(res, 'items', err, 'No se pudieron cargar los ítems.'); }
 });
 
-coordinacion.post('/items', async (req, res) => {
+coordinacion.post('/items', editarLogistica, async (req, res) => {
   try {
     const v = L.validarItem(req.body || {});
     if (v.error) return res.status(400).json({ error: v.error });
@@ -193,7 +194,7 @@ coordinacion.post('/items', async (req, res) => {
   } catch (err) { falla(res, 'items-crear', err, 'No se pudo crear el ítem.'); }
 });
 
-coordinacion.put('/items/:id', async (req, res) => {
+coordinacion.put('/items/:id', editarLogistica, async (req, res) => {
   try {
     const id = entero(req.params.id);
     if (!id) return res.status(400).json({ error: 'Ítem inválido.' });
@@ -220,7 +221,7 @@ coordinacion.get('/plan', async (req, res) => {
 });
 
 /** Corrige a mano la cantidad de un ítem en un puesto; `cantidad: null` vuelve a la sugerida. */
-coordinacion.put('/plan', async (req, res) => {
+coordinacion.put('/plan', editarLogistica, async (req, res) => {
   try {
     const b = req.body || {};
     const itemId = entero(b.item_id), puestoId = entero(b.puesto_id);

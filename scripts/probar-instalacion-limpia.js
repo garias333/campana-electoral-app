@@ -96,9 +96,11 @@ const COMPROBACIONES = [
 
   // Las cinco de siempre (usuarios, estructura, votantes, eventos, finanzas_movimientos)
   // más estructura_territorios, la lista de territorios por persona (db/schema.sql).
-  ['territorio_id sigue indexado en las 6 tablas (A2: al quitar las FK se perdía su índice; la 6.ª es estructura_territorios)',
+  // Eran 6 hasta el parche 302. Desde entonces se sumaron cuatro tablas con su propio `territorio_id` indexado: solicitudes (303), tareas (305) y
+  // puerta_listas y puerta_visitas (309). La expectativa vieja quedó en 6 y la prueba fallaba sobre una instalación sana (arreglado en el 328).
+  ['territorio_id sigue indexado en las 10 tablas (A2: al quitar las FK se perdía su índice; estructura_territorios, solicitudes, tareas, puerta_listas y puerta_visitas se sumaron después de las 5 de siempre)',
    `SELECT COUNT(DISTINCT table_name) n FROM information_schema.statistics
-     WHERE table_schema=DATABASE() AND column_name='territorio_id'`, 6],
+     WHERE table_schema=DATABASE() AND column_name='territorio_id'`, 10],
 
   ['estructura_territorios existe (la crea db/schema.sql; que no tenga FK hacia territorios lo comprueba la prueba de arriba)',
    `SELECT COUNT(*) n FROM information_schema.tables

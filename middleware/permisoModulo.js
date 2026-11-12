@@ -159,4 +159,53 @@ function requiereVerModulo(modulo, opciones = {}) {
   };
 }
 
-module.exports = { requiereImportarExportar, requiereVerModulo, MENSAJE_NEGADO, MENSAJE_SIN_VERIFICAR };
+/**
+ * El permiso «Editar» de un módulo, aplicado en el SERVIDOR (parche 328, orden 42).
+ *
+ * HERMANO DE `requiereVerModulo`, calcado de `requiereEditar` de routes/recordatorios.routes.js. Hasta el 327 la matriz de
+ * «Asignación de permisos» prometía «E = Editar» y las rutas de Faltan por votar, Alertas, Resultados, Transporte y
+ * Logística solo pedían «Ver»: un rol con «Ver» y sin «Editar» podía igual cambiar todo tecleando la dirección (no se
+ * ocultaba ni el botón). Este middleware va DESPUÉS de `requiereVerModulo` (que ya cerró el acceso al módulo) y solo
+ * pregunta por la casilla de editar.
+ *
+ * QUIÉN PASA
+ *   1. El administrador y el superadministrador, siempre.
+ *   2. El aspirante con sublicencia, por SU lista (`PERMISOS_ASPIRANTE[modulo].editar`) y no por la matriz de su rol, y
+ *      solo si la ruta lo pide con `{ aspirante: true }` (igual que `requiereVerModulo`).
+ *   3. Los demás, por `permisos_rol.editar = 1`.
+ * SE FALLA CERRADO: fila ausente o error al leer, se niega. (La siembra de init-db puso editar = 1 donde ya había
+ * permitido = 1 en estos cinco módulos, una sola vez, para que nadie pierda hoy lo que hace el Día D.)
+ *
+ * NO SE USA en lo que a propósito va por otra puerta: el conductor por código (/t/*), «Vaciar» y la configuración de las
+ * alertas (solo administrador), ni «Entregar» y «Anular» de Logística, que también hace el coordinador de puesto.
+ */
+function requiereEditarModulo(modulo, opciones = {}) {
+  return async function permisoEditarModulo(req, res, next) {
+    const usuario = req.session && req.session.usuario;
+    if (!usuario) {
+      return res.status(401).json({ error: 'Debe iniciar sesión para continuar.' });
+    }
+    const negado = (mensaje) => res.status(403).json({ error: mensaje });
+    try {
+      if (req.sublicencia) {
+        const suyo = PERMISOS_ASPIRANTE[modulo];
+        if (opciones.aspirante === true && suyo && suyo.editar === true) return next();
+        return negado('Esta sección no está disponible para su tipo de acceso.');
+      }
+      if (usuario.rol === 'admin' || await esSuperadmin(usuario)) return next();
+
+      const [filas] = await pool.query(
+        'SELECT editar FROM permisos_rol WHERE rol = ? AND modulo = ? LIMIT 1',
+        [usuario.rol, modulo]
+      );
+      if (filas.length && Number(filas[0].editar) === 1) return next();
+      return negado('Su tipo de usuario puede ver esta sección pero no cambiar nada en ella. '
+        + 'Si lo necesita, pídale al administrador de la campaña el permiso «Editar».');
+    } catch (err) {
+      console.error(`[editar ${modulo}] No se pudo comprobar el permiso:`, err.code || err.message);
+      return negado('No se pudo comprobar su permiso, y por seguridad se negó. Vuelva a intentarlo.');
+    }
+  };
+}
+
+module.exports = { requiereImportarExportar, requiereVerModulo, requiereEditarModulo, MENSAJE_NEGADO, MENSAJE_SIN_VERIFICAR };

@@ -22,15 +22,15 @@ Sirve para sacar el equipo a un archivo de Excel, corregirlo o ampliarlo allí y
 6. Guarda el archivo y pulsa [[Importar desde Excel]]. Elige tu archivo (.xlsx o .xls, hasta 10 MB).
 
 ::: listo
-Sale una ventana de aviso del navegador: «Importación completada: X persona(s) agregada(s), Y actualizada(s)». Si hubo errores, añade cuántas filas fallaron y el motivo de la primera.
+Sale una ventana de aviso del navegador: «Importación completada: X persona(s) creada(s), Y actualizada(s)», con cuántos campos se borraron con «-» (si hubo), cuántas filas fallaron y el motivo de la primera, y cuántos avisos hubo.
 :::
 
 ::: importante
-Actualizar por Excel nunca cambia la contraseña ni el usuario de nadie. Una fila con un ID que no existe, o una persona que ya tiene ese cargo, se rechaza con su motivo. El teléfono que no tenga 10 dígitos se ignora, pero la persona sí se importa. Una persona nueva entra con su número de identificación como usuario y contraseña inicial; si la dejas vacía, la cuenta se crea con una clave al azar que nadie ve.
+Actualizar por Excel nunca cambia la contraseña ni el usuario de nadie. Una fila con un ID que no existe, o una persona que ya tiene ese cargo, se rechaza con su motivo. El teléfono que no tenga 10 dígitos no se guarda: en una persona nueva se importa sin teléfono y en una que ya existe se deja el que tenía, con un aviso. Una persona nueva entra con su número de identificación como usuario y contraseña inicial; **sin cédula no se crea la cuenta** y esa fila da el error «Falta la cédula para crear la cuenta». Lo que importes de la estructura tampoco borra datos en Votantes y sublíderes.
 :::
 
-::: cuidado
-En una fila que **actualiza**, lo que dejes vacío se borra de la ficha: el teléfono, el correo, la dirección y la meta. Por eso exporta primero y no borres celdas de las personas que ya existen.
+::: importante
+**Una celda vacía no cambia nada.** En una fila que **actualiza**, solo se cambian las columnas que traen algo: el teléfono, el correo, la dirección, la meta, el tipo y el género vacíos se quedan como estaban. Para **borrar un dato a propósito**, escribe **-** (un guion solo): solo funciona en correo, teléfono, dirección, residencia y edad. En nombre, cédula, cargo, territorio, «Reporta a», metas, tipo, género y organización el «-» no borra: la fila da error y no se importa. En una fila que actualiza ya no hace falta repetir el cargo ni el territorio.
 :::
 
 ::: consejo

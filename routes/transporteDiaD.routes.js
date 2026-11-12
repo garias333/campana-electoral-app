@@ -14,7 +14,8 @@
 const express = require('express');
 const pool = require('../config/db');
 const { calcularAlcance, requireAuth } = require('../middleware/auth');
-const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereVerModulo, requiereEditarModulo } = require('../middleware/permisoModulo');
+const editarTransporte = requiereEditarModulo('transporte_dia_d', { aspirante: true });   // «Editar» exigido en el servidor (parche 328)
 const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria } = require('../config/auditoria');
 const { duenoDeLaCampana } = require('../lib/ramas');
@@ -91,7 +92,7 @@ router.get('/vehiculos', async (req, res) => {
   } catch (err) { falla(res, 'vehiculos', err, 'No se pudieron cargar los vehículos.'); }
 });
 
-router.post('/vehiculos', async (req, res) => {
+router.post('/vehiculos', editarTransporte, async (req, res) => {
   const v = T.validarVehiculo(req.body);
   if (v.error) return res.status(400).json({ error: v.error });
   try {
@@ -108,7 +109,7 @@ router.post('/vehiculos', async (req, res) => {
   }
 });
 
-router.put('/vehiculos/:id', async (req, res) => {
+router.put('/vehiculos/:id', editarTransporte, async (req, res) => {
   const id = entero(req.params.id);
   if (!id) return res.status(400).json({ error: 'Vehículo inválido.' });
   try {
@@ -165,7 +166,7 @@ router.get('/conductores', async (req, res) => {
   } catch (err) { falla(res, 'conductores', err, 'No se pudieron cargar los conductores.'); }
 });
 
-router.post('/conductores', async (req, res) => {
+router.post('/conductores', editarTransporte, async (req, res) => {
   const v = T.validarConductor(req.body);
   if (v.error) return res.status(400).json({ error: v.error });
   try {
@@ -187,7 +188,7 @@ router.post('/conductores', async (req, res) => {
   } catch (err) { falla(res, 'conductor-crear', err, 'No se pudo crear el conductor.'); }
 });
 
-router.put('/conductores/:id', async (req, res) => {
+router.put('/conductores/:id', editarTransporte, async (req, res) => {
   const id = entero(req.params.id);
   if (!id) return res.status(400).json({ error: 'Conductor inválido.' });
   try {
@@ -211,7 +212,7 @@ router.put('/conductores/:id', async (req, res) => {
 });
 
 /** Cambia el código: el enlace anterior deja de servir en el acto. No reactiva a un conductor desactivado. */
-router.post('/conductores/:id/rotar', async (req, res) => {
+router.post('/conductores/:id/rotar', editarTransporte, async (req, res) => {
   const id = entero(req.params.id);
   if (!id) return res.status(400).json({ error: 'Conductor inválido.' });
   try {
@@ -235,7 +236,7 @@ router.post('/conductores/:id/rotar', async (req, res) => {
 // Asignar, desasignar, personas y nota, ordenar
 // ---------------------------------------------------------------------------
 
-router.post('/asignar', async (req, res) => {
+router.post('/asignar', editarTransporte, async (req, res) => {
   const conductorId = entero(req.body && req.body.conductor_id);
   const ids = idsDe(req.body && req.body.votante_ids);
   if (!conductorId) return res.status(400).json({ error: 'Elige un conductor.' });
@@ -306,7 +307,7 @@ router.post('/asignar', async (req, res) => {
   } finally { cx.release(); }
 });
 
-router.post('/desasignar', async (req, res) => {
+router.post('/desasignar', editarTransporte, async (req, res) => {
   const ids = idsDe(req.body && req.body.votante_ids);
   if (!ids.length) return res.status(400).json({ error: 'Elige al menos un votante.' });
   try {
@@ -327,7 +328,7 @@ router.post('/desasignar', async (req, res) => {
 });
 
 /** Cuántas personas lleva la parada y una nota para el conductor. */
-router.put('/asignaciones/:id', async (req, res) => {
+router.put('/asignaciones/:id', editarTransporte, async (req, res) => {
   const id = entero(req.params.id);
   if (!id) return res.status(400).json({ error: 'Parada inválida.' });
   try {
@@ -345,7 +346,7 @@ router.put('/asignaciones/:id', async (req, res) => {
  * (lib/transporteDiaD.js). `inicio`: {tipo:'primero'} (parte de la primera parada actual), {tipo:'punto', lat, lon} o
  * {tipo:'puesto', puesto_id}. Las ya recogidas quedan primero; las sin coordenadas, al final de las pendientes.
  */
-router.post('/conductores/:id/ordenar', async (req, res) => {
+router.post('/conductores/:id/ordenar', editarTransporte, async (req, res) => {
   const id = entero(req.params.id);
   if (!id) return res.status(400).json({ error: 'Conductor inválido.' });
   try {

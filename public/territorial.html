@@ -3925,9 +3925,14 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   fd.append('archivo', archivo);
   try {
     const r = await api('/territorial/estructura/importar-excel', { method: 'POST', body: fd });
-    let mensaje = `Importación completada: ${r.insertados} persona(s) agregada(s), ${r.actualizados || 0} actualizada(s).`;
+    let mensaje = `Importación completada: ${r.insertados} persona(s) creada(s), ${r.actualizados || 0} actualizada(s).`;
+    // Orden 42: «-» borra a propósito (se cuenta), los avisos dicen lo que se dejó como estaba.
+    if (r.camposBorrados) mensaje += ` ${r.camposBorrados} campo(s) borrado(s) con «-».`;
     if (r.errores && r.errores.length) {
       mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
+    }
+    if (r.avisos && r.avisos.length) {
+      mensaje += ` ${r.avisos.length} aviso(s) (ej. ${r.avisos[0].aviso})`;
     }
     mostrarToast(mensaje, 'ok');
     await cargarSelects();

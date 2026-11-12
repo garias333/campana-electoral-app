@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
 const { limiteBuscarCedula, limiteVerificarDuplicado, inicialesDe } = require('../lib/busquedaCedula');
 const { cedulaPara } = require('../lib/enmascarar');
+const IC = require('../lib/importarCeldas');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
@@ -585,8 +586,8 @@ router.get('/exportar-excel', requireRole('admin', 'coordinador', 'aspirante'), 
       'ID': f.id,
       'Categoría': f.categoria === 'sublider' ? 'Sublíder' : 'Votante',
       'Nombres y apellidos': f.nombre,
-      // Quien no es administrador ni coordinador (el aspirante) recibe la cédula tapada (***456): decisión de la orden 41.
-      'Número de identificación': cedulaPara(req.session.usuario, f.cedula) || '',
+      // El aspirante es el dueño de su campaña: cédula completa (orden 42). Quien no es administrador, coordinador ni aspirante la recibiría tapada (***456).
+      'Número de identificación': cedulaPara(req.session.usuario, f.cedula, req.sublicencia) || '',
       'Género': ETIQUETAS_GENERO[f.genero] || '',
       'Edad': f.edad || '',
       'Fecha nacimiento': f.fecha_nacimiento || '',
@@ -656,6 +657,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
 
     let insertados = 0;
     let actualizados = 0;
+    let camposBorrados = 0;          // celdas con «-» que borraron un dato a propósito (orden 42)
     const errores = [];
     const posiblesDuplicados = [];
     // Orden 36: la comuna/corregimiento de cada fila se comprueba contra la lista de la campaña (una sola lectura).
@@ -695,7 +697,17 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
         fila['Nombres y apellidos'] || fila.nombre_completo ||
         [fila.Nombres || fila.nombres, fila.Apellidos || fila.apellidos].filter(Boolean).join(' ') || ''
       ).trim();
-      if (!nombre) {
+      /* UNA CELDA VACÍA NO TOCA EL DATO (orden 42, lib/importarCeldas.js). Al ACTUALIZAR (la fila trae ID), un nombre vacío
+         es «no lo cambies»; al CREAR sigue siendo obligatorio. El «-» no borra en las columnas obligatorias: error de la fila. */
+      const errorMarca = IC.marcaEnColumnaNoBorrable([
+        ['Nombres y apellidos', nombre], ['Número de identificación', cedulaCruda(fila)],
+        ['Género', IC.crudoDe(fila, 'Género', 'Genero', 'genero')], ['Área', IC.crudoDe(fila, 'Área', 'Area', 'area')],
+        ['Comuna', IC.crudoDe(fila, 'Comuna', 'comuna')], ['Barrio', IC.crudoDe(fila, 'Barrio', 'barrio')],
+        ['Corregimiento', IC.crudoDe(fila, 'Corregimiento', 'corregimiento')], ['Vereda', IC.crudoDe(fila, 'Vereda', 'vereda')],
+        ['Líder o coordinador', IC.crudoDe(fila, 'Líder o coordinador', 'lider_email')],
+      ]);
+      if (errorMarca) { errores.push({ fila: i + 2, error: errorMarca }); continue; }
+      if (!nombre && !idFila) {
         errores.push({ fila: i + 2, error: 'Nombres y apellidos son obligatorios.' });
         continue;
       }
@@ -721,11 +733,22 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
           continue;
         }
       }
-      // Tolerante: si el teléfono de la fila no tiene 10 dígitos, se
-      // importa la persona igual, solo que sin teléfono (no se rechaza la
-      // fila completa por ese único campo).
-      const telefono = normalizarTelefonoImportado(fila.Teléfono || fila.Telefono || fila.telefono || '');
-      const email = String(fila.Email || fila.email || '').trim() || null;
+      /* LAS CELDAS OPCIONALES SE LEEN CRUDAS: vacía = no toca, «-» = borra, otra cosa = valor (orden 42). En una fila NUEVA
+         vacía y «-» valen lo mismo (null); al ACTUALIZAR cada una decide si su columna entra en el UPDATE. */
+      const crudo = {
+        telefono: IC.crudoDe(fila, 'Teléfono', 'Telefono', 'telefono'),
+        email: IC.crudoDe(fila, 'Email', 'email'),
+        edad: IC.crudoDe(fila, 'Edad', 'edad'),
+        fechaNacimiento: IC.crudoDe(fila, 'Fecha nacimiento', 'fecha_nacimiento'),
+        departamentoVotacion: IC.crudoDe(fila, 'Departamento votación', 'departamento_votacion'),
+        municipioVotacion: IC.crudoDe(fila, 'Municipio votación', 'municipio_votacion'),
+        puestoVotacion: IC.crudoDe(fila, 'Puesto', 'Puesto de votación', 'puesto_votacion'),
+        mesaVotacion: IC.crudoDe(fila, 'Mesa', 'Mesa de votación', 'mesa_votacion'),
+        direccion: IC.crudoDe(fila, 'Dirección de Residencia', 'Dirección', 'Direccion', 'direccion'),
+        departamentoResidencia: IC.crudoDe(fila, 'Departamento de residencia', 'departamento_residencia'),
+        ciudadResidencia: IC.crudoDe(fila, 'Ciudad de residencia', 'ciudad_residencia'),
+        observaciones: IC.crudoDe(fila, 'Observaciones', 'observaciones'),
+      };
       const generoTexto = String(fila.Género || fila.Genero || fila.genero || '').trim().toLowerCase();
       const MAPA_GENERO_IMPORT = {
         'mujer': 'mujer', 'f': 'mujer', 'femenino': 'mujer',
@@ -733,13 +756,19 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
         'no binario': 'no_binario', 'no_binario': 'no_binario', 'otro': 'no_binario',
         'prefiero no responder': 'prefiero_no_responder', 'prefiero_no_responder': 'prefiero_no_responder', 'no informa': 'prefiero_no_responder'
       };
+      // Con valor y sin reconocer queda «prefiero no responder», como siempre; VACÍO no toca (en una fila nueva, ese es el valor).
       const genero = MAPA_GENERO_IMPORT[generoTexto] || 'prefiero_no_responder';
-      const edad = parseInt(fila.Edad || fila.edad) || null;
-      const fechaNacimiento = fila['Fecha nacimiento'] || fila.fecha_nacimiento || null;
-      const departamentoVotacion = String(fila['Departamento votación'] || fila.departamento_votacion || '').trim() || null;
-      const municipioVotacion = String(fila['Municipio votación'] || fila.municipio_votacion || '').trim() || null;
-      const puestoVotacion = String(fila.Puesto || fila['Puesto de votación'] || fila.puesto_votacion || '').trim() || null;
-      const mesaVotacion = String(fila.Mesa || fila['Mesa de votación'] || fila.mesa_votacion || '').trim() || null;
+      // Los valores para una fila NUEVA (y los que usa el geocodificador). Al ACTUALIZAR se arma `cambios` más abajo.
+      const nTel = IC.valorNuevo(crudo.telefono, normalizarTelefonoImportado);
+      const nEdad = IC.valorNuevo(crudo.edad, IC.enteroPositivo);
+      const telefono = nTel.valor;
+      const email = IC.valorNuevo(crudo.email).valor;
+      const edad = nEdad.valor;
+      const fechaNacimiento = IC.valorNuevo(crudo.fechaNacimiento, (t) => t).valor;
+      const departamentoVotacion = IC.valorNuevo(crudo.departamentoVotacion).valor;
+      const municipioVotacion = IC.valorNuevo(crudo.municipioVotacion).valor;
+      const puestoVotacion = IC.valorNuevo(crudo.puestoVotacion).valor;
+      const mesaVotacion = IC.valorNuevo(crudo.mesaVotacion).valor;
       const area = String(fila.Área || fila.Area || fila.area || '').trim();
       let comuna = String(fila.Comuna || fila.comuna || '').trim();
       const barrio = String(fila.Barrio || fila.barrio || '').trim();
@@ -756,11 +785,11 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
           if (campo === 'comuna') comuna = ''; else corregimiento = '';
         }
       }
-      const direccion = String(fila['Dirección de Residencia'] || fila.Dirección || fila.Direccion || fila.direccion || '').trim() || null;
-      const departamentoResidenciaImport = String(fila['Departamento de residencia'] || fila.departamento_residencia || '').trim() || null;
-      const ciudadResidenciaImport = String(fila['Ciudad de residencia'] || fila.ciudad_residencia || '').trim() || null;
+      const direccion = IC.valorNuevo(crudo.direccion).valor;
+      const departamentoResidenciaImport = IC.valorNuevo(crudo.departamentoResidencia).valor;
+      const ciudadResidenciaImport = IC.valorNuevo(crudo.ciudadResidencia).valor;
       const liderEmail = String(fila['Líder o coordinador'] || fila.lider_email || '').trim().toLowerCase();
-      const observaciones = String(fila.Observaciones || fila.observaciones || '').trim() || null;
+      const observaciones = IC.valorNuevo(crudo.observaciones).valor;
 
       // Si estas columnas vienen vacías en una fila que SÍ trae ID (modo
       // actualizar), no se borra lo que ya tenía guardado ese contacto —
@@ -801,25 +830,41 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
             errores.push({ fila: i + 2, error: `No existe un contacto con ID ${idFila} — no se puede actualizar. Borra la columna ID en esta fila si quieres crear uno nuevo.` });
             continue;
           }
-          await pool.query(
-            `UPDATE votantes SET
-               nombre = ?, cedula = ?, telefono = ?, email = ?, genero = ?, edad = ?, fecha_nacimiento = ?,
-               direccion = ?, departamento_residencia = ?, ciudad_residencia = ?, area = ?,
-               territorio_id = COALESCE(?, territorio_id),
-               lider_id = COALESCE(?, lider_id),
-               departamento_votacion = ?, municipio_votacion = ?, puesto_votacion = ?, mesa_votacion = ?, observaciones = ?
-             WHERE id = ?`,
-            [nombre, cedula, telefono, email, genero, edad, fechaNacimiento || null,
-             direccion, departamentoResidenciaImport, ciudadResidenciaImport, area || null,
-             tocarTerritorio ? territorioId : null,
-             tocarLider ? liderId : null,
-             departamentoVotacion, municipioVotacion, puestoVotacion, mesaVotacion, observaciones,
-             idFila]
-          );
+          /* EL UPDATE LLEVA SOLO LAS COLUMNAS DE LAS CELDAS QUE TRAEN ALGO (orden 42). Hasta el 327 pisaba toda la ficha con lo
+             que viniera, y lo vacío era NULL (o el valor por defecto: género «prefiero no responder»). */
+          const cambios = new IC.Cambios();
+          if (nombre) cambios.poner('nombre', nombre);
+          if (cedula) cambios.poner('cedula', cedula);
+          const avisoFila = (texto) => avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: ${texto}` });
+          if (IC.aplicarOpcional(cambios, 'telefono', crudo.telefono, normalizarTelefonoImportado) === 'invalido') avisoFila('teléfono inválido, se dejó el que tenía.');
+          IC.aplicarOpcional(cambios, 'email', crudo.email);
+          if (!IC.esVacia(generoTexto)) cambios.poner('genero', genero);
+          if (IC.aplicarOpcional(cambios, 'edad', crudo.edad, IC.enteroPositivo) === 'invalido') avisoFila('edad inválida, se dejó la que tenía.');
+          IC.aplicarOpcional(cambios, 'fecha_nacimiento', crudo.fechaNacimiento, (t) => t);
+          IC.aplicarOpcional(cambios, 'direccion', crudo.direccion);
+          IC.aplicarOpcional(cambios, 'departamento_residencia', crudo.departamentoResidencia);
+          IC.aplicarOpcional(cambios, 'ciudad_residencia', crudo.ciudadResidencia);
+          if (area) cambios.poner('area', area);
+          if (tocarTerritorio) cambios.poner('territorio_id', territorioId);
+          if (tocarLider && liderId) cambios.poner('lider_id', liderId);
+          IC.aplicarOpcional(cambios, 'departamento_votacion', crudo.departamentoVotacion);
+          IC.aplicarOpcional(cambios, 'municipio_votacion', crudo.municipioVotacion);
+          IC.aplicarOpcional(cambios, 'puesto_votacion', crudo.puestoVotacion);
+          IC.aplicarOpcional(cambios, 'mesa_votacion', crudo.mesaVotacion);
+          IC.aplicarOpcional(cambios, 'observaciones', crudo.observaciones);
+          if (!cambios.hay) {
+            avisoFila('no trae ningún dato para cambiar (las celdas vacías no tocan la ficha).');
+            continue;
+          }
+          await pool.query(`UPDATE votantes SET ${cambios.sql()} WHERE id = ?`, [...cambios.valores, idFila]);
           actualizados++;
+          camposBorrados += cambios.borrados;
           if (cedula) cedulaVistaEnFila.set(cedula, i + 2);
-          geocodificarYGuardarVotante(idFila, direccion, tocarTerritorio ? territorioId : null, departamentoResidenciaImport, ciudadResidenciaImport)
-            .catch(err => console.error(`Error geocodificando la fila actualizada (votante id ${idFila}):`, err));
+          // Solo se vuelve a ubicar si la fila trae una dirección nueva (la borrada o la que no cambió no se geocodifica).
+          if (direccion) {
+            geocodificarYGuardarVotante(idFila, direccion, tocarTerritorio ? territorioId : null, departamentoResidenciaImport, ciudadResidenciaImport)
+              .catch(err => console.error(`Error geocodificando la fila actualizada (votante id ${idFila}):`, err));
+          }
         } catch (err) {
           errores.push({ fila: i + 2, error: err.code === 'ER_DUP_ENTRY' ? 'Número de identificación duplicado.' : 'Error al actualizar esta fila.' });
         }
@@ -827,6 +872,8 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       }
 
       // --- Modo agregar: la fila no trae ID, se crea un contacto nuevo ---
+      if (nTel.invalido) avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: teléfono inválido, se importó sin teléfono.` });
+      if (nEdad.invalido) avisos.push({ fila: i + 2, aviso: `fila ${i + 2}: edad inválida, se importó sin edad.` });
       // Si la fila no trae cédula, la restricción UNIQUE de la tabla no
       // puede avisar de un duplicado — se busca a mano por teléfono o
       // nombre parecido y se avisa en el resultado (sin dejar de
@@ -881,7 +928,7 @@ router.post('/importar-excel', requireRole('admin', 'coordinador'), requiereImpo
       }
     }
 
-    res.json({ ok: true, insertados, actualizados, errores, avisos, posiblesDuplicados, cedulasRepetidas });
+    res.json({ ok: true, insertados, actualizados, camposBorrados, errores, avisos, posiblesDuplicados, cedulasRepetidas });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error procesando el archivo Excel. Verifique que el formato de las columnas sea correcto.' });

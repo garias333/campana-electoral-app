@@ -24,7 +24,8 @@
 const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
-const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereVerModulo, requiereEditarModulo } = require('../middleware/permisoModulo');
+const editarRescate = requiereEditarModulo('rescate_votos', { aspirante: true });   // «Editar» exigido en el servidor (parche 328)
 const { requiereComplemento } = require('../middleware/complemento');
 const complementos = require('../lib/complementos');
 const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
@@ -201,7 +202,7 @@ router.get('/faltantes', async (req, res) => {
 /* ——— POST /transporte ————————————————————————————————————————————
    El interruptor «necesita transporte» de Faltantes. Idempotente (poner lo que ya estaba no cambia nada), así que es seguro
    reintentarlo desde la cola sin señal. Con el MISMO alcance que marcar: sólo votantes que se ven; 403 y no 404 fuera de él. */
-router.post('/transporte', requiereComplemento('transporte_dia_d'), async (req, res) => {
+router.post('/transporte', requiereComplemento('transporte_dia_d'), editarRescate, async (req, res) => {
   const votanteId = Number(req.body && req.body.votante_id);
   if (!Number.isInteger(votanteId) || votanteId < 1) return res.status(400).json({ error: 'Falta el votante.' });
   const necesita = req.body && (req.body.necesita === true || req.body.necesita === 1) ? 1 : 0;
@@ -218,7 +219,7 @@ router.post('/transporte', requiereComplemento('transporte_dia_d'), async (req, 
 });
 
 /* ——— POST /marcar ————————————————————————————————————————————— */
-router.post('/marcar', async (req, res) => {
+router.post('/marcar', editarRescate, async (req, res) => {
   const votanteId = Number(req.body && req.body.votante_id);
   if (!Number.isInteger(votanteId) || votanteId < 1) {
     return res.status(400).json({ error: 'Falta el votante.' });
@@ -244,7 +245,7 @@ router.post('/marcar', async (req, res) => {
 });
 
 /* ——— DELETE /marcar/:votanteId ———————————————————————————————————— */
-router.delete('/marcar/:votanteId', async (req, res) => {
+router.delete('/marcar/:votanteId', editarRescate, async (req, res) => {
   const votanteId = Number(req.params.votanteId);
   if (!Number.isInteger(votanteId) || votanteId < 1) return res.status(400).json({ error: 'Votante inválido.' });
   try {
@@ -388,7 +389,7 @@ router.get('/ranking', requireRole('admin', 'coordinador', 'aspirante'), async (
    mensaje en el navegador y necesita pedírselo al servidor). Aplica la misma
    regla estricta que el SMS: solo con autorización EXPLÍCITA por ese canal y sin
    baja. */
-router.post('/enlace', async (req, res) => {
+router.post('/enlace', editarRescate, async (req, res) => {
   const votanteId = Number(req.body && req.body.votante_id);
   if (!Number.isInteger(votanteId) || votanteId < 1) return res.status(400).json({ error: 'Falta el votante.' });
   try {

@@ -16,7 +16,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { requireAuth, requireRole, calcularAlcance } = require('../middleware/auth');
-const { requiereVerModulo } = require('../middleware/permisoModulo');
+const { requiereVerModulo, requiereEditarModulo } = require('../middleware/permisoModulo');
 const { requiereComplemento } = require('../middleware/complemento');
 const { registrarAuditoria } = require('../config/auditoria');
 const diaD = require('./diaD.routes').compartido;
@@ -122,7 +122,7 @@ router.get('/', async (req, res) => {
 });
 
 /* ——— atendida / no atendida —————————————————————————————————————————— */
-router.post('/atendida', async (req, res) => {
+router.post('/atendida', requiereEditarModulo('alertas_dia_d', { aspirante: true }), async (req, res) => {   // «Editar» exigido en el servidor (parche 328)
   const b = req.body || {};
   const tipo = String(b.tipo || '');
   if (!GRAVEDAD[tipo]) return res.status(400).json({ error: 'Tipo de alerta no válido.' });

@@ -64,6 +64,13 @@ async function buscarFichaDeLaMismaPersona(pool, cedula, nombre, telefono) {
 }
 
 async function sincronizarVotanteDesdeEstructura(pool, datos) {
+  /* `datos.conservar_vacios` (orden 42, parche 328): la importación por Excel de Estructura copia aquí SOLO lo que la fila
+     trae. Con esta bandera, lo que viene vacío (o que se borró con «-» en Estructura) NO pisa el dato de la ficha de
+     Votantes: el `ON DUPLICATE KEY UPDATE` usa COALESCE(nuevo, actual). `genero_dado` dice si la fila traía género (sin él el
+     «prefiero no responder» por defecto no pisa el que la ficha ya tenía). Los formularios siguen sin la bandera: ahí quien
+     edita ve todos los campos y lo que deja vacío es a propósito. */
+  const conservar = datos.conservar_vacios === true;
+  const pisar = (col) => (conservar ? `COALESCE(VALUES(${col}), ${col})` : `VALUES(${col})`);
   /* LA CÉDULA SE GUARDA NORMALIZADA (solo dígitos, sin ceros a la izquierda) y la ficha se busca escrita como esté:
      la cuenta de Estructura puede traer «1.053.123.456» y la ficha de Votantes estar guardada como «1053123456», o al
      revés. Si ya hay una ficha de esa persona con otra forma de escribirla, se usa ESA escritura tal cual (sin reescribirla)
@@ -152,20 +159,21 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'votante', ?, 'estructura', ?, ?)
        ON DUPLICATE KEY UPDATE
          nombre = VALUES(nombre),
-         telefono = VALUES(telefono), email = VALUES(email), genero = VALUES(genero), edad = VALUES(edad),
+         telefono = ${pisar('telefono')}, email = ${pisar('email')},
+         genero = ${conservar ? 'IF(?, VALUES(genero), genero)' : 'VALUES(genero)'}, edad = ${pisar('edad')},
          apoya_a = VALUES(apoya_a),
-         departamento_votacion = VALUES(departamento_votacion), municipio_votacion = VALUES(municipio_votacion),
-         puesto_votacion = VALUES(puesto_votacion), mesa_votacion = VALUES(mesa_votacion),
-         departamento_residencia = VALUES(departamento_residencia), ciudad_residencia = VALUES(ciudad_residencia),
+         departamento_votacion = ${pisar('departamento_votacion')}, municipio_votacion = ${pisar('municipio_votacion')},
+         puesto_votacion = ${pisar('puesto_votacion')}, mesa_votacion = ${pisar('mesa_votacion')},
+         departamento_residencia = ${pisar('departamento_residencia')}, ciudad_residencia = ${pisar('ciudad_residencia')},
          /* La comuna y el barrio de RESIDENCIA si se pisan al actualizar: son
             un dato de la persona, y la ficha de estructura es donde se edita.
             La rama del aspirante, mas abajo, es el caso contrario y esta
             explicado alli. (Sin acentos graves en este comentario: va DENTRO
             de una plantilla de JavaScript y la cortarian.) */
-         comuna_corregimiento_residencia = VALUES(comuna_corregimiento_residencia),
-         barrio_residencia = VALUES(barrio_residencia),
-         direccion = VALUES(direccion), territorio_id = VALUES(territorio_id),
-         area = VALUES(area)`,
+         comuna_corregimiento_residencia = ${pisar('comuna_corregimiento_residencia')},
+         barrio_residencia = ${pisar('barrio_residencia')},
+         direccion = ${pisar('direccion')}, territorio_id = ${pisar('territorio_id')},
+         area = ${pisar('area')}`,
       [
         (datos.nombre || '').trim(), cedula,
         datos.telefono ? datos.telefono.replace(/\D/g, '') : null,
@@ -198,7 +206,9 @@ async function sincronizarVotanteDesdeEstructura(pool, datos) {
            tener un `lider_id` puesto a mano desde Votantes, y pisarlo con el
            supervisor lo borraria sin que nadie lo pidiera. */
         datos.supervisor_id || null,
-        await ramaDeVotante(pool, { cedula, lider_id: datos.supervisor_id || null })
+        await ramaDeVotante(pool, { cedula, lider_id: datos.supervisor_id || null }),
+        // El último marcador del SQL (solo con `conservar_vacios`): ¿la fila traía género?
+        ...(conservar ? [datos.genero_dado ? 1 : 0] : [])
       ]
     );
   } catch (err) {

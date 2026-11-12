@@ -21,15 +21,19 @@ Sirve para sacar la base de votantes a Excel, corregirla en el computador y volv
 5. Guarda el archivo y pulsa [[Importar desde Excel]]. Elige el .xlsx o .xls (hasta 10 MB).
 
 ::: listo
-Sale un aviso que dice «Importación completada» con cuántos contactos se agregaron y cuántos se actualizaron, y la lista se recarga con ellos.
+Sale un aviso que dice «Importación completada» con cuántos contactos se crearon y cuántos se actualizaron, cuántos campos se borraron con «-» (si hubo), cuántas filas dieron error y cuántos avisos hubo, y la lista se recarga con ellos.
 :::
 
 ::: importante
-Qué se rechaza o se corrige: una cédula que ya existe en la base o repetida dentro del archivo se salta ("Cédula repetida"); un ID que no existe da error; una fila sin nombre no entra. Un teléfono que no tenga 10 dígitos se ignora, pero la persona se importa. La comuna se valida contra la lista de la campaña: si no está, queda vacía y el aviso final la nombra. El aviso final cita solo el primer error.
+Qué se rechaza o se corrige: una cédula que ya existe en la base o repetida dentro del archivo se salta ("Cédula repetida"); un ID que no existe da error; una fila sin nombre no entra. Un teléfono que no tenga 10 dígitos no se guarda: en una persona nueva se importa sin teléfono, y en una que ya existe se deja el que tenía; en los dos casos sale un aviso. La comuna se valida contra la lista de la campaña: si no está, queda vacía y el aviso final la nombra. El aviso final cita solo el primer error.
+:::
+
+::: importante
+**Una celda vacía no cambia nada.** Al actualizar una fila con ID, solo se cambian las columnas que traen algo; lo que dejes vacío se queda como estaba en la ficha. Para **borrar un dato a propósito**, escribe **-** (un guion solo) en la celda. Eso solo funciona en correo, teléfono, dirección, observaciones, puesto, mesa, departamento y municipio de votación, residencia, fecha de nacimiento y edad. En nombre, cédula, género, área, territorio y líder el «-» no borra: la fila da error y no se importa.
 :::
 
 ::: cuidado
-Al **actualizar** una fila con ID, lo que dejes vacío en esa fila se borra de la ficha (cédula, teléfono, correo, puesto, mesa, observaciones…); solo el territorio y el líder se conservan si los dejas vacíos. Por eso conviene exportar, editar sin quitar columnas y volver a importar. El archivo tampoco trae la autorización de tratamiento de datos que se captura al registrar a mano. Y la opción solo sale si tienes el permiso de Importar / Exportar.
+El archivo tampoco trae la autorización de tratamiento de datos que se captura al registrar a mano. Y la opción solo sale si tienes el permiso de Importar / Exportar.
 :::
 
 ::: consejo

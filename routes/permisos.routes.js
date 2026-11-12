@@ -147,10 +147,18 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
   const traeImportarExportar = Object.values(permisos)
     .some(c => c && typeof c === 'object' && 'importar_exportar' in c);
 
+  /* LAS FILAS QUE NO EXISTÍAN Y LLEGAN TODAS EN BLANCO NO SE ESCRIBEN (parche 328, duda 6 del 299). La pantalla manda TODAS las casillas,
+     también las de módulos sin fila sembrada (por ejemplo «Usuarios» en una instalación nueva), y una casilla en blanco no es una orden:
+     es que nadie la marcó. Escribirla como permitido = 0 le ocultaba al administrador la pestaña Usuarios sin que tocara nada. Una fila
+     que ya existe sí se guarda siempre (apagar a propósito sigue funcionando); una que no existía solo se crea si trae algo marcado. */
+  const [existentes] = await pool.query('SELECT rol, modulo FROM permisos_rol');
+  const yaExiste = new Set(existentes.map(f => `${f.rol}:${f.modulo}`));
+
   const filas = [];
   for (const rol of ROLES) {
     for (const { clave: modulo } of MODULOS) {
       const celda = permisos[`${rol}:${modulo}`] || {};
+      if (!yaExiste.has(`${rol}:${modulo}`) && !celda.ver && !celda.editar && !celda.agregar && !celda.importar_exportar) continue;
       const fila = [rol, modulo, celda.ver ? 1 : 0, celda.editar ? 1 : 0, celda.agregar ? 1 : 0];
       if (traeImportarExportar) {
         /* El administrador SIEMPRE lo tiene donde existe (el servidor no se lo
@@ -169,7 +177,7 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
     // Un solo INSERT con todas las filas (antes eran 128 consultas
     // separadas, una por cada casilla rol×módulo) — mismo resultado en la
     // base de datos, un solo viaje en vez de 128.
-    await conexion.query(
+    if (filas.length) await conexion.query(
       traeImportarExportar
         ? `INSERT INTO permisos_rol (rol, modulo, permitido, editar, agregar, importar_exportar) VALUES ?
            ON DUPLICATE KEY UPDATE permitido = VALUES(permitido), editar = VALUES(editar),
