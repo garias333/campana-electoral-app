@@ -269,6 +269,7 @@ function main() {
   const trabajo = fs.mkdtempSync(path.join(os.tmpdir(), 'generar-parche-'));
   const zipTemporal = path.join(trabajo, nombreZip);
   const deshacer = () => {
+    fs.rmSync(trabajo, { recursive: true, force: true });
     if (baseAnterior === null) fs.rmSync(rutaBase, { force: true }); else fs.writeFileSync(rutaBase, baseAnterior, 'utf8');
   };
   let base = null;
