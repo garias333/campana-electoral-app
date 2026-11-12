@@ -20,6 +20,8 @@
   /* Toggle Verticales/Horizontales más grande — es el único control de
      esta pantalla, así que se destaca más que un botón secundario normal. */
   #btn-grafico-vertical, #btn-grafico-horizontal { padding: 12px 22px; font-size: 1rem; }
+  /* El enlace viejo #avance baja hasta esta sección; en el celular la barra superior es fija y taparía su título. */
+  #seccion-avance { scroll-margin-top: 76px; }
   .distintivo-alerta { display:inline-block; background:#FDF3E0; color:#8A5A00; border:1px solid #E5C27A; border-radius:999px; padding:1px 8px; font-size:0.75rem; white-space:nowrap; margin:1px 0; }
 </style>
 </head>
@@ -35,11 +37,10 @@
            se está mirando es de hace un minuto o de hace una hora. -->
       <div class="mono" id="ultima-actualizacion" style="font-size:0.8rem; margin-top:10px;"></div>
     </div>
-    <!-- DOS PESTAÑAS: los reportes de las mesas (lo de siempre) y el avance de votación de la
-         fase 2 (quién ya votó). La URL con #avance abre la segunda: el menú enlaza ahí. -->
+    <!-- PESTAÑAS: «Reportes de mesas» (la de siempre; incluye abajo la sección «Avance de votación», que antes era una
+         pestaña aparte — orden 47) y las que dependen de un módulo. Un enlace viejo con #avance abre Reportes y baja a esa sección. -->
     <div class="grupo-pestanas" style="margin-bottom:16px;">
       <button type="button" class="btn-acento btn-sm" id="pestana-reportes">Reportes de mesas</button>
-      <button type="button" class="btn-secundario btn-sm" id="pestana-avance">Avance de votación</button>
       <!-- Solo con el módulo `resultados_dia_d` (se muestra al cargar, ver el final del script). -->
       <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;">Resultados</button>
       <!-- Solo con el módulo `alertas_dia_d`. -->
@@ -137,9 +138,11 @@
         </table>
       </div>
     </div>
-    </div><!-- /vista-reportes -->
 
-    <div id="vista-avance" style="display:none;">
+    <!-- AVANCE DE VOTACIÓN (fase 2 del Día D; orden 47: era la pestaña «Avance de votación» y pasó aquí, debajo de lo que Jornada ya muestra).
+         Solo con «Ver» en el módulo `rescate_votos` (se muestra al cargar; el servidor lo vuelve a exigir en /dia-d/rescate). -->
+    <section id="seccion-avance" style="display:none; margin-top:28px;">
+      <h2 style="margin:0 0 14px;">Avance de votación</h2>
       <div id="avance-prueba" class="card" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#8A5A00; margin-bottom:14px;">
         <strong>Modo prueba:</strong> hoy no es el día de la elección. Las marcas de esta pantalla se pueden vaciar al terminar el simulacro.
       </div>
@@ -158,7 +161,7 @@
         <div id="av-horas-vacio" class="vacio" style="display:none;"><div class="icono-vacio">⏱️</div>Todavía no hay marcas hoy.</div>
       </div>
 
-      <div class="card" style="margin-bottom:18px;">
+      <div class="card" id="card-ranking" style="margin-bottom:18px;">
         <div class="toolbar">
           <h3 style="margin:0;">Ranking de líderes</h3>
           <div class="grupo-pestanas">
@@ -185,7 +188,8 @@
           </table>
         </div>
       </div>
-    </div><!-- /vista-avance -->
+    </section><!-- /seccion-avance -->
+    </div><!-- /vista-reportes -->
 
     <!-- ALERTAS (fase 4): lo que la coordinación tiene que atender ahora. Se recalcula cada 30 s. -->
     <div id="vista-transporte" style="display:none;"></div><!-- /vista-transporte: se arma en js/transporte-dia-d.js -->
@@ -578,13 +582,15 @@ async function cargarVistaCampana() {
 
   reportesCache = reportes;
   pintarTablasDeReportes();
+  // «Avance de votación» (debajo): se refresca con el resto. Un fallo suyo no tumba el tablero de reportes.
+  if (puedeAvance) await cargarAvance().catch(() => {});
 
   document.getElementById('ultima-actualizacion').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO');
 }
 
-/* ——— AVANCE DE VOTACIÓN (fase 2) ——— */
+/* ——— AVANCE DE VOTACIÓN (fase 2) ——— sección de la vista «Reportes de mesas» (orden 47); se refresca con el resto, cada 20 s. */
 let ordenRanking = 'faltantes';
-let intervaloAvance = null;
+let puedeAvance = false;   // «Ver» en `rescate_votos`; se llena al cargar la sesión
 const fmtP = (p) => String(p).replace('.', ',') + ' %';
 
 function pintarHoras(porHora) {
@@ -626,7 +632,11 @@ async function cargarAvance() {
 
   const tbody = document.getElementById('tbody-ranking');
   const vacio = document.getElementById('av-ranking-vacio');
-  if (!rk || !rk.lideres.length) { tbody.innerHTML = ''; vacio.style.display = 'block'; }
+  /* El ranking de líderes NO sale a quien no puede abrirlo (la ruta /ranking es de administración, coordinación y aspirante): sin respuesta,
+     la tarjeta entera se esconde en vez de decir «no hay líderes» (orden 44, punto 7). */
+  document.getElementById('card-ranking').style.display = rk ? 'block' : 'none';
+  if (!rk) { tbody.innerHTML = ''; vacio.style.display = 'none'; }
+  else if (!rk.lideres.length) { tbody.innerHTML = ''; vacio.style.display = 'block'; }
   else {
     vacio.style.display = 'none';
     tbody.innerHTML = rk.lideres.map(l => `
@@ -641,7 +651,7 @@ async function cargarAvance() {
 
 let intervaloPaquetes = null;
 function mostrarPestana(cual) {
-  const vistas = { reportes: 'vista-reportes', avance: 'vista-avance', resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte', logistica: 'vista-logistica' };
+  const vistas = { reportes: 'vista-reportes', resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte', logistica: 'vista-logistica' };
   if (!vistas[cual]) cual = 'reportes';
   Object.entries(vistas).forEach(([k, id]) => { document.getElementById(id).style.display = k === cual ? 'block' : 'none'; });
   Object.keys(vistas).forEach((k) => {
@@ -650,11 +660,7 @@ function mostrarPestana(cual) {
   });
   const hash = cual === 'reportes' ? '' : '#' + cual;
   if (location.hash !== hash) history.replaceState(null, '', cual === 'reportes' ? location.pathname : hash);
-  clearInterval(intervaloAvance); clearInterval(intervaloPaquetes); clearInterval(intervaloAlertas);
-  if (cual === 'avance') {
-    cargarAvance().catch(err => mostrarToast(err.message || 'No se pudo cargar el avance.', 'error'));
-    intervaloAvance = setInterval(() => cargarAvance().catch(() => {}), 30000);
-  }
+  clearInterval(intervaloPaquetes); clearInterval(intervaloAlertas);
   if (cual === 'resultados') abrirResultados();
   if (cual === 'transporte' && window.TransporteDiaD) window.TransporteDiaD.abrir();
   if (cual === 'logistica' && window.LogisticaDiaD) window.LogisticaDiaD.abrir();
@@ -716,7 +722,6 @@ document.getElementById('lista-alertas').addEventListener('click', (e) => {
   AlertasDiaD.alTocar(e, { api, recargar: cargarAlertas });
 });
 document.getElementById('pestana-reportes').addEventListener('click', () => mostrarPestana('reportes'));
-document.getElementById('pestana-avance').addEventListener('click', () => mostrarPestana('avance'));
 document.getElementById('pestana-resultados').addEventListener('click', () => mostrarPestana('resultados'));
 document.getElementById('pestana-alertas').addEventListener('click', () => mostrarPestana('alertas'));
 document.getElementById('pestana-transporte').addEventListener('click', () => mostrarPestana('transporte'));
@@ -747,13 +752,13 @@ document.getElementById('btn-vaciar-marcas').addEventListener('click', async () 
 let puedeResultados = false;
 // Qué pestañas puede abrir quien mira (se llenan al cargar la sesión). Las usa también el cambio de ancla (hashchange).
 let puedeAlertasDiaD = false, puedeTransporteDiaD = false, puedeLogisticaDiaD = false;
-/* LAS VISTAS DE ESTA PÁGINA SE ELIGEN POR EL ANCLA DE LA URL (orden 34): #avance, #alertas, #transporte, #logistica, #resultados; sin ancla
-   (o con una que quien mira no puede abrir) es «Reportes de mesas». El menú lateral enlaza a estas anclas, así que tocar otro
+/* LAS VISTAS DE ESTA PÁGINA SE ELIGEN POR EL ANCLA DE LA URL (orden 34): #alertas, #transporte, #logistica, #resultados; sin ancla
+   (o con una que quien mira no puede abrir) es «Reportes de mesas». #avance ya no es una vista (orden 47: «Avance de votación» pasó a ser una
+   sección de «Reportes de mesas»): un enlace viejo abre Reportes y la carga baja hasta esa sección. El menú lateral enlaza a estas anclas, así que tocar otro
    ítem estando ya aquí solo cambia el ancla: se escucha `hashchange` y se cambia de pestaña sin recargar. */
 window.paginaEscuchaHash = true;
 function pestanaDelAncla() {
   const h = location.hash;
-  if (h === '#avance') return 'avance';
   if (h === '#resultados' && puedeResultados) return 'resultados';
   if (h === '#alertas' && puedeAlertasDiaD) return 'alertas';
   if (h === '#transporte' && puedeTransporteDiaD) return 'transporte';
@@ -1013,6 +1018,10 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   document.getElementById('btn-eliminar-todos-reportes').style.display = esAdmin ? 'inline-flex' : 'none';
   // «Vaciar marcas» es del administrador y del aspirante (cada uno vacía lo suyo).
   document.getElementById('btn-vaciar-marcas').style.display = (usuarioActual.rol === 'admin' || usuarioActual.es_aspirante) ? 'inline-flex' : 'none';
+  // La sección «Avance de votación» solo con «Ver» en `rescate_votos` (el servidor lo vuelve a exigir). Sin datos de permisos, no se muestra.
+  const permAv = usuarioActual.permisos && usuarioActual.permisos.rescate_votos;
+  puedeAvance = !!(permAv && permAv.ver);
+  document.getElementById('seccion-avance').style.display = puedeAvance ? 'block' : 'none';
 
   // El rótulo de la tarjeta de votos muestra el nombre real del candidato
   // (Configuración → Datos de la campaña) en vez del texto genérico.
@@ -1028,6 +1037,11 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   }
 
   await cargarVistaCampana();
+  // El enlace viejo dia-d.html#avance: abre Reportes (pestanaDelAncla no lo conoce) y baja a la sección, ya con sus cifras pintadas.
+  if (location.hash === '#avance' && puedeAvance) {
+    const sec = document.getElementById('seccion-avance');
+    if (sec) sec.scrollIntoView();
+  }
   // La pestaña «Resultados» solo existe con el módulo `resultados_dia_d` (el servidor lo vuelve a exigir
   // en cada ruta: esto solo evita ofrecer un botón que daría 403). Sin datos de permisos NO se muestra.
   const permRes = usuarioActual.permisos && usuarioActual.permisos.resultados_dia_d;

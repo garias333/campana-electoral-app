@@ -7,14 +7,14 @@ icono: grafico
 modulo: rescate_votos
 nivel: ver
 roles:
-ruta: Escritorio: Día D > Avance de votación | Celular: Ranking Día D
+ruta: Escritorio: Día D > Jornada electoral | Celular: Ranking Día D
 captura: t-avance-ranking.webp
 ---
 Te dice cuántos de los votantes de tu alcance ya votaron, a qué hora, en qué puestos y qué líderes están rezagados, para llamar a tiempo a quien lo necesita.
 
 ## Pasos
 
-1. En el escritorio, entra a **Día D > Avance de votación**. En el celular, abre **Ranking Día D** desde el menú de inicio.
+1. En el escritorio, entra a **Día D > Jornada electoral** y baja hasta la sección **Avance de votación**. En el celular, abre **Ranking Día D** desde el menú de inicio.
 2. Lee las cifras de arriba: Votantes en tu alcance, Ya votaron, Faltan, Avance y Última marca. En el celular son tres: Ya votaron, Faltan y Avance.
 3. En el escritorio, mira «Votos por hora (hoy)»: una barra por cada hora, desde la primera hasta la última con marcas, sin saltos (una hora sin marcas sale en 0). Solo cuenta las marcas de hoy.
 4. Elige cómo ordenar el ranking: [[Más faltantes]], [[Menor %]] o [[Sin movimiento 1 h]].

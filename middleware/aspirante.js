@@ -107,7 +107,6 @@ const HREFS_ASPIRANTE = [
      acotan por `req.alcance`. */
   '/app/faltantes.html',
   '/app/ranking-dia-d.html',
-  '/dia-d.html#avance',
   '/dia-d.html#resultados',
   '/dia-d.html#alertas',
   '/app/alertas-dia-d.html',

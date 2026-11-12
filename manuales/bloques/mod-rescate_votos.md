@@ -7,7 +7,7 @@ icono: urna
 modulo: rescate_votos
 nivel: ver
 roles:
-ruta: Escritorio: Día D > Avance de votación | Celular: Faltan por votar
+ruta: Escritorio: Día D > Jornada electoral | Celular: Faltan por votar
 captura: mod-rescate_votos.webp, mod-rescate_votos-2.webp
 ---
 El día de la elección sirve para saber quién de tus votantes ya votó y quién falta, y para ir a buscar a los que faltan. Lo usan los líderes y sublíderes desde el celular; la coordinación y la administración, desde el escritorio (también pueden abrirlo en el celular).
@@ -16,7 +16,7 @@ El día de la elección sirve para saber quién de tus votantes ya votó y quié
 
 **En el celular, «Faltan por votar»**: una tarjeta con el avance, cuatro filtros ([[Faltan]], [[Ya votaron]], [[Sin teléfono]] y [[Necesitan transporte]]), un buscador y la lista de tus votantes agrupada por puesto. Cada persona trae botones para llamarla, escribirle y marcarla. Más detalle en {{t-faltan-por-votar}}.
 
-**En el escritorio, pestaña «Avance de votación»**: cifras del total, cuántos votaron y cuántos faltan, votos por hora, ranking de líderes y avance por puesto. Está explicado en {{t-avance-ranking}}.
+**En el escritorio, sección «Avance de votación» al final de Día D > Jornada electoral**: cifras del total, cuántos votaron y cuántos faltan, votos por hora, ranking de líderes y avance por puesto. Está explicado en {{t-avance-ranking}}.
 
 Si hoy no es la «Fecha de elecciones» que configuró el administrador (o todavía no hay fecha), verás la franja «Modo prueba». Todo funciona igual, para ensayar; lo único que no abre antes del día es el enlace «Ya voté» que reciben los votantes.
 

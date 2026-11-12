@@ -1091,14 +1091,13 @@ tbody td { padding: 10px 6px; border-bottom: 1px solid var(--color-border); }
    sin nada debajo. Solo aplica donde se pide la clase. */
 td.col-num, th.col-num { text-align: center; }
 
-/* TABLAS DEL DÍA D (orden 42): pestañas Reportes, Avance, Resultados y Transporte de dia-d.html, la lista de Testigos y la de Puestos.
+/* TABLAS DEL DÍA D (orden 42): pestañas Reportes (con su sección Avance de votación, orden 47), Resultados y Transporte de dia-d.html, la lista de Testigos y la de Puestos.
    La regla global `thead th` centra TODOS los encabezados y deja las celdas a la izquierda, así que cada columna de texto quedaba con su
    rótulo flotando al centro sobre datos pegados al borde. Aquí el criterio es: lo que es número o un dato corto (mesa, votos, hora de
    marca, casilla, foto) va con `col-num` en el <th> y en el <td>, y por tanto centrado en los dos; el resto es texto, y su encabezado
    va a la IZQUIERDA, sobre sus celdas. Acotado a estas pantallas: la regla global no se toca, y hay tablas de otras pantallas con catorce
    columnas donde un cambio general desplazaría rótulos. (Logística lo resuelve con estilos en línea, en js/logistica-dia-d.js.) */
 #vista-reportes thead th:not(.col-num),
-#vista-avance thead th:not(.col-num),
 #vista-resultados thead th:not(.col-num),
 #vista-transporte thead th:not(.col-num),
 .tabla-alineada thead th:not(.col-num) { text-align: left; }

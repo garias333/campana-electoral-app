@@ -260,7 +260,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       ok(r.json.complementos && TODAS.every((c) => r.json.complementos[c] === false), `${quien}: trae «complementos» con los diez en false`, r.json.complementos);
     }
     {
-      // «Faltan por votar» NO tiene módulo propio: `rescate_votos` también es del Avance de votación y del Ranking, y se queda.
+      // «Faltan por votar» NO tiene módulo propio: `rescate_votos` también es de la sección Avance de votación (en la Jornada) y del Ranking, y se queda.
       for (const [quien, id] of [['administrador', admin], ['superadministrador', superadmin], ['coordinador', coord], ['líder', lider]]) {
         const r = await pedir('GET', '/api/permisos/mios', { quien: id });
         ok(r.json.modulos.includes('rescate_votos') && r.json.permisos.rescate_votos.ver === true, `${quien}: con Faltan por votar apagado el módulo rescate_votos SIGUE en su menú (es también del Avance y el Ranking)`, r.json.modulos);
@@ -290,7 +290,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       const DIAD = ['alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d'];
       ok(DIAD.every((m) => !off.modulos.includes(m)), 'ASPIRANTE con los complementos apagados: sin los cuatro módulos del Día D', off.modulos);
       ok(!off.hrefs.some((h) => /alertas|#resultados|#transporte|#logistica/.test(h)), 'y su lista de direcciones pierde sus pestañas', off.hrefs);
-      ok(off.hrefs.includes('/dia-d.html') && off.hrefs.includes('/dia-d.html#avance'), 'pero conserva la Jornada y el Avance (no son complementos)');
+      ok(off.hrefs.includes('/dia-d.html') && !off.hrefs.includes('/dia-d.html#avance'), 'pero conserva la Jornada (no es complemento) y ya no lleva #avance: el Avance es una sección de la Jornada (orden 47)');
       ok(!off.hrefs.includes('/app/faltantes.html') && off.hrefs.includes('/app/ranking-dia-d.html') && off.modulos.includes('rescate_votos'), 'ASPIRANTE con Faltan por votar apagado: sin /app/faltantes.html, pero conserva el Ranking y el módulo rescate_votos', off.hrefs);
       await encender('alertas_dia_d', 'transporte_dia_d');
       const on = await permisosDeSesion(req);

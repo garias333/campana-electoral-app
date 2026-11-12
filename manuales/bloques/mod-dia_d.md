@@ -14,7 +14,7 @@ Es el tablero del día de la elección: muestra lo que reportan los testigos des
 
 ## Qué encuentras
 
-Arriba hay pestañas: [[Reportes de mesas]] (la que abre primero), [[Avance de votación]], [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]]. Las dos primeras salen siempre; [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]] aparecen solo si tu permiso incluye ese módulo.
+Arriba hay pestañas: [[Reportes de mesas]] (la que abre primero), [[Resultados]], [[Alertas]], [[Transporte]] y [[Logística]]. La primera sale siempre; las demás aparecen solo si tu permiso incluye ese módulo.
 
 En [[Reportes de mesas]] ves:
 
@@ -22,6 +22,7 @@ En [[Reportes de mesas]] ves:
 - **Votos por candidato**: barras con su tabla. Con [[Verticales]] y [[Horizontales]] cambias la forma; la estrella marca a tu candidato.
 - **Último reporte por mesa**: puesto, mesa, votos, testigo, hora, novedad, alertas, E-14 y otros documentos. La casilla «Solo con alertas» deja las mesas con aviso.
 - **Historial completo**: todos los reportes.
+- **Avance de votación** (al final de la pestaña): cuántos de tus votantes ya votaron, los votos por hora, el ranking de líderes y el avance por puesto. Solo la ves si tu permiso incluye «Faltan por votar (Día D)». Está explicada en {{t-avance-ranking}}.
 
 Las filas con novedad salen en rosado. En la columna «Alertas» de cada reporte puede aparecer «Suma ≠ votantes», «Fuera de lista», «Lo envió la coordinación» o «Puesto sin mesas configuradas»; pasa el cursor para leer su significado.
 
@@ -37,7 +38,8 @@ Las filas con novedad salen en rosado. En la columna «Alertas» de cada reporte
 - Ver las mesas con problemas: marca «Solo con alertas».
 - Abrir [[Reportes por puesto de votación]] para el consolidado de cada puesto.
 - Saber qué hace el testigo: {{t-testigo-reporte}} y {{t-testigo-e14}}.
-- Pasar a otra pestaña: {{mod-rescate_votos}}, {{mod-alertas_dia_d}}, {{mod-resultados_dia_d}}, {{mod-transporte_dia_d}}, {{mod-logistica_dia_d}}.
+- Ver quién ya votó y quién falta: {{mod-rescate_votos}}.
+- Pasar a otra pestaña: {{mod-alertas_dia_d}}, {{mod-resultados_dia_d}}, {{mod-transporte_dia_d}}, {{mod-logistica_dia_d}}.
 
 ::: consejo
 Deja esta pantalla abierta el día de la elección: no hay que recargarla. Si la hora de «Actualizado» no cambia, revisa tu conexión.

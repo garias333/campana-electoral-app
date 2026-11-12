@@ -219,9 +219,6 @@ const NAV_ITEMS = [
       { href: '/configuracion.html#diad', texto: 'Puestos de votación y candidatos', modulo: 'configuracion', roles: ['admin'] },
       { href: '/testigos.html', texto: 'Testigos electorales', modulo: 'testigos', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html', texto: 'Jornada electoral', modulo: 'dia_d', roles: ['admin', 'coordinador'] },
-      // Avance de votación: es una pestaña de la misma pantalla (hash #avance). Lleva su propio
-      // módulo para que la matriz de permisos pueda abrirlo o cerrarlo sin tocar la Jornada.
-      { href: '/dia-d.html#avance', texto: 'Avance de votación', modulo: 'rescate_votos', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#alertas', texto: 'Alertas del Día D', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d', roles: ['admin', 'coordinador'] },
       { href: '/dia-d.html#resultados', texto: 'Resultados y reclamaciones', modulo: 'resultados_dia_d', complemento: 'resultados_dia_d', roles: ['admin', 'coordinador'] },
     ]
@@ -1706,8 +1703,8 @@ async function inicializarLayout(paginaActiva) {
 
   /* QUÉ ÍTEM DEL MENÚ ESTÁ ACTIVO, Y CÓMO SE NAVEGA ENTRE VISTAS DE LA MISMA PÁGINA (orden 34).
 
-     Varios ítems apuntan a UNA sola página con otra ancla (Día D: Jornada, Avance, Alertas, Transporte y Resultados son
-     dia-d.html con #avance, #alertas…; Configuración: seis secciones de configuracion.html). Dos fallos juntos:
+     Varios ítems apuntan a UNA sola página con otra ancla (Día D: Jornada, Alertas, Transporte y Resultados son
+     dia-d.html con #alertas…; Configuración: seis secciones de configuracion.html). Dos fallos juntos:
        · «activo» se calculaba SOLO al pintar el menú y solo comparaba la ruta cuando el ítem no llevaba ancla: «Jornada
          electoral» (sin ancla) quedaba activo en CUALQUIER vista de la página, y el que sí llevaba ancla se quedaba pegado
          al de la carga aunque la vista cambiara. Por eso salían dos con la barra amarilla.
