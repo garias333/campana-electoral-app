@@ -12,6 +12,7 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
+- **Órdenes 47 y 48 (12 de noviembre de 2026): parche 334 PUBLICADO y REGISTRADO, INACTIVO, «seleccionadas» SIN campañas.** «Avance de votación pasa a ser una sección de Jornada electoral (Requiere el 333)» (`parches/campana-parche334.zip`, 159.924 bytes, sha256 `72b37de0a2f0a64a348721d29cf5d91027670415e762953886e612564803e5d5`, 12 archivos: `public/dia-d.html`, `public/js/common.js`, `public/css/style.css`, `public/service-worker.js` (v202), `public/manuales/img/mod-rescate_votos-2.webp`, 5 guías de `manuales/bloques/`, `.version-base`, `.parche-requiere`). **NO toca la base. NO lleva código de servidor.** Código en `8954d3a` (Orden 47) y `adff73a` (imagen). Panel: `toca_base_datos` = no, `requiere_parche` = 333, firmado Ed25519. **Pasos: «seleccionadas» solo municipal (NUNCA la Base) → activar → probar → luego departamental y c001.** El 334 exige el 333 puesto: el 333 está en el servidor de licencias (zip del 12-nov 14:22) pero no medí si su fila está registrada.
 - **Orden 46 (12 de noviembre de 2026): parche 333 GENERADO, INACTIVO, SIN PUBLICAR ni REGISTRAR.** «Parches con requisito comprobado y prueba de arranque (Requiere el 332)» (`parches/campana-parche333.zip`, 17.126 bytes, sha256 `eee08b0eb4dbe818a4a115cd19e956c51f09899ff2c3189f4b68e3ff47352add`, 5 archivos: `config/parchesAplicados.js`, `scripts/actualizar-automatico.js`, `routes/actualizador.routes.js`, `.version-base`, `.parche-requiere`). **NO toca la base. LLEVA CÓDIGO DE SERVIDOR.** Código en `5ecb5bc`. Plantilla `backups/plantillas/plantilla-nueva-campana-v333.zip` (7.089.685 bytes, sha256 `b0b561f40c09b59ade532edb16229249d94648feed81f0547b928d7f715eeccb`). **ORDEN DE PUBLICACIÓN: primero el Servidor de Licencias (init-db + reinicio), después `publicar` + `registrar` del 333**; ver «Orden 46». Quien tenga el 332 puesto ya puede recibirlo; el 331 y el 332 (formato viejo) siguen valiendo solo si son el siguiente número al `.version-parche`.
 - **Push del 11 de noviembre de 2026 (lo corrió el usuario como root con `su - gariasappelectoral`; salida pegada): `a4c38f1..16f93fe  auditoria-fable -> auditoria-fable`** (incluye los commits del 320 y del 321). Los parches 320 y 321 siguen INACTIVOS en el panel de licencias; falta ponerlos en «seleccionadas» con solo la municipal (nunca la Base), activarlos y aplicarlos (el 320 antes que el 321; ambos requieren los anteriores ya aplicados en esa campaña).
 - **INCIDENTE DEL 12 DE NOVIEMBRE DE 2026 (orden 45): las tres campañas caídas por aplicar el 329 SIN el 328.** El **328 suelto NO debe aplicarse en NINGUNA campaña**: lo reemplaza el **Combinado 331** (`parches/campana-parche331.zip`, 655.138 bytes, sha256 `6ceff35909c53122d44b66253e89ca478ee4c27793189c5edeff08bd8fc1aa10`, 48 archivos, **GENERADO, SIN PUBLICAR**; ver «Orden 45»). **El 330 quedó SUSTITUIDO por el 332** (mismo contenido, «Requiere el 331»): el zip viejo se renombró a `campana-parche330.zip.REEMPLAZADO-POR-332`. **Orden de publicación: 331 primero, 332 después.**
@@ -321,6 +322,18 @@ limpio») estaban obsoletas y se reemplazaron.*
   y dos guiones sin versionar (`scripts/respaldar-base-instalacion.sh`,
   `scripts/verificar-parche264.sh`; ya no viajan en plantillas, ver abajo). `CLAUDE.md`
   quedó commiteado (`0c2311a`, «notas de sesión»: el puerto de escucha, 4200 → 3005).
+
+## Órdenes 47 y 48 — «Avance de votación» dentro de «Jornada electoral» (12 de noviembre de 2026; parche 334 REGISTRADO, INACTIVO)
+
+**Orden 47 (`8954d3a`).** Las dos pantallas eran DISTINTAS: Jornada = lo que reportan los testigos (módulo `dia_d`, API `/dia-d/resumen|reportes|resumen-candidatos`); Avance = quién ya votó (módulo `rescate_votos`, API `/dia-d/rescate/resumen|ranking|vaciar`). Avance pasó a ser la sección «Avance de votación» al final de «Reportes de mesas» de `dia-d.html` (id `seccion-avance`): solo con «Ver» en `rescate_votos`, ranking oculto si `/ranking` no responde, «Vaciar marcas (simulacro)» solo admin y aspirante, recarga con el resto (20 s). Se quitó la pestaña, el ítem del menú de escritorio y `'/dia-d.html#avance'` de `HREFS_ASPIRANTE`. El enlace viejo `#avance` abre Jornada y baja a la sección (`scroll-margin-top` para la barra fija del celular). **`rescate_votos` NO se borra**: es «Faltan por votar (Día D)» y gobierna también el Ranking Día D del celular, el enlace «Ya voté» y el transporte. Sin cambios en la base, sin rutas de API borradas. En el celular «Avance» nunca estuvo (usa «Ranking Día D»).
+
+**Permisos medidos** (`permisos_rol`): Base y las campañas municipal y departamental: admin y coordinador tienen `dia_d` y `rescate_votos`; líder y sublíder solo `rescate_votos` (nunca vieron el Avance: menú y página eran de admin y coordinador); `administrativo` de la municipal solo `dia_d`. Gildardo confirmó las 3 campañas: nadie pierde acceso.
+
+**Lo que NO viaja en el 334, a propósito (código de servidor):** `middleware/aspirante.js` (quita una dirección que ya ningún ítem del menú usa: en las campañas queda una entrada muerta e inofensiva) y `lib/complementos.js` (solo un comentario). Viajarán en el próximo parche que lleve código de servidor. Tampoco van las pruebas (`probar-complementos*.js`).
+
+**Orden 48.** Imagen del manual `mod-rescate_votos-2.webp` regenerada con `scripts/capturar-manuales.js --solo mod-rescate_votos-2 --sin-md` (`adff73a`): «Jornada electoral» activa en el menú y la sección «Avance de votación», datos de ejemplo (Laura Muestra, Mateo Prueba, teléfonos 300000xxxx). Parche 334 generado con `--requiere 333` y publicado con `publicar-parche.sh`/`registrar-parche.js` como `gariasappelectoral` (sin root).
+
+**Pruebas (Orden 47):** las 33 suites pasan sobre mysqld privado; Chromium con admin y coordinador a 1280 y 390 px (menú sin «Avance de votación», sección con datos, enlace viejo baja a la sección, sin desborde). Ojo: la ruta de un manual debe terminar en una entrada real del menú (`lib/manuales.js` la valida): «Día D > Jornada electoral», sin paréntesis.
 
 ## Orden 46 — Que ninguna campaña aplique un parche si le falta el que requiere (12 de noviembre de 2026; parche 333 GENERADO, INACTIVO, SIN PUBLICAR)
 
@@ -3583,3 +3596,18 @@ Rama: auditoria-fable | Commit: db1565c 329: marca la versión base; ESTADO.md (
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-12 04:55 UTC desde srv1807015
 Rama: auditoria-fable | Commit: 6103058 332: el 330 regenerado como 332 (Requiere el 331); marca la versión base; ESTADO.md | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-12 14:26 UTC desde srv1807015
+Rama: auditoria-fable | Commit: fc16f8c 333: marca la versión base; ESTADO.md (parches con requisito comprobado y prueba de arranque, parche 333 generado) | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-12 14:49 UTC desde srv1807015
+Rama: auditoria-fable | Commit: fc16f8c 333: marca la versión base; ESTADO.md (parches con requisito comprobado y prueba de arranque, parche 333 generado) | Sin commitear: 18 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-12 14:50 UTC desde srv1807015
+Rama: auditoria-fable | Commit: fc16f8c 333: marca la versión base; ESTADO.md (parches con requisito comprobado y prueba de arranque, parche 333 generado) | Sin commitear: 18 archivo(s)
