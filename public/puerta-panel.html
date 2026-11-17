@@ -141,9 +141,9 @@ function pintarEmbudo(p) {
   if (p.oculto || !p.total) { $('e-embudo').textContent = `Todavía hay menos de ${p.minimo} visitas en este período: no se muestra ninguna zona.`; return; }
   const t = p.total, visitas = Number(t.visitas) || 0;
   const pasos = [['Visitas registradas', visitas, '#084298', 100], ['Abrieron', visitas - Number(t.no_abrio || 0), '#3d7be0', 88],
-    ['Interesados', Number(t.interesado || 0), '#d9a400', 76], ['Quieren registrarse', Number(t.quiere_registrarse || 0), '#1f9d55', 64]];
-  $('e-embudo').innerHTML = `<div class="pp-embudo">${pasos.map(([nombre, n, color, ancho], i) =>
-    `<div class="pp-emb-paso" style="width:${ancho}%;background:${color}"><span>${esc(nombre)}</span><b>${esc(n)}<small>${i === 0 || !visitas ? '' : ' · ' + Math.round(n / visitas * 100) + ' %'}</small></b></div>`).join('')}</div>
+    ['Interesados', Number(t.interesado || 0), '#d9a400', 76, '#1b2333'], ['Quieren registrarse', Number(t.quiere_registrarse || 0), '#1f9d55', 64]];
+  $('e-embudo').innerHTML = `<div class="pp-embudo">${pasos.map(([nombre, n, color, ancho, texto], i) =>
+    `<div class="pp-emb-paso" style="width:${ancho}%;background:${color}${texto ? ';color:' + texto : ''}"><span>${esc(nombre)}</span><b>${esc(n)}<small>${i === 0 || !visitas ? '' : ' · ' + Math.round(n / visitas * 100) + ' %'}</small></b></div>`).join('')}</div>
     <div class="pp-etiquetas">${[['No abrió', t.no_abrio], ['No interesado', t.no_interesado], ['Dejó una solicitud', t.solicitud], ['Pidió no volver', t.no_volver]].map(([n, v]) => `<span>${esc(n)}<b>${esc(v)}</b></span>`).join('')}</div>
     <p class="pp-nota" style="margin:10px 0 0;">Puertas: ${esc(t.asignadas)} asignadas, ${esc(t.visitadas)} visitadas (una puerta puede tener varias visitas).</p>`;
 }
