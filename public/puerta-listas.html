@@ -31,6 +31,27 @@
   .pp-form label { display: block; font-size: 12px; font-weight: 700; color: var(--texto-2, #6a7590); margin-bottom: 4px; }
   .pp-form select, .pp-form input { width: 100%; box-sizing: border-box; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
   .pp-form select:focus, .pp-form input:focus, .pp-paso textarea:focus { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 0; }
+  /* Armar una lista (Orden 54): Nombre → Zona → Quién va a visitar (casillas, uno o varios) → Máximo → Armar. */
+  .pp-form.pp-form-armar { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.9fr) minmax(0, .8fr) auto; align-items: start; }
+  .pp-form-armar > .pp-boton { align-self: start; margin-top: 21px; }
+  .pp-ayuda { display: block; margin-top: 4px; color: var(--texto-2, #6a7590); font-size: 12px; }
+  .pp-quien-caja { background: var(--campo, #f1f4fa); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 8px; max-height: 260px; box-sizing: border-box; }
+  .pp-quien-caja.apagada { opacity: .65; }
+  .pp-quien-barra { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .pp-quien-barra input[type="search"] { flex: 1 1 100%; min-width: 0; background: #fff; border: 0; border-radius: 8px; padding: 7px 10px; font-size: .86rem; box-sizing: border-box; }
+  .pp-btn-mini { background: none; border: 0; color: var(--marca-azul, #0B5ED7); font: inherit; font-size: .8rem; font-weight: 700; padding: 5px 7px; border-radius: 8px; cursor: pointer; white-space: nowrap; width: auto; min-height: 0; }
+  .pp-btn-mini:hover { background: #e8f0fe; }
+  .pp-btn-mini:disabled { opacity: .4; cursor: default; background: none; }
+  .pp-quien-lista { overflow-y: auto; min-height: 44px; }
+  .pp-quien-caja .pp-quien-fila { display: flex; align-items: center; gap: 8px; padding: 6px 4px; margin: 0; border-radius: 8px; cursor: pointer; font-size: .88rem; font-weight: 500; color: var(--texto, #1b2333); }
+  .pp-quien-caja .pp-quien-fila:hover { background: #e8f0fe; }
+  .pp-quien-caja .pp-quien-fila input { width: 18px; height: 18px; flex: none; margin: 0; padding: 0; }
+  .pp-quien-caja .pp-quien-fila .nom { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .pp-quien-caja .pp-quien-fila .nom small { color: var(--texto-2, #6a7590); font-size: .8rem; font-weight: 400; }
+  .pp-quien-caja .pp-quien-fila .disp { flex: none; color: var(--texto-2, #6a7590); font-size: .8rem; font-weight: 400; white-space: nowrap; }
+  .pp-quien-caja .pp-quien-fila.sin-zona { opacity: .6; cursor: default; }
+  .pp-quien-vacio { margin: 0; padding: 10px 6px; color: var(--texto-2, #6a7590); font-size: .86rem; }
+  .pp-quien-resumen { margin-top: 6px; font-size: .84rem; color: var(--texto-2, #6a7590); min-height: 1.2em; }
   .pp-tabla-wrap { overflow-x: auto; }
   .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 860px; }
   .pp-tabla th, .pp-tabla td { text-align: left; padding: 13px 12px; border-bottom: 0; vertical-align: top; }
@@ -40,9 +61,9 @@
   .pp-estado { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #e6eaf2; color: #55607a; }
   .pp-estado.activa { background: var(--marca-azul, #0B5ED7); color: #fff; }
   .pp-estado.cancelada { background: #fde3e3; color: #a12a2a; }
-  @media (max-width: 1099px) { .pp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 1099px) { .pp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form.pp-form-armar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form-armar > .pp-quien { grid-column: 1 / -1; order: 3; } .pp-form-armar > .pp-boton { order: 5; margin-top: 0; } }
   @media (max-width: 899px) { .pp-pasos { grid-template-columns: 1fr; } }
-  @media (max-width: 639px) { .pp-form { grid-template-columns: 1fr; } .pp-tarjeta { padding: 14px; gap: 12px; } .pp-num { width: 40px; height: 40px; font-size: 19px; } }
+  @media (max-width: 639px) { .pp-form, .pp-form.pp-form-armar { grid-template-columns: 1fr; } .pp-form-armar > .pp-quien { order: 0; } .pp-tarjeta { padding: 14px; gap: 12px; } .pp-num { width: 40px; height: 40px; font-size: 19px; } }
   .pp-oculta { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
   tr.pp-es-oculta td { opacity: .62; }
   .pp-acciones { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -115,12 +136,22 @@
       <div class="pp-tarjeta" id="tj-3"><div class="pp-num">3</div><div class="pp-cuerpo">
       <h2 id="tj-3-titulo">Armar una lista</h2>
       <div class="pp-seccion" id="pp-armar" style="display:none;">
-        <div class="pp-form">
+        <div class="pp-form pp-form-armar">
           <div><label for="a-nombre">Nombre de la lista</label><input id="a-nombre" maxlength="120" placeholder="Por ejemplo: Barrio La Enea, sábado"></div>
-          <div><label for="a-quien">Quién va a visitar</label><select id="a-quien" data-sin-ordenar><option value="">Elige…</option></select></div>
-          <div><label for="a-zona" id="a-zona-etiqueta">Zona (opcional)</label><select id="a-zona" data-sin-ordenar><option value="">Todas sus personas</option></select></div>
-          <div><label for="a-max">Máximo de personas</label><input id="a-max" type="number" min="1" inputmode="numeric"></div>
-          <div><button type="button" class="btn-primario" id="a-armar">Armar y asignar</button></div>
+          <div><label for="a-zona" id="a-zona-etiqueta">Zona</label><select id="a-zona" data-sin-ordenar><option value="__" disabled selected>Elija la zona…</option><option value="">Todas las zonas</option></select></div>
+          <div class="pp-quien"><label id="a-quien-etiqueta">Quién va a visitar</label>
+            <div class="pp-quien-caja apagada" id="a-quien" role="group" aria-labelledby="a-quien-etiqueta">
+              <div class="pp-quien-barra">
+                <input type="search" id="a-quien-buscar" placeholder="Buscar por nombre" aria-label="Buscar un visitante por nombre" disabled>
+                <button type="button" class="pp-btn-mini" id="a-quien-todos" disabled>Marcar todos</button>
+                <button type="button" class="pp-btn-mini" id="a-quien-ninguno" disabled>Quitar todos</button>
+              </div>
+              <div class="pp-quien-lista" id="a-quien-lista"><p class="pp-quien-vacio">Elija primero la zona</p></div>
+            </div>
+            <div class="pp-quien-resumen" id="a-quien-resumen" aria-live="polite"></div>
+          </div>
+          <div><label for="a-max">Máximo de personas</label><input id="a-max" type="number" min="1" inputmode="numeric"><small class="pp-ayuda">Por cada visitante</small></div>
+          <div class="pp-boton"><button type="button" class="btn-primario" id="a-armar" disabled>Armar y asignar</button></div>
         </div>
         <div class="pp-msg" id="a-msg"></div>
       </div>
@@ -289,10 +320,11 @@ function abrirEditar(l) {
 
 const GRUPOS_ZONA = [['barrio', 'Barrios'], ['vereda', 'Veredas'], ['comuna', 'Comunas'], ['corregimiento', 'Corregimientos'], ['municipio', 'Municipios']];
 
-/** Las zonas del catálogo, en un desplegable agrupado por tipo. Dos del mismo tipo con el mismo nombre se distinguen por lo que las contiene. */
+/** Las zonas del catálogo, en un desplegable agrupado por tipo. Dos del mismo tipo con el mismo nombre se distinguen por lo que las contiene.
+    Arriba, «Elija la zona…» (todavía sin elegir) y «Todas las zonas» (lo que antes era la zona vacía). */
 function pintarZonas() {
   const sel = $('a-zona');
-  const html = ['<option value="">Todas sus personas</option>'];
+  const html = ['<option value="__" disabled selected>Elija la zona…</option>', '<option value="">Todas las zonas</option>'];
   for (const [tipo, titulo] of GRUPOS_ZONA) {
     const del = zonas.filter((z) => z.tipo === tipo);
     if (!del.length) continue;
@@ -302,32 +334,100 @@ function pintarZonas() {
   sel.innerHTML = html.join('');
 }
 
+/* ----- «Quién va a visitar»: primero la zona, después los visitantes que tienen gente ahí, y se eligen uno o varios (Orden 54) ----- */
+let visitantesZona = [];             // [{ id, nombre, rol, disponibles, requiere_zona? }] — solo conteos, ningún dato de votantes
+let elegidos = new Set();
+let zonaElegida = false;             // false = «Elija primero la zona»; true cuando se elige una zona, «Todas las zonas», o la campaña no tiene barrios
+let cargandoVisitantes = false, errorVisitantes = '', pidiendoVisitantes = 0;
+const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const rolTexto = (r) => (r === 'sublider' ? 'sublíder' : 'líder');
+const nDisponibles = (n) => `${n} ${n === 1 ? 'disponible' : 'disponibles'}`;
+
+function visibles() {
+  const q = sinTildes($('a-quien-buscar').value.trim());
+  return visitantesZona.filter((v) => !q || sinTildes(v.nombre).includes(q));
+}
+
+function pintarQuien() {
+  const lista = $('a-quien-lista');
+  $('a-quien').classList.toggle('apagada', !zonaElegida);
+  if (!zonaElegida) lista.innerHTML = '<p class="pp-quien-vacio">Elija primero la zona</p>';
+  else if (cargandoVisitantes) lista.innerHTML = '<p class="pp-quien-vacio">Buscando quién tiene personas en esa zona…</p>';
+  else if (errorVisitantes) lista.innerHTML = `<p class="pp-quien-vacio">${esc(errorVisitantes)}</p>`;
+  else if (!visitantesZona.length) lista.innerHTML = '<p class="pp-quien-vacio">Ningún líder tiene personas disponibles para visitar en esta zona.</p>';
+  else {
+    const vis = visibles();
+    lista.innerHTML = vis.length ? vis.map((v) => `<label class="pp-quien-fila${v.requiere_zona ? ' sin-zona' : ''}">
+        <input type="checkbox" value="${esc(v.id)}" ${elegidos.has(v.id) ? 'checked' : ''} ${v.requiere_zona ? 'disabled' : ''}>
+        <span class="nom">${esc(v.nombre)} <small>(${esc(rolTexto(v.rol))})</small></span>
+        <span class="disp">${v.requiere_zona ? 'muchas: elija una zona' : esc(nDisponibles(v.disponibles))}</span></label>`).join('')
+      : '<p class="pp-quien-vacio">Nadie coincide con la búsqueda.</p>';
+    lista.querySelectorAll('input[type=checkbox]').forEach((c) => c.addEventListener('change', () => { const id = Number(c.value); if (c.checked) elegidos.add(id); else elegidos.delete(id); pintarQuien(); }));
+  }
+  const hay = zonaElegida && !cargandoVisitantes && !errorVisitantes && visitantesZona.length > 0;
+  ['a-quien-buscar', 'a-quien-todos', 'a-quien-ninguno'].forEach((i) => { $(i).disabled = !hay; });
+  const total = visitantesZona.filter((v) => elegidos.has(v.id)).reduce((t, v) => t + (v.disponibles || 0), 0);
+  $('a-quien-resumen').textContent = hay ? `${elegidos.size} ${elegidos.size === 1 ? 'visitante elegido' : 'visitantes elegidos'} · ${total} ${total === 1 ? 'persona disponible' : 'personas disponibles'} en total` : '';
+  $('a-armar').disabled = !(hay && elegidos.size > 0);
+}
+
+async function cargarVisitantes() {
+  if (!zonaElegida) { visitantesZona = []; elegidos.clear(); errorVisitantes = ''; pintarQuien(); return; }
+  const zona = $('a-zona').value;
+  const yo = ++pidiendoVisitantes;       // una respuesta vieja (se cambió de zona mientras llegaba) no pisa a la nueva
+  cargandoVisitantes = true; errorVisitantes = ''; pintarQuien();
+  try {
+    const r = await api('/puerta-a-puerta/listas/visitantes' + (zona && zona !== '__' ? '?territorio_id=' + encodeURIComponent(zona) : ''));
+    if (yo !== pidiendoVisitantes) return;
+    visitantesZona = r.visitantes || [];
+    elegidos = new Set([...elegidos].filter((id) => visitantesZona.some((v) => v.id === id && !v.requiere_zona)));    // se conservan los que siguen disponibles
+  } catch (e) {
+    if (yo !== pidiendoVisitantes) return;
+    visitantesZona = []; elegidos.clear(); errorVisitantes = e.message || 'No se pudo cargar quién puede visitar.';
+  }
+  cargandoVisitantes = false; pintarQuien();
+}
+
+function alElegirZona() {
+  zonaElegida = $('a-zona').value !== '__';
+  elegidos.clear(); $('a-quien-buscar').value = '';
+  cargarVisitantes();
+}
+
 async function armar() {
   msg('a-msg', '');
-  const nombre = $('a-nombre').value.trim(), quien = Number($('a-quien').value);
+  const nombre = $('a-nombre').value.trim(), ids = [...elegidos];
   if (nombre.length < 3) return msg('a-msg', 'Ponle un nombre a la lista (al menos 3 letras).', 'error');
-  if (!quien) return msg('a-msg', 'Elige quién va a visitar.', 'error');
-  const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignada_a: quien };
-  if ($('a-zona').value) cuerpo.territorio_id = Number($('a-zona').value);
+  if (!ids.length) return msg('a-msg', 'Elige quién va a visitar.', 'error');
+  if (ids.length > 1 && !confirm(`Se van a armar ${ids.length} listas, una por cada visitante. ¿Continuar?`)) return;
+  const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignados: ids };
+  if ($('a-zona').value && $('a-zona').value !== '__') cuerpo.territorio_id = Number($('a-zona').value);
   if ($('a-max').value) cuerpo.max = Number($('a-max').value);
   $('a-armar').disabled = true;
   try {
-    const r = await api('/puerta-a-puerta/listas', { method: 'POST', body: cuerpo });
-    const o = r.omitidas || {};
-    const fuera = [];
-    if (o.sin_autorizacion) fuera.push(`${o.sin_autorizacion} sin autorización`);
-    if (o.pidio_no_volver) fuera.push(`${o.pidio_no_volver} pidieron no volver`);
-    if (o.sin_direccion) fuera.push(`${o.sin_direccion} sin dirección`);
-    if (o.en_otra_lista) fuera.push(`${o.en_otra_lista} ya están en otra lista`);
-    if (o.visitada_hace_poco) fuera.push(`${o.visitada_hace_poco} se visitaron hace poco`);
-    if (r.sin_cupo) fuera.push(`${r.sin_cupo} no caben en la lista`);
-    msg('a-msg', r.duplicado ? 'Esa lista ya estaba armada.' : `Lista armada con ${r.personas} persona(s).${fuera.length ? ' Quedaron fuera: ' + fuera.join(', ') + '.' : ''}`, 'ok');
+    const r = await api('/puerta-a-puerta/listas/varias', { method: 'POST', body: cuerpo });
+    const fueraDe = (l) => {
+      const o = l.omitidas || {}, fuera = [];
+      if (o.sin_autorizacion) fuera.push(`${o.sin_autorizacion} sin autorización`);
+      if (o.pidio_no_volver) fuera.push(`${o.pidio_no_volver} pidieron no volver`);
+      if (o.sin_direccion) fuera.push(`${o.sin_direccion} sin dirección`);
+      if (o.en_otra_lista) fuera.push(`${o.en_otra_lista} ya están en otra lista`);
+      if (o.visitada_hace_poco) fuera.push(`${o.visitada_hace_poco} se visitaron hace poco`);
+      if (l.sin_cupo) fuera.push(`${l.sin_cupo} no caben en la lista`);
+      return fuera.length ? ' Quedaron fuera: ' + fuera.join(', ') + '.' : '';
+    };
+    const listas = r.listas || [];
+    if (r.duplicado) msg('a-msg', 'Esas listas ya estaban armadas.', 'ok');
+    else if (listas.length === 1) msg('a-msg', `Lista armada con ${listas[0].personas} persona(s).${fueraDe(listas[0])}`, 'ok');
+    else msg('a-msg', `${listas.length} listas armadas: ${listas.map((l) => `${l.asignado.nombre} (${l.personas})`).join(', ')}.`, 'ok');
+    if (!r.duplicado) mostrarToast(`${listas.length} ${listas.length === 1 ? 'lista armada' : 'listas armadas'}`, 'ok');
     uuidDeLaLista = nuevoUuid();
-    $('a-nombre').value = '';
+    $('a-nombre').value = ''; elegidos.clear();
     await cargarListas();
+    await cargarVisitantes();           // quien ya tiene su lista deja de tener esas personas disponibles
   } catch (e) {
-    msg('a-msg', e.message || 'No se pudo armar la lista.', 'error');       // el servidor ya trae el desglose cuando sí había personas excluidas
-  } finally { $('a-armar').disabled = false; }
+    msg('a-msg', e.message || 'No se pudo armar la lista.', 'error');       // el servidor dice cuál falló y por qué; si falla una, no se crea ninguna
+  } finally { pintarQuien(); }
 }
 
 /* ----- El guion de la visita (parche 312) ----- */
@@ -399,16 +499,24 @@ async function cargarHorario() {
     $('pp-armar').style.display = 'block';
     try {
       const rs = await api('/puerta-a-puerta/responsables');
-      responsables = rs.responsables || [];
-      $('a-quien').innerHTML = '<option value="">Elige…</option>' + (rs.responsables || []).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)} (${esc(u.rol === 'sublider' ? 'sublíder' : 'líder')})</option>`).join('');
-    } catch (_) { /* sin lista de responsables no se puede armar: el servidor lo dirá */ }
+      responsables = rs.responsables || [];       // solo para el cuadro de «Editar»: quién visita se elige ahora por zona, con casillas
+    } catch (_) { /* sin lista de responsables no se puede editar quién visita: el servidor lo dirá */ }
     try {
       const z = await api('/puerta-a-puerta/zonas');
       zonas = z.nivel === 'texto' ? [] : (z.zonas || []);
       pintarZonas();
-      if (z.nivel === 'texto') { $('a-zona').innerHTML = '<option value="">Esta campaña no tiene barrios ni veredas en el catálogo</option>'; $('a-zona').disabled = true; }
-    } catch (_) { zonas = []; }
+      if (z.nivel === 'texto') {
+        // Sin barrios en el catálogo no hay zona que elegir: «Quién va a visitar» se habilita de una vez con todos los visitantes que tienen gente.
+        $('a-zona').innerHTML = '<option value="">Esta campaña no tiene barrios</option>'; $('a-zona').disabled = true;
+        zonaElegida = true;
+      }
+    } catch (_) { zonas = []; pintarZonas(); }
+    $('a-zona').addEventListener('change', alElegirZona);
+    $('a-quien-buscar').addEventListener('input', pintarQuien);
+    $('a-quien-todos').addEventListener('click', () => { visibles().filter((v) => !v.requiere_zona).forEach((v) => elegidos.add(v.id)); pintarQuien(); });
+    $('a-quien-ninguno').addEventListener('click', () => { visibles().forEach((v) => elegidos.delete(v.id)); pintarQuien(); });
     $('a-armar').addEventListener('click', armar);
+    await cargarVisitantes();
   }
   if (usuarioActual.rol === 'admin') {
     $('l-ocultas-etiqueta').style.display = 'inline-flex';

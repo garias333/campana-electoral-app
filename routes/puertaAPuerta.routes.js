@@ -126,6 +126,26 @@ router.get('/listas', exigir('puerta_listas', 'ver'), async (req, res) => {
   try { res.json({ listas: await P.listasDe(alcanceTareas(req.alcance, 'l'), { ocultas: req.query.ocultas === '1' }) }); } catch (e) { responder(res, e); }
 });
 
+/** «Quién va a visitar», filtrado por zona (Orden 54): quiénes tienen al menos una persona que hoy podría entrar a una lista en esa zona, y cuántas. Mismo control que armar. */
+router.get('/listas/visitantes', exigir('puerta_listas', 'agregar'), async (req, res) => {
+  try {
+    const visitantes = await P.visitantesDisponibles({ usuario: req.session.usuario, alcanceQuienArma: req.alcance, asignables: asignablesPara(req.alcance), territorioId: req.query.territorio_id });
+    res.json({ visitantes });
+  } catch (e) { responder(res, e); }
+});
+
+/** Una lista por cada visitante elegido, todo o nada (Orden 54). */
+router.post('/listas/varias', exigir('puerta_listas', 'agregar'), json, async (req, res) => {
+  try {
+    const r = await P.armarListas({ datos: req.body, usuario: req.session.usuario, alcanceQuienArma: req.alcance, asignables: asignablesPara(req.alcance) });
+    for (const l of r.listas) {
+      await registrarAuditoria(req.session.usuario.id, 'puerta_lista_armar', 'puerta_listas', l.id,
+        `Armó la lista n.º ${l.id} con ${l.personas} persona(s) para ${l.asignado.nombre} (id ${l.asignado.id})${r.listas.length > 1 ? ` junto con otras ${r.listas.length - 1} (una por visitante)` : ''}${l.sin_cupo ? `; ${l.sin_cupo} quedaron fuera por el tope` : ''}.`, req.ip);
+    }
+    res.status(r.duplicado ? 200 : 201).json({ ok: true, duplicado: r.duplicado, listas: r.listas });
+  } catch (e) { responder(res, e); }
+});
+
 router.post('/listas', exigir('puerta_listas', 'agregar'), json, async (req, res) => {
   try {
     const asignables = asignablesPara(req.alcance);
