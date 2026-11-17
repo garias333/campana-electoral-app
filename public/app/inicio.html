@@ -201,8 +201,8 @@ async function modulosPermitidosApp() {
 /* EL ORDEN DEL MENÚ (Órdenes menús 2 y 3). Una sola lista ordenada para todos los roles, en grupos separados por una línea (sin títulos):
      0. Panel general (o Panel completo) · Dashboard de votantes · Mapa territorial
      1. Registro de votantes y sublíderes · Mi enlace de inscripción · Consultar puesto de votación · Estructura territorial · Agregar coordinadores o líderes
-     2. Registrar una solicitud · Mis solicitudes · Mis tareas · Tareas · Solicitudes ciudadanas
-     3. Puerta a puerta · Eventos · Faltan por votar · Avance de mis líderes · Alertas Día D · Transporte Día D · Logística Día D · Ranking Día D
+     2. Trabajo de campo y solicitudes (Orden 49): Puerta a puerta · Registrar una solicitud · Mis solicitudes · Mis tareas · Tareas · Solicitudes ciudadanas
+     3. Eventos y Día D: Eventos · Faltan por votar · Avance de mis líderes · Alertas Día D · Transporte Día D · Logística Día D · Ranking Día D
      4. Biografía del candidato · Información para compartir
      5. Mis avisos · Política de privacidad · Legislación · Ayuda · «Usar la versión de celular» (de último)
    Cada rol ve SOLO lo que ya veía: cada entrada se sigue pintando con la MISMA condición de antes (`modulo`, `modulos`, `soloAspirante`,
@@ -220,19 +220,19 @@ const ORDEN_MENU_APP = {
   '/app/puesto-votacion.html': [1, 3],
   '/app/admin-estructura.html': [1, 4],
   '/territorial.html?app=1#nuevo': [1, 5],
-  '/app/solicitud-nueva.html': [2, 1],
-  '/app/mis-solicitudes.html': [2, 2],
-  '/app/mis-tareas.html': [2, 3],
-  '/tareas.html': [2, 4],
-  '/solicitudes.html': [2, 5],
-  '/app/puerta-a-puerta.html': [3, 1], '/puerta-listas.html': [3, 1],
-  '/app/eventos.html': [3, 2],
-  '/app/faltantes.html': [3, 3],
-  '/app/avance-lideres.html': [3, 4],
-  '/app/alertas-dia-d.html': [3, 5],
-  '/dia-d.html#transporte': [3, 6],
-  '/app/logistica.html': [3, 7],
-  '/app/ranking-dia-d.html': [3, 8],
+  '/app/puerta-a-puerta.html': [2, 1], '/puerta-listas.html': [2, 1],
+  '/app/solicitud-nueva.html': [2, 2],
+  '/app/mis-solicitudes.html': [2, 3],
+  '/app/mis-tareas.html': [2, 4],
+  '/tareas.html': [2, 5],
+  '/solicitudes.html': [2, 6],
+  '/app/eventos.html': [3, 1],
+  '/app/faltantes.html': [3, 2],
+  '/app/avance-lideres.html': [3, 3],
+  '/app/alertas-dia-d.html': [3, 4],
+  '/dia-d.html#transporte': [3, 5],
+  '/app/logistica.html': [3, 6],
+  '/app/ranking-dia-d.html': [3, 7],
   '/app/biografia.html': [4, 1],
   '/app/informacion.html?modo=informacion': [4, 2], '/app/admin-contenido.html': [4, 2],
   '/app/mis-avisos.html': [5, 1],
@@ -262,7 +262,7 @@ function agruparMenuApp(items) {
    separados por una línea): son nombres neutros, ajustables aquí sin tocar nada más. El 45 es el grupo de lo que no
    tiene lugar todavía. */
 const TITULOS_GRUPO_APP = {
-  0: 'Resumen', 1: 'Registro', 2: 'Solicitudes y tareas', 3: 'Trabajo de campo y Día D',
+  0: 'Resumen', 1: 'Registro', 2: 'Trabajo de campo y solicitudes', 3: 'Eventos y Día D',
   4: 'Material de apoyo', 45: 'Más', 5: 'Mi cuenta y ayuda'
 };
 function tituloGrupoMenuApp(g) { return TITULOS_GRUPO_APP[g] || 'Más'; }
