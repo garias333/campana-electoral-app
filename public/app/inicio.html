@@ -243,15 +243,22 @@ const ORDEN_MENU_APP = {
 };
 const GRUPO_APP_SIN_LUGAR = 45;
 
-/** Ordena las entradas ya filtradas y las parte en grupos. Un grupo vacío para este rol no existe: no deja línea doble ni al principio ni al final. */
+/** Ordena las entradas ya filtradas y las parte en grupos. Un grupo vacío para este rol no existe: no deja línea doble ni al principio ni al final.
+    Una misma entrada no sale dos veces (Orden 50): el coordinador que además es aspirante recibía «Ranking Día D» por su menú y por el del aspirante.
+    Se considera repetida la que lleva el MISMO destino (href completo) Y el MISMO título que una anterior; se queda la primera según el orden de arriba.
+    Dos entradas con el mismo destino pero otro título NO se juntan: son cosas distintas para quien las lee. */
 function agruparMenuApp(items) {
   const conLugar = items.map((it, i) => {
     const lugar = ORDEN_MENU_APP[it.href];
     return { it, i, g: lugar ? lugar[0] : GRUPO_APP_SIN_LUGAR, o: lugar ? lugar[1] : 0 };
   });
   conLugar.sort((a, b) => (a.g - b.g) || (a.o - b.o) || (a.i - b.i));
+  const vistas = new Set();
   const grupos = [];
   conLugar.forEach(x => {
+    const clave = x.it.href + '\u0000' + x.it.titulo;
+    if (vistas.has(clave)) return;
+    vistas.add(clave);
     if (!grupos.length || grupos[grupos.length - 1].g !== x.g) grupos.push({ g: x.g, items: [] });
     grupos[grupos.length - 1].items.push(x.it);
   });
