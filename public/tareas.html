@@ -11,6 +11,63 @@
 <link rel="stylesheet" href="/css/crm.css">
 <style>
   /* TAREAS (parche 305): la lista, el detalle y el formulario para crear y asignar. Lo hace el equipo desde el celular (/app/mis-tareas.html). */
+  /* DISEÑO NUEVO (Orden 52, «Tablero por estado»): encabezado compacto, avisos, filtros en tarjeta y tablero de 4 columnas. Solo presentación. */
+  .tar-cab { background: var(--marca-azul-osc, #084298); border-bottom: 5px solid var(--marca-amarillo, #FFC300); border-radius: 16px; padding: 16px 22px; color: #fff; display: grid; grid-template-columns: auto 1fr auto; gap: 12px 24px; align-items: center; margin-bottom: 16px; }
+  .tar-cab .tar-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--marca-amarillo, #FFC300); }
+  .tar-cab h1 { margin: 2px 0 0; font-size: 24px; font-weight: 800; color: #fff; line-height: 1.15; }
+  .tar-info-enlace { background: none; border: 0; color: #fff; opacity: .85; font: inherit; font-size: 12.5px; padding: 2px 0; margin-top: 2px; cursor: pointer; text-decoration: underline; width: auto; min-height: 0; }
+  .tar-ayuda { grid-column: 1 / -1; margin: 0; font-size: 14px; line-height: 1.55; opacity: .9; max-width: 900px; }
+  .tar-cab .tar-pestanas { margin: 0; border: 0; justify-content: center; }
+  .tar-cab .tar-pestanas button.pestana { background: none; border: 0; border-radius: 999px; padding: 8px 16px; color: #ffffffcc; font-weight: 700; width: auto; min-height: 0; }
+  .tar-cab .tar-pestanas button.pestana:hover { background: #ffffff1f; }
+  .tar-cab .tar-pestanas button.pestana[aria-selected="true"] { background: var(--marca-amarillo, #FFC300); color: #1b2333; }
+  .tar-btn-nueva { background: var(--marca-amarillo, #FFC300); color: #1b2333; border: 0; border-radius: 999px; padding: 10px 20px; font: inherit; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .tar-btn-nueva:hover { filter: brightness(.95); }
+  .tar-avisos { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+  .tar-aviso-pill { background: #fff; color: #1b2333; border: 0; border-radius: 999px; box-shadow: 0 2px 8px rgba(8, 66, 152, .10); padding: 8px 16px; font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer; width: auto; min-height: 0; }
+  .tar-aviso-pill:hover { box-shadow: 0 3px 12px rgba(8, 66, 152, .18); }
+  .tar-aviso-pill.marca { box-shadow: 0 2px 8px rgba(8, 66, 152, .10), inset 4px 0 0 var(--marca-amarillo, #FFC300); padding-left: 20px; }
+  .tar-aviso-pill.alerta { background: #a12a2a; color: #fff; }
+  .tar-aviso-pill.sel { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 1px; }
+  .tar-tarjeta { background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(8, 66, 152, .12); padding: 18px; margin-bottom: 16px; }
+  .tar-filtros-fila { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+  .tar-filtros-fila .campo { margin: 0; min-width: 0; }
+  .tar-filtros-fila label { display: block; font-size: 12px; font-weight: 700; color: var(--texto-2, #6a7590); margin-bottom: 4px; }
+  .tar-filtros-fila select, .tar-filtros-fila input { width: 100%; box-sizing: border-box; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
+  .tar-filtros-fila select:focus, .tar-filtros-fila input:focus { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 0; }
+  .tar-btn-texto { background: none; border: 0; color: var(--marca-azul, #0B5ED7); font: inherit; font-weight: 700; font-size: .88rem; padding: 9px 12px; border-radius: 10px; cursor: pointer; white-space: nowrap; width: auto; min-height: 0; }
+  .tar-btn-texto:hover { background: #eaf1ff; }
+  .tar-btn-texto:disabled { opacity: .4; cursor: default; background: none; }
+  .tar-selector { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+  .tar-selector .grupo { display: inline-flex; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 3px; }
+  .tar-selector button { background: none; border: 0; border-radius: 8px; padding: 6px 14px; font: inherit; font-size: .84rem; font-weight: 700; color: var(--texto-2, #6a7590); cursor: pointer; width: auto; min-height: 0; }
+  .tar-selector button[aria-pressed="true"] { background: #fff; color: var(--marca-azul-osc, #084298); box-shadow: 0 1px 4px rgba(8, 66, 152, .15); }
+  .tar-selector button:disabled { opacity: .4; cursor: not-allowed; }
+  .tar-tablero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .tar-col { background: #e8edf5; border-radius: 14px; padding: 12px; min-width: 0; }
+  .tar-col-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 10px; }
+  .tar-col-cab b { font-weight: 800; color: var(--marca-azul-osc, #084298); }
+  .tar-col-num { border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: #e6eaf2; color: #55607a; }
+  .tar-col.en_curso .tar-col-num { background: var(--marca-azul, #0B5ED7); color: #fff; }
+  .tar-col.hecha .tar-col-num { background: var(--marca-amarillo, #FFC300); color: #1b2333; }
+  .tar-col.verificada .tar-col-num { background: #d9f2e3; color: #146c3a; }
+  .tar-col-vacia { font-size: .84rem; color: var(--texto-2, #6a7590); padding: 6px 2px; }
+  .tar-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(8, 66, 152, .10); border-top: 4px solid var(--marca-azul, #0B5ED7); padding: 12px; margin: 0 0 10px; cursor: pointer; }
+  .tar-card:hover { box-shadow: 0 4px 14px rgba(8, 66, 152, .18); }
+  .tar-card:focus-visible { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 2px; }
+  .tar-card.vencida { border-top-color: #a12a2a; }
+  .tar-card.activa { outline: 2px solid var(--marca-azul, #0B5ED7); }
+  .tar-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 6px; }
+  .tar-tipo { background: #e8f0fe; color: var(--marca-azul, #0B5ED7); font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 8px; }
+  .tar-num { font-size: 12px; color: var(--texto-2, #6a7590); font-weight: 700; white-space: nowrap; }
+  .tar-card-titulo { font-size: 15px; font-weight: 700; margin: 0 0 6px; overflow-wrap: anywhere; }
+  .tar-card-dato { font-size: 12.5px; color: var(--texto-2, #6a7590); margin: 2px 0; overflow-wrap: anywhere; }
+  .tar-card-fotos { font-size: 12.5px; color: var(--marca-azul-osc, #084298); font-weight: 700; margin-top: 4px; }
+  .tar-ver-todas { display: block; width: 100%; text-align: center; margin-top: 2px; }
+  .tar-pag { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+  .tar-pag span { flex: 1; text-align: center; font-size: .84rem; color: var(--color-text-muted); }
+  .tar-tabla-wrap { overflow-x: auto; }
+  #tar-tabla { min-width: 860px; }
   .tar-resumen { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
   .tar-resumen .cifra { background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 10px 16px; min-width: 120px; }
   .tar-resumen .cifra b { display: block; font-size: 1.3rem; }
@@ -20,17 +77,19 @@
   .tar-filtros label, .tar-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
   .tar-filtros select, .tar-filtros input[type=search], .tar-form select, .tar-form input, .tar-form textarea { width: 100%; box-sizing: border-box; }
   .tar-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  .tar-tabla th, .tar-tabla td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
-  .tar-tabla th { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  .tar-tabla th, .tar-tabla td { text-align: left; padding: 13px 12px; border-bottom: 0; vertical-align: top; }
+  .tar-tabla th { background: none; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--marca-azul-osc, #084298); border-bottom: 2px solid var(--marca-amarillo, #FFC300); padding: 10px 12px; }
+  .tar-tabla tbody tr:nth-child(odd) { background: #f7f9fd; }
   .tar-tabla tbody tr { cursor: pointer; }
-  .tar-tabla tbody tr:hover { background: #F4F6FA; }
+  .tar-tabla tbody tr:hover { background: #eef3fc; }
   .tar-tabla tbody tr.activa { background: #EAF1FF; }
-  .tar-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; margin: 1px 2px 1px 0; }
-  .tar-estado.en_curso { background: #FDF3E0; color: #9A6200; }
-  .tar-estado.hecha { background: #E6EEFB; color: #1F4E9A; }
-  .tar-estado.verificada { background: #E7F6EE; color: #1E7B4F; }
-  .tar-estado.cancelada { background: #F3E6E4; color: #8A3B30; }
-  .tar-estado.alerta { background: #FBE9E7; color: #A93226; }
+  .tar-estado { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #e6eaf2; color: #55607a; margin: 1px 2px 1px 0; }
+  .tar-estado.en_curso { background: var(--marca-azul, #0B5ED7); color: #fff; }
+  .tar-estado.hecha { background: var(--marca-amarillo, #FFC300); color: #1b2333; }
+  .tar-estado.verificada { background: #d9f2e3; color: #146c3a; }
+  .tar-estado.cancelada { background: #fde3e3; color: #a12a2a; }
+  .tar-estado.alerta { background: #a12a2a; color: #fff; }
+  .tar-estado.aviso { background: #fff4cc; color: #7a5d00; }
   .tar-detalle, .tar-nueva { border: 1px solid #9DB7E8; border-radius: 12px; padding: 18px; background: #fff; margin-top: 16px; }
   .tar-detalle h3, .tar-nueva h3 { margin: 0 0 6px; }
   .tar-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px 22px; margin: 12px 0; }
@@ -51,16 +110,18 @@
   .tar-msg.ok { color: #1E7B4F; } .tar-msg.error { color: #A93226; }
   .tar-aviso { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 10px; padding: 10px 12px; font-size: .86rem; margin: 10px 0; }
   .tar-nota { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 8px; padding: 6px 10px; margin: 6px 0; font-size: .86rem; }
-  @media (max-width: 820px) { .tar-tabla { display: block; overflow-x: auto; } }
+  @media (max-width: 1099px) { .tar-tablero { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tar-filtros-fila { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 899px) { .tar-filtros-fila { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tar-cab { grid-template-columns: 1fr auto; } .tar-cab .tar-pestanas { grid-column: 1 / -1; order: 3; justify-content: flex-start; } }
+  @media (max-width: 639px) { .tar-tablero, .tar-filtros-fila { grid-template-columns: 1fr; } .tar-cab { padding: 14px 16px; } }
   /* Pestañas, avance, panel, mapa y bandeja (parche 306) */
-  .tar-pestanas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 16px; border-bottom: 1px solid var(--color-border, #E2E5EA); }
+  .tar-pestanas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .tar-pestanas button.pestana { background: none; border: 0; border-bottom: 3px solid transparent; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; color: var(--color-text-muted); }
   .tar-pestanas button.pestana[aria-selected="true"] { color: var(--color-text, #1B2433); border-bottom-color: #4A78C2; }
   .tar-barra { background: #EEF0F3; border-radius: 6px; height: 10px; overflow: hidden; min-width: 90px; }
   .tar-barra i { display: block; height: 100%; background: #4A78C2; }
   .tar-barra i.lleno { background: #1E7B4F; }
   .tar-avance { font-size: .8rem; color: var(--color-text-muted); }
-  .tar-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; margin-top: 14px; }
+  .tar-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 18px; margin-top: 14px; }
   .tar-panel-grid h3 { margin: 0 0 8px; font-size: 1rem; }
   .tar-panel-grid td.num, .tar-panel-grid th.num { text-align: right; white-space: nowrap; }
   .tar-panel-grid .tar-tabla tbody tr { cursor: default; }
@@ -73,30 +134,33 @@
 <body>
 <div class="app-shell" id="app-shell">
   <main class="main">
-    <div class="crm-hero">
-      <div class="eyebrow">Territorio</div>
-      <h1>Tareas</h1>
-      <p>Lo que se le asigna al equipo para hacer en una zona: una visita, una entrega de material o una tarea libre. Quien la recibe la trabaja desde el celular,
+    <div class="tar-cab">
+      <div>
+        <div class="tar-eyebrow">Territorio</div>
+        <h1>Tareas</h1>
+        <button type="button" class="tar-info-enlace" id="tar-info-enlace" aria-expanded="false" aria-controls="tar-ayuda">ℹ ¿Cómo funciona?</button>
+      </div>
+      <div class="tar-pestanas" id="tar-pestanas-caja" role="tablist" aria-label="Vistas de las tareas" style="display:none;">
+        <button type="button" class="pestana" role="tab" data-vista="lista" aria-selected="true">Lista</button>
+        <button type="button" class="pestana" role="tab" data-vista="reasignar" aria-selected="false">Por reasignar <span id="n-reasignar"></span></button>
+        <button type="button" class="pestana" role="tab" data-vista="panel" aria-selected="false">Cumplimiento</button>
+        <button type="button" class="pestana" role="tab" data-vista="mapa" aria-selected="false">Mapa</button>
+      </div>
+      <div><button type="button" class="tar-btn-nueva" id="btn-nueva" style="display:none;">+ Nueva tarea</button></div>
+      <p class="tar-ayuda" id="tar-ayuda" style="display:none;">Lo que se le asigna al equipo para hacer en una zona: una visita, una entrega de material o una tarea libre. Quien la recibe la trabaja desde el celular,
          la termina con su evidencia y quien la asignó la verifica o la devuelve. Aquí se crean, se asignan y se les hace seguimiento.</p>
     </div>
 
     <div id="tar-sin-permiso" class="tar-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="tar-contenido" style="display:none;">
-      <div class="tar-pestanas" role="tablist" aria-label="Vistas de las tareas">
-        <button type="button" class="pestana" role="tab" data-vista="lista" aria-selected="true">Lista</button>
-        <button type="button" class="pestana" role="tab" data-vista="reasignar" aria-selected="false">Por reasignar <span id="n-reasignar"></span></button>
-        <button type="button" class="pestana" role="tab" data-vista="panel" aria-selected="false">Cumplimiento</button>
-        <button type="button" class="pestana" role="tab" data-vista="mapa" aria-selected="false">Mapa</button>
-      </div>
-
       <div id="vista-lista">
-      <div class="tar-resumen" id="tar-resumen"></div>
-      <div style="margin-bottom:12px"><button type="button" class="btn-primario btn-sm" id="btn-nueva" style="display:none;">+ Nueva tarea</button></div>
+      <div class="tar-avisos" id="tar-resumen"></div>
 
       <div id="tar-nueva"></div>
 
-      <div class="tar-filtros">
+      <div class="tar-tarjeta">
+      <div class="tar-filtros-fila">
         <div class="campo"><label for="f-estado">Estado</label>
           <select id="f-estado" data-sin-ordenar><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="en_curso">En curso</option><option value="hecha">Hecha (por verificar)</option><option value="verificada">Verificada</option><option value="cancelada">Cancelada</option></select></div>
         <div class="campo"><label for="f-tipo">Tipo</label>
@@ -106,30 +170,39 @@
         <div class="campo"><label for="f-texto">Título</label><input type="search" id="f-texto" placeholder="Parte del título"></div>
         <div class="campo"><label for="f-especial">Mostrar</label>
           <select id="f-especial" data-sin-ordenar><option value="">Todas</option><option value="vencidas">Solo vencidas</option><option value="sin_responsable">Sin responsable activo</option></select></div>
-        <div><button type="button" class="btn-secundario btn-sm" id="f-quitar">Quitar filtros</button></div>
+        <div><button type="button" class="tar-btn-texto" id="f-quitar">✕ Quitar filtros</button></div>
       </div>
-      <div style="overflow-x:auto">
+      </div>
+
+      <div class="tar-selector"><div class="grupo" role="group" aria-label="Cómo ver la lista">
+        <button type="button" id="v-tablero" aria-pressed="true">Tablero</button><button type="button" id="v-tabla" aria-pressed="false">Tabla</button></div></div>
+
+      <div class="tar-tablero" id="tar-tablero"></div>
+
+      <div class="tar-tarjeta" id="tar-tabla-caja" style="display:none;">
+      <div class="tar-tabla-wrap">
         <table class="tar-tabla" id="tar-tabla">
           <thead><tr><th>N.º</th><th>Tipo</th><th>Título</th><th>Zona</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th><th>Fotos</th></tr></thead>
           <tbody id="tar-filas"><tr><td colspan="8">Cargando…</td></tr></tbody>
         </table>
       </div>
-      <div style="display:flex; gap:10px; align-items:center; margin-top:10px">
-        <button type="button" class="btn-secundario btn-sm" id="p-ant">← Anterior</button>
-        <span id="p-info" style="font-size:.84rem; color:var(--color-text-muted)"></span>
-        <button type="button" class="btn-secundario btn-sm" id="p-sig">Siguiente →</button>
+      <div class="tar-pag">
+        <button type="button" class="tar-btn-texto" id="p-ant">← Anterior</button>
+        <span id="p-info"></span>
+        <button type="button" class="tar-btn-texto" id="p-sig">Siguiente →</button>
+      </div>
       </div>
 
       <div id="tar-detalle"></div>
       </div><!-- /vista-lista -->
 
-      <div id="vista-reasignar" style="display:none;">
+      <div id="vista-reasignar" style="display:none;"><div class="tar-tarjeta">
         <p class="tar-sub" style="margin-top:0">Son tareas abiertas cuyo responsable ya no puede tenerlas: su cuenta se desactivó, cambió de equipo o ya no es de tu rama. <b>Nada se reasigna solo</b>: tú eliges a quién pasarlas.</p>
         <div style="overflow-x:auto"><table class="tar-tabla" id="tar-reasignar"></table></div>
         <div id="m-reasignar" class="tar-msg"></div>
-      </div>
+      </div></div>
 
-      <div id="vista-panel" style="display:none;">
+      <div id="vista-panel" style="display:none;"><div class="tar-tarjeta">
         <div class="tar-filtros">
           <div class="campo"><label for="pn-desde">Creadas desde</label><input type="date" id="pn-desde"></div>
           <div class="campo"><label for="pn-hasta">Hasta</label><input type="date" id="pn-hasta"></div>
@@ -143,13 +216,13 @@
           <div><h3>Por zona</h3><div style="overflow-x:auto"><table class="tar-tabla" id="pn-zona"></table></div><p class="tar-sub" id="pn-zona-nota"></p></div>
           <div><h3>Por persona</h3><div style="overflow-x:auto"><table class="tar-tabla" id="pn-persona"></table></div></div>
         </div>
-      </div>
+      </div></div>
 
-      <div id="vista-mapa" style="display:none;">
+      <div id="vista-mapa" style="display:none;"><div class="tar-tarjeta">
         <div class="tar-filtros"><div class="campo"><label for="mp-tipo">Tipo</label><select id="mp-tipo" data-sin-ordenar><option value="">Todos</option><option value="libre">Libre</option><option value="visita">Visita</option><option value="entrega">Entrega de material</option><option value="meta_registros">Meta de registros</option><option value="reunion">Reunión</option></select></div></div>
         <div id="mapa-tar" role="img" aria-label="Mapa de zonas donde se terminaron tareas"></div>
         <p class="tar-sub" id="mp-nota"></p>
-      </div>
+      </div></div>
     </div>
   </main>
 </div>
@@ -172,40 +245,102 @@ const fechaHora = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}
 const soloFecha = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(t || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—'; };
 const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'tar-msg ' + (tipo || ''); e.textContent = texto || ''; } };
 
-function marcas(t) {
-  const m = [`<span class="tar-estado ${esc(t.estado)}">${esc(t.estado_etiqueta)}</span>`];
+function marcas(t, sinEstado) {
+  const m = sinEstado ? [] : [`<span class="tar-estado ${esc(t.estado)}">${esc(t.estado_etiqueta)}</span>`];
   if (t.vencida) m.push('<span class="tar-estado alerta">Vencida</span>');
-  else if (t.vence_hoy) m.push('<span class="tar-estado en_curso">Vence hoy</span>');
+  else if (t.vence_hoy) m.push('<span class="tar-estado aviso">Vence hoy</span>');
   if (t.sin_responsable_activo) m.push('<span class="tar-estado alerta">Sin responsable activo</span>');
-  if (t.devuelta) m.push('<span class="tar-estado en_curso">Devuelta</span>');
-  if (t.no_pudo) m.push('<span class="tar-estado en_curso">No pudo</span>');
+  if (t.devuelta) m.push('<span class="tar-estado aviso">Devuelta</span>');
+  if (t.no_pudo) m.push('<span class="tar-estado aviso">No pudo</span>');
   return m.join('');
 }
 
-async function cargarLista() {
+/* El tablero (Orden 52): una columna por estado; cada una pide a la API que ya existe con su estado y los filtros activos (máximo 20 tarjetas).
+   «Cancelada» no tiene columna: se ve con el aviso «N canceladas» o con el filtro Estado = Cancelada, que muestran la tabla. */
+const COLUMNAS = [['pendiente', 'Pendiente'], ['en_curso', 'En curso'], ['hecha', 'Por verificar'], ['verificada', 'Verificada']];
+const POR_COLUMNA = 20;
+let vistaLista = 'tablero';
+
+function consultaBase() {
   const p = new URLSearchParams();
-  if ($('f-estado').value) p.set('estado', $('f-estado').value);
   if ($('f-tipo').value) p.set('tipo', $('f-tipo').value);
   if ($('f-responsable').value) p.set('asignada_a', $('f-responsable').value);
   if ($('f-zona').value.trim()) p.set('zona', $('f-zona').value.trim());
   if ($('f-texto').value.trim()) p.set('texto', $('f-texto').value.trim());
   if ($('f-especial').value === 'vencidas') p.set('vencidas', '1');
   if ($('f-especial').value === 'sin_responsable') p.set('sin_responsable', '1');
-  p.set('pagina', pagina); p.set('limite', 25);
-  const r = await api('/tareas?' + p.toString());
+  return p;
+}
+
+/** Los avisos de arriba y lo que depende de la respuesta (permisos, botón «Nueva tarea», número de «Por reasignar»). Los contadores son los de siempre. */
+function pintarResumen(r) {
   permisos = r.permisos || permisos;
   puedeAsignar = !!r.puede_asignar;
   $('btn-nueva').style.display = puedeAsignar ? '' : 'none';
-  $('tar-resumen').innerHTML = `<div class="cifra"><b>${esc(Object.values(r.porEstado).reduce((a, b) => a + b, 0))}</b><span>En total</span></div>`
-    + Object.keys(ESTADOS).map((k) => `<div class="cifra"><b>${esc(k === 'hecha' ? (r.por_verificar || 0) : (r.porEstado[k] || 0))}</b><span>${esc(k === 'hecha' ? 'Por verificar' : ESTADOS[k])}</span></div>`).join('')
-    + `<div class="cifra"><b>${esc(r.vencidas)}</b><span>Vencidas</span></div><div class="cifra"><b>${esc(r.sin_responsable)}</b><span>Sin responsable activo</span></div><div class="cifra"><b>${esc(r.por_reasignar || 0)}</b><span>Por reasignar</span></div>`;
+  const est = $('f-estado').value, esp = $('f-especial').value;
+  const total = Object.values(r.porEstado).reduce((a, b) => a + b, 0);
+  const pastilla = (clase, aviso, html, sel) => `<button type="button" class="tar-aviso-pill ${clase}${sel ? ' sel' : ''}" data-aviso="${aviso}">${html}</button>`;
+  $('tar-resumen').innerHTML = pastilla('', 'total', `${esc(total)} en total`, est === '' && esp === '')
+    + pastilla(Number(r.vencidas) > 0 ? 'alerta' : '', 'vencidas', `⚠ ${esc(r.vencidas)} vencidas`, esp === 'vencidas')
+    + pastilla('marca', 'reasignar', `${esc(r.por_reasignar || 0)} por reasignar`, false)
+    + pastilla('marca', 'sin_responsable', `${esc(r.sin_responsable)} sin responsable activo`, esp === 'sin_responsable')
+    + pastilla('', 'canceladas', `${esc(r.porEstado.cancelada || 0)} ${Number(r.porEstado.cancelada || 0) === 1 ? 'cancelada' : 'canceladas'}`, est === 'cancelada');
   $('n-reasignar').textContent = r.por_reasignar ? `(${r.por_reasignar})` : '';
+}
+
+function tarjetaTarea(t) {
+  const extra = marcas(t, true);
+  return `<div class="tar-card${t.vencida ? ' vencida' : ''}${abierta === t.id ? ' activa' : ''}" data-id="${esc(t.id)}" role="button" tabindex="0">
+      <div class="tar-card-top"><span class="tar-tipo">${esc(t.tipo_etiqueta)}</span><span class="tar-num">N.º ${esc(t.id)}</span></div>
+      <div class="tar-card-titulo">${esc(t.titulo)}</div>
+      ${t.avance ? `<div class="tar-avance">${avanceTexto(t)}</div>` : ''}
+      <div class="tar-card-dato">📍 ${esc(t.zona || '—')}</div><div class="tar-card-dato">👤 ${esc(t.asignado || '—')}</div><div class="tar-card-dato">🗓 ${esc(soloFecha(t.fecha_limite))}</div>
+      ${t.fotos ? `<div class="tar-card-fotos">📷 ${esc(t.fotos)} ${Number(t.fotos) === 1 ? 'foto' : 'fotos'}</div>` : ''}
+      ${extra ? `<div style="margin-top:6px">${extra}</div>` : ''}</div>`;
+}
+
+async function cargarTablero(est) {
+  const columnas = COLUMNAS.filter(([k]) => !est || est === k);
+  const base = consultaBase();
+  const respuestas = await Promise.all(columnas.map(([k]) => {
+    const p = new URLSearchParams(base); p.set('estado', k); p.set('pagina', 1); p.set('limite', POR_COLUMNA);
+    return api('/tareas?' + p.toString());
+  }));
+  pintarResumen(respuestas[0]);
+  $('tar-tablero').innerHTML = columnas.map(([k, nombre], i) => {
+    const r = respuestas[i];
+    return `<div class="tar-col ${k}" data-col="${k}"><div class="tar-col-cab"><b>${esc(nombre)}</b><span class="tar-col-num">${esc(r.total)}</span></div>`
+      + (r.tareas.length ? r.tareas.map(tarjetaTarea).join('') : '<div class="tar-col-vacia">Sin tareas.</div>')
+      + (r.total > r.tareas.length ? `<button type="button" class="tar-btn-texto tar-ver-todas" data-ver-todas="${k}">Ver todas (${esc(r.total)})</button>` : '') + '</div>';
+  }).join('');
+  $('tar-tablero').querySelectorAll('.tar-card').forEach((c) => {
+    c.addEventListener('click', () => abrir(Number(c.dataset.id)));
+    c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(Number(c.dataset.id)); } });
+  });
+  $('tar-tablero').querySelectorAll('[data-ver-todas]').forEach((b) => b.addEventListener('click', () => {
+    $('f-estado').value = b.dataset.verTodas; vistaLista = 'tabla'; pagina = 1; cargarLista();
+  }));
+}
+
+async function cargarLista() {
+  const est = $('f-estado').value;
+  const enTabla = vistaLista === 'tabla' || est === 'cancelada';      // las canceladas no tienen columna: se ven en la tabla
+  $('tar-tablero').style.display = enTabla ? 'none' : '';
+  $('tar-tabla-caja').style.display = enTabla ? '' : 'none';
+  $('v-tablero').setAttribute('aria-pressed', enTabla ? 'false' : 'true'); $('v-tabla').setAttribute('aria-pressed', enTabla ? 'true' : 'false');
+  $('v-tablero').disabled = est === 'cancelada';
+  if (!enTabla) return cargarTablero(est);
+  const p = consultaBase();
+  if (est) p.set('estado', est);
+  p.set('pagina', pagina); p.set('limite', 25);
+  const r = await api('/tareas?' + p.toString());
+  pintarResumen(r);
   $('tar-filas').innerHTML = r.tareas.map((t) => `<tr data-id="${t.id}" class="${abierta === t.id ? 'activa' : ''}">
       <td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}${t.avance ? `<div class="tar-avance">${avanceTexto(t)}</div>` : ''}</td><td>${esc(t.zona || '—')}</td><td>${esc(t.asignado || '—')}</td>
       <td>${esc(soloFecha(t.fecha_limite))}</td><td>${marcas(t)}</td><td>${t.fotos ? '📷 ' + esc(t.fotos) : ''}</td></tr>`).join('')
     || '<tr><td colspan="8">No hay tareas con esos filtros.</td></tr>';
   const paginas = Math.max(1, Math.ceil(r.total / r.limite));
-  $('p-info').textContent = `Página ${r.pagina} de ${paginas} · ${r.total} tarea(s)`;
+  $('p-info').textContent = `Página ${r.pagina} de ${paginas} · ${r.total} ${r.total === 1 ? 'tarea' : 'tareas'}`;
   $('p-ant').disabled = r.pagina <= 1; $('p-sig').disabled = r.pagina >= paginas;
   $('tar-filas').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => abrir(Number(tr.dataset.id))));
 }
@@ -294,6 +429,7 @@ function formularioNueva() {
 async function abrir(id) {
   abierta = id;
   $('tar-filas').querySelectorAll('tr').forEach((tr) => tr.classList.toggle('activa', Number(tr.dataset.id) === id));
+  $('tar-tablero').querySelectorAll('.tar-card').forEach((c) => c.classList.toggle('activa', Number(c.dataset.id) === id));
   const d = await api('/tareas/' + id);
   const ubic = d.ubicacion
     ? `<a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.ubicacion.latitud)}&mlon=${encodeURIComponent(d.ubicacion.longitud)}#map=17/${encodeURIComponent(d.ubicacion.latitud)}/${encodeURIComponent(d.ubicacion.longitud)}" target="_blank" rel="noopener">${esc(Number(d.ubicacion.latitud).toFixed(5))}, ${esc(Number(d.ubicacion.longitud).toFixed(5))}</a>${d.ubicacion.precision_m ? ` (±${esc(d.ubicacion.precision_m)} m)` : ''}`
@@ -487,11 +623,22 @@ async function cargarMapa() {
   try {
     try { responsables = (await api('/tareas/responsables')).responsables; } catch (_) { responsables = []; }
     $('f-responsable').innerHTML = '<option value="">Todos</option>' + responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('');
-    $('tar-contenido').style.display = 'block';
+    $('tar-contenido').style.display = 'block'; $('tar-pestanas-caja').style.display = '';
     await cargarLista();
   } catch (e) { $('tar-sin-permiso').style.display = 'block'; $('tar-sin-permiso').textContent = e.message || 'No se pudo abrir la pantalla.'; return; }
   ['f-estado', 'f-tipo', 'f-responsable', 'f-especial'].forEach((i) => $(i).addEventListener('change', () => { pagina = 1; cargarLista(); }));
   let t; ['f-zona', 'f-texto'].forEach((i) => $(i).addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { pagina = 1; cargarLista(); }, 300); }));
+  $('tar-resumen').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-aviso]'); if (!b) return;
+    const a = b.dataset.aviso;
+    if (a === 'reasignar') return mostrarVista('reasignar');        // «Por reasignar» ya tiene su propia pestaña
+    $('f-estado').value = a === 'canceladas' ? 'cancelada' : '';
+    $('f-especial').value = a === 'vencidas' ? 'vencidas' : (a === 'sin_responsable' ? 'sin_responsable' : '');
+    pagina = 1; cargarLista();
+  });
+  $('v-tablero').addEventListener('click', () => { vistaLista = 'tablero'; cargarLista(); });
+  $('v-tabla').addEventListener('click', () => { vistaLista = 'tabla'; pagina = 1; cargarLista(); });
+  $('tar-info-enlace').addEventListener('click', () => { const abre = $('tar-ayuda').style.display === 'none'; $('tar-ayuda').style.display = abre ? '' : 'none'; $('tar-info-enlace').setAttribute('aria-expanded', abre ? 'true' : 'false'); });
   $('f-quitar').addEventListener('click', () => { ['f-estado', 'f-tipo', 'f-responsable', 'f-zona', 'f-texto', 'f-especial'].forEach((i) => { $(i).value = ''; }); pagina = 1; cargarLista(); });
   $('p-ant').addEventListener('click', () => { pagina = Math.max(1, pagina - 1); cargarLista(); });
   $('p-sig').addEventListener('click', () => { pagina += 1; cargarLista(); });

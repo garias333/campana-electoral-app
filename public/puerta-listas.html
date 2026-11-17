@@ -11,16 +11,38 @@
 <link rel="stylesheet" href="/css/crm.css">
 <style>
   /* PUERTA A PUERTA, armar las listas (parche 309). Aquí solo hay CONTEOS: los nombres y las direcciones viajan únicamente al celular de quien visita. */
-  .pp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: end; max-width: 900px; }
-  .pp-form label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
-  .pp-form select, .pp-form input { width: 100%; box-sizing: border-box; }
-  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  .pp-tabla th, .pp-tabla td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
-  .pp-tabla th { font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  /* DISEÑO NUEVO (Orden 52, «En tres pasos»): barra de pasos y tres tarjetas numeradas. Solo presentación. */
+  .crm-hero a { color: var(--marca-amarillo, #FFC300); font-weight: 700; }
+  .pp-pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+  .pp-pb { background: #fff; border-radius: 14px; box-shadow: 0 4px 14px rgba(8, 66, 152, .08); border-bottom: 4px solid #cfd6e3; padding: 14px 16px; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .pp-pb .circulo { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #cfd6e3; color: #1b2333; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .pp-pb b { display: block; font-weight: 800; }
+  .pp-pb small { display: block; color: var(--texto-2, #6a7590); font-size: 12.5px; }
+  .pp-pb.ok { border-bottom-color: #1f9d55; } .pp-pb.ok .circulo { background: #1f9d55; color: #fff; }
+  .pp-pb.falta { border-bottom-color: var(--marca-amarillo, #FFC300); } .pp-pb.falta .circulo { background: var(--marca-amarillo, #FFC300); }
+  .pp-tarjeta { display: flex; gap: 16px; background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(8, 66, 152, .12); padding: 18px; margin: 0 0 16px; }
+  .pp-num { flex: none; width: 48px; height: 48px; border-radius: 12px; background: var(--marca-azul-osc, #084298); color: var(--marca-amarillo, #FFC300); font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .pp-cuerpo { flex: 1; min-width: 0; }
+  .pp-cuerpo > h2 { font-size: 1.15rem; font-weight: 800; color: var(--marca-azul-osc, #084298); margin: 0 0 10px; }
+  .pp-btn-azul { background: var(--marca-azul, #0B5ED7); color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer; }
+  .pp-btn-azul:hover { background: var(--marca-azul-osc, #084298); }
+  .pp-btn-azul:disabled { opacity: .6; cursor: default; }
+  .pp-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+  .pp-form label { display: block; font-size: 12px; font-weight: 700; color: var(--texto-2, #6a7590); margin-bottom: 4px; }
+  .pp-form select, .pp-form input { width: 100%; box-sizing: border-box; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
+  .pp-form select:focus, .pp-form input:focus, .pp-paso textarea:focus { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 0; }
+  .pp-tabla-wrap { overflow-x: auto; }
+  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 860px; }
+  .pp-tabla th, .pp-tabla td { text-align: left; padding: 13px 12px; border-bottom: 0; vertical-align: top; }
+  .pp-tabla th { background: none; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--marca-azul-osc, #084298); border-bottom: 2px solid var(--marca-amarillo, #FFC300); padding: 10px 12px; }
+  .pp-tabla tbody tr:nth-child(odd) { background: #f7f9fd; }
   .pp-tabla td.num, .pp-tabla th.num { text-align: right; white-space: nowrap; }
-  .pp-estado { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
-  .pp-estado.activa { background: #E7F6EE; color: #1E7B4F; }
-  .pp-estado.cancelada { background: #FBE9E7; color: #B3261E; }
+  .pp-estado { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #e6eaf2; color: #55607a; }
+  .pp-estado.activa { background: var(--marca-azul, #0B5ED7); color: #fff; }
+  .pp-estado.cancelada { background: #fde3e3; color: #a12a2a; }
+  @media (max-width: 1099px) { .pp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 899px) { .pp-pasos { grid-template-columns: 1fr; } }
+  @media (max-width: 639px) { .pp-form { grid-template-columns: 1fr; } .pp-tarjeta { padding: 14px; gap: 12px; } .pp-num { width: 40px; height: 40px; font-size: 19px; } }
   .pp-oculta { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
   tr.pp-es-oculta td { opacity: .62; }
   .pp-acciones { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -28,13 +50,16 @@
   .pp-barra h2 { margin: 0; }
   .pp-barra label { font-size: .86rem; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
   .pp-aviso { background: #FDF3E0; border: 1px solid #ECD3A4; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; font-size: .88rem; max-width: 900px; }
+  .pp-aviso.rojo { background: #fdecec; border: 0; border-left: 5px solid #c0392b; }
+  .pp-aviso.amarillo { background: #fff7d6; border: 0; border-left: 5px solid var(--marca-amarillo, #FFC300); }
+  .pp-politica-ok { margin: 0 0 12px; font-weight: 700; color: #146c3a; }
   .pp-msg { font-size: .88rem; margin-top: 8px; }
   .pp-msg.ok { color: #1E7B4F; } .pp-msg.error { color: #B3261E; }
-  .pp-seccion { margin: 0 0 26px; }
+  .pp-seccion { margin: 0 0 22px; }
   .pp-seccion h2 { font-size: 1.05rem; margin: 0 0 10px; }
-  .pp-paso { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 8px; max-width: 760px; }
-  .pp-paso textarea { flex: 1; box-sizing: border-box; min-height: 56px; resize: vertical; }
-  .pp-paso b { min-width: 58px; font-size: .8rem; padding-top: 8px; }
+  .pp-paso { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 8px; max-width: 760px; }
+  .pp-paso textarea { flex: 1; box-sizing: border-box; min-height: 56px; resize: vertical; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
+  .pp-paso b { flex: none; width: 28px; height: 28px; margin-top: 8px; border-radius: 50%; background: var(--marca-amarillo, #FFC300); color: #1b2333; font-size: .82rem; display: flex; align-items: center; justify-content: center; }
   .pp-guion-lectura { max-width: 760px; font-size: .9rem; padding-left: 20px; margin: 0 0 8px; }
   .pp-versiones { font-size: .8rem; color: var(--color-text-muted); margin: 10px 0 0; }
 </style>
@@ -53,13 +78,43 @@
     <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="pp-contenido" style="display:none;">
-      <div class="pp-aviso" id="pp-politica" style="display:none; background:#FBE9E7; border-color:#F2B8B3;"></div>
-      <div class="pp-aviso"><b>Antes de encender esto para el equipo:</b> la política de privacidad tiene que mencionar la visita domiciliaria de la campaña.
-        Solo entran a una lista las personas que dieron su autorización, tienen dirección y no pidieron que no las visiten. Una persona que dijo «no estoy interesado»
-        o que ya se visitó no vuelve a entrar en una lista antes de <span id="pp-dias">60</span> días.</div>
+      <div class="pp-pasos" id="pp-pasos" aria-label="Los tres pasos">
+        <div class="pp-pb" id="pb-1"><span class="circulo">1</span><div><b>Revisar la política</b><small id="pb-1-t"></small></div></div>
+        <div class="pp-pb" id="pb-2"><span class="circulo">2</span><div><b>Escribir el guion</b><small id="pb-2-t"></small></div></div>
+        <div class="pp-pb" id="pb-3"><span class="circulo">3</span><div><b>Armar y asignar listas</b><small id="pb-3-t"></small></div></div>
+      </div>
 
+      <div class="pp-tarjeta" id="tj-1"><div class="pp-num">1</div><div class="pp-cuerpo">
+        <h2>Revisar la política de privacidad</h2>
+        <div class="pp-politica-ok" id="pp-politica-ok" style="display:none;">✓ La política ya menciona la visita domiciliaria</div>
+        <div class="pp-aviso rojo" id="pp-politica" style="display:none;"></div>
+        <div class="pp-aviso amarillo" style="margin-bottom:0;"><b>Antes de encender esto para el equipo:</b> la política de privacidad tiene que mencionar la visita domiciliaria de la campaña.
+          Solo entran a una lista las personas que dieron su autorización, tienen dirección y no pidieron que no las visiten. Una persona que dijo «no estoy interesado»
+          o que ya se visitó no vuelve a entrar en una lista antes de <span id="pp-dias">60</span> días.</div>
+      </div></div>
+
+      <div class="pp-tarjeta" id="tj-2"><div class="pp-num">2</div><div class="pp-cuerpo">
+      <div class="pp-seccion" id="pp-guion" style="margin:0;">
+        <h2>Guion de la visita</h2>
+        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;max-width:760px;">De 3 a 5 pasos cortos que el visitante lee en el celular («Ver guion», arriba de cada puerta; también sin señal). Cada cambio es una versión nueva con su huella, y cada visita guarda la huella de la versión que se mostró, nunca el texto.</p>
+        <div class="pp-aviso" id="g-aviso" style="display:none;background:#FBE9E7;border-color:#F2B8B3;"></div>
+        <div id="g-lectura"></div>
+        <div id="g-edicion" style="display:none;">
+          <div id="g-pasos"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+            <button type="button" class="btn-secundario" id="g-agregar">Agregar un paso</button>
+            <button type="button" class="btn-secundario" id="g-defecto">Poner el guion por defecto</button>
+            <button type="button" class="pp-btn-azul" id="g-guardar">Guardar el guion</button>
+          </div>
+        </div>
+        <div class="pp-msg" id="g-msg"></div>
+        <div class="pp-versiones" id="g-versiones"></div>
+      </div>
+      </div></div>
+
+      <div class="pp-tarjeta" id="tj-3"><div class="pp-num">3</div><div class="pp-cuerpo">
+      <h2 id="tj-3-titulo">Armar una lista</h2>
       <div class="pp-seccion" id="pp-armar" style="display:none;">
-        <h2>Armar una lista</h2>
         <div class="pp-form">
           <div><label for="a-nombre">Nombre de la lista</label><input id="a-nombre" maxlength="120" placeholder="Por ejemplo: Barrio La Enea, sábado"></div>
           <div><label for="a-quien">Quién va a visitar</label><select id="a-quien" data-sin-ordenar><option value="">Elige…</option></select></div>
@@ -70,43 +125,27 @@
         <div class="pp-msg" id="a-msg"></div>
       </div>
 
-      <div class="pp-seccion">
-        <div class="pp-barra"><h2>Listas</h2>
+      <div class="pp-seccion" style="margin:0;">
+        <div class="pp-barra"><h2>Listas armadas</h2>
           <label id="l-ocultas-etiqueta" style="display:none;"><input type="checkbox" id="l-ocultas"> Ver ocultas</label></div>
-        <div style="overflow-x:auto">
+        <div class="pp-tabla-wrap">
           <table class="pp-tabla"><thead><tr><th>Lista</th><th>Quién visita</th><th>Zona</th><th>Estado</th><th class="num">Personas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th></th></tr></thead>
             <tbody id="pp-listas"><tr><td colspan="9">Cargando…</td></tr></tbody></table>
         </div>
         <div class="pp-msg" id="l-msg"></div>
       </div>
+      </div></div>
 
-      <div class="pp-seccion" id="pp-guion">
-        <h2>Guion de la visita</h2>
-        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;max-width:760px;">De 3 a 5 pasos cortos que el visitante lee en el celular («Ver guion», arriba de cada puerta; también sin señal). Cada cambio es una versión nueva con su huella, y cada visita guarda la huella de la versión que se mostró, nunca el texto.</p>
-        <div class="pp-aviso" id="g-aviso" style="display:none;background:#FBE9E7;border-color:#F2B8B3;"></div>
-        <div id="g-lectura"></div>
-        <div id="g-edicion" style="display:none;">
-          <div id="g-pasos"></div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-            <button type="button" class="btn-secundario" id="g-agregar">Agregar un paso</button>
-            <button type="button" class="btn-secundario" id="g-defecto">Poner el guion por defecto</button>
-            <button type="button" class="btn-primario" id="g-guardar">Guardar el guion</button>
-          </div>
-        </div>
-        <div class="pp-msg" id="g-msg"></div>
-        <div class="pp-versiones" id="g-versiones"></div>
-      </div>
-
-      <div class="pp-seccion" id="pp-horario" style="display:none;">
+      <div class="pp-tarjeta" id="pp-horario" style="display:none;"><div class="pp-cuerpo">
         <h2>Horario de las visitas</h2>
         <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;">Fuera de esta franja (hora de Colombia) el celular no guarda ninguna visita, y el servidor tampoco. Puede ir de las <span id="h-min">07:00</span> a las <span id="h-max">19:00</span>.</p>
-        <div class="pp-form" style="max-width:520px;">
+        <div class="pp-form" style="max-width:520px; grid-template-columns: repeat(2, minmax(0,1fr)) auto;">
           <div><label for="h-desde">Desde</label><input id="h-desde" type="time"></div>
           <div><label for="h-hasta">Hasta</label><input id="h-hasta" type="time"></div>
           <div><button type="button" class="btn-secundario" id="h-guardar">Guardar el horario</button></div>
         </div>
         <div class="pp-msg" id="h-msg"></div>
-      </div>
+      </div></div>
     </div>
   </main>
 </div>
@@ -126,6 +165,28 @@ let uuidDeLaLista = nuevoUuid();      // un doble clic en «Armar» no crea dos 
 
 let responsables = [];
 let listasActuales = [];
+let politicaIncluye = null;      // true / false para el administrador; null si no la conocemos (solo el administrador puede leerla)
+
+/** La barra de tres pasos: verde = hecho, amarillo = falta, gris = todavía no toca. Solo lee lo que ya cargó la pantalla. */
+function pintarPasos() {
+  const marca = (n, clase, texto, simbolo) => { const e = $('pb-' + n); e.className = 'pp-pb ' + clase; e.querySelector('.circulo').textContent = simbolo || String(n); $('pb-' + n + '-t').textContent = texto; };
+  const p1 = politicaIncluye;
+  if (p1 === true) marca(1, 'ok', 'La política ya menciona la visita', '✓');
+  else if (p1 === false) marca(1, 'falta', 'Falta la visita domiciliaria');
+  else marca(1, '', 'La revisa el administrador');
+  const guardado = guionInfo && guionInfo.guardado && guionInfo.historial && guionInfo.historial.length;
+  const sustituido = guionInfo && guionInfo.rige && guionInfo.rige.sustituido;
+  const g2 = !!guardado && !sustituido;
+  if (g2) marca(2, 'ok', `Versión ${guionInfo.historial[0].id} lista`, '✓');
+  else marca(2, 'falta', sustituido ? 'El celular muestra el guion por defecto' : 'Todavía no hay guion');
+  const visibles = listasActuales.filter((l) => !l.oculta);
+  const faltan = p1 === false || !g2;
+  if (!visibles.length) marca(3, faltan ? '' : 'falta', 'Todavía no hay listas');
+  else {
+    const puertas = visibles.filter((l) => l.estado === 'activa').reduce((t, l) => t + Number(l.pendientes || 0), 0);
+    marca(3, faltan ? '' : 'falta', `${visibles.length} ${visibles.length === 1 ? 'lista' : 'listas'}, ${puertas} ${puertas === 1 ? 'puerta' : 'puertas'} por visitar`);
+  }
+}
 
 function botonesDe(l) {
   const b = (accion, texto) => `<button type="button" class="btn-secundario btn-sm" data-accion="${accion}" data-id="${esc(l.id)}">${texto}</button>`;
@@ -147,6 +208,7 @@ async function cargarListas() {
       <td><div class="pp-acciones">${botonesDe(l)}</div></td></tr>`).join('')
     : '<tr><td colspan="9">Todavía no hay listas.</td></tr>';
   $('pp-listas').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => accionDeLista(b.dataset.accion, Number(b.dataset.id))));
+  pintarPasos();
 }
 
 const PREGUNTAS = {
@@ -272,7 +334,7 @@ async function armar() {
 let guionInfo = null;
 function pintarPasosEditables(pasos) {
   const max = guionInfo.limites.max_pasos, min = guionInfo.limites.min_pasos;
-  $('g-pasos').innerHTML = pasos.map((t, i) => `<div class="pp-paso"><b>Paso ${i + 1}</b><textarea maxlength="${esc(guionInfo.limites.max_largo)}" data-paso="${i}">${esc(t)}</textarea>
+  $('g-pasos').innerHTML = pasos.map((t, i) => `<div class="pp-paso"><b role="img" aria-label="Paso ${i + 1}">${i + 1}</b><textarea maxlength="${esc(guionInfo.limites.max_largo)}" data-paso="${i}">${esc(t)}</textarea>
       <button type="button" class="btn-secundario btn-sm" data-quitar="${i}" ${pasos.length <= min ? 'disabled' : ''}>Quitar</button></div>`).join('');
   $('g-agregar').disabled = pasos.length >= max;
   $('g-pasos').querySelectorAll('[data-quitar]').forEach((b) => b.addEventListener('click', () => { const v = pasosEscritos(); v.splice(Number(b.dataset.quitar), 1); pintarPasosEditables(v); }));
@@ -296,6 +358,7 @@ async function cargarGuion() {
     $('g-lectura').style.display = 'none';
     pintarPasosEditables((guionInfo.guardado || guionInfo.por_defecto).pasos);
   }
+  pintarPasos();
 }
 
 async function cargarHorario() {
@@ -321,6 +384,9 @@ async function cargarHorario() {
   if (usuarioActual.rol === 'admin') {
     try {
       const e = await api('/puerta-a-puerta/politica');
+      politicaIncluye = !!e.incluye;
+      $('pp-politica-ok').style.display = e.incluye ? 'block' : 'none';
+      pintarPasos();
       if (!e.incluye && e.existe) {
         $('pp-politica').innerHTML = '<b>La política de privacidad todavía no menciona la visita domiciliaria.</b> ' + (e.editada ? 'Como la editaste, no se agregó sola. ' : '') +
           'Agrégala antes de encender esto para el equipo: <a href="/contenido.html?clave=politica_privacidad">Configuración → Política de privacidad</a> te muestra el párrafo.';
@@ -328,6 +394,7 @@ async function cargarHorario() {
       }
     } catch (_) { /* sin aviso */ }
   }
+  if (!permisos.agregar) $('tj-3-titulo').textContent = 'Listas armadas';
   if (permisos.agregar) {
     $('pp-armar').style.display = 'block';
     try {
@@ -363,7 +430,7 @@ async function cargarHorario() {
     });
   }
   if (usuarioActual.rol === 'admin' && permisos.editar) {
-    $('pp-horario').style.display = 'block';
+    $('pp-horario').style.display = 'flex';
     $('h-guardar').addEventListener('click', async () => {
       msg('h-msg', '');
       try { const r = await api('/puerta-a-puerta/config', { method: 'PUT', body: { franja_desde: $('h-desde').value, franja_hasta: $('h-hasta').value } }); msg('h-msg', `Horario guardado: de ${r.franja_desde} a ${r.franja_hasta}.`, 'ok'); }

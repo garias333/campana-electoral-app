@@ -11,18 +11,52 @@
 <link rel="stylesheet" href="/css/crm.css">
 <style>
   /* PUERTA A PUERTA, el panel (parche 312). Solo CONTEOS: ni nombres de votantes ni direcciones. */
-  .pp-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 0 0 14px; }
-  .pp-filtros label { display: block; font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
-  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  .pp-tabla th, .pp-tabla td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--color-border, #E2E5EA); vertical-align: top; }
-  .pp-tabla th { font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  /* DISEÑO NUEVO (Orden 52, «Gráficos con embudo»): todo con CSS a mano, sin librerías. Solo presentación: los datos y las reglas de privacidad no cambian. */
+  .crm-hero a { color: var(--marca-amarillo, #FFC300); font-weight: 700; }
+  .pp-tarjeta { background: #fff; border-radius: 16px; box-shadow: 0 6px 20px rgba(8, 66, 152, .08); padding: 18px; margin: 0 0 18px; min-width: 0; }
+  .pp-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .pp-dos > .pp-tarjeta { margin: 0; }
+  .pp-dos-marco { margin: 0 0 18px; }
+  .pp-tarjeta h2 { font-size: 18px; font-weight: 800; color: var(--marca-azul-osc, #084298); margin: 0 0 4px; }
+  .pp-nota { color: var(--texto-2, #6a7590); font-size: 13px; margin: 0 0 12px; }
+  .pp-filtros { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .pp-filtros > div { min-width: 170px; }
+  .pp-filtros label { display: block; font-size: 12px; font-weight: 700; color: var(--texto-2, #6a7590); margin-bottom: 5px; }
+  .pp-filtros select, .pp-filtros input { width: 100%; box-sizing: border-box; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
+  .pp-filtros select:focus, .pp-filtros input:focus { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 0; }
+  a.pp-btn-excel { display: inline-block; background: #fff; border: 1.5px solid var(--marca-azul, #0B5ED7); color: var(--marca-azul, #0B5ED7); border-radius: 999px; padding: 9px 18px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+  a.pp-btn-excel:hover { background: #e8f0fe; }
+  .pp-embudo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 6px 0 12px; }
+  .pp-emb-paso { color: #fff; padding: 11px 14px; border-radius: 10px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 10px; box-sizing: border-box; }
+  .pp-emb-paso b { font-size: 19px; }
+  .pp-emb-paso small { font-size: 12px; font-weight: 600; opacity: .9; }
+  .pp-etiquetas { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pp-etiquetas span { background: var(--campo, #f1f4fa); border-radius: 20px; padding: 5px 12px; font-size: 12.5px; color: var(--texto-2, #6a7590); }
+  .pp-etiquetas b { color: #1b2333; margin-left: 4px; }
+  .pp-zona { display: grid; grid-template-columns: 130px minmax(0, 1fr) 110px; gap: 12px; align-items: center; margin: 0 0 12px; }
+  .pp-zona b { color: var(--marca-azul-osc, #084298); font-weight: 700; overflow-wrap: anywhere; }
+  .pp-zona small { color: var(--texto-2, #6a7590); text-align: right; font-size: 12px; }
+  .pp-barra { height: 14px; background: #e6eaf2; border-radius: 7px; overflow: hidden; display: flex; }
+  .pp-barra i { display: block; height: 100%; }
+  .pp-barra .cob { background: var(--marca-azul, #0B5ED7); }
+  .pp-leyenda { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--texto-2, #6a7590); margin: 6px 0 12px; }
+  .pp-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .pp-vis { margin: 0 0 14px; }
+  .pp-vis-t { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 5px; }
+  .pp-vis-t span { color: var(--texto-2, #6a7590); font-size: 12.5px; }
+  .pp-detalle summary { cursor: pointer; color: var(--marca-azul, #0B5ED7); font-weight: 700; margin-top: 10px; }
+  .pp-tabla-wrap { overflow-x: auto; margin-top: 10px; }
+  .pp-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 760px; }
+  .pp-tabla th, .pp-tabla td { text-align: left; padding: 11px 10px; border-bottom: 0; vertical-align: top; }
+  .pp-tabla th { background: none; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--marca-azul-osc, #084298); border-bottom: 2px solid var(--marca-amarillo, #FFC300); white-space: nowrap; }
+  .pp-tabla tbody tr:nth-child(odd) { background: #f8fafd; }
   .pp-tabla td.num, .pp-tabla th.num { text-align: right; white-space: nowrap; }
   .pp-tabla tr.pp-total td { font-weight: 700; border-top: 2px solid var(--color-border, #E2E5EA); }
   .pp-tabla tr.pp-otras td { font-style: italic; }
+  @media (max-width: 899px) { .pp-dos { grid-template-columns: 1fr; } }
+  @media (max-width: 639px) { .pp-zona { grid-template-columns: 1fr; gap: 4px; } .pp-zona small { text-align: left; } .pp-filtros > div { min-width: 0; flex: 1 1 100%; } }
   .pp-aviso { background: #FDF3E0; border: 1px solid #ECD3A4; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; font-size: .88rem; max-width: 900px; }
   .pp-msg { font-size: .88rem; margin-top: 8px; } .pp-msg.error { color: #B3261E; }
-  .pp-seccion { margin: 0 0 28px; }
-  .pp-seccion h2 { font-size: 1.05rem; margin: 0 0 8px; }
   .pp-marca { display: inline-block; font-size: .74rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #EEF0F3; color: #5B6472; }
 </style>
 </head>
@@ -39,27 +73,44 @@
     <div id="pp-sin-permiso" class="pp-aviso" style="display:none;">Tu tipo de usuario no tiene acceso a esta pantalla. Si lo necesitas, pídeselo al administrador de la campaña.</div>
 
     <div id="pp-contenido" style="display:none;">
-      <div class="pp-filtros">
+      <div class="pp-tarjeta"><div class="pp-filtros">
         <div><label for="f-desde">Desde</label><input type="date" id="f-desde"></div>
         <div><label for="f-hasta">Hasta</label><input type="date" id="f-hasta"></div>
         <div><label for="f-franja">Franja del día</label>
           <select id="f-franja" data-sin-ordenar><option value="">Todo el día</option><option value="manana">Mañana</option><option value="tarde">Tarde</option><option value="noche">Noche</option></select></div>
-        <div><button type="button" class="btn-primario" id="f-ver">Ver</button></div>
-        <div id="f-excel-caja" style="display:none;"><a class="btn-secundario" id="f-excel" href="#" download>Descargar en Excel</a></div>
-      </div>
+        <div style="min-width:0"><button type="button" class="btn-primario" id="f-ver">Ver</button></div>
+        <div id="f-excel-caja" style="display:none; min-width:0"><a class="pp-btn-excel" id="f-excel" href="#" download>⬇ Descargar en Excel</a></div>
+      </div></div>
       <div class="pp-msg error" id="p-msg"></div>
 
-      <div class="pp-seccion">
-        <h2>Cobertura por zona</h2>
-        <p class="pp-sub" id="z-nota" style="font-size:.84rem;margin:0 0 8px;color:var(--color-text-muted);"></p>
-        <div style="overflow-x:auto"><table class="pp-tabla"><thead id="z-cab"></thead><tbody id="z-cuerpo"><tr><td>Cargando…</td></tr></tbody></table></div>
+      <div class="pp-dos pp-dos-marco">
+        <div class="pp-tarjeta">
+          <h2>Del recorrido al registro</h2>
+          <p class="pp-nota">Cuántas visitas avanzan en cada paso, en el período elegido.</p>
+          <div id="e-embudo">Cargando…</div>
+        </div>
+        <div class="pp-tarjeta">
+          <h2>Cobertura por zona</h2>
+          <p class="pp-nota">Puertas visitadas de las asignadas.</p>
+          <div id="c-zonas">Cargando…</div>
+          <p class="pp-nota" id="z-nota" style="margin:14px 0 0;"></p>
+        </div>
       </div>
 
-      <div class="pp-seccion">
+      <div class="pp-tarjeta">
+        <h2>Resultado por zona</h2>
+        <div id="r-zonas">Cargando…</div>
+        <details class="pp-detalle"><summary>Ver la tabla completa</summary>
+          <div class="pp-tabla-wrap"><table class="pp-tabla"><thead id="z-cab"></thead><tbody id="z-cuerpo"><tr><td>Cargando…</td></tr></tbody></table></div></details>
+      </div>
+
+      <div class="pp-tarjeta">
         <h2>Avance por visitante</h2>
-        <p class="pp-sub" style="font-size:.84rem;margin:0 0 8px;color:var(--color-text-muted);">«Por visitar», «Cerradas» y «Sin respuesta» son el estado de hoy; «Visitas» y «Puertas visitadas» siguen el filtro.</p>
-        <div style="overflow-x:auto"><table class="pp-tabla"><thead><tr><th>Visitante</th><th class="num">Listas</th><th class="num">Puertas asignadas</th><th class="num">Puertas visitadas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th class="num">Visitas</th></tr></thead>
-          <tbody id="v-cuerpo"><tr><td colspan="8">Cargando…</td></tr></tbody></table></div>
+        <p class="pp-nota">«Por visitar», «Cerradas» y «Sin respuesta» son el estado de hoy; «Visitas» y «Puertas visitadas» siguen el filtro.</p>
+        <div id="a-vis">Cargando…</div>
+        <details class="pp-detalle"><summary>Ver la tabla completa</summary>
+          <div class="pp-tabla-wrap"><table class="pp-tabla"><thead><tr><th>Visitante</th><th class="num">Listas</th><th class="num">Puertas asignadas</th><th class="num">Puertas visitadas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th class="num">Visitas</th></tr></thead>
+            <tbody id="v-cuerpo"><tr><td colspan="8">Cargando…</td></tr></tbody></table></div></details>
       </div>
     </div>
   </main>
@@ -81,6 +132,46 @@ function consulta() {
 }
 const fila = (z, clase) => `<tr class="${clase || ''}"><td>${esc(z.zona)}</td><td class="num">${esc(z.listas)}</td><td class="num">${esc(z.asignadas)}</td><td class="num">${esc(z.visitadas)}</td><td class="num">${esc(z.visitas)}</td>${TIPOS.map(([k]) => `<td class="num">${esc(z[k])}</td>`).join('')}</tr>`;
 
+const COLORES = { no_abrio: '#9aa5b8', no_interesado: '#c0392b', interesado: '#0B5ED7', quiere_registrarse: '#1f9d55', solicitud: '#FFC300', no_volver: '#084298' };
+const nVisitas = (n) => `${n} ${Number(n) === 1 ? 'visita' : 'visitas'}`;
+
+/** El embudo, en VISITAS: el servidor cuenta los resultados por visita (una puerta puede tener varias) y las puertas aparte, así que mezclar puertas con resultados
+    daría porcentajes que no cuadran. Los anchos son fijos (el número es el que informa); el % es sobre la primera barra. */
+function pintarEmbudo(p) {
+  if (p.oculto || !p.total) { $('e-embudo').textContent = `Todavía hay menos de ${p.minimo} visitas en este período: no se muestra ninguna zona.`; return; }
+  const t = p.total, visitas = Number(t.visitas) || 0;
+  const pasos = [['Visitas registradas', visitas, '#084298', 100], ['Abrieron', visitas - Number(t.no_abrio || 0), '#3d7be0', 88],
+    ['Interesados', Number(t.interesado || 0), '#d9a400', 76], ['Quieren registrarse', Number(t.quiere_registrarse || 0), '#1f9d55', 64]];
+  $('e-embudo').innerHTML = `<div class="pp-embudo">${pasos.map(([nombre, n, color, ancho], i) =>
+    `<div class="pp-emb-paso" style="width:${ancho}%;background:${color}"><span>${esc(nombre)}</span><b>${esc(n)}<small>${i === 0 || !visitas ? '' : ' · ' + Math.round(n / visitas * 100) + ' %'}</small></b></div>`).join('')}</div>
+    <div class="pp-etiquetas">${[['No abrió', t.no_abrio], ['No interesado', t.no_interesado], ['Dejó una solicitud', t.solicitud], ['Pidió no volver', t.no_volver]].map(([n, v]) => `<span>${esc(n)}<b>${esc(v)}</b></span>`).join('')}</div>
+    <p class="pp-nota" style="margin:10px 0 0;">Puertas: ${esc(t.asignadas)} asignadas, ${esc(t.visitadas)} visitadas (una puerta puede tener varias visitas).</p>`;
+}
+
+function pintarGraficosZona(p) {
+  const hay = !p.oculto;
+  const filas = hay ? p.zonas.concat(p.otras ? [p.otras] : []) : [];
+  const aviso = `Todavía hay menos de ${esc(p.minimo)} visitas en este período: no se muestra ninguna zona.`;
+  $('c-zonas').innerHTML = hay ? (filas.map((z) => {
+    const pct = Number(z.asignadas) > 0 ? Math.round(Number(z.visitadas) / Number(z.asignadas) * 100) : 0;
+    return `<div class="pp-zona"><b>${esc(z.zona)}</b><div class="pp-barra"><i class="cob" style="width:${Math.min(100, pct)}%"></i></div><small>${esc(z.visitadas)}/${esc(z.asignadas)} · ${pct} %</small></div>`;
+  }).join('') || 'Todavía no hay listas.') : aviso;
+  $('r-zonas').innerHTML = hay ? `<div class="pp-leyenda">${TIPOS.map(([k, t]) => `<span><i style="background:${COLORES[k]}"></i>${esc(t)}</span>`).join('')}</div>`
+    + (filas.map((z) => {
+      const v = Number(z.visitas) || 0;
+      return `<div class="pp-zona"><b>${esc(z.zona)}</b><div class="pp-barra">${TIPOS.map(([k, t]) => `<i style="width:${v ? (Number(z[k]) / v * 100).toFixed(1) : 0}%;background:${COLORES[k]}" title="${esc(t)}: ${esc(z[k])}"></i>`).join('')}</div><small>${esc(nVisitas(v))}</small></div>`;
+    }).join('') || 'Todavía no hay listas.') : aviso;
+}
+
+function pintarVisitantes(p) {
+  $('a-vis').innerHTML = p.visitantes.length ? p.visitantes.map((v) => {
+    const a = Number(v.asignadas) || 0;
+    const w = (n) => (a ? Math.min(100, Number(n) / a * 100).toFixed(1) : 0);
+    return `<div class="pp-vis"><div class="pp-vis-t"><b>${esc(v.visitante)}</b><span>${esc(v.cerradas)} cerradas · ${esc(v.sin_respuesta)} sin respuesta · ${esc(v.por_visitar)} por visitar · ${esc(nVisitas(v.visitas))}</span></div>
+      <div class="pp-barra"><i style="width:${w(v.cerradas)}%;background:#0B5ED7"></i><i style="width:${w(v.sin_respuesta)}%;background:#FFC300"></i></div></div>`;
+  }).join('') : 'Todavía no hay listas.';
+}
+
 async function cargar() {
   $('p-msg').textContent = '';
   const q = consulta();
@@ -94,6 +185,7 @@ async function cargar() {
     } else {
       $('z-cuerpo').innerHTML = p.zonas.map((z) => fila(z)).join('') + (p.otras ? fila(p.otras, 'pp-otras') : '') + (p.total ? fila(p.total, 'pp-total') : '');
     }
+    pintarEmbudo(p); pintarGraficosZona(p); pintarVisitantes(p);
     $('v-cuerpo').innerHTML = p.visitantes.length
       ? p.visitantes.map((v) => `<tr><td>${esc(v.visitante)}</td><td class="num">${esc(v.listas)}</td><td class="num">${esc(v.asignadas)}</td><td class="num">${esc(v.visitadas)}</td><td class="num">${esc(v.por_visitar)}</td><td class="num">${esc(v.cerradas)}</td><td class="num">${esc(v.sin_respuesta)}</td><td class="num">${esc(v.visitas)}</td></tr>`).join('')
       : '<tr><td colspan="8">Todavía no hay listas.</td></tr>';
