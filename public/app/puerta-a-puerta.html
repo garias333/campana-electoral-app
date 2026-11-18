@@ -41,6 +41,11 @@
   .resumen-pp div { flex: 1; background: #fff; border: 0; box-shadow: var(--sombra); border-radius: 16px; padding: 8px; text-align: center; }
   .resumen-pp b { display: block; font-size: 1.2rem; color: var(--navy); }
   .resumen-pp span { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+  .lista-fechas { background: var(--campo); border-radius: 14px; padding: 8px 10px; margin: 8px 0; font-size: 0.86rem; }
+  .lista-fechas .nombre-lista { font-weight: 700; }
+  .lista-fechas .aviso-fechas { margin-top: 4px; font-weight: 700; color: var(--aviso); }
+  .lista-fechas.cerrada-por-fechas .aviso-fechas { color: var(--error); }
+  .caja-pp .sin-registro { margin-top: 8px; font-size: 0.84rem; font-weight: 700; color: var(--aviso); }
   .nota-pp { background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); border-radius: 14px; padding: 8px 10px; margin: 10px 0; font-size: 0.86rem; }
   /* EL MAPA (parche 310): pines numerados en el orden de la ruta y una línea guía. Sin señal el fondo es liso: los pines y la línea se dibujan igual. */
   .mapa-pp { height: 270px; border-radius: 16px; border: 0; box-shadow: var(--sombra); background: #E6ECF3; overflow: hidden; margin-top: 10px; }
@@ -136,9 +141,21 @@ function franjaVigente() {
   const v = R.validarFranja(c.franja_desde || R.FRANJA_DESDE_DEFECTO, c.franja_hasta || R.FRANJA_HASTA_DEFECTO);
   return v.ok ? v : R.validarFranja(R.FRANJA_DESDE_DEFECTO, R.FRANJA_HASTA_DEFECTO);
 }
+/* ----- las fechas de cada lista (Orden 56), juzgadas AQUÍ también con el día del toque: sin señal el celular tiene que negarse solo ----- */
+function listaDeLaPuerta(itemId) { return base ? base.listas.find((l) => l.items.some((x) => x.id === itemId)) || null : null; }
+/** null (se puede anotar), o el aviso que se le dice a quien visita. Una lista sin fechas no tiene límite. */
+function avisoDeFechas(lista, ahora) {
+  if (!lista) return null;
+  const f = R.fueraDeFechas(R.colombiaDe(ahora).fecha, lista.fecha_inicio, lista.fecha_fin);
+  if (f === 'antes') return `Esta lista empieza el ${R.diaMes(lista.fecha_inicio)}`;
+  if (f === 'despues') return `Esta lista terminó el ${R.diaMes(lista.fecha_fin)}`;
+  return null;
+}
 function motivoParaNoVisitar(item, ahora) {
   const c = R.colombiaDe(ahora);
   if (base && base.config && R.esDiaDeLaEleccion(base.config.fecha_eleccion, ahora)) return 'Hoy es el día de la elección: ese día no se hacen visitas.';
+  const deFechas = avisoDeFechas(listaDeLaPuerta(item.id), ahora);
+  if (deFechas) return `${deFechas}: esta visita no se guarda.`;
   const f = franjaVigente();
   if (!R.enFranja(c.minutos, f.desde, f.hasta)) return `Fuera del horario permitido (de ${f.desdeTexto} a ${f.hastaTexto}). Esta visita no se guarda.`;
   if (item.ultima_fecha && !R.puedeReintentar(item.ultima_fecha, item.ultima_franja, ahora)) return `A esta puerta se puede volver desde el ${fechaCorta(R.reintentoDesde(item.ultima_fecha, item.ultima_franja))}.`;
@@ -200,6 +217,7 @@ function etiquetasDe(it) {
   return e.join('');
 }
 function cajaDe(it, n) {
+  const avisoPuerta = avisoDeFechas(listaDeLaPuerta(it.id), new Date());
   const panel = abierto === it.id ? `<div class="panel-volver"><b>Pidió no volver.</b> No se le va a visitar más.
       <label><input type="checkbox" id="chk-mensajes"> <span>Tampoco quiere mensajes (SMS, correo ni WhatsApp)</span></label>
       <div class="acciones"><button type="button" class="btn-app btn-app-primario" data-confirmar-no-volver="${esc(it.id)}">Confirmar</button>
@@ -210,14 +228,14 @@ function cajaDe(it, n) {
     <div class="nombre">${esc(it.nombre || '(sin nombre)')} ${etiquetasDe(it)}</div>
     <div class="dir">${esc(it.direccion || '')}</div>
     ${it.latitud === null || it.latitud === undefined ? '<div class="meta">Sin ubicación en el mapa: va al final de la ruta.</div>' : ''}
-    <div class="resultados">
+    ${avisoPuerta ? `<div class="sin-registro">${esc(avisoPuerta)}. ${avisoPuerta.includes('empieza') ? 'Todavía no' : 'Ya no'} se pueden anotar resultados.</div>` : `<div class="resultados">
       <button type="button" class="btn-app btn-app-secundario" data-resultado="no_abrio" data-id="${esc(it.id)}">No abrió</button>
       <button type="button" class="btn-app btn-app-secundario" data-resultado="no_interesado" data-id="${esc(it.id)}">No interesado</button>
       <button type="button" class="btn-app btn-app-primario" data-resultado="interesado" data-id="${esc(it.id)}">Interesado</button>
       <button type="button" class="btn-app btn-app-secundario" data-resultado="quiere_registrarse" data-id="${esc(it.id)}">Alguien quiere registrarse</button>
       ${solicitudesActivas ? `<button type="button" class="btn-app btn-app-secundario" data-resultado="solicitud" data-id="${esc(it.id)}">Dejó una solicitud</button>` : ''}
       <button type="button" class="btn-app btn-app-secundario" data-pedir-no-volver="${esc(it.id)}">Pidió no volver</button>
-    </div>${panel}</div></div></div>`;
+    </div>`}${avisoPuerta ? '' : panel}</div></div></div>`;
 }
 function esperaDe(it) {
   return `<div class="caja-pp"><div class="nombre">${esc(it.nombre || '')} ${etiquetasDe(it)}</div><div class="dir">${esc(it.direccion || '')}</div>
@@ -267,6 +285,13 @@ function pintar() {
     <div class="acciones"><button type="button" class="btn-app btn-app-secundario" id="btn-gps">📍 Mi ubicación</button></div>
     <div class="meta" id="estado-gps">${inicioGps ? 'Ruta ordenada desde tu ubicación. Tu ubicación no se guarda ni se envía.' : 'Ruta ordenada desde la primera puerta. Si quieres, toca «Mi ubicación» para ordenarla desde donde estás: se lee una sola vez, no se guarda ni se envía.'}</div></div>`;
   $('btn-gps').addEventListener('click', tomarUbicacion);
+  // Las fechas de cada lista (Orden 56), debajo de su nombre; antes de «Desde» o después de «Hasta» se ve la lista pero no se anotan resultados.
+  const conFechas = vista.listas.filter((l) => l.fecha_inicio && l.fecha_fin);
+  if (conFechas.length) estado.insertAdjacentHTML('beforeend', conFechas.map((l) => {
+    const av = avisoDeFechas(l, ahora);
+    return `<div class="lista-fechas${av && av.includes('terminó') ? ' cerrada-por-fechas' : ''}"><div class="nombre-lista">${esc(l.nombre)}</div>
+      <div>Del ${esc(R.diaMes(l.fecha_inicio))} al ${esc(R.diaMes(l.fecha_fin))}</div>${av ? `<div class="aviso-fechas">${esc(av)}</div>` : ''}</div>`;
+  }).join(''));
 
   const pend = todos.filter((i) => i.estado === 'pendiente');
   const cerradas = todos.filter((i) => i.estado !== 'pendiente').length;

@@ -63,9 +63,16 @@ async function pedir(metodo, ruta, { json, usuario } = {}) {
   let body;
   if (json !== undefined) { h['Content-Type'] = 'application/json'; body = JSON.stringify(json); }
   if (usuario) h['X-Test-User'] = JSON.stringify(usuario);
+  // Orden 56: armar exige fechas. Estas pruebas parten de listas SIN límite de fechas (como las de antes): se mandan fechas válidas y luego se dejan en NULL.
+  const armando = metodo === 'POST' && ruta === '/listas' && json && json.nombre !== undefined;
+  if (armando && json.fecha_inicio === undefined) {
+    const R0 = require('../public/js/puerta-reglas'); const hoy0 = R0.colombiaDe(new Date()).fecha;
+    body = JSON.stringify({ ...json, fecha_inicio: hoy0, fecha_fin: R0.sumarDias(hoy0, 7) });
+  }
   const r = await fetch(base + '/api/puerta-a-puerta' + ruta, { method: metodo, headers: h, body });
   const texto = await r.text();
   let datos = null; try { datos = JSON.parse(texto); } catch (_) { /* no json */ }
+  if (armando && datos && datos.id && !datos.duplicado) await pool.query('UPDATE puerta_listas SET fecha_inicio = NULL, fecha_fin = NULL WHERE id = ?', [datos.id]);
   return { status: r.status, datos, texto };
 }
 
@@ -336,32 +343,32 @@ async function listaDirecta(estado, lider, creadaPor, fichas, { cerradaHace } = 
     await entrarComo(admin.id);
     await ir('/puerta-listas.html');
     const zonaSel = await p.ev(`(() => { const s = document.getElementById('a-zona'); return s && s.tagName === 'SELECT' ? { grupos: Array.from(s.querySelectorAll('optgroup')).map((g) => ({ titulo: g.label, opciones: Array.from(g.querySelectorAll('option')).map((o) => o.textContent.trim()) })), primera: s.options[0].textContent.trim() } : null; })()`);
-    ok(zonaSel && zonaSel.primera === 'Todas sus personas', 'la zona es un desplegable y su primera opción es «Todas sus personas»', zonaSel);
+    ok(zonaSel && zonaSel.primera === 'Elija la zona…' && await p.ev(`document.getElementById('a-zona').options[1].textContent.trim()`) === 'Todas las zonas', 'la zona es un desplegable: «Elija la zona…» y luego «Todas las zonas» (Orden 54)', zonaSel);
     ok(zonaSel && zonaSel.grupos.some((g) => g.titulo === 'Barrios' && g.opciones.includes('La Enea')) && zonaSel.grupos.some((g) => g.titulo === 'Veredas' && g.opciones.includes('La Enea')),
       '«La Enea» aparece en Barrios y en Veredas, cada una en su grupo: se elige, no se escribe', zonaSel && zonaSel.grupos.map((g) => g.titulo));
 
     // Armar con «La Enea» (el barrio) desde la pantalla: la zona queda escrita en la tabla, no en «—».
     await p.ev(`document.getElementById('a-nombre').value = 'Desde la pantalla Enea'`);
-    await p.ev(`(() => { const q = document.getElementById('a-quien'); q.value = '${lid2.id}'; })()`);
-    await p.ev(`(() => { const s = document.getElementById('a-zona'); const o = Array.from(s.options).find((x) => x.value === '${enea.id}'); s.value = o.value; })()`);
+    await p.ev(`(() => { const s = document.getElementById('a-zona'); const o = Array.from(s.options).find((x) => x.value === '${enea.id}'); s.value = o.value; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await espera(1800);
+    await p.ev(`(() => { const c = document.querySelector('#a-quien-lista input[value="${lid2.id}"]'); if (c) c.click(); })()`);
     await clic('#a-armar', 1800);
     const msgArmar = await texto('#a-msg');
     ok(/Lista armada con 1 persona/.test(msgArmar), 'armar con la zona elegida: «Lista armada con 1 persona(s)»', msgArmar);
     const fEnea = await filaDe('Desde la pantalla Enea');
-    ok(fEnea && fEnea.celdas[2] === 'La Enea' && fEnea.celdas[3] === 'Activa', 'y la tabla muestra la zona «La Enea» (no «—»)', fEnea);
+    ok(fEnea && fEnea.celdas[2] === 'La Enea' && fEnea.celdas[4] === 'Activa', 'y la tabla muestra la zona «La Enea» (no «—»)', fEnea);
 
     // El mensaje de lista vacía, en la pantalla.
-    await p.ev(`document.getElementById('a-nombre').value = 'Desde la pantalla vacía'`);
-    await p.ev(`document.getElementById('a-quien').value = '${lidVacio.id}'`);
-    await p.ev(`document.getElementById('a-zona').value = ''`);
-    await clic('#a-armar', 1500);
-    ok((await texto('#a-msg')) === 'Este líder no tiene votantes en su alcance.', 'en pantalla: «Este líder no tiene votantes en su alcance.» (sin paréntesis de ceros)', await texto('#a-msg'));
+    // Orden 54: quien no tiene gente ya ni aparece en «Quién va a visitar», así que ese mensaje no puede salir desde este formulario.
+    await p.ev(`(() => { const s = document.getElementById('a-zona'); s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await espera(1800);
+    ok(await p.ev(`!document.querySelector('#a-quien-lista input[value="${lidVacio.id}"]')`), 'quien no tiene personas disponibles ya no aparece en «Quién va a visitar» (Orden 54)');
 
     // Botones por estado: activa → Cerrar y Cancelar; cancelada → Editar, Reactivar, Eliminar (admin, sin visitas).
     ok(JSON.stringify(fEnea.botones) === JSON.stringify(['Cerrar', 'Cancelar']), 'activa: «Cerrar» y «Cancelar»', fEnea.botones);
     await clic('#pp-listas [data-accion="cancelar"][data-id="' + (await q(`SELECT id FROM puerta_listas WHERE nombre = 'Desde la pantalla Enea'`))[0].id + '"]');
     let f = await filaDe('Desde la pantalla Enea');
-    ok(f && f.celdas[3] === 'Cancelada' && JSON.stringify(f.botones) === JSON.stringify(['Editar', 'Reactivar', 'Eliminar']), 'cancelada, sin visitas: «Editar», «Reactivar» y «Eliminar»', f);
+    ok(f && f.celdas[4] === 'Cancelada' && JSON.stringify(f.botones) === JSON.stringify(['Editar', 'Reactivar', 'Eliminar']), 'cancelada, sin visitas: «Editar», «Reactivar» y «Eliminar»', f);
     const idEnea = (await q(`SELECT id FROM puerta_listas WHERE nombre = 'Desde la pantalla Enea'`))[0].id;
 
     // Editar desde la pantalla.
@@ -376,7 +383,7 @@ async function listaDirecta(estado, lider, creadaPor, fichas, { cerradaHace } = 
     // Reactivar desde la pantalla, y volver a cancelar y ELIMINAR.
     await clic(`[data-accion="reactivar"][data-id="${idEnea}"]`, 1500);
     f = await filaDe('Desde la pantalla renombrada');
-    ok(f && f.celdas[3] === 'Activa' && /Lista reactivada: 1 persona/.test(await texto('#l-msg')), '«Reactivar» la deja «Activa» y avisa cuántas hay por visitar', { f, msg: await texto('#l-msg') });
+    ok(f && f.celdas[4] === 'Activa' && /Lista reactivada: 1 persona/.test(await texto('#l-msg')), '«Reactivar» la deja «Activa» y avisa cuántas hay por visitar', { f, msg: await texto('#l-msg') });
     await clic(`[data-accion="cancelar"][data-id="${idEnea}"]`);
     await clic(`[data-accion="eliminar"][data-id="${idEnea}"]`, 1500);
     ok(!(await filaDe('Desde la pantalla renombrada')) && (await texto('#l-msg')) === 'Lista eliminada.' && !(await q('SELECT 1 FROM puerta_listas WHERE id = ?', [idEnea])).length, '«Eliminar» la quita de la tabla y de la base');
@@ -388,10 +395,10 @@ async function listaDirecta(estado, lider, creadaPor, fichas, { cerradaHace } = 
     ok(!(await filaDe(`Lista renombrada ${sello}`)) && /Lista oculta/.test(await texto('#l-msg')), '«Ocultar» la quita de la tabla');
     await p.ev(`document.getElementById('l-ocultas').click()`); await espera(1500);
     const fOc = await filaDe(`Lista renombrada ${sello}`);
-    ok(fOc && /Oculta/.test(fOc.celdas[3]) && JSON.stringify(fOc.botones) === JSON.stringify(['Mostrar de nuevo']), 'con «Ver ocultas» vuelve a salir, marcada «Oculta», solo con «Mostrar de nuevo»', fOc);
+    ok(fOc && /Oculta/.test(fOc.celdas[4]) && JSON.stringify(fOc.botones) === JSON.stringify(['Mostrar de nuevo']), 'con «Ver ocultas» vuelve a salir, marcada «Oculta», solo con «Mostrar de nuevo»', fOc);
     await clic(`[data-accion="mostrar"][data-id="${idL1}"]`, 1500);
     await p.ev(`document.getElementById('l-ocultas').click()`); await espera(1200);
-    ok(!!(await filaDe(`Lista renombrada ${sello}`)) && !(await filaDe(`Lista renombrada ${sello}`)).celdas[3].includes('Oculta'), '«Mostrar de nuevo» la devuelve a la tabla normal');
+    ok(!!(await filaDe(`Lista renombrada ${sello}`)) && !(await filaDe(`Lista renombrada ${sello}`)).celdas[4].includes('Oculta'), '«Mostrar de nuevo» la devuelve a la tabla normal');
 
     // El coordinador: Editar y Reactivar, pero NO Eliminar ni Ocultar, ni «Ver ocultas».
     await entrarComo(coord.id);

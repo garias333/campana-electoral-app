@@ -31,6 +31,7 @@ process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 const http = require('http');
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
+const FECHAS0 = (() => { const R0 = require('../public/js/puerta-reglas'); const h = R0.colombiaDe(new Date()).fecha; return { d: h, h: R0.sumarDias(h, 7) }; })();   // Orden 56: armar exige fechas; luego se dejan en NULL (sin límite)
 const { lanzar, espera } = require('./capturas/navegador');
 const { crear } = require('./capturas/servidor');
 const R = require('../public/js/puerta-reglas');
@@ -81,8 +82,9 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
     const vC = await votante('Camilo SinMapa', lid, 'Vereda El Alto, finca La Palma', null, null);
     const vE = await votante('Elisa Horario', lid, 'Calle 1 # 1-1', 5.072, -75.512);
     const vF = await votante('Fernando Registro', lid, 'Calle 2 # 2-2', 5.073, -75.513);
-    const armada = await P.armarLista({ datos: { nombre: 'Lista de prueba', asignada_a: lid, cliente_uuid: require('crypto').randomUUID() },
+    const armada = await P.armarLista({ datos: { nombre: 'Lista de prueba', fecha_inicio: FECHAS0.d, fecha_fin: FECHAS0.h, asignada_a: lid, cliente_uuid: require('crypto').randomUUID() },
       usuario: { id: admin, rol: 'admin' }, alcanceQuienArma: { cargo: 'madre', cargoMadre: null }, asignables: { sql: '1 = 1', valores: [] } });
+    await q('UPDATE puerta_listas SET fecha_inicio = NULL, fecha_fin = NULL WHERE id = ?', [armada.id]);
     const items = {};
     for (const [k, v] of Object.entries({ A: vA, D: vD, B: vB, C: vC, E: vE, F: vF })) items[k] = (await q('SELECT id FROM puerta_items WHERE lista_id = ? AND votante_id = ?', [armada.id, v]))[0].id;
     console.log('PUERTA A PUERTA, EN EL CELULAR — base «' + nombreBase + '»  (lista ' + armada.id + ', ' + armada.personas + ' puertas)\n');
@@ -318,8 +320,9 @@ async function votante(nombre, lider, direccion, lat, lon, telefono) {
     const pts = [['Pía Uno', 5.0700, -75.5100], ['Pablo Dos', 5.0710, -75.5110], ['Paula Tres', 5.0800, -75.5200], ['Pedro Cuatro', 5.0720, -75.5120], ['Pilar SinMapa', null, null]];
     const vM = [];
     for (const [nom, la, lo] of pts) vM.push(await votante(nom, lid5, 'Calle ' + nom.split(' ')[0] + ' # 1-1', la, lo));
-    const lmapa = await P.armarLista({ datos: { nombre: 'Lista del mapa', asignada_a: lid5, cliente_uuid: require('crypto').randomUUID() },
+    const lmapa = await P.armarLista({ datos: { nombre: 'Lista del mapa', fecha_inicio: FECHAS0.d, fecha_fin: FECHAS0.h, asignada_a: lid5, cliente_uuid: require('crypto').randomUUID() },
       usuario: { id: admin, rol: 'admin' }, alcanceQuienArma: { cargo: 'madre', cargoMadre: null }, asignables: { sql: '1 = 1', valores: [] } });
+    await q('UPDATE puerta_listas SET fecha_inicio = NULL, fecha_fin = NULL WHERE id = ?', [lmapa.id]);
     const itM = []; for (const v of vM) itM.push((await q('SELECT id FROM puerta_items WHERE lista_id = ? AND votante_id = ?', [lmapa.id, v]))[0].id);
     const esperada = (inicio) => R.ordenarPorCercania(itM.map((id, k) => ({ id, orden: k, lat: pts[k][1], lon: pts[k][2] })), inicio);
     const pinesEsperados = (inicio) => esperada(inicio).map((id, k) => ({ id, n: k + 1 })).filter((x) => pts[itM.indexOf(x.id)][1] !== null);

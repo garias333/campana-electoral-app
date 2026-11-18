@@ -86,6 +86,34 @@
     return new Date(t + dias * 86400000).toISOString().slice(0, 10);
   }
 
+  /* LAS FECHAS DE UNA LISTA (Orden 56): cada lista tiene un «Desde» y un «Hasta» (días completos, hora de Colombia). Son las MISMAS reglas en el escritorio (al armar y
+     al editar), en el servidor (que no se fía del navegador) y en el celular (que sin señal tiene que negarse solo). Una visita vale por el DÍA en que se tomó
+     —el del toque, no el de la subida—: lo hecho dentro de las fechas sin señal y subido después de «Hasta» SÍ se acepta. Una lista sin fechas (las de antes de
+     esta regla) no tiene límite de fechas. */
+  function fechaReal(t) { return /^\d{4}-\d{2}-\d{2}$/.test(String(t || '')) && sumarDias(String(t), 0) === String(t); }
+  /** '2026-11-18' → '18/11'. */
+  function diaMes(fecha) { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(String(fecha || '')); return m ? `${m[2]}/${m[1]}` : ''; }
+  /**
+   * Valida el «Desde» y el «Hasta» de una lista. `hoy`: 'YYYY-MM-DD' en hora de Colombia. `permitirPasado`: al EDITAR una lista que ya empezó, el «Desde» puede
+   * quedar antes de hoy. Devuelve { ok: true, desde, hasta } o { ok: false, error, campo: 'desde' | 'hasta' }.
+   */
+  function validarFechasLista(desde, hasta, hoy, opciones) {
+    const d = String(desde || '').trim(), h = String(hasta || '').trim();
+    if (!d) return { ok: false, campo: 'desde', error: 'Pon la fecha desde la que se visita.' };
+    if (!h) return { ok: false, campo: 'hasta', error: 'Pon la fecha en que termina la lista.' };
+    if (!fechaReal(d)) return { ok: false, campo: 'desde', error: 'La fecha «Desde» no es una fecha válida.' };
+    if (!fechaReal(h)) return { ok: false, campo: 'hasta', error: 'La fecha «Hasta» no es una fecha válida.' };
+    if (h < d) return { ok: false, campo: 'hasta', error: 'La fecha «Hasta» no puede ser antes de «Desde».' };
+    if (!(opciones && opciones.permitirPasado) && d < hoy) return { ok: false, campo: 'desde', error: 'La fecha «Desde» no puede ser antes de hoy.' };
+    return { ok: true, desde: d, hasta: h };
+  }
+  /** ¿Está `fecha` dentro de las fechas de la lista? Devuelve null (sí, o la lista no tiene fechas), 'antes' (todavía no empieza) o 'despues' (ya terminó). */
+  function fueraDeFechas(fecha, inicio, fin) {
+    if (inicio && fecha < inicio) return 'antes';
+    if (fin && fecha > fin) return 'despues';
+    return null;
+  }
+
   /** 'YYYY-MM-DD HH:MM' de un instante en hora de Colombia (se compara como texto). */
   function textoColombia(instante) {
     const c = colombiaDe(instante);
@@ -170,7 +198,7 @@
     RESULTADOS, RESULTADOS_FINALES, FRANJAS, ETIQUETA_FRANJA,
     MAX_INTENTOS, HORAS_ENTRE_INTENTOS, DIAS_SIN_REASIGNAR, HORAS_COPIA, MAX_ITEMS_LISTA,
     FRANJA_MINIMA, FRANJA_MAXIMA, FRANJA_DESDE_DEFECTO, FRANJA_HASTA_DEFECTO,
-    aMinutos, hhmm, validarFranja, colombiaDe, franjaDe, finDeFranja, enFranja, sumarDias, textoColombia,
+    aMinutos, hhmm, validarFranja, colombiaDe, franjaDe, finDeFranja, enFranja, sumarDias, textoColombia, fechaReal, diaMes, validarFechasLista, fueraDeFechas,
     reintentoDesde, puedeReintentar, esDiaDeLaEleccion, caducoLaCopia, distanciaMetros, ordenarPorCercania,
   };
 });

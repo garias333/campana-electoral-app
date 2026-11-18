@@ -32,8 +32,15 @@
   .pp-form select, .pp-form input { width: 100%; box-sizing: border-box; border: 0; background: var(--campo, #f1f4fa); border-radius: 10px; padding: 10px 12px; }
   .pp-form select:focus, .pp-form input:focus, .pp-paso textarea:focus { outline: 2px solid var(--marca-azul, #0B5ED7); outline-offset: 0; }
   /* Armar una lista (Orden 54): Nombre → Zona → Quién va a visitar (casillas, uno o varios) → Máximo → Armar. */
-  .pp-form.pp-form-armar { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.9fr) minmax(0, .8fr) auto; align-items: start; }
-  .pp-form-armar > .pp-boton { align-self: start; margin-top: 21px; }
+  .pp-form.pp-form-armar { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+  .pp-form-armar > .pp-quien { grid-column: span 2; }
+  .pp-form-armar > .pp-boton { align-self: start; padding-top: 21px; }
+  .pp-error-campo { display: block; margin-top: 4px; color: #a12a2a; font-size: 12px; font-weight: 600; }
+  .pp-form input[type="date"].con-error { outline: 2px solid #c0392b; }
+  .pp-fechas { white-space: nowrap; }
+  .pp-etq { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .pp-etq.gris { background: #e6eaf2; color: #55607a; }
+  .pp-etq.rojo { background: #fde3e3; color: #a12a2a; }
   .pp-ayuda { display: block; margin-top: 4px; color: var(--texto-2, #6a7590); font-size: 12px; }
   .pp-quien-caja { background: var(--campo, #f1f4fa); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 8px; max-height: 260px; box-sizing: border-box; }
   .pp-quien-caja.apagada { opacity: .65; }
@@ -61,9 +68,9 @@
   .pp-estado { display: inline-block; padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; background: #e6eaf2; color: #55607a; }
   .pp-estado.activa { background: var(--marca-azul, #0B5ED7); color: #fff; }
   .pp-estado.cancelada { background: #fde3e3; color: #a12a2a; }
-  @media (max-width: 1099px) { .pp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form.pp-form-armar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form-armar > .pp-quien { grid-column: 1 / -1; order: 3; } .pp-form-armar > .pp-boton { order: 5; margin-top: 0; } }
+  @media (max-width: 1099px) { .pp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form.pp-form-armar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pp-form-armar > .pp-quien { grid-column: 1 / -1; } }
   @media (max-width: 899px) { .pp-pasos { grid-template-columns: 1fr; } }
-  @media (max-width: 639px) { .pp-form, .pp-form.pp-form-armar { grid-template-columns: 1fr; } .pp-form-armar > .pp-quien { order: 0; } .pp-tarjeta { padding: 14px; gap: 12px; } .pp-num { width: 40px; height: 40px; font-size: 19px; } }
+  @media (max-width: 639px) { .pp-form, .pp-form.pp-form-armar { grid-template-columns: 1fr; } .pp-form-armar > .pp-boton { padding-top: 0; } .pp-form-armar > .pp-quien { grid-column: auto; } .pp-tarjeta { padding: 14px; gap: 12px; } .pp-num { width: 40px; height: 40px; font-size: 19px; } }
   .pp-oculta { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: #EEF0F3; color: #5B6472; }
   tr.pp-es-oculta td { opacity: .62; }
   .pp-acciones { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
@@ -150,6 +157,8 @@
             </div>
             <div class="pp-quien-resumen" id="a-quien-resumen" aria-live="polite"></div>
           </div>
+          <div><label for="a-desde">Desde</label><input id="a-desde" type="date"><span class="pp-error-campo" id="a-desde-error" role="alert"></span></div>
+          <div><label for="a-hasta">Hasta</label><input id="a-hasta" type="date"><span class="pp-error-campo" id="a-hasta-error" role="alert"></span></div>
           <div><label for="a-max">Máximo de personas</label><input id="a-max" type="number" min="1" inputmode="numeric"><small class="pp-ayuda">Por cada visitante</small></div>
           <div class="pp-boton"><button type="button" class="btn-primario" id="a-armar" disabled>Armar y asignar</button></div>
         </div>
@@ -160,8 +169,8 @@
         <div class="pp-barra"><h2>Listas armadas</h2>
           <label id="l-ocultas-etiqueta" style="display:none;"><input type="checkbox" id="l-ocultas"> Ver ocultas</label></div>
         <div class="pp-tabla-wrap">
-          <table class="pp-tabla"><thead><tr><th>Lista</th><th>Quién visita</th><th>Zona</th><th>Estado</th><th class="num">Personas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th></th></tr></thead>
-            <tbody id="pp-listas"><tr><td colspan="9">Cargando…</td></tr></tbody></table>
+          <table class="pp-tabla"><thead><tr><th>Lista</th><th>Quién visita</th><th>Zona</th><th>Fechas</th><th>Estado</th><th class="num">Personas</th><th class="num">Por visitar</th><th class="num">Cerradas</th><th class="num">Sin respuesta</th><th></th></tr></thead>
+            <tbody id="pp-listas"><tr><td colspan="10">Cargando…</td></tr></tbody></table>
         </div>
         <div class="pp-msg" id="l-msg"></div>
       </div>
@@ -169,7 +178,7 @@
 
       <div class="pp-tarjeta" id="pp-horario" style="display:none;"><div class="pp-cuerpo">
         <h2>Horario de las visitas</h2>
-        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;">Fuera de esta franja (hora de Colombia) el celular no guarda ninguna visita, y el servidor tampoco. Puede ir de las <span id="h-min">07:00</span> a las <span id="h-max">19:00</span>.</p>
+        <p class="pp-sub" style="font-size:.88rem;margin:0 0 8px;">Franja de horas para todas las listas, todos los días (hora de Colombia). Fuera de esta franja el celular no guarda ninguna visita, y el servidor tampoco. Las fechas de cada lista se ponen al armarla. Puede ir de las <span id="h-min">07:00</span> a las <span id="h-max">19:00</span>.</p>
         <div class="pp-form" style="max-width:520px; grid-template-columns: repeat(2, minmax(0,1fr)) auto;">
           <div><label for="h-desde">Desde</label><input id="h-desde" type="time"></div>
           <div><label for="h-hasta">Hasta</label><input id="h-hasta" type="time"></div>
@@ -182,6 +191,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/puerta-reglas.js"></script>
 <script>
 let usuarioActual = null;
 let permisos = { ver: false, editar: false, agregar: false };
@@ -191,6 +201,16 @@ const $ = (id) => document.getElementById(id);
 const esc = (t) => escaparHtml(String(t === null || t === undefined ? '' : t));
 const msg = (id, texto, tipo) => { const e = $(id); if (e) { e.className = 'pp-msg ' + (tipo || ''); e.textContent = texto || ''; } };
 const ETIQUETA = { activa: 'Activa', cerrada: 'Cerrada', cancelada: 'Cancelada' };
+const R = window.PuertaReglas;
+const hoyColombia = () => R.colombiaDe(new Date()).fecha;
+/** Junto al estado de una lista ACTIVA: gris si todavía no empieza, roja suave si ya terminó. El estado en sí no cambia solo. */
+function etiquetaDeFechas(l) {
+  if (l.estado !== 'activa') return '';
+  const f = R.fueraDeFechas(hoyColombia(), l.fecha_inicio, l.fecha_fin);
+  if (f === 'antes') return `<span class="pp-etq gris">Empieza el ${esc(R.diaMes(l.fecha_inicio))}</span>`;
+  if (f === 'despues') return `<span class="pp-etq rojo">Terminó el ${esc(R.diaMes(l.fecha_fin))}</span>`;
+  return '';
+}
 const nuevoUuid = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16); }));
 let uuidDeLaLista = nuevoUuid();      // un doble clic en «Armar» no crea dos listas: el servidor responde con la misma
 
@@ -234,10 +254,11 @@ async function cargarListas() {
   const filas = listasActuales = r.listas || [];
   $('pp-listas').innerHTML = filas.length ? filas.map((l) => `<tr class="${l.oculta ? 'pp-es-oculta' : ''}">
       <td>${esc(l.nombre)}<div style="font-size:.76rem;color:var(--color-text-muted)">n.º ${esc(l.id)} · ${esc(l.creada)}</div></td><td>${esc(l.asignada_nombre)}</td><td>${esc(l.zona || '—')}</td>
-      <td><span class="pp-estado ${esc(l.estado)}">${esc(ETIQUETA[l.estado] || l.estado)}</span>${l.oculta ? '<span class="pp-oculta">Oculta</span>' : ''}</td>
+      <td class="pp-fechas">${l.fecha_inicio && l.fecha_fin ? esc(R.diaMes(l.fecha_inicio) + ' – ' + R.diaMes(l.fecha_fin)) : 'Sin fechas'}</td>
+      <td><span class="pp-estado ${esc(l.estado)}">${esc(ETIQUETA[l.estado] || l.estado)}</span>${l.oculta ? '<span class="pp-oculta">Oculta</span>' : ''}${etiquetaDeFechas(l)}</td>
       <td class="num">${esc(l.total)}</td><td class="num">${esc(l.pendientes)}</td><td class="num">${esc(l.cerradas)}</td><td class="num">${esc(l.agotadas)}</td>
       <td><div class="pp-acciones">${botonesDe(l)}</div></td></tr>`).join('')
-    : '<tr><td colspan="9">Todavía no hay listas.</td></tr>';
+    : '<tr><td colspan="10">Todavía no hay listas.</td></tr>';
   $('pp-listas').querySelectorAll('[data-accion]').forEach((b) => b.addEventListener('click', () => accionDeLista(b.dataset.accion, Number(b.dataset.id))));
   pintarPasos();
 }
@@ -286,6 +307,11 @@ function abrirEditar(l) {
         : `<input id="pe-quien-fijo" value="${esc(l.asignada_nombre)}" disabled style="width:100%;box-sizing:border-box;">`}</div>
       <div class="campo"><label for="pe-max">Máximo de personas</label><input id="pe-max" type="number" min="1" max="${esc(maximoPersonas)}" inputmode="numeric" value="${esc(l.total || 1)}" style="width:100%;box-sizing:border-box;">
         <small style="color:var(--color-text-muted,#5B6472);">Hoy tiene ${esc(l.total)}. Si lo bajas, salen primero las que no se han visitado; si lo subes, entran más de la misma zona.</small></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="campo"><label for="pe-desde">Desde</label><input id="pe-desde" type="date" value="${esc(l.fecha_inicio || '')}" style="width:100%;box-sizing:border-box;"></div>
+        <div class="campo"><label for="pe-hasta">Hasta</label><input id="pe-hasta" type="date" value="${esc(l.fecha_fin || '')}" style="width:100%;box-sizing:border-box;"></div>
+      </div>
+      <small style="display:block; margin:-6px 0 8px; color:var(--color-text-muted,#5B6472);">${l.fecha_inicio ? '' : 'Esta lista es de las de antes: no tiene fechas, y sin fechas no hay límite. '}Las dos fechas se cambian juntas.</small>
       <div id="pe-error" class="pp-msg error" style="display:none;"></div>
       <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
         <button type="button" class="btn-secundario" id="pe-cancelar">Cancelar</button>
@@ -306,6 +332,14 @@ function abrirEditar(l) {
     const max = Number(ov.querySelector('#pe-max').value);
     if (!Number.isInteger(max) || max < 1) return falla('El máximo de personas tiene que ser un número de 1 en adelante.');
     if (max !== l.total) cuerpo.max = max;
+    // Fechas: se mandan las dos si cambió alguna. El «Desde» puede quedar en el pasado si la lista ya empezó (o es de las de antes, sin fechas).
+    const desde = ov.querySelector('#pe-desde').value, hasta = ov.querySelector('#pe-hasta').value;
+    if ((desde || hasta) && (desde !== (l.fecha_inicio || '') || hasta !== (l.fecha_fin || ''))) {
+      const hoy = hoyColombia();
+      const fv = R.validarFechasLista(desde, hasta, hoy, { permitirPasado: !l.fecha_inicio || l.fecha_inicio <= hoy });
+      if (!fv.ok) return falla(fv.error);
+      cuerpo.fecha_inicio = fv.desde; cuerpo.fecha_fin = fv.hasta;
+    }
     if (!Object.keys(cuerpo).length) return cerrar();
     ev.target.disabled = true;
     try {
@@ -394,13 +428,25 @@ function alElegirZona() {
   cargarVisitantes();
 }
 
+/** El error de una fecha, junto al campo (y en rojo). Sin `campo` limpia los dos. */
+function errorDeFecha(campo, texto) {
+  for (const c of ['desde', 'hasta']) { $('a-' + c + '-error').textContent = c === campo ? texto : ''; $('a-' + c).classList.toggle('con-error', c === campo); }
+  if (campo) $('a-' + campo).focus();
+}
+function fechasPorDefecto() {
+  const hoy = hoyColombia();
+  $('a-desde').min = hoy; $('a-desde').value = hoy; $('a-hasta').min = hoy; $('a-hasta').value = R.sumarDias(hoy, 7);
+}
+
 async function armar() {
-  msg('a-msg', '');
+  msg('a-msg', ''); errorDeFecha(null);
   const nombre = $('a-nombre').value.trim(), ids = [...elegidos];
   if (nombre.length < 3) return msg('a-msg', 'Ponle un nombre a la lista (al menos 3 letras).', 'error');
   if (!ids.length) return msg('a-msg', 'Elige quién va a visitar.', 'error');
+  const fv = R.validarFechasLista($('a-desde').value, $('a-hasta').value, hoyColombia());
+  if (!fv.ok) { errorDeFecha(fv.campo, fv.error); return; }
   if (ids.length > 1 && !confirm(`Se van a armar ${ids.length} listas, una por cada visitante. ¿Continuar?`)) return;
-  const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignados: ids };
+  const cuerpo = { cliente_uuid: uuidDeLaLista, nombre, asignados: ids, fecha_inicio: fv.desde, fecha_fin: fv.hasta };
   if ($('a-zona').value && $('a-zona').value !== '__') cuerpo.territorio_id = Number($('a-zona').value);
   if ($('a-max').value) cuerpo.max = Number($('a-max').value);
   $('a-armar').disabled = true;
@@ -426,7 +472,10 @@ async function armar() {
     await cargarListas();
     await cargarVisitantes();           // quien ya tiene su lista deja de tener esas personas disponibles
   } catch (e) {
-    msg('a-msg', e.message || 'No se pudo armar la lista.', 'error');       // el servidor dice cuál falló y por qué; si falla una, no se crea ninguna
+    // El servidor dice cuál falló y por qué; si falla una, no se crea ninguna. Un error de fechas va junto al campo.
+    if (e.campo === 'fecha_inicio' || /«Desde»|desde la que se visita/.test(e.message || '')) errorDeFecha('desde', e.message);
+    else if (e.campo === 'fecha_fin' || /«Hasta»|en que termina la lista/.test(e.message || '')) errorDeFecha('hasta', e.message);
+    else msg('a-msg', e.message || 'No se pudo armar la lista.', 'error');
   } finally { pintarQuien(); }
 }
 
@@ -515,6 +564,8 @@ async function cargarHorario() {
     $('a-quien-buscar').addEventListener('input', pintarQuien);
     $('a-quien-todos').addEventListener('click', () => { visibles().filter((v) => !v.requiere_zona).forEach((v) => elegidos.add(v.id)); pintarQuien(); });
     $('a-quien-ninguno').addEventListener('click', () => { visibles().forEach((v) => elegidos.delete(v.id)); pintarQuien(); });
+    fechasPorDefecto();
+    ['a-desde', 'a-hasta'].forEach((i) => $(i).addEventListener('change', () => errorDeFecha(null)));
     $('a-armar').addEventListener('click', armar);
     await cargarVisitantes();
   }

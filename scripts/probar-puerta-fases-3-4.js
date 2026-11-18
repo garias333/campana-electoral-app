@@ -74,10 +74,17 @@ async function pedir(metodo, ruta, { json, usuario, binario } = {}) {
   let body;
   if (json !== undefined) { h['Content-Type'] = 'application/json'; body = JSON.stringify(json); }
   if (usuario) h['X-Test-User'] = JSON.stringify(usuario);
+  // Orden 56: armar exige fechas. Estas pruebas parten de listas SIN límite de fechas (como las de antes): se mandan fechas válidas y luego se dejan en NULL.
+  const armando = metodo === 'POST' && ruta === '/listas' && json && json.nombre !== undefined;
+  if (armando && json.fecha_inicio === undefined) {
+    const R0 = require('../public/js/puerta-reglas'); const hoy0 = R0.colombiaDe(new Date()).fecha;
+    body = JSON.stringify({ ...json, fecha_inicio: hoy0, fecha_fin: R0.sumarDias(hoy0, 7) });
+  }
   const r = await fetch(base + '/api/puerta-a-puerta' + ruta, { method: metodo, headers: h, body });
   if (binario) return { status: r.status, buffer: Buffer.from(await r.arrayBuffer()), tipo: r.headers.get('content-type') || '', disp: r.headers.get('content-disposition') || '' };
   const texto = await r.text();
   let datos = null; try { datos = JSON.parse(texto); } catch (_) { /* no json */ }
+  if (armando && datos && datos.id && !datos.duplicado) await pool.query('UPDATE puerta_listas SET fecha_inicio = NULL, fecha_fin = NULL WHERE id = ?', [datos.id]);
   return { status: r.status, datos, texto };
 }
 

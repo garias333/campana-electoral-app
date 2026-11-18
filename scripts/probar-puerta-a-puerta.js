@@ -70,9 +70,16 @@ async function pedir(metodo, ruta, { json, usuario, aspirante } = {}) {
   if (json !== undefined) { h['Content-Type'] = 'application/json'; body = JSON.stringify(json); }
   if (usuario) h['X-Test-User'] = JSON.stringify(usuario);
   if (aspirante) h['X-Test-Aspirante'] = String(aspirante);
+  // Orden 56: armar exige fechas. Estas pruebas parten de listas SIN límite de fechas (como las de antes): se mandan fechas válidas y luego se dejan en NULL.
+  const armando = metodo === 'POST' && ruta === '/listas' && json && json.nombre !== undefined;
+  if (armando && json.fecha_inicio === undefined) {
+    const R0 = require('../public/js/puerta-reglas'); const hoy0 = R0.colombiaDe(new Date()).fecha;
+    body = JSON.stringify({ ...json, fecha_inicio: hoy0, fecha_fin: R0.sumarDias(hoy0, 7) });
+  }
   const r = await fetch(base + '/api/puerta-a-puerta' + ruta, { method: metodo, headers: h, body });
   const texto = await r.text();
   let datos = null; try { datos = JSON.parse(texto); } catch (_) { /* no json */ }
+  if (armando && datos && datos.id && !datos.duplicado) await pool.query('UPDATE puerta_listas SET fecha_inicio = NULL, fecha_fin = NULL WHERE id = ?', [datos.id]);
   return { status: r.status, datos, texto, cabeceras: r.headers };
 }
 
@@ -155,7 +162,7 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const columnas = async (t) => (await q(`SELECT column_name c, data_type dt FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? ORDER BY ordinal_position`, [t]));
   const cL = await columnas('puerta_listas'), cI = await columnas('puerta_items'), cVi = await columnas('puerta_visitas');
   const nombresDe = (f) => f.map((x) => x.c || x.C);
-  ok(mismo(nombresDe(cL), ['id', 'cliente_uuid', 'nombre', 'territorio_id', 'zona_texto', 'asignada_a', 'creada_por', 'estado', 'rama_aspirante_id', 'aspirante_id', 'creada_en', 'cerrada_en', 'oculta']), 'puerta_listas: columnas exactas', nombresDe(cL));
+  ok(mismo(nombresDe(cL), ['id', 'cliente_uuid', 'nombre', 'territorio_id', 'zona_texto', 'asignada_a', 'creada_por', 'estado', 'rama_aspirante_id', 'aspirante_id', 'creada_en', 'cerrada_en', 'oculta', 'fecha_inicio', 'fecha_fin']), 'puerta_listas: columnas exactas', nombresDe(cL));
   ok(mismo(nombresDe(cI), ['id', 'lista_id', 'votante_id', 'estado', 'intentos', 'ultimo_resultado', 'ultima_fecha', 'ultima_franja', 'anonimizado_en']), 'puerta_items: columnas exactas (sin nombre, dirección ni teléfono: se leen de la ficha)', nombresDe(cI));
   ok(mismo(nombresDe(cVi), ['id', 'cliente_uuid', 'item_id', 'lista_id', 'resultado', 'fecha', 'franja', 'territorio_id', 'registrada_por', 'guion_huella']), 'puerta_visitas: columnas exactas', nombresDe(cVi));
   const instantes = (f) => f.filter((x) => ['datetime', 'timestamp', 'time'].includes(String(x.dt || x.DT).toLowerCase())).map((x) => x.c || x.C);
@@ -270,7 +277,7 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   ok((await pedir('POST', '/listas', { usuario: admin, json: { nombre: 'x', asignada_a: lid1.id } })).status === 400, 'el nombre de la lista pide al menos 3 letras');
   ok((await pedir('POST', '/listas', { usuario: admin, json: { nombre: 'Zona mala', asignada_a: lid2.id, territorio_id: 99999999 } })).status === 400, 'una zona que no está en el catálogo se rechaza');
   const listasCoord = await pedir('GET', '/listas', { usuario: coord });
-  ok(listasCoord.status === 200 && listasCoord.datos.listas.length === 2 && Object.keys(listasCoord.datos.listas[0]).sort().join() === ['agotadas', 'asignada_a', 'asignada_nombre', 'cerradas', 'creada', 'eliminable', 'estado', 'id', 'nombre', 'oculta', 'pendientes', 'total', 'visitas', 'zona'].sort().join(), 'quien arma ve SOLO conteos y marcas (nunca nombres ni direcciones de las personas)', listasCoord.datos.listas[0]);
+  ok(listasCoord.status === 200 && listasCoord.datos.listas.length === 2 && Object.keys(listasCoord.datos.listas[0]).sort().join() === ['agotadas', 'asignada_a', 'asignada_nombre', 'cerradas', 'creada', 'eliminable', 'fecha_fin', 'fecha_inicio', 'estado', 'id', 'nombre', 'oculta', 'pendientes', 'total', 'visitas', 'zona'].sort().join(), 'quien arma ve SOLO conteos y marcas (nunca nombres ni direcciones de las personas)', listasCoord.datos.listas[0]);
   ok(!/Ana|Alcance|Calle|OBS-SECRETA/.test(listasCoord.texto), 'ni en el texto de la respuesta aparece una persona');
   ok((await pedir('GET', '/listas', { usuario: coord })).datos.listas.every((l) => l.asignada_a === lid1.id || l.asignada_a === sub1.id), 'el coordinador ve las listas de su rama');
   // La zona.
@@ -298,7 +305,7 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
   const L = mia1.datos.listas[0];
   ok(mia1.datos.listas.length === 1 && L.id === idListaL1 && L.items.length === 6, 'el líder recibe SOLO su lista, con 6 puertas', mia1.datos.listas.length);
   ok(mismo(Object.keys(mia1.datos).sort(), ['bloqueo', 'config', 'guion', 'inscripcion', 'listas']), 'la respuesta tiene exactamente: bloqueo, config, guion, inscripcion y listas', Object.keys(mia1.datos));
-  ok(mismo(Object.keys(L).sort(), P.CAMPOS_LISTA.slice().sort()) && mismo(P.CAMPOS_LISTA.slice().sort(), ['agotadas', 'cerradas', 'id', 'items', 'nombre', 'pendientes', 'total', 'zona']), 'la lista tiene columnas CERRADAS', Object.keys(L));
+  ok(mismo(Object.keys(L).sort(), P.CAMPOS_LISTA.slice().sort()) && mismo(P.CAMPOS_LISTA.slice().sort(), ['agotadas', 'cerradas', 'fecha_fin', 'fecha_inicio', 'id', 'items', 'nombre', 'pendientes', 'total', 'zona']), 'la lista tiene columnas CERRADAS', Object.keys(L));
   ok(L.items.every((it) => mismo(Object.keys(it).sort(), P.CAMPOS_ITEM.slice().sort())) && mismo(P.CAMPOS_ITEM.slice().sort(), ['direccion', 'estado', 'id', 'intentos', 'latitud', 'longitud', 'nombre', 'reintento_desde', 'ultima_fecha', 'ultima_franja', 'ultimo_resultado']),
     'cada puerta tiene las columnas CERRADAS: id, nombre, dirección, coordenadas y estado (más lo que hace falta para los reintentos)', Object.keys(L.items[0]));
   ok(mismo(Object.keys(mia1.datos.config).sort(), P.CAMPOS_CONFIG.slice().sort()), 'la configuración que baja: franja, fecha de la elección, topes y caducidad', Object.keys(mia1.datos.config));

@@ -78,7 +78,7 @@ const exigir = (modulo, nivel) => async (req, res, next) => {
 const soloAdmin = (req, res, next) => (req.session.usuario.rol === 'admin' ? next() : res.status(403).json({ error: 'Esto es solo del administrador.' }));
 
 const responder = (res, e) => {
-  if (e && e.estado) return res.status(e.estado).json({ error: e.mensaje || e.message, ...(e.omitidas ? { omitidas: e.omitidas, en_alcance: e.en_alcance } : {}) });
+  if (e && e.estado) return res.status(e.estado).json({ error: e.mensaje || e.message, ...(e.omitidas ? { omitidas: e.omitidas, en_alcance: e.en_alcance } : {}), ...(e.campo ? { campo: e.campo } : {}) });
   console.error('[puerta a puerta]', e && (e.code || e.message));          // sin la sentencia: lleva datos
   return res.status(500).json({ error: 'No se pudo completar la operación.' });
 };

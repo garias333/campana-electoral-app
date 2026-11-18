@@ -3579,6 +3579,12 @@ async function main() {
   // conserva todo. Sin esta columna una lista con visitas se quedaría en la pantalla para siempre.
   await agregarColumnaSiFalta(connection, 'puerta_listas',
     "oculta TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador la ocultó de la tabla (con visitas no se puede borrar). Nada se pierde'", 'oculta');
+  // Orden 56: cada lista del puerta a puerta tiene su fecha de inicio y de fin (días completos, hora de Colombia). NULL = sin límite de fechas: las listas de antes
+  // quedan como estaban, y los datos existentes no se tocan. Idempotente (agregarColumnaSiFalta no hace nada si la columna ya está).
+  await agregarColumnaSiFalta(connection, 'puerta_listas',
+    "fecha_inicio DATE NULL COMMENT 'Primer día en que se puede anotar una visita de esta lista (hora de Colombia). NULL = sin límite'", 'fecha_inicio');
+  await agregarColumnaSiFalta(connection, 'puerta_listas',
+    "fecha_fin DATE NULL COMMENT 'Último día en que se puede anotar una visita de esta lista (hora de Colombia). NULL = sin límite'", 'fecha_fin');
   // Parche 313: la asistencia a los eventos se marca desde el escritorio y el celular. `asistio_ms` guarda el instante (ms) en que se hizo la marca —el del toque, aunque se
   // suba días después— para que una marca vieja no pise a una nueva; `asistio_por`, quién la hizo.
   await agregarColumnaSiFalta(connection, 'evento_asistentes',
