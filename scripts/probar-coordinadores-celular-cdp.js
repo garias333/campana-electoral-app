@@ -141,7 +141,10 @@ async function escuchar(app) {
   ok(/Avance · 30 %/i.test(inicio.tiles[3]), '% de avance: 30 %', inicio.tiles[3]);
   ok(/Últimos 7 días/i.test(inicio.tiles[4]), 'registros de los últimos 7 días', inicio.tiles[4]);
   ok(inicio.menu[0] === 'Mis líderes' && !inicio.menu.includes('Avance de mis líderes'), 'el menú empieza por «Mis líderes» y «Avance de mis líderes» ya no está', inicio.menu);
-  ok(['Alertas Día D', 'Mis avisos', 'Panel completo', 'Ayuda', 'Mi enlace de inscripción'].every((x) => inicio.menu.includes(x)) || inicio.menu.includes('Panel completo'), 'lo demás del menú del coordinador sigue', inicio.menu);
+  // (Alertas Día D no sale aquí: es un complemento y en esta prueba nacen apagados.)
+  ok(['Mis líderes', 'Eventos', 'Ranking Día D', 'Biografía del candidato', 'Información para compartir', 'Mis avisos', 'Política de privacidad', 'Legislación', 'Ayuda'].every((x) => inicio.menu.includes(x)), 'lo demás del menú del coordinador sigue', inicio.menu);
+  // Orden 63: sin «Panel completo» ni el grupo «Registro» (lo prueba a fondo probar-menu-coordinador-celular.js).
+  ok(!['Panel completo', 'Mi enlace de inscripción', 'Registro de votantes y sublíderes', 'Consultar puesto de votación'].some((x) => inicio.menu.includes(x)), 'el menú del coordinador ya no trae «Panel completo» ni el grupo «Registro»', inicio.menu);
   ok(!inicio.panelLiderVisible, 'el panel del líder no aparece para el coordinador');
   ok(await sinDesborde(), 'sin desborde horizontal');
   await foto('4-inicio-del-coordinador-390x844');

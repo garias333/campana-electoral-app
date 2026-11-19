@@ -122,25 +122,28 @@ const MENU_LIDER = [
   { href: '/ayuda.html', icono: '❔', titulo: 'Ayuda', subtitulo: 'Tu manual: pasos, preguntas y glosario' },
 ];
 
-// Menú de coordinador. Lo de siempre del líder —registrar, biografía, material,
-// puesto de votación y política— MÁS lo que un coordinador necesita y un líder no:
-// ver cómo va cada líder a su cargo, y llegar al panel completo.
+// Menú de coordinador. Lo del líder que le sirve —Mis avisos, tareas, eventos, solicitudes, puerta a puerta,
+// biografía, material, privacidad, legislación y ayuda— MÁS lo que un coordinador necesita y un líder no: ver cómo va
+// cada líder a su cargo.
 //
 // «Mis líderes» va primero porque es para lo que un coordinador abre la aplicación
 // en la calle (orden 59): la lista de su equipo con el avance de cada uno y los
 // botones para llamarlos y escribirles. REEMPLAZA a «Avance de mis líderes»: era lo
 // mismo con menos (sin sublíderes, sin último registro, sin contacto), y dos entradas
-// que hacen lo mismo confunden. «Panel completo» va al final y abre el panel de
-// escritorio: no hay pantalla móvil para todo lo que ahí se hace, y un coordinador
-// que entra desde el celular antes caía directamente en él sin otra opción.
+// que hacen lo mismo confunden.
+//
+// ORDEN 63: el coordinador YA NO VE en el celular «Panel completo» ni el grupo «Registro» (Registro de votantes y
+// sublíderes, Mi enlace de inscripción, Consultar puesto de votación). SOLO SE QUITAN DEL MENÚ: las páginas, las rutas y los
+// permisos siguen como estaban, y quien abra una de esas direcciones a mano entra como hoy. Para los demás roles no cambia nada:
+// el líder sigue heredando de MENU_LIDER completo, y el administrador tiene el suyo.
+const OCULTAS_AL_COORDINADOR = ['/app/mis-registros.html', '/app/mi-enlace.html', '/app/puesto-votacion.html'];
 const MENU_COORDINADOR = [
   { href: '/app/mis-lideres.html', icono: '📊', titulo: 'Mis líderes', subtitulo: 'Su avance, y llamarlos o escribirles' },
   { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d' },
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
   { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d', complemento: 'transporte_dia_d' },
   { href: '/app/logistica.html', icono: '🥪', titulo: 'Logística Día D', subtitulo: 'Refrigerios y kits por puesto', modulo: 'logistica_dia_d', complemento: 'logistica_dia_d' },
-  ...MENU_LIDER,
-  { href: '/dashboard.html', icono: '🖥️', titulo: 'Panel completo', subtitulo: 'Abrir el panel de escritorio' },
+  ...MENU_LIDER.filter((it) => !OCULTAS_AL_COORDINADOR.includes(it.href)),
 ];
 
 // Menú de administrador. EL ORDEN ES EL PEDIDO, no alfabético ni por frecuencia: las
@@ -206,7 +209,7 @@ async function modulosPermitidosApp() {
 }
 
 /* EL ORDEN DEL MENÚ (Órdenes menús 2 y 3). Una sola lista ordenada para todos los roles, en grupos separados por una línea (sin títulos):
-     0. Panel general (o Panel completo) · Dashboard de votantes · Mapa territorial
+     0. Panel general · Dashboard de votantes · Mapa territorial
      1. Registro de votantes y sublíderes · Mi enlace de inscripción · Consultar puesto de votación · Estructura territorial · Agregar coordinadores o líderes
      2. Trabajo de campo y solicitudes (Orden 49): Puerta a puerta · Registrar una solicitud · Mis solicitudes · Mis tareas · Tareas · Solicitudes ciudadanas
      0. (coordinador) Mis líderes va PRIMERO, antes del panel (orden 59: reemplaza a «Avance de mis líderes», que estaba en el grupo 3)
@@ -220,7 +223,7 @@ async function modulosPermitidosApp() {
    Clave: el href de la entrada → [grupo, lugar dentro del grupo]. Lo que NO figura aquí va a un grupo aparte (45) entre el 4 y el 5, en el orden que ya
    traía su lista: hoy no queda nada ahí, y es donde caería una entrada nueva a la que todavía no se le dio lugar. */
 const ORDEN_MENU_APP = {
-  '/app/admin-panel.html': [0, 1], '/dashboard.html': [0, 1],
+  '/app/admin-panel.html': [0, 1],
   '/app/admin-votantes.html': [0, 2],
   '/app/admin-mapa.html': [0, 3],
   '/app/mis-registros.html': [1, 1], '/app/registro-votante.html': [1, 1],
