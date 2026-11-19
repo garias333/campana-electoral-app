@@ -96,8 +96,8 @@
     <p class="detalle" id="progreso-detalle" style="display:none;"></p>
     <!-- «Por tu enlace»: de esos registros, los que se inscribieron solos por el QR (ver Mi enlace). -->
     <p class="detalle" id="progreso-por-enlace" style="display:none;"></p>
-    <a class="btn-app btn-app-secundario" id="progreso-enlace" href="/app/avance-lideres.html"
-       style="display:none; margin-top:12px; text-decoration:none; box-sizing:border-box;">Avance de mis líderes →</a>
+    <a class="btn-app btn-app-secundario" id="progreso-enlace" href="/app/mis-lideres.html"
+       style="display:none; margin-top:12px; text-decoration:none; box-sizing:border-box;">Mis líderes →</a>
   </div>
 
   <!-- «Inscribir votante o sublíder»: lleva al formulario de registro, que es UNO SOLO con el selector Votante/Sublíder
@@ -154,7 +154,7 @@ function mostrarAviso(texto, tipo) {
  * Progreso hacia la meta. Si a esta persona no le asignaron meta, la tarjeta simplemente no aparece.
  *
  * El COORDINADOR no ve aquí su propia meta sino la de su equipo: la tarjeta cuenta lo mismo
- * que la pantalla «Avance de mis líderes» (mismo endpoint, mismo resumen) y enlaza a ella.
+ * que la pantalla «Mis líderes» (el mismo cálculo, el mismo resumen) y enlaza a ella.
  * Antes comparaba SUS registros con la SUMA de las metas de sus líderes, una cifra que no
  * significaba nada. Líder y sublíder siguen con su progreso personal de siempre.
  */
@@ -179,7 +179,7 @@ async function cargarProgreso(usuario) {
   }
 }
 
-/** La tarjeta del coordinador: el total de «Avance de mis líderes» y el enlace a esa pantalla. */
+/** La tarjeta del coordinador: el total del avance de sus líderes y el enlace a «Mis líderes». */
 async function cargarAvanceDeMisLideres() {
   try {
     const r = await api('/dashboard/avance-mis-lideres');
@@ -199,7 +199,7 @@ async function cargarAvanceDeMisLideres() {
     document.getElementById('progreso-enlace').style.display = 'block';
     document.getElementById('progreso-card').style.display = 'block';
   } catch (err) {
-    // Igual que arriba: sin el avance la pantalla sigue sirviendo, y «Avance de mis líderes» está en el menú.
+    // Igual que arriba: sin el avance la pantalla sigue sirviendo, y «Mis líderes» está en el menú.
   }
 }
 

@@ -13,6 +13,7 @@ const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/
 const { cargoDeLaMadre } = require('../config/cargoMadre');
 const { filtroOcultar } = require('../config/superadmin');
 const { avanceDeLideres } = require('../lib/avanceLideres');
+const { coordinadorDeLaPeticion } = require('../lib/coordinadorEquipo');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -573,33 +574,11 @@ router.get('/progreso-equipo', async (req, res) => {
 router.get('/avance-mis-lideres', requireRole('admin', 'coordinador'), async (req, res) => {
   try {
     const sesion = req.session.usuario;
-    let coordinador;
-
-    if (sesion.rol === 'admin') {
-      const pedido = Number(req.query.coordinador_id);
-      if (!Number.isInteger(pedido) || pedido <= 0) {
-        return res.status(400).json({
-          error: 'Indica de qué coordinador quiere ver el avance (coordinador_id).'
-        });
-      }
-      /* Se comprueba que SEA un coordinador de esta campaña, activo, y se le
-         aplica el filtro del superadministrador oculto: sin eso, esta ruta
-         serviría para sondear ids de usuario y confirmar cuáles existen. El
-         404 es el mismo para «no existe» y «no es coordinador». */
-      const ocultarAlConsultado = await filtroOcultar(sesion, 'u');
-      const [[fila]] = await pool.query(
-        `SELECT u.id, u.nombre
-           FROM estructura e JOIN usuarios u ON u.id = e.usuario_id
-          WHERE e.usuario_id = ? AND e.cargo = 'coordinador' AND e.activo = 1
-                ${ocultarAlConsultado}
-          LIMIT 1`,
-        [pedido]
-      );
-      if (!fila) return res.status(404).json({ error: 'Ese coordinador no existe.' });
-      coordinador = { id: fila.id, nombre: fila.nombre };
-    } else {
-      coordinador = { id: sesion.id, nombre: sesion.nombre };
-    }
+    /* Quién es el coordinador (y las comprobaciones del administrador) vive en lib/coordinadorEquipo.js: la comparte con «Mis líderes»
+       (/api/coordinador), para que las dos pantallas no puedan decidir distinto a quién se mira. */
+    const r = await coordinadorDeLaPeticion(pool, req);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    const coordinador = r.coordinador;
 
     const ocultar = await filtroOcultar(sesion, 'u');
     const { lideres, total } = await avanceDeLideres(pool, coordinador.id, ocultar);

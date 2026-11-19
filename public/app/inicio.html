@@ -50,6 +50,9 @@
   <!-- PANEL DEL LÍDER (líder, sublíder y aspirante con rol líder): meta, 7 días, pendientes, equipo, lugar y Día D. Lo arma public/app/panel-lider.js. -->
   <section id="panel-lider" aria-label="Mi panel" hidden></section>
 
+  <!-- ENCABEZADO DEL COORDINADOR (orden 59): las cifras de su rama y el paso a «Mis líderes». Lo arma public/app/panel-coordinador.js; solo el coordinador lo pide. -->
+  <section id="panel-coordinador" aria-label="Mi equipo" hidden></section>
+
   <nav class="menu-app" id="menu-app"></nav>
 
   <!-- Ofrecer la instalación también desde dentro: quien entró por el
@@ -66,6 +69,7 @@
 <script src="/js/avisos-push.js"></script>
 <script src="/app/app-comun.js"></script>
 <script src="/app/panel-lider.js"></script>
+<script src="/app/panel-coordinador.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/js/instalar-app.js"></script>
 <script>
@@ -122,12 +126,15 @@ const MENU_LIDER = [
 // puesto de votación y política— MÁS lo que un coordinador necesita y un líder no:
 // ver cómo va cada líder a su cargo, y llegar al panel completo.
 //
-// «Avance de mis líderes» va primero porque es para lo que un coordinador abre la
-// aplicación en la calle. «Panel completo» va al final y abre el panel de
+// «Mis líderes» va primero porque es para lo que un coordinador abre la aplicación
+// en la calle (orden 59): la lista de su equipo con el avance de cada uno y los
+// botones para llamarlos y escribirles. REEMPLAZA a «Avance de mis líderes»: era lo
+// mismo con menos (sin sublíderes, sin último registro, sin contacto), y dos entradas
+// que hacen lo mismo confunden. «Panel completo» va al final y abre el panel de
 // escritorio: no hay pantalla móvil para todo lo que ahí se hace, y un coordinador
 // que entra desde el celular antes caía directamente en él sin otra opción.
 const MENU_COORDINADOR = [
-  { href: '/app/avance-lideres.html', icono: '📊', titulo: 'Avance de mis líderes', subtitulo: 'Cuánto lleva cada líder frente a su meta' },
+  { href: '/app/mis-lideres.html', icono: '📊', titulo: 'Mis líderes', subtitulo: 'Su avance, y llamarlos o escribirles' },
   { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d' },
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
   { href: '/dia-d.html#transporte', icono: '🚐', titulo: 'Transporte Día D', subtitulo: 'Vehículos, conductores y recogidas', modulo: 'transporte_dia_d', complemento: 'transporte_dia_d' },
@@ -202,7 +209,8 @@ async function modulosPermitidosApp() {
      0. Panel general (o Panel completo) · Dashboard de votantes · Mapa territorial
      1. Registro de votantes y sublíderes · Mi enlace de inscripción · Consultar puesto de votación · Estructura territorial · Agregar coordinadores o líderes
      2. Trabajo de campo y solicitudes (Orden 49): Puerta a puerta · Registrar una solicitud · Mis solicitudes · Mis tareas · Tareas · Solicitudes ciudadanas
-     3. Eventos y Día D: Eventos · Faltan por votar · Avance de mis líderes · Alertas Día D · Transporte Día D · Logística Día D · Ranking Día D
+     0. (coordinador) Mis líderes va PRIMERO, antes del panel (orden 59: reemplaza a «Avance de mis líderes», que estaba en el grupo 3)
+   3. Eventos y Día D: Eventos · Faltan por votar · Alertas Día D · Transporte Día D · Logística Día D · Ranking Día D
      4. Biografía del candidato · Información para compartir
      5. Mis avisos · Política de privacidad · Legislación · Ayuda · «Usar la versión de celular» (de último)
    Cada rol ve SOLO lo que ya veía: cada entrada se sigue pintando con la MISMA condición de antes (`modulo`, `modulos`, `soloAspirante`,
@@ -228,7 +236,7 @@ const ORDEN_MENU_APP = {
   '/solicitudes.html': [2, 6],
   '/app/eventos.html': [3, 1],
   '/app/faltantes.html': [3, 2],
-  '/app/avance-lideres.html': [3, 3],
+  '/app/mis-lideres.html': [0, 0],
   '/app/alertas-dia-d.html': [3, 4],
   '/dia-d.html#transporte': [3, 5],
   '/app/logistica.html': [3, 6],
@@ -375,6 +383,12 @@ function pintarCampana(campana, bio) {
   if (['lider', 'sublider'].includes(usuario.rol) && window.PanelLider) {
     document.body.classList.add('inicio-con-cifras');      // el hero deja sitio a la tarjeta de cifras que sube sobre él
     window.PanelLider.iniciar(usuario);
+  }
+
+  // El coordinador: las cifras de su rama arriba del menú (misma tarjeta que el panel del líder, que no pide).
+  if (usuario.rol === 'coordinador' && window.PanelCoordinador) {
+    document.body.classList.add('inicio-con-cifras');
+    window.PanelCoordinador.iniciar(usuario);
   }
 
   try {

@@ -3677,6 +3677,48 @@ async function main() {
     console.log(`Asistente administrativo: se le quitó Configuración, Finanzas y CRM (${quitado.affectedRows} fila(s)); una sola vez.`);
   }
 
+  /* INGRESO DEL COORDINADOR POR EL CELULAR (orden 59): cédula y clave de 6 dígitos (los últimos 6 de su cédula).
+     Dos columnas PROPIAS en `usuarios`: la contraseña de correo del coordinador (`password_hash`) NO se toca. Ver lib/claveCelular.js.
+       clave_celular_hash    bcrypt de los últimos 6 dígitos (nunca en texto plano)
+       clave_celular_cedula  la cédula (solo dígitos) de la que salió ese hash: si la de la fila cambia, la clave se recalcula
+     Y una tabla para el límite de intentos: POR CÉDULA ESCRITA, exista o no (así el bloqueo no delata qué cédulas son de coordinadores). */
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    "clave_celular_hash VARCHAR(255) NULL COMMENT 'Clave del celular del coordinador (últimos 6 dígitos de su cédula), solo el hash bcrypt. Orden 59. No es password_hash'",
+    'clave_celular_hash'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    "clave_celular_cedula VARCHAR(20) NULL COMMENT 'Cédula (solo dígitos) de la que salió clave_celular_hash; si la cédula de la fila ya no es esta, la clave se recalcula'",
+    'clave_celular_cedula'
+  );
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS ingresos_celular_intentos (
+      cedula CHAR(20) CHARACTER SET ascii NOT NULL PRIMARY KEY COMMENT 'La cédula ESCRITA (solo dígitos), exista o no',
+      intentos INT NOT NULL DEFAULT 0,
+      bloqueado_hasta DATETIME NULL,
+      actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_ingresos_celular_actualizado (actualizado_en)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  console.log('Tabla ingresos_celular_intentos lista (intentos fallidos del ingreso de coordinadores por el celular).');
+  {
+    /* LOS COORDINADORES QUE YA EXISTEN Y TIENEN CÉDULA RECIBEN SU CLAVE. Idempotente: solo escribe a quien no la tiene o la tiene vieja. */
+    const { sincronizarClaveCelular, cedulaCorta } = require('../lib/claveCelular');
+    const [coordinadores] = await connection.query(
+      `SELECT u.id, u.numero_identificacion FROM usuarios u JOIN roles r ON r.id = u.rol_id
+        WHERE r.nombre = 'coordinador' AND u.numero_identificacion IS NOT NULL AND u.numero_identificacion <> ''`);
+    let generadas = 0; let cortas = 0;
+    for (const c of coordinadores) {
+      if (cedulaCorta(c.numero_identificacion)) cortas++;
+      if ((await sincronizarClaveCelular(connection, c.id)) === 'generada') generadas++;
+    }
+    const [[sinCedula]] = await connection.query(
+      `SELECT COUNT(*) AS n FROM usuarios u JOIN roles r ON r.id = u.rol_id
+        WHERE r.nombre = 'coordinador' AND (u.numero_identificacion IS NULL OR u.numero_identificacion = '')`);
+    console.log(`Clave del celular de coordinadores: ${generadas} generada(s) de ${coordinadores.length} con cédula; `
+      + `${cortas} con cédula de menos de 6 dígitos (clave rellenada con ceros); ${sinCedula.n} sin cédula (no pueden entrar por el celular).`);
+  }
+
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
   await agregarFinalidadEncuestas(connection);

@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
+const { sincronizarSinFallar: sincronizarClaveCelular } = require('../lib/claveCelular');   // clave del celular del coordinador (orden 59)
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { requiereImportarExportar } = require('../middleware/permisoModulo');
 const sqlAut = require('../lib/sqlAutorizacion');
@@ -1300,6 +1301,8 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
     await territoriosPersona.guardar(conexion, estructuraId, territoriosPedidos);
 
     await conexion.commit();
+    // Coordinador con cédula: su clave del celular nace sola (orden 59). Ya con la persona guardada; un fallo aquí no la deshace.
+    await sincronizarClaveCelular(pool, usuarioId);
   } catch (err) {
     await conexion.rollback();
     // Si dos reintentos del mismo registro guardado offline chocan justo al
@@ -1536,6 +1539,8 @@ router.put('/estructura/:id', requireRole('admin', 'coordinador', 'aspirante'), 
     await territoriosPersona.guardar(conexion, req.params.id, territoriosPedidos);
 
     await conexion.commit();
+    // Cédula o categoría cambiadas: la clave del celular del coordinador se recalcula (o se quita); la vieja deja de servir (orden 59).
+    await sincronizarClaveCelular(pool, fila.usuario_id);
 
     /* MOVER A ALGUIEN DE SUPERVISOR LE CAMBIA LA RAMA A SUS VOTANTES.
        `rama_aspirante_id` es un dato derivado que hasta ahora sólo se escribía
@@ -2412,6 +2417,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
             if (cambiosE.hay) await conexion.query(`UPDATE estructura SET ${cambiosE.sql()} WHERE id = ?`, [...cambiosE.valores, idFila]);
             if (territorioIdImport) await territoriosPersona.guardar(conexion, idFila, listaImport, { conservarExtras: true });
             await conexion.commit();
+            await sincronizarClaveCelular(pool, usuarioId);   // la cédula pudo cambiar (orden 59)
             // Igual que en el PUT: la importación también puede mover a alguien
             // de supervisor, y entonces sus votantes cambian de rama.
             if (tocarSupervisor && supervisorId) recalcularRamaEnSegundoPlano(pool, usuarioId, 'importar estructura por Excel');
@@ -2542,6 +2548,7 @@ router.post('/estructura/importar-excel', requireRole('admin', 'coordinador'), r
         estructuraId = resultEstructura.insertId;
         await territoriosPersona.guardar(conexion, estructuraId, listaImport);
         await conexion.commit();
+        await sincronizarClaveCelular(pool, usuarioIdImport);   // coordinador con cédula: su clave del celular nace sola (orden 59)
         insertados++;
       } catch (err) {
         await conexion.rollback();

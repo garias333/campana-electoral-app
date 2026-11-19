@@ -31,7 +31,7 @@ El ranking de líderes lo ven el administrador, la coordinación y el aspirante.
 :::
 
 ::: consejo
-El celular de coordinación también tiene **Avance de mis líderes**. No mide votos: compara los registros de cada líder frente a su meta.
+El celular de coordinación también tiene **Mis líderes**. No mide votos: compara los registros de cada líder frente a su meta, y desde ahí puedes llamarlo.
 :::
 
 Para qué sirve el módulo completo: {{mod-rescate_votos}}.

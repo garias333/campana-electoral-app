@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v205';
+const CACHE_NAME = 'estrategia-v206';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -64,7 +64,9 @@ const ARCHIVOS_CASCARON = [
   // «Mi enlace de inscripción»: el QR se dibuja en el teléfono y se puede ENSEÑAR sin señal (el último enlace queda guardado).
   '/app/mi-enlace.html',
   '/js/qrcode-generator.js',
-  '/app/avance-lideres.html',
+  '/app/avance-lideres.html',   // desde la orden 59 solo reenvía a «Mis líderes»; se conserva para que un marcador o la copia guardada no lleguen a un 404
+  '/app/mis-lideres.html',       // «Mis líderes» del coordinador (orden 59): la lista cacheada sin señal vive en IndexedDB, por usuario
+  '/app/panel-coordinador.js',   // el encabezado del coordinador en el inicio
   '/app/avance-resumen.js',
   '/app/registro-votante.html',
   // El formulario de registro, paso a paso: sin estos dos, sin señal se vería el formulario largo (o sin estilos).

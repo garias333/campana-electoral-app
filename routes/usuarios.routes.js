@@ -27,6 +27,7 @@ async function puedeAdministrar(req, usuarioId) {
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
+const { sincronizarSinFallar: sincronizarClaveCelular } = require('../lib/claveCelular');   // clave del celular del coordinador (orden 59)
 const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
 const { normalizarCedula, enmascararCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 const { requireAuth, requireRole } = require('../middleware/auth');
@@ -352,6 +353,8 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
        (nombre_usuario || '').trim() || (numero_identificacion || '').trim() || null,
        email.trim().toLowerCase(), hash, rolFila.id, telefono ? telefono.replace(/\D/g, '') : null]
     );
+    // Coordinador con cédula: su clave del celular nace sola (los últimos 6 dígitos). No tumba el alta si falla.
+    await sincronizarClaveCelular(pool, result.insertId);
     res.json({
       ok: true,
       id: result.insertId,
@@ -478,6 +481,9 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
          email.trim().toLowerCase(), telefono ? telefono.replace(/\D/g, '') : null, rolFila.id, activo ? 1 : 0, req.params.id]
       );
     }
+
+    // Cambiarle la cédula o el rol a un coordinador recalcula (o quita) su clave del celular; la vieja deja de servir.
+    await sincronizarClaveCelular(pool, req.params.id);
 
     /* EL TELEFONO DE SOPORTE VA EN SU PROPIO UPDATE, y no dentro de los dos de
        arriba —uno con contraseña y otro sin ella—: meterlo en ambos es la clase

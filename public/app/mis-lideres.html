@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Mis líderes · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/panel-lider.css">
+<style>
+  /* MIS LÍDERES (orden 59). Mismo lenguaje que «Mis registros» del líder: la lista (.votante-item), el buscador (.buscador-app), los filtros
+     (.chips-filtro) y la ficha que sube desde abajo (#ficha-overlay). Lo que no existía allí —el semáforo y el último registro— se dibuja con los
+     mismos colores de la paleta (--ok, --aviso, --error). */
+  .resumen-card { background: #fff; box-shadow: var(--sombra); border-radius: var(--radio); padding: 14px 16px; margin-bottom: 14px; }
+  .resumen-card .titulo { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--muted); margin: 0 0 6px; }
+  .resumen-card .cifras { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .resumen-card .grande { font-size: 1.7rem; font-weight: 800; color: #0B5ED7; line-height: 1.1; }
+  .resumen-card .meta { font-size: 0.86rem; color: var(--muted); }
+  .resumen-card .pct { font-size: 1.1rem; font-weight: 800; color: var(--navy); white-space: nowrap; }
+  .resumen-card .detalle { font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; }
+
+  .barra-fondo { height: 10px; background: #E9ECF1; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+  .barra-relleno { height: 100%; border-radius: 999px; transition: width .3s ease; background: #0B5ED7; }
+  .barra-relleno.rojo { background: var(--error); }
+  .barra-relleno.amarillo { background: var(--marca-amarillo); }
+  .barra-relleno.verde { background: var(--ok); }
+  .barra-relleno.sin_meta { background: #C9D1E0; }
+
+  .fila-orden { display: flex; align-items: center; gap: 8px; margin: 0 2px 10px; font-size: 0.8rem; color: var(--muted); }
+  .fila-orden .chip-filtro { padding: 6px 12px; min-height: 34px; font-size: 12.5px; }
+
+  .lider-item {
+    display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left;
+    background: #fff; border: 0; border-radius: 16px; box-shadow: var(--sombra);
+    padding: 12px; margin-bottom: 10px; font-family: inherit; cursor: pointer; color: inherit;
+  }
+  .lider-item:active { transform: scale(0.99); }
+  .lider-item .datos { flex: 1; min-width: 0; }
+  .lider-item .nombre { display: block; font-size: 14.5px; font-weight: 700; color: var(--texto); overflow-wrap: anywhere; }
+  .lider-item .sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; color: var(--texto-2); }
+  .lider-item .cuenta { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12.5px; color: var(--texto-2); }
+  .lider-item .cuenta strong { color: var(--navy); }
+  .lider-item .ultimo { margin-top: 6px; font-size: 12.5px; color: var(--texto-2); }
+  .lider-item .ultimo.alerta { color: var(--error); font-weight: 700; }
+  .lider-item .flecha { color: var(--marca-azul); font-size: 1.2rem; align-self: center; }
+
+  .vacio-app { text-align: center; color: var(--texto-2); padding: 30px 16px; font-size: 14px; }
+  .sin-senal { background: #FFF3CD; color: var(--aviso); border: 1px solid var(--marca-amarillo); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 0.82rem; font-weight: 600; }
+
+  /* La ficha: la misma pieza de «Mis registros» (se abre encima, sin cambiar de página), con más cuerpo. */
+  #ficha-overlay { display: none; position: fixed; inset: 0; z-index: 900; background: rgba(20,42,63,0.45); align-items: flex-end; }
+  #ficha-overlay.abierto { display: flex; }
+  .ficha { background: var(--cream); width: 100%; border-radius: 18px 18px 0 0; padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px)); max-height: 88vh; max-height: 88dvh; overflow-y: auto; }
+  .ficha .nombre-ficha { font-size: 1.25rem; font-weight: 700; color: #0B5ED7; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .ficha .rol-ficha { font-size: 0.86rem; color: var(--muted); margin: 0 0 6px; }
+  .ficha .tel-ficha { font-size: 1rem; color: var(--ink); margin: 0 0 16px; }
+  .ficha .sin-tel { font-size: 0.9rem; color: var(--muted); font-style: italic; }
+  .ficha .acciones { display: flex; flex-direction: column; gap: 10px; }
+  .btn-llamar { background: var(--navy); color: #fff; text-decoration: none; }
+  .btn-whatsapp { background: #1e7a3d; color: #fff; text-decoration: none; }
+  .btn-sms { background: #fff; color: var(--marca-azul-osc); border: 1.5px solid var(--marca-azul-osc); text-decoration: none; }
+  .btn-app.deshabilitado { background: #E9ECF1; color: #7b8499; border: 0; box-shadow: none; cursor: not-allowed; pointer-events: none; }
+  .ficha .nota-contacto { font-size: 0.8rem; color: var(--muted); margin: 8px 0 0; }
+  .ficha .bloque { background: #fff; border-radius: 14px; box-shadow: var(--sombra); padding: 12px 14px; margin-top: 14px; }
+  .ficha .bloque h3 { margin: 0 0 8px; font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .ficha .cifra-ficha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .ficha .cifra-ficha .grande { font-size: 1.5rem; font-weight: 800; color: #0B5ED7; }
+  .ficha .cifra-ficha .pct { font-weight: 800; color: var(--navy); }
+  .ficha .linea { display: flex; justify-content: space-between; gap: 10px; font-size: 0.9rem; padding: 6px 0; border-top: 1px solid var(--linea); }
+  .ficha .linea:first-of-type { border-top: 0; }
+  .ficha .linea .rojo { color: var(--error); font-weight: 700; }
+  .semanas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: end; height: 96px; margin-top: 6px; }
+  .semana { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; min-width: 0; }
+  .semana .n { font-size: 0.78rem; font-weight: 700; color: var(--navy); min-height: 1em; }
+  .semana .col { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .semana .col div { width: 100%; background: #9DBDF0; border-radius: 5px 5px 0 0; min-height: 2px; }
+  .semana.actual .col div { background: #0B5ED7; }
+  .semana .rot { font-size: 0.68rem; color: var(--muted); text-align: center; line-height: 1.15; }
+  .sub-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; font-family: inherit; padding: 9px 0; border-top: 1px solid var(--linea); cursor: pointer; color: inherit; }
+  .sub-item:first-of-type { border-top: 0; }
+  .sub-item .quien { flex: 1; min-width: 0; font-size: 0.92rem; font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
+  .sub-item .cifra { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+  .ficha .cerrar-ficha { margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div id="aviso" class="aviso-app"></div>
+  <div id="sin-senal" class="sin-senal" style="display:none;"></div>
+  <div id="cargando" class="vacio-app">Cargando su equipo…</div>
+
+  <div class="resumen-card" id="resumen-card" style="display:none;">
+    <p class="titulo">Avance de mis líderes</p>
+    <div class="cifras">
+      <div><span class="grande" id="res-registros">0</span> <span class="meta" id="res-meta"></span></div>
+      <span class="pct" id="res-pct"></span>
+    </div>
+    <div class="barra-fondo"><div class="barra-relleno" id="res-barra" style="width:0%"></div></div>
+    <p class="detalle" id="res-detalle"></p>
+  </div>
+
+  <div id="controles" style="display:none;">
+    <div class="buscador-app">
+      <input type="search" id="buscador" placeholder="Buscar por nombre" autocomplete="off" aria-label="Buscar por nombre">
+    </div>
+    <div class="chips-filtro" id="chips" role="group" aria-label="Filtrar">
+      <button type="button" class="chip-filtro activo" data-filtro="todos">Todos</button>
+      <button type="button" class="chip-filtro" data-filtro="rojo">🔴 Menos de 40 %</button>
+      <button type="button" class="chip-filtro" data-filtro="amarillo">🟡 40 a 79 %</button>
+      <button type="button" class="chip-filtro" data-filtro="verde">🟢 80 % o más</button>
+      <button type="button" class="chip-filtro" data-filtro="sin7">Sin registrar hace 7+ días</button>
+    </div>
+    <div class="fila-orden" role="group" aria-label="Ordenar">
+      <span>Orden:</span>
+      <button type="button" class="chip-filtro activo" data-orden="avance">Menor avance primero</button>
+      <button type="button" class="chip-filtro" data-orden="nombre">Nombre</button>
+    </div>
+  </div>
+
+  <div id="lista"></div>
+  <div id="vacio" class="vacio-app" style="display:none;"></div>
+</main>
+
+<div id="ficha-overlay">
+  <div class="ficha" id="ficha" role="dialog" aria-modal="true" aria-labelledby="ficha-nombre">
+    <p class="nombre-ficha" id="ficha-nombre"></p>
+    <p class="rol-ficha" id="ficha-rol"></p>
+    <p class="tel-ficha" id="ficha-telefono"></p>
+    <div class="acciones" id="ficha-acciones"></div>
+    <p class="nota-contacto" id="ficha-nota" style="display:none;"></p>
+    <div id="ficha-detalle"></div>
+    <button type="button" class="btn-app btn-app-secundario cerrar-ficha" id="btn-cerrar-ficha">Cerrar</button>
+  </div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/form-utils.js"></script>
+<script src="/js/offline-utils.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/cerrar-sesion.js"></script>
+<script src="/js/es-celular.js"></script>
+<!-- Sólo por `transliterarSms`: el SMS del botón «SMS» sale sin tildes ni ñ, igual que el de «Faltan por votar». -->
+<script src="/js/segmentos-sms.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const STORE = 'panel_lider_cache';          // la misma copia sin señal que usa el panel del líder (se borra al cerrar sesión o cambiar de cuenta)
+const CLAVE_COPIA = 'coordinador_mis_lideres';
+
+let datos = null;                // { coordinador, hoy, resumen, miembros, reglas }
+let sinSenal = false;
+let filtro = 'todos';
+let orden = 'avance';
+let busqueda = '';
+let abierta = null;              // id de la persona cuya ficha está abierta
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => escaparAppHtml(t);
+const numero = (n) => Number(n || 0).toLocaleString('es-CO');
+const porcentaje = (p) => Number(p).toLocaleString('es-CO', { maximumFractionDigits: 1 }) + ' %';
+const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const primerNombre = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const diaCorto = (iso) => { const [, m, d] = iso.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
+
+function mostrarAviso(texto, tipo) {
+  const el = $('aviso');
+  el.textContent = texto;
+  el.className = 'aviso-app visible ' + (tipo || 'error');
+}
+
+// ------------------------------------------------------------------------------------------------ textos
+function textoUltimo(m) {
+  if (m.dias_sin_registrar === null) return 'Aún no ha registrado a nadie';
+  if (m.dias_sin_registrar === 0) return 'Último registro: hoy';
+  if (m.dias_sin_registrar === 1) return 'Último registro: hace 1 día';
+  return `Último registro: hace ${m.dias_sin_registrar} días`;
+}
+const ROTULO_ROL = { lider: 'Líder', sublider: 'Sublíder' };
+
+// ------------------------------------------------------------------------------------------------ resumen
+function pintarResumen() {
+  const r = datos.resumen;
+  const hay = datos.miembros.length > 0;
+  $('resumen-card').style.display = hay ? 'block' : 'none';
+  if (!hay) return;
+  if (r.sin_meta_total) {
+    $('res-registros').textContent = numero(r.personas_registradas);
+    $('res-meta').textContent = ' personas registradas';
+    $('res-pct').textContent = 'Sin meta';
+    $('res-barra').style.width = '0%';
+    $('res-barra').className = 'barra-relleno sin_meta';
+  } else {
+    $('res-registros').textContent = numero(r.personas_registradas);
+    $('res-meta').textContent = ` de ${numero(r.compromiso_total)} comprometidos`;
+    $('res-pct').textContent = porcentaje(r.porcentaje);
+    $('res-barra').style.width = Math.min(100, r.porcentaje) + '%';
+    $('res-barra').className = 'barra-relleno ' + (r.porcentaje < datos.reglas.umbral_rojo ? 'rojo' : (r.porcentaje < datos.reglas.umbral_verde ? 'amarillo' : 'verde'));
+  }
+  $('res-detalle').textContent = `${numero(r.lideres_activos)} ${r.lideres_activos === 1 ? 'líder' : 'líderes'}`
+    + (r.sublideres ? ` · ${numero(r.sublideres)} ${r.sublideres === 1 ? 'sublíder' : 'sublíderes'}` : '')
+    + ` · ${numero(r.registros_7_dias)} ${r.registros_7_dias === 1 ? 'registro' : 'registros'} en 7 días`;
+}
+
+// ------------------------------------------------------------------------------------------------ lista
+function visibles() {
+  const q = sinTildes(busqueda);
+  let lista = datos.miembros.filter((m) => {
+    if (q && !sinTildes(m.nombre).includes(q)) return false;
+    if (filtro === 'rojo' || filtro === 'amarillo' || filtro === 'verde') return m.semaforo === filtro;
+    if (filtro === 'sin7') return m.sin_registrar_7;
+    return true;
+  });
+  lista = lista.slice().sort((a, b) => {
+    if (orden === 'nombre') return String(a.nombre).localeCompare(String(b.nombre), 'es');
+    // Menor avance primero; quien no tiene meta no tiene con qué compararse y va al final.
+    if (a.sin_meta !== b.sin_meta) return a.sin_meta ? 1 : -1;
+    if (!a.sin_meta && a.porcentaje !== b.porcentaje) return a.porcentaje - b.porcentaje;
+    return String(a.nombre).localeCompare(String(b.nombre), 'es');
+  });
+  return lista;
+}
+
+function filaLider(m) {
+  const ancho = m.sin_meta ? 0 : Math.min(100, m.porcentaje);
+  const cuenta = m.sin_meta
+    ? `<span><strong>${numero(m.registros)}</strong> ${m.registros === 1 ? 'registro' : 'registros'}</span><span>Sin meta</span>`
+    : `<span><strong>${numero(m.registros)}</strong> de ${numero(m.meta)} registrados</span><span><strong>${porcentaje(m.porcentaje)}</strong></span>`;
+  return `
+    <button type="button" class="lider-item" data-id="${m.id}">
+      <span class="avatar-lista" aria-hidden="true">${esc(inicialesDe(m.nombre))}</span>
+      <div class="datos">
+        <span class="nombre">${esc(m.nombre)}</span>
+        <div class="sub"><span class="pildora neutra">${ROTULO_ROL[m.rol]}</span>${m.barrio ? `<span>${esc(m.barrio)}</span>` : ''}</div>
+        <div class="cuenta">${cuenta}</div>
+        <div class="barra-fondo" role="progressbar" aria-label="Avance de ${esc(m.nombre)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(ancho)}">
+          <div class="barra-relleno ${m.semaforo}" style="width:${ancho}%"></div>
+        </div>
+        <div class="ultimo${m.sin_registrar_7 ? ' alerta' : ''}">${textoUltimo(m)}</div>
+      </div>
+      <span class="flecha" aria-hidden="true">›</span>
+    </button>`;
+}
+
+function pintarLista() {
+  const lista = visibles();
+  $('lista').innerHTML = lista.map(filaLider).join('');
+  const vacio = $('vacio');
+  if (!lista.length) {
+    vacio.textContent = (busqueda || filtro !== 'todos') ? 'Nadie coincide con ese filtro o búsqueda.' : 'Todavía no tiene líderes a su cargo.';
+    vacio.style.display = 'block';
+  } else {
+    vacio.style.display = 'none';
+  }
+}
+
+function pintarTodo() {
+  $('cargando').style.display = 'none';
+  pintarResumen();
+  $('controles').style.display = datos.miembros.length ? 'block' : 'none';
+  pintarLista();
+  const banda = $('sin-senal');
+  if (sinSenal) {
+    banda.textContent = `Sin señal: se muestra la última lista guardada (${new Date(datos.guardadoEn).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}).`;
+    banda.style.display = 'block';
+  } else {
+    banda.style.display = 'none';
+  }
+  // «?filtro=sin7» lo manda el aviso del inicio.
+  const pedido = new URLSearchParams(window.location.search).get('filtro');
+  if (pedido && !pintarTodo.aplicado) {
+    pintarTodo.aplicado = true;
+    if (['rojo', 'amarillo', 'verde', 'sin7'].includes(pedido)) elegirFiltro(pedido);
+  }
+}
+
+// ------------------------------------------------------------------------------------------------ contacto (igual que la ficha del votante)
+/** Solo para un celular válido de 10 dígitos que ya trae el servidor. */
+function enlaces(m) {
+  if (!m.telefono) return null;
+  const inter = '57' + m.telefono;
+  const texto = `Hola ${primerNombre(m.nombre)}, ¿cómo vas con los registros?`;
+  const esIphone = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const sms = (typeof window.transliterarSms === 'function') ? window.transliterarSms(texto) : texto;
+  return {
+    llamar: `tel:+${inter}`,
+    whatsapp: `https://wa.me/${inter}?text=${encodeURIComponent(texto)}`,
+    sms: `sms:+${inter}${esIphone ? '&' : '?'}body=${encodeURIComponent(sms)}`,
+  };
+}
+
+function pintarContacto(m) {
+  const elTel = $('ficha-telefono');
+  const acc = $('ficha-acciones');
+  const nota = $('ficha-nota');
+  nota.style.display = 'none';
+  const e = enlaces(m);
+  if (!e) {
+    elTel.textContent = 'Sin celular registrado';
+    elTel.classList.add('sin-tel');
+    acc.innerHTML = `
+      <span class="btn-app deshabilitado" aria-disabled="true">Llamar</span>
+      <span class="btn-app deshabilitado" aria-disabled="true">WhatsApp</span>
+      <span class="btn-app deshabilitado" aria-disabled="true">SMS</span>`;
+    return;
+  }
+  elTel.textContent = formatoTelefonoColombia(m.telefono);
+  elTel.classList.remove('sin-tel');
+  // La baja (no_contactar) es la única regla de contacto que hoy rige para la estructura: con ella no se ofrecen mensajes, sí la llamada.
+  if (m.no_contactar) {
+    acc.innerHTML = `
+      <a class="btn-app btn-llamar" href="${e.llamar}">Llamar</a>
+      <span class="btn-app deshabilitado" aria-disabled="true">WhatsApp</span>
+      <span class="btn-app deshabilitado" aria-disabled="true">SMS</span>`;
+    nota.textContent = 'Pidió no recibir mensajes: solo se puede llamar.';
+    nota.style.display = 'block';
+    return;
+  }
+  acc.innerHTML = `
+    <a class="btn-app btn-llamar" href="${e.llamar}">Llamar</a>
+    <a class="btn-app btn-whatsapp" href="${e.whatsapp}" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="btn-app btn-sms" href="${e.sms}">SMS</a>`;
+}
+
+// ------------------------------------------------------------------------------------------------ ficha
+function bloqueAvance(m) {
+  const cifra = m.sin_meta
+    ? `<span class="grande">${numero(m.registros)}</span><span class="meta">${m.registros === 1 ? 'registro' : 'registros'} · sin meta</span>`
+    : `<span class="grande">${numero(m.registros)}</span><span class="meta">de ${numero(m.meta)} comprometidos</span><span class="pct">${porcentaje(m.porcentaje)}</span>`;
+  const barra = m.sin_meta ? '' : `<div class="barra-fondo"><div class="barra-relleno ${m.semaforo}" style="width:${Math.min(100, m.porcentaje)}%"></div></div>`;
+  const max = Math.max(1, ...m.semanas.map((s) => s.n));
+  const semanas = m.semanas.map((s, i) => {
+    const alto = s.n ? Math.max(6, Math.round((s.n / max) * 100)) : 2;
+    const actual = i === m.semanas.length - 1;
+    return `<div class="semana${actual ? ' actual' : ''}"><span class="n">${s.n || ''}</span><div class="col"><div style="height:${alto}%"></div></div>`
+      + `<span class="rot">${actual ? 'Esta semana' : diaCorto(s.desde) + ' – ' + diaCorto(s.hasta)}</span></div>`;
+  }).join('');
+  return `
+    <div class="bloque">
+      <h3>Su avance</h3>
+      <div class="cifra-ficha">${cifra}</div>${barra}
+      <div class="linea" style="margin-top:10px;"><span>Último registro</span><span class="${m.sin_registrar_7 ? 'rojo' : ''}">${esc(textoUltimo(m).replace('Último registro: ', ''))}</span></div>
+    </div>
+    <div class="bloque"><h3>Registrados por semana</h3><div class="semanas">${semanas}</div></div>`;
+}
+
+function bloqueDiaD(d) {
+  if (!d) return '';
+  const yaVoto = d.ya_voto === null ? 'No figura como votante' : (d.ya_voto ? 'Sí' : 'No');
+  return `
+    <div class="bloque">
+      <h3>Día D${d.modo_prueba ? ' · modo prueba' : ''}</h3>
+      <div class="linea"><span>Ya votó</span><span><strong>${yaVoto}</strong></span></div>
+      <div class="linea"><span>Sus registrados que ya votaron</span><span><strong>${numero(d.votaron)}</strong> de ${numero(d.total)}</span></div>
+    </div>`;
+}
+
+function bloqueSublideres(subs) {
+  if (!subs.length) return '';
+  return `
+    <div class="bloque">
+      <h3>Sus sublíderes (${subs.length})</h3>
+      ${subs.map((s) => `
+        <button type="button" class="sub-item" data-sub="${s.id}">
+          <span class="quien">${esc(s.nombre)}</span>
+          <span class="cifra">${numero(s.registros)}${s.sin_meta ? '' : ' / ' + numero(s.meta)}</span>
+          <span class="flecha" aria-hidden="true" style="color:var(--marca-azul);">›</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+function abrirFicha(id, extra) {
+  const m = datos.miembros.find((x) => x.id === id);
+  if (!m) return;
+  abierta = id;
+  $('ficha-nombre').textContent = m.nombre;
+  $('ficha-rol').textContent = [ROTULO_ROL[m.rol], m.barrio, m.rol === 'sublider' && m.supervisor_nombre ? 'Con ' + m.supervisor_nombre : null].filter(Boolean).join(' · ');
+  pintarContacto(m);
+  // Sin respuesta del servidor (sin señal), la ficha se arma con lo que ya trae la lista: sublíderes incluidos.
+  const subs = (extra && extra.sublideres) || datos.miembros.filter((x) => x.rol === 'sublider' && x.supervisor_id === m.id);
+  $('ficha-detalle').innerHTML = bloqueAvance((extra && extra.miembro) || m) + bloqueDiaD(extra && extra.dia_d) + (m.rol === 'lider' ? bloqueSublideres(subs) : '');
+  $('ficha-overlay').classList.add('abierto');
+  $('ficha').scrollTop = 0;
+  if (!extra && !sinSenal) refrescarFicha(id);
+}
+
+/** En vivo: la ficha con lo que solo el servidor sabe (el Día D) y las cifras de este instante. Si no hay señal, se queda con la de la lista. */
+async function refrescarFicha(id) {
+  try {
+    const r = await api(`/coordinador/lider/${encodeURIComponent(id)}` + sufijoAdmin());
+    if (abierta !== id || !r) return;     // ya cerró o abrió otra
+    abrirFicha(id, r);
+  } catch (err) { /* sin señal o sin acceso: la ficha de la lista basta */ }
+}
+
+function cerrarFicha() { abierta = null; $('ficha-overlay').classList.remove('abierto'); }
+
+// ------------------------------------------------------------------------------------------------ eventos
+function elegirFiltro(f) {
+  filtro = f;
+  document.querySelectorAll('#chips .chip-filtro').forEach((c) => c.classList.toggle('activo', c.dataset.filtro === f));
+  pintarLista();
+}
+$('chips').addEventListener('click', (e) => { const c = e.target.closest('[data-filtro]'); if (c) elegirFiltro(c.dataset.filtro); });
+document.querySelector('.fila-orden').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-orden]');
+  if (!c) return;
+  orden = c.dataset.orden;
+  document.querySelectorAll('.fila-orden .chip-filtro').forEach((x) => x.classList.toggle('activo', x.dataset.orden === orden));
+  pintarLista();
+});
+$('buscador').addEventListener('input', (e) => { busqueda = e.target.value.trim(); pintarLista(); });
+$('lista').addEventListener('click', (e) => { const f = e.target.closest('[data-id]'); if (f) abrirFicha(Number(f.dataset.id)); });
+$('ficha-detalle').addEventListener('click', (e) => { const s = e.target.closest('[data-sub]'); if (s) abrirFicha(Number(s.dataset.sub)); });
+$('btn-cerrar-ficha').addEventListener('click', cerrarFicha);
+$('ficha-overlay').addEventListener('click', (e) => { if (e.target.id === 'ficha-overlay') cerrarFicha(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarFicha(); });
+
+// ------------------------------------------------------------------------------------------------ carga
+/** El administrador mira a un coordinador con ?coordinador_id=; para un coordinador el servidor ignora ese dato. */
+function sufijoAdmin() {
+  const pedido = new URLSearchParams(window.location.search).get('coordinador_id');
+  return pedido ? `?coordinador_id=${encodeURIComponent(pedido)}` : '';
+}
+
+async function cargar() {
+  try {
+    datos = await api('/coordinador/mis-lideres' + sufijoAdmin());
+    datos.guardadoEn = Date.now();
+    sinSenal = false;
+    try { await guardarCopiaOffline(STORE, CLAVE_COPIA, datos); } catch (_) { /* sin copia */ }
+  } catch (err) {
+    if (err && err.esErrorDeRed) {
+      let copia = null;
+      try { copia = await leerCopiaOffline(STORE, CLAVE_COPIA); } catch (_) { copia = null; }
+      if (copia) { datos = copia.datos; datos.guardadoEn = copia.guardadoEn; sinSenal = true; }
+    }
+    if (!datos) {
+      $('cargando').style.display = 'none';
+      mostrarAviso(err && err.esErrorDeRed
+        ? 'Sin conexión y sin una copia guardada. Intente de nuevo cuando tenga señal.'
+        : ((err && err.message) || 'No se pudo cargar su equipo.'));
+      return;
+    }
+  }
+  pintarTodo();
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  pintarBarraApp('Mis líderes', 'Seguimiento de su equipo', '/app/inicio.html');
+  // El servidor es quien lo exige (coordinador y administrador); esto solo evita dejarle a otro rol una pantalla que responderá 403.
+  if (!['coordinador', 'admin'].includes(usuario.rol)) {
+    $('cargando').style.display = 'none';
+    mostrarAviso('Esta pantalla es para coordinadores.');
+    return;
+  }
+  await cargar();
+  window.addEventListener('online', async () => { if (sinSenal) { await cargar(); } });
+})();
+</script>
+</body>
+</html>

@@ -11,6 +11,8 @@ const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 const { reconocerEquipo, mensajeDeRechazo, equipoControlado } = require('../config/equiposAutorizados');
 const { esSuperadmin, ERROR_2FA_OBLIGATORIO } = require('../config/superadmin');
 const { verificarPasswordPropia } = require('../config/verificaciones');
+const { sincronizarClaveCelular, LARGO_CLAVE } = require('../lib/claveCelular');
+const { normalizarCedula, sqlCedulaNormalizada, finDeCedula } = require('../lib/normalizarCedula');
 
 const router = express.Router();
 
@@ -309,7 +311,7 @@ function avisarCodigoPorTelegram(usuario, codigo) {
 }
 
 /** Cola del 2FA (si está activado) o cierra el inicio de sesión de una vez — usado tanto por /login como por /elegir-rol, ya que a partir de ese punto ambos siguen exactamente el mismo camino. */
-async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo) {
+async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo, detalleDelIngreso) {
   if (usuario.two_factor_enabled) {
     const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
@@ -346,7 +348,7 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
   await registrarAuditoria(
     usuario.id,
     'login',
-    `Inicio de sesión: ${usuario.email}` + (entrarComo === 'testigo' ? ' (como testigo electoral)' : ''),
+    detalleDelIngreso || (`Inicio de sesión: ${usuario.email}` + (entrarComo === 'testigo' ? ' (como testigo electoral)' : '')),
     req.ip
   );
   res.json({ ok: true, usuario: req.session.usuario, dispositivoToken, tokenCierre: req.tokenCierreNuevo || null });
@@ -521,6 +523,114 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Error en login:', err);
     res.status(500).json({ error: 'Error interno al iniciar sesión.' });
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   INGRESO DEL COORDINADOR POR EL CELULAR (orden 59): número de cédula y clave de 6 dígitos.
+
+   LA CLAVE son los últimos 6 dígitos de la cédula (lib/claveCelular.js), guardados con hash en columnas PROPIAS: ni la contraseña de correo del
+   coordinador ni el ingreso de los líderes (`POST /login`) cambian. Esta puerta solo deja pasar a quien tiene rol «coordinador»: un líder, un
+   administrador o cualquiera con su cédula recibe el MISMO mensaje que quien se equivocó de clave, y nunca se entera de si la cédula existe.
+
+   EL LÍMITE DE INTENTOS ES POR CÉDULA ESCRITA, EXISTA O NO (tabla `ingresos_celular_intentos`), y no en la fila del usuario: así «Demasiados
+   intentos» sale igual para una cédula inventada que para la de un coordinador (si solo saliera para las que existen, el bloqueo delataría
+   cuáles son), y los fallos de esta puerta no bloquean la entrada por correo. 5 fallos seguidos → 15 minutos (los mismos números del ingreso
+   de los líderes), y durante el bloqueo ni la clave correcta entra. Además, un límite por IP como en las páginas públicas (/c, /v): solo gastan
+   cupo las respuestas fallidas.
+   --------------------------------------------------------------------------- */
+const MENSAJE_INGRESO_CELULAR = 'Cédula o clave incorrecta.';
+const MENSAJE_BLOQUEO_CELULAR = `Demasiados intentos. Espere ${BLOQUEO_MINUTOS} minutos.`;
+
+const limitadorIngresoCelular = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 40,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: MENSAJE_BLOQUEO_CELULAR }
+});
+
+router.post('/login-coordinador', limitadorIngresoCelular, async (req, res) => {
+  const rechazar = () => res.status(401).json({ error: MENSAJE_INGRESO_CELULAR });
+  try {
+    const cuerpo = req.body || {};
+    const digitos = String(cuerpo.cedula == null ? '' : cuerpo.cedula).replace(/\D/g, '').slice(0, 20);
+    const clave = String(cuerpo.clave == null ? '' : cuerpo.clave);
+    // Lo que no tiene forma de cédula y de clave de 6 dígitos se rechaza sin tocar la base ni contar intentos.
+    if (digitos.length < 5 || !new RegExp(`^\\d{${LARGO_CLAVE}}$`).test(clave)) {
+      await bcrypt.compare(clave, HASH_DE_DESCARTE);
+      return rechazar();
+    }
+
+    // ¿Está bloqueada esta cédula? (hora de la base, no del proceso: no depende del reloj de quien escribió)
+    const [[intentoPrevio]] = await pool.query(
+      `SELECT intentos, (bloqueado_hasta IS NOT NULL AND bloqueado_hasta > NOW()) AS bloqueada,
+              (bloqueado_hasta IS NOT NULL AND bloqueado_hasta <= NOW()) AS vencida
+         FROM ingresos_celular_intentos WHERE cedula = ?`, [digitos]);
+    if (intentoPrevio && Number(intentoPrevio.bloqueada) === 1) {
+      return res.status(423).json({ error: MENSAJE_BLOQUEO_CELULAR });
+    }
+    // Cumplido el bloqueo, el contador vuelve a cero (como en el ingreso de los líderes, parche 330): vuelve a tener sus 5 intentos.
+    if (intentoPrevio && Number(intentoPrevio.vencida) === 1) {
+      await pool.query('UPDATE ingresos_celular_intentos SET intentos = 0, bloqueado_hasta = NULL WHERE cedula = ?', [digitos]);
+    }
+
+    // Solo cuenta quien tiene rol coordinador. La cédula se compara normalizada (con puntos o ceros a la izquierda es la misma).
+    const [filas] = await pool.query(
+      `SELECT u.*, r.nombre AS rol
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id
+        WHERE r.nombre = 'coordinador' AND ${sqlCedulaNormalizada('u.numero_identificacion')} = ?
+        LIMIT 2`, [normalizarCedula(digitos)]);
+    // Dos coordinadores con la misma cédula normalizada no es un dato válido (la cédula es única): ante la duda, nadie entra.
+    let usuario = filas.length === 1 ? filas[0] : null;
+
+    if (usuario && usuario.activo) {
+      // Red de seguridad: si por cualquier camino cambió la cédula (o falta la clave), se recalcula ANTES de comparar. La clave vieja deja de servir.
+      if ((await sincronizarClaveCelular(pool, usuario.id)) === 'generada') {
+        const [[renovado]] = await pool.query('SELECT clave_celular_hash FROM usuarios WHERE id = ?', [usuario.id]);
+        usuario.clave_celular_hash = renovado.clave_celular_hash;
+      }
+    } else {
+      usuario = null;
+    }
+
+    const valida = await bcrypt.compare(clave, (usuario && usuario.clave_celular_hash) || HASH_DE_DESCARTE);
+
+    if (!usuario || !valida) {
+      await pool.query(
+        `INSERT INTO ingresos_celular_intentos (cedula, intentos, bloqueado_hasta) VALUES (?, 1, NULL)
+         ON DUPLICATE KEY UPDATE
+           bloqueado_hasta = CASE WHEN intentos + 1 >= ? THEN DATE_ADD(NOW(), INTERVAL ? MINUTE) ELSE bloqueado_hasta END,
+           intentos = intentos + 1`, [digitos, MAX_INTENTOS, BLOQUEO_MINUTOS]);
+      const [[tras]] = await pool.query('SELECT intentos FROM ingresos_celular_intentos WHERE cedula = ?', [digitos]);
+      const intentos = tras ? Number(tras.intentos) : 1;
+      // Limpieza barata de lo que lleva un día quieto y no está bloqueado.
+      await pool.query(`DELETE FROM ingresos_celular_intentos WHERE actualizado_en < NOW() - INTERVAL 1 DAY AND (bloqueado_hasta IS NULL OR bloqueado_hasta < NOW())`);
+      if (usuario) {
+        // En la bitácora va el número del intento, nunca la clave ni la cédula escrita.
+        await registrarAuditoria(usuario.id, 'login_fallido',
+          `Ingreso de coordinador por el celular: clave incorrecta (intento ${intentos}/${MAX_INTENTOS}).`, req.ip);
+        if (intentos >= MAX_INTENTOS) {
+          await registrarAuditoria(usuario.id, 'bloqueo_cuenta',
+            `Ingreso de coordinador por el celular bloqueado ${BLOQUEO_MINUTOS} min por intentos fallidos.`, req.ip);
+        }
+      }
+      // El quinto fallo ya dice «Demasiados intentos»: sale igual exista o no la cédula.
+      if (intentos >= MAX_INTENTOS) return res.status(423).json({ error: MENSAJE_BLOQUEO_CELULAR });
+      return rechazar();
+    }
+
+    // Entró: se borra el contador de esa cédula y se sigue el mismo camino que cualquier ingreso (2FA si lo tiene activado, sesión, token de cierre, bitácora).
+    await pool.query('DELETE FROM ingresos_celular_intentos WHERE cedula = ?', [digitos]);
+    await pool.query('UPDATE usuarios SET ultimo_login = NOW() WHERE id = ?', [usuario.id]);
+    // Su clave es fija (los últimos 6 de la cédula) y no se cambia: el aviso «cambia tu clave» de la app no aplica por esta puerta.
+    usuario.debe_cambiar_password = 0;
+    await iniciar2faOCompletarSesion(req, res, usuario, false, null,
+      `Ingreso de coordinador por el celular (cédula terminada en ${finDeCedula(digitos) || '***'})`);
+  } catch (err) {
+    console.error('Error en el ingreso de coordinador por el celular:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo iniciar sesión. Intente de nuevo.' });
   }
 });
 
