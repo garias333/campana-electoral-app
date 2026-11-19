@@ -27,6 +27,12 @@ const http = require('http');
 const pool = require('../config/db');
 const { sembrar, crearApp, CLAVE_CORREO, CLAVE_ADMIN } = require('./fixtures/coordinadores-celular');
 const { claveDeCedula, sincronizarClaveCelular } = require('../lib/claveCelular');
+// El correo del código se SIMULA (antes de que auth.routes lo cargue): sin destinatario falla como el real; con destinatario, queda anotado. No sale nada.
+const correosDeCodigo = [];
+require('../config/mailer').enviarCodigo2FA = async (destino) => {
+  if (!destino) throw new Error('No recipients defined');
+  correosDeCodigo.push(destino);
+};
 
 let fallos = 0;
 let pasos = 0;
@@ -113,7 +119,7 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
   r = await entrarPorCelular(nuevo(), '', '');
   ok(r.status === 401 && r.datos.error === MSJ, 'campos vacíos → mismo mensaje');
   const aud = await q("SELECT accion, detalle FROM auditoria WHERE usuario_id = ? ORDER BY id", [ids.coord1]);
-  ok(aud.some((a) => a.accion === 'login' && /Ingreso de coordinador por el celular/.test(a.detalle)), 'la bitácora anota el ingreso por esta puerta', aud.map((a) => a.detalle));
+  ok(aud.some((a) => a.accion === 'login' && /Ingreso por celular coordinador/.test(a.detalle)), 'la bitácora anota el ingreso por esta puerta', aud.map((a) => a.detalle));
   ok(aud.some((a) => a.accion === 'login_fallido'), 'y el intento fallido');
   ok(!aud.some((a) => /456789|1023456789|000000/.test(a.detalle)), 'sin clave ni cédula completa en la bitácora');
 
@@ -339,6 +345,57 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
   ok(r.datos.dia_d === null, 'con el complemento «Faltan por votar» apagado el Día D no viene');
   await q("UPDATE complementos_campana SET activo = 1 WHERE clave = 'faltan_por_votar'");
   require('../lib/complementos').invalidar();
+
+  console.log('\n[10b] Orden 62: el ingreso del celular NO pide código de verificación; el de correo sí');
+  const [rolCoord] = await q("SELECT id FROM roles WHERE nombre = 'coordinador'");
+  const [ins] = await pool.query(
+    "INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, two_factor_enabled) VALUES ('Dos Pasos Sin Correo Ejemplo', '1088776655', '1088776655', NULL, ?, ?, 1)",
+    [require('bcryptjs').hashSync(CLAVE_CORREO, 4), rolCoord.id]);
+  const idSinCorreo = ins.insertId;
+  const [ins2] = await pool.query(
+    "INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, two_factor_enabled) VALUES ('Dos Pasos Con Correo Ejemplo', '1088776644', '1088776644', 'dospasos@ejemplo.co', ?, ?, 1)",
+    [require('bcryptjs').hashSync(CLAVE_CORREO, 4), rolCoord.id]);
+  const idConCorreo = ins2.insertId;
+  await q('INSERT INTO estructura (usuario_id, cargo, activo) VALUES (?, ?, 1), (?, ?, 1)', [idSinCorreo, 'coordinador', idConCorreo, 'coordinador']);
+  await sincronizarClaveCelular(pool, idSinCorreo); await sincronizarClaveCelular(pool, idConCorreo);
+  const antesCorreos = correosDeCodigo.length;
+  let cs = nuevo();
+  r = await entrarPorCelular(cs, '1088776655', '776655');
+  ok(r.status === 200 && r.datos.ok && !r.datos.requiere2fa && r.datos.usuario.id === idSinCorreo, 'coordinador con two_factor_enabled=1 y SIN correo: entra por el celular sin código', r);
+  ok(r.datos.usuario.two_factor_enabled === true, 'y la marca no se tocó (sigue en la sesión)');
+  r = await cs.GET('/api/auth/me');
+  ok(r.status === 200 && r.datos.usuario.id === idSinCorreo, '/auth/me responde: la sesión no depende del código', r.status);
+  r = await cs.GET('/api/coordinador/mis-lideres');
+  ok(r.status === 200, 'y entra a sus rutas (Mis líderes)', r.status);
+  ok((await q('SELECT two_factor_enabled t FROM usuarios WHERE id = ?', [idSinCorreo]))[0].t === 1, 'la marca sigue encendida en la base');
+  const aud2 = await q("SELECT detalle FROM auditoria WHERE usuario_id = ? AND accion = 'login' ORDER BY id DESC LIMIT 1", [idSinCorreo]);
+  ok(aud2.length && /celular coordinador/.test(aud2[0].detalle) && /sin código de verificación/.test(aud2[0].detalle) && !/1088776655|776655/.test(aud2[0].detalle), 'la bitácora dice «celular coordinador» y que fue sin código, sin cédula completa ni clave', aud2);
+  r = await entrarPorCelular(nuevo(), '1088776644', '776644');
+  ok(r.status === 200 && !r.datos.requiere2fa && r.datos.usuario.id === idConCorreo, 'con correo y la marca encendida también entra sin código', r.status);
+  ok(correosDeCodigo.length === antesCorreos, 'por el celular NO se mandó ningún código (ni se intentó)');
+  r = await entrarPorCelular(nuevo(), '1088776655', '000000');
+  ok(r.status === 401 && r.datos.error === MSJ, 'una clave mala sigue fallando con el mismo mensaje');
+  for (let i = 1; i <= 4; i++) await entrarPorCelular(nuevo(), '1088776655', '00000' + i);
+  r = await entrarPorCelular(nuevo(), '1088776655', '776655');
+  ok(r.status === 423 && r.datos.error === MSJ_BLOQUEO, 'el bloqueo 5/15 sigue igual (5 fallos y ni la correcta entra)', r);
+  await q('DELETE FROM ingresos_celular_intentos');
+  // El ingreso por correo y contraseña SIGUE pidiendo el código.
+  r = await nuevo().POST('/api/auth/login', { email: 'dospasos@ejemplo.co', password: CLAVE_CORREO });
+  ok(r.status === 200 && r.datos.requiere2fa === true && correosDeCodigo[correosDeCodigo.length - 1] === 'dospasos@ejemplo.co', 'el mismo coordinador por correo y contraseña SIGUE pidiendo el código (y sale al correo)', r);
+  r = await nuevo().POST('/api/auth/login', { email: '1088776655', password: CLAVE_CORREO });
+  ok(r.status === 500 && /no tiene correo registrado/.test(r.datos.error) && /administrador/.test(r.datos.error), 'sin correo, el ingreso normal dice la causa: «…verificación en dos pasos pero no tiene correo registrado…»', r.datos);
+  r = await nuevo().POST('/api/auth/login', { email: 'dospasos@ejemplo.co', password: 'mala-clave' });
+  ok(r.status === 401, 'una contraseña mala por correo sigue fallando', r.status);
+  // Líder y admin: sin cambios (con la marca encendida siguen pidiendo código por SU puerta).
+  await q('UPDATE usuarios SET two_factor_enabled = 1 WHERE id IN (?, ?)', [ids.ana, ids.admin]);
+  await q("UPDATE usuarios SET email = 'ana@ejemplo.co' WHERE id = ?", [ids.ana]);
+  r = await nuevo().POST('/api/auth/login', { email: '1055000001', password: '1055000001' });
+  ok(r.status === 200 && r.datos.requiere2fa === true, 'un LÍDER con la marca sigue pidiendo código en su ingreso', r);
+  r = await nuevo().POST('/api/auth/login', { email: 'admin.ej@ejemplo.co', password: CLAVE_ADMIN });
+  ok(r.status === 200 && r.datos.requiere2fa === true, 'el ADMINISTRADOR con la marca sigue pidiendo código', r);
+  r = await entrarPorCelular(nuevo(), '1000000001', '000001');
+  ok(r.status === 401 && r.datos.error === MSJ, 'y el admin por la puerta del celular sigue sin entrar («Cédula o clave incorrecta.»)');
+  await q('UPDATE usuarios SET two_factor_enabled = 0 WHERE id IN (?, ?)', [ids.ana, ids.admin]);
 
   console.log('\n[11] El límite por IP (solo gastan cupo los fallos)');
   let primero429 = null;

@@ -311,8 +311,10 @@ function avisarCodigoPorTelegram(usuario, codigo) {
 }
 
 /** Cola del 2FA (si está activado) o cierra el inicio de sesión de una vez — usado tanto por /login como por /elegir-rol, ya que a partir de ese punto ambos siguen exactamente el mismo camino. */
-async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo, detalleDelIngreso) {
-  if (usuario.two_factor_enabled) {
+/* `opciones.sinCodigo` (orden 62): el ingreso del coordinador por el celular NO pide el código de verificación, tenga o no la marca `two_factor_enabled`. Es lo
+   único que cambia: la sesión se completa con el usuario TAL CUAL (la marca se queda en la sesión y en la base: el ingreso por correo sigue pidiendo el código). */
+async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarComo, detalleDelIngreso, opciones = {}) {
+  if (usuario.two_factor_enabled && !opciones.sinCodigo) {
     const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const codigoHash = crypto.createHash('sha256').update(codigo).digest('hex');
     const expiraEn = new Date(Date.now() + CODIGO_2FA_MINUTOS * 60 * 1000);
@@ -336,7 +338,10 @@ async function iniciar2faOCompletarSesion(req, res, usuario, recordar, entrarCom
     const salioAlguno = resCorreo.status === 'fulfilled'
       || (resTelegram && resTelegram.status === 'fulfilled' && resTelegram.value === true);
     if (!salioAlguno) {
-      res.status(500).json({ error: 'No se pudo enviar el código de verificación. Intenta de nuevo en unos minutos.' });
+      // Sin correo (y sin Telegram) el código no tiene a dónde llegar: se dice, en vez del genérico (orden 62).
+      res.status(500).json({ error: String(usuario.email || '').trim()
+        ? 'No se pudo enviar el código de verificación. Intenta de nuevo en unos minutos.'
+        : 'Su cuenta tiene verificación en dos pasos pero no tiene correo registrado. Pida al administrador que lo revise.' });
       return;
     }
 
@@ -621,13 +626,18 @@ router.post('/login-coordinador', limitadorIngresoCelular, async (req, res) => {
       return rechazar();
     }
 
-    // Entró: se borra el contador de esa cédula y se sigue el mismo camino que cualquier ingreso (2FA si lo tiene activado, sesión, token de cierre, bitácora).
+    // Entró: se borra el contador de esa cédula y se sigue el mismo camino que cualquier ingreso, SIN el código de verificación (sesión, token de cierre, bitácora).
     await pool.query('DELETE FROM ingresos_celular_intentos WHERE cedula = ?', [digitos]);
     await pool.query('UPDATE usuarios SET ultimo_login = NOW() WHERE id = ?', [usuario.id]);
     // Su clave es fija (los últimos 6 de la cédula) y no se cambia: el aviso «cambia tu clave» de la app no aplica por esta puerta.
     usuario.debe_cambiar_password = 0;
+    /* SIN CÓDIGO DE VERIFICACIÓN (orden 62). Esta puerta entra con la clave fija del celular y no manda ningún código, aunque la cuenta tenga
+       la verificación en dos pasos encendida (que sigue valiendo, intacta, en el ingreso por correo y contraseña). Reutiliza el final común:
+       sesión, token de cierre y bitácora. La bitácora lo deja dicho. */
     await iniciar2faOCompletarSesion(req, res, usuario, false, null,
-      `Ingreso de coordinador por el celular (cédula terminada en ${finDeCedula(digitos) || '***'})`);
+      `Ingreso por celular coordinador (cédula terminada en ${finDeCedula(digitos) || '***'})`
+        + (usuario.two_factor_enabled ? '; sin código de verificación' : ''),
+      { sinCodigo: true });
   } catch (err) {
     console.error('Error en el ingreso de coordinador por el celular:', err.code || err.message);
     res.status(500).json({ error: 'No se pudo iniciar sesión. Intente de nuevo.' });
