@@ -203,10 +203,64 @@ const grande = (con) => {
   const zs2 = await pedir('GET', '/zonas?q=carmen', { usuario: admin });
   ok(zs2.datos.hay === true && zs2.datos.zonas.length === 1 && zs2.datos.zonas[0].nombre === 'El Carmen' && zs2.datos.zonas[0].padre === 'Comuna Centro', 'con catálogo: busca por nombre y dice de qué comuna es', zs2.datos);
   ok((await pedir('GET', '/zonas', { usuario: admin })).datos.zonas.every((z) => ['barrio', 'vereda', 'comuna', 'corregimiento'].includes(z.tipo)), 'solo ofrece barrios, veredas, comunas y corregimientos (no municipios)');
-  const conId = await mal({ tipo: 'visita', territorio_id: 9002 });
+  const conId = await mal({ tipo: 'visita', territorio_id: 9002, asignada_a: admin.id });     // el administrador no se filtra por barrio (Orden 58)
   ok(conId.status === 201 && (await q('SELECT zona_texto z, territorio_id t FROM tareas WHERE id = ?', [conId.datos.id]))[0].z === 'El Carmen', 'con territorio_id válido guarda el id y completa el nombre', conId.datos);
   ok((await mal({ tipo: 'visita', territorio_id: 99999 })).status === 400 && (await mal({ tipo: 'visita', territorio_id: 9004 })).status === 400, 'un territorio_id que no está en el catálogo, o que es un municipio: 400');
   await q('DELETE FROM tareas');
+
+  /* ====================================================================================== 4b. el barrio manda sobre a quién se asigna (Orden 58) */
+  console.log('\n[4b] Una tarea con barrio solo se le asigna a quien es de ese barrio');
+  let cedula = 977000;
+  const persona = (lider, zona, sublider = null) => q(`INSERT INTO votantes (nombre, cedula, telefono, email, direccion, latitud, longitud, territorio_id, lider_id, sublider_id, consentimiento_autorizado, no_visitar, apoya_a, categoria)
+    VALUES (?, ?, ?, ?, 'Calle 1', 5.07, -75.51, ?, ?, ?, 1, 0, '["alcaldia"]', 'votante')`, ['Persona ' + (++cedula), String(cedula), '3200000' + cedula, 'p' + cedula + '@ejemplo.test', zona, lider.id, sublider ? sublider.id : null]);
+  await persona(l1, 9002); await persona(l1, 9002); await persona(l1, 9003); await persona(l3, 9003);
+  await persona(l1, 9002, s1);
+  const visitaEn = (u, asignado, o = {}) => crear(u, { tipo: 'visita', titulo: 'Visitar el barrio', asignada_a: asignado.id, territorio_id: 9002, ...o });
+  const nTareas = async () => Number((await q('SELECT COUNT(*) n FROM tareas'))[0].n);
+  const deLaZona = (await pedir('GET', '/responsables?territorio_id=9002', { usuario: admin })).datos;
+  const nombresZona = (deLaZona.responsables || []).map((x) => x.nombre);
+  ok(deLaZona.por_zona === true && nombresZona.includes('Lider Uno') && nombresZona.includes('Sublider Uno') && !nombresZona.includes('Lider Dos') && !nombresZona.includes('Lider Tres'), 'GET /responsables?territorio_id: solo quienes tienen gente en el barrio', nombresZona);
+  const cuentas = Object.fromEntries((deLaZona.responsables || []).map((x) => [x.nombre, x.personas]));
+  ok(cuentas['Lider Uno'] === 3 && cuentas['Sublider Uno'] === 1, 'con cuántas personas tiene cada uno (3 el líder, 1 el sublíder), nunca quiénes', cuentas);
+  ok(!nombresZona.includes('Coordinadora Uno') && !nombresZona.includes('Admin Prueba'), 'con barrio no se ofrece al coordinador ni al administrador (su gente es la de todo el equipo)', nombresZona);
+  const deC1 = (await pedir('GET', '/responsables?territorio_id=9002', { usuario: c1 })).datos.responsables.map((x) => x.nombre);
+  ok(deC1.includes('Lider Uno') && !deC1.includes('Lider Tres'), 'la coordinadora solo ve líderes de su alcance', deC1);
+  ok((await pedir('GET', '/responsables?territorio_id=0', { usuario: admin })).status === 400 && (await pedir('GET', '/responsables?territorio_id=9002', { usuario: testigo })).status === 403, 'una zona inválida: 400; sin permiso de crear: 403');
+  const antes = await nTareas();
+  const ok1 = await visitaEn(admin, l1);
+  ok(ok1.status === 201, 'una visita en el barrio para quien tiene gente ahí: 201', ok1.datos);
+  const no1 = await visitaEn(admin, l2);
+  ok(no1.status === 422 && /Lider Dos/.test(no1.datos.error) && /9002|ese barrio|El Carmen/.test(no1.datos.error) && (await nTareas()) === antes + 1, 'la misma visita, enviada a mano para quien NO corresponde: 422 y no se crea', no1.datos);
+  ok((await visitaEn(admin, l2, { tipo: 'libre' })).status === 422, 'también una tarea libre: lo que manda es el barrio');
+  ok((await visitaEn(admin, admin)).status === 201 && (await visitaEn(c1, c1)).status === 201, 'el administrador y el coordinador no se filtran (la tarea que ellos mismos se quedan)');
+  ok((await crear(admin, { asignada_a: l2.id, territorio_id: '', zona_texto: 'Escrita a mano' })).status === 201 && (await crear(admin, { asignada_a: l2.id })).status === 201, 'sin barrio, o con la zona solo escrita a mano: a cualquiera (como siempre)');
+  // el territorio de la ficha cuenta; uno más amplio, no
+  await q('UPDATE estructura SET territorio_id = 9001 WHERE usuario_id = ?', [l3.id]);
+  ok((await visitaEn(admin, l3)).status === 422, 'un territorio MÁS AMPLIO en la ficha (la comuna) no hace a nadie «de» cada barrio', null);
+  await q('UPDATE estructura SET territorio_id = 9002 WHERE usuario_id = ?', [l2.id]);
+  await q('INSERT IGNORE INTO estructura_territorios (estructura_id, territorio_id, es_principal) SELECT id, 9002, 1 FROM estructura WHERE usuario_id = ?', [l2.id]);
+  const porFicha = (await pedir('GET', '/responsables?territorio_id=9002', { usuario: admin })).datos.responsables.find((x) => x.nombre === 'Lider Dos');
+  ok(porFicha && porFicha.personas === 0 && porFicha.por_ficha === true && (await visitaEn(admin, l2)).status === 201, 'el territorio de su ficha sí: aparece (0 personas) y se le puede asignar');
+  const deLaComuna = (await pedir('GET', '/responsables?territorio_id=9001', { usuario: admin })).datos.responsables.map((x) => x.nombre);
+  ok(deLaComuna.includes('Lider Uno') && deLaComuna.includes('Lider Tres'), 'una comuna cuenta lo que cuelga de ella (su barrio) y lo que tiene asignado', deLaComuna);
+  ok((await pedir('GET', '/responsables?territorio_id=9003', { usuario: admin })).datos.responsables.length >= 2 && (await pedir('GET', '/responsables', { usuario: admin })).datos.por_zona === undefined, 'sin territorio_id, /responsables es el de siempre');
+  // reasignar y editar
+  const id1 = ok1.datos.id;
+  const aOtro = await pedir('PUT', '/' + id1, { usuario: admin, json: { asignada_a: l3.id } });
+  ok(aOtro.status === 422 && (await q('SELECT asignada_a a FROM tareas WHERE id = ?', [id1]))[0].a === l1.id, 'reasignar a quien no corresponde: 422 y no cambia', aOtro.datos);
+  ok((await pedir('PUT', '/' + id1, { usuario: admin, json: { asignada_a: l2.id } })).status === 200, 'reasignar a quien sí corresponde: 200');
+  ok((await pedir('PUT', '/' + id1, { usuario: admin, json: { titulo: 'Otro título' } })).status === 200, 'editar solo el título no revalida nada');
+  const cambiaZona = await pedir('PUT', '/' + id1, { usuario: admin, json: { territorio_id: 9003 } });
+  ok(cambiaZona.status === 422, 'cambiar la tarea a un barrio donde su responsable no corresponde: 422', cambiaZona.datos);
+  // una tarea vieja (de antes de la regla) con alguien que no corresponde: se ve y se edita igual
+  const vieja = (await q(`INSERT INTO tareas (tipo, titulo, estado, territorio_id, zona_texto, creada_por, asignada_a, aspirante_id) VALUES ('visita', 'Vieja de otro', 'pendiente', 9002, 'El Carmen', 1, ?, 0)`, [l3.id])).insertId;
+  ok((await pedir('GET', '/' + vieja, { usuario: admin })).status === 200 && (await pedir('PUT', '/' + vieja, { usuario: admin, json: { titulo: 'Vieja editada' } })).status === 200, 'una tarea vieja con alguien que no corresponde se sigue viendo y editando (no se revalida)');
+  const sol = (await pedir('GET', '/zonas?lista=1', { usuario: admin })).datos;
+  ok(sol.hay === true && sol.zonas.length === 3 && sol.zonas.every((z) => ['barrio', 'vereda', 'comuna', 'corregimiento'].includes(z.tipo)), '/zonas?lista=1 trae todas, sin municipios', sol.zonas);
+  await q('DELETE FROM tareas');
+  await q('DELETE FROM votantes WHERE cedula LIKE ?', ['977%']);
+  await q('UPDATE estructura SET territorio_id = NULL WHERE usuario_id IN (?, ?)', [l2.id, l3.id]);
+  await q('DELETE FROM estructura_territorios WHERE territorio_id IN (9001, 9002)');
 
   /* ====================================================================================== 5. alcance */
   console.log('\n[5] El alcance: quién ve qué');

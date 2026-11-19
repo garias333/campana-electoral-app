@@ -3,6 +3,7 @@
  *
  *   GET  /zonas?q=              barrios, veredas, comunas y corregimientos de la campaña (para el formulario); `hay: false` = escribir a mano
  *   GET  /responsables          a quién se le puede asignar (el administrador, a todos; el coordinador, a su rama; el líder, a sí mismo y a sus sublíderes)
+ *                               con `?territorio_id=`: solo los que corresponden a ese barrio o vereda (lib/tareasZona.js), con su cantidad de personas
  *   GET  /                      la lista, con filtros y dentro del alcance
  *   GET  /mias                  las que tengo asignadas (la pantalla del celular)
  *   GET  /resumen               mis cifras: pendientes, vencen hoy, vencidas (la tarjeta del panel)
@@ -32,6 +33,7 @@ const { requireAuth, calcularAlcance } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { alcanceTareas, gestionTareas, asignablesPara } = require('../lib/alcanceTareas');
 const T = require('../lib/tareas');
+const Zona = require('../lib/tareasZona');
 const Avisos = require('../lib/tareasAvisos');
 const M = require('../lib/tareasMetas');
 const Panel = require('../lib/tareasPanel');
@@ -97,7 +99,11 @@ async function conAvance(filas, publicas, req) {
 /* ------------------------------------------------------------------------------------------------------------- APOYOS */
 
 router.get('/zonas', exigir('ver'), async (req, res) => {
-  try { res.json(await T.buscarZonas(req.query.q, { conMunicipios: req.query.tipo === 'meta_registros' })); } catch (e) { responder(res, e); }
+  try {
+    const conMunicipios = req.query.tipo === 'meta_registros';
+    // `lista=1`: TODAS (para el selector del formulario «Nueva tarea»); sin él, la búsqueda por texto de siempre.
+    res.json(req.query.lista === '1' ? await T.todasLasZonas({ conMunicipios }) : await T.buscarZonas(req.query.q, { conMunicipios }));
+  } catch (e) { responder(res, e); }
 });
 
 router.get('/responsables', exigir('agregar'), async (req, res) => {
@@ -108,7 +114,14 @@ router.get('/responsables', exigir('agregar'), async (req, res) => {
       `SELECT u.id, u.nombre, r.nombre AS rol FROM usuarios u JOIN roles r ON r.id = u.rol_id
         WHERE u.activo = 1 AND r.nombre IN (?) AND ${as.sql} ORDER BY (u.id = ?) DESC, u.nombre LIMIT 500`, [T.ROLES_ASIGNABLES, ...as.valores, req.session.usuario.id]);
     // Solo de SU campaña: quien cuelga de un aspirante es de otra rama y asignarle desde aquí se rechaza (T.crear); no se ofrece.
-    res.json({ responsables: await T.soloMismaRama(req.session.usuario.id, filas) });
+    const deLaRama = await T.soloMismaRama(req.session.usuario.id, filas);
+    // `territorio_id` (Orden 58): solo quienes corresponden a ese barrio o vereda (lib/tareasZona.js), con cuántas personas tienen ahí. Mismo permiso y alcance.
+    if (req.query.territorio_id !== undefined && req.query.territorio_id !== '') {
+      const zid = Number(req.query.territorio_id);
+      if (!Number.isInteger(zid) || zid < 1) return res.status(400).json({ error: 'Esa zona no es válida.' });
+      return res.json({ responsables: await Zona.responsablesDeZona(deLaRama, zid), por_zona: true });
+    }
+    res.json({ responsables: deLaRama });
   } catch (e) { responder(res, e); }
 });
 

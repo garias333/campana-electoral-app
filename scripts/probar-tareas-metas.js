@@ -165,7 +165,7 @@ async function votante(o) {
   ok((await crear(admin, meta({ fecha_limite: fin, desde: await dentroDe(9) }))).status === 400, '«desde» posterior a la fecha límite: 400');
   const soloTexto = await crear(admin, meta({ fecha_limite: fin, zona_texto: 'Una zona escrita a mano' }));
   ok(soloTexto.status === 400 && /elígela de la lista/.test(soloTexto.datos.error), 'una zona solo escrita a mano no se puede medir: 400', soloTexto.datos);
-  ok((await crear(admin, meta({ fecha_limite: fin, territorio_id: Z.C }))).status === 201 && (await crear(admin, meta({ fecha_limite: fin, territorio_id: 99999 }))).status === 400, 'con una zona del catálogo sí; con un id que no existe, no');
+  ok((await crear(admin, meta({ fecha_limite: fin, territorio_id: Z.C, asignada_a: admin.id }))).status === 201 && (await crear(admin, meta({ fecha_limite: fin, territorio_id: 99999 }))).status === 400, 'con una zona del catálogo sí; con un id que no existe, no');
   const fila0 = (await q('SELECT desde, meta_n FROM tareas WHERE id = ?', [m0.datos.id]))[0];
   ok(fila0.desde === hoy && fila0.meta_n === 15, '«desde» por omisión es hoy', fila0);
   await q('DELETE FROM tareas');
@@ -188,6 +188,9 @@ async function votante(o) {
   const tL1 = await mk(admin, l1);
   const aL1 = await medir(tL1);
   ok(aL1.actual === 15 && aL1.meta === 15 && aL1.pct === 100, 'LÍDER 1 sin zona: 15 = 7 + 2 + 1 + 1 propios (la enlace sin confirmar y los de hace 40 días NO) + 4 de su sublíder', aL1);
+  // Orden 58: una tarea con zona solo se le asigna a quien es de ahí. l1 no tiene registros en Z.Z, pero sí esa zona en su ficha: es la forma de seguir probando «0, nunca todo».
+  await q('UPDATE estructura SET territorio_id = ? WHERE usuario_id = ?', [Z.Z, l1.id]);
+  await q('INSERT IGNORE INTO estructura_territorios (estructura_id, territorio_id, es_principal) SELECT id, ?, 1 FROM estructura WHERE usuario_id = ?', [Z.Z, l1.id]);
   const tC = await mk(admin, l1, { territorio_id: Z.C }), tB1 = await mk(admin, l1, { territorio_id: Z.B1 }), tM = await mk(admin, l1, { territorio_id: Z.M }), tZ = await mk(admin, l1, { territorio_id: Z.Z });
   ok((await medir(tC)).actual === 13, 'por COMUNA cuenta sus barrios: Barrio Uno 7 + Barrio Dos 2 + 4 del sublíder = 13 (la vereda cuelga del municipio, no de la comuna; los sin zona tampoco)', (await medir(tC)).actual);
   ok((await medir(tB1)).actual === 7, 'por BARRIO: solo ese barrio (7)', (await medir(tB1)).actual);

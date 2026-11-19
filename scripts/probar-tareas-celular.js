@@ -263,9 +263,11 @@ async function tarea(o) {
     await entrarComo(admin);
     p.avisos.length = 0;
     await ir('/tareas.html', 3000);
+    await p.ev(`vistaLista = 'tabla'; cargarLista()`);        // desde el diseño nuevo (parche 337) la lista abre como tablero; estas comprobaciones miran la tabla
+    await espera(1500);
     const filas = await p.ev(`document.querySelectorAll('#tar-filas tr[data-id]').length`);
     ok(filas === 5, 'el administrador ve las 5 tareas de la campaña', { filas, info: await texto('#p-info') });
-    ok(/Por verificar/.test(await texto('#tar-resumen') || ''), 'el resumen cuenta las que están por verificar');
+    ok(/Por verificar/.test(await p.ev(`document.getElementById('tar-tablero').textContent`) || ''), 'el tablero tiene su columna «Por verificar»');      // el resumen de antes pasó a ser la columna del tablero (parche 337)
     await p.ev(`document.querySelector('#tar-filas tr[data-id="${tEntrega}"]').click()`);
     await espera(2500);
     const imgs = await p.ev(`[...document.querySelectorAll('#tar-detalle img')].map((i) => ({ src: i.getAttribute('src'), ancho: i.naturalWidth }))`);

@@ -106,6 +106,10 @@
   .tar-acciones select, .tar-acciones input, .tar-acciones textarea { width: 100%; box-sizing: border-box; }
   .tar-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 18px; margin-top: 10px; }
   .tar-form .ancho { grid-column: 1 / -1; }
+  @media (min-width: 1100px) { .tar-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .tar-form select:disabled { opacity: .65; cursor: not-allowed; }
+  .tar-form .tar-buscar-zona { margin-top: 6px; font-size: .85rem; }
+  .tar-form .tar-sin-lideres { display: block; margin-top: 6px; color: #8A1C1C; font-size: .8rem; font-weight: 600; }
   .tar-msg { font-size: .86rem; margin-top: 6px; }
   .tar-msg.ok { color: #1E7B4F; } .tar-msg.error { color: #A93226; }
   .tar-aviso { background: #FFFBF0; border: 1px solid #E5C27A; border-radius: 10px; padding: 10px 12px; font-size: .86rem; margin: 10px 0; }
@@ -361,16 +365,33 @@ async function cargarEventos() {
   } catch (e) { $('n-evento').innerHTML = `<option value="">${esc(e.message || 'No se pudieron cargar los eventos')}</option>`; }
 }
 
+const ROL_TEXTO = { lider: 'líder', sublider: 'sublíder', coordinador: 'coordinador', admin: 'administrador', asistente_administrativo: 'asistente' };
+const GRUPOS_ZONA = [['barrio', 'Barrios'], ['vereda', 'Veredas'], ['comuna', 'Comunas'], ['corregimiento', 'Corregimientos'], ['municipio', 'Municipios']];
+const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const cacheZona = new Map();      // territorio_id -> quienes corresponden a ese barrio o vereda (Orden 58)
+/** «Carmen Olano — líder · 34 personas»: solo conteos. Con 0 personas, quien está ahí por el territorio de su ficha. */
+const textoDeResponsable = (u) => `${u.nombre}${u.id === usuarioActual.id ? ' (yo)' : ''} — ${ROL_TEXTO[u.rol] || u.rol}${u.personas === undefined ? '' : (u.personas > 0 ? ` · ${u.personas} ${u.personas === 1 ? 'persona' : 'personas'}` : ' · zona asignada')}`;
+/** Quienes corresponden a una zona del catálogo (la misma regla que aplica el servidor al crear y reasignar). */
+async function responsablesDeLaZona(zonaId) {
+  const k = String(zonaId);
+  if (!cacheZona.has(k)) cacheZona.set(k, (await api('/tareas/responsables?territorio_id=' + encodeURIComponent(zonaId))).responsables || []);
+  return cacheZona.get(k);
+}
+
 /* ----- crear y asignar ----- */
-let zonaElegida = null;      // { id, nombre } cuando el texto coincide con una zona del catálogo
+let zonasNueva = { base: null, meta: null };     // las zonas del catálogo (la de la meta de registros trae también los municipios); null = aún no se piden
+let modoZona = 'catalogo';                       // 'catalogo' | 'texto' (la campaña no tiene barrios: se escribe a mano, como siempre)
+let pidiendoQuien = 0;
 function formularioNueva() {
   $('tar-nueva').innerHTML = `<div class="tar-nueva"><h3>Nueva tarea</h3>
     <div class="tar-form">
       <div><label for="n-tipo">Tipo</label><select id="n-tipo" data-sin-ordenar><option value="libre">Tarea libre</option><option value="visita">Visita a un barrio o vereda</option><option value="entrega">Entrega de material</option><option value="meta_registros">Meta de registros</option><option value="reunion">Reunión con asistentes</option></select></div>
-      <div><label for="n-asignada">Se la asigno a</label><select id="n-asignada" data-sin-ordenar>${responsables.map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}${u.id === usuarioActual.id ? ' (yo)' : ''} — ${esc(u.rol)}</option>`).join('')}</select></div>
+      <div id="n-celda-zona"><label for="n-zona">Barrio o vereda <span id="n-zona-pista" style="font-weight:400"></span></label>
+        <select id="n-zona" data-sin-ordenar><option value="__" disabled selected>Cargando…</option></select>
+        <input type="search" id="n-zona-buscar" class="tar-buscar-zona" placeholder="Buscar un barrio o vereda…" autocomplete="off" style="display:none;"></div>
+      <div><label for="n-asignada">Se la asigno a</label><select id="n-asignada" data-sin-ordenar disabled><option value="">Elija primero el barrio o vereda</option></select><span class="tar-sin-lideres" id="n-asig-msg" style="display:none;"></span></div>
       <div class="ancho"><label for="n-titulo">Título</label><input type="text" id="n-titulo" maxlength="150" placeholder="Qué hay que hacer, en pocas palabras"></div>
       <div class="ancho"><label for="n-descripcion">Detalle (opcional)</label><textarea id="n-descripcion" rows="3" maxlength="2000"></textarea></div>
-      <div><label for="n-zona">Barrio o vereda <span id="n-zona-pista" style="font-weight:400"></span></label><input type="text" id="n-zona" list="n-zonas" maxlength="120" autocomplete="off"><datalist id="n-zonas"></datalist></div>
       <div><label for="n-fecha">Fecha límite (opcional)</label><input type="date" id="n-fecha"></div>
       <div id="n-bloque-cantidad" style="display:none;"><label for="n-cantidad">Cantidad prevista (opcional)</label><input type="number" id="n-cantidad" min="1"></div>
       <div id="n-bloque-meta" style="display:none;"><label for="n-meta">Meta: cuántos registros</label><input type="number" id="n-meta" min="1">
@@ -381,39 +402,96 @@ function formularioNueva() {
     </div>
     <div style="margin-top:12px; display:flex; gap:8px;"><button type="button" class="btn-primario btn-sm" id="n-guardar">Crear y asignar</button><button type="button" class="btn-secundario btn-sm" id="n-cancelar">Cancelar</button></div>
     <div id="n-msg" class="tar-msg"></div></div>`;
-  zonaElegida = null;
-  $('n-tipo').addEventListener('change', () => {
+  modoZona = 'catalogo'; zonasNueva = { base: null, meta: null };
+
+  const zonaValor = () => ($('n-zona').tagName === 'SELECT' ? $('n-zona').value : '');
+  const zonasDelTipo = () => ($('n-tipo').value === 'meta_registros' ? zonasNueva.meta : zonasNueva.base) || [];
+  const pistaDeZona = () => { const t = $('n-tipo').value; return t === 'visita' ? '(obligatorio en una visita)' : '(opcional)'; };
+
+  /** El selector de zonas: arriba «Elija…» y, si el tipo no exige barrio, «Sin barrio (toda la campaña)»; el resto agrupado por tipo. */
+  function pintarZonas() {
+    if (modoZona !== 'catalogo') return;
+    const sel = $('n-zona'), actual = sel.value, q = sinTildes($('n-zona-buscar').value.trim());
+    const todas = zonasDelTipo(), visita = $('n-tipo').value === 'visita';
+    const html = [`<option value="__" disabled ${actual === '__' || (actual === '' && visita) ? 'selected' : ''}>Elija el barrio o vereda…</option>`];
+    if (!visita) html.push(`<option value=""${actual === '' ? ' selected' : ''}>Sin barrio (toda la campaña)</option>`);
+    const cuenta = {}; todas.forEach((z) => { const k = z.tipo + '|' + z.nombre.toLowerCase(); cuenta[k] = (cuenta[k] || 0) + 1; });
+    for (const [tipo, titulo] of GRUPOS_ZONA) {
+      // El filtro de búsqueda nunca esconde la zona ya elegida: el selector no puede decir una cosa y tener otra.
+      const del = todas.filter((z) => z.tipo === tipo && (!q || sinTildes(z.nombre).includes(q) || String(z.id) === actual));
+      if (!del.length) continue;
+      html.push(`<optgroup label="${esc(titulo)}">` + del.map((z) => `<option value="${esc(z.id)}"${String(z.id) === actual ? ' selected' : ''}>${esc(cuenta[z.tipo + '|' + z.nombre.toLowerCase()] > 1 && z.padre ? `${z.nombre} · ${z.padre}` : z.nombre)}</option>`).join('') + '</optgroup>');
+    }
+    sel.innerHTML = html.join('');
+    // Una zona elegida que el tipo nuevo no admite (por ejemplo «Sin barrio» al pasar a visita) vuelve a «Elija…», y con ella se borra la persona.
+    if (sel.value !== actual) alElegirZona();
+    $('n-zona-buscar').style.display = todas.length > 30 ? '' : 'none';
+  }
+
+  /** «Se la asigno a»: depende del barrio. Al cambiar de barrio se borra la persona elegida. */
+  async function alElegirZona() {
+    const sel = $('n-asignada'), aviso = $('n-asig-msg'), yo = ++pidiendoQuien;
+    aviso.style.display = 'none'; $('n-guardar').disabled = false;
+    const z = zonaValor();
+    if (z === '__') { sel.disabled = true; sel.innerHTML = '<option value="">Elija primero el barrio o vereda</option>'; return; }
+    if (z === '') {         // sin barrio: a todos, como hoy
+      sel.disabled = false; sel.innerHTML = responsables.map((u) => `<option value="${esc(u.id)}">${esc(textoDeResponsable(u))}</option>`).join(''); return;
+    }
+    sel.disabled = true; sel.innerHTML = '<option value="">Buscando quién es de ese barrio…</option>';
+    let lista;
+    try { lista = await responsablesDeLaZona(z); }
+    catch (e) { if (yo === pidiendoQuien) { sel.innerHTML = '<option value="">No se pudo cargar</option>'; aviso.textContent = e.message || 'No se pudo cargar la lista.'; aviso.style.display = ''; } return; }
+    if (yo !== pidiendoQuien) return;        // se cambió de barrio mientras llegaba la respuesta: no pisa a la nueva
+    if (!lista.length) {
+      sel.innerHTML = '<option value="">—</option>'; aviso.textContent = 'Ningún líder tiene gente en este barrio o vereda.'; aviso.style.display = ''; $('n-guardar').disabled = true; return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = '<option value="" disabled selected>Elija a quién se la asigna…</option>' + lista.map((u) => `<option value="${esc(u.id)}">${esc(textoDeResponsable(u))}</option>`).join('');
+  }
+
+  async function pedirZonas(meta) {
+    const k = meta ? 'meta' : 'base';
+    if (zonasNueva[k] !== null) return;
+    zonasNueva[k] = [];
+    try {
+      const r = await api('/tareas/zonas?lista=1' + (meta ? '&tipo=meta_registros' : ''));
+      zonasNueva[k] = r.zonas || [];
+      if (!r.hay && !meta) modoZona = 'texto';
+    } catch (_) { if (!meta) modoZona = 'texto'; }
+  }
+  /** Sin barrios en el catálogo se queda lo de hoy: la zona se escribe a mano y «Se la asigno a» tiene a todos. */
+  function pasarAModoTexto() {
+    $('n-celda-zona').innerHTML = `<label for="n-zona">Barrio o vereda <span id="n-zona-pista" style="font-weight:400">${pistaDeZona()}</span></label><input type="text" id="n-zona" maxlength="120" autocomplete="off" placeholder="Esta campaña no tiene barrios en el catálogo">`;
+    const sel = $('n-asignada'); sel.disabled = false;
+    sel.innerHTML = responsables.map((u) => `<option value="${esc(u.id)}">${esc(textoDeResponsable(u))}</option>`).join('');
+  }
+
+  $('n-tipo').addEventListener('change', async () => {
     const tipo = $('n-tipo').value;
     $('n-bloque-cantidad').style.display = tipo === 'entrega' ? '' : 'none';
     $('n-bloque-meta').style.display = tipo === 'meta_registros' ? '' : 'none';
     $('n-bloque-evento').style.display = tipo === 'reunion' ? '' : 'none';
-    $('n-zona-pista').textContent = tipo === 'visita' ? '(obligatorio en una visita)' : (tipo === 'meta_registros' ? '(opcional; elígela de la lista)' : '(opcional)');
+    if ($('n-zona-pista')) $('n-zona-pista').textContent = pistaDeZona();
     if (tipo === 'reunion') cargarEventos();
+    if (modoZona === 'catalogo') { await pedirZonas(tipo === 'meta_registros'); if (modoZona === 'catalogo') pintarZonas(); }
   });
-  $('n-zona-pista').textContent = '(opcional)';
-  let temporizador;
-  $('n-zona').addEventListener('input', () => {
-    zonaElegida = null; clearTimeout(temporizador);
-    temporizador = setTimeout(async () => {
-      try {
-        const r = await api('/tareas/zonas?q=' + encodeURIComponent($('n-zona').value.trim()) + ($('n-tipo').value === 'meta_registros' ? '&tipo=meta_registros' : ''));
-        $('n-zonas').innerHTML = r.zonas.map((z) => `<option value="${esc(z.nombre)}">${esc(z.tipo)}${z.padre ? ' · ' + esc(z.padre) : ''}</option>`).join('');
-        window.__zonas = r.zonas;
-        const exacta = r.zonas.find((z) => z.nombre.toLowerCase() === $('n-zona').value.trim().toLowerCase());
-        zonaElegida = exacta ? { id: exacta.id, nombre: exacta.nombre } : null;
-      } catch (_) { /* sin lista: se escribe a mano */ }
-    }, 250);
-  });
+  $('n-celda-zona').addEventListener('change', (ev) => { if (ev.target.id === 'n-zona' && modoZona === 'catalogo') alElegirZona(); });
+  $('n-zona-buscar').addEventListener('input', pintarZonas);
+  $('n-zona-pista').textContent = pistaDeZona();
+  pedirZonas(false).then(() => { if (modoZona === 'texto') pasarAModoTexto(); else pintarZonas(); });
+
   $('n-cancelar').addEventListener('click', () => { $('tar-nueva').innerHTML = ''; });
   $('n-guardar').addEventListener('click', async () => {
+    const z = modoZona === 'catalogo' ? zonaValor() : '';
+    if (modoZona === 'catalogo' && z === '__') { msg('n-msg', 'Elige el barrio o la vereda' + ($('n-tipo').value === 'visita' ? '.' : ', o «Sin barrio (toda la campaña)».'), 'error'); $('n-zona').focus(); return; }
+    if (!Number($('n-asignada').value)) { msg('n-msg', 'Elige a quién se la asignas.', 'error'); return; }
     msg('n-msg', 'Guardando…', '');
-    const texto = $('n-zona').value.trim();
     const cuerpo = {
       tipo: $('n-tipo').value, titulo: $('n-titulo').value, descripcion: $('n-descripcion').value, asignada_a: Number($('n-asignada').value),
       fecha_limite: $('n-fecha').value || '', cantidad_prevista: $('n-tipo').value === 'entrega' ? $('n-cantidad').value : '',
       meta_n: $('n-tipo').value === 'meta_registros' ? $('n-meta').value : '', desde: $('n-tipo').value === 'meta_registros' ? $('n-desde').value : '',
       evento_id: $('n-tipo').value === 'reunion' ? $('n-evento').value : '',
-      territorio_id: zonaElegida ? zonaElegida.id : '', zona_texto: zonaElegida ? '' : texto,
+      territorio_id: z === '' ? '' : Number(z), zona_texto: modoZona === 'texto' ? $('n-zona').value.trim() : '',
     };
     try {
       const r = await api('/tareas', { method: 'POST', body: cuerpo });
@@ -431,6 +509,9 @@ async function abrir(id) {
   $('tar-filas').querySelectorAll('tr').forEach((tr) => tr.classList.toggle('activa', Number(tr.dataset.id) === id));
   $('tar-tablero').querySelectorAll('.tar-card').forEach((c) => c.classList.toggle('activa', Number(c.dataset.id) === id));
   const d = await api('/tareas/' + id);
+  // Orden 58: una tarea con barrio o vereda del catálogo solo se puede pasar a quien es de ahí (el servidor lo exige igual).
+  let paraCambiar = responsables;
+  if (d.territorio_id && d.puede_asignar) { try { paraCambiar = await responsablesDeLaZona(d.territorio_id); } catch (_) { paraCambiar = []; } }
   const ubic = d.ubicacion
     ? `<a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(d.ubicacion.latitud)}&mlon=${encodeURIComponent(d.ubicacion.longitud)}#map=17/${encodeURIComponent(d.ubicacion.latitud)}/${encodeURIComponent(d.ubicacion.longitud)}" target="_blank" rel="noopener">${esc(Number(d.ubicacion.latitud).toFixed(5))}, ${esc(Number(d.ubicacion.longitud).toFixed(5))}</a>${d.ubicacion.precision_m ? ` (±${esc(d.ubicacion.precision_m)} m)` : ''}`
     : (d.con_ubicacion ? 'Hay una ubicación guardada; la ven quien la asignó y quien la hizo.' : 'Sin ubicación');
@@ -465,7 +546,7 @@ async function abrir(id) {
       <div class="caja"><b>Cambiar</b>
         <label for="e-titulo">Título</label><input type="text" id="e-titulo" maxlength="150" value="${esc(d.titulo)}">
         <label for="e-fecha">Fecha límite</label><input type="date" id="e-fecha" value="${esc(d.fecha_limite || '')}">
-        ${d.puede_asignar && ['pendiente', 'en_curso'].includes(d.estado) ? `<label for="e-asignada">Responsable</label><select id="e-asignada" data-sin-ordenar>${responsables.map((u) => `<option value="${esc(u.id)}" ${u.id === d.asignada_a ? 'selected' : ''}>${esc(u.nombre)} — ${esc(u.rol)}</option>`).join('')}${responsables.some((u) => u.id === d.asignada_a) ? '' : `<option value="${esc(d.asignada_a)}" selected>${esc(d.asignado || 'Actual')}</option>`}</select>` : ''}
+        ${d.puede_asignar && ['pendiente', 'en_curso'].includes(d.estado) ? `<label for="e-asignada">Responsable</label><select id="e-asignada" data-sin-ordenar>${paraCambiar.map((u) => `<option value="${esc(u.id)}" ${u.id === d.asignada_a ? 'selected' : ''}>${esc(d.territorio_id ? textoDeResponsable(u) : `${u.nombre} — ${u.rol}`)}</option>`).join('')}${paraCambiar.some((u) => u.id === d.asignada_a) ? '' : `<option value="${esc(d.asignada_a)}" selected>${esc(d.asignado || 'Actual')}</option>`}</select>${d.territorio_id && !paraCambiar.length ? '<span class="tar-sub">Ningún líder tiene gente en este barrio o vereda: no hay a quién pasarla.</span>' : ''}` : ''}
         <button type="button" class="btn-secundario btn-sm" id="e-guardar" style="margin-top:8px">Guardar los cambios</button><div id="m-editar" class="tar-msg"></div></div>
       <div class="caja"><b>Cancelar la tarea</b><label for="a-cancelar-nota">Motivo</label><textarea id="a-cancelar-nota" rows="2" maxlength="255"></textarea>
         <button type="button" class="btn-peligro btn-sm" id="a-cancelar" style="margin-top:8px">Cancelar la tarea</button><div id="m-cancelar" class="tar-msg"></div></div>
@@ -526,13 +607,17 @@ function mostrarVista(v) {
 
 async function cargarReasignar() {
   try {
+    cacheZona.clear();
     const r = await api('/tareas/por-reasignar');
+    // Orden 58: las tareas con barrio solo se pueden pasar a quien es de ese barrio (el mismo filtro que «Nueva tarea»).
+    for (const z of new Set(r.tareas.filter((t) => t.territorio_id).map((t) => t.territorio_id))) { try { await responsablesDeLaZona(z); } catch (_) { cacheZona.set(String(z), []); } }
+    const paraTarea = (t) => (t.territorio_id ? (cacheZona.get(String(t.territorio_id)) || []) : responsables).filter((u) => u.id !== t.asignada_a);
     $('tar-reasignar').innerHTML = r.tareas.length
       ? `<thead><tr><th>N.º</th><th>Tipo</th><th>Título</th><th>Zona</th><th>Responsable actual</th><th>Por qué</th><th>Pasarla a</th></tr></thead><tbody>`
         + r.tareas.map((t) => `<tr data-id="${t.id}" style="cursor:default"><td>${esc(t.id)}</td><td>${esc(t.tipo_etiqueta)}</td><td>${esc(t.titulo)}<div class="tar-avance">${marcas(t)}</div></td><td>${esc(t.zona || '—')}</td>
           <td>${esc(t.asignado || '—')}</td><td>${esc(t.motivo_texto || '')}</td>
-          <td>${r.puede_reasignar && t.estado !== 'hecha' ? `<select data-sin-ordenar data-sel="${esc(t.id)}">${responsables.filter((u) => u.id !== t.asignada_a).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}</select>
-            <button type="button" class="btn-primario btn-sm" data-reasignar="${esc(t.id)}" style="margin-top:4px">Reasignar</button>`
+          <td>${r.puede_reasignar && t.estado !== 'hecha' ? (paraTarea(t).length ? `<select data-sin-ordenar data-sel="${esc(t.id)}">${paraTarea(t).map((u) => `<option value="${esc(u.id)}">${esc(t.territorio_id ? textoDeResponsable(u) : u.nombre)}</option>`).join('')}</select>
+            <button type="button" class="btn-primario btn-sm" data-reasignar="${esc(t.id)}" style="margin-top:4px">Reasignar</button>` : '<small>Ningún líder tiene gente en este barrio o vereda.</small>')
             : (t.estado === 'hecha' ? '<small>Ya está hecha: ábrela, verifícala o devuélvela primero.</small>' : '<small>No puedes reasignar.</small>')}
             <button type="button" class="btn-secundario btn-sm" data-ver="${esc(t.id)}" style="margin-top:4px">Abrir</button></td></tr>`).join('') + '</tbody>'
       : '<tbody><tr><td>No hay tareas por reasignar.</td></tr></tbody>';
