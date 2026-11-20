@@ -54,7 +54,7 @@ function crearApp() {
   app.use('/api', require(path.join(RAIZ, 'middleware/soloLecturaCandidato')).soloLecturaCandidato);   // como app.js
   const montar = (ruta, archivo) => app.use(ruta, require(path.join(RAIZ, 'routes', archivo)));
   ['auth', 'usuarios', 'territorial', 'votantes', 'votantes-dashboard:votantesDashboard', 'finanzas', 'eventos', 'recursos', 'legislacion', 'dashboard', 'configuracion',
-    'permisos', 'complementos', 'contenido', 'push', 'geo', 'panel-lider:panelLider', 'coordinador', 'catalogo', 'solicitudes', 'tareas', 'puerta-a-puerta:puertaAPuerta', 'candidato']
+    'permisos', 'complementos', 'contenido', 'push', 'geo', 'manuales', 'panel-lider:panelLider', 'coordinador', 'catalogo', 'solicitudes', 'tareas', 'puerta-a-puerta:puertaAPuerta', 'candidato']
     .forEach((x) => { const [r, f] = x.split(':'); montar('/api/' + r, (f || r) + '.routes'); });
   montar('/api/dia-d/rescate', 'rescateVotos.routes');
   montar('/api/dia-d', 'diaD.routes');
@@ -229,7 +229,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     ['POST', '/eventos', { titulo: 'X' }], ['PUT', '/eventos/1', {}], ['POST', '/solicitudes', {}], ['POST', '/tareas', {}],
     ['POST', '/dia-d/rescate/marcar', { votante_id: 1 }], ['PUT', '/permisos/matriz', { permisos: {} }], ['PUT', '/configuracion/campana', {}],
     ['POST', '/usuarios', {}], ['PUT', '/complementos/solicitudes', {}], ['POST', '/finanzas', {}], ['PATCH', '/votantes/1', {}],
-    ['POST', '/auth/otra-ruta-inexistente', {}], ['POST', '/push/suscribir', {}],
+    ['POST', '/auth/otra-ruta-inexistente', {}],
   ];
   for (const [m, r, b] of escrituras) {
     const x = m === 'DELETE' ? await cand.del(r) : (m === 'PUT' ? await cand.put(r, b) : (m === 'PATCH' ? await cand.patch(r, b) : await cand.post(r, b)));
@@ -320,6 +320,40 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await q('DELETE FROM usuarios WHERE id IN (?)', [creados.map((c) => c.id)]);
   require('../lib/candidatoResumen').olvidarEquipo();
   }
+
+  console.log('\n[5c] Orden 77: Mis avisos y Ayuda');
+  const c7 = cliente(base); await c7.entrar(CORREO, CLAVE);
+  const ep = 'https://push.ejemplo.co/endpoint/prueba-candidato';
+  const sus = await c7.post('/push/suscribir', { endpoint: ep, keys: { p256dh: 'clave-ejemplo', auth: 'auth-ejemplo' }, dispositivo: 'Celular de prueba' });
+  ok(sus.status === 200 && sus.datos.ok, 'suscribirse a los avisos en su propio equipo → 200', sus);
+  const disp = await c7.get('/push/mis-dispositivos');
+  ok(disp.status === 200 && disp.datos.length === 1, 'y ve su dispositivo', disp.datos);
+  const des = await c7.post('/push/desuscribir', { endpoint: ep });
+  ok(des.status === 200 && (await c7.get('/push/mis-dispositivos')).datos.length === 0, 'desuscribirse → 200 y queda sin dispositivos', des);
+  for (const [m, r] of [['POST', '/push/enviar'], ['POST', '/push/otra-cosa'], ['PUT', '/push/mis-avisos/1'], ['DELETE', '/push/mis-avisos/1'], ['POST', '/manuales/rol/admin'], ['POST', '/comunicaciones/campanas']]) {
+    const x = m === 'DELETE' ? await c7.del(r) : (m === 'PUT' ? await c7.put(r, {}) : await c7.post(r, {}));
+    ok(x.status === 403 && x.datos.codigo === 'solo_lectura', `${m} /api${r} → 403 (el resto de escrituras sigue cerrado)`, { status: x.status, datos: x.datos });
+  }
+  const [camp] = await pool.query("INSERT INTO comunicaciones_campanas (nombre, canal, asunto, mensaje, estado) VALUES ('Aviso de prueba', 'push', 'Reunión de equipo', 'Hola {primer_nombre}, mañana nos vemos en la sede a las 6 p. m.', 'enviado')");
+  await pool.query("INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_nombre, destinatario_contacto, estado, enviado_en) VALUES (?, 'manual', 'Juan Pérez', ?, 'enviado', NOW())", [camp.insertId, String(candidatoId)]);
+  await pool.query("INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_nombre, destinatario_contacto, estado, enviado_en) VALUES (?, 'manual', 'Otra persona', '999999', 'enviado', NOW())", [camp.insertId]);
+  const av = await c7.get('/push/mis-avisos');
+  ok(av.status === 200 && av.datos.avisos.length === 1 && av.datos.avisos[0].titulo === 'Reunión de equipo', 'Mis avisos trae solo el aviso dirigido a él (no el de otra persona)', av.datos);
+  const cont = await c7.get('/push/mis-avisos/contar?desde=0');
+  ok(cont.status === 200 && cont.datos.nuevos === 1, 'el contador de «nuevos» da 1', cont.datos);
+  const uno = await c7.get('/push/mis-avisos/' + av.datos.avisos[0].id);
+  ok(uno.status === 200, 'y abre ese aviso completo', uno.status);
+  const man = await c7.get('/manuales/mio');
+  if (man.status !== 200) console.log('    (manuales/mio respondió ' + man.status + ': ' + String(man.texto).slice(0, 200) + ')');
+  const idsMan = [].concat(...(man.datos.secciones || []).map((s) => s.bloques.map((b) => b.id)));
+  ok(man.status === 200 && /candidato/i.test(man.datos.titulo) && idsMan.length >= 6 && idsMan.every((i) => /^c-/.test(i)), 'GET /manuales/mio: su manual propio, solo con sus bloques', { t: man.datos.titulo, ids: idsMan });
+  ok(!/alcald|gobernaci|concejo|asamblea|senado/i.test(JSON.stringify(man.datos)), 'el manual no menciona el cargo');
+  ok((await c7.get('/manuales/instalacion')).status === 403 && (await c7.get('/manuales/rol/admin')).status === 403, 'el manual de instalación y los de otros roles siguen cerrados (403)');
+  const adm7 = cliente(base); await adm7.entrar('admin.ej@ejemplo.co', 'clave-admin-ej');
+  const mAdm = await adm7.get('/manuales/rol/candidato');
+  ok(mAdm.status === 200 && mAdm.datos.totales.bloques >= 6, 'el administrador también lo ve en su lista de manuales (/manuales/rol/candidato)', mAdm.status);
+  if (!VACIA) { const mCoord = cliente(base); await mCoord.entrar('marta@ejemplo.co', 'clave-correo-ej'); const mc = await mCoord.get('/manuales/mio'); ok(mc.status === 200 && ![].concat(...mc.datos.secciones.map((s) => s.bloques.map((b) => b.id))).some((i) => /^c-/.test(i)), 'el manual del coordinador NO trae los bloques del candidato'); }
+  await q('DELETE FROM comunicaciones_campanas WHERE id = ?', [camp.insertId]);
 
   console.log('\n[5] Módulos apagados no aparecen en «Más»');
   const c3 = cliente(base); await c3.entrar(CORREO, CLAVE);
@@ -522,7 +556,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(lista('Registro').join('|') === 'Registrar en la estructura territorial|Consultar puesto de votación', 'Registro: solo esos dos botones', lista('Registro'));
   ok(lista('Seguimiento').join('|') === 'Solicitudes|Tareas|Puerta a puerta|Día D · avance de votación', 'Seguimiento: Solicitudes, Tareas, Puerta a puerta y Día D', lista('Seguimiento'));
   ok(lista('Material de apoyo').join('|') === 'Biografía del candidato|Información para compartir', 'Material de apoyo: Biografía e Información para compartir', lista('Material de apoyo'));
-  ok(lista('Mi cuenta y ayuda').join('|') === 'Cambiar mi clave|Política de privacidad|Legislación|Cerrar sesión', 'Mi cuenta y ayuda: Cambiar mi clave, Política, Legislación y Cerrar sesión', lista('Mi cuenta y ayuda'));
+  ok(lista('Mi cuenta y ayuda').join('|') === 'Mis avisos|Cambiar mi clave|Política de privacidad|Legislación|Ayuda|Cerrar sesión', 'Mi cuenta y ayuda: Mis avisos, Cambiar mi clave, Política, Legislación, Ayuda y Cerrar sesión', lista('Mi cuenta y ayuda'));
   ok(mas.cols === 3 && /255, 195, 0/.test(mas.barra) && parseInt(mas.icono, 10) === 42, 'es la cuadrícula del menú de la app: 3 columnas, barra amarilla #FFC300 y icono en cuadro de 42 px', { c: mas.cols, b: mas.barra, i: mas.icono });
   ok(!mas.listaVieja && mas.grupoTit === 0, 'ya no queda nada de la lista de filas con flecha');
   ok(mas.titulo === 'Más opciones' && /Actualizado/.test(mas.estado) && mas.nav.join(',') === 'Inicio,Equipo,Mapa,Agenda,Más', 'se mantiene el encabezado «Más opciones», «Actualizado hace…» y la barra inferior', mas);
@@ -544,9 +578,38 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     const volver = await ev("(document.querySelector('.app-barra .volver') || {}).getAttribute ? (document.querySelector('.app-barra .volver').getAttribute('onclick') || '') : ''");
     const aqui = await ruta();
     ok(malas.length === 0 && aqui !== '/login.html' && aqui !== '/app/candidato.html', `tarjeta ${h}: abre sin 403/500 (${aqui})`, { malas, aqui });
-    if (/^\/app\/(biografia|informacion|politica-privacidad|legislacion)/.test(h)) ok(/candidato-mas/.test(volver) && !/inicio\.html/.test(volver), `${h}: «volver» lleva a «Más»`, volver);
+    if (/^\/app\/(biografia|informacion|politica-privacidad|legislacion|mis-avisos)/.test(h)) ok(/candidato-mas/.test(volver) && !/inicio\.html/.test(volver), `${h}: «volver» lleva a «Más»`, volver);
+    if (/^\/ayuda\.html/.test(h)) ok(await ev("(document.getElementById('btn-app') || {}).getAttribute('href')") === '/app/candidato-mas.html' && await ev("!document.getElementById('btn-app').hidden"), `${h}: «← Volver a la app» lleva a «Más»`);
     ok(p.avisos.filter((x) => !/tile|Failed to load|favicon/i.test(x)).length === 0, `tarjeta ${h}: sin errores de consola`, p.avisos);
   }
+  // Mis avisos y Ayuda, a fondo (orden 77)
+  const [campB] = await pool.query("INSERT INTO comunicaciones_campanas (nombre, canal, asunto, mensaje, estado) VALUES ('Aviso de prueba', 'push', 'Reunión de equipo', 'Mañana nos vemos en la sede a las 6 p. m. Gracias por todo.', 'enviado')");
+  await pool.query("INSERT INTO comunicaciones_envios (campana_id, destinatario_tipo, destinatario_nombre, destinatario_contacto, estado, enviado_en) VALUES (?, 'manual', 'Juan Pérez', ?, 'enviado', NOW())", [campB.insertId, String(candidatoId)]);
+  limpiarAvisos(); p.respuestas.length = 0;
+  await ir(base + '/app/mis-avisos.html'); await esperar("document.querySelectorAll('#lista-avisos .aviso-caja').length > 0 || document.querySelector('#lista-avisos .vacio-app')");
+  await espera(800);
+  const mav = await ev(`({ lista: document.getElementById('lista-avisos').innerText, caja: (document.getElementById('caja-avisos-push') || {}).innerText || '', cajaExiste: !!document.getElementById('caja-avisos-push'), barra: document.querySelector('.app-barra h1').innerText })`);
+  console.log('    mis avisos:', JSON.stringify(mav).slice(0, 300));
+  ok(/Reunión de equipo/.test(mav.lista) && mav.cajaExiste && mav.caja.length > 5, 'Mis avisos: muestra el aviso dirigido a él y el interruptor de avisos de este celular', mav);
+  await ev("document.querySelector('#lista-avisos [data-id]').click()"); await espera(400);
+  ok(/Gracias por todo/.test(await texto('#lista-avisos')), 'al tocar el aviso se lee completo');
+  const subOk = await ev(`api('/push/suscribir', { method: 'POST', body: { endpoint: 'https://push.ejemplo.co/e2', keys: { p256dh: 'a', auth: 'b' }, dispositivo: 'Chromium de prueba' } }).then(r => r.ok === true)`);
+  ok(subOk === true, 'suscribirse a los avisos desde la propia aplicación funciona');
+  await ev(`api('/push/desuscribir', { method: 'POST', body: { endpoint: 'https://push.ejemplo.co/e2' } })`);
+  const malasAv = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+  ok(malasAv.length === 0 && await sinDesborde() && p.avisos.length === 0, 'Mis avisos: sin 403/500, sin desborde y sin errores de consola', { malasAv, av: p.avisos });
+  await foto('14-mis-avisos');
+  await q('DELETE FROM comunicaciones_campanas WHERE id = ?', [campB.insertId]);
+  limpiarAvisos(); p.respuestas.length = 0;
+  await ir(base + '/ayuda.html?app=1'); await esperar("/manual del candidato/i.test(document.body.innerText)", 12000); await espera(1200);
+  const cuerpoAyuda = await texto('body');
+  const titulosManual = ['Entrar a la aplicación', 'Qué hay en cada pantalla', 'Llamar o escribir por WhatsApp a tu equipo', 'Registrar a alguien en la estructura territorial', 'Consultar el puesto de votación de una persona', 'Cambiar tu clave', 'Activar y leer tus avisos'];
+  ok(/Manual del candidato/i.test(cuerpoAyuda) && titulosManual.every((t) => cuerpoAyuda.indexOf(t) >= 0), 'Ayuda: se ve el «Manual del candidato» con sus 7 temas', titulosManual.filter((t) => cuerpoAyuda.indexOf(t) < 0));
+  ok(!/Alcald|Gobernaci|Concejo|Asamblea/i.test(cuerpoAyuda), 'Ayuda: sin mencionar el cargo');
+  const malasAy = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+  ok(malasAy.length === 0 && p.avisos.length === 0, 'Ayuda: sin 403/500 ni errores de consola', { malasAy, av: p.avisos });
+  await foto('15-ayuda');
+
   limpiarAvisos();
   await ir(base + '/app/candidato-clave.html');
   ok(await esperar("document.getElementById('actual')"), 'Cambiar mi clave carga');

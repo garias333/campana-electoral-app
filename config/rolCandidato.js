@@ -42,6 +42,8 @@ const LECTURAS_PERMITIDAS = [
   // Lo que lee el formulario «Registrar en la estructura territorial» (orden 73): catálogos de lugar de votación, mesas ocupadas, puestos y las zonas.
   '/catalogo', '/dia-d/puestos-para-reporte', '/dia-d/mesas-ocupadas',
   '/territorial/coordinadores-por-zona', '/territorial/lideres-para-sublider',
+  // «Mis avisos» (orden 77): los avisos que recibió ÉL (la ruta filtra por la sesión), la llave pública del push y la lista de sus dispositivos.
+  '/push/clave-publica', '/push/mis-avisos', '/push/mis-dispositivos',
 ];
 /** Lecturas de UNA sola dirección (sin lo que cuelgue de ella: `/territorial/estructura/exportar-excel`, `/usuarios/admin`… siguen cerradas). */
 const LECTURAS_EXACTAS = [
@@ -50,6 +52,7 @@ const LECTURAS_EXACTAS = [
   '/territorial/estructura',                        // la ruta acota a no-administradores a lo que ellos mismos crearon
   '/territorial/estructura/verificar-identificacion',
   '/territorial/coordinador-organizaciones',
+  '/manuales/mio',                                  // «Ayuda» (orden 77): su manual; /manuales/rol/* y /manuales/instalacion siguen siendo de administrador
 ];
 
 function lecturaPermitida(ruta) {
@@ -84,6 +87,10 @@ const ESCRITURAS_PERMITIDAS = [
      formulario (un POST que solo consulta). NO hay PUT ni DELETE de estructura, ni importar, ni eliminar: siguen respondiendo 403. */
   ['POST', '/territorial/estructura'],
   ['POST', '/geo/inverso'],
+  /* «MIS AVISOS» (orden 77): activar y desactivar los avisos push EN SU PROPIO equipo. No hay otra escritura de avisos: «marcar como leído» no existe en el servidor (el contador de «nuevos» se
+     lleva en cada celular, localStorage). */
+  ['POST', '/push/suscribir'],
+  ['POST', '/push/desuscribir'],
 ];
 
 /** ¿Puede un candidato hacer esta escritura? `ruta` es req.path dentro de /api. */

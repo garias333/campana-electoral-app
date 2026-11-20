@@ -304,7 +304,7 @@ const CARGOS = /\b(alcaldia|alcalde|alcaldesa|concejo|concejal(es)?|concejala|go
     const e = await permisosEsperados(rol);
     const inc = Object.keys(res.datos.permisos).filter((k) => !!res.datos.permisos[k].ver !== !!(e[k] && e[k].ver));
     ok(!inc.length, `${rol}: las insignias de «Puede ver» coinciden con sus permisos`, inc);
-    if (rol === 'admin') ok(Array.isArray(res.datos.tarjetas) && res.datos.tarjetas.length === 11, 'admin: la portada trae 11 tarjetas (10 roles incluido aspirante, y la instalación)', (res.datos.tarjetas || []).length);
+    if (rol === 'admin') ok(Array.isArray(res.datos.tarjetas) && res.datos.tarjetas.length === 12, 'admin: la portada trae 12 tarjetas (11 roles incluidos aspirante y candidato, y la instalación)', (res.datos.tarjetas || []).length);
     else ok(!res.datos.tarjetas, `${rol}: no trae las tarjetas de los demás manuales`);
   }
   console.log('  · bloques por rol (guías / preguntas / términos): ' + Object.entries(cuentas).map(([r, t]) => `${r} ${t.bloques}/${t.faq}/${t.glosario}`).join(' · '));

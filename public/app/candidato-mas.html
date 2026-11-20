@@ -79,9 +79,11 @@ function pintarMenu(s) {
       s.biografia && { ic: '👤', texto: 'Biografía del candidato', href: '/app/biografia.html' },
       s.recursos && { ic: '📚', texto: 'Información para compartir', href: '/app/informacion.html?modo=informacion' } ] },
     { titulo: 'Mi cuenta y ayuda', items: [
+      { ic: '🔔', texto: 'Mis avisos', href: '/app/mis-avisos.html' },
       { ic: '🔑', texto: 'Cambiar mi clave', href: '/app/candidato-clave.html' },
       s.politica && { ic: '🔒', texto: 'Política de privacidad', href: '/app/politica-privacidad.html' },
       s.legislacion && { ic: '⚖️', texto: 'Legislación', href: '/app/legislacion.html' },
+      { ic: '❔', texto: 'Ayuda', href: '/ayuda.html?app=1' },
       { ic: '🚪', texto: 'Cerrar sesión', accion: 'salir' } ] },
   ];
   document.getElementById('menu-app').innerHTML = grupos

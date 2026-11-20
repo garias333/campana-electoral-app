@@ -506,6 +506,8 @@
     var usuario = await window.inicializarLayout('/ayuda.html');
     if (!usuario) return;
     modoAdmin = usuario.rol === 'admin' && !usuario.es_aspirante;
+    // El candidato (orden 77) vuelve a SU «Más», no al menú de /app/inicio.html.
+    if (usuario.rol === 'candidato' && $('btn-app')) $('btn-app').setAttribute('href', '/app/candidato-mas.html');
     var clave = new URLSearchParams(location.search).get('manual');
 
     var temporizador = null;

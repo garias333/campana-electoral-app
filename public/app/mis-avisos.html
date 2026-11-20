@@ -74,7 +74,19 @@ function pintar() {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Mis avisos', 'Lo que te mandó la campaña', '/app/inicio.html');
+  pintarBarraApp('Mis avisos', 'Lo que te mandó la campaña', inicioDeLaApp(usuario));
+  /* EL INTERRUPTOR DE AVISOS PARA EL CANDIDATO (orden 77): los demás roles lo tienen al final de /app/inicio.html, que el candidato no ve. Se monta aquí, con el mismo `montarAvisosPush`. */
+  if (usuario.rol === 'candidato') {
+    const caja = document.createElement('div');
+    caja.id = 'caja-avisos-push';
+    caja.style.cssText = 'margin:14px 0; padding:14px; border-radius:var(--radio); box-shadow:var(--sombra); background:#fff;';
+    const lista = document.getElementById('lista-avisos');
+    lista.parentNode.insertBefore(caja, lista);
+    const s = document.createElement('script');
+    s.src = '/js/avisos-push.js';
+    s.onload = () => { if (typeof montarAvisosPush === 'function') montarAvisosPush(caja); };
+    document.head.appendChild(s);
+  }
 
   const pedido = parseInt(new URLSearchParams(location.search).get('id'), 10);
   try {
