@@ -29,7 +29,7 @@ Dentro de la ventana aparece «Registro creado. Su usuario y contraseña inicial
 :::
 
 ::: importante
-La persona entra con su número de identificación como usuario y contraseña, y debe cambiarla en su primer ingreso. Si no lo escribes, el aviso trae una contraseña temporal: anótala, porque no se vuelve a mostrar. Cada persona necesita un territorio o una organización; el Coordinador de organizaciones y la categoría de aspirante, ninguno. Sin eso la app responde «Nombre, cargo y territorio son obligatorios».
+En el celular, la persona entra con su cédula y una clave de 6 dígitos: al principio, los últimos 6 dígitos de su cédula, y la app le pregunta al entrar si quiere cambiarla. En el computador entra con su número de identificación como usuario y contraseña, y debe cambiarla en su primer ingreso. Si no lo escribes, el aviso trae una contraseña temporal: anótala, porque no se vuelve a mostrar. Cada persona necesita un territorio o una organización; el Coordinador de organizaciones y la categoría de aspirante, ninguno. Sin eso la app responde «Nombre, cargo y territorio son obligatorios».
 :::
 
 ::: consejo

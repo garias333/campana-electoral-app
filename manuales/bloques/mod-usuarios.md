@@ -18,7 +18,7 @@ Aquí está la lista de todas las cuentas que pueden entrar a la aplicación de 
 - **Filtros.** Un buscador (nombre, número de identificación, email o teléfono), un desplegable de **Todos los roles**, uno de **Todo territorio**, uno de **Activos e inactivos** y el botón [[Quitar filtros]].
 - **Botones de arriba.** [[+ Crear usuario]] y [[Usar Número de identificación como usuario y contraseña]].
 - **La tabla**, con estas columnas: Nombre, Número de identificación, Email, Teléfono, Credenciales enviadas (una casilla que solo se mira), Rol, Territorio y Estado (Activo o Inactivo). Los botones de cada fila quedan al extremo derecho; si no los ves, desplaza la tabla hacia la derecha.
-- **Botones de cada fila:** [[Editar]], [[Restablecer clave]], [[Eliminar]] y, solo si la persona tiene verificación en dos pasos, [[Quitar 2FA]]. Junto al teléfono hay un icono de WhatsApp para enviarle sus datos de acceso: abre WhatsApp con el mensaje escrito y tú lo envías.
+- **Botones de cada fila:** [[Editar]], [[Restablecer clave]], [[Restablecer clave del celular]] (para quien entra por los botones del celular), [[Eliminar]] y, solo si la persona tiene verificación en dos pasos, [[Quitar 2FA]]. Junto al teléfono hay un icono de WhatsApp para enviarle sus datos de acceso: abre WhatsApp con el mensaje escrito y tú lo envías.
 
 ## Qué puedes hacer según tu permiso
 
@@ -30,6 +30,7 @@ Aquí está la lista de todas las cuentas que pueden entrar a la aplicación de 
 
 - Crear una cuenta: {{t-usuarios}}.
 - Darle clave nueva a quien no puede entrar: [[Restablecer clave]].
+- Devolverle a alguien su clave de 6 dígitos del celular a los últimos 6 de su cédula: [[Restablecer clave del celular]].
 - Mandar a alguien sus datos de acceso: el icono de WhatsApp junto al teléfono (genera una clave nueva; la anterior deja de servir).
 - Dar de baja a alguien sin borrarlo: [[Editar]] y quitar la marca «Usuario activo».
 

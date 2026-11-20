@@ -9,7 +9,7 @@ roles: todos
 ruta:
 captura:
 ---
-El código es un número de 6 dígitos de un solo uso que confirma que eres tú. Llega a tu correo, o por mensaje de texto si escribiste tu celular. Se usa de dos maneras: para entrar sin contraseña (lo hacen la administración, la coordinación y los asistentes administrativos), o como segundo paso después de tu contraseña si activaste la verificación en dos pasos. Líderes, sublíderes y testigos entran con su número de identificación y su clave.
+El código es un número de 6 dígitos de un solo uso que confirma que eres tú. Llega a tu correo, o por mensaje de texto si escribiste tu celular. Se usa de dos maneras: para entrar sin contraseña (lo hacen la administración, la coordinación y los asistentes administrativos), o como segundo paso después de tu contraseña si activaste la verificación en dos pasos. Líderes, sublíderes, aspirantes y testigos entran en el celular con su cédula y su clave de 6 dígitos.
 
 ## Pasos
 

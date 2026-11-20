@@ -25,7 +25,7 @@ Quedó resuelto cuando el correo aparece con el código en el asunto, y el campo
 :::
 
 ::: importante
-Por seguridad, la pantalla responde lo mismo exista o no la cuenta. Que diga «Si esa cuenta puede ingresar con código, le enviamos un correo» no garantiza que haya salido: el correo o el celular pueden no estar registrados en tu cuenta, o tu rol puede no entrar con código (líderes, sublíderes y testigos entran con su número de identificación y su clave). En ese caso el administrador de la campaña revisa tus datos.
+Por seguridad, la pantalla responde lo mismo exista o no la cuenta. Que diga «Si esa cuenta puede ingresar con código, le enviamos un correo» no garantiza que haya salido: el correo o el celular pueden no estar registrados en tu cuenta, o tu rol puede no entrar con código (líderes, sublíderes, aspirantes, coordinadores y testigos entran en el celular con su cédula y su clave de 6 dígitos). En ese caso el administrador de la campaña revisa tus datos.
 :::
 
 ::: consejo

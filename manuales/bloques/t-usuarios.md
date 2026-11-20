@@ -25,6 +25,7 @@ Sirve para darle acceso a alguien del equipo, escoger su rol y, cuando haga falt
 ## Cambios después
 
 - **Restablecer clave:** pulsa [[Restablecer clave]]. La clave nueva es su número de identificación (o un código de 4 dígitos si no tiene) y vence en 48 horas. Esto también desbloquea su cuenta si estaba bloqueada.
+- **Restablecer clave del celular:** pulsa [[Restablecer clave del celular]] (solo aparece en quien entra por los botones del celular y tiene número de identificación) y escribe tu contraseña. Su clave del celular vuelve a ser los últimos 6 dígitos de su cédula, la app le pregunta otra vez si quiere cambiarla y se quita su bloqueo. Su contraseña del computador no cambia.
 - **Desactivar:** pulsa [[Editar]], quita la marca **Usuario activo** y [[Guardar]].
 
 ::: listo

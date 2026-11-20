@@ -9,7 +9,7 @@ roles: todos
 ruta:
 captura: b-cambiar-clave.webp
 ---
-Hay dos casos: olvidaste tu contraseña, o es tu primer ingreso y el sistema te obliga a cambiar la temporal que te dieron. En los dos se resuelve en pocos pasos.
+Hay dos casos: olvidaste tu contraseña, o es tu primer ingreso y el sistema te obliga a cambiar la temporal que te dieron. En los dos se resuelve en pocos pasos. Esto es para la contraseña del computador y del correo: la clave de 6 dígitos del celular se cambia en {{b-clave-celular}}.
 
 ## Pasos
 
@@ -41,7 +41,7 @@ Si entras con la contraseña temporal y cierras sin cambiarla, esa contraseña s
 :::
 
 ::: cuidado
-El enlace del correo te deja poner una contraseña de 8 o más caracteres, con letras si quieres. Pero la puerta «Acceso a Líderes y Sublíderes» (y las de testigos y aspirantes) solo deja escribir números en la clave. Si tu contraseña nueva lleva letras, entra por [[Otros usuarios]] y [[Ingresar con usuario y contraseña]], o elige una contraseña de 8 o más números.
+El enlace del correo te deja poner una contraseña de 8 o más caracteres, con letras si quieres. Esa contraseña es la del computador: la puerta de cédula y clave del celular (líderes, sublíderes, aspirantes, coordinadores y testigos) no la usa, sino una clave de 6 dígitos. Para entrar con tu contraseña nueva, usa [[Otros usuarios]] y [[Ingresar con usuario y contraseña]].
 :::
 
 ::: consejo
