@@ -86,7 +86,7 @@ function guardarPdf(blob, nombre) {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Legislación', null, '/app/inicio.html');
+  pintarBarraApp('Legislación', null, inicioDeLaApp(usuario));
   // El administrador conserva su barra inferior también aquí («Ley» es su quinto botón).
   if (usuario.rol === 'admin' && typeof montarNavAdmin === 'function') montarNavAdmin('ley');
 

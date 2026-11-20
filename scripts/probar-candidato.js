@@ -506,22 +506,47 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   }
   ok(p.avisos.length === 0 && await sinDesborde(), 'Agenda: sin errores de consola ni desborde', p.avisos);
 
-  // Más
-  console.log('  — Más y Cambiar mi clave');
+  // Más (cuadrícula, orden 75)
+  console.log('  — Más (cuadrícula) y Cambiar mi clave');
   limpiarAvisos();
   await ir(base + '/app/candidato-mas.html');
-  await esperar("document.querySelectorAll('#menu a, #menu button').length > 0");
-  const mas = await ev(`({ items: [...document.querySelectorAll('#menu a, #menu button')].map(x => x.innerText.replace(/[›\\n]/g,'').trim()) })`);
+  await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const leerMas = () => ev(`({ grupos: [...document.querySelectorAll('.menu-grupo')].map(g => ({ t: g.querySelector('.menu-grupo-titulo').innerText.trim(), items: [...g.querySelectorAll('.menu-boton')].map(b => b.querySelector('.texto strong').innerText.trim()) })),
+     cols: document.querySelector('.menu-grid') ? getComputedStyle(document.querySelector('.menu-grid')).gridTemplateColumns.split(' ').length : 0,
+     barra: document.querySelector('.menu-grupo-titulo') ? getComputedStyle(document.querySelector('.menu-grupo-titulo'), '::before').backgroundColor : '', icono: document.querySelector('.menu-boton .icono') ? getComputedStyle(document.querySelector('.menu-boton .icono')).width : '',
+     titulo: document.querySelector('.barra h1').innerText, estado: document.getElementById('estado').innerText, nav: [...document.querySelectorAll('#nav-candidato a')].map(a => a.lastChild.textContent.trim()), listaVieja: !!document.querySelector('.menu-mas'), grupoTit: document.querySelectorAll('.grupo-tit').length })`);
+  const mas = await leerMas();
   console.log('    más:', JSON.stringify(mas));
-  ok(mas.items.some((t) => /Cambiar mi clave/.test(t)) && mas.items.some((t) => /Solicitudes/.test(t)) && mas.items.some((t) => /Tareas/.test(t)) && mas.items.some((t) => /Puerta a puerta/.test(t)) && mas.items.some((t) => /Día D/.test(t)) && mas.items.some((t) => /Legislación/.test(t)), 'Más: Solicitudes, Tareas, Puerta a puerta, Día D, Legislación y Cambiar mi clave', mas.items);
+  ok(mas.grupos.map((g) => g.t).join('|') === 'Registro|Seguimiento|Material de apoyo|Mi cuenta y ayuda', 'Más: los cuatro grupos, en ese orden', mas.grupos.map((g) => g.t));
+  const lista = (t) => (mas.grupos.find((g) => g.t === t) || { items: [] }).items;
+  ok(lista('Registro').join('|') === 'Registrar en la estructura territorial|Consultar puesto de votación', 'Registro: solo esos dos botones', lista('Registro'));
+  ok(lista('Seguimiento').join('|') === 'Solicitudes|Tareas|Puerta a puerta|Día D · avance de votación', 'Seguimiento: Solicitudes, Tareas, Puerta a puerta y Día D', lista('Seguimiento'));
+  ok(lista('Material de apoyo').join('|') === 'Biografía del candidato|Información para compartir', 'Material de apoyo: Biografía e Información para compartir', lista('Material de apoyo'));
+  ok(lista('Mi cuenta y ayuda').join('|') === 'Cambiar mi clave|Política de privacidad|Legislación|Cerrar sesión', 'Mi cuenta y ayuda: Cambiar mi clave, Política, Legislación y Cerrar sesión', lista('Mi cuenta y ayuda'));
+  ok(mas.cols === 3 && /255, 195, 0/.test(mas.barra) && parseInt(mas.icono, 10) === 42, 'es la cuadrícula del menú de la app: 3 columnas, barra amarilla #FFC300 y icono en cuadro de 42 px', { c: mas.cols, b: mas.barra, i: mas.icono });
+  ok(!mas.listaVieja && mas.grupoTit === 0, 'ya no queda nada de la lista de filas con flecha');
+  ok(mas.titulo === 'Más opciones' && /Actualizado/.test(mas.estado) && mas.nav.join(',') === 'Inicio,Equipo,Mapa,Agenda,Más', 'se mantiene el encabezado «Más opciones», «Actualizado hace…» y la barra inferior', mas);
   for (const id of ['solicitudes', 'tareas', 'puerta', 'dia_d']) {
-    await ev(`document.querySelector('#menu button[data-id=${id}]').click()`); await espera(700);
+    await ev(`document.querySelector('button.menu-boton[data-accion=${id}]').click()`); await espera(900);
     const t = await texto('#detalle');
     ok(t.length > 5 && !mala(t), `Más › ${id}: se abre sin NaN/undefined`, t.slice(0, 160));
   }
-  await ev("document.querySelector('#menu button[data-id=solicitudes]').click()"); await espera(600);
+  await ev("document.querySelector('button.menu-boton[data-accion=solicitudes]').click()"); await espera(900);
   ok(await sinDesborde() && p.avisos.length === 0, 'Más: sin desborde ni errores de consola', p.avisos);
+  await ev('window.scrollTo(0, 0)'); await espera(300);
   await foto('6-mas' + sufijo);
+  // Cada tarjeta que abre una pantalla: la abre, sin 403 ni 500, y «volver» lleva a «Más» (nunca al menú de inicio.html)
+  const enlaces = await ev("[...document.querySelectorAll('a.menu-boton')].map(a => a.getAttribute('href'))");
+  for (const h of enlaces) {
+    limpiarAvisos(); p.respuestas.length = 0;
+    await ir(base + h); await espera(1800);
+    const malas = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+    const volver = await ev("(document.querySelector('.app-barra .volver') || {}).getAttribute ? (document.querySelector('.app-barra .volver').getAttribute('onclick') || '') : ''");
+    const aqui = await ruta();
+    ok(malas.length === 0 && aqui !== '/login.html' && aqui !== '/app/candidato.html', `tarjeta ${h}: abre sin 403/500 (${aqui})`, { malas, aqui });
+    if (/^\/app\/(biografia|informacion|politica-privacidad|legislacion)/.test(h)) ok(/candidato-mas/.test(volver) && !/inicio\.html/.test(volver), `${h}: «volver» lleva a «Más»`, volver);
+    ok(p.avisos.filter((x) => !/tile|Failed to load|favicon/i.test(x)).length === 0, `tarjeta ${h}: sin errores de consola`, p.avisos);
+  }
   limpiarAvisos();
   await ir(base + '/app/candidato-clave.html');
   ok(await esperar("document.getElementById('actual')"), 'Cambiar mi clave carga');
@@ -542,11 +567,20 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     await ir(base + u); await esperar("location.pathname === '/app/candidato.html'", 9000);
     ok(await ruta() === '/app/candidato.html', `candidato en celular abre ${u} a mano → termina en /app/candidato.html`, await ruta());
   }
+  /* NINGÚN CAMINO LE MUESTRA EL MENÚ DE /app/inicio.html (orden 75): se vigila si en algún instante aparece una tarjeta de ese menú (.menu-boton con su <section class="menu-grupo"> dentro de #menu-app)
+     mientras se abre inicio.html (el ícono de la app instalada) y mientras se vuelve «atrás» hacia él. */
+  const vigia = (await cmd('Page.addScriptToEvaluateOnNewDocument', { source: "new MutationObserver(function () { if (document.getElementById('menu-app') && document.querySelector('#menu-app .menu-boton') && location.pathname === '/app/inicio.html') sessionStorage.setItem('vio_menu_inicio', '1'); }).observe(document, { childList: true, subtree: true });" })).result.identifier;
+  await ev("sessionStorage.removeItem('vio_menu_inicio')");
+  await ir(base + '/app/inicio.html'); await espera(2500);
+  ok(await ruta() === '/app/candidato.html' && await ev("sessionStorage.getItem('vio_menu_inicio')") === null, 'abrir el ícono de la app (inicio.html) con la sesión iniciada: nunca se pinta el menú de inicio.html y termina en su app', await ev("sessionStorage.getItem('vio_menu_inicio')"));
+  await ev('history.back()'); await espera(2000);
+  ok(await ev("sessionStorage.getItem('vio_menu_inicio')") === null, '«atrás» tampoco le muestra el menú de inicio.html', await ruta());
+  await cmd('Page.removeScriptToEvaluateOnNewDocument', { identifier: vigia });
   await ir(base + '/login.html'); await espera(1500);
   ok(await ruta() === '/app/candidato.html', 'con la sesión ya iniciada, el ingreso lo lleva a su app (nunca al escritorio)', await ruta());
-  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('#registro a').length > 0");
-  const reg = await ev(`({ botones: [...document.querySelectorAll('#registro a')].map(a => a.innerText.replace(/[›\\n]/g, '').trim()), hrefs: [...document.querySelectorAll('#registro a')].map(a => a.getAttribute('href')),
-     grupos: [...document.querySelectorAll('.grupo-tit')].map(x => x.innerText), escritorio: /escritorio/i.test(document.body.innerText), primero: (document.querySelector('.grupo-tit') || {}).innerText })`);
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const reg = await ev(`({ botones: [...document.querySelectorAll('.menu-grupo')[0].querySelectorAll('.menu-boton')].map(a => a.innerText.trim()), hrefs: [...document.querySelectorAll('.menu-grupo')[0].querySelectorAll('.menu-boton')].map(a => a.getAttribute('href')),
+     grupos: [...document.querySelectorAll('.menu-grupo-titulo')].map(x => x.innerText), escritorio: /escritorio/i.test(document.body.innerText), primero: (document.querySelector('.menu-grupo-titulo') || {}).innerText })`);
   console.log('    registro:', JSON.stringify(reg));
   ok(reg.botones.length === 2 && /Registrar en la estructura territorial/.test(reg.botones[0]) && /Consultar puesto de votación/.test(reg.botones[1]), '«Más» → Registro: exactamente dos botones, los pedidos', reg.botones);
   ok(/^registro$/i.test(reg.primero) && /^registro$/i.test(reg.grupos[0]), 'el grupo «Registro» va arriba de todo', reg.grupos);
@@ -555,7 +589,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(await sinDesborde() && p.avisos.length === 0, 'Más con Registro: sin desborde ni errores de consola', p.avisos);
   await foto('9-mas-con-registro');
   // Consultar puesto de votación
-  await ev("document.querySelector('#registro a[href*=puesto-votacion]').click()");
+  await ev("document.querySelector('a.menu-boton[href*=puesto-votacion]').click()");
   ok(await esperar("location.pathname === '/app/puesto-votacion.html'"), '«Consultar puesto de votación» abre la consulta de siempre');
   await espera(600);
   const pv = await ev(`({ reg: (document.querySelector('a[href*=registraduria]') || {}).href, volver: (document.querySelector('.app-barra .volver') || {}).getAttribute ? document.querySelector('.app-barra .volver').getAttribute('onclick') : '', btn: document.getElementById('btn-volver-menu').onclick ? 'js' : '' })`);
@@ -564,9 +598,9 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const copia = await ev(`(typeof copiarCedulaParaConsulta === 'function') || document.body.innerHTML.indexOf('consulta-censo') >= 0 || !!document.querySelector('[data-copiar-cedula], #cedula-consulta, input')`);
   await foto('10-consultar-puesto');
   // Registrar en la estructura territorial (formulario de siempre, en modo app)
-  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('#registro a').length > 0");
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
   limpiarAvisos(); p.respuestas.length = 0;
-  await ev("document.querySelector('#registro a[href*=territorial]').click()");
+  await ev("document.querySelector('a.menu-boton[href*=territorial]').click()");
   ok(await esperar("location.pathname === '/territorial.html'", 12000), '«Registrar en la estructura territorial» abre el formulario por pasos', await ruta());
   await esperar("document.querySelector('.wz-paso') && document.querySelector('#form-estructura')", 12000); await espera(2500);
   const fe = await ev(`({ modoApp: document.documentElement.classList.contains('modo-app'), volver: document.getElementById('barra-volver-app').getAttribute('href'), volverVisible: getComputedStyle(document.getElementById('barra-volver-app')).display !== 'none',
@@ -608,9 +642,25 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await ev("document.querySelector('#chips [data-modo=lid]').click()"); await espera(300);
   ok(/Lina Líder Pantalla/.test(await texto('#lista')), 'y el líder nuevo también', (await texto('#lista')).slice(0, 200));
 
+  // «Más» con módulos apagados: sin huecos y sin grupos vacíos
+  await q("UPDATE complementos_campana SET activo = 0 WHERE clave IN ('solicitudes','tareas','puerta_a_puerta','puerta_panel')"); require('../lib/complementos').invalidar();
+  await q("UPDATE permisos_rol SET permitido = 0 WHERE rol = 'candidato' AND modulo IN ('rescate_votos','biografia_candidato','recursos')");
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const apag = await leerMas();
+  console.log('    más con módulos apagados:', JSON.stringify(apag.grupos));
+  ok(apag.grupos.map((g) => g.t).join('|') === 'Registro|Mi cuenta y ayuda' && apag.grupos.every((g) => g.items.length > 0), 'con Seguimiento y Material apagados: no salen sus grupos (ni títulos solos ni huecos)', apag.grupos);
+  ok(await sinDesborde() && p.avisos.length === 0, 'Más con módulos apagados: sin desborde ni errores de consola', p.avisos);
+  await foto('13-mas-modulos-apagados');
+  await q("UPDATE complementos_campana SET activo = 0 WHERE clave = 'puerta_panel'"); await require('./fixtures/encender-complementos')(pool, ['tareas']);
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const parc = await leerMas();
+  ok((parc.grupos.find((g) => g.t === 'Seguimiento') || { items: [] }).items.join('|') === 'Tareas', 'con solo Tareas encendido, Seguimiento trae únicamente Tareas', parc.grupos);
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel']);
+  await q("UPDATE permisos_rol SET permitido = 1 WHERE rol = 'candidato' AND modulo IN ('rescate_votos','biografia_candidato','recursos')");
+
   // Cerrar sesión desde Más
-  await ir(base + '/app/candidato-mas.html'); await esperar("document.getElementById('salir')");
-  await ev("document.getElementById('salir').click()");
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelector('button.menu-boton[data-accion=salir]')");
+  await ev("document.querySelector('button.menu-boton[data-accion=salir]').click()");
   ok(await esperar("location.pathname === '/login.html'", 10000), 'Cerrar sesión desde «Más» lleva al ingreso', await ruta());
 
   // Escritorio 1280

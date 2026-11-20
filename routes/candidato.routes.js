@@ -63,6 +63,10 @@ async function seccionesEncendidas(req) {
     // Puerta a puerta: el panel de solo conteos existe solo con sus DOS complementos encendidos (puerta_a_puerta y puerta_panel).
     puerta: await complementoActivo('puerta_a_puerta') && await complementoActivo('puerta_panel') && await moduloPermitido(req, 'puerta_listas'),
     legislacion: await moduloPermitido(req, 'legislacion'),
+    // «Material de apoyo» y «Mi cuenta» de la cuadrícula de «Más» (orden 75): cada una según su casilla de la matriz (y esas pantallas leen /contenido y /recursos, que el candidato sí puede leer).
+    biografia: await moduloPermitido(req, 'biografia_candidato'),
+    recursos: await moduloPermitido(req, 'recursos'),
+    politica: await moduloPermitido(req, 'politica_privacidad'),
   };
 }
 

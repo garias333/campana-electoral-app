@@ -78,7 +78,7 @@ function parsearSecciones(texto) {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Política de privacidad', null, '/app/inicio.html');
+  pintarBarraApp('Política de privacidad', null, inicioDeLaApp(usuario));
 
   const c = await api('/contenido/politica_privacidad');
 

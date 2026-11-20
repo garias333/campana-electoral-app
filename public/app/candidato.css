@@ -258,3 +258,9 @@ body.cand-mapa { padding-bottom: 0; overflow: hidden; }
 .btn { display: block; text-align: center; background: var(--am); color: #1b2333; font-weight: 700; font-size: 15px; padding: 13px; border-radius: 26px; text-decoration: none; }
 .aviso-mapa { position: absolute; inset: 120px 20px auto 20px; z-index: 400; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 4px 14px rgba(0, 0, 0, .14); font-size: 14px; text-align: center; color: var(--mu); }
 .aviso-mapa b { display: block; color: var(--tx); margin-bottom: 4px; }
+
+/* ---- «Más» en cuadrícula (orden 75): usa las clases del menú de la app (.menu-grupo, .menu-grid, .menu-boton de estilos-app.css); aquí solo el margen y el reset del botón ---- */
+.cand-menu { margin: 16px 16px 0; }
+.cand-menu .menu-grupo-titulo { margin-top: 4px; }
+button.menu-boton { border: 0; font: inherit; cursor: pointer; width: 100%; }
+button.menu-boton .texto strong { font-weight: 600; }

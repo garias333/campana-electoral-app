@@ -15,14 +15,8 @@
   <div class="barra"><small>Más</small><h1>Más opciones</h1></div>
   <div id="estado"></div>
   <div id="error-carga" class="error-carga" role="alert"></div>
-  <div class="grupo-tit">Registro</div>
-  <div class="menu-mas" id="registro" style="margin-top:6px"></div>
-  <div class="grupo-tit" style="margin-top:18px">Más</div>
-  <div class="menu-mas" id="menu" style="margin-top:6px"></div>
+  <div class="cand-menu menu-app" id="menu-app"></div>
   <div id="detalle"></div>
-  <div class="pie-sesion">
-    <button type="button" class="enlace-discreto" id="salir">Cerrar sesión</button>
-  </div>
 </div>
 <script src="/js/api-core.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
@@ -56,31 +50,59 @@ const PINTORES = {
 async function abrir(s) {
   const cont = document.getElementById('detalle');
   cont.innerHTML = '<div class="card"><div class="cargando">Cargando…</div></div>';
+  cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
     const r = await cCargar(usuario.id, s.ruta);
     cont.innerHTML = '<div class="card" style="margin-top:14px"><div class="tit"><h3>' + cEsc(s.texto) + '</h3></div>' + PINTORES[s.id](r.datos) + '</div>';
     cPintarEstado(r, 'estado');
   } catch (err) { cont.innerHTML = '<div class="card">' + cVacio('⚠️', 'No se pudo cargar', err.message || '') + '</div>'; }
 }
+
+/* LA CUADRÍCULA ES LA DEL MENÚ DE /app/inicio.html (orden 75): las mismas clases de estilos-app.css —.menu-grupo con su barra amarilla, .menu-grid de tres columnas, .menu-boton con el icono en
+   cuadro azul claro—. Una tarjeta es un enlace (abre otra pantalla) o un botón (abre el resumen aquí abajo, o cierra la sesión). Un grupo sin tarjetas no se pinta: ni títulos solos ni huecos. */
+function tarjeta(t) {
+  const interior = '<div class="icono" aria-hidden="true">' + t.ic + '</div><div class="texto"><strong>' + cEsc(t.texto) + '</strong></div>';
+  if (t.href) return '<a class="menu-boton" href="' + cEsc(t.href) + '">' + interior + '</a>';
+  return '<button type="button" class="menu-boton" data-accion="' + cEsc(t.accion) + '">' + interior + '</button>';
+}
+function pintarMenu(s) {
+  const grupos = [
+    { titulo: 'Registro', items: [
+      s.registro && { ic: '➕', texto: 'Registrar en la estructura territorial', href: '/territorial.html?app=1&volver=/app/candidato.html#nuevo' },
+      { ic: '🗳️', texto: 'Consultar puesto de votación', href: '/app/puesto-votacion.html' } ] },
+    { titulo: 'Seguimiento', items: [
+      s.solicitudes && { ic: '📨', texto: 'Solicitudes', accion: 'solicitudes' },
+      s.tareas && { ic: '✅', texto: 'Tareas', accion: 'tareas' },
+      s.puerta && { ic: '🚪', texto: 'Puerta a puerta', accion: 'puerta' },
+      s.dia_d && { ic: '🏁', texto: 'Día D · avance de votación', accion: 'dia_d' } ] },
+    { titulo: 'Material de apoyo', items: [
+      s.biografia && { ic: '👤', texto: 'Biografía del candidato', href: '/app/biografia.html' },
+      s.recursos && { ic: '📚', texto: 'Información para compartir', href: '/app/informacion.html?modo=informacion' } ] },
+    { titulo: 'Mi cuenta y ayuda', items: [
+      { ic: '🔑', texto: 'Cambiar mi clave', href: '/app/candidato-clave.html' },
+      s.politica && { ic: '🔒', texto: 'Política de privacidad', href: '/app/politica-privacidad.html' },
+      s.legislacion && { ic: '⚖️', texto: 'Legislación', href: '/app/legislacion.html' },
+      { ic: '🚪', texto: 'Cerrar sesión', accion: 'salir' } ] },
+  ];
+  document.getElementById('menu-app').innerHTML = grupos
+    .map((g) => ({ titulo: g.titulo, items: g.items.filter(Boolean) }))
+    .filter((g) => g.items.length)
+    .map((g) => '<section class="menu-grupo"><h2 class="menu-grupo-titulo">' + cEsc(g.titulo) + '</h2><div class="menu-grid">' + g.items.map(tarjeta).join('') + '</div></section>')
+    .join('');
+}
+
 (async function () {
   usuario = await exigirCandidatoApp('mas');
   if (!usuario) return;
-  document.getElementById('salir').addEventListener('click', () => cCerrarSesion());
+  document.getElementById('menu-app').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-accion]'); if (!b) return;
+    if (b.dataset.accion === 'salir') { cCerrarSesion(); return; }
+    abrir(SECCIONES.find((x) => x.id === b.dataset.accion));
+  });
   try {
     const r = await cCargar(usuario.id, '/mas');
-    const s = r.datos.secciones || {};
-    // GRUPO «REGISTRO»: exactamente dos botones. «Registrar…» abre el formulario paso a paso que ya existe (la pantalla de la estructura en modo app) y vuelve aquí;
-    // «Consultar…» es la consulta de siempre (copia la cédula y abre la Registraduría). Ningún otro botón de registro en esta app.
-    let reg = '';
-    if (s.registro) reg += '<a href="/territorial.html?app=1&volver=/app/candidato.html#nuevo"><span class="ic">➕</span>Registrar en la estructura territorial<span class="flecha">›</span></a>';
-    reg += '<a href="/app/puesto-votacion.html"><span class="ic">🗳️</span>Consultar puesto de votación<span class="flecha">›</span></a>';
-    document.getElementById('registro').innerHTML = reg;
-    let h = '';
-    SECCIONES.forEach((x) => { if (s[x.id]) h += '<button type="button" data-id="' + x.id + '"><span class="ic">' + x.ic + '</span>' + x.texto + '<span class="flecha">›</span></button>'; });
-    h += '<a href="/app/candidato-clave.html"><span class="ic">🔑</span>Cambiar mi clave<span class="flecha">›</span></a>';
-    if (s.legislacion) h += '<a href="/app/legislacion.html"><span class="ic">⚖️</span>Legislación<span class="flecha">›</span></a>';
-    document.getElementById('menu').innerHTML = h || '<div style="padding:8px">' + cVacio('☰', 'No hay más secciones', 'Las que se activen en la campaña aparecerán aquí.') + '</div>';
-    document.getElementById('menu').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) abrir(SECCIONES.find((x) => x.id === b.dataset.id)); });
+    pintarMenu(r.datos.secciones || {});
+    cPintarEstado(r, 'estado');
   } catch (err) { const e = document.getElementById('error-carga'); e.textContent = err.message || 'No se pudo cargar.'; e.classList.add('visible'); }
 })();
 </script>

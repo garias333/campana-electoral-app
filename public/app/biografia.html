@@ -41,7 +41,7 @@
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Biografía del candidato', null, '/app/inicio.html');
+  pintarBarraApp('Biografía del candidato', null, inicioDeLaApp(usuario));
 
   const [c, config] = await Promise.all([
     api('/contenido/biografia_candidato'),

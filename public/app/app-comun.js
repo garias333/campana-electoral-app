@@ -571,3 +571,12 @@ function preguntarClaveCelularApp(info) {
     }
   });
 }
+
+
+/**
+ * A dónde vuelve cada quien desde las pantallas que comparten todos los roles (Biografía, Información para compartir, Política de privacidad, Legislación…).
+ * El candidato principal (orden 75) tiene su propia app: vuelve a SU «Más», nunca al menú de /app/inicio.html. Los demás, a /app/inicio.html como siempre.
+ */
+function inicioDeLaApp(usuario) {
+  return usuario && usuario.rol === 'candidato' ? '/app/candidato-mas.html' : '/app/inicio.html';
+}

@@ -211,7 +211,7 @@ document.getElementById('lista-recursos').addEventListener('click', async (e) =>
   if (!usuario) return;
   pintarBarraApp(
     modo === 'publicidad' ? 'Publicidad descargable' : 'Información para compartir',
-    null, '/app/inicio.html'
+    null, inicioDeLaApp(usuario)
   );
 
   try {
