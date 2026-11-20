@@ -10,6 +10,7 @@ const smsSvc = require('../config/sms');
 const { firmarTokenDispositivo } = require('../config/tokenDispositivo');
 const { reconocerEquipo, mensajeDeRechazo, equipoControlado } = require('../config/equiposAutorizados');
 const { esSuperadmin, ERROR_2FA_OBLIGATORIO } = require('../config/superadmin');
+const { esAdminCandidato } = require('../config/esCandidato');
 const { verificarPasswordPropia } = require('../config/verificaciones');
 const { sincronizarClaveCelular, ROLES_DE_BOTON, esRolDeBoton, problemaDeClaveNueva, fijarClaveCelular } = require('../lib/claveCelular');
 const { normalizarCedula, sqlCedulaNormalizada, finDeCedula } = require('../lib/normalizarCedula');
@@ -212,7 +213,9 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
     territorio_id: usuario.territorio_id,
     debe_cambiar_password: !!usuario.debe_cambiar_password,
     two_factor_enabled: !!usuario.two_factor_enabled,
-    es_aspirante: esAspirante
+    es_aspirante: esAspirante,
+    // Orden 81: el administrador que también es el candidato. El navegador decide con esto a dónde va en el celular; /auth/me lo vuelve a consultar.
+    es_candidato: usuario.rol === 'admin' && Number(usuario.es_candidato) === 1
   };
   req.tokenCierreNuevo = await crearTokenCierre(req, usuario.id);   // lo devuelven las dos respuestas de ingreso (login y verificar-2fa)
   if (recordar) {
@@ -1192,6 +1195,7 @@ router.get('/me', requireAuth, async (req, res) => {
       es_superadmin: await esSuperadmin(req.session.usuario),
       es_aspirante: esAspirante,
       es_aspirante_concejo: esAspiranteConcejo,
+      es_candidato: await esAdminCandidato(req.session.usuario),   // se CONSULTA, no se lee de la sesión: quitarle la marca vale desde la petición siguiente
       clave_celular: claveCelular,
     }
   });

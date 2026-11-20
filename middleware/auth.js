@@ -48,7 +48,8 @@ async function resolverUsuario(req) {
         rol: rolEfectivo,
         territorio_id: usuario.territorio_id,
         debe_cambiar_password: !!usuario.debe_cambiar_password,
-        two_factor_enabled: !!usuario.two_factor_enabled
+        two_factor_enabled: !!usuario.two_factor_enabled,
+        es_candidato: usuario.rol === 'admin' && Number(usuario.es_candidato) === 1   // orden 81
       };
       return req.session.usuario;
     } catch (err) {

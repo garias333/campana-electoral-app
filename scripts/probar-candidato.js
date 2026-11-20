@@ -33,6 +33,9 @@ const SALIDA = process.env.SALIDA || path.join(os.homedir(), 'capturas-orden71')
 fs.mkdirSync(SALIDA, { recursive: true });
 const CLAVE = 'ClaveCandidato-ej1';
 const CORREO = 'candidato.prueba@ejemplo.co';
+const CLAVE_A = 'ClaveAdmin-ej81';
+const CORREO_ADM_CAND = 'admin.cand@ejemplo.co';   // administrador MARCADO «Es el candidato» (orden 81)
+const CORREO_ADM_SIN = 'admin.sin@ejemplo.co';     // administrador sin la marca
 
 let fallos = 0; let pasos = 0;
 function ok(cond, texto, extra) {
@@ -269,7 +272,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     ok(w.status === 200 && w.datos && w.datos.codigo !== 'solo_lectura', 'las escrituras del coordinador no pasan por el candado (logout 200)');
   }
   const ad = cliente(base); await ad.entrar(...otros.admin);
-  ok((await ad.get('/candidato/resumen')).status === 200, 'el administrador SÍ puede leer /api/candidato (para probar)');
+  ok((await ad.get('/candidato/resumen')).status === 403, 'el administrador SIN la marca «Es el candidato» ya no entra a /api/candidato (orden 81; antes pasaba cualquier administrador)');
   const ver = await cand.get('/candidato/resumen');
   ok(ver.status === 200, 'tras los intentos, el candidato sigue con sesión');
 
@@ -371,6 +374,61 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await require('./fixtures/encender-complementos')(pool, ['tareas']);
 
   /* ================= NAVEGADOR ================= */
+  /* ================= ORDEN 81 (servidor): administrador que también es el candidato ================= */
+  console.log('\n[5d] Orden 81: la marca «Es el candidato» (solo con rol administrador)');
+  {
+    const hashA = bcrypt.hashSync(CLAVE_A, 4);
+    const rolAdmin = (await q("SELECT id FROM roles WHERE nombre = 'admin'"))[0].id;
+    const [ac] = await pool.query(`INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, telefono, password_hash, rol_id, activo, es_candidato, clave_celular_pregunta_hecha)
+      VALUES ('Admin Candidato', '1099000101', '1099000101', ?, '3001230101', ?, ?, 1, 1, 1)`, [CORREO_ADM_CAND, hashA, rolAdmin]);
+    const [as] = await pool.query(`INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, telefono, password_hash, rol_id, activo, es_candidato, clave_celular_pregunta_hecha)
+      VALUES ('Admin Sin Marca', '1099000102', '1099000102', ?, '3001230102', ?, ?, 1, 0, 1)`, [CORREO_ADM_SIN, hashA, rolAdmin]);
+    const [[col]] = await pool.query("SELECT COLUMN_TYPE t, COLUMN_DEFAULT d FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'es_candidato'");
+    ok(col && /tinyint/i.test(col.t) && String(col.d) === '0', 'la columna usuarios.es_candidato existe (TINYINT, por omisión 0)', col);
+    const cm = cliente(base); await cm.entrar(CORREO_ADM_CAND, CLAVE_A);
+    const cs = cliente(base); await cs.entrar(CORREO_ADM_SIN, CLAVE_A);
+    const cc = cliente(base); await cc.entrar(CORREO, CLAVE);
+    const meM = (await cm.get('/auth/me')).datos.usuario, meS = (await cs.get('/auth/me')).datos.usuario, meC = (await cc.get('/auth/me')).datos.usuario;
+    ok(meM.rol === 'admin' && meM.es_candidato === true && meS.es_candidato === false && meC.rol === 'candidato' && !meC.es_candidato, '/auth/me: el administrador marcado trae es_candidato = true; el que no, false; el candidato puro, false (su rol es otro)', { meM: meM.es_candidato, meS: meS.es_candidato, meC: meC.es_candidato });
+    ok((await cm.get('/candidato/resumen')).status === 200 && (await cm.get('/candidato/mas')).status === 200 && (await cm.get('/candidato/equipo')).status === 200, '/api/candidato/*: acepta al administrador marcado');
+    ok((await cs.get('/candidato/resumen')).status === 403 && (await cs.get('/candidato/mas')).status === 403, '/api/candidato/*: el administrador SIN marca ya no pasa (antes pasaba cualquier administrador)');
+    ok((await cc.get('/candidato/resumen')).status === 200, '/api/candidato/*: el rol candidato puro sigue pasando');
+    const evCuerpo = { titulo: 'Evento del administrador-candidato', fecha_inicio: '2031-03-01 10:00:00', lugar: 'Sede', tipo: 'reunion' };
+    const wM = await cm.post('/eventos', evCuerpo);
+    ok(wM.status === 200 || wM.status === 201, 'el administrador marcado SÍ puede escribir (crear un evento): no le aplica el solo lectura del candidato', { s: wM.status, d: wM.datos });
+    const wC = await cc.post('/eventos', evCuerpo);
+    ok(wC.status === 403 && wC.datos.codigo === 'solo_lectura', 'el candidato puro sigue en solo lectura: 403 «solo_lectura» al crear un evento', { s: wC.status, d: wC.datos });
+    ok((await cm.get('/usuarios/admin')).status === 200 && (await cm.get('/configuracion/campana')).status === 200, 'el administrador marcado conserva sus lecturas de administrador (listado de usuarios, configuración)');
+    ok((await cc.get('/usuarios/admin')).status === 403, 'el candidato puro sigue sin el listado de usuarios (403)');
+    await q("DELETE FROM eventos WHERE titulo = 'Evento del administrador-candidato'");
+
+    // Usuarios: la casilla solo vale con rol administrador
+    const cuerpoU = (extra) => ({ nombre: 'Persona de Prueba', numero_identificacion: '1099000103', email: 'persona.prueba81@ejemplo.co', telefono: '3001230103', rol: 'admin', es_candidato: true, password: 'unaclavelarga', ...extra });
+    const nuevo = await cs.post('/usuarios', cuerpoU());
+    const [[f1]] = await pool.query('SELECT es_candidato e FROM usuarios WHERE id = ?', [nuevo.datos.id || 0]);
+    ok(nuevo.status === 200 && f1 && f1.e === 1, 'Usuarios (crear): rol Administrador + «Es el candidato» → queda marcado', { s: nuevo.status, f1 });
+    const nuevoL = await cs.post('/usuarios', cuerpoU({ rol: 'lider', numero_identificacion: '1099000104', email: 'lider.prueba81@ejemplo.co', telefono: '3001230104' }));
+    const [[f2]] = await pool.query('SELECT es_candidato e FROM usuarios WHERE id = ?', [nuevoL.datos.id || 0]);
+    ok(nuevoL.status === 200 && f2 && f2.e === 0, 'Usuarios (crear): con otro rol la casilla se ignora (queda en 0) aunque el formulario la mande', { s: nuevoL.status, f2 });
+    const put = (rol, extra) => cs.put('/usuarios/' + nuevo.datos.id, { nombre: 'Persona de Prueba', numero_identificacion: '1099000103', email: 'persona.prueba81@ejemplo.co', telefono: '3001230103', rol, activo: true, password_confirmacion: CLAVE_A, ...extra });
+    const marca = async () => (await q('SELECT es_candidato e FROM usuarios WHERE id = ?', [nuevo.datos.id]))[0].e;
+    const lista = (await cs.get('/usuarios/admin')).datos.find((u) => u.id === nuevo.datos.id);
+    ok(lista && lista.es_candidato === 1, 'el listado de administración de usuarios trae es_candidato (para abrir la edición con la casilla puesta)', lista && lista.es_candidato);
+    const r1 = await put('coordinador', { es_candidato: true });
+    ok(r1.status === 200 && await marca() === 0, 'Usuarios (editar): si el rol cambia a otro, la marca se apaga sola', { s: r1.status, d: r1.datos, m: await marca() });
+    const r2 = await put('admin', { es_candidato: true });
+    ok(r2.status === 200 && await marca() === 1, 'Usuarios (editar): de vuelta a Administrador y con la casilla → marcado', { s: r2.status, d: r2.datos });
+    const r3 = await put('admin', {});
+    ok(r3.status === 200 && await marca() === 1, 'Usuarios (editar): un guardado que no trae la casilla no borra la marca', { s: r3.status });
+    const r4 = await put('admin', { es_candidato: false });
+    ok(r4.status === 200 && await marca() === 0, 'Usuarios (editar): se puede desmarcar', { s: r4.status });
+    // Quitarle la marca vale desde la petición siguiente, sin cerrar sesión
+    await q('UPDATE usuarios SET es_candidato = 0 WHERE id = ?', [ac.insertId]);
+    ok((await cm.get('/candidato/resumen')).status === 403 && (await cm.get('/auth/me')).datos.usuario.es_candidato === false, 'quitar la marca vale en la petición siguiente (se consulta, no se lee de la sesión)');
+    await q('UPDATE usuarios SET es_candidato = 1 WHERE id = ?', [ac.insertId]);
+    await q("DELETE FROM usuarios WHERE email IN ('persona.prueba81@ejemplo.co', 'lider.prueba81@ejemplo.co')");
+  }
+
   console.log('\n[6] El navegador (Chromium 390×844)');
   const nav = await lanzar();
   const p = await nav.pagina('about:blank');
@@ -854,6 +912,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
       }
     }
   };
+  if (!process.env.SOLO81) {   // SOLO81=1 salta lo de la orden 79 (ya probado) para iterar sobre la 81
   await q("UPDATE permisos_rol SET permitido = 1 WHERE rol = 'candidato' AND modulo IN ('rescate_votos','biografia_candidato','recursos','solicitudes','tareas','puerta_listas')");
   await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel']);
   limpiarAvisos();
@@ -878,6 +937,8 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(m130.cortados.length === 0 && await sinDesborde(), 'con la letra del sistema al 130 %, «Más» no se desborda ni corta', { c: m130.cortados.slice(0, 4), f: m130.fuera.slice(0, 4) });
   await ev("document.documentElement.style.fontSize = ''");
 
+  }
+
   // Cerrar sesión: con confirmación, desde el encabezado
   await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelector('button.menu-boton[data-accion=salir]')");
   await ev("document.querySelector('button.menu-boton[data-accion=salir]').click()"); await espera(250);
@@ -886,6 +947,102 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await ev("document.querySelector('.btn-salir').click()"); await espera(250);
   await ev("document.getElementById('salir-si').click()");
   ok(await esperar("location.pathname === '/login.html'", 10000), '«Salir» → «Sí, salir» cierra la sesión y lleva al ingreso', await ruta());
+
+  /* ================= ORDEN 81 (navegador): administrador que también es el candidato ================= */
+  console.log('  — Orden 81: administrador marcado «Es el candidato»');
+  const limpiarSesion = async () => { await cmd('Network.clearBrowserCookies'); await ir(base + '/login.html'); await ev('localStorage.clear(); sessionStorage.clear()'); };
+  const entrarPorLaPantalla = async (correo) => {
+    await limpiarSesion(); await movil();
+    await ir(base + '/login.html');
+    await esperar("document.getElementById('form-elegir-acceso').style.display === 'block'");
+    await ev("document.getElementById('ir-a-otros-desde-eleccion').click()");
+    await ev("document.getElementById('ir-a-password').click()");
+    await ev(`(() => { const e = document.getElementById('campo-email'); e.value = ${JSON.stringify(correo)}; document.getElementById('campo-password').value = ${JSON.stringify(CLAVE_A)}; document.querySelector('#form-login button[type=submit]').click(); })()`);
+  };
+  const modoGuardado = () => ev("localStorage.getItem('modo_admin_candidato')");
+  limpiarAvisos(); p.respuestas.length = 0;
+  await entrarPorLaPantalla(CORREO_ADM_CAND);
+  ok(await esperar("location.pathname === '/app/candidato.html'", 12000), 'celular: el administrador marcado cae en /app/candidato.html (la app del candidato)', await ruta());
+  await esperar("document.getElementById('contenido').style.display !== 'none'"); await espera(500);
+  ok(await ev("!!document.querySelector('.btn-salir')") && /Inicio,Equipo,Mapa,Agenda,Más/.test(await ev("[...document.querySelectorAll('#nav-candidato a')].map(a => a.lastChild.textContent.trim()).join(',')")), 'y la ve igual que el candidato: barra inferior y «Salir»');
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const masA = await ev(`({ grupos: [...document.querySelectorAll('.menu-grupo')].map(g => ({ t: g.querySelector('.menu-grupo-titulo').innerText.trim(), items: [...g.querySelectorAll('.menu-boton')].map(b => b.querySelector('.texto strong').innerText.trim()) })) })`);
+  console.log('    más del administrador marcado:', JSON.stringify(masA.grupos.map((g) => g.t)));
+  ok(masA.grupos[0].t === 'Cambiar de modo' && masA.grupos[0].items.join('|') === 'Modo administrador', '«Más» trae arriba «Modo administrador»', masA.grupos[0]);
+  ok(masA.grupos.find((g) => g.t === 'Registro').items.join('|') === 'Registrar en la estructura territorial|Consultar puesto de votación', '«Registro» sigue con los dos botones de siempre', masA.grupos.find((g) => g.t === 'Registro'));
+  ok(await sinDesborde() && p.avisos.length === 0, 'Más del administrador marcado: sin desborde ni errores de consola', p.avisos);
+  await foto('20-mas-modo-administrador');
+  // Cambiar a modo administrador
+  await ev("document.querySelector('button.menu-boton[data-accion=modo_admin]').click()");
+  ok(await esperar("location.pathname === '/app/admin-panel.html'", 10000), '«Modo administrador» lleva a la app de administración del celular', await ruta());
+  await esperar("!!document.querySelector('.btn-modo-candidato')", 10000); await espera(1200);
+  const bmc = await ev(`(() => { const b = document.querySelector('.btn-modo-candidato'); if (!b) return null; const r = b.getBoundingClientRect(); return { txt: b.innerText.trim(), h: Math.round(r.height), der: Math.round(r.right), ancho: innerWidth }; })()`);
+  ok(bmc && bmc.txt === 'Modo candidato' && bmc.h >= 44 && bmc.der <= bmc.ancho, 'allí hay un botón «Modo candidato» (≥ 44 px) en la barra', bmc);
+  ok(await modoGuardado() === 'admin', 'el modo elegido queda recordado en este equipo', await modoGuardado());
+  await foto('21-admin-modo-candidato');
+  await ir(base + '/login.html'); await espera(1500);
+  ok(await ruta() === '/app/admin-panel.html', 'recordado: al volver a ingresar en ese equipo sigue en la app de administración', await ruta());
+  await ir(base + '/app/inicio.html'); await esperar("document.querySelectorAll('#menu-app .menu-boton').length > 0"); await espera(500);
+  ok(await ruta() === '/app/inicio.html' && /Modo candidato/.test(await texto('#menu-app')), 'en modo administrador, el inicio de siempre (el ícono de la app) muestra su menú, con «Modo candidato»', await ruta());
+  // Volver a modo candidato
+  await ir(base + '/app/admin-panel.html'); await esperar("!!document.querySelector('.btn-modo-candidato')"); await espera(500);
+  await ev("document.querySelector('.btn-modo-candidato').click()");
+  ok(await esperar("location.pathname === '/app/candidato.html'", 10000) && await modoGuardado() === 'candidato', '«Modo candidato» lo regresa a la app del candidato y lo recuerda', await ruta());
+  await ir(base + '/login.html'); await espera(1500);
+  ok(await ruta() === '/app/candidato.html', 'recordado: al volver a ingresar sigue en la app del candidato', await ruta());
+  await ir(base + '/app/inicio.html'); await espera(2000);
+  ok(await ruta() === '/app/candidato.html', 'y el ícono de la app instalada (inicio.html) lo lleva a la del candidato', await ruta());
+  // En modo candidato sigue siendo administrador: escribe
+  await ir(base + '/app/candidato.html'); await esperar("document.getElementById('contenido').style.display !== 'none'");
+  const escrito = await ev(`api('/eventos', { method: 'POST', body: { titulo: 'Evento desde la app del candidato (admin)', fecha_inicio: '2031-03-02 09:00:00', tipo: 'reunion' } }).then(r => !!r && !!r.id).catch(e => 'ERROR ' + e.message)`);
+  ok(escrito === true, 'en modo candidato conserva TODO lo de administrador: crea un evento (no le aplica el solo lectura)', escrito);
+  ok(await ev("api('/usuarios/admin').then(r => Array.isArray(r)).catch(() => false)"), 'y lee el listado de usuarios (lo de administrador)');
+  await q("DELETE FROM eventos WHERE titulo = 'Evento desde la app del candidato (admin)'");
+  // «Salir» y letra grande en las páginas compartidas SOLO en modo candidato
+  await ir(base + '/app/puesto-votacion.html'); await esperar("!!document.querySelector('.btn-salir')", 8000); await espera(500);
+  ok(await ev("document.body.classList.contains('cand-app') && !!document.querySelector('.btn-salir')") && /candidato-mas/.test(await ev("document.querySelector('.app-barra .volver').getAttribute('onclick')")), 'en modo candidato las pantallas compartidas llevan «Salir», la letra grande y vuelven a «Más»');
+  await ev("localStorage.setItem('modo_admin_candidato', 'admin')");
+  await ir(base + '/app/puesto-votacion.html'); await espera(1500);
+  ok(await ev("!document.body.classList.contains('cand-app') && !document.querySelector('.btn-salir')") && /inicio\.html/.test(await ev("document.querySelector('.app-barra .volver').getAttribute('onclick')")), 'en modo administrador esas mismas pantallas son las de siempre (sin «Salir» ni letra del candidato)');
+  await ev("localStorage.setItem('modo_admin_candidato', 'candidato')");
+  const malas81 = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+  ok(malas81.length === 0, 'el administrador marcado no recibe ningún 403/500 en todo el recorrido', malas81);
+  // Computador: sigue en el panel de administrador
+  await limpiarSesion(); await escritorio();
+  await ir(base + '/login.html');
+  await ev(`(async () => { const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: ${JSON.stringify(CORREO_ADM_CAND)}, password: ${JSON.stringify(CLAVE_A)} }) }); const d = await r.json(); irDondeCorresponde(d.usuario); })()`);
+  ok(await esperar("location.pathname === '/dashboard.html'", 12000), 'computador: el administrador marcado sigue cayendo en el panel de administrador (/dashboard.html)', await ruta());
+  await espera(1500);
+  ok(await ev("!document.querySelector('.btn-salir')"), 'y en el computador no aparece nada de la app del candidato');
+  await ir(base + '/app/candidato.html?app=1'); await espera(2000);
+  ok(await ruta() === '/app/candidato.html', 'se puede abrir la app del candidato a mano en el computador (/app/candidato.html?app=1)', await ruta());
+  // Administrador SIN marca: igual que antes
+  await entrarPorLaPantalla(CORREO_ADM_SIN);
+  ok(await esperar("location.pathname === '/app/admin-panel.html'", 12000), 'celular: el administrador SIN marca sigue cayendo en /app/admin-panel.html', await ruta());
+  await esperar("!document.getElementById('pantalla-carga') || getComputedStyle(document.getElementById('pantalla-carga')).display === 'none'", 10000); await espera(800);
+  ok(await ev("!document.querySelector('.btn-modo-candidato')"), 'y su barra no trae «Modo candidato»');
+  await ir(base + '/app/candidato.html'); await espera(2500);
+  ok(await ruta() === '/app/admin-panel.html', 'si abre la app del candidato a mano, lo devuelve a la de administración', await ruta());
+  ok(await ev("localStorage.getItem('modo_admin_candidato')") === null, 'y no queda ningún modo recordado');
+  // Usuarios (computador): la casilla solo aparece con rol Administrador
+  await limpiarSesion(); await escritorio();
+  await ir(base + '/login.html');
+  await ev(`(async () => { await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: ${JSON.stringify(CORREO_ADM_SIN)}, password: ${JSON.stringify(CLAVE_A)} }) }); })()`); await espera(800);
+  await ir(base + '/configuracion.html'); await esperar("document.getElementById('usuario-form-rol') && document.getElementById('usuario-form-rol').options.length > 2", 12000); await espera(800);
+  await ev('abrirCreacionUsuario()'); await espera(300);
+  const casilla = () => ev("(() => { const c = document.getElementById('campo-usuario-es-candidato'); return { vis: getComputedStyle(c).display !== 'none', marcada: document.getElementById('usuario-form-es-candidato').checked }; })()");
+  const poner = (rol) => ev(`(() => { const s = document.getElementById('usuario-form-rol'); s.value = ${JSON.stringify(rol)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  ok((await casilla()).vis === false, 'Usuarios: sin rol elegido, la casilla «Es el candidato» no se ve');
+  await poner('lider'); ok((await casilla()).vis === false, 'Usuarios: con rol Líder, no se ve');
+  await poner('admin'); ok((await casilla()).vis === true, 'Usuarios: con rol Administrador, se ve');
+  await ev("document.getElementById('usuario-form-es-candidato').click()");
+  ok((await casilla()).marcada === true, 'y se puede marcar');
+  await foto('22-usuarios-casilla-es-candidato');
+  await poner('coordinador'); const despues = await casilla();
+  ok(despues.vis === false && despues.marcada === false, 'si el rol cambia a otro, la casilla desaparece y se apaga sola', despues);
+  ok(p.avisos.filter((x) => !/tile|Failed to load|favicon/i.test(x)).length === 0, 'Usuarios: sin errores de consola', p.avisos);
+  await q("DELETE FROM usuarios WHERE email IN (?, ?)", [CORREO_ADM_CAND, CORREO_ADM_SIN]);
+  await movil();
 
   // Escritorio 1280
   console.log('  — Escritorio (1280 px)');

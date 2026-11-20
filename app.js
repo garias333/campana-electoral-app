@@ -454,6 +454,8 @@ app.get('/', (req, res) => {
     }
     // El candidato principal: el servidor no ve el ancho de la pantalla, así que lo manda al ingreso, que sí lo ve y lo lleva a su app (celular) o al panel (computador).
     if (req.session.usuario.rol === 'candidato') return res.redirect('/login.html');
+    // Orden 81: igual para el administrador que también es el candidato: el ingreso ve el ancho de la pantalla y lo lleva a su app (celular) o al panel (computador).
+    if (req.session.usuario.rol === 'admin' && req.session.usuario.es_candidato) return res.redirect('/login.html');
     // El Invitado entra a registrar y a nada más: se le lleva directo al
     // formulario, sin pasar por un menú donde casi todo le está vedado.
     if (req.session.usuario.rol === 'invitado') {

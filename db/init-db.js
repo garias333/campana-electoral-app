@@ -2660,6 +2660,13 @@ async function main() {
     "es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: única cuenta con control total. Ver config/superadmin.js' AFTER ultimo_login",
     'es_superadmin');
 
+  /* ORDEN 81: «ES EL CANDIDATO». Un administrador que a la vez es el candidato principal usa la app del candidato (parches 348-352) SIN dejar de ser administrador:
+     un solo usuario, un solo rol (admin) y esta marca. Solo vale en cuentas de rol administrador (las rutas de Usuarios la apagan si el rol cambia). El rol
+     «candidato» puro no la usa. Idempotente. */
+  await agregarColumnaSiFalta(connection, 'usuarios',
+    "es_candidato TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador que también es el candidato principal: usa la app del candidato con su rol de admin (orden 81). Solo vale con rol admin.' AFTER es_superadmin",
+    'es_candidato');
+
   /* EL TELEFONO AL QUE ESCRIBE QUIEN NECESITA SOPORTE. Vive en la fila del
      superadministrador y no en `configuracion_campana` a proposito: la
      configuracion de campaña la edita cada admin de campaña, y el soporte lo

@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   bloqueado_hasta DATETIME NULL,
   ultimo_login DATETIME NULL,
   es_superadmin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Superadministrador: la única cuenta con control total. Conserva rol_id de admin —de ahí saca sus permisos, ver config/superadmin.js— y esta bandera le suma lo demás: nadie más la ve ni la puede tocar. NINGUNA ruta de la aplicación la escribe; se otorga con scripts/elevar-superadmin.js',
+  es_candidato TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'El administrador que también es el candidato principal: usa la app del candidato con su rol de admin (orden 81). Solo vale con rol admin.',
   -- Solo del superadministrador: el WhatsApp de soporte que ve toda la
   -- aplicación, en la barra lateral debajo de Ayuda.
   telefono_soporte VARCHAR(20) NULL,

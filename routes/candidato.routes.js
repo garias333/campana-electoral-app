@@ -1,5 +1,5 @@
 /**
- * /api/candidato — lo que ve el CANDIDATO PRINCIPAL en su app del celular (orden 70). SOLO GET, solo rol candidato (y admin, para probar).
+ * /api/candidato — lo que ve el CANDIDATO PRINCIPAL en su app del celular (orden 70). SOLO GET, solo rol candidato (o administrador con la marca «Es el candidato», orden 81).
  *
  * No devuelve finanzas ni cédulas: son cifras de toda la campaña y, del equipo, nombre, zona, avance y el celular (para llamar o abrir WhatsApp).
  * La lógica vive en lib/candidatoResumen.js, que reutiliza la de «Mi equipo», el alcance del panel del administrador y los paneles de Solicitudes y Tareas.
@@ -21,13 +21,14 @@
 
 const express = require('express');
 const pool = require('../config/db');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
+const { requiereCandidato } = require('../config/esCandidato');
 const { filtroOcultar } = require('../config/superadmin');
 const Lib = require('../lib/candidatoResumen');
 const { complementoActivo } = require('../lib/complementos');
 
 const router = express.Router();
-router.use(requireAuth, requireRole('candidato', 'admin'));
+router.use(requireAuth, requiereCandidato);   // el rol «candidato», o el administrador marcado «Es el candidato» (orden 81); antes pasaba cualquier administrador
 router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const FALLO = 'No se pudo cargar la información. Intente de nuevo.';

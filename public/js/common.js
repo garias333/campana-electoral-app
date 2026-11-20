@@ -1453,6 +1453,14 @@ async function inicializarLayout(paginaActiva) {
       document.head.appendChild(s);
     }
   }
+  /* ORDEN 81: el administrador que también es el candidato NO es atrapado por la guarda de arriba (esa es solo del rol «candidato»): sigue siendo administrador. Pero si hoy está
+     en modo candidato y abre una pantalla en modo app (`?app=1`), recibe lo mismo que el candidato: «Salir» y la letra grande (candidato-nav.js decide por el modo recordado). */
+  if (usuario && usuario.rol === 'admin' && usuario.es_candidato && new URLSearchParams(window.location.search).get('app') === '1') {
+    const s = document.createElement('script');
+    s.src = '/app/candidato-nav.js';
+    s.onload = () => { if (typeof window.cPrepararModoApp === 'function') window.cPrepararModoApp(usuario); };
+    document.head.appendChild(s);
+  }
   // De quién son las pendientes sin señal que esta pantalla guarde (parche 329): antes solo lo anotaban las pantallas de la app.
   if (typeof registrarUsuarioSinSenal === 'function' && usuario && usuario.id !== undefined) registrarUsuarioSinSenal(usuario.id);
 

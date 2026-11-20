@@ -232,7 +232,7 @@ router.get('/admin', requireRole('admin', 'aspirante'), async (req, res) => {
     // usuarios») sale de estas mismas filas, así que tampoco lo delata.
     const ocultar = await filtroOcultar(req.session.usuario);
     const [rows] = await pool.query(`
-      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin, u.telefono_soporte,
+      SELECT u.id, u.nombre, u.numero_identificacion, u.nombre_usuario, u.email, u.telefono, u.credenciales_enviadas, r.nombre AS rol, u.activo, u.es_superadmin, u.es_candidato, u.telefono_soporte,
              u.debe_cambiar_password, u.two_factor_enabled, u.ultimo_login, u.created_at,
              -- MANDA EL TERRITORIO DE ESTRUCTURA. Antes era COALESCE(t.nombre, te.nombre),
              -- o sea la copia de usuarios primero, y esa copia solo se escribe al
@@ -323,6 +323,8 @@ async function confirmarConSuPassword(req, res) {
 
 router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
   const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, password } = req.body;
+  // «Es el candidato» (orden 81): solo con rol administrador. Con cualquier otro rol se guarda en 0 aunque el formulario lo mande.
+  const esCandidatoMarca = rol === 'admin' && req.body.es_candidato ? 1 : 0;
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
   }
@@ -344,14 +346,14 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
     const hash = await bcrypt.hash(passwordFinal, 12);
 
     const [result] = await pool.query(
-      `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, telefono, debe_cambiar_password)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, telefono, debe_cambiar_password, es_candidato)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
       // Vacio con cedula a la mano: la cedula. Es lo que promete el campo del
       // formulario, y guardar NULL dejaba a la persona sin con que entrar
       // salvo por su correo — que un lider no suele tener.
       [nombre, (numero_identificacion || '').trim() || null,
        (nombre_usuario || '').trim() || (numero_identificacion || '').trim() || null,
-       email.trim().toLowerCase(), hash, rolFila.id, telefono ? telefono.replace(/\D/g, '') : null]
+       email.trim().toLowerCase(), hash, rolFila.id, telefono ? telefono.replace(/\D/g, '') : null, esCandidatoMarca]
     );
     // Coordinador con cédula: su clave del celular nace sola (los últimos 6 dígitos). No tumba el alta si falla.
     await sincronizarClaveCelular(pool, result.insertId);
@@ -385,6 +387,7 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   // superadministrador— y el de contraseña.
   if (await protegerObjetivo(req, res, req.params.id)) return;
   const { nombre, numero_identificacion, nombre_usuario, email, telefono, rol, activo, password, telefono_soporte } = req.body;
+  const esCandidatoMarca = rol === 'admin' && req.body.es_candidato ? 1 : 0;   // orden 81: solo con rol administrador; si el rol cambia a otro, se apaga sola
   /* `telefono_soporte` SOLO EXISTE PARA EL SUPERADMINISTRADOR, y se comprueba
      aunque el formulario no lo muestre a nadie más: un campo que la pantalla
      esconde sigue siendo un campo que se puede mandar a mano. */
@@ -481,6 +484,11 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
          email.trim().toLowerCase(), telefono ? telefono.replace(/\D/g, '') : null, rolFila.id, activo ? 1 : 0, req.params.id]
       );
     }
+
+    // «Es el candidato» (orden 81) va en su propio UPDATE, como el teléfono de soporte: no se mezcla en los dos de arriba. Con rol distinto de administrador queda en 0.
+    // Con otro rol se apaga; con rol administrador solo cambia si el formulario la trajo (un PUT que no sabe de la casilla no la borra).
+    if (rol !== 'admin') await pool.query('UPDATE usuarios SET es_candidato = 0 WHERE id = ?', [req.params.id]);
+    else if (req.body.es_candidato !== undefined) await pool.query('UPDATE usuarios SET es_candidato = ? WHERE id = ?', [esCandidatoMarca, req.params.id]);
 
     // Cambiarle la cédula o el rol a un coordinador recalcula (o quita) su clave del celular; la vieja deja de servir.
     await sincronizarClaveCelular(pool, req.params.id);

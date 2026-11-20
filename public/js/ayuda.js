@@ -507,7 +507,9 @@
     if (!usuario) return;
     modoAdmin = usuario.rol === 'admin' && !usuario.es_aspirante;
     // El candidato (orden 77) vuelve a SU «Más», no al menú de /app/inicio.html.
-    if (usuario.rol === 'candidato' && $('btn-app')) $('btn-app').setAttribute('href', '/app/candidato-mas.html');
+    var modoAdminMarcado = false;   // orden 81: el administrador que también es el candidato, si hoy usa la app del candidato
+    try { modoAdminMarcado = usuario.rol === 'admin' && !!Number(usuario.es_candidato) && localStorage.getItem('modo_admin_candidato') !== 'admin'; } catch (e) { modoAdminMarcado = false; }
+    if ((usuario.rol === 'candidato' || modoAdminMarcado) && $('btn-app')) $('btn-app').setAttribute('href', '/app/candidato-mas.html');
     var clave = new URLSearchParams(location.search).get('manual');
 
     var temporizador = null;

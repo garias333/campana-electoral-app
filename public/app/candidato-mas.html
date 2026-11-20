@@ -34,7 +34,9 @@ function tarjeta(t) {
   return '<button type="button" class="menu-boton" data-accion="' + cEsc(t.accion) + '">' + interior + '</button>';
 }
 function pintarMenu(s) {
-  const grupos = [
+  // Orden 81: el administrador que también es el candidato ve arriba «Modo administrador», que lo lleva a la app de administración del celular (allí, «Modo candidato» lo regresa).
+  const modo = cEsAdminCandidato(usuario) ? [{ titulo: 'Cambiar de modo', items: [{ ic: '🛠️', texto: 'Modo administrador', accion: 'modo_admin' }] }] : [];
+  const grupos = modo.concat([
     { titulo: 'Registro', items: [
       s.registro && { ic: '➕', texto: 'Registrar en la estructura territorial', href: '/territorial.html?app=1&volver=/app/candidato.html#nuevo' },
       { ic: '🗳️', texto: 'Consultar puesto de votación', href: '/app/puesto-votacion.html' } ] },
@@ -53,7 +55,7 @@ function pintarMenu(s) {
       s.legislacion && { ic: '⚖️', texto: 'Legislación', href: '/app/legislacion.html' },
       { ic: '❔', texto: 'Ayuda', href: '/ayuda.html?app=1' },
       { ic: '🚪', texto: 'Cerrar sesión', accion: 'salir' } ] },
-  ];
+  ]);
   document.getElementById('menu-app').innerHTML = grupos
     .map((g) => ({ titulo: g.titulo, items: g.items.filter(Boolean) }))
     .filter((g) => g.items.length)
@@ -67,6 +69,7 @@ function pintarMenu(s) {
   document.getElementById('menu-app').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-accion]'); if (!b) return;
     if (b.dataset.accion === 'salir') cPedirSalir();   // con la misma confirmación que el «Salir» del encabezado
+    if (b.dataset.accion === 'modo_admin') cIrModoAdmin();
   });
   try {
     const r = await cCargar(usuario.id, '/mas');

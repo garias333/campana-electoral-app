@@ -31,11 +31,37 @@
     document.body.appendChild(nav);
   };
 
-  /** Exige sesión Y rol candidato (el administrador pasa, para poder probar). Devuelve el usuario, o null si ya redirigió. */
+  /* ---- MODO (orden 81): el administrador que también es el candidato ----
+     Un administrador con la marca «Es el candidato» (`usuario.es_candidato`) usa las dos apps con UN solo usuario: la del candidato y la de administración del celular.
+     Cuál de las dos está usando se RECUERDA EN ESE EQUIPO (localStorage `modo_admin_candidato` = 'admin' | 'candidato'); sin dato, entra como candidato. Se anota solo, al
+     entrar a cualquiera de las dos apps (exigirCandidatoApp / exigirAdminApp / inicio.html), y con los botones «Modo administrador» y «Modo candidato».
+     El rol «candidato» puro siempre está en modo candidato. Es comodidad de la pantalla: lo que cada uno puede hacer lo decide el servidor por su rol. */
+  var CLAVE_MODO = 'modo_admin_candidato';
+  global.cEsAdminCandidato = function (usuario) { return !!usuario && usuario.rol === 'admin' && !!Number(usuario.es_candidato); };
+  global.cModoGuardado = function () {
+    try { return localStorage.getItem(CLAVE_MODO) === 'admin' ? 'admin' : 'candidato'; } catch (e) { return 'candidato'; }
+  };
+  global.cFijarModo = function (modo) {
+    try { localStorage.setItem(CLAVE_MODO, modo === 'admin' ? 'admin' : 'candidato'); } catch (e) { /* sin almacenamiento: vale solo esta vez */ }
+  };
+  /** ¿Esta persona está usando AHORA la app del candidato? (rol candidato; o administrador marcado en modo candidato.) */
+  global.cEsModoCandidato = function (usuario) {
+    if (!usuario) return false;
+    if (usuario.rol === 'candidato') return true;
+    return global.cEsAdminCandidato(usuario) && global.cModoGuardado() === 'candidato';
+  };
+  /** «Modo administrador»: recuerda la elección y va a la app de administración del celular. */
+  global.cIrModoAdmin = function () { global.cFijarModo('admin'); window.location.href = '/app/admin-panel.html'; };
+
+  /** Exige sesión Y ser el candidato: rol candidato, o administrador con la marca «Es el candidato». Un administrador SIN la marca va a su app de administración. Devuelve el usuario, o null si ya redirigió. */
   global.exigirCandidatoApp = async function (activo) {
     var usuario = await requerirSesionApp();
     if (!usuario) return null;
-    if (usuario.rol !== 'candidato' && usuario.rol !== 'admin') { window.location.replace('/app/inicio.html'); return null; }
+    if (usuario.rol !== 'candidato' && !global.cEsAdminCandidato(usuario)) {
+      window.location.replace(usuario.rol === 'admin' ? '/app/admin-panel.html' : '/app/inicio.html');
+      return null;
+    }
+    if (global.cEsAdminCandidato(usuario)) global.cFijarModo('candidato');   // abrió la app del candidato: ese es el modo de este equipo
     if (activo) global.montarNavCandidato(activo);
     global.cMontarSalir();   // «Salir» en el encabezado de TODA pantalla del candidato (orden 79): un solo componente, aquí
     return usuario;
@@ -224,7 +250,7 @@
      Las comparten los demás roles: NO cambia nada para ellos. Cuando las abre el candidato, app-comun.js (requerirSesionApp) y common.js (inicializarLayout)
      llaman a esto: pone `cand-app` en <body> (candidato-letra.css agranda la letra SOLO con esa clase), carga este mismo archivo y monta «Salir». */
   global.cPrepararModoApp = async function (usuario) {
-    if (!usuario || usuario.rol !== 'candidato') return;
+    if (!global.cEsModoCandidato(usuario)) return;
     if (document.body.classList.contains('cand')) return;   // las pantallas candidato*.html traen su propia hoja y su propio «Salir»
     document.body.classList.add('cand-app');
     document.documentElement.classList.add('cand-app');

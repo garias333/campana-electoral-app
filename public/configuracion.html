@@ -715,6 +715,14 @@
         <!-- El orden es la cadena de mando, no el alfabeto: lo arma el JS por rango. -->
         <select id="usuario-form-rol" data-sin-ordenar required></select>
       </div>
+      <!-- ORDEN 81. Solo con rol Administrador: la misma persona administra Y es el candidato principal. Sigue siendo administrador con todos sus permisos;
+           en el celular entra a la app del candidato y puede pasar a la de administración (y volver) con un botón. Si el rol cambia a otro, se apaga sola. -->
+      <div class="campo" id="campo-usuario-es-candidato" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="usuario-form-es-candidato"> Es el candidato
+        </label>
+        <small style="color:var(--color-text-muted); font-size:0.8rem;">En el celular entra a la app del candidato y puede cambiar a «Modo administrador» y volver. En el computador sigue en el panel de administrador.</small>
+      </div>
       <div class="campo" id="campo-usuario-activo" style="display:none;">
         <label style="display:flex; align-items:center; gap:8px;">
           <input type="checkbox" id="usuario-form-activo" checked> Usuario activo
@@ -1640,10 +1648,19 @@ document.getElementById('usuario-form-password').addEventListener('input', () =>
   passwordTocadaManualmente = true;
 });
 
+/** «Es el candidato» solo se ofrece con rol Administrador; con otro rol se apaga sola (el servidor también lo apaga). */
+function sincronizarCasillaEsCandidato() {
+  const esAdmin = document.getElementById('usuario-form-rol').value === 'admin';
+  document.getElementById('campo-usuario-es-candidato').style.display = esAdmin ? 'block' : 'none';
+  if (!esAdmin) document.getElementById('usuario-form-es-candidato').checked = false;
+}
+document.getElementById('usuario-form-rol').addEventListener('change', sincronizarCasillaEsCandidato);
+
 function abrirCreacionUsuario() {
   document.getElementById('form-usuario').reset();
   document.getElementById('usuario-form-id').value = '';
   document.getElementById('usuario-form-titulo').textContent = 'Crear usuario';
+  sincronizarCasillaEsCandidato();
   // Nadie crea un superadministrador desde aquí (`scripts/elevar-superadmin.js`
   // es el único camino), así que en el alta el campo no tiene sentido.
   document.getElementById('campo-telefono-soporte').style.display = 'none';
@@ -1713,6 +1730,8 @@ async function abrirEdicionUsuario(u) {
   document.getElementById('usuario-form-telefono-soporte').value =
     esSuper ? formatoTelefonoColombia(u.telefono_soporte || '') : '';
   document.getElementById('usuario-form-rol').value = u.rol;
+  document.getElementById('usuario-form-es-candidato').checked = u.rol === 'admin' && !!Number(u.es_candidato);
+  sincronizarCasillaEsCandidato();
   document.getElementById('usuario-form-activo').checked = !!u.activo;
   document.getElementById('campo-usuario-activo').style.display = 'block';
   // La contraseña queda vacía por defecto: si el admin no escribe nada, no
@@ -1870,6 +1889,8 @@ document.getElementById('form-usuario').addEventListener('submit', async (e) => 
     rol: document.getElementById('usuario-form-rol').value,
     password: document.getElementById('usuario-form-password').value
   };
+  // Orden 81: solo viaja con la casilla a la vista (rol Administrador); un administrador editado desde otra pantalla que no la trae no la pierde.
+  if (document.getElementById('campo-usuario-es-candidato').style.display !== 'none') datos.es_candidato = document.getElementById('usuario-form-es-candidato').checked;
   if (id) {
     datos.activo = document.getElementById('usuario-form-activo').checked;
     // La que ya se confirmó al abrir. Va con nombre propio y no dentro de

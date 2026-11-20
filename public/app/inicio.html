@@ -162,6 +162,8 @@ const MENU_COORDINADOR = [
 // No incluye Biografía del candidato (el administrador la edita desde Compartir contenido). La Política de privacidad SÍ (parche 311): sin ella, desde el
 // celular no había cómo llegar a la pantalla donde se edita y donde el recuadro ámbar muestra el párrafo de las visitas.
 const MENU_ADMIN = [
+  // Orden 81: solo para el administrador que también es el candidato (marca «Es el candidato»): abre la app del candidato (que recuerda ese modo en este equipo).
+  { href: '/app/candidato.html', icono: '🎖️', titulo: 'Modo candidato', subtitulo: 'La app del candidato', soloAdminCandidato: true },
   { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
   { href: '/app/mis-avisos.html', icono: '🔔', titulo: 'Mis avisos', subtitulo: 'Lo que te mandó la campaña, completo', insigniaAvisos: true },
   { href: '/app/admin-estructura.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
@@ -227,6 +229,7 @@ async function modulosPermitidosApp() {
    Clave: el href de la entrada → [grupo, lugar dentro del grupo]. Lo que NO figura aquí va a un grupo aparte (45) entre el 4 y el 5, en el orden que ya
    traía su lista: hoy no queda nada ahí, y es donde caería una entrada nueva a la que todavía no se le dio lugar. */
 const ORDEN_MENU_APP = {
+  '/app/candidato.html': [0, 0],
   '/app/admin-panel.html': [0, 1],
   '/app/admin-votantes.html': [0, 2],
   '/app/admin-mapa.html': [0, 3],
@@ -308,7 +311,8 @@ function pintarMenu(rol, modulosPermitidos, esAspirante, complementos) {
                               && (!it.modulo || (modulosPermitidos || []).includes(it.modulo))
                               && (!it.modulos || it.modulos.some(m => (modulosPermitidos || []).includes(m)))
                               && (!it.soloSiEscritorio || prefiereEscritorio)
-                              && (!it.soloAspirante || esAspirante));
+                              && (!it.soloAspirante || esAspirante)
+                              && (!it.soloAdminCandidato || window.__esAdminCandidato === true));
   document.getElementById('menu-app').innerHTML = agruparMenuApp(items)
     .map(grupo => `<section class="menu-grupo"><h2 class="menu-grupo-titulo">${tituloGrupoMenuApp(grupo.g)}</h2>`
       + `<div class="menu-grid">${grupo.items.map(tarjetaMenuApp).join('')}</div></section>`)
@@ -380,6 +384,14 @@ function pintarCampana(campana, bio) {
   if (usuario.rol === 'candidato') {
     window.location.replace('/app/candidato.html');
     return;
+  }
+  /* ORDEN 81: el administrador que también es el candidato. El ícono de la app instalada abre ESTA pantalla (start_url fijo): si en este equipo el último modo fue el de
+     candidato —o nunca eligió—, se le lleva a su app; si fue el de administrador, ve su menú de siempre (con «Modo candidato» arriba). */
+  if (usuario.rol === 'admin' && Number(usuario.es_candidato)) {
+    let modoAdmin = false;
+    try { modoAdmin = localStorage.getItem('modo_admin_candidato') === 'admin'; } catch (e) { modoAdmin = false; }
+    if (!modoAdmin) { window.location.replace('/app/candidato.html'); return; }
+    window.__esAdminCandidato = true;
   }
 
   if (usuario.rol === 'coordinador') document.body.classList.add('inicio-coordinador');   // orden 68: el nuevo diseño de «Mi equipo» (solo el coordinador)

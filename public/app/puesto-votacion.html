@@ -48,7 +48,7 @@
   const usuario = await requerirSesionApp();
   if (!usuario) return;
   // El candidato vuelve a SU app (orden 73), no al menú de líder.
-  const inicio = usuario.rol === 'candidato' ? '/app/candidato-mas.html' : '/app/inicio.html';
+  const inicio = inicioDeLaApp(usuario);
   document.getElementById('btn-volver-menu').onclick = () => { window.location.href = inicio; };
   pintarBarraApp('Puesto de votación', null, inicio);
 })();

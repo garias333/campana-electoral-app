@@ -57,7 +57,8 @@ function cargarCerrarSesionApp() {
    los demás roles. Solo cuando las abre él se les pone `cand-app` (letra más grande) y su botón «Salir»; todo vive en /app/candidato-nav.js y candidato-letra.css.
    Para cualquier otro rol esto no hace nada. Si el archivo no carga, la pantalla sigue funcionando igual, sin «Salir». */
 async function activarModoCandidatoApp(usuario) {
-  if (!usuario || usuario.rol !== 'candidato') return usuario;
+  // El rol candidato, o el administrador marcado «Es el candidato» (orden 81; cPrepararModoApp decide si hoy está en modo candidato).
+  if (!usuario || (usuario.rol !== 'candidato' && !(usuario.rol === 'admin' && Number(usuario.es_candidato)))) return usuario;
   try {
     if (typeof window.cPrepararModoApp !== 'function') {
       await new Promise((ok) => {
@@ -284,6 +285,8 @@ function pintarBarraApp(titulo, subtitulo, destinoVolver) {
   `;
   // Orden 79: el candidato lleva «Salir» en cada barra (la barra se rehace aquí, así que se vuelve a montar).
   if (document.body.classList.contains('cand-app') && typeof window.cMontarSalir === 'function') window.cMontarSalir();
+  // Orden 81: el administrador que también es el candidato lleva «Modo candidato» en la barra de cada pantalla de la app de administración.
+  if (typeof window.cMontarBotonModoCandidato === 'function') window.cMontarBotonModoCandidato();
 }
 
 /* ------------------------------------------------------------------
@@ -599,5 +602,5 @@ function preguntarClaveCelularApp(info) {
  * El candidato principal (orden 75) tiene su propia app: vuelve a SU «Más», nunca al menú de /app/inicio.html. Los demás, a /app/inicio.html como siempre.
  */
 function inicioDeLaApp(usuario) {
-  return usuario && usuario.rol === 'candidato' ? '/app/candidato-mas.html' : '/app/inicio.html';
+  return (typeof window.cEsModoCandidato === 'function' && window.cEsModoCandidato(usuario)) ? '/app/candidato-mas.html' : '/app/inicio.html';
 }

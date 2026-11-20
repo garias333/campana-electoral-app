@@ -623,3 +623,10 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-i
 .tarjeta-clave-celular .aviso-clave-anterior { background: var(--aviso-fondo); color: var(--aviso); border-radius: 12px; padding: 10px 12px; }
 .tarjeta-clave-celular .exito-clave { color: var(--ok); font-weight: 700; font-size: 1.05rem; }
 .tarjeta-clave-celular .btn-app { width: 100%; margin-top: 10px; }
+
+/* Orden 81: «Modo candidato», en la barra de las pantallas de administración del celular, SOLO para el administrador marcado «Es el candidato». */
+.app-barra .btn-modo-candidato {
+  margin-left: auto; flex: none; min-height: 44px; padding: 0 14px; border: 0; border-radius: 22px; cursor: pointer;
+  background: var(--marca-amarillo); color: #1b2333; font: inherit; font-size: 14px; font-weight: 800; line-height: 1;
+}
+.app-barra:has(.btn-modo-candidato) > div { min-width: 0; }
