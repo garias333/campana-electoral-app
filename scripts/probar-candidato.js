@@ -375,7 +375,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const nav = await lanzar();
   const p = await nav.pagina('about:blank');
   const { cmd, ev } = p;
-  const movil = () => cmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  const movil = (w = 390, h = 844) => cmd('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 2, mobile: true });
   const escritorio = () => cmd('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   const ir = async (url) => { await cmd('Page.navigate', { url }); await espera(1000); };
   const esperar = async (expr, ms = 9000) => { const hasta = Date.now() + ms; while (Date.now() < hasta) { try { if (await ev(expr)) return true; } catch (_) { /* cargando */ } await espera(150); } return false; };
@@ -398,6 +398,8 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await ev(`(() => { const e = document.getElementById('campo-email'); e.value = ${JSON.stringify(CORREO)}; document.getElementById('campo-password').value = ${JSON.stringify(CLAVE)}; document.querySelector('#form-login button[type=submit]').click(); })()`);
   ok(await esperar("location.pathname === '/app/candidato.html'", 12000), 'el candidato cae en /app/candidato.html', await ruta());
 
+  // SOLO79=1 salta lo anterior (ya probado) para iterar rápido sobre la orden 79: entra y va directo a su bloque.
+  if (!process.env.SOLO79) {
   // Inicio
   ok(await esperar("document.getElementById('contenido').style.display !== 'none'"), 'el Inicio carga');
   await espera(600);
@@ -557,15 +559,10 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(lista('Seguimiento').join('|') === 'Solicitudes|Tareas|Puerta a puerta|Día D · avance de votación', 'Seguimiento: Solicitudes, Tareas, Puerta a puerta y Día D', lista('Seguimiento'));
   ok(lista('Material de apoyo').join('|') === 'Biografía del candidato|Información para compartir', 'Material de apoyo: Biografía e Información para compartir', lista('Material de apoyo'));
   ok(lista('Mi cuenta y ayuda').join('|') === 'Mis avisos|Cambiar mi clave|Política de privacidad|Legislación|Ayuda|Cerrar sesión', 'Mi cuenta y ayuda: Mis avisos, Cambiar mi clave, Política, Legislación, Ayuda y Cerrar sesión', lista('Mi cuenta y ayuda'));
-  ok(mas.cols === 3 && /255, 195, 0/.test(mas.barra) && parseInt(mas.icono, 10) === 42, 'es la cuadrícula del menú de la app: 3 columnas, barra amarilla #FFC300 y icono en cuadro de 42 px', { c: mas.cols, b: mas.barra, i: mas.icono });
+  ok(mas.cols === 2 && /255, 195, 0/.test(mas.barra) && parseInt(mas.icono, 10) === 42, 'es la cuadrícula del menú de la app: barra amarilla #FFC300 e icono en cuadro de 42 px; con la letra de 15 px, dos columnas en el celular (orden 79: en tres, «Información» se partía)', { c: mas.cols, b: mas.barra, i: mas.icono });
   ok(!mas.listaVieja && mas.grupoTit === 0, 'ya no queda nada de la lista de filas con flecha');
   ok(mas.titulo === 'Más opciones' && /Actualizado/.test(mas.estado) && mas.nav.join(',') === 'Inicio,Equipo,Mapa,Agenda,Más', 'se mantiene el encabezado «Más opciones», «Actualizado hace…» y la barra inferior', mas);
-  for (const id of ['solicitudes', 'tareas', 'puerta', 'dia_d']) {
-    await ev(`document.querySelector('button.menu-boton[data-accion=${id}]').click()`); await espera(900);
-    const t = await texto('#detalle');
-    ok(t.length > 5 && !mala(t), `Más › ${id}: se abre sin NaN/undefined`, t.slice(0, 160));
-  }
-  await ev("document.querySelector('button.menu-boton[data-accion=solicitudes]').click()"); await espera(900);
+  ok(await ev("!document.getElementById('detalle') && document.querySelectorAll('button.menu-boton[data-accion]').length === 1"), 'Más: ya no hay resumen que se despliega debajo; solo «Cerrar sesión» es botón, el resto abre pantalla', await ev("[...document.querySelectorAll('button.menu-boton')].map(b => b.dataset.accion)"));
   ok(await sinDesborde() && p.avisos.length === 0, 'Más: sin desborde ni errores de consola', p.avisos);
   await ev('window.scrollTo(0, 0)'); await espera(300);
   await foto('6-mas' + sufijo);
@@ -714,17 +711,181 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(apag.grupos.map((g) => g.t).join('|') === 'Registro|Mi cuenta y ayuda' && apag.grupos.every((g) => g.items.length > 0), 'con Seguimiento y Material apagados: no salen sus grupos (ni títulos solos ni huecos)', apag.grupos);
   ok(await sinDesborde() && p.avisos.length === 0, 'Más con módulos apagados: sin desborde ni errores de consola', p.avisos);
   await foto('13-mas-modulos-apagados');
+  await ir(base + '/app/candidato-seguimiento.html?seccion=tareas'); await esperar("!document.querySelector('#contenido .cargando')"); await espera(400);
+  ok(/No se pudo abrir esta sección/.test(await texto('#contenido')) && await ev("!!document.querySelector('.btn-volver')"), 'Seguimiento con la sección apagada: lo dice claro y ofrece volver (el servidor sigue respondiendo 403)', await texto('#contenido'));
+  await ir(base + '/app/candidato-seguimiento.html?seccion=inventada'); await esperar("location.pathname === '/app/candidato-mas.html'", 6000);
+  ok(await ruta() === '/app/candidato-mas.html', 'una sección que no existe vuelve a «Más»', await ruta());
   await q("UPDATE complementos_campana SET activo = 0 WHERE clave = 'puerta_panel'"); await require('./fixtures/encender-complementos')(pool, ['tareas']);
   await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
   const parc = await leerMas();
   ok((parc.grupos.find((g) => g.t === 'Seguimiento') || { items: [] }).items.join('|') === 'Tareas', 'con solo Tareas encendido, Seguimiento trae únicamente Tareas', parc.grupos);
   await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel']);
   await q("UPDATE permisos_rol SET permitido = 1 WHERE rol = 'candidato' AND modulo IN ('rescate_votos','biografia_candidato','recursos')");
+  require('../lib/complementos').invalidar();
 
-  // Cerrar sesión desde Más
+  } // fin de lo que SOLO79 salta
+
+  /* ================= ORDEN 79: Seguimiento en pantallas propias, «Salir» en cada pantalla, letra grande ================= */
+  const MEDIR = `(() => {
+    const res = { base: parseFloat(getComputedStyle(document.body).fontSize), menores: [], cortados: [], fuera: [], n: 0 };
+    const visible = (el) => { const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false; for (let e = el; e && e !== document.documentElement; e = e.parentElement) { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return false; } return true; };
+    const ajeno = (el) => !!el.closest('.leaflet-control-attribution, .leaflet-control-zoom, .leaflet-container, .chips, .tira, .hoja:not(.abierta), #salir-confirma, option');
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const vistos = new Set();
+    while (w.nextNode()) {
+      const t = w.currentNode; if (!t.nodeValue.trim()) continue;
+      const el = t.parentElement; if (!el || vistos.has(el) || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(el.tagName) || el.closest('.leaflet-control-attribution') || !visible(el)) continue;
+      vistos.add(el); res.n++;
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      if (fs < (el.closest('#nav-candidato') ? 12 : 14)) res.menores.push(el.tagName + '.' + (el.className.baseVal !== undefined ? el.className.baseVal : el.className) + ' ' + fs + 'px «' + t.nodeValue.trim().slice(0, 28) + '»');
+    }
+    res.partidas = [];
+    document.querySelectorAll('.menu-boton .texto strong, #chips-cargo-persona .chip-form').forEach((el) => {
+      if (!visible(el)) return;
+      const cv = document.createElement('canvas').getContext('2d'); const cs = getComputedStyle(el); cv.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      const util = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      el.innerText.split(/\\s+/).forEach((pal) => { if (pal && cv.measureText(pal).width > util + 0.5) res.partidas.push(pal + ' ' + Math.round(cv.measureText(pal).width) + '>' + Math.round(util)); });
+    });
+    document.querySelectorAll('input, select, textarea').forEach((el) => { if (visible(el) && el.type !== 'hidden' && el.type !== 'checkbox' && el.type !== 'radio' && parseFloat(getComputedStyle(el).fontSize) < 14) res.menores.push(el.tagName + '#' + el.id + ' ' + getComputedStyle(el).fontSize); });
+    document.querySelectorAll('body *').forEach((el) => {
+      if (!visible(el) || ajeno(el)) return;
+      const s = getComputedStyle(el);
+      if ((s.overflowX === 'hidden' || s.textOverflow === 'ellipsis') && el.scrollWidth > el.clientWidth + 1 && el.children.length === 0 && el.innerText) res.cortados.push(el.tagName + '.' + el.className + ' «' + el.innerText.slice(0, 30) + '» ' + el.scrollWidth + '>' + el.clientWidth);
+      const r = el.getBoundingClientRect();
+      if (r.right > innerWidth + 1 || r.left < -1) res.fuera.push(el.tagName + '.' + el.className + ' ' + Math.round(r.left) + '..' + Math.round(r.right));
+    });
+    return res;
+  })()`;
+  const visiblesSalir = () => ev(`[...document.querySelectorAll('.btn-salir')].filter((b) => { const r = b.getBoundingClientRect(); if (r.width < 1) return false; for (let e = b; e && e !== document.documentElement; e = e.parentElement) { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; }).map((b) => { const r = b.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), der: Math.round(r.right), izq: Math.round(r.left), top: Math.round(r.top), txt: b.innerText.trim(), svg: !!b.querySelector('svg'), ancho: innerWidth }; })`);
+  const PANTALLAS = [
+    ['Inicio', '/app/candidato.html', "document.getElementById('contenido').style.display !== 'none'"],
+    ['Equipo', '/app/candidato-equipo.html', "document.getElementById('lista').style.display !== 'none'"],
+    ['Mapa', '/app/candidato-mapa.html', "!!document.querySelector('.btn-salir')"],
+    ['Agenda', '/app/candidato-agenda.html', "!document.querySelector('#lista .cargando')"],
+    ['Más', '/app/candidato-mas.html', "document.querySelectorAll('.menu-boton').length > 0"],
+    ['Solicitudes', '/app/candidato-seguimiento.html?seccion=solicitudes', "!document.querySelector('#contenido .cargando')"],
+    ['Tareas', '/app/candidato-seguimiento.html?seccion=tareas', "!document.querySelector('#contenido .cargando')"],
+    ['Puerta a puerta', '/app/candidato-seguimiento.html?seccion=puerta', "!document.querySelector('#contenido .cargando')"],
+    ['Día D', '/app/candidato-seguimiento.html?seccion=dia_d', "!document.querySelector('#contenido .cargando')"],
+    ['Cambiar mi clave', '/app/candidato-clave.html', "!!document.getElementById('actual')"],
+    ['Consultar puesto', '/app/puesto-votacion.html', "!!document.querySelector('.btn-salir')"],
+    ['Biografía', '/app/biografia.html', "!!document.querySelector('.btn-salir')"],
+    ['Información', '/app/informacion.html?modo=informacion', "!!document.querySelector('.btn-salir')"],
+    ['Política de privacidad', '/app/politica-privacidad.html', "!!document.querySelector('.btn-salir')"],
+    ['Legislación', '/app/legislacion.html', "!!document.querySelector('.btn-salir')"],
+    ['Mis avisos', '/app/mis-avisos.html', "!!document.querySelector('.btn-salir')"],
+    ['Ayuda', '/ayuda.html?app=1', "!!document.querySelector('.btn-salir')"],
+    ['Estructura territorial', '/territorial.html?app=1&volver=/app/candidato-mas.html', "!!document.querySelector('.btn-salir')"],
+    ['Estructura: formulario abierto', '/territorial.html?app=1&volver=/app/candidato-mas.html#nuevo', "!!document.getElementById('overlay-form') && document.getElementById('overlay-form').classList.contains('abierto')"],
+  ];
+  const MUESTRAS = {
+    solicitudes: { total: 12, nuevas: 4, en_tramite: 5, resueltas: 3, sin_sin: 0, sin_movimiento: 2, mas_pedidas: [{ nombre: 'Alumbrado público', total: 5 }, { nombre: 'Vías en mal estado', total: 4 }, { nombre: 'Seguridad y convivencia en el barrio', total: 2 }] },
+    tareas: { total: 20, abiertas: 8, hechas: 9, verificadas: 2, canceladas: 1, vencidas: 3, cumplimiento: 55, por_responsable: [{ nombre: 'Marta Coordinadora Ejemplo', total: 8, abiertas: 3, hechas: 4, vencidas: 1 }, { nombre: 'Pedro Coordinador Muestra', total: 5, abiertas: 2, hechas: 3, vencidas: 0 }] },
+    puerta: { oculto: false, minimo: 5, total: { listas: 3, asignadas: 120, visitadas: 64, visitas: 80 }, zonas: [{ zona: 'Comuna 5 Universitaria', asignadas: 60, visitadas: 40 }, { zona: 'Comuna 2 Centro', asignadas: 60, visitadas: 24 }] },
+    dia_d: { total: 60, votaron: 24, faltan: 36, porcentaje: 40, modo_prueba: true, por_puesto: [{ puesto: 'Colegio San José de la Montaña Sede Central', total: 20, votaron: 5, faltan: 15 }, { puesto: 'Escuela Rural Los Alpes', total: 12, votaron: 6, faltan: 6 }] },
+  };
+  const bloque79 = async (ancho, alto, fotos) => {
+    console.log(`  — Orden 79 a ${ancho}×${alto}: Seguimiento, «Salir» y letra en cada pantalla`);
+    await movil(ancho, alto);
+    const sfx = '-' + ancho;
+    // Seguimiento: cada tarjeta abre SU pantalla, con flecha «←» a «Más»; el atrás del celular también vuelve
+    const SEG = [['Solicitudes', 'solicitudes'], ['Tareas', 'tareas'], ['Puerta a puerta', 'puerta'], ['Día D · avance de votación', 'dia_d']];
+    for (const [rotulo, id] of SEG) {
+      limpiarAvisos(); p.respuestas.length = 0;
+      await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+      const tiles = await ev("[...document.querySelectorAll('a.menu-boton')].map((a) => a.querySelector('.texto strong').innerText.trim())");
+      ok(tiles.includes(rotulo), `${ancho}: «Más» trae la tarjeta ${rotulo}`, { tiles, url: await ev('location.href'), txt: (await texto('body')).slice(0, 200) });
+      if (!tiles.includes(rotulo)) continue;
+      await ev(`[...document.querySelectorAll('a.menu-boton')].find((a) => a.querySelector('.texto strong').innerText.trim() === ${JSON.stringify(rotulo)}).click()`);
+      ok(await esperar(`location.pathname === '/app/candidato-seguimiento.html' && location.search === '?seccion=${id}'`, 8000), `${ancho}: Más › ${rotulo} abre su pantalla propia (no una pestaña nueva ni un resumen debajo)`, await ev('location.href'));
+      await esperar("!document.querySelector('#contenido .cargando')"); await espera(500);
+      const v = await ev(`({ h1: document.getElementById('titulo').innerText, flecha: (document.getElementById('volver') || {}).innerText, href: (document.getElementById('volver') || {}).getAttribute('href'), nav: (document.querySelector('#nav-candidato a.on') || {}).innerText, txt: document.getElementById('contenido').innerText, estado: document.getElementById('estado').innerText, vent: window.history.length })`);
+      ok(v.h1.toLowerCase().indexOf(rotulo.split(' ·')[0].toLowerCase()) === 0 && v.flecha === '←' && v.href === '/app/candidato-mas.html' && /Más/.test(v.nav), `${ancho}: ${rotulo}: título, flecha «←» a Más y «Más» marcado en la barra inferior`, v);
+      ok(v.txt.length > 10 && !mala(v.txt), `${ancho}: ${rotulo}: contenido sin NaN/undefined`, v.txt.slice(0, 200));
+      const malas = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+      ok(malas.length === 0 && p.avisos.length === 0, `${ancho}: ${rotulo}: sin 403/500 ni errores de consola`, { malas, av: p.avisos });
+      // Con cifras de muestra (la base de prueba no trae solicitudes ni tareas): el mismo pintor de la pantalla, con la forma que devuelve el servidor
+      const muestra = MUESTRAS[id];
+      await ev(`document.getElementById('contenido').innerHTML = PINTORES[${JSON.stringify(id)}](${JSON.stringify(muestra)})`); await espera(300);
+      const mm = await ev(MEDIR);
+      ok(mm.menores.length === 0 && mm.cortados.length === 0 && mm.fuera.length === 0 && await sinDesborde(), `${ancho}: ${rotulo} con cifras: letra ≥ 14 px, sin cortes ni desborde`, { a: mm.menores.slice(0, 4), b: mm.cortados.slice(0, 4), c: mm.fuera.slice(0, 4) });
+      ok(!mala(await texto('#contenido')) && (await texto('#contenido')).length > 40, `${ancho}: ${rotulo} con cifras: sin NaN/undefined`, (await texto('#contenido')).slice(0, 200));
+      if (fotos) await foto('16b-seguimiento-' + id + '-con-cifras' + sfx);
+      if (fotos && id === 'solicitudes') { await foto('16-seguimiento-solicitudes' + sfx); }
+      if (fotos && id === 'dia_d') { await foto('17-seguimiento-dia-d' + sfx); }
+      await ev('history.back()');
+      ok(await esperar("location.pathname === '/app/candidato-mas.html'", 6000), `${ancho}: ${rotulo}: el botón atrás del celular vuelve a «Más»`, await ruta());
+      await ir(base + `/app/candidato-seguimiento.html?seccion=${id}`); await esperar("!document.querySelector('#contenido .cargando')");
+      await ev("document.getElementById('volver').click()");
+      ok(await esperar("location.pathname === '/app/candidato-mas.html'", 6000), `${ancho}: ${rotulo}: la flecha «←» vuelve a «Más»`, await ruta());
+    }
+    // Cada pantalla: «Salir» (44 px, a la derecha, con confirmación), letra y desborde
+    for (const [nombre, url, listo] of PANTALLAS) {
+      limpiarAvisos();
+      if (/#nuevo/.test(url)) await ir('about:blank');   // misma página con otro # no recarga: el formulario solo se abre al cargar
+      await ir(base + url); ok(await esperar(listo, 14000), `${ancho}: ${nombre}: carga lista`, url); await espera(/Ayuda|Estructura|Legislación|Mapa|Información/.test(nombre) ? 3000 : 900);
+      const sal = await visiblesSalir();
+      ok(sal.length === 1 && sal[0].h >= 44 && sal[0].w >= 44 && sal[0].txt === 'Salir' && sal[0].svg && sal[0].der <= sal[0].ancho && sal[0].izq > sal[0].ancho / 2 && sal[0].top < 140, `${ancho}: ${nombre}: un solo «Salir» (puerta con flecha), ≥ 44 px, arriba a la derecha`, sal);
+      await ev("[...document.querySelectorAll('.btn-salir')].find((b) => b.getBoundingClientRect().width > 0).click()"); await espera(250);
+      const dlg = await ev(`(() => { const d = document.getElementById('salir-confirma'); return d ? { t: d.innerText.replace(/\\n+/g, ' | '), botones: [...d.querySelectorAll('button')].map((b) => b.innerText.trim()) } : null; })()`);
+      ok(dlg && /¿Cerrar sesión\?/.test(dlg.t) && dlg.botones.join(',') === 'Cancelar,Sí, salir', `${ancho}: ${nombre}: «Salir» pide «¿Cerrar sesión?» con Cancelar y Sí`, dlg);
+      if (fotos && nombre === 'Inicio') await foto('18-confirmar-salir' + sfx);
+      await ev("document.getElementById('salir-no').click()"); await espera(200);
+      ok(await ev("!document.getElementById('salir-confirma')") && await ruta() === new URL(base + url).pathname, `${ancho}: ${nombre}: «Cancelar» cierra la pregunta y sigue en la misma pantalla con la sesión abierta`, await ruta());
+      await ev('document.getElementById("salir-confirma") && document.getElementById("salir-confirma").remove()');
+      const m = await ev(MEDIR);
+      ok(m.base >= 17 || /Ayuda|Estructura/.test(nombre), `${ancho}: ${nombre}: texto base ≥ 17 px (${m.base})`, m.base);
+      ok(m.menores.length === 0, `${ancho}: ${nombre}: ningún texto visible menor de 14 px (12 en la barra inferior)`, m.menores.slice(0, 8));
+      ok(m.partidas.length === 0, `${ancho}: ${nombre}: ninguna palabra de las tarjetas se parte a la mitad`, m.partidas);
+      ok(m.cortados.length === 0 && m.fuera.length === 0 && await sinDesborde(), `${ancho}: ${nombre}: nada se corta ni se desborda`, { cortados: m.cortados.slice(0, 5), fuera: m.fuera.slice(0, 5) });
+      const aviso = p.avisos.filter((x) => !/tile|Failed to load|favicon|403|solo lectura/i.test(x));
+      ok(aviso.length === 0, `${ancho}: ${nombre}: sin errores de consola`, aviso);
+      if (fotos) {
+        if (nombre === 'Inicio') await foto('1-inicio-letra' + sfx);
+        if (nombre === 'Equipo') await foto('2-equipo-letra' + sfx);
+        if (nombre === 'Más') await foto('6-mas-letra' + sfx);
+        if (['Consultar puesto', 'Ayuda', 'Estructura territorial', 'Estructura: formulario abierto', 'Mis avisos'].includes(nombre)) await foto('19-' + nombre.toLowerCase().replace(/[^a-z]+/g, '-') + sfx);
+      }
+      if (nombre === 'Equipo' && !VACIA) {   // la ficha también lleva «Salir»
+        await ev("document.querySelector('#lista button.nom').click()"); await espera(600);
+        const s2 = await visiblesSalir();
+        ok(s2.length === 1 && s2[0].h >= 44 && s2[0].der <= s2[0].ancho, `${ancho}: ficha del coordinador: «Salir» visible`, s2);
+        const m2 = await ev(MEDIR);
+        ok(m2.menores.length === 0 && m2.cortados.length === 0 && m2.fuera.length === 0, `${ancho}: ficha del coordinador: letra y sin cortes`, { a: m2.menores.slice(0, 5), b: m2.cortados.slice(0, 5), c: m2.fuera.slice(0, 5) });
+      }
+    }
+  };
+  await q("UPDATE permisos_rol SET permitido = 1 WHERE rol = 'candidato' AND modulo IN ('rescate_votos','biografia_candidato','recursos','solicitudes','tareas','puerta_listas')");
+  await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel']);
+  limpiarAvisos();
+  await bloque79(360, 780, true);
+  await bloque79(390, 844, true);
+  await movil();
+  // Más a 360 px: cuántas columnas quedaron
+  await movil(360, 780); await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  const col360 = await ev("getComputedStyle(document.querySelector('.menu-grid')).gridTemplateColumns.split(' ').length");
+  const txt15 = await ev("parseFloat(getComputedStyle(document.querySelector('.menu-boton .texto strong')).fontSize)");
+  ok(col360 === 2 && txt15 === 15, 'Más a 360 px: dos columnas y texto de las tarjetas de 15 px', { col360, txt15 });
+  await foto('6-mas-360-completo');
+  await movil(390, 844); await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  ok(await ev("getComputedStyle(document.querySelector('.menu-grid')).gridTemplateColumns.split(' ').length") === 2, 'Más a 390 px: dos columnas');
+  await movil(480, 900); await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('.menu-boton').length > 0");
+  ok(await ev("getComputedStyle(document.querySelector('.menu-grid')).gridTemplateColumns.split(' ').length") === 3, 'Más en pantalla ancha (480 px): vuelven las tres columnas');
+  await movil(390, 844);
+  // el tamaño de letra del sistema se respeta: con texto al 130 % (el equivalente de «Letra grande» del celular) nada se desborda
+  await cmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await ev("document.documentElement.style.fontSize = '130%'"); await espera(300);
+  const m130 = await ev(MEDIR);
+  ok(m130.cortados.length === 0 && await sinDesborde(), 'con la letra del sistema al 130 %, «Más» no se desborda ni corta', { c: m130.cortados.slice(0, 4), f: m130.fuera.slice(0, 4) });
+  await ev("document.documentElement.style.fontSize = ''");
+
+  // Cerrar sesión: con confirmación, desde el encabezado
   await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelector('button.menu-boton[data-accion=salir]')");
-  await ev("document.querySelector('button.menu-boton[data-accion=salir]').click()");
-  ok(await esperar("location.pathname === '/login.html'", 10000), 'Cerrar sesión desde «Más» lleva al ingreso', await ruta());
+  await ev("document.querySelector('button.menu-boton[data-accion=salir]').click()"); await espera(250);
+  ok(await ev("!!document.getElementById('salir-confirma')"), 'la tarjeta «Cerrar sesión» de Más también pide confirmación');
+  await ev("document.getElementById('salir-no').click()"); await espera(200);
+  await ev("document.querySelector('.btn-salir').click()"); await espera(250);
+  await ev("document.getElementById('salir-si').click()");
+  ok(await esperar("location.pathname === '/login.html'", 10000), '«Salir» → «Sí, salir» cierra la sesión y lleva al ingreso', await ruta());
 
   // Escritorio 1280
   console.log('  — Escritorio (1280 px)');
@@ -777,6 +938,10 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     ok(await destino('1023456789', 'clave-correo-ej', 390) === '/app/inicio.html', 'coordinador en celular → /app/inicio.html');
     ok(await destino('1023456789', 'clave-correo-ej', 1280) === '/dashboard.html', 'coordinador en computador → /dashboard.html');
     ok(await destino('1055000001', '1055000001', 390) === '/app/inicio.html', 'líder → /app/inicio.html');
+    for (const u of ['/app/puesto-votacion.html', '/app/biografia.html', '/app/politica-privacidad.html', '/app/mis-avisos.html']) {
+      await ir(base + u); await espera(1800);
+      ok(await ev("!document.body.classList.contains('cand-app') && !document.querySelector('.btn-salir') && !document.getElementById('cand-letra-css')"), `líder: ${u} sin «Salir» ni letra del candidato (sin cambios)`);
+    }
   }
 
   nav.cerrar(); app.s.close();

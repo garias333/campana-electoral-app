@@ -8,20 +8,21 @@
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
 <style>
   .campo-c { margin-bottom: 14px; }
-  .campo-c label { display: block; font-size: 13px; font-weight: 700; color: var(--tx); margin-bottom: 5px; }
+  .campo-c label { display: block; font-size: var(--c-med); font-weight: 700; color: var(--tx); margin-bottom: 5px; }
   .ojo-c { position: relative; }
-  .ojo-c input { width: 100%; box-sizing: border-box; padding: 13px 46px 13px 14px; border: 1.5px solid var(--ln); border-radius: 14px; font-size: 16px; font-family: inherit; background: #f7f9fd; }
+  .ojo-c input { width: 100%; box-sizing: border-box; padding: 13px 46px 13px 14px; border: 1.5px solid var(--ln); border-radius: 14px; font-size: var(--c-base); font-family: inherit; background: #f7f9fd; }
   .ojo-c input:focus { outline: 2px solid var(--az); background: #fff; }
   .ojo-c button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; font-size: 20px; padding: 6px 8px; cursor: pointer; }
-  .btn-guardar { width: 100%; border: 0; cursor: pointer; background: var(--am); color: #1b2333; font-weight: 800; font-size: 16px; padding: 14px; border-radius: 26px; font-family: inherit; }
+  .btn-guardar { width: 100%; border: 0; cursor: pointer; background: var(--am); color: #1b2333; font-weight: 800; font-size: var(--c-base); padding: 14px; border-radius: 26px; font-family: inherit; }
   .btn-guardar[disabled] { opacity: .6; }
-  .msg { margin-top: 12px; padding: 11px 13px; border-radius: 12px; font-size: 14px; display: none; }
+  .msg { margin-top: 12px; padding: 11px 13px; border-radius: 12px; font-size: var(--c-med); display: none; }
   .msg.err { display: block; background: #fff5f5; border: 1px solid #e04848; color: #8f1d1d; }
   .msg.ok { display: block; background: #e6f6ec; border: 1px solid #9ad3b0; color: #17603a; }
-  .ayuda-c { font-size: 12px; color: var(--mu); margin: -6px 0 14px; }
+  .ayuda-c { font-size: var(--c-sec); color: var(--mu); margin: -6px 0 14px; }
 </style>
 </head>
 <body class="cand">

@@ -53,6 +53,25 @@ function cargarCerrarSesionApp() {
   return _cerrarSesionAppPromesa;
 }
 
+/* ORDEN 79. Las pantallas de /app/ que el CANDIDATO abre desde su «Más» (puesto de votación, biografía, información, política, legislación, avisos) las comparten
+   los demás roles. Solo cuando las abre él se les pone `cand-app` (letra más grande) y su botón «Salir»; todo vive en /app/candidato-nav.js y candidato-letra.css.
+   Para cualquier otro rol esto no hace nada. Si el archivo no carga, la pantalla sigue funcionando igual, sin «Salir». */
+async function activarModoCandidatoApp(usuario) {
+  if (!usuario || usuario.rol !== 'candidato') return usuario;
+  try {
+    if (typeof window.cPrepararModoApp !== 'function') {
+      await new Promise((ok) => {
+        const s = document.createElement('script');
+        s.src = '/app/candidato-nav.js';
+        s.onload = () => ok(true); s.onerror = () => ok(false);
+        document.head.appendChild(s);
+      });
+    }
+    if (typeof window.cPrepararModoApp === 'function') await window.cPrepararModoApp(usuario);
+  } catch (e) { /* sin esto la pantalla funciona igual */ }
+  return usuario;
+}
+
 async function requerirSesionApp() {
   /* NO SE ENTRA POR LA COOKIE VIEJA (parche 329, orden 43). Si alguien cerró sesión SIN señal, `logout_pendiente` sigue puesto y la cookie del
      servidor todavía vale: entrar por ella sería entrar COMO la persona anterior, con sus datos. Mientras eso dure —y no haya otra cuenta activa
@@ -129,7 +148,7 @@ async function requerirSesionApp() {
       if (sesion.usuario && sesion.usuario.clave_celular && sesion.usuario.clave_celular.pregunta) {
         preguntarClaveCelularApp(sesion.usuario.clave_celular);
       }
-      return sesion.usuario;
+      return activarModoCandidatoApp(sesion.usuario);
     } catch (err) {
       ultimoError = err;
       if (err && err.esErrorDeRed && intento < intentosRed) {
@@ -143,7 +162,7 @@ async function requerirSesionApp() {
   if (ultimoError && ultimoError.esErrorDeRed
       && typeof obtenerPerfilCuentaActiva === 'function') {
     const perfil = obtenerPerfilCuentaActiva();
-    if (perfil) return perfil;
+    if (perfil) return activarModoCandidatoApp(perfil);
   }
 
   /* NO SE VUELVE A LOGIN DOS VECES POR LA MISMA PANTALLA.
@@ -263,6 +282,8 @@ function pintarBarraApp(titulo, subtitulo, destinoVolver) {
       ${subtitulo ? `<p class="subt">${subtitulo}</p>` : ''}
     </div>
   `;
+  // Orden 79: el candidato lleva «Salir» en cada barra (la barra se rehace aquí, así que se vuelve a montar).
+  if (document.body.classList.contains('cand-app') && typeof window.cMontarSalir === 'function') window.cMontarSalir();
 }
 
 /* ------------------------------------------------------------------

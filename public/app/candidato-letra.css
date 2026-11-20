@@ -1,0 +1,67 @@
+/* TAMAÑOS DE LETRA DE LA APP DEL CANDIDATO (orden 79). Un solo lugar: las pantallas candidato*.html los usan desde candidato.css, y las
+   páginas que el candidato abre en «modo app» (estructura, puesto, biografía, información, política, legislación, avisos, ayuda, cambiar clave)
+   los reciben SOLO cuando las abre él: app-comun.js / common.js ponen la clase `cand-app` en <body> y cargan este archivo.
+   Todo va en px SIN !important (salvo donde una regla de otra hoja trae el suyo): así el tamaño de letra que el candidato haya puesto en el
+   sistema del celular lo sigue multiplicando. */
+:root {
+  --c-base: 17px;     /* texto corriente */
+  --c-med: 15px;      /* texto de apoyo dentro de una tarjeta */
+  --c-sec: 14px;      /* mínimo: etiquetas, fechas, pies de nota */
+  --c-tit: 19px;      /* título de tarjeta */
+  --c-barra: 24px;    /* título del encabezado */
+  --c-cifra: 28px;    /* cifra de una tarjeta de datos */
+  --c-grande: 34px;   /* cifra grande de la meta */
+  --c-nav: 12.5px;    /* etiquetas de la barra inferior */
+  --c-grid: 15px;     /* texto de las tarjetas de la cuadrícula de «Más» */
+}
+
+/* ---- Páginas de otras secciones abiertas por el candidato ---- */
+body.cand-app { font-size: var(--c-base); line-height: 1.45; }
+body.cand-app h1 { font-size: var(--c-barra); }
+body.cand-app .app-barra .subt { font-size: var(--c-sec); }
+body.cand-app .menu-boton .texto strong { font-size: var(--c-grid); }
+body.cand-app .vacio-app { font-size: var(--c-base); }
+body.cand-app .fila-lista .nombre { font-size: var(--c-base); }
+body.cand-app .fila-lista .dato { font-size: var(--c-sec); }
+body.cand-app .pildora { font-size: var(--c-sec); }
+body.cand-app .campo-app label { font-size: var(--c-base); }
+body.cand-app .campo-app small, body.cand-app label small { font-size: var(--c-sec); }
+body.cand-app small, body.cand-app .nota, body.cand-app .pie, body.cand-app figcaption { font-size: var(--c-sec); }
+html.cand-app { font-size: 112.5%; }   /* 18 px: lo que está en rem (0,78 rem ≈ 14 px) sube con él */
+body.cand-app .app-barra > div { min-width: 0; flex: 1; }
+body.cand-app .app-barra h1 { font-size: 21px; overflow-wrap: anywhere; }
+
+/* Piezas de las pantallas compartidas que, con la letra de la hoja de origen, quedaban por debajo de 14 px (medido en el navegador, orden 79) */
+body.cand-app .leg-cal-grupo, body.cand-app .leg-chip { font-size: var(--c-sec); }
+body.cand-app .eti, body.cand-app .portada .chip, body.cand-app .portada .chip b { font-size: var(--c-sec); }
+body.cand-app .grupo-etiqueta { font-size: var(--c-sec); }
+body.cand-app .indice summary, body.cand-app .indice li.grupo, body.cand-app h2.seccion-titulo, body.cand-app .boton-app, body.cand-app .perm .si, body.cand-app .perm .no, body.cand-app .perm span { font-size: var(--c-sec); }
+body.cand-app #caja-avisos-push small { font-size: var(--c-sec) !important; }   /* trae su tamaño en el atributo style */
+
+/* ---- «Salir»: un solo componente (candidato-nav.js → cMontarSalir) ---- */
+.btn-salir {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 0 14px; border: 0; border-radius: 22px; cursor: pointer;
+  background: rgba(255, 255, 255, .2); color: #fff; font: inherit; font-size: var(--c-med); font-weight: 700; line-height: 1;
+}
+.btn-salir svg { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-salir:focus-visible { outline: 3px solid #FFC300; outline-offset: 2px; }
+.btn-salir.flotante {
+  position: fixed; top: calc(4px + env(safe-area-inset-top, 0px)); right: 8px; z-index: 1000;
+  background: rgba(8, 66, 152, .92); box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+.btn-salir.sobre-claro { background: #eef3fd; color: #084298; }
+.btn-salir.en-modal { background: #eef3fd; color: #084298; margin-left: auto; margin-right: 8px; }
+#overlay-form.abierto ~ .btn-salir.flotante { display: none; }   /* con el formulario abierto, su «Salir» es el del encabezado del formulario */
+.salir-confirma { position: fixed; inset: 0; z-index: 10000; background: rgba(15, 25, 45, .55); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.salir-confirma .caja { background: #fff; color: #1b2433; border-radius: 22px; padding: 22px 20px 18px; width: 100%; max-width: 340px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.salir-confirma h2 { margin: 0 0 6px; font-size: var(--c-tit); }
+.salir-confirma p { margin: 0 0 16px; font-size: var(--c-med); color: #6b7690; line-height: 1.4; }
+.salir-confirma .acciones { display: flex; gap: 10px; }
+.salir-confirma button { flex: 1; min-height: 48px; border-radius: 24px; border: 0; cursor: pointer; font: inherit; font-size: var(--c-base); font-weight: 700; }
+.salir-confirma .si { background: #FFC300; color: #1b2333; }
+.salir-confirma .no { background: #eceff5; color: #1b2433; }
+body.cand-app .modal-header h3 { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+body.cand-app select, body.cand-app input:not([type=checkbox]):not([type=radio]), body.cand-app textarea { max-width: 100%; }   /* con la letra grande un <select> largo se salía de su tarjeta */
+body.cand-app .wz-num, body.cand-app .encabezado-form, body.cand-app .dictado-aviso, body.cand-app #overlay-form .campo small, body.cand-app #overlay-form label small { font-size: var(--c-sec); }   /* formulario «Agregar a la estructura» */
+body.cand-app #chips-cargo-persona .chip-form { flex: 1 1 100%; overflow-wrap: normal; word-break: normal; }   /* una categoría por renglón: con la letra grande «Coordinador» se partía en dos */

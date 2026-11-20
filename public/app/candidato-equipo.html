@@ -11,12 +11,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
 <style>
   select.chip { appearance: none; -webkit-appearance: none; padding-right: 26px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7690'/%3E%3C/svg%3E") no-repeat right 10px center; max-width: 190px; }
   select.chip.on { background-color: var(--azo); color: #fff; }
-  .grupo-tit { margin: 4px 0 2px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
-  .nota-nc { font-size: 11px; color: var(--mu); }
+  .grupo-tit { margin: 4px 0 2px; font-size: var(--c-sec); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--mu); }
+  .nota-nc { font-size: var(--c-sec); color: var(--mu); }
 </style>
 </head>
 <body class="cand">
@@ -44,7 +45,7 @@
       </div>
     </header>
     <div class="card" id="ficha-resumen" style="margin-top:14px;"></div>
-    <div class="card"><div class="tit"><h3>Sus líderes</h3><span class="lbl" style="font-size:10px;">Punto de actividad</span></div><div id="ficha-lideres"></div></div>
+    <div class="card"><div class="tit"><h3>Sus líderes</h3><span class="lbl">Punto de actividad</span></div><div id="ficha-lideres"></div></div>
     <p class="pie-nota"><span class="punto verde"></span>registró hoy · <span class="punto amarillo"></span>hace 1 a 6 días · <span class="punto rojo"></span>7 días o más</p>
   </div>
 </div>
@@ -150,9 +151,9 @@ async function abrirFicha(id, desdeUrl) {
     document.getElementById('ficha-zona').textContent = c.zona || 'Sin zona asignada';
     const anillo_html = c.porcentaje === null || c.porcentaje === undefined ? '' : anillo(c.porcentaje);
     res.innerHTML = '<div style="display:flex;align-items:center;gap:14px;">' + anillo_html
-      + '<div style="flex:1;min-width:0;"><div class="lbl">Avance de su meta</div><b style="font-size:24px;color:var(--azo)">' + cFmt(c.registrados) + '</b> <span style="font-size:13px;color:var(--mu)">'
+      + '<div style="flex:1;min-width:0;"><div class="lbl">Avance de su meta</div><b style="font-size:var(--c-cifra);color:var(--azo)">' + cFmt(c.registrados) + '</b> <span style="font-size:var(--c-sec);color:var(--mu)">'
       + (c.meta > 0 ? 'de ' + cFmt(c.meta) + ' votantes' : 'votantes · sin meta de líderes') + '</span>'
-      + '<div style="font-size:12px;color:var(--mu);margin-top:4px;"><span class="punto ' + c.punto + '"></span>' + cEsc(textoDias(c.dias_sin_registrar)) + '</div></div></div>'
+      + '<div style="font-size:var(--c-sec);color:var(--mu);margin-top:4px;"><span class="punto ' + c.punto + '"></span>' + cEsc(textoDias(c.dias_sin_registrar)) + '</div></div></div>'
       + '<div class="ficha-cifras"><div><b>' + cFmt(c.lideres) + '</b><span>líderes</span></div><div><b>' + cFmt(f.sublideres) + '</b><span>sublíderes</span></div><div><b>' + cFmt(c.registros_7_dias) + '</b><span>en 7 días</span></div></div>'
       + '<div style="margin-top:14px;">' + cAccionesContacto(c.telefono, c.nombre, c.no_contactar, true) + '</div>'
       + (c.no_contactar ? '<div class="nota-nc" style="margin-top:6px;">Pidió no recibir mensajes: solo se puede llamar.</div>' : '');

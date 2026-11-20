@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v215';
+const CACHE_NAME = 'estrategia-v216';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -97,6 +97,8 @@ const ARCHIVOS_CASCARON = [
   '/app/candidato-agenda.html',
   '/app/candidato-mas.html',
   '/app/candidato-clave.html',
+  '/app/candidato-seguimiento.html',   // orden 79: Solicitudes, Tareas, Puerta a puerta y Día D, cada una en su pantalla
+  '/app/candidato-letra.css',          // tamaños de letra (también los usan las pantallas que abre en modo app)
   '/app/candidato.css',
   '/app/candidato-nav.js',
   '/app/admin-estructura.html',

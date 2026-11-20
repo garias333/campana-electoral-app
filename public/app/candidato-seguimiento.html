@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Seguimiento · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
+<link rel="stylesheet" href="/app/candidato.css">
+</head>
+<body class="cand">
+<!-- Pantalla propia de «Seguimiento» (orden 79): /app/candidato-seguimiento.html?seccion=solicitudes | tareas | puerta | dia_d.
+     Una sola página para las cuatro (el encabezado, la flecha, la carga y el estado vacío son los mismos); cada sección trae su propio contenido.
+     SOLO VER: lo que llega del servidor son cifras resumidas (nunca una persona ni una casa), y aquí no se escribe nada. -->
+<div class="cand-ancho">
+  <div class="barra">
+    <small>Seguimiento</small>
+    <div class="fila-barra">
+      <a class="btn-volver" href="/app/candidato-mas.html" id="volver" aria-label="Volver a Más">←</a>
+      <div><h1 id="titulo">Seguimiento</h1></div>
+    </div>
+  </div>
+  <div id="estado"></div>
+  <div id="error-carga" class="error-carga" role="alert"></div>
+  <div id="contenido"><div class="cargando">Cargando…</div></div>
+</div>
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+const SECCIONES = {
+  solicitudes: { titulo: 'Solicitudes', ic: '📨', ruta: '/solicitudes' },
+  tareas: { titulo: 'Tareas', ic: '✅', ruta: '/tareas' },
+  puerta: { titulo: 'Puerta a puerta', ic: '🚪', ruta: '/puerta-a-puerta' },
+  dia_d: { titulo: 'Día D · avance de votación', ic: '🏁', ruta: '/dia-d' },
+};
+
+function pct(parte, total) { return total > 0 ? Math.max(0, Math.min(100, Math.round((parte / total) * 100))) : 0; }
+function tres(a, b, c) {
+  return '<div class="resumen3">' + [a, b, c].map((x) => '<div><b>' + x[0] + '</b><span>' + cEsc(x[1]) + '</span></div>').join('') + '</div>';
+}
+function filaConBarra(nombre, texto, porcentaje, verde, extra, extraRojo) {
+  return '<div class="seg-fila" style="display:block"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span class="n">' + cEsc(nombre) + '</span><b>' + texto + '</b></div>'
+    + (extra ? '<div class="seg-extra' + (extraRojo ? ' rojo' : '') + '">' + cEsc(extra) + '</div>' : '')
+    + '<div class="seg-barra"><i class="' + (verde ? 'verde' : '') + '" style="width:' + porcentaje + '%"></i></div></div>';
+}
+function tarjeta(titulo, cuerpo) { return '<section class="card" style="margin-top:14px"><div class="tit"><h3>' + cEsc(titulo) + '</h3></div>' + cuerpo + '</section>'; }
+
+const PINTORES = {
+  solicitudes: (d) => {
+    if (!d.total) return '<div class="card" style="margin-top:14px">' + cVacio('📨', 'Aún no hay solicitudes', 'Las que registre el equipo aparecerán aquí.') + '</div>';
+    const max = Math.max(1, ...d.mas_pedidas.map((c) => c.total));
+    return tarjeta('Estado de las solicitudes',
+        tres([cFmt(d.nuevas), 'Nuevas'], [cFmt(d.en_tramite), 'En trámite'], [cFmt(d.resueltas), 'Resueltas'])
+        + '<div class="sin-meta">En total: <b>' + cFmt(d.total) + '</b></div>')
+      + (d.sin_movimiento > 0 ? '<div class="seg-aparte" style="margin-top:0"><b>' + cFmt(d.sin_movimiento) + '</b> ' + (d.sin_movimiento === 1 ? 'solicitud lleva' : 'solicitudes llevan') + ' varios días sin movimiento.</div>' : '')
+      + (d.mas_pedidas.length ? tarjeta('Las más pedidas', d.mas_pedidas.map((c) => filaConBarra(c.nombre, cFmt(c.total), pct(c.total, max))).join('')) : '');
+  },
+  tareas: (d) => {
+    if (!d.total) return '<div class="card" style="margin-top:14px">' + cVacio('✅', 'Aún no hay tareas', 'Las que se asignen aparecerán aquí.') + '</div>';
+    const cumpl = (d.cumplimiento === null || d.cumplimiento === undefined) ? null : Math.round(Number(d.cumplimiento));
+    return tarjeta('Estado de las tareas',
+        tres([cFmt(d.abiertas), 'Abiertas'], [cFmt(d.hechas + d.verificadas), 'Hechas'], [cFmt(d.vencidas), 'Vencidas'])
+        + '<div class="sin-meta">En total: <b>' + cFmt(d.total) + '</b>' + (d.canceladas ? ' · canceladas: ' + cFmt(d.canceladas) : '') + (cumpl === null || isNaN(cumpl) ? '' : ' · cumplimiento: <b>' + cumpl + '%</b>') + '</div>')
+      + (d.por_responsable.length ? tarjeta('Por responsable', d.por_responsable.map((r) => filaConBarra(r.nombre, cFmt(r.hechas) + ' de ' + cFmt(r.total), pct(r.hechas, r.total), true, r.vencidas ? cFmt(r.vencidas) + (r.vencidas === 1 ? ' vencida' : ' vencidas') : '', true)).join('')) : '');
+  },
+  puerta: (d) => {
+    if (d.oculto || !d.total) return '<div class="card" style="margin-top:14px">' + cVacio('🚪', 'Aún no hay visitas suficientes', 'Por privacidad, las cifras se muestran cuando hay al menos ' + cFmt(d.minimo) + ' visitas.') + '</div>';
+    return tarjeta('Visitas',
+        tres([cFmt(d.total.asignadas), 'Puertas'], [cFmt(d.total.visitadas), 'Visitadas'], [cFmt(d.total.visitas), 'Visitas'])
+        + '<div class="sin-meta">Avance: <b>' + pct(d.total.visitadas, d.total.asignadas) + '%</b> de las puertas asignadas</div>')
+      + (d.zonas.length ? tarjeta('Por zona', d.zonas.map((z) => filaConBarra(z.zona, cFmt(z.visitadas) + ' de ' + cFmt(z.asignadas), pct(z.visitadas, z.asignadas), true)).join('')) : '');
+  },
+  dia_d: (d) => {
+    if (!d.total) return '<div class="card" style="margin-top:14px">' + cVacio('🗳️', 'Aún no hay votantes registrados', 'El avance aparecerá cuando haya personas registradas.') + '</div>';
+    return tarjeta('Avance de votación',
+        tres([cFmt(d.votaron), 'Ya votaron'], [cFmt(d.faltan), 'Faltan'], [d.porcentaje === null ? '—' : d.porcentaje + '%', 'Avance'])
+        + '<div class="seg-barra" style="margin-top:12px"><i class="verde" style="width:' + (d.porcentaje || 0) + '%"></i></div>'
+        + (d.modo_prueba ? '<div class="sin-meta" style="margin-top:8px">Hoy no es la elección: son cifras de prueba.</div>' : ''))
+      + (d.por_puesto.length ? tarjeta('Puestos con más por votar', d.por_puesto.map((p) => filaConBarra(p.puesto, cFmt(p.faltan) + ' faltan', pct(p.votaron, p.total), true)).join('')) : '');
+  },
+};
+
+(async function () {
+  const id = new URLSearchParams(location.search).get('seccion');
+  const sec = SECCIONES[id];
+  const usuario = await exigirCandidatoApp('mas');
+  if (!usuario) return;
+  if (!sec) { location.replace('/app/candidato-mas.html'); return; }
+  document.getElementById('titulo').textContent = sec.titulo;
+  document.title = sec.titulo + ' · Candidato';
+  const cont = document.getElementById('contenido');
+  try {
+    const r = await cCargar(usuario.id, sec.ruta);
+    cont.innerHTML = PINTORES[id](r.datos);
+    cPintarEstado(r, 'estado');
+  } catch (err) {
+    // Una sección apagada responde 403 («seccion_apagada»): se dice, y se ofrece volver; no se tapa con una copia vieja.
+    cont.innerHTML = '<div class="card" style="margin-top:14px">' + cVacio('⚠️', 'No se pudo abrir esta sección', err.message || '') + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

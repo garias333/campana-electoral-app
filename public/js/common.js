@@ -1444,6 +1444,14 @@ async function inicializarLayout(paginaActiva) {
       window.location.replace('/app/candidato.html');
       return null;
     }
+    /* ORDEN 79: en modo app (estructura territorial, ayuda) lleva su «Salir» y la letra grande de su app. Todo vive en /app/candidato-nav.js y candidato-letra.css;
+       no cambia nada para ningún otro rol. Si el archivo no carga, la pantalla funciona igual. */
+    if (chico) {
+      const s = document.createElement('script');
+      s.src = '/app/candidato-nav.js';
+      s.onload = () => { if (typeof window.cPrepararModoApp === 'function') window.cPrepararModoApp(usuario); };
+      document.head.appendChild(s);
+    }
   }
   // De quién son las pendientes sin señal que esta pantalla guarde (parche 329): antes solo lo anotaban las pantallas de la app.
   if (typeof registrarUsuarioSinSenal === 'function' && usuario && usuario.id !== undefined) registrarUsuarioSinSenal(usuario.id);

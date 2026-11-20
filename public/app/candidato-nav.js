@@ -37,6 +37,7 @@
     if (!usuario) return null;
     if (usuario.rol !== 'candidato' && usuario.rol !== 'admin') { window.location.replace('/app/inicio.html'); return null; }
     if (activo) global.montarNavCandidato(activo);
+    global.cMontarSalir();   // «Salir» en el encabezado de TODA pantalla del candidato (orden 79): un solo componente, aquí
     return usuario;
   };
 
@@ -138,8 +139,101 @@
   global.cCerrarSesion = async function () {
     global.cSoltarCopias();
     if (typeof cargarCerrarSesionApp === 'function') await cargarCerrarSesionApp();
+    else await cargarScript('/js/cerrar-sesion.js');   // las pantallas de escritorio que abre en modo app (estructura, ayuda) no traen app-comun.js
     if (typeof cerrarSesionLocal === 'function') await cerrarSesionLocal();
     else window.location.href = '/login.html';
+  };
+
+  function cargarScript(src) {
+    return new Promise(function (ok) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = function () { ok(true); }; s.onerror = function () { ok(false); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /* ---- «Salir» (orden 79) ----
+     UN SOLO COMPONENTE para todas las pantallas del candidato: botón con puerta y flecha + la palabra, a la derecha del encabezado, de 44 px de alto como mínimo,
+     que pide «¿Cerrar sesión?» (Sí / Cancelar) y luego cierra igual que siempre (cCerrarSesion: lo local primero, sin esperar a la red — orden 43).
+     Se coloca solo, según el encabezado que encuentre: `.hdr .top` (Inicio, ficha), `.barra` (Equipo, Agenda, Más, Seguimiento), `.buscar` (Mapa), `.app-barra`
+     (las pantallas de /app/ que abre en modo app). Si no hay ninguno (estructura territorial y ayuda son pantallas de escritorio), un botón flotante arriba a la derecha.
+     Es idempotente: se puede llamar cuantas veces haga falta (pintarBarraApp lo llama de nuevo cuando rehace su barra). */
+  var SVG_SALIR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>';
+  function botonSalir(extra) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn-salir' + (extra ? ' ' + extra : '');
+    b.setAttribute('aria-label', 'Cerrar sesión');
+    b.innerHTML = SVG_SALIR + '<span>Salir</span>';
+    b.addEventListener('click', global.cPedirSalir);
+    return b;
+  }
+
+  /** «¿Cerrar sesión?» Sí / Cancelar. Devuelve la caja (para las pruebas). */
+  global.cPedirSalir = function () {
+    if (document.getElementById('salir-confirma')) return;
+    var fondo = document.createElement('div');
+    fondo.id = 'salir-confirma';
+    fondo.className = 'salir-confirma';
+    fondo.innerHTML = '<div class="caja" role="alertdialog" aria-modal="true" aria-labelledby="salir-tit" aria-describedby="salir-txt">'
+      + '<h2 id="salir-tit">¿Cerrar sesión?</h2>'
+      + '<p id="salir-txt">Para volver a entrar necesitará su correo y su clave.</p>'
+      + '<div class="acciones"><button type="button" class="no" id="salir-no">Cancelar</button><button type="button" class="si" id="salir-si">Sí, salir</button></div></div>';
+    document.body.appendChild(fondo);
+    var cerrar = function () { fondo.remove(); };
+    fondo.addEventListener('click', function (e) { if (e.target === fondo) cerrar(); });
+    fondo.querySelector('#salir-no').addEventListener('click', cerrar);
+    fondo.querySelector('#salir-si').addEventListener('click', function () { cerrar(); global.cCerrarSesion(); });
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { cerrar(); document.removeEventListener('keydown', esc); } });
+    fondo.querySelector('#salir-no').focus();
+  };
+
+  global.cMontarSalir = function () {
+    var puesto = 0;
+    document.querySelectorAll('.hdr .top').forEach(function (t) {
+      if (t.querySelector('.btn-salir')) return;
+      t.appendChild(botonSalir()); puesto++;
+    });
+    document.querySelectorAll('.barra').forEach(function (b) {
+      if (b.querySelector('.btn-salir')) return;
+      var fila = document.createElement('div');
+      fila.className = 'fila-salir';
+      var primero = b.firstElementChild;
+      if (primero && primero.tagName === 'SMALL') fila.appendChild(primero); else fila.appendChild(document.createElement('span'));
+      fila.appendChild(botonSalir());
+      b.insertBefore(fila, b.firstChild); puesto++;
+    });
+    document.querySelectorAll('.mapa-pant .buscar').forEach(function (b) {
+      if (b.querySelector('.btn-salir')) return;
+      var x = botonSalir('sobre-claro'); b.appendChild(x); puesto++;
+    });
+    document.querySelectorAll('.app-barra').forEach(function (b) {
+      if (b.querySelector('.btn-salir')) return;
+      var x = botonSalir(); x.style.marginLeft = 'auto'; b.appendChild(x); puesto++;
+    });
+    // El formulario «Agregar a la estructura» (modo app) es una pantalla completa que tapa todo: lleva su propio «Salir», junto a la «×».
+    document.querySelectorAll('#overlay-form .modal-header').forEach(function (h) {
+      if (h.querySelector('.btn-salir')) return;
+      var x = botonSalir('en-modal'), cerrar = h.querySelector('.modal-cerrar');
+      if (cerrar) h.insertBefore(x, cerrar); else h.appendChild(x);
+    });
+    if (!puesto && !document.querySelector('.btn-salir.flotante')) { document.body.appendChild(botonSalir('flotante')); }
+  };
+
+  /* ---- Las pantallas de OTRAS secciones que el candidato abre en modo app (orden 79) ----
+     Las comparten los demás roles: NO cambia nada para ellos. Cuando las abre el candidato, app-comun.js (requerirSesionApp) y common.js (inicializarLayout)
+     llaman a esto: pone `cand-app` en <body> (candidato-letra.css agranda la letra SOLO con esa clase), carga este mismo archivo y monta «Salir». */
+  global.cPrepararModoApp = async function (usuario) {
+    if (!usuario || usuario.rol !== 'candidato') return;
+    if (document.body.classList.contains('cand')) return;   // las pantallas candidato*.html traen su propia hoja y su propio «Salir»
+    document.body.classList.add('cand-app');
+    document.documentElement.classList.add('cand-app');
+    if (!document.getElementById('cand-letra-css')) {
+      var l = document.createElement('link');
+      l.id = 'cand-letra-css'; l.rel = 'stylesheet'; l.href = '/app/candidato-letra.css';
+      document.head.appendChild(l);
+    }
+    global.cMontarSalir();
   };
 
   /** Un estado vacío bonito: nunca una tarjeta rota. */

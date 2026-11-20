@@ -8,6 +8,7 @@
 <link rel="manifest" href="/app/manifest.json">
 <link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
 </head>
 <body class="cand">
@@ -16,7 +17,6 @@
   <div id="estado"></div>
   <div id="error-carga" class="error-carga" role="alert"></div>
   <div class="cand-menu menu-app" id="menu-app"></div>
-  <div id="detalle"></div>
 </div>
 <script src="/js/api-core.js"></script>
 <script src="/js/cuentas-dispositivo.js"></script>
@@ -25,41 +25,9 @@
 <script src="/app/candidato-nav.js"></script>
 <script>
 let usuario = null;
-const SECCIONES = [
-  { id: 'solicitudes', ic: '📨', texto: 'Solicitudes', ruta: '/solicitudes' },
-  { id: 'tareas', ic: '✅', texto: 'Tareas', ruta: '/tareas' },
-  { id: 'puerta', ic: '🚪', texto: 'Puerta a puerta', ruta: '/puerta-a-puerta' },
-  { id: 'dia_d', ic: '🗳️', texto: 'Día D · avance de votación', ruta: '/dia-d' },
-];
-function fila(a, b) { return '<div class="fila-dato"><span>' + cEsc(a) + '</span><b>' + cFmt(b) + '</b></div>'; }
-const PINTORES = {
-  solicitudes: (d) => d.total === 0 ? cVacio('📨', 'Aún no hay solicitudes', 'Las que registre el equipo aparecerán aquí.')
-    : '<div class="resumen3"><div><b>' + cFmt(d.nuevas) + '</b><span>Nuevas</span></div><div><b>' + cFmt(d.en_tramite) + '</b><span>En trámite</span></div><div><b>' + cFmt(d.resueltas) + '</b><span>Resueltas</span></div></div>'
-      + '<div class="lbl" style="margin:10px 0 4px">Las más pedidas</div>' + d.mas_pedidas.map((c) => fila(c.nombre, c.total)).join(''),
-  tareas: (d) => d.total === 0 ? cVacio('✅', 'Aún no hay tareas', 'Las que se asignen aparecerán aquí.')
-    : '<div class="resumen3"><div><b>' + cFmt(d.abiertas) + '</b><span>Abiertas</span></div><div><b>' + cFmt(d.hechas + d.verificadas) + '</b><span>Hechas</span></div><div><b>' + cFmt(d.vencidas) + '</b><span>Vencidas</span></div></div>'
-      + '<div class="lbl" style="margin:10px 0 4px">Por responsable</div>' + d.por_responsable.map((r) => fila(r.nombre, r.total)).join(''),
-  puerta: (d) => (d.oculto || !d.total) ? cVacio('🚪', 'Aún no hay visitas suficientes', 'Por privacidad, las cifras se muestran cuando hay al menos ' + cFmt(d.minimo) + ' visitas.')
-    : '<div class="resumen3"><div><b>' + cFmt(d.total.asignadas) + '</b><span>Puertas</span></div><div><b>' + cFmt(d.total.visitadas) + '</b><span>Visitadas</span></div><div><b>' + cFmt(d.total.visitas) + '</b><span>Visitas</span></div></div>'
-      + '<div class="lbl" style="margin:10px 0 4px">Por zona (visitadas de asignadas)</div>' + d.zonas.map((z) => '<div class="fila-dato"><span>' + cEsc(z.zona) + '</span><b>' + cFmt(z.visitadas) + ' de ' + cFmt(z.asignadas) + '</b></div>').join(''),
-  dia_d: (d) => d.total === 0 ? cVacio('🗳️', 'Aún no hay votantes registrados', 'El avance aparecerá cuando haya personas registradas.')
-    : '<div class="resumen3"><div><b>' + cFmt(d.votaron) + '</b><span>Ya votaron</span></div><div><b>' + cFmt(d.faltan) + '</b><span>Faltan</span></div><div><b>' + (d.porcentaje === null ? '—' : d.porcentaje + '%') + '</b><span>Avance</span></div></div>'
-      + (d.modo_prueba ? '<div class="sin-meta">Hoy no es la elección: son cifras de prueba.</div>' : '')
-      + '<div class="lbl" style="margin:10px 0 4px">Puestos con más por votar</div>' + d.por_puesto.map((p) => fila(p.puesto, p.faltan)).join(''),
-};
-async function abrir(s) {
-  const cont = document.getElementById('detalle');
-  cont.innerHTML = '<div class="card"><div class="cargando">Cargando…</div></div>';
-  cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  try {
-    const r = await cCargar(usuario.id, s.ruta);
-    cont.innerHTML = '<div class="card" style="margin-top:14px"><div class="tit"><h3>' + cEsc(s.texto) + '</h3></div>' + PINTORES[s.id](r.datos) + '</div>';
-    cPintarEstado(r, 'estado');
-  } catch (err) { cont.innerHTML = '<div class="card">' + cVacio('⚠️', 'No se pudo cargar', err.message || '') + '</div>'; }
-}
-
 /* LA CUADRÍCULA ES LA DEL MENÚ DE /app/inicio.html (orden 75): las mismas clases de estilos-app.css —.menu-grupo con su barra amarilla, .menu-grid de tres columnas, .menu-boton con el icono en
-   cuadro azul claro—. Una tarjeta es un enlace (abre otra pantalla) o un botón (abre el resumen aquí abajo, o cierra la sesión). Un grupo sin tarjetas no se pinta: ni títulos solos ni huecos. */
+   cuadro azul claro—. Una tarjeta es un enlace (abre otra pantalla: desde la orden 79 también las de «Seguimiento», con su flecha de vuelta a «Más») o un botón (cerrar la sesión).
+   Un grupo sin tarjetas no se pinta: ni títulos solos ni huecos. */
 function tarjeta(t) {
   const interior = '<div class="icono" aria-hidden="true">' + t.ic + '</div><div class="texto"><strong>' + cEsc(t.texto) + '</strong></div>';
   if (t.href) return '<a class="menu-boton" href="' + cEsc(t.href) + '">' + interior + '</a>';
@@ -71,10 +39,10 @@ function pintarMenu(s) {
       s.registro && { ic: '➕', texto: 'Registrar en la estructura territorial', href: '/territorial.html?app=1&volver=/app/candidato.html#nuevo' },
       { ic: '🗳️', texto: 'Consultar puesto de votación', href: '/app/puesto-votacion.html' } ] },
     { titulo: 'Seguimiento', items: [
-      s.solicitudes && { ic: '📨', texto: 'Solicitudes', accion: 'solicitudes' },
-      s.tareas && { ic: '✅', texto: 'Tareas', accion: 'tareas' },
-      s.puerta && { ic: '🚪', texto: 'Puerta a puerta', accion: 'puerta' },
-      s.dia_d && { ic: '🏁', texto: 'Día D · avance de votación', accion: 'dia_d' } ] },
+      s.solicitudes && { ic: '📨', texto: 'Solicitudes', href: '/app/candidato-seguimiento.html?seccion=solicitudes' },
+      s.tareas && { ic: '✅', texto: 'Tareas', href: '/app/candidato-seguimiento.html?seccion=tareas' },
+      s.puerta && { ic: '🚪', texto: 'Puerta a puerta', href: '/app/candidato-seguimiento.html?seccion=puerta' },
+      s.dia_d && { ic: '🏁', texto: 'Día D · avance de votación', href: '/app/candidato-seguimiento.html?seccion=dia_d' } ] },
     { titulo: 'Material de apoyo', items: [
       s.biografia && { ic: '👤', texto: 'Biografía del candidato', href: '/app/biografia.html' },
       s.recursos && { ic: '📚', texto: 'Información para compartir', href: '/app/informacion.html?modo=informacion' } ] },
@@ -98,8 +66,7 @@ function pintarMenu(s) {
   if (!usuario) return;
   document.getElementById('menu-app').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-accion]'); if (!b) return;
-    if (b.dataset.accion === 'salir') { cCerrarSesion(); return; }
-    abrir(SECCIONES.find((x) => x.id === b.dataset.accion));
+    if (b.dataset.accion === 'salir') cPedirSalir();   // con la misma confirmación que el «Salir» del encabezado
   });
   try {
     const r = await cCargar(usuario.id, '/mas');

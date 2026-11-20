@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
 </head>
 <body class="cand">
@@ -44,7 +45,7 @@
     </a>
 
     <section class="card" aria-label="Registros por día">
-      <div class="tit"><h3>Registros por día</h3><span class="lbl" style="font-size:10px;">Últimos 7 días</span></div>
+      <div class="tit"><h3>Registros por día</h3><span class="lbl">Últimos 7 días</span></div>
       <div id="barras"></div>
     </section>
 
@@ -110,7 +111,7 @@ function pintarAlerta(c) {
   const a = document.getElementById('alerta');
   if (n <= 0) { a.style.display = 'none'; return; }
   a.style.display = 'flex';
-  document.getElementById('alerta-texto').innerHTML = '<b style="font-size:14px">' + cFmt(n) + (n === 1 ? ' coordinador' : ' coordinadores')
+  document.getElementById('alerta-texto').innerHTML = '<b>' + cFmt(n) + (n === 1 ? ' coordinador' : ' coordinadores')
     + '</b> sin registros en 7 días';
 }
 
