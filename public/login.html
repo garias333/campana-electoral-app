@@ -407,7 +407,7 @@
          La eleccion NO se recuerda: es una pantalla que la persona ya sabe
          contestar, y recordarla fue justo lo que dejo celulares abriendo el
          formulario equivocado sin forma de salir. -->
-    <!-- LOS TRES PRIMEROS BOTONES LLEVAN AL MISMO SITIO, Y ESO ES A PROPOSITO.
+    <!-- LOS BOTONES DE LIDERES, ASPIRANTES Y TESTIGOS LLEVAN AL MISMO SITIO, Y ESO ES A PROPOSITO.
          Lider, sublider, testigo y aspirante al Concejo entran todos con su
          NUMERO DE IDENTIFICACION y su clave: no son tres ingresos distintos,
          es uno con tres letreros. Antes habia un solo boton que decia
@@ -427,9 +427,7 @@
       <button type="button" class="btn-primario btn-eleccion" id="ir-a-lideres-desde-eleccion">
         Acceso a Líderes y Sublíderes
       </button>
-      <button type="button" class="btn-primario btn-eleccion" id="ir-a-testigos-desde-eleccion">
-        Acceso a Testigos Electorales
-      </button>
+      <!-- ORDEN 64: Líderes y Sublíderes · Aspirantes al Concejo · Coordinadores · Testigos Electorales · Otros usuarios. Es solo el orden en pantalla: cada botón se ata por su id. -->
       <button type="button" class="btn-primario btn-eleccion" id="ir-a-aspirantes-desde-eleccion">
         Acceso a Aspirantes al Concejo
       </button>
@@ -438,11 +436,14 @@
       <button type="button" class="btn-primario btn-eleccion" id="ir-a-coordinadores-desde-eleccion">
         Acceso a Coordinadores
       </button>
+      <button type="button" class="btn-primario btn-eleccion" id="ir-a-testigos-desde-eleccion">
+        Acceso a Testigos Electorales
+      </button>
       <button type="button" class="btn-primario btn-alterno" id="ir-a-otros-desde-eleccion">
         Otros usuarios
       </button>
       <p style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
-        Líderes, sublíderes, testigos y aspirantes entran con su número de
+        Líderes, sublíderes, aspirantes y testigos entran con su número de
         identificación. Coordinadores, con su cédula y una clave de 6 dígitos.
         Administración, con su correo o celular.
       </p>
@@ -1223,8 +1224,8 @@ function ponerEtiquetaLogin(campo, texto) {
    autenticarla. Se atan uno por uno y no con un bucle sobre una lista de ids
    para que, si mañana alguno necesita llevar a otro sitio, se vea aquí. */
 ['ir-a-lideres-desde-eleccion',
- 'ir-a-testigos-desde-eleccion',
- 'ir-a-aspirantes-desde-eleccion'].forEach((id) => {
+ 'ir-a-aspirantes-desde-eleccion',
+ 'ir-a-testigos-desde-eleccion'].forEach((id) => {
   document.getElementById(id).addEventListener('click', () => {
     document.getElementById('login-error').classList.remove('visible');
     ponerModoLider();
