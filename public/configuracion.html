@@ -1955,6 +1955,9 @@ async function cargarComplementos() {
 
 /** Lo que se le avisa a quien va a apagar: lo mismo para todos, y lo propio de Transporte y de Puerta a puerta. */
 function avisoDeApagar(c, sinCerrar) {
+  if (c.clave === 'boton_testigos_celular') {
+    return 'El botón «Acceso a Testigos Electorales» dejará de verse en la pantalla de ingreso del celular. Quien ya entró no pierde su sesión, y los testigos con cédula y clave de 6 dígitos pueden seguir entrando por el botón de Líderes y Sublíderes.';
+  }
   const lineas = ['Si hay personas trabajando sin señal en este complemento, lo que tengan pendiente en el celular no subirá mientras esté apagado.'];
   if (c.clave === 'transporte_dia_d') {
     lineas.push('Los enlaces de conductores dejarán de funcionar.');
@@ -1981,9 +1984,11 @@ async function cambiarComplemento(chk, sinCerrar) {
     const r = await api(`/complementos/${encodeURIComponent(clave)}`, { method: 'PUT', body: { activo: quiere } });
     complementosPantalla.complementos = r.complementos;
     pintarComplementos();
-    ok.textContent = quiere
-      ? `«${c.nombre}» quedó encendido. Cada rol lo ve según Asignación de permisos.`
-      : `«${c.nombre}» quedó apagado para toda la campaña.`;
+    ok.textContent = clave === 'boton_testigos_celular'
+      ? (quiere ? 'El botón «Acceso a Testigos Electorales» ya se ve en la pantalla de ingreso del celular.' : 'El botón «Acceso a Testigos Electorales» ya no se ve en la pantalla de ingreso del celular.')
+      : (quiere
+        ? `«${c.nombre}» quedó encendido. Cada rol lo ve según Asignación de permisos.`
+        : `«${c.nombre}» quedó apagado para toda la campaña.`);
     ok.classList.add('visible');
   } catch (e) {
     chk.checked = !quiere;

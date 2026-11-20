@@ -55,6 +55,8 @@ const q = async (sql, p) => (await pool.query(sql, p))[0];
   await nuevaPersona('testigo2', 'Teresa Testigo Muestra', 'testigo', '1077000011', 'testigo');
   await q('UPDATE usuarios SET clave_celular_pregunta_hecha = 0 WHERE id IN (?)', [[ids.ana, ids.sara, ids.aspirante, ids.testigo, ids.coord1, ids.beto, ids.tito, ids.aspirante2, ids.testigo2, ids.coord2, ids.diego]]);
 
+  // Orden 69: el botón de testigos nace oculto; esta prueba entra con él, así que se enciende el interruptor.
+  await require('./fixtures/encender-complementos')(pool, ['boton_testigos_celular']);
   const servidor = http.createServer(crearApp(pool));
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${servidor.address().port}`;

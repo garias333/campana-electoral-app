@@ -102,7 +102,8 @@ function crearApp(pool, publico, { alertas = false } = {}) {
   app.use(express.json());
   app.use(session({ secret: 'secreto-de-prueba', resave: false, saveUninitialized: true, cookie: { httpOnly: true } }));
   app.get('/api/csrf-token', (req, res) => res.json({ csrfToken: 'ejemplo' }));
-  app.get('/api/marca-publica', (req, res) => res.json({ titulo: 'Campaña de ejemplo', subtitulo: '', logo_url: '' }));
+  // Orden 69: como app.js, dice si se muestra el botón de testigos (el interruptor real, leído de la base; apagado de fábrica).
+  app.get('/api/marca-publica', async (req, res) => { res.set('Cache-Control', 'no-store'); res.json({ titulo: 'Campaña de ejemplo', subtitulo: '', logo_url: '', boton_testigos: await require(path.join(RAIZ, 'lib/complementos')).complementoActivo('boton_testigos_celular') }); });
   const { cargarSublicencia, restringirAspirante } = require(path.join(RAIZ, 'middleware/aspirante'));
   app.use('/api', cargarSublicencia, restringirAspirante);
   const montar = (ruta, archivo) => app.use(ruta, require(path.join(RAIZ, 'routes', archivo)));
@@ -112,6 +113,7 @@ function crearApp(pool, publico, { alertas = false } = {}) {
   montar('/api/dashboard', 'dashboard.routes');
   montar('/api/coordinador', 'coordinador.routes');
   montar('/api/permisos', 'permisos.routes');
+  montar('/api/complementos', 'complementos.routes');   // orden 69: el interruptor del botón de testigos
   montar('/api/configuracion', 'configuracion.routes');
   montar('/api/contenido', 'contenido.routes');
   montar('/api/push', 'push.routes');

@@ -7,7 +7,7 @@
 //   · con los nueve encendidos, cada rol los ve según la matriz (los que la matriz abre) y «Activar complementos» solo lo ven el administrador
 //     y el superadministrador;
 //   · encendidos solo Tareas y Finanzas con la matriz de FÁBRICA: aparecen solo para quien la matriz deja;
-//   · la pestaña «Activar complementos» (390 px, sin desborde horizontal): diez tarjetas, encender sin preguntar, apagar CON el aviso de las
+//   · la pestaña «Activar complementos» (390 px, sin desborde horizontal): once tarjetas, encender sin preguntar, apagar CON el aviso de las
 //     personas que trabajan sin señal, el de Transporte (enlaces de conductores y asignaciones de hoy), el panel deshabilitado sin Puerta a puerta;
 //   · las pestañas Alertas/Resultados/Transporte/Logística de la Jornada electoral, el chip «Necesitan transporte» de Faltantes, el balance del Panel,
 //     el enlace al panel de Puerta a puerta, la tarjeta «mis tareas», la franja de avisos y el botón «Volver a permitir visitas»;
@@ -233,7 +233,7 @@ const ROLES = ['admin', 'coordinador', 'lider', 'sublider'];
     await ir('/configuracion.html#complementos', 3500);
     const tarjetas = () => p.ev(`Array.from(document.querySelectorAll('.comp-card')).map((c) => ({ clave: c.dataset.clave, nombre: c.querySelector('strong').textContent, desc: c.querySelector('.comp-desc').textContent, encendido: c.querySelector('input').checked, deshabilitado: c.querySelector('input').disabled, nota: (c.querySelector('.comp-nota') || {}).textContent || '' }))`);
     let t = await tarjetas();
-    ok(t.length === 10 && t.every((c) => c.nombre && c.desc.length > 20 && c.desc.length < 140), 'diez tarjetas, cada una con nombre y descripción de una línea', t.map((c) => c.nombre));
+    ok(t.length === 11 && t.every((c) => c.nombre && c.desc.length > 20 && c.desc.length < 140), 'once tarjetas, cada una con nombre y descripción de una línea', t.map((c) => c.nombre));
     ok(t.every((c) => !c.encendido), 'todas apagadas de fábrica');
     const panel = t.find((c) => c.clave === 'puerta_panel');
     ok(panel.deshabilitado && /Requiere «Puerta a puerta»/.test(panel.nota), '«Puerta a puerta panel» se ve deshabilitado con la nota «Requiere Puerta a puerta»', panel);

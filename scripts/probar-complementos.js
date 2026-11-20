@@ -109,12 +109,12 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     };
 
     /* ------------------------------------------------------------------------------------------------------------------------ 1 */
-    console.log('[1] La tabla: diez filas, todas apagadas de fábrica');
+    console.log('[1] La tabla: once filas, todas apagadas de fábrica');
     await apagarTodas();
     const filas = await q('SELECT clave, activo FROM complementos_campana ORDER BY clave');
-    ok(filas.length === 10 && TODAS.every((c) => filas.some((f) => f.clave === c)), 'hay una fila por complemento (diez, con faltan_por_votar)', filas.map((f) => f.clave));
+    ok(filas.length === 11 && TODAS.every((c) => filas.some((f) => f.clave === c)), 'hay una fila por complemento (once, con faltan_por_votar y boton_testigos_celular)', filas.map((f) => f.clave));
     ok(filas.every((f) => Number(f.activo) === 0), 'todas apagadas');
-    ok(JSON.stringify(Object.values(await C.complementosActivos()).filter(Boolean)) === '[]', 'complementosActivos() dice false en los diez');
+    ok(JSON.stringify(Object.values(await C.complementosActivos()).filter(Boolean)) === '[]', 'complementosActivos() dice false en los once');
     ok(!(await C.complementoActivo('no_existe')), 'una clave que no existe cuenta como apagada (y no rompe)');
 
     // init-db otra vez NO apaga lo encendido. Se borran las credenciales que el propio init-db deja, SOLO si son de hoy.
@@ -126,7 +126,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     const despues = await q("SELECT activo, actualizado_por FROM complementos_campana WHERE clave = 'tareas'");
     ok(corrida.status === 0, 'init-db corre otra vez sin error', (corrida.stderr || '').slice(-200));
     ok(Number(despues[0].activo) === 1 && despues[0].actualizado_por === admin, 'init-db NO apagó lo que estaba encendido ni cambió quién lo encendió');
-    ok((await q('SELECT COUNT(*) AS n FROM complementos_campana'))[0].n === 10, 'y sigue habiendo diez filas');
+    ok((await q('SELECT COUNT(*) AS n FROM complementos_campana'))[0].n === 11, 'y sigue habiendo once filas');
     // Una campaña que ya tenía las NUEVE del 318 (sin faltan_por_votar) recibe la décima APAGADA con init-db, sin tocar lo encendido.
     await q("DELETE FROM complementos_campana WHERE clave = 'faltan_por_votar'");
     await q("UPDATE complementos_campana SET activo = 1 WHERE clave = 'finanzas'");
@@ -214,7 +214,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
     /* ------------------------------------------------------------------------------------------------------------------------ 5 */
     console.log('\n[5] GET/PUT /api/complementos');
     const g = await pedir('GET', '/api/complementos', { quien: admin });
-    ok(g.status === 200 && g.json.complementos.length === 10, 'el administrador lista los diez', g.status);
+    ok(g.status === 200 && g.json.complementos.length === 11, 'el administrador lista los once', g.status);
     const ordenClaves = g.json.complementos.map((c) => c.clave);
     ok(ordenClaves.indexOf('faltan_por_votar') === ordenClaves.indexOf('logistica_dia_d') + 1 && ordenClaves.indexOf('finanzas') === ordenClaves.indexOf('faltan_por_votar') + 1, '«Faltan por votar» va después de Logística del día D y antes de Finanzas', ordenClaves);
     const fpv = g.json.complementos.find((c) => c.clave === 'faltan_por_votar');
@@ -257,7 +257,7 @@ async function encender(...claves) { for (const c of claves) await C.guardar(c, 
       const r = await pedir('GET', '/api/permisos/mios', { quien: id });
       ok(r.status === 200 && MODS.every((m) => !r.json.modulos.includes(m)), `${quien}: ninguno de los 9 módulos en «modulos»`, r.json && r.json.modulos);
       ok(MODS.every((m) => !r.json.permisos[m] || r.json.permisos[m].ver === false), `${quien}: la casilla «ver» de esos módulos es false (no falta: puedeVer() diría que sí)`, r.json.permisos);
-      ok(r.json.complementos && TODAS.every((c) => r.json.complementos[c] === false), `${quien}: trae «complementos» con los diez en false`, r.json.complementos);
+      ok(r.json.complementos && TODAS.every((c) => r.json.complementos[c] === false), `${quien}: trae «complementos» con los once en false`, r.json.complementos);
     }
     {
       // «Faltan por votar» NO tiene módulo propio: `rescate_votos` también es de la sección Avance de votación (en la Jornada) y del Ranking, y se queda.

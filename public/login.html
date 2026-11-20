@@ -436,14 +436,16 @@
       <button type="button" class="btn-primario btn-eleccion" id="ir-a-coordinadores-desde-eleccion">
         Acceso a Coordinadores
       </button>
-      <button type="button" class="btn-primario btn-eleccion" id="ir-a-testigos-desde-eleccion">
+      <!-- ORDEN 69 (parche 347): este botón NACE OCULTO. Solo se muestra cuando /api/marca-publica dice `boton_testigos: true` (el interruptor «Activar botón Acceso a
+           Testigos Electorales en App de celular» de Configuración → Activar complementos). Mientras carga, o si la lectura falla, sigue oculto. Su sitio en el orden no cambia. -->
+      <button type="button" class="btn-primario btn-eleccion" id="ir-a-testigos-desde-eleccion" style="display:none;">
         Acceso a Testigos Electorales
       </button>
       <button type="button" class="btn-primario btn-alterno" id="ir-a-otros-desde-eleccion">
         Otros usuarios
       </button>
-      <p style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
-        Líderes, sublíderes, aspirantes, coordinadores y testigos entran con su
+      <p id="ayuda-eleccion" style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
+        Líderes, sublíderes, aspirantes y coordinadores entran con su
         cédula y una clave de 6 dígitos. Administración, con su correo o celular.
       </p>
     </div>
@@ -1107,6 +1109,14 @@ function renderizarSelectorCuentas() {
     m = await fetch('/api/marca-publica').then(r => r.ok ? r.json() : null);
   } catch (e) { return; }
   if (!m) return;
+
+  // ORDEN 69 (parche 347): el botón de testigos y la línea de ayuda de abajo. Sin el sí explícito (`=== true`), todo queda como nace: sin testigos.
+  if (m.boton_testigos === true) {
+    const botonTestigos = document.getElementById('ir-a-testigos-desde-eleccion');
+    if (botonTestigos) botonTestigos.style.display = '';
+    const ayuda = document.getElementById('ayuda-eleccion');
+    if (ayuda) ayuda.textContent = 'Líderes, sublíderes, aspirantes, coordinadores y testigos entran con su cédula y una clave de 6 dígitos. Administración, con su correo o celular.';
+  }
 
   if (m.logo_url) {
     const img = document.querySelector('.login-logo');

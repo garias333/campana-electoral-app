@@ -214,10 +214,11 @@ app.use('/t', require('./middleware/complemento').requiereComplementoPublico('tr
 
 // --- Rutas de API ---
 /* La marca de la campaña, SIN sesión: es lo que pinta la pantalla de ingreso.
-   Se expone solo lo que ya se ve en esa pantalla —logo, nombre y eslogan—,
+   Se expone solo lo que ya se ve en esa pantalla —logo, nombre, eslogan y si se muestra el botón de testigos—,
    nada más de la configuración. Devuelve vacío si algo falla, para que un
    problema aquí no deje a nadie sin poder entrar. */
 app.get('/api/marca-publica', async (req, res) => {
+  res.set('Cache-Control', 'no-store');      // el interruptor del botón de testigos se tiene que ver al instante, no cuando venza una copia
   try {
     const pool = require('./config/db');
     const [[c]] = await pool.query(
@@ -226,9 +227,12 @@ app.get('/api/marca-publica', async (req, res) => {
       titulo: (c && c.marca_titulo) || '',
       subtitulo: (c && c.marca_subtitulo) || '',
       logo_url: (c && c.marca_logo_url) || '',
+      // Parche 347 (orden 69): ¿se muestra el botón «Acceso a Testigos Electorales» en el ingreso del celular? Solo un sí o un no (el interruptor del
+      // complemento `boton_testigos_celular`). Se falla cerrado: si no se puede leer, es false.
+      boton_testigos: await require('./lib/complementos').complementoActivo('boton_testigos_celular'),
     });
   } catch (err) {
-    res.json({ titulo: '', subtitulo: '', logo_url: '' });
+    res.json({ titulo: '', subtitulo: '', logo_url: '', boton_testigos: false });
   }
 });
 

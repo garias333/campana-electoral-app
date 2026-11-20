@@ -3612,16 +3612,17 @@ async function main() {
      esto otra vez NO apaga lo que ya se encendió ni cambia quién lo encendió. Los datos de un complemento apagado no se tocan. */
   await connection.query(`
     CREATE TABLE IF NOT EXISTS complementos_campana (
-      clave VARCHAR(40) NOT NULL PRIMARY KEY COMMENT 'solicitudes, tareas, puerta_a_puerta, puerta_panel, alertas_dia_d, resultados_dia_d, transporte_dia_d, logistica_dia_d, faltan_por_votar, finanzas',
+      clave VARCHAR(40) NOT NULL PRIMARY KEY COMMENT 'solicitudes, tareas, puerta_a_puerta, puerta_panel, alertas_dia_d, resultados_dia_d, transporte_dia_d, logistica_dia_d, faltan_por_votar, finanzas, boton_testigos_celular',
       activo TINYINT NOT NULL DEFAULT 0 COMMENT '1 = encendido para toda la campaña; 0 = apagado para TODOS los roles (también administrador y superadministrador)',
       actualizado_por INT NULL COMMENT 'Quién lo encendió o lo apagó por última vez',
       actualizado_en DATETIME NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  // `boton_testigos_celular` se sumó en el parche 347 (orden 69): mismo trato, nace APAGADA y no se toca lo que ya se encendió.
   // `faltan_por_votar` se sumó en el parche 319: INSERT IGNORE, así que las campañas que ya tenían las nueve filas la reciben APAGADA y no se toca lo que ya se encendió.
-  for (const clave of ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'faltan_por_votar', 'finanzas']) {
+  for (const clave of ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d', 'faltan_por_votar', 'finanzas', 'boton_testigos_celular']) {
     await connection.query('INSERT IGNORE INTO complementos_campana (clave, activo) VALUES (?, 0)', [clave]);
   }
-  console.log('Tabla de los complementos lista (los diez apagados de fábrica; no se pisa lo que ya se encendió).');
+  console.log('Tabla de los complementos lista (los once apagados de fábrica; no se pisa lo que ya se encendió).');
 
   await sembrarPermisosPorDefecto(connection);
 

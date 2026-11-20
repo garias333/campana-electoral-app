@@ -52,6 +52,8 @@ const BOTON = {
 (async () => {
   const { ids } = await sembrar(pool);
   await sincronizarClaveCelular(pool, ids.coord1);
+  // Orden 69: el botón de testigos nace oculto; esta prueba mide el orden de los CINCO botones, así que se enciende el interruptor (el caso apagado lo prueba probar-interruptor-testigos.js).
+  await require('./fixtures/encender-complementos')(pool, ['boton_testigos_celular']);
   const actual = await escuchar(crearApp(pool));
   const nav = await lanzar();
   const p = await nav.pagina('about:blank');
