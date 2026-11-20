@@ -170,4 +170,4 @@ async function verificarDuenoDeCola(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireRole, calcularAlcance, verificarDuenoDeCola };
+module.exports = { requireAuth, requireRole, calcularAlcance, verificarDuenoDeCola, resolverUsuario };

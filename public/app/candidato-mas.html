@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Más · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <div class="barra"><small>Más</small><h1>Más opciones</h1></div>
+  <div id="estado"></div>
+  <div id="error-carga" class="error-carga" role="alert"></div>
+  <div class="menu-mas" id="menu"></div>
+  <div id="detalle"></div>
+  <div class="pie-sesion">
+    <button type="button" class="enlace-discreto" id="escritorio">Ver versión de escritorio</button><br>
+    <button type="button" class="enlace-discreto" id="salir">Cerrar sesión</button>
+  </div>
+</div>
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+let usuario = null;
+const SECCIONES = [
+  { id: 'solicitudes', ic: '📨', texto: 'Solicitudes', ruta: '/solicitudes' },
+  { id: 'tareas', ic: '✅', texto: 'Tareas', ruta: '/tareas' },
+  { id: 'puerta', ic: '🚪', texto: 'Puerta a puerta', ruta: '/puerta-a-puerta' },
+  { id: 'dia_d', ic: '🗳️', texto: 'Día D · avance de votación', ruta: '/dia-d' },
+];
+function fila(a, b) { return '<div class="fila-dato"><span>' + cEsc(a) + '</span><b>' + cFmt(b) + '</b></div>'; }
+const PINTORES = {
+  solicitudes: (d) => d.total === 0 ? cVacio('📨', 'Aún no hay solicitudes', 'Las que registre el equipo aparecerán aquí.')
+    : '<div class="resumen3"><div><b>' + cFmt(d.nuevas) + '</b><span>Nuevas</span></div><div><b>' + cFmt(d.en_tramite) + '</b><span>En trámite</span></div><div><b>' + cFmt(d.resueltas) + '</b><span>Resueltas</span></div></div>'
+      + '<div class="lbl" style="margin:10px 0 4px">Las más pedidas</div>' + d.mas_pedidas.map((c) => fila(c.nombre, c.total)).join(''),
+  tareas: (d) => d.total === 0 ? cVacio('✅', 'Aún no hay tareas', 'Las que se asignen aparecerán aquí.')
+    : '<div class="resumen3"><div><b>' + cFmt(d.abiertas) + '</b><span>Abiertas</span></div><div><b>' + cFmt(d.hechas + d.verificadas) + '</b><span>Hechas</span></div><div><b>' + cFmt(d.vencidas) + '</b><span>Vencidas</span></div></div>'
+      + '<div class="lbl" style="margin:10px 0 4px">Por responsable</div>' + d.por_responsable.map((r) => fila(r.nombre, r.total)).join(''),
+  puerta: (d) => (d.oculto || !d.total) ? cVacio('🚪', 'Aún no hay visitas suficientes', 'Por privacidad, las cifras se muestran cuando hay al menos ' + cFmt(d.minimo) + ' visitas.')
+    : '<div class="resumen3"><div><b>' + cFmt(d.total.asignadas) + '</b><span>Puertas</span></div><div><b>' + cFmt(d.total.visitadas) + '</b><span>Visitadas</span></div><div><b>' + cFmt(d.total.visitas) + '</b><span>Visitas</span></div></div>'
+      + '<div class="lbl" style="margin:10px 0 4px">Por zona (visitadas de asignadas)</div>' + d.zonas.map((z) => '<div class="fila-dato"><span>' + cEsc(z.zona) + '</span><b>' + cFmt(z.visitadas) + ' de ' + cFmt(z.asignadas) + '</b></div>').join(''),
+  dia_d: (d) => d.total === 0 ? cVacio('🗳️', 'Aún no hay votantes registrados', 'El avance aparecerá cuando haya personas registradas.')
+    : '<div class="resumen3"><div><b>' + cFmt(d.votaron) + '</b><span>Ya votaron</span></div><div><b>' + cFmt(d.faltan) + '</b><span>Faltan</span></div><div><b>' + (d.porcentaje === null ? '—' : d.porcentaje + '%') + '</b><span>Avance</span></div></div>'
+      + (d.modo_prueba ? '<div class="sin-meta">Hoy no es la elección: son cifras de prueba.</div>' : '')
+      + '<div class="lbl" style="margin:10px 0 4px">Puestos con más por votar</div>' + d.por_puesto.map((p) => fila(p.puesto, p.faltan)).join(''),
+};
+async function abrir(s) {
+  const cont = document.getElementById('detalle');
+  cont.innerHTML = '<div class="card"><div class="cargando">Cargando…</div></div>';
+  try {
+    const r = await cCargar(usuario.id, s.ruta);
+    cont.innerHTML = '<div class="card" style="margin-top:14px"><div class="tit"><h3>' + cEsc(s.texto) + '</h3></div>' + PINTORES[s.id](r.datos) + '</div>';
+    cPintarEstado(r, 'estado');
+  } catch (err) { cont.innerHTML = '<div class="card">' + cVacio('⚠️', 'No se pudo cargar', err.message || '') + '</div>'; }
+}
+(async function () {
+  usuario = await exigirCandidatoApp('mas');
+  if (!usuario) return;
+  document.getElementById('escritorio').addEventListener('click', () => { candFijarPreferenciaEscritorio(true); window.location.href = '/dashboard.html'; });
+  document.getElementById('salir').addEventListener('click', () => cCerrarSesion());
+  try {
+    const r = await cCargar(usuario.id, '/mas');
+    const s = r.datos.secciones || {};
+    let h = '';
+    SECCIONES.forEach((x) => { if (s[x.id]) h += '<button type="button" data-id="' + x.id + '"><span class="ic">' + x.ic + '</span>' + x.texto + '<span class="flecha">›</span></button>'; });
+    h += '<a href="/app/candidato-clave.html"><span class="ic">🔑</span>Cambiar mi clave<span class="flecha">›</span></a>';
+    if (s.legislacion) h += '<a href="/app/legislacion.html"><span class="ic">⚖️</span>Legislación<span class="flecha">›</span></a>';
+    document.getElementById('menu').innerHTML = h || '<div style="padding:8px">' + cVacio('☰', 'No hay más secciones', 'Las que se activen en la campaña aparecerán aquí.') + '</div>';
+    document.getElementById('menu').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) abrir(SECCIONES.find((x) => x.id === b.dataset.id)); });
+  } catch (err) { const e = document.getElementById('error-carga'); e.textContent = err.message || 'No se pudo cargar.'; e.classList.add('visible'); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Mapa · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+</head>
+<body class="cand cand-mapa">
+<div class="mapa-pant">
+  <div id="mapa-leaflet" aria-label="Mapa de la campaña"></div>
+  <div class="flot">
+    <div class="buscar"><span aria-hidden="true">🔍</span><input id="buscar" type="search" placeholder="Buscar comuna o evento" autocomplete="off" aria-label="Buscar comuna o evento"></div>
+    <div id="sugerencias" class="sugerencias" style="display:none;"></div>
+    <div class="chips" id="capas">
+      <button type="button" class="chip on" data-capa="votantes">Votantes</button>
+      <button type="button" class="chip" data-capa="lideres">Líderes</button>
+      <button type="button" class="chip" data-capa="puestos">Puestos</button>
+      <button type="button" class="chip" data-capa="eventos">Eventos</button>
+    </div>
+  </div>
+  <div id="aviso" class="aviso-mapa" style="display:none;"></div>
+  <div class="hoja" id="hoja" role="dialog" aria-label="Zona seleccionada">
+    <h3 id="h-nombre"></h3><span class="sub" id="h-sub"></span>
+    <div class="g3" id="h-cifras"></div>
+    <a class="btn" id="h-equipo" href="/app/candidato-equipo.html">Ver el equipo de esta zona</a>
+  </div>
+</div>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/js/mapa-fondo.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+let usuario = null, mapa = null, datos = null, capa = 'votantes', zonaSel = null;
+let capaMarcas = null;
+
+function aviso(titulo, texto) {
+  const a = document.getElementById('aviso');
+  if (!titulo) { a.style.display = 'none'; return; }
+  a.innerHTML = '<b>' + cEsc(titulo) + '</b>' + cEsc(texto || ''); a.style.display = 'block';
+}
+
+function tamano(n, max) { return Math.round(34 + 30 * Math.sqrt(max > 0 ? n / max : 0)); }
+
+function cerrarHoja() { document.getElementById('hoja').classList.remove('abierta'); zonaSel = null; }
+function abrirHoja(z) {
+  zonaSel = z.id;
+  document.getElementById('h-nombre').textContent = z.nombre;
+  document.getElementById('h-sub').textContent = z.coordinador ? 'Coordinador: ' + z.coordinador : 'Sin coordinador asignado';
+  document.getElementById('h-cifras').innerHTML =
+    '<div><b>' + cFmt(z.votantes) + '</b><span>votantes</span></div><div><b>' + cFmt(z.lideres) + '</b><span>líderes</span></div><div><b>' + cFmt(z.puestos) + '</b><span>puestos cubiertos</span></div>';
+  document.getElementById('h-equipo').href = '/app/candidato-equipo.html?zona=' + encodeURIComponent(z.id);
+  document.getElementById('hoja').classList.add('abierta');
+  if (mapa && z.lat !== null) mapa.panTo([z.lat, z.lng], { animate: true });
+}
+
+function pintarMarcas() {
+  if (!mapa || !datos) return;
+  capaMarcas.clearLayers();
+  const puntos = [];
+  if (capa === 'eventos') {
+    datos.eventos.forEach((e) => {
+      const m = L.marker([e.lat, e.lng], { icon: L.divIcon({ className: '', html: '<div class="pin-zona am" style="width:34px;height:34px;font-size:16px">📅</div>', iconSize: [34, 34] }), title: e.titulo });
+      m.bindPopup('<b>' + cEsc(e.titulo) + '</b><br>' + cEsc(e.fecha));
+      m.addTo(capaMarcas); puntos.push([e.lat, e.lng]);
+    });
+    aviso(datos.eventos.length ? null : 'No hay eventos con ubicación', datos.eventos.length ? '' : 'Los eventos próximos con lugar en el mapa aparecerán aquí.');
+  } else {
+    const zonas = datos.zonas.filter((z) => z.lat !== null && z[capa === 'votantes' ? 'votantes' : (capa === 'lideres' ? 'lideres' : 'puestos')] > 0);
+    const campo = capa === 'votantes' ? 'votantes' : (capa === 'lideres' ? 'lideres' : 'puestos');
+    const max = zonas.reduce((m, z) => Math.max(m, z[campo]), 0);
+    zonas.forEach((z) => {
+      const t = tamano(z[campo], max);
+      const grande = z[campo] === max;
+      const m = L.marker([z.lat, z.lng], { icon: L.divIcon({ className: '', html: '<div class="pin-zona' + (grande ? ' am' : '') + '" style="width:' + t + 'px;height:' + t + 'px">' + cFmt(z[campo]) + '</div>', iconSize: [t, t] }), title: z.nombre, keyboard: true });
+      m.on('click', () => abrirHoja(z));
+      m.addTo(capaMarcas); puntos.push([z.lat, z.lng]);
+    });
+    aviso(zonas.length ? null : 'Aún no hay datos con ubicación', zonas.length ? '' : 'Cuando el equipo registre personas con su barrio y dirección, las zonas aparecerán aquí.');
+  }
+  if (puntos.length) mapa.fitBounds(L.latLngBounds(puntos).pad(0.25), { maxZoom: 14, animate: false });
+}
+
+function buscar(texto) {
+  const caja = document.getElementById('sugerencias');
+  const t = String(texto || '').trim().toLowerCase();
+  if (t.length < 2 || !datos) { caja.style.display = 'none'; return; }
+  const coincide = (s) => String(s || '').toLowerCase().indexOf(t) >= 0;
+  const zs = datos.zonas.filter((z) => coincide(z.nombre)).slice(0, 5).map((z) => ({ tipo: 'z', z, texto: z.nombre + ' · ' + cFmt(z.votantes) + ' votantes' }));
+  const es = datos.eventos.filter((e) => coincide(e.titulo)).slice(0, 3).map((e) => ({ tipo: 'e', e, texto: '📅 ' + e.titulo }));
+  const todos = zs.concat(es);
+  caja.innerHTML = todos.length ? todos.map((x, i) => '<button type="button" data-i="' + i + '">' + cEsc(x.texto) + '</button>').join('') : '<button type="button" disabled>Sin coincidencias</button>';
+  caja.style.display = 'block';
+  caja._items = todos;
+}
+
+(async function () {
+  usuario = await exigirCandidatoApp('mapa');
+  if (!usuario) return;
+  if (typeof L === 'undefined') { aviso('El mapa necesita internet', 'Cuando vuelva la señal, recargue esta pantalla.'); return; }
+  const token = await obtenerTokenMapa({ rutas: ['/candidato/mapbox-token'] });   // null ante cualquier fallo: entonces solo OpenStreetMap
+  mapa = L.map('mapa-leaflet', { zoomControl: false, preferCanvas: true, attributionControl: true }).setView([4.6, -74.1], 6);
+  mapa.attributionControl.setPrefix(false);
+  fondoMapa(mapa, { token: token });
+  capaMarcas = L.layerGroup().addTo(mapa);
+  mapa.on('click', cerrarHoja);
+
+  document.getElementById('capas').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip[data-capa]'); if (!b) return;
+    capa = b.dataset.capa; cerrarHoja();
+    document.querySelectorAll('#capas .chip').forEach((c) => c.classList.toggle('on', c === b));
+    pintarMarcas();
+  });
+  const entrada = document.getElementById('buscar');
+  entrada.addEventListener('input', () => buscar(entrada.value));
+  document.getElementById('sugerencias').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-i]'); if (!b) return;
+    const it = document.getElementById('sugerencias')._items[Number(b.dataset.i)];
+    document.getElementById('sugerencias').style.display = 'none';
+    entrada.value = '';
+    if (it.tipo === 'z') { capa = 'votantes'; document.querySelectorAll('#capas .chip').forEach((c) => c.classList.toggle('on', c.dataset.capa === 'votantes')); pintarMarcas(); abrirHoja(it.z); }
+    else { capa = 'eventos'; document.querySelectorAll('#capas .chip').forEach((c) => c.classList.toggle('on', c.dataset.capa === 'eventos')); pintarMarcas(); mapa.setView([it.e.lat, it.e.lng], 15); }
+  });
+
+  try {
+    const r = await cCargar(usuario.id, '/mapa');
+    datos = r.datos;
+    pintarMarcas();
+    if (r.copia) aviso('Sin señal', 'Se muestra lo último cargado · Actualizado ' + cHaceTexto(r.desde));
+  } catch (err) {
+    aviso('No se pudo cargar el mapa', err.message || '');
+  }
+})();
+</script>
+</body>
+</html>

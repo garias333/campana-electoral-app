@@ -76,7 +76,7 @@ const SIETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
  * emergencia que explica el comentario de arriba, y el día que el SMTP falle
  * él tampoco puede quedarse fuera de su propia campaña.
  */
-const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'administrativo', 'aspirante_concejo'];
+const ROLES_CON_CODIGO = ['admin', 'coordinador', 'asistente_administrativo', 'administrativo', 'aspirante_concejo', 'candidato'];   // orden 70: el candidato entra por «Otros usuarios»
 
 /**
  * Límite de solicitudes de código: 5 cada 15 minutos por IP.

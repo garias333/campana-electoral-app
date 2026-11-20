@@ -302,7 +302,7 @@ const NAV_ITEMS = [
      siembra de db/init-db.js; sin esa fila nadie lo vería. El aspirante con
      sublicencia tampoco: su lista de direcciones (HREFS_ASPIRANTE) no la trae. */
   { href: '/legislacion.html', icono: '⚖️', texto: 'Legislación', modulo: 'legislacion', roles: ['admin', 'coordinador'] },
-  { href: '/ayuda.html', icono: '❔', texto: 'Ayuda', roles: null },
+  { href: '/ayuda.html', icono: '❔', texto: 'Ayuda', roles: null, noPara: ['candidato'] },   // el candidato no tiene manual propio: su pantalla le respondería 403 (orden 71)
 ];
 
 let _csrfTokenCache = null;
@@ -1318,7 +1318,7 @@ function etiquetaRol(rol) { return NOMBRE_DEL_ROL[rol] || rol; }
    «asistente_administrativo»). Es otro nombre que `etiquetaRol` a propósito: aquel va en minúscula dentro de frases; este va solo, con mayúscula. */
 const ROL_EN_PANTALLA = {
   admin: 'Administrador', coordinador: 'Coordinador', lider: 'Líder', sublider: 'Sublíder', usuario: 'Sublíder', testigo: 'Testigo',
-  asistente_administrativo: 'Asistente administrativo', administrativo: 'Administrativo', invitado: 'Invitado', aspirante_concejo: 'Aspirante al Concejo',
+  asistente_administrativo: 'Asistente administrativo', administrativo: 'Administrativo', candidato: 'Candidato', invitado: 'Invitado', aspirante_concejo: 'Aspirante al Concejo',
 };
 function rolEnPantalla(rol) {
   const r = String(rol || '');
@@ -1522,6 +1522,7 @@ async function inicializarLayout(paginaActiva) {
   function itemVisible(item) {
     // Un complemento apagado no se ve para nadie, y sin respuesta del servidor tampoco: aquí no se «muestra ante la duda».
     if (item.complemento && complementosActivos[item.complemento] !== true) return false;
+    if (item.noPara && item.noPara.includes(usuario.rol)) return false;
     // La lista de direcciones manda sobre la de módulos cuando llega: es más
     // fina. El servidor sólo la envía a quien la necesita.
     if (hrefsPermitidos) return hrefsPermitidos.includes(item.href);

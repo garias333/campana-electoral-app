@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v211';
+const CACHE_NAME = 'estrategia-v212';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -89,6 +89,16 @@ const ARCHIVOS_CASCARON = [
   '/app/admin-mapa.html',
   '/js/mapa-fondo.js',   // parche 314: el fondo del mapa (token de Mapbox u OpenStreetMap con Referer) es de esta app
   '/app/admin-contenido.html',
+  // App del CANDIDATO PRINCIPAL (orden 70/71, solo lectura): sus cinco pantallas, «Cambiar mi clave», estilos y barra inferior. Los datos vienen de /api/candidato (no se guardan aquí:
+  // la última copia vive en localStorage, por cuenta, para mostrar «Actualizado hace N min» sin señal). Leaflet es el de /vendor (ya está arriba) y el fondo del mapa necesita señal.
+  '/app/candidato.html',
+  '/app/candidato-equipo.html',
+  '/app/candidato-mapa.html',
+  '/app/candidato-agenda.html',
+  '/app/candidato-mas.html',
+  '/app/candidato-clave.html',
+  '/app/candidato.css',
+  '/app/candidato-nav.js',
   '/app/admin-estructura.html',
   '/app/ayudas-estructura.js',
   '/js/form-utils.js',

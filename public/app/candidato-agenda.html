@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Agenda · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <div class="barra">
+    <small>Agenda</small>
+    <div class="fila-barra">
+      <div><h1 id="semana-titulo">Esta semana</h1></div>
+      <button type="button" class="btn-volver" id="ant" aria-label="Semana anterior">‹</button>
+      <button type="button" class="btn-volver" id="sig" aria-label="Semana siguiente">›</button>
+    </div>
+  </div>
+  <div class="tira" id="tira" role="tablist" aria-label="Días de la semana"></div>
+  <div id="estado"></div>
+  <div id="error-carga" class="error-carga" role="alert"></div>
+  <div id="lista"><div class="cargando">Cargando…</div></div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+let usuario = null, lunes = null, eventos = [], diaSel = null;
+const NOMBRES_DIA = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function lunesDe(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function sumar(d, n) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
+
+function titulo() {
+  const fin = sumar(lunes, 6);
+  const mismoMes = lunes.getMonth() === fin.getMonth();
+  const hoyLunes = iso(lunesDe(new Date())) === iso(lunes);
+  const rango = lunes.getDate() + (mismoMes ? '' : ' ' + MESES[lunes.getMonth()]) + ' – ' + fin.getDate() + ' ' + MESES[fin.getMonth()];
+  document.getElementById('semana-titulo').textContent = hoyLunes ? 'Esta semana · ' + rango : rango;
+}
+
+function pintarTira() {
+  const hoy = iso(new Date());
+  const conEvento = new Set(eventos.map((e) => e.fecha));
+  let h = '';
+  for (let i = 0; i < 7; i++) {
+    const d = sumar(lunes, i), f = iso(d);
+    h += '<button type="button" class="dia-tira' + (f === hoy ? ' hoy' : '') + (conEvento.has(f) ? ' con' : '') + (f === diaSel ? ' sel' : '') + '" data-f="' + f + '" role="tab" aria-selected="' + (f === diaSel) + '">'
+      + '<small>' + NOMBRES_DIA[i] + '</small><b>' + d.getDate() + '</b><i></i></button>';
+  }
+  document.getElementById('tira').innerHTML = h;
+}
+
+function tarjeta(e) {
+  const m = cFechaBloque(e.fecha);
+  let extra = '';
+  if (e.pasado && e.estado !== 'cancelado') {
+    if (e.invitados > 0) {
+      const pct = Math.min(100, Math.round((e.asistieron / e.invitados) * 100));
+      extra = '<div class="asis"><b>' + cFmt(e.asistieron) + ' de ' + cFmt(e.invitados) + '</b> asistieron<div class="barra-asis"><i style="width:' + pct + '%"></i></div></div>';
+    } else extra = '<div class="asis">Sin registro de asistencia</div>';
+  } else if (e.estado === 'cancelado') {
+    extra = '<div class="asis"><b>Cancelado</b></div>';
+  } else {
+    extra = '<div class="asis"><b>' + cFmt(e.confirmados) + '</b> confirmados' + (e.meta_asistentes > 0 ? ' · meta ' + cFmt(e.meta_asistentes) : '') + '</div>';
+  }
+  return '<article class="evt"><div class="fila"><div class="fecha"><b>' + cEsc(m.dia) + '</b><small>' + cEsc(m.mes) + '</small></div>'
+    + '<div style="min-width:0;flex:1;"><h4>' + cEsc(e.titulo) + '</h4>'
+    + '<span class="meta-evt">🕒 ' + cEsc(e.hora || 'Sin hora') + (e.lugar ? ' · 📍 ' + cEsc(e.lugar) : '') + '</span>'
+    + (e.organizador ? '<span class="meta-evt">Organiza: ' + cEsc(e.organizador) + '</span>' : '') + '</div></div>' + extra + '</article>';
+}
+
+function pintarLista() {
+  const lista = diaSel ? eventos.filter((e) => e.fecha === diaSel) : eventos;
+  const el = document.getElementById('lista');
+  if (!lista.length) {
+    el.innerHTML = cVacio('📅', diaSel ? 'No hay eventos este día' : 'No hay eventos esta semana', 'Los que se programen aparecerán aquí.');
+    return;
+  }
+  el.innerHTML = lista.map(tarjeta).join('');
+}
+
+async function cargarSemana() {
+  titulo(); pintarTira();
+  document.getElementById('lista').innerHTML = '<div class="cargando">Cargando…</div>';
+  const desde = iso(lunes), hasta = iso(sumar(lunes, 6));
+  try {
+    const r = await cCargar(usuario.id, '/agenda?desde=' + desde + '&hasta=' + hasta);
+    document.getElementById('error-carga').classList.remove('visible');
+    eventos = r.datos.eventos || [];
+    cPintarEstado(r, 'estado');
+    pintarTira(); pintarLista();
+  } catch (err) {
+    document.getElementById('lista').innerHTML = '';
+    const e = document.getElementById('error-carga'); e.textContent = err.message || 'No se pudo cargar la agenda.'; e.classList.add('visible');
+  }
+}
+
+(async function () {
+  usuario = await exigirCandidatoApp('agenda');
+  if (!usuario) return;
+  const q = new URLSearchParams(location.search).get('dia');
+  const base = q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? new Date(q + 'T12:00:00') : new Date();
+  lunes = lunesDe(base);
+  if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) diaSel = q;
+  document.getElementById('ant').addEventListener('click', () => { lunes = sumar(lunes, -7); diaSel = null; cargarSemana(); });
+  document.getElementById('sig').addEventListener('click', () => { lunes = sumar(lunes, 7); diaSel = null; cargarSemana(); });
+  document.getElementById('tira').addEventListener('click', (e) => {
+    const b = e.target.closest('.dia-tira'); if (!b) return;
+    diaSel = diaSel === b.dataset.f ? null : b.dataset.f; pintarTira(); pintarLista();
+  });
+  await cargarSemana();
+})();
+</script>
+</body>
+</html>

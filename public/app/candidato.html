@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Inicio · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <div id="cargando" class="cargando">Cargando…</div>
+  <div id="error-carga" class="error-carga" role="alert"></div>
+
+  <div id="contenido" style="display:none;">
+    <header class="hdr">
+      <div class="top">
+        <div class="foto" id="foto" aria-hidden="true"></div>
+        <div class="quien"><small id="saludo"></small><h1 id="nombre"></h1></div>
+        <button type="button" class="btn-refrescar" id="btn-refrescar" aria-label="Actualizar">⟳</button>
+      </div>
+      <div class="lema" id="lema" style="display:none;"></div>
+    </header>
+
+    <section class="card sube" aria-label="Meta de votantes">
+      <div class="lbl">Meta de votantes</div>
+      <div class="meta" style="margin-top:8px" id="meta"></div>
+    </section>
+
+    <div id="estado"></div>
+
+    <section class="kpis" id="kpis" aria-label="Cifras de la campaña"></section>
+
+    <a class="alerta" id="alerta" href="/app/candidato-equipo.html?filtro=sin_actividad" style="display:none;">
+      <b class="ico" aria-hidden="true">⚠</b>
+      <div id="alerta-texto"></div><span class="flecha" aria-hidden="true">›</span>
+    </a>
+
+    <section class="card" aria-label="Registros por día">
+      <div class="tit"><h3>Registros por día</h3><span class="lbl" style="font-size:10px;">Últimos 7 días</span></div>
+      <div id="barras"></div>
+    </section>
+
+    <section class="card" aria-label="Próximos eventos">
+      <div class="tit"><h3>Próximos eventos</h3><a href="/app/candidato-agenda.html">Ver agenda</a></div>
+      <div id="eventos"></div>
+    </section>
+  </div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+let usuario = null;
+
+function mostrarError(msg) {
+  const caja = document.getElementById('error-carga');
+  caja.textContent = msg; caja.classList.add('visible');
+  document.getElementById('cargando').style.display = 'none';
+}
+
+/* El anillo SVG del avance de la meta (r = 44 → circunferencia 276,46). Sin meta: solo el número. */
+function pintarMeta(m) {
+  const el = document.getElementById('meta');
+  const reg = Number(m.registrados) || 0;
+  const pct = cPorcentaje(m.porcentaje);
+  if (pct === null) {
+    el.innerHTML = '<div><b>' + cFmt(reg) + '</b><span>votantes registrados</span>'
+      + '<div class="sin-meta">Defina la meta en Configuración</div></div>';
+    return;
+  }
+  const C = 276.46;
+  const lleno = Math.min(100, pct);
+  const desplazamiento = (C * (1 - lleno / 100)).toFixed(1);
+  const etiqueta = m.ritmo === 'al_ritmo' ? '<span class="sem verde">▲ al ritmo esperado</span>'
+    : (m.ritmo === 'por_debajo' ? '<span class="sem ambar">▼ por debajo del ritmo</span>' : '');
+  el.innerHTML = '<svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="' + pct + ' % de la meta">'
+    + '<circle cx="52" cy="52" r="44" fill="none" stroke="#e7ebf3" stroke-width="12"/>'
+    + '<circle cx="52" cy="52" r="44" fill="none" stroke="#FFC300" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + desplazamiento + '" transform="rotate(-90 52 52)"/>'
+    + '<text x="52" y="58" text-anchor="middle" font-size="' + (pct >= 1000 ? 17 : 22) + '" font-weight="800" fill="#084298">' + pct + '%</text></svg>'
+    + '<div><b>' + cFmt(reg) + '</b><span>de ' + cFmt(m.meta) + ' votantes</span><br>' + etiqueta + '</div>';
+}
+
+function pintarKpis(d) {
+  const c = d.coordinadores || {}, l = d.lideres || {}, p = d.puestos || {};
+  const sem = Number((d.semana || {}).registrados) || 0;
+  const celdas = [];
+  celdas.push('<div class="kpi am"><b>' + (sem > 0 ? '+' : '') + cFmt(sem) + '</b><span>registrados esta semana</span></div>');
+  celdas.push('<div class="kpi"><b>' + cFmt(c.total) + '</b><span>coordinadores</span>'
+    + (c.total > 0 ? ' <i>· ' + cFmt(c.activos) + ' activos</i>' : '') + '</div>');
+  celdas.push('<div class="kpi"><b>' + cFmt(l.total) + '</b><span>líderes</span>'
+    + (l.total > 0 ? ' <i>· ' + cFmt(l.porcentaje_activos) + '% activos</i>' : '') + '</div>');
+  celdas.push('<div class="kpi"><b>' + cFmt(p.cubiertos) + '</b><span>puestos cubiertos</span>'
+    + (p.total > 0 ? ' <i>de ' + cFmt(p.total) + '</i>' : '') + '</div>');
+  document.getElementById('kpis').innerHTML = celdas.join('');
+}
+
+function pintarAlerta(c) {
+  const n = Number((c || {}).sin_actividad) || 0;
+  const a = document.getElementById('alerta');
+  if (n <= 0) { a.style.display = 'none'; return; }
+  a.style.display = 'flex';
+  document.getElementById('alerta-texto').innerHTML = '<b style="font-size:14px">' + cFmt(n) + (n === 1 ? ' coordinador' : ' coordinadores')
+    + '</b> sin registros en 7 días';
+}
+
+function pintarBarras(dias) {
+  const el = document.getElementById('barras');
+  const lista = dias || [];
+  const total = lista.reduce((s, x) => s + (Number(x.n) || 0), 0);
+  if (!lista.length || total === 0) {
+    el.innerHTML = cVacio('📊', 'Aún no hay registros', 'Cuando el equipo registre personas, las verá aquí día por día.');
+    return;
+  }
+  const max = Math.max.apply(null, lista.map((x) => Number(x.n) || 0)) || 1;
+  el.innerHTML = '<div class="spark-n">' + lista.map((x) => '<span>' + cFmt(x.n) + '</span>').join('') + '</div>'
+    + '<div class="spark">' + lista.map((x) => '<i class="' + (x.hoy ? 'hoy' : '') + '" style="height:' + Math.max(6, Math.round(((Number(x.n) || 0) / max) * 100)) + '%" title="' + cEsc(x.fecha) + '"></i>').join('') + '</div>'
+    + '<div class="dias">' + lista.map((x) => '<span class="' + (x.hoy ? 'hoy' : '') + '">' + (x.hoy ? 'Hoy' : cEsc(x.dia)) + '</span>').join('') + '</div>';
+}
+
+function pintarEventos(lista) {
+  const el = document.getElementById('eventos');
+  if (!lista || !lista.length) { el.innerHTML = cVacio('📅', 'No hay eventos próximos', 'Los que se programen aparecerán aquí.'); return; }
+  el.innerHTML = lista.map((e) => {
+    const f = cFechaBloque(e.fecha);
+    const conf = e.confirmados === null || e.confirmados === undefined ? '' : ' · ' + cFmt(e.confirmados) + ' confirmados';
+    return '<a class="ev" href="/app/candidato-agenda.html?dia=' + cEsc(e.fecha) + '" style="text-decoration:none;color:inherit;">'
+      + '<div class="fecha"><b>' + cEsc(f.dia) + '</b><small>' + cEsc(f.mes) + '</small></div>'
+      + '<div class="d"><p>' + cEsc(e.titulo) + '</p><span>' + cEsc(e.hora || '') + cEsc(conf) + '</span></div></a>';
+  }).join('');
+}
+
+function pintar(d) {
+  const cand = d.candidato || {};
+  document.getElementById('saludo').textContent = cSaludo() + ',';
+  document.getElementById('nombre').textContent = cand.nombre || usuario.nombre || '';
+  const foto = document.getElementById('foto');
+  if (cand.foto_url) {
+    foto.innerHTML = '<img alt="" src="' + cEsc(cand.foto_url) + '">';
+    foto.querySelector('img').addEventListener('error', () => { foto.textContent = cIniciales(cand.nombre || usuario.nombre); });
+  } else { foto.textContent = cIniciales(cand.nombre || usuario.nombre); }
+
+  const partes = [];
+  if (cand.eslogan) partes.push('«' + cEsc(cand.eslogan).replace(/^«|»$/g, '') + '»');
+  const dias = d.eleccion && d.eleccion.dias;
+  if (dias !== null && dias !== undefined && dias > 1) partes.push('faltan <b>' + cFmt(dias) + ' días</b> para la elección');
+  else if (dias === 1) partes.push('falta <b>1 día</b> para la elección');
+  else if (dias === 0) partes.push('<b>hoy</b> es la elección');
+  const lema = document.getElementById('lema');
+  if (partes.length) { lema.innerHTML = partes.join(' · '); lema.style.display = 'block'; } else lema.style.display = 'none';
+
+  pintarMeta(d.meta || {});
+  pintarKpis(d);
+  pintarAlerta(d.coordinadores);
+  pintarBarras(d.por_dia);
+  pintarEventos(d.proximos_eventos);
+}
+
+let cargandoAhora = false;
+async function cargar(esRefresco) {
+  if (cargandoAhora) return;
+  cargandoAhora = true;
+  const boton = document.getElementById('btn-refrescar');
+  boton.classList.add('girando');
+  try {
+    const r = await cCargar(usuario.id, '/resumen');
+    document.getElementById('error-carga').classList.remove('visible');
+    pintar(r.datos);
+    // La franja de estado va justo bajo la tarjeta de la meta.
+    cPintarEstado(r, 'estado');
+    document.getElementById('cargando').style.display = 'none';
+    document.getElementById('contenido').style.display = '';
+  } catch (err) {
+    if (esRefresco && document.getElementById('contenido').style.display !== 'none') {
+      cPintarEstado({ copia: true, desde: Date.now() }, 'estado');
+      document.getElementById('estado').textContent = 'No se pudo actualizar: ' + (err.message || 'intente de nuevo.');
+    } else {
+      mostrarError(err.message || 'No se pudo cargar la información.');
+    }
+  } finally {
+    boton.classList.remove('girando');
+    cargandoAhora = false;
+  }
+}
+
+/* Deslizar hacia abajo desde arriba del todo para refrescar (además del botón ⟳). */
+(function deslizarParaRefrescar() {
+  let y0 = null;
+  document.addEventListener('touchstart', (e) => { y0 = (window.scrollY <= 0 && e.touches.length === 1) ? e.touches[0].clientY : null; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (y0 === null) return;
+    const y1 = (e.changedTouches[0] || {}).clientY;
+    if (typeof y1 === 'number' && y1 - y0 > 90 && window.scrollY <= 0) cargar(true);
+    y0 = null;
+  }, { passive: true });
+})();
+
+(async function () {
+  usuario = await exigirCandidatoApp('inicio');
+  if (!usuario) return;
+  document.getElementById('btn-refrescar').addEventListener('click', () => cargar(true));
+  await cargar(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Equipo · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+<style>
+  select.chip { appearance: none; -webkit-appearance: none; padding-right: 26px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7690'/%3E%3C/svg%3E") no-repeat right 10px center; max-width: 190px; }
+  select.chip.on { background-color: var(--azo); color: #fff; }
+  .grupo-tit { margin: 4px 0 2px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
+  .nota-nc { font-size: 11px; color: var(--mu); }
+</style>
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <div id="vista-lista">
+    <div class="barra"><small>Mi equipo</small><h1>Coordinadores y líderes</h1></div>
+    <div class="chips" id="chips" role="tablist">
+      <button type="button" class="chip on" data-modo="coord">Coordinadores</button>
+      <button type="button" class="chip" data-modo="lid">Líderes</button>
+      <button type="button" class="chip alerta-chip" data-modo="sin">Sin actividad</button>
+      <select class="chip" id="zona" aria-label="Filtrar por comuna"><option value="">Comuna ▾</option></select>
+    </div>
+    <div id="estado"></div>
+    <div id="cargando" class="cargando">Cargando…</div>
+    <div id="error-carga" class="error-carga" role="alert"></div>
+    <div id="lista" class="card" style="display:none;"></div>
+    <p class="pie-nota" id="pie" style="display:none;">Toque un coordinador para ver su ficha, con sus líderes y su avance.</p>
+  </div>
+
+  <div id="vista-ficha" style="display:none;">
+    <header class="hdr corto">
+      <div class="top">
+        <button type="button" class="btn-volver" id="ficha-volver" aria-label="Volver al equipo">‹</button>
+        <div class="quien"><small>Coordinador</small><h1 id="ficha-nombre"></h1><div class="sub" id="ficha-zona"></div></div>
+      </div>
+    </header>
+    <div class="card" id="ficha-resumen" style="margin-top:14px;"></div>
+    <div class="card"><div class="tit"><h3>Sus líderes</h3><span class="lbl" style="font-size:10px;">Punto de actividad</span></div><div id="ficha-lideres"></div></div>
+    <p class="pie-nota"><span class="punto verde"></span>registró hoy · <span class="punto amarillo"></span>hace 1 a 6 días · <span class="punto rojo"></span>7 días o más</p>
+  </div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+let usuario = null, datos = null, modo = 'coord', zonaSel = '';
+
+function textoDias(d) {
+  if (d === null || d === undefined) return 'nunca ha registrado';
+  if (d <= 0) return 'registró hoy';
+  if (d === 1) return 'registró ayer';
+  return 'registró hace ' + d + ' días';
+}
+function lineaAvance(x) {
+  const p = [];
+  if (x.zona) p.push(cEsc(x.zona));
+  p.push(cFmt(x.registrados) + ' votantes');
+  p.push(x.porcentaje === null || x.porcentaje === undefined ? 'sin meta' : x.porcentaje + '% de su meta');
+  return p.join(' · ');
+}
+function barra(x) {
+  if (x.porcentaje === null || x.porcentaje === undefined) return '';
+  const w = Math.min(100, x.porcentaje);
+  return '<div class="mini"><i class="' + (x.porcentaje < 50 ? 'rojo' : '') + '" style="width:' + w + '%"></i></div>';
+}
+function filaPersona(x, pos, esCoord, conPosicion) {
+  const nombre = esCoord
+    ? '<button type="button" class="nom" data-id="' + x.id + '">' + cEsc(x.nombre) + '</button>'
+    : '<span class="nom" style="cursor:default;">' + cEsc(x.nombre) + '</span>';
+  const insignia = conPosicion
+    ? '<div class="pos ' + (pos <= 3 ? 'o1' : '') + '">' + pos + '</div>'
+    : '<div class="pos" style="background:none;" title="' + cEsc(textoDias(x.dias_sin_registrar)) + '"><span class="punto ' + x.punto + '" style="margin:0"></span></div>';
+  const detalle = conPosicion
+    ? lineaAvance(x)
+    : cEsc(textoDias(x.dias_sin_registrar)) + (x.zona ? ' · ' + cEsc(x.zona) : '');
+  const nc = x.no_contactar ? '<span class="nota-nc"> · pidió no recibir mensajes</span>' : '';
+  return '<div class="per">' + insignia + '<div class="d">' + nombre + '<span class="det">' + detalle + nc + '</span>'
+    + (conPosicion ? barra(x) : '') + '</div>' + cAccionesContacto(x.telefono, x.nombre, x.no_contactar) + '</div>';
+}
+
+function filtrarZona(lista) { return zonaSel ? lista.filter((x) => String(x.zona_id) === String(zonaSel)) : lista; }
+
+function pintarLista() {
+  const cont = document.getElementById('lista');
+  let html = '';
+  if (modo === 'coord') {
+    const l = filtrarZona(datos.coordinadores);
+    html = l.length ? l.map((x, i) => filaPersona(x, i + 1, true, true)).join('')
+      : cVacio('👥', zonaSel ? 'No hay coordinadores en esta comuna' : 'Aún no hay coordinadores', zonaSel ? 'Pruebe con otra comuna.' : 'Cuando se registren en la estructura, aparecerán aquí con su avance.');
+  } else if (modo === 'lid') {
+    const l = filtrarZona(datos.lideres);
+    html = l.length ? l.map((x, i) => filaPersona(x, i + 1, false, true)).join('')
+      : cVacio('👥', zonaSel ? 'No hay líderes en esta comuna' : 'Aún no hay líderes', 'Cuando se registren en la estructura, aparecerán aquí con su avance.');
+  } else {
+    const c = filtrarZona(datos.coordinadores).filter((x) => !x.activo);
+    const l = filtrarZona(datos.lideres).filter((x) => !x.activo);
+    if (!c.length && !l.length) html = cVacio('✅', 'Todos están activos', 'Nadie lleva 7 días o más sin registrar.');
+    else {
+      if (c.length) html += '<div class="grupo-tit">Coordinadores · ' + c.length + '</div>' + c.map((x) => filaPersona(x, 0, true, false)).join('');
+      if (l.length) html += '<div class="grupo-tit" style="margin-top:12px;">Líderes · ' + l.length + '</div>' + l.map((x) => filaPersona(x, 0, false, false)).join('');
+    }
+  }
+  cont.innerHTML = html;
+  cont.style.display = '';
+  document.getElementById('pie').style.display = (modo === 'lid') ? 'none' : (html.indexOf('class="per"') >= 0 ? '' : 'none');
+}
+
+function pintarChips() {
+  document.querySelectorAll('#chips .chip[data-modo]').forEach((b) => b.classList.toggle('on', b.dataset.modo === modo));
+  document.getElementById('zona').classList.toggle('on', !!zonaSel);
+}
+
+function llenarZonas() {
+  const sel = document.getElementById('zona');
+  sel.innerHTML = '<option value="">Comuna ▾</option>' + (datos.zonas || []).map((z) => '<option value="' + cEsc(z.id) + '">' + cEsc(z.nombre) + '</option>').join('');
+  sel.value = zonaSel && (datos.zonas || []).some((z) => String(z.id) === String(zonaSel)) ? zonaSel : '';
+  if (!sel.value) zonaSel = '';
+}
+
+/* ---- Ficha de un coordinador ---- */
+function anillo(pct) {
+  const C = 276.46, lleno = Math.min(100, pct);
+  return '<svg width="84" height="84" viewBox="0 0 104 104" role="img" aria-label="' + pct + ' % de su meta"><circle cx="52" cy="52" r="44" fill="none" stroke="#e7ebf3" stroke-width="12"/>'
+    + '<circle cx="52" cy="52" r="44" fill="none" stroke="#FFC300" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + C + '" stroke-dashoffset="' + (C * (1 - lleno / 100)).toFixed(1) + '" transform="rotate(-90 52 52)"/>'
+    + '<text x="52" y="58" text-anchor="middle" font-size="' + (pct >= 1000 ? 17 : 22) + '" font-weight="800" fill="#084298">' + pct + '%</text></svg>';
+}
+async function abrirFicha(id, desdeUrl) {
+  document.getElementById('vista-lista').style.display = 'none';
+  document.getElementById('vista-ficha').style.display = '';
+  window.scrollTo(0, 0);
+  const res = document.getElementById('ficha-resumen');
+  const lid = document.getElementById('ficha-lideres');
+  res.innerHTML = '<div class="cargando">Cargando…</div>'; lid.innerHTML = '';
+  try {
+    const r = await cCargar(usuario.id, '/equipo/' + encodeURIComponent(id));
+    const f = r.datos, c = f.coordinador;
+    document.getElementById('ficha-nombre').textContent = c.nombre;
+    document.getElementById('ficha-zona').textContent = c.zona || 'Sin zona asignada';
+    const anillo_html = c.porcentaje === null || c.porcentaje === undefined ? '' : anillo(c.porcentaje);
+    res.innerHTML = '<div style="display:flex;align-items:center;gap:14px;">' + anillo_html
+      + '<div style="flex:1;min-width:0;"><div class="lbl">Avance de su meta</div><b style="font-size:24px;color:var(--azo)">' + cFmt(c.registrados) + '</b> <span style="font-size:13px;color:var(--mu)">'
+      + (c.meta > 0 ? 'de ' + cFmt(c.meta) + ' votantes' : 'votantes · sin meta de líderes') + '</span>'
+      + '<div style="font-size:12px;color:var(--mu);margin-top:4px;"><span class="punto ' + c.punto + '"></span>' + cEsc(textoDias(c.dias_sin_registrar)) + '</div></div></div>'
+      + '<div class="ficha-cifras"><div><b>' + cFmt(c.lideres) + '</b><span>líderes</span></div><div><b>' + cFmt(f.sublideres) + '</b><span>sublíderes</span></div><div><b>' + cFmt(c.registros_7_dias) + '</b><span>en 7 días</span></div></div>'
+      + '<div style="margin-top:14px;">' + cAccionesContacto(c.telefono, c.nombre, c.no_contactar, true) + '</div>'
+      + (c.no_contactar ? '<div class="nota-nc" style="margin-top:6px;">Pidió no recibir mensajes: solo se puede llamar.</div>' : '');
+    lid.innerHTML = f.lideres.length ? f.lideres.map((l) => {
+      const det = [textoDias(l.dias_sin_registrar), cFmt(l.registrados) + ' votantes', l.porcentaje === null ? 'sin meta' : l.porcentaje + '% de su meta'];
+      return '<div class="per"><div class="pos" style="background:none;"><span class="punto ' + l.punto + '" style="margin:0"></span></div>'
+        + '<div class="d"><span class="nom" style="cursor:default;">' + cEsc(l.nombre) + '</span><span class="det">' + cEsc(det.join(' · ')) + '</span>'
+        + (l.porcentaje === null ? '' : '<div class="mini"><i class="' + (l.porcentaje < 50 ? 'rojo' : '') + '" style="width:' + Math.min(100, l.porcentaje) + '%"></i></div>') + '</div>'
+        + cAccionesContacto(l.telefono, l.nombre, l.no_contactar) + '</div>';
+    }).join('') : cVacio('👥', 'Aún no tiene líderes', 'Cuando se le asignen líderes, los verá aquí con su actividad.');
+  } catch (err) {
+    res.innerHTML = cVacio('⚠️', 'No se pudo abrir la ficha', err.message || '');
+  }
+  if (!desdeUrl) history.pushState({ ficha: id }, '', '?ficha=' + encodeURIComponent(id));
+}
+function cerrarFicha(desdePop) {
+  document.getElementById('vista-ficha').style.display = 'none';
+  document.getElementById('vista-lista').style.display = '';
+  if (!desdePop) history.pushState({}, '', location.pathname + (modo === 'sin' ? '?filtro=sin_actividad' : ''));
+}
+
+async function cargar() {
+  try {
+    const r = await cCargar(usuario.id, '/equipo');
+    datos = r.datos;
+    cPintarEstado(r, 'estado');
+    document.getElementById('cargando').style.display = 'none';
+    llenarZonas(); pintarChips(); pintarLista();
+  } catch (err) {
+    document.getElementById('cargando').style.display = 'none';
+    const e = document.getElementById('error-carga'); e.textContent = err.message || 'No se pudo cargar el equipo.'; e.classList.add('visible');
+  }
+}
+
+(async function () {
+  usuario = await exigirCandidatoApp('equipo');
+  if (!usuario) return;
+  const q = new URLSearchParams(location.search);
+  if (q.get('filtro') === 'sin_actividad') modo = 'sin';
+  if (q.get('zona')) zonaSel = q.get('zona');
+  document.getElementById('chips').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip[data-modo]'); if (!b || !datos) return;
+    modo = b.dataset.modo; pintarChips(); pintarLista();
+  });
+  document.getElementById('zona').addEventListener('change', (e) => { zonaSel = e.target.value; pintarChips(); if (datos) pintarLista(); });
+  document.getElementById('lista').addEventListener('click', (e) => {
+    const b = e.target.closest('button.nom[data-id]'); if (b) abrirFicha(b.dataset.id, false);
+  });
+  document.getElementById('ficha-volver').addEventListener('click', () => { if (history.state && history.state.ficha) history.back(); else cerrarFicha(false); });
+  window.addEventListener('popstate', () => {
+    const f = new URLSearchParams(location.search).get('ficha');
+    if (f) abrirFicha(f, true); else cerrarFicha(true);
+  });
+  await cargar();
+  if (q.get('ficha')) abrirFicha(q.get('ficha'), true);
+})();
+</script>
+</body>
+</html>

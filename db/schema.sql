@@ -40,7 +40,12 @@ INSERT INTO roles (nombre, descripcion) VALUES
   --
   -- Consecuencia buscada: `permisos_rol` tampoco necesita filas nuevas — la
   -- matriz de 'lider' es la que aplica, que es exactamente lo que se quiere.
-  ('aspirante_concejo', 'Aspirante al Concejo — dirige su propia estructura de líderes')
+  ('aspirante_concejo', 'Aspirante al Concejo — dirige su propia estructura de líderes'),
+  -- EL CANDIDATO PRINCIPAL (orden 70). Ve TODA la campaña y no cambia nada: es un rol de SOLO LECTURA, y eso
+  -- lo impone el SERVIDOR (middleware/soloLecturaCandidato.js: 403 en todo POST/PUT/PATCH/DELETE salvo cerrar
+  -- sesión y cambiar su propia clave), no el menú. En la sesión viaja como 'candidato', SIN traducir a otro rol:
+  -- los sitios que comparan contra 'admin', 'coordinador' o 'lider' no lo reconocen, y eso es lo que se quiere.
+  ('candidato', 'Candidato principal — ve toda la campaña, solo lectura')
 ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion);
 
 -- ---------------------------------------------------------

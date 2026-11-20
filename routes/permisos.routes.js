@@ -4,6 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { esSuperadmin } = require('../config/superadmin');
 const { MODULOS_CON_IMPORTAR_EXPORTAR, moduloTieneImportarExportar } = require('../config/importarExportar');
+const { ROL_CANDIDATO } = require('../config/rolCandidato');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -73,7 +74,7 @@ const MODULOS = [
  * tiene hoy. Si alguna vez hay que moverlo, basta con devolver 'usuario' a
  * esta lista.
  */
-const ROLES = ['admin', 'administrativo', 'asistente_administrativo', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
+const ROLES = ['admin', 'administrativo', 'asistente_administrativo', 'candidato', 'coordinador', 'lider', 'sublider', 'testigo', 'invitado'];
 
 /* ¿LA COLUMNA `importar_exportar` TODAVÍA NO EXISTE? Entre el momento en que el
    actualizador descomprime el parche y el momento en que `init-db` la crea (o si
@@ -106,9 +107,10 @@ router.get('/matriz', requireRole('admin'), async (req, res) => {
     }
     const permisos = {};
     filas.forEach(f => {
+      const lectura = f.rol === ROL_CANDIDATO;   // orden 70: el candidato nunca edita, agrega ni importa/exporta
       permisos[`${f.rol}:${f.modulo}`] = {
-        ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar,
-        importar_exportar: !!f.importar_exportar
+        ver: !!f.permitido, editar: !lectura && !!f.editar, agregar: !lectura && !!f.agregar,
+        importar_exportar: !lectura && !!f.importar_exportar
       };
     });
     /* `modulos_con_importar_exportar` viaja con la matriz para que la pantalla
@@ -159,12 +161,14 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
     for (const { clave: modulo } of MODULOS) {
       const celda = permisos[`${rol}:${modulo}`] || {};
       if (!yaExiste.has(`${rol}:${modulo}`) && !celda.ver && !celda.editar && !celda.agregar && !celda.importar_exportar) continue;
-      const fila = [rol, modulo, celda.ver ? 1 : 0, celda.editar ? 1 : 0, celda.agregar ? 1 : 0];
+      /* EL CANDIDATO ES DE SOLO LECTURA (orden 70): Editar, Agregar e Importar/Exportar se guardan SIEMPRE en 0, diga lo que diga la pantalla. */
+      const soloVer = rol === ROL_CANDIDATO;
+      const fila = [rol, modulo, celda.ver ? 1 : 0, soloVer ? 0 : (celda.editar ? 1 : 0), soloVer ? 0 : (celda.agregar ? 1 : 0)];
       if (traeImportarExportar) {
         /* El administrador SIEMPRE lo tiene donde existe (el servidor no se lo
            pregunta, así que la matriz no puede decir otra cosa), y un módulo sin
            rutas de importar ni exportar siempre en 0, venga lo que venga. */
-        fila.push(!moduloTieneImportarExportar(modulo) ? 0
+        fila.push(!moduloTieneImportarExportar(modulo) || soloVer ? 0
           : (rol === 'admin' ? 1 : (celda.importar_exportar ? 1 : 0)));
       }
       filas.push(fila);
@@ -287,10 +291,11 @@ async function permisosDeSesionSinComplementos(req) {
       );
     }
     const permisos = {};
+    const esCandidato = req.session.usuario.rol === ROL_CANDIDATO;   // orden 70: solo lectura, también en lo que ve el navegador
     filas.forEach(f => {
       permisos[f.modulo] = {
-        ver: !!f.permitido, editar: !!f.editar, agregar: !!f.agregar,
-        importar_exportar: !!f.importar_exportar
+        ver: !!f.permitido, editar: !esCandidato && !!f.editar, agregar: !esCandidato && !!f.agregar,
+        importar_exportar: !esCandidato && !!f.importar_exportar
       };
     });
     /* EL ADMINISTRADOR LO TIENE SIEMPRE, y aquí se dice así para que el
@@ -338,6 +343,13 @@ async function permisosDeSesionSinComplementos(req) {
       Object.keys(permisos).forEach(k => { delete permisos[k]; });
       MODULOS_ASPIRANTE.forEach((m) => { permisos[m] = { ...PERMISOS_ASPIRANTE[m] }; });
       hrefs = HREFS_ASPIRANTE.slice();
+    }
+
+    /* EL CANDIDATO NO VE EN EL MENÚ DE ESCRITORIO lo que solo lee su app del celular (orden 70): sus casillas siguen en la matriz, pero esas
+       pantallas de escritorio le responderían 403. */
+    if (req.session.usuario.rol === ROL_CANDIDATO) {
+      const { MODULOS_SOLO_APP } = require('../config/rolCandidato');
+      modulos = modulos.filter((m) => !MODULOS_SOLO_APP.includes(m));
     }
 
     // Se mantiene "modulos" (lista simple de módulos visibles) por

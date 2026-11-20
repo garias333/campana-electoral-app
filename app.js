@@ -243,6 +243,9 @@ app.get('/api/marca-publica', async (req, res) => {
    Sin sublicencia activa no hace absolutamente nada. */
 const { cargarSublicencia, restringirAspirante } = require('./middleware/aspirante');
 app.use('/api', cargarSublicencia, restringirAspirante);
+/* EL CANDIDATO PRINCIPAL ES DE SOLO LECTURA, y se impone aquí (orden 70): 403 en todo POST/PUT/PATCH/DELETE salvo ingresar, cerrar sesión y cambiar su
+   propia clave. Va antes de montar ninguna ruta por lo mismo que la línea de arriba: un módulo nuevo nace cerrado para él. */
+app.use('/api', require('./middleware/soloLecturaCandidato').soloLecturaCandidato);
 
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/territorial', require('./routes/territorial.routes'));
@@ -268,6 +271,7 @@ app.use('/api/complementos', require('./routes/complementos.routes'));
 app.use('/api/manuales', require('./routes/manuales.routes'));
 // Panel del líder en el celular (una llamada con meta, 7 días, pendientes, equipo, posición y Día D). Todo acotado con req.alcance.
 app.use('/api/panel-lider', require('./routes/panelLider.routes'));
+app.use('/api/candidato', require('./routes/candidato.routes'));         // la app del candidato principal, solo lectura (orden 70)
 app.use('/api/coordinador', require('./routes/coordinador.routes'));   // «Mis líderes» del coordinador en el celular (orden 59)
 const comunicacionesRouter = require('./routes/comunicaciones.routes');
 app.use('/api/comunicaciones', comunicacionesRouter);

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Cambiar mi clave · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato.css">
+<style>
+  .campo-c { margin-bottom: 14px; }
+  .campo-c label { display: block; font-size: 13px; font-weight: 700; color: var(--tx); margin-bottom: 5px; }
+  .ojo-c { position: relative; }
+  .ojo-c input { width: 100%; box-sizing: border-box; padding: 13px 46px 13px 14px; border: 1.5px solid var(--ln); border-radius: 14px; font-size: 16px; font-family: inherit; background: #f7f9fd; }
+  .ojo-c input:focus { outline: 2px solid var(--az); background: #fff; }
+  .ojo-c button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; font-size: 20px; padding: 6px 8px; cursor: pointer; }
+  .btn-guardar { width: 100%; border: 0; cursor: pointer; background: var(--am); color: #1b2333; font-weight: 800; font-size: 16px; padding: 14px; border-radius: 26px; font-family: inherit; }
+  .btn-guardar[disabled] { opacity: .6; }
+  .msg { margin-top: 12px; padding: 11px 13px; border-radius: 12px; font-size: 14px; display: none; }
+  .msg.err { display: block; background: #fff5f5; border: 1px solid #e04848; color: #8f1d1d; }
+  .msg.ok { display: block; background: #e6f6ec; border: 1px solid #9ad3b0; color: #17603a; }
+  .ayuda-c { font-size: 12px; color: var(--mu); margin: -6px 0 14px; }
+</style>
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <header class="hdr corto"><div class="top"><a class="btn-volver" href="/app/candidato-mas.html" aria-label="Volver" style="text-decoration:none;display:flex;align-items:center;justify-content:center;">‹</a><div class="quien"><small>Más</small><h1>Cambiar mi clave</h1></div></div></header>
+  <form class="card" id="form" style="margin-top:16px" autocomplete="off" novalidate>
+    <div class="campo-c"><label for="actual">Clave actual</label><div class="ojo-c"><input id="actual" type="password" autocomplete="current-password"><button type="button" data-ojo="actual" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
+    <div class="campo-c"><label for="nueva">Clave nueva</label><div class="ojo-c"><input id="nueva" type="password" autocomplete="new-password"><button type="button" data-ojo="nueva" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
+    <p class="ayuda-c">Un número de 6 cifras, o una contraseña de al menos 8 caracteres.</p>
+    <div class="campo-c"><label for="repetir">Repita la clave nueva</label><div class="ojo-c"><input id="repetir" type="password" autocomplete="new-password"><button type="button" data-ojo="repetir" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
+    <button type="submit" class="btn-guardar" id="guardar">Guardar mi clave</button>
+    <div class="msg" id="msg" role="status"></div>
+  </form>
+</div>
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script>
+function msg(t, ok) { const m = document.getElementById('msg'); m.textContent = t; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+(async function () {
+  const usuario = await exigirCandidatoApp('mas');
+  if (!usuario) return;
+  document.querySelectorAll('.ojo-c button').forEach((b) => b.addEventListener('click', () => {
+    const c = document.getElementById(b.dataset.ojo), ver = c.type === 'password';
+    c.type = ver ? 'text' : 'password'; b.setAttribute('aria-pressed', ver ? 'true' : 'false'); b.setAttribute('aria-label', ver ? 'Ocultar la clave' : 'Mostrar la clave');
+  }));
+  document.getElementById('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const actual = document.getElementById('actual').value, nueva = document.getElementById('nueva').value, repetir = document.getElementById('repetir').value;
+    if (!actual) return msg('Escriba su clave actual.');
+    if (!nueva) return msg('Escriba la clave nueva.');
+    if (nueva !== repetir) return msg('La clave nueva y su repetición no son iguales.');
+    const boton = document.getElementById('guardar'); boton.disabled = true;
+    try {
+      await api('/auth/cambiar-password', { method: 'POST', body: { passwordActual: actual, passwordNueva: nueva } });
+      ['actual', 'nueva', 'repetir'].forEach((i) => { document.getElementById(i).value = ''; });
+      msg('Listo: su clave quedó cambiada.', true);
+    } catch (err) { msg(err.message || 'No se pudo cambiar la clave.'); }
+    boton.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

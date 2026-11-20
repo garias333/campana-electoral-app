@@ -378,8 +378,13 @@ const ROLES_PERMISOS = ['admin', 'coordinador', 'lider', 'sublider', 'testigo', 
    desde Configuración → Asignación de permisos, así que se le siembra fila en
    TODOS los módulos —para que la pantalla lo muestre completo— pero con el
    permiso puesto solo en los cuatro de abajo. */
-const ROLES_A_SEMBRAR = [...ROLES_PERMISOS, 'administrativo'];
+const ROLES_A_SEMBRAR = [...ROLES_PERMISOS, 'administrativo', 'candidato'];
 const MODULOS_INICIALES_ADMINISTRATIVO = ['panel_general', 'agenda', 'recursos', 'ayuda'];
+/* EL CANDIDATO (orden 70): ve TODA la campaña y no cambia nada. Se le siembra «Ver» en los módulos de lectura y NUNCA Editar, Agregar ni Importar/Exportar
+   (los pone en 0 esta siembra, y además el servidor los fuerza a 0 al guardar la matriz y al armar sus permisos: ver config/rolCandidato.js).
+   Quedan FUERA a propósito: Finanzas, Configuración, Usuarios, CRM y los envíos, Configurar CRM, Recordatorios y Puerta a puerta (armar listas);
+   «Ver» en ellos no sería una consulta sino una puerta a datos sensibles o a herramientas de escritura. El administrador puede cambiarlo desde la matriz. */
+const { MODULOS_VER_CANDIDATO } = require('../config/rolCandidato');
 const PERMISOS_POR_DEFECTO = {
   panel_general: ROLES_PERMISOS,
   organigrama: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
@@ -477,8 +482,11 @@ async function sembrarPermisosPorDefecto(connection) {
     for (const rol of ROLES_A_SEMBRAR) {
       const ver = rol === 'administrativo'
         ? (MODULOS_INICIALES_ADMINISTRATIVO.includes(modulo) ? 1 : 0)
-        : (rolesPermitidos.includes(rol) ? 1 : 0);
-      const puedeEditarAgregar = ver && rol !== 'invitado' && (!restriccion || restriccion.includes(rol));
+        : rol === 'candidato'
+          ? (MODULOS_VER_CANDIDATO.includes(modulo) ? 1 : 0)
+          : (rolesPermitidos.includes(rol) ? 1 : 0);
+      // El candidato nunca edita ni agrega, aunque «Ver» esté encendido.
+      const puedeEditarAgregar = ver && rol !== 'invitado' && rol !== 'candidato' && (!restriccion || restriccion.includes(rol));
       const editar = puedeEditarAgregar ? 1 : 0;
       const agregar = puedeEditarAgregar ? 1 : 0;
       // Importar/Exportar NO sigue a «Ver»: un coordinador sin Ver en un módulo
@@ -1867,6 +1875,13 @@ async function main() {
     connection, 'configuracion_campana',
     "meta_votos_campana INT UNSIGNED NULL COMMENT 'Meta de votos que se fija la campana. NULL = sin declarar, distinto de cero'",
     'meta_votos_campana'
+  );
+  /* Orden 71: «Fecha de inicio de la campaña» (opcional). De ella sale la etiqueta de ritmo del Inicio del candidato (% de la meta frente a % del tiempo
+     transcurrido hasta la elección). NULL = sin declarar: sin fecha no se muestra la etiqueta, y nada más del sistema la usa. */
+  await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "fecha_inicio_campana DATE NULL COMMENT 'Opcional. Inicio de la campana: el Inicio del candidato compara el avance de la meta con el tiempo transcurrido'",
+    'fecha_inicio_campana'
   );
   await agregarColumnaSiFalta(
     connection, 'configuracion_campana',
@@ -3641,7 +3656,7 @@ async function main() {
     const [sembrado] = await connection.query(
       `UPDATE permisos_rol SET editar = 1
         WHERE modulo IN ('rescate_votos', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d')
-          AND permitido = 1 AND editar = 0`);
+          AND permitido = 1 AND editar = 0 AND rol <> 'candidato'`);   // el candidato es de solo lectura (orden 70): nunca se le siembra «Editar»
     console.log(`«Editar» del Día D: se puso editar = 1 donde ya había permitido = 1 en rescate_votos, alertas_dia_d, resultados_dia_d, transporte_dia_d y logistica_dia_d (${sembrado.affectedRows} fila(s)); una sola vez.`);
   }
 

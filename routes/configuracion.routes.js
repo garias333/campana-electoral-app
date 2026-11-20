@@ -772,6 +772,17 @@ router.put('/campana', requireRole('admin', 'aspirante'), async (req, res) => {
        Es la misma pauta que ya siguen las cachés de SMS y comunicaciones en
        este mismo archivo. */
     olvidarCargoDeLaMadre();
+    /* LA FECHA DE INICIO DE LA CAMPAÑA (orden 71) se guarda APARTE del UPSERT de arriba y solo si la pantalla la mandó: así una pantalla vieja (o un
+       parche que llegó antes que init-db, sin la columna) no la borra ni rompe el guardado de todo lo demás. */
+    if (req.body.fecha_inicio_campana !== undefined) {
+      const inicio = String(req.body.fecha_inicio_campana || '').trim();
+      if (inicio && !/^\d{4}-\d{2}-\d{2}$/.test(inicio)) return res.status(400).json({ error: 'La fecha de inicio de la campaña no es válida.' });
+      try {
+        await pool.query('UPDATE configuracion_campana SET fecha_inicio_campana = ? WHERE id = 1', [inicio || null]);
+      } catch (e) {
+        if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;   // columna aún sin crear: se guarda todo lo demás y esta se salta
+      }
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
