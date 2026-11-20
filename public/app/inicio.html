@@ -38,12 +38,14 @@
 
   <!-- AVISOS DE ALERTAS (Día D). Sólo para quien tiene el módulo «Alertas del Día D» y todavía no activó los avisos en este
        celular. Se puede cerrar (se recuerda en este dispositivo). Lleva a la casilla de avisos, abajo en esta misma pantalla. -->
-  <div id="franja-avisos-alertas" style="display:none; background:var(--aviso-fondo); border:1px solid var(--marca-amarillo); color:var(--aviso); border-radius:var(--radio); padding:12px 14px; margin:0 0 14px; font-size:0.9rem;">
-    <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-      <div><strong>Activa los avisos para el día de la elección.</strong><br>
+  <div id="franja-avisos-alertas" class="franja-avisos" style="display:none;">
+    <div class="franja-fila">
+      <div class="franja-largo"><strong>Activa los avisos para el día de la elección.</strong><br>
         Así te llega una notificación cuando hay una alerta (un testigo que no llega, una mesa sin E-14…), aunque no tengas la app abierta.
-        <br><a href="#caja-avisos-push" id="enlace-activar-avisos" style="font-weight:700; color:var(--aviso);">Activar los avisos →</a></div>
-      <button type="button" id="cerrar-franja-avisos" aria-label="Cerrar" style="border:0; background:transparent; font-size:1.3rem; line-height:1; cursor:pointer; color:var(--aviso);">×</button>
+        <br><a href="#caja-avisos-push" id="enlace-activar-avisos" class="franja-enlace">Activar los avisos →</a></div>
+      <!-- Inicio del coordinador (orden 68): la misma franja, compacta; lleva al mismo sitio. Solo se ve con body.inicio-coordinador. -->
+      <div class="franja-corto"><span aria-hidden="true">🔔</span><span class="franja-texto">Activar los avisos del día de la elección</span><a href="#caja-avisos-push" id="enlace-activar-avisos-corto" class="franja-enlace">Activar</a></div>
+      <button type="button" id="cerrar-franja-avisos" class="franja-cerrar" aria-label="Cerrar">×</button>
     </div>
   </div>
 
@@ -375,6 +377,7 @@ function pintarCampana(campana, bio) {
     return;
   }
 
+  if (usuario.rol === 'coordinador') document.body.classList.add('inicio-coordinador');   // orden 68: el nuevo diseño de «Mi equipo» (solo el coordinador)
   pintarBarraApp('Estrategia', null, null);
   // Saludo pequeño y el nombre grande (textContent: el nombre es dato de la persona, nunca HTML).
   const saludo = document.getElementById('saludo');

@@ -96,7 +96,7 @@ async function sembrar(pool, { conPregunta = false } = {}) {
 }
 
 /** El servidor con las rutas REALES y una sesión de verdad en memoria. `publico` es la carpeta que se sirve (para comparar con la versión anterior). */
-function crearApp(pool, publico) {
+function crearApp(pool, publico, { alertas = false } = {}) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(express.json());
@@ -116,6 +116,7 @@ function crearApp(pool, publico) {
   montar('/api/contenido', 'contenido.routes');
   montar('/api/push', 'push.routes');
   montar('/api/panel-lider', 'panelLider.routes');
+  if (alertas) montar('/api/dia-d/alertas', 'alertasDiaD.routes');   // orden 68: para que el aviso «Activar los avisos» pueda aparecer
   montar('/api/dia-d', 'diaD.routes');       // la pantalla del testigo (app/dia-d.html)
   montar('/api/catalogo', 'catalogo.routes');
   montar('/api/votantes', 'votantes.routes');

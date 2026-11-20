@@ -59,22 +59,53 @@ button.pl-pend:active { background: #E2EEFF; }
 .pl-hoja-caja .btn-app { margin-top: 10px; }
 body.pl-bloqueado { overflow: hidden; }
 
-/* ENCABEZADO DEL COORDINADOR (orden 59, public/app/panel-coordinador.js): las mismas tarjetas del panel del líder, con las cifras de su rama en
-   casillas de dos en dos y el aviso de quién lleva días sin registrar. */
-#panel-coordinador { margin: 0 0 18px; display: grid; gap: 12px; }
+/* ENCABEZADO DEL COORDINADOR (orden 59; nuevo diseño «Mi equipo» en la orden 68, propuesta 5, public/app/panel-coordinador.js). Todo cuelga de
+   body.inicio-coordinador o de #panel-coordinador: el inicio del líder no cambia. Letra grande a propósito (es lo que se pidió). */
+#panel-coordinador { margin: 0 0 18px; display: block; }
 #panel-coordinador[hidden] { display: none; }
-body.inicio-con-cifras #panel-coordinador > .pl-tarjeta:first-child {
-  margin-top: -38px; position: relative; z-index: 2;
-  border-radius: var(--radio); box-shadow: var(--sombra-flot); border-color: transparent;
-}
-.pc-cifras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.pc-tile { border: 1.5px solid var(--linea); background: #F7F9FD; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.pc-tile.pc-ancho { margin-top: 10px; }
-.pc-t { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
-.pc-n { font-size: 1.6rem; font-weight: 800; color: #0B5ED7; line-height: 1.15; overflow-wrap: anywhere; }
-.pc-d { font-size: 0.76rem; color: var(--muted); line-height: 1.3; }
-.pc-tile.rojo .pc-n { color: var(--error); }
-.pc-tile.amarillo .pc-n { color: var(--aviso); }
-.pc-tile.verde .pc-n { color: var(--ok); }
-.pc-atencion { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--error-fondo); color: var(--error); text-decoration: none; font-size: 0.88rem; line-height: 1.3; }
-.pc-atencion strong { font-size: 1.05rem; }
+body.inicio-coordinador .hero-saludo { font-size: 17px; }
+body.inicio-coordinador .hero-nombre { font-size: 30px; }
+body.inicio-coordinador .hero-inicio { padding-bottom: 70px; }
+.pc-card { background: #fff; margin: -52px 0 14px; border-radius: 22px; padding: 18px; box-shadow: var(--sombra-flot); position: relative; z-index: 2; }
+.pc-estado { display: flex; gap: 12px; align-items: center; border-radius: 16px; padding: 14px; background: #eef0f4; color: #1b2433; }
+.pc-estado p { margin: 0; font-size: 19px; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; }
+.pc-estado b { font-weight: 800; }
+.pc-estado.rojo { background: #fdecec; } .pc-estado.rojo b { color: #d63a3a; }
+.pc-estado.amarillo { background: #fff4cc; } .pc-estado.amarillo b { color: #8a6d00; }
+.pc-estado.verde { background: #e6f6ec; } .pc-estado.verde b { color: #1f9d55; }
+.pc-estado.apagado { background: #eef0f4; color: #4a5468; }
+.pc-luz { display: flex; flex-direction: column; gap: 5px; background: #2b3345; padding: 7px; border-radius: 12px; flex: none; }
+.pc-luz i { display: block; width: 18px; height: 18px; border-radius: 50%; background: #556; }
+.pc-luz i.on.rojo { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
+.pc-luz i.on.amarillo { background: #ffc300; box-shadow: 0 0 8px #ffc300; }
+.pc-luz i.on.verde { background: #2fd07a; box-shadow: 0 0 8px #2fd07a; }
+.pc-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.pc-k { border-radius: 16px; padding: 14px 16px; background: #f2f4f9; border-left: 5px solid #0B5ED7; min-width: 0; }
+.pc-k b { display: block; font-size: 36px; line-height: 1.15; font-weight: 800; color: #1b2433; overflow-wrap: anywhere; }
+.pc-k span { display: block; font-size: 15px; line-height: 1.3; color: #5a6580; }
+.pc-k.azo { border-left-color: #084298; }
+.pc-k.am { border-left-color: #FFC300; }
+.pc-k.vd { border-left-color: #1f9d55; }
+.pc-alerta { display: flex; align-items: center; gap: 10px; background: #fdecec; color: #d63a3a; border-radius: 14px; padding: 15px 16px; font-size: 17px; line-height: 1.3; text-decoration: none; margin-bottom: 16px; }
+.pc-alerta .pc-n { font-size: 22px; font-weight: 800; }
+.pc-alerta .pc-ir { margin-left: auto; }
+.pc-boton { display: block; text-align: center; text-decoration: none; box-sizing: border-box; background: #FFC300; color: #1b2433; font-weight: 700; font-size: 21px; padding: 18px; border-radius: 30px; box-shadow: 0 6px 18px rgba(255, 195, 0, .35); }
+.pc-card .pl-vacio { font-size: 19px; margin: 0; }
+#panel-coordinador .pl-pie, #panel-coordinador .pl-sin-senal { font-size: 15px; }
+#panel-coordinador .pl-pie { padding: 0 6px; }
+#panel-coordinador .pl-sin-senal { margin: 0 0 4px; }
+
+/* Aviso «Activar los avisos del día de la elección». Para todos es la franja de siempre (los mismos valores que antes llevaba en línea); en el inicio
+   del coordinador pasa debajo de la tarjeta y se ve compacta: ícono + texto + «Activar» + ×. */
+.franja-avisos { background: var(--aviso-fondo); border: 1px solid var(--marca-amarillo); color: var(--aviso); border-radius: var(--radio); padding: 12px 14px; margin: 0 0 14px; font-size: 0.9rem; }
+.franja-fila { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.franja-enlace { font-weight: 700; color: var(--aviso); }
+.franja-cerrar { border: 0; background: transparent; font-size: 1.3rem; line-height: 1; cursor: pointer; color: var(--aviso); }
+.franja-corto { display: none; }
+body.inicio-coordinador .franja-avisos { background: #fff8dc; border-color: #f3d36b; color: #6b5200; border-radius: 14px; padding: 10px 12px; font-size: 15px; margin: 0 0 12px; }
+body.inicio-coordinador .franja-fila { align-items: center; }
+body.inicio-coordinador .franja-largo { display: none; }
+body.inicio-coordinador .franja-corto { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+body.inicio-coordinador .franja-texto { flex: 1; min-width: 0; line-height: 1.3; }
+body.inicio-coordinador .franja-enlace { color: #084298; white-space: nowrap; }
+body.inicio-coordinador .franja-cerrar { font-size: 22px; color: #8a6d00; padding: 0 2px; min-width: 32px; min-height: 32px; }

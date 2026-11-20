@@ -131,15 +131,16 @@ async function escuchar(app) {
   ok(await esperar("location.pathname === '/app/inicio.html'", 10000), 'cédula 1023456789 + 456789 → /app/inicio.html', await ruta());
   ok(await esperar("!document.getElementById('panel-coordinador').hidden", 10000), 'aparece el encabezado de su equipo');
   await espera(500);
-  const inicio = await ev(`({ saludo: document.getElementById('saludo').innerText, tiles: [...document.querySelectorAll('#panel-coordinador .pc-tile')].map(t => t.innerText.replace(/\\n/g, ' · ')),
+  const inicio = await ev(`({ saludo: document.getElementById('saludo').innerText, tiles: [...document.querySelectorAll('#panel-coordinador .pc-k')].map(t => t.innerText.replace(/\\n/g, ' · ')), estado: (document.querySelector('#panel-coordinador .pc-estado p') || {}).innerText || '', alerta: (document.querySelector('#panel-coordinador .pc-alerta') || {}).innerText || '',
     menu: [...document.querySelectorAll('#menu-app .menu-boton strong')].map(e => e.innerText), panelLiderVisible: !document.getElementById('panel-lider').hidden })`);
   ok(/Marta/.test(inicio.saludo), 'saluda por su nombre', inicio.saludo);
-  ok(inicio.tiles.length === 5, 'cinco cifras en tarjetas', inicio.tiles);
-  ok(/Líderes activos · 4/i.test(inicio.tiles[0]), 'líderes activos: 4', inicio.tiles[0]);
-  ok(/Personas registradas · 21/i.test(inicio.tiles[1]), 'personas registradas: 21', inicio.tiles[1]);
-  ok(/Compromiso total · 70/i.test(inicio.tiles[2]), 'compromiso total: 70', inicio.tiles[2]);
-  ok(/Avance · 30 %/i.test(inicio.tiles[3]), '% de avance: 30 %', inicio.tiles[3]);
-  ok(/Últimos 7 días/i.test(inicio.tiles[4]), 'registros de los últimos 7 días', inicio.tiles[4]);
+  // Orden 68: nuevo diseño de «Mi equipo»: una frase de estado con el semáforo y CUATRO tarjetas (el avance pasó a la frase).
+  ok(inicio.tiles.length === 4, 'cuatro cifras en tarjetas', inicio.tiles);
+  ok(/^4 · Líderes activos/i.test(inicio.tiles[0]), 'líderes activos: 4', inicio.tiles[0]);
+  ok(/^21 · Personas registradas/i.test(inicio.tiles[1]), 'personas registradas: 21', inicio.tiles[1]);
+  ok(/^70 · Compromiso total/i.test(inicio.tiles[2]), 'compromiso total: 70', inicio.tiles[2]);
+  ok(/^\d+ · Registros últimos 7 días/i.test(inicio.tiles[3]), 'registros de los últimos 7 días', inicio.tiles[3]);
+  ok(/Su equipo va en 30 % de la meta: 21 de 70 registros\. Faltan 49\./.test(inicio.estado.replace(/\s+/g, ' ')), 'la frase de estado: 30 % de la meta, 21 de 70, faltan 49', inicio.estado);
   ok(inicio.menu[0] === 'Mis líderes' && !inicio.menu.includes('Avance de mis líderes'), 'el menú empieza por «Mis líderes» y «Avance de mis líderes» ya no está', inicio.menu);
   // (Alertas Día D no sale aquí: es un complemento y en esta prueba nacen apagados.)
   ok(['Mis líderes', 'Eventos', 'Ranking Día D', 'Biografía del candidato', 'Información para compartir', 'Mis avisos', 'Política de privacidad', 'Legislación', 'Ayuda'].every((x) => inicio.menu.includes(x)), 'lo demás del menú del coordinador sigue', inicio.menu);
@@ -261,7 +262,7 @@ async function escuchar(app) {
   await cmd('Network.setBlockedURLs', { urls: ['*/api/*'] });
   await ev('PanelCoordinador.recargar()'); await espera(800);
   const pie = await texto('#panel-coordinador .pl-sin-senal');
-  ok(/Sin señal/.test(pie) && (await ev("document.querySelectorAll('#panel-coordinador .pc-tile').length")) === 5, 'el encabezado del inicio también muestra su copia con el aviso «Sin señal»', pie);
+  ok(/Sin señal/.test(pie) && (await ev("document.querySelectorAll('#panel-coordinador .pc-k').length")) === 4, 'el encabezado del inicio también muestra su copia con el aviso «Sin señal»', pie);
   await cmd('Network.setBlockedURLs', { urls: [] });
 
   console.log('\n[8] Cerrar sesión');

@@ -107,7 +107,7 @@ async function escuchar(app) {
   const otros = cAntes.map((g) => g.titulo).filter((t) => !['Resumen', 'Registro'].includes(t));
   ok(otros.length >= 3 && otros.every(igual), `los demás grupos quedan IGUALES (entrada por entrada): ${otros.join(', ')}`, otros.filter((t) => !igual(t)));
   ok(JSON.stringify(cAhora.map((g) => g.titulo)) === JSON.stringify(cAntes.map((g) => g.titulo).filter((t) => t !== 'Registro')), 'y en el mismo orden');
-  const botones = await ev("[...document.querySelectorAll('#panel-coordinador a.btn-app')].map(a => a.innerText.trim() + ' → ' + a.getAttribute('href'))");
+  const botones = await ev("[...document.querySelectorAll('#panel-coordinador a.pc-boton')].map(a => a.innerText.trim() + ' → ' + a.getAttribute('href'))");
   ok(botones.length === 1 && /Ver mis líderes/.test(botones[0]), 'el botón amarillo «Ver mis líderes» bajo «Mi equipo» se queda', botones);
   const enlacesAPaginasQuitadas = await ev(`[...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')).filter(h => /mis-registros|mi-enlace|puesto-votacion|dashboard\\.html/.test(h))`);
   ok(enlacesAPaginasQuitadas.length === 0, 'en todo el inicio no queda NINGÚN otro enlace a esas cuatro páginas (tarjetas, botones, barra)', enlacesAPaginasQuitadas);
