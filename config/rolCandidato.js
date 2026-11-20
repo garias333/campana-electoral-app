@@ -19,9 +19,12 @@ const ROL_CANDIDATO = 'candidato';
  * solo si el administrador los deja encendidos aquí y el complemento está activo en la campaña.
  */
 const MODULOS_VER_CANDIDATO = [
-  'panel_general', 'rescate_votos', 'solicitudes', 'tareas', 'puerta_listas',
+  'panel_general', 'rescate_votos', 'solicitudes', 'tareas', 'puerta_listas', 'territorial',
   'legislacion', 'recursos', 'biografia_candidato', 'politica_privacidad',
 ];
+/** Módulos en los que el candidato PUEDE «Agregar» (orden 73): solo la estructura territorial —crear coordinadores, líderes, etc.—. Editar, borrar, importar y exportar siguen cerrados. */
+const MODULOS_AGREGAR_CANDIDATO = ['territorial'];
+
 /** Módulos que el candidato tiene en la matriz pero que NO se le ofrecen en el menú del computador (su pantalla de escritorio le respondería 403). */
 const MODULOS_SOLO_APP = ['rescate_votos', 'solicitudes', 'tareas', 'puerta_listas'];
 
@@ -36,11 +39,22 @@ const LECTURAS_PERMITIDAS = [
   '/dashboard/resumen', '/dashboard/tendencia-registros', '/dashboard/tabla-posiciones',
   '/configuracion/campana', '/configuracion/marca',
   '/legislacion', '/recursos', '/contenido',
+  // Lo que lee el formulario «Registrar en la estructura territorial» (orden 73): catálogos de lugar de votación, mesas ocupadas, puestos y las zonas.
+  '/catalogo', '/dia-d/puestos-para-reporte', '/dia-d/mesas-ocupadas',
+  '/territorial/coordinadores-por-zona', '/territorial/lideres-para-sublider',
+];
+/** Lecturas de UNA sola dirección (sin lo que cuelgue de ella: `/territorial/estructura/exportar-excel`, `/usuarios/admin`… siguen cerradas). */
+const LECTURAS_EXACTAS = [
+  '/usuarios',                                      // nombre, rol e id: el desplegable «Reporta a»; sin cédulas ni correos
+  '/territorial/territorios', '/territorial/territorios/modo',
+  '/territorial/estructura',                        // la ruta acota a no-administradores a lo que ellos mismos crearon
+  '/territorial/estructura/verificar-identificacion',
+  '/territorial/coordinador-organizaciones',
 ];
 
 function lecturaPermitida(ruta) {
-  const r = String(ruta || '');
-  return LECTURAS_PERMITIDAS.some((p) => r === p || r.startsWith(p + '/'));
+  const r = String(ruta || '').replace(/\/+$/, '') || '/';
+  return LECTURAS_EXACTAS.includes(r) || LECTURAS_PERMITIDAS.some((p) => r === p || r.startsWith(p + '/'));
 }
 
 /**
@@ -66,6 +80,10 @@ const ESCRITURAS_PERMITIDAS = [
   ['POST', '/auth/cambiar-clave-celular'],
   ['POST', '/auth/olvidar-password'],
   ['POST', '/auth/resetear-password'],
+  /* ORDEN 73: LO ÚNICO QUE ESCRIBE ADEMÁS. Crear a alguien en la estructura territorial (coordinador, líder…), y la geocodificación inversa del botón «Usar mi ubicación» de ese
+     formulario (un POST que solo consulta). NO hay PUT ni DELETE de estructura, ni importar, ni eliminar: siguen respondiendo 403. */
+  ['POST', '/territorial/estructura'],
+  ['POST', '/geo/inverso'],
 ];
 
 /** ¿Puede un candidato hacer esta escritura? `ruta` es req.path dentro de /api. */
@@ -75,4 +93,4 @@ function escrituraPermitida(metodo, ruta) {
   return ESCRITURAS_PERMITIDAS.some(([mm, rr]) => mm === m && rr === r);
 }
 
-module.exports = { ROL_CANDIDATO, MODULOS_VER_CANDIDATO, MODULOS_SOLO_APP, LECTURAS_PERMITIDAS, lecturaPermitida, ESCRITURAS_PERMITIDAS, escrituraPermitida };
+module.exports = { ROL_CANDIDATO, MODULOS_VER_CANDIDATO, MODULOS_AGREGAR_CANDIDATO, MODULOS_SOLO_APP, LECTURAS_PERMITIDAS, LECTURAS_EXACTAS, lecturaPermitida, ESCRITURAS_PERMITIDAS, escrituraPermitida };

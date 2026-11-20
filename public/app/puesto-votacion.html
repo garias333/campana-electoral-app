@@ -30,7 +30,7 @@
      href="https://consultacenso.registraduria.gov.co/" target="_blank" rel="noopener">
     Consultar en registraduria.gov.co
   </a>
-  <button class="btn-app btn-app-secundario" style="margin-top:12px;" onclick="window.location.href='/app/inicio.html'">
+  <button class="btn-app btn-app-secundario" style="margin-top:12px;" id="btn-volver-menu" onclick="window.location.href='/app/inicio.html'">
     Volver al menú
   </button>
 
@@ -47,7 +47,10 @@
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
-  pintarBarraApp('Puesto de votación', null, '/app/inicio.html');
+  // El candidato vuelve a SU app (orden 73), no al menú de líder.
+  const inicio = usuario.rol === 'candidato' ? '/app/candidato-mas.html' : '/app/inicio.html';
+  document.getElementById('btn-volver-menu').onclick = () => { window.location.href = inicio; };
+  pintarBarraApp('Puesto de votación', null, inicio);
 })();
 </script>
 </body>

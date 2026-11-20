@@ -1434,6 +1434,17 @@ async function inicializarLayout(paginaActiva) {
     }
   }
   const usuario = sesion.usuario;
+  /* EL CANDIDATO PRINCIPAL NUNCA VE EL ESCRITORIO EN EL CELULAR (orden 73). Llegue como llegue —enlace guardado, «atrás», escribiendo la dirección— a cualquier pantalla de
+     escritorio, se le lleva a su app. UNA EXCEPCIÓN: las pantallas que su propia app abre en «modo app» (`?app=1`, como «Registrar en la estructura territorial»).
+     «Celular» es lo mismo que en /js/es-celular.js (app instalada o hasta 820 px); se repite aquí porque estas pantallas no cargan ese archivo. */
+  if (usuario && usuario.rol === 'candidato') {
+    let chico = false;
+    try { chico = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || window.matchMedia('(max-width: 820px)').matches; } catch (e) { chico = false; }
+    if (chico && new URLSearchParams(window.location.search).get('app') !== '1') {
+      window.location.replace('/app/candidato.html');
+      return null;
+    }
+  }
   // De quién son las pendientes sin señal que esta pantalla guarde (parche 329): antes solo lo anotaban las pantallas de la app.
   if (typeof registrarUsuarioSinSenal === 'function' && usuario && usuario.id !== undefined) registrarUsuarioSinSenal(usuario.id);
 

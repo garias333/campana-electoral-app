@@ -15,10 +15,12 @@
   <div class="barra"><small>Más</small><h1>Más opciones</h1></div>
   <div id="estado"></div>
   <div id="error-carga" class="error-carga" role="alert"></div>
-  <div class="menu-mas" id="menu"></div>
+  <div class="grupo-tit">Registro</div>
+  <div class="menu-mas" id="registro" style="margin-top:6px"></div>
+  <div class="grupo-tit" style="margin-top:18px">Más</div>
+  <div class="menu-mas" id="menu" style="margin-top:6px"></div>
   <div id="detalle"></div>
   <div class="pie-sesion">
-    <button type="button" class="enlace-discreto" id="escritorio">Ver versión de escritorio</button><br>
     <button type="button" class="enlace-discreto" id="salir">Cerrar sesión</button>
   </div>
 </div>
@@ -63,11 +65,16 @@ async function abrir(s) {
 (async function () {
   usuario = await exigirCandidatoApp('mas');
   if (!usuario) return;
-  document.getElementById('escritorio').addEventListener('click', () => { candFijarPreferenciaEscritorio(true); window.location.href = '/dashboard.html'; });
   document.getElementById('salir').addEventListener('click', () => cCerrarSesion());
   try {
     const r = await cCargar(usuario.id, '/mas');
     const s = r.datos.secciones || {};
+    // GRUPO «REGISTRO»: exactamente dos botones. «Registrar…» abre el formulario paso a paso que ya existe (la pantalla de la estructura en modo app) y vuelve aquí;
+    // «Consultar…» es la consulta de siempre (copia la cédula y abre la Registraduría). Ningún otro botón de registro en esta app.
+    let reg = '';
+    if (s.registro) reg += '<a href="/territorial.html?app=1&volver=/app/candidato.html#nuevo"><span class="ic">➕</span>Registrar en la estructura territorial<span class="flecha">›</span></a>';
+    reg += '<a href="/app/puesto-votacion.html"><span class="ic">🗳️</span>Consultar puesto de votación<span class="flecha">›</span></a>';
+    document.getElementById('registro').innerHTML = reg;
     let h = '';
     SECCIONES.forEach((x) => { if (s[x.id]) h += '<button type="button" data-id="' + x.id + '"><span class="ic">' + x.ic + '</span>' + x.texto + '<span class="flecha">›</span></button>'; });
     h += '<a href="/app/candidato-clave.html"><span class="ic">🔑</span>Cambiar mi clave<span class="flecha">›</span></a>';

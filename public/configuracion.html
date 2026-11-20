@@ -2036,7 +2036,7 @@ async function cargarMatrizPermisos() {
             <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="editar" ${celda.editar && rol !== 'candidato' ? 'checked' : ''} ${rol === 'candidato' ? 'disabled title="El candidato es de solo consulta"' : ''}> E
           </label>
           <label style="display:inline-flex; align-items:center; gap:2px; margin-right:6px;" title="Agregar nuevo">
-            <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="agregar" ${celda.agregar && rol !== 'candidato' ? 'checked' : ''} ${rol === 'candidato' ? 'disabled title="El candidato es de solo consulta"' : ''}> A
+            <input type="checkbox" data-rol="${rol}" data-modulo="${m.clave}" data-nivel="agregar" ${celda.agregar && (rol !== 'candidato' || m.clave === 'territorial') ? 'checked' : ''} ${(rol === 'candidato' && m.clave !== 'territorial') ? 'disabled title="El candidato es de solo consulta"' : ''}> A
           </label>
           ${conIE.includes(m.clave) ? `
           <label style="display:inline-flex; align-items:center; gap:2px;" title="${rol === 'admin' ? 'Importar / Exportar — el Administrador siempre puede' : 'Importar / Exportar'}">

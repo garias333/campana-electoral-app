@@ -16,12 +16,6 @@
     { id: 'mas',    href: '/app/candidato-mas.html',    icono: '☰',  texto: 'Más' }
   ];
 
-  /** Preferencia «Ver versión de escritorio» (la lee login.html). Con try/catch: el almacenamiento puede no existir. */
-  var CLAVE_ESCRITORIO = 'candidato_preferir_escritorio';
-  global.candFijarPreferenciaEscritorio = function (valor) {
-    try { if (valor) localStorage.setItem(CLAVE_ESCRITORIO, '1'); else localStorage.removeItem(CLAVE_ESCRITORIO); } catch (e) { /* vale solo esta vez */ }
-  };
-
   /** Pinta la barra inferior con `activo` marcado. Idempotente. */
   global.montarNavCandidato = function (activo) {
     if (document.getElementById('nav-candidato')) return;

@@ -217,6 +217,7 @@ body.cand {
 .sec-agenda { margin: 16px 20px 8px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
 
 /* ---- Más ---- */
+.grupo-tit { margin: 16px 20px 0; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mu); }
 .menu-mas { margin: 14px 16px 0; background: #fff; border-radius: 20px; box-shadow: 0 6px 20px rgba(8, 66, 152, .08); overflow: hidden; }
 .menu-mas a, .menu-mas button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 15px 16px; border: 0; background: #fff; border-top: 1px solid var(--ln); text-decoration: none; color: var(--tx); font-size: 15px; font-weight: 600; font-family: inherit; text-align: left; cursor: pointer; }
 .menu-mas > :first-child { border-top: 0; }

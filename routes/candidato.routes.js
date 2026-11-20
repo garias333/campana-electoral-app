@@ -45,8 +45,18 @@ async function moduloPermitido(req, modulo) {
   } catch (_) { return false; }
 }
 
+/** «Registrar en la estructura territorial»: el administrador lo deja si «Estructura territorial» tiene Ver y Agregar para el candidato (matriz de permisos). El administrador, siempre. */
+async function puedeRegistrar(req) {
+  if (req.session.usuario.rol === 'admin') return true;
+  try {
+    const [f] = await pool.query(`SELECT permitido, agregar FROM permisos_rol WHERE rol = 'candidato' AND modulo = 'territorial' LIMIT 1`);
+    return f.length > 0 && Number(f[0].permitido) === 1 && Number(f[0].agregar) === 1;
+  } catch (_) { return false; }
+}
+
 async function seccionesEncendidas(req) {
   return {
+    registro: await puedeRegistrar(req),
     solicitudes: await complementoActivo('solicitudes') && await moduloPermitido(req, 'solicitudes'),
     tareas: await complementoActivo('tareas') && await moduloPermitido(req, 'tareas'),
     dia_d: await moduloPermitido(req, 'rescate_votos'),

@@ -1016,15 +1016,11 @@ function irDondeCorresponde(usuario) {
       return;
     }
   }
-  /* EL CANDIDATO PRINCIPAL (orden 70): en el celular cae en su app de solo consulta; en el computador, en el panel normal (que para él es de solo lectura:
-     el servidor responde 403 a cualquier escritura). Respeta «Ver versión de escritorio», que su propia app guarda en `candidato_preferir_escritorio`. */
+  /* EL CANDIDATO PRINCIPAL: en el celular SIEMPRE cae en su app (orden 73: ya no hay «Ver versión de escritorio» ni preferencia que lo saque de ella); en el computador, en el panel
+     normal (de solo lectura, más agregar a la estructura territorial). */
   if (usuario && usuario.rol === 'candidato' && window.esCelular()) {
-    let prefiereEscritorio = false;
-    try { prefiereEscritorio = localStorage.getItem('candidato_preferir_escritorio') === '1'; } catch (e) { /* sin preferencia */ }
-    if (!prefiereEscritorio) {
-      window.location.href = '/app/candidato.html';
-      return;
-    }
+    window.location.href = '/app/candidato.html';
+    return;
   }
   const rolesApp = ['lider', 'sublider'];
   window.location.href = (usuario && rolesApp.includes(usuario.rol)) ? '/app/inicio.html' : '/dashboard.html';

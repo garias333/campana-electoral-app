@@ -4,7 +4,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const { registrarAuditoria } = require('../config/auditoria');
 const { esSuperadmin } = require('../config/superadmin');
 const { MODULOS_CON_IMPORTAR_EXPORTAR, moduloTieneImportarExportar } = require('../config/importarExportar');
-const { ROL_CANDIDATO } = require('../config/rolCandidato');
+const { ROL_CANDIDATO, MODULOS_AGREGAR_CANDIDATO } = require('../config/rolCandidato');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -107,9 +107,9 @@ router.get('/matriz', requireRole('admin'), async (req, res) => {
     }
     const permisos = {};
     filas.forEach(f => {
-      const lectura = f.rol === ROL_CANDIDATO;   // orden 70: el candidato nunca edita, agrega ni importa/exporta
+      const lectura = f.rol === ROL_CANDIDATO;   // orden 70: el candidato nunca edita ni importa/exporta; «agregar» solo en la estructura territorial (orden 73)
       permisos[`${f.rol}:${f.modulo}`] = {
-        ver: !!f.permitido, editar: !lectura && !!f.editar, agregar: !lectura && !!f.agregar,
+        ver: !!f.permitido, editar: !lectura && !!f.editar, agregar: (!lectura || MODULOS_AGREGAR_CANDIDATO.includes(f.modulo)) && !!f.agregar,
         importar_exportar: !lectura && !!f.importar_exportar
       };
     });
@@ -163,7 +163,7 @@ router.put('/matriz', requireRole('admin'), async (req, res) => {
       if (!yaExiste.has(`${rol}:${modulo}`) && !celda.ver && !celda.editar && !celda.agregar && !celda.importar_exportar) continue;
       /* EL CANDIDATO ES DE SOLO LECTURA (orden 70): Editar, Agregar e Importar/Exportar se guardan SIEMPRE en 0, diga lo que diga la pantalla. */
       const soloVer = rol === ROL_CANDIDATO;
-      const fila = [rol, modulo, celda.ver ? 1 : 0, soloVer ? 0 : (celda.editar ? 1 : 0), soloVer ? 0 : (celda.agregar ? 1 : 0)];
+      const fila = [rol, modulo, celda.ver ? 1 : 0, soloVer ? 0 : (celda.editar ? 1 : 0), (soloVer && !MODULOS_AGREGAR_CANDIDATO.includes(modulo)) ? 0 : (celda.agregar ? 1 : 0)];
       if (traeImportarExportar) {
         /* El administrador SIEMPRE lo tiene donde existe (el servidor no se lo
            pregunta, así que la matriz no puede decir otra cosa), y un módulo sin
@@ -294,7 +294,7 @@ async function permisosDeSesionSinComplementos(req) {
     const esCandidato = req.session.usuario.rol === ROL_CANDIDATO;   // orden 70: solo lectura, también en lo que ve el navegador
     filas.forEach(f => {
       permisos[f.modulo] = {
-        ver: !!f.permitido, editar: !esCandidato && !!f.editar, agregar: !esCandidato && !!f.agregar,
+        ver: !!f.permitido, editar: !esCandidato && !!f.editar, agregar: (!esCandidato || MODULOS_AGREGAR_CANDIDATO.includes(f.modulo)) && !!f.agregar,
         importar_exportar: !esCandidato && !!f.importar_exportar
       };
     });

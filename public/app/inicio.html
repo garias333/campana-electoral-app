@@ -376,6 +376,11 @@ function pintarCampana(campana, bio) {
     window.location.replace('/app/dia-d.html');
     return;
   }
+  // El candidato principal tiene su propia app (orden 73): el ícono de la app instalada abre ESTA pantalla (start_url fijo) y de aquí se le lleva a la suya, no al menú de líder.
+  if (usuario.rol === 'candidato') {
+    window.location.replace('/app/candidato.html');
+    return;
+  }
 
   if (usuario.rol === 'coordinador') document.body.classList.add('inicio-coordinador');   // orden 68: el nuevo diseño de «Mi equipo» (solo el coordinador)
   pintarBarraApp('Estrategia', null, null);

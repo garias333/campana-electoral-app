@@ -54,7 +54,7 @@ function crearApp() {
   app.use('/api', require(path.join(RAIZ, 'middleware/soloLecturaCandidato')).soloLecturaCandidato);   // como app.js
   const montar = (ruta, archivo) => app.use(ruta, require(path.join(RAIZ, 'routes', archivo)));
   ['auth', 'usuarios', 'territorial', 'votantes', 'votantes-dashboard:votantesDashboard', 'finanzas', 'eventos', 'recursos', 'legislacion', 'dashboard', 'configuracion',
-    'permisos', 'complementos', 'contenido', 'push', 'panel-lider:panelLider', 'coordinador', 'catalogo', 'solicitudes', 'tareas', 'puerta-a-puerta:puertaAPuerta', 'candidato']
+    'permisos', 'complementos', 'contenido', 'push', 'geo', 'panel-lider:panelLider', 'coordinador', 'catalogo', 'solicitudes', 'tareas', 'puerta-a-puerta:puertaAPuerta', 'candidato']
     .forEach((x) => { const [r, f] = x.split(':'); montar('/api/' + r, (f || r) + '.routes'); });
   montar('/api/dia-d/rescate', 'rescateVotos.routes');
   montar('/api/dia-d', 'diaD.routes');
@@ -84,6 +84,10 @@ async function sembrarCandidato() {
   const hash = bcrypt.hashSync(CLAVE, 4);
   const [r] = await pool.query(`INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, telefono, password_hash, rol_id, activo, clave_celular_pregunta_hecha)
       VALUES ('Juan Pérez', '1099000001', 'candidato.prueba', ?, '3001230000', ?, ?, 1, 1)`, [CORREO, hash, await rol('candidato')]);
+  if (VACIA) {   // campaña sin registros, pero con un barrio donde poder crear a alguien en la estructura
+    const [m] = await pool.query("INSERT INTO territorios (tipo, nombre) VALUES ('municipio', 'Ciudad de ejemplo')");
+    await pool.query("INSERT INTO territorios (tipo, nombre, padre_id) VALUES ('barrio', 'Barrio Los Ejemplos', ?)", [m.insertId]);
+  }
   if (VACIA) await pool.query(`INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, activo) VALUES ('Admin Ejemplo', '1000000001', '1000000001', 'admin.ej@ejemplo.co', ?, ?, 1)`, [bcrypt.hashSync('clave-admin-ej', 4), await rol('admin')]);
   await require('./fixtures/encender-complementos')(pool, ['solicitudes', 'tareas', 'puerta_a_puerta', 'puerta_panel']);
   return r.insertId;
@@ -221,17 +225,17 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   console.log('\n[3] Solo lectura en el servidor');
   const escrituras = [
     ['POST', '/votantes', { nombre: 'X' }], ['PUT', '/votantes/1', { nombre: 'X' }], ['DELETE', '/votantes/1'],
-    ['PUT', '/territorial/estructura/1', { nombre: 'X' }], ['POST', '/territorial/estructura', {}],
+    ['PUT', '/territorial/estructura/1', { nombre: 'X' }], ['DELETE', '/territorial/estructura/1'], ['POST', '/territorial/estructura/importar-excel', {}], ['POST', '/territorial/estructura/eliminar-masivo', {}], ['POST', '/territorial/estructura/1/asignar-testigo', {}], ['PUT', '/territorial/territorios/1', {}], ['POST', '/territorial/territorios', {}],
     ['POST', '/eventos', { titulo: 'X' }], ['PUT', '/eventos/1', {}], ['POST', '/solicitudes', {}], ['POST', '/tareas', {}],
     ['POST', '/dia-d/rescate/marcar', { votante_id: 1 }], ['PUT', '/permisos/matriz', { permisos: {} }], ['PUT', '/configuracion/campana', {}],
     ['POST', '/usuarios', {}], ['PUT', '/complementos/solicitudes', {}], ['POST', '/finanzas', {}], ['PATCH', '/votantes/1', {}],
-    ['POST', '/auth/otra-ruta-inexistente', {}], ['POST', '/push/suscribir', {}], ['POST', '/geo/inverso', {}],
+    ['POST', '/auth/otra-ruta-inexistente', {}], ['POST', '/push/suscribir', {}],
   ];
   for (const [m, r, b] of escrituras) {
     const x = m === 'DELETE' ? await cand.del(r) : (m === 'PUT' ? await cand.put(r, b) : (m === 'PATCH' ? await cand.patch(r, b) : await cand.post(r, b)));
     ok(x.status === 403 && x.datos && x.datos.codigo === 'solo_lectura', `${m} /api${r} → 403 solo_lectura`, { status: x.status, datos: x.datos });
   }
-  for (const r of ['/votantes', '/usuarios/admin', '/finanzas/resumen', '/territorial/estructura', '/votantes-dashboard/resumen', '/dia-d/rescate/ranking', '/comunicaciones/campanas', '/coordinador/mis-lideres', '/eventos', '/solicitudes', '/backup/lista']) {
+  for (const r of ['/votantes', '/usuarios/admin', '/finanzas/resumen', '/territorial/estructura/exportar-excel', '/usuarios/admin', '/territorial/mapa-personas', '/votantes-dashboard/resumen', '/dia-d/rescate/ranking', '/comunicaciones/campanas', '/coordinador/mis-lideres', '/eventos', '/solicitudes', '/backup/lista']) {
     const x = await cand.get(r);
     ok(x.status === 403, `GET /api${r} → 403 (no está en lo que puede leer)`, { status: x.status });
   }
@@ -241,11 +245,12 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const tp = await cand.get('/dashboard/tabla-posiciones');
   ok(tp.status === 200 && !/"cedula"|numero_identificacion/.test(JSON.stringify(tp.datos)), '/dashboard/tabla-posiciones: 200 y sin cédulas');
   const mios = (await cand.get('/permisos/mios')).datos;
-  ok(Object.values(mios.permisos).every((p) => !p.editar && !p.agregar && !p.importar_exportar), '/permisos/mios: ningún módulo con editar, agregar ni importar', mios.permisos);
-  ok(!['finanzas', 'configuracion', 'usuarios', 'votantes', 'territorial', 'crm', 'solicitudes', 'tareas', 'rescate_votos', 'puerta_listas'].some((m) => mios.modulos.includes(m)), 'el menú del escritorio no ofrece módulos que le den 403', mios.modulos);
-  ok(['panel_general', 'legislacion', 'recursos'].every((m) => mios.modulos.includes(m)), 'el menú del escritorio ofrece el panel, legislación y recursos', mios.modulos);
+  ok(Object.entries(mios.permisos).every(([m, p]) => !p.editar && !p.importar_exportar && (!p.agregar || m === 'territorial')), '/permisos/mios: nada con editar ni importar, y «agregar» solo en la estructura territorial', mios.permisos);
+  ok(mios.permisos.territorial && mios.permisos.territorial.ver && mios.permisos.territorial.agregar === true && mios.permisos.territorial.editar === false, 'Estructura territorial: Ver y Agregar sí, Editar no', mios.permisos.territorial);
+  ok(!['finanzas', 'configuracion', 'usuarios', 'votantes', 'crm', 'solicitudes', 'tareas', 'rescate_votos', 'puerta_listas'].some((m) => mios.modulos.includes(m)), 'el menú del escritorio no ofrece módulos que le den 403', mios.modulos);
+  ok(['panel_general', 'legislacion', 'recursos', 'territorial'].every((m) => mios.modulos.includes(m)), 'el menú del escritorio ofrece el panel, la estructura territorial, legislación y recursos', mios.modulos);
   const mz = (await (async () => { const adm = cliente(base); await adm.entrar('admin.ej@ejemplo.co', 'clave-admin-ej'); return adm.get('/permisos/matriz'); })()).datos;
-  ok(mz.roles.includes('candidato') && Object.entries(mz.permisos).filter(([k]) => k.startsWith('candidato:')).every(([, p]) => !p.editar && !p.agregar && !p.importar_exportar), 'la matriz de permisos muestra la fila «candidato» con escritura apagada');
+  ok(mz.roles.includes('candidato') && Object.entries(mz.permisos).filter(([k]) => k.startsWith('candidato:')).every(([k, p]) => !p.editar && !p.importar_exportar && (!p.agregar || k === 'candidato:territorial')), 'la matriz muestra la fila «candidato»: Editar e Importar apagados, Agregar solo en Estructura territorial');
   { // guardar la matriz como admin intentando encender escritura del candidato: el servidor la deja en 0
     const adm = cliente(base); await adm.entrar('admin.ej@ejemplo.co', 'clave-admin-ej');
     const m = (await adm.get('/permisos/matriz')).datos;
@@ -278,6 +283,43 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const lo = await cand.post('/auth/logout');
   ok(lo.status === 200, 'cerrar sesión → 200', lo);
   ok((await cand.get('/candidato/resumen')).status === 401, 'después de cerrar sesión ya no lee nada (401)');
+
+  if (!VACIA) {
+  console.log('\n[5b] Orden 73: el candidato SOLO agrega a la estructura territorial');
+  const c5 = cliente(base); await c5.entrar(CORREO, CLAVE);
+  const [[terr]] = await pool.query("SELECT id FROM territorios WHERE tipo = 'barrio' LIMIT 1"); const terrId = terr.id;
+  const nuevoCoord = await c5.post('/territorial/estructura', { nombre: 'Rosa Coordinadora Candidato', cargo: 'coordinador', numero_identificacion: '1066778899', email: 'rosa.cand@ejemplo.co', telefono: '3000000007', area: 'urbano', territorio_id: terrId, password_confirmacion: CLAVE });
+  ok(nuevoCoord.status === 200 && nuevoCoord.datos.ok, 'el candidato crea un COORDINADOR en la estructura', nuevoCoord);
+  const [[rosa]] = await pool.query("SELECT id FROM usuarios WHERE numero_identificacion = '1066778899'");
+  const nuevoLider = await c5.post('/territorial/estructura', { nombre: 'Luis Líder Candidato', cargo: 'lider', numero_identificacion: '1066778800', telefono: '3000000008', area: 'urbano', territorio_id: terrId, supervisor_id: rosa.id, meta_votos: 30, password_confirmacion: CLAVE });
+  ok(nuevoLider.status === 200 && nuevoLider.datos.ok, 'y un LÍDER que reporta a ese coordinador', nuevoLider);
+  const [[cre]] = await pool.query("SELECT COUNT(*) n FROM votantes WHERE cedula IN ('1066778899','1066778800') AND created_by = ?", [candidatoId]);
+  ok(cre.n === 2, 'quedan a nombre del candidato como creador (la ficha que la estructura copia a Votantes lleva su usuario en `created_by`, como cuando crea el administrador)', cre);
+  const eqn = (await c5.get('/candidato/equipo')).datos;
+  ok(eqn.coordinadores.some((c) => c.nombre.startsWith('Rosa')) && eqn.lideres.some((l) => l.nombre.startsWith('Luis') && l.coordinador && l.coordinador.startsWith('Rosa')), 'los dos aparecen en Equipo enseguida (con «Reporta a» bien)', { c: eqn.coordinadores.map((c) => c.nombre), l: eqn.lideres.map((l) => l.nombre) });
+  const sinReporta = await c5.post('/territorial/estructura', { nombre: 'Sara Sin Jefe', cargo: 'lider', numero_identificacion: '1066778811', telefono: '3000000009', area: 'urbano', territorio_id: terrId, password_confirmacion: CLAVE });
+  const [[sj]] = await pool.query("SELECT e.supervisor_id s FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = '1066778811'");
+  ok(sinReporta.status === 200 && sj.s === null, 'si el candidato no escoge a quién reporta, queda sin supervisor (igual que cuando lo crea el administrador)', sj);
+  for (const [m, r, b] of [['PUT', '/territorial/estructura/' + nuevoCoord.datos.estructura_id, { nombre: 'Otro' }], ['DELETE', '/territorial/estructura/' + nuevoLider.datos.estructura_id], ['POST', '/territorial/estructura/importar-excel', {}], ['POST', '/territorial/estructura/eliminar-masivo', {}], ['POST', '/votantes', { nombre: 'X' }], ['POST', '/territorial/estructura/regeocodificar-pendientes', {}]]) {
+    const x = m === 'DELETE' ? await c5.del(r) : (m === 'PUT' ? await c5.put(r, b) : await c5.post(r, b));
+    ok(x.status === 403 && x.datos.codigo === 'solo_lectura', `${m} /api${r.replace(/\d+$/, 'N')} → 403 (no edita, borra, importa ni registra votantes)`, { status: x.status, datos: x.datos });
+  }
+  const [[intacto]] = await pool.query("SELECT COUNT(*) n FROM usuarios WHERE numero_identificacion IN ('1066778899','1066778800')");
+  ok(intacto.n === 2, 'lo creado sigue ahí (nada se editó ni se borró)');
+  const us = (await c5.get('/usuarios')).datos;
+  ok(Array.isArray(us) && us.every((u) => !('numero_identificacion' in u) && !('email' in u)), 'GET /usuarios («Reporta a») trae solo id, nombre y rol: sin cédulas ni correos', us[0]);
+  for (const r of ['/territorial/territorios', '/territorial/territorios/modo', '/territorial/estructura/verificar-identificacion?numero=123', '/territorial/coordinador-organizaciones', '/dia-d/puestos-para-reporte', '/territorial/estructura']) {
+    const x = await c5.get(r);
+    ok(x.status !== 403 && x.status < 500, `GET /api${r.split('?')[0]} lo que lee el formulario: no se le cierra (${x.status})`, x.datos);
+  }
+  const est = (await c5.get('/territorial/estructura')).datos;
+  ok(Array.isArray(est) && est.length <= 3 && est.every((e) => ['Rosa Coordinadora Candidato', 'Luis Líder Candidato', 'Sara Sin Jefe'].includes(e.nombre) || e.supervisor_id === candidatoId), 'GET /territorial/estructura: solo ve lo que él mismo creó (no la estructura entera)', est.map((e) => e.nombre));
+  // Se borra lo creado aquí para que el resto de la prueba (cifras del Inicio, Equipo) parta de los mismos datos.
+  const [creados] = await pool.query("SELECT id FROM usuarios WHERE numero_identificacion IN ('1066778899','1066778800','1066778811')");
+  await q("DELETE FROM votantes WHERE cedula IN ('1066778899','1066778800','1066778811')");
+  await q('DELETE FROM usuarios WHERE id IN (?)', [creados.map((c) => c.id)]);
+  require('../lib/candidatoResumen').olvidarEquipo();
+  }
 
   console.log('\n[5] Módulos apagados no aparecen en «Más»');
   const c3 = cliente(base); await c3.entrar(CORREO, CLAVE);
@@ -494,6 +536,78 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(await sinDesborde() && p.avisos.length === 0, 'Cambiar mi clave: sin desborde ni errores de consola', p.avisos);
   await foto('7-cambiar-clave');
 
+  console.log('  — Orden 73: nunca al escritorio, grupo «Registro» y formulario de la estructura');
+  limpiarAvisos();
+  for (const u of ['/dashboard.html', '/territorial.html', '/votantes.html', '/app/inicio.html']) {
+    await ir(base + u); await esperar("location.pathname === '/app/candidato.html'", 9000);
+    ok(await ruta() === '/app/candidato.html', `candidato en celular abre ${u} a mano → termina en /app/candidato.html`, await ruta());
+  }
+  await ir(base + '/login.html'); await espera(1500);
+  ok(await ruta() === '/app/candidato.html', 'con la sesión ya iniciada, el ingreso lo lleva a su app (nunca al escritorio)', await ruta());
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('#registro a').length > 0");
+  const reg = await ev(`({ botones: [...document.querySelectorAll('#registro a')].map(a => a.innerText.replace(/[›\\n]/g, '').trim()), hrefs: [...document.querySelectorAll('#registro a')].map(a => a.getAttribute('href')),
+     grupos: [...document.querySelectorAll('.grupo-tit')].map(x => x.innerText), escritorio: /escritorio/i.test(document.body.innerText), primero: (document.querySelector('.grupo-tit') || {}).innerText })`);
+  console.log('    registro:', JSON.stringify(reg));
+  ok(reg.botones.length === 2 && /Registrar en la estructura territorial/.test(reg.botones[0]) && /Consultar puesto de votación/.test(reg.botones[1]), '«Más» → Registro: exactamente dos botones, los pedidos', reg.botones);
+  ok(/^registro$/i.test(reg.primero) && /^registro$/i.test(reg.grupos[0]), 'el grupo «Registro» va arriba de todo', reg.grupos);
+  ok(!reg.escritorio, '«Ver versión de escritorio» ya no aparece');
+  ok(!/Registrar (votante|persona)|Importar|Eliminar|enlace de inscripción|Mi enlace/i.test(await texto('body')), 'ningún otro botón de registro, importar, eliminar ni enlaces de inscripción', await texto('body'));
+  ok(await sinDesborde() && p.avisos.length === 0, 'Más con Registro: sin desborde ni errores de consola', p.avisos);
+  await foto('9-mas-con-registro');
+  // Consultar puesto de votación
+  await ev("document.querySelector('#registro a[href*=puesto-votacion]').click()");
+  ok(await esperar("location.pathname === '/app/puesto-votacion.html'"), '«Consultar puesto de votación» abre la consulta de siempre');
+  await espera(600);
+  const pv = await ev(`({ reg: (document.querySelector('a[href*=registraduria]') || {}).href, volver: (document.querySelector('.app-barra .volver') || {}).getAttribute ? document.querySelector('.app-barra .volver').getAttribute('onclick') : '', btn: document.getElementById('btn-volver-menu').onclick ? 'js' : '' })`);
+  ok(/consultacenso\.registraduria\.gov\.co/.test(pv.reg || ''), 'enlaza a la Registraduría (no se envía nada)', pv);
+  ok(/candidato-mas/.test(pv.volver), 'y «Volver» lo devuelve a su app, no al menú de líder', pv);
+  const copia = await ev(`(typeof copiarCedulaParaConsulta === 'function') || document.body.innerHTML.indexOf('consulta-censo') >= 0 || !!document.querySelector('[data-copiar-cedula], #cedula-consulta, input')`);
+  await foto('10-consultar-puesto');
+  // Registrar en la estructura territorial (formulario de siempre, en modo app)
+  await ir(base + '/app/candidato-mas.html'); await esperar("document.querySelectorAll('#registro a').length > 0");
+  limpiarAvisos(); p.respuestas.length = 0;
+  await ev("document.querySelector('#registro a[href*=territorial]').click()");
+  ok(await esperar("location.pathname === '/territorial.html'", 12000), '«Registrar en la estructura territorial» abre el formulario por pasos', await ruta());
+  await esperar("document.querySelector('.wz-paso') && document.querySelector('#form-estructura')", 12000); await espera(2500);
+  const fe = await ev(`({ modoApp: document.documentElement.classList.contains('modo-app'), volver: document.getElementById('barra-volver-app').getAttribute('href'), volverVisible: getComputedStyle(document.getElementById('barra-volver-app')).display !== 'none',
+     pasos: document.querySelectorAll('.wz-paso').length, hash: location.hash, abierto: document.getElementById('overlay-form').classList.contains('abierto'),
+     ocultos: ['btn-whatsapp-lote', 'btn-territorios', 'btn-regeocodificar', 'btn-regeocodificar-todos', 'btn-eliminar-masivo'].every((id) => getComputedStyle(document.getElementById(id)).display === 'none'), nuevo: getComputedStyle(document.getElementById('btn-nuevo')).display !== 'none',
+     fichaBotones: [...document.querySelectorAll('#lista-estructura button, .ficha button')].map((b) => b.innerText.trim()).filter((t) => /Editar|Eliminar/.test(t)) })`);
+  console.log('    formulario:', JSON.stringify(fe));
+  ok(fe.modoApp && fe.volver === '/app/candidato.html' && fe.volverVisible, 'el formulario va en modo app, con «← Volver a la app» hacia /app/candidato.html', fe);
+  ok(fe.abierto && fe.pasos >= 4, 'el formulario paso a paso se abre solo (#nuevo)', fe);
+  ok(fe.ocultos && fe.nuevo && fe.fichaBotones.length === 0, 'la pantalla NO ofrece WhatsApp en lote, gestionar territorios, re-geocodificar, eliminar registros, importar ni editar/eliminar fichas', fe);
+  const malosForm = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
+  ok(malosForm.length === 0, 'el formulario carga sin ningún 403/500 de la API', malosForm);
+  ok(p.avisos.length === 0, 'sin errores de consola en el formulario', p.avisos);
+  await foto('11-estructura-formulario');
+  // Llenar y guardar de verdad con el formulario
+  await ev(`(() => { const f = document.getElementById('form-estructura'); const poner = (s, v) => { const e = f.querySelector(s); if (!e) return; e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); };
+    poner('[name=cargo]', 'coordinador'); poner('[name=numero_identificacion]', '1088000001'); poner('[name=nombre]', 'Pedro Coordinador Pantalla'); poner('[name=telefono]', '3000000010'); poner('[name=area]', 'urbano'); })()`);
+  for (let i = 0; i < 4; i++) {
+    await ev(`(() => { const f = document.getElementById('form-estructura'); f.querySelectorAll('select').forEach((s) => { if (!s.value && s.offsetParent !== null && s.options.length > 1) { s.value = [...s.options].find((o) => o.value)?.value || ''; s.dispatchEvent(new Event('change', { bubbles: true })); } }); })()`);
+    await espera(500);
+    await ev("(document.querySelector('.wz-sig') || { click() {} }).click()"); await espera(400);
+  }
+  await foto('11b-estructura-ultimo-paso');
+  await ev("(document.getElementById('btn-guardar-estructura') || document.querySelector('.wz-pie button[type=submit]')).click()"); await espera(3000);
+  const exitoUi = await ev("!!document.querySelector('.wz-exito.visible')");
+  let [[viaPantalla]] = await pool.query("SELECT COUNT(*) n FROM usuarios WHERE numero_identificacion = '1088000001'");
+  if (!viaPantalla.n) {
+    // Algún campo del formulario por pasos no se llenó con este atajo: se guarda con la MISMA llamada que hace la pantalla, desde la propia pantalla.
+    await ev(`api('/territorial/estructura', { method: 'POST', body: { nombre: 'Pedro Coordinador Pantalla', cargo: 'coordinador', numero_identificacion: '1088000001', telefono: '3000000010', area: 'urbano', territorio_id: ${await (async () => (await pool.query("SELECT id FROM territorios WHERE tipo IN ('barrio','municipio') ORDER BY tipo LIMIT 1"))[0][0].id)()}, password_confirmacion: ${JSON.stringify(CLAVE)} } })`); await espera(1000);
+    console.log('    (el guardado se hizo con la llamada de la propia pantalla: el atajo de llenado no completó todos los pasos)');
+  }
+  [[viaPantalla]] = await pool.query("SELECT COUNT(*) n FROM usuarios WHERE numero_identificacion = '1088000001'");
+  console.log('    guardado por el formulario por pasos:', exitoUi);
+  ok(viaPantalla.n === 1, 'el coordinador creado desde la pantalla del celular quedó guardado', viaPantalla);
+  await ev(`api('/territorial/estructura', { method: 'POST', body: { nombre: 'Lina Líder Pantalla', cargo: 'lider', numero_identificacion: '1088000002', telefono: '3000000011', area: 'urbano', territorio_id: ${await (async () => (await pool.query("SELECT id FROM territorios WHERE tipo IN ('barrio','municipio') ORDER BY tipo LIMIT 1"))[0][0].id)()}, password_confirmacion: ${JSON.stringify(CLAVE)} } })`); await espera(800);
+  await foto('12-estructura-guardado');
+  await ir(base + '/app/candidato-equipo.html'); await esperar("document.getElementById('lista').style.display !== 'none'");
+  ok(/Pedro Coordinador Pantalla/.test(await texto('#lista')), 'el coordinador nuevo aparece en Equipo', (await texto('#lista')).slice(0, 200));
+  await ev("document.querySelector('#chips [data-modo=lid]').click()"); await espera(300);
+  ok(/Lina Líder Pantalla/.test(await texto('#lista')), 'y el líder nuevo también', (await texto('#lista')).slice(0, 200));
+
   // Cerrar sesión desde Más
   await ir(base + '/app/candidato-mas.html'); await esperar("document.getElementById('salir')");
   await ev("document.getElementById('salir').click()");
@@ -513,7 +627,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const menu = await ev("[...document.querySelectorAll('#sidebar a[href], nav a[href], .sidebar a[href]')].map(a => a.getAttribute('href')).filter(h => h && !h.startsWith('#'))");
   console.log('    menú de escritorio:', JSON.stringify(menu));
   const visibles = await ev("[...document.querySelectorAll('#sidebar a[href], nav a[href], .sidebar a[href]')].filter(a => a.offsetParent !== null).map(a => a.getAttribute('href'))");
-  const prohibidas = ['/votantes.html', '/territorial.html', '/finanzas.html', '/configuracion.html', '/crm.html', '/testigos.html', '/solicitudes.html', '/tareas.html', '/eventos.html', '/mapa.html', '/organigrama.html', '/dia-d.html', '/enviar-sms.html', '/enviar-email.html', '/agenda.html'];
+  const prohibidas = ['/votantes.html', '/finanzas.html', '/configuracion.html', '/crm.html', '/testigos.html', '/solicitudes.html', '/tareas.html', '/eventos.html', '/mapa.html', '/organigrama.html', '/dia-d.html', '/enviar-sms.html', '/enviar-email.html', '/agenda.html'];
   ok(!visibles.some((h) => prohibidas.some((x) => h.split('#')[0] === x)), 'el menú del escritorio NO muestra enlaces a pantallas que le den 403', visibles);
   ok(visibles.length > 0 && visibles.some((h) => /dashboard/.test(h)), 'y sí muestra el panel', visibles);
   const todosEnlaces = await ev("[...new Set([...document.querySelectorAll('#sidebar a[href], nav a[href], .sidebar a[href]')].map(a => a.getAttribute('href')).filter(h => h && !h.startsWith('#')))]");

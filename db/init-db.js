@@ -384,7 +384,7 @@ const MODULOS_INICIALES_ADMINISTRATIVO = ['panel_general', 'agenda', 'recursos',
    (los pone en 0 esta siembra, y además el servidor los fuerza a 0 al guardar la matriz y al armar sus permisos: ver config/rolCandidato.js).
    Quedan FUERA a propósito: Finanzas, Configuración, Usuarios, CRM y los envíos, Configurar CRM, Recordatorios y Puerta a puerta (armar listas);
    «Ver» en ellos no sería una consulta sino una puerta a datos sensibles o a herramientas de escritura. El administrador puede cambiarlo desde la matriz. */
-const { MODULOS_VER_CANDIDATO } = require('../config/rolCandidato');
+const { MODULOS_VER_CANDIDATO, MODULOS_AGREGAR_CANDIDATO } = require('../config/rolCandidato');
 const PERMISOS_POR_DEFECTO = {
   panel_general: ROLES_PERMISOS,
   organigrama: ['admin', 'coordinador', 'lider', 'testigo', 'invitado'],
@@ -488,7 +488,8 @@ async function sembrarPermisosPorDefecto(connection) {
       // El candidato nunca edita ni agrega, aunque «Ver» esté encendido.
       const puedeEditarAgregar = ver && rol !== 'invitado' && rol !== 'candidato' && (!restriccion || restriccion.includes(rol));
       const editar = puedeEditarAgregar ? 1 : 0;
-      const agregar = puedeEditarAgregar ? 1 : 0;
+      // El candidato (orden 73) puede AGREGAR solo en la estructura territorial; nunca editar.
+      const agregar = rol === 'candidato' ? (ver && MODULOS_AGREGAR_CANDIDATO.includes(modulo) ? 1 : 0) : (puedeEditarAgregar ? 1 : 0);
       // Importar/Exportar NO sigue a «Ver»: un coordinador sin Ver en un módulo
       // conserva la casilla encendida, porque hoy las rutas no miran la matriz y
       // apagarla aquí cambiaría lo que ya funciona. La tabla de fábrica es la
@@ -3658,6 +3659,20 @@ async function main() {
         WHERE modulo IN ('rescate_votos', 'alertas_dia_d', 'resultados_dia_d', 'transporte_dia_d', 'logistica_dia_d')
           AND permitido = 1 AND editar = 0 AND rol <> 'candidato'`);   // el candidato es de solo lectura (orden 70): nunca se le siembra «Editar»
     console.log(`«Editar» del Día D: se puso editar = 1 donde ya había permitido = 1 en rescate_votos, alertas_dia_d, resultados_dia_d, transporte_dia_d y logistica_dia_d (${sembrado.affectedRows} fila(s)); una sola vez.`);
+  }
+
+  /* EL CANDIDATO PUEDE AGREGAR A LA ESTRUCTURA TERRITORIAL (orden 73). El parche 348 sembró su fila de `territorial` en 0/0/0; las campañas que ya lo tienen necesitan «Ver» y
+     «Agregar» encendidos UNA vez (INSERT IGNORE no pisa filas que existen). La marca es la columna `configuracion_campana.candidato_territorial_sembrado`: `agregarColumnaSiFalta`
+     devuelve true solo en la corrida que la crea, y así lo que el administrador cambie después desde la matriz no se vuelve a pisar. Editar e Importar siguen en 0. */
+  const candidatoTerritorialRecienSembrado = await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "candidato_territorial_sembrado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Marca (orden 73): ya se encendió Ver y Agregar del candidato en Estructura territorial. No es una opción.'",
+    'candidato_territorial_sembrado'
+  );
+  if (candidatoTerritorialRecienSembrado) {
+    const [c] = await connection.query(
+      `UPDATE permisos_rol SET permitido = 1, agregar = 1, editar = 0, importar_exportar = 0 WHERE rol = 'candidato' AND modulo = 'territorial'`);
+    console.log(`Candidato: «Ver» y «Agregar» en Estructura territorial (${c.affectedRows} fila(s)); una sola vez.`);
   }
 
   /* CERRAR SESIÓN SIN SEÑAL (parche 329, orden 43). Al iniciar sesión el servidor entrega un `tokenCierre` aleatorio ligado a ESA sesión; aquí se

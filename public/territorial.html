@@ -24,6 +24,10 @@
     var instalada = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
     var pantallaChica = window.matchMedia && window.matchMedia('(max-width: 820px)').matches;
     if (pedida || (instalada && pantallaChica)) document.documentElement.classList.add('modo-app');
+    /* ?volver=/app/… (orden 73): la app del candidato abre esta pantalla y quiere volver a SU «Más», no a la lista de Estructura del administrador. Solo se acepta una ruta de /app/
+       (nunca otro sitio). Sin el parámetro, todo queda como siempre. */
+    var volver = new URLSearchParams(window.location.search).get('volver');
+    window.__VOLVER_APP = (volver && /^\/app\/[A-Za-z0-9._-]+\.html$/.test(volver)) ? volver : '/app/admin-estructura.html';
   } catch (e) { /* sin matchMedia: se queda la pantalla de escritorio de siempre */ }
 })();
 </script>
@@ -121,6 +125,7 @@
 </head>
 <body>
 <a id="barra-volver-app" href="/app/admin-estructura.html">← Volver a la app</a>
+<script>(function () { var a = document.getElementById('barra-volver-app'); if (a && window.__VOLVER_APP) a.setAttribute('href', window.__VOLVER_APP); })();</script>
 <div class="app-shell" id="app-shell">
   <main class="main">
     <div class="sec-hero">
@@ -3947,8 +3952,15 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   /* El botón de importar la estructura ya NO se esconde aquí por rol: lleva
      `data-ie="territorial"` y lo gobierna «Importar / Exportar» en Asignación de
      permisos, el mismo permiso que el servidor exige. Aquí solo queda «nuevo». */
-  if (!['admin', 'coordinador'].includes(usuarioActual.rol)) {
+  if (!['admin', 'coordinador', 'candidato'].includes(usuarioActual.rol)) {
     document.getElementById('btn-nuevo').style.display = 'none';
+  }
+  /* EL CANDIDATO PRINCIPAL SOLO AGREGA (orden 73): crea coordinadores, líderes, etc. y nada más. Aquí se le esconde todo lo demás de la cabecera —escribir por WhatsApp en lote, gestionar
+     territorios, re-geocodificar, eliminar registros, importar y exportar—; el servidor ya le responde 403 a cada uno, esto evita ofrecer lo que no puede usar. Editar y Eliminar de cada
+     ficha ya van solo para administrador y coordinador. */
+  if (usuarioActual.rol === 'candidato') {
+    ['btn-whatsapp-lote', 'btn-territorios', 'btn-regeocodificar', 'btn-regeocodificar-todos', 'btn-eliminar-masivo'].forEach((id) => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+    document.querySelectorAll('.acciones-cabecera .grupo.separado').forEach((g) => { g.style.display = 'none'; });
   }
   /* El aspirante SI crea gente suya, pero no importa por Excel: esa ruta es de
      admin y ademas es la que alimenta a `xlsx`, que sigue con una alerta alta
@@ -4153,7 +4165,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   exito.setAttribute('role', 'alertdialog');
   exito.innerHTML = '<div class="marca" aria-hidden="true">✓</div><h2>Guardado</h2><p id="wz-exito-texto"></p>'
     + '<button type="button" class="wz-otra">Agregar otra persona</button>'
-    + '<button type="button" class="wz-lista">Volver a la lista</button>';
+    + '<button type="button" class="wz-lista">' + ((window.__VOLVER_APP && window.__VOLVER_APP !== '/app/admin-estructura.html') ? 'Volver al inicio' : 'Volver a la lista') + '</button>';
   document.body.appendChild(exito);
 
   /* ------------------------------- navegación ------------------------------- */
@@ -4298,7 +4310,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
     irAPaso(1);
   });
   exito.querySelector('.wz-lista').addEventListener('click', () => {
-    window.location.href = '/app/admin-estructura.html';
+    window.location.href = window.__VOLVER_APP || '/app/admin-estructura.html';
   });
 
   /* Cada vez que se abre el modal (crear o editar) se empieza en el paso 1, sin marcas ni éxito. */

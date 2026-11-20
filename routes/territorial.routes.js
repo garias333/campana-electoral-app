@@ -1120,7 +1120,7 @@ function normalizarTelefonoImportado(valor) {
 // La sincronización hacia/desde Votantes y sublíderes vive en
 // config/sincronizacionVotantesEstructura.js (compartida con votantes.routes.js).
 
-router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante', 'candidato'), async (req, res) => {   // 'candidato' (orden 73): solo CREAR; el PUT y el DELETE no lo llevan
   const {
     nombre, numero_identificacion, departamento_votacion, municipio_votacion, puesto_votacion, mesa_votacion,
     departamento_residencia, ciudad_residencia, comuna_corregimiento_residencia, barrio_residencia,
@@ -1365,6 +1365,8 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante'), asy
     creado_por: req.session.usuario.id,
     supervisor_id: supervisorFinal
   });
+  // La app del candidato guarda 45 s la cuenta del equipo (lib/candidatoResumen.js): se olvida para que quien acaba de crearse salga en «Equipo» al instante.
+  try { require('../lib/candidatoResumen').olvidarEquipo(); } catch (_) { /* es solo una caché */ }
   res.json({ ok: true, estructura_id: estructuraId, password_temporal: passwordTemporal, geocodificado: geo.geocodificado });
 });
 
