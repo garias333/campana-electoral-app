@@ -125,6 +125,10 @@ async function requerirSesionApp() {
       if (sesion.usuario && sesion.usuario.debe_cambiar_password) {
         pedirCambioClaveApp();
       }
+      // ORDEN 66: quien entró por un botón del celular y todavía no contestó «¿quiere cambiar su clave?» la ve antes de seguir (una sola vez; si cierra la app sin contestar, vuelve).
+      if (sesion.usuario && sesion.usuario.clave_celular && sesion.usuario.clave_celular.pregunta) {
+        preguntarClaveCelularApp(sesion.usuario.clave_celular);
+      }
       return sesion.usuario;
     } catch (err) {
       ultimoError = err;
@@ -434,4 +438,136 @@ function guardarBlobApp(blob, nombre) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+
+/* ------------------------------------------------------------------
+   LA CLAVE DEL CELULAR (orden 66): el campo con su ojito, la pregunta del primer ingreso y la ayuda para «Cambiar mi clave».
+   ------------------------------------------------------------------ */
+
+/** El HTML de un campo de clave de 6 dígitos: numérico, solo dígitos, oculto por defecto y con el ojito para verla u ocultarla mientras se escribe. Lo activa `activarOjosClave`. */
+function campoClaveConOjo(id, etiqueta, autocompletar) {
+  return `
+    <div class="campo-app">
+      <label for="${id}">${etiqueta}</label>
+      <div class="clave-ojo">
+        <input id="${id}" name="${id}" class="campo-clave-6" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               autocomplete="${autocompletar || 'off'}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="••••••">
+        <button type="button" class="btn-ojo-app" data-ojo="${id}" aria-label="Mostrar la clave" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="ojo-tachado" d="M3 3l18 18" style="display:none"/>
+          </svg>
+        </button>
+      </div>
+    </div>`;
+}
+
+/** Deja vivos los campos de `campoClaveConOjo` dentro de `raiz`: solo dígitos (también al pegar o dictar) y el ojito. */
+function activarOjosClave(raiz) {
+  raiz.querySelectorAll('input.campo-clave-6').forEach((campo) => {
+    campo.addEventListener('input', () => {
+      const limpio = campo.value.replace(/\D/g, '');
+      if (limpio !== campo.value) campo.value = limpio;
+    });
+  });
+  raiz.querySelectorAll('.btn-ojo-app').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      const campo = raiz.querySelector('#' + boton.dataset.ojo);
+      const verla = campo.type === 'password';
+      campo.type = verla ? 'text' : 'password';
+      boton.setAttribute('aria-pressed', verla ? 'true' : 'false');
+      boton.setAttribute('aria-label', verla ? 'Ocultar la clave' : 'Mostrar la clave');
+      boton.querySelector('.ojo-tachado').style.display = verla ? '' : 'none';
+    });
+  });
+}
+
+/** Un mensaje de error del servidor o de la red, listo para mostrar (nunca lleva la clave). */
+function mensajeDeErrorClave(err) {
+  if (err && err.esErrorDeRed) return 'Sin conexión. Intente de nuevo cuando tenga señal.';
+  return (err && err.message) || 'No se pudo guardar. Intente de nuevo.';
+}
+
+/**
+ * LA PREGUNTA DEL PRIMER INGRESO. Una pantalla con el diseño de la app, antes del inicio: «Cambiar mi clave» (formulario de la clave nueva y su repetición; sin la clave actual, porque
+ * acaba de entrar con ella) o «Dejar la que tengo». Contestar —de cualquiera de las dos formas— la marca como hecha y no vuelve a preguntar. Sin contestar (cerrar la app), vuelve.
+ * `info.desde_clave_anterior`: entró escribiendo su contraseña de antes; se le explica la clave del celular.
+ */
+function preguntarClaveCelularApp(info) {
+  if (document.getElementById('capa-clave-celular')) return;
+  const capa = document.createElement('div');
+  capa.id = 'capa-clave-celular';
+  capa.className = 'capa-clave-celular';
+  capa.setAttribute('role', 'dialog');
+  capa.setAttribute('aria-modal', 'true');
+  capa.setAttribute('aria-labelledby', 'clave-celular-titulo');
+  capa.innerHTML = `
+    <div class="tarjeta-clave-celular">
+      <h2 id="clave-celular-titulo">Su clave del celular</h2>
+      <div id="clave-paso-pregunta">
+        ${info && info.desde_clave_anterior ? '<p class="aviso-clave-anterior">Desde ahora su clave del celular son los últimos 6 dígitos de su cédula, o la que usted elija.</p>' : ''}
+        <p>Hoy su clave son los últimos 6 dígitos de su cédula. ¿Quiere cambiarla por una que solo usted conozca?</p>
+        <div id="clave-error-pregunta" class="aviso-app" role="alert"></div>
+        <button type="button" class="btn-app btn-app-primario" id="clave-btn-cambiar">Cambiar mi clave</button>
+        <button type="button" class="btn-app btn-app-secundario" id="clave-btn-dejar">Dejar la que tengo</button>
+      </div>
+      <form id="clave-paso-cambio" hidden novalidate>
+        <p>Escriba una clave de <strong>6 dígitos</strong> que solo usted conozca.</p>
+        <div id="clave-error-cambio" class="aviso-app" role="alert"></div>
+        ${campoClaveConOjo('clave-nueva', 'Nueva clave', 'new-password')}
+        ${campoClaveConOjo('clave-repetir', 'Repita la nueva clave', 'new-password')}
+        <button type="submit" class="btn-app btn-app-primario">Guardar mi clave</button>
+        <button type="button" class="btn-app btn-app-secundario" id="clave-btn-volver">Volver</button>
+      </form>
+      <div id="clave-paso-listo" hidden>
+        <p class="exito-clave">Su clave quedó cambiada.</p>
+        <button type="button" class="btn-app btn-app-primario" id="clave-btn-continuar">Continuar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(capa);
+  activarOjosClave(capa);
+
+  const mostrar = (id, texto) => { const e = capa.querySelector('#' + id); e.textContent = texto; e.className = 'aviso-app visible error'; };
+  const ocultarErrores = () => capa.querySelectorAll('.aviso-app').forEach((e) => { e.className = 'aviso-app'; });
+  const paso = (cual) => {
+    ['clave-paso-pregunta', 'clave-paso-cambio', 'clave-paso-listo'].forEach((id) => { capa.querySelector('#' + id).hidden = (id !== cual); });
+    ocultarErrores();
+  };
+  const cerrar = () => capa.remove();
+
+  capa.querySelector('#clave-btn-cambiar').addEventListener('click', () => { paso('clave-paso-cambio'); capa.querySelector('#clave-nueva').focus(); });
+  capa.querySelector('#clave-btn-volver').addEventListener('click', () => paso('clave-paso-pregunta'));
+  capa.querySelector('#clave-btn-continuar').addEventListener('click', cerrar);
+
+  capa.querySelector('#clave-btn-dejar').addEventListener('click', async (e) => {
+    ocultarErrores();
+    e.target.disabled = true;
+    try {
+      await api('/auth/clave-celular/primera', { method: 'POST', body: { accion: 'dejar' } });
+      cerrar();
+    } catch (err) {
+      e.target.disabled = false;
+      mostrar('clave-error-pregunta', mensajeDeErrorClave(err));
+    }
+  });
+
+  capa.querySelector('#clave-paso-cambio').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ocultarErrores();
+    const nueva = capa.querySelector('#clave-nueva').value;
+    const repetir = capa.querySelector('#clave-repetir').value;
+    // Se comprueba aquí ADEMÁS del servidor: enterarse después de un viaje de red de que las dos no coinciden es peor en un celular.
+    if (!/^\d{6}$/.test(nueva)) return mostrar('clave-error-cambio', 'La clave nueva debe tener exactamente 6 dígitos numéricos.');
+    if (nueva !== repetir) return mostrar('clave-error-cambio', 'La clave nueva y su repetición no son iguales.');
+    const boton = e.target.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    try {
+      await api('/auth/clave-celular/primera', { method: 'POST', body: { accion: 'cambiar', nueva, repetir } });
+      paso('clave-paso-listo');
+    } catch (err) {
+      mostrar('clave-error-cambio', mensajeDeErrorClave(err));
+    } finally {
+      boton.disabled = false;
+    }
+  });
 }

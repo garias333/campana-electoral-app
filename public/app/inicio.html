@@ -119,6 +119,8 @@ const MENU_LIDER = [
   // Asignación de permisos (ver pintarMenu). Sin `modulo`, siempre se pinta.
   { href: '/app/legislacion.html', icono: '⚖️', titulo: 'Legislación', subtitulo: 'Leyes y normas en PDF', modulo: 'legislacion' },
   // Ayuda (orden Manuales 2): tu manual, con lo que tus permisos de hoy te dejan hacer. Sin `modulo`: la ven todos. El coordinador la hereda.
+  // Cambiar mi clave (orden 66): la clave de 6 dígitos del celular. Sin `modulo`: la ven todos los que entran por un botón. El coordinador la hereda; el administrador no entra por botón.
+  { href: '/app/cambiar-clave.html', icono: '🔑', titulo: 'Cambiar mi clave', subtitulo: 'La clave de 6 dígitos de este celular' },
   { href: '/ayuda.html', icono: '❔', titulo: 'Ayuda', subtitulo: 'Tu manual: pasos, preguntas y glosario' },
 ];
 
@@ -247,6 +249,7 @@ const ORDEN_MENU_APP = {
   '/app/biografia.html': [4, 1],
   '/app/informacion.html?modo=informacion': [4, 2], '/app/admin-contenido.html': [4, 2],
   '/app/mis-avisos.html': [5, 1],
+  '/app/cambiar-clave.html': [5, 1.5],
   '/app/politica-privacidad.html': [5, 2], '/contenido.html?clave=politica_privacidad': [5, 2],
   '/app/legislacion.html': [5, 3],
   '/ayuda.html': [5, 4],

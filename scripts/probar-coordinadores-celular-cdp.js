@@ -98,11 +98,11 @@ async function escuchar(app) {
              boton: document.querySelector('#form-coordinador button[type=submit]').innerText.trim(),
              colorBoton: getComputedStyle(document.querySelector('#form-coordinador button[type=submit]')).backgroundColor }; })()`);
   ok(f.cedula.label === 'Número de cédula' && f.cedula.modo === 'numeric', '«Número de cédula» con teclado numérico', f.cedula);
-  ok(f.clave.label === 'Clave de 6 dígitos' && f.clave.modo === 'numeric' && f.clave.max === 6 && f.clave.tipo === 'password', '«Clave de 6 dígitos»: numérica, 6 como máximo y oculta', f.clave);
-  ok(f.ayuda === 'Su clave son los últimos 6 dígitos de su cédula.', 'texto de ayuda pequeño', f.ayuda);
+  ok(f.clave.label === 'Clave de 6 dígitos' && f.clave.modo === 'numeric' && f.clave.max === 12 && f.clave.tipo === 'password', '«Clave de 6 dígitos»: numérica y oculta (admite hasta 12 a propósito: la contraseña de hoy de quien aún no conoce la nueva clave; Orden 66)', f.clave);
+  ok(f.ayuda === 'Su clave son los últimos 6 dígitos de su cédula, o la que usted eligió.', 'texto de ayuda pequeño (Orden 66)', f.ayuda);
   ok(f.boton.toLowerCase() === 'ingresar' && /255, ?195, ?0/.test(f.colorBoton), 'botón «Ingresar» amarillo', f.colorBoton);
   ok(await escribir('#campo-cedula-coord', '10a23-45 6') === '1023456', 'la cédula solo acepta dígitos (descarta letras y signos)');
-  ok(await escribir('#campo-clave-coord', '12ab3456') === '123456', 'la clave solo acepta dígitos (el máximo de 6 lo pone el propio campo)');
+  ok(await escribir('#campo-clave-coord', '12ab3456') === '123456', 'la clave solo acepta dígitos');
   await click('#ojo-clave-coord');
   ok(await ev("document.getElementById('campo-clave-coord').type") === 'text', 'el ojo muestra la clave');
   await foto('2-formulario-con-clave-visible-390x844');
@@ -119,11 +119,11 @@ async function escuchar(app) {
   const e1 = await texto('#login-error');
   ok(e1.trim() === 'Cédula o clave incorrecta.', 'mensaje genérico «Cédula o clave incorrecta.»', e1);
   await foto('3-error-generico-390x844');
-  await escribir('#campo-cedula-coord', '1055000001'); await escribir('#campo-clave-coord', '000001');
+  await escribir('#campo-cedula-coord', '1000000001'); await escribir('#campo-clave-coord', '000001');
   await click('#form-coordinador button[type=submit]');
   await espera(900);
   const e2 = await texto('#login-error');
-  ok(e2.trim() === e1.trim() && await ruta() === '/login.html', 'un LÍDER con su cédula por aquí: el mismo mensaje y sigue en el ingreso', { e2, ruta: await ruta() });
+  ok(e2.trim() === e1.trim() && await ruta() === '/login.html', 'el ADMINISTRADOR con su cédula por aquí: el mismo mensaje y sigue en el ingreso (por los botones solo entran los roles de botón)', { e2, ruta: await ruta() });
 
   console.log('\n[4] Entra el coordinador y cae en su inicio');
   await escribir('#campo-cedula-coord', '1023456789'); await escribir('#campo-clave-coord', '456789');
@@ -272,15 +272,15 @@ async function escuchar(app) {
   const me = await ev("fetch('/api/auth/me').then(r => r.status)");
   ok(me === 401, 'y la sesión del servidor ya no existe', me);
 
-  console.log('\n[9] El ingreso de los líderes sigue igual');
+  console.log('\n[9] El ingreso de los líderes: desde la Orden 66 es el MISMO formulario de cédula y clave de 6 dígitos');
   await ir(actual.base + '/login.html');
   await esperar("document.getElementById('form-elegir-acceso').style.display === 'block'");
   await click('#ir-a-lideres-desde-eleccion');
-  await esperar("getComputedStyle(document.getElementById('form-login')).display !== 'none'");
-  ok(await ev("document.querySelector('#form-login [name=email]').inputMode") === 'numeric' && (await texto('#form-login label')).startsWith('Número de identificación'), 'el formulario de líderes sigue siendo el de siempre (número de identificación y clave)');
-  await escribir('#form-login [name=email]', '1055000001'); await escribir('#form-login [name=password]', '1055000001');
-  await click('#form-login button[type=submit]');
-  ok(await esperar("location.pathname === '/app/inicio.html'", 10000), 'un líder entra por su puerta y cae en su inicio', await ruta());
+  await esperar("getComputedStyle(document.getElementById('form-coordinador')).display !== 'none'");
+  ok((await texto('label[for=campo-cedula-coord]')) === 'Número de cédula' && (await texto('#login-titulo')) === 'Ingreso de líderes y sublíderes', 'el botón de líderes abre el formulario de cédula y clave (con su título)');
+  await escribir('#campo-cedula-coord', '1055000001'); await escribir('#campo-clave-coord', '000001');
+  await click('#form-coordinador button[type=submit]');
+  ok(await esperar("location.pathname === '/app/inicio.html'", 10000), 'un líder entra por su puerta con los últimos 6 de su cédula y cae en su inicio', await ruta());
   await esperar("!document.getElementById('panel-lider').hidden", 10000);
   ok(await ev("document.getElementById('panel-coordinador').hidden") === true && await ev("!document.getElementById('panel-lider').hidden"), 've SU panel (el del líder), no el del coordinador');
   await espera(600);

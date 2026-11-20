@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Cambiar mi clave · Estrategia</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Estrategia">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<style>
+  .tarjeta-clave { background: #fff; box-shadow: var(--sombra); border-radius: var(--radio); padding: 18px 16px; }
+  .tarjeta-clave p.explica { font-size: .92rem; line-height: 1.5; color: var(--texto-2); margin: 0 0 14px; }
+  .tarjeta-clave .exito-clave { color: var(--ok); font-weight: 700; font-size: 1.05rem; margin: 0 0 14px; }
+  .tarjeta-clave .btn-app { margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div class="app-barra" id="app-barra"></div>
+
+<main class="app-cuerpo">
+  <div class="tarjeta-clave">
+    <!-- CAMBIAR MI CLAVE (orden 66). La clave del celular son, por omisión, los últimos 6 dígitos de la cédula; aquí la persona la cambia por otra de 6 dígitos que solo ella conozca.
+         Pide la clave actual y la nueva dos veces. Los tres campos son numéricos, ocultos por defecto y con el ojito para verlos mientras se escriben. La sesión sigue abierta. -->
+    <div id="formulario">
+      <p class="explica">Escriba su clave actual y la clave nueva de <strong>6 dígitos</strong>. Use el ojito para ver lo que escribe.</p>
+      <div id="aviso" class="aviso-app" role="alert"></div>
+      <form id="form-cambiar-clave" novalidate>
+        <div id="campos"></div>
+        <button type="submit" class="btn-app btn-app-primario" id="btn-guardar">Guardar mi clave</button>
+      </form>
+    </div>
+    <div id="listo" hidden>
+      <p class="exito-clave" role="status">Su clave quedó cambiada.</p>
+      <a class="btn-app btn-app-primario" href="/app/inicio.html" style="text-decoration:none; box-sizing:border-box;">Volver al inicio</a>
+    </div>
+  </div>
+</main>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/app-comun.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const ROLES_DE_BOTON = ['lider', 'sublider', 'usuario', 'invitado', 'testigo', 'aspirante_concejo', 'coordinador'];
+
+function mostrarError(texto) {
+  const a = $('aviso');
+  a.textContent = texto;
+  a.className = 'aviso-app visible error';
+}
+
+(async () => {
+  const usuario = await requerirSesionApp();
+  if (!usuario) return;
+  // Volver: al inicio, salvo el testigo y el invitado, que no tienen menú (su pantalla de trabajo es otra).
+  const volver = usuario.rol === 'testigo' ? '/app/dia-d.html' : (usuario.rol === 'invitado' ? '/app/registro-votante.html' : '/app/inicio.html');
+  pintarBarraApp('Cambiar mi clave', 'La clave de 6 dígitos de este celular', volver);
+  // El servidor es quien lo exige (solo roles de botón); esto solo evita dejarle una pantalla que responderá 403 a quien no tiene clave del celular (administración).
+  if (!ROLES_DE_BOTON.includes(usuario.rol_real || usuario.rol)) {
+    $('formulario').innerHTML = '<p class="explica">Esta cuenta no tiene clave del celular: entra por «Otros usuarios».</p>';
+    return;
+  }
+  $('campos').innerHTML = campoClaveConOjo('clave-actual', 'Clave actual', 'current-password')
+    + campoClaveConOjo('clave-nueva', 'Nueva clave', 'new-password')
+    + campoClaveConOjo('clave-repetir', 'Repita la nueva clave', 'new-password');
+  activarOjosClave($('campos'));
+  document.querySelector('a.btn-app[href="/app/inicio.html"]').setAttribute('href', volver);
+
+  $('form-cambiar-clave').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('aviso').className = 'aviso-app';
+    const actual = $('clave-actual').value;
+    const nueva = $('clave-nueva').value;
+    const repetir = $('clave-repetir').value;
+    // Se comprueba aquí ADEMÁS del servidor: enterarse después de un viaje de red de que algo no cuadra es peor en un celular.
+    if (!/^\d{6}$/.test(actual)) return mostrarError('La clave actual debe tener 6 dígitos numéricos.');
+    if (!/^\d{6}$/.test(nueva)) return mostrarError('La clave nueva debe tener exactamente 6 dígitos numéricos.');
+    if (nueva !== repetir) return mostrarError('La clave nueva y su repetición no son iguales.');
+    $('btn-guardar').disabled = true;
+    try {
+      await api('/auth/cambiar-clave-celular', { method: 'POST', body: { actual, nueva, repetir } });
+      $('formulario').hidden = true;
+      $('listo').hidden = false;
+    } catch (err) {
+      mostrarError(mensajeDeErrorClave(err));
+    } finally {
+      $('btn-guardar').disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

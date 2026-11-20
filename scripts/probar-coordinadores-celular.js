@@ -89,7 +89,7 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
   const hashAntes = m1.h;
   ok(await sincronizarClaveCelular(pool, ids.coord1) === 'sin_cambio', 'sincronizar de nuevo no hace nada (idempotente)');
   ok((await q('SELECT clave_celular_hash h FROM usuarios WHERE id = ?', [ids.coord1]))[0].h === hashAntes, 'el hash no cambió');
-  ok(await sincronizarClaveCelular(pool, ids.ana) === 'no_aplica', 'un líder no recibe clave del celular');
+  ok(await sincronizarClaveCelular(pool, ids.ana) === 'generada', 'desde la Orden 66 un líder TAMBIÉN recibe su clave del celular (los últimos 6 de su cédula)');
   ok(await sincronizarClaveCelular(pool, ids.coord2) === 'generada', 'coord2 también (cédula 1034567891 → 567891)');
 
   console.log('\n[2] Entra con la clave correcta, falla con otra');
@@ -134,7 +134,7 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
   ok(r.status === 401 && r.datos.error === MSJ, 'el ADMINISTRADOR tampoco entra por aquí');
   r = await entrarPorCelular(nuevo(), '9999999991', '999991');
   ok(r.status === 401 && r.datos.error === MSJ && r.datos.error === msjLider, 'una cédula que no existe: exactamente el mismo mensaje');
-  ok((await q("SELECT clave_celular_hash h FROM usuarios WHERE id = ?", [ids.ana]))[0].h === null, 'y al líder nadie le creó una clave');
+  ok((await q("SELECT clave_celular_hash h FROM usuarios WHERE id = ?", [ids.ana]))[0].h !== null, '(el líder tiene su clave, pero esta puerta —la de coordinadores— no lo deja pasar)');
   // Lo de siempre.
   r = await nuevo().POST('/api/auth/login', { email: '1055000001', password: '1055000001' });
   ok(r.status === 200 && r.datos.usuario.rol === 'lider', 'el LÍDER sigue entrando como antes (cédula + su contraseña por /auth/login)', r);
@@ -212,9 +212,9 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
   ok(r.status === 401 && r.datos.error === MSJ, 'un coordinador INACTIVO: mismo mensaje genérico', r);
   r = await admin.PUT(`/api/usuarios/${idCorta}`, { nombre: 'Corta Coordinadora Ejemplo', numero_identificacion: '12345', nombre_usuario: '12345', email: 'corta@ejemplo.co', telefono: '3000000009', rol: 'lider', activo: true, password_confirmacion: CLAVE_ADMIN });
   ok(r.status === 200, 'se le cambia el rol a líder', r.status);
-  ok((await q('SELECT clave_celular_hash h, clave_celular_cedula c FROM usuarios WHERE id = ?', [idCorta]))[0].h === null, 'al dejar de ser coordinador su clave del celular se borra');
+  ok((await q('SELECT clave_celular_hash h, clave_celular_cedula c FROM usuarios WHERE id = ?', [idCorta]))[0].h !== null, 'como líder conserva su clave del celular (entra por los botones; Orden 66)');
   r = await entrarPorCelular(nuevo(), '12345', '012345');
-  ok(r.status === 401 && r.datos.error === MSJ, 'y por esta puerta ya no entra');
+  ok(r.status === 401 && r.datos.error === MSJ, 'y por la puerta de COORDINADORES (la de la Orden 59) ya no entra');
 
   // El otro formulario: «Agregar a la estructura» (también crea y edita coordinadores).
   const [[barrio]] = await pool.query("SELECT id FROM territorios WHERE nombre = 'Barrio La Muestra'");

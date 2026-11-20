@@ -1454,6 +1454,7 @@ function renderizarUsuarios() {
       <td style="white-space:nowrap;">
         <button class="btn-secundario btn-sm" onclick='abrirEdicionUsuario(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Editar</button>
         <button class="btn-secundario btn-sm" onclick="restablecerPasswordUsuario(${u.id})">Restablecer clave</button>
+        ${(!u.es_superadmin && ROLES_CON_CLAVE_CELULAR.includes(u.rol) && u.numero_identificacion) ? `<button class="btn-secundario btn-sm" onclick="restablecerClaveCelularUsuario(${u.id})" title="La clave del celular vuelve a los últimos 6 dígitos de su cédula y se le vuelve a preguntar al entrar. No toca su contraseña del computador.">Restablecer clave del celular</button>` : ''}
         ${(u.two_factor_enabled && !u.es_superadmin) ? `<button class="btn-secundario btn-sm" onclick="desactivar2faUsuario(${u.id})" title="Esta persona tiene verificación en dos pasos. Úselo si no le llega el código y quedó fuera.">Quitar 2FA</button>` : ''}
         ${u.es_superadmin ? '' : `<button class="btn-peligro btn-sm" onclick="eliminarUsuario(${u.id})">Eliminar</button>`}
       </td>
@@ -1745,6 +1746,31 @@ async function desactivar2faUsuario(id) {
     await cargarUsuarios();
   } catch (err) {
     mostrarToast(err.message || 'No se pudo desactivar.', 'error');
+  }
+}
+
+/* Los roles que entran por un botón del celular (los mismos de lib/claveCelular.js): solo ellos tienen clave del celular. */
+const ROLES_CON_CLAVE_CELULAR = ['lider', 'sublider', 'usuario', 'invitado', 'testigo', 'aspirante_concejo', 'coordinador'];
+
+/**
+ * «Restablecer clave del celular» (orden 66): la vuelve a los últimos 6 dígitos de la cédula y vuelve a preguntarle al entrar. Sirve cuando alguien olvidó la que eligió.
+ * No toca su contraseña del computador (esa es «Restablecer clave»). Se confirma con LA contraseña de quien lo hace; queda registrado quién y cuándo.
+ */
+async function restablecerClaveCelularUsuario(id) {
+  const u = listaUsuarios.find(x => x.id === id);
+  if (!u) return;
+  if (!(await confirmarEnModal(`¿Restablecer la clave del celular de ${u.nombre}?`,
+        'Volverá a ser los últimos 6 dígitos de su cédula y, al entrar, se le volverá a preguntar si quiere cambiarla. Su contraseña del computador no cambia.',
+        'Restablecer clave del celular'))) return;
+  const password_confirmacion = await solicitarPasswordPropia(
+    'Restablecer la clave del celular',
+    `Escribe TU contraseña para confirmar. La clave del celular de ${u.nombre} volverá a ser la de por omisión.`);
+  if (!password_confirmacion) return;
+  try {
+    const r = await api(`/usuarios/${id}/restablecer-clave-celular`, { method: 'POST', body: { password_confirmacion } });
+    mostrarToast(`Listo: la clave del celular de ${r.nombre} volvió a los últimos 6 dígitos de su cédula.`, 'ok');
+  } catch (err) {
+    mostrarToast(err.message || 'No se pudo restablecer la clave del celular.', 'error');
   }
 }
 

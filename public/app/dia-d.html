@@ -225,6 +225,8 @@
 
     <!-- Ayuda (orden Manuales 2): el testigo no pasa por el menú de inicio, así que su manual se abre desde aquí. -->
     <a class="btn-app btn-app-secundario btn-app-espaciado" href="/ayuda.html" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;">Ayuda: mi manual</a>
+    <!-- Cambiar mi clave (orden 66): el testigo no pasa por el menú de inicio, así que la opción vive aquí. Solo la ve quien entra por un botón (un testigo). -->
+    <a class="btn-app btn-app-secundario" id="enlace-cambiar-clave" href="/app/cambiar-clave.html" style="display:none; text-align:center; text-decoration:none; box-sizing:border-box;">🔑 Cambiar mi clave</a>
     <button class="btn-app btn-app-secundario" id="btn-cerrar-sesion">Cerrar sesión</button>
   </div>
 </main>
@@ -1228,6 +1230,11 @@ document.getElementById('form-reporte').addEventListener('submit', async (e) => 
   const usuario = await requerirSesionApp();
   if (!usuario) return;
   pintarBarraApp('Día D', 'Reporte de mi mesa', null);
+  if (['testigo', 'lider', 'sublider', 'coordinador', 'usuario', 'invitado', 'aspirante_concejo'].includes(usuario.rol_real || usuario.rol)) {
+    const enlaceClave = document.getElementById('enlace-cambiar-clave');
+    enlaceClave.hidden = false;
+    enlaceClave.style.display = 'block';
+  }
 
   // El aviso de pendientes y el reintento al recuperar señal se activan de
   // una vez, sin depender de que el resto de la pantalla haya cargado —

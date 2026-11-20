@@ -443,9 +443,8 @@
         Otros usuarios
       </button>
       <p style="text-align:center; font-size:.82rem; color:var(--color-text-muted); margin:14px 0 0;">
-        Líderes, sublíderes, aspirantes y testigos entran con su número de
-        identificación. Coordinadores, con su cédula y una clave de 6 dígitos.
-        Administración, con su correo o celular.
+        Líderes, sublíderes, aspirantes, coordinadores y testigos entran con su
+        cédula y una clave de 6 dígitos. Administración, con su correo o celular.
       </p>
     </div>
 
@@ -536,8 +535,9 @@
       </div>
     </form>
 
-    <!-- INGRESO DE COORDINADORES POR EL CELULAR (orden 59): número de cédula y clave de 6 dígitos. La clave son los últimos 6 dígitos de la cédula; no se
-         escoge ni se cambia. El mensaje de error es el que manda el servidor y es el mismo exista o no la cédula. -->
+    <!-- INGRESO POR LOS BOTONES DEL CELULAR (órdenes 59 y 66): UN SOLO formulario para los cuatro botones (líderes y sublíderes, aspirantes, coordinadores y testigos): número de
+         cédula y clave de 6 dígitos. La clave son, por omisión, los últimos 6 dígitos de la cédula, o la que la persona eligió. El mensaje de error es el que manda el servidor y es
+         el mismo exista o no la cédula. (El id «form-coordinador» se conserva por historia: ya no es solo de coordinadores.) -->
     <form id="form-coordinador" style="display:none;" autocomplete="off" novalidate>
       <div class="campo">
         <label for="campo-cedula-coord">Número de cédula</label>
@@ -547,7 +547,7 @@
       <div class="campo">
         <label for="campo-clave-coord">Clave de 6 dígitos</label>
         <div class="campo-con-ojo">
-          <input id="campo-clave-coord" class="campo-clave-6" type="password" name="clave" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+          <input id="campo-clave-coord" class="campo-clave-6" type="password" name="clave" inputmode="numeric" pattern="[0-9]*" maxlength="12"
                  autocomplete="current-password" placeholder="••••••" required>
           <button type="button" class="btn-ojo" id="ojo-clave-coord" aria-label="Mostrar la clave" aria-pressed="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -557,7 +557,7 @@
           </button>
         </div>
         <small style="color: var(--color-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">
-          Su clave son los últimos 6 dígitos de su cédula.
+          Su clave son los últimos 6 dígitos de su cédula, o la que usted eligió.
         </small>
       </div>
       <button type="submit" class="btn-primario">Ingresar</button>
@@ -1218,20 +1218,6 @@ function ponerEtiquetaLogin(campo, texto) {
   if (l) l.textContent = texto;
 }
 
-/* Los tres van a ponerModoLider() porque los tres entran igual: número de
-   identificación y clave. Lo que el botón elige es el TECLADO y las etiquetas
-   del formulario, no quién es la persona — eso lo resuelve el servidor al
-   autenticarla. Se atan uno por uno y no con un bucle sobre una lista de ids
-   para que, si mañana alguno necesita llevar a otro sitio, se vea aquí. */
-['ir-a-lideres-desde-eleccion',
- 'ir-a-aspirantes-desde-eleccion',
- 'ir-a-testigos-desde-eleccion'].forEach((id) => {
-  document.getElementById(id).addEventListener('click', () => {
-    document.getElementById('login-error').classList.remove('visible');
-    ponerModoLider();
-  });
-});
-
 document.getElementById('ir-a-otros-desde-eleccion').addEventListener('click', () => {
   document.getElementById('login-error').classList.remove('visible');
   mostrarPaso('form-torre');
@@ -1256,12 +1242,20 @@ const campoClaveCoord = document.getElementById('campo-clave-coord');
   });
 });
 
-document.getElementById('ir-a-coordinadores-desde-eleccion').addEventListener('click', () => {
+/* LOS CUATRO BOTONES ABREN EL MISMO FORMULARIO (orden 66). Lo único que cambia es el título, para que la persona vea que eligió el suyo; quién es y qué puede hacer lo decide el
+   servidor al autenticarla (esta pantalla no manda rol ni «entrarComo»). Se atan uno por uno, no con un bucle sobre una lista de ids, para que, si mañana alguno necesita llevar a
+   otro sitio, se vea aquí. */
+function abrirIngresoPorBoton(titulo) {
   document.getElementById('login-error').classList.remove('visible');
   formCoordinador.reset();
   mostrarPaso('form-coordinador');
+  document.getElementById('login-titulo').textContent = titulo;
   campoCedulaCoord.focus();
-});
+}
+document.getElementById('ir-a-lideres-desde-eleccion').addEventListener('click', () => abrirIngresoPorBoton('Ingreso de líderes y sublíderes'));
+document.getElementById('ir-a-aspirantes-desde-eleccion').addEventListener('click', () => abrirIngresoPorBoton('Ingreso de aspirantes'));
+document.getElementById('ir-a-coordinadores-desde-eleccion').addEventListener('click', () => abrirIngresoPorBoton('Ingreso de coordinadores'));
+document.getElementById('ir-a-testigos-desde-eleccion').addEventListener('click', () => abrirIngresoPorBoton('Ingreso de testigos'));
 
 document.getElementById('salir-de-coordinador').addEventListener('click', (e) => {
   e.preventDefault();
@@ -1287,7 +1281,8 @@ formCoordinador.addEventListener('submit', async (e) => {
   const cedula = campoCedulaCoord.value.replace(/\D/g, '');
   const clave = campoClaveCoord.value.replace(/\D/g, '');
   // Lo que no tiene forma de cédula y de clave se dice igual que un error del servidor: sin pistas sobre qué cuenta existe.
-  if (cedula.length < 5 || clave.length !== 6) {
+  // (La clave admite más de 6 dígitos A PROPÓSITO: quien todavía no conoce la clave del celular puede escribir su contraseña de hoy, que suele ser su cédula completa.)
+  if (cedula.length < 5 || clave.length < 6) {
     errorBox.textContent = 'Cédula o clave incorrecta.';
     errorBox.classList.add('visible');
     return;
@@ -1297,16 +1292,26 @@ formCoordinador.addEventListener('submit', async (e) => {
   try {
     // Mismo cuidado que en el otro formulario (parche 329): un cierre de sesión pendiente se presenta ANTES de entrar.
     if (window.CerrarSesion) await window.CerrarSesion.resolver(4000);
-    const r = await api('/auth/login-coordinador', { method: 'POST', body: { cedula, clave } });
+    const r = await api('/auth/login-celular', { method: 'POST', body: { cedula, clave } });
+    if (r.requiereEleccionRol) {    // líder que además es testigo: elige con qué sombrero entra (el servidor manda las opciones)
+      pintarEleccionRol(r.opciones);
+      mostrarPaso('form-elegir-rol');
+      return;
+    }
     if (r.requiere2fa) {            // si la cuenta tiene verificación en dos pasos, se pide el código como siempre
       origen2fa = 'coordinador';
       mostrarPaso('form-2fa');
       return;
     }
     if (window.CerrarSesion) window.CerrarSesion.guardarTokenCierre(r.tokenCierre);   // parche 329: cerrar sesión sin señal
-    const destino = sessionStorage.getItem('app_destino_post_login');
-    sessionStorage.removeItem('app_destino_post_login');
-    window.location.href = destino || '/app/inicio.html';
+    // El coordinador va a la app del celular también si la pantalla es ancha (esta es la puerta del celular); los demás, adonde les toca (el testigo, a Día D).
+    if (r.usuario && r.usuario.rol === 'coordinador') {
+      const destino = sessionStorage.getItem('app_destino_post_login');
+      sessionStorage.removeItem('app_destino_post_login');
+      window.location.href = destino || '/app/inicio.html';
+    } else {
+      irDondeCorresponde(r.usuario);
+    }
   } catch (err) {
     errorBox.textContent = err.message || 'Cédula o clave incorrecta.';
     errorBox.classList.add('visible');

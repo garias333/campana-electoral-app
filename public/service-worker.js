@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v208';
+const CACHE_NAME = 'estrategia-v209';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -65,6 +65,7 @@ const ARCHIVOS_CASCARON = [
   '/app/mi-enlace.html',
   '/js/qrcode-generator.js',
   '/app/avance-lideres.html',   // desde la orden 59 solo reenvía a «Mis líderes»; se conserva para que un marcador o la copia guardada no lleguen a un 404
+  '/app/cambiar-clave.html',      // «Cambiar mi clave» (orden 66): el formulario va en el cascarón; la clave se manda a /api (nunca se cachea)
   '/app/mis-lideres.html',       // «Mis líderes» del coordinador (orden 59): la lista cacheada sin señal vive en IndexedDB, por usuario
   '/app/panel-coordinador.js',   // el encabezado del coordinador en el inicio
   '/app/avance-resumen.js',

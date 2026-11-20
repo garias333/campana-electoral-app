@@ -297,6 +297,7 @@ async function resolverOCrearUsuarioParaTestigo(pool, { nombre, cedula, email, t
      VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
     [(nombre || '').trim(), cedula, cedula, emailLimpio, hash, rolTestigo.id, telefono || null]
   );
+  await require('../lib/claveCelular').sincronizarSinFallar(pool, result.insertId);   // su clave del celular nace sola (orden 66)
   return { usuarioId: result.insertId, creado: true };
 }
 

@@ -131,8 +131,8 @@ function construir() {
     await ir('/login.html');
     await esperar("document.getElementById('form-elegir-acceso').style.display === 'block'");
     await ev("document.getElementById('ir-a-lideres-desde-eleccion').click()");
-    await escribir('#form-login [name=email]', '1055000001'); await escribir('#form-login [name=password]', '1055000001');
-    await ev("document.querySelector('#form-login button[type=submit]').click()");
+    await escribir('#campo-cedula-coord', '1055000001'); await escribir('#campo-clave-coord', '000001');
+    await ev("document.querySelector('#form-coordinador button[type=submit]').click()");
     await esperarRuta('/app/inicio.html');
     await esperar("!document.getElementById('panel-lider').hidden");
     await espera(500);

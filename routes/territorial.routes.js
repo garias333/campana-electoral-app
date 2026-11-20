@@ -3206,6 +3206,7 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
             continue;
           }
           if (cambiosU.hay) await pool.query(`UPDATE usuarios SET ${cambiosU.sql()} WHERE id = ?`, [...cambiosU.valores, existente.usuario_id]);
+          if (cambiosU.hay) await sincronizarClaveCelular(pool, existente.usuario_id);   // la cédula pudo cambiar (orden 66; si eligió su clave, no se toca)
           if (cambiosE.hay) await pool.query(`UPDATE estructura SET ${cambiosE.sql()} WHERE id = ?`, [...cambiosE.valores, idFila]);
           // Solo se vuelve a ubicar el puesto si la fila tocó el puesto, el municipio o el departamento.
           if (!IC.esVacia(crudo.puestoVotacion) || !IC.esVacia(crudo.municipioVotacion) || !IC.esVacia(crudo.departamentoVotacion)) {
@@ -3289,6 +3290,7 @@ router.post('/testigos/importar-excel', requireRole('admin', 'coordinador'), req
             `INSERT INTO estructura (usuario_id, cargo, tipo_testigo, mesas_asignadas, tipo_area_influencia) VALUES (?, 'testigo', ?, ?, 'territorio')`,
             [resultUsuario.insertId, tipoTestigo, tipoTestigo === 'puesto' ? JSON.stringify(mesasAsignadas) : null]
           );
+          await sincronizarClaveCelular(pool, resultUsuario.insertId);   // su clave del celular nace sola (orden 66)
           await geocodificarTestigoPorPuestoYGuardar(pool, resultEstructuraTestigo.insertId, puestoVotacion, municipioVotacion, departamentoVotacion);
           insertados++;
         }

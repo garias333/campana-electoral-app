@@ -262,6 +262,8 @@
     </div>
 
     <button type="submit" class="btn-app btn-app-primario" id="btn-guardar">Guardar registro</button>
+    <!-- Cambiar mi clave (orden 66): el invitado entra directo a esta pantalla y no pasa por el menú de inicio. Solo lo ve quien tiene clave del celular. -->
+    <a class="btn-app btn-app-secundario" id="enlace-cambiar-clave" href="/app/cambiar-clave.html" style="display:none; text-align:center; text-decoration:none; box-sizing:border-box; margin-top:14px;">🔑 Cambiar mi clave</a>
     <button type="button" class="btn-app btn-app-secundario btn-app-espaciado" id="btn-cerrar-sesion">Cerrar sesión</button>
   </form>
 </main>
@@ -960,6 +962,11 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
 (async () => {
   const usuario = await requerirSesionApp();
   if (!usuario) return;
+  if (usuario.rol === 'invitado') {      // el invitado no tiene menú de inicio: su opción de cambiar la clave vive aquí
+    const enlaceClave = document.getElementById('enlace-cambiar-clave');
+    enlaceClave.hidden = false;
+    enlaceClave.style.display = 'block';
+  }
   /* La flecha va a «Mis registros» (la pantalla del líder). Para el administrador esa pantalla
      no es su punto de partida —entra aquí desde el menú de inicio— así que vuelve al menú. */
   pintarBarraApp('Nuevo registro', 'Votante o sublíder',

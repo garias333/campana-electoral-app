@@ -25,7 +25,7 @@ const RAIZ = path.join(__dirname, '..', '..');
 const CLAVE_CORREO = 'clave-correo-ej';
 const CLAVE_ADMIN = 'clave-admin-ej';
 
-async function sembrar(pool) {
+async function sembrar(pool, { conPregunta = false } = {}) {
   const q = async (sql, p) => (await pool.query(sql, p))[0];
   const hash = (t) => bcrypt.hashSync(t, 4);
   const ids = {};
@@ -89,6 +89,9 @@ async function sembrar(pool) {
   for (const d of [9, 12, 16, 20, 27]) votantes.beto.push(await ficha(ids.beto, null, d));            // Beto: 5, el último hace 9 días
   for (const d of [1, 2, 3, 4, 5, 8, 10, 14, 22]) votantes.diego.push(await ficha(ids.diego, null, d)); // Diego: 9
   for (const d of [0, 5, 6]) votantes.eva.push(await ficha(ids.eva, null, d));                          // Eva: 3 (otra rama)
+  // Orden 66: quien entra por un botón por primera vez ve la pregunta «¿quiere cambiar su clave?» (tapa la pantalla). Las pruebas que no son de eso la dan por contestada;
+  // las que sí lo son piden `conPregunta: true`.
+  if (!conPregunta) await q('UPDATE usuarios SET clave_celular_pregunta_hecha = 1');
   return { ids, votantes };
 }
 
@@ -113,6 +116,9 @@ function crearApp(pool, publico) {
   montar('/api/contenido', 'contenido.routes');
   montar('/api/push', 'push.routes');
   montar('/api/panel-lider', 'panelLider.routes');
+  montar('/api/dia-d', 'diaD.routes');       // la pantalla del testigo (app/dia-d.html)
+  montar('/api/catalogo', 'catalogo.routes');
+  montar('/api/votantes', 'votantes.routes');
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de pruebas' }));
   app.use(express.static(publico || path.join(RAIZ, 'public'), { etag: false, lastModified: false, setHeaders: (r) => r.setHeader('Cache-Control', 'no-store') }));
   return app;

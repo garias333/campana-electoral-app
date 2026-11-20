@@ -3677,46 +3677,61 @@ async function main() {
     console.log(`Asistente administrativo: se le quitó Configuración, Finanzas y CRM (${quitado.affectedRows} fila(s)); una sola vez.`);
   }
 
-  /* INGRESO DEL COORDINADOR POR EL CELULAR (orden 59): cédula y clave de 6 dígitos (los últimos 6 de su cédula).
-     Dos columnas PROPIAS en `usuarios`: la contraseña de correo del coordinador (`password_hash`) NO se toca. Ver lib/claveCelular.js.
-       clave_celular_hash    bcrypt de los últimos 6 dígitos (nunca en texto plano)
-       clave_celular_cedula  la cédula (solo dígitos) de la que salió ese hash: si la de la fila cambia, la clave se recalcula
-     Y una tabla para el límite de intentos: POR CÉDULA ESCRITA, exista o no (así el bloqueo no delata qué cédulas son de coordinadores). */
+  /* CLAVE DEL CELULAR PARA TODOS LOS QUE ENTRAN POR UN BOTÓN (órdenes 59 y 66): cédula y clave de 6 dígitos (por omisión, los últimos 6 de la cédula; la persona
+     puede cambiarla). Columnas PROPIAS en `usuarios`: la contraseña de computador/correo (`password_hash`) NO se toca. Ver lib/claveCelular.js.
+       clave_celular_hash             bcrypt de la clave del celular (nunca en texto plano)                                   (Orden 59)
+       clave_celular_cedula           la cédula (solo dígitos) de la que salió la clave POR OMISIÓN                           (Orden 59)
+       clave_celular_es_defecto       1 = es la de por omisión; 0 = la persona eligió otra (y NUNCA se pisa)                  (Orden 66)
+       clave_celular_pregunta_hecha   0 = aún no se le preguntó «¿quiere cambiarla?» al primer ingreso; 1 = ya contestó        (Orden 66)
+     Y una tabla para el límite de intentos: POR CÉDULA ESCRITA, exista o no (así el bloqueo no delata qué cédulas existen). */
   await agregarColumnaSiFalta(
     connection, 'usuarios',
-    "clave_celular_hash VARCHAR(255) NULL COMMENT 'Clave del celular del coordinador (últimos 6 dígitos de su cédula), solo el hash bcrypt. Orden 59. No es password_hash'",
+    "clave_celular_hash VARCHAR(255) NULL COMMENT 'Clave del celular (por omisión, los últimos 6 dígitos de la cédula; o la que la persona eligió), solo el hash bcrypt. Órdenes 59 y 66. No es password_hash'",
     'clave_celular_hash'
   );
   await agregarColumnaSiFalta(
     connection, 'usuarios',
-    "clave_celular_cedula VARCHAR(20) NULL COMMENT 'Cédula (solo dígitos) de la que salió clave_celular_hash; si la cédula de la fila ya no es esta, la clave se recalcula'",
+    "clave_celular_cedula VARCHAR(20) NULL COMMENT 'Cédula (solo dígitos) de la que salió la clave POR OMISIÓN; si la cédula de la fila ya no es esta y la clave sigue siendo la de por omisión, se recalcula'",
     'clave_celular_cedula'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    "clave_celular_es_defecto TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Orden 66. 1 = la clave del celular es la de por omisión (últimos 6 de la cédula); 0 = la persona eligió otra y nunca se pisa'",
+    'clave_celular_es_defecto'
+  );
+  await agregarColumnaSiFalta(
+    connection, 'usuarios',
+    "clave_celular_pregunta_hecha TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Orden 66. 0 = al primer ingreso por el celular se le pregunta si quiere cambiar la clave; 1 = ya contestó'",
+    'clave_celular_pregunta_hecha'
   );
   await connection.query(`
     CREATE TABLE IF NOT EXISTS ingresos_celular_intentos (
-      cedula CHAR(20) CHARACTER SET ascii NOT NULL PRIMARY KEY COMMENT 'La cédula ESCRITA (solo dígitos), exista o no',
+      cedula CHAR(20) CHARACTER SET ascii NOT NULL PRIMARY KEY COMMENT 'La cédula ESCRITA (solo dígitos), exista o no; «cc<id>» para los intentos de la clave actual al cambiarla',
       intentos INT NOT NULL DEFAULT 0,
       bloqueado_hasta DATETIME NULL,
       actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_ingresos_celular_actualizado (actualizado_en)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
-  console.log('Tabla ingresos_celular_intentos lista (intentos fallidos del ingreso de coordinadores por el celular).');
+  console.log('Tabla ingresos_celular_intentos lista (intentos fallidos del ingreso por el celular y del cambio de clave).');
   {
-    /* LOS COORDINADORES QUE YA EXISTEN Y TIENEN CÉDULA RECIBEN SU CLAVE. Idempotente: solo escribe a quien no la tiene o la tiene vieja. */
-    const { sincronizarClaveCelular, cedulaCorta } = require('../lib/claveCelular');
-    const [coordinadores] = await connection.query(
+    /* TODOS LOS DE ROL DE BOTÓN QUE TIENEN CÉDULA RECIBEN SU CLAVE POR OMISIÓN. Idempotente: solo escribe a quien no la tiene o la tiene vieja y todavía es la de
+       por omisión; a quien ELIGIÓ la suya no se le toca. */
+    const { sincronizarClaveCelular, cedulaCorta, ROLES_DE_BOTON } = require('../lib/claveCelular');
+    const [candidatos] = await connection.query(
       `SELECT u.id, u.numero_identificacion FROM usuarios u JOIN roles r ON r.id = u.rol_id
-        WHERE r.nombre = 'coordinador' AND u.numero_identificacion IS NOT NULL AND u.numero_identificacion <> ''`);
+        WHERE r.nombre IN (?) AND u.numero_identificacion IS NOT NULL AND u.numero_identificacion <> ''`, [ROLES_DE_BOTON]);
     let generadas = 0; let cortas = 0;
-    for (const c of coordinadores) {
+    for (const c of candidatos) {
       if (cedulaCorta(c.numero_identificacion)) cortas++;
       if ((await sincronizarClaveCelular(connection, c.id)) === 'generada') generadas++;
     }
     const [[sinCedula]] = await connection.query(
       `SELECT COUNT(*) AS n FROM usuarios u JOIN roles r ON r.id = u.rol_id
-        WHERE r.nombre = 'coordinador' AND (u.numero_identificacion IS NULL OR u.numero_identificacion = '')`);
-    console.log(`Clave del celular de coordinadores: ${generadas} generada(s) de ${coordinadores.length} con cédula; `
-      + `${cortas} con cédula de menos de 6 dígitos (clave rellenada con ceros); ${sinCedula.n} sin cédula (no pueden entrar por el celular).`);
+        WHERE r.nombre IN (?) AND (u.numero_identificacion IS NULL OR u.numero_identificacion = '')`, [ROLES_DE_BOTON]);
+    const [[eligieron]] = await connection.query('SELECT COUNT(*) AS n FROM usuarios WHERE clave_celular_es_defecto = 0');
+    console.log(`Clave del celular: ${generadas} generada(s) de ${candidatos.length} con cédula (roles de botón); `
+      + `${cortas} con cédula de menos de 6 dígitos (clave rellenada con ceros); ${sinCedula.n} sin cédula (no pueden entrar por el celular); `
+      + `${eligieron.n} eligieron la suya (no se tocan).`);
   }
 
   await sembrarPoliticaPrivacidadPorDefecto(connection);

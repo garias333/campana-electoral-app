@@ -1442,6 +1442,7 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
       );
       usuarioId = result.insertId;
       cuentaCreada = true;
+      await require('../lib/claveCelular').sincronizarSinFallar(pool, usuarioId);   // su clave del celular nace sola (orden 66)
     }
   } catch (err) {
     console.error('Error creando/verificando la cuenta de acceso del sublíder:', err);

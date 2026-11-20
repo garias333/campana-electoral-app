@@ -46,7 +46,8 @@ async function crear() {
       'INSERT INTO estructura (usuario_id, cargo, supervisor_id, activo, meta_votos, meta_votos_base) VALUES (?, ?, ?, 1, ?, ?)',
       [u.insertId, cargo, jefe ? ids[jefe] : null, meta, meta]);
   }
-  await sincronizarClaveCelular(pool, ids.coord);
+  // Desde la Orden 66 TODOS los que entran por un botón tienen clave del celular (los últimos 6 de su cédula): coordinador, líderes y sublíder.
+  for (const id of Object.values(ids)) await sincronizarClaveCelular(pool, id);
 
   // Unas pocas personas registradas, repartidas en el tiempo para que se vea el semáforo y el «último registro».
   const fichas = [[ids.uno, null, 0], [ids.uno, null, 2], [ids.uno, null, 4], [ids.uno, ids.sub, 1], [ids.dos, null, 9], [ids.dos, null, 10]];
@@ -59,8 +60,11 @@ async function crear() {
       [`Persona de prueba ${n}`, `9000005${100 + n}`, `30000059${String(n).padStart(2, '0')}`, lider, sub, dias]);
   }
   console.log('Listo. Coordinador de prueba creado:');
-  console.log('  Ingreso por el celular («Acceso a Coordinadores»):');
-  console.log('    Cédula: 9000000590     Clave: 000590   (los últimos 6 dígitos de la cédula)');
+  console.log('  Ingreso por el celular (los cuatro botones piden cédula y clave de 6 dígitos; la clave son los últimos 6 de la cédula):');
+  console.log('    «Acceso a Coordinadores»:        cédula 9000000590   clave 000590');
+  console.log('    «Acceso a Líderes y Sublíderes»: cédula 9000000591   clave 000591   (Líder de Prueba Uno)');
+  console.log('                                     cédula 9000000593   clave 000593   (Sublíder de Prueba Tres)');
+  console.log('  La primera vez que entre cada uno verá la pregunta «Su clave del celular».');
   console.log('  Líderes de ejemplo: Líder de Prueba Uno (meta 20, 4 registros), Líder de Prueba Dos (meta 10, 2 registros, sin celular).');
 }
 

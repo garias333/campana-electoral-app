@@ -27,7 +27,7 @@ async function puedeAdministrar(req, usuarioId) {
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
-const { sincronizarSinFallar: sincronizarClaveCelular } = require('../lib/claveCelular');   // clave del celular del coordinador (orden 59)
+const { sincronizarSinFallar: sincronizarClaveCelular, restablecerClaveCelular } = require('../lib/claveCelular');   // clave del celular (órdenes 59 y 66)
 const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
 const { normalizarCedula, enmascararCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 const { requireAuth, requireRole } = require('../middleware/auth');
@@ -679,6 +679,39 @@ router.post('/:id/restablecer-password', requireRole('admin', 'aspirante'), asyn
  * que quizá no revisa, y volveríamos al mismo problema desde el otro lado.
  * Activarlo sigue siendo decisión de cada quien, desde su propio panel.
  */
+/**
+ * «Restablecer clave del celular» (orden 66): la vuelve a los últimos 6 dígitos de la cédula y vuelve a activar la pregunta del primer ingreso. Sirve cuando alguien
+ * olvidó la que eligió. NO toca `password_hash` (la del computador; esa es «Restablecer clave»). Se confirma con LA contraseña de quien lo hace, igual que las demás
+ * acciones sobre una cuenta ajena, y queda en la bitácora quién y cuándo. Solo administrador y superadministrador (el aspirante no: su equipo no tiene esta puerta).
+ */
+router.post('/:id/restablecer-clave-celular', requireRole('admin'), async (req, res) => {
+  if (await confirmarConSuPassword(req, res)) return;
+  if (await protegerObjetivo(req, res, req.params.id)) return;
+  try {
+    const [[persona]] = await pool.query(
+      `SELECT u.id, u.nombre, u.numero_identificacion, r.nombre AS rol FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = ?`, [req.params.id]);
+    if (!persona) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
+    if (!require('../lib/claveCelular').esRolDeBoton(persona.rol)) {
+      return res.status(400).json({ error: 'Esta cuenta no entra por los botones del celular: no tiene clave del celular.' });
+    }
+    if (!String(persona.numero_identificacion || '').replace(/\D/g, '')) {
+      return res.status(400).json({ error: 'Esta persona no tiene número de identificación: sin él no se puede calcular la clave.' });
+    }
+    await restablecerClaveCelular(pool, persona.id);
+    // Si estaba bloqueada por intentos fallidos, queda libre: es justo lo que se busca al restablecerla.
+    await pool.query('DELETE FROM ingresos_celular_intentos WHERE cedula IN (?, ?)',
+      [String(persona.numero_identificacion || '').replace(/\D/g, '').slice(0, 20), `cc${persona.id}`]).catch(() => {});
+    await registrarAuditoria(
+      req.session.usuario.id, 'restablecer_clave_celular', 'usuarios', persona.id,
+      `Un administrador restableció la clave del celular de ${persona.nombre} (vuelve a los últimos 6 dígitos de su cédula y se le vuelve a preguntar al entrar).`, req.ip
+    );
+    res.json({ ok: true, nombre: persona.nombre });
+  } catch (err) {
+    registrarErrorSinSql('usuarios', err);
+    res.status(500).json({ error: 'No se pudo restablecer la clave del celular.' });
+  }
+});
+
 router.post('/:id/desactivar-2fa', requireRole('admin', 'aspirante'), async (req, res) => {
   /* El aspirante solo sobre las cuentas de SU equipo. Sin esta línea, abrirle
      la pestaña le daría la administración de toda la campaña madre. */

@@ -601,3 +601,25 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-i
 /* --- Autorización de la persona: «Firmar aquí ahora» o «Enviar autorización por WhatsApp» (parche 325) --- */
 .aut-modo { display: flex; gap: 8px; margin: 0 0 12px; }
 .aut-modo .btn-app { min-height: 48px; font-size: 14.5px; padding: 8px 10px; flex: 1; box-shadow: none; }
+
+
+/* ------------------------------------------------------------------
+   LA CLAVE DEL CELULAR (orden 66): el campo con ojito y la pregunta del primer ingreso (public/app/app-comun.js).
+   ------------------------------------------------------------------ */
+.clave-ojo { position: relative; }
+.clave-ojo input { padding-right: 56px; letter-spacing: .3em; }
+.btn-ojo-app {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--texto-2); cursor: pointer; border-radius: 50%;
+}
+.btn-ojo-app:focus-visible { outline: 2px solid var(--marca-azul); }
+.btn-ojo-app svg { width: 24px; height: 24px; }
+.capa-clave-celular {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(10, 25, 45, .94); display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto;
+}
+.tarjeta-clave-celular { background: #fff; border-radius: var(--radio); box-shadow: var(--sombra-flot); padding: 22px 20px; max-width: 380px; width: 100%; box-sizing: border-box; }
+.tarjeta-clave-celular h2 { margin: 0 0 10px; font-size: 1.25rem; color: var(--marca-azul-osc); }
+.tarjeta-clave-celular p { font-size: .95rem; line-height: 1.5; color: var(--texto-2); margin: 0 0 14px; }
+.tarjeta-clave-celular .aviso-clave-anterior { background: var(--aviso-fondo); color: var(--aviso); border-radius: 12px; padding: 10px 12px; }
+.tarjeta-clave-celular .exito-clave { color: var(--ok); font-weight: 700; font-size: 1.05rem; }
+.tarjeta-clave-celular .btn-app { width: 100%; margin-top: 10px; }
