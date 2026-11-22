@@ -86,21 +86,21 @@ function rolDeLaCategoria(cargo, tipoCargo) {
 }
 
 /**
- * EL COORDINADOR QUE ENTRÓ POR EL BOTÓN DEL CELULAR SOLO AGREGA LÍDERES (orden 83).
+ * EL COORDINADOR SOLO AGREGA LÍDERES EN ESTRUCTURA TERRITORIAL (órdenes 83 y 85).
  *
- * «Esa sesión» es la que abrió POST /api/auth/login-coordinador (cédula + clave de 6 dígitos): `req.session.puertaCelular`. El coordinador que entra al computador con su
- * correo NO tiene esa marca y conserva lo de siempre (editar, borrar, importar, crear cualquier categoría): quitárselo no se pidió y le dañaría el trabajo de escritorio.
+ * La orden 83 lo puso solo para la sesión del celular (`req.session.puertaCelular`); la orden 85 le quitó esa condición: el rol `coordinador`, entre por donde entre —celular o
+ * computador, cédula o correo—, solo puede CREAR líderes (reportándole a él) y no puede editar, borrar, asignar testigo, importar, eliminar ni escribir territorios.
  *
- * Lo que decide el SERVIDOR, no el navegador: el formulario del celular solo esconde lo que aquí se rechaza.
+ * Lo que decide el SERVIDOR, no el navegador: las pantallas solo esconden lo que aquí se rechaza.
  */
-function esCoordinadorDelCelular(req) {
+function esCoordinadorSoloLideres(req) {
   const u = req.session && req.session.usuario;
-  return !!(u && u.rol === 'coordinador' && req.session.puertaCelular === true);
+  return !!(u && u.rol === 'coordinador');
 }
-const MENSAJE_COORDINADOR_CELULAR = 'Desde el celular el coordinador solo puede agregar líderes.';
-/** Guarda de las rutas que escriben en la estructura (editar, borrar, asignar testigo, importar, eliminar, territorios): 403 para el coordinador del celular. */
-function noCoordinadorDelCelular(req, res, next) {
-  if (esCoordinadorDelCelular(req)) return res.status(403).json({ error: MENSAJE_COORDINADOR_CELULAR });
+const MENSAJE_COORDINADOR_SOLO_LIDERES = 'El coordinador solo puede agregar líderes.';
+/** Guarda de las rutas que escriben en la estructura (editar, borrar, asignar testigo, importar, eliminar, territorios): 403 para el coordinador. */
+function noCoordinador(req, res, next) {
+  if (esCoordinadorSoloLideres(req)) return res.status(403).json({ error: MENSAJE_COORDINADOR_SOLO_LIDERES });
   next();
 }
 
@@ -385,7 +385,7 @@ router.get('/territorios/modo', async (req, res) => {
  * Agrega un territorio a la tabla local. Solo corre si `territorios` es una tabla
  * (ver config/territoriosModo.js); en una campaña conectada al catálogo responde 409.
  */
-router.post('/territorios', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/territorios', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const tipo = validarTipo(req.body.tipo);
   if (tipo.error) return res.status(400).json({ error: tipo.error });
@@ -424,7 +424,7 @@ router.post('/territorios', noCoordinadorDelCelular, requireRole('admin', 'coord
  * tipo y padre, sin distinguir mayúsculas ni tildes). Un nuevo padre debe existir,
  * ser de un tipo compatible, colgar del MISMO municipio y no crear un ciclo.
  */
-router.put('/territorios/:id', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), async (req, res) => {
+router.put('/territorios/:id', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Identificador no válido.' });
@@ -607,7 +607,7 @@ router.post('/territorios/eliminar-todo', requireRole('admin'), async (req, res)
  * tildes). `padreZonaId`, si se indica, debe existir, ser una Comuna (para un Barrio)
  * o un Corregimiento (para una Vereda) y colgar de ese mismo municipio.
  */
-router.post('/territorios/crear-zona', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/territorios/crear-zona', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const { tipoZona, padreZonaId } = req.body;
   const tiposValidos = ['comuna', 'barrio', 'corregimiento', 'vereda'];
@@ -1163,16 +1163,16 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante', 'can
      una rama ajena, o se llevaría la suya a otra. Se ignora y se pone él.
 
      No es una limitación: es lo que significa «sus testigos». */
-  /* EL COORDINADOR DEL CELULAR SOLO CREA LÍDERES, Y CUELGAN DE ÉL (orden 83).
+  /* EL COORDINADOR SOLO CREA LÍDERES, Y CUELGAN DE ÉL (órdenes 83 y 85).
      Se decide aquí, antes de leer nada más: cualquier otra categoría (coordinador de territorio u organizaciones, aspirante al Concejo, sublíder, testigo) es 403 con un
      mensaje claro. Y `supervisor_id` —«Reporta a»— se IGNORA y se pone el id del coordinador, igual que con el aspirante: el navegador no manda en eso. Si el cuerpo trae
      a otro como supervisor, no se rechaza: se fuerza (un líder que «reporta a otro» queda reportándole a él). */
-  const coordinadorCelular = esCoordinadorDelCelular(req);
-  if (coordinadorCelular && (cargo !== 'lider' || tipo_cargo === 'aspirante_concejo')) {
-    return res.status(403).json({ error: MENSAJE_COORDINADOR_CELULAR });
+  const coordinadorSoloLideres = esCoordinadorSoloLideres(req);
+  if (coordinadorSoloLideres && (cargo !== 'lider' || tipo_cargo === 'aspirante_concejo')) {
+    return res.status(403).json({ error: MENSAJE_COORDINADOR_SOLO_LIDERES });
   }
   const supervisorFinal = req.sublicencia ? req.sublicencia.usuario_id
-    : (coordinadorCelular ? req.session.usuario.id : (supervisor_id || null));
+    : (coordinadorSoloLideres ? req.session.usuario.id : (supervisor_id || null));
   // El Área se GUARDA, no se deduce. Deducirla del tipo de territorio deja
   // la columna vacía en cuanto la persona cuelga del municipio, que es lo
   // normal en una campaña sin comunas ni barrios. Se acota a los dos valores
@@ -1398,7 +1398,7 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante', 'can
   res.json({ ok: true, estructura_id: estructuraId, password_temporal: passwordTemporal, geocodificado: geo.geocodificado });
 });
 
-router.put('/estructura/:id', noCoordinadorDelCelular, requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+router.put('/estructura/:id', noCoordinador, requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   /* MISMA CONFIRMACION QUE AL BORRAR, Y POR LA MISMA RAZON.
      Editar una ficha de la estructura cambia el correo, el telefono y el
      supervisor de una persona que TIENE CUENTA: cambiarle el correo es
@@ -1647,7 +1647,7 @@ router.put('/estructura/:id', noCoordinadorDelCelular, requireRole('admin', 'coo
  * auth.routes.js: al iniciar sesión se le preguntará con cuál de las dos
  * capacidades quiere entrar.
  */
-router.post('/estructura/:id/asignar-testigo', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/estructura/:id/asignar-testigo', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
   // Departamento/Municipio ya no se reciben: se deducen del puesto contra
   // el catálogo territorial. El formulario solo dice DÓNDE VIGILA.
   const { puesto_votacion, mesa_votacion, tipo_testigo, mesas_asignadas } = req.body;
@@ -1722,7 +1722,7 @@ function descripcionDePersonaBorrada(fila) {
   return partes.join('');
 }
 
-router.delete('/estructura/:id', noCoordinadorDelCelular, requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
+router.delete('/estructura/:id', noCoordinador, requireRole('admin', 'coordinador', 'aspirante'), async (req, res) => {
   /* EL ASPIRANTE NO BORRA: SE QUITA A ESA PERSONA DE SU EQUIPO.
      Abajo, este mismo endpoint borra la fila de `estructura` Y la cuenta de
      `usuarios`. Las dos son de la campaña madre —él no las creó, las hereda
@@ -1862,7 +1862,7 @@ router.delete('/estructura/:id', noCoordinadorDelCelular, requireRole('admin', '
  * según el tipo indicado: 'coordinador', 'lider' o 'todo' (coordinadores,
  * líderes, usuarios y testigos). Requiere la contraseña de un administrador.
  */
-router.post('/estructura/eliminar-masivo', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/estructura/eliminar-masivo', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
   const { tipo, password } = req.body;
   const tiposValidos = ['coordinador', 'lider', 'todo'];
   if (!tiposValidos.includes(tipo)) {
@@ -2193,7 +2193,7 @@ router.get('/estructura/exportar-excel', requireRole('admin', 'coordinador'), re
 // Comuna, Barrio, Corregimiento, Vereda, Meta votos, Reporta a (email).
 // Para Cargo = Coordinador, basta con Área + Comuna (o Corregimiento); no se
 // necesita Barrio/Vereda.
-router.post('/estructura/importar-excel', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), requiereImportarExportar('territorial'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/estructura/importar-excel', noCoordinador, requireRole('admin', 'coordinador'), requiereImportarExportar('territorial'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -3118,7 +3118,7 @@ router.get('/testigos/exportar-excel', requireRole('admin', 'coordinador'), requ
 // Importa/actualiza testigos desde un Excel con columnas: ID (opcional, solo
 // para actualizar uno ya existente), Nombre, Número de identificación,
 // Teléfono, Email, Departamento votación, Municipio votación, Puesto, Mesa.
-router.post('/testigos/importar-excel', noCoordinadorDelCelular, requireRole('admin', 'coordinador'), requiereImportarExportar('testigos'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/testigos/importar-excel', noCoordinador, requireRole('admin', 'coordinador'), requiereImportarExportar('testigos'), uploadExcel.single('archivo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });

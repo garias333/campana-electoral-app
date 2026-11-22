@@ -143,7 +143,7 @@ function cliente() {
   r = await cel.post('/territorial/estructura', cuerpoLider({ numero_identificacion: '1099000001' }));
   ok(r.status === 400, 'una cédula repetida sigue respondiendo el error de siempre (400)', r);
 
-  console.log('\n[5] Editar, borrar, asignar testigo, importar y eliminar: 403 desde el celular');
+  console.log('\n[5] Editar, borrar, asignar testigo, importar y eliminar: 403 desde el celular (y por el computador, en [6])');
   const [[ficha]] = await pool.query("SELECT e.id FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = '1099000001'");
   const antes = (await q('SELECT nombre, telefono FROM usuarios WHERE numero_identificacion = ?', ['1099000001']))[0];
   const escrituras = [
@@ -165,22 +165,35 @@ function cliente() {
   ok(despues && despues.nombre === antes.nombre && despues.telefono === antes.telefono && await contar('1099000001') === 1, 'la ficha quedó exactamente como estaba');
   ok((await q('SELECT nombre FROM territorios WHERE id = ?', [bar.id]))[0].nombre !== 'Barrio Renombrado', 'ningún territorio se renombró');
 
-  console.log('\n[6] El coordinador que entra por el COMPUTADOR (correo y contraseña) conserva lo de siempre');
+  console.log('\n[6] El coordinador que entra por el COMPUTADOR (correo y contraseña): lo MISMO (orden 85)');
   const pc = cliente();
   r = await pc.post('/auth/login', { email: 'marta@ejemplo.co', password: CLAVE_CORREO });
   ok(r.status === 200, 'entra por el computador', r.texto.slice(0, 200));
   r = await pc.get('/auth/me');
   ok(r.datos.usuario.puerta_celular === false, 'su sesión NO es la del celular (puerta_celular = false)', r.datos.usuario);
-  r = await pc.post('/territorial/estructura', cuerpoLider({ cargo: 'coordinador', numero_identificacion: '1099000021', nombre: 'Coordinador Por Computador' }));
-  ok(r.status === 200, 'puede crear un coordinador (como hoy)', r);
-  r = await pc.put(`/territorial/estructura/${ficha.id}`, cuerpoLider({ nombre: 'Lina Editada En Computador', password: CLAVE_CORREO }));
-  ok(r.status === 200, 'puede editar una ficha de su rama (como hoy)', r);
-  r = await pc.del(`/territorial/estructura/${(await q('SELECT e.id FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = ?', ['1099000021']))[0].id}`, { password: CLAVE_CORREO });
-  ok(r.status === 200, 'puede borrar a alguien (como hoy)', r);
+  for (const [nombre, extra] of otras) {
+    r = await pc.post('/territorial/estructura', cuerpoLider({ ...extra, numero_identificacion: '10990001' + extra.numero_identificacion.slice(-2) }));
+    ok(r.status === 403 && /^El coordinador solo puede agregar líderes\.$/.test((r.datos || {}).error || ''), `por el computador: ${nombre} → 403 «El coordinador solo puede agregar líderes.»`, r);
+  }
+  ok((await q("SELECT COUNT(*) n FROM usuarios WHERE numero_identificacion LIKE '10990001%'"))[0].n === 0, '   y no se creó a nadie');
+  r = await pc.post('/territorial/estructura', cuerpoLider({ numero_identificacion: '1099000022', nombre: 'Lucía Líder Por Computador', supervisor_id: ids.coord2 }));
+  const [[ec]] = await pool.query("SELECT e.cargo, e.supervisor_id FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = '1099000022'");
+  ok(r.status === 200 && ec && ec.cargo === 'lider' && ec.supervisor_id === ids.coord1, 'por el computador SÍ crea un líder, y «Reporta a» se fuerza a él aunque pida otro', { st: r.status, ec });
+  for (const [m, ruta, cuerpo] of escrituras) {
+    const x = await (m === 'PUT' ? pc.put(ruta, cuerpo) : m === 'DELETE' ? pc.del(ruta, cuerpo) : pc.post(ruta, cuerpo));
+    ok(x.status === 403, `por el computador: ${m} /api${ruta} → 403`, { status: x.status, texto: x.texto.slice(0, 160) });
+  }
+  ok((await q('SELECT nombre FROM usuarios WHERE numero_identificacion = ?', ['1099000001']))[0].nombre === antes.nombre, 'la ficha sigue como estaba');
+  const adm = cliente();
+  r = await adm.post('/auth/login', { email: 'admin.ej@ejemplo.co', password: require('./fixtures/coordinadores-celular').CLAVE_ADMIN });
+  r = await adm.put(`/territorial/estructura/${ficha.id}`, cuerpoLider({ nombre: 'Lina Editada Por Admin', password: require('./fixtures/coordinadores-celular').CLAVE_ADMIN }));
+  ok(r.status === 200, 'el ADMINISTRADOR sigue editando fichas (sin cambios)', r);
+  r = await adm.post('/territorial/estructura', cuerpoLider({ cargo: 'coordinador', numero_identificacion: '1099000023', nombre: 'Coordinador Por Admin' }));
+  ok(r.status === 200, 'y creando cualquier categoría (sin cambios)', r);
 
   console.log('\n[7] Matriz de permisos');
   const [[perm1]] = await pool.query("SELECT permitido, editar, agregar, importar_exportar FROM permisos_rol WHERE rol = 'coordinador' AND modulo = 'territorial'");
-  ok(perm1.permitido === 1 && perm1.agregar === 1, 'Coordinador en Estructura territorial: Ver = 1 y Agregar = 1', perm1);
+  ok(perm1.permitido === 1 && perm1.agregar === 1 && perm1.editar === 0 && perm1.importar_exportar === 0, 'Coordinador en Estructura territorial: Ver 1, Agregar 1, Editar 0, Importar/Exportar 0', perm1);
   console.log('    antes:', JSON.stringify(perm0), '· después:', JSON.stringify(perm1));
 
   /* ============================ NAVEGADOR ============================ */
@@ -290,9 +303,61 @@ function cliente() {
   await esperar("document.getElementById('overlay-form').classList.contains('abierto')", 12000); await espera(1500);
   await click('#cerrar-modal');
   ok(await esperar("location.pathname === '/app/mis-lideres.html'", 8000), 'la × del formulario también vuelve a Mis líderes', await ruta());
-  // Sin ?app=1 (o sin #nuevo) tampoco se ve la lista: se le lleva al formulario en modo app
+  // Sin ?app=1 la pantalla es la de escritorio (orden 85): con el coordinador restringido, sin Editar ni Eliminar
   await ir(base + '/territorial.html');
-  ok(await esperar("location.search.includes('app=1') && location.hash === '#nuevo'", 8000), 'abrir territorial.html a secas lo lleva al formulario en modo app', await ruta());
+  await esperar("document.querySelectorAll('.ficha-p').length > 0", 12000); await espera(800);
+  const plano = await ev("({ coord: document.body.classList.contains('coord-solo-lideres'), botones: [...document.querySelectorAll('.ficha-p button')].map(b => b.innerText.trim()).filter(t => /Editar|Eliminar/.test(t)) })");
+  ok(plano.coord && plano.botones.length === 0, 'territorial.html a secas (sin ?app=1) también va restringido: sin Editar ni Eliminar', plano);
+
+  console.log('\n[9] En el computador (Chromium 1280×900, correo y contraseña)');
+  await cmd('Network.clearBrowserCookies');
+  await cmd('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await cmd('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await ir(base + '/login.html'); await espera(500);
+  const stLogin = await ev(`fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'marta@ejemplo.co', password: ${JSON.stringify(CLAVE_CORREO)} }) }).then(x => x.status)`);
+  ok(stLogin === 200, 'Marta entra por el computador con su correo', stLogin);
+  p.avisos.length = 0; p.respuestas.length = 0;
+  await ir(base + '/territorial.html');
+  ok(await esperar("document.querySelectorAll('.ficha-p').length > 0", 15000), 've la lista de su estructura (Ver sigue igual)');
+  await espera(1000);
+  const vis = (id) => ev(`(() => { const e = document.getElementById(${JSON.stringify(id)}); return !!e && e.offsetParent !== null; })()`);
+  const dk = await ev(`({ modoApp: document.documentElement.classList.contains('modo-app'), coord: document.body.classList.contains('coord-solo-lideres'), celular: document.body.classList.contains('coord-celular'),
+     fichas: document.querySelectorAll('.ficha-p').length, botonesFicha: [...document.querySelectorAll('.ficha-p button, .ficha-p a')].map(b => b.innerText.trim()).filter(t => /Editar|Eliminar|Quitar/.test(t)), url: location.pathname + location.search })`);
+  console.log('    pantalla:', JSON.stringify(dk));
+  ok(!dk.modoApp && dk.coord && !dk.celular && dk.fichas >= 5, 'pantalla de escritorio con la lista (no es el modo del celular)', dk);
+  ok(dk.botonesFicha.length === 0, 'las fichas NO traen Editar ni Eliminar', dk.botonesFicha);
+  ok(await vis('btn-nuevo'), 'sí se ve «+ Agregar persona»');
+  for (const id of ['btn-whatsapp-lote', 'btn-territorios', 'btn-regeocodificar', 'btn-regeocodificar-todos', 'btn-eliminar-masivo', 'btn-exportar-estructura', 'input-importar-estructura']) {
+    ok(!(await vis(id)), `escondido: #${id}`);
+  }
+  ok(!(await ev("[...document.querySelectorAll('label')].some(l => l.offsetParent !== null && /Importar desde Excel/.test(l.innerText))")), 'escondido: «Importar desde Excel»');
+  const malosDk = p.respuestas.filter((x) => x.status === 403 || x.status === 500).map((x) => x.status + ' ' + x.url.replace(base, ''));
+  ok(malosDk.length === 0 && p.avisos.length === 0, 'la pantalla carga sin 403/500 ni errores de consola', { malosDk, avisos: p.avisos });
+  await foto('d1-territorial-coordinador-1280x900');
+  await click('#btn-nuevo');
+  ok(await esperar("document.getElementById('overlay-form').classList.contains('abierto')", 5000), '«+ Agregar persona» abre el formulario');
+  await espera(800);
+  const fd = await ev(`({ chips: [...document.querySelectorAll('#chips-cargo-persona label')].some(l => l.offsetParent !== null), categoria: (document.getElementById('categoria-fija-coord') || {}).innerText, cargo: document.getElementById('select-cargo-persona').value,
+     reporta: (document.getElementById('reporta-fijo-coord') || {}).innerText, sel: getComputedStyle(document.getElementById('select-supervisor')).display, testigo: (() => { const e = document.getElementById('campo-asignar-testigo'); return !!e && e.offsetParent !== null; })() })`);
+  console.log('    formulario:', JSON.stringify(fd));
+  ok(!fd.chips && /Categoría:\s*Líder/.test(fd.categoria || '') && fd.cargo === 'lider', 'formulario con la categoría fija en Líder (sin los cinco botones)', fd);
+  ok(/^Reporta a: Marta Coordinadora Ejemplo$/.test((fd.reporta || '').trim()) && fd.sel === 'none' && !fd.testigo, '«Reporta a: Marta…» fijo, sin desplegable ni «Es también testigo»', fd);
+  await ev(`(() => { const f = document.getElementById('form-estructura'); const poner = (s, v) => { const e = f.querySelector(s); if (!e) return; e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); };
+    poner('[name=numero_identificacion]', '1099000041'); poner('[name=nombre]', 'Pablo Líder Escritorio'); poner('[name=telefono]', '3001230041'); poner('#select-area-persona', 'urbano'); poner('#input-barrio-persona', 'Barrio Los Ejemplos'); })()`);
+  await espera(600);
+  await foto('d2-formulario-agregar-coordinador-1280x900');
+  await ev("document.getElementById('btn-guardar-estructura').click()"); await espera(3500);
+  const msgDk = await texto('#form-ok');
+  const [[cd]] = await pool.query("SELECT e.cargo, e.supervisor_id FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = '1099000041'");
+  ok(!!cd && cd.cargo === 'lider' && cd.supervisor_id === ids.coord1, 'desde la pantalla de escritorio guardó a Pablo como Líder de Marta', { cd, msgDk });
+  ok(/Su usuario y contraseña inicial son su Número de identificación/.test(msgDk) && !/Entra a la app/.test(msgDk), 'el «Guardado» del computador conserva su texto de siempre', msgDk);
+  await ir('about:blank'); await ir(base + '/territorial.html#editar=' + ficha.id); await esperar("document.querySelectorAll('.ficha-p').length > 0", 12000); await espera(1500);
+  ok(!(await ev("document.getElementById('overlay-form').classList.contains('abierto')")), 'abrir #editar=<id> a mano NO abre la edición para el coordinador');
+  await ir(base + '/testigos.html'); await espera(2500);
+  const tg = await ev("({ importar: [...document.querySelectorAll('label')].some(l => l.offsetParent !== null && /Importar desde Excel/.test(l.innerText)), exportar: [...document.querySelectorAll('a')].some(a => a.offsetParent !== null && /Exportar a Excel/.test(a.innerText)), editar: [...document.querySelectorAll('#tbody-testigos button')].some(b => /Editar/.test(b.innerText)), flag: typeof puedeEditarTestigos !== 'undefined' ? puedeEditarTestigos : null })");
+  ok(tg.flag === false && !tg.importar, 'Testigos electorales: sin «Importar desde Excel» ni «Editar» para el coordinador', tg);
+  ok(tg.exportar, '   (ver y exportar siguen)', tg);
+  await foto('d3-testigos-coordinador-1280x900');
 
   // Marta por el computador (correo) ve su pantalla de siempre: probado arriba por HTTP; aquí, que la sesión del celular de OTRA persona (líder) no cambia
   nav.cerrar();

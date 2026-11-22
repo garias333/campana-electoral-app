@@ -3697,6 +3697,20 @@ async function main() {
     console.log(`Coordinador: «Ver» y «Agregar» en Estructura territorial (${c.affectedRows} fila(s)); una sola vez.`);
   }
 
+  /* EL COORDINADOR SOLO AGREGA LÍDERES TAMBIÉN EN EL COMPUTADOR (orden 85). Segunda siembra de su fila de `territorial`: Ver 1, Agregar 1, Editar 0, Importar/Exportar 0 (lo que el servidor ya le exige
+     entre por donde entre: routes/territorial.routes.js). Una sola vez, con su propia marca (`coordinador_territorial_v2_sembrado`, misma técnica que las demás): lo que el administrador cambie después
+     desde la matriz NO se vuelve a pisar. La primera siembra (orden 83, `coordinador_territorial_sembrado`) queda como está. */
+  const coordinadorTerritorialV2RecienSembrado = await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "coordinador_territorial_v2_sembrado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Marca (orden 85): ya se dejó al coordinador en Estructura territorial con Ver y Agregar, sin Editar ni Importar/Exportar. No es una opción.'",
+    'coordinador_territorial_v2_sembrado'
+  );
+  if (coordinadorTerritorialV2RecienSembrado) {
+    const [c] = await connection.query(
+      `UPDATE permisos_rol SET permitido = 1, agregar = 1, editar = 0, importar_exportar = 0 WHERE rol = 'coordinador' AND modulo = 'territorial'`);
+    console.log(`Coordinador: Estructura territorial con «Ver» y «Agregar», sin «Editar» ni «Importar/Exportar» (${c.affectedRows} fila(s)); una sola vez.`);
+  }
+
   /* CERRAR SESIÓN SIN SEÑAL (parche 329, orden 43). Al iniciar sesión el servidor entrega un `tokenCierre` aleatorio ligado a ESA sesión; aquí se
      guarda SOLO su hash (nunca el token) junto con el id de la sesión. Si alguien cierra sesión en un celular sin señal, el navegador lo recuerda
      (`logout_pendiente`) y, al volver la señal, pide POST /api/auth/cerrar-pendiente con el token: el servidor busca el hash, destruye esa sesión y

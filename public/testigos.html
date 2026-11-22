@@ -158,6 +158,8 @@ if ('serviceWorker' in navigator) {
 
 let usuarioActual;
 let esAdmin = false;
+/* El coordinador solo agrega líderes en Estructura (orden 85): aquí ve a los testigos y los exporta, pero no los edita ni los importa (el servidor responde 403). */
+let puedeEditarTestigos = true;
 let listaTestigos = [];
 let catalogoColombia = null;
 let puestosVotacionCache = null;
@@ -320,7 +322,7 @@ function renderizarTestigos() {
       <td class="col-num">${f.tipo_testigo === 'puesto' ? '<span style="color:var(--color-text-muted);">Varias</span>' : escaparHtml(f.mesa_votacion || '—')}</td>
       <td class="col-num">${f.activo ? 'Sí' : 'No'}</td>
       <td>
-        <button class="btn-secundario btn-sm" onclick="abrirEdicionTestigo(${f.id})">Editar</button>
+        ${puedeEditarTestigos ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTestigo(${f.id})">Editar</button>` : ''}
         ${esAdmin ? `<button class="btn-peligro btn-sm"  onclick="eliminarTestigo(${f.id})">Eliminar</button>` : ''}
       </td>
     </tr>
@@ -552,6 +554,8 @@ document.getElementById('input-importar-testigos').addEventListener('change', as
 
   // «Eliminar todos» borraria los testigos de la campaña entera, no los suyos.
   esAdmin = usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante;
+  puedeEditarTestigos = usuarioActual.rol !== 'coordinador';
+  if (!puedeEditarTestigos) { const imp = document.getElementById('input-importar-testigos'); if (imp && imp.closest('label')) imp.closest('label').style.display = 'none'; }
   document.getElementById('btn-eliminar-todos-testigos').style.display = esAdmin ? 'inline-flex' : 'none';
   aplicarFormatoTelefono('#form-testigo [name="telefono"]');
   aplicarFormatoNombrePropio('#form-testigo [name="nombre"]');

@@ -36,11 +36,11 @@
   /* Parche 325: la pestaña de autorización no existe en el formulario por pasos del modo app. */
   html.modo-app #titulo-autorizacion-datos-persona, html.modo-app #bloque-autorizacion-datos-persona { display: none !important; }
   html.modo-app .sidebar { display: none !important; }
-  /* EL COORDINADOR DEL CELULAR SOLO AGREGA LÍDERES (orden 83). `coord-celular` la pone el JS cuando la sesión es la del botón «Coordinadores». Se esconde la lista (solo se agrega, no se ve ni se edita nada
-     desde aquí), las cinco categorías (queda el texto «Categoría: Líder») y «Reporta a» (queda el texto «Reporta a: <su nombre>»). El servidor decide lo mismo: esto solo evita ofrecer lo que rechaza. */
+  /* EL COORDINADOR SOLO AGREGA LÍDERES (órdenes 83 y 85). `coord-solo-lideres` la pone el JS a todo coordinador (celular y computador): se esconden las cinco categorías (queda el texto «Categoría: Líder»),
+     «Reporta a» (queda «Reporta a: <su nombre>») y «Es también testigo». `coord-celular` solo en modo app (celular): además no se ve la lista de la estructura. El servidor decide lo mismo: esto solo evita ofrecer lo que rechaza. */
   body.coord-celular .main { display: none !important; }
-  body.coord-celular #chips-cargo-persona, body.coord-celular #select-cargo-persona ~ small { display: none !important; }
-  body.coord-celular label[for="select-supervisor"], body.coord-celular #busqueda-supervisor-persona, body.coord-celular #select-supervisor, body.coord-celular #nota-reporta-a-coordinador { display: none !important; }
+  body.coord-solo-lideres #chips-cargo-persona, body.coord-solo-lideres #select-cargo-persona ~ small, body.coord-solo-lideres #campo-asignar-testigo { display: none !important; }
+  body.coord-solo-lideres label[for="select-supervisor"], body.coord-solo-lideres #busqueda-supervisor-persona, body.coord-solo-lideres #select-supervisor, body.coord-solo-lideres #nota-reporta-a-coordinador { display: none !important; }
   .dato-fijo-coord { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 14px; border: 1.5px solid #d9d2c0; border-radius: 12px; background: #f7f3ea; font-size: 1rem; color: #142a3f; }
   .dato-fijo-coord b { font-weight: 800; }
   html.modo-app #barra-volver-app {
@@ -2945,7 +2945,7 @@ function renderizarEstructura() {
   filasVisiblesEstructura = filas;
   const tbody = document.getElementById('tbody-estructura');
   document.getElementById('vacio-estructura').style.display = filas.length ? 'none' : 'block';
-  const puedeEditar = ['admin', 'coordinador'].includes(usuarioActual.rol);
+  const puedeEditar = usuarioActual.rol === 'admin';   // el coordinador solo agrega líderes (orden 85): sin Editar
   /* SE PINTAN ANIDADAS, aunque `filas` venga PLANA.
      `construirOrdenJerarquico()` ya dejó a cada persona justo debajo de su
      jefe y le puso `_nivel`; aprovechar ese orden es lo que permite anidar sin
@@ -3834,8 +3834,8 @@ async function enviarFormularioEstructura(e) {
     area: document.getElementById('chk-area-influencia-organizacion').checked
       ? null
       : (document.getElementById('select-area-persona').value || null),
-    // El coordinador del celular reporta siempre a sí mismo (orden 83); el servidor lo fuerza de todos modos.
-    supervisor_id: document.body.classList.contains('coord-celular') ? String(usuarioActual.id) : form.supervisor_id.value,
+    // El coordinador reporta siempre a sí mismo (órdenes 83 y 85); el servidor lo fuerza de todos modos.
+    supervisor_id: document.body.classList.contains('coord-solo-lideres') ? String(usuarioActual.id) : form.supervisor_id.value,
     activo: form.activo.checked
   };
   // Solo se registra sin conexión al CREAR (no al editar): editar sin
@@ -3954,15 +3954,13 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   usuarioActual = await inicializarLayout('/territorial.html');
   if (!usuarioActual) return;
 
-  /* EL COORDINADOR QUE ENTRÓ POR EL BOTÓN DEL CELULAR (orden 83): solo agrega líderes. Aquí se le deja el formulario de siempre con la categoría fija en «Líder» y «Reporta a» fijo en él mismo;
-     el servidor FUERZA las dos cosas y responde 403 a lo demás, de modo que esto no es la protección, solo no ofrece lo que no puede usar. Sin el modo app (?app=1) no hay formulario por pasos:
-     se le lleva a la dirección de siempre. */
-  if (usuarioActual.rol === 'coordinador' && usuarioActual.puerta_celular === true) {
-    if (!document.documentElement.classList.contains('modo-app')) {
-      window.location.replace('/territorial.html?app=1&volver=/app/mis-lideres.html#nuevo');
-      return;
-    }
-    document.body.classList.add('coord-celular');
+  /* EL COORDINADOR SOLO AGREGA LÍDERES, entre por donde entre (órdenes 83 y 85). El formulario de siempre queda con la categoría fija en «Líder» y «Reporta a» fijo en él mismo; el servidor FUERZA las dos
+     cosas y responde 403 a lo demás, de modo que esto no es la protección, solo no ofrece lo que no puede usar. En el CELULAR (modo app) además no se ve la lista: es solo para agregar. En el
+     COMPUTADOR la lista se ve igual, pero sin Editar, Eliminar, Importar, Exportar, WhatsApp en lote, Gestionar territorios, Re-geocodificar ni Eliminar registros. */
+  if (usuarioActual.rol === 'coordinador') {
+    const enApp = document.documentElement.classList.contains('modo-app');
+    document.body.classList.add('coord-solo-lideres');
+    if (enApp) document.body.classList.add('coord-celular');
     const chips = document.getElementById('chips-cargo-persona');
     if (chips) {
       const cat = document.createElement('div');
@@ -3977,8 +3975,13 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
       rep.textContent = 'Reporta a: ' + (usuarioActual.nombre || 'usted');
       sup.parentNode.insertBefore(rep, sup);
     }
-    const cerrar = document.getElementById('cerrar-modal');
-    if (cerrar) cerrar.addEventListener('click', () => { window.location.href = window.__VOLVER_APP || '/app/mis-lideres.html'; });
+    if (enApp) {
+      const cerrar = document.getElementById('cerrar-modal');
+      if (cerrar) cerrar.addEventListener('click', () => { window.location.href = window.__VOLVER_APP || '/app/mis-lideres.html'; });
+    } else {
+      ['btn-whatsapp-lote', 'btn-territorios', 'btn-regeocodificar', 'btn-regeocodificar-todos', 'btn-eliminar-masivo', 'btn-exportar-estructura'].forEach((id) => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+      document.querySelectorAll('.acciones-cabecera .grupo.separado').forEach((g) => { g.style.display = 'none'; });
+    }
   }
 
   // El aviso de pendientes y el reintento al recuperar señal se activan
@@ -4049,7 +4052,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
 
   // El ítem "Organigrama territorial" del menú enlaza aquí con este hash,
   // para abrir directamente el catálogo de Comuna/Corregimiento/Barrio/Vereda.
-  if (window.location.hash === '#gestionar-territorios') {
+  if (window.location.hash === '#gestionar-territorios' && usuarioActual.rol !== 'coordinador') {
     document.getElementById('btn-territorios').click();
   }
   // "Agregar coordinadores o líderes" del menú de administrador (app móvil)
@@ -4066,7 +4069,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
        #testigo-editar=<id> abre la edición de alguien ya registrado (líder, sublíder…) con «Es también testigo»
                             marcado y el puesto y la mesa puestos.
      Los datos viajan por sessionStorage (llevan cédula y teléfono: no van en la dirección). */
-  if (window.location.hash === '#testigo-nuevo' || /^#testigo-editar=\d+$/.test(window.location.hash)) {
+  if (usuarioActual.rol !== 'coordinador' && (window.location.hash === '#testigo-nuevo' || /^#testigo-editar=\d+$/.test(window.location.hash))) {
     aplicarPrellenadoDeTestigo();
   }
   /* LOS ENLACES DE LA LISTA DE ESTRUCTURA DE LA APP (public/app/admin-estructura.html).
@@ -4077,7 +4080,9 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
                            exige un toque de la persona para eso.
        #eliminar-registros abre el borrado masivo, que pide la contraseña de administrador. */
   const hashEditar = /^#editar=(\d+)$/.exec(window.location.hash);
-  if (hashEditar && ['admin', 'coordinador'].includes(usuarioActual.rol)) {
+  if (usuarioActual.rol === 'coordinador') {
+    /* sin editar, importar ni eliminar (orden 85) */
+  } else if (hashEditar && usuarioActual.rol === 'admin') {
     abrirEdicion(Number(hashEditar[1]));
   } else if (window.location.hash === '#importar') {
     const grupo = document.getElementById('btn-exportar-estructura');
