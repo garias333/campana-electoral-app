@@ -296,6 +296,23 @@
     color: #8A7F6C; font-size: 1.2rem;
   }
   #selector-cuentas .btn-olvidar-cuenta:hover { background: #FBEAEA; color: #A93226; }
+
+  /* ORDEN 101 — «INGRESAR CON CÓDIGO» EN EL CELULAR: «Acceso a candidato» ARRIBA Y «¿Olvidaste tu contraseña?» GRANDE.
+     TODO va colgado de la clase `login-celular` que el primer script del documento le pone a <html> (la misma definición de celular que el resto: window.esCelular()).
+     En el computador esa clase no existe, así que NADA de esto se aplica y la pantalla queda como estaba.
+     El bloque nace oculto y solo el celular lo muestra; el botón viejo «Ingresar con usuario y contraseña» se esconde allí porque lo reemplaza «Acceso a candidato». */
+  #bloque-acceso-candidato, #pie-ingreso-correo { display: none; }
+  html.login-celular #bloque-acceso-candidato { display: block; margin-bottom: 18px; }
+  html.login-celular #bloque-acceso-candidato button.btn-alterno { min-height: 54px; margin-top: 0; font-size: 1rem; }
+  html.login-celular #ir-a-password { display: none; }
+  /* «¿Olvidaste tu contraseña?» a 18 px y con alto de dedo (≥ 44 px), SOLO mientras se ve la pantalla del código. El resto de los pasos conserva el tamaño de siempre. */
+  html.login-celular body[data-paso="form-torre"] #pie-olvido a {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; min-height: 44px; padding: 0 14px;
+  }
+  /* El enlace pequeño de debajo (correo y contraseña) existe porque administración no tiene clave de celular: no se le quita su única vía de contraseña. */
+  html.login-celular body[data-paso="form-torre"] #pie-ingreso-correo { display: block; margin-top: 2px; }
+  html.login-celular body[data-paso="form-torre"] #pie-ingreso-correo a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; font-size: .82rem; }
 </style>
 </head>
 <body>
@@ -464,6 +481,8 @@
          lleva !important, para que mostrarPaso() —que escribe estilos en
          linea— pueda cambiar de pantalla despues sin pelear con esto. */
       window.LOGIN_ES_CELULAR = window.esCelular();
+      /* ORDEN 101: la clase que enciende el orden nuevo de «Ingresar con código». Solo en el celular; en el computador no se pone y esa pantalla queda como estaba. */
+      if (window.LOGIN_ES_CELULAR) document.documentElement.classList.add('login-celular');
       if (window.LOGIN_ES_CELULAR) {
         document.getElementById('form-elegir-acceso').style.display = 'block';
         document.head.insertAdjacentHTML('beforeend', '<style>#form-torre{display:none}</style>');
@@ -491,6 +510,10 @@
     </script>
 
     <form id="form-torre">
+      <!-- ORDEN 101: solo el celular lo ve (CSS: html.login-celular). Lleva al formulario de cédula y contraseña. -->
+      <div id="bloque-acceso-candidato">
+        <button type="button" class="btn-primario btn-alterno" id="ir-a-candidato">Acceso a candidato</button>
+      </div>
       <div style="text-align:center; margin-bottom:18px;">
         <p style="font-size:.95rem; margin:0; line-height:1.5;">
           Te enviamos un código de acceso de un solo uso, sin contraseña.
@@ -568,6 +591,33 @@
       </div>
     </form>
 
+    <!-- ORDEN 101 — ACCESO A CANDIDATO: cédula y contraseña. Por dentro usa el MISMO POST /auth/login de siempre (el campo acepta lo que ese servicio acepta); no se filtra ni se limita lo que se
+         escribe, para no cerrarle la puerta a quien entre con otra cosa que una cédula. La contraseña lleva teclado numérico (son 6 números) pero sin `pattern` (parche 330). -->
+    <form id="form-candidato" style="display:none;" autocomplete="off" novalidate>
+      <div class="campo">
+        <label for="campo-cedula-cand">Número de cédula</label>
+        <input id="campo-cedula-cand" type="text" name="cedula" inputmode="numeric" maxlength="60"
+               autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Su número de cédula" required>
+      </div>
+      <div class="campo">
+        <label for="campo-clave-cand">Contraseña</label>
+        <div class="campo-con-ojo">
+          <input id="campo-clave-cand" class="campo-clave-6" type="password" name="password" inputmode="numeric" maxlength="72"
+                 autocomplete="current-password" placeholder="••••••" required>
+          <button type="button" class="btn-ojo" id="ojo-clave-cand" aria-label="Mostrar la contraseña" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>
+              <path id="ojo-tachado-cand" d="M3 3l18 18" style="display:none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" class="btn-primario">Ingresar</button>
+      <div class="pie-login" style="margin-top:14px;">
+        <a href="#" id="volver-desde-candidato" style="color:var(--color-text-muted);">← Volver</a>
+      </div>
+    </form>
+
     <form id="form-2fa" style="display:none;">
       <!-- El texto NO dice por dónde llegó el código: lo escribe el JS
            según el canal elegido, y para el 2FA clásico dice "correo". -->
@@ -607,8 +657,13 @@
       <div id="botones-elegir-rol"></div>
     </div>
 
-    <div class="pie-login">
+    <div class="pie-login" id="pie-olvido">
       <a href="/forgot-password.html" style="color: var(--color-text-muted);">¿Olvidaste tu contraseña?</a>
+    </div>
+    <!-- ORDEN 101: solo en el celular, en la pantalla del código. Administración (admin, asistente) no tiene clave del celular y no es «candidato»: su única vía de contraseña era el botón
+         que esta orden reemplaza, así que queda aquí, pequeña, y abre el formulario completo de correo y contraseña de siempre. -->
+    <div class="pie-login" id="pie-ingreso-correo">
+      <a href="#" id="ir-a-password-correo" style="color: var(--color-text-muted);">Ingresar con correo y contraseña</a>
     </div>
     <div class="pie-login">Marketing político con ciencia, estrategia y ética.</div>
   </div>
@@ -643,7 +698,8 @@ const TITULOS_PASO = {
   // de la plataforma sigue, discreta, en el pie de la tarjeta.
   'form-login': ['Administración de campaña electoral', 'Ingresar'],
   'form-2fa':   ['Administración de campaña electoral', 'Escribe tu código'],
-  'form-coordinador': ['Administración de campaña electoral', 'Ingreso de coordinadores']
+  'form-coordinador': ['Administración de campaña electoral', 'Ingreso de coordinadores'],
+  'form-candidato': ['Administración de campaña electoral', 'Acceso a candidato']   // orden 101
 };
 
 /* De dónde se llegó al paso del código. Importa porque a esta pantalla se
@@ -656,9 +712,10 @@ const TITULOS_PASO = {
 let origen2fa = 'torre';
 
 function mostrarPaso(id) {
-  ['form-elegir-acceso', 'form-torre', 'form-login', 'form-coordinador', 'form-2fa', 'form-elegir-rol'].forEach(f => {
+  ['form-elegir-acceso', 'form-torre', 'form-login', 'form-coordinador', 'form-candidato', 'form-2fa', 'form-elegir-rol'].forEach(f => {
     document.getElementById(f).style.display = (f === id) ? 'block' : 'none';
   });
+  document.body.setAttribute('data-paso', id);   // orden 101: el CSS del celular distingue la pantalla del código de las demás
   const t = TITULOS_PASO[id];
   if (t) {
     // El encabezado quedó oculto: la firma de la plataforma dice lo que él
@@ -681,7 +738,7 @@ function mostrarPaso(id) {
   }
 }
 
-document.getElementById('ir-a-password').addEventListener('click', (e) => {
+function irAlFormularioDeContrasena(e) {
   e.preventDefault();
   document.getElementById('login-error').classList.remove('visible');
   // Este boton lleva al formulario COMPLETO. Si el aparato venia del modo
@@ -690,7 +747,10 @@ document.getElementById('ir-a-password').addEventListener('click', (e) => {
   // cifras, sin poder escribir un correo.
   quitarModoLider();
   mostrarPaso('form-login');
-});
+}
+document.getElementById('ir-a-password').addEventListener('click', irAlFormularioDeContrasena);
+// Orden 101: el enlace pequeño del celular (administración) abre el mismo formulario.
+document.getElementById('ir-a-password-correo').addEventListener('click', irAlFormularioDeContrasena);
 
 document.getElementById('ir-a-torre').addEventListener('click', (e) => {
   e.preventDefault();
@@ -919,7 +979,7 @@ document.getElementById('volver-desde-2fa').addEventListener('click', (e) => {
   enlaceReenviar.classList.remove('esperando');
   enlaceReenviar.textContent = 'Solicitar otro código';
   document.querySelector('#form-2fa input[name="codigo"]').value = '';
-  mostrarPaso(origen2fa === 'torre' ? 'form-torre' : (origen2fa === 'coordinador' ? 'form-coordinador' : 'form-login'));
+  mostrarPaso(origen2fa === 'torre' ? 'form-torre' : (origen2fa === 'coordinador' ? 'form-coordinador' : (origen2fa === 'candidato' ? 'form-candidato' : 'form-login')));
 });
 
 document.getElementById('form-2fa').addEventListener('submit', async (e) => {
@@ -1347,6 +1407,73 @@ formCoordinador.addEventListener('submit', async (e) => {
     errorBox.classList.add('visible');
     campoClaveCoord.value = '';
     campoClaveCoord.focus();
+  } finally {
+    boton.disabled = false;
+  }
+});
+
+/* ------------------------------------------------------------------
+   ORDEN 101 — ACCESO A CANDIDATO (celular): número de cédula y contraseña.
+
+   Por dentro es el MISMO POST /auth/login del formulario de contraseña de siempre: el servidor busca la cuenta por correo o por nombre de usuario, así que quien escriba otra cosa
+   que una cédula (un administrador con su correo) entra igual. No se filtra lo escrito. Tras entrar, `irDondeCorresponde` decide el destino (el candidato y el administrador «Es el
+   candidato», a /app/candidato.html). No recuerda la sesión: esta pantalla no tiene la casilla.
+   ------------------------------------------------------------------ */
+const formCandidato = document.getElementById('form-candidato');
+const campoCedulaCand = document.getElementById('campo-cedula-cand');
+const campoClaveCand = document.getElementById('campo-clave-cand');
+
+document.getElementById('ir-a-candidato').addEventListener('click', () => {
+  document.getElementById('login-error').classList.remove('visible');
+  formCandidato.reset();
+  mostrarPaso('form-candidato');
+  campoCedulaCand.focus();
+});
+
+document.getElementById('volver-desde-candidato').addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-error').classList.remove('visible');
+  formCandidato.reset();
+  mostrarPaso('form-torre');
+});
+
+document.getElementById('ojo-clave-cand').addEventListener('click', (e) => {
+  const boton = e.currentTarget;
+  const verla = campoClaveCand.type === 'password';
+  campoClaveCand.type = verla ? 'text' : 'password';
+  boton.setAttribute('aria-pressed', verla ? 'true' : 'false');
+  boton.setAttribute('aria-label', verla ? 'Ocultar la contraseña' : 'Mostrar la contraseña');
+  document.getElementById('ojo-tachado-cand').style.display = verla ? '' : 'none';
+});
+
+formCandidato.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('login-error');
+  errorBox.classList.remove('visible');
+  const boton = formCandidato.querySelector('button[type="submit"]');
+  boton.disabled = true;
+  try {
+    // Parche 329: un cierre de sesión pendiente se presenta ANTES de entrar.
+    if (window.CerrarSesion) await window.CerrarSesion.resolver(4000);
+    const r = await api('/auth/login', { method: 'POST', body: { email: campoCedulaCand.value.trim(), password: campoClaveCand.value, recordar: false } });
+    if (r.requiereEleccionRol) {
+      pintarEleccionRol(r.opciones);
+      mostrarPaso('form-elegir-rol');
+      return;
+    }
+    if (r.requiere2fa) {
+      origen2fa = 'candidato';
+      mostrarPaso('form-2fa');
+      return;
+    }
+    if (r.dispositivoToken) guardarCuentaDispositivo(r.usuario, r.dispositivoToken);
+    if (window.CerrarSesion) window.CerrarSesion.guardarTokenCierre(r.tokenCierre);   // parche 329
+    irDondeCorresponde(r.usuario);
+  } catch (err) {
+    errorBox.textContent = err.message || 'Credenciales inválidas.';
+    errorBox.classList.add('visible');
+    campoClaveCand.value = '';
+    campoClaveCand.focus();
   } finally {
     boton.disabled = false;
   }
