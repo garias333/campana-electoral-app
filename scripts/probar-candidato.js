@@ -282,7 +282,10 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const bien = await cand.post('/auth/cambiar-password', { passwordActual: CLAVE, passwordNueva: '482915' });
   ok(bien.status === 200, 'cambiar su propia clave → 200', bien);
   const c2 = cliente(base); ok((await c2.entrar(CORREO, '482915')).status === 200, 'entra con la clave nueva');
-  await cand.post('/auth/cambiar-password', { passwordActual: '482915', passwordNueva: CLAVE });
+  // Orden 90: la contraseña nueva es de 6 números; una larga (la de la siembra) ya no se acepta al CAMBIAR. Se devuelve a la de la siembra por la base.
+  const larga = await cand.post('/auth/cambiar-password', { passwordActual: '482915', passwordNueva: CLAVE });
+  ok(larga.status === 400, 'cambiarla por una contraseña larga → 400 (orden 90: son 6 números)', larga);
+  await pool.query('UPDATE usuarios SET password_hash = ? WHERE email = ?', [bcrypt.hashSync(CLAVE, 4), CORREO]);
   const lo = await cand.post('/auth/logout');
   ok(lo.status === 200, 'cerrar sesión → 200', lo);
   ok((await cand.get('/candidato/resumen')).status === 401, 'después de cerrar sesión ya no lee nada (401)');
@@ -403,7 +406,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     await q("DELETE FROM eventos WHERE titulo = 'Evento del administrador-candidato'");
 
     // Usuarios: la casilla solo vale con rol administrador
-    const cuerpoU = (extra) => ({ nombre: 'Persona de Prueba', numero_identificacion: '1099000103', email: 'persona.prueba81@ejemplo.co', telefono: '3001230103', rol: 'admin', es_candidato: true, password: 'unaclavelarga', ...extra });
+    const cuerpoU = (extra) => ({ nombre: 'Persona de Prueba', numero_identificacion: '1099000103', email: 'persona.prueba81@ejemplo.co', telefono: '3001230103', rol: 'admin', es_candidato: true, password: '482913', ...extra });
     const nuevo = await cs.post('/usuarios', cuerpoU());
     const [[f1]] = await pool.query('SELECT es_candidato e FROM usuarios WHERE id = ?', [nuevo.datos.id || 0]);
     ok(nuevo.status === 200 && f1 && f1.e === 1, 'Usuarios (crear): rol Administrador + «Es el candidato» → queda marcado', { s: nuevo.status, f1 });
@@ -674,8 +677,10 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(/no es correcta/.test(await texto('#msg')), 'clave actual equivocada → mensaje claro (sin que lo tome por sesión vencida)', await texto('#msg'));
   await ev(`(() => { actual.value = ${JSON.stringify(CLAVE)}; nueva.value = '482915'; repetir.value = '482915'; document.getElementById('form').requestSubmit(); })()`); await espera(1200);
   ok(/Listo/.test(await texto('#msg')), 'cambiar su clave desde la pantalla funciona', await texto('#msg'));
-  await ev(`(() => { actual.value = '482915'; nueva.value = ${JSON.stringify(CLAVE)}; repetir.value = ${JSON.stringify(CLAVE)}; document.getElementById('form').requestSubmit(); })()`); await espera(1200);
-  ok(/Listo/.test(await texto('#msg')), 'y se vuelve a dejar la de prueba');
+  // Orden 90: la pantalla rechaza una contraseña larga (son 6 números) y la de la siembra se devuelve por la base.
+  await ev(`(() => { actual.value = '482915'; nueva.value = ${JSON.stringify(CLAVE)}; repetir.value = ${JSON.stringify(CLAVE)}; document.getElementById('form').requestSubmit(); })()`); await espera(700);
+  ok(/6 números/.test(await texto('#msg')), 'una contraseña larga se rechaza en la pantalla: «La contraseña debe tener 6 números.»', await texto('#msg'));
+  await pool.query('UPDATE usuarios SET password_hash = ? WHERE email = ?', [bcrypt.hashSync(CLAVE, 4), CORREO]);
   ok(await sinDesborde() && p.avisos.length === 0, 'Cambiar mi clave: sin desborde ni errores de consola', p.avisos);
   await foto('7-cambiar-clave');
 

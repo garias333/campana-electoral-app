@@ -30,6 +30,7 @@ const router = express.Router();
  * Se genera al arrancar en vez de escribirlo fijo en el código: así nadie lo
  * confunde con una credencial real ni lo copia a otro sitio.
  */
+const clave6 = require('../lib/contrasenaSeisDigitos');   // contraseña de 6 dígitos (orden 90)
 const HASH_DE_DESCARTE = bcrypt.hashSync('cuenta-inexistente', 12);
 
 const MAX_INTENTOS = 5;
@@ -1225,31 +1226,14 @@ router.get('/me', requireAuth, async (req, res) => {
 router.post('/cambiar-password', requireAuth, async (req, res) => {
   const { passwordActual, passwordNueva } = req.body;
 
-  /* ------------------------------------------------------------------
-     SEIS CIFRAS, O UNA CONTRASEÑA LARGA. LAS DOS VALEN.
-
-     Un lider entra desde el celular con su cedula y cambia la clave por un
-     numero de seis cifras: exigirle ocho caracteres con letras es pedirle
-     algo que no va a recordar y que va a terminar anotado en un papel.
-     Un administrador, en cambio, sigue pudiendo poner una contraseña larga.
-
-     Se acepta CUALQUIERA DE LAS DOS en vez de mirar el rol: el rol dice
-     quien es hoy, no como quiere entrar, y una persona puede ser lider y
-     administradora a la vez —ya paso en esta campaña—.
-
-     Lo que NO se acepta es el terreno de en medio: cuatro cifras, o siete
-     caracteres. Ahi no hay ni lo memorizable ni lo seguro.
-     ------------------------------------------------------------------ */
-  const nueva = String(passwordNueva || '');
-  const esSeisCifras = /^\d{6}$/.test(nueva);
-  const esLarga = nueva.length >= 8;
-  if (!esSeisCifras && !esLarga) {
-    return res.status(400).json({
-      error: 'La clave nueva debe ser un número de 6 cifras, o una contraseña de al menos 8 caracteres.'
-    });
+  /* ORDEN 90: LA CONTRASEÑA ES DE EXACTAMENTE 6 NÚMEROS, para todos los roles (antes valían 6 cifras o 8 caracteres o más). Una contraseña larga ya no se
+     acepta al CAMBIAR; las que ya existen siguen entrando (el ingreso no mira el largo). */
+  const nueva = String(passwordNueva == null ? '' : passwordNueva);
+  if (!clave6.esContrasenaValida(nueva)) {
+    return res.status(400).json({ error: clave6.MENSAJE });
   }
   // 123456 y 000000 son las dos primeras que prueba cualquiera.
-  if (esSeisCifras && (/^(\d)\1{5}$/.test(nueva) || nueva === '123456' || nueva === '654321')) {
+  if (/^(\d)\1{5}$/.test(nueva) || nueva === '123456' || nueva === '654321') {
     return res.status(400).json({ error: 'Ese número es demasiado fácil de adivinar. Elige otro de 6 cifras.' });
   }
   try {
@@ -1261,7 +1245,7 @@ router.post('/cambiar-password', requireAuth, async (req, res) => {
       // el mensaje de error, en vez de mostrarlo en el propio formulario.
       return res.status(400).json({ error: 'La contraseña actual no es correcta.' });
     }
-    const nuevoHash = await bcrypt.hash(passwordNueva, 12);
+    const nuevoHash = await bcrypt.hash(nueva, 12);
     await pool.query(
       `UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 0, password_temporal_expira = NULL WHERE id = ?`,
       [nuevoHash, req.session.usuario.id]
@@ -1422,8 +1406,11 @@ router.post('/olvidar-password', limitadorCodigo, async (req, res) => {
 router.post('/resetear-password', async (req, res) => {
   const { token, nuevaPassword } = req.body;
 
-  if (!token || !nuevaPassword || nuevaPassword.length < 8) {
-    return res.status(400).json({ error: 'Token inválido o la nueva contraseña debe tener al menos 8 caracteres.' });
+  if (!token) {
+    return res.status(400).json({ error: 'Token inválido.' });
+  }
+  if (!clave6.esContrasenaValida(nuevaPassword)) {
+    return res.status(400).json({ error: clave6.MENSAJE });   // orden 90
   }
 
   try {

@@ -30,9 +30,9 @@
   <header class="hdr corto"><div class="top"><a class="btn-volver" href="/app/candidato-mas.html" aria-label="Volver" style="text-decoration:none;display:flex;align-items:center;justify-content:center;">‹</a><div class="quien"><small>Más</small><h1>Cambiar mi clave</h1></div></div></header>
   <form class="card" id="form" style="margin-top:16px" autocomplete="off" novalidate>
     <div class="campo-c"><label for="actual">Clave actual</label><div class="ojo-c"><input id="actual" type="password" autocomplete="current-password"><button type="button" data-ojo="actual" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
-    <div class="campo-c"><label for="nueva">Clave nueva</label><div class="ojo-c"><input id="nueva" type="password" autocomplete="new-password"><button type="button" data-ojo="nueva" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
-    <p class="ayuda-c">Un número de 6 cifras, o una contraseña de al menos 8 caracteres.</p>
-    <div class="campo-c"><label for="repetir">Repita la clave nueva</label><div class="ojo-c"><input id="repetir" type="password" autocomplete="new-password"><button type="button" data-ojo="repetir" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
+    <div class="campo-c"><label for="nueva">Clave nueva</label><div class="ojo-c"><input id="nueva" type="password" autocomplete="new-password" inputmode="numeric" maxlength="6"><button type="button" data-ojo="nueva" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
+    <p class="ayuda-c">La contraseña debe tener 6 números.</p>
+    <div class="campo-c"><label for="repetir">Repita la clave nueva</label><div class="ojo-c"><input id="repetir" type="password" autocomplete="new-password" inputmode="numeric" maxlength="6"><button type="button" data-ojo="repetir" aria-label="Mostrar la clave" aria-pressed="false">👁</button></div></div>
     <button type="submit" class="btn-guardar" id="guardar">Guardar mi clave</button>
     <div class="msg" id="msg" role="status"></div>
   </form>
@@ -56,6 +56,7 @@ function msg(t, ok) { const m = document.getElementById('msg'); m.textContent = 
     const actual = document.getElementById('actual').value, nueva = document.getElementById('nueva').value, repetir = document.getElementById('repetir').value;
     if (!actual) return msg('Escriba su clave actual.');
     if (!nueva) return msg('Escriba la clave nueva.');
+    if (!/^\d{6}$/.test(nueva)) return msg('La contraseña debe tener 6 números.');
     if (nueva !== repetir) return msg('La clave nueva y su repetición no son iguales.');
     const boton = document.getElementById('guardar'); boton.disabled = true;
     try {

@@ -291,7 +291,7 @@ async function resolverOCrearUsuarioParaTestigo(pool, { nombre, cedula, email, t
   if (!rolTestigo) {
     return { usuarioId: null, motivo: 'El rol "testigo" no está configurado.' };
   }
-  const hash = await bcrypt.hash(cedula, 12);
+  const hash = await bcrypt.hash(require('../lib/contrasenaSeisDigitos').porDefectoDeIdentificacionRellena(cedula) || cedula, 12);   // orden 90: los últimos 6 dígitos
   const [result] = await pool.query(
     `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, email, password_hash, rol_id, telefono, debe_cambiar_password)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,

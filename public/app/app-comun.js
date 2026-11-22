@@ -226,7 +226,7 @@ function pedirCambioClaveApp() {
            padding:9px 12px; border-radius:8px; font-size:.86rem; margin-bottom:12px;"></div>
       <form id="form-cambio-clave-app">
         <div class="campo-app">
-          <label>Clave actual (tu número de identificación)</label>
+          <label>Clave actual (los últimos 6 dígitos de tu identificación)</label>
           <input type="password" name="passwordActual" inputmode="numeric" required autocomplete="current-password">
         </div>
         <div class="campo-app">
@@ -254,7 +254,7 @@ function pedirCambioClaveApp() {
     // Se comprueba aqui ADEMAS del servidor: en un celular, enterarse de que
     // las dos claves no coinciden despues de un viaje de red es peor.
     if (nueva !== String(f.get('repetir') || '')) return mostrar('Las dos claves nuevas no son iguales.');
-    if (!/^\d{6}$/.test(nueva)) return mostrar('La clave nueva debe ser un número de 6 cifras.');
+    if (!/^\d{6}$/.test(nueva)) return mostrar('La contraseña debe tener 6 números.');
     const boton = e.target.querySelector('button[type="submit"]');
     boton.disabled = true;
     const antes = boton.textContent;

@@ -28,6 +28,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const pool = require('../config/db');
 const { sincronizarSinFallar: sincronizarClaveCelular, restablecerClaveCelular } = require('../lib/claveCelular');   // clave del celular (órdenes 59 y 66)
+const clave6 = require('../lib/contrasenaSeisDigitos');   // contraseña de 6 dígitos (orden 90)
 const { limiteBuscarCedula, inicialesDe } = require('../lib/busquedaCedula');
 const { normalizarCedula, enmascararCedula, buscarUsuarioPorCedula } = require('../lib/normalizarCedula');
 const { requireAuth, requireRole } = require('../middleware/auth');
@@ -328,8 +329,15 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
   }
-  if (password && password.trim() && password.trim().length < 8) {
-    return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+  /* ORDEN 90: la contraseña son EXACTAMENTE 6 números, y se valida aquí (el formulario solo ayuda). En blanco, la de por omisión son los últimos 6 dígitos de la
+     identificación; si la identificación tiene menos de 6 dígitos (o no hay), la contraseña es obligatoria. */
+  const passwordEscrita = (password == null ? '' : String(password)).trim();
+  if (passwordEscrita && !clave6.esContrasenaValida(passwordEscrita)) {
+    return res.status(400).json({ error: clave6.MENSAJE });
+  }
+  const passwordPorDefecto = passwordEscrita ? null : clave6.porDefectoDeIdentificacion(numero_identificacion);
+  if (!passwordEscrita && !passwordPorDefecto) {
+    return res.status(400).json({ error: clave6.MENSAJE_OBLIGATORIA });
   }
   if (!validarTelefono10Digitos(telefono)) {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
@@ -341,8 +349,8 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
     const [[rolFila]] = await pool.query(`SELECT id FROM roles WHERE nombre = ?`, [rol]);
     if (!rolFila) return res.status(400).json({ error: 'Rol no válido.' });
 
-    const passwordElegidaPorAdmin = !!(password && password.trim());
-    const passwordFinal = passwordElegidaPorAdmin ? password.trim() : Math.random().toString(36).slice(-10);
+    const passwordElegidaPorAdmin = !!passwordEscrita;
+    const passwordFinal = passwordElegidaPorAdmin ? passwordEscrita : passwordPorDefecto;
     const hash = await bcrypt.hash(passwordFinal, 12);
 
     const [result] = await pool.query(
@@ -360,8 +368,9 @@ router.post('/', requireRole('admin', 'aspirante'), async (req, res) => {
     res.json({
       ok: true,
       id: result.insertId,
-      // Si el admin escribió la contraseña, no hace falta mostrársela de vuelta.
-      password_temporal: passwordElegidaPorAdmin ? null : passwordFinal
+      // Si el admin escribió la contraseña, no hace falta mostrársela de vuelta. Si es la de por omisión (últimos 6 de la identificación) se dice cuál es.
+      password_temporal: passwordElegidaPorAdmin ? null : passwordFinal,
+      password_por_defecto: !passwordElegidaPorAdmin
     });
   } catch (err) {
     registrarErrorSinSql('usuarios', err);
@@ -397,8 +406,9 @@ router.put('/:id', requireRole('admin', 'aspirante'), async (req, res) => {
   if (!nombre || !email || !rol) {
     return res.status(400).json({ error: 'Nombre, email y rol son obligatorios.' });
   }
-  if (password && password.trim() && password.trim().length < 8) {
-    return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+  // Orden 90: una contraseña nueva son EXACTAMENTE 6 números. En blanco no cambia la actual.
+  if (password && String(password).trim() && !clave6.esContrasenaValida(String(password).trim())) {
+    return res.status(400).json({ error: clave6.MENSAJE });
   }
   if (!validarTelefono10Digitos(telefono)) {
     return res.status(400).json({ error: 'Error de digitación: el teléfono debe tener 10 dígitos.' });
@@ -592,8 +602,10 @@ router.post('/:id/restablecer-password', requireRole('admin', 'aspirante'), asyn
     // inventada y un 200. Ver la nota del PUT de arriba.
     if (!quien) return res.status(404).json({ error: 'Ese usuario ya no existe.' });
     const cedula = quien && String(quien.numero_identificacion || '').trim();
-    const passwordTemporal = cedula || String(crypto.randomInt(0, 10000)).padStart(4, '0');
-    const esCedula = !!cedula;
+    // Orden 90: la clave temporal tiene 6 números, como toda contraseña. Con cédula: sus últimos 6 dígitos; con menos de 6 dígitos o sin cédula: un código al azar.
+    const delaCedula = clave6.porDefectoDeIdentificacion(cedula);
+    const passwordTemporal = delaCedula || clave6.codigoAleatorio();
+    const esCedula = !!delaCedula;
     const hash = await bcrypt.hash(passwordTemporal, 12);
     // `credenciales_enviadas = NULL`: la clave que la persona tenga guardada
     // dejo de servir en este mismo instante, asi que la casilla de
@@ -831,7 +843,10 @@ router.post('/sincronizar-con-identificacion', requireRole('admin'), async (req,
     const fallidos = [];
     for (const u of usuarios) {
       try {
-        const hash = await bcrypt.hash(u.numero_identificacion, 12);
+        // Orden 90: la contraseña son los últimos 6 dígitos de la identificación; sin 6 dígitos no hay con qué calcularla y se omite.
+        const clave = clave6.porDefectoDeIdentificacion(u.numero_identificacion);
+        if (!clave) { fallidos.push(u.id); continue; }
+        const hash = await bcrypt.hash(clave, 12);
         await pool.query(
           `UPDATE usuarios SET nombre_usuario = ?, password_hash = ?, debe_cambiar_password = 1 WHERE id = ?`,
           [u.numero_identificacion, hash, u.id]

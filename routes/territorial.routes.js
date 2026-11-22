@@ -1294,9 +1294,9 @@ router.post('/estructura', requireRole('admin', 'coordinador', 'aspirante', 'can
     let passwordFinal;
     if (numeroIdentificacionLimpio) {
       nombreUsuarioFinal = numeroIdentificacionLimpio;
-      passwordFinal = numeroIdentificacionLimpio;
+      passwordFinal = require('../lib/contrasenaSeisDigitos').porDefectoDeIdentificacionRellena(numeroIdentificacionLimpio) || numeroIdentificacionLimpio;   // orden 90: los últimos 6 dígitos
     } else {
-      passwordTemporal = Math.random().toString(36).slice(-10);
+      passwordTemporal = require('../lib/contrasenaSeisDigitos').codigoAleatorio();   // orden 90: 6 números
       passwordFinal = passwordTemporal;
     }
     const hash = await bcrypt.hash(passwordFinal, 12);
@@ -2558,7 +2558,7 @@ router.post('/estructura/importar-excel', noCoordinador, requireRole('admin', 'c
         const [[rol]] = await conexion.query(`SELECT id FROM roles WHERE nombre = ?`, [nombreRolLogin]);
         // El correo es opcional; el Número de identificación es el Nombre de usuario y la contraseña inicial.
         const nombreUsuarioImport = numeroIdentificacion;
-        const passwordImport = numeroIdentificacion;
+        const passwordImport = require('../lib/contrasenaSeisDigitos').porDefectoDeIdentificacionRellena(numeroIdentificacion) || numeroIdentificacion;   // orden 90: los últimos 6 dígitos
         const hash = await bcrypt.hash(passwordImport, 12);
         const [resultUsuario] = await conexion.query(
           `INSERT INTO usuarios (nombre, numero_identificacion, nombre_usuario, comuna_corregimiento_residencia, barrio_residencia,
@@ -3305,7 +3305,7 @@ router.post('/testigos/importar-excel', noCoordinador, requireRole('admin', 'coo
             errores.push({ fila: i + 2, error: 'Falta la cédula para crear la cuenta.' });
             continue;
           }
-          const hash = await bcrypt.hash(cedula, 12);
+          const hash = await bcrypt.hash(require('../lib/contrasenaSeisDigitos').porDefectoDeIdentificacionRellena(cedula) || cedula, 12);   // orden 90: los últimos 6 dígitos
           const [[rolTestigo]] = await pool.query(`SELECT id FROM roles WHERE nombre = 'testigo'`);
           if (!rolTestigo) { errores.push({ fila: i + 2, error: 'El rol "testigo" no está configurado.' }); continue; }
 

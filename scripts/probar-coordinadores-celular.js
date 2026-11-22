@@ -198,12 +198,14 @@ const entrarPorCelular = (c, cedula, clave) => c.POST('/api/auth/login-coordinad
 
   console.log('\n[6] Casos raros: cédula corta, sin cédula, inactivo, cambio de rol, crear con la ruta');
   r = await admin.POST('/api/usuarios', { nombre: 'Corta Coordinadora Ejemplo', numero_identificacion: '12345', email: 'corta@ejemplo.co', rol: 'coordinador', telefono: '3000000009' });
-  ok(r.status === 200, 'se crea un coordinador con cédula de 5 dígitos por la ruta de usuarios', r);
+  ok(r.status === 400, 'orden 90: con cédula de 5 dígitos y sin contraseña, la ruta de usuarios la pide (400)', r);
+  r = await admin.POST('/api/usuarios', { nombre: 'Corta Coordinadora Ejemplo', numero_identificacion: '12345', email: 'corta@ejemplo.co', rol: 'coordinador', telefono: '3000000009', password: '482913' });
+  ok(r.status === 200, 'se crea un coordinador con cédula de 5 dígitos por la ruta de usuarios (con contraseña de 6 números)', r);
   const idCorta = r.datos && r.datos.id;
   ok((await q('SELECT clave_celular_hash h FROM usuarios WHERE id = ?', [idCorta]))[0].h !== null, 'al CREARLO ya tiene su clave');
   r = await entrarPorCelular(nuevo(), '12345', '012345');
   ok(r.status === 200 && r.datos.usuario.id === idCorta, 'cédula 12345: la clave es 012345 (relleno con ceros)', r);
-  r = await admin.POST('/api/usuarios', { nombre: 'Sin Cedula Ejemplo', email: 'sincedula@ejemplo.co', rol: 'coordinador', telefono: '3000000008' });
+  r = await admin.POST('/api/usuarios', { nombre: 'Sin Cedula Ejemplo', email: 'sincedula@ejemplo.co', rol: 'coordinador', telefono: '3000000008', password: '482913' });   // orden 90: sin cédula la contraseña es obligatoria
   const idSin = r.datos && r.datos.id;
   ok(r.status === 200 && (await q('SELECT clave_celular_hash h FROM usuarios WHERE id = ?', [idSin]))[0].h === null, 'sin cédula no tiene clave del celular (solo entra por correo)');
   r = await admin.PUT(`/api/usuarios/${idCorta}`, { nombre: 'Corta Coordinadora Ejemplo', numero_identificacion: '12345', nombre_usuario: '12345', email: 'corta@ejemplo.co', telefono: '3000000009', rol: 'coordinador', activo: false, password_confirmacion: CLAVE_ADMIN });
