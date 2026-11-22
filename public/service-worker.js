@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v227';
+const CACHE_NAME = 'estrategia-v228';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -134,6 +134,9 @@ const ARCHIVOS_CASCARON = [
   '/js/territorios-multiples.js',
   // La pestaña «Autorización de datos» de Votantes y de Estructura (parche 325). Sin él, esas pantallas sin conexión darían un error al abrirse.
   '/js/autorizacion-datos.js',
+  // Las cinco vistas nuevas de Estructura territorial (orden 105): selector, Tarjetas, Por rol, Ranking, Explorador y Pendientes. La pantalla las revisa antes de usarlas.
+  '/js/estructura-vistas.js',
+  '/css/estructura-vistas.css',
   // Formularios de crear (escritorio)
   '/votantes.html',
   '/territorial.html',

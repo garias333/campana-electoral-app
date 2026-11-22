@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/fichas.css">
+<link rel="stylesheet" href="/css/estructura-vistas.css">
 <!-- MODO APP. Esta pantalla es de escritorio, pero el administrador la abre desde el menú de la
      app del celular (public/app/inicio.html) con `?app=1`. En ese caso —o con la app instalada
      (modo standalone) en una pantalla de celular o tableta chica, hasta 820 px— se esconde el
@@ -299,11 +300,22 @@
           </select>
           <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-estructura">Quitar filtros</button>
         </div>
+        <!-- ORDEN 105: selector de vista. «Lista» es la de siempre y la de por defecto; las otras cinco las pinta
+             /js/estructura-vistas.js dentro de #vistas-estructura con las MISMAS personas que la lista. -->
+        <div class="selector-vistas" id="selector-vistas-estructura" role="group" aria-label="Forma de ver la estructura">
+          <button type="button" data-vista="lista" class="activa" aria-pressed="true">Lista</button>
+          <button type="button" data-vista="tarjetas" aria-pressed="false">Tarjetas</button>
+          <button type="button" data-vista="rol" aria-pressed="false">Por rol</button>
+          <button type="button" data-vista="ranking" aria-pressed="false">Ranking</button>
+          <button type="button" data-vista="explorador" aria-pressed="false">Explorador</button>
+          <button type="button" data-vista="pendientes" aria-pressed="false">Pendientes</button>
+        </div>
         <div class="mono" id="contador-estructura" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
       </div>
+      <div class="aviso-equipo-estructura" id="aviso-equipo-estructura" style="display:none;"></div>
     </div>
 
-    <div class="card envoltorio-fichas">
+    <div class="card envoltorio-fichas" id="card-estructura" data-vista="lista">
       <!-- `tbody-estructura` CONSERVA SU ID aunque ya no sea un <tbody>: es el
            mismo contenedor que llena `renderizarEstructura()`, y cambiarle el
            nombre habría obligado a tocar el resto sin ninguna ganancia. -->
@@ -315,6 +327,7 @@
       </div>
       <div id="tbody-estructura" class="lista-fichas"></div>
       <div id="vacio-estructura" class="vacio" style="display:none;"><div class="icono-vacio">▲</div>Aún no hay personas registradas en la estructura.</div>
+      <div id="vistas-estructura" class="vistas-estructura" style="display:none;"></div>
     </div>
   </main>
 </div>
@@ -763,6 +776,7 @@
 <script src="/js/mesas-testigo.js"></script>
 <script src="/js/columnas-territoriales.js"></script>
 <script src="/js/territorios-multiples.js"></script>
+<script src="/js/estructura-vistas.js"></script>
 <script>
 // Cachea el cascarón de esta pantalla (y de Votantes/Testigos) para que
 // abran sin conexión — ver /service-worker.js. Nunca cachea /api
@@ -2861,6 +2875,22 @@ function descendientesEnEstructura(idsRaiz) {
 }
 
 const nodosColapsadosEstructura = new Set();
+
+/* ORDEN 105 — «VER EQUIPO»: usuario_id de la persona cuya rama se muestra, o null. */
+let focoEquipoEstructura = null;
+function verEquipoEstructura(usuarioId) {
+  focoEquipoEstructura = usuarioId || null;
+  renderizarEstructura();
+}
+function pintarAvisoEquipoEstructura() {
+  const caja = document.getElementById('aviso-equipo-estructura');
+  if (!caja) return;
+  const persona = focoEquipoEstructura ? listaEstructura.find(f => f.usuario_id === focoEquipoEstructura) : null;
+  if (!persona) { focoEquipoEstructura = null; caja.style.display = 'none'; caja.innerHTML = ''; return; }
+  caja.style.display = '';
+  caja.innerHTML = `<span>Mostrando el equipo de <b>${escaparHtml(persona.nombre)}</b></span> <button type="button" class="btn-secundario btn-sm" id="btn-quitar-equipo-estructura">Quitar</button>`;
+  document.getElementById('btn-quitar-equipo-estructura').addEventListener('click', () => verEquipoEstructura(null));
+}
 function alternarColapsoEstructura(usuarioId) {
   if (nodosColapsadosEstructura.has(usuarioId)) nodosColapsadosEstructura.delete(usuarioId);
   else nodosColapsadosEstructura.add(usuarioId);
@@ -2954,9 +2984,24 @@ function renderizarEstructura() {
     filas = filas.filter(f => f.cargo === cargo);
   }
 
+  /* «VER EQUIPO» (orden 105): deja a esa persona y todo lo que cuelga de ella. Va DESPUÉS de los filtros, de modo que se
+     combina con ellos, y se quita con la franja de aviso o con «Quitar filtros». */
+  if (focoEquipoEstructura) {
+    const idsEquipoFoco = descendientesEnEstructura([focoEquipoEstructura]);
+    filas = filas.filter(f => f.usuario_id === focoEquipoEstructura || idsEquipoFoco.has(f.id));
+  }
+  pintarAvisoEquipoEstructura();
+
+  /* LAS OTRAS CINCO VISTAS LEEN ESTAS MISMAS FILAS, sin ordenar ni plegar: el plegado es cosa de la lista. Los testigos
+     no están en la lista (tienen su pantalla), pero llegan en la misma respuesta de /estructura y con los mismos
+     permisos; solo la columna «Testigos» de «Por rol» los usa, y el filtro de cargo y «Ver equipo» los apartan. */
+  const filasFiltradas = filas;
+  const testigosFiltrados = (cargo || focoEquipoEstructura) ? [] : listaTestigosEstructura.filter(cumpleFiltrosBase);
+  const enLista = typeof EstructuraVistas === 'undefined' || EstructuraVistas.vista() === 'lista';
+
   filas = construirOrdenJerarquico(filas);
 
-  document.getElementById('contador-estructura').textContent = `${formatoMillares(filas.length)} registro(s)`;
+  document.getElementById('contador-estructura').textContent = `${formatoMillares(enLista ? filas.length : filasFiltradas.length)} registro(s)`;
 
   /* EL RESUMEN DE LA CABECERA. Cuenta sobre TODA la estructura cargada
      (`estructura`), no sobre `filas`, que son las del filtro vigente: la frase
@@ -3006,7 +3051,12 @@ function renderizarEstructura() {
   // Las filas del filtro vigente, para el asistente de WhatsApp. Se guardan
   // aquí —y no se recalculan aparte— porque estas son EXACTAMENTE las que la
   // persona está viendo: cualquier otra copia se desincronizaría del filtro.
-  filasVisiblesEstructura = filas;
+  filasVisiblesEstructura = enLista ? filas : filasFiltradas;
+  if (!enLista) {
+    document.getElementById('vacio-estructura').style.display = 'none';
+    EstructuraVistas.pintar({ filas: filasFiltradas, testigos: testigosFiltrados });
+    return;
+  }
   const tbody = document.getElementById('tbody-estructura');
   document.getElementById('vacio-estructura').style.display = filas.length ? 'none' : 'block';
   const puedeEditar = usuarioActual.rol === 'admin';   // el coordinador solo agrega líderes (orden 85): sin Editar
@@ -3081,17 +3131,12 @@ function pildoraWhatsApp(telefono, nombre) {
 }
 
 /**
- * Una ficha. Los mismos catorce datos de la tabla, en cuatro zonas: quién es,
- * dónde trabaja, cómo va y las acciones.
- *
- * DEVUELVE LA FICHA SIN CERRAR: el `</div>` lo pone quien la llama, porque si
- * tiene equipo el bloque de hijos va DENTRO de ella. Que la etiqueta se cierre
- * en otro sitio es feo, y por eso está escrito aquí.
+ * LO QUE LA LISTA Y LAS VISTAS DE LA ORDEN 105 DICEN DE UNA PERSONA SALE DE AQUÍ.
+ * Eran líneas sueltas dentro de `fichaEstructuraHtml`; se sacaron para que Tarjetas, Por rol, Ranking,
+ * Explorador y Pendientes lean EXACTAMENTE la misma regla —zona, meta, avance, lugar de votación— y no una
+ * copia que con el tiempo diga otra cosa. La lista pinta igual que antes.
  */
-function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
-  const categoria = categoriaDeFila(f);
-  const inicial = (f.nombre || '?').trim().charAt(0).toUpperCase();
-
+function territorioDeFila(f) {
   let areaValor = f.area || null;
   let zonaTexto = '', hojaTexto = nombreLugar(f.territorio_nombre) || '';
   if (f.tipo_area_influencia === 'organizacion') {
@@ -3105,6 +3150,41 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
     areaValor = f.territorio_tipo === 'comuna' ? 'urbano' : 'rural';
     zonaTexto = nombreLugar(f.territorio_nombre); hojaTexto = '';
   }
+  return { areaValor, zonaTexto, hojaTexto };
+}
+
+/** Meta, registros y avance. `pct` va TOPADO a 100 (es lo que dibuja la barra de la lista); `pctReal` no, y es null sin meta. */
+function avanceDeFila(f) {
+  const meta = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
+  const registros = f.registros ?? 0;
+  const pct = meta > 0 ? Math.min(100, (registros / meta) * 100) : 0;
+  const pctReal = meta > 0 ? (registros / meta) * 100 : null;
+  return { meta, registros, pct, pctReal };
+}
+
+function tieneLugarVotacionFila(f) {
+  const tieneMesa = (f.cargo === 'testigo' && f.tipo_testigo === 'puesto')
+    ? Array.isArray(f.mesas_asignadas) && f.mesas_asignadas.length > 0
+    : !!(f.mesa_votacion && String(f.mesa_votacion).trim());
+  return !!(
+    f.departamento_votacion && String(f.departamento_votacion).trim() &&
+    f.municipio_votacion && String(f.municipio_votacion).trim() &&
+    f.puesto_votacion && String(f.puesto_votacion).trim() && tieneMesa);
+}
+
+/**
+ * Una ficha. Los mismos catorce datos de la tabla, en cuatro zonas: quién es,
+ * dónde trabaja, cómo va y las acciones.
+ *
+ * DEVUELVE LA FICHA SIN CERRAR: el `</div>` lo pone quien la llama, porque si
+ * tiene equipo el bloque de hijos va DENTRO de ella. Que la etiqueta se cierre
+ * en otro sitio es feo, y por eso está escrito aquí.
+ */
+function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
+  const categoria = categoriaDeFila(f);
+  const inicial = (f.nombre || '?').trim().charAt(0).toUpperCase();
+
+  const { areaValor, zonaTexto, hojaTexto } = territorioDeFila(f);
 
   // «+N»: cuántos territorios tiene además del principal, con sus nombres al pasar el cursor.
   const otrosTerritorios = f.tipo_area_influencia === 'organizacion' ? []
@@ -3113,17 +3193,8 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
     ? `<span class="mas-territorios" title="${escaparHtml(otrosTerritorios.map(t => nombreLugar(t.nombre) || '').filter(Boolean).join(', '))}">+${otrosTerritorios.length}</span>`
     : '';
 
-  const metaMostrada = CARGOS_META_DERIVADA.includes(f.cargo) ? (f.meta_votos_equipo ?? 0) : f.meta_votos;
-  const registros = f.registros ?? 0;
-  const pct = metaMostrada > 0 ? Math.min(100, (registros / metaMostrada) * 100) : 0;
-
-  const tieneMesa = (f.cargo === 'testigo' && f.tipo_testigo === 'puesto')
-    ? Array.isArray(f.mesas_asignadas) && f.mesas_asignadas.length > 0
-    : !!(f.mesa_votacion && String(f.mesa_votacion).trim());
-  const tieneLugarVotacion = !!(
-    f.departamento_votacion && String(f.departamento_votacion).trim() &&
-    f.municipio_votacion && String(f.municipio_votacion).trim() &&
-    f.puesto_votacion && String(f.puesto_votacion).trim() && tieneMesa);
+  const { meta: metaMostrada, registros, pct } = avanceDeFila(f);
+  const tieneLugarVotacion = tieneLugarVotacionFila(f);
 
   /* EL PIE DE LA CIFRA, EN PALABRAS. La Σ marcaba dos cosas distintas sin
      decir cuál: en «Meta votos» solo para el coordinador —su meta es la suma
@@ -3295,8 +3366,69 @@ document.getElementById('btn-quitar-filtros-estructura').addEventListener('click
   document.getElementById('filtro-estructura-territorio').value = '';
   document.getElementById('filtro-estructura-municipio').value = '';
   document.getElementById('filtro-estructura-autorizacion').value = '';
+  focoEquipoEstructura = null;
   renderizarEstructura();
 });
+
+/* ===== ORDEN 105 — lo que las vistas nuevas necesitan de esta pantalla ===== */
+
+/** ¿Puede esta persona agregar a alguien de esa categoría? Sale de lo MISMO que decide hoy el botón «+ Agregar persona» y de la regla del
+    coordinador (solo líderes). El servidor sigue siendo quien decide (403); esto solo no ofrece lo que no se va a poder usar. */
+function puedeAgregarCategoriaEstructura(categoria) {
+  const boton = document.getElementById('btn-nuevo');
+  if (!boton || boton.style.display === 'none') return false;
+  if (usuarioActual.rol === 'coordinador') return categoria === 'lider';
+  return true;
+}
+
+/** A quién se le puede agregar equipo debajo de cada categoría (la cadena de mando de RANGO_CATEGORIA). */
+const CATEGORIA_DEL_EQUIPO = { coordinador: 'lider', coordinador_organizaciones: 'lider', aspirante_concejo: 'lider', lider: 'usuario' };
+
+/** Abre el formulario de siempre con la categoría ya puesta y, si se pide, «Reporta a» ya elegido. */
+async function abrirCreacionEnCategoriaEstructura(categoria, supervisorUsuarioId) {
+  await abrirCreacion();
+  const radio = document.querySelector(`#chips-cargo-persona input[name="cargo_visual"][value="${categoria}"]`);
+  if (radio && usuarioActual.rol !== 'coordinador') {
+    radio.checked = true;
+    radio.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (supervisorUsuarioId && usuarioActual.rol !== 'coordinador') {
+    const poner = () => {
+      const sel = document.getElementById('select-supervisor');
+      if (sel && sel.value !== String(supervisorUsuarioId)) elegirSupervisorBuscado(supervisorUsuarioId);
+    };
+    try { await actualizarReportaAPorZona(); } catch (e) { /* el formulario sigue siendo usable */ }
+    poner();
+    // «Reporta a» se vuelve a llenar por red al cambiar la categoría: si esa respuesta llega después, se reafirma.
+    setTimeout(poner, 700);
+  }
+}
+
+function iniciarVistasEstructura() {
+  if (typeof EstructuraVistas === 'undefined') return;
+  EstructuraVistas.iniciar({
+    usuarioId: usuarioActual.id,
+    soloLista: document.documentElement.classList.contains('modo-app'),
+    repintar: renderizarEstructura,
+    categoria: categoriaDeFila,
+    etiquetas: ETIQUETAS_CATEGORIA,
+    territorio: territorioDeFila,
+    avance: avanceDeFila,
+    tieneLugarVotacion: tieneLugarVotacionFila,
+    todas: () => listaEstructura,
+    puedeEditar: () => usuarioActual.rol === 'admin',
+    puedeAgregar: puedeAgregarCategoriaEstructura,
+    categoriaDelEquipo: (cat) => CATEGORIA_DEL_EQUIPO[cat] || null,
+    puedeAgregarTestigo: () => ['admin', 'candidato'].includes(usuarioActual.rol),
+    editar: (id) => abrirEdicion(id),
+    agregar: (categoria, supervisorUsuarioId) => abrirCreacionEnCategoriaEstructura(categoria, supervisorUsuarioId),
+    verEquipo: verEquipoEstructura,
+    escapar: escaparHtml,
+    millares: formatoMillares,
+    lugar: nombreLugar,
+    pildoraAutorizacion: (estado) => (typeof AutorizacionDatos !== 'undefined' ? AutorizacionDatos.pildora(estado) : ''),
+  });
+}
 
 let edicionId = null;
 let identificacionPersonaDisponible = true;
@@ -4127,6 +4259,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
       document.documentElement.classList.remove('abrir-directo');
     }
   }
+  iniciarVistasEstructura();
   await cargarEstructura();
 
   // El ítem "Organigrama territorial" del menú enlaza aquí con este hash,
