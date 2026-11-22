@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/probar-estructura-vistas.js — ORDEN 105:
+// scripts/probar-estructura-vistas.js — ORDEN 105 (+ ORDEN 107: diseño «Avatar con anillo» en Tarjetas y «Podio» en Ranking):
 //   «Estructura territorial» (escritorio) con selector de 6 vistas: Lista (la de siempre) + Tarjetas, Por rol, Ranking, Explorador y Pendientes.
 //   Con administrador, coordinador y líder, a 1280 y 1600 px:
 //     · las 6 vistas muestran LAS MISMAS personas que la lista (sin búsqueda y con búsqueda);
@@ -132,8 +132,8 @@ function crearApp() {
       return { gente: todos.filter((c) => c.t !== 'Testigos').flatMap((c) => c.n), testigos: (todos.find((c) => c.t === 'Testigos') || { n: [] }).n, columnas: todos.map((c) => c.t) };
     }
     if (v === 'ranking') {
-      const con = await txt('.ev-fila-ranking .ev-nombre-enlace');
-      const franja = await ev("(() => { const f = document.querySelector('.ev-franja-rosa'); return f ? f.textContent.replace('Sin meta asignada:', '').split(',').map(x => x.trim()).filter(Boolean) : []; })()");
+      const con = (await txt('.ev-pod-nombre')).concat(await txt('.ev-fila-ranking .ev-nombre-enlace'));
+      const franja = await ev("(() => { const f = document.querySelector('.ev-franja-sin-meta'); return f ? f.textContent.replace(/^Sin meta asignada \\(\\d+\\):/, '').replace(/\\. Asígneles meta.*$/, '').split(',').map(x => x.trim()).filter(Boolean) : []; })()");
       return { gente: con.concat(franja), testigos: [], con, sin: franja };
     }
     if (v === 'explorador') return { gente: await txt('.ev-nodo .ev-nodo-nombre'), testigos: [] };
@@ -143,6 +143,58 @@ function crearApp() {
     }
     return { gente: [], testigos: [] };
   };
+
+  /** ORDEN 107 — el diseño del Ranking (Podio), con los datos que haya en pantalla. */
+  async function comprobarDisenoRanking(etiqueta) {
+    const d = await ev(`(() => {
+      const num = (el) => parseInt(el.textContent.replace(/[^0-9]/g, ''), 10);
+      const pods = [...document.querySelectorAll('.ev-pod')];
+      const filas = [...document.querySelectorAll('.ev-fila-ranking')];
+      const cs = (el, k) => getComputedStyle(el)[k];
+      const box = (el) => el.getBoundingClientRect();
+      const podio = document.querySelector('.ev-podio');
+      const franja = document.querySelector('.ev-franja-sin-meta');
+      const todos = [...document.querySelectorAll('.ev-podio, .ev-pod, .ev-medalla, .ev-pod-pct, .ev-ranking, .ev-fila-ranking, .ev-rk-barra, .ev-rk-barra > i, .ev-pct-grande, .ev-puesto, .ev-pastilla, .ev-tarjeta, .ev-anillo-av')];
+      return {
+        pods: pods.map((e) => ({ n: e.querySelector('.ev-medalla').textContent.trim(), pct: num(e.querySelector('.ev-pod-pct')), fs: cs(e.querySelector('.ev-pod-pct'), 'fontSize'), av: cs(e.querySelector('.ev-av-pod'), 'width'), borde: cs(e, 'borderTopColor'), bw: cs(e, 'borderTopWidth'), med: cs(e.querySelector('.ev-medalla'), 'backgroundColor'), medw: cs(e.querySelector('.ev-medalla'), 'width'), x: Math.round(box(e).left), bajo: Math.round(box(e).bottom), cifras: /\\d+ de \\d+/.test(e.innerText) })),
+        columnasPodio: podio ? cs(podio, 'gridTemplateColumns').split(' ').length : 0,
+        claseN: podio ? podio.className : '',
+        filas: filas.map((f) => ({ pos: f.querySelector('.ev-puesto').textContent.trim(), pct: num(f.querySelector('.ev-pct-grande')), barra: cs(f.querySelector('.ev-rk-barra'), 'height'), radio: cs(f.querySelector('.ev-rk-barra'), 'borderTopLeftRadius'), fondo: cs(f.querySelector('.ev-rk-barra'), 'backgroundColor'), relleno: cs(f.querySelector('.ev-rk-barra > i'), 'backgroundImage'), ancho: box(f.querySelector('.ev-rk-barra > i')).width / box(f.querySelector('.ev-rk-barra')).width, textoEnBarra: f.querySelector('.ev-rk-barra').textContent.trim(), cifras: f.querySelector('.ev-rk-cifras').textContent.trim(), cifX: Math.round(box(f.querySelector('.ev-rk-cifras')).left), barraFin: Math.round(box(f.querySelector('.ev-rk-barra')).right), pctColor: cs(f.querySelector('.ev-pct-grande'), 'color'), pctFs: cs(f.querySelector('.ev-pct-grande'), 'fontSize'), punto: !!f.querySelector('.ev-punto-rojo') })),
+        franja: franja ? { fondo: cs(franja, 'backgroundColor'), borde: cs(franja, 'borderTopColor'), texto: franja.textContent } : null,
+        rojos: todos.filter((e) => /rgb\\(198, 40, 40\\)|rgb\\(178, 106, 0\\)|rgb\\(46, 125, 50\\)|#C62828|#B26A00/i.test(cs(e, 'backgroundColor') + cs(e, 'backgroundImage') + cs(e, 'color') + cs(e, 'borderTopColor'))).length,
+        fichaActiva: cs(document.querySelector('.ev-fichas-filtro .activa'), 'backgroundColor') + '|' + cs(document.querySelector('.ev-fichas-filtro .activa'), 'color'),
+      };
+    })()`);
+    console.log(`  · Ranking (${etiqueta}): podio ${d.pods.length}, lista ${d.filas.length}, franja ${d.franja ? 'sí' : 'no'}`);
+    const todosPct = [...d.pods].sort((a, b) => a.n - b.n).map((x) => x.pct).concat(d.filas.map((f) => f.pct));
+    ok(todosPct.every((v, i) => i === 0 || todosPct[i - 1] >= v), 'ordenado de mayor a menor % (podio y lista)', todosPct);
+    ok(d.pods.length === Math.min(3, d.pods.length) && d.filas.length >= 0, 'el podio muestra hasta 3');
+    ok(d.filas.every((f, i) => Number(f.pos) === i + 4), 'la lista arranca en el 4.º', d.filas.map((f) => f.pos));
+    ok(d.pods.map((x) => x.n).join(',') === ({ 3: '2,1,3', 2: '2,1', 1: '1', 0: '' })[d.pods.length], 'el podio va en orden 2-1-3 (con los que haya)', d.pods.map((x) => x.n));
+    if (d.pods.length === 3) {
+      ok(d.columnasPodio === 3, 'podio en 3 columnas');
+      ok(d.pods.every((x) => Math.abs(x.bajo - d.pods[0].bajo) <= 1), 'alineadas abajo', d.pods.map((x) => x.bajo));
+    }
+    d.pods.forEach((x) => {
+      const primero = x.n === '1';
+      ok(x.cifras && x.fs === (primero ? '38px' : '30px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 38 : 30} px, avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
+      ok(x.med === ({ 1: 'rgb(255, 195, 0)', 2: 'rgb(11, 94, 215)', 3: 'rgb(8, 66, 152)' })[x.n], `medalla ${x.n} del color de marca`, x.med);
+      if (primero) ok(x.bw === '2px' && x.borde === 'rgb(255, 195, 0)', 'el 1.º con borde amarillo de 2 px', x);
+    });
+    d.filas.forEach((f) => {
+      ok(f.barra === '30px', `barra de ${f.barra} (debe medir 30 px, 2,5 × 12)`, f.barra);
+      ok(f.radio === '99px' || parseFloat(f.radio) >= 15, 'barra con radio de píldora', f.radio);
+      ok(f.fondo === 'rgb(232, 240, 253)' && /rgb\(11, 94, 215\).*rgb\(8, 66, 152\)/.test(f.relleno), 'fondo #e8f0fd y relleno degradado #0B5ED7 → #084298', { fondo: f.fondo, relleno: f.relleno });
+      ok(f.ancho >= 0.0195, 'relleno visible (mínimo 2 %)', f.ancho);
+      ok(f.textoEnBarra === '' && f.cifras.length > 0 && f.cifX >= f.barraFin, '«X de Y» fuera de la barra, en su columna', f);
+      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '18px', '% de 18 px en #084298', f);
+      ok(f.punto === (f.pct < 25), 'punto rojo solo si va bajo 25 %', f);
+    });
+    ok(d.rojos === 0, 'no queda rojo/ámbar/verde de semáforo en barras, anillos ni porcentajes', d.rojos);
+    ok(d.fichaActiva === 'rgb(8, 66, 152)|rgb(255, 255, 255)', 'ficha de filtro activa en #084298 con texto blanco', d.fichaActiva);
+    if (d.franja) ok(d.franja.fondo === 'rgb(255, 248, 219)' && d.franja.borde === 'rgb(242, 211, 122)' && /Asígneles meta para que entren al ranking/.test(d.franja.texto), 'franja amarilla suave «Sin meta asignada (N)…»', d.franja);
+    return d;
+  }
 
   const VISTAS = ['tarjetas', 'rol', 'ranking', 'explorador', 'pendientes'];
 
@@ -202,11 +254,32 @@ function crearApp() {
 
   await elegir('tarjetas');
   ok(await ev("getComputedStyle(document.querySelector('.ev-grid-tarjetas')).gridTemplateColumns.split(' ').length >= 4"), 'Tarjetas: cuadrícula de 4 o más columnas a 1280 px');
-  const tarjeta = await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.ev-nombre').textContent.includes('Beto')); return { texto: t.innerText, anillo: !!t.querySelector('.ev-anillo'), editar: !!t.querySelector('[data-accion=editar]'), equipo: !!t.querySelector('[data-accion=equipo]') }; })()");
-  ok(/Líder/.test(tarjeta.texto) && /5 de 10/.test(tarjeta.texto) && /50%/.test(tarjeta.texto) && /Reporta a|Marta/.test(tarjeta.texto) && /equipo 1/.test(tarjeta.texto), 'Tarjeta de Beto: rol, «5 de 10», 50 %, jefe y equipo 1', tarjeta.texto);
+  const tarjeta = await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.ev-nombre').textContent.includes('Beto')); return { texto: t.innerText, anillo: !!t.querySelector('.ev-anillo-av'), titulo: t.querySelector('.ev-nombre').title, cifras: [...t.querySelectorAll('.ev-cifras3 > div')].map(d => d.innerText.replace(/\\s+/g, ' ')), pastilla: t.querySelector('.ev-pastilla').textContent.trim(), editar: !!t.querySelector('[data-accion=editar]'), equipo: !!t.querySelector('[data-accion=equipo]') }; })()");
+  ok(/Líder/.test(tarjeta.texto) && tarjeta.pastilla === '50%' && /Marta/.test(tarjeta.titulo), 'Tarjeta de Beto: rol, pastilla 50 % y «Le reporta a Marta» como title del nombre', tarjeta);
+  ok(JSON.stringify(tarjeta.cifras) === JSON.stringify(['5 Registros', '10 Meta', '1 Equipo']), 'franja de 3 cifras: Registros · Meta · Equipo', tarjeta.cifras);
   ok(tarjeta.anillo && tarjeta.editar && tarjeta.equipo, 'con anillo, Editar y Ver equipo');
-  const zonas = await txt('.ev-tarjeta .ev-chip-urbano, .ev-tarjeta .ev-chip-rural');
+  ok(!/Cabeza de su rama|equipo \d/.test(tarjeta.texto) && !(await ev("document.querySelector('.ev-franja')")), 'sin la franja de arriba ni el texto «Cabeza de su rama · equipo N»');
+  const zonas = await txt('.ev-tarjeta .ev-chip-zona');
   ok(zonas.includes('URBANO') && zonas.includes('RURAL'), 'etiquetas URBANO y RURAL', zonas);
+
+  const dt = await ev(`(() => {
+    const cs = (el, k) => getComputedStyle(el)[k];
+    const g = document.querySelector('.ev-grid-tarjetas');
+    const t = (n) => [...document.querySelectorAll('.ev-tarjeta')].find((x) => x.querySelector('.ev-nombre').textContent.includes(n));
+    const info = (n) => { const x = t(n); return { av: cs(x.querySelector('.ev-av-n'), 'backgroundColor'), avTxt: cs(x.querySelector('.ev-av-n'), 'color'), avW: cs(x.querySelector('.ev-av-n'), 'width'), avB: cs(x.querySelector('.ev-av-n'), 'borderTopWidth'), anillo: cs(x.querySelector('.ev-anillo-av'), 'width'), fondoAnillo: cs(x.querySelector('.ev-anillo-av'), 'backgroundImage'), pastilla: x.querySelector('.ev-pastilla').textContent.trim(), pastColor: cs(x.querySelector('.ev-pastilla'), 'backgroundColor'), punto: !!x.querySelector('.ev-pastilla .ev-punto-rojo'), puntoTam: x.querySelector('.ev-punto-rojo') ? cs(x.querySelector('.ev-punto-rojo'), 'width') + '/' + cs(x.querySelector('.ev-punto-rojo'), 'backgroundColor') : null, puntoTitle: x.querySelector('.ev-punto-rojo') ? x.querySelector('.ev-punto-rojo').title : null, chipRol: cs(x.querySelector('.ev-chip-rol'), 'backgroundColor') + '|' + cs(x.querySelector('.ev-chip-rol'), 'color'), meta: x.querySelectorAll('.ev-cifras3 b')[1].textContent.trim(), btnE: x.querySelector('.ev-btn-editar') ? cs(x.querySelector('.ev-btn-editar'), 'borderTopColor') + '|' + cs(x.querySelector('.ev-btn-editar'), 'borderTopWidth') : null, btnV: cs(x.querySelector('.ev-btn-equipo'), 'backgroundColor') + '|' + cs(x.querySelector('.ev-btn-equipo'), 'color'), radio: cs(x, 'borderTopLeftRadius'), gap: cs(g, 'columnGap'), pad: cs(x, 'padding'), bordeTarjeta: cs(x, 'borderTopColor') }; };
+    const rojos = [...document.querySelectorAll('.ev-anillo-av, .ev-pastilla')].filter((e) => /rgb\\(198, 40, 40\\)|rgb\\(178, 106, 0\\)|rgb\\(46, 125, 50\\)/.test(cs(e, 'backgroundImage') + cs(e, 'backgroundColor') + cs(e, 'color'))).length;
+    return { coord: info('Marta'), lider: info('Beto'), sub: info('Sara'), otro: info('Olga'), asp: info('Aurelio'), sinMeta: info('Carla'), bajo: info('Ana'), rojos };
+  })()`);
+  ok(dt.coord.av === 'rgb(11, 94, 215)' && dt.lider.av === 'rgb(8, 66, 152)' && dt.sub.av === 'rgb(255, 195, 0)' && dt.sub.avTxt === 'rgb(61, 44, 0)' && dt.otro.av === 'rgb(91, 107, 134)' && dt.asp.av === 'rgb(91, 107, 134)',
+    'avatar con el color del rol (coordinador azul, líder azul oscuro, sublíder amarillo con texto oscuro, otros gris azulado)', dt);
+  ok(dt.coord.avW === '72px' && dt.coord.avB === '4px' && dt.coord.anillo === '96px' && dt.coord.radio === '18px' && dt.coord.gap === '16px', 'anillo de 96 px, avatar de 72 px con borde blanco de 4 px, tarjeta de radio 18 px y gap de 16 px', dt.coord);
+  ok(/rgb\(11, 94, 215\)/.test(dt.coord.fondoAnillo) && /conic-gradient/.test(dt.coord.fondoAnillo) && /rgb\(232, 240, 253\)/.test(dt.coord.fondoAnillo), 'anillo conic-gradient azul sobre #e8f0fd', dt.coord.fondoAnillo);
+  ok(/repeating-conic-gradient/.test(dt.sinMeta.fondoAnillo) && dt.sinMeta.pastilla === 'sin meta' && dt.sinMeta.meta === '—', 'sin meta: anillo punteado, pastilla «sin meta» y Meta «—»', dt.sinMeta);
+  ok(dt.coord.pastColor === 'rgb(255, 195, 0)' && dt.coord.pastilla === '30%', 'pastilla amarilla con el %', dt.coord);
+  ok(dt.bajo.punto && dt.bajo.puntoTam === '8px/rgb(229, 72, 77)' && dt.bajo.puntoTitle === 'Menos del 25 % de su meta' && !dt.coord.punto, 'punto rojo de 8 px (#e5484d) con title solo bajo 25 %', { bajo: dt.bajo.puntoTam, titulo: dt.bajo.puntoTitle });
+  ok(dt.rojos === 0, 'Tarjetas: ningún anillo ni pastilla en rojo/ámbar/verde de semáforo', dt.rojos);
+  ok(dt.coord.btnE === 'rgb(11, 94, 215)|1px' && await ev("[...document.styleSheets].some((h) => /estructura-vistas/.test(h.href || '') && [...h.cssRules].some((r) => r.selectorText === '.ev-tarjeta .ev-btn-editar' && /1\\.5px/.test(r.style.border)))") && dt.coord.btnV === 'rgb(8, 66, 152)|rgb(255, 255, 255)', 'botones: Editar con borde azul de 1,5 px (el navegador lo redondea a 1 px a 1×); Ver equipo azul oscuro con texto blanco', dt.coord);
+  await foto('tarjetas-admin-1280-detalle');
 
   // Editar abre el formulario de siempre (pide la contraseña propia primero)
   await ev("document.querySelector('.ev-tarjeta [data-accion=editar]').click()");
@@ -255,22 +328,34 @@ function crearApp() {
   ok(await ev("getComputedStyle(document.querySelector('.ev-columnas')).gridTemplateColumns.split(' ').length === 1"), 'a 880 px las columnas de «Por rol» bajan una debajo de otra');
   ok(await sinDesborde(), 'a 880 px sin desborde horizontal');
   await foto('rol-admin-880');
+  for (const v of ['tarjetas', 'ranking']) {
+    await elegir(v); await ancho(880); await espera(300);
+    ok(await sinDesborde(), `${v} a 880 px: sin desborde horizontal`);
+    if (v === 'ranking') {
+      const m = await ev("(() => { const f = document.querySelector('.ev-fila-ranking'); const b = f.querySelector('.ev-rk-barra').getBoundingClientRect(); return { barra: getComputedStyle(f.querySelector('.ev-rk-barra')).height, anchoBarra: Math.round(b.width), podio: getComputedStyle(document.querySelector('.ev-podio')).gridTemplateColumns.split(' ').length }; })()");
+      ok(m.barra === '30px' && m.anchoBarra > 300 && m.podio === 3, 'ranking a 880 px: barra de 30 px a todo lo ancho y podio de 3 columnas', m);
+    }
+    await ev("document.getElementById('vistas-estructura').scrollIntoView()"); await espera(200);
+    await foto(v + '-admin-880');
+  }
   await ancho(1280);
 
   await elegir('ranking');
   const rk = await personasDeVista('ranking');
-  ok(rk.con.length > 0 && rk.sin.length > 0, 'Ranking: con meta y «Sin meta asignada» (franja rosada)', rk);
-  const pcts = await ev("[...document.querySelectorAll('.ev-pct-grande')].map(e => parseInt(e.textContent))");
-  ok(pcts.every((v, i) => i === 0 || pcts[i - 1] >= v), 'ordenado de mayor a menor %', pcts);
-  const medallas = await txt('.ev-puesto');
-  ok(medallas[0] === '🥇' && medallas[1] === '🥈' && medallas[2] === '🥉', 'medallas 🥇🥈🥉 a los tres primeros', medallas.slice(0, 4));
-  const colsPct = await ev("[...document.querySelectorAll('.ev-fila-ranking')].map(f => ({ p: parseInt(f.querySelector('.ev-pct-grande').textContent), c: getComputedStyle(f.querySelector('.ev-pct-grande')).color }))");
-  const esperadoColor = (v) => (v < 25 ? 'rgb(198, 40, 40)' : v < 60 ? 'rgb(178, 106, 0)' : 'rgb(46, 125, 50)');
-  ok(colsPct.every((x) => x.c === esperadoColor(x.p)), 'el % grande usa el semáforo (rojo <25, ámbar 25-59, verde ≥60)', colsPct);
+  ok(rk.con.length > 0 && rk.sin.length > 0, 'Ranking: con meta y «Sin meta asignada» (franja amarilla suave)', rk);
+  await comprobarDisenoRanking('administrador 1280');
   ok(JSON.stringify(await txt('.ev-fichas-filtro button')) === JSON.stringify(['Todos', 'Coordinadores', 'Líderes', 'Sublíderes']), 'fichas de filtro: Todos / Coordinadores / Líderes / Sublíderes');
   await ev("document.querySelector('.ev-fichas-filtro [data-valor=sublider]').click()"); await espera(300);
   const soloSub = await personasDeVista('ranking');
   ok(soloSub.gente.length === 2 && soloSub.gente.every((n) => /Sublíder/.test(n)), 'la ficha «Sublíderes» deja solo a los sublíderes', soloSub.gente);
+  const dSub = await comprobarDisenoRanking('ficha Sublíderes');
+  ok(dSub.pods.length === 1 && dSub.filas.length === 0, 'con 1 con meta (Sublíderes): el podio muestra solo al 1.º y no hay lista', { pods: dSub.pods.length, filas: dSub.filas.length });
+  await foto('ranking-admin-1280-uno-con-meta');
+  await ev("document.querySelector('.ev-fichas-filtro [data-valor=coordinador]').click()"); await espera(300);
+  const dCoord = await comprobarDisenoRanking('ficha Coordinadores');
+  ok(dCoord.pods.length === 2 && dCoord.filas.length === 0 && await sinDesborde(), 'con 2 con meta (Coordinadores): el podio muestra 2 (2.º y 1.º) y no hay lista', { pods: dCoord.pods.length, filas: dCoord.filas.length });
+  await foto('ranking-admin-1280-dos-con-meta');
+  await ev("document.querySelector('.ev-fichas-filtro [data-valor=todos]').click()"); await espera(300);
   await ev("document.querySelector('.ev-fichas-filtro [data-valor=todos]').click()"); await espera(300);
 
   await elegir('explorador');
@@ -312,6 +397,21 @@ function crearApp() {
   await ev("document.querySelector('[data-grupo=sin-equipo] [data-accion=agregar]').click()");
   ok(await esperar("document.getElementById('overlay-form').classList.contains('abierto')", 8000), '«Agregar equipo» abre el formulario de hoy');
   await ev("document.getElementById('cerrar-modal').click()"); await espera(300);
+
+  /* ---- Ranking con 2 y con 0 personas con meta (ORDEN 107) ---- */
+  console.log('\n[Ranking · 0 con meta · 1280 px]');
+  const metasOriginales = await q('SELECT id, meta_votos, meta_votos_base FROM estructura');
+  // (El caso de 2 y de 1 con meta se prueba arriba con las fichas Coordinadores y Sublíderes: la meta de un jefe suma la de su equipo.)
+  await q('UPDATE estructura SET meta_votos = 0, meta_votos_base = 0');
+  await ir(base + '/territorial.html'); await esperar("document.querySelectorAll('#tbody-estructura .ficha-p').length > 0", 12000);
+  await elegir('ranking');
+  const r0 = await comprobarDisenoRanking('0 con meta');
+  ok(r0.pods.length === 0 && r0.filas.length === 0 && r0.franja && /Sin meta asignada \(\d+\)/.test(r0.franja.texto), 'con 0 con meta: solo la franja amarilla', r0.franja);
+  await foto('ranking-admin-1280-cero-con-meta');
+  for (const m of metasOriginales) await q('UPDATE estructura SET meta_votos = ?, meta_votos_base = ? WHERE id = ?', [m.meta_votos, m.meta_votos_base, m.id]);
+  await ir(base + '/territorial.html'); await esperar("document.querySelectorAll('#tbody-estructura .ficha-p').length > 0", 12000);
+  await elegir('lista');
+  ok(p.avisos.length === 0, 'sin errores de consola en el escenario de pocos con meta', p.avisos);
 
   /* ============ COORDINADOR ============ */
   await comprobarRol('coordinador', 'marta@ejemplo.co', CLAVE, [1280, 1600]);

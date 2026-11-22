@@ -3,6 +3,8 @@
    «Estructura territorial» (escritorio). Se carga DESPUÉS de fichas.css y solo añade.
    Colores de marca: amarillo #FFC300, azul #0B5ED7, azul oscuro #084298.
    Por rol: Coordinador #0B5ED7, Líder #084298, Sublíder #8a5a00 (fondo #fff4d1), Testigo #2e7d32 (fondo #e6f4e7).
+   ORDEN 107: «Tarjetas» (Avatar con anillo) y «Ranking» (Podio) con la paleta de marca; ahí todo avance va en azul y
+   quien va bajo 25 % solo lleva un punto rojo de 8 px junto al %.
    ========================================================================== */
 
 /* En el celular (modo app) no hay selector: la app del celular no se toca. */
@@ -27,7 +29,11 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
 #card-estructura:not([data-vista="lista"]) #tbody-estructura,
 #card-estructura:not([data-vista="lista"]) #vacio-estructura { display: none !important; }
 #card-estructura:not([data-vista="lista"]) .vistas-estructura { display: block !important; }
-.vistas-estructura { font-size: .9rem; color: #1b2433; }
+.vistas-estructura {
+  --am: #FFC300; --az: #0B5ED7; --azo: #084298; --azs: #e8f0fd;
+  --tx: #1d2939; --tx2: #667085; --bd: #e4e7ec;
+  font-size: .9rem; color: #1b2433;
+}
 
 .ev-sub { display: block; font-size: .78rem; color: #566074; line-height: 1.35; }
 .ev-tenue { color: #6B7482; }
@@ -54,28 +60,46 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
 .ev-barra > i { display: block; height: 100%; border-radius: 999px; }
 .ev-sin-meta { font-size: .76rem; color: #6B7482; font-style: italic; }
 
-/* ---------- Tarjetas ---------- */
+/* ---------- Tarjetas · Avatar con anillo (ORDEN 107) ---------- */
 .ev-grid-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .ev-tarjeta {
-  position: relative; background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; overflow: hidden;
-  padding: 0 14px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 2px rgba(19,31,59,.05);
+  background: #fff; border: 1px solid var(--bd); border-radius: 18px; padding: 20px 14px 14px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  transition: border-color .15s, box-shadow .15s;
 }
-.ev-franja { height: 38px; margin: 0 -14px; background: var(--rol); }
-.ev-av-sup { margin-top: -20px; border: 3px solid #fff; width: 44px; height: 44px; }
-.ev-nombre { margin: 0; font-size: 1rem; line-height: 1.25; }
-.ev-avance { display: flex; align-items: center; gap: 12px; }
-.ev-anillo {
-  --p: 0; --c: #6B7482; position: relative; flex: 0 0 auto; width: 58px; height: 58px; border-radius: 50%;
-  background: conic-gradient(var(--c) calc(var(--p) * 1%), #E4E8EE 0);
+.ev-tarjeta:hover { border-color: var(--az); box-shadow: 0 8px 22px rgba(8, 66, 152, .12); }
+.ev-anillo-av {
+  --g: 0deg; position: relative; flex: 0 0 auto; width: 96px; height: 96px; border-radius: 50%; margin-bottom: 12px;
+  background: conic-gradient(var(--az) var(--g), var(--azs) 0);
   display: flex; align-items: center; justify-content: center;
 }
-.ev-anillo::before { content: ''; position: absolute; inset: 6px; background: #fff; border-radius: 50%; }
-.ev-anillo > span { position: relative; font-weight: 700; font-size: .82rem; }
-.ev-anillo-vacio { background: #E4E8EE; }
-.ev-cifras { font-size: .84rem; color: #3a4558; }
-.ev-lugar { font-size: .85rem; font-weight: 600; }
-.ev-jefe { font-size: .78rem; color: #566074; }
-.ev-acciones { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+.ev-anillo-av-vacio { background: repeating-conic-gradient(#c4cfdf 0 8deg, transparent 8deg 16deg); }
+.ev-av-n {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff; font-weight: 700; font-size: 1.7rem; line-height: 1;
+}
+.ev-pastilla {
+  position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); white-space: nowrap;
+  display: inline-flex; align-items: center; background: var(--am); color: #2b2100; font-weight: 800; font-size: .78rem;
+  padding: 2px 10px; border-radius: 999px; border: 2px solid #fff; line-height: 1.3;
+}
+.ev-punto-rojo { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e5484d; margin-right: 5px; flex: 0 0 auto; vertical-align: middle; }
+.ev-nombre { margin: 4px 0 0; font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--tx); }
+.ev-tarjeta .ev-etiquetas { justify-content: center; }
+.ev-chip-rol { font-size: .7rem; }
+.ev-chip-zona { background: #f2f4f7; color: #475467; }
+.ev-lugar { font-size: 12.5px; color: var(--tx2); font-weight: 400; }
+.ev-cifras3 { align-self: stretch; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--bd); border-bottom: 1px solid var(--bd); padding: 8px 0; margin-top: 4px; }
+.ev-cifras3 > div { display: flex; flex-direction: column; gap: 1px; }
+.ev-cifras3 b { font-size: 17px; color: var(--azo); line-height: 1.2; }
+.ev-cifras3 span { font-size: 11px; color: var(--tx2); }
+.ev-acciones { align-self: stretch; display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
+.ev-tarjeta .ev-btn { flex: 1; width: auto; min-width: 0; margin: 0; padding: 8px 6px; border-radius: 10px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; line-height: 1.2; text-align: center; justify-content: center; }
+.ev-tarjeta .ev-btn-editar { background: #fff; border: 1.5px solid var(--az); color: var(--az); }
+.ev-tarjeta .ev-btn-editar:hover { background: var(--azs); }
+.ev-tarjeta .ev-btn-equipo { background: var(--azo); border: 1.5px solid var(--azo); color: #fff; }
+.ev-tarjeta .ev-btn-equipo:hover { background: var(--az); border-color: var(--az); }
+.ev-tarjeta .ev-btn:focus-visible { outline: 3px solid var(--am); outline-offset: 1px; }
 
 /* ---------- Por rol ---------- */
 .ev-columnas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
@@ -93,19 +117,49 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
 }
 .ev-agregar:hover { border-color: #084298; color: #084298; }
 
-/* ---------- Ranking ---------- */
+/* ---------- Ranking · Podio (ORDEN 107) ---------- */
 .ev-fichas-filtro { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .ev-fichas-filtro button { border: 1.5px solid #C5CCD9; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: .84rem; font-weight: 600; color: #26324B; cursor: pointer; }
-.ev-fichas-filtro button.activa { background: #084298; border-color: #084298; color: #fff; }
-.ev-ranking { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ev-fila-ranking { display: grid; grid-template-columns: 40px 34px minmax(160px, 1.1fr) minmax(180px, 2fr) 70px; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; padding: 10px 14px; }
-.ev-puesto { font-size: 1.35rem; font-weight: 700; text-align: center; color: #3a4558; }
+.ev-fichas-filtro button.activa { background: var(--azo); border-color: var(--azo); color: #fff; }
+
+.ev-podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 16px; align-items: end; margin: 26px 0 18px; }
+.ev-podio-2 { grid-template-columns: 1fr 1.15fr; }
+.ev-podio-1 { grid-template-columns: minmax(0, 320px); justify-content: center; }
+.ev-pod {
+  position: relative; background: #fff; border: 1px solid var(--bd); border-radius: 16px; padding: 26px 12px 16px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0;
+}
+.ev-pod-1 { border: 2px solid var(--am); background: linear-gradient(180deg, #fff, #fff6d6); padding-top: 30px; }
+.ev-medalla {
+  position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .95rem; color: #fff; background: var(--az);
+  border: 2px solid #fff; box-sizing: border-box;
+}
+.ev-pod-1 .ev-medalla { background: var(--am); color: #2b2100; }
+.ev-pod-3 .ev-medalla { background: var(--azo); }
+.ev-av-pod { width: 54px; height: 54px; font-size: 1.3rem; border-width: 3px; box-shadow: 0 0 0 2px var(--azs); margin-bottom: 4px; }
+.ev-pod-1 .ev-av-pod { width: 64px; height: 64px; font-size: 1.5rem; box-shadow: 0 0 0 3px var(--am); }
+.vistas-estructura .ev-pod-nombre { align-self: center; text-align: center; font-size: .95rem; color: var(--tx); max-width: 100%; overflow-wrap: anywhere; }
+.ev-pod-sub { max-width: 100%; }
+.ev-pod-pct { font-size: 30px; font-weight: 800; color: var(--azo); line-height: 1.15; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
+.ev-pod-1 .ev-pod-pct { font-size: 38px; }
+.ev-pod .ev-punto-rojo { margin-right: 7px; }
+
+.ev-ranking { list-style: none; margin: 0; padding: 0; background: #fff; border: 1px solid var(--bd); border-radius: 16px; overflow: hidden; }
+.ev-fila-ranking {
+  display: grid; grid-template-columns: 40px 40px minmax(180px, 280px) 1fr 100px 64px; align-items: center; gap: 12px;
+  padding: 10px 16px; border-top: 1px solid var(--bd);
+}
+.ev-fila-ranking:first-child { border-top: 0; }
+.ev-fila-ranking:hover { background: #f7faff; }
+.ev-fila-ranking .ev-av-n { width: 40px; height: 40px; font-size: 1rem; border-width: 2px; }
+.ev-puesto { width: 32px; height: 32px; border-radius: 50%; background: var(--azs); color: var(--azo); font-weight: 700; font-size: .9rem; display: flex; align-items: center; justify-content: center; justify-self: center; }
 .ev-rk-quien { min-width: 0; }
-.ev-barra-gruesa { height: 24px; border-radius: 8px; }
-.ev-barra-gruesa > i { border-radius: 8px; opacity: .85; }
-.ev-barra-texto { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 10px; font-size: .78rem; font-weight: 700; color: #14203a; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
-.ev-pct-grande { font-size: 1.5rem; font-weight: 800; text-align: right; }
-.ev-franja-rosa { margin-top: 16px; background: #FDE8EE; border: 1px solid #F3B7C8; border-radius: 10px; padding: 10px 14px; color: #7a1f3d; font-size: .86rem; }
+.ev-rk-barra { height: 30px; border-radius: 99px; background: var(--azs); overflow: hidden; }
+.ev-rk-barra > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0B5ED7, #084298); }
+.ev-rk-cifras { text-align: right; font-size: .84rem; color: var(--tx2); white-space: nowrap; }
+.ev-pct-grande { font-size: 18px; font-weight: 700; color: var(--azo); text-align: right; display: flex; align-items: center; justify-content: flex-end; }
+.ev-franja-sin-meta { margin-top: 16px; background: #fff8db; border: 1px solid #f2d37a; border-radius: 10px; padding: 10px 14px; color: #5c4600; font-size: .86rem; }
 
 /* ---------- Explorador ---------- */
 .ev-explorador { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -156,8 +210,9 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
   .ev-arbol { max-height: 40vh; }
   .ev-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ev-datos { grid-template-columns: 1fr; }
-  .ev-fila-ranking { grid-template-columns: 32px 30px minmax(0, 1fr) 60px; }
-  .ev-fila-ranking .ev-barra-gruesa { grid-column: 1 / -1; order: 5; }
+  .ev-fila-ranking { grid-template-columns: 32px 40px minmax(0, 1fr) auto; }
+  .ev-fila-ranking .ev-rk-barra { grid-column: 1 / -1; order: 5; }
+  .ev-fila-ranking .ev-rk-cifras { grid-column: 1 / -1; order: 6; text-align: left; }
   .ev-equipo li { grid-template-columns: 26px minmax(0, 1fr); }
   .ev-equipo .ev-eq-avance, .ev-equipo li > .ev-sub { grid-column: 1 / -1; }
 }

@@ -16,7 +16,9 @@
    Los TESTIGOS no están en la lista (tienen su pantalla); llegan en la misma respuesta de /estructura, con los mismos
    permisos, y solo la columna «Testigos» de «Por rol» los muestra.
 
-   Colores del avance: rojo < 25 %, ámbar 25–59 %, verde ≥ 60 %. La cifra es la de la lista (incluye a su equipo, la del Σ).
+   Colores del avance: «Por rol», «Explorador» y «Pendientes» usan rojo < 25 %, ámbar 25–59 %, verde ≥ 60 %. «Tarjetas» y «Ranking»
+   (ORDEN 107) pintan todo avance en azul y marcan a quien va bajo 25 % solo con un punto rojo de 8 px junto al %.
+   La cifra es la de la lista (incluye a su equipo, la del Σ).
    ========================================================================== */
 (function (global) {
   'use strict';
@@ -94,6 +96,21 @@
   const chipArea = (i) => (i.area ? `<span class="ev-chip ev-chip-${i.area}">${i.area === 'urbano' ? 'URBANO' : 'RURAL'}</span>` : '');
   const chipOrg = (i) => (!i.area && /Organización/.test(i.zona || '') ? '<span class="ev-chip ev-chip-org">ORGANIZACIÓN</span>' : '');
 
+  /* ---------- ORDEN 107: color de rol y avance de «Tarjetas» y «Ranking» ----------
+     Coordinador azul, Líder azul oscuro, Sublíder amarillo (texto oscuro), cualquier otro rol (aspirante, coord. de organizaciones,
+     testigo…) gris azulado. Las otras vistas siguen con COLOR_ROL. */
+  const ROL_NUEVO = {
+    coordinador: { c: '#0B5ED7', t: '#fff' },
+    lider:       { c: '#084298', t: '#fff' },
+    usuario:     { c: '#FFC300', t: '#3d2c00' },
+  };
+  const ROL_OTROS = { c: '#5b6b86', t: '#fff' };
+  const colorRol = (i) => ROL_NUEVO[i.categoria] || ROL_OTROS;
+  const estiloRol = (i) => { const r = colorRol(i); return `background:${r.c};color:${r.t}`; };
+  const TEXTO_BAJO = 'Menos del 25 % de su meta';
+  const puntoBajo = (i) => (i.meta > 0 && i.pctReal < 25 ? `<i class="ev-punto-rojo" title="${TEXTO_BAJO}"></i>` : '');
+  const avatarNuevo = (i) => `<span class="ev-av-n" style="${estiloRol(i)}" aria-hidden="true">${inicial(i.f)}</span>`;
+
   function textoJefe(i) {
     const f = i.f;
     if (f.supervisor_nombre) return `Reporta a <b>${esc(f.supervisor_nombre)}</b>`;
@@ -107,30 +124,33 @@
     return `<div class="ev-barra ${grosor || ''}"><i style="width:${i.pct.toFixed(1)}%;background:${semaforo(i.pctReal)}"></i></div>`;
   }
 
-  /* ---------- Tarjetas ---------- */
+  /* ---------- Tarjetas · «Avatar con anillo» (ORDEN 107) ---------- */
   function htmlTarjetas(filas) {
     if (!filas.length) return vacio();
     const ordenadas = filas.map(info).sort(porCategoriaYNombre);
     return `<div class="ev-grid-tarjetas">${ordenadas.map((i) => {
-      const col = semaforo(i.pctReal);
-      const anillo = i.meta > 0
-        ? `<div class="ev-anillo" style="--p:${i.pct.toFixed(1)};--c:${col}"><span>${Math.round(i.pctReal)}%</span></div>`
-        : `<div class="ev-anillo ev-anillo-vacio"><span>—</span></div>`;
-      const cifras = i.meta > 0
-        ? `<b>${millares(i.registros)}</b> de ${millares(i.meta)}`
-        : 'Sin meta asignada';
+      const conMeta = i.meta > 0;
+      const grados = conMeta ? (Math.min(100, Math.max(0, i.pct)) * 3.6).toFixed(1) : 0;
+      const pastilla = conMeta ? `${puntoBajo(i)}${Math.round(i.pctReal)}%` : 'sin meta';
+      const zona = i.area ? (i.area === 'urbano' ? 'URBANO' : 'RURAL') : (/Organización/.test(i.zona || '') ? 'ORGANIZACIÓN' : '');
+      const jefe = i.f.supervisor_nombre ? ` title="Le reporta a ${esc(i.f.supervisor_nombre)}"` : '';
       return `
-      <article class="ev-tarjeta" style="--rol:${i.color.c}">
-        <div class="ev-franja"></div>
-        ${avatar(i, 'ev-av-sup')}
-        <h4 class="ev-nombre">${esc(i.f.nombre)}</h4>
-        <div class="ev-etiquetas">${chipRol(i)}${chipArea(i)}${chipOrg(i)}</div>
-        <div class="ev-avance">${anillo}<div class="ev-cifras">${cifras}</div></div>
+      <article class="ev-tarjeta">
+        <div class="ev-anillo-av${conMeta ? '' : ' ev-anillo-av-vacio'}" style="--g:${grados}deg">
+          ${avatarNuevo(i)}
+          <span class="ev-pastilla">${pastilla}</span>
+        </div>
+        <h4 class="ev-nombre"${jefe}>${esc(i.f.nombre)}</h4>
+        <div class="ev-etiquetas"><span class="ev-chip ev-chip-rol" style="${estiloRol(i)}">${esc(i.etiqueta)}</span>${zona ? `<span class="ev-chip ev-chip-zona">${zona}</span>` : ''}</div>
         <div class="ev-lugar">${i.lugar ? esc(i.lugar) : '<span class="ev-tenue">Sin territorio</span>'}</div>
-        <div class="ev-jefe">${textoJefe(i)} · equipo ${millares(i.equipo)}</div>
+        <div class="ev-cifras3">
+          <div><b>${millares(i.registros)}</b><span>Registros</span></div>
+          <div><b>${conMeta ? millares(i.meta) : '—'}</b><span>Meta</span></div>
+          <div><b>${millares(i.equipo)}</b><span>Equipo</span></div>
+        </div>
         <div class="ev-acciones">
-          ${ctx.puedeEditar() ? `<button type="button" class="btn-neutro" data-accion="editar" data-id="${i.f.id}">Editar</button>` : ''}
-          <button type="button" class="btn-neutro" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button>
+          ${ctx.puedeEditar() ? `<button type="button" class="ev-btn ev-btn-editar" data-accion="editar" data-id="${i.f.id}">Editar</button>` : ''}
+          <button type="button" class="ev-btn ev-btn-equipo" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button>
         </div>
       </article>`;
     }).join('')}</div>`;
@@ -181,34 +201,54 @@
     }).join('')}</div>`;
   }
 
-  /* ---------- Ranking ---------- */
+  /* ---------- Ranking · «Podio» (ORDEN 107) ---------- */
   const FICHAS_RANKING = [['todos', 'Todos'], ['coordinador', 'Coordinadores'], ['lider', 'Líderes'], ['sublider', 'Sublíderes']];
+  const quienSub = (i) => `${esc(i.etiqueta)}${i.lugar ? ' · ' + esc(i.lugar) : ''}`;
+  const XdeY = (i) => `${millares(i.registros)} de ${millares(i.meta)}`;
+
+  function htmlPodio(tres) {
+    // Orden visual 2-1-3; con menos de tres se muestran los que haya.
+    const orden = [1, 0, 2].filter((k) => tres[k]);
+    return `<div class="ev-podio ev-podio-${tres.length}">${orden.map((k) => {
+      const i = tres[k];
+      return `
+      <div class="ev-pod ev-pod-${k + 1}">
+        <span class="ev-medalla">${k + 1}</span>
+        <span class="ev-av-n ev-av-pod" style="${estiloRol(i)}" aria-hidden="true">${inicial(i.f)}</span>
+        <button type="button" class="ev-nombre-enlace ev-pod-nombre" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
+        <span class="ev-sub ev-pod-sub">${quienSub(i)}</span>
+        <div class="ev-pod-pct">${puntoBajo(i)}${Math.round(i.pctReal)}%</div>
+        <span class="ev-sub">${XdeY(i)}</span>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
   function htmlRanking(filas) {
     const todos = filas.map(info);
     const enFicha = todos.filter((i) => rankingFiltro === 'todos' || i.grupo === rankingFiltro);
     const conMeta = enFicha.filter((i) => i.meta > 0)
       .sort((a, b) => (b.pctReal - a.pctReal) || (b.registros - a.registros) || (a.f.nombre || '').localeCompare(b.f.nombre || '', 'es'));
     const sinMeta = enFicha.filter((i) => !(i.meta > 0)).sort(porCategoriaYNombre);
-    const medallas = ['🥇', '🥈', '🥉'];
+    const resto = conMeta.slice(3);
     return `
       <div class="ev-fichas-filtro" role="group" aria-label="Quiénes entran al ranking">
         ${FICHAS_RANKING.map(([k, t]) => `<button type="button" class="${rankingFiltro === k ? 'activa' : ''}" data-accion="ranking-filtro" data-valor="${k}">${t}</button>`).join('')}
       </div>
-      ${conMeta.length ? `<ol class="ev-ranking">${conMeta.map((i, n) => {
-        const col = semaforo(i.pctReal);
-        return `
+      ${conMeta.length ? htmlPodio(conMeta.slice(0, 3)) : ''}
+      ${resto.length ? `<ol class="ev-ranking">${resto.map((i, n) => `
         <li class="ev-fila-ranking">
-          <span class="ev-puesto">${n < 3 ? medallas[n] : n + 1}</span>
-          ${avatar(i)}
+          <span class="ev-puesto">${n + 4}</span>
+          ${avatarNuevo(i)}
           <div class="ev-rk-quien">
             <button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
-            <span class="ev-sub">${esc(i.etiqueta)}${i.lugar ? ' · ' + esc(i.lugar) : ''}</span>
+            <span class="ev-sub">${quienSub(i)}</span>
           </div>
-          <div class="ev-barra ev-barra-gruesa"><i style="width:${i.pct.toFixed(1)}%;background:${col}"></i><span class="ev-barra-texto">${millares(i.registros)} de ${millares(i.meta)}</span></div>
-          <span class="ev-pct-grande" style="color:${col}">${Math.round(i.pctReal)}%</span>
-        </li>`;
-      }).join('')}</ol>` : '<div class="ev-vacio">Nadie con meta asignada en esta selección.</div>'}
-      ${sinMeta.length ? `<div class="ev-franja-rosa"><b>Sin meta asignada:</b> ${sinMeta.map((i) => esc(i.f.nombre)).join(', ')}</div>` : ''}`;
+          <div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>
+          <span class="ev-rk-cifras">${XdeY(i)}</span>
+          <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
+        </li>`).join('')}</ol>` : ''}
+      ${!conMeta.length && !sinMeta.length ? '<div class="ev-vacio">Nadie en esta selección.</div>' : ''}
+      ${sinMeta.length ? `<div class="ev-franja-sin-meta"><b>Sin meta asignada (${sinMeta.length}):</b> ${sinMeta.map((i) => esc(i.f.nombre)).join(', ')}. Asígneles meta para que entren al ranking.</div>` : ''}`;
   }
 
   /* ---------- Explorador ---------- */
