@@ -185,7 +185,7 @@ function crearApp() {
     console.log(' · clic en una persona de «Por rol»');
     await elegir('rol');
     ok(await ev("document.querySelectorAll('.ev-mini .ev-btn-mini').length > 0 && [...document.querySelectorAll('.ev-mini .ev-btn-mini')].every(b => b.textContent.trim() === 'Ver equipo')"), 'cada tarjeta de Por rol trae su botón «Ver equipo»');
-    ok(await ev("![...document.querySelectorAll('.ev-columna')].find(c => c.querySelector('.ev-columna-cab span').textContent.trim() === 'Testigos') || ![...document.querySelectorAll('.ev-columna')].find(c => c.querySelector('.ev-columna-cab span').textContent.trim() === 'Testigos').querySelector('.ev-mini .ev-btn-mini, .ev-mini button.ev-nombre-enlace')"), 'los testigos no llevan botón ni enlace (no están en el Explorador)');
+    ok(await ev("![...document.querySelectorAll('.ev-columna')].find(c => c.querySelector('.ev-columna-cab span').textContent.trim() === 'Testigos') && !/Testig/.test(document.getElementById('vistas-estructura').innerText)"), 'ORDEN 111: Por rol no trae la columna Testigos ni ningún testigo');
     // Lo que cada rol alcanza a ver lo decide el SERVIDOR (coordinador: él, sus líderes y los sublíderes de esos líderes; líder: su equipo directo).
     const esAdmin = correo === CORREO_ADMIN, esCoord = correo === 'marta@ejemplo.co', esLider = correo === 'ana109@ejemplo.co';
     const rama = {};
@@ -263,8 +263,7 @@ function crearApp() {
   ok(e.arbol.includes(NOMBRE.ana) && e.arbol.includes(NOMBRE.sandra), 'con su rama plegada, el clic en «Por rol» la despliega', e.arbol);
   // testigos
   await elegir('rol');
-  const testigoEsEnlace = await ev(`!![...document.querySelectorAll('.ev-mini')].find(m => m.textContent.includes('Tomás Testigo')).querySelector('button')`);
-  ok(!testigoEsEnlace, 'el testigo es texto plano en Por rol: sin enlace ni «Ver equipo» (antes saltaba al Explorador a otra persona)');
+  ok(await ev("!/Testig/.test(document.getElementById('vistas-estructura').innerText)"), 'ORDEN 111: los testigos ya no aparecen en Por rol (ni como texto plano)');
   sinAviso('filtros, plegado y testigos');
 
   console.log('\n[Administrador · el mismo N en Lista, Tarjetas, Por rol y Explorador]');

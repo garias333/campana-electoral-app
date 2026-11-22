@@ -2993,10 +2993,8 @@ function renderizarEstructura() {
   pintarAvisoEquipoEstructura();
 
   /* LAS OTRAS CINCO VISTAS LEEN ESTAS MISMAS FILAS, sin ordenar ni plegar: el plegado es cosa de la lista. Los testigos
-     no están en la lista (tienen su pantalla), pero llegan en la misma respuesta de /estructura y con los mismos
-     permisos; solo la columna «Testigos» de «Por rol» los usa, y el filtro de cargo y «Ver equipo» los apartan. */
+     tienen su propia pantalla y no entran en ninguna de las cinco (ORDEN 111). */
   const filasFiltradas = filas;
-  const testigosFiltrados = (cargo || focoEquipoEstructura) ? [] : listaTestigosEstructura.filter(cumpleFiltrosBase);
   const enLista = typeof EstructuraVistas === 'undefined' || EstructuraVistas.vista() === 'lista';
 
   filas = construirOrdenJerarquico(filas);
@@ -3054,7 +3052,7 @@ function renderizarEstructura() {
   filasVisiblesEstructura = enLista ? filas : filasFiltradas;
   if (!enLista) {
     document.getElementById('vacio-estructura').style.display = 'none';
-    EstructuraVistas.pintar({ filas: filasFiltradas, testigos: testigosFiltrados });
+    EstructuraVistas.pintar({ filas: filasFiltradas });
     return;
   }
   const tbody = document.getElementById('tbody-estructura');
@@ -3120,14 +3118,40 @@ function renderizarEstructura() {
  * `rel="noopener"` no es adorno: sin él la pestaña que se abre puede tocar a
  * la que la abrió a través de `window.opener`.
  */
-function pildoraWhatsApp(telefono, nombre) {
+function datosWhatsApp(telefono) {
   const digitos = String(telefono || '').replace(/\D/g, '');
-  if (!digitos) return '<span class="dato-min">Sin teléfono</span>';
-  const visible = digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos;
-  const internacional = digitos.startsWith('57') ? digitos : '57' + digitos;
-  return `<a class="btn-wa-fila" href="https://wa.me/${internacional}" target="whatsappWeb" rel="noopener"
-     onclick="abrirWhatsApp(event, '${internacional}')"
-     title="Escribir por WhatsApp a ${escaparHtml(nombre || 'esta persona')}">💬 ${visible}</a>`;
+  if (!digitos) return null;
+  return {
+    visible: digitos.length === 10 ? formatoTelefonoColombia(digitos) : digitos,
+    internacional: digitos.startsWith('57') ? digitos : '57' + digitos,
+  };
+}
+
+function pildoraWhatsApp(telefono, nombre) {
+  const wa = datosWhatsApp(telefono);
+  if (!wa) return '<span class="dato-min">Sin teléfono</span>';
+  return `<a class="btn-wa-fila" href="https://wa.me/${wa.internacional}" target="whatsappWeb" rel="noopener"
+     onclick="abrirWhatsApp(event, '${wa.internacional}')"
+     title="Escribir por WhatsApp a ${escaparHtml(nombre || 'esta persona')}">💬 ${wa.visible}</a>`;
+}
+
+/**
+ * ORDEN 111 — LO QUE LAS CINCO VISTAS NUEVAS PINTAN DEL WHATSAPP, SALE DE LAS MISMAS DOS FUNCIONES DE ARRIBA.
+ * Misma regla que la Lista (hay botón si hay celular; el número, el 57 y el enlace salen de `datosWhatsApp`) y el mismo
+ * `abrirWhatsApp`. Sin celular no se pinta nada (la Lista dice «Sin teléfono»; una tarjeta no necesita decirlo).
+ * `pildoraWhatsAppVista` es la píldora de la Lista tal cual; `iconoWhatsAppVista` es el mismo enlace como botón redondo
+ * con el glifo de la barra lateral (`ICONO_WHATSAPP`, common.js) y el número en el title.
+ */
+function pildoraWhatsAppVista(f) {
+  return datosWhatsApp(f.telefono) ? pildoraWhatsApp(f.telefono, f.nombre) : '';
+}
+function iconoWhatsAppVista(f) {
+  const wa = datosWhatsApp(f.telefono);
+  if (!wa) return '';
+  const nombre = escaparHtml(f.nombre || 'esta persona');
+  return `<a class="ev-wa-icono" href="https://wa.me/${wa.internacional}" target="whatsappWeb" rel="noopener"
+     onclick="abrirWhatsApp(event, '${wa.internacional}')"
+     title="Escribir por WhatsApp a ${nombre}: ${wa.visible}" aria-label="Escribir por WhatsApp a ${nombre}">${ICONO_WHATSAPP}</a>`;
 }
 
 /**
@@ -3419,7 +3443,8 @@ function iniciarVistasEstructura() {
     puedeEditar: () => usuarioActual.rol === 'admin',
     puedeAgregar: puedeAgregarCategoriaEstructura,
     categoriaDelEquipo: (cat) => CATEGORIA_DEL_EQUIPO[cat] || null,
-    puedeAgregarTestigo: () => ['admin', 'candidato'].includes(usuarioActual.rol),
+    whatsappPildora: pildoraWhatsAppVista,
+    whatsappIcono: iconoWhatsAppVista,
     editar: (id) => abrirEdicion(id),
     agregar: (categoria, supervisorUsuarioId) => abrirCreacionEnCategoriaEstructura(categoria, supervisorUsuarioId),
     verEquipo: verEquipoEstructura,

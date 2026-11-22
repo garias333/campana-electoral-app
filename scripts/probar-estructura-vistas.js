@@ -177,7 +177,7 @@ function crearApp() {
     }
     d.pods.forEach((x) => {
       const primero = x.n === '1';
-      ok(x.cifras && x.fs === (primero ? '38px' : '30px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 38 : 30} px, avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
+      ok(x.cifras && x.fs === (primero ? '44px' : '35px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 44 : 35} px (+15 %), avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
       ok(x.med === ({ 1: 'rgb(255, 195, 0)', 2: 'rgb(11, 94, 215)', 3: 'rgb(8, 66, 152)' })[x.n], `medalla ${x.n} del color de marca`, x.med);
       if (primero) ok(x.bw === '2px' && x.borde === 'rgb(255, 195, 0)', 'el 1.º con borde amarillo de 2 px', x);
     });
@@ -187,7 +187,7 @@ function crearApp() {
       ok(f.fondo === 'rgb(232, 240, 253)' && /rgb\(11, 94, 215\).*rgb\(8, 66, 152\)/.test(f.relleno), 'fondo #e8f0fd y relleno degradado #0B5ED7 → #084298', { fondo: f.fondo, relleno: f.relleno });
       ok(f.ancho >= 0.0195, 'relleno visible (mínimo 2 %)', f.ancho);
       ok(f.textoEnBarra === '' && f.cifras.length > 0 && f.cifX >= f.barraFin, '«X de Y» fuera de la barra, en su columna', f);
-      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '18px', '% de 18 px en #084298', f);
+      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '21px', '% de 21 px (18 +15 %) en #084298', f);
       ok(f.punto === (f.pct < 25), 'punto rojo solo si va bajo 25 %', f);
     });
     ok(d.rojos === 0, 'no queda rojo/ámbar/verde de semáforo en barras, anillos ni porcentajes', d.rojos);
@@ -243,8 +243,103 @@ function crearApp() {
     }
   }
 
+
+  /* ============ ORDEN 111: sin testigos, letra más grande y WhatsApp en las cinco vistas ============ */
+  async function comprobarOrden111(etq, correo, anchos) {
+    for (const w of anchos) {
+      console.log(`\n[ORDEN 111 · ${etq} · ${w} px]`);
+      await ancho(w); await limpiar(); await entrar(correo); await abrirEstructura();
+      // La Lista es la referencia: nombre -> { href, onclick, texto } del botón verde (o null si no lo trae).
+      const lista = await ev(`(() => { const m = {}; document.querySelectorAll('#tbody-estructura .ficha-p').forEach(f => { const a = f.querySelector(':scope > .ficha-cuerpo .btn-wa-fila'); m[f.querySelector(':scope > .ficha-cuerpo .nombre-p').textContent.trim()] = a ? { href: a.getAttribute('href'), onclick: a.getAttribute('onclick'), texto: a.textContent.trim() } : null; }); return m; })()`);
+      const conTel = Object.values(lista).filter(Boolean).length, sinTel = Object.values(lista).filter((x) => !x).length;
+      ok(conTel > 0, `Lista: ${conTel} con botón de WhatsApp y ${sinTel} sin celular`);
+      if (etq === 'administrador') ok(sinTel > 0 && Object.values(lista).some((x) => x && /^💬 \d{3} \d{3} \d{4}$/.test(x.texto)), 'hay personas sin celular y el número sale como «310 471 2806»', lista);
+      // Lo que cada vista pinta: [{ nombre, href, onclick, texto, titulo }] por persona, y qué personas hay.
+      const leer = (contSel, nombreSel, waSel) => ev(`(() => [...document.querySelectorAll(${JSON.stringify(contSel)})].map(c => { const a = c.querySelector(${JSON.stringify(waSel)}); return { nombre: c.querySelector(${JSON.stringify(nombreSel)}).textContent.trim(), href: a && a.getAttribute('href'), onclick: a && a.getAttribute('onclick'), texto: a && a.textContent.trim(), titulo: a && a.getAttribute('title'), clase: a && a.className }; }))()`);
+      const compara = (vista, filas, tipo, puedeVaciar) => {
+        const malas = filas.filter((x) => {
+          const ref = lista[x.nombre];
+          if (ref === undefined) return true;                       // una persona que la Lista no tiene
+          if (!ref) return !!x.href;                                // sin celular en la Lista → sin botón aquí
+          return x.href !== ref.href || x.onclick !== ref.onclick || (tipo === 'pildora' ? x.texto !== ref.texto : !x.titulo.includes(ref.texto.replace('💬 ', '')));
+        });
+        ok((puedeVaciar || filas.length > 0) && malas.length === 0, `${vista}: WhatsApp igual al de la Lista en ${filas.length} personas (mismo href, onclick y número; sin celular → sin botón)`, malas.slice(0, 3));
+        ok(filas.filter((x) => lista[x.nombre]).every((x) => !!x.href), `${vista}: todas las que tienen celular en la Lista lo traen`);
+      };
+      await elegir('tarjetas');
+      compara('Tarjetas', await leer('.ev-tarjeta', '.ev-nombre', '.btn-wa-fila'), 'pildora');
+      await elegir('rol');
+      compara('Por rol', await leer('.ev-mini', '.ev-nombre-enlace', '.btn-wa-fila'), 'pildora');
+      await elegir('ranking');
+      compara('Ranking (podio)', await leer('.ev-pod', '.ev-pod-nombre', '.ev-wa-icono'), 'icono');
+      compara('Ranking (filas)', await leer('.ev-fila-ranking', '.ev-nombre-enlace', '.ev-wa-icono'), 'icono', true);
+      await elegir('pendientes');
+      compara('Pendientes', await leer('.ev-pend-lista li:not(.ev-pend-nadie)', '.ev-pend-quien b', '.ev-wa-icono'), 'icono');
+      await elegir('explorador');
+      const nodos = await ev("document.querySelectorAll('.ev-nodo-btn').length");
+      let fichas = [], equipos = [];
+      for (let k = 0; k < nodos; k++) {
+        await ev(`document.querySelectorAll('.ev-nodo-btn')[${k}].click()`); await espera(200);
+        fichas = fichas.concat(await leer('#ev-ficha .ev-ficha-cab', 'h3', '.btn-wa-fila'));
+        equipos = equipos.concat(await leer('#ev-ficha .ev-equipo li', '.ev-nombre-enlace', '.ev-wa-icono'));
+      }
+      compara('Explorador (ficha)', fichas, 'pildora');
+      if (equipos.length) compara('Explorador (Su equipo)', equipos, 'icono');
+      // la píldora de la ficha va junto a «Editar» (administrador)
+      if (etq === 'administrador') ok(await ev("(() => { const b = document.querySelector('#ev-ficha .ev-ficha-botones'); return !!b.querySelector('.btn-wa-fila') && !!b.querySelector('[data-accion=editar]'); })()") || !(await ev("!!document.querySelector('#ev-ficha .ev-ficha-botones .btn-wa-fila')")), 'Explorador: la píldora verde va en el mismo grupo que «Editar»');
+
+      // ---- Por rol sin testigos, 3 columnas a lo ancho
+      await elegir('rol');
+      const col = await ev(`(() => { const g = document.querySelector('.ev-columnas'), r = g.getBoundingClientRect(); const cs = [...g.children].map(c => c.getBoundingClientRect()); return { n: getComputedStyle(g).gridTemplateColumns.split(' ').length, ancho: r.width, suma: cs.reduce((t, c) => t + c.width, 0), gaps: parseFloat(getComputedStyle(g).columnGap) * (cs.length - 1), titulos: [...g.querySelectorAll('.ev-columna-cab span:first-child')].map(e => e.textContent.trim()), tam: [...g.querySelectorAll('.ev-columna-cab')].map(e => getComputedStyle(e).fontSize) }; })()`);
+      ok(col.n === 3 && Math.abs(col.suma + col.gaps - col.ancho) < 2, 'Por rol: 3 columnas que ocupan todo el ancho', col);
+      ok(JSON.stringify(col.titulos) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']) && col.tam.every((t) => t === '17px'), 'Por rol: encabezados Coordinadores, Líderes y Sublíderes en 17 px', col);
+      for (const v of VISTAS.filter((x) => x !== 'lista')) {
+        await elegir(v);
+        ok(!/Testig/.test(await ev("document.getElementById('vistas-estructura').innerText")), `${v}: no hay testigos`);
+        ok(await sinDesborde(), `${v}: sin desborde de la página a ${w} px`);
+        ok(await ev(`(() => { const c = document.getElementById('vistas-estructura').getBoundingClientRect(); return [...document.querySelectorAll('#vistas-estructura *')].every(e => { const r = e.getBoundingClientRect(); return r.width === 0 || (r.right <= c.right + 1 && r.left >= c.left - 1); }); })()`), `${v}: nada se sale de su caja a ${w} px`);
+        if (etq === 'administrador' && w === 1280) { await ev("window.scrollTo(0, document.getElementById('vistas-estructura').getBoundingClientRect().top + window.scrollY - 70)"); await espera(250); await foto(`orden111-${v}-1280`); await ev('window.scrollTo(0, 0)'); }
+      }
+
+      // ---- tamaños de letra (getComputedStyle)
+      const tam = (sel, prop = 'fontSize') => ev(`(() => [...new Set([...document.querySelectorAll(${JSON.stringify(sel)})].map(e => getComputedStyle(e)[${JSON.stringify(prop)}]))])()`);
+      const todos = (sel, esperado, prop) => tam(sel, prop).then((t) => t.length > 0 && t.every((x) => x === esperado));
+      const altos = (sel) => ev(`(() => { const l = [...document.querySelectorAll(${JSON.stringify(sel)})]; return l.length > 0 && l.every(e => e.getBoundingClientRect().height >= 33.5); })()`);
+      await elegir('tarjetas');
+      ok(await todos('.ev-tarjeta .ev-nombre', '17px'), 'Tarjetas: nombre 17 px', await tam('.ev-tarjeta .ev-nombre'));
+      ok(await todos('.ev-tarjeta .ev-nombre', '700', 'fontWeight'), 'Tarjetas: nombre en negrita');
+      ok(await todos('.ev-tarjeta .ev-lugar', '15px'), 'Tarjetas: territorio 15 px', await tam('.ev-tarjeta .ev-lugar'));
+      ok(await todos('.ev-tarjeta .ev-chip', '12.5px'), 'Tarjetas: chips 12,5 px', await tam('.ev-tarjeta .ev-chip'));
+      ok(await todos('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila', '14px') && await altos('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila'), 'Tarjetas: botones y WhatsApp 14 px y ≥ 34 px de alto', await tam('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila'));
+      ok(await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.btn-wa-fila')); const a = t.querySelector('.btn-wa-fila').getBoundingClientRect(), c = t.getBoundingClientRect(); return Math.abs((a.left + a.right) / 2 - (c.left + c.right) / 2) < 3 && a.top > t.querySelector('.ev-etiquetas').getBoundingClientRect().bottom - 1; })()"), 'Tarjetas: píldora verde centrada debajo del nombre y los chips');
+      await elegir('rol');
+      ok(await todos('.ev-mini .ev-nombre-enlace', '17px') && await todos('.ev-mini .ev-nombre-enlace', '700', 'fontWeight'), 'Por rol: nombre 17 px negrita', await tam('.ev-mini .ev-nombre-enlace'));
+      ok(await todos('.ev-mini .ev-sub', '15px'), 'Por rol: secundarios 15 px', await tam('.ev-mini .ev-sub'));
+      ok(await todos('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila', '14px') && await altos('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila'), 'Por rol: «Ver equipo» y WhatsApp 14 px y ≥ 34 px', await tam('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila'));
+      ok(await ev("(() => { const m = [...document.querySelectorAll('.ev-mini')].find(x => x.querySelector('.btn-wa-fila')); const e = m.querySelector('.ev-equipo-linea'), a = m.querySelector('.btn-wa-fila'), b = m.querySelector('.ev-btn-mini'); return (!e || a.getBoundingClientRect().top >= e.getBoundingClientRect().bottom - 1) && !!a.parentNode.contains(b); })()"), 'Por rol: la píldora va debajo de «Equipo: N personas», junto a «Ver equipo»');
+      await elegir('ranking');
+      ok(await todos('.ev-pod-nombre, .ev-fila-ranking .ev-nombre-enlace', '17px'), 'Ranking: nombre 17 px', await tam('.ev-pod-nombre, .ev-fila-ranking .ev-nombre-enlace'));
+      ok(await todos('.ev-pod .ev-sub, .ev-fila-ranking .ev-sub, .ev-rk-cifras', '15px'), 'Ranking: secundarios y «X de Y» 15 px', await tam('.ev-pod .ev-sub, .ev-fila-ranking .ev-sub, .ev-rk-cifras'));
+      const redondos = await ev("[...document.querySelectorAll('.ev-pod .ev-wa-icono, .ev-fila-ranking .ev-wa-icono')].map(a => { const r = a.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(a).borderRadius, getComputedStyle(a).backgroundColor]; })");
+      ok(redondos.length > 0 && redondos.every((x) => x[0] === 34 && x[1] === 34 && x[2] === '50%' && x[3] === 'rgb(37, 211, 102)'), 'Ranking: ícono verde redondo de 34 px (color de la Lista)', redondos.slice(0, 2));
+      ok(await ev("(() => { const f = document.querySelector('.ev-fila-ranking .ev-wa-icono'); return !f || f === f.parentNode.lastElementChild; })()"), 'Ranking: el ícono va al final de la fila');
+      await elegir('explorador');
+      ok(await todos('.ev-nodo-nombre', '17px'), 'Explorador: nombre en el árbol 17 px', await tam('.ev-nodo-nombre'));
+      ok(await todos('#ev-ficha .ev-equipo .ev-nombre-enlace', '17px') || (await ev("document.querySelectorAll('#ev-ficha .ev-equipo li').length")) === 0, 'Explorador: nombres de «Su equipo» 17 px');
+      ok(await todos('#ev-ficha .ev-sub', '15px'), 'Explorador: secundarios 15 px', await tam('#ev-ficha .ev-sub'));
+      ok(await todos('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas', '14px') && await altos('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas'), 'Explorador: botones 14 px y ≥ 34 px', await tam('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas'));
+      await elegir('pendientes');
+      ok(await todos('.ev-pend-quien b', '17px'), 'Pendientes: nombre 17 px', await tam('.ev-pend-quien b'));
+      ok(await todos('.ev-pend-quien .ev-sub', '15px'), 'Pendientes: secundarios 15 px', await tam('.ev-pend-quien .ev-sub'));
+      ok(await todos('.ev-pend-lista .btn-neutro', '14px') && await altos('.ev-pend-lista .btn-neutro'), 'Pendientes: botones de acción 14 px y ≥ 34 px', await tam('.ev-pend-lista .btn-neutro'));
+      ok(await ev("[...document.querySelectorAll('.ev-pend-lista li')].every(li => { const a = li.querySelector('.ev-wa-icono'), b = li.querySelector('.btn-neutro'); return !a || !b || a.nextElementSibling === b; })"), 'Pendientes: el ícono verde va al lado del botón de acción');
+      ok(p.avisos.length === 0, `sin errores de consola (ORDEN 111 · ${etq} · ${w})`, p.avisos);
+    }
+  }
+
   /* ============ ADMINISTRADOR ============ */
   await comprobarRol('administrador', CORREO_ADMIN, CLAVE, [1280, 1600]);
+  await comprobarOrden111('administrador', CORREO_ADMIN, [1280, 1600]);
 
   console.log('\n[Administrador · detalle de cada vista · 1280 px]');
   await ancho(1280); await limpiar(); await entrar(CORREO_ADMIN); await abrirEstructura();
@@ -306,13 +401,13 @@ function crearApp() {
 
   await elegir('rol');
   const rolInfo = await personasDeVista('rol');
-  ok(JSON.stringify(rolInfo.columnas) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes', 'Testigos']), 'Por rol: cuatro columnas con su nombre', rolInfo.columnas);
-  ok(rolInfo.testigos.length === 2, 'Por rol: columna Testigos con los 2 testigos de la misma respuesta', rolInfo.testigos);
-  ok(await ev("getComputedStyle(document.querySelector('.ev-columnas')).gridTemplateColumns.split(' ').length === 4"), 'cuatro columnas a 1280 px');
+  ok(JSON.stringify(rolInfo.columnas) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']), 'Por rol: tres columnas con su nombre (ORDEN 111: sin Testigos)', rolInfo.columnas);
+  ok(rolInfo.testigos.length === 0 && !/Testigo/.test(await ev("document.getElementById('vistas-estructura').innerText")), 'Por rol: ningún testigo (ni columna ni nombres)', rolInfo.testigos);
+  ok(await ev("getComputedStyle(document.querySelector('.ev-columnas')).gridTemplateColumns.split(' ').length === 3"), 'tres columnas a 1280 px');
   const colores = await ev("[...document.querySelectorAll('.ev-columna-cab')].map(h => getComputedStyle(h).backgroundColor)");
-  ok(JSON.stringify(colores) === JSON.stringify(['rgb(11, 94, 215)', 'rgb(8, 66, 152)', 'rgb(138, 90, 0)', 'rgb(46, 125, 50)']), 'encabezados con los colores de rol', colores);
+  ok(JSON.stringify(colores) === JSON.stringify(['rgb(11, 94, 215)', 'rgb(8, 66, 152)', 'rgb(138, 90, 0)']), 'encabezados con los colores de rol', colores);
   const agregarAdmin = await txt('.ev-columna-pie .ev-agregar');
-  ok(JSON.stringify(agregarAdmin) === JSON.stringify(['+ Agregar coordinador', '+ Agregar líder', '+ Agregar sublíder', '+ Agregar testigo']), 'administrador: «+ Agregar» en las cuatro columnas', agregarAdmin);
+  ok(JSON.stringify(agregarAdmin) === JSON.stringify(['+ Agregar coordinador', '+ Agregar líder', '+ Agregar sublíder']), 'administrador: «+ Agregar» en las tres columnas', agregarAdmin);
   for (const [cat, texto] of [['usuario', 'sublíder'], ['coordinador', 'coordinador'], ['lider', 'líder']]) {
     await ev(`document.querySelector('.ev-agregar[data-cat="${cat}"]').click()`);
     const abierto = await esperar("document.getElementById('overlay-form').classList.contains('abierto')", 8000);
@@ -362,7 +457,7 @@ function crearApp() {
   const primera = await ev("document.querySelector('.ev-nodo.sel .ev-nodo-nombre').textContent.trim()");
   const primeroDelArbol = await ev("document.querySelector('.ev-nodo .ev-nodo-nombre').textContent.trim()");
   ok(primera === primeroDelArbol && (await ev("document.querySelector('#ev-ficha h3').textContent.trim()")) === primera, 'Explorador: al abrir queda seleccionada la primera persona y su ficha', { primera });
-  ok(await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") >= 320 && await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") <= 340, 'panel izquierdo de ≈330 px');
+  ok(await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") >= 350 && await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") <= 370, 'panel izquierdo de ≈360 px (ORDEN 111: letra más grande)');
   await ev("[...document.querySelectorAll('.ev-nodo-btn')].find(b => b.textContent.includes('Marta')).click()"); await espera(350);
   const ficha = await ev("document.getElementById('ev-ficha').innerText");
   ok(/Marta Coordinadora/.test(ficha) && /Personas a cargo/.test(ficha) && /Su equipo/.test(ficha) && /Celular/.test(ficha) && /Autorización de datos/.test(ficha), 'ficha de Marta: indicadores, datos y «Su equipo»', ficha.slice(0, 200));
@@ -415,6 +510,7 @@ function crearApp() {
 
   /* ============ COORDINADOR ============ */
   await comprobarRol('coordinador', 'marta@ejemplo.co', CLAVE, [1280, 1600]);
+  await comprobarOrden111('coordinador', 'marta@ejemplo.co', [1280, 1600]);
   console.log('\n[Coordinador · permisos de «+ Agregar»]');
   await ancho(1280); await limpiar(); await entrar('marta@ejemplo.co'); await abrirEstructura();
   await elegir('rol');
@@ -435,6 +531,7 @@ function crearApp() {
 
   /* ============ LÍDER ============ */
   await comprobarRol('líder', 'ana105@ejemplo.co', CLAVE, [1280]);
+  await comprobarOrden111('líder', 'ana105@ejemplo.co', [1280, 1600]);
   console.log('\n[Líder · permisos]');
   await ancho(1280); await limpiar(); await entrar('ana105@ejemplo.co'); await abrirEstructura();
   await elegir('rol');

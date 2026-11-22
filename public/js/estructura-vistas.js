@@ -13,8 +13,10 @@
    «Sin equipo todavía» miran la estructura completa que ya cargó la pantalla (`ctx.todas()`): que alguien tenga equipo
    no depende de que el filtro de la lista lo esconda. Lo que se LISTA en cada vista sale del filtro.
 
-   Los TESTIGOS no están en la lista (tienen su pantalla); llegan en la misma respuesta de /estructura, con los mismos
-   permisos, y solo la columna «Testigos» de «Por rol» los muestra.
+   Los TESTIGOS no entran en ninguna vista (ORDEN 111): tienen su propia pantalla, como en la Lista.
+
+   WHATSAPP (ORDEN 111): el botón es el de la Lista —`ctx.whatsappPildora` / `ctx.whatsappIcono` llaman a las mismas
+   funciones de territorial.html—; sin celular no se pinta. Aquí solo se decide DÓNDE va en cada vista.
 
    Colores del avance: «Por rol», «Explorador» y «Pendientes» usan rojo < 25 %, ámbar 25–59 %, verde ≥ 60 %. «Tarjetas» y «Ranking»
    (ORDEN 107) pintan todo avance en azul y marcan a quien va bajo 25 % solo con un punto rojo de 8 px junto al %.
@@ -39,7 +41,7 @@
   let rankingFiltro = 'todos';
   let seleccion = null;               // usuario_id de la persona abierta en el Explorador
   const plegados = new Set();         // usuario_id plegados en el árbol del Explorador
-  let ultimo = { filas: [], testigos: [] };
+  let ultimo = { filas: [] };
   let hijosPorJefe = new Map();       // usuario_id del jefe -> filas de toda la estructura
   let ramaForzada = null;             // ORDEN 109: usuario_id cuya rama se muestra COMPLETA en el árbol aunque un filtro de la lista la esconda
   let enfocarSeleccion = false;       // ORDEN 109: tras llegar con un clic, llevar la vista al nodo elegido
@@ -108,6 +110,8 @@
   }
 
   const inicial = (f) => esc((f.nombre || '?').trim().charAt(0).toUpperCase());
+  const wa = (f) => (ctx.whatsappPildora ? ctx.whatsappPildora(f) : '');
+  const waIcono = (f) => (ctx.whatsappIcono ? ctx.whatsappIcono(f) : '');
   const avatar = (i, extra) => `<span class="ev-av ${extra || ''}" style="background:${i.color.c}" aria-hidden="true">${inicial(i.f)}</span>`;
   const chipRol = (i) => `<span class="ev-chip" style="color:${i.color.c};background:${i.color.bg}">${esc(i.etiqueta)}</span>`;
   const chipArea = (i) => (i.area ? `<span class="ev-chip ev-chip-${i.area}">${i.area === 'urbano' ? 'URBANO' : 'RURAL'}</span>` : '');
@@ -159,6 +163,7 @@
         </div>
         <h4 class="ev-nombre"${jefe}>${esc(i.f.nombre)}</h4>
         <div class="ev-etiquetas"><span class="ev-chip ev-chip-rol" style="${estiloRol(i)}">${esc(i.etiqueta)}</span>${zona ? `<span class="ev-chip ev-chip-zona">${zona}</span>` : ''}</div>
+        ${wa(i.f)}
         <div class="ev-lugar">${i.lugar ? esc(i.lugar) : '<span class="ev-tenue">Sin territorio</span>'}</div>
         <div class="ev-cifras3">
           <div><b>${millares(i.registros)}</b><span>Registros</span></div>
@@ -184,16 +189,13 @@
     { grupo: 'coordinador', titulo: 'Coordinadores', agregar: 'coordinador', rotulo: '+ Agregar coordinador' },
     { grupo: 'lider', titulo: 'Líderes', agregar: 'lider', rotulo: '+ Agregar líder' },
     { grupo: 'sublider', titulo: 'Sublíderes', agregar: 'usuario', rotulo: '+ Agregar sublíder' },
-    { grupo: 'testigo', titulo: 'Testigos', agregar: null, rotulo: '+ Agregar testigo' },
   ];
-  function htmlPorRol(filas, testigos) {
-    const todos = filas.concat(testigos).map(info);
+  function htmlPorRol(filas) {
+    const todos = filas.map(info);
     return `<div class="ev-columnas">${COLUMNAS.map((col) => {
       const gente = todos.filter((i) => i.grupo === col.grupo).sort(porCategoriaYNombre);
       let pie = '';
-      if (col.grupo === 'testigo') {
-        if (ctx.puedeAgregarTestigo()) pie = `<a class="ev-agregar" href="/testigos.html">${col.rotulo}</a>`;
-      } else if (ctx.puedeAgregar(col.agregar)) {
+      if (ctx.puedeAgregar(col.agregar)) {
         pie = `<button type="button" class="ev-agregar" data-accion="agregar" data-cat="${col.agregar}">${col.rotulo}</button>`;
       }
       const c = COLOR_ROL[col.grupo];
@@ -205,15 +207,13 @@
           <div class="ev-mini" style="--rol:${c.c}">
             ${avatar(i)}
             <div class="ev-mini-texto">
-              ${i.grupo === 'testigo'
-                ? `<span class="ev-nombre-enlace ev-nombre-plano">${esc(i.f.nombre)}</span>`
-                : `<button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>`}
+              <button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
               ${i.categoria === 'aspirante_concejo' || i.categoria === 'coordinador_organizaciones' ? `<span class="ev-sub">${esc(i.etiqueta)}</span>` : ''}
               <span class="ev-sub">${i.lugar ? esc(i.lugar) : 'Sin territorio'}</span>
               <span class="ev-sub">${textoJefe(i)}</span>
               ${muestraEquipo(i) ? `<span class="ev-sub ev-equipo-linea">👥 Equipo: <b>${textoPersonas(i.equipo)}</b></span>` : ''}
               ${i.meta > 0 ? `${barra(i)}<span class="ev-sub"><b>${millares(i.registros)}</b> de ${millares(i.meta)} · <b style="color:${semaforo(i.pctReal)}">${Math.round(i.pctReal)} %</b></span>` : ''}
-              ${i.grupo !== 'testigo' ? `<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button>` : ''}
+              <div class="ev-mini-acciones">${wa(i.f)}<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
             </div>
           </div>`).join('') || '<div class="ev-columna-vacia">Nadie en esta columna.</div>'}
         </div>
@@ -238,6 +238,7 @@
         <span class="ev-av-n ev-av-pod" style="${estiloRol(i)}" aria-hidden="true">${inicial(i.f)}</span>
         <button type="button" class="ev-nombre-enlace ev-pod-nombre" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
         <span class="ev-sub ev-pod-sub">${quienSub(i)}</span>
+        ${waIcono(i.f)}
         <div class="ev-pod-pct">${puntoBajo(i)}${Math.round(i.pctReal)}%</div>
         <span class="ev-sub">${XdeY(i)}</span>
       </div>`;
@@ -267,6 +268,7 @@
           <div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>
           <span class="ev-rk-cifras">${XdeY(i)}</span>
           <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
+          ${waIcono(i.f)}
         </li>`).join('')}</ol>` : ''}
       ${!conMeta.length && !sinMeta.length ? '<div class="ev-vacio">Nadie en esta selección.</div>' : ''}
       ${sinMeta.length ? `<div class="ev-franja-sin-meta"><b>Sin meta asignada (${sinMeta.length}):</b> ${sinMeta.map((i) => esc(i.f.nombre)).join(', ')}. Asígneles meta para que entren al ranking.</div>` : ''}`;
@@ -329,6 +331,7 @@
           <div class="ev-sub">${textoJefe(i)}</div>
         </div>
         <div class="ev-ficha-botones">
+          ${wa(f)}
           ${ctx.puedeEditar() ? `<button type="button" class="btn-neutro" data-accion="editar" data-id="${f.id}">Editar</button>` : ''}
           ${puedeAgregar ? `<button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}
         </div>
@@ -351,6 +354,7 @@
         return `<li>${avatar(hi)}
           <div class="ev-eq-quien"><button type="button" class="ev-nombre-enlace" data-accion="seleccionar" data-uid="${h.usuario_id}">${esc(h.nombre)}</button><span class="ev-sub">${esc(hi.etiqueta)}${hi.lugar ? ' · ' + esc(hi.lugar) : ''}</span></div>
           ${hi.meta > 0 ? `<div class="ev-eq-avance">${barra(hi)}<span class="ev-sub"><b>${millares(hi.registros)}</b> de ${millares(hi.meta)} · ${Math.round(hi.pctReal)} %</span></div>` : '<span class="ev-sub">Sin meta</span>'}
+          ${waIcono(h)}
         </li>`;
       }).join('')}</ul>` : `<div class="ev-vacio-chico ev-sin-equipo">Aún no tiene equipo.${puedeAgregar ? ` <button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>`}`;
   }
@@ -450,7 +454,7 @@
           ${g.lista.map((i) => `<li>
             ${avatar(i, 'ev-av-chico')}
             <div class="ev-pend-quien"><b>${esc(i.f.nombre)}</b><span class="ev-sub">${esc(i.etiqueta)}${g.detalle(i) ? ' · ' + esc(g.detalle(i)) : ''}</span></div>
-            ${g.accion(i)}
+            ${waIcono(i.f)}${g.accion(i)}
           </li>`).join('') || '<li class="ev-pend-nadie">Nadie en este grupo.</li>'}
         </ul>
       </section>`).join('')}</div>`;
@@ -475,7 +479,7 @@
     const scrollArbol = antes ? antes.scrollTop : 0;
     let html = '';
     if (vista === 'tarjetas') html = htmlTarjetas(datos.filas);
-    else if (vista === 'rol') html = (datos.filas.length || datos.testigos.length) ? htmlPorRol(datos.filas, datos.testigos) : vacio();
+    else if (vista === 'rol') html = datos.filas.length ? htmlPorRol(datos.filas) : vacio();
     else if (vista === 'ranking') html = datos.filas.length ? htmlRanking(datos.filas) : vacio();
     else if (vista === 'explorador') html = htmlExplorador(datos.filas);
     else if (vista === 'pendientes') html = htmlPendientes(datos.filas);
