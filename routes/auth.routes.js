@@ -387,12 +387,36 @@ router.post('/login', async (req, res) => {
     // tildes, y una función sobre la columna impediría usar su índice
     // único — cada intento de login recorrería la tabla entera.
     const identificador = email.trim().toLowerCase();
-    const [rows] = await pool.query(
+    let [rows] = await pool.query(
       `SELECT u.*, r.nombre AS rol
        FROM usuarios u JOIN roles r ON r.id = u.rol_id
        WHERE u.email = ? OR u.nombre_usuario = ? LIMIT 1`,
       [identificador, identificador]
     );
+
+    /* ORDEN 102: SI NO HAY CORREO NI NOMBRE DE USUARIO, Y LO ESCRITO SON SOLO DÍGITOS, TAMBIÉN SE BUSCA POR NÚMERO DE CÉDULA.
+       «Acceso a candidato» (orden 101) pide la cédula; si a alguien le editaron el nombre de usuario, la cédula ya no lo encontraba. Solo cuentan los usuarios ACTIVOS y se compara
+       con la misma regla que el ingreso del celular (normalizarCedula: sin puntos ni ceros a la izquierda). Va DESPUÉS de correo y nombre de usuario: lo que entraba antes entra igual.
+       Si la cédula coincide con MÁS de un usuario no se adivina: la misma respuesta genérica de credenciales inválidas (sin revelar que hay duplicados) y queda en la bitácora.
+       Desde aquí todo sigue igual: mismo límite de intentos, misma autorización de equipo, mismo 2FA, misma bitácora. */
+    if (rows.length === 0 && /^\d+$/.test(identificador)) {
+      const cedula = normalizarCedula(identificador);
+      if (cedula) {
+        const [porCedula] = await pool.query(
+          `SELECT u.*, r.nombre AS rol
+             FROM usuarios u JOIN roles r ON r.id = u.rol_id
+            WHERE u.activo = 1 AND ${sqlCedulaNormalizada('u.numero_identificacion')} = ?
+            LIMIT 2`, [cedula]);
+        if (porCedula.length > 1) {
+          await bcrypt.compare(password, HASH_DE_DESCARTE);
+          console.error(`Ingreso por cédula: la cédula terminada en ${finDeCedula(cedula) || '***'} coincide con más de un usuario activo; se rechaza.`);
+          await registrarAuditoria(null, 'login_fallido',
+            `Ingreso por cédula rechazado: la cédula terminada en ${finDeCedula(cedula) || '***'} coincide con más de un usuario activo (ids ${porCedula.map((u) => u.id).join(', ')}). Corregir el dato duplicado.`, req.ip);
+          return res.status(401).json({ error: 'Credenciales inválidas.' });
+        }
+        rows = porCedula;
+      }
+    }
 
     if (rows.length === 0) {
       // Se compara igual, contra un hash de descarte, para que responder
