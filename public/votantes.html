@@ -2350,7 +2350,7 @@ async function editarVotante(v) {
   passwordEdicionVotante = clave;
 
   const form = document.getElementById('form-votante');
-  document.getElementById('titulo-modal').textContent = 'Editar votante o sublíder';
+  document.getElementById('titulo-modal').textContent = (usuarioActual && usuarioActual.rol === 'coordinador') ? 'Editar votante' : 'Editar votante o sublíder';
   // Las fichas son del alta de un sublíder; una ficha de Votantes que se edita no trae lista.
   fichasTerritoriosVotante.vaciar();
   document.getElementById('form-error').classList.remove('visible');
@@ -2368,13 +2368,13 @@ async function editarVotante(v) {
   form.querySelectorAll('input[name="apoya_a"]').forEach(c => { c.checked = apoyaAGuardadoVotante.includes(c.value); });
   actualizarCiudadesResidenciaVotante();
   poblarComunaResidenciaVotante();
-  document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante';
+  document.getElementById('chk-categoria-votante').checked = v.categoria === 'votante' || usuarioActual.rol === 'coordinador';   // orden 87: el coordinador nunca deja a alguien como sublíder
   pintarConsentimiento(v);
   document.getElementById('campo-transporte-votante').style.display = 'block';
   document.getElementById('chk-transporte-votante').checked = Number(v.necesita_transporte) === 1;
   document.getElementById('chk-transporte-votante').dataset.id = v.id;
   mostrarBloqueAutorizacionVotante(false);   // al editar no se vuelve a pedir: el servidor solo la exige al crear
-  document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider';
+  document.getElementById('chk-categoria-sublider').checked = v.categoria === 'sublider' && usuarioActual.rol !== 'coordinador';
   document.getElementById('categoria-votante-error').style.display = 'none';
   document.getElementById('input-meta-votos-sublider').value = 0;
   actualizarVisibilidadMetaVotosSublider();
@@ -2659,7 +2659,7 @@ document.getElementById('btn-nuevo').addEventListener('click', async () => {
   document.getElementById('form-votante').id.value = '';
   cantidadMesasPuestoVotante = 0;
   document.getElementById('contador-mesas-votante').textContent = '';
-  document.getElementById('titulo-modal').textContent = 'Nuevo votante o sublíder';
+  document.getElementById('titulo-modal').textContent = (usuarioActual && usuarioActual.rol === 'coordinador') ? 'Nuevo votante' : 'Nuevo votante o sublíder';
   document.getElementById('campo-transporte-votante').style.display = 'none';   // todavía no hay ficha que marcar
   document.getElementById('form-error').classList.remove('visible');
   document.getElementById('territorio-votante-error').classList.remove('visible');
@@ -3482,6 +3482,16 @@ function alternarMesasEstimadoPuesto(i) {
 (async () => {
   usuarioActual = await inicializarLayout('/votantes.html');
   if (!usuarioActual) return;
+
+  /* EL COORDINADOR NO CREA SUBLÍDERES NI TESTIGOS DESDE AQUÍ (orden 87). El servidor responde 403 a las dos cosas; la pantalla no las ofrece: sin el botón «Sublíder» (ni su meta) y sin
+     «Es también testigo electoral» (que ya era solo de administración). Registrar y editar votantes normales sigue igual. */
+  if (usuarioActual.rol === 'coordinador') {
+    document.body.classList.add('coord-sin-sublider');
+    const estiloCoord = document.createElement('style');
+    estiloCoord.textContent = 'body.coord-sin-sublider #chip-categoria-sublider, body.coord-sin-sublider #campo-meta-votos-sublider, body.coord-sin-sublider #campo-asignar-testigo-votante, body.coord-sin-sublider #nota-categoria-subalterno { display: none !important; }';
+    const bn = document.getElementById('btn-nuevo'); if (bn) bn.textContent = '+ Nuevo votante';
+    document.head.appendChild(estiloCoord);
+  }
 
   // La pestaña «Inscripciones por enlace» es de quien gestiona equipo. Las rutas tienen su propia guarda.
   if (['admin', 'coordinador'].includes(usuarioActual.rol) || usuarioActual.es_aspirante) {

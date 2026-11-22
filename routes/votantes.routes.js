@@ -1533,6 +1533,25 @@ async function procesarSublider({ nombre, cedula, email, telefono, liderId, terr
 const ROLES_QUE_REGISTRAN = ['admin', 'coordinador', 'lider', 'sublider', 'usuario', 'asistente_administrativo'];
 
 /**
+ * EL COORDINADOR NO CREA SUBLÍDERES NI TESTIGOS DESDE VOTANTES (orden 87; sigue a la orden 85, que lo dejó en Estructura territorial solo con líderes).
+ *
+ * Por esta ruta se crean —o se convierten— de dos maneras: marcar la ficha como «Sublíder» (`categoria = 'sublider'`: crea la cuenta de acceso y su fila en la estructura, al registrar
+ * y al editar) y «Es también testigo electoral» (`POST /:id/asignar-testigo`: crea la cuenta de testigo y su fila). Para el rol `coordinador`, entre por donde entre (celular o computador),
+ * las dos responden 403. Registrar y editar un votante normal NO cambia. Las importaciones (`/importar-excel`, `/importar`) no traen categoría ni testigo: no hay nada que cerrar allí.
+ *
+ * Lo decide el SERVIDOR: la pantalla solo esconde lo que aquí se rechaza.
+ */
+const MENSAJE_COORDINADOR_SIN_SUBLIDER_TESTIGO = 'El coordinador no puede crear sublíderes ni testigos.';
+const esCoordinadorVotantes = (req) => !!(req.session && req.session.usuario && req.session.usuario.rol === 'coordinador');
+const rechazaSublider = (req, res, b) => {
+  if (esCoordinadorVotantes(req) && b && b.categoria === 'sublider') {
+    res.status(403).json({ error: MENSAJE_COORDINADOR_SIN_SUBLIDER_TESTIGO });
+    return true;
+  }
+  return false;
+};
+
+/**
  * El id del puesto en el CATÁLOGO, resuelto al guardar.
  *
  * El disparador ya deja `ctc_puesto_id` escrito cuando el puesto está
@@ -1655,6 +1674,7 @@ async function resolverAtribucion(req, b, anterior) {
 
 router.post('/', requireRole(...ROLES_QUE_REGISTRAN), async (req, res) => {
   const b = req.body;
+  if (rechazaSublider(req, res, b)) return;   // orden 87: antes del reintento idempotente y de cualquier escritura
 
   // Reintento idempotente: la app de líderes guarda el formulario en el
   // celular cuando no hay señal y lo reintenta sola más tarde — si por un
@@ -2016,6 +2036,7 @@ router.put('/:id/transporte', requiereComplemento('transporte_dia_d'), async (re
 });
 
 router.put('/:id', async (req, res) => {
+  if (rechazaSublider(req, res, req.body)) return;   // orden 87: convertir en sublíder también está cerrado para el coordinador
   /* SE CONFIRMA CON LA CONTRASEÑA DE QUIEN LO ESTA HACIENDO.
      No es la del administrador: un lider tiene derecho a corregir a su gente,
      y pedirle la clave ajena le quitaria esa capacidad. Pedirle la suya solo
@@ -2164,6 +2185,7 @@ router.put('/:id', async (req, res) => {
  * sesión se le preguntará con cuál de las dos capacidades quiere entrar.
  */
 router.post('/:id/asignar-testigo', async (req, res) => {
+  if (esCoordinadorVotantes(req)) return res.status(403).json({ error: MENSAJE_COORDINADOR_SIN_SUBLIDER_TESTIGO });   // orden 87
   // Departamento/Municipio ya no se reciben: se deducen del puesto contra
   // el catálogo territorial. El formulario solo dice DÓNDE VIGILA.
   const { puesto_votacion, mesa_votacion, tipo_testigo, mesas_asignadas } = req.body;

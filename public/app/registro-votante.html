@@ -976,10 +976,13 @@ document.getElementById('btn-registrar-otro').addEventListener('click', () => {
   // sublíder y ahí termina: lo que se creara desde aquí quedaría colgando de
   // nadie. Se quita la opción del todo, y si estuviera elegida se vuelve a
   // Votante — dejarla marcada y sin botón sería peor que dejar el botón.
-  if (usuario.rol === 'sublider') {
+  /* Orden 87: tampoco el coordinador (el servidor le responde 403 si lo pide): para él el formulario es solo de votantes. */
+  if (usuario.rol === 'coordinador') { const sub = document.querySelector('.app-barra .subt'); if (sub) sub.textContent = 'Votante'; }
+  if (usuario.rol === 'sublider' || usuario.rol === 'coordinador') {
     const chip = document.getElementById('chip-sublider');
     if (chip) chip.style.display = 'none';
     elegirCategoria('votante');
+    if (usuario.rol === 'coordinador') { const n = document.getElementById('nota-categoria-subalterno'); if (n) n.style.display = 'none'; }
   }
 
   /* CADA QUIEN REGISTRA UN ESCALON POR DEBAJO DEL SUYO.

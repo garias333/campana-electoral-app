@@ -333,7 +333,7 @@ document.getElementById('buscador').addEventListener('input', (e) => {
      es «Inscribir votante»; un aspirante registra Líderes (el formulario rotula la opción «Líder»); el resto, votante o sublíder.
      No se amplía ni se quita nada: solo se dice lo mismo que el formulario va a ofrecer. */
   const textoInscribir = document.getElementById('texto-inscribir');
-  if (usuario.rol === 'sublider') textoInscribir.textContent = 'Inscribir votante';
+  if (usuario.rol === 'sublider' || usuario.rol === 'coordinador') textoInscribir.textContent = 'Inscribir votante';   // orden 87: el coordinador no crea sublíderes
   else if (usuario.es_aspirante_concejo || usuario.es_aspirante) textoInscribir.textContent = 'Inscribir votante o líder';
   await cargarProgreso(usuario);
   await cargarVotantes(true);
