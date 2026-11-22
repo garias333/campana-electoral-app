@@ -54,6 +54,28 @@
   }
   html.modo-app body { padding-top: calc(52px + env(safe-area-inset-top, 0px)); }
 
+  /* ORDEN 95 — NADA DE LA PÁGINA DE FONDO PUEDE SER MÁS ANCHO QUE LA PANTALLA.
+     El formulario «Agregar a la estructura» es una hoja fija al 100 % del ANCHO DE DISEÑO. Si algo de la lista que queda detrás mide más que la pantalla (los filtros con su
+     min-width de 160 px y los <select> de texto largo; los grupos de botones de la cabecera del administrador; la columna `1fr` de cada ficha, que no baja de su contenido), Chrome del
+     celular ensancha el diseño hasta ese contenido, la hoja se hace igual de ancha y la pantalla muestra solo un trozo: letra grande, sin la barra de arriba, «Siguiente» cortado,
+     hasta que la persona pellizca. Pasa con la letra del sistema grande y con la letra de 18 px de la app del candidato (candidato-letra.css). El coordinador y el líder no lo
+     sufren porque su `.main` va oculto (coord-celular). No se toca el zoom con dos dedos: el viewport sigue siendo width=device-width, initial-scale=1. */
+  html.modo-app .main, html.modo-app .sec-hero, html.modo-app .topbar, html.modo-app .toolbar, html.modo-app .card,
+  html.modo-app .envoltorio-fichas, html.modo-app .lista-fichas, html.modo-app .ficha-p { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  html.modo-app .toolbar-filtros { width: 100%; }
+  html.modo-app .toolbar-filtros input, html.modo-app .toolbar-filtros select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+  html.modo-app .ficha-cuerpo { grid-template-columns: minmax(0, 1fr); }
+  html.modo-app .leyenda-fichas .it { min-width: 0; overflow-wrap: anywhere; }
+  html.modo-app .acciones-cabecera, html.modo-app .acciones-cabecera .grupo, html.modo-app .acciones-cabecera .grupo-botones { max-width: 100%; min-width: 0; }
+  html.modo-app .acciones-cabecera .grupo-etiqueta { height: auto; min-height: 14px; white-space: normal; }
+  html.modo-app .acciones-cabecera button, html.modo-app .acciones-cabecera a, html.modo-app .acciones-cabecera label {
+    max-width: 100%; height: auto; min-height: 42px; padding-top: 8px; padding-bottom: 8px; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.2;
+  }
+  html.modo-app .acciones-cabecera .separado { padding-left: 10px; }
+  html.modo-app .aut-pill { max-width: 100%; white-space: normal; }
+  /* Red de seguridad por si mañana alguien agrega algo ancho a la página: que no ensanche el diseño. */
+  html.modo-app, html.modo-app body { overflow-x: hidden; }   /* los DOS: con solo el de <html>, el <body> no recorta y el diseño igual se ensancha (medido) */
+
   /* FORMULARIO «AGREGAR / EDITAR» POR PASOS, SOLO EN MODO APP. En el computador nada de esto aplica:
      todos los selectores empiezan por html.modo-app. El JS que arma los pasos está al final del archivo. */
   html.modo-app #overlay-form { padding: 0; align-items: stretch; justify-content: stretch; }
