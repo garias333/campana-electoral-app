@@ -38,14 +38,20 @@ async function resolverUsuario(req) {
       // real — así las rutas restringidas a testigo (ej. enviar el
       // reporte de Día D) quedan disponibles con este token, igual que si
       // hubiera elegido esa opción en una sesión en vivo.
-      const rolEfectivo = (datosToken.entrarComo === 'testigo' && ['lider', 'sublider'].includes(usuario.rol))
-        ? 'testigo'
-        : usuario.rol;
+      /* «SOLO CANDIDATO» (orden 93) viaja también en el token del dispositivo: si no, el administrador marcado que entró desde un equipo sin autorizar recuperaría su rol de
+         administrador en la primera petición con token. Falla cerrado: basta que el token lo diga y el usuario sea administrador. */
+      const soloCandidato = datosToken.entrarComo === 'solo_candidato' && usuario.rol === 'admin';
+      const rolEfectivo = soloCandidato
+        ? 'candidato'
+        : ((datosToken.entrarComo === 'testigo' && ['lider', 'sublider'].includes(usuario.rol))
+          ? 'testigo'
+          : usuario.rol);
       req.session.usuario = {
         id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
         rol: rolEfectivo,
+        solo_candidato: soloCandidato,
         territorio_id: usuario.territorio_id,
         debe_cambiar_password: !!usuario.debe_cambiar_password,
         two_factor_enabled: !!usuario.two_factor_enabled,

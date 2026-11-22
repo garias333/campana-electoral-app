@@ -16,6 +16,7 @@
   <div class="barra"><small>Más</small><h1>Más opciones</h1></div>
   <div id="estado"></div>
   <div id="error-carga" class="error-carga" role="alert"></div>
+  <div id="aviso-modo" role="alert" style="display:none; margin:0 16px 14px; padding:14px 16px; border-radius:14px; background:#fff4d6; border:1.5px solid #f0c24a; color:#4a3500; font-size:var(--c-med, 15px); line-height:1.45;"></div>
   <div class="cand-menu menu-app" id="menu-app"></div>
 </div>
 <script src="/js/api-core.js"></script>
@@ -35,7 +36,8 @@ function tarjeta(t) {
 }
 function pintarMenu(s) {
   // Orden 81: el administrador que también es el candidato ve arriba «Modo administrador», que lo lleva a la app de administración del celular (allí, «Modo candidato» lo regresa).
-  const modo = cEsAdminCandidato(usuario) ? [{ titulo: 'Cambiar de modo', items: [{ ic: '🛠️', texto: 'Modo administrador', accion: 'modo_admin' }] }] : [];
+  // Orden 93: en una sesión «solo candidato» (equipo sin autorizar) el botón está, pero no cambia de modo: dice qué hacer (ver el clic, abajo).
+  const modo = (cEsAdminCandidato(usuario) || usuario.solo_candidato) ? [{ titulo: 'Cambiar de modo', items: [{ ic: '🛠️', texto: 'Modo administrador', accion: 'modo_admin' }] }] : [];
   const grupos = modo.concat([
     { titulo: 'Registro', items: [
       s.registro && { ic: '➕', texto: 'Registrar en la estructura territorial', href: '/territorial.html?app=1&volver=/app/candidato.html#nuevo' },
@@ -69,7 +71,14 @@ function pintarMenu(s) {
   document.getElementById('menu-app').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-accion]'); if (!b) return;
     if (b.dataset.accion === 'salir') cPedirSalir();   // con la misma confirmación que el «Salir» del encabezado
-    if (b.dataset.accion === 'modo_admin') cIrModoAdmin();
+    if (b.dataset.accion === 'modo_admin') {
+      if (usuario.solo_candidato) {
+        const a = document.getElementById('aviso-modo');
+        a.textContent = 'Para administrar, este equipo debe estar autorizado. Pídalo en el panel.';
+        a.style.display = 'block';
+        a.scrollIntoView({ block: 'nearest' });
+      } else cIrModoAdmin();
+    }
   });
   try {
     const r = await cCargar(usuario.id, '/mas');

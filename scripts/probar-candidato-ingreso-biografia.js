@@ -4,7 +4,7 @@
 //   2. El candidato (rol «candidato» y administrador con «Es el candidato») que entra desde el celular cae SIEMPRE en /app/candidato.html: en vertical (390×844), en
 //      horizontal (844×390), con la app instalada a cualquier ancho, con ?app=1, y aunque haya quedado el modo «administrador»; nunca en dashboard.html.
 //      Desde un computador (1280 px, sin ?app=1) el administrador sigue en el escritorio.
-//   3. Autorización de equipo SIN CAMBIOS (decisión de Gildardo: no se crea ninguna excepción): el rol «candidato» no la pide; el administrador (con o sin la marca) la pide como hoy.
+//   3. Autorización de equipo: el rol «candidato» no la pide; el administrador SIN la marca la pide como hoy; con la marca entra en modo «solo candidato» (orden 93).
 //
 // USO (base desechable con init-db; NO correr junto a otra prueba con Chromium):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada86 [SALIDA=/ruta] node scripts/probar-candidato-ingreso-biografia.js
@@ -102,7 +102,8 @@ function cliente() {
   let r = await cliente().post('/auth/login', { email: CORREOS.candidato, password: CLAVE });
   ok(r.status === 200 && r.datos.usuario && r.datos.usuario.rol === 'candidato' && !r.datos.equipoNoAutorizado, 'el rol «candidato» entra desde un equipo nuevo SIN pantalla de autorización (como hoy)', r.datos);
   r = await cliente().post('/auth/login', { email: CORREOS.admcand, password: CLAVE });
-  ok(r.status === 403 && r.datos.equipoNoAutorizado === true, 'el administrador «Es el candidato» la pide como cualquier administrador (equipo nuevo → 403 equipoNoAutorizado)', r);
+  // Orden 93 cambió esto a propósito: desde un equipo sin autorizar el administrador marcado ENTRA, con una sesión «solo candidato» (lo prueba probar-admin-candidato-sin-equipo.js).
+  ok(r.status === 200 && r.datos.usuario.solo_candidato === true && r.datos.usuario.rol === 'candidato', 'el administrador «Es el candidato», desde un equipo sin autorizar, entra en modo «solo candidato» (orden 93; antes se rechazaba)', r);
   r = await cliente().post('/auth/login', { email: CORREOS.admsin, password: CLAVE });
   ok(r.status === 403 && r.datos.equipoNoAutorizado === true, 'el administrador sin la marca, igual que hoy', r);
   r = await cliente().post('/auth/login', { email: 'marta@ejemplo.co', password: require('./fixtures/coordinadores-celular').CLAVE_CORREO });

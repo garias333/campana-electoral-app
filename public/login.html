@@ -955,6 +955,12 @@ function irDondeCorresponde(usuario) {
     window.location.href = destino;
     return;
   }
+  /* ORDEN 93: SESIÓN «SOLO CANDIDATO» (el administrador que es el candidato entró desde un equipo sin autorizar). El servidor ya la trata como el rol candidato; aquí va SIEMPRE a su
+     app, también desde un computador: el escritorio de administración no es para esta sesión. */
+  if (usuario && usuario.solo_candidato) {
+    window.location.href = '/app/candidato.html';
+    return;
+  }
   if (usuario && usuario.rol === 'testigo') {
     window.location.href = '/app/dia-d.html';
     return;

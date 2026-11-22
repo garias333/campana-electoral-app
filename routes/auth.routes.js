@@ -138,7 +138,11 @@ async function crearTokenCierre(req, usuarioId) {
   }
 }
 
+/** La capacidad «solo candidato» (orden 93): solo existe para el administrador marcado «Es el candidato». Para cualquier otro se ignora, venga de donde venga. */
+const SOLO_CANDIDATO = 'solo_candidato';
+
 async function completarSesion(req, usuario, recordar, entrarComo) {
+  if (entrarComo === SOLO_CANDIDATO && !(usuario.rol === 'admin' && Number(usuario.es_candidato) === 1)) entrarComo = null;
   /* EL SOMBRERO DE TESTIGO SE COMPRUEBA, NO SE CREE.
      `POST /login` acepta `entrarComo` en el cuerpo y, cuando viene, se SALTA
      la pregunta de «¿cómo quieres entrar?» — y con ella el `capacidadesDe()`
@@ -202,11 +206,16 @@ async function completarSesion(req, usuario, recordar, entrarComo) {
       if (err.code !== 'ER_NO_SUCH_TABLE') console.error('Leyendo sublicencia al entrar:', err.message);
     }
   }
+  /* SESIÓN «SOLO CANDIDATO» (orden 93). El rol de la sesión es `candidato`: así lo tratan, sin una línea más, soloLecturaCandidato, requireRole, la matriz de permisos y todo lo que decide por
+     rol. En la base sigue siendo administrador (`rol_real`), pero esta sesión NO se convierte en administrativa: hay que volver a iniciar sesión desde un equipo autorizado. */
+  const soloCandidato = entrarComo === SOLO_CANDIDATO;
+  if (soloCandidato) rolEfectivo = 'candidato';
   req.session.usuario = {
     id: usuario.id,
     nombre: usuario.nombre,
     email: usuario.email,
     rol: rolEfectivo,
+    solo_candidato: soloCandidato,
     // El de la base, sin traducir. `rol` es con lo que se decide todo; éste
     // sólo sirve para saber qué se le asignó de verdad.
     rol_real: usuario.rol,
@@ -476,12 +485,23 @@ router.post('/login', async (req, res) => {
        autorización lo deja fuera de su trabajo por una protección que no va
        con él. La regla vive en `equipoControlado`, no aquí: hay una sola
        lista de roles controlados y está en un solo archivo. */
+    let ingresoSoloCandidato = false;
     if (await equipoControlado({ rol: usuario.rol, id: usuario.id })) {
       const equipo = await reconocerEquipo(req, res, usuario.id);
       if (!equipo.permitido) {
-        await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
-          `Intento de entrar desde un equipo ${equipo.motivo}.`, req.ip);
-        return res.status(403).json({ error: mensajeDeRechazo(equipo.motivo), equipoNoAutorizado: true });
+        /* ORDEN 93: EL ADMINISTRADOR QUE ES EL CANDIDATO NO SE QUEDA FUERA. Desde un equipo sin autorizar (pendiente, revocado o cupo lleno) entra, pero con una sesión «SOLO CANDIDATO»:
+           `completarSesion` le pone el rol `candidato` y el servidor lo trata EXACTAMENTE como a ese rol (solo lectura, lista corta de config/rolCandidato.js), aunque en la base siga siendo
+           administrador. El equipo queda registrado como pendiente (lo hizo `reconocerEquipo`) para que se pueda aprobar desde el panel; ya autorizado, el siguiente ingreso es el de siempre.
+           Un administrador SIN la marca, el superadministrador y los demás: rechazados como hoy. */
+        if (usuario.rol === 'admin' && Number(usuario.es_candidato) === 1) {
+          ingresoSoloCandidato = true;
+          await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
+            `Entró desde un equipo ${equipo.motivo} en modo solo candidato (administrador que es el candidato).`, req.ip);
+        } else {
+          await registrarAuditoria(usuario.id, 'equipo_no_autorizado',
+            `Intento de entrar desde un equipo ${equipo.motivo}.`, req.ip);
+          return res.status(403).json({ error: mensajeDeRechazo(equipo.motivo), equipoNoAutorizado: true });
+        }
       }
     }
 
@@ -515,7 +535,7 @@ router.post('/login', async (req, res) => {
        la comprobacion de sublicencia en completarSesion, pero apoyarse en una
        comprobacion de mas abajo para algo que aqui ya se sabe es dejar la
        puerta cerrada con el pestillo de otra habitacion. */
-    const entrarComo = req.body.entrarComo === 'aspirante' ? null : req.body.entrarComo;
+    const entrarComo = ingresoSoloCandidato ? 'solo_candidato' : (req.body.entrarComo === 'aspirante' ? null : req.body.entrarComo);
     if (!entrarComo) {
       const opciones = await capacidadesDe(usuario);
       if (opciones.length) {
