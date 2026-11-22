@@ -36,6 +36,13 @@
   /* Parche 325: la pestaña de autorización no existe en el formulario por pasos del modo app. */
   html.modo-app #titulo-autorizacion-datos-persona, html.modo-app #bloque-autorizacion-datos-persona { display: none !important; }
   html.modo-app .sidebar { display: none !important; }
+  /* EL COORDINADOR DEL CELULAR SOLO AGREGA LÍDERES (orden 83). `coord-celular` la pone el JS cuando la sesión es la del botón «Coordinadores». Se esconde la lista (solo se agrega, no se ve ni se edita nada
+     desde aquí), las cinco categorías (queda el texto «Categoría: Líder») y «Reporta a» (queda el texto «Reporta a: <su nombre>»). El servidor decide lo mismo: esto solo evita ofrecer lo que rechaza. */
+  body.coord-celular .main { display: none !important; }
+  body.coord-celular #chips-cargo-persona, body.coord-celular #select-cargo-persona ~ small { display: none !important; }
+  body.coord-celular label[for="select-supervisor"], body.coord-celular #busqueda-supervisor-persona, body.coord-celular #select-supervisor, body.coord-celular #nota-reporta-a-coordinador { display: none !important; }
+  .dato-fijo-coord { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 14px; border: 1.5px solid #d9d2c0; border-radius: 12px; background: #f7f3ea; font-size: 1rem; color: #142a3f; }
+  .dato-fijo-coord b { font-weight: 800; }
   html.modo-app #barra-volver-app {
     display: flex; align-items: center; gap: 8px;
     position: fixed; top: 0; left: 0; right: 0; z-index: 40;     /* bajo .overlay (50): los formularios la tapan */
@@ -3827,7 +3834,8 @@ async function enviarFormularioEstructura(e) {
     area: document.getElementById('chk-area-influencia-organizacion').checked
       ? null
       : (document.getElementById('select-area-persona').value || null),
-    supervisor_id: form.supervisor_id.value,
+    // El coordinador del celular reporta siempre a sí mismo (orden 83); el servidor lo fuerza de todos modos.
+    supervisor_id: document.body.classList.contains('coord-celular') ? String(usuarioActual.id) : form.supervisor_id.value,
     activo: form.activo.checked
   };
   // Solo se registra sin conexión al CREAR (no al editar): editar sin
@@ -3942,6 +3950,33 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
 (async () => {
   usuarioActual = await inicializarLayout('/territorial.html');
   if (!usuarioActual) return;
+
+  /* EL COORDINADOR QUE ENTRÓ POR EL BOTÓN DEL CELULAR (orden 83): solo agrega líderes. Aquí se le deja el formulario de siempre con la categoría fija en «Líder» y «Reporta a» fijo en él mismo;
+     el servidor FUERZA las dos cosas y responde 403 a lo demás, de modo que esto no es la protección, solo no ofrece lo que no puede usar. Sin el modo app (?app=1) no hay formulario por pasos:
+     se le lleva a la dirección de siempre. */
+  if (usuarioActual.rol === 'coordinador' && usuarioActual.puerta_celular === true) {
+    if (!document.documentElement.classList.contains('modo-app')) {
+      window.location.replace('/territorial.html?app=1&volver=/app/mis-lideres.html#nuevo');
+      return;
+    }
+    document.body.classList.add('coord-celular');
+    const chips = document.getElementById('chips-cargo-persona');
+    if (chips) {
+      const cat = document.createElement('div');
+      cat.className = 'dato-fijo-coord'; cat.id = 'categoria-fija-coord';
+      cat.innerHTML = '<span aria-hidden="true">✓</span><span>Categoría: <b>Líder</b></span>';
+      chips.parentNode.insertBefore(cat, chips);
+    }
+    const sup = document.getElementById('select-supervisor');
+    if (sup) {
+      const rep = document.createElement('div');
+      rep.className = 'dato-fijo-coord'; rep.id = 'reporta-fijo-coord';
+      rep.textContent = 'Reporta a: ' + (usuarioActual.nombre || 'usted');
+      sup.parentNode.insertBefore(rep, sup);
+    }
+    const cerrar = document.getElementById('cerrar-modal');
+    if (cerrar) cerrar.addEventListener('click', () => { window.location.href = window.__VOLVER_APP || '/app/mis-lideres.html'; });
+  }
 
   // El aviso de pendientes y el reintento al recuperar señal se activan
   // ya mismo, sin depender de que el resto de la pantalla haya cargado.
@@ -4165,7 +4200,7 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   exito.setAttribute('role', 'alertdialog');
   exito.innerHTML = '<div class="marca" aria-hidden="true">✓</div><h2>Guardado</h2><p id="wz-exito-texto"></p>'
     + '<button type="button" class="wz-otra">Agregar otra persona</button>'
-    + '<button type="button" class="wz-lista">' + ((window.__VOLVER_APP && window.__VOLVER_APP !== '/app/admin-estructura.html') ? 'Volver al inicio' : 'Volver a la lista') + '</button>';
+    + '<button type="button" class="wz-lista">' + (window.__VOLVER_APP === '/app/mis-lideres.html' ? 'Volver a Mis líderes' : (window.__VOLVER_APP && window.__VOLVER_APP !== '/app/admin-estructura.html') ? 'Volver al inicio' : 'Volver a la lista') + '</button>';
   document.body.appendChild(exito);
 
   /* ------------------------------- navegación ------------------------------- */

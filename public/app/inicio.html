@@ -141,7 +141,11 @@ const MENU_LIDER = [
 // permisos siguen como estaban, y quien abra una de esas direcciones a mano entra como hoy. Para los demás roles no cambia nada:
 // el líder sigue heredando de MENU_LIDER completo, y el administrador tiene el suyo.
 const OCULTAS_AL_COORDINADOR = ['/app/mis-registros.html', '/app/mi-enlace.html', '/app/puesto-votacion.html'];
+// ORDEN 83: vuelve UN botón del grupo «Registro» —y solo ese—: «Agregar líder» abre el formulario de siempre de Estructura territorial en modo app, con la categoría fija en Líder y «Reporta a» fijo en el
+// coordinador (lo fuerza el servidor: routes/territorial.routes.js, POST /estructura). «Registro de votantes y sublíderes», «Mi enlace de inscripción» y «Consultar puesto de votación» siguen fuera (orden 63).
+const HREF_AGREGAR_LIDER = '/territorial.html?app=1&volver=/app/mis-lideres.html#nuevo';
 const MENU_COORDINADOR = [
+  { href: HREF_AGREGAR_LIDER, icono: '➕', titulo: 'Agregar líder', subtitulo: 'Sumar un líder nuevo a tu equipo' },
   { href: '/app/mis-lideres.html', icono: '📊', titulo: 'Mis líderes', subtitulo: 'Su avance, y llamarlos o escribirles' },
   { href: '/app/alertas-dia-d.html', icono: '🚨', titulo: 'Alertas Día D', subtitulo: 'Mesas sin testigo, llegadas, E-14 y baja votación', modulo: 'alertas_dia_d', complemento: 'alertas_dia_d' },
   { href: '/app/ranking-dia-d.html', icono: '🏁', titulo: 'Ranking Día D', subtitulo: 'Cómo va cada líder el día de la elección', modulo: 'rescate_votos' },
@@ -238,6 +242,7 @@ const ORDEN_MENU_APP = {
   '/app/puesto-votacion.html': [1, 3],
   '/app/admin-estructura.html': [1, 4],
   '/territorial.html?app=1#nuevo': [1, 5],
+  '/territorial.html?app=1&volver=/app/mis-lideres.html#nuevo': [1, 0],   // «Agregar líder» del coordinador (orden 83): único botón de su grupo «Registro»
   '/app/puerta-a-puerta.html': [2, 1], '/puerta-listas.html': [2, 1],
   '/app/solicitud-nueva.html': [2, 2],
   '/app/mis-solicitudes.html': [2, 3],

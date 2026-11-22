@@ -96,9 +96,13 @@ async function escuchar(app) {
   const cAhora = await verInicio(actual, 'coordinador', 'coordinador-despues-390x844');
   console.log('     antes :', cAntes.map((g) => `${g.titulo}[${g.items.length}]`).join(' · '));
   console.log('     ahora :', cAhora.map((g) => `${g.titulo}[${g.items.length}]`).join(' · '));
-  ok(aplanar(cAntes).includes('Panel completo') && cAntes.some((g) => g.titulo === 'Registro'), 'antes tenía «Panel completo» y el grupo «Registro» (la prueba mide algo)');
+  // Con el public/ de ANTES de la orden 63 la prueba mide el cambio de aquella orden; con el de HEAD de la orden 83 (que ya no tiene «Panel completo» ni «Registro») solo se mide el grupo que vuelve.
+  if (aplanar(cAntes).includes('Panel completo')) ok(cAntes.some((g) => g.titulo === 'Registro'), 'antes tenía «Panel completo» y el grupo «Registro» (la prueba mide algo)');
+  else console.log('     (el public/ de ANTES ya no trae «Panel completo»: solo se mide la orden 83)');
   ok(!aplanar(cAhora).includes('Panel completo'), 'ahora NO hay «Panel completo»');
-  ok(!cAhora.some((g) => g.titulo === 'Registro'), 'ahora NO hay grupo «Registro» (ni su título)');
+  // Orden 83: el grupo «Registro» VUELVE, pero con UN solo botón: «Agregar líder».
+  const regAhora = cAhora.find((g) => g.titulo === 'Registro');
+  ok(!!regAhora && regAhora.items.join() === 'Agregar líder', 'ahora el grupo «Registro» trae SOLO «Agregar líder» (orden 83)', regAhora);
   for (const t of ['Registro de votantes y sublíderes', 'Mi enlace de inscripción', 'Consultar puesto de votación']) ok(!aplanar(cAhora).includes(t), `ahora NO está «${t}»`);
   const resumen = cAhora.find((g) => g.titulo === 'Resumen');
   ok(resumen && resumen.items.join() === 'Mis líderes', 'el grupo «Resumen» queda solo con «Mis líderes»', resumen);
@@ -106,7 +110,9 @@ async function escuchar(app) {
   const igual = (t) => JSON.stringify((cAntes.find((g) => g.titulo === t) || {}).items) === JSON.stringify((cAhora.find((g) => g.titulo === t) || {}).items);
   const otros = cAntes.map((g) => g.titulo).filter((t) => !['Resumen', 'Registro'].includes(t));
   ok(otros.length >= 3 && otros.every(igual), `los demás grupos quedan IGUALES (entrada por entrada): ${otros.join(', ')}`, otros.filter((t) => !igual(t)));
-  ok(JSON.stringify(cAhora.map((g) => g.titulo)) === JSON.stringify(cAntes.map((g) => g.titulo).filter((t) => t !== 'Registro')), 'y en el mismo orden');
+  const titulosAntes = cAntes.map((g) => g.titulo).filter((t) => t !== 'Registro');
+  titulosAntes.splice(titulosAntes.indexOf('Resumen') + 1, 0, 'Registro');   // «Registro» va justo después de «Resumen», como siempre
+  ok(JSON.stringify(cAhora.map((g) => g.titulo)) === JSON.stringify(titulosAntes), 'y en el mismo orden (Registro sigue en su lugar, después de Resumen)', cAhora.map((g) => g.titulo));
   const botones = await ev("[...document.querySelectorAll('#panel-coordinador a.pc-boton')].map(a => a.innerText.trim() + ' → ' + a.getAttribute('href'))");
   ok(botones.length === 1 && /Ver mis líderes/.test(botones[0]), 'el botón amarillo «Ver mis líderes» bajo «Mi equipo» se queda', botones);
   const enlacesAPaginasQuitadas = await ev(`[...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')).filter(h => /mis-registros|mi-enlace|puesto-votacion|dashboard\\.html/.test(h))`);

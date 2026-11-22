@@ -1197,6 +1197,7 @@ router.get('/me', requireAuth, async (req, res) => {
       es_aspirante_concejo: esAspiranteConcejo,
       es_candidato: await esAdminCandidato(req.session.usuario),   // se CONSULTA, no se lee de la sesión: quitarle la marca vale desde la petición siguiente
       clave_celular: claveCelular,
+      puerta_celular: req.session.puertaCelular === true,   // orden 83: entró por el botón del celular (cédula + clave); el coordinador de esa sesión solo agrega líderes
     }
   });
 });

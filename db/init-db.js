@@ -3682,6 +3682,21 @@ async function main() {
     console.log(`Candidato: «Ver» y «Agregar» en Estructura territorial (${c.affectedRows} fila(s)); una sola vez.`);
   }
 
+  /* EL COORDINADOR PUEDE AGREGAR A LA ESTRUCTURA TERRITORIAL (orden 83: «Agregar líder» en el celular). Su fila de `territorial` ya trae Ver y Agregar en 1 de fábrica, pero el administrador pudo
+     apagarlas en una campaña; esta siembra las deja encendidas UNA sola vez. La marca es la columna `configuracion_campana.coordinador_territorial_sembrado` (misma técnica que
+     `candidato_territorial_sembrado`): `agregarColumnaSiFalta` devuelve true solo en la corrida que la crea, así que lo que el administrador cambie después desde la matriz NO se
+     vuelve a pisar. Solo toca «Ver» y «Agregar»: Editar e Importar/Exportar quedan como estén. */
+  const coordinadorTerritorialRecienSembrado = await agregarColumnaSiFalta(
+    connection, 'configuracion_campana',
+    "coordinador_territorial_sembrado TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Marca (orden 83): ya se encendió Ver y Agregar del coordinador en Estructura territorial. No es una opción.'",
+    'coordinador_territorial_sembrado'
+  );
+  if (coordinadorTerritorialRecienSembrado) {
+    const [c] = await connection.query(
+      `UPDATE permisos_rol SET permitido = 1, agregar = 1 WHERE rol = 'coordinador' AND modulo = 'territorial'`);
+    console.log(`Coordinador: «Ver» y «Agregar» en Estructura territorial (${c.affectedRows} fila(s)); una sola vez.`);
+  }
+
   /* CERRAR SESIÓN SIN SEÑAL (parche 329, orden 43). Al iniciar sesión el servidor entrega un `tokenCierre` aleatorio ligado a ESA sesión; aquí se
      guarda SOLO su hash (nunca el token) junto con el id de la sesión. Si alguien cierra sesión en un celular sin señal, el navegador lo recuerda
      (`logout_pendiente`) y, al volver la señal, pide POST /api/auth/cerrar-pendiente con el token: el servidor busca el hash, destruye esa sesión y
