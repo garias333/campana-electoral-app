@@ -216,3 +216,17 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
   .ev-equipo li { grid-template-columns: 26px minmax(0, 1fr); }
   .ev-equipo .ev-eq-avance, .ev-equipo li > .ev-sub { grid-column: 1 / -1; }
 }
+
+/* ---------- ORDEN 109: tamaño del equipo, «Ver equipo» en Por rol y Explorador sin equipo ---------- */
+.ev-equipo-linea { color: #26324B; font-size: .8rem; }
+.ev-equipo-linea b { color: #084298; font-weight: 700; }
+.ev-btn-mini {
+  align-self: flex-start; margin: 4px 0 0; width: auto; padding: 3px 11px; border-radius: 999px; border: 1.5px solid #084298; background: #fff;
+  color: #084298; font: inherit; font-size: .76rem; font-weight: 700; line-height: 1.3; cursor: pointer;
+}
+.ev-btn-mini:hover { background: #084298; color: #fff; }
+.ev-btn-mini:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
+.ev-nombre-plano { cursor: default; }
+.ev-nombre-plano:hover { color: #14203a; text-decoration: none; }
+.ev-nodo-n { flex: 0 0 auto; font-size: .78rem; font-weight: 700; color: #084298; margin-left: 4px; }
+.ev-sin-equipo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

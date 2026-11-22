@@ -41,6 +41,8 @@
   const plegados = new Set();         // usuario_id plegados en el árbol del Explorador
   let ultimo = { filas: [], testigos: [] };
   let hijosPorJefe = new Map();       // usuario_id del jefe -> filas de toda la estructura
+  let ramaForzada = null;             // ORDEN 109: usuario_id cuya rama se muestra COMPLETA en el árbol aunque un filtro de la lista la esconda
+  let enfocarSeleccion = false;       // ORDEN 109: tras llegar con un clic, llevar la vista al nodo elegido
 
   /* ---------- utilidades ---------- */
   const esc = (t) => ctx.escapar(t == null ? '' : String(t));
@@ -72,6 +74,21 @@
     return VERDE;
   }
   const pctTexto = (pctReal) => (pctReal == null ? '—' : Math.round(pctReal) + ' %');
+  /* ORDEN 109 — TAMAÑO DEL EQUIPO. UNA SOLA CUENTA para Tarjetas, Por rol y Explorador: los DIRECTOS de la persona sobre TODA la estructura
+     cargada, que es lo que la lista dice en «Reportan a X · N personas» (la lista cuenta a los que le reportan directamente, no a toda la rama).
+     Los testigos no suman: no están en la lista de la estructura. */
+  const textoPersonas = (n) => `${millares(n)} persona${n === 1 ? '' : 's'}`;
+  const muestraEquipo = (i) => i.grupo === 'coordinador' || i.grupo === 'lider' || i.equipo > 0;
+  function descendientesDe(usuarioId) {
+    const salida = [], vistos = new Set([usuarioId]), cola = [usuarioId];
+    while (cola.length) {
+      for (const h of hijosPorJefe.get(cola.pop()) || []) {
+        if (vistos.has(h.usuario_id)) continue;
+        vistos.add(h.usuario_id); salida.push(h); cola.push(h.usuario_id);
+      }
+    }
+    return salida;
+  }
 
   /** Todo lo que las vistas dicen de una persona, leído con las reglas de la lista. */
   function info(f) {
@@ -188,11 +205,15 @@
           <div class="ev-mini" style="--rol:${c.c}">
             ${avatar(i)}
             <div class="ev-mini-texto">
-              <button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
+              ${i.grupo === 'testigo'
+                ? `<span class="ev-nombre-enlace ev-nombre-plano">${esc(i.f.nombre)}</span>`
+                : `<button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>`}
               ${i.categoria === 'aspirante_concejo' || i.categoria === 'coordinador_organizaciones' ? `<span class="ev-sub">${esc(i.etiqueta)}</span>` : ''}
               <span class="ev-sub">${i.lugar ? esc(i.lugar) : 'Sin territorio'}</span>
               <span class="ev-sub">${textoJefe(i)}</span>
+              ${muestraEquipo(i) ? `<span class="ev-sub ev-equipo-linea">👥 Equipo: <b>${textoPersonas(i.equipo)}</b></span>` : ''}
               ${i.meta > 0 ? `${barra(i)}<span class="ev-sub"><b>${millares(i.registros)}</b> de ${millares(i.meta)} · <b style="color:${semaforo(i.pctReal)}">${Math.round(i.pctReal)} %</b></span>` : ''}
+              ${i.grupo !== 'testigo' ? `<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button>` : ''}
             </div>
           </div>`).join('') || '<div class="ev-columna-vacia">Nadie en esta columna.</div>'}
         </div>
@@ -331,15 +352,27 @@
           <div class="ev-eq-quien"><button type="button" class="ev-nombre-enlace" data-accion="seleccionar" data-uid="${h.usuario_id}">${esc(h.nombre)}</button><span class="ev-sub">${esc(hi.etiqueta)}${hi.lugar ? ' · ' + esc(hi.lugar) : ''}</span></div>
           ${hi.meta > 0 ? `<div class="ev-eq-avance">${barra(hi)}<span class="ev-sub"><b>${millares(hi.registros)}</b> de ${millares(hi.meta)} · ${Math.round(hi.pctReal)} %</span></div>` : '<span class="ev-sub">Sin meta</span>'}
         </li>`;
-      }).join('')}</ul>` : '<div class="ev-vacio-chico">Todavía no tiene a nadie a cargo.</div>'}`;
+      }).join('')}</ul>` : `<div class="ev-vacio-chico ev-sin-equipo">Aún no tiene equipo.${puedeAgregar ? ` <button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>`}`;
   }
 
   function htmlExplorador(filas) {
     if (!filas.length) return vacio();
-    const { raices, planas } = armarArbol(filas);
     const todas = ctx.todas();
-    let elegida = seleccion != null ? todas.find((f) => f.usuario_id === seleccion) : null;
-    if (!elegida) elegida = raices[0] || filas[0];
+    /* ORDEN 109: al llegar con un clic (Por rol, Ranking, Pendientes) el árbol lleva SIEMPRE la rama completa de esa persona, aunque un
+       filtro de la lista (búsqueda, cargo, zona…) esconda a su gente: si no, se veía a la persona sola, sin equipo. */
+    let base = filas;
+    if (ramaForzada != null) {
+      const ya = new Set(filas.map((f) => f.id));
+      const raiz = todas.find((f) => f.usuario_id === ramaForzada);
+      const extra = (raiz ? [raiz] : []).concat(descendientesDe(ramaForzada)).filter((f) => !ya.has(f.id));
+      if (extra.length) base = filas.concat(extra);
+    }
+    const { raices, planas } = armarArbol(base);
+    /* La ficha es la de alguien que SE VE en el árbol. Con «Ver equipo» o un filtro, la persona elegida antes puede haber quedado fuera de la
+       lista: mostrar su ficha con un árbol que no la trae era mostrar a otra persona sin explicación. En ese caso se abre la cabeza del árbol. */
+    const visibles = new Set(base.map((f) => f.usuario_id));
+    let elegida = seleccion != null && visibles.has(seleccion) ? todas.find((f) => f.usuario_id === seleccion) : null;
+    if (!elegida) elegida = raices[0] || base[0];
     seleccion = elegida.usuario_id;
     const arbol = planas.map(({ f, nivel, tieneHijos }) => {
       const i = info(f);
@@ -349,7 +382,7 @@
           ? `<button type="button" class="ev-triangulo" data-accion="plegar" data-uid="${f.usuario_id}" aria-expanded="${plegado ? 'false' : 'true'}" aria-label="${plegado ? 'Mostrar' : 'Ocultar'} el equipo de ${esc(f.nombre)}">${plegado ? '▸' : '▾'}</button>`
           : '<span class="ev-triangulo-hueco"></span>'}
         <button type="button" class="ev-nodo-btn" data-accion="seleccionar" data-uid="${f.usuario_id}">
-          ${avatar(i, 'ev-av-chico')}<span class="ev-nodo-nombre">${esc(f.nombre)}</span>
+          ${avatar(i, 'ev-av-chico')}<span class="ev-nodo-nombre">${esc(f.nombre)}</span>${i.equipo > 0 ? `<span class="ev-nodo-n" title="Personas a cargo">(${millares(i.equipo)})</span>` : ''}
           <span class="ev-nodo-pct" style="color:${semaforo(i.pctReal)}">${i.meta > 0 ? Math.round(i.pctReal) + '%' : ''}</span>
         </button>
       </div>`;
@@ -450,6 +483,13 @@
     caja.dataset.vista = vista;
     const arbol = document.getElementById('ev-arbol');
     if (arbol) arbol.scrollTop = scrollArbol;
+    if (enfocarSeleccion) {
+      enfocarSeleccion = false;
+      const nodo = arbol && arbol.querySelector('.ev-nodo.sel');
+      if (nodo) arbol.scrollTop = Math.max(0, nodo.offsetTop - arbol.offsetTop - 40);
+      const r = caja.getBoundingClientRect();
+      if (r.top < 0 || r.top > 300) global.scrollBy(0, r.top - 90);
+    }
   }
 
   function marcarBotones() {
@@ -465,13 +505,18 @@
   function cambiarVista(v, persistir) {
     if (!VISTAS.includes(v) || (ctx.soloLista && v !== 'lista')) v = 'lista';
     vista = v;
-    if (persistir) guardarVista(v);
+    if (persistir) { guardarVista(v); ramaForzada = null; }
     marcarBotones();
     ctx.repintar();
   }
 
   function irAlExplorador(usuarioId) {
     seleccion = usuarioId;
+    ramaForzada = usuarioId;
+    enfocarSeleccion = true;
+    // Su rama se abre entera: ella y todo lo que cuelga de ella.
+    plegados.delete(usuarioId);
+    descendientesDe(usuarioId).forEach((h) => plegados.delete(h.usuario_id));
     // Si la persona tiene el árbol plegado por encima, se abre el camino hasta ella.
     let f = ctx.todas().find((x) => x.usuario_id === usuarioId);
     const visitados = new Set();
@@ -489,7 +534,7 @@
     const accion = el.dataset.accion;
     const uid = el.dataset.uid ? Number(el.dataset.uid) : null;
     if (accion === 'editar') ctx.editar(Number(el.dataset.id));
-    else if (accion === 'equipo') ctx.verEquipo(uid);
+    else if (accion === 'equipo') { seleccion = uid; ctx.verEquipo(uid); }   // ORDEN 109: el Explorador abre con la cabeza de esa rama
     else if (accion === 'explorar') irAlExplorador(uid);
     else if (accion === 'agregar') ctx.agregar(el.dataset.cat, el.dataset.sup ? Number(el.dataset.sup) : null);
     else if (accion === 'ranking-filtro') { rankingFiltro = el.dataset.valor; ctx.repintar(); }
