@@ -23,6 +23,15 @@ const TOLERANCIA_SIN_CONTACTO_HORAS = 72; // si lleva más de 3 días sin poder 
 
 let estadoActual = { valido: null, motivo: null, mensaje: null, ultimaValidacionExitosa: null };
 
+/* VALIDACIÓN «PRONTA» (Orden 92). Los equipos de la campaña solo llegan al panel dentro de la validación, que corre al arrancar y cada 6 horas: un equipo nuevo que queda
+   «pendiente» (cupo lleno o aprobación a mano) se quedaba hasta 6 horas sin aparecer en el panel, y mientras tanto nadie podía aprobarlo. Quien registra un equipo pendiente pide
+   `validarPronto()`: una validación ya, pero NUNCA más de una cada VENTANA (2 minutos por omisión; la prueba la achica con LICENCIA_VALIDACION_PRONTA_MS). Lo que llega dentro de la
+   ventana no se pierde: queda UNA validación programada para cuando la ventana termine, y todas las peticiones de ese lapso comparten esa. El ciclo de 6 horas no cambia. */
+const VENTANA_VALIDACION_PRONTA_MS = 2 * 60 * 1000;
+let validando = false;
+let ultimaValidacionInicio = 0;
+let temporizadorPronta = null;
+
 /**
  * Identificador único y estable de ESTE servidor — no es el mismo que
  * viaja si alguien copia solo los archivos de la aplicación a otra
@@ -100,6 +109,8 @@ async function activar() {
 
 /** Se llama al arrancar el servidor, y luego cada INTERVALO_VALIDACION_MS. */
 async function validar() {
+  validando = true;
+  ultimaValidacionInicio = Date.now();
   try {
     const fingerprint = obtenerFingerprint();
     /* LOS EQUIPOS VIAJAN CON LA VALIDACIÓN, por el mismo carril que las
@@ -108,9 +119,17 @@ async function validar() {
        único camino que ya existe entre los dos.
        Si leerlos falla se manda una lista vacía: reportar equipos no puede
        impedir que se valide la licencia, que es lo que mantiene viva la
-       campaña. */
+       campaña.
+       PERO NO SE TRAGA EN SILENCIO (Orden 92): si leerlos falla, queda escrito en el
+       registro. Antes un fallo aquí daba una lista vacía sin una palabra, y el panel
+       mostraba «todavía no se ha entrado desde ningún equipo» con la campaña
+       rechazando equipos. */
     let equipos = [];
-    try { equipos = await require('./equiposAutorizados').equiposParaReportar(); } catch (_) {}
+    try { equipos = await require('./equiposAutorizados').equiposParaReportar(); }
+    catch (e) { console.error('[LICENCIA] No se pudieron leer los equipos para reportarlos al panel (se valida igual, sin la lista):', e.code || '', e.message); }
+    if (equipos.length) {
+      console.log(`[LICENCIA] Equipos que se reportan al panel: ${equipos.length} (${equipos.filter((x) => x.estado === 'pendiente').length} pendiente(s)).`);
+    }
     const { ok, datos } = await llamarServidorLicencias('/api/licencia/validar', {
       dominio: DOMINIO_INSTALACION, fingerprint, version_actual: versionParcheAplicada(), equipos
     });
@@ -163,7 +182,31 @@ async function validar() {
     // servidor caído, etc.) — no se bloquea de inmediato, se mantiene el
     // último estado conocido hasta que pase la tolerancia.
     console.error('[LICENCIA] No se pudo contactar al Servidor de Licencias:', err.message);
+  } finally {
+    validando = false;
   }
+}
+
+/**
+ * Pide una validación al panel «ya», sin pasar de una cada VENTANA. Devuelve qué hizo (para las pruebas):
+ * 'sin_licencia' (esta instalación no tiene servidor de licencias configurado: no hay a quién avisar), 'ahora', 'programada' (se ejecutará al terminar la ventana)
+ * o 'ya_programada' (ya hay una en espera: esta petición viaja en ella). Nunca lanza.
+ */
+function validarPronto() {
+  if (!SERVIDOR_LICENCIAS || !API_SECRET || !DOMINIO_INSTALACION) return 'sin_licencia';
+  if (temporizadorPronta) return 'ya_programada';
+  const enEntorno = process.env.LICENCIA_VALIDACION_PRONTA_MS;   // solo lo usa la prueba, para no esperar 2 minutos de verdad
+  const ventana = enEntorno !== undefined && enEntorno !== '' && Number(enEntorno) >= 0 ? Number(enEntorno) : VENTANA_VALIDACION_PRONTA_MS;
+  const espera = Math.max(0, ultimaValidacionInicio + ventana - Date.now());
+  const correr = () => {
+    // Si justo hay una validación en curso, la lista que ella leyó puede no traer este equipo: se espera a que termine y se vuelve a validar.
+    if (validando) { temporizadorPronta = setTimeout(correr, 500); if (temporizadorPronta.unref) temporizadorPronta.unref(); return; }
+    temporizadorPronta = null;
+    validar().catch(() => {});
+  };
+  temporizadorPronta = setTimeout(correr, espera);
+  if (temporizadorPronta.unref) temporizadorPronta.unref();   // no mantiene vivo el proceso
+  return espera === 0 ? 'ahora' : 'programada';
 }
 
 /** Usado por el middleware: decide si esta instalación puede seguir funcionando ahora mismo. */
@@ -184,4 +227,4 @@ function iniciarValidacionPeriodica() {
   setInterval(validar, INTERVALO_VALIDACION_MS);
 }
 
-module.exports = { activar, validar, estaAutorizada, iniciarValidacionPeriodica, obtenerFingerprint, obtenerEstado: () => estadoActual };
+module.exports = { activar, validar, validarPronto, estaAutorizada, iniciarValidacionPeriodica, obtenerFingerprint, obtenerEstado: () => estadoActual };

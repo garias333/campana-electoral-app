@@ -213,6 +213,9 @@ async function reconocerEquipo(req, res, usuarioId) {
         return { permitido: false, motivo: 'revocado', equipo };
       }
       if (equipo.estado === 'pendiente') {
+        /* Un equipo pendiente que vuelve a intentar entrar también pide avisar al panel: si la primera vez no llegó (la lista se leyó antes de que existiera, o un fallo),
+           no tiene que esperar a las 6 horas. Va con tope (una validación cada 2 minutos). */
+        avisarAlPanel();
         return { permitido: false, motivo: 'pendiente', equipo };
       }
       return { permitido: true, equipo };
@@ -235,6 +238,7 @@ async function reconocerEquipo(req, res, usuarioId) {
       [id, estado, usuarioId || null, agente, ip]);
 
     if (estado === 'autorizado') return { permitido: true, equipo: { id: ins.insertId, estado } };
+    avisarAlPanel();   // equipo NUEVO pendiente: que aparezca en el panel ahora, para que se pueda aprobar (Orden 92)
     return { permitido: false, motivo: max > 0 && !requiereAprobacion ? 'cupo_lleno' : 'pendiente',
              equipo: { id: ins.insertId, estado } };
   } catch (err) {
@@ -266,9 +270,17 @@ async function equiposParaReportar() {
         ORDER BY e.ultimo_uso DESC
         LIMIT 200`);
     return filas;
-  } catch (_) {
-    return [];   // sin tabla: no hay nada que contar
+  } catch (err) {
+    if (err.code === 'ER_NO_SUCH_TABLE') return [];   // sin tabla: no hay nada que contar
+    /* Cualquier otro fallo NO se convierte en «lista vacía» en silencio (Orden 92): se deja pasar para que la validación lo escriba en el registro. */
+    throw err;
   }
+}
+
+/** Pide al panel una validación pronta (con tope). Nunca estorba el ingreso: cualquier fallo solo se escribe. */
+function avisarAlPanel() {
+  try { return require('./licencia').validarPronto(); }
+  catch (e) { console.error('[EQUIPOS] No se pudo avisar al panel de un equipo pendiente:', e.message); return null; }
 }
 
 /**
@@ -334,6 +346,6 @@ module.exports = {
   equipoControlado,
   ROLES_CON_CONTROL_DE_EQUIPO,
   reconocerEquipo, mensajeDeRechazo, limiteVigente,
-  equiposParaReportar, aplicarRespuestaDeLicencia,
+  equiposParaReportar, aplicarRespuestaDeLicencia, avisarAlPanel,
   crearIdentificador, leerIdentificador, NOMBRE_COOKIE,
 };

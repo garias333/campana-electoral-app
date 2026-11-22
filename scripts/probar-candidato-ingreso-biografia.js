@@ -15,6 +15,7 @@ const nombreBase = process.env.DB_NAME || '';
 if (!/^(simulada|prueba)/i.test(nombreBase)) { console.error(`Me niego: DB_NAME="${nombreBase}" no empieza por «simulada» ni «prueba».`); process.exit(2); }
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'secreto-de-prueba';
 process.env.LICENCIA_DOMINIO = 'campana.prueba';
+process.env.LICENCIA_SERVIDOR_URL = 'http://127.0.0.1:1';   // Orden 92: un equipo pendiente avisa al panel; que la prueba no llame al servidor de licencias de verdad
 process.env.CATALOGO_DB = 'catalogo_prueba_inexistente';
 
 const fs = require('fs');
