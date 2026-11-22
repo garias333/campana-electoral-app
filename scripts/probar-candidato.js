@@ -959,7 +959,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
     await ev("document.getElementById('ir-a-password').click()");
     await ev(`(() => { const e = document.getElementById('campo-email'); e.value = ${JSON.stringify(correo)}; document.getElementById('campo-password').value = ${JSON.stringify(CLAVE_A)}; document.querySelector('#form-login button[type=submit]').click(); })()`);
   };
-  const modoGuardado = () => ev("localStorage.getItem('modo_admin_candidato')");
+  const modoGuardado = () => ev("sessionStorage.getItem('modo_admin_candidato')");
   limpiarAvisos(); p.respuestas.length = 0;
   await entrarPorLaPantalla(CORREO_ADM_CAND);
   ok(await esperar("location.pathname === '/app/candidato.html'", 12000), 'celular: el administrador marcado cae en /app/candidato.html (la app del candidato)', await ruta());
@@ -978,10 +978,12 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   await esperar("!!document.querySelector('.btn-modo-candidato')", 10000); await espera(1200);
   const bmc = await ev(`(() => { const b = document.querySelector('.btn-modo-candidato'); if (!b) return null; const r = b.getBoundingClientRect(); return { txt: b.innerText.trim(), h: Math.round(r.height), der: Math.round(r.right), ancho: innerWidth }; })()`);
   ok(bmc && bmc.txt === 'Modo candidato' && bmc.h >= 44 && bmc.der <= bmc.ancho, 'allí hay un botón «Modo candidato» (≥ 44 px) en la barra', bmc);
-  ok(await modoGuardado() === 'admin', 'el modo elegido queda recordado en este equipo', await modoGuardado());
+  ok(await modoGuardado() === 'admin', 'el modo elegido queda recordado mientras usa la app (sessionStorage; orden 86)', await modoGuardado());
   await foto('21-admin-modo-candidato');
   await ir(base + '/login.html'); await espera(1500);
-  ok(await ruta() === '/app/admin-panel.html', 'recordado: al volver a ingresar en ese equipo sigue en la app de administración', await ruta());
+  ok(await ruta() === '/app/candidato.html', 'ORDEN 86: al volver a ingresar entra SIEMPRE como candidato, aunque haya quedado el modo administrador', await ruta());
+  ok(await modoGuardado() !== 'admin', '   y el modo administrador ya no queda recordado', await modoGuardado());
+  await ev("sessionStorage.setItem('modo_admin_candidato', 'admin')");
   await ir(base + '/app/inicio.html'); await esperar("document.querySelectorAll('#menu-app .menu-boton').length > 0"); await espera(500);
   ok(await ruta() === '/app/inicio.html' && /Modo candidato/.test(await texto('#menu-app')), 'en modo administrador, el inicio de siempre (el ícono de la app) muestra su menú, con «Modo candidato»', await ruta());
   // Volver a modo candidato
@@ -1001,10 +1003,10 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   // «Salir» y letra grande en las páginas compartidas SOLO en modo candidato
   await ir(base + '/app/puesto-votacion.html'); await esperar("!!document.querySelector('.btn-salir')", 8000); await espera(500);
   ok(await ev("document.body.classList.contains('cand-app') && !!document.querySelector('.btn-salir')") && /candidato-mas/.test(await ev("document.querySelector('.app-barra .volver').getAttribute('onclick')")), 'en modo candidato las pantallas compartidas llevan «Salir», la letra grande y vuelven a «Más»');
-  await ev("localStorage.setItem('modo_admin_candidato', 'admin')");
+  await ev("sessionStorage.setItem('modo_admin_candidato', 'admin')");
   await ir(base + '/app/puesto-votacion.html'); await espera(1500);
   ok(await ev("!document.body.classList.contains('cand-app') && !document.querySelector('.btn-salir')") && /inicio\.html/.test(await ev("document.querySelector('.app-barra .volver').getAttribute('onclick')")), 'en modo administrador esas mismas pantallas son las de siempre (sin «Salir» ni letra del candidato)');
-  await ev("localStorage.setItem('modo_admin_candidato', 'candidato')");
+  await ev("sessionStorage.setItem('modo_admin_candidato', 'candidato')");
   const malas81 = p.respuestas.filter((r) => r.status === 403 || r.status === 500).map((r) => r.status + ' ' + r.url.replace(base, ''));
   ok(malas81.length === 0, 'el administrador marcado no recibe ningún 403/500 en todo el recorrido', malas81);
   // Computador: sigue en el panel de administrador
@@ -1023,7 +1025,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   ok(await ev("!document.querySelector('.btn-modo-candidato')"), 'y su barra no trae «Modo candidato»');
   await ir(base + '/app/candidato.html'); await espera(2500);
   ok(await ruta() === '/app/admin-panel.html', 'si abre la app del candidato a mano, lo devuelve a la de administración', await ruta());
-  ok(await ev("localStorage.getItem('modo_admin_candidato')") === null, 'y no queda ningún modo recordado');
+  ok(await ev("sessionStorage.getItem('modo_admin_candidato')") === null, 'y no queda ningún modo recordado');
   // Usuarios (computador): la casilla solo aparece con rol Administrador
   await limpiarSesion(); await escritorio();
   await ir(base + '/login.html');

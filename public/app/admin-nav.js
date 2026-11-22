@@ -69,7 +69,7 @@
     /* ORDEN 81: el administrador que también es el candidato. Al abrir la app de administración queda recordado ese modo en este equipo (candidato-nav.js lo mira al ingresar)
        y la barra de cada pantalla lleva «Modo candidato». Sin la marca, nada de esto existe. */
     if (usuario.es_candidato) {
-      try { localStorage.setItem('modo_admin_candidato', 'admin'); } catch (e) { /* sin almacenamiento */ }
+      try { sessionStorage.setItem('modo_admin_candidato', 'admin'); } catch (e) { /* sin almacenamiento */ }
       global.__adminEsCandidato = true;
       global.cMontarBotonModoCandidato = function () {
         var barra = document.querySelector('.app-barra');
@@ -78,7 +78,7 @@
         b.type = 'button'; b.className = 'btn-modo-candidato'; b.textContent = 'Modo candidato';
         b.setAttribute('aria-label', 'Cambiar a la app del candidato');
         b.addEventListener('click', function () {
-          try { localStorage.setItem('modo_admin_candidato', 'candidato'); } catch (e) { /* sin almacenamiento */ }
+          try { sessionStorage.setItem('modo_admin_candidato', 'candidato'); } catch (e) { /* sin almacenamiento */ }
           window.location.href = '/app/candidato.html';
         });
         barra.appendChild(b);

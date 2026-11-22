@@ -27,6 +27,9 @@
   .rec-vista { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; margin-bottom: 10px; background: var(--cream); border: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; font-family: inherit; color: var(--navy); font-weight: 600; font-size: .86rem; cursor: pointer; overflow: hidden; padding: 0; }
   .rec-vista .ico { font-size: 2rem; }
   .rec-vista img { width: 100%; height: 100%; object-fit: cover; display: block; margin: 0; border-radius: 0; }
+  .bio-extracto { white-space: pre-wrap; }
+  .bio-foto-mini { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; border: 3px solid var(--marca-amarillo); display: block; margin: 0 0 10px; }
+  .bio-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
   .vacio-app { text-align: center; color: var(--muted); padding: 50px 20px; }
 </style>
 </head>
@@ -69,13 +72,18 @@ const TIPOS = [
   { clave: 'publicidad_impresa', etiqueta: 'Publicidad impresa', icono: '🖨️' },
   { clave: 'proxima_reunion', etiqueta: 'Próximas reuniones', icono: '📅' },
   { clave: 'jingle', etiqueta: 'Jingles', icono: '🎵' },
-  { clave: 'foto_campana', etiqueta: 'Fotos de la campaña', icono: '📷' }
+  { clave: 'foto_campana', etiqueta: 'Fotos de la campaña', icono: '📷' },
+  { clave: 'biografia', etiqueta: 'Biografía', icono: '👤', soloInformacion: true }   // orden 86: la biografía del candidato es un elemento más de «Información para compartir»
 ];
 const ETIQUETAS_TIPO = Object.fromEntries(TIPOS.filter(t => t.clave).map(t => [t.clave, t.etiqueta]));
 const ICONOS_TIPO = Object.fromEntries(TIPOS.filter(t => t.clave).map(t => [t.clave, t.icono]));
 
 let itemsCache = [];
 let filtroActual = '';
+/* ORDEN 86: la biografía del candidato (contenido_paginas.clave = 'biografia_candidato', la que el administrador escribe en Compartir contenido → Biografía del candidato) sale AQUÍ,
+   primera de la lista, con su botón de compartir. Sin texto no se esconde: dice «Aún no hay biografía cargada». Solo en «Información para compartir», no en «Publicidad descargable». */
+let bio = null;            // { nombre, texto, foto }
+let rolUsuarioApp = '';
 
 function formatoTamano(kb) {
   if (!kb) return '';
@@ -83,7 +91,7 @@ function formatoTamano(kb) {
 }
 
 function pintarFiltros() {
-  document.getElementById('filtros-app').innerHTML = TIPOS.map(t => `
+  document.getElementById('filtros-app').innerHTML = TIPOS.filter(t => !t.soloInformacion || modo === 'informacion').map(t => `
     <div class="chip-app ${filtroActual === t.clave ? 'activo' : ''}" style="flex:0 0 auto; white-space:nowrap;" onclick="elegirFiltro('${t.clave}')">
       ${t.icono} ${t.etiqueta}
     </div>
@@ -98,10 +106,11 @@ function elegirFiltro(clave) {
 
 function pintarLista() {
   liberarVistas();
-  const items = filtroActual ? itemsCache.filter(r => r.tipo === filtroActual) : itemsCache;
-  document.getElementById('vacio').style.display = items.length ? 'none' : 'block';
+  const mostrarBio = modo === 'informacion' && !!bio && (filtroActual === '' || filtroActual === 'biografia');
+  const items = filtroActual === 'biografia' ? [] : (filtroActual ? itemsCache.filter(r => r.tipo === filtroActual) : itemsCache);
+  document.getElementById('vacio').style.display = (items.length || mostrarBio) ? 'none' : 'block';
 
-  document.getElementById('lista-recursos').innerHTML = items.map((r) => {
+  document.getElementById('lista-recursos').innerHTML = (mostrarBio ? tarjetaBiografia() : '') + items.map((r) => {
     const esImagen = r.archivo_mime && r.archivo_mime.startsWith('image/');
     const esVideo = r.archivo_mime && r.archivo_mime.startsWith('video/');
     const esAudio = r.archivo_mime && r.archivo_mime.startsWith('audio/');
@@ -141,6 +150,33 @@ function pintarLista() {
     `;
   }).join('');
   activarVistas();
+}
+
+/** La tarjeta de la biografía del candidato (orden 86). */
+function tarjetaBiografia() {
+  const hay = !!bio.texto;
+  const extracto = bio.texto.length > 260 ? bio.texto.slice(0, 260).replace(/\s+\S*$/, '') + '…' : bio.texto;
+  return `
+    <div class="rec-tarjeta" id="tarjeta-biografia">
+      ${bio.foto ? `<img class="bio-foto-mini" src="${escaparAppHtml(bio.foto)}" alt="">` : ''}
+      <span class="rec-tipo">👤 Biografía</span>
+      <h3>${escaparAppHtml(bio.nombre)}</h3>
+      ${hay ? `<p class="bio-extracto">${escaparAppHtml(extracto)}</p>` : `<p id="bio-vacia">Aún no hay biografía cargada.${rolUsuarioApp === 'admin' ? ' Se escribe en «Compartir contenido» → Biografía del candidato.' : ''}</p>`}
+      <div class="bio-acciones">
+        ${hay ? '<a class="btn-app btn-app-primario" href="/app/biografia.html">Ver biografía completa</a>' : ''}
+        ${hay ? '<button type="button" class="btn-app btn-app-primario" data-compartir-bio="1">Compartir</button>' : ''}
+      </div>
+    </div>`;
+}
+
+/** Compartir la biografía: la hoja de compartir del teléfono; sin ella, WhatsApp con el texto. */
+async function compartirBiografia() {
+  if (!bio || !bio.texto) return;
+  const texto = (bio.nombre + '\n\n' + bio.texto).slice(0, 1500);
+  try {
+    if (navigator.share) { await navigator.share({ title: bio.nombre, text: texto }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener');
 }
 
 /* ---- Vistas previas y descarga con token ---- */
@@ -188,6 +224,7 @@ function activarVistas() {
 }
 
 document.getElementById('lista-recursos').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-compartir-bio]')) { compartirBiografia(); return; }
   const v = e.target.closest('.rec-vista');
   if (v && v.dataset.vista !== 'lista') { cargarVista(v); return; }
   const d = e.target.closest('[data-descargar]');
@@ -214,9 +251,15 @@ document.getElementById('lista-recursos').addEventListener('click', async (e) =>
     null, inicioDeLaApp(usuario)
   );
 
+  rolUsuarioApp = usuario.rol;
   try {
     const items = await api('/recursos');
     itemsCache = Array.isArray(items) ? items : [];
+    if (modo === 'informacion') {
+      // Si la biografía no se puede leer (sin señal, sin permiso) se queda sin tarjeta: el resto de la pantalla no depende de ella.
+      const [c, config] = await Promise.all([api('/contenido/biografia_candidato').catch(() => null), api('/configuracion/campana').catch(() => ({}))]);
+      if (c) bio = { nombre: ((config && config.nombre_candidato) || '').trim() || c.titulo || 'Biografía del candidato', texto: (c.contenido || '').trim(), foto: c.foto_url || '' };
+    }
     document.getElementById('pantalla-carga').style.display = 'none';
     document.getElementById('contenedor').style.display = 'block';
     pintarFiltros();

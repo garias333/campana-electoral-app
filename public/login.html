@@ -1008,16 +1008,13 @@ function irDondeCorresponde(usuario) {
      RESPETA LA PREFERENCIA «Ver versión de escritorio» que el propio Panel guarda
      (`admin_preferir_escritorio`, ver public/app/admin-nav.js). Con try/catch: el almacenamiento
      puede no existir (navegación privada) y entonces simplemente no hay preferencia. */
-  /* ORDEN 81: EL ADMINISTRADOR QUE TAMBIÉN ES EL CANDIDATO (marca «Es el candidato»). En el celular cae en la app del candidato, salvo que en ESTE equipo la última vez haya usado
-     la de administración (`modo_admin_candidato` = 'admin', que guardan las dos apps al abrirse y los botones «Modo administrador» / «Modo candidato»): entonces sigue el camino de
-     administrador de abajo. En el computador no cambia nada: panel de administrador. */
+  /* ORDEN 81: EL ADMINISTRADOR QUE TAMBIÉN ES EL CANDIDATO (marca «Es el candidato»). En el celular cae en la app del candidato. En el computador no cambia nada: panel de administrador. */
+  /* ORDEN 86: SIEMPRE a la app del candidato, sin mirar el modo recordado. Cada ingreso desde el celular empieza como candidato; «Modo administrador» (en «Más») abre la app de
+     administración DEL CELULAR y solo dura mientras se usa (sessionStorage, ver candidato-nav.js). Por eso aquí se borra cualquier modo que haya quedado. */
   if (usuario && usuario.rol === 'admin' && usuario.es_candidato && window.esCelular()) {
-    let modoAdmin = false;
-    try { modoAdmin = localStorage.getItem('modo_admin_candidato') === 'admin'; } catch (e) { modoAdmin = false; }
-    if (!modoAdmin) {
-      window.location.href = '/app/candidato.html';
-      return;
-    }
+    try { sessionStorage.removeItem('modo_admin_candidato'); } catch (e) { /* sin almacenamiento */ }
+    window.location.href = '/app/candidato.html';
+    return;
   }
   if (usuario && usuario.rol === 'admin' && window.esCelular()) {
     let prefiereEscritorio = false;

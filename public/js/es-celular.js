@@ -16,6 +16,10 @@
  *      vertical y las tabletas chicas, y deja afuera un computador con la
  *      ventana entera.
  *
+ *   4. (orden 86) Un teléfono EN HORIZONTAL: su ancho (844 px o más) pasa de 820, pero es táctil sin puntero fino y de menos de 500 px de alto —ningún computador
+ *      tiene una ventana así de baja con la pantalla táctil como único puntero—. Sin esto, el candidato que giraba el teléfono caía en el escritorio.
+ *   5. (orden 86) La dirección trae `?app=1`: quien la abre dice que es la app del celular.
+ *
  * SE MIDE EL ANCHO Y NO EL `userAgent`. La lista de aparatos no se acaba
  * nunca, y los navegadores mienten en ese campo a propósito desde hace años.
  * Consecuencia sabida: achicar la ventana del computador da la pantalla del
@@ -25,7 +29,9 @@ window.esCelular = function () {
   try {
     if (window.matchMedia('(display-mode: standalone)').matches) return true;
     if (window.navigator.standalone === true) return true;
-    return window.matchMedia('(max-width: 820px)').matches;
+    if (window.matchMedia('(max-width: 820px)').matches) return true;
+    if (window.matchMedia('(pointer: coarse) and (hover: none) and (max-height: 500px)').matches) return true;   // teléfono en horizontal
+    return new URLSearchParams(window.location.search).get('app') === '1';
   } catch (e) {
     return false;
   }

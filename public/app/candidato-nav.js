@@ -33,16 +33,16 @@
 
   /* ---- MODO (orden 81): el administrador que también es el candidato ----
      Un administrador con la marca «Es el candidato» (`usuario.es_candidato`) usa las dos apps con UN solo usuario: la del candidato y la de administración del celular.
-     Cuál de las dos está usando se RECUERDA EN ESE EQUIPO (localStorage `modo_admin_candidato` = 'admin' | 'candidato'); sin dato, entra como candidato. Se anota solo, al
+     Cuál de las dos está usando se RECUERDA SOLO MIENTRAS USA LA APP (sessionStorage `modo_admin_candidato` = 'admin' | 'candidato', orden 86: antes era localStorage y al volver a abrir la app entraba como administrador); sin dato —cada vez que se abre la app de nuevo—, entra como candidato. Se anota solo, al
      entrar a cualquiera de las dos apps (exigirCandidatoApp / exigirAdminApp / inicio.html), y con los botones «Modo administrador» y «Modo candidato».
      El rol «candidato» puro siempre está en modo candidato. Es comodidad de la pantalla: lo que cada uno puede hacer lo decide el servidor por su rol. */
   var CLAVE_MODO = 'modo_admin_candidato';
   global.cEsAdminCandidato = function (usuario) { return !!usuario && usuario.rol === 'admin' && !!Number(usuario.es_candidato); };
   global.cModoGuardado = function () {
-    try { return localStorage.getItem(CLAVE_MODO) === 'admin' ? 'admin' : 'candidato'; } catch (e) { return 'candidato'; }
+    try { return sessionStorage.getItem(CLAVE_MODO) === 'admin' ? 'admin' : 'candidato'; } catch (e) { return 'candidato'; }
   };
   global.cFijarModo = function (modo) {
-    try { localStorage.setItem(CLAVE_MODO, modo === 'admin' ? 'admin' : 'candidato'); } catch (e) { /* sin almacenamiento: vale solo esta vez */ }
+    try { sessionStorage.setItem(CLAVE_MODO, modo === 'admin' ? 'admin' : 'candidato'); } catch (e) { /* sin almacenamiento: vale solo esta vez */ }
   };
   /** ¿Esta persona está usando AHORA la app del candidato? (rol candidato; o administrador marcado en modo candidato.) */
   global.cEsModoCandidato = function (usuario) {

@@ -394,7 +394,7 @@ function pintarCampana(campana, bio) {
      candidato —o nunca eligió—, se le lleva a su app; si fue el de administrador, ve su menú de siempre (con «Modo candidato» arriba). */
   if (usuario.rol === 'admin' && Number(usuario.es_candidato)) {
     let modoAdmin = false;
-    try { modoAdmin = localStorage.getItem('modo_admin_candidato') === 'admin'; } catch (e) { modoAdmin = false; }
+    try { modoAdmin = sessionStorage.getItem('modo_admin_candidato') === 'admin'; } catch (e) { modoAdmin = false; }
     if (!modoAdmin) { window.location.replace('/app/candidato.html'); return; }
     window.__esAdminCandidato = true;
   }

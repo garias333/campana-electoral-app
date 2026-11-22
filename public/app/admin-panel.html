@@ -307,6 +307,8 @@ document.getElementById('ver-escritorio').addEventListener('click', () => {
 (async () => {
   const usuario = await exigirAdminApp('panel');
   if (!usuario) return;
+  // Orden 86: el administrador que también es el candidato NO pasa al escritorio desde el celular: la versión de escritorio es del computador.
+  if (usuario.es_candidato) { const ve = document.getElementById('ver-escritorio'); if (ve) ve.style.display = 'none'; }
   pintarBarraApp('Panel general', null, '/app/inicio.html');
   // «Usar la versión de celular» (menú de inicio) llega con ?celular=1: se borra la preferencia de escritorio.
   if (new URLSearchParams(location.search).get('celular') === '1') {

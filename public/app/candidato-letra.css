@@ -21,6 +21,10 @@ body.cand-app h1 { font-size: var(--c-barra); }
 body.cand-app .app-barra .subt { font-size: var(--c-sec); }
 body.cand-app .menu-boton .texto strong { font-size: var(--c-grid); }
 body.cand-app .vacio-app { font-size: var(--c-base); }
+/* «Información para compartir» (orden 86: ahora lleva la tarjeta de la biografía): etiqueta, detalles y texto de cada tarjeta nunca bajo el mínimo. */
+body.cand-app .rec-tipo, body.cand-app .rec-meta { font-size: var(--c-sec); }
+body.cand-app .rec-tarjeta p { font-size: var(--c-med); }
+body.cand-app .rec-tarjeta h3 { font-size: var(--c-tit); }
 body.cand-app .fila-lista .nombre { font-size: var(--c-base); }
 body.cand-app .fila-lista .dato { font-size: var(--c-sec); }
 body.cand-app .pildora { font-size: var(--c-sec); }
