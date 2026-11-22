@@ -3889,7 +3889,10 @@ async function enviarFormularioEstructura(e) {
       idEstructuraGuardada = r.estructura_id || r.id || null;
       okBox.textContent = (r.password_temporal
           ? `Registro creado. Contraseña temporal: ${r.password_temporal}`
-          : 'Registro creado. Su usuario y contraseña inicial son su Número de identificación (deberá cambiarla en su primer ingreso).') +
+          : (document.body.classList.contains('coord-celular')
+              // Orden 84: el coordinador del celular lee cómo entra su líder POR EL CELULAR (cédula + los últimos 6 dígitos); el mensaje del computador no cambia.
+              ? 'Registro creado. Entra a la app con su cédula y una clave: los últimos 6 dígitos de su cédula.'
+              : 'Registro creado. Su usuario y contraseña inicial son su Número de identificación (deberá cambiarla en su primer ingreso).')) +
         (datos.direccion ? (r.geocodificado ? ' · Dirección georreferenciada ✓' : ' · No se pudo georreferenciar la dirección (verifíquela).') : '');
       okBox.classList.add('visible');
       cargarEstructura();

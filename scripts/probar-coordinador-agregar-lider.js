@@ -271,6 +271,8 @@ function cliente() {
   let [[creado]] = await pool.query("SELECT e.supervisor_id, e.cargo FROM estructura e JOIN usuarios u ON u.id = e.usuario_id WHERE u.numero_identificacion = '1099000031'");
   ok(!!creado && creado.cargo === 'lider' && creado.supervisor_id === ids.coord1, 'el formulario por pasos guardó a Laura como Líder de Marta', { creado, exito });
   ok(exito.visible && exito.titulo === 'Guardado' && /Mis líderes/.test(exito.boton || ''), 'dice «Guardado» y ofrece «Volver a Mis líderes»', exito);
+  const textoGuardado = await texto('#wz-exito-texto');
+  ok(/^Registro creado\. Entra a la app con su cédula y una clave: los últimos 6 dígitos de su cédula\.$/.test(textoGuardado.trim()) && !/contraseña inicial/.test(textoGuardado), 'el mensaje del celular dice cómo entra: «Entra a la app con su cédula y una clave: los últimos 6 dígitos de su cédula» (orden 84)', textoGuardado);
   await foto('5-guardado-390x844');
 
   await click('.wz-exito .wz-lista');
