@@ -57,6 +57,33 @@
   .tarjeta-cuerpo .descripcion { color: var(--color-text-muted, #6b6b6b); font-size: 0.85rem; line-height: 1.45; margin: 0; }
   .tarjeta-cuerpo .meta { font-size: 0.74rem; color: var(--color-text-muted, #6b6b6b); margin: 0; }
   .tarjeta-acciones { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; flex-wrap: wrap; }
+
+  /* --- ORDEN 104: biografía del candidato, tarjeta ancha arriba de las pestañas ---
+     Es el MISMO dato que lee el celular (contenido_paginas.clave = 'biografia_candidato'); aquí solo se muestra y se edita desde el escritorio.
+     El azul y el amarillo son los de la orden: azul para editar y copiar, amarillo para «Agregar» cuando todavía no hay nada. */
+  .card-bio { display: flex; gap: 20px; align-items: flex-start; background: #fff; border: 1px solid var(--color-border, #dfe3e8); border-radius: 14px; padding: 18px 20px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(20,42,63,0.05); }
+  .card-bio-foto { flex: 0 0 110px; width: 110px; height: 110px; border-radius: 50%; overflow: hidden; background: linear-gradient(155deg, var(--color-navy, #142a3f) 0%, var(--color-accent-dark, #204264) 100%); display: flex; align-items: center; justify-content: center; font-size: 2.6rem; color: rgba(255,255,255,0.9); }
+  .card-bio-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-bio-cuerpo { flex: 1; min-width: 0; }
+  .card-bio-eyebrow { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted, #6b6b6b); margin: 0 0 2px; }
+  .card-bio-cuerpo h3 { margin: 0 0 8px; font-size: 1.1rem; color: var(--color-navy, #142a3f); }
+  .bio-texto { margin: 0; white-space: pre-line; line-height: 1.5; font-size: 0.92rem; color: var(--color-text, #1f2933); overflow-wrap: anywhere; }
+  .bio-texto.recortado { display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .bio-ver-mas { background: none; border: none; padding: 4px 0 0; color: #0B5ED7; font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+  .bio-ver-mas:hover { color: #084298; text-decoration: underline; }
+  .bio-vacia { margin: 0; color: var(--color-text-muted, #6b6b6b); font-size: 0.95rem; }
+  .card-bio-acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .btn-bio { border: none; border-radius: 8px; padding: 9px 16px; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .btn-bio-azul { background: #0B5ED7; color: #fff; }
+  .btn-bio-azul:hover { background: #084298; }
+  .btn-bio-amarillo { background: #FFC300; color: #000; }
+  .btn-bio-amarillo:hover { background: #E6B000; }
+  .modal-bio { max-width: 680px; }
+  .modal-bio textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
+  .bio-contador { display: block; text-align: right; font-size: 0.78rem; color: var(--color-text-muted, #6b6b6b); margin-top: 4px; }
+  .bio-foto-actual { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 0.85rem; }
+  .bio-foto-actual img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+  @media (max-width: 640px) { .card-bio { flex-direction: column; align-items: stretch; } .card-bio-foto { align-self: center; } }
 </style>
 </head>
 <body>
@@ -72,9 +99,12 @@
       <button class="btn-acento" id="btn-subir" style="display:none; margin-bottom:18px;">+ Subir recurso</button>
     </div>
 
+    <section class="card-bio" id="card-bio" style="display:none;" aria-label="Biografía del candidato"></section>
+
     <div class="toolbar">
       <div class="filtros-chips barra-unida" id="filtros-chips">
         <button type="button" class="chip-filtro activo" data-tipo="">Todos los tipos</button>
+        <button type="button" class="chip-filtro" data-tipo="biografia">Biografía</button>
         <button type="button" class="chip-filtro" data-tipo="noticia">Noticias</button>
         <button type="button" class="chip-filtro" data-tipo="post_redes">Post para redes sociales</button>
         <button type="button" class="chip-filtro" data-tipo="video">Videos</button>
@@ -120,6 +150,30 @@
       <div class="campo"><label for="campo-enlace-externo">O enlace externo (p. ej. video de YouTube)</label><input id="campo-enlace-externo" name="enlace_externo" placeholder="https://..."></div>
       <div class="campo" id="campo-fecha-evento" style="display:none;"><label for="campo-fecha-evento-2">Fecha de la reunión</label><input id="campo-fecha-evento-2" type="datetime-local" name="fecha_evento"></div>
       <button type="submit" class="btn-primario" id="btn-guardar-recurso">Publicar recurso</button>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-bio">
+  <div class="modal modal-bio">
+    <div class="modal-header"><h3 id="titulo-modal-bio">Biografía del candidato</h3><button class="modal-cerrar" id="cerrar-modal-bio" type="button">×</button></div>
+    <div id="bio-error" class="mensaje-error"></div>
+    <form id="form-bio">
+      <div class="campo">
+        <label for="campo-bio-texto">Texto de la biografía</label>
+        <textarea id="campo-bio-texto" rows="12" placeholder="Escribe aquí la biografía. Una línea en blanco separa los párrafos."></textarea>
+        <span class="bio-contador" id="bio-contador">0 caracteres</span>
+      </div>
+      <div class="campo">
+        <label for="campo-bio-foto">Foto del candidato (opcional)</label>
+        <div class="bio-foto-actual" id="bio-foto-actual" style="display:none;">
+          <img id="bio-foto-previa" alt="Foto actual del candidato">
+          <label style="display:flex; align-items:center; gap:6px; margin:0; font-weight:400;"><input type="checkbox" id="bio-quitar-foto" style="width:auto;"> Quitar la foto actual</label>
+        </div>
+        <input id="campo-bio-foto" type="file" accept="image/*">
+        <small style="color:var(--color-text-muted); font-size:0.78rem;">Imagen de hasta 8 MB. Si no eliges ninguna, se conserva la actual.</small>
+      </div>
+      <button type="submit" class="btn-primario" id="btn-guardar-bio">Guardar</button>
     </form>
   </div>
 </div>
@@ -189,6 +243,11 @@ function visualRecurso(r) {
 }
 
 async function cargarRecursos() {
+  /* «Biografía» no es un tipo de recurso: es la tarjeta de arriba. Con ese filtro la lista de recursos se esconde y no se le pide nada al servidor. */
+  const soloBio = filtroTipoActual === 'biografia';
+  pintarBiografia();
+  document.getElementById('grid-recursos').style.display = soloBio ? 'none' : '';
+  if (soloBio) { document.getElementById('vacio-recursos').style.display = 'none'; return; }
   const params = filtroTipoActual ? `?tipo=${filtroTipoActual}` : '';
   const recursos = await api(`/recursos${params}`);
   recursosCache = recursos;
@@ -262,6 +321,128 @@ async function eliminarRecurso(id) {
   cargarRecursos();
 }
 
+/* ================= ORDEN 104: biografía del candidato =================
+   Mismo almacenamiento que lee el celular: contenido_paginas.clave = 'biografia_candidato' (GET/PUT /api/contenido/biografia_candidato, foto en /foto).
+   El servidor exige rol admin para escribir (el superadministrador conserva ese rol); aquí además se esconde el botón a quien no puede. */
+const CLAVE_BIO = 'biografia_candidato';
+let bio = null;   // { titulo, texto, foto, nombre } o null si no se pudo leer
+let bioExpandida = false;
+
+function puedeEditarBio() { return !!usuarioActual && usuarioActual.rol === 'admin'; }
+
+async function cargarBiografia() {
+  try {
+    const [c, config] = await Promise.all([api(`/contenido/${CLAVE_BIO}`), api('/configuracion/campana').catch(() => ({}))]);
+    bio = {
+      titulo: c.titulo || 'Biografía del candidato',
+      texto: (c.contenido || '').trim(),
+      foto: c.foto_url || '',
+      nombre: ((config && config.nombre_candidato) || '').trim() || c.titulo || 'Biografía del candidato'
+    };
+  } catch (e) { bio = null; }
+}
+
+function pintarBiografia() {
+  const caja = document.getElementById('card-bio');
+  const visible = bio && (filtroTipoActual === '' || filtroTipoActual === 'biografia');
+  caja.style.display = visible ? 'flex' : 'none';
+  if (!visible) return;
+  const editor = puedeEditarBio();
+  const hay = !!bio.texto;
+  const fotoHtml = bio.foto ? `<img src="${escaparRecursoHtml(bio.foto)}" alt="${escaparRecursoHtml(bio.nombre)}">` : '👤';
+  caja.innerHTML = `
+    <div class="card-bio-foto">${fotoHtml}</div>
+    <div class="card-bio-cuerpo">
+      <p class="card-bio-eyebrow">Biografía del candidato</p>
+      <h3>${escaparRecursoHtml(bio.nombre)}</h3>
+      ${hay
+        ? `<p class="bio-texto recortado" id="bio-texto">${escaparRecursoHtml(bio.texto)}</p><button type="button" class="bio-ver-mas" id="bio-ver-mas" style="display:none;"></button>`
+        : '<p class="bio-vacia" id="bio-vacia">Aún no hay biografía cargada</p>'}
+      <div class="card-bio-acciones">
+        ${hay ? '<button type="button" class="btn-bio btn-bio-azul" id="bio-copiar">Copiar texto</button>' : ''}
+        ${editor ? (hay
+          ? '<button type="button" class="btn-bio btn-bio-azul" id="bio-editar">Editar biografía</button>'
+          : '<button type="button" class="btn-bio btn-bio-amarillo" id="bio-editar">Agregar biografía</button>') : ''}
+      </div>
+    </div>`;
+  if (hay) {
+    // «Ver completa» solo si el texto de verdad pasa de 4 líneas.
+    const t = document.getElementById('bio-texto');
+    const b = document.getElementById('bio-ver-mas');
+    if (bioExpandida) t.classList.remove('recortado');
+    if (t.scrollHeight > t.clientHeight + 1 || bioExpandida) {
+      b.style.display = 'inline-block';
+      b.textContent = bioExpandida ? 'Ver menos' : 'Ver completa';
+    }
+    b.addEventListener('click', () => { bioExpandida = !bioExpandida; pintarBiografia(); });
+    document.getElementById('bio-copiar').addEventListener('click', copiarBiografia);
+  }
+  const bEd = document.getElementById('bio-editar');
+  if (bEd) bEd.addEventListener('click', abrirModalBio);
+}
+
+async function copiarBiografia() {
+  const boton = document.getElementById('bio-copiar');
+  const texto = `${bio.nombre}\n\n${bio.texto}`;   // igual que «Compartir» en el celular: nombre y texto
+  try {
+    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(texto);
+    else {
+      const ta = document.createElement('textarea');
+      ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    boton.textContent = '¡Copiado!';
+  } catch (e) { boton.textContent = 'No se pudo copiar'; }
+  setTimeout(() => { if (document.getElementById('bio-copiar')) document.getElementById('bio-copiar').textContent = 'Copiar texto'; }, 1800);
+}
+
+function actualizarContadorBio() {
+  const n = document.getElementById('campo-bio-texto').value.length;
+  document.getElementById('bio-contador').textContent = `${n.toLocaleString('es-CO')} caracteres`;
+}
+
+function abrirModalBio() {
+  if (!puedeEditarBio()) return;
+  document.getElementById('bio-error').classList.remove('visible');
+  document.getElementById('titulo-modal-bio').textContent = bio && bio.texto ? 'Editar biografía' : 'Agregar biografía';
+  document.getElementById('campo-bio-texto').value = bio ? bio.texto : '';
+  document.getElementById('campo-bio-foto').value = '';
+  document.getElementById('bio-quitar-foto').checked = false;
+  const hayFoto = !!(bio && bio.foto);
+  document.getElementById('bio-foto-actual').style.display = hayFoto ? 'flex' : 'none';
+  if (hayFoto) document.getElementById('bio-foto-previa').src = bio.foto;
+  actualizarContadorBio();
+  document.getElementById('overlay-bio').classList.add('abierto');
+  document.getElementById('campo-bio-texto').focus();
+}
+
+document.getElementById('campo-bio-texto').addEventListener('input', actualizarContadorBio);
+document.getElementById('cerrar-modal-bio').addEventListener('click', () => document.getElementById('overlay-bio').classList.remove('abierto'));
+document.getElementById('form-bio').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorBox = document.getElementById('bio-error');
+  const boton = document.getElementById('btn-guardar-bio');
+  errorBox.classList.remove('visible');
+  boton.disabled = true;
+  try {
+    await api(`/contenido/${CLAVE_BIO}`, { method: 'PUT', body: { titulo: (bio && bio.titulo) || 'Biografía del candidato', contenido: document.getElementById('campo-bio-texto').value } });
+    const archivo = document.getElementById('campo-bio-foto').files[0];
+    if (archivo) {
+      const fd = new FormData(); fd.append('foto', archivo);
+      await api(`/contenido/${CLAVE_BIO}/foto`, { method: 'POST', body: fd });
+    } else if (document.getElementById('bio-quitar-foto').checked) {
+      await api(`/contenido/${CLAVE_BIO}/foto`, { method: 'DELETE' });
+    }
+    document.getElementById('overlay-bio').classList.remove('abierto');
+    bioExpandida = false;
+    await cargarBiografia();
+    pintarBiografia();
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.classList.add('visible');
+  } finally { boton.disabled = false; }
+});
+
 document.querySelectorAll('#filtros-chips .chip-filtro').forEach(chip => {
   chip.addEventListener('click', () => {
     filtroTipoActual = chip.dataset.tipo;
@@ -303,6 +484,7 @@ document.getElementById('form-recurso').addEventListener('submit', async (e) => 
   if (usuarioActual.rol === 'admin') {
     document.getElementById('btn-subir').style.display = 'inline-block';
   }
+  await cargarBiografia();
   await cargarRecursos();
 })();
 </script>
