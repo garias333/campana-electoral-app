@@ -303,7 +303,10 @@
      El bloque nace oculto y solo el celular lo muestra; el botón viejo «Ingresar con usuario y contraseña» se esconde allí porque lo reemplaza «Acceso a candidato». */
   #bloque-acceso-candidato, #pie-ingreso-correo { display: none; }
   html.login-celular #bloque-acceso-candidato { display: block; margin-bottom: 18px; }
-  html.login-celular #bloque-acceso-candidato button.btn-alterno { min-height: 54px; margin-top: 0; font-size: 1rem; }
+  /* ORDEN 103: «Acceso a candidato» es hermano exacto de «ENVIAR CÓDIGO»: usa la MISMA clase (btn-primario), sin ningún valor copiado; solo se le quita el margen de arriba porque va primero. */
+  html.login-celular #bloque-acceso-candidato button.btn-primario { margin-top: 0; }
+  /* ORDEN 103: en el celular «Te enviamos un código…» no se muestra ni ocupa lugar (display:none). En el computador se queda. */
+  html.login-celular #texto-codigo-un-uso { display: none; }
   html.login-celular #ir-a-password { display: none; }
   /* «¿Olvidaste tu contraseña?» a 18 px y con alto de dedo (≥ 44 px), SOLO mientras se ve la pantalla del código. El resto de los pasos conserva el tamaño de siempre. */
   html.login-celular body[data-paso="form-torre"] #pie-olvido a {
@@ -512,9 +515,9 @@
     <form id="form-torre">
       <!-- ORDEN 101: solo el celular lo ve (CSS: html.login-celular). Lleva al formulario de cédula y contraseña. -->
       <div id="bloque-acceso-candidato">
-        <button type="button" class="btn-primario btn-alterno" id="ir-a-candidato">Acceso a candidato</button>
+        <button type="button" class="btn-primario" id="ir-a-candidato">Acceso a candidato</button>
       </div>
-      <div style="text-align:center; margin-bottom:18px;">
+      <div id="texto-codigo-un-uso" style="text-align:center; margin-bottom:18px;">
         <p style="font-size:.95rem; margin:0; line-height:1.5;">
           Te enviamos un código de acceso de un solo uso, sin contraseña.
         </p>

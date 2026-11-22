@@ -101,12 +101,12 @@ const CEDULA_ADMCAND = '1099000101'; const CORREO_ADMCAND = 'admin.cand101@ejemp
     await pantalla(ancho, alto, true);
     await abrirTorreCelular();
     const m = await medir();
-    console.log('     ' + m.map((x) => `${x.n}@${x.top}`).join(' | '));
+    console.log('     ' + m.map((x) => `${x.n}@${x.top}`).join(' | ') + '  [alto Acceso a candidato: ' + m[2].alto + ' px; Enviar código: ' + m[6].alto + ' px]');
     ok(m.every((x) => x.visible), 'todos los elementos están a la vista', m.filter((x) => !x.visible));
     ok(m.every((x, i) => i === 0 || x.top > m[i - 1].top), 'orden exacto: logo · título · Acceso a candidato · correo/celular · ayuda · Mantener sesión · Enviar código · ¿Olvidaste…?', m.map((x) => x.n + ':' + x.top));
     const por = (n) => m.find((x) => x.n === n);
     ok(por('título').texto === 'Ingresar con código', 'título «Ingresar con código» como hoy', por('título').texto);
-    ok(por('botón Acceso a candidato').texto === 'Acceso a candidato', 'botón «Acceso a candidato»', por('botón Acceso a candidato').texto);
+    ok(por('botón Acceso a candidato').texto.toLowerCase() === 'acceso a candidato', 'botón «Acceso a candidato» (ahora en mayúsculas, como ENVIAR CÓDIGO)', por('botón Acceso a candidato').texto);
     ok(por('botón Acceso a candidato').alto >= 52, 'el botón mide ≥ 52 px de alto', por('botón Acceso a candidato').alto);
     const form = await ev("Math.round(document.getElementById('form-torre').getBoundingClientRect().width)");
     ok(por('botón Acceso a candidato').ancho >= form - 1, 'el botón ocupa el ancho completo', { boton: por('botón Acceso a candidato').ancho, form });
@@ -118,6 +118,13 @@ const CEDULA_ADMCAND = '1099000101'; const CORREO_ADMCAND = 'admin.cand101@ejemp
     ok(viejo === 'none', '«Ingresar con usuario y contraseña» ya no se ve en esta pantalla', viejo);
     const pie = await ev(`(() => { const a = document.querySelector('#pie-ingreso-correo a'); const o = document.querySelector('#pie-olvido a'); const r = a.getBoundingClientRect(); return { texto: a.innerText.trim(), debajo: r.top > o.getBoundingClientRect().top, fuente: getComputedStyle(a).fontSize, alto: Math.round(r.height) }; })()`);
     ok(pie.texto === 'Ingresar con correo y contraseña' && pie.debajo && parseFloat(pie.fuente) < 18, 'enlace pequeño «Ingresar con correo y contraseña» debajo de «¿Olvidaste…?» (administración)', pie);
+    // ORDEN 103: «Acceso a candidato» idéntico a «ENVIAR CÓDIGO» y sin el texto «Te enviamos…».
+    const est = await ev(`(() => { const g = (sel) => { const c = getComputedStyle(document.querySelector(sel)); return { fondo: c.backgroundColor, color: c.color, peso: c.fontWeight, borde: c.borderTopWidth + ' ' + c.borderTopStyle + ' ' + c.borderTopColor, radio: c.borderTopLeftRadius, sombra: c.boxShadow, mayus: c.textTransform, espaciado: c.letterSpacing, fuente: c.fontSize }; };
+      return { cand: g('#ir-a-candidato'), enviar: g('#form-torre button[type=submit]') }; })()`);
+    ok(JSON.stringify(est.cand) === JSON.stringify(est.enviar) && est.cand.fondo === 'rgb(255, 195, 0)', 'ORDEN 103: «Acceso a candidato» tiene el mismo fondo, color, peso, borde, radio, sombra, mayúsculas y espaciado que «ENVIAR CÓDIGO» (amarillo #FFC300)', est);
+    const txt = await ev(`(() => { const e = document.getElementById('texto-codigo-un-uso'); const r = e.getBoundingClientRect(); return { display: getComputedStyle(e).display, alto: r.height, enDom: document.body.innerText.includes('Te enviamos un código de acceso de un solo uso') }; })()`);
+    ok(txt.display === 'none' && txt.alto === 0 && !txt.enDom, 'ORDEN 103: el texto «Te enviamos un código de acceso de un solo uso…» no se ve ni ocupa lugar', txt);
+    ok(await ev("getComputedStyle(document.getElementById('pista-canal')).display !== 'none' && /el código te llega ahí/.test(document.getElementById('pista-canal').innerText)"), 'la descripción debajo del campo («Si escribes un correo, el código te llega ahí…») se queda');
     ok(await sinDesborde(), 'sin desborde horizontal (scrollWidth <= innerWidth)');
     if (ancho === 390) { await foto('1-ingresar-con-codigo-390x844'); await fotoCompleta('1b-ingresar-con-codigo-390-pagina-completa'); }
   }
@@ -202,8 +209,10 @@ const CEDULA_ADMCAND = '1099000101'; const CORREO_ADMCAND = 'admin.cand101@ejemp
   ok(pc.candidato === 'none' && pc.correo === 'none', 'sin «Acceso a candidato» ni el enlace pequeño', pc);
   ok(pc.password !== 'none', 'conserva el botón «Ingresar con usuario y contraseña»', pc);
   ok(pc.olvido !== '18px', '«¿Olvidaste tu contraseña?» conserva su tamaño de siempre', pc.olvido);
-  ok(JSON.stringify(pc.orden) === JSON.stringify(['div', 'div', 'pista-canal', 'button[submit]', 'ir-a-password']),
+  ok(JSON.stringify(pc.orden) === JSON.stringify(['texto-codigo-un-uso', 'div', 'pista-canal', 'button[submit]', 'ir-a-password']),
     'el orden del computador es el de siempre (texto, campo, ayuda, Enviar código, usuario y contraseña; «Mantener sesión» ya estaba oculto en el computador)', pc.orden);
+  const txtPc = await ev("(() => { const e = document.getElementById('texto-codigo-un-uso'); return { display: getComputedStyle(e).display, alto: e.getBoundingClientRect().height, texto: e.innerText.trim() }; })()");
+  ok(txtPc.display !== 'none' && txtPc.alto > 0 && txtPc.texto === 'Te enviamos un código de acceso de un solo uso, sin contraseña.', 'ORDEN 103: en el computador el texto «Te enviamos…» sigue allí', txtPc);
   ok(await sinDesborde(), 'sin desborde horizontal');
   await foto('3-escritorio-1280x800');
   await click('#ir-a-password'); await espera(250);
