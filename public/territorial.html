@@ -3101,6 +3101,7 @@ function renderizarEstructura() {
   });
   while (pila.length) { partes.push('</div></div>'); pila.pop(); }
   tbody.innerHTML = partes.join('');
+  if (typeof EstructuraVistas !== 'undefined' && EstructuraVistas.titulos) EstructuraVistas.titulos(tbody);   // ORDEN 114: textos largos con «…» y title
 }
 
 /**

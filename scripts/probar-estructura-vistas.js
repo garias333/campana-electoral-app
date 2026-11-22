@@ -162,7 +162,7 @@ function crearApp() {
         pods: pods.map((e) => ({ n: e.querySelector('.ev-medalla').textContent.trim(), pct: num(e.querySelector('.ev-pod-pct')), fs: cs(e.querySelector('.ev-pod-pct'), 'fontSize'), av: cs(e.querySelector('.ev-av-pod'), 'width'), borde: cs(e, 'borderTopColor'), bw: cs(e, 'borderTopWidth'), med: cs(e.querySelector('.ev-medalla'), 'backgroundColor'), medw: cs(e.querySelector('.ev-medalla'), 'width'), x: Math.round(box(e).left), bajo: Math.round(box(e).bottom), cifras: /\\d+\\s*de\\s*\\d+/.test(e.innerText) })),
         columnasPodio: podio ? cs(podio, 'gridTemplateColumns').split(' ').length : 0,
         claseN: podio ? podio.className : '',
-        filas: filas.map((f) => ({ pos: f.querySelector('.ev-puesto').textContent.trim(), pct: num(f.querySelector('.ev-pct-grande')), barra: cs(f.querySelector('.ev-rk-barra'), 'height'), radio: cs(f.querySelector('.ev-rk-barra'), 'borderTopLeftRadius'), fondo: cs(f.querySelector('.ev-rk-barra'), 'backgroundColor'), relleno: cs(f.querySelector('.ev-rk-barra > i'), 'backgroundImage'), ancho: box(f.querySelector('.ev-rk-barra > i')).width / box(f.querySelector('.ev-rk-barra')).width, textoEnBarra: f.querySelector('.ev-rk-barra').textContent.trim(), cifras: f.querySelector('.ev-rk-barra-caja .avance-cifra').textContent.trim(), cifX: Math.round(box(f.querySelector('.ev-rk-barra-caja .avance-cifra')).top), barraFin: Math.round(box(f.querySelector('.ev-rk-barra')).bottom), pctColor: cs(f.querySelector('.ev-pct-grande'), 'color'), pctFs: cs(f.querySelector('.ev-pct-grande'), 'fontSize'), punto: !!f.querySelector('.ev-punto-rojo') })),
+        filas: filas.map((f) => ({ pos: f.querySelector('.ev-puesto').textContent.trim(), pct: num(f.querySelector('.ev-pct-grande')), barra: cs(f.querySelector('.ev-rk-barra'), 'height'), radio: cs(f.querySelector('.ev-rk-barra'), 'borderTopLeftRadius'), fondo: cs(f.querySelector('.ev-rk-barra'), 'backgroundColor'), relleno: cs(f.querySelector('.ev-rk-barra > i'), 'backgroundImage'), ancho: box(f.querySelector('.ev-rk-barra > i')).width / box(f.querySelector('.ev-rk-barra')).width, textoEnBarra: f.querySelector('.ev-rk-barra').textContent.trim(), cifras: f.querySelector('.ev-rk-cifra .avance-cifra').textContent.trim(), cifX: Math.round(box(f.querySelector('.ev-rk-cifra .avance-cifra')).top), barraFin: Math.round(box(f.querySelector('.ev-rk-barra')).bottom), pctColor: cs(f.querySelector('.ev-pct-grande'), 'color'), pctFs: cs(f.querySelector('.ev-pct-grande'), 'fontSize'), punto: !!f.querySelector('.ev-punto-rojo') })),
         franja: franja ? { fondo: cs(franja, 'backgroundColor'), borde: cs(franja, 'borderTopColor'), texto: franja.textContent } : null,
         rojos: todos.filter((e) => /rgb\\(198, 40, 40\\)|rgb\\(178, 106, 0\\)|rgb\\(46, 125, 50\\)|#C62828|#B26A00/i.test(cs(e, 'backgroundColor') + cs(e, 'backgroundImage') + cs(e, 'color') + cs(e, 'borderTopColor'))).length,
         fichaActiva: cs(document.querySelector('.ev-fichas-filtro .activa'), 'backgroundColor') + '|' + cs(document.querySelector('.ev-fichas-filtro .activa'), 'color'),
@@ -180,17 +180,17 @@ function crearApp() {
     }
     d.pods.forEach((x) => {
       const primero = x.n === '1';
-      ok(x.cifras && x.fs === (primero ? '53px' : '42px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 53 : 42} px (+20 %), avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
+      ok(x.cifras && x.fs === (primero ? '34px' : '28px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 34 : 28} px (ORDEN 114), avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
       ok(x.med === ({ 1: 'rgb(255, 195, 0)', 2: 'rgb(11, 94, 215)', 3: 'rgb(8, 66, 152)' })[x.n], `medalla ${x.n} del color de marca`, x.med);
       if (primero) ok(x.bw === '2px' && x.borde === 'rgb(255, 195, 0)', 'el 1.º con borde amarillo de 2 px', x);
     });
     d.filas.forEach((f) => {
-      ok(f.barra === '30px', `barra de ${f.barra} (debe medir 30 px, 2,5 × 12)`, f.barra);
+      ok(f.barra === '16px', `barra de ${f.barra} (ORDEN 114: 16 px)`, f.barra);
       ok(f.radio === '99px' || parseFloat(f.radio) >= 15, 'barra con radio de píldora', f.radio);
       ok(f.fondo === 'rgb(232, 240, 253)' && /rgb\(11, 94, 215\).*rgb\(8, 66, 152\)/.test(f.relleno), 'fondo #e8f0fd y relleno degradado #0B5ED7 → #084298', { fondo: f.fondo, relleno: f.relleno });
       ok(f.ancho >= 0.0195, 'relleno visible (mínimo 2 %)', f.ancho);
-      ok(f.textoEnBarra === '' && f.cifras.length > 0 && f.cifX >= f.barraFin, '«X de Y» (el de la Lista) fuera de la barra, justo debajo', f);
-      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '25px', '% de 25 px (21 +20 %) en #084298', f);
+      ok(f.textoEnBarra === '' && f.cifras.length > 0, '«X de Y» (el de la Lista) fuera de la barra, en su propia columna (ORDEN 114)', f);
+      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '18px', '% de 18 px (ORDEN 114) en #084298', f);
       ok(f.punto === (f.pct < 25), 'punto rojo solo si va bajo 25 %', f);
     });
     ok(d.rojos === 0, 'no queda rojo/ámbar/verde de semáforo en barras, anillos ni porcentajes', d.rojos);
@@ -294,7 +294,7 @@ function crearApp() {
       await elegir('rol');
       const col = await ev(`(() => { const g = document.querySelector('.ev-columnas'), r = g.getBoundingClientRect(); const cs = [...g.children].map(c => c.getBoundingClientRect()); return { n: getComputedStyle(g).gridTemplateColumns.split(' ').length, ancho: r.width, suma: cs.reduce((t, c) => t + c.width, 0), gaps: parseFloat(getComputedStyle(g).columnGap) * (cs.length - 1), titulos: [...g.querySelectorAll('.ev-columna-cab span:first-child')].map(e => e.textContent.trim()), tam: [...g.querySelectorAll('.ev-columna-cab')].map(e => getComputedStyle(e).fontSize) }; })()`);
       ok(col.n === 3 && Math.abs(col.suma + col.gaps - col.ancho) < 2, 'Por rol: 3 columnas que ocupan todo el ancho', col);
-      ok(JSON.stringify(col.titulos) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']) && col.tam.every((t) => t === '18px'), 'Por rol: encabezados Coordinadores, Líderes y Sublíderes en 18 px', col);
+      ok(JSON.stringify(col.titulos) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']) && col.tam.every((t) => t === '16px'), 'Por rol: encabezados Coordinadores, Líderes y Sublíderes en 16 px (ORDEN 114)', col);
       for (const v of VISTAS.filter((x) => x !== 'lista')) {
         await elegir(v);
         ok(!/Testig/.test(await ev("document.getElementById('vistas-estructura').innerText")), `${v}: no hay testigos`);
@@ -399,7 +399,7 @@ function crearApp() {
     ok(await sinDesborde(), `${v} a 880 px: sin desborde horizontal`);
     if (v === 'ranking') {
       const m = await ev("(() => { const f = document.querySelector('.ev-fila-ranking'); const b = f.querySelector('.ev-rk-barra').getBoundingClientRect(); return { barra: getComputedStyle(f.querySelector('.ev-rk-barra')).height, anchoBarra: Math.round(b.width), podio: getComputedStyle(document.querySelector('.ev-podio')).gridTemplateColumns.split(' ').length }; })()");
-      ok(m.barra === '30px' && m.anchoBarra > 300 && m.podio === 3, 'ranking a 880 px: barra de 30 px a todo lo ancho y podio de 3 columnas', m);
+      ok(m.barra === '16px' && m.anchoBarra > 300 && m.podio === 3, 'ranking a 880 px: barra de 16 px a todo lo ancho y podio de 3 columnas', m);
     }
     await ev("document.getElementById('vistas-estructura').scrollIntoView()"); await espera(200);
     await foto(v + '-admin-880');

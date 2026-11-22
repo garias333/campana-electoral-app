@@ -5,6 +5,10 @@
    Por rol: Coordinador #0B5ED7, Líder #084298, Sublíder #8a5a00 (fondo #fff4d1), Testigo #2e7d32 (fondo #e6f4e7).
    ORDEN 107: «Tarjetas» (Avatar con anillo) y «Ranking» (Podio) con la paleta de marca; ahí todo avance va en azul y
    quien va bajo 25 % solo lleva un punto rojo de 8 px junto al %.
+   ORDEN 112: la misma información de la Lista en las cinco vistas.
+   ORDEN 114: TAMAÑOS MEDIOS (entre la 111 y la 112) Y ALINEACIÓN. Cada tipo de tarjeta o fila usa UNA plantilla de CSS grid con filas y
+   columnas fijas: el mismo dato queda a la misma altura y en la misma columna en todas, aunque falte (la zona se reserva).
+   Espaciado solo con 4 / 8 / 12 / 16 / 24 px (variables --e4 … --e24).
    ========================================================================== */
 
 /* En el celular (modo app) no hay selector: la app del celular no se toca. */
@@ -32,349 +36,381 @@ html.modo-app .selector-vistas, html.modo-app .aviso-equipo-estructura { display
 .vistas-estructura {
   --am: #FFC300; --az: #0B5ED7; --azo: #084298; --azs: #e8f0fd;
   --tx: #1d2939; --tx2: #667085; --bd: #e4e7ec;
-  font-size: 15px; color: #1b2433;
+  font-size: 14.5px; line-height: 1.35; color: #1b2433;
 }
 
-.ev-sub { display: block; font-size: 16px; color: #566074; line-height: 1.35; }
+/* ==========================================================================
+   ORDEN 114 — ESCALA (Lista + las cinco vistas). Todo bajo `html:not(.modo-app)`: la app del celular no se toca.
+   Nombre 17 px negrita + número 13 px · secundarios 14,5 px · leyendas, etiquetas de cifra y chips 12,5 px (chips de 24 px de alto) ·
+   botones 13,5 px de 34 px de alto · cifras grandes 34/28 (podio), 18 (filas), 20 (franja de Tarjetas), 18 («X» de «X de Y») ·
+   encabezados 16 px · árbol del Explorador 14,5 px · título de la ficha del Explorador 20 px. Mínimo absoluto 12,5 px. Interlineado 1,35.
+   ========================================================================== */
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) {
+  --e4: 4px; --e8: 8px; --e12: 12px; --e16: 16px; --e24: 24px;
+  --t-nombre: 17px; --t-num: 13px; --t-medio: 14.5px; --t-chico: 12.5px; --t-boton: 13.5px; --h-boton: 34px; --h-chip: 24px;
+  line-height: 1.35;
+}
+/* Las piezas (`.id-registro`, `.nombre-p`, `.correo-p`, `.chip-p`, `.migaja`, `.jefe-*`, `.avance-*`, `.badge-p`, `.acciones-p`…) son las
+   MISMAS clases de la Lista (fichas.css): una sola regla las ajusta en las seis vistas. */
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .nombre-p { font-size: var(--t-nombre); font-weight: 700; line-height: 1.35; overflow-wrap: break-word; word-break: normal; min-width: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .id-registro { font-size: var(--t-num); color: #6B7482; line-height: 1.35; flex: none; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .linea-nombre { display: flex; flex-wrap: nowrap; align-items: baseline; gap: var(--e8); min-width: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .correo-p { font-size: var(--t-medio); line-height: 1.35; display: block; margin: 0; min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .migaja { font-size: var(--t-medio); line-height: 1.35; overflow-wrap: normal; word-break: normal; min-width: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .migaja .sin-territorio { color: #6B7482; font-style: italic; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .mas-territorios { font-size: var(--t-chico); }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .chips-p { display: flex; flex-wrap: wrap; gap: var(--e8) 6px; align-items: center; min-width: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .chip-p { display: inline-flex; align-items: center; box-sizing: border-box; height: var(--h-chip); padding: 0 10px; font-size: var(--t-chico); line-height: 1; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .geo-chip { font-size: var(--t-chico); line-height: 1; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .aviso-falta { font-size: var(--t-chico); line-height: 1.35; display: block; padding: 1px 8px; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-p { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-rotulo { font-size: var(--t-chico); line-height: 1.35; padding: 0; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-nombre, html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-cabeza, html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-nadie { font-size: var(--t-medio); line-height: 1.35; min-width: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 6px; white-space: nowrap; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .n { font-size: 18px; line-height: 1.2; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .de { font-size: var(--t-chico); }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .meta { font-size: var(--t-medio); }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-pie { font-size: var(--t-chico); line-height: 1.35; gap: 4px; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .sigma-p { font-size: var(--t-chico); line-height: 1.35; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .badge-p { box-sizing: border-box; height: var(--h-chip); padding: 0 10px; font-size: var(--t-chico); line-height: 1; white-space: nowrap; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .plegar-p { font-size: 18px; }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .dato-min { font-size: var(--t-chico); }
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .aut-pill { display: inline-flex; align-items: center; box-sizing: border-box; height: var(--h-chip); padding: 0 10px; font-size: var(--t-chico); line-height: 1; }
+html:not(.modo-app) #tbody-estructura .rama-titulo { font-size: var(--t-chico); }
+/* Botones: 13,5 px, 34 px de alto, 14 px a los lados, todos iguales en una fila (Editar, Eliminar, Quitar, WhatsApp, Agregar, Ver equipo…). */
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-neutro, html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .acciones-p .btn-neutro, html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-principal-fichas {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: var(--h-boton); min-height: var(--h-boton);
+  padding: 0 14px; font-size: var(--t-boton); line-height: 1; margin: 0; white-space: nowrap;
+}
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-wa-fila {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: var(--h-boton); min-height: var(--h-boton);
+  margin: 0; padding: 0 12px 0 10px; font-size: var(--t-boton); line-height: 1; white-space: nowrap;
+}
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .acciones-p { display: flex; flex-wrap: nowrap; gap: var(--e8); align-items: center; justify-content: flex-start; }
+html:not(.modo-app) #vistas-estructura .ev-btn-mini, html:not(.modo-app) #vistas-estructura .ev-agregar, html:not(.modo-app) #vistas-estructura .ev-fichas-filtro button, html:not(.modo-app) #vistas-estructura .ev-ver-todos {
+  box-sizing: border-box; height: var(--h-boton); min-height: var(--h-boton); font-size: var(--t-boton); line-height: 1; margin: 0;
+}
+html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-wa-fila:focus-visible, html:not(.modo-app) #vistas-estructura .ev-btn-mini:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
+
+/* ---------- piezas propias de las vistas ---------- */
+.ev-sub { display: block; font-size: 14.5px; color: #566074; line-height: 1.35; }
 .ev-tenue { color: #6B7482; }
 .ev-sin-jefe { color: #A93226; font-weight: 600; }
 .ev-vacio { padding: 36px 16px; text-align: center; color: #566074; background: #F7F9FC; border-radius: 12px; }
-.ev-vacio-chico { padding: 14px; color: #566074; background: #F7F9FC; border-radius: 10px; font-size: 16px; }
-.ev-contador { display: inline-block; min-width: 24px; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.25); font-weight: 700; font-size: 14px; text-align: center; }
-.ev-nombre-enlace { border: 0; background: none; padding: 0; font: inherit; font-size: 19px; font-weight: 700; line-height: 1.25; color: #14203a; cursor: pointer; text-align: left; }
-.vistas-estructura .ev-nombre-enlace { padding: 0; margin: 0; width: auto; align-self: flex-start; justify-content: flex-start; text-align: left; }
+.ev-vacio-chico { padding: 12px; color: #566074; background: #F7F9FC; border-radius: 10px; font-size: 14.5px; }
+.ev-contador { display: inline-block; min-width: 24px; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.25); font-weight: 700; font-size: 12.5px; text-align: center; }
+.ev-nombre-enlace { border: 0; background: none; padding: 0; margin: 0; width: auto; font: inherit; font-size: 17px; font-weight: 700; line-height: 1.35; color: #14203a; cursor: pointer; text-align: left; justify-content: flex-start; }
 .ev-nombre-enlace:hover { color: #0B5ED7; text-decoration: underline; }
 .ev-nombre-enlace:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
+.ev-nombre-plano { cursor: default; }
+.ev-nombre-plano:hover { color: #14203a; text-decoration: none; }
+/* Nombres hasta 2 líneas, con «…» y el nombre entero en el title. */
+html:not(.modo-app) #vistas-estructura .nombre-p, html:not(.modo-app) #tbody-estructura .nombre-p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-ficha-id h3.nombre-p { font-size: 20px; }
 
 .ev-av { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 1.05rem; }
 .ev-av-chico { width: 32px; height: 32px; font-size: 14px; }
-.ev-av-grande { width: 72px; height: 72px; font-size: 1.9rem; }
-
-.ev-chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.ev-av-grande { width: 64px; height: 64px; font-size: 1.7rem; }
+.ev-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .02em; line-height: 1; }
 .ev-chip-urbano { background: #E4EEFC; color: #084298; }
 .ev-chip-rural { background: #e6f4e7; color: #1f5f24; }
 .ev-chip-org { background: #EFE9F8; color: #4b2f86; }
 .ev-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; }
-
 .ev-barra { position: relative; height: 8px; border-radius: 999px; background: #E4E8EE; overflow: hidden; }
 .ev-barra > i { display: block; height: 100%; border-radius: 999px; }
-.ev-sin-meta { font-size: 16px; color: #6B7482; font-style: italic; }
-
-/* ---------- Tarjetas · Avatar con anillo (ORDEN 107) ---------- */
-.ev-grid-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-.ev-tarjeta {
-  background: #fff; border: 1px solid var(--bd); border-radius: 18px; padding: 20px 14px 14px;
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
-  transition: border-color .15s, box-shadow .15s;
-}
-.ev-tarjeta:hover { border-color: var(--az); box-shadow: 0 8px 22px rgba(8, 66, 152, .12); }
-.ev-anillo-av {
-  --g: 0deg; position: relative; flex: 0 0 auto; width: 96px; height: 96px; border-radius: 50%; margin-bottom: 12px;
-  background: conic-gradient(var(--az) var(--g), var(--azs) 0);
-  display: flex; align-items: center; justify-content: center;
-}
-.ev-anillo-av-vacio { background: repeating-conic-gradient(#c4cfdf 0 8deg, transparent 8deg 16deg); }
-.ev-av-n {
-  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
-  width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff; font-weight: 700; font-size: 1.7rem; line-height: 1;
-}
-.ev-pastilla {
-  position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); white-space: nowrap;
-  display: inline-flex; align-items: center; background: var(--am); color: #2b2100; font-weight: 800; font-size: 14px;
-  padding: 2px 10px; border-radius: 999px; border: 2px solid #fff; line-height: 1.3;
-}
+.ev-sin-meta { font-size: 14.5px; color: #6B7482; font-style: italic; }
 .ev-punto-rojo { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e5484d; margin-right: 5px; flex: 0 0 auto; vertical-align: middle; }
-.ev-nombre { margin: 4px 0 0; font-size: 19px; font-weight: 700; line-height: 1.25; color: var(--tx); }
-.ev-tarjeta .ev-etiquetas { justify-content: center; }
-.ev-chip-rol { font-size: 14px; }
-.ev-chip-zona { background: #f2f4f7; color: #475467; }
-.ev-cifras3 { align-self: stretch; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--bd); border-bottom: 1px solid var(--bd); padding: 8px 0; margin-top: 4px; }
-.ev-cifras3 > div { display: flex; flex-direction: column; gap: 1px; }
-.ev-cifras3 b { font-size: 23.4px; color: var(--azo); line-height: 1.2; }
-.ev-cifras3 span { font-size: 14px; color: var(--tx2); }
-.ev-acciones { align-self: stretch; display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
-.ev-tarjeta .ev-btn { flex: 1; width: auto; min-width: 0; margin: 0; padding: 6px; min-height: 38px; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; line-height: 1.2; text-align: center; justify-content: center; }
-.ev-tarjeta .ev-btn-editar { background: #fff; border: 1.5px solid var(--az); color: var(--az); }
-.ev-tarjeta .ev-btn-editar:hover { background: var(--azs); }
-.ev-tarjeta .ev-btn-equipo { background: var(--azo); border: 1.5px solid var(--azo); color: #fff; }
-.ev-tarjeta .ev-btn-equipo:hover { background: var(--az); border-color: var(--az); }
-.ev-tarjeta .ev-btn:focus-visible { outline: 3px solid var(--am); outline-offset: 1px; }
-
-/* ---------- Por rol ---------- */
-.ev-columnas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
-.ev-columna { background: #F7F9FC; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-.ev-columna-cab { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; color: #fff; font-weight: 700; }
-.ev-columna-cuerpo { display: flex; flex-direction: column; gap: 8px; padding: 10px; max-height: 70vh; overflow-y: auto; }
-.ev-columna-vacia { padding: 14px 6px; text-align: center; color: #6B7482; font-size: 16px; }
-.ev-mini { display: flex; gap: 9px; background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-left: 4px solid var(--rol); border-radius: 10px; padding: 9px 10px; }
-.ev-mini-texto { min-width: 0; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.ev-mini-texto .ev-nombre-enlace { overflow-wrap: anywhere; }
-.ev-columna-cab { font-size: 18px; }
-.ev-columna-pie { padding: 0 10px 12px; }
+.ev-z-pie { min-width: 0; }
+.ev-bloque-territorio { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ev-contacto { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--e8, 8px); min-width: 0; }
+.ev-estado { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; }
+.ev-cifra-pct { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 12px; }
+.ev-pct-txt { font-size: 18px; font-weight: 700; line-height: 1.2; color: #084298; display: inline-flex; align-items: center; }
+.ev-equipo-linea { color: #26324B; font-size: 14.5px; }
+.ev-equipo-linea b { color: #084298; font-weight: 700; }
+.ev-btn-mini {
+  align-self: flex-start; width: auto; padding: 0 14px; border-radius: 999px; border: 1.5px solid #084298; background: #fff;
+  color: #084298; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center;
+}
+.ev-btn-mini:hover { background: #084298; color: #fff; }
 .ev-agregar {
-  display: block; width: 100%; text-align: center; padding: 9px 10px; border-radius: 9px; border: 1.5px dashed #7F8794; background: #fff;
-  color: #14203a; font: inherit; font-size: 15px; min-height: 38px; font-weight: 700; cursor: pointer; text-decoration: none;
+  display: block; width: 100%; text-align: center; padding: 0 12px; border-radius: 9px; border: 1.5px dashed #7F8794; background: #fff;
+  color: #14203a; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; text-decoration: none;
 }
 .ev-agregar:hover { border-color: #084298; color: #084298; }
-
-/* ---------- Ranking · Podio (ORDEN 107) ---------- */
-.ev-fichas-filtro { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.ev-fichas-filtro button { border: 1.5px solid #C5CCD9; background: #fff; border-radius: 999px; padding: 6px 14px; min-height: 38px; font: inherit; font-size: 15px; font-weight: 600; color: #26324B; cursor: pointer; }
-.ev-fichas-filtro button.activa { background: var(--azo); border-color: var(--azo); color: #fff; }
-
-.ev-podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 16px; align-items: end; margin: 26px 0 18px; }
-.ev-podio-2 { grid-template-columns: 1fr 1.15fr; }
-.ev-podio-1 { grid-template-columns: minmax(0, 320px); justify-content: center; }
-.ev-pod {
-  position: relative; background: #fff; border: 1px solid var(--bd); border-radius: 16px; padding: 26px 12px 16px;
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; min-width: 0;
+.ev-ver-todos {
+  align-self: flex-start; padding: 0 14px; border-radius: 999px; border: 1.5px solid #084298; background: #fff; color: #084298;
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
 }
-.ev-pod-1 { border: 2px solid var(--am); background: linear-gradient(180deg, #fff, #fff6d6); padding-top: 30px; }
-.ev-medalla {
+.ev-ver-todos:hover { background: #084298; color: #fff; }
+.ev-ver-todos:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
+
+/* ==========================================================================
+   LISTA — ficha de 2 renglones, una sola plantilla de columnas para todas (escritorio).
+   Renglón 1: [plegar][avatar][número+nombre][chips + territorio][Le reporta a][X de Y][barra de avance][Activo]
+   Renglón 2:                 [correo·sexo   ][WhatsApp          ][autorización  ][leyenda + Σ        ][Editar/Eliminar]
+   Las piezas se reparten con `display: contents` en los envoltorios de la ficha: el HTML no cambia (la ficha del celular sigue igual).
+   ========================================================================== */
+@media (min-width: 900px) {
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo {
+    display: grid; align-items: start; padding: var(--e12) var(--e16);
+    grid-template-columns: 30px 40px minmax(0, 1.4fr) minmax(0, 1.7fr) minmax(0, 1fr) 100px minmax(40px, .4fr) 164px;
+    grid-template-rows: auto auto; gap: var(--e8) var(--e12);
+  }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien, html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div, html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .avance-p, html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .lateral-p { display: contents; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > .plegar-p, html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > .hueco-plegar { grid-area: 1 / 1; width: 30px; height: 30px; margin: 0; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > .avatar-p { grid-area: 1 / 2; width: 40px; height: 40px; font-size: 1.05rem; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div > .linea-nombre { grid-area: 1 / 3; align-self: start; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div > .correo-p { grid-area: 2 / 3; align-self: center; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div > .btn-wa-fila, html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div > .dato-min { grid-area: 2 / 4; align-self: center; justify-self: start; margin: 0; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien > div > div:not(.linea-nombre) { grid-area: 2 / 5; align-self: center; margin: 0 !important; min-width: 0; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .territorio-p { grid-area: 1 / 4; display: flex; flex-direction: column; gap: var(--e4); min-width: 0; align-items: flex-start; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .jefe-p { grid-area: 1 / 5; align-self: start; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .avance-p > .avance-cifra { grid-area: 1 / 6; align-self: start; justify-content: flex-end; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .avance-p > .medidor-p { grid-area: 1 / 7; align-self: start; margin: 7px 0 0; width: 100%; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .avance-p > .avance-pie { grid-area: 2 / 6 / 3 / 8; align-self: center; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .lateral-p > .badge-p:not(.badge-excluido) { grid-area: 1 / 8; align-self: start; justify-self: start; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .lateral-p > .badge-excluido { grid-area: 1 / 8; align-self: end; justify-self: start; }
+  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .lateral-p > .acciones-p { grid-area: 2 / 8; align-self: center; justify-content: flex-start; }
+}
+
+/* ==========================================================================
+   TARJETAS — plantilla fija: todas las tarjetas de una fila miden lo mismo y cada dato queda a la misma altura.
+   [avatar+anillo 112][nombre 2 líneas][correo·sexo 1 línea][chips 24][territorio 2 líneas + aviso][le reporta a][franja de cifras]
+   [leyenda+Σ][WhatsApp + autorización][Activo][botones al pie]
+   ========================================================================== */
+html:not(.modo-app) #vistas-estructura .ev-grid-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows: 1fr; gap: var(--e16); }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta {
+  container-type: inline-size; box-sizing: border-box; background: #fff; border: 1px solid var(--bd); border-radius: 18px;
+  padding: var(--e24) var(--e16) var(--e16); text-align: center;
+  display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--e8); justify-items: stretch; align-content: start;
+  grid-template-rows: 112px 46px 20px var(--h-chip) 61px 42px 60px 34px var(--h-boton) var(--h-chip) 1fr;
+  transition: border-color .15s, box-shadow .15s;
+}
+html:not(.modo-app) #vistas-estructura .ev-tarjeta:hover { border-color: var(--az); box-shadow: 0 8px 22px rgba(8, 66, 152, .12); }
+html:not(.modo-app) #vistas-estructura .ev-anillo-av { --g: 0deg; position: relative; justify-self: center; align-self: start; width: 96px; height: 96px; margin: 0; border-radius: 50%;
+  background: conic-gradient(var(--az) var(--g), var(--azs) 0); display: flex; align-items: center; justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-anillo-av-vacio { background: repeating-conic-gradient(#c4cfdf 0 8deg, transparent 8deg 16deg); }
+.ev-av-n { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff; font-weight: 700; font-size: 1.7rem; line-height: 1; }
+.ev-pastilla { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); white-space: nowrap; display: inline-flex; align-items: center; height: 22px; box-sizing: border-box;
+  background: var(--am); color: #2b2100; font-weight: 800; font-size: 12.5px; padding: 0 10px; border-radius: 999px; border: 2px solid #fff; line-height: 1; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .linea-nombre { align-self: start; justify-content: center; align-items: flex-start; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .correo-p { align-self: start; text-align: center; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .chips-p { align-self: start; justify-content: center; flex-wrap: nowrap; overflow: hidden; height: var(--h-chip); }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .ev-bloque-territorio { align-self: start; display: grid; grid-template-rows: 40px 17px; row-gap: var(--e4); align-content: start; text-align: center; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .migaja, html:not(.modo-app) #vistas-estructura .ev-pod .migaja, html:not(.modo-app) #vistas-estructura .ev-fila-ranking .migaja { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .jefe-p { align-self: start; align-items: center; text-align: center; height: 42px; overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .jefe-nombre, html:not(.modo-app) #vistas-estructura .ev-tarjeta .jefe-cabeza, html:not(.modo-app) #vistas-estructura .ev-tarjeta .jefe-nadie { -webkit-line-clamp: 1; max-width: 100%; }
+html:not(.modo-app) #vistas-estructura .ev-cifras3 { align-self: start; box-sizing: border-box; height: 60px; display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; border-top: 1px solid var(--bd); border-bottom: 1px solid var(--bd); padding: var(--e8) 0; }
+html:not(.modo-app) #vistas-estructura .ev-cifras3 > div { display: flex; flex-direction: column; gap: 1px; }
+html:not(.modo-app) #vistas-estructura .ev-cifras3 b { font-size: 20px; color: var(--azo); line-height: 1.2; }
+html:not(.modo-app) #vistas-estructura .ev-cifras3 span { font-size: 12.5px; color: var(--tx2); line-height: 1.35; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .ev-z-pie, html:not(.modo-app) #vistas-estructura .ev-pod .avance-p > .ev-z-pie { height: 34px; overflow: hidden; align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .avance-pie, html:not(.modo-app) #vistas-estructura .ev-pod .avance-pie { justify-content: center; text-align: center; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .ev-contacto, html:not(.modo-app) #vistas-estructura .ev-tarjeta > .ev-estado { align-self: start; justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta > .ev-estado { overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-acciones { align-self: end; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-acciones > *, html:not(.modo-app) #vistas-estructura .ev-acciones .acciones-p { flex: 1 1 auto; min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-acciones .acciones-p { display: contents; }
+html:not(.modo-app) #vistas-estructura .ev-acciones .btn-neutro, html:not(.modo-app) #vistas-estructura .ev-acciones .ev-btn { flex: 1 1 auto; min-width: 0; padding: 0 14px; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .ev-btn {
+  box-sizing: border-box; height: var(--h-boton); min-height: var(--h-boton); margin: 0; border-radius: 10px; font: inherit; font-size: var(--t-boton);
+  font-weight: 700; cursor: pointer; line-height: 1; text-align: center; display: inline-flex; align-items: center; justify-content: center;
+}
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .ev-btn-equipo { background: var(--azo); border: 1.5px solid var(--azo); color: #fff; }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .ev-btn-equipo:hover { background: var(--az); border-color: var(--az); }
+html:not(.modo-app) #vistas-estructura .ev-tarjeta .ev-btn:focus-visible { outline: 3px solid var(--am); outline-offset: 1px; }
+/* Si los tres botones no caben en una fila, «Ver equipo» ocupa el ancho completo arriba y Editar/Eliminar quedan debajo: igual en todas. */
+@container (max-width: 260px) {
+  .ev-tarjeta .ev-acciones .ev-btn-equipo { order: -1; flex: 1 1 100%; }
+}
+
+/* ==========================================================================
+   POR ROL — la misma plantilla en horizontal: avatar de 40 px arriba a la izquierda y, a la derecha, una columna con las zonas en el mismo orden.
+   ========================================================================== */
+html:not(.modo-app) #vistas-estructura .ev-columnas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e16); align-items: start; }
+html:not(.modo-app) #vistas-estructura .ev-columna { background: #F7F9FC; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-columna-cab { display: flex; align-items: center; justify-content: space-between; padding: var(--e8) var(--e16); min-height: 44px; box-sizing: border-box; color: #fff; font-weight: 700; font-size: 16px; }
+html:not(.modo-app) #vistas-estructura .ev-columna-cuerpo { display: flex; flex-direction: column; gap: var(--e12); padding: var(--e12); max-height: none; }
+html:not(.modo-app) #vistas-estructura .ev-columna-vacia { padding: var(--e16) 6px; text-align: center; color: #6B7482; font-size: 14.5px; }
+html:not(.modo-app) #vistas-estructura .ev-columna-pie { padding: 0 var(--e12) var(--e12); }
+html:not(.modo-app) #vistas-estructura .ev-mini {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: var(--e12); align-items: start; box-sizing: border-box;
+  background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-left: 4px solid var(--rol); border-radius: 10px; padding: var(--e12);
+}
+html:not(.modo-app) #vistas-estructura .ev-mini > .ev-av { width: 40px; height: 40px; font-size: 1.1rem; align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-mini-texto { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-mini-texto > * { max-width: 100%; }
+html:not(.modo-app) #vistas-estructura .ev-mini .avance-p { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: var(--e4); }
+html:not(.modo-app) #vistas-estructura .ev-mini .ev-barra { width: 100%; margin: var(--e4) 0; }
+html:not(.modo-app) #vistas-estructura .ev-mini .jefe-p { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--e4) 6px; }
+html:not(.modo-app) #vistas-estructura .ev-mini-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e8); margin: 0; }
+html:not(.modo-app) #vistas-estructura .ev-mini-acciones > .acciones-p { display: contents; }
+
+/* ==========================================================================
+   RANKING — podio: las tres tarjetas con la MISMA plantilla interna (cada renglón a la misma altura; el 1.º solo es más alto por arriba).
+   Filas: una sola grilla de columnas fijas iguales para todas; la segunda línea empieza en la columna del nombre.
+   ========================================================================== */
+html:not(.modo-app) #vistas-estructura .ev-fichas-filtro { display: flex; flex-wrap: wrap; gap: var(--e8); margin-bottom: var(--e16); }
+html:not(.modo-app) #vistas-estructura .ev-fichas-filtro button { border: 1.5px solid #C5CCD9; background: #fff; border-radius: 999px; padding: 0 14px; font: inherit; font-size: 13.5px; font-weight: 600; color: #26324B; cursor: pointer; }
+html:not(.modo-app) #vistas-estructura .ev-fichas-filtro button.activa { background: var(--azo); border-color: var(--azo); color: #fff; }
+
+html:not(.modo-app) #vistas-estructura .ev-podio { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: var(--e16); align-items: end; margin: var(--e24) 0 var(--e16); }
+html:not(.modo-app) #vistas-estructura .ev-podio-2 { grid-template-columns: 1fr 1.15fr; }
+html:not(.modo-app) #vistas-estructura .ev-podio-1 { grid-template-columns: minmax(0, 340px); justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod {
+  position: relative; box-sizing: border-box; background: #fff; border: 1px solid var(--bd); border-radius: 16px; padding: var(--e24) var(--e16) var(--e16); min-width: 0; text-align: center;
+  display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--e8); justify-items: stretch; align-content: start;
+  grid-template-rows: 68px 46px 20px var(--h-chip) 61px 42px 40px 62px var(--h-boton) var(--h-chip) auto;
+}
+html:not(.modo-app) #vistas-estructura .ev-pod-1 { border: 2px solid var(--am); background: linear-gradient(180deg, #fff, #fff6d6); padding-top: 40px; }
+html:not(.modo-app) #vistas-estructura .ev-medalla {
   position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .95rem; color: #fff; background: var(--az);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #fff; background: var(--az);
   border: 2px solid #fff; box-sizing: border-box;
 }
-.ev-pod-1 .ev-medalla { background: var(--am); color: #2b2100; }
-.ev-pod-3 .ev-medalla { background: var(--azo); }
-.ev-av-pod { width: 54px; height: 54px; font-size: 1.3rem; border-width: 3px; box-shadow: 0 0 0 2px var(--azs); margin-bottom: 4px; }
-.ev-pod-1 .ev-av-pod { width: 64px; height: 64px; font-size: 1.5rem; box-shadow: 0 0 0 3px var(--am); }
-.vistas-estructura .ev-pod-nombre { align-self: center; text-align: center; font-size: 19px; color: var(--tx); max-width: 100%; overflow-wrap: anywhere; }
-.ev-pod-sub { max-width: 100%; }
-.ev-pod-pct { font-size: 42px; font-weight: 800; color: var(--azo); line-height: 1.15; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
-.ev-pod-1 .ev-pod-pct { font-size: 53px; }
-.ev-pod .ev-punto-rojo { margin-right: 7px; }
+html:not(.modo-app) #vistas-estructura .ev-pod-1 .ev-medalla { background: var(--am); color: #2b2100; }
+html:not(.modo-app) #vistas-estructura .ev-pod-3 .ev-medalla { background: var(--azo); }
+html:not(.modo-app) #vistas-estructura .ev-av-pod { width: 54px; height: 54px; font-size: 1.3rem; border-width: 3px; box-shadow: 0 0 0 2px var(--azs); justify-self: center; align-self: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod-1 .ev-av-pod { width: 64px; height: 64px; font-size: 1.5rem; box-shadow: 0 0 0 3px var(--am); }
+html:not(.modo-app) #vistas-estructura .ev-pod > .linea-nombre { align-self: start; justify-content: center; align-items: flex-start; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .correo-p { align-self: start; text-align: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .chips-p { align-self: start; justify-content: center; flex-wrap: nowrap; overflow: hidden; height: var(--h-chip); }
+html:not(.modo-app) #vistas-estructura .ev-pod > .ev-bloque-territorio { align-self: start; display: grid; grid-template-rows: 40px 17px; row-gap: var(--e4); align-content: start; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .jefe-p { align-self: start; align-items: center; height: 42px; overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-pod .jefe-nombre, html:not(.modo-app) #vistas-estructura .ev-pod .jefe-cabeza, html:not(.modo-app) #vistas-estructura .ev-pod .jefe-nadie { -webkit-line-clamp: 1; max-width: 100%; }
+html:not(.modo-app) #vistas-estructura .ev-pod-pct { align-self: start; height: 40px; font-size: 28px; font-weight: 800; color: var(--azo); line-height: 1.15; display: flex; align-items: center; justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod-1 .ev-pod-pct { font-size: 34px; }
+html:not(.modo-app) #vistas-estructura .ev-pod .ev-punto-rojo { margin-right: 7px; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .avance-p { align-self: start; height: 62px; display: flex; flex-direction: column; align-items: center; gap: var(--e4); overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-pod .avance-cifra { justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .ev-contacto, html:not(.modo-app) #vistas-estructura .ev-pod > .ev-estado { align-self: start; justify-content: center; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .ev-estado { overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-pod > .ev-acciones { align-self: end; }
 
-.ev-ranking { list-style: none; margin: 0; padding: 0; background: #fff; border: 1px solid var(--bd); border-radius: 16px; overflow: hidden; }
-.ev-fila-ranking {
-  display: grid; grid-template-columns: 40px 40px minmax(200px, 300px) minmax(60px, 1fr) 130px 72px 34px; align-items: center; gap: 12px;
-  padding: 10px 16px; border-top: 1px solid var(--bd);
+html:not(.modo-app) #vistas-estructura .ev-ranking { list-style: none; margin: 0; padding: 0; background: #fff; border: 1px solid var(--bd); border-radius: 16px; overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-fila-ranking {
+  display: grid; align-items: center; padding: var(--e12) var(--e12); border-top: 1px solid var(--bd);
+  grid-template-columns: 32px 40px minmax(240px, 1fr) minmax(100px, 200px) 80px 56px 150px 168px; column-gap: var(--e8); row-gap: var(--e8);
 }
-.ev-fila-ranking:first-child { border-top: 0; }
-.ev-fila-ranking:hover { background: #f7faff; }
-.ev-fila-ranking .ev-av-n { width: 40px; height: 40px; font-size: 1rem; border-width: 2px; }
-.ev-puesto { width: 32px; height: 32px; border-radius: 50%; background: var(--azs); color: var(--azo); font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; justify-self: center; }
-.ev-rk-quien { min-width: 0; }
-.ev-rk-barra { height: 30px; border-radius: 99px; background: var(--azs); overflow: hidden; }
-.ev-rk-barra > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0B5ED7, #084298); }
-.ev-pct-grande { font-size: 25px; font-weight: 700; color: var(--azo); text-align: right; display: flex; align-items: center; justify-content: flex-end; }
-.ev-franja-sin-meta { margin-top: 16px; background: #fff8db; border: 1px solid #f2d37a; border-radius: 10px; padding: 10px 14px; color: #5c4600; font-size: 16px; }
+html:not(.modo-app) #vistas-estructura .ev-fila-ranking:first-child { border-top: 0; }
+html:not(.modo-app) #vistas-estructura .ev-fila-ranking:hover { background: #f7faff; }
+html:not(.modo-app) #vistas-estructura .ev-fila-ranking .ev-av-n { width: 40px; height: 40px; font-size: 1rem; border-width: 2px; align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-puesto { width: 32px; height: 32px; border-radius: 50%; background: var(--azs); color: var(--azo); font-weight: 700; font-size: 13.5px; display: flex; align-items: center; justify-content: center; align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-rk-quien { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--e4); align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-rk-quien .chips-p { flex-wrap: nowrap; overflow: hidden; max-width: 100%; }
+html:not(.modo-app) #vistas-estructura .ev-rk-barra { height: 16px; border-radius: 99px; background: var(--azs); overflow: hidden; }
+html:not(.modo-app) #vistas-estructura .ev-rk-barra > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0B5ED7, #084298); }
+html:not(.modo-app) #vistas-estructura .ev-rk-cifra { justify-self: end; }
+html:not(.modo-app) #vistas-estructura .ev-pct-grande { font-size: 18px; font-weight: 700; color: var(--azo); text-align: right; display: flex; align-items: center; justify-content: flex-end; line-height: 1.2; }
+html:not(.modo-app) #vistas-estructura .ev-rk-wa { min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-rk-acc { min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-rk-2 { grid-column: 3 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--e4) var(--e16); min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-rk-2 .jefe-p { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--e4) 6px; }
+html:not(.modo-app) #vistas-estructura .ev-rk-2 .correo-p { max-width: 320px; }
+html:not(.modo-app) #vistas-estructura .ev-rk-2 .jefe-nombre, html:not(.modo-app) #vistas-estructura .ev-rk-2 .jefe-cabeza, html:not(.modo-app) #vistas-estructura .ev-rk-2 .jefe-nadie { -webkit-line-clamp: 1; }
+html:not(.modo-app) #vistas-estructura .ev-franja-sin-meta { margin-top: var(--e16); background: #fff8db; border: 1px solid #f2d37a; border-radius: 10px; padding: var(--e12) var(--e16); color: #5c4600; font-size: 14.5px; }
 
-/* ---------- Explorador ---------- */
-.ev-explorador { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; align-items: start; }
-.ev-arbol { background: #F7F9FC; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; padding: 8px 4px; max-height: 72vh; overflow: auto; }
-.ev-nodo { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
-.ev-nodo.sel { background: #DCE6F6; }
-.ev-triangulo, .ev-triangulo-hueco { flex: 0 0 22px; width: 22px; height: 28px; }
-.ev-triangulo { border: 0; background: none; cursor: pointer; font-size: 14px; color: #3a4558; }
-.ev-nodo-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 6px; font: inherit; cursor: pointer; text-align: left; }
-.ev-nodo-nombre { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
-.ev-nodo-pct { font-size: 16px; font-weight: 700; }
-.ev-ficha { background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.ev-ficha-cab { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-.ev-ficha-id { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
-.ev-ficha-id h3 { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
-.ev-ficha-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.ev-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.ev-ind { background: #F7F9FC; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
-.ev-ind span { font-size: 14px; color: #566074; }
-.ev-ind b { font-size: 31px; }
-.ev-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
-.ev-datos > div { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-size: 16px; }
-.ev-datos span { font-size: 14px; color: #566074; }
-.ev-alerta { font-size: 14px; font-weight: 700; color: #8a5a00; background: #fff4d1; padding: 1px 7px; border-radius: 999px; align-self: flex-start; }
-.ev-subtitulo { margin: 0; font-size: 18px; }
-.ev-equipo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.ev-equipo li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; padding: 8px 10px; border-radius: 8px; background: #F7F9FC; }
-.ev-equipo li > .ev-eq-avance { grid-column: 2 / 3; }
-.ev-equipo li > .ev-eq-wa { grid-column: 3 / 4; }
-.ev-eq-quien { min-width: 0; }
-.ev-eq-avance { display: flex; flex-direction: column; gap: 3px; }
+/* ==========================================================================
+   EXPLORADOR — ficha en grid de 2 columnas (etiqueta de 160 px a la izquierda, valor a la derecha) e indicadores en 4 cajas del mismo alto.
+   ========================================================================== */
+html:not(.modo-app) #vistas-estructura .ev-explorador { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: var(--e16); align-items: start; }
+html:not(.modo-app) #vistas-estructura .ev-arbol { background: #F7F9FC; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; padding: var(--e8) var(--e4); max-height: 72vh; overflow: auto; }
+html:not(.modo-app) #vistas-estructura .ev-nodo { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+html:not(.modo-app) #vistas-estructura .ev-nodo.sel { background: #DCE6F6; }
+html:not(.modo-app) #vistas-estructura .ev-triangulo, html:not(.modo-app) #vistas-estructura .ev-triangulo-hueco { flex: 0 0 22px; width: 22px; height: 28px; }
+html:not(.modo-app) #vistas-estructura .ev-triangulo { border: 0; background: none; cursor: pointer; font-size: 14px; color: #3a4558; }
+html:not(.modo-app) #vistas-estructura .ev-nodo-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--e8); border: 0; background: none; padding: 6px; font: inherit; cursor: pointer; text-align: left; }
+html:not(.modo-app) #vistas-estructura .ev-nodo-nombre { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; line-height: 1.35; overflow-wrap: break-word; }
+html:not(.modo-app) #vistas-estructura .ev-nodo-pct { font-size: 14.5px; font-weight: 700; }
+html:not(.modo-app) #vistas-estructura .ev-nodo-n { flex: 0 0 auto; font-size: 14.5px; font-weight: 700; color: #084298; margin-left: var(--e4); }
+html:not(.modo-app) #vistas-estructura .ev-ficha { background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-radius: 12px; padding: var(--e16); display: flex; flex-direction: column; gap: var(--e16); min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-ficha-cab { display: flex; gap: var(--e16); align-items: flex-start; flex-wrap: wrap; }
+html:not(.modo-app) #vistas-estructura .ev-ficha-id { flex: 1; min-width: 200px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-ficha-id h3 { margin: 0; overflow-wrap: break-word; }
+html:not(.modo-app) #vistas-estructura .ev-ficha-botones { display: flex; flex-wrap: wrap; align-items: center; gap: var(--e8); align-self: flex-start; }
+html:not(.modo-app) #vistas-estructura .ev-indicadores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--e12); align-items: stretch; }
+html:not(.modo-app) #vistas-estructura .ev-ind { background: #F7F9FC; border-radius: 10px; padding: var(--e12); display: flex; flex-direction: column; justify-content: space-between; gap: var(--e4); }
+html:not(.modo-app) #vistas-estructura .ev-ind span { font-size: 12.5px; color: #566074; line-height: 1.35; }
+html:not(.modo-app) #vistas-estructura .ev-ind b { font-size: 22px; line-height: 1.2; }
+html:not(.modo-app) #vistas-estructura .ev-datos { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-dato { display: grid; grid-template-columns: 160px minmax(0, 1fr); column-gap: var(--e16); align-items: start; font-size: 14.5px; }
+html:not(.modo-app) #vistas-estructura .ev-etq { font-size: 12.5px; color: #566074; line-height: 1.35; padding-top: 5px; }
+html:not(.modo-app) #vistas-estructura .ev-val { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-alerta { font-size: 12.5px; font-weight: 700; color: #8a5a00; background: #fff4d1; padding: 1px 8px; border-radius: 999px; }
+html:not(.modo-app) #vistas-estructura .ev-subtitulo { margin: 0; font-size: 16px; }
+html:not(.modo-app) #vistas-estructura .ev-avance-ficha { background: #F7F9FC; border-radius: 10px; padding: var(--e12) var(--e16); display: flex; flex-direction: column; gap: var(--e4); }
+html:not(.modo-app) #vistas-estructura .ev-equipo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-equipo li { display: grid; grid-template-columns: 34px minmax(0, 1fr) 150px; gap: var(--e8) var(--e12); align-items: center; padding: var(--e8) var(--e12); border-radius: 8px; background: #F7F9FC; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-quien { grid-column: 2; grid-row: 1; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-estado { grid-column: 3; grid-row: 1; display: flex; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-avance { grid-column: 2; grid-row: 2; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-wa { grid-column: 3; grid-row: 2; display: flex; justify-content: flex-start; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-av { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-eq-quien { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html:not(.modo-app) #vistas-estructura .ev-eq-avance { display: flex; flex-direction: column; gap: var(--e4); min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-equipo li .ev-eq-avance .ev-cifra-pct { display: flex; }
+html:not(.modo-app) #vistas-estructura .ev-sin-equipo { display: flex; align-items: center; justify-content: space-between; gap: var(--e12); flex-wrap: wrap; }
 
-/* ---------- Pendientes ---------- */
-.ev-grid-pendientes { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 16px; }
-.ev-pend { background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-top: 5px solid var(--tono); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+/* ==========================================================================
+   PENDIENTES — una sola columna por grupo (los grupos, uno debajo del otro, a lo ancho). Cada fila, una grilla fija como Ranking:
+   [avatar][nombre+chips+territorio][le reporta a][X de Y][Activo][WhatsApp][acción + Editar/Eliminar] y, debajo, correo·sexo·autorización.
+   ========================================================================== */
+html:not(.modo-app) #vistas-estructura .ev-grid-pendientes { display: flex; flex-direction: column; gap: var(--e16); }
+html:not(.modo-app) #vistas-estructura .ev-pend { background: #fff; border: 1px solid var(--color-border, #D9DFE9); border-top: 5px solid var(--tono); border-radius: 12px; padding: var(--e16); display: flex; flex-direction: column; gap: var(--e8); }
 .ev-pend-rojo { --tono: #C62828; } .ev-pend-ambar { --tono: #E69A00; } .ev-pend-verde { --tono: #2e7d32; }
-.ev-pend header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ev-pend h4 { margin: 0; font-size: 18px; }
-.ev-pend .ev-contador { background: #EEF1F6; color: #14203a; }
-.ev-pend-texto { margin: 0; font-size: 16px; color: #566074; }
-.ev-pend-lista { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 560px; overflow-y: auto; }
-.ev-pend-lista li { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #F7F9FC; border-radius: 8px; }
-.ev-pend-quien { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.ev-pend-nadie { color: #6B7482; font-size: 16px; align-items: center; }
+html:not(.modo-app) #vistas-estructura .ev-pend header { display: flex; align-items: center; justify-content: space-between; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-pend h4 { margin: 0; font-size: 16px; }
+html:not(.modo-app) #vistas-estructura .ev-pend .ev-contador { background: #EEF1F6; color: #14203a; }
+html:not(.modo-app) #vistas-estructura .ev-pend-texto { margin: 0; font-size: 14.5px; color: #566074; }
+html:not(.modo-app) #vistas-estructura .ev-pend-lista { list-style: none; margin: var(--e4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--e8); }
+html:not(.modo-app) #vistas-estructura .ev-pd {
+  display: grid; align-items: start; column-gap: var(--e8); row-gap: var(--e8); padding: var(--e12); background: #F7F9FC; border-radius: 8px;
+  grid-template-columns: 34px minmax(0, 1fr) 140px 96px 84px 150px;
+}
+html:not(.modo-app) #vistas-estructura .ev-pd > .ev-av { align-self: start; }
+html:not(.modo-app) #vistas-estructura .ev-pend-quien { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--e4); }
+html:not(.modo-app) #vistas-estructura .ev-pend-quien .chips-p { flex-wrap: nowrap; overflow: hidden; max-width: 100%; }
+html:not(.modo-app) #vistas-estructura .ev-pd-jefe, html:not(.modo-app) #vistas-estructura .ev-pd-cifra, html:not(.modo-app) #vistas-estructura .ev-pd-estado, html:not(.modo-app) #vistas-estructura .ev-pd-wa { min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-pd-cifra { justify-self: end; }
+html:not(.modo-app) #vistas-estructura .ev-pd-acciones { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: var(--e8); grid-row: 2; grid-column: 4 / 7; }
+html:not(.modo-app) #vistas-estructura .ev-pd-accion { display: inline-flex; }
+html:not(.modo-app) #vistas-estructura .ev-pd-2 { grid-row: 2; grid-column: 2 / 4; display: flex; flex-wrap: wrap; align-items: center; gap: var(--e4) var(--e16); min-width: 0; }
+html:not(.modo-app) #vistas-estructura .ev-pd-2 .correo-p { max-width: 320px; }
+html:not(.modo-app) #vistas-estructura .ev-pend-nadie { color: #6B7482; font-size: 14.5px; padding: var(--e12); text-align: center; list-style: none; }
+@media (min-width: 1440px) {
+  html:not(.modo-app) #vistas-estructura .ev-pd { grid-template-columns: 34px minmax(200px, 1fr) 140px 96px 84px 150px 300px; }
+  html:not(.modo-app) #vistas-estructura .ev-pd-acciones { grid-row: 1; grid-column: 7; }
+  html:not(.modo-app) #vistas-estructura .ev-pd-2 { grid-column: 2 / -1; }
+}
 
 /* ---------- Ancho: a menos de 900 px las columnas bajan una debajo de otra ---------- */
 @media (max-width: 899px) {
-  .ev-columnas { grid-template-columns: 1fr; }
-  .ev-explorador { grid-template-columns: 1fr; }
-  .ev-arbol { max-height: 40vh; }
-  .ev-datos { grid-template-columns: 1fr; }
-  .ev-equipo li { grid-template-columns: 26px minmax(0, 1fr); }
-  .ev-equipo .ev-eq-avance, .ev-equipo li > .ev-sub { grid-column: 1 / -1; }
+  html:not(.modo-app) #vistas-estructura .ev-columnas { grid-template-columns: minmax(0, 1fr); }
+  html:not(.modo-app) #vistas-estructura .ev-explorador { grid-template-columns: minmax(0, 1fr); }
+  html:not(.modo-app) #vistas-estructura .ev-arbol { max-height: 40vh; }
+  html:not(.modo-app) #vistas-estructura .ev-dato { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  html:not(.modo-app) #vistas-estructura .ev-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html:not(.modo-app) #vistas-estructura .ev-equipo li { grid-template-columns: 34px minmax(0, 1fr); }
+  html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-estado, html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-avance, html:not(.modo-app) #vistas-estructura .ev-equipo li > .ev-eq-wa { grid-column: 1 / -1; grid-row: auto; }
+  html:not(.modo-app) #vistas-estructura .ev-pod { grid-template-rows: none; }
+  html:not(.modo-app) #vistas-estructura .ev-pod > .ev-contacto { flex-wrap: wrap; }
+  html:not(.modo-app) #vistas-estructura .ev-podio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html:not(.modo-app) #vistas-estructura .ev-fila-ranking { grid-template-columns: 32px 40px minmax(0, 1fr); }
+  html:not(.modo-app) #vistas-estructura .ev-puesto { grid-column: 1; grid-row: 1; }
+  html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-av-n { grid-column: 2; grid-row: 1; }
+  html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-rk-quien { grid-column: 3; grid-row: 1; }
+  html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-rk-barra, html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-rk-wa, html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-rk-acc, html:not(.modo-app) #vistas-estructura .ev-fila-ranking > .ev-rk-2 { grid-column: 3; }
+  html:not(.modo-app) #vistas-estructura .ev-rk-cifra, html:not(.modo-app) #vistas-estructura .ev-pct-grande { grid-column: 3; justify-self: start; justify-content: flex-start; }
+  html:not(.modo-app) #vistas-estructura .ev-pd { grid-template-columns: 34px minmax(0, 1fr); }
+  html:not(.modo-app) #vistas-estructura .ev-pd > div { grid-column: 1 / -1; grid-row: auto; }
+  html:not(.modo-app) #vistas-estructura .ev-pd > .ev-pend-quien { grid-column: 2; }
+  html:not(.modo-app) #vistas-estructura .ev-pd-acciones { justify-content: flex-start; }
 }
 
-/* ---------- ORDEN 109: tamaño del equipo, «Ver equipo» en Por rol y Explorador sin equipo ---------- */
-.ev-equipo-linea { color: #26324B; font-size: 16px; }
-.ev-equipo-linea b { color: #084298; font-weight: 700; }
-.ev-btn-mini {
-  align-self: flex-start; margin: 0; width: auto; padding: 5px 14px; min-height: 38px; border-radius: 999px; border: 1.5px solid #084298; background: #fff;
-  color: #084298; font: inherit; font-size: 15px; font-weight: 700; line-height: 1.3; cursor: pointer;
-}
-.ev-btn-mini:hover { background: #084298; color: #fff; }
-.ev-btn-mini:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
-.ev-nombre-plano { cursor: default; }
-.ev-nombre-plano:hover { color: #14203a; text-decoration: none; }
-.ev-nodo-n { flex: 0 0 auto; font-size: 16px; font-weight: 700; color: #084298; margin-left: 4px; }
-.ev-sin-equipo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* La leyenda de la Lista (Σ, 📍, riel) también a 12,5 px. */
+html:not(.modo-app) #card-estructura .leyenda-fichas { font-size: 12.5px; }
 
-/* ---------- ORDEN 111/112: WhatsApp en las cinco vistas ----------
-   La píldora es la de la Lista (`.btn-wa-fila`, fichas.css; verde #25D366, navy encima: 8,23 de contraste). */
-/* (el tamaño de la píldora y de los botones lo fija el bloque de la ORDEN 112, al final) */
-.vistas-estructura .btn-wa-fila:focus-visible { outline: 3px solid #FFC300; outline-offset: 1px; }
-.ev-mini-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
-.ev-mini-acciones .ev-btn-mini { margin: 0; }
-
-/* ==========================================================================
-   ORDEN 112 — LETRA MÁS GRANDE (Lista + las cinco vistas) y la misma información de la Lista en las cinco.
-   Escala: nombre 19 px negrita · territorio, «Le reporta a», «Equipo», «X de Y», correo·sexo, «rol · territorio» 16 px ·
-   etiquetas de cifra, leyendas y chips 14 px · botones 15 px con alto mínimo 38 px · cifras grandes +20 % · encabezados 18 px.
-   Ningún texto por debajo de 14 px. Todo bajo `html:not(.modo-app)`: la app del celular no se toca.
-   Las piezas (`.id-registro`, `.nombre-p`, `.correo-p`, `.chip-p`, `.migaja`, `.jefe-*`, `.avance-*`, `.badge-p`, `.acciones-p`…) son las
-   MISMAS clases de la Lista (fichas.css), así que una sola regla las agranda en las seis vistas.
-   ========================================================================== */
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) {
-  --t-nombre: 19px; --t-medio: 16px; --t-chico: 14px; --t-boton: 15px;
-}
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .nombre-p { font-size: var(--t-nombre); font-weight: 700; line-height: 1.25; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .id-registro { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .correo-p { font-size: var(--t-medio); line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .migaja { font-size: var(--t-medio); line-height: 1.35; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .migaja .sin-territorio { color: #6B7482; font-style: italic; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .mas-territorios { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .chip-p { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .geo-chip { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .aviso-falta { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-rotulo { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-nombre,
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-cabeza,
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .jefe-nadie { font-size: var(--t-medio); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .n { font-size: 25px; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .de { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-cifra .meta { font-size: var(--t-medio); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .avance-pie { font-size: var(--t-chico); line-height: 1.35; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .sigma-p { font-size: var(--t-medio); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .badge-p { font-size: var(--t-chico); }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .plegar-p { font-size: 18px; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .dato-min { font-size: var(--t-chico); }
-html:not(.modo-app) #tbody-estructura .rama-titulo { font-size: var(--t-chico); }
-html:not(.modo-app) #tbody-estructura .avatar-p { width: 46px; height: 46px; font-size: 1.15rem; }
-/* Botones: 15 px y 38 px de alto mínimo (Editar, Eliminar, Quitar, WhatsApp, Agregar, Ver equipo…). */
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-neutro,
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .acciones-p .btn-neutro,
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-principal-fichas { font-size: var(--t-boton); min-height: 38px; padding: 6px 14px; }
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .btn-wa-fila { font-size: var(--t-boton); min-height: 38px; margin-top: 0; box-sizing: border-box; white-space: nowrap; }
-html:not(.modo-app) #tbody-estructura .btn-wa-fila { margin-top: 7px; }
-html:not(.modo-app) .vistas-estructura .ev-btn-mini { min-height: 38px; font-size: var(--t-boton); }
-html:not(.modo-app) .vistas-estructura .ev-agregar { min-height: 38px; font-size: var(--t-boton); }
-/* La autorización de datos (píldora de autorizacion-datos.js) también va a 14 px. */
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) .aut-pill,
-html:not(.modo-app) :is(#tbody-estructura, .vistas-estructura) [class*="aut-"] { font-size: var(--t-chico); }
-
-/* LA LISTA EN DOS FILAS. Con la letra grande no caben cinco columnas en 1000 px (el nombre partía en una palabra por línea):
-   arriba quién es, dónde trabaja y de quién depende; abajo cómo va y el estado con sus botones. Misma ficha, mismas piezas. */
-@media (min-width: 900px) {
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo {
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr);
-    grid-template-areas: "q t j" "a a l"; align-items: start; gap: 14px 22px;
-  }
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .quien { grid-area: q; }
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .territorio-p { grid-area: t; }
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .jefe-p { grid-area: j; }
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .avance-p { grid-area: a; align-self: center; max-width: 560px; }
-  html:not(.modo-app) #tbody-estructura .ficha-cuerpo > .lateral-p { grid-area: l; align-self: center; }
-}
-
-/* ---------- Las piezas dentro de las vistas ---------- */
-.vistas-estructura .ev-bloque-territorio { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.vistas-estructura .linea-nombre { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; min-width: 0; }
-.vistas-estructura .chips-p { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.vistas-estructura .jefe-p { min-width: 0; }
-.vistas-estructura .avance-p { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.vistas-estructura .avance-p .medidor-p, .vistas-estructura .avance-p .ev-barra { margin: 2px 0; }
-.vistas-estructura .acciones-p { justify-content: flex-start; }
-.ev-contacto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.ev-estado { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.ev-cifra-pct { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
-.ev-pct-txt { font-size: 25px; font-weight: 700; line-height: 1; }
-.vistas-estructura .nombre-p.ev-nombre-enlace { font-weight: 700; }
-
-/* Tarjetas: todo centrado, en el orden pedido. */
-.ev-tarjeta { text-align: center; align-items: center; gap: 10px; }
-.ev-tarjeta .linea-nombre, .ev-tarjeta .chips-p, .ev-tarjeta .ev-contacto, .ev-tarjeta .ev-estado, .ev-tarjeta .avance-pie { justify-content: center; }
-.ev-tarjeta .ev-bloque-territorio, .ev-tarjeta .jefe-p { align-items: center; text-align: center; }
-.ev-tarjeta .correo-p { text-align: center; margin-top: 0; }
-.ev-tarjeta .ev-acciones { flex-wrap: wrap; justify-content: center; }
-.ev-tarjeta .ev-acciones > * { flex: 1 1 auto; }
-.ev-tarjeta .ev-btn { min-height: 38px; font-size: 15px; }
-
-/* Por rol: ficha compacta horizontal (avatar a la izquierda, todo lo demás a la derecha). */
-.ev-mini { padding: 12px; gap: 12px; }
-.ev-mini-texto { gap: 6px; }
-.ev-mini .ev-av { width: 40px; height: 40px; font-size: 1.1rem; }
-.ev-mini .jefe-p { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.ev-columna-cuerpo { max-height: none; }
-
-/* Podio: cada persona con todos sus datos debajo. */
-.ev-pod { padding: 28px 14px 16px; gap: 8px; }
-.ev-pod .linea-nombre, .ev-pod .chips-p, .ev-pod .ev-contacto, .ev-pod .ev-estado, .ev-pod .acciones-p, .ev-pod .ev-acciones, .ev-pod .avance-pie { justify-content: center; }
-.ev-pod .ev-bloque-territorio, .ev-pod .jefe-p, .ev-pod .avance-p { align-items: center; text-align: center; }
-.ev-pod .correo-p { margin-top: 0; }
-.ev-pod .ev-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
-.ev-pod .avance-cifra { justify-content: center; }
-
-/* Ranking y Pendientes: fila de 2 líneas. */
-.ev-fila-ranking { display: block; padding: 12px 16px; }
-.ev-rk-1 { display: grid; grid-template-columns: 36px 44px minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(170px, 1fr) 84px auto; align-items: center; gap: 12px; }
-.ev-fila-ranking .ev-av-n { width: 44px; height: 44px; }
-.ev-rk-lugar { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-.ev-rk-barra-caja { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.ev-rk-barra { height: 30px; }
-.ev-rk-2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 8px; padding-left: 48px; }
-.ev-rk-2 .jefe-p { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.ev-rk-2 .correo-p { margin-top: 0; display: inline; }
-.ev-rk-2 .acciones-p { margin-left: auto; }
-.ev-pend-lista li { align-items: stretch; }
-.ev-pd-1 { display: grid; grid-template-columns: 32px minmax(0, 1.2fr) minmax(0, 1.3fr) auto auto; align-items: center; gap: 10px; }
-.ev-pd-accion { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.ev-pd-2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding-left: 42px; }
-.ev-pd-2 .jefe-p { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.ev-pd-2 .correo-p { margin-top: 0; display: inline; }
-.ev-pd-2 .acciones-p { margin-left: auto; }
-.ev-pd-2 .avance-cifra { display: inline-flex; }
-
-/* Explorador: la ficha en bloques. */
-.ev-ficha-botones { align-self: flex-start; }
-.ev-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.ev-dato .correo-p { margin-top: 0; }
-.ev-avance-ficha { background: #F7F9FC; border-radius: 10px; padding: 12px 14px; }
-.ev-eq-quien { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.ev-eq-avance { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.ev-eq-wa { display: flex; justify-content: flex-end; }
-.ev-eq-estado { display: flex; }
-.ev-equipo li .ev-eq-avance .avance-cifra { display: inline-flex; }
-.ev-nodo-btn { padding: 6px; }
-
-@media (max-width: 899px) {
-  .ev-rk-1 { grid-template-columns: 36px 44px minmax(0, 1fr) auto; }
-  .ev-rk-1 > .ev-rk-lugar, .ev-rk-1 > .ev-rk-barra-caja { grid-column: 1 / -1; }
-  .ev-rk-2, .ev-pd-2 { padding-left: 0; }
-  .ev-pd-1 { grid-template-columns: 32px minmax(0, 1fr) auto; }
-  .ev-pd-1 > .ev-rk-lugar { grid-column: 1 / -1; }
-  .ev-grid-pendientes { grid-template-columns: 1fr; }
-  .ev-equipo li { grid-template-columns: 34px minmax(0, 1fr); }
-  .ev-equipo li > .ev-eq-avance, .ev-equipo li > .ev-eq-wa, .ev-equipo li > .ev-eq-estado { grid-column: 1 / -1; }
-}
-
-/* La leyenda de la Lista (Σ, 📍, riel) también a 14 px. */
-html:not(.modo-app) #card-estructura .leyenda-fichas { font-size: 14px; }
+/* Por rol: la ficha no tiene alto fijo, así que WhatsApp y autorización bajan a otra línea si no caben. */
+html:not(.modo-app) #vistas-estructura .ev-mini .ev-contacto { flex-wrap: wrap; }

@@ -21,6 +21,10 @@
 
    WHATSAPP: el botón verde con el número es el de la Lista (`pildoraWhatsApp`, territorial.html) en las cinco vistas.
 
+   ORDEN 114 — TAMAÑOS MEDIOS Y ALINEACIÓN. Aquí solo se decide la maquetación: cada tipo de tarjeta o fila lleva zonas FIJAS (una por dato, siempre
+   presente aunque venga vacía) para que el mismo dato quede a la misma altura y en la misma columna en todas. Los tamaños y las plantillas de grid
+   están en css/estructura-vistas.css. No cambia qué se muestra, ni los datos, reglas o permisos.
+
    Colores del avance: «Por rol», «Explorador» y «Pendientes» usan rojo < 25 %, ámbar 25–59 %, verde ≥ 60 %. «Tarjetas» y «Ranking»
    (ORDEN 107) pintan todo avance en azul y marcan a quien va bajo 25 % solo con un punto rojo de 8 px junto al %.
    La cifra es la de la lista (incluye a su equipo, la del Σ).
@@ -112,6 +116,14 @@
     };
   }
 
+  /* ORDEN 114 — correos, territorios y nombres largos se cortan con «…» y dicen todo en el `title`. */
+  function titulos(raiz) {
+    if (!raiz) return;
+    raiz.querySelectorAll('.correo-p, .migaja, .jefe-nombre, .jefe-nadie, .nombre-p, .ev-sub, .aviso-falta, .avance-pie').forEach((e) => {
+      if (!e.getAttribute('title')) e.setAttribute('title', e.textContent.replace(/\s+/g, ' ').trim());
+    });
+  }
+
   const inicial = (f) => esc((f.nombre || '?').trim().charAt(0).toUpperCase());
   const P = (f) => ctx.partes(f);
   // Nombre que lleva al Explorador, con el aspecto y el tamaño del nombre de la Lista (`.nombre-p`).
@@ -119,7 +131,8 @@
   const lineaNombre = (f, p, extra) => `<div class="linea-nombre">${p.numero}${nombreEnlace(f, extra)}</div>`;
   const textoRolLugar = (i) => `${esc(i.etiqueta)}${i.lugar ? ' · ' + esc(i.lugar) : ''}`;
   // «X de Y» de la Lista + el porcentaje con el color de la vista.
-  const cifraPct = (i, p, conColor) => `<div class="ev-cifra-pct">${p.cifra}${i.meta > 0 ? `<b class="ev-pct-txt"${conColor ? ` style="color:${semaforo(i.pctReal)}"` : ''}>${Math.round(i.pctReal)} %</b>` : ''}</div>`;
+  // (ORDEN 114: `modo` = 'semaforo' pinta el % con el color del avance; 'azul' lo deja en #084298 y solo marca con un punto rojo a quien va bajo 25 %.)
+  const cifraPct = (i, p, modo) => `<div class="ev-cifra-pct">${p.cifra}${i.meta > 0 ? `<b class="ev-pct-txt"${modo === 'semaforo' ? ` style="color:${semaforo(i.pctReal)}"` : ''}>${modo === 'azul' ? puntoBajo(i) : ''}${Math.round(i.pctReal)} %</b>` : ''}</div>`;
   const avatar = (i, extra) => `<span class="ev-av ${extra || ''}" style="background:${i.color.c}" aria-hidden="true">${inicial(i.f)}</span>`;
   const chipRol = (i) => `<span class="ev-chip" style="color:${i.color.c};background:${i.color.bg}">${esc(i.etiqueta)}</span>`;
   const chipArea = (i) => (i.area ? `<span class="ev-chip ev-chip-${i.area}">${i.area === 'urbano' ? 'URBANO' : 'RURAL'}</span>` : '');
@@ -148,6 +161,8 @@
     return '<span class="ev-sin-jefe">Sin quién lo coordine</span>';
   }
 
+  // ORDEN 114: «Por rol» dice el avance como Tarjetas y Ranking: barra azul, sin semáforo.
+  const barraAzul = (i) => `<div class="ev-barra"><i style="width:${i.pct.toFixed(1)}%;background:#0B5ED7"></i></div>`;
   function barra(i, grosor) {
     if (!(i.meta > 0)) return `<div class="ev-sin-meta">Sin meta asignada</div>`;
     return `<div class="ev-barra ${grosor || ''}"><i style="width:${i.pct.toFixed(1)}%;background:${semaforo(i.pctReal)}"></i></div>`;
@@ -178,7 +193,7 @@
           <div><b>${conMeta ? millares(i.meta) : '—'}</b><span>Meta</span></div>
           <div><b>${millares(i.equipo)}</b><span>Equipo</span></div>
         </div>
-        ${p.pie}
+        <div class="ev-z-pie">${p.pie}</div>
         <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
         <div class="ev-estado">${p.estado}${p.excluido}</div>
         <div class="ev-acciones">${p.editar}${p.eliminar}${p.quitar}<button type="button" class="ev-btn ev-btn-equipo" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
@@ -223,7 +238,7 @@
               <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
               ${p.reportaA}
               ${muestraEquipo(i) ? `<span class="ev-sub ev-equipo-linea">👥 Equipo: <b>${textoPersonas(i.equipo)}</b></span>` : ''}
-              <div class="avance-p">${cifraPct(i, p, true)}${i.meta > 0 ? barra(i) : ''}${p.pie}</div>
+              <div class="avance-p">${cifraPct(i, p, 'azul')}${i.meta > 0 ? barraAzul(i) : '<div class="ev-sin-meta">Sin meta asignada</div>'}<div class="ev-z-pie">${p.pie}</div></div>
               <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
               <div class="ev-estado">${p.estado}${p.excluido}</div>
               <div class="ev-mini-acciones">${p.editar}${p.eliminar}${p.quitar}<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
@@ -256,7 +271,7 @@
         <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
         ${p.reportaA}
         <div class="ev-pod-pct">${puntoBajo(i)}${Math.round(i.pctReal)}%</div>
-        <div class="avance-p">${p.cifra}${p.pie}</div>
+        <div class="avance-p">${p.cifra}<div class="ev-z-pie">${p.pie}</div></div>
         <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
         <div class="ev-estado">${p.estado}${p.excluido}</div>
         <div class="ev-acciones">${p.editar}${p.eliminar}${p.quitar}</div>
@@ -282,16 +297,15 @@
         const p = P(i.f);
         return `
         <li class="ev-fila-ranking" data-uid="${i.f.usuario_id}">
-          <div class="ev-rk-1">
-            <span class="ev-puesto">${n + 4}</span>
-            ${avatarNuevo(i)}
-            <div class="ev-rk-quien">${lineaNombre(i.f, p)}</div>
-            <div class="ev-rk-lugar">${p.chips}${p.territorio}${p.avisoVotacion}</div>
-            <div class="ev-rk-barra-caja"><div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>${p.cifra}</div>
-            <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
-            ${p.whatsapp}
-          </div>
-          <div class="ev-rk-2">${p.correo}${p.autorizacion}${p.reportaA}${p.pie}${p.estado}${p.excluido}${p.acciones}</div>
+          <span class="ev-puesto">${n + 4}</span>
+          ${avatarNuevo(i)}
+          <div class="ev-rk-quien">${lineaNombre(i.f, p)}${p.chips}<div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div></div>
+          <div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>
+          <div class="ev-rk-cifra">${p.cifra}</div>
+          <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
+          <div class="ev-rk-wa">${p.whatsapp}</div>
+          <div class="ev-rk-acc">${p.acciones}</div>
+          <div class="ev-rk-2">${p.correo}${p.autorizacion}${p.reportaA}${p.pie}${p.estado}${p.excluido}</div>
         </li>`;
       }).join('')}</ol>` : ''}
       ${!conMeta.length && !sinMeta.length ? '<div class="ev-vacio">Nadie en esta selección.</div>' : ''}
@@ -358,14 +372,14 @@
         <div class="ev-ficha-botones">${p.editar}${p.eliminar}${p.quitar}${puedeAgregar ? `<button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>
       </div>
       <div class="ev-datos">
-        <div class="ev-dato"><span>Correo · sexo</span>${p.correo}</div>
-        <div class="ev-dato"><span>WhatsApp</span>${p.whatsapp || '<span class="dato-min">Sin teléfono</span>'}</div>
-        <div class="ev-dato"><span>Autorización de datos</span>${p.autorizacion}</div>
-        <div class="ev-dato"><span>Estado</span><div class="ev-estado">${p.estado}${p.excluido}</div></div>
-        <div class="ev-dato"><span>Lugar de votación</span><b>${lugarV || '—'}</b>${ctx.tieneLugarVotacion(f) ? '' : ' <span class="ev-alerta">Incompleto</span>'}</div>
+        <div class="ev-dato"><span class="ev-etq">Correo · sexo</span><div class="ev-val">${p.correo}</div></div>
+        <div class="ev-dato"><span class="ev-etq">WhatsApp</span><div class="ev-val">${p.whatsapp || '<span class="dato-min">Sin teléfono</span>'}</div></div>
+        <div class="ev-dato"><span class="ev-etq">Autorización de datos</span><div class="ev-val">${p.autorizacion}</div></div>
+        <div class="ev-dato"><span class="ev-etq">Estado</span><div class="ev-val ev-estado">${p.estado}${p.excluido}</div></div>
+        <div class="ev-dato"><span class="ev-etq">Lugar de votación</span><div class="ev-val"><b>${lugarV || '—'}</b>${ctx.tieneLugarVotacion(f) ? '' : ' <span class="ev-alerta">Incompleto</span>'}</div></div>
       </div>
       <div class="ev-avance-ficha avance-p">
-        ${p.cifra}${i.meta > 0 ? barra(i) : ''}${p.pie}
+        ${p.cifra}${i.meta > 0 ? barra(i) : ''}<div class="ev-z-pie">${p.pie}</div>
       </div>
       <div class="ev-indicadores">
         <div class="ev-ind"><span>Registros del equipo</span><b>${millares(i.registros)}</b></div>
@@ -380,7 +394,7 @@
         return `<li data-uid="${h.usuario_id}">${avatar(hi)}
           <div class="ev-eq-quien">${lineaNombre(h, hp, 'ev-eq-nombre').replace('data-accion="explorar"', 'data-accion="seleccionar"')}<span class="ev-sub">${textoRolLugar(hi)}</span></div>
           <div class="ev-eq-estado">${hp.estado}</div>
-          <div class="ev-eq-avance">${cifraPct(hi, hp, true)}${hi.meta > 0 ? barra(hi) : ''}</div>
+          <div class="ev-eq-avance">${cifraPct(hi, hp, 'semaforo')}${hi.meta > 0 ? barra(hi) : ''}</div>
           <div class="ev-eq-wa">${hp.whatsapp}</div>
         </li>`;
       }).join('')}</ul>` : `<div class="ev-vacio-chico ev-sin-equipo">Aún no tiene equipo.${puedeAgregar ? ` <button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>`}`;
@@ -425,6 +439,8 @@
   }
 
   /* ---------- Pendientes ---------- */
+  const PEND_MAX = 8;                  // ORDEN 114: un grupo largo enseña 8 y «Ver todos (N)»
+  const pendTodos = new Set();         // grupos que el usuario abrió completos
   function htmlPendientes(filas) {
     if (!filas.length) return vacio();
     const gente = filas.map(info).sort(porCategoriaYNombre);
@@ -473,27 +489,32 @@
         accion: () => '',
       },
     ];
-    return `<div class="ev-grid-pendientes">${grupos.map((g) => `
+    return `<div class="ev-grid-pendientes">${grupos.map((g) => {
+      const abierto = pendTodos.has(g.clave);
+      const visibles = abierto ? g.lista : g.lista.slice(0, PEND_MAX);
+      return `
       <section class="ev-pend ev-pend-${g.tono}" data-grupo="${g.clave}">
         <header><h4>${g.titulo}</h4><span class="ev-contador">${g.lista.length}</span></header>
         <p class="ev-pend-texto">${g.texto}</p>
         <ul class="ev-pend-lista">
-          ${g.lista.map((i) => {
+          ${visibles.map((i) => {
             const p = P(i.f);
             const det = g.detalle(i);
-            return `<li data-uid="${i.f.usuario_id}">
-            <div class="ev-pd-1">
-              ${avatar(i, 'ev-av-chico')}
-              <div class="ev-pend-quien">${lineaNombre(i.f, p)}${det ? `<span class="ev-sub">${esc(det)}</span>` : ''}</div>
-              <div class="ev-rk-lugar">${p.chips}${p.territorio}${p.avisoVotacion}</div>
-              <div class="ev-pd-accion">${g.accion(i)}</div>
-              ${p.whatsapp}
-            </div>
-            <div class="ev-pd-2">${p.correo}${p.autorizacion}${p.reportaA}${p.cifra}${p.pie}${p.estado}${p.excluido}${p.acciones}</div>
+            return `<li class="ev-pd" data-uid="${i.f.usuario_id}">
+            ${avatar(i, 'ev-av-chico')}
+            <div class="ev-pend-quien">${lineaNombre(i.f, p)}${det ? `<span class="ev-sub">${esc(det)}</span>` : ''}${p.chips}<div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div></div>
+            <div class="ev-pd-jefe">${p.reportaA}</div>
+            <div class="ev-pd-cifra">${p.cifra}</div>
+            <div class="ev-pd-estado">${p.estado}</div>
+            <div class="ev-pd-wa">${p.whatsapp}</div>
+            <div class="ev-pd-acciones"><span class="ev-pd-accion">${g.accion(i)}</span>${p.acciones}</div>
+            <div class="ev-pd-2">${p.correo}${p.autorizacion}${p.excluido}<div class="ev-z-pie">${p.pie}</div></div>
           </li>`;
           }).join('') || '<li class="ev-pend-nadie">Nadie en este grupo.</li>'}
         </ul>
-      </section>`).join('')}</div>`;
+        ${g.lista.length > PEND_MAX ? `<button type="button" class="ev-ver-todos" data-accion="pend-todos" data-grupo="${g.clave}" aria-expanded="${abierto ? 'true' : 'false'}">${abierto ? 'Ver menos' : `Ver todos (${g.lista.length})`}</button>` : ''}
+      </section>`;
+    }).join('')}</div>`;
   }
 
   function vacio() { return '<div class="ev-vacio">No hay personas que coincidan con los filtros.</div>'; }
@@ -520,6 +541,7 @@
     else if (vista === 'explorador') html = htmlExplorador(datos.filas);
     else if (vista === 'pendientes') html = htmlPendientes(datos.filas);
     caja.innerHTML = html;
+    titulos(caja);
     caja.dataset.vista = vista;
     const arbol = document.getElementById('ev-arbol');
     if (arbol) arbol.scrollTop = scrollArbol;
@@ -577,6 +599,7 @@
     else if (accion === 'equipo') { seleccion = uid; ctx.verEquipo(uid); }   // ORDEN 109: el Explorador abre con la cabeza de esa rama
     else if (accion === 'explorar') irAlExplorador(uid);
     else if (accion === 'agregar') ctx.agregar(el.dataset.cat, el.dataset.sup ? Number(el.dataset.sup) : null);
+    else if (accion === 'pend-todos') { const g = el.dataset.grupo; if (pendTodos.has(g)) pendTodos.delete(g); else pendTodos.add(g); ctx.repintar(); }
     else if (accion === 'ranking-filtro') { rankingFiltro = el.dataset.valor; ctx.repintar(); }
     else if (accion === 'seleccionar') { seleccion = uid; ctx.repintar(); }
     else if (accion === 'plegar') {
@@ -595,5 +618,5 @@
     marcarBotones();
   }
 
-  global.EstructuraVistas = { iniciar, pintar, vista: () => vista, irAlExplorador, cambiarVista };
+  global.EstructuraVistas = { iniciar, pintar, titulos, vista: () => vista, irAlExplorador, cambiarVista };
 })(window);

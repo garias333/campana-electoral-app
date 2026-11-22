@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// scripts/probar-estructura-112.js — ORDEN 112: las cinco vistas nuevas de «Estructura territorial» (Tarjetas, Por rol, Ranking, Explorador y
+// scripts/probar-estructura-112.js — ORDEN 112 (tamaños reemplazados por los de la ORDEN 114: nombre 17, secundarios 14,5, leyendas 12,5, botones 13,5/34): las cinco vistas nuevas de «Estructura territorial» (Tarjetas, Por rol, Ranking, Explorador y
 // Pendientes) muestran LA MISMA INFORMACIÓN QUE LA LISTA, con letra más grande en las seis.
 //   Con administrador, coordinadora y líder, a 1280 y 1600 px, para cinco personas (coordinador con comuna, líder con barrio y +N territorios,
 //   sublíder, coordinador de organizaciones y alguien sin territorio y sin autorización) cada dato a–j de la Lista sale IGUAL en las cinco vistas
@@ -168,7 +168,7 @@ function crearApp() {
   const menorLetra = (sel) => ev(`(() => { let min = 999, quien = ''; document.querySelectorAll(${JSON.stringify(sel)}).forEach(root => { const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { if (!n.textContent.trim()) continue; const e = n.parentElement; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || e.getBoundingClientRect().width === 0) continue; const fs = parseFloat(cs.fontSize); if (fs < min) { min = fs; quien = e.className + ' «' + n.textContent.trim().slice(0, 30) + '»'; } } }); return { min, quien }; })()`);
   const tam = (sel, prop = 'fontSize') => ev(`(() => [...new Set([...document.querySelectorAll(${JSON.stringify(sel)})].map(e => getComputedStyle(e)[${JSON.stringify(prop)}]))])()`);
   const todos = async (sel, esperado, prop) => { const t = await tam(sel, prop); return t.length > 0 && t.every((x) => x === esperado); };
-  const botonesOk = (sel) => ev(`(() => { const l = [...document.querySelectorAll(${JSON.stringify(sel)})]; return { n: l.length, mal: l.filter(e => parseFloat(getComputedStyle(e).fontSize) !== 15 || e.getBoundingClientRect().height < 37.5).map(e => e.className + ' ' + getComputedStyle(e).fontSize + ' ' + Math.round(e.getBoundingClientRect().height)).slice(0, 3) }; })()`);
+  const botonesOk = (sel) => ev(`(() => { const l = [...document.querySelectorAll(${JSON.stringify(sel)})]; return { n: l.length, mal: l.filter(e => parseFloat(getComputedStyle(e).fontSize) !== 13.5 || Math.abs(e.getBoundingClientRect().height - 34) > 0.6).map(e => e.className + ' ' + getComputedStyle(e).fontSize + ' ' + Math.round(e.getBoundingClientRect().height)).slice(0, 3) }; })()`);
   const sinSalirse = (sel) => ev(`(() => [...document.querySelectorAll(${JSON.stringify(sel)})].filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.className + ' ' + e.scrollWidth + '>' + e.clientWidth).slice(0, 3))()`);
   const cajaCompleta = () => ev(`(() => { const c = document.getElementById('vistas-estructura').getBoundingClientRect(); return [...document.querySelectorAll('#vistas-estructura *')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > c.right + 1 || r.left < c.left - 1); }).length === 0; })()`);
   const sinMontarse = (sel) => ev(`(() => { const mal = []; document.querySelectorAll(${JSON.stringify(sel)}).forEach(f => { const h = [...f.children].filter(x => x.getBoundingClientRect().width > 0).map(x => x.getBoundingClientRect()); for (let i = 0; i < h.length; i++) for (let j = i + 1; j < h.length; j++) { const a = h[i], b = h[j]; if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) mal.push(f.className + ':' + i + 'x' + j); } }); return mal.slice(0, 3); })()`);
@@ -240,57 +240,57 @@ function crearApp() {
     // -- Tamaños de letra --
     await elegir('lista');
     const grande = { '#tbody-estructura .nombre-p': '19px' };
-    ok(await todos('#tbody-estructura .nombre-p', '19px') && await todos('#tbody-estructura .nombre-p', '700', 'fontWeight'), 'Lista: nombre 19 px negrita', await tam('#tbody-estructura .nombre-p'));
+    ok(await todos('#tbody-estructura .nombre-p', '17px') && await todos('#tbody-estructura .nombre-p', '700', 'fontWeight'), 'Lista: nombre 17 px negrita (ORDEN 114)', await tam('#tbody-estructura .nombre-p'));
     void grande;
     for (const v of ['tarjetas', 'rol', 'ranking', 'explorador', 'pendientes']) {
       await elegir(v);
       const R = '#vistas-estructura';
-      const nomSel = { tarjetas: '.ev-tarjeta .nombre-p', rol: '.ev-mini .nombre-p', ranking: '.ev-pod .nombre-p, .ev-fila-ranking .nombre-p', explorador: '#ev-ficha .ev-ficha-cab .nombre-p, #ev-ficha .ev-equipo .nombre-p', pendientes: '.ev-pend-lista .nombre-p' }[v];
-      ok(await todos(nomSel, '19px') && await todos(nomSel, '700', 'fontWeight'), `${v}: nombre 19 px negrita`, await tam(nomSel));
+      const nomSel = { tarjetas: '.ev-tarjeta .nombre-p', rol: '.ev-mini .nombre-p', ranking: '.ev-pod .nombre-p, .ev-fila-ranking .nombre-p', explorador: '#ev-ficha .ev-equipo .nombre-p', pendientes: '.ev-pend-lista .nombre-p' }[v];
+      ok((v === 'explorador' && (await tam(nomSel)).length === 0) || (await todos(nomSel, '17px') && await todos(nomSel, '700', 'fontWeight')), `${v}: nombre 17 px negrita`, await tam(nomSel));
       const sec = `${R} .migaja, ${R} .jefe-nombre, ${R} .jefe-cabeza, ${R} .jefe-nadie, ${R} .correo-p, ${R} .avance-cifra .meta, ${R} .ev-equipo-linea, ${R} .ev-sub`;
-      ok(await todos(sec, '16px'), `${v}: territorio, «Le reporta a», correo·sexo, «X de Y», equipo y «rol · territorio» a 16 px`, await tam(sec));
+      ok(await todos(sec, '14.5px'), `${v}: territorio, «Le reporta a», correo·sexo, «X de Y», equipo y «rol · territorio» a 14,5 px`, await tam(sec));
       const chicos = `${R} .chip-p, ${R} .badge-p, ${R} .avance-pie, ${R} .aut-pill, ${R} .jefe-rotulo, ${R} .aviso-falta, ${R} .ev-cifras3 span, ${R} .ev-ind span, ${R} .ev-contador`;
-      ok(await todos(chicos, '14px'), `${v}: etiquetas, leyendas y chips a 14 px`, await tam(chicos));
+      ok(await todos(chicos, '12.5px'), `${v}: etiquetas, leyendas y chips a 12,5 px`, await tam(chicos));
       const bot = await botonesOk(`${R} .btn-neutro, ${R} .btn-wa-fila, ${R} .ev-btn, ${R} .ev-btn-mini, ${R} .ev-agregar, ${R} .btn-principal-fichas, ${R} .ev-fichas-filtro button`);
-      ok(bot.n > 0 && bot.mal.length === 0, `${v}: ${bot.n} botones a 15 px y ≥ 38 px de alto`, bot);
+      ok(bot.n > 0 && bot.mal.length === 0, `${v}: ${bot.n} botones a 13,5 px y 34 px de alto`, bot);
       const m = await menorLetra(R);
-      ok(m.min >= 14, `${v}: ningún texto por debajo de 14 px (el menor: ${m.min} px)`, m);
+      ok(m.min >= 12.5, `${v}: ningún texto por debajo de 12,5 px (el menor: ${m.min} px)`, m);
       ok(await sinDesborde(), `${v}: sin desborde horizontal de la página a ${w} px`);
       ok(await cajaCompleta(), `${v}: nada se sale de su caja`);
       const sel = { tarjetas: '.ev-tarjeta', rol: '.ev-mini, .ev-columna', ranking: '.ev-pod, .ev-fila-ranking', explorador: '#ev-ficha, .ev-equipo li, .ev-nodo-btn', pendientes: '.ev-pend, .ev-pend-lista li' }[v];
       const salen = await sinSalirse(sel);
       ok(salen.length === 0, `${v}: ninguna ficha tiene contenido que se corte`, salen);
-      const montan = await sinMontarse({ tarjetas: '.ev-tarjeta', rol: '.ev-mini-texto', ranking: '.ev-rk-1', explorador: '.ev-ficha-cab, .ev-equipo li', pendientes: '.ev-pd-1' }[v]);
+      const montan = await sinMontarse({ tarjetas: '.ev-tarjeta', rol: '.ev-mini-texto', ranking: '.ev-fila-ranking', explorador: '.ev-ficha-cab, .ev-equipo li', pendientes: '.ev-pd' }[v]);
       ok(montan.length === 0, `${v}: nada se monta`, montan);
       if (v === 'tarjetas') ok(await ev("getComputedStyle(document.querySelector('.ev-grid-tarjetas')).gridTemplateColumns.split(' ').every(x => parseFloat(x) >= 299)"), 'Tarjetas: columnas de al menos 300 px');
-      if (v === 'tarjetas') ok(await todos('.ev-cifras3 b', '23.4px') || await todos('.ev-cifras3 b', '23.5px'), 'Tarjetas: cifras de la franja +20 % (23,4 px)', await tam('.ev-cifras3 b'));
+      if (v === 'tarjetas') ok(await todos('.ev-cifras3 b', '20px'), 'Tarjetas: cifras de la franja 20 px', await tam('.ev-cifras3 b'));
       if (v === 'rol') {
-        ok(await todos('.ev-columna-cab', '18px'), 'Por rol: encabezados de columna 18 px', await tam('.ev-columna-cab'));
+        ok(await todos('.ev-columna-cab', '16px'), 'Por rol: encabezados de columna 16 px', await tam('.ev-columna-cab'));
         const c3 = await ev("getComputedStyle(document.querySelector('.ev-columnas')).gridTemplateColumns.split(' ').length");
         ok(c3 === 3 && !/Testig/.test(await ev("document.getElementById('vistas-estructura').innerText")), 'Por rol: 3 columnas, sin testigos');
       }
       if (v === 'ranking') {
-        ok(await todos('.ev-pct-grande', '25px') || (await tam('.ev-pct-grande')).length === 0, 'Ranking: % de la lista +20 % (25 px)', await tam('.ev-pct-grande'));
+        ok(await todos('.ev-pct-grande', '18px') || (await tam('.ev-pct-grande')).length === 0, 'Ranking: % de la lista 18 px', await tam('.ev-pct-grande'));
         const pp = await tam('.ev-pod-pct');
-        ok(pp.every((x) => x === '42px' || x === '53px'), 'Ranking: % del podio +20 % (42 / 53 px)', pp);
+        ok(pp.every((x) => x === '28px' || x === '34px'), 'Ranking: % del podio 28 / 34 px', pp);
         // fila de 2 líneas: la línea 2 queda debajo de la 1
-        ok(await ev("[...document.querySelectorAll('.ev-fila-ranking')].every(f => f.querySelector('.ev-rk-2').getBoundingClientRect().top >= f.querySelector('.ev-rk-1').getBoundingClientRect().bottom - 1)"), 'Ranking: fila de dos líneas (la 2.ª debajo de la 1.ª)');
+        ok(await ev("[...document.querySelectorAll('.ev-fila-ranking')].every(f => f.querySelector('.ev-rk-2').getBoundingClientRect().top >= f.querySelector('.ev-rk-quien').getBoundingClientRect().bottom - 1)"), 'Ranking: fila de dos líneas (la 2.ª debajo de la 1.ª)');
       }
-      if (v === 'explorador') ok(await todos('.ev-nodo-nombre', '16px'), 'Explorador: árbol 16 px', await tam('.ev-nodo-nombre'));
+      if (v === 'explorador') ok(await todos('.ev-nodo-nombre', '14.5px'), 'Explorador: árbol 14,5 px', await tam('.ev-nodo-nombre'));
       if (v === 'pendientes') {
-        ok(await todos('.ev-pend h4', '18px'), 'Pendientes: encabezados de grupo 18 px', await tam('.ev-pend h4'));
-        ok(await ev("[...document.querySelectorAll('.ev-pend-lista li[data-uid]')].every(f => f.querySelector('.ev-pd-2').getBoundingClientRect().top >= f.querySelector('.ev-pd-1').getBoundingClientRect().bottom - 1)"), 'Pendientes: fila de dos líneas');
+        ok(await todos('.ev-pend h4', '16px'), 'Pendientes: encabezados de grupo 16 px', await tam('.ev-pend h4'));
+        ok(await ev("[...document.querySelectorAll('.ev-pend-lista li[data-uid]')].every(f => f.querySelector('.ev-pd-2').getBoundingClientRect().top >= f.querySelector('.ev-pend-quien').getBoundingClientRect().bottom - 1)"), 'Pendientes: fila de dos líneas');
       }
       if (esAdmin && w === 1280) { await ev("window.scrollTo(0, document.getElementById('vistas-estructura').getBoundingClientRect().top + window.scrollY - 70)"); await espera(250); await foto(`orden112-${v}-1280`); await ev('window.scrollTo(0, 0)'); }
     }
     // Lista: tamaños y desborde
     await elegir('lista');
     const mL = await menorLetra('#tbody-estructura, #card-estructura .leyenda-fichas');
-    ok(mL.min >= 14, `Lista: ningún texto por debajo de 14 px (el menor: ${mL.min} px)`, mL);
+    ok(mL.min >= 12.5, `Lista: ningún texto por debajo de 12,5 px (el menor: ${mL.min} px)`, mL);
     const lsec = '#tbody-estructura .migaja, #tbody-estructura .jefe-nombre, #tbody-estructura .jefe-cabeza, #tbody-estructura .correo-p, #tbody-estructura .avance-cifra .meta';
-    ok(await todos(lsec, '16px'), 'Lista: secundarios a 16 px', await tam(lsec));
+    ok(await todos(lsec, '14.5px'), 'Lista: secundarios a 14,5 px', await tam(lsec));
     const lb = await botonesOk('#tbody-estructura .btn-neutro, #tbody-estructura .btn-wa-fila');
-    ok(lb.n > 0 && lb.mal.length === 0, `Lista: ${lb.n} botones a 15 px y ≥ 38 px`, lb);
+    ok(lb.n > 0 && lb.mal.length === 0, `Lista: ${lb.n} botones a 13,5 px y 34 px`, lb);
     ok(await sinDesborde(), `Lista: sin desborde horizontal a ${w} px`);
     ok((await sinSalirse('#tbody-estructura .ficha-cuerpo')).length === 0, 'Lista: nada se corta dentro de las fichas', await sinSalirse('#tbody-estructura .ficha-cuerpo'));
     ok((await sinMontarse('#tbody-estructura .ficha-cuerpo')).length === 0, 'Lista: nada se monta', await sinMontarse('#tbody-estructura .ficha-cuerpo'));
