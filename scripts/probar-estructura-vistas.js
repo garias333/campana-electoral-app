@@ -8,6 +8,9 @@
 //     · «Ver equipo» deja a la persona y su gente; «Ver detalle» (Pendientes) lleva al Explorador;
 //     · a menos de 900 px las columnas de «Por rol» bajan una debajo de otra.
 //
+// ORDEN 112: las piezas de cada persona salen de la ficha de la Lista (ver probar-estructura-112.js, que compara dato por dato y mide tamaños);
+//   aquí se mantienen las comprobaciones de comportamiento y de diseño de las órdenes 105-111 con la letra y las piezas nuevas.
+//
 // USO (base desechable con init-db; NO correr junto a otra prueba con Chromium):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada105 [SALIDA=/ruta] node scripts/probar-estructura-vistas.js
 // Se niega a correr si DB_NAME no empieza por «simulada» o «prueba». Sale con código 1 si algo no cuadra.
@@ -138,7 +141,7 @@ function crearApp() {
     }
     if (v === 'explorador') return { gente: await txt('.ev-nodo .ev-nodo-nombre'), testigos: [] };
     if (v === 'pendientes') {
-      const grupos = await ev("[...document.querySelectorAll('.ev-pend')].map(s => ({ g: s.dataset.grupo, n: [...s.querySelectorAll('.ev-pend-quien b')].map(e => e.textContent.trim()) }))");
+      const grupos = await ev("[...document.querySelectorAll('.ev-pend')].map(s => ({ g: s.dataset.grupo, n: [...s.querySelectorAll('.ev-pend-quien .ev-nombre-enlace')].map(e => e.textContent.trim()) }))");
       return { gente: [...new Set(grupos.flatMap((g) => g.n))], testigos: [], grupos };
     }
     return { gente: [], testigos: [] };
@@ -156,10 +159,10 @@ function crearApp() {
       const franja = document.querySelector('.ev-franja-sin-meta');
       const todos = [...document.querySelectorAll('.ev-podio, .ev-pod, .ev-medalla, .ev-pod-pct, .ev-ranking, .ev-fila-ranking, .ev-rk-barra, .ev-rk-barra > i, .ev-pct-grande, .ev-puesto, .ev-pastilla, .ev-tarjeta, .ev-anillo-av')];
       return {
-        pods: pods.map((e) => ({ n: e.querySelector('.ev-medalla').textContent.trim(), pct: num(e.querySelector('.ev-pod-pct')), fs: cs(e.querySelector('.ev-pod-pct'), 'fontSize'), av: cs(e.querySelector('.ev-av-pod'), 'width'), borde: cs(e, 'borderTopColor'), bw: cs(e, 'borderTopWidth'), med: cs(e.querySelector('.ev-medalla'), 'backgroundColor'), medw: cs(e.querySelector('.ev-medalla'), 'width'), x: Math.round(box(e).left), bajo: Math.round(box(e).bottom), cifras: /\\d+ de \\d+/.test(e.innerText) })),
+        pods: pods.map((e) => ({ n: e.querySelector('.ev-medalla').textContent.trim(), pct: num(e.querySelector('.ev-pod-pct')), fs: cs(e.querySelector('.ev-pod-pct'), 'fontSize'), av: cs(e.querySelector('.ev-av-pod'), 'width'), borde: cs(e, 'borderTopColor'), bw: cs(e, 'borderTopWidth'), med: cs(e.querySelector('.ev-medalla'), 'backgroundColor'), medw: cs(e.querySelector('.ev-medalla'), 'width'), x: Math.round(box(e).left), bajo: Math.round(box(e).bottom), cifras: /\\d+\\s*de\\s*\\d+/.test(e.innerText) })),
         columnasPodio: podio ? cs(podio, 'gridTemplateColumns').split(' ').length : 0,
         claseN: podio ? podio.className : '',
-        filas: filas.map((f) => ({ pos: f.querySelector('.ev-puesto').textContent.trim(), pct: num(f.querySelector('.ev-pct-grande')), barra: cs(f.querySelector('.ev-rk-barra'), 'height'), radio: cs(f.querySelector('.ev-rk-barra'), 'borderTopLeftRadius'), fondo: cs(f.querySelector('.ev-rk-barra'), 'backgroundColor'), relleno: cs(f.querySelector('.ev-rk-barra > i'), 'backgroundImage'), ancho: box(f.querySelector('.ev-rk-barra > i')).width / box(f.querySelector('.ev-rk-barra')).width, textoEnBarra: f.querySelector('.ev-rk-barra').textContent.trim(), cifras: f.querySelector('.ev-rk-cifras').textContent.trim(), cifX: Math.round(box(f.querySelector('.ev-rk-cifras')).left), barraFin: Math.round(box(f.querySelector('.ev-rk-barra')).right), pctColor: cs(f.querySelector('.ev-pct-grande'), 'color'), pctFs: cs(f.querySelector('.ev-pct-grande'), 'fontSize'), punto: !!f.querySelector('.ev-punto-rojo') })),
+        filas: filas.map((f) => ({ pos: f.querySelector('.ev-puesto').textContent.trim(), pct: num(f.querySelector('.ev-pct-grande')), barra: cs(f.querySelector('.ev-rk-barra'), 'height'), radio: cs(f.querySelector('.ev-rk-barra'), 'borderTopLeftRadius'), fondo: cs(f.querySelector('.ev-rk-barra'), 'backgroundColor'), relleno: cs(f.querySelector('.ev-rk-barra > i'), 'backgroundImage'), ancho: box(f.querySelector('.ev-rk-barra > i')).width / box(f.querySelector('.ev-rk-barra')).width, textoEnBarra: f.querySelector('.ev-rk-barra').textContent.trim(), cifras: f.querySelector('.ev-rk-barra-caja .avance-cifra').textContent.trim(), cifX: Math.round(box(f.querySelector('.ev-rk-barra-caja .avance-cifra')).top), barraFin: Math.round(box(f.querySelector('.ev-rk-barra')).bottom), pctColor: cs(f.querySelector('.ev-pct-grande'), 'color'), pctFs: cs(f.querySelector('.ev-pct-grande'), 'fontSize'), punto: !!f.querySelector('.ev-punto-rojo') })),
         franja: franja ? { fondo: cs(franja, 'backgroundColor'), borde: cs(franja, 'borderTopColor'), texto: franja.textContent } : null,
         rojos: todos.filter((e) => /rgb\\(198, 40, 40\\)|rgb\\(178, 106, 0\\)|rgb\\(46, 125, 50\\)|#C62828|#B26A00/i.test(cs(e, 'backgroundColor') + cs(e, 'backgroundImage') + cs(e, 'color') + cs(e, 'borderTopColor'))).length,
         fichaActiva: cs(document.querySelector('.ev-fichas-filtro .activa'), 'backgroundColor') + '|' + cs(document.querySelector('.ev-fichas-filtro .activa'), 'color'),
@@ -177,7 +180,7 @@ function crearApp() {
     }
     d.pods.forEach((x) => {
       const primero = x.n === '1';
-      ok(x.cifras && x.fs === (primero ? '44px' : '35px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 44 : 35} px (+15 %), avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
+      ok(x.cifras && x.fs === (primero ? '53px' : '42px') && x.av === (primero ? '64px' : '54px') && x.medw === '30px', `puesto ${x.n}: % de ${primero ? 53 : 42} px (+20 %), avatar de ${primero ? 64 : 54} px, medalla de 30 px y «X de Y»`, x);
       ok(x.med === ({ 1: 'rgb(255, 195, 0)', 2: 'rgb(11, 94, 215)', 3: 'rgb(8, 66, 152)' })[x.n], `medalla ${x.n} del color de marca`, x.med);
       if (primero) ok(x.bw === '2px' && x.borde === 'rgb(255, 195, 0)', 'el 1.º con borde amarillo de 2 px', x);
     });
@@ -186,8 +189,8 @@ function crearApp() {
       ok(f.radio === '99px' || parseFloat(f.radio) >= 15, 'barra con radio de píldora', f.radio);
       ok(f.fondo === 'rgb(232, 240, 253)' && /rgb\(11, 94, 215\).*rgb\(8, 66, 152\)/.test(f.relleno), 'fondo #e8f0fd y relleno degradado #0B5ED7 → #084298', { fondo: f.fondo, relleno: f.relleno });
       ok(f.ancho >= 0.0195, 'relleno visible (mínimo 2 %)', f.ancho);
-      ok(f.textoEnBarra === '' && f.cifras.length > 0 && f.cifX >= f.barraFin, '«X de Y» fuera de la barra, en su columna', f);
-      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '21px', '% de 21 px (18 +15 %) en #084298', f);
+      ok(f.textoEnBarra === '' && f.cifras.length > 0 && f.cifX >= f.barraFin, '«X de Y» (el de la Lista) fuera de la barra, justo debajo', f);
+      ok(f.pctColor === 'rgb(8, 66, 152)' && f.pctFs === '25px', '% de 25 px (21 +20 %) en #084298', f);
       ok(f.punto === (f.pct < 25), 'punto rojo solo si va bajo 25 %', f);
     });
     ok(d.rojos === 0, 'no queda rojo/ámbar/verde de semáforo en barras, anillos ni porcentajes', d.rojos);
@@ -271,28 +274,27 @@ function crearApp() {
       await elegir('rol');
       compara('Por rol', await leer('.ev-mini', '.ev-nombre-enlace', '.btn-wa-fila'), 'pildora');
       await elegir('ranking');
-      compara('Ranking (podio)', await leer('.ev-pod', '.ev-pod-nombre', '.ev-wa-icono'), 'icono');
-      compara('Ranking (filas)', await leer('.ev-fila-ranking', '.ev-nombre-enlace', '.ev-wa-icono'), 'icono', true);
+      compara('Ranking (podio)', await leer('.ev-pod', '.ev-pod-nombre', '.btn-wa-fila'), 'pildora');
+      compara('Ranking (filas)', await leer('.ev-fila-ranking', '.ev-nombre-enlace', '.btn-wa-fila'), 'pildora', true);
       await elegir('pendientes');
-      compara('Pendientes', await leer('.ev-pend-lista li:not(.ev-pend-nadie)', '.ev-pend-quien b', '.ev-wa-icono'), 'icono');
+      compara('Pendientes', await leer('.ev-pend-lista li:not(.ev-pend-nadie)', '.ev-pend-quien .ev-nombre-enlace', '.btn-wa-fila'), 'pildora');
       await elegir('explorador');
       const nodos = await ev("document.querySelectorAll('.ev-nodo-btn').length");
       let fichas = [], equipos = [];
       for (let k = 0; k < nodos; k++) {
         await ev(`document.querySelectorAll('.ev-nodo-btn')[${k}].click()`); await espera(200);
-        fichas = fichas.concat(await leer('#ev-ficha .ev-ficha-cab', 'h3', '.btn-wa-fila'));
-        equipos = equipos.concat(await leer('#ev-ficha .ev-equipo li', '.ev-nombre-enlace', '.ev-wa-icono'));
+        fichas = fichas.concat(await leer('#ev-ficha', 'h3', '.ev-datos .btn-wa-fila'));
+        equipos = equipos.concat(await leer('#ev-ficha .ev-equipo li', '.ev-nombre-enlace', '.btn-wa-fila'));
       }
       compara('Explorador (ficha)', fichas, 'pildora');
-      if (equipos.length) compara('Explorador (Su equipo)', equipos, 'icono');
-      // la píldora de la ficha va junto a «Editar» (administrador)
-      if (etq === 'administrador') ok(await ev("(() => { const b = document.querySelector('#ev-ficha .ev-ficha-botones'); return !!b.querySelector('.btn-wa-fila') && !!b.querySelector('[data-accion=editar]'); })()") || !(await ev("!!document.querySelector('#ev-ficha .ev-ficha-botones .btn-wa-fila')")), 'Explorador: la píldora verde va en el mismo grupo que «Editar»');
+      if (equipos.length) compara('Explorador (Su equipo)', equipos, 'pildora');
+      // (ORDEN 112: en la ficha del Explorador la píldora va en el bloque de contacto, no junto a «Editar»)
 
       // ---- Por rol sin testigos, 3 columnas a lo ancho
       await elegir('rol');
       const col = await ev(`(() => { const g = document.querySelector('.ev-columnas'), r = g.getBoundingClientRect(); const cs = [...g.children].map(c => c.getBoundingClientRect()); return { n: getComputedStyle(g).gridTemplateColumns.split(' ').length, ancho: r.width, suma: cs.reduce((t, c) => t + c.width, 0), gaps: parseFloat(getComputedStyle(g).columnGap) * (cs.length - 1), titulos: [...g.querySelectorAll('.ev-columna-cab span:first-child')].map(e => e.textContent.trim()), tam: [...g.querySelectorAll('.ev-columna-cab')].map(e => getComputedStyle(e).fontSize) }; })()`);
       ok(col.n === 3 && Math.abs(col.suma + col.gaps - col.ancho) < 2, 'Por rol: 3 columnas que ocupan todo el ancho', col);
-      ok(JSON.stringify(col.titulos) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']) && col.tam.every((t) => t === '17px'), 'Por rol: encabezados Coordinadores, Líderes y Sublíderes en 17 px', col);
+      ok(JSON.stringify(col.titulos) === JSON.stringify(['Coordinadores', 'Líderes', 'Sublíderes']) && col.tam.every((t) => t === '18px'), 'Por rol: encabezados Coordinadores, Líderes y Sublíderes en 18 px', col);
       for (const v of VISTAS.filter((x) => x !== 'lista')) {
         await elegir(v);
         ok(!/Testig/.test(await ev("document.getElementById('vistas-estructura').innerText")), `${v}: no hay testigos`);
@@ -301,38 +303,7 @@ function crearApp() {
         if (etq === 'administrador' && w === 1280) { await ev("window.scrollTo(0, document.getElementById('vistas-estructura').getBoundingClientRect().top + window.scrollY - 70)"); await espera(250); await foto(`orden111-${v}-1280`); await ev('window.scrollTo(0, 0)'); }
       }
 
-      // ---- tamaños de letra (getComputedStyle)
-      const tam = (sel, prop = 'fontSize') => ev(`(() => [...new Set([...document.querySelectorAll(${JSON.stringify(sel)})].map(e => getComputedStyle(e)[${JSON.stringify(prop)}]))])()`);
-      const todos = (sel, esperado, prop) => tam(sel, prop).then((t) => t.length > 0 && t.every((x) => x === esperado));
-      const altos = (sel) => ev(`(() => { const l = [...document.querySelectorAll(${JSON.stringify(sel)})]; return l.length > 0 && l.every(e => e.getBoundingClientRect().height >= 33.5); })()`);
-      await elegir('tarjetas');
-      ok(await todos('.ev-tarjeta .ev-nombre', '17px'), 'Tarjetas: nombre 17 px', await tam('.ev-tarjeta .ev-nombre'));
-      ok(await todos('.ev-tarjeta .ev-nombre', '700', 'fontWeight'), 'Tarjetas: nombre en negrita');
-      ok(await todos('.ev-tarjeta .ev-lugar', '15px'), 'Tarjetas: territorio 15 px', await tam('.ev-tarjeta .ev-lugar'));
-      ok(await todos('.ev-tarjeta .ev-chip', '12.5px'), 'Tarjetas: chips 12,5 px', await tam('.ev-tarjeta .ev-chip'));
-      ok(await todos('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila', '14px') && await altos('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila'), 'Tarjetas: botones y WhatsApp 14 px y ≥ 34 px de alto', await tam('.ev-tarjeta .ev-btn, .ev-tarjeta .btn-wa-fila'));
-      ok(await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.btn-wa-fila')); const a = t.querySelector('.btn-wa-fila').getBoundingClientRect(), c = t.getBoundingClientRect(); return Math.abs((a.left + a.right) / 2 - (c.left + c.right) / 2) < 3 && a.top > t.querySelector('.ev-etiquetas').getBoundingClientRect().bottom - 1; })()"), 'Tarjetas: píldora verde centrada debajo del nombre y los chips');
-      await elegir('rol');
-      ok(await todos('.ev-mini .ev-nombre-enlace', '17px') && await todos('.ev-mini .ev-nombre-enlace', '700', 'fontWeight'), 'Por rol: nombre 17 px negrita', await tam('.ev-mini .ev-nombre-enlace'));
-      ok(await todos('.ev-mini .ev-sub', '15px'), 'Por rol: secundarios 15 px', await tam('.ev-mini .ev-sub'));
-      ok(await todos('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila', '14px') && await altos('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila'), 'Por rol: «Ver equipo» y WhatsApp 14 px y ≥ 34 px', await tam('.ev-mini .ev-btn-mini, .ev-mini .btn-wa-fila'));
-      ok(await ev("(() => { const m = [...document.querySelectorAll('.ev-mini')].find(x => x.querySelector('.btn-wa-fila')); const e = m.querySelector('.ev-equipo-linea'), a = m.querySelector('.btn-wa-fila'), b = m.querySelector('.ev-btn-mini'); return (!e || a.getBoundingClientRect().top >= e.getBoundingClientRect().bottom - 1) && !!a.parentNode.contains(b); })()"), 'Por rol: la píldora va debajo de «Equipo: N personas», junto a «Ver equipo»');
-      await elegir('ranking');
-      ok(await todos('.ev-pod-nombre, .ev-fila-ranking .ev-nombre-enlace', '17px'), 'Ranking: nombre 17 px', await tam('.ev-pod-nombre, .ev-fila-ranking .ev-nombre-enlace'));
-      ok(await todos('.ev-pod .ev-sub, .ev-fila-ranking .ev-sub, .ev-rk-cifras', '15px'), 'Ranking: secundarios y «X de Y» 15 px', await tam('.ev-pod .ev-sub, .ev-fila-ranking .ev-sub, .ev-rk-cifras'));
-      const redondos = await ev("[...document.querySelectorAll('.ev-pod .ev-wa-icono, .ev-fila-ranking .ev-wa-icono')].map(a => { const r = a.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), getComputedStyle(a).borderRadius, getComputedStyle(a).backgroundColor]; })");
-      ok(redondos.length > 0 && redondos.every((x) => x[0] === 34 && x[1] === 34 && x[2] === '50%' && x[3] === 'rgb(37, 211, 102)'), 'Ranking: ícono verde redondo de 34 px (color de la Lista)', redondos.slice(0, 2));
-      ok(await ev("(() => { const f = document.querySelector('.ev-fila-ranking .ev-wa-icono'); return !f || f === f.parentNode.lastElementChild; })()"), 'Ranking: el ícono va al final de la fila');
-      await elegir('explorador');
-      ok(await todos('.ev-nodo-nombre', '17px'), 'Explorador: nombre en el árbol 17 px', await tam('.ev-nodo-nombre'));
-      ok(await todos('#ev-ficha .ev-equipo .ev-nombre-enlace', '17px') || (await ev("document.querySelectorAll('#ev-ficha .ev-equipo li').length")) === 0, 'Explorador: nombres de «Su equipo» 17 px');
-      ok(await todos('#ev-ficha .ev-sub', '15px'), 'Explorador: secundarios 15 px', await tam('#ev-ficha .ev-sub'));
-      ok(await todos('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas', '14px') && await altos('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas'), 'Explorador: botones 14 px y ≥ 34 px', await tam('#ev-ficha .btn-neutro, #ev-ficha .btn-wa-fila, #ev-ficha .btn-principal-fichas'));
-      await elegir('pendientes');
-      ok(await todos('.ev-pend-quien b', '17px'), 'Pendientes: nombre 17 px', await tam('.ev-pend-quien b'));
-      ok(await todos('.ev-pend-quien .ev-sub', '15px'), 'Pendientes: secundarios 15 px', await tam('.ev-pend-quien .ev-sub'));
-      ok(await todos('.ev-pend-lista .btn-neutro', '14px') && await altos('.ev-pend-lista .btn-neutro'), 'Pendientes: botones de acción 14 px y ≥ 34 px', await tam('.ev-pend-lista .btn-neutro'));
-      ok(await ev("[...document.querySelectorAll('.ev-pend-lista li')].every(li => { const a = li.querySelector('.ev-wa-icono'), b = li.querySelector('.btn-neutro'); return !a || !b || a.nextElementSibling === b; })"), 'Pendientes: el ícono verde va al lado del botón de acción');
+      // ---- tamaños de letra: ORDEN 112 los cambió (nombre 19, secundarios 16, chips 14, botones 15 y ≥ 38 px) y los mide probar-estructura-112.js
       ok(p.avisos.length === 0, `sin errores de consola (ORDEN 111 · ${etq} · ${w})`, p.avisos);
     }
   }
@@ -348,20 +319,20 @@ function crearApp() {
   ok(/registro/.test(total), 'contador de la lista', total);
 
   await elegir('tarjetas');
-  ok(await ev("getComputedStyle(document.querySelector('.ev-grid-tarjetas')).gridTemplateColumns.split(' ').length >= 4"), 'Tarjetas: cuadrícula de 4 o más columnas a 1280 px');
-  const tarjeta = await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.ev-nombre').textContent.includes('Beto')); return { texto: t.innerText, anillo: !!t.querySelector('.ev-anillo-av'), titulo: t.querySelector('.ev-nombre').title, cifras: [...t.querySelectorAll('.ev-cifras3 > div')].map(d => d.innerText.replace(/\\s+/g, ' ')), pastilla: t.querySelector('.ev-pastilla').textContent.trim(), editar: !!t.querySelector('[data-accion=editar]'), equipo: !!t.querySelector('[data-accion=equipo]') }; })()");
-  ok(/Líder/.test(tarjeta.texto) && tarjeta.pastilla === '50%' && /Marta/.test(tarjeta.titulo), 'Tarjeta de Beto: rol, pastilla 50 % y «Le reporta a Marta» como title del nombre', tarjeta);
+  ok(await ev("getComputedStyle(document.querySelector('.ev-grid-tarjetas')).gridTemplateColumns.split(' ').length >= 3"), 'Tarjetas: cuadrícula de 3 o más columnas a 1280 px (ORDEN 112: mínimo de 300 px por tarjeta)');
+  const tarjeta = await ev("(() => { const t = [...document.querySelectorAll('.ev-tarjeta')].find(x => x.querySelector('.ev-nombre').textContent.includes('Beto')); return { texto: t.innerText, anillo: !!t.querySelector('.ev-anillo-av'), titulo: t.querySelector('.jefe-p').innerText, cifras: [...t.querySelectorAll('.ev-cifras3 > div')].map(d => d.innerText.replace(/\\s+/g, ' ')), pastilla: t.querySelector('.ev-pastilla').textContent.trim(), editar: !![...t.querySelectorAll('.btn-neutro')].find(b => b.textContent.trim() === 'Editar'), equipo: !!t.querySelector('[data-accion=equipo]') }; })()");
+  ok(/Líder/.test(tarjeta.texto) && tarjeta.pastilla === '50%' && /Marta/.test(tarjeta.titulo), 'Tarjeta de Beto: rol, pastilla 50 % y «Le reporta a Marta» escrito en la tarjeta (ORDEN 112)', tarjeta);
   ok(JSON.stringify(tarjeta.cifras) === JSON.stringify(['5 Registros', '10 Meta', '1 Equipo']), 'franja de 3 cifras: Registros · Meta · Equipo', tarjeta.cifras);
   ok(tarjeta.anillo && tarjeta.editar && tarjeta.equipo, 'con anillo, Editar y Ver equipo');
   ok(!/Cabeza de su rama|equipo \d/.test(tarjeta.texto) && !(await ev("document.querySelector('.ev-franja')")), 'sin la franja de arriba ni el texto «Cabeza de su rama · equipo N»');
-  const zonas = await txt('.ev-tarjeta .ev-chip-zona');
-  ok(zonas.includes('URBANO') && zonas.includes('RURAL'), 'etiquetas URBANO y RURAL', zonas);
+  const zonas = (await txt('.ev-tarjeta .chip-p')).map((t) => t.toUpperCase());
+  ok(zonas.includes('URBANO') && zonas.includes('RURAL'), 'etiquetas URBANO y RURAL (los chips de la Lista)', zonas);
 
   const dt = await ev(`(() => {
     const cs = (el, k) => getComputedStyle(el)[k];
     const g = document.querySelector('.ev-grid-tarjetas');
     const t = (n) => [...document.querySelectorAll('.ev-tarjeta')].find((x) => x.querySelector('.ev-nombre').textContent.includes(n));
-    const info = (n) => { const x = t(n); return { av: cs(x.querySelector('.ev-av-n'), 'backgroundColor'), avTxt: cs(x.querySelector('.ev-av-n'), 'color'), avW: cs(x.querySelector('.ev-av-n'), 'width'), avB: cs(x.querySelector('.ev-av-n'), 'borderTopWidth'), anillo: cs(x.querySelector('.ev-anillo-av'), 'width'), fondoAnillo: cs(x.querySelector('.ev-anillo-av'), 'backgroundImage'), pastilla: x.querySelector('.ev-pastilla').textContent.trim(), pastColor: cs(x.querySelector('.ev-pastilla'), 'backgroundColor'), punto: !!x.querySelector('.ev-pastilla .ev-punto-rojo'), puntoTam: x.querySelector('.ev-punto-rojo') ? cs(x.querySelector('.ev-punto-rojo'), 'width') + '/' + cs(x.querySelector('.ev-punto-rojo'), 'backgroundColor') : null, puntoTitle: x.querySelector('.ev-punto-rojo') ? x.querySelector('.ev-punto-rojo').title : null, chipRol: cs(x.querySelector('.ev-chip-rol'), 'backgroundColor') + '|' + cs(x.querySelector('.ev-chip-rol'), 'color'), meta: x.querySelectorAll('.ev-cifras3 b')[1].textContent.trim(), btnE: x.querySelector('.ev-btn-editar') ? cs(x.querySelector('.ev-btn-editar'), 'borderTopColor') + '|' + cs(x.querySelector('.ev-btn-editar'), 'borderTopWidth') : null, btnV: cs(x.querySelector('.ev-btn-equipo'), 'backgroundColor') + '|' + cs(x.querySelector('.ev-btn-equipo'), 'color'), radio: cs(x, 'borderTopLeftRadius'), gap: cs(g, 'columnGap'), pad: cs(x, 'padding'), bordeTarjeta: cs(x, 'borderTopColor') }; };
+    const info = (n) => { const x = t(n); return { av: cs(x.querySelector('.ev-av-n'), 'backgroundColor'), avTxt: cs(x.querySelector('.ev-av-n'), 'color'), avW: cs(x.querySelector('.ev-av-n'), 'width'), avB: cs(x.querySelector('.ev-av-n'), 'borderTopWidth'), anillo: cs(x.querySelector('.ev-anillo-av'), 'width'), fondoAnillo: cs(x.querySelector('.ev-anillo-av'), 'backgroundImage'), pastilla: x.querySelector('.ev-pastilla').textContent.trim(), pastColor: cs(x.querySelector('.ev-pastilla'), 'backgroundColor'), punto: !!x.querySelector('.ev-pastilla .ev-punto-rojo'), puntoTam: x.querySelector('.ev-punto-rojo') ? cs(x.querySelector('.ev-punto-rojo'), 'width') + '/' + cs(x.querySelector('.ev-punto-rojo'), 'backgroundColor') : null, puntoTitle: x.querySelector('.ev-punto-rojo') ? x.querySelector('.ev-punto-rojo').title : null, chipRol: cs(x.querySelector('.chip-p'), 'backgroundColor') + '|' + cs(x.querySelector('.chip-p'), 'color'), meta: x.querySelectorAll('.ev-cifras3 b')[1].textContent.trim(), btnE: x.querySelector('.ev-btn-editar') ? cs(x.querySelector('.ev-btn-editar'), 'borderTopColor') + '|' + cs(x.querySelector('.ev-btn-editar'), 'borderTopWidth') : null, btnV: cs(x.querySelector('.ev-btn-equipo'), 'backgroundColor') + '|' + cs(x.querySelector('.ev-btn-equipo'), 'color'), radio: cs(x, 'borderTopLeftRadius'), gap: cs(g, 'columnGap'), pad: cs(x, 'padding'), bordeTarjeta: cs(x, 'borderTopColor') }; };
     const rojos = [...document.querySelectorAll('.ev-anillo-av, .ev-pastilla')].filter((e) => /rgb\\(198, 40, 40\\)|rgb\\(178, 106, 0\\)|rgb\\(46, 125, 50\\)/.test(cs(e, 'backgroundImage') + cs(e, 'backgroundColor') + cs(e, 'color'))).length;
     return { coord: info('Marta'), lider: info('Beto'), sub: info('Sara'), otro: info('Olga'), asp: info('Aurelio'), sinMeta: info('Carla'), bajo: info('Ana'), rojos };
   })()`);
@@ -373,11 +344,11 @@ function crearApp() {
   ok(dt.coord.pastColor === 'rgb(255, 195, 0)' && dt.coord.pastilla === '30%', 'pastilla amarilla con el %', dt.coord);
   ok(dt.bajo.punto && dt.bajo.puntoTam === '8px/rgb(229, 72, 77)' && dt.bajo.puntoTitle === 'Menos del 25 % de su meta' && !dt.coord.punto, 'punto rojo de 8 px (#e5484d) con title solo bajo 25 %', { bajo: dt.bajo.puntoTam, titulo: dt.bajo.puntoTitle });
   ok(dt.rojos === 0, 'Tarjetas: ningún anillo ni pastilla en rojo/ámbar/verde de semáforo', dt.rojos);
-  ok(dt.coord.btnE === 'rgb(11, 94, 215)|1px' && await ev("[...document.styleSheets].some((h) => /estructura-vistas/.test(h.href || '') && [...h.cssRules].some((r) => r.selectorText === '.ev-tarjeta .ev-btn-editar' && /1\\.5px/.test(r.style.border)))") && dt.coord.btnV === 'rgb(8, 66, 152)|rgb(255, 255, 255)', 'botones: Editar con borde azul de 1,5 px (el navegador lo redondea a 1 px a 1×); Ver equipo azul oscuro con texto blanco', dt.coord);
+  ok(dt.coord.btnV === 'rgb(8, 66, 152)|rgb(255, 255, 255)', 'botones: Ver equipo azul oscuro con texto blanco (Editar y Eliminar son los de la Lista)', dt.coord);
   await foto('tarjetas-admin-1280-detalle');
 
   // Editar abre el formulario de siempre (pide la contraseña propia primero)
-  await ev("document.querySelector('.ev-tarjeta [data-accion=editar]').click()");
+  await ev("[...document.querySelectorAll('.ev-tarjeta .btn-neutro')].find(b => b.textContent.trim() === 'Editar').click()");
   const pideClave = await esperar("!!document.querySelector('.overlay.abierto input[type=password]')", 5000);
   ok(pideClave, 'Editar pide la contraseña propia, como en la lista');
   if (pideClave) {
@@ -457,13 +428,13 @@ function crearApp() {
   const primera = await ev("document.querySelector('.ev-nodo.sel .ev-nodo-nombre').textContent.trim()");
   const primeroDelArbol = await ev("document.querySelector('.ev-nodo .ev-nodo-nombre').textContent.trim()");
   ok(primera === primeroDelArbol && (await ev("document.querySelector('#ev-ficha h3').textContent.trim()")) === primera, 'Explorador: al abrir queda seleccionada la primera persona y su ficha', { primera });
-  ok(await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") >= 350 && await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") <= 370, 'panel izquierdo de ≈360 px (ORDEN 111: letra más grande)');
+  ok(await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") >= 370 && await ev("Math.round(document.getElementById('ev-arbol').getBoundingClientRect().width)") <= 390, 'panel izquierdo de ≈380 px (ORDEN 112: letra más grande)');
   await ev("[...document.querySelectorAll('.ev-nodo-btn')].find(b => b.textContent.includes('Marta')).click()"); await espera(350);
   const ficha = await ev("document.getElementById('ev-ficha').innerText");
-  ok(/Marta Coordinadora/.test(ficha) && /Personas a cargo/.test(ficha) && /Su equipo/.test(ficha) && /Celular/.test(ficha) && /Autorización de datos/.test(ficha), 'ficha de Marta: indicadores, datos y «Su equipo»', ficha.slice(0, 200));
+  ok(/Marta Coordinadora/.test(ficha) && /Personas a cargo/.test(ficha) && /Su equipo/.test(ficha) && /WhatsApp/.test(ficha) && /Correo · sexo/.test(ficha) && /Autorización de datos/.test(ficha), 'ficha de Marta: indicadores, datos y «Su equipo»', ficha.slice(0, 200));
   ok(await ev("document.querySelectorAll('#ev-ficha .ev-equipo li').length") === 4, 'su equipo: sus 4 líderes con barra');
   ok(await ev("document.querySelectorAll('#ev-ficha .ev-ind').length") === 4, 'cuatro indicadores');
-  ok(await ev("!!document.querySelector('#ev-ficha [data-accion=editar]') && !!document.querySelector('#ev-ficha [data-accion=agregar]')"), 'botones Editar y «+ Agregar» (administrador)');
+  ok(await ev("[...document.querySelectorAll('#ev-ficha .ev-ficha-botones .btn-neutro')].some(b => b.textContent.trim() === 'Editar') && !!document.querySelector('#ev-ficha [data-accion=agregar]')"), 'botones Editar y «+ Agregar» (administrador)');
   await ev("document.querySelector('.ev-triangulo').click()"); await espera(300);
   ok(await ev("document.querySelector('.ev-triangulo').textContent.trim()") === '▸', 'el triángulo pliega la rama (▸)');
   const nodosPlegado = (await txt('.ev-nodo .ev-nodo-nombre')).length;
@@ -483,7 +454,7 @@ function crearApp() {
   ok(new Set(Object.values(g).flat()).size < Object.values(g).flat().length, 'una persona puede salir en varios grupos');
   const bordes = await ev("[...document.querySelectorAll('.ev-pend')].map(s => getComputedStyle(s).borderTopColor)");
   ok(bordes[0] === 'rgb(198, 40, 40)' && bordes[1] === 'rgb(230, 154, 0)' && bordes[4] === 'rgb(46, 125, 50)', 'bordes superiores rojo / ámbar / verde', bordes);
-  const botonesPend = await ev("(() => { const s = n => [...document.querySelectorAll('[data-grupo=' + n + '] button')].map(b => b.textContent.trim()); return { eq: s('sin-equipo'), au: s('sin-autorizacion'), lu: s('sin-lugar'), av: s('avance-bajo') }; })()");
+  const botonesPend = await ev("(() => { const s = n => [...document.querySelectorAll('[data-grupo=' + n + '] .ev-pd-accion button')].map(b => b.textContent.trim()); return { eq: s('sin-equipo'), au: s('sin-autorizacion'), lu: s('sin-lugar'), av: s('avance-bajo') }; })()");
   ok(botonesPend.eq.every((t) => t === 'Agregar equipo') && botonesPend.au.every((t) => t === 'Ver') && botonesPend.lu.every((t) => t === 'Completar') && botonesPend.av.every((t) => t === 'Ver detalle'), 'botones: Agregar equipo / Ver / Completar / Ver detalle', botonesPend);
   await ev("document.querySelector('[data-grupo=avance-bajo] button').click()"); await espera(500);
   const destino = await ev("({ v: document.querySelector('#selector-vistas-estructura .activa').dataset.vista, h3: (document.querySelector('#ev-ficha h3') || {}).textContent })");
@@ -516,7 +487,7 @@ function crearApp() {
   await elegir('rol');
   const agregarCoord = await txt('.ev-columna-pie .ev-agregar');
   ok(JSON.stringify(agregarCoord) === JSON.stringify(['+ Agregar líder']), 'el coordinador solo ve «+ Agregar líder»', agregarCoord);
-  ok(await ev("!document.querySelector('.ev-tarjeta [data-accion=editar]')"), 'y ninguna vista le ofrece Editar');
+  ok(await ev("![...document.querySelectorAll('#vistas-estructura .btn-neutro')].some(b => b.textContent.trim() === 'Editar')"), 'y ninguna vista le ofrece Editar');
   await ev("document.querySelector('.ev-agregar[data-cat=lider]').click()");
   ok(await esperar("document.getElementById('overlay-form').classList.contains('abierto')", 8000), '«+ Agregar líder» abre el formulario (con la categoría fija en Líder)');
   await ev("document.getElementById('cerrar-modal').click()"); await espera(300);
@@ -526,7 +497,7 @@ function crearApp() {
   await ev("[...document.querySelectorAll('.ev-nodo-btn')].find(b => b.textContent.includes('Marta')).click()"); await espera(300);
   ok(await ev("!!document.querySelector('#ev-ficha [data-accion=agregar]')"), 'y en su propia ficha sí (agrega líderes)');
   await elegir('pendientes');
-  const botonesCoord = await txt('[data-grupo=sin-equipo] button');
+  const botonesCoord = await txt('[data-grupo=sin-equipo] .ev-pd-accion button');
   ok(botonesCoord.every((t) => t === 'Agregar equipo'), 'Pendientes: «Agregar equipo» solo donde puede (un líder le agrega sublíderes: no → sin botón)', botonesCoord);
 
   /* ============ LÍDER ============ */
@@ -536,7 +507,7 @@ function crearApp() {
   await ancho(1280); await limpiar(); await entrar('ana105@ejemplo.co'); await abrirEstructura();
   await elegir('rol');
   ok((await txt('.ev-columna-pie .ev-agregar')).length === 0, 'el líder no ve ningún «+ Agregar»');
-  ok(await ev("!document.querySelector('[data-accion=editar]')"), 'ni Editar');
+  ok(await ev("![...document.querySelectorAll('#vistas-estructura .btn-neutro')].some(b => b.textContent.trim() === 'Editar')"), 'ni Editar');
 
   nav.cerrar();
   servidor.close();

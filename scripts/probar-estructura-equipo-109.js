@@ -136,7 +136,7 @@ function crearApp() {
     }
     if (v === 'explorador') return { gente: await txt('.ev-nodo .ev-nodo-nombre'), testigos: [] };
     if (v === 'pendientes') {
-      const grupos = await ev("[...document.querySelectorAll('.ev-pend')].map(s => ({ g: s.dataset.grupo, n: [...s.querySelectorAll('.ev-pend-quien b')].map(e => e.textContent.trim()) }))");
+      const grupos = await ev("[...document.querySelectorAll('.ev-pend')].map(s => ({ g: s.dataset.grupo, n: [...s.querySelectorAll('.ev-pend-quien .ev-nombre-enlace')].map(e => e.textContent.trim()) }))");
       return { gente: [...new Set(grupos.flatMap((g) => g.n))], testigos: [], grupos };
     }
     return { gente: [], testigos: [] };
@@ -226,7 +226,7 @@ function crearApp() {
     await elegir('pendientes');
     const hayDetalle = await ev("!!document.querySelector('[data-grupo=avance-bajo] [data-accion=explorar]')");
     if (hayDetalle) {
-      const quien = await ev("document.querySelector('[data-grupo=avance-bajo] [data-accion=explorar]').closest('li').querySelector('.ev-pend-quien b').textContent.trim()");
+      const quien = await ev("document.querySelector('[data-grupo=avance-bajo] [data-accion=explorar]').closest('li').querySelector('.ev-pend-quien .ev-nombre-enlace').textContent.trim()");
       await ev("document.querySelector('[data-grupo=avance-bajo] [data-accion=explorar]').click()"); await espera(450);
       const e = await estado();
       ok(e.vista === 'explorador' && e.ficha === quien && e.sel[0] === quien, `«Ver detalle» (Pendientes) → Explorador con ${quien}`, e);

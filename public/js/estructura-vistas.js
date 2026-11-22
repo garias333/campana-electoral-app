@@ -13,10 +13,13 @@
    «Sin equipo todavía» miran la estructura completa que ya cargó la pantalla (`ctx.todas()`): que alguien tenga equipo
    no depende de que el filtro de la lista lo esconda. Lo que se LISTA en cada vista sale del filtro.
 
+   ORDEN 112 — LA MISMA INFORMACIÓN QUE LA LISTA. Cada persona se pinta con las piezas que arma `ctx.partes(f)` (territorial.html:
+   `partesFichaEstructura`, la misma función de la que sale la ficha de la Lista): número de orden, correo·sexo, WhatsApp, autorización,
+   chips, territorio, «Le reporta a», «X de Y» con su leyenda y Σ, estado, Editar y Eliminar. Aquí solo se decide DÓNDE va cada pieza.
+
    Los TESTIGOS no entran en ninguna vista (ORDEN 111): tienen su propia pantalla, como en la Lista.
 
-   WHATSAPP (ORDEN 111): el botón es el de la Lista —`ctx.whatsappPildora` / `ctx.whatsappIcono` llaman a las mismas
-   funciones de territorial.html—; sin celular no se pinta. Aquí solo se decide DÓNDE va en cada vista.
+   WHATSAPP: el botón verde con el número es el de la Lista (`pildoraWhatsApp`, territorial.html) en las cinco vistas.
 
    Colores del avance: «Por rol», «Explorador» y «Pendientes» usan rojo < 25 %, ámbar 25–59 %, verde ≥ 60 %. «Tarjetas» y «Ranking»
    (ORDEN 107) pintan todo avance en azul y marcan a quien va bajo 25 % solo con un punto rojo de 8 px junto al %.
@@ -110,8 +113,13 @@
   }
 
   const inicial = (f) => esc((f.nombre || '?').trim().charAt(0).toUpperCase());
-  const wa = (f) => (ctx.whatsappPildora ? ctx.whatsappPildora(f) : '');
-  const waIcono = (f) => (ctx.whatsappIcono ? ctx.whatsappIcono(f) : '');
+  const P = (f) => ctx.partes(f);
+  // Nombre que lleva al Explorador, con el aspecto y el tamaño del nombre de la Lista (`.nombre-p`).
+  const nombreEnlace = (f, extra) => `<button type="button" class="ev-nombre-enlace nombre-p ${extra || ''}" data-accion="explorar" data-uid="${f.usuario_id}">${esc(f.nombre)}</button>`;
+  const lineaNombre = (f, p, extra) => `<div class="linea-nombre">${p.numero}${nombreEnlace(f, extra)}</div>`;
+  const textoRolLugar = (i) => `${esc(i.etiqueta)}${i.lugar ? ' · ' + esc(i.lugar) : ''}`;
+  // «X de Y» de la Lista + el porcentaje con el color de la vista.
+  const cifraPct = (i, p, conColor) => `<div class="ev-cifra-pct">${p.cifra}${i.meta > 0 ? `<b class="ev-pct-txt"${conColor ? ` style="color:${semaforo(i.pctReal)}"` : ''}>${Math.round(i.pctReal)} %</b>` : ''}</div>`;
   const avatar = (i, extra) => `<span class="ev-av ${extra || ''}" style="background:${i.color.c}" aria-hidden="true">${inicial(i.f)}</span>`;
   const chipRol = (i) => `<span class="ev-chip" style="color:${i.color.c};background:${i.color.bg}">${esc(i.etiqueta)}</span>`;
   const chipArea = (i) => (i.area ? `<span class="ev-chip ev-chip-${i.area}">${i.area === 'urbano' ? 'URBANO' : 'RURAL'}</span>` : '');
@@ -145,35 +153,35 @@
     return `<div class="ev-barra ${grosor || ''}"><i style="width:${i.pct.toFixed(1)}%;background:${semaforo(i.pctReal)}"></i></div>`;
   }
 
-  /* ---------- Tarjetas · «Avatar con anillo» (ORDEN 107) ---------- */
+  /* ---------- Tarjetas · «Avatar con anillo» (ORDEN 107; ORDEN 112: todos los datos de la Lista dentro de la tarjeta) ---------- */
   function htmlTarjetas(filas) {
     if (!filas.length) return vacio();
     const ordenadas = filas.map(info).sort(porCategoriaYNombre);
     return `<div class="ev-grid-tarjetas">${ordenadas.map((i) => {
+      const p = P(i.f);
       const conMeta = i.meta > 0;
       const grados = conMeta ? (Math.min(100, Math.max(0, i.pct)) * 3.6).toFixed(1) : 0;
       const pastilla = conMeta ? `${puntoBajo(i)}${Math.round(i.pctReal)}%` : 'sin meta';
-      const zona = i.area ? (i.area === 'urbano' ? 'URBANO' : 'RURAL') : (/Organización/.test(i.zona || '') ? 'ORGANIZACIÓN' : '');
-      const jefe = i.f.supervisor_nombre ? ` title="Le reporta a ${esc(i.f.supervisor_nombre)}"` : '';
       return `
-      <article class="ev-tarjeta">
+      <article class="ev-tarjeta" data-uid="${i.f.usuario_id}">
         <div class="ev-anillo-av${conMeta ? '' : ' ev-anillo-av-vacio'}" style="--g:${grados}deg">
           ${avatarNuevo(i)}
           <span class="ev-pastilla">${pastilla}</span>
         </div>
-        <h4 class="ev-nombre"${jefe}>${esc(i.f.nombre)}</h4>
-        <div class="ev-etiquetas"><span class="ev-chip ev-chip-rol" style="${estiloRol(i)}">${esc(i.etiqueta)}</span>${zona ? `<span class="ev-chip ev-chip-zona">${zona}</span>` : ''}</div>
-        ${wa(i.f)}
-        <div class="ev-lugar">${i.lugar ? esc(i.lugar) : '<span class="ev-tenue">Sin territorio</span>'}</div>
+        ${lineaNombre(i.f, p, 'ev-nombre')}
+        ${p.correo}
+        ${p.chips}
+        <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
+        ${p.reportaA}
         <div class="ev-cifras3">
           <div><b>${millares(i.registros)}</b><span>Registros</span></div>
           <div><b>${conMeta ? millares(i.meta) : '—'}</b><span>Meta</span></div>
           <div><b>${millares(i.equipo)}</b><span>Equipo</span></div>
         </div>
-        <div class="ev-acciones">
-          ${ctx.puedeEditar() ? `<button type="button" class="ev-btn ev-btn-editar" data-accion="editar" data-id="${i.f.id}">Editar</button>` : ''}
-          <button type="button" class="ev-btn ev-btn-equipo" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button>
-        </div>
+        ${p.pie}
+        <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
+        <div class="ev-estado">${p.estado}${p.excluido}</div>
+        <div class="ev-acciones">${p.editar}${p.eliminar}${p.quitar}<button type="button" class="ev-btn ev-btn-equipo" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
       </article>`;
     }).join('')}</div>`;
   }
@@ -203,19 +211,25 @@
       <section class="ev-columna">
         <header class="ev-columna-cab" style="background:${c.c}"><span>${col.titulo}</span><span class="ev-contador">${gente.length}</span></header>
         <div class="ev-columna-cuerpo">
-          ${gente.map((i) => `
-          <div class="ev-mini" style="--rol:${c.c}">
+          ${gente.map((i) => {
+            const p = P(i.f);
+            return `
+          <div class="ev-mini" style="--rol:${c.c}" data-uid="${i.f.usuario_id}">
             ${avatar(i)}
             <div class="ev-mini-texto">
-              <button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
-              ${i.categoria === 'aspirante_concejo' || i.categoria === 'coordinador_organizaciones' ? `<span class="ev-sub">${esc(i.etiqueta)}</span>` : ''}
-              <span class="ev-sub">${i.lugar ? esc(i.lugar) : 'Sin territorio'}</span>
-              <span class="ev-sub">${textoJefe(i)}</span>
+              ${lineaNombre(i.f, p)}
+              ${p.correo}
+              ${p.chips}
+              <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
+              ${p.reportaA}
               ${muestraEquipo(i) ? `<span class="ev-sub ev-equipo-linea">👥 Equipo: <b>${textoPersonas(i.equipo)}</b></span>` : ''}
-              ${i.meta > 0 ? `${barra(i)}<span class="ev-sub"><b>${millares(i.registros)}</b> de ${millares(i.meta)} · <b style="color:${semaforo(i.pctReal)}">${Math.round(i.pctReal)} %</b></span>` : ''}
-              <div class="ev-mini-acciones">${wa(i.f)}<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
+              <div class="avance-p">${cifraPct(i, p, true)}${i.meta > 0 ? barra(i) : ''}${p.pie}</div>
+              <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
+              <div class="ev-estado">${p.estado}${p.excluido}</div>
+              <div class="ev-mini-acciones">${p.editar}${p.eliminar}${p.quitar}<button type="button" class="ev-btn-mini" data-accion="equipo" data-uid="${i.f.usuario_id}">Ver equipo</button></div>
             </div>
-          </div>`).join('') || '<div class="ev-columna-vacia">Nadie en esta columna.</div>'}
+          </div>`;
+          }).join('') || '<div class="ev-columna-vacia">Nadie en esta columna.</div>'}
         </div>
         ${pie ? `<div class="ev-columna-pie">${pie}</div>` : ''}
       </section>`;
@@ -224,27 +238,34 @@
 
   /* ---------- Ranking · «Podio» (ORDEN 107) ---------- */
   const FICHAS_RANKING = [['todos', 'Todos'], ['coordinador', 'Coordinadores'], ['lider', 'Líderes'], ['sublider', 'Sublíderes']];
-  const quienSub = (i) => `${esc(i.etiqueta)}${i.lugar ? ' · ' + esc(i.lugar) : ''}`;
-  const XdeY = (i) => `${millares(i.registros)} de ${millares(i.meta)}`;
+  const quienSub = (i) => textoRolLugar(i);
 
   function htmlPodio(tres) {
     // Orden visual 2-1-3; con menos de tres se muestran los que haya.
     const orden = [1, 0, 2].filter((k) => tres[k]);
     return `<div class="ev-podio ev-podio-${tres.length}">${orden.map((k) => {
       const i = tres[k];
+      const p = P(i.f);
       return `
-      <div class="ev-pod ev-pod-${k + 1}">
+      <div class="ev-pod ev-pod-${k + 1}" data-uid="${i.f.usuario_id}">
         <span class="ev-medalla">${k + 1}</span>
         <span class="ev-av-n ev-av-pod" style="${estiloRol(i)}" aria-hidden="true">${inicial(i.f)}</span>
-        <button type="button" class="ev-nombre-enlace ev-pod-nombre" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
-        <span class="ev-sub ev-pod-sub">${quienSub(i)}</span>
-        ${waIcono(i.f)}
+        ${lineaNombre(i.f, p, 'ev-pod-nombre')}
+        ${p.correo}
+        ${p.chips}
+        <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
+        ${p.reportaA}
         <div class="ev-pod-pct">${puntoBajo(i)}${Math.round(i.pctReal)}%</div>
-        <span class="ev-sub">${XdeY(i)}</span>
+        <div class="avance-p">${p.cifra}${p.pie}</div>
+        <div class="ev-contacto">${p.whatsapp}${p.autorizacion}</div>
+        <div class="ev-estado">${p.estado}${p.excluido}</div>
+        <div class="ev-acciones">${p.editar}${p.eliminar}${p.quitar}</div>
       </div>`;
     }).join('')}</div>`;
   }
 
+  /* Fila de 2 líneas. Línea 1: posición, avatar, número+nombre, chips y territorio, barra con «X de Y», %, WhatsApp.
+     Línea 2 (más pequeña): correo · sexo · autorización · «Le reporta a» · leyenda · Activo · Editar/Eliminar. */
   function htmlRanking(filas) {
     const todos = filas.map(info);
     const enFicha = todos.filter((i) => rankingFiltro === 'todos' || i.grupo === rankingFiltro);
@@ -257,19 +278,22 @@
         ${FICHAS_RANKING.map(([k, t]) => `<button type="button" class="${rankingFiltro === k ? 'activa' : ''}" data-accion="ranking-filtro" data-valor="${k}">${t}</button>`).join('')}
       </div>
       ${conMeta.length ? htmlPodio(conMeta.slice(0, 3)) : ''}
-      ${resto.length ? `<ol class="ev-ranking">${resto.map((i, n) => `
-        <li class="ev-fila-ranking">
-          <span class="ev-puesto">${n + 4}</span>
-          ${avatarNuevo(i)}
-          <div class="ev-rk-quien">
-            <button type="button" class="ev-nombre-enlace" data-accion="explorar" data-uid="${i.f.usuario_id}">${esc(i.f.nombre)}</button>
-            <span class="ev-sub">${quienSub(i)}</span>
+      ${resto.length ? `<ol class="ev-ranking">${resto.map((i, n) => {
+        const p = P(i.f);
+        return `
+        <li class="ev-fila-ranking" data-uid="${i.f.usuario_id}">
+          <div class="ev-rk-1">
+            <span class="ev-puesto">${n + 4}</span>
+            ${avatarNuevo(i)}
+            <div class="ev-rk-quien">${lineaNombre(i.f, p)}</div>
+            <div class="ev-rk-lugar">${p.chips}${p.territorio}${p.avisoVotacion}</div>
+            <div class="ev-rk-barra-caja"><div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>${p.cifra}</div>
+            <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
+            ${p.whatsapp}
           </div>
-          <div class="ev-rk-barra"><i style="width:${Math.max(2, Math.min(100, i.pct)).toFixed(1)}%"></i></div>
-          <span class="ev-rk-cifras">${XdeY(i)}</span>
-          <span class="ev-pct-grande">${puntoBajo(i)}${Math.round(i.pctReal)}%</span>
-          ${waIcono(i.f)}
-        </li>`).join('')}</ol>` : ''}
+          <div class="ev-rk-2">${p.correo}${p.autorizacion}${p.reportaA}${p.pie}${p.estado}${p.excluido}${p.acciones}</div>
+        </li>`;
+      }).join('')}</ol>` : ''}
       ${!conMeta.length && !sinMeta.length ? '<div class="ev-vacio">Nadie en esta selección.</div>' : ''}
       ${sinMeta.length ? `<div class="ev-franja-sin-meta"><b>Sin meta asignada (${sinMeta.length}):</b> ${sinMeta.map((i) => esc(i.f.nombre)).join(', ')}. Asígneles meta para que entren al ranking.</div>` : ''}`;
   }
@@ -315,6 +339,7 @@
 
   function htmlFicha(f) {
     const i = info(f);
+    const p = P(f);
     const equipo = (hijosPorJefe.get(f.usuario_id) || []).slice()
       .sort((a, b) => (PESO[ctx.categoria(a)] ?? 9) - (PESO[ctx.categoria(b)] ?? 9) || (a.nombre || '').localeCompare(b.nombre || '', 'es'));
     const catEquipo = ctx.categoriaDelEquipo(i.categoria);
@@ -325,16 +350,22 @@
       <div class="ev-ficha-cab">
         ${avatar(i, 'ev-av-grande')}
         <div class="ev-ficha-id">
-          <h3>${esc(f.nombre)}</h3>
-          <div class="ev-etiquetas">${chipRol(i)}${chipArea(i)}${chipOrg(i)}</div>
-          <div class="ev-sub">${i.zona && i.hoja ? esc(i.zona) + ' › ' + esc(i.hoja) : esc(i.lugar || 'Sin territorio')}</div>
-          <div class="ev-sub">${textoJefe(i)}</div>
+          <div class="linea-nombre">${p.numero}<h3 class="nombre-p">${esc(f.nombre)}</h3></div>
+          ${p.chips}
+          <div class="ev-bloque-territorio">${p.territorio}${p.avisoVotacion}</div>
+          ${p.reportaA}
         </div>
-        <div class="ev-ficha-botones">
-          ${wa(f)}
-          ${ctx.puedeEditar() ? `<button type="button" class="btn-neutro" data-accion="editar" data-id="${f.id}">Editar</button>` : ''}
-          ${puedeAgregar ? `<button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}
-        </div>
+        <div class="ev-ficha-botones">${p.editar}${p.eliminar}${p.quitar}${puedeAgregar ? `<button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>
+      </div>
+      <div class="ev-datos">
+        <div class="ev-dato"><span>Correo · sexo</span>${p.correo}</div>
+        <div class="ev-dato"><span>WhatsApp</span>${p.whatsapp || '<span class="dato-min">Sin teléfono</span>'}</div>
+        <div class="ev-dato"><span>Autorización de datos</span>${p.autorizacion}</div>
+        <div class="ev-dato"><span>Estado</span><div class="ev-estado">${p.estado}${p.excluido}</div></div>
+        <div class="ev-dato"><span>Lugar de votación</span><b>${lugarV || '—'}</b>${ctx.tieneLugarVotacion(f) ? '' : ' <span class="ev-alerta">Incompleto</span>'}</div>
+      </div>
+      <div class="ev-avance-ficha avance-p">
+        ${p.cifra}${i.meta > 0 ? barra(i) : ''}${p.pie}
       </div>
       <div class="ev-indicadores">
         <div class="ev-ind"><span>Registros del equipo</span><b>${millares(i.registros)}</b></div>
@@ -342,19 +373,15 @@
         <div class="ev-ind"><span>Avance</span><b style="color:${col}">${pctTexto(i.pctReal)}</b></div>
         <div class="ev-ind"><span>Personas a cargo</span><b>${millares(i.equipo)}</b></div>
       </div>
-      <div class="ev-datos">
-        <div><span>Celular</span><b>${f.telefono ? esc(f.telefono) : '—'}</b></div>
-        <div><span>Correo</span><b>${f.email ? esc(f.email) : '—'}</b></div>
-        <div><span>Lugar de votación</span><b>${lugarV || '—'}</b>${ctx.tieneLugarVotacion(f) ? '' : ' <span class="ev-alerta">Incompleto</span>'}</div>
-        <div><span>Autorización de datos</span>${ctx.pildoraAutorizacion(f.autorizacion_estado)}</div>
-      </div>
       <h4 class="ev-subtitulo">Su equipo</h4>
       ${equipo.length ? `<ul class="ev-equipo">${equipo.map((h) => {
         const hi = info(h);
-        return `<li>${avatar(hi)}
-          <div class="ev-eq-quien"><button type="button" class="ev-nombre-enlace" data-accion="seleccionar" data-uid="${h.usuario_id}">${esc(h.nombre)}</button><span class="ev-sub">${esc(hi.etiqueta)}${hi.lugar ? ' · ' + esc(hi.lugar) : ''}</span></div>
-          ${hi.meta > 0 ? `<div class="ev-eq-avance">${barra(hi)}<span class="ev-sub"><b>${millares(hi.registros)}</b> de ${millares(hi.meta)} · ${Math.round(hi.pctReal)} %</span></div>` : '<span class="ev-sub">Sin meta</span>'}
-          ${waIcono(h)}
+        const hp = P(h);
+        return `<li data-uid="${h.usuario_id}">${avatar(hi)}
+          <div class="ev-eq-quien">${lineaNombre(h, hp, 'ev-eq-nombre').replace('data-accion="explorar"', 'data-accion="seleccionar"')}<span class="ev-sub">${textoRolLugar(hi)}</span></div>
+          <div class="ev-eq-estado">${hp.estado}</div>
+          <div class="ev-eq-avance">${cifraPct(hi, hp, true)}${hi.meta > 0 ? barra(hi) : ''}</div>
+          <div class="ev-eq-wa">${hp.whatsapp}</div>
         </li>`;
       }).join('')}</ul>` : `<div class="ev-vacio-chico ev-sin-equipo">Aún no tiene equipo.${puedeAgregar ? ` <button type="button" class="btn-principal-fichas" data-accion="agregar" data-cat="${catEquipo}" data-sup="${f.usuario_id}">+ Agregar</button>` : ''}</div>`}`;
   }
@@ -451,11 +478,20 @@
         <header><h4>${g.titulo}</h4><span class="ev-contador">${g.lista.length}</span></header>
         <p class="ev-pend-texto">${g.texto}</p>
         <ul class="ev-pend-lista">
-          ${g.lista.map((i) => `<li>
-            ${avatar(i, 'ev-av-chico')}
-            <div class="ev-pend-quien"><b>${esc(i.f.nombre)}</b><span class="ev-sub">${esc(i.etiqueta)}${g.detalle(i) ? ' · ' + esc(g.detalle(i)) : ''}</span></div>
-            ${waIcono(i.f)}${g.accion(i)}
-          </li>`).join('') || '<li class="ev-pend-nadie">Nadie en este grupo.</li>'}
+          ${g.lista.map((i) => {
+            const p = P(i.f);
+            const det = g.detalle(i);
+            return `<li data-uid="${i.f.usuario_id}">
+            <div class="ev-pd-1">
+              ${avatar(i, 'ev-av-chico')}
+              <div class="ev-pend-quien">${lineaNombre(i.f, p)}${det ? `<span class="ev-sub">${esc(det)}</span>` : ''}</div>
+              <div class="ev-rk-lugar">${p.chips}${p.territorio}${p.avisoVotacion}</div>
+              <div class="ev-pd-accion">${g.accion(i)}</div>
+              ${p.whatsapp}
+            </div>
+            <div class="ev-pd-2">${p.correo}${p.autorizacion}${p.reportaA}${p.cifra}${p.pie}${p.estado}${p.excluido}${p.acciones}</div>
+          </li>`;
+          }).join('') || '<li class="ev-pend-nadie">Nadie en este grupo.</li>'}
         </ul>
       </section>`).join('')}</div>`;
   }

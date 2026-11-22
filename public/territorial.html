@@ -3052,6 +3052,8 @@ function renderizarEstructura() {
   filasVisiblesEstructura = enLista ? filas : filasFiltradas;
   if (!enLista) {
     document.getElementById('vacio-estructura').style.display = 'none';
+    // ORDEN 112: número de orden y equipo de cada ficha, sobre las filas filtradas (ver `partesParaVista`).
+    estadoVistasEstructura = { numeros: numerosDeOrden(filasFiltradas), hijos: hijosDirectosDe(filasFiltradas) };
     EstructuraVistas.pintar({ filas: filasFiltradas });
     return;
   }
@@ -3136,25 +3138,6 @@ function pildoraWhatsApp(telefono, nombre) {
 }
 
 /**
- * ORDEN 111 — LO QUE LAS CINCO VISTAS NUEVAS PINTAN DEL WHATSAPP, SALE DE LAS MISMAS DOS FUNCIONES DE ARRIBA.
- * Misma regla que la Lista (hay botón si hay celular; el número, el 57 y el enlace salen de `datosWhatsApp`) y el mismo
- * `abrirWhatsApp`. Sin celular no se pinta nada (la Lista dice «Sin teléfono»; una tarjeta no necesita decirlo).
- * `pildoraWhatsAppVista` es la píldora de la Lista tal cual; `iconoWhatsAppVista` es el mismo enlace como botón redondo
- * con el glifo de la barra lateral (`ICONO_WHATSAPP`, common.js) y el número en el title.
- */
-function pildoraWhatsAppVista(f) {
-  return datosWhatsApp(f.telefono) ? pildoraWhatsApp(f.telefono, f.nombre) : '';
-}
-function iconoWhatsAppVista(f) {
-  const wa = datosWhatsApp(f.telefono);
-  if (!wa) return '';
-  const nombre = escaparHtml(f.nombre || 'esta persona');
-  return `<a class="ev-wa-icono" href="https://wa.me/${wa.internacional}" target="whatsappWeb" rel="noopener"
-     onclick="abrirWhatsApp(event, '${wa.internacional}')"
-     title="Escribir por WhatsApp a ${nombre}: ${wa.visible}" aria-label="Escribir por WhatsApp a ${nombre}">${ICONO_WHATSAPP}</a>`;
-}
-
-/**
  * LO QUE LA LISTA Y LAS VISTAS DE LA ORDEN 105 DICEN DE UNA PERSONA SALE DE AQUÍ.
  * Eran líneas sueltas dentro de `fichaEstructuraHtml`; se sacaron para que Tarjetas, Por rol, Ranking,
  * Explorador y Pendientes lean EXACTAMENTE la misma regla —zona, meta, avance, lugar de votación— y no una
@@ -3197,14 +3180,14 @@ function tieneLugarVotacionFila(f) {
 }
 
 /**
- * Una ficha. Los mismos catorce datos de la tabla, en cuatro zonas: quién es,
- * dónde trabaja, cómo va y las acciones.
+ * Los datos de una ficha como piezas de HTML (ORDEN 112). Los mismos catorce datos de la tabla: quién es, dónde trabaja, cómo va
+ * y las acciones. `fichaEstructuraHtml` (la Lista) y `partesParaVista` (las cinco vistas nuevas) usan ESTA función: una sola
+ * regla de roles, permisos, territorio, «Le reporta a» y «X de Y».
  *
- * DEVUELVE LA FICHA SIN CERRAR: el `</div>` lo pone quien la llama, porque si
- * tiene equipo el bloque de hijos va DENTRO de ella. Que la etiqueta se cierre
- * en otro sitio es feo, y por eso está escrito aquí.
+ * `fichaEstructuraHtml` DEVUELVE LA FICHA SIN CERRAR: el `</div>` lo pone quien la llama, porque si
+ * tiene equipo el bloque de hijos va DENTRO de ella.
  */
-function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
+function partesFichaEstructura(f, numero, cuantosHijos, tieneHijos, puedeEditar) {
   const categoria = categoriaDeFila(f);
   const inicial = (f.nombre || '?').trim().charAt(0).toUpperCase();
 
@@ -3232,7 +3215,7 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
     /* «Sin equipo todavía» se dice por `_tieneHijos`, no por `cuantosHijos`:
        con la rama plegada el segundo vale cero y la ficha habría afirmado que
        no tiene equipo justo cuando el usuario acaba de esconderlo. */
-    pie = !f._tieneHijos
+    pie = !tieneHijos
       ? `Sin equipo todavía ${SIGMA}`
       : cuantosHijos > 0
         ? `${SIGMA} suma de su equipo (${formatoMillares(cuantosHijos)} ${cuantosHijos === 1 ? 'persona' : 'personas'})`
@@ -3301,6 +3284,41 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
         ? `${ROTULO_JEFE}<span class="jefe-nadie" title="Nadie lo coordina. Suele quedar así cuando se elimina a quien lo coordinaba.">sin quién lo coordine</span>`
         : '';
 
+  /* LAS PIEZAS DE LA FICHA, UNA POR UNA. La Lista las ensambla en `fichaEstructuraHtml` y las cinco vistas nuevas
+     (ORDEN 112) las toman de aquí con `partesParaVista`: el HTML de cada dato es el MISMO, no una copia. */
+  const textoSinTerritorio = !zonaTexto && !hojaTexto && f.tipo_area_influencia !== 'organizacion';
+  const piezas = {
+    categoria, areaValor, etiquetaCargo, inicial: (f.nombre || '?').trim().charAt(0).toUpperCase(),
+    numero: `<span class="id-registro">${String(numero).padStart(2, '0')}</span>`,
+    nombre: `<span class="nombre-p">${f.nombre}</span>`,
+    correo: `<span class="correo-p">${f.email || 'Sin correo'}<span class="sep">·</span>${ETIQUETAS_GENERO[f.genero] || 'Sin género'}</span>`,
+    whatsapp: pildoraWhatsApp(f.telefono, f.nombre),
+    autorizacion: typeof AutorizacionDatos !== 'undefined' ? AutorizacionDatos.pildora(f.autorizacion_estado) : '',
+    chips: `<div class="chips-p">
+            <span class="chip-p ${claseChip}">${etiquetaCargo}</span>
+            ${areaValor ? `<span class="chip-p chip-${areaValor}">${areaValor === 'urbano' ? 'Urbano' : 'Rural'}</span>` : ''}
+            ${f.latitud ? '<span class="geo-chip" title="Georreferenciado">📍</span>' : ''}
+          </div>`,
+    territorio: `<div class="migaja">${textoSinTerritorio ? '<span class="sin-territorio">Sin territorio asignado</span>' : `${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}${masTerritorios}`}</div>`,
+    avisoVotacion: tieneLugarVotacion ? '' : '<span class="aviso-falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta lugar de votación</span>',
+    reportaA: `<div class="jefe-p">${reportaA}</div>`,
+    cifra: `<div class="avance-cifra"><span class="n">${formatoMillares(registros)}</span><span class="de">de</span><span class="meta">${formatoMillares(metaMostrada)}</span></div>`,
+    medidor: `<div class="medidor-p${metaMostrada > 0 && pct >= 100 ? ' completo' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>`,
+    pie: pie ? `<div class="avance-pie">${pie}</div>` : '',
+    estado: `<span class="badge-p ${f.activo ? 'badge-activo' : 'badge-inactivo'}"><span class="punto"></span>${f.activo ? 'Activo' : 'Inactivo'}</span>`,
+    excluido: f.excluido_por ? `<span class="badge-p badge-excluido" title="Esta persona sigue en su estructura; solo dejó de verla ese aspirante.">Eliminado por ${escaparHtml(f.excluido_por)}</span>` : '',
+    editar: puedeEditar ? `<button class="btn-neutro" onclick="abrirEdicion(${f.id})">Editar</button>` : '',
+    eliminar: usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-neutro btn-eliminar-p" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : '',
+    quitar: usuarioActual.es_aspirante && f.usuario_id !== usuarioActual.id ? `<button class="btn-neutro btn-eliminar-p" title="Sale de SU equipo. La persona sigue en la campaña principal, que verá quién la quitó." onclick="quitarDeMiEquipo(${f.id})">Quitar de mi equipo</button>` : '',
+  };
+  piezas.avance = `<div class="avance-p">${piezas.cifra}${piezas.medidor}${piezas.pie}</div>`;
+  piezas.acciones = `<div class="acciones-p">${piezas.editar}${piezas.eliminar}${piezas.quitar}</div>`;
+  return piezas;
+}
+
+/** La Lista: las piezas de arriba, en las zonas de siempre. DEVUELVE LA FICHA SIN CERRAR (ver el comentario de la función anterior). */
+function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
+  const p = partesFichaEstructura(f, i + 1, cuantosHijos, f._tieneHijos, puedeEditar);
   const colapsado = nodosColapsadosEstructura.has(f.usuario_id);
 
   /* EL BOTÓN DE PLEGAR DEPENDE DE `_tieneHijos`, NO DE `cuantosHijos`.
@@ -3316,52 +3334,71 @@ function fichaEstructuraHtml(f, i, cuantosHijos, puedeEditar) {
      comentarios explicativos van aquí arriba, en JavaScript, no adentro. */
 
   return `
-    <div class="ficha-p" data-cargo="${categoria}" data-estado="${f.activo ? 'activo' : 'inactivo'}">
+    <div class="ficha-p" data-cargo="${p.categoria}" data-estado="${f.activo ? 'activo' : 'inactivo'}">
       <div class="ficha-cuerpo">
         <div class="quien">
           ${f._tieneHijos
             ? `<button class="plegar-p" onclick="alternarColapsoEstructura(${f.usuario_id})" aria-expanded="${colapsado ? 'false' : 'true'}" title="${colapsado ? 'Mostrar su equipo' : 'Ocultar su equipo'}">${colapsado ? '▸' : '▾'}</button>`
             : '<span class="hueco-plegar"></span>'}
-          <span class="avatar-p" aria-hidden="true">${inicial}</span>
+          <span class="avatar-p" aria-hidden="true">${p.inicial}</span>
           <div style="min-width:0;">
             <div class="linea-nombre">
-              <span class="id-registro">${String(i + 1).padStart(2, '0')}</span>
-              <span class="nombre-p">${f.nombre}</span>
+              ${p.numero}
+              ${p.nombre}
             </div>
-            <span class="correo-p">${f.email || 'Sin correo'}<span class="sep">·</span>${ETIQUETAS_GENERO[f.genero] || 'Sin género'}</span>
-            ${pildoraWhatsApp(f.telefono, f.nombre)}
-            <div style="margin-top:4px;">${typeof AutorizacionDatos !== 'undefined' ? AutorizacionDatos.pildora(f.autorizacion_estado) : ''}</div>
+            ${p.correo}
+            ${p.whatsapp}
+            <div style="margin-top:4px;">${p.autorizacion}</div>
           </div>
         </div>
 
         <div class="territorio-p">
-          <div class="chips-p">
-            <span class="chip-p ${claseChip}">${etiquetaCargo}</span>
-            ${areaValor ? `<span class="chip-p chip-${areaValor}">${areaValor === 'urbano' ? 'Urbano' : 'Rural'}</span>` : ''}
-            ${f.latitud ? '<span class="geo-chip" title="Georreferenciado">📍</span>' : ''}
-          </div>
-          <div class="migaja">${zonaTexto}${zonaTexto && hojaTexto ? '<span class="flecha">›</span>' : ''}${hojaTexto ? `<span class="hoja">${hojaTexto}</span>` : ''}${masTerritorios}</div>
-          ${tieneLugarVotacion ? '' : '<span class="aviso-falta" title="Faltan Departamento, Municipio, Puesto o Mesa">⚠ Falta lugar de votación</span>'}
+          ${p.chips}
+          ${p.territorio}
+          ${p.avisoVotacion}
         </div>
 
-        <div class="jefe-p">${reportaA}</div>
+        ${p.reportaA}
 
-        <div class="avance-p">
-          <div class="avance-cifra"><span class="n">${formatoMillares(registros)}</span><span class="de">de</span><span class="meta">${formatoMillares(metaMostrada)}</span></div>
-          <div class="medidor-p${metaMostrada > 0 && pct >= 100 ? ' completo' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>
-          ${pie ? `<div class="avance-pie">${pie}</div>` : ''}
-        </div>
+        ${p.avance}
 
         <div class="lateral-p">
-          <span class="badge-p ${f.activo ? 'badge-activo' : 'badge-inactivo'}"><span class="punto"></span>${f.activo ? 'Activo' : 'Inactivo'}</span>
-          ${f.excluido_por ? `<span class="badge-p badge-excluido" title="Esta persona sigue en su estructura; solo dejó de verla ese aspirante.">Eliminado por ${escaparHtml(f.excluido_por)}</span>` : ''}
-          <div class="acciones-p">
-            ${puedeEditar ? `<button class="btn-neutro" onclick="abrirEdicion(${f.id})">Editar</button>` : ''}
-            ${usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-neutro btn-eliminar-p" onclick="eliminarEstructura(${f.id})">Eliminar</button>` : ''}
-            ${usuarioActual.es_aspirante && f.usuario_id !== usuarioActual.id ? `<button class="btn-neutro btn-eliminar-p" title="Sale de SU equipo. La persona sigue en la campaña principal, que verá quién la quitó." onclick="quitarDeMiEquipo(${f.id})">Quitar de mi equipo</button>` : ''}
-          </div>
+          ${p.estado}
+          ${p.excluido}
+          ${p.acciones}
         </div>
       </div>`;
+}
+
+/**
+ * ORDEN 112 — LAS CINCO VISTAS NUEVAS PIDEN LA FICHA AQUÍ. Mismas piezas de `partesFichaEstructura`, con el número de orden y el
+ * tamaño del equipo calculados sobre las filas filtradas (`estadoVistasEstructura`, lo deja `renderizarEstructura`). Quien no
+ * está en el filtro (la rama forzada del Explorador) cae al cálculo sobre toda la estructura.
+ */
+let estadoVistasEstructura = { numeros: new Map(), hijos: new Map() };
+function numerosDeOrden(filas) {
+  // Mismo orden que la Lista, pero con todo desplegado: el plegado es cosa de la Lista.
+  const guardados = [...nodosColapsadosEstructura];
+  nodosColapsadosEstructura.clear();
+  try {
+    const mapa = new Map();
+    construirOrdenJerarquico(filas).forEach((fila, n) => mapa.set(fila.usuario_id, n + 1));
+    return mapa;
+  } finally { guardados.forEach((u) => nodosColapsadosEstructura.add(u)); }
+}
+function hijosDirectosDe(filas) {
+  const mapa = new Map();
+  filas.forEach((f) => { if (f.supervisor_id) mapa.set(f.supervisor_id, (mapa.get(f.supervisor_id) || 0) + 1); });
+  return mapa;
+}
+function partesParaVista(f) {
+  const e = estadoVistasEstructura;
+  if (!e.numerosTodos) { e.numerosTodos = numerosDeOrden(listaEstructura); e.hijosTodos = hijosDirectosDe(listaEstructura); }
+  const enFiltro = e.numeros.has(f.usuario_id);
+  const numero = enFiltro ? e.numeros.get(f.usuario_id) : (e.numerosTodos.get(f.usuario_id) || 0);
+  const mapaHijos = enFiltro ? e.hijos : e.hijosTodos;
+  const cuantos = mapaHijos.get(f.usuario_id) || 0;
+  return partesFichaEstructura(f, numero, cuantos, cuantos > 0, usuarioActual.rol === 'admin');
 }
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
@@ -3443,8 +3480,7 @@ function iniciarVistasEstructura() {
     puedeEditar: () => usuarioActual.rol === 'admin',
     puedeAgregar: puedeAgregarCategoriaEstructura,
     categoriaDelEquipo: (cat) => CATEGORIA_DEL_EQUIPO[cat] || null,
-    whatsappPildora: pildoraWhatsAppVista,
-    whatsappIcono: iconoWhatsAppVista,
+    partes: partesParaVista,
     editar: (id) => abrirEdicion(id),
     agregar: (categoria, supervisorUsuarioId) => abrirCreacionEnCategoriaEstructura(categoria, supervisorUsuarioId),
     verEquipo: verEquipoEstructura,
