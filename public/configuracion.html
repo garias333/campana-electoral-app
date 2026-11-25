@@ -2040,7 +2040,16 @@ const ETIQUETAS_ROL = {
 let matrizPermisosActual = null;
 
 async function cargarMatrizPermisos() {
-  const { modulos, roles: rolesPermisos, permisos, modulos_con_importar_exportar: conIE = [], complementos_apagados: apagados = {} } = await api('/permisos/matriz');
+  const { modulos: modulosServidor, roles: rolesPermisos, permisos, modulos_con_importar_exportar: conIE = [], complementos_apagados: apagados = {} } = await api('/permisos/matriz');
+  /* Orden 124: las columnas van en orden alfabético por el NOMBRE QUE SE VE (español, sin distinguir tildes ni
+     mayúsculas) y «Configuración» siempre de última. Se ordena una COPIA solo para esta pantalla: el servidor sigue
+     entregando MODULOS en su orden de siempre (el de la jerarquía del menú) y cada casilla conserva su `data-modulo`,
+     así que reordenar no cambia qué permiso guarda cada una. */
+  const modulos = [...modulosServidor].sort((a, b) => {
+    const aFinal = a.clave === 'configuracion' ? 1 : 0, bFinal = b.clave === 'configuracion' ? 1 : 0;
+    if (aFinal !== bFinal) return aFinal - bFinal;
+    return a.etiqueta.localeCompare(b.etiqueta, 'es', { sensitivity: 'base' });
+  });
   matrizPermisosActual = { modulos, roles: rolesPermisos, permisos };
 
   /* Los módulos de un complemento APAGADO se siguen mostrando (y se pueden dejar listos), pero en gris y con la nota (Activar complementos, parche 318). */
