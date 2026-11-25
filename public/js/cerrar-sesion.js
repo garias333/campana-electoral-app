@@ -149,6 +149,9 @@
       try { Object.keys(localStorage).filter(function (k) { return k.indexOf('cache_ref_') === 0; }).forEach(quitar); } catch (e) { /* sin almacenamiento */ }
     }
 
+    // La copia del aviso «Tareas programadas» (orden 122) es privada: se va con quien cierra sesión, entre por la app del candidato o por el Panel del superadministrador.
+    try { Object.keys(localStorage).filter(function (k) { return k.indexOf('cand_copia:') === 0; }).forEach(quitar); } catch (e) { /* sin almacenamiento */ }
+
     // 2) EL SERVIDOR, COMO «MEJOR ESFUERZO» (4 s como máximo). Si no se pudo, queda `logout_pendiente` y se reintenta al volver la señal.
     try { await resolver(4000); } catch (e) { /* se cierra igual */ }
 

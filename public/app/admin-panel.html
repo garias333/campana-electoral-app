@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Estrategia">
 <link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/tareas-aviso.css">
 <style>
   html, body { overflow-x: hidden; }
 
@@ -68,15 +69,11 @@
   <div id="error-carga" class="aviso-app error"></div>
 
   <div id="contenido" style="display:none;">
-    <div class="cifras-tira" id="cifras" aria-label="Cifras de la campaña"></div>
+    <!-- ORDEN 122: «Tareas programadas», ARRIBA de las cifras, solo si el servidor autoriza a esta sesión (usuario.tareas_direccion; la misma función que da el 403 de la API).
+         Para los demás no ocupa lugar: va oculta y vacía. Reemplaza la tarjeta «Tareas de dirección» de la orden 120 (el ítem del menú de Inicio se queda). -->
+    <section class="adm-tarjeta tav" id="tareas-aviso" aria-label="Tareas programadas" hidden></section>
 
-    <!-- ORDEN 120: «Tareas de dirección», solo si el servidor autoriza a esta sesión (usuario.tareas_direccion). Los demás no la tienen en la página. -->
-    <a class="adm-tarjeta adm-tareas" id="tarjeta-tareas" href="/app/candidato-tareas.html?volver=/app/admin-panel.html" hidden>
-      <span class="icono" aria-hidden="true">✅<span class="candado">🔒</span></span>
-      <span class="texto"><strong>Tareas de dirección</strong><span id="tareas-resumen">Tareas: …</span></span>
-      <span class="globo-tareas" id="tareas-globo" hidden></span>
-      <span class="flecha" aria-hidden="true">›</span>
-    </a>
+    <div class="cifras-tira" id="cifras" aria-label="Cifras de la campaña"></div>
 
     <div class="tabs-adm" role="tablist" id="tabs">
       <button type="button" class="chip-app" role="tab" data-tab="resumen">Resumen</button>
@@ -120,6 +117,8 @@
 <script src="/app/app-comun.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/admin-nav.js"></script>
+<script src="/js/tareas-direccion-reglas.js"></script>
+<script src="/app/tareas-aviso.js"></script>
 <script>
 const ETIQUETAS_APOYO = { alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL', gobernacion: 'Gobernación', asamblea: 'Asamblea' };
 const COLORES_APOYO = { alcaldia: '#084298', concejo: '#FFC300', jal: '#1e7a3d', gobernacion: '#7b5ea7', asamblea: '#c9a227' };
@@ -312,27 +311,13 @@ document.getElementById('ver-escritorio').addEventListener('click', () => {
   window.location.href = '/dashboard.html';
 });
 
-/* ORDEN 120: la tarjeta «Tareas de dirección». Se muestra con un texto neutro y se completa con /tareas-direccion/resumen; sin señal o con error queda visible, sin cifras. */
-async function mostrarTarjetaTareas() {
-  const tarjeta = document.getElementById('tarjeta-tareas');
-  tarjeta.hidden = false;
-  const resumenTxt = document.getElementById('tareas-resumen');
-  try {
-    const r = await api('/tareas-direccion/resumen');
-    const v = Number(r && r.vencidas) || 0, p = Number(r && r.vencen_en_3_dias) || 0;
-    resumenTxt.textContent = 'Tareas: ' + v + (v === 1 ? ' vencida' : ' vencidas') + ' · ' + p + (p === 1 ? ' vence' : ' vencen') + ' en 3 días';
-    const g = document.getElementById('tareas-globo');
-    if (v > 0) { g.textContent = v > 99 ? '99+' : String(v); g.setAttribute('aria-label', v + ' vencidas'); g.hidden = false; }
-  } catch (_) { resumenTxt.textContent = 'Toque para ver las tareas'; }
-}
-
 (async () => {
   const usuario = await exigirAdminApp('panel');
   if (!usuario) return;
   // Orden 86: el administrador que también es el candidato NO pasa al escritorio desde el celular: la versión de escritorio es del computador.
   if (usuario.es_candidato) { const ve = document.getElementById('ver-escritorio'); if (ve) ve.style.display = 'none'; }
   pintarBarraApp('Panel general', null, '/app/inicio.html');
-  if (usuario.tareas_direccion === true) mostrarTarjetaTareas();   // orden 120: lo dice el servidor, la misma función que da el 403 de la API
+  if (usuario.tareas_direccion === true) TareasAviso.montar(document.getElementById('tareas-aviso'), usuario.id, { volver: '/app/admin-panel.html' });   // orden 120/122: lo dice el servidor
   // «Usar la versión de celular» (menú de inicio) llega con ?celular=1: se borra la preferencia de escritorio.
   if (new URLSearchParams(location.search).get('celular') === '1') {
     adminFijarPreferenciaEscritorio(false);

@@ -301,6 +301,15 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && us
   }
   try { const g = sessionStorage.getItem('td_tab'); if (['pendiente', 'en_curso', 'hecha'].includes(g)) tab = g; } catch (_) {}
   await cargar(false);
+  // ORDEN 122: el aviso «Tareas programadas» del Inicio abre directo la tarea (?tarea=ID) o el formulario vacío (?nueva=1). Se quita de la dirección para que recargar no lo repita.
+  const dir = new URLSearchParams(location.search);
+  const abrirNueva = dir.get('nueva') === '1';
+  const abrirId = parseInt(dir.get('tarea'), 10);
+  if (dir.has('tarea') || dir.has('nueva')) {
+    try { dir.delete('tarea'); dir.delete('nueva'); const resto = dir.toString(); history.replaceState(null, '', location.pathname + (resto ? '?' + resto : '')); } catch (_) { /* no importa */ }
+  }
+  if (Number.isInteger(abrirId) && abrirId > 0) await abrirTarea(abrirId);
+  else if (abrirNueva) abrirFormulario(null);
 })();
 </script>
 </body>

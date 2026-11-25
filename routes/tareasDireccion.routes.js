@@ -5,7 +5,7 @@
  * (middleware/soloLecturaCandidato.js); a él se le abre únicamente este prefijo (config/rolCandidato.js), y con eso nada más.
  *
  *   GET    /                    el tablero: todas las pendientes y en curso, y las hechas de los últimos 30 días (?hechas=todas para todas)
- *   GET    /resumen             { vencidas, vencen_en_3_dias } para Inicio y «Más» del celular
+ *   GET    /resumen             { hoy, vencidas, vencen_en_3_dias, sin_realizar, tareas[3] } para Inicio, Panel y «Más» del celular (orden 122: el aviso «Tareas programadas»)
  *   GET    /responsables        el candidato, las personas con usuario y los responsables escritos a mano ya usados
  *   GET    /:id                 la tarea con su historial
  *   POST   /                    crear

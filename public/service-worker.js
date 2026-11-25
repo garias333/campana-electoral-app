@@ -22,7 +22,7 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v237';
+const CACHE_NAME = 'estrategia-v238';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
@@ -101,6 +101,8 @@ const ARCHIVOS_CASCARON = [
   // «Tareas de dirección» (orden 116): la pantalla del candidato y lo que comparte con el tablero de escritorio. SIN SEÑAL SOLO SE ABRE LA PANTALLA: las tareas no se guardan en el teléfono ni se encolan
   // (la lista viene de /api/tareas-direccion, que el service worker no toca) y un cambio sin conexión se rechaza con un mensaje claro.
   '/app/candidato-tareas.html',
+  '/app/tareas-aviso.js',    // orden 122: el aviso «Tareas programadas» del Inicio del candidato y del Panel del superadministrador
+  '/app/tareas-aviso.css',
   '/js/tareas-direccion-reglas.js',
   '/js/tareas-direccion-ui.js',
   '/css/tareas-direccion.css',

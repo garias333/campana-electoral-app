@@ -328,13 +328,14 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
     ok(mas && mas.href === '/app/candidato-tareas.html' && mas.primero && mas.globo === String(vencidas) && mas.fondo === 'rgb(214, 58, 58)', `«Más»: la tarjeta «Tareas de dirección» abre la sección, va primera de su grupo y lleva el globo rojo con las ${vencidas} vencidas`, mas);
     await foto('8-celular-mas-tarjeta');
     await ir('/app/candidato.html', 3000);
-    const ini = await ev(`(() => { const a = document.getElementById('tareas-dir'); return { visible: getComputedStyle(a).display !== 'none', t: a.textContent.replace(/\\s+/g, ' ').trim(), href: a.getAttribute('href') }; })()`);
-    ok(ini.visible && ini.href === '/app/candidato-tareas.html' && /Tareas: \d+ vencidas? · \d+ vencen? en 3 días/.test(ini.t), 'Inicio: «Tareas: N vencidas · N vencen en 3 días» abre la sección', ini);
+    // Orden 122: la tarjeta pequeña «Tareas: N vencidas…» de esta orden la reemplazó el aviso «Tareas programadas», ARRIBA de la meta (se prueba a fondo en probar-aviso-tareas-inicio.js).
+    const ini = await ev(`(() => { const a = document.getElementById('tareas-aviso'); const f = a.querySelector('.tav-fila'); const m = document.getElementById('card-meta'); return { visible: !a.hidden && getComputedStyle(a).display !== 'none', t: a.textContent.replace(/\\s+/g, ' ').trim(), href: f ? f.getAttribute('href') : null, vieja: !!document.getElementById('tareas-dir'), arriba: a.getBoundingClientRect().top < m.getBoundingClientRect().top }; })()`);
+    ok(ini.visible && /^\/app\/candidato-tareas\.html\?tarea=\d+$/.test(ini.href || '') && /Tareas programadas/.test(ini.t) && /Ver todas \(\d+\)/.test(ini.t) && ini.arriba && !ini.vieja, 'Inicio: «Tareas programadas» arriba de la meta, con renglones que abren la tarea', ini);
     await foto('9-celular-inicio-tarjeta');
-    // Sin tareas por vencer, la tarjeta no aparece
+    // Sin tareas pendientes, la tarjeta NO se oculta: lo dice y ofrece «＋ Nueva tarea»
     await q("UPDATE tareas_direccion SET estado = 'hecha', realizada_en = NOW() WHERE estado <> 'hecha'");
     await ir('/app/candidato.html', 3000);
-    ok(!(await ev(`getComputedStyle(document.getElementById('tareas-dir')).display !== 'none'`)), 'sin vencidas ni próximas, la tarjeta de Inicio no aparece');
+    ok(/Sin tareas pendientes/.test(await texto('#tareas-aviso')) && /Nueva tarea/.test(await texto('#tareas-aviso')), 'sin tareas pendientes, la tarjeta de Inicio sigue y dice «Sin tareas pendientes»');
     await ir('/app/candidato-mas.html', 2500);
     ok(await ev(`!document.querySelector('.menu-boton .globo')`), 'y «Más» no lleva globo');
     await ir('/app/candidato-tareas.html', 2200); await clic('.tdm-tabs button[data-tab="pendiente"]'); await espera(300);

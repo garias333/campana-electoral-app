@@ -4,7 +4,7 @@
 // Chromium REAL, service worker ENCENDIDO, 390×844 (celular) y 800 px (escritorio angosto), y la app «instalada» simulada (display-mode: standalone).
 //   · superadministrador, administrador «Es el candidato» (en Modo administrador) y candidato ven la tarjeta; la pantalla abre con SU barra y «volver» regresa a donde estaban;
 //   · administrador sin la casilla, coordinador y líder no la ven, y la API les responde 403;
-//   · la tarjeta sale en el Panel general (con «Tareas: N vencidas · N vencen en 3 días») y en el primer grupo del menú de inicio (con el globo rojo de vencidas).
+//   · el aviso «Tareas programadas» (orden 122) sale en el Panel general ARRIBA de las cifras y en el primer grupo del menú de inicio (con el globo rojo de vencidas).
 //
 // USO (base desechable ya inicializada con init-db; NO correr junto a otra prueba con Chromium):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada120 node scripts/probar-tareas-direccion-admin-celular.js
@@ -97,9 +97,18 @@ const en = (d, hh = 8) => { const [y, m, dd] = d.split('-').map(Number); return 
     const roles = [['superadministrador', ids.super, true], ['administrador «Es el candidato» (Modo administrador)', ids.admCand, true], ['administrador SIN la casilla', ids.admSin, false]];
     for (const [nombre, id, debe] of roles) {
       await entrarComo(id); await ir('/app/admin-panel.html');
-      const a = { visible: await visible('#tarjeta-tareas'), txt: await texto('#tarjeta-tareas'), globo: await visible('#tareas-globo') ? await texto('#tareas-globo') : null };
-      if (debe) ok(a.visible && /Tareas de dirección/.test(a.txt) && /Tareas: 2 vencidas · 1 vence en 3 días/.test(a.txt) && a.globo === '2', `${nombre}: la tarjeta sale con «Tareas: 2 vencidas · 1 vence en 3 días» y el globo rojo 2`, a);
-      else ok(!a.visible, `${nombre}: la tarjeta NO sale`, a);
+      // Orden 122: la tarjeta «Tareas programadas» va ARRIBA de las cifras; la vieja «Tareas de dirección» (orden 120) ya no existe.
+      const a = { visible: await visible('#tareas-aviso'), txt: await texto('#tareas-aviso'), globo: await visible('#tareas-aviso .tav-globo') ? await texto('#tareas-aviso .tav-globo') : null,
+        filas: await ev(`[...document.querySelectorAll('#tareas-aviso .tav-fila')].map((f) => ({ t: f.querySelector('.tav-t').textContent, v: f.querySelector('.tav-venc').textContent.replace(/\\u00a0/g, ' '), c: f.querySelector('.tav-hoja').className }))`),
+        arriba: await ev(`(document.getElementById('tareas-aviso').getBoundingClientRect().top < document.getElementById('cifras').getBoundingClientRect().top)`),
+        vieja: await existe('#tarjeta-tareas') };
+      if (debe) {
+        ok(a.visible && /Tareas programadas/.test(a.txt) && a.globo === '2' && /Ver todas \(3\)/.test(a.txt), `${nombre}: sale «Tareas programadas» con el globo rojo 2 y «Ver todas (3)»`, a);
+        ok(a.filas.length === 3 && /vencida uno/.test(a.filas[0].t) && a.filas[0].v === 'Vencida hace 3 días' && a.filas[0].c.includes('rojo') && /vencida dos/.test(a.filas[1].t) && a.filas[1].v === 'Vencida hace 1 día'
+          && /próxima/.test(a.filas[2].t) && a.filas[2].v === 'Vence en 2 días' && a.filas[2].c.includes('azul'), `${nombre}: tres renglones, las vencidas primero (la más vieja arriba) y luego la próxima, con sus textos`, a.filas);
+        ok(a.arriba, `${nombre}: la tarjeta está ARRIBA de las cifras`);
+      } else ok(!a.visible && a.txt === '', `${nombre}: la tarjeta NO sale (ni su espacio)`, a);
+      ok(!a.vieja, `${nombre}: la tarjeta vieja de la orden 120 ya no está`);
       ok(await visible('#nav-admin') && await ev(`document.querySelectorAll('#nav-admin a').length === 7`), `${nombre}: la barra inferior del administrador sigue igual (7 botones, sin tocar)`);
       ok(await sinDesborde(), `${nombre}: sin desborde horizontal`);
       if (id === ids.super) await foto('panel-superadmin-390');
@@ -108,7 +117,7 @@ const en = (d, hh = 8) => { const [y, m, dd] = d.split('-').map(Number); return 
     console.log('\n[2] La tarjeta abre la pantalla con la barra del administrador, y «volver» regresa al Panel');
     for (const [nombre, id] of [['superadministrador', ids.super], ['administrador «Es el candidato» en Modo administrador', ids.admCand]]) {
       await entrarComo(id); await ir('/app/admin-panel.html');
-      await clic('#tarjeta-tareas'); await espera(2500);
+      await clic('#tareas-aviso .tav-todas'); await espera(2500);
       const r1 = await ruta();
       ok(/^\/app\/candidato-tareas\.html/.test(r1), `${nombre}: la tarjeta abre candidato-tareas.html`, r1);
       ok(await visible('#app-barra') && /Tareas de dirección/.test(await texto('#app-barra')) && !(await visible('#barra-cand')), `${nombre}: encabezado de la app del administrador, no el del candidato`);
@@ -168,16 +177,16 @@ const en = (d, hh = 8) => { const [y, m, dd] = d.split('-').map(Number); return 
     await p.cmd('Emulation.setEmulatedMedia', { features: [] });
     for (const [nombre, id, debe] of [['superadministrador', ids.super, true], ['administrador «Es el candidato»', ids.admCand, true], ['administrador SIN la casilla', ids.admSin, false]]) {
       await entrarComo(id); await ir('/app/admin-panel.html');
-      const v = await visible('#tarjeta-tareas');
+      const v = await visible('#tareas-aviso');
       ok(v === debe, `${nombre}: a 800 px la tarjeta ${debe ? 'sale' : 'NO sale'}`, v);
-      if (debe) { await clic('#tarjeta-tareas'); await espera(2500); ok(await visible('#nav-admin') && await existe('.tdm-card') && await sinDesborde(), `${nombre}: a 800 px la pantalla abre con su barra, sin desborde`); }
+      if (debe) { await clic('#tareas-aviso .tav-todas'); await espera(2500); ok(await visible('#nav-admin') && await existe('.tdm-card') && await sinDesborde(), `${nombre}: a 800 px la pantalla abre con su barra, sin desborde`); }
     }
-    await entrarComo(ids.super); await ir('/app/admin-panel.html'); await clic('#tarjeta-tareas'); await espera(2500); await foto('pantalla-superadmin-800');
+    await entrarComo(ids.super); await ir('/app/admin-panel.html'); await clic('#tareas-aviso .tav-todas'); await espera(2500); await foto('pantalla-superadmin-800');
 
     console.log('\n[7] Service worker');
     await vista(390, 844, true);
     await entrarComo(ids.super); await ir('/app/admin-panel.html', 3500); await ir('/app/admin-panel.html', 2500);
-    const leerSw = () => ev(`(async () => { const rs = await navigator.serviceWorker.getRegistrations(); const ks = await caches.keys(); const c = await caches.open(ks[0] || 'x'); const a = await c.match('/app/admin-panel.html'); const html = a ? await a.text() : ''; return { controlado: !!navigator.serviceWorker.controller, registros: rs.map((r) => (r.scope + ' ' + (r.active ? r.active.state : 'sin activo'))), caches: ks, tarjeta: html.indexOf('tarjeta-tareas') >= 0, activo: rs.some((r) => !!r.active) }; })()`);
+    const leerSw = () => ev(`(async () => { const rs = await navigator.serviceWorker.getRegistrations(); const ks = await caches.keys(); const c = await caches.open(ks[0] || 'x'); const a = await c.match('/app/admin-panel.html'); const html = a ? await a.text() : ''; return { controlado: !!navigator.serviceWorker.controller, registros: rs.map((r) => (r.scope + ' ' + (r.active ? r.active.state : 'sin activo'))), caches: ks, tarjeta: html.indexOf('tareas-aviso') >= 0, activo: rs.some((r) => !!r.active) }; })()`);
     let sw = await leerSw();
     for (let i = 0; i < 6 && !sw.controlado; i++) { await ir('/app/admin-panel.html', 2500); sw = await leerSw(); }
     ok(sw.controlado && sw.activo && sw.caches.join() === VERSION_SW && sw.tarjeta, `service worker activo y controlando, caché ${VERSION_SW}, con el panel nuevo guardado`, sw);

@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
+<link rel="stylesheet" href="/app/tareas-aviso.css">
 </head>
 <body class="cand">
 <div class="cand-ancho">
@@ -30,7 +31,11 @@
       <div class="lema" id="lema" style="display:none;"></div>
     </header>
 
-    <section class="card sube" aria-label="Meta de votantes">
+    <!-- ORDEN 122: «Tareas programadas», ARRIBA de la meta de votantes (reemplaza la tarjeta pequeña de la orden 116). Oculta hasta que el servidor la autoriza;
+         al aparecer toma el lugar de «sube» (la que se monta sobre el encabezado azul) y la meta baja un puesto. -->
+    <section class="card tav" id="tareas-aviso" aria-label="Tareas programadas" hidden></section>
+
+    <section class="card sube" id="card-meta" aria-label="Meta de votantes">
       <div class="lbl">Meta de votantes</div>
       <div class="meta" style="margin-top:8px" id="meta"></div>
     </section>
@@ -42,12 +47,6 @@
     <a class="alerta" id="alerta" href="/app/candidato-equipo.html?filtro=sin_actividad" style="display:none;">
       <b class="ico" aria-hidden="true">⚠</b>
       <div id="alerta-texto"></div><span class="flecha" aria-hidden="true">›</span>
-    </a>
-
-    <!-- «Tareas de dirección» (orden 116): una tarjeta pequeña; no aparece si no hay vencidas ni próximas a vencer. -->
-    <a class="alerta" id="tareas-dir" href="/app/candidato-tareas.html" style="display:none;">
-      <b class="ico" aria-hidden="true">🔒</b>
-      <div id="tareas-dir-texto"></div><span class="flecha" aria-hidden="true">›</span>
     </a>
 
     <section class="card" aria-label="Registros por día">
@@ -67,6 +66,8 @@
 <script src="/app/app-comun.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/candidato-nav.js"></script>
+<script src="/js/tareas-direccion-reglas.js"></script>
+<script src="/app/tareas-aviso.js"></script>
 <script>
 let usuario = null;
 
@@ -173,17 +174,14 @@ function pintar(d) {
   pintarEventos(d.proximos_eventos);
 }
 
-/* «Tareas: N vencidas · N vencen en 3 días». Sin señal, o si falla, simplemente no se muestra: nada de esto estorba la carga del Inicio. */
-async function pintarTareasDireccion() {
-  const a = document.getElementById('tareas-dir');
-  try {
-    const r = await api('/tareas-direccion/resumen');
-    const v = Number(r.vencidas) || 0, p = Number(r.vencen_en_3_dias) || 0;
-    if (v + p === 0) { a.style.display = 'none'; return; }
-    document.getElementById('tareas-dir-texto').innerHTML = '<b>Tareas:</b> ' + (v ? '<b style="color:#b3261e">' + cFmt(v) + (v === 1 ? ' vencida' : ' vencidas') + '</b>' : '0 vencidas')
-      + ' · ' + cFmt(p) + (p === 1 ? ' vence' : ' vencen') + ' en 3 días';
-    a.style.display = 'flex';
-  } catch (_) { a.style.display = 'none'; }
+/* ORDEN 122: «Tareas programadas» arriba de la meta. Sin señal, o si falla, no estorba la carga del Inicio: simplemente no sale (ver tareas-aviso.js).
+   La que se monta sobre el encabezado azul es la PRIMERA tarjeta: la de tareas si está a la vista; si no, la meta. */
+function ajustarSube(hayTareas) {
+  document.getElementById('tareas-aviso').classList.toggle('sube', hayTareas);
+  document.getElementById('card-meta').classList.toggle('sube', !hayTareas);
+}
+function pintarTareasDireccion() {
+  return TareasAviso.montar(document.getElementById('tareas-aviso'), usuario.id, { alCambiar: ajustarSube });
 }
 
 let cargandoAhora = false;
@@ -192,15 +190,17 @@ async function cargar(esRefresco) {
   cargandoAhora = true;
   const boton = document.getElementById('btn-refrescar');
   boton.classList.add('girando');
+  // Las tareas se piden a la vez que el resumen y se espera un momento por ellas para que la meta no «salte» al aparecer la tarjeta (nunca más de 1,5 s).
+  const tareas = pintarTareasDireccion().catch(() => false);
   try {
     const r = await cCargar(usuario.id, '/resumen');
     document.getElementById('error-carga').classList.remove('visible');
     pintar(r.datos);
     // La franja de estado va justo bajo la tarjeta de la meta.
     cPintarEstado(r, 'estado');
+    await Promise.race([tareas, new Promise((ok) => setTimeout(ok, 1500))]);
     document.getElementById('cargando').style.display = 'none';
     document.getElementById('contenido').style.display = '';
-    pintarTareasDireccion();
   } catch (err) {
     if (esRefresco && document.getElementById('contenido').style.display !== 'none') {
       cPintarEstado({ copia: true, desde: Date.now() }, 'estado');
