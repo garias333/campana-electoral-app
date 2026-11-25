@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Tareas de dirección · Administración de Campaña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/tareas-direccion.css">
+<style>
+  /* TAREAS DE DIRECCIÓN (orden 116): el tablero de tres columnas. Las tarjetas miden TODAS lo mismo y sus partes quedan alineadas fila por fila (requisito): filas de alto fijo. */
+  .td-cab { background: var(--td-azo); border-bottom: 5px solid var(--td-am); border-radius: 16px; padding: 16px 22px; color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .td-cab .ey { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--td-am); }
+  .td-cab h1 { margin: 2px 0 4px; font-size: 24px; font-weight: 800; color: #fff; line-height: 1.15; }
+  .td-cab .priv { margin: 0; font-size: 13.5px; color: #ffffffdd; }
+  .td-tablero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+  .td-col { background: #e8edf5; border-radius: 14px; padding: 0 12px 12px; min-width: 0; display: flex; flex-direction: column; border-top: 6px solid var(--franja); overflow: hidden; }
+  .td-col.pendiente { --franja: var(--td-am); } .td-col.en_curso { --franja: var(--td-az); } .td-col.hecha { --franja: var(--td-verde); }
+  .td-col.sobre { outline: 3px dashed var(--td-az); outline-offset: -3px; }
+  .td-col-cab { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 10px; }
+  .td-col-cab b { font-weight: 800; color: var(--td-azo); font-size: 15.5px; }
+  .td-col-cab .n { border-radius: 20px; padding: 2px 11px; font-size: 13px; font-weight: 800; background: #fff; color: var(--td-azo); }
+  .td-col-lista { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .td-vacia { font-size: 14px; color: var(--td-mu); padding: 14px 4px; text-align: center; }
+
+  .td-card { height: 164px; box-sizing: border-box; background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(8, 66, 152, .12); padding: 12px; cursor: pointer; overflow: hidden;
+    display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 40px 32px 18px 34px; column-gap: 12px; row-gap: 5px; }
+  .td-card:hover { box-shadow: 0 5px 18px rgba(8, 66, 152, .22); }
+  .td-card.arrastrando { opacity: .45; }
+  .td-card .celda-hoja { grid-column: 1; grid-row: 1 / span 3; }
+  .td-card .titulo { grid-column: 2; grid-row: 1; font-size: 14.5px; line-height: 20px; font-weight: 700; color: var(--td-tx); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .td-card .resp { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .td-card .resp .quien { min-width: 0; flex: 1; }
+  .td-card .resp b, .td-card .resp span.cargo { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-card .resp b { font-size: 13px; line-height: 16px; color: var(--td-tx); }
+  .td-card .resp span.cargo { font-size: 12px; line-height: 15px; color: var(--td-mu); }
+  .td-card .aviso { grid-column: 2; grid-row: 3; font-size: 12.5px; line-height: 18px; color: #44506b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .td-card .aviso.ok { color: #17743f; font-weight: 700; } .td-card .aviso.apagado { color: var(--td-mu); } .td-card .aviso.error { color: var(--td-rojo); font-weight: 700; }
+  .td-card .pie { grid-column: 1 / -1; grid-row: 4; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--td-ln); padding-top: 4px; }
+  .td-card .pie .acciones { display: flex; align-items: center; gap: 8px; }
+  .td-ver-hechas { margin-top: 2px; align-self: center; }
+  #td-modal-seg { margin: 0 0 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--td-mu); font-weight: 600; flex-wrap: wrap; }
+  .td-sin-acceso { display: none; background: #fff5f5; border: 1px solid #e04848; color: #8f1d1d; border-radius: 12px; padding: 16px; }
+  @media (max-width: 1100px) { .td-tablero { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <main class="main">
+    <div class="td-cab">
+      <div>
+        <div class="ey">Dirección</div>
+        <h1>Tareas de dirección</h1>
+        <p class="priv">🔒 Solo candidato y superadministrador · 🔔 aviso automático por SMS 3 días antes</p>
+      </div>
+      <button type="button" class="td-btn amarillo" id="btn-nueva">＋ Nueva tarea</button>
+    </div>
+    <div class="td-sin-acceso" id="sin-acceso" role="alert">Esta sección es solo del candidato y del superadministrador.</div>
+    <div class="td-error" id="td-error" role="alert"></div>
+    <div class="td-tablero" id="tablero" style="display:none;">
+      <section class="td-col pendiente" data-col="pendiente" aria-label="Pendientes"><div class="td-col-cab"><b>Pendientes</b><span class="n">0</span></div><div class="td-col-lista"></div></section>
+      <section class="td-col en_curso" data-col="en_curso" aria-label="En curso"><div class="td-col-cab"><b>En curso</b><span class="n">0</span></div><div class="td-col-lista"></div></section>
+      <section class="td-col hecha" data-col="hecha" aria-label="Hechas"><div class="td-col-cab"><b>Hechas</b><span class="n">0</span></div><div class="td-col-lista"></div></section>
+    </div>
+  </main>
+</div>
+
+<div class="td-overlay" id="ov-detalle" role="dialog" aria-modal="true" aria-labelledby="det-titulo">
+  <div class="td-modal" style="max-width: 640px;">
+    <div class="td-modal-cab"><div id="det-hoja"></div><h2 id="det-titulo"></h2></div>
+    <div class="td-modal-cuerpo" id="det-cuerpo"></div>
+    <div class="td-modal-pie" id="det-pie"></div>
+  </div>
+</div>
+<div class="td-overlay" id="ov-form" role="dialog" aria-modal="true" aria-labelledby="form-titulo">
+  <div class="td-modal">
+    <div class="td-modal-cab"><h2 id="form-titulo">Nueva tarea</h2></div>
+    <div class="td-modal-cuerpo" id="form-cuerpo"></div>
+    <div class="td-modal-pie"><button type="button" class="td-btn borde" id="form-cancelar">Cancelar</button><button type="button" class="td-btn azul" id="form-guardar">Guardar</button></div>
+  </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/tareas-direccion-reglas.js"></script>
+<script src="/js/tareas-direccion-ui.js"></script>
+<script>
+const R = TareasDir, UI = TareasDirUI, S = UI.servidor;
+const $ = (id) => document.getElementById(id);
+const esc = UI.esc;
+let usuarioActual = null;
+let tareas = [], hoy = '', hechasTotal = 0, hechasMostradas = 0, verTodasHechas = false;
+let responsables = null;
+let abiertaId = null;     // la tarea cuyo detalle está abierto
+let editandoId = null;    // la que se edita (null = nueva)
+let formulario = null;
+
+function mostrarError(err) { const e = $('td-error'); e.textContent = err ? UI.textoDeError(err, true) : ''; e.classList.toggle('visible', !!err); }
+
+/* ------------------------------------------------------------------ tarjetas ---- */
+function iconoAviso(t, tono) { return t.estado === 'hecha' ? '' : (tono === 'apagado' ? '🔕 ' : (tono === 'error' ? '⚠️ ' : '🔔 ')); }
+function tarjetaHtml(t) {
+  const l = R.lineaAviso(t, hoy);
+  const wa = UI.conWhatsapp(t);
+  const urlWa = wa ? R.urlWhatsapp(t.responsable.celular, t.responsable.nombre, t.titulo, t.fecha_limite) : null;
+  const resumen = `${t.prioridad === 'urgente' ? 'Urgente. ' : ''}${t.titulo}. Responsable: ${t.responsable.nombre}, ${t.responsable.cargo}. ${R.ROTULO_ESTADO[t.estado_fecha]}.`;
+  return `<article class="td-card" draggable="true" tabindex="0" role="button" data-id="${t.id}" aria-label="${esc(resumen)}">
+    <div class="celda-hoja">${UI.hojaHtml(t)}</div>
+    <div class="titulo" title="${esc(t.titulo)}">${t.prioridad === 'urgente' ? '⚡ ' : ''}${esc(t.titulo)}</div>
+    <div class="resp"><span class="td-avatar${t.responsable.es_candidato ? ' cand' : ''}" aria-hidden="true">${esc(UI.iniciales(t.responsable.nombre))}</span>
+      <div class="quien"><b title="${esc(t.responsable.nombre)}">${esc(t.responsable.nombre)}</b><span class="cargo" title="${esc(t.responsable.cargo)}">${esc(t.responsable.cargo)}</span></div></div>
+    <div class="aviso ${l.tono}" title="${esc(l.texto)}">${iconoAviso(t, l.tono)}${esc(l.texto)}</div>
+    <div class="pie">${UI.etiquetaEstadoHtml(t)}
+      <div class="acciones">${t.estado === 'hecha' ? '' : `<button type="button" class="td-btn-realizada" data-realizada="${t.id}">✓ Realizada</button>`}
+        ${wa ? `<a class="td-wa" href="${esc(urlWa)}" target="_blank" rel="noopener" data-wa="${t.id}" title="Recordar por WhatsApp" aria-label="Recordar por WhatsApp a ${esc(t.responsable.nombre)}">${UI.SVG_WA}</a>`
+             : `<span class="td-wa oculto" aria-hidden="true"></span>`}</div></div>
+  </article>`;
+}
+
+function ordenar(col, lista) {
+  const a = lista.slice();
+  if (col === 'hecha') return a.sort((x, y) => String(y.realizada_en || '').localeCompare(String(x.realizada_en || '')) || y.id - x.id);
+  return a.sort((x, y) => x.fecha_limite.localeCompare(y.fecha_limite) || x.id - y.id);   // lo vencido arriba
+}
+function pintar() {
+  document.querySelectorAll('.td-col').forEach((sec) => {
+    const col = sec.dataset.col;
+    const lista = ordenar(col, tareas.filter((t) => t.estado === col));
+    sec.querySelector('.n').textContent = lista.length;
+    let html = lista.length ? lista.map(tarjetaHtml).join('') : '<div class="td-vacia">No hay tareas aquí.</div>';
+    if (col === 'hecha' && !verTodasHechas && hechasTotal > hechasMostradas) {
+      html += `<button type="button" class="td-btn borde td-ver-hechas" id="ver-hechas">Ver todas las hechas (${hechasTotal})</button>`;
+    }
+    sec.querySelector('.td-col-lista').innerHTML = html;
+  });
+}
+function reemplazar(t) {
+  const i = tareas.findIndex((x) => x.id === t.id);
+  if (i >= 0) tareas[i] = t; else tareas.push(t);
+}
+async function cargar() {
+  try {
+    const r = await S.listar(verTodasHechas);
+    tareas = r.tareas; hoy = r.hoy; hechasTotal = r.hechas_total; hechasMostradas = r.hechas_mostradas;
+    mostrarError(null); pintar();
+  } catch (e) { mostrarError(e); }
+}
+
+/* ------------------------------------------------------------------ acciones ---- */
+async function marcarRealizada(id) {
+  try {
+    const r = await S.estado(id, 'hecha');
+    if (r.sinCambios) return;
+    reemplazar(r.tarea); cerrarDetalle(); await recontarHechas(); pintar();
+    UI.snack('Tarea marcada como realizada', { accion: 'Deshacer', onAccion: async () => {
+      try { const d = await S.estado(id, r.estado_anterior, true); reemplazar(d.tarea); await recontarHechas(); pintar(); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+    } });
+  } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+}
+/** Tras mover algo a/desde «Hechas» el total cambia: se vuelve a pedir el tablero (barato) para que el contador y «Ver todas» cuadren. */
+async function recontarHechas() {
+  try { const r = await S.listar(verTodasHechas); tareas = r.tareas; hoy = r.hoy; hechasTotal = r.hechas_total; hechasMostradas = r.hechas_mostradas; } catch (_) { /* se queda con lo que hay */ }
+}
+async function mover(id, destino) {
+  const t = tareas.find((x) => x.id === id);
+  if (!t || t.estado === destino) return;
+  if (destino === 'hecha') return marcarRealizada(id);
+  if (t.estado === 'hecha') {
+    const ok = await UI.confirmar({ titulo: '¿Reabrir la tarea?', texto: `Saldrá de «Hechas» y volverá a ${destino === 'en_curso' ? 'En curso' : 'Pendientes'}.`, ok: 'Reabrir' });
+    if (!ok) return;
+  }
+  try {
+    const r = await S.estado(id, destino);
+    reemplazar(r.tarea); if (t.estado === 'hecha') await recontarHechas(); pintar();
+    if (abiertaId === id) abrirDetalle(id);
+  } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+}
+
+/* ------------------------------------------------------------------ detalle ---- */
+function cerrarDetalle() { $('ov-detalle').classList.remove('abierto'); abiertaId = null; }
+async function abrirDetalle(id) {
+  let d;
+  try { d = await S.detalle(id); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); return; }
+  abiertaId = id;
+  const t = d.tarea;
+  $('det-hoja').innerHTML = UI.hojaHtml(t);
+  $('det-titulo').innerHTML = (t.prioridad === 'urgente' ? '⚡ ' : '') + esc(t.titulo);
+  const seg = t.estado === 'hecha' ? '' : `<div id="td-modal-seg">Estado:
+    <div class="td-seg" role="group" aria-label="Mover a"><button type="button" data-mover="pendiente" aria-pressed="${t.estado === 'pendiente'}">Pendiente</button><button type="button" data-mover="en_curso" aria-pressed="${t.estado === 'en_curso'}">En curso</button></div></div>`;
+  $('det-cuerpo').innerHTML = seg + UI.detalleHtml(d, { nota: 'Si la marca hoy, el aviso automático se cancela.' });
+  const wa = UI.conWhatsapp(t);
+  $('det-pie').innerHTML = `<button type="button" class="td-btn peligro" data-d="eliminar">Eliminar</button>`
+    + (wa ? `<a class="td-btn verde" style="background:#25D366;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" href="${esc(R.urlWhatsapp(t.responsable.celular, t.responsable.nombre, t.titulo, t.fecha_limite))}" target="_blank" rel="noopener" data-wa="${t.id}">Recordar por WhatsApp</a>` : '')
+    + `<button type="button" class="td-btn borde" data-d="editar">✏️ Editar</button><button type="button" class="td-btn azul" data-d="cerrar">Cerrar</button>`;
+  $('ov-detalle').classList.add('abierto');
+  $('det-cuerpo').querySelector('[data-accion]') && $('det-cuerpo').querySelector('[data-accion]').focus();
+}
+$('ov-detalle').addEventListener('click', async (e) => {
+  if (e.target === $('ov-detalle')) return cerrarDetalle();
+  const wa = e.target.closest('[data-wa]'); if (wa) { S.whatsapp(+wa.dataset.wa).catch(() => {}); return; }
+  const mv = e.target.closest('[data-mover]'); if (mv) return mover(abiertaId, mv.dataset.mover);
+  const ac = e.target.closest('[data-accion]');
+  if (ac && ac.dataset.accion === 'realizada') return marcarRealizada(abiertaId);
+  if (ac && ac.dataset.accion === 'reabrir') { const id = abiertaId; const ok = await UI.confirmar({ titulo: '¿Reabrir la tarea?', texto: 'Saldrá de «Hechas» y volverá a Pendientes.', ok: 'Reabrir' }); if (ok) { try { const r = await S.estado(id, 'pendiente'); reemplazar(r.tarea); await recontarHechas(); pintar(); abrirDetalle(id); } catch (er) { UI.snack(UI.textoDeError(er), { tipo: 'error' }); } } return; }
+  const d = e.target.closest('[data-d]'); if (!d) return;
+  if (d.dataset.d === 'cerrar') return cerrarDetalle();
+  if (d.dataset.d === 'editar') { const t = tareas.find((x) => x.id === abiertaId); cerrarDetalle(); return abrirFormulario(t); }
+  if (d.dataset.d === 'eliminar') {
+    const id = abiertaId; const t = tareas.find((x) => x.id === id);
+    const ok = await UI.confirmar({ titulo: '¿Eliminar esta tarea?', texto: `«${t ? t.titulo : ''}» se borrará con su historial. No se puede deshacer.`, ok: 'Eliminar', peligro: true });
+    if (!ok) return;
+    try { await S.eliminar(id); tareas = tareas.filter((x) => x.id !== id); cerrarDetalle(); await recontarHechas(); pintar(); UI.snack('Tarea eliminada'); }
+    catch (er) { UI.snack(UI.textoDeError(er), { tipo: 'error' }); }
+  }
+});
+
+/* ------------------------------------------------------------------ formulario ---- */
+async function abrirFormulario(t) {
+  editandoId = t ? t.id : null;
+  try { responsables = await S.responsables(); } catch (e) { if (!responsables) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); return; } }
+  $('form-titulo').textContent = t ? 'Editar tarea' : 'Nueva tarea';
+  formulario = UI.montarFormulario($('form-cuerpo'), { tarea: t || null, resp: responsables, yoId: usuarioActual.id, hoy });
+  $('ov-form').classList.add('abierto');
+  formulario.enfocar();
+}
+function cerrarFormulario() { $('ov-form').classList.remove('abierto'); formulario = null; }
+$('form-cancelar').addEventListener('click', cerrarFormulario);
+$('ov-form').addEventListener('click', (e) => { if (e.target === $('ov-form')) cerrarFormulario(); });
+$('form-guardar').addEventListener('click', async () => {
+  if (!formulario) return;
+  const datos = formulario.leer(); if (!datos) return;
+  const b = $('form-guardar'); b.disabled = true;
+  try {
+    const r = editandoId ? await S.editar(editandoId, datos) : await S.crear(datos);
+    reemplazar(r.tarea); cerrarFormulario(); pintar();
+    UI.snack(editandoId ? 'Tarea actualizada' : 'Tarea creada');
+  } catch (e) { formulario.error(UI.textoDeError(e)); }
+  finally { b.disabled = false; }
+});
+$('btn-nueva').addEventListener('click', () => abrirFormulario(null));
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if ($('ov-form').classList.contains('abierto')) cerrarFormulario(); else if ($('ov-detalle').classList.contains('abierto')) cerrarDetalle();
+});
+
+/* ------------------------------------------------------------------ tablero: clics y arrastre ---- */
+const tablero = $('tablero');
+tablero.addEventListener('click', (e) => {
+  if (e.target.closest('#ver-hechas')) { verTodasHechas = true; cargar(); return; }
+  const wa = e.target.closest('[data-wa]'); if (wa) { S.whatsapp(+wa.dataset.wa).catch(() => {}); return; }   // el enlace abre WhatsApp solo; aquí solo se anota en el historial
+  const re = e.target.closest('[data-realizada]'); if (re) { e.stopPropagation(); marcarRealizada(+re.dataset.realizada); return; }
+  const card = e.target.closest('.td-card'); if (card) abrirDetalle(+card.dataset.id);
+});
+tablero.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('td-card')) { e.preventDefault(); abrirDetalle(+e.target.dataset.id); }
+});
+let arrastrando = null;
+tablero.addEventListener('dragstart', (e) => {
+  const card = e.target.closest && e.target.closest('.td-card'); if (!card) return;
+  arrastrando = +card.dataset.id; card.classList.add('arrastrando');
+  e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(arrastrando));
+});
+tablero.addEventListener('dragend', () => { arrastrando = null; document.querySelectorAll('.arrastrando, .sobre').forEach((x) => x.classList.remove('arrastrando', 'sobre')); });
+tablero.addEventListener('dragover', (e) => { const c = e.target.closest('.td-col'); if (!c || arrastrando === null) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; document.querySelectorAll('.td-col.sobre').forEach((x) => { if (x !== c) x.classList.remove('sobre'); }); c.classList.add('sobre'); });
+tablero.addEventListener('drop', (e) => {
+  const c = e.target.closest('.td-col'); if (!c || arrastrando === null) return;
+  e.preventDefault(); const id = arrastrando; arrastrando = null; document.querySelectorAll('.sobre').forEach((x) => x.classList.remove('sobre'));
+  mover(id, c.dataset.col);
+});
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden && usuarioActual && !$('ov-form').classList.contains('abierto')) cargar(); });
+
+(async () => {
+  usuarioActual = await inicializarLayout('/tareas-direccion.html');
+  if (!usuarioActual) return;
+  const puede = !!usuarioActual.es_superadmin || usuarioActual.rol === 'candidato' || (usuarioActual.rol === 'admin' && !!usuarioActual.es_candidato);
+  if (!puede) { $('sin-acceso').style.display = 'block'; $('btn-nueva').style.display = 'none'; return; }
+  tablero.style.display = '';
+  await cargar();
+})();
+</script>
+</body>
+</html>

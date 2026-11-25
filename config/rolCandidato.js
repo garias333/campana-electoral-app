@@ -44,6 +44,8 @@ const LECTURAS_PERMITIDAS = [
   '/territorial/coordinadores-por-zona', '/territorial/lideres-para-sublider',
   // «Mis avisos» (orden 77): los avisos que recibió ÉL (la ruta filtra por la sesión), la llave pública del push y la lista de sus dispositivos.
   '/push/clave-publica', '/push/mis-avisos', '/push/mis-dispositivos',
+  // «Tareas de dirección» (orden 116): el candidato las ve, las crea y las mueve. Es lo ÚNICO de la lista que además escribe (ver PREFIJOS_ESCRITURA_PERMITIDOS).
+  '/tareas-direccion',
 ];
 /** Lecturas de UNA sola dirección (sin lo que cuelgue de ella: `/territorial/estructura/exportar-excel`, `/usuarios/admin`… siguen cerradas). */
 const LECTURAS_EXACTAS = [
@@ -93,10 +95,17 @@ const ESCRITURAS_PERMITIDAS = [
   ['POST', '/push/desuscribir'],
 ];
 
+/**
+ * ORDEN 116 — «TAREAS DE DIRECCIÓN»: la ÚNICA sección que el candidato escribe completa (POST, PUT, PATCH, DELETE sobre /api/tareas-direccion y lo que cuelga de ahí). El servidor
+ * de esas rutas (routes/tareasDireccion.routes.js) vuelve a comprobar que quien pregunta es el candidato o el superadministrador. Nada más se abre.
+ */
+const PREFIJOS_ESCRITURA_PERMITIDOS = ['/tareas-direccion'];
+
 /** ¿Puede un candidato hacer esta escritura? `ruta` es req.path dentro de /api. */
 function escrituraPermitida(metodo, ruta) {
   const m = String(metodo || '').toUpperCase();
   const r = String(ruta || '').replace(/\/+$/, '') || '/';
+  if (PREFIJOS_ESCRITURA_PERMITIDOS.some((p) => r === p || r.startsWith(p + '/'))) return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(m);
   return ESCRITURAS_PERMITIDAS.some(([mm, rr]) => mm === m && rr === r);
 }
 

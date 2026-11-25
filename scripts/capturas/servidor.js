@@ -10,7 +10,8 @@ const express = require('express');
 
 const RAIZ = path.join(__dirname, '..', '..');
 
-function crear(pool) {
+/** `opciones.soloLecturaCandidato`: monta también la guarda del rol candidato (como app.js); sin ella el servidor de capturas no la trae. */
+function crear(pool, opciones = {}) {
   const app = express();
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
@@ -25,6 +26,8 @@ function crear(pool) {
           id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, rol_real: u.rol, territorio_id: u.territorio_id,
           debe_cambiar_password: false, two_factor_enabled: false, es_aspirante: false,
         };
+        // Orden 116: la cookie `ej_solo_candidato=1` imita la sesión «solo candidato» (orden 93): un administrador marcado cuya sesión vale como candidato.
+        if (/(?:^|; )ej_solo_candidato=1/.test(req.headers.cookie || '') && u.rol === 'admin') { req.session.usuario.rol = 'candidato'; req.session.usuario.solo_candidato = true; }
       }
     }
     req.sublicencia = null;
@@ -47,6 +50,7 @@ function crear(pool) {
 
   const { cargarSublicencia, restringirAspirante } = require(path.join(RAIZ, 'middleware/aspirante'));
   app.use('/api', cargarSublicencia, restringirAspirante);
+  if (opciones.soloLecturaCandidato) app.use('/api', require(path.join(RAIZ, 'middleware/soloLecturaCandidato')).soloLecturaCandidato);
   const montar = (ruta, archivo) => app.use(ruta, require(path.join(RAIZ, 'routes', archivo)));
   montar('/api/auth', 'auth.routes');
   montar('/api/territorial', 'territorial.routes');
@@ -84,6 +88,8 @@ function crear(pool) {
   montar('/api/solicitudes', 'solicitudes.routes');
   montar('/api/tareas', 'tareas.routes');
   montar('/api/puerta-a-puerta', 'puertaAPuerta.routes');
+  montar('/api/tareas-direccion', 'tareasDireccion.routes');   // orden 116
+  montar('/api/candidato', 'candidato.routes');
   app.use('/api', (req, res) => res.status(404).json({ error: 'sin ruta en el servidor de capturas' }));
 
   app.get('/js/validarCedula.js', (req, res) => { res.type('application/javascript'); res.sendFile(path.join(RAIZ, 'lib', 'validarCedula.js')); });

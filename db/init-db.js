@@ -3801,6 +3801,49 @@ async function main() {
       + `${eligieron.n} eligieron la suya (no se tocan).`);
   }
 
+  /* ORDEN 116 — «TAREAS DE DIRECCIÓN»: la sección privada del candidato y del superadministrador. Tablas NUEVAS y aparte de `tareas` (las de campo: parches 305 y 306), que no se tocan.
+     `aviso_para` (la fecha en que sale el aviso) no estaba en el diseño de la orden: hace falta para mostrar «SMS programado 29 nov» y para no recalcular a ciegas.
+     Repetible: CREATE TABLE IF NOT EXISTS. En la Base se aplica con init-db + reinicio, no por parche. */
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS tareas_direccion (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      titulo VARCHAR(200) NOT NULL,
+      responsable_usuario_id INT NULL COMMENT 'NULL si el responsable se escribió a mano',
+      responsable_nombre VARCHAR(150) NOT NULL,
+      responsable_cargo VARCHAR(100) NOT NULL COMMENT 'Texto libre: el cargo de campaña no es el rol de la app',
+      responsable_celular VARCHAR(20) NULL COMMENT '10 dígitos de celular colombiano',
+      fecha_limite DATE NOT NULL,
+      prioridad ENUM('normal','urgente') NOT NULL DEFAULT 'normal',
+      estado ENUM('pendiente','en_curso','hecha') NOT NULL DEFAULT 'pendiente',
+      aviso_activo TINYINT(1) NOT NULL DEFAULT 1,
+      aviso_estado ENUM('programado','enviado','cancelado','sin_celular','fallido','no_aplica') NULL,
+      aviso_canal ENUM('sms','app') NULL,
+      aviso_para DATE NULL COMMENT 'Día (a las 08:00 de Colombia) en que sale el aviso automático',
+      aviso_enviado_en DATETIME NULL,
+      realizada_en DATETIME NULL,
+      creada_por INT NULL,
+      creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_tareasdir_estado (estado),
+      INDEX idx_tareasdir_fecha (fecha_limite),
+      INDEX idx_tareasdir_aviso (aviso_estado, aviso_para),
+      FOREIGN KEY (responsable_usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+      FOREIGN KEY (creada_por) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS tareas_direccion_eventos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tarea_id INT NOT NULL,
+      tipo ENUM('creada','editada','en_curso','realizada','reabierta','aviso_enviado','aviso_cancelado','aviso_fallido','whatsapp') NOT NULL,
+      detalle VARCHAR(250) NULL,
+      usuario_id INT NULL,
+      creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_tareasdir_ev_tarea (tarea_id, id),
+      FOREIGN KEY (tarea_id) REFERENCES tareas_direccion(id) ON DELETE CASCADE,
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  console.log('Tablas tareas_direccion y tareas_direccion_eventos listas (Tareas de dirección: solo candidato y superadministrador).');
+
   await sembrarPoliticaPrivacidadPorDefecto(connection);
   await agregarFinalidadSolicitudes(connection);
   await agregarFinalidadEncuestas(connection);

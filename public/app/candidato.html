@@ -44,6 +44,12 @@
       <div id="alerta-texto"></div><span class="flecha" aria-hidden="true">›</span>
     </a>
 
+    <!-- «Tareas de dirección» (orden 116): una tarjeta pequeña; no aparece si no hay vencidas ni próximas a vencer. -->
+    <a class="alerta" id="tareas-dir" href="/app/candidato-tareas.html" style="display:none;">
+      <b class="ico" aria-hidden="true">🔒</b>
+      <div id="tareas-dir-texto"></div><span class="flecha" aria-hidden="true">›</span>
+    </a>
+
     <section class="card" aria-label="Registros por día">
       <div class="tit"><h3>Registros por día</h3><span class="lbl">Últimos 7 días</span></div>
       <div id="barras"></div>
@@ -167,6 +173,19 @@ function pintar(d) {
   pintarEventos(d.proximos_eventos);
 }
 
+/* «Tareas: N vencidas · N vencen en 3 días». Sin señal, o si falla, simplemente no se muestra: nada de esto estorba la carga del Inicio. */
+async function pintarTareasDireccion() {
+  const a = document.getElementById('tareas-dir');
+  try {
+    const r = await api('/tareas-direccion/resumen');
+    const v = Number(r.vencidas) || 0, p = Number(r.vencen_en_3_dias) || 0;
+    if (v + p === 0) { a.style.display = 'none'; return; }
+    document.getElementById('tareas-dir-texto').innerHTML = '<b>Tareas:</b> ' + (v ? '<b style="color:#b3261e">' + cFmt(v) + (v === 1 ? ' vencida' : ' vencidas') + '</b>' : '0 vencidas')
+      + ' · ' + cFmt(p) + (p === 1 ? ' vence' : ' vencen') + ' en 3 días';
+    a.style.display = 'flex';
+  } catch (_) { a.style.display = 'none'; }
+}
+
 let cargandoAhora = false;
 async function cargar(esRefresco) {
   if (cargandoAhora) return;
@@ -181,6 +200,7 @@ async function cargar(esRefresco) {
     cPintarEstado(r, 'estado');
     document.getElementById('cargando').style.display = 'none';
     document.getElementById('contenido').style.display = '';
+    pintarTareasDireccion();
   } catch (err) {
     if (esRefresco && document.getElementById('contenido').style.display !== 'none') {
       cPintarEstado({ copia: true, desde: Date.now() }, 'estado');

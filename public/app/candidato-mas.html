@@ -10,6 +10,11 @@
 <link rel="stylesheet" href="/app/estilos-app.css">
 <link rel="stylesheet" href="/app/candidato-letra.css">
 <link rel="stylesheet" href="/app/candidato.css">
+<style>
+  /* El globo rojo con las tareas de dirección vencidas (orden 116) */
+  .cand-menu .menu-boton { position: relative; }
+  .cand-menu .menu-boton .globo { position: absolute; top: 6px; right: 8px; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: #d63a3a; color: #fff; font-size: 14px; font-weight: 800; line-height: 24px; text-align: center; }
+</style>
 </head>
 <body class="cand">
 <div class="cand-ancho">
@@ -26,11 +31,13 @@
 <script src="/app/candidato-nav.js"></script>
 <script>
 let usuario = null;
+let vencidas = 0;   // Tareas de dirección vencidas (orden 116): el globo rojo de su tarjeta
 /* LA CUADRÍCULA ES LA DEL MENÚ DE /app/inicio.html (orden 75): las mismas clases de estilos-app.css —.menu-grupo con su barra amarilla, .menu-grid de tres columnas, .menu-boton con el icono en
    cuadro azul claro—. Una tarjeta es un enlace (abre otra pantalla: desde la orden 79 también las de «Seguimiento», con su flecha de vuelta a «Más») o un botón (cerrar la sesión).
    Un grupo sin tarjetas no se pinta: ni títulos solos ni huecos. */
 function tarjeta(t) {
-  const interior = '<div class="icono" aria-hidden="true">' + t.ic + '</div><div class="texto"><strong>' + cEsc(t.texto) + '</strong></div>';
+  const globo = t.globo ? '<span class="globo" aria-label="' + cEsc(t.globo) + ' vencidas">' + cEsc(t.globo) + '</span>' : '';
+  const interior = globo + '<div class="icono" aria-hidden="true">' + t.ic + '</div><div class="texto"><strong>' + cEsc(t.texto) + '</strong></div>';
   if (t.href) return '<a class="menu-boton" href="' + cEsc(t.href) + '">' + interior + '</a>';
   return '<button type="button" class="menu-boton" data-accion="' + cEsc(t.accion) + '">' + interior + '</button>';
 }
@@ -40,6 +47,7 @@ function pintarMenu(s) {
   const modo = (cEsAdminCandidato(usuario) || usuario.solo_candidato) ? [{ titulo: 'Cambiar de modo', items: [{ ic: '🛠️', texto: 'Modo administrador', accion: 'modo_admin' }] }] : [];
   const grupos = modo.concat([
     { titulo: 'Registro', items: [
+      { ic: '🔒', texto: 'Tareas de dirección', href: '/app/candidato-tareas.html', globo: vencidas > 0 ? String(vencidas) : '' },
       s.registro && { ic: '➕', texto: 'Registrar en la estructura territorial', href: '/territorial.html?app=1&volver=/app/candidato.html#nuevo' },
       { ic: '🗳️', texto: 'Consultar puesto de votación', href: '/app/puesto-votacion.html' } ] },
     { titulo: 'Seguimiento', items: [
@@ -81,6 +89,8 @@ function pintarMenu(s) {
     }
   });
   try {
+    // El número de «Tareas de dirección» vencidas. Sin señal o con error simplemente no hay globo: la tarjeta se ve igual.
+    try { vencidas = Number((await api('/tareas-direccion/resumen')).vencidas) || 0; } catch (_) { vencidas = 0; }
     const r = await cCargar(usuario.id, '/mas');
     pintarMenu(r.datos.secciones || {});
     cPintarEstado(r, 'estado');

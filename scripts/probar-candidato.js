@@ -616,7 +616,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   console.log('    más:', JSON.stringify(mas));
   ok(mas.grupos.map((g) => g.t).join('|') === 'Registro|Seguimiento|Material de apoyo|Mi cuenta y ayuda', 'Más: los cuatro grupos, en ese orden', mas.grupos.map((g) => g.t));
   const lista = (t) => (mas.grupos.find((g) => g.t === t) || { items: [] }).items;
-  ok(lista('Registro').join('|') === 'Registrar en la estructura territorial|Consultar puesto de votación', 'Registro: solo esos dos botones', lista('Registro'));
+  ok(lista('Registro').join('|') === 'Tareas de dirección|Registrar en la estructura territorial|Consultar puesto de votación', 'Registro: «Tareas de dirección» (orden 116) y los dos botones de siempre', lista('Registro'));
   ok(lista('Seguimiento').join('|') === 'Solicitudes|Tareas|Puerta a puerta|Día D · avance de votación', 'Seguimiento: Solicitudes, Tareas, Puerta a puerta y Día D', lista('Seguimiento'));
   ok(lista('Material de apoyo').join('|') === 'Biografía del candidato|Información para compartir', 'Material de apoyo: Biografía e Información para compartir', lista('Material de apoyo'));
   ok(lista('Mi cuenta y ayuda').join('|') === 'Mis avisos|Cambiar mi clave|Política de privacidad|Legislación|Ayuda|Cerrar sesión', 'Mi cuenta y ayuda: Mis avisos, Cambiar mi clave, Política, Legislación, Ayuda y Cerrar sesión', lista('Mi cuenta y ayuda'));
@@ -705,7 +705,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const reg = await ev(`({ botones: [...document.querySelectorAll('.menu-grupo')[0].querySelectorAll('.menu-boton')].map(a => a.innerText.trim()), hrefs: [...document.querySelectorAll('.menu-grupo')[0].querySelectorAll('.menu-boton')].map(a => a.getAttribute('href')),
      grupos: [...document.querySelectorAll('.menu-grupo-titulo')].map(x => x.innerText), escritorio: /escritorio/i.test(document.body.innerText), primero: (document.querySelector('.menu-grupo-titulo') || {}).innerText })`);
   console.log('    registro:', JSON.stringify(reg));
-  ok(reg.botones.length === 2 && /Registrar en la estructura territorial/.test(reg.botones[0]) && /Consultar puesto de votación/.test(reg.botones[1]), '«Más» → Registro: exactamente dos botones, los pedidos', reg.botones);
+  ok(reg.botones.length === 3 && /Tareas de dirección/.test(reg.botones[0]) && /Registrar en la estructura territorial/.test(reg.botones[1]) && /Consultar puesto de votación/.test(reg.botones[2]), '«Más» → Registro: «Tareas de dirección» (orden 116, primero) y los dos botones pedidos', reg.botones);
   ok(/^registro$/i.test(reg.primero) && /^registro$/i.test(reg.grupos[0]), 'el grupo «Registro» va arriba de todo', reg.grupos);
   ok(!reg.escritorio, '«Ver versión de escritorio» ya no aparece');
   ok(!/Registrar (votante|persona)|Importar|Eliminar|enlace de inscripción|Mi enlace/i.test(await texto('body')), 'ningún otro botón de registro, importar, eliminar ni enlaces de inscripción', await texto('body'));
@@ -974,7 +974,7 @@ const NOMBRES_TEXTO_MALO = /\bNaN\b|undefined|\[object Object\]|null%|Infinity/;
   const masA = await ev(`({ grupos: [...document.querySelectorAll('.menu-grupo')].map(g => ({ t: g.querySelector('.menu-grupo-titulo').innerText.trim(), items: [...g.querySelectorAll('.menu-boton')].map(b => b.querySelector('.texto strong').innerText.trim()) })) })`);
   console.log('    más del administrador marcado:', JSON.stringify(masA.grupos.map((g) => g.t)));
   ok(masA.grupos[0].t === 'Cambiar de modo' && masA.grupos[0].items.join('|') === 'Modo administrador', '«Más» trae arriba «Modo administrador»', masA.grupos[0]);
-  ok(masA.grupos.find((g) => g.t === 'Registro').items.join('|') === 'Registrar en la estructura territorial|Consultar puesto de votación', '«Registro» sigue con los dos botones de siempre', masA.grupos.find((g) => g.t === 'Registro'));
+  ok(masA.grupos.find((g) => g.t === 'Registro').items.join('|') === 'Tareas de dirección|Registrar en la estructura territorial|Consultar puesto de votación', '«Registro» sigue con los dos botones de siempre (más «Tareas de dirección», orden 116)', masA.grupos.find((g) => g.t === 'Registro'));
   ok(await sinDesborde() && p.avisos.length === 0, 'Más del administrador marcado: sin desborde ni errores de consola', p.avisos);
   await foto('20-mas-modo-administrador');
   // Cambiar a modo administrador

@@ -1,0 +1,238 @@
+/**
+ * «TAREAS DE DIRECCIÓN» (orden 116) — las piezas que comparten las dos pantallas: el tablero de escritorio y la del celular del candidato.
+ * Carga DESPUÉS de /js/tareas-direccion-reglas.js y de api() (api-core.js o common.js). Prefijo `td-` en clases (public/css/tareas-direccion.css).
+ *
+ * Lo que vive aquí: el escape de texto, la hoja de calendario, el avatar, el detalle (datos, botón «Marcar como realizada», historial), el formulario
+ * (el MISMO en escritorio y celular), la confirmación y el aviso «Tarea marcada como realizada · Deshacer». Las pantallas solo deciden dónde ponerlos.
+ * NADA se guarda sin señal: si no hay red, el mensaje lo dice y no se encola nada.
+ */
+(function (global) {
+  'use strict';
+  var R = global.TareasDir;
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+  function iniciales(nombre) {
+    var p = String(nombre || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+    return p.map(function (x) { return x.charAt(0).toUpperCase(); }).join('') || '—';
+  }
+  /** «8:00 a. m.» de un sello «AAAA-MM-DD hh:mm:ss». */
+  function hora12(sello) {
+    var m = /(\d{2}):(\d{2})/.exec(String(sello || '').slice(11));
+    if (!m) return '';
+    var h = +m[1]; var ampm = h >= 12 ? 'p. m.' : 'a. m.';
+    return ((h % 12) || 12) + ':' + m[2] + ' ' + ampm;
+  }
+  function fechaHora(sello) { return R.formatoCorto(R.soloFecha(sello)) + ', ' + hora12(sello); }
+
+  var SVG_WA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.25-.46-2.39-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35m-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88m8.41-18.3A11.8 11.8 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.41z"/></svg>';
+
+  /** La hoja de calendario (rojo vencida · amarillo hoy/mañana · verde hecha · azul a tiempo). */
+  function hojaHtml(t) {
+    var dm = R.diaYMes(t.fecha_limite);
+    return '<div class="td-hoja ' + R.COLOR_ESTADO[t.estado_fecha] + '" aria-hidden="true"><div class="mes">' + esc(dm.mes) + '</div><div class="dia">' + esc(dm.dia) + '</div></div>';
+  }
+  function etiquetaEstadoHtml(t) { return '<span class="td-est ' + t.estado_fecha + '">' + R.ROTULO_ESTADO[t.estado_fecha] + '</span>'; }
+
+  /** ¿Se ofrece WhatsApp en esta tarea? No para el candidato, ni en las hechas, ni sin celular. */
+  function conWhatsapp(t) { return !!t.responsable.celular && !t.responsable.es_candidato && t.estado !== 'hecha'; }
+
+  /* ---------------------------------------------------------------------------------------- detalle ---- */
+  function textoAvisoDetalle(t) {
+    var app = t.canal_previsto === 'app';
+    if (t.estado === 'hecha' && t.aviso_estado === 'cancelado') return 'Cancelado: la tarea está realizada';
+    if (!t.aviso_activo || t.aviso_estado === 'cancelado') return 'Apagado';
+    switch (t.aviso_estado) {
+      case 'programado':
+        return (app ? 'En la app' : 'SMS al ' + R.enmascarar(t.responsable.celular)) + ' el ' + R.formatoCorto(t.aviso_para) + ' a las 8:00 a. m.';
+      case 'enviado': return 'Enviado ' + (t.aviso_canal === 'app' ? 'en la app' : 'por SMS') + ' el ' + fechaHora(t.aviso_enviado_en);
+      case 'sin_celular': return 'Sin celular: no hay forma de avisarle';
+      case 'fallido': return 'No se pudo enviar (vea el historial)';
+      case 'no_aplica': return 'Ya no aplica: la fecha límite está encima';
+      default: return 'Apagado';
+    }
+  }
+
+  var ROTULO_EVENTO = { creada: 'Creada', editada: 'Cambio', en_curso: 'En curso', realizada: 'Realizada', reabierta: 'Reabierta', aviso_enviado: 'Aviso enviado',
+    aviso_cancelado: 'Aviso cancelado', aviso_fallido: 'Aviso fallido', whatsapp: 'WhatsApp' };
+  function historialHtml(eventos) {
+    if (!eventos || !eventos.length) return '';
+    return '<h3 class="td-sub">Historial</h3><ul class="td-hist">' + eventos.slice().reverse().map(function (e) {
+      return '<li><time>' + esc(fechaHora(e.creado_en)) + '</time><span><b>' + esc(ROTULO_EVENTO[e.tipo] || e.tipo) + '.</b> ' + esc(e.detalle || '') + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
+  /** El cuerpo del detalle. `o.nota`: el texto bajo el botón verde. Los botones llevan `data-accion` (realizada | reabrir) para que la pantalla los conecte. */
+  function detalleHtml(d, o) {
+    o = o || {};
+    var t = d.tarea; var hoy = d.hoy;
+    var cel = t.responsable.celular ? ' · ' + R.enmascarar(t.responsable.celular) : '';
+    var plazo = t.estado === 'hecha' ? R.textoHecha(t.fecha_limite, t.realizada_en) : R.textoPlazo(t.fecha_limite, hoy);
+    var h = '<dl class="td-datos">'
+      + '<dt>Responsable</dt><dd><b>' + esc(t.responsable.nombre) + '</b><span class="bajo">' + esc(t.responsable.cargo) + esc(cel) + '</span></dd>'
+      + '<dt>Fecha límite</dt><dd>' + esc(R.formatoCorto(t.fecha_limite)) + '<span class="bajo">' + esc(plazo) + '</span></dd>'
+      + '<dt>Prioridad</dt><dd>' + (t.prioridad === 'urgente' ? '⚡ Urgente' : 'Normal') + '</dd>'
+      + '<dt>Aviso automático</dt><dd>' + esc(textoAvisoDetalle(t)) + '</dd>'
+      + '</dl>';
+    if (t.estado === 'hecha') {
+      h += '<button type="button" class="td-btn borde" data-accion="reabrir" style="width:100%;margin:0 0 6px;">↩ Reabrir (volver a Pendientes)</button>';
+    } else {
+      h += '<button type="button" class="td-grande" data-accion="realizada">✓ Marcar como realizada</button>'
+        + '<p class="td-nota">' + esc(o.nota || 'Si la marca hoy, el aviso automático se cancela.') + '</p>';
+    }
+    return h + historialHtml(d.eventos);
+  }
+
+  /* ---------------------------------------------------------------------------------- confirmar y avisar ---- */
+  /** «¿Seguro?» con dos botones. Devuelve una promesa de true/false. */
+  function confirmar(o) {
+    return new Promise(function (ok) {
+      var ov = document.createElement('div');
+      ov.className = 'td-overlay abierto'; ov.style.zIndex = 2500;
+      ov.innerHTML = '<div class="td-modal" role="alertdialog" aria-modal="true" aria-labelledby="td-conf-t" style="max-width:420px;"><div class="td-modal-cab"><h2 id="td-conf-t">' + esc(o.titulo) + '</h2></div>'
+        + '<div class="td-modal-cuerpo"><p style="margin:0;font-size:16px;line-height:1.45;">' + esc(o.texto || '') + '</p></div>'
+        + '<div class="td-modal-pie"><button type="button" class="td-btn borde" data-r="0">Cancelar</button><button type="button" class="td-btn ' + (o.peligro ? 'peligro' : 'azul') + '" data-r="1">' + esc(o.ok || 'Aceptar') + '</button></div></div>';
+      function cerrar(v) { document.removeEventListener('keydown', tecla); ov.remove(); ok(v); }
+      function tecla(e) { if (e.key === 'Escape') cerrar(false); }
+      ov.addEventListener('click', function (e) { var b = e.target.closest('button[data-r]'); if (b) cerrar(b.dataset.r === '1'); else if (e.target === ov) cerrar(false); });
+      document.addEventListener('keydown', tecla);
+      document.body.appendChild(ov);
+      ov.querySelector('button[data-r="0"]').focus();
+    });
+  }
+
+  var snackTimer = null;
+  /** El aviso de abajo. Con `accion` lleva un botón («Deshacer») que vale mientras dure `ms` (6 s por omisión). */
+  function snack(texto, o) {
+    o = o || {};
+    var viejo = document.getElementById('td-snack'); if (viejo) viejo.remove();
+    clearTimeout(snackTimer);
+    var el = document.createElement('div');
+    el.id = 'td-snack'; el.className = 'td-snack' + (o.tipo === 'error' ? ' error' : '');
+    el.setAttribute('role', o.tipo === 'error' ? 'alert' : 'status');
+    el.innerHTML = '<span>' + esc(texto) + '</span>' + (o.accion ? '<button type="button">' + esc(o.accion) + '</button>' : '');
+    if (o.accion) el.querySelector('button').addEventListener('click', function () { clearTimeout(snackTimer); el.remove(); if (o.onAccion) o.onAccion(); });
+    document.body.appendChild(el);
+    snackTimer = setTimeout(function () { if (el.parentNode) el.remove(); }, o.ms || (o.tipo === 'error' ? 6000 : 6000));
+    return el;
+  }
+  /** Un error de red o del servidor, dicho claro. Sin señal: nada se guardó. */
+  function textoDeError(err, leyendo) {
+    if (err && err.esErrorDeRed) return leyendo
+      ? 'Sin señal: las tareas necesitan conexión para verse. Vuelva a intentarlo cuando la tenga.'
+      : 'Sin señal: no se guardó nada. Vuelva a intentarlo cuando tenga conexión.';
+    return (err && err.message) || 'No se pudo completar. Intente de nuevo.';
+  }
+
+  /* ----------------------------------------------------------------------------------------- servidor ---- */
+  var API = '/tareas-direccion';
+  function llamar(metodo, ruta, cuerpo) { return global.api(API + (ruta || ''), cuerpo === undefined ? { method: metodo } : { method: metodo, body: cuerpo }); }
+  var servidor = {
+    listar: function (todasLasHechas) { return llamar('GET', todasLasHechas ? '?hechas=todas' : ''); },
+    detalle: function (id) { return llamar('GET', '/' + id); },
+    resumen: function () { return llamar('GET', '/resumen'); },
+    responsables: function () { return llamar('GET', '/responsables'); },
+    crear: function (d) { return llamar('POST', '', d); },
+    editar: function (id, d) { return llamar('PUT', '/' + id, d); },
+    estado: function (id, estado, deshacer) { return llamar('PATCH', '/' + id + '/estado', deshacer ? { estado: estado, deshacer: true } : { estado: estado }); },
+    whatsapp: function (id) { return llamar('POST', '/' + id + '/whatsapp', {}); },
+    eliminar: function (id) { return llamar('DELETE', '/' + id); },
+  };
+
+  /* ---------------------------------------------------------------------------------------- formulario ---- */
+  /**
+   * Pinta el formulario «Nueva tarea» / «Editar tarea» dentro de `raiz` y devuelve { leer(), error(texto), enfocar() }.
+   *   o.tarea  — la tarea que se edita (o null)         o.resp — { candidato, personas, recordados } de /responsables
+   *   o.yoId   — el id de quien tiene la sesión          o.hoy  — «AAAA-MM-DD» de Colombia
+   */
+  function montarFormulario(raiz, o) {
+    var t = o.tarea; var resp = o.resp || { candidato: [], personas: [], recordados: [] };
+    var cand = resp.candidato || [];
+    var opciones = '<option value="">Elija al responsable…</option>';
+    if (cand.length) opciones += '<optgroup label="Candidato">' + cand.map(function (c) {
+      return '<option value="u:' + c.usuario_id + '">' + esc(c.usuario_id === o.yoId ? 'Yo (candidato)' : 'Candidato · ' + c.nombre) + '</option>'; }).join('') + '</optgroup>';
+    if ((resp.personas || []).length) opciones += '<optgroup label="Equipo de la campaña">' + resp.personas.map(function (p) {
+      return '<option value="u:' + p.usuario_id + '">' + esc(p.nombre + ' · ' + p.cargo) + '</option>'; }).join('') + '</optgroup>';
+    if ((resp.recordados || []).length) opciones += '<optgroup label="Escritos antes">' + resp.recordados.map(function (r, i) {
+      return '<option value="r:' + i + '">' + esc(r.cargo + ' · ' + r.nombre) + '</option>'; }).join('') + '</optgroup>';
+    opciones += '<option value="otro">✍️ Escribir otra persona…</option>';
+
+    raiz.innerHTML = '<form class="td-form" novalidate autocomplete="off">'
+      + '<div class="td-error" id="tdf-error" role="alert"></div>'
+      + '<div class="campo"><label for="tdf-titulo">¿Qué hay que hacer?</label><input type="text" id="tdf-titulo" maxlength="200" placeholder="Por ejemplo: Entregar la rendición de cuentas"></div>'
+      + '<div class="campo"><label for="tdf-resp">Responsable</label><select id="tdf-resp" data-sin-ordenar>' + opciones + '</select></div>'
+      + '<div class="dos"><div class="campo"><label for="tdf-cargo">Cargo</label><input type="text" id="tdf-cargo" maxlength="100" placeholder="Ej.: Tesorera"></div>'
+      + '<div class="campo"><label for="tdf-nombre">Nombre</label><input type="text" id="tdf-nombre" maxlength="150" placeholder="Nombre y apellido"></div></div>'
+      + '<div class="campo"><label for="tdf-cel">Celular del responsable</label><input type="tel" id="tdf-cel" inputmode="tel" maxlength="20" placeholder="300 123 4567"></div>'
+      + '<div class="dos"><div class="campo"><label for="tdf-fecha">Fecha límite</label><input type="date" id="tdf-fecha"></div>'
+      + '<div class="campo"><label id="tdf-prio-et">Prioridad</label><div class="td-seg" role="group" aria-labelledby="tdf-prio-et"><button type="button" data-prio="normal" aria-pressed="true">Normal</button><button type="button" data-prio="urgente" class="urgente" aria-pressed="false">⚡ Urgente</button></div></div></div>'
+      + '<div class="td-aviso-caja"><label class="td-interruptor"><input type="checkbox" id="tdf-aviso" checked><span class="pista"></span><span>🔔 Aviso automático 3 días antes</span></label>'
+      + '<p class="td-frase" id="tdf-frase" aria-live="polite"></p></div>'
+      + '</form>';
+
+    var $ = function (id) { return raiz.querySelector('#' + id); };
+    var estado = { usuarioId: null, esCandidato: false, prioridad: 'normal' };
+
+    function frase() {
+      $('tdf-frase').textContent = R.frasePrevia({ activo: $('tdf-aviso').checked, fechaLimite: $('tdf-fecha').value, celular: $('tdf-cel').value, esCandidato: estado.esCandidato, hoy: o.hoy });
+    }
+    function fijarPrioridad(p) {
+      estado.prioridad = p;
+      raiz.querySelectorAll('[data-prio]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.prio === p ? 'true' : 'false'); });
+    }
+    function bloquearNombre(si) { $('tdf-nombre').readOnly = !!si; }
+
+    $('tdf-resp').addEventListener('change', function () {
+      var v = this.value;
+      estado.usuarioId = null; estado.esCandidato = false; bloquearNombre(false);
+      if (v.indexOf('u:') === 0) {
+        var id = +v.slice(2);
+        var p = cand.concat(resp.personas || []).filter(function (x) { return x.usuario_id === id; })[0];
+        if (p) { estado.usuarioId = p.usuario_id; estado.esCandidato = !!p.es_candidato; $('tdf-nombre').value = p.nombre; $('tdf-cargo').value = p.es_candidato ? 'Candidato' : p.cargo; $('tdf-cel').value = p.celular || ''; bloquearNombre(true); }
+      } else if (v.indexOf('r:') === 0) {
+        var r = (resp.recordados || [])[+v.slice(2)];
+        if (r) { $('tdf-nombre').value = r.nombre; $('tdf-cargo').value = r.cargo; $('tdf-cel').value = r.celular || ''; }
+      } else if (v === 'otro') { $('tdf-nombre').value = ''; $('tdf-cargo').value = ''; $('tdf-cel').value = ''; $('tdf-nombre').focus(); }
+      frase();
+    });
+    ['tdf-fecha', 'tdf-cel', 'tdf-aviso'].forEach(function (id) { $(id).addEventListener('input', frase); $(id).addEventListener('change', frase); });
+    raiz.querySelectorAll('[data-prio]').forEach(function (b) { b.addEventListener('click', function () { fijarPrioridad(b.dataset.prio); }); });
+
+    if (t) {
+      $('tdf-titulo').value = t.titulo; $('tdf-cargo').value = t.responsable.cargo; $('tdf-nombre').value = t.responsable.nombre; $('tdf-cel').value = t.responsable.celular || '';
+      $('tdf-fecha').value = t.fecha_limite; $('tdf-aviso').checked = !!t.aviso_activo; fijarPrioridad(t.prioridad);
+      estado.usuarioId = t.responsable.usuario_id; estado.esCandidato = !!t.responsable.es_candidato;
+      if (t.responsable.usuario_id) { $('tdf-resp').value = 'u:' + t.responsable.usuario_id; if (!$('tdf-resp').value) $('tdf-resp').value = 'otro'; else bloquearNombre(true); }
+      else $('tdf-resp').value = 'otro';
+    }
+    frase();
+
+    return {
+      enfocar: function () { $('tdf-titulo').focus(); },
+      error: function (texto) { var e = $('tdf-error'); e.textContent = texto || ''; e.classList.toggle('visible', !!texto); if (texto) e.scrollIntoView({ block: 'nearest' }); },
+      /** Los datos del formulario, o null (con el error ya pintado) si falta algo. */
+      leer: function () {
+        var d = {
+          titulo: $('tdf-titulo').value.trim(), responsable_usuario_id: estado.usuarioId, responsable_nombre: $('tdf-nombre').value.trim(),
+          responsable_cargo: $('tdf-cargo').value.trim(), responsable_celular: $('tdf-cel').value.trim(), fecha_limite: $('tdf-fecha').value,
+          prioridad: estado.prioridad, aviso_activo: $('tdf-aviso').checked,
+        };
+        var falta = !d.titulo ? ['Escriba qué hay que hacer.', 'tdf-titulo']
+          : !d.responsable_nombre ? ['Elija o escriba al responsable.', 'tdf-resp']
+          : !d.responsable_cargo ? ['Escriba el cargo del responsable (por ejemplo: Tesorera).', 'tdf-cargo']
+          : (d.responsable_celular && !R.normalizarCelular(d.responsable_celular)) ? ['El celular debe tener 10 dígitos y empezar por 3.', 'tdf-cel']
+          : !d.fecha_limite ? ['Elija la fecha límite.', 'tdf-fecha'] : null;
+        if (falta) { this.error(falta[0]); $(falta[1]).focus(); return null; }
+        this.error('');
+        return d;
+      },
+    };
+  }
+
+  global.TareasDirUI = {
+    esc: esc, iniciales: iniciales, hora12: hora12, fechaHora: fechaHora, SVG_WA: SVG_WA, hojaHtml: hojaHtml, etiquetaEstadoHtml: etiquetaEstadoHtml, conWhatsapp: conWhatsapp,
+    textoAvisoDetalle: textoAvisoDetalle, historialHtml: historialHtml, detalleHtml: detalleHtml, confirmar: confirmar, snack: snack, textoDeError: textoDeError,
+    servidor: servidor, montarFormulario: montarFormulario,
+  };
+})(window);

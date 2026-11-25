@@ -194,6 +194,9 @@ if (document.readyState === 'loading') {
    menú siga cayendo a los roles de cada ítem (ver `itemVisible`). */
 const NAV_ITEMS = [
   { href: '/dashboard.html', icono: '📊', texto: 'Panel general', modulo: 'panel_general', roles: null },
+  /* TAREAS DE DIRECCIÓN (orden 116), justo debajo de «Panel general». SOLO el candidato y el superadministrador (`soloDireccion`): no pasa por la matriz de permisos y no se le puede dar a otros
+     roles. Ocultarla aquí es comodidad: lo que decide es el servidor (/api/tareas-direccion responde 403 a todos los demás). Candado amarillo. */
+  { href: '/tareas-direccion.html', icono: '🔒', texto: 'Tareas de dirección', soloDireccion: true },
   {
     grupo: 'Electoral', iconoGrupo: '🗳️',
     items: [
@@ -1549,6 +1552,8 @@ async function inicializarLayout(paginaActiva) {
   function itemVisible(item) {
     // Un complemento apagado no se ve para nadie, y sin respuesta del servidor tampoco: aquí no se «muestra ante la duda».
     if (item.complemento && complementosActivos[item.complemento] !== true) return false;
+    // «Tareas de dirección»: solo el superadministrador y el candidato (rol candidato, o administrador marcado «Es el candidato»); jamás con la lista de direcciones del aspirante.
+    if (item.soloDireccion) return !hrefsPermitidos && (!!usuario.es_superadmin || usuario.rol === 'candidato' || (usuario.rol === 'admin' && !!usuario.es_candidato));
     if (item.noPara && item.noPara.includes(usuario.rol)) return false;
     // La lista de direcciones manda sobre la de módulos cuando llega: es más
     // fina. El servidor sólo la envía a quien la necesita.

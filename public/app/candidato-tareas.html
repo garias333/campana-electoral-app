@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0B5ED7">
+<title>Tareas de dirección · Candidato</title>
+<link rel="manifest" href="/app/manifest.json">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/app/estilos-app.css">
+<link rel="stylesheet" href="/app/candidato-letra.css">
+<link rel="stylesheet" href="/app/candidato.css">
+<link rel="stylesheet" href="/css/tareas-direccion.css">
+<style>
+  /* TAREAS DE DIRECCIÓN en el celular del candidato (orden 116). Mobile-first (390 px). Mismo encabezado azul y barra inferior que el resto de su app.
+     Todas las tarjetas miden lo mismo (filas de alto fijo): el título, el responsable, el aviso, el estado y los botones quedan a la misma altura en todas. */
+  .tdm-tabs { display: flex; gap: 8px; padding: 14px 16px 6px; }
+  .tdm-tabs button { flex: 1; min-width: 0; font: inherit; font-size: var(--c-med); font-weight: 700; border: 0; border-radius: 14px; padding: 10px 4px; min-height: 48px; cursor: pointer; background: #fff; color: var(--azo); box-shadow: 0 2px 8px rgba(8, 66, 152, .08); }
+  .tdm-tabs button b { display: block; font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tdm-tabs button[aria-selected=true] { background: var(--azo); color: #fff; }
+  .tdm-tabs button .rojo { color: var(--rojo); }
+  .tdm-lista { padding: 8px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+  .tdm-card { height: 224px; box-sizing: border-box; background: #fff; border-radius: 18px; box-shadow: 0 4px 14px rgba(8, 66, 152, .08); padding: 14px; overflow: hidden; cursor: pointer;
+    display: grid; grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 44px 38px 20px 22px 46px; column-gap: 12px; row-gap: 5px; }
+  .tdm-card .celda-hoja { grid-column: 1; grid-row: 1 / span 3; }
+  .tdm-card .titulo { grid-column: 2; grid-row: 1; font-size: var(--c-base); line-height: 22px; font-weight: 700; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .tdm-card .resp { grid-column: 2; grid-row: 2; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tdm-card .resp .quien { min-width: 0; flex: 1; }
+  .tdm-card .resp b, .tdm-card .resp .cargo { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tdm-card .resp b { font-size: var(--c-med); line-height: 19px; }
+  .tdm-card .resp .cargo { font-size: var(--c-sec); line-height: 18px; color: var(--mu); }
+  .tdm-card .aviso { grid-column: 2; grid-row: 3; font-size: var(--c-sec); line-height: 20px; color: #44506b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tdm-card .aviso.ok { color: #17743f; font-weight: 700; } .tdm-card .aviso.apagado { color: var(--mu); } .tdm-card .aviso.error { color: var(--rojo); font-weight: 700; }
+  .tdm-card .estado { grid-column: 1 / -1; grid-row: 4; display: flex; align-items: center; }
+  .tdm-card .estado .td-est { font-size: var(--c-sec); }
+  .tdm-card .botones { grid-column: 1 / -1; grid-row: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .tdm-btn { font: inherit; font-size: var(--c-sec); font-weight: 700; border-radius: 12px; min-height: 44px; border: 0; padding: 0 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; white-space: nowrap; }
+  .tdm-btn.mover { background: #eaf1ff; color: var(--azo); }
+  .tdm-btn.hecha { background: #fff; color: #17743f; box-shadow: inset 0 0 0 2px var(--verde); }
+  .tdm-btn.wa { background: #25D366; color: #fff; }
+  .tdm-btn.wa svg { width: 18px; height: 18px; fill: currentColor; }
+  .tdm-btn.oculto { visibility: hidden; }
+  .tdm-vacio { text-align: center; color: var(--mu); padding: 26px 16px; font-size: var(--c-med); }
+  .tdm-final { padding: 18px 16px 8px; }
+  .tdm-final .td-btn { width: 100%; font-size: 17px; padding: 15px; }
+  .tdm-ver-hechas { width: 100%; margin-top: 4px; }
+  /* Pantalla completa: la tarea abierta y el formulario */
+  .tdm-pantalla { position: fixed; inset: 0; z-index: 900; background: var(--bg); overflow-y: auto; display: none; padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+  .tdm-pantalla.abierta { display: block; }
+  /* El encabezado de las pantallas completas es PROPIO (no `.barra`): `cMontarSalir` pondría un «Salir» en cada `.barra`, y el de la página de atrás ya basta. */
+  .tdm-barra { background: linear-gradient(160deg, var(--az), var(--azo)); color: #fff; padding: calc(22px + env(safe-area-inset-top, 0px)) 18px 16px; }
+  .tdm-barra h1 { font-size: var(--c-barra); margin: 0; }
+  .tdm-barra .fila-barra { display: flex; align-items: center; gap: 10px; }
+  .tdm-barra .fila-barra > div { flex: 1; min-width: 0; }
+  .tdm-cuerpo { margin: 14px 16px 0; background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 4px 14px rgba(8, 66, 152, .06); }
+  .tdm-cuerpo .cab { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+  .tdm-cuerpo .cab h2 { margin: 0; font-size: var(--c-tit); line-height: 1.3; overflow-wrap: anywhere; flex: 1; min-width: 0; }
+  /* En el celular cada dato va en dos líneas (rótulo arriba, valor abajo): a 17 px el rótulo «Responsable» no cabe en una columna angosta sin chocar con el valor. */
+  .tdm-cuerpo .td-datos { font-size: var(--c-base); grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .tdm-cuerpo .td-datos dt { font-size: var(--c-sec); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+  .tdm-cuerpo .td-datos dd { margin-bottom: 2px; }
+  .tdm-cuerpo .td-datos .bajo, .tdm-cuerpo .td-nota, .tdm-cuerpo .td-hist li { font-size: var(--c-sec); }
+  .tdm-cuerpo .td-grande { font-size: 18px; padding: 16px; }
+  .tdm-acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 16px 0; }
+  .tdm-acciones .td-btn { text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 8px; font-size: 16px; }
+  .tdm-barra-pie { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--ln); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; z-index: 910; }
+  .tdm-barra-pie .td-btn { flex: 1; padding: 14px 8px; font-size: 16px; }
+  .tdm-eliminar { display: block; margin: 16px auto 0; background: none; border: 0; font: inherit; font-size: var(--c-med); font-weight: 700; color: #a12a2a; padding: 12px; cursor: pointer; }
+  .td-snack { bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+</style>
+</head>
+<body class="cand">
+<div class="cand-ancho">
+  <div class="barra">
+    <small>Dirección</small>
+    <div class="fila-barra">
+      <a class="btn-volver" href="/app/candidato-mas.html" aria-label="Volver a Más">←</a>
+      <div><h1>Tareas de dirección</h1></div>
+      <button type="button" class="btn-refrescar" id="btn-refrescar" aria-label="Actualizar">⟳</button>
+    </div>
+  </div>
+  <div id="error-carga" class="error-carga" role="alert"></div>
+  <div class="tdm-tabs" role="tablist" aria-label="Estado de las tareas">
+    <button type="button" role="tab" data-tab="pendiente" aria-selected="true">Pendientes<b>0</b></button>
+    <button type="button" role="tab" data-tab="en_curso" aria-selected="false">En curso<b>0</b></button>
+    <button type="button" role="tab" data-tab="hecha" aria-selected="false">Hechas<b>0</b></button>
+  </div>
+  <div id="cargando" class="cargando">Cargando…</div>
+  <div class="tdm-lista" id="lista" role="tabpanel"></div>
+  <div class="tdm-final"><button type="button" class="td-btn amarillo" id="btn-nueva">＋ Nueva tarea</button></div>
+</div>
+
+<!-- La tarea abierta, a pantalla completa -->
+<div class="tdm-pantalla" id="pant-tarea" role="dialog" aria-modal="true" aria-label="Tarea">
+  <div class="tdm-barra"><div class="fila-barra"><button type="button" class="btn-volver" data-cerrar="pant-tarea" aria-label="Volver a las tareas" style="border:0;">←</button><div><h1>Tarea</h1></div></div></div>
+  <div class="tdm-cuerpo" id="tarea-cuerpo"></div>
+  <div class="tdm-acciones" id="tarea-acciones"></div>
+</div>
+<!-- El formulario «Nueva tarea» / «Editar tarea», a pantalla completa -->
+<div class="tdm-pantalla" id="pant-form" role="dialog" aria-modal="true" aria-label="Tarea">
+  <div class="tdm-barra"><div class="fila-barra"><button type="button" class="btn-volver" data-cerrar="pant-form" aria-label="Cancelar" style="border:0;">←</button><div><h1 id="form-titulo">Nueva tarea</h1></div></div></div>
+  <div class="tdm-cuerpo" id="form-cuerpo"></div>
+  <button type="button" class="tdm-eliminar" id="form-eliminar" style="display:none;">Eliminar esta tarea</button>
+  <div class="tdm-barra-pie"><button type="button" class="td-btn borde" data-cerrar="pant-form">Cancelar</button><button type="button" class="td-btn azul" id="form-guardar">Guardar</button></div>
+</div>
+
+<script src="/js/api-core.js"></script>
+<script src="/js/cuentas-dispositivo.js"></script>
+<script src="/app/app-comun.js"></script>
+<script src="/js/es-celular.js"></script>
+<script src="/app/candidato-nav.js"></script>
+<script src="/js/tareas-direccion-reglas.js"></script>
+<script src="/js/tareas-direccion-ui.js"></script>
+<script>
+const R = TareasDir, UI = TareasDirUI, S = UI.servidor;
+const $ = (id) => document.getElementById(id);
+const esc = UI.esc;
+let usuario = null;
+let tareas = [], hoy = '', hechasTotal = 0, hechasMostradas = 0, verTodasHechas = false;
+let tab = 'pendiente';
+let responsables = null, abiertaId = null, editandoId = null, formulario = null;
+
+function mostrarError(err) { const e = $('error-carga'); e.textContent = err ? UI.textoDeError(err, true) : ''; e.classList.toggle('visible', !!err); }
+
+function iconoAviso(t, tono) { return t.estado === 'hecha' ? '' : (tono === 'apagado' ? '🔕 ' : (tono === 'error' ? '⚠️ ' : '🔔 ')); }
+function tarjetaHtml(t) {
+  const l = R.lineaAviso(t, hoy);
+  const wa = UI.conWhatsapp(t);
+  const url = wa ? R.urlWhatsapp(t.responsable.celular, t.responsable.nombre, t.titulo, t.fecha_limite) : null;
+  let botones;
+  if (t.estado === 'hecha') {
+    botones = `<button type="button" class="tdm-btn mover" data-reabrir="${t.id}">↩ Reabrir</button><span class="tdm-btn oculto"></span><span class="tdm-btn oculto"></span>`;
+  } else {
+    botones = (t.estado === 'en_curso'
+        ? `<button type="button" class="tdm-btn mover" data-mover="${t.id}" data-a="pendiente">⏸ Pendiente</button>`
+        : `<button type="button" class="tdm-btn mover" data-mover="${t.id}" data-a="en_curso">▶ En curso</button>`)
+      + `<button type="button" class="tdm-btn hecha" data-realizada="${t.id}">✓ Realizada</button>`
+      + (wa ? `<a class="tdm-btn wa" href="${esc(url)}" target="_blank" rel="noopener" data-wa="${t.id}" aria-label="Recordar por WhatsApp a ${esc(t.responsable.nombre)}">${UI.SVG_WA} Recordar</a>`
+            : `<span class="tdm-btn wa oculto" aria-hidden="true">Recordar</span>`);
+  }
+  return `<article class="tdm-card" tabindex="0" role="button" data-id="${t.id}" aria-label="${esc((t.prioridad === 'urgente' ? 'Urgente. ' : '') + t.titulo + '. Responsable: ' + t.responsable.nombre + ', ' + t.responsable.cargo + '. ' + R.ROTULO_ESTADO[t.estado_fecha])}">
+    <div class="celda-hoja">${UI.hojaHtml(t)}</div>
+    <div class="titulo">${t.prioridad === 'urgente' ? '⚡ ' : ''}${esc(t.titulo)}</div>
+    <div class="resp"><span class="td-avatar${t.responsable.es_candidato ? ' cand' : ''}" aria-hidden="true">${esc(UI.iniciales(t.responsable.nombre))}</span>
+      <div class="quien"><b>${esc(t.responsable.nombre)}</b><span class="cargo">${esc(t.responsable.cargo)}</span></div></div>
+    <div class="aviso ${l.tono}">${iconoAviso(t, l.tono)}${esc(l.texto)}</div>
+    <div class="estado">${UI.etiquetaEstadoHtml(t)}</div>
+    <div class="botones">${botones}</div>
+  </article>`;
+}
+function ordenar(col, lista) {
+  const a = lista.slice();
+  if (col === 'hecha') return a.sort((x, y) => String(y.realizada_en || '').localeCompare(String(x.realizada_en || '')) || y.id - x.id);
+  return a.sort((x, y) => x.fecha_limite.localeCompare(y.fecha_limite) || x.id - y.id);
+}
+function pintar() {
+  document.querySelectorAll('.tdm-tabs button').forEach((b) => {
+    const c = b.dataset.tab; const n = tareas.filter((t) => t.estado === c).length;
+    b.querySelector('b').textContent = n; b.setAttribute('aria-selected', c === tab ? 'true' : 'false');
+  });
+  const lista = ordenar(tab, tareas.filter((t) => t.estado === tab));
+  let html = lista.length ? lista.map(tarjetaHtml).join('') : `<div class="tdm-vacio">No hay tareas ${tab === 'pendiente' ? 'pendientes' : (tab === 'en_curso' ? 'en curso' : 'hechas')}.</div>`;
+  if (tab === 'hecha' && !verTodasHechas && hechasTotal > hechasMostradas) html += `<button type="button" class="td-btn borde tdm-ver-hechas" id="ver-hechas">Ver todas las hechas (${hechasTotal})</button>`;
+  $('lista').innerHTML = html;
+}
+function reemplazar(t) { const i = tareas.findIndex((x) => x.id === t.id); if (i >= 0) tareas[i] = t; else tareas.push(t); }
+async function cargar(esRefresco) {
+  const b = $('btn-refrescar'); b.classList.add('girando');
+  try {
+    const r = await S.listar(verTodasHechas);
+    tareas = r.tareas; hoy = r.hoy; hechasTotal = r.hechas_total; hechasMostradas = r.hechas_mostradas;
+    mostrarError(null); $('cargando').style.display = 'none'; pintar();
+  } catch (e) {
+    $('cargando').style.display = 'none';
+    if (esRefresco && tareas.length) UI.snack(UI.textoDeError(e), { tipo: 'error' }); else mostrarError(e);
+  } finally { b.classList.remove('girando'); }
+}
+async function recontar() { try { const r = await S.listar(verTodasHechas); tareas = r.tareas; hoy = r.hoy; hechasTotal = r.hechas_total; hechasMostradas = r.hechas_mostradas; } catch (_) { /* se queda con lo que hay */ } }
+
+/* ---- acciones ---- */
+async function marcarRealizada(id) {
+  try {
+    const r = await S.estado(id, 'hecha');
+    if (r.sinCambios) return;
+    reemplazar(r.tarea); cerrarPantalla('pant-tarea'); await recontar(); pintar();
+    UI.snack('Tarea marcada como realizada', { accion: 'Deshacer', onAccion: async () => {
+      try { const d = await S.estado(id, r.estado_anterior, true); reemplazar(d.tarea); await recontar(); pintar(); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+    } });
+  } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+}
+async function mover(id, destino) {
+  try { const r = await S.estado(id, destino); reemplazar(r.tarea); pintar(); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+}
+async function reabrir(id) {
+  const ok = await UI.confirmar({ titulo: '¿Reabrir la tarea?', texto: 'Saldrá de «Hechas» y volverá a Pendientes.', ok: 'Reabrir' });
+  if (!ok) return;
+  try { const r = await S.estado(id, 'pendiente'); reemplazar(r.tarea); await recontar(); cerrarPantalla('pant-tarea'); tab = 'pendiente'; pintar(); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+}
+
+/* ---- pantallas completas ---- */
+function abrirPantalla(id) { $(id).classList.add('abierta'); $(id).scrollTop = 0; document.body.style.overflow = 'hidden'; }
+function cerrarPantalla(id) { $(id).classList.remove('abierta'); if (!document.querySelector('.tdm-pantalla.abierta')) document.body.style.overflow = ''; if (id === 'pant-tarea') abiertaId = null; if (id === 'pant-form') formulario = null; }
+document.addEventListener('click', (e) => { const c = e.target.closest('[data-cerrar]'); if (c) cerrarPantalla(c.dataset.cerrar); });
+
+async function abrirTarea(id) {
+  let d;
+  try { d = await S.detalle(id); } catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); return; }
+  abiertaId = id; const t = d.tarea;
+  $('tarea-cuerpo').innerHTML = `<div class="cab">${UI.hojaHtml(t)}<h2>${t.prioridad === 'urgente' ? '⚡ ' : ''}${esc(t.titulo)}</h2></div>`
+    + UI.detalleHtml(d, { nota: 'Úselo si la tarea se hizo antes de tiempo. El aviso automático se cancela.' });
+  const wa = UI.conWhatsapp(t);
+  $('tarea-acciones').innerHTML = (wa
+      ? `<a class="td-btn" style="background:#25D366;color:#fff;" href="${esc(R.urlWhatsapp(t.responsable.celular, t.responsable.nombre, t.titulo, t.fecha_limite))}" target="_blank" rel="noopener" data-wa="${t.id}">💬 Recordar</a>`
+      : `<span class="td-btn" style="visibility:hidden;" aria-hidden="true">💬 Recordar</span>`)
+    + `<button type="button" class="td-btn borde" data-editar="${t.id}">✏️ Editar</button>`;
+  abrirPantalla('pant-tarea');
+}
+$('pant-tarea').addEventListener('click', (e) => {
+  const wa = e.target.closest('[data-wa]'); if (wa) { S.whatsapp(+wa.dataset.wa).catch(() => {}); return; }
+  const ac = e.target.closest('[data-accion]');
+  if (ac && ac.dataset.accion === 'realizada') return marcarRealizada(abiertaId);
+  if (ac && ac.dataset.accion === 'reabrir') return reabrir(abiertaId);
+  const ed = e.target.closest('[data-editar]'); if (ed) { const t = tareas.find((x) => x.id === +ed.dataset.editar); cerrarPantalla('pant-tarea'); abrirFormulario(t); }
+});
+
+async function abrirFormulario(t) {
+  editandoId = t ? t.id : null;
+  try { responsables = await S.responsables(); } catch (e) { if (!responsables) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); return; } }
+  $('form-titulo').textContent = t ? 'Editar tarea' : 'Nueva tarea';
+  formulario = UI.montarFormulario($('form-cuerpo'), { tarea: t || null, resp: responsables, yoId: usuario.id, hoy });
+  $('form-eliminar').style.display = t ? 'block' : 'none';
+  abrirPantalla('pant-form');
+}
+$('btn-nueva').addEventListener('click', () => abrirFormulario(null));
+$('form-guardar').addEventListener('click', async () => {
+  if (!formulario) return;
+  const datos = formulario.leer(); if (!datos) return;
+  const b = $('form-guardar'); b.disabled = true;
+  try {
+    const r = editandoId ? await S.editar(editandoId, datos) : await S.crear(datos);
+    reemplazar(r.tarea); cerrarPantalla('pant-form'); pintar(); UI.snack(editandoId ? 'Tarea actualizada' : 'Tarea creada');
+  } catch (e) { formulario.error(UI.textoDeError(e)); }
+  finally { b.disabled = false; }
+});
+$('form-eliminar').addEventListener('click', async () => {
+  if (!editandoId) return;
+  const id = editandoId; const t = tareas.find((x) => x.id === id);
+  const ok = await UI.confirmar({ titulo: '¿Eliminar esta tarea?', texto: `«${t ? t.titulo : ''}» se borrará con su historial. No se puede deshacer.`, ok: 'Eliminar', peligro: true });
+  if (!ok) return;
+  try { await S.eliminar(id); tareas = tareas.filter((x) => x.id !== id); cerrarPantalla('pant-form'); await recontar(); pintar(); UI.snack('Tarea eliminada'); }
+  catch (e) { UI.snack(UI.textoDeError(e), { tipo: 'error' }); }
+});
+
+/* ---- lista: toques ---- */
+$('lista').addEventListener('click', (e) => {
+  if (e.target.closest('#ver-hechas')) { verTodasHechas = true; cargar(true); return; }
+  const wa = e.target.closest('[data-wa]'); if (wa) { S.whatsapp(+wa.dataset.wa).catch(() => {}); return; }
+  const re = e.target.closest('[data-realizada]'); if (re) { marcarRealizada(+re.dataset.realizada); return; }
+  const mv = e.target.closest('[data-mover]'); if (mv) { mover(+mv.dataset.mover, mv.dataset.a); return; }
+  const rb = e.target.closest('[data-reabrir]'); if (rb) { reabrir(+rb.dataset.reabrir); return; }
+  const card = e.target.closest('.tdm-card'); if (card) abrirTarea(+card.dataset.id);
+});
+$('lista').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('tdm-card')) { e.preventDefault(); abrirTarea(+e.target.dataset.id); } });
+document.querySelector('.tdm-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]'); if (!b) return;
+  tab = b.dataset.tab; try { sessionStorage.setItem('td_tab', tab); } catch (_) {} pintar();
+});
+$('btn-refrescar').addEventListener('click', () => cargar(true));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && usuario && !document.querySelector('.tdm-pantalla.abierta')) cargar(true); });
+
+(async function () {
+  usuario = await exigirCandidatoApp('mas');
+  if (!usuario) return;
+  try { const g = sessionStorage.getItem('td_tab'); if (['pendiente', 'en_curso', 'hecha'].includes(g)) tab = g; } catch (_) {}
+  await cargar(false);
+})();
+</script>
+</body>
+</html>

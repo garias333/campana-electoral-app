@@ -307,6 +307,8 @@ app.use('/api/tareas', require('./routes/tareas.routes'));
 app.use('/api/puerta-a-puerta', require('./routes/puertaAPuerta.routes'));
 // Recordatorios automáticos: la pestaña «Recordatorios» de Configuración (solo con el módulo `recordatorios`).
 app.use('/api/recordatorios', require('./routes/recordatorios.routes'));
+// Tareas de dirección (orden 116): SOLO el candidato y el superadministrador (403 para todos los demás, sin pasar por la matriz de permisos). Distinta de «Tareas» (las de campo).
+app.use('/api/tareas-direccion', require('./routes/tareasDireccion.routes'));
 
 // Retoma cualquier campaña de Email/SMS que haya quedado a medias
 // si el proceso se reinició en medio de un envío grande (ver
@@ -341,6 +343,9 @@ require('./lib/solicitudesMantenimiento').iniciar();
 
 // Tareas (parche 306): cada 5 minutos cierra las metas de registros alcanzadas y revisa las tareas por reasignar. Ver lib/tareasMantenimiento.js.
 require('./lib/tareasMantenimiento').iniciar();
+
+// Tareas de dirección (orden 116): el aviso automático 3 días antes, todos los días a las 08:00 de Colombia (y al arrancar, si el servidor se levanta después de esa hora). Ver lib/tareasDireccion.js.
+require('./lib/tareasDireccion').iniciar();
 
 // --- Archivos subidos (los recursos se descargan de forma controlada vía /api/recursos/:id/descargar,
 //     pero comprobantes de finanzas y otros usos internos se sirven directamente) ---
