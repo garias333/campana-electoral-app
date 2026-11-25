@@ -70,14 +70,18 @@
   .tdm-barra-pie .td-btn { flex: 1; padding: 14px 8px; font-size: 16px; }
   .tdm-eliminar { display: block; margin: 16px auto 0; background: none; border: 0; font: inherit; font-size: var(--c-med); font-weight: 700; color: #a12a2a; padding: 12px; cursor: pointer; }
   .td-snack { bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+  /* Orden 120: con la barra inferior del administrador (la del candidato ya deja su sitio en .cand-ancho). */
+  body.tdm-modo-admin .cand-ancho { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 </style>
 </head>
 <body class="cand">
 <div class="cand-ancho">
-  <div class="barra">
+  <!-- Orden 120: el administrador (superadmin o «Es el candidato» en Modo administrador) trae el encabezado de su app, no este. -->
+  <div class="app-barra" id="app-barra" style="display:none;"></div>
+  <div class="barra" id="barra-cand">
     <small>Dirección</small>
     <div class="fila-barra">
-      <a class="btn-volver" href="/app/candidato-mas.html" aria-label="Volver a Más">←</a>
+      <a class="btn-volver" id="btn-volver-lista" href="/app/candidato-mas.html" aria-label="Volver a Más">←</a>
       <div><h1>Tareas de dirección</h1></div>
       <button type="button" class="btn-refrescar" id="btn-refrescar" aria-label="Actualizar">⟳</button>
     </div>
@@ -112,6 +116,7 @@
 <script src="/app/app-comun.js"></script>
 <script src="/js/es-celular.js"></script>
 <script src="/app/candidato-nav.js"></script>
+<script src="/app/admin-nav.js"></script>
 <script src="/js/tareas-direccion-reglas.js"></script>
 <script src="/js/tareas-direccion-ui.js"></script>
 <script>
@@ -272,8 +277,28 @@ $('btn-refrescar').addEventListener('click', () => cargar(true));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && usuario && !document.querySelector('.tdm-pantalla.abierta')) cargar(true); });
 
 (async function () {
-  usuario = await exigirCandidatoApp('mas');
+  /* ORDEN 120: la pantalla sirve a quien el SERVIDOR deja entrar (`tareas_direccion`, la misma función que da el 403): el candidato, el administrador «Es el candidato» y el
+     superadministrador. Con un servidor anterior (sin ese dato) vale la regla vieja: solo candidato. El encabezado y la barra de abajo son los del rol con que entra:
+       · candidato, o administrador «Es el candidato» que viene de la app del candidato (o sesión «solo candidato») → los del candidato; «volver» = Más;
+       · administrador (superadmin, o «Es el candidato» en Modo administrador) → los de la app de administración; «volver» = de donde vino (?volver=), por omisión el menú. */
+  usuario = await requerirSesionApp();
   if (!usuario) return;
+  const puede = typeof usuario.tareas_direccion === 'boolean' ? usuario.tareas_direccion : (usuario.rol === 'candidato' || cEsAdminCandidato(usuario));
+  if (!puede) { window.location.replace(usuario.rol === 'admin' ? '/app/admin-panel.html' : '/app/inicio.html'); return; }
+  const modoCandidato = usuario.rol === 'candidato' || !!usuario.solo_candidato || cEsModoCandidato(usuario);
+  if (modoCandidato) {
+    montarNavCandidato('mas');
+    cMontarSalir();
+  } else {
+    // El destino de «volver» solo puede ser una pantalla de /app/ (nada de //otro-sitio ni javascript:).
+    let volver = new URLSearchParams(location.search).get('volver') || '';
+    if (!/^\/app\/[A-Za-z0-9_.\-\/?=&]*$/.test(volver) || volver.indexOf('//') >= 0) volver = '/app/inicio.html';
+    $('barra-cand').style.display = 'none';
+    $('app-barra').style.display = '';
+    pintarBarraApp('Tareas de dirección', null, volver);
+    montarNavAdmin('');
+    document.body.classList.add('tdm-modo-admin');
+  }
   try { const g = sessionStorage.getItem('td_tab'); if (['pendiente', 'en_curso', 'hecha'].includes(g)) tab = g; } catch (_) {}
   await cargar(false);
 })();

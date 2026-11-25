@@ -169,6 +169,9 @@ const MENU_ADMIN = [
   // Orden 81: solo para el administrador que también es el candidato (marca «Es el candidato»): abre la app del candidato (que recuerda ese modo en este equipo).
   { href: '/app/candidato.html', icono: '🎖️', titulo: 'Modo candidato', subtitulo: 'La app del candidato', soloAdminCandidato: true },
   { href: '/app/admin-panel.html', icono: '📊', titulo: 'Panel general', subtitulo: 'Cifras, equipo, posiciones y eventos' },
+  /* ORDEN 120: «Tareas de dirección» también en el celular del administrador, solo si el servidor lo autoriza (`usuario.tareas_direccion`, la misma función que da el 403 de la API:
+     superadministrador, administrador «Es el candidato»). Abre la pantalla del celular de la orden 116; `volver` la hace regresar aquí. El globo rojo lleva las vencidas. */
+  { href: '/app/candidato-tareas.html?volver=/app/inicio.html', icono: '✅<span class="candado" aria-hidden="true">🔒</span>', titulo: 'Tareas de dirección', subtitulo: 'Privado: lo que la dirección debe sacar adelante', soloDireccion: true, globoTareas: true },
   { href: '/app/mis-avisos.html', icono: '🔔', titulo: 'Mis avisos', subtitulo: 'Lo que te mandó la campaña, completo', insigniaAvisos: true },
   { href: '/app/admin-estructura.html', icono: '🏛️', titulo: 'Estructura territorial', subtitulo: 'Coordinadores, líderes y sublíderes' },
   { href: '/territorial.html?app=1#nuevo', icono: '👥', titulo: 'Agregar coordinadores o líderes', subtitulo: 'Sumar a alguien nuevo a la estructura' },
@@ -235,6 +238,7 @@ async function modulosPermitidosApp() {
 const ORDEN_MENU_APP = {
   '/app/candidato.html': [0, 0],
   '/app/admin-panel.html': [0, 1],
+  '/app/candidato-tareas.html?volver=/app/inicio.html': [0, 1.5],
   '/app/admin-votantes.html': [0, 2],
   '/app/admin-mapa.html': [0, 3],
   '/app/mis-registros.html': [1, 1], '/app/registro-votante.html': [1, 1],
@@ -304,6 +308,7 @@ function tarjetaMenuApp(it) {
       <div class="icono" aria-hidden="true">${it.icono}</div>
       <div class="texto"><strong>${it.titulo}</strong><span>${it.subtitulo}</span></div>
       ${it.insigniaAvisos ? '<span id="insignia-avisos" class="insignia-menu" hidden></span>' : ''}
+      ${it.globoTareas ? '<span id="globo-tareas" class="globo-tareas" hidden></span>' : ''}
       <div class="flecha" aria-hidden="true">›</div>
     </a>`;
 }
@@ -317,12 +322,25 @@ function pintarMenu(rol, modulosPermitidos, esAspirante, complementos) {
                               && (!it.modulos || it.modulos.some(m => (modulosPermitidos || []).includes(m)))
                               && (!it.soloSiEscritorio || prefiereEscritorio)
                               && (!it.soloAspirante || esAspirante)
-                              && (!it.soloAdminCandidato || window.__esAdminCandidato === true));
+                              && (!it.soloAdminCandidato || window.__esAdminCandidato === true)
+                              && (!it.soloDireccion || window.__tareasDireccion === true));
   document.getElementById('menu-app').innerHTML = agruparMenuApp(items)
     .map(grupo => `<section class="menu-grupo"><h2 class="menu-grupo-titulo">${tituloGrupoMenuApp(grupo.g)}</h2>`
       + `<div class="menu-grid">${grupo.items.map(tarjetaMenuApp).join('')}</div></section>`)
     .join('');
   pintarInsigniaAvisos();
+  if (window.__tareasDireccion === true) pintarGloboTareas();
+}
+
+/* ORDEN 120: el globo rojo de «Tareas de dirección» con las vencidas. Sin señal o con error no hay globo: la tarjeta se ve igual. */
+async function pintarGloboTareas() {
+  const el = document.getElementById('globo-tareas');
+  if (!el) return;
+  try {
+    const r = await api('/tareas-direccion/resumen');
+    const v = Number(r && r.vencidas) || 0;
+    if (v > 0) { el.textContent = v > 99 ? '99+' : String(v); el.setAttribute('aria-label', v + ' vencidas'); el.hidden = false; }
+  } catch (_) { /* sin señal: sin globo */ }
 }
 
 /* La insignia «N nuevos» de Mis avisos. «Nuevo» = más reciente que lo último que se abrió EN ESTE CELULAR (localStorage): no hay «leído» en
@@ -398,6 +416,8 @@ function pintarCampana(campana, bio) {
     if (!modoAdmin) { window.location.replace('/app/candidato.html'); return; }
     window.__esAdminCandidato = true;
   }
+  // Orden 120: lo que dice el servidor; sin ese dato (respuesta de un servidor anterior), nada.
+  window.__tareasDireccion = usuario.rol === 'admin' && usuario.tareas_direccion === true;
 
   if (usuario.rol === 'coordinador') document.body.classList.add('inicio-coordinador');   // orden 68: el nuevo diseño de «Mi equipo» (solo el coordinador)
   pintarBarraApp('Estrategia', null, null);
