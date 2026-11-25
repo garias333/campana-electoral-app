@@ -6,7 +6,7 @@
 //     sesión «solo candidato» → true; administrador sin la casilla, coordinador, líder → false);
 //   · el ítem sale debajo de «Panel general» exactamente para esos, y la API responde 200 a ellos y 403 a los demás;
 //   · si el servidor es de la versión anterior (/me SIN `tareas_direccion`) el menú cae a la regla del navegador y el superadministrador lo sigue viendo;
-//   · un navegador con el service worker estrategia-v233 (y su caché) que recibe el despliegue nuevo ve el ítem en la primera recarga, y queda en v235.
+//   · un navegador con el service worker estrategia-v233 (y su caché) que recibe el despliegue nuevo ve el ítem en la primera recarga, y queda en la versión nueva del service worker.
 //
 // USO (base desechable ya inicializada con init-db; NO correr junto a otra prueba con Chromium):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada118 node scripts/probar-menu-tareas-direccion.js
@@ -40,6 +40,7 @@ function ok(cond, texto, extra) {
   else { fallos++; console.log('  FALLA ' + texto + (extra !== undefined ? '  → ' + JSON.stringify(extra).slice(0, 700) : '')); }
 }
 const q = async (sql, p) => (await pool.query(sql, p))[0];
+const VERSION_SW = /CACHE_NAME = '([^']+)'/.exec(fs.readFileSync(path.join(RAIZ, 'public/service-worker.js'), 'utf8'))[1];   // la que lleva el árbol actual
 const SEMILLA = '5ff7ca6';   // el árbol de ANTES de «Tareas de dirección» (service worker estrategia-v233)
 
 (async () => {
@@ -128,7 +129,7 @@ const SEMILLA = '5ff7ca6';   // el árbol de ANTES de «Tareas de dirección» (
     await ir2('/dashboard.html', 4500);
     const primera = await estado();
     ok(primera.item && primera.commonNuevo, 'tras el despliegue, la PRIMERA recarga normal ya muestra el ítem (sin borrar caché)', primera);
-    ok(primera.caches.join() === 'estrategia-v235', 'y el service worker queda en estrategia-v235, sin rastro de la v233', primera.caches);
+    ok(primera.caches.join() === VERSION_SW, `y el service worker queda en ${VERSION_SW}, sin rastro de la v233`, primera.caches);
     await ir2('/dashboard.html', 3000);
     ok((await estado()).item, 'la segunda recarga también lo muestra');
     p2.cerrar();

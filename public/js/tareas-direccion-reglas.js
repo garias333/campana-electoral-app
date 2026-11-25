@@ -150,7 +150,7 @@
     var cel = normalizarCelular(o.celular);
     if (cel) return 'SMS al ' + enmascarar(cel) + ' el ' + formatoCorto(ap) + ', si no está realizada.';
     if (o.conApp) return 'Le llega en la app el ' + formatoCorto(ap) + ', si no está realizada.';
-    return 'Sin celular no sale el SMS. Escriba el celular del responsable.';
+    return 'Sin celular registrado: no habrá SMS ni WhatsApp. Agréguelo en el organigrama o en Estructura.';
   }
 
   return {

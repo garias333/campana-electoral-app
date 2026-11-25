@@ -53,6 +53,7 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
 
 (async () => {
   await q('DELETE FROM tareas_direccion');
+  await q("DELETE FROM organigrama_nodos WHERE cargo LIKE 'PRUEBA116 %'");
   await q("DELETE FROM usuarios WHERE numero_identificacion BETWEEN '7160001' AND '7160099' AND es_superadmin = 0");   // repetible: los usuarios de una corrida anterior
   const rolId = async (n) => (await q('SELECT id FROM roles WHERE nombre = ?', [n]))[0].id;
   let cedula = 7160000;
@@ -87,8 +88,23 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
     asist: cliente(base, ids.asist), anon: cliente(base, null),
   };
   const manana = R.sumarDias(HOY_REAL, 1);
-  const cuerpo = (extra = {}) => Object.assign({ titulo: 'Entregar la rendición de cuentas', responsable_nombre: 'María Tesorera', responsable_cargo: 'Tesorera', responsable_celular: '300 123 4521',
-    fecha_limite: R.sumarDias(HOY_REAL, 10), prioridad: 'normal', aviso_activo: true }, extra);
+  /* ORDEN 119: el responsable SOLO sale del organigrama o es el candidato. Estas tres personas del organigrama hacen de «responsable» en toda la prueba: la que trae celular
+     (María Tesorera), la que no lo trae (Pedro Sin Celular) y Ana María Gómez. `cuerpo()` traduce el responsable que esta prueba escribía a mano a su nodo del organigrama. */
+  const nodoDe = async (nombres, apellidos, cargo, telefono) => (await pool.query(
+    `INSERT INTO organigrama_nodos (cargo, nombres, apellidos, telefono, nivel) VALUES (?, ?, ?, ?, 'nivel_2')`, [cargo, nombres, apellidos, telefono]))[0].insertId;
+  const ORG = { tesorera: await nodoDe('María', 'Tesorera', 'PRUEBA116 Tesorera', '3001234521'), sinCel: await nodoDe('Pedro', 'Sin Celular', 'PRUEBA116 Tesorero', null), ana: await nodoDe('Ana María', 'Gómez', 'PRUEBA116 Jefe de prensa', '3001234567') };
+  const personaDe = (e) => {
+    if (e.responsable_usuario_id !== undefined) return { responsable_tipo: 'candidato', responsable_ref_id: ids.cand };
+    if (e.responsable_nombre === 'Ana María Gómez') return { responsable_tipo: 'organigrama', responsable_ref_id: ORG.ana };
+    if (e.responsable_celular === '') return { responsable_tipo: 'organigrama', responsable_ref_id: ORG.sinCel };
+    return { responsable_tipo: 'organigrama', responsable_ref_id: ORG.tesorera };
+  };
+  const cuerpo = (extra = {}) => {
+    const e = Object.assign({}, extra); const p = personaDe(e);
+    ['responsable_nombre', 'responsable_cargo', 'responsable_celular', 'responsable_usuario_id'].forEach((k) => { delete e[k]; });
+    return Object.assign({ titulo: 'Entregar la rendición de cuentas', fecha_limite: R.sumarDias(HOY_REAL, 10), prioridad: 'normal', aviso_activo: true }, p, e);
+  };
+  const celularDe = async (nodoId, tel) => q('UPDATE organigrama_nodos SET telefono = ? WHERE id = ?', [tel, nodoId]);
 
   /* ====================================================================================== 1. QUIÉN ENTRA */
   console.log('\n[1] Quién entra: candidato y superadministrador sí; todos los demás, 403 en todos los métodos');
@@ -134,15 +150,20 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
   const esperados = ['config/rolCandidato.js', 'lib/tareasDireccion.js', 'routes/auth.routes.js', 'routes/tareasDireccion.routes.js'].sort();   // (lib/alcanceCampanas.js solo esconde el aviso del CRM; no nombra las tablas.) routes/auth.routes.js (orden 118) solo le pregunta a puedeEntrar() si el menú lleva el ítem: no toca las tablas.
   ok(JSON.stringify(usan.sort()) === JSON.stringify(esperados), 'ningún otro módulo (exportaciones, dashboards, búsquedas, panel general) toca las tablas', usan);
   const rp = (await C.cand.get('/tareas-direccion/responsables')).datos;
-  ok(![].concat(rp.candidato, rp.personas).some((x) => x.usuario_id === ids.super), 'el superadministrador NO aparece entre los responsables posibles');
-  ok(rp.candidato.length >= 1 && rp.candidato.every((c) => c.es_candidato) && rp.personas.some((p) => p.nombre === 'María Tesorera' && p.celular === '3001112233' && p.cargo === 'Asistente administrativo'),
-    'responsables: el candidato aparte; las personas con su rol como cargo sugerido y el celular a 10 dígitos', rp.personas.slice(0, 3));
+  ok(![].concat(rp.candidato, rp.organigrama, rp.coordinadores).some((x) => x.usuario_id === ids.super), 'el superadministrador NO aparece entre los responsables posibles');
+  ok(rp.candidato.length >= 1 && rp.candidato.every((c) => c.es_candidato && c.tipo === 'candidato') && rp.organigrama.some((p) => p.nombre === 'María Tesorera' && p.celular === '3001234521' && p.cargo === 'PRUEBA116 Tesorera' && p.tipo === 'organigrama')
+    && rp.coordinadores.some((p) => p.nombre === 'Coordinadora Ejemplo' && p.cargo === 'Coordinador' && p.tipo === 'coordinador') && !rp.coordinadores.concat(rp.organigrama).some((p) => ['Líder Ejemplo', 'Sublíder Ejemplo', 'María Tesorera Asistente'].includes(p.nombre) || p.usuario_id === ids.tesorera),
+    'responsables: el candidato, las personas del organigrama (con su cargo y el celular a 10 dígitos) y los coordinadores — ni líderes, ni sublíderes, ni asistentes', { c: rp.coordinadores.slice(0, 3), o: rp.organigrama.slice(0, 3) });
 
   /* ====================================================================================== 2. CRUD */
   console.log('\n[2] Crear, validar, editar, mover, marcar realizada, deshacer, reabrir, eliminar');
   const malos = [
-    [cuerpo({ titulo: '' }), 'sin título'], [cuerpo({ responsable_nombre: '' }), 'sin nombre del responsable'], [cuerpo({ responsable_cargo: '' }), 'sin cargo'],
-    [cuerpo({ responsable_celular: '12345' }), 'celular inválido'], [cuerpo({ fecha_limite: '2026-13-45' }), 'fecha inválida'], [cuerpo({ fecha_limite: undefined }), 'sin fecha'],
+    [cuerpo({ titulo: '' }), 'sin título'], [{ ...cuerpo(), responsable_tipo: undefined, responsable_ref_id: undefined }, 'sin responsable'],
+    [{ ...cuerpo(), responsable_tipo: undefined, responsable_ref_id: undefined, responsable_nombre: 'Ana Inventada', responsable_cargo: 'Tesorera', responsable_celular: '3001234567' }, 'con un responsable escrito a mano'],
+    [cuerpo({ responsable_ref_id: 99999999 }), 'con un nodo del organigrama inventado'], [{ ...cuerpo(), responsable_tipo: 'coordinador', responsable_ref_id: ids.lider }, 'con un líder como responsable'],
+    [{ ...cuerpo(), responsable_tipo: 'coordinador', responsable_ref_id: ids.sub }, 'con un sublíder como responsable'], [{ ...cuerpo(), responsable_tipo: 'candidato', responsable_ref_id: ids.coord }, 'con un coordinador haciéndose pasar por el candidato'],
+    [{ ...cuerpo(), responsable_tipo: 'lider', responsable_ref_id: ids.lider }, 'con un tipo de responsable que no existe'],
+    [cuerpo({ fecha_limite: '2026-13-45' }), 'fecha inválida'], [cuerpo({ fecha_limite: undefined }), 'sin fecha'],
     [cuerpo({ prioridad: 'mega' }), 'prioridad inválida'],
   ];
   for (const [b, que] of malos) { const r = await C.cand.post('/tareas-direccion', b); ok(r.status === 400 && r.datos.error, `crear ${que} → 400 con mensaje`, r); }
@@ -151,10 +172,12 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
   const tb = (await C.cand.post('/tareas-direccion', cuerpo({ titulo: 'Contratar la pauta', fecha_limite: R.sumarDias(HOY_REAL, 15), prioridad: 'urgente' }))).datos.tarea;
   ok(tb.aviso_estado === 'programado' && tb.aviso_para === R.sumarDias(HOY_REAL, 12) && tb.canal_previsto === 'sms' && tb.responsable.celular === '3001234521' && tb.prioridad === 'urgente',
     'con celular: aviso «programado» 3 días antes (el celular se guarda a 10 dígitos)', tb);
-  const ed = await C.cand.put('/tareas-direccion/' + ta.id, { responsable_celular: '311 222 3344' });
-  ok(ed.status === 200 && ed.datos.tarea.aviso_estado === 'programado' && ed.datos.tarea.aviso_para === R.sumarDias(HOY_REAL, 17), 'poner el celular a una tarea sin él la programa', ed.datos.tarea);
-  const sin = await C.cand.put('/tareas-direccion/' + ta.id, { responsable_celular: '311 222 3344' });
+  await celularDe(ORG.sinCel, '3112223344');   // le ponen el celular en el organigrama…
+  const ed = await C.cand.put('/tareas-direccion/' + ta.id, { responsable_tipo: 'organigrama', responsable_ref_id: ORG.sinCel });   // …y la tarea se vuelve a guardar
+  ok(ed.status === 200 && ed.datos.tarea.aviso_estado === 'programado' && ed.datos.tarea.aviso_para === R.sumarDias(HOY_REAL, 17) && ed.datos.tarea.responsable.celular === '3112223344', 'poner el celular (en el organigrama) a una tarea sin él la programa', ed.datos.tarea);
+  const sin = await C.cand.put('/tareas-direccion/' + ta.id, { responsable_tipo: 'organigrama', responsable_ref_id: ORG.sinCel });
   ok(sin.status === 200 && sin.datos.sinCambios === true, 'guardar sin cambiar nada no escribe (ni ensucia el historial)');
+  await celularDe(ORG.sinCel, null);
   ok((await C.cand.put('/tareas-direccion/' + ta.id, { titulo: '' })).status === 400, 'editar con el título vacío → 400');
   ok((await C.cand.put('/tareas-direccion/999999', { titulo: 'x' })).status === 404 && (await C.cand.get('/tareas-direccion/999999')).status === 404 && (await C.cand.get('/tareas-direccion/abc')).status === 404, 'una tarea que no existe → 404');
 
@@ -301,10 +324,13 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
   const G = await nueva({ titulo: 'Programada que se mueve', fecha_limite: dia(20) }, en(D, 10));
   const g2 = await T.editar(G.id, { fecha_limite: dia(30) }, ids.cand, { ahora: en(D, 11) });
   ok(G.aviso_para === dia(17) && g2.tarea.aviso_para === dia(27), 'cambiar la fecha de una programada recalcula su día', { antes: G.aviso_para, despues: g2.tarea.aviso_para });
-  const g3 = await T.editar(G.id, { responsable_celular: '' }, ids.cand, { ahora: en(D, 11) });
+  await celularDe(ORG.tesorera, null);
+  const g3 = await T.editar(G.id, { responsable_tipo: 'organigrama', responsable_ref_id: ORG.tesorera }, ids.cand, { ahora: en(D, 11) });
   ok(g3.tarea.aviso_estado === 'sin_celular', 'quitar el celular antes de que salga: queda «sin_celular»');
-  const g4 = await T.editar(G.id, { responsable_celular: '320 555 6677' }, ids.cand, { ahora: en(D, 11) });
+  await celularDe(ORG.tesorera, '3205556677');
+  const g4 = await T.editar(G.id, { responsable_tipo: 'organigrama', responsable_ref_id: ORG.tesorera }, ids.cand, { ahora: en(D, 11) });
   ok(g4.tarea.aviso_estado === 'programado' && g4.tarea.canal_previsto === 'sms', 'corregir el celular: se recalcula y vuelve a «programado»');
+  await celularDe(ORG.tesorera, '3001234521');
 
   // H. interruptor
   const Hh = await nueva({ titulo: 'Con interruptor', fecha_limite: dia(20) }, en(D, 10));
@@ -411,6 +437,7 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
   ok((await q("SHOW TABLES LIKE 'tareas'")).length === 1 && (await q('SELECT COUNT(*) AS n FROM tareas'))[0].n >= 0, 'las tablas de «Tareas» de campo siguen ahí, sin tocar');
 
   await q('DELETE FROM tareas_direccion'); await q("DELETE FROM comunicaciones_campanas WHERE nombre LIKE 'Tarea de dirección%'");
+  await q("DELETE FROM organigrama_nodos WHERE cargo LIKE 'PRUEBA116 %'");
   await q("DELETE FROM usuarios WHERE numero_identificacion BETWEEN '7160001' AND '7160099' AND es_superadmin = 0");
   srv.close(); await pool.end();
   console.log(`\n${fallos ? 'FALLÓ' : 'TODO BIEN'}: ${pasos - fallos} de ${pasos} comprobaciones.`);

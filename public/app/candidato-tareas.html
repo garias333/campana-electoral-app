@@ -145,7 +145,7 @@ function tarjetaHtml(t) {
     <div class="celda-hoja">${UI.hojaHtml(t)}</div>
     <div class="titulo">${t.prioridad === 'urgente' ? '⚡ ' : ''}${esc(t.titulo)}</div>
     <div class="resp"><span class="td-avatar${t.responsable.es_candidato ? ' cand' : ''}" aria-hidden="true">${esc(UI.iniciales(t.responsable.nombre))}</span>
-      <div class="quien"><b>${esc(t.responsable.nombre)}</b><span class="cargo">${esc(t.responsable.cargo)}</span></div></div>
+      <div class="quien"><b>${esc(t.responsable.nombre)}</b><span class="cargo${t.responsable.fuera_del_organigrama ? ' fuera' : ''}">${esc(UI.rotuloCargo(t))}</span></div></div>
     <div class="aviso ${l.tono}">${iconoAviso(t, l.tono)}${esc(l.texto)}</div>
     <div class="estado">${UI.etiquetaEstadoHtml(t)}</div>
     <div class="botones">${botones}</div>

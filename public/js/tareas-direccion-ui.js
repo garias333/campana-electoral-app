@@ -70,7 +70,9 @@
     var cel = t.responsable.celular ? ' · ' + R.enmascarar(t.responsable.celular) : '';
     var plazo = t.estado === 'hecha' ? R.textoHecha(t.fecha_limite, t.realizada_en) : R.textoPlazo(t.fecha_limite, hoy);
     var h = '<dl class="td-datos">'
-      + '<dt>Responsable</dt><dd><b>' + esc(t.responsable.nombre) + '</b><span class="bajo">' + esc(t.responsable.cargo) + esc(cel) + '</span></dd>'
+      + '<dt>Responsable</dt><dd><b>' + esc(t.responsable.nombre) + '</b><span class="bajo">' + esc(t.responsable.cargo) + esc(cel) + '</span>'
+      + (t.responsable.fuera_del_organigrama ? '<span class="bajo marca-fuera">⚠ Responsable fuera del organigrama. Al editar la tarea hay que elegir a alguien de la lista.</span>'
+        : (!t.responsable.celular && !t.responsable.es_candidato ? '<span class="bajo marca-fuera">Sin celular registrado: no habrá SMS ni WhatsApp.</span>' : '')) + '</dd>'
       + '<dt>Fecha límite</dt><dd>' + esc(R.formatoCorto(t.fecha_limite)) + '<span class="bajo">' + esc(plazo) + '</span></dd>'
       + '<dt>Prioridad</dt><dd>' + (t.prioridad === 'urgente' ? '⚡ Urgente' : 'Normal') + '</dd>'
       + '<dt>Aviso automático</dt><dd>' + esc(textoAvisoDetalle(t)) + '</dd>'
@@ -141,30 +143,46 @@
   };
 
   /* ---------------------------------------------------------------------------------------- formulario ---- */
+  /** Sin tildes ni mayúsculas, para el buscador del selector. */
+  function clave(t) { return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  var MARCA_FUERA = 'Responsable fuera del organigrama';
+  /** Lo que se lee en la línea del cargo de una tarjeta: el cargo, o la marca si el responsable ya no es de la lista. */
+  function rotuloCargo(t) { return t.responsable.fuera_del_organigrama ? '⚠ ' + MARCA_FUERA : t.responsable.cargo; }
+  var SIN_CELULAR = 'Sin celular registrado: no habrá SMS ni WhatsApp. Agréguelo en el organigrama o en Estructura.';
+
   /**
    * Pinta el formulario «Nueva tarea» / «Editar tarea» dentro de `raiz` y devuelve { leer(), error(texto), enfocar() }.
-   *   o.tarea  — la tarea que se edita (o null)         o.resp — { candidato, personas, recordados } de /responsables
+   *   o.tarea  — la tarea que se edita (o null)         o.resp — { candidato, organigrama, coordinadores } de /responsables
    *   o.yoId   — el id de quien tiene la sesión          o.hoy  — «AAAA-MM-DD» de Colombia
+   * El responsable SOLO se elige de la lista (el candidato, el organigrama o los coordinadores): no hay forma de escribir uno. El cargo y el celular se leen de su origen
+   * y quedan en solo lectura. Con buscador por nombre o cargo (campo de 16 px: en el celular no hace «zoom»).
    */
   function montarFormulario(raiz, o) {
-    var t = o.tarea; var resp = o.resp || { candidato: [], personas: [], recordados: [] };
-    var cand = resp.candidato || [];
-    var opciones = '<option value="">Elija al responsable…</option>';
-    if (cand.length) opciones += '<optgroup label="Candidato">' + cand.map(function (c) {
-      return '<option value="u:' + c.usuario_id + '">' + esc(c.usuario_id === o.yoId ? 'Yo (candidato)' : 'Candidato · ' + c.nombre) + '</option>'; }).join('') + '</optgroup>';
-    if ((resp.personas || []).length) opciones += '<optgroup label="Equipo de la campaña">' + resp.personas.map(function (p) {
-      return '<option value="u:' + p.usuario_id + '">' + esc(p.nombre + ' · ' + p.cargo) + '</option>'; }).join('') + '</optgroup>';
-    if ((resp.recordados || []).length) opciones += '<optgroup label="Escritos antes">' + resp.recordados.map(function (r, i) {
-      return '<option value="r:' + i + '">' + esc(r.cargo + ' · ' + r.nombre) + '</option>'; }).join('') + '</optgroup>';
-    opciones += '<option value="otro">✍️ Escribir otra persona…</option>';
+    var t = o.tarea; var resp = o.resp || {};
+    var grupos = [
+      { titulo: '', lista: resp.candidato || [] },
+      { titulo: 'Organigrama', lista: resp.organigrama || [] },
+      { titulo: 'Coordinadores', lista: resp.coordinadores || [] },
+    ];
+    function etiqueta(p) {
+      if (p.tipo === 'candidato') return p.ref_id === o.yoId ? 'Yo (candidato)' : 'Candidato · ' + p.nombre;
+      if (p.tipo === 'coordinador') return 'Coordinador · ' + p.nombre + (p.territorio ? ' · ' + p.territorio : '');
+      return (p.cargo ? p.cargo + ' · ' : '') + p.nombre;
+    }
+    var todas = [];
+    grupos.forEach(function (g) { g.lista.forEach(function (p) { todas.push({ k: p.tipo + ':' + p.ref_id, p: p, texto: etiqueta(p), busca: clave(p.nombre + ' ' + (p.cargo || '') + ' ' + (p.territorio || '') + ' ' + (p.tipo === 'candidato' ? 'yo candidato' : '')) }); }); });
 
     raiz.innerHTML = '<form class="td-form" novalidate autocomplete="off">'
       + '<div class="td-error" id="tdf-error" role="alert"></div>'
       + '<div class="campo"><label for="tdf-titulo">¿Qué hay que hacer?</label><input type="text" id="tdf-titulo" maxlength="200" placeholder="Por ejemplo: Entregar la rendición de cuentas"></div>'
-      + '<div class="campo"><label for="tdf-resp">Responsable</label><select id="tdf-resp" data-sin-ordenar>' + opciones + '</select></div>'
-      + '<div class="dos"><div class="campo"><label for="tdf-cargo">Cargo</label><input type="text" id="tdf-cargo" maxlength="100" placeholder="Ej.: Tesorera"></div>'
-      + '<div class="campo"><label for="tdf-nombre">Nombre</label><input type="text" id="tdf-nombre" maxlength="150" placeholder="Nombre y apellido"></div></div>'
-      + '<div class="campo"><label for="tdf-cel">Celular del responsable</label><input type="tel" id="tdf-cel" inputmode="tel" maxlength="20" placeholder="300 123 4567"></div>'
+      + '<div class="campo"><label id="tdf-resp-et" for="tdf-resp">Responsable</label>'
+      + '<div class="td-sel" id="tdf-sel"><button type="button" id="tdf-resp" class="td-sel-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="tdf-resp-et tdf-resp-txt"><span id="tdf-resp-txt" class="td-sel-txt sin-elegir">Elija al responsable…</span><span class="td-sel-flecha" aria-hidden="true">▾</span></button>'
+      + '<div class="td-sel-panel" id="tdf-panel" hidden><input type="search" id="tdf-buscar" placeholder="Buscar por nombre o cargo" aria-label="Buscar responsable por nombre o cargo" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="tdf-lista" aria-autocomplete="list">'
+      + '<ul id="tdf-lista" class="td-sel-lista" role="listbox" aria-label="Responsables"></ul></div></div>'
+      + '<p class="td-marca-fuera" id="tdf-fuera" role="status" hidden></p></div>'
+      + '<div class="dos"><div class="campo"><label for="tdf-cargo">Cargo</label><input type="text" id="tdf-cargo" readonly placeholder="Sale de la lista"></div>'
+      + '<div class="campo"><label for="tdf-cel">Celular</label><input type="text" id="tdf-cel" readonly placeholder="Sale de la lista"></div></div>'
+      + '<p class="td-sin-celular" id="tdf-sincel" role="status" hidden></p>'
       + '<div class="dos"><div class="campo"><label for="tdf-fecha">Fecha límite</label><input type="date" id="tdf-fecha"></div>'
       + '<div class="campo"><label id="tdf-prio-et">Prioridad</label><div class="td-seg" role="group" aria-labelledby="tdf-prio-et"><button type="button" data-prio="normal" aria-pressed="true">Normal</button><button type="button" data-prio="urgente" class="urgente" aria-pressed="false">⚡ Urgente</button></div></div></div>'
       + '<div class="td-aviso-caja"><label class="td-interruptor"><input type="checkbox" id="tdf-aviso" checked><span class="pista"></span><span>🔔 Aviso automático 3 días antes</span></label>'
@@ -172,67 +190,119 @@
       + '</form>';
 
     var $ = function (id) { return raiz.querySelector('#' + id); };
-    var estado = { usuarioId: null, esCandidato: false, prioridad: 'normal' };
+    var estado = { sel: null, prioridad: 'normal', activa: -1, visibles: [] };
 
     function frase() {
-      $('tdf-frase').textContent = R.frasePrevia({ activo: $('tdf-aviso').checked, fechaLimite: $('tdf-fecha').value, celular: $('tdf-cel').value, esCandidato: estado.esCandidato, hoy: o.hoy });
+      var s = estado.sel;
+      if (!s) { $('tdf-frase').textContent = 'Elija al responsable para ver cómo se le avisa.'; return; }
+      $('tdf-frase').textContent = R.frasePrevia({ activo: $('tdf-aviso').checked, fechaLimite: $('tdf-fecha').value, celular: s ? s.celular : '', esCandidato: !!(s && s.tipo === 'candidato'), hoy: o.hoy });
     }
     function fijarPrioridad(p) {
       estado.prioridad = p;
       raiz.querySelectorAll('[data-prio]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.prio === p ? 'true' : 'false'); });
     }
-    function bloquearNombre(si) { $('tdf-nombre').readOnly = !!si; }
-
-    $('tdf-resp').addEventListener('change', function () {
-      var v = this.value;
-      estado.usuarioId = null; estado.esCandidato = false; bloquearNombre(false);
-      if (v.indexOf('u:') === 0) {
-        var id = +v.slice(2);
-        var p = cand.concat(resp.personas || []).filter(function (x) { return x.usuario_id === id; })[0];
-        if (p) { estado.usuarioId = p.usuario_id; estado.esCandidato = !!p.es_candidato; $('tdf-nombre').value = p.nombre; $('tdf-cargo').value = p.es_candidato ? 'Candidato' : p.cargo; $('tdf-cel').value = p.celular || ''; bloquearNombre(true); }
-      } else if (v.indexOf('r:') === 0) {
-        var r = (resp.recordados || [])[+v.slice(2)];
-        if (r) { $('tdf-nombre').value = r.nombre; $('tdf-cargo').value = r.cargo; $('tdf-cel').value = r.celular || ''; }
-      } else if (v === 'otro') { $('tdf-nombre').value = ''; $('tdf-cargo').value = ''; $('tdf-cel').value = ''; $('tdf-nombre').focus(); }
+    /** Pone al responsable elegido (o ninguno) en el botón, el cargo y el celular, y dice si no tiene celular. */
+    function mostrarSeleccion() {
+      var s = estado.sel; var txt = $('tdf-resp-txt');
+      txt.textContent = s ? etiqueta(s) : 'Elija al responsable…'; txt.classList.toggle('sin-elegir', !s);
+      $('tdf-cargo').value = s ? s.cargo : '';
+      $('tdf-cel').value = s ? (s.tipo === 'candidato' ? 'Le llega en la app' : (s.celular ? s.celular.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3') : '—')) : '';
+      var sin = $('tdf-sincel'); var falta = !!s && s.tipo !== 'candidato' && !s.celular;
+      sin.textContent = falta ? SIN_CELULAR : ''; sin.hidden = !falta;
       frase();
+    }
+
+    /* ---- el selector con buscador ---- */
+    function pintarLista() {
+      var q = clave($('tdf-buscar').value);
+      var html = ''; estado.visibles = [];
+      grupos.forEach(function (g) {
+        var items = todas.filter(function (x) { return g.lista.indexOf(x.p) !== -1 && (!q || x.busca.indexOf(q) !== -1); });
+        if (!items.length) return;
+        if (g.titulo) html += '<li role="presentation" class="grupo">' + esc(g.titulo) + '</li>';
+        items.forEach(function (x) {
+          var i = estado.visibles.push(x) - 1;
+          var activa = estado.sel && estado.sel.tipo === x.p.tipo && estado.sel.ref_id === x.p.ref_id;
+          html += '<li role="option" id="tdf-op-' + i + '" data-i="' + i + '" aria-selected="' + (activa ? 'true' : 'false') + '"' + (activa ? ' class="elegida"' : '') + '>' + esc(x.texto) + '</li>';
+        });
+      });
+      if (!estado.visibles.length) html = '<li role="presentation" class="sin-coincidencias">' + (todas.length ? 'Nadie coincide con «' + esc($('tdf-buscar').value.trim()) + '».' : 'No hay personas en el organigrama ni coordinadores todavía.') + '</li>';
+      $('tdf-lista').innerHTML = html;
+      marcarActiva(estado.visibles.length ? Math.min(Math.max(estado.activa, 0), estado.visibles.length - 1) : -1);
+    }
+    function marcarActiva(i) {
+      estado.activa = i;
+      $('tdf-lista').querySelectorAll('[role=option]').forEach(function (e) { e.classList.toggle('activa', +e.dataset.i === i); });
+      var el = i >= 0 ? $('tdf-op-' + i) : null;
+      if (el) { $('tdf-buscar').setAttribute('aria-activedescendant', el.id); el.scrollIntoView({ block: 'nearest' }); } else $('tdf-buscar').removeAttribute('aria-activedescendant');
+    }
+    function abrir() {
+      $('tdf-panel').hidden = false; $('tdf-resp').setAttribute('aria-expanded', 'true');
+      $('tdf-buscar').value = ''; estado.activa = 0; pintarLista();
+      var ya = estado.sel ? estado.visibles.findIndex(function (x) { return x.p.tipo === estado.sel.tipo && x.p.ref_id === estado.sel.ref_id; }) : -1;
+      if (ya >= 0) marcarActiva(ya);
+      $('tdf-buscar').focus();
+    }
+    function cerrar(volver) {
+      $('tdf-panel').hidden = true; $('tdf-resp').setAttribute('aria-expanded', 'false');
+      if (volver) $('tdf-resp').focus();
+    }
+    function elegir(i) {
+      var x = estado.visibles[i]; if (!x) return;
+      estado.sel = x.p; mostrarSeleccion(); $('tdf-fuera').hidden = true; cerrar(true); api.error('');
+    }
+    $('tdf-resp').addEventListener('click', function () { if ($('tdf-panel').hidden) abrir(); else cerrar(true); });
+    $('tdf-resp').addEventListener('keydown', function (e) { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if ($('tdf-panel').hidden) abrir(); } });
+    $('tdf-buscar').addEventListener('input', function () { estado.activa = 0; pintarLista(); });
+    $('tdf-buscar').addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); marcarActiva(Math.min(estado.activa + 1, estado.visibles.length - 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); marcarActiva(Math.max(estado.activa - 1, 0)); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (estado.activa >= 0) elegir(estado.activa); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(true); }
+      else if (e.key === 'Tab') cerrar(false);
     });
-    ['tdf-fecha', 'tdf-cel', 'tdf-aviso'].forEach(function (id) { $(id).addEventListener('input', frase); $(id).addEventListener('change', frase); });
+    $('tdf-lista').addEventListener('mousedown', function (e) { e.preventDefault(); });   // que el clic no le quite el foco al buscador antes de elegir
+    $('tdf-lista').addEventListener('click', function (e) { var li = e.target.closest('[role=option]'); if (li) elegir(+li.dataset.i); });
+    raiz.addEventListener('click', function (e) { if (!$('tdf-panel').hidden && !e.target.closest('#tdf-sel')) cerrar(false); });
+    ['tdf-fecha', 'tdf-aviso'].forEach(function (id) { $(id).addEventListener('input', frase); $(id).addEventListener('change', frase); });
     raiz.querySelectorAll('[data-prio]').forEach(function (b) { b.addEventListener('click', function () { fijarPrioridad(b.dataset.prio); }); });
 
     if (t) {
-      $('tdf-titulo').value = t.titulo; $('tdf-cargo').value = t.responsable.cargo; $('tdf-nombre').value = t.responsable.nombre; $('tdf-cel').value = t.responsable.celular || '';
-      $('tdf-fecha').value = t.fecha_limite; $('tdf-aviso').checked = !!t.aviso_activo; fijarPrioridad(t.prioridad);
-      estado.usuarioId = t.responsable.usuario_id; estado.esCandidato = !!t.responsable.es_candidato;
-      if (t.responsable.usuario_id) { $('tdf-resp').value = 'u:' + t.responsable.usuario_id; if (!$('tdf-resp').value) $('tdf-resp').value = 'otro'; else bloquearNombre(true); }
-      else $('tdf-resp').value = 'otro';
+      $('tdf-titulo').value = t.titulo; $('tdf-fecha').value = t.fecha_limite; $('tdf-aviso').checked = !!t.aviso_activo; fijarPrioridad(t.prioridad);
+      var r = t.responsable;
+      if (r.fuera_del_organigrama) {
+        // Una tarea de antes (responsable escrito a mano) o cuya persona ya no está: se dice, y para guardar hay que elegir de la lista.
+        var f = $('tdf-fuera');
+        f.textContent = '⚠ ' + MARCA_FUERA + ': ' + r.nombre + (r.cargo ? ' (' + r.cargo + ')' : '') + '. Elija a alguien de la lista para poder guardar.'; f.hidden = false;
+      } else {
+        var hallado = todas.filter(function (x) { return x.p.tipo === r.tipo && x.p.ref_id === r.ref_id; })[0];
+        // Si en la lista ya sale en otro grupo (p. ej. un coordinador que también está en el organigrama), se queda con lo que dice la tarea.
+        estado.sel = hallado ? hallado.p : { tipo: r.tipo, ref_id: r.ref_id, nombre: r.nombre, cargo: r.cargo, celular: r.celular || '' };
+      }
     }
-    frase();
+    mostrarSeleccion();
 
-    return {
+    var api = {
       enfocar: function () { $('tdf-titulo').focus(); },
       error: function (texto) { var e = $('tdf-error'); e.textContent = texto || ''; e.classList.toggle('visible', !!texto); if (texto) e.scrollIntoView({ block: 'nearest' }); },
       /** Los datos del formulario, o null (con el error ya pintado) si falta algo. */
       leer: function () {
-        var d = {
-          titulo: $('tdf-titulo').value.trim(), responsable_usuario_id: estado.usuarioId, responsable_nombre: $('tdf-nombre').value.trim(),
-          responsable_cargo: $('tdf-cargo').value.trim(), responsable_celular: $('tdf-cel').value.trim(), fecha_limite: $('tdf-fecha').value,
-          prioridad: estado.prioridad, aviso_activo: $('tdf-aviso').checked,
-        };
+        var s = estado.sel;
+        var d = { titulo: $('tdf-titulo').value.trim(), responsable_tipo: s ? s.tipo : null, responsable_ref_id: s ? s.ref_id : null, fecha_limite: $('tdf-fecha').value, prioridad: estado.prioridad, aviso_activo: $('tdf-aviso').checked };
         var falta = !d.titulo ? ['Escriba qué hay que hacer.', 'tdf-titulo']
-          : !d.responsable_nombre ? ['Elija o escriba al responsable.', 'tdf-resp']
-          : !d.responsable_cargo ? ['Escriba el cargo del responsable (por ejemplo: Tesorera).', 'tdf-cargo']
-          : (d.responsable_celular && !R.normalizarCelular(d.responsable_celular)) ? ['El celular debe tener 10 dígitos y empezar por 3.', 'tdf-cel']
+          : !s ? ['Elija al responsable de la lista: el candidato, una persona del organigrama o un coordinador.', 'tdf-resp']
           : !d.fecha_limite ? ['Elija la fecha límite.', 'tdf-fecha'] : null;
         if (falta) { this.error(falta[0]); $(falta[1]).focus(); return null; }
         this.error('');
         return d;
       },
     };
+    return api;
   }
 
   global.TareasDirUI = {
     esc: esc, iniciales: iniciales, hora12: hora12, fechaHora: fechaHora, SVG_WA: SVG_WA, hojaHtml: hojaHtml, etiquetaEstadoHtml: etiquetaEstadoHtml, conWhatsapp: conWhatsapp,
     textoAvisoDetalle: textoAvisoDetalle, historialHtml: historialHtml, detalleHtml: detalleHtml, confirmar: confirmar, snack: snack, textoDeError: textoDeError,
-    servidor: servidor, montarFormulario: montarFormulario,
+    servidor: servidor, montarFormulario: montarFormulario, rotuloCargo: rotuloCargo, MARCA_FUERA: MARCA_FUERA, SIN_CELULAR: SIN_CELULAR,
   };
 })(window);

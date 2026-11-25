@@ -109,7 +109,7 @@ function tarjetaHtml(t) {
     <div class="celda-hoja">${UI.hojaHtml(t)}</div>
     <div class="titulo" title="${esc(t.titulo)}">${t.prioridad === 'urgente' ? '⚡ ' : ''}${esc(t.titulo)}</div>
     <div class="resp"><span class="td-avatar${t.responsable.es_candidato ? ' cand' : ''}" aria-hidden="true">${esc(UI.iniciales(t.responsable.nombre))}</span>
-      <div class="quien"><b title="${esc(t.responsable.nombre)}">${esc(t.responsable.nombre)}</b><span class="cargo" title="${esc(t.responsable.cargo)}">${esc(t.responsable.cargo)}</span></div></div>
+      <div class="quien"><b title="${esc(t.responsable.nombre)}">${esc(t.responsable.nombre)}</b><span class="cargo${t.responsable.fuera_del_organigrama ? ' fuera' : ''}" title="${esc(UI.rotuloCargo(t))}">${esc(UI.rotuloCargo(t))}</span></div></div>
     <div class="aviso ${l.tono}" title="${esc(l.texto)}">${iconoAviso(t, l.tono)}${esc(l.texto)}</div>
     <div class="pie">${UI.etiquetaEstadoHtml(t)}
       <div class="acciones">${t.estado === 'hecha' ? '' : `<button type="button" class="td-btn-realizada" data-realizada="${t.id}">✓ Realizada</button>`}

@@ -48,6 +48,7 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
 
 (async () => {
   await q('DELETE FROM tareas_direccion');
+  await q("DELETE FROM organigrama_nodos WHERE funciones = 'PRUEBA116'");
   await q("DELETE FROM usuarios WHERE numero_identificacion BETWEEN '7160101' AND '7160199' AND es_superadmin = 0");
   const rolId = async (n) => (await q('SELECT id FROM roles WHERE nombre = ?', [n]))[0].id;
   let ced = 7160100;
@@ -64,7 +65,21 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
     tesorera: await usuario('María Tesorera', 'asistente_administrativo', { telefono: '300 111 2233' }),
   };
   const cuerpo = (extra) => Object.assign({ responsable_nombre: 'Carlos Pérez', responsable_cargo: 'Tesorero', responsable_celular: '300 123 4521', prioridad: 'normal', aviso_activo: true }, extra);
-  const mk = async (extra) => (await T.crear(cuerpo(extra), ids.cand)).tarea;
+  /* ORDEN 119: el responsable sale del organigrama o es el candidato. Esta prueba describe a sus responsables con nombre, cargo y celular; aquí se crea (una vez) el nodo del
+     organigrama de cada uno y la tarea se guarda con su origen. */
+  const nodos = new Map();
+  const nodoPara = async (nombre, cargo, celular) => {
+    const cel = String(celular || '').replace(/\D/g, '').slice(-10) || null; const k = [nombre, cargo, cel].join('|');
+    if (!nodos.has(k)) nodos.set(k, (await pool.query(`INSERT INTO organigrama_nodos (cargo, nombres, telefono, nivel, funciones) VALUES (?, ?, ?, 'nivel_3', 'PRUEBA116')`, [cargo, nombre, cel]))[0].insertId);
+    return nodos.get(k);
+  };
+  const traducir = async (d) => {
+    const e = Object.assign({}, d);
+    const p = e.responsable_usuario_id === ids.cand ? { responsable_tipo: 'candidato', responsable_ref_id: ids.cand } : { responsable_tipo: 'organigrama', responsable_ref_id: await nodoPara(e.responsable_nombre, e.responsable_cargo, e.responsable_celular) };
+    ['responsable_nombre', 'responsable_cargo', 'responsable_celular', 'responsable_usuario_id'].forEach((k) => { delete e[k]; });
+    return Object.assign(e, p);
+  };
+  const mk = async (extra) => (await T.crear(await traducir(cuerpo(extra)), ids.cand)).tarea;
   // ---- datos de prueba (se borran al final) ----
   const larga = await mk({ titulo: 'Entregar la rendición de cuentas de la campaña al Consejo Nacional Electoral antes del cierre del período y archivar el soporte físico en la sede principal', responsable_nombre: 'María Fernanda de los Ángeles Rodríguez Hernández-Castellanos', responsable_cargo: 'Gerente administrativa y financiera de la campaña a nivel departamental', fecha_limite: dia(-2), prioridad: 'urgente' });
   await mk({ titulo: 'Pagar la sede', fecha_limite: dia(0) });
@@ -210,25 +225,26 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
 
     console.log('\n[4] Escritorio: formulario (nueva tarea) y eliminar');
     await clic('#btn-nueva'); await espera(900);
-    const opciones = await ev(`[...document.querySelectorAll('#tdf-resp option, #tdf-resp optgroup')].map((o) => o.tagName === 'OPTGROUP' ? '[' + o.label + ']' : o.textContent.trim())`);
-    ok(opciones[0].startsWith('Elija') && opciones.includes('[Candidato]') && opciones.some((o) => o === 'Candidato · Juan Pérez Candidato') && opciones.includes('[Equipo de la campaña]') && opciones.some((o) => o.startsWith('María Tesorera · ')) && opciones.includes('[Escritos antes]') && opciones.some((o) => o === 'Producción · Luis Mora') && opciones[opciones.length - 1].includes('Escribir otra persona'),
-      'el selector: candidato arriba, personas con su rol, los escritos a mano antes y «Escribir otra persona…»', opciones);
-    ok(!opciones.some((o) => /Super Admin/.test(o)), 'el superadministrador no aparece en el selector');
-    await ev(`(() => { const s = document.querySelector('#tdf-resp'); s.value = [...s.options].find((o) => o.textContent.startsWith('María Tesorera')).value; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
-    const lleno = await ev(`({ nombre: document.querySelector('#tdf-nombre').value, ro: document.querySelector('#tdf-nombre').readOnly, cargo: document.querySelector('#tdf-cargo').value, cel: document.querySelector('#tdf-cel').value })`);
-    ok(lleno.nombre === 'María Tesorera' && lleno.ro && lleno.cargo === 'Asistente administrativo' && lleno.cel === '3001112233', 'elegir una persona rellena nombre (fijo), cargo sugerido (editable) y celular', lleno);
+    await clic('#tdf-resp'); await espera(250);
+    const lista = await ev(`[...document.querySelectorAll('#tdf-lista li')].map((li) => li.classList.contains('grupo') ? '[' + li.textContent + ']' : li.textContent.trim())`);
+    ok(lista[0] === 'Candidato · Juan Pérez Candidato' && lista.indexOf('[Organigrama]') > 0 && lista.slice(0, lista.indexOf('[Organigrama]')).every((o) => /^Candidato · /.test(o)) && lista.includes('Tesorero · Carlos Pérez') && lista.includes('[Coordinadores]') && lista.includes('Coordinador · Coordinadora Ejemplo') && lista.indexOf('[Coordinadores]') > lista.indexOf('Tesorero · Carlos Pérez') && !lista.some((o) => /Escribir otra|Escritos antes|Equipo de la campaña/.test(o)),
+      'el selector: candidato arriba, «Organigrama» y «Coordinadores» con sus títulos, sin «Escribir otra persona»', lista);
+    ok(!lista.some((o) => /Super Admin|Administrador De La/.test(o)), 'el superadministrador no aparece en el selector');
+    await ev(`(() => { const b = document.querySelector('#tdf-buscar'); b.value = 'tesorero'; b.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    { const f = await ev(`[...document.querySelectorAll('#tdf-lista li')].map((li) => li.textContent.trim())`); ok(f[0] === 'Organigrama' && f.length >= 2 && f.slice(1).every((x) => /Tesorero · /.test(x)), 'el buscador filtra por cargo («tesorero»): solo quedan los tesoreros, con su título de grupo', f); }
+    await ev(`(() => { [...document.querySelectorAll('#tdf-lista [role=option]')][0].click(); return true; })()`); await espera(250);
+    const lleno = await ev(`({ btn: document.querySelector('#tdf-resp-txt').textContent, cargo: document.querySelector('#tdf-cargo').value, croRo: document.querySelector('#tdf-cargo').readOnly, cel: document.querySelector('#tdf-cel').value, celRo: document.querySelector('#tdf-cel').readOnly, nombre: !!document.querySelector('#tdf-nombre') })`);
+    ok(lleno.btn === 'Tesorero · Carlos Pérez' && lleno.cargo === 'Tesorero' && lleno.croRo && lleno.cel === '300 123 4521' && lleno.celRo && !lleno.nombre, 'elegir a alguien rellena el cargo y el celular, en solo lectura (no hay dónde escribir nombre ni cargo)', lleno);
     ok(/Elija la fecha límite/.test(await texto('#tdf-frase')), 'sin fecha la frase pide elegirla');
-    await ev(`(() => { const f = document.querySelector('#tdf-fecha'); f.value = '${dia(10)}'; f.dispatchEvent(new Event('input', { bubbles: true })); const t = document.querySelector('#tdf-titulo'); t.value = 'Tarea creada desde la prueba'; const c = document.querySelector('#tdf-cargo'); c.value = 'Tesorera'; return true; })()`);
-    ok((await texto('#tdf-frase')).trim() === `SMS al 300 *** 2233 el ${R.formatoCorto(dia(7))}, si no está realizada.`, 'la frase se actualiza: «SMS al 300 *** 2233 el … si no está realizada.»', await texto('#tdf-frase'));
-    await ev(`(() => { const c = document.querySelector('#tdf-cel'); c.value = '300 555 8899'; c.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
-    ok((await texto('#tdf-frase')).includes('300 *** 8899'), 'y cambia con el celular');
+    await ev(`(() => { const f = document.querySelector('#tdf-fecha'); f.value = '${dia(10)}'; f.dispatchEvent(new Event('input', { bubbles: true })); const t = document.querySelector('#tdf-titulo'); t.value = 'Tarea creada desde la prueba'; return true; })()`);
+    ok((await texto('#tdf-frase')).trim() === `SMS al 300 *** 4521 el ${R.formatoCorto(dia(7))}, si no está realizada.`, 'la frase se actualiza: «SMS al 300 *** 4521 el … si no está realizada.»', await texto('#tdf-frase'));
     await ev(`(() => { const a = document.querySelector('#tdf-aviso'); a.checked = false; a.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
     ok(/apagado/.test(await texto('#tdf-frase')), 'con el interruptor apagado dice que el aviso está apagado');
     await ev(`(() => { const a = document.querySelector('#tdf-aviso'); a.checked = true; a.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
     await foto('4-escritorio-formulario');
     await clic('#form-guardar'); await espera(1100);
     const nueva = (await q("SELECT * FROM tareas_direccion WHERE titulo = 'Tarea creada desde la prueba'"))[0];
-    ok(nueva && nueva.responsable_nombre === 'María Tesorera' && nueva.responsable_cargo === 'Tesorera' && nueva.responsable_celular === '3005558899' && nueva.aviso_estado === 'programado', 'guardar crea la tarea con el celular corregido y el aviso programado', nueva);
+    ok(nueva && nueva.responsable_nombre === 'Carlos Pérez' && nueva.responsable_cargo === 'Tesorero' && nueva.responsable_tipo === 'organigrama' && nueva.responsable_celular === '3001234521' && nueva.aviso_estado === 'programado', 'guardar crea la tarea con su responsable del organigrama y el aviso programado', nueva);
     await clic('#btn-nueva'); await espera(600); await clic('#form-guardar'); await espera(400);
     ok(/Escriba qué hay que hacer/.test(await texto('#tdf-error')), 'un formulario vacío dice qué falta, sin cerrarse');
     await clic('#form-cancelar'); await espera(300);
@@ -280,16 +296,19 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
     ok(abierta.abierta && abierta.fs === 'fixed' && abierta.grande === '✓ Marcar como realizada' && /Úselo si la tarea se hizo antes de tiempo\. El aviso automático se cancela\./.test(abierta.t) && /Recordar/.test(abierta.t) && /Editar/.test(abierta.t) && /Historial/.test(abierta.t), 'tocar la tarjeta abre la tarea a pantalla completa con su botón grande, su nota, «Recordar» y «Editar»', abierta.t.slice(0, 260));
     await foto('6-celular-tarea-abierta');
     await clic('#tarea-acciones [data-editar]'); await espera(900);
-    const fs16 = await ev(`[...document.querySelectorAll('#pant-form input, #pant-form select')].filter((i) => i.offsetParent !== null && i.type !== 'checkbox').map((i) => parseFloat(getComputedStyle(i).fontSize))`);
-    ok(fs16.length >= 6 && fs16.every((x) => x >= 16), 'el formulario: la letra de los campos es de 16 px o más (sin zoom del navegador)', fs16);
+    const fs16 = await ev(`[...document.querySelectorAll('#pant-form input, #pant-form select, #pant-form .td-sel-btn')].filter((i) => i.offsetParent !== null && i.type !== 'checkbox').map((i) => parseFloat(getComputedStyle(i).fontSize))`);
+    ok(fs16.length >= 5 && fs16.every((x) => x >= 16), 'el formulario: la letra de los campos es de 16 px o más (sin zoom del navegador)', fs16);
     ok(await ev(`document.querySelector('#pant-form').classList.contains('abierta') && document.querySelector('#form-eliminar').style.display === 'block'`), 'al editar, el formulario ocupa la pantalla y ofrece «Eliminar esta tarea»');
     await foto('7-celular-formulario');
     await clic('[data-cerrar="pant-form"]'); await espera(300);
     await clic('#btn-nueva'); await espera(900);
-    await ev(`(() => { const s = document.querySelector('#tdf-resp'); s.value = 'otro'; s.dispatchEvent(new Event('change', { bubbles: true })); const set = (id, v) => { const e = document.querySelector(id); e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); }; set('#tdf-titulo', 'Tarea del celular'); set('#tdf-nombre', 'Pedro Pablo'); set('#tdf-cargo', 'Jefe de logística'); set('#tdf-cel', '315 000 1122'); set('#tdf-fecha', '${dia(8)}'); document.querySelector('[data-prio="urgente"]').click(); return true; })()`);
+    await clic('#tdf-resp'); await espera(250);
+    ok(await ev(`parseFloat(getComputedStyle(document.querySelector('#tdf-buscar')).fontSize) >= 16`), 'el buscador del celular tiene letra de 16 px (el teléfono no hace zoom)');
+    await ev(`(() => { const b = document.querySelector('#tdf-buscar'); b.value = 'luis mora'; b.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    await ev(`(() => { document.querySelector('#tdf-lista [role=option]').click(); const set = (id, v) => { const e = document.querySelector(id); e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); }; set('#tdf-titulo', 'Tarea del celular'); set('#tdf-fecha', '${dia(8)}'); document.querySelector('[data-prio="urgente"]').click(); return true; })()`);
     await clic('#form-guardar'); await espera(1100);
     const nc = (await q("SELECT * FROM tareas_direccion WHERE titulo = 'Tarea del celular'"))[0];
-    ok(nc && nc.prioridad === 'urgente' && nc.responsable_cargo === 'Jefe de logística' && nc.aviso_estado === 'programado', 'crear desde el celular guarda la tarea (responsable escrito a mano, urgente, aviso programado)', nc);
+    ok(nc && nc.prioridad === 'urgente' && nc.responsable_nombre === 'Luis Mora' && nc.responsable_cargo === 'Producción' && nc.responsable_tipo === 'organigrama' && nc.aviso_estado === 'programado', 'crear desde el celular guarda la tarea (responsable elegido del organigrama, urgente, aviso programado)', nc);
     await clic(`.tdm-card[data-id="${nc.id}"] .titulo`); await espera(800); await clic('#tarea-acciones [data-editar]'); await espera(800); await clic('#form-eliminar'); await espera(500);
     await clic('.td-overlay.abierto [data-r="1"]'); await espera(900);
     ok((await q('SELECT COUNT(*) AS n FROM tareas_direccion WHERE id = ?', [nc.id]))[0].n === 0, 'eliminar desde el formulario del celular (con confirmación)');
@@ -340,6 +359,7 @@ const dispersion = (xs) => (xs.length ? Math.max(...xs) - Math.min(...xs) : 0);
     navegador.cerrar();
     servidor.close();
     await q('DELETE FROM tareas_direccion'); await q("DELETE FROM comunicaciones_campanas WHERE nombre LIKE 'Tarea de dirección%'");
+    await q("DELETE FROM organigrama_nodos WHERE funciones = 'PRUEBA116'");
     await q("DELETE FROM usuarios WHERE numero_identificacion BETWEEN '7160101' AND '7160199' AND es_superadmin = 0");
     await pool.end();
   }

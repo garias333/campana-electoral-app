@@ -3842,6 +3842,23 @@ async function main() {
       FOREIGN KEY (tarea_id) REFERENCES tareas_direccion(id) ON DELETE CASCADE,
       FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`);
+  /* ORDEN 119: el responsable SOLO puede ser el candidato, una persona del organigrama o un coordinador. La tarea guarda DE DÓNDE salió (tipo + id) para leer su celular
+     ACTUAL al avisar. `responsable_tipo` NULL = tarea de antes (responsable escrito a mano): no se borra, se marca «Responsable fuera del organigrama». */
+  await agregarColumnaSiFalta(connection, 'tareas_direccion',
+    "responsable_tipo ENUM('candidato','organigrama','coordinador') NULL COMMENT 'De dónde salió el responsable; NULL = escrito a mano (antes de la orden 119)' AFTER responsable_usuario_id", 'responsable_tipo');
+  await agregarColumnaSiFalta(connection, 'tareas_direccion',
+    "responsable_ref_id INT NULL COMMENT 'candidato/coordinador: usuarios.id; organigrama: organigrama_nodos.id (sin llave foránea: el nodo puede borrarse y la tarea sigue)' AFTER responsable_tipo", 'responsable_ref_id');
+  // Las antiguas cuyo responsable era el candidato o un coordinador con usuario quedan enlazadas a su origen (repetible: solo toca las que aún no tienen tipo).
+  const [enlaceCand] = await connection.query(
+    `UPDATE tareas_direccion t JOIN usuarios u ON u.id = t.responsable_usuario_id JOIN roles r ON r.id = u.rol_id
+        SET t.responsable_tipo = 'candidato', t.responsable_ref_id = u.id
+      WHERE t.responsable_tipo IS NULL AND u.activo = 1 AND u.es_superadmin = 0 AND (r.nombre = 'candidato' OR (r.nombre = 'admin' AND u.es_candidato = 1))`);
+  const [enlaceCoord] = await connection.query(
+    `UPDATE tareas_direccion t JOIN usuarios u ON u.id = t.responsable_usuario_id JOIN roles r ON r.id = u.rol_id
+        SET t.responsable_tipo = 'coordinador', t.responsable_ref_id = u.id
+      WHERE t.responsable_tipo IS NULL AND u.activo = 1 AND u.es_superadmin = 0 AND r.nombre = 'coordinador'`);
+  const [[huerfanas]] = await connection.query('SELECT COUNT(*) AS n FROM tareas_direccion WHERE responsable_tipo IS NULL');
+  console.log(`Tareas de dirección: responsable enlazado a su origen (${enlaceCand.affectedRows} del candidato, ${enlaceCoord.affectedRows} de coordinadores); ${huerfanas.n} con responsable escrito a mano (se marcan «Responsable fuera del organigrama»).`);
   console.log('Tablas tareas_direccion y tareas_direccion_eventos listas (Tareas de dirección: solo candidato y superadministrador).');
 
   await sembrarPoliticaPrivacidadPorDefecto(connection);
