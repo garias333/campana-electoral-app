@@ -1553,7 +1553,14 @@ async function inicializarLayout(paginaActiva) {
     // Un complemento apagado no se ve para nadie, y sin respuesta del servidor tampoco: aquí no se «muestra ante la duda».
     if (item.complemento && complementosActivos[item.complemento] !== true) return false;
     // «Tareas de dirección»: solo el superadministrador y el candidato (rol candidato, o administrador marcado «Es el candidato»); jamás con la lista de direcciones del aspirante.
-    if (item.soloDireccion) return !hrefsPermitidos && (!!usuario.es_superadmin || usuario.rol === 'candidato' || (usuario.rol === 'admin' && !!usuario.es_candidato));
+    /* ORDEN 118: manda lo que dice el SERVIDOR (`usuario.tareas_direccion`, la misma función que da el 403). Sin ese dato (sesión guardada sin señal, respuesta de un servidor
+       anterior) se cae a la regla de siempre, que ya NO depende de la lista de direcciones del aspirante ni de MODULOS: el superadministrador, el candidato y el
+       administrador «Es el candidato» lo ven siempre, también con la sesión «solo candidato» (rol_real = admin). */
+    if (item.soloDireccion) {
+      if (typeof usuario.tareas_direccion === 'boolean') return usuario.tareas_direccion;
+      if (usuario.es_aspirante) return false;
+      return !!usuario.es_superadmin || usuario.rol === 'candidato' || usuario.rol_real === 'candidato' || ((usuario.rol === 'admin' || usuario.rol_real === 'admin') && !!usuario.es_candidato);
+    }
     if (item.noPara && item.noPara.includes(usuario.rol)) return false;
     // La lista de direcciones manda sobre la de módulos cuando llega: es más
     // fina. El servidor sólo la envía a quien la necesita.

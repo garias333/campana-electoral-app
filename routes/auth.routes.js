@@ -1234,9 +1234,17 @@ router.get('/me', requireAuth, async (req, res) => {
     }
   }
 
+  /* «TAREAS DE DIRECCIÓN» (orden 118): EL MENÚ PREGUNTA LO MISMO QUE LA API. Antes el navegador reconstruía la regla con `es_superadmin`, `rol` y `es_candidato`; si una de
+     esas tres lecturas no coincidía con la del servidor, la API dejaba entrar y el menú no lo pintaba (o al revés). Ahora el servidor dice si esta sesión PUEDE entrar, con
+     la MISMA función que usa el 403 (lib/tareasDireccion.puedeEntrar), y el menú solo obedece. El aspirante con sublicencia no: su sesión está recortada a cuatro pantallas. */
+  let tareasDireccion = false;
+  try { tareasDireccion = !esAspirante && await require('../lib/tareasDireccion').puedeEntrar(req.session.usuario); }
+  catch (err) { console.error('Leyendo «Tareas de dirección» en /me:', err.message); }
+
   res.json({
     usuario: {
       ...req.session.usuario,
+      tareas_direccion: tareasDireccion,
       es_superadmin: await esSuperadmin(req.session.usuario),
       es_aspirante: esAspirante,
       es_aspirante_concejo: esAspiranteConcejo,

@@ -131,7 +131,7 @@ const HOY_REAL = R.enColombia(new Date()).hoy;
   const rolCand = require('../config/rolCandidato');
   ok(!/tareas_direccion|tareas-direccion/.test(lectura('routes/permisos.routes.js')) && ![].concat(rolCand.MODULOS_VER_CANDIDATO, rolCand.MODULOS_SOLO_APP).some((m) => /direccion/.test(m)), 'no va en «Asignación de permisos» ni entre los módulos del candidato: el acceso es fijo para esos dos');
   const usan = []; for (const d of ['routes', 'lib', 'config', 'middleware']) for (const f of fs.readdirSync(path.join(RAIZ, d))) if (f.endsWith('.js') && /tareas_direccion|tareasDireccion/.test(lectura(d + '/' + f))) usan.push(d + '/' + f);
-  const esperados = ['config/rolCandidato.js', 'lib/tareasDireccion.js', 'routes/tareasDireccion.routes.js'].sort();   // (lib/alcanceCampanas.js solo esconde el aviso del CRM; no nombra las tablas)
+  const esperados = ['config/rolCandidato.js', 'lib/tareasDireccion.js', 'routes/auth.routes.js', 'routes/tareasDireccion.routes.js'].sort();   // (lib/alcanceCampanas.js solo esconde el aviso del CRM; no nombra las tablas.) routes/auth.routes.js (orden 118) solo le pregunta a puedeEntrar() si el menú lleva el ítem: no toca las tablas.
   ok(JSON.stringify(usan.sort()) === JSON.stringify(esperados), 'ningún otro módulo (exportaciones, dashboards, búsquedas, panel general) toca las tablas', usan);
   const rp = (await C.cand.get('/tareas-direccion/responsables')).datos;
   ok(![].concat(rp.candidato, rp.personas).some((x) => x.usuario_id === ids.super), 'el superadministrador NO aparece entre los responsables posibles');
