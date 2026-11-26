@@ -23,6 +23,69 @@
   /* El enlace viejo #avance baja hasta esta sección; en el celular la barra superior es fija y taparía su título. */
   #seccion-avance { scroll-margin-top: 76px; }
   .distintivo-alerta { display:inline-block; background:#FDF3E0; color:#8A5A00; border:1px solid #E5C27A; border-radius:999px; padding:1px 8px; font-size:0.75rem; white-space:nowrap; margin:1px 0; }
+
+  /* ESPERADOS VS. OFICIAL (orden 127). Corporativos: #FFC300, #0B5ED7, #084298. */
+  .esp-aviso { margin-bottom: 14px; font-size: 0.9rem; line-height: 1.45; }
+  .esp-ambar { background: #FDF3E0; border: 1px solid #E5C27A; color: #8A5A00; }
+  .esp-rojo { background: #FBEAEA; border: 1px solid #E3A7A1; color: #A93226; }
+  .esp-linea { font-size: 0.88rem; color: var(--color-text-muted); margin: 0 0 6px; }
+  .esp-rubros { font-size: 0.85rem; margin: 0 0 4px; }
+  .esp-rubros summary { cursor: pointer; color: #0B5ED7; }
+  .esp-rubros h4 { margin: 8px 0 2px; font-size: 0.85rem; }
+  .esp-rubros ul { margin: 0 0 4px 18px; padding: 0; }
+  .esp-titulo { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; user-select: none; }
+  .esp-titulo h3 { color: #084298; }
+  .esp-titulo:focus-visible, .esp-fila:focus-visible { outline: 2px solid #0B5ED7; outline-offset: 2px; }
+  .esp-conteo { font-size: 0.85rem; color: var(--color-text-muted); white-space: nowrap; }
+  .esp-flecha { color: #0B5ED7; display: inline-block; width: 1em; }
+  .esp-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .esp-punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 2px 0 4px; vertical-align: baseline; }
+  .esp-punto.verde, .esp-barra .verde { background: var(--color-confirmado, #1E7245); }
+  .esp-punto.amarillo, .esp-barra .amarillo { background: #FFC300; }
+  .esp-punto.rojo, .esp-barra .rojo { background: var(--color-no-apoya, #A93226); }
+  .esp-tabla { width: 100%; border-collapse: collapse; }
+  .esp-fila { cursor: pointer; }
+  .esp-fila:hover { background: rgba(11, 94, 215, 0.05); }
+  .esp-num { width: 34px; color: var(--color-text-muted); text-align: right; }
+  .esp-persona { display: flex; align-items: center; gap: 10px; }
+  .esp-ini { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: #084298; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; }
+  .esp-nombre { font-weight: 600; }
+  .esp-sub { font-size: 0.75rem; color: var(--color-text-muted); font-weight: 400; }
+  .esp-marca { font-size: 0.72rem; color: #8A5A00; font-weight: 400; }
+  .esp-col-barra { width: 110px; min-width: 70px; }
+  .esp-barra { height: 8px; background: #E8EAEE; border-radius: 99px; overflow: hidden; }
+  .esp-barra span { display: block; height: 100%; }
+  .esp-pct { display: inline-block; min-width: 64px; text-align: center; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+  .esp-pct.verde { background: #DDF1E4; color: #1E7245; }
+  .esp-pct.amarillo { background: #FFF1B8; color: #7A5B00; }
+  .esp-pct.rojo { background: #FBEAEA; color: #A93226; }
+  .esp-pct.sin { color: var(--color-text-muted); }
+  .esp-delta { font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+  .esp-delta.neg { color: var(--color-no-apoya, #A93226); }
+  .esp-delta.pos, .esp-delta.cero { color: var(--color-confirmado, #1E7245); }
+  .esp-delta.sin { color: var(--color-text-muted); font-weight: 400; font-style: italic; }
+  .esp-detalle > td { background: #F6F8FC; padding: 6px 10px 10px 42px; }
+  .esp-interna { font-size: 0.85rem; }
+  .esp-gris { color: var(--color-text-muted); }
+  .esp-lideres { font-size: 0.82rem; }
+  .esp-sinmesa { margin: 6px 0 0; font-size: 0.82rem; color: #8A5A00; }
+  .esp-fuera { background: #FAF6EC; }
+  .esp-corto { display: none; }
+  .esp-nota { font-size: 0.8rem; color: var(--color-text-muted); margin: 10px 0 0; }
+  @media (max-width: 600px) {
+    .esp-ocultar-movil { display: none; }
+    /* Lo decorativo se va primero (el número de orden y el círculo con las iniciales) para que el % no quede fuera de pantalla. */
+    .esp-num, .esp-ini { display: none; }
+    .esp-tabla th, .esp-tabla td { padding-left: 6px; padding-right: 6px; }
+    .esp-detalle > td { padding-left: 6px; padding-right: 6px; }
+    .esp-interna { font-size: 0.75rem; }
+    .esp-interna th, .esp-interna td { padding-left: 3px; padding-right: 3px; }
+    .esp-interna .esp-pct { min-width: 0; padding: 1px 4px; font-size: 0.72rem; }
+    .esp-col-barra { display: none; }
+    .esp-pct { min-width: 0; padding: 2px 5px; font-size: 0.72rem; }
+    .esp-largo { display: none; }
+    .esp-corto { display: inline; }
+  }
 </style>
 </head>
 <body>
@@ -209,13 +272,14 @@
       <small id="nota-alertas" style="color:var(--color-text-muted); display:block; margin-top:8px;"></small>
     </div>
 
-    <!-- RESULTADOS (fase 3): consolidado, resultado oficial y diferencias. En celular las rejillas se
+    <!-- RESULTADOS (fase 3): consolidado, resultado oficial, testigo vs. oficial y esperados vs. oficial. En celular las rejillas se
          apilan y las tablas se desplazan de lado dentro de su contenedor. -->
     <div id="vista-resultados" style="display:none;">
       <div class="grupo-pestanas" style="margin-bottom:14px; flex-wrap:wrap;">
         <button type="button" class="btn-acento btn-sm" data-sub="consolidado">Consolidado</button>
         <button type="button" class="btn-secundario btn-sm" data-sub="oficial">Resultado oficial</button>
-        <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Diferencias <span id="contador-dif" class="mono"></span></button>
+        <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Testigo vs. oficial <span id="contador-dif" class="mono"></span></button>
+        <button type="button" class="btn-secundario btn-sm" data-sub="esperados">Esperados vs. oficial</button>
       </div>
 
       <!-- a) CONSOLIDADO -->
@@ -266,11 +330,11 @@
         </div>
       </div>
 
-      <!-- c) DIFERENCIAS -->
+      <!-- c) TESTIGO VS. OFICIAL (antes «Diferencias»: el id, la ruta y el JS dif-* se quedan) -->
       <div id="sub-diferencias" style="display:none;">
         <div id="dif-vacio-oficial" class="card" style="display:none; background:#FDF3E0; border:1px solid #E5C27A; color:#8A5A00;">
           Todavía no hay resultado oficial cargado. Primero digítelo en la pestaña <strong>Resultado oficial</strong>:
-          las diferencias se calculan comparándolo con lo que reportó el testigo de cada mesa.
+          «Testigo vs. oficial» compara lo que reportó el testigo de cada mesa con el oficial.
         </div>
         <div class="card" style="margin-bottom:14px;">
           <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
@@ -300,6 +364,49 @@
             <thead><tr><th>Pedido</th><th>Estado</th><th class="col-num">Mesas</th><th class="col-num">Archivos</th><th class="col-num">Tamaño</th><th>Vence</th><th></th></tr></thead>
             <tbody id="tbody-paquetes"></tbody>
           </table></div>
+        </div>
+      </div>
+
+      <!-- d) ESPERADOS VS. OFICIAL (orden 127) -->
+      <div id="sub-esperados" style="display:none;">
+        <div id="esp-aviso-oficial" class="card esp-aviso esp-ambar" style="display:none;"></div>
+        <div id="esp-aviso-propio" class="card esp-aviso esp-rojo" style="display:none;"></div>
+        <div id="esp-contenido" style="display:none;">
+          <div class="grid grid-4" id="esp-tarjetas" style="margin-bottom:10px;"></div>
+          <div id="esp-linea" class="esp-linea"></div>
+          <details id="esp-rubros" class="esp-rubros"><summary>Ver lo que quedó aparte</summary><div id="esp-rubros-cuerpo"></div></details>
+          <div class="card esp-aviso esp-ambar" style="margin:10px 0 14px;">El voto es secreto: los votos por líder son una estimación a partir de sus votantes inscritos en cada mesa, no una verificación de quién votó por quién.</div>
+
+          <div class="card" style="margin-bottom:14px;">
+            <div id="esp-titulo-lideres" class="esp-titulo" role="button" tabindex="0" aria-expanded="true" aria-controls="esp-cuerpo-lideres">
+              <h3 style="margin:0;"><span id="esp-flecha" class="esp-flecha">▾</span> Resumen por líder · consolidado de sus mesas</h3>
+              <span id="esp-conteo-lideres" class="esp-conteo"></span>
+            </div>
+            <div id="esp-cuerpo-lideres">
+              <div id="esp-chips-lideres" class="esp-chips"></div>
+              <div class="tabla-contenedor"><table class="esp-tabla">
+                <thead><tr><th class="esp-num">#</th><th>Líder</th><th class="col-num esp-ocultar-movil" title="Mesas con oficial / mesas donde tiene votantes">Mesas</th><th class="col-num">Esperados</th>
+                  <th class="col-num esp-ocultar-movil">Ya votó</th><th class="col-num">Oficial est.</th><th class="esp-col-barra"></th><th class="col-num">%</th></tr></thead>
+                <tbody id="esp-tbody-lideres"></tbody>
+              </table></div>
+              <div id="esp-vacio-lideres" class="vacio" style="display:none;"><div class="icono-vacio">👥</div>No hay líderes con votantes en una mesa.</div>
+              <p class="esp-nota">Consolidado = votos oficiales estimados del líder ÷ sus votantes esperados, sumando sus mesas con oficial. En cada mesa, los votos oficiales del candidato se reparten entre los líderes según cuántos votantes tenía cada uno ahí.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="toolbar" style="flex-wrap:wrap; gap:8px;">
+              <h3 style="margin:0;">Esperados vs. oficial por puesto</h3>
+              <a class="btn-secundario btn-sm" id="esp-excel" href="#">⬇ Excel</a>
+            </div>
+            <div id="esp-chips-puestos" class="esp-chips"></div>
+            <div class="tabla-contenedor"><table class="esp-tabla">
+              <thead><tr><th>Puesto</th><th class="col-num">Esperados</th><th class="col-num esp-ocultar-movil">Ya votó</th><th class="col-num">Oficial</th>
+                <th class="col-num esp-ocultar-movil">Diferencia</th><th class="esp-col-barra"></th><th class="col-num">%</th></tr></thead>
+              <tbody id="esp-tbody-puestos"></tbody>
+            </table></div>
+            <div id="esp-vacio-puestos" class="vacio" style="display:none;"><div class="icono-vacio">📍</div>No hay puestos con ese filtro.</div>
+          </div>
         </div>
       </div>
     </div><!-- /vista-resultados -->
@@ -773,11 +880,12 @@ let resCons = null, resOrden = { campo: 'puesto', asc: true }, resMunicipio = ''
 let puestosOficial = [], mesaOficial = null, filtroDif = 'perdida', ultimasDif = null, revisionAbierta = null, numMarcadas = 0;
 
 function subResultados(cual) {
-  ['consolidado', 'oficial', 'diferencias'].forEach(k => { document.getElementById('sub-' + k).style.display = k === cual ? 'block' : 'none'; });
+  ['consolidado', 'oficial', 'diferencias', 'esperados'].forEach(k => { document.getElementById('sub-' + k).style.display = k === cual ? 'block' : 'none'; });
   document.querySelectorAll('[data-sub]').forEach(b => { b.classList.toggle('btn-acento', b.dataset.sub === cual); b.classList.toggle('btn-secundario', b.dataset.sub !== cual); });
   if (cual === 'consolidado') cargarConsolidado().catch(err => mostrarToast(err.message, 'error'));
   if (cual === 'oficial') prepararOficial().catch(err => mostrarToast(err.message, 'error'));
   if (cual === 'diferencias') { cargarDiferencias().catch(err => mostrarToast(err.message, 'error')); cargarPaquetes().catch(() => {}); }
+  if (cual === 'esperados') cargarEsperados().catch(err => mostrarToast(err.message, 'error'));
 }
 document.querySelectorAll('[data-sub]').forEach(b => b.addEventListener('click', () => subResultados(b.dataset.sub)));
 function abrirResultados() { subResultados('consolidado'); cargarDiferencias(true).catch(() => {}); }
@@ -921,7 +1029,7 @@ document.getElementById('of-guardar').addEventListener('click', async () => {
   finally { boton.disabled = false; }
 });
 
-/* c) DIFERENCIAS Y PAQUETE */
+/* c) TESTIGO VS. OFICIAL Y PAQUETE (antes «Diferencias») */
 async function cargarDiferencias(soloContador) {
   const fuente = document.getElementById('dif-fuente').value;
   const r = await api(`${RES}/diferencias?filtro=${filtroDif}&fuente=${fuente}`);
@@ -978,6 +1086,211 @@ document.getElementById('rev-guardar').addEventListener('click', async () => {
     document.getElementById('modal-revision').style.display = 'none';
     await cargarDiferencias();
   } catch (err) { document.getElementById('rev-error').textContent = err.message; }
+});
+
+/* d) ESPERADOS VS. OFICIAL (orden 127)
+   Los números los calcula el servidor (lib/esperadosOficial.js); aquí solo se pintan. Los colores usan los mismos
+   cortes que el servidor: ≥ 90 verde, 70–89 amarillo, < 70 rojo, y más de 100 sigue verde con un «+». */
+const ESP_LS = 'diaD.esperados.resumenAbierto';
+let espDatos = null, espFuente = '', espMunicipio = '', espSoloBajo = false, espOrden = 'mayor', espCoord = null;
+const espAbiertosL = new Set(), espAbiertosP = new Set();
+let espLideresPorClave = new Map(), espPuestosPorId = new Map();
+function espLeerAbierto() { try { return localStorage.getItem(ESP_LS) !== '0'; } catch (_) { return true; } }
+function espGuardarAbierto(v) { try { localStorage.setItem(ESP_LS, v ? '1' : '0'); } catch (_) { /* sin almacenamiento: no se recuerda */ } }
+const espNum = (x, d = 1) => (x === null || x === undefined ? '—' : Number(x).toLocaleString('es-CO', { maximumFractionDigits: d }));
+const espSem = (p) => (p === null || p === undefined ? '' : (p >= 90 ? 'verde' : (p >= 70 ? 'amarillo' : 'rojo')));
+const espPct = (p) => (p === null || p === undefined ? '<span class="esp-pct sin">—</span>'
+  : `<span class="esp-pct ${espSem(p)}">${espNum(p)} %${p > 100 ? ' +' : ''}</span>`);
+const espBarra = (p) => (p === null || p === undefined ? '<div class="esp-barra"></div>'
+  : `<div class="esp-barra"><span class="${espSem(p)}" style="width:${Math.min(100, Math.max(0, p))}%"></span></div>`);
+const espIniciales = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || '?';
+function espDelta(d) {
+  if (d === null || d === undefined) return '<span class="esp-delta sin">sin oficial</span>';
+  return `<span class="esp-delta ${d < 0 ? 'neg' : (d > 0 ? 'pos' : 'cero')}">${d > 0 ? '+' : (d < 0 ? '−' : '')}${espNum(Math.abs(d), 0)}</span>`;
+}
+
+async function cargarEsperados() {
+  const p = new URLSearchParams();
+  if (espFuente) p.set('fuente', espFuente);
+  espDatos = await api(`${RES}/esperados${p.toString() ? '?' + p.toString() : ''}`);
+  pintarEsperados();
+}
+
+function pintarEsperados() {
+  const r = espDatos; if (!r) return;
+  const avisoOf = document.getElementById('esp-aviso-oficial'), avisoPr = document.getElementById('esp-aviso-propio');
+  const nombreFuente = (f) => (f === 'escrutinio' ? 'escrutinio' : 'preconteo');
+  avisoOf.style.display = 'none'; avisoPr.style.display = 'none';
+  document.getElementById('esp-contenido').style.display = 'none';
+  if (!r.hay_oficial) {
+    avisoOf.innerHTML = 'Todavía no hay resultado oficial cargado. Primero digítelo en la pestaña <strong>Resultado oficial</strong>: «Esperados vs. oficial» compara los votantes que inscribieron los líderes en cada mesa con el oficial.'
+      + (r.hay_oficial_en_otra_fuente ? ` Hay resultado de <strong>${nombreFuente(r.hay_oficial_en_otra_fuente)}</strong>: <button type="button" class="btn-secundario btn-sm" data-esp-fuente="${r.hay_oficial_en_otra_fuente}">Ver ${nombreFuente(r.hay_oficial_en_otra_fuente)}</button>` : '');
+    avisoOf.style.display = 'block';
+    return;
+  }
+  if (r.aviso_propio_no_encontrado) {
+    avisoPr.innerHTML = `No encontramos a «${escaparHtml(r.propio || '(sin nombre)')}» en el resultado oficial: revise el nombre del candidato en Configuración.`;
+    avisoPr.style.display = 'block';
+    return;
+  }
+  document.getElementById('esp-contenido').style.display = 'block';
+  const t = r.totales;
+
+  const tarjeta = (l, v, sub, color) => `<div class="card stat-card"><div class="label">${escaparHtml(l)}</div><div class="valor" style="font-size:1.3rem;${color ? ` color:${color};` : ''}">${v}</div>${sub ? `<div class="esp-sub">${sub}</div>` : ''}</div>`;
+  const colSem = { verde: 'var(--color-confirmado,#1E7245)', amarillo: '#8A6A00', rojo: 'var(--color-no-apoya,#A93226)' };
+  document.getElementById('esp-tarjetas').innerHTML = [
+    tarjeta('Votos esperados', escaparHtml(espNum(t.esperados, 0)), r.parcial ? 'de tus líderes' : ''),
+    tarjeta('Marcados «Ya votó»', `${escaparHtml(espNum(t.ya_voto, 0))} <span class="esp-sub" style="font-weight:600;">(${escaparHtml(espNum(t.ya_voto_pct))} %)</span>`, 'de los esperados'),
+    tarjeta('Votos oficiales del candidato', escaparHtml(espNum(Math.round(t.oficial), 0)), `${escaparHtml(nombreFuente(r.fuente))} · en mesas con votantes inscritos`),
+    tarjeta('Cumplimiento', escaparHtml(t.cumplimiento === null ? '—' : espNum(t.cumplimiento) + ' %'),
+      t.votos_por_debajo === null ? '' : (t.votos_por_debajo > 0 ? `${escaparHtml(espNum(Math.round(t.votos_por_debajo), 0))} votos por debajo` : 'sin votos por debajo'), colSem[t.semaforo]),
+  ].join('');
+
+  const partes = [`Esperados con mesa: <strong>${escaparHtml(espNum(t.esperados_con_mesa_pct))} %</strong>`,
+    `Mesas con oficial: <strong>${t.mesas_con_oficial} de ${t.mesas_total}</strong>`,
+    `Sin mesa: <strong>${escaparHtml(espNum(t.sin_mesa, 0))}</strong>`];
+  if (t.votos_sin_atribuir !== null) partes.push(`Votos sin atribuir: <strong>${escaparHtml(espNum(t.votos_sin_atribuir, 0))}</strong>`);
+  if (t.fuera_de_lista) partes.push(`Fuera de lista: <strong>${escaparHtml(espNum(t.fuera_de_lista, 0))}</strong>`);
+  document.getElementById('esp-linea').innerHTML = partes.join(' · ') + (r.parcial ? '<div class="esp-sub">Ves solo a tus líderes; en cada mesa, los demás aparecen sumados como «otros líderes».</div>' : '');
+
+  const rb = r.rubros, sec = [];
+  if (rb.votos_sin_atribuir && rb.votos_sin_atribuir.mesas.length) sec.push(`<h4>Votos sin atribuir (mesas con oficial y ningún votante inscrito)</h4><ul>${rb.votos_sin_atribuir.mesas.map(m => `<li>${escaparHtml(m.puesto)} · Mesa ${m.mesa}: ${escaparHtml(espNum(m.votos, 0))} votos</li>`).join('')}</ul>`);
+  if (rb.sin_mesa.puestos.length) sec.push(`<h4>Votantes sin mesa (vacía o fuera del rango del puesto)</h4><ul>${rb.sin_mesa.puestos.map(x => `<li>${escaparHtml(x.puesto)}: ${escaparHtml(espNum(x.n, 0))}</li>`).join('')}</ul>`);
+  if (rb.fuera_de_lista.puestos.length) sec.push(`<h4>Votan fuera de los puestos de la campaña</h4><ul>${rb.fuera_de_lista.puestos.map(x => `<li>${escaparHtml(x.puesto)}: ${escaparHtml(espNum(x.esperados, 0))}</li>`).join('')}</ul>`);
+  document.getElementById('esp-rubros').style.display = sec.length ? 'block' : 'none';
+  document.getElementById('esp-rubros-cuerpo').innerHTML = sec.join('');
+
+  pintarEspLideres(r);
+  pintarEspPuestos(r);
+}
+
+function pintarEspLideres(r) {
+  const abierto = espLeerAbierto();
+  document.getElementById('esp-cuerpo-lideres').style.display = abierto ? 'block' : 'none';
+  document.getElementById('esp-flecha').textContent = abierto ? '▾' : '▸';
+  document.getElementById('esp-titulo-lideres').setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  const reales = r.lideres.filter(l => !l.sin_lider);
+  const cuenta = (s) => reales.filter(l => espSem(l.consolidado) === s).length;
+  document.getElementById('esp-conteo-lideres').innerHTML = `${reales.length} líder${reales.length === 1 ? '' : 'es'}
+    · <span class="esp-punto verde"></span>${cuenta('verde')} <span class="esp-punto amarillo"></span>${cuenta('amarillo')} <span class="esp-punto rojo"></span>${cuenta('rojo')}`;
+
+  const chip = (texto, activo, attr) => `<button type="button" class="${activo ? 'btn-acento' : 'btn-secundario'} btn-sm" ${attr}>${escaparHtml(texto)}</button>`;
+  document.getElementById('esp-chips-lideres').innerHTML =
+    chip('Mayor a menor', espOrden === 'mayor', 'data-esp-orden="mayor"') + chip('Menor a mayor', espOrden === 'menor', 'data-esp-orden="menor"')
+    + (!r.parcial ? r.coordinadores.map(c => chip('Coord. ' + c.nombre, espCoord === c.id, `data-esp-coord="${c.id}"`)).join('') : '');
+
+  const ls = reales.filter(l => espCoord === null || l.coordinador_id === espCoord);
+  ls.sort((a, b) => {
+    const x = a.consolidado, y = b.consolidado;
+    if (x === null && y === null) return b.esperados - a.esperados;
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return espOrden === 'mayor' ? y - x : x - y;
+  });
+  const sl = espCoord === null ? r.lideres.find(l => l.sin_lider) : null;
+  const filas = sl ? [...ls, sl] : ls;
+  espLideresPorClave = new Map(filas.map(l => [l.id === null ? 'sl' : String(l.id), l]));
+  document.getElementById('esp-vacio-lideres').style.display = filas.length ? 'none' : 'block';
+  let n = 0;
+  document.getElementById('esp-tbody-lideres').innerHTML = filas.map(l => {
+    const k = l.id === null ? 'sl' : String(l.id), ab = espAbiertosL.has(k);
+    return `<tr class="esp-fila" data-lider="${k}" tabindex="0" aria-expanded="${ab}">
+      <td class="esp-num">${l.sin_lider ? '' : ++n}</td>
+      <td><div class="esp-persona"><span class="esp-ini">${escaparHtml(l.sin_lider ? '–' : espIniciales(l.nombre))}</span><div>
+        <div class="esp-nombre"><span class="esp-flecha">${ab ? '▾' : '▸'}</span> ${escaparHtml(l.nombre)}${l.registro_equipo ? ' <span class="esp-marca">(registró el equipo)</span>' : ''}</div>
+        ${l.coordinador ? `<div class="esp-sub">Coord. ${escaparHtml(l.coordinador)}</div>` : ''}</div></div></td>
+      <td class="mono col-num esp-ocultar-movil" title="Mesas con oficial / mesas donde tiene votantes">${l.mesas_con_oficial}/${l.mesas}</td>
+      <td class="mono col-num">${escaparHtml(espNum(l.esperados, 0))}</td>
+      <td class="mono col-num esp-ocultar-movil">${escaparHtml(espNum(l.ya_voto, 0))}</td>
+      <td class="mono col-num">${l.mesas_con_oficial ? escaparHtml(espNum(Math.round(l.estimado), 0)) : '—'}</td>
+      <td class="esp-col-barra">${espBarra(l.consolidado)}</td>
+      <td class="col-num">${espPct(l.consolidado)}</td></tr>
+      <tr class="esp-detalle" data-detalle-lider="${k}" ${ab ? '' : 'style="display:none;"'}><td colspan="8">${ab ? espDetalleLider(l) : ''}</td></tr>`;
+  }).join('');
+}
+
+function espDetalleLider(l) {
+  if (!l.detalle.length) return '<div class="esp-sub" style="padding:8px;">Sin votantes con mesa asignada.</div>';
+  return `<table class="esp-tabla esp-interna"><thead><tr><th>Puesto</th><th class="col-num">Mesa</th><th class="col-num">Sus votantes</th>
+    <th class="col-num esp-ocultar-movil">Ya votó</th><th class="col-num">Oficial est.</th><th class="col-num"><span class="esp-largo">Cumplimiento</span><span class="esp-corto" title="Cumplimiento">Cumpl.</span></th></tr></thead><tbody>
+    ${l.detalle.map(d => `<tr class="${d.tiene_oficial ? '' : 'esp-gris'}"><td>${escaparHtml(d.puesto)}</td><td class="mono col-num">${d.mesa}</td>
+      <td class="mono col-num">${escaparHtml(espNum(d.votantes, 0))}</td><td class="mono col-num esp-ocultar-movil">${escaparHtml(espNum(d.ya_voto, 0))}</td>
+      <td class="mono col-num">${d.tiene_oficial ? escaparHtml(espNum(d.estimado)) : '<span class="esp-delta sin">sin oficial</span>'}</td>
+      <td class="col-num">${d.tiene_oficial ? espPct(d.cumplimiento) : ''}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function pintarEspPuestos(r) {
+  const chip = (texto, activo, attr) => `<button type="button" class="${activo ? 'btn-acento' : 'btn-secundario'} btn-sm" ${attr}>${escaparHtml(texto)}</button>`;
+  document.getElementById('esp-chips-puestos').innerHTML =
+    chip('Todos los municipios', !espMunicipio, 'data-esp-municipio=""')
+    + r.municipios.map((m, i) => chip(m, espMunicipio === m, `data-esp-municipio-i="${i}"`)).join('')
+    + chip('Solo por debajo del 70 %', espSoloBajo, 'data-esp-bajo="1"')
+    + ['preconteo', 'escrutinio'].map(f => chip(f === 'preconteo' ? 'Preconteo' : 'Escrutinio', r.fuente === f, `data-esp-fuente="${f}"`)).join('');
+  document.getElementById('esp-excel').href = `/api${RES}/esperados/excel?fuente=${encodeURIComponent(r.fuente)}${espMunicipio ? '&municipio=' + encodeURIComponent(espMunicipio) : ''}`;
+
+  const ps = r.puestos.filter(p => (!espMunicipio || p.municipio === espMunicipio) && (!espSoloBajo || (p.cumplimiento !== null && p.cumplimiento < 70)));
+  espPuestosPorId = new Map(ps.map(p => [String(p.puesto_id), p]));
+  const fuera = r.rubros.fuera_de_lista;
+  const mostrarFuera = !espSoloBajo && !espMunicipio && fuera.total > 0;
+  document.getElementById('esp-vacio-puestos').style.display = (ps.length || mostrarFuera) ? 'none' : 'block';
+  document.getElementById('esp-tbody-puestos').innerHTML = ps.map(p => {
+    const k = String(p.puesto_id), ab = espAbiertosP.has(k);
+    return `<tr class="esp-fila" data-puesto="${k}" tabindex="0" aria-expanded="${ab}">
+      <td><div class="esp-nombre"><span class="esp-flecha">${ab ? '▾' : '▸'}</span> ${escaparHtml(p.puesto)}</div>
+        <div class="esp-sub">${escaparHtml(p.municipio)} · ${p.mesas_con_votantes} mesa${p.mesas_con_votantes === 1 ? '' : 's'}${p.mesas_con_oficial ? ` · ${p.mesas_con_oficial} con oficial` : ''}</div></td>
+      <td class="mono col-num">${escaparHtml(espNum(p.esperados, 0))}</td>
+      <td class="mono col-num esp-ocultar-movil">${escaparHtml(espNum(p.ya_voto, 0))}</td>
+      <td class="mono col-num">${p.oficial === null ? '—' : escaparHtml(espNum(p.oficial, 0))}</td>
+      <td class="col-num esp-ocultar-movil" title="Oficial menos esperados, solo en las mesas con oficial">${p.diferencia === null ? '—' : espDelta(p.diferencia)}</td>
+      <td class="esp-col-barra">${espBarra(p.cumplimiento)}</td>
+      <td class="col-num">${espPct(p.cumplimiento)}</td></tr>
+      <tr class="esp-detalle" data-detalle-puesto="${k}" ${ab ? '' : 'style="display:none;"'}><td colspan="7">${ab ? espDetallePuesto(p) : ''}</td></tr>`;
+  }).join('') + (mostrarFuera ? `<tr class="esp-fuera"><td><div class="esp-nombre">Fuera de lista</div>
+      <div class="esp-sub">${fuera.puestos.slice(0, 6).map(x => escaparHtml(x.puesto)).join(' · ')}${fuera.puestos.length > 6 ? ' …' : ''} — votan en un puesto que la campaña no cubre</div></td>
+      <td class="mono col-num">${escaparHtml(espNum(fuera.total, 0))}</td><td class="mono col-num esp-ocultar-movil">${escaparHtml(espNum(fuera.puestos.reduce((s, x) => s + x.ya_voto, 0), 0))}</td>
+      <td class="col-num">—</td><td class="col-num esp-ocultar-movil">—</td><td class="esp-col-barra"></td><td class="col-num">—</td></tr>` : '');
+}
+
+function espDetallePuesto(p) {
+  const lideres = (m) => {
+    const t = m.lideres.map(l => `${escaparHtml(l.nombre)}${l.registro_equipo ? ' <span class="esp-marca" title="Registró el equipo, sin elegir líder">(equipo)</span>' : ''} (${espNum(l.n, 0)})`);
+    if (m.otros_lideres_n) t.push(`Otros líderes (${espNum(m.otros_lideres_n, 0)} votantes)`);
+    return t.join(' · ') || '—';
+  };
+  return `<table class="esp-tabla esp-interna"><thead><tr><th class="col-num">Mesa</th><th class="col-num">Esperados</th><th class="col-num esp-ocultar-movil">Ya votó</th>
+    <th class="col-num">Oficial</th><th class="col-num esp-ocultar-movil">Δ</th><th>Líderes con votantes en la mesa</th></tr></thead><tbody>
+    ${p.mesas.map(m => `<tr class="${m.tiene_oficial ? '' : 'esp-gris'}"><td class="mono col-num">${m.mesa}</td><td class="mono col-num">${escaparHtml(espNum(m.esperados, 0))}</td>
+      <td class="mono col-num esp-ocultar-movil">${escaparHtml(espNum(m.ya_voto, 0))}</td>
+      <td class="mono col-num">${m.tiene_oficial ? escaparHtml(espNum(m.oficial, 0)) : '<span class="esp-delta sin">sin oficial</span>'}</td>
+      <td class="col-num esp-ocultar-movil">${m.sin_votantes ? '<span class="esp-delta sin">sin atribuir</span>' : (m.tiene_oficial ? espDelta(m.delta) : '')}</td>
+      <td class="esp-lideres">${m.sin_votantes ? '<span class="esp-sub">Nadie inscribió votantes en esta mesa.</span>' : lideres(m)}</td></tr>`).join('')}
+    </tbody></table>${p.sin_mesa ? `<div class="esp-sinmesa">Sin mesa asignada: ${escaparHtml(espNum(p.sin_mesa, 0))} votante${p.sin_mesa === 1 ? '' : 's'}</div>` : ''}`;
+}
+
+/* Una sola escucha por zona: los chips, las filas que se despliegan y el título del resumen. */
+function espAlternarAbierto(conjunto, clave) { if (conjunto.has(clave)) conjunto.delete(clave); else conjunto.add(clave); }
+document.getElementById('sub-esperados').addEventListener('click', (e) => {
+  const t = e.target;
+  const f = t.closest('[data-esp-fuente]');
+  if (f) { espFuente = f.dataset.espFuente; cargarEsperados().catch(err => mostrarToast(err.message, 'error')); return; }
+  if (t.closest('[data-esp-orden]')) { espOrden = t.closest('[data-esp-orden]').dataset.espOrden; pintarEspLideres(espDatos); return; }
+  const c = t.closest('[data-esp-coord]');
+  if (c) { const id = Number(c.dataset.espCoord); espCoord = espCoord === id ? null : id; pintarEspLideres(espDatos); return; }
+  const mi = t.closest('[data-esp-municipio-i]');
+  if (mi) { espMunicipio = espDatos.municipios[Number(mi.dataset.espMunicipioI)] || ''; pintarEspPuestos(espDatos); return; }
+  if (t.closest('[data-esp-municipio]')) { espMunicipio = ''; pintarEspPuestos(espDatos); return; }
+  if (t.closest('[data-esp-bajo]')) { espSoloBajo = !espSoloBajo; pintarEspPuestos(espDatos); return; }
+  if (t.closest('#esp-titulo-lideres')) { espGuardarAbierto(!espLeerAbierto()); pintarEspLideres(espDatos); return; }
+  const fl = t.closest('tr[data-lider]');
+  if (fl) { espAlternarAbierto(espAbiertosL, fl.dataset.lider); pintarEspLideres(espDatos); return; }
+  const fp = t.closest('tr[data-puesto]');
+  if (fp) { espAlternarAbierto(espAbiertosP, fp.dataset.puesto); pintarEspPuestos(espDatos); }
+});
+document.getElementById('sub-esperados').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const objetivo = e.target.closest('#esp-titulo-lideres, tr[data-lider], tr[data-puesto]');
+  if (!objetivo) return;
+  e.preventDefault(); objetivo.click();
 });
 
 async function cargarPaquetes() {

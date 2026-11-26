@@ -14,7 +14,7 @@ Junta en un solo archivo ZIP (una carpeta comprimida) todo lo necesario para rec
 
 ## Pasos
 
-1. Antes, marca las mesas en la subpestaña [[Diferencias]] como «Para reclamar» (ver {{t-resultados-diferencias}}). Cada una necesita tener resultado oficial y reporte del testigo; el paquete incluye las mesas marcadas aunque ya no tengan diferencia.
+1. Antes, marca las mesas en la subpestaña [[Testigo vs. oficial]] como «Para reclamar» (ver {{t-resultados-diferencias}}). Cada una necesita tener resultado oficial y reporte del testigo; el paquete incluye las mesas marcadas aunque ya no tengan diferencia.
 2. Baja a la tarjeta «Paquete para el abogado». El botón dice cuántas mesas hay marcadas: [[Armar paquete (N marcadas)]]. Si N es 0, está desactivado.
 3. Toca el botón. Aparece una fila nueva en la tabla, con tu nombre y la hora del pedido.
 4. Espera: el estado pasa de «En cola…» a «Armando…» y luego a «Listo». Mientras se arma, la tabla se revisa sola cada 10 segundos.

@@ -38,6 +38,11 @@ const { registrarAuditoria, registrarAuditoriaEn } = require('../config/auditori
 const { UPLOAD_DIA_D_DIR } = require('../middleware/upload');
 const diaD = require('./diaD.routes').compartido;
 const { crearResolutorDePuestos, cargarMunicipios, normalizar } = require('../lib/puestosDiaD');
+const { calcularAlcance } = require('../middleware/auth');
+const { condicionAlcanceVotantes, parametrosAlcanceVotantes } = require('../lib/alcanceVotantes');
+const { cargoDeLaMadre } = require('../config/cargoMadre');
+const { esSuperadmin } = require('../config/superadmin');
+const { construirEsperados } = require('../lib/esperadosOficial');
 
 const router = express.Router();
 router.use(requireAuth, requiereComplemento('resultados_dia_d'), requiereVerModulo('resultados_dia_d', { aspirante: true }));
@@ -488,6 +493,148 @@ router.get('/diferencias', async (req, res) => {
   } catch (err) {
     console.error('resultados/diferencias:', err.code || err.message);
     res.status(500).json({ error: 'No se pudieron calcular las diferencias.' });
+  }
+});
+
+/* ——— ESPERADOS VS. OFICIAL (orden 127) ———————————————————————————————————————————
+   Lo que los líderes inscribieron en cada mesa contra el oficial del candidato propio. La aritmética vive en
+   lib/esperadosOficial.js (con su razonamiento); aquí están las consultas y el alcance.
+
+   TODO LO DE LA CAMPAÑA SE LEE UNA SOLA VEZ y sin consultas por mesa: los votantes en UN `GROUP BY`, el oficial con
+   `cargarOficial`, y dos consultas pequeñas por los nombres de los líderes y de sus coordinadores.
+
+   EL ALCANCE DEL USUARIO VA DESPUÉS DEL CÁLCULO, no dentro. La consulta de votantes se acota a la CAMPAÑA (la misma
+   regla que «Faltan por votar»: lib/alcanceVotantes.js con el alcance de la madre o del aspirante dueño) y NUNCA al
+   usuario: si al coordinador se le quitaran de entrada los votantes de los demás líderes, el denominador E_m de cada
+   mesa bajaría y a sus líderes les saldría más de lo que el administrador ve. En su lugar, la misma consulta calcula por
+   grupo cuántos votantes caen en el alcance del usuario (`propios`) y el cálculo oculta el resto. */
+const FUENTE_OMISION = 'escrutinio';
+
+/** El alcance de TODA la campaña de quien pregunta: la rama del aspirante dueño, o la madre. */
+async function alcanceDeLaCampana(dueno) {
+  if (dueno) return { cargo: 'aspirante', usuarioId: dueno };
+  let cargoMadre = null;
+  try { cargoMadre = await cargoDeLaMadre(); } catch (_) { /* sin cargo no se filtra, como en el resto de la app */ }
+  return { cargo: 'madre', cargoMadre };
+}
+
+/** Quién es cada «líder» (el `lider_id` de los votantes) y quién es su coordinador. */
+async function cargarLideres(req, ids) {
+  const salida = new Map();
+  if (!ids.length) return salida;
+  const [filas] = await pool.query(
+    `SELECT u.id, u.nombre, u.es_superadmin, r.nombre AS rol,
+            (SELECT e.supervisor_id FROM estructura e
+              WHERE e.usuario_id = u.id AND e.cargo IN ('lider','usuario') AND e.activo = 1
+              ORDER BY e.id LIMIT 1) AS supervisor_id
+       FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id IN (?)`, [ids]);
+  const supIds = [...new Set(filas.map(f => f.supervisor_id).filter(Boolean))];
+  const sup = new Map();
+  if (supIds.length) {
+    const [ss] = await pool.query('SELECT id, nombre FROM usuarios WHERE id IN (?)', [supIds]);
+    ss.forEach(x => sup.set(Number(x.id), x.nombre));
+  }
+  const veSuper = await esSuperadmin(req.session && req.session.usuario);
+  for (const f of filas) {
+    // El superadministrador no se nombra a quien no lo es (config/superadmin.js).
+    const oculto = Number(f.es_superadmin) === 1 && !veSuper;
+    salida.set(Number(f.id), {
+      nombre: oculto ? 'Equipo de la campaña' : f.nombre,
+      // Un administrador o un coordinador que registró sin elegir líder queda como «líder» de esa ficha.
+      registro_equipo: oculto || f.rol === 'admin' || f.rol === 'coordinador',
+      coordinador_id: f.supervisor_id ? Number(f.supervisor_id) : null,
+      coordinador: f.supervisor_id ? (sup.get(Number(f.supervisor_id)) || null) : null,
+    });
+  }
+  return salida;
+}
+
+/** El cálculo completo de la pantalla y del Excel. Devuelve el objeto de la respuesta. */
+async function calcularEsperados(req) {
+  const dueno = await diaD.duenoDeLaCampana(req);
+  const [puestos] = await pool.query(
+    `SELECT id, nombre, cantidad_mesas, ctc_puesto_id FROM dia_d_puestos_votacion
+      WHERE aspirante_id = ? ORDER BY nombre`, [dueno]);
+  const propioNombre = await diaD.nombreDelCandidatoPropio(req);
+  const propio = normalizar(propioNombre);
+
+  // Qué hay cargado, y la fuente: la pedida; si no, escrutinio cuando la campaña tiene alguna fila de escrutinio.
+  const [conteo] = await pool.query(
+    `SELECT fuente, COUNT(*) AS n FROM dia_d_resultado_oficial WHERE aspirante_id = ? GROUP BY fuente`, [dueno]);
+  const hay = new Map(conteo.map(c => [c.fuente, Number(c.n)]));
+  const pedida = FUENTES.includes(req.query.fuente) ? req.query.fuente : null;
+  const fuente = pedida || ((hay.get(FUENTE_OMISION) || 0) > 0 ? FUENTE_OMISION : 'preconteo');
+  const otra = FUENTES.find(f => f !== fuente);
+  const base = {
+    fuente, fuente_por_omision: !pedida, propio: propioNombre || null,
+    hay_oficial: (hay.get(fuente) || 0) > 0,
+    hay_oficial_en_otra_fuente: (hay.get(otra) || 0) > 0 ? otra : null,
+    aviso_propio_no_encontrado: false, calculado: false,
+  };
+  if (!base.hay_oficial) return base;
+
+  // El resolutor SIN respaldo, para el oficial (su comportamiento no cambia), y el CON respaldo para los votantes.
+  const marco = { dueno, resolver: crearResolutorDePuestos(puestos) };
+  const delPropio = (await cargarOficial(marco, fuente)).filter(f => propio && f.norm === propio);
+  if (!delPropio.length) return { ...base, aviso_propio_no_encontrado: true };
+
+  const camp = await alcanceDeLaCampana(dueno);
+  const parcial = !!req.alcance && !['madre', 'aspirante'].includes(req.alcance.cargo);
+  const propios = parcial ? `SUM(CASE WHEN ${condicionAlcanceVotantes(req.alcance, 'v')} THEN 1 ELSE 0 END)` : '0';
+  const [grupos] = await pool.query(
+    `SELECT v.puesto_id, v.ctc_puesto_id, v.puesto_votacion, v.mesa_votacion, v.lider_id,
+            COUNT(*) AS n, COUNT(vv.votante_id) AS ya_voto, ${propios} AS propios
+       FROM votantes v LEFT JOIN votante_votos vv ON vv.votante_id = v.id
+      WHERE ${condicionAlcanceVotantes(camp, 'v')}
+      GROUP BY v.puesto_id, v.ctc_puesto_id, v.puesto_votacion, v.mesa_votacion, v.lider_id`,
+    [...(parcial ? parametrosAlcanceVotantes(req.alcance) : []), ...parametrosAlcanceVotantes(camp)]);
+
+  const lideres = await cargarLideres(req, [...new Set(grupos.map(g => g.lider_id).filter(Boolean))].map(Number));
+  const municipios = await cargarMunicipios(pool, puestos);
+  const resultado = construirEsperados({
+    puestos, municipios, grupos, lideres, parcial,
+    resolver: crearResolutorDePuestos(puestos, { porCtc: true }),
+    oficial: delPropio.map(f => ({ clave: f.g.clave, mesa: f.mesa, votos: f.votos })),
+    municipio: String(req.query.municipio || '').trim(),
+  });
+  return { ...base, calculado: true, ...resultado };
+}
+
+router.get('/esperados', calcularAlcance, async (req, res) => {
+  try {
+    res.json(await calcularEsperados(req));
+  } catch (err) {
+    console.error('resultados/esperados:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo calcular esperados contra oficial.' });
+  }
+});
+
+router.get('/esperados/excel', calcularAlcance, async (req, res) => {
+  try {
+    const r = await calcularEsperados(req);
+    if (!r.calculado) return res.status(409).json({ error: 'Todavía no hay resultado oficial del candidato para calcular.' });
+    const nombres = (m) => [...m.lideres.map(l => `${l.nombre}${l.registro_equipo ? ' (registró el equipo)' : ''} (${l.n})`),
+      ...(m.otros_lideres_n ? [`Otros líderes (${m.otros_lideres_n})`] : [])].join(' · ');
+    const lideres = [['Líder', 'Coordinador', 'Mesas', 'Mesas con oficial', 'Esperados', 'Ya votó', 'Sin mesa', 'Oficial estimado', 'Consolidado %'],
+      ...r.lideres.map(l => [l.nombre + (l.registro_equipo ? ' (registró el equipo)' : ''), l.coordinador || '', l.mesas, l.mesas_con_oficial,
+        l.esperados, l.ya_voto, l.sin_mesa, Math.round(l.estimado * 10) / 10, l.consolidado === null ? '' : l.consolidado])];
+    const puestos = [['Municipio', 'Puesto', 'Mesas con votantes', 'Mesas con oficial', 'Esperados', 'Ya votó', 'Oficial', 'Diferencia', 'Cumplimiento %', 'Sin mesa'],
+      ...r.puestos.map(p => [p.municipio, p.puesto, p.mesas_con_votantes, p.mesas_con_oficial, p.esperados, p.ya_voto,
+        p.oficial === null ? '' : p.oficial, p.diferencia === null ? '' : p.diferencia, p.cumplimiento === null ? '' : p.cumplimiento, p.sin_mesa])];
+    const mesas = [['Municipio', 'Puesto', 'Mesa', 'Esperados', 'Ya votó', 'Oficial', 'Diferencia', 'Cumplimiento %', 'Líderes con votantes en la mesa'],
+      ...r.puestos.flatMap(p => p.mesas.map(m => [p.municipio, p.puesto, m.mesa, m.esperados, m.ya_voto,
+        m.oficial === null ? '' : m.oficial, m.delta === null ? '' : m.delta, m.cumplimiento === null ? '' : m.cumplimiento, nombres(m)]))];
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(lideres), 'Líderes');
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(puestos), 'Puestos');
+    XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(mesas), 'Mesas');
+    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="esperados-vs-oficial-dia-d.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    console.error('resultados/esperados/excel:', err.code || err.message);
+    res.status(500).json({ error: 'No se pudo exportar esperados contra oficial.' });
   }
 });
 

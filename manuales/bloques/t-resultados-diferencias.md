@@ -1,6 +1,6 @@
 ---
 id: t-resultados-diferencias
-titulo: Revisar las diferencias y marcar mesas para reclamar
+titulo: Revisar «Testigo vs. oficial» y marcar mesas para reclamar
 seccion: dia-d
 orden: 333
 icono: alerta
@@ -14,7 +14,7 @@ Lista las mesas donde lo que reportó el testigo no coincide con el resultado of
 
 ## Pasos
 
-1. Entra a **Día D > Resultados y reclamaciones** y abre la subpestaña [[Diferencias]]. El número entre paréntesis es cuántas mesas muestra el filtro que tengas elegido.
+1. Entra a **Día D > Resultados y reclamaciones** y abre la subpestaña [[Testigo vs. oficial]]. El número entre paréntesis es cuántas mesas muestra el filtro que tengas elegido.
 2. Elige qué ver: [[Pierde el propio]] (las mesas donde el oficial le da a tu candidato menos votos que el testigo; es el filtro con el que abre), [[Cualquier diferencia]] (cualquier candidato con votos distintos) o [[Solo marcadas]] (las que ya marcaste «Para reclamar», aunque hoy coincidan).
 3. Si ya cargaste preconteo y escrutinio, usa la lista de fuente: «Ambas fuentes», «Preconteo» o «Escrutinio».
 4. Lee cada fila: puesto y mesa (con el municipio y la fuente debajo), el nombre del testigo que reportó, el oficial de cada candidato con su diferencia entre paréntesis, «Δ propio» (en rojo si pierde, en verde si coincide) y la foto del E-14 con el icono de cámara. Por ejemplo, «Lista 1 120 (-5)» quiere decir que el oficial dice 120, cinco votos menos de lo que reportó el testigo.
