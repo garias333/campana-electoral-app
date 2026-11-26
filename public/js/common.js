@@ -1392,6 +1392,399 @@ function cargarCerrarSesion() {
   return _cerrarSesionPromesa;
 }
 
+/* ==================================================================
+   LA BARRA LATERAL SIN PARPADEO (orden 130)
+
+   EL PROBLEMA. Cada ítem del menú lleva a OTRA página HTML, y la barra no está en el HTML: la arma este archivo. Antes de armarla hacían falta tres viajes
+   al servidor (el script de cierre de sesión, /auth/me y /permisos/mios), uno tras otro. Mientras tanto la página ya estaba pintada SIN barra, con el
+   contenido corrido a la izquierda; al llegar la barra, todo saltaba a la derecha. Eso era el parpadeo.
+
+   LO QUE SE HACE AHORA, en tres piezas que se refuerzan:
+     1. EL HUECO. style.css reserva el ancho de la barra desde el primer pintado (`.app-shell:not(.con-barra)::before`), así que `main` nunca cambia de ancho.
+     2. LA BARRA DE LA VEZ ANTERIOR. Al terminar de armarla con los datos reales se guarda en localStorage el HTML del menú (y el cuadro de usuario). Al abrir
+        la página siguiente, ANTES de cualquier espera, se pinta esa copia y se marca el ítem activo. Cuando llegan /auth/me y /permisos/mios se reconstruye el
+        menú como siempre: si es idéntico NO se toca el DOM; si cambió, se reemplaza.
+     3. LAS TRES PETICIONES A LA VEZ (ver inicializarLayout).
+
+   LO QUE NO SE PUEDE ROMPER: EL MENÚ DE OTRA PERSONA. La copia está atada a la campaña (el dominio), al usuario (clave `menu-cache:<dominio>:<id>`), a la
+   cuenta activa del dispositivo y a la versión del menú (una huella de NAV_ITEMS: si cambia el catálogo de pantallas, la copia vieja se descarta sola).
+   Se borra al cerrar sesión (cerrar-sesion.js y el botón de la barra), al iniciar una sesión nueva (login), y ante un 401 en /auth/me. Y no se pinta mientras
+   haya un cierre de sesión pendiente. Una copia mala SOLO puede ser transitoria: la reconstrucción real la reemplaza en cuanto responde el servidor.
+
+   TODO acceso a localStorage va en try/catch: sin almacenamiento la barra se arma como antes. */
+const MENU_CACHE_PREFIJO = 'menu-cache:';
+const MENU_CACHE_REVISION = '130.1';                 // sube si cambia la forma de lo guardado o del HTML de la barra
+const MENU_CACHE_VIGENCIA_MS = 30 * 24 * 3600 * 1000;
+
+function menuCacheCampana() { try { return window.location.hostname || ''; } catch (e) { return ''; } }
+function menuCacheClave(uid) { return MENU_CACHE_PREFIJO + menuCacheCampana() + ':' + uid; }
+function menuCacheClaveUltimo() { return MENU_CACHE_PREFIJO + menuCacheCampana() + ':ultimo'; }
+function menuCacheCuenta() { try { return localStorage.getItem('app_cuenta_activa_id') || ''; } catch (e) { return ''; } }
+
+/** Huella corta (djb2) de un texto: sirve para saber si el catálogo de pantallas es el mismo que cuando se guardó la copia. */
+function huellaTexto(texto) {
+  let h = 5381;
+  for (let i = 0; i < texto.length; i++) h = (((h << 5) + h) + texto.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+let _menuCacheVersion = null;
+function menuCacheVersion() {
+  if (_menuCacheVersion === null) {
+    let firma = '';
+    try { firma = huellaTexto(JSON.stringify(NAV_ITEMS)); } catch (e) { firma = 'x'; }
+    _menuCacheVersion = MENU_CACHE_REVISION + '/' + firma;
+  }
+  return _menuCacheVersion;
+}
+
+/** Borra TODAS las copias de menú de este navegador (todas las campañas y usuarios). Se usa al cerrar sesión. */
+function menuCacheBorrarTodo() {
+  try {
+    const claves = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(MENU_CACHE_PREFIJO) === 0) claves.push(k);
+    }
+    claves.forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* sin almacenamiento: no hay nada que borrar */ }
+}
+
+/** La copia vigente de ESTE usuario en ESTA campaña, o null. Nunca lanza. */
+function menuCacheLeer() {
+  try {
+    // Un cierre de sesión pendiente significa que la identidad guardada puede no ser la de quien abre la pantalla (parche 329).
+    if (localStorage.getItem('logout_pendiente')) return null;
+    const uid = localStorage.getItem(menuCacheClaveUltimo());
+    if (!uid) return null;
+    const crudo = localStorage.getItem(menuCacheClave(uid));
+    if (!crudo) return null;
+    const d = JSON.parse(crudo);
+    if (!d || d.v !== menuCacheVersion() || d.campana !== menuCacheCampana() || String(d.uid) !== String(uid)) return null;
+    if (d.cuenta !== menuCacheCuenta()) return null;
+    if (typeof d.nav !== 'string' || typeof d.caja !== 'string' || !d.nav || !d.caja) return null;
+    if (!(Date.now() - d.ts < MENU_CACHE_VIGENCIA_MS)) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+/** Guarda la copia de este usuario y quita las de cualquier otro de esta campaña (una sola por campaña). */
+function menuCacheGuardar(usuario, navHtml, cajaHtml) {
+  try {
+    if (!usuario || usuario.id === undefined || usuario.id === null) return;
+    const mia = menuCacheClave(usuario.id);
+    const prefijoCampana = MENU_CACHE_PREFIJO + menuCacheCampana() + ':';
+    const otras = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf(prefijoCampana) === 0 && k !== mia && k !== menuCacheClaveUltimo()) otras.push(k);
+    }
+    otras.forEach((k) => localStorage.removeItem(k));
+    localStorage.setItem(mia, JSON.stringify({
+      v: menuCacheVersion(), campana: menuCacheCampana(), uid: String(usuario.id), rol: usuario.rol, cuenta: menuCacheCuenta(),
+      nav: navHtml, caja: cajaHtml, ts: Date.now(),
+    }));
+    localStorage.setItem(menuCacheClaveUltimo(), String(usuario.id));
+  } catch (e) { /* si no se puede guardar, la siguiente pantalla arma la barra como antes */ }
+}
+
+/** «Celular» en el sentido de /js/es-celular.js (app instalada, hasta 820 px, o teléfono en horizontal). */
+function pantallaChica() {
+  try {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+      || window.matchMedia('(max-width: 820px)').matches
+      || window.matchMedia('(pointer: coarse) and (hover: none) and (max-height: 500px)').matches;
+  } catch (e) { return false; }
+}
+
+/** El cuadro de usuario de la barra (nombre, rol, verificación en dos pasos, cerrar sesión). */
+function htmlCajaUsuario(usuario) {
+  return `<div class="usuario-box">
+      <div class="nombre">${usuario.nombre}</div>
+      <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : rolEnPantalla(usuario.rol)}</div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;"${usuario.es_superadmin ? ' title="El código de ingreso es obligatorio para esta cuenta."' : ''}>
+        <input type="checkbox" id="chk-2fa" style="width:auto;" ${(usuario.two_factor_enabled || usuario.es_superadmin) ? 'checked' : ''}${usuario.es_superadmin ? ' disabled' : ''}>
+        Verificación en dos pasos por correo
+      </label>
+      <button class="btn-secundario btn-sm" id="btn-logout">Cerrar sesión</button>
+    </div>`;
+}
+
+/** El interior de la barra: marca, menú (`navHtml`), soporte y cuadro de usuario. */
+function htmlBarraLateral(marcaInicial, navHtml, cajaHtml) {
+  return `
+    <div class="marca-logo" style="text-align:center; padding: 2px 0 4px;">
+      <img id="marca-logo-img" src="${marcaInicial.logo_url || '/img/logo.png'}" alt="Logo"
+           style="width:100%; max-width:170px; height:auto;">
+    </div>
+    <div class="marca" id="marca-titulo"${marcaInicial.titulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.titulo || '')}</div>
+    <div class="submarca" id="marca-subtitulo"${marcaInicial.subtitulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.subtitulo || '')}</div>
+    <div class="marca-plataforma">
+      <div class="marca-plataforma-nombre">${escaparHtml(MARCA_PLATAFORMA.nombre)}</div>
+      ${MARCA_PLATAFORMA.bajada.map(l => `<div class="marca-plataforma-bajada">${escaparHtml(l)}</div>`).join('')}
+    </div>
+    <nav>${navHtml}</nav>
+    <!-- SOPORTE, DEBAJO DE AYUDA Y FUERA DEL ARREGLO NAV_ITEMS. No es una
+         pantalla de la aplicacion sino un enlace a WhatsApp, y su numero viene
+         del servidor: metido en el menu habria que reconstruirlo entero cada
+         vez que llega la marca. Nace oculto y lo enciende pintarSoporte().
+         SIN ACENTOS GRAVES: esto va dentro de una plantilla de JavaScript, que
+         se delimita igual, y cada cita cerraria la cadena. -->
+    <a class="nav-soporte" id="nav-soporte" target="whatsappWeb" rel="noopener" style="display:none;"></a>
+    ${cajaHtml}
+  `;
+}
+
+/** El ítem de la lista de enlaces que está activo: gana el ancla de la URL; si no, el que no lleva ancla; si no, el marcado `porDefecto`. */
+function elegirEnlaceActivo(enlaces, paginaBase, hash) {
+  const deEstaPagina = enlaces.filter(a => a.dataset.navHref.split('#')[0] === paginaBase);
+  const ancla = (a) => (a.dataset.navHref.includes('#') ? '#' + a.dataset.navHref.split('#')[1] : '');
+  return (hash && deEstaPagina.find(a => ancla(a) === hash))
+    || deEstaPagina.find(a => ancla(a) === '')
+    || deEstaPagina.find(a => a.dataset.navDefecto === '1')
+    || null;
+}
+
+/** Marca el ítem activo (uno solo) y el rótulo de la barra del celular. Ver la nota «QUÉ ÍTEM DEL MENÚ ESTÁ ACTIVO» en inicializarLayout. */
+function marcarActivoEn(sidebar, paginaBase) {
+  const enlaces = Array.from(sidebar.querySelectorAll('a[data-nav-href]'));
+  const elegido = elegirEnlaceActivo(enlaces, paginaBase, window.location.hash);
+  enlaces.forEach(a => a.classList.toggle('activo', a === elegido));
+  const etiqueta = document.getElementById('menu-movil-vista');
+  if (etiqueta) etiqueta.textContent = elegido ? elegido.textContent.replace(/\s+/g, ' ').trim() : '';
+}
+
+/** QUÉ GRUPO NACE ABIERTO. Antes lo decidía el HTML que armaba navHtml; ahora lo decide el DOM, para que la MISMA copia de menú sirva en cualquier página.
+    Antes bastaba con que un hijo apuntara a la misma PÁGINA. Desde la Orden menús 2 «Transporte» y «Logística» (pestañas de dia-d.html) viven en el grupo
+    «Logística» y las demás pestañas de esa pantalla en «Día D»: por página, los dos grupos habrían nacido abiertos. Se elige el ítem activo con la MISMA regla de
+    marcarActivoEn() y nace abierto solo el grupo que lo contiene. Si no hay ninguno elegido se conserva la regla de siempre (la página). */
+function abrirGrupoDeLaPagina(sidebar, paginaBase) {
+  const enlacesDeGrupos = Array.from(sidebar.querySelectorAll('.nav-submenu a[data-nav-href]'));
+  const elegido = elegirEnlaceActivo(enlacesDeGrupos, paginaBase, window.location.hash);
+  sidebar.querySelectorAll('.nav-grupo-titulo').forEach((titulo) => {
+    const sub = sidebar.querySelector(`[data-submenu="${titulo.dataset.grupo}"]`);
+    if (!sub) return;
+    const hijos = Array.from(sub.querySelectorAll('a[data-nav-href]'));
+    const abierto = elegido ? hijos.includes(elegido) : hijos.some(a => a.dataset.navHref.split('#')[0] === paginaBase);
+    titulo.classList.toggle('grupo-abierto', abierto);
+    sub.classList.toggle('abierto', abierto);
+  });
+}
+
+function aplicarEstadoMenu(sidebar, paginaBase) {
+  marcarActivoEn(sidebar, paginaBase);
+  abrirGrupoDeLaPagina(sidebar, paginaBase);
+}
+
+let _menuUsuarioActual = null;   // el usuario con el que se armó la barra (lo necesita el interruptor de dos pasos para actualizar la copia)
+
+/** «Verificación en dos pasos»: apagarla pide la contraseña; encenderla no. Ver la nota original abajo. */
+async function cambiarDosPasosDesdeBarra(casilla) {
+  const activar = casilla.checked;
+  // APAGARLO PIDE LA CONTRASEÑA; encenderlo no. Quien se haga con una sesión
+  // ajena no debe poder quitarle el segundo factor a esa cuenta sin saber
+  // siquiera la contraseña. El servidor lo exige igual: esto solo evita que
+  // la petición salga condenada al fallo.
+  let password = null;
+  if (!activar) {
+    password = prompt('Para desactivar la verificación en dos pasos, escriba su contraseña actual:');
+    if (password === null) { casilla.checked = true; return; }
+  }
+  try {
+    await api('/auth/2fa', { method: 'PUT', body: { activar, password } });
+    // La copia del cuadro de usuario lleva la casilla: se actualiza para que la página siguiente no la pinte con el valor viejo.
+    const sidebar = casilla.closest ? casilla.closest('.sidebar') : null;
+    if (_menuUsuarioActual && sidebar) {
+      _menuUsuarioActual.two_factor_enabled = activar;
+      const caja = htmlCajaUsuario(_menuUsuarioActual).trim();
+      sidebar._cajaHtml = caja;
+      menuCacheGuardar(_menuUsuarioActual, sidebar._navHtml, caja);
+    }
+  } catch (err) {
+    alert(err.message);
+    casilla.checked = !activar;
+  }
+}
+
+/** El botón «Cerrar sesión» de la barra. */
+async function cerrarSesionDesdeBarra() {
+  // Primero la copia del menú: la persona que entre después NO debe ver, ni un instante, el menú de quien se va.
+  menuCacheBorrarTodo();
+  /* PARCHE 329: UN SOLO CIERRE PARA TODA LA APP (public/js/cerrar-sesion.js). Cierra AL INSTANTE en este navegador (cuenta de dispositivo,
+     identidad en caché, copias de lectura), avisa al servidor como «mejor esfuerzo» (4 s) y deja `logout_pendiente` si no hubo señal; siempre
+     redirige a /login.html. Antes aquí se esperaba a /auth/logout sin timeout y, sin señal, la cookie de sesión seguía viva. */
+  if (await cargarCerrarSesion() && typeof cerrarSesionLocal === 'function') {
+    await cerrarSesionLocal();
+    return;
+  }
+  // Si cerrar-sesion.js no se pudo cargar (sin señal y sin caché), el cierre de siempre.
+  try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
+  try { localStorage.removeItem('app_usuario_verificado'); } catch (e) {}
+
+  // Y HAY QUE DEJAR DE TENER UNA CUENTA ACTIVA DE DISPOSITIVO.
+  //
+  // Sin esto el cierre de sesión no se nota: el servidor destruye la
+  // sesión y responde 200, pero `api()` sigue mandando el token de
+  // dispositivo en cada solicitud (`X-Device-Token`), y `resolverUsuario`
+  // la RECONSTRUYE a partir de él. Comprobado: con el token y sin ninguna
+  // cookie, `GET /api/auth/me` responde 200. Resultado: se cierra, y un
+  // segundo después login.html ve una sesión viva y devuelve al tablero.
+  //
+  // La app móvil ya lo hacía (`desactivarCuentaDispositivo()` en
+  // app/inicio.html); al encabezado de escritorio le faltaba. La cuenta NO
+  // se olvida: sigue en el selector de login.html para volver a entrar.
+  if (typeof desactivarCuentaDispositivo === 'function') {
+    desactivarCuentaDispositivo();
+  } else {
+    // Las pantallas de escritorio no cargan cuentas-dispositivo.js. El
+    // nombre de la clave ya estaba repetido aquí arriba, en
+    // obtenerTokenDispositivoActivo(); si cambia, cambian los dos sitios.
+    try { localStorage.removeItem('app_cuenta_activa_id'); } catch (e) {}
+  }
+
+  window.location.href = '/login.html';
+}
+
+/**
+ * Crea la barra lateral (y, en el celular, la barra «☰ Menú») dentro de `#app-shell` y le pone TODOS sus oyentes. Los oyentes son DELEGADOS en la propia
+ * barra —nada se enlaza a un ítem concreto—, así que siguen valiendo cuando la reconstrucción reemplaza el menú o el cuadro de usuario.
+ * La usan igual la barra de la copia (antes de cualquier espera) y la barra real.
+ */
+function montarBarraLateral(shell, htmlInterior) {
+  const sidebar = document.createElement('aside');
+  sidebar.className = 'sidebar';
+  sidebar.id = 'menu-movil-sidebar';
+  sidebar.innerHTML = htmlInterior;
+  shell.prepend(sidebar);
+
+  /* MENÚ EN EL CELULAR (orden 41). Hasta 640 px el CSS apila todo en una columna: el menú quedaba ENTERO arriba (unos 880 px) y el contenido
+     debajo. Tocar un ítem de la misma página cambiaba la pestaña y el ancla, pero el menú seguía abierto y a la vista y la pestaña quedaba
+     fuera de pantalla: «el ítem se resalta y no pasa nada». Ahora, en pantalla angosta, el menú nace CERRADO detrás de una barra
+     «☰ Menú · <vista actual>», se abre con ella y se cierra solo al tocar cualquier ítem (o al cambiar el ancla, o con Escape). En pantalla
+     ancha la barra no se ve y nada cambia. Entrar desde OTRA página ya funcionaba igual: la página nueva carga con el menú cerrado y la vista
+     del ancla a la vista. */
+  const barraMenuMovil = document.createElement('div');
+  barraMenuMovil.className = 'menu-movil-barra';
+  barraMenuMovil.innerHTML = '<button type="button" class="menu-movil-btn" id="menu-movil-btn" aria-expanded="false" aria-controls="menu-movil-sidebar">' +
+    '<span class="menu-movil-ico" aria-hidden="true">☰</span> <span>Menú</span></button><span class="menu-movil-vista" id="menu-movil-vista"></span>';
+  shell.prepend(barraMenuMovil);
+  // Desde aquí el hueco que reserva style.css ya no hace falta: la barra real ocupa su lugar en el MISMO fotograma.
+  shell.classList.add('con-barra');
+
+  const botonMenuMovil = barraMenuMovil.querySelector('#menu-movil-btn');
+  function ponerMenuMovil(abierto) {
+    shell.classList.toggle('menu-abierto', abierto);
+    botonMenuMovil.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  }
+  sidebar._ponerMenuMovil = ponerMenuMovil;
+  botonMenuMovil.addEventListener('click', () => ponerMenuMovil(!shell.classList.contains('menu-abierto')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ponerMenuMovil(false); });
+  // Cualquier ítem cierra el menú; los títulos de grupo (que solo despliegan su submenú) no son `a[data-nav-href]`.
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('a[data-nav-href]')) ponerMenuMovil(false);
+  });
+
+  // Contraer/expandir cada menú principal al hacer clic en su título — solo
+  // uno puede quedar expandido a la vez: al abrir uno, se cierran todos los
+  // demás (si el que se clickeó ya estaba abierto, simplemente se cierra).
+  // La animación de alto y la rotación de la flechita corren por CSS (ver
+  // .nav-submenu/.nav-chevron en style.css), acá solo se alternan las clases.
+  sidebar.addEventListener('click', (e) => {
+    const titulo = e.target.closest ? e.target.closest('.nav-grupo-titulo') : null;
+    if (!titulo || !sidebar.contains(titulo)) return;
+    const submenu = sidebar.querySelector(`[data-submenu="${titulo.dataset.grupo}"]`);
+    if (!submenu) return;
+    const yaAbierto = submenu.classList.contains('abierto');
+    sidebar.querySelectorAll('.nav-grupo-titulo').forEach(t => {
+      t.classList.remove('grupo-abierto');
+      const s = sidebar.querySelector(`[data-submenu="${t.dataset.grupo}"]`);
+      if (s) s.classList.remove('abierto');
+    });
+    if (!yaAbierto) {
+      submenu.classList.add('abierto');
+      titulo.classList.add('grupo-abierto');
+    }
+  });
+
+  /* Las páginas que ESCUCHAN el cambio de ancla (dia-d.html y configuracion.html lo declaran con
+     `window.paginaEscuchaHash = true`) cambian de vista sin recargar. Un enlace del menú a la MISMA página se resuelve aquí:
+     se cambia la URL sin recargar y se avisa con `hashchange` (que el navegador no manda si la URL queda sin ancla). A las
+     demás páginas no se les toca el clic: un ítem hacia la misma página las sigue recargando, como siempre. */
+  sidebar.addEventListener('click', (e) => {
+    if (!window.paginaEscuchaHash || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest ? e.target.closest('a[data-nav-href]') : null;
+    if (!a || (a.target && a.target !== '_self')) return;
+    const destino = new URL(a.href, window.location.href);
+    if (destino.pathname !== window.location.pathname) return;
+    e.preventDefault();
+    if (destino.hash === window.location.hash) return;                 // ya está en esa vista
+    history.pushState(null, '', destino.pathname + destino.search + destino.hash);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    window.scrollTo(0, 0);                                              // con el menú ya cerrado, la vista queda arriba y a la vista
+  });
+
+  // Cuadro de usuario: delegados también, porque la reconstrucción puede reemplazarlo.
+  sidebar.addEventListener('change', (e) => {
+    if (e.target && e.target.id === 'chk-2fa') cambiarDosPasosDesdeBarra(e.target);
+  });
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('#btn-logout')) cerrarSesionDesdeBarra();
+  });
+  return sidebar;
+}
+
+/** Pinta la barra de la copia guardada, o no hace nada. SE LLAMA ANTES DE CUALQUIER `await`. Nunca lanza. */
+function pintarBarraDeCache(paginaActiva) {
+  try {
+    const shell = document.getElementById('app-shell');
+    if (!shell || shell.querySelector(':scope > aside.sidebar')) return null;
+    const c = menuCacheLeer();
+    if (!c) return null;
+    // El candidato en el celular NO ve el escritorio: lo lleva a su app. No se le pinta un menú que va a desaparecer.
+    if (c.rol === 'candidato' && pantallaChica()) return null;
+    const marca = leerMarcaGuardada();
+    const sidebar = montarBarraLateral(shell, htmlBarraLateral(marca, c.nav, c.caja));
+    sidebar._navHtml = c.nav;
+    sidebar._cajaHtml = c.caja;
+    sidebar._desdeCache = true;
+    sidebar.dataset.menuUid = String(c.uid);
+    aplicarEstadoMenu(sidebar, paginaActiva.split('#')[0]);
+    pintarSoporte(marca.telefono_soporte);
+    return sidebar;
+  } catch (e) { return null; }
+}
+
+/**
+ * La barra real contra la que ya está en pantalla (la de la copia). Si el menú y el cuadro de usuario son IGUALES no se toca el DOM —tocarlo, aunque sea
+ * para dejarlo igual, hace parpadear—; si cambiaron se reemplaza solo lo que cambió. Devuelve true si el menú cambió (hay que volver a marcar el activo).
+ */
+function conciliarBarra(sidebar, navHtml, cajaHtml) {
+  let cambioMenu = false;
+  if (sidebar._navHtml !== navHtml) {
+    const nav = sidebar.querySelector('nav');
+    if (nav) nav.innerHTML = navHtml;
+    sidebar._navHtml = navHtml;
+    cambioMenu = true;
+  }
+  if (sidebar._cajaHtml !== cajaHtml) {
+    const caja = sidebar.querySelector('.usuario-box');
+    if (caja) caja.outerHTML = cajaHtml; else sidebar.insertAdjacentHTML('beforeend', cajaHtml);
+    sidebar._cajaHtml = cajaHtml;
+  }
+  return cambioMenu;
+}
+
+/** Si /auth/me dice que quien abrió la pantalla NO es el de la copia, no se deja ni un fotograma más el menú ajeno. */
+function vaciarBarraAjena(sidebar) {
+  try {
+    const nav = sidebar.querySelector('nav');
+    if (nav) nav.innerHTML = '';
+    const caja = sidebar.querySelector('.usuario-box');
+    if (caja) caja.innerHTML = '';
+    sidebar._navHtml = null;
+    sidebar._cajaHtml = null;
+  } catch (e) { /* la reconstrucción de abajo lo reemplaza igual */ }
+}
+
 async function inicializarLayout(paginaActiva) {
   // El favicon se agrega acá (en vez de en el <head> de cada página) para
   // no tener que editar decenas de archivos HTML cada vez que cambie.
@@ -1402,10 +1795,27 @@ async function inicializarLayout(paginaActiva) {
     );
   }
 
+  /* ORDEN 130 — LO PRIMERO, ANTES DE CUALQUIER `await`: la barra de la vez anterior (si hay una copia válida de ESTE usuario en ESTA campaña), con el ítem
+     activo ya marcado. Sin copia no hace nada y el hueco que reserva style.css evita que el contenido salte cuando llegue la barra real. */
+  const barraDeCache = pintarBarraDeCache(paginaActiva);
+
+  /* ORDEN 130 — LAS TRES PETICIONES A LA VEZ. Antes iban una tras otra (el script del cierre de sesión, /auth/me, /permisos/mios): tres viajes en serie
+     antes de poder pintar la barra. Ninguna depende del resultado de la otra; lo que sí depende es qué se hace con cada resultado, y eso sigue en el mismo
+     orden de abajo. Con un cierre de sesión pendiente NO se adelanta nada: allí hay que decidir primero si se puede entrar (parche 329). */
+  let enVuelo = null;
+  let hayCierrePendiente = false;
+  try { hayCierrePendiente = !!localStorage.getItem('logout_pendiente'); } catch (e) { hayCierrePendiente = false; }
+  if (!hayCierrePendiente) {
+    enVuelo = { cierre: cargarCerrarSesion(), me: api('/auth/me'), permisos: api('/permisos/mios') };
+    // Para que un rechazo mientras se espera a otra no quede «sin atender»; cada una se vuelve a esperar, con su propio try/catch, más abajo.
+    enVuelo.me.catch(() => {});
+    enVuelo.permisos.catch(() => {});
+  }
+
   /* NO SE ENTRA POR LA COOKIE VIEJA (parche 329). Si alguien cerró sesión sin señal, `logout_pendiente` sigue puesto y la cookie del servidor
      todavía vale: entrar por ella sería entrar COMO la persona anterior. Mientras eso dure (y no haya otra cuenta activa de dispositivo), se muestra el
      login, y se intenta cerrar la sesión vieja en el servidor. */
-  if (await cargarCerrarSesion() && window.CerrarSesion.hayLogoutPendiente()) {
+  if (await (enVuelo ? enVuelo.cierre : cargarCerrarSesion()) && window.CerrarSesion.hayLogoutPendiente()) {
     if (window.CerrarSesion.entradaBloqueada()) {
       await window.CerrarSesion.resolver(2500);
       window.location.href = '/login.html';
@@ -1422,7 +1832,9 @@ async function inicializarLayout(paginaActiva) {
   // conexión y no solo sus formularios de guardar.
   let sesion;
   try {
-    sesion = await api('/auth/me');
+    sesion = await (enVuelo ? enVuelo.me : api('/auth/me'));
+    // Un 401 hace que api() mande al login y devuelva `undefined`: sin esta comprobación el flujo seguía y reventaba más abajo, SIN pasar por el borrado de la copia del menú.
+    if (!sesion || !sesion.usuario) throw new Error('Sin sesión.');
     try { localStorage.setItem('app_usuario_verificado', JSON.stringify(sesion.usuario)); } catch (e) {}
   } catch (e) {
     if (e && e.esErrorDeRed) {
@@ -1432,17 +1844,22 @@ async function inicializarLayout(paginaActiva) {
       } catch (err) {}
     }
     if (!sesion) {
+      // Sin sesión (401 o sin identidad guardada): la copia del menú ya no vale para nadie. Se borra ANTES de irse al login.
+      menuCacheBorrarTodo();
       window.location.href = '/login.html';
       return null;
     }
   }
   const usuario = sesion.usuario;
+  // Si quien abrió la pantalla no es el dueño de la copia que se pintó, no se deja ni un fotograma más el menú ajeno.
+  if (barraDeCache && usuario && String(usuario.id) !== String(barraDeCache.dataset.menuUid || '')) {
+    vaciarBarraAjena(barraDeCache);
+  }
   /* EL CANDIDATO PRINCIPAL NUNCA VE EL ESCRITORIO EN EL CELULAR (orden 73; orden 86: tampoco con el teléfono en horizontal). Llegue como llegue —enlace guardado, «atrás», escribiendo la dirección— a cualquier pantalla de
      escritorio, se le lleva a su app. UNA EXCEPCIÓN: las pantallas que su propia app abre en «modo app» (`?app=1`, como «Registrar en la estructura territorial»).
      «Celular» es lo mismo que en /js/es-celular.js (app instalada o hasta 820 px); se repite aquí porque estas pantallas no cargan ese archivo. */
   if (usuario && usuario.rol === 'candidato') {
-    let chico = false;
-    try { chico = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || window.matchMedia('(max-width: 820px)').matches || window.matchMedia('(pointer: coarse) and (hover: none) and (max-height: 500px)').matches; } catch (e) { chico = false; }
+    const chico = pantallaChica();
     if (chico && new URLSearchParams(window.location.search).get('app') !== '1') {
       window.location.replace('/app/candidato.html');
       return null;
@@ -1520,7 +1937,7 @@ async function inicializarLayout(paginaActiva) {
   let hrefsPermitidos = null;
   let complementosActivos = {};      // { clave: true|false }; vacío = ninguno (falla cerrado)
   try {
-    const permisos = await api('/permisos/mios');
+    const permisos = await (enVuelo ? enVuelo.permisos : api('/permisos/mios'));
     complementosActivos = permisos.complementos || {};
     guardarComplementosConocidos(complementosActivos);
     modulosPermitidos = permisos.modulos;
@@ -1569,19 +1986,8 @@ async function inicializarLayout(paginaActiva) {
     return !item.roles || item.roles.includes(usuario.rol);
   }
 
-  /* QUÉ GRUPO NACE ABIERTO. Antes bastaba con que un hijo apuntara a la misma PÁGINA. Desde la Orden menús 2 «Transporte» y «Logística» (pestañas de
-     dia-d.html) viven en el grupo «Logística» y las demás pestañas de esa pantalla en «Día D»: por página, los dos grupos habrían nacido abiertos. Se
-     elige el ítem activo con la MISMA regla de marcarActivoMenu() (gana el ancla de la URL; si no, el que no lleva ancla; si no, el `porDefecto`) y
-     nace abierto solo el grupo que lo contiene. Si no hay ninguno elegido se conserva la regla de siempre (la página). */
-  const hijosDeEstaPagina = [];
-  NAV_ITEMS.forEach(it => { if (it.items) it.items.filter(itemVisible).forEach(h => { if (h.href.split('#')[0] === paginaBase) hijosDeEstaPagina.push(h); }); });
-  const anclaDe = (h) => (h.href.includes('#') ? '#' + h.href.split('#')[1] : '');
-  const hashInicial = window.location.hash;
-  const hijoElegido = (hashInicial && hijosDeEstaPagina.find(h => anclaDe(h) === hashInicial))
-    || hijosDeEstaPagina.find(h => anclaDe(h) === '')
-    || hijosDeEstaPagina.find(h => h.porDefecto)
-    || null;
-
+  /* EL MENÚ SE ARMA SIN ESTADO DE PÁGINA (orden 130): ni «grupo abierto» ni «activo» van en este texto. Los pone aplicarEstadoMenu() sobre el DOM, para que la
+     MISMA copia guardada sirva en cualquier página y para poder comparar el menú de ahora con el de la copia sin que la página en la que se armó lo distinga. */
   const navHtml = NAV_ITEMS.map((item, indice) => {
     if (item.items) {
       // Menú principal con submenú: se muestra si al menos un hijo es visible
@@ -1621,16 +2027,15 @@ async function inicializarLayout(paginaActiva) {
       </a>`;
       }
       const grupoId = `nav-grupo-${indice}`;
-      const contieneActivo = hijoElegido ? hijosVisibles.includes(hijoElegido) : hijosVisibles.some(sub => sub.href.split('#')[0] === paginaBase);
       const subHtml = hijosVisibles.map(sub =>
         `<a href="${sub.href}" data-nav-href="${sub.href}"${sub.porDefecto ? ' data-nav-defecto="1"' : ''} class="nav-sub-link">${sub.texto}</a>`).join('');
       return `
-        <div class="nav-grupo-titulo ${contieneActivo ? 'grupo-abierto' : ''}" data-grupo="${grupoId}">
+        <div class="nav-grupo-titulo" data-grupo="${grupoId}">
           <span class="icono">${item.iconoGrupo || '♜'}</span>
           <span class="nav-grupo-texto">${item.grupo.toUpperCase()}</span>
           <span class="nav-chevron">▸</span>
         </div>
-        <div class="nav-submenu ${contieneActivo ? 'abierto' : ''}" data-submenu="${grupoId}">
+        <div class="nav-submenu" data-submenu="${grupoId}">
           <div class="nav-submenu-inner">${subHtml}</div>
         </div>`;
     }
@@ -1654,92 +2059,28 @@ async function inicializarLayout(paginaActiva) {
   // defecto viven aqui y no en la base: una instalacion que no configure nada
   // sigue viendose igual que siempre.
   const marcaInicial = leerMarcaGuardada();
-  const sidebar = document.createElement('aside');
-  sidebar.className = 'sidebar';
-  sidebar.innerHTML = `
-    <div class="marca-logo" style="text-align:center; padding: 2px 0 4px;">
-      <img id="marca-logo-img" src="${marcaInicial.logo_url || '/img/logo.png'}" alt="Logo"
-           style="width:100%; max-width:170px; height:auto;">
-    </div>
-    <div class="marca" id="marca-titulo"${marcaInicial.titulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.titulo || '')}</div>
-    <div class="submarca" id="marca-subtitulo"${marcaInicial.subtitulo ? '' : ' style="display:none;"'}>${escaparHtml(marcaInicial.subtitulo || '')}</div>
-    <div class="marca-plataforma">
-      <div class="marca-plataforma-nombre">${escaparHtml(MARCA_PLATAFORMA.nombre)}</div>
-      ${MARCA_PLATAFORMA.bajada.map(l => `<div class="marca-plataforma-bajada">${escaparHtml(l)}</div>`).join('')}
-    </div>
-    <nav>${navHtml}</nav>
-    <!-- SOPORTE, DEBAJO DE AYUDA Y FUERA DEL ARREGLO NAV_ITEMS. No es una
-         pantalla de la aplicacion sino un enlace a WhatsApp, y su numero viene
-         del servidor: metido en el menu habria que reconstruirlo entero cada
-         vez que llega la marca. Nace oculto y lo enciende pintarSoporte().
-         SIN ACENTOS GRAVES: esto va dentro de una plantilla de JavaScript, que
-         se delimita igual, y cada cita cerraria la cadena. -->
-    <a class="nav-soporte" id="nav-soporte" target="whatsappWeb" rel="noopener" style="display:none;"></a>
-    <div class="usuario-box">
-      <div class="nombre">${usuario.nombre}</div>
-      <div class="rol">${usuario.es_aspirante ? 'Administrador de su campaña' : rolEnPantalla(usuario.rol)}</div>
-      <label style="display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--color-text-muted); margin: 8px 0;"${usuario.es_superadmin ? ' title="El código de ingreso es obligatorio para esta cuenta."' : ''}>
-        <input type="checkbox" id="chk-2fa" style="width:auto;" ${(usuario.two_factor_enabled || usuario.es_superadmin) ? 'checked' : ''}${usuario.es_superadmin ? ' disabled' : ''}>
-        Verificación en dos pasos por correo
-      </label>
-      <button class="btn-secundario btn-sm" id="btn-logout">Cerrar sesión</button>
-    </div>
-  `;
-  shell.prepend(sidebar);
+  _menuUsuarioActual = usuario;
+  const cajaHtml = htmlCajaUsuario(usuario).trim();
 
-  /* MENÚ EN EL CELULAR (orden 41). Hasta 640 px el CSS apila todo en una columna: el menú quedaba ENTERO arriba (unos 880 px) y el contenido
-     debajo. Tocar un ítem de la misma página cambiaba la pestaña y el ancla, pero el menú seguía abierto y a la vista y la pestaña quedaba
-     fuera de pantalla: «el ítem se resalta y no pasa nada». Ahora, en pantalla angosta, el menú nace CERRADO detrás de una barra
-     «☰ Menú · <vista actual>», se abre con ella y se cierra solo al tocar cualquier ítem (o al cambiar el ancla, o con Escape). En pantalla
-     ancha la barra no se ve y nada cambia. Entrar desde OTRA página ya funcionaba igual: la página nueva carga con el menú cerrado y la vista
-     del ancla a la vista. */
-  const barraMenuMovil = document.createElement('div');
-  barraMenuMovil.className = 'menu-movil-barra';
-  barraMenuMovil.innerHTML = '<button type="button" class="menu-movil-btn" id="menu-movil-btn" aria-expanded="false" aria-controls="menu-movil-sidebar">' +
-    '<span class="menu-movil-ico" aria-hidden="true">☰</span> <span>Menú</span></button><span class="menu-movil-vista" id="menu-movil-vista"></span>';
-  sidebar.id = 'menu-movil-sidebar';
-  shell.prepend(barraMenuMovil);
-  const botonMenuMovil = barraMenuMovil.querySelector('#menu-movil-btn');
-  function ponerMenuMovil(abierto) {
-    shell.classList.toggle('menu-abierto', abierto);
-    botonMenuMovil.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  /* ORDEN 130: LA BARRA PUEDE ESTAR YA EN PANTALLA. Al principio de esta función se pintó la copia de la vez anterior (si había una válida). Aquí se
+     concilia con la real: iguales → no se toca el DOM; distintas → se reemplaza solo lo que cambió. Sin copia se arma completa, como siempre. */
+  let sidebar = shell.querySelector(':scope > aside.sidebar');
+  if (!sidebar) {
+    sidebar = montarBarraLateral(shell, htmlBarraLateral(marcaInicial, navHtml, cajaHtml));
+    sidebar._navHtml = navHtml;
+    sidebar._cajaHtml = cajaHtml;
+    aplicarEstadoMenu(sidebar, paginaBase);
+  } else if (conciliarBarra(sidebar, navHtml, cajaHtml)) {
+    aplicarEstadoMenu(sidebar, paginaBase);
   }
-  botonMenuMovil.addEventListener('click', () => ponerMenuMovil(!shell.classList.contains('menu-abierto')));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ponerMenuMovil(false); });
-  // Cualquier ítem cierra el menú; los títulos de grupo (que solo despliegan su submenú) no son `a[data-nav-href]`.
-  sidebar.addEventListener('click', (e) => {
-    if (e.target.closest && e.target.closest('a[data-nav-href]')) ponerMenuMovil(false);
-  });
   // Con lo guardado, antes de que responda el servidor: si hay número de la
   // vez anterior, el enlace está desde el primer instante.
   pintarSoporte(marcaInicial.telefono_soporte);
   // Se refresca DESPUES de pintar y sin esperar: si el servidor tarda, la
   // barra ya esta puesta con lo de la ultima vez.
   refrescarMarca();
-
-  // Contraer/expandir cada menú principal al hacer clic en su título — solo
-  // uno puede quedar expandido a la vez: al abrir uno, se cierran todos los
-  // demás (si el que se clickeó ya estaba abierto, simplemente se cierra).
-  // La animación de alto y la rotación de la flechita corren por CSS (ver
-  // .nav-submenu/.nav-chevron en style.css), acá solo se alternan las clases.
-  const todosLosTitulos = sidebar.querySelectorAll('.nav-grupo-titulo');
-  todosLosTitulos.forEach(titulo => {
-    titulo.addEventListener('click', () => {
-      const grupoId = titulo.dataset.grupo;
-      const submenu = sidebar.querySelector(`[data-submenu="${grupoId}"]`);
-      const yaAbierto = submenu.classList.contains('abierto');
-
-      todosLosTitulos.forEach(t => {
-        t.classList.remove('grupo-abierto');
-        sidebar.querySelector(`[data-submenu="${t.dataset.grupo}"]`).classList.remove('abierto');
-      });
-
-      if (!yaAbierto) {
-        submenu.classList.add('abierto');
-        titulo.classList.add('grupo-abierto');
-      }
-    });
-  });
+  // La copia para la página SIGUIENTE: el menú real de este usuario, con sus permisos y complementos de ahora.
+  menuCacheGuardar(usuario, navHtml, cajaHtml);
 
   /* QUÉ ÍTEM DEL MENÚ ESTÁ ACTIVO, Y CÓMO SE NAVEGA ENTRE VISTAS DE LA MISMA PÁGINA (orden 34).
 
@@ -1753,95 +2094,12 @@ async function inicializarLayout(paginaActiva) {
      La regla ahora, para los ítems de la página actual: gana el que coincide con el ancla de la URL; si ninguno, el que no
      lleva ancla (la vista inicial) o, en su defecto, el marcado `porDefecto`. Solo uno queda activo. Se recalcula en cada
      cambio de ancla y las páginas que cambian de vista por su cuenta (con history.replaceState, que no avisa) llaman a
-     window.actualizarMenuActivo(). */
-  function marcarActivoMenu() {
-    const hash = window.location.hash;
-    const enlaces = Array.from(sidebar.querySelectorAll('a[data-nav-href]'));
-    const deEstaPagina = enlaces.filter(a => a.dataset.navHref.split('#')[0] === paginaBase);
-    const ancla = (a) => (a.dataset.navHref.includes('#') ? '#' + a.dataset.navHref.split('#')[1] : '');
-    const elegido = (hash && deEstaPagina.find(a => ancla(a) === hash))
-      || deEstaPagina.find(a => ancla(a) === '')
-      || deEstaPagina.find(a => a.dataset.navDefecto === '1')
-      || null;
-    enlaces.forEach(a => a.classList.toggle('activo', a === elegido));
-    const etiqueta = document.getElementById('menu-movil-vista');
-    if (etiqueta) etiqueta.textContent = elegido ? elegido.textContent.replace(/\s+/g, ' ').trim() : '';
-  }
-  marcarActivoMenu();
-  window.addEventListener('hashchange', () => { marcarActivoMenu(); ponerMenuMovil(false); });
+     window.actualizarMenuActivo(). (Orden 130: la regla vive en marcarActivoEn(), que usan también la barra de la copia
+     y el clic de «misma página», ahora delegado en montarBarraLateral().) */
+  const marcarActivoMenu = () => marcarActivoEn(sidebar, paginaBase);
+  window.addEventListener('hashchange', () => { marcarActivoMenu(); if (sidebar._ponerMenuMovil) sidebar._ponerMenuMovil(false); });
   window.addEventListener('popstate', marcarActivoMenu);
   window.actualizarMenuActivo = marcarActivoMenu;
-  /* Las páginas que ESCUCHAN el cambio de ancla (dia-d.html y configuracion.html lo declaran con
-     `window.paginaEscuchaHash = true`) cambian de vista sin recargar. Un enlace del menú a la MISMA página se resuelve aquí:
-     se cambia la URL sin recargar y se avisa con `hashchange` (que el navegador no manda si la URL queda sin ancla). A las
-     demás páginas no se les toca el clic: un ítem hacia la misma página las sigue recargando, como siempre. */
-  sidebar.addEventListener('click', (e) => {
-    if (!window.paginaEscuchaHash || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    const a = e.target.closest ? e.target.closest('a[data-nav-href]') : null;
-    if (!a || (a.target && a.target !== '_self')) return;
-    const destino = new URL(a.href, window.location.href);
-    if (destino.pathname !== window.location.pathname) return;
-    e.preventDefault();
-    if (destino.hash === window.location.hash) return;                 // ya está en esa vista
-    history.pushState(null, '', destino.pathname + destino.search + destino.hash);
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-    window.scrollTo(0, 0);                                              // con el menú ya cerrado, la vista queda arriba y a la vista
-  });
-
-  document.getElementById('chk-2fa').addEventListener('change', async (e) => {
-    const activar = e.target.checked;
-    // APAGARLO PIDE LA CONTRASEÑA; encenderlo no. Quien se haga con una sesión
-    // ajena no debe poder quitarle el segundo factor a esa cuenta sin saber
-    // siquiera la contraseña. El servidor lo exige igual: esto solo evita que
-    // la petición salga condenada al fallo.
-    let password = null;
-    if (!activar) {
-      password = prompt('Para desactivar la verificación en dos pasos, escriba su contraseña actual:');
-      if (password === null) { e.target.checked = true; return; }
-    }
-    try {
-      await api('/auth/2fa', { method: 'PUT', body: { activar, password } });
-    } catch (err) {
-      alert(err.message);
-      e.target.checked = !activar;
-    }
-  });
-
-  document.getElementById('btn-logout').addEventListener('click', async () => {
-    /* PARCHE 329: UN SOLO CIERRE PARA TODA LA APP (public/js/cerrar-sesion.js). Cierra AL INSTANTE en este navegador (cuenta de dispositivo,
-       identidad en caché, copias de lectura), avisa al servidor como «mejor esfuerzo» (4 s) y deja `logout_pendiente` si no hubo señal; siempre
-       redirige a /login.html. Antes aquí se esperaba a /auth/logout sin timeout y, sin señal, la cookie de sesión seguía viva. */
-    if (await cargarCerrarSesion() && typeof cerrarSesionLocal === 'function') {
-      await cerrarSesionLocal();
-      return;
-    }
-    // Si cerrar-sesion.js no se pudo cargar (sin señal y sin caché), el cierre de siempre.
-    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { /* se cierra igual */ }
-    try { localStorage.removeItem('app_usuario_verificado'); } catch (e) {}
-
-    // Y HAY QUE DEJAR DE TENER UNA CUENTA ACTIVA DE DISPOSITIVO.
-    //
-    // Sin esto el cierre de sesión no se nota: el servidor destruye la
-    // sesión y responde 200, pero `api()` sigue mandando el token de
-    // dispositivo en cada solicitud (`X-Device-Token`), y `resolverUsuario`
-    // la RECONSTRUYE a partir de él. Comprobado: con el token y sin ninguna
-    // cookie, `GET /api/auth/me` responde 200. Resultado: se cierra, y un
-    // segundo después login.html ve una sesión viva y devuelve al tablero.
-    //
-    // La app móvil ya lo hacía (`desactivarCuentaDispositivo()` en
-    // app/inicio.html); al encabezado de escritorio le faltaba. La cuenta NO
-    // se olvida: sigue en el selector de login.html para volver a entrar.
-    if (typeof desactivarCuentaDispositivo === 'function') {
-      desactivarCuentaDispositivo();
-    } else {
-      // Las pantallas de escritorio no cargan cuentas-dispositivo.js. El
-      // nombre de la clave ya estaba repetido aquí arriba, en
-      // obtenerTokenDispositivoActivo(); si cambia, cambian los dos sitios.
-      try { localStorage.removeItem('app_cuenta_activa_id'); } catch (e) {}
-    }
-
-    window.location.href = '/login.html';
-  });
 
   if (usuario.debe_cambiar_password) {
     mostrarAvisoCambioPassword();

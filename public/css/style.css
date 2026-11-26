@@ -152,6 +152,31 @@ a { color: var(--color-navy-lighter); }
   overflow-y: auto;
 }
 
+/* EL HUECO DE LA BARRA (orden 130). La barra la arma js/common.js DESPUÉS de cargar la página (necesita la sesión y los permisos), así que antes
+   `main` se pintaba a todo el ancho y, al llegar la barra, saltaba 248 px a la derecha: ese era el parpadeo. Este pseudo-elemento ocupa EXACTAMENTE el sitio
+   de la barra (mismo ancho, mismo fondo, misma altura fija) desde el primer pintado, y common.js lo apaga en el mismo fotograma en que inserta la barra real
+   (`.con-barra`). Solo en escritorio: en el celular (hasta 640 px) la barra va plegada detrás de «☰ Menú» y aquí no hay nada que reservar; y no en el «modo
+   app» de territorial.html, que esconde la barra. `.sin-barra` queda para una pantalla que alguna vez NO lleve barra. */
+@media (min-width: 641px) {
+  html:not(.modo-app) .app-shell:not(.con-barra):not(.sin-barra)::before {
+    content: '';
+    flex: 0 0 var(--sidebar-width);
+    width: var(--sidebar-width);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background: linear-gradient(180deg, var(--color-navy) 0%, #0E1830 100%);
+  }
+}
+@media print { .app-shell:not(.con-barra)::before { display: none; } }
+
+/* «NACE OCULTO» (orden 130): algo que solo se muestra si el rol o los datos lo permiten, y que hasta saberlo NO debe verse —pero tampoco desaparecer del
+   diseño, o al encenderlo todo lo de abajo salta—. `visibility:hidden` reserva su sitio. El JS de la pantalla lo enciende quitando la clase.
+   LA RED DE SEGURIDAD ES LA PROPIA HOJA: si el JS de la pantalla falla antes de decidir, a los 4 s la animación lo deja a la vista sola. Una sección
+   escondida «hasta que el JS diga» y que el JS nunca dijo es peor que una vista un instante antes de tiempo. */
+.nace-oculta { visibility: hidden; animation: nace-oculta-red-de-seguridad 0s linear 4s forwards; }
+@keyframes nace-oculta-red-de-seguridad { to { visibility: visible; } }
+
 .sidebar .marca {
   font-family: var(--font-display);
   font-weight: 700;

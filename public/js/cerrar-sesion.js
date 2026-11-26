@@ -34,11 +34,25 @@
   function quitar(clave) { try { localStorage.removeItem(clave); } catch (e) { /* sin almacenamiento */ } }
   function esperar(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
 
+  /** ORDEN 130: borra TODAS las copias del menú lateral (`menu-cache:*`, ver common.js). La persona que entre después no debe ver, ni un instante, el menú de quien se va. */
+  function borrarCopiasDeMenu() {
+    try {
+      var claves = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('menu-cache:') === 0) claves.push(k);
+      }
+      claves.forEach(quitar);
+    } catch (e) { /* sin almacenamiento: no hay nada que borrar */ }
+  }
+
   /** Guarda el token de cierre de la sesión que acaba de empezar (la respuesta de login y de verificar-2fa lo traen). */
   function guardarTokenCierre(token) {
     if (token) escribir(CLAVE_SESION_CIERRE, String(token));
     // Se acaba de iniciar sesión: cualquier cierre que hubiera quedado pendiente era de la sesión que esta REEMPLAZA (el servidor ya borró su token).
     quitar(CLAVE_PENDIENTE);
+    // Y cualquier copia del menú era de OTRA sesión (u otra cuenta): se descarta, y la primera pantalla de esta arma el menú con los datos reales.
+    borrarCopiasDeMenu();
   }
 
   function leerPendiente() {
@@ -140,6 +154,7 @@
     escribir(CLAVE_PENDIENTE, JSON.stringify({ tokenCierre: token || null, desde: Date.now(), usuarioId: leer(CLAVE_USUARIO_OFFLINE) || null }));
     quitar(CLAVE_SESION_CIERRE);
     quitar('app_usuario_verificado');                      // la identidad en caché que reabriría la sesión sola sin señal
+    borrarCopiasDeMenu();                                  // y la copia de su menú lateral (orden 130)
     await asegurarCuentasDispositivo();
     if (typeof desactivarCuentaDispositivo === 'function') {
       desactivarCuentaDispositivo();                       // deja de haber cuenta activa y borra las copias de lectura de quien se va
@@ -165,7 +180,8 @@
 
   window.CerrarSesion = {
     cerrarSesionLocal: cerrarSesionLocal, guardarTokenCierre: guardarTokenCierre, resolver: resolver,
-    entradaBloqueada: entradaBloqueada, hayLogoutPendiente: hayLogoutPendiente, contarPendientes: contarPendientes
+    entradaBloqueada: entradaBloqueada, hayLogoutPendiente: hayLogoutPendiente, contarPendientes: contarPendientes,
+    borrarCopiasDeMenu: borrarCopiasDeMenu
   };
   window.cerrarSesionLocal = cerrarSesionLocal;
 })();

@@ -114,7 +114,7 @@
       <button type="button" class="btn-secundario btn-sm" id="pestana-logistica" style="display:none;">Logística</button>
     </div>
 
-    <div id="vista-reportes">
+    <div id="vista-reportes" style="display:none;"><!-- orden 130: nace oculta; el script «vista inicial» (abajo) muestra la de la URL antes del primer pintado -->
     <!-- Los dos botones van en la MISMA rejilla de seis que las tarjetas de
          abajo, así que cada uno mide exactamente lo que una tarjeta y quedan
          a plomo con ellas. Con `display:none` en el de borrar —que solo ve un
@@ -410,6 +410,25 @@
         </div>
       </div>
     </div><!-- /vista-resultados -->
+
+    <script>
+    /* VISTA INICIAL (orden 130). Las cinco vistas nacen ocultas y ESTE script, que corre mientras se analiza el HTML —antes del primer pintado y sin esperar a
+       la sesión—, muestra la del `#` de la URL (#resultados, #alertas, #transporte, #logistica) o «Reportes de mesas». Antes «Reportes» nacía visible y la
+       vista pedida se aplicaba al final de un arranque con varias esperas: al entrar por «Alertas del Día D» se veían un instante los reportes de mesas.
+       Es optimista (todavía no se sabe si la persona tiene esa pestaña): el arranque, al terminar, llama a mostrarPestana(pestanaDelAncla()) si la vista de
+       la URL no era la que le corresponde. Va en su propio <script> a propósito: si el arranque falla a mitad, la vista ya está a la vista. */
+    (function () {
+      var vistas = { resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte', logistica: 'vista-logistica' };
+      var cual = 'reportes';
+      try { var h = window.location.hash.slice(1); if (Object.prototype.hasOwnProperty.call(vistas, h)) cual = h; } catch (e) { /* Reportes */ }
+      var el = document.getElementById(cual === 'reportes' ? 'vista-reportes' : vistas[cual]) || document.getElementById('vista-reportes');
+      if (el) el.style.display = 'block';
+      window.__vistaInicialDiaD = el && el.id === 'vista-reportes' ? 'reportes' : cual;
+      // El botón de la pestaña acompaña a la vista (solo «Reportes» está a la vista hasta que llegan los permisos).
+      var b = document.getElementById('pestana-reportes');
+      if (b && window.__vistaInicialDiaD !== 'reportes') { b.classList.remove('btn-acento'); b.classList.add('btn-secundario'); }
+    })();
+    </script>
 
     <!-- Nota y estado de una mesa con diferencia -->
     <div id="modal-revision" class="overlay" style="display:none;">
@@ -1381,7 +1400,8 @@ document.getElementById('btn-paquete').addEventListener('click', async () => {
   if (puedeLogistica) window.LogisticaDiaD.iniciarContador();
   // La vista de la carga: la del ancla de la URL (un enlace directo a dia-d.html#alertas abre Alertas).
   const inicial = pestanaDelAncla();
-  if (inicial !== 'reportes') mostrarPestana(inicial);
+  // Orden 130: si la vista que se mostró al principio (la de la URL, a ciegas) no es la que le corresponde a quien mira, se corrige aquí.
+  if (inicial !== 'reportes' || window.__vistaInicialDiaD !== 'reportes') mostrarPestana(inicial);
   else if (window.actualizarMenuActivo) window.actualizarMenuActivo();
   // Se actualiza solo cada 20s — no hay conexión en tiempo real (websockets)
   // en esta app, así que un refresco corto por sondeo es lo más simple y

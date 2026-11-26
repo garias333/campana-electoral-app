@@ -206,7 +206,7 @@
          domiciliaria se lo decimos aquí, con el párrafo para que lo pegue. Solo en la política y solo para admin; se esconde en cuanto la política lo trae. -->
     <div class="card" id="aviso-visitas-politica" style="display:none; border-left:4px solid #C98A00; background:#FDF3E0; margin-bottom:14px;"></div>
 
-    <div class="card" id="card-vista">
+    <div class="card" id="card-vista" style="display:none;">
       <img id="foto-vista" style="display:none;" alt="Foto">
       <video id="video-vista" style="display:none;" controls></video>
       <div id="contenido-vista"></div>
@@ -224,7 +224,7 @@
       <div id="contenido-vacio" class="vacio" style="display:none;"><div class="icono-vacio">📄</div>Todavía no se ha escrito nada aquí.</div>
     </div>
 
-    <div id="bio-vista">
+    <div id="bio-vista" style="display:none;">
       <div class="bio-lienzo">
         <div class="bio-hero">
           <div class="bio-marco-foto">
@@ -250,7 +250,7 @@
       </div>
     </div>
 
-    <div id="politica-vista">
+    <div id="politica-vista" style="display:none;">
       <div class="politica-documento">
         <div class="politica-encabezado">
           <div class="politica-sello">§</div>
@@ -328,6 +328,15 @@ function escaparHtml(texto) {
 const PERMITE_FOTO_VIDEO = ['biografia_candidato']; // solo estas páginas tienen espacio de foto/video
 const ES_BIOGRAFIA = clave === 'biografia_candidato';
 const ES_POLITICA = clave === 'politica_privacidad';
+
+/* VISTA INICIAL (orden 130). Las tres vistas (texto, biografía, política) nacían visibles y cargarContenido() ocultaba las dos que no iban DESPUÉS de las esperas de
+   la sesión: al abrir la política se veía un instante la tarjeta vacía de texto. Ahora nacen ocultas y la que corresponde a `?clave=` —que se sabe ya, sin
+   esperar al servidor— se muestra aquí, antes del primer pintado. cargarContenido() y mostrarEdicion() siguen decidiendo igual que siempre. */
+(function () {
+  const id = ES_BIOGRAFIA ? 'bio-vista' : (ES_POLITICA ? 'politica-vista' : 'card-vista');
+  const el = document.getElementById(id) || document.getElementById('card-vista');
+  if (el) el.style.display = 'block';
+})();
 
 /** Divide el texto en párrafos (separados por línea en blanco) y los envuelve en <p>, escapando cada uno. */
 function parrafosHtml(texto) {

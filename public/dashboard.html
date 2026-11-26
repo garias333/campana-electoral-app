@@ -8,7 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <meta name="referrer" content="origin-when-cross-origin">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!-- Orden 130: la hoja de Leaflet NO bloquea el primer pintado (el mapa del Panel está al final y se arma después de las esperas). media=print + onload la aplica al llegar. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <style>
   /* ==================================================================
      PANEL GENERAL — «SALA DE MANDO»
@@ -275,8 +277,8 @@
           <div class="celda acento"><div class="et">Votantes registrados</div><div class="val" id="stat-votantes">—</div></div>
           <div class="celda"><div class="et">Meta votos de la campaña</div><div class="val" id="stat-meta-votos-campana">—</div></div>
           <div class="celda"><div class="et">Meta de votos (líderes)</div><div class="val" id="stat-meta-votos-lideres">—</div></div>
-          <div class="celda" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
-          <div class="celda" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
+          <div class="celda nace-oculta" id="celda-eventos"><div class="et">Eventos próximos</div><div class="val" id="stat-eventos">—</div></div>
+          <div class="celda nace-oculta" id="celda-balance"><div class="et">Balance financiero</div><div class="val" id="stat-balance">—</div></div>
           <div class="celda acento"><div class="et">Avance · meta campaña</div><div class="val" id="stat-avance-campana">—</div></div>
           <div class="celda acento"><div class="et">Avance · meta líderes</div><div class="val" id="stat-avance-registros-lideres">—</div></div>
         </div>
@@ -329,7 +331,7 @@
         <div class="pie-panel" id="apoya-a-pie"></div>
       </section>
 
-      <section class="panel c5" id="panel-proximos-eventos">
+      <section class="panel c5 nace-oculta" id="panel-proximos-eventos">
         <header><h2>Próximos eventos</h2></header>
         <div id="lista-eventos"></div>
       </section>
@@ -389,9 +391,10 @@
   </main>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/js/common.js"></script>
 <script src="/js/mapa-fondo.js"></script>
+<!-- Orden 130: Leaflet (unpkg) iba ANTES de common.js y lo bloqueaba: si unpkg tardaba, la barra lateral tardaba igual. Ahora va después y con `defer`; el mapa del Panel espera a `L` en cargarMapaDashboard() (esperarLeaflet). -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer id="leaflet-js"></script>
 <script>
 let progresoEquipoCache = [];
 let filtroProgresoActivo = 'todos';
@@ -462,7 +465,21 @@ function crearIconoPinDashboard(color) {
   return L.divIcon({ html: svg, className: '', iconSize: [18, 24], iconAnchor: [9, 23] });
 }
 
+/** Leaflet se carga con `defer` (después de common.js): el mapa espera a que `L` exista. Si unpkg no responde en 20 s, el mapa se queda sin dibujar y el resto del Panel sigue. */
+function esperarLeaflet() {
+  return new Promise((ok, ko) => {
+    if (window.L) return ok();
+    const s = document.getElementById('leaflet-js');
+    const t = setTimeout(() => ko(new Error('Leaflet no cargó a tiempo.')), 20000);
+    if (s) {
+      s.addEventListener('load', () => { clearTimeout(t); window.L ? ok() : ko(new Error('Leaflet cargó sin definir L.')); });
+      s.addEventListener('error', () => { clearTimeout(t); ko(new Error('Leaflet no se pudo cargar.')); });
+    }
+  });
+}
+
 async function cargarMapaDashboard() {
+  await esperarLeaflet();
   mapaDashboard = L.map('mapa-dashboard').setView([5.0689, -75.5174], 11);
   /* LOS MISMOS TRES FONDOS QUE EL MAPA TERRITORIAL: OpenStreetMap para leer
      calles, Mapbox Calles con más detalle en Colombia, y Satélite para
@@ -578,6 +595,11 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     });
     const vecina = document.getElementById('panel-estructura-campana');
     if (vecina) vecina.classList.replace('c7', 'c12');
+  }
+  /* Orden 130: estas dos nacen ocultas (`nace-oculta`: sin verse, pero con su sitio reservado) y se muestran solo si el rol las lleva. El aspirante las quitó arriba.
+     (Si este arranque fallara antes de llegar aquí, la hoja de estilos las deja a la vista sola a los 4 s: nunca quedan escondidas para siempre.) */
+  if (!soyAspirante) {
+    ['celda-eventos', 'panel-proximos-eventos'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('nace-oculta'); });
   }
 
   try {
@@ -714,6 +736,8 @@ document.getElementById('input-progreso-debajo').addEventListener('input', () =>
     if (r.finanzas) {
       const balanceEl = document.getElementById('stat-balance');
       balanceEl.textContent = formatoMoneda(r.finanzas.balance);
+      const celdaBalanceVisible = document.getElementById('celda-balance');
+      if (celdaBalanceVisible) celdaBalanceVisible.classList.remove('nace-oculta');
       if (r.finanzas.balance < 0) balanceEl.style.color = 'var(--color-no-apoya)';
     } else {
       const celdaBalance = document.getElementById('celda-balance');

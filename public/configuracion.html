@@ -127,7 +127,7 @@
     <div id="vacio-sin-permiso" class="vacio" style="display:none;"><div class="icono-vacio">🔒</div>Solo un administrador puede ver y editar la Configuración.</div>
 
     <!-- ===== DATOS DE LA CAMPAÑA ===== -->
-    <div class="card" id="seccion-campana">
+    <div class="card" id="seccion-campana" style="display:none;"><!-- orden 130: nace oculta como las demás; la muestra el script de «sección inicial» (abajo), no el último fetch -->
       <div id="campana-error" class="mensaje-error"></div>
       <div id="campana-ok" class="mensaje-ok"></div>
       <div id="aviso-sublicencia-campana" style="display:none; margin:0 0 16px; padding:12px 14px;
@@ -674,6 +674,23 @@
       </div>
       <button type="button" class="btn-peligro" id="btn-restaurar-backup">Restaurar backup (reemplaza todo)</button>
     </div>
+
+    <script>
+    /* SECCIÓN INICIAL (orden 130). TODAS las secciones nacen ocultas y ESTE script, que corre mientras se analiza el HTML —antes del primer pintado y sin esperar
+       a la sesión—, muestra la que pide el `#` de la URL, o «Datos de la campaña» si no hay `#` o no es de aquí. Antes «Datos de la campaña» nacía visible y
+       la pestaña pedida se aplicaba al final de un arranque con varias esperas: al entrar a #usuarios se veía un instante «Datos de la campaña».
+       Es optimista (no sabe todavía si la persona puede abrir esa pestaña): cambiarPestana(), al terminar el arranque, deja la definitiva y es la que
+       aplica los permisos. Vive en su propio <script> a propósito: si el arranque de abajo falla a mitad, la sección ya está a la vista y no queda la página
+       en blanco; y el try/catch deja siempre «Datos de la campaña» como último recurso. */
+    (function () {
+      var secciones = { campana: 'seccion-campana', diad: 'seccion-diad', usuarios: 'seccion-usuarios', permisos: 'seccion-permisos',
+        complementos: 'seccion-complementos', eliminar: 'seccion-eliminar', recordatorios: 'seccion-recordatorios', backup: 'seccion-backup' };
+      var id = 'seccion-campana';
+      try { var pedida = window.location.hash.slice(1); if (Object.prototype.hasOwnProperty.call(secciones, pedida)) id = secciones[pedida]; } catch (e) { /* la de siempre */ }
+      var el = document.getElementById(id) || document.getElementById('seccion-campana');
+      if (el) el.style.display = 'block';
+    })();
+    </script>
   </main>
 </div>
 
