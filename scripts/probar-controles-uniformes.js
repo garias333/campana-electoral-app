@@ -7,7 +7,7 @@
 //     Comuna/corregimiento más ancho; Barrio/vereda y Autorización alineados (left) con Buscar y Cargos; el bloque no deja más de 16 px vacíos abajo;
 //     encabezado azul oscuro con borde amarillo de 3 px; vista activa en amarillo; los filtros y el cambio de vista siguen funcionando.
 //   · Organigrama (organigrama.html): modos y «NIVELES» con el mismo top (1600 px); botones de 38 px.
-//   · Cobertura de testigos (configuracion.html#diad): controles con el mismo top; rótulo «Solo sin cubrir» con el texto largo en title; Guardar,
+//   · Cobertura de testigos (configuracion.html#diad; orden 139): a 1600 px TODA la línea en una sola fila (mismo top ±1, 38 px, cero solapes); a 1366, orden y cero solapes (Excel y Avisar pueden bajar); rótulo «Solo sin cubrir» con el texto largo en title; Guardar,
 //     Excel y Avisar siguen ahí.
 //   · Día D (dia-d.html): pestañas del mismo ancho (150 px) y subpestañas (165 px) de 38 px; los dos botones de acción de 38 px; «Eliminar todos»
 //     sigue pidiendo confirmación. Cero errores de consola. Capturas en SALIDA.
@@ -171,48 +171,55 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     await ev("document.getElementById('caja-limite-mesas').style.display = 'flex'");   // el admin del arnés no es aspirante: se muestra como lo haría un admin real
     await espera(300);
     ok(await ev("document.getElementById('linea-cobertura').offsetParent !== null"), 'la línea de cobertura está visible');
+    // El arnés no trae catálogo (sin puestos el conteo queda vacío): se escribe el texto que pone la pantalla con 91 puestos, para medir el ancho real.
+    await ev("document.getElementById('conteo-cobertura').textContent = '91 puestos'");
+    await espera(200);
     const cc = await ev(CONTROLES('#linea-cobertura', 'input:not([type=checkbox]):not([type=hidden]), select, button, a.btn-secundario'));
     ok(cc.every((c) => cerca(c.alto, 38, 0.6)), `los ${cc.length} campos y botones de la línea (${cc.map((c) => c.id || c.texto).join(' · ')}) de 38 px`, cc.filter((c) => !cerca(c.alto, 38, 0.6)).map((c) => [c.id || c.texto, c.alto]));
     ok(cc.every((c) => c.radio === '6px'), 'todos con radio de 6 px');
-    // Una sola línea solo si cabe: el sumatorio de los controles (1292 px + 6 separaciones) pide ≥ 1352 px de línea, y con el menú lateral de 248 px la línea
-    // mide 1238 px a 1600 y 1004 px a 1366. Aquí se exige lo que sí debe cumplirse siempre: el orden, el mismo top DENTRO de cada línea, y que nada se monte.
+    // ORDEN 139: a 1600 px TODO en UNA sola línea (mismo top ±1 px); por debajo de lo que quepa (1366), Excel y Avisar pueden bajar a una segunda línea. Siempre: el orden y cero solapes.
+    const ancho = await ev(`(() => { const l = document.getElementById('linea-cobertura'); const k = [...l.children].filter((e) => e.getBoundingClientRect().width > 0); const cs = getComputedStyle(l);
+      const hijos = k.map((e) => e.getBoundingClientRect().width); const suma = hijos.reduce((a, b) => a + b, 0) + (k.length - 1) * parseFloat(cs.columnGap || cs.gap);
+      return { linea: Math.round(l.getBoundingClientRect().width * 10) / 10, necesita: Math.round(suma * 10) / 10 }; })()`);
+    console.log(`  info a ${w} px: la línea mide ${ancho.linea} px y los controles necesitan ${ancho.necesita} px (${ancho.necesita <= ancho.linea ? 'sobran ' + (ancho.linea - ancho.necesita).toFixed(1) : 'faltan ' + (ancho.necesita - ancho.linea).toFixed(1)} px)`);
     const filasTop = [...new Set(cc.map((c) => Math.round(c.top)))].sort((a, b) => a - b);
     const ordenIds = cc.slice().sort((a, b) => a.top - b.top || a.left - b.left).map((c) => c.id);
     ok(JSON.stringify(ordenIds) === JSON.stringify(['filtro-cobertura-puestos', 'input-limite-mesas', 'btn-guardar-limite-mesas', 'btn-excel-acreditacion', 'btn-avisar-todos']), 'los controles salen en el orden del diseño', ordenIds);
-    const g = cc.filter((c) => ['filtro-cobertura-puestos', 'input-limite-mesas', 'btn-guardar-limite-mesas'].includes(c.id));
-    ok(g.every((c) => cerca(c.top, g[0].top)), 'filtro, número y Guardar con el mismo top');
-    const d = cc.filter((c) => c.id === 'btn-excel-acreditacion' || c.id === 'btn-avisar-todos');
-    ok(cerca(d[0].top, d[1].top), 'Excel y Avisar con el mismo top');
+    if (w === 1600) ok(cc.every((c) => cerca(c.top, cc[0].top)), `a 1600 px TODOS los controles de la línea con el mismo top (±1 px): ${filasTop.join(', ')}`, cc.map((c) => [c.id, c.top]));
+    else {
+      const g = cc.filter((c) => ['filtro-cobertura-puestos', 'input-limite-mesas', 'btn-guardar-limite-mesas'].includes(c.id));
+      ok(g.every((c) => cerca(c.top, g[0].top)), 'filtro, número y Guardar con el mismo top');
+      const d = cc.filter((c) => c.id === 'btn-excel-acreditacion' || c.id === 'btn-avisar-todos');
+      ok(cerca(d[0].top, d[1].top), 'Excel y Avisar con el mismo top');
+    }
     console.log(`  info a ${w} px los controles ocupan ${filasTop.length} línea(s): tops ${filasTop.join(', ')} (los de la derecha ${filasTop.length === 1 ? 'caben en la misma línea' : 'bajan a la línea siguiente, alineados a la derecha'})`);
     const solapados = await ev(`(() => { const e = [...document.querySelectorAll('#linea-cobertura > *, #linea-cobertura .cob-der > *, #caja-limite-mesas > *')].filter(x => x.getBoundingClientRect().width > 0 && getComputedStyle(x).display !== 'none'); const mal = [];
       for (let i = 0; i < e.length; i++) for (let j = i + 1; j < e.length; j++) { if (e[i].contains(e[j]) || e[j].contains(e[i])) continue; const a = e[i].getBoundingClientRect(), b = e[j].getBoundingClientRect(); if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) mal.push((e[i].id || e[i].className) + '×' + (e[j].id || e[j].className)); } return mal; })()`);
     ok(solapados.length === 0, 'ningún control se monta sobre otro', solapados);
-    const lbl = await ev(`(() => ({ titulo: document.querySelector('#linea-cobertura .cob-titulo').textContent.trim(), peso: getComputedStyle(document.querySelector('#linea-cobertura .cob-titulo')).fontWeight,
+    const lbl = await ev(`(() => ({ titulo: document.querySelector('#linea-cobertura .cob-titulo').textContent.trim(), tituloTitle: document.querySelector('#linea-cobertura .cob-titulo').title,
+      maxTexto: [...document.getElementById('caja-limite-mesas').childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(''), maxTitle: document.getElementById('caja-limite-mesas').title,
+      avisarTitle: document.getElementById('btn-avisar-todos').title, conteo: document.getElementById('conteo-cobertura').textContent, peso: getComputedStyle(document.querySelector('#linea-cobertura .cob-titulo')).fontWeight,
       sinCubrir: document.querySelector('label.cob-casilla:has(#filtro-sin-cubrir)').textContent.trim(), titulo2: document.querySelector('label.cob-casilla:has(#filtro-sin-cubrir)').title,
       selAncho: document.getElementById('filtro-cobertura-puestos').getBoundingClientRect().width, numAncho: document.getElementById('input-limite-mesas').getBoundingClientRect().width,
       numAlinea: getComputedStyle(document.getElementById('input-limite-mesas')).textAlign, chk: [document.getElementById('filtro-sin-cubrir'), document.getElementById('chk-en-vivo')].map(e => e.getBoundingClientRect().width),
       guardar: getComputedStyle(document.getElementById('btn-guardar-limite-mesas')).backgroundColor, excel: document.getElementById('btn-excel-acreditacion').textContent.trim(), avisar: document.getElementById('btn-avisar-todos').textContent.trim(),
       aviso: (() => { const a = document.getElementById('aviso-ambito-puestos'); return { visible: a.offsetParent !== null, tam: getComputedStyle(a).fontSize, color: getComputedStyle(a).color, texto: a.textContent.slice(0, 40) }; })(),
       derecha: (() => { const d = document.querySelector('#linea-cobertura .cob-der').getBoundingClientRect(); const l = document.getElementById('linea-cobertura').getBoundingClientRect(); return l.right - d.right; })() }))()`);
-    ok(lbl.titulo === '🛡️ Cobertura de testigos' && lbl.peso === '600', `título «${lbl.titulo}» en 600`, lbl);
-    ok(lbl.selAncho === 200, `select «Todos los puestos» de 200 px (${lbl.selAncho})`);
+    ok(lbl.titulo === '🛡️ Cobertura' && lbl.peso === '600' && lbl.tituloTitle === 'Cobertura de testigos', `título «${lbl.titulo}» en 600, con «${lbl.tituloTitle}» en title`, lbl);
+    ok(lbl.selAncho === 170, `select «Todos los puestos» de 170 px (${lbl.selAncho})`);
+    ok(lbl.maxTexto === 'Máx. mesas/testigo' && lbl.maxTitle === 'Máx. mesas por testigo', `«${lbl.maxTexto}» con «${lbl.maxTitle}» en title`, lbl);
+    ok(lbl.avisarTitle === 'Avisar a todos los asignados' && lbl.conteo === '91 puestos', `«${lbl.avisar}» con «${lbl.avisarTitle}» en title; conteo «${lbl.conteo}»`, lbl);
     ok(lbl.sinCubrir === 'Solo sin cubrir' && /Solo con votantes sin cubrir/.test(lbl.titulo2), 'casilla «Solo sin cubrir» con el texto largo en title', lbl);
     ok(lbl.chk.every((x) => x === 16), 'casillas de 16 px', lbl.chk);
     ok(lbl.numAncho === 56 && lbl.numAlinea === 'center', 'campo de número de 56 px, centrado', lbl);
     ok(lbl.guardar === 'rgb(11, 94, 215)', 'Guardar primario #0B5ED7', lbl.guardar);
-    ok(/Excel de acreditación/.test(lbl.excel) && /Avisar a todos los asignados/.test(lbl.avisar), 'Excel de acreditación y Avisar a todos están', [lbl.excel, lbl.avisar]);
+    ok(/Excel de acreditación/.test(lbl.excel) && /Avisar a asignados/.test(lbl.avisar), 'Excel de acreditación y Avisar a todos están', [lbl.excel, lbl.avisar]);
     ok(lbl.aviso.visible && lbl.aviso.tam === '13px', `aviso «Mostrando solo…» arriba en 13 px`, lbl.aviso);
     const filas = await ev("(() => { const l = document.getElementById('linea-cobertura'); const r = l.getBoundingClientRect(); return { alto: r.height, scroll: document.documentElement.scrollWidth - innerWidth }; })()");
     console.log(`  info línea de cobertura a ${w} px: alto ${filas.alto} px (${filas.alto <= 40 ? 'UNA sola línea' : 'envuelve en más de una línea'}), desborde horizontal ${filas.scroll}`);
     ok(filas.scroll <= 0, 'sin desborde horizontal de la página');
     await foto(`3-cobertura-${w}`, await caja('#linea-cobertura', 24));
-    if (w === 1600) {
-      await encuadre(1920, 1080); await espera(500);
-      const una = await ev(CONTROLES('#linea-cobertura', 'input:not([type=checkbox]):not([type=hidden]), select, button, a.btn-secundario'));
-      ok(new Set(una.map((c) => Math.round(c.top))).size === 1 && una.every((c) => cerca(c.alto, 38, 0.6)), 'a 1920 px TODOS los controles de cobertura en UNA sola línea, de 38 px y con el mismo top');
-      await foto('3b-cobertura-1920', await caja('#linea-cobertura', 24));
-      await encuadre(w, h); await espera(300);
-    }
+
     // Los controles siguen funcionando.
     const antes = await ev("document.querySelectorAll('#tabla-puestos-contenedor tbody tr').length");
     await ev("(() => { const c = document.getElementById('filtro-sin-cubrir'); c.click(); })()");
@@ -221,6 +228,7 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     ok(marcado, 'la casilla «Solo sin cubrir» se marca y dispara el filtro (antes: ' + antes + ' filas)');
     await ev("document.getElementById('filtro-sin-cubrir').click()");
     ok(await ev("typeof document.getElementById('btn-guardar-limite-mesas').onclick !== 'undefined' && !!document.getElementById('btn-avisar-todos')"), 'Guardar y Avisar están en su sitio');
+    ok(await ev("fetch('/configuracion.html').then((x) => x.text()).then((t) => t.includes('`${puestos.length} puestos`') && t.includes('`${visibles.length} de ${puestos.length} puestos`') && !t.includes('mostrando los'))"), 'el conteo de la pantalla dice «N puestos» (y «X de N puestos» al filtrar)');
     await recoger('cobertura ' + w);
 
     /* ===================================================================== 4. DÍA D */

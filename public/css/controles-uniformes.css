@@ -102,10 +102,10 @@ html:not(.modo-app) #org-barra-uniforme .org-leyenda .titulo { font-size: 11px; 
    3. COBERTURA DE TESTIGOS — una sola línea: título · filtro · conteo | casillas | máximo + Guardar · (derecha) Excel y Avisar
    ========================================================================== */
 html:not(.modo-app) #linea-cobertura {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; min-height: var(--ctl-h);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: var(--ctl-h);   /* orden 139: 8 px solo en esta línea */
 }
 html:not(.modo-app) #linea-cobertura .cob-titulo { margin: 0; font-size: var(--ctl-letra); font-weight: 600; white-space: nowrap; }
-html:not(.modo-app) #linea-cobertura #filtro-cobertura-puestos { width: 200px; max-width: 200px; flex: none; }
+html:not(.modo-app) #linea-cobertura #filtro-cobertura-puestos { width: 170px; max-width: 170px; flex: none; }
 html:not(.modo-app) #linea-cobertura #filtro-comuna-puestos { width: 180px; max-width: 180px; flex: none; }
 html:not(.modo-app) #linea-cobertura #conteo-cobertura:empty { display: none; }
 html:not(.modo-app) #linea-cobertura #conteo-cobertura { font-size: 13px; color: var(--color-text-muted); white-space: nowrap; }
@@ -113,15 +113,15 @@ html:not(.modo-app) #linea-cobertura .cob-casilla {
   display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
 }
 html:not(.modo-app) #linea-cobertura .cob-casilla input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; margin: 0; flex: none; }
-html:not(.modo-app) #linea-cobertura .cob-div { align-self: center; width: 1px; height: 22px; background: #E3E6EE; flex: none; }
+html:not(.modo-app) #linea-cobertura .cob-div { align-self: center; width: 1px; height: 22px; margin: 0 4px; background: #E3E6EE; flex: none; }
 html:not(.modo-app) #linea-cobertura #caja-limite-mesas {
-  align-items: center; gap: 8px; margin: 0; padding-left: 12px; border-left: 1px solid #E3E6EE;
+  align-items: center; gap: 8px; margin: 0 0 0 4px; padding-left: 8px; border-left: 1px solid #E3E6EE;
   font-size: 13px; font-weight: 500; white-space: nowrap;
 }
 html:not(.modo-app) #linea-cobertura #input-limite-mesas { width: 56px; padding: 0 4px; text-align: center; flex: none; }
 html:not(.modo-app) #linea-cobertura #btn-guardar-limite-mesas { background: var(--ctl-azul-vivo); border-color: var(--ctl-azul-vivo); color: #fff; }
 html:not(.modo-app) #linea-cobertura #btn-guardar-limite-mesas:hover { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
-html:not(.modo-app) #linea-cobertura .cob-der { margin-left: auto; display: flex; align-items: center; gap: var(--ctl-sep); flex-wrap: wrap; }
+html:not(.modo-app) #linea-cobertura .cob-der { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* Recorte: el texto largo termina en «…» y nunca cambia el alto. */
 html:not(.modo-app) #linea-cobertura .cob-der > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
