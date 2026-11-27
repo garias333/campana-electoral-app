@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/fichas.css">
 <link rel="stylesheet" href="/css/estructura-vistas.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <!-- MODO APP. Esta pantalla es de escritorio, pero el administrador la abre desde el menú de la
      app del celular (public/app/inicio.html) con `?app=1`. En ese caso —o con la app instalada
      (modo standalone) en una pantalla de celular o tableta chica, hasta 820 px— se esconde el
@@ -258,9 +259,26 @@
 
     <div id="aviso-cola-offline" style="display:none; background:#FDF3E0; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:0.85rem;"></div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <div class="toolbar">
-        <div class="toolbar-filtros">
+    <!-- ORDEN 138: encabezado azul oscuro con el selector de vistas y el conteo; debajo, rejilla de 4 columnas (1fr 1fr 1fr 1.5fr):
+         fila 1 Buscar · Cargos · Áreas · Comuna/corregimiento (la única más ancha); fila 2 Barrio/vereda · Autorización · Quitar filtros.
+         En campaña departamental, el filtro de municipios abre la fila 2. Las medidas viven en css/controles-uniformes.css. -->
+    <div class="card" id="bloque-estructura">
+      <div class="ctl-enc">
+        <h2>Estructura territorial</h2>
+        <!-- ORDEN 105: selector de vista. «Lista» es la de siempre y la de por defecto; las otras cinco las pinta
+             /js/estructura-vistas.js dentro de #vistas-estructura con las MISMAS personas que la lista. -->
+        <div class="selector-vistas" id="selector-vistas-estructura" role="group" aria-label="Forma de ver la estructura">
+          <button type="button" data-vista="lista" class="activa" aria-pressed="true">Lista</button>
+          <button type="button" data-vista="tarjetas" aria-pressed="false">Tarjetas</button>
+          <button type="button" data-vista="rol" aria-pressed="false">Por rol</button>
+          <button type="button" data-vista="ranking" aria-pressed="false">Ranking</button>
+          <button type="button" data-vista="explorador" aria-pressed="false">Explorador</button>
+          <button type="button" data-vista="pendientes" aria-pressed="false">Pendientes</button>
+        </div>
+        <div class="mono" id="contador-estructura"></div>
+      </div>
+      <div class="ctl-cuerpo">
+        <div class="ctl-rejilla">
           <input aria-label="Buscar por nombre, email o número de identificación" type="text" id="filtro-estructura-busqueda" placeholder="Buscar por nombre, email o número de identificación...">
           <select id="filtro-estructura-cargo">
             <option value="">Todos los cargos</option>
@@ -278,15 +296,15 @@
             <option value="urbano">Urbano</option>
             <option value="rural">Rural</option>
           </select>
+          <select id="filtro-estructura-zona">
+            <option value="">Toda comuna/corregimiento</option>
+          </select>
           <!-- Solo en campaña departamental. Mismo criterio que en Votantes:
                un <input> con datalist, porque un departamento puede tener 120
                municipios y escribir tres letras es más rápido que buscarlos. -->
           <input aria-label="Todos los municipios" type="text" id="filtro-estructura-municipio" list="lista-filtro-municipios-estructura"
                  autocomplete="off" placeholder="Todos los municipios" style="display:none;">
           <datalist id="lista-filtro-municipios-estructura"></datalist>
-          <select id="filtro-estructura-zona">
-            <option value="">Toda comuna/corregimiento</option>
-          </select>
           <select id="filtro-estructura-territorio">
             <option value="">Todo barrio/vereda</option>
           </select>
@@ -298,21 +316,10 @@
             <option value="vencida">Enlace vencido</option>
             <option value="sin">Sin autorización</option>
           </select>
-          <button type="button" class="btn-secundario btn-sm" id="btn-quitar-filtros-estructura">Quitar filtros</button>
+          <button type="button" class="btn-secundario" id="btn-quitar-filtros-estructura">Quitar filtros</button>
         </div>
-        <!-- ORDEN 105: selector de vista. «Lista» es la de siempre y la de por defecto; las otras cinco las pinta
-             /js/estructura-vistas.js dentro de #vistas-estructura con las MISMAS personas que la lista. -->
-        <div class="selector-vistas" id="selector-vistas-estructura" role="group" aria-label="Forma de ver la estructura">
-          <button type="button" data-vista="lista" class="activa" aria-pressed="true">Lista</button>
-          <button type="button" data-vista="tarjetas" aria-pressed="false">Tarjetas</button>
-          <button type="button" data-vista="rol" aria-pressed="false">Por rol</button>
-          <button type="button" data-vista="ranking" aria-pressed="false">Ranking</button>
-          <button type="button" data-vista="explorador" aria-pressed="false">Explorador</button>
-          <button type="button" data-vista="pendientes" aria-pressed="false">Pendientes</button>
-        </div>
-        <div class="mono" id="contador-estructura" style="color:var(--color-text-muted); font-size:0.85rem;"></div>
+        <div class="aviso-equipo-estructura" id="aviso-equipo-estructura" style="display:none;"></div>
       </div>
-      <div class="aviso-equipo-estructura" id="aviso-equipo-estructura" style="display:none;"></div>
     </div>
 
     <div class="card envoltorio-fichas" id="card-estructura" data-vista="lista">

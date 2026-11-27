@@ -1,0 +1,150 @@
+/* ==========================================================================
+   css/controles-uniformes.css — ORDEN 138: campos y botones UNIFORMES (diseño «Encabezado azul oscuro») en cuatro zonas del ESCRITORIO:
+     1. Estructura territorial (filtros)            → territorial.html      · #bloque-estructura
+     2. Organigrama (modos + leyenda de niveles)    → organigrama.html      · #org-barra-uniforme
+     3. Cobertura de testigos                       → configuracion.html    · #linea-cobertura
+     4. Día D (pestañas, subpestañas y acciones)    → dia-d.html            · #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad
+   Las MEDIDAS COMUNES viven en variables (:root de abajo) y se usan en las cuatro zonas. Todo va acotado a su zona y a
+   `html:not(.modo-app)`: otras pantallas y la app del celular no cambian. Se carga DESPUÉS de style.css.
+   ========================================================================== */
+:root {
+  --ctl-h: 38px;
+  --ctl-radio: 6px;
+  --ctl-letra: 14px;          /* campos; los botones llevan 13 px, peso 600 */
+  --ctl-letra-boton: 13px;
+  --ctl-borde: 1px solid #DFE3EA;
+  --ctl-fondo: #F1F3F8;
+  --ctl-sep: 10px;
+  --ctl-azul: #084298;
+  --ctl-azul-vivo: #0B5ED7;
+  --ctl-amarillo: #FFC300;
+}
+
+/* ---------- Piezas comunes: campo y botón de 38 px, mismo radio y misma letra ---------- */
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+  :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select) {
+  box-sizing: border-box; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 12px;
+  border: var(--ctl-borde); border-radius: var(--ctl-radio); background-color: var(--ctl-fondo);
+  font-size: var(--ctl-letra); line-height: 1.2; color: #1B2333;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura) select:not([multiple]):not([size]) {
+  padding: 0 34px 0 12px; background-position: right 12px center;
+}
+html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura) :is(input, select):focus {
+  background-color: #fff; border-color: var(--ctl-azul-vivo); outline: none; box-shadow: 0 0 0 3px rgba(11, 94, 215, .15);
+}
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+  :is(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro) {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 16px;
+  border: var(--ctl-borde); border-radius: var(--ctl-radio); background: #fff; color: var(--ctl-azul);
+  font-family: inherit; font-size: var(--ctl-letra-boton); font-weight: 600; line-height: 1.2; text-decoration: none;
+  white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+  :is(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro):hover { background: #EEF3FC; border-color: #C5D3EE; color: var(--ctl-azul); }
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+  :is(button, a):focus-visible { outline: 3px solid var(--ctl-amarillo); outline-offset: 1px; }
+
+/* ==========================================================================
+   1. ESTRUCTURA TERRITORIAL — franja azul oscuro con borde inferior amarillo; cuerpo en rejilla de 4 columnas
+   ========================================================================== */
+html:not(.modo-app) #bloque-estructura { padding: 0; overflow: hidden; margin-bottom: 16px; }
+html:not(.modo-app) #bloque-estructura .ctl-enc {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 12px 16px;
+  background: var(--ctl-azul); border-bottom: 3px solid var(--ctl-amarillo);
+}
+html:not(.modo-app) #bloque-estructura .ctl-enc h2 {
+  margin: 0; color: #fff; font-size: 16px; font-weight: 700; line-height: 1.2; letter-spacing: 0;
+}
+html:not(.modo-app) #bloque-estructura .selector-vistas {
+  display: inline-flex; flex-wrap: nowrap; gap: 2px; padding: 0; margin-left: auto;
+  background: rgba(255, 255, 255, .12); border-radius: var(--ctl-radio);
+}
+html:not(.modo-app) #bloque-estructura .selector-vistas button {
+  border: 0; border-radius: var(--ctl-radio); background: transparent; color: #E6EEFF; padding: 0 14px;
+}
+html:not(.modo-app) #bloque-estructura .selector-vistas button:hover { background: rgba(255, 255, 255, .16); color: #fff; border: 0; }
+html:not(.modo-app) #bloque-estructura .selector-vistas button.activa { background: var(--ctl-amarillo); color: #3B2F00; }
+html:not(.modo-app) #bloque-estructura #contador-estructura { color: #CFE0FF; font-size: 13px; white-space: nowrap; }
+
+html:not(.modo-app) #bloque-estructura .ctl-cuerpo { padding: 16px; }
+html:not(.modo-app) #bloque-estructura .ctl-rejilla {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1.5fr; gap: var(--ctl-sep); align-items: center;
+}
+html:not(.modo-app) #bloque-estructura .ctl-rejilla > :is(input, select) { width: 100%; min-width: 0; max-width: none; }
+html:not(.modo-app) #bloque-estructura .ctl-rejilla > button { justify-self: start; }
+html:not(.modo-app) #bloque-estructura .aviso-equipo-estructura { margin-top: 12px; }
+@media (max-width: 1100px) {
+  html:not(.modo-app) #bloque-estructura .ctl-rejilla { grid-template-columns: 1fr 1fr; }
+}
+
+/* ==========================================================================
+   2. ORGANIGRAMA — modos a la izquierda, divisoria vertical y «NIVELES» en la misma línea (flex-wrap en pantallas angostas)
+   ========================================================================== */
+html:not(.modo-app) #org-barra-uniforme {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: -10px 0 14px;
+}
+html:not(.modo-app) #org-barra-uniforme .org-subvista-selector {
+  display: flex; flex-wrap: wrap; gap: var(--ctl-sep); margin: 0; padding: 0; border: 0;
+}
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip { background: #fff; color: var(--ctl-azul); border: var(--ctl-borde); }
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo:hover { background: #063172; border-color: #063172; color: #fff; }
+html:not(.modo-app) #org-barra-uniforme .org-leyenda {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0 0 0 16px; border: 0;
+  border-left: 1px solid #E3E6EE; min-height: var(--ctl-h);
+}
+html:not(.modo-app) #org-barra-uniforme .org-leyenda .titulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+/* ==========================================================================
+   3. COBERTURA DE TESTIGOS — una sola línea: título · filtro · conteo | casillas | máximo + Guardar · (derecha) Excel y Avisar
+   ========================================================================== */
+html:not(.modo-app) #linea-cobertura {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; min-height: var(--ctl-h);
+}
+html:not(.modo-app) #linea-cobertura .cob-titulo { margin: 0; font-size: var(--ctl-letra); font-weight: 600; white-space: nowrap; }
+html:not(.modo-app) #linea-cobertura #filtro-cobertura-puestos { width: 200px; max-width: 200px; flex: none; }
+html:not(.modo-app) #linea-cobertura #filtro-comuna-puestos { width: 180px; max-width: 180px; flex: none; }
+html:not(.modo-app) #linea-cobertura #conteo-cobertura:empty { display: none; }
+html:not(.modo-app) #linea-cobertura #conteo-cobertura { font-size: 13px; color: var(--color-text-muted); white-space: nowrap; }
+html:not(.modo-app) #linea-cobertura .cob-casilla {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+html:not(.modo-app) #linea-cobertura .cob-casilla input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; margin: 0; flex: none; }
+html:not(.modo-app) #linea-cobertura .cob-div { align-self: center; width: 1px; height: 22px; background: #E3E6EE; flex: none; }
+html:not(.modo-app) #linea-cobertura #caja-limite-mesas {
+  align-items: center; gap: 8px; margin: 0; padding-left: 12px; border-left: 1px solid #E3E6EE;
+  font-size: 13px; font-weight: 500; white-space: nowrap;
+}
+html:not(.modo-app) #linea-cobertura #input-limite-mesas { width: 56px; padding: 0 4px; text-align: center; flex: none; }
+html:not(.modo-app) #linea-cobertura #btn-guardar-limite-mesas { background: var(--ctl-azul-vivo); border-color: var(--ctl-azul-vivo); color: #fff; }
+html:not(.modo-app) #linea-cobertura #btn-guardar-limite-mesas:hover { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
+html:not(.modo-app) #linea-cobertura .cob-der { margin-left: auto; display: flex; align-items: center; gap: var(--ctl-sep); flex-wrap: wrap; }
+/* Recorte: el texto largo termina en «…» y nunca cambia el alto. */
+html:not(.modo-app) #linea-cobertura .cob-der > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+/* ==========================================================================
+   4. DÍA D — pestañas (150 px) y subpestañas (165 px) del mismo alto, activa azul; acciones de reportes en una línea
+   (las zonas llevan id —#pestanas-diad, #subpestanas-diad— porque la lista :is() toma la especificidad de su id)
+   ========================================================================== */
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) {
+  display: flex; flex-wrap: wrap; gap: var(--ctl-sep); width: auto; overflow: visible; border-radius: 0;
+}
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > * {
+  min-width: 150px; text-align: center; border: var(--ctl-borde); border-radius: var(--ctl-radio); padding: 0 16px;
+  background: #fff; color: var(--ctl-azul); font-size: var(--ctl-letra-boton); font-weight: 600; min-height: var(--ctl-h); height: var(--ctl-h);
+}
+html:not(.modo-app) #subpestanas-diad > * { min-width: 165px; }
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento,
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento:hover { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-secundario:hover { background: #EEF3FC; border-color: #C5D3EE; color: var(--ctl-azul); }
+
+html:not(.modo-app) #acciones-reportes-diad { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ctl-sep); margin-bottom: 18px; }
+html:not(.modo-app) #acciones-reportes-diad a.btn-reportes-puesto.btn-acento { background: var(--ctl-amarillo); border-color: var(--ctl-amarillo); color: #3B2F00; }
+html:not(.modo-app) #acciones-reportes-diad a.btn-reportes-puesto.btn-acento:hover { background: #E6AF00; border-color: #E6AF00; color: #3B2F00; }
+html:not(.modo-app) #acciones-reportes-diad #btn-eliminar-todos-reportes {
+  margin-left: auto; background: #fff; border-color: #F0B4B4; color: #C62828; width: auto;
+}
+html:not(.modo-app) #acciones-reportes-diad #btn-eliminar-todos-reportes:hover { background: #FDF1F1; border-color: #E69999; color: #C62828; }

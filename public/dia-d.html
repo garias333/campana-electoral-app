@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
   .novedad-fila { background: #FBEAEA; }
 
@@ -102,7 +103,7 @@
     </div>
     <!-- PESTAÑAS: «Reportes de mesas» (la de siempre; incluye abajo la sección «Avance de votación», que antes era una
          pestaña aparte — orden 47) y las que dependen de un módulo. Un enlace viejo con #avance abre Reportes y baja a esa sección. -->
-    <div class="grupo-pestanas" style="margin-bottom:16px;">
+    <div class="grupo-pestanas" id="pestanas-diad" style="margin-bottom:16px;">
       <button type="button" class="btn-acento btn-sm" id="pestana-reportes">Reportes de mesas</button>
       <!-- Solo con el módulo `resultados_dia_d` (se muestra al cargar, ver el final del script). -->
       <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;">Resultados</button>
@@ -115,14 +116,11 @@
     </div>
 
     <div id="vista-reportes" style="display:none;"><!-- orden 130: nace oculta; el script «vista inicial» (abajo) muestra la de la URL antes del primer pintado -->
-    <!-- Los dos botones van en la MISMA rejilla de seis que las tarjetas de
-         abajo, así que cada uno mide exactamente lo que una tarjeta y quedan
-         a plomo con ellas. Con `display:none` en el de borrar —que solo ve un
-         admin— el otro pasa solo a la primera columna: la rejilla no deja el
-         hueco, porque un elemento oculto no ocupa celda. -->
-    <div class="grid grid-6" style="margin-bottom:18px;">
-      <button class="btn-peligro btn-accion-diad" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
-      <a class="btn-acento btn-accion-diad" href="/reportes-puesto.html">📍 Reportes por puesto de votación</a>
+    <!-- ORDEN 138: los dos botones de acción, de 38 px y en UNA línea: «Reportes por puesto de votación» (amarillo) a la izquierda y
+         «Eliminar todos los reportes» (secundario de peligro, solo admin) a la derecha. Medidas en css/controles-uniformes.css. -->
+    <div id="acciones-reportes-diad">
+      <a class="btn-acento btn-reportes-puesto" href="/reportes-puesto.html">📍 Reportes por puesto de votación</a>
+      <button type="button" class="btn-peligro" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
     </div>
 
     <!-- Los testigos reportan desde su propia app móvil (/app/dia-d.html) — acá solo se consolida lo que ya reportaron. -->
@@ -275,7 +273,7 @@
     <!-- RESULTADOS (fase 3): consolidado, resultado oficial, testigo vs. oficial y esperados vs. oficial. En celular las rejillas se
          apilan y las tablas se desplazan de lado dentro de su contenedor. -->
     <div id="vista-resultados" style="display:none;">
-      <div class="grupo-pestanas" style="margin-bottom:14px; flex-wrap:wrap;">
+      <div class="grupo-pestanas" id="subpestanas-diad" style="margin-bottom:14px;">
         <button type="button" class="btn-acento btn-sm" data-sub="consolidado">Consolidado</button>
         <button type="button" class="btn-secundario btn-sm" data-sub="oficial">Resultado oficial</button>
         <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Testigo vs. oficial <span id="contador-dif" class="mono"></span></button>

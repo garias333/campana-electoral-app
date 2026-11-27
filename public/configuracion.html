@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
 /* Activar complementos (parche 318). Estilo de la app (#0B5ED7); una columna a 390 px, dos desde 760 px. */
 .comp-lista { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -444,7 +445,7 @@
       </div>
 
       <div class="card">
-        <p id="aviso-ambito-puestos" style="display:none; margin:0 0 10px; font-size:0.82rem; color:var(--color-text-muted);"></p>
+        <p id="aviso-ambito-puestos" style="display:none; margin:0 0 10px; font-size:13px; color:var(--color-text-muted);"></p>
 
         <!-- Filtro de la tabla: solo cambia lo que se ve, no agrega nada.
              Va pegado a la tabla y con su propio rótulo para que no se
@@ -456,40 +457,37 @@
           <span id="conteo-puestos-filtro" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
         </div>
 
-        <!-- FILTRO DE COBERTURA. Va en su propia fila y no en la de arriba,
-             porque esa solo se muestra en campana departamental y esto sirve
-             en las dos. Con 92 puestos, encontrar los que estan a medias
-             recorriendo la tabla con el dedo es el trabajo que esta linea
-             evita. -->
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <label for="filtro-cobertura-puestos" style="font-size:0.85rem; font-weight:600; white-space:nowrap;">🛡️ Cobertura de testigos:</label>
-          <select id="filtro-cobertura-puestos" data-sin-ordenar style="max-width:280px;">
+        <!-- COBERTURA DE TESTIGOS (orden 138): TODO en una sola línea y en este orden: título · filtro de cobertura · conteo ·
+             (comuna, sólo si el catálogo la trae) | «Solo sin cubrir» y «En vivo» | «Máx. mesas por testigo» + Guardar · a la derecha,
+             Excel de acreditación y Avisar a todos. El filtro es el de siempre: sólo cambia el rótulo de la casilla (el largo va en title).
+             Las medidas viven en css/controles-uniformes.css. Se conservan todos los id. -->
+        <div id="linea-cobertura">
+          <label class="cob-titulo" for="filtro-cobertura-puestos">🛡️ Cobertura de testigos</label>
+          <select id="filtro-cobertura-puestos" data-sin-ordenar>
             <option value="">Todos los puestos</option>
             <option value="incompletos">Con mesas por asignar</option>
             <option value="sin">Sin ningún testigo</option>
             <option value="parciales">Empezados, pero incompletos</option>
             <option value="completos">Cubiertos del todo</option>
           </select>
-          <span id="conteo-cobertura" style="font-size:0.82rem; color:var(--color-text-muted);"></span>
-        </div>
-
-        <!-- COBERTURA, SEGUNDA FILA. Comuna sólo se ofrece si el catálogo la trae (la tabla de puestos del catálogo
-             no la garantiza); «sin cubrir» y el límite son los del punto 1 y 4 de la orden 18. -->
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-          <select id="filtro-comuna-puestos" data-sin-ordenar style="display:none; max-width:240px;"><option value="">Todas las comunas</option></select>
-          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
-            <input type="checkbox" id="filtro-sin-cubrir" style="width:auto;"> Solo con votantes sin cubrir
+          <span id="conteo-cobertura"></span>
+          <select id="filtro-comuna-puestos" data-sin-ordenar style="display:none;"><option value="">Todas las comunas</option></select>
+          <span class="cob-div" aria-hidden="true"></span>
+          <label class="cob-casilla" title="Solo con votantes sin cubrir">
+            <input type="checkbox" id="filtro-sin-cubrir"> Solo sin cubrir
           </label>
-          <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;" title="Colorea cada mesa por su estado: sin testigo, asignado, llegó, E-14. Se enciende solo el día de la elección; otro día sirve para ensayar.">
-            <input type="checkbox" id="chk-en-vivo" style="width:auto;"> En vivo
+          <label class="cob-casilla" title="Colorea cada mesa por su estado: sin testigo, asignado, llegó, E-14. Se enciende solo el día de la elección; otro día sirve para ensayar.">
+            <input type="checkbox" id="chk-en-vivo"> En vivo
           </label>
-          <label id="caja-limite-mesas" style="display:none; align-items:center; gap:6px; font-size:0.85rem;">
+          <label id="caja-limite-mesas" style="display:none;">
             Máx. mesas por testigo
-            <input type="number" id="input-limite-mesas" min="1" max="20" style="width:62px;">
-            <button type="button" class="btn-secundario btn-sm" id="btn-guardar-limite-mesas">Guardar</button>
+            <input type="number" id="input-limite-mesas" min="1" max="20">
+            <button type="button" class="btn-primario" id="btn-guardar-limite-mesas">Guardar</button>
           </label>
-          <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="configuracion" id="btn-excel-acreditacion" href="/api/dia-d/cobertura/excel" target="_blank">⬇ Excel de acreditación</a>
-          <button type="button" class="btn-secundario btn-sm" id="btn-avisar-todos">📣 Avisar a todos los asignados</button>
+          <div class="cob-der">
+            <a class="btn-secundario btn-excel-app sin-importar-exportar" data-ie="configuracion" id="btn-excel-acreditacion" href="/api/dia-d/cobertura/excel" target="_blank">📄 Excel de acreditación</a>
+            <button type="button" class="btn-secundario" id="btn-avisar-todos">📣 Avisar a todos los asignados</button>
+          </div>
         </div>
         <div id="resumen-cobertura" class="resumen-cobertura" style="display:none;"></div>
         <div id="leyenda-en-vivo" class="barra-vivo" style="display:none;"></div>

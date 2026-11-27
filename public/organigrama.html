@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
   /* Tamaño de fuente general del organigrama, más grande que el resto de la app. */
   #card-org { font-size: 1.2rem; }
@@ -435,14 +436,17 @@
       </div>
       <div id="org-arbol" class="org-raiz-lista"></div>
       <div id="org-diagrama-contenedor" class="org-diagrama-scroll" style="display:none;">
-        <div class="org-subvista-selector" id="org-subvista-selector">
-          <button type="button" class="org-subvista-chip activo" data-subvista="clasico">🗂️ Clásico</button>
-          <button type="button" class="org-subvista-chip" data-subvista="horizontal">➡️ Horizontal</button>
-          <button type="button" class="org-subvista-chip" data-subvista="compacto">📑 Compacto</button>
-          <button type="button" class="org-subvista-chip" data-subvista="columnas">📊 Columnas por Nivel</button>
-          <button type="button" class="org-subvista-chip" data-subvista="radial">🎯 Radial</button>
+        <!-- ORDEN 138: modos y leyenda de niveles en UNA línea (la leyenda baja sola si no cabe). -->
+        <div id="org-barra-uniforme">
+          <div class="org-subvista-selector" id="org-subvista-selector">
+            <button type="button" class="org-subvista-chip activo" data-subvista="clasico">🗂️ Clásico</button>
+            <button type="button" class="org-subvista-chip" data-subvista="horizontal">➡️ Horizontal</button>
+            <button type="button" class="org-subvista-chip" data-subvista="compacto">📑 Compacto</button>
+            <button type="button" class="org-subvista-chip" data-subvista="columnas">📊 Columnas por Nivel</button>
+            <button type="button" class="org-subvista-chip" data-subvista="radial">🎯 Radial</button>
+          </div>
+          <div class="org-leyenda" id="org-leyenda"></div>
         </div>
-        <div class="org-leyenda" id="org-leyenda"></div>
         <ul id="org-diagrama" class="org-diagrama"></ul>
         <div id="org-diagrama-compacto" class="org-compacto-raiz" style="display:none;"></div>
         <div id="org-diagrama-columnas" class="org-columnas-tablero" style="display:none;"></div>
