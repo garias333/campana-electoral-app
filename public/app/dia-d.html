@@ -32,6 +32,46 @@
      piden más grandes y viven en una pantalla más apretada. */
   .seccion-titulo { font-size: 1.08rem; font-weight: 800; }
 
+
+  /* ORDEN 132 · «REPORTAR CONTEO DE MI MESA» EN DOS COLUMNAS. El título de cada dato a la izquierda
+     y su campo a la derecha, para que los cinco campos queden alineados de arriba abajo como en
+     una tabla. Pidió Gildardo: «que los títulos y los campos queden alineados verticalmente,
+     como si fueran dos columnas».
+
+     Solo estas cinco filas. El título «Reportar conteo de mi mesa», la tabla de candidatos, las
+     fotos y el botón de enviar siguen a lo ancho completo. Va acotado a `.fila-conteo` y no a
+     `.fila-app` de estilos-app.css: esa clase (dos campos lado a lado, una columna bajo 480 px)
+     la usan otras pantallas. Cada fila lleva también `.campo-app` para conservar el estilo
+     actual de etiqueta y campo (fondo, borde, radio, foco); aquí solo se cambia la disposición.
+
+     · Columna del título: 38 % del ancho, mínimo 110 px. Si «Puesto de votación» no cabe, se
+       parte en dos líneas; la letra NO se achica.
+     · Cada fila es un grid de dos columnas; el título se centra en vertical con su campo
+       (align-items:center). En el puesto, el texto de «mi puesto no aparece» y su aviso caen en
+       filas propias de la columna derecha, para que el título siga centrado con el desplegable. */
+  .fila-conteo {
+    display: grid;
+    grid-template-columns: max(110px, 38%) minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 6px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .fila-conteo > label { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .fila-conteo > input,
+  .fila-conteo > select {
+    width: 100%; min-width: 0; box-sizing: border-box;
+    height: 48px; min-height: 48px;
+  }
+  .fila-conteo > small { grid-column: 2; margin: 0; }
+  /* El nombre del puesto puede ser largo: elipsis en la casilla cerrada; al abrir la lista del
+     teléfono se ve el nombre completo. */
+  .fila-conteo > select { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+  /* Las casillas de mesa, en la columna derecha y alineadas a la izquierda; si son muchas, se
+     acomodan en varias filas. */
+  .fila-conteo .lista-mesas-casillas { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: flex-start; align-items: center; }
+  .fila-conteo .lista-mesas-casillas label { margin: 0; }
+
   .tabla-votos-candidatos { width: 100%; border-collapse: collapse; margin-top: 4px; }
   .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
   .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
@@ -152,32 +192,43 @@
 
     <div class="seccion-titulo">Reportar conteo de mi mesa</div>
     <form id="form-reporte" enctype="multipart/form-data">
-      <div class="fila-app">
-        <div class="campo-app"><label for="f-departamento">Departamento</label><input id="f-departamento" name="departamento" autocomplete="off"></div>
-        <div class="campo-app"><label for="f-municipio">Municipio</label><input id="f-municipio" name="municipio" autocomplete="off"></div>
+      <!-- Orden 132: cinco filas de dos columnas (título | campo). Ver `.fila-conteo` arriba. -->
+      <div class="campo-app fila-conteo">
+        <label for="f-departamento">Departamento</label>
+        <input id="f-departamento" name="departamento" autocomplete="off">
       </div>
-      <div class="fila-app">
-        <div class="campo-app">
-          <label for="f-puesto-select">Puesto de votación</label>
-          <!-- Desplegable de puestos de la campaña. La última opción abre el
-               campo de texto de abajo, para el testigo que esté en un puesto
-               que la siembra no incluyó: sin esa salida no podría reportar, y
-               el día de la elección no hay a quién llamar. -->
-          <select id="f-puesto-select" required></select>
-          <input id="f-puesto" name="puesto_votacion" autocomplete="off" list="lista-puestos-votacion-app"
-                 placeholder="Escribe el nombre del puesto" style="display:none; margin-top:6px;">
-          <datalist id="lista-puestos-votacion-app"></datalist>
-          <small id="aviso-puesto-fuera" style="display:none; color:#A93226; font-size:0.78rem;">
-            Este reporte quedará marcado para revisión.
-          </small>
+      <div class="campo-app fila-conteo">
+        <label for="f-municipio">Municipio</label>
+        <input id="f-municipio" name="municipio" autocomplete="off">
+      </div>
+      <div class="campo-app fila-conteo">
+        <label for="f-puesto-select">Puesto de votación</label>
+        <!-- Desplegable de puestos de la campaña. La última opción abre el
+             campo de texto de abajo, para el testigo que esté en un puesto
+             que la siembra no incluyó: sin esa salida no podría reportar, y
+             el día de la elección no hay a quién llamar. -->
+        <select id="f-puesto-select" required></select>
+        <input id="f-puesto" name="puesto_votacion" autocomplete="off" list="lista-puestos-votacion-app"
+               placeholder="Escribe el nombre del puesto" style="display:none; grid-column:2;">
+        <datalist id="lista-puestos-votacion-app"></datalist>
+        <small id="aviso-puesto-fuera" style="display:none; color:#A93226; font-size:0.78rem;">
+          Este reporte quedará marcado para revisión.
+        </small>
+      </div>
+      <div class="campo-app fila-conteo" id="campo-mesa-app">
+        <label for="f-mesa">Mesa</label>
+        <input id="f-mesa" name="mesa_votacion" required inputmode="numeric" autocomplete="off">
+      </div>
+      <div id="campo-mesas-coordinador" style="display:none;">
+        <div class="campo-app fila-conteo">
+          <label id="rotulo-mesas-coordinador">Mesa</label>
+          <div id="lista-mesas-coordinador" class="lista-mesas-casillas" role="group" aria-labelledby="rotulo-mesas-coordinador"></div>
         </div>
-        <div class="campo-app" id="campo-mesa-app"><label for="f-mesa">Mesa</label><input id="f-mesa" name="mesa_votacion" required inputmode="numeric" autocomplete="off"></div>
       </div>
-      <div class="campo-app" id="campo-mesas-coordinador" style="display:none;">
-        <label>Mesa que vas a reportar</label>
-        <div id="lista-mesas-coordinador" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:6px;"></div>
+      <div class="campo-app fila-conteo" id="campo-total-votantes">
+        <label for="f-total-votantes">Total votantes</label>
+        <input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric">
       </div>
-      <div class="campo-app" id="campo-total-votantes"><label for="f-total-votantes">Total votantes en la mesa</label><input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric"></div>
       <div class="campo-app">
         <table class="tabla-votos-candidatos">
           <thead><tr id="cabecera-votos-e14"><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>

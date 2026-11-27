@@ -12,6 +12,8 @@ que NO puede leer las otras instalaciones ni la tabla `parches_disponibles`: lo 
 dependa de ellas dice «no medido». Las anclas de agosto (parche 249, `v121`, «Árbol
 limpio») estaban obsoletas y se reemplazaron.*
 
+- **Orden 132 (27 de noviembre de 2026): «Reportar conteo de mi mesa» en dos columnas en la app del celular. HECHA y COMMIT LOCAL; SIN parche (el 376 sigue reservado) y SIN push.** Un solo bloque: `public/app/dia-d.html` (no se comparte con el escritorio, que es `public/dia-d.html`). Las cinco filas (Departamento, Municipio, Puesto de votación, Mesa, Total votantes) son ahora `.campo-app.fila-conteo`: grid `max(110px, 38%) | 1fr`, gap 12, filas separadas 12, título centrado en vertical, campos de 48 px, elipsis en el puesto, casillas de mesa en la columna derecha con flex-wrap. «Mesa que vas a reportar» y «Total votantes en la mesa» pasan a «Mesa» y «Total votantes». No cambian datos, validaciones, envío ni qué campos aparecen (los ids y el JS son los mismos; `campo-mesas-coordinador` conserva su `display` en línea). Service worker `estrategia-v242`. Prueba: `scripts/probar-conteo-dos-columnas.js` (Chromium real, rutas reales, testigo del arnés de capturas, 390×844 y 360×740, 3 y 12 mesas, puesto largo, envío): 125 comprobaciones OK, cero errores de consola. Se corre sobre un mysqld privado (ver la memoria de la base simulada). **Pendiente de parche:** el manual `manuales/bloques/t-testigo-reporte.md` aún dice «Total votantes en la mesa» (y su captura es de antes). Siguiente parche libre: 376.
+
 - **Orden 131 (26 de noviembre de 2026): PARCHE 375 «Panel: la barra lateral ya no desaparece al cambiar de sección y no se ven secciones ajenas (Requiere el 374)» GENERADO, PUBLICADO y REGISTRADO, INACTIVO, «seleccionadas» SIN campañas (la Base NO marcada). Empaqueta la Orden 130 (`677cc25`). **NO toca la base de datos. Solo archivos estáticos (JS, CSS, HTML, service worker): NO necesita reinicio**; basta que el service worker nuevo (`estrategia-v241`) se cargue. `parches/campana-parche375.zip`, 206.737 bytes, sha256 `ba2271e93c5d3aafee98ac4d2dc0199e932bef7f49ad580ebe55d420766fdc8f`, 10 archivos: `public/js/common.js`, `public/js/cerrar-sesion.js`, `public/css/style.css`, `public/dashboard.html`, `public/configuracion.html`, `public/dia-d.html`, `public/contenido.html`, `public/service-worker.js`, `.version-base` (375), `.parche-requiere` (374). Los ocho van juntos: un `style.css` o `common.js` sin los cuatro HTML deja el arreglo a medias. Sin `scripts/probar-menu-sin-parpadeo.js` ni ESTADO.md. Los 9 archivos de contenido idénticos a HEAD (cmp); `node --check` en los 3 `.js`; `verificar-requires.js` y el generador (base git `1366cf7` + zip): TODO RESUELVE. Publicado con `publicar-parche.sh` (huella ba2271e93c5d3aaf) y registrado con `registrar-parche.js` (HTTP 200, firmado Ed25519, `requiere_parche` = 374, `toca_base_datos` = false). Esta cuenta no trae `node` en el PATH: se usó el de `/home/appestrategia-electoral/.nvm/versions/node/v22.23.1/bin/node`. **Siguiente parche libre: 376.**
 - **Orden 128 (26 de noviembre de 2026): PARCHE 374 «Día D: subpestaña Esperados vs. oficial (resumen por líder) y Diferencias pasa a Testigo vs. oficial (Requiere el 373)» GENERADO, PUBLICADO y REGISTRADO, INACTIVO, «seleccionadas» SIN campañas (la Base NO marcada). Empaqueta la Orden 127 (`cad581e`). **NO toca la base de datos. SÍ lleva código de servidor: cada campaña (y la Base) debe reiniciarse al aplicarlo** (`lib/esperadosOficial.js` nuevo, `lib/puestosDiaD.js`, `routes/resultadosDiaD.routes.js`). `parches/campana-parche374.zip`, 61.327 bytes, sha256 `ce0796810664ee1d1facd9c18cd5b14e6ed23b371a2555ae11f8c9dd41c2c479`, 11 archivos: `lib/esperadosOficial.js`, `lib/puestosDiaD.js`, `routes/resultadosDiaD.routes.js`, `public/dia-d.html`, `public/service-worker.js` (`estrategia-v240`), `manuales/bloques/t-resultados-esperados.md`, `t-resultados-diferencias.md`, `t-resultados-paquete.md`, `mod-resultados_dia_d.md`, `.version-base` (374), `.parche-requiere` (373). Sin `probar-esperados-127.js`, `scripts/capturas/lista.js` ni ESTADO.md. La subpestaña no tiene JS ni CSS aparte: todo va dentro de `public/dia-d.html`. Los 8 archivos de contenido idénticos a HEAD (cmp); `node --check` en los 4 `.js` y en el script inline de `dia-d.html`; `verificar-requires.js` y el generador (base git `d057f49` + zip): TODO RESUELVE. Registrado con HTTP 200, firmado Ed25519, `requiere_parche` = 373, `toca_base_datos` = false. `middleware/aspirante.js` (último zip: 338) y `lib/complementos.js` (347) ya estaban publicados y son idénticos al árbol: no se incluyeron. **Siguiente parche libre: 375.**
 - **Orden 125 (25 de noviembre de 2026): PARCHE 373 «Asignación de permisos: columnas en orden alfabético, Configuración al final (Requiere el 372)» GENERADO, PUBLICADO y REGISTRADO, INACTIVO, «seleccionadas» SIN campañas (la Base NO marcada). Empaqueta la Orden 124 (`1fb9a9a`). NO toca la base de datos; sin código de servidor: basta que el service worker nuevo (`estrategia-v239`) se cargue. `parches/campana-parche373.zip`, 56.250 bytes, sha256 `b382f282059d0879307b7217be5b6a2e107be7307b025264115cc24dcd50388c`, 4 archivos: `public/configuracion.html`, `public/service-worker.js`, `.version-base`, `.parche-requiere` (372). Sin `probar-permisos-orden.js`, capturas ni ESTADO.md. Los dos archivos de código idénticos a HEAD (cmp); `verificar-requires.js`: TODO RESUELVE. Registrado con HTTP 200, firmado Ed25519, `requiere_parche` = 372. Requiere el 372. **Siguiente parche libre: 374.**
@@ -3848,3 +3850,68 @@ Rama: auditoria-fable | Commit: 5ff7ca6 369: marca la versión base; ESTADO.md (
 <!-- cierre automático -->
 Sesión cerrada: 2026-11-26 02:31 UTC desde srv1807015
 Rama: auditoria-fable | Commit: d057f49 Parche 373: permisos en orden alfabético | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 4 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:42 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:43 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
+
+---
+<!-- cierre automático -->
+Sesión cerrada: 2026-11-27 00:43 UTC desde srv1807015
+Rama: auditoria-fable | Commit: 227d1ce Parche 375: barra lateral sin parpadeo | Sin commitear: 5 archivo(s)
