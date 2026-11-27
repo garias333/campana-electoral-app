@@ -638,3 +638,9 @@ body.con-nav-admin main.app-cuerpo { padding-bottom: calc(96px + env(safe-area-i
   background: var(--marca-amarillo); color: #1b2333; font: inherit; font-size: 14px; font-weight: 800; line-height: 1;
 }
 .app-barra:has(.btn-modo-candidato) > div { min-width: 0; }
+
+/* Orden 134: «Puesta según el barrio» y las comunas a tocar cuando el nombre del barrio se repite. */
+.nota-territorio { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--texto-2); }
+.nota-territorio[hidden], .opciones-territorio[hidden] { display: none; }
+.opciones-territorio { margin-top: 8px; }
+.opciones-territorio .nota-territorio { margin: 0 0 8px; }

@@ -169,11 +169,13 @@
         <label for="f-comuna">Comuna</label>
         <input id="f-comuna" list="lista-comunas" autocomplete="off" placeholder="Escribe o elija la comuna">
         <datalist id="lista-comunas"></datalist>
+        <p class="nota-territorio" id="aviso-comuna-barrio" aria-live="polite" hidden>Puesta según el barrio</p>
       </div>
       <div class="campo-app" id="campo-barrio-app" data-campo="barrio">
         <label for="f-barrio">Barrio</label>
         <input id="f-barrio" list="lista-barrios" autocomplete="off" placeholder="Escribe o elija el barrio">
         <datalist id="lista-barrios"></datalist>
+        <div class="opciones-territorio" id="opciones-comuna-barrio" aria-live="polite" hidden></div>
       </div>
     </div>
     <div class="fila-app" id="fila-rural" data-fila="rural" style="display:none;">
@@ -181,11 +183,13 @@
         <label for="f-corregimiento">Corregimiento</label>
         <input id="f-corregimiento" list="lista-corregimientos" autocomplete="off" placeholder="Escribe o elija el corregimiento">
         <datalist id="lista-corregimientos"></datalist>
+        <p class="nota-territorio" id="aviso-corregimiento-vereda" aria-live="polite" hidden>Puesto según la vereda</p>
       </div>
       <div class="campo-app" data-campo="vereda">
         <label for="f-vereda">Vereda</label>
         <input id="f-vereda" list="lista-veredas" autocomplete="off" placeholder="Escribe o elija la vereda">
         <datalist id="lista-veredas"></datalist>
+        <div class="opciones-territorio" id="opciones-corregimiento-vereda" aria-live="polite" hidden></div>
       </div>
     </div>
 
@@ -435,9 +439,7 @@ function actualizarBarriosApp() {
     // Sin una Comuna reconocida todavía (o si la ciudad no tiene comunas),
     // se muestran TODOS los barrios del municipio, incluyendo los que
     // cuelgan del municipio sin comuna intermedia.
-    const municipio = buscarMunicipioResidenciaApp();
-    const idsComunas = new Set(territorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
-    barrios = territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+    barrios = barriosConocidosApp();
   }
   document.getElementById('lista-barrios').innerHTML = barrios.map(b => `<option value="${escaparAppHtml(b.nombre)}">`).join('');
 }
@@ -448,13 +450,126 @@ function actualizarVeredasApp() {
   // si no, la lista quedaría vacía y el campo sería imposible de llenar.
   const nombreCorregimiento = usarNombreCorregimientos ? normalizarTextoApp(document.getElementById('f-corregimiento').value) : '';
   const corregimiento = nombreCorregimiento ? territorios.find(t => t.tipo === 'corregimiento' && normalizarTextoApp(t.nombre) === nombreCorregimiento) : null;
+  // ORDEN 134: sin un Corregimiento reconocido se ofrecen TODAS las veredas del
+  // municipio (como los barrios sin comuna). Antes, con el Corregimiento visible
+  // la lista salía vacía — y en las campañas que leen el catálogo las veredas
+  // cuelgan del municipio, no del corregimiento — así que no había qué elegir.
   const veredas = corregimiento
     ? territorios.filter(t => t.tipo === 'vereda' && t.padre_id === corregimiento.id)
-    : (usarNombreCorregimientos ? [] : territorios.filter(t => t.tipo === 'vereda'));
+    : veredasConocidasApp();
   document.getElementById('lista-veredas').innerHTML = veredas.map(v => `<option value="${escaparAppHtml(v.nombre)}">`).join('');
 }
 document.getElementById('f-comuna').addEventListener('input', actualizarBarriosApp);
 document.getElementById('f-corregimiento').addEventListener('input', actualizarVeredasApp);
+
+/* ORDEN 134 — EL BARRIO (O LA VEREDA) PONE SOLA LA COMUNA (O EL CORREGIMIENTO).
+   Todo en el cliente, con los territorios que ya se cargaron (y se guardan para trabajar sin señal). No cambia qué se guarda:
+   solo llena el campo de arriba cuando el nombre escrito corresponde a UN solo barrio/vereda conocido.
+   La relación sale de `padre_id`: un barrio cuelga de su comuna, una vereda de su corregimiento (o del municipio, cuando la
+   campaña lee el catálogo y no hay corregimiento: entonces solo se marca el Área y el Corregimiento no se toca). */
+
+/** Nombre comparable: sin mayúsculas, tildes ni ñ, y con los espacios sobrantes colapsados. */
+function claveNombreApp(t) { return normalizarTextoApp(t).replace(/\s+/g, ' '); }
+
+/** Los barrios que conoce la campaña para el municipio de residencia (con o sin comuna intermedia). */
+function barriosConocidosApp() {
+  const municipio = buscarMunicipioResidenciaApp();
+  const idsComunas = new Set(territorios.filter(t => t.tipo === 'comuna' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+  return territorios.filter(t => t.tipo === 'barrio' && (idsComunas.has(t.padre_id) || (municipio && t.padre_id === municipio.id)));
+}
+
+/** Las veredas que conoce la campaña para el municipio de residencia (con o sin corregimiento intermedio). */
+function veredasConocidasApp() {
+  const municipio = buscarMunicipioResidenciaApp();
+  const idsCorreg = new Set(territorios.filter(t => t.tipo === 'corregimiento' && (!municipio || t.padre_id === municipio.id)).map(c => c.id));
+  return territorios.filter(t => t.tipo === 'vereda' && (idsCorreg.has(t.padre_id) || (municipio && t.padre_id === municipio.id) || (!municipio && !territorios.some(m => m.id === t.padre_id && m.tipo === 'corregimiento'))));
+}
+
+/** Configuración de los dos gemelos: urbano (barrio→comuna) y rural (vereda→corregimiento). */
+const GEMELOS_TERRITORIO_APP = {
+  barrio: {
+    area: 'urbano', campoHijo: 'f-barrio', campoPadre: 'f-comuna', tipoPadre: 'comuna', aviso: 'aviso-comuna-barrio', opciones: 'opciones-comuna-barrio',
+    conocidos: () => barriosConocidosApp(), padreVisible: () => ciudadTieneComunas, refrescar: () => actualizarBarriosApp(),
+    textoOpciones: 'Ese barrio está en varias comunas. Toca la tuya:'
+  },
+  vereda: {
+    area: 'rural', campoHijo: 'f-vereda', campoPadre: 'f-corregimiento', tipoPadre: 'corregimiento', aviso: 'aviso-corregimiento-vereda', opciones: 'opciones-corregimiento-vereda',
+    conocidos: () => veredasConocidasApp(), padreVisible: () => usarNombreCorregimientos, refrescar: () => actualizarVeredasApp(),
+    textoOpciones: 'Esa vereda está en varios corregimientos. Toca el tuyo:'
+  }
+};
+
+function ocultarAyudaTerritorioApp(g) {
+  document.getElementById(g.aviso).hidden = true;
+  const caja = document.getElementById(g.opciones);
+  caja.hidden = true; caja.innerHTML = '';
+}
+
+/** Pone el nombre del padre (comuna/corregimiento) en su campo y deja el aviso «Puesta según el barrio». */
+function ponerPadreApp(g, padre) {
+  document.getElementById(g.campoPadre).value = padre.nombre;
+  document.getElementById(g.aviso).hidden = false;
+  g.refrescar();
+}
+
+/**
+ * Se llama al escribir en Barrio/Vereda (`confirmar` = false: solo actúa si el texto YA coincide exacto) y al elegir una sugerencia
+ * o salir del campo (`confirmar` = true: además deja el nombre escrito tal como lo trae el sistema, para que al guardar se encuentre).
+ */
+function propagarPadreApp(tipo, confirmar) {
+  const g = GEMELOS_TERRITORIO_APP[tipo];
+  const campo = document.getElementById(g.campoHijo);
+  const clave = claveNombreApp(campo.value);
+  const cajaOpciones = document.getElementById(g.opciones);
+  const coincidencias = clave ? g.conocidos().filter(t => claveNombreApp(t.nombre) === clave) : [];
+  if (!coincidencias.length) { ocultarAyudaTerritorioApp(g); return; }
+
+  // Agrupa por el padre que sea comuna/corregimiento (null = cuelga directo del municipio, sin nada que poner arriba).
+  const porPadre = new Map();
+  coincidencias.forEach(t => {
+    const padre = territorios.find(x => x.id === t.padre_id && x.tipo === g.tipoPadre) || null;
+    porPadre.set(padre ? padre.id : 0, padre);
+  });
+
+  if (porPadre.size === 1) {
+    const padre = [...porPadre.values()][0];
+    cajaOpciones.hidden = true; cajaOpciones.innerHTML = '';
+    if (confirmar) campo.value = coincidencias[0].nombre;
+    if (padre && g.padreVisible()) ponerPadreApp(g, padre);
+    else document.getElementById(g.aviso).hidden = true;
+    if (!areaActual) elegirArea(g.area);
+    return;
+  }
+
+  // Varias comunas/corregimientos tienen un barrio/vereda con ese nombre: no se adivina, se ofrecen.
+  document.getElementById(g.aviso).hidden = true;
+  if (confirmar) campo.value = coincidencias[0].nombre;
+  const padres = [...porPadre.values()].filter(Boolean);
+  if (!padres.length || !g.padreVisible()) { cajaOpciones.hidden = true; cajaOpciones.innerHTML = ''; if (!areaActual) elegirArea(g.area); return; }
+  cajaOpciones.innerHTML = `<p class="nota-territorio">${g.textoOpciones}</p><div class="chips-app">` +
+    padres.map(p => `<button type="button" class="chip-app" data-padre="${p.id}">${escaparAppHtml(p.nombre)}</button>`).join('') + '</div>';
+  cajaOpciones.hidden = false;
+  if (!areaActual) elegirArea(g.area);
+}
+
+Object.keys(GEMELOS_TERRITORIO_APP).forEach(tipo => {
+  const g = GEMELOS_TERRITORIO_APP[tipo];
+  const campo = document.getElementById(g.campoHijo);
+  campo.addEventListener('input', () => propagarPadreApp(tipo, false));
+  campo.addEventListener('change', () => propagarPadreApp(tipo, true));
+  campo.addEventListener('blur', () => propagarPadreApp(tipo, true));
+  // Si la persona corrige a mano la Comuna/el Corregimiento, el aviso «puesta según…» ya no es cierto.
+  document.getElementById(g.campoPadre).addEventListener('input', () => { document.getElementById(g.aviso).hidden = true; });
+  document.getElementById(g.opciones).addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-padre]');
+    if (!b) return;
+    const padre = territorios.find(x => String(x.id) === b.dataset.padre);
+    if (!padre) return;
+    ponerPadreApp(g, padre);
+    const caja = document.getElementById(g.opciones);
+    caja.hidden = true; caja.innerHTML = '';
+  });
+});
 
 /** Busca en una lista de nombres (departamentos o municipios de colombia.json) el que mejor coincide con el texto dado, ignorando tildes/mayúsculas. */
 function emparejarEnLista(texto, lista) {
@@ -537,6 +652,14 @@ document.getElementById('f-ciudad-residencia').addEventListener('input', () => {
   if (typeof poblarListasTerritorio === 'function') poblarListasTerritorio();
 });
 
+/** Entre varios territorios con el mismo nombre, el que cuelga del padre (comuna/corregimiento) escrito; si no hay padre reconocido, el primero, como siempre. */
+function elegirHomonimoApp(candidatos, tipoPadre, idCampoPadre, padreVisible) {
+  if (candidatos.length < 2 || !padreVisible) return candidatos[0];
+  const nombrePadre = normalizarTexto(document.getElementById(idCampoPadre).value);
+  const padre = nombrePadre ? territorios.find(t => t.tipo === tipoPadre && normalizarTexto(t.nombre) === nombrePadre) : null;
+  return (padre && candidatos.find(t => t.padre_id === padre.id)) || candidatos[0];
+}
+
 /** Misma lógica de resolución que usa el panel de escritorio (public/votantes.html). */
 function resolverTerritorio() {
   const esOrganizacion = categoriaActual === 'sublider' && tipoInfluenciaActual === 'organizacion';
@@ -560,7 +683,8 @@ function resolverTerritorio() {
     }
     const nombreBarrio = normalizarTexto(document.getElementById('f-barrio').value);
     if (!nombreBarrio) return { error: 'Selecciona un barrio de la lista, o deja el área sin especificar.' };
-    const barrio = territorios.find(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio);
+    // ORDEN 134: si el mismo nombre existe en varias comunas, vale el de la Comuna elegida (antes salía el primero de la lista).
+    const barrio = elegirHomonimoApp(territorios.filter(t => t.tipo === 'barrio' && normalizarTexto(t.nombre) === nombreBarrio), 'comuna', 'f-comuna', ciudadTieneComunas);
     if (!barrio) return { error: 'Ese barrio no existe todavía en el sistema.' };
     return { territorioId: barrio.id, area: areaActual };
   }
@@ -577,7 +701,7 @@ function resolverTerritorio() {
   }
   const nombreVereda = normalizarTexto(document.getElementById('f-vereda').value);
   if (!nombreVereda) return { error: 'Selecciona una vereda de la lista, o deja el área sin especificar.' };
-  const vereda = territorios.find(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda);
+  const vereda = elegirHomonimoApp(territorios.filter(t => t.tipo === 'vereda' && normalizarTexto(t.nombre) === nombreVereda), 'corregimiento', 'f-corregimiento', usarNombreCorregimientos);
   if (!vereda) return { error: 'Esa vereda no existe todavía en el sistema.' };
   return { territorioId: vereda.id, area: areaActual };
 }
@@ -644,6 +768,7 @@ function limpiarFormulario() {
   elegirCategoria('votante');
   elegirTipoInfluencia('territorio');
   elegirArea('');
+  Object.values(GEMELOS_TERRITORIO_APP).forEach(ocultarAyudaTerritorioApp);
   document.getElementById('aviso-error').classList.remove('visible');
   document.getElementById('duplicado-estado').textContent = '';
   document.getElementById('cedula-estado').textContent = '';
