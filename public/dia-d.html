@@ -103,26 +103,33 @@
     </div>
     <!-- PESTAÑAS: «Reportes de mesas» (la de siempre; incluye abajo la sección «Avance de votación», que antes era una
          pestaña aparte — orden 47) y las que dependen de un módulo. Un enlace viejo con #avance abre Reportes y baja a esa sección. -->
-    <div class="grupo-pestanas" id="pestanas-diad" style="margin-bottom:16px;">
-      <button type="button" class="btn-acento btn-sm" id="pestana-reportes">Reportes de mesas</button>
+    <!-- ORDEN 141: UNA sola línea. Reportes de mesas → pestañas + divisor + «Reportes por puesto…» + (derecha) «Eliminar todos»; Resultados → pestañas + divisor + subpestañas.
+         El atributo data-vista de #barra-diad (lo pone mostrarPestana y el script de vista inicial) decide cuál de los dos grupos se ve. -->
+    <div id="barra-diad" data-vista="reportes">
+    <div class="grupo-pestanas" id="pestanas-diad">
+      <button type="button" class="btn-acento btn-sm" id="pestana-reportes"><svg class="ico-pest" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>Reportes de mesas</button>
       <!-- Solo con el módulo `resultados_dia_d` (se muestra al cargar, ver el final del script). -->
-      <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;">Resultados</button>
+      <button type="button" class="btn-secundario btn-sm" id="pestana-resultados" style="display:none;"><svg class="ico-pest" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Resultados</button>
       <!-- Solo con el módulo `alertas_dia_d`. -->
-      <button type="button" class="btn-secundario btn-sm" id="pestana-alertas" style="display:none;">Alertas <span id="insignia-alertas" style="display:none; background:#A93226; color:#fff; border-radius:9px; padding:0 6px; font-size:0.72rem; margin-left:4px;"></span></button>
+      <button type="button" class="btn-secundario btn-sm" id="pestana-alertas" style="display:none;"><svg class="ico-pest" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alertas <span id="insignia-alertas" style="display:none; background:#A93226; color:#fff; border-radius:9px; padding:0 6px; font-size:0.72rem; margin-left:4px;"></span></button>
           <!-- Solo con el módulo `transporte_dia_d`. -->
-      <button type="button" class="btn-secundario btn-sm" id="pestana-transporte" style="display:none;">Transporte</button>
+      <button type="button" class="btn-secundario btn-sm" id="pestana-transporte" style="display:none;"><svg class="ico-pest" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16M8 21v-3M16 21v-3"/><circle cx="8.5" cy="14" r=".6"/><circle cx="15.5" cy="14" r=".6"/></svg>Transporte</button>
       <!-- Solo con el módulo `logistica_dia_d` (orden 39). Va al final, después de Transporte. -->
-      <button type="button" class="btn-secundario btn-sm" id="pestana-logistica" style="display:none;">Logística</button>
+      <button type="button" class="btn-secundario btn-sm" id="pestana-logistica" style="display:none;"><svg class="ico-pest" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>Logística</button>
     </div>
-
-    <div id="vista-reportes" style="display:none;"><!-- orden 130: nace oculta; el script «vista inicial» (abajo) muestra la de la URL antes del primer pintado -->
-    <!-- ORDEN 138: los dos botones de acción, de 38 px y en UNA línea: «Reportes por puesto de votación» (amarillo) a la izquierda y
-         «Eliminar todos los reportes» (secundario de peligro, solo admin) a la derecha. Medidas en css/controles-uniformes.css. -->
-    <div id="acciones-reportes-diad">
+    <div id="acciones-reportes-diad" data-solo="reportes">
       <a class="btn-acento btn-reportes-puesto" href="/reportes-puesto.html">📍 Reportes por puesto de votación</a>
       <button type="button" class="btn-peligro" id="btn-eliminar-todos-reportes" style="display:none;">🗑 Eliminar todos los reportes</button>
     </div>
+    <div class="grupo-pestanas" id="subpestanas-diad" data-solo="resultados">
+      <button type="button" class="btn-acento btn-sm" data-sub="consolidado">Consolidado</button>
+      <button type="button" class="btn-secundario btn-sm" data-sub="oficial">Resultado oficial</button>
+      <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Testigo vs. oficial <span id="contador-dif" class="mono"></span></button>
+      <button type="button" class="btn-secundario btn-sm" data-sub="esperados">Esperados vs. oficial</button>
+    </div>
+    </div><!-- /barra-diad -->
 
+    <div id="vista-reportes" style="display:none;"><!-- orden 130: nace oculta; el script «vista inicial» (abajo) muestra la de la URL antes del primer pintado -->
     <!-- Los testigos reportan desde su propia app móvil (/app/dia-d.html) — acá solo se consolida lo que ya reportaron. -->
     <div class="grid grid-6" style="margin-bottom:18px;">
       <div class="card stat-card" id="tarjeta-cuenta-regresiva-diad">
@@ -273,12 +280,6 @@
     <!-- RESULTADOS (fase 3): consolidado, resultado oficial, testigo vs. oficial y esperados vs. oficial. En celular las rejillas se
          apilan y las tablas se desplazan de lado dentro de su contenedor. -->
     <div id="vista-resultados" style="display:none;">
-      <div class="grupo-pestanas" id="subpestanas-diad" style="margin-bottom:14px;">
-        <button type="button" class="btn-acento btn-sm" data-sub="consolidado">Consolidado</button>
-        <button type="button" class="btn-secundario btn-sm" data-sub="oficial">Resultado oficial</button>
-        <button type="button" class="btn-secundario btn-sm" data-sub="diferencias">Testigo vs. oficial <span id="contador-dif" class="mono"></span></button>
-        <button type="button" class="btn-secundario btn-sm" data-sub="esperados">Esperados vs. oficial</button>
-      </div>
 
       <!-- a) CONSOLIDADO -->
       <div id="sub-consolidado">
@@ -422,6 +423,8 @@
       var el = document.getElementById(cual === 'reportes' ? 'vista-reportes' : vistas[cual]) || document.getElementById('vista-reportes');
       if (el) el.style.display = 'block';
       window.__vistaInicialDiaD = el && el.id === 'vista-reportes' ? 'reportes' : cual;
+      var barra = document.getElementById('barra-diad');
+      if (barra) barra.setAttribute('data-vista', window.__vistaInicialDiaD);
       // El botón de la pestaña acompaña a la vista (solo «Reportes» está a la vista hasta que llegan los permisos).
       var b = document.getElementById('pestana-reportes');
       if (b && window.__vistaInicialDiaD !== 'reportes') { b.classList.remove('btn-acento'); b.classList.add('btn-secundario'); }
@@ -778,6 +781,7 @@ function mostrarPestana(cual) {
   const vistas = { reportes: 'vista-reportes', resultados: 'vista-resultados', alertas: 'vista-alertas', transporte: 'vista-transporte', logistica: 'vista-logistica' };
   if (!vistas[cual]) cual = 'reportes';
   Object.entries(vistas).forEach(([k, id]) => { document.getElementById(id).style.display = k === cual ? 'block' : 'none'; });
+  document.getElementById('barra-diad').setAttribute('data-vista', cual);   // orden 141: decide qué grupo (acciones de Reportes / subpestañas de Resultados) va junto a las pestañas
   Object.keys(vistas).forEach((k) => {
     const b = document.getElementById('pestana-' + k);
     b.classList.toggle('btn-acento', k === cual); b.classList.toggle('btn-secundario', k !== cual);
@@ -824,11 +828,11 @@ function pintarAlertas() {
 async function cargarAvisos() {
   try {
     const a = await api('/dia-d/alertas/avisos');
-    document.getElementById('barra-avisos').style.display = 'block';
+    document.getElementById('barra-avisos').style.display = 'flex';
     document.getElementById('texto-avisos-apagados').style.display = a.avisos_activos ? 'none' : 'inline';
     const btn = document.getElementById('btn-sin-avisos');
-    btn.style.display = a.sin_avisos.length ? 'inline-block' : 'none';
-    btn.textContent = `${a.sin_avisos.length} ${a.sin_avisos.length === 1 ? 'coordinador sin avisos activados' : 'coordinadores sin avisos activados'}`;
+    btn.style.display = a.sin_avisos.length ? 'inline-flex' : 'none';
+    btn.textContent = `🔔 ${a.sin_avisos.length} ${a.sin_avisos.length === 1 ? 'coordinador sin avisos activados' : 'coordinadores sin avisos activados'}`;
     document.getElementById('lista-sin-avisos').innerHTML = '<div style="margin-bottom:4px; color:var(--color-text-muted);">Pídeles que abran la app en su celular y activen «Recibir avisos en este dispositivo»:</div>'
       + a.sin_avisos.map(u => `<div>${escaparHtml(u.nombre)}${u.telefono ? ' · <a href="tel:' + escaparHtml(String(u.telefono).replace(/\D/g, '')) + '">' + escaparHtml(u.telefono) + '</a>' : ' · sin teléfono'}</div>`).join('');
   } catch (_) { /* el diagnóstico es un extra: sin él, el cuadro sigue */ }

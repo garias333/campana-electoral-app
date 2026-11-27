@@ -606,8 +606,11 @@ function renderizarLeyendaNiveles() {
     .filter(n => nodos.some(x => x.nivel === n || (n === 'asesores' && x.tipo_relacion === 'asesor')));
   if (!usados.length) { caja.style.display = 'none'; return; }
   caja.style.display = 'flex';
-  caja.innerHTML = `<span class="titulo">Niveles</span>` + usados.map(n =>
-    `<span class="org-ley"><span class="muestra org-nivel-${n}"></span>${escaparOrgHtml(ETIQUETAS_NIVEL[n])}</span>`
+  // ORDEN 141: sin la palabra «NIVELES» y con el número de personas de cada nivel, contado aquí con los mismos `nodos` que ya trajo
+  // GET /organigrama (cada cargo lleva su `nivel` y, si tiene persona asignada, su nombre). No se pide nada nuevo al servidor.
+  const personasDe = (n) => nodos.filter(x => (x.nivel === n || (n === 'asesores' && x.tipo_relacion === 'asesor')) && nombreAbreviado(x)).length;
+  caja.innerHTML = usados.map(n =>
+    `<span class="org-ley"><span class="muestra org-nivel-${n}"></span>${escaparOrgHtml(ETIQUETAS_NIVEL[n])}<b class="org-ley-n" title="Personas en este nivel">${personasDe(n)}</b></span>`
   ).join('');
 }
 

@@ -12,6 +12,9 @@
 //   · Día D (dia-d.html): pestañas del mismo ancho (150 px) y subpestañas (165 px) de 38 px; los dos botones de acción de 38 px; «Eliminar todos»
 //     sigue pidiendo confirmación. Cero errores de consola. Capturas en SALIDA.
 //
+// ORDEN 141 (ronda 2): radio de 8 px en los controles; Organigrama sin «NIVELES» y con el número de personas por nivel sobre fondo propio;
+//   Día D con pestañas que miden según su texto, con ícono, y las acciones / subpestañas en la MISMA línea que las pestañas (1600 px).
+//
 // USO (base desechable ya inicializada con init-db; NO correr junto a otra prueba con Chromium):
 //   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada138 [SALIDA=/ruta] node scripts/probar-controles-uniformes.js
 require('dotenv').config();
@@ -83,11 +86,11 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     const hojaOk = await ev("[...document.styleSheets].some(h => /controles-uniformes\\.css/.test(h.href || ''))");
     ok(hojaOk, 'la hoja común controles-uniformes.css está cargada');
     const vars = await ev("(() => { const c = getComputedStyle(document.documentElement); return ['--ctl-h','--ctl-radio','--ctl-letra','--ctl-borde','--ctl-fondo'].map(k => c.getPropertyValue(k).trim()); })()");
-    ok(vars[0] === '38px' && vars[1] === '6px' && vars[2] === '14px' && vars[3] === '1px solid #DFE3EA' && vars[4] === '#F1F3F8', 'variables comunes --ctl-h/radio/letra/borde/fondo', vars);
+    ok(vars[0] === '38px' && vars[1] === '8px' && vars[2] === '14px' && vars[3] === '1px solid #DFE3EA' && vars[4] === '#F1F3F8', 'variables comunes --ctl-h/radio/letra/borde/fondo', vars);
     const cs = await ev(CONTROLES('#bloque-estructura', 'input:not([type=hidden]), select, button, a.btn-secundario'));
     ok(cs.length >= 12, `${cs.length} campos y botones visibles en el bloque (6 del selector de vistas + 5 filtros + Quitar)`, cs.map((c) => c.id || c.texto));
     ok(cs.every((c) => cerca(c.alto, 38, 0.6)), 'todos de 38 px de alto', cs.filter((c) => !cerca(c.alto, 38, 0.6)).map((c) => [c.id || c.texto, c.alto]));
-    ok(cs.every((c) => c.radio === '6px'), 'todos con radio de 6 px', cs.filter((c) => c.radio !== '6px').map((c) => [c.id || c.texto, c.radio]));
+    ok(cs.every((c) => c.radio === '8px'), 'todos con radio de 8 px', cs.filter((c) => c.radio !== '8px').map((c) => [c.id || c.texto, c.radio]));
     const f = Object.fromEntries(cs.filter((c) => c.id).map((c) => [c.id, c]));
     const normales = ['filtro-estructura-busqueda', 'filtro-estructura-cargo', 'filtro-estructura-area', 'filtro-estructura-territorio', 'filtro-estructura-autorizacion'].map((i) => f[i]);
     ok(normales.every(Boolean), 'los 5 filtros normales existen y se ven');
@@ -143,18 +146,35 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     ok(await esperar("document.getElementById('org-diagrama-contenedor').style.display !== 'none' && document.querySelectorAll('#org-leyenda .org-ley').length > 0"), 'el diagrama y la leyenda de niveles aparecen');
     const modos = await ev(CONTROLES('#org-barra-uniforme', '.org-subvista-chip'));
     ok(modos.length === 5 && modos.every((c) => cerca(c.alto, 38, 0.6)), `los 5 modos de 38 px de alto`, modos.map((c) => [c.texto, c.alto]));
-    ok(modos.every((c) => c.radio === '6px' && c.letra === '13px'), 'modos con radio de 6 px y letra de 13 px');
-    const ley = await ev(`(() => { const l = document.getElementById('org-leyenda'); const t = l.querySelector('.titulo'); const c = getComputedStyle(l); const tc = getComputedStyle(t);
-      const r = l.getBoundingClientRect(); const m = document.querySelector('#org-barra-uniforme .org-subvista-chip').getBoundingClientRect(); const tr = t.getBoundingClientRect();
-      return { borde: c.borderLeftWidth + ' ' + c.borderLeftColor, bordeAbajo: c.borderBottomWidth, tam: tc.fontSize, peso: tc.fontWeight, mayus: tc.textTransform, texto: t.textContent, n: l.querySelectorAll('.org-ley').length,
-        topLey: r.top, topModo: m.top, centroTitulo: tr.top + tr.height / 2, centroModo: m.top + m.height / 2, alto: r.height }; })()`);
-    ok(ley.borde === '1px rgb(227, 230, 238)' && ley.bordeAbajo === '0px', 'divisoria vertical de 1 px #E3E6EE y sin raya horizontal', ley);
-    ok(ley.tam === '11px' && ley.peso === '700' && ley.mayus === 'uppercase' && /niveles/i.test(ley.texto), '«NIVELES» 11 px, 700, mayúsculas', ley);
+    ok(modos.every((c) => c.radio === '8px' && c.letra === '13px'), 'modos con radio de 8 px y letra de 13 px');
+    const ley = await ev(`(() => { const l = document.getElementById('org-leyenda'); const c = getComputedStyle(l); const b = document.getElementById('org-barra-uniforme'); const bc = getComputedStyle(b);
+      const chips = [...document.querySelectorAll('#org-barra-uniforme .org-subvista-chip')]; const items = [...l.querySelectorAll('.org-ley')]; const br = b.getBoundingClientRect();
+      const centro = (e) => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+      const cuenta = (n) => nodos.filter((x) => (x.nivel === n || (n === 'asesores' && x.tipo_relacion === 'asesor')) && nombreAbreviado(x)).length;
+      const num = items.map((i) => { const m = [...i.querySelector('.muestra').classList].find((k) => /^org-nivel-/.test(k)).replace('org-nivel-', ''); const n = i.querySelector('.org-ley-n'); const nc = getComputedStyle(n);
+        return { nivel: m, mostrado: n.textContent.trim(), real: String(cuenta(m)), peso: nc.fontWeight, color: nc.color }; });
+      const sw = items[0].querySelector('.muestra').getBoundingClientRect();
+      return { titulo: !!l.querySelector('.titulo'), texto: l.textContent, tam: c.fontSize, color: c.color, n: items.length, num, swW: sw.width, swH: sw.height,
+        fondo: bc.backgroundImage, borde: bc.borderTopWidth + ' ' + bc.borderTopColor, bordeAbajo: bc.borderBottomWidth + ' ' + bc.borderBottomColor, radio: bc.borderTopLeftRadius + ' ' + bc.borderBottomLeftRadius, pad: bc.padding, gap: bc.columnGap,
+        chipPad: chips.map((e) => getComputedStyle(e).paddingLeft + ' ' + getComputedStyle(e).paddingRight), chipGap: chips.length > 1 ? chips[1].getBoundingClientRect().left - chips[0].getBoundingClientRect().right : 0,
+        centros: chips.map(centro).concat(items.map(centro)), centroBarra: br.top + (br.height - 3) / 2 + 0.5, altoBarra: br.height, derBarra: br.right, derUltimo: items[items.length - 1].getBoundingClientRect().right,
+        desborde: b.scrollWidth - b.clientWidth }; })()`);
+    ok(!ley.titulo && !/niveles/i.test(ley.texto), 'la palabra «NIVELES» ya no está en la leyenda', ley.texto);
+    ok(ley.tam === '14px' && ley.color === 'rgb(55, 65, 81)', 'leyenda a 14 px, color #374151', ley);
+    ok(ley.swW === 16 && ley.swH === 12, 'cuadritos de color de 16×12 px', ley);
+    ok(ley.num.length > 0 && ley.num.every((x) => x.mostrado === x.real && /^\d+$/.test(x.mostrado)), `cada nivel con su número de personas, igual al conteo de los datos del organigrama: ${ley.num.map((x) => x.nivel + '=' + x.mostrado).join(', ')}`, ley.num);
+    ok(ley.num.every((x) => x.peso === '700' && x.color === 'rgb(8, 66, 152)'), 'números en negrita #084298', ley.num);
+    ok(/linear-gradient\(/.test(ley.fondo) && /rgb\(244, 247, 252\)/.test(ley.fondo) && /rgb\(233, 238, 247\)/.test(ley.fondo), 'barra con degradado #F4F7FC → #E9EEF7', ley.fondo);
+    ok(ley.borde === '1px rgb(223, 227, 234)' && ley.bordeAbajo === '3px rgb(255, 195, 0)' && ley.radio === '10px 0px' && ley.pad === '10px 12px', 'borde 1 px #DFE3EA, inferior 3 px #FFC300, radio 10 px arriba, padding 10px 12px', ley);
+    ok(ley.gap === '5px' && cerca(ley.chipGap, 5, 0.6), `separación de 5 px (gap ${ley.gap}, entre modos ${ley.chipGap})`, ley);
+    ok(ley.chipPad.every((x) => x === '9px 9px'), 'botones de modo con padding 0 9px', ley.chipPad);
     if (w === 1600) {
-      ok(cerca(ley.topLey, ley.topModo, 1.5) && cerca(ley.centroTitulo, ley.centroModo, 1.5), `a ${w} px modos y «NIVELES» en la misma línea (top ${ley.topModo} / ${ley.topLey}; centro ${ley.centroModo} / ${ley.centroTitulo.toFixed(1)})`, ley);
+      ok(ley.centros.every((y) => cerca(y, ley.centros[0], 2)) && ley.altoBarra < 70, `a ${w} px modos y leyenda en UNA línea (alto de la barra ${ley.altoBarra} px)`, ley.centros);
+      ok(ley.desborde <= 0 && ley.derUltimo <= ley.derBarra + 0.5, `a ${w} px cero desbordes en la barra (último ítem termina en ${Math.round(ley.derUltimo)}, la barra en ${Math.round(ley.derBarra)})`, ley);
       await foto('2-organigrama-1600', await caja('#org-barra-uniforme', 20));
     } else {
-      console.log(`  info a ${w} px: top modos ${ley.topModo}, top leyenda ${ley.topLey} (${cerca(ley.topLey, ley.topModo, 1.5) ? 'una línea' : 'la leyenda bajó a la línea siguiente'})`);
+      console.log(`  info a ${w} px: alto de la barra ${ley.altoBarra} px (${ley.altoBarra < 70 ? 'una línea' : 'la leyenda bajó a la línea siguiente'})`);
+      ok(ley.desborde <= 0, `a ${w} px sin desborde horizontal en la barra`, ley);
       await foto('2b-organigrama-1366', await caja('#org-barra-uniforme', 20));
     }
     // El cambio de modo sigue funcionando.
@@ -176,7 +196,7 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     await espera(200);
     const cc = await ev(CONTROLES('#linea-cobertura', 'input:not([type=checkbox]):not([type=hidden]), select, button, a.btn-secundario'));
     ok(cc.every((c) => cerca(c.alto, 38, 0.6)), `los ${cc.length} campos y botones de la línea (${cc.map((c) => c.id || c.texto).join(' · ')}) de 38 px`, cc.filter((c) => !cerca(c.alto, 38, 0.6)).map((c) => [c.id || c.texto, c.alto]));
-    ok(cc.every((c) => c.radio === '6px'), 'todos con radio de 6 px');
+    ok(cc.every((c) => c.radio === '8px'), 'todos con radio de 8 px');
     // ORDEN 139: a 1600 px TODO en UNA sola línea (mismo top ±1 px); por debajo de lo que quepa (1366), Excel y Avisar pueden bajar a una segunda línea. Siempre: el orden y cero solapes.
     const ancho = await ev(`(() => { const l = document.getElementById('linea-cobertura'); const k = [...l.children].filter((e) => e.getBoundingClientRect().width > 0); const cs = getComputedStyle(l);
       const hijos = k.map((e) => e.getBoundingClientRect().width); const suma = hijos.reduce((a, b) => a + b, 0) + (k.length - 1) * parseFloat(cs.columnGap || cs.gap);
@@ -240,24 +260,37 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     await espera(300);
     const pe = await ev(CONTROLES('#pestanas-diad', 'button'));
     ok(pe.length === 5 && pe.every((c) => cerca(c.alto, 38, 0.6)), `las 5 pestañas de 38 px (${pe.map((c) => c.texto.split(' ')[0]).join(', ')})`, pe.map((c) => [c.texto, c.alto]));
-    ok(pe.every((c) => c.ancho >= 149.5), `pestañas con ancho mínimo de 150 px: ${pe.map((c) => c.ancho).join(' / ')}`);
+    const pmin = await ev(`(() => ['pestana-reportes','pestana-resultados','pestana-alertas','pestana-transporte','pestana-logistica'].map((i) => { const e = document.getElementById(i); const c = getComputedStyle(e);
+      const t = e.getBoundingClientRect().width; const svg = e.querySelector('svg.ico-pest'); const sr = svg && svg.getBoundingClientRect(); const sc = svg && getComputedStyle(svg);
+      return { id: i, minW: c.minWidth, pad: c.paddingLeft + ' ' + c.paddingRight, ancho: t, svg: !!svg, svgW: sr && sr.width, svgH: sr && sr.height, trazo: svg && svg.getAttribute('stroke-width') + ' ' + svg.getAttribute('stroke'), antes: svg ? svg.nextSibling && svg.nextSibling.textContent.trim().slice(0, 12) : '' }; }))()`);
+    ok(pmin.every((x) => x.minW === '0px' && x.pad === '14px 14px'), 'pestañas SIN ancho mínimo de 150 px y con padding 0 14px', pmin);
+    ok(new Set(pe.map((c) => c.ancho)).size > 1 && pe.some((c) => c.ancho < 150), `las pestañas miden según su texto: ${pe.map((c) => c.ancho).join(' / ')}`);
+    ok(pmin.every((x) => x.svg && x.svgW === 15 && x.svgH === 15 && x.trazo === '2 currentColor'), 'cada pestaña con ícono SVG de línea de 15 px (stroke 2, currentColor) antes del texto', pmin);
     const tops2 = [...new Set(pe.map((c) => Math.round(c.top)))];
     ok(tops2.length === 1, 'las pestañas en una sola línea');
     const est = await ev(`(() => { const a = getComputedStyle(document.getElementById('pestana-reportes')); const i = getComputedStyle(document.getElementById('pestana-resultados'));
       return { act: a.backgroundColor + ' ' + a.color, ina: i.backgroundColor + ' ' + i.color + ' ' + i.borderTopColor, radio: a.borderTopLeftRadius, letra: a.fontSize + ' ' + a.fontWeight }; })()`);
     ok(est.act === 'rgb(8, 66, 152) rgb(255, 255, 255)', 'pestaña activa #084298 con letra blanca (ya no dorada)', est);
     ok(/^rgb\(255, 255, 255\) rgb\(8, 66, 152\) rgb\(223, 227, 234\)$/.test(est.ina), 'pestañas inactivas blancas con borde', est);
-    ok(est.radio === '6px' && est.letra === '13px 600', 'radio 6 px, letra 13 px / 600', est);
+    ok(est.radio === '8px' && est.letra === '13px 600', 'radio 8 px, letra 13 px / 600', est);
+    const raya = await ev("getComputedStyle(document.getElementById('pestana-reportes')).boxShadow");
+    ok(/rgb\(255, 195, 0\) 0px -3px 0px 0px inset/.test(raya), 'pestaña activa con raya inferior amarilla', raya);
     const acc = await ev(CONTROLES('#acciones-reportes-diad', 'a, button'));
     ok(acc.length === 2 && acc.every((c) => cerca(c.alto, 38, 0.6)), `los dos botones de acción de 38 px (${acc.map((c) => c.alto).join(' / ')})`, acc);
-    ok(acc.length === 2 && cerca(acc[0].top, acc[1].top), 'en una sola línea');
+    ok(acc.length === 2 && cerca(acc[0].top, acc[1].top), 'los dos botones de acción en la misma línea');
+    if (w === 1600) ok(pe.concat(acc).every((c) => cerca(c.top, pe[0].top)), `a 1600 px pestañas + divisor + «Reportes por puesto» + «Eliminar todos» con el mismo top (±1 px): ${pe.concat(acc).map((c) => c.top).join(' / ')}`);
+    else console.log(`  info a ${w} px: tops pestañas ${pe.map((c) => c.top).join('/')}, acciones ${acc.map((c) => c.top).join('/')}`);
     const lado = await ev(`(() => { const l = document.querySelector('#acciones-reportes-diad .btn-reportes-puesto'); const e = document.getElementById('btn-eliminar-todos-reportes'); const c = document.getElementById('acciones-reportes-diad').getBoundingClientRect();
-      const a = getComputedStyle(l), b = getComputedStyle(e);
-      return { izq: l.getBoundingClientRect().left - c.left, der: c.right - e.getBoundingClientRect().right, a: a.backgroundColor + ' ' + a.color, b: b.backgroundColor + ' ' + b.borderTopColor + ' ' + b.color }; })()`);
-    ok(lado.izq < 2 && lado.der < 2, `«Reportes por puesto» a la izquierda y «Eliminar todos» a la derecha (${lado.izq} / ${lado.der})`, lado);
+      const a = getComputedStyle(l), b = getComputedStyle(e); const dv = getComputedStyle(document.getElementById('acciones-reportes-diad'), '::before'); const ult = document.getElementById('pestana-logistica').getBoundingClientRect();
+      const barra = document.getElementById('barra-diad'); return { izq: l.getBoundingClientRect().left - ult.right, der: c.right - e.getBoundingClientRect().right, a: a.backgroundColor + ' ' + a.color, b: b.backgroundColor + ' ' + b.borderTopColor + ' ' + b.color,
+        div: dv.width + ' ' + dv.height + ' ' + dv.backgroundColor, desborde: barra.scrollWidth - barra.clientWidth, altoBarra: barra.getBoundingClientRect().height }; })()`);
+    ok(lado.der < 2 && (w !== 1600 || (lado.izq > 10 && lado.izq < 40)), `«Reportes por puesto» después de las pestañas y el divisor; «Eliminar todos» pegado a la derecha (${lado.izq} / ${lado.der})`, lado);
+    ok(lado.div === '1px 22px rgb(213, 220, 232)', 'divisor vertical de 1 px entre las pestañas y las acciones', lado);
+    ok(lado.desborde <= 0, 'cero desbordes en la barra de Día D', lado);
+    if (w === 1600) ok(lado.altoBarra < 60, `a 1600 px la barra completa mide una sola línea (${lado.altoBarra} px)`, lado);
     ok(lado.a === 'rgb(255, 195, 0) rgb(59, 47, 0)', 'Reportes por puesto: amarillo #FFC300 con letra #3B2F00', lado);
     ok(lado.b === 'rgb(255, 255, 255) rgb(240, 180, 180) rgb(198, 40, 40)', 'Eliminar todos: fondo blanco, borde #F0B4B4, letra #C62828', lado);
-    if (w === 1600) { const y0 = await ev("document.getElementById('pestanas-diad').getBoundingClientRect().top + scrollY"); await foto('4-dia-d-1600', { x: 260, y: y0 - 20, width: w - 260, height: 150 }); }
+    if (w === 1600) { const y0 = await ev("document.getElementById('pestanas-diad').getBoundingClientRect().top + scrollY"); await foto('4-dia-d-1600', { x: 260, y: y0 - 20, width: w - 260, height: 90 }); }
     // La confirmación antes de eliminar sigue igual (se intercepta confirm: no se borra nada).
     await ev("window.__confirms = []; window.confirm = (m) => { window.__confirms.push(m); return false; }");
     await ev("document.getElementById('btn-eliminar-todos-reportes').click()");
@@ -269,13 +302,20 @@ const CONTROLES = (raiz, sel) => `(() => [...document.querySelectorAll(${JSON.st
     await espera(500);
     const sp = await ev(CONTROLES('#subpestanas-diad', 'button'));
     ok(sp.length === 4 && sp.every((c) => cerca(c.alto, 38, 0.6)), `las 4 subpestañas de 38 px`, sp);
-    ok(sp.every((c) => c.ancho >= 164.5), `subpestañas con ancho mínimo de 165 px: ${sp.map((c) => c.ancho).join(' / ')}`);
-    const act2 = await ev("(() => { const a = document.querySelector('[data-sub=\"consolidado\"]'); const c = getComputedStyle(a); return c.backgroundColor + ' ' + c.color; })()");
-    ok(act2 === 'rgb(8, 66, 152) rgb(255, 255, 255)', 'subpestaña activa #084298 con letra blanca', act2);
+    const spe = await ev(`(() => { const b = [...document.querySelectorAll('#subpestanas-diad > button')]; const a = document.querySelector('[data-sub="consolidado"]'); const ac = getComputedStyle(a); const t = document.getElementById('pestana-resultados'); const tc = getComputedStyle(t);
+      return { minW: b.map((x) => getComputedStyle(x).minWidth), pad: b.map((x) => getComputedStyle(x).paddingLeft + ' ' + getComputedStyle(x).paddingRight), act: ac.backgroundColor + ' ' + ac.color, sombra: ac.boxShadow,
+        tabAct: tc.backgroundColor, accOculto: getComputedStyle(document.getElementById('acciones-reportes-diad')).display, tops: [...document.querySelectorAll('#pestanas-diad > button, #subpestanas-diad > button')].map((x) => x.getBoundingClientRect().top),
+        div: getComputedStyle(document.getElementById('subpestanas-diad'), '::before').width, desborde: document.getElementById('barra-diad').scrollWidth - document.getElementById('barra-diad').clientWidth }; })()`);
+    ok(spe.minW.every((x) => x === '0px') && spe.pad.every((x) => x === '10px 10px'), 'subpestañas sin ancho mínimo, padding 0 10px', spe);
+    ok(spe.act === 'rgb(11, 94, 215) rgb(255, 255, 255)' && /rgb\(255, 195, 0\) 0px -3px 0px 0px inset/.test(spe.sombra), 'subpestaña activa #0B5ED7 (azul claro) con raya amarilla', spe);
+    ok(spe.tabAct === 'rgb(8, 66, 152)', 'la pestaña Resultados activa sigue en #084298 (distinta de la subpestaña)', spe);
+    ok(spe.accOculto === 'none' && spe.div === '1px', 'en Resultados desaparecen las acciones de Reportes y aparece el divisor de las subpestañas', spe);
+    if (w === 1600) ok(spe.tops.every((y) => cerca(y, spe.tops[0])), `a 1600 px pestañas + divisor + subpestañas en UNA línea (mismo top ±1): ${spe.tops.join(' / ')}`, spe);
+    ok(spe.desborde <= 0, 'cero desbordes en Resultados', spe);
     await ev("document.querySelector('[data-sub=\"oficial\"]').click()");
     await espera(400);
     ok(await ev("document.getElementById('sub-oficial').style.display") === 'block', 'el cambio de subpestaña (Resultado oficial) sigue funcionando');
-    if (w === 1600) { await ev('window.scrollTo(0, 0)'); await foto('4b-dia-d-subpestanas-1600', await caja('#subpestanas-diad', 30)); }
+    if (w === 1600) { await ev('window.scrollTo(0, 0)'); const y1 = await ev("document.getElementById('pestanas-diad').getBoundingClientRect().top + scrollY"); await foto('4b-dia-d-resultados-1600', { x: 260, y: y1 - 20, width: w - 260, height: 90 }); }
     await recoger('dia-d ' + w);
   }
 

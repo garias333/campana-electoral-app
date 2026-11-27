@@ -41,11 +41,11 @@
   function chipsHtml(r, filtro) {
     var total = r.tipos.reduce(function (n, t) { return n + t.activas; }, 0);
     var pend = r.tipos.reduce(function (n, t) { return n + t.pendientes; }, 0);
-    var html = '<button type="button" class="al-chip' + (!filtro ? ' activo' : '') + '" data-tipo="">Todas <b>' + total + '</b>' +
+    var html = '<button type="button" class="al-chip' + (!filtro ? ' activo' : '') + (!total && !pend ? ' al-cero' : '') + '" data-tipo=""><span class="al-nom">Todas</span> <b>' + total + '</b>' +
       (pend ? '<small>+' + pend + ' pend.</small>' : '') + '</button>';
     r.tipos.forEach(function (t) {
-      html += '<button type="button" class="al-chip' + (filtro === t.tipo ? ' activo' : '') + '" data-tipo="' + esc(t.tipo) + '">' +
-        esc(t.nombre) + ' <b>' + t.activas + '</b>' + (t.pendientes ? '<small>+' + t.pendientes + ' pend.</small>' : '') + '</button>';
+      html += '<button type="button" class="al-chip' + (filtro === t.tipo ? ' activo' : '') + (!t.activas && !t.pendientes ? ' al-cero' : '') + '" data-tipo="' + esc(t.tipo) + '">' +
+        '<span class="al-nom">' + esc(t.nombre) + '</span> <b>' + t.activas + '</b>' + (t.pendientes ? '<small>+' + t.pendientes + ' pend.</small>' : '') + '</button>';
     });
     return html;
   }

@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/crm.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
   .resultado-busqueda {
     display: flex; justify-content: space-between; align-items: center;
@@ -43,24 +44,29 @@
          correo de la campaña. No es para envíos masivos: para eso está Mensajería masiva.</p>
     </div>
 
-    <div class="card paso">
+    <div class="card paso" id="paso-destinatarios">
       <div class="paso-cabeza">
         <div class="paso-num">1</div>
         <div>
           <h3>Elige a quién le va a llegar</h3>
           <p class="paso-sub">Busca a la persona por nombre, cargo o nivel, o pegue correos escritos a mano.</p>
         </div>
+        <span class="etq-verde" id="etiqueta-destinatarios">0 destinatarios</span>
       </div>
-      <div class="campo">
-        <label for="input-buscar-contacto">Busca por nombre, cargo o nivel (Votantes, Estructura, Organigrama)</label>
-        <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
-        <div id="resultados-busqueda" style="border:1px solid var(--color-border, #e2e2e2); border-radius:6px; margin-top:6px; max-height:220px; overflow-y:auto; display:none;"></div>
-      </div>
-      <div class="campo" style="margin-top:12px;">
-        <label>O agrega manualmente (uno o varios, separados por coma, punto y coma, o cada uno en su línea)</label>
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-          <textarea aria-label="Ej: 3001234567, 3109876543" id="input-manual" rows="2" style="flex:1;" placeholder="Ej: 3001234567, 3109876543"></textarea>
-          <button type="button" class="btn-secundario btn-sm" id="btn-agregar-manual">Agregar</button>
+      <div class="dos-col">
+        <div class="campo">
+          <label for="input-buscar-contacto">Buscar por nombre, cargo o nivel</label>
+          <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
+          <div id="resultados-busqueda" style="border:1px solid var(--color-border, #e2e2e2); border-radius:6px; margin-top:6px; max-height:220px; overflow-y:auto; display:none;"></div>
+          <small class="ayuda-campo">Votantes, Estructura, Organigrama</small>
+        </div>
+        <div class="campo">
+          <label for="input-manual">O agrega manualmente</label>
+          <div class="fila-manual">
+            <textarea aria-label="Ej: 3001234567, 3109876543" id="input-manual" rows="1" placeholder="Ej: 3001234567, 3109876543"></textarea>
+            <button type="button" class="btn-secundario btn-sm" id="btn-agregar-manual">Agregar</button>
+          </div>
+          <small class="ayuda-campo">Uno o varios, separados por coma, punto y coma, o cada uno en su línea</small>
         </div>
       </div>
       <div class="campo" style="margin-top:12px;">
@@ -131,7 +137,7 @@
       </div>
     </div>
 
-    <div class="card paso">
+    <div class="card paso" id="paso-mensaje">
       <div class="paso-cabeza">
         <div class="paso-num">2</div>
         <div>
@@ -139,8 +145,9 @@
           <p class="paso-sub">Escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada quien.</p>
         </div>
       </div>
+      <div class="dos-col">
       <div class="campo">
-        <label for="input-asunto">Asunto</label>
+        <label for="input-asunto">Asunto <span class="contador-campo" id="contador-campo"></span></label>
         <input id="input-asunto" placeholder="Asunto del correo">
       </div>
       <div class="campo">
@@ -157,6 +164,7 @@
         <textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien" id="input-mensaje" rows="5" placeholder="Escribe el mensaje aquí. Usa {nombre} para que se reemplace por el primer nombre de cada quien."></textarea>
         <small>Tip: escribe <code>{nombre}</code> y se reemplaza automáticamente por el primer nombre de cada persona.</small>
       </div>
+      </div><!-- /dos-col -->
       <div id="form-error" class="mensaje-error"></div>
       <div id="form-ok" class="mensaje-ok"></div>
       <button type="button" class="btn-accion-crm" id="btn-enviar">Enviar E-mail</button>
@@ -208,10 +216,11 @@ function claveContacto(d) { return `${d.tipo}:${d.id}`; }
 
 function renderizarSeleccionados() {
   document.getElementById('conteo-seleccionados').textContent = seleccionados.length;
+  document.getElementById('etiqueta-destinatarios').textContent = seleccionados.length + (seleccionados.length === 1 ? ' destinatario' : ' destinatarios');   // orden 141
   document.getElementById('lista-seleccionados').innerHTML = seleccionados.map(d => `
     <span class="chip-contacto">
       ${d.nombre}
-      <button type="button" onclick="quitarSeleccionado('${claveContacto(d)}')" title="Quitar">×</button>
+      <button type="button" onclick="quitarSeleccionado('${claveContacto(d)}')" title="Quitar" aria-label="Quitar a ${d.nombre}">✕</button>
     </span>
   `).join('') || '<p style="color:var(--color-text-muted); font-size:0.82rem;">Todavía no has agregado a nadie — búscalo arriba.</p>';
 }
@@ -395,7 +404,7 @@ document.getElementById('btn-enviar').addEventListener('click', async () => {
     okBox.classList.add('visible');
     seleccionados = [];
     renderizarSeleccionados();
-    document.getElementById('input-asunto').value = '';
+    document.getElementById('input-asunto').value = ''; if (window.pintarContadorCampo) window.pintarContadorCampo();
     document.getElementById('input-mensaje').value = '';
     await cargarHistorial();
   } catch (err) {
@@ -549,7 +558,7 @@ document.getElementById('select-plantilla').addEventListener('change', (e) => {
     return;
   }
   cuadro.value = p.cuerpo || '';
-  if (p.asunto) asunto.value = p.asunto;
+  if (p.asunto) { asunto.value = p.asunto; if (window.pintarContadorCampo) window.pintarContadorCampo(); }
   cuadro.focus();
 });
 
@@ -570,6 +579,16 @@ document.getElementById('btn-guardar-plantilla').addEventListener('click', async
     mostrarToast(err.message || 'No se pudo guardar la plantilla.', 'error');
   }
 });
+
+/* ORDEN 141: contador de caracteres a la derecha del título del campo. Con maxlength (hoy solo el Título del aviso, 60) dice «N/60»; sin él, «N caracteres»: no se inventan límites. */
+(function () {
+  var campo = document.getElementById('input-asunto') || document.getElementById('input-titulo');
+  var cont = document.getElementById('contador-campo');
+  if (!campo || !cont) return;
+  function pintar() { var n = campo.value.length; cont.textContent = campo.maxLength > 0 ? n + '/' + campo.maxLength : n + (n === 1 ? ' carácter' : ' caracteres'); }
+  campo.addEventListener('input', pintar); pintar();
+  window.pintarContadorCampo = pintar;
+})();
 </script>
 </body>
 </html>

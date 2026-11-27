@@ -4,53 +4,60 @@
      2. Organigrama (modos + leyenda de niveles)    → organigrama.html      · #org-barra-uniforme
      3. Cobertura de testigos                       → configuracion.html    · #linea-cobertura
      4. Día D (pestañas, subpestañas y acciones)    → dia-d.html            · #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad
+   ORDEN 141 (ronda 2): el mismo acabado se extiende a Alertas de Día D (#chips-alertas, #barra-avisos), a «Elige el canal» (crm.html · #paso-canal) y a los
+   formularios de Enviar E-mail / SMS / Aviso en la app (#paso-destinatarios, #paso-mensaje) — ver secciones 5, 6 y 7 al final.
    Las MEDIDAS COMUNES viven en variables (:root de abajo) y se usan en las cuatro zonas. Todo va acotado a su zona y a
    `html:not(.modo-app)`: otras pantallas y la app del celular no cambian. Se carga DESPUÉS de style.css.
    ========================================================================== */
 :root {
   --ctl-h: 38px;
-  --ctl-radio: 6px;
+  --ctl-radio: 8px;           /* orden 141: botones y campos a 8 px */
   --ctl-letra: 14px;          /* campos; los botones llevan 13 px, peso 600 */
   --ctl-letra-boton: 13px;
   --ctl-borde: 1px solid #DFE3EA;
   --ctl-fondo: #F1F3F8;
   --ctl-sep: 10px;
+  --ctl-campo-borde: 1.5px solid #D5DCE8;   /* orden 141: campos con fondo blanco y borde de 1,5 px */
+  --ctl-panel-radio: 14px;
+  --ctl-panel-sombra: 0 1px 2px rgba(16, 24, 40, .05), 0 4px 14px rgba(8, 66, 152, .05);
   --ctl-azul: #084298;
   --ctl-azul-vivo: #0B5ED7;
   --ctl-amarillo: #FFC300;
 }
 
 /* ---------- Piezas comunes: campo y botón de 38 px, mismo radio y misma letra ---------- */
-html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos, #paso-destinatarios, #paso-mensaje)
   :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select) {
   box-sizing: border-box; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 12px;
-  border: var(--ctl-borde); border-radius: var(--ctl-radio); background-color: var(--ctl-fondo);
+  border: var(--ctl-campo-borde); border-radius: var(--ctl-radio); background-color: #fff;
   font-size: var(--ctl-letra); line-height: 1.2; color: #1B2333;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura) select:not([multiple]):not([size]) {
   padding: 0 34px 0 12px; background-position: right 12px center;
 }
-html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura) :is(input, select):focus {
+html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura, #paso-destinatarios, #paso-mensaje) :is(input, select, textarea):focus {
   background-color: #fff; border-color: var(--ctl-azul-vivo); outline: none; box-shadow: 0 0 0 3px rgba(11, 94, 215, .15);
 }
-html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
-  :is(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro) {
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos)
+  :where(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro) {   /* :where() no suma especificidad: las reglas de cada zona (padding, fondo…) la pisan sin trucos */
   box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 16px;
   border: var(--ctl-borde); border-radius: var(--ctl-radio); background: #fff; color: var(--ctl-azul);
   font-family: inherit; font-size: var(--ctl-letra-boton); font-weight: 600; line-height: 1.2; text-decoration: none;
-  white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s, color .15s, transform .15s, box-shadow .15s;
 }
-html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
-  :is(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro):hover { background: #EEF3FC; border-color: #C5D3EE; color: var(--ctl-azul); }
-html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad)
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos)
+  :where(button, a.btn-secundario, a.btn-acento, a.btn-primario, a.btn-peligro):hover {
+  background: #EEF3FC; border-color: #9DB4D9; color: var(--ctl-azul); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(8, 66, 152, .12);
+}
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos)
   :is(button, a):focus-visible { outline: 3px solid var(--ctl-amarillo); outline-offset: 1px; }
 
 /* ==========================================================================
    1. ESTRUCTURA TERRITORIAL — franja azul oscuro con borde inferior amarillo; cuerpo en rejilla de 4 columnas
    ========================================================================== */
-html:not(.modo-app) #bloque-estructura { padding: 0; overflow: hidden; margin-bottom: 16px; }
+html:not(.modo-app) #bloque-estructura { padding: 0; overflow: hidden; margin-bottom: 16px; border-radius: var(--ctl-panel-radio); box-shadow: var(--ctl-panel-sombra); }
 html:not(.modo-app) #bloque-estructura .ctl-enc {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; padding: 12px 16px;
   background: var(--ctl-azul); border-bottom: 3px solid var(--ctl-amarillo);
@@ -84,19 +91,25 @@ html:not(.modo-app) #bloque-estructura .aviso-equipo-estructura { margin-top: 12
    2. ORGANIGRAMA — modos a la izquierda, divisoria vertical y «NIVELES» en la misma línea (flex-wrap en pantallas angostas)
    ========================================================================== */
 html:not(.modo-app) #org-barra-uniforme {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: -10px 0 14px;
+  /* orden 141: fondo propio — degradado suave, borde fino y raya inferior amarilla de 3 px — y 5 px entre piezas */
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin: -10px 0 14px; padding: 10px 12px;
+  background: linear-gradient(180deg, #F4F7FC, #E9EEF7); border: 1px solid #DFE3EA; border-bottom: 3px solid var(--ctl-amarillo); border-radius: 10px 10px 0 0;
 }
 html:not(.modo-app) #org-barra-uniforme .org-subvista-selector {
-  display: flex; flex-wrap: wrap; gap: var(--ctl-sep); margin: 0; padding: 0; border: 0;
+  display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; border: 0;
 }
-html:not(.modo-app) #org-barra-uniforme .org-subvista-chip { background: #fff; color: var(--ctl-azul); border: var(--ctl-borde); }
-html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
-html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo:hover { background: #063172; border-color: #063172; color: #fff; }
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip { background: #fff; color: var(--ctl-azul); border: var(--ctl-borde); padding: 0 9px; }
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo {
+  background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; box-shadow: inset 0 -3px 0 var(--ctl-amarillo);
+}
+html:not(.modo-app) #org-barra-uniforme .org-subvista-chip.activo:hover { background: #063172; border-color: #063172; color: #fff; box-shadow: inset 0 -3px 0 var(--ctl-amarillo), 0 3px 8px rgba(8, 66, 152, .12); }
 html:not(.modo-app) #org-barra-uniforme .org-leyenda {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin: 0; padding: 0 0 0 16px; border: 0;
-  border-left: 1px solid #E3E6EE; min-height: var(--ctl-h);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 0 7px; padding: 0 0 0 12px; border: 0;
+  border-left: 1px solid #D5DCE8; min-height: var(--ctl-h); font-size: 14px; color: #374151;
 }
-html:not(.modo-app) #org-barra-uniforme .org-leyenda .titulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+html:not(.modo-app) #org-barra-uniforme .org-ley { gap: 6px; white-space: nowrap; }
+html:not(.modo-app) #org-barra-uniforme .org-ley .muestra { width: 16px; height: 12px; border-radius: 2px; }
+html:not(.modo-app) #org-barra-uniforme .org-ley .org-ley-n { font-weight: 700; color: var(--ctl-azul); }
 
 /* ==========================================================================
    3. COBERTURA DE TESTIGOS — una sola línea: título · filtro · conteo | casillas | máximo + Guardar · (derecha) Excel y Avisar
@@ -126,25 +139,178 @@ html:not(.modo-app) #linea-cobertura .cob-der { margin-left: auto; display: flex
 html:not(.modo-app) #linea-cobertura .cob-der > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* ==========================================================================
-   4. DÍA D — pestañas (150 px) y subpestañas (165 px) del mismo alto, activa azul; acciones de reportes en una línea
+   4. DÍA D — UNA sola línea (orden 141): pestañas (miden según su texto, con ícono) + divisor + (Reportes) «Reportes por puesto…» y, a la derecha,
+   «Eliminar todos» · (Resultados) subpestañas. #barra-diad lleva data-vista="reportes|resultados|…" (lo pone dia-d.html) y cada grupo, data-solo.
    (las zonas llevan id —#pestanas-diad, #subpestanas-diad— porque la lista :is() toma la especificidad de su id)
    ========================================================================== */
+html:not(.modo-app) #barra-diad { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ctl-sep); margin-bottom: 16px; }
+html:not(.modo-app) #barra-diad > [data-solo] { display: none; }
+html:not(.modo-app) #barra-diad[data-vista="reportes"] > [data-solo="reportes"],
+html:not(.modo-app) #barra-diad[data-vista="resultados"] > [data-solo="resultados"] { display: flex; }
+html:not(.modo-app) #barra-diad > [data-solo]::before { content: ''; align-self: center; flex: none; width: 1px; height: 22px; background: #D5DCE8; }
+html:not(.modo-app) #barra-diad > #acciones-reportes-diad { flex: 1 1 auto; align-items: center; gap: var(--ctl-sep); min-width: 0; }
+html:not(.modo-app) #barra-diad > #acciones-reportes-diad::before { margin-right: 0; }
+/* por debajo de lo que cabe en una línea, las acciones bajan solas y el divisor sobraría al inicio de la línea siguiente */
+@media (max-width: 1500px) { html:not(.modo-app) #barra-diad > [data-solo]::before { display: none; } }
+
 html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) {
   display: flex; flex-wrap: wrap; gap: var(--ctl-sep); width: auto; overflow: visible; border-radius: 0;
 }
 html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > * {
-  min-width: 150px; text-align: center; border: var(--ctl-borde); border-radius: var(--ctl-radio); padding: 0 16px;
+  min-width: 0; text-align: center; border: var(--ctl-borde); border-radius: var(--ctl-radio); padding: 0 14px;
   background: #fff; color: var(--ctl-azul); font-size: var(--ctl-letra-boton); font-weight: 600; min-height: var(--ctl-h); height: var(--ctl-h);
 }
-html:not(.modo-app) #subpestanas-diad > * { min-width: 165px; }
+html:not(.modo-app) #subpestanas-diad > * { padding: 0 10px; }
+html:not(.modo-app) #pestanas-diad > button .ico-pest { flex: none; width: 15px; height: 15px; }
+/* activa: azul oscuro + raya inferior amarilla (pestañas) · azul claro + raya amarilla (subpestañas, para no confundirlas con la pestaña) */
 html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento,
-html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento:hover { background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; }
-html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-secundario:hover { background: #EEF3FC; border-color: #C5D3EE; color: var(--ctl-azul); }
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento:hover {
+  background: var(--ctl-azul); border-color: var(--ctl-azul); color: #fff; box-shadow: inset 0 -3px 0 var(--ctl-amarillo);
+}
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-acento:hover { transform: translateY(-1px); box-shadow: inset 0 -3px 0 var(--ctl-amarillo), 0 3px 8px rgba(8, 66, 152, .12); }
+html:not(.modo-app) #subpestanas-diad > button.btn-acento,
+html:not(.modo-app) #subpestanas-diad > button.btn-acento:hover { background: var(--ctl-azul-vivo); border-color: var(--ctl-azul-vivo); }
+html:not(.modo-app) :is(#pestanas-diad, #subpestanas-diad) > button.btn-secundario:hover { background: #EEF3FC; border-color: #9DB4D9; color: var(--ctl-azul); }
 
-html:not(.modo-app) #acciones-reportes-diad { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ctl-sep); margin-bottom: 18px; }
 html:not(.modo-app) #acciones-reportes-diad a.btn-reportes-puesto.btn-acento { background: var(--ctl-amarillo); border-color: var(--ctl-amarillo); color: #3B2F00; }
 html:not(.modo-app) #acciones-reportes-diad a.btn-reportes-puesto.btn-acento:hover { background: #E6AF00; border-color: #E6AF00; color: #3B2F00; }
 html:not(.modo-app) #acciones-reportes-diad #btn-eliminar-todos-reportes {
   margin-left: auto; background: #fff; border-color: #F0B4B4; color: #C62828; width: auto;
 }
 html:not(.modo-app) #acciones-reportes-diad #btn-eliminar-todos-reportes:hover { background: #FDF1F1; border-color: #E69999; color: #C62828; }
+
+/* ==========================================================================
+   5. DÍA D · ALERTAS (orden 141) — las cápsulas de filtro pasan a tarjetas en una rejilla de 5 columnas iguales (2 filas con 10; con más o menos
+   cápsulas la rejilla sigue en 5). Mismo filtro y mismos conteos: solo cambia la forma. El color sale de la gravedad del tipo (data-tipo).
+   js/alertas-dia-d.js (compartido con el celular) pone .al-nom al nombre y .al-cero a lo que está en 0 y sin pendientes.
+   ========================================================================== */
+html:not(.modo-app) #barra-avisos { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ctl-sep); margin-bottom: 12px; }
+html:not(.modo-app) #barra-avisos #lista-sin-avisos { flex: 1 1 100%; }
+
+html:not(.modo-app) #chips-alertas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+html:not(.modo-app) #chips-alertas .al-chip {
+  --g: var(--ctl-azul);
+  box-sizing: border-box; height: 64px; margin: 0; padding: 0 12px; text-align: left;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-content: center; align-items: center; column-gap: 10px;
+  border: 1px solid #DFE3EA; border-left: 4px solid var(--g); border-radius: 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--g) 7%, #fff), #fff);
+  font-family: inherit; color: #1B2333; cursor: pointer; transition: transform .15s, box-shadow .15s, opacity .15s;
+}
+html:not(.modo-app) #chips-alertas .al-chip .al-nom { grid-column: 2; grid-row: 1; font-size: 13px; font-weight: 600; line-height: 1.2; min-width: 0; }
+html:not(.modo-app) #chips-alertas .al-chip b { grid-column: 1; grid-row: 1 / span 2; margin: 0; font-size: 22px; font-weight: 800; line-height: 1; color: var(--g); }
+html:not(.modo-app) #chips-alertas .al-chip small { grid-column: 2; grid-row: 2; margin: 2px 0 0; font-size: 11px; font-weight: 500; line-height: 1.2; color: #B45309; }
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="mesa_sin_testigo_con_votantes"],
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="testigo_no_llego"] { --g: #C62828; }
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="mesa_sin_e14"],
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="reporte_con_alertas"],
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="diferencia_con_oficial"] { --g: #D97706; }
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="baja_votacion"],
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="transporte_sin_recoger"],
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="logistica_sin_entregar"] { --g: #0B5ED7; }
+html:not(.modo-app) #chips-alertas .al-chip[data-tipo="mesa_sin_testigo"] { --g: #6B7280; }
+html:not(.modo-app) #chips-alertas .al-chip:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(16, 24, 40, .12); }
+html:not(.modo-app) #chips-alertas .al-chip.al-cero { opacity: .6; }
+html:not(.modo-app) #chips-alertas .al-chip.al-cero b { color: #9CA3AF; }
+html:not(.modo-app) #chips-alertas .al-chip.activo { background: linear-gradient(180deg, #0B4FB3, #084298); border-color: #084298; border-left-color: var(--g); color: #fff; }
+html:not(.modo-app) #chips-alertas .al-chip.activo b { color: var(--ctl-amarillo); }
+html:not(.modo-app) #chips-alertas .al-chip.activo small { color: rgba(255, 255, 255, .85); }
+html:not(.modo-app) #chips-alertas .al-chip:focus-visible { outline: 3px solid var(--ctl-amarillo); outline-offset: 1px; }
+@media (max-width: 700px) { html:not(.modo-app) #chips-alertas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ==========================================================================
+   6. MENSAJES · «Elige el canal» (crm.html · #paso-canal) — número, título, divisor, canales y nota en UNA línea (orden 141)
+   ========================================================================== */
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) {
+  border-radius: var(--ctl-panel-radio); box-shadow: var(--ctl-panel-sombra); margin-bottom: 16px; padding: 18px 24px;
+}
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-cabeza { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-num {
+  flex: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--ctl-azul); color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 0 0 4px rgba(8, 66, 152, .1);
+}
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-cabeza h3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--ctl-azul); }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .paso-cabeza .paso-sub { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: #6B7280; }
+
+html:not(.modo-app) #paso-canal { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 12px 18px; }
+html:not(.modo-app) #paso-canal .paso-cabeza { margin: 0; }
+html:not(.modo-app) #paso-canal .canales-linea { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+html:not(.modo-app) #paso-canal .canales-linea::before { content: ''; flex: none; align-self: center; width: 1px; height: 28px; margin-right: 4px; background: #D5DCE8; }
+html:not(.modo-app) #paso-canal .canal-chip {
+  box-sizing: border-box; height: 44px; margin: 0; padding: 0 14px; border: var(--ctl-borde); border-radius: 12px; background: #fff; color: var(--ctl-azul);
+  display: inline-flex; align-items: center; gap: 8px; font-family: inherit; text-align: left; cursor: pointer;
+  transition: transform .15s, box-shadow .15s, border-color .15s, background .15s;
+}
+html:not(.modo-app) #paso-canal .canal-chip:hover { transform: translateY(-1px); border-color: #9DB4D9; box-shadow: 0 3px 8px rgba(8, 66, 152, .12); }
+html:not(.modo-app) #paso-canal .canal-chip .punto-estado { display: none; }
+html:not(.modo-app) #paso-canal .canal-chip .canal-ico { font-size: 18px; line-height: 1; flex: none; }
+html:not(.modo-app) #paso-canal .canal-chip .canal-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+html:not(.modo-app) #paso-canal .canal-chip .canal-nom { font-size: 13px; font-weight: 700; }
+html:not(.modo-app) #paso-canal .canal-chip .canal-estado { font-size: 11px; font-weight: 600; color: #6B7280; }
+html:not(.modo-app) #paso-canal .canal-chip .canal-estado.ok { color: #16A34A; }
+html:not(.modo-app) #paso-canal .canal-chip.activo {
+  background: linear-gradient(180deg, #0B5ED7, #084298); border-color: #084298; color: #fff; box-shadow: 0 4px 10px rgba(8, 66, 152, .28);
+}
+html:not(.modo-app) #paso-canal .canal-chip.activo .canal-estado { color: rgba(255, 255, 255, .8); }
+html:not(.modo-app) #paso-canal .canal-chip.activo .canal-estado.ok { color: #86EFAC; }
+html:not(.modo-app) #paso-canal #nota-canal { margin: 0; font-size: 13px; line-height: 1.3; }
+html:not(.modo-app) #paso-canal #nota-canal:empty { display: none; }
+
+/* Etiqueta verde (nota del canal y «N destinatarios») */
+html:not(.modo-app) .etq-verde {
+  display: inline-flex; align-items: center; margin: 0; padding: 4px 12px; border-radius: 999px; background: #ECFDF3; border: 1px solid #ABEFC6;
+  color: #067647; font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap;
+}
+html:not(.modo-app) .paso-cabeza > .etq-verde { margin-left: auto; }
+
+/* ==========================================================================
+   7. MENSAJES · formularios de Enviar E-mail / SMS / Aviso en la app en DOS columnas (orden 141)
+   ========================================================================== */
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col > .campo { margin: 0; min-width: 0; }
+@media (max-width: 1100px) { html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col { grid-template-columns: 1fr; } }
+
+/* títulos de campo: 13 px, 700, azul oscuro, con barrita amarilla de 4×14 px */
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .campo > label {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--ctl-azul);
+}
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .campo > label::before { content: ''; flex: none; width: 4px; height: 14px; border-radius: 2px; background: var(--ctl-amarillo); }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .contador-campo { margin-left: auto; font-size: 12px; font-weight: 600; color: #6B7280; }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .ayuda-campo { display: block; margin: 6px 0 0; font-size: 12px; line-height: 1.4; color: #6B7280; }
+
+/* textareas: mismo campo (blanco, 1,5 px, radio 8) */
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) textarea {
+  box-sizing: border-box; width: 100%; margin: 0; padding: 10px 12px; border: var(--ctl-campo-borde); border-radius: var(--ctl-radio); background: #fff;
+  font-size: var(--ctl-letra); line-height: 1.5; color: #1B2333;
+}
+/* O agrega manualmente: campo de 38 px que crece al escribir varias líneas + botón Agregar al lado */
+html:not(.modo-app) #paso-destinatarios .fila-manual { display: flex; gap: 8px; align-items: flex-start; }
+html:not(.modo-app) #paso-destinatarios #input-manual {
+  flex: 1 1 auto; min-width: 0; min-height: var(--ctl-h); height: auto; padding: 8px 12px; line-height: 19px; resize: none; overflow: hidden; field-sizing: content;
+}
+
+/* botones de los formularios: 38 px, radio 8, mismo hover que el resto */
+html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo, #btn-agregar-grupo-resolver),
+                         #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 14px;
+  border-radius: var(--ctl-radio); font-family: inherit; font-size: var(--ctl-letra-boton); font-weight: 600; line-height: 1.2; white-space: nowrap; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s, box-shadow .15s;
+}
+html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo), #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
+  background: #fff; border: var(--ctl-borde); color: var(--ctl-azul);
+}
+html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo, #btn-agregar-grupo-resolver),
+                         #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])):hover {
+  border-color: #9DB4D9; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(8, 66, 152, .12);
+}
+html:not(.modo-app) #paso-mensaje .campo > div[style*="display:flex"] { gap: 8px; margin-bottom: 8px; }
+
+/* destinatarios ya elegidos: etiquetas con ✕ para quitarlos */
+html:not(.modo-app) #paso-destinatarios #lista-seleccionados .chip-contacto {
+  display: inline-flex; align-items: center; gap: 6px; margin: 3px 6px 3px 0; padding: 4px 6px 4px 12px; border-radius: 999px;
+  background: #EEF4FF; border: 1px solid #CFE0FF; color: var(--ctl-azul); font-size: 13px; font-weight: 600; line-height: 1.3;
+}
+html:not(.modo-app) #paso-destinatarios #lista-seleccionados .chip-contacto button {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--ctl-azul); font-size: 11px; line-height: 1; cursor: pointer; transition: background .15s;
+}
+html:not(.modo-app) #paso-destinatarios #lista-seleccionados .chip-contacto button:hover { background: #CFE0FF; }

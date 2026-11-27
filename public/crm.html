@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/crm.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 </head>
 <body>
 <div class="app-shell" id="app-shell">
@@ -46,26 +47,28 @@
       <a href="/no-contactar.html" class="btn-secundario btn-sm">Ver la lista</a>
     </div>
 
-    <div class="card paso">
+    <!-- ORDEN 141: número, título, divisor, canales y nota en UNA línea (medidas en css/controles-uniformes.css). Cada canal dice «Configurado» o
+         «Sin configurar» en vez del punto de color (los span .punto-estado siguen ahí, ocultos, porque el script les pone su clase ok/falta). -->
+    <div class="card paso" id="paso-canal">
       <div class="paso-cabeza">
         <div class="paso-num">1</div>
-        <div>
-          <h3>Elige el canal</h3>
-          <p class="paso-sub">Por dónde va a salir el mensaje. El punto verde indica que ese canal ya está configurado.</p>
-        </div>
+        <h3>Elige el canal</h3>
       </div>
-      <div style="display:flex; gap:12px; flex-wrap:wrap;" id="selector-canal">
+      <div class="canales-linea" id="selector-canal">
         <button type="button" class="canal-chip activo" data-canal="email">
-          <span class="punto-estado" id="punto-email"></span> Email
+          <span class="punto-estado" id="punto-email"></span><span class="canal-ico" aria-hidden="true">✉️</span>
+          <span class="canal-txt"><span class="canal-nom">Email</span><span class="canal-estado" id="estado-email"></span></span>
         </button>
         <button type="button" class="canal-chip" data-canal="sms">
-          <span class="punto-estado" id="punto-sms"></span> SMS
+          <span class="punto-estado" id="punto-sms"></span><span class="canal-ico" aria-hidden="true">💬</span>
+          <span class="canal-txt"><span class="canal-nom">SMS</span><span class="canal-estado" id="estado-sms"></span></span>
         </button>
         <button type="button" class="canal-chip" data-canal="push">
-          <span class="punto-estado" id="punto-push"></span> Aviso en la app
+          <span class="punto-estado" id="punto-push"></span><span class="canal-ico" aria-hidden="true">📱</span>
+          <span class="canal-txt"><span class="canal-nom">Aviso en la app</span><span class="canal-estado" id="estado-push"></span></span>
         </button>
       </div>
-      <p id="nota-canal" class="ayuda" style="margin-bottom:0; margin-top:12px;"></p>
+      <p id="nota-canal" class="ayuda"></p>
     </div>
 
     <div class="card paso">
@@ -351,6 +354,10 @@ async function cargarEstadoCanales() {
   document.getElementById('punto-email').className = 'punto-estado ' + (estadoCanales.email.configurado ? 'ok' : 'falta');
   document.getElementById('punto-sms').className = 'punto-estado ' + (estadoCanales.sms.configurado ? 'ok' : 'falta');
   document.getElementById('punto-push').className = 'punto-estado ' + ((estadoCanales.push || {}).configurado ? 'ok' : 'falta');
+  ['email', 'sms', 'push'].forEach(c => {   // orden 141: la misma señal del punto, dicha con palabras
+    const ok = !!(estadoCanales[c] || {}).configurado, e = document.getElementById('estado-' + c);
+    e.textContent = ok ? 'Configurado' : 'Sin configurar'; e.className = 'canal-estado ' + (ok ? 'ok' : 'falta');
+  });
   actualizarNotaCanal();
 }
 
@@ -363,14 +370,17 @@ function actualizarNotaCanal() {
   document.getElementById('campo-asunto').style.display =
     (canalElegido === 'email' || canalElegido === 'push') ? 'block' : 'none';
   if (estado && estado.configurado) {
-    nota.textContent = canalElegido === 'email'
-      ? 'Este canal ya está configurado con SendGrid.'
-      : canalElegido === 'push'
-        ? 'Llega como notificación a la aplicación del celular. Solo la reciben quienes tienen cuenta y activaron los avisos: elige "Estructura" o "Testigos" como origen.'
-        : `Este canal ya está configurado con Onurix.`;
-    nota.style.color = 'var(--color-text-muted)';
+    // ORDEN 141: etiqueta verde con el proveedor real de cada canal; la explicación larga del aviso en la app queda en el title.
+    nota.textContent = canalElegido === 'email' ? '✓ Email sale por SendGrid'
+      : canalElegido === 'push' ? '✓ Aviso en la app sale como notificación'
+        : '✓ SMS sale por Onurix';
+    nota.title = canalElegido === 'push'
+      ? 'Llega como notificación a la aplicación del celular. Solo la reciben quienes tienen cuenta y activaron los avisos: elige "Estructura" o "Testigos" como origen.' : '';
+    nota.className = 'ayuda etq-verde';
+    nota.style.color = '';
   } else {
     nota.textContent = (estado && estado.motivo) || 'Este canal todavía no está configurado.';
+    nota.title = ''; nota.className = 'ayuda';
     nota.style.color = '#A93226';
   }
 }

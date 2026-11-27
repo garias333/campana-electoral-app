@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/crm.css">
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
   .resultado-busqueda {
     display: flex; justify-content: space-between; align-items: center;
@@ -42,24 +43,29 @@
       <p>Para avisos puntuales a un contacto o a un grupo pequeño — citar a una reunión, confirmar un evento. No es para envíos masivos: para eso está Mensajería masiva.</p>
     </div>
 
-    <div class="card paso">
+    <div class="card paso" id="paso-destinatarios">
       <div class="paso-cabeza">
         <div class="paso-num">1</div>
         <div>
           <h3>Elige a quién le va a llegar</h3>
           <p class="paso-sub">Busca a la persona por nombre, cargo o nivel, o pegue números escritos a mano.</p>
         </div>
+        <span class="etq-verde" id="etiqueta-destinatarios">0 destinatarios</span>
       </div>
-      <div class="campo">
-        <label for="input-buscar-contacto">Busca por nombre, cargo o nivel (Votantes, Estructura, Organigrama)</label>
-        <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
-        <div id="resultados-busqueda" style="border:1px solid var(--color-border, #e2e2e2); border-radius:6px; margin-top:6px; max-height:220px; overflow-y:auto; display:none;"></div>
-      </div>
-      <div class="campo" style="margin-top:12px;">
-        <label>O agrega manualmente (uno o varios, separados por coma, punto y coma, o cada uno en su línea)</label>
-        <div style="display:flex; gap:8px; align-items:flex-start;">
-          <textarea aria-label="Ej: 3001234567, 3109876543" id="input-manual" rows="2" style="flex:1;" placeholder="Ej: 3001234567, 3109876543"></textarea>
-          <button type="button" class="btn-secundario btn-sm" id="btn-agregar-manual">Agregar</button>
+      <div class="dos-col">
+        <div class="campo">
+          <label for="input-buscar-contacto">Buscar por nombre, cargo o nivel</label>
+          <input id="input-buscar-contacto" placeholder="Escribe al menos 2 letras del nombre..." autocomplete="off">
+          <div id="resultados-busqueda" style="border:1px solid var(--color-border, #e2e2e2); border-radius:6px; margin-top:6px; max-height:220px; overflow-y:auto; display:none;"></div>
+          <small class="ayuda-campo">Votantes, Estructura, Organigrama</small>
+        </div>
+        <div class="campo">
+          <label for="input-manual">O agrega manualmente</label>
+          <div class="fila-manual">
+            <textarea aria-label="Ej: 3001234567, 3109876543" id="input-manual" rows="1" placeholder="Ej: 3001234567, 3109876543"></textarea>
+            <button type="button" class="btn-secundario btn-sm" id="btn-agregar-manual">Agregar</button>
+          </div>
+          <small class="ayuda-campo">Uno o varios, separados por coma, punto y coma, o cada uno en su línea</small>
         </div>
       </div>
       <div class="campo" style="margin-top:12px;">
@@ -131,7 +137,7 @@
       </div>
     </div>
 
-    <div class="card paso">
+    <div class="card paso" id="paso-mensaje">
       <div class="paso-cabeza">
         <div class="paso-num">2</div>
         <div>
@@ -221,10 +227,11 @@ function claveContacto(d) { return `${d.tipo}:${d.id}`; }
 
 function renderizarSeleccionados() {
   document.getElementById('conteo-seleccionados').textContent = seleccionados.length;
+  document.getElementById('etiqueta-destinatarios').textContent = seleccionados.length + (seleccionados.length === 1 ? ' destinatario' : ' destinatarios');   // orden 141
   document.getElementById('lista-seleccionados').innerHTML = seleccionados.map(d => `
     <span class="chip-contacto">
       ${d.nombre}
-      <button type="button" onclick="quitarSeleccionado('${claveContacto(d)}')" title="Quitar">×</button>
+      <button type="button" onclick="quitarSeleccionado('${claveContacto(d)}')" title="Quitar" aria-label="Quitar a ${d.nombre}">✕</button>
     </span>
   `).join('') || '<p style="color:var(--color-text-muted); font-size:0.82rem;">Todavía no has agregado a nadie — búscalo arriba.</p>';
 }
