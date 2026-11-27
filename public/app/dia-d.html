@@ -72,6 +72,89 @@
   .fila-conteo .lista-mesas-casillas { display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: flex-start; align-items: center; }
   .fila-conteo .lista-mesas-casillas label { margin: 0; }
 
+  /* ORDEN 136 · CAMPOS QUE SE DISTINGAN Y TOTALES EN GRANDE. En el celular de Gildardo los campos
+     tenían el fondo casi igual al de la página y sin borde (`--campo` #f1f4fa, borde transparente
+     en estilos-app.css): el de «Total votantes» y los de votos, vacíos, casi no se veían, y los
+     títulos (negrita 700 en #1b2333, casi negro) no se notaban como negrita. Pidió: «que se
+     distinga el campo del título, TOTAL VOTANTES EN MAYÚSCULAS Y NEGRITA y fuente un poco más
+     grande, total votos en la mesa en mayúsculas, negrita, texto un poco más grande y campo al
+     frente».
+
+     Va acotado a `#form-reporte` (esta pantalla) y no a `.campo-app` de estilos-app.css, que lo
+     usan todas las demás pantallas. El `#form-reporte` delante gana por especificidad a los
+     `:where(...)` de esa hoja sin necesidad de !important. 16 px mínimo en el texto del campo:
+     por debajo el iPhone hace zoom al enfocarlo. */
+  #form-reporte .campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])),
+  #form-reporte .campo-app select,
+  #form-reporte .campo-app textarea {
+    background: #FFFFFF;
+    border: 1.5px solid #9DB4D9;
+    color: #1A1A1A;
+    font-size: 16px;
+  }
+  #form-reporte .campo-app input::placeholder,
+  #form-reporte .campo-app textarea::placeholder { color: #8A94A6; opacity: 1; }
+  #form-reporte .campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])):focus,
+  #form-reporte .campo-app select:focus,
+  #form-reporte .campo-app textarea:focus {
+    background: #FFFFFF;
+    border: 2px solid #0B5ED7;
+    box-shadow: 0 0 0 3px rgba(11, 94, 215, .15);
+  }
+  /* Los que no se escriben (los totales calculados, `disabled`, y cualquier campo de solo lectura):
+     el mismo borde pero con fondo gris azulado, para que se note que no se teclean. */
+  #form-reporte .campo-app input:where(:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"])):is(:disabled, [readonly]) {
+    background: #EEF2F8;
+    color: #1A1A1A;
+    -webkit-text-fill-color: #1A1A1A;
+    opacity: 1;
+  }
+  /* Las casillas de mesa del coordinador de puesto. */
+  /* Con `appearance:none` porque la casilla nativa del teléfono NO pinta el borde (su borde computado
+     es 0): sin dibujarla nosotros, el #9DB4D9 pedido no se vería. Marcada, fondo azul con su visto. */
+  #form-reporte .lista-mesas-casillas input[type="checkbox"] {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; flex: none; margin: 0;
+    background: #FFFFFF; border: 1.5px solid #9DB4D9; border-radius: 5px;
+    background-repeat: no-repeat; background-position: center; background-size: 14px 14px;
+  }
+  #form-reporte .lista-mesas-casillas input[type="checkbox"]:checked {
+    background-color: #0B5ED7; border-color: #0B5ED7;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 7.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  #form-reporte .lista-mesas-casillas input[type="checkbox"]:focus-visible { outline: none; border-color: #0B5ED7; box-shadow: 0 0 0 3px rgba(11, 94, 215, .15); }
+
+  /* Títulos de la izquierda: negrita, azul de la casa y 15 px. */
+  #form-reporte .fila-conteo > label { font-size: 15px; font-weight: 700; color: #084298; }
+  #form-reporte .campo-app:focus-within > label { color: #084298; }
+
+  /* LOS DOS TOTALES: título en mayúsculas, negrita 800, 17 px, y el campo al frente (misma grid de
+     dos columnas que el resto), de 52 px con el número en 20 px negrita. El título puede partirse
+     en dos líneas («TOTAL VOTOS EN LA MESA» en 360 px). */
+  #form-reporte .fila-total > label {
+    font-size: 17px; font-weight: 800; color: #084298;
+    text-transform: uppercase; line-height: 1.2;
+  }
+  #form-reporte .fila-total > input {
+    height: 52px; min-height: 52px;
+    font-size: 20px; font-weight: 700; text-align: right;
+  }
+  /* «Total votos en la mesa» es el pie de la tabla de candidatos: una raya de 2 px azul arriba para
+     que se lea como el total de lo de arriba. */
+  #form-reporte #campo-total-votos-mesa {
+    margin-top: 8px; padding-top: 12px; border-top: 2px solid #0B5ED7;
+  }
+
+  /* Votos de cada candidato: casilla de 96 px fijos, pegada a la derecha en TODAS las filas, número
+     en 18 px. La columna se ajusta a la casilla (96 px + el relleno de la celda) y el nombre ocupa
+     el resto, así el mismo left y ancho valen para todas las filas. */
+  .tabla-votos-candidatos th.th-votos { width: 108px; text-align: right; }
+  .tabla-votos-candidatos td.celda-votos { width: 108px; text-align: right; }
+  #form-reporte .tabla-votos-candidatos td.celda-votos input {
+    width: 96px; min-width: 96px; max-width: 96px;
+    font-size: 18px; text-align: right;
+  }
+
   .tabla-votos-candidatos { width: 100%; border-collapse: collapse; margin-top: 4px; }
   .tabla-votos-candidatos th { text-align: left; font-size: 0.76rem; color: var(--muted); font-weight: 600; padding: 4px 6px; }
   .tabla-votos-candidatos td { padding: 4px 6px; border-top: 1px solid var(--linea); }
@@ -225,18 +308,18 @@
           <div id="lista-mesas-coordinador" class="lista-mesas-casillas" role="group" aria-labelledby="rotulo-mesas-coordinador"></div>
         </div>
       </div>
-      <div class="campo-app fila-conteo" id="campo-total-votantes">
-        <label for="f-total-votantes">Total votantes</label>
+      <div class="campo-app fila-conteo fila-total" id="campo-total-votantes">
+        <label for="f-total-votantes">TOTAL VOTANTES</label>
         <input id="f-total-votantes" name="total_votantes_mesa" type="number" min="0" required inputmode="numeric">
       </div>
       <div class="campo-app">
         <table class="tabla-votos-candidatos">
-          <thead><tr id="cabecera-votos-e14"><th>Candidato</th><th style="width:90px;">Votos</th></tr></thead>
+          <thead><tr id="cabecera-votos-e14"><th>Candidato</th><th class="th-votos">Votos</th></tr></thead>
           <tbody id="tbody-votos-candidatos"></tbody>
         </table>
       </div>
-      <div class="campo-app" id="campo-total-votos-mesa">
-        <label id="rotulo-total-votos">Total votos en la mesa</label>
+      <div class="campo-app fila-conteo fila-total" id="campo-total-votos-mesa">
+        <label id="rotulo-total-votos" for="f-total-votos-mesa">TOTAL VOTOS EN LA MESA</label>
         <input id="f-total-votos-mesa" type="text" disabled value="0">
       </div>
       <div class="campo-app">
@@ -588,7 +671,7 @@ async function cargarCandidatosParaReporte() {
     <tr data-bloque="${clave}">
       ${hayNumerosE14 ? `<td class="num-e14">${bloque.numerado ? bloque.inicio + i : ''}</td>` : ''}
       <td class="nombre-candidato">${escaparHtml(nombre)}</td>
-      <td><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
+      <td class="celda-votos"><input type="number" min="0" inputmode="numeric" data-candidato="${escaparHtml(nombre)}" required></td>
     </tr>`);
 
     /* EL TOTAL VA AL FINAL DEL BLOQUE DE CANDIDATOS, no debajo de toda la tabla,
@@ -601,7 +684,7 @@ async function cargarCandidatosParaReporte() {
       ? [`<tr class="fila-total-e14">
            ${hayNumerosE14 ? '<td></td>' : ''}
            <td>Total votos agrupación política</td>
-           <td><input id="f-total-bloque-candidatos" type="text" disabled value="0"></td>
+           <td class="celda-votos"><input id="f-total-bloque-candidatos" type="text" disabled value="0"></td>
          </tr>`]
       : [];
 
@@ -637,7 +720,7 @@ function aplicarFormaDelFormulario() {
   document.getElementById('campo-total-votos-mesa').style.display =
     esCampanaDeAspirante ? 'none' : '';
   document.getElementById('rotulo-total-votos').textContent =
-    esCampanaDeAspirante ? 'Total votos agrupación política' : 'Total votos en la mesa';
+    esCampanaDeAspirante ? 'Total votos agrupación política' : 'TOTAL VOTOS EN LA MESA';
   // Idempotente a propósito: hoy esto corre una sola vez, pero una segunda
   // llamada añadiría otra columna «#» al encabezado y lo dejaría con una celda
   // más que las filas — la tabla entera corrida, sin ningún error.
@@ -755,7 +838,7 @@ function activarSelectorMesasCoordinador(mesasAsignadas) {
   const cont = document.getElementById('lista-mesas-coordinador');
   cont.innerHTML = mesasAsignadas.map(m => `
     <label style="display:inline-flex; align-items:center; gap:6px; font-weight:400;">
-      <input type="checkbox" class="chk-mesa-coordinador" value="${m}" style="width:auto;"> Mesa ${m}
+      <input type="checkbox" class="chk-mesa-coordinador" value="${m}"> Mesa ${m}
     </label>
   `).join('');
   cont.querySelectorAll('.chk-mesa-coordinador').forEach(chk => {

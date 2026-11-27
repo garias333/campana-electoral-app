@@ -107,8 +107,9 @@ const MEDIR = `(() => {
 
   function revisar(m, etiqueta, { esperaCasillas = 0 } = {}) {
     const f = m.filas;
-    ok(JSON.stringify(f.map((x) => x.titulo)) === JSON.stringify(['Departamento', 'Municipio', 'Puesto de votación', 'Mesa', 'Total votantes']),
-      `${etiqueta}: cinco filas con los títulos Departamento · Municipio · Puesto de votación · Mesa · Total votantes`, f.map((x) => x.titulo));
+    // Orden 136: «Total votantes» pasó a mayúsculas y «TOTAL VOTOS EN LA MESA» entró a la misma grid (sexta fila).
+    ok(JSON.stringify(f.map((x) => x.titulo.toLowerCase())) === JSON.stringify(['departamento', 'municipio', 'puesto de votación', 'mesa', 'total votantes', 'total votos en la mesa']),
+      `${etiqueta}: seis filas con los títulos Departamento · Municipio · Puesto de votación · Mesa · TOTAL VOTANTES · TOTAL VOTOS EN LA MESA`, f.map((x) => x.titulo));
     const t0 = f[0].t.left; const c0 = f[0].c;
     ok(f.every((x) => cerca(x.t.left, t0)), `${etiqueta}: el left de los títulos coincide (±1 px)`, f.map((x) => x.t.left));
     ok(f.every((x) => cerca(x.c.left, c0.left) && cerca(x.c.width, c0.width)), `${etiqueta}: el left y el ancho de los campos coinciden (±1 px)`, f.map((x) => [x.c.left, x.c.width]));
@@ -117,9 +118,11 @@ const MEDIR = `(() => {
     ok(cerca(colTitulo, esperado, 1.5), `${etiqueta}: la columna del título mide max(110 px, 38 %) = ${esperado.toFixed(1)} px`, colTitulo);
     ok(f.every((x) => x.t.left >= m.cuerpo.left && cerca(x.c.left + x.c.width, f[0].fila.left + f[0].fila.width)), `${etiqueta}: los campos llegan hasta el borde derecho de la fila`, f.map((x) => x.c.left + x.c.width));
     const controles = f.filter((x) => x.tag !== 'DIV');
-    ok(controles.every((x) => cerca(x.c.height, 48, 0.6)), `${etiqueta}: todos los campos miden 48 px de alto`, controles.map((x) => x.c.height));
+    ok(controles.filter((x) => !/^total/i.test(x.titulo)).every((x) => cerca(x.c.height, 48, 0.6)) && controles.filter((x) => /^total/i.test(x.titulo)).every((x) => cerca(x.c.height, 52, 0.6)),
+      `${etiqueta}: los campos miden 48 px de alto y los de los dos totales 52 px (Orden 136)`, controles.map((x) => x.c.height));
     ok(f.every((x) => cerca(x.t.cy, x.c.cy, 1.5)), `${etiqueta}: cada título centrado en vertical con su campo (±1,5 px)`, f.map((x) => [x.titulo, x.t.cy, x.c.cy]));
-    ok(f.every((x) => x.fuente === '15px' && Number(x.peso) >= 700), `${etiqueta}: los títulos conservan su letra de siempre (15 px, negrita)`, f.map((x) => [x.fuente, x.peso]));
+    ok(f.filter((x) => !/^total/i.test(x.titulo)).every((x) => x.fuente === '15px' && Number(x.peso) >= 700) && f.filter((x) => /^total/i.test(x.titulo)).every((x) => x.fuente === '17px' && Number(x.peso) >= 700),
+      `${etiqueta}: los títulos conservan su letra (15 px, negrita) y los dos totales van en 17 px (Orden 136)`, f.map((x) => [x.fuente, x.peso]));
     ok(m.desborde <= 0, `${etiqueta}: nada se desborda en horizontal`, m.desborde);
     const sec = m.tituloSeccion;
     ok(cerca(sec.left, m.cuerpo.left + m.cuerpoPad) && sec.width >= m.ancho - 2 * m.cuerpoPad - 1, `${etiqueta}: el título «Reportar conteo de mi mesa» sigue a lo ancho completo`, sec);
