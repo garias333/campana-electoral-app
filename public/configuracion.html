@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/controles-uniformes.css">
+<!-- Orden 144: «Datos de la campaña» (ficha azul lateral y seis pestañas). Va al final: acota todo a #seccion-campana y pisa a style.css. -->
+<link rel="stylesheet" href="/css/datos-campana.css">
 <style>
 /* Activar complementos (parche 318). Estilo de la app (#0B5ED7); una columna a 390 px, dos desde 760 px. */
 .comp-lista { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -33,11 +35,11 @@
 .comp-switch input:disabled + .comp-pista { opacity: 0.55; }
 .col-complemento-apagado { opacity: 0.5; background: rgba(120,130,150,0.12); }
 .nota-complemento-apagado { font-weight: 400; font-size: 0.68rem; color: var(--color-text-muted); }
-  /* Datos de la campaña: fuente más grande que el resto de Configuración
-     (Usuarios/Permisos/Día D siguen con el tamaño estándar de la app). */
-  #seccion-campana label { font-size: 0.98rem; }
-  #seccion-campana input, #seccion-campana select { font-size: 1.05rem; padding: 11px 13px; }
-  #seccion-campana small { font-size: 0.86rem; }
+  /* Datos de la campaña: la letra más grande y todo lo demás de esa sección
+     vive ahora en css/datos-campana.css (orden 144). Estas tres reglas
+     sueltas estaban aquí y se quedaban cortas: las medidas exactas que pidió
+     Gildardo —campo de 46 px, letra de 16 px, ayuda de 13 px— van con el
+     resto del diseño, en un solo sitio. */
 </style>
 </head>
 <body>
@@ -138,268 +140,394 @@
         Lo demás —candidato, fecha de elección y la configuración territorial— pertenece a la
         campaña principal, es la misma para todos y por eso se muestra bloqueado.
       </div>
+
+      <!-- ===== ORDEN 144: FICHA AZUL LATERAL + SEIS PESTAÑAS =====
+           LOS CAMPOS SON LOS MISMOS, UNO POR UNO; cambia dónde están.
+           Antes esto era una columna de cinco recuadros a todo lo ancho con
+           letra de 13 px: el candidato, la jornada del Día D, la identidad del
+           menú, el territorio y los apoyos, todo seguido. Para ver si faltaba
+           un dato había que bajar hasta el final y volver a subir.
+           Ahora hay dos cosas a la vista: a la izquierda cómo va quedando la
+           campaña (se repinta al escribir, sin guardar), y a la derecha una
+           pestaña por asunto. El GUARDADO NO SE TOCÓ: sigue siendo un solo
+           botón que manda lo mismo que el «Guardar» anterior —PUT de
+           /configuracion/campana y, detrás, el de la jornada—, y el logo
+           sigue guardándose solo al elegir el archivo, como siempre. -->
       <form id="form-campana">
+        <div class="dc-reja">
 
-        <!-- ===== DATOS DE LA CAMPAÑA =====
-             Quién es el candidato y cómo se le contacta. Los ocho campos
-             estaban sueltos y partidos en dos: los tres primeros arriba y
-             Dirección/Teléfono/Correo debajo del bloque de Territorio, que
-             no tiene nada que ver con ellos. Ahora van juntos y en un
-             recuadro propio, igual que Territorio: dos apartados con la
-             misma forma se leen como dos cosas del mismo rango. -->
-        <div id="bloque-datos-campana" style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
-          <div class="titulo-apartado">Datos de la campaña</div>
-          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
-            Quién es el candidato, a qué aspira y cómo contactar a la campaña.
-          </small>
-
-        <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-nombre-candidato">Nombre del candidato</label><input id="campo-nombre-candidato" name="nombre_candidato"></div>
-          <div class="campo" style="flex:1; min-width:200px;">
-            <label for="campo-cargo-aspira">Cargo al que aspira</label>
-            <select id="campo-cargo-aspira" name="cargo_aspira">
-              <option value="">Selecciona...</option>
-              <option value="senado">Senado</option>
-              <option value="camara_representantes">Cámara de Representantes</option>
-              <option value="gobernacion">Gobernación</option>
-              <option value="asamblea">Asamblea</option>
-              <option value="alcaldia">Alcaldía</option>
-              <option value="concejo">Concejo</option>
-              <option value="jal">JAL</option>
-            </select>
-          </div>
-          <div class="campo" style="flex:1; min-width:200px;">
-            <label for="campo-fecha-inicio">Fecha de inicio de la campaña (opcional)</label>
-            <input id="campo-fecha-inicio" type="date" name="fecha_inicio_campana">
-            <small style="color:var(--color-text-muted);">Solo la usa la app del candidato: con ella compara lo que lleva la meta de votantes con el tiempo que ha pasado desde el inicio hasta la elección («al ritmo esperado» o «por debajo del ritmo»). Si la deja vacía, esa etiqueta no se muestra.</small>
-          </div>
-          <div class="campo" style="flex:1; min-width:200px;">
-            <label for="campo-fecha-eleccion">Fecha de elecciones</label>
-            <input id="campo-fecha-eleccion" type="date" name="fecha_eleccion">
-            <small style="color:var(--color-text-muted);">De esta fecha dependen el Modo prueba, el enlace «Ya voté», el enlace del conductor y las alertas del Día D (transporte, logística y avisos push). Los testigos siempre entran directo al formulario de Día D, sin importar la fecha.</small>
-            <small style="color:#8A5A00; display:block; margin-top:4px;">⚠ Los enlaces «Ya voté» que se envían a los votantes son <strong>de esta fecha</strong>: sirven solo ese día. Si la cambia —por una segunda vuelta o una elección nueva—, <strong>los enlaces ya enviados dejan de funcionar</strong> y hay que volver a mandarlos.</small>
-          </div>
-        </div>
-
-        <!-- LA JORNADA DEL DÍA D. Horarios y umbrales del cuadro de alertas y del check-in del testigo. Hora de Colombia.
-             Sólo la campaña principal los define (es una fila única); el aspirante no los ve. -->
-        <div id="bloque-jornada" style="border:1px solid var(--color-border); border-radius:10px; padding:12px 14px; margin-bottom:14px;">
-          <div style="font-weight:700; margin-bottom:2px;">Jornada del Día D <small style="font-weight:400; color:var(--color-text-muted);">(hora de Colombia)</small></div>
-          <div class="fila">
-            <div class="campo"><label for="jornada-apertura">Apertura de urnas</label><input type="time" id="jornada-apertura" value="08:00">
-              <small style="color:var(--color-text-muted);">Desde aquí se cuenta cuánto se espera a un testigo.</small></div>
-            <div class="campo"><label for="jornada-cierre">Cierre de urnas</label><input type="time" id="jornada-cierre" value="16:00">
-              <small style="color:var(--color-text-muted);">Desde aquí se cuenta el plazo del E-14.</small></div>
-          </div>
-          <div class="fila">
-            <div class="campo"><label for="jornada-checkin-min">Minutos para avisar que un testigo no llegó</label><input type="number" id="jornada-checkin-min" min="0" max="1440" value="30">
-              <small style="color:var(--color-text-muted);">Pasada la apertura más estos minutos, un testigo sin «Llegué» sale en Alertas.</small></div>
-            <div class="campo"><label for="jornada-plazo-e14">Plazo para subir el E-14 (minutos)</label><input type="number" id="jornada-plazo-e14" min="0" max="1440" value="120">
-              <small style="color:var(--color-text-muted);">Pasado el cierre más este plazo, una mesa sin E-14 sale en Alertas (y su ficha pasa a ámbar).</small></div>
-          </div>
-          <div class="fila">
-            <div class="campo"><label for="jornada-baja-pct">Baja votación: porcentaje «ya votó»</label><input type="number" id="jornada-baja-pct" min="1" max="100" value="40">
-              <small style="color:var(--color-text-muted);">Un puesto con menos de este % de sus votantes marcados como «ya votó» sale en Alertas.</small></div>
-            <div class="campo"><label for="jornada-baja-desde">Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
-              <small style="color:var(--color-text-muted);">Antes de esa hora la alerta aparece en gris, «pendiente».</small></div>
-          </div>
-          <div class="fila">
-            <div class="campo"><label for="jornada-transporte-desde">Transporte sin recoger: avisar desde las</label><input type="time" id="jornada-transporte-desde" value="14:00">
-              <small style="color:var(--color-text-muted);">Desde esa hora, el día de la elección, un puesto con personas que esperan transporte sin que las recojan sale en Alertas. Antes aparece en gris, «pendiente».</small></div>
-          </div>
-          <div class="fila">
-            <div class="campo">
-              <label style="display:flex; align-items:center; gap:8px; font-weight:600;"><input type="checkbox" id="jornada-avisos-push" style="width:auto;" checked> Avisos automáticos por notificación (push)</label>
-              <small style="color:var(--color-text-muted);">Con esto encendido, el día de la elección la coordinación recibe un aviso en el celular cuando aparece una alerta (testigo que no llegó, mesa sin E-14, baja votación…), sin tener la pantalla abierta. Un aviso cada 5 minutos como máximo, agrupado. Necesita que cada persona haya activado los avisos en su app.</small>
+          <!-- ============================================================
+               LA FICHA AZUL. Se repinta con lo que hay en los campos, no con
+               lo que está guardado: es el espejo de lo que uno está
+               escribiendo. Nada de aquí se envía al servidor.
+               ============================================================ -->
+          <aside class="dc-tarjeta" id="dc-tarjeta" aria-live="polite">
+            <div class="dc-logo-aro" id="dc-aro">
+              <img id="dc-logo-img" src="/img/logo.png" alt="Logo de la campaña" style="display:none;">
+              <div class="dc-iniciales" id="dc-iniciales">?</div>
             </div>
-          </div>
-        </div>
+            <p class="dc-nombre" id="dc-nombre">Nombre del candidato</p>
+            <p class="dc-eslogan" id="dc-eslogan"></p>
 
-        <div class="fila">
-          <div class="campo"><label for="campo-slogan-campana">Slogan de la campaña</label><input id="campo-slogan-campana" name="slogan_campana" placeholder="Ej. Juntos por nuestra ciudad"></div>
-          <div class="campo">
-            <label for="select-partido-politico">Partido político</label>
-            <select id="select-partido-politico">
-              <option value="">Selecciona...</option>
-            </select>
-          </div>
-        </div>
-        <div class="campo" id="campo-partido-otro" style="display:none;">
-          <label for="input-partido-otro">Nombre del partido/movimiento</label>
-          <input id="input-partido-otro" placeholder="Escribe el nombre completo">
-        </div>
+            <p class="dc-cuenta-rotulo" id="dc-cuenta-rotulo" style="display:none;">Faltan para la elección</p>
+            <div class="dc-cajas" id="dc-cajas" style="display:none;">
+              <div class="dc-caja-num"><b id="dc-dias">0</b><span>Días</span></div>
+              <div class="dc-caja-num"><b id="dc-semanas">0</b><span>Semanas</span></div>
+              <div class="dc-caja-num"><b id="dc-meta">0</b><span>Meta</span></div>
+            </div>
+            <!-- SIN FECHA NO HAY CUENTA REGRESIVA, y en su lugar va lo que hay
+                 que hacer para tenerla: tres ceros no se distinguen de una
+                 elección que ya pasó. -->
+            <div class="dc-sin-fecha" id="dc-sin-fecha">Ponga la fecha de elecciones</div>
 
-        <div class="fila" id="campo-meta-campana">
-          <div class="campo">
-            <label for="campo-meta-votos-campana">Meta de votos de su campaña</label>
-            <input id="campo-meta-votos-campana" type="number" name="meta_votos_campana" min="0" step="1" placeholder="Ej. 20000">
-            <small style="color:var(--color-text-muted);">
-              Los votos que la campaña necesita para ganar. La fija usted: no
-              es la suma de las metas de los líderes, que es otra cifra —lo que
-              el equipo se comprometió a traer— y no tiene por qué coincidir.
-            </small>
-          </div>
-        </div>
+            <div class="dc-pie-tarjeta">
+              <div id="dc-cargo-lugar"></div>
+              <div id="dc-partido"></div>
+              <div class="dc-urnas" id="dc-urnas"></div>
+            </div>
 
-        <div class="fila" style="flex-wrap:wrap;">
-          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-direccion-sede">Dirección sede campaña</label><input id="campo-direccion-sede" name="direccion_sede"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-telefono-2">Teléfono</label><input type="tel" id="campo-telefono-2" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
-          <div class="campo" style="flex:1; min-width:200px;"><label for="campo-email">Correo electrónico</label><input id="campo-email" type="email" name="email"></div>
-        </div>
-        </div>
+            <!-- Hace lo mismo que el botón «Cambiar logo» de la ficha Identidad:
+                 los dos abren el mismo selector de archivo y suben por la misma
+                 ruta. Está aquí porque es donde se ve el logo. -->
+            <button type="button" id="dc-btn-logo">🎨 Cambiar logo</button>
+          </aside>
 
-        <!-- ===== IDENTIDAD DE LA PLATAFORMA =====
-             El logo, el nombre y la bajada de la barra lateral. Estaban escritos
-             dentro del codigo, asi que cambiarlos exigia publicar un parche. Van
-             aqui, junto a los datos de la campana, porque son lo mismo: quien es
-             esta campana. -->
-        <div style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
-          <div class="titulo-apartado">Identidad en el menú lateral</div>
-          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
-            El logo, el nombre y el eslogan de la campaña, arriba del menú lateral, en
-            todas las pantallas. Deje un campo en blanco y no se muestra nada: la firma
-            de ESTRATEGIA sigue apareciendo debajo en cualquier caso.
-          </small>
-          <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start;">
-            <div style="text-align:center;">
-              <label style="display:block; margin-bottom:6px;">Logo</label>
-              <div style="background:#10233F; border-radius:10px; padding:12px; width:150px;">
-                <img id="vista-logo" src="/img/logo.png" alt="Logo actual" style="width:100%; height:auto; display:block;">
+          <!-- ============================================================
+               LA CAJA BLANCA CON LAS SEIS FICHAS
+               ============================================================ -->
+          <div class="dc-caja">
+            <div class="dc-fichas" id="dc-fichas" role="tablist" aria-label="Datos de la campaña">
+              <button type="button" class="dc-ficha" id="dc-ficha-candidato"   role="tab" aria-selected="true"  aria-controls="dc-panel-candidato"   data-ficha="datos-candidato">👤 Candidato</button>
+              <button type="button" class="dc-ficha" id="dc-ficha-campana"     role="tab" aria-selected="false" aria-controls="dc-panel-campana"     data-ficha="datos-campana-meta">🗳️ Campaña y meta</button>
+              <button type="button" class="dc-ficha" id="dc-ficha-identidad"   role="tab" aria-selected="false" aria-controls="dc-panel-identidad"   data-ficha="datos-identidad">🎨 Identidad</button>
+              <button type="button" class="dc-ficha" id="dc-ficha-territorio"  role="tab" aria-selected="false" aria-controls="dc-panel-territorio"  data-ficha="datos-territorio">🗺️ Territorio</button>
+              <button type="button" class="dc-ficha" id="dc-ficha-apoyos"      role="tab" aria-selected="false" aria-controls="dc-panel-apoyos"      data-ficha="datos-apoyos">🤝 Apoyos</button>
+              <button type="button" class="dc-ficha" id="dc-ficha-jornada"     role="tab" aria-selected="false" aria-controls="dc-panel-jornada"     data-ficha="datos-jornada">⏱️ Jornada Día D</button>
+            </div>
+
+            <!-- ===== 1. CANDIDATO ===== -->
+            <div class="dc-panel" id="dc-panel-candidato" role="tabpanel" aria-labelledby="dc-ficha-candidato">
+              <h2 class="dc-titulo">Candidato</h2>
+              <p class="dc-bajada">Quién es el candidato, a qué aspira y con qué partido se presenta.</p>
+
+              <div id="bloque-datos-campana">
+                <div class="dc-g2">
+                  <div class="campo"><label for="campo-nombre-candidato">Nombre del candidato</label><input id="campo-nombre-candidato" name="nombre_candidato"></div>
+                  <div class="campo">
+                    <label for="campo-cargo-aspira">Cargo al que aspira</label>
+                    <select id="campo-cargo-aspira" name="cargo_aspira">
+                      <option value="">Selecciona...</option>
+                      <option value="senado">Senado</option>
+                      <option value="camara_representantes">Cámara de Representantes</option>
+                      <option value="gobernacion">Gobernación</option>
+                      <option value="asamblea">Asamblea</option>
+                      <option value="alcaldia">Alcaldía</option>
+                      <option value="concejo">Concejo</option>
+                      <option value="jal">JAL</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="dc-g1">
+                  <div class="campo"><label for="campo-slogan-campana">Slogan de la campaña</label><input id="campo-slogan-campana" name="slogan_campana" placeholder="Ej. Juntos por nuestra ciudad"></div>
+                </div>
+
+                <div class="dc-g2">
+                  <div class="campo">
+                    <label for="select-partido-politico">Partido político</label>
+                    <select id="select-partido-politico">
+                      <option value="">Selecciona...</option>
+                    </select>
+                  </div>
+                  <div class="campo" id="campo-partido-otro" style="display:none;">
+                    <label for="input-partido-otro">Nombre del partido/movimiento</label>
+                    <input id="input-partido-otro" placeholder="Escribe el nombre completo">
+                  </div>
+                </div>
               </div>
-              <input type="file" id="archivo-logo" accept="image/*" style="display:none;">
-              <button type="button" class="btn-secundario btn-sm" id="btn-cambiar-logo" style="margin-top:8px;">Cambiar logo</button>
-              <button type="button" class="btn-secundario btn-sm" id="btn-quitar-logo" style="margin-top:6px; display:none;">Quitar</button>
-              <small style="display:block; color:var(--color-text-muted); font-size:0.72rem; margin-top:6px; max-width:150px;">
-                El fondo del menú es oscuro: un logo claro o con fondo transparente se ve mejor.
-              </small>
             </div>
-            <div style="flex:1; min-width:240px;">
-              <div class="campo">
-                <label for="campo-marca-titulo">Nombre de la campaña</label>
-                <input id="campo-marca-titulo" name="marca_titulo" maxlength="120" placeholder="Ej.: Nombre de la campaña">
+
+            <!-- ===== 2. CAMPAÑA Y META ===== -->
+            <div class="dc-panel" id="dc-panel-campana" role="tabpanel" aria-labelledby="dc-ficha-campana" hidden>
+              <h2 class="dc-titulo">Campaña y meta</h2>
+              <p class="dc-bajada">Las fechas de las que dependen el Día D y los enlaces, los votos que hay que conseguir y cómo contactar a la sede.</p>
+
+              <div class="dc-g2">
+                <div class="campo">
+                  <label for="campo-fecha-inicio">Fecha de inicio de la campaña (opcional)</label>
+                  <input id="campo-fecha-inicio" type="date" name="fecha_inicio_campana">
+                  <small>Solo la usa la app del candidato: con ella compara lo que lleva la meta de votantes con el tiempo que ha pasado desde el inicio hasta la elección («al ritmo esperado» o «por debajo del ritmo»). Si la deja vacía, esa etiqueta no se muestra.</small>
+                </div>
+                <div class="campo">
+                  <label for="campo-fecha-eleccion">Fecha de elecciones</label>
+                  <input id="campo-fecha-eleccion" type="date" name="fecha_eleccion">
+                  <small>De esta fecha dependen el Modo prueba, el enlace «Ya voté», el enlace del conductor y las alertas del Día D (transporte, logística y avisos push). Los testigos siempre entran directo al formulario de Día D, sin importar la fecha.</small>
+                  <div class="dc-aviso-amarillo">
+                    ⚠ Los enlaces «Ya voté» que se envían a los votantes son <strong>de esta fecha</strong>: sirven solo ese día. Si la cambia —por una segunda vuelta o una elección nueva—, <strong>los enlaces ya enviados dejan de funcionar</strong> y hay que volver a mandarlos.
+                  </div>
+                </div>
               </div>
-              <div class="campo">
-                <label for="campo-marca-subtitulo">Eslogan</label>
-                <input id="campo-marca-subtitulo" name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
 
-      <!-- SOLO PARA EL ASPIRANTE. Es la meta de SU campaña, la que él se pone.
-           La otra —cuántos votos le prometió a la campaña principal— se la
-           ponen al inscribirlo allá, y aquí se muestra sin poder tocarla:
-           es un pacto con la otra campaña, no una decisión suya. -->
-      <div class="campo" id="campo-meta-sublicencia" style="display:none;">
-        <label for="input-meta-sublicencia">Meta de votos de su campaña</label>
-        <input type="number" name="meta_votos" id="input-meta-sublicencia" min="0" step="1" placeholder="Ej. 1200">
-        <small style="color:var(--color-text-muted);">
-          Avanza con todo el que registre su equipo. Quien además marque
-          «Alcaldía» suma también en lo que usted le prometió a la campaña principal.
-        </small>
-      </div>
-      <div class="campo" id="campo-meta-madre" style="display:none;">
-        <label for="input-meta-madre">Comprometido con la campaña principal</label>
-        <input type="text" id="input-meta-madre" disabled>
-        <small style="color:var(--color-text-muted);">
-          Se pactó al inscribirlo en la campaña principal; se cambia allá.
-        </small>
-      </div>
+              <div class="dc-g1" id="campo-meta-campana">
+                <div class="campo">
+                  <label for="campo-meta-votos-campana">Meta de votos de su campaña</label>
+                  <input id="campo-meta-votos-campana" type="number" name="meta_votos_campana" min="0" step="1" placeholder="Ej. 20000">
+                  <small>
+                    Los votos que la campaña necesita para ganar. La fija usted: no
+                    es la suma de las metas de los líderes, que es otra cifra —lo que
+                    el equipo se comprometió a traer— y no tiene por qué coincidir.
+                  </small>
+                </div>
               </div>
-              <small style="color:var(--color-text-muted); font-size:0.78rem;">
-                El eslogan se muestra en mayúsculas y en amarillo. Los dos textos
-                aparecen al recargar cualquier pantalla.
-              </small>
+
+              <!-- SOLO PARA EL ASPIRANTE. Es la meta de SU campaña, la que él se pone.
+                   La otra —cuántos votos le prometió a la campaña principal— se la
+                   ponen al inscribirlo allá, y aquí se muestra sin poder tocarla:
+                   es un pacto con la otra campaña, no una decisión suya.
+                   ORDEN 144: estos dos campos estaban escritos DENTRO del recuadro
+                   de identidad del menú lateral, entre el nombre y el eslogan, por
+                   un cierre de etiqueta mal puesto. Van donde se leen: junto a la
+                   meta que reemplazan. Ni el id ni el name ni el texto cambian. -->
+              <div class="dc-g1">
+                <div class="campo" id="campo-meta-sublicencia" style="display:none;">
+                  <label for="input-meta-sublicencia">Meta de votos de su campaña</label>
+                  <input type="number" name="meta_votos" id="input-meta-sublicencia" min="0" step="1" placeholder="Ej. 1200">
+                  <small>
+                    Avanza con todo el que registre su equipo. Quien además marque
+                    «Alcaldía» suma también en lo que usted le prometió a la campaña principal.
+                  </small>
+                </div>
+                <div class="campo" id="campo-meta-madre" style="display:none;">
+                  <label for="input-meta-madre">Comprometido con la campaña principal</label>
+                  <input type="text" id="input-meta-madre" disabled>
+                  <small>
+                    Se pactó al inscribirlo en la campaña principal; se cambia allá.
+                  </small>
+                </div>
+              </div>
+
+              <div class="dc-sub">Sede y contacto</div>
+              <div class="dc-g3">
+                <div class="campo"><label for="campo-direccion-sede">Dirección sede campaña</label><input id="campo-direccion-sede" name="direccion_sede"></div>
+                <div class="campo"><label for="campo-telefono-2">Teléfono</label><input type="tel" id="campo-telefono-2" name="telefono" placeholder="300 123 4567" inputmode="tel" autocomplete="off"></div>
+                <div class="campo"><label for="campo-email">Correo electrónico</label><input id="campo-email" type="email" name="email"></div>
+              </div>
+            </div>
+
+            <!-- ===== 3. IDENTIDAD =====
+                 El logo, el nombre y la bajada de la barra lateral. Estaban escritos
+                 dentro del codigo, asi que cambiarlos exigia publicar un parche. Van
+                 aqui, junto a los datos de la campana, porque son lo mismo: quien es
+                 esta campana. -->
+            <div class="dc-panel" id="dc-panel-identidad" role="tabpanel" aria-labelledby="dc-ficha-identidad" hidden>
+              <h2 class="dc-titulo">Identidad en el menú lateral</h2>
+              <p class="dc-bajada">
+                El logo, el nombre y el eslogan de la campaña, arriba del menú lateral, en
+                todas las pantallas. Deje un campo en blanco y no se muestra nada: la firma
+                de ESTRATEGIA sigue apareciendo debajo en cualquier caso.
+              </p>
+
+              <div class="dc-identidad">
+                <div>
+                  <label>Logo</label>
+                  <div class="dc-logo-caja">
+                    <img id="vista-logo" src="/img/logo.png" alt="Logo actual">
+                  </div>
+                  <input type="file" id="archivo-logo" accept="image/*" style="display:none;">
+                  <div class="dc-logo-botones">
+                    <button type="button" class="btn-secundario btn-sm" id="btn-cambiar-logo">Cambiar logo</button>
+                    <button type="button" class="btn-secundario btn-sm" id="btn-quitar-logo" style="display:none;">Quitar</button>
+                  </div>
+                  <small class="dc-logo-nota">
+                    El fondo del menú es oscuro: un logo claro o con fondo transparente se ve mejor.
+                  </small>
+                </div>
+                <div>
+                  <div class="campo">
+                    <label for="campo-marca-titulo">Nombre de la campaña</label>
+                    <input id="campo-marca-titulo" name="marca_titulo" maxlength="120" placeholder="Ej.: Nombre de la campaña">
+                  </div>
+                  <div class="campo">
+                    <label for="campo-marca-subtitulo">Eslogan</label>
+                    <input id="campo-marca-subtitulo" name="marca_subtitulo" maxlength="160" placeholder="Ej.: El alcalde que escucha y actúa">
+                    <small>
+                      El eslogan se muestra en mayúsculas y en amarillo. Los dos textos
+                      aparecen al recargar cualquier pantalla.
+                    </small>
+                  </div>
+
+                  <!-- LA MUESTRA EN VIVO. El nombre y el eslogan se escriben aquí y
+                       se ven en otra pantalla, arriba del menú: hasta ahora había que
+                       guardar y recargar para saber si cabían. -->
+                  <div class="dc-muestra">
+                    <div class="dc-muestra-rotulo">Así se ve arriba del menú lateral</div>
+                    <div class="dc-muestra-menu">
+                      <img id="dc-muestra-logo" src="/img/logo.png" alt="">
+                      <div class="dc-muestra-titulo" id="dc-muestra-titulo"></div>
+                      <div class="dc-muestra-sub" id="dc-muestra-sub"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== 4. TERRITORIO =====
+                 Dónde se juega la campaña y con qué palabras se divide.
+                 Las cuatro preguntas van juntas y en dos parejas —urbano y
+                 rural— porque así es como está armada la jerarquía: Comuna y
+                 Corregimiento son el mismo nivel, y Barrio y Vereda el
+                 siguiente. Verlas en fila corrida invita a apagar una sola
+                 mitad sin darse cuenta de que la otra existe. -->
+            <div class="dc-panel" id="dc-panel-territorio" role="tabpanel" aria-labelledby="dc-ficha-territorio" hidden>
+              <h2 class="dc-titulo">Territorio</h2>
+              <p class="dc-bajada">Dónde se desarrolla la campaña y qué divisiones usa para organizarla.</p>
+
+              <div id="bloque-territorio">
+                <div class="dc-g2">
+                  <div class="campo">
+                    <label for="input-departamento-campana">Departamento</label>
+                    <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
+                    <datalist id="lista-departamentos-campana"></datalist>
+                  </div>
+                  <div class="campo">
+                    <label for="input-ciudad-campana">Ciudad</label>
+                    <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
+                    <datalist id="lista-ciudades-campana"></datalist>
+                  </div>
+                </div>
+
+                <div class="dc-sub">Divisiones urbanas</div>
+                <div class="dc-g2">
+                  <div class="campo">
+                    <label for="campo-ciudad-tiene-comunas">¿Utilizar nombre de comunas?</label>
+                    <select id="campo-ciudad-tiene-comunas" name="ciudad_tiene_comunas">
+                      <option value="1">Sí</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                  <div class="campo">
+                    <label for="campo-usar-nombre-barrios">¿Utilizar nombre de barrios?</label>
+                    <select id="campo-usar-nombre-barrios" name="usar_nombre_barrios">
+                      <option value="1">Sí</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="dc-sub">Divisiones rurales</div>
+                <div class="dc-g2">
+                  <div class="campo">
+                    <label for="campo-usar-nombre-corregimientos">¿Utilizar nombre de corregimientos?</label>
+                    <select id="campo-usar-nombre-corregimientos" name="usar_nombre_corregimientos">
+                      <option value="1">Sí</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                  <div class="campo">
+                    <label for="campo-usar-nombre-veredas">¿Utilizar nombre de veredas?</label>
+                    <select id="campo-usar-nombre-veredas" name="usar_nombre_veredas">
+                      <option value="1">Sí</option>
+                      <option value="0">No</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="dc-aviso-azul">
+                  Responda <strong>No</strong> a la división que su territorio no use, o que no quiera manejar en la campaña: ese campo deja de aparecer en todos los formularios de captura —Coordinadores y líderes, Votantes y sublíderes, Eventos, Asistentes a reuniones y la app del celular— y tampoco se ofrece crear zonas de ese tipo en "Gestionar territorios".
+                  Cada pareja funciona igual: si <em>Barrios</em> queda en No, la persona se asigna directo a la Comuna; si <em>Veredas</em> queda en No, se asigna directo al Corregimiento. Con las dos de una pareja en No, esa área se guarda sin subdivisión.
+                  <br><br>
+                  Lo que ya está registrado <strong>no se borra ni se mueve</strong>, pero deja de poder corregirse desde el formulario: si vuelve a guardar la ficha de alguien asignado a ese nivel, quedará en el nivel de arriba.
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== 5. APOYOS =====
+                 Apoyos: define qué opciones aparecen como "Apoya a" en los
+                 formularios de Coordinadores/Líderes y de Votantes/Sublíderes.
+                 El botón y las opciones dependen del Cargo al que aspira, así
+                 que se arman desde el servidor (ver /configuracion/campana). -->
+            <div class="dc-panel" id="dc-panel-apoyos" role="tabpanel" aria-labelledby="dc-ficha-apoyos" hidden>
+              <h2 class="dc-titulo">Apoyos</h2>
+              <p class="dc-bajada">
+                Define a qué otras campañas puede apoyar la gente que registres. Lo que marques aquí
+                es lo que aparece como <strong>“Apoya a”</strong> al crear coordinadores, líderes, votantes y sublíderes.
+              </p>
+
+              <!-- LA PESTAÑA NO SE ESCONDE CUANDO EL CARGO NO OFRECE APOYOS.
+                   Antes el bloque entero desaparecía y no quedaba ni rastro de
+                   que existiera; con seis pestañas fijas, una que aparece y se
+                   va parece un fallo. Se queda, y dice por qué está vacía. -->
+              <p class="dc-bajada" id="dc-apoyos-vacio" style="display:none;">
+                Para el cargo elegido no hay apoyos que configurar. Los apoyos aplican a las
+                campañas que pueden apoyar a otra (Alcaldía, Gobernación, Asamblea…); si cambia
+                el <strong>Cargo al que aspira</strong> en la ficha «Candidato», las opciones aparecen aquí.
+              </p>
+
+              <div id="bloque-apoyos" style="display:none;">
+                <button type="button" class="btn-secundario btn-sm" id="btn-activar-apoyos">🤝 Activar apoyos</button>
+                <div id="panel-apoyos" style="display:none;">
+                  <div class="dc-sub">Apoyos disponibles</div>
+                  <div id="casillas-apoyos"></div>
+                  <small>
+                    Si no marcas ninguno, la sección “Apoya a” no aparece en los formularios.
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== 6. JORNADA DEL DÍA D =====
+                 LA JORNADA DEL DÍA D. Horarios y umbrales del cuadro de alertas y del check-in del testigo. Hora de Colombia.
+                 Sólo la campaña principal los define (es una fila única); el aspirante no los ve. -->
+            <div class="dc-panel" id="dc-panel-jornada" role="tabpanel" aria-labelledby="dc-ficha-jornada" hidden>
+              <h2 class="dc-titulo">Jornada del Día D</h2>
+              <p class="dc-bajada">Los horarios de la jornada y desde cuándo salen las alertas. Todo en hora de Colombia.</p>
+
+              <div id="bloque-jornada">
+                <div class="dc-sub">Horario de la jornada (hora de Colombia)</div>
+                <div class="dc-g2">
+                  <div class="campo"><label for="jornada-apertura">Apertura de urnas</label><input type="time" id="jornada-apertura" value="08:00">
+                    <small>Desde aquí se cuenta cuánto se espera a un testigo.</small></div>
+                  <div class="campo"><label for="jornada-cierre">Cierre de urnas</label><input type="time" id="jornada-cierre" value="16:00">
+                    <small>Desde aquí se cuenta el plazo del E-14.</small></div>
+                </div>
+
+                <div class="dc-sub">Cuándo salen las alertas</div>
+                <div class="dc-g3">
+                  <div class="campo"><label for="jornada-checkin-min">Minutos para avisar que un testigo no llegó</label><input type="number" id="jornada-checkin-min" min="0" max="1440" value="30">
+                    <small>Pasada la apertura más estos minutos, un testigo sin «Llegué» sale en Alertas.</small></div>
+                  <div class="campo"><label for="jornada-plazo-e14">Plazo para subir el E-14 (minutos)</label><input type="number" id="jornada-plazo-e14" min="0" max="1440" value="120">
+                    <small>Pasado el cierre más este plazo, una mesa sin E-14 sale en Alertas (y su ficha pasa a ámbar).</small></div>
+                  <div class="campo"><label for="jornada-transporte-desde">Transporte sin recoger: avisar desde las</label><input type="time" id="jornada-transporte-desde" value="14:00">
+                    <small>Desde esa hora, el día de la elección, un puesto con personas que esperan transporte sin que las recojan sale en Alertas. Antes aparece en gris, «pendiente».</small></div>
+                </div>
+
+                <div class="dc-g2">
+                  <div class="campo"><label for="jornada-baja-pct">Baja votación: porcentaje «ya votó»</label><input type="number" id="jornada-baja-pct" min="1" max="100" value="40">
+                    <small>Un puesto con menos de este % de sus votantes marcados como «ya votó» sale en Alertas.</small></div>
+                  <div class="campo"><label for="jornada-baja-desde">Baja votación: mirar desde las</label><input type="time" id="jornada-baja-desde" value="12:00">
+                    <small>Antes de esa hora la alerta aparece en gris, «pendiente».</small></div>
+                </div>
+
+                <div class="dc-interruptor">
+                  <label for="jornada-avisos-push"><input type="checkbox" id="jornada-avisos-push" checked> Avisos automáticos por notificación (push)</label>
+                  <small>Con esto encendido, el día de la elección la coordinación recibe un aviso en el celular cuando aparece una alerta (testigo que no llegó, mesa sin E-14, baja votación…), sin tener la pantalla abierta. Un aviso cada 5 minutos como máximo, agrupado. Necesita que cada persona haya activado los avisos en su app.</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- EL PIE, UNO SOLO PARA LAS SEIS FICHAS. Es el mismo «Guardar» de
+                 antes: manda a la vez lo de las seis pestañas. Lo dice en voz
+                 alta a la izquierda, porque con las fichas separadas es
+                 razonable temer que cada una se guarde aparte. -->
+            <div class="dc-pie">
+              <div class="dc-pie-nota">Las seis fichas se guardan juntas</div>
+              <div class="dc-pie-botones">
+                <button type="button" id="dc-btn-cancelar">Cancelar</button>
+                <button type="submit" class="btn-primario" id="dc-btn-guardar">💾 Guardar datos de la campaña</button>
+              </div>
             </div>
           </div>
         </div>
-
-        <!-- ===== TERRITORIO =====
-             Dónde se juega la campaña y con qué palabras se divide.
-             Las cuatro preguntas van juntas y en dos parejas —urbano y
-             rural— porque así es como está armada la jerarquía: Comuna y
-             Corregimiento son el mismo nivel, y Barrio y Vereda el
-             siguiente. Verlas en fila corrida invita a apagar una sola
-             mitad sin darse cuenta de que la otra existe. -->
-        <div id="bloque-territorio" style="border:1px solid #D3E0F5; border-radius:10px; padding:14px 16px; margin-bottom:18px; background:#F8FAFE;">
-          <div class="titulo-apartado">Territorio</div>
-          <small style="display:block; color:var(--color-text-muted); font-size:0.8rem; margin-bottom:12px;">
-            Dónde se desarrolla la campaña y qué divisiones usa para organizarla.
-          </small>
-
-          <div class="fila" style="flex-wrap:wrap;">
-            <div class="campo" style="flex:1; min-width:180px;">
-              <label for="input-departamento-campana">Departamento</label>
-              <input id="input-departamento-campana" list="lista-departamentos-campana" autocomplete="off">
-              <datalist id="lista-departamentos-campana"></datalist>
-            </div>
-            <div class="campo" style="flex:1; min-width:180px;">
-              <label for="input-ciudad-campana">Ciudad</label>
-              <input id="input-ciudad-campana" list="lista-ciudades-campana" autocomplete="off">
-              <datalist id="lista-ciudades-campana"></datalist>
-            </div>
-          </div>
-
-          <div class="subtitulo-apartado">Divisiones urbanas</div>
-          <div class="fila" style="flex-wrap:wrap;">
-            <div class="campo" style="flex:1; min-width:220px;">
-              <label for="campo-ciudad-tiene-comunas">¿Utilizar nombre de comunas?</label>
-              <select id="campo-ciudad-tiene-comunas" name="ciudad_tiene_comunas">
-                <option value="1">Sí</option>
-                <option value="0">No</option>
-              </select>
-            </div>
-            <div class="campo" style="flex:1; min-width:220px;">
-              <label for="campo-usar-nombre-barrios">¿Utilizar nombre de barrios?</label>
-              <select id="campo-usar-nombre-barrios" name="usar_nombre_barrios">
-                <option value="1">Sí</option>
-                <option value="0">No</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="subtitulo-apartado">Divisiones rurales</div>
-          <div class="fila" style="flex-wrap:wrap;">
-            <div class="campo" style="flex:1; min-width:220px;">
-              <label for="campo-usar-nombre-corregimientos">¿Utilizar nombre de corregimientos?</label>
-              <select id="campo-usar-nombre-corregimientos" name="usar_nombre_corregimientos">
-                <option value="1">Sí</option>
-                <option value="0">No</option>
-              </select>
-            </div>
-            <div class="campo" style="flex:1; min-width:220px;">
-              <label for="campo-usar-nombre-veredas">¿Utilizar nombre de veredas?</label>
-              <select id="campo-usar-nombre-veredas" name="usar_nombre_veredas">
-                <option value="1">Sí</option>
-                <option value="0">No</option>
-              </select>
-            </div>
-          </div>
-
-          <small style="color:var(--color-text-muted); font-size:0.78rem; display:block;">
-            Responda <strong>No</strong> a la división que su territorio no use, o que no quiera manejar en la campaña: ese campo deja de aparecer en todos los formularios de captura —Coordinadores y líderes, Votantes y sublíderes, Eventos, Asistentes a reuniones y la app del celular— y tampoco se ofrece crear zonas de ese tipo en "Gestionar territorios".
-            Cada pareja funciona igual: si <em>Barrios</em> queda en No, la persona se asigna directo a la Comuna; si <em>Veredas</em> queda en No, se asigna directo al Corregimiento. Con las dos de una pareja en No, esa área se guarda sin subdivisión.
-            <br><br>
-            Lo que ya está registrado <strong>no se borra ni se mueve</strong>, pero deja de poder corregirse desde el formulario: si vuelve a guardar la ficha de alguien asignado a ese nivel, quedará en el nivel de arriba.
-          </small>
-        </div>
-
-        <!-- Apoyos: define qué opciones aparecen como "Apoya a" en los
-             formularios de Coordinadores/Líderes y de Votantes/Sublíderes.
-             El botón y las opciones dependen del Cargo al que aspira, así
-             que se arman desde el servidor (ver /configuracion/campana). -->
-        <div id="bloque-apoyos" style="display:none; margin-bottom:18px;">
-          <button type="button" class="btn-secundario btn-sm" id="btn-activar-apoyos">🤝 Activar apoyos</button>
-          <small style="display:block; margin-top:6px; color:var(--color-text-muted); font-size:0.8rem;">
-            Define a qué otras campañas puede apoyar la gente que registres. Lo que marques aquí
-            es lo que aparece como <strong>“Apoya a”</strong> al crear coordinadores, líderes, votantes y sublíderes.
-          </small>
-          <div id="panel-apoyos" style="display:none; margin-top:10px; background:#F4F7FC; border:1px solid #D3E0F5; border-radius:10px; padding:12px 14px;">
-            <div style="font-size:0.85rem; font-weight:600; color:#1B4C9C; margin-bottom:8px;">Apoyos disponibles</div>
-            <div id="casillas-apoyos" style="display:flex; gap:18px; flex-wrap:wrap;"></div>
-            <small style="display:block; margin-top:8px; color:var(--color-text-muted); font-size:0.78rem;">
-              Si no marcas ninguno, la sección “Apoya a” no aparece en los formularios.
-            </small>
-          </div>
-        </div>
-
-        <button type="submit" class="btn-primario">Guardar</button>
       </form>
     </div>
 
@@ -683,10 +811,29 @@
     (function () {
       var secciones = { campana: 'seccion-campana', diad: 'seccion-diad', usuarios: 'seccion-usuarios', permisos: 'seccion-permisos',
         complementos: 'seccion-complementos', eliminar: 'seccion-eliminar', recordatorios: 'seccion-recordatorios', backup: 'seccion-backup' };
+      /* Orden 144: las seis FICHAS de «Datos de la campaña» también tienen su
+         `#` (#datos-candidato, #datos-territorio…). Todas abren esta misma
+         sección, y aquí se deja además abierta la ficha pedida: hacerlo más
+         tarde, en el arranque, dejaba ver un instante la ficha «Candidato». */
+      var fichas = { 'datos-candidato': 'dc-panel-candidato', 'datos-campana-meta': 'dc-panel-campana', 'datos-identidad': 'dc-panel-identidad',
+        'datos-territorio': 'dc-panel-territorio', 'datos-apoyos': 'dc-panel-apoyos', 'datos-jornada': 'dc-panel-jornada' };
       var id = 'seccion-campana';
-      try { var pedida = window.location.hash.slice(1); if (Object.prototype.hasOwnProperty.call(secciones, pedida)) id = secciones[pedida]; } catch (e) { /* la de siempre */ }
+      var ficha = '';
+      try {
+        var pedida = window.location.hash.slice(1);
+        if (Object.prototype.hasOwnProperty.call(secciones, pedida)) id = secciones[pedida];
+        else if (Object.prototype.hasOwnProperty.call(fichas, pedida)) { id = 'seccion-campana'; ficha = pedida; }
+      } catch (e) { /* la de siempre */ }
       var el = document.getElementById(id) || document.getElementById('seccion-campana');
       if (el) el.style.display = 'block';
+      if (ficha) {
+        Object.keys(fichas).forEach(function (h) {
+          var panel = document.getElementById(fichas[h]);
+          var boton = document.querySelector('.dc-ficha[data-ficha="' + h + '"]');
+          if (panel) panel.hidden = h !== ficha;
+          if (boton) boton.setAttribute('aria-selected', h === ficha ? 'true' : 'false');
+        });
+      }
     })();
     </script>
   </main>
@@ -803,10 +950,20 @@
 /* LA JORNADA DEL DÍA D (horarios y umbrales). Se lee y se guarda por su propia ruta (/dia-d/alertas/config) y no por la
    de «Datos de la campaña»: no comparte con ella ni permisos ni riesgos. Quien no es administrador de la campaña principal
    (el aspirante) no ve el bloque. */
+/* Orden 144: si el bloque de la jornada no es para quien mira, su PESTAÑA
+   tampoco. Una ficha que se abre y no tiene nada dentro no es más honesta que
+   no ofrecerla; y si era la ficha abierta, se vuelve a la primera. */
+function dcEsconderFichaJornada() {
+  const b = document.getElementById('dc-ficha-jornada');
+  if (!b) return;
+  b.style.display = 'none';
+  if (b.getAttribute('aria-selected') === 'true') dcAbrirFicha('datos-candidato');
+}
+
 async function cargarJornadaEnElFormulario() {
   const bloque = document.getElementById('bloque-jornada');
   if (!bloque) return;
-  if (usuarioActual && (usuarioActual.es_aspirante || usuarioActual.rol !== 'admin')) { bloque.style.display = 'none'; return; }
+  if (usuarioActual && (usuarioActual.es_aspirante || usuarioActual.rol !== 'admin')) { bloque.style.display = 'none'; dcEsconderFichaJornada(); return; }
   try {
     const c = await api('/dia-d/alertas/config');
     document.getElementById('jornada-apertura').value = c.jornada_apertura;
@@ -817,7 +974,8 @@ async function cargarJornadaEnElFormulario() {
     document.getElementById('jornada-baja-desde').value = c.baja_votacion_desde;
     if (c.transporte_alerta_desde) document.getElementById('jornada-transporte-desde').value = c.transporte_alerta_desde;
     document.getElementById('jornada-avisos-push').checked = c.avisos_alertas_push !== false;
-  } catch (_) { bloque.style.display = 'none'; }
+    dcPintarTarjeta();   // orden 144: ya se saben las horas de las urnas, que van en la ficha azul
+  } catch (_) { bloque.style.display = 'none'; dcEsconderFichaJornada(); }
 }
 async function guardarJornadaDelFormulario() {
   const bloque = document.getElementById('bloque-jornada');
@@ -881,7 +1039,11 @@ function cambiarPestana(pestana) {
   // Eliminar información...), que pertenecen a otro lugar del menú.
   aplicarPresentacionPestana(pestana);
 
-  history.replaceState(null, '', `#${pestana}`);
+  /* EN «DATOS DE LA CAMPAÑA» EL `#` ES EL DE LA FICHA ABIERTA (orden 144), no
+     `#campana`: si no, entrar por #datos-territorio y que esta función pisara
+     el ancla con `#campana` dejaba la ficha bien abierta y la dirección
+     mintiendo — y al recargar se volvía a «Candidato». */
+  history.replaceState(null, '', `#${pestana === 'campana' && typeof dcHashFicha === 'function' ? dcHashFicha() : pestana}`);
   // replaceState no avisa: el menú lateral se entera por aquí de cuál es la vista de ahora (orden 34).
   if (window.actualizarMenuActivo) window.actualizarMenuActivo();
   if (pestana === 'diad') { cargarPuestosVotacion(); cambiarSubPestanaDiaD('puestos'); }
@@ -1010,9 +1172,242 @@ function pestanasPermitidas() {
 // Esta página cambia de pestaña por el ancla: el menú lateral no recarga al tocar uno de sus ítems (common.js).
 window.paginaEscuchaHash = true;
 window.addEventListener('hashchange', () => {
-  const pestana = window.location.hash.slice(1);
-  if (pestanasPermitidas().includes(pestana)) cambiarPestana(pestana);
+  const pedido = window.location.hash.slice(1);
+  // Orden 144: `#datos-territorio` y sus cinco hermanos son fichas DENTRO de
+  // «Datos de la campaña». Se traduce a su pestaña y se abre la ficha pedida.
+  const pestana = dcPestanaDelHash(pedido);
+  if (!pestanasPermitidas().includes(pestana)) return;
+  if (pestana === 'campana') dcAbrirFicha(pedido, false);
+  cambiarPestana(pestana);
 });
+
+/* ======================================================================
+   ORDEN 144 — LAS SEIS FICHAS Y LA FICHA AZUL DE «DATOS DE LA CAMPAÑA»
+
+   Nada de aquí guarda nada ni pide nada al servidor: mueve de sitio lo que
+   ya existe (esconder y mostrar paneles) y repinta un resumen con lo que hay
+   escrito en los campos. El guardado sigue siendo el `submit` del formulario,
+   intacto, y el logo sigue subiéndose solo, por su propia ruta.
+   ====================================================================== */
+
+/* El orden es el que pidió Gildardo y es el mismo en los tres sitios: los
+   botones del HTML, los paneles y esta tabla. Si mañana entra una séptima,
+   es una línea aquí y un botón y un panel allá — no siete sitios. */
+const DC_FICHAS = [
+  { hash: 'datos-candidato',    boton: 'dc-ficha-candidato',  panel: 'dc-panel-candidato' },
+  { hash: 'datos-campana-meta', boton: 'dc-ficha-campana',    panel: 'dc-panel-campana' },
+  { hash: 'datos-identidad',    boton: 'dc-ficha-identidad',  panel: 'dc-panel-identidad' },
+  { hash: 'datos-territorio',   boton: 'dc-ficha-territorio', panel: 'dc-panel-territorio' },
+  { hash: 'datos-apoyos',       boton: 'dc-ficha-apoyos',     panel: 'dc-panel-apoyos' },
+  { hash: 'datos-jornada',      boton: 'dc-ficha-jornada',    panel: 'dc-panel-jornada' },
+];
+const DC_HASHES = DC_FICHAS.map((f) => f.hash);
+
+/** El `#` de la ficha abierta ahora mismo (para que `cambiarPestana` lo conserve). */
+function dcHashFicha() {
+  const f = DC_FICHAS.find((x) => document.getElementById(x.boton).getAttribute('aria-selected') === 'true');
+  return f ? f.hash : DC_HASHES[0];
+}
+
+/**
+ * Abre una ficha. `escribirHash` queda en false cuando la llamada VIENE del
+ * hash (al cargar o al cambiarlo a mano): volver a escribirlo no haría daño,
+ * pero deja claro quién manda en cada caso.
+ */
+function dcAbrirFicha(hash, escribirHash = true) {
+  if (!DC_HASHES.includes(hash)) hash = DC_HASHES[0];
+  DC_FICHAS.forEach((f) => {
+    const b = document.getElementById(f.boton);
+    const p = document.getElementById(f.panel);
+    if (!b || !p) return;
+    const esta = f.hash === hash;
+    b.setAttribute('aria-selected', esta ? 'true' : 'false');
+    p.hidden = !esta;
+  });
+  /* LA FICHA ABIERTA VA EN LA DIRECCIÓN, para que recargar vuelva a la misma
+     y para poder mandarle a alguien el enlace de «Territorio» y no el de
+     «Datos de la campaña, y baje hasta la mitad». */
+  if (escribirHash && window.location.hash.slice(1) !== hash) history.replaceState(null, '', '#' + hash);
+}
+
+document.getElementById('dc-fichas').addEventListener('click', (e) => {
+  const b = e.target.closest('.dc-ficha');
+  if (b) dcAbrirFicha(b.dataset.ficha);
+});
+
+/* ---------- El error que está en OTRA ficha ---------- */
+
+/** Quita la señal de error de las seis fichas y de los campos. Se llama al empezar a guardar. */
+function dcLimpiarErrores() {
+  DC_FICHAS.forEach((f) => document.getElementById(f.boton).classList.remove('dc-con-error'));
+  document.querySelectorAll('#seccion-campana .dc-campo-malo').forEach((c) => c.classList.remove('dc-campo-malo'));
+}
+
+/**
+ * Lleva a la ficha donde está el campo que no pasó la validación, lo enfoca y
+ * le pone un punto rojo a la pestaña.
+ *
+ * SIN ESTO, EL AVISO MIENTE A MEDIAS. El mensaje de error sale arriba, pero el
+ * campo que lo provoca puede estar en una pestaña que no se ve: la pantalla
+ * dice «revisa el teléfono» y en la que uno está mirando no hay ningún
+ * teléfono.
+ */
+function dcSaltarAlCampo(id) {
+  const campo = document.getElementById(id);
+  if (!campo) return;
+  const panel = campo.closest('.dc-panel');
+  const ficha = panel && DC_FICHAS.find((f) => f.panel === panel.id);
+  if (ficha) {
+    dcAbrirFicha(ficha.hash);
+    document.getElementById(ficha.boton).classList.add('dc-con-error');
+  }
+  campo.classList.add('dc-campo-malo');
+  try { campo.focus({ preventScroll: false }); } catch (_) { campo.focus(); }
+}
+
+/* ---------- La ficha azul: el espejo de lo que se está escribiendo ---------- */
+
+// La URL del logo propio de la campaña, '' si usa el de la plataforma. Sale
+// del mismo dato que la vista previa y el botón «Quitar» (pintarVistaLogo).
+let dcLogoUrl = '';
+
+const dcVal = (id) => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+
+/** Las iniciales del candidato, para cuando no hay logo. «María Pérez» → «MP». */
+function dcIniciales(nombre) {
+  const partes = nombre.split(/\s+/).filter(Boolean);
+  if (!partes.length) return '?';
+  return (partes[0][0] + (partes[1] ? partes[1][0] : '')).toUpperCase();
+}
+
+/**
+ * Los días que faltan, contando de medianoche a medianoche.
+ *
+ * NO con `new Date('2026-03-08')`: eso es medianoche UTC, y en Colombia
+ * (UTC−5) devuelve el día anterior. Se parte la cadena y se arma la fecha
+ * local, que es la que ve quien mira la pantalla.
+ */
+function dcDiasHasta(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return null;
+  const eleccion = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const hoy = new Date();
+  const h = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return Math.round((eleccion - h) / 86400000);
+}
+
+const DC_CARGOS = { senado: 'Senado', camara_representantes: 'Cámara de Representantes', gobernacion: 'Gobernación',
+  asamblea: 'Asamblea', alcaldia: 'Alcaldía', concejo: 'Concejo', jal: 'JAL' };
+
+/** La meta que se está mostrando: la de la campaña, o la del aspirante si es su pantalla. */
+function dcMetaVisible() {
+  const madre = document.getElementById('campo-meta-campana');
+  if (madre && madre.style.display !== 'none') return dcVal('campo-meta-votos-campana');
+  return dcVal('input-meta-sublicencia');
+}
+
+function dcPintarTarjeta() {
+  const nombre = dcVal('campo-nombre-candidato');
+  const img = document.getElementById('dc-logo-img');
+  const ini = document.getElementById('dc-iniciales');
+  if (dcLogoUrl) {
+    img.src = dcLogoUrl;
+    img.style.display = 'block';
+    ini.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    ini.style.display = 'block';
+    ini.textContent = dcIniciales(nombre);
+  }
+
+  document.getElementById('dc-nombre').textContent = nombre || 'Nombre del candidato';
+  // El eslogan de la campaña; si no hay, el del menú lateral, que es el otro
+  // sitio donde se escribe uno. Vacío: la línea no ocupa espacio.
+  const eslogan = dcVal('campo-slogan-campana') || dcVal('campo-marca-subtitulo');
+  document.getElementById('dc-eslogan').textContent = eslogan;
+  document.getElementById('dc-eslogan').style.display = eslogan ? 'block' : 'none';
+
+  const fecha = dcVal('campo-fecha-eleccion');
+  const dias = dcDiasHasta(fecha);
+  const rotulo = document.getElementById('dc-cuenta-rotulo');
+  const cajas = document.getElementById('dc-cajas');
+  const sinFecha = document.getElementById('dc-sin-fecha');
+  const meta = Number(dcMetaVisible() || 0);
+  if (dias === null) {
+    rotulo.style.display = 'none';
+    cajas.style.display = 'none';
+    sinFecha.style.display = 'block';
+  } else {
+    const [a, m, d] = fecha.split('-');
+    rotulo.textContent = dias >= 0
+      ? `Faltan para la elección (${d}/${m}/${a})`
+      : `La elección fue el ${d}/${m}/${a}`;
+    rotulo.style.display = 'block';
+    cajas.style.display = 'grid';
+    sinFecha.style.display = 'none';
+    document.getElementById('dc-dias').textContent = Math.max(0, dias).toLocaleString('es-CO');
+    document.getElementById('dc-semanas').textContent = Math.max(0, Math.floor(dias / 7)).toLocaleString('es-CO');
+    document.getElementById('dc-meta').textContent = meta.toLocaleString('es-CO');
+  }
+
+  const cargo = DC_CARGOS[dcVal('campo-cargo-aspira')] || '';
+  const ciudad = dcVal('input-ciudad-campana');
+  const depto = dcVal('input-departamento-campana');
+  const lugar = [ciudad, depto].filter(Boolean).join(', ');
+  document.getElementById('dc-cargo-lugar').textContent = [cargo, lugar].filter(Boolean).join(' · ');
+
+  const sel = document.getElementById('select-partido-politico');
+  const partido = sel && sel.value === 'Otro' ? dcVal('input-partido-otro') : (sel ? sel.value : '');
+  document.getElementById('dc-partido').textContent = partido;
+
+  const apertura = dcVal('jornada-apertura');
+  const cierre = dcVal('jornada-cierre');
+  const jornada = document.getElementById('bloque-jornada');
+  const verJornada = jornada && jornada.style.display !== 'none' && apertura && cierre;
+  document.getElementById('dc-urnas').textContent = verJornada ? `Urnas ${apertura} – ${cierre}` : '';
+
+  dcPintarMuestraMenu();
+}
+
+/** La muestra de cómo queda la cabecera del menú lateral (ficha «Identidad»). */
+function dcPintarMuestraMenu() {
+  const titulo = dcVal('campo-marca-titulo');
+  const sub = dcVal('campo-marca-subtitulo');
+  const logo = document.getElementById('dc-muestra-logo');
+  if (logo) logo.src = dcLogoUrl || '/img/logo.png';
+  const t = document.getElementById('dc-muestra-titulo');
+  const s = document.getElementById('dc-muestra-sub');
+  t.textContent = titulo;
+  t.style.display = titulo ? 'block' : 'none';
+  s.textContent = sub;
+  s.style.display = sub ? 'block' : 'none';
+}
+
+/* UN SOLO OYENTE PARA TODO EL FORMULARIO, y no uno por campo. Los campos que
+   alimentan la ficha azul son ocho hoy; atarlos de uno en uno es la forma de
+   que el noveno se quede sin repintar y nadie sepa por qué. */
+['input', 'change'].forEach((ev) =>
+  document.getElementById('form-campana').addEventListener(ev, dcPintarTarjeta));
+
+/* El botón amarillo de la ficha azul hace lo MISMO que «Cambiar logo» de la
+   ficha Identidad: abre el selector de archivo. No duplica la subida — la
+   hace el `change` de `archivo-logo`, que ya existía. */
+document.getElementById('dc-btn-logo').addEventListener('click', () => {
+  document.getElementById('btn-cambiar-logo').click();
+});
+
+/* ---------- Cancelar ---------- */
+document.getElementById('dc-btn-cancelar').addEventListener('click', async () => {
+  if (!(await confirmarEnModal('¿Descartar los cambios?',
+        'Se vuelve a lo último guardado en las seis fichas. El logo no cambia: ése se guarda al elegirlo.',
+        'Descartar'))) return;
+  window.location.reload();
+});
+
+/* ---------- La ficha abierta y el `#` ---------- */
+
+/** El `#` de la URL puede pedir una SECCIÓN (#usuarios) o una FICHA (#datos-territorio). */
+function dcPestanaDelHash(h) { return DC_HASHES.includes(h) ? 'campana' : h; }
 
 // --- Datos de la campaña ---
 let catalogoColombiaCampana = null;
@@ -1048,6 +1443,13 @@ function pintarApoyos(posibles, activos) {
   const panel = document.getElementById('panel-apoyos');
   const casillas = document.getElementById('casillas-apoyos');
 
+  /* Orden 144: la PESTAÑA «Apoyos» se queda siempre; lo que aparece y
+     desaparece es el contenido. Antes el bloque entero se iba sin dejar
+     rastro, y con seis pestañas fijas una que se esfuma parece un fallo: en su
+     lugar se explica por qué está vacía y dónde se cambia el cargo. */
+  const vacio = document.getElementById('dc-apoyos-vacio');
+  if (vacio) vacio.style.display = posibles.length ? 'none' : 'block';
+
   if (!posibles.length) {
     bloque.style.display = 'none';
     panel.style.display = 'none';
@@ -1057,8 +1459,11 @@ function pintarApoyos(posibles, activos) {
   bloque.style.display = 'block';
 
   const marcados = Array.isArray(activos) ? activos : [];
+  // Orden 144: las mismas casillas, como tarjetas de tres en fondo (el CSS las
+  // marca con `:has(input:checked)`). El `value` y el `checked` no cambian: de
+  // ahí los lee el guardado.
   casillas.innerHTML = posibles.map(a => `
-    <label style="display:flex; align-items:center; gap:6px; font-weight:400;">
+    <label class="dc-apoyo">
       <input type="checkbox" value="${a}" ${marcados.includes(a) ? 'checked' : ''}>
       ${ETIQUETAS_APOYO[a] || a}
     </label>`).join('');
@@ -1244,6 +1649,12 @@ async function cargarConfiguracionCampana() {
     select.value = partido;
     document.getElementById('campo-partido-otro').style.display = partido === 'Otro' ? 'block' : 'none';
   }
+
+  /* LA FICHA AZUL SE PINTA AL FINAL (orden 144), cuando ya están puestos el
+     partido, la meta que toca y —si es un aspirante— los campos escondidos.
+     Pintarla antes mostraba la meta de la campaña madre en la pantalla del
+     aspirante, que es justo la que se le esconde. */
+  dcPintarTarjeta();
 }
 
 document.getElementById('form-campana').addEventListener('submit', async (e) => {
@@ -1252,10 +1663,16 @@ document.getElementById('form-campana').addEventListener('submit', async (e) => 
   const okBox = document.getElementById('campana-ok');
   errorBox.classList.remove('visible');
   okBox.classList.remove('visible');
+  dcLimpiarErrores();
 
   if (!validarTelefonosFormulario('#form-campana [name="telefono"]')) {
     errorBox.textContent = 'Error de digitación: revisa el teléfono (debe tener 10 dígitos).';
     errorBox.classList.add('visible');
+    /* Orden 144: el teléfono vive en la ficha «Campaña y meta», y se puede
+       guardar desde cualquiera de las seis. Se abre la que lo contiene, se
+       enfoca y se le pone el punto rojo a la pestaña — si no, el aviso habla
+       de un campo que no está a la vista. */
+    dcSaltarAlCampo('campo-telefono-2');
     return;
   }
 
@@ -1339,6 +1756,11 @@ function pintarVistaLogo(url) {
   if (!img) return;
   img.src = url || '/img/logo.png';
   if (btnQuitar) btnQuitar.style.display = url ? 'inline-block' : 'none';
+  /* Orden 144: la ficha azul y la muestra del menú salen del MISMO dato que la
+     vista previa y el botón «Quitar». Un segundo sitio donde averiguar si hay
+     logo propio es un segundo sitio donde equivocarse. */
+  dcLogoUrl = url || '';
+  dcPintarTarjeta();
 }
 
 document.getElementById('btn-cambiar-logo').addEventListener('click', () => {
@@ -3112,12 +3534,16 @@ document.getElementById('input-importar-candidatos').addEventListener('change', 
       if (b) b.style.display = 'none';
     });
     const pedida = window.location.hash.slice(1);
-    cambiarPestana(pestanasPermitidas().includes(pedida) ? pedida : 'campana');
+    // Orden 144: `#datos-*` es una ficha de «Datos de la campaña», no otra sección.
+    if (DC_HASHES.includes(pedida)) dcAbrirFicha(pedida, false);
+    cambiarPestana(pestanasPermitidas().includes(dcPestanaDelHash(pedida)) ? dcPestanaDelHash(pedida) : 'campana');
     return;
   }
 
-  const pestanaInicial = pestanasPermitidas().includes(window.location.hash.slice(1))
-    ? window.location.hash.slice(1) : 'campana';
+  const pedida = window.location.hash.slice(1);
+  if (DC_HASHES.includes(pedida)) dcAbrirFicha(pedida, false);
+  const pestanaInicial = pestanasPermitidas().includes(dcPestanaDelHash(pedida))
+    ? dcPestanaDelHash(pedida) : 'campana';
   cambiarPestana(pestanaInicial);
 })();
 </script>

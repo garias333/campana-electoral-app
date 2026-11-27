@@ -22,12 +22,13 @@
 // servidor (y de paso se refresca la copia guardada); la copia guardada
 // solo entra en juego cuando el intento de red falla por falta de señal
 // — que es exactamente para lo que existe este Service Worker.
-const CACHE_NAME = 'estrategia-v247';
+const CACHE_NAME = 'estrategia-v248';
 const ARCHIVOS_CASCARON = [
   // Compartido / login (para poder cambiar de cuenta guardada sin conexión)
   '/login.html',
   '/css/style.css',
   '/css/controles-uniformes.css',            // orden 138: campos y botones uniformes en 4 zonas del escritorio
+  '/css/datos-campana.css',                  // orden 144: «Datos de la campaña» con ficha azul lateral y 6 fichas
   // Ayuda · Manuales (orden Manuales 2): la pantalla y sus dos archivos propios. El contenido viene de /api/manuales y no se guarda.
   '/ayuda.html',
   '/css/ayuda.css',

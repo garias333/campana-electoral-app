@@ -1,0 +1,597 @@
+/* ==========================================================================
+   css/datos-campana.css — ORDEN 144: «Datos de la campaña» (Configuración) con
+   FICHA AZUL LATERAL y SEIS PESTAÑAS.
+
+   Todo va acotado a `html:not(.modo-app) #seccion-campana`: ninguna otra
+   pantalla y nada de la app del celular cambia. Se carga DESPUÉS de
+   style.css y de controles-uniformes.css.
+
+   POR QUÉ UNA HOJA APARTE Y NO EL <style> DE LA PÁGINA: son ~250 reglas con
+   medidas exactas (46 px de campo, 16 px de letra, los tres colores de la
+   campaña) y el mismo archivo ya traía tres reglas de tamaño sueltas que
+   nadie encontraba. Aquí viven juntas y se leen de una.
+
+   LAS LETRAS SON MÁS GRANDES QUE EN EL RESTO DE CONFIGURACIÓN, a propósito
+   (lo pidió Gildardo): texto 16 px, título de campo 15 px, ayuda 13 px y
+   campos de 46 px. Usuarios, Permisos y Día D siguen con el tamaño estándar.
+   ========================================================================== */
+
+html:not(.modo-app) #seccion-campana {
+  --dc-azul: #0B5ED7;
+  --dc-azul-oscuro: #084298;
+  --dc-amarillo: #FFC300;
+  --dc-borde-campo: #D5DCE8;
+  --dc-ayuda: #6B7280;
+  --dc-azul-claro: #EEF4FF;
+  font-size: 16px;
+}
+
+/* ----- La rejilla: ficha azul de 300 px y la caja blanca con el resto ----- */
+html:not(.modo-app) #seccion-campana .dc-reja {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* ==========================================================================
+   IZQUIERDA — LA FICHA AZUL
+   Queda pegada arriba (sticky) mientras se recorre la ficha de la derecha:
+   es el resumen de lo que se está editando y sirve de espejo al escribir.
+   ========================================================================== */
+html:not(.modo-app) #seccion-campana .dc-tarjeta {
+  position: sticky;
+  top: 16px;
+  box-sizing: border-box;
+  padding: 22px 18px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--dc-azul) 0%, var(--dc-azul-oscuro) 100%);
+  box-shadow: 0 10px 28px rgba(8, 66, 152, .22), 0 2px 6px rgba(16, 24, 40, .08);
+  color: #fff;
+  text-align: center;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-aro {
+  box-sizing: border-box;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 14px;
+  border: 4px solid var(--dc-amarillo);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .10);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-aro img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+  box-sizing: border-box;
+  display: block;
+}
+/* SIN LOGO, LAS INICIALES DEL CANDIDATO. Un hueco vacío con borde amarillo
+   parece un error de carga; las iniciales dicen que todavía no hay logo. */
+html:not(.modo-app) #seccion-campana .dc-iniciales {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--dc-amarillo);
+  letter-spacing: .02em;
+  line-height: 1;
+}
+html:not(.modo-app) #seccion-campana .dc-nombre {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+  overflow-wrap: break-word;
+}
+html:not(.modo-app) #seccion-campana .dc-eslogan {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--dc-amarillo);
+  overflow-wrap: break-word;
+}
+html:not(.modo-app) #seccion-campana .dc-cuenta-rotulo {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: rgba(255, 255, 255, .82);
+}
+html:not(.modo-app) #seccion-campana .dc-cajas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+html:not(.modo-app) #seccion-campana .dc-caja-num {
+  padding: 10px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .13);
+}
+html:not(.modo-app) #seccion-campana .dc-caja-num b {
+  display: block;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--dc-amarillo);
+}
+html:not(.modo-app) #seccion-campana .dc-caja-num span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: rgba(255, 255, 255, .85);
+}
+html:not(.modo-app) #seccion-campana .dc-sin-fecha {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 195, 0, .18);
+  border: 1px solid rgba(255, 195, 0, .5);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dc-amarillo);
+}
+html:not(.modo-app) #seccion-campana .dc-pie-tarjeta {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, .22);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .92);
+}
+html:not(.modo-app) #seccion-campana .dc-pie-tarjeta div { overflow-wrap: break-word; }
+html:not(.modo-app) #seccion-campana .dc-pie-tarjeta .dc-urnas {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--dc-amarillo);
+}
+html:not(.modo-app) #seccion-campana #dc-btn-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 16px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--dc-amarillo);
+  color: #1B2333;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter .15s, transform .15s;
+}
+html:not(.modo-app) #seccion-campana #dc-btn-logo:hover { filter: brightness(1.07); transform: translateY(-1px); }
+html:not(.modo-app) #seccion-campana #dc-btn-logo:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+html:not(.modo-app) #seccion-campana #dc-btn-logo:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+/* ==========================================================================
+   DERECHA — LA CAJA BLANCA CON LAS SEIS FICHAS
+   ========================================================================== */
+html:not(.modo-app) #seccion-campana .dc-caja {
+  box-sizing: border-box;
+  border: 1px solid #E3E8F0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 4px 14px rgba(8, 66, 152, .05);
+  overflow: hidden;
+}
+
+/* ----- La fila de pestañas ----- */
+html:not(.modo-app) #seccion-campana .dc-fichas {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid #E3E8F0;
+  background: #F7F9FC;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+html:not(.modo-app) #seccion-campana .dc-ficha {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding: 0 14px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: #5A6880;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+}
+html:not(.modo-app) #seccion-campana .dc-ficha:hover { color: var(--dc-azul-oscuro); background: #EEF3FC; }
+html:not(.modo-app) #seccion-campana .dc-ficha[aria-selected="true"] {
+  color: var(--dc-azul-oscuro);
+  border-bottom-color: var(--dc-amarillo);
+  background: #fff;
+}
+html:not(.modo-app) #seccion-campana .dc-ficha:focus-visible { outline: 3px solid var(--dc-amarillo); outline-offset: -3px; }
+/* EL PUNTO ROJO: la ficha que esconde el campo con el error. Sin él, guardar
+   desde otra ficha dejaba un mensaje de error arriba y ninguna señal de dónde
+   estaba el campo que lo provocó. */
+html:not(.modo-app) #seccion-campana .dc-ficha.dc-con-error::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #D92D20;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* ----- El cuerpo de cada ficha ----- */
+html:not(.modo-app) #seccion-campana .dc-panel { padding: 22px 24px 8px; }
+html:not(.modo-app) #seccion-campana .dc-panel[hidden] { display: none; }
+html:not(.modo-app) #seccion-campana .dc-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--dc-azul-oscuro);
+}
+html:not(.modo-app) #seccion-campana .dc-titulo::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 5px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--dc-amarillo);
+}
+html:not(.modo-app) #seccion-campana .dc-bajada {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dc-ayuda);
+}
+html:not(.modo-app) #seccion-campana .dc-sub {
+  margin: 18px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--dc-azul-oscuro);
+}
+
+/* ----- Rejillas de campos: 1, 2 y 3 columnas ----- */
+html:not(.modo-app) #seccion-campana .dc-g1,
+html:not(.modo-app) #seccion-campana .dc-g2,
+html:not(.modo-app) #seccion-campana .dc-g3 {
+  display: grid;
+  gap: 0 18px;
+}
+html:not(.modo-app) #seccion-campana .dc-g2 { grid-template-columns: 1fr 1fr; }
+html:not(.modo-app) #seccion-campana .dc-g3 { grid-template-columns: 1fr 1fr 1fr; }
+
+/* LOS RÓTULOS DE UNA FILA RESERVAN DOS LÍNEAS Y SE PEGAN ABAJO.
+   Sin esto, «Minutos para avisar que un testigo no llegó» ocupa dos líneas y
+   «Plazo para subir el E-14 (minutos)» una, así que sus campos quedaban a
+   distinta altura en la misma fila y la ficha se veía descuadrada. Reservar
+   las dos líneas y alinear el texto abajo deja los campos a la misma altura
+   con rótulos de una o de dos líneas. */
+html:not(.modo-app) #seccion-campana :is(.dc-g2, .dc-g3) > .campo > label {
+  display: flex;
+  align-items: flex-end;
+  min-height: 2.6em;
+}
+
+/* ----- Campos: 46 px, blancos, borde de 1,5 px, foco azul con resplandor ----- */
+html:not(.modo-app) #seccion-campana .campo { margin-bottom: 16px; }
+html:not(.modo-app) #seccion-campana label {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 6px;
+  color: var(--dc-azul-oscuro);
+}
+html:not(.modo-app) #seccion-campana :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"]), select) {
+  box-sizing: border-box;
+  min-height: 46px;
+  height: 46px;
+  padding: 0 13px;
+  border: 1.5px solid var(--dc-borde-campo);
+  border-radius: 8px;
+  background-color: #fff;
+  color: #1B2333;
+  font-size: 16px;
+  line-height: 1.2;
+}
+html:not(.modo-app) #seccion-campana select:not([multiple]):not([size]) {
+  padding: 0 40px 0 13px;
+  background-position: right 14px center;
+}
+html:not(.modo-app) #seccion-campana :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"]), select):focus {
+  outline: none;
+  background-color: #fff;
+  border-color: var(--dc-azul);
+  box-shadow: 0 0 0 4px rgba(11, 94, 215, .16);
+}
+html:not(.modo-app) #seccion-campana :is(input, select):disabled {
+  background-color: #F4F6FA;
+  color: #6B7280;
+  cursor: not-allowed;
+}
+/* El campo al que salta un error de validación, señalado también en el campo
+   y no sólo en la pestaña. */
+html:not(.modo-app) #seccion-campana .dc-campo-malo {
+  border-color: #D92D20 !important;
+  box-shadow: 0 0 0 4px rgba(217, 45, 32, .14) !important;
+}
+html:not(.modo-app) #seccion-campana small {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dc-ayuda);
+}
+
+/* ----- Las tres cajas de aviso ----- */
+html:not(.modo-app) #seccion-campana .dc-aviso-amarillo {
+  margin: 6px 0 16px;
+  padding: 11px 13px;
+  border: 1px solid #FFE08A;
+  border-radius: 10px;
+  background: #FFF8DB;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6B4A00;
+}
+html:not(.modo-app) #seccion-campana .dc-aviso-azul {
+  margin: 6px 0 16px;
+  padding: 13px 15px;
+  border: 1px solid #D5E2FA;
+  border-radius: 10px;
+  background: var(--dc-azul-claro);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #314259;
+}
+html:not(.modo-app) #seccion-campana .dc-aviso-azul strong { color: var(--dc-azul-oscuro); }
+/* El interruptor de avisos push, con su explicación, en caja azul clara. */
+html:not(.modo-app) #seccion-campana .dc-interruptor {
+  margin: 6px 0 16px;
+  padding: 13px 15px;
+  border: 1px solid #D5E2FA;
+  border-radius: 10px;
+  background: var(--dc-azul-claro);
+}
+html:not(.modo-app) #seccion-campana .dc-interruptor label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dc-azul-oscuro);
+  cursor: pointer;
+}
+html:not(.modo-app) #seccion-campana .dc-interruptor input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--dc-azul);
+  cursor: pointer;
+}
+html:not(.modo-app) #seccion-campana .dc-interruptor small { margin-top: 7px; }
+
+/* ----- Ficha IDENTIDAD: logo a la izquierda, textos a la derecha ----- */
+html:not(.modo-app) #seccion-campana .dc-identidad {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-caja {
+  box-sizing: border-box;
+  width: 150px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #10233F;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-caja img { width: 100%; height: auto; display: block; }
+html:not(.modo-app) #seccion-campana .dc-logo-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 150px;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-botones button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1.5px solid #C9D6EC;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--dc-azul-oscuro);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+html:not(.modo-app) #seccion-campana .dc-logo-botones button:hover { background: #EEF3FC; border-color: #9DB4D9; }
+html:not(.modo-app) #seccion-campana .dc-logo-botones button:focus-visible { outline: 3px solid var(--dc-amarillo); outline-offset: 1px; }
+html:not(.modo-app) #seccion-campana .dc-logo-nota { max-width: 180px; }
+/* LA MUESTRA EN VIVO de cómo queda arriba del menú lateral: el mismo fondo
+   oscuro del menú, para que lo que se escribe se vea donde va a aparecer. */
+html:not(.modo-app) #seccion-campana .dc-muestra {
+  margin-top: 18px;
+  border: 1px solid #D5E2FA;
+  border-radius: 12px;
+  overflow: hidden;
+}
+html:not(.modo-app) #seccion-campana .dc-muestra-rotulo {
+  padding: 8px 13px;
+  background: var(--dc-azul-claro);
+  border-bottom: 1px solid #D5E2FA;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--dc-azul-oscuro);
+}
+html:not(.modo-app) #seccion-campana .dc-muestra-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 18px 14px;
+  background: #10233F;
+  text-align: center;
+}
+html:not(.modo-app) #seccion-campana .dc-muestra-menu img { max-width: 120px; max-height: 54px; object-fit: contain; display: block; }
+html:not(.modo-app) #seccion-campana .dc-muestra-titulo {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #fff;
+  overflow-wrap: break-word;
+}
+html:not(.modo-app) #seccion-campana .dc-muestra-sub {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1.35;
+  color: var(--dc-amarillo);
+  overflow-wrap: break-word;
+}
+
+/* ----- Ficha APOYOS: las casillas como tarjetas en tres columnas ----- */
+html:not(.modo-app) #seccion-campana #casillas-apoyos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+html:not(.modo-app) #seccion-campana .dc-apoyo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 15px;
+  border: 1.5px solid var(--dc-borde-campo);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1B2333;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+html:not(.modo-app) #seccion-campana .dc-apoyo:hover { border-color: #9DB4D9; }
+html:not(.modo-app) #seccion-campana .dc-apoyo input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+html:not(.modo-app) #seccion-campana .dc-apoyo:has(input:checked) {
+  border-color: var(--dc-azul);
+  background: #F4F8FF;
+}
+html:not(.modo-app) #seccion-campana .dc-apoyo:has(input:checked) input[type="checkbox"] { accent-color: var(--dc-amarillo); }
+html:not(.modo-app) #seccion-campana #panel-apoyos {
+  margin-top: 14px;
+}
+html:not(.modo-app) #seccion-campana #btn-activar-apoyos {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1.5px solid #C9D6EC;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--dc-azul-oscuro);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+html:not(.modo-app) #seccion-campana #btn-activar-apoyos:hover { background: #EEF3FC; border-color: #9DB4D9; }
+
+/* ==========================================================================
+   EL PIE DE LA CAJA — un solo Guardar para las seis fichas
+   ========================================================================== */
+html:not(.modo-app) #seccion-campana .dc-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #E3E8F0;
+  background: #F7F9FC;
+}
+html:not(.modo-app) #seccion-campana .dc-pie-nota {
+  font-size: 13px;
+  color: var(--dc-ayuda);
+}
+html:not(.modo-app) #seccion-campana .dc-pie-botones { display: flex; gap: 10px; flex-wrap: wrap; }
+html:not(.modo-app) #seccion-campana .dc-pie-botones button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+html:not(.modo-app) #seccion-campana #dc-btn-cancelar {
+  border: 1.5px solid #C9D6EC;
+  background: #fff;
+  color: var(--dc-azul-oscuro);
+}
+html:not(.modo-app) #seccion-campana #dc-btn-cancelar:hover { background: #EEF3FC; border-color: #9DB4D9; }
+html:not(.modo-app) #seccion-campana #dc-btn-guardar {
+  border: none;
+  background: var(--dc-azul);
+  color: #fff;
+}
+html:not(.modo-app) #seccion-campana #dc-btn-guardar:hover { background: var(--dc-azul-oscuro); transform: translateY(-1px); }
+html:not(.modo-app) #seccion-campana .dc-pie-botones button:focus-visible { outline: 3px solid var(--dc-amarillo); outline-offset: 2px; }
+
+/* ==========================================================================
+   POR DEBAJO DE 1100 px — la ficha azul sube y deja de ser sticky, los campos
+   pasan a una columna y las pestañas se desplazan de lado.
+   ========================================================================== */
+@media (max-width: 1100px) {
+  html:not(.modo-app) #seccion-campana .dc-reja { grid-template-columns: 1fr; gap: 16px; }
+  html:not(.modo-app) #seccion-campana .dc-tarjeta { position: static; top: auto; }
+  html:not(.modo-app) #seccion-campana :is(.dc-g2, .dc-g3) { grid-template-columns: 1fr; }
+  html:not(.modo-app) #seccion-campana .dc-identidad { grid-template-columns: 1fr; }
+  html:not(.modo-app) #seccion-campana #casillas-apoyos { grid-template-columns: 1fr; }
+  html:not(.modo-app) #seccion-campana .dc-panel { padding: 18px 16px 6px; }
+  html:not(.modo-app) #seccion-campana .dc-pie { padding: 14px 16px; }
+}
