@@ -20,7 +20,7 @@
 //   Cero errores de consola en todas. Capturas en SALIDA.
 //
 // USO (base desechable ya inicializada con init-db; NO correr junto a otra prueba con Chromium):
-//   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada147 [SALIDA=/ruta] \
+//   DB_HOST=127.0.0.1 DB_PORT=33099 DB_USER=root DB_PASSWORD= DB_NAME=simulada147 [SALIDA=/home/…] \
 //     node scripts/probar-ficha-territorios.js
 require('dotenv').config();
 const nombreBase = process.env.DB_NAME || '';
@@ -41,6 +41,29 @@ const { lanzar, espera } = require('./capturas/navegador');
 const modoTerritorios = require('../config/territoriosModo');
 
 const SALIDA = process.env.SALIDA || path.join(os.homedir(), 'capturas-orden147');
+
+/* SALIDA TIENE QUE ESTAR BAJO /home. Esta prueba le entrega al navegador el Excel que sube (DOM.setFileInputFiles,
+   por ruta), y el Chromium de snap NO ve el /tmp del sistema: dentro de su confinamiento /tmp es otro. Con la
+   salida en /tmp el archivo no existe para él, el fetch del navegador falla antes de salir, la pantalla dice
+   «No se pudo conectar con el servidor» y la prueba da 20 FALLA que parecen un fallo del código y no lo son
+   (medido el 28 de noviembre de 2026: 128 ok y 20 FALLA con SALIDA en /tmp; 148 ok y 0 FALLA con la salida por
+   omisión, mismo árbol). Se comprueba la ruta REAL —resolviendo enlaces simbólicos en el ancestro que exista—
+   y ANTES de crear nada. */
+function rutaReal(p) {
+  const absoluta = path.resolve(p);
+  let existente = absoluta;
+  while (!fs.existsSync(existente)) existente = path.dirname(existente);
+  return path.join(fs.realpathSync(existente), path.relative(existente, absoluta));
+}
+const SALIDA_REAL = rutaReal(SALIDA);
+if (!SALIDA_REAL.startsWith('/home/')) {
+  console.error(`Me niego: SALIDA="${SALIDA}" (ruta real: ${SALIDA_REAL}) no está bajo /home.\n` +
+    '  Esta prueba le entrega al navegador el Excel que sube, por ruta, y el Chromium de snap no lee /tmp\n' +
+    '  (dentro de su confinamiento /tmp es otro): el archivo no existiría para él, la importación diría\n' +
+    '  «No se pudo conectar con el servidor» y verías 20 FALLA que no son del código.\n' +
+    '  Usa una ruta bajo /home/<usuario>/ (por ejemplo SALIDA=$HOME/capturas-orden147) o no definas SALIDA.');
+  process.exit(2);
+}
 fs.mkdirSync(SALIDA, { recursive: true });
 let fallos = 0;
 function ok(cond, texto, extra) {
