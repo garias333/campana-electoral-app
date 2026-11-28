@@ -8,7 +8,10 @@
 //
 //   node scripts/territorios-a-catalogo.js                      (simula)
 //   node scripts/territorios-a-catalogo.js --dane 05579         (simula, municipio fijado)
-//   node scripts/territorios-a-catalogo.js --aplicar --vista /ruta/vista.sql
+//   node scripts/territorios-a-catalogo.js --aplicar
+//
+// NO crea la vista: eso lo hace el SQL del catálogo (vista_territorios_catalogo.sql)
+// después, y este guion deja la base justo como ese SQL la exige.
 //
 // ----------------------------------------------------------------------
 // POR QUÉ ESTO NO ES UN «UPDATE territorios SET id = ...»
@@ -101,7 +104,6 @@ function argumentos() {
   return {
     aplicar: a.includes('--aplicar'),
     dane: valor('--dane'),
-    vista: valor('--vista'),
     exportar: valor('--exportar-faltantes'),
     informe: valor('--informe'),
     pares: valor('--pares'),
@@ -423,45 +425,6 @@ async function contarTextos(conexion) {
   return cuenta;
 }
 
-/**
- * PRUEBA LA VISTA ANTES DE TOCAR LA TABLA.
- *
- * LO QUE PASÓ SIN ESTO, EN LA PRUEBA DE ESTA MISMA ORDEN: el script renombró
- * `territorios` y acto seguido la creación de la vista falló por una columna
- * que no existía. La base quedó SIN `territorios` — ni tabla ni vista — o sea
- * con la campaña caída, y un `RENAME` no se deshace con ROLLBACK.
- *
- * Así que la vista se crea primero con OTRO nombre, se le pide una fila para
- * comprobar que de verdad resuelve, y se borra. Si algo falla, falla aquí,
- * cuando todavía no se ha movido nada.
- *
- * Necesita que `campana_ambito` ya tenga su fila: la vista se acota con ella.
- * Por eso el ámbito se declara antes, que además es inofensivo —nadie lo lee
- * mientras `territorios` siga siendo la tabla local—.
- */
-async function probarVista(conexion, sqlVista) {
-  const nombreTemporal = 'territorios_prueba_vista';
-  const sentencias = sqlVista.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean);
-  if (sentencias.length !== 1) {
-    throw new Error(`el archivo de la vista trae ${sentencias.length} sentencias; se esperaba una sola.`);
-  }
-  const conOtroNombre = sentencias[0].replace(
-    /CREATE\s+(OR\s+REPLACE\s+)?(ALGORITHM\s*=\s*\w+\s+)?(SQL\s+SECURITY\s+\w+\s+)?VIEW\s+`?territorios`?/i,
-    (m) => m.replace(/`?territorios`?$/i, nombreTemporal));
-  if (conOtroNombre === sentencias[0]) {
-    throw new Error('no se reconoció el «CREATE VIEW territorios» del archivo: no se puede probar antes de aplicar.');
-  }
-  await conexion.query(`DROP VIEW IF EXISTS ${nombreTemporal}`);
-  try {
-    await conexion.query(conOtroNombre);
-    const [[r]] = await conexion.query(`SELECT COUNT(*) n FROM ${nombreTemporal}`);
-    if (!Number(r.n)) throw new Error('la vista se creó pero no devuelve ni una fila.');
-    return Number(r.n);
-  } finally {
-    try { await conexion.query(`DROP VIEW IF EXISTS ${nombreTemporal}`); } catch (_) { /* da igual */ }
-  }
-}
-
 /** El respaldo. Sin `--no-tablespaces` sale un archivo con encabezado y sin datos. */
 function respaldar(base, carpeta) {
   fs.mkdirSync(carpeta, { recursive: true });
@@ -728,31 +691,15 @@ function respaldar(base, carpeta) {
       salir = 1;
       return;
     }
-    if (!opc.vista || !fs.existsSync(opc.vista)) {
-      console.log('\nNO SE APLICA: falta --vista <archivo.sql> con la vista `territorios` del catálogo.');
-      console.log('Sin ella, renombrar la tabla dejaría la campaña sin territorios.');
-      salir = 1;
-      return;
-    }
-    const sqlVista = fs.readFileSync(opc.vista, 'utf8');
-    if (!/campana_ambito/i.test(sqlVista) || !/CREATE[\s\S]*VIEW/i.test(sqlVista)) {
-      console.log('\nNO SE APLICA: ese archivo no parece la vista (no nombra `campana_ambito`).');
-      salir = 1;
-      return;
-    }
-
     const copia = respaldar(opc.base, path.join(__dirname, '..', 'backups'));
     console.log(`\nRespaldo: ${copia.destino} (${copia.tablas} tablas)`);
 
-    /* EL ÁMBITO VA PRIMERO, porque la vista se acota con él y hay que poder
-       probarla antes de mover nada. Es inofensivo: mientras `territorios` siga
-       siendo la tabla local, nadie lee `campana_ambito`. */
+    /* EL ÁMBITO VA PRIMERO. Es inofensivo mientras `territorios` siga siendo la
+       tabla local —nadie lo lee— y es la primera precondición que comprueba el
+       SQL del catálogo, que corre después. */
     await conexion.query(
       `INSERT IGNORE INTO campana_ambito (campana_id, ctc_territorio_id, nivel_operativo) VALUES (1, ?, 'MUNICIPIO')`,
       [municipio.id]);
-
-    const filasVista = await probarVista(conexion, sqlVista);
-    console.log(`La vista se probó con otro nombre y devuelve ${filasVista} territorio(s). Se sigue.`);
 
     await conexion.beginTransaction();
     /* FASE 1: todos al rango transitorio. FASE 2: a su id definitivo. En una
@@ -793,23 +740,22 @@ function respaldar(base, carpeta) {
     await conexion.commit();
     console.log('Reapuntado y ámbito: hecho.');
 
-    /* El DDL va DESPUÉS del commit: en MySQL no se puede deshacer con ROLLBACK,
-       así que la protección es el respaldo, no la transacción. La vista ya se
-       probó arriba; aun así, si la creación fallara, se devuelve la tabla a su
-       nombre para no dejar la campaña SIN `territorios`. */
-    const sello = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    await conexion.query(`RENAME TABLE territorios TO territorios_local_${sello}`);
-    try {
-      for (const sentencia of sqlVista.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean)) {
-        await conexion.query(sentencia);
-      }
-    } catch (err) {
-      await conexion.query(`RENAME TABLE territorios_local_${sello} TO territorios`);
-      throw new Error(`la vista falló (${err.message}); se devolvió la tabla a su nombre. `
-        + 'Ojo: el reapuntado SÍ quedó hecho, así que restaure el respaldo antes de volver a intentarlo.');
-    }
-    console.log(`Tabla vieja: territorios_local_${sello}   ·   vista territorios creada.`);
-    console.log('\nFalta: la llave de Territorios en el .env y reiniciar la instancia.');
+    /* AQUÍ SE PARA, Y ES A PROPÓSITO.
+       El renombrado de la tabla y la creación de la vista los hace el SQL del
+       CATÁLOGO (vista_territorios_catalogo.sql), que es de quien son: trae sus
+       propias precondiciones, su verificación y su forma de volver atrás, y
+       solo corre si los `territorio_id` ya son los del catálogo — que es
+       exactamente lo que acaba de dejar hecho este guion.
+       La primera versión de este script hacía el DDL por su cuenta y en la
+       prueba dejó la campaña SIN `territorios`: ni tabla ni vista, porque un
+       RENAME no se deshace con ROLLBACK. Dos guiones peleándose por el mismo
+       cambio es como se llega ahí. */
+    console.log('\nFALTA, en este orden:');
+    console.log('  1. El usuario de la campaña necesita SELECT sobre territoriosdb (17 tablas,');
+    console.log('     las mismas que electoraluser), o la vista no resolverá para la aplicación.');
+    console.log('  2. Correr el SQL del catálogo (vista_territorios_catalogo.sql), que renombra');
+    console.log('     la tabla a `territorios_local` y crea la vista.');
+    console.log('  3. La llave de Territorios en el .env y reiniciar la instancia.');
   } catch (err) {
     try { await conexion.rollback(); } catch (_) { /* ya no hay transacción */ }
     console.error('\nSe detuvo:', err.message);
