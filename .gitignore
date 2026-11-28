@@ -33,6 +33,9 @@ Thumbs.db
 
 # Artefactos de build
 parches/*.zip
+# Un zip que se renumeró (p. ej. el 330, reemplazado por el 332) queda como
+# parches/campana-parcheN.zip.REEMPLAZADO-POR-M: ya no termina en .zip y el patrón de arriba no lo cubre.
+parches/*.REEMPLAZADO-POR-*
 
 # Respaldos previos a git
 respaldos_parches/
