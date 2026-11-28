@@ -29,6 +29,13 @@ const ARCHIVOS_CASCARON = [
   '/css/style.css',
   '/css/controles-uniformes.css',            // orden 138: campos y botones uniformes en 4 zonas del escritorio
   '/css/datos-campana.css',                  // orden 144: «Datos de la campaña» con ficha azul lateral y 6 fichas
+  /* Orden 147: la ficha «Barrios y veredas» de esa misma pantalla. Va junto a su hoja por
+     el mismo criterio que la 144 — los dos archivos propios de «Datos de la campaña» se
+     tratan igual. Ojo con lo que esto SÍ y NO hace: `configuracion.html` no está en el
+     cascarón, así que sin señal esa pantalla no abre y el módulo no llega a usarse; lo que
+     aporta es que al cambiar de versión el archivo se renueve con el resto y no quede una
+     copia vieja conviviendo con una página nueva. La estrategia es red primero. */
+  '/js/territorios-gestion.js',
   // Ayuda · Manuales (orden Manuales 2): la pantalla y sus dos archivos propios. El contenido viene de /api/manuales y no se guarda.
   '/ayuda.html',
   '/css/ayuda.css',
