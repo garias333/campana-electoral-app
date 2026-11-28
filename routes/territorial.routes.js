@@ -57,6 +57,7 @@ const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digito
 // hubiera, que no sirvan para editarlo ni borrarlo. Ver config/superadmin.js.
 const { protegerObjetivo, esSuperadmin } = require('../config/superadmin');
 const { territoriosEsVista } = require('../config/territoriosModo');
+const territoriosApi = require('../config/territoriosApi');
 const {
   validarNombre, validarTipo, validarPadre, municipioDe, buscarDuplicado,
   referenciasDe, referenciasGlobales, describirReferencias, limpiarNombre, abreviar
@@ -441,7 +442,11 @@ router.get('/territorios/modo', async (req, res) => {
      separarse. */
   res.json({
     editable: !(await territoriosEsVista()),
-    mando: await mandoTotalTerritorios(req)
+    mando: await mandoTotalTerritorios(req),
+    /* Orden 152: en modo Catálogo la ficha no escribe en la base — le PIDE a
+       Territorios que lo haga. Sin las dos variables del `.env` no hay a quién
+       pedírselo, y la ficha lo dice en vez de ofrecer botones que darían 503. */
+    catalogoConectado: territoriosApi.estaConectado()
   });
 });
 
@@ -760,6 +765,22 @@ function enviarExcelTerritorios(res, datos, nombreArchivo) {
 // plantilla no debería depender de que la base responda.
 router.get('/territorios/exportar-excel', salvoMandoTotal(requiereImportarExportar('territorial')), async (req, res) => {
   if (req.query.plantilla === '1') {
+    /* EN MODO CATÁLOGO LA PLANTILLA SE ARMA CON LOS NOMBRES REALES DEL MUNICIPIO
+       (orden 152), no con los de ejemplo. El motivo es concreto y ya mordió: la
+       plantilla fija dice «Comuna 2 San José» y el catálogo tiene «Comuna 02 -
+       San José»; normalizados NO son el mismo texto, así que un archivo bajado
+       y devuelto tal cual pediría crear una comuna nueva al lado de la real y
+       colgarle el barrio. Con los nombres de verdad, lo nuevo cruza con su
+       comuna o su corregimiento. */
+    if (await territoriosEsVista()) {
+      try {
+        return enviarExcelTerritorios(res, await filasPlantillaDelAmbito(), 'plantilla-territorios.xlsx');
+      } catch (err) {
+        console.error('[territorios] No se pudo armar la plantilla del ámbito:', err.code || err.message);
+        /* Si la consulta falla se cae a la de ejemplo: una plantilla aproximada
+           es mejor que una descarga rota. */
+      }
+    }
     return enviarExcelTerritorios(res, FILAS_PLANTILLA_TERRITORIOS, 'plantilla-territorios.xlsx');
   }
   try {
@@ -970,6 +991,246 @@ function describirErrorDeFila(err) {
     default: return `Error inesperado al guardar esta fila (${(err && err.code) || 'sin código'}).`;
   }
 }
+
+
+/* ======================================================================
+   LO QUE SE SUBE AL CATÁLOGO TERRITORIAL (orden 152)
+
+   En modo Catálogo, Electoral NO escribe en `territoriosdb`: no tiene permiso
+   y dárselo habría sido abrirle a cada campaña la escritura sobre el catálogo
+   nacional que leen todas las demás. Lo que hace es PEDIRLE a Territorios que
+   cree el territorio, por su API (config/territoriosApi.js). Territorios
+   decide: lo correcto entra al momento, lo dudoso queda pendiente de revisión.
+
+   Las dos rutas de aquí no tocan la base local. Devuelven, tal cual, el
+   resumen que contesta Territorios.
+   ====================================================================== */
+
+/** Los municipios que esta campaña ve (en modo Catálogo, los de su ámbito). */
+async function municipiosDelAmbito() {
+  const [filas] = await pool.query(`
+    SELECT m.id, m.nombre AS municipio, d.nombre AS departamento
+      FROM territorios m
+      LEFT JOIN territorios d ON d.id = m.padre_id AND d.tipo = 'departamento'
+     WHERE m.tipo = 'municipio'
+     ORDER BY m.nombre`);
+  return filas;
+}
+
+/**
+ * La plantilla de ejemplo CON LOS NOMBRES REALES del municipio de la campaña.
+ *
+ * Las filas de Comuna y Corregimiento llevan un nombre inventado —son las que
+ * se van a crear—, pero las de Barrio y Vereda apuntan con «Pertenece» a una
+ * comuna y a un corregimiento QUE EXISTEN, para que el archivo de ejemplo
+ * cruce. Si el municipio todavía no tiene comunas (o corregimientos), esa
+ * columna va vacía: en el catálogo una vereda sin corregimiento cuelga del
+ * municipio, que es además lo normal ahí —31.913 de las 32.016 veredas del
+ * país cuelgan del municipio y solo 62 de un corregimiento—.
+ */
+async function filasPlantillaDelAmbito() {
+  const municipios = await municipiosDelAmbito();
+  if (!municipios.length) throw new Error('El ámbito no tiene municipios.');
+  const m = municipios[0];
+  const [[comuna]] = await pool.query(
+    `SELECT nombre FROM territorios WHERE tipo = 'comuna' AND padre_id = ? ORDER BY nombre LIMIT 1`, [m.id]);
+  const [[corregimiento]] = await pool.query(
+    `SELECT nombre FROM territorios WHERE tipo = 'corregimiento' AND padre_id = ? ORDER BY nombre LIMIT 1`, [m.id]);
+  const base = { Departamento: m.departamento || '', Municipio: m.municipio };
+  return [
+    { ...base, 'Área': 'Urbano', Tipo: 'Comuna',        Nombre: 'Comuna de ejemplo',        Pertenece: '' },
+    { ...base, 'Área': 'Urbano', Tipo: 'Barrio',        Nombre: 'Barrio de ejemplo',        Pertenece: comuna ? comuna.nombre : '' },
+    { ...base, 'Área': 'Rural',  Tipo: 'Corregimiento', Nombre: 'Corregimiento de ejemplo', Pertenece: '' },
+    { ...base, 'Área': 'Rural',  Tipo: 'Vereda',        Nombre: 'Vereda de ejemplo',        Pertenece: corregimiento ? corregimiento.nombre : '' }
+  ];
+}
+
+/**
+ * Guarda de las dos rutas del catálogo: solo tienen sentido en modo Catálogo
+ * y solo si la campaña tiene con qué hablarle a Territorios.
+ *
+ * En modo propio responde 409 —ahí las rutas de siempre sí escriben en la
+ * tabla local— y sin variables responde 503, que no es un fallo: es una
+ * campaña a la que todavía no le generaron su llave.
+ */
+async function soloCatalogoConectado(req, res, next) {
+  if (!(await territoriosEsVista())) {
+    return res.status(409).json({
+      error: 'Esta campaña tiene sus territorios en una tabla propia: aquí se agregan e importan con las opciones de siempre, sin pasar por Territorios.'
+    });
+  }
+  if (!territoriosApi.estaConectado()) {
+    return res.status(503).json({ error: territoriosApi.MENSAJE_SIN_CONECTAR });
+  }
+  next();
+}
+
+/* La clave bajo la que viajan las filas en el lote. Vive en una constante
+   porque es lo ÚNICO del contrato que no pude comprobar contra el servicio:
+   `/api-docs` de Territorios exige sesión y desde aquí no se puede abrir. Si
+   el día de mañana la ruta espera otro nombre, se cambia esta línea. */
+const CLAVE_FILAS_LOTE = 'filas';
+/** Para comparar nombres de municipio sin que una tilde o una mayúscula decidan. */
+function sinTildes(t) {
+  return String(t === undefined || t === null ? '' : t)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toUpperCase();
+}
+const TOPE_FILAS_LOTE = 2000;
+const TIPOS_CATALOGO = ['Comuna', 'Barrio', 'Corregimiento', 'Vereda'];
+
+/** El correo de quien sube: Territorios lo exige para saber a quién atribuir la carga. */
+function correoDeQuienSube(req) {
+  const u = req.session && req.session.usuario;
+  return (u && u.email) || '';
+}
+
+/** Traduce una fila del Excel (o del formulario) a lo que espera la API. */
+function filaParaTerritorios(fila, porDefecto) {
+  const limpio = (v) => limpiarNombre(v === undefined || v === null ? '' : v);
+  const tipo = limpio(fila.Tipo || fila.tipo);
+  return {
+    Departamento: limpio(fila.Departamento || fila.departamento) || porDefecto.departamento,
+    Municipio: limpio(fila.Municipio || fila.municipio) || porDefecto.municipio,
+    Tipo: tipo ? tipo.charAt(0).toUpperCase() + tipo.slice(1).toLowerCase() : '',
+    Nombre: limpio(fila.Nombre || fila.nombre),
+    Pertenece: limpio(fila.Pertenece || fila.pertenece || fila['Pertenece a'] || fila['pertenece a'])
+  };
+}
+
+/**
+ * Devuelve al navegador lo que contestó Territorios — SALVO EL 401.
+ *
+ * ESE 401 NO ES NUESTRO Y NO PUEDE VIAJAR TAL CUAL. `api()` del navegador
+ * (public/js/common.js) trata cualquier 401 como «la sesión expiró» y manda a
+ * `/login.html`: pasar el de Territorios hacia fuera SACARÍA DE ELECTORAL a
+ * quien solo tiene la llave mal puesta, sin decirle por qué. Lo encontró la
+ * prueba de esta orden, con la llave cambiada a propósito.
+ *
+ * Se traduce a 502: el problema no es la sesión de quien está mirando, es que
+ * esta campaña no se puede identificar ante Territorios.
+ */
+function responderDeTerritorios(res, r) {
+  if (r.status === 401) {
+    return res.status(502).json({
+      error: 'La llave de Territorios no es válida o fue revocada. Avísele al administrador de la campaña para que la regenere.'
+    });
+  }
+  return res.status(r.status).json(r.cuerpo);
+}
+
+/** Convierte un fallo del cliente en una respuesta que se entiende. */
+function responderFalloApi(res, err) {
+  if (err && err.sinConectar) return res.status(503).json({ error: territoriosApi.MENSAJE_SIN_CONECTAR });
+  if (err && err.sinRespuesta) return res.status(502).json({ error: err.message });
+  console.error('[territorios-api]', err && (err.code || err.message));
+  return res.status(502).json({ error: 'No se pudo completar el envío a Territorios.' });
+}
+
+/**
+ * Agrega UN territorio al catálogo. Con `?simular=1` no escribe: Territorios
+ * contesta qué pasaría.
+ *
+ * El Departamento y el Municipio NO se reciben del navegador si la campaña
+ * tiene uno solo en su ámbito: se ponen aquí. Así nadie puede pedir un barrio
+ * para un municipio que no es el suyo cambiando el formulario — y si lo
+ * intenta, Territorios lo rechazaría igual con 403 fuera_del_ambito.
+ */
+router.post('/territorios/catalogo/agregar', soloMandoTerritorios, soloCatalogoConectado, async (req, res) => {
+  const usuario = correoDeQuienSube(req);
+  if (!usuario) return res.status(400).json({ error: 'Su cuenta no tiene correo y Territorios lo exige para registrar quién sube.' });
+
+  let municipios;
+  try { municipios = await municipiosDelAmbito(); } catch (err) {
+    console.error('[territorios] No se pudo leer el ámbito:', err.code || err.message);
+    return res.status(500).json({ error: 'No se pudo leer el ámbito de la campaña.' });
+  }
+  if (!municipios.length) return res.status(409).json({ error: 'El ámbito de esta campaña no tiene municipios.' });
+
+  /* Con varios municipios (campaña departamental) hay que decir cuál; con uno
+     solo, se usa ese y el formulario ni lo pregunta. */
+  const pedido = limpiarNombre(req.body.municipio || '');
+  const elegido = municipios.length === 1
+    ? municipios[0]
+    : municipios.find((m) => sinTildes(m.municipio) === sinTildes(pedido));
+  if (!elegido) {
+    return res.status(400).json({ error: 'Indique a cuál de los municipios de la campaña pertenece.' });
+  }
+
+  const tipo = limpiarNombre(req.body.tipo || '');
+  const tipoOk = TIPOS_CATALOGO.find((t) => t.toLowerCase() === tipo.toLowerCase());
+  if (!tipoOk) return res.status(400).json({ error: `Tipo no válido. Use: ${TIPOS_CATALOGO.join(', ')}.` });
+  const nombre = validarNombre(req.body.nombre);
+  if (nombre.error) return res.status(400).json({ error: nombre.error });
+
+  const fila = filaParaTerritorios(
+    { Tipo: tipoOk, Nombre: nombre.valor, Pertenece: req.body.pertenece },
+    { departamento: elegido.departamento || '', municipio: elegido.municipio }
+  );
+
+  try {
+    const r = await territoriosApi.llamar('', { usuario, ...fila }, { simular: req.query.simular === '1' });
+    /* Se devuelve el código de Territorios (200, 202 pendiente, 403 fuera del
+       ámbito, 422 error): la pantalla sabe distinguirlos. El 401 es la
+       excepción y se traduce — ver responderDeTerritorios. */
+    return responderDeTerritorios(res, r);
+  } catch (err) {
+    return responderFalloApi(res, err);
+  }
+});
+
+/**
+ * Importa un Excel al catálogo. El archivo se lee AQUÍ (misma librería y mismo
+ * tope de 10 MB que el importador de siempre) y lo que viaja a Territorios son
+ * filas, no el archivo.
+ *
+ * SOLO ADMINISTRADOR Y SUPERADMINISTRADOR, igual que el otro importador y por
+ * el mismo motivo: `xlsx` tiene una vulnerabilidad alta sin arreglo publicado
+ * y esta ruta le entrega un archivo subido por la web. Esta orden NO abre eso
+ * a más roles.
+ */
+router.post('/territorios/catalogo/importar-excel', soloMandoTerritorios, soloCatalogoConectado,
+  uploadExcel.single('archivo'), async (req, res) => {
+    const usuario = correoDeQuienSube(req);
+    if (!usuario) return res.status(400).json({ error: 'Su cuenta no tiene correo y Territorios lo exige para registrar quién sube.' });
+    if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
+
+    let municipios;
+    try { municipios = await municipiosDelAmbito(); } catch (err) {
+      console.error('[territorios] No se pudo leer el ámbito:', err.code || err.message);
+      return res.status(500).json({ error: 'No se pudo leer el ámbito de la campaña.' });
+    }
+    if (!municipios.length) return res.status(409).json({ error: 'El ámbito de esta campaña no tiene municipios.' });
+    const porDefecto = municipios.length === 1
+      ? { departamento: municipios[0].departamento || '', municipio: municipios[0].municipio }
+      : { departamento: '', municipio: '' };
+
+    let filas;
+    try {
+      const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const hoja = libro.Sheets[libro.SheetNames[0]];
+      filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+    } catch (err) {
+      console.error('[territorios] Excel ilegible:', err.code || err.message);
+      return res.status(400).json({ error: 'No se pudo leer el archivo. Compruebe que sea un Excel con las seis columnas.' });
+    }
+    if (!filas.length) return res.status(400).json({ error: 'El archivo no tiene ninguna fila debajo del encabezado.' });
+    if (filas.length > TOPE_FILAS_LOTE) {
+      return res.status(400).json({ error: `El archivo trae ${filas.length} filas y el máximo por envío es ${TOPE_FILAS_LOTE}. Pártalo en varios.` });
+    }
+
+    /* El número de fila del Excel viaja con cada una: es lo que hace que el
+       resumen sirva para arreglar el archivo. La 1 es el encabezado. */
+    const aEnviar = filas.map((f, i) => ({ fila: i + 2, ...filaParaTerritorios(f, porDefecto) }));
+
+    try {
+      const r = await territoriosApi.llamar('/importar',
+        { usuario, [CLAVE_FILAS_LOTE]: aEnviar },
+        { simular: req.query.simular === '1' });
+      return responderDeTerritorios(res, r);
+    } catch (err) {
+      return responderFalloApi(res, err);
+    }
+  });
 
 /* ------------------------- Estructura (personas) ------------------------- */
 

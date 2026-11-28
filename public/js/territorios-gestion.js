@@ -78,11 +78,9 @@
       '<div class="mensaje-error" id="' + p + '-error"></div>' +
       '<div class="mensaje-ok" id="' + p + '-ok"></div>' +
 
-      '<div class="mensaje-ok tg-aviso-catalogo" id="' + p + '-aviso-vista" style="display:none;">' +
-        'Los territorios de esta campaña vienen del Catálogo Territorial y no se editan aquí: si falta ' +
-        'alguno, o hay un nombre mal escrito, se corrige una vez en el catálogo y el cambio aparece solo ' +
-        'en todas las campañas.' +
-      '</div>' +
+      /* El texto lo escribe `aplicarModo()`: cambia según si la campaña está
+         conectada con Territorios y según si quien mira puede subir algo. */
+      '<div class="mensaje-ok tg-aviso-catalogo" id="' + p + '-aviso-vista" style="display:none;"></div>' +
 
       '<div id="' + p + '-form">' +
         '<div class="dc-sub">Agregar uno</div>' +
@@ -128,6 +126,40 @@
         '</div>' +
         '<div class="tg-acciones-form">' +
           '<button type="button" class="btn-primario" id="' + p + '-agregar">Agregar</button>' +
+        '</div>' +
+      '</div>' +
+
+      /* EL FORMULARIO DE MODO CATÁLOGO (orden 152). Es otro bloque y no el de
+         arriba con campos escondidos, a propósito: aquel crea en la tabla local
+         y este le PIDE a Territorios que cree. Mezclarlos habría sido un solo
+         formulario con dos destinos según una variable, que es como se mandan
+         cosas al sitio equivocado. El Departamento y el Municipio no se piden:
+         son los de la campaña y los pone el servidor. */
+      '<div id="' + p + '-form-catalogo" style="display:none;">' +
+        '<div class="dc-sub">Agregar uno</div>' +
+        '<div class="tg-ambito" id="' + p + '-ambito"></div>' +
+        '<div class="dc-g2">' +
+          '<div class="campo">' +
+            '<label for="' + p + '-cat-tipo">Tipo</label>' +
+            '<select id="' + p + '-cat-tipo" data-sin-ordenar>' +
+              '<option value="">Selecciona...</option>' +
+              '<option value="Comuna">Comuna</option>' +
+              '<option value="Barrio">Barrio</option>' +
+              '<option value="Corregimiento">Corregimiento</option>' +
+              '<option value="Vereda">Vereda</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="campo" id="' + p + '-cat-campo-pertenece">' +
+            '<label for="' + p + '-cat-pertenece" id="' + p + '-cat-label-pertenece">Pertenece a</label>' +
+            '<select id="' + p + '-cat-pertenece"><option value="">Sin especificar</option></select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="campo">' +
+          '<label for="' + p + '-cat-nombre">Nombre</label>' +
+          '<input id="' + p + '-cat-nombre" autocomplete="off">' +
+        '</div>' +
+        '<div class="tg-acciones-form">' +
+          '<button type="button" class="btn-primario" id="' + p + '-cat-agregar">Enviar a Territorios</button>' +
         '</div>' +
       '</div>' +
 
@@ -212,6 +244,9 @@
     var catalogo = null;
     var editable = true;     // hasta que el servidor diga lo contrario
     var mando = false;       // falla cerrado: sin respuesta, no se ofrece escribir
+    var conectado = false;   // ¿la campaña tiene llave de Territorios? (orden 152)
+    var ambito = null;       // { departamento, municipio } del ámbito, para el formulario de catálogo
+    var pendienteDeEnviar = null;   // las filas ya simuladas, esperando el «Enviar a Territorios»
     var usa = { comunas: true, barrios: true, corregimientos: true, veredas: true };
     var iniciado = false;
 
@@ -254,11 +289,36 @@
      */
     function aplicarModo() {
       var puedeEscribir = editable && mando;
+      /* EN MODO CATÁLOGO TAMBIÉN SE PUEDE SUBIR (orden 152), pero no a la base
+         de la campaña: a Territorios, y solo si hay llave. Son tres estados y
+         no dos, así que se nombran. */
+      var subeAlCatalogo = !editable && mando && conectado;
+
       mostrar('form', puedeEscribir);
-      mostrar('label-importar', puedeEscribir);
       mostrar('eliminar-todos', puedeEscribir);
-      mostrar('ayuda', puedeEscribir);
+      mostrar('form-catalogo', subeAlCatalogo);
+      mostrar('label-importar', puedeEscribir || subeAlCatalogo);
+      mostrar('ayuda', puedeEscribir || subeAlCatalogo);
       mostrar('aviso-vista', !editable);
+
+      if (!editable) {
+        var aviso = el('aviso-vista');
+        if (aviso) {
+          if (!mando) {
+            /* Quien solo mira: el texto de siempre. */
+            aviso.textContent = 'Los territorios de esta campaña vienen del Catálogo Territorial y no se '
+              + 'editan aquí: si falta alguno, o hay un nombre mal escrito, se corrige una vez en el '
+              + 'catálogo y el cambio aparece solo en todas las campañas.';
+          } else if (!conectado) {
+            aviso.textContent = 'Esta campaña aún no está conectada con Territorios. Los territorios se '
+              + 'ven, pero para agregar o importar hay que generarle su llave primero.';
+          } else {
+            aviso.textContent = 'Los territorios vienen del Catálogo Territorial y los comparten todas '
+              + 'las campañas del municipio. Lo que agregue o importe aquí se envía a Territorios: lo '
+              + 'correcto entra al momento; lo dudoso queda pendiente de revisión.';
+          }
+        }
+      }
       /* Exportar NO es escribir: se ofrece siempre que la ruta lo acepte, y la
          ruta lo acepta a quien tenga mando o el permiso «Importar / Exportar».
          Si no hay mando se deja igual: un 403 legible es mejor que esconder
@@ -330,10 +390,12 @@
         var r = await api('/territorial/territorios/modo');
         editable = r.editable !== false;
         mando = r.mando === true;
+        conectado = r.catalogoConectado === true;
       } catch (_) {
         /* FALLA CERRADO. Sin respuesta no se ofrece escribir: un botón que
            siempre contesta 403 es peor que no estar. */
         mando = false;
+        conectado = false;
       }
       aplicarModo();
     }
@@ -454,6 +516,213 @@
         municipiosDelDepartamento();
         el('municipio').value = u.municipio || '';
       } catch (_) { /* ignorar */ }
+    }
+
+
+    /* ============================================================ CATÁLOGO
+       Lo de aquí abajo solo corre en modo Catálogo: no escribe en la base de
+       la campaña, le pide a Territorios que escriba en el catálogo que todas
+       comparten. (Orden 152.)
+       ==================================================================== */
+
+    /** El Departamento y el Municipio de la campaña, sacados de lo que ya ve. */
+    function calcularAmbito() {
+      var municipios = lista.filter(function (t) { return t.tipo === 'municipio'; });
+      if (!municipios.length) { ambito = null; return; }
+      var m = municipios[0];
+      var porId = {};
+      lista.forEach(function (t) { porId[t.id] = t; });
+      var d = m.padre_id && porId[m.padre_id] ? porId[m.padre_id] : null;
+      ambito = {
+        municipio: m.nombre,
+        municipioId: m.id,
+        departamento: d ? d.nombre : '',
+        varios: municipios.length > 1,
+        municipios: municipios
+      };
+      var caja = el('ambito');
+      if (!caja) return;
+      caja.innerHTML = ambito.varios
+        ? 'Esta campaña abarca <b>' + municipios.length + ' municipios</b>. Para subir uno a uno, elija el municipio en el Excel: aquí se agrega en <b>' + esc(lugar(m.nombre)) + '</b>.'
+        : 'Se agregará en <b>' + esc(lugar(m.nombre)) + '</b>' + (ambito.departamento ? ', ' + esc(lugar(ambito.departamento)) : '') + '.';
+    }
+
+    /**
+     * El «Pertenece a» del formulario de catálogo: comunas para un barrio,
+     * corregimientos para una vereda. Para comuna y corregimiento no se
+     * pregunta — cuelgan del municipio.
+     *
+     * Para una vereda, «Sin corregimiento» es una opción legítima y no un
+     * descuido: en el catálogo la inmensa mayoría de las veredas cuelgan
+     * directamente del municipio.
+     */
+    function catalogoCamposPadre() {
+      var tipo = el('cat-tipo') ? el('cat-tipo').value : '';
+      var campo = el('cat-campo-pertenece');
+      var sel = el('cat-pertenece');
+      if (!campo || !sel) return;
+      if (tipo !== 'Barrio' && tipo !== 'Vereda') {
+        campo.style.display = 'none';
+        sel.innerHTML = '<option value=""></option>';
+        return;
+      }
+      campo.style.display = '';
+      var tipoPadre = tipo === 'Barrio' ? 'comuna' : 'corregimiento';
+      el('cat-label-pertenece').textContent = tipo === 'Barrio'
+        ? 'Comuna a la que pertenece' : 'Corregimiento al que pertenece';
+      var muniId = ambito ? ambito.municipioId : null;
+      var padres = lista.filter(function (t) { return t.tipo === tipoPadre && (!muniId || t.padre_id === muniId); });
+      sel.innerHTML = '<option value="">' + (tipo === 'Barrio' ? 'Sin comuna' : 'Sin corregimiento (cuelga del municipio)') + '</option>'
+        + padres.map(function (x) { return '<option value="' + esc(x.nombre) + '">' + esc(lugar(x.nombre)) + '</option>'; }).join('');
+    }
+
+    /** Lo que contestó Territorios para UNA fila, dicho en palabras. */
+    function palabrasDelResultado(estado, motivo) {
+      if (estado === 'insertada') return 'Entró al catálogo.';
+      if (estado === 'existia') return 'Ya existía: no se tocó.';
+      if (estado === 'repetida') return 'Viene repetida en el archivo.';
+      if (estado === 'pendiente') return 'Quedó pendiente de revisión' + (motivo ? ': ' + motivo : '.');
+      return motivo || 'No se pudo crear.';
+    }
+
+    /** Cuenta por estado lo que devolvió Territorios, sea cual sea el envoltorio. */
+    function contarResultados(cuerpo) {
+      var filas = (cuerpo && (cuerpo.filas || cuerpo.resultados || cuerpo.detalle)) || [];
+      if (!Array.isArray(filas)) filas = [];
+      var cuenta = { insertada: 0, existia: 0, repetida: 0, pendiente: 0, error: 0 };
+      filas.forEach(function (f) {
+        var e = f && (f.estado || f.resultado);
+        if (cuenta[e] === undefined) cuenta.error++; else cuenta[e]++;
+      });
+      return { filas: filas, cuenta: cuenta };
+    }
+
+    /** Pinta el resumen de un envío (o de una simulación) en la caja de siempre. */
+    function pintarResumenCatalogo(cuerpo, simulado) {
+      var r = contarResultados(cuerpo);
+      var c = r.cuenta;
+      var verbo = simulado
+        ? ['Se insertarían', 'ya existían', 'quedarían pendientes', 'errores']
+        : ['Se insertaron', 'ya existían', 'quedaron pendientes', 'errores'];
+      var html = '<div class="tg-res-titulo">' + (simulado ? 'Esto es lo que pasaría' : 'Envío terminado') + '</div>' +
+        '<ul class="tg-res-lista">' +
+          '<li><b>' + c.insertada + '</b> ' + verbo[0].toLowerCase().replace('se ', '') + '</li>' +
+          '<li><b>' + c.existia + '</b> ' + verbo[1] + '</li>' +
+          '<li><b>' + c.pendiente + '</b> ' + verbo[2] + '</li>' +
+          '<li><b>' + (c.error + c.repetida) + '</b> ' + verbo[3] + '</li>' +
+        '</ul>';
+      var noCorrectas = r.filas.filter(function (f) {
+        var e = f && (f.estado || f.resultado);
+        return e !== 'insertada' && e !== 'existia';
+      });
+      if (noCorrectas.length) {
+        html += '<div class="tg-res-errores"><b>Filas que hay que mirar</b><ul>' +
+          noCorrectas.slice(0, 20).map(function (f) {
+            var donde = f.fila ? 'Fila ' + f.fila : (f.Nombre || f.nombre || '');
+            return '<li>' + esc(donde) + ': ' + esc(palabrasDelResultado(f.estado || f.resultado, f.motivo || f.mensaje)) + '</li>';
+          }).join('') + '</ul>' +
+          (noCorrectas.length > 20 ? '<small>Se muestran las primeras 20 de ' + noCorrectas.length + '.</small>' : '') +
+          '</div>';
+      }
+      var caja = el('resultado');
+      caja.className = 'tg-resultado' + ((c.error + c.repetida) ? ' tg-resultado-aviso' : ' tg-resultado-ok');
+      caja.innerHTML = html;
+      caja.style.display = 'block';
+      return r;
+    }
+
+    /**
+     * Importar al catálogo va en DOS pasos: primero se simula y se enseña lo
+     * que pasaría, y solo si la persona lo acepta se envía de verdad.
+     *
+     * No es ceremonia: lo que se sube acaba en el catálogo que leen TODAS las
+     * campañas del municipio, así que ver antes cuántas entrarían, cuántas ya
+     * estaban y cuáles quedarían pendientes es lo que separa una carga de un
+     * accidente compartido.
+     */
+    async function importarAlCatalogo(input) {
+      var archivo = input.files[0];
+      if (!archivo) return;
+      var caja = el('resultado');
+      caja.className = 'tg-resultado';
+      caja.textContent = 'Comprobando con Territorios…';
+      caja.style.display = 'block';
+      pendienteDeEnviar = null;
+      var fd = new FormData();
+      fd.append('archivo', archivo);
+      try {
+        var r = await api('/territorial/territorios/catalogo/importar-excel?simular=1', { method: 'POST', body: fd });
+        var res = pintarResumenCatalogo(r, true);
+        if (res.cuenta.insertada > 0 || res.cuenta.pendiente > 0) {
+          pendienteDeEnviar = archivo;
+          var acc = document.createElement('div');
+          acc.className = 'tg-res-acciones';
+          acc.innerHTML = '<button type="button" class="btn-primario btn-sm" id="' + p + '-confirmar-envio">Enviar a Territorios</button>' +
+            '<button type="button" class="btn-secundario btn-sm" id="' + p + '-cancelar-envio">Cancelar</button>';
+          caja.appendChild(acc);
+          el('confirmar-envio').addEventListener('click', enviarAlCatalogo);
+          el('cancelar-envio').addEventListener('click', function () {
+            pendienteDeEnviar = null;
+            caja.style.display = 'none';
+          });
+        }
+      } catch (err) {
+        caja.className = 'tg-resultado tg-resultado-mal';
+        caja.textContent = err.message;
+      } finally {
+        input.value = '';
+      }
+    }
+
+    /** El segundo paso: ahora sí, de verdad. */
+    async function enviarAlCatalogo() {
+      if (!pendienteDeEnviar) return;
+      var caja = el('resultado');
+      caja.className = 'tg-resultado';
+      caja.textContent = 'Enviando a Territorios…';
+      var fd = new FormData();
+      fd.append('archivo', pendienteDeEnviar);
+      pendienteDeEnviar = null;
+      try {
+        var r = await api('/territorial/territorios/catalogo/importar-excel', { method: 'POST', body: fd });
+        pintarResumenCatalogo(r, false);
+        await cargarLista();
+        calcularAmbito();
+        catalogoCamposPadre();
+        alCambiar();
+      } catch (err) {
+        caja.className = 'tg-resultado tg-resultado-mal';
+        caja.textContent = err.message;
+      }
+    }
+
+    /** Agregar UNO al catálogo. Aquí no hace falta simular: es una fila y se ve. */
+    async function agregarAlCatalogo() {
+      limpiarMensajes();
+      var tipo = el('cat-tipo').value;
+      var nombre = el('cat-nombre').value.trim();
+      if (!tipo || !nombre) return decir('error', 'Elija el tipo y escriba el nombre.');
+      var cuerpo = { tipo: tipo, nombre: nombre };
+      var campoPadre = el('cat-campo-pertenece');
+      if (campoPadre && campoPadre.style.display !== 'none' && el('cat-pertenece').value) {
+        cuerpo.pertenece = el('cat-pertenece').value;
+      }
+      if (ambito && ambito.varios) cuerpo.municipio = ambito.municipio;
+      try {
+        var r = await api('/territorial/territorios/catalogo/agregar', { method: 'POST', body: cuerpo });
+        var estado = (r && (r.estado || r.resultado)) || 'insertada';
+        decir('ok', palabrasDelResultado(estado, r && (r.motivo || r.mensaje)));
+        el('cat-nombre').value = '';
+        el('cat-nombre').focus();
+        await cargarLista();
+        calcularAmbito();
+        catalogoCamposPadre();
+        alCambiar();
+      } catch (err) {
+        /* 202 (pendiente) llega aquí como error si `api()` lo trata así; el
+           mensaje del servidor ya lo explica, así que se muestra tal cual. */
+        decir('error', err.message);
+      }
     }
 
     /* ----------------------------------------------------------- acciones */
@@ -623,7 +892,15 @@
     el('tipo').addEventListener('change', camposPadre);
     el('agregar').addEventListener('click', agregar);
     el('eliminar-todos').addEventListener('click', eliminarTodos);
-    el('importar').addEventListener('change', function (e) { importar(e.target); });
+    /* UN SOLO BOTÓN DE IMPORTAR, DOS DESTINOS. En modo propio el archivo va a
+       la tabla de la campaña; en modo Catálogo, a Territorios y en dos pasos.
+       Lo decide el modo que contestó el servidor, no el navegador. */
+    el('importar').addEventListener('change', function (e) {
+      if (!editable && mando && conectado) importarAlCatalogo(e.target);
+      else importar(e.target);
+    });
+    el('cat-tipo').addEventListener('change', catalogoCamposPadre);
+    el('cat-agregar').addEventListener('click', agregarAlCatalogo);
     el('buscar').addEventListener('input', renderTabla);
     el('filtro-tipo').addEventListener('change', renderTabla);
 
@@ -638,8 +915,10 @@
          Cortar ahí dejaría la ficha sin teclado. */
       if (e.target.closest('a, button, label')) return;
       var dentro = e.target.closest('#' + p + '-form');
+      var dentroCatalogo = e.target.closest('#' + p + '-form-catalogo');
       e.preventDefault();
       if (dentro && editable && mando) agregar();
+      else if (dentroCatalogo && !editable && mando && conectado) agregarAlCatalogo();
     });
 
     /* Un solo oyente para toda la tabla: las filas se repintan en cada
@@ -675,6 +954,10 @@
       tiposDelArea();
       precargarUbicacion();
       camposPadre();
+      /* El ámbito y el «Pertenece a» del formulario de catálogo salen de la
+         lista, así que se arman cuando ya está cargada. */
+      calcularAmbito();
+      catalogoCamposPadre();
     }
 
     return {

@@ -72,6 +72,60 @@ function postear(base, ruta, idUsuario, cuerpo) {
   });
 }
 
+/* ======================================================================
+   EL TERRITORIOS FALSO (orden 152).
+
+   La ficha, en modo Catálogo, no escribe en la base: le pide a Territorios que
+   escriba. Para probarlo hace falta un Territorios, y NO se llama al de
+   producción: lo que se sube allí lo ven todas las campañas del municipio, así
+   que una prueba que lo tocara dejaría basura compartida.
+
+   Este imita el contrato: misma llave, mismas respuestas por fila y los mismos
+   códigos (200, 202 pendiente, 403 fuera del ámbito, 422 error, 401 llave
+   mala). Decide por el NOMBRE de la fila, que es lo que permite escribir un
+   Excel de prueba con un caso de cada clase.
+   ====================================================================== */
+const LLAVE_FALSA = 'ctc_prueba_152';
+
+function estadoPorNombre(nombre) {
+  const n = String(nombre || '').toUpperCase();
+  if (n.includes('PENDIENTE')) return { http: 202, estado: 'pendiente', motivo: 'quedó pendiente de revisión' };
+  if (n.includes('FUERA'))     return { http: 403, estado: 'error', motivo: 'fuera_del_ambito' };
+  if (n.includes('MALA'))      return { http: 422, estado: 'error', motivo: 'le falta el Pertenece' };
+  if (n.includes('EXISTE'))    return { http: 200, estado: 'existia' };
+  return { http: 200, estado: 'insertada' };
+}
+
+function crearTerritoriosFalso() {
+  const visto = { llaves: [], usuarios: [], simulaciones: 0, envios: 0 };
+  const srv = http.createServer((req, res) => {
+    let cuerpo = '';
+    req.on('data', (c) => { cuerpo += c; });
+    req.on('end', () => {
+      const bearer = (req.headers.authorization || '').replace(/^Bearer /, '');
+      const llave = bearer || req.headers['x-api-key'] || '';
+      visto.llaves.push(llave);
+      const responder = (http_, obj) => { res.writeHead(http_, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
+      if (llave !== LLAVE_FALSA) return responder(401, { error: 'llave_invalida' });
+      let datos = {};
+      try { datos = JSON.parse(cuerpo || '{}'); } catch (_) { return responder(400, { error: 'json' }); }
+      visto.usuarios.push(datos.usuario || null);
+      const simula = /simular=1/.test(req.url || '');
+      if (simula) visto.simulaciones++; else visto.envios++;
+      if ((req.url || '').startsWith('/importar')) {
+        const filas = (datos.filas || []).map((f) => {
+          const r = estadoPorNombre(f.Nombre);
+          return { fila: f.fila, Nombre: f.Nombre, estado: r.estado, motivo: r.motivo };
+        });
+        return responder(200, { filas });
+      }
+      const r = estadoPorNombre(datos.Nombre);
+      return responder(r.http, { estado: r.estado, motivo: r.motivo });
+    });
+  });
+  return { srv, visto };
+}
+
 /** Una petición HTTP al servidor de prueba, con la cookie de sesión. Devuelve el cuerpo en Buffer. */
 function pedir(base, ruta, idUsuario) {
   return new Promise((ok_, ko) => {
@@ -375,7 +429,10 @@ function pedir(base, ruta, idUsuario) {
 
     ok(await abrir('/configuracion.html#datos-territorios-lista', 2, LISTO_FICHA), 'la ficha abre igual en modo catálogo');
     ok(await visible('tg-aviso-vista'), 'sale el aviso de que los territorios vienen del catálogo');
-    ok(((await texto('#tg-aviso-vista')) || '').includes('Catálogo Territorial'), 'y lo nombra', await texto('#tg-aviso-vista'));
+    /* El texto depende de si la campaña tiene llave (orden 152): sin ella, a quien
+       puede subir se le dice eso. Lo que no cambia es que nombre a Territorios. */
+    ok(/Territorios|Catálogo Territorial/.test((await texto('#tg-aviso-vista')) || ''),
+      'y el aviso nombra a Territorios', await texto('#tg-aviso-vista'));
     ok((await visible('tg-form')) === false, 'NO se ofrece agregar');
     ok((await visible('tg-label-importar')) === false, 'NO se ofrece importar');
     ok((await visible('tg-eliminar-todos')) === false, 'NO se ofrece eliminar todos');
@@ -394,6 +451,150 @@ function pedir(base, ruta, idUsuario) {
       body: JSON.stringify({ departamento: 'X', municipio: 'Y', tipoZona: 'barrio', nombreZona: 'Z' }) }); return r.status; })()`);
     ok(rechazo === 409, `crear-zona responde 409 en modo catálogo (${rechazo})`);
     await recoger('H');
+
+
+    /* ============================= ORDEN 152: EN MODO CATÁLOGO SE SUBE A TERRITORIOS */
+    /* Desde aquí la base ya tiene `territorios` como VISTA (sección H), que es
+       justo el escenario de esta parte. */
+
+    console.log('\n[J. Sin llave: la ficha lo dice y no ofrece nada]');
+    delete process.env.TERRITORIOS_API_URL;
+    delete process.env.TERRITORIOS_API_CLAVE;
+    ok(await abrir('/configuracion.html#datos-territorios-lista', 2, LISTO_FICHA), 'la ficha abre sin variables');
+    ok(((await texto('#tg-aviso-vista')) || '').includes('no está conectada'), 'el aviso dice que no está conectada', await texto('#tg-aviso-vista'));
+    ok((await visible('tg-form-catalogo')) === false, 'no se ofrece agregar');
+    ok((await visible('tg-label-importar')) === false, 'no se ofrece importar');
+    ok(await ev(`document.getElementById('tg-tbody').children.length > 0`), 'pero la tabla se sigue viendo');
+    await foto('152-sin-conectar');
+    await recoger('J');
+
+    /* Se levanta el Territorios falso y se conecta la campaña. */
+    const falso = crearTerritoriosFalso();
+    await new Promise((r) => falso.srv.listen(0, '127.0.0.1', r));
+    process.env.TERRITORIOS_API_URL = `http://127.0.0.1:${falso.srv.address().port}`;
+    process.env.TERRITORIOS_API_CLAVE = LLAVE_FALSA;
+
+    console.log('\n[K. Con llave, el superadministrador sí puede subir]');
+    ok(await abrir('/configuracion.html#datos-territorios-lista', 2, LISTO_FICHA), 'la ficha abre conectada');
+    const avisoCat = (await texto('#tg-aviso-vista')) || '';
+    ok(avisoCat.includes('comparten todas las campañas del municipio'), 'el aviso dice que lo comparten todas', avisoCat.slice(0, 160));
+    ok(avisoCat.includes('pendiente de revisión'), 'y que lo dudoso queda pendiente');
+    ok(await visible('tg-form-catalogo'), 've «Agregar uno» (el de catálogo)');
+    ok((await visible('tg-form')) === false, 'y NO el formulario de la tabla local');
+    ok(await visible('tg-label-importar'), 've «Importar desde Excel»');
+    ok(await visible('tg-ayuda'), 've la caja de ayuda con las columnas');
+    ok(await ev(`!!document.getElementById('tg-plantilla')`), 'y el enlace de la plantilla');
+    ok((await visible('tg-eliminar-todos')) === false, '«Eliminar todos» sigue oculto');
+    ok(await ev(`!document.querySelector('#tg-tbody [data-tg-editar]')`), 'editar sigue oculto en la tabla');
+    ok(((await texto('#tg-ambito')) || '').includes('Ciudad de ejemplo'), 'dice en qué municipio va a caer lo que se agregue', await texto('#tg-ambito'));
+    await foto('152-catalogo-superadmin');
+    await recoger('K');
+
+    console.log('\n[L. La plantilla trae los nombres REALES del municipio]');
+    const plantillaCat = await pedir(base, '/api/territorial/territorios/exportar-excel?plantilla=1', 2);
+    ok(plantillaCat.status === 200, `la plantilla responde 200 (${plantillaCat.status})`);
+    const filasCat = XLSX.utils.sheet_to_json(XLSX.read(plantillaCat.cuerpo, { type: 'buffer' }).Sheets.Territorios, { defval: '' });
+    ok(filasCat.length === 4, `4 filas (${filasCat.length})`);
+    ok(filasCat.every((f) => f.Municipio === 'Ciudad de ejemplo'), 'todas con el municipio de la campaña', filasCat.map((f) => f.Municipio));
+    const comunasReales = (await pool.query("SELECT nombre FROM territorios WHERE tipo = 'comuna'"))[0].map((c) => c.nombre);
+    const filaBarrio = filasCat.find((f) => f.Tipo === 'Barrio');
+    ok(filaBarrio && comunasReales.includes(filaBarrio.Pertenece),
+      'el barrio de ejemplo apunta a una comuna QUE EXISTE (no a una inventada)', { fila: filaBarrio, comunasReales });
+    const corrReales = (await pool.query("SELECT nombre FROM territorios WHERE tipo = 'corregimiento'"))[0].map((c) => c.nombre);
+    const filaVereda = filasCat.find((f) => f.Tipo === 'Vereda');
+    ok(filaVereda && corrReales.includes(filaVereda.Pertenece),
+      'y la vereda, a un corregimiento que existe', { fila: filaVereda, corrReales });
+    await recoger('L');
+
+    console.log('\n[M. Importar: primero se simula, después se envía]');
+    /* Un Excel con un caso de cada clase: entra, ya existía, queda pendiente y falla. */
+    const filasPrueba = [
+      { Departamento: 'Departamento de ejemplo', Municipio: 'Ciudad de ejemplo', 'Área': 'Urbano', Tipo: 'Barrio', Nombre: 'Barrio que entra', Pertenece: 'Comuna Norte' },
+      { Departamento: 'Departamento de ejemplo', Municipio: 'Ciudad de ejemplo', 'Área': 'Urbano', Tipo: 'Barrio', Nombre: 'Barrio que EXISTE', Pertenece: 'Comuna Norte' },
+      { Departamento: 'Departamento de ejemplo', Municipio: 'Ciudad de ejemplo', 'Área': 'Urbano', Tipo: 'Barrio', Nombre: 'Barrio PENDIENTE', Pertenece: 'Comuna Norte' },
+      { Departamento: 'Departamento de ejemplo', Municipio: 'Ciudad de ejemplo', 'Área': 'Urbano', Tipo: 'Barrio', Nombre: 'Barrio MALA', Pertenece: '' }
+    ];
+    const libroPrueba = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libroPrueba, XLSX.utils.json_to_sheet(filasPrueba), 'Territorios');
+    const rutaPrueba = path.join(SALIDA, 'territorios-prueba-152.xlsx');
+    fs.writeFileSync(rutaPrueba, XLSX.write(libroPrueba, { type: 'buffer', bookType: 'xlsx' }));
+
+    const simulacionesAntes = falso.visto.simulaciones;
+    const enviosAntes = falso.visto.envios;
+    ok(await elegirArchivo('#tg-importar', rutaPrueba), 'se le entrega el archivo');
+    ok(await esperar(`(document.getElementById('tg-resultado').textContent || '').includes('Esto es lo que pasaría')`, 20000),
+      'primero enseña lo que PASARÍA, no lo hace');
+    ok(falso.visto.simulaciones === simulacionesAntes + 1, 'Territorios recibió una simulación');
+    ok(falso.visto.envios === enviosAntes, 'y NINGÚN envío todavía');
+    const resumenSim = (await texto('#tg-resultado')) || '';
+    ok(resumenSim.includes('1 insertarían') || resumenSim.includes('1'), 'el resumen cuenta las filas', resumenSim.slice(0, 200));
+    ok(resumenSim.includes('quedó pendiente de revisión'), 'y dice el motivo de la que queda pendiente', resumenSim.slice(0, 300));
+    ok(await ev(`!!document.getElementById('tg-confirmar-envio')`), 'y ofrece «Enviar a Territorios»');
+    await foto('152-simulacion');
+
+    await clic('#tg-confirmar-envio');
+    ok(await esperar(`(document.getElementById('tg-resultado').textContent || '').includes('Envío terminado')`, 20000),
+      'al confirmar, envía de verdad');
+    ok(falso.visto.envios === enviosAntes + 1, 'Territorios recibió el envío');
+    ok(falso.visto.usuarios.filter(Boolean).includes('super@ejemplo.co'),
+      'y con el correo de quien sube', falso.visto.usuarios.slice(-3));
+    await foto('152-envio-final');
+    await recoger('M');
+
+    console.log('\n[N. Agregar uno]');
+    await teclear('tg-cat-tipo', 'Barrio');
+    await espera(200);
+    await teclear('tg-cat-nombre', 'Barrio agregado a mano');
+    await clic('#tg-cat-agregar');
+    ok(await esperar(`document.getElementById('tg-ok').classList.contains('visible')`, 15000), 'agregar uno responde');
+    ok(((await texto('#tg-ok')) || '').includes('Entró al catálogo'), 'y dice que entró', await texto('#tg-ok'));
+    await teclear('tg-cat-nombre', 'Barrio PENDIENTE a mano');
+    await clic('#tg-cat-agregar');
+    ok(await esperar(`((document.getElementById('tg-ok').textContent || '') + (document.getElementById('tg-error').textContent || '')).includes('pendiente')`, 15000),
+      'uno dudoso dice que queda pendiente de revisión');
+    await recoger('N');
+
+    console.log('\n[O. Llave mala]');
+    process.env.TERRITORIOS_API_CLAVE = 'ctc_la_que_no_es';
+    await teclear('tg-cat-nombre', 'Barrio con llave mala');
+    await clic('#tg-cat-agregar');
+    ok(await esperar(`document.getElementById('tg-error').classList.contains('visible')`, 15000), 'con la llave mala sale un error');
+    const errLlave = (await texto('#tg-error')) || '';
+    ok(errLlave.includes('llave de Territorios'), 'que dice que la llave no sirve', errLlave.slice(0, 160));
+    ok(errLlave.length > 0 && !errLlave.includes('ctc_'), 'y el mensaje NO lleva la llave dentro', errLlave.slice(0, 120));
+    /* LO QUE DE VERDAD IMPORTA DE ESTE CASO: que no lo saque de la aplicación.
+       `api()` manda a /login.html ante CUALQUIER 401, así que si el 401 de
+       Territorios se devolviera tal cual, una llave mal puesta cerraría la
+       sesión de quien está mirando. */
+    ok(await ev(`window.location.pathname === '/configuracion.html'`),
+      'y NO lo echa a /login.html (el 401 de Territorios no se devuelve tal cual)',
+      await ev('window.location.pathname'));
+    process.env.TERRITORIOS_API_CLAVE = LLAVE_FALSA;
+    await recoger('O');
+
+    console.log('\n[P. Quién más puede, y quién no]');
+    ok(await abrir('/configuracion.html#datos-territorios-lista', 1, LISTO_FICHA), 'la ficha abre con el administrador');
+    ok(await visible('tg-form-catalogo'), 'el administrador también puede subir al catálogo');
+    ok(await visible('tg-label-importar'), 'y también importar');
+    await recoger('P-admin');
+    for (const [quien, id] of [['coordinador', coord && coord.id], ['líder', lid && lid.id]]) {
+      ok((await postear(base, '/api/territorial/territorios/catalogo/agregar', id, { tipo: 'Barrio', nombre: 'X' })) === 403,
+        `al ${quien} el servidor le niega agregar al catálogo (403)`);
+    }
+    await recoger('P');
+
+    console.log('\n[Q. La llave nunca sale hacia el navegador]');
+    const cuerpos = [];
+    for (const r of [
+      await pedir(base, '/api/territorial/territorios/modo', 2),
+      await pedir(base, '/api/territorial/territorios', 2)
+    ]) cuerpos.push(r.cuerpo.toString('utf8'));
+    ok(cuerpos.every((c) => !c.includes(LLAVE_FALSA) && !c.includes('ctc_')), 'ninguna respuesta trae la llave');
+    ok(cuerpos[0].includes('catalogoConectado'), 'el modo sí dice si está conectada (sin decir con qué)', cuerpos[0].slice(0, 160));
+    ok(await ev(`!(document.documentElement.outerHTML || '').includes('${LLAVE_FALSA}')`), 'ni la página la lleva escrita');
+    await recoger('Q');
+
+    falso.srv.close();
 
     /* ===================================================================== CONSOLA */
     console.log('\n[Errores de consola]');

@@ -697,3 +697,31 @@ html:not(.modo-app) #seccion-campana .dc-aviso-al-momento {
   font-size: 0.9rem;
   line-height: 1.5;
 }
+
+/* ----- ORDEN 152: modo Catálogo, lo que se envía a Territorios ----- */
+
+/* La línea que dice en qué municipio va a caer lo que se agregue. No es un
+   aviso: es el dato que el formulario ya no pregunta porque lo pone el
+   servidor, y conviene que se vea antes de escribir el nombre. */
+.tg-ambito {
+  margin: 0 0 14px;
+  padding: 10px 13px;
+  border-radius: 8px;
+  background: #F3F6FB;
+  border-left: 3px solid #9DB4D9;
+  font-size: 0.9rem;
+  color: #1F2937;
+}
+.tg-ambito b { color: #084298; }
+
+/* Los dos botones del paso «esto es lo que pasaría → enviar». Van DENTRO de la
+   caja del resumen, pegados a lo que describen: un botón de enviar lejos de la
+   cuenta de lo que se enviaría se pulsa sin leerla. */
+.tg-res-acciones {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
