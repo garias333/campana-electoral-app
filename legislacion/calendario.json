@@ -1,0 +1,358 @@
+{
+  "meta": {
+    "fuente": "Resolución 12338 de 2026 de la Registraduría Nacional del Estado Civil",
+    "titulo": "Por la cual se establece el calendario electoral para las elecciones de autoridades territoriales - gobernadores, alcaldes, diputados, concejales y ediles o miembros de las juntas administradoras locales - que se realizarán el 31 de octubre de 2027.",
+    "eleccion": "2027-10-31",
+    "nota_filas": "fila_inicio y fila_fin cuentan las actividades de «filas» desde 1, en el orden del archivo.",
+    "nota_periodos": "Solo parejas que la resolución une de forma expresa: una fila que abre y otra que cierra la misma actividad."
+  },
+  "filas": [
+    {
+      "inicio": "2026-10-31",
+      "fin": null,
+      "actividad": "Inicia el registro de comités inscriptores de candidaturas apoyadas por grupos significativos de ciudadanos, movimientos sociales y comités promotores del voto en blanco, e inicia el periodo de recolección de apoyos ciudadanos.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 1",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": null,
+      "soporte_legal": "Inciso 4 del artículo 28 de la Ley Estatutaria 1475 de 2011; Resolución núm. 920 de 2011 del Consejo Nacional Electoral"
+    },
+    {
+      "inicio": "2026-10-31",
+      "fin": null,
+      "actividad": "Inicia la inscripción de ciudadanos para votar por cambio de lugar de domicilio o residencia.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 2",
+      "grupo": "Inscripción de cédulas",
+      "plazo": "1 año antes de la elección",
+      "soporte_legal": "Artículo 49 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-04-30",
+      "fin": null,
+      "actividad": "Fecha límite para instalar mesas de votación en los corregimientos creados hasta la fecha.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 3",
+      "grupo": "Mesas y jurados",
+      "plazo": "6 meses antes de la elección",
+      "soporte_legal": "Parágrafo del artículo 99 del Decreto Ley 2241 de 1986 (Código Electoral)"
+    },
+    {
+      "inicio": "2027-06-30",
+      "fin": null,
+      "actividad": "Vence el término para el registro de los comités inscriptores de candidaturas apoyadas por grupos significativos de ciudadanos, movimientos sociales y comités promotores del voto en blanco.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 4",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "1 mes antes de la fecha de cierre del periodo de inscripción de candidatos",
+      "soporte_legal": "Inciso 3 del artículo 28 de la Ley Estatutaria 1475 de 2011; Resolución núm. 920 de 2011 del Consejo Nacional Electoral"
+    },
+    {
+      "inicio": "2027-06-30",
+      "fin": null,
+      "actividad": "Suspensión de incorporación al censo electoral de cédulas de primera vez con el fin de elaborar las listas de sufragantes.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 5",
+      "grupo": "Censo electoral",
+      "plazo": "4 meses antes de la elección",
+      "soporte_legal": "Artículo 66 del Decreto Ley 2241 de 1986 (Código Electoral), modificado por el artículo 6 de la Ley 6 de 1990"
+    },
+    {
+      "inicio": "2027-06-30",
+      "fin": null,
+      "actividad": "Inicia el periodo de inscripción de candidatos y listas de candidatos.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 6",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "4 meses antes de la elección",
+      "soporte_legal": "Artículo 30 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-07-31",
+      "fin": null,
+      "actividad": "Inicia la propaganda electoral empleando el espacio público.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 7",
+      "grupo": "Propaganda y medios",
+      "plazo": "3 meses antes de la elección",
+      "soporte_legal": "Artículo 35 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-07-31",
+      "fin": null,
+      "actividad": "Publicación del Censo Electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 8",
+      "grupo": "Censo electoral",
+      "plazo": "3 meses antes de la elección",
+      "soporte_legal": "Artículo 8 de la Ley 6 de 1990"
+    },
+    {
+      "inicio": "2027-07-31",
+      "fin": null,
+      "actividad": "Vence el plazo para que los comandantes de las Fuerzas Armadas y la Policía Nacional remitan el listado de cédulas de los miembros de las distintas armas, que se deben excluir del censo electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 9",
+      "grupo": "Censo electoral",
+      "plazo": "3 meses antes de la elección",
+      "soporte_legal": "Artículo 86 del Decreto Ley 2241 de 1986 (Código Electoral); Resolución núm. 10105 de 2020 de la Registraduría Nacional del Estado Civil"
+    },
+    {
+      "inicio": "2027-07-31",
+      "fin": null,
+      "actividad": "Vence el periodo de inscripción de candidatos y listas de candidatos.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 10",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "3 meses antes de la elección",
+      "soporte_legal": "Artículo 30 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-07-31",
+      "fin": null,
+      "actividad": "Vence el plazo para la recolección y entrega de firmas de candidatos y listas de candidatos apoyadas por grupos significativos de ciudadanos, movimientos sociales y comités promotores del voto en blanco.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 11",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": null,
+      "soporte_legal": "Artículo 30 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-02",
+      "fin": null,
+      "actividad": "Inicia el periodo para la modificación de candidatos y listas de candidatos por renuncia o no aceptación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 12",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "Día hábil siguiente al cierre de la inscripción de candidatos",
+      "soporte_legal": "Artículo 31 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-02",
+      "fin": null,
+      "actividad": "Solicitud por parte de los registradores de las listas de las personas que pueden prestar el servicio de jurados de votación a las entidades públicas, empresas privadas, directorios políticos y establecimientos educativos.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 13",
+      "grupo": "Mesas y jurados",
+      "plazo": "90 días calendario antes de la elección",
+      "soporte_legal": "Artículo 5 de la Ley 163 de 1994"
+    },
+    {
+      "inicio": "2027-08-05",
+      "fin": null,
+      "actividad": "Los registradores establecerán, mediante resolución y en acuerdo con el alcalde, los lugares en que se instalarán las mesas de votación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 14",
+      "grupo": "Mesas y jurados",
+      "plazo": "60 días antes de la elección",
+      "soporte_legal": "Artículo 10 de la Ley 6 de 1990"
+    },
+    {
+      "inicio": "2027-08-05",
+      "fin": null,
+      "actividad": "Inicia la propaganda electoral a través de los medios de comunicación social.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 15",
+      "grupo": "Propaganda y medios",
+      "plazo": "60 días antes de la elección",
+      "soporte_legal": "Artículo 35 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-06",
+      "fin": null,
+      "actividad": "Vence el periodo para la modificación de candidatos y listas de candidatos por renuncia o no aceptación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 16",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "5 días hábiles siguientes al cierre de las inscripciones de candidatos",
+      "soporte_legal": "Artículo 31 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-06",
+      "fin": null,
+      "actividad": "Los delegados del Registrador Nacional del Estado Civil y Registradores Distritales deben reportar los candidatos inscritos.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 17",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "Inmediatamente al vencimiento del término para la modificación de candidatos y listas de candidatos",
+      "soporte_legal": "Artículo 98 del Decreto Ley 2241 de 1986 (Código Electoral)"
+    },
+    {
+      "inicio": "2027-08-08",
+      "fin": null,
+      "actividad": "Publicación del listado de candidatos inscritos, en un lugar visible de las dependencias de la Registraduría Nacional del Estado Civil y del Consejo Nacional Electoral y en su página en Internet.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 18",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "2 días calendario siguientes al vencimiento del periodo de la modificación de candidatos y listas de candidatos",
+      "soporte_legal": "Artículo 33 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-08",
+      "fin": null,
+      "actividad": "La Registraduría Nacional del Estado Civil remite a los organismos competentes la relación de candidatos cuyas inscripciones fueron aceptadas para certificar sobre causales de inhabilidad, en especial al Consejo Nacional Electoral y Procuraduría General de la Nación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 19",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "2 días calendario siguientes al vencimiento del periodo de la modificación de candidatos y listas de candidatos",
+      "soporte_legal": "Artículo 33 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-31",
+      "fin": null,
+      "actividad": "Cierre del proceso de inscripción de ciudadanos para votar por cambio de lugar de domicilio o residencia.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 20",
+      "grupo": "Inscripción de cédulas",
+      "plazo": "2 meses antes de la elección",
+      "soporte_legal": "Artículo 49 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-31",
+      "fin": null,
+      "actividad": "Inician los espacios gratuitos en los medios de comunicación social que hacen uso del espectro electromagnético, para los partidos y movimientos políticos, las organizaciones sociales y los grupos significativos de ciudadanos y promotores de voto en blanco que hayan inscrito candidatos y listas de candidatos, de acuerdo con la asignación del Consejo Nacional Electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 21",
+      "grupo": "Propaganda y medios",
+      "plazo": "2 meses antes de la elección",
+      "soporte_legal": "Artículo 36 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-08-31",
+      "fin": null,
+      "actividad": "Inicia la postulación de testigos electorales ante el Consejo Nacional Electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 22",
+      "grupo": "Testigos electorales",
+      "plazo": "dos (2) meses anteriores a la elección",
+      "soporte_legal": "Artículo 2 de la Resolución núm. 09458 de 2025 del Consejo Nacional Electoral"
+    },
+    {
+      "inicio": "2027-09-17",
+      "fin": null,
+      "actividad": "Conformación de la lista de Delegados del Consejo Nacional Electoral a fin de practicar los escrutinios generales.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 23",
+      "grupo": "Escrutinios",
+      "plazo": "30 días antes de la elección",
+      "soporte_legal": "Artículo 175 del Decreto Ley 2241 de 1986 (Código Electoral), modificado por el artículo 13 de la Ley 62 de 1988"
+    },
+    {
+      "inicio": "2027-09-30",
+      "fin": null,
+      "actividad": "Vence el plazo de modificación de candidatos y listas de candidatos por revocatoria de la inscripción por causas constitucionales o legales, inhabilidad sobreviniente o evidenciada con posterioridad a la inscripción.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 24",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "1 mes antes de la elección",
+      "soporte_legal": "Inciso 2 del artículo 31 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-10-15",
+      "fin": null,
+      "actividad": "Fecha límite para la designación de comisiones escrutadoras y claveros por parte del Tribunal Superior de Distrito Judicial, Alcaldía y Gobernación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 25",
+      "grupo": "Escrutinios",
+      "plazo": "10 días hábiles antes de las correspondientes elecciones",
+      "soporte_legal": "Arts. 148, 149, 157 y 158 del Decreto Ley 2241 de 1986 (Código Electoral)"
+    },
+    {
+      "inicio": "2027-10-16",
+      "fin": null,
+      "actividad": "Fecha límite para la realización del sorteo y publicación de listas de jurados de votación.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 26",
+      "grupo": "Mesas y jurados",
+      "plazo": "15 días calendario antes de la elección",
+      "soporte_legal": "Artículo 101 del Decreto Ley 2241 de 1986 (Código Electoral); artículo 5 de la Ley Estatutaria 163 de 1994"
+    },
+    {
+      "inicio": "2027-10-20",
+      "fin": null,
+      "actividad": "Vence el plazo de inscripción de nuevas candidaturas en caso de muerte o incapacidad física permanente.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 27",
+      "grupo": "Candidaturas y apoyos ciudadanos",
+      "plazo": "Hasta 8 días antes de la votación",
+      "soporte_legal": "Inciso 3 del artículo 31 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-10-24",
+      "fin": null,
+      "actividad": "Fecha límite para la postulación de testigos electorales ante el Consejo Nacional Electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 28",
+      "grupo": "Testigos electorales",
+      "plazo": "hasta las once y cincuenta y nueve de la noche (11:59 p. m.) del domingo anterior a la fecha del certamen electoral",
+      "soporte_legal": "Artículo 2 de la Resolución núm. 09458 de 2025 del Consejo Nacional Electoral"
+    },
+    {
+      "inicio": "2027-10-29",
+      "fin": null,
+      "actividad": "Inicia la inmunidad de los miembros de las comisiones escrutadoras, sus secretarios y claveros.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 29",
+      "grupo": "Escrutinios",
+      "plazo": "48 horas antes de iniciarse los escrutinios",
+      "soporte_legal": "Artículo 127 del Decreto Ley 2241 de 1986 (Código Electoral)"
+    },
+    {
+      "inicio": "2027-10-29",
+      "fin": null,
+      "actividad": "Finalizan los espacios gratuitos en los medios de comunicación social que hacen uso del espectro electromagnético, para los partidos y movimientos políticos, las organizaciones sociales y los grupos significativos de ciudadanos y promotores de voto en blanco que hayan inscrito candidatos, de acuerdo con la asignación del Consejo Nacional Electoral.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 30",
+      "grupo": "Propaganda y medios",
+      "plazo": "48 horas antes de iniciarse la votación",
+      "soporte_legal": "Artículo 36 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-10-31",
+      "fin": null,
+      "actividad": "DÍA DE LA ELECCIÓN",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 31",
+      "grupo": "Elección",
+      "plazo": null,
+      "soporte_legal": "Artículo 1 de la Ley Estatutaria 163 de 1994"
+    },
+    {
+      "inicio": "2027-10-31",
+      "fin": null,
+      "actividad": "Los miembros de las comisiones escrutadoras distritales, municipales y auxiliares deben estar en la sede del escrutinio.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 32",
+      "grupo": "Escrutinios",
+      "plazo": "desde las 3:30 de la tarde",
+      "soporte_legal": "Artículo 42 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-10-31",
+      "fin": null,
+      "actividad": "Inician los escrutinios distritales, municipales y auxiliares.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 33",
+      "grupo": "Escrutinios",
+      "plazo": "a partir de las 4 de la tarde y hasta las 12 de la noche",
+      "soporte_legal": "Artículo 41 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-11-01",
+      "fin": null,
+      "actividad": "Continúan los escrutinios distritales, municipales y auxiliares.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 34",
+      "grupo": "Escrutinios",
+      "plazo": "Desde las 9 de la mañana del lunes siguiente a la votación hasta las nueve 9 de la noche",
+      "soporte_legal": "Artículo 41 de la Ley Estatutaria 1475 de 2011"
+    },
+    {
+      "inicio": "2027-11-02",
+      "fin": null,
+      "actividad": "Inician los Escrutinios Generales.",
+      "referencia": "Resolución 12338 de 2026, artículo primero (cuadro), fila 35",
+      "grupo": "Escrutinios",
+      "plazo": "Desde las 9 de la mañana del martes siguiente a la votación hasta las 9 de la noche",
+      "soporte_legal": "Artículo 43 de la Ley Estatutaria 1475 de 2011"
+    }
+  ],
+  "periodos": [
+    {
+      "nombre": "Registro de comités inscriptores de candidaturas",
+      "fila_inicio": 1,
+      "fila_fin": 4
+    },
+    {
+      "nombre": "Inscripción de ciudadanos por cambio de lugar de domicilio o residencia",
+      "fila_inicio": 2,
+      "fila_fin": 20
+    },
+    {
+      "nombre": "Inscripción de candidatos y listas de candidatos",
+      "fila_inicio": 6,
+      "fila_fin": 10
+    },
+    {
+      "nombre": "Modificación de candidatos y listas por renuncia o no aceptación",
+      "fila_inicio": 12,
+      "fila_fin": 16
+    },
+    {
+      "nombre": "Espacios gratuitos en los medios de comunicación social",
+      "fila_inicio": 21,
+      "fila_fin": 30
+    },
+    {
+      "nombre": "Postulación de testigos electorales ante el Consejo Nacional Electoral",
+      "fila_inicio": 22,
+      "fila_fin": 28
+    }
+  ]
+}

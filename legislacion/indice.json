@@ -1,0 +1,82 @@
+{
+  "ley_1475-de-2011.pdf": {
+    "titulo": "Ley 1475 de 2011",
+    "tipo": "ley",
+    "numero": "1475",
+    "anio": 2011,
+    "descripcion": "Por la cuál se adoptan reglas de organización y funcionamiento de los partidos y movimientos políticos, de los procesos electorales y se dictan otras disposiciones",
+    "orden": 1
+  },
+  "ley-130-de-1994.pdf": {
+    "titulo": "Ley 130 de 1994",
+    "tipo": "ley",
+    "numero": "130",
+    "anio": 1994,
+    "descripcion": "Por la cual se dicta el Estatuto Básico de los partidos y movimientos políticos, se dictan normas sobre su financiación y la de las campañas electorales y se dictan otras disposiciones.",
+    "orden": 2
+  },
+  "ley-996-de-2005.pdf": {
+    "titulo": "Ley 996 de 2005",
+    "tipo": "ley",
+    "numero": "996",
+    "anio": 2005,
+    "descripcion": "por medio de la cual se reglamenta la elección de Presidente de la República, de conformidad con el artículo 152 literal f) de la Constitución Política de Colombia, y de acuerdo con lo establecido en el Acto Legislativo 02 de 2004, y se dictan otras disposiciones.",
+    "orden": 3
+  },
+  "decreto-2241-de-1986.pdf": {
+    "titulo": "Decreto 2241 de 1986",
+    "tipo": "decreto",
+    "numero": "2241",
+    "anio": 1986,
+    "descripcion": "Por el cual se adopta el Código Electoral.",
+    "orden": 4
+  },
+  "resolucion-12338-de-2026-RNEC.pdf": {
+    "titulo": "Resolución 12338 de 2026 (RNEC)",
+    "tipo": "resolucion",
+    "numero": "12338",
+    "anio": 2026,
+    "descripcion": "Por la cual se establece el calendario electoral para las elecciones de autoridades territoriales - gobernadores, alcaldes, diputados, concejales y ediles o miembros de las juntas administradoras locales - que se realizarán el 31 de octubre de 2027.",
+    "orden": 5
+  },
+  "resolucion-09458-de-2025-CNE.pdf": {
+    "titulo": "Resolución 09458 de 2025 (CNE)",
+    "tipo": "resolucion",
+    "numero": "09458",
+    "anio": 2025,
+    "descripcion": "Por la cual se reglamenta la postulación, acreditación, funciones y garantías de los testigos electorales, auditores de sistemas y Organizaciones de Observación Electoral, en el marco del control ciudadano y transparencia de los procesos electorales, y se dictan otras disposiciones.",
+    "orden": 6
+  },
+  "resolucion-0920-de-2011-CNE.pdf": {
+    "titulo": "Resolución 0920 de 2011 (CNE)",
+    "tipo": "resolucion",
+    "numero": "0920",
+    "anio": 2011,
+    "descripcion": "Por medio de la cual se regula la promoción del voto en blanco.",
+    "orden": 7
+  },
+  "ley-163-de-1994.pdf": {
+    "titulo": "Ley 163 de 1994",
+    "tipo": "ley",
+    "numero": "163",
+    "anio": 1994,
+    "descripcion": "Por la cual se expiden algunas disposiciones en materia electoral.",
+    "orden": 8
+  },
+  "ley-6-de-1990.pdf": {
+    "titulo": "Ley 6 de 1990",
+    "tipo": "ley",
+    "numero": "6",
+    "anio": 1990,
+    "descripcion": "Por la cual se reforma el Decreto 2241 de 1986 (Código Electoral) y se dictan otras disposiciones.",
+    "orden": 9
+  },
+  "ley-1801-de-2016.pdf": {
+    "titulo": "Ley 1801 de 2016",
+    "tipo": "ley",
+    "numero": "1801",
+    "anio": 2016,
+    "descripcion": "Por la cual se expide el Código Nacional de Seguridad y Convivencia Ciudadana",
+    "orden": 10
+  }
+}
