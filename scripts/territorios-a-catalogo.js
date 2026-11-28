@@ -423,6 +423,45 @@ async function contarTextos(conexion) {
   return cuenta;
 }
 
+/**
+ * PRUEBA LA VISTA ANTES DE TOCAR LA TABLA.
+ *
+ * LO QUE PASÓ SIN ESTO, EN LA PRUEBA DE ESTA MISMA ORDEN: el script renombró
+ * `territorios` y acto seguido la creación de la vista falló por una columna
+ * que no existía. La base quedó SIN `territorios` — ni tabla ni vista — o sea
+ * con la campaña caída, y un `RENAME` no se deshace con ROLLBACK.
+ *
+ * Así que la vista se crea primero con OTRO nombre, se le pide una fila para
+ * comprobar que de verdad resuelve, y se borra. Si algo falla, falla aquí,
+ * cuando todavía no se ha movido nada.
+ *
+ * Necesita que `campana_ambito` ya tenga su fila: la vista se acota con ella.
+ * Por eso el ámbito se declara antes, que además es inofensivo —nadie lo lee
+ * mientras `territorios` siga siendo la tabla local—.
+ */
+async function probarVista(conexion, sqlVista) {
+  const nombreTemporal = 'territorios_prueba_vista';
+  const sentencias = sqlVista.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean);
+  if (sentencias.length !== 1) {
+    throw new Error(`el archivo de la vista trae ${sentencias.length} sentencias; se esperaba una sola.`);
+  }
+  const conOtroNombre = sentencias[0].replace(
+    /CREATE\s+(OR\s+REPLACE\s+)?(ALGORITHM\s*=\s*\w+\s+)?(SQL\s+SECURITY\s+\w+\s+)?VIEW\s+`?territorios`?/i,
+    (m) => m.replace(/`?territorios`?$/i, nombreTemporal));
+  if (conOtroNombre === sentencias[0]) {
+    throw new Error('no se reconoció el «CREATE VIEW territorios» del archivo: no se puede probar antes de aplicar.');
+  }
+  await conexion.query(`DROP VIEW IF EXISTS ${nombreTemporal}`);
+  try {
+    await conexion.query(conOtroNombre);
+    const [[r]] = await conexion.query(`SELECT COUNT(*) n FROM ${nombreTemporal}`);
+    if (!Number(r.n)) throw new Error('la vista se creó pero no devuelve ni una fila.');
+    return Number(r.n);
+  } finally {
+    try { await conexion.query(`DROP VIEW IF EXISTS ${nombreTemporal}`); } catch (_) { /* da igual */ }
+  }
+}
+
 /** El respaldo. Sin `--no-tablespaces` sale un archivo con encabezado y sin datos. */
 function respaldar(base, carpeta) {
   fs.mkdirSync(carpeta, { recursive: true });
@@ -651,13 +690,41 @@ function respaldar(base, carpeta) {
 
     if (!opc.aplicar) {
       console.log('\n--- SIMULACIÓN: no se escribió nada. ---');
-      if (sinPar.length) console.log('Faltan territorios en el catálogo: con --aplicar se negaría.');
+      const faltanSimulado = sinPar.filter((t) => !fuera.has(t.id));
+      if (faltanSimulado.length) {
+        console.log(`Faltan ${faltanSimulado.length} territorio(s) en el catálogo: con --aplicar se negaría.`);
+      } else {
+        console.log('Todo tiene par (o está marcado FUERA): --aplicar podría correr.');
+      }
       return;
     }
 
     /* ---------------------------------------------------------- APLICAR */
-    if (sinPar.length) {
-      console.log(`\nNO SE APLICA: ${sinPar.length} territorio(s) sin par en el catálogo (arriba). Súbelos primero.`);
+    /* LOS MARCADOS `FUERA` NO BLOQUEAN, PERO SOLO SI NO LOS USA NADIE. Que un
+       territorio se quede fuera del catálogo es una decisión; que se quede
+       fuera llevándose por delante los registros que lo usan, no. Si alguien
+       apunta a uno de ellos, el reapuntado no tendría a dónde mandarlo y el
+       script se detiene para que se decida primero (lo normal sería mandarlos
+       al municipio). En la campaña de Yimar son cero: los 46 registros están
+       todos en barrios. */
+    const faltanDeVerdad = sinPar.filter((t) => !fuera.has(t.id));
+    if (fuera.size) {
+      const usadosFuera = await referenciasPorTerritorio(conexion, [...fuera]);
+      const conGenteFuera = [...fuera].filter((id) => (usadosFuera.get(id) || 0) > 0);
+      if (conGenteFuera.length) {
+        const porId = new Map(locales.map((t) => [t.id, t]));
+        console.log('\nNO SE APLICA: hay territorios marcados FUERA que alguien todavía usa:');
+        conGenteFuera.forEach((id) => {
+          const t = porId.get(id) || { nombre: id, tipo: '' };
+          console.log(`   ${String(t.tipo).padEnd(14)} ${String(t.nombre).padEnd(34)} ${usadosFuera.get(id)} fila(s)`);
+        });
+        console.log('   Decida a dónde van esos registros antes de seguir.');
+        salir = 1;
+        return;
+      }
+    }
+    if (faltanDeVerdad.length) {
+      console.log(`\nNO SE APLICA: ${faltanDeVerdad.length} territorio(s) sin par en el catálogo (arriba). Súbelos primero.`);
       salir = 1;
       return;
     }
@@ -676,6 +743,16 @@ function respaldar(base, carpeta) {
 
     const copia = respaldar(opc.base, path.join(__dirname, '..', 'backups'));
     console.log(`\nRespaldo: ${copia.destino} (${copia.tablas} tablas)`);
+
+    /* EL ÁMBITO VA PRIMERO, porque la vista se acota con él y hay que poder
+       probarla antes de mover nada. Es inofensivo: mientras `territorios` siga
+       siendo la tabla local, nadie lee `campana_ambito`. */
+    await conexion.query(
+      `INSERT IGNORE INTO campana_ambito (campana_id, ctc_territorio_id, nivel_operativo) VALUES (1, ?, 'MUNICIPIO')`,
+      [municipio.id]);
+
+    const filasVista = await probarVista(conexion, sqlVista);
+    console.log(`La vista se probó con otro nombre y devuelve ${filasVista} territorio(s). Se sigue.`);
 
     await conexion.beginTransaction();
     /* FASE 1: todos al rango transitorio. FASE 2: a su id definitivo. En una
@@ -713,18 +790,23 @@ function respaldar(base, carpeta) {
     }
     if (atascados) throw new Error(`${atascados} fila(s) quedaron en la fase transitoria: se deshace.`);
 
-    await conexion.query(
-      `INSERT IGNORE INTO campana_ambito (campana_id, ctc_territorio_id, nivel_operativo) VALUES (1, ?, 'MUNICIPIO')`,
-      [municipio.id]);
     await conexion.commit();
     console.log('Reapuntado y ámbito: hecho.');
 
     /* El DDL va DESPUÉS del commit: en MySQL no se puede deshacer con ROLLBACK,
-       así que la protección es el respaldo, no la transacción. */
+       así que la protección es el respaldo, no la transacción. La vista ya se
+       probó arriba; aun así, si la creación fallara, se devuelve la tabla a su
+       nombre para no dejar la campaña SIN `territorios`. */
     const sello = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     await conexion.query(`RENAME TABLE territorios TO territorios_local_${sello}`);
-    for (const sentencia of sqlVista.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean)) {
-      await conexion.query(sentencia);
+    try {
+      for (const sentencia of sqlVista.split(/;\s*\n/).map((x) => x.trim()).filter(Boolean)) {
+        await conexion.query(sentencia);
+      }
+    } catch (err) {
+      await conexion.query(`RENAME TABLE territorios_local_${sello} TO territorios`);
+      throw new Error(`la vista falló (${err.message}); se devolvió la tabla a su nombre. `
+        + 'Ojo: el reapuntado SÍ quedó hecho, así que restaure el respaldo antes de volver a intentarlo.');
     }
     console.log(`Tabla vieja: territorios_local_${sello}   ·   vista territorios creada.`);
     console.log('\nFalta: la llave de Territorios en el .env y reiniciar la instancia.');
