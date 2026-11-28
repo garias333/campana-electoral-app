@@ -242,7 +242,12 @@
         <div class="grupo separado">
           <span class="grupo-etiqueta">Territorio y mapa</span>
           <div class="grupo-botones">
-            <button class="btn-neutro" id="btn-territorios">Gestionar territorios</button>
+            <!-- ORDEN 147: ya no abre un modal. Gestionar territorios vive en Configuración →
+                 Datos de la campaña → «🗺️ Barrios y veredas», y allí lo pueden importar y exportar el
+                 administrador y el superadministrador. Este enlace solo se pinta a quien puede abrir
+                 Configuración: a los demás se esconde en el arranque, para no ofrecer un 403. -->
+            <a class="btn-neutro" id="btn-territorios" href="/configuracion.html#datos-territorios-lista"
+               title="Comunas, barrios, corregimientos y veredas: se gestionan en Configuración → Datos de la campaña">Gestionar territorios</a>
             <button class="btn-neutro" id="btn-regeocodificar" title="Vuelve a intentar ubicar en el mapa a quienes tienen Dirección pero no coordenadas">📍 Re-geocodificar pendientes</button>
             <button class="btn-neutro" id="btn-regeocodificar-todos" title="Vuelve a calcular las coordenadas de TODOS, incluso quienes ya las tenían — útil si detectas ubicaciones incorrectas">📍 Corregir ubicaciones existentes</button>
           </div>
@@ -663,101 +668,6 @@
   </div>
 </div>
 
-<div class="overlay" id="overlay-territorios">
-  <div class="modal" style="max-width:600px;">
-    <div class="modal-header"><h3>Territorios</h3><button class="modal-cerrar" id="cerrar-modal-territorios">×</button></div>
-    <div id="territorio-error" class="mensaje-error"></div>
-    <div id="territorio-ok" class="mensaje-ok"></div>
-
-    <div id="aviso-territorios-vista" class="mensaje-ok" style="display:none;">
-      Los territorios de esta campaña vienen del Catálogo Territorial y no se editan aquí: si falta
-      alguno, o hay un nombre mal escrito, se corrige una vez en el catálogo.
-    </div>
-
-    <form id="form-territorio" style="margin-bottom:18px;">
-      <div class="fila">
-        <div class="campo">
-          <label for="input-departamento">Departamento</label>
-          <input name="departamento" id="input-departamento" list="lista-departamentos" autocomplete="off" required>
-          <datalist id="lista-departamentos"></datalist>
-        </div>
-        <div class="campo">
-          <label for="input-municipio">Municipio / Ciudad</label>
-          <input name="municipio" id="input-municipio" list="lista-municipios" autocomplete="off" required>
-          <datalist id="lista-municipios"></datalist>
-        </div>
-      </div>
-      <div class="fila">
-        <div class="campo">
-          <label for="select-area">Área</label>
-          <select name="area" id="select-area" required>
-            <option value="">Selecciona...</option>
-            <option value="urbano">Urbano</option>
-            <option value="rural">Rural</option>
-          </select>
-        </div>
-        <div class="campo">
-          <label for="select-tipo-zona">Tipo de zona</label>
-          <!-- Urbano antes que rural: la misma convencion que el ENUM de la base. -->
-          <select name="tipoZona" id="select-tipo-zona" data-sin-ordenar required disabled>
-            <option value="">Elige primero el área</option>
-          </select>
-        </div>
-      </div>
-      <div class="campo" id="campo-comuna-padre" data-campo="comuna" style="display:none;">
-        <label for="select-comuna-padre">Comuna a la que pertenece</label>
-        <select name="comunaPadre" id="select-comuna-padre"><option value="">Sin comuna específica</option></select>
-      </div>
-      <div class="campo" id="campo-corregimiento-padre" data-campo="corregimiento" style="display:none;">
-        <label for="select-corregimiento-padre">Corregimiento al que pertenece</label>
-        <select name="corregimientoPadre" id="select-corregimiento-padre"><option value="">Sin corregimiento específico</option></select>
-      </div>
-      <div class="campo">
-        <label for="input-nombre-zona" id="label-nombre-zona">Nombre de la zona</label>
-        <input name="nombreZona" id="input-nombre-zona" required>
-      </div>
-      <button type="submit" class="btn-primario">Agregar</button>
-    </form>
-
-    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
-      <a class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="territorial" id="btn-exportar-excel" href="/api/territorial/territorios/exportar-excel" target="_blank">⬇ Exportar a Excel</a>
-      <label class="btn-secundario btn-sm btn-excel-app sin-importar-exportar" data-ie="territorial" id="label-importar-excel" style="cursor:pointer; margin:0;">
-        ⬆ Importar desde Excel
-        <input type="file" id="input-importar-excel" accept=".xlsx,.xls" style="display:none;">
-      </label>
-      <button class="btn-peligro btn-sm" id="btn-eliminar-territorios">🗑 Eliminar todos los territorios</button>
-    </div>
-    <div id="importar-resultado" class="mensaje-ok" style="display:none;"></div>
-
-    <div class="tabla-contenedor">
-    <table class="tabla-alineada">
-      <thead><tr><th>Tipo</th><th>Nombre</th><th>Pertenece a</th><th></th></tr></thead>
-      <tbody id="tbody-territorios"></tbody>
-    </table>
-    </div>
-    <div id="vacio-territorios" class="vacio" style="display:none;"><div class="icono-vacio">▲</div>Aún no hay territorios registrados.</div>
-  </div>
-</div>
-
-<div class="overlay" id="overlay-editar-territorio">
-  <div class="modal" style="max-width:420px;">
-    <div class="modal-header"><h3>Editar territorio</h3><button class="modal-cerrar" id="cerrar-modal-editar-territorio">×</button></div>
-    <p style="color:var(--color-text-muted); font-size:0.85rem;">Los cambios se reflejan automáticamente en Estructura, Votantes y Eventos que ya usan este territorio. Si cambias el nombre, también se actualizan las personas cuyo campo "Comuna/Corregimiento de residencia" o "Barrio/Vereda de residencia" coincidía con el nombre anterior.</p>
-    <div id="editar-territorio-error" class="mensaje-error"></div>
-    <div id="editar-territorio-ok" class="mensaje-ok"></div>
-    <form id="form-editar-territorio">
-      <input type="hidden" id="editar-territorio-id">
-      <div class="campo"><label for="editar-territorio-tipo">Tipo</label><input id="editar-territorio-tipo" disabled></div>
-      <div class="campo"><label for="editar-territorio-nombre">Nombre</label><input id="editar-territorio-nombre" required></div>
-      <div class="campo" id="campo-editar-territorio-padre" style="display:none;">
-        <label for="editar-territorio-padre" id="label-editar-territorio-padre">Pertenece a</label>
-        <select id="editar-territorio-padre"></select>
-      </div>
-      <button type="submit" class="btn-primario">Guardar cambios</button>
-    </form>
-  </div>
-</div>
-
 <div class="overlay" id="overlay-eliminar-estructura">
   <div class="modal" style="max-width:420px;">
     <div class="modal-header"><h3>Eliminar registros de la estructura</h3><button class="modal-cerrar" id="cerrar-modal-eliminar-estructura">×</button></div>
@@ -797,8 +707,6 @@ if ('serviceWorker' in navigator) {
 let usuarioActual;
 const ETIQUETAS_GENERO = { mujer: 'Mujer', hombre: 'Hombre', no_binario: 'No binario', prefiero_no_responder: 'Prefiero no responder' };
 let listaTerritorios = [];
-// ¿`territorios` es una tabla local editable? Lo confirma aplicarModoTerritorios() (GET /territorios/modo).
-let territoriosEditables = true;
 let listaCoordinadoresYLideres = [];
 
 async function cargarSelects() {
@@ -921,137 +829,6 @@ document.getElementById('input-barrio-vereda-residencia-persona').addEventListen
   }
 });
 
-function renderTablaTerritorios() {
-  const tbody = document.getElementById('tbody-territorios');
-  document.getElementById('vacio-territorios').style.display = listaTerritorios.length ? 'none' : 'block';
-  const porId = Object.fromEntries(listaTerritorios.map(t => [t.id, t]));
-  tbody.innerHTML = listaTerritorios.map(t => `
-    <tr>
-      <td><span class="tag-tipo">${t.tipo}</span></td>
-      <td><strong>${escaparHtml(nombreLugar(t.nombre))}</strong></td>
-      <td>${escaparHtml(t.padre_id && porId[t.padre_id] ? nombreLugar(porId[t.padre_id].nombre) : '—')}</td>
-      <td style="white-space:nowrap;">
-        ${territoriosEditables && ['comuna', 'corregimiento', 'barrio', 'vereda'].includes(t.tipo)
-          ? `<button class="btn-secundario btn-sm" onclick="abrirEdicionTerritorio(${t.id})">Editar</button>` : ''}
-        ${territoriosEditables && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante ? `<button class="btn-peligro btn-sm" onclick="eliminarTerritorio(${t.id})">Eliminar</button>` : ''}
-      </td>
-    </tr>
-  `).join('');
-}
-
-async function eliminarTerritorio(id) {
-  if (!confirm('¿Eliminar este territorio? Esto puede afectar registros que lo usen.')) return;
-  try {
-    await api(`/territorial/territorios/${id}`, { method: 'DELETE' });
-    await cargarSelects();
-    renderTablaTerritorios();
-  } catch (err) {
-    mostrarToast(err.message, 'error');
-  }
-}
-
-/**
- * Abre el modal para editar el Nombre de un territorio (y, si es Barrio o
- * Vereda, permite reasignarlo a otra Comuna/Corregimiento).
- */
-function abrirEdicionTerritorio(id) {
-  const t = listaTerritorios.find(x => x.id === id);
-  if (!t) return;
-
-  document.getElementById('editar-territorio-id').value = t.id;
-  document.getElementById('editar-territorio-tipo').value = t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1);
-  document.getElementById('editar-territorio-nombre').value = t.nombre;
-  document.getElementById('editar-territorio-error').classList.remove('visible');
-  document.getElementById('editar-territorio-ok').classList.remove('visible');
-
-  const campoPadre = document.getElementById('campo-editar-territorio-padre');
-  const selectPadre = document.getElementById('editar-territorio-padre');
-  if (t.tipo === 'barrio' || t.tipo === 'vereda') {
-    campoPadre.style.display = 'block';
-    const tipoPadre = t.tipo === 'barrio' ? 'comuna' : 'corregimiento';
-    document.getElementById('label-editar-territorio-padre').textContent =
-      t.tipo === 'barrio' ? 'Comuna a la que pertenece' : 'Corregimiento al que pertenece';
-    const opciones = listaTerritorios.filter(x => x.tipo === tipoPadre);
-    selectPadre.innerHTML = opciones
-      .map(o => `<option value="${o.id}" ${o.id === t.padre_id ? 'selected' : ''}>${o.nombre}</option>`)
-      .join('');
-  } else {
-    campoPadre.style.display = 'none';
-  }
-
-  document.getElementById('overlay-editar-territorio').classList.add('abierto');
-}
-
-document.getElementById('cerrar-modal-editar-territorio').addEventListener('click', () =>
-  document.getElementById('overlay-editar-territorio').classList.remove('abierto'));
-
-document.getElementById('form-editar-territorio').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const errorBox = document.getElementById('editar-territorio-error');
-  const okBox = document.getElementById('editar-territorio-ok');
-  errorBox.classList.remove('visible');
-  okBox.classList.remove('visible');
-
-  const id = document.getElementById('editar-territorio-id').value;
-  const nombre = document.getElementById('editar-territorio-nombre').value.trim();
-  const campoPadre = document.getElementById('campo-editar-territorio-padre');
-  const datos = { nombre };
-  if (campoPadre.style.display !== 'none') {
-    datos.padre_id = document.getElementById('editar-territorio-padre').value;
-  }
-
-  try {
-    const r = await api(`/territorial/territorios/${id}`, { method: 'PUT', body: datos });
-    okBox.textContent = 'Territorio actualizado.' +
-      (r.actualizadosResidencia
-        ? ` Se actualizaron ${r.actualizadosResidencia} persona(s) cuyo campo de residencia hacía referencia al nombre anterior.`
-        : '');
-    okBox.classList.add('visible');
-    await cargarSelects();
-    renderTablaTerritorios();
-    await cargarEstructura();
-    setTimeout(() => document.getElementById('overlay-editar-territorio').classList.remove('abierto'), 1600);
-  } catch (err) {
-    errorBox.textContent = err.message;
-    errorBox.classList.add('visible');
-  }
-});
-
-
-/**
- * ¿Se pueden editar los territorios? GET /territorios/modo. Si `territorios` es una vista del
- * catálogo se ocultan agregar, importar y eliminar; si es una tabla local se muestran
- * (importar y eliminar todo, solo al administrador — el servidor lo exige igual).
- * SI LA CONSULTA FALLA no se toca nada: queda como estaba, y el servidor decide.
- */
-async function aplicarModoTerritorios() {
-  try {
-    const r = await api('/territorial/territorios/modo');
-    territoriosEditables = r.editable !== false;
-  } catch (_) { return; }
-  /* `rol` NO sirve para esto: `inicializarLayout` lo reescribe a 'admin' para el
-     aspirante (es solo para dibujar; el rol real queda en `rol_sesion`). Con la
-     comparación a secas, el aspirante veía «Importar desde Excel» y «Eliminar
-     todos» de este modal, y el servidor —que los reserva al administrador— le
-     respondía 403. */
-  const esAdmin = !!(usuarioActual && usuarioActual.rol === 'admin' && !usuarioActual.es_aspirante);
-  const mostrar = (id, visible) => { const el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
-  mostrar('form-territorio', territoriosEditables);
-  mostrar('label-importar-excel', territoriosEditables && esAdmin);
-  mostrar('btn-eliminar-territorios', territoriosEditables && esAdmin);
-  mostrar('aviso-territorios-vista', !territoriosEditables);
-  renderTablaTerritorios();
-}
-
-document.getElementById('btn-territorios').addEventListener('click', async () => {
-  document.getElementById('overlay-territorios').classList.add('abierto');
-  renderTablaTerritorios();
-  aplicarModoTerritorios();
-  await cargarCatalogoColombia();
-  precargarUltimaUbicacion();
-});
-document.getElementById('cerrar-modal-territorios').addEventListener('click', () =>
-  document.getElementById('overlay-territorios').classList.remove('abierto'));
 
 // --- Eliminación masiva de Estructura (coordinadores/líderes/todo) ---
 document.getElementById('btn-regeocodificar').addEventListener('click', async () => {
@@ -1176,29 +953,14 @@ document.getElementById('btn-eliminar-lideres').addEventListener('click', () =>
 document.getElementById('btn-eliminar-todo-estructura').addEventListener('click', () =>
   ejecutarEliminacionMasivaEstructura('todo', 'TODA la estructura (coordinadores, líderes, usuarios y testigos)'));
 
-// --- Eliminación total de Territorios ---
-document.getElementById('btn-eliminar-territorios').addEventListener('click', async () => {
-  if (!confirm('¿Está seguro de eliminar TODOS los territorios? Esta acción no se puede deshacer.')) return;
-  const password = await solicitarPasswordAdmin('Confirmar eliminación de territorios');
-  if (!password) return;
-  try {
-    await api('/territorial/territorios/eliminar-todo', { method: 'POST', body: { password } });
-    mostrarToast('Todos los territorios fueron eliminados.', 'ok');
-    await cargarSelects();
-    renderTablaTerritorios();
-  } catch (err) {
-    mostrarToast(err.message, 'error');
-  }
-});
-
 // --- Catálogo de departamentos y municipios de Colombia (DANE) ---
 let catalogoColombia = null;
 
 async function cargarCatalogoColombia() {
   if (catalogoColombia) return;
   catalogoColombia = await obtenerConCacheReferencia('colombia', () => fetch('/data/colombia.json').then(r => r.json()));
-  document.getElementById('lista-departamentos').innerHTML =
-    catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
+  // Orden 147: el datalist del modal de territorios se fue con el modal a
+  // Configuración → Datos de la campaña → Barrios y veredas. Aquí queda lo de la persona.
   // Mismo catálogo, para el Departamento/Ciudad de residencia en Agregar/Editar persona.
   document.getElementById('lista-departamentos-residencia-persona').innerHTML =
     catalogoColombia.departamentos.map(d => `<option value="${d}">`).join('');
@@ -1253,15 +1015,6 @@ function actualizarMunicipiosVotacionPersona() {
 }
 document.getElementById('input-departamento-votacion-persona').addEventListener('input', actualizarMunicipiosVotacionPersona);
 
-function actualizarMunicipiosDelDepartamento() {
-  const depto = document.getElementById('input-departamento').value.trim();
-  const municipios = (catalogoColombia && catalogoColombia.municipiosPorDepartamento[depto]) || [];
-  document.getElementById('lista-municipios').innerHTML =
-    municipios.map(m => `<option value="${m}">`).join('');
-}
-
-document.getElementById('input-departamento').addEventListener('input', actualizarMunicipiosDelDepartamento);
-
 /** Llena el datalist de Ciudad de residencia según el Departamento de residencia escrito. */
 function actualizarCiudadesResidenciaPersona() {
   const depto = document.getElementById('input-departamento-residencia-persona').value.trim();
@@ -1277,166 +1030,6 @@ document.getElementById('input-ciudad-residencia-persona').addEventListener('inp
   // otras ciudades que puedan existir en el sistema.
   poblarComunaCorregimientoResidencia();
   poblarListasUbicacionPersona();
-});
-
-document.getElementById('select-area').addEventListener('change', (e) => {
-  const selectTipo = document.getElementById('select-tipo-zona');
-  const labelNombre = document.getElementById('label-nombre-zona');
-  if (e.target.value === 'urbano') {
-    // Solo se ofrece crear los tipos de zona que la campaña sí usa
-    // (Configuración → Datos de la campaña).
-    const tipos = [];
-    if (ciudadTieneComunas) tipos.push('<option value="comuna">Comuna</option>');
-    if (usarNombreBarrios) tipos.push('<option value="barrio">Barrio</option>');
-    selectTipo.disabled = tipos.length === 0;
-    selectTipo.innerHTML = tipos.length
-      ? tipos.join('')
-      : '<option value="">La campaña no usa comunas ni barrios</option>';
-    labelNombre.textContent = ciudadTieneComunas && usarNombreBarrios
-      ? 'Nombre de la comuna o barrio'
-      : (ciudadTieneComunas ? 'Nombre de la comuna' : 'Nombre del barrio');
-  } else if (e.target.value === 'rural') {
-    // Mismo criterio que arriba: no se ofrece crear zonas de un tipo que la
-    // campaña apagó. Si se ofreciera, se podrían crear veredas que después
-    // ningún formulario deja elegir.
-    const tipos = [];
-    if (usarNombreCorregimientos) tipos.push('<option value="corregimiento">Corregimiento</option>');
-    if (usarNombreVeredas) tipos.push('<option value="vereda">Vereda</option>');
-    selectTipo.disabled = tipos.length === 0;
-    selectTipo.innerHTML = tipos.length
-      ? tipos.join('')
-      : '<option value="">La campaña no usa corregimientos ni veredas</option>';
-    labelNombre.textContent = usarNombreCorregimientos && usarNombreVeredas
-      ? 'Nombre del corregimiento o vereda'
-      : (usarNombreCorregimientos ? 'Nombre del corregimiento' : 'Nombre de la vereda');
-  } else {
-    selectTipo.disabled = true;
-    selectTipo.innerHTML = `<option value="">Elige primero el área</option>`;
-    labelNombre.textContent = 'Nombre de la zona';
-  }
-  actualizarCamposPadreZona();
-});
-
-// Busca en lo ya creado el municipio que coincide con Departamento + Municipio escritos.
-function buscarMunicipioActual() {
-  const nombreDepto = normalizarTexto(document.getElementById('input-departamento').value);
-  const nombreMuni = normalizarTexto(document.getElementById('input-municipio').value);
-  if (!nombreDepto || !nombreMuni) return null;
-  const depto = listaTerritorios.find(t => t.tipo === 'departamento' && normalizarTexto(t.nombre) === nombreDepto);
-  if (!depto) return null;
-  const muni = listaTerritorios.find(t => t.tipo === 'municipio' && t.padre_id === depto.id && normalizarTexto(t.nombre) === nombreMuni);
-  return muni || null;
-}
-
-// Muestra/oculta y llena el selector de Comuna (para Barrio) o Corregimiento
-// (para Vereda).
-//
-// Si la campaña apagó ese nivel, el marcador `data-campo` del contenedor lo
-// esconde igual: la regla de la hoja lleva !important y gana sobre el
-// display:block de aquí. La zona queda entonces colgando del municipio, que
-// es exactamente lo que significa la opción "Sin comuna específica" que el
-// selector ya ofrecía.
-function actualizarCamposPadreZona() {
-  const tipoZona = document.getElementById('select-tipo-zona').value;
-  const campoComuna = document.getElementById('campo-comuna-padre');
-  const campoCorregimiento = document.getElementById('campo-corregimiento-padre');
-  campoComuna.style.display = 'none';
-  campoCorregimiento.style.display = 'none';
-
-  const municipio = buscarMunicipioActual();
-
-  if (tipoZona === 'barrio') {
-    campoComuna.style.display = 'block';
-    const comunas = municipio ? listaTerritorios.filter(t => t.tipo === 'comuna' && t.padre_id === municipio.id) : [];
-    document.getElementById('select-comuna-padre').innerHTML =
-      '<option value="">Sin comuna específica</option>' +
-      comunas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-  } else if (tipoZona === 'vereda') {
-    campoCorregimiento.style.display = 'block';
-    const corregimientos = municipio ? listaTerritorios.filter(t => t.tipo === 'corregimiento' && t.padre_id === municipio.id) : [];
-    document.getElementById('select-corregimiento-padre').innerHTML =
-      '<option value="">Sin corregimiento específico</option>' +
-      corregimientos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
-  }
-}
-
-document.getElementById('select-tipo-zona').addEventListener('change', actualizarCamposPadreZona);
-document.getElementById('input-municipio').addEventListener('change', actualizarCamposPadreZona);
-
-// "La primera vez que se elija departamento y ciudad, estos datos se autocompletan
-// para la gestión de territorios siguientes" — se recuerdan en este navegador.
-function precargarUltimaUbicacion() {
-  const guardado = localStorage.getItem('ultimaUbicacionTerritorio');
-  if (!guardado) return;
-  try {
-    const { departamento, municipio } = JSON.parse(guardado);
-    document.getElementById('input-departamento').value = departamento || '';
-    actualizarMunicipiosDelDepartamento();
-    document.getElementById('input-municipio').value = municipio || '';
-  } catch (_) { /* ignorar */ }
-}
-
-document.getElementById('form-territorio').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const errorBox = document.getElementById('territorio-error');
-  const okBox = document.getElementById('territorio-ok');
-  errorBox.classList.remove('visible'); okBox.classList.remove('visible');
-  const form = e.target;
-  const datos = {
-    departamento: form.departamento.value.trim(),
-    municipio: form.municipio.value.trim(),
-    tipoZona: form.tipoZona.value,
-    nombreZona: form.nombreZona.value.trim()
-  };
-  if (form.tipoZona.value === 'barrio' && form.comunaPadre.value) {
-    datos.padreZonaId = form.comunaPadre.value;
-  } else if (form.tipoZona.value === 'vereda' && form.corregimientoPadre.value) {
-    datos.padreZonaId = form.corregimientoPadre.value;
-  }
-  try {
-    await api('/territorial/territorios/crear-zona', { method: 'POST', body: datos });
-    localStorage.setItem('ultimaUbicacionTerritorio', JSON.stringify({
-      departamento: datos.departamento, municipio: datos.municipio
-    }));
-    await cargarSelects();
-    renderTablaTerritorios();
-    okBox.textContent = 'Zona agregada correctamente.';
-    okBox.classList.add('visible');
-    form.nombreZona.value = '';
-    form.nombreZona.focus();
-  } catch (err) {
-    errorBox.textContent = err.message;
-    errorBox.classList.add('visible');
-  }
-});
-
-// --- Importar desde Excel ---
-document.getElementById('input-importar-excel').addEventListener('change', async (e) => {
-  const archivo = e.target.files[0];
-  if (!archivo) return;
-  const resultadoBox = document.getElementById('importar-resultado');
-  const fd = new FormData();
-  fd.append('archivo', archivo);
-  try {
-    const r = await api('/territorial/territorios/importar-excel', { method: 'POST', body: fd });
-    let mensaje = `Importación completada: ${r.insertados} fila(s) procesada(s)`;
-    if (r.reparentados) {
-      mensaje += `, ${r.reparentados} corregida(s) de jerarquía (barrio/vereda que estaban colgando directamente del municipio)`;
-    }
-    mensaje += '.';
-    if (r.errores && r.errores.length) {
-      mensaje += ` ${r.errores.length} fila(s) con error (ej. fila ${r.errores[0].fila}: ${r.errores[0].error}).`;
-    }
-    resultadoBox.textContent = mensaje;
-    resultadoBox.style.display = 'block';
-    await cargarSelects();
-    renderTablaTerritorios();
-  } catch (err) {
-    resultadoBox.textContent = 'Error importando el archivo: ' + err.message;
-    resultadoBox.style.display = 'block';
-  } finally {
-    e.target.value = '';
-  }
 });
 
 let listaEstructura = [];
@@ -4265,6 +3858,22 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   if (!['admin', 'coordinador', 'candidato'].includes(usuarioActual.rol)) {
     document.getElementById('btn-nuevo').style.display = 'none';
   }
+  /* ORDEN 147 — «GESTIONAR TERRITORIOS» SOLO A QUIEN PUEDE ABRIR CONFIGURACIÓN.
+     Ahora es un enlace a Configuración → Datos de la campaña, y esa pantalla es
+     de `rol === 'admin'` (ahí entran el administrador, el superadministrador —que
+     conserva ese rol— y el aspirante, al que `inicializarLayout` se lo reescribe).
+     A los demás se les esconde: un enlace que lleva a una pantalla sin permiso es
+     peor que no ofrecerlo.
+
+     LO QUE ESTO QUITA, DICHO EN VOZ ALTA: líder, testigo e invitado podían abrir
+     el modal y VER la tabla de territorios (escribir no: el servidor les respondía
+     403). Esa lectura se va. Lo que necesitan de verdad —las comunas, barrios,
+     corregimientos y veredas en los desplegables del formulario de persona— no se
+     toca: sigue saliendo de `GET /territorial/territorios`, que no pide rol. */
+  if (usuarioActual.rol !== 'admin') {
+    const enlaceTerritorios = document.getElementById('btn-territorios');
+    if (enlaceTerritorios) enlaceTerritorios.style.display = 'none';
+  }
   /* EL CANDIDATO PRINCIPAL SOLO AGREGA (orden 73): crea coordinadores, líderes, etc. y nada más. Aquí se le esconde todo lo demás de la cabecera —escribir por WhatsApp en lote, gestionar
      territorios, re-geocodificar, eliminar registros, importar y exportar—; el servidor ya le responde 403 a cada uno, esto evita ofrecer lo que no puede usar. Editar y Eliminar de cada
      ficha ya van solo para administrador y coordinador. */
@@ -4331,10 +3940,18 @@ document.getElementById('input-importar-estructura').addEventListener('change', 
   iniciarVistasEstructura();
   await cargarEstructura();
 
-  // El ítem "Organigrama territorial" del menú enlaza aquí con este hash,
-  // para abrir directamente el catálogo de Comuna/Corregimiento/Barrio/Vereda.
-  if (window.location.hash === '#gestionar-territorios' && usuarioActual.rol !== 'coordinador') {
-    document.getElementById('btn-territorios').click();
+  /* ORDEN 147 — EL ATAJO SIGUE VALIENDO, PERO LLEVA A OTRO SITIO. `#gestionar-territorios`
+     abría el modal. El modal ya no existe, así que se redirige a la ficha.
+
+     YA NO QUEDA NINGÚN ENLACE DE LA APLICACIÓN QUE USE ESTE ANCLA (el del menú de
+     administrador del celular, public/app/admin-estructura.html, pasó a apuntar
+     directo a la ficha). Se deja igual por los marcadores que alguien ya tenga
+     guardados: un `#` que no hace nada parece que la aplicación se rompió. Solo a
+     quien puede abrir Configuración; a los demás, llevarlos allí sería cambiar un
+     modal que no podían usar por una pantalla que tampoco. */
+  if (window.location.hash === '#gestionar-territorios') {
+    if (usuarioActual.rol === 'admin') window.location.replace('/configuracion.html#datos-territorios-lista');
+    else history.replaceState(null, '', window.location.pathname);
   }
   // "Agregar coordinadores o líderes" del menú de administrador (app móvil)
   // enlaza aquí con este hash, para abrir directo el formulario de crear

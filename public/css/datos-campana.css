@@ -595,3 +595,105 @@ html:not(.modo-app) #seccion-campana .dc-pie-botones button:focus-visible { outl
   html:not(.modo-app) #seccion-campana .dc-panel { padding: 18px 16px 6px; }
   html:not(.modo-app) #seccion-campana .dc-pie { padding: 14px 16px; }
 }
+
+/* ==========================================================================
+   ORDEN 147 — LA SÉPTIMA FICHA, «🗺️ Barrios y veredas».
+
+   Es la única ficha que NO se guarda con el botón del pie: cada acción va a
+   su propio endpoint (crear, editar, borrar, importar). Por eso tiene una
+   caja de ayuda arriba, una barra de Excel propia y una tabla con buscador —
+   piezas que las otras seis no necesitan.
+
+   LAS CLASES VAN SIN ACOTAR A `#seccion-campana` a propósito: el marcado lo
+   pinta `js/territorios-gestion.js`, que está escrito para poder vivir en
+   otra pantalla. Lo que sí queda acotado es lo que depende de las variables
+   de esta sección.
+   ========================================================================== */
+
+.tg-ayuda {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border-left: 4px solid #0B5ED7;
+  background: #EEF4FF;
+  color: #1F2937;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.tg-ayuda b { color: #084298; }
+.tg-ayuda-nota { display: block; margin-top: 6px; color: #6B7280; font-size: 0.86rem; }
+.tg-ayuda-acc { margin-top: 10px; }
+.tg-enlace-plantilla {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #084298;
+  text-decoration: underline;
+}
+.tg-enlace-plantilla:hover { color: #0B5ED7; }
+
+/* El aviso de campaña conectada al catálogo: informa, no celebra. */
+.tg-aviso-catalogo { display: block; }
+
+.tg-acciones-form { margin: 4px 0 18px; }
+
+.tg-barra {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0 0 14px;
+}
+
+/* ----- El resumen de la importación: en la pantalla, no en un `alert` ----- */
+.tg-resultado {
+  margin: 0 0 16px;
+  padding: 13px 15px;
+  border-radius: 10px;
+  border-left: 4px solid #9CA3AF;
+  background: #F3F4F6;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.tg-resultado-ok    { border-left-color: #2E7D32; background: #EDF7ED; }
+.tg-resultado-aviso { border-left-color: #B26A00; background: #FFF6E6; }
+.tg-resultado-mal   { border-left-color: #B3261E; background: #FDECEA; }
+.tg-res-titulo { font-weight: 700; margin-bottom: 6px; color: #1F2937; }
+.tg-res-lista { margin: 0; padding-left: 20px; }
+.tg-res-lista li { margin: 2px 0; }
+.tg-res-errores { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.08); }
+.tg-res-errores ul { margin: 4px 0 0; padding-left: 20px; }
+
+/* ----- Buscador y filtro por tipo, encima de la tabla ----- */
+.tg-filtros {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+  margin: 0 0 12px;
+}
+.tg-filtros .campo { margin: 0; }
+.tg-conteo {
+  padding-bottom: 12px;
+  font-size: 0.85rem;
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .tg-filtros { grid-template-columns: 1fr; }
+  .tg-conteo { padding-bottom: 0; }
+}
+
+/* La nota de «se guarda al momento»: va dentro del panel, en ámbar suave, para
+   que se lea como un dato de la ficha y no como una alerta. */
+html:not(.modo-app) #seccion-campana .dc-aviso-al-momento {
+  margin: 0 0 18px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  border-left: 4px solid var(--dc-amarillo);
+  background: rgba(255, 195, 0, 0.1);
+  color: #1F2937;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

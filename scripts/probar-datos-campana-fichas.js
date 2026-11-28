@@ -61,7 +61,10 @@ const NAMES_ANTES = ['cargo_aspira', 'ciudad_tiene_comunas', 'direccion_sede', '
   'marca_titulo', 'meta_votos', 'meta_votos_campana', 'nombre_candidato', 'slogan_campana', 'telefono', 'usar_nombre_barrios',
   'usar_nombre_corregimientos', 'usar_nombre_veredas'];
 
-// Las seis fichas, en el orden que pidió Gildardo.
+/* Las fichas, en el orden que pidió Gildardo. La séptima la agregó la ORDEN 147
+   («🗺️ Barrios y veredas»), después de Jornada Día D: no se guarda con el botón
+   del pie, y por eso la prueba la comprueba aparte (probar-ficha-territorios.js).
+   Aquí entra solo para que el recuento y el orden sigan siendo ciertos. */
 const FICHAS = [
   ['datos-candidato',    'dc-ficha-candidato',  'dc-panel-candidato',  '👤 Candidato',      'Candidato'],
   ['datos-campana-meta', 'dc-ficha-campana',    'dc-panel-campana',    '🗳️ Campaña y meta', 'Campaña y meta'],
@@ -69,6 +72,7 @@ const FICHAS = [
   ['datos-territorio',   'dc-ficha-territorio', 'dc-panel-territorio', '🗺️ Territorio',     'Territorio'],
   ['datos-apoyos',       'dc-ficha-apoyos',     'dc-panel-apoyos',     '🤝 Apoyos',         'Apoyos'],
   ['datos-jornada',      'dc-ficha-jornada',    'dc-panel-jornada',    '⏱️ Jornada Día D',  'Jornada del Día D'],
+  ['datos-territorios-lista', 'dc-ficha-territorios-lista', 'dc-panel-territorios-lista', '🗺️ Barrios y veredas', 'Barrios y veredas'],
 ];
 
 const AZUL_OSCURO = 'rgb(8, 66, 152)';
@@ -139,20 +143,20 @@ const GRIS_AYUDA = 'rgb(107, 114, 128)';
        que dejó la primera, no por el diseño. */
     await pool.query("UPDATE configuracion_campana SET marca_logo_url = '/img/logo.png' WHERE id = 1");
 
-    /* ===================================================================== A. LAS SEIS FICHAS, EN ORDEN */
-    console.log('\n[A. Las seis fichas]');
+    /* ===================================================================== A. LAS FICHAS, EN ORDEN */
+    console.log('\n[A. Las fichas]');
     ok(await abrir(w, h, '/configuracion.html#campana'), 'la pantalla carga con los datos de la campaña');
 
     const fichas = await ev(`(() => [...document.querySelectorAll('#dc-fichas .dc-ficha')].map((e) => { const r = e.getBoundingClientRect(); const c = getComputedStyle(e);
       return { id: e.id, ficha: e.dataset.ficha, texto: e.textContent.replace(/\\s+/g, ' ').trim(), sel: e.getAttribute('aria-selected'), oculto: c.display === 'none',
         top: Math.round(r.top * 10) / 10, left: Math.round(r.left * 10) / 10, letra: c.fontSize, peso: c.fontWeight, color: c.color, raya: c.borderBottomWidth + ' ' + c.borderBottomColor }; }))()`);
-    ok(fichas.length === 6, `seis fichas (${fichas.length})`, fichas.map((f) => f.texto));
+    ok(fichas.length === FICHAS.length, `${FICHAS.length} fichas (${fichas.length})`, fichas.map((f) => f.texto));
     ok(fichas.every((f, i) => f.ficha === FICHAS[i][0] && f.texto === FICHAS[i][3]),
       'en el orden pedido: Candidato · Campaña y meta · Identidad · Territorio · Apoyos · Jornada Día D', fichas.map((f) => f.texto));
-    ok(fichas.every((f) => !f.oculto), 'las seis visibles para el administrador', fichas.filter((f) => f.oculto).map((f) => f.id));
+    ok(fichas.every((f) => !f.oculto), 'todas visibles para el administrador', fichas.filter((f) => f.oculto).map((f) => f.id));
     ok(fichas.every((f) => f.letra === '15px' && f.peso === '700'), 'letra de 15 px negrita en las pestañas', fichas.map((f) => [f.letra, f.peso]));
     const uno = [...new Set(fichas.map((f) => f.top))];
-    ok(uno.length === 1, `las seis en una sola línea (tops: ${uno.join(', ')})`);
+    ok(uno.length === 1, `todas en una sola línea (tops: ${uno.join(', ')})`);
     ok(fichas.every((f, i) => i === 0 || f.left > fichas[i - 1].left), 'de izquierda a derecha, sin solaparse', fichas.map((f) => f.left));
     const activa = fichas.find((f) => f.sel === 'true');
     ok(activa && activa.ficha === 'datos-candidato', 'al entrar por #campana se abre «Candidato»', activa && activa.ficha);
@@ -212,14 +216,19 @@ const GRIS_AYUDA = 'rgb(107, 114, 128)';
       if (!(await clic('#' + idBoton))) continue;
       await espera(140);
       if (hash === 'datos-candidato') { await teclear('select-partido-politico', 'Otro'); await espera(250); }
+      /* LOS CAMPOS DESHABILITADOS NO ENTRAN. Un campo `disabled` se pinta gris A PROPÓSITO
+         (es la regla de siempre: #EEF2F8 / #F4F6FA), así que exigirle fondo blanco sería
+         pedirle que mienta. Apareció con la ORDEN 147: «Tipo de zona» de la ficha «Barrios y
+         veredas» nace deshabilitado hasta que se elige el Área. El alto y la letra sí se le
+         miden, que es lo que esta prueba cuida. */
       const m = await ev(`(() => [...document.querySelectorAll('#seccion-campana .dc-panel:not([hidden]) input:not([type=checkbox]):not([type=file]), #seccion-campana .dc-panel:not([hidden]) select')]
-        .filter((e) => e.offsetParent !== null)
+        .filter((e) => e.offsetParent !== null && !e.disabled)
         .map((e) => { const c = getComputedStyle(e); const r = e.getBoundingClientRect();
           return { id: e.id, alto: Math.round(r.height * 10) / 10, letra: c.fontSize, fondo: c.backgroundColor, grosor: e.offsetHeight - e.clientHeight,
             color: c.borderTopColor, radio: c.borderTopLeftRadius }; }))()`);
       todosLosCampos.push(...m.map((x) => ({ ...x, ficha: hash })));
     }
-    ok(todosLosCampos.length >= 20, `se midieron los campos visibles de las seis fichas (${todosLosCampos.length})`);
+    ok(todosLosCampos.length >= 20, `se midieron los campos visibles de las fichas (${todosLosCampos.length})`);
     ok(todosLosCampos.some((c) => c.id === 'input-partido-otro'), 'incluido «Nombre del partido/movimiento», que aparece al elegir «Otro»');
     const altoMal = todosLosCampos.filter((c) => !cerca(c.alto, 46, 0.6));
     ok(altoMal.length === 0, 'todos los campos de 46 px de alto', altoMal.map((c) => [c.id, c.alto]));

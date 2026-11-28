@@ -203,6 +203,8 @@
               <button type="button" class="dc-ficha" id="dc-ficha-territorio"  role="tab" aria-selected="false" aria-controls="dc-panel-territorio"  data-ficha="datos-territorio">🗺️ Territorio</button>
               <button type="button" class="dc-ficha" id="dc-ficha-apoyos"      role="tab" aria-selected="false" aria-controls="dc-panel-apoyos"      data-ficha="datos-apoyos">🤝 Apoyos</button>
               <button type="button" class="dc-ficha" id="dc-ficha-jornada"     role="tab" aria-selected="false" aria-controls="dc-panel-jornada"     data-ficha="datos-jornada">⏱️ Jornada Día D</button>
+              <!-- Orden 147: la séptima. Es la ÚNICA que no se guarda con el botón del pie; lo dice su propia nota y el pie se esconde mientras está abierta. -->
+              <button type="button" class="dc-ficha" id="dc-ficha-territorios-lista" role="tab" aria-selected="false" aria-controls="dc-panel-territorios-lista" data-ficha="datos-territorios-lista">🗺️ Barrios y veredas</button>
             </div>
 
             <!-- ===== 1. CANDIDATO ===== -->
@@ -515,11 +517,33 @@
               </div>
             </div>
 
-            <!-- EL PIE, UNO SOLO PARA LAS SEIS FICHAS. Es el mismo «Guardar» de
-                 antes: manda a la vez lo de las seis pestañas. Lo dice en voz
-                 alta a la izquierda, porque con las fichas separadas es
-                 razonable temer que cada una se guarde aparte. -->
-            <div class="dc-pie">
+            <!-- ===== FICHA 7 (orden 147): BARRIOS Y VEREDAS =====
+                 El contenido lo pinta js/territorios-gestion.js dentro de
+                 #tg-territorios. Aquí solo van el título, la nota de que se
+                 guarda al momento y el hueco.
+
+                 NO LLEVA UN <form> PROPIO, Y NO ES UN DESCUIDO: este panel
+                 está dentro de #form-campana y HTML no permite anidar
+                 formularios. El módulo usa botones `type="button"` y corta el
+                 Enter, para que ninguna tecla de esta ficha dispare «Guardar
+                 datos de la campaña». El modal de editar sí es un <form>, y
+                 por eso el módulo lo cuelga de <body>, fuera de este. -->
+            <div class="dc-panel" id="dc-panel-territorios-lista" role="tabpanel" aria-labelledby="dc-ficha-territorios-lista" hidden>
+              <h2 class="dc-titulo">Barrios y veredas</h2>
+              <p class="dc-bajada">Las comunas, barrios, corregimientos y veredas de la campaña: los que aparecen en los desplegables de Estructura territorial, Votantes y Eventos.</p>
+              <div class="dc-aviso-al-momento" id="dc-aviso-territorios-al-momento">
+                <b>Los cambios de esta ficha se guardan al momento.</b> No hace falta el botón «Guardar datos de la campaña»: cada territorio que agregue, edite, elimine o importe queda guardado de inmediato.
+              </div>
+              <div id="tg-territorios"></div>
+            </div>
+
+            <!-- EL PIE, UNO SOLO PARA LAS SEIS FICHAS QUE SE GUARDAN JUNTAS. Es el
+                 mismo «Guardar» de antes: manda a la vez lo de esas seis pestañas. Lo
+                 dice en voz alta a la izquierda, porque con las fichas separadas es
+                 razonable temer que cada una se guarde aparte.
+                 Orden 147: con la séptima ficha abierta el pie se ESCONDE (dcAplicarPie),
+                 porque ahí no guarda nada y ofrecerlo invitaría a creer lo contrario. -->
+            <div class="dc-pie" id="dc-pie">
               <div class="dc-pie-nota">Las seis fichas se guardan juntas</div>
               <div class="dc-pie-botones">
                 <button type="button" id="dc-btn-cancelar">Cancelar</button>
@@ -816,7 +840,8 @@
          sección, y aquí se deja además abierta la ficha pedida: hacerlo más
          tarde, en el arranque, dejaba ver un instante la ficha «Candidato». */
       var fichas = { 'datos-candidato': 'dc-panel-candidato', 'datos-campana-meta': 'dc-panel-campana', 'datos-identidad': 'dc-panel-identidad',
-        'datos-territorio': 'dc-panel-territorio', 'datos-apoyos': 'dc-panel-apoyos', 'datos-jornada': 'dc-panel-jornada' };
+        'datos-territorio': 'dc-panel-territorio', 'datos-apoyos': 'dc-panel-apoyos', 'datos-jornada': 'dc-panel-jornada',
+        'datos-territorios-lista': 'dc-panel-territorios-lista' };
       var id = 'seccion-campana';
       var ficha = '';
       try {
@@ -833,6 +858,12 @@
           if (panel) panel.hidden = h !== ficha;
           if (boton) boton.setAttribute('aria-selected', h === ficha ? 'true' : 'false');
         });
+        /* Orden 147: el pie («Guardar datos de la campaña») no es de la ficha
+           de Barrios y veredas. Se decide YA, aquí, y no al final del arranque:
+           hacerlo después dejaba ver un instante un botón de guardar que en esa
+           ficha no guarda nada. */
+        var pie = document.getElementById('dc-pie');
+        if (pie) pie.style.display = ficha === 'datos-territorios-lista' ? 'none' : '';
       }
     })();
     </script>
@@ -946,6 +977,9 @@
 
 <script src="/js/common.js"></script>
 <script src="/js/cobertura-testigos.js"></script>
+<!-- Orden 147: la ficha «Barrios y veredas». Pinta su propio marcado dentro de
+     #tg-territorios; antes era el modal «Gestionar territorios» de territorial.html. -->
+<script src="/js/territorios-gestion.js"></script>
 <script>
 /* LA JORNADA DEL DÍA D (horarios y umbrales). Se lee y se guarda por su propia ruta (/dia-d/alertas/config) y no por la
    de «Datos de la campaña»: no comparte con ella ni permisos ni riesgos. Quien no es administrador de la campaña principal
@@ -1200,6 +1234,10 @@ const DC_FICHAS = [
   { hash: 'datos-territorio',   boton: 'dc-ficha-territorio', panel: 'dc-panel-territorio' },
   { hash: 'datos-apoyos',       boton: 'dc-ficha-apoyos',     panel: 'dc-panel-apoyos' },
   { hash: 'datos-jornada',      boton: 'dc-ficha-jornada',    panel: 'dc-panel-jornada' },
+  /* Orden 147. `suelta: true` = no se guarda con el pie: cada acción va a su
+     propio endpoint. Es un dato de la ficha y no un `if` con su hash escrito
+     en cuatro sitios — si mañana entra otra igual, es esta palabra. */
+  { hash: 'datos-territorios-lista', boton: 'dc-ficha-territorios-lista', panel: 'dc-panel-territorios-lista', suelta: true },
 ];
 const DC_HASHES = DC_FICHAS.map((f) => f.hash);
 
@@ -1207,6 +1245,44 @@ const DC_HASHES = DC_FICHAS.map((f) => f.hash);
 function dcHashFicha() {
   const f = DC_FICHAS.find((x) => document.getElementById(x.boton).getAttribute('aria-selected') === 'true');
   return f ? f.hash : DC_HASHES[0];
+}
+
+/**
+ * ESCONDE EL PIE EN LA FICHA QUE NO GUARDA CON ÉL (orden 147).
+ *
+ * «Barrios y veredas» guarda cada acción por su cuenta. Dejar a la vista
+ * «Guardar datos de la campaña» ahí tendría dos lecturas malas: que hay que
+ * pulsarlo para que lo importado quede (no hace falta) o que lo importado se
+ * pierde si no se pulsa (tampoco). Y la nota del pie —«Las seis fichas se
+ * guardan juntas»— sería falsa estando en la séptima.
+ */
+function dcAplicarPie(hash) {
+  const pie = document.getElementById('dc-pie');
+  if (!pie) return;
+  const ficha = DC_FICHAS.find((f) => f.hash === hash);
+  pie.style.display = ficha && ficha.suelta ? 'none' : '';
+}
+
+/* La ficha de Barrios y veredas: una sola instancia, creada la primera vez que
+   se abre. `alCambiar` no hace nada más que avisar — Configuración no muestra
+   territorios en ningún otro sitio, y la pantalla de Estructura los vuelve a
+   pedir cuando se carga. */
+let dcTerritorios = null;
+async function dcIniciarTerritorios() {
+  if (typeof crearGestionTerritorios !== 'function') return;   // el módulo no cargó
+  if (!dcTerritorios) {
+    dcTerritorios = crearGestionTerritorios({ raiz: 'tg-territorios', prefijo: 'tg' });
+    window.dcTerritorios = dcTerritorios;                      // para las pruebas
+  }
+  await dcTerritorios.iniciar();
+  /* LA NOTA DE «SE GUARDA AL MOMENTO» SOLO SI HAY ALGO QUE GUARDAR. En una campaña
+     conectada al catálogo, o para quien no puede escribir, la ficha es una tabla de
+     consulta: prometer que los cambios se guardan solos, sin que haya ningún cambio
+     posible, es decir algo que no se puede cumplir. */
+  const nota = document.getElementById('dc-aviso-territorios-al-momento');
+  if (!nota) return;
+  const e = dcTerritorios.estado();
+  nota.style.display = (e.editable && e.mando) ? '' : 'none';
 }
 
 /**
@@ -1224,6 +1300,21 @@ function dcAbrirFicha(hash, escribirHash = true) {
     b.setAttribute('aria-selected', esta ? 'true' : 'false');
     p.hidden = !esta;
   });
+  dcAplicarPie(hash);
+  /* LA PESTAÑA ABIERTA, A LA VISTA. Con la séptima (orden 147) la fila ya no cabe
+     entera a 1600 px: `.dc-fichas` tiene `overflow-x: auto` y la última queda
+     cortada contra el borde. Entrar por `#datos-territorios-lista` mostraba la
+     ficha abierta pero con su pestaña a medias, que se lee como un defecto.
+     Se desplaza la fila, no la página: `block: 'nearest'` evita el salto vertical. */
+  const activa = document.getElementById((DC_FICHAS.find((f) => f.hash === hash) || {}).boton);
+  if (activa && activa.scrollIntoView) {
+    try { activa.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (_) { /* navegador viejo */ }
+  }
+  /* La ficha de Barrios y veredas carga sus datos la PRIMERA vez que se abre,
+     no al arrancar la pantalla: son tres peticiones (territorios, modo y el
+     catálogo DANE) que la mayoría de las visitas a Configuración no necesita.
+     `iniciar()` es idempotente. */
+  if (hash === 'datos-territorios-lista') dcIniciarTerritorios();
   /* LA FICHA ABIERTA VA EN LA DIRECCIÓN, para que recargar vuelva a la misma
      y para poder mandarle a alguien el enlace de «Territorio» y no el de
      «Datos de la campaña, y baje hasta la mitad». */

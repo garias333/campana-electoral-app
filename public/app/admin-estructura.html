@@ -125,7 +125,11 @@
   <h2>Estructura territorial</h2>
   <button type="button" class="opcion-menu" id="m-exportar">⬇ Exportar a Excel</button>
   <a class="opcion-menu" id="m-importar" href="/territorial.html?app=1#importar" style="text-decoration:none;">⬆ Importar desde Excel<small>Se abre la pantalla de escritorio</small></a>
-  <a class="opcion-menu" href="/territorial.html?app=1#gestionar-territorios" style="text-decoration:none;">🏛 Gestionar territorios<small>Se abre la pantalla de escritorio</small></a>
+  <!-- ORDEN 147: antes abría el modal de territorial.html. Ahora apunta DIRECTO a la ficha
+       de Configuración, sin `?app=1`: esa pantalla está hecha para el escritorio (las reglas de
+       css/datos-campana.css están acotadas a `html:not(.modo-app)`) y pasar por territorial.html
+       solo para que redirija sería una carga de más. -->
+  <a class="opcion-menu" href="/configuracion.html#datos-territorios-lista" style="text-decoration:none;">🏛 Gestionar territorios<small>Barrios y veredas, en la pantalla de escritorio</small></a>
   <a class="opcion-menu peligro" href="/territorial.html?app=1#eliminar-registros" style="text-decoration:none;">🗑 Eliminar registros<small>Borrado masivo, pide tu contraseña</small></a>
   <button type="button" class="opcion-menu" id="m-cancelar">Cerrar</button>
 </div></div>

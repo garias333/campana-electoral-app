@@ -55,7 +55,7 @@ const { verificarPasswordAdmin, verificarPasswordPropia, validarTelefono10Digito
 // El superadministrador no está en la estructura (lo impide un disparador de la base), pero
 // estas rutas escriben en `usuarios` a partir de una fila de estructura: si algún día la
 // hubiera, que no sirvan para editarlo ni borrarlo. Ver config/superadmin.js.
-const { protegerObjetivo } = require('../config/superadmin');
+const { protegerObjetivo, esSuperadmin } = require('../config/superadmin');
 const { territoriosEsVista } = require('../config/territoriosModo');
 const {
   validarNombre, validarTipo, validarPadre, municipioDe, buscarDuplicado,
@@ -147,6 +147,62 @@ function catalogoSoloLectura(res) {
            'Si falta un territorio, o hay un nombre mal escrito, se corrige una vez en el catalogo ' +
            'y el cambio aparece solo en todas las campanas.'
   });
+}
+
+/**
+ * MANDO TOTAL SOBRE LOS TERRITORIOS: el administrador de la campaña y el
+ * superadministrador. UNA sola función para las seis rutas que escriben, para
+ * la de exportar y para lo que `GET /territorios/modo` le responde al
+ * navegador — así la pantalla no reconstruye la regla por su cuenta (orden
+ * 147).
+ *
+ * HOY NO CAMBIA A NADIE, Y SE ESCRIBE IGUAL. El superadministrador conserva
+ * `rol = 'admin'` —`config/superadmin.js` lo explica y
+ * `scripts/elevar-superadmin.js` lo fuerza en la misma operación—, así que ya
+ * pasaba por `requireRole('admin')`. Pero depender de esa herencia es frágil:
+ * el día que el modelo de roles cambie, el único usuario con control absoluto
+ * sería el primero en perderlo y nada lo avisaría. Preguntarlo explícitamente
+ * cuesta una línea.
+ *
+ * FALLA CERRADO: si no se puede comprobar, no es mando total.
+ */
+async function mandoTotalTerritorios(req) {
+  const u = req.session && req.session.usuario;
+  if (!u) return false;
+  if (u.rol === 'admin') return true;
+  try {
+    return await esSuperadmin(u);
+  } catch (err) {
+    console.error('[territorios] No se pudo comprobar el superadministrador:', err.code || err.message);
+    return false;
+  }
+}
+
+/**
+ * Guarda de las rutas de territorios que son solo del administrador y del
+ * superadministrador. Sustituye a `requireRole('admin')` y al par
+ * `noCoordinador + requireRole('admin','coordinador')`, que daba el MISMO
+ * conjunto por un camino torcido: `noCoordinador` rechaza a todo coordinador,
+ * así que el `'coordinador'` de esas tres listas nunca se alcanzaba.
+ */
+async function soloMandoTerritorios(req, res, next) {
+  if (await mandoTotalTerritorios(req)) return next();
+  return res.status(403).json({ error: 'No tienes permisos para realizar esta acción.' });
+}
+
+/**
+ * Aplica una guarda a todos MENOS al administrador y al superadministrador.
+ *
+ * Se usa con `requiereImportarExportar`, que ya los exceptúa por dentro: esto
+ * lo deja escrito en la propia ruta, que es donde se lee quién entra. Y cumple
+ * lo que pidió la orden 147 — que el superadministrador exporte e importe sin
+ * depender de una casilla de la matriz de permisos.
+ */
+function salvoMandoTotal(middleware) {
+  return async function omitirSiMandoTotal(req, res, next) {
+    if (await mandoTotalTerritorios(req)) return next();
+    return middleware(req, res, next);
+  };
 }
 
 /** Etiquetas legibles para el campo opcional "Tipo" de la Estructura (cargo político/comunitario). */
@@ -378,14 +434,22 @@ router.get('/territorios', async (req, res) => {
  * (config/territoriosModo.js: falla cerrado — ante la duda responde `false`.)
  */
 router.get('/territorios/modo', async (req, res) => {
-  res.json({ editable: !(await territoriosEsVista()) });
+  /* `mando` es lo que la ficha «Barrios y veredas» usa para decidir si pinta
+     agregar, importar, exportar y eliminar: la MISMA respuesta que dan las
+     rutas, en vez de que el navegador vuelva a deducirla de `rol` y
+     `es_aspirante` (orden 147). Así deja de haber dos reglas que pueden
+     separarse. */
+  res.json({
+    editable: !(await territoriosEsVista()),
+    mando: await mandoTotalTerritorios(req)
+  });
 });
 
 /**
  * Agrega un territorio a la tabla local. Solo corre si `territorios` es una tabla
  * (ver config/territoriosModo.js); en una campaña conectada al catálogo responde 409.
  */
-router.post('/territorios', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/territorios', soloMandoTerritorios, async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const tipo = validarTipo(req.body.tipo);
   if (tipo.error) return res.status(400).json({ error: tipo.error });
@@ -424,7 +488,7 @@ router.post('/territorios', noCoordinador, requireRole('admin', 'coordinador'), 
  * tipo y padre, sin distinguir mayúsculas ni tildes). Un nuevo padre debe existir,
  * ser de un tipo compatible, colgar del MISMO municipio y no crear un ciclo.
  */
-router.put('/territorios/:id', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
+router.put('/territorios/:id', soloMandoTerritorios, async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Identificador no válido.' });
@@ -508,7 +572,7 @@ router.put('/territorios/:id', noCoordinador, requireRole('admin', 'coordinador'
  * borrado dejaría personas apuntando a un id que no existe. El apunte de auditoría
  * va en la misma transacción: si no se puede dejar constancia, no se borra.
  */
-router.delete('/territorios/:id', requireRole('admin'), async (req, res) => {
+router.delete('/territorios/:id', soloMandoTerritorios, async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ error: 'Identificador no válido.' });
@@ -558,7 +622,7 @@ router.delete('/territorios/:id', requireRole('admin'), async (req, res) => {
  * existen. La comprobación y el borrado van en una transacción, con su apunte de
  * auditoría dentro: si no se puede dejar constancia, no se borra.
  */
-router.post('/territorios/eliminar-todo', requireRole('admin'), async (req, res) => {
+router.post('/territorios/eliminar-todo', soloMandoTerritorios, async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const { password } = req.body;
   const autorizado = await verificarPasswordAdmin(password);
@@ -607,7 +671,7 @@ router.post('/territorios/eliminar-todo', requireRole('admin'), async (req, res)
  * tildes). `padreZonaId`, si se indica, debe existir, ser una Comuna (para un Barrio)
  * o un Corregimiento (para una Vereda) y colgar de ese mismo municipio.
  */
-router.post('/territorios/crear-zona', noCoordinador, requireRole('admin', 'coordinador'), async (req, res) => {
+router.post('/territorios/crear-zona', soloMandoTerritorios, async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   const { tipoZona, padreZonaId } = req.body;
   const tiposValidos = ['comuna', 'barrio', 'corregimiento', 'vereda'];
@@ -650,11 +714,54 @@ router.post('/territorios/crear-zona', noCoordinador, requireRole('admin', 'coor
   }
 });
 
+/* LAS SEIS COLUMNAS, EN UN SOLO SITIO. Las usan la exportación, la plantilla
+   de ejemplo y —leyéndolas, no escribiéndolas— el importador. Tenerlas escritas
+   tres veces era la forma de que la plantilla dejara de encajar con lo que el
+   importador espera sin que nada fallara. */
+const COLUMNAS_TERRITORIOS = ['Departamento', 'Municipio', 'Área', 'Tipo', 'Nombre', 'Pertenece'];
+
+/* LA PLANTILLA DE EJEMPLO (orden 147): una fila de cada tipo, con la jerarquía
+   bien puesta — el barrio colgando de la comuna y la vereda del corregimiento.
+   Se baja de la misma ruta que exporta, con `?plantilla=1`, en vez de armarla
+   en el navegador: así la plantilla y el archivo que la aplicación produce
+   salen del MISMO código y no pueden separarse.
+
+   «Área» va en la plantilla aunque el importador NO la lea (solo mira `Tipo`):
+   quitarla dejaría la plantilla con cinco columnas y el archivo exportado con
+   seis, y quien exportara para corregir en Excel vería dos formatos distintos
+   del mismo archivo. La pantalla lo dice: es informativa. */
+const FILAS_PLANTILLA_TERRITORIOS = [
+  { Departamento: 'Caldas', Municipio: 'Manizales', 'Área': 'Urbano', Tipo: 'Comuna',         Nombre: 'Comuna 2 San José',  Pertenece: '' },
+  { Departamento: 'Caldas', Municipio: 'Manizales', 'Área': 'Urbano', Tipo: 'Barrio',         Nombre: 'Galán',              Pertenece: 'Comuna 2 San José' },
+  { Departamento: 'Caldas', Municipio: 'Manizales', 'Área': 'Rural',  Tipo: 'Corregimiento',  Nombre: 'La Cristalina',      Pertenece: '' },
+  { Departamento: 'Caldas', Municipio: 'Manizales', 'Área': 'Rural',  Tipo: 'Vereda',         Nombre: 'Alto Corinto',       Pertenece: 'La Cristalina' }
+];
+
+/** Arma el .xlsx de una hoja «Territorios» y lo manda como descarga. */
+function enviarExcelTerritorios(res, datos, nombreArchivo) {
+  const hoja = datos.length
+    ? XLSX.utils.json_to_sheet(datos, { header: COLUMNAS_TERRITORIOS })
+    : XLSX.utils.aoa_to_sheet([COLUMNAS_TERRITORIOS]);
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, 'Territorios');
+  const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+  res.send(buffer);
+}
+
 // Exporta comunas/barrios/corregimientos/veredas a Excel, con su departamento,
 // municipio y de qué comuna/corregimiento depende cada barrio/vereda
 // (columna "Pertenece", necesaria para que la importación reconstruya la
 // jerarquía correctamente).
-router.get('/territorios/exportar-excel', requiereImportarExportar('territorial'), async (req, res) => {
+//
+// Con `?plantilla=1` no consulta nada: devuelve la plantilla de ejemplo (ver
+// FILAS_PLANTILLA_TERRITORIOS). Va antes de la consulta a propósito — una
+// plantilla no debería depender de que la base responda.
+router.get('/territorios/exportar-excel', salvoMandoTotal(requiereImportarExportar('territorial')), async (req, res) => {
+  if (req.query.plantilla === '1') {
+    return enviarExcelTerritorios(res, FILAS_PLANTILLA_TERRITORIOS, 'plantilla-territorios.xlsx');
+  }
   try {
     const [filas] = await pool.query(`
       SELECT
@@ -677,7 +784,6 @@ router.get('/territorios/exportar-excel', requiereImportarExportar('territorial'
       WHERE z.tipo IN ('comuna','barrio','corregimiento','vereda')
       ORDER BY departamento, municipio, z.tipo, z.nombre
     `);
-    const columnas = ['Departamento', 'Municipio', 'Área', 'Tipo', 'Nombre', 'Pertenece'];
     const datos = filas.map(f => ({
       Departamento: f.departamento,
       Municipio: f.municipio,
@@ -687,16 +793,7 @@ router.get('/territorios/exportar-excel', requiereImportarExportar('territorial'
       Pertenece: f.pertenece || ''
     }));
     // Si no hay registros, igual se exporta la hoja con los encabezados.
-    const hoja = datos.length
-      ? XLSX.utils.json_to_sheet(datos, { header: columnas })
-      : XLSX.utils.aoa_to_sheet([columnas]);
-    const libro = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(libro, hoja, 'Territorios');
-    const buffer = XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="territorios.xlsx"');
-    res.send(buffer);
+    enviarExcelTerritorios(res, datos, 'territorios.xlsx');
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error exportando territorios.' });
@@ -714,14 +811,16 @@ router.get('/territorios/exportar-excel', requiereImportarExportar('territorial'
 // Si un Barrio/Vereda ya existía con el padre equivocado (ej. de una
 // importación anterior a este parche, que colgaba todo del municipio), se
 // corrige en el mismo registro en lugar de crear uno duplicado.
-router.post('/territorios/importar-excel', requireRole('admin'), requiereImportarExportar('territorial'), uploadExcel.single('archivo'), async (req, res) => {
+router.post('/territorios/importar-excel', soloMandoTerritorios, salvoMandoTotal(requiereImportarExportar('territorial')), uploadExcel.single('archivo'), async (req, res) => {
   if (await territoriosEsVista()) return catalogoSoloLectura(res);
   if (!req.file) return res.status(400).json({ error: 'Debe adjuntar un archivo Excel (.xlsx).' });
 
-  /* SOLO ADMINISTRADOR, Y ESTO ES DELIBERADO. `xlsx` tiene una vulnerabilidad alta
-     sin arreglo publicado y esta ruta le entrega un archivo subido por la web; se
-     reduce al mínimo quién puede hacerlo (igual que la importación de votantes). El
-     tope de 10 MB lo pone `uploadExcel` (middleware/upload.js). */
+  /* SOLO ADMINISTRADOR Y SUPERADMINISTRADOR, Y ESTO ES DELIBERADO. `xlsx` tiene una
+     vulnerabilidad alta sin arreglo publicado y esta ruta le entrega un archivo subido
+     por la web; se reduce al mínimo quién puede hacerlo (igual que la importación de
+     votantes). La orden 147 sumó al superadministrador y NO abrió a más roles: son dos
+     cuentas, no una categoría nueva. El tope de 10 MB lo pone `uploadExcel`
+     (middleware/upload.js). */
   try {
     const libro = XLSX.read(req.file.buffer, { type: 'buffer' });
     const hoja = libro.Sheets[libro.SheetNames[0]];
