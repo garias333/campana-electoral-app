@@ -103,6 +103,7 @@ function argumentos() {
     dane: valor('--dane'),
     vista: valor('--vista'),
     exportar: valor('--exportar-faltantes'),
+    informe: valor('--informe'),
     base: process.env.DB_NAME
   };
 }
@@ -200,26 +201,63 @@ async function cruzar(conexion, locales, municipio) {
       pares.set(t.id, municipio);
       continue;
     }
-    /* El padre en el catálogo: el par del padre local, o el municipio si el
-       padre local es el municipio (o no tiene). */
+    /* DÓNDE BUSCAR EL PADRE EN EL CATÁLOGO, Y POR QUÉ HAY MÁS DE UN SITIO.
+       Lo primero es el par del padre local. Pero el catálogo NO modela igual lo
+       rural: en Puerto Berrío sus 21 veredas cuelgan del MUNICIPIO, las 21, y
+       no hay un solo corregimiento. La campaña de Yimar, en cambio, agrupa sus
+       veredas bajo corregimientos propios («Rural 01»…). Exigir el mismo padre
+       dejaba las 18 veredas sin cruzar y las habría mandado a cargar de nuevo:
+       duplicados de veredas que YA están, que es el error más caro que ha
+       tenido este catálogo.
+       Así que para una vereda se prueba también el municipio, que es la
+       convención del catálogo. No es adivinar: mismo tipo, mismo nombre y
+       mismo municipio es el mismo sitio. Lo que cambia es la jerarquía, y eso
+       se reporta aparte en vez de pasarlo por alto. */
     const padreLocal = t.padre_id ? porId.get(t.padre_id) : null;
-    const padreCatalogo = padreLocal && pares.has(padreLocal.id) ? pares.get(padreLocal.id) : municipio;
-    if (padreLocal && !pares.has(padreLocal.id)) {
+    const candidatos = [];
+    if (padreLocal && pares.has(padreLocal.id)) candidatos.push(pares.get(padreLocal.id));
+    if (!padreLocal) candidatos.push(municipio);
+    if (t.tipo === 'vereda' && !candidatos.some((c) => Number(c.id) === Number(municipio.id))) {
+      candidatos.push(municipio);
+    }
+    if (!candidatos.length) {
       sinPar.push({ ...t, porque: `su padre local (${padreLocal.nombre}) todavía no tiene par` });
       continue;
     }
 
     const tipos = TIPOS[t.tipo] || [];
-    const [iguales] = await conexion.query(
-      `SELECT id, nombre, padre_id, tipo_id FROM ${CATALOGO}.ctc_territorios
-        WHERE estado = 'ACTIVO' AND tipo_id IN (?)
-          AND ${comparaNombre()}
-          AND padre_id = ?`,
-      [tipos, limpio(t.nombre), padreCatalogo.id]);
-
-    if (iguales.length === 1) { pares.set(t.id, iguales[0]); continue; }
-    if (iguales.length > 1) {
-      sinPar.push({ ...t, porque: `el catálogo tiene ${iguales.length} con ese nombre y ese padre` });
+    let hallado = null;
+    let varios = 0;
+    for (const padreCatalogo of candidatos) {
+      const [iguales] = await conexion.query(
+        `SELECT id, nombre, padre_id, tipo_id FROM ${CATALOGO}.ctc_territorios
+          WHERE estado = 'ACTIVO' AND tipo_id IN (?)
+            AND ${comparaNombre()}
+            AND padre_id = ?`,
+        [tipos, limpio(t.nombre), padreCatalogo.id]);
+      if (iguales.length > 1) { varios = iguales.length; break; }
+      if (iguales.length === 1) {
+        hallado = iguales[0];
+        /* Cruzó por el municipio aunque la campaña lo tenía bajo otro padre:
+           el territorio es el mismo, la jerarquía no. Que se sepa. */
+        if (padreLocal && Number(padreCatalogo.id) === Number(municipio.id)
+            && padreLocal.tipo !== 'municipio') {
+          avisos.push({
+            ...t,
+            porque: `en el catálogo cuelga del municipio, no de «${padreLocal.nombre}»`,
+            idCatalogo: hallado.id
+          });
+        }
+        break;
+      }
+    }
+    if (varios) {
+      sinPar.push({ ...t, porque: `el catálogo tiene ${varios} con ese nombre y ese padre` });
+      continue;
+    }
+    if (hallado) { pares.set(t.id, hallado); continue; }
+    if (padreLocal && !pares.has(padreLocal.id) && t.tipo !== 'vereda') {
+      sinPar.push({ ...t, porque: `su padre local (${padreLocal.nombre}) todavía no tiene par` });
       continue;
     }
 
@@ -351,6 +389,41 @@ function respaldar(base, carpeta) {
     console.log(`\nYa existen en el catálogo: ${pares.size} de ${locales.length}`);
     console.log(`Sin par:                   ${sinPar.length}`);
     if (avisos.length) console.log(`Con otro padre (avisos):   ${avisos.length}`);
+
+    /* EL INFORME COMPLETO, sin el recorte de la consola. Con 86 territorios la
+       lista de arriba se corta en 60 y justo lo que se queda fuera puede ser lo
+       que había que mirar — pasó con las 18 veredas de Yimar. */
+    if (opc.informe) {
+      const porIdInf = new Map(locales.map((t) => [t.id, t]));
+      const avisoDe = new Map(avisos.map((a) => [a.id, a]));
+      const sinParDe = new Map(sinPar.map((x) => [x.id, x]));
+      const esc = (v) => '"' + String(v === undefined || v === null ? '' : v).replace(/"/g, '""') + '"';
+      const lineas = [['id_local', 'tipo', 'nombre', 'padre_local', 'veredicto', 'id_catalogo', 'nombre_catalogo', 'nota']
+        .map(esc).join(',')];
+      for (const t of locales) {
+        const padre = t.padre_id && porIdInf.get(t.padre_id) ? porIdInf.get(t.padre_id).nombre : '';
+        const par = pares.get(t.id);
+        const aviso = avisoDe.get(t.id);
+        const falta = sinParDe.get(t.id);
+        lineas.push([
+          t.id, t.tipo, t.nombre, padre,
+          par ? (aviso ? 'ya existe (cambia la jerarquía)' : 'ya existe') : 'falta',
+          par ? par.id : '', par ? par.nombre : '',
+          (aviso && aviso.porque) || (falta && falta.porque) || ''
+        ].map(esc).join(','));
+      }
+      fs.mkdirSync(path.dirname(opc.informe), { recursive: true });
+      fs.writeFileSync(opc.informe, '\ufeff' + lineas.join('\n'), 'utf8');
+      console.log(`\nInforme completo de los ${locales.length}: ${opc.informe}`);
+    }
+
+    if (avisos.length) {
+      console.log('\nCruzan, pero el catálogo los tiene en otro sitio de la jerarquía:');
+      avisos.slice(0, 40).forEach((a) => {
+        console.log(`   [${String(a.id).padStart(4)}] ${a.tipo.padEnd(14)} ${a.nombre.padEnd(34)} ${a.porque}`);
+      });
+      if (avisos.length > 40) console.log(`   … y ${avisos.length - 40} más.`);
+    }
 
     if (sinPar.length) {
       console.log('\nLos que NO tienen par (hay que subirlos a Territorios antes):');
