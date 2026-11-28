@@ -1,0 +1,44 @@
+# Pares escritos a mano para pasar la campaña de Yimar (Puerto Berrío, DIVIPOLA
+# 05579) al Catálogo Territorial. Lo usa scripts/territorios-a-catalogo.js con
+# --pares. Decididos por Gildardo el 28 de noviembre de 2026.
+#
+# Las once filas son VEREDAS. Las seis primeras ya cruzaban solas por nombre;
+# van escritas igual para que el emparejamiento quede completo en un solo sitio
+# y no dependa de que una regla siga comportándose igual mañana.
+#
+# Las cinco últimas son el mismo sitio con otra escritura, y ninguna regla las
+# saca sin inventar: por eso las decide una persona. El id del catálogo se
+# comprueba al leer el archivo (que exista, esté ACTIVO, sea del tipo que toca
+# y cuelgue de Puerto Berrío); un par mal puesto manda registros a otro
+# municipio, que es como un votante de Manizales acabó en Arcabuco.
+#
+# NO entran aquí, a propósito:
+#   · Bodegas, Santa Martina, Cabañas, Palestina, El Brasil, La Carlota y
+#     La Cabaña — se cargan como VEREDAS NUEVAS colgando del municipio. Existen
+#     centros poblados con nombre parecido, pero la vista que ve Electoral deja
+#     fuera los centros poblados, así que apuntar ahí las escondería.
+#   · Rural 01/02/03 — agrupación propia de la campaña; el catálogo no tiene
+#     corregimientos en Puerto Berrío y sus veredas cuelgan del municipio.
+#
+id_local_o_nombre,id_catalogo
+# --- las seis que ya cruzaban por nombre ---
+San Juan de Bedout,7818
+Malena,7808
+Virginias,7805
+La Culebra,7820
+Las Flores,7815
+Alto de Buenos Aires,7817
+# --- los que NO van al catálogo, a propósito ---
+# Agrupación propia de la campaña. El catálogo no tiene corregimientos en
+# Puerto Berrío y sus 21 veredas cuelgan del municipio, así que subir estos
+# tres dejaría en el dato nacional tres corregimientos vacíos que verían todas
+# las campañas del municipio.
+Rural 01,FUERA
+Rural 02,FUERA
+Rural 03,FUERA
+# --- las cinco que solo cambian la escritura ---
+Calera,7810
+Cristalinas,7806
+Minas del Vapor,7812
+Dorado- Calamar,7807
+Guacimal Alicante,7819

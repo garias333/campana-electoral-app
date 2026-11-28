@@ -104,12 +104,18 @@ function argumentos() {
     vista: valor('--vista'),
     exportar: valor('--exportar-faltantes'),
     informe: valor('--informe'),
+    pares: valor('--pares'),
     base: process.env.DB_NAME
   };
 }
 
 /** Espacios colapsados: lo único que se normaliza de este lado. */
 const limpio = (t) => String(t === undefined || t === null ? '' : t).replace(/\s+/g, ' ').trim();
+
+/* Para buscar un territorio LOCAL por su nombre en el archivo de pares, sin que
+   una tilde o una mayúscula decidan. No se usa para cruzar contra el catálogo:
+   eso lo hace `ctc_normalizar()` (ver abajo). */
+const sinTildes = (t) => limpio(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
 /* CÓMO SE COMPARA UN NOMBRE CONTRA EL CATÁLOGO, Y POR QUÉ NO SE REESCRIBE AQUÍ.
    `nombre_normalizado` no es el nombre en mayúsculas: `ctc_normalizar()` también
@@ -175,10 +181,102 @@ async function municipioDelCatalogo(conexion, dane, nombreLocal) {
 }
 
 /**
+ * LOS PARES ESCRITOS A MANO (--pares).
+ *
+ * Hay cruces que ninguna regla saca sin inventar: «Calera» y «LA CALERA» son
+ * el mismo sitio, «Minas del Vapor» y «MINAS DE VAPOR» también, pero una
+ * comparación que los diera por iguales daría por iguales otras cosas que no
+ * lo son. Así que los decide una persona, UNA vez, y quedan escritos en un
+ * archivo que se puede leer, revisar y volver a correr igual.
+ *
+ * Formato (CSV, encabezado opcional): `id_local_o_nombre,id_catalogo`.
+ * Con el nombre se busca entre los territorios locales sin distinguir
+ * mayúsculas ni tildes; si hay dos que se llamen igual, es error — ahí hay que
+ * poner el id.
+ *
+ * CADA PAR SE VALIDA: el id del catálogo tiene que existir, estar ACTIVO, ser
+ * del tipo que le toca al local y colgar DENTRO del municipio de la campaña.
+ * Un par mal escrito manda a los votantes a otro municipio, que es exactamente
+ * lo que pasó con Arcabuco.
+ */
+async function leerPares(conexion, ruta, locales, municipio) {
+  const texto = fs.readFileSync(ruta, 'utf8').replace(/^\ufeff/, '');
+  const manuales = new Map();   // idLocal -> fila del catálogo
+  const fuera = new Set();      // idLocal que NO va al catálogo, a propósito
+  const errores = [];
+  const porNombre = new Map();
+  locales.forEach((t) => {
+    const k = sinTildes(t.nombre);
+    porNombre.set(k, porNombre.has(k) ? 'VARIOS' : t);
+  });
+
+  for (const [i, linea] of texto.split(/\r?\n/).entries()) {
+    const cruda = linea.trim();
+    if (!cruda || cruda.startsWith('#')) continue;
+    const campos = cruda.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+    if (/^id_local/i.test(campos[0])) continue;            // encabezado
+    const [clave, idCat] = campos;
+    const numeroDeLinea = i + 1;
+    if (!clave || !idCat) { errores.push(`línea ${numeroDeLinea}: faltan columnas`); continue; }
+
+    let local = null;
+    if (/^\d+$/.test(clave)) {
+      local = locales.find((t) => Number(t.id) === Number(clave)) || null;
+      if (!local) { errores.push(`línea ${numeroDeLinea}: no hay territorio local con id ${clave}`); continue; }
+    } else {
+      const hallado = porNombre.get(sinTildes(clave));
+      if (hallado === 'VARIOS') { errores.push(`línea ${numeroDeLinea}: hay varios territorios locales llamados «${clave}»; use el id`); continue; }
+      if (!hallado) { errores.push(`línea ${numeroDeLinea}: no hay territorio local llamado «${clave}»`); continue; }
+      local = hallado;
+    }
+    /* FUERA = este territorio NO va al catálogo y es una decisión, no un olvido.
+       Así el archivo dice las dos cosas que decidió una persona —con cuál se
+       empareja cada uno y cuáles se quedan fuera— en vez de repartirlas entre
+       un archivo y la memoria de quien corre el guion. */
+    if (/^(FUERA|-)$/i.test(idCat)) { fuera.add(local.id); continue; }
+    if (!/^\d+$/.test(idCat)) { errores.push(`línea ${numeroDeLinea}: «${idCat}» no es un id del catálogo ni FUERA`); continue; }
+
+    const [[destino]] = await conexion.query(
+      `SELECT id, nombre, padre_id, tipo_id, ruta, estado FROM ${CATALOGO}.ctc_territorios WHERE id = ?`, [idCat]);
+    if (!destino) { errores.push(`línea ${numeroDeLinea}: el catálogo no tiene el id ${idCat}`); continue; }
+    if (destino.estado !== 'ACTIVO') { errores.push(`línea ${numeroDeLinea}: ${destino.nombre} (${idCat}) está en estado ${destino.estado}`); continue; }
+    if (!String(destino.ruta).startsWith(municipio.ruta)) {
+      errores.push(`línea ${numeroDeLinea}: ${destino.nombre} (${idCat}) NO cuelga de ${municipio.nombre}`);
+      continue;
+    }
+    const tiposOk = TIPOS[local.tipo] || [];
+    if (!tiposOk.includes(Number(destino.tipo_id))) {
+      errores.push(`línea ${numeroDeLinea}: «${local.nombre}» es ${local.tipo} y ${destino.nombre} (${idCat}) es de tipo ${destino.tipo_id}`);
+      continue;
+    }
+    manuales.set(local.id, destino);
+  }
+  return { manuales, fuera, errores };
+}
+
+/** Cuántas filas de la campaña apuntan a CADA uno de estos territorios. */
+async function referenciasPorTerritorio(conexion, ids) {
+  if (!ids.length) return new Map();
+  const cuenta = new Map(ids.map((id) => [id, 0]));
+  const marcas = ids.map(() => '?').join(',');
+  for (const [tabla, columna] of COLUMNAS_CON_ID) {
+    try {
+      const [filas] = await conexion.query(
+        `SELECT \`${columna}\` AS id, COUNT(*) n FROM \`${tabla}\`
+          WHERE \`${columna}\` IN (${marcas}) GROUP BY \`${columna}\``, ids);
+      filas.forEach((f) => cuenta.set(Number(f.id), (cuenta.get(Number(f.id)) || 0) + Number(f.n)));
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== 'ER_BAD_FIELD_ERROR') throw err;
+    }
+  }
+  return cuenta;
+}
+
+/**
  * Empareja cada territorio local con uno del catálogo.
  * Devuelve { pares: Map(idLocal -> filaCatalogo), sinPar: [...], avisos: [...] }
  */
-async function cruzar(conexion, locales, municipio) {
+async function cruzar(conexion, locales, municipio, manuales = new Map()) {
   const porId = new Map(locales.map((t) => [t.id, t]));
   const pares = new Map();
   const sinPar = [];
@@ -191,6 +289,8 @@ async function cruzar(conexion, locales, municipio) {
   const enOrden = [...locales].sort((a, b) => porTipo(a) - porTipo(b));
 
   for (const t of enOrden) {
+    /* Un par escrito a mano manda sobre cualquier regla: ya lo validó leerPares. */
+    if (manuales.has(t.id)) { pares.set(t.id, manuales.get(t.id)); continue; }
     if (t.tipo === 'departamento') {
       const [[d]] = await conexion.query(
         `SELECT id, nombre FROM ${CATALOGO}.ctc_territorios WHERE id = ?`, [municipio.padre_id]);
@@ -385,7 +485,22 @@ function respaldar(base, carpeta) {
     }
     console.log(`\nMunicipio en el catálogo: ${municipio.nombre} (id ${municipio.id}, ruta ${municipio.ruta})`);
 
-    const { pares, sinPar, avisos } = await cruzar(conexion, locales, municipio);
+    let manuales = new Map();
+    let fuera = new Set();
+    if (opc.pares) {
+      const leidos = await leerPares(conexion, opc.pares, locales, municipio);
+      manuales = leidos.manuales;
+      fuera = leidos.fuera;
+      console.log(`\nPares escritos a mano: ${manuales.size} (${path.basename(opc.pares)})`);
+      if (fuera.size) console.log(`Marcados FUERA del catálogo: ${fuera.size}`);
+      if (leidos.errores.length) {
+        console.log('  Con problemas — NO se usa ninguno de estos:');
+        leidos.errores.forEach((e) => console.log('   ' + e));
+        salir = 1;
+      }
+    }
+
+    const { pares, sinPar, avisos } = await cruzar(conexion, locales, municipio, manuales);
     console.log(`\nYa existen en el catálogo: ${pares.size} de ${locales.length}`);
     console.log(`Sin par:                   ${sinPar.length}`);
     if (avisos.length) console.log(`Con otro padre (avisos):   ${avisos.length}`);
@@ -446,6 +561,23 @@ function respaldar(base, carpeta) {
       salir = 1;
     }
 
+    /* CUÁNTA GENTE DEPENDE DE LOS QUE NO TIENEN PAR. Sin esto, «84 sin par» no
+       dice si son fichas vacías o si hay votantes colgando de ellas. Y es lo
+       que decide qué hacer con los que se queden fuera del catálogo. */
+    if (sinPar.length) {
+      const usados = await referenciasPorTerritorio(conexion, sinPar.map((t) => t.id));
+      const conGente = sinPar.filter((t) => (usados.get(t.id) || 0) > 0);
+      if (conGente.length) {
+        console.log('\nDe los que NO tienen par, estos SÍ los usa alguien:');
+        conGente.sort((a, b) => (usados.get(b.id) || 0) - (usados.get(a.id) || 0))
+          .slice(0, 40)
+          .forEach((t) => console.log(`   ${t.tipo.padEnd(14)} ${t.nombre.padEnd(34)} ${usados.get(t.id)} fila(s)`));
+        if (conGente.length > 40) console.log(`   … y ${conGente.length - 40} más.`);
+      } else {
+        console.log('\nNinguno de los que falta tiene filas apuntándole.');
+      }
+    }
+
     const refs = await contarReferencias(conexion);
     console.log(`\nFilas que apuntan a un territorio: ${refs.total}`);
     Object.entries(refs.cuenta).forEach(([c, n]) => console.log(`   ${c.padEnd(42)} ${n}`));
@@ -479,12 +611,19 @@ function respaldar(base, carpeta) {
       const AREA = { comuna: 'Urbano', barrio: 'Urbano', corregimiento: 'Rural', vereda: 'Rural' };
       const filas = sinPar
         .filter((t) => ['comuna', 'barrio', 'corregimiento', 'vereda'].includes(t.tipo))
+        .filter((t) => !fuera.has(t.id))
         .map((t) => {
           const padreLocal = t.padre_id ? porId.get(t.padre_id) : null;
           /* Si el padre ya está en el catálogo se usa SU nombre; si no, el local
              (irá en el mismo archivo y el importador lo creará antes). */
+          /* SI EL PADRE SE QUEDA FUERA DEL CATÁLOGO, LA COLUMNA VA VACÍA Y EL
+             TERRITORIO CUELGA DEL MUNICIPIO. Las 7 veredas nuevas de Yimar
+             cuelgan de «Rural 01/02/03», que están marcados FUERA: escribir ese
+             nombre en «Pertenece» haría que el importador los creara igual —
+             deshaciendo la decisión— o rechazara las filas. Y colgar del
+             municipio es, además, lo que hace el catálogo con sus veredas. */
           let pertenece = '';
-          if (padreLocal && padreLocal.tipo !== 'municipio') {
+          if (padreLocal && padreLocal.tipo !== 'municipio' && !fuera.has(padreLocal.id)) {
             pertenece = pares.has(padreLocal.id) ? pares.get(padreLocal.id).nombre : padreLocal.nombre;
           }
           return {
