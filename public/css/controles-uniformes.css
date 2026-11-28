@@ -5,7 +5,7 @@
      3. Cobertura de testigos                       → configuracion.html    · #linea-cobertura
      4. Día D (pestañas, subpestañas y acciones)    → dia-d.html            · #pestanas-diad, #subpestanas-diad, #acciones-reportes-diad
    ORDEN 141 (ronda 2): el mismo acabado se extiende a Alertas de Día D (#chips-alertas, #barra-avisos), a «Elige el canal» (crm.html · #paso-canal) y a los
-   formularios de Enviar E-mail / SMS / Aviso en la app (#paso-destinatarios, #paso-mensaje) — ver secciones 5, 6 y 7 al final.
+   formularios de Enviar E-mail / SMS / Aviso en la app (#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) — ver secciones 5, 6 y 7 al final.
    Las MEDIDAS COMUNES viven en variables (:root de abajo) y se usan en las cuatro zonas. Todo va acotado a su zona y a
    `html:not(.modo-app)`: otras pantallas y la app del celular no cambian. Se carga DESPUÉS de style.css.
    ========================================================================== */
@@ -26,7 +26,7 @@
 }
 
 /* ---------- Piezas comunes: campo y botón de 38 px, mismo radio y misma letra ---------- */
-html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos, #paso-destinatarios, #paso-mensaje)
+html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana)
   :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select) {
   box-sizing: border-box; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 12px;
   border: var(--ctl-campo-borde); border-radius: var(--ctl-radio); background-color: #fff;
@@ -36,7 +36,7 @@ html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertur
 html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura) select:not([multiple]):not([size]) {
   padding: 0 34px 0 12px; background-position: right 12px center;
 }
-html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura, #paso-destinatarios, #paso-mensaje) :is(input, select, textarea):focus {
+html:not(.modo-app) :is(#bloque-estructura, #linea-cobertura, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) :is(input, select, textarea):focus {
   background-color: #fff; border-color: var(--ctl-azul-vivo); outline: none; box-shadow: 0 0 0 3px rgba(11, 94, 215, .15);
 }
 html:not(.modo-app) :is(#bloque-estructura, #org-barra-uniforme, #linea-cobertura, #barra-diad, #barra-avisos)
@@ -220,16 +220,16 @@ html:not(.modo-app) #chips-alertas .al-chip:focus-visible { outline: 3px solid v
 /* ==========================================================================
    6. MENSAJES · «Elige el canal» (crm.html · #paso-canal) — número, título, divisor, canales y nota en UNA línea (orden 141)
    ========================================================================== */
-html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) {
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) {
   border-radius: var(--ctl-panel-radio); box-shadow: var(--ctl-panel-sombra); margin-bottom: 16px; padding: 18px 24px;
 }
-html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-cabeza { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
-html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-num {
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .paso-cabeza { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; }
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .paso-num {
   flex: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   background: var(--ctl-azul); color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 0 0 4px rgba(8, 66, 152, .1);
 }
-html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje) .paso-cabeza h3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--ctl-azul); }
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .paso-cabeza .paso-sub { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: #6B7280; }
+html:not(.modo-app) :is(#paso-canal, #paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .paso-cabeza h3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2; color: var(--ctl-azul); }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .paso-cabeza .paso-sub { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: #6B7280; }
 
 html:not(.modo-app) #paso-canal { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 12px 18px; }
 html:not(.modo-app) #paso-canal .paso-cabeza { margin: 0; }
@@ -265,20 +265,20 @@ html:not(.modo-app) .paso-cabeza > .etq-verde { margin-left: auto; }
 /* ==========================================================================
    7. MENSAJES · formularios de Enviar E-mail / SMS / Aviso en la app en DOS columnas (orden 141)
    ========================================================================== */
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col > .campo { margin: 0; min-width: 0; }
-@media (max-width: 1100px) { html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .dos-col { grid-template-columns: 1fr; } }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .dos-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .dos-col > .campo { margin: 0; min-width: 0; }
+@media (max-width: 1100px) { html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .dos-col { grid-template-columns: 1fr; } }
 
 /* títulos de campo: 13 px, 700, azul oscuro, con barrita amarilla de 4×14 px */
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .campo > label {
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .campo > label {
   display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--ctl-azul);
 }
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .campo > label::before { content: ''; flex: none; width: 4px; height: 14px; border-radius: 2px; background: var(--ctl-amarillo); }
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .contador-campo { margin-left: auto; font-size: 12px; font-weight: 600; color: #6B7280; }
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) .ayuda-campo { display: block; margin: 6px 0 0; font-size: 12px; line-height: 1.4; color: #6B7280; }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .campo > label::before { content: ''; flex: none; width: 4px; height: 14px; border-radius: 2px; background: var(--ctl-amarillo); }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .contador-campo { margin-left: auto; font-size: 12px; font-weight: 600; color: #6B7280; }
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) .ayuda-campo { display: block; margin: 6px 0 0; font-size: 12px; line-height: 1.4; color: #6B7280; }
 
 /* textareas: mismo campo (blanco, 1,5 px, radio 8) */
-html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje) textarea {
+html:not(.modo-app) :is(#paso-destinatarios, #paso-mensaje, #paso-mensaje-campana) textarea {
   box-sizing: border-box; width: 100%; margin: 0; padding: 10px 12px; border: var(--ctl-campo-borde); border-radius: var(--ctl-radio); background: #fff;
   font-size: var(--ctl-letra); line-height: 1.5; color: #1B2333;
 }
@@ -290,16 +290,16 @@ html:not(.modo-app) #paso-destinatarios #input-manual {
 
 /* botones de los formularios: 38 px, radio 8, mismo hover que el resto */
 html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo, #btn-agregar-grupo-resolver),
-                         #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
+                         :is(#paso-mensaje, #paso-mensaje-campana) :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
   box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: var(--ctl-h); min-height: var(--ctl-h); margin: 0; padding: 0 14px;
   border-radius: var(--ctl-radio); font-family: inherit; font-size: var(--ctl-letra-boton); font-weight: 600; line-height: 1.2; white-space: nowrap; cursor: pointer;
   transition: background .15s, border-color .15s, transform .15s, box-shadow .15s;
 }
-html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo), #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
+html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo), :is(#paso-mensaje, #paso-mensaje-campana) :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])) {
   background: #fff; border: var(--ctl-borde); color: var(--ctl-azul);
 }
 html:not(.modo-app) :is(#paso-destinatarios :is(#btn-agregar-manual, #btn-mostrar-panel-grupo, #btn-agregar-grupo-resolver),
-                         #paso-mensaje :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])):hover {
+                         :is(#paso-mensaje, #paso-mensaje-campana) :is(#btn-guardar-plantilla, [id^="btn-plantilla-dia-d"])):hover {
   border-color: #9DB4D9; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(8, 66, 152, .12);
 }
 html:not(.modo-app) #paso-mensaje .campo > div[style*="display:flex"] { gap: 8px; margin-bottom: 8px; }
@@ -314,3 +314,215 @@ html:not(.modo-app) #paso-destinatarios #lista-seleccionados .chip-contacto butt
   background: transparent; color: var(--ctl-azul); font-size: 11px; line-height: 1; cursor: pointer; transition: background .15s;
 }
 html:not(.modo-app) #paso-destinatarios #lista-seleccionados .chip-contacto button:hover { background: #CFE0FF; }
+
+/* ==========================================================================
+   8. MENSAJES · «Escribe el mensaje» de crm.html en DOS FILAS × DOS COLUMNAS (orden 143)
+
+   Es el paso 3 de las campañas del CRM (#paso-mensaje-campana), que NO es la
+   misma pantalla que Enviar E-mail / SMS / Aviso (#paso-mensaje, sección 7):
+   allí se manda un mensaje suelto y aquí se arma una campaña con su nombre
+   interno y sus plantillas. El acabado sí es el mismo —por eso este id se
+   sumó a los `:is()` de las secciones de arriba en vez de copiarlas— y lo
+   único propio es esta rejilla.
+   ========================================================================== */
+html:not(.modo-app) #paso-mensaje-campana .dos-por-dos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  align-items: start;
+}
+html:not(.modo-app) #paso-mensaje-campana .dos-por-dos > .campo { margin: 0; min-width: 0; }
+
+/* CADA CELDA CON SU FILA Y SU COLUMNA ESCRITAS. El Asunto se esconde con
+   `display:none` cuando el canal es SMS; sin esto, las dos celdas de abajo
+   subirían a ocupar su hueco y la rejilla se volvería una escalera. Con las
+   posiciones fijas, el Nombre se queda en su columna y la derecha queda
+   vacía — que es justo lo que se pidió: no estirar el Nombre. */
+html:not(.modo-app) #paso-mensaje-campana .celda-nombre     { grid-column: 1; grid-row: 1; }
+html:not(.modo-app) #paso-mensaje-campana #campo-asunto     { grid-column: 2; grid-row: 1; }
+html:not(.modo-app) #paso-mensaje-campana .celda-plantillas { grid-column: 1; grid-row: 2; }
+html:not(.modo-app) #paso-mensaje-campana .celda-texto      { grid-column: 2; grid-row: 2; }
+
+html:not(.modo-app) #paso-mensaje-campana .fila-plantillas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+html:not(.modo-app) #paso-mensaje-campana .fila-plantillas #select-plantilla { flex: 1 1 200px; min-width: 0; max-width: 280px; }
+
+/* EL CUADRO DE TEXTO ARRANCA A LA ALTURA DEL SELECT, no del rótulo «Mensaje»
+   que tiene al lado: son la misma fila y leerlos desalineados cuesta. El
+   desplazamiento es exactamente lo que ocupa un rótulo de la sección 7
+   (13 px de letra × 1,3 de interlínea + sus 6 px de margen). */
+html:not(.modo-app) #paso-mensaje-campana .celda-texto { padding-top: calc(13px * 1.3 + 6px); }
+html:not(.modo-app) #paso-mensaje-campana #input-mensaje-campana { min-height: 120px; resize: vertical; }
+
+/* Por debajo de 1100 px, una columna: las posiciones fijas se sueltan y cada
+   celda cae en el orden en que está escrita. */
+@media (max-width: 1100px) {
+  html:not(.modo-app) #paso-mensaje-campana .dos-por-dos { grid-template-columns: 1fr; }
+  /* EL ASUNTO VA NOMBRADO POR SU ID, y no basta con `.dos-por-dos > .campo`:
+     arriba se le fija la columna con `#paso-mensaje-campana #campo-asunto`,
+     dos ids que le ganan a cualquier regla de clase por mucho que venga
+     después. Sin esta línea el Asunto se quedaba en la columna 2 —que a una
+     columna es una columna IMPLÍCITA, invisible en la medida del ancho— y la
+     pantalla estrecha no se apilaba del todo. */
+  html:not(.modo-app) #paso-mensaje-campana .dos-por-dos > .campo,
+  html:not(.modo-app) #paso-mensaje-campana #campo-asunto { grid-column: 1; grid-row: auto; }
+  html:not(.modo-app) #paso-mensaje-campana .celda-texto { padding-top: 0; }
+}
+
+/* ==========================================================================
+   9. CONTENIDO PARA COMPARTIR · barra de tipos y biografía en grande
+      (recursos.html · #filtros-chips, #btn-subir, #bio-grande) — orden 143
+   ========================================================================== */
+
+/* LA BARRA DE TIPOS, EN UNA SOLA LÍNEA. Eran diez botones azules pegados que
+   se partían en dos y tres filas según el ancho; ahora son pestañas del mismo
+   acabado que las de Día D (sección 4) y, cuando no caben, la barra se
+   desplaza de lado. La barra de desplazamiento se esconde a propósito: con
+   diez pestañas de alto fijo, una barra gris debajo parecía una raya rota. */
+html:not(.modo-app) #filtros-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--ctl-sep);
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 2px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html:not(.modo-app) #filtros-chips::-webkit-scrollbar { display: none; }
+html:not(.modo-app) #filtros-chips > .chip-filtro {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: var(--ctl-h);
+  min-height: var(--ctl-h);
+  margin: 0;
+  padding: 0 14px;
+  border: var(--ctl-borde);
+  border-radius: var(--ctl-radio);
+  background: #fff;
+  color: var(--ctl-azul);
+  font-family: inherit;
+  font-size: var(--ctl-letra-boton);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, transform .15s, box-shadow .15s;
+}
+html:not(.modo-app) #filtros-chips > .chip-filtro:hover {
+  background: #EEF3FC;
+  border-color: #9DB4D9;
+  color: var(--ctl-azul);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(8, 66, 152, .12);
+}
+html:not(.modo-app) #filtros-chips > .chip-filtro.activo,
+html:not(.modo-app) #filtros-chips > .chip-filtro.activo:hover {
+  background: var(--ctl-azul);
+  border-color: var(--ctl-azul);
+  color: #fff;
+  box-shadow: inset 0 -3px 0 var(--ctl-amarillo);
+}
+html:not(.modo-app) #filtros-chips > .chip-filtro:focus-visible { outline: 3px solid var(--ctl-amarillo); outline-offset: 1px; }
+
+/* «+ Subir recurso»: amarillo, 38 px, como la acción que crea algo. */
+html:not(.modo-app) #btn-subir {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--ctl-h);
+  min-height: var(--ctl-h);
+  margin: 0 0 18px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--ctl-radio);
+  background: var(--ctl-amarillo);
+  color: #1B2333;
+  font-family: inherit;
+  font-size: var(--ctl-letra-boton);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter .15s, transform .15s, box-shadow .15s;
+}
+html:not(.modo-app) #btn-subir:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(8, 66, 152, .12); }
+html:not(.modo-app) #btn-subir:focus-visible { outline: 3px solid var(--ctl-azul); outline-offset: 2px; }
+
+/* LA BIOGRAFÍA EN GRANDE, debajo de la barra, cuando el filtro es «Biografía».
+   Antes ese filtro escondía la lista de recursos y no ponía nada en su lugar:
+   la pantalla quedaba con la barra y debajo, el vacío. */
+html:not(.modo-app) #bio-grande {
+  display: none;
+  box-sizing: border-box;
+  margin-bottom: 18px;
+  padding: 24px 26px;
+  border: 1px solid #E3E8F0;
+  border-radius: var(--ctl-panel-radio);
+  background: #fff;
+  box-shadow: var(--ctl-panel-sombra);
+}
+html:not(.modo-app) #bio-grande.visible { display: block; }
+html:not(.modo-app) #bio-grande .bio-g-cabeza { display: flex; align-items: center; gap: 20px; margin-bottom: 18px; }
+html:not(.modo-app) #bio-grande .bio-g-foto {
+  flex: 0 0 120px;
+  width: 120px;
+  height: 120px;
+  box-sizing: border-box;
+  border: 4px solid var(--ctl-amarillo);
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(155deg, #0B4FB3 0%, var(--ctl-azul) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+  color: rgba(255, 255, 255, .9);
+}
+html:not(.modo-app) #bio-grande .bio-g-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html:not(.modo-app) #bio-grande .bio-g-eyebrow {
+  margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6B7280;
+}
+html:not(.modo-app) #bio-grande .bio-g-nombre { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.2; color: var(--ctl-azul); }
+/* El texto va ENTERO: no se recorta ni lleva «Ver completa». Para eso está
+   la tarjeta de arriba, que sí resume. */
+html:not(.modo-app) #bio-grande .bio-g-texto {
+  margin: 0 0 20px; white-space: pre-line; line-height: 1.65; font-size: 15px; color: #1F2933; overflow-wrap: anywhere; max-width: 78ch;
+}
+html:not(.modo-app) #bio-grande .bio-g-vacia { margin: 0 0 20px; font-size: 15px; color: #6B7280; }
+html:not(.modo-app) #bio-grande .bio-g-acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+html:not(.modo-app) #bio-grande .bio-g-acciones button {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--ctl-h); min-height: var(--ctl-h); padding: 0 16px; border-radius: var(--ctl-radio);
+  font-family: inherit; font-size: var(--ctl-letra-boton); font-weight: 600; line-height: 1.2; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s, box-shadow .15s, filter .15s;
+}
+html:not(.modo-app) #bio-grande .bio-g-azul { border: none; background: var(--ctl-azul-vivo); color: #fff; }
+html:not(.modo-app) #bio-grande .bio-g-azul:hover { background: var(--ctl-azul); transform: translateY(-1px); }
+html:not(.modo-app) #bio-grande .bio-g-blanco { border: var(--ctl-borde); background: #fff; color: var(--ctl-azul); }
+html:not(.modo-app) #bio-grande .bio-g-blanco:hover { border-color: #9DB4D9; background: #EEF3FC; transform: translateY(-1px); }
+html:not(.modo-app) #bio-grande .bio-g-amarillo { border: none; background: var(--ctl-amarillo); color: #1B2333; font-weight: 700; }
+html:not(.modo-app) #bio-grande .bio-g-amarillo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+html:not(.modo-app) #bio-grande .bio-g-acciones button:focus-visible { outline: 3px solid var(--ctl-amarillo); outline-offset: 2px; }
+/* El rótulo de los recursos que, si los hubiera, van debajo de la biografía. */
+html:not(.modo-app) #titulo-recursos-bio {
+  display: none; margin: 0 0 12px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ctl-azul);
+}
+html:not(.modo-app) #titulo-recursos-bio.visible { display: block; }
+
+@media (max-width: 700px) {
+  html:not(.modo-app) #bio-grande { padding: 18px 16px; }
+  html:not(.modo-app) #bio-grande .bio-g-cabeza { flex-direction: column; align-items: flex-start; gap: 14px; }
+}

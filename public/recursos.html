@@ -7,21 +7,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<!-- Orden 143: la barra de tipos, «+ Subir recurso» y la biografía en grande usan el acabado común (secciones 4 y 9). -->
+<link rel="stylesheet" href="/css/controles-uniformes.css">
 <style>
-  /* Los filtros son botones, no un <select>. Eran pastillas blancas de
-     borde redondo —el único sitio de la aplicación con esa forma— y ahora
-     son una barra unida como las demás de arriba: mismo alto, misma letra y
-     mismo azul. La forma, el tamaño y los separadores los pone .barra-unida
-     en la hoja compartida; aquí solo queda el color, y el oscuro que marca
-     cuál está elegido, igual que la pestaña activa del resto. */
-  .filtros-chips { margin-bottom: 4px; }
-  .chip-filtro {
-    background: #0B5ED7; color: #fff; cursor: pointer; font-family: inherit;
-    transition: background 0.12s;
-  }
-  .chip-filtro:hover { background: #084298; }
-  .chip-filtro.activo { background: #084298; }
-  .chip-filtro.activo:hover { background: #063172; }
+  /* Los filtros son botones, no un <select>. Fueron pastillas blancas de
+     borde redondo, después una barra azul unida, y desde la ORDEN 143 son
+     PESTAÑAS con el acabado de las de Día D: blancas de 38 px con borde, la
+     elegida en azul oscuro con raya amarilla, todas en una línea que se
+     desplaza de lado si no caben. Eso vive en css/controles-uniformes.css
+     (sección 9) junto al resto del acabado común; aquí ya no queda color
+     propio, que era lo que las hacía distintas de todas las demás barras. */
 
   /* --- Vista de diseño: tarjetas tipo galería, con la pieza visual primero --- */
   .grid-recursos-diseno { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
@@ -102,7 +97,9 @@
     <section class="card-bio" id="card-bio" style="display:none;" aria-label="Biografía del candidato"></section>
 
     <div class="toolbar">
-      <div class="filtros-chips barra-unida" id="filtros-chips">
+      <!-- Orden 143: sin `barra-unida`. Esa clase pegaba los diez botones en un
+           bloque azul; ahora cada tipo es una pestaña suelta (controles-uniformes.css, sección 9). -->
+      <div class="filtros-chips" id="filtros-chips" role="tablist" aria-label="Tipo de contenido">
         <button type="button" class="chip-filtro activo" data-tipo="">Todos los tipos</button>
         <button type="button" class="chip-filtro" data-tipo="biografia">Biografía</button>
         <button type="button" class="chip-filtro" data-tipo="noticia">Noticias</button>
@@ -115,6 +112,14 @@
         <button type="button" class="chip-filtro" data-tipo="foto_campana">Fotos de la campaña</button>
       </div>
     </div>
+
+    <!-- ORDEN 143: con el filtro «Biografía», la biografía COMPLETA aquí.
+         «Biografía» nunca fue un tipo de recurso —no está en el ENUM de la
+         tabla ni en el desplegable al subir—, así que ese filtro escondía la
+         lista y no pedía nada al servidor: la pantalla quedaba con la barra y
+         debajo, nada. Ahora ese botón lleva a lo que su nombre promete. -->
+    <section id="bio-grande" aria-label="Biografía del candidato"></section>
+    <p id="titulo-recursos-bio">Archivos de biografía subidos</p>
 
     <div class="grid-recursos-diseno" id="grid-recursos"></div>
     <div id="vacio-recursos" class="vacio" style="display:none;"><div class="icono-vacio">▣</div>No hay recursos disponibles en esta categoría.</div>
@@ -243,13 +248,32 @@ function visualRecurso(r) {
 }
 
 async function cargarRecursos() {
-  /* «Biografía» no es un tipo de recurso: es la tarjeta de arriba. Con ese filtro la lista de recursos se esconde y no se le pide nada al servidor. */
+  /* «Biografía» NO es un tipo de recurso: no está en el ENUM de `recursos.tipo`
+     ni en el desplegable al subir. Antes, con ese filtro se escondía la lista y
+     ahí terminaba todo: la pantalla quedaba vacía debajo de la barra. Ahora ese
+     filtro muestra la biografía entera (orden 143), y la lista se pide igual,
+     por si algún día ese tipo existe y alguien sube archivos de biografía: si
+     el servidor devuelve alguno, se listan debajo. */
   const soloBio = filtroTipoActual === 'biografia';
   pintarBiografia();
-  document.getElementById('grid-recursos').style.display = soloBio ? 'none' : '';
-  if (soloBio) { document.getElementById('vacio-recursos').style.display = 'none'; return; }
+  pintarBiografiaGrande();
   const params = filtroTipoActual ? `?tipo=${filtroTipoActual}` : '';
-  const recursos = await api(`/recursos${params}`);
+  const recursos = await api(`/recursos${params}`).catch(() => []);
+  if (soloBio) {
+    // Con la biografía a la vista, «no hay recursos de esta categoría» sobra:
+    // sí hay algo que mirar, y decir lo contrario confunde.
+    document.getElementById('vacio-recursos').style.display = 'none';
+    document.getElementById('titulo-recursos-bio').classList.toggle('visible', recursos.length > 0);
+    document.getElementById('grid-recursos').style.display = recursos.length ? '' : 'none';
+    if (!recursos.length) { document.getElementById('grid-recursos').innerHTML = ''; return; }
+  } else {
+    document.getElementById('titulo-recursos-bio').classList.remove('visible');
+    document.getElementById('grid-recursos').style.display = '';
+  }
+  return pintarRejillaRecursos(recursos);
+}
+
+function pintarRejillaRecursos(recursos) {
   recursosCache = recursos;
   const grid = document.getElementById('grid-recursos');
   document.getElementById('vacio-recursos').style.display = recursos.length ? 'none' : 'block';
@@ -344,7 +368,11 @@ async function cargarBiografia() {
 
 function pintarBiografia() {
   const caja = document.getElementById('card-bio');
-  const visible = bio && (filtroTipoActual === '' || filtroTipoActual === 'biografia');
+  /* ORDEN 143: con el filtro «Biografía» esta tarjeta resumida se esconde y en
+     su lugar va la grande, debajo de la barra (`pintarBiografiaGrande`). Tener
+     las dos a la vez sería la misma biografía dos veces en una pantalla, una
+     recortada y otra entera. Con «Todos los tipos» se queda igual que siempre. */
+  const visible = bio && filtroTipoActual === '';
   caja.style.display = visible ? 'flex' : 'none';
   if (!visible) return;
   const editor = puedeEditarBio();
@@ -375,14 +403,62 @@ function pintarBiografia() {
       b.textContent = bioExpandida ? 'Ver menos' : 'Ver completa';
     }
     b.addEventListener('click', () => { bioExpandida = !bioExpandida; pintarBiografia(); });
-    document.getElementById('bio-copiar').addEventListener('click', copiarBiografia);
+    document.getElementById('bio-copiar').addEventListener('click', () => copiarBiografia('bio-copiar'));
   }
   const bEd = document.getElementById('bio-editar');
   if (bEd) bEd.addEventListener('click', abrirModalBio);
 }
 
-async function copiarBiografia() {
-  const boton = document.getElementById('bio-copiar');
+/**
+ * ORDEN 143 — La biografía en grande, con el filtro «Biografía» puesto.
+ *
+ * Es el MISMO dato y el MISMO editor que la tarjeta de arriba: no hay una
+ * segunda copia de la biografía ni una segunda forma de guardarla. Cambia lo
+ * que se ve: aquí el texto va entero (sin «Ver completa», que es lo propio de
+ * un resumen) y la foto es de 120 px con el aro amarillo.
+ */
+function pintarBiografiaGrande() {
+  const caja = document.getElementById('bio-grande');
+  if (!caja) return;
+  const visible = filtroTipoActual === 'biografia';
+  caja.classList.toggle('visible', visible);
+  if (!visible) { caja.innerHTML = ''; return; }
+
+  /* Si la biografía no se pudo leer (`bio` en null), se trata como vacía: el
+     botón de agregar lleva al mismo sitio y es mejor que una pantalla muda. */
+  const editor = puedeEditarBio();
+  const hay = !!(bio && bio.texto);
+  const nombre = (bio && bio.nombre) || 'Biografía del candidato';
+  const fotoHtml = bio && bio.foto ? `<img src="${escaparRecursoHtml(bio.foto)}" alt="${escaparRecursoHtml(nombre)}">` : '👤';
+  caja.innerHTML = `
+    <div class="bio-g-cabeza">
+      <div class="bio-g-foto">${fotoHtml}</div>
+      <div>
+        <p class="bio-g-eyebrow">Biografía del candidato</p>
+        <h2 class="bio-g-nombre">${escaparRecursoHtml(nombre)}</h2>
+      </div>
+    </div>
+    ${hay
+      ? `<p class="bio-g-texto" id="bio-g-texto">${escaparRecursoHtml(bio.texto)}</p>`
+      : '<p class="bio-g-vacia" id="bio-g-vacia">Aún no hay biografía.</p>'}
+    <div class="bio-g-acciones">
+      ${hay ? '<button type="button" class="bio-g-azul" id="bio-g-copiar">Copiar texto</button>' : ''}
+      ${editor ? (hay
+        ? '<button type="button" class="bio-g-blanco" id="bio-g-editar">Editar biografía</button>'
+        : '<button type="button" class="bio-g-amarillo" id="bio-g-editar">Agregar biografía</button>') : ''}
+    </div>`;
+
+  const bCopiar = document.getElementById('bio-g-copiar');
+  if (bCopiar) bCopiar.addEventListener('click', () => copiarBiografia('bio-g-copiar'));
+  const bEditar = document.getElementById('bio-g-editar');
+  if (bEditar) bEditar.addEventListener('click', abrirModalBio);
+}
+
+/* `boton`: cuál de los dos «Copiar texto» se pulsó — el de la tarjeta de
+   arriba o el de la biografía en grande. Antes había uno solo y el id estaba
+   escrito dentro; con dos, el acuse de «¡Copiado!» aparecía en el otro. */
+async function copiarBiografia(idBoton = 'bio-copiar') {
+  const boton = document.getElementById(idBoton);
   const texto = `${bio.nombre}\n\n${bio.texto}`;   // igual que «Compartir» en el celular: nombre y texto
   try {
     if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(texto);
@@ -393,7 +469,7 @@ async function copiarBiografia() {
     }
     boton.textContent = '¡Copiado!';
   } catch (e) { boton.textContent = 'No se pudo copiar'; }
-  setTimeout(() => { if (document.getElementById('bio-copiar')) document.getElementById('bio-copiar').textContent = 'Copiar texto'; }, 1800);
+  setTimeout(() => { const b = document.getElementById(idBoton); if (b) b.textContent = 'Copiar texto'; }, 1800);
 }
 
 function actualizarContadorBio() {

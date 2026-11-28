@@ -93,7 +93,19 @@
       </div>
     </div>
 
-    <div class="card paso">
+    <!-- ORDEN 143: los cuatro bloques de este paso en DOS FILAS × DOS COLUMNAS.
+         Iban uno debajo de otro y a todo lo ancho: el Nombre interno, el
+         Asunto y el Mensaje ocupaban tres pantallazos para tres datos, y el
+         cuadro de texto —lo único que de verdad se escribe aquí— quedaba
+         abajo del todo. Ahora: arriba Nombre | Asunto, abajo los controles de
+         plantilla | el cuadro de texto.
+         Las cuatro celdas llevan FIJADA su fila y su columna en la hoja
+         (sección 8). Hace falta: el Asunto se esconde con `display:none`
+         cuando el canal es SMS, y sin posiciones fijas las dos celdas de abajo
+         subirían a taparle el hueco. Así el Nombre se queda en su columna y
+         la derecha queda vacía, que es lo pedido.
+         Nombres de campo, validaciones y envío: sin tocar. -->
+    <div class="card paso" id="paso-mensaje-campana">
       <div class="paso-cabeza">
         <div class="paso-num">3</div>
         <div>
@@ -101,18 +113,29 @@
           <p class="paso-sub">Escribe <code>{nombre}</code> y se reemplaza por el primer nombre de cada persona. Puede guardarlo como plantilla para reusarlo.</p>
         </div>
       </div>
-      <div class="campo"><label for="input-nombre-campana">Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
-      <div class="campo" id="campo-asunto"><label for="input-asunto-campana">Asunto (solo Email)</label><input id="input-asunto-campana"></div>
-      <div class="campo">
-        <label>Mensaje</label>
-                <!-- Plantillas: cargar una ya escrita o guardar la de ahora. -->
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-          <select id="select-plantilla" style="max-width:280px;"><option value="">Plantillas guardadas…</option></select>
-          <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
-          <button type="button" class="btn-peligro btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
+      <div class="dos-por-dos">
+        <div class="campo celda-nombre"><label for="input-nombre-campana">Nombre de la campaña (interno, no lo ve el destinatario)</label><input id="input-nombre-campana" placeholder="Ej. Invitación cierre de campaña — Comuna 3"></div>
+        <div class="campo" id="campo-asunto"><label for="input-asunto-campana">Asunto (solo Email)</label><input id="input-asunto-campana"></div>
+        <div class="campo celda-plantillas">
+          <label>Mensaje</label>
+                  <!-- Plantillas: cargar una ya escrita o guardar la de ahora. -->
+          <div class="fila-plantillas">
+            <select id="select-plantilla"><option value="">Plantillas guardadas…</option></select>
+            <button type="button" class="btn-secundario btn-sm" id="btn-guardar-plantilla">Guardar como plantilla</button>
+            <button type="button" class="btn-peligro btn-sm" id="btn-borrar-plantilla" style="display:none;">Eliminar</button>
+          </div>
+          <!-- ORDEN 143: esta explicación estaba SOLO dentro del `placeholder`, o
+               sea que desaparecía al escribir la primera letra — justo cuando
+               hace falta saber cómo se escribe {nombre}. Aquí se queda a la
+               vista. El `aria-label` del cuadro de texto sigue entero. -->
+          <small class="ayuda-campo">Usa <code>{nombre}</code> para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa <code>{baja}</code> si quieres ponerlo en otro sitio.</small>
         </div>
-<textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio" id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio."></textarea>
-        <div id="contador-sms-campana" style="font-size:0.88rem; margin-top:6px;"></div>
+        <div class="campo celda-texto">
+<textarea aria-label="Escribe el mensaje aquí. Usa {nombre} para el primer nombre de cada quien. El enlace de baja se agrega solo (al final en SMS, como pie en correo); usa {baja} si quieres ponerlo en otro sitio" id="input-mensaje-campana" rows="6" placeholder="Escribe el mensaje aquí."></textarea>
+          <div id="contador-sms-campana" style="font-size:0.88rem; margin-top:6px;"></div>
+        </div>
+      </div>
+      <div class="campo">
         <div class="caja-diad">
           <div class="titulo">Día D — decirle a cada quien dónde vota</div>
           <div class="detalle">
