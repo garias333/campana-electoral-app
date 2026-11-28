@@ -388,6 +388,20 @@ function respaldar(base, carpeta) {
        el importador no lo cruzaría y crearía un padre duplicado. */
     if (opc.exportar) {
       const XLSX = require('xlsx');
+      /* EL DEPARTAMENTO SALE DEL CATÁLOGO, NO DE LA TABLA LOCAL. La campaña de
+         Yimar tiene `territorio_departamento` y `territorio_ciudad` en NULL, y
+         nada obliga a que su tabla propia traiga una fila de tipo
+         `departamento`: si no la trae, esta columna saldría vacía y el
+         importador de Territorios rechazaría las 67 filas. Se pide al catálogo,
+         que siempre lo tiene — es el padre del municipio. */
+      const [[padreMuni]] = await conexion.query(
+        `SELECT nombre FROM ${CATALOGO}.ctc_territorios WHERE id = ?`, [municipio.padre_id]);
+      const departamentoCatalogo = (padreMuni && padreMuni.nombre) || '';
+      if (!departamentoCatalogo) {
+        console.log('\nNo se pudo leer el departamento del municipio en el catálogo: no se exporta.');
+        salir = 1;
+        return;
+      }
       const porId = new Map(locales.map((t) => [t.id, t]));
       const AREA = { comuna: 'Urbano', barrio: 'Urbano', corregimiento: 'Rural', vereda: 'Rural' };
       const filas = sinPar
@@ -401,7 +415,7 @@ function respaldar(base, carpeta) {
             pertenece = pares.has(padreLocal.id) ? pares.get(padreLocal.id).nombre : padreLocal.nombre;
           }
           return {
-            Departamento: (pares.get((locales.find((x) => x.tipo === 'departamento') || {}).id) || {}).nombre || '',
+            Departamento: departamentoCatalogo,
             Municipio: municipio.nombre,
             'Área': AREA[t.tipo] || '',
             Tipo: t.tipo.charAt(0).toUpperCase() + t.tipo.slice(1),
